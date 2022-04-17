@@ -9,5 +9,4 @@ pluginManagement {
   }
 }
 
-rootProject.name = "pokémon-root"
-
+rootProject.name = "pokemon-root"

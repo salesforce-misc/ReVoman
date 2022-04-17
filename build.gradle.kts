@@ -1,7 +1,7 @@
 import com.adarshr.gradle.testlogger.theme.ThemeType.MOCHA_PARALLEL
+import com.diffplug.spotless.extra.wtp.EclipseWtpFormatterStep.XML
 import io.gitlab.arturbosch.detekt.Detekt
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
-import com.diffplug.spotless.extra.wtp.EclipseWtpFormatterStep.XML
 
 plugins {
   kotlin("jvm")
@@ -14,7 +14,7 @@ plugins {
 }
 
 group = "com.salesforce.ccspayments"
-version = "1.0-SNAPSHOT"
+version = "0.1"
 
 repositories {
   mavenCentral()
@@ -31,15 +31,16 @@ dependencies {
   implementation("org.graalvm.sdk:graal-sdk:$graalVersion")
   implementation("org.graalvm.js:js:$graalVersion")
 
-  runtimeOnly("org.apache.logging.log4j:log4j-slf4j18-impl:2.17.1")
+  runtimeOnly("org.apache.logging.log4j:log4j-slf4j18-impl:2.17.2")
 
-  testImplementation("org.mockito:mockito-inline:4.3.1")
+  testImplementation("org.mockito:mockito-inline:4.4.0")
   testImplementation(platform("org.junit:junit-bom:5.8.2"))
   testImplementation("org.junit.jupiter:junit-jupiter-api")
   testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine")
+  testImplementation("org.assertj:assertj-core:3.22.0")
 }
 
-java.sourceCompatibility = JavaVersion.VERSION_17
+java.sourceCompatibility = JavaVersion.VERSION_11
 
 moshi {
   enableSealed.set(true)
@@ -80,15 +81,16 @@ spotless {
 }
 
 tasks {
-  test {
-    useJUnitPlatform()
-    ignoreFailures = true
-  }
+  test.get().useJUnitPlatform()
   withType<KotlinCompile> {
     kotlinOptions {
-      jvmTarget = JavaVersion.VERSION_17.toString()
+      jvmTarget = JavaVersion.VERSION_11.toString()
       freeCompilerArgs = listOf("-opt-in=kotlin.RequiresOptIn")
     }
+  }
+  compileTestJava {
+    sourceCompatibility = JavaVersion.VERSION_17.toString()
+    targetCompatibility = JavaVersion.VERSION_17.toString()
   }
   testlogger {
     theme = MOCHA_PARALLEL
@@ -126,7 +128,7 @@ tasks {
 publishing {
   publications.create<MavenPublication>("mavenJava") {
     val subprojectJarName = tasks.jar.get().archiveBaseName.get()
-    artifactId = if (subprojectJarName == "pokemon") "pokemon" else "pokemon-$subprojectJarName"
+    artifactId = if (subprojectJarName == "pokemon-root") "pokemon" else "pokemon-$subprojectJarName"
     from(components["java"])
     pom {
       name.set(artifactId)

@@ -23,7 +23,7 @@
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": "{{baseUrl}}/pokemon?offset=10&limit=10",
+					"raw": "{{baseUrl}}/pokemon?limit={{limit}}",
 					"host": [
 						"{{baseUrl}}"
 					],

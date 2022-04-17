@@ -1,3 +1,5 @@
+@file:JvmName("ReVoman")
+
 package org.revcloud
 
 import com.squareup.moshi.JsonAdapter
@@ -26,20 +28,28 @@ import java.lang.reflect.Type
 private val postManVariableRegex = "\\{\\{([^}]+)}}".toRegex()
 
 @OptIn(ExperimentalStdlibApi::class)
-fun main() {
-  val postManCollection = readFileFromResource("Pokemon.postman_collection.json")
-  val envJsonAdapter = Moshi.Builder().build().adapter<Environment>()
-  val pm = PostmanAPI()
+@JvmOverloads
+fun lasso(
+  pmCollectionPath: String,
+  pmEnvironmentPath: String,
+  itemNameToOutputType: Map<String, Class<out Any>>,
+  dynamicEnvironment: Map<String, String> = emptyMap()): org.revcloud.output.Pokemon {
+  
   // Load environment
-  val environment: Environment? = envJsonAdapter.fromJson(readFileFromResource("Pokemon.postman_environment.json"))
-  environment?.values?.filter { it.enabled }?.forEach { pm.environment[it.key] = it.value }
+  val envJsonAdapter = Moshi.Builder().build().adapter<Environment>()
+  val environment: Environment? = envJsonAdapter.fromJson(readTextFromFile(pmEnvironmentPath))
+  val pm = PostmanAPI()
+  pm.environment.putAll(environment?.values?.filter { it.enabled }?.associate { it.key to it.value } ?: emptyMap())
+  pm.environment.putAll(dynamicEnvironment)
 
+  // Load collection
   val collectionJsonAdapter = Moshi.Builder()
     .add(AdaptedBy.Factory()).build()
     .adapter<Collection>()
-  val postmanCollection: Collection? = collectionJsonAdapter.fromJson(postManCollection)
+  val pmCollection: Collection? = collectionJsonAdapter.fromJson(readTextFromFile(pmCollectionPath))
+
   val itemJsonAdapter = Moshi.Builder().add(RegexAdapterFactory(pm.environment)).build().adapter<Item>()
-  postmanCollection?.item?.asSequence()?.map { itemData ->
+  val itemNameToResponseWithType = pmCollection?.item?.asSequence()?.map { itemData ->
     val item = itemJsonAdapter.fromJson(itemData.data)
     val request: org.revcloud.state.collection.Request = item?.request ?: org.revcloud.state.collection.Request()
     val uri = request.url.raw
@@ -53,6 +63,8 @@ fun main() {
     )
     pm.request = request
     pm.response = pmResponse
+    
+    // Test script
     val testScript = item?.event?.find { it.listen == "test" }?.script?.exec?.joinToString("\n") ?: ""
     val testSource = Source.newBuilder("js", testScript, "myScript.js").build()
     val context = buildJsContext()
@@ -60,12 +72,11 @@ fun main() {
     context.getBindings("js").putMember("responseBody", response.bodyString())
     context.eval(testSource)
 
-    val name = item?.name
-    val clazz = input[name]?.kotlin ?: Any::class
-    name to (clazz to asA(response.bodyString(), clazz))
-  }?.toMap()
-  println("Environment:: -> ")
-  pm.environment.entries.forEach(::println)
+    val name = item?.name ?: ""
+    val clazz = itemNameToOutputType[name]?.kotlin ?: Any::class
+    name to (asA(response.bodyString(), clazz) to clazz.java)
+  }?.toMap() ?: emptyMap()
+  return org.revcloud.output.Pokemon(itemNameToResponseWithType, pm.environment)
 }
 
 private fun buildJsContext(): Context {
@@ -83,10 +94,9 @@ private fun buildJsContext(): Context {
     .build()
 }
 
-private fun readFileFromResource(fileRelativePath: String): String =
-  File("src/main/resources/$fileRelativePath").readText()
+private fun readTextFromFile(filePath: String): String = File(filePath).readText()
 
-internal class RegexAdapterFactory(val envMap: Map<String, String>) : JsonAdapter.Factory {
+private class RegexAdapterFactory(val envMap: Map<String, String>) : JsonAdapter.Factory {
   override fun create(type: Type, annotations: Set<Annotation?>, moshi: Moshi): JsonAdapter<*>? {
     if (type != String::class.java) {
       return null
@@ -106,16 +116,3 @@ internal class RegexAdapterFactory(val envMap: Map<String, String>) : JsonAdapte
     }
   }
 }
-
-private val input = mapOf(
-  "All Pokemon" to Results::class.java,
-  "Pokemon" to Abilities::class.java,
-)
-
-data class Pokemon(val name: String)
-data class Results(val results: List<Pokemon>)
-
-private data class Ability(val name: String)
-
-private data class AbilityWrapper(val ability: Ability)
-private data class Abilities(val abilities: List<AbilityWrapper>)

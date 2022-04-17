@@ -199,3 +199,4 @@ Temporary Items
 .apdisk
 
 /.idea/sonarlint/
+**/bin/
