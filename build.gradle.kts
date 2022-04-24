@@ -14,7 +14,7 @@ plugins {
 }
 
 group = "com.salesforce.ccspayments"
-version = "0.1"
+version = "0.1.1"
 
 repositories {
   mavenCentral()
@@ -22,10 +22,9 @@ repositories {
 
 dependencies {
   val http4kVersion: String by project
-  implementation("org.http4k:http4k-core:$http4kVersion")
-  implementation("org.http4k:http4k-serverless-lambda:$http4kVersion")
-  implementation("org.http4k:http4k-format-moshi:$http4kVersion")
-  implementation("dev.zacsweers.moshix:moshi-adapters:0.17.1")
+  api("org.http4k:http4k-core:$http4kVersion")
+  api("org.http4k:http4k-format-moshi:$http4kVersion")
+  api("dev.zacsweers.moshix:moshi-adapters:0.17.1")
   implementation("org.slf4j:slf4j-api:1.7.36")
   val graalVersion = "22.0.0.2"
   implementation("org.graalvm.sdk:graal-sdk:$graalVersion")

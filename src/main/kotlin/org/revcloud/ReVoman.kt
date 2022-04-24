@@ -16,6 +16,8 @@ import org.http4k.client.JavaHttpClient
 import org.http4k.core.Method
 import org.http4k.core.Request
 import org.http4k.core.Response
+import org.http4k.core.then
+import org.http4k.filter.ClientFilters
 import org.http4k.format.Moshi.asA
 import org.revcloud.state.PostmanAPI
 import org.revcloud.state.collection.Collection
@@ -52,8 +54,8 @@ fun lasso(
   val itemNameToResponseWithType = pmCollection?.item?.asSequence()?.map { itemData ->
     val item = itemJsonAdapter.fromJson(itemData.data)
     val request: org.revcloud.state.collection.Request = item?.request ?: org.revcloud.state.collection.Request()
-    val uri = request.url.raw
-    val response: Response = JavaHttpClient()(Request(Method.valueOf(request.method), uri))
+    val httpClient = ClientFilters.BearerAuth(dynamicEnvironment["bearer_token"] ?: "").then(JavaHttpClient())
+    val response: Response = httpClient(Request(Method.valueOf(request.method), request.url.raw))
 
     // Post request
     val pmResponse = org.revcloud.state.collection.Response(
@@ -80,11 +82,12 @@ fun lasso(
 }
 
 private fun buildJsContext(): Context {
-  val options: MutableMap<String, String> = mutableMapOf()
-  options["js.commonjs-require"] = "true"
-  options["js.commonjs-require-cwd"] = "."
-  options["js.commonjs-core-modules-replacements"] =
-    "buffer:buffer/, path:path-browserify"
+  val options = mutableMapOf(
+    "js.commonjs-require" to "true",
+    "js.commonjs-require-cwd" to ".",
+    "js.esm-eval-returns-exports" to "true",
+    "js.commonjs-core-modules-replacements" to "buffer:buffer/, path:path-browserify",
+  )
   return Context.newBuilder("js")
     .allowExperimentalOptions(true)
     .allowIO(true)
