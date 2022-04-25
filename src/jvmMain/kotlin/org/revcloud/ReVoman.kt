@@ -68,8 +68,8 @@ fun revUp(
     
     // Test script
     val testScript = item?.event?.find { it.listen == "test" }?.script?.exec?.joinToString("\n") ?: ""
-    val testSource = Source.newBuilder("js", testScript, "myScript.js").build()
-    val context = buildJsContext()
+    val testSource = Source.newBuilder("js", testScript, "pmItemTestScript.js").build()
+    val context = buildJsContext(useCommonJs = false)
     context.getBindings("js").putMember("pm", pm)
     context.getBindings("js").putMember("responseBody", response.bodyString())
     context.eval(testSource)
@@ -81,13 +81,15 @@ fun revUp(
   return org.revcloud.output.Pokemon(itemNameToResponseWithType, pm.environment)
 }
 
-private fun buildJsContext(): Context {
-  val options = mutableMapOf(
-    "js.commonjs-require" to "true",
-    "js.commonjs-require-cwd" to ".",
-    "js.esm-eval-returns-exports" to "true",
-    "js.commonjs-core-modules-replacements" to "buffer:buffer/, path:path-browserify",
-  )
+fun buildJsContext(useCommonJs: Boolean = true): Context {
+  val options = buildMap<String, String> {
+    if (useCommonJs) {
+      "js.commonjs-require" to "true"
+      "js.commonjs-require-cwd" to "graal-js"
+      "js.commonjs-core-modules-replacements" to "buffer:buffer/, path:path-browserify"
+    }
+    "js.esm-eval-returns-exports" to "true"
+  }
   return Context.newBuilder("js")
     .allowExperimentalOptions(true)
     .allowIO(true)
