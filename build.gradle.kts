@@ -1,10 +1,9 @@
 import com.adarshr.gradle.testlogger.theme.ThemeType.MOCHA_PARALLEL
 import com.diffplug.spotless.extra.wtp.EclipseWtpFormatterStep.XML
 import io.gitlab.arturbosch.detekt.Detekt
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-  kotlin("jvm")
+  kotlin("multiplatform")
   application
   id("dev.zacsweers.moshix") version "0.17.1"
   `maven-publish`
@@ -20,26 +19,53 @@ repositories {
   mavenCentral()
 }
 
-dependencies {
-  val http4kVersion: String by project
-  api("org.http4k:http4k-core:$http4kVersion")
-  api("org.http4k:http4k-format-moshi:$http4kVersion")
-  api("dev.zacsweers.moshix:moshi-adapters:0.17.1")
-  implementation("org.slf4j:slf4j-api:1.7.36")
-  val graalVersion = "22.0.0.2"
-  implementation("org.graalvm.sdk:graal-sdk:$graalVersion")
-  implementation("org.graalvm.js:js:$graalVersion")
+kotlin {
+  jvm {
+    compilations.all {
+      kotlinOptions {
+        jvmTarget = JavaVersion.VERSION_17.toString()
+        freeCompilerArgs = listOf("-opt-in=kotlin.RequiresOptIn")
+      }
+    }
+    withJava()
+    testRuns["test"].executionTask.configure {
+      useJUnitPlatform()
+    }
+  }
+  js(IR) {
+    binaries.executable()
+    browser {
+      commonWebpackConfig {
+        cssSupport.enabled = true
+      }
+    }
+  }
+  sourceSets {
+    val jvmMain by getting {
+      dependencies {
+        val http4kVersion: String by project
+        api("org.http4k:http4k-core:$http4kVersion")
+        api("org.http4k:http4k-format-moshi:$http4kVersion")
+        api("dev.zacsweers.moshix:moshi-adapters:0.17.1")
+        
+        implementation("org.slf4j:slf4j-api:1.7.36")
+        val graalVersion = "22.0.0.2"
+        implementation("org.graalvm.sdk:graal-sdk:$graalVersion")
+        implementation("org.graalvm.js:js:$graalVersion")
 
-  runtimeOnly("org.apache.logging.log4j:log4j-slf4j18-impl:2.17.2")
-
-  testImplementation("org.mockito:mockito-inline:4.4.0")
-  testImplementation(platform("org.junit:junit-bom:5.8.2"))
-  testImplementation("org.junit.jupiter:junit-jupiter-api")
-  testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine")
-  testImplementation("org.assertj:assertj-core:3.22.0")
+        runtimeOnly("org.apache.logging.log4j:log4j-slf4j18-impl:2.17.2")
+      }
+    }
+    val jvmTest by getting {
+      dependencies {
+        implementation("org.mockito:mockito-inline:4.4.0")
+        implementation("org.junit.jupiter:junit-jupiter-api:5.8.2")
+        runtimeOnly("org.junit.jupiter:junit-jupiter-engine:5.8.2")
+        implementation("org.assertj:assertj-core:3.22.0")
+      }
+    }
+  }
 }
-
-java.sourceCompatibility = JavaVersion.VERSION_11
 
 moshi {
   enableSealed.set(true)
@@ -80,17 +106,6 @@ spotless {
 }
 
 tasks {
-  test.get().useJUnitPlatform()
-  withType<KotlinCompile> {
-    kotlinOptions {
-      jvmTarget = JavaVersion.VERSION_11.toString()
-      freeCompilerArgs = listOf("-opt-in=kotlin.RequiresOptIn")
-    }
-  }
-  compileTestJava {
-    sourceCompatibility = JavaVersion.VERSION_17.toString()
-    targetCompatibility = JavaVersion.VERSION_17.toString()
-  }
   testlogger {
     theme = MOCHA_PARALLEL
   }
@@ -127,7 +142,7 @@ tasks {
 publishing {
   publications.create<MavenPublication>("mavenJava") {
     val subprojectJarName = tasks.jar.get().archiveBaseName.get()
-    artifactId = if (subprojectJarName == "pokemon-root") "pokemon" else "pokemon-$subprojectJarName"
+    artifactId = if (subprojectJarName == "revoman-root") "revoman" else "revoman-$subprojectJarName"
     from(components["java"])
     pom {
       name.set(artifactId)
@@ -149,7 +164,7 @@ publishing {
       scm {
         connection.set("scm:git:https://git.soma.salesforce.com/ccspayments/Pokemon")
         developerConnection.set("scm:git:git@git.soma.salesforce.com:ccspayments/Pokemon.git")
-        url.set("https://git.soma.salesforce.com/ccspayments/pokemon")
+        url.set("https://git.soma.salesforce.com/ccspayments/revoman")
       }
     }
   }

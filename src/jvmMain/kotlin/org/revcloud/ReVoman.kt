@@ -31,7 +31,7 @@ private val postManVariableRegex = "\\{\\{([^}]+)}}".toRegex()
 
 @OptIn(ExperimentalStdlibApi::class)
 @JvmOverloads
-fun lasso(
+fun revUp(
   pmCollectionPath: String,
   pmEnvironmentPath: String,
   itemNameToOutputType: Map<String, Class<out Any>>,

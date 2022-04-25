@@ -14,11 +14,11 @@ class ReVomanTest {
             "All Pokemon", Results.class,
             "Pokemon", Abilities.class);
     final var limit = 10;
-    final var pmCollectionPath = "src/test/resources/Pokemon.postman_collection.json";
-    final var pmEnvironmentPath = "src/test/resources/Pokemon.postman_environment.json";
+    final var pmCollectionPath = "src/jvmTest/resources/Pokemon.postman_collection.json";
+    final var pmEnvironmentPath = "src/jvmTest/resources/Pokemon.postman_environment.json";
     final var dynamicEnvironment = Map.of("limit", String.valueOf(limit));
     final var pokemon =
-        ReVoman.lasso(pmCollectionPath, pmEnvironmentPath, itemToOutputType, dynamicEnvironment);
+        ReVoman.revUp(pmCollectionPath, pmEnvironmentPath, itemToOutputType, dynamicEnvironment);
 
     assertThat(pokemon.itemNameToResponseWithType).hasSize(2);
     final Class<?> allPokemonResultType =
