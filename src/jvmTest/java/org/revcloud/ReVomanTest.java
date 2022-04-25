@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test;
 
 class ReVomanTest {
   @Test
-  void lasso() {
+  void revUp() {
     final var itemToOutputType =
         Map.of(
             "All Pokemon", Results.class,
