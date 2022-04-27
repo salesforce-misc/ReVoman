@@ -6,7 +6,9 @@ import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.JsonReader
 import com.squareup.moshi.JsonWriter
 import com.squareup.moshi.Moshi
+import com.squareup.moshi.Types
 import com.squareup.moshi.adapter
+import com.squareup.moshi.adapters.Rfc3339DateJsonAdapter
 import com.squareup.moshi.internal.Util
 import dev.zacsweers.moshix.adapters.AdaptedBy
 import dev.zacsweers.moshix.adapters.JsonString
@@ -29,12 +31,14 @@ import org.http4k.format.ThrowableAdapter
 import org.http4k.format.asConfigurable
 import org.http4k.format.withStandardMappings
 import org.http4k.lens.Header.CONTENT_TYPE
+import org.revcloud.output.Pokemon
 import org.revcloud.state.PostmanAPI
 import org.revcloud.state.collection.Collection
 import org.revcloud.state.collection.Item
 import org.revcloud.state.environment.Environment
 import java.io.File
 import java.lang.reflect.Type
+import java.util.Date
 
 private val postManVariableRegex = "\\{\\{([^}]+)}}".toRegex()
 
@@ -43,9 +47,11 @@ private val postManVariableRegex = "\\{\\{([^}]+)}}".toRegex()
 fun revUp(
   pmCollectionPath: String,
   pmEnvironmentPath: String,
-  itemNameToOutputType: Map<String, Class<out Any>>?,
-  dynamicEnvironment: Map<String, String?> = emptyMap()): org.revcloud.output.Pokemon {
-  
+  itemNameToOutputType: Map<String, Class<out Any>>? = emptyMap(),
+  dynamicEnvironment: Map<String, String?> = emptyMap(),
+  typesInResponseToIgnore: Set<Class<out Any>> = emptySet(),
+  customAdaptersForResponse: List<Any> = emptyList(),
+): Pokemon {
   // Load environment
   val envJsonAdapter = Moshi.Builder().build().adapter<Environment>()
   val environment: Environment? = envJsonAdapter.fromJson(readTextFromFile(pmEnvironmentPath))
@@ -60,6 +66,7 @@ fun revUp(
   val pmCollection: Collection? = collectionJsonAdapter.fromJson(readTextFromFile(pmCollectionPath))
 
   val itemJsonAdapter = Moshi.Builder().add(RegexAdapterFactory(pm.environment)).build().adapter<Item>()
+  val configurableMoshi = configurableMoshi(typesInResponseToIgnore, customAdaptersForResponse)
   val itemNameToResponseWithType = pmCollection?.item?.asSequence()?.map { itemData ->
     val item = itemJsonAdapter.fromJson(itemData.data)
     val itemRequest: org.revcloud.state.collection.Request = item?.request ?: org.revcloud.state.collection.Request()
@@ -77,7 +84,7 @@ fun revUp(
     )
     pm.request = itemRequest
     pm.response = pmResponse
-    
+
     // Test script
     val testScript = item?.event?.find { it.listen == "test" }?.script?.exec?.joinToString("\n") ?: ""
     val testSource = Source.newBuilder("js", testScript, "pmItemTestScript.js").build()
@@ -88,10 +95,9 @@ fun revUp(
 
     val name = item?.name ?: ""
     val clazz = itemNameToOutputType?.get(name)?.kotlin ?: Any::class
-    
-    name to (MyMoshi.asA(response.bodyString(), clazz) to clazz.java)
+    name to (configurableMoshi.asA(response.bodyString(), clazz) to clazz.java)
   }?.toMap() ?: emptyMap()
-  return org.revcloud.output.Pokemon(itemNameToResponseWithType, pm.environment)
+  return Pokemon(itemNameToResponseWithType, pm.environment)
 }
 
 fun buildJsContext(useCommonJs: Boolean = true): Context {
@@ -125,6 +131,7 @@ private class RegexAdapterFactory(val envMap: Map<String, String?>) : JsonAdapte
         val s = stringAdapter.fromJson(reader)
         return s?.let { postManVariableRegex.replace(s) { matchResult -> envMap[matchResult.groupValues[1]] ?: "" } }
       }
+
       override fun toJson(writer: JsonWriter, value: String?) {
         stringAdapter.toJson(writer, value)
       }
@@ -132,15 +139,43 @@ private class RegexAdapterFactory(val envMap: Map<String, String?>) : JsonAdapte
   }
 }
 
-object MyMoshi : ConfigurableMoshi(
-  Moshi.Builder()
-    .add(JsonString.Factory())
-    .add(AdaptedBy.Factory())
-    .addLast(EventAdapter)
-    .addLast(ThrowableAdapter)
-    .addLast(ListAdapter)
-    .addLast(MapAdapter)
-    .asConfigurable()
-    .withStandardMappings()
-    .done()
-)
+fun configurableMoshi(
+  typesToIgnore: Set<Class<out Any>> = emptySet(), 
+  customAdaptersForResponse: List<Any> = emptyList()
+): ConfigurableMoshi {
+  val moshi = Moshi.Builder()
+  customAdaptersForResponse.forEach { moshi.add(it) }
+  return object: ConfigurableMoshi(
+    moshi
+      .add(JsonString.Factory())
+      .add(AdaptedBy.Factory())
+      .add(Date::class.java, Rfc3339DateJsonAdapter())
+      .add(IgnoreUnknownFactory(typesToIgnore))
+      .addLast(EventAdapter)
+      .addLast(ThrowableAdapter)
+      .addLast(ListAdapter)
+      .addLast(MapAdapter)
+      .asConfigurable()
+      .withStandardMappings()
+      .done()
+  ) {}
+}
+
+
+internal class IgnoreUnknownFactory(private val typesToIgnore: Set<Class<out Any>>) : JsonAdapter.Factory {
+  override fun create(
+    type: Type, annotations: Set<Annotation?>, moshi: Moshi
+  ): JsonAdapter<*> {
+    val rawType = Types.getRawType(type)
+    return if (typesToIgnore.contains(rawType)) {
+      object : JsonAdapter<Type>() {
+        override fun fromJson(reader: JsonReader): Type? {
+          return null
+        }
+        override fun toJson(writer: JsonWriter, value: Type?) {
+          // do nothing
+        }
+      }
+    } else moshi.nextAdapter<Any>(this, type, annotations)
+  }
+}

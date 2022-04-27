@@ -44,12 +44,12 @@ class ReVomanTest {
 
   @Test
   void supernova() {
-    final var setupGraphMinimal = "setup-graph-minimal";
     final var pmCollectionPath = TEST_RESOURCES_PATH + "ReVoman1.postman_collection.json";
     final var pmEnvironmentPath = TEST_RESOURCES_PATH + "supernova.postman_environment.json";
     final var dynamicEnvironment = Map.of(
         "bearer_token",
         "00DRN0000009qvw!AQMAQMVadUeiiNLCgBUDh3Wzyz1qWiyVyWUn.Dn7PWI5BGOY8iHkOnmTrY1iljgWQF03XczJAI4B8hd2rcQyXHo7whXuRc0s");
+    final var setupGraphMinimal = "setup-graph-minimal";
     final var itemNameToOutputType = Map.of(setupGraphMinimal, Graphs.class);
     final var pokemon = ReVoman.revUp(pmCollectionPath, pmEnvironmentPath, itemNameToOutputType, dynamicEnvironment);
     assertThat(pokemon.itemNameToResponseWithType).hasSize(1);
