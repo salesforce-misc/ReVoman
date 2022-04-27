@@ -1,7 +1,6 @@
 import com.adarshr.gradle.testlogger.theme.ThemeType.MOCHA_PARALLEL
 import com.diffplug.spotless.extra.wtp.EclipseWtpFormatterStep.XML
 import io.gitlab.arturbosch.detekt.Detekt
-import org.jetbrains.kotlin.gradle.dsl.KotlinJsCompile
 import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpack
 
 plugins {
@@ -15,7 +14,7 @@ plugins {
 }
 
 group = "com.salesforce.ccspayments"
-version = "0.1.2"
+version = "0.1"
 
 repositories {
   mavenCentral()
@@ -23,7 +22,13 @@ repositories {
 
 kotlin {
   jvm {
-    compilations.all {
+    val main by compilations.getting {
+      kotlinOptions {
+        jvmTarget = JavaVersion.VERSION_11.toString()
+        freeCompilerArgs = listOf("-opt-in=kotlin.RequiresOptIn")
+      }
+    }
+    val test by compilations.getting {
       kotlinOptions {
         jvmTarget = JavaVersion.VERSION_17.toString()
         freeCompilerArgs = listOf("-opt-in=kotlin.RequiresOptIn")
@@ -68,21 +73,6 @@ kotlin {
   }
 }
 tasks {
-  getByName<Jar>("jvmJar") {
-    val taskName = if (project.hasProperty("isProduction") ||
-      project.gradle.startParameter.taskNames.contains("installDist")
-    ) {
-      "jsBrowserProductionWebpack"
-    } else {
-      "jsBrowserDevelopmentWebpack"
-    }
-    val webpackTask = getByName<KotlinWebpack>(taskName)
-    dependsOn(webpackTask) // make sure JS gets compiled first
-    from(File(webpackTask.destinationDirectory, webpackTask.outputFileName)) // bring output file along into the JAR
-  }
-  named<KotlinJsCompile>("compileKotlinJs").configure {
-    kotlinOptions.moduleKind = "commonjs"
-  }
   testlogger {
     theme = MOCHA_PARALLEL
   }
@@ -125,52 +115,6 @@ tasks {
 moshi {
   enableSealed.set(true)
 }
-publishing {
-  publications.create<MavenPublication>("mavenJava") {
-    val subprojectJarName = tasks.jar.get().archiveBaseName.get()
-    artifactId = if (subprojectJarName == "revoman-root") "revoman" else "revoman-$subprojectJarName"
-    from(components["java"])
-    pom {
-      name.set(artifactId)
-      description.set(project.description)
-      url.set("https://git.soma.salesforce.com/CCSPayments/Pokemon")
-      licenses {
-        license {
-          name.set("The Apache License, Version 2.0")
-          url.set("http://www.apache.org/licenses/LICENSE-2.0.txt")
-        }
-      }
-      developers {
-        developer {
-          id.set("gopala.akshintala@salesforce.com")
-          name.set("Gopal S Akshintala")
-          email.set("gopala.akshintala@salesforce.com")
-        }
-      }
-      scm {
-        connection.set("scm:git:https://git.soma.salesforce.com/ccspayments/Pokemon")
-        developerConnection.set("scm:git:git@git.soma.salesforce.com:ccspayments/Pokemon.git")
-        url.set("https://git.soma.salesforce.com/ccspayments/revoman")
-      }
-    }
-  }
-  repositories {
-    maven {
-      name = "Nexus"
-      val releasesRepoUrl =
-        uri("https://nexus.soma.salesforce.com/nexus/content/repositories/releases")
-      val snapshotsRepoUrl =
-        uri("https://nexus.soma.salesforce.com/nexus/content/repositories/snapshots")
-      url = if (version.toString().endsWith("SNAPSHOT")) snapshotsRepoUrl else releasesRepoUrl
-      val nexusUsername: String by project
-      val nexusPassword: String by project
-      credentials {
-        username = nexusUsername
-        password = nexusPassword
-      }
-    }
-  }
-}
 spotless {
   kotlin {
     target("src/main/java/**/*.kt", "src/test/java/**/*.kt")
@@ -204,13 +148,50 @@ spotless {
     endWithNewline()
   }
 }
-
-distributions {
-  main {
-    contents {
-      from("$buildDir/libs") {
-        rename("${rootProject.name}-jvm", rootProject.name)
-        into("lib")
+publishing {
+  publications.withType<MavenPublication> {
+    if (name == "jvm") {
+      artifactId = "revoman"
+    }
+  }
+  publications.create<MavenPublication>("revoman") {
+    pom {
+      name.set("revoman")
+      description.set(project.description)
+      url.set("https://git.soma.salesforce.com/CCSPayments/Revoman")
+      licenses {
+        license {
+          name.set("The Apache License, Version 2.0")
+          url.set("http://www.apache.org/licenses/LICENSE-2.0.txt")
+        }
+      }
+      developers {
+        developer {
+          id.set("gopala.akshintala@salesforce.com")
+          name.set("Gopal S Akshintala")
+          email.set("gopala.akshintala@salesforce.com")
+        }
+      }
+      scm {
+        connection.set("scm:git:https://git.soma.salesforce.com/ccspayments/Revoman")
+        developerConnection.set("scm:git:git@git.soma.salesforce.com:ccspayments/Revoman.git")
+        url.set("https://git.soma.salesforce.com/ccspayments/revoman")
+      }
+    }
+  }
+  repositories {
+    maven {
+      name = "Nexus"
+      val releasesRepoUrl =
+        uri("https://nexus.soma.salesforce.com/nexus/content/repositories/releases")
+      val snapshotsRepoUrl =
+        uri("https://nexus.soma.salesforce.com/nexus/content/repositories/snapshots")
+      url = if (version.toString().endsWith("SNAPSHOT")) snapshotsRepoUrl else releasesRepoUrl
+      val nexusUsername: String by project
+      val nexusPassword: String by project
+      credentials {
+        username = nexusUsername
+        password = nexusPassword
       }
     }
   }

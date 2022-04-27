@@ -15,8 +15,8 @@ class PostmanAPI {
   
 }
 
-data class PostmanEnvironment(private val environment: MutableMap<String, String> = mutableMapOf()): MutableMap<String, String> by environment {
-  fun set(key: String, value: String) {
+data class PostmanEnvironment(private val environment: MutableMap<String, String?> = mutableMapOf()): MutableMap<String, String?> by environment {
+  fun set(key: String, value: String?) {
     environment[key] = value
   }
 }

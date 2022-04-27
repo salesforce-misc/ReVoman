@@ -1,0 +1,91 @@
+{
+	"info": {
+		"_postman_id": "98dd5226-6c9f-40c9-a2fc-3a0e57752815",
+		"name": "ReVoman1",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "setup-graph-minimal",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"jsonData=JSON.parse(responseBody);",
+							"// console.log(jsonData.graphs[0].graphResponse.compositeResponse.length);",
+							"for (var i = 0; i<jsonData.graphs[0].graphResponse.compositeResponse.length;i++){",
+							"    if(jsonData.graphs[0].graphResponse.compositeResponse[i].referenceId!=\"activeBillingTreatment\"){",
+							"        // console.log(jsonData.graphs[0].graphResponse.compositeResponse[i].referenceId +\"Id\",jsonData.graphs[0].graphResponse.compositeResponse[i].body.id);",
+							"        pm.environment.set(jsonData.graphs[0].graphResponse.compositeResponse[i].referenceId +\"Id\", jsonData.graphs[0].graphResponse.compositeResponse[i].body.id)",
+							"    }",
+							"}",
+							""
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"graphs\": [\n        {\n            \"graphId\": \"1\",\n            \"compositeRequest\": [\n                {\n                    \"url\": \"{{sObjectPath}}/Order/\",\n                    \"body\": {\n                        \"AccountId\": \"{{accountId}}\",\n                        \"EffectiveDate\": \"2021-02-16T00:00:00+00:00\",\n                        \"Status\": \"Draft\",\n                        \"BillingCity\": \"hyd\",\n                        \"Pricebook2Id\": \"{{pricebookId}}\"\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"order\"\n                },\n                {\n                    \"url\": \"{{sObjectPath}}/BillingTreatment/\",\n                    \"body\": {\n                        \"Name\": \"Gopal-BT\",\n                        \"Status\": \"Draft\",\n                        \"ExcludeFromBilling\": \"No\"\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"billingTreatment\"\n                },\n                {\n                    \"url\": \"{{sObjectPath}}/BillingTreatmentItem/\",\n                    \"body\": {\n                        \"Name\": \"Gopal-BTI\",\n                        \"Status\": \"Active\",\n                        \"ProcessingOrder\": 1,\n                        \"Sequencing\": \"Manual\",\n                        \"BillingTreatmentId\": \"@{billingTreatment.id}\",\n                        \"Handling0Amount\": \"CreateInvoice\",\n                        \"Type\": \"FlatAmount\",\n                        \"FlatAmount\": 77,\n                        \"BillingType\": \"Advance\",\n                        \"Controller\": \"BillingScheduleGroup\"\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"billingTreatmentItem\"\n                },\n                {\n                    \"url\": \"{{sObjectPath}}/BillingTreatment/@{billingTreatment.id}\",\n                    \"body\": {\n                        \"Status\": \"Active\"\n                    },\n                    \"method\": \"PATCH\",\n                    \"referenceId\": \"activeBillingTreatment\"\n                },\n                {\n                    \"url\": \"{{sObjectPath}}/OrderItem/\",\n                    \"body\": {\n                        \"OrderId\": \"@{order.id}\",\n                        \"PricebookEntryId\": \"{{pricebookEntryId}}\",\n                        \"Quantity\": \"2\",\n                        \"UnitPrice\": \"10\"\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"orderItem1\"\n                },\n                {\n                    \"url\": \"{{sObjectPath}}/OrderItem/\",\n                    \"body\": {\n                        \"OrderId\": \"@{order.id}\",\n                        \"PricebookEntryId\": \"{{pricebookEntryId}}\",\n                        \"Quantity\": \"1\",\n                        \"UnitPrice\": \"20\"\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"orderItem2\"\n                },\n                {\n                    \"url\": \"{{sObjectPath}}/OrderItem/\",\n                    \"body\": {\n                        \"OrderId\": \"@{order.id}\",\n                        \"PricebookEntryId\": \"{{pricebookEntryId}}\",\n                        \"Quantity\": \"5\",\n                        \"UnitPrice\": \"30\"\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"orderItem3\"\n                },\n                {\n                    \"url\": \"{{sObjectPath}}/OrderItem/\",\n                    \"body\": {\n                        \"OrderId\": \"@{order.id}\",\n                        \"PricebookEntryId\": \"{{pricebookEntryId}}\",\n                        \"Quantity\": \"7\",\n                        \"UnitPrice\": \"40\"\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"orderItem4\"\n                }\n            ]\n        }\n    ]\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/services/data/v{{version}}/composite/graph",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"services",
+						"data",
+						"v{{version}}",
+						"composite",
+						"graph"
+					]
+				},
+				"description": "# setup-graph (minimal)\n\n*   Order\n*   BillingTreatment\n*   BillingTreatmentItem\n*   BillingTreatment Activate\n*   OrderItem (4)"
+			},
+			"response": []
+		}
+	],
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{sessionid}}",
+				"type": "string"
+			}
+		]
+	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	]
+}
