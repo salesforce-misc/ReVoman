@@ -31,16 +31,18 @@ import org.http4k.format.ThrowableAdapter
 import org.http4k.format.asConfigurable
 import org.http4k.format.withStandardMappings
 import org.http4k.lens.Header.CONTENT_TYPE
+import org.revcloud.DynamicEnvironmentKeys.BEARER_TOKEN
 import org.revcloud.output.Pokemon
-import org.revcloud.state.PostmanAPI
-import org.revcloud.state.collection.Collection
-import org.revcloud.state.collection.Item
-import org.revcloud.state.environment.Environment
+import org.revcloud.postman.PostmanAPI
+import org.revcloud.postman.state.collection.Collection
+import org.revcloud.postman.state.collection.Item
+import org.revcloud.postman.state.environment.Environment
 import java.io.File
 import java.lang.reflect.Type
 import java.util.Date
 
 private val postManVariableRegex = "\\{\\{([^}]+)}}".toRegex()
+
 
 @OptIn(ExperimentalStdlibApi::class)
 @JvmOverloads
@@ -69,15 +71,15 @@ fun revUp(
   val configurableMoshi = configurableMoshi(typesInResponseToIgnore, customAdaptersForResponse)
   val itemNameToResponseWithType = pmCollection?.item?.asSequence()?.map { itemData ->
     val item = itemJsonAdapter.fromJson(itemData.data)
-    val itemRequest: org.revcloud.state.collection.Request = item?.request ?: org.revcloud.state.collection.Request()
-    val httpClient = ClientFilters.BearerAuth(dynamicEnvironment["bearer_token"] ?: "").then(JavaHttpClient())
+    val itemRequest: org.revcloud.postman.state.collection.Request = item?.request ?: org.revcloud.postman.state.collection.Request()
+    val httpClient = ClientFilters.BearerAuth(dynamicEnvironment[BEARER_TOKEN] ?: "").then(JavaHttpClient())
     val httpRequest = Request(Method.valueOf(itemRequest.method), itemRequest.url.raw)
       .with(CONTENT_TYPE of APPLICATION_JSON)
       .body(itemRequest.body?.raw ?: "")
     val response: Response = httpClient(httpRequest)
 
     // Post request
-    val pmResponse = org.revcloud.state.collection.Response(
+    val pmResponse = org.revcloud.postman.state.collection.Response(
       response.status.toString(),
       response.status.code.toString(),
       response.bodyString()
@@ -86,13 +88,16 @@ fun revUp(
     pm.response = pmResponse
 
     // Test script
-    val testScript = item?.event?.find { it.listen == "test" }?.script?.exec?.joinToString("\n") ?: ""
-    val testSource = Source.newBuilder("js", testScript, "pmItemTestScript.js").build()
-    val context = buildJsContext(useCommonJs = false)
-    context.getBindings("js").putMember("pm", pm)
-    context.getBindings("js").putMember("responseBody", response.bodyString())
-    context.eval(testSource)
-
+    val testScript = item?.event?.find { it.listen == "test" }?.script?.exec?.joinToString("\n")
+    if (!testScript.isNullOrBlank()) { // ! TODO gopala.akshintala 04/05/22: Catch and handle exceptions
+      val testSource = Source.newBuilder("js", testScript, "pmItemTestScript.js").build()
+      // ! TODO gopala.akshintala 03/05/22: support requirejs
+      val context = buildJsContext(useCommonjsRequire = false)
+      context.getBindings("js").putMember("pm", pm)
+      context.getBindings("js").putMember("responseBody", response.bodyString())
+      context.eval(testSource)
+    }
+    
     val name = item?.name ?: ""
     val clazz = itemNameToOutputType?.get(name)?.kotlin ?: Any::class
     name to (configurableMoshi.asA(response.bodyString(), clazz) to clazz.java)
@@ -100,14 +105,14 @@ fun revUp(
   return Pokemon(itemNameToResponseWithType, pm.environment)
 }
 
-fun buildJsContext(useCommonJs: Boolean = true): Context {
-  val options = buildMap<String, String> {
-    if (useCommonJs) {
-      "js.commonjs-require" to "true"
-      "js.commonjs-require-cwd" to "graal-js"
-      "js.commonjs-core-modules-replacements" to "buffer:buffer/, path:path-browserify"
+fun buildJsContext(useCommonjsRequire: Boolean = true): Context {
+  val options = buildMap {
+    if (useCommonjsRequire) {
+      put("js.commonjs-require", "true")
+      put("js.commonjs-require-cwd", ".")
+      put("js.commonjs-core-modules-replacements", "buffer:buffer/, path:path-browserify")
     }
-    "js.esm-eval-returns-exports" to "true"
+    put("js.esm-eval-returns-exports", "true")
   }
   return Context.newBuilder("js")
     .allowExperimentalOptions(true)

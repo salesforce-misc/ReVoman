@@ -1,4 +1,4 @@
-package org.revcloud.state.collection
+package org.revcloud.postman.state.collection
 
 import com.squareup.moshi.JsonClass
 
