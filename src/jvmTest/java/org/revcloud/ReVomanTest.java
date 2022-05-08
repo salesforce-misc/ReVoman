@@ -49,7 +49,7 @@ class ReVomanTest {
     final var pmEnvironmentPath = TEST_RESOURCES_PATH + "ReVoman.postman_environment.json";
     final var dynamicEnvironment = Map.of(
         BEARER_TOKEN,
-        "00DRN0000009wGZ!ARMAQK3y_dZSYO8yGXme1jGMHSrElLv4S8DzD62Vxk1y7WepsDJy1f11_Ka5m6km15bfFLms8mb0zCj81tO0RBmd53Uisepl");
+        "00DRN0000009wGZ!ARMAQBmxEA4c.FCbQxG3jNUpoPxMesoAiFtxbnhFqqKVJPTrgTaAwDDHS.MMAoqdVIAdkT9e2FLwO.fZ4lfcgrcAV6BpBF5S");
     final var setupGraphMinimal = "setup-graph-minimal";
     final var itemNameToOutputType = Map.of(setupGraphMinimal, Graphs.class);
     final var pokemon = ReVoman.revUp(pmCollectionPath, pmEnvironmentPath, itemNameToOutputType, dynamicEnvironment);

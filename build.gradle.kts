@@ -54,11 +54,13 @@ kotlin {
         val http4kVersion: String by project
         api("org.http4k:http4k-core:$http4kVersion")
         api("org.http4k:http4k-format-moshi:$http4kVersion")
+        implementation("org.http4k:http4k-client-apache4:$http4kVersion")
         api("dev.zacsweers.moshix:moshi-adapters:0.17.1")
         implementation("org.slf4j:slf4j-api:1.7.36")
-        val graalVersion = "22.0.0.2"
+        val graalVersion = "22.1.0"
         implementation("org.graalvm.sdk:graal-sdk:$graalVersion")
         implementation("org.graalvm.js:js:$graalVersion")
+        implementation("io.github.serpro69:kotlin-faker:1.10.0")
 
         runtimeOnly("org.apache.logging.log4j:log4j-slf4j18-impl:2.17.2")
       }

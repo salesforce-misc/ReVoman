@@ -12,11 +12,15 @@ import com.squareup.moshi.adapters.Rfc3339DateJsonAdapter
 import com.squareup.moshi.internal.Util
 import dev.zacsweers.moshix.adapters.AdaptedBy
 import dev.zacsweers.moshix.adapters.JsonString
+import org.apache.http.client.config.CookieSpecs
+import org.apache.http.client.config.RequestConfig
+import org.apache.http.conn.ssl.NoopHostnameVerifier
+import org.apache.http.impl.client.HttpClients
 import org.graalvm.polyglot.Context
 import org.graalvm.polyglot.HostAccess
 import org.graalvm.polyglot.PolyglotException
 import org.graalvm.polyglot.Source
-import org.http4k.client.JavaHttpClient
+import org.http4k.client.Apache4Client
 import org.http4k.core.ContentType.Companion.APPLICATION_JSON
 import org.http4k.core.Method
 import org.http4k.core.Request
@@ -77,7 +81,18 @@ fun revUp(
       item?.request ?: org.revcloud.postman.state.collection.Request()
     val httpClient = DebuggingFilters.PrintRequestAndResponse()
       .then(ClientFilters.BearerAuth(dynamicEnvironment[BEARER_TOKEN] ?: ""))
-      .then(JavaHttpClient())
+      .then(
+        Apache4Client(
+          client = HttpClients.custom()
+            .setDefaultRequestConfig(
+              RequestConfig.custom()
+                .setRedirectsEnabled(false)
+                .setCookieSpec(CookieSpecs.IGNORE_COOKIES)
+                .build()
+            ).setSSLHostnameVerifier(NoopHostnameVerifier.INSTANCE)
+            .build()
+        )
+      )
     val httpRequest = Request(Method.valueOf(itemRequest.method), itemRequest.url.raw)
       .with(CONTENT_TYPE of APPLICATION_JSON)
       .body(itemRequest.body?.raw ?: "")
@@ -146,7 +161,12 @@ private class RegexAdapterFactory(val envMap: Map<String, String?>) : JsonAdapte
     return object : JsonAdapter<String>() {
       override fun fromJson(reader: JsonReader): String? {
         val s = stringAdapter.fromJson(reader)
-        return s?.let { postManVariableRegex.replace(s) { matchResult -> envMap[matchResult.groupValues[1]] ?: "" } }
+        return s?.let {
+          postManVariableRegex.replace(s) { matchResult ->
+            val variableKey = matchResult.groupValues[1]
+            dynamicVariables(variableKey) ?: envMap[variableKey] ?: ""
+          }
+        }
       }
 
       override fun toJson(writer: JsonWriter, value: String?) {
