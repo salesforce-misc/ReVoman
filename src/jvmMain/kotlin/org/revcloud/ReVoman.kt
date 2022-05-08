@@ -14,6 +14,7 @@ import dev.zacsweers.moshix.adapters.AdaptedBy
 import dev.zacsweers.moshix.adapters.JsonString
 import org.graalvm.polyglot.Context
 import org.graalvm.polyglot.HostAccess
+import org.graalvm.polyglot.PolyglotException
 import org.graalvm.polyglot.Source
 import org.http4k.client.JavaHttpClient
 import org.http4k.core.ContentType.Companion.APPLICATION_JSON
@@ -23,6 +24,7 @@ import org.http4k.core.Response
 import org.http4k.core.then
 import org.http4k.core.with
 import org.http4k.filter.ClientFilters
+import org.http4k.filter.DebuggingFilters
 import org.http4k.format.ConfigurableMoshi
 import org.http4k.format.EventAdapter
 import org.http4k.format.ListAdapter
@@ -41,8 +43,7 @@ import java.io.File
 import java.lang.reflect.Type
 import java.util.Date
 
-private val postManVariableRegex = "\\{\\{([^}]+)}}".toRegex()
-
+private val postManVariableRegex = "\\{\\{([^{}]*?)}}".toRegex()
 
 @OptIn(ExperimentalStdlibApi::class)
 @JvmOverloads
@@ -61,24 +62,28 @@ fun revUp(
   pm.environment.putAll(environment?.values?.filter { it.enabled }?.associate { it.key to it.value } ?: emptyMap())
   pm.environment.putAll(dynamicEnvironment)
 
-  // Load collection
+  // Marshall postman collection
   val collectionJsonAdapter = Moshi.Builder()
     .add(AdaptedBy.Factory()).build()
     .adapter<Collection>()
   val pmCollection: Collection? = collectionJsonAdapter.fromJson(readTextFromFile(pmCollectionPath))
 
+  // Post request
   val itemJsonAdapter = Moshi.Builder().add(RegexAdapterFactory(pm.environment)).build().adapter<Item>()
   val configurableMoshi = configurableMoshi(typesInResponseToIgnore, customAdaptersForResponse)
   val itemNameToResponseWithType = pmCollection?.item?.asSequence()?.map { itemData ->
     val item = itemJsonAdapter.fromJson(itemData.data)
-    val itemRequest: org.revcloud.postman.state.collection.Request = item?.request ?: org.revcloud.postman.state.collection.Request()
-    val httpClient = ClientFilters.BearerAuth(dynamicEnvironment[BEARER_TOKEN] ?: "").then(JavaHttpClient())
+    val itemRequest: org.revcloud.postman.state.collection.Request =
+      item?.request ?: org.revcloud.postman.state.collection.Request()
+    val httpClient = DebuggingFilters.PrintRequestAndResponse()
+      .then(ClientFilters.BearerAuth(dynamicEnvironment[BEARER_TOKEN] ?: ""))
+      .then(JavaHttpClient())
     val httpRequest = Request(Method.valueOf(itemRequest.method), itemRequest.url.raw)
       .with(CONTENT_TYPE of APPLICATION_JSON)
       .body(itemRequest.body?.raw ?: "")
     val response: Response = httpClient(httpRequest)
 
-    // Post request
+    // Init pm environment
     val pmResponse = org.revcloud.postman.state.collection.Response(
       response.status.toString(),
       response.status.code.toString(),
@@ -88,6 +93,7 @@ fun revUp(
     pm.response = pmResponse
 
     // Test script
+    val itemName = item?.name ?: ""
     val testScript = item?.event?.find { it.listen == "test" }?.script?.exec?.joinToString("\n")
     if (!testScript.isNullOrBlank()) { // ! TODO gopala.akshintala 04/05/22: Catch and handle exceptions
       val testSource = Source.newBuilder("js", testScript, "pmItemTestScript.js").build()
@@ -95,12 +101,17 @@ fun revUp(
       val context = buildJsContext(useCommonjsRequire = false)
       context.getBindings("js").putMember("pm", pm)
       context.getBindings("js").putMember("responseBody", response.bodyString())
-      context.eval(testSource)
+      try {
+        context.eval(testSource)
+      } catch (polyglotException: PolyglotException) {
+        println(itemName)
+        throw polyglotException
+      }
     }
-    
-    val name = item?.name ?: ""
-    val clazz = itemNameToOutputType?.get(name)?.kotlin ?: Any::class
-    name to (configurableMoshi.asA(response.bodyString(), clazz) to clazz.java)
+
+    // Marshall res
+    val clazz = itemNameToOutputType?.get(itemName)?.kotlin ?: Any::class
+    itemName to (configurableMoshi.asA(response.bodyString(), clazz) to clazz.java)
   }?.toMap() ?: emptyMap()
   return Pokemon(itemNameToResponseWithType, pm.environment)
 }
@@ -113,6 +124,7 @@ fun buildJsContext(useCommonjsRequire: Boolean = true): Context {
       put("js.commonjs-core-modules-replacements", "buffer:buffer/, path:path-browserify")
     }
     put("js.esm-eval-returns-exports", "true")
+    put("engine.WarnInterpreterOnly", "false")
   }
   return Context.newBuilder("js")
     .allowExperimentalOptions(true)
@@ -145,12 +157,12 @@ private class RegexAdapterFactory(val envMap: Map<String, String?>) : JsonAdapte
 }
 
 fun configurableMoshi(
-  typesToIgnore: Set<Class<out Any>> = emptySet(), 
+  typesToIgnore: Set<Class<out Any>> = emptySet(),
   customAdaptersForResponse: List<Any> = emptyList()
 ): ConfigurableMoshi {
   val moshi = Moshi.Builder()
   customAdaptersForResponse.forEach { moshi.add(it) }
-  return object: ConfigurableMoshi(
+  return object : ConfigurableMoshi(
     moshi
       .add(JsonString.Factory())
       .add(AdaptedBy.Factory())
@@ -177,6 +189,7 @@ internal class IgnoreUnknownFactory(private val typesToIgnore: Set<Class<out Any
         override fun fromJson(reader: JsonReader): Type? {
           return null
         }
+
         override fun toJson(writer: JsonWriter, value: Type?) {
           // do nothing
         }

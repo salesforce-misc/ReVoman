@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.revcloud.DynamicEnvironmentKeys.BEARER_TOKEN;
 
 class ReVomanTest {
   private static final String TEST_RESOURCES_PATH = "src/jvmTest/resources/";
@@ -44,11 +45,11 @@ class ReVomanTest {
 
   @Test
   void supernova() {
-    final var pmCollectionPath = TEST_RESOURCES_PATH + "ReVoman1.postman_collection.json";
-    final var pmEnvironmentPath = TEST_RESOURCES_PATH + "supernova.postman_environment.json";
+    final var pmCollectionPath = TEST_RESOURCES_PATH + "ReVoman.postman_collection.json";
+    final var pmEnvironmentPath = TEST_RESOURCES_PATH + "ReVoman.postman_environment.json";
     final var dynamicEnvironment = Map.of(
-        "bearer_token",
-        "00DRN0000009qvw!AQMAQMVadUeiiNLCgBUDh3Wzyz1qWiyVyWUn.Dn7PWI5BGOY8iHkOnmTrY1iljgWQF03XczJAI4B8hd2rcQyXHo7whXuRc0s");
+        BEARER_TOKEN,
+        "00DRN0000009wGZ!ARMAQK3y_dZSYO8yGXme1jGMHSrElLv4S8DzD62Vxk1y7WepsDJy1f11_Ka5m6km15bfFLms8mb0zCj81tO0RBmd53Uisepl");
     final var setupGraphMinimal = "setup-graph-minimal";
     final var itemNameToOutputType = Map.of(setupGraphMinimal, Graphs.class);
     final var pokemon = ReVoman.revUp(pmCollectionPath, pmEnvironmentPath, itemNameToOutputType, dynamicEnvironment);
