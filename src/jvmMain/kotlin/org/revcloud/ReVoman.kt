@@ -12,15 +12,11 @@ import com.squareup.moshi.adapters.Rfc3339DateJsonAdapter
 import com.squareup.moshi.internal.Util
 import dev.zacsweers.moshix.adapters.AdaptedBy
 import dev.zacsweers.moshix.adapters.JsonString
-import org.apache.http.client.config.CookieSpecs
-import org.apache.http.client.config.RequestConfig
-import org.apache.http.conn.ssl.NoopHostnameVerifier
-import org.apache.http.impl.client.HttpClients
 import org.graalvm.polyglot.Context
 import org.graalvm.polyglot.HostAccess
 import org.graalvm.polyglot.PolyglotException
 import org.graalvm.polyglot.Source
-import org.http4k.client.Apache4Client
+import org.http4k.client.JavaHttpClient
 import org.http4k.core.ContentType.Companion.APPLICATION_JSON
 import org.http4k.core.Method
 import org.http4k.core.Request
@@ -37,9 +33,10 @@ import org.http4k.format.ThrowableAdapter
 import org.http4k.format.asConfigurable
 import org.http4k.format.withStandardMappings
 import org.http4k.lens.Header.CONTENT_TYPE
-import org.revcloud.DynamicEnvironmentKeys.BEARER_TOKEN
 import org.revcloud.output.Pokemon
+import org.revcloud.postman.DynamicEnvironmentKeys.BEARER_TOKEN
 import org.revcloud.postman.PostmanAPI
+import org.revcloud.postman.dynamicVariables
 import org.revcloud.postman.state.collection.Collection
 import org.revcloud.postman.state.collection.Item
 import org.revcloud.postman.state.environment.Environment
@@ -75,24 +72,13 @@ fun revUp(
   // Post request
   val itemJsonAdapter = Moshi.Builder().add(RegexAdapterFactory(pm.environment)).build().adapter<Item>()
   val configurableMoshi = configurableMoshi(typesInResponseToIgnore, customAdaptersForResponse)
+  val httpClient = DebuggingFilters.PrintRequestAndResponse()
+    .then(ClientFilters.BearerAuth(dynamicEnvironment[BEARER_TOKEN] ?: ""))
+    .then(JavaHttpClient())
   val itemNameToResponseWithType = pmCollection?.item?.asSequence()?.map { itemData ->
     val item = itemJsonAdapter.fromJson(itemData.data)
     val itemRequest: org.revcloud.postman.state.collection.Request =
       item?.request ?: org.revcloud.postman.state.collection.Request()
-    val httpClient = DebuggingFilters.PrintRequestAndResponse()
-      .then(ClientFilters.BearerAuth(dynamicEnvironment[BEARER_TOKEN] ?: ""))
-      .then(
-        Apache4Client(
-          client = HttpClients.custom()
-            .setDefaultRequestConfig(
-              RequestConfig.custom()
-                .setRedirectsEnabled(false)
-                .setCookieSpec(CookieSpecs.IGNORE_COOKIES)
-                .build()
-            ).setSSLHostnameVerifier(NoopHostnameVerifier.INSTANCE)
-            .build()
-        )
-      )
     val httpRequest = Request(Method.valueOf(itemRequest.method), itemRequest.url.raw)
       .with(CONTENT_TYPE of APPLICATION_JSON)
       .body(itemRequest.body?.raw ?: "")
@@ -125,8 +111,12 @@ fun revUp(
     }
 
     // Marshall res
-    val clazz = itemNameToOutputType?.get(itemName)?.kotlin ?: Any::class
-    itemName to (configurableMoshi.asA(response.bodyString(), clazz) to clazz.java)
+    if (response.bodyString().isNotBlank()) {
+      val clazz = itemNameToOutputType?.get(itemName)?.kotlin ?: Map::class
+      itemName to (configurableMoshi.asA(response.bodyString(), clazz) to clazz.java)
+    } else {
+      itemName to ("" to String::class.java)
+    }
   }?.toMap() ?: emptyMap()
   return Pokemon(itemNameToResponseWithType, pm.environment)
 }

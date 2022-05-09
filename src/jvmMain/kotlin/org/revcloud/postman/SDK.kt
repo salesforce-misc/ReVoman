@@ -19,4 +19,9 @@ data class PostmanEnvironment(private val environment: MutableMap<String, String
   fun set(key: String, value: String?) {
     environment[key] = value
   }
+
+  @Suppress("unused")
+  fun unset(key: String) {
+    environment.remove(key)
+  }
 }

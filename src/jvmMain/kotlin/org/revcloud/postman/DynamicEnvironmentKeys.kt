@@ -1,4 +1,4 @@
-package org.revcloud
+package org.revcloud.postman
 
 import io.github.serpro69.kfaker.faker
 
@@ -12,7 +12,7 @@ val faker = faker { }
 val dynamicVariableKeyToGenerator = mapOf(
   "\$randomFirstName" to faker.name::firstName,
   "\$randomLastName" to faker.name::lastName,
-  "\$randomUserName" to faker.name::name,
+  "\$randomUserName" to faker.name::neutralFirstName,
   "\$randomCompanyName" to faker.company::name,
 )
 

@@ -70,6 +70,9 @@ kotlin {
         implementation("org.junit.jupiter:junit-jupiter-api:5.8.2")
         runtimeOnly("org.junit.jupiter:junit-jupiter-engine:5.8.2")
         implementation("org.assertj:assertj-core:3.22.0")
+        val kotestVersion = "5.3.0"
+        implementation("io.kotest:kotest-runner-junit5:$kotestVersion")
+        implementation("io.kotest:kotest-assertions-core:$kotestVersion")
       }
     }
   }
