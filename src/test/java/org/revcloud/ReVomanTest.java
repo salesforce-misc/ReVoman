@@ -11,10 +11,9 @@ import org.revcloud.response.types.salesforce.GraphResponse;
 import org.revcloud.response.types.salesforce.Graphs;
 
 class ReVomanTest {
-  private static final String TEST_RESOURCES_PATH = "src/jvmTest/resources/";
+  private static final String TEST_RESOURCES_PATH = "src/test/resources/";
 
   @Test
-  @Disabled
   void pokemon() {
     final var allPokemonItemName = "All Pokemon";
     final var itemNameToOutputType =
@@ -46,6 +45,7 @@ class ReVomanTest {
   }
 
   @Test
+  @Disabled
   void traveler() {
     final var pokemon = ReVoman.revUp(TEST_RESOURCES_PATH + "Traveler.postman_collection.json");
     System.out.println(pokemon);

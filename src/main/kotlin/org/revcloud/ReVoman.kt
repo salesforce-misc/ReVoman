@@ -101,10 +101,9 @@ fun revUp(
     if (!testScript.isNullOrBlank()) { // ! TODO gopala.akshintala 04/05/22: Catch and handle exceptions
       val testSource = Source.newBuilder("js", testScript, "pmItemTestScript.js").build()
       // ! TODO gopala.akshintala 03/05/22: support requirejs
-      val context = buildJsContext()
+      val context = buildJsContext(false)
       context.getBindings("js").putMember("pm", pm)
       context.getBindings("js").putMember("responseBody", response.bodyString())
-      context.eval("js", "const xml2Json = require('../src/jvmMain/resources/js/xml2Json.js');")
       try {
         context.eval(testSource)
       } catch (polyglotException: PolyglotException) {
@@ -114,7 +113,7 @@ fun revUp(
     }
 
     // Marshall response
-    if (response.bodyString().isNotBlank() && response.header("content-type") == APPLICATION_JSON.value) {
+    if (response.bodyString().isNotBlank() && response.header("content-type") == APPLICATION_JSON.toHeaderValue()) {
       val clazz = itemNameToOutputType?.get(itemName)?.kotlin ?: Map::class
       itemName to (configurableMoshi.asA(response.bodyString(), clazz) to clazz.java)
     } else {
@@ -124,13 +123,13 @@ fun revUp(
   return Pokemon(itemNameToResponseWithType, pm.environment)
 }
 
-private fun buildJsContext(): Context {
-  val path = RegexAdapterFactory::class.java.protectionDomain.codeSource.location.toURI().path
-  println(path)
+private fun buildJsContext(useCommonjsRequire: Boolean = true): Context {
   val options = buildMap {
-    put("js.commonjs-require", "true")
-    put("js.commonjs-require-cwd", path)
-    put("js.commonjs-core-modules-replacements", "path:path-browserify")
+    if (useCommonjsRequire) {
+      put("js.commonjs-require", "true")
+      put("js.commonjs-require-cwd", ".")
+      put("js.commonjs-core-modules-replacements", "path:path-browserify")
+    }
     put("js.esm-eval-returns-exports", "true")
     put("engine.WarnInterpreterOnly", "false")
   }

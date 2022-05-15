@@ -1,10 +1,10 @@
 import com.adarshr.gradle.testlogger.theme.ThemeType.MOCHA_PARALLEL
 import com.diffplug.spotless.extra.wtp.EclipseWtpFormatterStep.XML
 import io.gitlab.arturbosch.detekt.Detekt
-import org.jetbrains.kotlin.gradle.targets.js.npm.tasks.KotlinNpmInstallTask
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-  kotlin("multiplatform")
+  kotlin("jvm")
   application
   id("dev.zacsweers.moshix") version "0.17.1"
   `maven-publish`
@@ -21,85 +21,37 @@ repositories {
   mavenCentral()
 }
 
-kotlin {
-  jvm {
-    val main by compilations.getting {
-      kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
-        freeCompilerArgs = listOf("-opt-in=kotlin.RequiresOptIn")
-      }
-    }
-    val test by compilations.getting {
-      kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17.toString()
-        freeCompilerArgs = listOf("-opt-in=kotlin.RequiresOptIn")
-      }
-    }
-    withJava()
-    testRuns["test"].executionTask.configure {
-      useJUnitPlatform()
-    }
-  }
-  js(IR) {
-    nodejs()
-    useCommonJs()
-  }
-  sourceSets {
-    val jvmMain by getting {
-      dependencies {
-        val http4kVersion: String by project
-        api("org.http4k:http4k-core:$http4kVersion")
-        api("org.http4k:http4k-format-moshi:$http4kVersion")
-        api("dev.zacsweers.moshix:moshi-adapters:0.17.1")
-        api("org.slf4j:slf4j-api:1.7.36")
-        val graalVersion = "22.1.0"
-        api("org.graalvm.sdk:graal-sdk:$graalVersion")
-        api("org.graalvm.js:js:$graalVersion")
-        api("io.github.serpro69:kotlin-faker:1.10.0")
-
-        runtimeOnly("org.apache.logging.log4j:log4j-slf4j18-impl:2.17.2")
-      }
-    }
-    val jvmTest by getting {
-      dependencies {
-        implementation("org.junit.jupiter:junit-jupiter-api:5.8.2")
-        runtimeOnly("org.junit.jupiter:junit-jupiter-engine:5.8.2")
-        implementation("org.assertj:assertj-core:3.22.0")
-        val kotestVersion = "5.3.0"
-        implementation("io.kotest:kotest-runner-junit5:$kotestVersion")
-        implementation("io.kotest:kotest-assertions-core:$kotestVersion")
-      }
-    }
-    val commonMain by getting {
-      dependencies {
-        implementation(npm("moment", "^2.29.3"))
-        implementation(npm("xml2js", "^0.4.23"))
-        implementation(npm("path-browserify", "^1.0.1"))
-        implementation(npm("events", "^3.3.0"))
-        implementation(npm("timers", "^0.1.1"))
-      }
-    }
-  }
+dependencies {
+  val http4kVersion: String by project
+  api("org.http4k:http4k-core:$http4kVersion")
+  api("org.http4k:http4k-format-moshi:$http4kVersion")
+  api("dev.zacsweers.moshix:moshi-adapters:0.17.1")
+  api("org.slf4j:slf4j-api:1.7.36")
+  val graalVersion = "22.1.0"
+  api("org.graalvm.sdk:graal-sdk:$graalVersion")
+  api("org.graalvm.js:js:$graalVersion")
+  api("io.github.serpro69:kotlin-faker:1.10.0")
+  runtimeOnly("org.apache.logging.log4j:log4j-slf4j18-impl:2.17.2")
+  testImplementation("org.junit.jupiter:junit-jupiter-api:5.8.2")
+  runtimeOnly("org.junit.jupiter:junit-jupiter-engine:5.8.2")
+  testImplementation("org.assertj:assertj-core:3.22.0")
+  val kotestVersion = "5.3.0"
+  testImplementation("io.kotest:kotest-runner-junit5:$kotestVersion")
+  testImplementation("io.kotest:kotest-assertions-core:$kotestVersion")
 }
+
 tasks {
-  val copyNodeModules = register<Copy>("copyNodeModules") {
-    val kotlinNpmInstallTask = getByName<KotlinNpmInstallTask>(KotlinNpmInstallTask.NAME)
-    dependsOn(kotlinNpmInstallTask)
-    from(kotlinNpmInstallTask.nodeModulesDir.parent) {
-      include("node_modules/**")
-    }.into(projectDir)
-  }
-  getByName<KotlinNpmInstallTask>(KotlinNpmInstallTask.NAME).finalizedBy(copyNodeModules)
-  getByName<Jar>("jvmJar") {
-    val kotlinNpmInstallTask = getByName<KotlinNpmInstallTask>(KotlinNpmInstallTask.NAME)
-    dependsOn(kotlinNpmInstallTask)
-    from(kotlinNpmInstallTask.nodeModulesDir.parent) {
-      include("node_modules/**")
+  test.get().useJUnitPlatform()
+  withType<KotlinCompile> {
+    kotlinOptions {
+      jvmTarget = JavaVersion.VERSION_11.toString()
+      freeCompilerArgs = listOf("-opt-in=kotlin.RequiresOptIn")
     }
   }
-  getByName<Zip>("distZip").enabled = false
-  getByName<Tar>("distTar").enabled = false
-  getByName<Task>("jsGenerateExternalsIntegrated").enabled = false
+  compileTestJava {
+    sourceCompatibility = JavaVersion.VERSION_17.toString()
+    targetCompatibility = JavaVersion.VERSION_17.toString()
+  }
   testlogger {
     theme = MOCHA_PARALLEL
   }
