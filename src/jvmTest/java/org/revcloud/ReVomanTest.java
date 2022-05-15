@@ -5,6 +5,7 @@ import static org.revcloud.postman.DynamicEnvironmentKeys.BEARER_TOKEN;
 
 import java.util.List;
 import java.util.Map;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.revcloud.response.types.salesforce.GraphResponse;
 import org.revcloud.response.types.salesforce.Graphs;
@@ -13,6 +14,7 @@ class ReVomanTest {
   private static final String TEST_RESOURCES_PATH = "src/jvmTest/resources/";
 
   @Test
+  @Disabled
   void pokemon() {
     final var allPokemonItemName = "All Pokemon";
     final var itemNameToOutputType =
@@ -44,6 +46,13 @@ class ReVomanTest {
   }
 
   @Test
+  void traveler() {
+    final var pokemon = ReVoman.revUp(TEST_RESOURCES_PATH + "Traveler.postman_collection.json");
+    System.out.println(pokemon);
+  }
+
+  @Test
+  @Disabled
   void revUp() {
     final var pmCollectionPath = TEST_RESOURCES_PATH + "ReVoman.postman_collection.json";
     final var pmEnvironmentPath = TEST_RESOURCES_PATH + "ReVoman.postman_environment.json";

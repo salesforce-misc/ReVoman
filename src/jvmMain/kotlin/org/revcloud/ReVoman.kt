@@ -50,18 +50,20 @@ private val postManVariableRegex = "\\{\\{([^{}]*?)}}".toRegex()
 @JvmOverloads
 fun revUp(
   pmCollectionPath: String,
-  pmEnvironmentPath: String,
+  pmEnvironmentPath: String? = null,
   itemNameToOutputType: Map<String, Class<out Any>>? = emptyMap(),
   dynamicEnvironment: Map<String, String?> = emptyMap(),
   typesInResponseToIgnore: Set<Class<out Any>> = emptySet(),
   customAdaptersForResponse: List<Any> = emptyList(),
 ): Pokemon {
   // Load environment
-  val envJsonAdapter = Moshi.Builder().build().adapter<Environment>()
-  val environment: Environment? = envJsonAdapter.fromJson(readTextFromFile(pmEnvironmentPath))
   val pm = PostmanAPI()
-  pm.environment.putAll(environment?.values?.filter { it.enabled }?.associate { it.key to it.value } ?: emptyMap())
   pm.environment.putAll(dynamicEnvironment)
+  if (pmEnvironmentPath != null) {
+    val envJsonAdapter = Moshi.Builder().build().adapter<Environment>()
+    val environment: Environment? = envJsonAdapter.fromJson(readTextFromFile(pmEnvironmentPath))
+    pm.environment.putAll(environment?.values?.filter { it.enabled }?.associate { it.key to it.value } ?: emptyMap())
+  }
 
   // Marshall postman collection
   val collectionJsonAdapter = Moshi.Builder()
@@ -99,9 +101,10 @@ fun revUp(
     if (!testScript.isNullOrBlank()) { // ! TODO gopala.akshintala 04/05/22: Catch and handle exceptions
       val testSource = Source.newBuilder("js", testScript, "pmItemTestScript.js").build()
       // ! TODO gopala.akshintala 03/05/22: support requirejs
-      val context = buildJsContext(useCommonjsRequire = false)
+      val context = buildJsContext()
       context.getBindings("js").putMember("pm", pm)
       context.getBindings("js").putMember("responseBody", response.bodyString())
+      context.eval("js", "const xml2Json = require('../src/jvmMain/resources/js/xml2Json.js');")
       try {
         context.eval(testSource)
       } catch (polyglotException: PolyglotException) {
@@ -110,8 +113,8 @@ fun revUp(
       }
     }
 
-    // Marshall res
-    if (response.bodyString().isNotBlank()) {
+    // Marshall response
+    if (response.bodyString().isNotBlank() && response.header("content-type") == APPLICATION_JSON.value) {
       val clazz = itemNameToOutputType?.get(itemName)?.kotlin ?: Map::class
       itemName to (configurableMoshi.asA(response.bodyString(), clazz) to clazz.java)
     } else {
@@ -121,13 +124,13 @@ fun revUp(
   return Pokemon(itemNameToResponseWithType, pm.environment)
 }
 
-fun buildJsContext(useCommonjsRequire: Boolean = true): Context {
+private fun buildJsContext(): Context {
+  val path = RegexAdapterFactory::class.java.protectionDomain.codeSource.location.toURI().path
+  println(path)
   val options = buildMap {
-    if (useCommonjsRequire) {
-      put("js.commonjs-require", "true")
-      put("js.commonjs-require-cwd", ".")
-      put("js.commonjs-core-modules-replacements", "buffer:buffer/, path:path-browserify")
-    }
+    put("js.commonjs-require", "true")
+    put("js.commonjs-require-cwd", path)
+    put("js.commonjs-core-modules-replacements", "path:path-browserify")
     put("js.esm-eval-returns-exports", "true")
     put("engine.WarnInterpreterOnly", "false")
   }
@@ -166,6 +169,25 @@ private class RegexAdapterFactory(val envMap: Map<String, String?>) : JsonAdapte
   }
 }
 
+internal class IgnoreUnknownFactory(private val typesToIgnore: Set<Class<out Any>>) : JsonAdapter.Factory {
+  override fun create(
+    type: Type, annotations: Set<Annotation?>, moshi: Moshi
+  ): JsonAdapter<*> {
+    val rawType = Types.getRawType(type)
+    return if (typesToIgnore.contains(rawType)) {
+      object : JsonAdapter<Type>() {
+        override fun fromJson(reader: JsonReader): Type? {
+          return null
+        }
+
+        override fun toJson(writer: JsonWriter, value: Type?) {
+          // do nothing
+        }
+      }
+    } else moshi.nextAdapter<Any>(this, type, annotations)
+  }
+}
+
 fun configurableMoshi(
   typesToIgnore: Set<Class<out Any>> = emptySet(),
   customAdaptersForResponse: List<Any> = emptyList()
@@ -186,24 +208,4 @@ fun configurableMoshi(
       .withStandardMappings()
       .done()
   ) {}
-}
-
-
-internal class IgnoreUnknownFactory(private val typesToIgnore: Set<Class<out Any>>) : JsonAdapter.Factory {
-  override fun create(
-    type: Type, annotations: Set<Annotation?>, moshi: Moshi
-  ): JsonAdapter<*> {
-    val rawType = Types.getRawType(type)
-    return if (typesToIgnore.contains(rawType)) {
-      object : JsonAdapter<Type>() {
-        override fun fromJson(reader: JsonReader): Type? {
-          return null
-        }
-
-        override fun toJson(writer: JsonWriter, value: Type?) {
-          // do nothing
-        }
-      }
-    } else moshi.nextAdapter<Any>(this, type, annotations)
-  }
 }

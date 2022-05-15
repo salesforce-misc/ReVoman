@@ -1,0 +1,43 @@
+{
+	"info": {
+		"_postman_id": "c4ded959-4652-452c-9878-5ae71265047b",
+		"name": "Traveler",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Traveler",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"var jsonData = xml2Json(responseBody)",
+							"console.log(jsonData.TravelerinformationResponse.page)",
+							"pm.environment.set('page', jsonData.TravelerinformationResponse.page)"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://restapi.adequateshop.com/api/Traveler",
+					"protocol": "http",
+					"host": [
+						"restapi",
+						"adequateshop",
+						"com"
+					],
+					"path": [
+						"api",
+						"Traveler"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}

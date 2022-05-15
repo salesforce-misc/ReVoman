@@ -1,5 +1,6 @@
-const xml2js = require("../../../../node_modules/xml2js");
-/**
+const xml2js = require("../../../node_modules/xml2js");
+
+    /**
      * @constant
      * @type {Object}
      */
