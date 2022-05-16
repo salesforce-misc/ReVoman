@@ -13,7 +13,8 @@
 					"script": {
 						"exec": [
 							"var jsonData = xml2Json(responseBody)",
-							"console.log(jsonData.TravelerinformationResponse.page)",
+							"console.log('****')",
+							"console.log(jsonData)",
 							"pm.environment.set('page', jsonData.TravelerinformationResponse.page)"
 						],
 						"type": "text/javascript"

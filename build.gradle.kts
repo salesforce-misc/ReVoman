@@ -31,6 +31,8 @@ dependencies {
   api("org.graalvm.sdk:graal-sdk:$graalVersion")
   api("org.graalvm.js:js:$graalVersion")
   api("io.github.serpro69:kotlin-faker:1.10.0")
+  api("com.fasterxml.jackson.core:jackson-databind:2.13.2.2")
+  api("com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.13.2")
   runtimeOnly("org.apache.logging.log4j:log4j-slf4j18-impl:2.17.2")
   testImplementation("org.junit.jupiter:junit-jupiter-api:5.8.2")
   runtimeOnly("org.junit.jupiter:junit-jupiter-engine:5.8.2")

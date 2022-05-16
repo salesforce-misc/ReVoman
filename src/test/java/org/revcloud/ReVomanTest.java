@@ -45,7 +45,6 @@ class ReVomanTest {
   }
 
   @Test
-  @Disabled
   void traveler() {
     final var pokemon = ReVoman.revUp(TEST_RESOURCES_PATH + "Traveler.postman_collection.json");
     System.out.println(pokemon);

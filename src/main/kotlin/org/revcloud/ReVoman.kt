@@ -45,6 +45,11 @@ import java.lang.reflect.Type
 import java.util.Date
 
 private val postManVariableRegex = "\\{\\{([^{}]*?)}}".toRegex()
+private val pm = PostmanAPI()
+private val jsContext = buildJsContext(false).also {
+  it.getBindings("js").putMember("pm", pm)
+  it.getBindings("js").putMember("xml2Json", pm.xml2Json)
+}
 
 @OptIn(ExperimentalStdlibApi::class)
 @JvmOverloads
@@ -57,7 +62,6 @@ fun revUp(
   customAdaptersForResponse: List<Any> = emptyList(),
 ): Pokemon {
   // Load environment
-  val pm = PostmanAPI()
   pm.environment.putAll(dynamicEnvironment)
   if (pmEnvironmentPath != null) {
     val envJsonAdapter = Moshi.Builder().build().adapter<Environment>()
@@ -100,12 +104,10 @@ fun revUp(
     val testScript = item?.event?.find { it.listen == "test" }?.script?.exec?.joinToString("\n")
     if (!testScript.isNullOrBlank()) { // ! TODO gopala.akshintala 04/05/22: Catch and handle exceptions
       val testSource = Source.newBuilder("js", testScript, "pmItemTestScript.js").build()
-      // ! TODO gopala.akshintala 03/05/22: support requirejs
-      val context = buildJsContext(false)
-      context.getBindings("js").putMember("pm", pm)
-      context.getBindings("js").putMember("responseBody", response.bodyString())
+      jsContext.getBindings("js").putMember("responseBody", response.bodyString())
       try {
-        context.eval(testSource)
+        // ! TODO gopala.akshintala 15/05/22: Keep a tab on context mixing from different Items
+        jsContext.eval(testSource)
       } catch (polyglotException: PolyglotException) {
         println(itemName)
         throw polyglotException
