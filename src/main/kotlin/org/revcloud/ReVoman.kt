@@ -12,17 +12,15 @@ import com.squareup.moshi.adapters.Rfc3339DateJsonAdapter
 import com.squareup.moshi.internal.Util
 import dev.zacsweers.moshix.adapters.AdaptedBy
 import dev.zacsweers.moshix.adapters.JsonString
+import org.apache.commons.lang3.StringUtils
 import org.graalvm.polyglot.Context
 import org.graalvm.polyglot.HostAccess
 import org.graalvm.polyglot.PolyglotException
 import org.graalvm.polyglot.Source
 import org.http4k.client.JavaHttpClient
+import org.http4k.core.*
 import org.http4k.core.ContentType.Companion.APPLICATION_JSON
-import org.http4k.core.Method
-import org.http4k.core.Request
-import org.http4k.core.Response
-import org.http4k.core.then
-import org.http4k.core.with
+import org.http4k.core.ContentType.Companion.Text
 import org.http4k.filter.ClientFilters
 import org.http4k.filter.DebuggingFilters
 import org.http4k.format.ConfigurableMoshi
@@ -56,10 +54,11 @@ private val jsContext = buildJsContext(false).also {
 fun revUp(
   pmCollectionPath: String,
   pmEnvironmentPath: String? = null,
+  bearerTokenKey: String? = BEARER_TOKEN,
   itemNameToOutputType: Map<String, Class<out Any>>? = emptyMap(),
   dynamicEnvironment: Map<String, String?> = emptyMap(),
-  typesInResponseToIgnore: Set<Class<out Any>> = emptySet(),
   customAdaptersForResponse: List<Any> = emptyList(),
+  typesInResponseToIgnore: Set<Class<out Any>> = emptySet(),
 ): Pokemon {
   // Load environment
   pm.environment.putAll(dynamicEnvironment)
@@ -75,19 +74,29 @@ fun revUp(
     .adapter<Collection>()
   val pmCollection: Collection? = collectionJsonAdapter.fromJson(readTextFromFile(pmCollectionPath))
 
-  // Post request
-  val itemJsonAdapter = Moshi.Builder().add(RegexAdapterFactory(pm.environment)).build().adapter<Item>()
   val configurableMoshi = configurableMoshi(typesInResponseToIgnore, customAdaptersForResponse)
-  val httpClient = DebuggingFilters.PrintRequestAndResponse()
-    .then(ClientFilters.BearerAuth(dynamicEnvironment[BEARER_TOKEN] ?: ""))
-    .then(JavaHttpClient())
+  val itemJsonAdapter = Moshi.Builder().add(RegexAdapterFactory(pm.environment)).build().adapter<Item>()
+  // Fire requests
   val itemNameToResponseWithType = pmCollection?.item?.asSequence()?.map { itemData ->
     val item = itemJsonAdapter.fromJson(itemData.data)
     val itemRequest: org.revcloud.postman.state.collection.Request =
       item?.request ?: org.revcloud.postman.state.collection.Request()
-    val httpRequest = Request(Method.valueOf(itemRequest.method), itemRequest.url.raw)
-      .with(CONTENT_TYPE of APPLICATION_JSON)
+    val contentType = itemRequest.header.firstOrNull {
+      it.key.equals(
+        CONTENT_TYPE.meta.name,
+        ignoreCase = true
+      )
+    }?.value?.let { Text(it) } ?: APPLICATION_JSON
+    val uri = encodeUri(itemRequest.url.raw)
+    val httpRequest = Request(Method.valueOf(itemRequest.method), uri)
+      .with(CONTENT_TYPE of contentType)
+      .headers(itemRequest.header.map { it.key to it.value })
       .body(itemRequest.body?.raw ?: "")
+
+    // Prepare httpClient
+    val httpClient: HttpHandler = DebuggingFilters.PrintRequestAndResponse()
+      .then(pm.environment[bearerTokenKey]?.let { ClientFilters.BearerAuth(it) } ?: Filter.NoOp)
+      .then(JavaHttpClient())
     val response: Response = httpClient(httpRequest)
 
     // Init pm environment
@@ -115,15 +124,25 @@ fun revUp(
     }
 
     // Marshall response
-    if (response.bodyString().isNotBlank() && response.header("content-type") == APPLICATION_JSON.toHeaderValue()) {
+    if (isContentTypeApplicationJson(response)) {
       val clazz = itemNameToOutputType?.get(itemName)?.kotlin ?: Map::class
       itemName to (configurableMoshi.asA(response.bodyString(), clazz) to clazz.java)
     } else {
-      itemName to ("" to String::class.java)
+      itemName to ("" to Nothing::class.java)
     }
   }?.toMap() ?: emptyMap()
   return Pokemon(itemNameToResponseWithType, pm.environment)
 }
+
+private fun isContentTypeApplicationJson(response: Response) =
+  response.bodyString().isNotBlank() && response.header("content-type")?.let { StringUtils.deleteWhitespace(it)
+    .equals(StringUtils.deleteWhitespace(APPLICATION_JSON.toHeaderValue()), ignoreCase = true) } ?: false
+
+internal fun encodeUri(url: String): Uri {
+  val uri = Uri.of(url)
+  return uri.copy(query = uri.query.toParameters().toUrlFormEncoded())
+}
+
 
 private fun buildJsContext(useCommonjsRequire: Boolean = true): Context {
   val options = buildMap {
@@ -170,7 +189,7 @@ private class RegexAdapterFactory(val envMap: Map<String, String?>) : JsonAdapte
   }
 }
 
-internal class IgnoreUnknownFactory(private val typesToIgnore: Set<Class<out Any>>) : JsonAdapter.Factory {
+private class IgnoreUnknownFactory(private val typesToIgnore: Set<Class<out Any>>) : JsonAdapter.Factory {
   override fun create(
     type: Type, annotations: Set<Annotation?>, moshi: Moshi
   ): JsonAdapter<*> {
@@ -189,7 +208,7 @@ internal class IgnoreUnknownFactory(private val typesToIgnore: Set<Class<out Any
   }
 }
 
-fun configurableMoshi(
+private fun configurableMoshi(
   typesToIgnore: Set<Class<out Any>> = emptySet(),
   customAdaptersForResponse: List<Any> = emptyList()
 ): ConfigurableMoshi {

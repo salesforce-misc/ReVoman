@@ -1,6 +1,8 @@
 package org.revcloud.postman
 
-import com.fasterxml.jackson.dataformat.xml.XmlMapper
+import com.github.underscore.U
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.adapter
 import org.revcloud.postman.state.collection.Request
 import org.revcloud.postman.state.collection.Response
 
@@ -9,17 +11,22 @@ internal class PostmanAPI {
   val environment: PostmanEnvironment = PostmanEnvironment()
   lateinit var request: Request
   lateinit var response: Response
-  
+
   @Suppress("unused")
   fun setEnvironmentVariable(key: String, value: String) {
     environment.set(key, value)
   }
-  
+
+  @OptIn(ExperimentalStdlibApi::class)
   @JvmField
-  val xml2Json = Xml2Json { xml -> XmlMapper().readValue(xml, Map::class.java) }
+  val xml2Json = Xml2Json { xml ->
+    Moshi.Builder().build().adapter<Map<*, *>>().fromJson(U.xmlToJson(xml))
+  }
+
 }
 
-internal data class PostmanEnvironment(private val environment: MutableMap<String, String?> = mutableMapOf()): MutableMap<String, String?> by environment {
+internal data class PostmanEnvironment(private val environment: MutableMap<String, String?> = mutableMapOf()) :
+  MutableMap<String, String?> by environment {
   fun set(key: String, value: String?) {
     environment[key] = value
   }
@@ -33,6 +40,5 @@ internal data class PostmanEnvironment(private val environment: MutableMap<Strin
 @FunctionalInterface
 internal fun interface Xml2Json {
   @Suppress("unused")
-  fun xml2Json(xml: String): Map<*, *>
+  fun xml2Json(xml: String): Map<*, *>?
 }
-

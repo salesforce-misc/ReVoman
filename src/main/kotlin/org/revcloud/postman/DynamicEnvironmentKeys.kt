@@ -7,13 +7,14 @@ object DynamicEnvironmentKeys {
   const val BASE_URL = "baseUrl"
 }
 
-val faker = faker { }
+private val faker = faker { }
 
-val dynamicVariableKeyToGenerator = mapOf(
+val dynamicVariableKeyToGenerator: Map<String, () -> String> = mapOf(
   "\$randomFirstName" to faker.name::firstName,
   "\$randomLastName" to faker.name::lastName,
   "\$randomUserName" to faker.name::neutralFirstName,
   "\$randomCompanyName" to faker.company::name,
+  "\$randomEmail" to { faker.internet.email() },
 )
 
-fun dynamicVariables(key: String): String? = dynamicVariableKeyToGenerator[key]?.invoke()
+internal fun dynamicVariables(key: String): String? = dynamicVariableKeyToGenerator[key]?.invoke()
