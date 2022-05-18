@@ -40,12 +40,6 @@ class ReVomanTest {
   }
 
   @Test
-  void traveler() {
-    final var pokemon = ReVoman.revUp(TEST_RESOURCES_PATH + "Traveler.postman_collection.json");
-    System.out.println(pokemon);
-  }
-
-  @Test
   void revUp() {
     final var pmCollectionPath = TEST_RESOURCES_PATH + "ReVoman.postman_collection.json";
     final var pmEnvironmentPath = TEST_RESOURCES_PATH + "ReVoman.postman_environment.json";

@@ -40,6 +40,7 @@ import org.revcloud.postman.state.collection.Item
 import org.revcloud.postman.state.environment.Environment
 import java.io.File
 import java.lang.reflect.Type
+import java.net.URLDecoder
 import java.util.Date
 
 private val postManVariableRegex = "\\{\\{([^{}]*?)}}".toRegex()
@@ -49,6 +50,7 @@ private val jsContext = buildJsContext(false).also {
   it.getBindings("js").putMember("xml2Json", pm.xml2Json)
 }
 
+// ! TODO gopala.akshintala 18/05/22: Refactor this method
 @OptIn(ExperimentalStdlibApi::class)
 @JvmOverloads
 fun revUp(
@@ -143,6 +145,11 @@ internal fun encodeUri(url: String): Uri {
   return uri.copy(query = uri.query.toParameters().toUrlFormEncoded())
 }
 
+private fun String.toParameters() = if (isNotEmpty()) split("&").map(String::toParameter) else listOf()
+private fun String.toParameter(): Pair<String, String?> =
+  split("=", limit = 2).map(String::fromFormEncoded).let { l -> l.elementAt(0) to l.elementAtOrNull(1) }
+
+private fun String.fromFormEncoded() = URLDecoder.decode(this, "UTF-8")
 
 private fun buildJsContext(useCommonjsRequire: Boolean = true): Context {
   val options = buildMap {

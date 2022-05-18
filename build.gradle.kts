@@ -15,7 +15,7 @@ plugins {
 }
 
 group = "com.salesforce.ccspayments"
-version = "0.1.3"
+version = "0.1.4"
 
 repositories {
   mavenCentral()
@@ -23,16 +23,16 @@ repositories {
 
 dependencies {
   val http4kVersion: String by project
-  api("org.http4k:http4k-core:$http4kVersion")
-  api("org.http4k:http4k-format-moshi:$http4kVersion")
-  api("dev.zacsweers.moshix:moshi-adapters:0.17.1")
-  api("org.slf4j:slf4j-api:1.7.36")
+  implementation("org.http4k:http4k-core:$http4kVersion")
+  implementation("org.http4k:http4k-format-moshi:$http4kVersion")
+  implementation("dev.zacsweers.moshix:moshi-adapters:0.17.1")
+  implementation("org.slf4j:slf4j-api:1.7.36")
   implementation("org.apache.commons:commons-lang3:3.12.0")
   val graalVersion = "22.1.0"
-  api("org.graalvm.sdk:graal-sdk:$graalVersion")
-  api("org.graalvm.js:js:$graalVersion")
-  api("io.github.serpro69:kotlin-faker:1.10.0")
-  api("com.github.javadev:underscore:1.77")
+  implementation("org.graalvm.sdk:graal-sdk:$graalVersion")
+  implementation("org.graalvm.js:js:$graalVersion")
+  implementation("io.github.serpro69:kotlin-faker:1.10.0")
+  implementation("com.github.javadev:underscore:1.77")
   runtimeOnly("org.apache.logging.log4j:log4j-slf4j18-impl:2.17.2")
   testImplementation("org.junit.jupiter:junit-jupiter-api:5.8.2")
   runtimeOnly("org.junit.jupiter:junit-jupiter-engine:5.8.2")
@@ -131,6 +131,8 @@ publishing {
   }
   publications.create<MavenPublication>("revoman") {
     pom {
+      val subprojectJarName = tasks.jar.get().archiveBaseName.get()
+      artifactId = if (subprojectJarName == "revoman-root") "revoman" else "revoman-$subprojectJarName"
       name.set("revoman")
       description.set(project.description)
       url.set("https://git.soma.salesforce.com/CCSPayments/ReVoman")
