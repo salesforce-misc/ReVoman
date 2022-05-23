@@ -1,6 +1,7 @@
 package org.revcloud;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.http4k.core.UriKt.toPathSegmentEncoded;
 
 import java.util.List;
 import java.util.Map;
@@ -77,14 +78,6 @@ class ReVomanTest {
     assertThat(bsResponse.get("billingScheduleResultsList")).hasSize(1);
     assertThat(((Boolean) bsResponse.get("billingScheduleResultsList").get(0).get("success")))
         .isTrue();
-  }
-
-  @Test
-  void encodeUri() {
-    final var url = "https://na45.test1.pc-rnd.salesforce.com/services/data/v55.0/query/?q=SELECT Id FROM Profile where Name = 'Standard User'";
-    System.out.println(ReVoman.encodeUri(url));
-    final var url2 = "https://pokeapi.co/pokemon?limit=10";
-    System.out.println(ReVoman.encodeUri(url2));
   }
 
   public record Pokemon(String name) {}

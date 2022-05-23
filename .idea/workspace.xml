@@ -4,9 +4,12 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="3153e138-c5ab-46f2-8910-5c16e0ec9d9a" name="Changes" comment=":tada: A full working E2E test">
+    <list default="true" id="3153e138-c5ab-46f2-8910-5c16e0ec9d9a" name="Changes" comment=":tada: A full working E2E test&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopalakshintala@gmail.com&gt;">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/build.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/build.gradle.kts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/gradle.properties" beforeDir="false" afterPath="$PROJECT_DIR$/gradle.properties" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/ReVoman.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/ReVoman.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/test/java/org/revcloud/ReVomanTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/java/org/revcloud/ReVomanTest.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -145,8 +148,10 @@
     <setting file="file://$PROJECT_DIR$/gradle.properties" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/src/main/kotlin/org/revcloud/ReVoman.kt" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/src/main/kotlin/org/revcloud/output/Pokemon.kt" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/src/main/kotlin/org/revcloud/postman/DynamicEnvironmentKeys.kt" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/src/test/java/org/revcloud/ReVomanTest.java" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/src/test/resources/ReVoman.postman_collection.json" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/src/test/resources/ReVoman.postman_environment.json" root0="FORCE_HIGHLIGHTING" />
   </component>
   <component name="MarkdownSettingsMigration">
     <option name="stateVersion" value="1" />
@@ -177,15 +182,15 @@
     &quot;WebServerToolWindowFactoryState&quot;: &quot;false&quot;,
     &quot;com.intellij.testIntegration.createTest.CreateTestDialog.defaultLibrary&quot;: &quot;JUnit5&quot;,
     &quot;com.intellij.testIntegration.createTest.CreateTestDialog.defaultLibrarySuperClass.JUnit5&quot;: &quot;&quot;,
-    &quot;javascript.nodejs.core.library.configured.version&quot;: &quot;16.14.2&quot;,
-    &quot;javascript.nodejs.core.library.typings.version&quot;: &quot;16.11.35&quot;,
+    &quot;javascript.nodejs.core.library.configured.version&quot;: &quot;16.15.0&quot;,
+    &quot;javascript.nodejs.core.library.typings.version&quot;: &quot;16.11.36&quot;,
     &quot;last_opened_file_path&quot;: &quot;/Users/gopala.akshintala/code-clones/work/revoman-root/src/jvmTest/resources&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
     &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
     &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;vcs.Git&quot;
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;
   }
 }</component>
   <component name="Push.Settings">
@@ -217,12 +222,13 @@
       <command value="gradle jvmJar" />
       <command value="gradle clean build" />
       <command value="gradle fatJar" />
-      <command value="gradle publishJvmPublicationToMavenLocal" />
       <command value="gradle spotlessApply" />
+      <command value="gradle publishJvmPublicationToMavenLocal" />
       <command value="gradle publish" />
+      <command value="gradle publishToMavenLocal" />
     </option>
   </component>
-  <component name="RunManager" selected="Gradle.revoman-root [publish]">
+  <component name="RunManager" selected="Gradle.ReVomanTest.revUp">
     <configuration name="ReVomanTest.encodeUri" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
       <ExternalSystemSettings>
         <option name="executionName" />
@@ -237,29 +243,6 @@
             <option value=":test" />
             <option value="--tests" />
             <option value="&quot;org.revcloud.ReVomanTest.encodeUri&quot;" />
-          </list>
-        </option>
-        <option name="vmOptions" />
-      </ExternalSystemSettings>
-      <ExternalSystemDebugServerProcess>false</ExternalSystemDebugServerProcess>
-      <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
-      <DebugAllEnabled>false</DebugAllEnabled>
-      <method v="2" />
-    </configuration>
-    <configuration name="ReVomanTest.pokemon" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
-      <ExternalSystemSettings>
-        <option name="executionName" />
-        <option name="externalProjectPath" value="$PROJECT_DIR$" />
-        <option name="externalSystemIdString" value="GRADLE" />
-        <option name="scriptParameters" value="" />
-        <option name="taskDescriptions">
-          <list />
-        </option>
-        <option name="taskNames">
-          <list>
-            <option value=":test" />
-            <option value="--tests" />
-            <option value="&quot;org.revcloud.ReVomanTest.pokemon&quot;" />
           </list>
         </option>
         <option name="vmOptions" />
@@ -292,6 +275,48 @@
       <DebugAllEnabled>false</DebugAllEnabled>
       <method v="2" />
     </configuration>
+    <configuration name="revoman-root [publishJvmPublicationToMavenLocal]" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
+      <ExternalSystemSettings>
+        <option name="executionName" />
+        <option name="externalProjectPath" value="$PROJECT_DIR$" />
+        <option name="externalSystemIdString" value="GRADLE" />
+        <option name="scriptParameters" value="" />
+        <option name="taskDescriptions">
+          <list />
+        </option>
+        <option name="taskNames">
+          <list>
+            <option value="publishJvmPublicationToMavenLocal" />
+          </list>
+        </option>
+        <option name="vmOptions" />
+      </ExternalSystemSettings>
+      <ExternalSystemDebugServerProcess>true</ExternalSystemDebugServerProcess>
+      <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
+      <DebugAllEnabled>false</DebugAllEnabled>
+      <method v="2" />
+    </configuration>
+    <configuration name="revoman-root [publishToMavenLocal]" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
+      <ExternalSystemSettings>
+        <option name="executionName" />
+        <option name="externalProjectPath" value="$PROJECT_DIR$" />
+        <option name="externalSystemIdString" value="GRADLE" />
+        <option name="scriptParameters" value="" />
+        <option name="taskDescriptions">
+          <list />
+        </option>
+        <option name="taskNames">
+          <list>
+            <option value="publishToMavenLocal" />
+          </list>
+        </option>
+        <option name="vmOptions" />
+      </ExternalSystemSettings>
+      <ExternalSystemDebugServerProcess>true</ExternalSystemDebugServerProcess>
+      <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
+      <DebugAllEnabled>false</DebugAllEnabled>
+      <method v="2" />
+    </configuration>
     <configuration name="revoman-root [publish]" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
       <ExternalSystemSettings>
         <option name="executionName" />
@@ -313,34 +338,13 @@
       <DebugAllEnabled>false</DebugAllEnabled>
       <method v="2" />
     </configuration>
-    <configuration name="revoman-root [spotlessApply]" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
-      <ExternalSystemSettings>
-        <option name="executionName" />
-        <option name="externalProjectPath" value="$PROJECT_DIR$" />
-        <option name="externalSystemIdString" value="GRADLE" />
-        <option name="scriptParameters" value="" />
-        <option name="taskDescriptions">
-          <list />
-        </option>
-        <option name="taskNames">
-          <list>
-            <option value="spotlessApply" />
-          </list>
-        </option>
-        <option name="vmOptions" />
-      </ExternalSystemSettings>
-      <ExternalSystemDebugServerProcess>true</ExternalSystemDebugServerProcess>
-      <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
-      <DebugAllEnabled>false</DebugAllEnabled>
-      <method v="2" />
-    </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="Gradle.revoman-root [publish]" />
         <item itemvalue="Gradle.ReVomanTest.revUp" />
         <item itemvalue="Gradle.ReVomanTest.encodeUri" />
-        <item itemvalue="Gradle.ReVomanTest.pokemon" />
-        <item itemvalue="Gradle.revoman-root [spotlessApply]" />
+        <item itemvalue="Gradle.revoman-root [publishToMavenLocal]" />
+        <item itemvalue="Gradle.revoman-root [publishJvmPublicationToMavenLocal]" />
+        <item itemvalue="Gradle.revoman-root [publish]" />
       </list>
     </recent_temporary>
   </component>
@@ -360,6 +364,14 @@
       <workItem from="1652756389222" duration="35582000" />
       <workItem from="1652890230978" duration="1957000" />
       <workItem from="1652922191172" duration="299000" />
+      <workItem from="1652922497773" duration="20000" />
+      <workItem from="1652926459689" duration="419000" />
+      <workItem from="1652960553636" duration="10119000" />
+      <workItem from="1653044294803" duration="369000" />
+      <workItem from="1653054251843" duration="528000" />
+      <workItem from="1653114649303" duration="671000" />
+      <workItem from="1653186949478" duration="4446000" />
+      <workItem from="1653281492728" duration="2958000" />
     </task>
     <task id="LOCAL-00001" summary="tmp">
       <created>1652606203677</created>
@@ -403,7 +415,14 @@
       <option name="project" value="LOCAL" />
       <updated>1652892324886</updated>
     </task>
-    <option name="localTasksCounter" value="7" />
+    <task id="LOCAL-00007" summary=":tada: A full working E2E test&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopalakshintala@gmail.com&gt;">
+      <created>1652922505195</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1652922505195</updated>
+    </task>
+    <option name="localTasksCounter" value="8" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -438,7 +457,8 @@
     <MESSAGE value="tmp" />
     <MESSAGE value="tmp&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopalakshintala@gmail.com&gt;" />
     <MESSAGE value=":tada: A full working E2E test" />
-    <option name="LAST_COMMIT_MESSAGE" value=":tada: A full working E2E test" />
+    <MESSAGE value=":tada: A full working E2E test&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopalakshintala@gmail.com&gt;" />
+    <option name="LAST_COMMIT_MESSAGE" value=":tada: A full working E2E test&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopalakshintala@gmail.com&gt;" />
   </component>
   <component name="XDebuggerManager">
     <watches-manager>

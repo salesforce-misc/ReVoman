@@ -15,7 +15,7 @@ plugins {
 }
 
 group = "com.salesforce.ccspayments"
-version = "0.1.4"
+version = "0.1.6"
 
 repositories {
   mavenCentral()
@@ -124,16 +124,12 @@ spotless {
   }
 }
 publishing {
-  publications.withType<MavenPublication> {
-    if (name == "jvm") {
-      artifactId = "revoman"
-    }
-  }
   publications.create<MavenPublication>("revoman") {
+    val subprojectJarName = tasks.jar.get().archiveBaseName.get()
+    artifactId = if (subprojectJarName == "revoman-root") "revoman" else "revoman-$subprojectJarName"
+    from(components["java"])
     pom {
-      val subprojectJarName = tasks.jar.get().archiveBaseName.get()
-      artifactId = if (subprojectJarName == "revoman-root") "revoman" else "revoman-$subprojectJarName"
-      name.set("revoman")
+      name.set(artifactId)
       description.set(project.description)
       url.set("https://git.soma.salesforce.com/CCSPayments/ReVoman")
       licenses {
