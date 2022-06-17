@@ -6,7 +6,7 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 plugins {
   kotlin("jvm")
   application
-  id("dev.zacsweers.moshix") version "0.17.1"
+  id("dev.zacsweers.moshix") version "0.18.1"
   `maven-publish`
   id("io.gitlab.arturbosch.detekt") version "1.20.0"
   id("com.adarshr.test-logger") version "3.2.0"
@@ -47,7 +47,7 @@ tasks {
   withType<KotlinCompile> {
     kotlinOptions {
       jvmTarget = JavaVersion.VERSION_11.toString()
-      freeCompilerArgs = listOf("-opt-in=kotlin.RequiresOptIn")
+      freeCompilerArgs = listOf("-Xjdk-release=11")
     }
   }
   compileTestJava {

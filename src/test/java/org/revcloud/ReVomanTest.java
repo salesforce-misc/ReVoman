@@ -1,7 +1,6 @@
 package org.revcloud;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.http4k.core.UriKt.toPathSegmentEncoded;
 
 import java.util.List;
 import java.util.Map;

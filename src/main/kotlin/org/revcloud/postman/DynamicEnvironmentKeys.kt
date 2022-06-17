@@ -9,7 +9,7 @@ object DynamicEnvironmentKeys {
 
 private val faker = faker { }
 
-val dynamicVariableKeyToGenerator: Map<String, () -> String> = mapOf(
+private val dynamicVariableKeyToGenerator: Map<String, () -> String> = mapOf(
   "\$randomFirstName" to faker.name::firstName,
   "\$randomLastName" to faker.name::lastName,
   "\$randomUserName" to faker.name::neutralFirstName,
