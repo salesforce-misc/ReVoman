@@ -1,6 +1,6 @@
 package org.revcloud.output
 
-data class Pokemon(
+data class Rundown(
   @JvmField
   val itemNameToResponseWithType: Map<String, Pair<Any, Class<out Any>>>,
   @JvmField

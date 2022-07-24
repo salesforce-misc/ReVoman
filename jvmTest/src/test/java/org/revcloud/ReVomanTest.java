@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.revcloud.input.Kick;
 import org.revcloud.response.types.salesforce.Graphs;
 
 class ReVomanTest {
@@ -19,7 +20,14 @@ class ReVomanTest {
     final var pmCollectionPath = TEST_RESOURCES_PATH + "Pokemon.postman_collection.json";
     final var pmEnvironmentPath = TEST_RESOURCES_PATH + "Pokemon.postman_environment.json";
     final var dynamicEnvironment = Map.of("limit", String.valueOf(limit));
-    final var pokemon = ReVoman.revUp(pmCollectionPath, pmEnvironmentPath, null, itemNameToOutputType, dynamicEnvironment);
+    final var kickOffConfig =
+        Kick.configure()
+            .templatePath(pmCollectionPath)
+            .environmentPath(pmEnvironmentPath)
+            .itemNameToOutputType(itemNameToOutputType)
+            .dynamicEnvironment(dynamicEnvironment)
+            .off();
+    final var pokemon = ReVoman.revUp(kickOffConfig);
 
     assertThat(pokemon.itemNameToResponseWithType).hasSize(2);
     final Class<?> allPokemonResultType =
@@ -42,24 +50,25 @@ class ReVomanTest {
   @Test
   void revUp() {
     final var pmCollectionPath = TEST_RESOURCES_PATH + "ReVoman.postman_collection.json";
-    final var pmEnvironmentPath = TEST_RESOURCES_PATH + "ReVoman.postman_environment.json";
-    final var setupGraphMinimalItemName = "setup-graph (minimal)";
-    final var itemNameToOutputType = Map.of(setupGraphMinimalItemName, Graphs.class);
-    final var pokemon =
+    final var pmEnvironmentPath =
+        TEST_RESOURCES_PATH + "ReVoman (UTest - Linux).postman_environment.json";
+    final var orderOrderItemGraphReqName = "order-orderItem";
+    final var itemNameToOutputType = Map.of(orderOrderItemGraphReqName, Graphs.class);
+    final var rundown =
         ReVoman.revUp(pmCollectionPath, pmEnvironmentPath, "accessToken", itemNameToOutputType);
 
     // ! TODO gopala.akshintala 09/05/22: Pass these assertions as Vader configs.
-    assertThat(pokemon.itemNameToResponseWithType).hasSize(20);
+    assertThat(rundown.itemNameToResponseWithType).hasSize(20);
 
     final Class<?> graphsResponseType =
-        pokemon.itemNameToResponseWithType.get(setupGraphMinimalItemName).getSecond();
-    assertThat(graphsResponseType).isEqualTo(itemNameToOutputType.get(setupGraphMinimalItemName));
+        rundown.itemNameToResponseWithType.get(orderOrderItemGraphReqName).getSecond();
+    assertThat(graphsResponseType).isEqualTo(itemNameToOutputType.get(orderOrderItemGraphReqName));
     final var graphsResponse =
-        (Graphs) pokemon.itemNameToResponseWithType.get(setupGraphMinimalItemName).getFirst();
+        (Graphs) rundown.itemNameToResponseWithType.get(orderOrderItemGraphReqName).getFirst();
     assertThat(graphsResponse.getGraphs()).hasSize(1);
     assertThat(graphsResponse.getGraphs().get(0).isSuccessful()).isTrue();
 
-    assertThat(pokemon.environment)
+    assertThat(rundown.environment)
         .containsKeys(
             "orderId",
             "billingTreatmentId",
@@ -72,7 +81,7 @@ class ReVomanTest {
     final var billingScheduleItemName = "billing-schedule";
     final var bsResponse =
         (Map<String, List<Map<String, ?>>>)
-            pokemon.itemNameToResponseWithType.get(billingScheduleItemName).getFirst();
+            rundown.itemNameToResponseWithType.get(billingScheduleItemName).getFirst();
     assertThat(bsResponse).containsOnlyKeys("billingScheduleResultsList");
     assertThat(bsResponse.get("billingScheduleResultsList")).hasSize(1);
     assertThat(((Boolean) bsResponse.get("billingScheduleResultsList").get(0).get("success")))

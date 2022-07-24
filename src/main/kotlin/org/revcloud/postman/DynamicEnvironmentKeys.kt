@@ -3,8 +3,8 @@ package org.revcloud.postman
 import io.github.serpro69.kfaker.faker
 
 object DynamicEnvironmentKeys {
-  const val BEARER_TOKEN = "bearerToken"
-  const val BASE_URL = "baseUrl"
+  const val BEARER_TOKEN_KEY = "bearerToken"
+  const val BASE_URL_KEY = "baseUrl"
 }
 
 private val faker = faker { }

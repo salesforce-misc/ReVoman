@@ -23,7 +23,9 @@
 						"exec": [
 							"var jsonData = xml2Json(responseBody);",
 							"var sessionId = jsonData['soapenv:Envelope']['soapenv:Body'].loginResponse.result.sessionId",
-							"pm.environment.set(\"accessToken\", sessionId);"
+							"pm.environment.set(\"accessToken\", sessionId);",
+							"var adminUserId = jsonData['soapenv:Envelope']['soapenv:Body'].loginResponse.result.userId",
+							"pm.environment.set(\"adminUserId\", adminUserId)"
 						],
 						"type": "text/javascript"
 					}
@@ -59,7 +61,7 @@
 				],
 				"body": {
 					"mode": "raw",
-					"raw": "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<env:Envelope xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"\n    xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n    xmlns:env=\"http://schemas.xmlsoap.org/soap/envelope/\">\n  <env:Body>\n    <n1:login xmlns:n1=\"urn:partner.soap.sforce.com\">\n      <n1:username><![CDATA[{{username}}]]></n1:username>\n      <n1:password><![CDATA[{{password}}]]></n1:password>\n    </n1:login>\n  </env:Body>\n</env:Envelope>"
+					"raw": "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<env:Envelope xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"\n    xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n    xmlns:env=\"http://schemas.xmlsoap.org/soap/envelope/\">\n  <env:Body>\n    <n1:login xmlns:n1=\"urn:partner.soap.sforce.com\">\n      <n1:username><![CDATA[{{adminUserName}}]]></n1:username>\n      <n1:password><![CDATA[{{adminPassword}}]]></n1:password>\n    </n1:login>\n  </env:Body>\n</env:Envelope>"
 				},
 				"url": {
 					"raw": "{{baseUrl}}/services/Soap/u/{{version}}",
@@ -78,64 +80,7 @@
 			"response": []
 		},
 		{
-			"name": "Standard User Profile Query",
-			"event": [
-				{
-					"listen": "test",
-					"script": {
-						"exec": [
-							"var statusCode = pm.response.code;",
-							"",
-							"var jsonData = JSON.parse(responseBody);",
-							"if(jsonData.records[0]!=null){",
-							"    pm.environment.set(\"standardUserProfileId\", jsonData.records[0].Id);",
-							"}"
-						],
-						"type": "text/javascript"
-					}
-				}
-			],
-			"protocolProfileBehavior": {
-				"disableBodyPruning": true
-			},
-			"request": {
-				"method": "GET",
-				"header": [
-					{
-						"key": "Content-Type",
-						"name": "Content-Type",
-						"type": "text",
-						"value": "application/json"
-					}
-				],
-				"body": {
-					"mode": "raw",
-					"raw": ""
-				},
-				"url": {
-					"raw": "{{baseUrl}}/services/data/v{{version}}/query/?q=SELECT Id FROM Profile where Name = 'Standard User'",
-					"host": [
-						"{{baseUrl}}"
-					],
-					"path": [
-						"services",
-						"data",
-						"v{{version}}",
-						"query",
-						""
-					],
-					"query": [
-						{
-							"key": "q",
-							"value": "SELECT Id FROM Profile where Name = 'Standard User'"
-						}
-					]
-				}
-			},
-			"response": []
-		},
-		{
-			"name": "StdPermSetGroup Query",
+			"name": "StdPermSetGroup",
 			"event": [
 				{
 					"listen": "test",
@@ -199,7 +144,64 @@
 			"response": []
 		},
 		{
-			"name": "Create SalesOpsRepUser",
+			"name": "Standard User Profile",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"var statusCode = pm.response.code;",
+							"",
+							"var jsonData = JSON.parse(responseBody);",
+							"if(jsonData.records[0]!=null){",
+							"    pm.environment.set(\"standardUserProfileId\", jsonData.records[0].Id);",
+							"}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"type": "text",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"url": {
+					"raw": "{{baseUrl}}/services/data/v{{version}}/query/?q=SELECT Id FROM Profile where Name = 'Standard User'",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"services",
+						"data",
+						"v{{version}}",
+						"query",
+						""
+					],
+					"query": [
+						{
+							"key": "q",
+							"value": "SELECT Id FROM Profile where Name = 'Standard User'"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "SalesOpsRepUser",
 			"event": [
 				{
 					"listen": "prerequest",
@@ -232,7 +234,7 @@
 				"header": [],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n    \"allOrNone\": true,\n    \"compositeRequest\": [\n        {\n            \"method\": \"POST\",\n            \"url\": \"/services/data/v{{version}}/sobjects/User\",\n            \"referenceId\": \"refUser\",\n            \"body\": {\n                \"Username\": \"{{$randomEmail}}\",\n                \"Alias\": \"salesOps\",\n                \"ProfileId\": \"{{standardUserProfileId}}\",\n                \"Email\": \"{{$randomEmail}}\",\n                \"EmailEncodingKey\": \"ISO-8859-1\",\n                \"LastName\": \"Sonia\",\n                \"LanguageLocaleKey\": \"en_US\",\n                \"LocaleSidKey\": \"en_US\",\n                \"TimeZoneSidKey\": \"America/Los_Angeles\"\n            }\n        },\n        {\n            \"method\": \"POST\",\n            \"url\": \"/services/data/v{{version}}/sobjects/PermissionSetAssignment/\",\n            \"referenceId\": \"salesOpsRepPsgAssignment\",\n            \"body\": {\n                \"AssigneeId\": \"@{refUser.id}\",\n                \"PermissionSetGroupId\": \"{{salesOpsRepPsgId}}\"\n            }\n        }\n    ]\n}",
+					"raw": "{\n    \"allOrNone\": true,\n    \"compositeRequest\": [\n        {\n            \"method\": \"POST\",\n            \"url\": \"/services/data/v{{version}}/sobjects/User\",\n            \"referenceId\": \"refUser\",\n            \"body\": {\n                \"Username\": \"{{salesOpsRepUserName}}\",\n                \"Alias\": \"salesOps\",\n                \"ProfileId\": \"{{standardUserProfileId}}\",\n                \"Email\": \"{{$randomEmail}}\",\n                \"EmailEncodingKey\": \"ISO-8859-1\",\n                \"LastName\": \"Sonia\",\n                \"LanguageLocaleKey\": \"en_US\",\n                \"LocaleSidKey\": \"en_US\",\n                \"TimeZoneSidKey\": \"America/Los_Angeles\"\n            }\n        },\n        {\n            \"method\": \"POST\",\n            \"url\": \"/services/data/v{{version}}/sobjects/PermissionSetAssignment/\",\n            \"referenceId\": \"salesOpsRepPsgAssignment\",\n            \"body\": {\n                \"AssigneeId\": \"@{refUser.id}\",\n                \"PermissionSetGroupId\": \"{{salesOpsRepPsgId}}\"\n            }\n        }\n    ]\n}",
 					"options": {
 						"raw": {
 							"language": "json"
@@ -255,7 +257,7 @@
 			"response": []
 		},
 		{
-			"name": "Create TaxAdminUser",
+			"name": "TaxAdminUser",
 			"event": [
 				{
 					"listen": "prerequest",
@@ -291,7 +293,7 @@
 				"header": [],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n    \"allOrNone\": true,\n    \"compositeRequest\": [\n        {\n            \"method\": \"POST\",\n            \"url\": \"/services/data/v{{version}}/sobjects/User\",\n            \"referenceId\": \"refUser\",\n            \"body\": {\n                \"Username\": \"{{$randomEmail}}\",\n                \"ProfileId\": \"{{standardUserProfileId}}\",\n                \"Alias\": \"taxAdmin\",\n                \"Email\": \"{{$randomEmail}}\",\n                \"EmailEncodingKey\": \"ISO-8859-1\",\n                \"LastName\": \"Tasha\",\n                \"LanguageLocaleKey\": \"en_US\",\n                \"LocaleSidKey\": \"en_US\",\n                \"TimeZoneSidKey\": \"America/Los_Angeles\"\n            }\n        },\n        {\n            \"method\": \"POST\",\n            \"url\": \"/services/data/v{{version}}/sobjects/PermissionSetAssignment/\",\n            \"referenceId\": \"taxAdminPsgAssignment\",\n            \"body\": {\n                \"AssigneeId\": \"@{refUser.id}\",\n                \"PermissionSetGroupId\": \"{{taxAdminPsgId}}\"\n            }\n        }\n    ]\n}",
+					"raw": "{\n    \"allOrNone\": true,\n    \"compositeRequest\": [\n        {\n            \"method\": \"POST\",\n            \"url\": \"/services/data/v{{version}}/sobjects/User\",\n            \"referenceId\": \"refUser\",\n            \"body\": {\n                \"Username\": \"{{taxAdminUserName}}\",\n                \"ProfileId\": \"{{standardUserProfileId}}\",\n                \"Alias\": \"taxAdmin\",\n                \"Email\": \"{{$randomEmail}}\",\n                \"EmailEncodingKey\": \"ISO-8859-1\",\n                \"LastName\": \"Tasha\",\n                \"LanguageLocaleKey\": \"en_US\",\n                \"LocaleSidKey\": \"en_US\",\n                \"TimeZoneSidKey\": \"America/Los_Angeles\"\n            }\n        },\n        {\n            \"method\": \"POST\",\n            \"url\": \"/services/data/v{{version}}/sobjects/PermissionSetAssignment/\",\n            \"referenceId\": \"taxAdminPsgAssignment\",\n            \"body\": {\n                \"AssigneeId\": \"@{refUser.id}\",\n                \"PermissionSetGroupId\": \"{{taxAdminPsgId}}\"\n            }\n        }\n    ]\n}",
 					"options": {
 						"raw": {
 							"language": "json"
@@ -364,88 +366,6 @@
 			"response": []
 		},
 		{
-			"name": "Login as TaxAdmin",
-			"event": [
-				{
-					"listen": "prerequest",
-					"script": {
-						"exec": [
-							"var personaBasedExecutionFlag = pm.environment.get(\"isPersonaBasedExecution\");",
-							"",
-							"if(personaBasedExecutionFlag == 'true'){",
-							"    pm.environment.set(\"flowExecutionUserName\", pm.environment.get(\"taxAdminUserName\"));",
-							"} else {",
-							"    pm.environment.set(\"flowExecutionUserName\", pm.environment.get(\"username\"));",
-							"} "
-						],
-						"type": "text/javascript"
-					}
-				},
-				{
-					"listen": "test",
-					"script": {
-						"exec": [
-							"var statusCode = pm.response.code;",
-							"",
-							"if(statusCode == 200){",
-							"    const result = xml2Json(pm.response.text())[\"soapenv:Envelope\"][\"soapenv:Body\"].loginResponse.result;",
-							"    const context = pm.environment.name ? pm.environment : pm.collectionVariables;",
-							"    context.set(\"accessToken\", result.sessionId);",
-							"}"
-						],
-						"type": "text/javascript"
-					}
-				}
-			],
-			"protocolProfileBehavior": {
-				"disabledSystemHeaders": {
-					"accept": true,
-					"content-type": true
-				}
-			},
-			"request": {
-				"method": "POST",
-				"header": [
-					{
-						"key": "Content-Type",
-						"value": "text/xml"
-					},
-					{
-						"key": "SOAPAction",
-						"value": "login"
-					},
-					{
-						"key": "charset",
-						"value": "UTF-8",
-						"type": "text"
-					},
-					{
-						"key": "Accept",
-						"value": "text/xml",
-						"type": "text"
-					}
-				],
-				"body": {
-					"mode": "raw",
-					"raw": "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<env:Envelope xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"\n    xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n    xmlns:env=\"http://schemas.xmlsoap.org/soap/envelope/\">\n  <env:Body>\n    <n1:login xmlns:n1=\"urn:partner.soap.sforce.com\">\n      <n1:username><![CDATA[{{flowExecutionUserName}}]]></n1:username>\n      <n1:password><![CDATA[{{commonUserPassword}}]]></n1:password>\n    </n1:login>\n  </env:Body>\n</env:Envelope>"
-				},
-				"url": {
-					"raw": "{{baseUrl}}/services/Soap/u/{{version}}",
-					"host": [
-						"{{baseUrl}}"
-					],
-					"path": [
-						"services",
-						"Soap",
-						"u",
-						"{{version}}"
-					]
-				},
-				"description": "Login to Salesforce"
-			},
-			"response": []
-		},
-		{
 			"name": "Query MockAdapter Apex Class",
 			"event": [
 				{
@@ -498,7 +418,7 @@
 			"response": []
 		},
 		{
-			"name": "Delete MockAdapter Apex Class",
+			"name": "Login as TaxAdmin",
 			"event": [
 				{
 					"listen": "prerequest",
@@ -513,29 +433,63 @@
 					"listen": "test",
 					"script": {
 						"exec": [
-							"pm.environment.unset(\"mockTaxAdapterId\")"
+							"var statusCode = pm.response.code;",
+							"",
+							"if(statusCode == 200){",
+							"    const result = xml2Json(pm.response.text())[\"soapenv:Envelope\"][\"soapenv:Body\"].loginResponse.result;",
+							"    const context = pm.environment.name ? pm.environment : pm.collectionVariables;",
+							"    context.set(\"accessToken\", result.sessionId);",
+							"}"
 						],
 						"type": "text/javascript"
 					}
 				}
 			],
+			"protocolProfileBehavior": {
+				"disabledSystemHeaders": {
+					"accept": true,
+					"content-type": true
+				}
+			},
 			"request": {
-				"method": "DELETE",
-				"header": [],
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "text/xml"
+					},
+					{
+						"key": "SOAPAction",
+						"value": "login"
+					},
+					{
+						"key": "charset",
+						"value": "UTF-8",
+						"type": "text"
+					},
+					{
+						"key": "Accept",
+						"value": "text/xml",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<env:Envelope xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"\n    xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n    xmlns:env=\"http://schemas.xmlsoap.org/soap/envelope/\">\n  <env:Body>\n    <n1:login xmlns:n1=\"urn:partner.soap.sforce.com\">\n      <n1:username><![CDATA[{{taxAdminUserName}}]]></n1:username>\n      <n1:password><![CDATA[{{commonUserPassword}}]]></n1:password>\n    </n1:login>\n  </env:Body>\n</env:Envelope>"
+				},
 				"url": {
-					"raw": "{{baseUrl}}/services/data/v{{version}}/sobjects/ApexClass/{{mockTaxAdapterId}}",
+					"raw": "{{baseUrl}}/services/Soap/u/{{version}}",
 					"host": [
 						"{{baseUrl}}"
 					],
 					"path": [
 						"services",
-						"data",
-						"v{{version}}",
-						"sobjects",
-						"ApexClass",
-						"{{mockTaxAdapterId}}"
+						"Soap",
+						"u",
+						"{{version}}"
 					]
-				}
+				},
+				"description": "Login to Salesforce"
 			},
 			"response": []
 		},
@@ -546,8 +500,10 @@
 					"listen": "test",
 					"script": {
 						"exec": [
-							"var jsonData = JSON.parse(responseBody);",
-							"pm.environment.set(\"mockTaxAdapterId\", jsonData.id);"
+							"if (pm.environment.get(\"mockTaxAdapterId\") != null) {",
+							"    var jsonData = JSON.parse(responseBody);",
+							"    pm.environment.set(\"mockTaxAdapterId\", jsonData.id);",
+							"}"
 						],
 						"type": "text/javascript"
 					}
@@ -880,6 +836,80 @@
 			"response": []
 		},
 		{
+			"name": "Login as SysAdmin",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							""
+						],
+						"type": "text/javascript"
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"var jsonData = xml2Json(responseBody);",
+							"var sessionId = jsonData['soapenv:Envelope']['soapenv:Body'].loginResponse.result.sessionId",
+							"pm.environment.set(\"accessToken\", sessionId);",
+							"var adminUserId = jsonData['soapenv:Envelope']['soapenv:Body'].loginResponse.result.userId",
+							"pm.environment.set(\"adminUserId\", adminUserId)"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"protocolProfileBehavior": {
+				"disabledSystemHeaders": {
+					"accept": true,
+					"content-type": true
+				}
+			},
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "text/xml"
+					},
+					{
+						"key": "SOAPAction",
+						"value": "login"
+					},
+					{
+						"key": "charset",
+						"value": "UTF-8",
+						"type": "text"
+					},
+					{
+						"key": "Accept",
+						"value": "text/xml",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<env:Envelope xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"\n    xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n    xmlns:env=\"http://schemas.xmlsoap.org/soap/envelope/\">\n  <env:Body>\n    <n1:login xmlns:n1=\"urn:partner.soap.sforce.com\">\n      <n1:username><![CDATA[{{adminUserName}}]]></n1:username>\n      <n1:password><![CDATA[{{adminPassword}}]]></n1:password>\n    </n1:login>\n  </env:Body>\n</env:Envelope>"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/services/Soap/u/{{version}}",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"services",
+						"Soap",
+						"u",
+						"{{version}}"
+					]
+				},
+				"description": "Login to Salesforce"
+			},
+			"response": []
+		},
+		{
 			"name": "setup-graph (once)",
 			"event": [
 				{
@@ -910,7 +940,7 @@
 				],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n    \"graphs\": [\n        {\n            \"graphId\": \"1\",\n            \"compositeRequest\": [\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/Product2/\",\n                    \"body\": {\n                        \"Name\": \"Gopal Pro\",\n                        \"isActive\": true\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"product\"\n                },\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/PricebookEntry/\",\n                    \"body\": {\n                        \"Pricebook2Id\": \"{{standardPricebookId}}\",\n                        \"Product2Id\": \"@{product.id}\",\n                        \"UnitPrice\": \"27\",\n                        \"isActive\": true\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"standardPricebookEntry\"\n                },\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/Pricebook2/\",\n                    \"body\": {\n                        \"Name\": \"Gopal Pricebook2\",\n                        \"isActive\": true\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"pricebook\"\n                },\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/PricebookEntry/\",\n                    \"body\": {\n                        \"Pricebook2Id\": \"@{pricebook.id}\",\n                        \"Product2Id\": \"@{product.id}\",\n                        \"UnitPrice\": 27,\n                        \"isActive\": true\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"pricebookEntry\"\n                },\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/Account\",\n                    \"body\": {\n                        \"Name\": \"ReVoman\"\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"account\"\n                },\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/Contact\",\n                    \"body\": {\n                        \"AccountId\": \"@{account.id}\",\n                        \"FirstName\": \"ReVoman\",\n                        \"LastName\": \"Salesforce\"\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"contact\"\n                },\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/PaymentTerm\",\n                    \"body\": {\n                        \"Name\": \"My Term\",\n                        \"IsDefault\": false,\n                        \"Description\": \"My Term\",\n                        \"Status\": \"Draft\"\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"paymentTerm\"\n                },\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/PaymentTermItem\",\n                    \"body\": {\n                        \"Type\": \"Period-Based\",\n                        \"Period\": 30,\n                        \"PeriodUnit\": \"Days\",\n                        \"PaymentTermId\": \"@{paymentTerm.id}\",\n                        \"PaymentTimeframe\": \"Standard\"\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"paymentTermItem\"\n                },\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/PaymentTerm/@{paymentTerm.id}\",\n                    \"body\": {\n                        \"IsDefault\": true,\n                        \"Status\": \"Active\"\n                    },\n                    \"method\": \"PATCH\",\n                    \"referenceId\": \"activePaymentTerm\"\n                }\n            ]\n        }\n    ]\n}"
+					"raw": "{\n    \"graphs\": [\n        {\n            \"graphId\": \"1\",\n            \"compositeRequest\": [\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/Product2/\",\n                    \"body\": {\n                        \"Name\": \"Gopal Pro\",\n                        \"isActive\": true\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"product\"\n                },\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/PricebookEntry/\",\n                    \"body\": {\n                        \"Pricebook2Id\": \"{{standardPricebookId}}\",\n                        \"Product2Id\": \"@{product.id}\",\n                        \"UnitPrice\": \"27\",\n                        \"isActive\": true\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"standardPricebookEntry\"\n                },\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/Pricebook2/\",\n                    \"body\": {\n                        \"Name\": \"Gopal Pricebook2\",\n                        \"isActive\": true\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"pricebook\"\n                },\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/PricebookEntry/\",\n                    \"body\": {\n                        \"Pricebook2Id\": \"@{pricebook.id}\",\n                        \"Product2Id\": \"@{product.id}\",\n                        \"UnitPrice\": 27,\n                        \"isActive\": true\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"pricebookEntry\"\n                },\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/Account\",\n                    \"body\": {\n                        \"Name\": \"ReVoman\"\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"account\"\n                },\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/Contact\",\n                    \"body\": {\n                        \"AccountId\": \"@{account.id}\",\n                        \"FirstName\": \"ReVoman\",\n                        \"LastName\": \"Salesforce\"\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"contact\"\n                },\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/PaymentTerm\",\n                    \"body\": {\n                        \"Name\": \"My Term\",\n                        \"IsDefault\": false,\n                        \"Description\": \"My Term\",\n                        \"Status\": \"Draft\"\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"paymentTerm\"\n                },\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/PaymentTermItem\",\n                    \"body\": {\n                        \"Type\": \"Period-Based\",\n                        \"Period\": 30,\n                        \"PeriodUnit\": \"Days\",\n                        \"PaymentTermId\": \"@{paymentTerm.id}\",\n                        \"PaymentTimeframe\": \"Standard\"\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"paymentTermItem\"\n                },\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/PaymentTerm/@{paymentTerm.id}\",\n                    \"body\": {\n                        \"IsDefault\": true,\n                        \"Status\": \"Active\"\n                    },\n                    \"method\": \"PATCH\",\n                    \"referenceId\": \"activePaymentTerm\"\n                },\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/BillingTreatment/\",\n                    \"body\": {\n                        \"Name\": \"Gopal-BT\",\n                        \"Status\": \"Draft\",\n                        \"ExcludeFromBilling\": \"No\"\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"billingTreatment\"\n                },\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/BillingTreatmentItem/\",\n                    \"body\": {\n                        \"Name\": \"Gopal-BTI\",\n                        \"Status\": \"Active\",\n                        \"ProcessingOrder\": 1,\n                        \"Sequencing\": \"Manual\",\n                        \"BillingTreatmentId\": \"@{billingTreatment.id}\",\n                        \"Handling0Amount\": \"CreateInvoice\",\n                        \"Type\": \"FlatAmount\",\n                        \"FlatAmount\": 77,\n                        \"BillingType\": \"Advance\",\n                        \"Controller\": \"BillingScheduleGroup\"\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"billingTreatmentItem\"\n                },\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/BillingTreatment/@{billingTreatment.id}\",\n                    \"body\": {\n                        \"Status\": \"Active\"\n                    },\n                    \"method\": \"PATCH\",\n                    \"referenceId\": \"activeBillingTreatment\"\n                }\n            ]\n        }\n    ]\n}"
 				},
 				"url": {
 					"raw": "{{baseUrl}}/services/data/v{{version}}/composite/graph",
@@ -925,63 +955,6 @@
 						"graph"
 					]
 				}
-			},
-			"response": []
-		},
-		{
-			"name": "setup-graph (minimal)",
-			"event": [
-				{
-					"listen": "test",
-					"script": {
-						"exec": [
-							"jsonData = JSON.parse(responseBody);",
-							"// console.log(jsonData.graphs[0].graphResponse.compositeResponse.length);",
-							"for (var i = 0; i < jsonData.graphs[0].graphResponse.compositeResponse.length; i++) {",
-							"  if (",
-							"    jsonData.graphs[0].graphResponse.compositeResponse[i].referenceId !=",
-							"    \"activeBillingTreatment\"",
-							"  ) {",
-							"    // console.log(jsonData.graphs[0].graphResponse.compositeResponse[i].referenceId +\"Id\",jsonData.graphs[0].graphResponse.compositeResponse[i].body.id);",
-							"    pm.environment.set(",
-							"      jsonData.graphs[0].graphResponse.compositeResponse[i].referenceId + \"Id\",",
-							"      jsonData.graphs[0].graphResponse.compositeResponse[i].body.id",
-							"    );",
-							"  }",
-							"}"
-						],
-						"type": "text/javascript"
-					}
-				}
-			],
-			"request": {
-				"method": "POST",
-				"header": [
-					{
-						"key": "Content-Type",
-						"name": "Content-Type",
-						"value": "application/json",
-						"type": "text"
-					}
-				],
-				"body": {
-					"mode": "raw",
-					"raw": "{\n    \"graphs\": [\n        {\n            \"graphId\": \"1\",\n            \"compositeRequest\": [\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/Order/\",\n                    \"body\": {\n                        \"AccountId\": \"{{accountId}}\",\n                        \"EffectiveDate\": \"2021-02-16T00:00:00+00:00\",\n                        \"Status\": \"Draft\",\n                        \"BillingCity\": \"hyd\",\n                        \"Pricebook2Id\": \"{{pricebookId}}\"\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"order\"\n                },\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/BillingTreatment/\",\n                    \"body\": {\n                        \"Name\": \"Gopal-BT\",\n                        \"Status\": \"Draft\",\n                        \"ExcludeFromBilling\": \"No\"\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"billingTreatment\"\n                },\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/BillingTreatmentItem/\",\n                    \"body\": {\n                        \"Name\": \"Gopal-BTI\",\n                        \"Status\": \"Active\",\n                        \"ProcessingOrder\": 1,\n                        \"Sequencing\": \"Manual\",\n                        \"BillingTreatmentId\": \"@{billingTreatment.id}\",\n                        \"Handling0Amount\": \"CreateInvoice\",\n                        \"Type\": \"FlatAmount\",\n                        \"FlatAmount\": 77,\n                        \"BillingType\": \"Advance\",\n                        \"Controller\": \"BillingScheduleGroup\"\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"billingTreatmentItem\"\n                },\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/BillingTreatment/@{billingTreatment.id}\",\n                    \"body\": {\n                        \"Status\": \"Active\"\n                    },\n                    \"method\": \"PATCH\",\n                    \"referenceId\": \"activeBillingTreatment\"\n                },\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/OrderItem/\",\n                    \"body\": {\n                        \"OrderId\": \"@{order.id}\",\n                        \"PricebookEntryId\": \"{{pricebookEntryId}}\",\n                        \"Quantity\": \"2\",\n                        \"UnitPrice\": \"10\"\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"orderItem1\"\n                },\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/OrderItem/\",\n                    \"body\": {\n                        \"OrderId\": \"@{order.id}\",\n                        \"PricebookEntryId\": \"{{pricebookEntryId}}\",\n                        \"Quantity\": \"1\",\n                        \"UnitPrice\": \"20\"\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"orderItem2\"\n                },\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/OrderItem/\",\n                    \"body\": {\n                        \"OrderId\": \"@{order.id}\",\n                        \"PricebookEntryId\": \"{{pricebookEntryId}}\",\n                        \"Quantity\": \"5\",\n                        \"UnitPrice\": \"30\"\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"orderItem3\"\n                },\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/OrderItem/\",\n                    \"body\": {\n                        \"OrderId\": \"@{order.id}\",\n                        \"PricebookEntryId\": \"{{pricebookEntryId}}\",\n                        \"Quantity\": \"7\",\n                        \"UnitPrice\": \"40\"\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"orderItem4\"\n                }\n            ]\n        }\n    ]\n}"
-				},
-				"url": {
-					"raw": "{{baseUrl}}/services/data/v{{version}}/composite/graph",
-					"host": [
-						"{{baseUrl}}"
-					],
-					"path": [
-						"services",
-						"data",
-						"v{{version}}",
-						"composite",
-						"graph"
-					]
-				},
-				"description": "# setup-graph (minimal)\n\n*   Order\n*   BillingTreatment\n*   BillingTreatmentItem\n*   BillingTreatment Activate\n*   OrderItem (4)"
 			},
 			"response": []
 		},
@@ -1043,7 +1016,7 @@
 				],
 				"body": {
 					"mode": "raw",
-					"raw": "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<env:Envelope xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"\n    xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n    xmlns:env=\"http://schemas.xmlsoap.org/soap/envelope/\">\n  <env:Body>\n    <n1:login xmlns:n1=\"urn:partner.soap.sforce.com\">\n      <n1:username><![CDATA[{{flowExecutionUserName}}]]></n1:username>\n      <n1:password><![CDATA[{{commonUserPassword}}]]></n1:password>\n    </n1:login>\n  </env:Body>\n</env:Envelope>"
+					"raw": "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<env:Envelope xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"\n    xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n    xmlns:env=\"http://schemas.xmlsoap.org/soap/envelope/\">\n  <env:Body>\n    <n1:login xmlns:n1=\"urn:partner.soap.sforce.com\">\n      <n1:username><![CDATA[{{salesOpsRepUserName}}]]></n1:username>\n      <n1:password><![CDATA[{{commonUserPassword}}]]></n1:password>\n    </n1:login>\n  </env:Body>\n</env:Envelope>"
 				},
 				"url": {
 					"raw": "{{baseUrl}}/services/Soap/u/{{version}}",
@@ -1058,6 +1031,63 @@
 					]
 				},
 				"description": "Login to Salesforce"
+			},
+			"response": []
+		},
+		{
+			"name": "order-orderItem",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"jsonData = JSON.parse(responseBody);",
+							"// console.log(jsonData.graphs[0].graphResponse.compositeResponse.length);",
+							"for (var i = 0; i < jsonData.graphs[0].graphResponse.compositeResponse.length; i++) {",
+							"  if (",
+							"    jsonData.graphs[0].graphResponse.compositeResponse[i].referenceId !=",
+							"    \"activeBillingTreatment\"",
+							"  ) {",
+							"    // console.log(jsonData.graphs[0].graphResponse.compositeResponse[i].referenceId +\"Id\",jsonData.graphs[0].graphResponse.compositeResponse[i].body.id);",
+							"    pm.environment.set(",
+							"      jsonData.graphs[0].graphResponse.compositeResponse[i].referenceId + \"Id\",",
+							"      jsonData.graphs[0].graphResponse.compositeResponse[i].body.id",
+							"    );",
+							"  }",
+							"}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"graphs\": [\n        {\n            \"graphId\": \"1\",\n            \"compositeRequest\": [\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/Order/\",\n                    \"body\": {\n                        \"AccountId\": \"{{accountId}}\",\n                        \"EffectiveDate\": \"2021-02-16T00:00:00+00:00\",\n                        \"Status\": \"Draft\",\n                        \"BillingCity\": \"hyd\",\n                        \"Pricebook2Id\": \"{{pricebookId}}\"\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"order\"\n                },\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/OrderItem/\",\n                    \"body\": {\n                        \"OrderId\": \"@{order.id}\",\n                        \"PricebookEntryId\": \"{{pricebookEntryId}}\",\n                        \"Quantity\": \"2\",\n                        \"UnitPrice\": \"10\"\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"orderItem1\"\n                },\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/OrderItem/\",\n                    \"body\": {\n                        \"OrderId\": \"@{order.id}\",\n                        \"PricebookEntryId\": \"{{pricebookEntryId}}\",\n                        \"Quantity\": \"1\",\n                        \"UnitPrice\": \"20\"\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"orderItem2\"\n                },\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/OrderItem/\",\n                    \"body\": {\n                        \"OrderId\": \"@{order.id}\",\n                        \"PricebookEntryId\": \"{{pricebookEntryId}}\",\n                        \"Quantity\": \"5\",\n                        \"UnitPrice\": \"30\"\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"orderItem3\"\n                },\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/OrderItem/\",\n                    \"body\": {\n                        \"OrderId\": \"@{order.id}\",\n                        \"PricebookEntryId\": \"{{pricebookEntryId}}\",\n                        \"Quantity\": \"7\",\n                        \"UnitPrice\": \"40\"\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"orderItem4\"\n                }\n            ]\n        }\n    ]\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/services/data/v{{version}}/composite/graph",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"services",
+						"data",
+						"v{{version}}",
+						"composite",
+						"graph"
+					]
+				},
+				"description": "# setup-graph (minimal)\n\n*   Order\n*   BillingTreatment\n*   BillingTreatmentItem\n*   BillingTreatment Activate\n*   OrderItem (4)"
 			},
 			"response": []
 		},

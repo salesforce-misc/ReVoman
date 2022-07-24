@@ -1,45 +1,105 @@
 import com.adarshr.gradle.testlogger.theme.ThemeType.MOCHA_PARALLEL
 import com.diffplug.spotless.extra.wtp.EclipseWtpFormatterStep.XML
-import io.gitlab.arturbosch.detekt.Detekt
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
   kotlin("jvm")
+  kotlin("kapt")
   application
-  id("dev.zacsweers.moshix") version "0.18.1"
+  id("dev.zacsweers.moshix")
   `maven-publish`
-  id("io.gitlab.arturbosch.detekt") version "1.20.0"
+  // id("io.gitlab.arturbosch.detekt") version "1.21.0"
   id("com.adarshr.test-logger") version "3.2.0"
-  id("com.diffplug.spotless") version "6.4.2"
-  id("org.barfuin.gradle.taskinfo") version "1.4.0"
+  id("com.diffplug.spotless") version "6.8.0"
 }
 
-group = "com.salesforce.ccspayments"
-version = "0.1.6"
-
-repositories {
-  mavenCentral()
+allprojects {
+  group = "com.salesforce.ccspayments"
+  version = "0.1.6"
+  repositories {
+    mavenCentral()
+  }
+  apply(plugin = "org.jetbrains.kotlin.jvm")
+  apply(plugin = "com.diffplug.spotless")
+  spotless {
+    kotlin {
+      target("src/main/java/**/*.kt", "src/test/java/**/*.kt")
+      targetExclude("$buildDir/generated/**/*.*")
+      ktlint()
+        .setUseExperimental(true)
+        .editorConfigOverride(mapOf("indent_size" to "2", "continuation_indent_size" to "2"))
+    }
+    kotlinGradle {
+      target("*.gradle.kts")
+      ktlint()
+        .setUseExperimental(true)
+        .editorConfigOverride(mapOf("indent_size" to "2", "continuation_indent_size" to "2"))
+    }
+    java {
+      toggleOffOn()
+      target("src/main/java/**/*.java", "src/test/java/**/*.java")
+      targetExclude("$buildDir/generated/**/*.*")
+      importOrder()
+      removeUnusedImports()
+      googleJavaFormat()
+      trimTrailingWhitespace()
+      indentWithSpaces(2)
+      endWithNewline()
+    }
+    format("xml") {
+      targetExclude("pom.xml")
+      target("*.xml")
+      eclipseWtp(XML)
+    }
+    format("documentation") {
+      target("*.md", "*.adoc")
+      trimTrailingWhitespace()
+      indentWithSpaces(2)
+      endWithNewline()
+    }
+  }
+  tasks {
+    withType<Test> {
+      useJUnitPlatform()
+    }
+    withType<KotlinCompile> {
+      kotlinOptions {
+        jvmTarget = JavaVersion.VERSION_11.toString()
+        freeCompilerArgs = listOf("-Xjdk-release=17")
+      }
+    }
+  }
+  dependencies {
+    val testImplementation by configurations
+    testImplementation(project(":"))
+    testImplementation(platform("org.junit:junit-bom:5.8.2"))
+    testImplementation("org.junit.jupiter:junit-jupiter-api")
+    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine")
+    testImplementation("org.assertj:assertj-core:3.23.1")
+  }
 }
 
 dependencies {
   val http4kVersion: String by project
   implementation("org.http4k:http4k-core:$http4kVersion")
   implementation("org.http4k:http4k-format-moshi:$http4kVersion")
-  implementation("dev.zacsweers.moshix:moshi-adapters:0.17.1")
+  val moshiXVersion: String by project
+  implementation("dev.zacsweers.moshix:moshi-adapters:$moshiXVersion")
   implementation("org.slf4j:slf4j-api:1.7.36")
   implementation("org.apache.commons:commons-lang3:3.12.0")
-  val graalVersion = "22.1.0"
+  val graalVersion: String by project
   implementation("org.graalvm.sdk:graal-sdk:$graalVersion")
   implementation("org.graalvm.js:js:$graalVersion")
-  implementation("io.github.serpro69:kotlin-faker:1.10.0")
-  implementation("com.github.javadev:underscore:1.77")
+  implementation("io.github.serpro69:kotlin-faker:1.11.0")
+  implementation("com.github.javadev:underscore:1.78")
+  val immutablesVersion: String by project
+  kapt("org.immutables:value:$immutablesVersion")
+  compileOnly("org.immutables:builder:$immutablesVersion")
+  compileOnly("org.immutables:value-annotations:$immutablesVersion")
   runtimeOnly("org.apache.logging.log4j:log4j-slf4j18-impl:2.17.2")
   testImplementation("org.junit.jupiter:junit-jupiter-api:5.8.2")
   runtimeOnly("org.junit.jupiter:junit-jupiter-engine:5.8.2")
-  testImplementation("org.assertj:assertj-core:3.22.0")
-  val kotestVersion = "5.3.0"
-  testImplementation("io.kotest:kotest-runner-junit5:$kotestVersion")
-  testImplementation("io.kotest:kotest-assertions-core:$kotestVersion")
+  testImplementation("org.assertj:assertj-core:3.23.1")
 }
 
 tasks {
@@ -47,7 +107,7 @@ tasks {
   withType<KotlinCompile> {
     kotlinOptions {
       jvmTarget = JavaVersion.VERSION_11.toString()
-      freeCompilerArgs = listOf("-Xjdk-release=11")
+      freeCompilerArgs = listOf("-Xjvm-default=all")
     }
   }
   compileTestJava {
@@ -57,25 +117,25 @@ tasks {
   testlogger {
     theme = MOCHA_PARALLEL
   }
-  register<Detekt>("detektAll") {
-    parallel = true
-    ignoreFailures = false
-    autoCorrect = false
-    buildUponDefaultConfig = true
-    basePath = projectDir.toString()
-    setSource(subprojects.map { it.the<SourceSetContainer>()["main"].allSource.srcDirs })
-    include("**/*.kt")
-    include("**/*.kts")
-    exclude("**/resources/**")
-    exclude("**/build/**")
-    config.setFrom(files("$rootDir/config/detekt/detekt.yml"))
-    baseline.set(File("$rootDir/config/baseline.xml"))
-  }
-  withType<Detekt>().configureEach {
-    reports {
-      xml.required.set(true)
-    }
-  }
+//  register<Detekt>("detektAll") {
+//    parallel = true
+//    ignoreFailures = false
+//    autoCorrect = false
+//    buildUponDefaultConfig = true
+//    basePath = projectDir.toString()
+//    setSource(subprojects.map { it.the<SourceSetContainer>()["main"].allSource.srcDirs })
+//    include("**/*.kt")
+//    include("**/*.kts")
+//    exclude("**/resources/**")
+//    exclude("**/build/**")
+//    config.setFrom(files("$rootDir/config/detekt/detekt.yml"))
+//    baseline.set(File("$rootDir/config/baseline.xml"))
+//  }
+//  withType<Detekt>().configureEach {
+//    reports {
+//      xml.required.set(true)
+//    }
+//  }
   withType<PublishToMavenRepository>().configureEach {
     doLast {
       logger.lifecycle("Successfully uploaded ${publication.groupId}:${publication.artifactId}:${publication.version} to ${repository.name}")
@@ -89,39 +149,6 @@ tasks {
 }
 moshi {
   enableSealed.set(true)
-}
-spotless {
-  kotlin {
-    target("src/main/java/**/*.kt", "src/test/java/**/*.kt")
-    targetExclude("$buildDir/generated/**/*.*")
-    ktlint().userData(mapOf("indent_size" to "2", "continuation_indent_size" to "2"))
-  }
-  kotlinGradle {
-    target("*.gradle.kts")
-    ktlint().userData(mapOf("indent_size" to "2", "continuation_indent_size" to "2"))
-  }
-  java {
-    toggleOffOn()
-    target("src/main/java/**/*.java", "src/test/java/**/*.java")
-    targetExclude("$buildDir/generated/**/*.*")
-    importOrder()
-    removeUnusedImports()
-    googleJavaFormat()
-    trimTrailingWhitespace()
-    indentWithSpaces(2)
-    endWithNewline()
-  }
-  format("xml") {
-    targetExclude("pom.xml")
-    target("*.xml")
-    eclipseWtp(XML)
-  }
-  format("documentation") {
-    target("*.md", "*.adoc")
-    trimTrailingWhitespace()
-    indentWithSpaces(2)
-    endWithNewline()
-  }
 }
 publishing {
   publications.create<MavenPublication>("revoman") {

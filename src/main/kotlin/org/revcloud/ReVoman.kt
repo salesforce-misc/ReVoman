@@ -40,8 +40,9 @@ import org.http4k.format.ThrowableAdapter
 import org.http4k.format.asConfigurable
 import org.http4k.format.withStandardMappings
 import org.http4k.lens.Header.CONTENT_TYPE
-import org.revcloud.output.Pokemon
-import org.revcloud.postman.DynamicEnvironmentKeys.BEARER_TOKEN
+import org.revcloud.input.Kick
+import org.revcloud.output.Rundown
+import org.revcloud.postman.DynamicEnvironmentKeys.BEARER_TOKEN_KEY
 import org.revcloud.postman.PostmanAPI
 import org.revcloud.postman.dynamicVariables
 import org.revcloud.postman.state.collection.Collection
@@ -58,22 +59,24 @@ private val jsContext = buildJsContext(false).also {
   it.getBindings("js").putMember("xml2Json", pm.xml2Json)
 }
 
+fun revUp(kick: Kick): Rundown = revUp(kick.templatePath(), kick.environmentPath(), kick.bearerTokenKey(), kick.itemNameToOutputType(), kick.dynamicEnvironment(), kick.customAdaptersForResponse(), kick.typesInResponseToIgnore())
+
 // ! TODO gopala.akshintala 18/05/22: Refactor this method
 @OptIn(ExperimentalStdlibApi::class)
 @JvmOverloads
 fun revUp(
-  pmCollectionPath: String,
-  pmEnvironmentPath: String? = null,
-  bearerTokenKey: String? = BEARER_TOKEN,
+  templatePath: String,
+  environmentPath: String? = null,
+  bearerTokenKey: String? = BEARER_TOKEN_KEY,
   itemNameToOutputType: Map<String, Class<out Any>>? = emptyMap(),
   dynamicEnvironment: Map<String, String?>? = emptyMap(),
   customAdaptersForResponse: List<Any>? = emptyList(),
   typesInResponseToIgnore: Set<Class<out Any>>? = emptySet(),
-): Pokemon {
-  initPmEnvironment(dynamicEnvironment, pmEnvironmentPath)
+): Rundown {
+  initPmEnvironment(dynamicEnvironment, environmentPath)
   val configurableMoshi = configurableMoshi(typesInResponseToIgnore, customAdaptersForResponse)
   val itemJsonAdapter = Moshi.Builder().add(RegexAdapterFactory(pm.environment)).build().adapter<Item>()
-  val pmCollection: Collection? = marshallPostmanCollection(pmCollectionPath)
+  val pmCollection: Collection? = marshallPostmanCollection(templatePath)
   // Process each item in `pmCollection`
   val itemNameToResponseWithType = pmCollection?.item?.asSequence()?.map { itemData ->
     val item = itemJsonAdapter.fromJson(itemData.data)
@@ -96,7 +99,7 @@ fun revUp(
       itemName to ("" to Nothing::class.java)
     }
   }?.toMap() ?: emptyMap()
-  return Pokemon(itemNameToResponseWithType, pm.environment)
+  return Rundown(itemNameToResponseWithType, pm.environment)
 }
 
 private fun loadIntoPmEnvironment(itemRequest: org.revcloud.postman.state.collection.Request, response: Response) {
