@@ -153,7 +153,7 @@
 							"var statusCode = pm.response.code;",
 							"",
 							"var jsonData = JSON.parse(responseBody);",
-							"if(jsonData.records[0]!=null){",
+							"if (jsonData.records[0]!=null) {",
 							"    pm.environment.set(\"standardUserProfileId\", jsonData.records[0].Id);",
 							"}"
 						],
@@ -234,7 +234,7 @@
 				"header": [],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n    \"allOrNone\": true,\n    \"compositeRequest\": [\n        {\n            \"method\": \"POST\",\n            \"url\": \"/services/data/v{{version}}/sobjects/User\",\n            \"referenceId\": \"refUser\",\n            \"body\": {\n                \"Username\": \"{{salesOpsRepUserName}}\",\n                \"Alias\": \"salesOps\",\n                \"ProfileId\": \"{{standardUserProfileId}}\",\n                \"Email\": \"{{$randomEmail}}\",\n                \"EmailEncodingKey\": \"ISO-8859-1\",\n                \"LastName\": \"Sonia\",\n                \"LanguageLocaleKey\": \"en_US\",\n                \"LocaleSidKey\": \"en_US\",\n                \"TimeZoneSidKey\": \"America/Los_Angeles\"\n            }\n        },\n        {\n            \"method\": \"POST\",\n            \"url\": \"/services/data/v{{version}}/sobjects/PermissionSetAssignment/\",\n            \"referenceId\": \"salesOpsRepPsgAssignment\",\n            \"body\": {\n                \"AssigneeId\": \"@{refUser.id}\",\n                \"PermissionSetGroupId\": \"{{salesOpsRepPsgId}}\"\n            }\n        }\n    ]\n}",
+					"raw": "{\n    \"allOrNone\": true,\n    \"compositeRequest\": [\n        {\n            \"method\": \"POST\",\n            \"url\": \"/services/data/v{{version}}/sobjects/User\",\n            \"referenceId\": \"refUser\",\n            \"body\": {\n                \"Username\": \"{{salesOpsRepUserName}}\",\n                \"Alias\": \"salesOps\",\n                \"ProfileId\": \"{{standardUserProfileId}}\",\n                \"Email\": \"gopala.akshintala@salesforce.com\",\n                \"EmailEncodingKey\": \"ISO-8859-1\",\n                \"LastName\": \"SalesOpsRepUser\",\n                \"LanguageLocaleKey\": \"en_US\",\n                \"LocaleSidKey\": \"en_US\",\n                \"TimeZoneSidKey\": \"Asia/Kolkata\"\n            }\n        },\n        {\n            \"method\": \"POST\",\n            \"url\": \"/services/data/v{{version}}/sobjects/PermissionSetAssignment/\",\n            \"referenceId\": \"salesOpsRepPsgAssignment\",\n            \"body\": {\n                \"AssigneeId\": \"@{refUser.id}\",\n                \"PermissionSetGroupId\": \"{{salesOpsRepPsgId}}\"\n            }\n        }\n    ]\n}",
 					"options": {
 						"raw": {
 							"language": "json"
@@ -263,10 +263,7 @@
 					"listen": "prerequest",
 					"script": {
 						"exec": [
-							"let orgUserName = pm.environment.get(\"username\");",
-							"let newUserName = 'taxAdmin.' + orgUserName;",
-							"",
-							"pm.environment.set(\"taxAdminUserName\", newUserName);"
+							""
 						],
 						"type": "text/javascript"
 					}
@@ -293,7 +290,7 @@
 				"header": [],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n    \"allOrNone\": true,\n    \"compositeRequest\": [\n        {\n            \"method\": \"POST\",\n            \"url\": \"/services/data/v{{version}}/sobjects/User\",\n            \"referenceId\": \"refUser\",\n            \"body\": {\n                \"Username\": \"{{taxAdminUserName}}\",\n                \"ProfileId\": \"{{standardUserProfileId}}\",\n                \"Alias\": \"taxAdmin\",\n                \"Email\": \"{{$randomEmail}}\",\n                \"EmailEncodingKey\": \"ISO-8859-1\",\n                \"LastName\": \"Tasha\",\n                \"LanguageLocaleKey\": \"en_US\",\n                \"LocaleSidKey\": \"en_US\",\n                \"TimeZoneSidKey\": \"America/Los_Angeles\"\n            }\n        },\n        {\n            \"method\": \"POST\",\n            \"url\": \"/services/data/v{{version}}/sobjects/PermissionSetAssignment/\",\n            \"referenceId\": \"taxAdminPsgAssignment\",\n            \"body\": {\n                \"AssigneeId\": \"@{refUser.id}\",\n                \"PermissionSetGroupId\": \"{{taxAdminPsgId}}\"\n            }\n        }\n    ]\n}",
+					"raw": "{\n    \"allOrNone\": true,\n    \"compositeRequest\": [\n        {\n            \"method\": \"POST\",\n            \"url\": \"/services/data/v{{version}}/sobjects/User\",\n            \"referenceId\": \"refUser\",\n            \"body\": {\n                \"Username\": \"{{taxAdminUserName}}\",\n                \"ProfileId\": \"{{standardUserProfileId}}\",\n                \"Alias\": \"taxAdmin\",\n                \"Email\": \"{{$randomEmail}}\",\n                \"EmailEncodingKey\": \"ISO-8859-1\",\n                \"LastName\": \"TaxAdmin\",\n                \"LanguageLocaleKey\": \"en_US\",\n                \"LocaleSidKey\": \"en_US\",\n                \"TimeZoneSidKey\": \"America/Los_Angeles\"\n            }\n        },\n        {\n            \"method\": \"POST\",\n            \"url\": \"/services/data/v{{version}}/sobjects/PermissionSetAssignment/\",\n            \"referenceId\": \"taxAdminPsgAssignment\",\n            \"body\": {\n                \"AssigneeId\": \"@{refUser.id}\",\n                \"PermissionSetGroupId\": \"{{taxAdminPsgId}}\"\n            }\n        }\n    ]\n}",
 					"options": {
 						"raw": {
 							"language": "json"
@@ -360,58 +357,6 @@
 						"data",
 						"v{{version}}",
 						"composite"
-					]
-				}
-			},
-			"response": []
-		},
-		{
-			"name": "Query MockAdapter Apex Class",
-			"event": [
-				{
-					"listen": "prerequest",
-					"script": {
-						"exec": [
-							""
-						],
-						"type": "text/javascript"
-					}
-				},
-				{
-					"listen": "test",
-					"script": {
-						"exec": [
-							"var jsonData = JSON.parse(responseBody);",
-							"if (jsonData.records.length > 0) {",
-							"  pm.environment.set(\"mockTaxAdapterId\", jsonData.records[0].Id);",
-							"} else {",
-							"    console.log(\"No ApexClass with name MockAdapter found!\")",
-							"}"
-						],
-						"type": "text/javascript"
-					}
-				}
-			],
-			"request": {
-				"method": "GET",
-				"header": [],
-				"url": {
-					"raw": "{{baseUrl}}/services/data/v{{version}}/query/?q=SELECT+Id,Name,Status,ApiVersion,Body+FROM+ApexClass+WHERE+Name='MockAdapter'",
-					"host": [
-						"{{baseUrl}}"
-					],
-					"path": [
-						"services",
-						"data",
-						"v{{version}}",
-						"query",
-						""
-					],
-					"query": [
-						{
-							"key": "q",
-							"value": "SELECT+Id,Name,Status,ApiVersion,Body+FROM+ApexClass+WHERE+Name='MockAdapter'"
-						}
 					]
 				}
 			},
@@ -494,16 +439,108 @@
 			"response": []
 		},
 		{
+			"name": "Query MockAdapter Apex Class",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							""
+						],
+						"type": "text/javascript"
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"var jsonData = JSON.parse(responseBody);",
+							"if (jsonData.records.length > 0) {",
+							"  pm.environment.set(\"mockTaxAdapterId\", jsonData.records[0].Id);",
+							"} else {",
+							"    console.log(\"No ApexClass with name MockAdapter found!\")",
+							"}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/services/data/v{{version}}/query/?q=SELECT+Id,Name,Status,ApiVersion,Body+FROM+ApexClass+WHERE+Name='MockAdapter'",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"services",
+						"data",
+						"v{{version}}",
+						"query",
+						""
+					],
+					"query": [
+						{
+							"key": "q",
+							"value": "SELECT+Id,Name,Status,ApiVersion,Body+FROM+ApexClass+WHERE+Name='MockAdapter'"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "MockAdapter Apex Class",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							""
+						],
+						"type": "text/javascript"
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.environment.unset(\"mockTaxAdapterId\")"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "DELETE",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/services/data/v{{version}}/sobjects/ApexClass/{{mockTaxAdapterId}}",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"services",
+						"data",
+						"v{{version}}",
+						"sobjects",
+						"ApexClass",
+						"{{mockTaxAdapterId}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
 			"name": "MockAdapter APEX class",
 			"event": [
 				{
 					"listen": "test",
 					"script": {
 						"exec": [
-							"if (pm.environment.get(\"mockTaxAdapterId\") != null) {",
-							"    var jsonData = JSON.parse(responseBody);",
-							"    pm.environment.set(\"mockTaxAdapterId\", jsonData.id);",
-							"}"
+							"var jsonData = JSON.parse(responseBody);",
+							"pm.environment.set(\"mockTaxAdapterId\", jsonData.id);"
 						],
 						"type": "text/javascript"
 					}
@@ -917,9 +954,11 @@
 					"script": {
 						"exec": [
 							"var jsonData=JSON.parse(responseBody);",
-							"for (var i = 0; i<jsonData.graphs[0].graphResponse.compositeResponse.length;i++){",
-							"    if(jsonData.graphs[0].graphResponse.compositeResponse[i].referenceId != \"activePaymentTerm\"){",
-							"        pm.environment.set(jsonData.graphs[0].graphResponse.compositeResponse[i].referenceId +\"Id\", jsonData.graphs[0].graphResponse.compositeResponse[i].body.id);",
+							"for (var i = 0; i<jsonData.graphs[0].graphResponse.compositeResponse.length;i++) {",
+							"    var compositeResponse = jsonData.graphs[0].graphResponse.compositeResponse[i]",
+							"    var referenceId = compositeResponse.referenceId",
+							"    if (referenceId != \"activatePaymentTerm\" && referenceId != \"activateBillingTreatment\") {",
+							"        pm.environment.set(referenceId + \"Id\", compositeResponse.body.id);",
 							"    }",
 							"}",
 							""
@@ -940,7 +979,7 @@
 				],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n    \"graphs\": [\n        {\n            \"graphId\": \"1\",\n            \"compositeRequest\": [\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/Product2/\",\n                    \"body\": {\n                        \"Name\": \"Gopal Pro\",\n                        \"isActive\": true\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"product\"\n                },\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/PricebookEntry/\",\n                    \"body\": {\n                        \"Pricebook2Id\": \"{{standardPricebookId}}\",\n                        \"Product2Id\": \"@{product.id}\",\n                        \"UnitPrice\": \"27\",\n                        \"isActive\": true\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"standardPricebookEntry\"\n                },\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/Pricebook2/\",\n                    \"body\": {\n                        \"Name\": \"Gopal Pricebook2\",\n                        \"isActive\": true\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"pricebook\"\n                },\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/PricebookEntry/\",\n                    \"body\": {\n                        \"Pricebook2Id\": \"@{pricebook.id}\",\n                        \"Product2Id\": \"@{product.id}\",\n                        \"UnitPrice\": 27,\n                        \"isActive\": true\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"pricebookEntry\"\n                },\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/Account\",\n                    \"body\": {\n                        \"Name\": \"ReVoman\"\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"account\"\n                },\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/Contact\",\n                    \"body\": {\n                        \"AccountId\": \"@{account.id}\",\n                        \"FirstName\": \"ReVoman\",\n                        \"LastName\": \"Salesforce\"\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"contact\"\n                },\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/PaymentTerm\",\n                    \"body\": {\n                        \"Name\": \"My Term\",\n                        \"IsDefault\": false,\n                        \"Description\": \"My Term\",\n                        \"Status\": \"Draft\"\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"paymentTerm\"\n                },\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/PaymentTermItem\",\n                    \"body\": {\n                        \"Type\": \"Period-Based\",\n                        \"Period\": 30,\n                        \"PeriodUnit\": \"Days\",\n                        \"PaymentTermId\": \"@{paymentTerm.id}\",\n                        \"PaymentTimeframe\": \"Standard\"\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"paymentTermItem\"\n                },\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/PaymentTerm/@{paymentTerm.id}\",\n                    \"body\": {\n                        \"IsDefault\": true,\n                        \"Status\": \"Active\"\n                    },\n                    \"method\": \"PATCH\",\n                    \"referenceId\": \"activePaymentTerm\"\n                },\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/BillingTreatment/\",\n                    \"body\": {\n                        \"Name\": \"Gopal-BT\",\n                        \"Status\": \"Draft\",\n                        \"ExcludeFromBilling\": \"No\"\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"billingTreatment\"\n                },\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/BillingTreatmentItem/\",\n                    \"body\": {\n                        \"Name\": \"Gopal-BTI\",\n                        \"Status\": \"Active\",\n                        \"ProcessingOrder\": 1,\n                        \"Sequencing\": \"Manual\",\n                        \"BillingTreatmentId\": \"@{billingTreatment.id}\",\n                        \"Handling0Amount\": \"CreateInvoice\",\n                        \"Type\": \"FlatAmount\",\n                        \"FlatAmount\": 77,\n                        \"BillingType\": \"Advance\",\n                        \"Controller\": \"BillingScheduleGroup\"\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"billingTreatmentItem\"\n                },\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/BillingTreatment/@{billingTreatment.id}\",\n                    \"body\": {\n                        \"Status\": \"Active\"\n                    },\n                    \"method\": \"PATCH\",\n                    \"referenceId\": \"activeBillingTreatment\"\n                }\n            ]\n        }\n    ]\n}"
+					"raw": "{\n    \"graphs\": [\n        {\n            \"graphId\": \"1\",\n            \"compositeRequest\": [\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/Product2/\",\n                    \"body\": {\n                        \"Name\": \"Gopal Pro\",\n                        \"isActive\": true\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"product\"\n                },\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/PricebookEntry/\",\n                    \"body\": {\n                        \"Pricebook2Id\": \"{{standardPricebookId}}\",\n                        \"Product2Id\": \"@{product.id}\",\n                        \"UnitPrice\": \"27\",\n                        \"isActive\": true\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"standardPricebookEntry\"\n                },\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/Pricebook2/\",\n                    \"body\": {\n                        \"Name\": \"Gopal Pricebook2\",\n                        \"isActive\": true\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"pricebook\"\n                },\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/PricebookEntry/\",\n                    \"body\": {\n                        \"Pricebook2Id\": \"@{pricebook.id}\",\n                        \"Product2Id\": \"@{product.id}\",\n                        \"UnitPrice\": 27,\n                        \"isActive\": true\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"pricebookEntry\"\n                },\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/Account\",\n                    \"body\": {\n                        \"Name\": \"ReVoman\"\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"account\"\n                },\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/Contact\",\n                    \"body\": {\n                        \"AccountId\": \"@{account.id}\",\n                        \"FirstName\": \"ReVoman\",\n                        \"LastName\": \"Salesforce\"\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"contact\"\n                },\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/PaymentTerm\",\n                    \"body\": {\n                        \"Name\": \"My Term\",\n                        \"IsDefault\": false,\n                        \"Description\": \"My Term\",\n                        \"Status\": \"Draft\"\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"paymentTerm\"\n                },\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/PaymentTermItem\",\n                    \"body\": {\n                        \"Type\": \"Period-Based\",\n                        \"Period\": 30,\n                        \"PeriodUnit\": \"Days\",\n                        \"PaymentTermId\": \"@{paymentTerm.id}\",\n                        \"PaymentTimeframe\": \"Standard\"\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"paymentTermItem\"\n                },\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/PaymentTerm/@{paymentTerm.id}\",\n                    \"body\": {\n                        \"IsDefault\": true,\n                        \"Status\": \"Active\"\n                    },\n                    \"method\": \"PATCH\",\n                    \"referenceId\": \"activatePaymentTerm\"\n                },\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/BillingTreatment/\",\n                    \"body\": {\n                        \"Name\": \"Gopal-BT\",\n                        \"Status\": \"Draft\",\n                        \"ExcludeFromBilling\": \"No\"\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"billingTreatment\"\n                },\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/BillingTreatmentItem/\",\n                    \"body\": {\n                        \"Name\": \"Gopal-BTI\",\n                        \"Status\": \"Active\",\n                        \"ProcessingOrder\": 1,\n                        \"Sequencing\": \"Manual\",\n                        \"BillingTreatmentId\": \"@{billingTreatment.id}\",\n                        \"Handling0Amount\": \"CreateInvoice\",\n                        \"Type\": \"FlatAmount\",\n                        \"FlatAmount\": 77,\n                        \"BillingType\": \"Advance\",\n                        \"Controller\": \"BillingScheduleGroup\"\n                    },\n                    \"method\": \"POST\",\n                    \"referenceId\": \"billingTreatmentItem\"\n                },\n                {\n                    \"url\": \"/services/data/v{{version}}/sobjects/BillingTreatment/@{billingTreatment.id}\",\n                    \"body\": {\n                        \"Status\": \"Active\"\n                    },\n                    \"method\": \"PATCH\",\n                    \"referenceId\": \"activateBillingTreatment\"\n                }\n            ]\n        }\n    ]\n}"
 				},
 				"url": {
 					"raw": "{{baseUrl}}/services/data/v{{version}}/composite/graph",
@@ -955,82 +994,6 @@
 						"graph"
 					]
 				}
-			},
-			"response": []
-		},
-		{
-			"name": "Login as SalesOpsRep",
-			"event": [
-				{
-					"listen": "prerequest",
-					"script": {
-						"exec": [
-							""
-						],
-						"type": "text/javascript"
-					}
-				},
-				{
-					"listen": "test",
-					"script": {
-						"exec": [
-							"var statusCode = pm.response.code;",
-							"",
-							"if(statusCode == 200){",
-							"    const result = xml2Json(pm.response.text())[\"soapenv:Envelope\"][\"soapenv:Body\"].loginResponse.result;",
-							"    const context = pm.environment.name ? pm.environment : pm.collectionVariables;",
-							"    context.set(\"accessToken\", result.sessionId);",
-							"}"
-						],
-						"type": "text/javascript"
-					}
-				}
-			],
-			"protocolProfileBehavior": {
-				"disabledSystemHeaders": {
-					"accept": true,
-					"content-type": true
-				}
-			},
-			"request": {
-				"method": "POST",
-				"header": [
-					{
-						"key": "Content-Type",
-						"value": "text/xml"
-					},
-					{
-						"key": "SOAPAction",
-						"value": "login"
-					},
-					{
-						"key": "charset",
-						"value": "UTF-8",
-						"type": "text"
-					},
-					{
-						"key": "Accept",
-						"value": "text/xml",
-						"type": "text"
-					}
-				],
-				"body": {
-					"mode": "raw",
-					"raw": "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<env:Envelope xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"\n    xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n    xmlns:env=\"http://schemas.xmlsoap.org/soap/envelope/\">\n  <env:Body>\n    <n1:login xmlns:n1=\"urn:partner.soap.sforce.com\">\n      <n1:username><![CDATA[{{salesOpsRepUserName}}]]></n1:username>\n      <n1:password><![CDATA[{{commonUserPassword}}]]></n1:password>\n    </n1:login>\n  </env:Body>\n</env:Envelope>"
-				},
-				"url": {
-					"raw": "{{baseUrl}}/services/Soap/u/{{version}}",
-					"host": [
-						"{{baseUrl}}"
-					],
-					"path": [
-						"services",
-						"Soap",
-						"u",
-						"{{version}}"
-					]
-				},
-				"description": "Login to Salesforce"
 			},
 			"response": []
 		},

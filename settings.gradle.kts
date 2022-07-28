@@ -8,11 +8,12 @@ pluginManagement {
   plugins {
     kotlin("jvm") version kotlinVersion
     kotlin("kapt") version kotlinVersion
-    id("dev.zacsweers.moshix") version "0.18.3"
+    id("dev.zacsweers.moshix") version moshiXVersion
   }
 }
 
 rootProject.name = "revoman-root"
+include("jvmTest")
 
 dependencyResolutionManagement {
   val nexusUsername: String by lazy {
@@ -37,4 +38,3 @@ dependencyResolutionManagement {
     }
   }
 }
-include("jvmTest")

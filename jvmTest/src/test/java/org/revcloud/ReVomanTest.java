@@ -24,7 +24,7 @@ class ReVomanTest {
         Kick.configure()
             .templatePath(pmCollectionPath)
             .environmentPath(pmEnvironmentPath)
-            .itemNameToOutputType(itemNameToOutputType)
+            .itemNameToSuccessType(itemNameToOutputType)
             .dynamicEnvironment(dynamicEnvironment)
             .off();
     final var pokemon = ReVoman.revUp(kickOffConfig);
@@ -54,12 +54,16 @@ class ReVomanTest {
         TEST_RESOURCES_PATH + "ReVoman (UTest - Linux).postman_environment.json";
     final var orderOrderItemGraphReqName = "order-orderItem";
     final var itemNameToOutputType = Map.of(orderOrderItemGraphReqName, Graphs.class);
-    final var rundown =
-        ReVoman.revUp(pmCollectionPath, pmEnvironmentPath, "accessToken", itemNameToOutputType);
+    final var kickOffConfig =
+        Kick.configure()
+            .templatePath(pmCollectionPath)
+            .environmentPath(pmEnvironmentPath)
+            .itemNameToSuccessType(itemNameToOutputType)
+            .bearerTokenKey("accessToken")
+            .off();
+    final var rundown = ReVoman.revUp(kickOffConfig);
 
     // ! TODO gopala.akshintala 09/05/22: Pass these assertions as Vader configs.
-    assertThat(rundown.itemNameToResponseWithType).hasSize(20);
-
     final Class<?> graphsResponseType =
         rundown.itemNameToResponseWithType.get(orderOrderItemGraphReqName).getSecond();
     assertThat(graphsResponseType).isEqualTo(itemNameToOutputType.get(orderOrderItemGraphReqName));

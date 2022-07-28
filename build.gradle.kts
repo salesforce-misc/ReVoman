@@ -15,7 +15,7 @@ plugins {
 
 allprojects {
   group = "com.salesforce.ccspayments"
-  version = "0.1.6"
+  version = "0.2.0"
   repositories {
     mavenCentral()
   }
@@ -80,6 +80,7 @@ allprojects {
 }
 
 dependencies {
+  implementation("org.jetbrains:annotations:23.0.0")
   val http4kVersion: String by project
   implementation("org.http4k:http4k-core:$http4kVersion")
   implementation("org.http4k:http4k-format-moshi:$http4kVersion")

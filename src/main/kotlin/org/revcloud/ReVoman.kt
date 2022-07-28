@@ -2,14 +2,9 @@
 
 package org.revcloud
 
-import com.squareup.moshi.JsonAdapter
-import com.squareup.moshi.JsonReader
-import com.squareup.moshi.JsonWriter
 import com.squareup.moshi.Moshi
-import com.squareup.moshi.Types
 import com.squareup.moshi.adapter
 import com.squareup.moshi.adapters.Rfc3339DateJsonAdapter
-import com.squareup.moshi.internal.Util
 import dev.zacsweers.moshix.adapters.AdaptedBy
 import dev.zacsweers.moshix.adapters.JsonString
 import org.apache.commons.lang3.StringUtils
@@ -18,18 +13,9 @@ import org.graalvm.polyglot.HostAccess
 import org.graalvm.polyglot.PolyglotException
 import org.graalvm.polyglot.Source
 import org.http4k.client.JavaHttpClient
+import org.http4k.core.*
 import org.http4k.core.ContentType.Companion.APPLICATION_JSON
 import org.http4k.core.ContentType.Companion.Text
-import org.http4k.core.Filter
-import org.http4k.core.HttpHandler
-import org.http4k.core.Method
-import org.http4k.core.NoOp
-import org.http4k.core.Request
-import org.http4k.core.Response
-import org.http4k.core.Uri
-import org.http4k.core.queryParametersEncoded
-import org.http4k.core.then
-import org.http4k.core.with
 import org.http4k.filter.ClientFilters
 import org.http4k.filter.DebuggingFilters
 import org.http4k.format.ConfigurableMoshi
@@ -40,66 +26,77 @@ import org.http4k.format.ThrowableAdapter
 import org.http4k.format.asConfigurable
 import org.http4k.format.withStandardMappings
 import org.http4k.lens.Header.CONTENT_TYPE
+import org.revcloud.adapters.ObjOrListAdapterFactory
+import org.revcloud.adapters.internal.IgnoreUnknownFactory
+import org.revcloud.adapters.internal.RegexAdapterFactory
 import org.revcloud.input.Kick
 import org.revcloud.output.Rundown
-import org.revcloud.postman.DynamicEnvironmentKeys.BEARER_TOKEN_KEY
 import org.revcloud.postman.PostmanAPI
-import org.revcloud.postman.dynamicVariables
 import org.revcloud.postman.state.collection.Collection
 import org.revcloud.postman.state.collection.Item
 import org.revcloud.postman.state.environment.Environment
 import java.io.File
-import java.lang.reflect.Type
 import java.util.Date
 
-private val postManVariableRegex = "\\{\\{([^{}]*?)}}".toRegex()
 private val pm = PostmanAPI()
 private val jsContext = buildJsContext(false).also {
   it.getBindings("js").putMember("pm", pm)
   it.getBindings("js").putMember("xml2Json", pm.xml2Json)
 }
 
-fun revUp(kick: Kick): Rundown = revUp(kick.templatePath(), kick.environmentPath(), kick.bearerTokenKey(), kick.itemNameToOutputType(), kick.dynamicEnvironment(), kick.customAdaptersForResponse(), kick.typesInResponseToIgnore())
+fun revUp(kick: Kick): Rundown = revUp(
+  kick.templatePath(),
+  kick.environmentPath(),
+  kick.bearerTokenKey(),
+  kick.itemNameToSuccessType(),
+  kick.itemNameToErrorType(),
+  kick.dynamicEnvironment(),
+  kick.customAdaptersForResponse(),
+  kick.typesInResponseToIgnore()
+)
 
-// ! TODO gopala.akshintala 18/05/22: Refactor this method
 @OptIn(ExperimentalStdlibApi::class)
-@JvmOverloads
-fun revUp(
+private fun revUp(
   templatePath: String,
-  environmentPath: String? = null,
-  bearerTokenKey: String? = BEARER_TOKEN_KEY,
-  itemNameToOutputType: Map<String, Class<out Any>>? = emptyMap(),
-  dynamicEnvironment: Map<String, String?>? = emptyMap(),
-  customAdaptersForResponse: List<Any>? = emptyList(),
-  typesInResponseToIgnore: Set<Class<out Any>>? = emptySet(),
+  environmentPath: String?,
+  bearerTokenKey: String?,
+  itemNameToSuccessType: Map<String, Class<out Any>>,
+  itemNameToErrorType: Map<String, Class<out Any>>,
+  dynamicEnvironment: Map<String, String?>,
+  customAdaptersForResponse: List<Any>,
+  typesInResponseToIgnore: Set<Class<out Any>>,
 ): Rundown {
   initPmEnvironment(dynamicEnvironment, environmentPath)
-  val configurableMoshi = configurableMoshi(typesInResponseToIgnore, customAdaptersForResponse)
-  val itemJsonAdapter = Moshi.Builder().add(RegexAdapterFactory(pm.environment)).build().adapter<Item>()
   val pmCollection: Collection? = marshallPostmanCollection(templatePath)
-  // Process each item in `pmCollection`
-  val itemNameToResponseWithType = pmCollection?.item?.asSequence()?.map { itemData ->
-    val item = itemJsonAdapter.fromJson(itemData.data)
-    val itemRequest: org.revcloud.postman.state.collection.Request =
-      item?.request ?: org.revcloud.postman.state.collection.Request()
-    val httpClient: HttpHandler = prepareHttpClient(bearerTokenKey)
-    val response: Response = httpClient(toHttpRequest(itemRequest))
-
-    loadIntoPmEnvironment(itemRequest, response)
-
-    // Test script
-    val itemName = item?.name ?: ""
-    executeTestScriptJs(item, response.bodyString())
-
-    // Marshall response
-    if (isContentTypeApplicationJson(response)) {
-      val clazz = itemNameToOutputType?.get(itemName)?.kotlin ?: Map::class
-      itemName to (configurableMoshi.asA(response.bodyString(), clazz) to clazz.java)
-    } else {
-      itemName to ("" to Nothing::class.java)
-    }
-  }?.toMap() ?: emptyMap()
+  val replaceRegexWithEnvAdapter = Moshi.Builder().add(RegexAdapterFactory(pm.environment)).build().adapter<Item>()
+  val moshi = initMoshi(typesInResponseToIgnore, customAdaptersForResponse)
+  val itemNameToResponseWithType = pmCollection?.item?.asSequence()
+    ?.map { itemWithRegex -> replaceRegexWithEnvAdapter.fromJson(itemWithRegex.data) }
+    ?.filterNotNull()
+    ?.map { item ->
+      val httpClient: HttpHandler = prepareHttpClient(bearerTokenKey)
+      val response: Response = httpClient(toHttpRequest(item.request))
+      loadIntoPmEnvironment(item.request, response)
+      executeTestScriptJs(item, response.bodyString())
+      marshallResponse(response, itemNameToSuccessType, itemNameToErrorType, item.name, moshi)
+    }?.toMap() ?: emptyMap()
   return Rundown(itemNameToResponseWithType, pm.environment)
+}
+
+private fun marshallResponse(
+  response: Response,
+  itemNameToOutputType: Map<String, Class<out Any>>,
+  itemNameToErrorType: Map<String, Class<out Any>>,
+  itemName: String,
+  moshi: ConfigurableMoshi
+) = when {
+  isContentTypeApplicationJson(response) -> {
+    val clazz = (if (response.status.successful) itemNameToOutputType[itemName] else itemNameToErrorType[itemName])?.kotlin ?: Any::class
+    val responseObj = moshi.asA(response.bodyString(), clazz)
+    itemName to (responseObj to responseObj.javaClass)
+  }
+  // ! TODO gopala.akshintala 26/07/22: Add support for other content types
+  else -> itemName to ("" to Nothing::class.java)
 }
 
 private fun loadIntoPmEnvironment(itemRequest: org.revcloud.postman.state.collection.Request, response: Response) {
@@ -127,7 +124,8 @@ private fun toHttpRequest(itemRequest: org.revcloud.postman.state.collection.Req
 
 private fun executeTestScriptJs(
   item: Item?,
-  responseBody: String) {
+  responseBody: String
+) {
   val testScript = item?.event?.find { it.listen == "test" }?.script?.exec?.joinToString("\n")
   if (!testScript.isNullOrBlank()) { // ! TODO gopala.akshintala 04/05/22: Catch and handle exceptions
     val testSource = Source.newBuilder("js", testScript, "pmItemTestScript.js").build()
@@ -192,60 +190,17 @@ private fun buildJsContext(useCommonjsRequire: Boolean = true): Context {
 
 private fun readTextFromFile(filePath: String): String = File(filePath).readText()
 
-private class RegexAdapterFactory(val envMap: Map<String, String?>) : JsonAdapter.Factory {
-  override fun create(type: Type, annotations: Set<Annotation?>, moshi: Moshi): JsonAdapter<*>? {
-    if (type != String::class.java) {
-      return null
-    }
-    val stringAdapter = moshi.nextAdapter<String>(this, String::class.java, Util.NO_ANNOTATIONS)
-    return object : JsonAdapter<String>() {
-      override fun fromJson(reader: JsonReader): String? {
-        val s = stringAdapter.fromJson(reader)
-        return s?.let {
-          postManVariableRegex.replace(s) { matchResult ->
-            val variableKey = matchResult.groupValues[1]
-            dynamicVariables(variableKey) ?: envMap[variableKey] ?: ""
-          }
-        }
-      }
-
-      override fun toJson(writer: JsonWriter, value: String?) {
-        stringAdapter.toJson(writer, value)
-      }
-    }
-  }
-}
-
-private class IgnoreUnknownFactory(private val typesToIgnore: Set<Class<out Any>>) : JsonAdapter.Factory {
-  override fun create(
-    type: Type, annotations: Set<Annotation?>, moshi: Moshi
-  ): JsonAdapter<*> {
-    val rawType = Types.getRawType(type)
-    return if (typesToIgnore.contains(rawType)) {
-      object : JsonAdapter<Type>() {
-        override fun fromJson(reader: JsonReader): Type? {
-          return null
-        }
-
-        override fun toJson(writer: JsonWriter, value: Type?) {
-          // do nothing
-        }
-      }
-    } else moshi.nextAdapter<Any>(this, type, annotations)
-  }
-}
-
-private fun configurableMoshi(
+private fun initMoshi(
   typesToIgnore: Set<Class<out Any>>? = emptySet(),
   customAdaptersForResponse: List<Any>? = emptyList()
 ): ConfigurableMoshi {
-  val moshi = Moshi.Builder()
-  customAdaptersForResponse?.forEach { moshi.add(it) }
+  val moshiBuilder = Moshi.Builder()
+  customAdaptersForResponse?.forEach { moshiBuilder.add(it) }
   if (!typesToIgnore.isNullOrEmpty()) {
-    moshi.add(IgnoreUnknownFactory(typesToIgnore))
+    moshiBuilder.add(IgnoreUnknownFactory(typesToIgnore))
   }
   return object : ConfigurableMoshi(
-    moshi
+    moshiBuilder
       .add(JsonString.Factory())
       .add(AdaptedBy.Factory())
       .add(Date::class.java, Rfc3339DateJsonAdapter())
@@ -253,6 +208,7 @@ private fun configurableMoshi(
       .addLast(ThrowableAdapter)
       .addLast(ListAdapter)
       .addLast(MapAdapter)
+      .addLast(ObjOrListAdapterFactory)
       .asConfigurable()
       .withStandardMappings()
       .done()

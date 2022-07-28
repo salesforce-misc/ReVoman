@@ -22,7 +22,6 @@ internal class PostmanAPI {
   val xml2Json = Xml2Json { xml ->
     Moshi.Builder().build().adapter<Map<*, *>>().fromJson(U.xmlToJson(xml))
   }
-
 }
 
 internal data class PostmanEnvironment(private val environment: MutableMap<String, String?> = mutableMapOf()) :
