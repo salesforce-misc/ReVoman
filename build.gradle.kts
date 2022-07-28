@@ -1,5 +1,6 @@
 import com.adarshr.gradle.testlogger.theme.ThemeType.MOCHA_PARALLEL
 import com.diffplug.spotless.extra.wtp.EclipseWtpFormatterStep.XML
+import io.gitlab.arturbosch.detekt.Detekt
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
@@ -8,14 +9,14 @@ plugins {
   application
   id("dev.zacsweers.moshix")
   `maven-publish`
-  // id("io.gitlab.arturbosch.detekt") version "1.21.0"
+  id("io.gitlab.arturbosch.detekt") version "1.21.0"
   id("com.adarshr.test-logger") version "3.2.0"
   id("com.diffplug.spotless") version "6.8.0"
 }
 
 allprojects {
   group = "com.salesforce.ccspayments"
-  version = "0.2.0"
+  version = "0.2.1"
   repositories {
     mavenCentral()
   }
@@ -65,8 +66,11 @@ allprojects {
     withType<KotlinCompile> {
       kotlinOptions {
         jvmTarget = JavaVersion.VERSION_11.toString()
-        freeCompilerArgs = listOf("-Xjdk-release=17")
+        freeCompilerArgs = listOf("-Xjvm-default=all")
       }
+    }
+    java {
+      sourceCompatibility = JavaVersion.VERSION_11
     }
   }
   dependencies {
@@ -104,39 +108,28 @@ dependencies {
 }
 
 tasks {
-  test.get().useJUnitPlatform()
-  withType<KotlinCompile> {
-    kotlinOptions {
-      jvmTarget = JavaVersion.VERSION_11.toString()
-      freeCompilerArgs = listOf("-Xjvm-default=all")
-    }
-  }
-  compileTestJava {
-    sourceCompatibility = JavaVersion.VERSION_17.toString()
-    targetCompatibility = JavaVersion.VERSION_17.toString()
-  }
   testlogger {
     theme = MOCHA_PARALLEL
   }
-//  register<Detekt>("detektAll") {
-//    parallel = true
-//    ignoreFailures = false
-//    autoCorrect = false
-//    buildUponDefaultConfig = true
-//    basePath = projectDir.toString()
-//    setSource(subprojects.map { it.the<SourceSetContainer>()["main"].allSource.srcDirs })
-//    include("**/*.kt")
-//    include("**/*.kts")
-//    exclude("**/resources/**")
-//    exclude("**/build/**")
-//    config.setFrom(files("$rootDir/config/detekt/detekt.yml"))
-//    baseline.set(File("$rootDir/config/baseline.xml"))
-//  }
-//  withType<Detekt>().configureEach {
-//    reports {
-//      xml.required.set(true)
-//    }
-//  }
+  register<Detekt>("detektAll") {
+    parallel = true
+    ignoreFailures = false
+    autoCorrect = false
+    buildUponDefaultConfig = true
+    basePath = projectDir.toString()
+    setSource(subprojects.map { it.the<SourceSetContainer>()["main"].allSource.srcDirs })
+    include("**/*.kt")
+    include("**/*.kts")
+    exclude("**/resources/**")
+    exclude("**/build/**")
+    config.setFrom(files("$rootDir/config/detekt/detekt.yml"))
+    baseline.set(File("$rootDir/config/baseline.xml"))
+  }
+  withType<Detekt>().configureEach {
+    reports {
+      xml.required.set(true)
+    }
+  }
   withType<PublishToMavenRepository>().configureEach {
     doLast {
       logger.lifecycle("Successfully uploaded ${publication.groupId}:${publication.artifactId}:${publication.version} to ${repository.name}")
