@@ -1,4 +1,4 @@
-package org.revcloud;
+package org.revcloud.integration;
 
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
@@ -11,7 +11,7 @@ class KickTest {
   void defaultValues() {
     final var kickOffConfig =
         Kick.configure()
-            .templatePath("pmCollectionPath")
+            .templatePath("templatePath")
             .environmentPath(null)
             .itemNameToSuccessType(Map.of())
             .off();

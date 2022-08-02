@@ -14,74 +14,8 @@ plugins {
   id("com.diffplug.spotless") version "6.8.0"
 }
 
-allprojects {
-  group = "com.salesforce.ccspayments"
-  version = "0.2.1"
-  repositories {
-    mavenCentral()
-  }
-  apply(plugin = "org.jetbrains.kotlin.jvm")
-  apply(plugin = "com.diffplug.spotless")
-  spotless {
-    kotlin {
-      target("src/main/java/**/*.kt", "src/test/java/**/*.kt")
-      targetExclude("$buildDir/generated/**/*.*")
-      ktlint()
-        .setUseExperimental(true)
-        .editorConfigOverride(mapOf("indent_size" to "2", "continuation_indent_size" to "2"))
-    }
-    kotlinGradle {
-      target("*.gradle.kts")
-      ktlint()
-        .setUseExperimental(true)
-        .editorConfigOverride(mapOf("indent_size" to "2", "continuation_indent_size" to "2"))
-    }
-    java {
-      toggleOffOn()
-      target("src/main/java/**/*.java", "src/test/java/**/*.java")
-      targetExclude("$buildDir/generated/**/*.*")
-      importOrder()
-      removeUnusedImports()
-      googleJavaFormat()
-      trimTrailingWhitespace()
-      indentWithSpaces(2)
-      endWithNewline()
-    }
-    format("xml") {
-      targetExclude("pom.xml")
-      target("*.xml")
-      eclipseWtp(XML)
-    }
-    format("documentation") {
-      target("*.md", "*.adoc")
-      trimTrailingWhitespace()
-      indentWithSpaces(2)
-      endWithNewline()
-    }
-  }
-  tasks {
-    withType<Test> {
-      useJUnitPlatform()
-    }
-    withType<KotlinCompile> {
-      kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
-        freeCompilerArgs = listOf("-Xjvm-default=all")
-      }
-    }
-    java {
-      sourceCompatibility = JavaVersion.VERSION_11
-    }
-  }
-  dependencies {
-    val testImplementation by configurations
-    testImplementation(project(":"))
-    testImplementation(platform("org.junit:junit-bom:5.8.2"))
-    testImplementation("org.junit.jupiter:junit-jupiter-api")
-    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine")
-    testImplementation("org.assertj:assertj-core:3.23.1")
-  }
-}
+group = "com.salesforce.ccspayments"
+version = "0.3.0"
 
 dependencies {
   implementation("org.jetbrains:annotations:23.0.0")
@@ -95,19 +29,29 @@ dependencies {
   val graalVersion: String by project
   implementation("org.graalvm.sdk:graal-sdk:$graalVersion")
   implementation("org.graalvm.js:js:$graalVersion")
-  implementation("io.github.serpro69:kotlin-faker:1.11.0")
+  implementation("io.github.serpro69:kotlin-faker:1.12.0-rc.0")
   implementation("com.github.javadev:underscore:1.78")
+  implementation("io.github.microutils:kotlin-logging-jvm:2.1.23")
+  val vaderVersion = "3.3.2-SNAPSHOT"
+  api("com.salesforce.ccspayments:vader:$vaderVersion")
+  api("com.salesforce.ccspayments:vader-matchers:$vaderVersion")
+  api("com.salesforce.ccspayments:vader-specs:$vaderVersion")
   val immutablesVersion: String by project
   kapt("org.immutables:value:$immutablesVersion")
   compileOnly("org.immutables:builder:$immutablesVersion")
   compileOnly("org.immutables:value-annotations:$immutablesVersion")
   runtimeOnly("org.apache.logging.log4j:log4j-slf4j18-impl:2.17.2")
-  testImplementation("org.junit.jupiter:junit-jupiter-api:5.8.2")
-  runtimeOnly("org.junit.jupiter:junit-jupiter-engine:5.8.2")
-  testImplementation("org.assertj:assertj-core:3.23.1")
 }
-
 tasks {
+  withType<KotlinCompile> {
+    kotlinOptions {
+      jvmTarget = JavaVersion.VERSION_11.toString()
+      freeCompilerArgs = listOf("-Xjvm-default=all")
+    }
+  }
+  java {
+    sourceCompatibility = JavaVersion.VERSION_11
+  }
   testlogger {
     theme = MOCHA_PARALLEL
   }
@@ -139,6 +83,66 @@ tasks {
     doLast {
       logger.lifecycle("Successfully uploaded ${publication.groupId}:${publication.artifactId}:${publication.version} to MavenLocal.")
     }
+  }
+}
+testing {
+  suites {
+    val test by getting(JvmTestSuite::class) {
+      useJUnitJupiter("5.8.2")
+    }
+
+    val integrationTest by registering(JvmTestSuite::class) {
+      dependencies {
+        implementation(project)
+        implementation("org.assertj:assertj-core:3.23.1")
+        java {
+          sourceCompatibility = JavaVersion.VERSION_17
+        }
+      }
+
+      targets {
+        all {
+          testTask.configure {
+            shouldRunAfter(test)
+          }
+        }
+      }
+    }
+  }
+}
+spotless {
+  kotlin {
+    targetExclude("$buildDir/generated/**/*.*")
+    ktlint()
+      .setUseExperimental(true)
+      .editorConfigOverride(mapOf("indent_size" to "2", "continuation_indent_size" to "2"))
+  }
+  kotlinGradle {
+    target("*.gradle.kts")
+    ktlint()
+      .setUseExperimental(true)
+      .editorConfigOverride(mapOf("indent_size" to "2", "continuation_indent_size" to "2"))
+  }
+  java {
+    toggleOffOn()
+    targetExclude("$buildDir/generated/**/*.*")
+    importOrder()
+    removeUnusedImports()
+    googleJavaFormat()
+    trimTrailingWhitespace()
+    indentWithSpaces(2)
+    endWithNewline()
+  }
+  format("xml") {
+    targetExclude("pom.xml")
+    target("*.xml")
+    eclipseWtp(XML)
+  }
+  format("documentation") {
+    target("*.md", "*.adoc")
+    trimTrailingWhitespace()
+    indentWithSpaces(2)
+    endWithNewline()
   }
 }
 moshi {

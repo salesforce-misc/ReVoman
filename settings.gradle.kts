@@ -13,7 +13,6 @@ pluginManagement {
 }
 
 rootProject.name = "revoman-root"
-include("jvmTest")
 
 dependencyResolutionManagement {
   val nexusUsername: String by lazy {

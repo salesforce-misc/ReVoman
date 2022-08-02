@@ -14,7 +14,7 @@ private val dynamicVariableKeyToGenerator: Map<String, () -> String> = mapOf(
   "\$randomLastName" to faker.name::lastName,
   "\$randomUserName" to faker.name::neutralFirstName,
   "\$randomCompanyName" to faker.company::name,
-  "\$randomEmail" to { faker.internet.email() },
+  "\$randomEmail" to { faker.internet.email() }
 )
 
 internal fun dynamicVariables(key: String): String? = dynamicVariableKeyToGenerator[key]?.invoke()

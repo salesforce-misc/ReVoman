@@ -1,4 +1,5 @@
 @file:JvmName("ReVoman")
+@file:Suppress("ktlint:filename")
 
 package org.revcloud
 
@@ -7,15 +8,25 @@ import com.squareup.moshi.adapter
 import com.squareup.moshi.adapters.Rfc3339DateJsonAdapter
 import dev.zacsweers.moshix.adapters.AdaptedBy
 import dev.zacsweers.moshix.adapters.JsonString
+import mu.KotlinLogging
 import org.apache.commons.lang3.StringUtils
 import org.graalvm.polyglot.Context
 import org.graalvm.polyglot.HostAccess
 import org.graalvm.polyglot.PolyglotException
 import org.graalvm.polyglot.Source
 import org.http4k.client.JavaHttpClient
-import org.http4k.core.*
 import org.http4k.core.ContentType.Companion.APPLICATION_JSON
 import org.http4k.core.ContentType.Companion.Text
+import org.http4k.core.Filter
+import org.http4k.core.HttpHandler
+import org.http4k.core.Method
+import org.http4k.core.NoOp
+import org.http4k.core.Request
+import org.http4k.core.Response
+import org.http4k.core.Uri
+import org.http4k.core.queryParametersEncoded
+import org.http4k.core.then
+import org.http4k.core.with
 import org.http4k.filter.ClientFilters
 import org.http4k.filter.DebuggingFilters
 import org.http4k.format.ConfigurableMoshi
@@ -35,9 +46,14 @@ import org.revcloud.postman.PostmanAPI
 import org.revcloud.postman.state.collection.Collection
 import org.revcloud.postman.state.collection.Item
 import org.revcloud.postman.state.environment.Environment
+import org.revcloud.vader.runner.Vader
+import org.revcloud.vader.runner.config.BaseValidationConfig
+import org.revcloud.vader.runner.config.ValidationConfig
 import java.io.File
+import java.lang.RuntimeException
 import java.util.Date
 
+private val logger = KotlinLogging.logger {}
 private val pm = PostmanAPI()
 private val jsContext = buildJsContext(false).also {
   it.getBindings("js").putMember("pm", pm)
@@ -60,11 +76,11 @@ private fun revUp(
   templatePath: String,
   environmentPath: String?,
   bearerTokenKey: String?,
-  itemNameToSuccessType: Map<String, Class<out Any>>,
+  itemNameToSuccessType: Map<String, Pair<Class<out Any>, BaseValidationConfig<out Any, out Any>?>>,
   itemNameToErrorType: Map<String, Class<out Any>>,
   dynamicEnvironment: Map<String, String?>,
   customAdaptersForResponse: List<Any>,
-  typesInResponseToIgnore: Set<Class<out Any>>,
+  typesInResponseToIgnore: Set<Class<out Any>>
 ): Rundown {
   initPmEnvironment(dynamicEnvironment, environmentPath)
   val pmCollection: Collection? = marshallPostmanCollection(templatePath)
@@ -85,18 +101,29 @@ private fun revUp(
 
 private fun marshallResponse(
   response: Response,
-  itemNameToOutputType: Map<String, Class<out Any>>,
+  itemNameToOutputType: Map<String, Pair<Class<out Any>, BaseValidationConfig<out Any, out Any>?>>,
   itemNameToErrorType: Map<String, Class<out Any>>,
   itemName: String,
   moshi: ConfigurableMoshi
 ) = when {
   isContentTypeApplicationJson(response) -> {
-    val clazz = (if (response.status.successful) itemNameToOutputType[itemName] else itemNameToErrorType[itemName])?.kotlin ?: Any::class
+    val clazz =
+      (if (response.status.successful) itemNameToOutputType[itemName]?.first else itemNameToErrorType[itemName])?.kotlin
+        ?: Any::class
     val responseObj = moshi.asA(response.bodyString(), clazz)
-    itemName to (responseObj to responseObj.javaClass)
+    validate(responseObj, itemNameToOutputType[itemName]?.second)
+    itemName to (responseObj to clazz.java)
   }
   // ! TODO gopala.akshintala 26/07/22: Add support for other content types
   else -> itemName to ("" to Nothing::class.java)
+}
+
+private fun validate(responseObj: Any, validationConfig: BaseValidationConfig<out Any, out Any>?) {
+  if (validationConfig != null) {
+    val result = Vader.validateAndFailFast(responseObj, validationConfig as ValidationConfig<Any, Any?>)
+    result.ifPresent { throw RuntimeException(it.toString()) }
+    logger.info { "*** Validation passed for: $responseObj" }
+  }
 }
 
 private fun loadIntoPmEnvironment(itemRequest: org.revcloud.postman.state.collection.Request, response: Response) {

@@ -6,5 +6,5 @@ import com.squareup.moshi.JsonClass
 data class EnvValue(
   val key: String,
   val value: String?,
-  val enabled: Boolean,
+  val enabled: Boolean
 )
