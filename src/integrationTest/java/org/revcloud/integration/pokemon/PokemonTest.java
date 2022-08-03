@@ -1,6 +1,5 @@
-package org.revcloud.integration;
+package org.revcloud.integration.pokemon;
 
-import java.util.List;
 import java.util.Map;
 import kotlin.Pair;
 import org.assertj.core.api.Assertions;
@@ -23,7 +22,7 @@ class PokemonTest {
     final var dynamicEnvironment = Map.of("limit", String.valueOf(limit));
     final var pokemonResultsValidationConfig =
         ValidationConfig.<Results, String>toValidate()
-            .withValidator(results -> results.results.size() == limit ? "Good" : "Bad", "Good")
+            .withValidator(results -> results.getResults().size() == limit ? "Good" : "Bad", "Good")
             .prepare();
     final var kickOffConfig =
         Kick.configure()
@@ -47,14 +46,4 @@ class PokemonTest {
                 "baseUrl", "https://pokeapi.co/api/v2",
                 "pokemon", "bulbasaur"));
   }
-
-  public record Pokemon(String name) {}
-
-  public record Results(List<Pokemon> results) {}
-
-  public record Ability(String name) {}
-
-  public record AbilityWrapper(Ability ability) {}
-
-  public record Abilities(List<AbilityWrapper> abilities) {}
 }

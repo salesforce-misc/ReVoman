@@ -15,7 +15,7 @@ plugins {
 }
 
 group = "com.salesforce.ccspayments"
-version = "0.3.0"
+version = "0.3.1"
 
 dependencies {
   implementation("org.jetbrains:annotations:23.0.0")
@@ -46,7 +46,7 @@ tasks {
   withType<KotlinCompile> {
     kotlinOptions {
       jvmTarget = JavaVersion.VERSION_11.toString()
-      freeCompilerArgs = listOf("-Xjvm-default=all")
+      freeCompilerArgs = listOf("-Xjvm-default=all", "-jvm-target=11")
     }
   }
   java {
@@ -96,7 +96,7 @@ testing {
         implementation(project)
         implementation("org.assertj:assertj-core:3.23.1")
         java {
-          sourceCompatibility = JavaVersion.VERSION_17
+          sourceCompatibility = JavaVersion.VERSION_11
         }
       }
 
