@@ -15,18 +15,9 @@ import org.graalvm.polyglot.HostAccess
 import org.graalvm.polyglot.PolyglotException
 import org.graalvm.polyglot.Source
 import org.http4k.client.JavaHttpClient
+import org.http4k.core.*
 import org.http4k.core.ContentType.Companion.APPLICATION_JSON
 import org.http4k.core.ContentType.Companion.Text
-import org.http4k.core.Filter
-import org.http4k.core.HttpHandler
-import org.http4k.core.Method
-import org.http4k.core.NoOp
-import org.http4k.core.Request
-import org.http4k.core.Response
-import org.http4k.core.Uri
-import org.http4k.core.queryParametersEncoded
-import org.http4k.core.then
-import org.http4k.core.with
 import org.http4k.filter.ClientFilters
 import org.http4k.filter.DebuggingFilters
 import org.http4k.format.ConfigurableMoshi
@@ -50,7 +41,6 @@ import org.revcloud.vader.runner.Vader
 import org.revcloud.vader.runner.config.BaseValidationConfig
 import org.revcloud.vader.runner.config.ValidationConfig
 import java.io.File
-import java.lang.RuntimeException
 import java.util.Date
 
 private val logger = KotlinLogging.logger {}
@@ -66,8 +56,8 @@ fun revUp(kick: Kick): Rundown = revUp(
   kick.dynamicEnvironment(),
   kick.bearerTokenKey(),
   kick.stepNameToSuccessType(),
-  kick.stepNameToErrorType(),
   kick.stepNameToValidationConfig(),
+  kick.stepNameToErrorType(),
   kick.customAdaptersForResponse(),
   kick.typesInResponseToIgnore()
 )
@@ -79,8 +69,8 @@ private fun revUp(
   dynamicEnvironment: Map<String, String?>,
   bearerTokenKey: String?,
   stepNameToSuccessType: Map<String, Class<out Any>>,
-  stepNameToErrorType: Map<String, Class<out Any>>,
   stepNameToValidationConfig: Map<String, BaseValidationConfig<out Any, out Any?>>,
+  stepNameToErrorType: Map<String, Class<out Any>>,
   customAdaptersForResponse: List<Any>,
   typesInResponseToIgnore: Set<Class<out Any>>
 ): Rundown {
@@ -94,31 +84,25 @@ private fun revUp(
     ?.map { step ->
       val httpClient: HttpHandler = prepareHttpClient(bearerTokenKey)
       val response: Response = httpClient(toHttpRequest(step.request))
-      loadIntoPmEnvironment(step.request, response)
-      executeTestScriptJs(step, response.bodyString())
-      val responseObjToClass = marshallResponse(response, stepNameToSuccessType, stepNameToErrorType, step.name, moshi)
-      validate(responseObjToClass.first, stepNameToValidationConfig[step.name])
-      step.name to responseObjToClass
+      if (response.status.successful) {
+        if (isContentTypeApplicationJson(response)) {
+          val successType = stepNameToSuccessType[step.name]?.kotlin ?: Any::class
+          val responseObj = moshi.asA(response.bodyString(), successType)
+          validate(responseObj, stepNameToValidationConfig[step.name])
+          loadIntoPmEnvironment(step.request, response)
+          executeTestScriptJs(step, response.bodyString())
+          step.name to (responseObj to successType.java)
+        } else {
+          // ! TODO gopala.akshintala 04/08/22: Support other content types apart from JSON
+          step.name to (response.bodyString() to Any::class.java)
+        }
+      } else {
+        val errorType = stepNameToErrorType[step.name]?.kotlin ?: Any::class
+        val errorResponseObj = moshi.asA(response.bodyString(), errorType)
+        step.name to (errorResponseObj to errorType.java)
+      }
     }?.toMap() ?: emptyMap()
   return Rundown(stepNameToResponseWithType, pm.environment)
-}
-
-private fun marshallResponse(
-  response: Response,
-  stepNameToOutputType: Map<String, Class<out Any>>,
-  stepNameToErrorType: Map<String, Class<out Any>>,
-  stepName: String,
-  moshi: ConfigurableMoshi
-): Pair<Any, Class<out Any>> = when {
-  isContentTypeApplicationJson(response) -> {
-    val clazz =
-      (if (response.status.successful) stepNameToOutputType[stepName] else stepNameToErrorType[stepName])?.kotlin
-        ?: Any::class
-    val responseObj = moshi.asA(response.bodyString(), clazz)
-    responseObj to clazz.java
-  }
-  // ! TODO gopala.akshintala 26/07/22: Add support for other content types
-  else -> "" to Nothing::class.java
 }
 
 // ! TODO gopala.akshintala 03/08/22: Enhance the validation execution
@@ -158,13 +142,14 @@ private fun executeTestScriptJs(
   responseBody: String
 ) {
   val testScript = step?.event?.find { it.listen == "test" }?.script?.exec?.joinToString("\n")
-  if (!testScript.isNullOrBlank()) { // ! TODO gopala.akshintala 04/05/22: Catch and handle exceptions
+  if (!testScript.isNullOrBlank()) {
     val testSource = Source.newBuilder("js", testScript, "pmItemTestScript.js").build()
     jsContext.getBindings("js").putMember("responseBody", responseBody)
     try {
-      // ! TODO gopala.akshintala 15/05/22: Keep a tab on context mixing from different Items
+      // ! TODO gopala.akshintala 15/05/22: Keep a tab on jsContext mix-up from different steps
       jsContext.eval(testSource)
     } catch (polyglotException: PolyglotException) {
+      // ! TODO gopala.akshintala 04/05/22: Handle gracefully?
       throw polyglotException
     }
   }
