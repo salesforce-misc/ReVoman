@@ -15,7 +15,7 @@ plugins {
 }
 
 group = "com.salesforce.ccspayments"
-version = "0.3.2"
+version = "0.3.3"
 
 dependencies {
   implementation("org.jetbrains:annotations:23.0.0")

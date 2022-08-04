@@ -4,9 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="3153e138-c5ab-46f2-8910-5c16e0ec9d9a" name="Changes" comment=":recycle: Move validation config to different DSL&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopalakshintala@gmail.com&gt;">
+    <list default="true" id="3153e138-c5ab-46f2-8910-5c16e0ec9d9a" name="Changes" comment=":recycle: Place all methods in a class&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopalakshintala@gmail.com&gt;">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/ReVoman.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/ReVoman.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/build.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/build.gradle.kts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -218,7 +219,7 @@
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
     &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
     &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;shared-indexes&quot;
+    &quot;settings.editor.selected.configurable&quot;: &quot;cdb.plugin&quot;
   }
 }</component>
   <component name="Push.Settings">
@@ -247,6 +248,7 @@
       <recent name="$PROJECT_DIR$/jvmTest/src/test/resources" />
     </key>
     <key name="MoveKotlinTopLevelDeclarationsDialog.RECENTS_KEY">
+      <recent name="org.revcloud.util" />
       <recent name="org.revcloud.adapters.internal" />
       <recent name="org.revcloud.adapters" />
     </key>
@@ -270,12 +272,12 @@
       <command value="gradle publishJvmPublicationToMavenLocal" />
       <command value="gradle clean build -x jvmTest:test" />
       <command value="gradle clean build" />
-      <command value="gradle publish" />
       <command value="gradle publishToMavenLocal" />
       <command value="gradle spotlessApply" />
+      <command value="gradle publish" />
     </option>
   </component>
-  <component name="RunManager" selected="Gradle.PokemonTest.pokemon (1)">
+  <component name="RunManager" selected="Gradle.revoman-root [publish]">
     <configuration name="PokemonTest.pokemon (1)" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
       <ExternalSystemSettings>
         <option name="executionName" />
@@ -443,6 +445,8 @@
       <workItem from="1659521125753" duration="11261000" />
       <workItem from="1659609575292" duration="292000" />
       <workItem from="1659623147865" duration="17000" />
+      <workItem from="1659623845224" duration="3204000" />
+      <workItem from="1659688514259" duration="1212000" />
     </task>
     <task id="LOCAL-00001" summary="tmp">
       <created>1652606203677</created>
@@ -563,7 +567,21 @@
       <option name="project" value="LOCAL" />
       <updated>1659589758641</updated>
     </task>
-    <option name="localTasksCounter" value="18" />
+    <task id="LOCAL-00018" summary=":recycle: Refactor marshall response&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopalakshintala@gmail.com&gt;">
+      <created>1659624035152</created>
+      <option name="number" value="00018" />
+      <option name="presentableId" value="LOCAL-00018" />
+      <option name="project" value="LOCAL" />
+      <updated>1659624035152</updated>
+    </task>
+    <task id="LOCAL-00019" summary=":recycle: Place all methods in a class&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopalakshintala@gmail.com&gt;">
+      <created>1659630658333</created>
+      <option name="number" value="00019" />
+      <option name="presentableId" value="LOCAL-00019" />
+      <option name="project" value="LOCAL" />
+      <updated>1659630658333</updated>
+    </task>
+    <option name="localTasksCounter" value="20" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -609,7 +627,9 @@
     <MESSAGE value=":tada: Integrate with Vader&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopalakshintala@gmail.com&gt;" />
     <MESSAGE value=":arrow_up: Upgrade moshiX and Kotlin version to 1.7.20-Beta&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopalakshintala@gmail.com&gt;" />
     <MESSAGE value=":recycle: Move validation config to different DSL&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopalakshintala@gmail.com&gt;" />
-    <option name="LAST_COMMIT_MESSAGE" value=":recycle: Move validation config to different DSL&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopalakshintala@gmail.com&gt;" />
+    <MESSAGE value=":recycle: Refactor marshall response&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopalakshintala@gmail.com&gt;" />
+    <MESSAGE value=":recycle: Place all methods in a class&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopalakshintala@gmail.com&gt;" />
+    <option name="LAST_COMMIT_MESSAGE" value=":recycle: Place all methods in a class&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopalakshintala@gmail.com&gt;" />
   </component>
   <component name="XDebuggerManager">
     <watches-manager>
