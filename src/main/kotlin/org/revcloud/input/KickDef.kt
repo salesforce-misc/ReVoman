@@ -13,20 +13,23 @@ internal interface KickDef {
   @Nullable
   fun environmentPath(): String?
 
+  @SkipNulls
+  fun dynamicEnvironment(): Map<String, String>
+
   @Value.Default
   fun bearerTokenKey(): String? = BEARER_TOKEN_KEY
+
+  @SkipNulls
+  fun stepNameToSuccessType(): Map<String, Class<out Any>>
+
+  @SkipNulls
+  fun stepNameToErrorType(): Map<String, Class<out Any>>
 
   @Value.Default
   fun validationStrategy(): ValidationStrategy = ValidationStrategy.FAIL_FAST
 
   @SkipNulls
-  fun itemNameToSuccessType(): Map<String, Pair<Class<out Any>, BaseValidationConfig<out Any, out Any?>?>>
-
-  @SkipNulls
-  fun itemNameToErrorType(): Map<String, Class<out Any>>
-
-  @SkipNulls
-  fun dynamicEnvironment(): Map<String, String>
+  fun stepNameToValidationConfig(): Map<String, BaseValidationConfig<out Any, out Any?>>
 
   @SkipNulls
   fun customAdaptersForResponse(): List<Any>

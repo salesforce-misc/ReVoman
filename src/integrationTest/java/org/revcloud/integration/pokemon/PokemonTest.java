@@ -1,7 +1,6 @@
 package org.revcloud.integration.pokemon;
 
 import java.util.Map;
-import kotlin.Pair;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.revcloud.ReVoman;
@@ -13,7 +12,6 @@ class PokemonTest {
 
   @Test
   void pokemon() {
-    final var allPokemonItemName = "All Pokemon";
     final var limit = 10;
     final var pmCollectionPath =
         TEST_RESOURCES_PATH + "pm-templates/pokemon/Pokemon.postman_collection.json";
@@ -28,12 +26,11 @@ class PokemonTest {
         Kick.configure()
             .templatePath(pmCollectionPath)
             .environmentPath(pmEnvironmentPath)
-            .itemNameToSuccessType(
+            .stepNameToSuccessType(
                 Map.of(
-                    allPokemonItemName,
-                    new Pair<>(Results.class, pokemonResultsValidationConfig),
-                    "Pokemon",
-                    new Pair<>(Abilities.class, null)))
+                    "All Pokemon", Results.class,
+                    "Pokemon", Abilities.class))
+            .stepNameToValidationConfig(Map.of("All Pokemon", pokemonResultsValidationConfig))
             .dynamicEnvironment(dynamicEnvironment)
             .off();
     final var pokemon = ReVoman.revUp(kickOffConfig);

@@ -1,7 +1,6 @@
 package org.revcloud.integration.core;
 
 import java.util.Map;
-import kotlin.Pair;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.revcloud.ReVoman;
@@ -45,13 +44,15 @@ class BillingScheduleE2ETest {
             Kick.configure()
                 .templatePath(pmCollectionPath)
                 .environmentPath(pmEnvironmentPath)
-                .itemNameToSuccessType(
-                    Map.of(
-                        "setup-graph (once)", new Pair<>(Graphs.class, setupGraphsValidationConfig),
-                        "billing-schedule",
-                            new Pair<>(
-                                BillingScheduleListOutputRepresentation.class, bsValidationConfig)))
                 .bearerTokenKey("accessToken")
+                .stepNameToSuccessType(
+                    Map.of(
+                        "setup-graph (once)", Graphs.class,
+                        "billing-schedule", BillingScheduleListOutputRepresentation.class))
+                .stepNameToValidationConfig(
+                    Map.of(
+                        "setup-graph (once)", setupGraphsValidationConfig,
+                        "billing-schedule", bsValidationConfig))
                 .off());
     Assertions.assertThat(rundown.environment)
         .containsKeys(

@@ -63,10 +63,11 @@ private val jsContext = buildJsContext(false).also {
 fun revUp(kick: Kick): Rundown = revUp(
   kick.templatePath(),
   kick.environmentPath(),
-  kick.bearerTokenKey(),
-  kick.itemNameToSuccessType(),
-  kick.itemNameToErrorType(),
   kick.dynamicEnvironment(),
+  kick.bearerTokenKey(),
+  kick.stepNameToSuccessType(),
+  kick.stepNameToErrorType(),
+  kick.stepNameToValidationConfig(),
   kick.customAdaptersForResponse(),
   kick.typesInResponseToIgnore()
 )
@@ -75,10 +76,11 @@ fun revUp(kick: Kick): Rundown = revUp(
 private fun revUp(
   templatePath: String,
   environmentPath: String?,
-  bearerTokenKey: String?,
-  itemNameToSuccessType: Map<String, Pair<Class<out Any>, BaseValidationConfig<out Any, out Any>?>>,
-  itemNameToErrorType: Map<String, Class<out Any>>,
   dynamicEnvironment: Map<String, String?>,
+  bearerTokenKey: String?,
+  stepNameToSuccessType: Map<String, Class<out Any>>,
+  stepNameToErrorType: Map<String, Class<out Any>>,
+  stepNameToValidationConfig: Map<String, BaseValidationConfig<out Any, out Any?>>,
   customAdaptersForResponse: List<Any>,
   typesInResponseToIgnore: Set<Class<out Any>>
 ): Rundown {
@@ -86,38 +88,40 @@ private fun revUp(
   val pmCollection: Collection? = marshallPostmanCollection(templatePath)
   val replaceRegexWithEnvAdapter = Moshi.Builder().add(RegexAdapterFactory(pm.environment)).build().adapter<Item>()
   val moshi = initMoshi(typesInResponseToIgnore, customAdaptersForResponse)
-  val itemNameToResponseWithType = pmCollection?.item?.asSequence()
-    ?.map { itemWithRegex -> replaceRegexWithEnvAdapter.fromJson(itemWithRegex.data) }
+  val stepNameToResponseWithType = pmCollection?.item?.asSequence()
+    ?.map { stepWithRegex -> replaceRegexWithEnvAdapter.fromJson(stepWithRegex.data) }
     ?.filterNotNull()
-    ?.map { item ->
+    ?.map { step ->
       val httpClient: HttpHandler = prepareHttpClient(bearerTokenKey)
-      val response: Response = httpClient(toHttpRequest(item.request))
-      loadIntoPmEnvironment(item.request, response)
-      executeTestScriptJs(item, response.bodyString())
-      marshallResponse(response, itemNameToSuccessType, itemNameToErrorType, item.name, moshi)
+      val response: Response = httpClient(toHttpRequest(step.request))
+      loadIntoPmEnvironment(step.request, response)
+      executeTestScriptJs(step, response.bodyString())
+      val responseObjToClass = marshallResponse(response, stepNameToSuccessType, stepNameToErrorType, step.name, moshi)
+      validate(responseObjToClass.first, stepNameToValidationConfig[step.name])
+      step.name to responseObjToClass
     }?.toMap() ?: emptyMap()
-  return Rundown(itemNameToResponseWithType, pm.environment)
+  return Rundown(stepNameToResponseWithType, pm.environment)
 }
 
 private fun marshallResponse(
   response: Response,
-  itemNameToOutputType: Map<String, Pair<Class<out Any>, BaseValidationConfig<out Any, out Any>?>>,
-  itemNameToErrorType: Map<String, Class<out Any>>,
-  itemName: String,
+  stepNameToOutputType: Map<String, Class<out Any>>,
+  stepNameToErrorType: Map<String, Class<out Any>>,
+  stepName: String,
   moshi: ConfigurableMoshi
-) = when {
+): Pair<Any, Class<out Any>> = when {
   isContentTypeApplicationJson(response) -> {
     val clazz =
-      (if (response.status.successful) itemNameToOutputType[itemName]?.first else itemNameToErrorType[itemName])?.kotlin
+      (if (response.status.successful) stepNameToOutputType[stepName] else stepNameToErrorType[stepName])?.kotlin
         ?: Any::class
     val responseObj = moshi.asA(response.bodyString(), clazz)
-    validate(responseObj, itemNameToOutputType[itemName]?.second)
-    itemName to (responseObj to clazz.java)
+    responseObj to clazz.java
   }
   // ! TODO gopala.akshintala 26/07/22: Add support for other content types
-  else -> itemName to ("" to Nothing::class.java)
+  else -> "" to Nothing::class.java
 }
 
+// ! TODO gopala.akshintala 03/08/22: Enhance the validation execution
 private fun validate(responseObj: Any, validationConfig: BaseValidationConfig<out Any, out Any>?) {
   if (validationConfig != null) {
     val result = Vader.validateAndFailFast(responseObj, validationConfig as ValidationConfig<Any, Any?>)
@@ -126,8 +130,8 @@ private fun validate(responseObj: Any, validationConfig: BaseValidationConfig<ou
   }
 }
 
-private fun loadIntoPmEnvironment(itemRequest: org.revcloud.postman.state.collection.Request, response: Response) {
-  pm.request = itemRequest
+private fun loadIntoPmEnvironment(stepRequest: org.revcloud.postman.state.collection.Request, response: Response) {
+  pm.request = stepRequest
   pm.response = org.revcloud.postman.state.collection.Response(
     response.status.toString(),
     response.status.code.toString(),
@@ -139,21 +143,21 @@ private fun prepareHttpClient(bearerTokenKey: String?) = DebuggingFilters.PrintR
   .then(pm.environment[bearerTokenKey]?.let { ClientFilters.BearerAuth(it) } ?: Filter.NoOp)
   .then(JavaHttpClient())
 
-private fun toHttpRequest(itemRequest: org.revcloud.postman.state.collection.Request): Request {
-  val contentType = itemRequest.header.firstOrNull { it.key.equals(CONTENT_TYPE.meta.name, ignoreCase = true) }
+private fun toHttpRequest(stepRequest: org.revcloud.postman.state.collection.Request): Request {
+  val contentType = stepRequest.header.firstOrNull { it.key.equals(CONTENT_TYPE.meta.name, ignoreCase = true) }
     ?.value?.let { Text(it) } ?: APPLICATION_JSON
-  val uri = Uri.of(itemRequest.url.raw).queryParametersEncoded()
-  return Request(Method.valueOf(itemRequest.method), uri)
+  val uri = Uri.of(stepRequest.url.raw).queryParametersEncoded()
+  return Request(Method.valueOf(stepRequest.method), uri)
     .with(CONTENT_TYPE of contentType)
-    .headers(itemRequest.header.map { it.key to it.value })
-    .body(itemRequest.body?.raw ?: "")
+    .headers(stepRequest.header.map { it.key to it.value })
+    .body(stepRequest.body?.raw ?: "")
 }
 
 private fun executeTestScriptJs(
-  item: Item?,
+  step: Item?,
   responseBody: String
 ) {
-  val testScript = item?.event?.find { it.listen == "test" }?.script?.exec?.joinToString("\n")
+  val testScript = step?.event?.find { it.listen == "test" }?.script?.exec?.joinToString("\n")
   if (!testScript.isNullOrBlank()) { // ! TODO gopala.akshintala 04/05/22: Catch and handle exceptions
     val testSource = Source.newBuilder("js", testScript, "pmItemTestScript.js").build()
     jsContext.getBindings("js").putMember("responseBody", responseBody)
