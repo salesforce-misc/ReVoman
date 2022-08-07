@@ -1,10 +1,10 @@
 package org.revcloud.postman
 
 import com.github.underscore.U
+import com.squareup.moshi.JsonClass
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapter
-import org.revcloud.postman.state.collection.Request
-import org.revcloud.postman.state.collection.Response
+import org.revcloud.postman.state.Request
 
 internal class PostmanAPI {
   @JvmField
@@ -41,3 +41,6 @@ internal fun interface Xml2Json {
   @Suppress("unused")
   fun xml2Json(xml: String): Map<*, *>?
 }
+
+@JsonClass(generateAdapter = true)
+data class Response(val code: String, val status: String, val body: String)

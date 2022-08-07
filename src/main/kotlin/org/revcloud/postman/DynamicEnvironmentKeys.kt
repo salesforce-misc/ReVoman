@@ -12,7 +12,7 @@ private val faker = faker { }
 private val dynamicVariableKeyToGenerator: Map<String, () -> String> = mapOf(
   "\$randomFirstName" to faker.name::firstName,
   "\$randomLastName" to faker.name::lastName,
-  "\$randomUserName" to faker.name::neutralFirstName,
+  "\$randomUserName" to faker.name::firstName,
   "\$randomCompanyName" to faker.company::name,
   "\$randomEmail" to { faker.internet.email() }
 )

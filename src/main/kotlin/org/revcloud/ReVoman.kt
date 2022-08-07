@@ -15,17 +15,11 @@ import org.graalvm.polyglot.PolyglotException
 import org.graalvm.polyglot.Source
 import org.http4k.client.JavaHttpClient
 import org.http4k.core.ContentType.Companion.APPLICATION_JSON
-import org.http4k.core.ContentType.Companion.Text
 import org.http4k.core.Filter
 import org.http4k.core.HttpHandler
-import org.http4k.core.Method
 import org.http4k.core.NoOp
-import org.http4k.core.Request
 import org.http4k.core.Response
-import org.http4k.core.Uri
-import org.http4k.core.queryParametersEncoded
 import org.http4k.core.then
-import org.http4k.core.with
 import org.http4k.filter.ClientFilters
 import org.http4k.filter.DebuggingFilters
 import org.http4k.format.ConfigurableMoshi
@@ -35,16 +29,17 @@ import org.http4k.format.MapAdapter
 import org.http4k.format.ThrowableAdapter
 import org.http4k.format.asConfigurable
 import org.http4k.format.withStandardMappings
-import org.http4k.lens.Header.CONTENT_TYPE
 import org.revcloud.adapters.ObjOrListAdapterFactory
 import org.revcloud.adapters.internal.IgnoreUnknownFactory
 import org.revcloud.adapters.internal.RegexAdapterFactory
 import org.revcloud.input.Kick
 import org.revcloud.output.Rundown
+import org.revcloud.output.StepResponse
 import org.revcloud.postman.PostmanAPI
-import org.revcloud.postman.state.collection.Collection
-import org.revcloud.postman.state.collection.Item
-import org.revcloud.postman.state.environment.Environment
+import org.revcloud.postman.state.Environment
+import org.revcloud.postman.state.Item
+import org.revcloud.postman.state.Request
+import org.revcloud.postman.state.Steps
 import org.revcloud.vader.runner.Vader
 import org.revcloud.vader.runner.config.BaseValidationConfig
 import org.revcloud.vader.runner.config.ValidationConfig
@@ -70,7 +65,7 @@ class ReVoman {
 
     @OptIn(ExperimentalStdlibApi::class)
     private fun revUp(
-      templatePath: String,
+      pmTemplatePath: String,
       environmentPath: String?,
       dynamicEnvironment: Map<String, String?>,
       bearerTokenKey: String?,
@@ -81,31 +76,34 @@ class ReVoman {
       typesInResponseToIgnore: Set<Class<out Any>>
     ): Rundown {
       initPmEnvironment(dynamicEnvironment, environmentPath)
-      val pmCollection: Collection? = marshallPostmanCollection(templatePath)
+      val pmSteps: Steps? = Moshi.Builder().build().adapter<Steps>().fromJson(readTextFromFile(pmTemplatePath))
       val replaceRegexWithEnvAdapter = Moshi.Builder().add(RegexAdapterFactory(pm.environment)).build().adapter<Item>()
       val moshi = initMoshi(typesInResponseToIgnore, customAdaptersForResponse)
-      val stepNameToResponseWithType = pmCollection?.item?.asSequence()
-        ?.map { stepWithRegex -> replaceRegexWithEnvAdapter.fromJson(stepWithRegex.data) }
+      val stepNameToResponseWithType = pmSteps?.item?.asSequence()
+        ?.map { stepWithRegex -> replaceRegexWithEnvAdapter.fromJsonValue(stepWithRegex) }
         ?.filterNotNull()
         ?.map { step ->
-          val httpClient: HttpHandler = prepareHttpClient(bearerTokenKey)
-          val response: Response = httpClient(toHttpRequest(step.request))
+          // * NOTE gopala.akshintala 06/08/22: Preparing for each step, as there can be intermediate auths
+          val httpClient: HttpHandler = prepareHttpClient(pm.environment[bearerTokenKey])
+          val response: Response = httpClient(step.request.toHttpRequest())
           if (response.status.successful) {
+            executeTestScriptJs(step, response)
             if (isContentTypeApplicationJson(response)) {
               val successType = stepNameToSuccessType[step.name]?.kotlin ?: Any::class
               val responseObj = moshi.asA(response.bodyString(), successType)
               validate(responseObj, stepNameToValidationConfig[step.name])
-              loadIntoPmEnvironment(step.request, response)
-              executeTestScriptJs(step, response.bodyString())
-              step.name to (responseObj to successType.java)
+              step.name to StepResponse(responseObj, successType.java, response)
             } else {
               // ! TODO gopala.akshintala 04/08/22: Support other content types apart from JSON
-              step.name to (response.bodyString() to Any::class.java)
+              step.name to StepResponse(response.bodyString(), String::class.java, response)
             }
           } else {
+            if (stepNameToValidationConfig.containsKey(step.name)) {
+              throw RuntimeException("Unable to validate due to unsuccessful response status: ${response.status}")
+            }
             val errorType = stepNameToErrorType[step.name]?.kotlin ?: Any::class
             val errorResponseObj = moshi.asA(response.bodyString(), errorType)
-            step.name to (errorResponseObj to errorType.java)
+            step.name to StepResponse(errorResponseObj, errorType.java, response)
           }
         }?.toMap() ?: emptyMap()
       return Rundown(stepNameToResponseWithType, pm.environment)
@@ -120,27 +118,9 @@ class ReVoman {
       }
     }
 
-    private fun prepareHttpClient(bearerTokenKey: String?) = DebuggingFilters.PrintRequestAndResponse()
-      .then(pm.environment[bearerTokenKey]?.let { ClientFilters.BearerAuth(it) } ?: Filter.NoOp)
+    private fun prepareHttpClient(bearerToken: String?) = DebuggingFilters.PrintRequestAndResponse()
+      .then(if (bearerToken.isNullOrEmpty()) Filter.NoOp else ClientFilters.BearerAuth(bearerToken))
       .then(JavaHttpClient())
-
-    private fun toHttpRequest(stepRequest: org.revcloud.postman.state.collection.Request): Request {
-      val contentType = stepRequest.header.firstOrNull { it.key.equals(CONTENT_TYPE.meta.name, ignoreCase = true) }
-        ?.value?.let { Text(it) } ?: APPLICATION_JSON
-      val uri = Uri.of(stepRequest.url.raw).queryParametersEncoded()
-      return Request(Method.valueOf(stepRequest.method), uri)
-        .with(CONTENT_TYPE of contentType)
-        .headers(stepRequest.header.map { it.key to it.value })
-        .body(stepRequest.body?.raw ?: "")
-    }
-
-    @OptIn(ExperimentalStdlibApi::class)
-    private fun marshallPostmanCollection(pmCollectionPath: String): Collection? {
-      val collectionJsonAdapter = Moshi.Builder()
-        .add(AdaptedBy.Factory()).build()
-        .adapter<Collection>()
-      return collectionJsonAdapter.fromJson(readTextFromFile(pmCollectionPath))
-    }
 
     private val pm = PostmanAPI()
     private val jsContext = buildJsContext(false).also {
@@ -168,13 +148,14 @@ class ReVoman {
     }
 
     private fun executeTestScriptJs(
-      step: Item?,
-      responseBody: String
+      step: Item,
+      response: Response
     ) {
-      val testScript = step?.event?.find { it.listen == "test" }?.script?.exec?.joinToString("\n")
+      loadIntoPmEnvironment(step.request, response)
+      val testScript = step.event?.find { it.listen == "test" }?.script?.exec?.joinToString("\n")
       if (!testScript.isNullOrBlank()) {
         val testSource = Source.newBuilder("js", testScript, "pmItemTestScript.js").build()
-        jsContext.getBindings("js").putMember("responseBody", responseBody)
+        jsContext.getBindings("js").putMember("responseBody", response.bodyString())
         try {
           // ! TODO gopala.akshintala 15/05/22: Keep a tab on jsContext mix-up from different steps
           jsContext.eval(testSource)
@@ -203,9 +184,9 @@ class ReVoman {
         )
       }
     }
-    private fun loadIntoPmEnvironment(stepRequest: org.revcloud.postman.state.collection.Request, response: Response) {
+    private fun loadIntoPmEnvironment(stepRequest: Request, response: Response) {
       pm.request = stepRequest
-      pm.response = org.revcloud.postman.state.collection.Response(
+      pm.response = org.revcloud.postman.Response(
         response.status.toString(),
         response.status.code.toString(),
         response.bodyString()

@@ -1,10 +1,12 @@
 package org.revcloud.integration.core;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import java.util.Map;
-import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.revcloud.ReVoman;
 import org.revcloud.input.Kick;
+import org.revcloud.output.StepResponse;
 import org.revcloud.response.types.salesforce.Graph;
 import org.revcloud.response.types.salesforce.Graphs;
 import org.revcloud.vader.runner.config.ValidationConfig;
@@ -54,7 +56,7 @@ class BillingScheduleE2ETest {
                         "setup-graph (once)", setupGraphsValidationConfig,
                         "billing-schedule", bsValidationConfig))
                 .off());
-    Assertions.assertThat(rundown.environment)
+    assertThat(rundown.environment)
         .containsKeys(
             "orderId",
             "billingTreatmentId",
@@ -63,5 +65,6 @@ class BillingScheduleE2ETest {
             "orderItem2Id",
             "orderItem3Id",
             "orderItem4Id");
+    assertThat(rundown.itemNameToResponseWithType.values()).allMatch(StepResponse::isSuccessful);
   }
 }

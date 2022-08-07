@@ -15,12 +15,12 @@ plugins {
 }
 
 group = "com.salesforce.ccspayments"
-version = "0.3.3"
+version = "0.3.4"
 
 dependencies {
   implementation("org.jetbrains:annotations:23.0.0")
   val http4kVersion: String by project
-  implementation("org.http4k:http4k-core:$http4kVersion")
+  api("org.http4k:http4k-core:$http4kVersion")
   implementation("org.http4k:http4k-format-moshi:$http4kVersion")
   val moshiXVersion: String by project
   implementation("dev.zacsweers.moshix:moshi-adapters:$moshiXVersion")
