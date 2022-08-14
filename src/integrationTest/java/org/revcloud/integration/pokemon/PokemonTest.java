@@ -20,23 +20,20 @@ class PokemonTest {
     final var dynamicEnvironment = Map.of("limit", String.valueOf(limit));
     final var pokemonResultsValidationConfig =
         ValidationConfig.<Results, String>toValidate()
-            .withValidator(results -> results.getResults().size() == limit ? "Good" : "Bad", "Good")
-            .prepare();
+            .withValidator(
+                results -> results.getResults().size() == limit ? "Good" : "Bad", "Good");
     final var kickOffConfig =
         Kick.configure()
             .templatePath(pmCollectionPath)
             .environmentPath(pmEnvironmentPath)
-            .stepNameToSuccessType(
-                Map.of(
-                    "All Pokemon", Results.class,
-                    "Pokemon", Abilities.class))
+            .stepNameToSuccessType(Map.of("Pokemon", Abilities.class))
             .stepNameToValidationConfig(Map.of("All Pokemon", pokemonResultsValidationConfig))
             .dynamicEnvironment(dynamicEnvironment)
             .off();
-    final var pokemon = ReVoman.revUp(kickOffConfig);
+    final var rundown = ReVoman.revUp(kickOffConfig);
 
-    Assertions.assertThat(pokemon.itemNameToResponseWithType).hasSize(2);
-    Assertions.assertThat(pokemon.environment)
+    Assertions.assertThat(rundown.stepNameToReport).hasSize(2);
+    Assertions.assertThat(rundown.environment)
         .containsExactlyInAnyOrderEntriesOf(
             Map.of(
                 "limit", String.valueOf(limit),

@@ -15,10 +15,10 @@ plugins {
 }
 
 group = "com.salesforce.ccspayments"
-version = "0.3.4"
+version = "0.3.5"
 
 dependencies {
-  implementation("org.jetbrains:annotations:23.0.0")
+  compileOnly("org.jetbrains:annotations:23.0.0")
   val http4kVersion: String by project
   api("org.http4k:http4k-core:$http4kVersion")
   implementation("org.http4k:http4k-format-moshi:$http4kVersion")
@@ -29,10 +29,10 @@ dependencies {
   val graalVersion: String by project
   implementation("org.graalvm.sdk:graal-sdk:$graalVersion")
   implementation("org.graalvm.js:js:$graalVersion")
-  implementation("io.github.serpro69:kotlin-faker:1.12.0-rc.0")
-  implementation("com.github.javadev:underscore:1.78")
+  implementation("io.github.serpro69:kotlin-faker:1.12.0-rc.2")
+  implementation("com.github.javadev:underscore:1.79")
   implementation("io.github.microutils:kotlin-logging-jvm:2.1.23")
-  val vaderVersion = "3.3.2-SNAPSHOT"
+  val vaderVersion: String by project
   api("com.salesforce.ccspayments:vader:$vaderVersion")
   api("com.salesforce.ccspayments:vader-matchers:$vaderVersion")
   api("com.salesforce.ccspayments:vader-specs:$vaderVersion")
@@ -40,8 +40,9 @@ dependencies {
   kapt("org.immutables:value:$immutablesVersion")
   compileOnly("org.immutables:builder:$immutablesVersion")
   compileOnly("org.immutables:value-annotations:$immutablesVersion")
-  runtimeOnly("org.apache.logging.log4j:log4j-slf4j18-impl:2.17.2")
+  runtimeOnly("org.apache.logging.log4j:log4j-slf4j18-impl:2.18.0")
 }
+
 tasks {
   withType<KotlinCompile> {
     kotlinOptions {

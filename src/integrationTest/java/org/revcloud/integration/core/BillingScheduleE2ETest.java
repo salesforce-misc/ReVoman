@@ -6,7 +6,7 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.revcloud.ReVoman;
 import org.revcloud.input.Kick;
-import org.revcloud.output.StepResponse;
+import org.revcloud.output.StepReport;
 import org.revcloud.response.types.salesforce.Graph;
 import org.revcloud.response.types.salesforce.Graphs;
 import org.revcloud.vader.runner.config.ValidationConfig;
@@ -29,8 +29,7 @@ class BillingScheduleE2ETest {
                     graphs.getGraphs().stream().allMatch(Graph::isSuccessful)
                         ? "Success"
                         : "setup-graph (once) Failed"),
-                "Success")
-            .prepare();
+                "Success");
     final var bsValidationConfig =
         ValidationConfig.<BillingScheduleListOutputRepresentation, String>toValidate()
             .withValidator(
@@ -39,8 +38,7 @@ class BillingScheduleE2ETest {
                             .allMatch(BillingScheduleOutputRepresentation::getSuccess)
                         ? "Success"
                         : "BS Failed"),
-                "Success")
-            .prepare();
+                "Success");
     final var rundown =
         ReVoman.revUp(
             Kick.configure()
@@ -48,9 +46,7 @@ class BillingScheduleE2ETest {
                 .environmentPath(pmEnvironmentPath)
                 .bearerTokenKey("accessToken")
                 .stepNameToSuccessType(
-                    Map.of(
-                        "setup-graph (once)", Graphs.class,
-                        "billing-schedule", BillingScheduleListOutputRepresentation.class))
+                    Map.of("billing-schedule", BillingScheduleListOutputRepresentation.class))
                 .stepNameToValidationConfig(
                     Map.of(
                         "setup-graph (once)", setupGraphsValidationConfig,
@@ -65,6 +61,6 @@ class BillingScheduleE2ETest {
             "orderItem2Id",
             "orderItem3Id",
             "orderItem4Id");
-    assertThat(rundown.itemNameToResponseWithType.values()).allMatch(StepResponse::isSuccessful);
+    assertThat(rundown.stepNameToReport.values()).allMatch(StepReport::isSuccessful);
   }
 }

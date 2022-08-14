@@ -3,7 +3,8 @@ package org.revcloud.input
 import org.immutables.value.Value
 import org.jetbrains.annotations.Nullable
 import org.revcloud.postman.DynamicEnvironmentKeys.BEARER_TOKEN_KEY
-import org.revcloud.vader.runner.config.BaseValidationConfig
+import org.revcloud.vader.runner.config.BaseValidationConfig.BaseValidationConfigBuilder
+import java.lang.reflect.Type
 
 @Config
 @Value.Immutable
@@ -20,16 +21,16 @@ internal interface KickDef {
   fun bearerTokenKey(): String? = BEARER_TOKEN_KEY
 
   @SkipNulls
-  fun stepNameToSuccessType(): Map<String, Class<out Any>>
+  fun stepNameToSuccessType(): Map<String, Type>
 
   @SkipNulls
-  fun stepNameToErrorType(): Map<String, Class<out Any>>
+  fun stepNameToErrorType(): Map<String, Type>
 
   @Value.Default
   fun validationStrategy(): ValidationStrategy = ValidationStrategy.FAIL_FAST
 
   @SkipNulls
-  fun stepNameToValidationConfig(): Map<String, BaseValidationConfig<out Any, out Any?>>
+  fun stepNameToValidationConfig(): Map<String, BaseValidationConfigBuilder<out Any, out Any?, *, *>>
 
   @SkipNulls
   fun customAdaptersForResponse(): List<Any>

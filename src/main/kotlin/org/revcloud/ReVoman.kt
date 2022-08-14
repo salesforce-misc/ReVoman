@@ -5,6 +5,7 @@ package org.revcloud
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapter
 import com.squareup.moshi.adapters.Rfc3339DateJsonAdapter
+import com.squareup.moshi.rawType
 import dev.zacsweers.moshix.adapters.AdaptedBy
 import dev.zacsweers.moshix.adapters.JsonString
 import mu.KotlinLogging
@@ -34,7 +35,7 @@ import org.revcloud.adapters.internal.IgnoreUnknownFactory
 import org.revcloud.adapters.internal.RegexAdapterFactory
 import org.revcloud.input.Kick
 import org.revcloud.output.Rundown
-import org.revcloud.output.StepResponse
+import org.revcloud.output.StepReport
 import org.revcloud.postman.PostmanAPI
 import org.revcloud.postman.state.Environment
 import org.revcloud.postman.state.Item
@@ -44,6 +45,7 @@ import org.revcloud.vader.runner.Vader
 import org.revcloud.vader.runner.config.BaseValidationConfig
 import org.revcloud.vader.runner.config.ValidationConfig
 import java.io.File
+import java.lang.reflect.Type
 import java.util.Date
 
 class ReVoman {
@@ -69,9 +71,9 @@ class ReVoman {
       environmentPath: String?,
       dynamicEnvironment: Map<String, String?>,
       bearerTokenKey: String?,
-      stepNameToSuccessType: Map<String, Class<out Any>>,
-      stepNameToValidationConfig: Map<String, BaseValidationConfig<out Any, out Any?>>,
-      stepNameToErrorType: Map<String, Class<out Any>>,
+      stepNameToSuccessType: Map<String, Type>,
+      stepNameToValidationConfig: Map<String, BaseValidationConfig.BaseValidationConfigBuilder<out Any, out Any?, *, *>>,
+      stepNameToErrorType: Map<String, Type>,
       customAdaptersForResponse: List<Any>,
       typesInResponseToIgnore: Set<Class<out Any>>
     ): Rundown {
@@ -79,37 +81,39 @@ class ReVoman {
       val pmSteps: Steps? = Moshi.Builder().build().adapter<Steps>().fromJson(readTextFromFile(pmTemplatePath))
       val replaceRegexWithEnvAdapter = Moshi.Builder().add(RegexAdapterFactory(pm.environment)).build().adapter<Item>()
       val moshi = initMoshi(typesInResponseToIgnore, customAdaptersForResponse)
-      val stepNameToResponseWithType = pmSteps?.item?.asSequence()
+      val stepNameToReport = pmSteps?.item?.asSequence()
         ?.map { stepWithRegex -> replaceRegexWithEnvAdapter.fromJsonValue(stepWithRegex) }
         ?.filterNotNull()
         ?.map { step ->
           // * NOTE gopala.akshintala 06/08/22: Preparing for each step, as there can be intermediate auths
           val httpClient: HttpHandler = prepareHttpClient(pm.environment[bearerTokenKey])
-          val response: Response = httpClient(step.request.toHttpRequest())
+          val request = step.request.toHttpRequest()
+          val response: Response = httpClient(request)
           if (response.status.successful) {
             executeTestScriptJs(step, response)
             if (isContentTypeApplicationJson(response)) {
-              val successType = stepNameToSuccessType[step.name]?.kotlin ?: Any::class
+              val validationConfig = stepNameToValidationConfig[step.name]?.prepare()
+              val successType = (stepNameToSuccessType[step.name]?.rawType ?: validationConfig?.validatableType?.rawType)?.kotlin ?: Any::class
               val responseObj = moshi.asA(response.bodyString(), successType)
-              validate(responseObj, stepNameToValidationConfig[step.name])
-              step.name to StepResponse(responseObj, successType.java, response)
+              validate(responseObj, validationConfig)
+              step.name to StepReport(responseObj, responseObj.javaClass, request, response)
             } else {
               // ! TODO gopala.akshintala 04/08/22: Support other content types apart from JSON
-              step.name to StepResponse(response.bodyString(), String::class.java, response)
+              step.name to StepReport(response.bodyString(), String::class.java, request, response)
             }
           } else {
             if (stepNameToValidationConfig.containsKey(step.name)) {
               throw RuntimeException("Unable to validate due to unsuccessful response status: ${response.status}")
             }
-            val errorType = stepNameToErrorType[step.name]?.kotlin ?: Any::class
+            val errorType = stepNameToErrorType[step.name]?.rawType?.kotlin ?: Any::class
             val errorResponseObj = moshi.asA(response.bodyString(), errorType)
-            step.name to StepResponse(errorResponseObj, errorType.java, response)
+            step.name to StepReport(errorResponseObj, errorResponseObj.javaClass, request, response)
           }
         }?.toMap() ?: emptyMap()
-      return Rundown(stepNameToResponseWithType, pm.environment)
+      return Rundown(stepNameToReport, pm.environment)
     }
 
-    // ! TODO gopala.akshintala 03/08/22: Enhance the validation execution
+    // ! TODO gopala.akshintala 03/08/22: Extend the validation for other configs and strategies
     private fun validate(responseObj: Any, validationConfig: BaseValidationConfig<out Any, out Any>?) {
       if (validationConfig != null) {
         val result = Vader.validateAndFailFast(responseObj, validationConfig as ValidationConfig<Any, Any?>)

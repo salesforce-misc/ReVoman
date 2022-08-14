@@ -1,14 +1,17 @@
 package org.revcloud.output
 
+import org.http4k.core.Request
 import org.http4k.core.Response
+import java.lang.reflect.Type
 
 data class Rundown(
   @JvmField
-  val itemNameToResponseWithType: Map<String, StepResponse>,
+  val stepNameToReport: Map<String, StepReport>,
   @JvmField
   val environment: Map<String, String?>
 )
 
-data class StepResponse(val responseObj: Any?, val responseType: Class<out Any>, val responseData: Response) {
-  fun isSuccessful() = responseData.status.successful
+data class StepReport(val responseObj: Any?, val responseType: Type, val requestData: Request, val responseData: Response) {
+  val isSuccessful: Boolean
+    get() = responseData.status.successful
 }

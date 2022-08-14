@@ -4,28 +4,17 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="3153e138-c5ab-46f2-8910-5c16e0ec9d9a" name="Changes" comment=":recycle: Place all methods in a class&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopalakshintala@gmail.com&gt;">
-      <change afterPath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/postman/state/Steps.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+    <list default="true" id="3153e138-c5ab-46f2-8910-5c16e0ec9d9a" name="Changes" comment="&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopalakshintala@gmail.com&gt;">
+      <change afterPath="$PROJECT_DIR$/src/main/kotlin/module-info.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/build.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/build.gradle.kts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/gradle.properties" beforeDir="false" afterPath="$PROJECT_DIR$/gradle.properties" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/integrationTest/java/org/revcloud/integration/core/BillingScheduleE2ETest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/integrationTest/java/org/revcloud/integration/core/BillingScheduleE2ETest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/integrationTest/java/org/revcloud/integration/pokemon/PokemonTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/integrationTest/java/org/revcloud/integration/pokemon/PokemonTest.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/ReVoman.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/ReVoman.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/input/KickDef.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/input/KickDef.kt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/output/Rundown.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/output/Rundown.kt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/postman/DynamicEnvironmentKeys.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/postman/DynamicEnvironmentKeys.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/postman/SDK.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/postman/SDK.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/postman/state/collection/Body.kt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/postman/state/collection/Collection.kt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/postman/state/collection/Event.kt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/postman/state/collection/Header.kt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/postman/state/collection/Item.kt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/postman/state/collection/ItemData.kt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/postman/state/collection/Request.kt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/postman/state/collection/Response.kt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/postman/state/collection/Script.kt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/postman/state/collection/Url.kt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/postman/state/environment/EnvValue.kt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/postman/state/environment/Environment.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/postman/state/Environment.kt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -155,6 +144,7 @@
   <component name="HighlightingSettingsPerFile">
     <setting file="jar://$USER_HOME$/.gradle/caches/jars-9/842568628da3aeffa9e5703ecb66c216/spotless-lib-2.27.0.jar!/com/diffplug/spotless/glue/ktlint/KtlintFormatterFunc.class" root0="SKIP_INSPECTION" />
     <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.salesforce.ccspayments/vader/3.3.2-SNAPSHOT/68adc2628b7c2ac837c77f90f1214b25eed6c541/vader-3.3.2-SNAPSHOT.jar!/org/revcloud/vader/runner/config/BaseValidationConfig.class" root0="SKIP_INSPECTION" />
+    <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.salesforce.ccspayments/vader/3.3.2-SNAPSHOT/ee9b08ee126934fa88e98fca22db6b6693f62225/vader-3.3.2-SNAPSHOT-sources.jar!/org/revcloud/vader/runner/config/BaseValidationConfig.java" root0="SKIP_INSPECTION" />
     <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.salesforce.ccspayments/vader/3.3.2-SNAPSHOT/f3e3e92931b7c9094f473e9d1215e6b7d3a00b33/vader-3.3.2-SNAPSHOT-sources.jar!/org/revcloud/vader/runner/Vader.kt" root0="SKIP_INSPECTION" />
     <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.salesforce.ccspayments/vader/3.3.2-SNAPSHOT/f3e3e92931b7c9094f473e9d1215e6b7d3a00b33/vader-3.3.2-SNAPSHOT-sources.jar!/org/revcloud/vader/runner/config/BaseValidationConfig.java" root0="SKIP_INSPECTION" />
     <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.squareup.moshi/moshi-adapters/1.13.0/6e7b5adfef55951e72ce5e65f194fce0d12163d9/moshi-adapters-1.13.0-sources.jar!/com/squareup/moshi/adapters/Rfc3339DateJsonAdapter.java" root0="SKIP_INSPECTION" />
@@ -163,6 +153,8 @@
     <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.squareup.moshi/moshi/1.13.0/e2f718e52cdb2dc17b457d75f0947e2959903959/moshi-1.13.0-sources.jar!/com/squareup/moshi/JsonAdapter.java" root0="SKIP_INSPECTION" />
     <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.squareup.moshi/moshi/1.13.0/e2f718e52cdb2dc17b457d75f0947e2959903959/moshi-1.13.0-sources.jar!/com/squareup/moshi/Moshi.java" root0="SKIP_INSPECTION" />
     <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.squareup.moshi/moshi/1.13.0/e2f718e52cdb2dc17b457d75f0947e2959903959/moshi-1.13.0-sources.jar!/com/squareup/moshi/Types.java" root0="SKIP_INSPECTION" />
+    <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/io.github.serpro69/kotlin-faker/1.12.0-rc.0/36d7d96b7b1d6ed8184cb358b2778d8d01a14510/kotlin-faker-1.12.0-rc.0-sources.jar!/io/github/serpro69/kfaker/provider/Internet.kt" root0="SKIP_INSPECTION" />
+    <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/io.vavr/vavr/0.10.4/b6509f9114d0354893803668e58b97965a41f2f6/vavr-0.10.4-sources.jar!/io/vavr/CheckedFunction1.java" root0="SKIP_INSPECTION" />
     <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.graalvm.sdk/graal-sdk/22.1.0/f90a4a571edbb9bdf837d78867f43334f30dfd61/graal-sdk-22.1.0-sources.jar!/org/graalvm/polyglot/Context.java" root0="SKIP_INSPECTION" />
     <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.http4k/http4k-core/4.25.13.0/2e9959bdaa17f18b647402452e7ae748bbe7dd17/http4k-core-4.25.13.0-sources.jar!/org/http4k/KotlinExtensions.kt" root0="SKIP_INSPECTION" />
     <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.http4k/http4k-core/4.25.13.0/2e9959bdaa17f18b647402452e7ae748bbe7dd17/http4k-core-4.25.13.0-sources.jar!/org/http4k/core/ContentType.kt" root0="SKIP_INSPECTION" />
@@ -180,6 +172,7 @@
     <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib-common/1.7.10/60408164a8fbfb0ae8febb3413e2f4bf5a06c97f/kotlin-stdlib-common-1.7.10-sources.jar!/kotlin/collections/Maps.kt" root0="SKIP_INSPECTION" />
     <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib-common/1.7.10/60408164a8fbfb0ae8febb3413e2f4bf5a06c97f/kotlin-stdlib-common-1.7.10-sources.jar!/kotlin/util/Tuples.kt" root0="SKIP_INSPECTION" />
     <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib/1.7.10/a47f6071d3ba1c695174371ffeb95ac2df2089a5/kotlin-stdlib-1.7.10-sources.jar!/kotlin/jvm/JvmDefault.kt" root0="SKIP_INSPECTION" />
+    <setting file="jar://$USER_HOME$/blt/tools/Darwin/jdk/openjdk_11.0.15_11.56.20_x64/lib/src.zip!/java.base/java/lang/reflect/Type.java" root0="SKIP_INSPECTION" />
     <setting file="jar://$USER_HOME$/blt/tools/Darwin/jdk/openjdk_17.0.3_17.34.20_x64/zulu-17.jdk/Contents/Home/lib/src.zip!/java.base/java/lang/reflect/Type.java" root0="SKIP_INSPECTION" />
     <setting file="jar://$USER_HOME$/blt/tools/Darwin/jdk/openjdk_17.0.3_17.34.20_x64/zulu-17.jdk/Contents/Home/lib/src.zip!/java.base/java/util/HashMap.java" root0="SKIP_INSPECTION" />
     <setting file="file://$PROJECT_DIR$/build.gradle.kts" root0="FORCE_HIGHLIGHTING" />
@@ -191,6 +184,7 @@
     <setting file="file://$PROJECT_DIR$/src/integrationTest/java/org/revcloud/integration/pokemon/PokemonTest.java" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/src/integrationTest/resources/log4j2.xml" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/src/integrationTest/resources/pm-templates/revoman/ReVoman (UTest - Linux).postman_environment.json" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/src/main/kotlin/module-info.java" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/src/main/kotlin/org/revcloud/ReVoman.kt" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/src/main/kotlin/org/revcloud/adapters/ObjOrListAdapterFactory.kt" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/src/main/kotlin/org/revcloud/adapters/internal/RegexAdapterFactory.kt" root0="FORCE_HIGHLIGHTING" />
@@ -231,7 +225,7 @@
     &quot;javascript.nodejs.core.library.configured.version&quot;: &quot;16.15.0&quot;,
     &quot;javascript.nodejs.core.library.typings.version&quot;: &quot;16.11.36&quot;,
     &quot;jdk.selected.JAVA_MODULE&quot;: &quot;17&quot;,
-    &quot;last_opened_file_path&quot;: &quot;/Users/gopala.akshintala/code-clones/work/revoman-root/src/integrationTest/resources&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/Users/gopala.akshintala/code-clones/work/revoman-root/src/main/kotlin&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
@@ -240,7 +234,7 @@
     &quot;project.structure.last.edited&quot;: &quot;Project&quot;,
     &quot;project.structure.proportion&quot;: &quot;0.0&quot;,
     &quot;project.structure.side.proportion&quot;: &quot;0.0&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;reference.settingsdialog.project.gradle&quot;
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;
   }
 }</component>
   <component name="Push.Settings">
@@ -252,9 +246,9 @@
   </component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/src/main/kotlin" />
       <recent name="$PROJECT_DIR$/src/integrationTest/resources" />
       <recent name="$PROJECT_DIR$/src/integrationTest/java" />
-      <recent name="$PROJECT_DIR$/src/main/kotlin" />
       <recent name="$PROJECT_DIR$" />
       <recent name="$PROJECT_DIR$/src/main/kotlin/org/revcloud/adapters" />
     </key>
@@ -300,7 +294,7 @@
       <command value="gradle spotlessApply" />
     </option>
   </component>
-  <component name="RunManager" selected="Gradle.revoman-root [spotlessApply]">
+  <component name="RunManager" selected="Gradle.PokemonTest.pokemon (1)">
     <configuration name="BillingScheduleE2ETest.revUp" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
       <ExternalSystemSettings>
         <option name="executionName" />
@@ -369,6 +363,27 @@
       <DebugAllEnabled>false</DebugAllEnabled>
       <method v="2" />
     </configuration>
+    <configuration name="revoman-root [publish]" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
+      <ExternalSystemSettings>
+        <option name="executionName" />
+        <option name="externalProjectPath" value="$PROJECT_DIR$" />
+        <option name="externalSystemIdString" value="GRADLE" />
+        <option name="scriptParameters" value="" />
+        <option name="taskDescriptions">
+          <list />
+        </option>
+        <option name="taskNames">
+          <list>
+            <option value="publish" />
+          </list>
+        </option>
+        <option name="vmOptions" />
+      </ExternalSystemSettings>
+      <ExternalSystemDebugServerProcess>true</ExternalSystemDebugServerProcess>
+      <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
+      <DebugAllEnabled>false</DebugAllEnabled>
+      <method v="2" />
+    </configuration>
     <configuration name="revoman-root [spotlessApply]" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
       <ExternalSystemSettings>
         <option name="executionName" />
@@ -390,29 +405,13 @@
       <DebugAllEnabled>false</DebugAllEnabled>
       <method v="2" />
     </configuration>
-    <configuration name="PokemonTest.pokemon" type="JUnit" factoryName="JUnit" temporary="true" nameIsGenerated="true">
-      <module name="revoman-root.integrationTest" />
-      <extension name="coverage">
-        <pattern>
-          <option name="PATTERN" value="org.revcloud.integration.pokemon.*" />
-          <option name="ENABLED" value="true" />
-        </pattern>
-      </extension>
-      <option name="PACKAGE_NAME" value="org.revcloud.integration.pokemon" />
-      <option name="MAIN_CLASS_NAME" value="org.revcloud.integration.pokemon.PokemonTest" />
-      <option name="METHOD_NAME" value="pokemon" />
-      <option name="TEST_OBJECT" value="method" />
-      <method v="2">
-        <option name="Make" enabled="true" />
-      </method>
-    </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Gradle.PokemonTest.pokemon (1)" />
         <item itemvalue="Gradle.BillingScheduleE2ETest.revUp" />
+        <item itemvalue="Gradle.revoman-root [publish]" />
         <item itemvalue="Gradle.revoman-root [spotlessApply]" />
         <item itemvalue="Gradle.revoman-root [clean build]" />
-        <item itemvalue="Gradle.PokemonTest.pokemon (1)" />
-        <item itemvalue="JUnit.PokemonTest.pokemon" />
       </list>
     </recent_temporary>
   </component>
@@ -470,7 +469,13 @@
       <workItem from="1659788987999" duration="24000" />
       <workItem from="1659789105837" duration="9463000" />
       <workItem from="1659803857978" duration="302000" />
-      <workItem from="1659851281640" duration="3409000" />
+      <workItem from="1659851281640" duration="6085000" />
+      <workItem from="1659873190153" duration="4828000" />
+      <workItem from="1659888221870" duration="99000" />
+      <workItem from="1659937368225" duration="11997000" />
+      <workItem from="1660292642885" duration="5239000" />
+      <workItem from="1660451268467" duration="7031000" />
+      <workItem from="1660495609033" duration="1450000" />
     </task>
     <task id="LOCAL-00001" summary="tmp">
       <created>1652606203677</created>
@@ -612,7 +617,14 @@
       <option name="project" value="LOCAL" />
       <updated>1659691656438</updated>
     </task>
-    <option name="localTasksCounter" value="21" />
+    <task id="LOCAL-00021" summary=":recycle: Major refactoring&#10;- Grouped all state data classes in one file&#10;- Throw if validation config present for unsuccessful response&#10;- Simplified Postman marshalling&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopalakshintala@gmail.com&gt;">
+      <created>1659861354849</created>
+      <option name="number" value="00021" />
+      <option name="presentableId" value="LOCAL-00021" />
+      <option name="project" value="LOCAL" />
+      <updated>1659861354849</updated>
+    </task>
+    <option name="localTasksCounter" value="22" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -660,15 +672,16 @@
     <MESSAGE value=":recycle: Move validation config to different DSL&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopalakshintala@gmail.com&gt;" />
     <MESSAGE value=":recycle: Refactor marshall response&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopalakshintala@gmail.com&gt;" />
     <MESSAGE value=":recycle: Place all methods in a class&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopalakshintala@gmail.com&gt;" />
-    <option name="LAST_COMMIT_MESSAGE" value=":recycle: Place all methods in a class&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopalakshintala@gmail.com&gt;" />
+    <MESSAGE value=":recycle: Major refactoring&#10;- Grouped all state data classes in one file&#10;- Throw if validation config present for unsuccessful response&#10;- Simplified Postman marshalling&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopalakshintala@gmail.com&gt;" />
+    <option name="LAST_COMMIT_MESSAGE" value=":recycle: Major refactoring&#10;- Grouped all state data classes in one file&#10;- Throw if validation config present for unsuccessful response&#10;- Simplified Postman marshalling&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopalakshintala@gmail.com&gt;" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
       <breakpoints>
         <line-breakpoint enabled="true" type="kotlin-line">
-          <url>file://$PROJECT_DIR$/src/main/kotlin/org/revcloud/ReVoman.kt</url>
-          <line>157</line>
-          <option name="timeStamp" value="4" />
+          <url>jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.salesforce.ccspayments/vader/3.3.2-SNAPSHOT/ee9b08ee126934fa88e98fca22db6b6693f62225/vader-3.3.2-SNAPSHOT-sources.jar!/org/revcloud/vader/lift/ValidatorLiftUtil.kt</url>
+          <line>29</line>
+          <option name="timeStamp" value="9" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>
