@@ -41,193 +41,194 @@ import org.revcloud.postman.state.Environment
 import org.revcloud.postman.state.Item
 import org.revcloud.postman.state.Request
 import org.revcloud.postman.state.Steps
-import org.revcloud.vader.runner.Vader
-import org.revcloud.vader.runner.config.BaseValidationConfig
-import org.revcloud.vader.runner.config.ValidationConfig
+import org.revcloud.vador.config.ValidationConfig
+import org.revcloud.vador.config.base.BaseValidationConfig
+import org.revcloud.vador.execution.Vador
 import java.io.File
 import java.lang.reflect.Type
 import java.util.Date
 
-class ReVoman {
-  companion object {
-    @JvmStatic
-    fun revUp(kick: Kick): Rundown = revUp(
-      kick.templatePath(),
-      kick.environmentPath(),
-      kick.dynamicEnvironment(),
-      kick.bearerTokenKey(),
-      kick.stepNameToSuccessType(),
-      kick.stepNameToValidationConfig(),
-      kick.stepNameToErrorType(),
-      kick.customAdaptersForResponse(),
-      kick.typesInResponseToIgnore()
-    )
+object ReVoman {
+  @JvmStatic
+  fun revUp(kick: Kick): Rundown = revUp(
+    kick.templatePath(),
+    kick.environmentPath(),
+    kick.dynamicEnvironment(),
+    kick.bearerTokenKey(),
+    kick.stepNameToSuccessType(),
+    kick.stepNameToValidationConfig(),
+    kick.stepNameToErrorType(),
+    kick.customAdaptersForResponse(),
+    kick.typesInResponseToIgnore()
+  )
 
-    private val logger = KotlinLogging.logger {}
+  private val logger = KotlinLogging.logger {}
 
-    @OptIn(ExperimentalStdlibApi::class)
-    private fun revUp(
-      pmTemplatePath: String,
-      environmentPath: String?,
-      dynamicEnvironment: Map<String, String?>,
-      bearerTokenKey: String?,
-      stepNameToSuccessType: Map<String, Type>,
-      stepNameToValidationConfig: Map<String, BaseValidationConfig.BaseValidationConfigBuilder<out Any, out Any?, *, *>>,
-      stepNameToErrorType: Map<String, Type>,
-      customAdaptersForResponse: List<Any>,
-      typesInResponseToIgnore: Set<Class<out Any>>
-    ): Rundown {
-      initPmEnvironment(dynamicEnvironment, environmentPath)
-      val pmSteps: Steps? = Moshi.Builder().build().adapter<Steps>().fromJson(readTextFromFile(pmTemplatePath))
-      val replaceRegexWithEnvAdapter = Moshi.Builder().add(RegexAdapterFactory(pm.environment)).build().adapter<Item>()
-      val moshi = initMoshi(typesInResponseToIgnore, customAdaptersForResponse)
-      val stepNameToReport = pmSteps?.item?.asSequence()
-        ?.map { stepWithRegex -> replaceRegexWithEnvAdapter.fromJsonValue(stepWithRegex) }
-        ?.filterNotNull()
-        ?.map { step ->
-          // * NOTE gopala.akshintala 06/08/22: Preparing for each step, as there can be intermediate auths
-          val httpClient: HttpHandler = prepareHttpClient(pm.environment[bearerTokenKey])
-          val request = step.request.toHttpRequest()
-          val response: Response = httpClient(request)
-          if (response.status.successful) {
-            executeTestScriptJs(step, response)
-            if (isContentTypeApplicationJson(response)) {
-              val validationConfig = stepNameToValidationConfig[step.name]?.prepare()
-              val successType = (stepNameToSuccessType[step.name]?.rawType ?: validationConfig?.validatableType?.rawType)?.kotlin ?: Any::class
-              val responseObj = moshi.asA(response.bodyString(), successType)
-              validate(responseObj, validationConfig)
-              step.name to StepReport(responseObj, responseObj.javaClass, request, response)
-            } else {
-              // ! TODO gopala.akshintala 04/08/22: Support other content types apart from JSON
-              step.name to StepReport(response.bodyString(), String::class.java, request, response)
-            }
+  @OptIn(ExperimentalStdlibApi::class)
+  private fun revUp(
+    pmTemplatePath: String,
+    environmentPath: String?,
+    dynamicEnvironment: Map<String, String?>,
+    bearerTokenKey: String?,
+    stepNameToSuccessType: Map<String, Type>,
+    stepNameToValidationConfig: Map<String, BaseValidationConfig.BaseValidationConfigBuilder<out Any, out Any?, *, *>>,
+    stepNameToErrorType: Map<String, Type>,
+    customAdaptersForResponse: List<Any>,
+    typesInResponseToIgnore: Set<Class<out Any>>
+  ): Rundown {
+    initPmEnvironment(dynamicEnvironment, environmentPath)
+    val pmSteps: Steps? = Moshi.Builder().build().adapter<Steps>().fromJson(readTextFromFile(pmTemplatePath))
+    val replaceRegexWithEnvAdapter = Moshi.Builder().add(RegexAdapterFactory(pm.environment)).build().adapter<Item>()
+    val moshi = initMoshi(typesInResponseToIgnore, customAdaptersForResponse)
+    val stepNameToReport = pmSteps?.item?.asSequence()
+      ?.map { stepWithRegex -> replaceRegexWithEnvAdapter.fromJsonValue(stepWithRegex) }
+      ?.filterNotNull()
+      ?.map { step ->
+        // * NOTE gopala.akshintala 06/08/22: Preparing for each step, as there can be intermediate auths
+        val httpClient: HttpHandler = prepareHttpClient(pm.environment[bearerTokenKey])
+        val request = step.request.toHttpRequest()
+        val response: Response = httpClient(request)
+        if (response.status.successful) {
+          executeTestScriptJs(step, response)
+          if (isContentTypeApplicationJson(response)) {
+            val validationConfig = stepNameToValidationConfig[step.name]?.prepare()
+            val successType =
+              (stepNameToSuccessType[step.name]?.rawType ?: validationConfig?.validatableType?.rawType)?.kotlin
+                ?: Any::class
+            val responseObj = moshi.asA(response.bodyString(), successType)
+            validate(responseObj, validationConfig)
+            step.name to StepReport(responseObj, responseObj.javaClass, request, response)
           } else {
-            if (stepNameToValidationConfig.containsKey(step.name)) {
-              throw RuntimeException("Unable to validate due to unsuccessful response status: ${response.status}")
-            }
-            val errorType = stepNameToErrorType[step.name]?.rawType?.kotlin ?: Any::class
-            val errorResponseObj = moshi.asA(response.bodyString(), errorType)
-            step.name to StepReport(errorResponseObj, errorResponseObj.javaClass, request, response)
+            // ! TODO gopala.akshintala 04/08/22: Support other content types apart from JSON
+            step.name to StepReport(response.bodyString(), String::class.java, request, response)
           }
-        }?.toMap() ?: emptyMap()
-      return Rundown(stepNameToReport, pm.environment)
-    }
-
-    // ! TODO gopala.akshintala 03/08/22: Extend the validation for other configs and strategies
-    private fun validate(responseObj: Any, validationConfig: BaseValidationConfig<out Any, out Any>?) {
-      if (validationConfig != null) {
-        val result = Vader.validateAndFailFast(responseObj, validationConfig as ValidationConfig<Any, Any?>)
-        result.ifPresent { throw RuntimeException(it.toString()) }
-        logger.info { "*** Validation passed for: $responseObj" }
-      }
-    }
-
-    private fun prepareHttpClient(bearerToken: String?) = DebuggingFilters.PrintRequestAndResponse()
-      .then(if (bearerToken.isNullOrEmpty()) Filter.NoOp else ClientFilters.BearerAuth(bearerToken))
-      .then(JavaHttpClient())
-
-    private val pm = PostmanAPI()
-    private val jsContext = buildJsContext(false).also {
-      it.getBindings("js").putMember("pm", pm)
-      it.getBindings("js").putMember("xml2Json", pm.xml2Json)
-    }
-
-    private fun buildJsContext(useCommonjsRequire: Boolean = true): Context {
-      val options = buildMap {
-        if (useCommonjsRequire) {
-          put("js.commonjs-require", "true")
-          put("js.commonjs-require-cwd", ".")
-          put("js.commonjs-core-modules-replacements", "path:path-browserify")
+        } else {
+          if (stepNameToValidationConfig.containsKey(step.name)) {
+            throw RuntimeException("Unable to validate due to unsuccessful response status: ${response.status}")
+          }
+          val errorType = stepNameToErrorType[step.name]?.rawType?.kotlin ?: Any::class
+          val errorResponseObj = moshi.asA(response.bodyString(), errorType)
+          step.name to StepReport(errorResponseObj, errorResponseObj.javaClass, request, response)
         }
-        put("js.esm-eval-returns-exports", "true")
-        put("engine.WarnInterpreterOnly", "false")
-      }
-      return Context.newBuilder("js")
-        .allowExperimentalOptions(true)
-        .allowIO(true)
-        .options(options)
-        .allowHostAccess(HostAccess.ALL)
-        .allowHostClassLookup { true }
-        .build()
-    }
+      }?.toMap() ?: emptyMap()
+    return Rundown(stepNameToReport, pm.environment)
+  }
 
-    private fun executeTestScriptJs(
-      step: Item,
-      response: Response
-    ) {
-      loadIntoPmEnvironment(step.request, response)
-      val testScript = step.event?.find { it.listen == "test" }?.script?.exec?.joinToString("\n")
-      if (!testScript.isNullOrBlank()) {
-        val testSource = Source.newBuilder("js", testScript, "pmItemTestScript.js").build()
-        jsContext.getBindings("js").putMember("responseBody", response.bodyString())
-        try {
-          // ! TODO gopala.akshintala 15/05/22: Keep a tab on jsContext mix-up from different steps
-          jsContext.eval(testSource)
-        } catch (polyglotException: PolyglotException) {
-          // ! TODO gopala.akshintala 04/05/22: Handle gracefully?
-          throw polyglotException
-        }
-      }
+  // ! TODO gopala.akshintala 03/08/22: Extend the validation for other configs and strategies
+  private fun validate(responseObj: Any, validationConfig: BaseValidationConfig<out Any, out Any>?) {
+    if (validationConfig != null) {
+      val result = Vador.validateAndFailFast(responseObj, validationConfig as ValidationConfig<Any, Any?>)
+      result.ifPresent { throw RuntimeException(it.toString()) }
+      logger.info { "*** Validation passed for: $responseObj" }
     }
+  }
 
-    @OptIn(ExperimentalStdlibApi::class)
-    private fun initPmEnvironment(
-      dynamicEnvironment: Map<String, String?>?,
-      pmEnvironmentPath: String?
-    ) {
-      // ! TODO gopala.akshintala 19/05/22: Think about clashes between json environment variables and dynamic environment variables
-      if (!dynamicEnvironment.isNullOrEmpty()) {
-        pm.environment.putAll(dynamicEnvironment)
+  private fun prepareHttpClient(bearerToken: String?) = DebuggingFilters.PrintRequestAndResponse()
+    .then(if (bearerToken.isNullOrEmpty()) Filter.NoOp else ClientFilters.BearerAuth(bearerToken))
+    .then(JavaHttpClient())
+
+  private val pm = PostmanAPI()
+  private val jsContext = buildJsContext(false).also {
+    it.getBindings("js").putMember("pm", pm)
+    it.getBindings("js").putMember("xml2Json", pm.xml2Json)
+  }
+
+  private fun buildJsContext(useCommonjsRequire: Boolean = true): Context {
+    val options = buildMap {
+      if (useCommonjsRequire) {
+        put("js.commonjs-require", "true")
+        put("js.commonjs-require-cwd", ".")
+        put("js.commonjs-core-modules-replacements", "path:path-browserify")
       }
-      if (pmEnvironmentPath != null) {
-        val envJsonAdapter = Moshi.Builder().build().adapter<Environment>()
-        val environment: Environment? = envJsonAdapter.fromJson(readTextFromFile(pmEnvironmentPath))
-        pm.environment.putAll(
-          environment?.values?.filter { it.enabled }?.associate { it.key to it.value }
-            ?: emptyMap()
-        )
+      put("js.esm-eval-returns-exports", "true")
+      put("engine.WarnInterpreterOnly", "false")
+    }
+    return Context.newBuilder("js")
+      .allowExperimentalOptions(true)
+      .allowIO(true)
+      .options(options)
+      .allowHostAccess(HostAccess.ALL)
+      .allowHostClassLookup { true }
+      .build()
+  }
+
+  private fun executeTestScriptJs(
+    step: Item,
+    response: Response
+  ) {
+    loadIntoPmEnvironment(step.request, response)
+    val testScript = step.event?.find { it.listen == "test" }?.script?.exec?.joinToString("\n")
+    if (!testScript.isNullOrBlank()) {
+      val testSource = Source.newBuilder("js", testScript, "pmItemTestScript.js").build()
+      jsContext.getBindings("js").putMember("responseBody", response.bodyString())
+      try {
+        // ! TODO gopala.akshintala 15/05/22: Keep a tab on jsContext mix-up from different steps
+        jsContext.eval(testSource)
+      } catch (polyglotException: PolyglotException) {
+        // ! TODO gopala.akshintala 04/05/22: Handle gracefully?
+        throw polyglotException
       }
     }
-    private fun loadIntoPmEnvironment(stepRequest: Request, response: Response) {
-      pm.request = stepRequest
-      pm.response = org.revcloud.postman.Response(
-        response.status.toString(),
-        response.status.code.toString(),
-        response.bodyString()
+  }
+
+  @OptIn(ExperimentalStdlibApi::class)
+  private fun initPmEnvironment(
+    dynamicEnvironment: Map<String, String?>?,
+    pmEnvironmentPath: String?
+  ) {
+    // ! TODO gopala.akshintala 19/05/22: Think about clashes between json environment variables and dynamic environment variables
+    if (!dynamicEnvironment.isNullOrEmpty()) {
+      pm.environment.putAll(dynamicEnvironment)
+    }
+    if (pmEnvironmentPath != null) {
+      val envJsonAdapter = Moshi.Builder().build().adapter<Environment>()
+      val environment: Environment? = envJsonAdapter.fromJson(readTextFromFile(pmEnvironmentPath))
+      pm.environment.putAll(
+        environment?.values?.filter { it.enabled }?.associate { it.key to it.value }
+          ?: emptyMap()
       )
     }
+  }
 
-    private fun isContentTypeApplicationJson(response: Response) =
-      response.bodyString().isNotBlank() && response.header("content-type")?.let {
-        StringUtils.deleteWhitespace(it)
-          .equals(StringUtils.deleteWhitespace(APPLICATION_JSON.toHeaderValue()), ignoreCase = true)
-      } ?: false
+  private fun loadIntoPmEnvironment(stepRequest: Request, response: Response) {
+    pm.request = stepRequest
+    pm.response = org.revcloud.postman.Response(
+      response.status.toString(),
+      response.status.code.toString(),
+      response.bodyString()
+    )
+  }
 
-    private fun readTextFromFile(filePath: String): String = File(filePath).readText()
+  private fun isContentTypeApplicationJson(response: Response) =
+    response.bodyString().isNotBlank() && response.header("content-type")?.let {
+      StringUtils.deleteWhitespace(it)
+        .equals(StringUtils.deleteWhitespace(APPLICATION_JSON.toHeaderValue()), ignoreCase = true)
+    } ?: false
 
-    private fun initMoshi(
-      typesToIgnore: Set<Class<out Any>>? = emptySet(),
-      customAdaptersForResponse: List<Any>? = emptyList()
-    ): ConfigurableMoshi {
-      val moshiBuilder = Moshi.Builder()
-      customAdaptersForResponse?.forEach { moshiBuilder.add(it) }
-      if (!typesToIgnore.isNullOrEmpty()) {
-        moshiBuilder.add(IgnoreUnknownFactory(typesToIgnore))
-      }
-      return object : ConfigurableMoshi(
-        moshiBuilder
-          .add(JsonString.Factory())
-          .add(AdaptedBy.Factory())
-          .add(Date::class.java, Rfc3339DateJsonAdapter())
-          .addLast(EventAdapter)
-          .addLast(ThrowableAdapter)
-          .addLast(ListAdapter)
-          .addLast(MapAdapter)
-          .addLast(ObjOrListAdapterFactory)
-          .asConfigurable()
-          .withStandardMappings()
-          .done()
-      ) {}
+  private fun readTextFromFile(filePath: String): String = File(filePath).readText()
+
+  private fun initMoshi(
+    typesToIgnore: Set<Class<out Any>>? = emptySet(),
+    customAdaptersForResponse: List<Any>? = emptyList()
+  ): ConfigurableMoshi {
+    val moshiBuilder = Moshi.Builder()
+    customAdaptersForResponse?.forEach { moshiBuilder.add(it) }
+    if (!typesToIgnore.isNullOrEmpty()) {
+      moshiBuilder.add(IgnoreUnknownFactory(typesToIgnore))
     }
+    return object : ConfigurableMoshi(
+      moshiBuilder
+        .add(JsonString.Factory())
+        .add(AdaptedBy.Factory())
+        .add(Date::class.java, Rfc3339DateJsonAdapter())
+        .addLast(EventAdapter)
+        .addLast(ThrowableAdapter)
+        .addLast(ListAdapter)
+        .addLast(MapAdapter)
+        .addLast(ObjOrListAdapterFactory)
+        .asConfigurable()
+        .withStandardMappings()
+        .done()
+    ) {}
   }
 }

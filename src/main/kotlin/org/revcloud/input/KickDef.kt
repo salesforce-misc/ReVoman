@@ -3,7 +3,7 @@ package org.revcloud.input
 import org.immutables.value.Value
 import org.jetbrains.annotations.Nullable
 import org.revcloud.postman.DynamicEnvironmentKeys.BEARER_TOKEN_KEY
-import org.revcloud.vader.runner.config.BaseValidationConfig.BaseValidationConfigBuilder
+import org.revcloud.vador.config.base.BaseValidationConfig.BaseValidationConfigBuilder
 import java.lang.reflect.Type
 
 @Config

@@ -9,9 +9,8 @@ module reVoman {
   requires moshi.adapters;
   requires org.immutables.value.annotations;
   requires org.jetbrains.annotations;
-  requires vader;
-  requires vader.matchers;
-  requires vader.specs;
+  requires vador;
+  requires vador.matchers;
   requires java.net.http;
   requires kotlin.logging.jvm;
   requires kotlin.faker;

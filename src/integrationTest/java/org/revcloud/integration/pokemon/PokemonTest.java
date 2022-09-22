@@ -5,7 +5,7 @@ import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.revcloud.ReVoman;
 import org.revcloud.input.Kick;
-import org.revcloud.vader.runner.config.ValidationConfig;
+import org.revcloud.vador.config.ValidationConfig;
 
 class PokemonTest {
   private static final String TEST_RESOURCES_PATH = "src/integrationTest/resources/";

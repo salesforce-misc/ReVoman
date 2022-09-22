@@ -9,7 +9,7 @@ import org.revcloud.input.Kick;
 import org.revcloud.output.StepReport;
 import org.revcloud.response.types.salesforce.Graph;
 import org.revcloud.response.types.salesforce.Graphs;
-import org.revcloud.vader.runner.config.ValidationConfig;
+import org.revcloud.vador.config.ValidationConfig;
 
 class BillingScheduleE2ETest {
   private static final String TEST_RESOURCES_PATH = "src/integrationTest/resources/";
