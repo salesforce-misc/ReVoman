@@ -1,0 +1,229 @@
+= ReṼoman (Rev-Woman)
+Gopal S Akshintala <gopala.akshintala@salesforce.com>
+:Revision: 1.0
+ifdef::env-github[]
+:tip-caption: :bulb:
+:note-caption: :information_source:
+:important-caption: :heavy_exclamation_mark:
+:caution-caption: :fire:
+:warning-caption: :warning:
+endif::[]
+:toc:
+:toc-placement: preamble
+:sourcedir: src/main/kotlin
+:testdir: src/integrationTest/java
+:imagesdir: ../images/config-dsl
+:prewrap!:
+
+____
+
+Re - Request/Response
+
+Ṽ - Validation
+
+____
+
+== Values
+
+* Convert your persona-based Postman/Kaiju templates into FTests and E2E tests executed in auto-builds.
+* Bring a *Unified &amp; Simplified Test strategy* across the mul-**T**-verse (FTests, Bento Tests, Kaiju, and Manual testing with Supernova).
+* Low-code FTests and E2E tests that are Transparent and Low in Cognitive-Complexity.
+* You can find a postman collection for every feature you need to test, right in your *VCS (Perforce/Git)* and they always stay up to date as they are hooked into automation.
+
+== The Problem
+
+* Salesforce is an API-first company. But our API automation is done with lots and lots of code.
+* Our FTests compete on Complexity and learning curve with our Prod code, and mostly, they win.
+
+====
+
+*Demo CL*: 36282265
+
+====
+
+FTests are unanimously the biggest developer productivity killer. Let’s take an example from `BillingScheduleService` FTest. In a typical FTest like this, you need to hand-write all the code for:
+(Glimpse of code from IDE)
+
+* Internal Utilities for setup data
+* Build request JSON
+* Process output response
+* Validate response
+
+The Lines of code needed to write a single FTest, excluding comments and blank lines is: *1,185*
+
+NOTE: *(Before)* Lines of Code: *1,185*
+
+And the sad part is, that all this effort is *specific* to a particular service or domain and rigid to extend and difficult to maintain. But that’s not it.
+
+* On top of that, we have a mul-*T*-verse - FTests, Bento Tests, Kaiju, and Manual testing with Postman, each with its own frameworks, tools, and internal utilities.
+
+* You need all together a different strategy and a new set of tools to learn and implement like Bento to cover the same flow through an E2E test, which demands an almost equal amount of code.
+
+____
+
+How _productive_ would it be, if you can configure an FTest or an E2E test, just with the Postman collection that you anyway would have created for your manual testing?
+
+____
+
+== _ReṼoman_
+
+Introducing, ReVoman - a template-engine, which can consume an exported Postman Step collection and Environment JSON files. Let’s check out how you can perform *Template-Driven-Testing* with ReVoman:
+
+* It reads the environment JSON provided into in-memory.
+* Then it reads and Inflates each static template in the collection, replacing variables at runtime from the in-memory environment
+* It uses this information to Fire a request and reads the response
+* It then Executes Postscript JS on the response and updates the in-memory environment.
+* It unmarshals the response into Strong types, like `BillingScheduleListOutputRepresentation`
+* Lets you run *Type-safe* validations on the strong-type and fails-fast at first failure.
+** Guess who teamed up with ReVoman for this - https://github.com/salesforce-misc/Vador[*Vador!*]
+* The iteration continues for all the steps in the template collection
+
+=== _ReṼoman_ API
+
+==== *Output*
+
+After all this, you receive back a detailed Rundown of all the steps with all the Request-Response data. You get Strong types for the ones you are interested in so that you can run more assertions on top of the run.
+
+[source,kotlin,indent=0,options="nowrap"]
+----
+Rundown(
+  stepNameToReport: Map<String, StepReport>,
+  environment: Map<String, String>)
+  
+StepReport(
+  responseObj: Any, 
+  responseType: Type, 
+  requestData: Request, 
+  responseData: Response)
+
+----
+
+==== API
+
+You can kick all this off with this simple API call, supplying a config
+
+[source,java,indent=0,options="nowrap"]
+----
+ReVoman.revUp(
+  Kick.configure()
+    ...
+    .off())
+
+----
+
+==== Config
+
+Let’s check out how to build this config:
+
+* Supply the path to the Template Collection JSON file like this:
+* And the path to the Environment JSON file.
+* You can even provide any dynamic environment on top of it, which you only may know during runtime.
+* You can provide strong types for the responses you are interested in.
+** ReVoman supports all data types within or outside the core without any extra annotations (eg: `BillingScheduleListOutputRepresentation`)
+* Finally, here is how you can hook your validations to be run on a step response
+** You can leverage the power of Vador to write config-driven validations and supply them to ReVoman like this.
+** Because both these tools are from the same Development team, you should see homogeneous patterns and seamless Integration and support.
+
+[source,java,indent=0,options="nowrap"]
+----
+final var rundown = ReVoman.revUp(
+  Kick.configure()
+    .templatePath(TEST_RESOURCES_PATH + "ReVoman.postman_collection.json") // <1>
+    .environmentPath(TEST_RESOURCES_PATH + "ReVoman.postman_environment.json") // <2>
+    .dynamicEnvironment(Map.of( // <3>
+            BASE_URL_KEY, Soap.getBaseURL(true),
+            VERSION, apiVersion,
+            BS_CONNECT_URL, connectUrl,
+            ADMIN_USER_NAME, UserContext.get().getUserInfo().getUserName(),
+            ADMIN_PASSWORD, UserTestingUtil.PASSWORD))
+    .stepNameToSuccessType(Map.of( // <4>
+            "setup-graph (once)", Graphs.class,
+            "billing-schedule", BillingScheduleListOutputRepresentation.class))
+    .stepNameToValidationConfig(Map.of( // <5>
+            "setup-graph (once)", setupGraphsValidationConfig,
+            "billing-schedule", bsValidationConfig))
+    .typesInResponseToIgnore(Set.of(ConnectInJavaConfig.class)) // <6>
+    .bearerTokenKey("accessToken") // <7>
+    .off());
+
+// Vador Configurations // <5>
+final var setupGraphsValidationConfig = ValidationConfig.<Graphs, String>toValidate()
+  .withValidator((graphs -> graphs.getGraphs().stream().allMatch(Graph::isSuccessful) ? "Success" : "setup-graph (once) Failed"), "Success")
+  .prepare();
+final var bsValidationConfig = ValidationConfig.<BillingScheduleListOutputRepresentation, String>toValidate()
+  .withValidator((bsLOR -> bsLOR.getBillingScheduleResultsList().stream().allMatch(BillingScheduleOutputRepresentation::getSuccess) ? "Success" : "BS Failed"), "Success")
+  .prepare();
+----
+<1> Supply the path to the Template Collection JSON file
+<2> Supply the path to the Environment JSON file
+<3> Provide any dynamic environment on top of it, which you only may know during runtime.
+<4> Provide strong types for the responses you are interested in.
+<5> Vador validation configurations
+<6> Ignore types like Legacy classes that cannot be unmarshalled
+<7> Key for bearerToken used in your Postman
+
+____
+
+*Here you go, an E2E test in one slide*
+
+____
+
+NOTE: *(After)* Lines of Code: *167 (86% low-code)*
+
+The amount of code needed is drastically down by *86%* and all of this is just for 1 FTest.
+Thus, ReVoman helps in writing *Low-Code* tests. But it's not just a reduction in the number of lines, but:
+
+== Not just Low-Code
+
+* A lot of reduction in cognitive complexity, which in turn eases maintenance and *boosts* *productivity*.
+* Transparency and better Traceability of issues
+* This forces engineers to think like API-first customers while writing tests.
+
+=== Postman/Kaiju templates on VCS (Perforce/Git)
+
+* Now that ReVoman hooks these templates into auto-builds or CI/CD, they always stay up to date, otherwise, Yoda makes sure they are, with TFs.
+* Any day, you can find a postman collection for every feature you need to test, right in your VCS. Devs can import these templates directly from VCS for manual testing. This comes in very handy during FF/RF/Cross team blitz.
+* Supernova was one excellent initiative from Q3 to bring all those persona-based flows together in a super postman collection. With ReVoman, you no more need a release task to keep it up to date.
+
+== The perks don’t stop there
+
+=== Unified &amp; Simplified Test Strategy
+
+This is a generic tool, and just by changing the template, the same config/pattern can be reused for any feature flow agnostic of it being an FTest or E2E test
+
+=== FTest Data setup
+
+You can use ReVoman for FTest data setup too. This eliminates the need for different teams to write their own internal utilities for data setup.
+
+=== Guards each check-in
+
+E2E tests and Availability Kaiju tests can now be run as Ftests in auto-builds, to guard each *check-in*.
+
+== Future
+
+[.lead]
+The future looks bright
+
+* *It's built with extensibility* in mind. It can easily be extended to support downloadable *Kaiju* templates too. **** You should be able to run Kaiju availability tests right from your IDE and debug them too
+* Support for Async or Background operations
+* It’s meant to be more than Postman; Consumer teams can plug their *Custom dynamic variables* for use-cases like parametric testing
+
+== Open source
+
+Just like Vador, this is a generic off-core tool and a perfect candidate to publish to the world as an Open-source software.
+
+== FAQs
+
+=== Is Debugging difficult with ReVoman?
+
+* IDE debug points in the Prod code work as expected while running the test.
+* Coming to FTest code, we debug when we don't understand what's going on in the code.
+* Debugging necessarily doesn't have to be with a debug point in IDE.
+* To be able to debug, a developer needs to be informed about what went wrong and he/she should have ways to try and test an isolated portion of the run.
+* In the case of ReVoman, you have the whole Postman collection at your disposal along with the Rundown. The entire test is transparent.
+* This experience can be enhanced with more logging and better assertion.
+
+=== Why not use https://learning.postman.com/docs/running-collections/using-newman-cli/command-line-integration-with-newman/#:~:text=Newman%20is%20a%20command%2Dline,integration%20servers%20and%20build%20systems[Newman]?
+
+* For the same reason why we use Java over Javascript. Type Safety.
+* Newman is limited and cannot be integrated into our automation model on JVM

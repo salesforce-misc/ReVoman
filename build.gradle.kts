@@ -14,7 +14,7 @@ plugins {
   id("com.diffplug.spotless") version "6.8.0"
 }
 group = "ga.overfullstack"
-version = "0.3.5"
+version = "0.3.6-SNAPSHOT"
 repositories {
   mavenCentral()
 }
