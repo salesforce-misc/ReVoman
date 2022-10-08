@@ -2,6 +2,7 @@ package org.revcloud.integration.core;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.salesforce.vador.config.ValidationConfig;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.revcloud.ReVoman;
@@ -9,7 +10,6 @@ import org.revcloud.input.Kick;
 import org.revcloud.output.StepReport;
 import org.revcloud.response.types.salesforce.Graph;
 import org.revcloud.response.types.salesforce.Graphs;
-import org.revcloud.vador.config.ValidationConfig;
 
 class BillingScheduleE2ETest {
   private static final String TEST_RESOURCES_PATH = "src/integrationTest/resources/";

@@ -25,10 +25,10 @@ dependencies {
   implementation("org.http4k:http4k-format-moshi:$http4kVersion")
   val moshiXVersion: String by project
   implementation("dev.zacsweers.moshix:moshi-adapters:$moshiXVersion")
-  
+
   implementation("org.slf4j:slf4j-api:2.0.2")
   implementation("io.github.microutils:kotlin-logging-jvm:3.0.0")
-  
+
   implementation("org.apache.commons:commons-lang3:3.12.0")
   val graalVersion: String by project
   implementation("org.graalvm.sdk:graal-sdk:$graalVersion")
@@ -36,8 +36,8 @@ dependencies {
   implementation("io.github.serpro69:kotlin-faker:1.12.0-rc.2")
   implementation("com.github.javadev:underscore:1.81")
   val vadorVersion: String by project
-  api("ga.overfullstack:vador:$vadorVersion")
-  api("ga.overfullstack:vador-matchers:$vadorVersion")
+  api("com.salesforce.vador:vador:$vadorVersion")
+  api("com.salesforce.vador:vador-matchers:$vadorVersion")
   val immutablesVersion: String by project
   kapt("org.immutables:value:$immutablesVersion")
   compileOnly("org.immutables:builder:$immutablesVersion")

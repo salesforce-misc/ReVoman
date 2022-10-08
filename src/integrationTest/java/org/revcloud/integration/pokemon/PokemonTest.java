@@ -1,11 +1,11 @@
 package org.revcloud.integration.pokemon;
 
+import com.salesforce.vador.config.ValidationConfig;
 import java.util.Map;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.revcloud.ReVoman;
 import org.revcloud.input.Kick;
-import org.revcloud.vador.config.ValidationConfig;
 
 class PokemonTest {
   private static final String TEST_RESOURCES_PATH = "src/integrationTest/resources/";

@@ -89,11 +89,11 @@ After all this, you receive back a detailed Rundown of all the steps with all th
 Rundown(
   stepNameToReport: Map<String, StepReport>,
   environment: Map<String, String>)
-  
+
 StepReport(
-  responseObj: Any, 
-  responseType: Type, 
-  requestData: Request, 
+  responseObj: Any,
+  responseType: Type,
+  requestData: Request,
   responseData: Response)
 
 ----

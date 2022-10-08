@@ -2,6 +2,9 @@
 
 package org.revcloud
 
+import com.salesforce.vador.config.ValidationConfig
+import com.salesforce.vador.config.base.BaseValidationConfig
+import com.salesforce.vador.execution.Vador
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapter
 import com.squareup.moshi.adapters.Rfc3339DateJsonAdapter
@@ -41,9 +44,6 @@ import org.revcloud.postman.state.Environment
 import org.revcloud.postman.state.Item
 import org.revcloud.postman.state.Request
 import org.revcloud.postman.state.Steps
-import org.revcloud.vador.config.ValidationConfig
-import org.revcloud.vador.config.base.BaseValidationConfig
-import org.revcloud.vador.execution.Vador
 import java.io.File
 import java.lang.reflect.Type
 import java.util.Date
