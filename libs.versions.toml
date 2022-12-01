@@ -1,0 +1,95 @@
+[versions]
+hamcrest-core = "2.2"
+hamcrest-date = "2.0.8"
+java-vavr = "0.10.4"
+kotlin-vavr = "0.10.2"
+jetbrains-annotations = "23.0.0"
+typeTools = "0.6.3"
+kover = "0.6.1"
+kotlin = "1.7.20"
+detekt = "1.22.0-RC2"
+kotest = "5.5.1"
+spotless = "6.11.0"
+spotbugs = "5.0.12"
+lombok = "6.5.1"
+testLogger = "3.2.0"
+assertj-core = "3.23.1"
+assertj-vavr = "0.4.2"
+slf4j-api = "2.0.5"
+log4j-slf4j18-impl = "2.18.0"
+reflection-util = "2.14.0"
+junit = "5.9.1"
+vador = "1.0.0"
+moshix = "1.7.20-Beta-0.18.3"
+http4k = "4.33.3.0"
+kotlin-logging = "3.0.4"
+apache-commons-lang3 = "3.12.0"
+graal-sdk = "22.3.0"
+underscore = "1.83"
+kotlin-faker = "1.13.0-rc.3"
+immutables = "2.9.2"
+apache-log4j = "2.19.0"
+
+[libraries]
+hamcrest-core = { module = "org.hamcrest:hamcrest", version.ref = "hamcrest-core" }
+hamcrest-date = { module = "org.exparity:hamcrest-date", version.ref = "hamcrest-date" }
+java-vavr = { module = "io.vavr:vavr", version.ref = "java-vavr" }
+kotlin-vavr = { module = "io.vavr:vavr-kotlin", version.ref = "kotlin-vavr" }
+jetbrains-annotations = { module = "org.jetbrains:annotations", version.ref = "jetbrains-annotations" }
+typeTools = { module = "net.jodah:typetools", version.ref = "typeTools" }
+kotlin-gradle = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
+detekt-gradle = { module = "io.gitlab.arturbosch.detekt:detekt-gradle-plugin", version.ref = "detekt" }
+kover-gradle = { module = "org.jetbrains.kotlinx:kover", version.ref = "kover" }
+spotless-gradle = { module = "com.diffplug.spotless:spotless-plugin-gradle", version.ref = "spotless" }
+spotbugs-gradle = { module = "com.github.spotbugs.snom:spotbugs-gradle-plugin", version.ref = "spotbugs" }
+reflection-util = { module = "de.cronn:reflection-util", version.ref = "reflection-util" }
+testLogger-gradle = { module = "com.adarshr.test-logger:com.adarshr.test-logger.gradle.plugin", version.ref = "testLogger" }
+kotest-assertionsCore = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
+kotest-frameworkEngine = { module = "io.kotest:kotest-framework-engine", version.ref = "kotest" }
+kotest-property = { module = "io.kotest:kotest-property", version.ref = "kotest" }
+kotest-runnerJUnit5 = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }
+assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertj-core" }
+assertj-vavr = { module = "org.assertj:assertj-vavr", version.ref = "assertj-vavr" }
+slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j-api" }
+log4j-slf4j18-impl = { module = "org.apache.logging.log4j:log4j-slf4j18-impl", version.ref = "log4j-slf4j18-impl" }
+junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "junit" }
+junit-engine = { module = "org.junit.jupiter:junit-jupiter-engine" }
+vador = { module = "com.salesforce.vador:vador", version.ref = "vador" }
+vador-matchers = { module = "com.salesforce.vador:vador-matchers", version.ref = "vador" }
+moshix-adapters = { module = "dev.zacsweers.moshix:moshi-adapters", version.ref = "moshix" }
+http4k-bom = { module = "org.http4k:http4k-bom", version.ref = "http4k" }
+http4k-core = { module = "org.http4k:http4k-core", version.ref = "http4k" }
+http4k-format-moshi = { module = "org.http4k:http4k-format-moshi", version.ref = "http4k" }
+kotlin-logging-jvm = { module = "io.github.microutils:kotlin-logging-jvm", version.ref = "kotlin-logging" }
+apache-commons-lang3 = { module = "org.apache.commons:commons-lang3", version.ref = "apache-commons-lang3" }
+graal-sdk = { module = "org.graalvm.sdk:graal-sdk", version.ref = "graal-sdk" }
+graal-js = { module = "org.graalvm.js:js", version.ref = "graal-sdk" }
+underscore = { module = "com.github.javadev:underscore", version.ref = "underscore" }
+kotlin-faker = { module = "io.github.serpro69:kotlin-faker", version.ref = "kotlin.faker" }
+immutables-value = { module = "org.immutables:value", version.ref = "immutables" }
+immutables-builder = { module = "org.immutables:builder", version.ref = "immutables" }
+immutables-value-annotations = { module = "org.immutables:value-annotations", version.ref = "immutables" }
+log4j-slf4j-impl = { module = "org.apache.logging.log4j:log4j-slf4j-impl", version.ref = "apache-log4j" }
+
+[bundles]
+kotest = [
+    "kotest-assertionsCore",
+    "kotest-frameworkEngine",
+    "kotest-property",
+    "kotest-runnerJUnit5",
+]
+junit = ["junit-jupiter", "junit-engine"]
+vador = ["vador", "vador-matchers"]
+http4k = ["http4k-bom", "http4k-core", "http4k-format-moshi"]
+
+[plugins]
+kover = { id = "org.jetbrains.kotlinx.kover", version.ref = "kover" }
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
+spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
+spotbugs = { id = "com.github.spotbugs", version.ref = "spotbugs" }
+lombok = { id = "io.freefair.lombok", version.ref = "lombok" }
+testLogger = { id = "com.adarshr.test-logger", version.ref = "testLogger" }
+moshix = { id = "dev.zacsweers.moshix", version.ref = "moshix" }
+kapt = { id = "org.jetbrains.kotlin.kapt", version.ref = "kotlin" }

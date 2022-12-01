@@ -12,8 +12,9 @@ module reVoman {
   requires vador;
   requires vador.matchers;
   requires java.net.http;
-  requires kotlin.logging.jvm;
   requires kotlin.faker;
+  requires io.github.microutils.kotlinlogging;
+  requires com.github.underscore;
 
   exports org.revcloud;
   exports org.revcloud.input;

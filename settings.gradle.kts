@@ -1,14 +1,15 @@
-pluginManagement {
+enableFeaturePreview("VERSION_CATALOGS")
+
+dependencyResolutionManagement {
+  versionCatalogs {
+    create("libs") {
+      from(files("libs.versions.toml"))
+    }
+  }
   repositories {
     mavenCentral()
     gradlePluginPortal()
-  }
-  val kotlinVersion: String by settings
-  val moshiXVersion: String by settings
-  plugins {
-    kotlin("jvm") version kotlinVersion
-    kotlin("kapt") version kotlinVersion
-    id("dev.zacsweers.moshix") version moshiXVersion
+    google()
   }
 }
 

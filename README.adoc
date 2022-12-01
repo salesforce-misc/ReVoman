@@ -12,7 +12,7 @@ endif::[]
 :toc-placement: preamble
 :sourcedir: src/main/kotlin
 :testdir: src/integrationTest/java
-:imagesdir: ../images/config-dsl
+:imagesdir: images
 :prewrap!:
 
 ____
@@ -22,6 +22,9 @@ Re - Request/Response
 Ṽ - Validation
 
 ____
+
+.Revoman Demo, https://sfdc.co/revoman-240-is-slides[Slide Deck]
+image::revoman-demo-thumbnail.png[link=https://sfdc.co/revoman-240-is]
 
 == Values
 
