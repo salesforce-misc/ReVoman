@@ -4,6 +4,7 @@ package org.revcloud
 
 import com.salesforce.vador.config.ValidationConfig
 import com.salesforce.vador.config.base.BaseValidationConfig
+import com.salesforce.vador.config.base.BaseValidationConfig.BaseValidationConfigBuilder
 import com.salesforce.vador.execution.Vador
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapter
@@ -71,7 +72,7 @@ object ReVoman {
     dynamicEnvironment: Map<String, String?>,
     bearerTokenKey: String?,
     stepNameToSuccessType: Map<String, Type>,
-    stepNameToValidationConfig: Map<String, BaseValidationConfig.BaseValidationConfigBuilder<out Any, out Any?, *, *>>,
+    stepNameToValidationConfig: Map<String, BaseValidationConfigBuilder<out Any, out Any?, *, *>>,
     stepNameToErrorType: Map<String, Type>,
     customAdaptersForResponse: List<Any>,
     typesInResponseToIgnore: Set<Class<out Any>>
@@ -80,7 +81,7 @@ object ReVoman {
     val pmSteps: Steps? = Moshi.Builder().build().adapter<Steps>().fromJson(readTextFromFile(pmTemplatePath))
     val replaceRegexWithEnvAdapter = Moshi.Builder().add(RegexAdapterFactory(pm.environment)).build().adapter<Item>()
     val moshi = initMoshi(typesInResponseToIgnore, customAdaptersForResponse)
-    val stepNameToReport = pmSteps?.item?.asSequence()
+    val stepNameToReport = pmSteps?.item?.deepFlattenItems()?.asSequence()
       ?.map { stepWithRegex -> replaceRegexWithEnvAdapter.fromJsonValue(stepWithRegex) }
       ?.filterNotNull()
       ?.map { step ->
@@ -123,6 +124,7 @@ object ReVoman {
     }
   }
 
+  // ! TODO gopala.akshintala 28/01/23: Use auth type from the collection
   private fun prepareHttpClient(bearerToken: String?) = DebuggingFilters.PrintRequestAndResponse()
     .then(if (bearerToken.isNullOrEmpty()) Filter.NoOp else ClientFilters.BearerAuth(bearerToken))
     .then(JavaHttpClient())
@@ -206,6 +208,11 @@ object ReVoman {
     } ?: false
 
   private fun readTextFromFile(filePath: String): String = File(filePath).readText()
+
+  private fun List<*>.deepFlattenItems(): List<*> =
+    this.asSequence().flatMap { item ->
+      (item as Map<String, Any>)["item"]?.let { (it as List<*>).deepFlattenItems() } ?: listOf(item)
+    }.toList()
 
   private fun initMoshi(
     typesToIgnore: Set<Class<out Any>>? = emptySet(),

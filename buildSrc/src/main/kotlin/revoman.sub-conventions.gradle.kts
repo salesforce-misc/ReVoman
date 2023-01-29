@@ -1,6 +1,4 @@
 import com.adarshr.gradle.testlogger.theme.ThemeType.MOCHA
-import org.gradle.kotlin.dsl.kotlin
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
   java
@@ -57,6 +55,22 @@ publishing {
         connection.set("scm:git:https://git.soma.salesforce.com/ccspayments/ReVoman")
         developerConnection.set("scm:git:git@git.soma.salesforce.com:ccspayments/ReVoman.git")
         url.set("https://git.soma.salesforce.com/ccspayments/revoman")
+      }
+    }
+  }
+  repositories {
+    maven {
+      name = "Nexus"
+      val releasesRepoUrl =
+        uri("https://nexus.soma.salesforce.com/nexus/content/repositories/releases")
+      val snapshotsRepoUrl =
+        uri("https://nexus.soma.salesforce.com/nexus/content/repositories/snapshots")
+      url = if (version.toString().endsWith("SNAPSHOT")) snapshotsRepoUrl else releasesRepoUrl
+      val nexusUsername: String by project
+      val nexusPassword: String by project
+      credentials {
+        username = nexusUsername
+        password = nexusPassword
       }
     }
   }

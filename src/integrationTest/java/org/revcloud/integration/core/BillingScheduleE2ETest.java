@@ -17,10 +17,10 @@ class BillingScheduleE2ETest {
   @Test
   void revUp() {
     final var pmCollectionPath =
-        TEST_RESOURCES_PATH + "pm-templates/revoman/ReVoman.postman_collection.json";
+        TEST_RESOURCES_PATH + "pm-templates/revoman/reVoman.postman_collection.json";
     final var pmEnvironmentPath =
         TEST_RESOURCES_PATH
-            + "pm-templates/revoman/ReVoman (UTest - Linux).postman_environment.json";
+            + "pm-templates/revoman/reVoman (UTest - Linux).postman_environment.json";
     // ! TODO gopala.akshintala 01/08/22: Detect Batch and apply for each Graph
     final var setupGraphsValidationConfig =
         ValidationConfig.<Graphs, String>toValidate()

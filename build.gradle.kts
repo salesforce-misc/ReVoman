@@ -1,3 +1,5 @@
+
+
 @Suppress("DSL_SCOPE_VIOLATION")
 plugins {
   id("revoman.root-conventions")
@@ -24,9 +26,6 @@ dependencies {
   kapt(libs.immutables.value)
   compileOnly(libs.immutables.builder)
   compileOnly(libs.immutables.value.annotations)
-}
-repositories {
-  mavenCentral()
 }
 testing {
   suites {

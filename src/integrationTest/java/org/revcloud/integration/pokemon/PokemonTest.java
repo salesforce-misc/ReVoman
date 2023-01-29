@@ -12,12 +12,16 @@ class PokemonTest {
 
   @Test
   void pokemon() {
-    final var limit = 10;
+    final var offset = 0;
+    final var limit = 1;
     final var pmCollectionPath =
-        TEST_RESOURCES_PATH + "pm-templates/pokemon/Pokemon.postman_collection.json";
+        TEST_RESOURCES_PATH + "pm-templates/pokemon/pokemon.postman_collection.json";
     final var pmEnvironmentPath =
-        TEST_RESOURCES_PATH + "pm-templates/pokemon/Pokemon.postman_environment.json";
-    final var dynamicEnvironment = Map.of("limit", String.valueOf(limit));
+        TEST_RESOURCES_PATH + "pm-templates/pokemon/pokemon.postman_environment.json";
+    final var dynamicEnvironment = Map.of(
+        "offset", String.valueOf(offset),
+        "limit", String.valueOf(limit)
+    );
     final var pokemonResultsValidationConfig =
         ValidationConfig.<Results, String>toValidate()
             .withValidator(
@@ -26,18 +30,24 @@ class PokemonTest {
         Kick.configure()
             .templatePath(pmCollectionPath)
             .environmentPath(pmEnvironmentPath)
-            .stepNameToSuccessType(Map.of("Pokemon", Abilities.class))
-            .stepNameToValidationConfig(Map.of("All Pokemon", pokemonResultsValidationConfig))
+            .stepNameToSuccessType(Map.of("all-pokemon", Results.class))
+            .stepNameToValidationConfig(Map.of("all-Pokemon", pokemonResultsValidationConfig))
             .dynamicEnvironment(dynamicEnvironment)
             .off();
     final var rundown = ReVoman.revUp(kickOffConfig);
 
-    Assertions.assertThat(rundown.stepNameToReport).hasSize(2);
+    Assertions.assertThat(rundown.stepNameToReport).hasSize(5);
     Assertions.assertThat(rundown.environment)
         .containsExactlyInAnyOrderEntriesOf(
             Map.of(
+                "offset", String.valueOf(offset),
                 "limit", String.valueOf(limit),
                 "baseUrl", "https://pokeapi.co/api/v2",
-                "pokemon", "bulbasaur"));
+                "id", "1",
+                "pokemonName", "bulbasaur",
+                "color", "black",
+                "gender", "female",
+                "ability", "stench",
+                "nature", "hardy"));
   }
 }
