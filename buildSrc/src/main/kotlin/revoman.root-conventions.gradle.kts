@@ -19,6 +19,7 @@ group = "com.salesforce.ccspayments"
 description = "ReVoman - A template driven testing tool"
 repositories {
   mavenCentral()
+  maven("https://oss.sonatype.org/content/repositories/snapshots")
 }
 kover {
   isDisabled.set(false)

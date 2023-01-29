@@ -6,12 +6,12 @@ kotlin-vavr = "0.10.2"
 jetbrains-annotations = "23.0.0"
 typeTools = "0.6.3"
 kover = "0.6.1"
-kotlin = "1.7.20"
-detekt = "1.22.0-RC2"
+kotlin = "1.8.0"
+detekt = "1.22.0"
 kotest = "5.5.1"
-spotless = "6.11.0"
+spotless = "6.14.0"
 spotbugs = "5.0.12"
-lombok = "6.5.1"
+lombok = "6.6.1"
 testLogger = "3.2.0"
 assertj-core = "3.23.1"
 assertj-vavr = "0.4.2"
@@ -20,7 +20,7 @@ log4j-slf4j18-impl = "2.18.0"
 reflection-util = "2.14.0"
 junit = "5.9.1"
 vador = "1.0.0"
-moshix = "1.7.20-Beta-0.18.3"
+moshix = "0.22.0-SNAPSHOT"
 http4k = "4.33.3.0"
 kotlin-logging = "3.0.4"
 apache-commons-lang3 = "3.12.0"
@@ -66,7 +66,7 @@ apache-commons-lang3 = { module = "org.apache.commons:commons-lang3", version.re
 graal-sdk = { module = "org.graalvm.sdk:graal-sdk", version.ref = "graal-sdk" }
 graal-js = { module = "org.graalvm.js:js", version.ref = "graal-sdk" }
 underscore = { module = "com.github.javadev:underscore", version.ref = "underscore" }
-kotlin-faker = { module = "io.github.serpro69:kotlin-faker", version.ref = "kotlin.faker" }
+kotlin-faker = { module = "io.github.serpro69:kotlin-faker", version.ref = "kotlin-faker" }
 immutables-value = { module = "org.immutables:value", version.ref = "immutables" }
 immutables-builder = { module = "org.immutables:builder", version.ref = "immutables" }
 immutables-value-annotations = { module = "org.immutables:value-annotations", version.ref = "immutables" }

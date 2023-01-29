@@ -4,6 +4,7 @@ plugins {
 repositories {
     mavenCentral()
     gradlePluginPortal()
+    maven("https://oss.sonatype.org/content/repositories/snapshots")
 }
 dependencies {
     implementation(libs.kotlin.gradle)

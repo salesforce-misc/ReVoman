@@ -12,6 +12,9 @@ import java.util.Collections.singletonList
 import kotlin.annotation.AnnotationRetention.RUNTIME
 import kotlin.annotation.AnnotationTarget.PROPERTY
 
+/**
+ * This might be redundant, to be deprecated.
+ */
 @Retention(RUNTIME)
 @Target(PROPERTY)
 @JsonQualifier
