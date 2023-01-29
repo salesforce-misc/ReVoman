@@ -15,8 +15,6 @@ lombok = "6.6.1"
 testLogger = "3.2.0"
 assertj-core = "3.23.1"
 assertj-vavr = "0.4.2"
-slf4j-api = "2.0.5"
-log4j-slf4j18-impl = "2.18.0"
 reflection-util = "2.14.0"
 junit = "5.9.1"
 vador = "1.0.0"
@@ -50,8 +48,6 @@ kotest-property = { module = "io.kotest:kotest-property", version.ref = "kotest"
 kotest-runnerJUnit5 = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }
 assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertj-core" }
 assertj-vavr = { module = "org.assertj:assertj-vavr", version.ref = "assertj-vavr" }
-slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j-api" }
-log4j-slf4j18-impl = { module = "org.apache.logging.log4j:log4j-slf4j18-impl", version.ref = "log4j-slf4j18-impl" }
 junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "junit" }
 junit-engine = { module = "org.junit.jupiter:junit-jupiter-engine" }
@@ -61,7 +57,6 @@ moshix-adapters = { module = "dev.zacsweers.moshix:moshi-adapters", version.ref 
 http4k-bom = { module = "org.http4k:http4k-bom", version.ref = "http4k" }
 http4k-core = { module = "org.http4k:http4k-core", version.ref = "http4k" }
 http4k-format-moshi = { module = "org.http4k:http4k-format-moshi", version.ref = "http4k" }
-kotlin-logging-jvm = { module = "io.github.microutils:kotlin-logging-jvm", version.ref = "kotlin-logging" }
 apache-commons-lang3 = { module = "org.apache.commons:commons-lang3", version.ref = "apache-commons-lang3" }
 graal-sdk = { module = "org.graalvm.sdk:graal-sdk", version.ref = "graal-sdk" }
 graal-js = { module = "org.graalvm.js:js", version.ref = "graal-sdk" }
@@ -70,7 +65,10 @@ kotlin-faker = { module = "io.github.serpro69:kotlin-faker", version.ref = "kotl
 immutables-value = { module = "org.immutables:value", version.ref = "immutables" }
 immutables-builder = { module = "org.immutables:builder", version.ref = "immutables" }
 immutables-value-annotations = { module = "org.immutables:value-annotations", version.ref = "immutables" }
-log4j-slf4j-impl = { module = "org.apache.logging.log4j:log4j-slf4j-impl", version.ref = "apache-log4j" }
+kotlin-logging-jvm = { module = "io.github.microutils:kotlin-logging-jvm", version.ref = "kotlin-logging" }
+log4j-api = { module = "org.apache.logging.log4j:log4j-api", version.ref = "apache-log4j" }
+log4j-core = { module = "org.apache.logging.log4j:log4j-core", version.ref = "apache-log4j" }
+log4j-slf4j2-impl = { module = "org.apache.logging.log4j:log4j-slf4j2-impl", version.ref = "apache-log4j" }
 
 [bundles]
 kotest = [
@@ -82,6 +80,7 @@ kotest = [
 junit = ["junit-jupiter", "junit-engine"]
 vador = ["vador", "vador-matchers"]
 http4k = ["http4k-bom", "http4k-core", "http4k-format-moshi"]
+kotlin-logging = ["kotlin-logging-jvm", "log4j-api", "log4j-core", "log4j-slf4j2-impl"]
 
 [plugins]
 kover = { id = "org.jetbrains.kotlinx.kover", version.ref = "kover" }

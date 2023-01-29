@@ -11,16 +11,16 @@ dependencies {
   implementation(libs.bundles.http4k)
   implementation(libs.moshix.adapters)
 
-  implementation(libs.slf4j.api)
-  implementation(libs.kotlin.logging.jvm)
-  runtimeOnly(libs.log4j.slf4j18.impl)
+  implementation(libs.bundles.kotlin.logging)
 
   implementation(libs.apache.commons.lang3)
   implementation(libs.graal.sdk)
   implementation(libs.graal.js)
   implementation(libs.kotlin.faker)
   implementation(libs.underscore)
-  api(libs.bundles.vador)
+  api(libs.bundles.vador) {
+    exclude("org.apache.logging.log4j", "log4j-slf4j18-impl")
+  }
   kapt(libs.immutables.value)
   compileOnly(libs.immutables.builder)
   compileOnly(libs.immutables.value.annotations)
