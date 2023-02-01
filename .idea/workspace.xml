@@ -4,13 +4,8 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="3153e138-c5ab-46f2-8910-5c16e0ec9d9a" name="Changes" comment="Release 0.4.6&#10;- Add support for nested folders in the pm collection&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+    <list default="true" id="3153e138-c5ab-46f2-8910-5c16e0ec9d9a" name="Changes" comment="Upgrade dependencies&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
       <change beforePath="$PROJECT_DIR$/build.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/build.gradle.kts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/buildSrc/build.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/buildSrc/build.gradle.kts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/buildSrc/src/main/kotlin/predef.kt" beforeDir="false" afterPath="$PROJECT_DIR$/buildSrc/src/main/kotlin/preDef.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/buildSrc/src/main/kotlin/revoman.root-conventions.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/buildSrc/src/main/kotlin/revoman.root-conventions.gradle.kts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/buildSrc/src/main/kotlin/revoman.sub-conventions.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/buildSrc/src/main/kotlin/revoman.sub-conventions.gradle.kts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -3229,8 +3224,9 @@
     <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.squareup.moshi/moshi/1.14.0/cae460a3498d2375721e5ecb3b8e15e3131c72a3/moshi-1.14.0-sources.jar!/com/squareup/moshi/Moshi.java" root0="SKIP_INSPECTION" />
     <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.squareup.moshi/moshi/1.14.0/cae460a3498d2375721e5ecb3b8e15e3131c72a3/moshi-1.14.0-sources.jar!/com/squareup/moshi/Types.java" root0="SKIP_INSPECTION" />
     <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/io.vavr/vavr/0.10.4/b6509f9114d0354893803668e58b97965a41f2f6/vavr-0.10.4-sources.jar!/io/vavr/CheckedFunction1.java" root0="SKIP_INSPECTION" />
+    <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.http4k/http4k-format-moshi/4.3.4.1/99e053ad3668f724063c1a6e895117b29f843e8a/http4k-format-moshi-4.3.4.1-sources.jar!/org/http4k/format/Moshi.kt" root0="SKIP_INSPECTION" />
     <setting file="file://$PROJECT_DIR$/build.gradle.kts" root0="FORCE_HIGHLIGHTING" />
-    <setting file="file://$PROJECT_DIR$/buildSrc/src/main/kotlin/predef.kt" root0="SKIP_INSPECTION" />
+    <setting file="file://$PROJECT_DIR$/buildSrc/src/main/kotlin/preDef.kt" root0="SKIP_INSPECTION" />
     <setting file="file://$PROJECT_DIR$/buildSrc/src/main/kotlin/revoman.kt-conventions.gradle.kts" root0="SKIP_INSPECTION" />
     <setting file="file://$PROJECT_DIR$/buildSrc/src/main/kotlin/revoman.root-conventions.gradle.kts" root0="SKIP_INSPECTION" />
     <setting file="file://$PROJECT_DIR$/buildSrc/src/main/kotlin/revoman.sub-conventions.gradle.kts" root0="SKIP_INSPECTION" />
@@ -3272,32 +3268,32 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
-    &quot;SONARLINT_PRECOMMIT_ANALYSIS&quot;: &quot;false&quot;,
-    &quot;WebServerToolWindowFactoryState&quot;: &quot;false&quot;,
-    &quot;com.intellij.testIntegration.createTest.CreateTestDialog.defaultLibrary&quot;: &quot;JUnit5&quot;,
-    &quot;com.intellij.testIntegration.createTest.CreateTestDialog.defaultLibrarySuperClass.JUnit5&quot;: &quot;&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
-    &quot;javascript.nodejs.core.library.configured.version&quot;: &quot;19.3.0&quot;,
-    &quot;javascript.nodejs.core.library.typings.version&quot;: &quot;18.11.18&quot;,
-    &quot;jdk.selected.JAVA_MODULE&quot;: &quot;17&quot;,
-    &quot;last_opened_file_path&quot;: &quot;/Users/gopala.akshintala/code-clones/work/revoman-root&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;project.structure.last.edited&quot;: &quot;Project&quot;,
-    &quot;project.structure.proportion&quot;: &quot;0.0&quot;,
-    &quot;project.structure.side.proportion&quot;: &quot;0.0&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;inlay.hints&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "RunOnceActivity.OpenProjectViewOnStart": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
+    "SONARLINT_PRECOMMIT_ANALYSIS": "false",
+    "WebServerToolWindowFactoryState": "false",
+    "com.intellij.testIntegration.createTest.CreateTestDialog.defaultLibrary": "JUnit5",
+    "com.intellij.testIntegration.createTest.CreateTestDialog.defaultLibrarySuperClass.JUnit5": "",
+    "git-widget-placeholder": "master",
+    "javascript.nodejs.core.library.configured.version": "19.3.0",
+    "javascript.nodejs.core.library.typings.version": "18.11.18",
+    "jdk.selected.JAVA_MODULE": "17",
+    "last_opened_file_path": "/Users/gopala.akshintala/code-clones/work/revoman-root",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "project.structure.last.edited": "Project",
+    "project.structure.proportion": "0.0",
+    "project.structure.side.proportion": "0.0",
+    "settings.editor.selected.configurable": "reference.settingsdialog.project.gradle",
+    "vue.rearranger.settings.migration": "true"
   }
-}</component>
+}]]></component>
   <component name="Push.Settings">
     <force-push-targets>
       <force-push-target remote-path="my-github" branch="master" />
@@ -3352,14 +3348,14 @@
       <command value="gradle build" />
       <command value="gradle clean build" />
       <command value="gradle wrapper" />
-      <command value="gradle clean build --no-build-cache" />
       <command value="gradle publishToMavenLocal" />
-      <command value="gradle publish" />
       <command value="gradle publish --no-build-cache" />
       <command value="gradle spotlessApply" />
+      <command value="gradle publish" />
+      <command value="gradle clean build --no-build-cache" />
     </option>
   </component>
-  <component name="RunManager" selected="Gradle.revoman-root [spotlessApply]">
+  <component name="RunManager" selected="Gradle.revoman-root [clean build]">
     <configuration name="revoman-root [clean build]" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
       <ExternalSystemSettings>
         <option name="executionName" />
@@ -3569,7 +3565,10 @@
       <workItem from="1675066989443" duration="1666000" />
       <workItem from="1675156186179" duration="604000" />
       <workItem from="1675168487166" duration="51000" />
-      <workItem from="1675168616555" duration="1331000" />
+      <workItem from="1675168616555" duration="1681000" />
+      <workItem from="1675173282733" duration="44000" />
+      <workItem from="1675249514347" duration="336000" />
+      <workItem from="1675252588575" duration="3885000" />
     </task>
     <task id="LOCAL-00001" summary="tmp">
       <created>1652606203677</created>
@@ -3802,7 +3801,21 @@
       <option name="project" value="LOCAL" />
       <updated>1675004489403</updated>
     </task>
-    <option name="localTasksCounter" value="34" />
+    <task id="LOCAL-00034" summary="Release 0.4.6&#10;- Add support for nested folders in the pm collection&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
+      <created>1675170094530</created>
+      <option name="number" value="00034" />
+      <option name="presentableId" value="LOCAL-00034" />
+      <option name="project" value="LOCAL" />
+      <updated>1675170094530</updated>
+    </task>
+    <task id="LOCAL-00035" summary="Upgrade dependencies&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
+      <created>1675256115538</created>
+      <option name="number" value="00035" />
+      <option name="presentableId" value="LOCAL-00035" />
+      <option name="project" value="LOCAL" />
+      <updated>1675256115538</updated>
+    </task>
+    <option name="localTasksCounter" value="36" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -3833,7 +3846,6 @@
   <component name="VcsManagerConfiguration">
     <option name="CHECK_CODE_SMELLS_BEFORE_PROJECT_COMMIT" value="false" />
     <option name="CHECK_NEW_TODO" value="false" />
-    <MESSAGE value=":tada: A full working E2E test" />
     <MESSAGE value=":tada: A full working E2E test&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopalakshintala@gmail.com&gt;" />
     <MESSAGE value=":bookmark: 0.1.6&#10;- Code clean-up" />
     <MESSAGE value=":arrow_up: Upgrade kotlin to 1.7.0" />
@@ -3858,7 +3870,8 @@
     <MESSAGE value="Add snapshot maven repository for moshix gradle-plugin snapshot&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
     <MESSAGE value="Fix logging dependencies&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
     <MESSAGE value="Release 0.4.6&#10;- Add support for nested folders in the pm collection&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
-    <option name="LAST_COMMIT_MESSAGE" value="Release 0.4.6&#10;- Add support for nested folders in the pm collection&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
+    <MESSAGE value="Upgrade dependencies&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
+    <option name="LAST_COMMIT_MESSAGE" value="Upgrade dependencies&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

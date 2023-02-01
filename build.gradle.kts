@@ -10,7 +10,7 @@ plugins {
 }
 dependencies {
   compileOnly(libs.jetbrains.annotations)
-  implementation(libs.bundles.http4k)
+  api(libs.bundles.http4k)
   implementation(libs.moshix.adapters)
 
   implementation(libs.bundles.kotlin.logging)
