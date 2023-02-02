@@ -11,7 +11,7 @@ plugins {
 dependencies {
   compileOnly(libs.jetbrains.annotations)
   api(libs.bundles.http4k)
-  implementation(libs.moshix.adapters)
+  api(libs.moshix.adapters)
 
   implementation(libs.bundles.kotlin.logging)
 
