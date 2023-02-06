@@ -44,6 +44,21 @@ endif::[]
 
 * You can run/debug the existing unit tests or write your own to play with the tool.
 
+[CAUTION]
+====
+While running Unit tests,
+you may encounter the classic `PKIX path building failed` issue with Java while making Http calls.
+To mitigate this, fetch your host certificate and run the below command (rep) to add that cert to your java keystore
+When asked for `Enter keystore password:` enter `changeit` (Common for most Java distributions)
+
+[source,bash]
+----
+keytool -import -alias linux -keystore <your-jdk-path>/lib/security/cacerts -file <your-cert-path>.cer
+----
+
+
+====
+
 === Kotlin
 
 * The code-base is a mix of Java and Kotlin. If you are a Java developer and new to Kotlin, don't worry, Kotlin is a JVM language and can be used anywhere Java is used.

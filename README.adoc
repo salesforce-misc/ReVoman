@@ -196,7 +196,7 @@ This is a generic tool, and just by changing the template, the same config/patte
 
 === FTest Data setup
 
-You can use ReVoman for FTest data setup too. This eliminates the need for different teams to write their own internal utilities for data setup.
+You can use the ReVoman for the FTest data setup too. This eliminates the need for different teams to write their own internal utilities for data setup.
 
 === Guards each check-in
 
@@ -224,9 +224,11 @@ Just like Vador, this is a generic off-core tool and a perfect candidate to publ
 * Debugging necessarily doesn't have to be with a debug point in IDE.
 * To be able to debug, a developer needs to be informed about what went wrong and he/she should have ways to try and test an isolated portion of the run.
 * In the case of ReVoman, you have the whole Postman collection at your disposal along with the Rundown. The entire test is transparent.
-* This experience can be enhanced with more logging and better assertion.
+* This experience can be enhanced with more logging and better assertions.
 
 === Why not use https://learning.postman.com/docs/running-collections/using-newman-cli/command-line-integration-with-newman/#:~:text=Newman%20is%20a%20command%2Dline,integration%20servers%20and%20build%20systems[Newman]?
 
 * For the same reason why we use Java over Javascript. Type Safety.
 * Newman is limited and cannot be integrated into our automation model on JVM
+
+== link:CONTRIBUTING.adoc[🙌🏼Wanna Collab & Contribute?]
