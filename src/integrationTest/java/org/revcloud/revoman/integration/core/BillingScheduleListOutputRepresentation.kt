@@ -1,4 +1,4 @@
-package org.revcloud.integration.core
+package org.revcloud.revoman.integration.core
 
 import kotlin.Any
 import kotlin.Boolean

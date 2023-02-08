@@ -1,4 +1,4 @@
-package org.revcloud.adapters.internal
+package org.revcloud.revoman.adapters.internal
 
 import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.JsonReader

@@ -1,4 +1,4 @@
-package org.revcloud.output
+package org.revcloud.revoman.output
 
 import org.http4k.core.Request
 import org.http4k.core.Response

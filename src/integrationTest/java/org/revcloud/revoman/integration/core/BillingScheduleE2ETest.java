@@ -1,15 +1,15 @@
-package org.revcloud.integration.core;
+package org.revcloud.revoman.integration.core;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.salesforce.vador.config.ValidationConfig;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
-import org.revcloud.ReVoman;
-import org.revcloud.input.Kick;
-import org.revcloud.output.StepReport;
-import org.revcloud.response.types.salesforce.Graph;
-import org.revcloud.response.types.salesforce.Graphs;
+import org.revcloud.revoman.ReVoman;
+import org.revcloud.revoman.input.Kick;
+import org.revcloud.revoman.output.StepReport;
+import org.revcloud.revoman.response.types.salesforce.Graph;
+import org.revcloud.revoman.response.types.salesforce.Graphs;
 
 class BillingScheduleE2ETest {
   private static final String TEST_RESOURCES_PATH = "src/integrationTest/resources/";

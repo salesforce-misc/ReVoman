@@ -16,9 +16,9 @@ module reVoman {
   requires io.github.microutils.kotlinlogging;
   requires com.github.underscore;
 
-  exports org.revcloud;
-  exports org.revcloud.input;
-  exports org.revcloud.output;
-  exports org.revcloud.adapters;
-  exports org.revcloud.response.types.salesforce;
+  exports org.revcloud.revoman;
+  exports org.revcloud.revoman.input;
+  exports org.revcloud.revoman.output;
+  exports org.revcloud.revoman.adapters;
+  exports org.revcloud.revoman.response.types.salesforce;
 }

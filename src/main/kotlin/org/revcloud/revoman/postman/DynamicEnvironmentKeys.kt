@@ -1,4 +1,4 @@
-package org.revcloud.postman
+package org.revcloud.revoman.postman
 
 import io.github.serpro69.kfaker.faker
 

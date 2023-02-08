@@ -1,4 +1,4 @@
-package org.revcloud.response.types.salesforce
+package org.revcloud.revoman.response.types.salesforce
 
 import com.squareup.moshi.JsonClass
 

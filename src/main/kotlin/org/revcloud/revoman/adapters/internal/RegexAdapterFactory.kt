@@ -1,11 +1,11 @@
-package org.revcloud.adapters.internal
+package org.revcloud.revoman.adapters.internal
 
 import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.JsonReader
 import com.squareup.moshi.JsonWriter
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.internal.Util
-import org.revcloud.postman.dynamicVariables
+import org.revcloud.revoman.postman.dynamicVariables
 import java.lang.reflect.Type
 
 private val postManVariableRegex = "\\{\\{([^{}]*?)}}".toRegex()

@@ -1,9 +1,9 @@
-package org.revcloud.input
+package org.revcloud.revoman.input
 
 import com.salesforce.vador.config.base.BaseValidationConfig.BaseValidationConfigBuilder
 import org.immutables.value.Value
 import org.jetbrains.annotations.Nullable
-import org.revcloud.postman.DynamicEnvironmentKeys.BEARER_TOKEN_KEY
+import org.revcloud.revoman.postman.DynamicEnvironmentKeys.BEARER_TOKEN_KEY
 import java.lang.reflect.Type
 
 @Config
