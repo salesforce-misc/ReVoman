@@ -86,6 +86,7 @@ object ReVoman {
       ?.filterNotNull()
       ?.map { step ->
         // * NOTE gopala.akshintala 06/08/22: Preparing for each step, as there can be intermediate auths
+        logger.info { "***** Processing Step: ${step.name} *****" }
         val httpClient: HttpHandler = prepareHttpClient(pm.environment[bearerTokenKey])
         val request = step.request.toHttpRequest()
         val response: Response = httpClient(request)
@@ -94,9 +95,8 @@ object ReVoman {
           if (isContentTypeApplicationJson(response)) {
             val validationConfig = stepNameToValidationConfig[step.name]?.prepare()
             val successType =
-              (stepNameToSuccessType[step.name]?.rawType ?: validationConfig?.validatableType?.rawType)?.kotlin
-                ?: Any::class
-            val responseObj = moshi.asA(response.bodyString(), successType)
+              (stepNameToSuccessType[step.name] ?: validationConfig?.validatableType) ?: Any::class.java as Type
+            val responseObj = moshi.asA<Any>(response.bodyString(), successType)
             validate(responseObj, validationConfig)
             step.name to StepReport(responseObj, responseObj.javaClass, request, response)
           } else {
@@ -214,28 +214,34 @@ object ReVoman {
       (item as Map<String, Any>)["item"]?.let { (it as List<*>).deepFlattenItems() } ?: listOf(item)
     }.toList()
 
+  
+  private val moshiBuilder = Moshi.Builder()
+    .add(JsonString.Factory())
+    .add(AdaptedBy.Factory())
+    .add(Date::class.java, Rfc3339DateJsonAdapter())
+    .addLast(EventAdapter)
+    .addLast(ThrowableAdapter)
+    .addLast(ListAdapter)
+    .addLast(MapAdapter)
+    .addLast(ObjOrListAdapterFactory)
+    .asConfigurable()
+    .withStandardMappings()
+    .done()
+  
+  private val moshiReVoman: Moshi by lazy { 
+    moshiBuilder.build()
+  }
+  
   private fun initMoshi(
     typesToIgnore: Set<Class<out Any>>? = emptySet(),
     customAdaptersForResponse: List<Any>? = emptyList()
   ): ConfigurableMoshi {
-    val moshiBuilder = Moshi.Builder()
     customAdaptersForResponse?.forEach { moshiBuilder.add(it) }
     if (!typesToIgnore.isNullOrEmpty()) {
       moshiBuilder.add(IgnoreUnknownFactory(typesToIgnore))
     }
-    return object : ConfigurableMoshi(
-      moshiBuilder
-        .add(JsonString.Factory())
-        .add(AdaptedBy.Factory())
-        .add(Date::class.java, Rfc3339DateJsonAdapter())
-        .addLast(EventAdapter)
-        .addLast(ThrowableAdapter)
-        .addLast(ListAdapter)
-        .addLast(MapAdapter)
-        .addLast(ObjOrListAdapterFactory)
-        .asConfigurable()
-        .withStandardMappings()
-        .done()
-    ) {}
+    return object: ConfigurableMoshi(moshiBuilder) {}
   }
+
+  private fun <T : Any> ConfigurableMoshi.asA(input: String, target: Type): T = moshiReVoman.adapter<T>(target).fromJson(input)!!
 }
