@@ -38,7 +38,7 @@ internal interface KickDef {
   fun typesInResponseToIgnore(): Set<Class<out Any>>
 }
 
-internal class SuccessConfig private constructor(successType: Type, validationConfig: BaseValidationConfigBuilder<out Any, out Any?, *, *>? = null) {
+class SuccessConfig private constructor(successType: Type, validationConfig: BaseValidationConfigBuilder<out Any, out Any?, *, *>? = null) {
   val successType: Type = successType
   var validationConfig: BaseValidationConfigBuilder<out Any, out Any?, *, *>? = validationConfig
   companion object {
