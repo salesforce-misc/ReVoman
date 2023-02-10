@@ -1,5 +1,6 @@
 package org.revcloud.revoman.input
 
+import com.salesforce.vador.config.base.BaseValidationConfig
 import com.salesforce.vador.config.base.BaseValidationConfig.BaseValidationConfigBuilder
 import org.immutables.value.Value
 import org.jetbrains.annotations.Nullable
@@ -21,16 +22,14 @@ internal interface KickDef {
   fun bearerTokenKey(): String? = BEARER_TOKEN_KEY
 
   @SkipNulls
-  fun stepNameToSuccessType(): Map<String, Type>
-
-  @SkipNulls
   fun stepNameToErrorType(): Map<String, Type>
 
   @Value.Default
   fun validationStrategy(): ValidationStrategy = ValidationStrategy.FAIL_FAST
 
+  // ! TODO 08/02/23 gopala.akshintala: Mandate passing type if not passed from stepNameToSuccessType 
   @SkipNulls
-  fun stepNameToValidationConfig(): Map<String, BaseValidationConfigBuilder<out Any, out Any?, *, *>>
+  fun stepNameToSuccessConfig(): Map<String, SuccessConfig>
 
   @SkipNulls
   fun customAdaptersForResponse(): List<Any>
@@ -38,6 +37,23 @@ internal interface KickDef {
   @SkipNulls
   fun typesInResponseToIgnore(): Set<Class<out Any>>
 }
+
+internal class SuccessConfig private constructor(successType: Type, validationConfig: BaseValidationConfigBuilder<out Any, out Any?, *, *>? = null) {
+  val successType: Type = successType
+  var validationConfig: BaseValidationConfigBuilder<out Any, out Any?, *, *>? = validationConfig
+  companion object {
+    @JvmStatic
+    fun successType(successType: Type): SuccessConfig {
+      return SuccessConfig(successType, null)
+    }
+
+    @JvmStatic
+    fun validateIfSuccess(successType: Type, validationConfig: BaseValidationConfigBuilder<out Any, out Any?, *, *>): SuccessConfig {
+      return SuccessConfig(successType, validationConfig)
+    }
+  }
+}
+
 
 enum class ValidationStrategy {
   FAIL_FAST,

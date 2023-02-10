@@ -6,6 +6,9 @@ import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.revcloud.revoman.ReVoman;
 import org.revcloud.revoman.input.Kick;
+import org.revcloud.revoman.input.SuccessConfig;
+
+import static org.revcloud.revoman.input.SuccessConfig.validateIfSuccess;
 
 class PokemonTest {
   private static final String TEST_RESOURCES_PATH = "src/integrationTest/resources/";
@@ -30,8 +33,7 @@ class PokemonTest {
         Kick.configure()
             .templatePath(pmCollectionPath)
             .environmentPath(pmEnvironmentPath)
-            .stepNameToSuccessType(Map.of("all-pokemon", Results.class))
-            .stepNameToValidationConfig(Map.of("all-Pokemon", pokemonResultsValidationConfig))
+            .stepNameToSuccessConfig(Map.of("all-Pokemon", validateIfSuccess(Results.class, pokemonResultsValidationConfig)))
             .dynamicEnvironment(dynamicEnvironment)
             .off();
     final var rundown = ReVoman.revUp(kickOffConfig);

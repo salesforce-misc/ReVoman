@@ -1,12 +1,16 @@
 package org.revcloud.revoman.integration.core;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.revcloud.revoman.input.SuccessConfig.validateIfSuccess;
 
 import com.salesforce.vador.config.ValidationConfig;
+import java.util.List;
 import java.util.Map;
+import com.squareup.moshi.Types;
 import org.junit.jupiter.api.Test;
 import org.revcloud.revoman.ReVoman;
 import org.revcloud.revoman.input.Kick;
+import org.revcloud.revoman.input.SuccessConfig;
 import org.revcloud.revoman.output.StepReport;
 import org.revcloud.revoman.response.types.salesforce.Graph;
 import org.revcloud.revoman.response.types.salesforce.Graphs;
@@ -21,46 +25,19 @@ class BillingScheduleE2ETest {
     final var pmEnvironmentPath =
         TEST_RESOURCES_PATH
             + "pm-templates/revoman/reVoman (UTest - Linux).postman_environment.json";
-    // ! TODO gopala.akshintala 01/08/22: Detect Batch and apply for each Graph
-    final var setupGraphsValidationConfig =
-        ValidationConfig.<Graphs, String>toValidate()
-            .withValidator(
-                (graphs ->
-                    graphs.getGraphs().stream().allMatch(Graph::isSuccessful)
-                        ? "Success"
-                        : "setup-graph (once) Failed"),
-                "Success");
-    final var bsValidationConfig =
-        ValidationConfig.<BillingScheduleListOutputRepresentation, String>toValidate()
-            .withValidator(
-                (bsLOR ->
-                    bsLOR.getBillingScheduleResultsList().stream()
-                            .allMatch(BillingScheduleOutputRepresentation::getSuccess)
-                        ? "Success"
-                        : "BS Failed"),
-                "Success");
+    final var orderItem2BSIASuccessType = Types.newParameterizedType(List.class, OrderItemToBSIAResponse.class);
+    final var orderItem2BSIAValidationConfig = 
+        ValidationConfig.<List<OrderItemToBSIAResponse>, String>toValidate()
+        .withValidator((resp -> Boolean.TRUE.equals(resp.get(0).isSuccess()) ? "success" : " OrderItem2BS IA failed"), "success");
     final var rundown =
         ReVoman.revUp(
             Kick.configure()
                 .templatePath(pmCollectionPath)
                 .environmentPath(pmEnvironmentPath)
                 .bearerTokenKey("accessToken")
-                .stepNameToSuccessType(
-                    Map.of("billing-schedule", BillingScheduleListOutputRepresentation.class))
-                .stepNameToValidationConfig(
-                    Map.of(
-                        "setup-graph (once)", setupGraphsValidationConfig,
-                        "billing-schedule", bsValidationConfig))
+                .stepNameToSuccessConfig(Map.of(
+                        "OrderItem2BS IA", validateIfSuccess(orderItem2BSIASuccessType, orderItem2BSIAValidationConfig)))
                 .off());
-    assertThat(rundown.environment)
-        .containsKeys(
-            "orderId",
-            "billingTreatmentId",
-            "billingTreatmentItemId",
-            "orderItem1Id",
-            "orderItem2Id",
-            "orderItem3Id",
-            "orderItem4Id");
     assertThat(rundown.stepNameToReport.values()).allMatch(StepReport::isSuccessful);
   }
 }

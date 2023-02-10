@@ -4,17 +4,18 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="3153e138-c5ab-46f2-8910-5c16e0ec9d9a" name="Changes" comment="Downgrade dependencies due to moshix incompatibility&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
-      <change afterPath="$PROJECT_DIR$/src/integrationTest/java/org/revcloud/integration/core/OrderItemToBSIAResponse.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/gradle.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/gradle.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/kotlinc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/kotlinc.xml" afterDir="false" />
+    <list default="true" id="3153e138-c5ab-46f2-8910-5c16e0ec9d9a" name="Changes" comment="Improve Moshi to work with Type&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
+      <change afterPath="$PROJECT_DIR$/src/integrationTest/java/org/revcloud/revoman/integration/core/OrderItemToBSIAResponse.kt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/test/java/org/revcloud/revoman/input/KickConfigTest.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/libs.versions.toml" beforeDir="false" afterPath="$PROJECT_DIR$/libs.versions.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/integrationTest/java/org/revcloud/integration/core/BillingScheduleE2ETest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/integrationTest/java/org/revcloud/integration/core/BillingScheduleE2ETest.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/integrationTest/java/org/revcloud/integration/core/BillingScheduleListOutputRepresentation.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/buildSrc/src/main/kotlin/revoman.root-conventions.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/buildSrc/src/main/kotlin/revoman.root-conventions.gradle.kts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/integrationTest/java/org/revcloud/revoman/integration/core/BillingScheduleE2ETest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/integrationTest/java/org/revcloud/revoman/integration/core/BillingScheduleE2ETest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/integrationTest/java/org/revcloud/revoman/integration/core/BillingScheduleListOutputRepresentation.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/integrationTest/java/org/revcloud/revoman/integration/pokemon/PokemonTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/integrationTest/java/org/revcloud/revoman/integration/pokemon/PokemonTest.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/integrationTest/resources/pm-templates/revoman/reVoman (UTest - Linux).postman_environment.json" beforeDir="false" afterPath="$PROJECT_DIR$/src/integrationTest/resources/pm-templates/revoman/reVoman (UTest - Linux).postman_environment.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/integrationTest/resources/pm-templates/revoman/reVoman.postman_collection.json" beforeDir="false" afterPath="$PROJECT_DIR$/src/integrationTest/resources/pm-templates/revoman/reVoman.postman_collection.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/ReVoman.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/ReVoman.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/ReVoman.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/ReVoman.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/input/KickDef.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/input/KickDef.kt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -2627,9 +2628,9 @@
       <list>
         <option value="Kotlin Interface" />
         <option value="Kotlin Annotation" />
-        <option value="Class" />
         <option value="Kotlin Class" />
         <option value="Kotlin Object" />
+        <option value="Class" />
       </list>
     </option>
   </component>
@@ -2678,6 +2679,8 @@
     </option>
   </component>
   <component name="HighlightingSettingsPerFile">
+    <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.salesforce.vador/vador/1.0.0/6b4525e852c1d9c8fad0456184864fbc779383ff/vador-1.0.0-sources.jar!/com/salesforce/vador/config/base/BaseValidationConfig.java" root0="SKIP_INSPECTION" />
+    <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.salesforce.vador/vador/1.0.0/ff6c8822139ec96a6faec18b709cc2f44f618d87/vador-1.0.0.jar!/com/salesforce/vador/config/base/BaseValidationConfig.class" root0="SKIP_INSPECTION" />
     <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.squareup.moshi/moshi-adapters/1.13.0/6e7b5adfef55951e72ce5e65f194fce0d12163d9/moshi-adapters-1.13.0-sources.jar!/com/squareup/moshi/adapters/Rfc3339DateJsonAdapter.java" root0="SKIP_INSPECTION" />
     <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.squareup.moshi/moshi/1.14.0/cae460a3498d2375721e5ecb3b8e15e3131c72a3/moshi-1.14.0-sources.jar!/com/squareup/moshi/CollectionJsonAdapter.java" root0="SKIP_INSPECTION" />
     <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.squareup.moshi/moshi/1.14.0/cae460a3498d2375721e5ecb3b8e15e3131c72a3/moshi-1.14.0-sources.jar!/com/squareup/moshi/Moshi.java" root0="SKIP_INSPECTION" />
@@ -2693,19 +2696,9 @@
     <setting file="file://$PROJECT_DIR$/buildSrc/src/main/kotlin/revoman.sub-conventions.gradle.kts" root0="SKIP_INSPECTION" />
     <setting file="file://$PROJECT_DIR$/gradle.properties" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/settings.gradle.kts" root0="FORCE_HIGHLIGHTING" />
-    <setting file="file://$PROJECT_DIR$/src/integrationTest/java/org/revcloud/integration/core/BillingScheduleE2ETest.java" root0="FORCE_HIGHLIGHTING" />
-    <setting file="file://$PROJECT_DIR$/src/integrationTest/java/org/revcloud/integration/pokemon/Pokemon.kt" root0="FORCE_HIGHLIGHTING" />
-    <setting file="file://$PROJECT_DIR$/src/integrationTest/java/org/revcloud/integration/pokemon/PokemonTest.java" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/src/integrationTest/resources/log4j2.xml" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/src/integrationTest/resources/pm-templates/revoman/reVoman (UTest - Linux).postman_environment.json" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/src/main/kotlin/module-info.java" root0="FORCE_HIGHLIGHTING" />
-    <setting file="file://$PROJECT_DIR$/src/main/kotlin/org/revcloud/ReVoman.kt" root0="FORCE_HIGHLIGHTING" />
-    <setting file="file://$PROJECT_DIR$/src/main/kotlin/org/revcloud/adapters/ObjOrListAdapterFactory.kt" root0="FORCE_HIGHLIGHTING" />
-    <setting file="file://$PROJECT_DIR$/src/main/kotlin/org/revcloud/adapters/internal/RegexAdapterFactory.kt" root0="FORCE_HIGHLIGHTING" />
-    <setting file="file://$PROJECT_DIR$/src/main/kotlin/org/revcloud/input/KickDef.kt" root0="FORCE_HIGHLIGHTING" />
-    <setting file="file://$PROJECT_DIR$/src/main/kotlin/org/revcloud/output/Rundown.kt" root0="FORCE_HIGHLIGHTING" />
-    <setting file="file://$PROJECT_DIR$/src/main/kotlin/org/revcloud/postman/DynamicEnvironmentKeys.kt" root0="FORCE_HIGHLIGHTING" />
-    <setting file="file://$PROJECT_DIR$/src/main/kotlin/org/revcloud/postman/SDK.kt" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/src/main/resources/log4j2.xml" root0="FORCE_HIGHLIGHTING" />
   </component>
   <component name="MarkdownSettingsMigration">
@@ -2750,7 +2743,7 @@
     &quot;project.structure.last.edited&quot;: &quot;SDKs&quot;,
     &quot;project.structure.proportion&quot;: &quot;0.15&quot;,
     &quot;project.structure.side.proportion&quot;: &quot;0.2&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;Settings.AsciiDoc.Preview&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;editing.templates&quot;,
     &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
 }</component>
@@ -2773,11 +2766,11 @@
       <recent name="" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/src/integrationTest/java/org/revcloud/revoman/integration/core" />
       <recent name="$PROJECT_DIR$/src/integrationTest/resources/pm-templates/revoman" />
       <recent name="$PROJECT_DIR$/src/integrationTest/resources/pm-templates/pokemon" />
       <recent name="$PROJECT_DIR$/detekt" />
       <recent name="$PROJECT_DIR$" />
-      <recent name="$PROJECT_DIR$/src/integrationTest/resources/pm-templates" />
     </key>
     <key name="MoveKotlinTopLevelDeclarationsDialog.RECENTS_KEY">
       <recent name="org.revcloud.postman.state" />
@@ -2809,13 +2802,37 @@
       <command value="gradle wrapper" />
       <command value="gradle publishToMavenLocal" />
       <command value="gradle publish --no-build-cache" />
-      <command value="gradle spotlessApply" />
       <command value="gradle clean build --no-build-cache" />
       <command value="gradle publish" />
       <command value="gradle build" />
+      <command value="gradle spotlessApply" />
     </option>
   </component>
-  <component name="RunManager" selected="Gradle.BillingScheduleE2ETest.revUp">
+  <component name="RunManager" selected="Gradle.BillingScheduleE2ETest.revUp (1)">
+    <configuration name="BillingScheduleE2ETest.revUp (1)" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
+      <ExternalSystemSettings>
+        <option name="executionName" />
+        <option name="externalProjectPath" value="$PROJECT_DIR$" />
+        <option name="externalSystemIdString" value="GRADLE" />
+        <option name="scriptParameters" value="" />
+        <option name="taskDescriptions">
+          <list />
+        </option>
+        <option name="taskNames">
+          <list>
+            <option value=":integrationTest" />
+            <option value="--tests" />
+            <option value="&quot;org.revcloud.revoman.integration.core.BillingScheduleE2ETest.revUp&quot;" />
+          </list>
+        </option>
+        <option name="vmOptions" />
+      </ExternalSystemSettings>
+      <ExternalSystemDebugServerProcess>false</ExternalSystemDebugServerProcess>
+      <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
+      <DebugAllEnabled>false</DebugAllEnabled>
+      <ForceTestExec>false</ForceTestExec>
+      <method v="2" />
+    </configuration>
     <configuration name="BillingScheduleE2ETest.revUp" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
       <ExternalSystemSettings>
         <option name="executionName" />
@@ -2837,6 +2854,7 @@
       <ExternalSystemDebugServerProcess>false</ExternalSystemDebugServerProcess>
       <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
       <DebugAllEnabled>false</DebugAllEnabled>
+      <ForceTestExec>false</ForceTestExec>
       <method v="2" />
     </configuration>
     <configuration name="PokemonTest.pokemon" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
@@ -2860,6 +2878,7 @@
       <ExternalSystemDebugServerProcess>false</ExternalSystemDebugServerProcess>
       <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
       <DebugAllEnabled>false</DebugAllEnabled>
+      <ForceTestExec>false</ForceTestExec>
       <method v="2" />
     </configuration>
     <configuration name="revoman-root [build]" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
@@ -2881,27 +2900,7 @@
       <ExternalSystemDebugServerProcess>true</ExternalSystemDebugServerProcess>
       <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
       <DebugAllEnabled>false</DebugAllEnabled>
-      <method v="2" />
-    </configuration>
-    <configuration name="revoman-root [publish]" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
-      <ExternalSystemSettings>
-        <option name="executionName" />
-        <option name="externalProjectPath" value="$PROJECT_DIR$" />
-        <option name="externalSystemIdString" value="GRADLE" />
-        <option name="scriptParameters" value="" />
-        <option name="taskDescriptions">
-          <list />
-        </option>
-        <option name="taskNames">
-          <list>
-            <option value="publish" />
-          </list>
-        </option>
-        <option name="vmOptions" />
-      </ExternalSystemSettings>
-      <ExternalSystemDebugServerProcess>true</ExternalSystemDebugServerProcess>
-      <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
-      <DebugAllEnabled>false</DebugAllEnabled>
+      <ForceTestExec>false</ForceTestExec>
       <method v="2" />
     </configuration>
     <configuration name="revoman-root [spotlessApply]" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
@@ -2923,15 +2922,16 @@
       <ExternalSystemDebugServerProcess>true</ExternalSystemDebugServerProcess>
       <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
       <DebugAllEnabled>false</DebugAllEnabled>
+      <ForceTestExec>false</ForceTestExec>
       <method v="2" />
     </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="Gradle.BillingScheduleE2ETest.revUp" />
+        <item itemvalue="Gradle.BillingScheduleE2ETest.revUp (1)" />
+        <item itemvalue="Gradle.revoman-root [spotlessApply]" />
         <item itemvalue="Gradle.revoman-root [build]" />
         <item itemvalue="Gradle.PokemonTest.pokemon" />
-        <item itemvalue="Gradle.revoman-root [spotlessApply]" />
-        <item itemvalue="Gradle.revoman-root [publish]" />
+        <item itemvalue="Gradle.BillingScheduleE2ETest.revUp" />
       </list>
     </recent_temporary>
   </component>
@@ -3047,7 +3047,13 @@
       <workItem from="1675764517975" duration="6446000" />
       <workItem from="1675837964179" duration="3133000" />
       <workItem from="1675849575039" duration="1079000" />
-      <workItem from="1675869765254" duration="1166000" />
+      <workItem from="1675869765254" duration="5517000" />
+      <workItem from="1675921668518" duration="4019000" />
+      <workItem from="1675949364634" duration="5934000" />
+      <workItem from="1675956264496" duration="165000" />
+      <workItem from="1675995014592" duration="1239000" />
+      <workItem from="1676019099702" duration="82000" />
+      <workItem from="1676021798701" duration="2227000" />
     </task>
     <task id="LOCAL-00001" summary="tmp">
       <created>1652606203677</created>
@@ -3315,7 +3321,28 @@
       <option name="project" value="LOCAL" />
       <updated>1675311010310</updated>
     </task>
-    <option name="localTasksCounter" value="39" />
+    <task id="LOCAL-00039" summary="temp">
+      <created>1675872914919</created>
+      <option name="number" value="00039" />
+      <option name="presentableId" value="LOCAL-00039" />
+      <option name="project" value="LOCAL" />
+      <updated>1675872914919</updated>
+    </task>
+    <task id="LOCAL-00040" summary="Rename package&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
+      <created>1675873133118</created>
+      <option name="number" value="00040" />
+      <option name="presentableId" value="LOCAL-00040" />
+      <option name="project" value="LOCAL" />
+      <updated>1675873133118</updated>
+    </task>
+    <task id="LOCAL-00041" summary="Improve Moshi to work with Type&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
+      <created>1675934298958</created>
+      <option name="number" value="00041" />
+      <option name="presentableId" value="LOCAL-00041" />
+      <option name="project" value="LOCAL" />
+      <updated>1675934298958</updated>
+    </task>
+    <option name="localTasksCounter" value="42" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -3346,8 +3373,6 @@
   <component name="VcsManagerConfiguration">
     <option name="CHECK_CODE_SMELLS_BEFORE_PROJECT_COMMIT" value="false" />
     <option name="CHECK_NEW_TODO" value="false" />
-    <MESSAGE value=":bookmark: 0.1.6&#10;- Code clean-up" />
-    <MESSAGE value=":arrow_up: Upgrade kotlin to 1.7.0" />
     <MESSAGE value=":sparkles: Added input configuration" />
     <MESSAGE value=":sparkles: Release 0.2.0&#10;- Config for Input and Output&#10;- Major refactoring" />
     <MESSAGE value=":sparkles: Release 0.2.0&#10;- Config for Input and Output&#10;- Major refactoring&#10;- Gradle 7.5" />
@@ -3363,7 +3388,6 @@
     <MESSAGE value="- Migrate of OSS Vador&#10;- Upgrade lib versions &#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopalakshintala@gmail.com&gt;" />
     <MESSAGE value="Add README.adoc &#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopalakshintala@gmail.com&gt;" />
     <MESSAGE value="Migrate to Vador open source version&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopalakshintala@gmail.com&gt;" />
-    <MESSAGE value="temp" />
     <MESSAGE value="Migrate to use Version Catalogs&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
     <MESSAGE value="Upgrade gradle wrapper to 7.6&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
     <MESSAGE value="Add snapshot maven repository for moshix gradle-plugin snapshot&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
@@ -3371,7 +3395,10 @@
     <MESSAGE value="Release 0.4.6&#10;- Add support for nested folders in the pm collection&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
     <MESSAGE value="Upgrade dependencies&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
     <MESSAGE value="Downgrade dependencies due to moshix incompatibility&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
-    <option name="LAST_COMMIT_MESSAGE" value="Downgrade dependencies due to moshix incompatibility&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
+    <MESSAGE value="temp" />
+    <MESSAGE value="Rename package&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
+    <MESSAGE value="Improve Moshi to work with Type&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
+    <option name="LAST_COMMIT_MESSAGE" value="Improve Moshi to work with Type&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
@@ -3381,20 +3408,10 @@
           <line>29</line>
           <option name="timeStamp" value="9" />
         </line-breakpoint>
-        <line-breakpoint enabled="true" type="kotlin-line">
-          <condition expression="step.name == &quot;OrderItem2BS IA&quot;" language="kotlin" />
-          <url>file://$PROJECT_DIR$/src/main/kotlin/org/revcloud/ReVoman.kt</url>
-          <line>90</line>
-          <option name="timeStamp" value="11" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" type="kotlin-line">
-          <condition expression="successType != null" language="kotlin" />
-          <url>file://$PROJECT_DIR$/src/main/kotlin/org/revcloud/ReVoman.kt</url>
-          <line>99</line>
-          <properties>
-            <option name="lambda-ordinal" value="-1" />
-          </properties>
-          <option name="timeStamp" value="15" />
+        <line-breakpoint enabled="true" type="java-line">
+          <url>file://$PROJECT_DIR$/src/integrationTest/java/org/revcloud/revoman/integration/core/BillingScheduleE2ETest.java</url>
+          <line>40</line>
+          <option name="timeStamp" value="10" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>

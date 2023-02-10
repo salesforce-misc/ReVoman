@@ -4,7 +4,6 @@ package org.revcloud.revoman
 
 import com.salesforce.vador.config.ValidationConfig
 import com.salesforce.vador.config.base.BaseValidationConfig
-import com.salesforce.vador.config.base.BaseValidationConfig.BaseValidationConfigBuilder
 import com.salesforce.vador.execution.Vador
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapter
@@ -38,6 +37,7 @@ import org.revcloud.revoman.adapters.ObjOrListAdapterFactory
 import org.revcloud.revoman.adapters.internal.IgnoreUnknownFactory
 import org.revcloud.revoman.adapters.internal.RegexAdapterFactory
 import org.revcloud.revoman.input.Kick
+import org.revcloud.revoman.input.SuccessConfig
 import org.revcloud.revoman.output.Rundown
 import org.revcloud.revoman.output.StepReport
 import org.revcloud.revoman.postman.PostmanAPI
@@ -56,8 +56,7 @@ object ReVoman {
     kick.environmentPath(),
     kick.dynamicEnvironment(),
     kick.bearerTokenKey(),
-    kick.stepNameToSuccessType(),
-    kick.stepNameToValidationConfig(),
+    kick.stepNameToSuccessConfig(),
     kick.stepNameToErrorType(),
     kick.customAdaptersForResponse(),
     kick.typesInResponseToIgnore()
@@ -71,8 +70,7 @@ object ReVoman {
     environmentPath: String?,
     dynamicEnvironment: Map<String, String?>,
     bearerTokenKey: String?,
-    stepNameToSuccessType: Map<String, Type>,
-    stepNameToValidationConfig: Map<String, BaseValidationConfigBuilder<out Any, out Any?, *, *>>,
+    stepNameToValidationConfig: Map<String, SuccessConfig>,
     stepNameToErrorType: Map<String, Type>,
     customAdaptersForResponse: List<Any>,
     typesInResponseToIgnore: Set<Class<out Any>>
@@ -93,11 +91,10 @@ object ReVoman {
         if (response.status.successful) {
           executeTestScriptJs(step, response)
           if (isContentTypeApplicationJson(response)) {
-            val validationConfig = stepNameToValidationConfig[step.name]?.prepare()
-            val successType =
-              (stepNameToSuccessType[step.name] ?: validationConfig?.validatableType) ?: Any::class.java as Type
+            val successConfig = stepNameToValidationConfig[step.name]
+            val successType = successConfig?.successType ?: Any::class.java as Type
             val responseObj = moshi.asA<Any>(response.bodyString(), successType)
-            validate(responseObj, validationConfig)
+            successConfig?.validationConfig?.let { validate(responseObj, it.prepare()) }
             step.name to StepReport(responseObj, responseObj.javaClass, request, response)
           } else {
             // ! TODO gopala.akshintala 04/08/22: Support other content types apart from JSON
