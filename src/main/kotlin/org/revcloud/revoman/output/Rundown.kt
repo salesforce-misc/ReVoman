@@ -11,7 +11,13 @@ data class Rundown(
   val environment: Map<String, String?>
 )
 
-data class StepReport(val responseObj: Any?, val responseType: Type, val requestData: Request, val responseData: Response) {
+data class StepReport(
+  val responseObj: Any?,
+  val responseType: Type,
+  val requestData: Request,
+  val responseData: Response,
+  val validationErrors: Any? = null
+) {
   val isSuccessful: Boolean
     get() = responseData.status.successful
 }

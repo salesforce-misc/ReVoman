@@ -70,7 +70,7 @@ object ReVoman {
     environmentPath: String?,
     dynamicEnvironment: Map<String, String?>,
     bearerTokenKey: String?,
-    stepNameToValidationConfig: Map<String, SuccessConfig>,
+    stepNameToSuccessConfig: Map<String, SuccessConfig>,
     stepNameToErrorType: Map<String, Type>,
     customAdaptersForResponse: List<Any>,
     typesInResponseToIgnore: Set<Class<out Any>>
@@ -91,34 +91,38 @@ object ReVoman {
         if (response.status.successful) {
           executeTestScriptJs(step, response)
           if (isContentTypeApplicationJson(response)) {
-            val successConfig = stepNameToValidationConfig[step.name]
+            val successConfig = stepNameToSuccessConfig[step.name]
             val successType = successConfig?.successType ?: Any::class.java as Type
             val responseObj = moshi.asA<Any>(response.bodyString(), successType)
-            successConfig?.validationConfig?.let { validate(responseObj, it.prepare()) }
-            step.name to StepReport(responseObj, responseObj.javaClass, request, response)
+            val validationResult = successConfig?.validationConfig?.let { validate(responseObj, it.prepare()) }
+            step.name to StepReport(responseObj, responseObj.javaClass, request, response, validationResult)
           } else {
             // ! TODO gopala.akshintala 04/08/22: Support other content types apart from JSON
             step.name to StepReport(response.bodyString(), String::class.java, request, response)
           }
         } else {
-          if (stepNameToValidationConfig.containsKey(step.name)) {
-            throw RuntimeException("Unable to validate due to unsuccessful response status: ${response.status}")
+          if (stepNameToSuccessConfig.containsKey(step.name)) {
+            step.name to StepReport(response.bodyString(), String::class.java, request, response, 
+              "Unable to validate due to unsuccessful response status")
+          } 
+          if (stepNameToErrorType.containsKey(step.name)) {
+            val errorType = stepNameToErrorType[step.name]?.rawType?.kotlin ?: Any::class
+            val errorResponseObj = moshi.asA(response.bodyString(), errorType)
+            step.name to StepReport(errorResponseObj, errorResponseObj.javaClass, request, response)
           }
-          val errorType = stepNameToErrorType[step.name]?.rawType?.kotlin ?: Any::class
-          val errorResponseObj = moshi.asA(response.bodyString(), errorType)
-          step.name to StepReport(errorResponseObj, errorResponseObj.javaClass, request, response)
+          step.name to StepReport(response.bodyString(), String::class.java, request, response)
         }
       }?.toMap() ?: emptyMap()
     return Rundown(stepNameToReport, pm.environment)
   }
 
   // ! TODO gopala.akshintala 03/08/22: Extend the validation for other configs and strategies
-  private fun validate(responseObj: Any, validationConfig: BaseValidationConfig<out Any, out Any>?) {
+  private fun validate(responseObj: Any, validationConfig: BaseValidationConfig<out Any, out Any>?): Any? {
     if (validationConfig != null) {
       val result = Vador.validateAndFailFast(responseObj, validationConfig as ValidationConfig<Any, Any?>)
-      result.ifPresent { throw RuntimeException(it.toString()) }
-      logger.info { "*** Validation passed for: $responseObj" }
+      return result.orElse(null)
     }
+    return null
   }
 
   // ! TODO gopala.akshintala 28/01/23: Use auth type from the collection
