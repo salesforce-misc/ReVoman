@@ -4,11 +4,13 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="3153e138-c5ab-46f2-8910-5c16e0ec9d9a" name="Changes" comment="Release - 0.5.1&#10;- Make SuccessType public&#10;&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
+    <list default="true" id="3153e138-c5ab-46f2-8910-5c16e0ec9d9a" name="Changes" comment="Handle validation failures inside StepReport&#10;&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
+      <change afterPath="$PROJECT_DIR$/src/integrationTest/java/org/revcloud/revoman/integration/core/PQE2ETest.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/integrationTest/resources/pm-templates/pq/pq (UTest - Linux).postman_environment.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/integrationTest/resources/pm-templates/pq/pq.postman_collection.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/buildSrc/src/main/kotlin/revoman.root-conventions.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/buildSrc/src/main/kotlin/revoman.root-conventions.gradle.kts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/ReVoman.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/ReVoman.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/output/Rundown.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/output/Rundown.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/postman/DynamicEnvironmentKeys.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/postman/DynamicEnvironmentKeys.kt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -2727,7 +2729,7 @@
     &quot;javascript.nodejs.core.library.configured.version&quot;: &quot;19.3.0&quot;,
     &quot;javascript.nodejs.core.library.typings.version&quot;: &quot;18.11.18&quot;,
     &quot;jdk.selected.JAVA_MODULE&quot;: &quot;17&quot;,
-    &quot;last_opened_file_path&quot;: &quot;/Users/gopala.akshintala/code-clones/work/revoman-root&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/Users/gopala.akshintala/code-clones/work/revoman-root/src/integrationTest/resources/pm-templates/pq&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
@@ -2749,21 +2751,21 @@
   </component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/src/integrationTest/resources/pm-templates/pq" />
       <recent name="$PROJECT_DIR$" />
       <recent name="$PROJECT_DIR$/buildSrc/src/main/kotlin" />
       <recent name="$PROJECT_DIR$/images" />
       <recent name="$PROJECT_DIR$/src/main/kotlin" />
-      <recent name="$PROJECT_DIR$/src/integrationTest/resources" />
     </key>
     <key name="CreateTestDialog.Recents.Supers">
       <recent name="" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/src/integrationTest/resources/pm-templates/pq" />
       <recent name="$PROJECT_DIR$/src/integrationTest/java/org/revcloud/revoman/integration/core" />
       <recent name="$PROJECT_DIR$/src/integrationTest/resources/pm-templates/revoman" />
       <recent name="$PROJECT_DIR$/src/integrationTest/resources/pm-templates/pokemon" />
       <recent name="$PROJECT_DIR$/detekt" />
-      <recent name="$PROJECT_DIR$" />
     </key>
     <key name="MoveKotlinTopLevelDeclarationsDialog.RECENTS_KEY">
       <recent name="org.revcloud.postman.state" />
@@ -2779,6 +2781,7 @@
       <recent name="org.revcloud" />
     </key>
     <key name="CopyClassDialog.RECENTS_KEY">
+      <recent name="org.revcloud.revoman.integration.core" />
       <recent name="org.revcloud.input" />
     </key>
   </component>
@@ -2801,7 +2804,7 @@
       <command value="gradle publish" />
     </option>
   </component>
-  <component name="RunManager" selected="Gradle.revoman-root [publish]">
+  <component name="RunManager" selected="Gradle.PQE2ETest.revUp">
     <configuration name="BillingScheduleE2ETest.revUp (1)" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
       <ExternalSystemSettings>
         <option name="executionName" />
@@ -2826,7 +2829,7 @@
       <ForceTestExec>false</ForceTestExec>
       <method v="2" />
     </configuration>
-    <configuration name="PokemonTest.pokemon" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
+    <configuration name="PQE2ETest.revUp" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
       <ExternalSystemSettings>
         <option name="executionName" />
         <option name="externalProjectPath" value="$PROJECT_DIR$" />
@@ -2839,7 +2842,7 @@
           <list>
             <option value=":integrationTest" />
             <option value="--tests" />
-            <option value="&quot;org.revcloud.integration.pokemon.PokemonTest.pokemon&quot;" />
+            <option value="&quot;org.revcloud.revoman.integration.core.PQE2ETest.revUp&quot;" />
           </list>
         </option>
         <option name="vmOptions" />
@@ -2847,7 +2850,7 @@
       <ExternalSystemDebugServerProcess>false</ExternalSystemDebugServerProcess>
       <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
       <DebugAllEnabled>false</DebugAllEnabled>
-      <ForceTestExec>false</ForceTestExec>
+      <ForceTestExec>true</ForceTestExec>
       <method v="2" />
     </configuration>
     <configuration name="revoman-root [build]" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
@@ -2918,11 +2921,11 @@
     </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Gradle.PQE2ETest.revUp" />
         <item itemvalue="Gradle.revoman-root [publish]" />
         <item itemvalue="Gradle.BillingScheduleE2ETest.revUp (1)" />
         <item itemvalue="Gradle.revoman-root [spotlessApply]" />
         <item itemvalue="Gradle.revoman-root [build]" />
-        <item itemvalue="Gradle.PokemonTest.pokemon" />
       </list>
     </recent_temporary>
   </component>
@@ -3047,6 +3050,14 @@
       <workItem from="1676021798701" duration="7980000" />
       <workItem from="1676100064130" duration="949000" />
       <workItem from="1676203883509" duration="3039000" />
+      <workItem from="1676265544784" duration="841000" />
+      <workItem from="1676303730270" duration="131000" />
+      <workItem from="1676369091914" duration="609000" />
+      <workItem from="1676384867802" duration="1710000" />
+      <workItem from="1676438389072" duration="4561000" />
+      <workItem from="1676446403944" duration="8672000" />
+      <workItem from="1676528081580" duration="372000" />
+      <workItem from="1676528472245" duration="4869000" />
     </task>
     <task id="LOCAL-00001" summary="tmp">
       <created>1652606203677</created>
@@ -3349,7 +3360,14 @@
       <option name="project" value="LOCAL" />
       <updated>1676027187171</updated>
     </task>
-    <option name="localTasksCounter" value="44" />
+    <task id="LOCAL-00044" summary="Handle validation failures inside StepReport&#10;&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
+      <created>1676265605712</created>
+      <option name="number" value="00044" />
+      <option name="presentableId" value="LOCAL-00044" />
+      <option name="project" value="LOCAL" />
+      <updated>1676265605712</updated>
+    </task>
+    <option name="localTasksCounter" value="45" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -3380,7 +3398,6 @@
   <component name="VcsManagerConfiguration">
     <option name="CHECK_CODE_SMELLS_BEFORE_PROJECT_COMMIT" value="false" />
     <option name="CHECK_NEW_TODO" value="false" />
-    <MESSAGE value=":sparkles: Release 0.2.0&#10;- Config for Input and Output&#10;- Major refactoring&#10;- Gradle 7.5" />
     <MESSAGE value=":sparkles: Release 0.2.0&#10;- Config for Input and Output&#10;- Major refactoring&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopalakshintala@gmail.com&gt;" />
     <MESSAGE value="Fix javaVersion&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopalakshintala@gmail.com&gt;" />
     <MESSAGE value=":tada: Integrate with Vader&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopalakshintala@gmail.com&gt;" />
@@ -3405,7 +3422,8 @@
     <MESSAGE value="Improve Moshi to work with Type&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
     <MESSAGE value="Release - 0.5.0&#10;- Change how successType should be supplied along with validationConfig&#10;- Update BS E2E test&#10;&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
     <MESSAGE value="Release - 0.5.1&#10;- Make SuccessType public&#10;&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
-    <option name="LAST_COMMIT_MESSAGE" value="Release - 0.5.1&#10;- Make SuccessType public&#10;&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
+    <MESSAGE value="Handle validation failures inside StepReport&#10;&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
+    <option name="LAST_COMMIT_MESSAGE" value="Handle validation failures inside StepReport&#10;&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
