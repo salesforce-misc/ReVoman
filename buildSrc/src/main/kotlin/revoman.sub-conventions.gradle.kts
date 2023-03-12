@@ -15,7 +15,6 @@ java {
   }
 }
 tasks {
-  test.get().useJUnitPlatform()
   testlogger.theme = MOCHA
   withType<Jar> { duplicatesStrategy = DuplicatesStrategy.EXCLUDE }
   withType<PublishToMavenRepository>().configureEach {

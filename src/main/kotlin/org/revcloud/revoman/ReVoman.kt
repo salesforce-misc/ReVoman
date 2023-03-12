@@ -7,10 +7,7 @@ import com.salesforce.vador.config.base.BaseValidationConfig
 import com.salesforce.vador.execution.Vador
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapter
-import com.squareup.moshi.adapters.Rfc3339DateJsonAdapter
 import com.squareup.moshi.rawType
-import dev.zacsweers.moshix.adapters.AdaptedBy
-import dev.zacsweers.moshix.adapters.JsonString
 import mu.KotlinLogging
 import org.apache.commons.lang3.StringUtils
 import org.graalvm.polyglot.Context
@@ -26,18 +23,11 @@ import org.http4k.core.Response
 import org.http4k.core.then
 import org.http4k.filter.ClientFilters
 import org.http4k.filter.DebuggingFilters
-import org.http4k.format.ConfigurableMoshi
-import org.http4k.format.EventAdapter
-import org.http4k.format.ListAdapter
-import org.http4k.format.MapAdapter
-import org.http4k.format.ThrowableAdapter
-import org.http4k.format.asConfigurable
-import org.http4k.format.withStandardMappings
-import org.revcloud.revoman.adapters.ObjOrListAdapterFactory
-import org.revcloud.revoman.adapters.internal.IgnoreUnknownFactory
 import org.revcloud.revoman.adapters.internal.RegexAdapterFactory
 import org.revcloud.revoman.input.Kick
 import org.revcloud.revoman.input.SuccessConfig
+import org.revcloud.revoman.moshi.initMoshi
+import org.revcloud.revoman.moshi.asA
 import org.revcloud.revoman.output.Rundown
 import org.revcloud.revoman.output.StepReport
 import org.revcloud.revoman.postman.PostmanAPI
@@ -47,7 +37,6 @@ import org.revcloud.revoman.postman.state.Request
 import org.revcloud.revoman.postman.state.Steps
 import java.io.File
 import java.lang.reflect.Type
-import java.util.Date
 
 object ReVoman {
   @JvmStatic
@@ -78,7 +67,7 @@ object ReVoman {
     initPmEnvironment(dynamicEnvironment, environmentPath)
     val pmSteps: Steps? = Moshi.Builder().build().adapter<Steps>().fromJson(readTextFromFile(pmTemplatePath))
     val replaceRegexWithEnvAdapter = Moshi.Builder().add(RegexAdapterFactory(pm.environment)).build().adapter<Item>()
-    val moshi = initMoshi(typesInResponseToIgnore, customAdaptersForResponse)
+    val moshi = initMoshi(customAdaptersForResponse, typesInResponseToIgnore)
     val stepNameToReport = pmSteps?.item?.deepFlattenItems()?.asSequence()
       ?.map { stepWithRegex -> replaceRegexWithEnvAdapter.fromJsonValue(stepWithRegex) }
       ?.filterNotNull()
@@ -214,35 +203,6 @@ object ReVoman {
     this.asSequence().flatMap { item ->
       (item as Map<String, Any>)["item"]?.let { (it as List<*>).deepFlattenItems() } ?: listOf(item)
     }.toList()
+  
 
-  
-  private val moshiBuilder = Moshi.Builder()
-    .add(JsonString.Factory())
-    .add(AdaptedBy.Factory())
-    .add(Date::class.java, Rfc3339DateJsonAdapter())
-    .addLast(EventAdapter)
-    .addLast(ThrowableAdapter)
-    .addLast(ListAdapter)
-    .addLast(MapAdapter)
-    .addLast(ObjOrListAdapterFactory)
-    .asConfigurable()
-    .withStandardMappings()
-    .done()
-  
-  private val moshiReVoman: Moshi by lazy { 
-    moshiBuilder.build()
-  }
-  
-  private fun initMoshi(
-    typesToIgnore: Set<Class<out Any>>? = emptySet(),
-    customAdaptersForResponse: List<Any>? = emptyList()
-  ): ConfigurableMoshi {
-    customAdaptersForResponse?.forEach { moshiBuilder.add(it) }
-    if (!typesToIgnore.isNullOrEmpty()) {
-      moshiBuilder.add(IgnoreUnknownFactory(typesToIgnore))
-    }
-    return object: ConfigurableMoshi(moshiBuilder) {}
-  }
-
-  private fun <T : Any> ConfigurableMoshi.asA(input: String, target: Type): T = moshiReVoman.adapter<T>(target).fromJson(input)!!
 }

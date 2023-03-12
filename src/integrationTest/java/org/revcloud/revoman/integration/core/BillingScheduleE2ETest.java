@@ -4,16 +4,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.revcloud.revoman.input.SuccessConfig.validateIfSuccess;
 
 import com.salesforce.vador.config.ValidationConfig;
+import com.squareup.moshi.Types;
 import java.util.List;
 import java.util.Map;
-import com.squareup.moshi.Types;
 import org.junit.jupiter.api.Test;
 import org.revcloud.revoman.ReVoman;
 import org.revcloud.revoman.input.Kick;
-import org.revcloud.revoman.input.SuccessConfig;
 import org.revcloud.revoman.output.StepReport;
-import org.revcloud.revoman.response.types.salesforce.Graph;
-import org.revcloud.revoman.response.types.salesforce.Graphs;
 
 class BillingScheduleE2ETest {
   private static final String TEST_RESOURCES_PATH = "src/integrationTest/resources/";
@@ -38,6 +35,7 @@ class BillingScheduleE2ETest {
                 .stepNameToSuccessConfig(Map.of(
                         "OrderItem2BS IA", validateIfSuccess(orderItem2BSIASuccessType, orderItem2BSIAValidationConfig)))
                 .off());
+    
     assertThat(rundown.stepNameToReport.values()).allMatch(StepReport::isSuccessful);
   }
 }

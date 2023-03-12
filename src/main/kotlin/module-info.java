@@ -21,4 +21,5 @@ module reVoman {
   exports org.revcloud.revoman.output;
   exports org.revcloud.revoman.adapters;
   exports org.revcloud.revoman.response.types.salesforce;
+  exports org.revcloud.revoman.adapters.internal;
 }

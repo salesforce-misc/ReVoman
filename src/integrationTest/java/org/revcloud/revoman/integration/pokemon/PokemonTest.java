@@ -29,14 +29,13 @@ class PokemonTest {
         ValidationConfig.<Results, String>toValidate()
             .withValidator(
                 results -> results.getResults().size() == limit ? "Good" : "Bad", "Good");
-    final var kickOffConfig =
-        Kick.configure()
-            .templatePath(pmCollectionPath)
-            .environmentPath(pmEnvironmentPath)
-            .stepNameToSuccessConfig(Map.of("all-Pokemon", validateIfSuccess(Results.class, pokemonResultsValidationConfig)))
-            .dynamicEnvironment(dynamicEnvironment)
-            .off();
-    final var rundown = ReVoman.revUp(kickOffConfig);
+    
+    final var rundown = ReVoman.revUp(Kick.configure()
+        .templatePath(pmCollectionPath)
+        .environmentPath(pmEnvironmentPath)
+        .stepNameToSuccessConfig(Map.of("all-Pokemon", validateIfSuccess(Results.class, pokemonResultsValidationConfig)))
+        .dynamicEnvironment(dynamicEnvironment)
+        .off());
 
     Assertions.assertThat(rundown.stepNameToReport).hasSize(5);
     Assertions.assertThat(rundown.environment)

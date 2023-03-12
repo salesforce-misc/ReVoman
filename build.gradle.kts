@@ -1,5 +1,3 @@
-
-
 @Suppress("DSL_SCOPE_VIOLATION")
 plugins {
   id("revoman.root-conventions")
@@ -8,6 +6,7 @@ plugins {
   alias(libs.plugins.moshix)
   id(libs.plugins.detekt.pluginId) apply false
 }
+
 dependencies {
   compileOnly(libs.jetbrains.annotations)
   api(libs.bundles.http4k)

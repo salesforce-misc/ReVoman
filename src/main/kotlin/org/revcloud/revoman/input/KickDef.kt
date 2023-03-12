@@ -1,6 +1,5 @@
 package org.revcloud.revoman.input
 
-import com.salesforce.vador.config.base.BaseValidationConfig
 import com.salesforce.vador.config.base.BaseValidationConfig.BaseValidationConfigBuilder
 import org.immutables.value.Value
 import org.jetbrains.annotations.Nullable
