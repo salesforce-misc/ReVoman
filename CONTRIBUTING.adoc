@@ -19,7 +19,7 @@ endif::[]
 :hide-uri-scheme:
 :sourcedir: src/main/java
 :imagesdir: images
-:vador-version: 2.7.2
+:revoman-version: 0.5.5
 :toc:
 
 [#_versioning_strategy]
@@ -56,12 +56,11 @@ When asked for `Enter keystore password:` enter `changeit` (Common for most Java
 keytool -import -alias linux -keystore <your-jdk-path>/lib/security/cacerts -file <your-cert-path>.cer
 ----
 
-
 ====
 
 === Kotlin
 
-* The code-base is a mix of Java and Kotlin. If you are a Java developer and new to Kotlin, don't worry, Kotlin is a JVM language and can be used anywhere Java is used.
+* The code-base is a mix of Java and Kotlin. If you're a Java developer and new to Kotlin, don't worry, Kotlin is a JVM language and can be used anywhere Java is used.
 In fact, it has got the reputation of *"Better Java!"*.
 * A typical Java developer can ramp up on Kotlin in less than a week.
 This free-course: https://www.coursera.org/learn/kotlin-for-java-developers[*Kotlin for Java Developers | Coursera*] can help catalyse your ramp-up.
@@ -72,15 +71,17 @@ This free-course: https://www.coursera.org/learn/kotlin-for-java-developers[*Kot
 * This repo uses https://github.com/diffplug/spotless[*Spotless*] for formatting files, as this repo has code from more than one programming-language.
 * Please run `./gradlew spotlessApply` before check-in to fix any formatting errors.
 
-TIP: If you are on Intellij, replace your kbd[Cmd+Shift+L] habit with kbd[Ctrl]-kbd[Ctrl] and run `gradle spotlessApply` (Or the respective action if you are on Eclipse).
+TIP: If you're on Intellij, replace your kbd:[Cmd+Shift+L] habit with kbd:[Ctrl]-kbd:[Ctrl] and run `gradle spotlessApply` (Or the respective action if you're on Eclipse).
 It may be slow for the first run, but later runs should be faster.
 
 == Manual publishing
 
-In link:build.gradle.kts[], follow the <<_versioning_strategy,Versioning Strategy>>
+This repo doesn't yet have the CI/CD pipeline. So, it needs to be published manually.
 
-** For release increment the version property `version = "{vador-version}"` and run this command:
+* In link:build.gradle.kts[], follow the <<_versioning_strategy,Versioning Strategy>>
+** For release increment the version property in link:buildSrc/src/main/kotlin/revoman.root-conventions.gradle.kts `version = "{revoman-version}"`
 ** For SNAPSHOT releases, add a `-SNAPSHOT` at the end
+* Run this command:
 
 [source,bash]
 ----

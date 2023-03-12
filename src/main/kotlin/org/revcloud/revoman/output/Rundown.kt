@@ -16,7 +16,8 @@ data class StepReport(
   val responseType: Type,
   val requestData: Request,
   val responseData: Response,
-  val validationErrors: Any? = null
+  val testScriptJsError: Throwable? = null,
+  val validationError: Any? = null
 ) {
   val isSuccessful: Boolean
     get() = responseData.status.successful

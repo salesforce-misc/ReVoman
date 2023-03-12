@@ -78,21 +78,25 @@ object ReVoman {
         val request = step.request.toHttpRequest()
         val response: Response = httpClient(request)
         if (response.status.successful) {
-          executeTestScriptJs(step, response)
+          val testScriptJsResult = runCatching { executeTestScriptJs(step, response) }
+          if (testScriptJsResult.isFailure) {
+            logger.error(testScriptJsResult.exceptionOrNull()) { "Error while executing test script" }
+          }
           if (isContentTypeApplicationJson(response)) {
             val successConfig = stepNameToSuccessConfig[step.name]
             val successType = successConfig?.successType ?: Any::class.java as Type
             val responseObj = moshi.asA<Any>(response.bodyString(), successType)
             val validationResult = successConfig?.validationConfig?.let { validate(responseObj, it.prepare()) }
-            step.name to StepReport(responseObj, responseObj.javaClass, request, response, validationResult)
+            step.name to StepReport(responseObj, responseObj.javaClass, request, response, testScriptJsResult.exceptionOrNull(), validationError = validationResult)
           } else {
             // ! TODO gopala.akshintala 04/08/22: Support other content types apart from JSON
-            step.name to StepReport(response.bodyString(), String::class.java, request, response)
+            step.name to StepReport(response.bodyString(), String::class.java, request, response, testScriptJsError = testScriptJsResult.exceptionOrNull())
           }
         } else {
           if (stepNameToSuccessConfig.containsKey(step.name)) {
+            logger.error { "Unable to validate due to unsuccessful response status" }
             step.name to StepReport(response.bodyString(), String::class.java, request, response, 
-              "Unable to validate due to unsuccessful response status")
+              validationError = "Unable to validate due to unsuccessful response status")
           } 
           if (stepNameToErrorType.containsKey(step.name)) {
             val errorType = stepNameToErrorType[step.name]?.rawType?.kotlin ?: Any::class
@@ -148,18 +152,14 @@ object ReVoman {
     step: Item,
     response: Response
   ) {
+    // ! TODO 12/03/23 gopala.akshintala: Find a way to surface-up what happened in the script, like the Ids set etc 
     loadIntoPmEnvironment(step.request, response)
     val testScript = step.event?.find { it.listen == "test" }?.script?.exec?.joinToString("\n")
     if (!testScript.isNullOrBlank()) {
       val testSource = Source.newBuilder("js", testScript, "pmItemTestScript.js").build()
       jsContext.getBindings("js").putMember("responseBody", response.bodyString())
-      try {
-        // ! TODO gopala.akshintala 15/05/22: Keep a tab on jsContext mix-up from different steps
-        jsContext.eval(testSource)
-      } catch (polyglotException: PolyglotException) {
-        // ! TODO gopala.akshintala 04/05/22: Handle gracefully?
-        throw polyglotException
-      }
+      // ! TODO gopala.akshintala 15/05/22: Keep a tab on jsContext mix-up from different steps
+      jsContext.eval(testSource)
     }
   }
 
