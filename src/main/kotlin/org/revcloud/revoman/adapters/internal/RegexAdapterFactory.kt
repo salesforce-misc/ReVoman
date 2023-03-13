@@ -5,10 +5,13 @@ import com.squareup.moshi.JsonReader
 import com.squareup.moshi.JsonWriter
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.internal.Util
-import org.revcloud.revoman.postman.dynamicVariables
+import org.revcloud.revoman.postman.dynamicVariableGenerator
 import java.lang.reflect.Type
 
-internal class RegexAdapterFactory(private val envMap: Map<String, String?>) : JsonAdapter.Factory {
+internal class RegexAdapterFactory(
+  private val envMap: Map<String, String?>,
+  private val dynamicVariableGenerator: (String) -> String? = ::dynamicVariableGenerator
+) : JsonAdapter.Factory {
   private val postManVariableRegex = "\\{\\{([^{}]*?)}}".toRegex()
   override fun create(type: Type, annotations: Set<Annotation?>, moshi: Moshi): JsonAdapter<*>? {
     if (type != String::class.java) {
@@ -22,11 +25,11 @@ internal class RegexAdapterFactory(private val envMap: Map<String, String?>) : J
       override fun toJson(writer: JsonWriter, value: String?) = stringAdapter.toJson(writer, value)
     }
   }
-  
+
   private fun replaceRegexRecursively(s: String?): String? = s?.let {
     postManVariableRegex.replace(it) { matchResult ->
       val variableKey = matchResult.groupValues[1]
-      replaceRegexRecursively(dynamicVariables(variableKey)) ?: replaceRegexRecursively(envMap[variableKey]) ?: variableKey
+      replaceRegexRecursively(dynamicVariableGenerator(variableKey)) ?: replaceRegexRecursively(envMap[variableKey]) ?: variableKey
     }
   }
 }

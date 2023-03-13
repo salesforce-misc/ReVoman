@@ -10,14 +10,15 @@ class RegexAdapterFactoryTest {
   @OptIn(ExperimentalStdlibApi::class)
   @Test
   fun `Test regex replace in dynamic variables`() {
-    val moshi = Moshi.Builder().add(RegexAdapterFactory(mapOf("key" to "value-{{\$epoch}}"))).build().adapter<Any>()
+    val epoch = System.currentTimeMillis().toString()
+    val dummyDynamicVariableGenerator = { r: String -> if (r == "\$epoch") epoch else null}
+    val moshi = Moshi.Builder().add(RegexAdapterFactory(mapOf("key" to "value-{{\$epoch}}"), dummyDynamicVariableGenerator)).build().adapter<Any>()
     val result = moshi.fromJson("""
       {
         "epoch": "{{${"$"}epoch}}",
         "key": "{{key}}"
       }
       """.trimIndent())
-    val epoch = System.currentTimeMillis()
-    assertThat(result as Map<String, String>).containsExactlyEntriesOf(mapOf("epoch" to epoch.toString(), "key" to "value-$epoch"))
+    assertThat(result as Map<String, String>).containsExactlyEntriesOf(mapOf("epoch" to epoch, "key" to "value-$epoch"))
   }
 }

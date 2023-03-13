@@ -24,4 +24,4 @@ private val dynamicVariableKeyToGenerator: Map<String, () -> String> = mapOf(
   "\$epoch" to { System.currentTimeMillis().toString() },
 )
 
-internal fun dynamicVariables(key: String): String? = dynamicVariableKeyToGenerator[key]?.invoke()
+internal fun dynamicVariableGenerator(key: String): String? = dynamicVariableKeyToGenerator[key]?.invoke()
