@@ -8,12 +8,9 @@ plugins {
 }
 
 dependencies {
-  compileOnly(libs.jetbrains.annotations)
   api(libs.bundles.http4k)
   api(libs.moshix.adapters)
-
   implementation(libs.bundles.kotlin.logging)
-
   implementation(libs.apache.commons.lang3)
   implementation(libs.graal.sdk)
   implementation(libs.graal.js)
@@ -25,6 +22,9 @@ dependencies {
   kapt(libs.immutables.value)
   compileOnly(libs.immutables.builder)
   compileOnly(libs.immutables.value.annotations)
+  compileOnly(libs.jetbrains.annotations)
+
+  testImplementation(libs.assertj.core)
 }
 testing {
   suites {

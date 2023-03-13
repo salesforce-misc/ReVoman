@@ -21,6 +21,7 @@ private val dynamicVariableKeyToGenerator: Map<String, () -> String> = mapOf(
   "\$randomEmail" to { faker.internet.email() },
   "\$currentDate" to { LocalDate.now().toString() },
   "\$randomFutureDate" to { LocalDate.now().plusDays(random.longs(1, 365).findFirst().orElse(1)).toString() },
+  "\$epoch" to { System.currentTimeMillis().toString() },
 )
 
 internal fun dynamicVariables(key: String): String? = dynamicVariableKeyToGenerator[key]?.invoke()

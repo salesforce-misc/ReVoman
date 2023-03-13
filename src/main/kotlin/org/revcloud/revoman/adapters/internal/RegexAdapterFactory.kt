@@ -8,28 +8,25 @@ import com.squareup.moshi.internal.Util
 import org.revcloud.revoman.postman.dynamicVariables
 import java.lang.reflect.Type
 
-private val postManVariableRegex = "\\{\\{([^{}]*?)}}".toRegex()
-
-internal class RegexAdapterFactory(val envMap: Map<String, String?>) : JsonAdapter.Factory {
+internal class RegexAdapterFactory(private val envMap: Map<String, String?>) : JsonAdapter.Factory {
+  private val postManVariableRegex = "\\{\\{([^{}]*?)}}".toRegex()
   override fun create(type: Type, annotations: Set<Annotation?>, moshi: Moshi): JsonAdapter<*>? {
     if (type != String::class.java) {
       return null
     }
     val stringAdapter = moshi.nextAdapter<String>(this, String::class.java, Util.NO_ANNOTATIONS)
     return object : JsonAdapter<String>() {
-      override fun fromJson(reader: JsonReader): String? {
-        val s = stringAdapter.fromJson(reader)
-        return s?.let {
-          postManVariableRegex.replace(s) { matchResult ->
-            val variableKey = matchResult.groupValues[1]
-            dynamicVariables(variableKey) ?: envMap[variableKey] ?: ""
-          }
-        }
-      }
+      override fun fromJson(reader: JsonReader): String? =
+        replaceRegexRecursively(stringAdapter.fromJson(reader))
 
-      override fun toJson(writer: JsonWriter, value: String?) {
-        stringAdapter.toJson(writer, value)
-      }
+      override fun toJson(writer: JsonWriter, value: String?) = stringAdapter.toJson(writer, value)
+    }
+  }
+  
+  private fun replaceRegexRecursively(s: String?): String? = s?.let {
+    postManVariableRegex.replace(it) { matchResult ->
+      val variableKey = matchResult.groupValues[1]
+      replaceRegexRecursively(dynamicVariables(variableKey)) ?: replaceRegexRecursively(envMap[variableKey]) ?: variableKey
     }
   }
 }

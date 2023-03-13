@@ -152,7 +152,7 @@
 			]
 		},
 		{
-			"name": "PQ Create w/o QLR",
+			"name": "pq-create",
 			"event": [
 				{
 					"listen": "test",
@@ -210,7 +210,7 @@
 			"response": []
 		},
 		{
-			"name": "PQ Update w/o QLR",
+			"name": "pq-update",
 			"event": [
 				{
 					"listen": "test",
@@ -267,7 +267,7 @@
 			"response": []
 		},
 		{
-			"name": "PQ Create w QLR",
+			"name": "pq-create-with-bundles",
 			"event": [
 				{
 					"listen": "test",
