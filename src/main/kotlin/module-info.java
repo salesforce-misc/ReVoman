@@ -1,9 +1,9 @@
 module org.revcloud.revoman {
-  requires transitive kotlin.stdlib;
-  requires transitive moshi;
-  requires transitive moshi.adapters;
-  requires transitive vador;
-  requires transitive vador.matchers;
+  requires kotlin.stdlib;
+  requires moshi;
+  requires moshi.adapters;
+  requires vador;
+  requires vador.matchers;
   requires org.graalvm.sdk;
   requires http4k.core;
   requires http4k.format.moshi;
