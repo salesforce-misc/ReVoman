@@ -26,7 +26,8 @@
 							"var sessionId = jsonData['soapenv:Envelope']['soapenv:Body'].loginResponse.result.sessionId",
 							"pm.environment.set(\"accessToken\", sessionId);",
 							"var adminUserId = jsonData['soapenv:Envelope']['soapenv:Body'].loginResponse.result.userId",
-							"pm.environment.set(\"adminUserId\", adminUserId)"
+							"pm.environment.set(\"adminUserId\", adminUserId)",
+							""
 						],
 						"type": "text/javascript"
 					}
@@ -215,7 +216,8 @@
 						"exec": [
 							"let orgUserNamePrefix = pm.environment.get(\"username\").split('@')[1];",
 							"let newUserName = 'taxAdmin@' + orgUserNamePrefix;",
-							"pm.environment.set(\"taxAdminUserName\", newUserName);"
+							"pm.environment.set(\"taxAdminUserName\", newUserName);",
+							"pm.environment.set(\"$epoch\", (new Date).getTime())"
 						],
 						"type": "text/javascript"
 					}
@@ -245,7 +247,7 @@
 				"header": [],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n    \"allOrNone\": true,\n    \"compositeRequest\": [\n        {\n            \"method\": \"POST\",\n            \"url\": \"/services/data/v{{version}}/sobjects/User\",\n            \"referenceId\": \"refUser\",\n            \"body\": {\n                \"Username\": \"{{taxAdminUserName}}\",\n                \"ProfileId\": \"{{standardUserProfileId}}\",\n                \"Alias\": \"taxAdmin\",\n                \"Email\": \"{{$randomEmail}}\",\n                \"EmailEncodingKey\": \"ISO-8859-1\",\n                \"LastName\": \"TaxAdmin\",\n                \"LanguageLocaleKey\": \"en_US\",\n                \"LocaleSidKey\": \"en_US\",\n                \"TimeZoneSidKey\": \"America/Los_Angeles\"\n            }\n        },\n        {\n            \"method\": \"POST\",\n            \"url\": \"/services/data/v{{version}}/sobjects/PermissionSetAssignment/\",\n            \"referenceId\": \"taxAdminPsgAssignment\",\n            \"body\": {\n                \"AssigneeId\": \"@{refUser.id}\",\n                \"PermissionSetGroupId\": \"{{taxAdminPsgId}}\"\n            }\n        }\n    ]\n}",
+					"raw": "{\n    \"allOrNone\": true,\n    \"compositeRequest\": [\n        {\n            \"method\": \"POST\",\n            \"url\": \"/services/data/v{{version}}/sobjects/User\",\n            \"referenceId\": \"refUser\",\n            \"body\": {\n                \"Username\": \"{{taxAdminUserName}}{{$epoch}}\",\n                \"ProfileId\": \"{{standardUserProfileId}}\",\n                \"Alias\": \"taxAdmin\",\n                \"Email\": \"{{$randomEmail}}\",\n                \"EmailEncodingKey\": \"ISO-8859-1\",\n                \"LastName\": \"TaxAdmin\",\n                \"LanguageLocaleKey\": \"en_US\",\n                \"LocaleSidKey\": \"en_US\",\n                \"TimeZoneSidKey\": \"America/Los_Angeles\"\n            }\n        },\n        {\n            \"method\": \"POST\",\n            \"url\": \"/services/data/v{{version}}/sobjects/PermissionSetAssignment/\",\n            \"referenceId\": \"taxAdminPsgAssignment\",\n            \"body\": {\n                \"AssigneeId\": \"@{refUser.id}\",\n                \"PermissionSetGroupId\": \"{{taxAdminPsgId}}\"\n            }\n        }\n    ]\n}",
 					"options": {
 						"raw": {
 							"language": "json"
@@ -276,8 +278,8 @@
 						"exec": [
 							"let orgUserNamePrefix = pm.environment.get(\"username\").split('@')[1];",
 							"let newUserName = 'billingAdmin@' + orgUserNamePrefix;",
-							"",
-							"pm.environment.set(\"billingAdminUserName\", newUserName);"
+							"pm.environment.set(\"billingAdminUserName\", newUserName);",
+							"pm.environment.set(\"$epoch\", (new Date).getTime())"
 						],
 						"type": "text/javascript"
 					}
@@ -287,14 +289,17 @@
 					"script": {
 						"exec": [
 							"var jsonData = JSON.parse(responseBody);",
-							"var statusCode = jsonData.compositeResponse[0].httpStatusCode;",
+							"var statusCode = jsonData.compositeResponse[0].httpStatusCode;   ",
 							"",
-							"jsonData.compositeResponse.forEach(function(response){",
-							"    var referenceId = response.referenceId;",
-							"    if(referenceId === \"refUser\") {",
-							"        pm.environment.set(\"billingAdminUserId\", response.body.id);",
-							"    } ",
-							"});    "
+							"var statusCode = jsonData.compositeResponse[0].httpStatusCode;",
+							"if (statusCode == 201) {",
+							"    jsonData.compositeResponse.forEach(function(response) {",
+							"        var referenceId = response.referenceId;",
+							"        if (referenceId === \"refUser\") {",
+							"            pm.environment.set(\"billingAdminUserId\", response.body.id);",
+							"        } ",
+							"    })",
+							"};"
 						],
 						"type": "text/javascript"
 					}
@@ -315,7 +320,7 @@
 				"header": [],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n    \"allOrNone\": true,\n    \"compositeRequest\": [\n        {\n            \"method\": \"POST\",\n            \"url\": \"/services/data/v{{version}}/sobjects/User\",\n            \"referenceId\": \"refUser\",\n            \"body\": {\n                \"Username\": \"{{billingAdminUserName}}\",\n                \"Alias\": \"bAdmin\",\n                \"ProfileId\": \"{{standardUserProfileId}}\",\n                \"Email\": \"{{$randomEmail}}\",\n                \"EmailEncodingKey\": \"ISO-8859-1\",\n                \"LastName\": \"Cloudy\",\n                \"LanguageLocaleKey\": \"en_US\",\n                \"LocaleSidKey\": \"en_US\",\n                \"TimeZoneSidKey\": \"America/Los_Angeles\"\n            }\n        },\n        {\n            \"method\": \"POST\",\n            \"url\": \"/services/data/v{{version}}/sobjects/PermissionSetAssignment/\",\n            \"referenceId\": \"billingAdminPsgAssignment\",\n            \"body\": {\n                \"AssigneeId\": \"@{refUser.id}\",\n                \"PermissionSetGroupId\": \"{{billingAdminPsgId}}\"\n            }\n        }\n    ]\n}",
+					"raw": "{\n    \"allOrNone\": true,\n    \"compositeRequest\": [\n        {\n            \"method\": \"POST\",\n            \"url\": \"/services/data/v{{version}}/sobjects/User\",\n            \"referenceId\": \"refUser\",\n            \"body\": {\n                \"Username\": \"{{billingAdminUserName}}{{$epoch}}\",\n                \"Alias\": \"bAdmin\",\n                \"ProfileId\": \"{{standardUserProfileId}}\",\n                \"Email\": \"{{$randomEmail}}\",\n                \"EmailEncodingKey\": \"ISO-8859-1\",\n                \"LastName\": \"Cloudy\",\n                \"LanguageLocaleKey\": \"en_US\",\n                \"LocaleSidKey\": \"en_US\",\n                \"TimeZoneSidKey\": \"America/Los_Angeles\"\n            }\n        },\n        {\n            \"method\": \"POST\",\n            \"url\": \"/services/data/v{{version}}/sobjects/PermissionSetAssignment/\",\n            \"referenceId\": \"billingAdminPsgAssignment\",\n            \"body\": {\n                \"AssigneeId\": \"@{refUser.id}\",\n                \"PermissionSetGroupId\": \"{{billingAdminPsgId}}\"\n            }\n        }\n    ]\n}",
 					"options": {
 						"raw": {
 							"language": "json"
@@ -346,8 +351,8 @@
 						"exec": [
 							"let orgUserNamePrefix = pm.environment.get(\"username\").split('@')[1];",
 							"let newUserName = 'productAndPricingAdmin@' + orgUserNamePrefix;",
-							"",
-							"pm.environment.set(\"productAndPricingAdminUserName\", newUserName);"
+							"pm.environment.set(\"productAndPricingAdminUserName\", newUserName);",
+							"pm.environment.set(\"$epoch\", (new Date).getTime())"
 						],
 						"type": "text/javascript"
 					}
@@ -386,7 +391,7 @@
 				"header": [],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n    \"allOrNone\": true,\n    \"compositeRequest\": [\n        {\n            \"method\": \"POST\",\n            \"url\": \"/services/data/v{{version}}/sobjects/User\",\n            \"referenceId\": \"refUser\",\n            \"body\": {\n                \"Username\": \"{{productAndPricingAdminUserName}}\",\n                \"ProfileId\": \"{{standardUserProfileId}}\",\n                \"Alias\": \"prodPr\",\n                \"Email\": \"{{$randomEmail}}\",\n                \"EmailEncodingKey\": \"ISO-8859-1\",\n                \"LastName\": \"Codey\",\n                \"LanguageLocaleKey\": \"en_US\",\n                \"LocaleSidKey\": \"en_US\",\n                \"TimeZoneSidKey\": \"America/Los_Angeles\"\n            }\n        },\n        {\n            \"method\": \"POST\",\n            \"url\": \"/services/data/v{{version}}/sobjects/PermissionSetAssignment/\",\n            \"referenceId\": \"productAndPricingAdminPsgAssignment\",\n            \"body\": {\n                \"AssigneeId\": \"@{refUser.id}\",\n                \"PermissionSetGroupId\": \"{{productAndPricingAdminPsgId}}\"\n            }\n        }\n    ]\n}",
+					"raw": "{\n    \"allOrNone\": true,\n    \"compositeRequest\": [\n        {\n            \"method\": \"POST\",\n            \"url\": \"/services/data/v{{version}}/sobjects/User\",\n            \"referenceId\": \"refUser\",\n            \"body\": {\n                \"Username\": \"{{productAndPricingAdminUserName}}{{$epoch}}\",\n                \"ProfileId\": \"{{standardUserProfileId}}\",\n                \"Alias\": \"prodPr\",\n                \"Email\": \"{{$randomEmail}}\",\n                \"EmailEncodingKey\": \"ISO-8859-1\",\n                \"LastName\": \"Codey\",\n                \"LanguageLocaleKey\": \"en_US\",\n                \"LocaleSidKey\": \"en_US\",\n                \"TimeZoneSidKey\": \"America/Los_Angeles\"\n            }\n        },\n        {\n            \"method\": \"POST\",\n            \"url\": \"/services/data/v{{version}}/sobjects/PermissionSetAssignment/\",\n            \"referenceId\": \"productAndPricingAdminPsgAssignment\",\n            \"body\": {\n                \"AssigneeId\": \"@{refUser.id}\",\n                \"PermissionSetGroupId\": \"{{productAndPricingAdminPsgId}}\"\n            }\n        }\n    ]\n}",
 					"options": {
 						"raw": {
 							"language": "json"
@@ -417,8 +422,8 @@
 						"exec": [
 							"let orgUserNamePrefix = pm.environment.get(\"username\").split('@')[1];",
 							"let newUserName = 'salesRep@' + orgUserNamePrefix;",
-							"",
-							"pm.environment.set(\"salesRepUserName\", newUserName);"
+							"pm.environment.set(\"salesRepUserName\", newUserName);",
+							"pm.environment.set(\"$epoch\", (new Date).getTime())"
 						],
 						"type": "text/javascript"
 					}
@@ -457,7 +462,7 @@
 				"header": [],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n    \"allOrNone\": true,\n    \"compositeRequest\": [\n        {\n            \"method\": \"POST\",\n            \"url\": \"/services/data/v{{version}}/sobjects/User\",\n            \"referenceId\": \"refUser\",\n            \"body\": {\n                \"Username\": \"{{salesRepUserName}}\",\n                \"ProfileId\": \"{{standardUserProfileId}}\",\n                \"Alias\": \"salesRep\",\n                \"Email\": \"{{$randomEmail}}\",\n                \"EmailEncodingKey\": \"ISO-8859-1\",\n                \"LastName\": \"Salar\",\n                \"LanguageLocaleKey\": \"en_US\",\n                \"LocaleSidKey\": \"en_US\",\n                \"TimeZoneSidKey\": \"America/Los_Angeles\"\n            }\n        },\n        {\n            \"method\": \"POST\",\n            \"url\": \"/services/data/v{{version}}/sobjects/PermissionSetAssignment/\",\n            \"referenceId\": \"salesRepPsgAssignment\",\n            \"body\": {\n                \"AssigneeId\": \"@{refUser.id}\",\n                \"PermissionSetGroupId\": \"{{salesRepPsgId}}\"\n            }\n        }\n    ]\n}",
+					"raw": "{\n    \"allOrNone\": true,\n    \"compositeRequest\": [\n        {\n            \"method\": \"POST\",\n            \"url\": \"/services/data/v{{version}}/sobjects/User\",\n            \"referenceId\": \"refUser\",\n            \"body\": {\n                \"Username\": \"{{salesRepUserName}}{{$epoch}}\",\n                \"ProfileId\": \"{{standardUserProfileId}}\",\n                \"Alias\": \"salesRep\",\n                \"Email\": \"{{$randomEmail}}\",\n                \"EmailEncodingKey\": \"ISO-8859-1\",\n                \"LastName\": \"Salar\",\n                \"LanguageLocaleKey\": \"en_US\",\n                \"LocaleSidKey\": \"en_US\",\n                \"TimeZoneSidKey\": \"America/Los_Angeles\"\n            }\n        },\n        {\n            \"method\": \"POST\",\n            \"url\": \"/services/data/v{{version}}/sobjects/PermissionSetAssignment/\",\n            \"referenceId\": \"salesRepPsgAssignment\",\n            \"body\": {\n                \"AssigneeId\": \"@{refUser.id}\",\n                \"PermissionSetGroupId\": \"{{salesRepPsgId}}\"\n            }\n        }\n    ]\n}",
 					"options": {
 						"raw": {
 							"language": "json"

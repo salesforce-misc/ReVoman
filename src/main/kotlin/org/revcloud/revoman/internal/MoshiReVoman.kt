@@ -1,4 +1,4 @@
-package org.revcloud.revoman.moshi
+package org.revcloud.revoman.internal
 
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapters.Rfc3339DateJsonAdapter
@@ -12,7 +12,7 @@ import org.http4k.format.ThrowableAdapter
 import org.http4k.format.asConfigurable
 import org.http4k.format.withStandardMappings
 import org.revcloud.revoman.adapters.ObjOrListAdapterFactory
-import org.revcloud.revoman.adapters.internal.IgnoreUnknownFactory
+import org.revcloud.revoman.internal.adapters.IgnoreUnknownFactory
 import java.lang.reflect.Type
 import java.util.Date
 

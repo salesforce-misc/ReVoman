@@ -4,6 +4,7 @@ import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapter
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
+import org.revcloud.revoman.internal.adapters.RegexAdapterFactory
 
 class RegexAdapterFactoryTest {
 

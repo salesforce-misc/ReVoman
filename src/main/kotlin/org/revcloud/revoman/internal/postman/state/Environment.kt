@@ -1,4 +1,4 @@
-package org.revcloud.revoman.postman.state
+package org.revcloud.revoman.internal.postman.state
 
 import com.squareup.moshi.JsonClass
 

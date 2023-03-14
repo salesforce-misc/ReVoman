@@ -1,11 +1,11 @@
-package org.revcloud.revoman.adapters.internal
+package org.revcloud.revoman.internal.adapters
 
 import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.JsonReader
 import com.squareup.moshi.JsonWriter
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.internal.Util
-import org.revcloud.revoman.postman.dynamicVariableGenerator
+import org.revcloud.revoman.internal.postman.dynamicVariableGenerator
 import java.lang.reflect.Type
 
 internal class RegexAdapterFactory(

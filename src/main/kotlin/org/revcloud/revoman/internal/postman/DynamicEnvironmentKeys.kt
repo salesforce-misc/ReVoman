@@ -1,4 +1,4 @@
-package org.revcloud.revoman.postman
+package org.revcloud.revoman.internal.postman
 
 import io.github.serpro69.kfaker.faker
 import java.time.LocalDate

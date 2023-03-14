@@ -1,10 +1,10 @@
-package org.revcloud.revoman.postman
+package org.revcloud.revoman.internal.postman
 
 import com.github.underscore.U
 import com.squareup.moshi.JsonClass
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapter
-import org.revcloud.revoman.postman.state.Request
+import org.revcloud.revoman.internal.postman.state.Request
 
 internal class PostmanAPI {
   @JvmField

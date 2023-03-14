@@ -36,13 +36,6 @@ testing {
         implementation(project())
         implementation(libs.assertj.core)
       }
-      targets {
-        all {
-          testTask.configure {
-            shouldRunAfter(test)
-          }
-        }
-      }
     }
   }
 }

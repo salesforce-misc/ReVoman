@@ -1,7 +1,6 @@
-open module org.revcloud.revoman.integtest {
+open module org.revcloud.revoman.integrationTest {
   requires org.junit.jupiter.api;
   requires org.assertj.core;
-  requires reVoman;
-  requires vador;
-  requires moshi;
+  requires kotlin.stdlib;
+  requires org.revcloud.revoman;
 }

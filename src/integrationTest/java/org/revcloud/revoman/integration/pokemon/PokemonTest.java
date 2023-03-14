@@ -1,14 +1,13 @@
 package org.revcloud.revoman.integration.pokemon;
 
+import static org.revcloud.revoman.input.SuccessConfig.validateIfSuccess;
+
 import com.salesforce.vador.config.ValidationConfig;
 import java.util.Map;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.revcloud.revoman.ReVoman;
 import org.revcloud.revoman.input.Kick;
-import org.revcloud.revoman.input.SuccessConfig;
-
-import static org.revcloud.revoman.input.SuccessConfig.validateIfSuccess;
 
 class PokemonTest {
   private static final String TEST_RESOURCES_PATH = "src/integrationTest/resources/";

@@ -35,7 +35,6 @@ class BillingScheduleE2ETest {
                 .stepNameToSuccessConfig(Map.of(
                         "OrderItem2BS IA", validateIfSuccess(orderItem2BSIASuccessType, orderItem2BSIAValidationConfig)))
                 .off());
-    
     assertThat(rundown.stepNameToReport.values()).allMatch(StepReport::isSuccessful);
   }
 }

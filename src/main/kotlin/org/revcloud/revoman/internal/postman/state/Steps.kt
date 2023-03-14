@@ -1,4 +1,4 @@
-package org.revcloud.revoman.postman.state
+package org.revcloud.revoman.internal.postman.state
 
 import com.squareup.moshi.JsonClass
 import org.http4k.core.ContentType
@@ -30,11 +30,11 @@ internal data class Event(val listen: String, val script: Script)
 
 @JsonClass(generateAdapter = true)
 internal data class Request(
-  val method: String = "",
-  val header: List<Header> = emptyList(),
-  val url: Url = Url(),
-  val body: Body? = null,
-  val event: List<Event>? = null
+    val method: String = "",
+    val header: List<Header> = emptyList(),
+    val url: Url = Url(),
+    val body: Body? = null,
+    val event: List<Event>? = null
 ) {
   internal fun toHttpRequest(): org.http4k.core.Request {
     val contentType =
