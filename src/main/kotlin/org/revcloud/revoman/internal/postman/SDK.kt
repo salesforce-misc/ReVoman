@@ -5,6 +5,7 @@ import com.squareup.moshi.JsonClass
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapter
 import org.revcloud.revoman.internal.postman.state.Request
+import org.revcloud.revoman.postman.PostmanEnvironment
 
 internal class PostmanAPI {
   @JvmField
@@ -21,18 +22,6 @@ internal class PostmanAPI {
   @JvmField
   val xml2Json = Xml2Json { xml ->
     Moshi.Builder().build().adapter<Map<*, *>>().fromJson(U.xmlToJson(xml))
-  }
-}
-
-internal data class PostmanEnvironment(private val environment: MutableMap<String, String?> = mutableMapOf()) :
-  MutableMap<String, String?> by environment {
-  fun set(key: String, value: String?) {
-    environment[key] = value
-  }
-
-  @Suppress("unused")
-  fun unset(key: String) {
-    environment.remove(key)
   }
 }
 

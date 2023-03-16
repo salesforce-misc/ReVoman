@@ -3,7 +3,7 @@ package org.revcloud.revoman.input
 import com.salesforce.vador.config.base.BaseValidationConfig.BaseValidationConfigBuilder
 import org.immutables.value.Value
 import org.jetbrains.annotations.Nullable
-import org.revcloud.revoman.internal.postman.DynamicEnvironmentKeys.BEARER_TOKEN_KEY
+import org.revcloud.revoman.input.DynamicEnvironmentKeys.BEARER_TOKEN_KEY
 import java.lang.reflect.Type
 
 @Config
@@ -36,7 +36,8 @@ internal interface KickDef {
   @SkipNulls
   fun typesInResponseToIgnore(): Set<Class<out Any>>
   
-  fun insecureHttp(): Boolean?
+  @Value.Default
+  fun insecureHttp(): Boolean = false
 }
 
 class SuccessConfig private constructor(val successType: Type, val validationConfig: BaseValidationConfigBuilder<out Any, out Any?, *, *>? = null) {

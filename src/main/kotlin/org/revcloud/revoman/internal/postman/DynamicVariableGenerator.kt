@@ -4,11 +4,6 @@ import io.github.serpro69.kfaker.faker
 import java.time.LocalDate
 import java.util.Random
 
-object DynamicEnvironmentKeys {
-  const val BEARER_TOKEN_KEY = "bearerToken"
-  const val BASE_URL_KEY = "baseUrl"
-}
-
 private val faker = faker { }
 
 private val random = Random()

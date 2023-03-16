@@ -55,7 +55,7 @@ object ReVoman {
     stepNameToErrorType: Map<String, Type>,
     customAdaptersForResponse: List<Any>,
     typesInResponseToIgnore: Set<Class<out Any>>,
-    insecureHttp: Boolean?,
+    insecureHttp: Boolean,
   ): Rundown {
     initPmEnvironment(dynamicEnvironment, environmentPath)
     val pmSteps: Steps? = Moshi.Builder().build().adapter<Steps>().fromJson(readTextFromFile(pmTemplatePath))

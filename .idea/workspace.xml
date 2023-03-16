@@ -4,34 +4,15 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="6ed80e62-f038-45bc-b42e-83dd15ec8dae" name="Changes" comment="Remove module-info.java from integrationTest">
-      <changelist_data name="Gopal S Akshintala" email="gopala.akshintala@salesforce.com" />
-      <change afterPath="$PROJECT_DIR$/src/integrationTest/java/org/revcloud/revoman/integration/TestConstants.kt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/integrationTest/java/org/revcloud/revoman/integration/core/pq/PQE2ETest.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/integrationTest/java/org/revcloud/revoman/integration/core/pq/PlaceQuoteOutputRepresentation.kt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/test/kotlin/org/revcloud/revoman/TestConstants.kt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/test/kotlin/org/revcloud/revoman/internal/postman/PostmanTest.kt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/test/resources/env-with-regex.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/compiler.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/compiler.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/gradle.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/gradle.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+    <list default="true" id="6ed80e62-f038-45bc-b42e-83dd15ec8dae" name="Changes" comment="Release 0.6.0&#10;- Regex replacement for variables&#10;- Replace JavaHttpClient with ApacheClient">
+      <change afterPath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/input/DynamicEnvironmentKeys.kt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/postman/PostmanEnvironment.kt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/CONTRIBUTING.adoc" beforeDir="false" afterPath="$PROJECT_DIR$/CONTRIBUTING.adoc" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/build.gradle.kts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/libs.versions.toml" beforeDir="false" afterPath="$PROJECT_DIR$/libs.versions.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/integrationTest/java/org/revcloud/revoman/integration/core/BillingScheduleE2ETest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/integrationTest/java/org/revcloud/revoman/integration/core/bs/BillingScheduleE2ETest.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/integrationTest/java/org/revcloud/revoman/integration/core/OrderItemToBSIAResponse.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/integrationTest/java/org/revcloud/revoman/integration/core/bs/OrderItemToBSIAResponse.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/integrationTest/java/org/revcloud/revoman/integration/core/PQE2ETest.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/integrationTest/resources/pm-templates/pq/pq (UTest - Linux).postman_environment.json" beforeDir="false" afterPath="$PROJECT_DIR$/src/integrationTest/resources/pm-templates/pq/pq-env.postman_environment.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/integrationTest/resources/pm-templates/pq/pq-api.postman_collection.json" beforeDir="false" afterPath="$PROJECT_DIR$/src/integrationTest/resources/pm-templates/pq/pq-api.postman_collection.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/integrationTest/resources/pm-templates/pq/pq-setup.postman_collection.json" beforeDir="false" afterPath="$PROJECT_DIR$/src/integrationTest/resources/pm-templates/pq/pq-setup.postman_collection.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/integrationTest/resources/pm-templates/pq/pq.postman_collection.json" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/ReVoman.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/ReVoman.kt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/input/KickDef.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/input/KickDef.kt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/internal/Http.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/internal/Http.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/internal/adapters/RegexAdapterFactory.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/internal/adapters/RegexAdapterFactory.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/internal/postman/Postman.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/internal/postman/Postman.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/output/Rundown.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/output/Rundown.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/internal/postman/DynamicEnvironmentKeys.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/internal/postman/DynamicVariableGenerator.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/internal/postman/SDK.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/internal/postman/SDK.kt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -132,13 +113,13 @@
   <component name="RunAnythingCache">
     <option name="myCommands">
       <command value="./gradlew spotlessApply" />
-      <command value="gradle publish" />
       <command value="gradle build" />
-      <command value="gradle clean build" />
       <command value="gradle spotlessApply" />
+      <command value="gradle publish" />
+      <command value="gradle clean build" />
     </option>
   </component>
-  <component name="RunManager" selected="Gradle.PQE2ETest.revUpPQ">
+  <component name="RunManager" selected="Gradle.revoman-root [publish]">
     <configuration name="PQE2ETest.revUpPQ" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
       <ExternalSystemSettings>
         <option name="executionName" />
@@ -187,28 +168,6 @@
       <ForceTestExec>true</ForceTestExec>
       <method v="2" />
     </configuration>
-    <configuration name="revoman-root [build]" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
-      <ExternalSystemSettings>
-        <option name="executionName" />
-        <option name="externalProjectPath" value="$PROJECT_DIR$" />
-        <option name="externalSystemIdString" value="GRADLE" />
-        <option name="scriptParameters" value="" />
-        <option name="taskDescriptions">
-          <list />
-        </option>
-        <option name="taskNames">
-          <list>
-            <option value="build" />
-          </list>
-        </option>
-        <option name="vmOptions" />
-      </ExternalSystemSettings>
-      <ExternalSystemDebugServerProcess>true</ExternalSystemDebugServerProcess>
-      <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
-      <DebugAllEnabled>false</DebugAllEnabled>
-      <ForceTestExec>false</ForceTestExec>
-      <method v="2" />
-    </configuration>
     <configuration name="revoman-root [clean build]" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
       <ExternalSystemSettings>
         <option name="executionName" />
@@ -222,6 +181,28 @@
           <list>
             <option value="clean" />
             <option value="build" />
+          </list>
+        </option>
+        <option name="vmOptions" />
+      </ExternalSystemSettings>
+      <ExternalSystemDebugServerProcess>true</ExternalSystemDebugServerProcess>
+      <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
+      <DebugAllEnabled>false</DebugAllEnabled>
+      <ForceTestExec>false</ForceTestExec>
+      <method v="2" />
+    </configuration>
+    <configuration name="revoman-root [publish]" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
+      <ExternalSystemSettings>
+        <option name="executionName" />
+        <option name="externalProjectPath" value="$PROJECT_DIR$" />
+        <option name="externalSystemIdString" value="GRADLE" />
+        <option name="scriptParameters" value="" />
+        <option name="taskDescriptions">
+          <list />
+        </option>
+        <option name="taskNames">
+          <list>
+            <option value="publish" />
           </list>
         </option>
         <option name="vmOptions" />
@@ -267,11 +248,11 @@
     </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Gradle.revoman-root [publish]" />
         <item itemvalue="Gradle.PQE2ETest.revUpPQ" />
         <item itemvalue="Gradle.revoman-root [spotlessApply]" />
         <item itemvalue="Gradle.PostmanTest.unmarshall Env File with Regex" />
         <item itemvalue="Gradle.revoman-root [clean build]" />
-        <item itemvalue="Gradle.revoman-root [build]" />
       </list>
     </recent_temporary>
   </component>
@@ -290,7 +271,7 @@
       <workItem from="1678784883785" duration="902000" />
       <workItem from="1678791484815" duration="971000" />
       <workItem from="1678792762915" duration="4060000" />
-      <workItem from="1678800699624" duration="23361000" />
+      <workItem from="1678800699624" duration="25687000" />
     </task>
     <task id="LOCAL-00001" summary="- Fixed moshiReVoman&#10;- Added module-info.java to integrationTest module">
       <created>1678595183319</created>
@@ -334,7 +315,14 @@
       <option name="project" value="LOCAL" />
       <updated>1678802112799</updated>
     </task>
-    <option name="localTasksCounter" value="7" />
+    <task id="LOCAL-00007" summary="Release 0.6.0&#10;- Regex replacement for variables&#10;- Replace JavaHttpClient with ApacheClient">
+      <created>1678971588738</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1678971588738</updated>
+    </task>
+    <option name="localTasksCounter" value="8" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -359,7 +347,8 @@
     <MESSAGE value="Release 0.5.6&#10;- Replace regex recursively in variables&#10;- Upgrade Kotlin to 1.8.10&#10;- Upgrade moshi to 0.21.0" />
     <MESSAGE value="Make dynamicVariableGenerator injectable" />
     <MESSAGE value="Remove module-info.java from integrationTest" />
-    <option name="LAST_COMMIT_MESSAGE" value="Remove module-info.java from integrationTest" />
+    <MESSAGE value="Release 0.6.0&#10;- Regex replacement for variables&#10;- Replace JavaHttpClient with ApacheClient" />
+    <option name="LAST_COMMIT_MESSAGE" value="Release 0.6.0&#10;- Regex replacement for variables&#10;- Replace JavaHttpClient with ApacheClient" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
