@@ -10,7 +10,7 @@ plugins {
   id("org.jetbrains.kotlinx.kover")
 }
 
-version = "0.5.7-SNAPSHOT"
+version = "0.6.0"
 group = "com.salesforce.ccspayments"
 description = "ReVoman - A template driven testing tool"
 repositories {

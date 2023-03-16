@@ -4,13 +4,34 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="6ed80e62-f038-45bc-b42e-83dd15ec8dae" name="Changes" comment="Package Restructuring">
+    <list default="true" id="6ed80e62-f038-45bc-b42e-83dd15ec8dae" name="Changes" comment="Remove module-info.java from integrationTest">
+      <changelist_data name="Gopal S Akshintala" email="gopala.akshintala@salesforce.com" />
+      <change afterPath="$PROJECT_DIR$/src/integrationTest/java/org/revcloud/revoman/integration/TestConstants.kt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/integrationTest/java/org/revcloud/revoman/integration/core/pq/PQE2ETest.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/integrationTest/java/org/revcloud/revoman/integration/core/pq/PlaceQuoteOutputRepresentation.kt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/test/kotlin/org/revcloud/revoman/TestConstants.kt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/test/kotlin/org/revcloud/revoman/internal/postman/PostmanTest.kt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/test/resources/env-with-regex.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/compiler.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/compiler.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/gradle.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/gradle.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/buildSrc/settings.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/buildSrc/settings.gradle.kts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/integrationTest/java/module-info.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/module-info.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/module-info.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/CONTRIBUTING.adoc" beforeDir="false" afterPath="$PROJECT_DIR$/CONTRIBUTING.adoc" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/build.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/build.gradle.kts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/libs.versions.toml" beforeDir="false" afterPath="$PROJECT_DIR$/libs.versions.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/integrationTest/java/org/revcloud/revoman/integration/core/BillingScheduleE2ETest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/integrationTest/java/org/revcloud/revoman/integration/core/bs/BillingScheduleE2ETest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/integrationTest/java/org/revcloud/revoman/integration/core/OrderItemToBSIAResponse.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/integrationTest/java/org/revcloud/revoman/integration/core/bs/OrderItemToBSIAResponse.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/integrationTest/java/org/revcloud/revoman/integration/core/PQE2ETest.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/integrationTest/resources/pm-templates/pq/pq (UTest - Linux).postman_environment.json" beforeDir="false" afterPath="$PROJECT_DIR$/src/integrationTest/resources/pm-templates/pq/pq-env.postman_environment.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/integrationTest/resources/pm-templates/pq/pq-api.postman_collection.json" beforeDir="false" afterPath="$PROJECT_DIR$/src/integrationTest/resources/pm-templates/pq/pq-api.postman_collection.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/integrationTest/resources/pm-templates/pq/pq-setup.postman_collection.json" beforeDir="false" afterPath="$PROJECT_DIR$/src/integrationTest/resources/pm-templates/pq/pq-setup.postman_collection.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/integrationTest/resources/pm-templates/pq/pq.postman_collection.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/ReVoman.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/ReVoman.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/input/KickDef.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/input/KickDef.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/internal/Http.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/internal/Http.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/internal/adapters/RegexAdapterFactory.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/internal/adapters/RegexAdapterFactory.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/internal/postman/Postman.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/internal/postman/Postman.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/output/Rundown.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/output/Rundown.kt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -25,8 +46,8 @@
   <component name="FileTemplateManagerImpl">
     <option name="RECENT_TEMPLATES">
       <list>
-        <option value="Kotlin Class" />
         <option value="Kotlin File" />
+        <option value="Kotlin Class" />
       </list>
     </option>
   </component>
@@ -44,6 +65,11 @@
   </component>
   <component name="HighlightingSettingsPerFile">
     <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.graalvm.sdk/graal-sdk/22.3.1/2e2a7e4578fd0e81f82c9864ed8ae74d57898eb9/graal-sdk-22.3.1-sources.jar!/org/graalvm/polyglot/PolyglotException.java" root0="SKIP_INSPECTION" />
+    <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.http4k/http4k-client-apache/4.39.0.0/47643e315fdd312a2040007282862e3dce4e5df3/http4k-client-apache-4.39.0.0-sources.jar!/org/http4k/client/ApacheClient.kt" root0="SKIP_INSPECTION" />
+    <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.http4k/http4k-core/4.39.0.0/5f046f13fed24ed46516aa2bc130dd89753e16d5/http4k-core-4.39.0.0-sources.jar!/org/http4k/core/http.kt" root0="SKIP_INSPECTION" />
+    <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.http4k/http4k-core/4.39.0.0/5f046f13fed24ed46516aa2bc130dd89753e16d5/http4k-core-4.39.0.0-sources.jar!/org/http4k/filter/DebuggingFilters.kt" root0="SKIP_INSPECTION" />
+    <setting file="jrt:///Users/gopala.akshintala/.sdkman/candidates/java/current!/java.base/sun/security/ssl/Alert.class" root0="SKIP_INSPECTION" />
+    <setting file="jar://$USER_HOME$/core-public/tools/Darwin/jdk/openjdk_17.0.5_17.38.22_x64/zulu-17.jdk/Contents/Home/lib/src.zip!/java.base/sun/security/ssl/SSLHandshake.java" root0="SKIP_INSPECTION" />
   </component>
   <component name="MavenImportPreferences">
     <option name="generalSettings">
@@ -61,51 +87,59 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;SONARLINT_PRECOMMIT_ANALYSIS&quot;: &quot;false&quot;,
-    &quot;WebServerToolWindowFactoryState&quot;: &quot;false&quot;,
-    &quot;com.github.patou.gitmoji.display-icon&quot;: &quot;emoji&quot;,
-    &quot;com.github.patou.gitmoji.insert-in-cursor-position&quot;: &quot;true&quot;,
-    &quot;com.github.patou.gitmoji.text-after-unicode&quot;: &quot; &quot;,
-    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
-    &quot;last_opened_file_path&quot;: &quot;/Users/gopala.akshintala/code-clones/work/revoman-root/src/integrationTest&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;project.structure.last.edited&quot;: &quot;SDKs&quot;,
-    &quot;project.structure.proportion&quot;: &quot;0.0&quot;,
-    &quot;project.structure.side.proportion&quot;: &quot;0.0&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.detekt&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "SONARLINT_PRECOMMIT_ANALYSIS": "false",
+    "WebServerToolWindowFactoryState": "false",
+    "com.github.patou.gitmoji.display-icon": "emoji",
+    "com.github.patou.gitmoji.insert-in-cursor-position": "true",
+    "com.github.patou.gitmoji.text-after-unicode": " ",
+    "git-widget-placeholder": "master",
+    "last_opened_file_path": "/Users/gopala.akshintala/code-clones/work/revoman-root/src/integrationTest/java/org/revcloud/revoman/integration",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "project.structure.last.edited": "SDKs",
+    "project.structure.proportion": "0.15",
+    "project.structure.side.proportion": "0.2",
+    "settings.editor.selected.configurable": "reference.settingsdialog.project.gradle",
+    "vue.rearranger.settings.migration": "true"
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/src/integrationTest/java/org/revcloud/revoman/integration" />
       <recent name="$PROJECT_DIR$/src/integrationTest" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/src/integrationTest/java/org/revcloud/revoman/integration/core/bs" />
       <recent name="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/internal/postman" />
       <recent name="$PROJECT_DIR$/src/integrationTest/java" />
     </key>
+    <key name="CreateTestDialog.Recents.Supers">
+      <recent name="" />
+    </key>
     <key name="MoveKotlinTopLevelDeclarationsDialog.RECENTS_KEY">
       <recent name="org.revcloud.revoman.internal.adapters" />
+    </key>
+    <key name="CreateTestDialog.RecentsKey">
+      <recent name="org.revcloud.revoman.internal.postman" />
     </key>
   </component>
   <component name="RunAnythingCache">
     <option name="myCommands">
       <command value="./gradlew spotlessApply" />
-      <command value="gradle spotlessApply" />
       <command value="gradle publish" />
       <command value="gradle build" />
       <command value="gradle clean build" />
+      <command value="gradle spotlessApply" />
     </option>
   </component>
-  <component name="RunManager" selected="Gradle.revoman-root [clean build]">
-    <configuration name="RegexAdapterFacotoryTest.Test regex replace in dynamic variables" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
+  <component name="RunManager" selected="Gradle.PQE2ETest.revUpPQ">
+    <configuration name="PQE2ETest.revUpPQ" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
       <ExternalSystemSettings>
         <option name="executionName" />
         <option name="externalProjectPath" value="$PROJECT_DIR$" />
@@ -116,9 +150,9 @@
         </option>
         <option name="taskNames">
           <list>
-            <option value=":test" />
+            <option value=":integrationTest" />
             <option value="--tests" />
-            <option value="&quot;org.revcloud.revoman.adapters.internal.RegexAdapterFacotoryTest.Test regex replace in dynamic variables&quot;" />
+            <option value="&quot;org.revcloud.revoman.integration.core.pq.PQE2ETest.revUpPQ&quot;" />
           </list>
         </option>
         <option name="vmOptions" />
@@ -129,7 +163,7 @@
       <ForceTestExec>true</ForceTestExec>
       <method v="2" />
     </configuration>
-    <configuration name="RegexAdapterFactoryTest.Test regex replace in dynamic variables" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
+    <configuration name="PostmanTest.unmarshall Env File with Regex" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
       <ExternalSystemSettings>
         <option name="executionName" />
         <option name="externalProjectPath" value="$PROJECT_DIR$" />
@@ -142,7 +176,7 @@
           <list>
             <option value=":test" />
             <option value="--tests" />
-            <option value="&quot;org.revcloud.revoman.adapters.internal.RegexAdapterFactoryTest.Test regex replace in dynamic variables&quot;" />
+            <option value="&quot;org.revcloud.revoman.internal.postman.PostmanTest.unmarshall Env File with Regex&quot;" />
           </list>
         </option>
         <option name="vmOptions" />
@@ -198,7 +232,7 @@
       <ForceTestExec>false</ForceTestExec>
       <method v="2" />
     </configuration>
-    <configuration name="revoman-root [publish]" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
+    <configuration name="revoman-root [spotlessApply]" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
       <ExternalSystemSettings>
         <option name="executionName" />
         <option name="externalProjectPath" value="$PROJECT_DIR$" />
@@ -209,7 +243,7 @@
         </option>
         <option name="taskNames">
           <list>
-            <option value="publish" />
+            <option value="spotlessApply" />
           </list>
         </option>
         <option name="vmOptions" />
@@ -233,11 +267,11 @@
     </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Gradle.PQE2ETest.revUpPQ" />
+        <item itemvalue="Gradle.revoman-root [spotlessApply]" />
+        <item itemvalue="Gradle.PostmanTest.unmarshall Env File with Regex" />
         <item itemvalue="Gradle.revoman-root [clean build]" />
         <item itemvalue="Gradle.revoman-root [build]" />
-        <item itemvalue="Gradle.RegexAdapterFactoryTest.Test regex replace in dynamic variables" />
-        <item itemvalue="Gradle.RegexAdapterFacotoryTest.Test regex replace in dynamic variables" />
-        <item itemvalue="Gradle.revoman-root [publish]" />
       </list>
     </recent_temporary>
   </component>
@@ -256,7 +290,7 @@
       <workItem from="1678784883785" duration="902000" />
       <workItem from="1678791484815" duration="971000" />
       <workItem from="1678792762915" duration="4060000" />
-      <workItem from="1678800699624" duration="1230000" />
+      <workItem from="1678800699624" duration="23361000" />
     </task>
     <task id="LOCAL-00001" summary="- Fixed moshiReVoman&#10;- Added module-info.java to integrationTest module">
       <created>1678595183319</created>
@@ -293,7 +327,14 @@
       <option name="project" value="LOCAL" />
       <updated>1678728052733</updated>
     </task>
-    <option name="localTasksCounter" value="6" />
+    <task id="LOCAL-00006" summary="Remove module-info.java from integrationTest">
+      <created>1678802112799</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1678802112799</updated>
+    </task>
+    <option name="localTasksCounter" value="7" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -317,15 +358,31 @@
     <MESSAGE value="Release 0.5.5&#10;- Return test script JS errors in StepReport" />
     <MESSAGE value="Release 0.5.6&#10;- Replace regex recursively in variables&#10;- Upgrade Kotlin to 1.8.10&#10;- Upgrade moshi to 0.21.0" />
     <MESSAGE value="Make dynamicVariableGenerator injectable" />
-    <option name="LAST_COMMIT_MESSAGE" value="Make dynamicVariableGenerator injectable" />
+    <MESSAGE value="Remove module-info.java from integrationTest" />
+    <option name="LAST_COMMIT_MESSAGE" value="Remove module-info.java from integrationTest" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
       <breakpoints>
-        <line-breakpoint enabled="true" type="kotlin-line">
-          <url>file://$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/internal/adapters/RegexAdapterFactory.kt</url>
+        <line-breakpoint enabled="true" type="java-line">
+          <url>file://$PROJECT_DIR$/src/integrationTest/java/org/revcloud/revoman/integration/core/pq/PQE2ETest.java</url>
           <line>22</line>
-          <option name="timeStamp" value="3" />
+          <option name="timeStamp" value="4" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="java-line">
+          <url>file://$PROJECT_DIR$/src/integrationTest/java/org/revcloud/revoman/integration/core/pq/PQE2ETest.java</url>
+          <line>30</line>
+          <option name="timeStamp" value="6" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="java-line">
+          <url>file://$PROJECT_DIR$/src/integrationTest/java/org/revcloud/revoman/integration/core/pq/PQE2ETest.java</url>
+          <line>40</line>
+          <option name="timeStamp" value="7" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="kotlin-line">
+          <url>file://$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/ReVoman.kt</url>
+          <line>59</line>
+          <option name="timeStamp" value="8" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>

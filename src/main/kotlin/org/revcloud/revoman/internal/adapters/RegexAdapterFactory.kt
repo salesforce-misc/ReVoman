@@ -29,7 +29,7 @@ internal class RegexAdapterFactory(
   private fun replaceRegexRecursively(s: String?): String? = s?.let {
     postManVariableRegex.replace(it) { matchResult ->
       val variableKey = matchResult.groupValues[1]
-      replaceRegexRecursively(dynamicVariableGenerator(variableKey)) ?: replaceRegexRecursively(envMap[variableKey]) ?: variableKey
+      replaceRegexRecursively(dynamicVariableGenerator(variableKey)) ?: replaceRegexRecursively(envMap[variableKey]) ?: matchResult.value
     }
   }
 }

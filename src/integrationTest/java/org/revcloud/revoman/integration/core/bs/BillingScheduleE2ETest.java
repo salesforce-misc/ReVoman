@@ -1,7 +1,8 @@
-package org.revcloud.revoman.integration.core;
+package org.revcloud.revoman.integration.core.bs;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.revcloud.revoman.input.SuccessConfig.validateIfSuccess;
+import static org.revcloud.revoman.integration.TestConstantsKt.TEST_RESOURCES_PATH;
 
 import com.salesforce.vador.config.ValidationConfig;
 import com.squareup.moshi.Types;
@@ -13,7 +14,6 @@ import org.revcloud.revoman.input.Kick;
 import org.revcloud.revoman.output.StepReport;
 
 class BillingScheduleE2ETest {
-  private static final String TEST_RESOURCES_PATH = "src/integrationTest/resources/";
 
   @Test
   void revUp() {

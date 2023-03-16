@@ -20,5 +20,5 @@ data class StepReport(
   val validationError: Any? = null
 ) {
   val isSuccessful: Boolean
-    get() = responseData.status.successful
+    get() = responseData.status.successful && validationError == null && testScriptJsError == null
 }

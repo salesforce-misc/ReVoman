@@ -1,4 +1,4 @@
-package org.revcloud.revoman.integration.core
+package org.revcloud.revoman.integration.core.bs
 
 import com.squareup.moshi.JsonClass
 import kotlin.Any

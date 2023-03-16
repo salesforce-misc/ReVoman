@@ -35,11 +35,11 @@ internal interface KickDef {
 
   @SkipNulls
   fun typesInResponseToIgnore(): Set<Class<out Any>>
+  
+  fun insecureHttp(): Boolean?
 }
 
-class SuccessConfig private constructor(successType: Type, validationConfig: BaseValidationConfigBuilder<out Any, out Any?, *, *>? = null) {
-  val successType: Type = successType
-  var validationConfig: BaseValidationConfigBuilder<out Any, out Any?, *, *>? = validationConfig
+class SuccessConfig private constructor(val successType: Type, val validationConfig: BaseValidationConfigBuilder<out Any, out Any?, *, *>? = null) {
   companion object {
     @JvmStatic
     fun successType(successType: Type): SuccessConfig {

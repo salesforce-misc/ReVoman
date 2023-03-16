@@ -1,0 +1,10 @@
+{
+  "values" : [
+    {
+      "key" : "{{un}}",
+      "value" : "user-{{$epoch}}@xyz.com",
+      "type": "default",
+      "enabled": true
+    }
+  ]
+}

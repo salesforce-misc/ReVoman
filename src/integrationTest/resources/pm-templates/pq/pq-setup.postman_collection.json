@@ -1046,7 +1046,7 @@
 								],
 								"body": {
 									"mode": "raw",
-									"raw": "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<env:Envelope xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"\n    xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n    xmlns:env=\"http://schemas.xmlsoap.org/soap/envelope/\">\n  <env:Body>\n    <n1:login xmlns:n1=\"urn:partner.soap.sforce.com\">\n      <n1:username><![CDATA[{{productAndPricingAdminUserName}}]]></n1:username>\n      <n1:password><![CDATA[{{commonUserPassword}}{{secretToken}}]]></n1:password>\n    </n1:login>\n  </env:Body>\n</env:Envelope>"
+									"raw": "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<env:Envelope xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"\n    xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n    xmlns:env=\"http://schemas.xmlsoap.org/soap/envelope/\">\n  <env:Body>\n    <n1:login xmlns:n1=\"urn:partner.soap.sforce.com\">\n      <n1:username><![CDATA[{{productAndPricingAdminUserName}}]]></n1:username>\n      <n1:password><![CDATA[{{commonUserPassword}}]]></n1:password>\n    </n1:login>\n  </env:Body>\n</env:Envelope>"
 								},
 								"url": {
 									"raw": "{{baseUrl}}/services/Soap/u/{{version}}",

@@ -39,7 +39,8 @@ object ReVoman {
     kick.stepNameToSuccessConfig(),
     kick.stepNameToErrorType(),
     kick.customAdaptersForResponse(),
-    kick.typesInResponseToIgnore()
+    kick.typesInResponseToIgnore(),
+    kick.insecureHttp(),
   )
 
   private val logger = KotlinLogging.logger {}
@@ -53,7 +54,8 @@ object ReVoman {
     stepNameToSuccessConfig: Map<String, SuccessConfig>,
     stepNameToErrorType: Map<String, Type>,
     customAdaptersForResponse: List<Any>,
-    typesInResponseToIgnore: Set<Class<out Any>>
+    typesInResponseToIgnore: Set<Class<out Any>>,
+    insecureHttp: Boolean?,
   ): Rundown {
     initPmEnvironment(dynamicEnvironment, environmentPath)
     val pmSteps: Steps? = Moshi.Builder().build().adapter<Steps>().fromJson(readTextFromFile(pmTemplatePath))
@@ -65,7 +67,7 @@ object ReVoman {
       ?.map { step ->
         // * NOTE gopala.akshintala 06/08/22: Preparing for each step, as there can be intermediate auths
         logger.info { "***** Processing Step: ${step.name} *****" }
-        val httpClient: HttpHandler = prepareHttpClient(pm.environment[bearerTokenKey])
+        val httpClient: HttpHandler = prepareHttpClient(pm.environment[bearerTokenKey], insecureHttp)
         val request = step.request.toHttpRequest()
         val response: Response = httpClient(request)
         if (response.status.successful) {

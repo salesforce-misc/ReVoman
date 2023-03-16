@@ -35,7 +35,9 @@ endif::[]
 
 == Source-code Setup
 
-* This is a simple Gradle project and has its own Gradle wrapper. So nothing to install. Just run this command
+* This is a simple Gradle project and has its own Gradle wrapper.
+So nothing to install.
+Just run this command
 
 [source,bash]
 ----
@@ -46,25 +48,37 @@ endif::[]
 
 [CAUTION]
 ====
-While running Unit tests,
-you may encounter the classic `PKIX path building failed` issue with Java while making Http calls.
-To mitigate this, fetch your host certificate and run the below command (rep) to add that cert to your java keystore
-When asked for `Enter keystore password:` enter `changeit` (Common for most Java distributions)
+While running Unit tests, you may encounter the classic `PKIX path building failed` issue with Java while making Http calls.To mitigate this,
+
+- `<your-jdk-path>` — Locate the `jdk` being used by your Gradle
+- `<your-cert-path>` — Fetch your host certificate and run the below command (rep) to add that cert to your java keystore
+- `<some-name>` — Give any unique name
+
+Run this command (When asked for `Enter keystore password:` enter `changeit` (Common for most Java distributions))
 
 [source,bash]
 ----
-keytool -import -alias linux -keystore <your-jdk-path>/lib/security/cacerts -file <your-cert-path>.cer
+keytool -import -alias <some-name> -keystore <your-jdk-path>/lib/security/cacerts -file <your-cert-path>.cer
+----
+
+For example:
+
+[source,bash]
+----
+keytool -import -alias linux-4 -keystore /Users/gopala.akshintala/core-public/tools/Darwin/jdk/openjdk_17.0.5_17.38.22_x64/zulu-17.jdk/Contents/Home/lib/security/cacerts -file /Users/gopala.akshintala/Desktop/gopalaaksh-wsl4.internal.salesforce.com.cer
 ----
 
 ====
 
 === Kotlin
 
-* The code-base is a mix of Java and Kotlin. If you're a Java developer and new to Kotlin, don't worry, Kotlin is a JVM language and can be used anywhere Java is used.
+* The code-base is a mix of Java and Kotlin.
+If you're a Java developer and new to Kotlin, don't worry, Kotlin is a JVM language and can be used anywhere Java is used.
 In fact, it has got the reputation of *"Better Java!"*.
 * A typical Java developer can ramp up on Kotlin in less than a week.
 This free-course: https://www.coursera.org/learn/kotlin-for-java-developers[*Kotlin for Java Developers | Coursera*] can help catalyse your ramp-up.
-* If you use Intellij, Kotlin plugin comes bundled. Similar development aids should be present for other code editors too.
+* If you use Intellij, Kotlin plugin comes bundled.
+Similar development aids should be present for other code editors too.
 
 == Code Formatting
 
@@ -76,7 +90,8 @@ It may be slow for the first run, but later runs should be faster.
 
 == Manual publishing
 
-This repo doesn't yet have the CI/CD pipeline. So, it needs to be published manually.
+This repo doesn't yet have the CI/CD pipeline.
+So, it needs to be published manually.
 
 * In link:build.gradle.kts[], follow the <<_versioning_strategy,Versioning Strategy>>
 ** For release increment the version property in link:buildSrc/src/main/kotlin/revoman.root-conventions.gradle.kts `version = "{revoman-version}"`

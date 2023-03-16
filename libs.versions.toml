@@ -56,6 +56,7 @@ vador = { module = "com.salesforce.vador:vador", version.ref = "vador" }
 vador-matchers = { module = "com.salesforce.vador:vador-matchers", version.ref = "vador" }
 moshix-adapters = { module = "dev.zacsweers.moshix:moshi-adapters", version.ref = "moshix" }
 http4k-core = { module = "org.http4k:http4k-core", version.ref = "http4k" }
+http4k-client-apache = { module = "org.http4k:http4k-client-apache", version.ref = "http4k" }
 http4k-format-moshi = { module = "org.http4k:http4k-format-moshi", version.ref = "http4k" }
 apache-commons-lang3 = { module = "org.apache.commons:commons-lang3", version.ref = "apache-commons-lang3" }
 graal-sdk = { module = "org.graalvm.sdk:graal-sdk", version.ref = "graal-sdk" }
@@ -79,7 +80,7 @@ kotest = [
 ]
 junit = ["junit-jupiter", "junit-engine"]
 vador = ["vador", "vador-matchers"]
-http4k = ["http4k-core", "http4k-format-moshi"]
+http4k = ["http4k-core", "http4k-client-apache", "http4k-format-moshi"]
 kotlin-logging = ["kotlin-logging-jvm", "log4j-api", "log4j-core", "log4j-slf4j2-impl"]
 
 [plugins]
