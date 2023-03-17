@@ -1,6 +1,4 @@
 [versions]
-hamcrest-core = "2.2"
-hamcrest-date = "2.0.8"
 java-vavr = "0.10.4"
 kotlin-vavr = "0.10.2"
 jetbrains-annotations = "24.0.1"
@@ -30,8 +28,6 @@ spotless = "6.17.0"
 apache-log4j = "2.20.0"
 
 [libraries]
-hamcrest-core = { module = "org.hamcrest:hamcrest", version.ref = "hamcrest-core" }
-hamcrest-date = { module = "org.exparity:hamcrest-date", version.ref = "hamcrest-date" }
 java-vavr = { module = "io.vavr:vavr", version.ref = "java-vavr" }
 kotlin-vavr = { module = "io.vavr:vavr-kotlin", version.ref = "kotlin-vavr" }
 jetbrains-annotations = { module = "org.jetbrains:annotations", version.ref = "jetbrains-annotations" }
