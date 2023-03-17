@@ -18,6 +18,8 @@ dependencies {
   implementation(libs.underscore)
   api(libs.bundles.vador) {
     exclude("org.apache.logging.log4j", "log4j-slf4j18-impl")
+    exclude("org.hamcrest:hamcrest", "hamcrest-core")
+    exclude("org.hamcrest:hamcrest", "hamcrest-date")
   }
   kapt(libs.immutables.value)
   compileOnly(libs.immutables.builder)
