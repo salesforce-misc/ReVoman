@@ -7,11 +7,10 @@ module org.revcloud.revoman {
   requires org.graalvm.sdk;
   requires http4k.core;
   requires http4k.format.moshi;
-  requires org.apache.commons.lang3;
   requires http4k.format.core;
+  requires org.apache.commons.lang3;
   requires org.immutables.value.annotations;
   requires org.jetbrains.annotations;
-  requires java.net.http;
   requires kotlin.faker;
   requires io.github.microutils.kotlinlogging;
   requires com.github.underscore;
