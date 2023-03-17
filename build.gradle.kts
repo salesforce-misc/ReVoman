@@ -25,7 +25,6 @@ dependencies {
   compileOnly(libs.jetbrains.annotations)
 
   testImplementation(libs.assertj.core)
-  testImplementation(libs.bundles.kotest)
 }
 testing {
   suites {
