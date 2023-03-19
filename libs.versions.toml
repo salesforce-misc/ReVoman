@@ -19,7 +19,7 @@ kotlin-logging = "3.0.5"
 apache-commons-lang3 = "3.12.0"
 graal-sdk = "22.3.1"
 underscore = "1.87"
-kotlin-faker = "1.14.0-SNAPSHOT"
+kotlin-faker = "1.14.0"
 immutables = "2.9.3"
 # Common dependencies
 junit = "5.9.2"
