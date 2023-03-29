@@ -39,7 +39,7 @@ spotless-gradle = { module = "com.diffplug.spotless:spotless-plugin-gradle", ver
 spotbugs-gradle = { module = "com.github.spotbugs.snom:spotbugs-gradle-plugin", version.ref = "spotbugs" }
 reflection-util = { module = "de.cronn:reflection-util", version.ref = "reflection-util" }
 testLogger-gradle = { module = "com.adarshr.test-logger:com.adarshr.test-logger.gradle.plugin", version.ref = "testLogger" }
-kotest-assertionsCore = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
+kotest-assertions-core = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
 kotest-frameworkEngine = { module = "io.kotest:kotest-framework-engine", version.ref = "kotest" }
 kotest-property = { module = "io.kotest:kotest-property", version.ref = "kotest" }
 kotest-runnerJUnit5 = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }
@@ -69,7 +69,7 @@ log4j-slf4j2-impl = { module = "org.apache.logging.log4j:log4j-slf4j2-impl", ver
 
 [bundles]
 kotest = [
-    "kotest-assertionsCore",
+    "kotest-assertions-core",
     "kotest-frameworkEngine",
     "kotest-property",
     "kotest-runnerJUnit5",

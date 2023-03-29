@@ -15,6 +15,6 @@ class PostmanTest {
     val dummyDynamicVariableGenerator = { r: String -> if (r == "\$epoch") epoch else null}
     val actualEnv = unmarshallEnvFile("${TEST_RESOURCES_PATH}/env-with-regex.json", mapOf("un" to "userName"), dummyDynamicVariableGenerator)
     val expectedEnv = Environment(values = listOf(EnvValue(key = "userName", value = "user-$epoch@xyz.com", enabled = true)))
-    Assertions.assertThat(actualEnv).isEqualTo(expectedEnv)
+    actualEnv shouldBe expectedEnv
   }
 }

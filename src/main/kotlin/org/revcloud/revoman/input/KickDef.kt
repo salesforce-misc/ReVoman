@@ -54,7 +54,6 @@ class SuccessConfig private constructor(val successType: Type, val validationCon
   }
 }
 
-
 enum class ValidationStrategy {
   FAIL_FAST,
 }

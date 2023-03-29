@@ -16,17 +16,14 @@ dependencies {
   implementation(libs.graal.js)
   implementation(libs.kotlin.faker)
   implementation(libs.underscore)
-  api(libs.bundles.vador) {
-    exclude("org.apache.logging.log4j", "log4j-slf4j18-impl")
-    exclude("org.hamcrest:hamcrest", "hamcrest-core")
-    exclude("org.hamcrest:hamcrest", "hamcrest-date")
-  }
+  api(libs.bundles.vador)
   kapt(libs.immutables.value)
   compileOnly(libs.immutables.builder)
   compileOnly(libs.immutables.value.annotations)
   compileOnly(libs.jetbrains.annotations)
 
   testImplementation(libs.assertj.core)
+  testImplementation(libs.bundles.kotest)
 }
 testing {
   suites {

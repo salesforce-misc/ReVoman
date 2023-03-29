@@ -2,6 +2,8 @@ package org.revcloud.revoman.adapters.internal
 
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapter
+import io.kotest.matchers.maps.shouldContainAll
+import io.kotest.matchers.maps.shouldContainExactly
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.revcloud.revoman.internal.adapters.RegexAdapterFactory
@@ -19,7 +21,7 @@ class RegexAdapterFactoryTest {
         "epoch": "{{${"$"}epoch}}",
         "key": "{{key}}"
       }
-      """.trimIndent())
-    assertThat(result as Map<String, String>).containsExactlyEntriesOf(mapOf("epoch" to epoch, "key" to "value-$epoch"))
+      """.trimIndent()) as Map<String, String>
+    result shouldContainAll mapOf("epoch" to epoch, "key" to "value-$epoch")
   }
 }

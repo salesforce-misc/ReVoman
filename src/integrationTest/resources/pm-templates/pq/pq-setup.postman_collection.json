@@ -400,7 +400,7 @@
 					"response": []
 				},
 				{
-					"name": "Create Payment Term",
+					"name": "Payment Term",
 					"event": [
 						{
 							"listen": "test",
@@ -446,7 +446,7 @@
 					"response": []
 				},
 				{
-					"name": "Create Payment Term Item",
+					"name": "Payment Term Item",
 					"event": [
 						{
 							"listen": "test",
@@ -664,7 +664,7 @@
 					"response": []
 				},
 				{
-					"name": "MockAdapter",
+					"name": "MockTaxAdapter",
 					"event": [
 						{
 							"listen": "prerequest",
@@ -691,7 +691,7 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{baseUrl}}/services/data/v{{version}}/query/?q=SELECT+Id,Name,Status,ApiVersion,Body+FROM+ApexClass+WHERE+Name='MockAdapter'",
+							"raw": "{{baseUrl}}/services/data/v{{version}}/query/?q=SELECT Id FROM ApexClass WHERE Name='MockAdapter'",
 							"host": [
 								"{{baseUrl}}"
 							],
@@ -705,7 +705,7 @@
 							"query": [
 								{
 									"key": "q",
-									"value": "SELECT+Id,Name,Status,ApiVersion,Body+FROM+ApexClass+WHERE+Name='MockAdapter'"
+									"value": "SELECT Id FROM ApexClass WHERE Name='MockAdapter'"
 								}
 							]
 						}
@@ -749,6 +749,55 @@
 								"v{{version}}",
 								"sobjects",
 								"Taxengineprovider"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "TaxEngineProvider",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"pm.environment.set(\"taxEngineProviderId\", jsonData.records[0].Id);",
+									""
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/services/data/v{{version}}/query/?q=select id from TaxEngineProvider where ApexAdapterId = '{{mockTaxAdapterId}}'",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"services",
+								"data",
+								"v{{version}}",
+								"query",
+								""
+							],
+							"query": [
+								{
+									"key": "q",
+									"value": "select id from TaxEngineProvider where ApexAdapterId = '{{mockTaxAdapterId}}'"
+								}
 							]
 						}
 					},
@@ -934,7 +983,7 @@
 					"response": []
 				},
 				{
-					"name": "Update Tax Policy",
+					"name": "Tax Policy",
 					"event": [
 						{
 							"listen": "prerequest",
@@ -1110,7 +1159,7 @@
 									"raw": ""
 								},
 								"url": {
-									"raw": "{{baseUrl}}/services/data/v{{version}}/query/?q=SELECT Id FROM Pricebook2 WHERE IsStandard = true",
+									"raw": "{{baseUrl}}/services/data/v{{version}}/query/?q=SELECT Id FROM Pricebook2 WHERE IsStandard = true AND isActive = true",
 									"host": [
 										"{{baseUrl}}"
 									],
@@ -1124,7 +1173,7 @@
 									"query": [
 										{
 											"key": "q",
-											"value": "SELECT Id FROM Pricebook2 WHERE IsStandard = true"
+											"value": "SELECT Id FROM Pricebook2 WHERE IsStandard = true AND isActive = true"
 										}
 									]
 								}
@@ -1194,12 +1243,121 @@
 								}
 							},
 							"response": []
+						},
+						{
+							"name": "Proration Policy",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"var jsonData = JSON.parse(responseBody);",
+											"if(jsonData.records[0]!=null){",
+											"    pm.environment.set(\"prorationPolicyId\", jsonData.records[0].Id);",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"protocolProfileBehavior": {
+								"disableBodyPruning": true
+							},
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Content-Type",
+										"name": "Content-Type",
+										"type": "text",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": ""
+								},
+								"url": {
+									"raw": "{{baseUrl}}/services/data/v{{version}}/query/?q=SELECT Id, Name FROM ProrationPolicy where Name LIKE '%25Test%25' and RemainderStrategy = 'AddToFirst' and ProrationPolicyType = 'StandardTimePeriods' ",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"services",
+										"data",
+										"v{{version}}",
+										"query",
+										""
+									],
+									"query": [
+										{
+											"key": "q",
+											"value": "SELECT Id, Name FROM ProrationPolicy where Name LIKE '%25Test%25' and RemainderStrategy = 'AddToFirst' and ProrationPolicyType = 'StandardTimePeriods' "
+										}
+									]
+								}
+							},
+							"response": []
 						}
 					]
 				},
 				{
 					"name": "OneTime",
 					"item": [
+						{
+							"name": "One-Time Product",
+							"event": [
+								{
+									"listen": "prerequest",
+									"script": {
+										"exec": [
+											""
+										],
+										"type": "text/javascript"
+									}
+								},
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"var jsonData = JSON.parse(responseBody);",
+											"if(jsonData.id!=null){",
+											"    pm.environment.set(\"oneTimeProductId\", jsonData.id);",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"Name\": \"One-Time\",\n    \"ProductCode\": \"OneTime\",\n    \"IsActive\": true,\n    \"Type\": \"Bundle\",\n    \"BillingPolicyId\": \"{{billingPolicyId}}\",\n    \"TaxPolicyId\": \"{{taxPolicyId}}\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/services/data/v{{version}}/sobjects/Product2/",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"services",
+										"data",
+										"v{{version}}",
+										"sobjects",
+										"Product2",
+										""
+									]
+								}
+							},
+							"response": []
+						},
 						{
 							"name": "OneTime PSM",
 							"event": [
@@ -1265,7 +1423,7 @@
 							"response": []
 						},
 						{
-							"name": "OneTime PSM Query",
+							"name": "OneTime PSM",
 							"event": [
 								{
 									"listen": "test",
@@ -1314,124 +1472,6 @@
 											"key": "q",
 											"value": "SELECT Id, SellingModelType, PricingTerm, PricingTermUnit, Status FROM ProductSellingModel where SellingModelType = 'OneTime'"
 										}
-									]
-								}
-							},
-							"response": []
-						},
-						{
-							"name": "One-Time Product",
-							"event": [
-								{
-									"listen": "prerequest",
-									"script": {
-										"exec": [
-											""
-										],
-										"type": "text/javascript"
-									}
-								},
-								{
-									"listen": "test",
-									"script": {
-										"exec": [
-											"var jsonData = JSON.parse(responseBody);",
-											"if(jsonData.id!=null){",
-											"    pm.environment.set(\"oneTimeProductId\", jsonData.id);",
-											"}"
-										],
-										"type": "text/javascript"
-									}
-								}
-							],
-							"request": {
-								"method": "POST",
-								"header": [],
-								"body": {
-									"mode": "raw",
-									"raw": "{\n    \"Name\": \"Test One-Time Product\",\n    \"ProductCode\": \"OneTime\",\n    \"IsActive\": true,\n    \"Type\": \"Bundle\",\n    \"BillingPolicyId\": \"{{billingPolicyId}}\",\n    \"TaxPolicyId\": \"{{taxPolicyId}}\"\n}",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "{{baseUrl}}/services/data/v{{version}}/sobjects/Product2/",
-									"host": [
-										"{{baseUrl}}"
-									],
-									"path": [
-										"services",
-										"data",
-										"v{{version}}",
-										"sobjects",
-										"Product2",
-										""
-									]
-								}
-							},
-							"response": []
-						},
-						{
-							"name": "Termed Monthly PSM",
-							"event": [
-								{
-									"listen": "prerequest",
-									"script": {
-										"exec": [
-											""
-										],
-										"type": "text/javascript"
-									}
-								},
-								{
-									"listen": "test",
-									"script": {
-										"exec": [
-											"var jsonData = JSON.parse(responseBody);",
-											"if(jsonData.id!=null){",
-											"    pm.environment.set(\"termedProductSellingModelId\", jsonData.id);",
-											"}"
-										],
-										"type": "text/javascript"
-									}
-								}
-							],
-							"request": {
-								"auth": {
-									"type": "bearer",
-									"bearer": [
-										{
-											"key": "token",
-											"value": "{{accessToken}}",
-											"type": "string"
-										}
-									]
-								},
-								"method": "POST",
-								"header": [],
-								"body": {
-									"mode": "raw",
-									"raw": "{\n    \"SellingModelType\": \"TermDefined\",\n    \"PricingTerm\": 1,\n    \"PricingTermUnit\": \"Months\",\n    \"Name\": \"Monthly Termed PSM\",\n    \"Status\": \"Active\"\n}",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "{{baseUrl}}/services/data/v{{version}}/sobjects/ProductSellingModel/",
-									"host": [
-										"{{baseUrl}}"
-									],
-									"path": [
-										"services",
-										"data",
-										"v{{version}}",
-										"sobjects",
-										"ProductSellingModel",
-										""
 									]
 								}
 							},
@@ -1548,7 +1588,125 @@
 					"name": "Evergreen",
 					"item": [
 						{
-							"name": "Evergeen PSM Query",
+							"name": "Evergreen Product",
+							"event": [
+								{
+									"listen": "prerequest",
+									"script": {
+										"exec": [
+											""
+										],
+										"type": "text/javascript"
+									}
+								},
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"var jsonData = JSON.parse(responseBody);",
+											"if(jsonData.id!=null) {",
+											"    pm.environment.set(\"evergreenProductId\", jsonData.id);",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"Name\": \"Evergreen\",\n    \"ProductCode\": \"Evergreen\",\n    \"Type\": \"Bundle\",\n    \"IsActive\": true,\n    \"BillingPolicyId\": \"{{billingPolicyId}}\",\n    \"TaxPolicyId\": \"{{taxPolicyId}}\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/services/data/v{{version}}/sobjects/Product2/",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"services",
+										"data",
+										"v{{version}}",
+										"sobjects",
+										"Product2",
+										""
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Evergreen PSM",
+							"event": [
+								{
+									"listen": "prerequest",
+									"script": {
+										"exec": [
+											""
+										],
+										"type": "text/javascript"
+									}
+								},
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"var jsonData = JSON.parse(responseBody);",
+											"if (jsonData.id!=null) {",
+											"    pm.environment.set(\"evergreenProductSellingModelId\", jsonData.id);",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{accessToken}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"SellingModelType\": \"Evergreen\",\n    \"PricingTerm\": 1,\n    \"PricingTermUnit\": \"Months\",\n    \"Name\": \"Monthly Evergreen PSM\",\n    \"Status\": \"Active\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/services/data/v{{version}}/sobjects/ProductSellingModel/",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"services",
+										"data",
+										"v{{version}}",
+										"sobjects",
+										"ProductSellingModel",
+										""
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Evergreen PSM",
 							"event": [
 								{
 									"listen": "test",
@@ -1597,179 +1755,6 @@
 											"key": "q",
 											"value": "SELECT Id, SellingModelType, PricingTerm, PricingTermUnit, Status FROM ProductSellingModel where SellingModelType = 'Evergreen'"
 										}
-									]
-								}
-							},
-							"response": []
-						},
-						{
-							"name": "Proration Policy Query",
-							"event": [
-								{
-									"listen": "test",
-									"script": {
-										"exec": [
-											"var jsonData = JSON.parse(responseBody);",
-											"if(jsonData.records[0]!=null){",
-											"    pm.environment.set(\"prorationPolicyId\", jsonData.records[0].Id);",
-											"}"
-										],
-										"type": "text/javascript"
-									}
-								}
-							],
-							"protocolProfileBehavior": {
-								"disableBodyPruning": true
-							},
-							"request": {
-								"method": "GET",
-								"header": [
-									{
-										"key": "Content-Type",
-										"name": "Content-Type",
-										"type": "text",
-										"value": "application/json"
-									}
-								],
-								"body": {
-									"mode": "raw",
-									"raw": ""
-								},
-								"url": {
-									"raw": "{{baseUrl}}/services/data/v{{version}}/query/?q=SELECT Id, Name FROM ProrationPolicy where Name LIKE '%25Test%25' and RemainderStrategy = 'AddToFirst' and ProrationPolicyType = 'StandardTimePeriods'",
-									"host": [
-										"{{baseUrl}}"
-									],
-									"path": [
-										"services",
-										"data",
-										"v{{version}}",
-										"query",
-										""
-									],
-									"query": [
-										{
-											"key": "q",
-											"value": "SELECT Id, Name FROM ProrationPolicy where Name LIKE '%25Test%25' and RemainderStrategy = 'AddToFirst' and ProrationPolicyType = 'StandardTimePeriods'"
-										}
-									]
-								}
-							},
-							"response": []
-						},
-						{
-							"name": "Create Evergreen Product",
-							"event": [
-								{
-									"listen": "prerequest",
-									"script": {
-										"exec": [
-											""
-										],
-										"type": "text/javascript"
-									}
-								},
-								{
-									"listen": "test",
-									"script": {
-										"exec": [
-											"var jsonData = JSON.parse(responseBody);",
-											"if(jsonData.id!=null){",
-											"    pm.environment.set(\"evergreenProductId\", jsonData.id);",
-											"}"
-										],
-										"type": "text/javascript"
-									}
-								}
-							],
-							"request": {
-								"method": "POST",
-								"header": [],
-								"body": {
-									"mode": "raw",
-									"raw": "{\n    \"Name\": \"Test Evergreen Product\",\n    \"ProductCode\": \"Evergreen\",\n    \"Type\": \"Bundle\",\n    \"IsActive\": true,\n    \"BillingPolicyId\": \"{{billingPolicyId}}\",\n    \"TaxPolicyId\": \"{{taxPolicyId}}\"\n}",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "{{baseUrl}}/services/data/v{{version}}/sobjects/Product2/",
-									"host": [
-										"{{baseUrl}}"
-									],
-									"path": [
-										"services",
-										"data",
-										"v{{version}}",
-										"sobjects",
-										"Product2",
-										""
-									]
-								}
-							},
-							"response": []
-						},
-						{
-							"name": "Evergreen Monthly PSM",
-							"event": [
-								{
-									"listen": "prerequest",
-									"script": {
-										"exec": [
-											""
-										],
-										"type": "text/javascript"
-									}
-								},
-								{
-									"listen": "test",
-									"script": {
-										"exec": [
-											"var jsonData = JSON.parse(responseBody);",
-											"if(jsonData.id!=null){",
-											"    pm.environment.set(\"evergreenProductSellingModelId\", jsonData.id);",
-											"}"
-										],
-										"type": "text/javascript"
-									}
-								}
-							],
-							"request": {
-								"auth": {
-									"type": "bearer",
-									"bearer": [
-										{
-											"key": "token",
-											"value": "{{accessToken}}",
-											"type": "string"
-										}
-									]
-								},
-								"method": "POST",
-								"header": [],
-								"body": {
-									"mode": "raw",
-									"raw": "{\n    \"SellingModelType\": \"Evergreen\",\n    \"PricingTerm\": 1,\n    \"PricingTermUnit\": \"Months\",\n    \"Name\": \"Monthly Evergreen PSM\",\n    \"Status\": \"Active\"\n}",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "{{baseUrl}}/services/data/v{{version}}/sobjects/ProductSellingModel/",
-									"host": [
-										"{{baseUrl}}"
-									],
-									"path": [
-										"services",
-										"data",
-										"v{{version}}",
-										"sobjects",
-										"ProductSellingModel",
-										""
 									]
 								}
 							},
@@ -1827,7 +1812,7 @@
 							"response": []
 						},
 						{
-							"name": "Create Evergreen PBE",
+							"name": "Evergreen PBE",
 							"event": [
 								{
 									"listen": "prerequest",
@@ -1886,7 +1871,125 @@
 					"name": "Termed",
 					"item": [
 						{
-							"name": "Termed PSM Query",
+							"name": "Termed Product",
+							"event": [
+								{
+									"listen": "prerequest",
+									"script": {
+										"exec": [
+											""
+										],
+										"type": "text/javascript"
+									}
+								},
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"var jsonData = JSON.parse(responseBody);",
+											"if(jsonData.id!=null) {",
+											"    pm.environment.set(\"termedProductId\", jsonData.id);",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"Name\": \"Termed\",\n    \"ProductCode\": \"Termed\",\n    \"Type\": \"Bundle\",\n    \"IsActive\": true,\n    \"BillingPolicyId\": \"{{billingPolicyId}}\",\n    \"TaxPolicyId\": \"{{taxPolicyId}}\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/services/data/v{{version}}/sobjects/Product2/",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"services",
+										"data",
+										"v{{version}}",
+										"sobjects",
+										"Product2",
+										""
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Termed PSM",
+							"event": [
+								{
+									"listen": "prerequest",
+									"script": {
+										"exec": [
+											""
+										],
+										"type": "text/javascript"
+									}
+								},
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"var jsonData = JSON.parse(responseBody);",
+											"if(jsonData.id!=null){",
+											"    pm.environment.set(\"termedProductSellingModelId\", jsonData.id);",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{accessToken}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"SellingModelType\": \"TermDefined\",\n    \"PricingTerm\": 1,\n    \"PricingTermUnit\": \"Months\",\n    \"Name\": \"Monthly Termed PSM\",\n    \"Status\": \"Active\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/services/data/v{{version}}/sobjects/ProductSellingModel/",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"services",
+										"data",
+										"v{{version}}",
+										"sobjects",
+										"ProductSellingModel",
+										""
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Termed PSM",
 							"event": [
 								{
 									"listen": "test",
@@ -1941,116 +2044,7 @@
 							"response": []
 						},
 						{
-							"name": "Proration Policy Query",
-							"event": [
-								{
-									"listen": "test",
-									"script": {
-										"exec": [
-											"var jsonData = JSON.parse(responseBody);",
-											"if(jsonData.records[0]!=null){",
-											"    pm.environment.set(\"prorationPolicyId\", jsonData.records[0].Id);",
-											"}"
-										],
-										"type": "text/javascript"
-									}
-								}
-							],
-							"protocolProfileBehavior": {
-								"disableBodyPruning": true
-							},
-							"request": {
-								"method": "GET",
-								"header": [
-									{
-										"key": "Content-Type",
-										"name": "Content-Type",
-										"type": "text",
-										"value": "application/json"
-									}
-								],
-								"body": {
-									"mode": "raw",
-									"raw": ""
-								},
-								"url": {
-									"raw": "{{baseUrl}}/services/data/v{{version}}/query/?q=SELECT Id, Name FROM ProrationPolicy where Name LIKE '%25Test%25' and RemainderStrategy = 'AddToFirst' and ProrationPolicyType = 'StandardTimePeriods' ",
-									"host": [
-										"{{baseUrl}}"
-									],
-									"path": [
-										"services",
-										"data",
-										"v{{version}}",
-										"query",
-										""
-									],
-									"query": [
-										{
-											"key": "q",
-											"value": "SELECT Id, Name FROM ProrationPolicy where Name LIKE '%25Test%25' and RemainderStrategy = 'AddToFirst' and ProrationPolicyType = 'StandardTimePeriods' "
-										}
-									]
-								}
-							},
-							"response": []
-						},
-						{
-							"name": "Create Termed Product",
-							"event": [
-								{
-									"listen": "prerequest",
-									"script": {
-										"exec": [
-											""
-										],
-										"type": "text/javascript"
-									}
-								},
-								{
-									"listen": "test",
-									"script": {
-										"exec": [
-											"var jsonData = JSON.parse(responseBody);",
-											"if(jsonData.id!=null){",
-											"    pm.environment.set(\"termedProductId\", jsonData.id);",
-											"}"
-										],
-										"type": "text/javascript"
-									}
-								}
-							],
-							"request": {
-								"method": "POST",
-								"header": [],
-								"body": {
-									"mode": "raw",
-									"raw": "{\n    \"Name\": \"Test Termed Product\",\n    \"ProductCode\": \"Termed\",\n    \"Type\": \"Bundle\",\n    \"IsActive\": true,\n    \"BillingPolicyId\": \"{{billingPolicyId}}\",\n    \"TaxPolicyId\": \"{{taxPolicyId}}\"\n}",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "{{baseUrl}}/services/data/v{{version}}/sobjects/Product2/",
-									"host": [
-										"{{baseUrl}}"
-									],
-									"path": [
-										"services",
-										"data",
-										"v{{version}}",
-										"sobjects",
-										"Product2",
-										""
-									]
-								}
-							},
-							"response": []
-						},
-						{
-							"name": "PSMO",
+							"name": "Termed PSMO",
 							"event": [
 								{
 									"listen": "prerequest",
@@ -2220,7 +2214,7 @@
 					"response": []
 				},
 				{
-					"name": "ProductRelationShipTypeId",
+					"name": "ProductRelationShipType",
 					"event": [
 						{
 							"listen": "test",
