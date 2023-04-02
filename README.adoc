@@ -209,11 +209,12 @@ The future looks bright
 
 * *It's built with extensibility* in mind. It can easily be extended to support downloadable *Kaiju* templates too. **** You should be able to run Kaiju availability tests right from your IDE and debug them too
 * Support for Async or Background operations
-* It’s meant to be more than Postman; Consumer teams can plug their *Custom dynamic variables* for use-cases like parametric testing
+* It is meant to be more than Postman; Consumer teams can plug their *Custom dynamic variables* for use-cases like parametric testing
 
 == Open source
 
-Just like Vador, this is a generic off-core tool and a perfect candidate to publish to the world as an Open-source software.
+Just like Vador,
+this is a generic off-core tool and a perfect candidate to publish to the world as Open-source software.
 
 == FAQs
 

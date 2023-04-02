@@ -13,7 +13,7 @@ module org.revcloud.revoman {
   requires org.jetbrains.annotations;
   requires kotlin.faker;
   requires io.github.microutils.kotlinlogging;
-  requires com.github.underscore;
+  requires http4k.client.apache;
 
   exports org.revcloud.revoman;
   exports org.revcloud.revoman.input;

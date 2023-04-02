@@ -35,9 +35,15 @@ endif::[]
 
 == Source-code Setup
 
-* This is a simple Gradle project and has its own Gradle wrapper.
-So nothing to install.
-Just run this command
+* You need to add your nexus credentials in `~/.gradle/gradle.properties` file (create file if not present), which are used by your local gradle to connect to nexus for publish. You can find them in your `core/app/main/workspace-user.xml` or https://nexus.soma.salesforce.com/nexus/[Nexus Portal]
+
+[source,properties]
+----
+  nexusUsername=...
+  nexusPassword=...
+----
+
+* This is a simple Gradle project and has its own Gradle wrapper. So nothing to install. Just run this command
 
 [source,bash]
 ----
