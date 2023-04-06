@@ -24,7 +24,7 @@ immutables = "2.9.3"
 # Common dependencies
 junit = "5.9.2"
 detekt = "1.22.0"
-spotless = "6.17.0"
+spotless = "6.18.0"
 apache-log4j = "2.20.0"
 
 [libraries]
