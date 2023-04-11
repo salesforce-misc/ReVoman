@@ -2,7 +2,6 @@ package org.revcloud.revoman.input
 
 import com.salesforce.vador.config.base.BaseValidationConfig.BaseValidationConfigBuilder
 import org.immutables.value.Value
-import org.jetbrains.annotations.Nullable
 import org.revcloud.revoman.input.DynamicEnvironmentKeys.BEARER_TOKEN_KEY
 import java.lang.reflect.Type
 
@@ -11,7 +10,6 @@ import java.lang.reflect.Type
 internal interface KickDef {
   fun templatePath(): String
 
-  @Nullable
   fun environmentPath(): String?
 
   @SkipNulls

@@ -1,4 +1,3 @@
-@Suppress("DSL_SCOPE_VIOLATION")
 plugins {
   id("revoman.root-conventions")
   id("revoman.sub-conventions")
@@ -23,7 +22,6 @@ dependencies {
   compileOnly(libs.jetbrains.annotations)
 
   testImplementation(libs.assertj.core)
-  testImplementation(libs.bundles.kotest)
 }
 testing {
   suites {
@@ -39,5 +37,6 @@ testing {
   }
 }
 moshi {
-  enableSealed.set(true)
+  enableSealed by true
+  generateProguardRules by false
 }
