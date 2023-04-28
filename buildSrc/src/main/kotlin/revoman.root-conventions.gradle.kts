@@ -1,6 +1,4 @@
 import com.diffplug.spotless.extra.wtp.EclipseWtpFormatterStep.XML
-import kotlinx.kover.api.DefaultJacocoEngine
-import kotlinx.kover.api.KoverTaskExtension
 
 plugins {
   java
@@ -16,16 +14,6 @@ description = "ReVoman - A template driven testing tool"
 repositories {
   mavenCentral()
   maven("https://oss.sonatype.org/content/repositories/snapshots")
-}
-kover {
-  isDisabled.set(false)
-  engine.set(DefaultJacocoEngine)
-}
-koverMerged {
-  enable()
-  xmlReport {
-    onCheck.set(true)
-  }
 }
 spotless {
   kotlin {
@@ -69,11 +57,4 @@ detekt {
   buildUponDefaultConfig = true
   baseline = file("$rootDir/detekt/baseline.xml")
   config = files("$rootDir/detekt/config.yml")
-}
-tasks {
-  test {
-    extensions.configure(KoverTaskExtension::class) {
-      isEnabled = true
-    }
-  }
 }

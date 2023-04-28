@@ -5,7 +5,6 @@ plugins {
   alias(libs.plugins.moshix)
   id(libs.plugins.detekt.pluginId) apply false
 }
-
 dependencies {
   api(libs.bundles.http4k)
   api(libs.moshix.adapters)
@@ -33,6 +32,13 @@ testing {
         implementation(project())
         implementation(libs.assertj.core)
       }
+    }
+  }
+}
+koverReport {
+  defaults {
+    xml {
+      onCheck = true
     }
   }
 }
