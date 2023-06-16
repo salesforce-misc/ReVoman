@@ -3,7 +3,6 @@ plugins {
   id("revoman.sub-conventions")
   id("revoman.kt-conventions")
   alias(libs.plugins.moshix)
-  id(libs.plugins.detekt.pluginId) apply false
 }
 dependencies {
   api(libs.bundles.http4k)

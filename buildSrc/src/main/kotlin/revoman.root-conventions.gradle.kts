@@ -1,4 +1,5 @@
 import com.diffplug.spotless.extra.wtp.EclipseWtpFormatterStep.XML
+import io.gitlab.arturbosch.detekt.Detekt
 
 plugins {
   java
@@ -56,5 +57,10 @@ detekt {
   parallel = true
   buildUponDefaultConfig = true
   baseline = file("$rootDir/detekt/baseline.xml")
-  config = files("$rootDir/detekt/config.yml")
+  config.setFrom(file("$rootDir/detekt/config.yml"))
+}
+tasks.withType<Detekt>().configureEach {
+  reports {
+    xml.required.set(true)
+  }
 }

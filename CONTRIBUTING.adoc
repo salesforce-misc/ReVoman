@@ -99,10 +99,9 @@ It may be slow for the first run, but later runs should be faster.
 This repo doesn't yet have the CI/CD pipeline.
 So, it needs to be published manually.
 
-* In link:build.gradle.kts[], follow the <<_versioning_strategy,Versioning Strategy>>
-** For release increment the version property in link:buildSrc/src/main/kotlin/revoman.root-conventions.gradle.kts `version = "{revoman-version}"`
+* Follow the <<_versioning_strategy,Versioning Strategy>> to increment version link:buildSrc/{sourcedir}/revoman.root-conventions.gradle.kts[here]
 ** For SNAPSHOT releases, add a `-SNAPSHOT` at the end
-* Run this command:
+* Run this command to publish it to Nexus:
 
 [source,bash]
 ----

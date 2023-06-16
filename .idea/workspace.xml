@@ -4,15 +4,18 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="6ed80e62-f038-45bc-b42e-83dd15ec8dae" name="Changes" comment="Moshi disable proguard&#10;&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
-      <change beforePath="$PROJECT_DIR$/.idea/codeStyles/Project.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/codeStyles/Project.xml" afterDir="false" />
+    <list default="true" id="6ed80e62-f038-45bc-b42e-83dd15ec8dae" name="Changes" comment="- Migrate to Gradle 8.1&#10;- Migrate to Kover 0.7.0-Beta&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
       <change beforePath="$PROJECT_DIR$/.idea/kotlinc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/kotlinc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/CONTRIBUTING.adoc" beforeDir="false" afterPath="$PROJECT_DIR$/CONTRIBUTING.adoc" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/build.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/build.gradle.kts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/buildSrc/src/main/kotlin/revoman.kt-conventions.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/buildSrc/src/main/kotlin/revoman.kt-conventions.gradle.kts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/buildSrc/src/main/kotlin/revoman.root-conventions.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/buildSrc/src/main/kotlin/revoman.root-conventions.gradle.kts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/gradle/wrapper/gradle-wrapper.jar" beforeDir="false" afterPath="$PROJECT_DIR$/gradle/wrapper/gradle-wrapper.jar" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/gradlew" beforeDir="false" afterPath="$PROJECT_DIR$/gradlew" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/libs.versions.toml" beforeDir="false" afterPath="$PROJECT_DIR$/libs.versions.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/renovate.json" beforeDir="false" afterPath="$PROJECT_DIR$/renovate.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/module-info.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/module-info.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/internal/adapters/RegexAdapterFactory.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/internal/adapters/RegexAdapterFactory.kt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -65,16 +68,14 @@
     </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
     <option name="SIGN_OFF_COMMIT" value="true" />
+    <option name="UPDATE_TYPE" value="REBASE" />
   </component>
   <component name="GitToolBoxStore">
     <option name="projectConfigVersion" value="5" />
   </component>
   <component name="HighlightingSettingsPerFile">
-    <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.graalvm.sdk/graal-sdk/22.3.1/2e2a7e4578fd0e81f82c9864ed8ae74d57898eb9/graal-sdk-22.3.1-sources.jar!/org/graalvm/polyglot/PolyglotException.java" root0="SKIP_INSPECTION" />
-    <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.http4k/http4k-client-apache/4.39.0.0/47643e315fdd312a2040007282862e3dce4e5df3/http4k-client-apache-4.39.0.0-sources.jar!/org/http4k/client/ApacheClient.kt" root0="SKIP_INSPECTION" />
-    <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.http4k/http4k-core/4.39.0.0/5f046f13fed24ed46516aa2bc130dd89753e16d5/http4k-core-4.39.0.0-sources.jar!/org/http4k/core/http.kt" root0="SKIP_INSPECTION" />
-    <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.http4k/http4k-core/4.39.0.0/5f046f13fed24ed46516aa2bc130dd89753e16d5/http4k-core-4.39.0.0-sources.jar!/org/http4k/filter/DebuggingFilters.kt" root0="SKIP_INSPECTION" />
-    <setting file="jrt:///Users/gopala.akshintala/.sdkman/candidates/java/current!/java.base/sun/security/ssl/Alert.class" root0="SKIP_INSPECTION" />
+    <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.graalvm.sdk/graal-sdk/23.0.0/7cecba55a496c57296c2e5c98f54205a161a9dff/graal-sdk-23.0.0-sources.jar!/org/graalvm/polyglot/Context.java" root0="SKIP_INSPECTION" />
+    <setting file="jrt://$USER_HOME$/.sdkman/candidates/java/current!/java.base/sun/security/ssl/Alert.class" root0="SKIP_INSPECTION" />
     <setting file="jar://$USER_HOME$/core-public/tools/Darwin/jdk/openjdk_17.0.5_17.38.22_x64/zulu-17.jdk/Contents/Home/lib/src.zip!/java.base/sun/security/ssl/SSLHandshake.java" root0="SKIP_INSPECTION" />
   </component>
   <component name="MavenImportPreferences">
@@ -94,6 +95,7 @@
     <option name="autoscrollToSource" value="true" />
     <option name="flattenModules" value="true" />
     <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showExcludedFiles" value="false" />
     <option name="showLibraryContents" value="true" />
   </component>
   <component name="PropertiesComponent"><![CDATA[{
@@ -107,16 +109,17 @@
     "com.github.patou.gitmoji.insert-in-cursor-position": "true",
     "com.github.patou.gitmoji.text-after-unicode": " ",
     "git-widget-placeholder": "master",
+    "ktor.last.update.timestamp": "1684229451936",
     "last_opened_file_path": "/Users/gopala.akshintala/code-clones/work/revoman-root",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
     "node.js.selected.package.tslint": "(autodetect)",
     "nodejs_package_manager_path": "npm",
-    "project.structure.last.edited": "SDKs",
+    "project.structure.last.edited": "Project",
     "project.structure.proportion": "0.15",
     "project.structure.side.proportion": "0.2",
-    "settings.editor.selected.configurable": "project.kotlinCompiler",
+    "settings.editor.selected.configurable": "reference.settingsdialog.project.gradle",
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
@@ -152,11 +155,12 @@
       <command value="gradle build" />
       <command value="gradle spotlessApply" />
       <command value="gradle publish" />
-      <command value="gradle clean build" />
       <command value="gradle wrapper" />
+      <command value="gradle clean build --no-build-cache" />
+      <command value="gradle clean build" />
     </option>
   </component>
-  <component name="RunManager" selected="Gradle.revoman-root [wrapper]">
+  <component name="RunManager" selected="Gradle.revoman-root [clean build]">
     <configuration name="PQE2ETest.revUpPQ" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
       <ExternalSystemSettings>
         <option name="executionName" />
@@ -178,7 +182,7 @@
       <ExternalSystemDebugServerProcess>false</ExternalSystemDebugServerProcess>
       <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
       <DebugAllEnabled>false</DebugAllEnabled>
-      <ForceTestExec>true</ForceTestExec>
+      <RunAsTest>true</RunAsTest>
       <method v="2" />
     </configuration>
     <configuration name="PostmanTest.unmarshall Env File with Regex and Dynamic variable" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
@@ -202,7 +206,7 @@
       <ExternalSystemDebugServerProcess>false</ExternalSystemDebugServerProcess>
       <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
       <DebugAllEnabled>false</DebugAllEnabled>
-      <ForceTestExec>true</ForceTestExec>
+      <RunAsTest>true</RunAsTest>
       <method v="2" />
     </configuration>
     <configuration name="revoman-root [clean build]" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
@@ -225,7 +229,7 @@
       <ExternalSystemDebugServerProcess>true</ExternalSystemDebugServerProcess>
       <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
       <DebugAllEnabled>false</DebugAllEnabled>
-      <ForceTestExec>false</ForceTestExec>
+      <RunAsTest>false</RunAsTest>
       <method v="2" />
     </configuration>
     <configuration name="revoman-root [publish]" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
@@ -247,7 +251,7 @@
       <ExternalSystemDebugServerProcess>true</ExternalSystemDebugServerProcess>
       <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
       <DebugAllEnabled>false</DebugAllEnabled>
-      <ForceTestExec>false</ForceTestExec>
+      <RunAsTest>false</RunAsTest>
       <method v="2" />
     </configuration>
     <configuration name="revoman-root [wrapper]" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
@@ -269,7 +273,7 @@
       <ExternalSystemDebugServerProcess>true</ExternalSystemDebugServerProcess>
       <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
       <DebugAllEnabled>false</DebugAllEnabled>
-      <ForceTestExec>false</ForceTestExec>
+      <RunAsTest>false</RunAsTest>
       <method v="2" />
     </configuration>
     <recent_temporary>
@@ -308,7 +312,15 @@
       <workItem from="1680686027312" duration="4259000" />
       <workItem from="1681225223130" duration="6948000" />
       <workItem from="1681237879915" duration="816000" />
-      <workItem from="1682658888606" duration="2360000" />
+      <workItem from="1682658888606" duration="3025000" />
+      <workItem from="1683192737504" duration="60000" />
+      <workItem from="1683362693852" duration="17000" />
+      <workItem from="1684047755113" duration="3805000" />
+      <workItem from="1684229453813" duration="40000" />
+      <workItem from="1684988569782" duration="1115000" />
+      <workItem from="1686581584399" duration="85000" />
+      <workItem from="1686906801549" duration="857000" />
+      <workItem from="1686919111921" duration="4059000" />
     </task>
     <task id="LOCAL-00001" summary="- Fixed moshiReVoman&#10;- Added module-info.java to integrationTest module">
       <created>1678595183319</created>
@@ -415,7 +427,14 @@
       <option name="project" value="LOCAL" />
       <updated>1681238075571</updated>
     </task>
-    <option name="localTasksCounter" value="16" />
+    <task id="LOCAL-00016" summary="- Migrate to Gradle 8.1&#10;- Migrate to Kover 0.7.0-Beta&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
+      <created>1682662367189</created>
+      <option name="number" value="00016" />
+      <option name="presentableId" value="LOCAL-00016" />
+      <option name="project" value="LOCAL" />
+      <updated>1682662367190</updated>
+    </task>
+    <option name="localTasksCounter" value="17" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -435,6 +454,17 @@
             </list>
           </value>
         </entry>
+        <entry key="User">
+          <value>
+            <list>
+              <RecentGroup>
+                <option name="FILTER_VALUES">
+                  <option value="*" />
+                </option>
+              </RecentGroup>
+            </list>
+          </value>
+        </entry>
       </map>
     </option>
     <option name="TAB_STATES">
@@ -448,6 +478,13 @@
                     <value>
                       <list>
                         <option value="origin/master" />
+                      </list>
+                    </value>
+                  </entry>
+                  <entry key="user">
+                    <value>
+                      <list>
+                        <option value="*" />
                       </list>
                     </value>
                   </entry>
@@ -474,7 +511,8 @@
     <MESSAGE value="Add gradle wrapper&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
     <MESSAGE value="Add instructions to add Gradle credentials in CONTRIBUTING.adoc&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
     <MESSAGE value="Moshi disable proguard&#10;&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
-    <option name="LAST_COMMIT_MESSAGE" value="Moshi disable proguard&#10;&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
+    <MESSAGE value="- Migrate to Gradle 8.1&#10;- Migrate to Kover 0.7.0-Beta&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
+    <option name="LAST_COMMIT_MESSAGE" value="- Migrate to Gradle 8.1&#10;- Migrate to Kover 0.7.0-Beta&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

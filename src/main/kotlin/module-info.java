@@ -1,7 +1,5 @@
 module org.revcloud.revoman {
   requires kotlin.stdlib;
-  requires moshi;
-  requires moshi.adapters;
   requires vador;
   requires vador.matchers;
   requires org.graalvm.sdk;
@@ -14,6 +12,7 @@ module org.revcloud.revoman {
   requires kotlin.faker;
   requires io.github.microutils.kotlinlogging;
   requires http4k.client.apache;
+  requires com.squareup.moshi;
 
   exports org.revcloud.revoman;
   exports org.revcloud.revoman.input;
