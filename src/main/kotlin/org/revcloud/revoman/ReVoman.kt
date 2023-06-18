@@ -69,7 +69,9 @@ object ReVoman {
         logger.info { "***** Processing Step: ${step.name} *****" }
         val httpClient: HttpHandler = prepareHttpClient(pm.environment[bearerTokenKey], insecureHttp)
         val request = step.request.toHttpRequest()
-        val response: Response = httpClient(request)
+        val response: Response = runCatching {  httpClient(request) }.getOrElse { 
+          return@map step.name to StepReport(request, httpError = it)
+        }
         if (response.status.successful) {
           val testScriptJsResult = runCatching { executeTestScriptJs(step, response) }
           if (testScriptJsResult.isFailure) {
@@ -80,23 +82,23 @@ object ReVoman {
             val successType = successConfig?.successType ?: Any::class.java as Type
             val responseObj = moshi.asA<Any>(response.bodyString(), successType)
             val validationResult = successConfig?.validationConfig?.let { validate(responseObj, it.prepare()) }
-            step.name to StepReport(responseObj, responseObj.javaClass, request, response, testScriptJsResult.exceptionOrNull(), validationError = validationResult)
+            step.name to StepReport(request, responseObj, responseObj.javaClass, response, testScriptJsResult.exceptionOrNull(), validationError = validationResult)
           } else {
             // ! TODO gopala.akshintala 04/08/22: Support other content types apart from JSON
-            step.name to StepReport(response.bodyString(), String::class.java, request, response, testScriptJsError = testScriptJsResult.exceptionOrNull())
+            step.name to StepReport(request, response.bodyString(), String::class.java, response, testScriptJsError = testScriptJsResult.exceptionOrNull())
           }
         } else {
           if (stepNameToSuccessConfig.containsKey(step.name)) {
-            logger.error { "Unable to validate due to unsuccessful response status" }
-            step.name to StepReport(response.bodyString(), String::class.java, request, response, 
-              validationError = "Unable to validate due to unsuccessful response status")
+            val errorMsg = "Unable to validate due to unsuccessful response: $response"
+            logger.error { errorMsg }
+            step.name to StepReport(request, response.bodyString(), String::class.java, response, validationError = errorMsg)
           } 
           if (stepNameToErrorType.containsKey(step.name)) {
             val errorType = stepNameToErrorType[step.name]?.rawType?.kotlin ?: Any::class
             val errorResponseObj = moshi.asA(response.bodyString(), errorType)
-            step.name to StepReport(errorResponseObj, errorResponseObj.javaClass, request, response)
+            step.name to StepReport(request, errorResponseObj, errorResponseObj.javaClass, response)
           }
-          step.name to StepReport(response.bodyString(), String::class.java, request, response)
+          step.name to StepReport(request, response.bodyString(), String::class.java, response)
         }
       }?.toMap() ?: emptyMap()
     return Rundown(stepNameToReport, pm.environment)

@@ -1,4 +1,4 @@
-module org.revcloud.revoman {
+open module revoman {
   requires kotlin.stdlib;
   requires vador;
   requires vador.matchers;
