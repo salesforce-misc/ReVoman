@@ -26,41 +26,52 @@ ____
 .Revoman Demo, https://sfdc.co/revoman-240-is-slides[Slide Deck]
 image::revoman-demo-thumbnail.png[link=https://sfdc.co/revoman-240-is]
 
-== Values
+== Why ReVoman?
 
-* Convert your persona-based Postman/Kaiju templates into FTests and E2E tests executed in auto-builds.
-* Bring a *Unified &amp; Simplified Test strategy* across the mul-**T**-verse (FTests, Bento Tests, Kaiju, and Manual testing with Supernova).
+=== The Problem
+
+* Salesforce is an API-first company. But our API automation is done with lots and lots of code.
+* Our FTests compete on Complexity and learning curve with our Prod code, and mostly, FTests win.
+
+image::cognitive-complexity.png[]
+
+=== A Solution
+
+* Convert your persona-based Postman/Kaiju templates into JVM FTests and E2E tests that can be executed in auto-builds.
+* Bring a *Unified &amp; Simplified Test strategy* across the mul-**T**-verse (FTests, E2E Tests, Kaiju, and Manual testing with Postman).
 * Low-code FTests and E2E tests that are Transparent and Low in Cognitive-Complexity.
 * You can find a postman collection for every feature you need to test, right in your *VCS (Perforce/Git)* and they always stay up to date as they are hooked into automation.
 
-== The Problem
-
-* Salesforce is an API-first company. But our API automation is done with lots and lots of code.
-* Our FTests compete on Complexity and learning curve with our Prod code, and mostly, they win.
+== See it in Action
 
 ====
 
-*Demo CL*: 36282265
+This https://sourcegraph.soma.salesforce.com/perforce.soma.salesforce.com/app/main/core@HEAD/-/blob/revenue-place-quote-impl/test/func/java/src/revenue/place/quote/impl/revoman/PlaceQuoteReVomanTest.java?L127[*FTest*] automates almost *53* steps to setup data before calling an API.
 
 ====
 
-FTests are unanimously the biggest developer productivity killer. Let’s take an example from `BillingScheduleService` FTest. In a typical FTest like this, you need to hand-write all the code for:
-(Glimpse of code from IDE)
+Let's see a comparison between Traditional FTests and FTests with ReVoman.
 
-* Internal Utilities for setup data
-* Build request JSON
-* Process output response
-* Validate response
+=== Traditional FTests
 
-The Lines of code needed to write a single FTest, excluding comments and blank lines is: *1,185*
+FTests are unanimously the biggest developer productivity killer. Let’s take an example of https://sourcegraph.soma.salesforce.com/perforce.soma.salesforce.com/app/main/core@HEAD/-/blob/revenue-place-quote-impl/test/func/java/src/revenue/place/quote/impl/integration/PlaceQuoteFtest.java [PlaceQuoteFtest.java]. In a typical FTest like this, you need to hand-write all the code for:
 
-NOTE: *(Before)* Lines of Code: *1,185*
+* https://sourcegraph.soma.salesforce.com/perforce.soma.salesforce.com/app/main/core@HEAD/-/blob/revenue-place-quote-impl/test/func/java/src/revenue/place/quote/impl/utils/PlaceQuoteDataSetupUtil.java?L156[Internal Utilities for setup data]
+* https://sourcegraph.soma.salesforce.com/perforce.soma.salesforce.com/app/main/core@HEAD/-/blob/revenue-place-quote-impl/test/func/java/src/revenue/place/quote/impl/utils/PlaceQuoteDataSetupUtil.java?L365[Build request]
+* https://sourcegraph.soma.salesforce.com/perforce.soma.salesforce.com/app/main/core@HEAD/-/blob/revenue-place-quote-impl/test/func/java/src/revenue/place/quote/impl/utils/PlaceQuoteAssertionUtil.java?L244[Process output response or query necessary records]
+* https://sourcegraph.soma.salesforce.com/perforce.soma.salesforce.com/app/main/core@HEAD/-/blob/revenue-place-quote-impl/test/func/java/src/revenue/place/quote/impl/utils/PlaceQuoteAssertionUtil.java?L244[Validate/Assert response]
 
-And the sad part is, that all this effort is *specific* to a particular service or domain and rigid to extend and difficult to maintain. But that’s not it.
+====
 
-* On top of that, we have a mul-*T*-verse - FTests, Bento Tests, Kaiju, and Manual testing with Postman, each with its own frameworks, tools, and internal utilities.
+NOTE: *Traditional FTest*: The Lines of code needed to write a _single_ FTest: *1,141*
 
-* You need all together a different strategy and a new set of tools to learn and implement like Bento to cover the same flow through an E2E test, which demands an almost equal amount of code.
+====
+
+And the difficult part is, that all this effort is *specific* to a particular service or domain and rigid to extend and difficult to maintain. But that’s not it.
+
+* On top of that, we have a mul-*T*-verse of FTests, E2E tests, Kaiju, and Manual testing with Postman, each with its own frameworks, tools, and internal utilities.
+
+* You need all together a different strategy and a new set of tools to learn and implement, to cover the same flow through an E2E test, which demands an almost equal amount of code.
 
 ____
 
@@ -68,9 +79,11 @@ How _productive_ would it be, if you can configure an FTest or an E2E test, just
 
 ____
 
-== _ReṼoman_
+=== FTests with _ReṼoman_
 
-Introducing, ReVoman - a template-engine, which can consume an exported Postman Step collection and Environment JSON files. Let’s check out how you can perform *Template-Driven-Testing* with ReVoman:
+Introducing, ReVoman - an API automation tool for JVM, which can consume an exported Postman Step collection and Environment JSON files. Let’s check out how you can perform *Template-Driven-Testing* with ReVoman:
+
+image::revoman-flow.png[ReVoman flow]
 
 * It reads the environment JSON provided into in-memory.
 * Then it reads and Inflates each static template in the collection, replacing variables at runtime from the in-memory environment
@@ -78,30 +91,12 @@ Introducing, ReVoman - a template-engine, which can consume an exported Postman 
 * It then Executes Postscript JS on the response and updates the in-memory environment.
 * It unmarshals the response into Strong types, like `BillingScheduleListOutputRepresentation`
 * Lets you run *Type-safe* validations on the strong-type and fails-fast at first failure.
-** Guess who teamed up with ReVoman for this - https://github.com/salesforce-misc/Vador[*Vador!*]
+** Guess who teamed up with ReVoman for this - https://github.com/salesforce-misc/Vador[*Vador*], an open-source modern POJO validation framework, built by the same development team
 * The iteration continues for all the steps in the template collection
 
-=== _ReṼoman_ API
+=== API
 
-==== *Output*
-
-After all this, you receive back a detailed Rundown of all the steps with all the Request-Response data. You get Strong types for the ones you are interested in so that you can run more assertions on top of the run.
-
-[source,kotlin,indent=0,options="nowrap"]
-----
-Rundown(
-  stepNameToReport: Map<String, StepReport>,
-  environment: Map<String, String>)
-
-StepReport(
-  responseObj: Any,
-  responseType: Type,
-  requestData: Request,
-  responseData: Response)
-
-----
-
-==== API
+==== Input
 
 You can kick all this off with this simple API call, supplying a config
 
@@ -114,22 +109,11 @@ ReVoman.revUp(
 
 ----
 
-==== Config
-
 Let’s check out how to build this config:
-
-* Supply the path to the Template Collection JSON file like this:
-* And the path to the Environment JSON file.
-* You can even provide any dynamic environment on top of it, which you only may know during runtime.
-* You can provide strong types for the responses you are interested in.
-** ReVoman supports all data types within or outside the core without any extra annotations (eg: `BillingScheduleListOutputRepresentation`)
-* Finally, here is how you can hook your validations to be run on a step response
-** You can leverage the power of Vador to write config-driven validations and supply them to ReVoman like this.
-** Because both these tools are from the same Development team, you should see homogeneous patterns and seamless Integration and support.
 
 [source,java,indent=0,options="nowrap"]
 ----
-final var rundown = ReVoman.revUp(
+final var rundown = ReVoman.revUp( // <8>
   Kick.configure()
     .templatePath(TEST_RESOURCES_PATH + "ReVoman.postman_collection.json") // <1>
     .environmentPath(TEST_RESOURCES_PATH + "ReVoman.postman_environment.json") // <2>
@@ -159,19 +143,44 @@ final var bsValidationConfig = ValidationConfig.<BillingScheduleListOutputRepres
 ----
 <1> Supply the path to the Template Collection JSON file
 <2> Supply the path to the Environment JSON file
-<3> Provide any dynamic environment on top of it, which you only may know during runtime.
+<3> You can provide strong types for the responses you are interested in.
+** ReVoman supports all data types within or outside the core without any extra annotations.
 <4> Provide strong types for the responses you are interested in.
-<5> Vador validation configurations
+<5> Hook your validations/assertions to be run on a step response
+** You can leverage the power of Vador to write config-driven validations and supply them to ReVoman like this.
+** Because both these tools are from the same Development team, you should see homogeneous patterns and seamless Integration and support.
 <6> Ignore types like Legacy classes that cannot be unmarshalled
 <7> Key for bearerToken used in your Postman
+<8> `revUp` is the method to call passing this configuration
+
+==== Output
+
+After all this, you receive back a detailed Rundown of all the steps with all the Request-Response data. You get Strong types for the ones you are interested in so that you can run more assertions on top of the run.
+
+[source,kotlin,indent=0,options="nowrap"]
+----
+Rundown(
+  stepNameToReport: Map<String, StepReport>,
+  environment: Map<String, String>)
+
+StepReport(
+  val requestData: Request,
+  val responseObj: Any? = null,
+  val responseType: Type? = null,
+  val responseData: Response? = null,
+  val httpError: Throwable? = null,
+  val testScriptJsError: Throwable? = null,
+  val validationError: Any? = null)
+
+----
 
 ____
 
-*Here you go, an E2E test in one slide*
+*Here you go, an E2E test that can fit in a slide*
 
 ____
 
-NOTE: *(After)* Lines of Code: *167 (86% low-code)*
+NOTE: *FTest with ReVoman:* Lines of Code: *167 (86% low-code)*
 
 The amount of code needed is drastically down by *86%* and all of this is just for 1 FTest.
 Thus, ReVoman helps in writing *Low-Code* tests. But it's not just a reduction in the number of lines, but:
@@ -227,7 +236,7 @@ this is a generic off-core tool and a perfect candidate to publish to the world 
 * In the case of ReVoman, you have the whole Postman collection at your disposal along with the Rundown. The entire test is transparent.
 * This experience can be enhanced with more logging and better assertions.
 
-=== Why not use https://learning.postman.com/docs/running-collections/using-newman-cli/command-line-integration-with-newman/#:~:text=Newman%20is%20a%20command%2Dline,integration%20servers%20and%20build%20systems[Newman]?
+=== Why not use https://learning.postman.com/docs/collections/using-newman-cli/command-line-integration-with-newman[Newman] or https://learning.postman.com/docs/postman-cli/postman-cli-overview/#comparing-the-postman-cli-and-newman[Postman CLI]?
 
 * For the same reason why we use Java over Javascript. Type Safety.
 * Newman is limited and cannot be integrated into our automation model on JVM
