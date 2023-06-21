@@ -10,6 +10,12 @@ import java.lang.reflect.Type
 internal interface KickDef {
   fun templatePath(): String
 
+  @SkipNulls
+  fun runOnlySteps(): Set<String>
+
+  @SkipNulls
+  fun skipSteps(): Set<String>
+
   fun environmentPath(): String?
 
   @SkipNulls
@@ -17,6 +23,8 @@ internal interface KickDef {
 
   @Value.Default
   fun bearerTokenKey(): String? = BEARER_TOKEN_KEY
+
+  fun haltOnAnyFailure(): Boolean?
 
   @SkipNulls
   fun stepNameToErrorType(): Map<String, Type>

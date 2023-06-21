@@ -9,14 +9,14 @@
       "matchPackagePatterns": [
         "*"
       ],
+      "excludePackageNames": [
+        "org.graalvm.sdk:graal-sdk",
+        "org.graalvm.js:js"
+      ],
       "matchUpdateTypes": [
         "major",
         "minor",
         "patch"
-      ],
-      "excludePackageNames": [
-        "org.graalvm.sdk:graal-sdk",
-        "org.graalvm.js:js"
       ],
       "groupName": "all dependencies",
       "groupSlug": "all"

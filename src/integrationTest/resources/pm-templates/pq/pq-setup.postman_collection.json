@@ -1375,7 +1375,7 @@
 									"script": {
 										"exec": [
 											"var jsonData = JSON.parse(responseBody);",
-											"if(jsonData.id!=null){",
+											"if (jsonData.id != null) {",
 											"    pm.environment.set(\"oneTimeSellingModelId\", jsonData.id);",
 											"}"
 										],
@@ -1430,7 +1430,7 @@
 									"script": {
 										"exec": [
 											"var jsonData = JSON.parse(responseBody);",
-											"if(jsonData.records[0]!=null){",
+											"if (jsonData.records[0] != null) {",
 											"    pm.environment.set(\"oneTimeProductSellingModelId\", jsonData.records[0].Id);",
 											"}"
 										],
@@ -1545,7 +1545,7 @@
 									"script": {
 										"exec": [
 											"var jsonData = JSON.parse(responseBody);",
-											"if(jsonData.id!=null){",
+											"if (jsonData.id != null) {",
 											"    pm.environment.set(\"oneTimePriceBookEntryId\", jsonData.id);",
 											"}"
 										],
@@ -1604,7 +1604,7 @@
 									"script": {
 										"exec": [
 											"var jsonData = JSON.parse(responseBody);",
-											"if(jsonData.id!=null) {",
+											"if (jsonData.id != null) {",
 											"    pm.environment.set(\"evergreenProductId\", jsonData.id);",
 											"}"
 										],
@@ -1828,7 +1828,7 @@
 									"script": {
 										"exec": [
 											"var jsonData = JSON.parse(responseBody);",
-											"if(jsonData.id!=null){",
+											"if (jsonData.id != null) {",
 											"    pm.environment.set(\"evergreenPriceBookEntryId\", jsonData.id);",
 											"}"
 										],
@@ -1887,7 +1887,7 @@
 									"script": {
 										"exec": [
 											"var jsonData = JSON.parse(responseBody);",
-											"if(jsonData.id!=null) {",
+											"if (jsonData.id != null) {",
 											"    pm.environment.set(\"termedProductId\", jsonData.id);",
 											"}"
 										],
@@ -2165,7 +2165,7 @@
 							"script": {
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
-									"if (jsonData.id != null){",
+									"if (jsonData.id != null) {",
 									"    pm.environment.set(\"productRelationshipTypeId\", jsonData.id);",
 									"}",
 									""
@@ -2221,7 +2221,10 @@
 							"script": {
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
-									"pm.environment.set(\"productRelationshipTypeId\", jsonData.records[0].Id);",
+									"if (jsonData.id != null) {",
+									"  pm.environment.set(\"productRelationshipTypeId\", jsonData.records[0].Id);",
+									"}",
+									"",
 									""
 								],
 								"type": "text/javascript"
@@ -2291,10 +2294,7 @@
 							"listen": "prerequest",
 							"script": {
 								"exec": [
-									"var uuid = require('uuid');",
-									"let uid = uuid.v4().split('-')[0];",
-									"",
-									"pm.environment.set('accountName',uid+'_TestAccount');"
+									""
 								],
 								"type": "text/javascript"
 							}

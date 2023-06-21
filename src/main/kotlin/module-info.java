@@ -13,7 +13,8 @@ open module revoman {
   requires io.github.microutils.kotlinlogging;
   requires http4k.client.apache;
   requires com.squareup.moshi;
-
+  requires moshi.adapters;
+  
   exports org.revcloud.revoman;
   exports org.revcloud.revoman.input;
   exports org.revcloud.revoman.output;

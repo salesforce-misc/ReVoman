@@ -8,36 +8,12 @@
 	"item": [
 		{
 			"name": "pq-update-qli (post)",
-			"event": [
-				{
-					"listen": "test",
-					"script": {
-						"exec": [
-							"var jsonData = JSON.parse(responseBody);"
-						],
-						"type": "text/javascript"
-					}
-				},
-				{
-					"listen": "prerequest",
-					"script": {
-						"exec": [
-							"var moment = require('moment');",
-							"pm.environment.set('$currentDate', moment().format((\"YYYY-MM-DD\")));",
-							"",
-							"var futureDateTime = moment().add(365, 'days');",
-							"pm.environment.set('$randomFutureDate', futureDateTime.format('YYYY-MM-DD'));"
-						],
-						"type": "text/javascript"
-					}
-				}
-			],
 			"request": {
 				"method": "POST",
 				"header": [],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n    \"pricingPref\": \"System\",\n    \"graph\": {\n        \"graphId\": \"test\",\n        \"records\": [\n            {\n                \"referenceId\": \"refQuote\",\n                \"record\": {\n                    \"attributes\": {\n                        \"type\": \"Quote\",\n                        \"method\": \"PATCH\",\n                        \"id\": \"{{quoteId}}\"\n                    },\n                    \"Name\": \"Quote_{{$randomCompanyName}}_updated2\"   \n                }\n            },\n            {\n                \"referenceId\": \"refQuoteItem1\",\n                \"record\": {\n                    \"attributes\": {\n                        \"type\": \"QuoteLineItem\",\n                        \"method\": \"POST\"\n                    },\n                    \"QuoteId\": \"@{refQuote.id}\",\n                    \"PricebookEntryId\": \"{{evergreenPriceBookEntryId}}\",\n                    \"Product2Id\": \"{{evergreenProductId}}\",\n                    \"Quantity\": 2.0,\n                    \"UnitPrice\": 25.0,\n                    \"PeriodBoundary\": \"Anniversary\",\n                    \"BillingFrequency\": \"Monthly\",\n                    \"StartDate\": \"{{$currentDate}}\"\n                }\n            },\n            {\n                \"referenceId\": \"refQuoteItem2\",\n                \"record\": {\n                    \"attributes\": {\n                        \"type\": \"QuoteLineItem\",\n                        \"method\": \"POST\"\n                    },\n                    \"QuoteId\": \"@{refQuote.id}\",\n                    \"PricebookEntryId\": \"{{termedPriceBookEntryId}}\",\n                    \"Product2Id\": \"{{termedProductId}}\",\n                    \"Quantity\": 2.0,\n                    \"UnitPrice\": 23.0,\n                    \"EndDate\": \"{{$randomFutureDate}}\",\n                    \"PeriodBoundary\": \"DayOfPeriod\",\n                    \"PeriodBoundaryDay\": 4,\n                    \"BillingFrequency\": \"Monthly\",\n                    \"StartDate\": \"{{$currentDate}}\"\n                }\n            },\n            {\n                \"referenceId\": \"refQuoteItem3\",\n                \"record\": {\n                    \"attributes\": {\n                        \"type\": \"QuoteLineItem\",\n                        \"method\": \"POST\"\n                    },\n                    \"QuoteId\": \"@{refQuote.id}\",\n                    \"PricebookEntryId\": \"{{oneTimePriceBookEntryId}}\",\n                    \"Product2Id\": \"{{oneTimeProductId}}\",\n                    \"Quantity\": 2.0,\n                    \"UnitPrice\": 25.0,\n                    \"StartDate\": \"{{$currentDate}}\"\n                }\n            }\n        ]\n    }\n}",
+					"raw": "{\n    \"pricingPref\": \"System\",\n    \"graph\": {\n        \"graphId\": \"pq-update-qli (post)\",\n        \"records\": [\n            {\n                \"referenceId\": \"refQuote\",\n                \"record\": {\n                    \"attributes\": {\n                        \"type\": \"Quote\",\n                        \"method\": \"PATCH\",\n                        \"id\": \"{{quoteId}}\"\n                    },\n                    \"Name\": \"Quote_{{$randomCompanyName}}_updated\"\n                }\n            },\n            {\n                \"referenceId\": \"refQuoteItem1\",\n                \"record\": {\n                    \"attributes\": {\n                        \"type\": \"QuoteLineItem\",\n                        \"method\": \"POST\"\n                    },\n                    \"QuoteId\": \"@{refQuote.id}\",\n                    \"PricebookEntryId\": \"{{evergreenPriceBookEntryId}}\",\n                    \"Product2Id\": \"{{evergreenProductId}}\",\n                    \"Quantity\": 2.0,\n                    \"UnitPrice\": 25.0,\n                    \"PeriodBoundary\": \"Anniversary\",\n                    \"BillingFrequency\": \"Monthly\",\n                    \"StartDate\": \"{{$currentDate}}\"\n                }\n            }\n        ]\n    }\n}",
 					"options": {
 						"raw": {
 							"language": "json"
@@ -63,7 +39,7 @@
 			"response": []
 		},
 		{
-			"name": "QuoteLineItem-for-QuoteId",
+			"name": "qlis-for-QuoteId",
 			"event": [
 				{
 					"listen": "test",
@@ -132,6 +108,62 @@
 			"response": []
 		},
 		{
+			"name": "pq-update-qli (post+patch)",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"var jsonData = JSON.parse(responseBody);"
+						],
+						"type": "text/javascript"
+					}
+				},
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							"var moment = require('moment');",
+							"pm.environment.set('$currentDate', moment().format((\"YYYY-MM-DD\")));",
+							"",
+							"var futureDateTime = moment().add(365, 'days');",
+							"pm.environment.set('$randomFutureDate', futureDateTime.format('YYYY-MM-DD'));"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"pricingPref\": \"System\",\n    \"graph\": {\n        \"graphId\": \"pq-update-qli (post+patch)\",\n        \"records\": [\n            {\n                \"referenceId\": \"refQuote\",\n                \"record\": {\n                    \"attributes\": {\n                        \"type\": \"Quote\",\n                        \"method\": \"PATCH\",\n                        \"id\": \"{{quoteId}}\"\n                    },\n                    \"Name\": \"Quote_{{$randomCompanyName}}_updated\"\n                }\n            },\n            {\n                \"referenceId\": \"refQuoteItem1\",\n                \"record\": {\n                    \"attributes\": {\n                        \"type\": \"QuoteLineItem\",\n                        \"method\": \"POST\"\n                    },\n                    \"QuoteId\": \"@{refQuote.id}\",\n                    \"PricebookEntryId\": \"{{evergreenPriceBookEntryId}}\",\n                    \"Product2Id\": \"{{evergreenProductId}}\",\n                    \"Quantity\": 2.0,\n                    \"UnitPrice\": 25.0,\n                    \"PeriodBoundary\": \"Anniversary\",\n                    \"BillingFrequency\": \"Monthly\",\n                    \"StartDate\": \"{{$currentDate}}\"\n                }\n            },\n            {\n                \"referenceId\": \"refQuoteItemToPatch1\",\n                \"record\": {\n                    \"attributes\": {\n                        \"type\": \"QuoteLineItem\",\n                        \"method\": \"PATCH\",\n                        \"id\": \"{{quoteLineItem1Id}}\"\n                    },\n                    \"Quantity\": 2.0,\n                    \"UnitPrice\": 23.0,\n                    \"Discount\": 5.0\n                }\n            }\n        ]\n    }\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseUrl}}/services/data/v{{version}}/commerce/quotes/actions/place",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"services",
+						"data",
+						"v{{version}}",
+						"commerce",
+						"quotes",
+						"actions",
+						"place"
+					]
+				}
+			},
+			"response": []
+		},
+		{
 			"name": "pq-update-qli (post+patch+delete)",
 			"event": [
 				{
@@ -162,7 +194,7 @@
 				"header": [],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n    \"pricingPref\": \"System\",\n    \"graph\": {\n        \"graphId\": \"test\",\n        \"records\": [\n            {\n                \"referenceId\": \"refQuote\",\n                \"record\": {\n                    \"attributes\": {\n                        \"type\": \"Quote\",\n                        \"method\": \"PATCH\",\n                        \"id\": \"{{quoteId}}\"\n                    },\n                    \"Name\": \"Quote_{{$randomCompanyName}}_updated2\"\n                }\n            },\n            {\n                \"referenceId\": \"refQuoteItem1\",\n                \"record\": {\n                    \"attributes\": {\n                        \"type\": \"QuoteLineItem\",\n                        \"method\": \"POST\"\n                    },\n                    \"QuoteId\": \"@{refQuote.id}\",\n                    \"PricebookEntryId\": \"{{evergreenPriceBookEntryId}}\",\n                    \"Product2Id\": \"{{evergreenProductId}}\",\n                    \"Quantity\": 2.0,\n                    \"UnitPrice\": 25.0,\n                    \"PeriodBoundary\": \"Anniversary\",\n                    \"BillingFrequency\": \"Monthly\",\n                    \"StartDate\": \"{{$currentDate}}\"\n                }\n            },\n            {\n                \"referenceId\": \"refQuoteItem2\",\n                \"record\": {\n                    \"attributes\": {\n                        \"type\": \"QuoteLineItem\",\n                        \"method\": \"PATCH\",\n                        \"id\": \"{{quoteLineItem1Id}}\"\n                    },\n                    \"Quantity\": 2.0,\n                    \"UnitPrice\": 23.0,\n                    \"PeriodBoundary\": \"DayOfPeriod\",\n                    \"PeriodBoundaryDay\": 5\n                }\n            },\n            {\n                \"referenceId\": \"refQuoteItem3\",\n                \"record\": {\n                    \"attributes\": {\n                        \"type\": \"QuoteLineItem\",\n                        \"method\": \"DELETE\",\n                        \"id\": \"{{quoteLineItem3Id}}\"\n                    }\n                }\n            }\n        ]\n    }\n}",
+					"raw": "{\n    \"pricingPref\": \"System\",\n    \"graph\": {\n        \"graphId\": \"pq-update-qli (post+patch+delete)\",\n        \"records\": [\n            {\n                \"referenceId\": \"refQuote\",\n                \"record\": {\n                    \"attributes\": {\n                        \"type\": \"Quote\",\n                        \"method\": \"PATCH\",\n                        \"id\": \"{{quoteId}}\"\n                    },\n                    \"Name\": \"Quote_{{$randomCompanyName}}_updated2\"\n                }\n            },\n            {\n                \"referenceId\": \"refQuoteItem1\",\n                \"record\": {\n                    \"attributes\": {\n                        \"type\": \"QuoteLineItem\",\n                        \"method\": \"POST\"\n                    },\n                    \"QuoteId\": \"@{refQuote.id}\",\n                    \"PricebookEntryId\": \"{{evergreenPriceBookEntryId}}\",\n                    \"Product2Id\": \"{{evergreenProductId}}\",\n                    \"Quantity\": 2.0,\n                    \"UnitPrice\": 25.0,\n                    \"PeriodBoundary\": \"Anniversary\",\n                    \"BillingFrequency\": \"Monthly\",\n                    \"StartDate\": \"{{$currentDate}}\"\n                }\n            },\n            {\n                \"referenceId\": \"refQuoteItemToPatch1\",\n                \"record\": {\n                    \"attributes\": {\n                        \"type\": \"QuoteLineItem\",\n                        \"method\": \"PATCH\",\n                        \"id\": \"{{quoteLineItem1Id}}\"\n                    },\n                    \"Quantity\": 2.0,\n                    \"UnitPrice\": 23.0,\n                    \"PeriodBoundary\": \"DayOfPeriod\",\n                    \"PeriodBoundaryDay\": 5\n                }\n            },\n            {\n                \"referenceId\": \"refQuoteItemToDelete2\",\n                \"record\": {\n                    \"attributes\": {\n                        \"type\": \"QuoteLineItem\",\n                        \"method\": \"DELETE\",\n                        \"id\": \"{{quoteLineItem2Id}}\"\n                    }\n                }\n            }\n        ]\n    }\n}",
 					"options": {
 						"raw": {
 							"language": "json"
@@ -186,6 +218,204 @@
 				}
 			},
 			"response": []
+		},
+		{
+			"name": "pq-update-qli (delete-bundle)",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"var jsonData = JSON.parse(responseBody);"
+						],
+						"type": "text/javascript"
+					}
+				},
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							"var moment = require('moment');",
+							"pm.environment.set('$currentDate', moment().format((\"YYYY-MM-DD\")));",
+							"",
+							"var futureDateTime = moment().add(365, 'days');",
+							"pm.environment.set('$randomFutureDate', futureDateTime.format('YYYY-MM-DD'));"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"pricingPref\": \"System\",\n    \"graph\": {\n        \"graphId\": \"pq-update-qli (delete-bundle)\",\n        \"records\": [\n            {\n                \"referenceId\": \"refQuote\",\n                \"record\": {\n                    \"attributes\": {\n                        \"type\": \"Quote\",\n                        \"method\": \"PATCH\",\n                        \"id\": \"{{quoteId}}\"\n                    },\n                    \"Name\": \"Quote_{{$randomCompanyName}}_updated2\"\n                }\n            },\n            {\n                \"referenceId\": \"refQuoteItemToDelete1\",\n                \"record\": {\n                    \"attributes\": {\n                        \"type\": \"QuoteLineItem\",\n                        \"method\": \"DELETE\",\n                        \"id\": \"{{quoteLineItem1Id}}\"\n                    }\n                }\n            }\n        ]\n    }\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseUrl}}/services/data/v{{version}}/commerce/quotes/actions/place",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"services",
+						"data",
+						"v{{version}}",
+						"commerce",
+						"quotes",
+						"actions",
+						"place"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "pq-update-qli (delete-few)",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"var jsonData = JSON.parse(responseBody);"
+						],
+						"type": "text/javascript"
+					}
+				},
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							"var moment = require('moment');",
+							"pm.environment.set('$currentDate', moment().format((\"YYYY-MM-DD\")));",
+							"",
+							"var futureDateTime = moment().add(365, 'days');",
+							"pm.environment.set('$randomFutureDate', futureDateTime.format('YYYY-MM-DD'));"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"pricingPref\": \"System\",\n    \"graph\": {\n        \"graphId\": \"pq-update-qli (delete-few)\",\n        \"records\": [\n            {\n                \"referenceId\": \"refQuote\",\n                \"record\": {\n                    \"attributes\": {\n                        \"type\": \"Quote\",\n                        \"method\": \"PATCH\",\n                        \"id\": \"{{quoteId}}\"\n                    },\n                    \"Name\": \"Quote_{{$randomCompanyName}}_updated2\"\n                }\n            },\n            {\n                \"referenceId\": \"refQuoteItemToDelete1\",\n                \"record\": {\n                    \"attributes\": {\n                        \"type\": \"QuoteLineItem\",\n                        \"method\": \"DELETE\",\n                        \"id\": \"{{quoteLineItem2Id}}\"\n                    }\n                }\n            },\n            {\n                \"referenceId\": \"refQuoteItemToDelete2\",\n                \"record\": {\n                    \"attributes\": {\n                        \"type\": \"QuoteLineItem\",\n                        \"method\": \"DELETE\",\n                        \"id\": \"{{quoteLineItem3Id}}\"\n                    }\n                }\n            }\n        ]\n    }\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseUrl}}/services/data/v{{version}}/commerce/quotes/actions/place",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"services",
+						"data",
+						"v{{version}}",
+						"commerce",
+						"quotes",
+						"actions",
+						"place"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "pq-update-qli (delete-all-lines)",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"var jsonData = JSON.parse(responseBody);"
+						],
+						"type": "text/javascript"
+					}
+				},
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							"var moment = require('moment');",
+							"pm.environment.set('$currentDate', moment().format((\"YYYY-MM-DD\")));",
+							"",
+							"var futureDateTime = moment().add(365, 'days');",
+							"pm.environment.set('$randomFutureDate', futureDateTime.format('YYYY-MM-DD'));"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"pricingPref\": \"System\",\n    \"graph\": {\n        \"graphId\": \"pq-update-qli (delete-all-lines)\",\n        \"records\": [\n            {\n                \"referenceId\": \"refQuote\",\n                \"record\": {\n                    \"attributes\": {\n                        \"type\": \"Quote\",\n                        \"method\": \"PATCH\",\n                        \"id\": \"{{quoteId}}\"\n                    },\n                    \"Name\": \"Quote_{{$randomCompanyName}}_updated2\"\n                }\n            },\n            {\n                \"referenceId\": \"refQuoteItemToDelete1\",\n                \"record\": {\n                    \"attributes\": {\n                        \"type\": \"QuoteLineItem\",\n                        \"method\": \"DELETE\",\n                        \"id\": \"{{quoteLineItem1Id}}\"\n                    }\n                }\n            },\n            {\n                \"referenceId\": \"refQuoteItemToDelete2\",\n                \"record\": {\n                    \"attributes\": {\n                        \"type\": \"QuoteLineItem\",\n                        \"method\": \"DELETE\",\n                        \"id\": \"{{quoteLineItem2Id}}\"\n                    }\n                }\n            },\n            {\n                \"referenceId\": \"refQuoteItemToDelete3\",\n                \"record\": {\n                    \"attributes\": {\n                        \"type\": \"QuoteLineItem\",\n                        \"method\": \"DELETE\",\n                        \"id\": \"{{quoteLineItem3Id}}\"\n                    }\n                }\n            },\n            {\n                \"referenceId\": \"refQuoteItemToDelete4\",\n                \"record\": {\n                    \"attributes\": {\n                        \"type\": \"QuoteLineItem\",\n                        \"method\": \"DELETE\",\n                        \"id\": \"{{quoteLineItem4Id}}\"\n                    }\n                }\n            }\n        ]\n    }\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseUrl}}/services/data/v{{version}}/commerce/quotes/actions/place",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"services",
+						"data",
+						"v{{version}}",
+						"commerce",
+						"quotes",
+						"actions",
+						"place"
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{accessToken}}",
+				"type": "string"
+			}
+		]
+	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
 		}
 	]
 }
