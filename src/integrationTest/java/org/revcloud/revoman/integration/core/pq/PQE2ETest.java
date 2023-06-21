@@ -1,6 +1,7 @@
 package org.revcloud.revoman.integration.core.pq;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.revcloud.revoman.input.SuccessConfig.successType;
 import static org.revcloud.revoman.input.SuccessConfig.validateIfSuccess;
 import static org.revcloud.revoman.integration.TestConstantsKt.TEST_RESOURCES_PATH;
 
@@ -10,6 +11,7 @@ import java.util.Objects;
 import org.junit.jupiter.api.Test;
 import org.revcloud.revoman.ReVoman;
 import org.revcloud.revoman.input.Kick;
+import org.revcloud.revoman.response.types.salesforce.CompositeResponse;
 
 class PQE2ETest {
 
@@ -30,18 +32,17 @@ class PQE2ETest {
             .bearerTokenKey("accessToken").off());
     final var pqRespValidationConfig = ValidationConfig.<PlaceQuoteOutputRepresentation, String>toValidate()
         .withValidator((resp -> Boolean.TRUE.equals(resp.getSuccess()) ? "success" : "PQ failed"), "success");
-    final var pqApi = ReVoman.revUp(
+    final var pqCreateWithBundlesApi = ReVoman.revUp(
         Kick.configure()
             .insecureHttp(true)
             .haltOnAnyFailure(true)
             .templatePath(TEST_RESOURCES_PATH + "pm-templates/pq/pq-api-create.postman_collection.json")
             .dynamicEnvironment(pqSetup.environment)
             .stepNameToSuccessConfig(Map.of(
-                "pq-create", validateIfSuccess(PlaceQuoteOutputRepresentation.class, pqRespValidationConfig),
-                "pq-update", validateIfSuccess(PlaceQuoteOutputRepresentation.class, pqRespValidationConfig),
-                "pq-create-with-bundles", validateIfSuccess(PlaceQuoteOutputRepresentation.class, pqRespValidationConfig)))
+                "pq-create-with-bundles", validateIfSuccess(PlaceQuoteOutputRepresentation.class, pqRespValidationConfig),
+                "quote-related-records", successType(CompositeResponse.class)))
             .bearerTokenKey("accessToken").off());
-    pqApi.stepNameToReport.values().forEach(stepReport ->
+    pqCreateWithBundlesApi.stepNameToReport.values().forEach(stepReport ->
         assertThat(stepReport.isSuccessful())
             .as(String.format("***** REQUEST:%s\n***** RESPONSE:%s", stepReport.getRequestData().toMessage(), (stepReport.getResponseData() != null) ? stepReport.getResponseData().toMessage() : "empty"))
             .isTrue());

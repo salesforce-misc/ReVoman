@@ -155,64 +155,6 @@
 			"name": "create",
 			"item": [
 				{
-					"name": "pq-create",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"var jsonData = JSON.parse(responseBody);",
-									"pm.environment.set(\"quoteId\", jsonData.quoteId);",
-									""
-								],
-								"type": "text/javascript"
-							}
-						},
-						{
-							"listen": "prerequest",
-							"script": {
-								"exec": [
-									"var moment = require('moment');",
-									"pm.environment.set('$currentDate', moment().format((\"YYYY-MM-DD\")));",
-									"",
-									"var futureDateTime = moment().add(365, 'days');",
-									"pm.environment.set('$randomFutureDate', futureDateTime.format('YYYY-MM-DD'));"
-								],
-								"type": "text/javascript"
-							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"header": [],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"pricingPref\": \"system\",\n    \"graph\": {\n        \"graphId\": \"pq-create\",\n        \"records\": [\n            {\n                \"referenceId\": \"refQuote\",\n                \"record\": {\n                    \"attributes\": {\n                        \"type\": \"Quote\",\n                        \"method\": \"POST\"\n                    },\n                    \"Name\": \"Quote_{{$randomCompanyName}}\",\n                    \"OpportunityId\": \"{{opportunityId}}\"\n                }\n            },\n            {\n                \"referenceId\": \"refQuoteLineItem1\",\n                \"record\": {\n                    \"attributes\": {\n                        \"type\": \"QuoteLineItem\",\n                        \"method\": \"POST\"\n                    },\n                    \"QuoteId\": \"@{refQuote.id}\",\n                    \"PricebookEntryId\": \"{{evergreenPriceBookEntryId}}\",\n                    \"Product2Id\": \"{{evergreenProductId}}\",\n                    \"Quantity\": 2.0,\n                    \"UnitPrice\": 25.0,\n                    \"PeriodBoundary\": \"Anniversary\",\n                    \"BillingFrequency\": \"Monthly\",\n                    \"StartDate\": \"{{$currentDate}}\"\n                }\n            },\n            {\n                \"referenceId\": \"refQuoteLineItem2\",\n                \"record\": {\n                    \"attributes\": {\n                        \"type\": \"QuoteLineItem\",\n                        \"method\": \"POST\"\n                    },\n                    \"QuoteId\": \"@{refQuote.id}\",\n                    \"PricebookEntryId\": \"{{termedPriceBookEntryId}}\",\n                    \"Product2Id\": \"{{termedProductId}}\",\n                    \"Quantity\": 2.0,\n                    \"UnitPrice\": 25.0,\n                    \"EndDate\": \"{{$randomFutureDate}}\",\n                    \"PeriodBoundary\": \"DayOfPeriod\",\n                    \"PeriodBoundaryDay\": 4,\n                    \"BillingFrequency\": \"Monthly\",\n                    \"StartDate\": \"{{$currentDate}}\"\n                }\n            },\n            {\n                \"referenceId\": \"refQuoteLineItem3\",\n                \"record\": {\n                    \"attributes\": {\n                        \"type\": \"QuoteLineItem\",\n                        \"method\": \"POST\"\n                    },\n                    \"QuoteId\": \"@{refQuote.id}\",\n                    \"PricebookEntryId\": \"{{oneTimePriceBookEntryId}}\",\n                    \"Product2Id\": \"{{oneTimeProductId}}\",\n                    \"Quantity\": 2.0,\n                    \"UnitPrice\": 25.0,\n                    \"StartDate\": \"{{$currentDate}}\"\n                }\n            }\n        ]\n    }\n}",
-							"options": {
-								"raw": {
-									"language": "json"
-								}
-							}
-						},
-						"url": {
-							"raw": "{{baseUrl}}/services/data/v{{version}}/commerce/quotes/actions/place",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"services",
-								"data",
-								"v{{version}}",
-								"commerce",
-								"quotes",
-								"actions",
-								"place"
-							]
-						}
-					},
-					"response": []
-				},
-				{
 					"name": "pq-create-with-bundles",
 					"event": [
 						{
@@ -265,6 +207,56 @@
 								"quotes",
 								"actions",
 								"place"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "quote-related-records",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"",
+									""
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"allOrNone\": false,\n    \"compositeRequest\": [\n        {\n            \"method\": \"GET\",\n            \"url\": \"/services/data/v{{version}}/query/?q=select Id, Product2Id from QuoteLineItem where QuoteId = '{{quoteId}}'\",\n            \"referenceId\": \"qlis\"\n        },\n        {\n            \"method\": \"GET\",\n            \"url\": \"/services/data/v{{version}}/query/?q=select Id, QuoteId from QuoteLineRelationship where QuoteId = '{{quoteId}}'\",\n            \"referenceId\": \"qlrs\"\n        }\n    ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/services/data/v{{version}}/composite",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"services",
+								"data",
+								"v{{version}}",
+								"composite"
 							]
 						}
 					},

@@ -8,9 +8,8 @@ plugins {
   id("io.gitlab.arturbosch.detekt")
   id("org.jetbrains.kotlinx.kover")
 }
-
-version = "0.6.2.2"
-group = "com.salesforce.ccspayments"
+version = VERSION
+group = GROUP_ID
 description = "ReVoman - A template driven testing tool"
 repositories {
   mavenCentral()
