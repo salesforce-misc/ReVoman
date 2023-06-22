@@ -14,8 +14,9 @@ open module revoman {
   requires http4k.client.apache;
   requires com.squareup.moshi;
   requires moshi.adapters;
-  
-  exports org.revcloud.revoman;
+    requires underscore;
+
+    exports org.revcloud.revoman;
   exports org.revcloud.revoman.input;
   exports org.revcloud.revoman.output;
   exports org.revcloud.revoman.adapters;

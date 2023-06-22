@@ -25,7 +25,6 @@ internal class PostmanAPI {
   }
 }
 
-@FunctionalInterface
 internal fun interface Xml2Json {
   @Suppress("unused")
   fun xml2Json(xml: String): Map<*, *>?

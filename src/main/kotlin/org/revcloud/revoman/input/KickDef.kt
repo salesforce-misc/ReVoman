@@ -2,8 +2,11 @@ package org.revcloud.revoman.input
 
 import com.salesforce.vador.config.base.BaseValidationConfig.BaseValidationConfigBuilder
 import org.immutables.value.Value
+import org.immutables.value.Value.Style.ImplementationVisibility.PUBLIC
 import org.revcloud.revoman.input.DynamicEnvironmentKeys.BEARER_TOKEN_KEY
+import org.revcloud.revoman.output.Rundown
 import java.lang.reflect.Type
+import java.util.function.Consumer
 
 @Config
 @Value.Immutable
@@ -25,16 +28,18 @@ internal interface KickDef {
   fun bearerTokenKey(): String? = BEARER_TOKEN_KEY
 
   fun haltOnAnyFailure(): Boolean?
-
+  
   @SkipNulls
-  fun stepNameToErrorType(): Map<String, Type>
+  fun hooks(): Map<Pair<String, HookType>, Consumer<Rundown>>
 
   @Value.Default
   fun validationStrategy(): ValidationStrategy = ValidationStrategy.FAIL_FAST
 
-  // ! TODO 08/02/23 gopala.akshintala: Mandate passing type if not passed from stepNameToSuccessType 
   @SkipNulls
   fun stepNameToSuccessConfig(): Map<String, SuccessConfig>
+  
+  @SkipNulls
+  fun stepNameToErrorType(): Map<String, Type>
 
   @SkipNulls
   fun customAdaptersForResponse(): List<Any>
@@ -49,15 +54,15 @@ internal interface KickDef {
 class SuccessConfig private constructor(val successType: Type, val validationConfig: BaseValidationConfigBuilder<out Any, out Any?, *, *>? = null) {
   companion object {
     @JvmStatic
-    fun successType(successType: Type): SuccessConfig {
-      return SuccessConfig(successType, null)
-    }
+    fun successType(successType: Type): SuccessConfig = SuccessConfig(successType, null)
 
     @JvmStatic
-    fun validateIfSuccess(successType: Type, validationConfig: BaseValidationConfigBuilder<out Any, out Any?, *, *>): SuccessConfig {
-      return SuccessConfig(successType, validationConfig)
-    }
+    fun validateIfSuccess(successType: Type, validationConfig: BaseValidationConfigBuilder<out Any, out Any?, *, *>): SuccessConfig = SuccessConfig(successType, validationConfig)
   }
+}
+
+enum class HookType {
+  PRE, POST, REQUEST_SUCCESS, REQUEST_FAILURE, TEST_SCRIPT_JS_FAILURE
 }
 
 enum class ValidationStrategy {
@@ -71,9 +76,10 @@ enum class ValidationStrategy {
   typeAbstract = ["*Def"],
   builder = "configure",
   build = "off",
+  put = "*",
+  add = "*",
   depluralize = true,
-  add = "",
-  visibility = Value.Style.ImplementationVisibility.PUBLIC
+  visibility = PUBLIC
 )
 private annotation class Config
 

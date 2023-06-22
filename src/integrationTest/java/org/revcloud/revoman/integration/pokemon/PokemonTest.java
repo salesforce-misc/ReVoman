@@ -1,21 +1,31 @@
 package org.revcloud.revoman.integration.pokemon;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.times;
+import static org.revcloud.revoman.input.HookType.POST;
+import static org.revcloud.revoman.input.HookType.PRE;
 import static org.revcloud.revoman.input.SuccessConfig.validateIfSuccess;
 
 import com.salesforce.vador.config.ValidationConfig;
 import java.util.Map;
+import java.util.function.Consumer;
+import com.salesforce.vador.types.Validator;
+import kotlin.Pair;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.revcloud.revoman.ReVoman;
 import org.revcloud.revoman.input.Kick;
+import org.revcloud.revoman.output.Rundown;
 
 class PokemonTest {
   private static final String TEST_RESOURCES_PATH = "src/integrationTest/resources/";
 
   @Test
-  void pokemon() {
+  void pokemon() throws Throwable {
     final var offset = 0;
-    final var limit = 1;
+    final var limit = 3;
+    final var newLimit = 1;
     final var pmCollectionPath =
         TEST_RESOURCES_PATH + "pm-templates/pokemon/pokemon.postman_collection.json";
     final var pmEnvironmentPath =
@@ -24,24 +34,50 @@ class PokemonTest {
         "offset", String.valueOf(offset),
         "limit", String.valueOf(limit)
     );
+    //noinspection Convert2Lambda
+    final var resultSizeValidator = Mockito.spy(new Validator<Results, String>() {
+        @Override
+        public String apply(Results results) {
+            return results.getResults().size() == newLimit ? "Good" : "Bad";
+        }
+    });
     final var pokemonResultsValidationConfig =
         ValidationConfig.<Results, String>toValidate()
-            .withValidator(
-                results -> results.getResults().size() == limit ? "Good" : "Bad", "Good");
-    
-    final var rundown = ReVoman.revUp(Kick.configure()
+            .withValidator(resultSizeValidator, "Good");
+    //noinspection Convert2Lambda
+    final var preHook = Mockito.spy(new Consumer<Rundown>() {
+        @Override
+        public void accept(Rundown rundown) {
+            rundown.environment.set("limit", String.valueOf(newLimit));
+        }
+    });
+    //noinspection Convert2Lambda
+    final var postHook = Mockito.spy(new Consumer<Rundown>() {
+        @Override
+        public void accept(Rundown rundown) {
+            Assertions.assertThat(rundown.environment).containsEntry("limit", String.valueOf(newLimit));
+            Assertions.assertThat(rundown.environment).containsEntry("pokemonName", "bulbasaur");
+        }
+    });
+    final var pokeRundown = ReVoman.revUp(Kick.configure()
         .templatePath(pmCollectionPath)
         .environmentPath(pmEnvironmentPath)
-        .stepNameToSuccessConfig(Map.of("all-Pokemon", validateIfSuccess(Results.class, pokemonResultsValidationConfig)))
+        .hooks(Map.of(
+            new Pair<>("all-pokemon", PRE), preHook,
+            new Pair<>("all-pokemon", POST), postHook))
+        .stepNameToSuccessConfig("all-pokemon", validateIfSuccess(Results.class, pokemonResultsValidationConfig))
         .dynamicEnvironment(dynamicEnvironment)
         .off());
 
-    Assertions.assertThat(rundown.stepNameToReport).hasSize(5);
-    Assertions.assertThat(rundown.environment)
+    Mockito.verify(resultSizeValidator, times(1)).apply(any());
+    Mockito.verify(preHook, times(1)).accept(any());
+    Mockito.verify(postHook, times(1)).accept(any());
+    Assertions.assertThat(pokeRundown.stepNameToReport).hasSize(5);
+    Assertions.assertThat(pokeRundown.environment)
         .containsExactlyInAnyOrderEntriesOf(
             Map.of(
                 "offset", String.valueOf(offset),
-                "limit", String.valueOf(limit),
+                "limit", String.valueOf(newLimit),
                 "baseUrl", "https://pokeapi.co/api/v2",
                 "id", "1",
                 "pokemonName", "bulbasaur",
@@ -50,4 +86,5 @@ class PokemonTest {
                 "ability", "stench",
                 "nature", "hardy"));
   }
+  
 }

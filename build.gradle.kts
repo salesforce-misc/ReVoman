@@ -30,6 +30,7 @@ testing {
       dependencies {
         implementation(project())
         implementation(libs.assertj.core)
+        implementation(libs.mockito.core)
       }
     }
   }
