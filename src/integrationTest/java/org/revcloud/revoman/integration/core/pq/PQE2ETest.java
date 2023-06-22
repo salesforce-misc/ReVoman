@@ -16,7 +16,7 @@ import org.revcloud.revoman.response.types.salesforce.CompositeResponse;
 class PQE2ETest {
 
   @Test
-  void revUpPQ() {
+  void revUpPQ() throws InterruptedException {
 /*    final var userCreationRundown = ReVoman.revUp(
         Kick.configure()
             .insecureHttp(true)
@@ -37,14 +37,25 @@ class PQE2ETest {
             .insecureHttp(true)
             .haltOnAnyFailure(true)
             .templatePath(TEST_RESOURCES_PATH + "pm-templates/pq/pq-api-create.postman_collection.json")
+            .skipStep("quote-related-records")
             .dynamicEnvironment(pqSetup.environment)
             .stepNameToSuccessConfig(Map.of(
-                "pq-create-with-bundles", validateIfSuccess(PlaceQuoteOutputRepresentation.class, pqRespValidationConfig),
+                "pq-create-with-bundles", validateIfSuccess(PlaceQuoteOutputRepresentation.class, pqRespValidationConfig)))
+            .bearerTokenKey("accessToken").off());
+    final var pqQuery = ReVoman.revUp(
+        Kick.configure()
+            .insecureHttp(true)
+            .haltOnAnyFailure(true)
+            .templatePath(TEST_RESOURCES_PATH + "pm-templates/pq/pq-api-create.postman_collection.json")
+            .runOnlyStep("quote-related-records")
+            .dynamicEnvironment(pqCreateWithBundlesApi.environment)
+            .stepNameToSuccessConfig(Map.of(
                 "quote-related-records", successType(CompositeResponse.class)))
             .bearerTokenKey("accessToken").off());
     pqCreateWithBundlesApi.stepNameToReport.values().forEach(stepReport ->
         assertThat(stepReport.isSuccessful())
             .as(String.format("***** REQUEST:%s\n***** RESPONSE:%s", stepReport.getRequestData().toMessage(), (stepReport.getResponseData() != null) ? stepReport.getResponseData().toMessage() : "empty"))
             .isTrue());
+    final var productIds = pqQuery.stepNameToReport.get("quote-related-records");
   }
 }

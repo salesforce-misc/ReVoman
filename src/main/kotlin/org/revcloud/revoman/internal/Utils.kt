@@ -13,7 +13,8 @@ internal fun isContentTypeApplicationJson(response: Response) =
 
 internal fun readTextFromFile(filePath: String): String = File(filePath).readText()
 
-internal fun List<*>.deepFlattenItems(): List<*> =
+internal fun List<MutableMap<String, Any>>.deepFlattenItems(parentFolderName: String = ""): List<MutableMap<String, Any>> =
   this.asSequence().flatMap { item ->
-    (item as Map<String, Any>)["item"]?.let { (it as List<*>).deepFlattenItems() } ?: listOf(item)
+    val concatWithParentFolder = if (parentFolderName.isEmpty()) item["name"] as String else "$parentFolderName|>${item["name"]}"
+    (item["item"] as? List<MutableMap<String, Any>>)?.deepFlattenItems(concatWithParentFolder) ?: listOf(item.also { it["name"] = "${(item["request"] as Map<String, Any>)["method"]}: $concatWithParentFolder" })
   }.toList()

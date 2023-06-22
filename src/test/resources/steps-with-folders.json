@@ -1,0 +1,715 @@
+{
+  "item": [
+    {
+      "name": "product-setup",
+      "item": [
+        {
+          "name": "pre",
+          "item": [
+            {
+              "name": "Login to ProductPricingAdmin",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "exec": [
+                      ""
+                    ],
+                    "type": "text/javascript"
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "var jsonData = xml2Json(responseBody);",
+                      "var sessionId = jsonData['soapenv:Envelope']['soapenv:Body'].loginResponse.result.sessionId",
+                      "pm.environment.set(\"accessToken\", sessionId);"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "protocolProfileBehavior": {
+                "disabledSystemHeaders": {
+                  "accept": true,
+                  "content-type": true
+                }
+              },
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "text/xml"
+                  },
+                  {
+                    "key": "SOAPAction",
+                    "value": "login"
+                  },
+                  {
+                    "key": "charset",
+                    "value": "UTF-8",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "text/xml",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<env:Envelope xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"\n    xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n    xmlns:env=\"http://schemas.xmlsoap.org/soap/envelope/\">\n  <env:Body>\n    <n1:login xmlns:n1=\"urn:partner.soap.sforce.com\">\n      <n1:username><![CDATA[{{productAndPricingAdminUserName}}]]></n1:username>\n      <n1:password><![CDATA[{{commonUserPassword}}]]></n1:password>\n    </n1:login>\n  </env:Body>\n</env:Envelope>"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/services/Soap/u/{{version}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "services",
+                    "Soap",
+                    "u",
+                    "{{version}}"
+                  ]
+                },
+                "description": "Login to Salesforce"
+              },
+              "response": []
+            },
+            {
+              "name": "Proration Policy",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "var jsonData = JSON.parse(responseBody);",
+                      "if(jsonData.records[0]!=null){",
+                      "    pm.environment.set(\"prorationPolicyId\", jsonData.records[0].Id);",
+                      "}"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "protocolProfileBehavior": {
+                "disableBodyPruning": true
+              },
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "name": "Content-Type",
+                    "type": "text",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": ""
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/services/data/v{{version}}/query/?q=SELECT Id, Name FROM ProrationPolicy where Name LIKE '%25Test%25' and RemainderStrategy = 'AddToFirst' and ProrationPolicyType = 'StandardTimePeriods' ",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "services",
+                    "data",
+                    "v{{version}}",
+                    "query",
+                    ""
+                  ],
+                  "query": [
+                    {
+                      "key": "q",
+                      "value": "SELECT Id, Name FROM ProrationPolicy where Name LIKE '%25Test%25' and RemainderStrategy = 'AddToFirst' and ProrationPolicyType = 'StandardTimePeriods' "
+                    }
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "OneTime",
+          "item": [
+            {
+              "name": "One-Time Product",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "exec": [
+                      ""
+                    ],
+                    "type": "text/javascript"
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "var jsonData = JSON.parse(responseBody);",
+                      "if(jsonData.id!=null){",
+                      "    pm.environment.set(\"oneTimeProductId\", jsonData.id);",
+                      "}"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"Name\": \"One-Time\",\n    \"ProductCode\": \"OneTime\",\n    \"IsActive\": true,\n    \"Type\": \"Bundle\",\n    \"BillingPolicyId\": \"{{billingPolicyId}}\",\n    \"TaxPolicyId\": \"{{taxPolicyId}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/services/data/v{{version}}/sobjects/Product2/",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "services",
+                    "data",
+                    "v{{version}}",
+                    "sobjects",
+                    "Product2",
+                    ""
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "OneTime PBE",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "exec": [
+                      ""
+                    ],
+                    "type": "text/javascript"
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "var jsonData = JSON.parse(responseBody);",
+                      "if (jsonData.id != null) {",
+                      "    pm.environment.set(\"oneTimePriceBookEntryId\", jsonData.id);",
+                      "}"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"ProductSellingModelId\": \"{{oneTimeProductSellingModelId}}\",\n    \"Product2Id\": \"{{oneTimeProductId}}\",\n    \"IsActive\": true,\n    \"Pricebook2Id\": \"{{standardPricebookId}}\",\n    \"UnitPrice\": \"{{unitPrice}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/services/data/v{{version}}/sobjects/pricebookentry/",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "services",
+                    "data",
+                    "v{{version}}",
+                    "sobjects",
+                    "pricebookentry",
+                    ""
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Evergreen",
+          "item": [
+            {
+              "name": "Evergreen Product",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "exec": [
+                      ""
+                    ],
+                    "type": "text/javascript"
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "var jsonData = JSON.parse(responseBody);",
+                      "if (jsonData.id != null) {",
+                      "    pm.environment.set(\"evergreenProductId\", jsonData.id);",
+                      "}"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"Name\": \"Evergreen\",\n    \"ProductCode\": \"Evergreen\",\n    \"Type\": \"Bundle\",\n    \"IsActive\": true,\n    \"BillingPolicyId\": \"{{billingPolicyId}}\",\n    \"TaxPolicyId\": \"{{taxPolicyId}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/services/data/v{{version}}/sobjects/Product2/",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "services",
+                    "data",
+                    "v{{version}}",
+                    "sobjects",
+                    "Product2",
+                    ""
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Evergreen PSM",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "exec": [
+                      ""
+                    ],
+                    "type": "text/javascript"
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "var jsonData = JSON.parse(responseBody);",
+                      "if (jsonData.id!=null) {",
+                      "    pm.environment.set(\"evergreenProductSellingModelId\", jsonData.id);",
+                      "}"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"SellingModelType\": \"Evergreen\",\n    \"PricingTerm\": 1,\n    \"PricingTermUnit\": \"Months\",\n    \"Name\": \"Monthly Evergreen PSM\",\n    \"Status\": \"Active\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/services/data/v{{version}}/sobjects/ProductSellingModel/",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "services",
+                    "data",
+                    "v{{version}}",
+                    "sobjects",
+                    "ProductSellingModel",
+                    ""
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Evergreen PSM",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "var jsonData = JSON.parse(responseBody);",
+                      "if(jsonData.records[0]!=null){",
+                      "    pm.environment.set(\"evergreenProductSellingModelId\", jsonData.records[0].Id);",
+                      "}"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "protocolProfileBehavior": {
+                "disableBodyPruning": true
+              },
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "name": "Content-Type",
+                    "type": "text",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": ""
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/services/data/v{{version}}/query/?q=SELECT Id, SellingModelType, PricingTerm, PricingTermUnit, Status FROM ProductSellingModel where SellingModelType = 'Evergreen'",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "services",
+                    "data",
+                    "v{{version}}",
+                    "query",
+                    ""
+                  ],
+                  "query": [
+                    {
+                      "key": "q",
+                      "value": "SELECT Id, SellingModelType, PricingTerm, PricingTermUnit, Status FROM ProductSellingModel where SellingModelType = 'Evergreen'"
+                    }
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Evergreen PSMO",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "exec": [
+                      ""
+                    ],
+                    "type": "text/javascript"
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      ""
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"ProductSellingModelId\": \"{{evergreenProductSellingModelId}}\",\n    \"Product2Id\": \"{{evergreenProductId}}\",\n    \"ProrationPolicyId\": \"{{prorationPolicyId}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/services/data/v{{version}}/sobjects/ProductSellingModelOption/",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "services",
+                    "data",
+                    "v{{version}}",
+                    "sobjects",
+                    "ProductSellingModelOption",
+                    ""
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Evergreen PBE",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "exec": [
+                      ""
+                    ],
+                    "type": "text/javascript"
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "var jsonData = JSON.parse(responseBody);",
+                      "if (jsonData.id != null) {",
+                      "    pm.environment.set(\"evergreenPriceBookEntryId\", jsonData.id);",
+                      "}"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"ProductSellingModelId\": \"{{evergreenProductSellingModelId}}\",\n    \"Product2Id\": \"{{evergreenProductId}}\",\n    \"IsActive\": true,\n    \"Pricebook2Id\": \"{{standardPricebookId}}\",\n    \"UnitPrice\": \"{{unitPrice}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/services/data/v{{version}}/sobjects/pricebookentry/",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "services",
+                    "data",
+                    "v{{version}}",
+                    "sobjects",
+                    "pricebookentry",
+                    ""
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "bundle-setup",
+      "item": [
+        {
+          "name": "ProductRelationshipType",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = JSON.parse(responseBody);",
+                  "if (jsonData.id != null) {",
+                  "    pm.environment.set(\"productRelationshipTypeId\", jsonData.id);",
+                  "}",
+                  ""
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  ""
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "name": "Content-Type",
+                "type": "text",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"Name\":\"Bundle PRT\",\n    \"MainProductRoleCat\": \"Bundle\",\n    \"AssociatedProductRoleCat\": \"BundleComponent\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/services/data/v{{version}}/sobjects/ProductRelationshipType",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "services",
+                "data",
+                "v{{version}}",
+                "sobjects",
+                "ProductRelationshipType"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "ProductRelationShipType",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = JSON.parse(responseBody);",
+                  "if (jsonData.id != null) {",
+                  "  pm.environment.set(\"productRelationshipTypeId\", jsonData.records[0].Id);",
+                  "}",
+                  "",
+                  ""
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "name": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Sforce-Call-Options",
+                "value": "client=SfdcInternalQA/...",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
+            "url": {
+              "raw": "{{baseUrl}}/services/data/v{{version}}/query/?q=SELECT id FROM ProductRelationShipType where MainProductRoleCat='Bundle' AND AssociatedProductRoleCat='BundleComponent'",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "services",
+                "data",
+                "v{{version}}",
+                "query",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "SELECT id FROM ProductRelationShipType where MainProductRoleCat='Bundle' AND AssociatedProductRoleCat='BundleComponent'"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "ProductRelatedComponent",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = JSON.parse(responseBody);",
+                  "if(jsonData.id!=null){",
+                  "    pm.environment.set(\"accountId\", jsonData.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  ""
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "name": "Content-Type",
+                "type": "text",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"ParentProductId\": \"{{evergreenProductId}}\",\n    \"ChildProductId\": \"{{termedProductId}}\", \n    \"ParentSellingModelId\": \"{{evergreenProductSellingModelId}}\",\n    \"ChildSellingModelId\": \"{{termedProductSellingModelId}}\",\n    \"ProductRelationshipTypeId\": \"{{productRelationshipTypeId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/services/data/v{{version}}/sobjects/ProductRelatedComponent",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "services",
+                "data",
+                "v{{version}}",
+                "sobjects",
+                "ProductRelatedComponent"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

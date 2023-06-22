@@ -103,6 +103,7 @@ object ReVoman {
           }
         } else {
           noFailure = false
+          logger.error { "Request failed for step: ${step.name}" }
           if (stepNameToSuccessConfig.containsKey(step.name)) {
             val errorMsg = "Unable to validate due to unsuccessful response: $response"
             logger.error { errorMsg }
