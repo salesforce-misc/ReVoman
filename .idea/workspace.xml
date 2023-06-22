@@ -4,21 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="6ed80e62-f038-45bc-b42e-83dd15ec8dae" name="Changes" comment=":bug: Fullpath is used as Step name along with the Http method to decrease duplicate step collision">
-      <change afterPath="$PROJECT_DIR$/.idea/js-indexing-exclude.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/build.gradle.kts" afterDir="false" />
+    <list default="true" id="6ed80e62-f038-45bc-b42e-83dd15ec8dae" name="Changes" comment=":sparkles: Implement Pre, Post Hooks">
       <change beforePath="$PROJECT_DIR$/buildSrc/src/main/kotlin/Config.kt" beforeDir="false" afterPath="$PROJECT_DIR$/buildSrc/src/main/kotlin/Config.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/buildSrc/src/main/kotlin/revoman.kt-conventions.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/buildSrc/src/main/kotlin/revoman.kt-conventions.gradle.kts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/libs.versions.toml" beforeDir="false" afterPath="$PROJECT_DIR$/libs.versions.toml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/integrationTest/java/org/revcloud/revoman/integration/pokemon/PokemonTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/integrationTest/java/org/revcloud/revoman/integration/pokemon/PokemonTest.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/module-info.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/module-info.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/ReVoman.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/ReVoman.kt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/input/KickDef.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/input/KickDef.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/internal/Utils.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/internal/Utils.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/internal/postman/SDK.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/internal/postman/SDK.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/output/Rundown.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/output/Rundown.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/postman/PostmanEnvironment.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/postman/PostmanEnvironment.kt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -80,7 +69,9 @@
     <option name="projectConfigVersion" value="5" />
   </component>
   <component name="HighlightingSettingsPerFile">
+    <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.salesforce.vador/vador/1.0.1/ecb8a4a32c4e82a896939a2246604a8973a45e7f/vador-1.0.1-sources.jar!/com/salesforce/vador/config/base/BaseValidationConfig.java" root0="SKIP_INSPECTION" />
     <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.graalvm.sdk/graal-sdk/23.0.0/7cecba55a496c57296c2e5c98f54205a161a9dff/graal-sdk-23.0.0-sources.jar!/org/graalvm/polyglot/Context.java" root0="SKIP_INSPECTION" />
+    <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib-common/1.8.22/ae313b979b8e620a6497cd323f9c5861f7aebef/kotlin-stdlib-common-1.8.22-sources.jar!/kotlin/text/Strings.kt" root0="SKIP_INSPECTION" />
     <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib-common/1.8.22/ae313b979b8e620a6497cd323f9c5861f7aebef/kotlin-stdlib-common-1.8.22-sources.jar!/kotlin/util/Standard.kt" root0="SKIP_INSPECTION" />
     <setting file="jrt://$USER_HOME$/.sdkman/candidates/java/current!/java.base/sun/security/ssl/Alert.class" root0="SKIP_INSPECTION" />
     <setting file="jar://$USER_HOME$/core-public/tools/Darwin/jdk/openjdk_17.0.5_17.38.22_x64/zulu-17.jdk/Contents/Home/lib/src.zip!/java.base/java/util/Objects.java" root0="SKIP_INSPECTION" />
@@ -353,7 +344,7 @@
       <workItem from="1687348482189" duration="5993000" />
       <workItem from="1687410843485" duration="1257000" />
       <workItem from="1687412132916" duration="8919000" />
-      <workItem from="1687424389791" duration="9382000" />
+      <workItem from="1687424389791" duration="9936000" />
     </task>
     <task id="LOCAL-00001" summary="- Fixed moshiReVoman&#10;- Added module-info.java to integrationTest module">
       <created>1678595183319</created>
@@ -507,7 +498,15 @@
       <option name="project" value="LOCAL" />
       <updated>1687411792035</updated>
     </task>
-    <option name="localTasksCounter" value="22" />
+    <task id="LOCAL-00022" summary=":sparkles: Implement Pre, Post Hooks">
+      <option name="closed" value="true" />
+      <created>1687437380887</created>
+      <option name="number" value="00022" />
+      <option name="presentableId" value="LOCAL-00022" />
+      <option name="project" value="LOCAL" />
+      <updated>1687437380887</updated>
+    </task>
+    <option name="localTasksCounter" value="23" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -583,7 +582,8 @@
     <MESSAGE value=":sparkles: Add new config params&#10;- runOnlySteps&#10;- skipSteps&#10;- haltOnAnyFailure" />
     <MESSAGE value="Release: 0.7.0&#10;- Add new CompositeResponse type" />
     <MESSAGE value=":bug: Fullpath is used as Step name along with the Http method to decrease duplicate step collision" />
-    <option name="LAST_COMMIT_MESSAGE" value=":bug: Fullpath is used as Step name along with the Http method to decrease duplicate step collision" />
+    <MESSAGE value=":sparkles: Implement Pre, Post Hooks" />
+    <option name="LAST_COMMIT_MESSAGE" value=":sparkles: Implement Pre, Post Hooks" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
@@ -600,7 +600,7 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" type="java-line">
           <url>file://$PROJECT_DIR$/src/integrationTest/java/org/revcloud/revoman/integration/pokemon/PokemonTest.java</url>
-          <line>45</line>
+          <line>47</line>
           <option name="timeStamp" value="22" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="kotlin-line">

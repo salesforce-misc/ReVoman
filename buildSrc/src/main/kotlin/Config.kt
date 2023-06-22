@@ -1,2 +1,2 @@
 const val GROUP_ID = "com.salesforce.ccspayments"
-const val VERSION = "0.7.1-SNAPSHOT"
+const val VERSION = "0.7.2"

@@ -4,6 +4,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
 import static org.revcloud.revoman.input.HookType.POST;
 import static org.revcloud.revoman.input.HookType.PRE;
+import static org.revcloud.revoman.input.KickDef.post;
+import static org.revcloud.revoman.input.KickDef.pre;
 import static org.revcloud.revoman.input.SuccessConfig.validateIfSuccess;
 
 import com.salesforce.vador.config.ValidationConfig;
@@ -22,7 +24,7 @@ class PokemonTest {
   private static final String TEST_RESOURCES_PATH = "src/integrationTest/resources/";
 
   @Test
-  void pokemon() throws Throwable {
+  void pokemon() {
     final var offset = 0;
     final var limit = 3;
     final var newLimit = 1;
@@ -63,8 +65,8 @@ class PokemonTest {
         .templatePath(pmCollectionPath)
         .environmentPath(pmEnvironmentPath)
         .hooks(Map.of(
-            new Pair<>("all-pokemon", PRE), preHook,
-            new Pair<>("all-pokemon", POST), postHook))
+            pre("all-pokemon"), preHook,
+            post("all-pokemon"), postHook))
         .stepNameToSuccessConfig("all-pokemon", validateIfSuccess(Results.class, pokemonResultsValidationConfig))
         .dynamicEnvironment(dynamicEnvironment)
         .off());
