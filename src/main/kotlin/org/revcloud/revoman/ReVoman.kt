@@ -15,6 +15,7 @@ import org.revcloud.revoman.input.HookType.PRE
 import org.revcloud.revoman.input.Kick
 import org.revcloud.revoman.input.SuccessConfig
 import org.revcloud.revoman.internal.adapters.RegexAdapterFactory
+import org.revcloud.revoman.internal.adapters.postManVariableRegex
 import org.revcloud.revoman.internal.asA
 import org.revcloud.revoman.internal.deepFlattenItems
 import org.revcloud.revoman.internal.executeTestScriptJs
@@ -24,7 +25,7 @@ import org.revcloud.revoman.internal.isContentTypeApplicationJson
 import org.revcloud.revoman.internal.postman.initPmEnvironment
 import org.revcloud.revoman.internal.postman.pm
 import org.revcloud.revoman.internal.postman.state.Item
-import org.revcloud.revoman.internal.postman.state.Steps
+import org.revcloud.revoman.internal.postman.state.Template
 import org.revcloud.revoman.internal.prepareHttpClient
 import org.revcloud.revoman.internal.readTextFromFile
 import org.revcloud.revoman.output.Rundown
@@ -75,13 +76,12 @@ object ReVoman {
     // ! TODO 22/06/23 gopala.akshintala: Validate if validation config for a step is mentioned but the stepName is not present
     require(Collections.disjoint(runOnlySteps, skipSteps)) { "runOnlySteps and skipSteps cannot be intersected" }
     initPmEnvironment(dynamicEnvironment, environmentPath)
-    val pmSteps: Steps? = Moshi.Builder().build().adapter<Steps>().fromJson(readTextFromFile(pmTemplatePath))
+    val (pmSteps, auth) = Moshi.Builder().build().adapter<Template>().fromJson(readTextFromFile(pmTemplatePath)) ?: return Rundown()
     val replaceRegexWithEnvAdapter = Moshi.Builder().add(RegexAdapterFactory(pm.environment)).build().adapter<Item>()
     val moshi = initMoshi(customAdaptersForResponse, typesInResponseToIgnore)
     var noFailure = true
-    val allItems = pmSteps?.item?.deepFlattenItems() ?: return Rundown()
     // ! TODO 22/06/23 gopala.akshintala: Validate if steps with same name are used in config
-    val stepNameToReport = allItems.asSequence()
+    val stepNameToReport = pmSteps.deepFlattenItems().asSequence()
       .takeWhile { haltOnAnyFailure?.let { it && noFailure } ?: true }
       .filter { (runOnlySteps.isEmpty() && skipSteps.isEmpty()) || (runOnlySteps.isNotEmpty() && runOnlySteps.contains(it["name"])) || (skipSteps.isNotEmpty() && !skipSteps.contains(it["name"])) }
       .fold<Map<String, Any>, Map<String, StepReport>>(mapOf()) { stepNameToReport, itemWithRegex ->
@@ -90,7 +90,8 @@ object ReVoman {
         val step = replaceRegexWithEnvAdapter.fromJsonValue(itemWithRegex) ?: return@fold stepNameToReport
         logger.info { "***** Processing Step: ${step.name} *****" }
         // * NOTE gopala.akshintala 06/08/22: Preparing httpClient for each step, as there can be intermediate auths
-        val httpClient: HttpHandler = prepareHttpClient(pm.environment[bearerTokenKey], insecureHttp)
+        val bearerToken = pm.environment[bearerTokenKey ?: auth?.bearer?.firstOrNull()?.value?.let { postManVariableRegex.matchEntire(it)?.groupValues?.get(1) ?: "" }]
+        val httpClient: HttpHandler = prepareHttpClient(bearerToken, insecureHttp)
         val request = step.request.toHttpRequest()
         val response: Response = runCatching { httpClient(request) }.getOrElse { throwable ->
           noFailure = false

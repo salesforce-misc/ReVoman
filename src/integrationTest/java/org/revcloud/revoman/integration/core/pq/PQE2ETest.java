@@ -27,7 +27,7 @@ class PQE2ETest {
             .skipStep("quote-related-records")
             .stepNameToSuccessConfig(Map.of(
                 "pq-create-with-bundles", validateIfSuccess(PlaceQuoteOutputRepresentation.class, pqRespValidationConfig)))
-            .bearerTokenKey("accessToken").off());
+            .off());
     pqCreateWithBundlesApi.stepNameToReport.values().forEach(stepReport ->
         assertThat(stepReport.isSuccessful())
             .as(String.format("***** REQUEST:%s\n***** RESPONSE:%s", stepReport.getRequestData().toMessage(), (stepReport.getResponseData() != null) ? stepReport.getResponseData().toMessage() : "empty"))

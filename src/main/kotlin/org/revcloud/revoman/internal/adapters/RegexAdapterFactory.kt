@@ -8,11 +8,12 @@ import com.squareup.moshi.internal.Util
 import org.revcloud.revoman.internal.postman.dynamicVariableGenerator
 import java.lang.reflect.Type
 
+val postManVariableRegex = "\\{\\{([^{}]*?)}}".toRegex()
+
 internal class RegexAdapterFactory(
   private val envMap: Map<String, String?>,
   private val dynamicVariableGenerator: (String) -> String? = ::dynamicVariableGenerator
 ) : JsonAdapter.Factory {
-  private val postManVariableRegex = "\\{\\{([^{}]*?)}}".toRegex()
   override fun create(type: Type, annotations: Set<Annotation?>, moshi: Moshi): JsonAdapter<*>? {
     if (type != String::class.java) {
       return null

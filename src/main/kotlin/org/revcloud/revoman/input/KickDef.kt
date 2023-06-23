@@ -3,7 +3,6 @@ package org.revcloud.revoman.input
 import com.salesforce.vador.config.base.BaseValidationConfig.BaseValidationConfigBuilder
 import org.immutables.value.Value
 import org.immutables.value.Value.Style.ImplementationVisibility.PUBLIC
-import org.revcloud.revoman.input.DynamicEnvironmentKeys.BEARER_TOKEN_KEY
 import org.revcloud.revoman.output.Rundown
 import java.lang.reflect.Type
 import java.util.function.Consumer
@@ -24,8 +23,7 @@ internal interface KickDef {
   @SkipNulls
   fun dynamicEnvironment(): Map<String, String>
 
-  @Value.Default
-  fun bearerTokenKey(): String? = BEARER_TOKEN_KEY
+  fun bearerTokenKey(): String?
 
   fun haltOnAnyFailure(): Boolean?
   

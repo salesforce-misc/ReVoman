@@ -5,13 +5,13 @@ import com.squareup.moshi.adapter
 import io.kotest.matchers.collections.shouldContainExactly
 import org.junit.jupiter.api.Test
 import org.revcloud.revoman.TEST_RESOURCES_PATH
-import org.revcloud.revoman.internal.postman.state.Steps
+import org.revcloud.revoman.internal.postman.state.Template
 
 class UtilsTest {
   @OptIn(ExperimentalStdlibApi::class)
   @Test
   fun `deepFlattenItems with nested items`() {
-    val itemAdapter = Moshi.Builder().build().adapter<Steps>()
+    val itemAdapter = Moshi.Builder().build().adapter<Template>()
     val stepNames = itemAdapter.fromJson(readTextFromFile("$TEST_RESOURCES_PATH/steps-with-folders.json"))?.item?.deepFlattenItems()?.map { it["name"] }
     stepNames shouldContainExactly listOf(
     "POST: product-setup|>pre|>Login to ProductPricingAdmin",
