@@ -4,10 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="6ed80e62-f038-45bc-b42e-83dd15ec8dae" name="Changes" comment=":sparkles: Implement Pre, Post Hooks">
-      <change beforePath="$PROJECT_DIR$/buildSrc/src/main/kotlin/Config.kt" beforeDir="false" afterPath="$PROJECT_DIR$/buildSrc/src/main/kotlin/Config.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/integrationTest/java/org/revcloud/revoman/integration/pokemon/PokemonTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/integrationTest/java/org/revcloud/revoman/integration/pokemon/PokemonTest.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/input/KickDef.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/input/KickDef.kt" afterDir="false" />
+    <list default="true" id="6ed80e62-f038-45bc-b42e-83dd15ec8dae" name="Changes" comment="Release 0.7.2.1">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/libs.versions.toml" beforeDir="false" afterPath="$PROJECT_DIR$/libs.versions.toml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -163,12 +162,12 @@
       <command value="gradle clean build --no-build-cache" />
       <command value="gradle wrapper" />
       <command value="gradle clean build" />
-      <command value="gradle publish" />
       <command value="gradle spotlessApply" />
       <command value="gradle test --tests org.revcloud.revoman.integration.pokemon.PokemonTest" />
+      <command value="gradle publish" />
     </option>
   </component>
-  <component name="RunManager" selected="Gradle.PokemonTest.pokemon">
+  <component name="RunManager" selected="Gradle.revoman-root [publish]">
     <configuration name="PokemonTest" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
       <ExternalSystemSettings>
         <option name="executionName" />
@@ -241,7 +240,7 @@
       <RunAsTest>true</RunAsTest>
       <method v="2" />
     </configuration>
-    <configuration name="revoman-root [spotlessApply]" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
+    <configuration name="revoman-root [publish]" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
       <ExternalSystemSettings>
         <option name="executionName" />
         <option name="externalProjectPath" value="$PROJECT_DIR$" />
@@ -252,7 +251,7 @@
         </option>
         <option name="taskNames">
           <list>
-            <option value="spotlessApply" />
+            <option value="publish" />
           </list>
         </option>
         <option name="vmOptions" />
@@ -289,11 +288,11 @@
     </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Gradle.revoman-root [publish]" />
         <item itemvalue="Gradle.PokemonTest.pokemon" />
         <item itemvalue="Gradle.PokemonTest" />
         <item itemvalue="Gradle.revoman-root [test --tests org.revcloud.revoman.integration.pokemon.PokemonTest]" />
         <item itemvalue="Gradle.UtilsTest.deepFlattenItems with nested items" />
-        <item itemvalue="Gradle.revoman-root [spotlessApply]" />
       </list>
     </recent_temporary>
   </component>
@@ -344,7 +343,7 @@
       <workItem from="1687348482189" duration="5993000" />
       <workItem from="1687410843485" duration="1257000" />
       <workItem from="1687412132916" duration="8919000" />
-      <workItem from="1687424389791" duration="9936000" />
+      <workItem from="1687424389791" duration="16227000" />
     </task>
     <task id="LOCAL-00001" summary="- Fixed moshiReVoman&#10;- Added module-info.java to integrationTest module">
       <created>1678595183319</created>
@@ -506,7 +505,23 @@
       <option name="project" value="LOCAL" />
       <updated>1687437380887</updated>
     </task>
-    <option name="localTasksCounter" value="23" />
+    <task id="LOCAL-00023" summary="Release 0.7.2">
+      <option name="closed" value="true" />
+      <created>1687443104452</created>
+      <option name="number" value="00023" />
+      <option name="presentableId" value="LOCAL-00023" />
+      <option name="project" value="LOCAL" />
+      <updated>1687443104452</updated>
+    </task>
+    <task id="LOCAL-00024" summary="Release 0.7.2.1">
+      <option name="closed" value="true" />
+      <created>1687490768067</created>
+      <option name="number" value="00024" />
+      <option name="presentableId" value="LOCAL-00024" />
+      <option name="project" value="LOCAL" />
+      <updated>1687490768067</updated>
+    </task>
+    <option name="localTasksCounter" value="25" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -583,46 +598,27 @@
     <MESSAGE value="Release: 0.7.0&#10;- Add new CompositeResponse type" />
     <MESSAGE value=":bug: Fullpath is used as Step name along with the Http method to decrease duplicate step collision" />
     <MESSAGE value=":sparkles: Implement Pre, Post Hooks" />
-    <option name="LAST_COMMIT_MESSAGE" value=":sparkles: Implement Pre, Post Hooks" />
+    <MESSAGE value="Release 0.7.2" />
+    <MESSAGE value="Release 0.7.2.1" />
+    <option name="LAST_COMMIT_MESSAGE" value="Release 0.7.2.1" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
       <breakpoints>
         <line-breakpoint enabled="true" type="java-line">
           <url>file://$PROJECT_DIR$/src/integrationTest/java/org/revcloud/revoman/integration/core/pq/PQE2ETest.java</url>
-          <line>54</line>
+          <line>53</line>
           <option name="timeStamp" value="11" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="java-line">
           <url>file://$PROJECT_DIR$/src/integrationTest/java/org/revcloud/revoman/integration/core/pq/PQE2ETest.java</url>
-          <line>44</line>
+          <line>43</line>
           <option name="timeStamp" value="12" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="java-line">
           <url>file://$PROJECT_DIR$/src/integrationTest/java/org/revcloud/revoman/integration/pokemon/PokemonTest.java</url>
-          <line>47</line>
+          <line>44</line>
           <option name="timeStamp" value="22" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" type="kotlin-line">
-          <url>file://$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/ReVoman.kt</url>
-          <line>129</line>
-          <properties>
-            <option name="lambda-ordinal" value="0" />
-          </properties>
-          <option name="timeStamp" value="18" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" type="kotlin-line">
-          <url>file://$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/ReVoman.kt</url>
-          <line>137</line>
-          <option name="timeStamp" value="23" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" type="kotlin-line">
-          <url>file://$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/ReVoman.kt</url>
-          <line>108</line>
-          <properties>
-            <option name="lambda-ordinal" value="-1" />
-          </properties>
-          <option name="timeStamp" value="25" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>

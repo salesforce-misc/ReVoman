@@ -2,17 +2,14 @@ package org.revcloud.revoman.integration.pokemon;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
-import static org.revcloud.revoman.input.HookType.POST;
-import static org.revcloud.revoman.input.HookType.PRE;
-import static org.revcloud.revoman.input.KickDef.post;
-import static org.revcloud.revoman.input.KickDef.pre;
+import static org.revcloud.revoman.input.InputUtils.post;
+import static org.revcloud.revoman.input.InputUtils.pre;
 import static org.revcloud.revoman.input.SuccessConfig.validateIfSuccess;
 
 import com.salesforce.vador.config.ValidationConfig;
+import com.salesforce.vador.types.Validator;
 import java.util.Map;
 import java.util.function.Consumer;
-import com.salesforce.vador.types.Validator;
-import kotlin.Pair;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;

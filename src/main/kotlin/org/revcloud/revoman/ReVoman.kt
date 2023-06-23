@@ -72,7 +72,7 @@ object ReVoman {
     insecureHttp: Boolean,
   ): Rundown {
     // ! TODO 18/06/23 gopala.akshintala: Add some more require conditions and Move to a separate component Config validation
-    // ! TODO 22/06/23 gopala.akshintala: Validate if validation config for a step is mentioned but the stepname is not present
+    // ! TODO 22/06/23 gopala.akshintala: Validate if validation config for a step is mentioned but the stepName is not present
     require(Collections.disjoint(runOnlySteps, skipSteps)) { "runOnlySteps and skipSteps cannot be intersected" }
     initPmEnvironment(dynamicEnvironment, environmentPath)
     val pmSteps: Steps? = Moshi.Builder().build().adapter<Steps>().fromJson(readTextFromFile(pmTemplatePath))

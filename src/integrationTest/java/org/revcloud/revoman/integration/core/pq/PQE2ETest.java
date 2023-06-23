@@ -7,7 +7,6 @@ import static org.revcloud.revoman.integration.TestConstantsKt.TEST_RESOURCES_PA
 
 import com.salesforce.vador.config.ValidationConfig;
 import java.util.Map;
-import java.util.Objects;
 import org.junit.jupiter.api.Test;
 import org.revcloud.revoman.ReVoman;
 import org.revcloud.revoman.input.Kick;
@@ -56,6 +55,5 @@ class PQE2ETest {
         assertThat(stepReport.isSuccessful())
             .as(String.format("***** REQUEST:%s\n***** RESPONSE:%s", stepReport.getRequestData().toMessage(), (stepReport.getResponseData() != null) ? stepReport.getResponseData().toMessage() : "empty"))
             .isTrue());
-    final var productIds = pqQuery.stepNameToReport.get("quote-related-records");
   }
 }

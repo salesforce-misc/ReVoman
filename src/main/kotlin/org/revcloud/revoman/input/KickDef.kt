@@ -49,14 +49,6 @@ internal interface KickDef {
   
   @Value.Default
   fun insecureHttp(): Boolean = false
-  
-  companion object {
-    @JvmStatic
-    fun pre(stepName: String) = stepName to HookType.PRE
-
-    @JvmStatic
-    fun post(stepName: String) = stepName to HookType.POST
-  }
 }
 
 class SuccessConfig private constructor(val successType: Type, val validationConfig: BaseValidationConfigBuilder<out Any, out Any?, *, *>? = null) {
