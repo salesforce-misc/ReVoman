@@ -25,6 +25,8 @@ internal class PostmanAPI {
   }
 }
 
+@SuppressWarnings("kotlin:S6517")
+@FunctionalInterface // DON'T REMOVE THIS. Polyglot won't work without this
 internal fun interface Xml2Json {
   @Suppress("unused")
   fun xml2Json(xml: String): Map<*, *>?

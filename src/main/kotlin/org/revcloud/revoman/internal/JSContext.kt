@@ -8,7 +8,7 @@ import org.revcloud.revoman.internal.postman.pm
 import org.revcloud.revoman.internal.postman.state.Item
 import org.revcloud.revoman.internal.postman.state.Request
 
-private val jsContext = buildJsContext(false).also {
+internal val jsContext = buildJsContext(false).also {
   it.getBindings("js").putMember("pm", pm)
   it.getBindings("js").putMember("xml2Json", pm.xml2Json)
 }
