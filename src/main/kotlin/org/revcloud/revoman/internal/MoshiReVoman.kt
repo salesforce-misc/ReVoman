@@ -11,7 +11,6 @@ import org.http4k.format.MapAdapter
 import org.http4k.format.ThrowableAdapter
 import org.http4k.format.asConfigurable
 import org.http4k.format.withStandardMappings
-import org.revcloud.revoman.adapters.ObjOrListAdapterFactory
 import org.revcloud.revoman.internal.adapters.IgnoreUnknownFactory
 import java.lang.reflect.Type
 import java.util.Date
@@ -24,7 +23,6 @@ private val moshiBuilder = Moshi.Builder()
   .addLast(ThrowableAdapter)
   .addLast(ListAdapter)
   .addLast(MapAdapter)
-  .addLast(ObjOrListAdapterFactory)
   .asConfigurable()
   .withStandardMappings()
   .done()

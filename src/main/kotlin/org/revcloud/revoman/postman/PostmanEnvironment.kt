@@ -9,4 +9,7 @@ data class PostmanEnvironment(private val environment: MutableMap<String, String
   fun unset(key: String) {
     environment.remove(key)
   }
+  
+  fun getValuesForKeysEndingWith(suffix: String): List<String?> = 
+    environment.entries.asSequence().filter { it.key.endsWith(suffix) }.map { it.value }.toList()
 }
