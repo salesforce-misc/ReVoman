@@ -24,8 +24,9 @@ internal interface KickDef {
   fun dynamicEnvironment(): Map<String, String>
 
   fun bearerTokenKey(): String?
-
-  fun haltOnAnyFailure(): Boolean?
+  
+  @SkipNulls
+  fun haltOnAnyFailureExceptForSteps(): Set<String>
   
   @SkipNulls
   fun hooks(): Map<Pair<String, HookType>, Consumer<Rundown>>

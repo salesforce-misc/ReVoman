@@ -27,3 +27,5 @@ data class StepReport(
   val isSuccessful: Boolean
     get() = (responseData?.status?.successful ?: false) && validationFailure == null && testScriptJsFailure == null
 }
+
+const val FOLDER_DELIMITER = "|>"
