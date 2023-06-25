@@ -43,6 +43,7 @@ object ReVoman {
     kick.skipSteps(),
     kick.environmentPath(),
     kick.dynamicEnvironment(),
+    kick.customDynamicVariables(),
     kick.bearerTokenKey(),
     kick.haltOnAnyFailureExceptForSteps(),
     kick.hooks(),
@@ -62,6 +63,7 @@ object ReVoman {
     skipSteps: Set<String>,
     environmentPath: String?,
     dynamicEnvironment: Map<String, String?>,
+    customDynamicVariables: Map<String, (String) -> String>,
     bearerTokenKey: String?,
     haltOnAnyFailureExceptForSteps: Set<String>,
     hooks: Map<Pair<String, HookType>, Consumer<Rundown>>,
@@ -74,9 +76,9 @@ object ReVoman {
     // ! TODO 18/06/23 gopala.akshintala: Add some more require conditions and Move to a separate component Config validation
     // ! TODO 22/06/23 gopala.akshintala: Validate if validation config for a step is mentioned but the stepName is not present
     require(Collections.disjoint(runOnlySteps, skipSteps)) { "runOnlySteps and skipSteps cannot be intersected" }
-    initPmEnvironment(dynamicEnvironment, environmentPath)
+    initPmEnvironment(environmentPath, dynamicEnvironment, customDynamicVariables)
     val (pmSteps, auth) = Moshi.Builder().build().adapter<Template>().fromJson(readTextFromFile(pmTemplatePath)) ?: return Rundown()
-    val replaceRegexWithEnvAdapter = Moshi.Builder().add(RegexAdapterFactory(pm.environment)).build().adapter<Item>()
+    val replaceRegexWithEnvAdapter = Moshi.Builder().add(RegexAdapterFactory(pm.environment, customDynamicVariables)).build().adapter<Item>()
     val moshi = initMoshi(customAdaptersForResponse, typesInResponseToIgnore)
     var noFailure = true
     // ! TODO 22/06/23 gopala.akshintala: Validate if steps with same name are used in config

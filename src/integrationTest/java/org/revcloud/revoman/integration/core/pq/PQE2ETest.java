@@ -28,6 +28,9 @@ class PQE2ETest {
             .haltOnAnyFailureExceptForSteps(unsuccessfulStepsException)
             .templatePath(TEST_RESOURCES_PATH + "pm-templates/pq/pq-api-create.postman_collection.json")
             .environmentPath(TEST_RESOURCES_PATH + "pm-templates/pq/pq-env.postman_environment.json")
+            .customDynamicVariables(Map.of(
+                "$qliFieldsToQuery", ignore -> "Id, Product2Id",
+                "$qlrFieldsToQuery", ignore -> "Id, QuoteId, MainQuoteLineId, AssociatedQuoteLineId"))
             .stepNameToSuccessConfig(Map.of(
                 "pq-create-with-bundles", validateIfSuccess(PlaceQuoteOutputRepresentation.class, pqRespValidationConfig),
                 "quote-related-records", successType(CompositeResponse.class))).off());

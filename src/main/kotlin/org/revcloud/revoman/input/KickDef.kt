@@ -23,6 +23,9 @@ internal interface KickDef {
   @SkipNulls
   fun dynamicEnvironment(): Map<String, String>
 
+  @SkipNulls
+  fun customDynamicVariables(): Map<String, (String) -> String>
+
   fun bearerTokenKey(): String?
   
   @SkipNulls

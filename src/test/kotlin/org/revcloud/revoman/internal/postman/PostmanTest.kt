@@ -13,7 +13,7 @@ class PostmanTest {
   fun `unmarshall Env File with Regex and Dynamic variable`() {
     val epoch = System.currentTimeMillis().toString()
     val dummyDynamicVariableGenerator = { r: String -> if (r == "\$epoch") epoch else null}
-    val actualEnv = unmarshallEnvFile("${TEST_RESOURCES_PATH}/env-with-regex.json", mapOf("un" to "userName"), dummyDynamicVariableGenerator)
+    val actualEnv = unmarshallEnvFile("${TEST_RESOURCES_PATH}/env-with-regex.json", mapOf("un" to "userName"), emptyMap(), dummyDynamicVariableGenerator)
     val expectedEnv = Environment(values = listOf(EnvValue(key = "userName", value = "user-$epoch@xyz.com", enabled = true)))
     actualEnv shouldBe expectedEnv
   }

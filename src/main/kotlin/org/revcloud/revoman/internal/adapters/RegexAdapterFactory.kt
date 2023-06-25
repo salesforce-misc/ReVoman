@@ -11,7 +11,8 @@ import java.lang.reflect.Type
 val postManVariableRegex = "\\{\\{([^{}]*?)}}".toRegex()
 
 internal class RegexAdapterFactory(
-  private val envMap: Map<String, String?>,
+  private val env: Map<String, String?>,
+  private val customDynamicVariables: Map<String, (String) -> String>,
   private val dynamicVariableGenerator: (String) -> String? = ::dynamicVariableGenerator
 ) : JsonAdapter.Factory {
   override fun create(type: Type, annotations: Set<Annotation?>, moshi: Moshi): JsonAdapter<*>? {
@@ -25,7 +26,10 @@ internal class RegexAdapterFactory(
       private fun replaceRegexRecursively(s: String?): String? = s?.let {
         postManVariableRegex.replace(it) { matchResult ->
           val variableKey = matchResult.groupValues[1]
-          replaceRegexRecursively(dynamicVariableGenerator(variableKey)) ?: replaceRegexRecursively(envMap[variableKey]) ?: matchResult.value
+          customDynamicVariables[variableKey]?.let { replaceRegexRecursively(it(variableKey)) }
+            ?: replaceRegexRecursively(dynamicVariableGenerator(variableKey)) 
+            ?: replaceRegexRecursively(env[variableKey]) 
+            ?: matchResult.value
         }
       }
 
