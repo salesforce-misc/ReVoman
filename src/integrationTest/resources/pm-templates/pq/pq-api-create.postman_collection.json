@@ -2286,7 +2286,7 @@
 									"script": {
 										"exec": [
 											"var jsonData = JSON.parse(responseBody);",
-											"if(jsonData.id != null) {",
+											"if (jsonData.id != null) {",
 											"    pm.environment.set(\"accountId\", jsonData.id);",
 											"}"
 										],
@@ -2554,11 +2554,12 @@
 									"script": {
 										"exec": [
 											"var jsonData = JSON.parse(responseBody)",
-											"jsonData.compositeResponse[0].body.records.forEach((record, index) => {",
+											"pm.environment.set(\"quoteCalculationStatus\", jsonData.compositeResponse[1].body.records[0].CalculationStatus)",
+											"jsonData.compositeResponse[1].body.records.forEach((record, index) => {",
 											"    pm.environment.set(\"qliCreated\" + (index + 1) + \"Id\", record.Id)",
 											"    pm.environment.set(\"productForQLI\" + (index + 1) + \"Id\", record.Product2Id)",
 											"})",
-											"jsonData.compositeResponse[1].body.records.forEach((record, index) => {",
+											"jsonData.compositeResponse[2].body.records.forEach((record, index) => {",
 											"    pm.environment.set(\"quoteForQLR\" + (index + 1) + \"Id\", record.QuoteId)",
 											"    pm.environment.set(\"mainQuoteLineForQLR\" + (index + 1) + \"Id\", record.MainQuoteLineId)",
 											"    pm.environment.set(\"associatedQuoteLineForQLR\" + (index + 1) + \"Id\", record.AssociatedQuoteLineId)",
@@ -2571,7 +2572,9 @@
 									"listen": "prerequest",
 									"script": {
 										"exec": [
-											""
+											"pm.environment.set(\"$quoteFieldsToQuery\", \"CalculationStatus\")",
+											"pm.environment.set(\"$qliFieldsToQuery\", \"Id, Product2Id\")",
+											"pm.environment.set(\"$qlrFieldsToQuery\", \"Id, QuoteId, MainQuoteLineId, AssociatedQuoteLineId\")"
 										],
 										"type": "text/javascript"
 									}
@@ -2582,7 +2585,7 @@
 								"header": [],
 								"body": {
 									"mode": "raw",
-									"raw": "{\n    \"allOrNone\": false,\n    \"compositeRequest\": [\n        {\n            \"method\": \"GET\",\n            \"url\": \"/services/data/v{{version}}/query/?q=select {{$qliFieldsToQuery}} from QuoteLineItem where QuoteId = '{{quoteId}}'\",\n            \"referenceId\": \"qlis\"\n        },\n        {\n            \"method\": \"GET\",\n            \"url\": \"/services/data/v{{version}}/query/?q=select {{$qlrFieldsToQuery}} from QuoteLineRelationship where QuoteId = '{{quoteId}}'\",\n            \"referenceId\": \"qlrs\"\n        }\n    ]\n}",
+									"raw": "{\n    \"allOrNone\": false,\n    \"compositeRequest\": [\n        {\n            \"method\": \"GET\",\n            \"url\": \"/services/data/v{{version}}/query/?q=select {{$quoteFieldsToQuery}} from Quote where Id = '{{quoteId}}'\",\n            \"referenceId\": \"quote\"\n        },\n        {\n            \"method\": \"GET\",\n            \"url\": \"/services/data/v{{version}}/query/?q=select {{$qliFieldsToQuery}} from QuoteLineItem where QuoteId = '{{quoteId}}'\",\n            \"referenceId\": \"qlis\"\n        },\n        {\n            \"method\": \"GET\",\n            \"url\": \"/services/data/v{{version}}/query/?q=select {{$qlrFieldsToQuery}} from QuoteLineRelationship where QuoteId = '{{quoteId}}'\",\n            \"referenceId\": \"qlrs\"\n        }\n    ]\n}",
 									"options": {
 										"raw": {
 											"language": "json"

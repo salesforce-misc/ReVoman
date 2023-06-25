@@ -1,5 +1,6 @@
 package org.revcloud.revoman.internal
 
+import mu.KotlinLogging
 import org.apache.commons.lang3.StringUtils
 import org.http4k.core.ContentType
 import org.http4k.core.Response
@@ -7,6 +8,8 @@ import org.revcloud.revoman.input.HookType
 import org.revcloud.revoman.output.Rundown
 import java.io.File
 import java.util.function.Consumer
+
+private val logger = KotlinLogging.logger {}
 
 internal fun isContentTypeApplicationJson(response: Response) =
   response.bodyString().isNotBlank() && response.header("content-type")?.let {
@@ -26,5 +29,8 @@ internal fun getHookForStep(
   hooks: Map<Pair<String, HookType>, Consumer<Rundown>>,
   stepName: String,
   hookType: HookType
-) = (hooks[stepName to hookType] ?: hooks[stepName.substringAfter("|>") to hookType])
+): Consumer<Rundown>? {
+  logger.info { "Found a $hookType for $stepName" }
+  return (hooks[stepName to hookType] ?: hooks[stepName.substringAfterLast("|>") to hookType])
+}
 

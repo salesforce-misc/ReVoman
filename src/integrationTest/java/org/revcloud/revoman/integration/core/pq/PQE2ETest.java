@@ -7,8 +7,10 @@ import static org.revcloud.revoman.integration.TestConstantsKt.TEST_RESOURCES_PA
 
 import com.salesforce.vador.config.ValidationConfig;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 import kotlin.collections.MapsKt;
+import kotlin.random.RandomKt;
 import org.junit.jupiter.api.Test;
 import org.revcloud.revoman.ReVoman;
 import org.revcloud.revoman.input.Kick;
@@ -28,9 +30,11 @@ class PQE2ETest {
             .haltOnAnyFailureExceptForSteps(unsuccessfulStepsException)
             .templatePath(TEST_RESOURCES_PATH + "pm-templates/pq/pq-api-create.postman_collection.json")
             .environmentPath(TEST_RESOURCES_PATH + "pm-templates/pq/pq-env.postman_environment.json")
-            .customDynamicVariables(Map.of(
-                "$qliFieldsToQuery", ignore -> "Id, Product2Id",
-                "$qlrFieldsToQuery", ignore -> "Id, QuoteId, MainQuoteLineId, AssociatedQuoteLineId"))
+            .dynamicEnvironment(Map.of(
+                "$quoteFieldsToQuery", "CalculationStatus",
+                "$qliFieldsToQuery", "Id, Product2Id",
+                "$qlrFieldsToQuery", "Id, QuoteId, MainQuoteLineId, AssociatedQuoteLineId"))
+            //.customDynamicVariable("$pricingPref", ignore -> PricingPref.values()[new Random().nextInt(PricingPref.values().length)].name())
             .stepNameToSuccessConfig(Map.of(
                 "pq-create-with-bundles", validateIfSuccess(PlaceQuoteOutputRepresentation.class, pqRespValidationConfig),
                 "quote-related-records", successType(CompositeResponse.class))).off());
@@ -48,5 +52,12 @@ class PQE2ETest {
     // Assert MainQuoteLineId, AssociatedQuoteLineId on QLRs
     assertThat(pqApiCreateWithBundles.environment.getValuesForKeysStartingWith("mainQuoteLineForQLR", "associatedQuoteLineForQLR"))
         .containsOnly(pqApiCreateWithBundles.environment.get("qliCreated1Id"), pqApiCreateWithBundles.environment.get("qliCreated4Id"));
+    assertThat(pqApiCreateWithBundles.environment.get("quoteCalculationStatus")).isEqualTo("CompletedWithTax");
+  }
+  
+  private enum PricingPref {
+    Force,
+    Skip,
+    System;
   }
 }
