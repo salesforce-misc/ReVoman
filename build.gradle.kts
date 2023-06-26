@@ -31,6 +31,7 @@ testing {
         implementation(project())
         implementation(libs.assertj.core)
         implementation(libs.mockito.core)
+        implementation.bundle(libs.bundles.kotlin.logging)
       }
     }
   }

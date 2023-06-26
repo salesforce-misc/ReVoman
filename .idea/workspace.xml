@@ -4,18 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="6ed80e62-f038-45bc-b42e-83dd15ec8dae" name="Changes" comment="Release 0.9.0&#10;:sparkles: &#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
+    <list default="true" id="6ed80e62-f038-45bc-b42e-83dd15ec8dae" name="Changes" comment="Major Doc updates&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/README.adoc" beforeDir="false" afterPath="$PROJECT_DIR$/README.adoc" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/buildSrc/src/main/kotlin/Config.kt" beforeDir="false" afterPath="$PROJECT_DIR$/buildSrc/src/main/kotlin/Config.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/integrationTest/java/org/revcloud/revoman/integration/core/pq/PQE2ETest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/integrationTest/java/org/revcloud/revoman/integration/core/pq/PQE2ETest.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/integrationTest/resources/pm-templates/pq/pq-api-create.postman_collection.json" beforeDir="false" afterPath="$PROJECT_DIR$/src/integrationTest/resources/pm-templates/pq/pq-api-create.postman_collection.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/ReVoman.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/ReVoman.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/input/KickDef.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/input/KickDef.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/internal/adapters/RegexAdapterFactory.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/internal/adapters/RegexAdapterFactory.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/internal/postman/Postman.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/internal/postman/Postman.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/test/kotlin/org/revcloud/revoman/adapters/internal/RegexAdapterFactoryTest.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/kotlin/org/revcloud/revoman/adapters/internal/RegexAdapterFactoryTest.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/test/kotlin/org/revcloud/revoman/internal/postman/PostmanTest.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/kotlin/org/revcloud/revoman/internal/postman/PostmanTest.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/buildSrc/src/main/kotlin/revoman.root-conventions.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/buildSrc/src/main/kotlin/revoman.root-conventions.gradle.kts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -106,36 +98,36 @@
     <option name="showExcludedFiles" value="false" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;FindInProjectState.directoryName&quot;: &quot;/Users/gopala.akshintala/code-clones/work/revoman-root/src/main&quot;,
-    &quot;FindInProjectState.isProjectScope&quot;: &quot;false&quot;,
-    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
-    &quot;SONARLINT_PRECOMMIT_ANALYSIS&quot;: &quot;false&quot;,
-    &quot;WebServerToolWindowFactoryState&quot;: &quot;false&quot;,
-    &quot;com.github.patou.gitmoji.display-icon&quot;: &quot;emoji&quot;,
-    &quot;com.github.patou.gitmoji.insert-in-cursor-position&quot;: &quot;true&quot;,
-    &quot;com.github.patou.gitmoji.text-after-unicode&quot;: &quot; &quot;,
-    &quot;com.intellij.testIntegration.createTest.CreateTestDialog.defaultLibrary&quot;: &quot;JUnit5&quot;,
-    &quot;com.intellij.testIntegration.createTest.CreateTestDialog.defaultLibrarySuperClass.JUnit5&quot;: &quot;&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
-    &quot;ktor.last.update.timestamp&quot;: &quot;1684229451936&quot;,
-    &quot;last_directory_selection&quot;: &quot;/Users/gopala.akshintala/code-clones/work/revoman-root/src/test/kotlin/org/revcloud/revoman/internal&quot;,
-    &quot;last_opened_file_path&quot;: &quot;/Users/gopala.akshintala/code-clones/work/revoman-root&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;project.structure.last.edited&quot;: &quot;Modules&quot;,
-    &quot;project.structure.proportion&quot;: &quot;0.15&quot;,
-    &quot;project.structure.side.proportion&quot;: &quot;0.2&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "FindInProjectState.directoryName": "/Users/gopala.akshintala/code-clones/work/revoman-root",
+    "FindInProjectState.isProjectScope": "false",
+    "RunOnceActivity.OpenProjectViewOnStart": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
+    "SONARLINT_PRECOMMIT_ANALYSIS": "false",
+    "WebServerToolWindowFactoryState": "false",
+    "com.github.patou.gitmoji.display-icon": "emoji",
+    "com.github.patou.gitmoji.insert-in-cursor-position": "true",
+    "com.github.patou.gitmoji.text-after-unicode": " ",
+    "com.intellij.testIntegration.createTest.CreateTestDialog.defaultLibrary": "JUnit5",
+    "com.intellij.testIntegration.createTest.CreateTestDialog.defaultLibrarySuperClass.JUnit5": "",
+    "git-widget-placeholder": "master",
+    "ktor.last.update.timestamp": "1684229451936",
+    "last_directory_selection": "/Users/gopala.akshintala/code-clones/work/revoman-root/src/test/kotlin/org/revcloud/revoman/internal",
+    "last_opened_file_path": "/Users/gopala.akshintala/code-clones/work/revoman-root",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "project.structure.last.edited": "Modules",
+    "project.structure.proportion": "0.15",
+    "project.structure.side.proportion": "0.2",
+    "settings.editor.selected.configurable": "preferences.pluginManager",
+    "vue.rearranger.settings.migration": "true"
   }
-}</component>
+}]]></component>
   <component name="Push.Settings">
     <force-push-targets>
       <force-push-target remote-path="origin" branch="master" />
@@ -149,11 +141,11 @@
       <recent name="$PROJECT_DIR$/src/integrationTest" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/images" />
       <recent name="$PROJECT_DIR$/src/main/kotlin" />
       <recent name="$PROJECT_DIR$/src/main/java" />
       <recent name="$PROJECT_DIR$/src/integrationTest/java/org/revcloud/revoman/integration/core/bs" />
       <recent name="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/internal/postman" />
-      <recent name="$PROJECT_DIR$/src/integrationTest/java" />
     </key>
     <key name="CreateTestDialog.Recents.Supers">
       <recent name="" />
@@ -179,7 +171,7 @@
       <command value="gradle publish" />
     </option>
   </component>
-  <component name="RunManager" selected="Gradle.PQE2ETest.revUpPQ">
+  <component name="RunManager" selected="Gradle.revoman-root [publish]">
     <configuration name="JSContextTest.xmlSoapParse" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
       <ExternalSystemSettings>
         <option name="executionName" />
@@ -300,11 +292,11 @@
     </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Gradle.PokemonTest.pokemon" />
         <item itemvalue="Gradle.PQE2ETest.revUpPQ" />
         <item itemvalue="Gradle.RegexAdapterFactoryTest.regex replace with custom dynamic variables" />
         <item itemvalue="Gradle.JSContextTest.xmlSoapParse" />
         <item itemvalue="Gradle.revoman-root [publish]" />
-        <item itemvalue="Gradle.PokemonTest.pokemon" />
       </list>
     </recent_temporary>
   </component>
@@ -357,6 +349,10 @@
       <workItem from="1687412132916" duration="8919000" />
       <workItem from="1687424389791" duration="16227000" />
       <workItem from="1687661351845" duration="5821000" />
+      <workItem from="1687668106267" duration="8087000" />
+      <workItem from="1687687483344" duration="13575000" />
+      <workItem from="1687712236042" duration="821000" />
+      <workItem from="1687745133379" duration="4622000" />
     </task>
     <task id="LOCAL-00001" summary="- Fixed moshiReVoman&#10;- Added module-info.java to integrationTest module">
       <created>1678595183319</created>
@@ -574,7 +570,47 @@
       <option name="project" value="LOCAL" />
       <updated>1687610822466</updated>
     </task>
-    <option name="localTasksCounter" value="30" />
+    <task id="LOCAL-00030" summary="Release 0.9.0&#10;:sparkles: Implement Custom Dynamic variables&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
+      <option name="closed" value="true" />
+      <created>1687668194811</created>
+      <option name="number" value="00030" />
+      <option name="presentableId" value="LOCAL-00030" />
+      <option name="project" value="LOCAL" />
+      <updated>1687668194811</updated>
+    </task>
+    <task id="LOCAL-00031" summary="Release 0.9.1&#10;:bug: Fix Hook to use substringAfterLast&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
+      <option name="closed" value="true" />
+      <created>1687689829746</created>
+      <option name="number" value="00031" />
+      <option name="presentableId" value="LOCAL-00031" />
+      <option name="project" value="LOCAL" />
+      <updated>1687689829746</updated>
+    </task>
+    <task id="LOCAL-00032" summary="Release 0.9.1&#10;:bug: Fix Hook to use substringAfterLast&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
+      <option name="closed" value="true" />
+      <created>1687689851518</created>
+      <option name="number" value="00032" />
+      <option name="presentableId" value="LOCAL-00032" />
+      <option name="project" value="LOCAL" />
+      <updated>1687689851518</updated>
+    </task>
+    <task id="LOCAL-00033" summary="Major Doc updates&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
+      <option name="closed" value="true" />
+      <created>1687745212518</created>
+      <option name="number" value="00033" />
+      <option name="presentableId" value="LOCAL-00033" />
+      <option name="project" value="LOCAL" />
+      <updated>1687745212518</updated>
+    </task>
+    <task id="LOCAL-00034" summary="Major Doc updates&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
+      <option name="closed" value="true" />
+      <created>1687746669695</created>
+      <option name="number" value="00034" />
+      <option name="presentableId" value="LOCAL-00034" />
+      <option name="project" value="LOCAL" />
+      <updated>1687746669695</updated>
+    </task>
+    <option name="localTasksCounter" value="35" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -632,9 +668,6 @@
   <component name="VcsManagerConfiguration">
     <option name="CHECK_CODE_SMELLS_BEFORE_PROJECT_COMMIT" value="false" />
     <option name="CHECK_NEW_TODO" value="false" />
-    <MESSAGE value="- Fixed moshiReVoman&#10;- Added module-info.java to integrationTest module" />
-    <MESSAGE value="Release 0.5.5&#10;- Return test script JS errors in StepReport" />
-    <MESSAGE value="Release 0.5.6&#10;- Replace regex recursively in variables&#10;- Upgrade Kotlin to 1.8.10&#10;- Upgrade moshi to 0.21.0" />
     <MESSAGE value="Make dynamicVariableGenerator injectable" />
     <MESSAGE value="Remove module-info.java from integrationTest" />
     <MESSAGE value="Release 0.6.0&#10;- Regex replacement for variables&#10;- Replace JavaHttpClient with ApacheClient" />
@@ -657,7 +690,10 @@
     <MESSAGE value="Release 0.7.3&#10;- Read auth bearerTokenKey from pm template &#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
     <MESSAGE value="Release 0.8.0&#10;- Add Util methods for types&#10;- Remove ObjOrListAdapterFactory.kt&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
     <MESSAGE value="Release 0.8.1&#10;- Replace haltOnAnyFailure with haltOnAnyFailureExceptForSteps&#10;- Working PQ E2E test&#10;- Step filter fixes&#10;- Removed DynamicEnvironmentKeys.kt&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
-    <option name="LAST_COMMIT_MESSAGE" value="Release 0.8.1&#10;- Replace haltOnAnyFailure with haltOnAnyFailureExceptForSteps&#10;- Working PQ E2E test&#10;- Step filter fixes&#10;- Removed DynamicEnvironmentKeys.kt&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
+    <MESSAGE value="Release 0.9.0&#10;:sparkles: Implement Custom Dynamic variables&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
+    <MESSAGE value="Release 0.9.1&#10;:bug: Fix Hook to use substringAfterLast&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
+    <MESSAGE value="Major Doc updates&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
+    <option name="LAST_COMMIT_MESSAGE" value="Major Doc updates&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
@@ -666,14 +702,6 @@
           <url>file://$PROJECT_DIR$/src/integrationTest/java/org/revcloud/revoman/integration/pokemon/PokemonTest.java</url>
           <line>44</line>
           <option name="timeStamp" value="22" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" type="java-line">
-          <url>file://$PROJECT_DIR$/src/integrationTest/java/org/revcloud/revoman/integration/core/pq/PQE2ETest.java</url>
-          <line>36</line>
-          <properties>
-            <option name="lambda-ordinal" value="-1" />
-          </properties>
-          <option name="timeStamp" value="38" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="kotlin-line">
           <url>file://$PROJECT_DIR$/src/test/kotlin/org/revcloud/revoman/adapters/internal/RegexAdapterFactoryTest.kt</url>

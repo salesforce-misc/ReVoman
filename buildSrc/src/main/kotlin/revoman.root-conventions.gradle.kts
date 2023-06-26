@@ -10,7 +10,7 @@ plugins {
 }
 version = VERSION
 group = GROUP_ID
-description = "ReVoman - A template driven testing tool"
+description = "ReVoman - An API Automation tool for JVM"
 repositories {
   mavenCentral()
   maven("https://oss.sonatype.org/content/repositories/snapshots")

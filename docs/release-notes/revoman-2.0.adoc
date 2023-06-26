@@ -1,0 +1,15 @@
+= Key Features
+
+* Core compatibility
+ ** Persona-based user creation and test-utils to recalculate PSG
+ ** Async operation Support
+* Pre- / Post-Hooks can be configured for each step, which can act as callbacks, especially useful for Async operations
+* Enhance Input config
+ ** Add parameters like runOnlyStep, skipSteps, haltOnAnyErrorExceptSteps etc.
+* Enhance variable support
+ ** Custom Dynamic variables for use cases like Parametric testing
+ ** Add Recursive variable support both for Template and Environment
+ ** Add more dynamic variables like $epoch, $randomFutureDate etc.
+* Enhance JS support for Test scripts.
+* Enhance error handling
+* Step name is represented through its full folder path
