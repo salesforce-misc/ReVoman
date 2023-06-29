@@ -19,7 +19,7 @@ endif::[]
 :hide-uri-scheme:
 :sourcedir: src/main/java
 :imagesdir: images
-:revoman-version: 0.6.3
+:revoman-version: 0.9.1
 :toc:
 
 [#_versioning_strategy]
@@ -35,6 +35,12 @@ endif::[]
 
 == Source-code Setup
 
+=== Install Java 11
+
+* It needs JDK 11 installed in your system. I recommend doing it via https://sdkman.io/install[SDKMAN]. After you install SDKMAN, run `sdk list java` -> Pick Identifier for your favorite java dist -> Run `sdk install java <Identifier-you-picked>  to install Java.
+
+=== Build with Gradle
+
 * You need to add your nexus credentials in `~/.gradle/gradle.properties` file (create file if not present), which are used by your local gradle to connect to nexus for publish. You can find them in your `core/app/main/workspace-user.xml` or https://nexus.soma.salesforce.com/nexus/[Nexus Portal]
 
 [source,properties]
@@ -49,6 +55,8 @@ endif::[]
 ----
 ./gradlew clean build
 ----
+
+TIP: You *don't* need a local Gradle installation as the `gradlew` (Gradle wrapper) takes care of everything. But if you wish to install gradle locally, I recommend doing it via https://sdkman.io/install[SDKMAN]. After you install SDKMAN, run `sdk install gradle` to install Gradle
 
 * You can run/debug the existing unit tests or write your own to play with the tool.
 
@@ -99,8 +107,8 @@ It may be slow for the first run, but later runs should be faster.
 This repo doesn't yet have the CI/CD pipeline.
 So, it needs to be published manually.
 
-* Follow the <<_versioning_strategy,Versioning Strategy>> to increment version link:buildSrc/{sourcedir}/revoman.root-conventions.gradle.kts[here]
-** For SNAPSHOT releases, add a `-SNAPSHOT` at the end
+* Follow the <<_versioning_strategy,Versioning Strategy>> to increment version link:buildSrc/{sourcedir}/Config.kt[here]
+** For SNAPSHOT releases, add a `-SNAPSHOT` at the end of version number
 * Run this command to publish it to Nexus:
 
 [source,bash]

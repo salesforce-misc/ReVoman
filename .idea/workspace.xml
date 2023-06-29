@@ -6,8 +6,8 @@
   <component name="ChangeListManager">
     <list default="true" id="6ed80e62-f038-45bc-b42e-83dd15ec8dae" name="Changes" comment="Major Doc updates&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/README.adoc" beforeDir="false" afterPath="$PROJECT_DIR$/README.adoc" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/buildSrc/src/main/kotlin/revoman.root-conventions.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/buildSrc/src/main/kotlin/revoman.root-conventions.gradle.kts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/CONTRIBUTING.adoc" beforeDir="false" afterPath="$PROJECT_DIR$/CONTRIBUTING.adoc" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/images/revoman-flow.png" beforeDir="false" afterPath="$PROJECT_DIR$/docs/images/revoman-flow.png" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -68,6 +68,66 @@
   <component name="GitToolBoxStore">
     <option name="projectConfigVersion" value="5" />
   </component>
+  <component name="HighlightingMarkupGrave">
+    <markupCoffin contentHash="-241459496" url="file://$PROJECT_DIR$/CONTRIBUTING.adoc">
+      <highlighter start="1583" end="1584" layer="3000" target="1" gutterIconUrl="jar:file:/Applications/IntelliJ%20IDEA%20Ultimate.app/Contents/lib/app-client.jar!/expui/gutter/rerun.svg" />
+      <highlighter start="1602" end="1623" layer="3000" target="1" gutterIconUrl="jar:file:/Applications/IntelliJ%20IDEA%20Ultimate.app/Contents/lib/app-client.jar!/expui/gutter/run.svg" />
+      <highlighter start="1687" end="1688" layer="3000" target="1" gutterIconUrl="jar:file:/Applications/IntelliJ%20IDEA%20Ultimate.app/Contents/lib/app-client.jar!/expui/gutter/run.svg" />
+      <highlighter start="2132" end="2140" layer="3000" target="0">
+        <option name="myExternalName" value="GRAMMAR_ERROR" />
+      </highlighter>
+      <highlighter start="2132" end="2140" layer="3000" target="0">
+        <option name="myExternalName" value="GRAMMAR_ERROR" />
+      </highlighter>
+      <highlighter start="2500" end="2501" layer="3000" target="1" gutterIconUrl="jar:file:/Applications/IntelliJ%20IDEA%20Ultimate.app/Contents/lib/app-client.jar!/expui/gutter/rerun.svg" />
+      <highlighter start="2648" end="2649" layer="3000" target="1" gutterIconUrl="jar:file:/Applications/IntelliJ%20IDEA%20Ultimate.app/Contents/lib/app-client.jar!/expui/gutter/rerun.svg" />
+      <highlighter start="3364" end="3372" layer="3000" target="0">
+        <option name="myExternalName" value="TEXT_STYLE_SUGGESTION" />
+      </highlighter>
+      <highlighter start="3671" end="3672" layer="3000" target="0">
+        <option name="myExternalName" value="GRAMMAR_ERROR" />
+      </highlighter>
+      <highlighter start="3671" end="3672" layer="3000" target="0">
+        <option name="myExternalName" value="GRAMMAR_ERROR" />
+      </highlighter>
+      <highlighter start="3695" end="3696" layer="3000" target="1" gutterIconUrl="jar:file:/Applications/IntelliJ%20IDEA%20Ultimate.app/Contents/lib/app-client.jar!/expui/gutter/run.svg" />
+      <highlighter start="3868" end="3869" layer="3000" target="1" gutterIconUrl="jar:file:/Applications/IntelliJ%20IDEA%20Ultimate.app/Contents/lib/app-client.jar!/expui/gutter/run.svg" />
+      <highlighter start="4363" end="4364" layer="3000" target="1" gutterIconUrl="jar:file:/Applications/IntelliJ%20IDEA%20Ultimate.app/Contents/lib/app-client.jar!/expui/gutter/rerun.svg" />
+      <highlighter start="4382" end="4399" layer="3000" target="1" gutterIconUrl="jar:file:/Applications/IntelliJ%20IDEA%20Ultimate.app/Contents/lib/app-client.jar!/expui/gutter/run.svg" />
+    </markupCoffin>
+    <markupCoffin contentHash="371071236" url="file://$PROJECT_DIR$/README.adoc">
+      <highlighter start="1038" end="1043" layer="3000" target="0">
+        <option name="myExternalName" value="TYPO" />
+      </highlighter>
+      <highlighter start="4166" end="4171" layer="3000" target="0">
+        <option name="myExternalName" value="TYPO" />
+      </highlighter>
+      <highlighter start="6007" end="6017" layer="3000" target="0">
+        <option name="myExternalName" value="TYPO" />
+      </highlighter>
+      <highlighter start="6597" end="6598" layer="3000" target="1" gutterIconUrl="jar:file:/Applications/IntelliJ%20IDEA%20Ultimate.app/Contents/lib/app-client.jar!/expui/gutter/rerun.svg" />
+      <highlighter start="6766" end="6767" layer="3000" target="1" gutterIconUrl="jar:file:/Applications/IntelliJ%20IDEA%20Ultimate.app/Contents/lib/app-client.jar!/expui/gutter/rerun.svg" />
+      <highlighter start="9331" end="9332" layer="3000" target="1" gutterIconUrl="jar:file:/Applications/IntelliJ%20IDEA%20Ultimate.app/Contents/lib/app-client.jar!/expui/gutter/rerun.svg" />
+      <highlighter start="12200" end="12205" layer="3000" target="0">
+        <option name="myExternalName" value="TEXT_STYLE_SUGGESTION" />
+      </highlighter>
+      <highlighter start="13021" end="13026" layer="3000" target="0">
+        <option name="myExternalName" value="TYPO" />
+      </highlighter>
+      <highlighter start="13051" end="13057" layer="3000" target="0">
+        <option name="myExternalName" value="TYPO" />
+      </highlighter>
+      <highlighter start="13239" end="13244" layer="3000" target="0">
+        <option name="myExternalName" value="TYPO" />
+      </highlighter>
+      <highlighter start="13290" end="13295" layer="3000" target="0">
+        <option name="myExternalName" value="TYPO" />
+      </highlighter>
+      <highlighter start="14580" end="14586" layer="3000" target="0">
+        <option name="myExternalName" value="TYPO" />
+      </highlighter>
+    </markupCoffin>
+  </component>
   <component name="HighlightingSettingsPerFile">
     <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.salesforce.vador/vador/1.0.1/ecb8a4a32c4e82a896939a2246604a8973a45e7f/vador-1.0.1-sources.jar!/com/salesforce/vador/config/base/BaseValidationConfig.java" root0="SKIP_INSPECTION" />
     <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.graalvm.sdk/graal-sdk/23.0.0/7cecba55a496c57296c2e5c98f54205a161a9dff/graal-sdk-23.0.0-sources.jar!/org/graalvm/polyglot/Context.java" root0="SKIP_INSPECTION" />
@@ -115,7 +175,7 @@
     "git-widget-placeholder": "master",
     "ktor.last.update.timestamp": "1684229451936",
     "last_directory_selection": "/Users/gopala.akshintala/code-clones/work/revoman-root/src/test/kotlin/org/revcloud/revoman/internal",
-    "last_opened_file_path": "/Users/gopala.akshintala/code-clones/work/revoman-root",
+    "last_opened_file_path": "/Users/gopala.akshintala/code-clones/work/revoman-root/docs/images",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
@@ -137,6 +197,7 @@
   </component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/docs/images" />
       <recent name="$PROJECT_DIR$/src/integrationTest/java/org/revcloud/revoman/integration" />
       <recent name="$PROJECT_DIR$/src/integrationTest" />
     </key>
@@ -352,7 +413,8 @@
       <workItem from="1687668106267" duration="8087000" />
       <workItem from="1687687483344" duration="13575000" />
       <workItem from="1687712236042" duration="821000" />
-      <workItem from="1687745133379" duration="4622000" />
+      <workItem from="1687745133379" duration="5237000" />
+      <workItem from="1688035052884" duration="2615000" />
     </task>
     <task id="LOCAL-00001" summary="- Fixed moshiReVoman&#10;- Added module-info.java to integrationTest module">
       <created>1678595183319</created>
@@ -610,7 +672,15 @@
       <option name="project" value="LOCAL" />
       <updated>1687746669695</updated>
     </task>
-    <option name="localTasksCounter" value="35" />
+    <task id="LOCAL-00035" summary="Major Doc updates&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
+      <option name="closed" value="true" />
+      <created>1687757921458</created>
+      <option name="number" value="00035" />
+      <option name="presentableId" value="LOCAL-00035" />
+      <option name="project" value="LOCAL" />
+      <updated>1687757921458</updated>
+    </task>
+    <option name="localTasksCounter" value="36" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -698,11 +768,6 @@
   <component name="XDebuggerManager">
     <breakpoint-manager>
       <breakpoints>
-        <line-breakpoint enabled="true" type="java-line">
-          <url>file://$PROJECT_DIR$/src/integrationTest/java/org/revcloud/revoman/integration/pokemon/PokemonTest.java</url>
-          <line>44</line>
-          <option name="timeStamp" value="22" />
-        </line-breakpoint>
         <line-breakpoint enabled="true" type="kotlin-line">
           <url>file://$PROJECT_DIR$/src/test/kotlin/org/revcloud/revoman/adapters/internal/RegexAdapterFactoryTest.kt</url>
           <line>31</line>
