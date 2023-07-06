@@ -13,14 +13,17 @@ internal fun initPmEnvironment(
   dynamicEnvironment: Map<String, String?>?,
   customDynamicVariables: Map<String, (String) -> String>
 ) {
-  // ! TODO gopala.akshintala 19/05/22: Think about clashes between json environment variables and dynamic environment variables
+  // ! TODO gopala.akshintala 19/05/22: Think about clashes between json environment variables and
+  // dynamic environment variables
   if (!dynamicEnvironment.isNullOrEmpty()) {
     pm.environment.putAll(dynamicEnvironment)
   }
   if (pmEnvironmentPath != null) {
-    val environment: Environment? = unmarshallEnvFile(pmEnvironmentPath, pm.environment, customDynamicVariables)
-    pm.environment.putAll(environment?.values?.filter { it.enabled }
-      ?.associate { it.key to it.value } ?: emptyMap())
+    val environment: Environment? =
+      unmarshallEnvFile(pmEnvironmentPath, pm.environment, customDynamicVariables)
+    pm.environment.putAll(
+      environment?.values?.filter { it.enabled }?.associate { it.key to it.value } ?: emptyMap()
+    )
   }
 }
 
@@ -31,5 +34,8 @@ internal fun unmarshallEnvFile(
   customDynamicVariables: Map<String, (String) -> String>,
   dynamicVariableGenerator: (String) -> String? = ::dynamicVariableGenerator
 ): Environment? =
-  Moshi.Builder().add(RegexAdapterFactory(pmEnvironment, customDynamicVariables, dynamicVariableGenerator)).build().adapter<Environment>()
+  Moshi.Builder()
+    .add(RegexAdapterFactory(pmEnvironment, customDynamicVariables, dynamicVariableGenerator))
+    .build()
+    .adapter<Environment>()
     .fromJson(readTextFromFile(pmEnvironmentPath))

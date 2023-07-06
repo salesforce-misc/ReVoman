@@ -3,8 +3,7 @@ package org.revcloud.revoman.response.types.salesforce
 import com.squareup.moshi.JsonClass
 import dev.zacsweers.moshix.adapters.JsonString
 
-@JsonClass(generateAdapter = true)
-data class GraphCollectionResponse(val graphs: List<Graph>)
+@JsonClass(generateAdapter = true) data class GraphCollectionResponse(val graphs: List<Graph>)
 
 @JsonClass(generateAdapter = true)
 data class Graph(val graphId: String, val graphResponse: GraphResponse, val isSuccessful: Boolean)

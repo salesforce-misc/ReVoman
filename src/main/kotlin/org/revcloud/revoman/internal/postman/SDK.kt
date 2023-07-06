@@ -8,8 +8,7 @@ import org.revcloud.revoman.internal.postman.state.Request
 import org.revcloud.revoman.postman.PostmanEnvironment
 
 internal class PostmanAPI {
-  @JvmField
-  val environment: PostmanEnvironment = PostmanEnvironment()
+  @JvmField val environment: PostmanEnvironment = PostmanEnvironment()
   lateinit var request: Request
   lateinit var response: Response
 
@@ -28,8 +27,7 @@ internal class PostmanAPI {
 @SuppressWarnings("kotlin:S6517")
 @FunctionalInterface // DON'T REMOVE THIS. Polyglot won't work without this
 internal fun interface Xml2Json {
-  @Suppress("unused")
-  fun xml2Json(xml: String): Map<*, *>?
+  @Suppress("unused") fun xml2Json(xml: String): Map<*, *>?
 }
 
 @JsonClass(generateAdapter = true)

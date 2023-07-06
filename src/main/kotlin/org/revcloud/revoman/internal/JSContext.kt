@@ -8,10 +8,11 @@ import org.revcloud.revoman.internal.postman.pm
 import org.revcloud.revoman.internal.postman.state.Item
 import org.revcloud.revoman.internal.postman.state.Request
 
-internal val jsContext = buildJsContext(false).also {
-  it.getBindings("js").putMember("pm", pm)
-  it.getBindings("js").putMember("xml2Json", pm.xml2Json)
-}
+internal val jsContext =
+  buildJsContext(false).also {
+    it.getBindings("js").putMember("pm", pm)
+    it.getBindings("js").putMember("xml2Json", pm.xml2Json)
+  }
 
 private fun buildJsContext(useCommonjsRequire: Boolean = true): Context {
   val options = buildMap {
@@ -32,11 +33,9 @@ private fun buildJsContext(useCommonjsRequire: Boolean = true): Context {
     .build()
 }
 
-internal fun executeTestScriptJs(
-  step: Item,
-  response: Response
-) {
-  // ! TODO 12/03/23 gopala.akshintala: Find a way to surface-up what happened in the script, like the Ids set etc 
+internal fun executeTestScriptJs(step: Item, response: Response) {
+  // ! TODO 12/03/23 gopala.akshintala: Find a way to surface-up what happened in the script, like
+  // the Ids set etc
   loadIntoPmEnvironment(step.request, response)
   val testScript = step.event?.find { it.listen == "test" }?.script?.exec?.joinToString("\n")
   if (!testScript.isNullOrBlank()) {
@@ -49,9 +48,10 @@ internal fun executeTestScriptJs(
 
 private fun loadIntoPmEnvironment(stepRequest: Request, response: Response) {
   pm.request = stepRequest
-  pm.response = org.revcloud.revoman.internal.postman.Response(
-    response.status.toString(),
-    response.status.code.toString(),
-    response.bodyString()
-  )
+  pm.response =
+    org.revcloud.revoman.internal.postman.Response(
+      response.status.toString(),
+      response.status.code.toString(),
+      response.bodyString()
+    )
 }

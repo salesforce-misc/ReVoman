@@ -6,33 +6,38 @@ plugins {
   signing
   id("com.adarshr.test-logger")
 }
-repositories {
-  mavenCentral()
-}
+
+repositories { mavenCentral() }
+
 java {
   withSourcesJar()
-  toolchain {
-    languageVersion.set(JavaLanguageVersion.of(11))
-  }
+  toolchain { languageVersion.set(JavaLanguageVersion.of(11)) }
 }
+
 tasks {
   testlogger.theme = MOCHA
   withType<Jar> { duplicatesStrategy = DuplicatesStrategy.EXCLUDE }
   withType<PublishToMavenRepository>().configureEach {
     doLast {
-      logger.lifecycle("Successfully uploaded ${publication.groupId}:${publication.artifactId}:${publication.version} to ${repository.name}")
+      logger.lifecycle(
+        "Successfully uploaded ${publication.groupId}:${publication.artifactId}:${publication.version} to ${repository.name}"
+      )
     }
   }
   withType<PublishToMavenLocal>().configureEach {
     doLast {
-      logger.lifecycle("Successfully created ${publication.groupId}:${publication.artifactId}:${publication.version} in MavenLocal")
+      logger.lifecycle(
+        "Successfully created ${publication.groupId}:${publication.artifactId}:${publication.version} in MavenLocal"
+      )
     }
   }
 }
+
 publishing {
   publications.create<MavenPublication>("revoman") {
     val subprojectJarName = tasks.jar.get().archiveBaseName.get()
-    artifactId = if (subprojectJarName == "revoman-root") "revoman" else "revoman-$subprojectJarName"
+    artifactId =
+      if (subprojectJarName == "revoman-root") "revoman" else "revoman-$subprojectJarName"
     from(components["java"])
     pom {
       name.set(artifactId)

@@ -1,17 +1,14 @@
 package org.revcloud.revoman.internal
 
-import io.kotest.matchers.shouldBe
 import org.graalvm.polyglot.Source
 import org.junit.jupiter.api.Test
-import org.revcloud.revoman.TEST_RESOURCES_PATH
-import org.revcloud.revoman.internal.postman.state.EnvValue
-import org.revcloud.revoman.internal.postman.state.Environment
 
 class JSContextTest {
-  
+
   @Test
   fun xmlSoapParse() {
-    val responseBody = """
+    val responseBody =
+      """
       <?xml version="1.0" encoding="UTF-8"?>
       <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns="urn:partner.soap.sforce.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
           <soapenv:Body>
@@ -27,13 +24,16 @@ class JSContextTest {
               </loginResponse>
           </soapenv:Body>
       </soapenv:Envelope>
-    """.trimIndent()
-    val callingScript = """
+    """
+        .trimIndent()
+    val callingScript =
+      """
       var jsonData=xml2Json(responseBody);
       console.log(jsonData);
       var sessionId = jsonData['soapenv:Envelope']['soapenv:Body'].loginResponse.result.sessionId
       pm.environment.set("accessToken", sessionId);
-    """.trimIndent()
+    """
+        .trimIndent()
     val source = Source.newBuilder("js", callingScript, "myScript.js").build()
     val jsBindings = jsContext.getBindings("js")
     jsBindings.putMember("responseBody", responseBody)

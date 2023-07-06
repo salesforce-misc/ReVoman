@@ -3,11 +3,13 @@ package org.revcloud.revoman.response.types.salesforce
 import com.squareup.moshi.JsonClass
 
 @JsonClass(generateAdapter = true)
-data class CompositeResponse(
-  val compositeResponse: List<CompositeResponseX>
-) {
-  fun getRecordsWithReferenceId(referenceId: String): List<Map<String, Any>> = 
-    this.compositeResponse.asSequence().filter { referenceId == it.referenceId }.flatMap { it.body.records }.toList()
+data class CompositeResponse(val compositeResponse: List<CompositeResponseX>) {
+  fun getRecordsWithReferenceId(referenceId: String): List<Map<String, Any>> =
+    this.compositeResponse
+      .asSequence()
+      .filter { referenceId == it.referenceId }
+      .flatMap { it.body.records }
+      .toList()
 }
 
 @JsonClass(generateAdapter = true)
@@ -21,22 +23,14 @@ data class CompositeResponseX(
 @JsonClass(generateAdapter = true)
 data class Body(
   val done: Boolean,
-  val records: List<Map<String, Any>>, // ! TODO 24/06/23 gopala.akshintala: Use Record type with a Factory 
+  val records:
+    List<Map<String, Any>>, // ! TODO 24/06/23 gopala.akshintala: Use Record type with a Factory
   val totalSize: Int
 )
 
 @JsonClass(generateAdapter = true)
-data class Record(
-  val attributes: Attributes,
-  val recordBody: Map<String, Any>
-)
+data class Record(val attributes: Attributes, val recordBody: Map<String, Any>)
 
-@JsonClass(generateAdapter = true)
-class HttpHeaders
+@JsonClass(generateAdapter = true) class HttpHeaders
 
-@JsonClass(generateAdapter = true)
-data class Attributes(
-  val type: String,
-  val url: String
-)
-
+@JsonClass(generateAdapter = true) data class Attributes(val type: String, val url: String)

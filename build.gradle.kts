@@ -4,6 +4,7 @@ plugins {
   id("revoman.kt-conventions")
   alias(libs.plugins.moshix)
 }
+
 dependencies {
   api(libs.bundles.http4k)
   api(libs.moshix.adapters)
@@ -21,28 +22,24 @@ dependencies {
 
   testImplementation(libs.assertj.core)
 }
+
 testing {
   suites {
-    val test by getting(JvmTestSuite::class) {
-      useJUnitJupiter(libs.versions.junit.get())
-    }
-    val integrationTest by registering(JvmTestSuite::class) {
-      dependencies {
-        implementation(project())
-        implementation(libs.assertj.core)
-        implementation(libs.mockito.core)
-        implementation.bundle(libs.bundles.kotlin.logging)
+    val test by getting(JvmTestSuite::class) { useJUnitJupiter(libs.versions.junit.get()) }
+    val integrationTest by
+      registering(JvmTestSuite::class) {
+        dependencies {
+          implementation(project())
+          implementation(libs.assertj.core)
+          implementation(libs.mockito.core)
+          implementation.bundle(libs.bundles.kotlin.logging)
+        }
       }
-    }
   }
 }
-koverReport {
-  defaults {
-    xml {
-      onCheck = true
-    }
-  }
-}
+
+koverReport { defaults { xml { onCheck = true } } }
+
 moshi {
   enableSealed by true
   generateProguardRules by false

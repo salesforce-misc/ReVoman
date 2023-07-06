@@ -5,12 +5,10 @@ plugins {
   kotlin("kapt")
 }
 
-val libs: VersionCatalog =
-  extensions.getByType<VersionCatalogsExtension>().named("libs")
+val libs: VersionCatalog = extensions.getByType<VersionCatalogsExtension>().named("libs")
 
-dependencies {
-  testImplementation(libs.kotestBundle)
-}
+dependencies { testImplementation(libs.kotestBundle) }
+
 tasks {
   withType<KotlinCompile> {
     kotlinOptions {
