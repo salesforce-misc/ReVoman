@@ -122,7 +122,7 @@ object ReVoman {
             pm.environment[
                 bearerTokenKey
                   ?: auth?.bearer?.firstOrNull()?.value?.let {
-                    postManVariableRegex.matchEntire(it)?.groupValues?.get(1) ?: ""
+                    postManVariableRegex.find(it)?.groups?.get("variableKey") ?: ""
                   }]
           val httpClient: HttpHandler = prepareHttpClient(bearerToken, insecureHttp)
           val request = step.request.toHttpRequest()

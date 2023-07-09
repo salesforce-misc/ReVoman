@@ -8,7 +8,7 @@ import com.squareup.moshi.internal.Util
 import java.lang.reflect.Type
 import org.revcloud.revoman.internal.postman.dynamicVariableGenerator
 
-val postManVariableRegex = "\\{\\{([^{}]*?)}}".toRegex()
+val postManVariableRegex = "\\{\\{(?<variableKey>[^{}]*?)}}".toRegex()
 
 internal class RegexAdapterFactory(
   private val env: Map<String, String?>,
@@ -27,7 +27,7 @@ internal class RegexAdapterFactory(
       private fun replaceRegexRecursively(s: String?): String? =
         s?.let {
           postManVariableRegex.replace(it) { matchResult ->
-            val variableKey = matchResult.groupValues[1]
+            val variableKey = matchResult.groups["variableKey"]?.value!!
             customDynamicVariables[variableKey]?.let { replaceRegexRecursively(it(variableKey)) }
               ?: replaceRegexRecursively(dynamicVariableGenerator(variableKey))
                 ?: replaceRegexRecursively(env[variableKey]) ?: matchResult.value
