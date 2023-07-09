@@ -2,7 +2,7 @@ package org.revcloud.revoman.internal.postman
 
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapter
-import org.revcloud.revoman.internal.adapters.RegexAdapterFactory
+import org.revcloud.revoman.internal.adapters.RegexAdapter
 import org.revcloud.revoman.internal.postman.state.Environment
 import org.revcloud.revoman.internal.readTextFromFile
 
@@ -30,12 +30,12 @@ internal fun initPmEnvironment(
 @OptIn(ExperimentalStdlibApi::class)
 internal fun unmarshallEnvFile(
   pmEnvironmentPath: String,
-  pmEnvironment: Map<String, String?>,
+  pmEnvironment: MutableMap<String, String?>,
   customDynamicVariables: Map<String, (String) -> String>,
   dynamicVariableGenerator: (String) -> String? = ::dynamicVariableGenerator
 ): Environment? =
   Moshi.Builder()
-    .add(RegexAdapterFactory(pmEnvironment, customDynamicVariables, dynamicVariableGenerator))
+    .add(RegexAdapter(pmEnvironment, customDynamicVariables, dynamicVariableGenerator))
     .build()
     .adapter<Environment>()
     .fromJson(readTextFromFile(pmEnvironmentPath))

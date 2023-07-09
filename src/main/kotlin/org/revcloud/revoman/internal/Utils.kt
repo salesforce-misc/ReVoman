@@ -47,6 +47,6 @@ internal fun getHookForStep(
   stepName: String,
   hookType: HookType
 ): Consumer<Rundown>? {
-  logger.info { "Found a $hookType for $stepName" }
+  logger.info { "Found a $hookType hook for $stepName" }
   return (hooks[stepName to hookType] ?: hooks[stepName.substringAfterLast("|>") to hookType])
 }

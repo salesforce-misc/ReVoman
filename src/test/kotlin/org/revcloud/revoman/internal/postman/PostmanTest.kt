@@ -15,7 +15,7 @@ class PostmanTest {
     val actualEnv =
       unmarshallEnvFile(
         "${TEST_RESOURCES_PATH}/env-with-regex.json",
-        mapOf("un" to "userName"),
+        mutableMapOf("un" to "userName"),
         emptyMap(),
         dummyDynamicVariableGenerator
       )

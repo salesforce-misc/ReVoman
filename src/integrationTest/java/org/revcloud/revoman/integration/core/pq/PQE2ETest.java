@@ -1,7 +1,6 @@
 package org.revcloud.revoman.integration.core.pq;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.Assert.assertThat;
 import static org.revcloud.revoman.input.InputUtils.post;
 import static org.revcloud.revoman.input.InputUtils.pre;
 import static org.revcloud.revoman.input.SuccessConfig.successType;
@@ -9,12 +8,11 @@ import static org.revcloud.revoman.input.SuccessConfig.validateIfSuccess;
 import static org.revcloud.revoman.integration.TestConstantsKt.TEST_RESOURCES_PATH;
 
 import com.salesforce.vador.config.ValidationConfig;
+import io.vavr.control.Try;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
-import io.vavr.control.Try;
 import kotlin.collections.MapsKt;
-import kotlin.random.RandomKt;
 import org.junit.jupiter.api.Test;
 import org.revcloud.revoman.ReVoman;
 import org.revcloud.revoman.input.Kick;
@@ -66,8 +64,10 @@ class PQE2ETest {
     // Assert MainQuoteLineId, AssociatedQuoteLineId on QLRs
     assertThat(pqApiCreateWithBundles.environment.getValuesForKeysStartingWith("mainQuoteLineForQLR", "associatedQuoteLineForQLR"))
         .containsOnly(pqApiCreateWithBundles.environment.get("qliCreated1Id"), pqApiCreateWithBundles.environment.get("qliCreated4Id"));
-    Try.run(() -> Thread.sleep(5000)); // The below check has to wait for an async process to complete
-    assertThat(pqApiCreateWithBundles.environment.get("quoteCalculationStatus")).isEqualTo(PricingPref.valueOf(pqApiCreateWithBundles.environment.get("$pricingPref")).completeStatus);
+    Try.run(() -> {
+      Thread.sleep(10000); // The below check has to wait for an async process to complete
+      assertThat(pqApiCreateWithBundles.environment.get("quoteCalculationStatus")).isEqualTo(PricingPref.valueOf(pqApiCreateWithBundles.environment.get("$pricingPref")).completeStatus);
+    });
   }
 
   // end::pq-e2e-with-revoman-demo[]

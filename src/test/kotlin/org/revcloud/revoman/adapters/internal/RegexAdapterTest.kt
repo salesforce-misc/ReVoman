@@ -4,9 +4,9 @@ import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapter
 import io.kotest.matchers.maps.shouldContainAll
 import org.junit.jupiter.api.Test
-import org.revcloud.revoman.internal.adapters.RegexAdapterFactory
+import org.revcloud.revoman.internal.adapters.RegexAdapter
 
-class RegexAdapterFactoryTest {
+class RegexAdapterTest {
 
   @OptIn(ExperimentalStdlibApi::class)
   @Test
@@ -16,8 +16,8 @@ class RegexAdapterFactoryTest {
     val moshi =
       Moshi.Builder()
         .add(
-          RegexAdapterFactory(
-            mapOf("key" to "value-{{\$epoch}}"),
+          RegexAdapter(
+            mutableMapOf("key" to "value-{{\$epoch}}"),
             emptyMap(),
             dummyDynamicVariableGenerator
           )
@@ -45,8 +45,8 @@ class RegexAdapterFactoryTest {
     val moshi =
       Moshi.Builder()
         .add(
-          RegexAdapterFactory(
-            mapOf("key" to "value-{{\$customEpoch}}"),
+          RegexAdapter(
+            mutableMapOf("key" to "value-{{\$customEpoch}}"),
             mapOf("\$customEpoch" to customDynamicVariableGenerator)
           )
         )
