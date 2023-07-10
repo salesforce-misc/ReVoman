@@ -8,11 +8,12 @@ import org.http4k.core.queryParametersEncoded
 import org.http4k.core.with
 
 @JsonClass(generateAdapter = true)
-internal data class Template(val item: List<MutableMap<String, Any>>, val auth: Auth?)
+internal data class Template(val item: List<Item>, val auth: Auth?)
 
 @JsonClass(generateAdapter = true)
 internal data class Item(
   val name: String = "",
+  val item: List<Item>?,
   val request: Request = Request(),
   val event: List<Event>? = null
 )

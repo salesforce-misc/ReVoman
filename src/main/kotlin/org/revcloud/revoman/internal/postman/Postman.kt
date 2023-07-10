@@ -2,7 +2,6 @@ package org.revcloud.revoman.internal.postman
 
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapter
-import org.revcloud.revoman.internal.adapters.RegexAdapter
 import org.revcloud.revoman.internal.postman.state.Environment
 import org.revcloud.revoman.internal.readTextFromFile
 
@@ -20,7 +19,7 @@ internal fun initPmEnvironment(
   }
   if (pmEnvironmentPath != null) {
     val environment: Environment? =
-      unmarshallEnvFile(pmEnvironmentPath, pm.environment, customDynamicVariables)
+      regexReplace(pmEnvironmentPath, pm.environment, customDynamicVariables)
     pm.environment.putAll(
       environment?.values?.filter { it.enabled }?.associate { it.key to it.value } ?: emptyMap()
     )
@@ -28,14 +27,15 @@ internal fun initPmEnvironment(
 }
 
 @OptIn(ExperimentalStdlibApi::class)
-internal fun unmarshallEnvFile(
+internal fun regexReplace(
   pmEnvironmentPath: String,
   pmEnvironment: MutableMap<String, String?>,
   customDynamicVariables: Map<String, (String) -> String>,
   dynamicVariableGenerator: (String) -> String? = ::dynamicVariableGenerator
-): Environment? =
-  Moshi.Builder()
-    .add(RegexAdapter(pmEnvironment, customDynamicVariables, dynamicVariableGenerator))
-    .build()
-    .adapter<Environment>()
-    .fromJson(readTextFromFile(pmEnvironmentPath))
+): Environment? {
+  val env =
+    Moshi.Builder().build().adapter<Environment>().fromJson(readTextFromFile(pmEnvironmentPath))
+  return env?.let {
+    RegexReplacer(pmEnvironment, customDynamicVariables, dynamicVariableGenerator).replaceRegex(it)
+  }
+}

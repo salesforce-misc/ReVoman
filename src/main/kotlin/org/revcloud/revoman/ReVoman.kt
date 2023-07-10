@@ -17,16 +17,16 @@ import org.revcloud.revoman.input.HookType.POST
 import org.revcloud.revoman.input.HookType.PRE
 import org.revcloud.revoman.input.Kick
 import org.revcloud.revoman.input.SuccessConfig
-import org.revcloud.revoman.internal.adapters.RegexAdapter
-import org.revcloud.revoman.internal.adapters.postManVariableRegex
 import org.revcloud.revoman.internal.asA
 import org.revcloud.revoman.internal.deepFlattenItems
 import org.revcloud.revoman.internal.executeTestScriptJs
 import org.revcloud.revoman.internal.getHookForStep
 import org.revcloud.revoman.internal.initMoshi
 import org.revcloud.revoman.internal.isContentTypeApplicationJson
+import org.revcloud.revoman.internal.postman.RegexReplacer
 import org.revcloud.revoman.internal.postman.initPmEnvironment
 import org.revcloud.revoman.internal.postman.pm
+import org.revcloud.revoman.internal.postman.postManVariableRegex
 import org.revcloud.revoman.internal.postman.state.Item
 import org.revcloud.revoman.internal.postman.state.Template
 import org.revcloud.revoman.internal.prepareHttpClient
@@ -90,11 +90,6 @@ object ReVoman {
         ?: auth?.bearer?.firstOrNull()?.value?.let {
           postManVariableRegex.find(it)?.groups?.get("variableKey")?.value ?: ""
         }
-    val replaceRegexWithEnvAdapter =
-      Moshi.Builder()
-        .add(RegexAdapter(pm.environment, customDynamicVariables))
-        .build()
-        .adapter<Item>()
     val moshiReVoman = initMoshi(customAdaptersForResponse, typesInResponseToIgnore)
     var noFailure = true
     // ! TODO 22/06/23 gopala.akshintala: Validate if steps with same name are used in config
@@ -103,40 +98,40 @@ object ReVoman {
         .deepFlattenItems()
         .asSequence()
         .takeWhile { noFailure }
-        .filter { checkStepConditions(runOnlySteps, skipSteps, it["name"] as String) }
-        .fold<Map<String, Any>, Map<String, StepReport>>(mapOf()) { stepNameToReport, itemWithRegex
-          ->
-          getHookForStep(hooks, itemWithRegex["name"] as String, PRE)
-            ?.accept(Rundown(stepNameToReport, pm.environment))
-          // ! TODO 22/06/23 gopala.akshintala: Improve Perf for this regex replacement
-          val pmStep =
-            replaceRegexWithEnvAdapter.fromJsonValue(itemWithRegex) ?: return@fold stepNameToReport
-          logger.info { "***** Processing Step: ${pmStep.name} *****" }
+        .filter { checkStepConditions(runOnlySteps, skipSteps, it.name) }
+        .fold<Item, Map<String, StepReport>>(mapOf()) { stepNameToReport, itemWithRegex ->
+          val stepName = itemWithRegex.name
+          getHookForStep(hooks, stepName, PRE)?.accept(Rundown(stepNameToReport, pm.environment))
+          logger.info { "***** Processing Step: $stepName *****" }
           // * NOTE gopala.akshintala 06/08/22: Preparing httpClient for each step, as there can be
           // intermediate auths
           val httpClient: HttpHandler =
             prepareHttpClient(pm.environment[bearerTokenKey], insecureHttp)
-          val request = pmStep.request.toHttpRequest()
+          val pmRequest = RegexReplacer(pm.environment, customDynamicVariables)
+            .replaceRegex(itemWithRegex.request)
+          val request = pmRequest.toHttpRequest()
           val response: Response =
             runCatching { httpClient(request) }
               .getOrElse { throwable ->
                 noFailure =
                   haltOnAnyFailureExceptForSteps.isEmpty() ||
-                    haltOnAnyFailureExceptForSteps.contains(pmStep.name) ||
+                    haltOnAnyFailureExceptForSteps.contains(stepName) ||
                     haltOnAnyFailureExceptForSteps.contains(
-                      pmStep.name.substringAfterLast(FOLDER_DELIMITER)
+                      stepName.substringAfterLast(FOLDER_DELIMITER)
                     )
                 return@fold stepNameToReport +
-                  (pmStep.name to StepReport(request, httpFailure = throwable))
+                  (stepName to StepReport(request, httpFailure = throwable))
               }
           val stepReport =
             if (response.status.successful) {
-              val testScriptJsResult = runCatching { executeTestScriptJs(pmStep, response) }
+              val testScriptJsResult = runCatching {
+                executeTestScriptJs(pmRequest, itemWithRegex.event, response)
+              }
               if (testScriptJsResult.isFailure) {
                 noFailure =
-                  haltOnAnyFailureExceptForSteps.contains(pmStep.name) ||
+                  haltOnAnyFailureExceptForSteps.contains(stepName) ||
                     haltOnAnyFailureExceptForSteps.contains(
-                      pmStep.name.substringAfterLast(FOLDER_DELIMITER)
+                      stepName.substringAfterLast(FOLDER_DELIMITER)
                     )
                 logger.error(testScriptJsResult.exceptionOrNull()) {
                   "Error while executing test script"
@@ -144,8 +139,8 @@ object ReVoman {
               }
               if (isContentTypeApplicationJson(response)) {
                 val successConfig =
-                  stepNameToSuccessConfig[pmStep.name]
-                    ?: stepNameToSuccessConfig[pmStep.name.substringAfterLast(FOLDER_DELIMITER)]
+                  stepNameToSuccessConfig[stepName]
+                    ?: stepNameToSuccessConfig[stepName.substringAfterLast(FOLDER_DELIMITER)]
                 val successType = successConfig?.successType ?: Any::class.java as Type
                 val responseObj = moshiReVoman.asA<Any>(response.bodyString(), successType)
                 val validationResult =
@@ -171,23 +166,21 @@ object ReVoman {
             } else {
               noFailure =
                 haltOnAnyFailureExceptForSteps.isEmpty() ||
-                  haltOnAnyFailureExceptForSteps.contains(pmStep.name) ||
+                  haltOnAnyFailureExceptForSteps.contains(stepName) ||
                   haltOnAnyFailureExceptForSteps.contains(
-                    pmStep.name.substringAfterLast(FOLDER_DELIMITER)
+                    stepName.substringAfterLast(FOLDER_DELIMITER)
                   )
-              logger.error { "Request failed for step: ${pmStep.name}" }
+              logger.error { "Request failed for step: ${stepName}" }
               if (
-                stepNameToErrorType.containsKey(pmStep.name) ||
-                  stepNameToErrorType.containsKey(pmStep.name.substringAfterLast(FOLDER_DELIMITER))
+                stepNameToErrorType.containsKey(stepName) ||
+                  stepNameToErrorType.containsKey(stepName.substringAfterLast(FOLDER_DELIMITER))
               ) {
-                val errorType = stepNameToErrorType[pmStep.name]?.rawType?.kotlin ?: Any::class
+                val errorType = stepNameToErrorType[stepName]?.rawType?.kotlin ?: Any::class
                 val errorResponseObj = moshiReVoman.asA(response.bodyString(), errorType)
                 StepReport(request, errorResponseObj, errorResponseObj.javaClass, response)
               } else if (
-                stepNameToSuccessConfig.containsKey(pmStep.name) ||
-                  stepNameToSuccessConfig.containsKey(
-                    pmStep.name.substringAfterLast(FOLDER_DELIMITER)
-                  )
+                stepNameToSuccessConfig.containsKey(stepName) ||
+                  stepNameToSuccessConfig.containsKey(stepName.substringAfterLast(FOLDER_DELIMITER))
               ) {
                 val errorMsg = "Unable to validate due to unsuccessful response: $response"
                 logger.error { errorMsg }
@@ -202,8 +195,8 @@ object ReVoman {
                 StepReport(request, response.bodyString(), String::class.java, response)
               }
             }
-          (stepNameToReport + (pmStep.name to stepReport)).also {
-            getHookForStep(hooks, pmStep.name, POST)?.accept(Rundown(it, pm.environment))
+          (stepNameToReport + (stepName to stepReport)).also {
+            getHookForStep(hooks, stepName, POST)?.accept(Rundown(it, pm.environment))
           }
         }
     return Rundown(stepNameToReport, pm.environment)
@@ -214,13 +207,14 @@ object ReVoman {
     runOnlySteps: Set<String>,
     skipSteps: Set<String>,
     stepName: String
-  ) = (runOnlySteps.isEmpty() && skipSteps.isEmpty()) ||
-    (runOnlySteps.isNotEmpty() &&
-      (runOnlySteps.contains(stepName) ||
-        runOnlySteps.contains(stepName.substringAfterLast(FOLDER_DELIMITER))) ||
-      (skipSteps.isNotEmpty() &&
-        (!skipSteps.contains(stepName) &&
-          !skipSteps.contains(stepName.substringAfterLast(FOLDER_DELIMITER)))))
+  ) =
+    (runOnlySteps.isEmpty() && skipSteps.isEmpty()) ||
+      (runOnlySteps.isNotEmpty() &&
+        (runOnlySteps.contains(stepName) ||
+          runOnlySteps.contains(stepName.substringAfterLast(FOLDER_DELIMITER))) ||
+        (skipSteps.isNotEmpty() &&
+          (!skipSteps.contains(stepName) &&
+            !skipSteps.contains(stepName.substringAfterLast(FOLDER_DELIMITER)))))
 
   // ! TODO gopala.akshintala 03/08/22: Extend the validation for other configs and strategies
   private fun validate(

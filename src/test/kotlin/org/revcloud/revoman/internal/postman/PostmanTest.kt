@@ -13,7 +13,7 @@ class PostmanTest {
     val epoch = System.currentTimeMillis().toString()
     val dummyDynamicVariableGenerator = { r: String -> if (r == "\$epoch") epoch else null }
     val actualEnv =
-      unmarshallEnvFile(
+      regexReplace(
         "${TEST_RESOURCES_PATH}/env-with-regex.json",
         mutableMapOf("un" to "userName"),
         emptyMap(),

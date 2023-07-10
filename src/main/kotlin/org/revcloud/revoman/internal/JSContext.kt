@@ -5,7 +5,7 @@ import org.graalvm.polyglot.HostAccess
 import org.graalvm.polyglot.Source
 import org.http4k.core.Response
 import org.revcloud.revoman.internal.postman.pm
-import org.revcloud.revoman.internal.postman.state.Item
+import org.revcloud.revoman.internal.postman.state.Event
 import org.revcloud.revoman.internal.postman.state.Request
 
 internal val jsContext =
@@ -33,11 +33,11 @@ private fun buildJsContext(useCommonjsRequire: Boolean = true): Context {
     .build()
 }
 
-internal fun executeTestScriptJs(step: Item, response: Response) {
+internal fun executeTestScriptJs(request: Request, events: List<Event>?, response: Response) {
   // ! TODO 12/03/23 gopala.akshintala: Find a way to surface-up what happened in the script, like
   // the Ids set etc
-  loadIntoPmEnvironment(step.request, response)
-  val testScript = step.event?.find { it.listen == "test" }?.script?.exec?.joinToString("\n")
+  loadIntoPmEnvironment(request, response)
+  val testScript = events?.find { it.listen == "test" }?.script?.exec?.joinToString("\n")
   if (!testScript.isNullOrBlank()) {
     val testSource = Source.newBuilder("js", testScript, "pmItemTestScript.js").build()
     jsContext.getBindings("js").putMember("responseBody", response.bodyString())

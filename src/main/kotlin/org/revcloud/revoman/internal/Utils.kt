@@ -7,6 +7,7 @@ import org.apache.commons.lang3.StringUtils
 import org.http4k.core.ContentType
 import org.http4k.core.Response
 import org.revcloud.revoman.input.HookType
+import org.revcloud.revoman.internal.postman.state.Item
 import org.revcloud.revoman.output.Rundown
 
 private val logger = KotlinLogging.logger {}
@@ -24,21 +25,13 @@ internal fun isContentTypeApplicationJson(response: Response) =
 
 internal fun readTextFromFile(filePath: String): String = File(filePath).readText()
 
-internal fun List<MutableMap<String, Any>>.deepFlattenItems(
-  parentFolderName: String = ""
-): List<Map<String, Any>> =
-  this.asSequence()
+internal fun List<Item>.deepFlattenItems(parentFolderName: String = ""): List<Item> =
+  asSequence()
     .flatMap { item ->
       val concatWithParentFolder =
-        if (parentFolderName.isEmpty()) item["name"] as String
-        else "$parentFolderName|>${item["name"]}"
-      (item["item"] as? List<MutableMap<String, Any>>)?.deepFlattenItems(concatWithParentFolder)
-        ?: listOf(
-          item.also {
-            it["name"] =
-              "${(item["request"] as Map<String, Any>)["method"]}: $concatWithParentFolder"
-          }
-        )
+        if (parentFolderName.isEmpty()) item.name else "$parentFolderName|>${item.name}"
+      item.item?.deepFlattenItems(concatWithParentFolder)
+        ?: listOf(item.copy(name = "${item.request.method}: $concatWithParentFolder"))
     }
     .toList()
 
