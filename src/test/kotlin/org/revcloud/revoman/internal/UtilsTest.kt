@@ -14,10 +14,10 @@ class UtilsTest {
     val itemAdapter = Moshi.Builder().build().adapter<Template>()
     val stepNames =
       itemAdapter
-        .fromJson(readTextFromFile("$TEST_RESOURCES_PATH/steps-with-folders.json"))
+        .fromJson(readTextFromFile("$TEST_RESOURCES_PATH/pmCollection/steps-with-folders.json"))
         ?.item
         ?.deepFlattenItems()
-        ?.map { it["name"] }
+        ?.map { it.name }
     stepNames shouldContainExactly
       listOf(
         "POST: product-setup|>pre|>Login to ProductPricingAdmin",
