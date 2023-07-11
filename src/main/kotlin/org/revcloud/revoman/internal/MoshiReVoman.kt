@@ -1,5 +1,6 @@
 package org.revcloud.revoman.internal
 
+import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapters.Rfc3339DateJsonAdapter
 import dev.zacsweers.moshix.adapters.AdaptedBy
@@ -32,11 +33,18 @@ private lateinit var moshiReVoman: Moshi
 
 @JvmOverloads
 internal fun initMoshi(
-  customAdaptersForResponse: List<Any>? = emptyList(),
-  typesToIgnore: Set<Class<out Any>>? = emptySet()
+  customAdaptersForResponse: List<Any> = emptyList(),
+  typesToIgnore: Set<Class<out Any>> = emptySet()
 ): ConfigurableMoshi {
-  customAdaptersForResponse?.forEach { moshiBuilder.add(it) }
-  if (!typesToIgnore.isNullOrEmpty()) {
+  for (adapter in customAdaptersForResponse) {
+    @SuppressWarnings("kotlin:S3923")
+    if (adapter is JsonAdapter.Factory) {
+      moshiBuilder.add(adapter)
+    } else {
+      moshiBuilder.add(adapter)
+    }
+  }
+  if (typesToIgnore.isNotEmpty()) {
     moshiBuilder.add(IgnoreUnknownFactory(typesToIgnore))
   }
   moshiReVoman = moshiBuilder.build()
