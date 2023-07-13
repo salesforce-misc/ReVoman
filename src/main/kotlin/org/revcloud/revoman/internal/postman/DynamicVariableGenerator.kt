@@ -2,7 +2,7 @@ package org.revcloud.revoman.internal.postman
 
 import io.github.serpro69.kfaker.faker
 import java.time.LocalDate
-import java.util.Random
+import java.util.*
 
 private val faker = faker {}
 
@@ -14,6 +14,10 @@ private val dynamicVariableKeyToGenerator: Map<String, () -> String> =
     "\$randomLastName" to faker.name::lastName,
     "\$randomUserName" to { faker.name.firstName() + faker.name.lastName() },
     "\$randomCompanyName" to faker.company::name,
+    "\$randomColor" to faker.color::name,
+    "\$randomLoremWord" to faker.lorem::words,
+    "\$randomAdjective" to faker.adjective::positive,
+    "\$randomUUID" to UUID.randomUUID()::toString,
     "\$randomEmail" to { faker.internet.email() },
     "\$currentDate" to { LocalDate.now().toString() },
     "\$randomFutureDate" to
