@@ -107,8 +107,9 @@ object ReVoman {
           // intermediate auths
           val httpClient: HttpHandler =
             prepareHttpClient(pm.environment[bearerTokenKey], insecureHttp)
-          val pmRequest = RegexReplacer(pm.environment, customDynamicVariables)
-            .replaceRegex(itemWithRegex.request)
+          val pmRequest =
+            RegexReplacer(pm.environment, customDynamicVariables)
+              .replaceRegex(itemWithRegex.request)
           val request = pmRequest.toHttpRequest()
           val response: Response =
             runCatching { httpClient(request) }

@@ -52,31 +52,6 @@ This is an https://sourcegraph.soma.salesforce.com/perforce.soma.salesforce.com/
 
 ====
 
-== Key features
-
-=== Core Support
-
-* First-class Salesforce core support
-* Convert your persona-based Postman templates into JVM FTests and E2E tests that can be executed in auto-builds.
-* Supports Steps involving Async operations
-
-=== Rich Configuration
-
-* It lets you configure Dynamic environment and Custom Dynamic variables on top of the Postman environment file using `dynamicEnvironment` and `customDynamicVariables` respectively
-* Supports strong JVM type-safety
-** It uses advanced JSON Serialization and Deserialization techniques internally
-** Best part is, it lets you extend this capability for any type, by passing Custom adapters via `customAdaptersForResponse`. If legacy types that are hard to serialize or deserialize come in your way, (either via Inheritance or Composition e.g. `ConnectInJavaConfig`), you can ignore them through `typesInResponseToIgnore`.
-** You can then provide the Strong types for the responses you are interested in via `stepNameToSuccessConfig` and `stepNameToErrorType` so that they get sent back in the final Rundown as Strong JVM types which are easy to assert.
-* It lets you be in charge of the Step Orchestration by letting you configure a pass-list of steps to ignore for failure via `haltOnAnyFailureExceptForSteps`
-* You can set up a pre- / post-hook around a Step via `hooks`, which can help as callbacks, especially for Async operations.
-
-=== Unified testing strategy
-
-* Bring a *Unified &amp; Simplified Test strategy* across the mul-**T**-verse (FTests, E2E Tests, and Manual testing with Postman).
-* Low-code FTests and E2E tests that are Transparent and Low in Cognitive Complexity.
-* You can find a Postman collection for every feature you need to test, right in your *VCS (Perforce/Git)*, and they always stay up to date as they are hooked into automation.
-
-
 == Tradition FTests vs FTests with ReVoman
 
 Let's see a comparison between Traditional FTests and FTests with ReVoman.
@@ -229,33 +204,41 @@ ____
 The amount of code needed is drastically down by *89%*, and all of this is just for 1 FTest.
 Thus, ReVoman helps in writing *Low-Code* tests.
 
-== Not just Low-Code
+== Core Support
 
-But it's not just a reduction in the number of lines, but:
+* First-class Salesforce core support
+* Convert your persona-based Postman templates into JVM FTests and E2E tests that can be executed in auto-builds.
+* Supports Steps involving Async operations
 
-* A significant reduction in cognitive complexity, which in turn eases maintenance and *Boosts productivity!*
+== Rich Configuration
+
+* It lets you configure Dynamic environment and Custom Dynamic variables on top of the Postman environment file using `dynamicEnvironment` and `customDynamicVariables` respectively
+* Supports strong JVM type-safety
+** It uses advanced JSON Serialization and Deserialization techniques internally
+** Best part is, it lets you extend this capability for any type, by passing Custom adapters via `customAdaptersForResponse`. If legacy types that are hard to serialize or deserialize come in your way, (either via Inheritance or Composition e.g. `ConnectInJavaConfig`), you can ignore them through `typesInResponseToIgnore`.
+** You can then provide the Strong types for the responses you are interested in via `stepNameToSuccessConfig` and `stepNameToErrorType` so that they get sent back in the final Rundown as Strong JVM types which are easy to assert.
+* It lets you be in charge of the Step Orchestration by letting you configure a pass-list of steps to ignore for failure via `haltOnAnyFailureExceptForSteps`
+
+=== Hooks
+* You can set up a pre- / post-hook around a Step via `hooks`, which can help as callbacks, especially for Async operations. These runs despite the step are successful or failed. The entire rundown till that step shall be provided to the hook as a parameter
+
+== Unified testing strategy with Low-code 📉
+
+* Bring a *Unified &amp; Simplified Test strategy* across the mul-**T**-verse (FTests, E2E Tests, and Manual testing with Postman). This is a generic tool, and just by changing the template, the same config/pattern can be reused for any feature flow agnostic of it being an FTest or E2E test
+* Low-code FTests and E2E tests that are Transparent and Low in Cognitive Complexity.
 * Transparency and better Traceability of issues
 * This forces engineers to think like *API-first customers* while writing tests.
 
-=== Postman templates on VCS (Perforce/Git)
+== Postman templates on VCS (Perforce/Git)
 
 * Now that ReVoman hooks these templates into auto-builds or CI/CD, they always stay up to date, otherwise, Yoda makes sure they are with TFs.
 * Any day, you can find a Postman collection for every feature you need to test, right in your VCS. Developers can import these templates directly from VCS for manual testing. This comes in very handy during FF/RF/Cross team blitz.
 * With ReVoman, you no more need a release task to keep your Postman collections up-to-date.
 
-== The perks don’t stop there
+== More Perks
 
-=== Unified &amp; Simplified Test Strategy
-
-This is a generic tool, and just by changing the template, the same config/pattern can be reused for any feature flow agnostic of it being an FTest or E2E test
-
-=== FTest Data setup
-
-You can use the ReVoman for the FTest data setup too. This eliminates the need for different teams to write their own internal utilities for data setup.
-
-=== Guards each check-in
-
-E2E tests and Availability Kaiju tests can now be run as Ftests in auto-builds, to guard each *check-in*.
+* *FTest Data setup:* You can use the ReVoman for the FTest data setup too. This eliminates the need for different teams to write their own internal utilities for data setup.
+* *Guards each check-in:* E2E tests and Availability Kaiju tests can now be run as Ftests in auto-builds, to guard each *check-in*.
 
 == Future
 

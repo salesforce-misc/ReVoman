@@ -8,6 +8,7 @@ import org.http4k.core.ContentType
 import org.http4k.core.Response
 import org.revcloud.revoman.input.HookType
 import org.revcloud.revoman.internal.postman.state.Item
+import org.revcloud.revoman.output.FOLDER_DELIMITER
 import org.revcloud.revoman.output.Rundown
 
 private val logger = KotlinLogging.logger {}
@@ -39,7 +40,6 @@ internal fun getHookForStep(
   hooks: Map<Pair<String, HookType>, Consumer<Rundown>>,
   stepName: String,
   hookType: HookType
-): Consumer<Rundown>? {
-  logger.info { "Found a $hookType hook for $stepName" }
-  return (hooks[stepName to hookType] ?: hooks[stepName.substringAfterLast("|>") to hookType])
-}
+): Consumer<Rundown>? =
+  (hooks[stepName to hookType] ?: hooks[stepName.substringAfterLast(FOLDER_DELIMITER) to hookType])
+    ?.also { logger.info { "Found a $hookType hook for $stepName" } }

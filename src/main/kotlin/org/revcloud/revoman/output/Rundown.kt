@@ -9,9 +9,12 @@ data class Rundown(
   @JvmField val stepNameToReport: Map<String, StepReport> = emptyMap(),
   @JvmField val environment: PostmanEnvironment = PostmanEnvironment()
 ) {
-  val firstUnsuccessfulStepInOrder: String?
+  val firstUnsuccessfulStepNameInOrder: String?
     get() =
       stepNameToReport.entries.firstOrNull { (_, stepReport) -> !stepReport.isSuccessful }?.key
+  
+  fun getReportForStepName(stepName: String): StepReport? = 
+    stepNameToReport[stepName] ?: stepNameToReport[stepName.substringAfterLast(FOLDER_DELIMITER)]
 }
 
 data class StepReport(
