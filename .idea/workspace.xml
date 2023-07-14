@@ -4,12 +4,8 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="6ed80e62-f038-45bc-b42e-83dd15ec8dae" name="Changes" comment="Release 0.9.4&#10;Add dynamic variables&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
+    <list default="true" id="6ed80e62-f038-45bc-b42e-83dd15ec8dae" name="Changes" comment="Release 0.9.5&#10;Add a convenience function to get StepReport &#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/README.adoc" beforeDir="false" afterPath="$PROJECT_DIR$/README.adoc" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/integrationTest/resources/pm-templates/pq/pq-api-create.postman_collection.json" beforeDir="false" afterPath="$PROJECT_DIR$/src/integrationTest/resources/pm-templates/pq/pq-api-create.postman_collection.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/ReVoman.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/ReVoman.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/internal/Utils.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/internal/Utils.kt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/output/Rundown.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/output/Rundown.kt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -176,11 +172,11 @@
       <command value="gradle wrapper" />
       <command value="gradle test --tests org.revcloud.revoman.integration.pokemon.PokemonTest" />
       <command value="gradle clean build" />
-      <command value="gradle publish" />
       <command value="gradle spotlessApply" />
+      <command value="gradle publish" />
     </option>
   </component>
-  <component name="RunManager" selected="Gradle.revoman-root [spotlessApply]">
+  <component name="RunManager" selected="Gradle.revoman-root [publish]">
     <configuration name="PQE2ETest.revUpPQ" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
       <ExternalSystemSettings>
         <option name="executionName" />
@@ -375,6 +371,9 @@
       <workItem from="1689257951833" duration="2815000" />
       <workItem from="1689317232424" duration="1450000" />
       <workItem from="1689318975789" duration="2295000" />
+      <workItem from="1689322332057" duration="186000" />
+      <workItem from="1689322790115" duration="724000" />
+      <workItem from="1689336785825" duration="378000" />
     </task>
     <task id="LOCAL-00001" summary="- Fixed moshiReVoman&#10;- Added module-info.java to integrationTest module">
       <created>1678595183319</created>
@@ -744,7 +743,15 @@
       <option name="project" value="LOCAL" />
       <updated>1689254048209</updated>
     </task>
-    <option name="localTasksCounter" value="49" />
+    <task id="LOCAL-00049" summary="Release 0.9.5&#10;Add a convenience function to get StepReport &#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
+      <option name="closed" value="true" />
+      <created>1689322709765</created>
+      <option name="number" value="00049" />
+      <option name="presentableId" value="LOCAL-00049" />
+      <option name="project" value="LOCAL" />
+      <updated>1689322709765</updated>
+    </task>
+    <option name="localTasksCounter" value="50" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -790,7 +797,6 @@
   <component name="VcsManagerConfiguration">
     <option name="CHECK_CODE_SMELLS_BEFORE_PROJECT_COMMIT" value="false" />
     <option name="CHECK_NEW_TODO" value="false" />
-    <MESSAGE value="Enhance README.adoc" />
     <MESSAGE value=":sparkles: Add new config params&#10;- runOnlySteps&#10;- skipSteps&#10;- haltOnAnyFailure" />
     <MESSAGE value="Release: 0.7.0&#10;- Add new CompositeResponse type" />
     <MESSAGE value=":bug: Fullpath is used as Step name along with the Http method to decrease duplicate step collision" />
@@ -815,7 +821,8 @@
     <MESSAGE value=":boom: &#10;- Use plain RegexReplacer instead of Moshi RegexAdapter&#10;- Marshall PM collection to Item before the loop&#10;- Regex replace only for Http request&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
     <MESSAGE value="Release 0.9.3&#10;Moshi should access Factories along with Adapters&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
     <MESSAGE value="Release 0.9.4&#10;Add dynamic variables&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
-    <option name="LAST_COMMIT_MESSAGE" value="Release 0.9.4&#10;Add dynamic variables&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
+    <MESSAGE value="Release 0.9.5&#10;Add a convenience function to get StepReport &#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
+    <option name="LAST_COMMIT_MESSAGE" value="Release 0.9.5&#10;Add a convenience function to get StepReport &#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
   </component>
   <component name="XDebuggerManager">
     <pin-to-top-manager>

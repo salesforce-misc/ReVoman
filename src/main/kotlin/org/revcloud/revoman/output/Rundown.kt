@@ -13,8 +13,8 @@ data class Rundown(
     get() =
       stepNameToReport.entries.firstOrNull { (_, stepReport) -> !stepReport.isSuccessful }?.key
   
-  fun getReportForStepName(stepName: String): StepReport? = 
-    stepNameToReport[stepName] ?: stepNameToReport[stepName.substringAfterLast(FOLDER_DELIMITER)]
+  fun reportForStepName(stepName: String): StepReport? = 
+    stepNameToReport.entries.firstOrNull { it.key == stepName || it.key.substringAfterLast(FOLDER_DELIMITER) == stepName }?.value
 }
 
 data class StepReport(
