@@ -4,9 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="6ed80e62-f038-45bc-b42e-83dd15ec8dae" name="Changes" comment="Release 0.9.5&#10;Add a convenience function to get StepReport &#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
+    <list default="true" id="6ed80e62-f038-45bc-b42e-83dd15ec8dae" name="Changes" comment="Release 0.9.6&#10;Fix UUID generator&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/output/Rundown.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/org/revcloud/revoman/output/Rundown.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/test/kotlin/org/revcloud/revoman/internal/postman/RegexReplacerTest.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/kotlin/org/revcloud/revoman/internal/postman/RegexReplacerTest.kt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -74,6 +74,7 @@
     <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib-common/1.8.22/ae313b979b8e620a6497cd323f9c5861f7aebef/kotlin-stdlib-common-1.8.22-sources.jar!/kotlin/text/Strings.kt" root0="SKIP_INSPECTION" />
     <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib-common/1.8.22/ae313b979b8e620a6497cd323f9c5861f7aebef/kotlin-stdlib-common-1.8.22-sources.jar!/kotlin/util/Standard.kt" root0="SKIP_INSPECTION" />
     <setting file="jrt://$USER_HOME$/.sdkman/candidates/java/current!/java.base/sun/security/ssl/Alert.class" root0="SKIP_INSPECTION" />
+    <setting file="jar://$USER_HOME$/Library/Java/JavaVirtualMachines/azul-11.0.17/Contents/Home/lib/src.zip!/java.base/java/util/UUID.java" root0="SKIP_INSPECTION" />
     <setting file="jar://$USER_HOME$/core-public/tools/Darwin/jdk/openjdk_17.0.5_17.38.22_x64/zulu-17.jdk/Contents/Home/lib/src.zip!/java.base/java/util/ArrayList.java" root0="SKIP_INSPECTION" />
     <setting file="jar://$USER_HOME$/core-public/tools/Darwin/jdk/openjdk_17.0.5_17.38.22_x64/zulu-17.jdk/Contents/Home/lib/src.zip!/java.base/java/util/Objects.java" root0="SKIP_INSPECTION" />
     <setting file="jar://$USER_HOME$/core-public/tools/Darwin/jdk/openjdk_17.0.5_17.38.22_x64/zulu-17.jdk/Contents/Home/lib/src.zip!/java.base/sun/security/ssl/SSLHandshake.java" root0="SKIP_INSPECTION" />
@@ -201,31 +202,7 @@
       <RunAsTest>true</RunAsTest>
       <method v="2" />
     </configuration>
-    <configuration name="PokemonTest.pokemon" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
-      <ExternalSystemSettings>
-        <option name="executionName" />
-        <option name="externalProjectPath" value="$PROJECT_DIR$" />
-        <option name="externalSystemIdString" value="GRADLE" />
-        <option name="scriptParameters" value="" />
-        <option name="taskDescriptions">
-          <list />
-        </option>
-        <option name="taskNames">
-          <list>
-            <option value=":integrationTest" />
-            <option value="--tests" />
-            <option value="&quot;org.revcloud.revoman.integration.pokemon.PokemonTest.pokemon&quot;" />
-          </list>
-        </option>
-        <option name="vmOptions" />
-      </ExternalSystemSettings>
-      <ExternalSystemDebugServerProcess>false</ExternalSystemDebugServerProcess>
-      <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
-      <DebugAllEnabled>false</DebugAllEnabled>
-      <RunAsTest>true</RunAsTest>
-      <method v="2" />
-    </configuration>
-    <configuration name="RegexReplacerTest.regex replace with custom dynamic variables" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
+    <configuration name="RegexReplacerTest.regex replace with duplicate dynamic variables in Body" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
       <ExternalSystemSettings>
         <option name="executionName" />
         <option name="externalProjectPath" value="$PROJECT_DIR$" />
@@ -238,7 +215,7 @@
           <list>
             <option value=":test" />
             <option value="--tests" />
-            <option value="&quot;org.revcloud.revoman.internal.postman.RegexReplacerTest.regex replace with custom dynamic variables&quot;" />
+            <option value="&quot;org.revcloud.revoman.internal.postman.RegexReplacerTest.regex replace with duplicate dynamic variables in Body&quot;" />
           </list>
         </option>
         <option name="vmOptions" />
@@ -293,13 +270,29 @@
       <RunAsTest>false</RunAsTest>
       <method v="2" />
     </configuration>
+    <configuration name="RegexReplacerTest.regex replace with duplicate dynamic variables in Body" type="JUnit" factoryName="JUnit" temporary="true" nameIsGenerated="true">
+      <module name="revoman-root.test" />
+      <extension name="coverage">
+        <pattern>
+          <option name="PATTERN" value="org.revcloud.revoman.internal.postman.*" />
+          <option name="ENABLED" value="true" />
+        </pattern>
+      </extension>
+      <option name="PACKAGE_NAME" value="org.revcloud.revoman.internal.postman" />
+      <option name="MAIN_CLASS_NAME" value="org.revcloud.revoman.internal.postman.RegexReplacerTest" />
+      <option name="METHOD_NAME" value="regex replace with duplicate dynamic variables in Body" />
+      <option name="TEST_OBJECT" value="method" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Gradle.RegexReplacerTest.regex replace with duplicate dynamic variables in Body" />
+        <item itemvalue="JUnit.RegexReplacerTest.regex replace with duplicate dynamic variables in Body" />
         <item itemvalue="Gradle.revoman-root [spotlessApply]" />
         <item itemvalue="Gradle.PQE2ETest.revUpPQ" />
         <item itemvalue="Gradle.revoman-root [publish]" />
-        <item itemvalue="Gradle.PokemonTest.pokemon" />
-        <item itemvalue="Gradle.RegexReplacerTest.regex replace with custom dynamic variables" />
       </list>
     </recent_temporary>
   </component>
@@ -373,7 +366,9 @@
       <workItem from="1689318975789" duration="2295000" />
       <workItem from="1689322332057" duration="186000" />
       <workItem from="1689322790115" duration="724000" />
-      <workItem from="1689336785825" duration="378000" />
+      <workItem from="1689336785825" duration="1250000" />
+      <workItem from="1689352890318" duration="1977000" />
+      <workItem from="1689388147258" duration="1184000" />
     </task>
     <task id="LOCAL-00001" summary="- Fixed moshiReVoman&#10;- Added module-info.java to integrationTest module">
       <created>1678595183319</created>
@@ -486,22 +481,6 @@
       <option name="presentableId" value="LOCAL-00016" />
       <option name="project" value="LOCAL" />
       <updated>1682662367190</updated>
-    </task>
-    <task id="LOCAL-00017" summary="Downgrade Graal polyglot to be compatible with Java 11&#10;&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
-      <option name="closed" value="true" />
-      <created>1686924194310</created>
-      <option name="number" value="00017" />
-      <option name="presentableId" value="LOCAL-00017" />
-      <option name="project" value="LOCAL" />
-      <updated>1686924194310</updated>
-    </task>
-    <task id="LOCAL-00018" summary="Enhance README.adoc">
-      <option name="closed" value="true" />
-      <created>1687078770299</created>
-      <option name="number" value="00018" />
-      <option name="presentableId" value="LOCAL-00018" />
-      <option name="project" value="LOCAL" />
-      <updated>1687078770299</updated>
     </task>
     <task id="LOCAL-00019" summary=":sparkles: Add new config params&#10;- runOnlySteps&#10;- skipSteps&#10;- haltOnAnyFailure">
       <option name="closed" value="true" />
@@ -751,7 +730,23 @@
       <option name="project" value="LOCAL" />
       <updated>1689322709765</updated>
     </task>
-    <option name="localTasksCounter" value="50" />
+    <task id="LOCAL-00050" summary="Release 0.9.6&#10;Fix reportForStepName&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
+      <option name="closed" value="true" />
+      <created>1689337290068</created>
+      <option name="number" value="00050" />
+      <option name="presentableId" value="LOCAL-00050" />
+      <option name="project" value="LOCAL" />
+      <updated>1689337290068</updated>
+    </task>
+    <task id="LOCAL-00051" summary="Release 0.9.6&#10;Fix UUID generator&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
+      <option name="closed" value="true" />
+      <created>1689389017668</created>
+      <option name="number" value="00051" />
+      <option name="presentableId" value="LOCAL-00051" />
+      <option name="project" value="LOCAL" />
+      <updated>1689389017669</updated>
+    </task>
+    <option name="localTasksCounter" value="52" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -797,8 +792,6 @@
   <component name="VcsManagerConfiguration">
     <option name="CHECK_CODE_SMELLS_BEFORE_PROJECT_COMMIT" value="false" />
     <option name="CHECK_NEW_TODO" value="false" />
-    <MESSAGE value=":sparkles: Add new config params&#10;- runOnlySteps&#10;- skipSteps&#10;- haltOnAnyFailure" />
-    <MESSAGE value="Release: 0.7.0&#10;- Add new CompositeResponse type" />
     <MESSAGE value=":bug: Fullpath is used as Step name along with the Http method to decrease duplicate step collision" />
     <MESSAGE value=":sparkles: Implement Pre, Post Hooks" />
     <MESSAGE value="Release 0.7.2" />
@@ -822,7 +815,9 @@
     <MESSAGE value="Release 0.9.3&#10;Moshi should access Factories along with Adapters&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
     <MESSAGE value="Release 0.9.4&#10;Add dynamic variables&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
     <MESSAGE value="Release 0.9.5&#10;Add a convenience function to get StepReport &#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
-    <option name="LAST_COMMIT_MESSAGE" value="Release 0.9.5&#10;Add a convenience function to get StepReport &#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
+    <MESSAGE value="Release 0.9.6&#10;Fix reportForStepName&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
+    <MESSAGE value="Release 0.9.6&#10;Fix UUID generator&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
+    <option name="LAST_COMMIT_MESSAGE" value="Release 0.9.6&#10;Fix UUID generator&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
   </component>
   <component name="XDebuggerManager">
     <pin-to-top-manager>

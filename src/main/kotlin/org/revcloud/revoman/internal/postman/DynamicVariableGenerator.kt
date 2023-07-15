@@ -17,7 +17,7 @@ private val dynamicVariableKeyToGenerator: Map<String, () -> String> =
     "\$randomColor" to faker.color::name,
     "\$randomLoremWord" to faker.lorem::words,
     "\$randomAdjective" to faker.adjective::positive,
-    "\$randomUUID" to UUID.randomUUID()::toString,
+    "\$randomUUID" to { UUID.randomUUID().toString() },
     "\$randomEmail" to { faker.internet.email() },
     "\$currentDate" to { LocalDate.now().toString() },
     "\$randomFutureDate" to

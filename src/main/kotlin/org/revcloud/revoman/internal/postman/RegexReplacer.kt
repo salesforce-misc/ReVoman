@@ -6,8 +6,8 @@ import org.revcloud.revoman.internal.postman.state.Request
 val postManVariableRegex = "\\{\\{(?<variableKey>[^{}]*?)}}".toRegex()
 
 internal class RegexReplacer(
-  private val env: MutableMap<String, String?>,
-  private val customDynamicVariables: Map<String, (String) -> String>,
+  private val env: MutableMap<String, String?> = mutableMapOf(),
+  private val customDynamicVariables: Map<String, (String) -> String> = emptyMap(),
   private val dynamicVariableGenerator: (String) -> String? = ::dynamicVariableGenerator
 ) {
   /**
