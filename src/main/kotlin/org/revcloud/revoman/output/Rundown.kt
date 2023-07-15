@@ -12,9 +12,11 @@ data class Rundown(
   val firstUnsuccessfulStepNameInOrder: String?
     get() =
       stepNameToReport.entries.firstOrNull { (_, stepReport) -> !stepReport.isSuccessful }?.key
-  
-  fun reportForStepName(stepName: String): StepReport? = 
-    stepNameToReport.entries.firstOrNull { it.key == stepName || it.key.substringAfterLast(FOLDER_DELIMITER) == stepName }?.value
+
+  fun reportForStepName(stepName: String): StepReport? =
+    stepNameToReport.entries
+      .firstOrNull { it.key == stepName || it.key.substringAfterLast(FOLDER_DELIMITER) == stepName }
+      ?.value
 }
 
 data class StepReport(

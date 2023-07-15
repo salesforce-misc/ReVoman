@@ -43,3 +43,30 @@ internal fun getHookForStep(
 ): Consumer<Rundown>? =
   (hooks[stepName to hookType] ?: hooks[stepName.substringAfterLast(FOLDER_DELIMITER) to hookType])
     ?.also { logger.info { "Found a $hookType hook for $stepName" } }
+
+internal fun isStepNameInPassList(stepName: String, haltOnAnyFailureExceptForSteps: Set<String>) =
+  haltOnAnyFailureExceptForSteps.isEmpty() ||
+    haltOnAnyFailureExceptForSteps.contains(stepName) ||
+    haltOnAnyFailureExceptForSteps.contains(
+      stepName.substringAfterLast(FOLDER_DELIMITER),
+    )
+
+internal fun <T> Map<String, T>.forStepName(stepName: String): T? =
+  this[stepName] ?: this[stepName.substringAfterLast(FOLDER_DELIMITER)]
+
+internal fun Map<String, Any>.isStepNamePresent(stepName: String): Boolean =
+  containsKey(stepName) || containsKey(stepName.substringAfterLast(FOLDER_DELIMITER))
+
+// ! TODO 24/06/23 gopala.akshintala: Regex support to filter Step Names
+internal fun filterStep(
+  runOnlySteps: Set<String>,
+  skipSteps: Set<String>,
+  stepName: String
+) =
+  (runOnlySteps.isEmpty() && skipSteps.isEmpty()) ||
+    (runOnlySteps.isNotEmpty() &&
+      (runOnlySteps.contains(stepName) ||
+        runOnlySteps.contains(stepName.substringAfterLast(FOLDER_DELIMITER))) ||
+      (skipSteps.isNotEmpty() &&
+        (!skipSteps.contains(stepName) &&
+          !skipSteps.contains(stepName.substringAfterLast(FOLDER_DELIMITER)))))
