@@ -25,7 +25,7 @@ mockito = "5.4.0"
 # Common dependencies
 junit = "5.9.3"
 detekt = "1.23.0"
-spotless = "6.19.0"
+spotless = "6.20.0"
 apache-log4j = "2.20.0"
 
 [libraries]
