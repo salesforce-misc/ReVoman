@@ -58,11 +58,7 @@ internal fun Map<String, Any>.isStepNamePresent(stepName: String): Boolean =
   containsKey(stepName) || containsKey(stepName.substringAfterLast(FOLDER_DELIMITER))
 
 // ! TODO 24/06/23 gopala.akshintala: Regex support to filter Step Names
-internal fun filterStep(
-  runOnlySteps: Set<String>,
-  skipSteps: Set<String>,
-  stepName: String
-) =
+internal fun filterStep(runOnlySteps: Set<String>, skipSteps: Set<String>, stepName: String) =
   (runOnlySteps.isEmpty() && skipSteps.isEmpty()) ||
     (runOnlySteps.isNotEmpty() &&
       (runOnlySteps.contains(stepName) ||

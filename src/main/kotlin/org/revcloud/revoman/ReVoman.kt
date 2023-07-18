@@ -6,6 +6,9 @@ import com.salesforce.vador.execution.Vador
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapter
 import com.squareup.moshi.rawType
+import java.lang.reflect.Type
+import java.util.*
+import java.util.function.Consumer
 import mu.KotlinLogging
 import org.http4k.core.HttpHandler
 import org.http4k.core.Response
@@ -34,9 +37,6 @@ import org.revcloud.revoman.internal.prepareHttpClient
 import org.revcloud.revoman.internal.readTextFromFile
 import org.revcloud.revoman.output.Rundown
 import org.revcloud.revoman.output.StepReport
-import java.lang.reflect.Type
-import java.util.*
-import java.util.function.Consumer
 
 object ReVoman {
   @JvmStatic

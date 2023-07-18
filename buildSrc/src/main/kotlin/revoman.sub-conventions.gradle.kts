@@ -1,10 +1,7 @@
-import com.adarshr.gradle.testlogger.theme.ThemeType.MOCHA
-
 plugins {
   java
   `maven-publish`
   signing
-  id("com.adarshr.test-logger")
 }
 
 repositories { mavenCentral() }
@@ -15,7 +12,6 @@ java {
 }
 
 tasks {
-  testlogger.theme = MOCHA
   withType<Jar> { duplicatesStrategy = DuplicatesStrategy.EXCLUDE }
   withType<PublishToMavenRepository>().configureEach {
     doLast {
