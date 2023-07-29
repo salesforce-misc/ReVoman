@@ -24,7 +24,7 @@ immutables = "2.9.3"
 mockito = "5.4.0"
 # Common dependencies
 junit = "5.10.0"
-detekt = "1.23.0"
+detekt = "1.23.1"
 spotless = "6.20.0"
 apache-log4j = "2.20.0"
 
