@@ -193,16 +193,20 @@ image:debug-stepreport.png[StepReport with Debugger]
 
 You can run further assertions on top of this report
 
+=== Low-code 
+
+____
+
+*Here you go, an link:{testdir}/org/revcloud/revoman/integration/core/pq/PQE2ETest.java[E2E test]*
+
+____
+
+[.lead]
+This demonstrates *a Low-code FTest, that tests E2E*, Transparent and Low in Cognitive Complexity.
+
 NOTE: *FTest with ReVoman:* Lines of Code: *136 (89% low-code)*
 
-____
-
-*Here you go, an link:{testdir}/org/revcloud/revoman/integration/core/pq/PQE2ETest.java[E2E test] that can fit in a slide*
-
-____
-
 The amount of code needed is drastically down by *89%*, and all of this is just for 1 FTest.
-Thus, ReVoman helps in writing *Low-Code* tests.
 
 == Core Support
 
@@ -222,10 +226,9 @@ Thus, ReVoman helps in writing *Low-Code* tests.
 === Hooks
 * You can set up a pre- / post-hook around a Step via `hooks`, which can help as callbacks, especially for Async operations. These runs despite the step are successful or failed. The entire rundown till that step shall be provided to the hook as a parameter
 
-== Unified testing strategy with Low-code 📉
+== Unified testing strategy
 
 * Bring a *Unified &amp; Simplified Test strategy* across the mul-**T**-verse (FTests, E2E Tests, and Manual testing with Postman). This is a generic tool, and just by changing the template, the same config/pattern can be reused for any feature flow agnostic of it being an FTest or E2E test
-* Low-code FTests and E2E tests that are Transparent and Low in Cognitive Complexity.
 * Transparency and better Traceability of issues
 * This forces engineers to think like *API-first customers* while writing tests.
 

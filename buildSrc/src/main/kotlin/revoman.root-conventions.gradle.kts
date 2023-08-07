@@ -8,7 +8,6 @@ plugins {
   idea
   id("com.diffplug.spotless")
   id("io.gitlab.arturbosch.detekt")
-  id("org.jetbrains.kotlinx.kover")
   id("com.adarshr.test-logger")
 }
 

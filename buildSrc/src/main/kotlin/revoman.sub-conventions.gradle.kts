@@ -2,6 +2,7 @@ plugins {
   java
   `maven-publish`
   signing
+  id("org.jetbrains.kotlinx.kover")
 }
 
 repositories { mavenCentral() }
