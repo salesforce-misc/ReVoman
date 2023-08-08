@@ -1,4 +1,4 @@
-package org.revcloud.revoman.response.types.salesforce
+package org.revcloud.revoman.integration.core.pq
 
 import com.squareup.moshi.JsonClass
 

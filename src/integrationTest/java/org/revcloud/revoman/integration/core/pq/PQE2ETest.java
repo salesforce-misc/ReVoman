@@ -16,7 +16,6 @@ import kotlin.collections.MapsKt;
 import org.junit.jupiter.api.Test;
 import org.revcloud.revoman.ReVoman;
 import org.revcloud.revoman.input.Kick;
-import org.revcloud.revoman.response.types.salesforce.CompositeResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
