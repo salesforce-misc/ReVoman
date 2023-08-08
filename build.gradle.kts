@@ -40,7 +40,4 @@ testing {
 
 koverReport { defaults { xml { onCheck = true } } }
 
-moshi {
-  enableSealed by true
-  generateProguardRules by false
-}
+moshi { enableSealed = true }
