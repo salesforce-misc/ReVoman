@@ -1,3 +1,10 @@
+/*******************************************************************************
+ * Copyright (c) 2023, Salesforce, Inc.
+ *  All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause
+ *  For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ ******************************************************************************/
+
 package org.revcloud.revoman.integration.pokemon;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -29,44 +36,55 @@ class PokemonTest {
         TEST_RESOURCES_PATH + "pm-templates/pokemon/pokemon.postman_collection.json";
     final var pmEnvironmentPath =
         TEST_RESOURCES_PATH + "pm-templates/pokemon/pokemon.postman_environment.json";
-    final var dynamicEnvironment = Map.of(
-        "offset", String.valueOf(offset),
-        "limit", String.valueOf(limit)
-    );
+    final var dynamicEnvironment =
+        Map.of(
+            "offset", String.valueOf(offset),
+            "limit", String.valueOf(limit));
     //noinspection Convert2Lambda
-    final var resultSizeValidator = Mockito.spy(new Validator<Results, String>() {
-        @Override
-        public String apply(Results results) {
-            return results.getResults().size() == newLimit ? "Good" : "Bad";
-        }
-    });
+    final var resultSizeValidator =
+        Mockito.spy(
+            new Validator<Results, String>() {
+              @Override
+              public String apply(Results results) {
+                return results.getResults().size() == newLimit ? "Good" : "Bad";
+              }
+            });
     final var pokemonResultsValidationConfig =
-        ValidationConfig.<Results, String>toValidate()
-            .withValidator(resultSizeValidator, "Good");
+        ValidationConfig.<Results, String>toValidate().withValidator(resultSizeValidator, "Good");
     //noinspection Convert2Lambda
-    final var preHook = Mockito.spy(new Consumer<Rundown>() {
-        @Override
-        public void accept(Rundown rundown) {
-            rundown.environment.set("limit", String.valueOf(newLimit));
-        }
-    });
+    final var preHook =
+        Mockito.spy(
+            new Consumer<Rundown>() {
+              @Override
+              public void accept(Rundown rundown) {
+                rundown.environment.set("limit", String.valueOf(newLimit));
+              }
+            });
     //noinspection Convert2Lambda
-    final var postHook = Mockito.spy(new Consumer<Rundown>() {
-        @Override
-        public void accept(Rundown rundown) {
-            Assertions.assertThat(rundown.environment).containsEntry("limit", String.valueOf(newLimit));
-            Assertions.assertThat(rundown.environment).containsEntry("pokemonName", "bulbasaur");
-        }
-    });
-    final var pokeRundown = ReVoman.revUp(Kick.configure()
-        .templatePath(pmCollectionPath)
-        .environmentPath(pmEnvironmentPath)
-        .hooks(Map.of(
-            pre("all-pokemon"), preHook,
-            post("all-pokemon"), postHook))
-        .stepNameToSuccessConfig("all-pokemon", validateIfSuccess(Results.class, pokemonResultsValidationConfig))
-        .dynamicEnvironment(dynamicEnvironment)
-        .off());
+    final var postHook =
+        Mockito.spy(
+            new Consumer<Rundown>() {
+              @Override
+              public void accept(Rundown rundown) {
+                Assertions.assertThat(rundown.environment)
+                    .containsEntry("limit", String.valueOf(newLimit));
+                Assertions.assertThat(rundown.environment)
+                    .containsEntry("pokemonName", "bulbasaur");
+              }
+            });
+    final var pokeRundown =
+        ReVoman.revUp(
+            Kick.configure()
+                .templatePath(pmCollectionPath)
+                .environmentPath(pmEnvironmentPath)
+                .hooks(
+                    Map.of(
+                        pre("all-pokemon"), preHook,
+                        post("all-pokemon"), postHook))
+                .stepNameToSuccessConfig(
+                    "all-pokemon", validateIfSuccess(Results.class, pokemonResultsValidationConfig))
+                .dynamicEnvironment(dynamicEnvironment)
+                .off());
 
     Mockito.verify(resultSizeValidator, times(1)).apply(any());
     Mockito.verify(preHook, times(1)).accept(any());
@@ -85,5 +103,4 @@ class PokemonTest {
                 "ability", "stench",
                 "nature", "hardy"));
   }
-  
 }

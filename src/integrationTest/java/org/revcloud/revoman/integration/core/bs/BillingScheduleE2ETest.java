@@ -1,3 +1,10 @@
+/*******************************************************************************
+ * Copyright (c) 2023, Salesforce, Inc.
+ *  All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause
+ *  For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ ******************************************************************************/
+
 package org.revcloud.revoman.integration.core.bs;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -20,19 +27,27 @@ class BillingScheduleE2ETest {
     final var pmCollectionPath =
         TEST_RESOURCES_PATH + "pm-templates/revoman/bs.postman_collection.json";
     final var pmEnvironmentPath =
-        TEST_RESOURCES_PATH
-            + "pm-templates/revoman/bs.postman_environment.json";
-    final var orderItem2BSIASuccessType = Types.newParameterizedType(List.class, OrderItemToBSIAResponse.class);
+        TEST_RESOURCES_PATH + "pm-templates/revoman/bs.postman_environment.json";
+    final var orderItem2BSIASuccessType =
+        Types.newParameterizedType(List.class, OrderItemToBSIAResponse.class);
     final var orderItem2BSIAValidationConfig =
         ValidationConfig.<List<OrderItemToBSIAResponse>, String>toValidate()
-            .withValidator((resp -> Boolean.TRUE.equals(resp.get(0).isSuccess()) ? "success" : " OrderItem2BS IA failed"), "success");
+            .withValidator(
+                (resp ->
+                    Boolean.TRUE.equals(resp.get(0).isSuccess())
+                        ? "success"
+                        : " OrderItem2BS IA failed"),
+                "success");
     final var rundown =
         ReVoman.revUp(
             Kick.configure()
                 .templatePath(pmCollectionPath)
                 .environmentPath(pmEnvironmentPath)
-                .stepNameToSuccessConfig(Map.of(
-                    "OrderItem2BS IA", validateIfSuccess(orderItem2BSIASuccessType, orderItem2BSIAValidationConfig)))
+                .stepNameToSuccessConfig(
+                    Map.of(
+                        "OrderItem2BS IA",
+                        validateIfSuccess(
+                            orderItem2BSIASuccessType, orderItem2BSIAValidationConfig)))
                 .off());
     assertThat(rundown.stepNameToReport.values()).allMatch(StepReport::isSuccessful);
   }

@@ -193,7 +193,7 @@ image:debug-stepreport.png[StepReport with Debugger]
 
 You can run further assertions on top of this report
 
-=== Low-code 
+=== Low-code
 
 ____
 
