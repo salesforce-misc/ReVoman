@@ -18,6 +18,17 @@ data class Rundown(
   val firstUnsuccessfulStepNameInOrder: String?
     get() =
       stepNameToReport.entries.firstOrNull { (_, stepReport) -> !stepReport.isSuccessful }?.key
+  
+  val areAllStepsSuccessful
+    get() = stepNameToReport.values.all { it.isSuccessful }
+  
+  fun reportsForStepsInFolder(folderName: String): List<StepReport?> =
+    stepNameToReport
+      .filter { it.key.contains("$folderName$FOLDER_DELIMITER") }
+      .map { it.value }
+  
+  fun areAllStepsInFolderSuccessful(folderName: String): Boolean =
+     reportsForStepsInFolder(folderName).all { it?.isSuccessful ?: false }
 
   fun reportForStepName(stepName: String): StepReport? =
     stepNameToReport.entries

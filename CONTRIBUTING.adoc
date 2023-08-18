@@ -19,7 +19,7 @@ endif::[]
 :hide-uri-scheme:
 :sourcedir: src/main/java
 :imagesdir: images
-:revoman-version: 0.9.1
+:revoman-version: 0.9.8
 :toc:
 
 [#_versioning_strategy]
@@ -41,14 +41,6 @@ endif::[]
 
 === Build with Gradle
 
-* You need to add your nexus credentials in `~/.gradle/gradle.properties` file (create file if not present), which are used by your local gradle to connect to nexus for publish. You can find them in your `core/app/main/workspace-user.xml` or https://nexus.soma.salesforce.com/nexus/[Nexus Portal]
-
-[source,properties]
-----
-  nexusUsername=...
-  nexusPassword=...
-----
-
 * This is a simple Gradle project and has its own Gradle wrapper. So nothing to install. Just run this command
 
 [source,bash]
@@ -56,33 +48,9 @@ endif::[]
 ./gradlew clean build
 ----
 
-TIP: You *don't* need a local Gradle installation as the `gradlew` (Gradle wrapper) takes care of everything. But if you wish to install gradle locally, I recommend doing it via https://sdkman.io/install[SDKMAN]. After you install SDKMAN, run `sdk install gradle` to install Gradle
+TIP: You *don't* need a local Gradle installation as the `gradlew` (Gradle wrapper) takes care of everything. But if you wish to install gradle locally, the recommendation is to  do it via https://sdkman.io/install[SDKMAN]. After you install SDKMAN, run `sdk install gradle` to install Gradle
 
 * You can run/debug the existing unit tests or write your own to play with the tool.
-
-[CAUTION]
-====
-While running Unit tests, you may encounter the classic `PKIX path building failed` issue with Java while making Http calls.To mitigate this,
-
-- `<your-jdk-path>` — Locate the `jdk` being used by your Gradle
-- `<your-cert-path>` — Fetch your host certificate and run the below command (rep) to add that cert to your java keystore
-- `<some-name>` — Give any unique name
-
-Run this command (When asked for `Enter keystore password:` enter `changeit` (Common for most Java distributions))
-
-[source,bash]
-----
-keytool -import -alias <some-name> -keystore <your-jdk-path>/lib/security/cacerts -file <your-cert-path>.cer
-----
-
-For example:
-
-[source,bash]
-----
-keytool -import -alias linux-4 -keystore /Users/gopala.akshintala/core-public/tools/Darwin/jdk/openjdk_17.0.5_17.38.22_x64/zulu-17.jdk/Contents/Home/lib/security/cacerts -file /Users/gopala.akshintala/Desktop/gopalaaksh-wsl4.internal.salesforce.com.cer
-----
-
-====
 
 === Kotlin
 
@@ -106,6 +74,16 @@ It may be slow for the first run, but later runs should be faster.
 
 This repo doesn't yet have the CI/CD pipeline.
 So, it needs to be published manually.
+
+* You need to add your nexus credentials in `~/.gradle/gradle.properties` file (create file if not present), which are used by your local gradle to connect to nexus to publish the jar.
+** You can find your nexus userName and password from https://nexus.soma.salesforce.com/nexus/#profile;User%20Token[here] under the *User Token* section in the dropdown.
+** If you are working on `core`, you can also get them from `core/workspace-user.xml` file.
+
+[source,properties]
+----
+  nexusUsername=...
+  nexusPassword=...
+----
 
 * Follow the <<_versioning_strategy,Versioning Strategy>> to increment version link:buildSrc/{sourcedir}/Config.kt[here]
 ** For SNAPSHOT releases, add a `-SNAPSHOT` at the end of version number
