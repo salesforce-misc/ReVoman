@@ -15,6 +15,7 @@ open module revoman {
   requires com.squareup.moshi;
   requires moshi.adapters;
   requires underscore;
+  requires com.google.common;
 
   exports org.revcloud.revoman;
   exports org.revcloud.revoman.input;

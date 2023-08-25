@@ -1,9 +1,10 @@
-/*******************************************************************************
- * Copyright (c) 2023, Salesforce, Inc.
- *  All rights reserved.
- *  SPDX-License-Identifier: BSD-3-Clause
- *  For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
- ******************************************************************************/
+/**
+ * ****************************************************************************
+ * Copyright (c) 2023, Salesforce, Inc. All rights reserved. SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or
+ * https://opensource.org/licenses/BSD-3-Clause
+ * ****************************************************************************
+ */
 package org.revcloud.revoman
 
 import com.salesforce.vador.config.ValidationConfig
@@ -14,11 +15,10 @@ import com.squareup.moshi.adapter
 import com.squareup.moshi.rawType
 import java.lang.reflect.Type
 import java.util.*
-import java.util.function.Consumer
 import mu.KotlinLogging
 import org.http4k.core.HttpHandler
 import org.http4k.core.Response
-import org.revcloud.revoman.input.HookType
+import org.revcloud.revoman.input.HookConfig
 import org.revcloud.revoman.input.HookType.POST
 import org.revcloud.revoman.input.HookType.PRE
 import org.revcloud.revoman.input.Kick
@@ -28,7 +28,7 @@ import org.revcloud.revoman.internal.deepFlattenItems
 import org.revcloud.revoman.internal.executeTestScriptJs
 import org.revcloud.revoman.internal.filterStep
 import org.revcloud.revoman.internal.forStepName
-import org.revcloud.revoman.internal.getHookForStep
+import org.revcloud.revoman.internal.getHooksForStep
 import org.revcloud.revoman.internal.initMoshi
 import org.revcloud.revoman.internal.isContentTypeApplicationJson
 import org.revcloud.revoman.internal.isStepNameInPassList
@@ -40,7 +40,7 @@ import org.revcloud.revoman.internal.postman.postManVariableRegex
 import org.revcloud.revoman.internal.postman.state.Item
 import org.revcloud.revoman.internal.postman.state.Template
 import org.revcloud.revoman.internal.prepareHttpClient
-import org.revcloud.revoman.internal.readTextFromFile
+import org.revcloud.revoman.internal.readFileToString
 import org.revcloud.revoman.output.Rundown
 import org.revcloud.revoman.output.StepReport
 
@@ -76,7 +76,7 @@ object ReVoman {
     customDynamicVariables: Map<String, (String) -> String>,
     bearerTokenKeyFromConfig: String?,
     haltOnAnyFailureExceptForSteps: Set<String>,
-    hooks: Map<Pair<String, HookType>, Consumer<Rundown>>,
+    hooks: Set<HookConfig>,
     stepNameToSuccessConfig: Map<String, SuccessConfig>,
     stepNameToErrorType: Map<String, Type>,
     customAdaptersForResponse: List<Any>,
@@ -92,7 +92,7 @@ object ReVoman {
     }
     initPmEnvironment(environmentPath, dynamicEnvironment, customDynamicVariables)
     val (pmSteps, auth) =
-      Moshi.Builder().build().adapter<Template>().fromJson(readTextFromFile(pmTemplatePath))
+      Moshi.Builder().build().adapter<Template>().fromJson(readFileToString(pmTemplatePath))
         ?: return Rundown()
     val bearerTokenKey =
       bearerTokenKeyFromConfig
@@ -111,7 +111,9 @@ object ReVoman {
         .fold<Item, Map<String, StepReport>>(mapOf()) { stepNameToReport, itemWithRegex ->
           val stepName = itemWithRegex.name
           logger.info { "***** Processing Step: $stepName *****" }
-          getHookForStep(hooks, stepName, PRE)?.accept(Rundown(stepNameToReport, pm.environment))
+          getHooksForStep(hooks, stepName, PRE).forEach {
+            it.accept(Rundown(stepNameToReport, pm.environment))
+          }
           // * NOTE gopala.akshintala 06/08/22: Preparing httpClient for each step,
           // * as there can be intermediate auths
           val httpClient: HttpHandler =
@@ -193,7 +195,9 @@ object ReVoman {
               }
             }
           (stepNameToReport + (stepName to stepReport)).also {
-            getHookForStep(hooks, stepName, POST)?.accept(Rundown(it, pm.environment))
+            getHooksForStep(hooks, stepName, POST).forEach {
+              it.accept(Rundown(stepNameToReport, pm.environment))
+            }
           }
         }
     return Rundown(stepNameToReport, pm.environment)

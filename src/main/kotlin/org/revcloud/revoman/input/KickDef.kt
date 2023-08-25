@@ -1,9 +1,12 @@
-/*******************************************************************************
- * Copyright (c) 2023, Salesforce, Inc.
- *  All rights reserved.
- *  SPDX-License-Identifier: BSD-3-Clause
- *  For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
- ******************************************************************************/
+/**
+ * ****************************************************************************
+ * Copyright (c) 2023, Salesforce, Inc. All rights reserved. SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or
+ * https://opensource.org/licenses/BSD-3-Clause
+ * ****************************************************************************
+ */
+@file:JvmName("ConfigUtils")
+
 package org.revcloud.revoman.input
 
 import com.salesforce.vador.config.base.BaseValidationConfig.BaseValidationConfigBuilder
@@ -32,7 +35,7 @@ internal interface KickDef {
 
   @SkipNulls fun haltOnAnyFailureExceptForSteps(): Set<String>
 
-  @SkipNulls fun hooks(): Map<Pair<String, HookType>, Consumer<Rundown>>
+  @SkipNulls fun hooks(): Set<HookConfig>
 
   // ! FIXME 25/06/23 gopala.akshintala: Not in-use
   @Value.Default fun validationStrategy(): ValidationStrategy = ValidationStrategy.FAIL_FAST
@@ -70,6 +73,27 @@ enum class HookType {
   REQUEST_SUCCESS,
   REQUEST_FAILURE,
   TEST_SCRIPT_JS_FAILURE
+}
+
+data class HookConfig
+private constructor(val stepName: String, val hookType: HookType, val hook: Consumer<Rundown>) {
+  companion object {
+    @JvmStatic
+    fun pre(stepName: String, hook: Consumer<Rundown>): HookConfig =
+      HookConfig(stepName, HookType.PRE, hook)
+
+    @JvmStatic
+    fun pre(stepNames: List<String>, hook: Consumer<Rundown>): List<HookConfig> =
+      stepNames.map { pre(it, hook) }
+
+    @JvmStatic
+    fun post(stepName: String, hook: Consumer<Rundown>): HookConfig =
+      HookConfig(stepName, HookType.POST, hook)
+
+    @JvmStatic
+    fun post(stepNames: List<String>, hook: Consumer<Rundown>): List<HookConfig> =
+      stepNames.map { post(it, hook) }
+  }
 }
 
 enum class ValidationStrategy {

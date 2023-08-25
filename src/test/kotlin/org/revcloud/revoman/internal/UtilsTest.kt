@@ -1,9 +1,10 @@
-/*******************************************************************************
- * Copyright (c) 2023, Salesforce, Inc.
- *  All rights reserved.
- *  SPDX-License-Identifier: BSD-3-Clause
- *  For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
- ******************************************************************************/
+/**
+ * ****************************************************************************
+ * Copyright (c) 2023, Salesforce, Inc. All rights reserved. SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or
+ * https://opensource.org/licenses/BSD-3-Clause
+ * ****************************************************************************
+ */
 package org.revcloud.revoman.internal
 
 import com.squareup.moshi.Moshi
@@ -20,7 +21,7 @@ class UtilsTest {
     val itemAdapter = Moshi.Builder().build().adapter<Template>()
     val stepNames =
       itemAdapter
-        .fromJson(readTextFromFile("$TEST_RESOURCES_PATH/pmCollection/steps-with-folders.json"))
+        .fromJson(readFileToString("$TEST_RESOURCES_PATH/pmCollection/steps-with-folders.json"))
         ?.item
         ?.deepFlattenItems()
         ?.map { it.name }

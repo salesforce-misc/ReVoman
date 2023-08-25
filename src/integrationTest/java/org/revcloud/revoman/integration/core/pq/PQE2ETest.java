@@ -8,14 +8,14 @@
 package org.revcloud.revoman.integration.core.pq;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.revcloud.revoman.input.InputUtils.post;
-import static org.revcloud.revoman.input.InputUtils.pre;
+import static org.revcloud.revoman.input.HookConfig.post;
+import static org.revcloud.revoman.input.HookConfig.pre;
 import static org.revcloud.revoman.input.SuccessConfig.successType;
 import static org.revcloud.revoman.input.SuccessConfig.validateIfSuccess;
-import static org.revcloud.revoman.integration.TestConstantsKt.TEST_RESOURCES_PATH;
 
 import com.salesforce.vador.config.ValidationConfig;
 import io.vavr.control.Try;
+import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
@@ -53,11 +53,8 @@ class PQE2ETest {
     final var pqApiCreateWithBundles =
         ReVoman.revUp( // <1>
             Kick.configure()
-                .templatePath(
-                    TEST_RESOURCES_PATH
-                        + "pm-templates/pq/pq-api-create.postman_collection.json") // <2>
-                .environmentPath(
-                    TEST_RESOURCES_PATH + "pm-templates/pq/pq-env.postman_environment.json") // <3>
+                .templatePath("pm-templates/pq/pq-api-create.postman_collection.json") // <2>
+                .environmentPath("pm-templates/pq/pq-env.postman_environment.json") // <3>
                 .dynamicEnvironment(
                     Map.of( // <4>
                         "$quoteFieldsToQuery", "CalculationStatus",
@@ -69,17 +66,19 @@ class PQE2ETest {
                         PricingPref.values()[new Random().nextInt(PricingPref.values().length)]
                             .name()) // <5>
                 .hooks(
-                    Map.of( // <6>
-                        post("password-reset"),
+                    List.of( // <6>
+                        post(
+                            "password-reset",
                             rundown ->
                                 LOGGER.info(
                                     "Step count executed including this step: "
-                                        + rundown.stepNameToReport.size()),
-                        pre("pq-create-with-bundles"),
+                                        + rundown.stepNameToReport.size())),
+                        pre(
+                            "pq-create-with-bundles",
                             rundown ->
                                 LOGGER.info(
                                     "Step count executed before this step: "
-                                        + rundown.stepNameToReport.size())))
+                                        + rundown.stepNameToReport.size()))))
                 .haltOnAnyFailureExceptForSteps(unsuccessfulStepsException) // <7>
                 .stepNameToSuccessConfig(
                     Map.of(

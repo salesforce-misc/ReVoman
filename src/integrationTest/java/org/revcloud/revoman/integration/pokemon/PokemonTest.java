@@ -9,12 +9,13 @@ package org.revcloud.revoman.integration.pokemon;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
-import static org.revcloud.revoman.input.InputUtils.post;
-import static org.revcloud.revoman.input.InputUtils.pre;
+import static org.revcloud.revoman.input.HookConfig.post;
+import static org.revcloud.revoman.input.HookConfig.pre;
 import static org.revcloud.revoman.input.SuccessConfig.validateIfSuccess;
 
 import com.salesforce.vador.config.ValidationConfig;
 import com.salesforce.vador.types.Validator;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 import org.assertj.core.api.Assertions;
@@ -25,17 +26,14 @@ import org.revcloud.revoman.input.Kick;
 import org.revcloud.revoman.output.Rundown;
 
 class PokemonTest {
-  private static final String TEST_RESOURCES_PATH = "src/integrationTest/resources/";
 
   @Test
   void pokemon() {
     final var offset = 0;
     final var limit = 3;
     final var newLimit = 1;
-    final var pmCollectionPath =
-        TEST_RESOURCES_PATH + "pm-templates/pokemon/pokemon.postman_collection.json";
-    final var pmEnvironmentPath =
-        TEST_RESOURCES_PATH + "pm-templates/pokemon/pokemon.postman_environment.json";
+    final var pmCollectionPath = "pm-templates/pokemon/pokemon.postman_collection.json";
+    final var pmEnvironmentPath = "pm-templates/pokemon/pokemon.postman_environment.json";
     final var dynamicEnvironment =
         Map.of(
             "offset", String.valueOf(offset),
@@ -77,10 +75,7 @@ class PokemonTest {
             Kick.configure()
                 .templatePath(pmCollectionPath)
                 .environmentPath(pmEnvironmentPath)
-                .hooks(
-                    Map.of(
-                        pre("all-pokemon"), preHook,
-                        post("all-pokemon"), postHook))
+                .hooks(List.of(pre("all-pokemon", preHook), post("all-pokemon", postHook)))
                 .stepNameToSuccessConfig(
                     "all-pokemon", validateIfSuccess(Results.class, pokemonResultsValidationConfig))
                 .dynamicEnvironment(dynamicEnvironment)

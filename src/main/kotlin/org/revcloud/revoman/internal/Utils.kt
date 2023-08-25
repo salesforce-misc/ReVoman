@@ -1,17 +1,19 @@
-/*******************************************************************************
- * Copyright (c) 2023, Salesforce, Inc.
- *  All rights reserved.
- *  SPDX-License-Identifier: BSD-3-Clause
- *  For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
- ******************************************************************************/
+/**
+ * ****************************************************************************
+ * Copyright (c) 2023, Salesforce, Inc. All rights reserved. SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or
+ * https://opensource.org/licenses/BSD-3-Clause
+ * ****************************************************************************
+ */
 package org.revcloud.revoman.internal
 
-import java.io.File
+import com.google.common.io.Resources
 import java.util.function.Consumer
 import mu.KotlinLogging
 import org.apache.commons.lang3.StringUtils
 import org.http4k.core.ContentType
 import org.http4k.core.Response
+import org.revcloud.revoman.input.HookConfig
 import org.revcloud.revoman.input.HookType
 import org.revcloud.revoman.internal.postman.state.Item
 import org.revcloud.revoman.output.FOLDER_DELIMITER
@@ -30,7 +32,8 @@ internal fun isContentTypeApplicationJson(response: Response) =
     }
       ?: false
 
-internal fun readTextFromFile(filePath: String): String = File(filePath).readText()
+internal fun readFileToString(fileRelativePath: String): String =
+  Resources.getResource(fileRelativePath).readText()
 
 internal fun List<Item>.deepFlattenItems(parentFolderName: String = ""): List<Item> =
   asSequence()
@@ -42,13 +45,17 @@ internal fun List<Item>.deepFlattenItems(parentFolderName: String = ""): List<It
     }
     .toList()
 
-internal fun getHookForStep(
-  hooks: Map<Pair<String, HookType>, Consumer<Rundown>>,
+internal fun getHooksForStep(
+  hookConfigs: Set<HookConfig>,
   stepName: String,
   hookType: HookType
-): Consumer<Rundown>? =
-  (hooks[stepName to hookType] ?: hooks[stepName.substringAfterLast(FOLDER_DELIMITER) to hookType])
-    ?.also { logger.info { "Found a $hookType hook for $stepName" } }
+): List<Consumer<Rundown>> =
+  hookConfigs
+    .filter {
+      (it.stepName == stepName || it.stepName == stepName.substringAfterLast(FOLDER_DELIMITER)) &&
+        it.hookType == hookType
+    }
+    .map { it.hook }
 
 internal fun isStepNameInPassList(stepName: String, haltOnAnyFailureExceptForSteps: Set<String>) =
   haltOnAnyFailureExceptForSteps.isEmpty() ||

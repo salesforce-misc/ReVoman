@@ -1,9 +1,10 @@
-/*******************************************************************************
- * Copyright (c) 2023, Salesforce, Inc.
- *  All rights reserved.
- *  SPDX-License-Identifier: BSD-3-Clause
- *  For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
- ******************************************************************************/
+/**
+ * ****************************************************************************
+ * Copyright (c) 2023, Salesforce, Inc. All rights reserved. SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or
+ * https://opensource.org/licenses/BSD-3-Clause
+ * ****************************************************************************
+ */
 plugins {
   id("revoman.root-conventions")
   id("revoman.sub-conventions")
@@ -20,6 +21,7 @@ dependencies {
   implementation(libs.graal.js)
   implementation(libs.kotlin.faker)
   implementation(libs.underscore)
+  implementation(libs.guava)
   api(libs.bundles.vador)
   kapt(libs.immutables.value)
   compileOnly(libs.immutables.builder)

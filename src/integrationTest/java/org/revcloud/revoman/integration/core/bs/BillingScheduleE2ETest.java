@@ -9,7 +9,6 @@ package org.revcloud.revoman.integration.core.bs;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.revcloud.revoman.input.SuccessConfig.validateIfSuccess;
-import static org.revcloud.revoman.integration.TestConstantsKt.TEST_RESOURCES_PATH;
 
 import com.salesforce.vador.config.ValidationConfig;
 import com.squareup.moshi.Types;
@@ -24,10 +23,8 @@ class BillingScheduleE2ETest {
 
   @Test
   void revUp() {
-    final var pmCollectionPath =
-        TEST_RESOURCES_PATH + "pm-templates/revoman/bs.postman_collection.json";
-    final var pmEnvironmentPath =
-        TEST_RESOURCES_PATH + "pm-templates/revoman/bs.postman_environment.json";
+    final var pmCollectionPath = "pm-templates/revoman/bs.postman_collection.json";
+    final var pmEnvironmentPath = "pm-templates/revoman/bs.postman_environment.json";
     final var orderItem2BSIASuccessType =
         Types.newParameterizedType(List.class, OrderItemToBSIAResponse.class);
     final var orderItem2BSIAValidationConfig =

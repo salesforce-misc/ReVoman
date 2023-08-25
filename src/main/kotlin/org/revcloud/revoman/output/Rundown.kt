@@ -1,9 +1,10 @@
-/*******************************************************************************
- * Copyright (c) 2023, Salesforce, Inc.
- *  All rights reserved.
- *  SPDX-License-Identifier: BSD-3-Clause
- *  For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
- ******************************************************************************/
+/**
+ * ****************************************************************************
+ * Copyright (c) 2023, Salesforce, Inc. All rights reserved. SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or
+ * https://opensource.org/licenses/BSD-3-Clause
+ * ****************************************************************************
+ */
 package org.revcloud.revoman.output
 
 import java.lang.reflect.Type
@@ -18,17 +19,15 @@ data class Rundown(
   val firstUnsuccessfulStepNameInOrder: String?
     get() =
       stepNameToReport.entries.firstOrNull { (_, stepReport) -> !stepReport.isSuccessful }?.key
-  
+
   val areAllStepsSuccessful
     get() = stepNameToReport.values.all { it.isSuccessful }
-  
+
   fun reportsForStepsInFolder(folderName: String): List<StepReport?> =
-    stepNameToReport
-      .filter { it.key.contains("$folderName$FOLDER_DELIMITER") }
-      .map { it.value }
-  
+    stepNameToReport.filter { it.key.contains("$folderName$FOLDER_DELIMITER") }.map { it.value }
+
   fun areAllStepsInFolderSuccessful(folderName: String): Boolean =
-     reportsForStepsInFolder(folderName).all { it?.isSuccessful ?: false }
+    reportsForStepsInFolder(folderName).all { it?.isSuccessful ?: false }
 
   fun reportForStepName(stepName: String): StepReport? =
     stepNameToReport.entries

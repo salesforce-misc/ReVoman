@@ -3,6 +3,7 @@ java-vavr = "0.10.4"
 kotlin-vavr = "0.10.2"
 jetbrains-annotations = "24.0.1"
 typeTools = "0.6.3"
+guava = "32.1.2-jre"
 kover = "0.7.3"
 kotlin = "1.9.10"
 moshix = "0.24.0"
@@ -33,6 +34,7 @@ java-vavr = { module = "io.vavr:vavr", version.ref = "java-vavr" }
 kotlin-vavr = { module = "io.vavr:vavr-kotlin", version.ref = "kotlin-vavr" }
 jetbrains-annotations = { module = "org.jetbrains:annotations", version.ref = "jetbrains-annotations" }
 typeTools = { module = "net.jodah:typetools", version.ref = "typeTools" }
+guava = { module = "com.google.guava:guava", version.ref = "guava" }
 reflection-util = { module = "de.cronn:reflection-util", version.ref = "reflection-util" }
 testLogger-gradle = { module = "com.adarshr.test-logger:com.adarshr.test-logger.gradle.plugin", version.ref = "testLogger" }
 kotest-assertions-core = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
