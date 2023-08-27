@@ -16,8 +16,9 @@ open module revoman {
   requires underscore;
   requires com.google.common;
   requires io.github.oshai.kotlinlogging;
+  requires com.squareup.moshi.adapters;
 
-  exports org.revcloud.revoman;
-  exports org.revcloud.revoman.input;
-  exports org.revcloud.revoman.output;
+  exports com.salesforce.revoman;
+  exports com.salesforce.revoman.input;
+  exports com.salesforce.revoman.output;
 }

@@ -5,5 +5,8 @@
  * https://opensource.org/licenses/BSD-3-Clause
  * ****************************************************************************
  */
-const val GROUP_ID = "com.salesforce.ccspayments"
-const val VERSION = "0.10.0"
+package com.salesforce.revoman.integration.pokemon
+
+data class Pokemon(val name: String)
+
+data class Results(val results: List<Pokemon>)

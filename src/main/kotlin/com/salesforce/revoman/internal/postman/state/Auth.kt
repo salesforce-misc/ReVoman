@@ -5,5 +5,12 @@
  * https://opensource.org/licenses/BSD-3-Clause
  * ****************************************************************************
  */
-const val GROUP_ID = "com.salesforce.ccspayments"
-const val VERSION = "0.10.0"
+package com.salesforce.revoman.internal.postman.state
+
+import com.squareup.moshi.JsonClass
+
+@JsonClass(generateAdapter = true)
+internal data class Auth(val bearer: List<Bearer>, val type: String)
+
+@JsonClass(generateAdapter = true)
+internal data class Bearer(val key: String, val type: String, val value: String)

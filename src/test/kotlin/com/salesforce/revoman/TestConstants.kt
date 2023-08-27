@@ -5,5 +5,6 @@
  * https://opensource.org/licenses/BSD-3-Clause
  * ****************************************************************************
  */
-const val GROUP_ID = "com.salesforce.ccspayments"
-const val VERSION = "0.10.0"
+package com.salesforce.revoman
+
+const val TEST_RESOURCES_PATH = "src/test/resources/"

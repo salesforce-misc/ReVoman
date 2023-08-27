@@ -5,5 +5,17 @@
  * https://opensource.org/licenses/BSD-3-Clause
  * ****************************************************************************
  */
-const val GROUP_ID = "com.salesforce.ccspayments"
-const val VERSION = "0.10.0"
+package com.salesforce.revoman.integration.core.pq
+
+import kotlin.Any
+import kotlin.Boolean
+import kotlin.String
+import kotlin.collections.List
+
+data class PlaceQuoteOutputRepresentation(
+  val quoteId: String,
+  val requestIdentifier: String,
+  val responseError: List<Any>,
+  val statusURL: String,
+  val success: Boolean
+)
