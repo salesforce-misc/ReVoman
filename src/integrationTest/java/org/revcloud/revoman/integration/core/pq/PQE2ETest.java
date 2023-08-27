@@ -10,8 +10,8 @@ package org.revcloud.revoman.integration.core.pq;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.revcloud.revoman.input.HookConfig.post;
 import static org.revcloud.revoman.input.HookConfig.pre;
-import static org.revcloud.revoman.input.SuccessConfig.successType;
-import static org.revcloud.revoman.input.SuccessConfig.validateIfSuccess;
+import static org.revcloud.revoman.input.ResponseConfig.unmarshallSuccessResponse;
+import static org.revcloud.revoman.input.ResponseConfig.validateIfSuccess;
 
 import com.salesforce.vador.config.ValidationConfig;
 import io.vavr.control.Try;
@@ -80,11 +80,11 @@ class PQE2ETest {
                                     "Step count executed before this step: "
                                         + rundown.stepNameToReport.size()))))
                 .haltOnAnyFailureExceptForSteps(unsuccessfulStepsException) // <7>
-                .stepNameToSuccessConfig(
-                    Map.of(
-                        "quote-related-records", successType(CompositeResponse.class), // <8>
-                        "pq-create-with-bundles",
+                .responseConfig(
+                    List.of(
+                        unmarshallSuccessResponse("quote-related-records", CompositeResponse.class), // <8>
                             validateIfSuccess(
+                                "pq-create-with-bundles",
                                 PlaceQuoteOutputRepresentation.class,
                                 pqRespValidationConfig))) // <9>
                 .insecureHttp(true) // <10>

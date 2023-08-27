@@ -40,10 +40,9 @@ internal interface KickDef {
   // ! FIXME 25/06/23 gopala.akshintala: Not in-use
   @Value.Default fun validationStrategy(): ValidationStrategy = ValidationStrategy.FAIL_FAST
 
-  @SkipNulls fun stepNameToSuccessConfig(): Map<String, SuccessConfig>
-
-  @SkipNulls fun stepNameToErrorType(): Map<String, Type>
-
+  // ! TODO 26/08/23 gopala.akshintala: Validate for duplicate stepNames
+  @SkipNulls fun responseConfig(): Set<ResponseConfig>
+  
   @SkipNulls fun customAdaptersForResponse(): List<Any>
 
   @SkipNulls fun typesInResponseToIgnore(): Set<Class<out Any>>
@@ -51,19 +50,35 @@ internal interface KickDef {
   @Value.Default fun insecureHttp(): Boolean = false
 }
 
-class SuccessConfig
+data class ResponseConfig
 private constructor(
-  val successType: Type,
-  val validationConfig: BaseValidationConfigBuilder<out Any, out Any?, *, *>? = null
+    val stepName: String,
+    val successType: Type? = null,
+    val errorType: Type? = null,
+    val validationConfig: BaseValidationConfigBuilder<out Any, out Any?, *, *>? = null
 ) {
   companion object {
-    @JvmStatic fun successType(successType: Type): SuccessConfig = SuccessConfig(successType, null)
+    @JvmStatic
+    fun unmarshallSuccessResponse(stepName: String, successType: Type): ResponseConfig =
+        ResponseConfig(stepName, successType)
+
+    @JvmStatic
+    fun unmarshallResponse(stepName: String, successType: Type, errorType: Type): ResponseConfig =
+      ResponseConfig(stepName, successType, errorType)
 
     @JvmStatic
     fun validateIfSuccess(
+      stepName: String,
       successType: Type,
       validationConfig: BaseValidationConfigBuilder<out Any, out Any?, *, *>
-    ): SuccessConfig = SuccessConfig(successType, validationConfig)
+    ): ResponseConfig = ResponseConfig(stepName, successType, validationConfig = validationConfig)
+
+    @JvmStatic
+    fun validateIfFailed(
+      stepName: String,
+      errorType: Type,
+      validationConfig: BaseValidationConfigBuilder<out Any, out Any?, *, *>
+    ): ResponseConfig = ResponseConfig(stepName, errorType = errorType, validationConfig = validationConfig)
   }
 }
 
@@ -80,19 +95,19 @@ private constructor(val stepName: String, val hookType: HookType, val hook: Cons
   companion object {
     @JvmStatic
     fun pre(stepName: String, hook: Consumer<Rundown>): HookConfig =
-      HookConfig(stepName, HookType.PRE, hook)
+        HookConfig(stepName, HookType.PRE, hook)
 
     @JvmStatic
     fun pre(stepNames: List<String>, hook: Consumer<Rundown>): List<HookConfig> =
-      stepNames.map { pre(it, hook) }
+        stepNames.map { pre(it, hook) }
 
     @JvmStatic
     fun post(stepName: String, hook: Consumer<Rundown>): HookConfig =
-      HookConfig(stepName, HookType.POST, hook)
+        HookConfig(stepName, HookType.POST, hook)
 
     @JvmStatic
     fun post(stepNames: List<String>, hook: Consumer<Rundown>): List<HookConfig> =
-      stepNames.map { post(it, hook) }
+        stepNames.map { post(it, hook) }
   }
 }
 
@@ -103,15 +118,14 @@ enum class ValidationStrategy {
 @Target(AnnotationTarget.CLASS)
 @Retention(AnnotationRetention.SOURCE)
 @Value.Style(
-  typeImmutable = "*",
-  typeAbstract = ["*Def"],
-  builder = "configure",
-  build = "off",
-  put = "*",
-  add = "*",
-  depluralize = true,
-  visibility = PUBLIC
-)
+    typeImmutable = "*",
+    typeAbstract = ["*Def"],
+    builder = "configure",
+    build = "off",
+    put = "*",
+    add = "*",
+    depluralize = true,
+    visibility = PUBLIC)
 private annotation class Config
 
 private annotation class SkipNulls

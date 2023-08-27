@@ -15,6 +15,7 @@ plugins {
 dependencies {
   api(libs.bundles.http4k)
   api(libs.moshix.adapters)
+  api(libs.bundles.vador)
   implementation(libs.bundles.kotlin.logging)
   implementation(libs.apache.commons.lang3)
   implementation(libs.graal.sdk)
@@ -22,7 +23,6 @@ dependencies {
   implementation(libs.kotlin.faker)
   implementation(libs.underscore)
   implementation(libs.guava)
-  api(libs.bundles.vador)
   kapt(libs.immutables.value)
   compileOnly(libs.immutables.builder)
   compileOnly(libs.immutables.value.annotations)
@@ -40,7 +40,6 @@ testing {
           implementation(project())
           implementation(libs.assertj.core)
           implementation(libs.mockito.core)
-          implementation.bundle(libs.bundles.kotlin.logging)
         }
       }
   }

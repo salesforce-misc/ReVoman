@@ -10,12 +10,12 @@ open module revoman {
   requires org.immutables.value.annotations;
   requires org.jetbrains.annotations;
   requires kotlin.faker;
-  requires io.github.microutils.kotlinlogging;
   requires http4k.client.apache;
   requires com.squareup.moshi;
   requires moshi.adapters;
   requires underscore;
   requires com.google.common;
+  requires io.github.oshai.kotlinlogging;
 
   exports org.revcloud.revoman;
   exports org.revcloud.revoman.input;

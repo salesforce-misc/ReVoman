@@ -8,18 +8,16 @@
 package org.revcloud.revoman.internal
 
 import com.google.common.io.Resources
-import java.util.function.Consumer
-import mu.KotlinLogging
 import org.apache.commons.lang3.StringUtils
 import org.http4k.core.ContentType
 import org.http4k.core.Response
 import org.revcloud.revoman.input.HookConfig
 import org.revcloud.revoman.input.HookType
+import org.revcloud.revoman.input.ResponseConfig
 import org.revcloud.revoman.internal.postman.state.Item
 import org.revcloud.revoman.output.FOLDER_DELIMITER
 import org.revcloud.revoman.output.Rundown
-
-private val logger = KotlinLogging.logger {}
+import java.util.function.Consumer
 
 internal fun isContentTypeApplicationJson(response: Response) =
   response.bodyString().isNotBlank() &&
@@ -51,11 +49,14 @@ internal fun getHooksForStep(
   hookType: HookType
 ): List<Consumer<Rundown>> =
   hookConfigs
-    .filter {
-      (it.stepName == stepName || it.stepName == stepName.substringAfterLast(FOLDER_DELIMITER)) &&
-        it.hookType == hookType
-    }
+    .filter { stepNameEquals(it.stepName, stepName) && it.hookType == hookType }
     .map { it.hook }
+
+private fun stepNameEquals(stepNameExpected: String, stepName: String) =
+  stepNameExpected == stepName || stepNameExpected == stepName.substringAfterLast(FOLDER_DELIMITER)
+
+internal fun getResponseConfigForStepName(stepName: String, responseConfigs: Set<ResponseConfig>): ResponseConfig? = 
+  responseConfigs.firstOrNull { stepNameEquals(it.stepName, stepName) }
 
 internal fun isStepNameInPassList(stepName: String, haltOnAnyFailureExceptForSteps: Set<String>) =
   haltOnAnyFailureExceptForSteps.isEmpty() ||
@@ -63,12 +64,6 @@ internal fun isStepNameInPassList(stepName: String, haltOnAnyFailureExceptForSte
     haltOnAnyFailureExceptForSteps.contains(
       stepName.substringAfterLast(FOLDER_DELIMITER),
     )
-
-internal fun <T> Map<String, T>.forStepName(stepName: String): T? =
-  this[stepName] ?: this[stepName.substringAfterLast(FOLDER_DELIMITER)]
-
-internal fun Map<String, Any>.isStepNamePresent(stepName: String): Boolean =
-  containsKey(stepName) || containsKey(stepName.substringAfterLast(FOLDER_DELIMITER))
 
 // ! TODO 24/06/23 gopala.akshintala: Regex support to filter Step Names
 internal fun filterStep(runOnlySteps: Set<String>, skipSteps: Set<String>, stepName: String) =

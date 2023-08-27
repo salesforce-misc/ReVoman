@@ -8,12 +8,11 @@
 package org.revcloud.revoman.integration.core.bs;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.revcloud.revoman.input.SuccessConfig.validateIfSuccess;
+import static org.revcloud.revoman.input.ResponseConfig.validateIfSuccess;
 
 import com.salesforce.vador.config.ValidationConfig;
 import com.squareup.moshi.Types;
 import java.util.List;
-import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.revcloud.revoman.ReVoman;
 import org.revcloud.revoman.input.Kick;
@@ -40,11 +39,10 @@ class BillingScheduleE2ETest {
             Kick.configure()
                 .templatePath(pmCollectionPath)
                 .environmentPath(pmEnvironmentPath)
-                .stepNameToSuccessConfig(
-                    Map.of(
-                        "OrderItem2BS IA",
+                .responseConfig(
                         validateIfSuccess(
-                            orderItem2BSIASuccessType, orderItem2BSIAValidationConfig)))
+                            "OrderItem2BS IA",
+                            orderItem2BSIASuccessType, orderItem2BSIAValidationConfig))
                 .off());
     assertThat(rundown.stepNameToReport.values()).allMatch(StepReport::isSuccessful);
   }

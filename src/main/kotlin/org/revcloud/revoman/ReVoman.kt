@@ -13,26 +13,23 @@ import com.salesforce.vador.execution.Vador
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapter
 import com.squareup.moshi.rawType
-import java.lang.reflect.Type
-import java.util.*
-import mu.KotlinLogging
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.http4k.core.HttpHandler
 import org.http4k.core.Response
 import org.revcloud.revoman.input.HookConfig
 import org.revcloud.revoman.input.HookType.POST
 import org.revcloud.revoman.input.HookType.PRE
 import org.revcloud.revoman.input.Kick
-import org.revcloud.revoman.input.SuccessConfig
+import org.revcloud.revoman.input.ResponseConfig
 import org.revcloud.revoman.internal.asA
 import org.revcloud.revoman.internal.deepFlattenItems
 import org.revcloud.revoman.internal.executeTestScriptJs
 import org.revcloud.revoman.internal.filterStep
-import org.revcloud.revoman.internal.forStepName
 import org.revcloud.revoman.internal.getHooksForStep
+import org.revcloud.revoman.internal.getResponseConfigForStepName
 import org.revcloud.revoman.internal.initMoshi
 import org.revcloud.revoman.internal.isContentTypeApplicationJson
 import org.revcloud.revoman.internal.isStepNameInPassList
-import org.revcloud.revoman.internal.isStepNamePresent
 import org.revcloud.revoman.internal.postman.RegexReplacer
 import org.revcloud.revoman.internal.postman.initPmEnvironment
 import org.revcloud.revoman.internal.postman.pm
@@ -43,6 +40,8 @@ import org.revcloud.revoman.internal.prepareHttpClient
 import org.revcloud.revoman.internal.readFileToString
 import org.revcloud.revoman.output.Rundown
 import org.revcloud.revoman.output.StepReport
+import java.lang.reflect.Type
+import java.util.*
 
 object ReVoman {
   @JvmStatic
@@ -57,8 +56,7 @@ object ReVoman {
       kick.bearerTokenKey(),
       kick.haltOnAnyFailureExceptForSteps(),
       kick.hooks(),
-      kick.stepNameToSuccessConfig(),
-      kick.stepNameToErrorType(),
+      kick.responseConfig(),
       kick.customAdaptersForResponse(),
       kick.typesInResponseToIgnore(),
       kick.insecureHttp(),
@@ -77,8 +75,7 @@ object ReVoman {
     bearerTokenKeyFromConfig: String?,
     haltOnAnyFailureExceptForSteps: Set<String>,
     hooks: Set<HookConfig>,
-    stepNameToSuccessConfig: Map<String, SuccessConfig>,
-    stepNameToErrorType: Map<String, Type>,
+    responseConfigs: Set<ResponseConfig>,
     customAdaptersForResponse: List<Any>,
     typesInResponseToIgnore: Set<Class<out Any>>,
     insecureHttp: Boolean,
@@ -143,12 +140,12 @@ object ReVoman {
                 }
                 when {
                   isContentTypeApplicationJson(response) -> {
-                    val successConfig: SuccessConfig? =
-                      stepNameToSuccessConfig.forStepName(stepName)
-                    val successType = successConfig?.successType ?: Any::class.java as Type
+                    val responseConfig: ResponseConfig? =
+                      getResponseConfigForStepName(stepName, responseConfigs)
+                    val successType = responseConfig?.successType ?: Any::class.java as Type
                     val responseObj = moshiReVoman.asA<Any>(response.bodyString(), successType)
                     val validationResult =
-                      successConfig?.validationConfig?.let { validate(responseObj, it.prepare()) }
+                      responseConfig?.validationConfig?.let { validate(responseObj, it.prepare()) }
                     StepReport(
                       request,
                       responseObj,
@@ -173,13 +170,15 @@ object ReVoman {
               else -> {
                 logger.error { "Request failed for step: $stepName" }
                 noFailure = isStepNameInPassList(stepName, haltOnAnyFailureExceptForSteps)
+                val responseConfig: ResponseConfig? =
+                  getResponseConfigForStepName(stepName, responseConfigs)
                 when {
-                  stepNameToErrorType.isStepNamePresent(stepName) -> {
-                    val errorType = stepNameToErrorType[stepName]?.rawType?.kotlin ?: Any::class
+                  responseConfig?.errorType != null -> {
+                    val errorType = responseConfig.errorType.rawType.kotlin
                     val errorResponseObj = moshiReVoman.asA(response.bodyString(), errorType)
                     StepReport(request, errorResponseObj, errorResponseObj.javaClass, response)
                   }
-                  stepNameToSuccessConfig.isStepNamePresent(stepName) -> {
+                  responseConfig?.successType != null -> {
                     val errorMsg = "Unable to validate due to unsuccessful response: $response"
                     logger.error { errorMsg }
                     StepReport(

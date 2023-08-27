@@ -11,7 +11,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
 import static org.revcloud.revoman.input.HookConfig.post;
 import static org.revcloud.revoman.input.HookConfig.pre;
-import static org.revcloud.revoman.input.SuccessConfig.validateIfSuccess;
+import static org.revcloud.revoman.input.ResponseConfig.validateIfSuccess;
 
 import com.salesforce.vador.config.ValidationConfig;
 import com.salesforce.vador.types.Validator;
@@ -76,8 +76,8 @@ class PokemonTest {
                 .templatePath(pmCollectionPath)
                 .environmentPath(pmEnvironmentPath)
                 .hooks(List.of(pre("all-pokemon", preHook), post("all-pokemon", postHook)))
-                .stepNameToSuccessConfig(
-                    "all-pokemon", validateIfSuccess(Results.class, pokemonResultsValidationConfig))
+                .responseConfig(
+                    validateIfSuccess("all-pokemon", Results.class, pokemonResultsValidationConfig))
                 .dynamicEnvironment(dynamicEnvironment)
                 .off());
 
