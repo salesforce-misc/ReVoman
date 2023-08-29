@@ -44,4 +44,11 @@ data class PostmanEnvironment(
       .filter { suffixes.any { suffix -> it.key.endsWith(suffix) } }
       .map { type.cast(it.value) }
       .toList()
+
+  fun <T> getValuesForKeysNotEndingWith(type: Class<T>, vararg prefixes: String): List<T?> =
+    environment.entries
+      .asSequence()
+      .filter { prefixes.any { suffix -> !it.key.endsWith(suffix) } }
+      .map { type.cast(it.value) }
+      .toList()
 }
