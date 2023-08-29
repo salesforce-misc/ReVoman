@@ -59,8 +59,8 @@ private fun stepNameEquals(stepNameFromConfig: String, currentStepName: String) 
 
 internal fun getResponseConfigForStepName(
   stepName: String,
-  responseConfigs: Set<ResponseConfig>
-): ResponseConfig? = responseConfigs.firstOrNull { stepNameEquals(it.stepName, stepName) }
+  responseConfigs: Set<Set<ResponseConfig>>
+): ResponseConfig? = responseConfigs.flatten().firstOrNull { stepNameEquals(it.stepName, stepName) }
 
 internal fun isStepNameInPassList(stepName: String, haltOnAnyFailureExceptForSteps: Set<String>) =
   haltOnAnyFailureExceptForSteps.isEmpty() ||

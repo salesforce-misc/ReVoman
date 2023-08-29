@@ -41,7 +41,7 @@ internal interface KickDef {
   @Value.Default fun validationStrategy(): ValidationStrategy = ValidationStrategy.FAIL_FAST
 
   // ! TODO 26/08/23 gopala.akshintala: Validate for duplicate stepNames
-  @SkipNulls fun responseConfig(): Set<ResponseConfig>
+  @SkipNulls fun responseConfig(): Set<Set<ResponseConfig>>
 
   @SkipNulls fun customAdaptersForResponse(): List<Any>
 
@@ -59,16 +59,16 @@ private constructor(
 ) {
   companion object {
     @JvmStatic
-    fun unmarshallSuccessResponse(stepName: String, successType: Type): ResponseConfig =
-      ResponseConfig(stepName, successType)
+    fun unmarshallSuccessResponse(stepName: String, successType: Type): Set<ResponseConfig> =
+      setOf(ResponseConfig(stepName, successType))
 
     @JvmStatic
     fun unmarshallSuccessResponse(stepNames: Set<String>, successType: Type): Set<ResponseConfig> =
-      stepNames.map { unmarshallSuccessResponse(it, successType) }.toSet()
+      stepNames.flatMap { unmarshallSuccessResponse(it, successType) }.toSet()
 
     @JvmStatic
-    fun unmarshallResponse(stepName: String, successType: Type, errorType: Type): ResponseConfig =
-      ResponseConfig(stepName, successType, errorType)
+    fun unmarshallResponse(stepName: String, successType: Type, errorType: Type): Set<ResponseConfig> =
+      setOf(ResponseConfig(stepName, successType, errorType))
 
     @JvmStatic
     fun unmarshallResponse(
@@ -76,14 +76,14 @@ private constructor(
       successType: Type,
       errorType: Type
     ): Set<ResponseConfig> =
-      stepNames.map { unmarshallResponse(it, successType, errorType) }.toSet()
+      stepNames.flatMap { unmarshallResponse(it, successType, errorType) }.toSet()
 
     @JvmStatic
     fun validateIfSuccess(
       stepName: String,
       successType: Type,
       validationConfig: BaseValidationConfigBuilder<out Any, out Any?, *, *>
-    ): ResponseConfig = ResponseConfig(stepName, successType, validationConfig = validationConfig)
+    ): Set<ResponseConfig> = setOf(ResponseConfig(stepName, successType, validationConfig = validationConfig))
 
     @JvmStatic
     fun validateIfSuccess(
@@ -91,15 +91,15 @@ private constructor(
       successType: Type,
       validationConfig: BaseValidationConfigBuilder<out Any, out Any?, *, *>
     ): Set<ResponseConfig> =
-      stepNames.map { validateIfSuccess(it, successType, validationConfig) }.toSet()
+      stepNames.flatMap { validateIfSuccess(it, successType, validationConfig) }.toSet()
 
     @JvmStatic
     fun validateIfFailed(
       stepName: String,
       errorType: Type,
       validationConfig: BaseValidationConfigBuilder<out Any, out Any?, *, *>
-    ): ResponseConfig =
-      ResponseConfig(stepName, errorType = errorType, validationConfig = validationConfig)
+    ): Set<ResponseConfig> =
+      setOf(ResponseConfig(stepName, errorType = errorType, validationConfig = validationConfig))
 
     @JvmStatic
     fun validateIfFailed(
@@ -107,7 +107,7 @@ private constructor(
       errorType: Type,
       validationConfig: BaseValidationConfigBuilder<out Any, out Any?, *, *>
     ): Set<ResponseConfig> =
-      stepNames.map { validateIfFailed(it, errorType, validationConfig) }.toSet()
+      stepNames.flatMap { validateIfFailed(it, errorType, validationConfig) }.toSet()
   }
 }
 

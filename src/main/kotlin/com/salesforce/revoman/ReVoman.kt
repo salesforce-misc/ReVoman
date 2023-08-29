@@ -75,7 +75,7 @@ object ReVoman {
     bearerTokenKeyFromConfig: String?,
     haltOnAnyFailureExceptForSteps: Set<String>,
     hooks: Set<Set<HookConfig>>,
-    responseConfigs: Set<ResponseConfig>,
+    responseConfigs: Set<Set<ResponseConfig>>,
     customAdaptersForResponse: List<Any>,
     typesInResponseToIgnore: Set<Class<out Any>>,
     insecureHttp: Boolean,
