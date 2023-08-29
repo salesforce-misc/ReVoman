@@ -7,5 +7,6 @@
     "testdir",
     "Vador",
     "Voman"
-  ]
+  ],
+  "java.compile.nullAnalysis.mode": "automatic"
 }

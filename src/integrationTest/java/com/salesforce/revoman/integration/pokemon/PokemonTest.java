@@ -18,7 +18,6 @@ import com.salesforce.revoman.input.Kick;
 import com.salesforce.revoman.output.Rundown;
 import com.salesforce.vador.config.ValidationConfig;
 import com.salesforce.vador.types.Validator;
-import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 import org.assertj.core.api.Assertions;
@@ -75,7 +74,7 @@ class PokemonTest {
             Kick.configure()
                 .templatePath(pmCollectionPath)
                 .environmentPath(pmEnvironmentPath)
-                .hooks(List.of(pre("all-pokemon", preHook), post("all-pokemon", postHook)))
+                .hooks(pre("all-pokemon", preHook), post("all-pokemon", postHook))
                 .responseConfig(
                     validateIfSuccess("all-pokemon", Results.class, pokemonResultsValidationConfig))
                 .dynamicEnvironment(dynamicEnvironment)

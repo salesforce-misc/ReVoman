@@ -44,16 +44,18 @@ internal fun List<Item>.deepFlattenItems(parentFolderName: String = ""): List<It
     .toList()
 
 internal fun getHooksForStep(
-  hookConfigs: Set<HookConfig>,
-  stepName: String,
+  hookConfigs: Set<Set<HookConfig>>,
+  currentStepName: String,
   hookType: HookType
 ): List<Consumer<Rundown>> =
   hookConfigs
-    .filter { stepNameEquals(it.stepName, stepName) && it.hookType == hookType }
+    .flatten()
+    .filter { stepNameEquals(it.stepName, currentStepName) && it.hookType == hookType }
     .map { it.hook }
 
-private fun stepNameEquals(stepNameExpected: String, stepName: String) =
-  stepNameExpected == stepName || stepNameExpected == stepName.substringAfterLast(FOLDER_DELIMITER)
+private fun stepNameEquals(stepNameFromConfig: String, currentStepName: String) =
+  stepNameFromConfig == currentStepName ||
+    stepNameFromConfig == currentStepName.substringAfterLast(FOLDER_DELIMITER)
 
 internal fun getResponseConfigForStepName(
   stepName: String,
@@ -63,9 +65,7 @@ internal fun getResponseConfigForStepName(
 internal fun isStepNameInPassList(stepName: String, haltOnAnyFailureExceptForSteps: Set<String>) =
   haltOnAnyFailureExceptForSteps.isEmpty() ||
     haltOnAnyFailureExceptForSteps.contains(stepName) ||
-    haltOnAnyFailureExceptForSteps.contains(
-      stepName.substringAfterLast(FOLDER_DELIMITER),
-    )
+    haltOnAnyFailureExceptForSteps.contains(stepName.substringAfterLast(FOLDER_DELIMITER))
 
 // ! TODO 24/06/23 gopala.akshintala: Regex support to filter Step Names
 internal fun filterStep(runOnlySteps: Set<String>, skipSteps: Set<String>, stepName: String) =

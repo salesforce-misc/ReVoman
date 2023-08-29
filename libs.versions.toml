@@ -23,6 +23,8 @@ underscore = "1.92"
 kotlin-faker = "1.14.0"
 immutables = "2.9.3"
 mockito = "5.5.0"
+awaitility = "4.2.0"
+
 # Common dependencies
 junit = "5.10.0"
 detekt = "1.23.1"
@@ -65,6 +67,7 @@ junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "junit" }
 junit-engine = { module = "org.junit.jupiter:junit-jupiter-engine" }
 mockito-core = { module = "org.mockito:mockito-core", version.ref = "mockito" }
+awaitility = { module = "org.awaitility:awaitility", version.ref = "awaitility" }
 
 # Gradle plugins
 kotlin-gradle = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }

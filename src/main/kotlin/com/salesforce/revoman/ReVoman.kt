@@ -74,7 +74,7 @@ object ReVoman {
     customDynamicVariables: Map<String, (String) -> String>,
     bearerTokenKeyFromConfig: String?,
     haltOnAnyFailureExceptForSteps: Set<String>,
-    hooks: Set<HookConfig>,
+    hooks: Set<Set<HookConfig>>,
     responseConfigs: Set<ResponseConfig>,
     customAdaptersForResponse: List<Any>,
     typesInResponseToIgnore: Set<Class<out Any>>,

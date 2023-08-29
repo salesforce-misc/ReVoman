@@ -35,7 +35,7 @@ internal interface KickDef {
 
   @SkipNulls fun haltOnAnyFailureExceptForSteps(): Set<String>
 
-  @SkipNulls fun hooks(): Set<HookConfig>
+  @SkipNulls fun hooks(): Set<Set<HookConfig>>
 
   // ! FIXME 25/06/23 gopala.akshintala: Not in-use
   @Value.Default fun validationStrategy(): ValidationStrategy = ValidationStrategy.FAIL_FAST
@@ -63,8 +63,20 @@ private constructor(
       ResponseConfig(stepName, successType)
 
     @JvmStatic
+    fun unmarshallSuccessResponse(stepNames: Set<String>, successType: Type): Set<ResponseConfig> =
+      stepNames.map { unmarshallSuccessResponse(it, successType) }.toSet()
+
+    @JvmStatic
     fun unmarshallResponse(stepName: String, successType: Type, errorType: Type): ResponseConfig =
       ResponseConfig(stepName, successType, errorType)
+
+    @JvmStatic
+    fun unmarshallResponse(
+      stepNames: Set<String>,
+      successType: Type,
+      errorType: Type
+    ): Set<ResponseConfig> =
+      stepNames.map { unmarshallResponse(it, successType, errorType) }.toSet()
 
     @JvmStatic
     fun validateIfSuccess(
@@ -74,18 +86,35 @@ private constructor(
     ): ResponseConfig = ResponseConfig(stepName, successType, validationConfig = validationConfig)
 
     @JvmStatic
+    fun validateIfSuccess(
+      stepNames: Set<String>,
+      successType: Type,
+      validationConfig: BaseValidationConfigBuilder<out Any, out Any?, *, *>
+    ): Set<ResponseConfig> =
+      stepNames.map { validateIfSuccess(it, successType, validationConfig) }.toSet()
+
+    @JvmStatic
     fun validateIfFailed(
       stepName: String,
       errorType: Type,
       validationConfig: BaseValidationConfigBuilder<out Any, out Any?, *, *>
     ): ResponseConfig =
       ResponseConfig(stepName, errorType = errorType, validationConfig = validationConfig)
+
+    @JvmStatic
+    fun validateIfFailed(
+      stepNames: Set<String>,
+      errorType: Type,
+      validationConfig: BaseValidationConfigBuilder<out Any, out Any?, *, *>
+    ): Set<ResponseConfig> =
+      stepNames.map { validateIfFailed(it, errorType, validationConfig) }.toSet()
   }
 }
 
 enum class HookType {
   PRE,
   POST,
+  // ! TODO 08/23 gopala.akshintala: Support other Hook types
   REQUEST_SUCCESS,
   REQUEST_FAILURE,
   TEST_SCRIPT_JS_FAILURE
@@ -95,20 +124,20 @@ data class HookConfig
 private constructor(val stepName: String, val hookType: HookType, val hook: Consumer<Rundown>) {
   companion object {
     @JvmStatic
-    fun pre(stepName: String, hook: Consumer<Rundown>): HookConfig =
-      HookConfig(stepName, HookType.PRE, hook)
+    fun pre(stepName: String, hook: Consumer<Rundown>): Set<HookConfig> =
+      setOf(HookConfig(stepName, HookType.PRE, hook))
 
     @JvmStatic
-    fun pre(stepNames: List<String>, hook: Consumer<Rundown>): List<HookConfig> =
-      stepNames.map { pre(it, hook) }
+    fun pre(stepNames: Set<String>, hook: Consumer<Rundown>): Set<HookConfig> =
+      stepNames.flatMap { pre(it, hook) }.toSet()
 
     @JvmStatic
-    fun post(stepName: String, hook: Consumer<Rundown>): HookConfig =
-      HookConfig(stepName, HookType.POST, hook)
+    fun post(stepName: String, hook: Consumer<Rundown>): Set<HookConfig> =
+      setOf(HookConfig(stepName, HookType.POST, hook))
 
     @JvmStatic
-    fun post(stepNames: List<String>, hook: Consumer<Rundown>): List<HookConfig> =
-      stepNames.map { post(it, hook) }
+    fun post(stepNames: Set<String>, hook: Consumer<Rundown>): Set<HookConfig> =
+      stepNames.flatMap { post(it, hook) }.toSet()
   }
 }
 
