@@ -36,7 +36,7 @@ internal fun initPmEnvironment(
 @OptIn(ExperimentalStdlibApi::class)
 internal fun regexReplace(
   pmEnvironmentPath: String,
-  pmEnvironment: MutableMap<String, String?>,
+  pmEnvironment: MutableMap<String, Any?>,
   customDynamicVariables: Map<String, (String) -> String>,
   dynamicVariableGenerator: (String) -> String? = ::dynamicVariableGenerator
 ): Environment? {

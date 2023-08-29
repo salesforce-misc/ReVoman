@@ -8,9 +8,9 @@
 package com.salesforce.revoman.postman
 
 data class PostmanEnvironment(
-  private val environment: MutableMap<String, String?> = mutableMapOf()
-) : MutableMap<String, String?> by environment {
-  fun set(key: String, value: String?) {
+  private val environment: MutableMap<String, Any?> = mutableMapOf()
+) : MutableMap<String, Any?> by environment {
+  fun set(key: String, value: Any?) {
     environment[key] = value
   }
 
@@ -19,25 +19,29 @@ data class PostmanEnvironment(
     environment.remove(key)
   }
 
-  // ! TODO 24/06/23 gopala.akshintala: Support for Regex while fetching environment
+  // ! TODO 24/06/23 gopala.akshintala: Support for Regex while quering environment
+  
+  fun getString(key: String?) = environment[key] as String?
+  
+  fun getInt(key: String?) = environment[key] as Int?
 
-  fun getValuesForKeysStartingWith(prefix: String): List<String?> =
-    environment.entries.asSequence().filter { it.key.startsWith(prefix) }.map { it.value }.toList()
+  fun <T> getValuesForKeysStartingWith(type: Class<T>, prefix: String): List<T?> =
+    environment.entries.asSequence().filter { it.key.startsWith(prefix) }.map { type.cast(it.value) }.toList()
 
-  fun getValuesForKeysStartingWith(vararg prefixes: String): List<String?> =
+  fun <T> getValuesForKeysStartingWith(type: Class<T>, vararg prefixes: String): List<T?> =
     environment.entries
       .asSequence()
       .filter { prefixes.any { suffix -> it.key.startsWith(suffix) } }
-      .map { it.value }
+      .map { type.cast(it.value) }
       .toList()
 
-  fun getValuesForKeysEndingWith(suffix: String): List<String?> =
-    environment.entries.asSequence().filter { it.key.endsWith(suffix) }.map { it.value }.toList()
+  fun <T> getValuesForKeysEndingWith(type: Class<T>, suffix: String): List<T?> =
+    environment.entries.asSequence().filter { it.key.endsWith(suffix) }.map { type.cast(it.value) }.toList()
 
-  fun getValuesForKeysEndingWith(vararg suffixes: String): List<String?> =
+  fun <T> getValuesForKeysEndingWith(type: Class<T>, vararg suffixes: String): List<T?> =
     environment.entries
       .asSequence()
       .filter { suffixes.any { suffix -> it.key.endsWith(suffix) } }
-      .map { it.value }
+      .map { type.cast(it.value) }
       .toList()
 }

@@ -11,14 +11,13 @@ import static com.salesforce.revoman.input.HookConfig.post;
 import static com.salesforce.revoman.input.HookConfig.pre;
 import static com.salesforce.revoman.input.ResponseConfig.unmarshallSuccessResponse;
 import static com.salesforce.revoman.input.ResponseConfig.validateIfSuccess;
-import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.awaitility.Awaitility.await;
 
 import com.salesforce.revoman.ReVoman;
 import com.salesforce.revoman.input.Kick;
 import com.salesforce.revoman.output.Rundown;
 import com.salesforce.vador.config.ValidationConfig;
+import io.vavr.control.Try;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
@@ -106,7 +105,12 @@ class PQE2ETest {
                             "pq-update: qli(all patch)",
                             "pq-update: qli(all delete)",
                             "pq-update: qli(post+delete)"),
-                        ignore -> await().atLeast(1, MINUTES)))
+                        rundown -> {
+                          LOGGER.info(
+                              "Waiting for the Quote: {} to get processed",
+                              rundown.environment.getString("quoteId"));
+                          Try.run(() -> Thread.sleep(10000));
+                        }))
                 .haltOnAnyFailureExceptForSteps(unsuccessfulStepsException) // <7>
                 .responseConfig(
                     unmarshallSuccessResponse( // <8>
@@ -133,31 +137,29 @@ class PQE2ETest {
                                 : "empty"))
                     .isTrue());
     assertThat(pqRunDown.environment.get("quoteCalculationStatus"))
-        .isEqualTo(PricingPref.valueOf(pqRunDown.environment.get("$pricingPref")).completeStatus);
+        .isEqualTo(PricingPref.valueOf(pqRunDown.environment.getString("$pricingPref")).completeStatus);
   }
   
   static void assertAfterPQCreate(Rundown pqCreate_qli_qlr) {
     final var environment = pqCreate_qli_qlr.environment;
     // Quote: LineItemCount, quoteCalculationStatus
-    assertThat(environment.get("lineItemCount"))
-        .isEqualTo(String.valueOf(10));
+    assertThat(environment.getInt("lineItemCount")).isEqualTo(10);
     assertThat(environment.get("quoteCalculationStatus"))
         .isEqualTo(
-            PricingPref.valueOf(environment.get("$pricingPref"))
+            PricingPref.valueOf(environment.getString("$pricingPref"))
                 .completeStatus);
     // QLIs: Product2Id
     final var productIdsFromEnv =
-        environment.getValuesForKeysEndingWith("ProductId");
+        environment.getValuesForKeysEndingWith(String.class, "ProductId");
     final var productIdsFromCreatedQLIs =
-        environment.getValuesForKeysStartingWith("productForQLI");
+        environment.getValuesForKeysStartingWith(String.class, "productForQLI");
     assertThat(productIdsFromCreatedQLIs).containsAll(productIdsFromEnv);
     // QLRs: QuoteId, MainQuoteLineId, AssociatedQuoteLineId
     final var quoteIdFromQLRs =
-        environment.getValuesForKeysStartingWith("quoteForQLR");
-    assertThat(quoteIdFromQLRs).containsOnly(environment.get("quoteId"));
+        environment.getValuesForKeysStartingWith(String.class, "quoteForQLR");
+    assertThat(quoteIdFromQLRs).containsOnly(environment.getString("quoteId"));
     assertThat(
-        environment.getValuesForKeysStartingWith(
-            "mainQuoteLine+associatedQuoteLine"))
+        environment.getValuesForKeysStartingWith(String.class, "mainQuoteLine+associatedQuoteLine"))
         .containsOnly(
             environment.get("qliCreated1Id")
                 + "-"

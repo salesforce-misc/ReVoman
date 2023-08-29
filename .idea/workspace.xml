@@ -4,20 +4,14 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="6ed80e62-f038-45bc-b42e-83dd15ec8dae" name="Changes" comment="Release 0.10.0&#10;- Change package name&#10; &#10; &#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
-      <change afterPath="$PROJECT_DIR$/src/integrationTest/resources/pm-templates/pq/pq (rc).postman_collection.json" afterDir="false" />
+    <list default="true" id="6ed80e62-f038-45bc-b42e-83dd15ec8dae" name="Changes" comment="Change responseConfig to take `Set&lt;Set&lt;HookConfig&gt;&gt;`&#10; &#10; &#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.vscode/settings.json" beforeDir="false" afterPath="$PROJECT_DIR$/.vscode/settings.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/build.gradle.kts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/libs.versions.toml" beforeDir="false" afterPath="$PROJECT_DIR$/libs.versions.toml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/integrationTest/java/com/salesforce/revoman/integration/core/pq/PQE2ETest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/integrationTest/java/com/salesforce/revoman/integration/core/pq/PQE2ETest.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/integrationTest/java/com/salesforce/revoman/integration/pokemon/PokemonTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/integrationTest/java/com/salesforce/revoman/integration/pokemon/PokemonTest.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/integrationTest/resources/pm-templates/pq/pq-api-create.postman_collection.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/integrationTest/resources/pm-templates/pq/pq-env.postman_environment.json" beforeDir="false" afterPath="$PROJECT_DIR$/src/integrationTest/resources/pm-templates/pq/pq-env.postman_environment.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/integrationTest/resources/pm-templates/pq/pq.postman_collection.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/integrationTest/resources/pm-templates/pq/pq (rc).postman_collection.json" beforeDir="false" afterPath="$PROJECT_DIR$/src/integrationTest/resources/pm-templates/pq/pq (rc).postman_collection.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/salesforce/revoman/ReVoman.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/salesforce/revoman/ReVoman.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/salesforce/revoman/input/KickDef.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/salesforce/revoman/input/KickDef.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/salesforce/revoman/internal/Utils.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/salesforce/revoman/internal/Utils.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/salesforce/revoman/internal/postman/Postman.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/salesforce/revoman/internal/postman/Postman.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/salesforce/revoman/internal/postman/RegexReplacer.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/salesforce/revoman/internal/postman/RegexReplacer.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/salesforce/revoman/postman/PostmanEnvironment.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/salesforce/revoman/postman/PostmanEnvironment.kt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -196,7 +190,7 @@
       <command value="gradle spotlessApply" />
     </option>
   </component>
-  <component name="RunManager" selected="Gradle.revoman-root [spotlessApply]">
+  <component name="RunManager" selected="Gradle.PQE2ETest">
     <configuration name="PQE2ETest" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
       <ExternalSystemSettings>
         <option name="executionName" />
@@ -422,7 +416,7 @@
       <workItem from="1693058342047" duration="18047000" />
       <workItem from="1693141962619" duration="2950000" />
       <workItem from="1693200395333" duration="8015000" />
-      <workItem from="1693211241056" duration="7814000" />
+      <workItem from="1693211241056" duration="16176000" />
     </task>
     <task id="LOCAL-00001" summary="- Fixed moshiReVoman&#10;- Added module-info.java to integrationTest module">
       <created>1678595183319</created>
@@ -535,22 +529,6 @@
       <option name="presentableId" value="LOCAL-00016" />
       <option name="project" value="LOCAL" />
       <updated>1682662367190</updated>
-    </task>
-    <task id="LOCAL-00036" summary="Minor doc edits to CONTRIBUTING.adoc&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
-      <option name="closed" value="true" />
-      <created>1688037825679</created>
-      <option name="number" value="00036" />
-      <option name="presentableId" value="LOCAL-00036" />
-      <option name="project" value="LOCAL" />
-      <updated>1688037825679</updated>
-    </task>
-    <task id="LOCAL-00037" summary="Minor doc edits to CONTRIBUTING.adoc&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
-      <option name="closed" value="true" />
-      <created>1688037920115</created>
-      <option name="number" value="00037" />
-      <option name="presentableId" value="LOCAL-00037" />
-      <option name="project" value="LOCAL" />
-      <updated>1688037920115</updated>
     </task>
     <task id="LOCAL-00038" summary=":clown_face: Formatting with ktfmt&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
       <option name="closed" value="true" />
@@ -800,7 +778,23 @@
       <option name="project" value="LOCAL" />
       <updated>1693109831759</updated>
     </task>
-    <option name="localTasksCounter" value="69" />
+    <task id="LOCAL-00069" summary="Change hooks to take `Set&lt;Set&lt;HookConfig&gt;&gt;`&#10; &#10; &#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
+      <option name="closed" value="true" />
+      <created>1693289738002</created>
+      <option name="number" value="00069" />
+      <option name="presentableId" value="LOCAL-00069" />
+      <option name="project" value="LOCAL" />
+      <updated>1693289738002</updated>
+    </task>
+    <task id="LOCAL-00070" summary="Change responseConfig to take `Set&lt;Set&lt;HookConfig&gt;&gt;`&#10; &#10; &#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
+      <option name="closed" value="true" />
+      <created>1693290076691</created>
+      <option name="number" value="00070" />
+      <option name="presentableId" value="LOCAL-00070" />
+      <option name="project" value="LOCAL" />
+      <updated>1693290076691</updated>
+    </task>
+    <option name="localTasksCounter" value="71" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -846,8 +840,6 @@
   <component name="VcsManagerConfiguration">
     <option name="CHECK_CODE_SMELLS_BEFORE_PROJECT_COMMIT" value="false" />
     <option name="CHECK_NEW_TODO" value="false" />
-    <MESSAGE value="Minor doc edits to CONTRIBUTING.adoc&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
-    <MESSAGE value=":clown_face: Formatting with ktfmt&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
     <MESSAGE value="Use regex groups&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
     <MESSAGE value="- Change RegexAdapterFactory.kt to RegexAdapter&#10;- Add custom and dynamic variables to env&#10;- Fix PQE2ETest&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
     <MESSAGE value="Minor refactoring and variable renaming&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
@@ -871,9 +863,23 @@
     <MESSAGE value="Release 0.9.8&#10;- Change ReadFile to use Guava&#10;- HookConfig to supply hooks&#10; &#10; &#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
     <MESSAGE value="- Migrate to use ResponseConfig&#10;- Upgrade Kotlin-logging-jvm to 5.1.0&#10; &#10; &#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
     <MESSAGE value="Release 0.10.0&#10;- Change package name&#10; &#10; &#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
-    <option name="LAST_COMMIT_MESSAGE" value="Release 0.10.0&#10;- Change package name&#10; &#10; &#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
+    <MESSAGE value="Change hooks to take `Set&lt;Set&lt;HookConfig&gt;&gt;`&#10; &#10; &#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
+    <MESSAGE value="Change responseConfig to take `Set&lt;Set&lt;HookConfig&gt;&gt;`&#10; &#10; &#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
+    <option name="LAST_COMMIT_MESSAGE" value="Change responseConfig to take `Set&lt;Set&lt;HookConfig&gt;&gt;`&#10; &#10; &#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
   </component>
   <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" type="java-line">
+          <url>file://$PROJECT_DIR$/src/integrationTest/java/com/salesforce/revoman/integration/core/pq/PQE2ETest.java</url>
+          <line>111</line>
+          <properties>
+            <option name="lambda-ordinal" value="0" />
+          </properties>
+          <option name="timeStamp" value="10" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
     <pin-to-top-manager>
       <pinned-members>
         <PinnedItemInfo parentTag="org.revcloud.revoman.output.StepReport" memberName="responseObj" />
