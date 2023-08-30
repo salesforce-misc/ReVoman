@@ -15,7 +15,7 @@ import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapter
 
 internal class PostmanAPI {
-  @JvmField val environment: PostmanEnvironment = PostmanEnvironment()
+  @JvmField val environment: PostmanEnvironment<Any?> = PostmanEnvironment()
   lateinit var request: Request
   lateinit var response: Response
 

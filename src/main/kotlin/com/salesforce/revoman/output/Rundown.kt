@@ -14,7 +14,7 @@ import org.http4k.core.Response
 
 data class Rundown(
   @JvmField val stepNameToReport: Map<String, StepReport> = emptyMap(),
-  @JvmField val environment: PostmanEnvironment = PostmanEnvironment()
+  @JvmField val environment: PostmanEnvironment<Any?> = PostmanEnvironment()
 ) {
   val firstUnsuccessfulStepNameInOrder: String?
     get() =

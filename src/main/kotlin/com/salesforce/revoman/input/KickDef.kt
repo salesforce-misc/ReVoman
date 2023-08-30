@@ -67,8 +67,11 @@ private constructor(
       stepNames.flatMap { unmarshallSuccessResponse(it, successType) }.toSet()
 
     @JvmStatic
-    fun unmarshallResponse(stepName: String, successType: Type, errorType: Type): Set<ResponseConfig> =
-      setOf(ResponseConfig(stepName, successType, errorType))
+    fun unmarshallResponse(
+      stepName: String,
+      successType: Type,
+      errorType: Type
+    ): Set<ResponseConfig> = setOf(ResponseConfig(stepName, successType, errorType))
 
     @JvmStatic
     fun unmarshallResponse(
@@ -83,7 +86,8 @@ private constructor(
       stepName: String,
       successType: Type,
       validationConfig: BaseValidationConfigBuilder<out Any, out Any?, *, *>
-    ): Set<ResponseConfig> = setOf(ResponseConfig(stepName, successType, validationConfig = validationConfig))
+    ): Set<ResponseConfig> =
+      setOf(ResponseConfig(stepName, successType, validationConfig = validationConfig))
 
     @JvmStatic
     fun validateIfSuccess(
