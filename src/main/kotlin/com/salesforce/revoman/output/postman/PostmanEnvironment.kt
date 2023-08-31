@@ -62,6 +62,19 @@ data class PostmanEnvironment<ValueT>(
         .toMutableMap()
     )
 
+  fun <T> envCopyWithKeysEndingWith(
+    type: Class<T>,
+    vararg suffixes: String
+  ): PostmanEnvironment<T> =
+    PostmanEnvironment(
+      environment
+        .filter {
+          type.isInstance(it.value) && suffixes.any { suffix -> it.key.endsWith(suffix) }
+        }
+        .mapValues { type.cast(it.value) }
+        .toMutableMap()
+    )
+
   fun <T> valuesForKeysStartingWith(type: Class<T>, vararg prefixes: String): List<T?> =
     environment.entries
       .asSequence()
