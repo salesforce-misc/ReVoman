@@ -28,7 +28,10 @@ data class PostmanEnvironment<ValueT>(
   fun <T> valuesForKeysStartingWith(type: Class<T>, prefix: String): MutableCollection<T> =
     envCopyWithKeysStartingWith(type, prefix).environment.values
 
-  fun <T> envCopyWithKeysStartingWith(type: Class<T>, vararg prefixes: String): PostmanEnvironment<T> =
+  fun <T> envCopyWithKeysStartingWith(
+    type: Class<T>,
+    vararg prefixes: String
+  ): PostmanEnvironment<T> =
     PostmanEnvironment(
       environment
         .filter {
@@ -46,12 +49,18 @@ data class PostmanEnvironment<ValueT>(
         .toMutableMap()
     )
 
-  fun <T> envCopyWithKeysNotStartingWith(type: Class<T>, vararg prefixes: String): PostmanEnvironment<T> =
+  fun <T> envCopyWithKeysNotStartingWith(
+    type: Class<T>,
+    vararg prefixes: String
+  ): PostmanEnvironment<T> =
     PostmanEnvironment(
-    environment
-      .filter { type.isInstance(it.value) && prefixes.any { suffix -> !it.key.startsWith(suffix) } }
-      .mapValues { type.cast(it.value) }.toMutableMap()
-      )
+      environment
+        .filter {
+          type.isInstance(it.value) && prefixes.any { suffix -> !it.key.startsWith(suffix) }
+        }
+        .mapValues { type.cast(it.value) }
+        .toMutableMap()
+    )
 
   fun <T> valuesForKeysStartingWith(type: Class<T>, vararg prefixes: String): List<T?> =
     environment.entries

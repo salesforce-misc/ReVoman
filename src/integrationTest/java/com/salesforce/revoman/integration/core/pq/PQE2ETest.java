@@ -138,8 +138,7 @@ class PQE2ETest {
                     .isTrue());
     assertThat(pqRunDown.mutableEnv.get("quoteCalculationStatus"))
         .isEqualTo(
-            PricingPref.valueOf(pqRunDown.mutableEnv.getString("$pricingPref"))
-                .completeStatus);
+            PricingPref.valueOf(pqRunDown.mutableEnv.getString("$pricingPref")).completeStatus);
   }
 
   static void assertAfterPQCreate(Rundown pqCreate_qli_qlr) {

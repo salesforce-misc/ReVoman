@@ -65,8 +65,7 @@ class PokemonTest {
               public void accept(Rundown rundown) {
                 Assertions.assertThat(rundown.mutableEnv)
                     .containsEntry("limit", String.valueOf(newLimit));
-                Assertions.assertThat(rundown.mutableEnv)
-                    .containsEntry("pokemonName", "bulbasaur");
+                Assertions.assertThat(rundown.mutableEnv).containsEntry("pokemonName", "bulbasaur");
               }
             });
     final var pokeRundown =
