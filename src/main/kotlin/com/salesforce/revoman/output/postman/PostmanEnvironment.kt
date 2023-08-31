@@ -46,10 +46,24 @@ data class PostmanEnvironment<ValueT>(
         .toMutableMap()
     )
 
+  fun <T> envCopyWithKeysNotStartingWith(type: Class<T>, vararg prefixes: String): PostmanEnvironment<T> =
+    PostmanEnvironment(
+    environment
+      .filter { type.isInstance(it.value) && prefixes.any { suffix -> !it.key.startsWith(suffix) } }
+      .mapValues { type.cast(it.value) }.toMutableMap()
+      )
+
   fun <T> valuesForKeysStartingWith(type: Class<T>, vararg prefixes: String): List<T?> =
     environment.entries
       .asSequence()
       .filter { type.isInstance(it.value) && prefixes.any { suffix -> it.key.startsWith(suffix) } }
+      .map { type.cast(it.value) }
+      .toList()
+
+  fun <T> valuesForKeysNotStartingWith(type: Class<T>, vararg prefixes: String): List<T?> =
+    environment.entries
+      .asSequence()
+      .filter { type.isInstance(it.value) && prefixes.any { suffix -> !it.key.startsWith(suffix) } }
       .map { type.cast(it.value) }
       .toList()
 
