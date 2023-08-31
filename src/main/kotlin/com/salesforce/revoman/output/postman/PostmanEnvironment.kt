@@ -5,7 +5,7 @@
  * https://opensource.org/licenses/BSD-3-Clause
  * ****************************************************************************
  */
-package com.salesforce.revoman.postman
+package com.salesforce.revoman.output.postman
 
 data class PostmanEnvironment<ValueT>(
   private val environment: MutableMap<String, ValueT> = mutableMapOf()
@@ -25,55 +25,52 @@ data class PostmanEnvironment<ValueT>(
 
   fun getInt(key: String?) = environment[key] as Int?
 
-  fun <T> getValuesForKeysStartingWith(type: Class<T>, prefix: String): MutableCollection<T> =
-    getEnvWithKeysStartingWith(type, prefix).environment.values
+  fun <T> valuesForKeysStartingWith(type: Class<T>, prefix: String): MutableCollection<T> =
+    envWithKeysStartingWith(type, prefix).environment.values
 
-  fun <T> getEnvWithKeysStartingWith(
-    type: Class<T>,
-    vararg prefixes: String
-  ): PostmanEnvironment<T> =
+  fun <T> envWithKeysStartingWith(type: Class<T>, vararg prefixes: String): PostmanEnvironment<T> =
     PostmanEnvironment(
       environment
         .filter {
           type.isInstance(it.value) && prefixes.any { prefix -> it.key.startsWith(prefix) }
         }
-        .mapValues { type.cast(it) }
+        .mapValues { type.cast(it.value) }
         .toMutableMap()
     )
 
-  fun <T> getEnvExcludingKeys(type: Class<T>, whiteListKeys: Set<String>): PostmanEnvironment<T> =
+  fun <T> envExcludingKeys(type: Class<T>, whiteListKeys: Set<String>): PostmanEnvironment<T> =
     PostmanEnvironment(
       environment
         .filter { type.isInstance(it.value) && !whiteListKeys.contains(it.key) }
-        .mapValues { type.cast(it) }
+        .mapValues { type.cast(it.value) }
         .toMutableMap()
     )
 
-  fun <T> getValuesForKeysStartingWith(type: Class<T>, vararg prefixes: String): List<T?> =
+  fun <T> valuesForKeysStartingWith(type: Class<T>, vararg prefixes: String): List<T?> =
     environment.entries
       .asSequence()
       .filter { type.isInstance(it.value) && prefixes.any { suffix -> it.key.startsWith(suffix) } }
       .map { type.cast(it.value) }
       .toList()
 
-  fun <T> getValuesForKeysEndingWith(type: Class<T>, suffix: String): List<T?> =
+  fun <T> valuesForKeysEndingWith(type: Class<T>, suffix: String): List<T?> =
     environment.entries
       .asSequence()
-      .filter { it.key.endsWith(suffix) }
+      .filter { type.isInstance(it.value) && it.key.endsWith(suffix) }
       .map { type.cast(it.value) }
       .toList()
 
-  fun <T> getValuesForKeysEndingWith(type: Class<T>, vararg suffixes: String): List<T?> =
+  fun <T> valuesForKeysEndingWith(type: Class<T>, vararg suffixes: String): List<T?> =
     environment.entries
       .asSequence()
-      .filter { suffixes.any { suffix -> it.key.endsWith(suffix) } }
+      .filter { type.isInstance(it.value) && suffixes.any { suffix -> it.key.endsWith(suffix) } }
       .map { type.cast(it.value) }
       .toList()
 
-  fun <T> getValuesForKeysNotEndingWith(type: Class<T>, vararg suffixes: String): List<T?> =
+  fun <T> valuesForKeysNotEndingWith(type: Class<T>, vararg suffixes: String): List<T?> =
     environment.entries
       .asSequence()
-      .filter { suffixes.any { suffix -> !it.key.endsWith(suffix) } }
+      .filter { type.isInstance(it.value) && suffixes.any { suffix -> !it.key.endsWith(suffix) } }
       .map { type.cast(it.value) }
       .toList()
 }

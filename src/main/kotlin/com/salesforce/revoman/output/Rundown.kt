@@ -7,15 +7,18 @@
  */
 package com.salesforce.revoman.output
 
-import com.salesforce.revoman.postman.PostmanEnvironment
+import com.salesforce.revoman.output.postman.PostmanEnvironment
 import java.lang.reflect.Type
 import org.http4k.core.Request
 import org.http4k.core.Response
 
 data class Rundown(
   @JvmField val stepNameToReport: Map<String, StepReport> = emptyMap(),
-  @JvmField val environment: PostmanEnvironment<Any?> = PostmanEnvironment()
+  private val env: PostmanEnvironment<Any?> = PostmanEnvironment()
 ) {
+  val environment = env
+    get() = field.copy(environment = environment.toMutableMap())
+
   val firstUnsuccessfulStepNameInOrder: String?
     get() =
       stepNameToReport.entries.firstOrNull { (_, stepReport) -> !stepReport.isSuccessful }?.key

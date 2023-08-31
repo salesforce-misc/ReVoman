@@ -108,7 +108,7 @@ class PQE2ETest {
                         rundown -> {
                           LOGGER.info(
                               "Waiting for the Quote: {} to get processed",
-                              rundown.environment.getString("quoteId"));
+                              rundown.getEnvironment().getString("quoteId"));
                           Try.run(() -> Thread.sleep(10000));
                         }))
                 .haltOnAnyFailureExceptForSteps(unsuccessfulStepsException) // <7>
@@ -136,28 +136,28 @@ class PQE2ETest {
                                 ? stepReport.getResponseData().toMessage()
                                 : "empty"))
                     .isTrue());
-    assertThat(pqRunDown.environment.get("quoteCalculationStatus"))
+    assertThat(pqRunDown.getEnvironment().get("quoteCalculationStatus"))
         .isEqualTo(
-            PricingPref.valueOf(pqRunDown.environment.getString("$pricingPref")).completeStatus);
+            PricingPref.valueOf(pqRunDown.getEnvironment().getString("$pricingPref"))
+                .completeStatus);
   }
 
   static void assertAfterPQCreate(Rundown pqCreate_qli_qlr) {
-    final var environment = pqCreate_qli_qlr.environment;
+    final var environment = pqCreate_qli_qlr.getEnvironment();
     // Quote: LineItemCount, quoteCalculationStatus
     assertThat(environment.getInt("lineItemCount")).isEqualTo(10);
     assertThat(environment.get("quoteCalculationStatus"))
         .isEqualTo(PricingPref.valueOf(environment.getString("$pricingPref")).completeStatus);
     // QLIs: Product2Id
-    final var productIdsFromEnv = environment.getValuesForKeysEndingWith(String.class, "ProductId");
+    final var productIdsFromEnv = environment.valuesForKeysEndingWith(String.class, "ProductId");
     final var productIdsFromCreatedQLIs =
-        environment.getValuesForKeysStartingWith(String.class, "productForQLI");
+        environment.valuesForKeysStartingWith(String.class, "productForQLI");
     assertThat(productIdsFromCreatedQLIs).containsAll(productIdsFromEnv);
     // QLRs: QuoteId, MainQuoteLineId, AssociatedQuoteLineId
-    final var quoteIdFromQLRs =
-        environment.getValuesForKeysStartingWith(String.class, "quoteForQLR");
+    final var quoteIdFromQLRs = environment.valuesForKeysStartingWith(String.class, "quoteForQLR");
     assertThat(quoteIdFromQLRs).containsOnly(environment.getString("quoteId"));
     assertThat(
-            environment.getValuesForKeysStartingWith(
+            environment.valuesForKeysStartingWith(
                 String.class, "mainQuoteLine+associatedQuoteLine"))
         .containsOnly(
             environment.get("qliCreated1Id") + "-" + environment.get("qliCreated2Id"),
