@@ -108,7 +108,7 @@ class PQE2ETest {
                         rundown -> {
                           LOGGER.info(
                               "Waiting for the Quote: {} to get processed",
-                              rundown.getEnvironment().getString("quoteId"));
+                              rundown.mutableEnv.getString("quoteId"));
                           Try.run(() -> Thread.sleep(10000));
                         }))
                 .haltOnAnyFailureExceptForSteps(unsuccessfulStepsException) // <7>
@@ -136,14 +136,14 @@ class PQE2ETest {
                                 ? stepReport.getResponseData().toMessage()
                                 : "empty"))
                     .isTrue());
-    assertThat(pqRunDown.getEnvironment().get("quoteCalculationStatus"))
+    assertThat(pqRunDown.mutableEnv.get("quoteCalculationStatus"))
         .isEqualTo(
-            PricingPref.valueOf(pqRunDown.getEnvironment().getString("$pricingPref"))
+            PricingPref.valueOf(pqRunDown.mutableEnv.getString("$pricingPref"))
                 .completeStatus);
   }
 
   static void assertAfterPQCreate(Rundown pqCreate_qli_qlr) {
-    final var environment = pqCreate_qli_qlr.getEnvironment();
+    final var environment = pqCreate_qli_qlr.mutableEnv;
     // Quote: LineItemCount, quoteCalculationStatus
     assertThat(environment.getInt("lineItemCount")).isEqualTo(10);
     assertThat(environment.get("quoteCalculationStatus"))

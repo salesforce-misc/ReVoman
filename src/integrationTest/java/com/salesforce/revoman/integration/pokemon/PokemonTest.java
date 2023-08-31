@@ -54,7 +54,7 @@ class PokemonTest {
             new Consumer<Rundown>() {
               @Override
               public void accept(Rundown rundown) {
-                rundown.environment.set("limit", String.valueOf(newLimit));
+                rundown.mutableEnv.set("limit", String.valueOf(newLimit));
               }
             });
     //noinspection Convert2Lambda
@@ -63,9 +63,9 @@ class PokemonTest {
             new Consumer<Rundown>() {
               @Override
               public void accept(Rundown rundown) {
-                Assertions.assertThat(rundown.environment)
+                Assertions.assertThat(rundown.mutableEnv)
                     .containsEntry("limit", String.valueOf(newLimit));
-                Assertions.assertThat(rundown.environment)
+                Assertions.assertThat(rundown.mutableEnv)
                     .containsEntry("pokemonName", "bulbasaur");
               }
             });
@@ -84,7 +84,7 @@ class PokemonTest {
     Mockito.verify(preHook, times(1)).accept(any());
     Mockito.verify(postHook, times(1)).accept(any());
     Assertions.assertThat(pokeRundown.stepNameToReport).hasSize(5);
-    Assertions.assertThat(pokeRundown.environment)
+    Assertions.assertThat(pokeRundown.mutableEnv)
         .containsExactlyInAnyOrderEntriesOf(
             Map.of(
                 "offset", String.valueOf(offset),

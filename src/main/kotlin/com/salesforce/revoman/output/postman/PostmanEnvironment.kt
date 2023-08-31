@@ -26,9 +26,9 @@ data class PostmanEnvironment<ValueT>(
   fun getInt(key: String?) = environment[key] as Int?
 
   fun <T> valuesForKeysStartingWith(type: Class<T>, prefix: String): MutableCollection<T> =
-    envWithKeysStartingWith(type, prefix).environment.values
+    envCopyWithKeysStartingWith(type, prefix).environment.values
 
-  fun <T> envWithKeysStartingWith(type: Class<T>, vararg prefixes: String): PostmanEnvironment<T> =
+  fun <T> envCopyWithKeysStartingWith(type: Class<T>, vararg prefixes: String): PostmanEnvironment<T> =
     PostmanEnvironment(
       environment
         .filter {
@@ -38,7 +38,7 @@ data class PostmanEnvironment<ValueT>(
         .toMutableMap()
     )
 
-  fun <T> envExcludingKeys(type: Class<T>, whiteListKeys: Set<String>): PostmanEnvironment<T> =
+  fun <T> envCopyExcludingKeys(type: Class<T>, whiteListKeys: Set<String>): PostmanEnvironment<T> =
     PostmanEnvironment(
       environment
         .filter { type.isInstance(it.value) && !whiteListKeys.contains(it.key) }
