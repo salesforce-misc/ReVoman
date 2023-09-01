@@ -11,7 +11,6 @@ import com.diffplug.spotless.extra.wtp.EclipseWtpFormatterStep.XML
 import io.gitlab.arturbosch.detekt.Detekt
 
 plugins {
-  `java-library`
   id("com.diffplug.spotless")
   id("io.gitlab.arturbosch.detekt")
   id("com.adarshr.test-logger")
