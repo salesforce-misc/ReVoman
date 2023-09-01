@@ -7,7 +7,6 @@
  */
 package com.salesforce.revoman.internal.postman
 
-import com.salesforce.revoman.TEST_RESOURCES_PATH
 import com.salesforce.revoman.internal.postman.state.EnvValue
 import com.salesforce.revoman.internal.postman.state.Environment
 import io.kotest.matchers.shouldBe
@@ -21,7 +20,7 @@ class PostmanTest {
     val dummyDynamicVariableGenerator = { r: String -> if (r == "\$epoch") epoch else null }
     val actualEnv =
       regexReplace(
-        "${TEST_RESOURCES_PATH}/env-with-regex.json",
+        "env-with-regex.json",
         mutableMapOf("un" to "userName"),
         emptyMap(),
         dummyDynamicVariableGenerator

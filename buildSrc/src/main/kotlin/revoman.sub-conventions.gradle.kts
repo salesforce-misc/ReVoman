@@ -6,7 +6,7 @@
  * ****************************************************************************
  */
 plugins {
-  java
+  `java-library`
   `maven-publish`
   signing
   id("org.jetbrains.kotlinx.kover")
@@ -20,7 +20,6 @@ java {
 }
 
 tasks {
-  withType<Jar> { duplicatesStrategy = DuplicatesStrategy.EXCLUDE }
   withType<PublishToMavenRepository>().configureEach {
     doLast {
       logger.lifecycle(

@@ -10,15 +10,17 @@ package com.salesforce.revoman.internal.postman
 import com.salesforce.revoman.internal.postman.state.Environment
 import com.salesforce.revoman.internal.postman.state.Request
 
-val postManVariableRegex = "\\{\\{(?<variableKey>[^{}]*?)}}".toRegex()
+private const val VARIABLE_KEY = "variableKey"
+val postManVariableRegex = "\\{\\{(?<$VARIABLE_KEY>[^{}]*?)}}".toRegex()
 
 internal class RegexReplacer(
   private val env: MutableMap<String, Any?> = mutableMapOf(),
   private val customDynamicVariables: Map<String, (String) -> String> = emptyMap(),
   private val dynamicVariableGenerator: (String) -> String? = ::dynamicVariableGenerator
 ) {
+
   /**
-   * Order of Variable resolution:
+   * <p>Order of Variable resolution</p>
    * <ul>
    * <li>Custom Dynamic Variables</li>
    * <li>Dynamic Variables</li>
@@ -28,7 +30,7 @@ internal class RegexReplacer(
   fun replaceRegexRecursively(s: String?): String? =
     s?.let {
       postManVariableRegex.replace(it) { matchResult ->
-        val variableKey = matchResult.groups["variableKey"]?.value!!
+        val variableKey = matchResult.groups[VARIABLE_KEY]?.value!!
         customDynamicVariables[variableKey]
           ?.let { replaceRegexRecursively(it(variableKey)) }
           ?.also { env[variableKey] = it }
@@ -56,7 +58,10 @@ internal class RegexReplacer(
     environment.copy(
       values =
         environment.values.map { envValue ->
-          envValue.copy(value = replaceRegexRecursively(envValue.value))
+          envValue.copy(
+            key = replaceRegexRecursively(envValue.key)!!,
+            value = replaceRegexRecursively(envValue.value)
+          )
         }
     )
 }

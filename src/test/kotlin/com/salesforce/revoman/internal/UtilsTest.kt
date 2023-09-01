@@ -7,7 +7,6 @@
  */
 package com.salesforce.revoman.internal
 
-import com.salesforce.revoman.TEST_RESOURCES_PATH
 import com.salesforce.revoman.internal.postman.state.Template
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapter
@@ -21,7 +20,7 @@ class UtilsTest {
     val itemAdapter = Moshi.Builder().build().adapter<Template>()
     val stepNames =
       itemAdapter
-        .fromJson(readFileToString("$TEST_RESOURCES_PATH/pmCollection/steps-with-folders.json"))
+        .fromJson(readFileToString("pmCollection/steps-with-folders.json"))
         ?.item
         ?.deepFlattenItems()
         ?.map { it.name }

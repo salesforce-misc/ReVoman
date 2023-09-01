@@ -68,9 +68,7 @@ data class PostmanEnvironment<ValueT>(
   ): PostmanEnvironment<T> =
     PostmanEnvironment(
       environment
-        .filter {
-          type.isInstance(it.value) && suffixes.any { suffix -> it.key.endsWith(suffix) }
-        }
+        .filter { type.isInstance(it.value) && suffixes.any { suffix -> it.key.endsWith(suffix) } }
         .mapValues { type.cast(it.value) }
         .toMutableMap()
     )
