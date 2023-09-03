@@ -31,7 +31,7 @@ class PQE2ETest {
   private static final Logger LOGGER = LoggerFactory.getLogger(PQE2ETest.class);
 
   /**
-   * <p>PQ E2E Flow</p>
+   * <p>PQ E2E Flow
    *
    * <ul>
    *   <li>pq-create: qli+qlr
@@ -111,8 +111,7 @@ class PQE2ETest {
                         }))
                 .haltOnAnyFailureExceptForSteps(unsuccessfulStepsException) // <7>
                 .responseConfig( // <8>
-                    unmarshallSuccessResponse( 
-                        "quote-related-records", CompositeResponse.class),
+                    unmarshallSuccessResponse("quote-related-records", CompositeResponse.class),
                     validateIfSuccess( // <9>
                         "pq-create-with-bundles",
                         PlaceQuoteOutputRepresentation.class,
