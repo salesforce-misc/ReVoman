@@ -9,11 +9,13 @@ ifdef::env-github[]
 :warning-caption: :warning:
 endif::[]
 :toc:
-:toc-placement: preamble
+:toc-placement!:
 :sourcedir: src/main/kotlin
 :testdir: src/integrationTest/java
+:pmtemplates: src/integrationTest/resources/pm-templates
 :imagesdir: docs/images
 :prewrap!:
+:revoman-version: 0.11.7
 
 ____
 
@@ -23,8 +25,48 @@ Re - Request/Response
 
 ____
 
-.ReṼoman Demo, https://sfdc.co/revoman-2-deck[Slide Deck]
-image::revoman-demo-thumbnail.png[link=https://sfdc.co/revoman-2]
+'''
+
+
+*ReVoman* is an API automation tool for JVM (Java/Kotlin), which lets you execute a Postman collection in a JVM (Java/Kotlin) program. 
+
+'''
+
+[.lead]
+To start with, think of it as Postman for JVM (Java/Kotlin); that emulates this *Run* button on a collection through a Java program. 
+But it's even better
+
+image::postman-run.png[]
+
+.ReṼoman Quick Demo, http://sfdc.co/revoman-quick-demo-deck[Slide Deck]
+image::revoman-demo-thumbnail.png[link=http://sfdc.co/revoman-quick-demo]
+
+== Artifacts
+
+[.lead]
+Maven
+[source,xml,subs=attributes+]
+----
+<dependency>
+  <groupId>com.salesforce.revoman</groupId>
+  <artifactId>revoman</artifactId>
+  <version>{revoman-version}</version>
+</dependency>
+----
+[.lead]
+Bazel
+[source,bzl,subs=attributes+]
+----
+"com.salesforce.revoman:revoman"
+----
+[.lead]
+Gradle Kts
+[source,kts,subs=attributes+]
+----
+implementation("com.salesforce.revoman:revoman:{revoman-version}")
+----
+
+toc::[]
 
 == Why ReVoman?
 
@@ -48,15 +90,27 @@ ____
 
 ====
 
-This is an https://sourcegraph.soma.salesforce.com/perforce.soma.salesforce.com/app/main/core@HEAD/-/blob/revenue-place-quote-impl/test/func/java/src/revenue/place/quote/impl/revoman/PlaceQuoteReVomanTest.java[*FTest with ReVoman*] automating *54* steps 😲 to create persona-based users, set up data, call the API and verify results.
+This is an https://sourcegraph.soma.salesforce.com/perforce.soma.salesforce.com/app/main/core@HEAD/-/blob/revenue-place-quote-impl/test/func/java/src/revenue/place/quote/impl/revoman/PlaceQuoteReVomanTest.java?L113[*FTest
+with ReVoman*] automating *62* steps 😲— Create persona-based users,
+set up data, call the API for multiple use-cases and verify results.
+
+link:++{pmtemplates}/pq/pq (rc).postman_collection.json++[Postman collection JSON]
+
+link:{pmtemplates}/pq/pq-env.postman_environment.json[Postman environment JSON]
 
 ====
 
-== Tradition FTests vs FTests with ReVoman
+== Traditional FTests vs FTests with ReVoman
 
 Let's see a comparison between Traditional FTests and FTests with ReVoman.
 
 === Traditional FTests
+
+====
+
+NOTE: *Traditional FTest*: The Lines of code needed to achieve all the Test scenarios through FTest: *1,558*
+
+====
 
 FTests are unanimously the biggest developer productivity killer. Let’s take an example of https://sourcegraph.soma.salesforce.com/perforce.soma.salesforce.com/app/main/core@HEAD/-/blob/revenue-place-quote-impl/test/func/java/src/revenue/place/quote/impl/integration/PlaceQuoteFtest.java[PlaceQuoteFtest.java]. In a typical FTest like this, you need to hand-write all the code for:
 
@@ -65,28 +119,9 @@ FTests are unanimously the biggest developer productivity killer. Let’s take a
 * https://sourcegraph.soma.salesforce.com/perforce.soma.salesforce.com/app/main/core@HEAD/-/blob/revenue-place-quote-impl/test/func/java/src/revenue/place/quote/impl/utils/PlaceQuoteAssertionUtil.java?L244[Process output response or query necessary records]
 * https://sourcegraph.soma.salesforce.com/perforce.soma.salesforce.com/app/main/core@HEAD/-/blob/revenue-place-quote-impl/test/func/java/src/revenue/place/quote/impl/utils/PlaceQuoteAssertionUtil.java?L244[Validate/Assert response]
 
-====
-
-NOTE: *Traditional FTest*: The Lines of code needed to write a _single_ FTest: *1,233*
-
-====
-
 === FTests with _ReṼoman_
 
-ReVoman is an API automation tool for JVM, which can consume an exported Postman Step collection and Environment JSON files. Let’s check out how you can perform *Template-Driven-Testing* with ReVoman:
-
-image::revoman-flow.png[ReVoman flow]
-
-* It reads the environment JSON provided into in-memory.
-* Then it reads and Inflates each static template in the collection, replacing variables at runtime from the in-memory environment
-* It uses this information to Fire an HTTP request.
-** A pre-hook can be configured for a step to get triggered before firing a request
-* It reads the response and executes Postscript JS on the response and updates the in-memory environment.
-* It unmarshals the response into Strong JVM types, like `PlaceQuoteOutputRepresentation`
-* Lets you run *Type-safe* validations on the strong-type and fails-fast at first failure.
-** Guess who teamed up with ReVoman for this - https://github.com/salesforce-misc/Vador[*Vador*], an open-source modern POJO validation framework, built by the same development team
-* Finally, if configured, the post-hook for the step gets triggered
-* The iteration continues for all the steps in the template collection
+Let’s check out how you can perform *Template-Driven-Testing* with ReVoman:
 
 == API
 
@@ -107,63 +142,104 @@ Let’s check out how to build this config:
 ifdef::env-github[]
 
 [source,java,indent=0,options="nowrap"]
-.link:{testdir}/org/revcloud/revoman/integration/core/pq/PQE2ETest.java[PQE2ETest.java, tag=pq-e2e-with-revoman-config-demo]
+.link:{testdir}/com/salesforce/revoman/integration/core/pq/PQE2ETest.java[PQE2ETest.java, tag=pq-e2e-with-revoman-config-demo]
 ----
-final var pqApiCreateWithBundles = ReVoman.revUp( // <1>
-  Kick.configure()
-    .templatePath(TEST_RESOURCES_PATH + "pm-templates/pq/pq-api-create.postman_collection.json") // <2>
-    .environmentPath(TEST_RESOURCES_PATH + "pm-templates/pq/pq-env.postman_environment.json") // <3>
-    .dynamicEnvironment(Map.of( // <4>
-        "$quoteFieldsToQuery", "CalculationStatus",
-        "$qliFieldsToQuery", "Id, Product2Id",
-        "$qlrFieldsToQuery", "Id, QuoteId, MainQuoteLineId, AssociatedQuoteLineId"))
-    .customDynamicVariable("$pricingPref", ignore -> PricingPref.values()[new Random().nextInt(PricingPref.values().length)].name()) // <5>
-    .hooks(Map.of( // <6>
-        post("password-reset"), rundown -> LOGGER.info("Step count executed including this step: " + rundown.stepNameToReport.size()),
-        pre("pq-create-with-bundles"), rundown -> LOGGER.info("Step count executed before this step: " + rundown.stepNameToReport.size())))
-    .haltOnAnyFailureExceptForSteps(unsuccessfulStepsException) // <7>
-    .stepNameToSuccessConfig(Map.of(
-        "quote-related-records", successType(CompositeResponse.class), // <8>
-        "pq-create-with-bundles", validateIfSuccess(PlaceQuoteOutputRepresentation.class, pqRespValidationConfig))) // <9>
-    .insecureHttp(true) // <10>
-    .off()); // Kick-off
+    final var pqRunDown =
+        ReVoman.revUp( // <1>
+            Kick.configure()
+                .templatePath("pm-templates/pq/pq (rc).postman_collection.json") // <2>
+                .environmentPath("pm-templates/pq/pq-env.postman_environment.json") // <3>
+                .dynamicEnvironment( // <4>
+                    Map.of(
+                        "$quoteFieldsToQuery", "LineItemCount, CalculationStatus",
+                        "$qliFieldsToQuery", "Id, Product2Id",
+                        "$qlrFieldsToQuery", "Id, QuoteId, MainQuoteLineId, AssociatedQuoteLineId"))
+                .customDynamicVariable( // <5>
+                    "$pricingPref",
+                    ignore ->
+                        PricingPref.values()[new Random().nextInt(PricingPref.values().length)]
+                            .name())
+                .hooks( // <6>
+                    post(
+                        "password-reset",
+                        rundown ->
+                            LOGGER.info(
+                                "Step count executed including this step: "
+                                    + rundown.stepNameToReport.size())),
+                    pre(
+                        "pq-create-with-bundles",
+                        rundown ->
+                            LOGGER.info(
+                                "Step count executed before this step: "
+                                    + rundown.stepNameToReport.size())),
+                    post("query-quote-and-related-records", PQE2ETest::assertAfterPQCreate),
+                    post(
+                        Set.of(
+                            "pq-create: qli+qlr",
+                            "pq-update: qli(post+patch+ delete)",
+                            "pq-update: qli(post+patch)",
+                            "pq-update: qli(all post)",
+                            "pq-update: qli+qlr(all post)",
+                            "pq-update: qli(all patch)",
+                            "pq-update: qli(all delete)",
+                            "pq-update: qli(post+delete)"),
+                        rundown -> {
+                          LOGGER.info(
+                              "Waiting for the Quote: {} to get processed",
+                              rundown.mutableEnv.getString("quoteId"));
+                          Try.run(() -> Thread.sleep(10000));
+                        }))
+                .haltOnAnyFailureExceptForSteps(unsuccessfulStepsException) // <7>
+                .responseConfig( // <8>
+                    unmarshallSuccessResponse( 
+                        "quote-related-records", CompositeResponse.class),
+                    validateIfSuccess( // <9>
+                        "pq-create-with-bundles",
+                        PlaceQuoteOutputRepresentation.class,
+                        pqRespValidationConfig))
+                .insecureHttp(true) // <10>
+                .off()); // Kick-off
 ----
-<1> `revUp` is the method to call passing this configuration
-<2> Supply the path to the Template Collection JSON file
-<3> Supply the path to the Environment JSON file
-<4> Supply dynamic environment
+<1> `revUp` is the method to call passing a configuration, built as below
+<2> Supply the path (relative to resources) to the Template Collection JSON file
+<3> Supply the path (relative to resources) to the Environment JSON file
+<4> Supply any dynamic environment
 <5> Plug Custom dynamic variables that are prepared at runtime
-<6> Configure pre- / post-hooks around a step
-<7> Configure a pass-list of steps to ignore on failure
-<8> Provide strong types for the responses you are interested in using `successType`
+<6> You can set up a pre- / post-hook around a Step via `hooks`, which can help as callbacks, especially for Async operations.
+** These runs despite the step are successful or failed. The entire rundown till that step shall be provided to the hook as a parameter
+<7> It lets you be in charge of the Step Orchestration by letting you configure a pass-list of steps to ignore for failure
+<8> Provide configuration to unmarshall/deserialize response JSON into strong types
 ** ReVoman supports all data types within or outside the core without any extra annotations.
-** There is an equivalent `stepNameToSuccessConfig` for error Types
-<9> Hook your validations/assertions to be run on a step response
+** `unmarshallErrorResponse` can be used for error Types
+<9> Supply your validations/assertions to be run on a step response
 ** You can leverage the power of https://github.com/salesforce-misc/Vador[*Vador*] to write config-driven validations and supply them to ReVoman `validateIfSuccess`.
 ** Because both these tools are from the same Development team, you should see homogeneous patterns and seamless Integration and support.
+** `validateIfError` can be used for error Types
 <10> [Not for Prod] Ignore Java cert issues when firing Http calls
 
 endif::[]
 ifndef::env-github[]
 
 [source,java,indent=0,options="nowrap"]
-.link:{testdir}/org/revcloud/revoman/integration/core/pq/PQE2ETest.java[PQE2ETest.java, tag=pq-e2e-with-revoman-config-demo]
+.link:{testdir}/com/salesforce/revoman/integration/core/pq/PQE2ETest.java[PQE2ETest.java, tag=pq-e2e-with-revoman-config-demo]
 ----
-include::{testdir}/org/revcloud/revoman/integration/core/pq/PQE2ETest.java[tag=pq-e2e-with-revoman-config-demo]
+include::{testdir}/com/salesforce/revoman/integration/core/pq/PQE2ETest.java[tag=pq-e2e-with-revoman-config-demo]
 ----
-<1> `revUp` is the method to call passing this configuration
-<2> Supply the path to the Template Collection JSON file
-<3> Supply the path to the Environment JSON file
-<4> Supply dynamic environment
+<1> `revUp` is the method to call passing a configuration, built as below
+<2> Supply the path (relative to resources) to the Template Collection JSON file
+<3> Supply the path (relative to resources) to the Environment JSON file
+<4> Supply any dynamic environment
 <5> Plug Custom dynamic variables that are prepared at runtime
-<6> Configure pre- / post-hooks around a step
-<7> Configure a pass-list of steps to ignore on failure
-<8> Provide strong types for the responses you are interested in using `successType`
+<6> You can set up a pre- / post-hook around a Step via `hooks`, which can help as callbacks, especially for Async operations. 
+** These runs despite the step are successful or failed. The entire rundown till that step shall be provided to the hook as a parameter
+<7> It lets you be in charge of the Step Orchestration by letting you configure a pass-list of steps to ignore for failure
+<8> Provide configuration to unmarshall/deserialize response JSON into strong types
 ** ReVoman supports all data types within or outside the core without any extra annotations.
-** There is an equivalent `stepNameToSuccessConfig` for error Types
-<9> Hook your validations/assertions to be run on a step response
+** `unmarshallErrorResponse` can be used for error Types
+<9> Supply your validations/assertions to be run on a step response
 ** You can leverage the power of https://github.com/salesforce-misc/Vador[*Vador*] to write config-driven validations and supply them to ReVoman `validateIfSuccess`.
 ** Because both these tools are from the same Development team, you should see homogeneous patterns and seamless Integration and support.
+** `validateIfError` can be used for error Types
 <10> [Not for Prod] Ignore Java cert issues when firing Http calls
 
 endif::[]
@@ -197,16 +273,28 @@ You can run further assertions on top of this report
 
 ____
 
-*Here you go, an link:{testdir}/org/revcloud/revoman/integration/core/pq/PQE2ETest.java[E2E test]*
+*Here you go, an link:{testdir}/com/salesforce/revoman/integration/core/pq/PQE2ETest.java[E2E test]*
 
 ____
 
 [.lead]
-This demonstrates *a Low-code FTest, that tests E2E*, Transparent and Low in Cognitive Complexity.
+This demonstrates *a Low-code FTest that tests E2E*, Transparent and Low in Cognitive Complexity.
 
 NOTE: *FTest with ReVoman:* Lines of Code: *136 (89% low-code)*
 
 The amount of code needed is drastically down by *89%*, and all of this is just for 1 FTest.
+
+== Internal Orchestration
+
+image::revoman-flow.png[ReVoman flow]
+
+* It reads the environment JSON provided into in-memory.
+* Then it reads and Inflates each static template in the collection, replacing variables at runtime from the in-memory environment
+* It uses this information to Fire an HTTP request.
+* It reads the response and executes Postscript JS on the response and updates the in-memory environment.
+* It unmarshals the response into Strong JVM types as per the `responseConfig` supplied and lets you run *Type-safe* validations on the strong-type and fails-fast at first failure.
+* Finally, if configured, the pre- /post-hook for the step gets triggered by passing the entire runDown
+* The iteration continues for all the steps in the template collection
 
 == Core Support
 
@@ -214,34 +302,19 @@ The amount of code needed is drastically down by *89%*, and all of this is just 
 * Convert your persona-based Postman templates into JVM FTests and E2E tests that can be executed in auto-builds.
 * Supports Steps involving Async operations
 
-== Rich Configuration
-
-* It lets you configure Dynamic environment and Custom Dynamic variables on top of the Postman environment file using `dynamicEnvironment` and `customDynamicVariables` respectively
-* Supports strong JVM type-safety
-** It uses advanced JSON Serialization and Deserialization techniques internally
-** Best part is, it lets you extend this capability for any type, by passing Custom adapters via `customAdaptersForResponse`. If legacy types that are hard to serialize or deserialize come in your way, (either via Inheritance or Composition e.g. `ConnectInJavaConfig`), you can ignore them through `typesInResponseToIgnore`.
-** You can then provide the Strong types for the responses you are interested in via `stepNameToSuccessConfig` and `stepNameToErrorType` so that they get sent back in the final Rundown as Strong JVM types which are easy to assert.
-* It lets you be in charge of the Step Orchestration by letting you configure a pass-list of steps to ignore for failure via `haltOnAnyFailureExceptForSteps`
-
-=== Hooks
-* You can set up a pre- / post-hook around a Step via `hooks`, which can help as callbacks, especially for Async operations. These runs despite the step are successful or failed. The entire rundown till that step shall be provided to the hook as a parameter
-
 == Unified testing strategy
 
 * Bring a *Unified &amp; Simplified Test strategy* across the mul-**T**-verse (FTests, E2E Tests, and Manual testing with Postman). This is a generic tool, and just by changing the template, the same config/pattern can be reused for any feature flow agnostic of it being an FTest or E2E test
 * Transparency and better Traceability of issues
 * This forces engineers to think like *API-first customers* while writing tests.
+*FTest Data setup:* You can use the ReVoman for the FTest data setup too. This eliminates the need for different teams to write their own internal utilities for data setup.
 
-== Postman templates on VCS (Perforce/Git)
+== Postman collection on Git
 
 * Now that ReVoman hooks these templates into auto-builds or CI/CD, they always stay up to date, otherwise, Yoda makes sure they are with TFs.
+* The entire Postman collection guards each *check-in* in the form of a Test suite.
 * Any day, you can find a Postman collection for every feature you need to test, right in your VCS. Developers can import these templates directly from VCS for manual testing. This comes in very handy during FF/RF/Cross team blitz.
 * With ReVoman, you no more need a release task to keep your Postman collections up-to-date.
-
-== More Perks
-
-* *FTest Data setup:* You can use the ReVoman for the FTest data setup too. This eliminates the need for different teams to write their own internal utilities for data setup.
-* *Guards each check-in:* E2E tests and Availability Kaiju tests can now be run as Ftests in auto-builds, to guard each *check-in*.
 
 == Future
 
@@ -250,10 +323,6 @@ The future looks bright
 
 * *It's built with extensibility* in mind. It can easily be extended to support downloadable *Kaiju* templates too.
 ** You should be able to run Kaiju availability tests right from your IDE and debug them too
-
-== Open source
-
-Just like Vador, this is a generic off-core tool and a perfect candidate to publish to the world as Open-source software.
 
 == FAQs
 

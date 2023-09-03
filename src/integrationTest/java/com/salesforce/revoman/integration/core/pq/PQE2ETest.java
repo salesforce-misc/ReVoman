@@ -30,10 +30,8 @@ class PQE2ETest {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(PQE2ETest.class);
 
-  // tag::pq-e2e-with-revoman-demo[]
-
   /**
-   * PQ E2E Flow
+   * <p>PQ E2E Flow</p>
    *
    * <ul>
    *   <li>pq-create: qli+qlr
@@ -112,8 +110,8 @@ class PQE2ETest {
                           Try.run(() -> Thread.sleep(10000));
                         }))
                 .haltOnAnyFailureExceptForSteps(unsuccessfulStepsException) // <7>
-                .responseConfig(
-                    unmarshallSuccessResponse( // <8>
+                .responseConfig( // <8>
+                    unmarshallSuccessResponse( 
                         "quote-related-records", CompositeResponse.class),
                     validateIfSuccess( // <9>
                         "pq-create-with-bundles",

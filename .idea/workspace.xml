@@ -4,7 +4,12 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="6ed80e62-f038-45bc-b42e-83dd15ec8dae" name="Changes" comment="Add BAZEL files&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
+    <list default="true" id="6ed80e62-f038-45bc-b42e-83dd15ec8dae" name="Changes" comment="Documentation update&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
+      <change afterPath="$PROJECT_DIR$/docs/images/postman-run.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/CONTRIBUTING.adoc" beforeDir="false" afterPath="$PROJECT_DIR$/CONTRIBUTING.adoc" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.adoc" beforeDir="false" afterPath="$PROJECT_DIR$/README.adoc" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -100,6 +105,7 @@
     <option name="flattenModules" value="true" />
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="openDirectoriesWithSingleClick" value="true" />
+    <option name="showExcludedFiles" value="false" />
     <option name="showLibraryContents" value="true" />
     <option name="sortKey" value="BY_TIME_DESCENDING" />
   </component>
@@ -129,7 +135,7 @@
     &quot;project.structure.last.edited&quot;: &quot;Modules&quot;,
     &quot;project.structure.proportion&quot;: &quot;0.15&quot;,
     &quot;project.structure.side.proportion&quot;: &quot;0.2&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;FoldableProjectViewConfigurable&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;,
     &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
 }</component>
@@ -173,7 +179,6 @@
       <command value="./gradlew spotlessApply" />
       <command value="gradle build" />
       <command value="gradle clean build --no-build-cache" />
-      <command value="gradle wrapper" />
       <command value="gradle test --tests org.revcloud.revoman.integration.pokemon.PokemonTest" />
       <command value="gradle generateLicenseReport" />
       <command value="gradle jar" />
@@ -181,9 +186,10 @@
       <command value="gradle publish" />
       <command value="gradle clean build" />
       <command value="gradle clean build -x integrationTest" />
+      <command value="gradle wrapper" />
     </option>
   </component>
-  <component name="RunManager" selected="Gradle.revoman-root [clean build]">
+  <component name="RunManager" selected="Gradle.revoman-root [wrapper]">
     <configuration name="PostmanTest.unmarshall Env File with Regex and Dynamic variable" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
       <ExternalSystemSettings>
         <option name="executionName" />
@@ -221,28 +227,6 @@
           <list>
             <option value="clean" />
             <option value="build" />
-          </list>
-        </option>
-        <option name="vmOptions" />
-      </ExternalSystemSettings>
-      <ExternalSystemDebugServerProcess>true</ExternalSystemDebugServerProcess>
-      <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
-      <DebugAllEnabled>false</DebugAllEnabled>
-      <RunAsTest>false</RunAsTest>
-      <method v="2" />
-    </configuration>
-    <configuration name="revoman-root [jar]" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
-      <ExternalSystemSettings>
-        <option name="executionName" />
-        <option name="externalProjectPath" value="$PROJECT_DIR$" />
-        <option name="externalSystemIdString" value="GRADLE" />
-        <option name="scriptParameters" value="" />
-        <option name="taskDescriptions">
-          <list />
-        </option>
-        <option name="taskNames">
-          <list>
-            <option value="jar" />
           </list>
         </option>
         <option name="vmOptions" />
@@ -297,13 +281,35 @@
       <RunAsTest>false</RunAsTest>
       <method v="2" />
     </configuration>
+    <configuration name="revoman-root [wrapper]" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
+      <ExternalSystemSettings>
+        <option name="executionName" />
+        <option name="externalProjectPath" value="$PROJECT_DIR$" />
+        <option name="externalSystemIdString" value="GRADLE" />
+        <option name="scriptParameters" value="" />
+        <option name="taskDescriptions">
+          <list />
+        </option>
+        <option name="taskNames">
+          <list>
+            <option value="wrapper" />
+          </list>
+        </option>
+        <option name="vmOptions" />
+      </ExternalSystemSettings>
+      <ExternalSystemDebugServerProcess>true</ExternalSystemDebugServerProcess>
+      <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
+      <DebugAllEnabled>false</DebugAllEnabled>
+      <RunAsTest>false</RunAsTest>
+      <method v="2" />
+    </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Gradle.revoman-root [wrapper]" />
         <item itemvalue="Gradle.revoman-root [clean build]" />
         <item itemvalue="Gradle.revoman-root [publish]" />
         <item itemvalue="Gradle.revoman-root [spotlessApply]" />
         <item itemvalue="Gradle.PostmanTest.unmarshall Env File with Regex and Dynamic variable" />
-        <item itemvalue="Gradle.revoman-root [jar]" />
       </list>
     </recent_temporary>
   </component>
@@ -408,7 +414,17 @@
       <workItem from="1693306497236" duration="2257000" />
       <workItem from="1693328081855" duration="568000" />
       <workItem from="1693380127104" duration="7170000" />
-      <workItem from="1693461658587" duration="23458000" />
+      <workItem from="1693461658587" duration="26641000" />
+      <workItem from="1693653702895" duration="2481000" />
+      <workItem from="1693709086599" duration="18000" />
+      <workItem from="1693709238189" duration="15000" />
+      <workItem from="1693709457346" duration="18000" />
+      <workItem from="1693709525092" duration="2353000" />
+      <workItem from="1693719231610" duration="138000" />
+      <workItem from="1693721347086" duration="1599000" />
+      <workItem from="1693723148217" duration="1049000" />
+      <workItem from="1693725648689" duration="618000" />
+      <workItem from="1693728545980" duration="3891000" />
     </task>
     <task id="LOCAL-00001" summary="- Fixed moshiReVoman&#10;- Added module-info.java to integrationTest module">
       <created>1678595183319</created>
@@ -521,22 +537,6 @@
       <option name="presentableId" value="LOCAL-00016" />
       <option name="project" value="LOCAL" />
       <updated>1682662367190</updated>
-    </task>
-    <task id="LOCAL-00051" summary="Release 0.9.6&#10;Fix UUID generator&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
-      <option name="closed" value="true" />
-      <created>1689389017668</created>
-      <option name="number" value="00051" />
-      <option name="presentableId" value="LOCAL-00051" />
-      <option name="project" value="LOCAL" />
-      <updated>1689389017669</updated>
-    </task>
-    <task id="LOCAL-00052" summary="Release 0.9.6&#10;Fix UUID generator&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
-      <option name="closed" value="true" />
-      <created>1689389381119</created>
-      <option name="number" value="00052" />
-      <option name="presentableId" value="LOCAL-00052" />
-      <option name="project" value="LOCAL" />
-      <updated>1689389381119</updated>
     </task>
     <task id="LOCAL-00053" summary="Release 0.9.6&#10;Fix UUID generator&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
       <option name="closed" value="true" />
@@ -786,7 +786,23 @@
       <option name="project" value="LOCAL" />
       <updated>1693553727751</updated>
     </task>
-    <option name="localTasksCounter" value="84" />
+    <task id="LOCAL-00084" summary="Upgrade gradle wrapper to 8.3.2&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
+      <option name="closed" value="true" />
+      <created>1693553850357</created>
+      <option name="number" value="00084" />
+      <option name="presentableId" value="LOCAL-00084" />
+      <option name="project" value="LOCAL" />
+      <updated>1693553850357</updated>
+    </task>
+    <task id="LOCAL-00085" summary="Documentation update&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
+      <option name="closed" value="true" />
+      <created>1693709001132</created>
+      <option name="number" value="00085" />
+      <option name="presentableId" value="LOCAL-00085" />
+      <option name="project" value="LOCAL" />
+      <updated>1693709001133</updated>
+    </task>
+    <option name="localTasksCounter" value="86" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -842,8 +858,6 @@
   <component name="VcsManagerConfiguration">
     <option name="CHECK_CODE_SMELLS_BEFORE_PROJECT_COMMIT" value="false" />
     <option name="CHECK_NEW_TODO" value="false" />
-    <MESSAGE value="Release 0.9.6&#10;Fix reportForStepName&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
-    <MESSAGE value="Release 0.9.6&#10;Fix UUID generator&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
     <MESSAGE value="Minor refactoring and formatting&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
     <MESSAGE value="Gradle changes&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
     <MESSAGE value="Minor doc changes&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
@@ -867,7 +881,9 @@
     <MESSAGE value="Release 0.11.6&#10; &#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
     <MESSAGE value="Release 0.11.7&#10;- Bug fix to replace regex in key for environment&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
     <MESSAGE value="Add BAZEL files&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
-    <option name="LAST_COMMIT_MESSAGE" value="Add BAZEL files&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
+    <MESSAGE value="Upgrade gradle wrapper to 8.3.2&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
+    <MESSAGE value="Documentation update&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
+    <option name="LAST_COMMIT_MESSAGE" value="Documentation update&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
