@@ -5,9 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="6ed80e62-f038-45bc-b42e-83dd15ec8dae" name="Changes" comment="Documentation update&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
-      <change afterPath="$PROJECT_DIR$/docs/images/postman-run.png" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/CONTRIBUTING.adoc" beforeDir="false" afterPath="$PROJECT_DIR$/CONTRIBUTING.adoc" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/README.adoc" beforeDir="false" afterPath="$PROJECT_DIR$/README.adoc" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -424,7 +422,7 @@
       <workItem from="1693721347086" duration="1599000" />
       <workItem from="1693723148217" duration="1049000" />
       <workItem from="1693725648689" duration="618000" />
-      <workItem from="1693728545980" duration="3891000" />
+      <workItem from="1693728545980" duration="5022000" />
     </task>
     <task id="LOCAL-00001" summary="- Fixed moshiReVoman&#10;- Added module-info.java to integrationTest module">
       <created>1678595183319</created>
@@ -537,14 +535,6 @@
       <option name="presentableId" value="LOCAL-00016" />
       <option name="project" value="LOCAL" />
       <updated>1682662367190</updated>
-    </task>
-    <task id="LOCAL-00053" summary="Release 0.9.6&#10;Fix UUID generator&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
-      <option name="closed" value="true" />
-      <created>1689408424401</created>
-      <option name="number" value="00053" />
-      <option name="presentableId" value="LOCAL-00053" />
-      <option name="project" value="LOCAL" />
-      <updated>1689408424401</updated>
     </task>
     <task id="LOCAL-00054" summary="Release 0.9.6&#10;Fix UUID generator&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
       <option name="closed" value="true" />
@@ -802,7 +792,15 @@
       <option name="project" value="LOCAL" />
       <updated>1693709001133</updated>
     </task>
-    <option name="localTasksCounter" value="86" />
+    <task id="LOCAL-00086" summary="Documentation update&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
+      <option name="closed" value="true" />
+      <created>1693736988401</created>
+      <option name="number" value="00086" />
+      <option name="presentableId" value="LOCAL-00086" />
+      <option name="project" value="LOCAL" />
+      <updated>1693736988402</updated>
+    </task>
+    <option name="localTasksCounter" value="87" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">

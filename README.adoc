@@ -28,7 +28,7 @@ ____
 '''
 
 
-*ReVoman* is an API automation tool for JVM (Java/Kotlin), which lets you execute a Postman collection in a JVM (Java/Kotlin) program. 
+*ReVoman* is an API automation tool for JVM (Java/Kotlin), which lets you execute a Postman collection in a JVM program/test. 
 
 '''
 
@@ -82,7 +82,8 @@ image::cognitive-complexity.png[]
 
 ____
 
-How _productive_ would it be if you can configure an FTest or an E2E test, just with the Postman collection that you anyway would have created for your manual testing?
+How _productive_ would it be, if all you need to execute an FTest or an E2E test is the same Postman collection,
+that you anyway would have created for your manual testing?
 
 ____
 
@@ -282,7 +283,14 @@ This demonstrates *a Low-code FTest that tests E2E*, Transparent and Low in Cogn
 
 NOTE: *FTest with ReVoman:* Lines of Code: *136 (89% low-code)*
 
-The amount of code needed is drastically down by *89%*, and all of this is just for 1 FTest.
+The amount of code needed for your FTest suite is drastically down by *89%*
+
+== Postman collection on Git
+
+* Now that ReVoman hooks these templates into auto-builds or CI/CD, they always stay up to date, otherwise, Yoda makes sure they are with TFs.
+* The entire Postman collection guards each *check-in* in the form of a Test suite.
+* Any day, you can find a Postman collection for every feature you need to test, right in your VCS. Developers can import these templates directly from VCS for manual testing. This comes in very handy during FF/RF/Cross team blitz.
+* With ReVoman, you no more need a release task to keep your Postman collections up-to-date.
 
 == Internal Orchestration
 
@@ -308,13 +316,6 @@ image::revoman-flow.png[ReVoman flow]
 * Transparency and better Traceability of issues
 * This forces engineers to think like *API-first customers* while writing tests.
 *FTest Data setup:* You can use the ReVoman for the FTest data setup too. This eliminates the need for different teams to write their own internal utilities for data setup.
-
-== Postman collection on Git
-
-* Now that ReVoman hooks these templates into auto-builds or CI/CD, they always stay up to date, otherwise, Yoda makes sure they are with TFs.
-* The entire Postman collection guards each *check-in* in the form of a Test suite.
-* Any day, you can find a Postman collection for every feature you need to test, right in your VCS. Developers can import these templates directly from VCS for manual testing. This comes in very handy during FF/RF/Cross team blitz.
-* With ReVoman, you no more need a release task to keep your Postman collections up-to-date.
 
 == Future
 
