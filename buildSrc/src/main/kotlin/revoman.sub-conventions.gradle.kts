@@ -74,8 +74,8 @@ publishing {
       val snapshotsRepoUrl =
         uri("https://nexus.soma.salesforce.com/nexus/content/repositories/snapshots")
       url = if (version.toString().endsWith("SNAPSHOT")) snapshotsRepoUrl else releasesRepoUrl
-      val nexusUsername: String by project
-      val nexusPassword: String by project
+      val nexusUsername: String? by project
+      val nexusPassword: String? by project
       credentials {
         username = nexusUsername
         password = nexusPassword
