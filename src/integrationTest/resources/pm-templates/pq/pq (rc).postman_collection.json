@@ -481,7 +481,6 @@
 							"listen": "test",
 							"script": {
 								"exec": [
-									"",
 									""
 								],
 								"type": "text/javascript"
@@ -930,9 +929,7 @@
 									"script": {
 										"exec": [
 											"var jsonData = JSON.parse(responseBody);",
-											"if(jsonData.id!=null){",
-											"    pm.environment.set(\"paymentTermId\", jsonData.id);",
-											"}"
+											"pm.environment.set(\"paymentTermId\", jsonData.id);"
 										],
 										"type": "text/javascript"
 									}
@@ -3024,7 +3021,7 @@
 											"var futureDateTime = moment().add(365, 'days');",
 											"pm.environment.set('$randomFutureDate', futureDateTime.format('YYYY-MM-DD'));",
 											"",
-											"pm.environment.set(\"$pricingPref\", \"System\")"
+											"pm.environment.set(\"$pricingPref\", \"skip\")"
 										],
 										"type": "text/javascript"
 									}
@@ -3105,7 +3102,7 @@
 								"header": [],
 								"body": {
 									"mode": "raw",
-									"raw": "{\n    \"allOrNone\": false,\n    \"compositeRequest\": [\n        {\n            \"method\": \"GET\",\n            \"url\": \"/services/data/v{{version}}/query/?q=select {{$quoteFieldsToQuery}} from Quote where Id = '{{quoteId}}'\",\n            \"referenceId\": \"quote\"\n        },\n        {\n            \"method\": \"GET\",\n            \"url\": \"/services/data/v{{version}}/query/?q=select {{$qliFieldsToQuery}} from QuoteLineItem where QuoteId = '{{quoteId}}'\",\n            \"referenceId\": \"qlis\"\n        },\n        {\n            \"method\": \"GET\",\n            \"url\": \"/services/data/v{{version}}/query/?q=select {{$qlrFieldsToQuery}} from QuoteLineRelationship where QuoteId = '{{quoteId}}'\",\n            \"referenceId\": \"qlrs\"\n        }\n    ]\n}",
+									"raw": "{\n  \"allOrNone\": false,\n  \"compositeRequest\": [\n    {\n      \"method\": \"GET\",\n      \"url\": \"/services/data/v{{version}}/query/?q=select {{$quoteFieldsToQuery}} from Quote where Id = '{{quoteId}}'\",\n      \"referenceId\": \"quote\"\n    },\n    {\n      \"method\": \"GET\",\n      \"url\": \"/services/data/v{{version}}/query/?q=select {{$qliFieldsToQuery}} from QuoteLineItem where QuoteId = '{{quoteId}}'\",\n      \"referenceId\": \"qlis\"\n    },\n    {\n      \"method\": \"GET\",\n      \"url\": \"/services/data/v{{version}}/query/?q=select {{$qlrFieldsToQuery}} from QuoteLineRelationship where QuoteId = '{{quoteId}}'\",\n      \"referenceId\": \"qlrs\"\n    }\n  ]\n}",
 									"options": {
 										"raw": {
 											"language": "json"
@@ -3556,12 +3553,15 @@
 									"raw": ""
 								},
 								"url": {
-									"raw": "{{baseUrl}}/{{sObjectPath}}/Quote/{{quoteId}}",
+									"raw": "{{baseUrl}}/services/data/v{{version}}/sobjects/Quote/{{quoteId}}",
 									"host": [
 										"{{baseUrl}}"
 									],
 									"path": [
-										"{{sObjectPath}}",
+										"services",
+										"data",
+										"v{{version}}",
+										"sobjects",
 										"Quote",
 										"{{quoteId}}"
 									]

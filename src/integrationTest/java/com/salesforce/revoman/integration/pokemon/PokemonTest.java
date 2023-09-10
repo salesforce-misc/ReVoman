@@ -11,14 +11,15 @@ import static com.salesforce.revoman.input.HookConfig.post;
 import static com.salesforce.revoman.input.HookConfig.pre;
 import static com.salesforce.revoman.input.ResponseConfig.validateIfSuccess;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.times;
 
 import com.salesforce.revoman.ReVoman;
+import com.salesforce.revoman.input.CheckedBiConsumer;
 import com.salesforce.revoman.input.Kick;
 import com.salesforce.revoman.output.Rundown;
 import com.salesforce.vador.config.ValidationConfig;
 import com.salesforce.vador.types.Validator;
-import io.vavr.CheckedConsumer;
 import java.util.Map;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -51,18 +52,18 @@ class PokemonTest {
     //noinspection Convert2Lambda
     final var preHook =
         Mockito.spy(
-            new CheckedConsumer<Rundown>() {
+            new CheckedBiConsumer<String, Rundown>() {
               @Override
-              public void accept(Rundown rundown) {
+              public void accept(String stepName, Rundown rundown) {
                 rundown.mutableEnv.set("limit", String.valueOf(newLimit));
               }
             });
     //noinspection Convert2Lambda
     final var postHook =
         Mockito.spy(
-            new CheckedConsumer<Rundown>() {
+            new CheckedBiConsumer<String, Rundown>() {
               @Override
-              public void accept(Rundown rundown) {
+              public void accept(String stepName, Rundown rundown) {
                 Assertions.assertThat(rundown.mutableEnv)
                     .containsEntry("limit", String.valueOf(newLimit));
                 Assertions.assertThat(rundown.mutableEnv).containsEntry("pokemonName", "bulbasaur");
@@ -80,8 +81,8 @@ class PokemonTest {
                 .off());
 
     Mockito.verify(resultSizeValidator, times(1)).apply(any());
-    Mockito.verify(preHook, times(1)).accept(any());
-    Mockito.verify(postHook, times(1)).accept(any());
+    Mockito.verify(preHook, times(1)).accept(anyString(), any());
+    Mockito.verify(postHook, times(1)).accept(anyString(), any());
     Assertions.assertThat(pokeRundown.stepNameToReport).hasSize(5);
     Assertions.assertThat(pokeRundown.mutableEnv)
         .containsExactlyInAnyOrderEntriesOf(

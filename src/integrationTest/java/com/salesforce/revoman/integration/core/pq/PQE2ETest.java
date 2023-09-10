@@ -81,16 +81,18 @@ class PQE2ETest {
                 .hooks( // <6>
                     post(
                         "password-reset",
-                        rundown ->
+                        (stepName, rundown) ->
                             LOGGER.info(
-                                "Step count executed including this step: "
-                                    + rundown.stepNameToReport.size())),
+                                "Step count: {} executed including this step: {}",
+                                rundown.stepNameToReport.size(),
+                                stepName)),
                     pre(
                         "pq-create-with-bundles",
-                        rundown ->
+                        (stepName, rundown) ->
                             LOGGER.info(
-                                "Step count executed before this step: "
-                                    + rundown.stepNameToReport.size())),
+                                "Step count: {} executed before this step: {}",
+                                rundown.stepNameToReport.size(),
+                                stepName)),
                     post("query-quote-and-related-records", PQE2ETest::assertAfterPQCreate),
                     post(
                         Set.of(
@@ -102,10 +104,13 @@ class PQE2ETest {
                             "pq-update: qli(all patch)",
                             "pq-update: qli(all delete)",
                             "pq-update: qli(post+delete)"),
-                        rundown -> {
+                        (stepName, rundown) -> {
                           LOGGER.info(
-                              "Waiting for the Quote: {} to get processed",
+                              "Waiting after Step: {} for the Quote: {} to get processed",
+                              stepName,
                               rundown.mutableEnv.getString("quoteId"));
+                          // ! CAUTION 10/09/23 gopala.akshintala: This test can be flaky, until
+                          // polling is implemented
                           Thread.sleep(10000);
                         }))
                 .haltOnAnyFailureExceptForSteps(unsuccessfulStepsException) // <7>
@@ -137,12 +142,14 @@ class PQE2ETest {
             PricingPref.valueOf(pqRunDown.mutableEnv.getString("$pricingPref")).completeStatus);
   }
 
-  static void assertAfterPQCreate(Rundown pqCreate_qli_qlr) {
-    final var environment = pqCreate_qli_qlr.mutableEnv;
+  static void assertAfterPQCreate(String stepName, Rundown pqCreateQLIQLR) {
+    final var environment = pqCreateQLIQLR.mutableEnv;
     // Quote: LineItemCount, quoteCalculationStatus
     assertThat(environment.getInt("lineItemCount")).isEqualTo(10);
-    assertThat(environment.get("quoteCalculationStatus"))
-        .isEqualTo(PricingPref.valueOf(environment.getString("$pricingPref")).completeStatus);
+    assertThat(environment)
+        .containsEntry(
+            "quoteCalculationStatus",
+            PricingPref.valueOf(environment.getString("$pricingPref")).completeStatus);
     // QLIs: Product2Id
     final var productIdsFromEnv = environment.valuesForKeysEndingWith(String.class, "ProductId");
     final var productIdsFromCreatedQLIs =

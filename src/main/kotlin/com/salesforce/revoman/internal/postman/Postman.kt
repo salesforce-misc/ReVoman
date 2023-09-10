@@ -12,15 +12,20 @@ import com.salesforce.revoman.internal.readFileToString
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapter
 
-internal val pm = PostmanAPI()
+// * NOTE 10/09/23 gopala.akshintala: This needs to be Global singleton for Graal JS to work
+internal val pm = PostmanSDK()
 
 internal fun initPmEnvironment(
   pmEnvironmentPath: String?,
   dynamicEnvironment: Map<String, String?>?,
   customDynamicVariables: Map<String, (String) -> String>
 ) {
-  // ! TODO gopala.akshintala 19/05/22: Think about clashes between json environment variables and
-  // dynamic environment variables
+  // * NOTE 10/09/23 gopala.akshintala: Clear env for each new run
+  pm.environment.clear()
+  // ! TODO gopala.akshintala 19/05/22: Should we highlight if there are clashes between dynamic env
+  // and env path?
+  // * NOTE 10/09/23 gopala.akshintala: Adding dynamic variables first, as they can be used to regex
+  // replace in env path
   if (!dynamicEnvironment.isNullOrEmpty()) {
     pm.environment.putAll(dynamicEnvironment)
   }

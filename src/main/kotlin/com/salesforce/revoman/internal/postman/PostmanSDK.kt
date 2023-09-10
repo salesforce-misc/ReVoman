@@ -14,7 +14,11 @@ import com.squareup.moshi.JsonClass
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapter
 
-internal class PostmanAPI {
+/**
+ * SDK to be used in Javascript as per this API reference:
+ * https://learning.postman.com/docs/writing-scripts/script-references/postman-sandbox-api-reference/
+ */
+internal class PostmanSDK {
   @JvmField val environment: PostmanEnvironment<Any?> = PostmanEnvironment()
   lateinit var request: Request
   lateinit var response: Response

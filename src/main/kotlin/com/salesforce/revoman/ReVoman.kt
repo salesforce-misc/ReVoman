@@ -98,7 +98,7 @@ object ReVoman {
         }
     val moshiReVoman = initMoshi(customAdaptersForResponse, typesInResponseToIgnore)
     var noFailure = true
-    // ! TODO 22/06/23 gopala.akshintala: Validate if steps with same name are used in config
+    // ! TODO 22/06/23 gopala.akshintala: Validate if steps with the same name are used in config
     val stepNameToReport =
       pmSteps
         .deepFlattenItems()
@@ -109,7 +109,7 @@ object ReVoman {
           val stepName = itemWithRegex.name
           logger.info { "***** Processing Step: $stepName *****" }
           getHooksForStep(hooks, stepName, PRE).forEach {
-            it.accept(Rundown(stepNameToReport, pm.environment))
+            it.accept(stepName, Rundown(stepNameToReport, pm.environment))
           }
           // * NOTE gopala.akshintala 06/08/22: Preparing httpClient for each step,
           // * as there can be intermediate auths
@@ -124,7 +124,12 @@ object ReVoman {
               .getOrElse { throwable ->
                 noFailure = isStepNameInPassList(stepName, haltOnAnyFailureExceptForSteps)
                 return@fold stepNameToReport +
-                  (stepName to StepReport(request, httpFailure = throwable))
+                  (stepName to
+                    StepReport(
+                      request,
+                      httpFailure = throwable,
+                      postmanEnvironmentSnapshot = pm.environment.copy()
+                    ))
               }
           val stepReport: StepReport =
             when {
@@ -134,7 +139,7 @@ object ReVoman {
                 }
                 if (testScriptJsResult.isFailure) {
                   logger.error(testScriptJsResult.exceptionOrNull()) {
-                    "Error while executing test script"
+                    "$stepName: Error while executing test script"
                   }
                   noFailure = isStepNameInPassList(stepName, haltOnAnyFailureExceptForSteps)
                 }
@@ -152,7 +157,8 @@ object ReVoman {
                       responseObj.javaClass,
                       response,
                       testScriptJsResult.exceptionOrNull(),
-                      validationFailure = validationResult
+                      validationFailure = validationResult,
+                      postmanEnvironmentSnapshot = pm.environment.copy()
                     )
                   }
                   else -> {
@@ -162,7 +168,8 @@ object ReVoman {
                       response.bodyString(),
                       String::class.java,
                       response,
-                      testScriptJsFailure = testScriptJsResult.exceptionOrNull()
+                      testScriptJsFailure = testScriptJsResult.exceptionOrNull(),
+                      postmanEnvironmentSnapshot = pm.environment.copy()
                     )
                   }
                 }
@@ -176,7 +183,13 @@ object ReVoman {
                   responseConfig?.errorType != null -> {
                     val errorType = responseConfig.errorType.rawType.kotlin
                     val errorResponseObj = moshiReVoman.asA(response.bodyString(), errorType)
-                    StepReport(request, errorResponseObj, errorResponseObj.javaClass, response)
+                    StepReport(
+                      request,
+                      errorResponseObj,
+                      errorResponseObj.javaClass,
+                      response,
+                      postmanEnvironmentSnapshot = pm.environment.copy()
+                    )
                   }
                   responseConfig?.successType != null -> {
                     val errorMsg = "Unable to validate due to unsuccessful response: $response"
@@ -186,16 +199,24 @@ object ReVoman {
                       response.bodyString(),
                       String::class.java,
                       response,
-                      validationFailure = errorMsg
+                      validationFailure = errorMsg,
+                      postmanEnvironmentSnapshot = pm.environment.copy()
                     )
                   }
-                  else -> StepReport(request, response.bodyString(), String::class.java, response)
+                  else ->
+                    StepReport(
+                      request,
+                      response.bodyString(),
+                      String::class.java,
+                      response,
+                      postmanEnvironmentSnapshot = pm.environment.copy()
+                    )
                 }
               }
             }
-          (stepNameToReport + (stepName to stepReport)).also {
-            getHooksForStep(hooks, stepName, POST).forEach {
-              it.accept(Rundown(stepNameToReport, pm.environment))
+          (stepNameToReport + (stepName to stepReport)).also { str ->
+            getHooksForStep(hooks, stepName, POST).forEach { hook ->
+              hook.accept(stepName, Rundown(str, pm.environment))
             }
           }
         }

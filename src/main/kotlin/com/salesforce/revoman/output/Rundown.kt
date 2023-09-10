@@ -42,7 +42,8 @@ data class StepReport(
   val responseData: Response? = null,
   val httpFailure: Throwable? = null,
   val testScriptJsFailure: Throwable? = null,
-  val validationFailure: Any? = null
+  val validationFailure: Any? = null,
+  val postmanEnvironmentSnapshot: PostmanEnvironment<Any?>
 ) {
   val isSuccessful: Boolean
     get() =
