@@ -18,8 +18,8 @@ import com.salesforce.revoman.input.Kick;
 import com.salesforce.revoman.output.Rundown;
 import com.salesforce.vador.config.ValidationConfig;
 import com.salesforce.vador.types.Validator;
+import io.vavr.CheckedConsumer;
 import java.util.Map;
-import java.util.function.Consumer;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -51,7 +51,7 @@ class PokemonTest {
     //noinspection Convert2Lambda
     final var preHook =
         Mockito.spy(
-            new Consumer<Rundown>() {
+            new CheckedConsumer<Rundown>() {
               @Override
               public void accept(Rundown rundown) {
                 rundown.mutableEnv.set("limit", String.valueOf(newLimit));
@@ -60,7 +60,7 @@ class PokemonTest {
     //noinspection Convert2Lambda
     final var postHook =
         Mockito.spy(
-            new Consumer<Rundown>() {
+            new CheckedConsumer<Rundown>() {
               @Override
               public void accept(Rundown rundown) {
                 Assertions.assertThat(rundown.mutableEnv)

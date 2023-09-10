@@ -11,8 +11,8 @@ package com.salesforce.revoman.input
 
 import com.salesforce.revoman.output.Rundown
 import com.salesforce.vador.config.base.BaseValidationConfig.BaseValidationConfigBuilder
+import io.vavr.CheckedConsumer
 import java.lang.reflect.Type
-import java.util.function.Consumer
 import org.immutables.value.Value
 import org.immutables.value.Value.Style.ImplementationVisibility.PUBLIC
 
@@ -125,22 +125,26 @@ enum class HookType {
 }
 
 data class HookConfig
-private constructor(val stepName: String, val hookType: HookType, val hook: Consumer<Rundown>) {
+private constructor(
+  val stepName: String,
+  val hookType: HookType,
+  val hook: CheckedConsumer<Rundown>
+) {
   companion object {
     @JvmStatic
-    fun pre(stepName: String, hook: Consumer<Rundown>): Set<HookConfig> =
+    fun pre(stepName: String, hook: CheckedConsumer<Rundown>): Set<HookConfig> =
       setOf(HookConfig(stepName, HookType.PRE, hook))
 
     @JvmStatic
-    fun pre(stepNames: Set<String>, hook: Consumer<Rundown>): Set<HookConfig> =
+    fun pre(stepNames: Set<String>, hook: CheckedConsumer<Rundown>): Set<HookConfig> =
       stepNames.flatMap { pre(it, hook) }.toSet()
 
     @JvmStatic
-    fun post(stepName: String, hook: Consumer<Rundown>): Set<HookConfig> =
+    fun post(stepName: String, hook: CheckedConsumer<Rundown>): Set<HookConfig> =
       setOf(HookConfig(stepName, HookType.POST, hook))
 
     @JvmStatic
-    fun post(stepNames: Set<String>, hook: Consumer<Rundown>): Set<HookConfig> =
+    fun post(stepNames: Set<String>, hook: CheckedConsumer<Rundown>): Set<HookConfig> =
       stepNames.flatMap { post(it, hook) }.toSet()
   }
 }

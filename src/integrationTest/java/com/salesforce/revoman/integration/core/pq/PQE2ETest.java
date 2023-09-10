@@ -17,7 +17,6 @@ import com.salesforce.revoman.ReVoman;
 import com.salesforce.revoman.input.Kick;
 import com.salesforce.revoman.output.Rundown;
 import com.salesforce.vador.config.ValidationConfig;
-import io.vavr.control.Try;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
@@ -31,7 +30,7 @@ class PQE2ETest {
   private static final Logger LOGGER = LoggerFactory.getLogger(PQE2ETest.class);
 
   /**
-   * <p>PQ E2E Flow
+   * PQ E2E Flow
    *
    * <ul>
    *   <li>pq-create: qli+qlr
@@ -107,7 +106,7 @@ class PQE2ETest {
                           LOGGER.info(
                               "Waiting for the Quote: {} to get processed",
                               rundown.mutableEnv.getString("quoteId"));
-                          Try.run(() -> Thread.sleep(10000));
+                          Thread.sleep(10000);
                         }))
                 .haltOnAnyFailureExceptForSteps(unsuccessfulStepsException) // <7>
                 .responseConfig( // <8>

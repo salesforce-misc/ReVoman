@@ -14,7 +14,7 @@ import com.salesforce.revoman.input.ResponseConfig
 import com.salesforce.revoman.internal.postman.state.Item
 import com.salesforce.revoman.output.FOLDER_DELIMITER
 import com.salesforce.revoman.output.Rundown
-import java.util.function.Consumer
+import io.vavr.CheckedConsumer
 import org.apache.commons.lang3.StringUtils
 import org.http4k.core.ContentType
 import org.http4k.core.Response
@@ -47,7 +47,7 @@ internal fun getHooksForStep(
   hookConfigs: Set<Set<HookConfig>>,
   currentStepName: String,
   hookType: HookType
-): List<Consumer<Rundown>> =
+): List<CheckedConsumer<Rundown>> =
   hookConfigs
     .flatten()
     .filter { stepNameEquals(it.stepName, currentStepName) && it.hookType == hookType }
