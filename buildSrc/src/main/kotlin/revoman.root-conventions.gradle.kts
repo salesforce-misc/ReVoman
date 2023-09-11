@@ -20,7 +20,7 @@ version = VERSION
 
 group = GROUP_ID
 
-description = "ReVoman - An API Automation tool for JVM"
+description = "ReVoman - A Template-driven API automation tool for JVM (Java/Kotlin)"
 
 repositories {
   mavenCentral()

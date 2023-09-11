@@ -28,7 +28,7 @@ ____
 '''
 
 
-*ReVoman* is an API automation tool for JVM (Java/Kotlin), which lets you execute a Postman collection in a JVM program/test.
+*ReVoman* is an API automation tool for JVM (Java/Kotlin) from the API-first SaaS company, Salesforce. It lets you execute a Postman collection in a JVM program/test.
 
 '''
 
@@ -262,13 +262,14 @@ StepReport(
   val responseData: Response,
   val httpFailure: Throwable,
   val testScriptJsFailure: Throwable,
-  val validationFailure: Any
+  val validationFailure: Any,
+  val postmanEnvironmentSnapshot: PostmanEnvironment<Any?>
 )
 ----
 
 image:debug-stepreport.png[StepReport with Debugger]
 
-You can run further assertions on top of this report
+This report has everything you need to know about what happened during a step execution. You can run further assertions on top of this report
 
 === Low-code
 
