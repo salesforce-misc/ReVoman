@@ -7,33 +7,37 @@
  */
 package com.salesforce.revoman.output.postman
 
-data class PostmanEnvironment<ValueT>(
-  private val environment: MutableMap<String, ValueT> = mutableMapOf()
-) : MutableMap<String, ValueT> by environment {
+/** This is more like a value class (wrapper) on mutableEnv providing some useful utilities */
+data class PostmanEnvironment<ValueT : Any?>(
+  private val mutableEnv: MutableMap<String, ValueT> = mutableMapOf()
+) : MutableMap<String, ValueT> by mutableEnv {
+
+  val immutableEnvironment
+    get() = mutableEnv.toMap()
+
   fun set(key: String, value: ValueT) {
-    environment[key] = value
+    mutableEnv[key] = value
   }
 
   @Suppress("unused")
   fun unset(key: String) {
-    environment.remove(key)
+    mutableEnv.remove(key)
   }
 
   // ! TODO 24/06/23 gopala.akshintala: Support for Regex while querying environment
 
-  fun getString(key: String?) = environment[key] as String?
+  fun getString(key: String?) = mutableEnv[key] as String?
 
-  fun getInt(key: String?) = environment[key] as Int?
+  fun getInt(key: String?) = mutableEnv[key] as Int?
 
-  fun <T> valuesForKeysStartingWith(type: Class<T>, prefix: String): MutableCollection<T> =
-    envCopyWithKeysStartingWith(type, prefix).environment.values
+  // ! TODO 13/09/23 gopala.akshintala: Refactor code to remove duplication
 
-  fun <T> envCopyWithKeysStartingWith(
+  fun <T> mutableEnvCopyWithKeysStartingWith(
     type: Class<T>,
     vararg prefixes: String
   ): PostmanEnvironment<T> =
     PostmanEnvironment(
-      environment
+      mutableEnv
         .filter {
           type.isInstance(it.value) && prefixes.any { prefix -> it.key.startsWith(prefix) }
         }
@@ -41,20 +45,23 @@ data class PostmanEnvironment<ValueT>(
         .toMutableMap()
     )
 
-  fun <T> envCopyExcludingKeys(type: Class<T>, whiteListKeys: Set<String>): PostmanEnvironment<T> =
+  fun <T> mutableEnvCopyExcludingKeys(
+    type: Class<T>,
+    whiteListKeys: Set<String>
+  ): PostmanEnvironment<T> =
     PostmanEnvironment(
-      environment
+      mutableEnv
         .filter { type.isInstance(it.value) && !whiteListKeys.contains(it.key) }
         .mapValues { type.cast(it.value) }
         .toMutableMap()
     )
 
-  fun <T> envCopyWithKeysNotStartingWith(
+  fun <T> mutableEnvCopyWithKeysNotStartingWith(
     type: Class<T>,
     vararg prefixes: String
   ): PostmanEnvironment<T> =
     PostmanEnvironment(
-      environment
+      mutableEnv
         .filter {
           type.isInstance(it.value) && prefixes.any { suffix -> !it.key.startsWith(suffix) }
         }
@@ -62,49 +69,63 @@ data class PostmanEnvironment<ValueT>(
         .toMutableMap()
     )
 
-  fun <T> envCopyWithKeysEndingWith(
+  fun <T> mutableEnvCopyWithKeysEndingWith(
     type: Class<T>,
     vararg suffixes: String
   ): PostmanEnvironment<T> =
     PostmanEnvironment(
-      environment
+      mutableEnv
         .filter { type.isInstance(it.value) && suffixes.any { suffix -> it.key.endsWith(suffix) } }
         .mapValues { type.cast(it.value) }
         .toMutableMap()
     )
 
-  fun <T> valuesForKeysStartingWith(type: Class<T>, vararg prefixes: String): List<T?> =
-    environment.entries
+  fun <T> mutableEnvCopyWithKeysNotEndingWith(
+    type: Class<T>,
+    vararg suffixes: String
+  ): PostmanEnvironment<T> =
+    PostmanEnvironment(
+      mutableEnv
+        .filter { type.isInstance(it.value) && suffixes.any { suffix -> !it.key.endsWith(suffix) } }
+        .mapValues { type.cast(it.value) }
+        .toMutableMap()
+    )
+
+  fun <T> valuesForKeysStartingWith(type: Class<T>, prefix: String): Set<T> =
+    mutableEnvCopyWithKeysStartingWith(type, prefix).mutableEnv.values.toSet()
+
+  fun <T> valuesForKeysStartingWith(type: Class<T>, vararg prefixes: String): Set<T> =
+    mutableEnv.entries
       .asSequence()
       .filter { type.isInstance(it.value) && prefixes.any { suffix -> it.key.startsWith(suffix) } }
-      .map { type.cast(it.value) }
-      .toList()
+      .mapNotNull { type.cast(it.value) }
+      .toSet()
 
-  fun <T> valuesForKeysNotStartingWith(type: Class<T>, vararg prefixes: String): List<T?> =
-    environment.entries
+  fun <T> valuesForKeysNotStartingWith(type: Class<T>, vararg prefixes: String): Set<T?> =
+    mutableEnv.entries
       .asSequence()
       .filter { type.isInstance(it.value) && prefixes.any { suffix -> !it.key.startsWith(suffix) } }
-      .map { type.cast(it.value) }
-      .toList()
+      .mapNotNull { type.cast(it.value) }
+      .toSet()
 
-  fun <T> valuesForKeysEndingWith(type: Class<T>, suffix: String): List<T?> =
-    environment.entries
+  fun <T> valuesForKeysEndingWith(type: Class<T>, suffix: String): Set<T?> =
+    mutableEnv.entries
       .asSequence()
       .filter { type.isInstance(it.value) && it.key.endsWith(suffix) }
-      .map { type.cast(it.value) }
-      .toList()
+      .mapNotNull { type.cast(it.value) }
+      .toSet()
 
-  fun <T> valuesForKeysEndingWith(type: Class<T>, vararg suffixes: String): List<T?> =
-    environment.entries
+  fun <T> valuesForKeysEndingWith(type: Class<T>, vararg suffixes: String): Set<T?> =
+    mutableEnv.entries
       .asSequence()
       .filter { type.isInstance(it.value) && suffixes.any { suffix -> it.key.endsWith(suffix) } }
-      .map { type.cast(it.value) }
-      .toList()
+      .mapNotNull { type.cast(it.value) }
+      .toSet()
 
-  fun <T> valuesForKeysNotEndingWith(type: Class<T>, vararg suffixes: String): List<T?> =
-    environment.entries
+  fun <T> valuesForKeysNotEndingWith(type: Class<T>, vararg suffixes: String): Set<T?> =
+    mutableEnv.entries
       .asSequence()
       .filter { type.isInstance(it.value) && suffixes.any { suffix -> !it.key.endsWith(suffix) } }
-      .map { type.cast(it.value) }
-      .toList()
+      .mapNotNull { type.cast(it.value) }
+      .toSet()
 }

@@ -7,5 +7,7 @@
         <option value="$PROJECT_DIR$/detekt/config.yml" />
       </list>
     </option>
+    <option name="enableDetekt" value="true" />
+    <option name="enableForProjectResult" value="Accepted" />
   </component>
 </project>

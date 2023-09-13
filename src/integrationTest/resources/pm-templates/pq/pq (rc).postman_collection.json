@@ -427,7 +427,7 @@
 									"if (statusCode == 201) {",
 									"    jsonData.compositeResponse.forEach(function(response){",
 									"        var referenceId = response.referenceId;",
-									"        if(referenceId === \"refUser\"){",
+									"        if (referenceId === \"refUser\"){",
 									"            pm.environment.set(\"salesRepUserId\", response.body.id);",
 									"        } ",
 									"    })",
@@ -3021,7 +3021,7 @@
 											"var futureDateTime = moment().add(365, 'days');",
 											"pm.environment.set('$randomFutureDate', futureDateTime.format('YYYY-MM-DD'));",
 											"",
-											"pm.environment.set(\"$pricingPref\", \"skip\")"
+											"pm.environment.set(\"$pricingPref\", \"system\")"
 										],
 										"type": "text/javascript"
 									}
@@ -3125,7 +3125,7 @@
 							"response": []
 						},
 						{
-							"name": "pq-update: qli(post+patch+delete)",
+							"name": "pq-update: qli(post+patch+delete) + qlr",
 							"event": [
 								{
 									"listen": "test",
@@ -3155,7 +3155,7 @@
 								"header": [],
 								"body": {
 									"mode": "raw",
-									"raw": "{\n  \"pricingPref\": \"{{$pricingPref}}\",\n  \"graph\": {\n    \"graphId\": \"pq-update: qli(post+patch+delete)\",\n    \"records\": [\n      {\n        \"referenceId\": \"refQuote\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"Quote\",\n            \"method\": \"PATCH\",\n            \"id\": \"{{quoteId}}\"\n          }\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItemToCreate1\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{evergreenPriceBookEntryId}}\",\n          \"Product2Id\": \"{{evergreenProductId}}\",\n          \"Quantity\": 2.0,\n          \"UnitPrice\": 25.0,\n          \"PeriodBoundary\": \"Anniversary\",\n          \"BillingFrequency\": \"Monthly\",\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItemToPatch2\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"PATCH\",\n            \"id\": \"{{qliCreated5Id}}\"\n          },\n          \"Quantity\": 2.0,\n          \"UnitPrice\": 63.0\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItemToDelete3\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"DELETE\",\n            \"id\": \"{{qliCreated10Id}}\"\n          }\n        }\n      }\n    ]\n  }\n}",
+									"raw": "{\n  \"pricingPref\": \"{{$pricingPref}}\",\n  \"graph\": {\n    \"graphId\": \"pq-update: qli(post+patch+delete)\",\n    \"records\": [\n      {\n        \"referenceId\": \"refQuote\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"Quote\",\n            \"method\": \"PATCH\",\n            \"id\": \"{{quoteId}}\"\n          }\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItemToCreate1\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{evergreenPriceBookEntryId}}\",\n          \"Product2Id\": \"{{evergreenProductId}}\",\n          \"Quantity\": 2.0,\n          \"UnitPrice\": 25.0,\n          \"PeriodBoundary\": \"Anniversary\",\n          \"BillingFrequency\": \"Monthly\",\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItemToCreate2\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{termedPriceBookEntryId}}\",\n          \"Product2Id\": \"{{termedProductId}}\",\n          \"Quantity\": 2.0,\n          \"UnitPrice\": 25.0,\n          \"EndDate\": \"{{$randomFutureDate}}\",\n          \"PeriodBoundary\": \"DayOfPeriod\",\n          \"PeriodBoundaryDay\": 4,\n          \"BillingFrequency\": \"Monthly\",\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQLRToCreate1\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineRelationship\",\n            \"method\": \"POST\"\n          },\n          \"MainQuoteLineId\": \"@{refQuoteLineItemToCreate1.id}\",\n          \"AssociatedQuoteLineId\": \"@{refQuoteLineItemToCreate2.id}\",\n          \"ProductRelationshipTypeId\": \"{{productRelationshipTypeId}}\",\n          \"AssociatedQuoteLinePricing\": \"IncludedInBundlePrice\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItemToPatch2\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"PATCH\",\n            \"id\": \"{{qliCreated5Id}}\"\n          },\n          \"Quantity\": 2.0,\n          \"UnitPrice\": 63.0\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItemToDelete3\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"DELETE\",\n            \"id\": \"{{qliCreated10Id}}\"\n          }\n        }\n      }\n    ]\n  }\n}",
 									"options": {
 										"raw": {
 											"language": "json"
@@ -3524,7 +3524,240 @@
 									"script": {
 										"exec": [
 											"var quoteResult = JSON.parse(responseBody);",
-											"pm.environment.set(\"quoteCalculationStatus\", quoteResult.CalculationStatus)"
+											"pm.environment.set(\"quoteCalculationStatusAfterUpdates\", quoteResult.CalculationStatus)"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"protocolProfileBehavior": {
+								"disableBodyPruning": true
+							},
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Content-Type",
+										"name": "Content-Type",
+										"value": "application/json",
+										"type": "text"
+									},
+									{
+										"key": "Sforce-Call-Options",
+										"value": "client=SfdcInternalQA/...",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": ""
+								},
+								"url": {
+									"raw": "{{baseUrl}}/services/data/v{{version}}/sobjects/Quote/{{quoteId}}",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"services",
+										"data",
+										"v{{version}}",
+										"sobjects",
+										"Quote",
+										"{{quoteId}}"
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "pq-consumer-flows",
+					"item": [
+						{
+							"name": "pq-create: qa+qli",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"var jsonData = JSON.parse(responseBody);",
+											"pm.environment.set(\"quoteId\", jsonData.quoteId);",
+											""
+										],
+										"type": "text/javascript"
+									}
+								},
+								{
+									"listen": "prerequest",
+									"script": {
+										"exec": [
+											"var moment = require('moment');",
+											"pm.environment.set('$currentDate', moment().format((\"YYYY-MM-DD\")));",
+											"",
+											"var futureDateTime = moment().add(365, 'days');",
+											"pm.environment.set('$randomFutureDate', futureDateTime.format('YYYY-MM-DD'));",
+											"",
+											"pm.environment.set(\"$pricingPref\", \"skip\")"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"pricingPref\": \"{{$pricingPref}}\",\n  \"graph\": {\n    \"graphId\": \"pq-create-qli+qlr\",\n    \"records\": [\n      {\n        \"referenceId\": \"refQuote\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"Quote\",\n            \"method\": \"POST\"\n          },\n          \"Name\": \"Quote_{{$randomCompanyName}}\",\n          \"OpportunityId\": \"{{opportunityId}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteAction\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteAction\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"SourceAsset\": {{assetId}},\n          \"Type\": \"Amend\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItem1\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{termedPriceBookEntryId}}\",\n          \"Product2Id\": \"{{productId}}\",\n          \"Quantity\": 2.0,\n          \"UnitPrice\": 25.0,\n          \"EndDate\": \"{{$randomFutureDate}}\",\n          \"PeriodBoundary\": \"DayOfPeriod\",\n          \"PeriodBoundaryDay\": 4,\n          \"BillingFrequency\": \"Monthly\",\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      }\n    ]\n  }\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/services/data/v{{version}}/commerce/quotes/actions/place",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"services",
+										"data",
+										"v{{version}}",
+										"commerce",
+										"quotes",
+										"actions",
+										"place"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "query-qa",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"var jsonData = JSON.parse(responseBody)",
+											"var quoteResult = jsonData.compositeResponse[0].body.records[0]",
+											"pm.environment.set(\"lineItemCount\", quoteResult.LineItemCount)",
+											"pm.environment.set(\"quoteCalculationStatus\", quoteResult.CalculationStatus)",
+											"",
+											"var qaResult = jsonData.compositeResponse[1].body;",
+											"pm.environment.set(\"qaCount\", qaResult.totalSize)",
+											"qaResult.records.forEach((record, index) => {",
+											"    pm.environment.set(\"sourceAsset\" + (index + 1) + \"Id\", record.SourceAssetId)",
+											"    pm.environment.set(\"qa\" + (index + 1) + \"Type\", record.Type)",
+											"})"
+										],
+										"type": "text/javascript"
+									}
+								},
+								{
+									"listen": "prerequest",
+									"script": {
+										"exec": [
+											"pm.environment.set(\"$qaFieldsToQuery\", \"SourceAssetId, Type\")"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"allOrNone\": false,\n  \"compositeRequest\": [\n    {\n      \"method\": \"GET\",\n      \"url\": \"/services/data/v{{version}}/query/?q=select {{$quoteFieldsToQuery}} from Quote where Id = '{{quoteId}}'\",\n      \"referenceId\": \"quote\"\n    },\n    {\n      \"method\": \"GET\",\n      \"url\": \"/services/data/v{{version}}/query/?q=select {{$qaFieldsToQuery}} from QuoteAction where QuoteId = '{{quoteId}}'\",\n      \"referenceId\": \"qlrs\"\n    }\n  ]\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/services/data/v{{version}}/composite",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"services",
+										"data",
+										"v{{version}}",
+										"composite"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "pq-update: qli(post+patch+delete) + qlr Copy",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											""
+										],
+										"type": "text/javascript"
+									}
+								},
+								{
+									"listen": "prerequest",
+									"script": {
+										"exec": [
+											"var moment = require('moment');",
+											"pm.environment.set('$currentDate', moment().format((\"YYYY-MM-DD\")));",
+											"",
+											"var futureDateTime = moment().add(365, 'days');",
+											"pm.environment.set('$randomFutureDate', futureDateTime.format('YYYY-MM-DD'));"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"pricingPref\": \"{{$pricingPref}}\",\n  \"graph\": {\n    \"graphId\": \"pq-update: qli(post+patch+delete)\",\n    \"records\": [\n      {\n        \"referenceId\": \"refQuote\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"Quote\",\n            \"method\": \"PATCH\",\n            \"id\": \"{{quoteId}}\"\n          }\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItemToCreate1\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{evergreenPriceBookEntryId}}\",\n          \"Product2Id\": \"{{evergreenProductId}}\",\n          \"Quantity\": 2.0,\n          \"UnitPrice\": 25.0,\n          \"PeriodBoundary\": \"Anniversary\",\n          \"BillingFrequency\": \"Monthly\",\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItemToCreate2\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{termedPriceBookEntryId}}\",\n          \"Product2Id\": \"{{termedProductId}}\",\n          \"Quantity\": 2.0,\n          \"UnitPrice\": 25.0,\n          \"EndDate\": \"{{$randomFutureDate}}\",\n          \"PeriodBoundary\": \"DayOfPeriod\",\n          \"PeriodBoundaryDay\": 4,\n          \"BillingFrequency\": \"Monthly\",\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQLRToCreate1\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineRelationship\",\n            \"method\": \"POST\"\n          },\n          \"MainQuoteLineId\": \"@{refQuoteLineItemToCreate1.id}\",\n          \"AssociatedQuoteLineId\": \"@{refQuoteLineItemToCreate2.id}\",\n          \"ProductRelationshipTypeId\": \"{{productRelationshipTypeId}}\",\n          \"AssociatedQuoteLinePricing\": \"IncludedInBundlePrice\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItemToPatch2\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"PATCH\",\n            \"id\": \"{{qliCreated5Id}}\"\n          },\n          \"Quantity\": 2.0,\n          \"UnitPrice\": 63.0\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItemToDelete3\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"DELETE\",\n            \"id\": \"{{qliCreated10Id}}\"\n          }\n        }\n      }\n    ]\n  }\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/services/data/v{{version}}/commerce/quotes/actions/place",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"services",
+										"data",
+										"v{{version}}",
+										"commerce",
+										"quotes",
+										"actions",
+										"place"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Quote",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"var quoteResult = JSON.parse(responseBody);",
+											"pm.environment.set(\"quoteCalculationStatusAfterUpdates\", quoteResult.CalculationStatus)"
 										],
 										"type": "text/javascript"
 									}

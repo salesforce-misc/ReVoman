@@ -16,6 +16,9 @@ data class Rundown(
   @JvmField val stepNameToReport: Map<String, StepReport> = emptyMap(),
   @JvmField val mutableEnv: PostmanEnvironment<Any?> = PostmanEnvironment()
 ) {
+  val immutableEnvMap
+    get() = mutableEnv.toMap()
+
   val firstUnsuccessfulStepNameInOrder: String?
     get() =
       stepNameToReport.entries.firstOrNull { (_, stepReport) -> !stepReport.isSuccessful }?.key
