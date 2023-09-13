@@ -63,7 +63,7 @@ data class PostmanEnvironment<ValueT : Any?>(
     PostmanEnvironment(
       mutableEnv
         .filter {
-          type.isInstance(it.value) && prefixes.any { suffix -> !it.key.startsWith(suffix) }
+          type.isInstance(it.value) && prefixes.all { suffix -> !it.key.startsWith(suffix) }
         }
         .mapValues { type.cast(it.value) }
         .toMutableMap()
@@ -86,7 +86,7 @@ data class PostmanEnvironment<ValueT : Any?>(
   ): PostmanEnvironment<T> =
     PostmanEnvironment(
       mutableEnv
-        .filter { type.isInstance(it.value) && suffixes.any { suffix -> !it.key.endsWith(suffix) } }
+        .filter { type.isInstance(it.value) && suffixes.all { suffix -> !it.key.endsWith(suffix) } }
         .mapValues { type.cast(it.value) }
         .toMutableMap()
     )
@@ -104,7 +104,7 @@ data class PostmanEnvironment<ValueT : Any?>(
   fun <T> valuesForKeysNotStartingWith(type: Class<T>, vararg prefixes: String): Set<T?> =
     mutableEnv.entries
       .asSequence()
-      .filter { type.isInstance(it.value) && prefixes.any { suffix -> !it.key.startsWith(suffix) } }
+      .filter { type.isInstance(it.value) && prefixes.all { suffix -> !it.key.startsWith(suffix) } }
       .mapNotNull { type.cast(it.value) }
       .toSet()
 
@@ -125,7 +125,7 @@ data class PostmanEnvironment<ValueT : Any?>(
   fun <T> valuesForKeysNotEndingWith(type: Class<T>, vararg suffixes: String): Set<T?> =
     mutableEnv.entries
       .asSequence()
-      .filter { type.isInstance(it.value) && suffixes.any { suffix -> !it.key.endsWith(suffix) } }
+      .filter { type.isInstance(it.value) && suffixes.all { suffix -> !it.key.endsWith(suffix) } }
       .mapNotNull { type.cast(it.value) }
       .toSet()
 }

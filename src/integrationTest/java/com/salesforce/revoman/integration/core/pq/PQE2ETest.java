@@ -143,28 +143,26 @@ class PQE2ETest {
   }
 
   static void assertAfterPQCreate(String stepName, Rundown pqCreateQLIQLR) {
-    final var environment = pqCreateQLIQLR.mutableEnv;
+    final var env = pqCreateQLIQLR.mutableEnv;
     // Quote: LineItemCount, quoteCalculationStatus
-    assertThat(environment.getInt("lineItemCount")).isEqualTo(10);
-    assertThat(environment)
+    assertThat(env).containsEntry("lineItemCount", 10);
+    assertThat(env)
         .containsEntry(
             "quoteCalculationStatus",
-            PricingPref.valueOf(environment.getString("$pricingPref")).completeStatus);
+            PricingPref.valueOf(env.getString("$pricingPref")).completeStatus);
     // QLIs: Product2Id
-    final var productIdsFromEnv = environment.valuesForKeysEndingWith(String.class, "ProductId");
+    final var productIdsFromEnv = env.valuesForKeysEndingWith(String.class, "ProductId");
     final var productIdsFromCreatedQLIs =
-        environment.valuesForKeysStartingWith(String.class, "productForQLI");
+        env.valuesForKeysStartingWith(String.class, "productForQLI");
     assertThat(productIdsFromCreatedQLIs).containsAll(productIdsFromEnv);
     // QLRs: QuoteId, MainQuoteLineId, AssociatedQuoteLineId
-    final var quoteIdFromQLRs = environment.valuesForKeysStartingWith(String.class, "quoteForQLR");
-    assertThat(quoteIdFromQLRs).containsOnly(environment.getString("quoteId"));
-    assertThat(
-            environment.valuesForKeysStartingWith(
-                String.class, "mainQuoteLine+associatedQuoteLine"))
+    final var quoteIdFromQLRs = env.valuesForKeysStartingWith(String.class, "quoteForQLR");
+    assertThat(quoteIdFromQLRs).containsOnly(env.getString("quoteId"));
+    assertThat(env.valuesForKeysStartingWith(String.class, "mainQuoteLine+associatedQuoteLine"))
         .containsOnly(
-            environment.get("qliCreated1Id") + "-" + environment.get("qliCreated2Id"),
-            environment.get("qliCreated1Id") + "-" + environment.get("qliCreated3Id"),
-            environment.get("qliCreated1Id") + "-" + environment.get("qliCreated4Id"));
+            env.get("qliCreated1Id") + "-" + env.get("qliCreated2Id"),
+            env.get("qliCreated1Id") + "-" + env.get("qliCreated3Id"),
+            env.get("qliCreated1Id") + "-" + env.get("qliCreated4Id"));
   }
 
   // end::pq-e2e-with-revoman-demo[]
