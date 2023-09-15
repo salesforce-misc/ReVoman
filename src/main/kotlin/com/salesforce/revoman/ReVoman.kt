@@ -29,6 +29,7 @@ import com.salesforce.revoman.internal.postman.state.Item
 import com.salesforce.revoman.internal.postman.state.Template
 import com.salesforce.revoman.internal.prepareHttpClient
 import com.salesforce.revoman.internal.readFileToString
+import com.salesforce.revoman.output.Failures
 import com.salesforce.revoman.output.Rundown
 import com.salesforce.revoman.output.StepReport
 import com.salesforce.vador.config.ValidationConfig
@@ -108,8 +109,23 @@ object ReVoman {
         .fold<Item, Map<String, StepReport>>(mapOf()) { stepNameToReport, itemWithRegex ->
           val stepName = itemWithRegex.name
           logger.info { "***** Processing Step: $stepName *****" }
-          getHooksForStep(hooks, stepName, PRE).forEach {
-            it.accept(stepName, Rundown(stepNameToReport, pm.environment))
+          val preHookFailures =
+            getHooksForStep(hooks, stepName, PRE)
+              .mapNotNull { hook ->
+                runCatching { hook.accept(stepName, Rundown(stepNameToReport, pm.environment)) }
+                  .exceptionOrNull()
+              }
+              .onEach {
+                logger.error(it) { "❗️ $stepName: Exception while validating response" }
+                noFailure = isStepNameInPassList(stepName, haltOnAnyFailureExceptForSteps)
+              }
+          if (preHookFailures.isNotEmpty()) {
+            return@fold stepNameToReport +
+              (stepName to
+                StepReport(
+                  hookFailures = Failures(pre = preHookFailures),
+                  postmanEnvironmentSnapshot = pm.environment.copy()
+                ))
           }
           // * NOTE gopala.akshintala 06/08/22: Preparing httpClient for each step,
           // * as there can be intermediate auths
@@ -139,7 +155,7 @@ object ReVoman {
                 }
                 if (testScriptJsResult.isFailure) {
                   logger.error(testScriptJsResult.exceptionOrNull()) {
-                    "$stepName: Error while executing test script"
+                    "❗️ $stepName: Exception while executing test script"
                   }
                   noFailure = isStepNameInPassList(stepName, haltOnAnyFailureExceptForSteps)
                 }
@@ -149,8 +165,15 @@ object ReVoman {
                       getResponseConfigForStepName(stepName, responseConfigs)
                     val successType = responseConfig?.successType ?: Any::class.java as Type
                     val responseObj = moshiReVoman.asA<Any>(response.bodyString(), successType)
-                    val validationResult =
+                    val validationResult = runCatching {
                       responseConfig?.validationConfig?.let { validate(responseObj, it.prepare()) }
+                    }
+                    if (validationResult.isFailure) {
+                      logger.error(validationResult.exceptionOrNull()) {
+                        "❗️ $stepName: Exception while validating response"
+                      }
+                      noFailure = isStepNameInPassList(stepName, haltOnAnyFailureExceptForSteps)
+                    }
                     StepReport(
                       request,
                       responseObj,
@@ -175,7 +198,7 @@ object ReVoman {
                 }
               }
               else -> {
-                logger.error { "Request failed for step: $stepName" }
+                logger.error { "❌ $stepName: Http request failed" }
                 noFailure = isStepNameInPassList(stepName, haltOnAnyFailureExceptForSteps)
                 val responseConfig: ResponseConfig? =
                   getResponseConfigForStepName(stepName, responseConfigs)
@@ -192,7 +215,8 @@ object ReVoman {
                     )
                   }
                   responseConfig?.successType != null -> {
-                    val errorMsg = "Unable to validate due to unsuccessful response: $response"
+                    val errorMsg =
+                      "‼️ $stepName: Unable to validate due to unsuccessful response: $response"
                     logger.error { errorMsg }
                     StepReport(
                       request,
@@ -214,11 +238,21 @@ object ReVoman {
                 }
               }
             }
-          (stepNameToReport + (stepName to stepReport)).also { str ->
-            getHooksForStep(hooks, stepName, POST).forEach { hook ->
-              hook.accept(stepName, Rundown(str, pm.environment))
+          val postHookFailures =
+            (stepNameToReport + (stepName to stepReport)).let { snr ->
+              getHooksForStep(hooks, stepName, POST)
+                .mapNotNull { hook ->
+                  runCatching { hook.accept(stepName, Rundown(snr, pm.environment)) }
+                    .exceptionOrNull()
+                }
+                .onEach {
+                  logger.error(it) { "❗️ $stepName: Exception while validating response" }
+                  noFailure = isStepNameInPassList(stepName, haltOnAnyFailureExceptForSteps)
+                }
             }
-          }
+          stepNameToReport +
+            (stepName to
+              stepReport.copy(hookFailures = stepReport.hookFailures.copy(post = postHookFailures)))
         }
     return Rundown(stepNameToReport, pm.environment)
   }

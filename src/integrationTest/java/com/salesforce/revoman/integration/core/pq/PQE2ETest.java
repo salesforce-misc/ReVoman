@@ -66,7 +66,7 @@ class PQE2ETest {
     final var pqRunDown =
         ReVoman.revUp( // <1>
             Kick.configure()
-                .templatePath("pm-templates/pq/pq (rc).postman_collection.json") // <2>
+                .templatePath("pm-templates/pq/pq-with-rc.postman_collection.json") // <2>
                 .environmentPath("pm-templates/pq/pq-env.postman_environment.json") // <3>
                 .dynamicEnvironment( // <4>
                     Map.of(
@@ -109,7 +109,7 @@ class PQE2ETest {
                               "Waiting after Step: {} for the Quote: {} to get processed",
                               stepName,
                               rundown.mutableEnv.getString("quoteId"));
-                          // ! CAUTION 10/09/23 gopala.akshintala: This test can be flaky, until
+                          // ! CAUTION 10/09/23 gopala.akshintala: This test can be flaky until
                           // polling is implemented
                           Thread.sleep(10000);
                         }))

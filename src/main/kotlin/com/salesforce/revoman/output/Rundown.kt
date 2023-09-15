@@ -39,13 +39,14 @@ data class Rundown(
 }
 
 data class StepReport(
-  val requestData: Request,
+  val requestData: Request? = null,
   val responseObj: Any? = null,
   val responseType: Type? = null,
   val responseData: Response? = null,
   val httpFailure: Throwable? = null,
   val testScriptJsFailure: Throwable? = null,
   val validationFailure: Any? = null,
+  val hookFailures: Failures = Failures(),
   val postmanEnvironmentSnapshot: PostmanEnvironment<Any?>
 ) {
   val isSuccessful: Boolean
@@ -53,5 +54,10 @@ data class StepReport(
       (responseData?.status?.successful
         ?: false) && validationFailure == null && testScriptJsFailure == null
 }
+
+data class Failures(
+  val pre: List<Throwable> = emptyList(),
+  val post: List<Throwable> = emptyList()
+)
 
 const val FOLDER_DELIMITER = "|>"
