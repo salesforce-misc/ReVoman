@@ -121,7 +121,7 @@ class PQE2ETest {
                         PlaceQuoteOutputRepresentation.class,
                         pqRespValidationConfig))
                 .insecureHttp(true) // <10>
-                .off()); // Kick-off
+                .off()).go(); // Kick-off
     // end::pq-e2e-with-revoman-config-demo[]
     MapsKt.filterKeys(
             pqRunDown.stepNameToReport, stepName -> !unsuccessfulStepsException.contains(stepName))

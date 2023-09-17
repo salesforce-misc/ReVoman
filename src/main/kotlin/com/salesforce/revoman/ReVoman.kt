@@ -7,7 +7,6 @@
  */
 package com.salesforce.revoman
 
-import com.salesforce.revoman.input.HookConfig
 import com.salesforce.revoman.input.HookType.POST
 import com.salesforce.revoman.input.HookType.PRE
 import com.salesforce.revoman.input.Kick
@@ -39,65 +38,39 @@ import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapter
 import com.squareup.moshi.rawType
 import io.github.oshai.kotlinlogging.KotlinLogging
-import java.lang.reflect.Type
-import java.util.*
 import org.http4k.core.HttpHandler
 import org.http4k.core.Response
+import java.lang.reflect.Type
+import java.util.*
 
-object ReVoman {
-  @JvmStatic
-  fun revUp(kick: Kick): Rundown =
-    revUp(
-      kick.templatePath(),
-      kick.runOnlySteps(),
-      kick.skipSteps(),
-      kick.environmentPath(),
-      kick.dynamicEnvironment(),
-      kick.customDynamicVariables(),
-      kick.bearerTokenKey(),
-      kick.haltOnAnyFailureExceptForSteps(),
-      kick.hooks(),
-      kick.responseConfig(),
-      kick.customAdaptersForResponse(),
-      kick.typesInResponseToIgnore(),
-      kick.insecureHttp(),
-    )
-
+class ReVoman private constructor(private val kick: Kick) {
+  companion object {
+    @JvmStatic
+    fun revUp(kick: Kick): ReVoman =
+      ReVoman(kick)
+  }
+  
   private val logger = KotlinLogging.logger {}
 
   @OptIn(ExperimentalStdlibApi::class)
-  private fun revUp(
-    pmTemplatePath: String,
-    runOnlySteps: Set<String>,
-    skipSteps: Set<String>,
-    environmentPath: String?,
-    dynamicEnvironment: Map<String, String?>,
-    customDynamicVariables: Map<String, (String) -> String>,
-    bearerTokenKeyFromConfig: String?,
-    haltOnAnyFailureExceptForSteps: Set<String>,
-    hooks: Set<Set<HookConfig>>,
-    responseConfigs: Set<Set<ResponseConfig>>,
-    customAdaptersForResponse: List<Any>,
-    typesInResponseToIgnore: Set<Class<out Any>>,
-    insecureHttp: Boolean,
-  ): Rundown {
+  fun go(): Rundown {
     // ! TODO 18/06/23 gopala.akshintala: Add some more require conditions and Move to a separate
     // component Config validation
     // ! TODO 22/06/23 gopala.akshintala: Validate if validation config for a step is mentioned but
     // the stepName is not present
-    require(Collections.disjoint(runOnlySteps, skipSteps)) {
+    require(Collections.disjoint(kick.runOnlySteps(), kick.skipSteps())) {
       "runOnlySteps and skipSteps cannot be intersected"
     }
-    initPmEnvironment(environmentPath, dynamicEnvironment, customDynamicVariables)
+    initPmEnvironment(kick.environmentPath(), kick.dynamicEnvironment(), kick.customDynamicVariables())
     val (pmSteps, auth) =
-      Moshi.Builder().build().adapter<Template>().fromJson(readFileToString(pmTemplatePath))
+      Moshi.Builder().build().adapter<Template>().fromJson(readFileToString(kick.templatePath()))
         ?: return Rundown()
     val bearerTokenKey =
-      bearerTokenKeyFromConfig
+      kick.bearerTokenKey()
         ?: auth?.bearer?.firstOrNull()?.value?.let {
           postManVariableRegex.find(it)?.groups?.get("variableKey")?.value ?: ""
         }
-    val moshiReVoman = initMoshi(customAdaptersForResponse, typesInResponseToIgnore)
+    val moshiReVoman = initMoshi(kick.customAdaptersForResponse(), kick.typesInResponseToIgnore())
     var noFailure = true
     // ! TODO 22/06/23 gopala.akshintala: Validate if steps with the same name are used in config
     val stepNameToReport =
@@ -105,19 +78,19 @@ object ReVoman {
         .deepFlattenItems()
         .asSequence()
         .takeWhile { noFailure }
-        .filter { filterStep(runOnlySteps, skipSteps, it.name) }
+        .filter { filterStep(kick.runOnlySteps(), kick.skipSteps(), it.name) }
         .fold<Item, Map<String, StepReport>>(mapOf()) { stepNameToReport, itemWithRegex ->
           val stepName = itemWithRegex.name
           logger.info { "***** Processing Step: $stepName *****" }
           val preHookFailures =
-            getHooksForStep(hooks, stepName, PRE)
+            getHooksForStep(kick.hooks(), stepName, PRE)
               .mapNotNull { hook ->
                 runCatching { hook.accept(stepName, Rundown(stepNameToReport, pm.environment)) }
                   .exceptionOrNull()
               }
               .onEach {
                 logger.error(it) { "❗️ $stepName: Exception while validating response" }
-                noFailure = isStepNameInPassList(stepName, haltOnAnyFailureExceptForSteps)
+                noFailure = isStepNameInPassList(stepName, kick.haltOnAnyFailureExceptForSteps())
               }
           if (preHookFailures.isNotEmpty()) {
             return@fold stepNameToReport +
@@ -130,15 +103,15 @@ object ReVoman {
           // * NOTE gopala.akshintala 06/08/22: Preparing httpClient for each step,
           // * as there can be intermediate auths
           val httpClient: HttpHandler =
-            prepareHttpClient(pm.environment.getString(bearerTokenKey), insecureHttp)
+            prepareHttpClient(pm.environment.getString(bearerTokenKey), kick.insecureHttp())
           val pmRequest =
-            RegexReplacer(pm.environment, customDynamicVariables)
+            RegexReplacer(pm.environment, kick.customDynamicVariables())
               .replaceRegex(itemWithRegex.request)
           val request = pmRequest.toHttpRequest()
           val response: Response =
             runCatching { httpClient(request) }
               .getOrElse { throwable ->
-                noFailure = isStepNameInPassList(stepName, haltOnAnyFailureExceptForSteps)
+                noFailure = isStepNameInPassList(stepName, kick.haltOnAnyFailureExceptForSteps())
                 return@fold stepNameToReport +
                   (stepName to
                     StepReport(
@@ -157,12 +130,12 @@ object ReVoman {
                   logger.error(testScriptJsResult.exceptionOrNull()) {
                     "❗️ $stepName: Exception while executing test script"
                   }
-                  noFailure = isStepNameInPassList(stepName, haltOnAnyFailureExceptForSteps)
+                  noFailure = isStepNameInPassList(stepName, kick.haltOnAnyFailureExceptForSteps())
                 }
                 when {
                   isContentTypeApplicationJson(response) -> {
                     val responseConfig: ResponseConfig? =
-                      getResponseConfigForStepName(stepName, responseConfigs)
+                      getResponseConfigForStepName(stepName, kick.responseConfig())
                     val successType = responseConfig?.successType ?: Any::class.java as Type
                     val responseObj = moshiReVoman.asA<Any>(response.bodyString(), successType)
                     val validationResult = runCatching {
@@ -172,7 +145,7 @@ object ReVoman {
                       logger.error(validationResult.exceptionOrNull()) {
                         "❗️ $stepName: Exception while validating response"
                       }
-                      noFailure = isStepNameInPassList(stepName, haltOnAnyFailureExceptForSteps)
+                      noFailure = isStepNameInPassList(stepName, kick.haltOnAnyFailureExceptForSteps())
                     }
                     StepReport(
                       request,
@@ -199,9 +172,9 @@ object ReVoman {
               }
               else -> {
                 logger.error { "❌ $stepName: Http request failed" }
-                noFailure = isStepNameInPassList(stepName, haltOnAnyFailureExceptForSteps)
+                noFailure = isStepNameInPassList(stepName, kick.haltOnAnyFailureExceptForSteps())
                 val responseConfig: ResponseConfig? =
-                  getResponseConfigForStepName(stepName, responseConfigs)
+                  getResponseConfigForStepName(stepName, kick.responseConfig())
                 when {
                   responseConfig?.errorType != null -> {
                     val errorType = responseConfig.errorType.rawType.kotlin
@@ -240,14 +213,14 @@ object ReVoman {
             }
           val postHookFailures =
             (stepNameToReport + (stepName to stepReport)).let { snr ->
-              getHooksForStep(hooks, stepName, POST)
+              getHooksForStep(kick.hooks(), stepName, POST)
                 .mapNotNull { hook ->
                   runCatching { hook.accept(stepName, Rundown(snr, pm.environment)) }
                     .exceptionOrNull()
                 }
                 .onEach {
                   logger.error(it) { "❗️ $stepName: Exception while validating response" }
-                  noFailure = isStepNameInPassList(stepName, haltOnAnyFailureExceptForSteps)
+                  noFailure = isStepNameInPassList(stepName, kick.haltOnAnyFailureExceptForSteps())
                 }
             }
           stepNameToReport +
