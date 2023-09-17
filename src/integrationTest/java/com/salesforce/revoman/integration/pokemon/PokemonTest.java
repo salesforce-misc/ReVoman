@@ -71,14 +71,16 @@ class PokemonTest {
             });
     final var pokeRundown =
         ReVoman.revUp(
-            Kick.configure()
-                .templatePath(pmCollectionPath)
-                .environmentPath(pmEnvironmentPath)
-                .hooks(pre("all-pokemon", preHook), post("all-pokemon", postHook))
-                .responseConfig(
-                    validateIfSuccess("all-pokemon", Results.class, pokemonResultsValidationConfig))
-                .dynamicEnvironment(dynamicEnvironment)
-                .off()).go();
+                Kick.configure()
+                    .templatePath(pmCollectionPath)
+                    .environmentPath(pmEnvironmentPath)
+                    .hooks(pre("all-pokemon", preHook), post("all-pokemon", postHook))
+                    .responseConfig(
+                        validateIfSuccess(
+                            "all-pokemon", Results.class, pokemonResultsValidationConfig))
+                    .dynamicEnvironment(dynamicEnvironment)
+                    .off())
+            .go();
 
     Mockito.verify(resultSizeValidator, times(1)).apply(any());
     Mockito.verify(preHook, times(1)).accept(anyString(), any());
