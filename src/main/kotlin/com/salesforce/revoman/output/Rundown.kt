@@ -8,6 +8,7 @@
 package com.salesforce.revoman.output
 
 import com.salesforce.revoman.output.postman.PostmanEnvironment
+import io.vavr.control.Either
 import java.lang.reflect.Type
 import org.http4k.core.Request
 import org.http4k.core.Response
@@ -39,25 +40,37 @@ data class Rundown(
 }
 
 data class StepReport(
-  val requestData: Request? = null,
-  val responseObj: Any? = null,
-  val responseType: Type? = null,
-  val responseData: Response? = null,
-  val httpFailure: Throwable? = null,
-  val testScriptJsFailure: Throwable? = null,
-  val validationFailure: Any? = null,
-  val hookFailures: Failures = Failures(),
+  val requestInfo: TxInfo<Request>? = null,
+  val responseInfo: Either<Failure, TxInfo<Response>>,
+  val postHookFailure: Failure? = null,
   val postmanEnvironmentSnapshot: PostmanEnvironment<Any?>
 ) {
   val isSuccessful: Boolean
-    get() =
-      (responseData?.status?.successful
-        ?: false) && validationFailure == null && testScriptJsFailure == null
-}
+    get() = responseInfo.isRight && postHookFailure == null
 
-data class Failures(
-  val pre: List<Throwable> = emptyList(),
-  val post: List<Throwable> = emptyList()
-)
+  data class TxInfo<HttpMsgT>(
+    val txObjType: Type? = null,
+    val txObj: Any? = null,
+    val httpMsg: HttpMsgT? = null
+  ) {
+    fun <T> getTypedTxObj(): T = (txObjType as Class<T>).cast(txObj)
+  }
+
+  data class Failure(val exeType: ExeType, val failure: Throwable) {
+    enum class ExeType(private val exeName: String) {
+      PRE_HOOK("pre-hook"),
+      MARSHALL_REQUEST("marshall-request"),
+      HTTP_REQUEST("http-request"),
+      TEST_SCRIPT_JS("testScript-js"),
+      MARSHALL_RESPONSE("marshall-response"),
+      RESPONSE_VALIDATION("response-validation"),
+      POST_HOOK("post-hook");
+
+      override fun toString(): String {
+        return exeName
+      }
+    }
+  }
+}
 
 const val FOLDER_DELIMITER = "|>"

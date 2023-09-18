@@ -18,6 +18,7 @@ open module revoman {
   requires io.github.oshai.kotlinlogging;
   requires com.squareup.moshi.adapters;
   requires io.vavr;
+  requires io.vavr.kotlin;
 
   exports com.salesforce.revoman;
   exports com.salesforce.revoman.input;

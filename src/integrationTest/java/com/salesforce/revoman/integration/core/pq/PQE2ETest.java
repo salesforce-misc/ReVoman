@@ -20,6 +20,7 @@ import com.salesforce.vador.config.ValidationConfig;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
+import java.util.function.Function;
 import kotlin.collections.MapsKt;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -65,65 +66,63 @@ class PQE2ETest {
     // tag::pq-e2e-with-revoman-config-demo[]
     final var pqRunDown =
         ReVoman.revUp( // <1>
-                Kick.configure()
-                    .templatePath("pm-templates/pq/pq-with-rc.postman_collection.json") // <2>
-                    .environmentPath("pm-templates/pq/pq-env.postman_environment.json") // <3>
-                    .dynamicEnvironment( // <4>
-                        Map.of(
-                            "$quoteFieldsToQuery", "LineItemCount, CalculationStatus",
-                            "$qliFieldsToQuery", "Id, Product2Id",
-                            "$qlrFieldsToQuery",
-                                "Id, QuoteId, MainQuoteLineId, AssociatedQuoteLineId"))
-                    .customDynamicVariable( // <5>
-                        "$pricingPref",
-                        ignore ->
-                            PricingPref.values()[new Random().nextInt(PricingPref.values().length)]
-                                .name())
-                    .hooks( // <6>
-                        post(
-                            "password-reset",
-                            (stepName, rundown) ->
-                                LOGGER.info(
-                                    "Step count: {} executed including this step: {}",
-                                    rundown.stepNameToReport.size(),
-                                    stepName)),
-                        pre(
-                            "pq-create-with-bundles",
-                            (stepName, rundown) ->
-                                LOGGER.info(
-                                    "Step count: {} executed before this step: {}",
-                                    rundown.stepNameToReport.size(),
-                                    stepName)),
-                        post("query-quote-and-related-records", PQE2ETest::assertAfterPQCreate),
-                        post(
-                            Set.of(
-                                "pq-create: qli+qlr",
-                                "pq-update: qli(post+patch+ delete)",
-                                "pq-update: qli(post+patch)",
-                                "pq-update: qli(all post)",
-                                "pq-update: qli+qlr(all post)",
-                                "pq-update: qli(all patch)",
-                                "pq-update: qli(all delete)",
-                                "pq-update: qli(post+delete)"),
-                            (stepName, rundown) -> {
-                              LOGGER.info(
-                                  "Waiting after Step: {} for the Quote: {} to get processed",
-                                  stepName,
-                                  rundown.mutableEnv.getString("quoteId"));
-                              // ! CAUTION 10/09/23 gopala.akshintala: This test can be flaky until
-                              // polling is implemented
-                              Thread.sleep(10000);
-                            }))
-                    .haltOnAnyFailureExceptForSteps(unsuccessfulStepsException) // <7>
-                    .responseConfig( // <8>
-                        unmarshallSuccessResponse("quote-related-records", CompositeResponse.class),
-                        validateIfSuccess( // <9>
-                            "pq-create-with-bundles",
-                            PlaceQuoteOutputRepresentation.class,
-                            pqRespValidationConfig))
-                    .insecureHttp(true) // <10>
-                    .off())
-            .go(); // Kick-off
+            Kick.configure()
+                .templatePath("pm-templates/pq/pq-with-rc.postman_collection.json") // <2>
+                .environmentPath("pm-templates/pq/pq-env.postman_environment.json") // <3>
+                .dynamicEnvironment( // <4>
+                    Map.of(
+                        "$quoteFieldsToQuery", "LineItemCount, CalculationStatus",
+                        "$qliFieldsToQuery", "Id, Product2Id",
+                        "$qlrFieldsToQuery", "Id, QuoteId, MainQuoteLineId, AssociatedQuoteLineId"))
+                .customDynamicVariable( // <5>
+                    "$pricingPref",
+                    ignore ->
+                        PricingPref.values()[new Random().nextInt(PricingPref.values().length)]
+                            .name())
+                .hooks( // <6>
+                    post(
+                        "password-reset",
+                        (stepName, rundown) ->
+                            LOGGER.info(
+                                "Step count: {} executed including this step: {}",
+                                rundown.stepNameToReport.size(),
+                                stepName)),
+                    pre(
+                        "pq-create-with-bundles",
+                        (stepName, requestInfo, rundown) ->
+                            LOGGER.info(
+                                "Step count: {} executed before this step: {}",
+                                rundown.stepNameToReport.size(),
+                                stepName)),
+                    post("query-quote-and-related-records", PQE2ETest::assertAfterPQCreate),
+                    post(
+                        Set.of(
+                            "pq-create: qli+qlr",
+                            "pq-update: qli(post+patch+ delete)",
+                            "pq-update: qli(post+patch)",
+                            "pq-update: qli(all post)",
+                            "pq-update: qli+qlr(all post)",
+                            "pq-update: qli(all patch)",
+                            "pq-update: qli(all delete)",
+                            "pq-update: qli(post+delete)"),
+                        (stepName, rundown) -> {
+                          LOGGER.info(
+                              "Waiting after Step: {} for the Quote: {} to get processed",
+                              stepName,
+                              rundown.mutableEnv.getString("quoteId"));
+                          // ! CAUTION 10/09/23 gopala.akshintala: This test can be flaky until
+                          // polling is implemented
+                          Thread.sleep(10000);
+                        }))
+                .haltOnAnyFailureExceptForSteps(unsuccessfulStepsException) // <7>
+                .responseConfig( // <8>
+                    unmarshallSuccessResponse("quote-related-records", CompositeResponse.class),
+                    validateIfSuccess( // <9>
+                        "pq-create-with-bundles",
+                        PlaceQuoteOutputRepresentation.class,
+                        pqRespValidationConfig))
+                .insecureHttp(true) // <10>
+                .off()); // Kick-off
     // end::pq-e2e-with-revoman-config-demo[]
     MapsKt.filterKeys(
             pqRunDown.stepNameToReport, stepName -> !unsuccessfulStepsException.contains(stepName))
@@ -134,9 +133,13 @@ class PQE2ETest {
                     .as(
                         String.format(
                             "***** REQUEST:%s\n***** RESPONSE:%s",
-                            stepReport.getRequestData().toMessage(),
-                            (stepReport.getResponseData() != null)
-                                ? stepReport.getResponseData().toMessage()
+                            stepReport.getRequestInfo().getHttpMsg().toMessage(),
+                            (stepReport.getResponseInfo() != null)
+                                ? stepReport
+                                    .getResponseInfo()
+                                    .fold(
+                                        Function.identity(),
+                                        respInfo -> respInfo.getHttpMsg().toMessage())
                                 : "empty"))
                     .isTrue());
     assertThat(pqRunDown.mutableEnv.get("quoteCalculationStatus"))

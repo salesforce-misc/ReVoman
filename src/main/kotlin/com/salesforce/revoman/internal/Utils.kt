@@ -8,13 +8,15 @@
 package com.salesforce.revoman.internal
 
 import com.google.common.io.Resources
-import com.salesforce.revoman.input.CheckedBiConsumer
 import com.salesforce.revoman.input.HookConfig
-import com.salesforce.revoman.input.HookType
+import com.salesforce.revoman.input.HookConfig.Hook
+import com.salesforce.revoman.input.HookConfig.HookType
 import com.salesforce.revoman.input.ResponseConfig
 import com.salesforce.revoman.internal.postman.state.Item
 import com.salesforce.revoman.output.FOLDER_DELIMITER
-import com.salesforce.revoman.output.Rundown
+import io.vavr.control.Either
+import io.vavr.kotlin.left
+import io.vavr.kotlin.right
 import org.apache.commons.lang3.StringUtils
 import org.http4k.core.ContentType
 import org.http4k.core.Response
@@ -43,15 +45,15 @@ internal fun List<Item>.deepFlattenItems(parentFolderName: String = ""): List<It
     }
     .toList()
 
-internal fun getHooksForStep(
-  hookConfigs: Set<Set<HookConfig>>,
+internal inline fun <reified T : Hook> getHooksForStep(
   currentStepName: String,
-  hookType: HookType
-): List<CheckedBiConsumer<String, Rundown>> =
-  hookConfigs
-    .flatten()
-    .filter { stepNameEquals(it.stepName, currentStepName) && it.hookType == hookType }
-    .map { it.hook }
+  hookType: HookType,
+  hookConfigs: Map<HookType, List<HookConfig>>,
+): List<T> =
+  hookConfigs[hookType]
+    ?.filter { stepNameEquals(it.stepName, currentStepName) }
+    ?.map { it.hook as T }
+    ?: emptyList()
 
 private fun stepNameEquals(stepNameFromConfig: String, currentStepName: String) =
   stepNameFromConfig == currentStepName ||
@@ -59,8 +61,8 @@ private fun stepNameEquals(stepNameFromConfig: String, currentStepName: String) 
 
 internal fun getResponseConfigForStepName(
   stepName: String,
-  responseConfigs: Set<Set<ResponseConfig>>
-): ResponseConfig? = responseConfigs.flatten().firstOrNull { stepNameEquals(it.stepName, stepName) }
+  responseConfigs: List<ResponseConfig>
+): ResponseConfig? = responseConfigs.firstOrNull { stepNameEquals(it.stepName, stepName) }
 
 internal fun isStepNameInPassList(stepName: String, haltOnAnyFailureExceptForSteps: Set<String>) =
   haltOnAnyFailureExceptForSteps.isEmpty() ||
@@ -68,7 +70,11 @@ internal fun isStepNameInPassList(stepName: String, haltOnAnyFailureExceptForSte
     haltOnAnyFailureExceptForSteps.contains(stepName.substringAfterLast(FOLDER_DELIMITER))
 
 // ! TODO 24/06/23 gopala.akshintala: Regex support to filter Step Names
-internal fun filterStep(runOnlySteps: Set<String>, skipSteps: Set<String>, stepName: String) =
+internal fun shouldStepBeExecuted(
+  runOnlySteps: Set<String>,
+  skipSteps: Set<String>,
+  stepName: String
+) =
   (runOnlySteps.isEmpty() && skipSteps.isEmpty()) ||
     (runOnlySteps.isNotEmpty() &&
       (runOnlySteps.contains(stepName) ||
@@ -76,3 +82,5 @@ internal fun filterStep(runOnlySteps: Set<String>, skipSteps: Set<String>, stepN
       (skipSteps.isNotEmpty() &&
         (!skipSteps.contains(stepName) &&
           !skipSteps.contains(stepName.substringAfterLast(FOLDER_DELIMITER)))))
+
+internal fun <T> Result<T>.toEither(): Either<Throwable, T> = fold({ right(it) }, { left(it) })

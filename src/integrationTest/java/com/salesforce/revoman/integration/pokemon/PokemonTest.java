@@ -15,13 +15,17 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.times;
 
 import com.salesforce.revoman.ReVoman;
-import com.salesforce.revoman.input.CheckedBiConsumer;
+import com.salesforce.revoman.input.HookConfig.Hook.PostHook;
+import com.salesforce.revoman.input.HookConfig.Hook.PreHook;
 import com.salesforce.revoman.input.Kick;
 import com.salesforce.revoman.output.Rundown;
+import com.salesforce.revoman.output.StepReport.TxInfo;
 import com.salesforce.vador.config.ValidationConfig;
 import com.salesforce.vador.types.Validator;
 import java.util.Map;
 import org.assertj.core.api.Assertions;
+import org.http4k.core.Request;
+import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
@@ -52,18 +56,21 @@ class PokemonTest {
     //noinspection Convert2Lambda
     final var preHook =
         Mockito.spy(
-            new CheckedBiConsumer<String, Rundown>() {
+            new PreHook() {
               @Override
-              public void accept(String stepName, Rundown rundown) {
+              public void accept(
+                  @NotNull String stepName,
+                  @NotNull TxInfo<Request> requestInfo,
+                  @NotNull Rundown rundown) {
                 rundown.mutableEnv.set("limit", String.valueOf(newLimit));
               }
             });
     //noinspection Convert2Lambda
     final var postHook =
         Mockito.spy(
-            new CheckedBiConsumer<String, Rundown>() {
+            new PostHook() {
               @Override
-              public void accept(String stepName, Rundown rundown) {
+              public void accept(@NotNull String stepName, @NotNull Rundown rundown) {
                 Assertions.assertThat(rundown.mutableEnv)
                     .containsEntry("limit", String.valueOf(newLimit));
                 Assertions.assertThat(rundown.mutableEnv).containsEntry("pokemonName", "bulbasaur");
@@ -71,19 +78,17 @@ class PokemonTest {
             });
     final var pokeRundown =
         ReVoman.revUp(
-                Kick.configure()
-                    .templatePath(pmCollectionPath)
-                    .environmentPath(pmEnvironmentPath)
-                    .hooks(pre("all-pokemon", preHook), post("all-pokemon", postHook))
-                    .responseConfig(
-                        validateIfSuccess(
-                            "all-pokemon", Results.class, pokemonResultsValidationConfig))
-                    .dynamicEnvironment(dynamicEnvironment)
-                    .off())
-            .go();
+            Kick.configure()
+                .templatePath(pmCollectionPath)
+                .environmentPath(pmEnvironmentPath)
+                .hooks(pre("all-pokemon", preHook), post("all-pokemon", postHook))
+                .responseConfig(
+                    validateIfSuccess("all-pokemon", Results.class, pokemonResultsValidationConfig))
+                .dynamicEnvironment(dynamicEnvironment)
+                .off());
 
     Mockito.verify(resultSizeValidator, times(1)).apply(any());
-    Mockito.verify(preHook, times(1)).accept(anyString(), any());
+    Mockito.verify(preHook, times(1)).accept(anyString(), any(), any());
     Mockito.verify(postHook, times(1)).accept(anyString(), any());
     Assertions.assertThat(pokeRundown.stepNameToReport).hasSize(5);
     Assertions.assertThat(pokeRundown.mutableEnv)

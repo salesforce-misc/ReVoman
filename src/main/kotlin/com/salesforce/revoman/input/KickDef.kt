@@ -9,10 +9,15 @@
 
 package com.salesforce.revoman.input
 
+import com.salesforce.revoman.input.HookConfig.Hook.PostHook
+import com.salesforce.revoman.input.HookConfig.Hook.PreHook
+import com.salesforce.revoman.input.HookConfig.HookType
+import com.salesforce.revoman.input.HookConfig.HookType.PRE
 import com.salesforce.revoman.output.Rundown
+import com.salesforce.revoman.output.StepReport.TxInfo
 import com.salesforce.vador.config.base.BaseValidationConfig.BaseValidationConfigBuilder
 import java.lang.reflect.Type
-import kotlin.jvm.Throws
+import org.http4k.core.Request
 import org.immutables.value.Value
 import org.immutables.value.Value.Style.ImplementationVisibility.PUBLIC
 
@@ -37,11 +42,15 @@ internal interface KickDef {
 
   @SkipNulls fun hooks(): Set<Set<HookConfig>>
 
-  // ! FIXME 25/06/23 gopala.akshintala: Not in-use
-  @Value.Default fun validationStrategy(): ValidationStrategy = ValidationStrategy.FAIL_FAST
+  @Value.Derived
+  fun hooksFlattened(): Map<HookType, List<HookConfig>> = hooks().flatten().groupBy { it.hookType }
 
   // ! TODO 26/08/23 gopala.akshintala: Validate for duplicate stepNames
   @SkipNulls fun responseConfig(): Set<Set<ResponseConfig>>
+
+  @Value.Derived
+  fun responseConfigFlattened(): Pair<List<ResponseConfig>, List<ResponseConfig>> =
+    responseConfig().flatten().partition { it.ifSuccess }
 
   @SkipNulls fun customAdaptersForResponse(): List<Any>
 
@@ -50,44 +59,30 @@ internal interface KickDef {
   @Value.Default fun insecureHttp(): Boolean = false
 }
 
+typealias ValidationConfig = BaseValidationConfigBuilder<out Any, out Any?, *, *>
+
 data class ResponseConfig
 private constructor(
   val stepName: String,
-  val successType: Type? = null,
-  val errorType: Type? = null,
-  val validationConfig: BaseValidationConfigBuilder<out Any, out Any?, *, *>? = null
+  val ifSuccess: Boolean,
+  val responseType: Type,
+  val validationConfig: ValidationConfig? = null
 ) {
   companion object {
     @JvmStatic
     fun unmarshallSuccessResponse(stepName: String, successType: Type): Set<ResponseConfig> =
-      setOf(ResponseConfig(stepName, successType))
+      setOf(ResponseConfig(stepName, true, successType))
 
     @JvmStatic
     fun unmarshallSuccessResponse(stepNames: Set<String>, successType: Type): Set<ResponseConfig> =
       stepNames.flatMap { unmarshallSuccessResponse(it, successType) }.toSet()
 
     @JvmStatic
-    fun unmarshallResponse(
-      stepName: String,
-      successType: Type,
-      errorType: Type
-    ): Set<ResponseConfig> = setOf(ResponseConfig(stepName, successType, errorType))
-
-    @JvmStatic
-    fun unmarshallResponse(
-      stepNames: Set<String>,
-      successType: Type,
-      errorType: Type
-    ): Set<ResponseConfig> =
-      stepNames.flatMap { unmarshallResponse(it, successType, errorType) }.toSet()
-
-    @JvmStatic
     fun validateIfSuccess(
       stepName: String,
       successType: Type,
       validationConfig: BaseValidationConfigBuilder<out Any, out Any?, *, *>
-    ): Set<ResponseConfig> =
-      setOf(ResponseConfig(stepName, successType, validationConfig = validationConfig))
+    ): Set<ResponseConfig> = setOf(ResponseConfig(stepName, true, successType, validationConfig))
 
     @JvmStatic
     fun validateIfSuccess(
@@ -102,8 +97,7 @@ private constructor(
       stepName: String,
       errorType: Type,
       validationConfig: BaseValidationConfigBuilder<out Any, out Any?, *, *>
-    ): Set<ResponseConfig> =
-      setOf(ResponseConfig(stepName, errorType = errorType, validationConfig = validationConfig))
+    ): Set<ResponseConfig> = setOf(ResponseConfig(stepName, false, errorType, validationConfig))
 
     @JvmStatic
     fun validateIfFailed(
@@ -115,46 +109,45 @@ private constructor(
   }
 }
 
-enum class HookType {
-  PRE,
-  POST,
-  // ! TODO 08/23 gopala.akshintala: Support other Hook types
-  REQUEST_SUCCESS,
-  REQUEST_FAILURE,
-  TEST_SCRIPT_JS_FAILURE
-}
-
-fun interface CheckedBiConsumer<String, Rundown> {
-  @Throws(Throwable::class) fun accept(stepName: String, rundown: Rundown)
-}
-
 data class HookConfig
-private constructor(
-  val stepName: String,
-  val hookType: HookType,
-  val hook: CheckedBiConsumer<String, Rundown>
-) {
+private constructor(val stepName: String, val hookType: HookType, val hook: Hook) {
+  enum class HookType {
+    PRE,
+    POST,
+    // ! TODO 08/23 gopala.akshintala: Support other Hook types
+    REQUEST_SUCCESS,
+    REQUEST_FAILURE,
+    TEST_SCRIPT_JS_FAILURE
+  }
+
+  sealed interface Hook {
+    fun interface PreHook : Hook {
+      @Throws(Throwable::class)
+      fun accept(stepName: String, requestInfo: TxInfo<Request>, rundown: Rundown)
+    }
+
+    fun interface PostHook : Hook {
+      @Throws(Throwable::class) fun accept(stepName: String, rundown: Rundown)
+    }
+  }
+
   companion object {
     @JvmStatic
-    fun pre(stepName: String, hook: CheckedBiConsumer<String, Rundown>): Set<HookConfig> =
-      setOf(HookConfig(stepName, HookType.PRE, hook))
+    fun pre(stepName: String, hook: PreHook): Set<HookConfig> =
+      setOf(HookConfig(stepName, PRE, hook))
 
     @JvmStatic
-    fun pre(stepNames: Set<String>, hook: CheckedBiConsumer<String, Rundown>): Set<HookConfig> =
+    fun pre(stepNames: Set<String>, hook: PreHook): Set<HookConfig> =
       stepNames.flatMap { pre(it, hook) }.toSet()
 
     @JvmStatic
-    fun post(stepName: String, hook: CheckedBiConsumer<String, Rundown>): Set<HookConfig> =
+    fun post(stepName: String, hook: PostHook): Set<HookConfig> =
       setOf(HookConfig(stepName, HookType.POST, hook))
 
     @JvmStatic
-    fun post(stepNames: Set<String>, hook: CheckedBiConsumer<String, Rundown>): Set<HookConfig> =
+    fun post(stepNames: Set<String>, hook: PostHook): Set<HookConfig> =
       stepNames.flatMap { post(it, hook) }.toSet()
   }
-}
-
-enum class ValidationStrategy {
-  FAIL_FAST,
 }
 
 @Target(AnnotationTarget.CLASS)
