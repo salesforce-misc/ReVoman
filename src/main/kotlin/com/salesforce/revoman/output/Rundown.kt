@@ -37,37 +37,43 @@ data class Rundown(
     stepNameToReport.entries
       .firstOrNull { it.key == stepName || it.key.substringAfterLast(FOLDER_DELIMITER) == stepName }
       ?.value
-}
 
-data class StepReport(
-  val requestInfo: TxInfo<Request>? = null,
-  val responseInfo: Either<Failure, TxInfo<Response>>,
-  val postHookFailure: Failure? = null,
-  val postmanEnvironmentSnapshot: PostmanEnvironment<Any?>
-) {
-  val isSuccessful: Boolean
-    get() = responseInfo.isRight && postHookFailure == null
-
-  data class TxInfo<HttpMsgT>(
-    val txObjType: Type? = null,
-    val txObj: Any? = null,
-    val httpMsg: HttpMsgT? = null
+  data class StepReport(
+    val requestInfo: Either<Failure, TxInfo<Request>>? = null,
+    val preHookFailure: Failure? = null,
+    val responseInfo: Either<Failure, TxInfo<Response>>? = null,
+    val postHookFailure: Failure? = null,
+    val postmanEnvironmentSnapshot: PostmanEnvironment<Any?>
   ) {
-    fun <T> getTypedTxObj(): T = (txObjType as Class<T>).cast(txObj)
-  }
+    val isSuccessful: Boolean
+      get() =
+        requestInfo?.isRight
+          ?: false &&
+          preHookFailure == null &&
+          responseInfo?.isRight ?: false &&
+          postHookFailure == null
 
-  data class Failure(val exeType: ExeType, val failure: Throwable) {
-    enum class ExeType(private val exeName: String) {
-      PRE_HOOK("pre-hook"),
-      MARSHALL_REQUEST("marshall-request"),
-      HTTP_REQUEST("http-request"),
-      TEST_SCRIPT_JS("testScript-js"),
-      MARSHALL_RESPONSE("marshall-response"),
-      RESPONSE_VALIDATION("response-validation"),
-      POST_HOOK("post-hook");
+    data class TxInfo<HttpMsgT>(
+      val txObjType: Type? = null,
+      val txObj: Any? = null,
+      val httpMsg: HttpMsgT
+    ) {
+      fun <T> getTypedTxObj(): T? = txObjType?.let { (it as Class<T>).cast(txObj) }
+    }
 
-      override fun toString(): String {
-        return exeName
+    data class Failure(val exeType: ExeType, val failure: Throwable) {
+      enum class ExeType(private val exeName: String) {
+        UNMARSHALL_REQUEST("unmarshall-request"),
+        PRE_HOOK("pre-hook"),
+        HTTP_REQUEST("http-request"),
+        TEST_SCRIPT_JS("testScript-js"),
+        UNMARSHALL_RESPONSE("unmarshall-response"),
+        RESPONSE_VALIDATION("response-validation"),
+        POST_HOOK("post-hook");
+
+        override fun toString(): String {
+          return exeName
+        }
       }
     }
   }

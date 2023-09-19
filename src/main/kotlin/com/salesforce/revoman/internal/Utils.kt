@@ -11,6 +11,7 @@ import com.google.common.io.Resources
 import com.salesforce.revoman.input.HookConfig
 import com.salesforce.revoman.input.HookConfig.Hook
 import com.salesforce.revoman.input.HookConfig.HookType
+import com.salesforce.revoman.input.RequestConfig
 import com.salesforce.revoman.input.ResponseConfig
 import com.salesforce.revoman.internal.postman.state.Item
 import com.salesforce.revoman.output.FOLDER_DELIMITER
@@ -63,6 +64,11 @@ internal fun getResponseConfigForStepName(
   stepName: String,
   responseConfigs: List<ResponseConfig>
 ): ResponseConfig? = responseConfigs.firstOrNull { stepNameEquals(it.stepName, stepName) }
+
+internal fun getRequestConfigForStepName(
+  stepName: String,
+  requestConfigs: List<RequestConfig>
+): RequestConfig? = requestConfigs.firstOrNull { stepNameEquals(it.stepName, stepName) }
 
 internal fun isStepNameInPassList(stepName: String, haltOnAnyFailureExceptForSteps: Set<String>) =
   haltOnAnyFailureExceptForSteps.isEmpty() ||

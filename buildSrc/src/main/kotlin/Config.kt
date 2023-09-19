@@ -6,4 +6,4 @@
  * ****************************************************************************
  */
 const val GROUP_ID = "com.salesforce.ccspayments"
-const val VERSION = "0.15.0"
+const val VERSION = "0.16.0"

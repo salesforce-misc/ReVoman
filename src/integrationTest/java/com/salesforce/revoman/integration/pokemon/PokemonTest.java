@@ -19,7 +19,7 @@ import com.salesforce.revoman.input.HookConfig.Hook.PostHook;
 import com.salesforce.revoman.input.HookConfig.Hook.PreHook;
 import com.salesforce.revoman.input.Kick;
 import com.salesforce.revoman.output.Rundown;
-import com.salesforce.revoman.output.StepReport.TxInfo;
+import com.salesforce.revoman.output.Rundown.StepReport.TxInfo;
 import com.salesforce.vador.config.ValidationConfig;
 import com.salesforce.vador.types.Validator;
 import java.util.Map;

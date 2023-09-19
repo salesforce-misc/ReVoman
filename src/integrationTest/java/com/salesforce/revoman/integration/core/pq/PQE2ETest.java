@@ -9,19 +9,20 @@ package com.salesforce.revoman.integration.core.pq;
 
 import static com.salesforce.revoman.input.HookConfig.post;
 import static com.salesforce.revoman.input.HookConfig.pre;
+import static com.salesforce.revoman.input.RequestConfig.unmarshallRequest;
 import static com.salesforce.revoman.input.ResponseConfig.unmarshallSuccessResponse;
 import static com.salesforce.revoman.input.ResponseConfig.validateIfSuccess;
+import static com.salesforce.revoman.integration.core.pq.adapters.ConnectInputRepWithGraphAdapter.adapter;
+import static kotlin.random.Random.Default;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.salesforce.revoman.ReVoman;
 import com.salesforce.revoman.input.Kick;
+import com.salesforce.revoman.integration.core.pq.connect.PlaceQuoteInputRepresentation;
 import com.salesforce.revoman.output.Rundown;
 import com.salesforce.vador.config.ValidationConfig;
 import java.util.Map;
-import java.util.Random;
 import java.util.Set;
-import java.util.function.Function;
-import kotlin.collections.MapsKt;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,22 +30,18 @@ import org.slf4j.LoggerFactory;
 class PQE2ETest {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(PQE2ETest.class);
+  public static final Set<String> ASYNC_STEP_NAMES =
+      Set.of(
+          "pq-create: qli+qlr (skip-pricing)",
+          "pq-create: qli+qlr",
+          "pq-update: qli(post+patch+delete) + qlr",
+          "pq-update: qli(post+patch)",
+          "pq-update: qli(all post)",
+          "pq-update: qli+qlr(all post)",
+          "pq-update: qli(all patch)",
+          "pq-update: qli(all delete)",
+          "pq-update: qli(post+delete)");
 
-  /**
-   * PQ E2E Flow
-   *
-   * <ul>
-   *   <li>pq-create: qli+qlr
-   *   <li>query-quote-and-related-records
-   *   <li>pq-update: qli(post+patch+delete)
-   *   <li>pq-update: qli(post+patch)
-   *   <li>pq-update: qli(all post)
-   *   <li>pq-update: qli+qlr(all post
-   *   <li>pq-update: qli(all patch)
-   *   <li>pq-update: qli(all delete)
-   *   <li>pq-update: qli(post+delete)
-   * </ul>
-   */
   @Test
   void revUpPQ() {
     final var pqRespValidationConfig =
@@ -75,10 +72,12 @@ class PQE2ETest {
                         "$qliFieldsToQuery", "Id, Product2Id",
                         "$qlrFieldsToQuery", "Id, QuoteId, MainQuoteLineId, AssociatedQuoteLineId"))
                 .customDynamicVariable( // <5>
-                    "$pricingPref",
-                    ignore ->
-                        PricingPref.values()[new Random().nextInt(PricingPref.values().length)]
-                            .name())
+                    "$quantity", ignore -> String.valueOf(Default.nextInt(10) + 1))
+                .requestConfig(
+                    unmarshallRequest(
+                        ASYNC_STEP_NAMES,
+                        PlaceQuoteInputRepresentation.class,
+                        adapter(PlaceQuoteInputRepresentation.class)))
                 .hooks( // <6>
                     post(
                         "password-reset",
@@ -94,17 +93,23 @@ class PQE2ETest {
                                 "Step count: {} executed before this step: {}",
                                 rundown.stepNameToReport.size(),
                                 stepName)),
+                    pre(
+                        ASYNC_STEP_NAMES,
+                        (stepName, requestInfo, rundown) -> {
+                          final var pqInputRep =
+                              requestInfo.<PlaceQuoteInputRepresentation>getTypedTxObj();
+                          assertThat(pqInputRep).isNotNull();
+                          if ("pq-create: qli+qlr (skip-pricing)"
+                              .equals(pqInputRep.getGraph().getGraphId())) {
+                            LOGGER.info("Skip pricing for step: {}", stepName);
+                            rundown.mutableEnv.set("$pricingPref", PricingPref.Skip.toString());
+                          } else {
+                            rundown.mutableEnv.set("$pricingPref", PricingPref.System.toString());
+                          }
+                        }),
                     post("query-quote-and-related-records", PQE2ETest::assertAfterPQCreate),
                     post(
-                        Set.of(
-                            "pq-create: qli+qlr",
-                            "pq-update: qli(post+patch+ delete)",
-                            "pq-update: qli(post+patch)",
-                            "pq-update: qli(all post)",
-                            "pq-update: qli+qlr(all post)",
-                            "pq-update: qli(all patch)",
-                            "pq-update: qli(all delete)",
-                            "pq-update: qli(post+delete)"),
+                        ASYNC_STEP_NAMES,
                         (stepName, rundown) -> {
                           LOGGER.info(
                               "Waiting after Step: {} for the Quote: {} to get processed",
@@ -112,39 +117,24 @@ class PQE2ETest {
                               rundown.mutableEnv.getString("quoteId"));
                           // ! CAUTION 10/09/23 gopala.akshintala: This test can be flaky until
                           // polling is implemented
-                          Thread.sleep(10000);
+                          Thread.sleep(20000);
                         }))
                 .haltOnAnyFailureExceptForSteps(unsuccessfulStepsException) // <7>
                 .responseConfig( // <8>
                     unmarshallSuccessResponse("quote-related-records", CompositeResponse.class),
                     validateIfSuccess( // <9>
-                        "pq-create-with-bundles",
+                        ASYNC_STEP_NAMES,
                         PlaceQuoteOutputRepresentation.class,
                         pqRespValidationConfig))
                 .insecureHttp(true) // <10>
                 .off()); // Kick-off
+    assertThat(pqRunDown.mutableEnv)
+        .containsAllEntriesOf(
+            Map.of(
+                "quoteCalculationStatusForSkipPricing", PricingPref.Skip.completeStatus,
+                "quoteCalculationStatus", PricingPref.System.completeStatus,
+                "quoteCalculationStatusAfterAllUpdates", PricingPref.System.completeStatus));
     // end::pq-e2e-with-revoman-config-demo[]
-    MapsKt.filterKeys(
-            pqRunDown.stepNameToReport, stepName -> !unsuccessfulStepsException.contains(stepName))
-        .values()
-        .forEach(
-            stepReport ->
-                assertThat(stepReport.isSuccessful())
-                    .as(
-                        String.format(
-                            "***** REQUEST:%s\n***** RESPONSE:%s",
-                            stepReport.getRequestInfo().getHttpMsg().toMessage(),
-                            (stepReport.getResponseInfo() != null)
-                                ? stepReport
-                                    .getResponseInfo()
-                                    .fold(
-                                        Function.identity(),
-                                        respInfo -> respInfo.getHttpMsg().toMessage())
-                                : "empty"))
-                    .isTrue());
-    assertThat(pqRunDown.mutableEnv.get("quoteCalculationStatus"))
-        .isEqualTo(
-            PricingPref.valueOf(pqRunDown.mutableEnv.getString("$pricingPref")).completeStatus);
   }
 
   static void assertAfterPQCreate(String stepName, Rundown pqCreateQLIQLR) {

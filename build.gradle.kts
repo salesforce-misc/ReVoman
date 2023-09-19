@@ -23,6 +23,7 @@ dependencies {
   implementation(libs.kotlin.faker)
   implementation(libs.underscore)
   implementation(libs.guava)
+  implementation(libs.spring.beans)
   kapt(libs.immutables.value)
   compileOnly(libs.immutables.builder)
   compileOnly(libs.immutables.value.annotations)
@@ -40,6 +41,7 @@ testing {
           implementation(project())
           implementation(libs.assertj.core)
           implementation(libs.mockito.core)
+          implementation(libs.spring.beans)
           implementation(libs.awaitility)
         }
       }

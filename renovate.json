@@ -6,12 +6,13 @@
   "commitBodyTable": true,
   "packageRules": [
     {
+      "excludePackageNames": [
+        "^org.graalvm.sdk:graal-sdk",
+        "^org.graalvm.js:js",
+        "^org.springframework:spring-beans"
+      ],
       "matchPackagePatterns": [
         "*"
-      ],
-      "excludePackageNames": [
-        "org.graalvm.sdk:graal-sdk",
-        "org.graalvm.js:js"
       ],
       "matchUpdateTypes": [
         "major",

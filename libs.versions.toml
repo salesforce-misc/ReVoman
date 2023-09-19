@@ -23,6 +23,7 @@ underscore = "1.93"
 kotlin-faker = "1.14.0"
 immutables = "2.9.3"
 mockito = "5.5.0"
+spring = "5.3.30" # Compatable with Java 11
 awaitility = "4.2.0"
 
 # Common dependencies
@@ -67,6 +68,7 @@ junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "junit" }
 junit-engine = { module = "org.junit.jupiter:junit-jupiter-engine" }
 mockito-core = { module = "org.mockito:mockito-core", version.ref = "mockito" }
+spring-beans = { module = "org.springframework:spring-beans", version.ref = "spring" }
 awaitility = { module = "org.awaitility:awaitility", version.ref = "awaitility" }
 
 # Gradle plugins

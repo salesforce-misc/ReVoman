@@ -9,10 +9,12 @@ package com.salesforce.revoman.internal
 
 import com.salesforce.revoman.internal.adapters.IgnoreUnknownFactory
 import com.squareup.moshi.JsonAdapter
+import com.squareup.moshi.JsonAdapter.Factory
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapters.Rfc3339DateJsonAdapter
 import dev.zacsweers.moshix.adapters.AdaptedBy
 import dev.zacsweers.moshix.adapters.JsonString
+import io.vavr.control.Either
 import java.lang.reflect.Type
 import java.util.Date
 import org.http4k.format.ConfigurableMoshi
@@ -40,12 +42,18 @@ private lateinit var moshiReVoman: Moshi
 
 @JvmOverloads
 internal fun initMoshi(
-  customAdaptersForResponse: List<Any> = emptyList(),
+  customAdaptersWithType: Map<Type, List<Either<JsonAdapter<Any>, Factory>>> = emptyMap(),
+  customAdapters: List<Any> = emptyList(),
   typesToIgnore: Set<Class<out Any>> = emptySet()
 ): ConfigurableMoshi {
-  for (adapter in customAdaptersForResponse) {
+  customAdaptersWithType.forEach { (type, customAdapters) ->
+    customAdapters.forEach { customAdapter ->
+      customAdapter.fold({ moshiBuilder.add(type, it) }, { moshiBuilder.add(it) })
+    }
+  }
+  for (adapter in customAdapters) {
     @SuppressWarnings("kotlin:S3923")
-    if (adapter is JsonAdapter.Factory) {
+    if (adapter is Factory) {
       moshiBuilder.add(adapter)
     } else {
       moshiBuilder.add(adapter)
