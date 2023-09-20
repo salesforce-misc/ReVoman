@@ -16,8 +16,6 @@ import com.salesforce.revoman.input.ResponseConfig
 import com.salesforce.revoman.internal.postman.state.Item
 import com.salesforce.revoman.output.FOLDER_DELIMITER
 import io.vavr.control.Either
-import io.vavr.kotlin.left
-import io.vavr.kotlin.right
 import org.apache.commons.lang3.StringUtils
 import org.http4k.core.ContentType
 import org.http4k.core.Response

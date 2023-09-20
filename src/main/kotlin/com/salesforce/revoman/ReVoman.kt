@@ -126,8 +126,9 @@ object ReVoman {
           val pmRequest: com.salesforce.revoman.internal.postman.state.Request =
             RegexReplacer(pm.environment, kick.customDynamicVariables())
               .replaceRegex(itemWithRegex.request)
-          val requestType =
+          val requestType: Type =
             getRequestConfigForStepName(stepName, kick.requestConfigFlattened())?.requestType
+              ?: Any::class.java
           val unmarshallAndPreHookResult: Either<StepReport, Either<StepReport, TxInfo<Request>>> =
             executePreHooks(
               stepName,
@@ -152,7 +153,9 @@ object ReVoman {
                       .getOrNull()!!
                       .copy(
                         httpMsg =
-                          RegexReplacer(pm.environment).replaceRegex(pmRequest).toHttpRequest()
+                          RegexReplacer(pm.environment)
+                            .replaceRegex(itemWithRegex.request)
+                            .toHttpRequest()
                       )
                 }
               }
@@ -216,7 +219,7 @@ object ReVoman {
                       null,
                       pm.environment.copy(),
                     )
-                  postHook(
+                  postHookExe(
                       stepName,
                       kick.hooksFlattened(),
                       stepNameToReport + (stepName to stepReportBeforePostHook),
@@ -242,7 +245,7 @@ object ReVoman {
   private fun executePreHooks(
     stepName: String,
     pmRequest: com.salesforce.revoman.internal.postman.state.Request,
-    requestType: Type?,
+    requestType: Type,
     stepNameToReport: Map<String, StepReport>,
     hooksFlattened: Map<HookType, List<HookConfig>>,
     moshiReVoman: ConfigurableMoshi
@@ -262,19 +265,15 @@ object ReVoman {
   private fun unmarshallRequest(
     stepName: String,
     pmRequest: com.salesforce.revoman.internal.postman.state.Request,
-    requestType: Type?,
+    requestType: Type,
     moshiReVoman: ConfigurableMoshi
-  ): Either<UnmarshallRequestFailure, Any?> {
-    return requestType?.let { rt ->
-      runChecked<Any?>(stepName, UNMARSHALL_REQUEST) {
-          pmRequest.body?.let { body -> moshiReVoman.asA(body.raw, rt) }
-        }
-        .mapLeft {
-          UnmarshallRequestFailure(it, TxInfo(requestType, null, pmRequest.toHttpRequest()))
-        }
-    }
-      ?: Right(null)
-  }
+  ): Either<UnmarshallRequestFailure, Any?> =
+    runChecked<Any?>(stepName, UNMARSHALL_REQUEST) {
+        pmRequest.body?.let { body -> moshiReVoman.asA(body.raw, requestType) }
+      }
+      .mapLeft {
+        UnmarshallRequestFailure(it, TxInfo(requestType, null, pmRequest.toHttpRequest()))
+      }
 
   private fun preHookExe(
     stepName: String,
@@ -292,7 +291,7 @@ object ReVoman {
       }
       .firstOrNull { it.isLeft() }
 
-  private fun postHook(
+  private fun postHookExe(
     stepName: String,
     hooksFlattened: Map<HookType, List<HookConfig>>,
     stepNameToStepReport: Map<String, StepReport>
@@ -315,7 +314,7 @@ object ReVoman {
     requestInfo: TxInfo<Request>
   ): Either<Failure, TxInfo<Response>> {
     val responseConfig: ResponseConfig? = getResponseConfigForStepName(stepName, responseConfigs)
-    val responseType: Type = responseConfig?.responseType ?: Any::class.java as Type
+    val responseType: Type = responseConfig?.responseType ?: Any::class.java
     return runChecked(stepName, UNMARSHALL_RESPONSE) {
         moshiReVoman.asA<Any>(httpResponse.bodyString(), responseType)
       }
