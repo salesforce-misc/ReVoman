@@ -14,4 +14,4 @@ jobs:
         uses: gradle/gradle-build-action@v2
 
       - name: Execute Gradle build
-        run: ./gradlew integrationTest --tests com.salesforce.revoman.integration.pokemon.PokemonTest
+        run: ./gradlew test integrationTest --tests com.salesforce.revoman.integration.pokemon.PokemonTest
