@@ -16,6 +16,7 @@ dependencies {
   api(libs.bundles.http4k)
   api(libs.moshix.adapters)
   api(libs.bundles.vador)
+  api(libs.arrow.core)
   implementation(libs.bundles.kotlin.logging)
   implementation(libs.apache.commons.lang3)
   implementation(libs.graal.sdk)
@@ -28,7 +29,6 @@ dependencies {
   compileOnly(libs.immutables.builder)
   compileOnly(libs.immutables.value.annotations)
   compileOnly(libs.jetbrains.annotations)
-
   testImplementation(libs.assertj.core)
 }
 

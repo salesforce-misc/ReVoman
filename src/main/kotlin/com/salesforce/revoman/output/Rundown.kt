@@ -7,6 +7,10 @@
  */
 package com.salesforce.revoman.output
 
+import com.salesforce.revoman.internal.toArrow
+import com.salesforce.revoman.internal.toVavr
+import com.salesforce.revoman.output.Rundown.StepReport.Failure.PostHookFailure
+import com.salesforce.revoman.output.Rundown.StepReport.Failure.PreHookFailure
 import com.salesforce.revoman.output.postman.PostmanEnvironment
 import io.vavr.control.Either
 import java.lang.reflect.Type
@@ -38,20 +42,53 @@ data class Rundown(
       .firstOrNull { it.key == stepName || it.key.substringAfterLast(FOLDER_DELIMITER) == stepName }
       ?.value
 
-  data class StepReport(
-    val requestInfo: Either<Failure, TxInfo<Request>>? = null,
-    val preHookFailure: Failure? = null,
-    val responseInfo: Either<Failure, TxInfo<Response>>? = null,
-    val postHookFailure: Failure? = null,
+  // ! TODO 20/09/23 gopala.akshintala: Enhance report viewing by overriding Either `toString()`
+  data class StepReport
+  private constructor(
+    val status: String,
+    val requestInfo: Either<out Failure, TxInfo<Request>>? = null,
+    val preHookFailure: PreHookFailure? = null,
+    val responseInfo: Either<out Failure, TxInfo<Response>>? = null,
+    val postHookFailure: PostHookFailure? = null,
     val postmanEnvironmentSnapshot: PostmanEnvironment<Any?>
   ) {
+    constructor(
+      requestInfo: arrow.core.Either<Failure, TxInfo<Request>>? = null,
+      preHookFailure: PreHookFailure? = null,
+      responseInfo: arrow.core.Either<Failure, TxInfo<Response>>? = null,
+      postHookFailure: PostHookFailure? = null,
+      postmanEnvironmentSnapshot: PostmanEnvironment<Any?>
+    ) : this(
+      if (isSuccessful(requestInfo, preHookFailure, responseInfo, postHookFailure)) "✅" else "❌",
+      requestInfo?.toVavr(),
+      preHookFailure,
+      responseInfo?.toVavr(),
+      postHookFailure,
+      postmanEnvironmentSnapshot
+    )
+
     val isSuccessful: Boolean
       get() =
-        requestInfo?.isRight
+        isSuccessful(
+          requestInfo?.toArrow(),
+          preHookFailure,
+          responseInfo?.toArrow(),
+          postHookFailure
+        )
+
+    companion object {
+      fun isSuccessful(
+        requestInfo: arrow.core.Either<Failure, TxInfo<Request>>? = null,
+        preHookFailure: PreHookFailure? = null,
+        responseInfo: arrow.core.Either<Failure, TxInfo<Response>>? = null,
+        postHookFailure: PostHookFailure? = null,
+      ): Boolean =
+        requestInfo?.isRight()
           ?: false &&
           preHookFailure == null &&
-          responseInfo?.isRight ?: false &&
+          responseInfo?.isRight() ?: false &&
           postHookFailure == null
+    }
 
     data class TxInfo<HttpMsgT>(
       val txObjType: Type? = null,
@@ -61,7 +98,9 @@ data class Rundown(
       fun <T> getTypedTxObj(): T? = txObjType?.let { (it as Class<T>).cast(txObj) }
     }
 
-    data class Failure(val exeType: ExeType, val failure: Throwable) {
+    sealed class Failure private constructor(open val exeType: ExeType, open val failure: Any) {
+      private constructor(failure: Failure) : this(failure.exeType, failure.failure)
+
       enum class ExeType(private val exeName: String) {
         UNMARSHALL_REQUEST("unmarshall-request"),
         PRE_HOOK("pre-hook"),
@@ -75,6 +114,47 @@ data class Rundown(
           return exeName
         }
       }
+
+      internal data class UnknownFailure(
+        override val exeType: ExeType,
+        override val failure: Throwable
+      ) : Failure(exeType, failure)
+
+      data class UnmarshallRequestFailure(
+        val unmarshallRequestFailure: Failure,
+        val requestInfo: TxInfo<Request>
+      ) : Failure(unmarshallRequestFailure)
+
+      data class PreHookFailure(val preHookFailure: Failure, val requestInfo: TxInfo<Request>) :
+        Failure(preHookFailure)
+
+      data class HttpRequestFailure(
+        val httpRequestFailure: Failure,
+        val requestInfo: TxInfo<Request>
+      ) : Failure(httpRequestFailure)
+
+      data class TestScriptJsFailure(
+        val testScriptJsFailure: Failure,
+        val requestInfo: TxInfo<Request>,
+        val responseInfo: TxInfo<Response>
+      ) : Failure(testScriptJsFailure)
+
+      data class UnmarshallResponseFailure(
+        val unmarshallResponseFailure: Failure,
+        val requestInfo: TxInfo<Request>,
+        val responseInfo: TxInfo<Response>
+      ) : Failure(unmarshallResponseFailure)
+
+      data class ValidationFailure(override val exeType: ExeType, override val failure: Any) :
+        Failure(exeType, failure)
+
+      data class ResponseValidationFailure(
+        val validationFailure: Failure,
+        val requestInfo: TxInfo<Request>,
+        val responseInfo: TxInfo<Response>
+      ) : Failure(validationFailure)
+
+      data class PostHookFailure(val postHookFailure: Failure) : Failure(postHookFailure)
     }
   }
 }

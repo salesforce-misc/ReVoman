@@ -1,6 +1,7 @@
 [versions]
 java-vavr = "0.10.4"
 kotlin-vavr = "0.10.2"
+arrow = "1.2.1"
 jetbrains-annotations = "24.0.1"
 typeTools = "0.6.3"
 guava = "32.1.2-jre"
@@ -35,6 +36,7 @@ apache-log4j = "2.20.0"
 [libraries]
 java-vavr = { module = "io.vavr:vavr", version.ref = "java-vavr" }
 kotlin-vavr = { module = "io.vavr:vavr-kotlin", version.ref = "kotlin-vavr" }
+arrow-core = { module = "io.arrow-kt:arrow-core", version.ref = "arrow" }
 jetbrains-annotations = { module = "org.jetbrains:annotations", version.ref = "jetbrains-annotations" }
 typeTools = { module = "net.jodah:typetools", version.ref = "typeTools" }
 guava = { module = "com.google.guava:guava", version.ref = "guava" }

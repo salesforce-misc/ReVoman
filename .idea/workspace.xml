@@ -4,32 +4,19 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="6ed80e62-f038-45bc-b42e-83dd15ec8dae" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/src/integrationTest/java/com/salesforce/revoman/integration/core/pq/adapters/ConnectInputRepWithGraphAdapter.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/integrationTest/java/com/salesforce/revoman/integration/core/pq/connect/ConnectInputRepresentationWithGraph.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/integrationTest/java/com/salesforce/revoman/integration/core/pq/connect/ObjectGraphInputRepresentation.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/integrationTest/java/com/salesforce/revoman/integration/core/pq/connect/ObjectInputRepresentationMap.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/integrationTest/java/com/salesforce/revoman/integration/core/pq/connect/ObjectWithReferenceInputRepresentation.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/integrationTest/java/com/salesforce/revoman/integration/core/pq/connect/ObjectWithReferenceInputRepresentationList.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/integrationTest/java/com/salesforce/revoman/integration/core/pq/connect/PlaceQuoteInputRepresentation.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/integrationTest/java/com/salesforce/revoman/integration/core/pq/connect/PricingPreferenceEnum.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/kotlin/com/salesforce/revoman/input/json/JsonReaderUtils.kt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/kotlin/com/salesforce/revoman/input/json/JsonWriterUtils.kt" afterDir="false" />
+    <list default="true" id="6ed80e62-f038-45bc-b42e-83dd15ec8dae" name="Changes" comment=":rocket: Release: 0.16.0&#10;- Change ReVoman back to being stateless&#10;- RequestInfo for preHooks&#10;- Changed StepReport&#10;- Support for JsonAdapter or Factory from Request or Response config&#10;- JSON utils to aid writing custom adapters&#10;- Kick config changes">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/build.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/build.gradle.kts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/gradle.properties" beforeDir="false" afterPath="$PROJECT_DIR$/gradle.properties" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/buildSrc/src/main/kotlin/Config.kt" beforeDir="false" afterPath="$PROJECT_DIR$/buildSrc/src/main/kotlin/Config.kt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/libs.versions.toml" beforeDir="false" afterPath="$PROJECT_DIR$/libs.versions.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/renovate.json" beforeDir="false" afterPath="$PROJECT_DIR$/renovate.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/integrationTest/java/com/salesforce/revoman/integration/core/pq/PQE2ETest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/integrationTest/java/com/salesforce/revoman/integration/core/pq/PQE2ETest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/integrationTest/java/com/salesforce/revoman/integration/core/pq/connect/ConnectInputRepresentationWithGraph.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/integrationTest/java/com/salesforce/revoman/integration/core/pq/connect/ConnectInputRepresentationWithGraph.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/integrationTest/java/com/salesforce/revoman/integration/core/pq/connect/PlaceQuoteInputRepresentation.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/integrationTest/java/com/salesforce/revoman/integration/core/pq/connect/PlaceQuoteInputRepresentation.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/integrationTest/java/com/salesforce/revoman/integration/pokemon/PokemonTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/integrationTest/java/com/salesforce/revoman/integration/pokemon/PokemonTest.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/integrationTest/resources/pm-templates/pq/pq-with-rc.postman_collection.json" beforeDir="false" afterPath="$PROJECT_DIR$/src/integrationTest/resources/pm-templates/pq/pq-with-rc.postman_collection.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/salesforce/revoman/ReVoman.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/salesforce/revoman/ReVoman.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/salesforce/revoman/input/KickDef.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/salesforce/revoman/input/KickDef.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/salesforce/revoman/internal/JSContext.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/salesforce/revoman/internal/JSContext.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/salesforce/revoman/internal/MoshiReVoman.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/salesforce/revoman/internal/MoshiReVoman.kt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/salesforce/revoman/internal/Utils.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/salesforce/revoman/internal/Utils.kt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/salesforce/revoman/output/Rundown.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/salesforce/revoman/output/Rundown.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/module-info.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/test/kotlin/com/salesforce/revoman/internal/UtilsTest.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/kotlin/com/salesforce/revoman/internal/UtilsTest.kt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -83,6 +70,7 @@
     <option name="projectConfigVersion" value="5" />
   </component>
   <component name="HighlightingSettingsPerFile">
+    <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/io.arrow-kt/arrow-core-jvm/1.2.1/61ccc5d1e19334f083cb33513f5bcb6c6f206a91/arrow-core-jvm-1.2.1-sources.jar!/commonMain/arrow/core/Either.kt" root0="SKIP_INSPECTION" />
     <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/io.vavr/vavr-kotlin/0.10.2/497dbd4ccef4899ee86f14d3c1b79bcb98a19ddb/vavr-kotlin-0.10.2-sources.jar!/io/vavr/kotlin/Control.kt" root0="SKIP_INSPECTION" />
     <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/io.vavr/vavr/0.10.4/b6509f9114d0354893803668e58b97965a41f2f6/vavr-0.10.4-sources.jar!/io/vavr/control/Either.java" root0="SKIP_INSPECTION" />
     <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.http4k/http4k-core/5.8.0.0/e75a50311c465cd92f066b080821517414a3ecfb/http4k-core-5.8.0.0-sources.jar!/org/http4k/core/http.kt" root0="SKIP_INSPECTION" />
@@ -123,36 +111,36 @@
     <option name="showLibraryContents" value="true" />
     <option name="sortKey" value="BY_TIME_DESCENDING" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "FindInProjectState.directoryName": "/Users/gopala.akshintala/code-clones/work/revoman-root",
-    "FindInProjectState.isProjectScope": "false",
-    "RunOnceActivity.OpenProjectViewOnStart": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
-    "SONARLINT_PRECOMMIT_ANALYSIS": "false",
-    "WebServerToolWindowFactoryState": "false",
-    "com.github.patou.gitmoji.display-icon": "emoji",
-    "com.github.patou.gitmoji.insert-in-cursor-position": "true",
-    "com.github.patou.gitmoji.text-after-unicode": " ",
-    "com.intellij.testIntegration.createTest.CreateTestDialog.defaultLibrary": "JUnit5",
-    "com.intellij.testIntegration.createTest.CreateTestDialog.defaultLibrarySuperClass.JUnit5": "",
-    "git-widget-placeholder": "master",
-    "ktor.last.update.timestamp": "1684229451936",
-    "last_directory_selection": "/Users/gopala.akshintala/code-clones/work/revoman-root/src/test/kotlin/org/revcloud/revoman/internal",
-    "last_opened_file_path": "/Users/gopala.akshintala/code-clones/work/revoman-root/src/integrationTest/resources/pm-templates/pq",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "project.structure.last.edited": "SDKs",
-    "project.structure.proportion": "0.15",
-    "project.structure.side.proportion": "0.2",
-    "settings.editor.selected.configurable": "preferences.sourceCode.Kotlin",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;FindInProjectState.directoryName&quot;: &quot;/Users/gopala.akshintala/code-clones/work/revoman-root&quot;,
+    &quot;FindInProjectState.isProjectScope&quot;: &quot;false&quot;,
+    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
+    &quot;SONARLINT_PRECOMMIT_ANALYSIS&quot;: &quot;false&quot;,
+    &quot;WebServerToolWindowFactoryState&quot;: &quot;false&quot;,
+    &quot;com.github.patou.gitmoji.display-icon&quot;: &quot;emoji&quot;,
+    &quot;com.github.patou.gitmoji.insert-in-cursor-position&quot;: &quot;true&quot;,
+    &quot;com.github.patou.gitmoji.text-after-unicode&quot;: &quot; &quot;,
+    &quot;com.intellij.testIntegration.createTest.CreateTestDialog.defaultLibrary&quot;: &quot;JUnit5&quot;,
+    &quot;com.intellij.testIntegration.createTest.CreateTestDialog.defaultLibrarySuperClass.JUnit5&quot;: &quot;&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
+    &quot;ktor.last.update.timestamp&quot;: &quot;1684229451936&quot;,
+    &quot;last_directory_selection&quot;: &quot;/Users/gopala.akshintala/code-clones/work/revoman-root/src/test/kotlin/org/revcloud/revoman/internal&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/Users/gopala.akshintala/code-clones/work/revoman-root/src/integrationTest/resources/pm-templates/pq&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;project.structure.last.edited&quot;: &quot;SDKs&quot;,
+    &quot;project.structure.proportion&quot;: &quot;0.15&quot;,
+    &quot;project.structure.side.proportion&quot;: &quot;0.2&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.sourceCode.Kotlin&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="Push.Settings">
     <force-push-targets>
       <force-push-target remote-path="origin" branch="master" />
@@ -203,16 +191,16 @@
       <command value="gradle clean build -x integrationTest" />
       <command value="gradle wrapper" />
       <command value="gradle integrationTest" />
+      <command value="./gradlew integrationTest --tests com.salesforce.revoman.integration.pokemon.PokemonTest" />
+      <command value="gradle clean build" />
       <command value="gradle publish" />
       <command value="gradle publish --no-configuration-cache" />
-      <command value="./gradlew integrationTest --tests com.salesforce.revoman.integration.pokemon.PokemonTest" />
       <command value="gradle integrationTest --tests com.salesforce.revoman.integration.pokemon.PokemonTest" />
-      <command value="gradle clean build" />
       <command value="gradle spotlessApply" />
     </option>
   </component>
-  <component name="RunManager" selected="Gradle.PQE2ETest.revUpPQ">
-    <configuration name="PQE2ETest.revUpPQ" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
+  <component name="RunManager" selected="Gradle.revoman-root [test integrationTest --tests com.salesforce.revoman.integration.pokemon.PokemonTest]">
+    <configuration name="PokemonTest.pokemon" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
       <ExternalSystemSettings>
         <option name="executionName" />
         <option name="externalProjectPath" value="$PROJECT_DIR$" />
@@ -225,7 +213,7 @@
           <list>
             <option value=":integrationTest" />
             <option value="--tests" />
-            <option value="&quot;com.salesforce.revoman.integration.core.pq.PQE2ETest.revUpPQ&quot;" />
+            <option value="&quot;com.salesforce.revoman.integration.pokemon.PokemonTest.pokemon&quot;" />
           </list>
         </option>
         <option name="vmOptions" />
@@ -236,7 +224,7 @@
       <RunAsTest>true</RunAsTest>
       <method v="2" />
     </configuration>
-    <configuration name="revoman-root [clean build]" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
+    <configuration name="UtilsTest.deepFlattenItems with nested items" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
       <ExternalSystemSettings>
         <option name="executionName" />
         <option name="externalProjectPath" value="$PROJECT_DIR$" />
@@ -247,16 +235,17 @@
         </option>
         <option name="taskNames">
           <list>
-            <option value="clean" />
-            <option value="build" />
+            <option value=":test" />
+            <option value="--tests" />
+            <option value="&quot;com.salesforce.revoman.internal.UtilsTest.deepFlattenItems with nested items&quot;" />
           </list>
         </option>
         <option name="vmOptions" />
       </ExternalSystemSettings>
-      <ExternalSystemDebugServerProcess>true</ExternalSystemDebugServerProcess>
+      <ExternalSystemDebugServerProcess>false</ExternalSystemDebugServerProcess>
       <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
       <DebugAllEnabled>false</DebugAllEnabled>
-      <RunAsTest>false</RunAsTest>
+      <RunAsTest>true</RunAsTest>
       <method v="2" />
     </configuration>
     <configuration name="revoman-root [integrationTest --tests com.salesforce.revoman.integration.pokemon.PokemonTest]" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
@@ -273,28 +262,6 @@
             <option value="integrationTest" />
             <option value="--tests" />
             <option value="com.salesforce.revoman.integration.pokemon.PokemonTest" />
-          </list>
-        </option>
-        <option name="vmOptions" />
-      </ExternalSystemSettings>
-      <ExternalSystemDebugServerProcess>true</ExternalSystemDebugServerProcess>
-      <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
-      <DebugAllEnabled>false</DebugAllEnabled>
-      <RunAsTest>false</RunAsTest>
-      <method v="2" />
-    </configuration>
-    <configuration name="revoman-root [publish]" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
-      <ExternalSystemSettings>
-        <option name="executionName" />
-        <option name="externalProjectPath" value="$PROJECT_DIR$" />
-        <option name="externalSystemIdString" value="GRADLE" />
-        <option name="scriptParameters" value="" />
-        <option name="taskDescriptions">
-          <list />
-        </option>
-        <option name="taskNames">
-          <list>
-            <option value="publish" />
           </list>
         </option>
         <option name="vmOptions" />
@@ -327,13 +294,38 @@
       <RunAsTest>false</RunAsTest>
       <method v="2" />
     </configuration>
+    <configuration name="revoman-root [test integrationTest --tests com.salesforce.revoman.integration.pokemon.PokemonTest]" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
+      <ExternalSystemSettings>
+        <option name="executionName" />
+        <option name="externalProjectPath" value="$PROJECT_DIR$" />
+        <option name="externalSystemIdString" value="GRADLE" />
+        <option name="scriptParameters" value="" />
+        <option name="taskDescriptions">
+          <list />
+        </option>
+        <option name="taskNames">
+          <list>
+            <option value="test" />
+            <option value="integrationTest" />
+            <option value="--tests" />
+            <option value="com.salesforce.revoman.integration.pokemon.PokemonTest" />
+          </list>
+        </option>
+        <option name="vmOptions" />
+      </ExternalSystemSettings>
+      <ExternalSystemDebugServerProcess>true</ExternalSystemDebugServerProcess>
+      <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
+      <DebugAllEnabled>false</DebugAllEnabled>
+      <RunAsTest>false</RunAsTest>
+      <method v="2" />
+    </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="Gradle.PQE2ETest.revUpPQ" />
-        <item itemvalue="Gradle.revoman-root [clean build]" />
-        <item itemvalue="Gradle.revoman-root [integrationTest --tests com.salesforce.revoman.integration.pokemon.PokemonTest]" />
+        <item itemvalue="Gradle.revoman-root [test integrationTest --tests com.salesforce.revoman.integration.pokemon.PokemonTest]" />
+        <item itemvalue="Gradle.PokemonTest.pokemon" />
         <item itemvalue="Gradle.revoman-root [spotlessApply]" />
-        <item itemvalue="Gradle.revoman-root [publish]" />
+        <item itemvalue="Gradle.UtilsTest.deepFlattenItems with nested items" />
+        <item itemvalue="Gradle.revoman-root [integrationTest --tests com.salesforce.revoman.integration.pokemon.PokemonTest]" />
       </list>
     </recent_temporary>
   </component>
@@ -462,7 +454,8 @@
       <workItem from="1694593977353" duration="3184000" />
       <workItem from="1694604189676" duration="1531000" />
       <workItem from="1694755262231" duration="6965000" />
-      <workItem from="1694943479417" duration="70700000" />
+      <workItem from="1694943479417" duration="74599000" />
+      <workItem from="1695191942768" duration="18328000" />
     </task>
     <task id="LOCAL-00001" summary="- Fixed moshiReVoman&#10;- Added module-info.java to integrationTest module">
       <created>1678595183319</created>
@@ -575,14 +568,6 @@
       <option name="presentableId" value="LOCAL-00016" />
       <option name="project" value="LOCAL" />
       <updated>1682662367190</updated>
-    </task>
-    <task id="LOCAL-00069" summary="Change hooks to take `Set&lt;Set&lt;HookConfig&gt;&gt;`&#10; &#10; &#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
-      <option name="closed" value="true" />
-      <created>1693289738002</created>
-      <option name="number" value="00069" />
-      <option name="presentableId" value="LOCAL-00069" />
-      <option name="project" value="LOCAL" />
-      <updated>1693289738002</updated>
     </task>
     <task id="LOCAL-00070" summary="Change responseConfig to take `Set&lt;Set&lt;HookConfig&gt;&gt;`&#10; &#10; &#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
       <option name="closed" value="true" />
@@ -840,7 +825,15 @@
       <option name="project" value="LOCAL" />
       <updated>1695040206216</updated>
     </task>
-    <option name="localTasksCounter" value="102" />
+    <task id="LOCAL-00102" summary=":rocket: Release: 0.16.0&#10;- Change ReVoman back to being stateless&#10;- RequestInfo for preHooks&#10;- Changed StepReport&#10;- Support for JsonAdapter or Factory from Request or Response config&#10;- JSON utils to aid writing custom adapters&#10;- Kick config changes">
+      <option name="closed" value="true" />
+      <created>1695131910095</created>
+      <option name="number" value="00102" />
+      <option name="presentableId" value="LOCAL-00102" />
+      <option name="project" value="LOCAL" />
+      <updated>1695131910095</updated>
+    </task>
+    <option name="localTasksCounter" value="103" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -896,7 +889,6 @@
   <component name="VcsManagerConfiguration">
     <option name="CHECK_CODE_SMELLS_BEFORE_PROJECT_COMMIT" value="false" />
     <option name="CHECK_NEW_TODO" value="false" />
-    <MESSAGE value="Release 0.10.0&#10;- Change package name&#10; &#10; &#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
     <MESSAGE value="Change hooks to take `Set&lt;Set&lt;HookConfig&gt;&gt;`&#10; &#10; &#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
     <MESSAGE value="Change responseConfig to take `Set&lt;Set&lt;HookConfig&gt;&gt;`&#10; &#10; &#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
     <MESSAGE value="Release 0.11.0&#10;- Change postman sdk to store any datatype&#10; &#10; &#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
@@ -921,15 +913,16 @@
     <MESSAGE value="Convert ReVoman to stateful class&#10;&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
     <MESSAGE value="Refactor all runCatching to runChecked&#10;&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
     <MESSAGE value=":rocket: :boom: Major refactoring&#10;&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
-    <option name="LAST_COMMIT_MESSAGE" value=":rocket: :boom: Major refactoring&#10;&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
+    <MESSAGE value=":rocket: Release: 0.16.0&#10;- Change ReVoman back to being stateless&#10;- RequestInfo for preHooks&#10;- Changed StepReport&#10;- Support for JsonAdapter or Factory from Request or Response config&#10;- JSON utils to aid writing custom adapters&#10;- Kick config changes" />
+    <option name="LAST_COMMIT_MESSAGE" value=":rocket: Release: 0.16.0&#10;- Change ReVoman back to being stateless&#10;- RequestInfo for preHooks&#10;- Changed StepReport&#10;- Support for JsonAdapter or Factory from Request or Response config&#10;- JSON utils to aid writing custom adapters&#10;- Kick config changes" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
       <breakpoints>
         <line-breakpoint enabled="true" type="java-line">
           <url>file://$PROJECT_DIR$/src/integrationTest/java/com/salesforce/revoman/integration/pokemon/PokemonTest.java</url>
-          <line>64</line>
-          <option name="timeStamp" value="28" />
+          <line>89</line>
+          <option name="timeStamp" value="29" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>

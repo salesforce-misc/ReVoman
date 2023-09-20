@@ -26,18 +26,18 @@ class UtilsTest {
         ?.map { it.name }
     stepNames shouldContainExactly
       listOf(
-        "POST: product-setup|>pre|>Login to ProductPricingAdmin",
-        "GET: product-setup|>pre|>Proration Policy",
-        "POST: product-setup|>OneTime|>One-Time Product",
-        "POST: product-setup|>OneTime|>OneTime PBE",
-        "POST: product-setup|>Evergreen|>Evergreen Product",
-        "POST: product-setup|>Evergreen|>Evergreen PSM",
-        "GET: product-setup|>Evergreen|>Evergreen PSM",
-        "POST: product-setup|>Evergreen|>Evergreen PSMO",
-        "POST: product-setup|>Evergreen|>Evergreen PBE",
-        "POST: bundle-setup|>ProductRelationshipType",
-        "GET: bundle-setup|>ProductRelationShipType",
-        "POST: bundle-setup|>ProductRelatedComponent"
+        "1.1.1 -> POST: product-setup|>pre|>Login to ProductPricingAdmin",
+        "1.1.2 -> GET: product-setup|>pre|>Proration Policy",
+        "1.2.1 -> POST: product-setup|>OneTime|>One-Time Product",
+        "1.2.2 -> POST: product-setup|>OneTime|>OneTime PBE",
+        "1.3.1 -> POST: product-setup|>Evergreen|>Evergreen Product",
+        "1.3.2 -> POST: product-setup|>Evergreen|>Evergreen PSM",
+        "1.3.3 -> GET: product-setup|>Evergreen|>Evergreen PSM",
+        "1.3.4 -> POST: product-setup|>Evergreen|>Evergreen PSMO",
+        "1.3.5 -> POST: product-setup|>Evergreen|>Evergreen PBE",
+        "2.1 -> POST: bundle-setup|>ProductRelationshipType",
+        "2.2 -> GET: bundle-setup|>ProductRelationShipType",
+        "2.3 -> POST: bundle-setup|>ProductRelatedComponent"
       )
   }
 }

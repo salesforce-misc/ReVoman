@@ -36,13 +36,17 @@ internal fun isContentTypeApplicationJson(response: Response) =
 internal fun readFileToString(fileRelativePath: String): String =
   Resources.getResource(fileRelativePath).readText()
 
-internal fun List<Item>.deepFlattenItems(parentFolderName: String = ""): List<Item> =
+internal fun List<Item>.deepFlattenItems(
+  parentFolderName: String = "",
+  parentIndex: String = ""
+): List<Item> =
   asSequence()
-    .flatMap { item ->
+    .flatMapIndexed { itemIndex, item ->
       val concatWithParentFolder =
-        if (parentFolderName.isEmpty()) item.name else "$parentFolderName|>${item.name}"
-      item.item?.deepFlattenItems(concatWithParentFolder)
-        ?: listOf(item.copy(name = "${item.request.method}: $concatWithParentFolder"))
+        if (parentFolderName.isBlank()) item.name else "$parentFolderName|>${item.name}"
+      val index = if (parentIndex.isBlank()) "${itemIndex+1}" else "$parentIndex.${itemIndex+1}"
+      item.item?.deepFlattenItems(concatWithParentFolder, index)
+        ?: listOf(item.copy(name = "$index -> ${item.request.method}: $concatWithParentFolder"))
     }
     .toList()
 
@@ -89,4 +93,8 @@ internal fun shouldStepBeExecuted(
         (!skipSteps.contains(stepName) &&
           !skipSteps.contains(stepName.substringAfterLast(FOLDER_DELIMITER)))))
 
-internal fun <T> Result<T>.toEither(): Either<Throwable, T> = fold({ right(it) }, { left(it) })
+internal fun <L, R> arrow.core.Either<L, R>.toVavr(): Either<L, R> =
+  fold({ Either.left(it) }, { Either.right(it) })
+
+internal fun <L, R> Either<L, R>.toArrow(): arrow.core.Either<L, R> =
+  fold({ arrow.core.Either.Left(it) }, { arrow.core.Either.Right(it) })

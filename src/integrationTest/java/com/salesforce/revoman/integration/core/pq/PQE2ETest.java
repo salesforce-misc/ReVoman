@@ -13,7 +13,6 @@ import static com.salesforce.revoman.input.RequestConfig.unmarshallRequest;
 import static com.salesforce.revoman.input.ResponseConfig.unmarshallSuccessResponse;
 import static com.salesforce.revoman.input.ResponseConfig.validateIfSuccess;
 import static com.salesforce.revoman.integration.core.pq.adapters.ConnectInputRepWithGraphAdapter.adapter;
-import static kotlin.random.Random.Default;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.salesforce.revoman.ReVoman;
@@ -23,6 +22,7 @@ import com.salesforce.revoman.output.Rundown;
 import com.salesforce.vador.config.ValidationConfig;
 import java.util.Map;
 import java.util.Set;
+import kotlin.random.Random;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -72,7 +72,7 @@ class PQE2ETest {
                         "$qliFieldsToQuery", "Id, Product2Id",
                         "$qlrFieldsToQuery", "Id, QuoteId, MainQuoteLineId, AssociatedQuoteLineId"))
                 .customDynamicVariable( // <5>
-                    "$quantity", ignore -> String.valueOf(Default.nextInt(10) + 1))
+                    "$quantity", ignore -> String.valueOf(Random.Default.nextInt(10) + 1))
                 .requestConfig(
                     unmarshallRequest(
                         ASYNC_STEP_NAMES,
