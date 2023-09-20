@@ -1,6 +1,22 @@
 package com.salesforce.revoman.integration.core.pq.connect;
 
-public class PlaceQuoteInputRepresentation extends ConnectInputRepresentationWithGraph {
+public class PlaceQuoteInputRepresentation implements ConnectInputRepresentationWithGraph {
+
+  private ObjectGraphInputRepresentation graph;
+  private boolean isSetGraph;
+
+  public ObjectGraphInputRepresentation getGraph() {
+    return this.graph;
+  }
+
+  public void setGraph(ObjectGraphInputRepresentation graph) {
+    this.graph = graph;
+    this.isSetGraph = true;
+  }
+
+  public boolean _isSetGraph() {
+    return this.isSetGraph;
+  }
 
   private PricingPreferenceEnum pricingPref;
 
