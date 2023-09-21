@@ -267,13 +267,17 @@ object ReVoman {
     pmRequest: com.salesforce.revoman.internal.postman.state.Request,
     requestType: Type,
     moshiReVoman: ConfigurableMoshi
-  ): Either<UnmarshallRequestFailure, Any?> =
-    runChecked<Any?>(stepName, UNMARSHALL_REQUEST) {
-        pmRequest.body?.let { body -> moshiReVoman.asA(body.raw, requestType) }
-      }
-      .mapLeft {
-        UnmarshallRequestFailure(it, TxInfo(requestType, null, pmRequest.toHttpRequest()))
-      }
+  ): Either<UnmarshallRequestFailure, Any?> {
+    val httpRequest = pmRequest.toHttpRequest()
+    return when {
+      isContentTypeApplicationJson(httpRequest) ->
+        runChecked<Any?>(stepName, UNMARSHALL_REQUEST) {
+            pmRequest.body?.let { body -> moshiReVoman.asA(body.raw, requestType) }
+          }
+          .mapLeft { UnmarshallRequestFailure(it, TxInfo(requestType, null, httpRequest)) }
+      else -> Right(null)
+    }
+  }
 
   private fun preHookExe(
     stepName: String,

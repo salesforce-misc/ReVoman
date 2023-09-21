@@ -17,17 +17,14 @@ import com.salesforce.revoman.internal.postman.state.Item
 import com.salesforce.revoman.output.FOLDER_DELIMITER
 import io.vavr.control.Either
 import org.apache.commons.lang3.StringUtils
-import org.http4k.core.ContentType
-import org.http4k.core.Response
+import org.http4k.core.ContentType.Companion.APPLICATION_JSON
+import org.http4k.core.HttpMessage
 
-internal fun isContentTypeApplicationJson(response: Response) =
-  response.bodyString().isNotBlank() &&
-    response.header("content-type")?.let {
+internal fun isContentTypeApplicationJson(httpMessage: HttpMessage) =
+  httpMessage.bodyString().isNotBlank() &&
+    httpMessage.header("content-type")?.let {
       StringUtils.deleteWhitespace(it)
-        .equals(
-          StringUtils.deleteWhitespace(ContentType.APPLICATION_JSON.toHeaderValue()),
-          ignoreCase = true
-        )
+        .equals(StringUtils.deleteWhitespace(APPLICATION_JSON.toHeaderValue()), ignoreCase = true)
     }
       ?: false
 
