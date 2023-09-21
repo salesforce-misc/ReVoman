@@ -92,10 +92,10 @@ ____
 ====
 
 This is an https://sourcegraph.soma.salesforce.com/perforce.soma.salesforce.com/app/main/core@HEAD/-/blob/revenue-place-quote-impl/test/func/java/src/revenue/place/quote/impl/revoman/PlaceQuoteReVomanTest.java?L113[*FTest
-with ReVoman*] automating *62* steps 😲— Create persona-based users,
+with ReVoman*] automating *70* steps 🚀 — Create persona-based users,
 set up data, call the API for multiple use-cases and verify results.
 
-link:++{pmtemplates}/pq/pq (rc).postman_collection.json++[Postman collection JSON]
+link:{pmtemplates}/pq/pq-with-rc.postman_collection.json[Postman collection JSON]
 
 link:{pmtemplates}/pq/pq-env.postman_environment.json[Postman environment JSON]
 
@@ -145,74 +145,90 @@ ifdef::env-github[]
 [source,java,indent=0,options="nowrap"]
 .link:{testdir}/com/salesforce/revoman/integration/core/pq/PQE2ETest.java[PQE2ETest.java, tag=pq-e2e-with-revoman-config-demo]
 ----
-    final var pqRunDown =
-        ReVoman.revUp( // <1>
-            Kick.configure()
-                .templatePath("pm-templates/pq/pq (rc).postman_collection.json") // <2>
-                .environmentPath("pm-templates/pq/pq-env.postman_environment.json") // <3>
-                .dynamicEnvironment( // <4>
-                    Map.of(
-                        "$quoteFieldsToQuery", "LineItemCount, CalculationStatus",
-                        "$qliFieldsToQuery", "Id, Product2Id",
-                        "$qlrFieldsToQuery", "Id, QuoteId, MainQuoteLineId, AssociatedQuoteLineId"))
-                .customDynamicVariable( // <5>
-                    "$pricingPref",
-                    ignore ->
-                        PricingPref.values()[new Random().nextInt(PricingPref.values().length)]
-                            .name())
-                .hooks( // <6>
-                    post(
-                        "password-reset",
-                        rundown ->
-                            LOGGER.info(
-                                "Step count executed including this step: "
-                                    + rundown.stepNameToReport.size())),
-                    pre(
-                        "pq-create-with-bundles",
-                        rundown ->
-                            LOGGER.info(
-                                "Step count executed before this step: "
-                                    + rundown.stepNameToReport.size())),
-                    post("query-quote-and-related-records", PQE2ETest::assertAfterPQCreate),
-                    post(
-                        Set.of(
-                            "pq-create: qli+qlr",
-                            "pq-update: qli(post+patch+ delete)",
-                            "pq-update: qli(post+patch)",
-                            "pq-update: qli(all post)",
-                            "pq-update: qli+qlr(all post)",
-                            "pq-update: qli(all patch)",
-                            "pq-update: qli(all delete)",
-                            "pq-update: qli(post+delete)"),
-                        rundown -> {
-                          LOGGER.info(
-                              "Waiting for the Quote: {} to get processed",
-                              rundown.mutableEnv.getString("quoteId"));
-                          Try.run(() -> Thread.sleep(10000));
-                        }))
-                .haltOnAnyFailureExceptForSteps(unsuccessfulStepsException) // <7>
-                .responseConfig( // <8>
-                    unmarshallSuccessResponse(
-                        "quote-related-records", CompositeResponse.class),
-                    validateIfSuccess( // <9>
-                        "pq-create-with-bundles",
-                        PlaceQuoteOutputRepresentation.class,
-                        pqRespValidationConfig))
-                .insecureHttp(true) // <10>
-                .off()); // Kick-off
+ReVoman.revUp( // <1>
+    Kick.configure()
+        .templatePath("pm-templates/pq/pq-with-rc.postman_collection.json") // <2>
+        .environmentPath("pm-templates/pq/pq-env.postman_environment.json") // <3>
+        .dynamicEnvironment( // <4>
+            Map.of(
+                "$quoteFieldsToQuery", "LineItemCount, CalculationStatus",
+                "$qliFieldsToQuery", "Id, Product2Id",
+                "$qlrFieldsToQuery", "Id, QuoteId, MainQuoteLineId, AssociatedQuoteLineId"))
+        .customDynamicVariable( // <5>
+            "$quantity", ignore -> String.valueOf(Random.Default.nextInt(10) + 1))
+        .requestConfig( // <6>
+            unmarshallRequest(
+                ASYNC_STEP_NAMES,
+                PlaceQuoteInputRepresentation.class,
+                adapter(PlaceQuoteInputRepresentation.class)))
+        .hooks( // <7>
+            post(
+                "password-reset",
+                (stepName, rundown) ->
+                    LOGGER.info(
+                        "Step count: {} executed including this step: {}",
+                        rundown.stepNameToReport.size(),
+                        stepName)),
+            pre(
+                "pq-create-with-bundles",
+                (stepName, requestInfo, rundown) ->
+                    LOGGER.info(
+                        "Step count: {} executed before this step: {}",
+                        rundown.stepNameToReport.size(),
+                        stepName)),
+            pre(
+                ASYNC_STEP_NAMES,
+                (stepName, requestInfo, rundown) -> {
+                  final var pqInputRep =
+                      requestInfo.<PlaceQuoteInputRepresentation>getTypedTxObj();
+                  assertThat(pqInputRep).isNotNull();
+                  if ("pq-create: qli+qlr (skip-pricing)"
+                      .equals(pqInputRep.getGraph().getGraphId())) {
+                    LOGGER.info("Skip pricing for step: {}", stepName);
+                    rundown.mutableEnv.set("$pricingPref", PricingPref.Skip.toString());
+                  } else {
+                    rundown.mutableEnv.set("$pricingPref", PricingPref.System.toString());
+                  }
+                }),
+            post("query-quote-and-related-records", PQE2ETest::assertAfterPQCreate),
+            post(
+                ASYNC_STEP_NAMES,
+                (stepName, rundown) -> {
+                  LOGGER.info(
+                      "Waiting after Step: {} for the Quote: {} to get processed",
+                      stepName,
+                      rundown.mutableEnv.getString("quoteId"));
+                  // ! CAUTION 10/09/23 gopala.akshintala: This test can be flaky until
+                  // polling is implemented
+                  Thread.sleep(20000);
+                }))
+        .haltOnAnyFailureExceptForSteps(unsuccessfulStepsException) // <8>
+        .responseConfig( // <9>
+            unmarshallSuccessResponse("quote-related-records", CompositeResponse.class),
+            validateIfSuccess( // <9.1>
+                ASYNC_STEP_NAMES,
+                PlaceQuoteOutputRepresentation.class,
+                validatePQSuccessResponse),
+            validateIfFailed(
+                FAILURE_STEP_NAMES,
+                PlaceQuoteOutputRepresentation.class,
+                validatePQErrorResponse))
+        .insecureHttp(true) // <10>
+        .off()); // Kick-off
 ----
 <1> `revUp` is the method to call passing a configuration, built as below
 <2> Supply the path (relative to resources) to the Template Collection JSON file
 <3> Supply the path (relative to resources) to the Environment JSON file
 <4> Supply any dynamic environment
 <5> Plug Custom dynamic variables that are prepared at runtime
-<6> You can set up a pre- / post-hook around a Step via `hooks`, which can help as callbacks, especially for Async operations.
+<6> You can provide a strong type for your request to be marshalled into. This shall be passed onto which executing pre-hooks
+<7> You can set up a pre- / post-hook around a Step via `hooks`, which can help as callbacks, especially for Async operations.
 ** These runs despite the step are successful or failed. The entire rundown till that step shall be provided to the hook as a parameter
-<7> It lets you be in charge of the Step Orchestration by letting you configure a pass-list of steps to ignore for failure
-<8> Provide configuration to unmarshall/deserialize response JSON into strong types
+<8> It lets you be in charge of the Step Orchestration by letting you configure a pass-list of steps to ignore for failure
+<9> Provide configuration to unmarshall/deserialize response JSON into strong types
 ** ReVoman supports all data types within or outside the core without any extra annotations.
 ** `unmarshallErrorResponse` can be used for error Types
-<9> Supply your validations/assertions to be run on a step response
+<9.1> Supply your validations/assertions to be run on a step response
 ** You can leverage the power of https://github.com/salesforce-misc/Vador[*Vador*] to write config-driven validations and supply them to ReVoman `validateIfSuccess`.
 ** Because both these tools are from the same Development team, you should see homogeneous patterns and seamless Integration and support.
 ** `validateIfError` can be used for error Types
@@ -231,13 +247,14 @@ include::{testdir}/com/salesforce/revoman/integration/core/pq/PQE2ETest.java[tag
 <3> Supply the path (relative to resources) to the Environment JSON file
 <4> Supply any dynamic environment
 <5> Plug Custom dynamic variables that are prepared at runtime
-<6> You can set up a pre- / post-hook around a Step via `hooks`, which can help as callbacks, especially for Async operations.
+<6> You can provide a strong type for your request to be marshalled into. This shall be passed onto which executing pre-hooks
+<7> You can set up a pre- / post-hook around a Step via `hooks`, which can help as callbacks, especially for Async operations.
 ** These runs despite the step are successful or failed. The entire rundown till that step shall be provided to the hook as a parameter
-<7> It lets you be in charge of the Step Orchestration by letting you configure a pass-list of steps to ignore for failure
-<8> Provide configuration to unmarshall/deserialize response JSON into strong types
+<8> It lets you be in charge of the Step Orchestration by letting you configure a pass-list of steps to ignore for failure
+<9> Provide configuration to unmarshall/deserialize response JSON into strong types
 ** ReVoman supports all data types within or outside the core without any extra annotations.
 ** `unmarshallErrorResponse` can be used for error Types
-<9> Supply your validations/assertions to be run on a step response
+<9.1> Supply your validations/assertions to be run on a step response
 ** You can leverage the power of https://github.com/salesforce-misc/Vador[*Vador*] to write config-driven validations and supply them to ReVoman `validateIfSuccess`.
 ** Because both these tools are from the same Development team, you should see homogeneous patterns and seamless Integration and support.
 ** `validateIfError` can be used for error Types
@@ -256,20 +273,45 @@ Rundown(
   environment: PostmanEnvironment)
 
 StepReport(
-  val requestData: Request,
-  val responseObj: Any,
-  val responseType: Type,
-  val responseData: Response,
-  val httpFailure: Throwable,
-  val testScriptJsFailure: Throwable,
-  val validationFailure: Any,
-  val postmanEnvironmentSnapshot: PostmanEnvironment<Any?>
+    val status: String,
+    val requestInfo: Either<out Failure, TxInfo<Request>>?,
+    val preHookFailure: PreHookFailure?,
+    val responseInfo: Either<out Failure, TxInfo<Response>>?,
+    val postHookFailure: PostHookFailure?,
+    val postmanEnvironmentSnapshot: PostmanEnvironment<Any?>
 )
 ----
 
-image:debug-stepreport.png[StepReport with Debugger]
+Here is what a debugger view of a Rundown looks like:
 
-This report has everything you need to know about what happened during a step execution. You can run further assertions on top of this report
+image:full-report.png[Rundown of all steps]
+
+Along with all the environment
+
+image:mutable-env.png[Mutable environment after the execution completion]
+
+This report has everything you need to know about what happened during each step execution,
+along with environment snapshot during that step execution.
+
+image:step-report.png[Step Report]
+
+You can run further assertions on top of this report
+
+=== Perf
+
+This entire execution of **70 steps**, which include **10 async steps**, took a mere *3.6 min* on localhost. 
+This can be much better on auto-build environments.
+(TBD: Capture the avg time taken on auto-builds)
+
+image:ftest-console.png[Localhost Test time on FTest console]
+
+WARNING: ReVoman internally is very light-weight and the execution times are proportional
+to how your server responds or your network speeds.
+There is a https://salesforce-internal.slack.com/archives/C01RP1YE3S9/p1695048538986409?thread_ts=1694839136.253259&cid=C01RP1YE3S9[known issue] on the Connect API,
+that the first call to a Connect API after start takes a lot longer than the subsequent calls
+image:connect-api-delay.png[Connect API delay]
+Sometimes, this can cause your HTTP request to timeout or your Ftest may fail with `SlowTestException`. 
+The subsequent runs should pass without any delay
 
 === Low-code
 

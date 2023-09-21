@@ -2,8 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/revoman-root.main.iml" filepath="$PROJECT_DIR$/.idea/modules/revoman-root.main.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/revoman-root.test.iml" filepath="$PROJECT_DIR$/.idea/modules/revoman-root.test.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/revoman-root.iml" filepath="$PROJECT_DIR$/.idea/revoman-root.iml" />
     </modules>
   </component>
 </project>

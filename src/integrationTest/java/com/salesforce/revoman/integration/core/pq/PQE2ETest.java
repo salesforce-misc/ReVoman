@@ -11,6 +11,7 @@ import static com.salesforce.revoman.input.HookConfig.post;
 import static com.salesforce.revoman.input.HookConfig.pre;
 import static com.salesforce.revoman.input.RequestConfig.unmarshallRequest;
 import static com.salesforce.revoman.input.ResponseConfig.unmarshallSuccessResponse;
+import static com.salesforce.revoman.input.ResponseConfig.validateIfFailed;
 import static com.salesforce.revoman.input.ResponseConfig.validateIfSuccess;
 import static com.salesforce.revoman.integration.core.pq.adapters.ConnectInputRepWithGraphAdapter.adapter;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -42,13 +43,21 @@ class PQE2ETest {
           "pq-update: qli(all delete)",
           "pq-update: qli(post+delete)");
 
+  private static final Set<String> FAILURE_STEP_NAMES =
+      Set.of("pq-create-without-quote (sync-error)", "pq-update-invalid-method (sync-error)");
+
   @Test
   void revUpPQ() {
-    final var pqRespValidationConfig =
+    final var validatePQSuccessResponse =
         ValidationConfig.<PlaceQuoteOutputRepresentation, String>toValidate()
             .withValidator(
-                (resp -> Boolean.TRUE.equals(resp.getSuccess()) ? "success" : "PQ failed"),
+                (resp -> Boolean.TRUE.equals(resp.getSuccess()) ? "success" : "sync-failure"),
                 "success");
+    final var validatePQErrorResponse =
+        ValidationConfig.<PlaceQuoteOutputRepresentation, String>toValidate()
+            .withValidator(
+                (resp -> Boolean.FALSE.equals(resp.getSuccess()) ? "sync-failure" : "success"),
+                "sync-failure");
     // ! TODO 24/06/23 gopala.akshintala: Need fully qualified names as POST and GET reside next to
     // ! each-other. Improve this using Regex
     final var unsuccessfulStepsException =
@@ -73,12 +82,12 @@ class PQE2ETest {
                         "$qlrFieldsToQuery", "Id, QuoteId, MainQuoteLineId, AssociatedQuoteLineId"))
                 .customDynamicVariable( // <5>
                     "$quantity", ignore -> String.valueOf(Random.Default.nextInt(10) + 1))
-                .requestConfig(
+                .requestConfig( // <6>
                     unmarshallRequest(
                         ASYNC_STEP_NAMES,
                         PlaceQuoteInputRepresentation.class,
                         adapter(PlaceQuoteInputRepresentation.class)))
-                .hooks( // <6>
+                .hooks( // <7>
                     post(
                         "password-reset",
                         (stepName, rundown) ->
@@ -119,13 +128,17 @@ class PQE2ETest {
                           // polling is implemented
                           Thread.sleep(20000);
                         }))
-                .haltOnAnyFailureExceptForSteps(unsuccessfulStepsException) // <7>
-                .responseConfig( // <8>
+                .haltOnAnyFailureExceptForSteps(unsuccessfulStepsException) // <8>
+                .responseConfig( // <9>
                     unmarshallSuccessResponse("quote-related-records", CompositeResponse.class),
-                    validateIfSuccess( // <9>
+                    validateIfSuccess( // <9.1>
                         ASYNC_STEP_NAMES,
                         PlaceQuoteOutputRepresentation.class,
-                        pqRespValidationConfig))
+                        validatePQSuccessResponse),
+                    validateIfFailed(
+                        FAILURE_STEP_NAMES,
+                        PlaceQuoteOutputRepresentation.class,
+                        validatePQErrorResponse))
                 .insecureHttp(true) // <10>
                 .off()); // Kick-off
     assertThat(pqRunDown.mutableEnv)
