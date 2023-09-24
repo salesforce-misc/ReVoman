@@ -33,7 +33,7 @@ import com.salesforce.revoman.internal.isStepNameInPassList
 import com.salesforce.revoman.internal.postman.RegexReplacer
 import com.salesforce.revoman.internal.postman.initPmEnvironment
 import com.salesforce.revoman.internal.postman.pm
-import com.salesforce.revoman.internal.postman.postManVariableRegex
+import com.salesforce.revoman.internal.postman.state.Auth
 import com.salesforce.revoman.internal.postman.state.Item
 import com.salesforce.revoman.internal.postman.state.Template
 import com.salesforce.revoman.internal.prepareHttpClient
@@ -57,6 +57,7 @@ import com.salesforce.revoman.output.Rundown.StepReport.Failure.ResponseValidati
 import com.salesforce.revoman.output.Rundown.StepReport.Failure.TestScriptJsFailure
 import com.salesforce.revoman.output.Rundown.StepReport.Failure.UnknownFailure
 import com.salesforce.revoman.output.Rundown.StepReport.Failure.UnmarshallRequestFailure
+import com.salesforce.revoman.output.Rundown.StepReport.Failure.UnmarshallResponseFailure
 import com.salesforce.revoman.output.Rundown.StepReport.Failure.ValidationFailure
 import com.salesforce.revoman.output.Rundown.StepReport.TxInfo
 import com.salesforce.vador.config.ValidationConfig
@@ -92,154 +93,133 @@ object ReVoman {
     val (pmSteps, auth) =
       Moshi.Builder().build().adapter<Template>().fromJson(readFileToString(kick.templatePath()))
         ?: return Rundown()
-    val bearerTokenKey =
-      kick.bearerTokenKey()
-        ?: auth?.bearer?.firstOrNull()?.value?.let {
-          postManVariableRegex.find(it)?.groups?.get("variableKey")?.value ?: ""
-        }
     val moshiReVoman =
       initMoshi(
         kick.customAdaptersFromRequestConfig() + kick.customAdaptersFromResponseConfig(),
         kick.customAdapters(),
         kick.typesToIgnoreForMarshalling()
       )
-    val stepNameToReport = executeStep(pmSteps, kick, moshiReVoman, bearerTokenKey)
+    val stepNameToReport = executeStepsSerially(pmSteps, kick, moshiReVoman, auth)
     return Rundown(stepNameToReport, pm.environment)
   }
 
-  private fun executeStep(
+  private fun executeStepsSerially(
     pmSteps: List<Item>,
     kick: Kick,
     moshiReVoman: ConfigurableMoshi,
-    bearerTokenKey: String?
+    authFromRoot: Auth?
   ): Map<String, StepReport> {
     var noFailureInStep = true
-    val stepNameToReport =
-      pmSteps
-        .deepFlattenItems()
-        .asSequence()
-        .takeWhile { noFailureInStep }
-        .filter { shouldStepBeExecuted(kick.runOnlySteps(), kick.skipSteps(), it.name) }
-        .fold<Item, Map<String, StepReport>>(mapOf()) { stepNameToReport, itemWithRegex ->
-          val stepName = itemWithRegex.name
-          logger.info { "***** Processing Step: $stepName *****" }
-          val pmRequest: com.salesforce.revoman.internal.postman.state.Request =
-            RegexReplacer(pm.environment, kick.customDynamicVariables())
-              .replaceRegex(itemWithRegex.request)
-          val requestType: Type =
-            getRequestConfigForStepName(stepName, kick.requestConfigFlattened())?.requestType
-              ?: Any::class.java
-          val unmarshallAndPreHookResult: Either<StepReport, Either<StepReport, TxInfo<Request>>> =
-            executePreHooks(
-              stepName,
-              pmRequest,
-              requestType,
-              stepNameToReport,
-              kick.hooksFlattened(),
-              moshiReVoman,
-            )
-          val requestInfo: TxInfo<Request> =
-            when {
-              unmarshallAndPreHookResult.isLeft() ->
-                return@fold stepNameToReport +
-                  (stepName to unmarshallAndPreHookResult.leftOrNull()!!)
-              else -> {
-                val preHookResult = unmarshallAndPreHookResult.getOrNull()!!
-                when {
-                  preHookResult.isLeft() ->
-                    return@fold stepNameToReport + (stepName to preHookResult.leftOrNull()!!)
-                  else ->
-                    preHookResult
-                      .getOrNull()!!
-                      .copy(
-                        httpMsg =
-                          RegexReplacer(pm.environment)
-                            .replaceRegex(itemWithRegex.request)
-                            .toHttpRequest()
-                      )
-                }
+    return pmSteps
+      .deepFlattenItems(authFromRoot)
+      .asSequence()
+      .takeWhile { noFailureInStep }
+      .filter { shouldStepBeExecuted(kick.runOnlySteps(), kick.skipSteps(), it.name) }
+      .fold(mapOf()) { stepNameToReport, itemWithRegex ->
+        val stepName = itemWithRegex.name
+        logger.info { "***** Processing Step: $stepName *****" }
+        val pmRequest: com.salesforce.revoman.internal.postman.state.Request =
+          RegexReplacer(pm.environment, kick.customDynamicVariables())
+            .replaceRegex(itemWithRegex.request)
+        val requestType: Type =
+          getRequestConfigForStepName(stepName, kick.requestConfigFlattened())?.requestType
+            ?: Any::class.java
+        val unmarshallAndPreHookResult: Either<StepReport, Either<StepReport, TxInfo<Request>>> =
+          executePreHooks(
+            stepName,
+            pmRequest,
+            requestType,
+            stepNameToReport,
+            kick.hooksFlattened(),
+            moshiReVoman,
+          )
+        val requestInfo: TxInfo<Request> =
+          when {
+            unmarshallAndPreHookResult.isLeft() ->
+              return@fold stepNameToReport + (stepName to unmarshallAndPreHookResult.leftOrNull()!!)
+            else -> {
+              val preHookResult: Either<StepReport, TxInfo<Request>> =
+                unmarshallAndPreHookResult.getOrNull()!!
+              when {
+                preHookResult.isLeft() ->
+                  return@fold stepNameToReport + (stepName to preHookResult.leftOrNull()!!)
+                else ->
+                  preHookResult
+                    .getOrNull()!!
+                    .copy(
+                      httpMsg =
+                        RegexReplacer(pm.environment)
+                          .replaceRegex(itemWithRegex.request)
+                          .toHttpRequest()
+                    )
               }
             }
-          // * NOTE gopala.akshintala 06/08/22: Preparing httpClient for each step,
-          // * as there can be intermediate auths
-          val httpClient: HttpHandler =
-            prepareHttpClient(pm.environment.getString(bearerTokenKey), kick.insecureHttp())
-          val stepReport: StepReport =
-            runChecked(stepName, HTTP_REQUEST) { httpClient(requestInfo.httpMsg) }
-              .mapLeft { HttpRequestFailure(it, requestInfo) }
-              .flatMap { httpResponse ->
-                when {
-                  httpResponse.status.successful -> {
-                    runChecked(stepName, TEST_SCRIPT_JS) {
-                        executeTestScriptJs(
-                          itemWithRegex.event,
-                          kick.customDynamicVariables(),
-                          pmRequest,
-                          httpResponse
-                        )
-                      }
-                      .mapLeft {
-                        TestScriptJsFailure(it, requestInfo, TxInfo(null, null, httpResponse))
-                      }
-                      .flatMap {
-                        when {
-                          isContentTypeApplicationJson(httpResponse) ->
-                            handleResponse(
-                              stepName,
-                              moshiReVoman,
-                              httpResponse,
-                              kick.responseConfigFlattened().first,
-                              requestInfo
-                            )
-                          else ->
-                            Right(
-                              TxInfo(null, null, httpResponse),
-                            )
-                        }
-                      }
-                  }
-                  else ->
-                    handleResponse(
-                      stepName,
-                      moshiReVoman,
-                      httpResponse,
-                      kick.responseConfigFlattened().second,
-                      requestInfo
-                    )
+          }
+        // * NOTE gopala.akshintala 06/08/22: Preparing httpClient for each step,
+        // * as there can be intermediate auths
+        val httpClient: HttpHandler =
+          prepareHttpClient(
+            pm.environment.getString(itemWithRegex.auth?.bearerTokenKeyFromRegex),
+            kick.insecureHttp()
+          )
+        val stepReport: StepReport =
+          runChecked(stepName, HTTP_REQUEST) { httpClient(requestInfo.httpMsg) }
+            .mapLeft { HttpRequestFailure(it, requestInfo) }
+            .flatMap { httpResponse ->
+              runChecked(stepName, TEST_SCRIPT_JS) {
+                  executeTestScriptJs(
+                    itemWithRegex.event,
+                    kick.customDynamicVariables(),
+                    pmRequest,
+                    httpResponse
+                  )
                 }
-              }
-              .fold(
-                { StepReport(Right(requestInfo), null, Left(it), null, pm.environment.copy()) },
-                { responseInfo ->
-                  val stepReportBeforePostHook =
-                    StepReport(
-                      Right(requestInfo),
-                      null,
-                      Right(responseInfo),
-                      null,
-                      pm.environment.copy(),
-                    )
-                  postHookExe(
-                      stepName,
-                      kick.hooksFlattened(),
-                      stepNameToReport + (stepName to stepReportBeforePostHook),
-                    )
-                    ?.fold(
-                      { stepReportBeforePostHook.copy(postHookFailure = it) },
-                      { stepReportBeforePostHook },
-                    )
-                    ?: stepReportBeforePostHook
-                },
-              )
-              .also {
-                noFailureInStep =
-                  it.isSuccessful ||
-                    isStepNameInPassList(stepName, kick.haltOnAnyFailureExceptForSteps())
-              }
-          stepNameToReport +
-            (stepName to stepReport.copy(postmanEnvironmentSnapshot = pm.environment.copy()))
-        }
-    return stepNameToReport
+                .mapLeft { TestScriptJsFailure(it, requestInfo, TxInfo(null, null, httpResponse)) }
+                .flatMap {
+                  when {
+                    isContentTypeApplicationJson(httpResponse) ->
+                      handleResponse(
+                        stepName,
+                        moshiReVoman,
+                        httpResponse,
+                        kick.responseConfigFlattened()[httpResponse.status.successful],
+                        requestInfo
+                      )
+                    else -> Right(TxInfo(null, null, httpResponse))
+                  }
+                }
+            }
+            .fold(
+              { StepReport(Right(requestInfo), null, Left(it), null, pm.environment.copy()) },
+              { responseInfo ->
+                val stepReportBeforePostHook =
+                  StepReport(
+                    Right(requestInfo),
+                    null,
+                    Right(responseInfo),
+                    null,
+                    pm.environment.copy(),
+                  )
+                postHookExe(
+                    stepName,
+                    kick.hooksFlattened(),
+                    stepNameToReport + (stepName to stepReportBeforePostHook),
+                  )
+                  ?.fold(
+                    { stepReportBeforePostHook.copy(postHookFailure = it) },
+                    { stepReportBeforePostHook },
+                  )
+                  ?: stepReportBeforePostHook
+              },
+            )
+            .also {
+              noFailureInStep =
+                it.isSuccessful ||
+                  isStepNameInPassList(stepName, kick.haltOnAnyFailureExceptForSteps())
+            }
+        stepNameToReport +
+          (stepName to stepReport.copy(postmanEnvironmentSnapshot = pm.environment.copy()))
+      }
   }
 
   private fun executePreHooks(
@@ -314,7 +294,7 @@ object ReVoman {
     stepName: String,
     moshiReVoman: ConfigurableMoshi,
     httpResponse: Response,
-    responseConfigs: List<ResponseConfig>,
+    responseConfigs: List<ResponseConfig>?,
     requestInfo: TxInfo<Request>
   ): Either<Failure, TxInfo<Response>> {
     val responseConfig: ResponseConfig? = getResponseConfigForStepName(stepName, responseConfigs)
@@ -323,7 +303,7 @@ object ReVoman {
         moshiReVoman.asA<Any>(httpResponse.bodyString(), responseType)
       }
       .mapLeft {
-        Failure.UnmarshallResponseFailure(it, requestInfo, TxInfo(responseType, null, httpResponse))
+        UnmarshallResponseFailure(it, requestInfo, TxInfo(responseType, null, httpResponse))
       }
       .flatMap { responseObj ->
         runChecked(stepName, RESPONSE_VALIDATION) {

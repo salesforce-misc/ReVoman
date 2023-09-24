@@ -22,6 +22,7 @@ internal data class Item(
   val name: String = "",
   val item: List<Item>?,
   val request: Request = Request(),
+  val auth: Auth?,
   val event: List<Event>? = null
 )
 

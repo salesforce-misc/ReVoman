@@ -41,8 +41,6 @@ internal interface KickDef {
 
   @SkipNulls fun customDynamicVariables(): Map<String, (String) -> String>
 
-  fun bearerTokenKey(): String?
-
   @SkipNulls fun haltOnAnyFailureExceptForSteps(): Set<String>
 
   @SkipNulls fun hooks(): Set<Set<HookConfig>>
@@ -64,8 +62,8 @@ internal interface KickDef {
   @SkipNulls fun responseConfig(): Set<Set<ResponseConfig>>
 
   @Value.Derived
-  fun responseConfigFlattened(): Pair<List<ResponseConfig>, List<ResponseConfig>> =
-    responseConfig().flatten().partition { it.ifSuccess }
+  fun responseConfigFlattened(): Map<Boolean, List<ResponseConfig>> =
+    responseConfig().flatten().groupBy { it.ifSuccess }
 
   @Value.Derived
   fun customAdaptersFromResponseConfig(): Map<Type, List<Either<JsonAdapter<Any>, Factory>>> =

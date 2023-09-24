@@ -6,9 +6,25 @@
   <component name="ChangeListManager">
     <list default="true" id="6ed80e62-f038-45bc-b42e-83dd15ec8dae" name="Changes" comment="Doc updates&#10;&#10;-- Status with emoji&#10;- Bug fixes with Validation&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
       <change beforePath="$PROJECT_DIR$/.idea/compiler.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/compiler.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/ktfmt.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/ktfmt.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/modules/buildSrc/revoman-root.buildSrc.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules/buildSrc/revoman-root.buildSrc.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/modules/buildSrc/revoman-root.buildSrc.main.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules/buildSrc/revoman-root.buildSrc.main.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/modules/buildSrc/revoman-root.buildSrc.test.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules/buildSrc/revoman-root.buildSrc.test.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/modules/revoman-root.integrationTest.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules/revoman-root.integrationTest.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/modules/revoman-root.main.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules/revoman-root.main.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/modules/revoman-root.test.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules/revoman-root.test.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/revoman-root.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/revoman-root.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.adoc" beforeDir="false" afterPath="$PROJECT_DIR$/README.adoc" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/build.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/build.gradle.kts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/gradle.properties" beforeDir="false" afterPath="$PROJECT_DIR$/gradle.properties" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/salesforce/revoman/ReVoman.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/salesforce/revoman/ReVoman.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/salesforce/revoman/input/KickDef.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/salesforce/revoman/input/KickDef.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/salesforce/revoman/internal/MoshiReVoman.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/salesforce/revoman/internal/MoshiReVoman.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/salesforce/revoman/internal/Utils.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/salesforce/revoman/internal/Utils.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/salesforce/revoman/internal/postman/state/Auth.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/salesforce/revoman/internal/postman/state/Auth.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/salesforce/revoman/internal/postman/state/Template.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/salesforce/revoman/internal/postman/state/Template.kt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -65,12 +81,12 @@
     <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/io.arrow-kt/arrow-core-jvm/1.2.1/61ccc5d1e19334f083cb33513f5bcb6c6f206a91/arrow-core-jvm-1.2.1-sources.jar!/commonMain/arrow/core/Either.kt" root0="SKIP_INSPECTION" />
     <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/io.vavr/vavr-kotlin/0.10.2/497dbd4ccef4899ee86f14d3c1b79bcb98a19ddb/vavr-kotlin-0.10.2-sources.jar!/io/vavr/kotlin/Control.kt" root0="SKIP_INSPECTION" />
     <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/io.vavr/vavr/0.10.4/b6509f9114d0354893803668e58b97965a41f2f6/vavr-0.10.4-sources.jar!/io/vavr/control/Either.java" root0="SKIP_INSPECTION" />
-    <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.http4k/http4k-core/5.8.0.0/e75a50311c465cd92f066b080821517414a3ecfb/http4k-core-5.8.0.0-sources.jar!/org/http4k/core/http.kt" root0="SKIP_INSPECTION" />
     <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.http4k/http4k-core/5.8.1.0/64faf2ed86c36cae082015ccc9e85f173be37790/http4k-core-5.8.1.0-sources.jar!/org/http4k/core/http.kt" root0="SKIP_INSPECTION" />
     <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib-common/1.9.10/9960410cb3852df9251d5b30927ff2070bfb453/kotlin-stdlib-common-1.9.10-sources.jar!/kotlin/util/Result.kt" root0="SKIP_INSPECTION" />
     <setting file="jar://$USER_HOME$/.sdkman/candidates/gradle/8.3/lib/kotlin-stdlib-1.9.0.jar!/kotlin/collections/collections.kotlin_builtins" root0="SKIP_INSPECTION" />
     <setting file="jrt://$USER_HOME$/.sdkman/candidates/java/current!/java.base/sun/security/ssl/Alert.class" root0="SKIP_INSPECTION" />
     <setting file="jar://$USER_HOME$/Library/Java/JavaVirtualMachines/azul-11.0.17/Contents/Home/lib/src.zip!/java.base/java/util/UUID.java" root0="SKIP_INSPECTION" />
+    <setting file="jar://$USER_HOME$/core-public/tools/Darwin/jdk/openjdk_17.0.5_17.38.22_x64/zulu-17.jdk/Contents/Home/lib/src.zip!/java.base/java/lang/reflect/Type.java" root0="SKIP_INSPECTION" />
     <setting file="jar://$USER_HOME$/core-public/tools/Darwin/jdk/openjdk_17.0.5_17.38.22_x64/zulu-17.jdk/Contents/Home/lib/src.zip!/java.base/java/util/ArrayList.java" root0="SKIP_INSPECTION" />
     <setting file="jar://$USER_HOME$/core-public/tools/Darwin/jdk/openjdk_17.0.5_17.38.22_x64/zulu-17.jdk/Contents/Home/lib/src.zip!/java.base/java/util/Objects.java" root0="SKIP_INSPECTION" />
     <setting file="jar://$USER_HOME$/core-public/tools/Darwin/jdk/openjdk_17.0.5_17.38.22_x64/zulu-17.jdk/Contents/Home/lib/src.zip!/java.base/java/util/function/Consumer.java" root0="SKIP_INSPECTION" />
@@ -104,37 +120,44 @@
     <option name="showLibraryContents" value="true" />
     <option name="sortKey" value="BY_TIME_DESCENDING" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;FindInProjectState.directoryName&quot;: &quot;/Users/gopala.akshintala/code-clones/work/revoman-root&quot;,
-    &quot;FindInProjectState.isProjectScope&quot;: &quot;false&quot;,
-    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
-    &quot;SONARLINT_PRECOMMIT_ANALYSIS&quot;: &quot;false&quot;,
-    &quot;WebServerToolWindowFactoryState&quot;: &quot;false&quot;,
-    &quot;com.github.patou.gitmoji.display-icon&quot;: &quot;emoji&quot;,
-    &quot;com.github.patou.gitmoji.insert-in-cursor-position&quot;: &quot;true&quot;,
-    &quot;com.github.patou.gitmoji.text-after-unicode&quot;: &quot; &quot;,
-    &quot;com.intellij.testIntegration.createTest.CreateTestDialog.defaultLibrary&quot;: &quot;JUnit5&quot;,
-    &quot;com.intellij.testIntegration.createTest.CreateTestDialog.defaultLibrarySuperClass.JUnit5&quot;: &quot;&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
-    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
-    &quot;ktor.last.update.timestamp&quot;: &quot;1684229451936&quot;,
-    &quot;last_directory_selection&quot;: &quot;/Users/gopala.akshintala/code-clones/work/revoman-root/src/test/kotlin/org/revcloud/revoman/internal&quot;,
-    &quot;last_opened_file_path&quot;: &quot;/Users/gopala.akshintala/code-clones/work/revoman-root/docs/images&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;project.structure.last.edited&quot;: &quot;SDKs&quot;,
-    &quot;project.structure.proportion&quot;: &quot;0.15&quot;,
-    &quot;project.structure.side.proportion&quot;: &quot;0.2&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.sourceCode.Kotlin&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "FindInProjectState.directoryName": "/Users/gopala.akshintala/code-clones/work/revoman-root",
+    "FindInProjectState.isProjectScope": "false",
+    "RunOnceActivity.OpenProjectViewOnStart": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
+    "SONARLINT_PRECOMMIT_ANALYSIS": "false",
+    "WebServerToolWindowFactoryState": "false",
+    "com.github.patou.gitmoji.display-icon": "emoji",
+    "com.github.patou.gitmoji.insert-in-cursor-position": "true",
+    "com.github.patou.gitmoji.text-after-unicode": " ",
+    "com.intellij.testIntegration.createTest.CreateTestDialog.defaultLibrary": "JUnit5",
+    "com.intellij.testIntegration.createTest.CreateTestDialog.defaultLibrarySuperClass.JUnit5": "",
+    "git-widget-placeholder": "master",
+    "kotlin-language-version-configured": "true",
+    "ktor.last.update.timestamp": "1684229451936",
+    "last_directory_selection": "/Users/gopala.akshintala/code-clones/work/revoman-root/src/test/kotlin/org/revcloud/revoman/internal",
+    "last_opened_file_path": "/Users/gopala.akshintala/code-clones/work/revoman-root/docs/images",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "project.structure.last.edited": "SDKs",
+    "project.structure.proportion": "0.15",
+    "project.structure.side.proportion": "0.2",
+    "settings.editor.selected.configurable": "com.facebook.ktfmt_idea_plugin.settings",
+    "vue.rearranger.settings.migration": "true"
+  },
+  "keyToStringList": {
+    "GitStage.ChangesTree.GroupingKeys": [
+      "directory",
+      "module",
+      "repository"
+    ]
   }
-}</component>
+}]]></component>
   <component name="Push.Settings">
     <force-push-targets>
       <force-push-target remote-path="origin" branch="master" />
@@ -191,11 +214,12 @@
       <command value="gradle publish" />
       <command value="./gradlew test integrationTest --tests com.salesforce.revoman.integration.pokemon.PokemonTest" />
       <command value="gradle publish --no-configuration-cache" />
+      <command value="gradle clean build --no-configuration-cache" />
       <command value="gradle test integrationTest --tests com.salesforce.revoman.integration.pokemon.PokemonTest" />
       <command value="gradle spotlessApply" />
     </option>
   </component>
-  <component name="RunManager" selected="Gradle.revoman-root [spotlessApply]">
+  <component name="RunManager" selected="Gradle.PQE2ETest.revUpPQ">
     <configuration name="PQE2ETest.revUpPQ" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
       <ExternalSystemSettings>
         <option name="executionName" />
@@ -244,18 +268,19 @@
       <RunAsTest>true</RunAsTest>
       <method v="2" />
     </configuration>
-    <configuration name="revoman-root [publish]" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
+    <configuration name="revoman-root [clean build]" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
       <ExternalSystemSettings>
         <option name="executionName" />
         <option name="externalProjectPath" value="$PROJECT_DIR$" />
         <option name="externalSystemIdString" value="GRADLE" />
-        <option name="scriptParameters" value="" />
+        <option name="scriptParameters" value="--no-configuration-cache" />
         <option name="taskDescriptions">
           <list />
         </option>
         <option name="taskNames">
           <list>
-            <option value="publish" />
+            <option value="clean" />
+            <option value="build" />
           </list>
         </option>
         <option name="vmOptions" />
@@ -315,11 +340,11 @@
     </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="Gradle.PokemonTest.pokemon" />
         <item itemvalue="Gradle.PQE2ETest.revUpPQ" />
-        <item itemvalue="Gradle.revoman-root [publish]" />
         <item itemvalue="Gradle.revoman-root [test integrationTest --tests com.salesforce.revoman.integration.pokemon.PokemonTest]" />
         <item itemvalue="Gradle.revoman-root [spotlessApply]" />
+        <item itemvalue="Gradle.revoman-root [clean build]" />
+        <item itemvalue="Gradle.PokemonTest.pokemon" />
       </list>
     </recent_temporary>
   </component>
@@ -455,6 +480,22 @@
       <workItem from="1695293204101" duration="5502000" />
       <workItem from="1695379982689" duration="490000" />
       <workItem from="1695387599334" duration="43000" />
+      <workItem from="1695402653927" duration="712000" />
+      <workItem from="1695474744621" duration="88000" />
+      <workItem from="1695474861699" duration="716000" />
+      <workItem from="1695485409156" duration="194000" />
+      <workItem from="1695485628926" duration="73000" />
+      <workItem from="1695485719386" duration="46000" />
+      <workItem from="1695485776738" duration="85000" />
+      <workItem from="1695485884589" duration="35000" />
+      <workItem from="1695485938330" duration="292000" />
+      <workItem from="1695486262810" duration="243000" />
+      <workItem from="1695486544848" duration="549000" />
+      <workItem from="1695487124213" duration="323000" />
+      <workItem from="1695487493589" duration="548000" />
+      <workItem from="1695488740416" duration="150000" />
+      <workItem from="1695488921325" duration="7267000" />
+      <workItem from="1695533152828" duration="2500000" />
     </task>
     <task id="LOCAL-00001" summary="- Fixed moshiReVoman&#10;- Added module-info.java to integrationTest module">
       <created>1678595183319</created>
@@ -889,7 +930,6 @@
   <component name="VcsManagerConfiguration">
     <option name="CHECK_CODE_SMELLS_BEFORE_PROJECT_COMMIT" value="false" />
     <option name="CHECK_NEW_TODO" value="false" />
-    <MESSAGE value="Release 0.11.3&#10;Bug fixes for getEnv, and method renaming&#10; &#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
     <MESSAGE value="Release 0.11.5&#10;Bug fixes for getEnv, and method renaming&#10; &#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
     <MESSAGE value="SpotlessApply&#10; &#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
     <MESSAGE value="Release 0.11.6&#10; &#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
@@ -914,7 +954,8 @@
     <MESSAGE value=":bug: Release 0.17.1&#10;- Bug fix to replace regex on original pm request after pre-hooks&#10;&#10;-- Status with emoji&#10;- Bug fixes with Validation" />
     <MESSAGE value=":bug: Release 0.17.2&#10;- Bug fix to avoid marshalling if content is not JSON&#10;&#10;-- Status with emoji&#10;- Bug fixes with Validation" />
     <MESSAGE value=":bug: Release 0.17.2&#10;- Bug fix to avoid marshalling if content is not JSON&#10;&#10;-- Status with emoji&#10;- Bug fixes with Validation&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
-    <option name="LAST_COMMIT_MESSAGE" value=":bug: Release 0.17.2&#10;- Bug fix to avoid marshalling if content is not JSON&#10;&#10;-- Status with emoji&#10;- Bug fixes with Validation&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
+    <MESSAGE value="Doc updates&#10;&#10;-- Status with emoji&#10;- Bug fixes with Validation&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
+    <option name="LAST_COMMIT_MESSAGE" value="Doc updates&#10;&#10;-- Status with emoji&#10;- Bug fixes with Validation&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

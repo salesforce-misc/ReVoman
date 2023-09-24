@@ -76,7 +76,7 @@ toc::[]
 * Our FTests compete on Cognitive-Complexity and learning curve with our Prod code, and mostly, FTests win.
 * And the difficult part is that all this effort is *specific* to a particular service or domain and rigid to extend and difficult to maintain. But that's not it.
 * On top of that, we have a mul-*T*-verse of FTests, E2E tests, Kaiju, and Manual testing with Postman, each with its own frameworks, tools, and internal utilities.
-* You need all together a different strategy and a new set of tools to learn and implement, to cover the same flow through an E2E test, which demands an almost equal amount of code.
+* You need altogether a different strategy and a new set of tools to learn and implement, to cover the same flow through an E2E test, which demands an almost equal amount of code.
 
 image::cognitive-complexity.png[]
 
@@ -299,7 +299,7 @@ You can run further assertions on top of this report
 
 === Perf
 
-This entire execution of **70 steps**, which include **10 async steps**, took a mere *3.6 min* on localhost. 
+This entire execution of **70 steps**, which include **10 async steps**, took a mere *3.6 min* on localhost.
 This can be much better on auto-build environments.
 (TBD: Capture the avg time taken on auto-builds)
 
@@ -310,7 +310,7 @@ to how your server responds or your network speeds.
 There is a https://salesforce-internal.slack.com/archives/C01RP1YE3S9/p1695048538986409?thread_ts=1694839136.253259&cid=C01RP1YE3S9[known issue] on the Connect API,
 that the first call to a Connect API after start takes a lot longer than the subsequent calls
 image:connect-api-delay.png[Connect API delay]
-Sometimes, this can cause your HTTP request to timeout or your Ftest may fail with `SlowTestException`. 
+Sometimes, this can cause your HTTP request to timeout or your Ftest may fail with `SlowTestException`.
 The subsequent runs should pass without any delay
 
 === Low-code

@@ -13,6 +13,7 @@ import com.salesforce.revoman.input.HookConfig.Hook
 import com.salesforce.revoman.input.HookConfig.HookType
 import com.salesforce.revoman.input.RequestConfig
 import com.salesforce.revoman.input.ResponseConfig
+import com.salesforce.revoman.internal.postman.state.Auth
 import com.salesforce.revoman.internal.postman.state.Item
 import com.salesforce.revoman.output.FOLDER_DELIMITER
 import io.vavr.control.Either
@@ -31,6 +32,11 @@ internal fun isContentTypeApplicationJson(httpMessage: HttpMessage) =
 internal fun readFileToString(fileRelativePath: String): String =
   Resources.getResource(fileRelativePath).readText()
 
+internal fun List<Item>.deepFlattenItems(authFromRoot: Auth?): List<Item> = flatMap { item ->
+  item.item?.map { it.copy(auth = it.auth ?: item.auth ?: authFromRoot) }?.deepFlattenItems()
+    ?: emptyList()
+}
+
 internal fun List<Item>.deepFlattenItems(
   parentFolderName: String = "",
   parentIndex: String = ""
@@ -39,8 +45,10 @@ internal fun List<Item>.deepFlattenItems(
     .flatMapIndexed { itemIndex, item ->
       val concatWithParentFolder =
         if (parentFolderName.isBlank()) item.name else "$parentFolderName|>${item.name}"
-      val index = if (parentIndex.isBlank()) "${itemIndex+1}" else "$parentIndex.${itemIndex+1}"
-      item.item?.deepFlattenItems(concatWithParentFolder, index)
+      val index = if (parentIndex.isBlank()) "${itemIndex + 1}" else "$parentIndex.${itemIndex + 1}"
+      item.item
+        ?.map { it.copy(auth = it.auth ?: item.auth) }
+        ?.deepFlattenItems(concatWithParentFolder, index)
         ?: listOf(item.copy(name = "$index -> ${item.request.method}: $concatWithParentFolder"))
     }
     .toList()
@@ -61,8 +69,8 @@ private fun stepNameEquals(stepNameFromConfig: String, currentStepName: String) 
 
 internal fun getResponseConfigForStepName(
   stepName: String,
-  responseConfigs: List<ResponseConfig>
-): ResponseConfig? = responseConfigs.firstOrNull { stepNameEquals(it.stepName, stepName) }
+  responseConfigs: List<ResponseConfig>?
+): ResponseConfig? = responseConfigs?.firstOrNull { stepNameEquals(it.stepName, stepName) }
 
 internal fun getRequestConfigForStepName(
   stepName: String,
