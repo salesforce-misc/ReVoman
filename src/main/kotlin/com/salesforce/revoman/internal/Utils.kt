@@ -16,6 +16,7 @@ import com.salesforce.revoman.input.ResponseConfig
 import com.salesforce.revoman.internal.postman.state.Auth
 import com.salesforce.revoman.internal.postman.state.Item
 import com.salesforce.revoman.output.FOLDER_DELIMITER
+import com.salesforce.revoman.output.HTTP_METHOD_SEPARATOR
 import io.vavr.control.Either
 import org.apache.commons.lang3.StringUtils
 import org.http4k.core.ContentType.Companion.APPLICATION_JSON
@@ -32,24 +33,26 @@ internal fun isContentTypeApplicationJson(httpMessage: HttpMessage) =
 internal fun readFileToString(fileRelativePath: String): String =
   Resources.getResource(fileRelativePath).readText()
 
-internal fun List<Item>.deepFlattenItems(authFromRoot: Auth?): List<Item> = flatMap { item ->
-  item.item?.map { it.copy(auth = it.auth ?: item.auth ?: authFromRoot) }?.deepFlattenItems()
-    ?: emptyList()
-}
-
 internal fun List<Item>.deepFlattenItems(
   parentFolderName: String = "",
-  parentIndex: String = ""
+  parentIndex: String = "",
+  authFromRoot: Auth? = null
 ): List<Item> =
   asSequence()
     .flatMapIndexed { itemIndex, item ->
       val concatWithParentFolder =
-        if (parentFolderName.isBlank()) item.name else "$parentFolderName|>${item.name}"
+        if (parentFolderName.isBlank()) item.name
+        else "$parentFolderName$FOLDER_DELIMITER${item.name}"
       val index = if (parentIndex.isBlank()) "${itemIndex + 1}" else "$parentIndex.${itemIndex + 1}"
       item.item
-        ?.map { it.copy(auth = it.auth ?: item.auth) }
+        ?.map { childItem -> childItem.copy(auth = childItem.auth ?: item.auth ?: authFromRoot) }
         ?.deepFlattenItems(concatWithParentFolder, index)
-        ?: listOf(item.copy(name = "$index -> ${item.request.method}: $concatWithParentFolder"))
+        ?: listOf(
+          item.copy(
+            name = "$index -> ${item.request.method}$HTTP_METHOD_SEPARATOR$concatWithParentFolder",
+            auth = item.auth ?: authFromRoot
+          )
+        )
     }
     .toList()
 
@@ -63,19 +66,27 @@ internal inline fun <reified T : Hook> getHooksForStep(
     ?.map { it.hook as T }
     ?: emptyList()
 
-private fun stepNameEquals(stepNameFromConfig: String, currentStepName: String) =
+internal fun stepNameVariants(stepName: String): Set<String> = buildSet {
+  add(stepName)
+  add(stepName.substringAfterLast(FOLDER_DELIMITER))
+  if (!stepName.contains(FOLDER_DELIMITER)) add(stepName.substringAfterLast(HTTP_METHOD_SEPARATOR))
+}
+
+internal fun stepNameEquals(stepNameFromConfig: String, currentStepName: String) =
   stepNameFromConfig == currentStepName ||
     stepNameFromConfig == currentStepName.substringAfterLast(FOLDER_DELIMITER)
 
 internal fun getResponseConfigForStepName(
   stepName: String,
-  responseConfigs: List<ResponseConfig>?
-): ResponseConfig? = responseConfigs?.firstOrNull { stepNameEquals(it.stepName, stepName) }
+  httpStatus: Boolean,
+  stepNameToResponseConfig: Map<Pair<Boolean, String>, ResponseConfig>
+): ResponseConfig? =
+  stepNameVariants(stepName).firstNotNullOfOrNull { stepNameToResponseConfig[httpStatus to it] }
 
 internal fun getRequestConfigForStepName(
   stepName: String,
-  requestConfigs: List<RequestConfig>
-): RequestConfig? = requestConfigs.firstOrNull { stepNameEquals(it.stepName, stepName) }
+  stepNameToRequestConfig: Map<String, RequestConfig>
+): RequestConfig? = stepNameVariants(stepName).firstNotNullOfOrNull { stepNameToRequestConfig[it] }
 
 internal fun isStepNameInPassList(stepName: String, haltOnAnyFailureExceptForSteps: Set<String>) =
   haltOnAnyFailureExceptForSteps.isEmpty() ||

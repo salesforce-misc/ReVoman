@@ -50,11 +50,14 @@ internal interface KickDef {
 
   @SkipNulls fun requestConfig(): Set<Set<RequestConfig>>
 
-  @Value.Derived fun requestConfigFlattened(): List<RequestConfig> = requestConfig().flatten()
+  @Value.Derived
+  fun stepNameToRequestConfig(): Map<String, RequestConfig> =
+    requestConfig().flatten().associateBy { it.stepName }
 
   @Value.Derived
   fun customAdaptersFromRequestConfig(): Map<Type, List<Either<JsonAdapter<Any>, Factory>>> =
-    requestConfigFlattened()
+    stepNameToRequestConfig()
+      .values
       .filter { it.customAdapter != null }
       .groupBy({ it.requestType }, { it.customAdapter!! })
 
@@ -62,8 +65,8 @@ internal interface KickDef {
   @SkipNulls fun responseConfig(): Set<Set<ResponseConfig>>
 
   @Value.Derived
-  fun responseConfigFlattened(): Map<Boolean, List<ResponseConfig>> =
-    responseConfig().flatten().groupBy { it.ifSuccess }
+  fun stepNameToResponseConfig(): Map<Pair<Boolean, String>, ResponseConfig> =
+    responseConfig().flatten().associateBy { it.ifSuccess to it.stepName }
 
   @Value.Derived
   fun customAdaptersFromResponseConfig(): Map<Type, List<Either<JsonAdapter<Any>, Factory>>> =

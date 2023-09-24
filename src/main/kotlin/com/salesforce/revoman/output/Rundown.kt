@@ -160,3 +160,4 @@ data class Rundown(
 }
 
 const val FOLDER_DELIMITER = "|>"
+const val HTTP_METHOD_SEPARATOR = ": "

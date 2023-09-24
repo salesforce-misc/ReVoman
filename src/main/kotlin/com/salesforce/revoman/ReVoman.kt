@@ -90,7 +90,7 @@ object ReVoman {
       kick.dynamicEnvironment(),
       kick.customDynamicVariables()
     )
-    val (pmSteps, auth) =
+    val (pmSteps, authFromRoot) =
       Moshi.Builder().build().adapter<Template>().fromJson(readFileToString(kick.templatePath()))
         ?: return Rundown()
     val moshiReVoman =
@@ -99,7 +99,7 @@ object ReVoman {
         kick.customAdapters(),
         kick.typesToIgnoreForMarshalling()
       )
-    val stepNameToReport = executeStepsSerially(pmSteps, kick, moshiReVoman, auth)
+    val stepNameToReport = executeStepsSerially(pmSteps, kick, moshiReVoman, authFromRoot)
     return Rundown(stepNameToReport, pm.environment)
   }
 
@@ -111,7 +111,7 @@ object ReVoman {
   ): Map<String, StepReport> {
     var noFailureInStep = true
     return pmSteps
-      .deepFlattenItems(authFromRoot)
+      .deepFlattenItems(authFromRoot = authFromRoot)
       .asSequence()
       .takeWhile { noFailureInStep }
       .filter { shouldStepBeExecuted(kick.runOnlySteps(), kick.skipSteps(), it.name) }
@@ -122,7 +122,7 @@ object ReVoman {
           RegexReplacer(pm.environment, kick.customDynamicVariables())
             .replaceRegex(itemWithRegex.request)
         val requestType: Type =
-          getRequestConfigForStepName(stepName, kick.requestConfigFlattened())?.requestType
+          getRequestConfigForStepName(stepName, kick.stepNameToRequestConfig())?.requestType
             ?: Any::class.java
         val unmarshallAndPreHookResult: Either<StepReport, Either<StepReport, TxInfo<Request>>> =
           executePreHooks(
@@ -182,7 +182,11 @@ object ReVoman {
                         stepName,
                         moshiReVoman,
                         httpResponse,
-                        kick.responseConfigFlattened()[httpResponse.status.successful],
+                        getResponseConfigForStepName(
+                          stepName,
+                          httpResponse.status.successful,
+                          kick.stepNameToResponseConfig()
+                        ),
                         requestInfo
                       )
                     else -> Right(TxInfo(null, null, httpResponse))
@@ -294,10 +298,9 @@ object ReVoman {
     stepName: String,
     moshiReVoman: ConfigurableMoshi,
     httpResponse: Response,
-    responseConfigs: List<ResponseConfig>?,
+    responseConfig: ResponseConfig?,
     requestInfo: TxInfo<Request>
   ): Either<Failure, TxInfo<Response>> {
-    val responseConfig: ResponseConfig? = getResponseConfigForStepName(stepName, responseConfigs)
     val responseType: Type = responseConfig?.responseType ?: Any::class.java
     return runChecked(stepName, UNMARSHALL_RESPONSE) {
         moshiReVoman.asA<Any>(httpResponse.bodyString(), responseType)
