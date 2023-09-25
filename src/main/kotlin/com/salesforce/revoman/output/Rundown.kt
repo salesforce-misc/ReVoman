@@ -86,7 +86,7 @@ data class Rundown(
         requestInfo?.isRight()
           ?: false &&
           preHookFailure == null &&
-          responseInfo?.isRight() ?: false &&
+          responseInfo?.fold({ false }, { it.httpMsg.status.successful }) ?: false &&
           postHookFailure == null
     }
 
