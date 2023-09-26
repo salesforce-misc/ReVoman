@@ -381,7 +381,9 @@ The future looks bright
 
 === Why not use https://learning.postman.com/docs/collections/using-newman-cli/command-line-integration-with-newman[Newman] or https://learning.postman.com/docs/postman-cli/postman-cli-overview/#comparing-the-postman-cli-and-newman[Postman CLI]?
 
-* For the same reason why we use Java over Javascript. Type Safety.
+* ReVoman may be similar to Newman or Postman CLI when it comes to executing a Postman collection, but the _similarities end there_. 
+* Newman/Postman CLI are built for node cannot be executed within a JVM. Even if you are able to run with some hacky way, there is no easy way to assert results. 
+* ReVoman is JVM first that lets you configure a lot more, and gives you back a detailed report to assert in a typesafe way
 * Newman is limited and cannot be integrated into our automation model on JVM
 
 == link:CONTRIBUTING.adoc[🙌🏼Wanna Collab & Contribute?]

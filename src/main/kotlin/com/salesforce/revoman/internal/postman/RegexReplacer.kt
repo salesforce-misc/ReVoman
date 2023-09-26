@@ -27,7 +27,7 @@ internal class RegexReplacer(
    * <li>Environment mixed with dynamic Environment</li>
    * </ul>
    */
-  fun replaceRegexRecursively(s: String?): String? =
+  internal fun replaceRegexRecursively(s: String?): String? =
     s?.let {
       postManVariableRegex.replace(it) { matchResult ->
         val variableKey = matchResult.groups[VARIABLE_KEY]?.value!!
@@ -41,7 +41,7 @@ internal class RegexReplacer(
       }
     }
 
-  fun replaceRegex(request: Request): Request =
+  internal fun replaceRegex(request: Request): Request =
     request.copy(
       header =
         request.header.map { header ->
