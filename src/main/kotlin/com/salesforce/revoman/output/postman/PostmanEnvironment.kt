@@ -13,7 +13,7 @@ data class PostmanEnvironment<ValueT : Any?>(
 ) : MutableMap<String, ValueT> by mutableEnv {
 
   val immutableEnvironment
-    get() = mutableEnv.toMap()
+    @JvmName("immutableEnvironment") get() = mutableEnv.toMap()
 
   fun set(key: String, value: ValueT) {
     mutableEnv[key] = value
@@ -32,6 +32,14 @@ data class PostmanEnvironment<ValueT : Any?>(
 
   // ! TODO 13/09/23 gopala.akshintala: Refactor code to remove duplication
 
+  fun <T> mutableEnvCopyWithValuesOfType(type: Class<T>): PostmanEnvironment<T> =
+    PostmanEnvironment(
+      mutableEnv
+        .filter { type.isInstance(it.value) }
+        .mapValues { type.cast(it.value) }
+        .toMutableMap()
+    )
+  
   fun <T> mutableEnvCopyWithKeysStartingWith(
     type: Class<T>,
     vararg prefixes: String

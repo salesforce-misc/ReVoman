@@ -22,14 +22,14 @@ data class Rundown(
   @JvmField val mutableEnv: PostmanEnvironment<Any?> = PostmanEnvironment()
 ) {
   val immutableEnvMap
-    get() = mutableEnv.toMap()
+    @JvmName("immutableEnvMap") get() = mutableEnv.toMap()
 
   val firstUnsuccessfulStepNameInOrder: String?
     get() =
       stepNameToReport.entries.firstOrNull { (_, stepReport) -> !stepReport.isSuccessful }?.key
 
   val areAllStepsSuccessful
-    get() = stepNameToReport.values.all { it.isSuccessful }
+    @JvmName("areAllStepsSuccessful") get() = stepNameToReport.values.all { it.isSuccessful }
 
   fun reportsForStepsInFolder(folderName: String): List<StepReport?> =
     stepNameToReport.filter { it.key.contains("$folderName$FOLDER_DELIMITER") }.map { it.value }
