@@ -39,7 +39,7 @@ data class PostmanEnvironment<ValueT : Any?>(
         .mapValues { type.cast(it.value) }
         .toMutableMap()
     )
-  
+
   fun <T> mutableEnvCopyWithKeysStartingWith(
     type: Class<T>,
     vararg prefixes: String
