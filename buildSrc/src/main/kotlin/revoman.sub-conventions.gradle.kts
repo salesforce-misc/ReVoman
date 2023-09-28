@@ -47,14 +47,17 @@ publishing {
       description.set(project.description)
       url.set("https://git.soma.salesforce.com/CCSPayments/ReVoman")
       licenses {
-        license {
-          name.set("The Apache License, Version 2.0")
-          url.set("http://www.apache.org/licenses/LICENSE-2.0.txt")
+        inceptionYear.set("2022")
+        licenses {
+          license {
+            name.set("The Apache License, Version 2.0")
+            url.set("http://www.apache.org/licenses/LICENSE-2.0.txt")
+          }
         }
       }
       developers {
         developer {
-          id.set("gopalakshintala@gmail.com")
+          id.set("overfullstack")
           name.set("Gopal S Akshintala")
           email.set("gopalakshintala@gmail.com")
         }

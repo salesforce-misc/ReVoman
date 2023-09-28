@@ -100,3 +100,11 @@ If the credentials are not being picked-up even after adding, you can try:
 ----
 ./gradlew publish --no-configuration-cache
 ----
+
+== Code of Conduct
+Please follow our link:CODE_OF_CONDUCT.md[Code of Conduct]
+
+== License
+By contributing your code,
+you agree to license your contribution under the terms of our project link:LICENSE[]
+and to sign the https://cla.salesforce.com/sign-cla[Salesforce CLA]
