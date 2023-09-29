@@ -30,7 +30,7 @@ awaitility = "4.2.0"
 # Common dependencies
 junit = "5.10.0"
 detekt = "1.23.1"
-spotless = "6.21.0"
+spotless = "6.22.0"
 apache-log4j = "2.20.0"
 
 [libraries]
