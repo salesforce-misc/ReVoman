@@ -38,8 +38,6 @@ But it's even better
 
 image::postman-run.png[]
 
-.ReṼoman Quick Demo, http://sfdc.co/revoman-quick-demo-deck[Slide Deck]
-image::revoman-demo-thumbnail.png[link=http://sfdc.co/revoman-quick-demo]
 
 == Artifacts
 
