@@ -4,7 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="6ed80e62-f038-45bc-b42e-83dd15ec8dae" name="Changes" comment="Modify license to Apache 2.0&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
+    <list default="true" id="6ed80e62-f038-45bc-b42e-83dd15ec8dae" name="Changes" comment="Remove demo link&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/salesforce/revoman/internal/postman/state/Template.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/salesforce/revoman/internal/postman/state/Template.kt" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -104,6 +107,8 @@
   &quot;keyToString&quot;: {
     &quot;FindInProjectState.directoryName&quot;: &quot;/Users/gopala.akshintala/code-clones/work/revoman-root&quot;,
     &quot;FindInProjectState.isProjectScope&quot;: &quot;false&quot;,
+    &quot;Gradle.PokemonTest.pokemon.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.Enable generate summary features in internal mode&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
@@ -127,7 +132,7 @@
     &quot;project.structure.last.edited&quot;: &quot;SDKs&quot;,
     &quot;project.structure.proportion&quot;: &quot;0.15&quot;,
     &quot;project.structure.side.proportion&quot;: &quot;0.2&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;Settings.AsciiDoc.Preview&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;,
     &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   },
   &quot;keyToStringList&quot;: {
@@ -200,7 +205,7 @@
       <command value="gradle publish --no-configuration-cache" />
     </option>
   </component>
-  <component name="RunManager" selected="Gradle.revoman-root [publish]">
+  <component name="RunManager" selected="Gradle.PokemonTest.pokemon">
     <configuration name="PokemonTest.pokemon" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
       <ExternalSystemSettings>
         <option name="executionName" />
@@ -319,11 +324,11 @@
     </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Gradle.PokemonTest.pokemon" />
         <item itemvalue="Gradle.revoman-root [spotlessApply]" />
         <item itemvalue="Gradle.revoman-root [publish]" />
         <item itemvalue="Gradle.UtilsTest.stepName variants should contain step in a folder" />
         <item itemvalue="Gradle.UtilsTest.deepFlattenItems with nested items" />
-        <item itemvalue="Gradle.PokemonTest.pokemon" />
       </list>
     </recent_temporary>
   </component>
@@ -483,6 +488,14 @@
       <workItem from="1695790292223" duration="1946000" />
       <workItem from="1695871799409" duration="1751000" />
       <workItem from="1695891877927" duration="1415000" />
+      <workItem from="1695951933040" duration="166000" />
+      <workItem from="1695977441040" duration="312000" />
+      <workItem from="1696037336902" duration="307000" />
+      <workItem from="1696241887812" duration="1221000" />
+      <workItem from="1696243840211" duration="825000" />
+      <workItem from="1696258241576" duration="3758000" />
+      <workItem from="1696297279153" duration="806000" />
+      <workItem from="1696351346555" duration="540000" />
     </task>
     <task id="LOCAL-00001" summary="- Fixed moshiReVoman&#10;- Added module-info.java to integrationTest module">
       <created>1678595183319</created>
@@ -595,30 +608,6 @@
       <option name="presentableId" value="LOCAL-00016" />
       <option name="project" value="LOCAL" />
       <updated>1682662367190</updated>
-    </task>
-    <task id="LOCAL-00086" summary="Documentation update&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
-      <option name="closed" value="true" />
-      <created>1693736988401</created>
-      <option name="number" value="00086" />
-      <option name="presentableId" value="LOCAL-00086" />
-      <option name="project" value="LOCAL" />
-      <updated>1693736988402</updated>
-    </task>
-    <task id="LOCAL-00087" summary="Documentation update&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
-      <option name="closed" value="true" />
-      <created>1693738338302</created>
-      <option name="number" value="00087" />
-      <option name="presentableId" value="LOCAL-00087" />
-      <option name="project" value="LOCAL" />
-      <updated>1693738338302</updated>
-    </task>
-    <task id="LOCAL-00088" summary="Make nexus creds nullable&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
-      <option name="closed" value="true" />
-      <created>1693757991333</created>
-      <option name="number" value="00088" />
-      <option name="presentableId" value="LOCAL-00088" />
-      <option name="project" value="LOCAL" />
-      <updated>1693757991334</updated>
     </task>
     <task id="LOCAL-00089" summary="Release: 0.12.0&#10;Hooks accept CheckedRunnable&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
       <option name="closed" value="true" />
@@ -860,7 +849,31 @@
       <option name="project" value="LOCAL" />
       <updated>1695892511212</updated>
     </task>
-    <option name="localTasksCounter" value="119" />
+    <task id="LOCAL-00119" summary="Remove demo link&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
+      <option name="closed" value="true" />
+      <created>1695952008401</created>
+      <option name="number" value="00119" />
+      <option name="presentableId" value="LOCAL-00119" />
+      <option name="project" value="LOCAL" />
+      <updated>1695952008401</updated>
+    </task>
+    <task id="LOCAL-00120" summary="Remove vador picture from flow diagram&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
+      <option name="closed" value="true" />
+      <created>1696351558137</created>
+      <option name="number" value="00120" />
+      <option name="presentableId" value="LOCAL-00120" />
+      <option name="project" value="LOCAL" />
+      <updated>1696351558138</updated>
+    </task>
+    <task id="LOCAL-00121" summary="Remove vador picture from flow diagram&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;">
+      <option name="closed" value="true" />
+      <created>1696351899628</created>
+      <option name="number" value="00121" />
+      <option name="presentableId" value="LOCAL-00121" />
+      <option name="project" value="LOCAL" />
+      <updated>1696351899628</updated>
+    </task>
+    <option name="localTasksCounter" value="122" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -917,8 +930,6 @@
   <component name="VcsManagerConfiguration">
     <option name="CHECK_CODE_SMELLS_BEFORE_PROJECT_COMMIT" value="false" />
     <option name="CHECK_NEW_TODO" value="false" />
-    <MESSAGE value="Make nexus creds nullable&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
-    <MESSAGE value="Release: 0.12.0&#10;Hooks accept CheckedRunnable&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
     <MESSAGE value="Delete old BS tests&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
     <MESSAGE value="Release 0.13.0&#10;- StepReport stores env snapshot&#10;- StepName passed into hooks&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
     <MESSAGE value="- Only include Pokémon test for automation&#10;- Minor doc edits&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
@@ -942,7 +953,9 @@
     <MESSAGE value=":heavy_plus_sign: Relase 0.18.3&#10;- Add `mutableEnvCopyWithValuesOfType` in PostmanEnvironment&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
     <MESSAGE value="Replace email id&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
     <MESSAGE value="Modify license to Apache 2.0&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
-    <option name="LAST_COMMIT_MESSAGE" value="Modify license to Apache 2.0&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
+    <MESSAGE value="Remove demo link&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
+    <MESSAGE value="Remove vador picture from flow diagram&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
+    <option name="LAST_COMMIT_MESSAGE" value="Remove vador picture from flow diagram&#10;&#10;Signed-off-by: Gopal S Akshintala &lt;gopala.akshintala@salesforce.com&gt;" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

@@ -13,6 +13,7 @@ import org.http4k.core.Method
 import org.http4k.core.Uri
 import org.http4k.core.queryParametersEncoded
 import org.http4k.core.with
+import org.http4k.lens.Header.CONTENT_TYPE
 
 @JsonClass(generateAdapter = true)
 internal data class Template(val item: List<Item>, val auth: Auth?)
@@ -49,7 +50,7 @@ internal data class Request(
     val contentType =
       header
         .firstOrNull {
-          it.key.equals(org.http4k.lens.Header.CONTENT_TYPE.meta.name, ignoreCase = true)
+          it.key.equals(CONTENT_TYPE.meta.name, ignoreCase = true)
         }
         ?.value
         ?.let { ContentType.Text(it) }
@@ -57,7 +58,7 @@ internal data class Request(
     val uri = Uri.of(url.raw).queryParametersEncoded()
     return org.http4k.core
       .Request(Method.valueOf(method), uri)
-      .with(org.http4k.lens.Header.CONTENT_TYPE of contentType)
+      .with(CONTENT_TYPE of contentType)
       .headers(header.map { it.key to it.value })
       .body(body?.raw ?: "")
   }
