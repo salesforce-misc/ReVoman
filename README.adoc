@@ -85,39 +85,6 @@ that you anyway would have created for your manual testing?
 
 ____
 
-== See it in Action
-
-====
-
-This is an https://sourcegraph.soma.salesforce.com/perforce.soma.salesforce.com/app/main/core@HEAD/-/blob/revenue-place-quote-impl/test/func/java/src/revenue/place/quote/impl/revoman/PlaceQuoteReVomanTest.java?L113[*FTest
-with ReVoman*] automating *70* steps 🚀 — Create persona-based users,
-set up data, call the API for multiple use-cases and verify results.
-
-link:{pmtemplates}/pq/pq-with-rc.postman_collection.json[Postman collection JSON]
-
-link:{pmtemplates}/pq/pq-env.postman_environment.json[Postman environment JSON]
-
-====
-
-== Traditional FTests vs FTests with ReVoman
-
-Let's see a comparison between Traditional FTests and FTests with ReVoman.
-
-=== Traditional FTests
-
-====
-
-NOTE: *Traditional FTest*: The Lines of code needed to achieve all the Test scenarios through FTest: *1,558*
-
-====
-
-FTests are unanimously the biggest developer productivity killer. Let’s take an example of https://sourcegraph.soma.salesforce.com/perforce.soma.salesforce.com/app/main/core@HEAD/-/blob/revenue-place-quote-impl/test/func/java/src/revenue/place/quote/impl/integration/PlaceQuoteFtest.java[PlaceQuoteFtest.java]. In a typical FTest like this, you need to hand-write all the code for:
-
-* https://sourcegraph.soma.salesforce.com/perforce.soma.salesforce.com/app/main/core@HEAD/-/blob/revenue-place-quote-impl/test/func/java/src/revenue/place/quote/impl/utils/PlaceQuoteDataSetupUtil.java?L156[Internal Utilities for setup data]
-* https://sourcegraph.soma.salesforce.com/perforce.soma.salesforce.com/app/main/core@HEAD/-/blob/revenue-place-quote-impl/test/func/java/src/revenue/place/quote/impl/utils/PlaceQuoteDataSetupUtil.java?L365[Build request]
-* https://sourcegraph.soma.salesforce.com/perforce.soma.salesforce.com/app/main/core@HEAD/-/blob/revenue-place-quote-impl/test/func/java/src/revenue/place/quote/impl/utils/PlaceQuoteAssertionUtil.java?L244[Process output response or query necessary records]
-* https://sourcegraph.soma.salesforce.com/perforce.soma.salesforce.com/app/main/core@HEAD/-/blob/revenue-place-quote-impl/test/func/java/src/revenue/place/quote/impl/utils/PlaceQuoteAssertionUtil.java?L244[Validate/Assert response]
-
 === FTests with _ReṼoman_
 
 Let’s check out how you can perform *Template-Driven-Testing* with ReVoman:
@@ -305,11 +272,6 @@ image:ftest-console.png[Localhost Test time on FTest console]
 
 WARNING: ReVoman internally is very light-weight and the execution times are proportional
 to how your server responds or your network speeds.
-There is a https://salesforce-internal.slack.com/archives/C01RP1YE3S9/p1695048538986409?thread_ts=1694839136.253259&cid=C01RP1YE3S9[known issue] on the Connect API,
-that the first call to a Connect API after start takes a lot longer than the subsequent calls
-image:connect-api-delay.png[Connect API delay]
-Sometimes, this can cause your HTTP request to timeout or your Ftest may fail with `SlowTestException`.
-The subsequent runs should pass without any delay
 
 === Low-code
 
