@@ -19,12 +19,12 @@ vador = "1.0.2"
 http4k = "5.8.1.0"
 kotlin-logging = "5.1.0"
 apache-commons-lang3 = "3.13.0"
-graal = "22.3.3"
+graal = "23.1.0"
 underscore = "1.93"
 kotlin-faker = "1.14.0"
 immutables = "2.9.3"
 mockito = "5.5.0"
-spring = "5.3.30" # Compatable with Java 11
+spring = "6.0.12" # Compatable with Java 11
 awaitility = "4.2.0"
 
 # Common dependencies
