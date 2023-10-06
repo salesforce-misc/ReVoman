@@ -17,6 +17,7 @@ import com.salesforce.revoman.internal.postman.state.Auth
 import com.salesforce.revoman.internal.postman.state.Item
 import com.salesforce.revoman.output.FOLDER_DELIMITER
 import com.salesforce.revoman.output.HTTP_METHOD_SEPARATOR
+import com.salesforce.revoman.output.INDEX_SEPARATOR
 import io.vavr.control.Either
 import org.apache.commons.lang3.StringUtils
 import org.http4k.core.ContentType.Companion.APPLICATION_JSON
@@ -49,7 +50,8 @@ internal fun List<Item>.deepFlattenItems(
         ?.deepFlattenItems(concatWithParentFolder, index)
         ?: listOf(
           item.copy(
-            name = "$index -> ${item.request.method}$HTTP_METHOD_SEPARATOR$concatWithParentFolder",
+            name =
+              "$index$INDEX_SEPARATOR${item.request.method}$HTTP_METHOD_SEPARATOR$concatWithParentFolder",
             auth = item.auth ?: authFromRoot
           )
         )

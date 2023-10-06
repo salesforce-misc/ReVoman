@@ -171,4 +171,5 @@ data class Rundown(
 }
 
 const val FOLDER_DELIMITER = "|>"
-const val HTTP_METHOD_SEPARATOR = ": "
+const val HTTP_METHOD_SEPARATOR = "~~> "
+const val INDEX_SEPARATOR = " ### "

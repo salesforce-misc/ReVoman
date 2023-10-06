@@ -21,7 +21,8 @@ tasks {
     kotlinOptions {
       // ! -Xjvm-default=all" is needed for Immutables to work with Kotlin default methods
       // https://kotlinlang.org/docs/java-to-kotlin-interop.html#compatibility-modes-for-default-methods
-      freeCompilerArgs = listOf("-Xjvm-default=all", "-Xcontext-receivers", "-progressive")
+      freeCompilerArgs =
+        listOf("-Xjvm-default=all", "-Xcontext-receivers", "-progressive", "-Xjdk-release=11")
     }
   }
 }
