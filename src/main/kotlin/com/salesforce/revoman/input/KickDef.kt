@@ -37,7 +37,8 @@ internal interface KickDef {
 
   @Value.Derived
   fun dynamicEnvironmentsFlattened(): Map<String, String> =
-    dynamicEnvironments().reduce { acc, map -> acc + map }
+    if (dynamicEnvironments().isEmpty()) emptyMap()
+    else dynamicEnvironments().reduce { acc, map -> acc + map }
 
   @SkipNulls fun runOnlySteps(): Set<String>
 
