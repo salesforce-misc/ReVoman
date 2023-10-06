@@ -7,8 +7,9 @@
  */
 plugins {
   id("revoman.root-conventions")
-  id("revoman.sub-conventions")
+  id("revoman.publishing-conventions")
   id("revoman.kt-conventions")
+  id("org.jetbrains.kotlinx.kover")
   alias(libs.plugins.moshix)
 }
 

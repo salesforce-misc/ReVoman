@@ -60,21 +60,19 @@ internal inline fun <reified T : Hook> getHooksForStep(
   currentStepName: String,
   hookType: HookType,
   hookConfigs: Map<HookType, List<HookConfig>>,
-): List<T> =
-  hookConfigs[hookType]
-    ?.filter { stepNameEquals(it.stepName, currentStepName) }
+): List<T> {
+  val stepNameVariants = stepNameVariants(currentStepName)
+  return hookConfigs[hookType]
+    ?.filter { stepNameVariants.contains(it.stepName) }
     ?.map { it.hook as T }
     ?: emptyList()
+}
 
 internal fun stepNameVariants(stepName: String): Set<String> = buildSet {
   add(stepName)
   add(stepName.substringAfterLast(FOLDER_DELIMITER))
   if (!stepName.contains(FOLDER_DELIMITER)) add(stepName.substringAfterLast(HTTP_METHOD_SEPARATOR))
 }
-
-internal fun stepNameEquals(stepNameFromConfig: String, currentStepName: String) =
-  stepNameFromConfig == currentStepName ||
-    stepNameFromConfig == currentStepName.substringAfterLast(FOLDER_DELIMITER)
 
 internal fun getResponseConfigForStepName(
   stepName: String,
@@ -88,24 +86,25 @@ internal fun getRequestConfigForStepName(
   stepNameToRequestConfig: Map<String, RequestConfig>
 ): RequestConfig? = stepNameVariants(stepName).firstNotNullOfOrNull { stepNameToRequestConfig[it] }
 
-internal fun isStepNameInPassList(stepName: String, haltOnAnyFailureExceptForSteps: Set<String>) =
+internal fun isStepNameInPassList(
+  currentStepName: String,
+  haltOnAnyFailureExceptForSteps: Set<String>
+) =
   haltOnAnyFailureExceptForSteps.isEmpty() ||
-    haltOnAnyFailureExceptForSteps.contains(stepName) ||
-    haltOnAnyFailureExceptForSteps.contains(stepName.substringAfterLast(FOLDER_DELIMITER))
+    haltOnAnyFailureExceptForSteps.contains(currentStepName) ||
+    haltOnAnyFailureExceptForSteps.intersect(stepNameVariants(currentStepName)).isNotEmpty()
 
 // ! TODO 24/06/23 gopala.akshintala: Regex support to filter Step Names
 internal fun shouldStepBeExecuted(
   runOnlySteps: Set<String>,
   skipSteps: Set<String>,
-  stepName: String
-) =
-  (runOnlySteps.isEmpty() && skipSteps.isEmpty()) ||
-    (runOnlySteps.isNotEmpty() &&
-      (runOnlySteps.contains(stepName) ||
-        runOnlySteps.contains(stepName.substringAfterLast(FOLDER_DELIMITER))) ||
-      (skipSteps.isNotEmpty() &&
-        (!skipSteps.contains(stepName) &&
-          !skipSteps.contains(stepName.substringAfterLast(FOLDER_DELIMITER)))))
+  currentStepName: String
+): Boolean {
+  val stepNameVariants = stepNameVariants(currentStepName)
+  return ((runOnlySteps.isEmpty() && skipSteps.isEmpty()) ||
+    (runOnlySteps.isNotEmpty() && runOnlySteps.intersect(stepNameVariants).isNotEmpty()) ||
+    (skipSteps.isNotEmpty() && skipSteps.intersect(stepNameVariants).isEmpty()))
+}
 
 internal fun <L, R> arrow.core.Either<L, R>.toVavr(): Either<L, R> =
   fold({ Either.left(it) }, { Either.right(it) })

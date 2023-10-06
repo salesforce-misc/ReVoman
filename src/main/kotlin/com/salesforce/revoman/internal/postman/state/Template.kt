@@ -49,9 +49,7 @@ internal data class Request(
   internal fun toHttpRequest(): org.http4k.core.Request {
     val contentType =
       header
-        .firstOrNull {
-          it.key.equals(CONTENT_TYPE.meta.name, ignoreCase = true)
-        }
+        .firstOrNull { it.key.equals(CONTENT_TYPE.meta.name, ignoreCase = true) }
         ?.value
         ?.let { ContentType.Text(it) }
         ?: ContentType.APPLICATION_JSON

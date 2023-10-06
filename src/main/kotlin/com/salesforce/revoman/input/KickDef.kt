@@ -29,15 +29,19 @@ import org.immutables.value.Value.Style.ImplementationVisibility.PUBLIC
 @Config
 @Value.Immutable
 internal interface KickDef {
-  fun templatePath(): String
+  @SkipNulls fun templatePaths(): List<String>
+
+  @SkipNulls fun environmentPaths(): List<String>
+
+  @SkipNulls fun dynamicEnvironments(): List<Map<String, String>>
+
+  @Value.Derived
+  fun dynamicEnvironmentsFlattened(): Map<String, String> =
+    dynamicEnvironments().reduce { acc, map -> acc + map }
 
   @SkipNulls fun runOnlySteps(): Set<String>
 
   @SkipNulls fun skipSteps(): Set<String>
-
-  fun environmentPath(): String?
-
-  @SkipNulls fun dynamicEnvironment(): Map<String, String>
 
   @SkipNulls fun customDynamicVariables(): Map<String, (String) -> String>
 
@@ -389,6 +393,8 @@ private constructor(val stepName: String, val hookType: HookType, val hook: Hook
   }
 }
 
+private annotation class SkipNulls
+
 @Target(AnnotationTarget.CLASS)
 @Retention(AnnotationRetention.SOURCE)
 @Value.Style(
@@ -396,11 +402,15 @@ private constructor(val stepName: String, val hookType: HookType, val hook: Hook
   typeAbstract = ["*Def"],
   builder = "configure",
   build = "off",
-  put = "*",
-  add = "*",
   depluralize = true,
+  depluralizeDictionary =
+    [
+      "templatePath:templatePathsInOrder",
+      "environmentPath:environmentPathsInOrder",
+      "dynamicEnvironment:dynamicEnvironmentsInOrder"
+    ],
+  add = "*",
+  put = "*",
   visibility = PUBLIC
 )
 private annotation class Config
-
-private annotation class SkipNulls

@@ -20,7 +20,8 @@ internal class RegexReplacer(
 ) {
 
   /**
-   * <p>Order of Variable resolution</p>
+   * <p>
+   * Order of Variable resolution
    * <ul>
    * <li>Custom Dynamic Variables</li>
    * <li>Dynamic Variables</li>

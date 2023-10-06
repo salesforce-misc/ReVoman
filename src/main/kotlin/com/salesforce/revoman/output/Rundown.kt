@@ -7,6 +7,7 @@
  */
 package com.salesforce.revoman.output
 
+import com.salesforce.revoman.internal.stepNameVariants
 import com.salesforce.revoman.internal.toArrow
 import com.salesforce.revoman.internal.toVavr
 import com.salesforce.revoman.output.Rundown.StepReport.Failure.PostHookFailure
@@ -37,10 +38,20 @@ data class Rundown(
   fun areAllStepsInFolderSuccessful(folderName: String): Boolean =
     reportsForStepsInFolder(folderName).all { it?.isSuccessful ?: false }
 
-  fun reportForStepName(stepName: String): StepReport? =
-    stepNameToReport.entries
-      .firstOrNull { it.key == stepName || it.key.substringAfterLast(FOLDER_DELIMITER) == stepName }
-      ?.value
+  fun reportForStepName(stepName: String): StepReport? {
+    val stepNameVariants = stepNameVariants(stepName)
+    return stepNameToReport.entries.firstOrNull { stepNameVariants.contains(stepName) }?.value
+  }
+
+  fun filterReportExcludingStepsWithName(stepNames: Set<String>): Map<String, StepReport> {
+    val stepNameVariantsToExclude = stepNames.flatMap { stepNameVariants(it) }
+    return stepNameToReport.filterKeys { !stepNameVariantsToExclude.contains(it) }
+  }
+
+  fun filterReportIncludingStepsWithName(stepNames: Set<String>): Map<String, StepReport> {
+    val stepNameVariantsToExclude = stepNames.flatMap { stepNameVariants(it) }
+    return stepNameToReport.filterKeys { stepNameVariantsToExclude.contains(it) }
+  }
 
   // ! TODO 20/09/23 gopala.akshintala: Enhance report viewing by overriding Either `toString()`
   data class StepReport

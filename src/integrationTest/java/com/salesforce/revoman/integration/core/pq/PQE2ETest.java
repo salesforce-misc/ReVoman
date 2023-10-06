@@ -21,6 +21,7 @@ import com.salesforce.revoman.input.Kick;
 import com.salesforce.revoman.integration.core.pq.connect.PlaceQuoteInputRepresentation;
 import com.salesforce.revoman.output.Rundown;
 import com.salesforce.vador.config.ValidationConfig;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import kotlin.random.Random;
@@ -45,6 +46,11 @@ class PQE2ETest {
 
   private static final Set<String> FAILURE_STEP_NAMES =
       Set.of("pq-create-without-quote (sync-error)", "pq-update-invalid-method (sync-error)");
+  private static final List<String> PQ_TEMPLATE_PATHS =
+      List.of(
+          "pm-templates/pq/user-creation-and-setup-pq.postman_collection.json",
+          "pm-templates/pq/pre-salesRep.postman_collection.json",
+          "pm-templates/pq/pq-with-rc.postman_collection.json");
 
   @Test
   void revUpPQ() {
@@ -73,7 +79,7 @@ class PQE2ETest {
     final var pqRunDown =
         ReVoman.revUp( // <1>
             Kick.configure()
-                .templatePath("pm-templates/pq/pq-with-rc.postman_collection.json") // <2>
+                .templatePaths(PQ_TEMPLATE_PATHS) // <2>
                 .environmentPath("pm-templates/pq/pq-env.postman_environment.json") // <3>
                 .dynamicEnvironment( // <4>
                     Map.of(

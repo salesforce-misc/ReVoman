@@ -15,10 +15,12 @@ import com.squareup.moshi.adapter
 // * NOTE 10/09/23 gopala.akshintala: This needs to be Global singleton for Graal JS to work
 internal val pm = PostmanSDK()
 
+@OptIn(ExperimentalStdlibApi::class)
 internal fun initPmEnvironment(
-  pmEnvironmentPath: String?,
+  pmEnvironmentPaths: List<String>,
   dynamicEnvironment: Map<String, String?>?,
-  customDynamicVariables: Map<String, (String) -> String>
+  customDynamicVariables: Map<String, (String) -> String>,
+  dynamicVariableGenerator: (String) -> String? = ::dynamicVariableGenerator
 ) {
   // * NOTE 10/09/23 gopala.akshintala: Clear env for each new run
   pm.environment.clear()
@@ -29,25 +31,20 @@ internal fun initPmEnvironment(
   if (!dynamicEnvironment.isNullOrEmpty()) {
     pm.environment.putAll(dynamicEnvironment)
   }
-  if (pmEnvironmentPath != null) {
-    val environment: Environment? =
-      regexReplace(pmEnvironmentPath, pm.environment, customDynamicVariables)
+  val envAdapter = Moshi.Builder().build().adapter<Environment>()
+  // ! TODO 05/10/23 gopala.akshintala: Consider values from env file being parsed to replace
+  pmEnvironmentPaths.forEach { envWithRegex ->
     pm.environment.putAll(
-      environment?.values?.filter { it.enabled }?.associate { it.key to it.value } ?: emptyMap()
+      envAdapter
+        .fromJson(readFileToString(envWithRegex))
+        ?.let {
+          RegexReplacer(pm.environment, customDynamicVariables, dynamicVariableGenerator)
+            .replaceRegex(it)
+        }
+        ?.values
+        ?.filter { it.enabled }
+        ?.associate { it.key to it.value }
+        ?: emptyMap()
     )
-  }
-}
-
-@OptIn(ExperimentalStdlibApi::class)
-internal fun regexReplace(
-  pmEnvironmentPath: String,
-  pmEnvironment: MutableMap<String, Any?>,
-  customDynamicVariables: Map<String, (String) -> String>,
-  dynamicVariableGenerator: (String) -> String? = ::dynamicVariableGenerator
-): Environment? {
-  val env =
-    Moshi.Builder().build().adapter<Environment>().fromJson(readFileToString(pmEnvironmentPath))
-  return env?.let {
-    RegexReplacer(pmEnvironment, customDynamicVariables, dynamicVariableGenerator).replaceRegex(it)
   }
 }

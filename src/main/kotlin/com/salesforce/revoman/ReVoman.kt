@@ -33,7 +33,6 @@ import com.salesforce.revoman.internal.isStepNameInPassList
 import com.salesforce.revoman.internal.postman.RegexReplacer
 import com.salesforce.revoman.internal.postman.initPmEnvironment
 import com.salesforce.revoman.internal.postman.pm
-import com.salesforce.revoman.internal.postman.state.Auth
 import com.salesforce.revoman.internal.postman.state.Item
 import com.salesforce.revoman.internal.postman.state.Template
 import com.salesforce.revoman.internal.prepareHttpClient
@@ -86,32 +85,38 @@ object ReVoman {
       "runOnlySteps and skipSteps cannot have intersection"
     }
     initPmEnvironment(
-      kick.environmentPath(),
-      kick.dynamicEnvironment(),
+      kick.environmentPaths(),
+      kick.dynamicEnvironmentsFlattened(),
       kick.customDynamicVariables()
     )
-    val (pmSteps, authFromRoot) =
-      Moshi.Builder().build().adapter<Template>().fromJson(readFileToString(kick.templatePath()))
-        ?: return Rundown()
-    val moshiReVoman =
-      initMoshi(
-        kick.customAdaptersFromRequestConfig() + kick.customAdaptersFromResponseConfig(),
-        kick.customAdapters(),
-        kick.typesToIgnoreForMarshalling()
+    val pmTemplateAdapter = Moshi.Builder().build().adapter<Template>()
+    val pmStepsDeepFlattened =
+      kick
+        .templatePaths()
+        .mapNotNull { pmTemplateAdapter.fromJson(readFileToString(it)) }
+        .flatMap { (pmSteps, authFromRoot) ->
+          pmSteps.deepFlattenItems(authFromRoot = authFromRoot)
+        }
+    val stepNameToReport =
+      executeStepsSerially(
+        pmStepsDeepFlattened,
+        kick,
+        initMoshi(
+          kick.customAdaptersFromRequestConfig() + kick.customAdaptersFromResponseConfig(),
+          kick.customAdapters(),
+          kick.typesToIgnoreForMarshalling()
+        )
       )
-    val stepNameToReport = executeStepsSerially(pmSteps, kick, moshiReVoman, authFromRoot)
     return Rundown(stepNameToReport, pm.environment)
   }
 
   private fun executeStepsSerially(
-    pmSteps: List<Item>,
+    pmStepsFlattened: List<Item>,
     kick: Kick,
     moshiReVoman: ConfigurableMoshi,
-    authFromRoot: Auth?
   ): Map<String, StepReport> {
     var noFailureInStep = true
-    return pmSteps
-      .deepFlattenItems(authFromRoot = authFromRoot)
+    return pmStepsFlattened
       .asSequence()
       .takeWhile { noFailureInStep }
       .filter { shouldStepBeExecuted(kick.runOnlySteps(), kick.skipSteps(), it.name) }

@@ -7,9 +7,7 @@
  */
 package com.salesforce.revoman.internal.postman
 
-import com.salesforce.revoman.internal.postman.state.EnvValue
-import com.salesforce.revoman.internal.postman.state.Environment
-import io.kotest.matchers.shouldBe
+import io.kotest.matchers.maps.shouldContain
 import org.junit.jupiter.api.Test
 
 class PostmanTest {
@@ -18,17 +16,12 @@ class PostmanTest {
   fun `unmarshall Env File with Regex and Dynamic variable`() {
     val epoch = System.currentTimeMillis().toString()
     val dummyDynamicVariableGenerator = { r: String -> if (r == "\$epoch") epoch else null }
-    val actualEnv =
-      regexReplace(
-        "env-with-regex.json",
-        mutableMapOf("un" to "userName"),
-        emptyMap(),
-        dummyDynamicVariableGenerator
-      )
-    val expectedEnv =
-      Environment(
-        values = listOf(EnvValue(key = "userName", value = "user-$epoch@xyz.com", enabled = true))
-      )
-    actualEnv shouldBe expectedEnv
+    initPmEnvironment(
+      listOf("env-with-regex.json"),
+      mutableMapOf("un" to "userName"),
+      emptyMap(),
+      dummyDynamicVariableGenerator
+    )
+    pm.environment shouldContain ("userName" to "user-$epoch@xyz.com")
   }
 }
