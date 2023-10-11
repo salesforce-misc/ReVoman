@@ -352,9 +352,14 @@ object ReVoman {
     }
 
   private fun <T> runChecked(stepName: String, exeType: ExeType, fn: () -> T): Either<Failure, T> =
-    Either.catch(fn)
-      .onLeft { logger.error(it) { "‼️ $stepName: Exception while executing $exeType" } }
-      .mapLeft { UnknownFailure(exeType, it) }
+    runCatching(fn)
+      .fold(
+        { Right(it) },
+        {
+          logger.error(it) { "‼️ $stepName: Exception while executing $exeType" }
+          Left(UnknownFailure(exeType, it))
+        }
+      )
 }
 
 private val logger = KotlinLogging.logger {}

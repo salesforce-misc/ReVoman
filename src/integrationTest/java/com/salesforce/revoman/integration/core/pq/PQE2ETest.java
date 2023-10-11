@@ -29,8 +29,13 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * -----------------------~~~~ NOTE ~~~~----------------------- This is only a sample for a
+ * full-blown test. You may not be able to execute this, as it needs a specific server setup. TODO:
+ * Add a dummy server setup for this test. -----------------------~~~~ NOTE
+ * ~~~~-----------------------
+ */
 class PQE2ETest {
-
   private static final Logger LOGGER = LoggerFactory.getLogger(PQE2ETest.class);
   public static final Set<String> ASYNC_STEP_NAMES =
       Set.of(
