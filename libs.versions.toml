@@ -26,6 +26,7 @@ immutables = "2.10.0"
 mockito = "5.6.0"
 spring = "5.3.30" # Compatable with Java 11
 awaitility = "4.2.0"
+nexus-publish = "2.0.0-rc-1"
 
 # Common dependencies
 junit = "5.10.0"
@@ -79,6 +80,7 @@ detekt-gradle = { module = "io.gitlab.arturbosch.detekt:detekt-gradle-plugin", v
 spotless-gradle = { module = "com.diffplug.spotless:spotless-plugin-gradle", version.ref = "spotless" }
 spotbugs-gradle = { module = "com.github.spotbugs.snom:spotbugs-gradle-plugin", version.ref = "spotbugs" }
 kover-gradle = { module = "org.jetbrains.kotlinx.kover:org.jetbrains.kotlinx.kover.gradle.plugin", version.ref = "kover" }
+nexus-publish-gradle = { module = "io.github.gradle-nexus.publish-plugin:io.github.gradle-nexus.publish-plugin.gradle.plugin", version.ref = "nexus-publish" }
 
 [bundles]
 kotest = [
@@ -102,3 +104,4 @@ lombok = { id = "io.freefair.lombok", version.ref = "lombok" }
 testLogger = { id = "com.adarshr.test-logger", version.ref = "testLogger" }
 moshix = { id = "dev.zacsweers.moshix", version.ref = "moshix" }
 kapt = { id = "org.jetbrains.kotlin.kapt", version.ref = "kotlin" }
+nexus-publish = { id = "io.github.gradle-nexus.publish-plugin", version.ref = "nexus-publish" }

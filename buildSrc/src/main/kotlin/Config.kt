@@ -5,5 +5,7 @@
  * https://opensource.org/licenses/BSD-3-Clause
  * ****************************************************************************
  */
-const val GROUP_ID = "com.salesforce.ccspayments"
-const val VERSION = "0.20.2"
+const val GROUP_ID = "com.salesforce.revoman"
+const val VERSION = "0.20.4"
+const val ARTIFACT_ID = "revoman"
+const val STAGING_PROFILE_ID = "1ea0a23e61ba7d"

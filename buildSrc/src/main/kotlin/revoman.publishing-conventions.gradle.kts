@@ -1,8 +1,8 @@
 import org.gradle.kotlin.dsl.invoke
 
 plugins {
-  id("maven-publish")
-  id("signing")
+  `maven-publish`
+  signing
   `java-library`
 }
 
@@ -22,6 +22,7 @@ java {
 
 publishing {
   publications.create<MavenPublication>("revoman") {
+    artifactId = ARTIFACT_ID
     from(components["java"])
     pom {
       name.set("revoman")

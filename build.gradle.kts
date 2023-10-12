@@ -9,7 +9,8 @@ plugins {
   id("revoman.root-conventions")
   id("revoman.publishing-conventions")
   id("revoman.kt-conventions")
-  id("org.jetbrains.kotlinx.kover")
+  id(libs.plugins.kover.pluginId)
+  alias(libs.plugins.nexus.publish)
   alias(libs.plugins.moshix)
 }
 
@@ -52,3 +53,5 @@ testing {
 koverReport { defaults { xml { onCheck = true } } }
 
 moshi { enableSealed = true }
+
+nexusPublishing { this.repositories { sonatype { stagingProfileId = STAGING_PROFILE_ID } } }

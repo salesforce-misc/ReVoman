@@ -70,6 +70,20 @@ Similar development aids should be present for other code editors too.
 TIP: If you're on Intellij, replace your kbd:[Cmd+Shift+L] habit with kbd:[Ctrl]-kbd:[Ctrl] and run `gradle spotlessApply` (Or the respective action if you're on Eclipse).
 It may be slow for the first run, but later runs should be faster.
 
+== Manual publishing
+
+In link:build.gradle.kts[], follow the <<_versioning_strategy,Versioning Strategy>>
+
+* Follow the <<_versioning_strategy,Versioning Strategy>> to increment version link:buildSrc/{sourcedir}/Config.kt[here]
+** For SNAPSHOT releases, add a `-SNAPSHOT` at the end of version number
+* Run this command to publish it to Nexus:
+
+[source,bash]
+----
+./gradlew publishToSonatype closeAndReleaseSonatypeStagingRepository -Dorg.gradle.parallel=false --no-configuration-cache
+----
+
+
 == Code of Conduct
 Please follow our link:CODE_OF_CONDUCT.md[Code of Conduct]
 
