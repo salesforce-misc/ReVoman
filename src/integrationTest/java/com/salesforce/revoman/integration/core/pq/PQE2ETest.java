@@ -30,10 +30,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * -----------------------~~~~ NOTE ~~~~----------------------- This is only a sample for a
- * full-blown test. You may not be able to execute this, as it needs a specific server setup. TODO:
- * Add a dummy server setup for this test. -----------------------~~~~ NOTE
- * ~~~~-----------------------
+ * ----------------------------------------~~~~~ NOTE ~~~~~-----------------------------------------
+ * This is only a sample to demo a full-blown test. You may not be able to execute this, as it needs
+ * a specific server setup.
+ *
+ * <p>TODO: Add a dummy server setup for this test.
  */
 class PQE2ETest {
   private static final Logger LOGGER = LoggerFactory.getLogger(PQE2ETest.class);
@@ -69,17 +70,15 @@ class PQE2ETest {
             .withValidator(
                 (resp -> Boolean.FALSE.equals(resp.getSuccess()) ? "sync-failure" : "success"),
                 "sync-failure");
-    // ! TODO 24/06/23 gopala.akshintala: Need fully qualified names as POST and GET reside next to
-    // ! each-other. Improve this using Regex
     final var unsuccessfulStepsException =
         Set.of(
-            "POST: setup|>tax-setup|>MockTaxAdapter",
-            "POST: setup|>tax-setup|>TaxEngineProvider",
-            "POST: setup|>product-setup|>pre|>Proration Policy",
-            "POST: setup|>product-setup|>OneTime|>OneTime PSM",
-            "POST: setup|>product-setup|>Evergreen|>Evergreen PSM",
-            "POST: setup|>product-setup|>Termed|>Termed PSM",
-            "POST: setup|>bundle-setup|>ProductRelationshipType");
+            "MockTaxAdapter",
+            "TaxEngineProvider",
+            "Proration Policy",
+            "OneTime PSM",
+            "Evergreen PSM",
+            "Termed PSM",
+            "ProductRelationshipType");
     // tag::pq-e2e-with-revoman-config-demo[]
     final var pqRunDown =
         ReVoman.revUp( // <1>

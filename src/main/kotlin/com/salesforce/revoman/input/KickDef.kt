@@ -9,6 +9,7 @@
 
 package com.salesforce.revoman.input
 
+import com.google.common.base.Preconditions
 import com.salesforce.revoman.input.HookConfig.Hook.PostHook
 import com.salesforce.revoman.input.HookConfig.Hook.PreHook
 import com.salesforce.revoman.input.HookConfig.HookType
@@ -47,6 +48,16 @@ internal interface KickDef {
   @SkipNulls fun customDynamicVariables(): Map<String, (String) -> String>
 
   @SkipNulls fun haltOnAnyFailureExceptForSteps(): Set<String>
+
+  @Value.Default fun haltOnAnyFailure(): Boolean = false
+
+  @Value.Check
+  fun check() {
+    Preconditions.checkState(
+      !haltOnAnyFailure() || (haltOnAnyFailure() && haltOnAnyFailureExceptForSteps().isEmpty()),
+      "'haltOnAnyFailureExceptForSteps' should be empty when 'haltOnAnyFailure' is set to True",
+    )
+  }
 
   @SkipNulls fun hooks(): Set<Set<HookConfig>>
 
@@ -281,7 +292,7 @@ private constructor(
       customAdapterFactory: Factory
     ): Set<ResponseConfig> =
       setOf(
-        ResponseConfig(stepName, true, successType, right(customAdapterFactory), validationConfig)
+        ResponseConfig(stepName, true, successType, right(customAdapterFactory), validationConfig),
       )
 
     @JvmStatic
@@ -337,7 +348,7 @@ private constructor(
       customAdapterFactory: Factory
     ): Set<ResponseConfig> =
       setOf(
-        ResponseConfig(stepName, false, errorType, right(customAdapterFactory), validationConfig)
+        ResponseConfig(stepName, false, errorType, right(customAdapterFactory), validationConfig),
       )
 
     @JvmStatic
@@ -408,10 +419,10 @@ private annotation class SkipNulls
     [
       "templatePath:templatePathsInOrder",
       "environmentPath:environmentPathsInOrder",
-      "dynamicEnvironment:dynamicEnvironmentsInOrder"
+      "dynamicEnvironment:dynamicEnvironmentsInOrder",
     ],
   add = "*",
   put = "*",
-  visibility = PUBLIC
+  visibility = PUBLIC,
 )
 private annotation class Config

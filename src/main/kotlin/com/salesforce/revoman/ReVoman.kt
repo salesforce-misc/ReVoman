@@ -224,6 +224,7 @@ object ReVoman {
             .also {
               noFailureInStep =
                 it.isSuccessful ||
+                  kick.haltOnAnyFailure() ||
                   isStepNameInPassList(stepName, kick.haltOnAnyFailureExceptForSteps())
             }
         stepNameToReport +

@@ -15,6 +15,7 @@ import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapter
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldContainExactly
+import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import org.junit.jupiter.api.Test
 
 class UtilsTest {
@@ -57,5 +58,13 @@ class UtilsTest {
     val stepNameFromConfig = "1.1 ### GET~~> all-pokemon|>all-pokemon"
     val currentStepName = "all-pokemon"
     stepNameVariants(stepNameFromConfig) shouldContain currentStepName
+  }
+
+  @Test
+  fun `possible stepName variants`() {
+    val stepName =
+      "1.2.1${INDEX_SEPARATOR}POST${HTTP_METHOD_SEPARATOR}product-setup${FOLDER_DELIMITER}OneTime${FOLDER_DELIMITER}One-Time Product"
+    stepNameVariants(stepName) shouldContainExactlyInAnyOrder
+      setOf(stepName, "POST~~> product-setup|>OneTime|>One-Time Product", "One-Time Product")
   }
 }

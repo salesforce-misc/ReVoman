@@ -72,6 +72,7 @@ internal inline fun <reified T : Hook> getHooksForStep(
 
 internal fun stepNameVariants(stepName: String): Set<String> = buildSet {
   add(stepName)
+  add(stepName.substringAfterLast(INDEX_SEPARATOR))
   add(stepName.substringAfterLast(FOLDER_DELIMITER))
   if (!stepName.contains(FOLDER_DELIMITER)) add(stepName.substringAfterLast(HTTP_METHOD_SEPARATOR))
 }

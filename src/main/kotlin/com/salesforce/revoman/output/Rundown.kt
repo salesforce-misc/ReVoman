@@ -170,6 +170,14 @@ data class Rundown(
   }
 }
 
+// ! TODO 12/10/23 gopala.akshintala: Come-up with a more sophisticated builders for steps
+fun buildStepName(index: String, httpMethod: String, vararg path: String): String =
+  "${index}${INDEX_SEPARATOR}${httpMethod}${HTTP_METHOD_SEPARATOR}" +
+    path.joinToString(FOLDER_DELIMITER)
+
+fun buildStepNameFromBasePath(basePath: String, vararg pathToAppend: String): String =
+  basePath + pathToAppend.joinToString(FOLDER_DELIMITER)
+
 const val FOLDER_DELIMITER = "|>"
 const val HTTP_METHOD_SEPARATOR = "~~> "
 const val INDEX_SEPARATOR = " ### "
