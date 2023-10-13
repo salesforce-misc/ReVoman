@@ -9,7 +9,6 @@
 
 package com.salesforce.revoman.input
 
-import com.google.common.base.Preconditions
 import com.salesforce.revoman.input.HookConfig.Hook.PostHook
 import com.salesforce.revoman.input.HookConfig.Hook.PreHook
 import com.salesforce.revoman.input.HookConfig.HookType
@@ -23,6 +22,7 @@ import io.vavr.control.Either
 import io.vavr.kotlin.left
 import io.vavr.kotlin.right
 import java.lang.reflect.Type
+import java.util.*
 import org.http4k.core.Request
 import org.immutables.value.Value
 import org.immutables.value.Value.Style.ImplementationVisibility.PUBLIC
@@ -50,14 +50,6 @@ internal interface KickDef {
   @SkipNulls fun haltOnAnyFailureExceptForSteps(): Set<String>
 
   @Value.Default fun haltOnAnyFailure(): Boolean = false
-
-  @Value.Check
-  fun check() {
-    Preconditions.checkState(
-      !haltOnAnyFailure() || (haltOnAnyFailure() && haltOnAnyFailureExceptForSteps().isEmpty()),
-      "'haltOnAnyFailureExceptForSteps' should be empty when 'haltOnAnyFailure' is set to True",
-    )
-  }
 
   @SkipNulls fun hooks(): Set<Set<HookConfig>>
 
@@ -96,6 +88,21 @@ internal interface KickDef {
   @SkipNulls fun typesToIgnoreForMarshalling(): Set<Class<out Any>>
 
   @Value.Default fun insecureHttp(): Boolean = false
+
+  @Value.Check
+  fun check() {
+    require(
+      !haltOnAnyFailure() || (haltOnAnyFailure() && haltOnAnyFailureExceptForSteps().isEmpty())
+    ) {
+      "'haltOnAnyFailureExceptForSteps' should be empty when 'haltOnAnyFailure' is set to True"
+    }
+    require(Collections.disjoint(runOnlySteps(), skipSteps())) {
+      "'runOnlySteps' and 'skipSteps' cannot have intersection"
+    }
+  }
+  // ! TODO 22/06/23 gopala.akshintala: Validate if validation config for a step is mentioned but
+  // the stepName is not present
+  // ! TODO 22/06/23 gopala.akshintala: Validate if steps with the same name are used in config
 }
 
 data class RequestConfig

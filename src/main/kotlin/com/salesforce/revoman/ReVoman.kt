@@ -76,14 +76,6 @@ object ReVoman {
   @JvmStatic
   @OptIn(ExperimentalStdlibApi::class)
   fun revUp(kick: Kick): Rundown {
-    // ! TODO 18/06/23 gopala.akshintala: Add some more require conditions and Move to a separate
-    // component Config validation
-    // ! TODO 22/06/23 gopala.akshintala: Validate if validation config for a step is mentioned but
-    // the stepName is not present
-    // ! TODO 22/06/23 gopala.akshintala: Validate if steps with the same name are used in config
-    require(Collections.disjoint(kick.runOnlySteps(), kick.skipSteps())) {
-      "runOnlySteps and skipSteps cannot have intersection"
-    }
     initPmEnvironment(
       kick.environmentPaths(),
       kick.dynamicEnvironmentsFlattened(),
