@@ -10,11 +10,10 @@ package com.salesforce.revoman.internal.postman
 import io.github.serpro69.kfaker.faker
 import java.time.LocalDate
 import java.util.*
+import kotlin.random.Random.Default.nextInt
 import kotlin.random.Random.Default.nextLong
 
 private val faker = faker {}
-
-private val random = Random()
 
 private val dynamicVariableKeyToGenerator: Map<String, () -> String> =
   mapOf(
@@ -22,9 +21,11 @@ private val dynamicVariableKeyToGenerator: Map<String, () -> String> =
     "\$randomLastName" to faker.name::lastName,
     "\$randomUserName" to { faker.name.firstName() + faker.name.lastName() },
     "\$randomCity" to faker.address::city,
+    "\$randomWord" to faker.lorem::words,
     "\$randomCompanyName" to faker.company::name,
     "\$randomColor" to faker.color::name,
-    "\$randomLoremWord" to faker.lorem::words,
+    "\$randomWord" to faker.lorem::words,
+    "\$randomInt" to { nextInt().toString() },
     "\$randomAdjective" to faker.adjective::positive,
     "\$randomUUID" to { UUID.randomUUID().toString() },
     "\$randomEmail" to { faker.internet.email() },

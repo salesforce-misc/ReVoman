@@ -1360,7 +1360,7 @@
 								"header": [],
 								"body": {
 									"mode": "raw",
-									"raw": "{\n    \"FullName\": \"{{$randomCity}}\",\n    \"Metadata\": {\n        \"allowMergeFieldsInBody\": \"false\",\n        \"allowMergeFieldsInHeader\": \"false\",\n        \"label\": \"Mock\",\n        \"endpoint\": \"https://mockendpoint.free.beeceptor.com\",\n        \"principalType\": \"NamedUser\",\n        \"protocol\": \"Password\",\n        \"username\": \"MockUsername\",\n        \"password\":\"MockPassword\",\n        \"generateAuthorizationHeader\": \"true\"\n    }\n}",
+									"raw": "{\n    \"FullName\": \"TaxNamedCred_{{$randomInt}}\",\n    \"Metadata\": {\n        \"allowMergeFieldsInBody\": \"false\",\n        \"allowMergeFieldsInHeader\": \"false\",\n        \"label\": \"Mock\",\n        \"endpoint\": \"https://mockendpoint.free.beeceptor.com\",\n        \"principalType\": \"NamedUser\",\n        \"protocol\": \"Password\",\n        \"username\": \"MockUsername\",\n        \"password\":\"MockPassword\",\n        \"generateAuthorizationHeader\": \"true\"\n    }\n}",
 									"options": {
 										"raw": {
 											"language": "json"

@@ -19,12 +19,12 @@ vador = "1.1.0"
 http4k = "5.8.4.0"
 kotlin-logging = "5.1.0"
 apache-commons-lang3 = "3.13.0"
-graal = "22.3.3"
+graal = "22.3.3" # 22.3.3 Compatable with Java 11
 underscore = "1.94"
 kotlin-faker = "1.15.0"
 immutables = "2.10.0"
 mockito = "5.6.0"
-spring = "5.3.30" # Compatable with Java 11
+spring = "5.3.30" # 5.3.30 Compatable with Java 11
 awaitility = "4.2.0"
 nexus-publish = "2.0.0-rc-1"
 
@@ -80,7 +80,6 @@ detekt-gradle = { module = "io.gitlab.arturbosch.detekt:detekt-gradle-plugin", v
 spotless-gradle = { module = "com.diffplug.spotless:spotless-plugin-gradle", version.ref = "spotless" }
 spotbugs-gradle = { module = "com.github.spotbugs.snom:spotbugs-gradle-plugin", version.ref = "spotbugs" }
 kover-gradle = { module = "org.jetbrains.kotlinx.kover:org.jetbrains.kotlinx.kover.gradle.plugin", version.ref = "kover" }
-nexus-publish-gradle = { module = "io.github.gradle-nexus.publish-plugin:io.github.gradle-nexus.publish-plugin.gradle.plugin", version.ref = "nexus-publish" }
 
 [bundles]
 kotest = [

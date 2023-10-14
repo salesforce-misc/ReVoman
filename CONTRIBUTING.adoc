@@ -19,7 +19,7 @@ endif::[]
 :hide-uri-scheme:
 :sourcedir: src/main/java
 :imagesdir: images
-:revoman-version: 0.11.7
+:revoman-version: 0.20.7
 :toc:
 
 [#_versioning_strategy]
