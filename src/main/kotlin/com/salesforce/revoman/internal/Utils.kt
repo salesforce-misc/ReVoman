@@ -77,17 +77,17 @@ internal fun stepNameVariants(stepName: String): Set<String> = buildSet {
   if (!stepName.contains(FOLDER_DELIMITER)) add(stepName.substringAfterLast(HTTP_METHOD_SEPARATOR))
 }
 
+internal fun getRequestConfigForStepName(
+  stepName: String,
+  stepNameToRequestConfig: Map<String, RequestConfig>
+): RequestConfig? = stepNameVariants(stepName).firstNotNullOfOrNull { stepNameToRequestConfig[it] }
+
 internal fun getResponseConfigForStepName(
   stepName: String,
   httpStatus: Boolean,
   stepNameToResponseConfig: Map<Pair<Boolean, String>, ResponseConfig>
 ): ResponseConfig? =
   stepNameVariants(stepName).firstNotNullOfOrNull { stepNameToResponseConfig[httpStatus to it] }
-
-internal fun getRequestConfigForStepName(
-  stepName: String,
-  stepNameToRequestConfig: Map<String, RequestConfig>
-): RequestConfig? = stepNameVariants(stepName).firstNotNullOfOrNull { stepNameToRequestConfig[it] }
 
 internal fun isStepNameInPassList(
   currentStepName: String,
@@ -111,6 +111,3 @@ internal fun shouldStepBeExecuted(
 
 internal fun <L, R> arrow.core.Either<L, R>.toVavr(): Either<L, R> =
   fold({ Either.left(it) }, { Either.right(it) })
-
-internal fun <L, R> Either<L, R>.toArrow(): arrow.core.Either<L, R> =
-  fold({ arrow.core.Either.Left(it) }, { arrow.core.Either.Right(it) })

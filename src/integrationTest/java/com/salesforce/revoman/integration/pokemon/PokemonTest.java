@@ -85,6 +85,7 @@ class PokemonTest {
                 .responseConfig(
                     validateIfSuccess("all-pokemon", Results.class, pokemonResultsValidationConfig))
                 .dynamicEnvironment(dynamicEnvironment)
+                .haltOnAnyFailure(true)
                 .off());
 
     Mockito.verify(resultSizeValidator, times(1)).apply(any());

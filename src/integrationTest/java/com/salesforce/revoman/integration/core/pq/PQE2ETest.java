@@ -34,7 +34,7 @@ import org.slf4j.LoggerFactory;
  * This is only a sample to demo a full-blown test. You may not be able to execute this, as it needs
  * a specific server setup.
  *
- * <p>TODO: Add a dummy server setup for this test.
+ * <p>TODO: Add a mock server setup for this test.
  */
 class PQE2ETest {
   private static final Logger LOGGER = LoggerFactory.getLogger(PQE2ETest.class);

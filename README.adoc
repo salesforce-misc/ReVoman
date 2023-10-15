@@ -239,9 +239,9 @@ Rundown(
 
 StepReport(
     val status: String,
-    val requestInfo: Either<out Failure, TxInfo<Request>>?,
+    val requestInfo: Either<RequestFailure, TxInfo<Request>>?,
     val preHookFailure: PreHookFailure?,
-    val responseInfo: Either<out Failure, TxInfo<Response>>?,
+    val responseInfo: Either<ResponseFailure, TxInfo<Response>>?,
     val postHookFailure: PostHookFailure?,
     val postmanEnvironmentSnapshot: PostmanEnvironment<Any?>
 )
