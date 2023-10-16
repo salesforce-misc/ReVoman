@@ -80,7 +80,7 @@ class PQE2ETest {
             "Termed PSM",
             "ProductRelationshipType");
     // tag::pq-e2e-with-revoman-config-demo[]
-    final var pqRunDown =
+    final var pqRundown =
         ReVoman.revUp( // <1>
             Kick.configure()
                 .templatePaths(PQ_TEMPLATE_PATHS) // <2>
@@ -151,7 +151,7 @@ class PQE2ETest {
                         validatePQErrorResponse))
                 .insecureHttp(true) // <10>
                 .off()); // Kick-off
-    assertThat(pqRunDown.mutableEnv)
+    assertThat(pqRundown.mutableEnv)
         .containsAllEntriesOf(
             Map.of(
                 "quoteCalculationStatusForSkipPricing", PricingPref.Skip.completeStatus,

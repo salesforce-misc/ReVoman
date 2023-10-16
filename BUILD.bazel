@@ -3,7 +3,7 @@ load("@rules_java//java:defs.bzl", "java_import")
 package(default_visibility = ["//visibility:public"])
 
 java_import(
-    name = "com_salesforce_ccspayments_revoman",
+    name = "com_salesforce_revoman_revoman",
     jars = glob(["build/libs/revoman-root-*.jar"]),
     srcjar = glob(["build/libs/revoman-root-*-sources.jar"])[0],
 )
