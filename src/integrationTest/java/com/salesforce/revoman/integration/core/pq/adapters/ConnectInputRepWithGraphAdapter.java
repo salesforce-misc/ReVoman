@@ -109,7 +109,12 @@ public class ConnectInputRepWithGraphAdapter<T extends ConnectInputRepresentatio
         connectInputRepWithGraph,
         writer,
         cirwg -> {
-          writeProps(writer, type, cirwg);
+          writeProps(
+              writer,
+              type,
+              cirwg,
+              Set.of(ObjectGraphInputRepresentation.class),
+              dynamicJsonAdapter);
           objW(
               "graph",
               cirwg.getGraph(),

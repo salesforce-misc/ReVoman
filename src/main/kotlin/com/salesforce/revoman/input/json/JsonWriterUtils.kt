@@ -2,6 +2,7 @@
 
 package com.salesforce.revoman.input.json
 
+import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.JsonWriter
 import java.util.function.Consumer
 import org.springframework.beans.BeanUtils
@@ -96,21 +97,18 @@ fun <T> listW(list: List<T>?, writer: JsonWriter, block: Consumer<T>): JsonWrite
     }
   }
 
-fun <T> JsonWriter.writeProps(type: Class<T>, bean: T) {
-  for (propDescriptor in BeanUtils.getPropertyDescriptors(type)) {
-    val propType = propDescriptor.propertyType
-    val propName = propDescriptor.name
-    val value = propDescriptor.readMethod(bean)
-    when {
-      propType.isEnum -> string(propName, value.toString())
-      BeanUtils.isSimpleProperty(propType) ->
-        when (value) {
-          is String -> string(propName, value)
-          is Int -> integer(propName, value)
-          is Boolean -> bool(propName, value)
-          is Long -> lng(propName, value)
-          is Double -> doubl(propName, value)
-        }
+fun <T> JsonWriter.writeProps(
+  type: Class<T>,
+  bean: T,
+  excludePropTypes: Set<Class<*>>,
+  dynamicJsonAdapter: JsonAdapter<Any>
+) =
+  BeanUtils.getPropertyDescriptors(type)
+    .asSequence()
+    .filterNot {
+      it.propertyType.name == "java.lang.Class" || excludePropTypes.contains(it.propertyType)
     }
-  }
-}
+    .forEach {
+      name(it.name)
+      dynamicJsonAdapter.toJson(this, it.readMethod(bean))
+    }
