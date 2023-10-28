@@ -11,10 +11,8 @@ import arrow.core.Either
 import arrow.core.Either.Left
 import arrow.core.Either.Right
 import arrow.core.flatMap
-import com.salesforce.revoman.input.HookConfig
 import com.salesforce.revoman.input.HookConfig.Hook.PostHook
 import com.salesforce.revoman.input.HookConfig.Hook.PreHook
-import com.salesforce.revoman.input.HookConfig.HookType
 import com.salesforce.revoman.input.HookConfig.HookType.POST
 import com.salesforce.revoman.input.HookConfig.HookType.PRE
 import com.salesforce.revoman.input.Kick
@@ -96,7 +94,7 @@ object ReVoman {
           kick.typesToIgnoreForMarshalling()
         )
       )
-    return Rundown(stepNameToReport, pm.environment)
+    return Rundown(stepNameToReport, pm.environment, kick.haltOnAnyFailureExceptForSteps())
   }
 
   private fun executeStepsSerially(
@@ -119,7 +117,7 @@ object ReVoman {
           unmarshallRequest(stepName, pmRequest, kick.stepNameToRequestConfig(), moshiReVoman)
             .mapLeft { StepReport(Left(it)) }
             .map { requestInfo: TxInfo<Request> -> // --------### PRE-HOOKS ###--------
-              preHookExe(stepName, kick.hooksFlattened(), requestInfo, stepNameToReport)?.mapLeft {
+              preHookExe(stepName, kick, requestInfo, stepNameToReport)?.mapLeft {
                 StepReport(Right(requestInfo), it)
               }
               requestInfo
@@ -157,11 +155,7 @@ object ReVoman {
               )
             }
             .map { stepReport: StepReport -> // --------### POST-HOOKS ###--------
-              postHookExe(
-                  stepName,
-                  kick.hooksFlattened(),
-                  stepNameToReport + (stepName to stepReport)
-                )
+              postHookExe(stepName, kick, stepNameToReport + (stepName to stepReport))
                 ?.fold(
                   { stepReport.copy(postHookFailure = it) },
                   { stepReport.copy(envSnapshot = pm.environment.copy()) },
@@ -199,15 +193,19 @@ object ReVoman {
 
   private fun preHookExe(
     stepName: String,
-    hooksFlattened: Map<HookType, List<HookConfig>>,
+    kick: Kick,
     requestInfo: TxInfo<Request>,
     stepNameToReport: Map<String, StepReport>
   ): Either<PreHookFailure, Unit>? =
-    getHooksForStep<PreHook>(stepName, PRE, hooksFlattened)
+    getHooksForStep<PreHook>(stepName, PRE, kick.hooksFlattened())
       .asSequence()
       .map { preHook ->
         runChecked(stepName, PRE_HOOK) {
-            preHook.accept(stepName, requestInfo, Rundown(stepNameToReport, pm.environment))
+            preHook.accept(
+              stepName,
+              requestInfo,
+              Rundown(stepNameToReport, pm.environment, kick.haltOnAnyFailureExceptForSteps())
+            )
           }
           .mapLeft { PreHookFailure(it, requestInfo) }
       }
@@ -306,14 +304,17 @@ object ReVoman {
 
   private fun postHookExe(
     stepName: String,
-    hooksFlattened: Map<HookType, List<HookConfig>>,
+    kick: Kick,
     stepNameToStepReport: Map<String, StepReport>
   ): Either<PostHookFailure, Unit>? =
-    getHooksForStep<PostHook>(stepName, POST, hooksFlattened)
+    getHooksForStep<PostHook>(stepName, POST, kick.hooksFlattened())
       .asSequence()
       .map { postHook ->
         runChecked(stepName, POST_HOOK) {
-            postHook.accept(stepName, Rundown(stepNameToStepReport, pm.environment))
+            postHook.accept(
+              stepName,
+              Rundown(stepNameToStepReport, pm.environment, kick.haltOnAnyFailureExceptForSteps())
+            )
           }
           .mapLeft { PostHookFailure(it) }
       }

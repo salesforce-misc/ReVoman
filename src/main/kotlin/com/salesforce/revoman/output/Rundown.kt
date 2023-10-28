@@ -7,6 +7,7 @@
  */
 package com.salesforce.revoman.output
 
+import com.salesforce.revoman.internal.isStepNameInPassList
 import com.salesforce.revoman.internal.postman.pm
 import com.salesforce.revoman.internal.stepNameVariants
 import com.salesforce.revoman.internal.toVavr
@@ -32,17 +33,35 @@ import org.http4k.core.Response
 
 data class Rundown(
   @JvmField val stepNameToReport: Map<String, StepReport> = emptyMap(),
-  @JvmField val mutableEnv: PostmanEnvironment<Any?> = PostmanEnvironment()
+  @JvmField val mutableEnv: PostmanEnvironment<Any?> = PostmanEnvironment(),
+  private val stepsToIgnoreForFailure: Set<String>,
 ) {
   val immutableEnvMap
     @JvmName("immutableEnvMap") get() = mutableEnv.toMap()
 
   val firstUnsuccessfulStepNameInOrder: String?
+    @JvmName("firstUnsuccessfulStepNameInOrder")
     get() =
       stepNameToReport.entries.firstOrNull { (_, stepReport) -> !stepReport.isSuccessful }?.key
 
+  val firstUnIgnoredUnsuccessfulStepNameInOrder: String?
+    @JvmName("firstUnIgnoredUnsuccessfulStepNameInOrder")
+    get() =
+      stepNameToReport.entries
+        .firstOrNull { (stepName, stepReport) ->
+          !stepReport.isSuccessful && !isStepNameInPassList(stepName, stepsToIgnoreForFailure)
+        }
+        ?.key
+
   val areAllStepsSuccessful
     @JvmName("areAllStepsSuccessful") get() = stepNameToReport.values.all { it.isSuccessful }
+
+  val areAllStepsExceptIgnoredSuccessful
+    @JvmName("areAllStepsExceptIgnoredSuccessful")
+    get() =
+      stepNameToReport.all { (stepName, stepReport) ->
+        stepReport.isSuccessful || isStepNameInPassList(stepName, stepsToIgnoreForFailure)
+      }
 
   fun reportsForStepsInFolder(folderName: String): List<StepReport?> =
     stepNameToReport.filter { it.key.contains("$folderName$FOLDER_DELIMITER") }.map { it.value }
@@ -86,13 +105,6 @@ data class Rundown(
       postHookFailure,
       pm.environment.copy()
     )
-
-    private val status: String
-      get() =
-        failure(requestInfo, preHookFailure, responseInfo, postHookFailure)?.let { f ->
-          "‼️ ${f.fold({it}, {it})}"
-        }
-          ?: "👍"
 
     val isSuccessful: Boolean
       get() = failure(requestInfo, preHookFailure, responseInfo, postHookFailure) == null

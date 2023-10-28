@@ -15,7 +15,7 @@ endif::[]
 :pmtemplates: src/integrationTest/resources/pm-templates
 :imagesdir: docs/images
 :prewrap!:
-:revoman-version: 0.21.2
+:revoman-version: 0.21.4
 
 ____
 
@@ -38,6 +38,10 @@ But it's even better
 
 image::postman-run.png[]
 
+[.lead]
+It strikes a balance between _flexibility_ provided by low-level tools like link:https://rest-assured.io/[**REST Assured**] and _ease of use_ provided by UI tools like link:https://www.postman.com/[**Postman**]
+
+image::hybrid-tool.png[]
 
 == Artifacts
 
@@ -70,20 +74,27 @@ toc::[]
 
 === The Problem
 
-* The majority of JVM SaaS applications are REST-based. But the API automation (like Integration Tests) is done with lots and lots of code.
+* The majority of JVM SaaS applications are REST-based. But the API automation is done through a Mul-*T*-verse of Integration/Functional tests, E2E tests and Manual tests, each with its own frameworks, tools, and internal utilities, testing almost the same code flow.
+* These custom alien automation frameworks, often built using low-level tools like link:https://rest-assured.io/[**REST Assured**] are specific to a service or domain and are rigid to reuse, extend and difficult to maintain.
 * This automation competes on cognitive complexity and learning curve with the Prod code, and mostly, automation wins.
-* We have tools like Postman for API automation, but they don't live with the code and need altogether a different skill set to write and maintain and don't work well with JVM
-* On top of that, we have a mul-*T*-verse of FTests, E2E tests, each with its own frameworks, tools, and internal utilities.
-* You need altogether a different strategy and a new set of tools to learn and implement, to cover the same flow through an E2E test, which demands an almost equal amount of code.
+* After a point, the API automation may deviate from it's purpose of augmenting real end-user interaction and turns into a foot-chain for development.
 
 image::cognitive-complexity.png[]
 
+=== The Solution
+
+* Contrary to custom frameworks, almost every team uses Postman for manual testing
+* Postman collections contain a lot of information in a structured way, which when used can mitigate writing a lot of code
+
 ____
 
-How _productive_ would it be, if all you need to execute an FTest or an E2E test is the same Postman collection,
-that you anyway would have created for your manual testing?
+* How _productive_ would it be, if you can plug your exported Postman collection,
+that you anyway would have created for your manual testing, and execute them through your JVM tests?
+
+* How about a Universal API automation tool, promotes low-code and low-cognitive-complexity and strikes a balance between flexibility and ease of use
 
 ____
+
 
 === API automation with _ReṼoman_
 
@@ -93,7 +104,7 @@ Let’s check out how you can perform *Template-Driven-Testing* with ReVoman:
 
 === Input
 
-You can kick all this off with this simple API call, supplying a config
+ReVoman has only one method `revUp` that you can supplying a config:
 
 [source,java,indent=0,options="nowrap"]
 ----
@@ -103,7 +114,7 @@ ReVoman.revUp(
     .off())
 ----
 
-Let’s check out how to build this config:
+Let’s check out how to build this config with an example:
 
 ifdef::env-github[]
 
@@ -111,75 +122,75 @@ ifdef::env-github[]
 .link:{testdir}/com/salesforce/revoman/integration/core/pq/PQE2ETest.java[PQE2ETest.java, tag=pq-e2e-with-revoman-config-demo]
 ----
 ReVoman.revUp( // <1>
-    Kick.configure()
-        .templatePath("pm-templates/pq/pq-with-rc.postman_collection.json") // <2>
-        .environmentPath("pm-templates/pq/pq-env.postman_environment.json") // <3>
-        .dynamicEnvironment( // <4>
-            Map.of(
-                "$quoteFieldsToQuery", "LineItemCount, CalculationStatus",
-                "$qliFieldsToQuery", "Id, Product2Id",
-                "$qlrFieldsToQuery", "Id, QuoteId, MainQuoteLineId, AssociatedQuoteLineId"))
-        .customDynamicVariable( // <5>
-            "$quantity", ignore -> String.valueOf(Random.Default.nextInt(10) + 1))
-        .requestConfig( // <6>
-            unmarshallRequest(
-                ASYNC_STEP_NAMES,
-                PlaceQuoteInputRepresentation.class,
-                adapter(PlaceQuoteInputRepresentation.class)))
-        .hooks( // <7>
-            post(
-                "password-reset",
-                (stepName, rundown) ->
-                    LOGGER.info(
-                        "Step count: {} executed including this step: {}",
-                        rundown.stepNameToReport.size(),
-                        stepName)),
-            pre(
-                "pq-create-with-bundles",
-                (stepName, requestInfo, rundown) ->
-                    LOGGER.info(
-                        "Step count: {} executed before this step: {}",
-                        rundown.stepNameToReport.size(),
-                        stepName)),
-            pre(
-                ASYNC_STEP_NAMES,
-                (stepName, requestInfo, rundown) -> {
-                  final var pqInputRep =
-                      requestInfo.<PlaceQuoteInputRepresentation>getTypedTxObj();
-                  assertThat(pqInputRep).isNotNull();
-                  if ("pq-create: qli+qlr (skip-pricing)"
-                      .equals(pqInputRep.getGraph().getGraphId())) {
-                    LOGGER.info("Skip pricing for step: {}", stepName);
-                    rundown.mutableEnv.set("$pricingPref", PricingPref.Skip.toString());
-                  } else {
-                    rundown.mutableEnv.set("$pricingPref", PricingPref.System.toString());
-                  }
-                }),
-            post("query-quote-and-related-records", PQE2ETest::assertAfterPQCreate),
-            post(
-                ASYNC_STEP_NAMES,
-                (stepName, rundown) -> {
+  Kick.configure()
+      .templatePaths(PQ_TEMPLATE_PATHS) // <2>
+      .environmentPath("pm-templates/pq/pq-env.postman_environment.json") // <3>
+      .dynamicEnvironment( // <4>
+          Map.of(
+              "$quoteFieldsToQuery", "LineItemCount, CalculationStatus",
+              "$qliFieldsToQuery", "Id, Product2Id",
+              "$qlrFieldsToQuery", "Id, QuoteId, MainQuoteLineId, AssociatedQuoteLineId"))
+      .customDynamicVariable( // <5>
+          "$quantity", ignore -> String.valueOf(Random.Default.nextInt(10) + 1))
+      .requestConfig( // <6>
+          unmarshallRequest(
+              ASYNC_STEP_NAMES,
+              PlaceQuoteInputRepresentation.class,
+              adapter(PlaceQuoteInputRepresentation.class)))
+      .hooks( // <7>
+          post(
+              "password-reset",
+              (stepName, rundown) ->
                   LOGGER.info(
-                      "Waiting after Step: {} for the Quote: {} to get processed",
-                      stepName,
-                      rundown.mutableEnv.getString("quoteId"));
-                  // ! CAUTION 10/09/23 gopala.akshintala: This test can be flaky until
-                  // polling is implemented
-                  Thread.sleep(20000);
-                }))
-        .haltOnAnyFailureExceptForSteps(unsuccessfulStepsException) // <8>
-        .responseConfig( // <9>
-            unmarshallSuccessResponse("quote-related-records", CompositeResponse.class),
-            validateIfSuccess( // <9.1>
-                ASYNC_STEP_NAMES,
-                PlaceQuoteOutputRepresentation.class,
-                validatePQSuccessResponse),
-            validateIfFailed(
-                FAILURE_STEP_NAMES,
-                PlaceQuoteOutputRepresentation.class,
-                validatePQErrorResponse))
-        .insecureHttp(true) // <10>
-        .off()); // Kick-off
+                      "Step count: {} executed including this step: {}",
+                      rundown.stepNameToReport.size(),
+                      stepName)),
+          pre(
+              "pq-create-with-bundles",
+              (stepName, requestInfo, rundown) ->
+                  LOGGER.info(
+                      "Step count: {} executed before this step: {}",
+                      rundown.stepNameToReport.size(),
+                      stepName)),
+          pre(
+              ASYNC_STEP_NAMES,
+              (stepName, requestInfo, rundown) -> {
+                final var pqInputRep =
+                    requestInfo.<PlaceQuoteInputRepresentation>getTypedTxObj();
+                assertThat(pqInputRep).isNotNull();
+                if ("pq-create: qli+qlr (skip-pricing)"
+                    .equals(pqInputRep.getGraph().getGraphId())) {
+                  LOGGER.info("Skip pricing for step: {}", stepName);
+                  rundown.mutableEnv.set("$pricingPref", PricingPref.Skip.toString());
+                } else {
+                  rundown.mutableEnv.set("$pricingPref", PricingPref.System.toString());
+                }
+              }),
+          post("query-quote-and-related-records", PQE2ETest::assertAfterPQCreate),
+          post(
+              ASYNC_STEP_NAMES,
+              (stepName, rundown) -> {
+                LOGGER.info(
+                    "Waiting after Step: {} for the Quote: {} to get processed",
+                    stepName,
+                    rundown.mutableEnv.getString("quoteId"));
+                // ! CAUTION 10/09/23 gopala.akshintala: This test can be flaky until
+                // polling is implemented
+                Thread.sleep(20000);
+              }))
+      .haltOnAnyFailureExceptForSteps(STEPS_TO_IGNORE_FOR_FAILURE) // <8>
+      .responseConfig( // <9>
+          unmarshallSuccessResponse("quote-related-records", CompositeResponse.class),
+          validateIfSuccess( // <9.1>
+              ASYNC_STEP_NAMES,
+              PlaceQuoteOutputRepresentation.class,
+              validatePQSuccessResponse),
+          validateIfFailed(
+              FAILURE_STEP_NAMES,
+              PlaceQuoteOutputRepresentation.class,
+              validatePQErrorResponse))
+      .insecureHttp(true) // <10>
+      .off()); // Kick-off
 ----
 <1> `revUp` is the method to call passing a configuration, built as below
 <2> Supply the path (relative to resources) to the Template Collection JSON file
@@ -229,7 +240,8 @@ endif::[]
 
 === Output
 
-After all this, you receive back a detailed Rundown of all the steps with all the Request-Response data. You get Strong types for the ones you are interested in so that you can run more assertions on top of the run.
+After all this, you receive back a detailed Rundown of all the steps with all the Request-Response data.
+You get Strong types for the ones you are interested in so that you can run more assertions on top of the run.
 
 [source,kotlin,indent=0,options="nowrap"]
 ----
@@ -243,15 +255,17 @@ StepReport(
     val preHookFailure: PreHookFailure?,
     val responseInfo: Either<ResponseFailure, TxInfo<Response>>?,
     val postHookFailure: PostHookFailure?,
-    val postmanEnvironmentSnapshot: PostmanEnvironment<Any?>
+    val envSnapshot: PostmanEnvironment<Any?>
 )
 ----
+
+image:failure-hierarchy.png[Failure Hierarchy]
 
 Here is what a debugger view of a Rundown looks like:
 
 image:full-report.png[Rundown of all steps]
 
-Along with all the environment
+Along with all the environment:
 
 image:mutable-env.png[Mutable environment after the execution completion]
 
@@ -260,18 +274,17 @@ along with environment snapshot during that step execution.
 
 image:step-report.png[Step Report]
 
-You can run further assertions on top of this report
+`Rundown` has many convenience methods to ease applying further assertions on top of it.
 
-=== Perf
+=== Type Safety with flexible JSON marshalling/serialization and unmarshalling/deserialization
 
-This entire execution of **70 steps**, which include **10 async steps**, took a mere *3.6 min* on localhost.
-This can be much better on auto-build environments.
-(TBD: Capture the avg time taken on auto-builds)
+* ReVoman internally uses a modern JSON library called link:https://github.com/square/moshi[**Moshi**]
+* Tools like **REST Assured* which use **Jackson** to serialize/deserialize JSON and you need to add extra annotations (like `@JsonIgnore`) on top of your POJOs. But when you don't have control over the POJO source-code, this is not possible. ReVoman needs no extra annotations on POJOs.
+* There may be POJO that inherit from legacy classes which are hard or impossible to serialize. ReVoman let's you serialize such a legacy POJO by letting you pass `typesToIgnoreForMarshalling`, where you can you filter-out these legacy classes.
+* The payload may not map to POJO and you may need a custom adapter for Conversion. Moshi has it covered for you with its advanced adapter mechanism and ReVoman accepts Moshi adapters. ReVoman also comes bundled with JSON reader and writer utils to help build Moshi adapters.
 
-image:ftest-console.png[Localhost Test time on FTest console]
-
-WARNING: ReVoman internally is very light-weight and the execution times are proportional
-to how your server responds or your network speeds.
+TIP: Refer link:{testdir}/com/salesforce/revoman/integration/core/pq/adapters/ConnectInputRepWithGraphAdapter.java[ConnectInputRepWithGraphAdapter]
+for an advanced adapter use-case
 
 === Low-code
 
@@ -282,11 +295,8 @@ ____
 ____
 
 [.lead]
-This demonstrates *a Low-code FTest that tests E2E*, Transparent and Low in Cognitive Complexity.
-
-NOTE: *FTest with ReVoman:* Lines of Code: *136 (89% low-code)*
-
-The amount of code needed for your FTest suite is drastically down by *89%*
+The above test has low-code and low in Cognitive Complexity and is Transparent.
+Compared to a traditional Integration/Functional or E2E test, approximately, the amount of code needed is *89%* less using ReVoman.
 
 == Postman collection on Git
 
@@ -295,9 +305,20 @@ The amount of code needed for your FTest suite is drastically down by *89%*
 * Any day, you can find a Postman collection for every feature you need to test, right in your VCS. Developers can import these templates directly from VCS for manual testing. This comes in very handy during FF/RF/Cross team blitz.
 * With ReVoman, you no more need a release task to keep your Postman collections up-to-date.
 
+=== Perf
+
+This entire execution of **70 steps**, which include **10 async steps**, took a mere *122 sec* on localhost.
+This can be much better on auto-build environments.
+(TBD: Capture the avg time taken on auto-builds)
+
+image:pq-revoman-test-time.png[Localhost Test time on FTest console]
+
+WARNING: ReVoman internally is very light-weight and the execution times are proportional
+to how your server responds or your network speeds.
+
 == Internal Orchestration
 
-image::revoman-flow.png[ReVoman flow]
+image::orchestration.png[ReVoman flow]
 
 * It reads the environment JSON provided into in-memory.
 * Then it reads and Inflates each static template in the collection, replacing variables at runtime from the in-memory environment
@@ -325,12 +346,12 @@ image::revoman-flow.png[ReVoman flow]
 [.lead]
 The future looks bright
 
-* *It's built with extensibility* in mind. It can easily be extended to support downloadable *Kaiju* templates too.
+* *It's built with extensibility* in mind. It can easily be extended to support other template formats like *Kaiju*.
 ** You should be able to run Kaiju availability tests right from your IDE and debug them too
 
 == FAQs
 
-=== Is Debugging difficult with ReVoman?
+=== Is Debugging challenging with ReVoman?
 
 * IDE debug points in the Prod code work as expected while running the test.
 * Coming to FTest code, we debug when we don't understand what's going on in the code.

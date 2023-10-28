@@ -38,7 +38,7 @@ import org.slf4j.LoggerFactory;
  */
 class PQE2ETest {
   private static final Logger LOGGER = LoggerFactory.getLogger(PQE2ETest.class);
-  public static final Set<String> ASYNC_STEP_NAMES =
+  private static final Set<String> ASYNC_STEP_NAMES =
       Set.of(
           "pq-create: qli+qlr (skip-pricing)",
           "pq-create: qli+qlr",
@@ -49,9 +49,17 @@ class PQE2ETest {
           "pq-update: qli(all patch)",
           "pq-update: qli(all delete)",
           "pq-update: qli(post+delete)");
-
   private static final Set<String> FAILURE_STEP_NAMES =
       Set.of("pq-create-without-quote (sync-error)", "pq-update-invalid-method (sync-error)");
+  private static final Set<String> STEPS_TO_IGNORE_FOR_FAILURE =
+      Set.of(
+          "MockTaxAdapter",
+          "TaxEngineProvider",
+          "Proration Policy",
+          "OneTime PSM",
+          "Evergreen PSM",
+          "Termed PSM",
+          "ProductRelationshipType");
   private static final List<String> PQ_TEMPLATE_PATHS =
       List.of(
           "pm-templates/pq/user-creation-and-setup-pq.postman_collection.json",
@@ -70,15 +78,6 @@ class PQE2ETest {
             .withValidator(
                 (resp -> Boolean.FALSE.equals(resp.getSuccess()) ? "sync-failure" : "success"),
                 "sync-failure");
-    final var unsuccessfulStepsException =
-        Set.of(
-            "MockTaxAdapter",
-            "TaxEngineProvider",
-            "Proration Policy",
-            "OneTime PSM",
-            "Evergreen PSM",
-            "Termed PSM",
-            "ProductRelationshipType");
     // tag::pq-e2e-with-revoman-config-demo[]
     final var pqRundown =
         ReVoman.revUp( // <1>
@@ -138,7 +137,7 @@ class PQE2ETest {
                           // polling is implemented
                           Thread.sleep(20000);
                         }))
-                .haltOnAnyFailureExceptForSteps(unsuccessfulStepsException) // <8>
+                .haltOnAnyFailureExceptForSteps(STEPS_TO_IGNORE_FOR_FAILURE) // <8>
                 .responseConfig( // <9>
                     unmarshallSuccessResponse("quote-related-records", CompositeResponse.class),
                     validateIfSuccess( // <9.1>
@@ -151,6 +150,7 @@ class PQE2ETest {
                         validatePQErrorResponse))
                 .insecureHttp(true) // <10>
                 .off()); // Kick-off
+    assertThat(pqRundown.firstUnIgnoredUnsuccessfulStepNameInOrder()).isNull();
     assertThat(pqRundown.mutableEnv)
         .containsAllEntriesOf(
             Map.of(

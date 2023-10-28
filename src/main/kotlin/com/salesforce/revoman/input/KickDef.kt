@@ -30,33 +30,33 @@ import org.immutables.value.Value.Style.ImplementationVisibility.PUBLIC
 @Config
 @Value.Immutable
 internal interface KickDef {
-  @SkipNulls fun templatePaths(): List<String>
+  fun templatePaths(): List<String>
 
-  @SkipNulls fun environmentPaths(): List<String>
+  fun environmentPaths(): List<String>
 
-  @SkipNulls fun dynamicEnvironments(): List<Map<String, String>>
+  fun dynamicEnvironments(): List<Map<String, String>>
 
   @Value.Derived
   fun dynamicEnvironmentsFlattened(): Map<String, String> =
     if (dynamicEnvironments().isEmpty()) emptyMap()
     else dynamicEnvironments().reduce { acc, map -> acc + map }
 
-  @SkipNulls fun runOnlySteps(): Set<String>
+  fun customDynamicVariables(): Map<String, (String) -> String>
 
-  @SkipNulls fun skipSteps(): Set<String>
+  fun runOnlySteps(): Set<String>
 
-  @SkipNulls fun customDynamicVariables(): Map<String, (String) -> String>
+  fun skipSteps(): Set<String>
 
-  @SkipNulls fun haltOnAnyFailureExceptForSteps(): Set<String>
+  fun haltOnAnyFailureExceptForSteps(): Set<String>
 
   @Value.Default fun haltOnAnyFailure(): Boolean = false
 
-  @SkipNulls fun hooks(): Set<Set<HookConfig>>
+  fun hooks(): Set<Set<HookConfig>>
 
   @Value.Derived
   fun hooksFlattened(): Map<HookType, List<HookConfig>> = hooks().flatten().groupBy { it.hookType }
 
-  @SkipNulls fun requestConfig(): Set<Set<RequestConfig>>
+  fun requestConfig(): Set<Set<RequestConfig>>
 
   @Value.Derived
   fun stepNameToRequestConfig(): Map<String, RequestConfig> =
@@ -70,7 +70,7 @@ internal interface KickDef {
       .groupBy({ it.requestType }, { it.customAdapter!! })
 
   // ! TODO 26/08/23 gopala.akshintala: Validate for duplicate stepNames
-  @SkipNulls fun responseConfig(): Set<Set<ResponseConfig>>
+  fun responseConfig(): Set<Set<ResponseConfig>>
 
   @Value.Derived
   fun stepNameToResponseConfig(): Map<Pair<Boolean, String>, ResponseConfig> =
@@ -83,14 +83,14 @@ internal interface KickDef {
       .filter { it.customAdapter != null }
       .groupBy({ it.responseType }, { it.customAdapter!! })
 
-  @SkipNulls fun customAdapters(): List<Any>
+  fun customAdapters(): List<Any>
 
-  @SkipNulls fun typesToIgnoreForMarshalling(): Set<Class<out Any>>
+  fun typesToIgnoreForMarshalling(): Set<Class<out Any>>
 
   @Value.Default fun insecureHttp(): Boolean = false
 
   @Value.Check
-  fun check() {
+  fun validateConfig() {
     require(
       !haltOnAnyFailure() || (haltOnAnyFailure() && haltOnAnyFailureExceptForSteps().isEmpty())
     ) {
@@ -376,10 +376,6 @@ private constructor(val stepName: String, val hookType: HookType, val hook: Hook
   enum class HookType {
     PRE,
     POST,
-    // ! TODO 08/23 gopala.akshintala: Support other Hook types
-    REQUEST_SUCCESS,
-    REQUEST_FAILURE,
-    TEST_SCRIPT_JS_FAILURE
   }
 
   sealed interface Hook {
@@ -422,12 +418,6 @@ private annotation class SkipNulls
   builder = "configure",
   build = "off",
   depluralize = true,
-  depluralizeDictionary =
-    [
-      "templatePath:templatePathsInOrder",
-      "environmentPath:environmentPathsInOrder",
-      "dynamicEnvironment:dynamicEnvironmentsInOrder",
-    ],
   add = "*",
   put = "*",
   visibility = PUBLIC,
