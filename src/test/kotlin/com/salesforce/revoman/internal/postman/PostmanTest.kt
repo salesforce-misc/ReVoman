@@ -17,7 +17,7 @@ class PostmanTest {
     val epoch = System.currentTimeMillis().toString()
     val dummyDynamicVariableGenerator = { r: String -> if (r == "\$epoch") epoch else null }
     initPmEnvironment(
-      listOf("env-with-regex.json"),
+      setOf("env-with-regex.json"),
       mutableMapOf("un" to "userName"),
       emptyMap(),
       dummyDynamicVariableGenerator

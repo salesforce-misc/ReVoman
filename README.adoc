@@ -138,20 +138,6 @@ ReVoman.revUp( // <1>
               PlaceQuoteInputRepresentation.class,
               adapter(PlaceQuoteInputRepresentation.class)))
       .hooks( // <7>
-          post(
-              "password-reset",
-              (stepName, rundown) ->
-                  LOGGER.info(
-                      "Step count: {} executed including this step: {}",
-                      rundown.stepNameToReport.size(),
-                      stepName)),
-          pre(
-              "pq-create-with-bundles",
-              (stepName, requestInfo, rundown) ->
-                  LOGGER.info(
-                      "Step count: {} executed before this step: {}",
-                      rundown.stepNameToReport.size(),
-                      stepName)),
           pre(
               ASYNC_STEP_NAMES,
               (stepName, requestInfo, rundown) -> {
@@ -164,8 +150,7 @@ ReVoman.revUp( // <1>
                   rundown.mutableEnv.set("$pricingPref", PricingPref.Skip.toString());
                 } else {
                   rundown.mutableEnv.set("$pricingPref", PricingPref.System.toString());
-                }
-              }),
+                }}),
           post("query-quote-and-related-records", PQE2ETest::assertAfterPQCreate),
           post(
               ASYNC_STEP_NAMES,
@@ -176,8 +161,7 @@ ReVoman.revUp( // <1>
                     rundown.mutableEnv.getString("quoteId"));
                 // ! CAUTION 10/09/23 gopala.akshintala: This test can be flaky until
                 // polling is implemented
-                Thread.sleep(20000);
-              }))
+                Thread.sleep(20000);}))
       .haltOnAnyFailureExceptForSteps(STEPS_TO_IGNORE_FOR_FAILURE) // <8>
       .responseConfig( // <9>
           unmarshallSuccessResponse("quote-related-records", CompositeResponse.class),

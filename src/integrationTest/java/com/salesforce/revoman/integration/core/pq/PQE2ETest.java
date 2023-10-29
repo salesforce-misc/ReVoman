@@ -97,20 +97,6 @@ class PQE2ETest {
                         PlaceQuoteInputRepresentation.class,
                         adapter(PlaceQuoteInputRepresentation.class)))
                 .hooks( // <7>
-                    post(
-                        "password-reset",
-                        (stepName, rundown) ->
-                            LOGGER.info(
-                                "Step count: {} executed including this step: {}",
-                                rundown.stepNameToReport.size(),
-                                stepName)),
-                    pre(
-                        "pq-create-with-bundles",
-                        (stepName, requestInfo, rundown) ->
-                            LOGGER.info(
-                                "Step count: {} executed before this step: {}",
-                                rundown.stepNameToReport.size(),
-                                stepName)),
                     pre(
                         ASYNC_STEP_NAMES,
                         (stepName, requestInfo, rundown) -> {
@@ -150,7 +136,7 @@ class PQE2ETest {
                         validatePQErrorResponse))
                 .insecureHttp(true) // <10>
                 .off()); // Kick-off
-    assertThat(pqRundown.firstUnIgnoredUnsuccessfulStepNameInOrder()).isNull();
+    assertThat(pqRundown.firstUnIgnoredUnsuccessfulStepNameToReportInOrder()).isNull();
     assertThat(pqRundown.mutableEnv)
         .containsAllEntriesOf(
             Map.of(

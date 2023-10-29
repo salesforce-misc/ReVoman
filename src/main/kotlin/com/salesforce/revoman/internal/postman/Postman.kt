@@ -17,7 +17,7 @@ internal val pm = PostmanSDK()
 
 @OptIn(ExperimentalStdlibApi::class)
 internal fun initPmEnvironment(
-  pmEnvironmentPaths: List<String>,
+  pmEnvironmentPaths: Set<String>,
   dynamicEnvironment: Map<String, String?>?,
   customDynamicVariables: Map<String, (String) -> String>,
   dynamicVariableGenerator: (String) -> String? = ::dynamicVariableGenerator

@@ -30,9 +30,10 @@ import org.immutables.value.Value.Style.ImplementationVisibility.PUBLIC
 @Config
 @Value.Immutable
 internal interface KickDef {
+  // * NOTE 29/10/23 gopala.akshintala: `List` coz it allows adding a template twice
   fun templatePaths(): List<String>
 
-  fun environmentPaths(): List<String>
+  fun environmentPaths(): Set<String>
 
   fun dynamicEnvironments(): List<Map<String, String>>
 
@@ -55,6 +56,11 @@ internal interface KickDef {
 
   @Value.Derived
   fun hooksFlattened(): Map<HookType, List<HookConfig>> = hooks().flatten().groupBy { it.hookType }
+
+  // * NOTE 29/10/23 gopala.akshintala: requestConfig/responseConfig are decoupled from pre- /
+  // post-hook to allow
+  // setting up unmarshalling to strong types, on the final rundown, agnostic of whether the step
+  // has any hook
 
   fun requestConfig(): Set<Set<RequestConfig>>
 
@@ -407,8 +413,6 @@ private constructor(val stepName: String, val hookType: HookType, val hook: Hook
       stepNames.flatMap { post(it, hook) }.toSet()
   }
 }
-
-private annotation class SkipNulls
 
 @Target(AnnotationTarget.CLASS)
 @Retention(AnnotationRetention.SOURCE)

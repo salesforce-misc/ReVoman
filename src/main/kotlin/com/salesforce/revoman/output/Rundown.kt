@@ -34,7 +34,7 @@ import org.http4k.core.Response
 data class Rundown(
   @JvmField val stepNameToReport: Map<String, StepReport> = emptyMap(),
   @JvmField val mutableEnv: PostmanEnvironment<Any?> = PostmanEnvironment(),
-  private val stepsToIgnoreForFailure: Set<String>,
+  private val stepsToIgnoreForFailure: Set<String>
 ) {
   val immutableEnvMap
     @JvmName("immutableEnvMap") get() = mutableEnv.toMap()
@@ -46,12 +46,16 @@ data class Rundown(
 
   val firstUnIgnoredUnsuccessfulStepNameInOrder: String?
     @JvmName("firstUnIgnoredUnsuccessfulStepNameInOrder")
-    get() =
-      stepNameToReport.entries
-        .firstOrNull { (stepName, stepReport) ->
-          !stepReport.isSuccessful && !isStepNameInPassList(stepName, stepsToIgnoreForFailure)
-        }
-        ?.key
+    get() = firstUnIgnoredUnsuccessfulStepNameToReportInOrder()?.key
+
+  val firstUnIgnoredUnsuccessfulStepNameToReportInOrder: Pair<String, StepReport>?
+    @JvmName("firstUnIgnoredUnsuccessfulStepNameToReportInOrder")
+    get() = firstUnIgnoredUnsuccessfulStepNameToReportInOrder()?.toPair()
+
+  private fun firstUnIgnoredUnsuccessfulStepNameToReportInOrder(): Map.Entry<String, StepReport>? =
+    stepNameToReport.entries.firstOrNull { (stepName, stepReport) ->
+      !stepReport.isSuccessful && !isStepNameInPassList(stepName, stepsToIgnoreForFailure)
+    }
 
   val areAllStepsSuccessful
     @JvmName("areAllStepsSuccessful") get() = stepNameToReport.values.all { it.isSuccessful }
@@ -71,7 +75,7 @@ data class Rundown(
 
   fun reportForStepName(stepName: String): StepReport? {
     val stepNameVariants = stepNameVariants(stepName)
-    return stepNameToReport.entries.firstOrNull { stepNameVariants.contains(stepName) }?.value
+    return stepNameToReport.entries.firstOrNull { stepNameVariants.contains(it.key) }?.value
   }
 
   fun filterReportExcludingStepsWithName(stepNames: Set<String>): Map<String, StepReport> {
