@@ -1,7 +1,7 @@
 [versions]
-kotlin = "1.9.10"
+kotlin = "1.9.20"
 http4k = "5.9.0.0"
-moshix = "0.24.3"
+moshix = "0.25.0"
 arrow = "1.2.1"
 graal = "22.3.3" # 22.3.3 Compatable with Java 11
 vador = "1.1.0"
@@ -27,7 +27,7 @@ nexus-publish = "2.0.0-rc-1"
 
 # Common dependencies
 junit = "5.10.0"
-detekt = "1.23.1"
+detekt = "1.23.3"
 spotless = "6.22.0"
 apache-log4j = "2.21.1"
 
