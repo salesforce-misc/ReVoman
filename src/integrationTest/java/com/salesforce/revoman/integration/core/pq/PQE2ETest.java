@@ -96,7 +96,8 @@ class PQE2ETest {
                         ASYNC_STEP_NAMES,
                         PlaceQuoteInputRepresentation.class,
                         adapter(PlaceQuoteInputRepresentation.class)))
-                .hooks( // <7>
+                .haltOnAnyFailureExceptForSteps(STEPS_TO_IGNORE_FOR_FAILURE) // <7>
+                .hooks( // <8>
                     pre(
                         ASYNC_STEP_NAMES,
                         (stepName, requestInfo, rundown) -> {
@@ -123,7 +124,6 @@ class PQE2ETest {
                           // polling is implemented
                           Thread.sleep(20000);
                         }))
-                .haltOnAnyFailureExceptForSteps(STEPS_TO_IGNORE_FOR_FAILURE) // <8>
                 .responseConfig( // <9>
                     unmarshallSuccessResponse("quote-related-records", CompositeResponse.class),
                     validateIfSuccess( // <9.1>
