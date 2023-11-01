@@ -59,7 +59,10 @@ class PQE2ETest {
           "OneTime PSM",
           "Evergreen PSM",
           "Termed PSM",
-          "ProductRelationshipType");
+          "ProductRelationshipType",
+          "pq-create-without-quote (sync-error)",
+          "pq-update-invalid-method (sync-error)",
+          "pq-create-invalid-ql-field");
   private static final List<String> PQ_TEMPLATE_PATHS =
       List.of(
           "pm-templates/pq/user-creation-and-setup-pq.postman_collection.json",

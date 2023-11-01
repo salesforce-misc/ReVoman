@@ -91,7 +91,7 @@ ____
 * How _productive_ would it be, if you can plug your exported Postman collection,
 that you anyway would have created for your manual testing, and execute them through your JVM tests?
 
-* How about a Universal API automation tool promotes low-code and low-cognitive-complexity and strikes a balance between flexibility and ease of use
+* How about a Universal API automation tool promotes low-code and low-cognitive-complexity and strikes a balance between flexibility and ease of use?
 
 ____
 
@@ -245,18 +245,18 @@ StepReport(
 
 image:failure-hierarchy.png[Failure Hierarchy]
 
-Here is what a debugger view of a Rundown looks like:
+This rundown has everything you need to know about what happened during each step execution,
+along with environment snapshot during that step execution. Here is what a debugger view of a Rundown looks like:
 
-image:full-report.png[Rundown of all steps]
+image:rundown.png[Rundown of all steps]
 
-Along with all the environment:
-
-image:mutable-env.png[Mutable environment after the execution completion]
-
-This report has everything you need to know about what happened during each step execution,
-along with environment snapshot during that step execution.
+Here is a detailed view of one of the step reports:
 
 image:step-report.png[Step Report]
+
+Here is the environment key-value pairs:
+
+image:environment.png[Mutable environment after the execution completion]
 
 `Rundown` has many convenience methods to ease applying further assertions on top of it.
 
