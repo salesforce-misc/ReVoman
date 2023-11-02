@@ -21,7 +21,7 @@ apache-commons-lang3 = "3.13.0"
 underscore = "1.95"
 kotlin-faker = "1.15.0"
 immutables = "2.10.0"
-mockito = "5.6.0"
+mockito = "5.7.0"
 spring = "5.3.30" # 5.3.30 Compatable with Java 11
 nexus-publish = "2.0.0-rc-1"
 
