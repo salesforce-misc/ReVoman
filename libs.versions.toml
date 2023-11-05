@@ -26,7 +26,7 @@ spring = "5.3.30" # 5.3.30 Compatable with Java 11
 nexus-publish = "2.0.0-rc-1"
 
 # Common dependencies
-junit = "5.10.0"
+junit = "5.10.1"
 detekt = "1.23.3"
 spotless = "6.22.0"
 apache-log4j = "2.21.1"
