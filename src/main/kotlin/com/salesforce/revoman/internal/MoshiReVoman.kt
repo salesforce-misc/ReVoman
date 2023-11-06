@@ -40,6 +40,7 @@ private val moshiBuilder =
 
 private lateinit var moshiReVoman: Moshi
 
+@SuppressWarnings("kotlin:S3923")
 @JvmOverloads
 internal fun initMoshi(
   customAdaptersWithType: Map<Type, List<Either<JsonAdapter<Any>, Factory>>> = emptyMap(),
@@ -52,7 +53,6 @@ internal fun initMoshi(
     }
   }
   for (adapter in customAdapters) {
-    @SuppressWarnings("kotlin:S3923")
     if (adapter is Factory) {
       moshiBuilder.add(adapter)
     } else {

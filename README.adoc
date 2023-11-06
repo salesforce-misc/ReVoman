@@ -43,7 +43,7 @@ It strikes a balance between _flexibility_ provided by low-level tools like link
 
 image::hybrid-tool.png[]
 
-== Artifacts
+== Artifact
 
 [.lead]
 Maven
@@ -131,7 +131,7 @@ ReVoman.revUp( // <1>
               "$qliFieldsToQuery", "Id, Product2Id",
               "$qlrFieldsToQuery", "Id, QuoteId, MainQuoteLineId, AssociatedQuoteLineId"))
       .customDynamicVariable( // <5>
-          "$quantity", ignore -> String.valueOf(Random.Default.nextInt(10) + 1))       
+          "$quantity", ignore -> String.valueOf(Random.Default.nextInt(10) + 1))
       .haltOnAnyFailureExceptForSteps(STEPS_TO_IGNORE_FOR_FAILURE) // <6>
       .requestConfig( // <7>
           unmarshallRequest(
@@ -263,8 +263,7 @@ image:environment.png[Mutable environment after the execution completion]
 === Type Safety with flexible JSON marshalling/serialization and unmarshalling/deserialization
 
 * ReVoman internally uses a modern JSON library called link:https://github.com/square/moshi[**Moshi**]
-* Tools like **REST Assured* which use **Jackson** to serialize/deserialize JSON and you need to add extra annotations (like `@JsonIgnore`) on top of your POJOs. But when you don't have control over the POJO source-code, this is not possible. ReVoman needs no extra annotations on POJOs.
-* There may be POJO that inherit or contain legacy classes which are hard or impossible to serialize. ReVoman lets you serialize such a legacy POJO by letting you pass `typesToIgnoreForMarshalling`, where you can you filter-out these legacy classes.
+* There may be a POJO that inherits or contains legacy classes which are hard or impossible to serialize. ReVoman lets you serialize such a legacy POJO by letting you pass `typesToIgnoreForMarshalling`, where you can you filter-out these legacy classes.
 * The payload may not map to POJO, and you may need a custom adapter for Conversion. Moshi has it covered for you with its advanced adapter mechanism and ReVoman accepts Moshi adapters. ReVoman also comes bundled with JSON reader and writer utils to help build Moshi adapters.
 
 TIP: Refer link:{testdir}/com/salesforce/revoman/integration/core/pq/adapters/ConnectInputRepWithGraphAdapter.java[ConnectInputRepWithGraphAdapter]
