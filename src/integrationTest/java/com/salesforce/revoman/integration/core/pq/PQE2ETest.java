@@ -128,8 +128,8 @@ class PQE2ETest {
                           Thread.sleep(20000);
                         }))
                 .responseConfig( // <9>
-                    unmarshallSuccessResponse("quote-related-records", CompositeResponse.class),
-                    validateIfSuccess( // <9.1>
+                    unmarshallSuccessResponse("quote-related-records", CompositeResponse.class), // <9.1>
+                    validateIfSuccess( // <9.2>
                         ASYNC_STEP_NAMES,
                         PlaceQuoteOutputRepresentation.class,
                         validatePQSuccessResponse),

@@ -28,7 +28,7 @@ ____
 '''
 
 
-*ReVoman* is an API automation tool for JVM (Java/Kotlin) from the API-first SaaS company, Salesforce. It lets you execute a Postman collection in a JVM program/test.
+*ReVoman* is an API automation tool for JVM (Java/Kotlin) from the API-first SaaS company, *Salesforce*. It reimagines API automation by letting you execute a Postman collection in a JVM program/test.
 
 '''
 
@@ -83,7 +83,7 @@ image::cognitive-complexity.png[]
 
 === The Solution
 
-* Contrary to custom frameworks, almost every team uses Postman for manual testing
+* Contrary to custom frameworks, almost every team uses link:https://www.postman.com/product/what-is-postman[*Postman*] for manual testing
 * Postman collections contain a lot of information in a structured way, which when used can mitigate writing a lot of code
 
 ____
@@ -104,7 +104,7 @@ Let’s check out how you can perform *Template-Driven-Testing* with ReVoman:
 
 === Input
 
-ReVoman has only one method `revUp` that you can supplying a config:
+`revUp` is the method with triggers the execution. You can configure this execution with multiple  
 
 [source,java,indent=0,options="nowrap"]
 ----
@@ -164,8 +164,8 @@ ReVoman.revUp( // <1>
                 // polling is implemented
                 Thread.sleep(20000);}))
       .responseConfig( // <9>
-          unmarshallSuccessResponse("quote-related-records", CompositeResponse.class),
-          validateIfSuccess( // <9.1>
+          unmarshallSuccessResponse("quote-related-records", CompositeResponse.class), // <9.1>
+          validateIfSuccess( // <9.2>
               ASYNC_STEP_NAMES,
               PlaceQuoteOutputRepresentation.class,
               validatePQSuccessResponse),
@@ -179,19 +179,16 @@ ReVoman.revUp( // <1>
 <1> `revUp` is the method to call passing a configuration, built as below
 <2> Supply the path (relative to resources) to the Template Collection JSON file
 <3> Supply the path (relative to resources) to the Environment JSON file
-<4> Supply any dynamic environment
+<4> Supply any dynamic environment that is runtime-specific
 <5> Plug Custom dynamic variables that are prepared at runtime
 <6> It lets you be in charge of the Step Orchestration by letting you configure a pass-list of steps to ignore for failure
-<7> You can provide a strong type for your request to be marshalled into. This shall be passed onto which executing pre-hooks
+<7> You can provide a strong type for your request to be marshalled into. You can use this strong type while executing pre-hooks
 <8> You can set up a pre- / post-hook around a Step via `hooks`, which can help as callbacks, especially for Async operations.
 ** These runs despite the step are successful or failed. The entire rundown till that step shall be provided to the hook as a parameter
 <9> Provide configuration to unmarshall/deserialize response JSON into strong types
-** ReVoman supports all data types within or outside the core without any extra annotations.
-** `unmarshallErrorResponse` can be used for error Types
-<9.1> Supply your validations/assertions to be run on a step response
-** You can leverage the power of https://github.com/salesforce-misc/Vador[*Vador*] to write config-driven validations and supply them to ReVoman `validateIfSuccess`.
-** Because both these tools are from the same Development team, you should see homogeneous patterns and seamless Integration and support.
-** `validateIfError` can be used for error Types
+<9.1> `unmarshallSuccessResponse` and `unmarshallErrorResponse` help you use strong types inside hooks.
+<9.2> Supply your validations/assertions to be run on a step response through `validateIfSuccess` and `validateIfFailed`
+** You can leverage the power of https://github.com/salesforce-misc/Vador[*Vador*] to write config-driven validations
 <10> [Not for Prod] Ignore Java cert issues when firing Http calls
 
 endif::[]
@@ -205,27 +202,24 @@ include::{testdir}/com/salesforce/revoman/integration/core/pq/PQE2ETest.java[tag
 <1> `revUp` is the method to call passing a configuration, built as below
 <2> Supply the path (relative to resources) to the Template Collection JSON file
 <3> Supply the path (relative to resources) to the Environment JSON file
-<4> Supply any dynamic environment
+<4> Supply any dynamic environment that is runtime-specific
 <5> Plug Custom dynamic variables that are prepared at runtime
 <6> It lets you be in charge of the Step Orchestration by letting you configure a pass-list of steps to ignore for failure
-<7> You can provide a strong type for your request to be marshalled into. This shall be passed onto which executing pre-hooks
+<7> You can provide a strong type for your request to be marshalled into. You can use this strong type while executing pre-hooks
 <8> You can set up a pre- / post-hook around a Step via `hooks`, which can help as callbacks, especially for Async operations.
 ** These runs despite the step are successful or failed. The entire rundown till that step shall be provided to the hook as a parameter
 <9> Provide configuration to unmarshall/deserialize response JSON into strong types
-** ReVoman supports all data types within or outside the core without any extra annotations.
-** `unmarshallErrorResponse` can be used for error Types
-<9.1> Supply your validations/assertions to be run on a step response
-** You can leverage the power of https://github.com/salesforce-misc/Vador[*Vador*] to write config-driven validations and supply them to ReVoman `validateIfSuccess`.
-** Because both these tools are from the same Development team, you should see homogeneous patterns and seamless Integration and support.
-** `validateIfError` can be used for error Types
+<9.1> `unmarshallSuccessResponse` and `unmarshallErrorResponse` help you use strong types inside hooks.
+<9.2> Supply your validations/assertions to be run on a step response through `validateIfSuccess` and `validateIfFailed`
+** You can leverage the power of https://github.com/salesforce-misc/Vador[*Vador*] to write config-driven validations
 <10> [Not for Prod] Ignore Java cert issues when firing Http calls
 
 endif::[]
 
 === Output
 
-After all this, you receive back a detailed Rundown of all the steps with all the Request-Response data.
-You get Strong types for the ones you are interested in so that you can run more assertions on top of the run.
+After all this, you receive back a detailed *Rundown* of all the steps with all the Request-Response data,
+along with all Strong types that you configured, such that you can seamlessly run more assertions on top of the run.
 
 [source,kotlin,indent=0,options="nowrap"]
 ----
@@ -243,6 +237,9 @@ StepReport(
 )
 ----
 
+[.lead]
+It captures failure at any stage of a step during execution. Here is what all can go wrong:
+
 image:failure-hierarchy.png[Failure Hierarchy]
 
 This rundown has everything you need to know about what happened during each step execution,
@@ -250,11 +247,11 @@ along with environment snapshot during that step execution. Here is what a debug
 
 image:rundown.png[Rundown of all steps]
 
-Here is a detailed view of one of the step reports:
+Here is a detailed view of one of those Step reports:
 
 image:step-report.png[Step Report]
 
-Here is the environment key-value pairs:
+Here are the environment *key-value* pairs accumulated along the entire execution:
 
 image:environment.png[Mutable environment after the execution completion]
 
@@ -264,25 +261,31 @@ image:environment.png[Mutable environment after the execution completion]
 
 * ReVoman internally uses a modern JSON library called link:https://github.com/square/moshi[**Moshi**]
 * There may be a POJO that inherits or contains legacy classes which are hard or impossible to serialize. ReVoman lets you serialize such a legacy POJO by letting you pass `typesToIgnoreForMarshalling`, where you can you filter-out these legacy classes.
-* The payload may not map to POJO, and you may need a custom adapter for Conversion. Moshi has it covered for you with its advanced adapter mechanism and ReVoman accepts Moshi adapters. ReVoman also comes bundled with JSON reader and writer utils to help build Moshi adapters.
+* The payload may not map to POJO, and you may need a custom adapter for Conversion. Moshi has it covered for you with its advanced adapter mechanism and ReVoman accepts Moshi adapters via `requestConfig`, `responseConfig` and `customAdapters`
+* ReVoman also comes bundled with link:{sourcedir}/com/salesforce/revoman/input/json/JsonReaderUtils.kt[JSON reader utils] and link:{sourcedir}/com/salesforce/revoman/input/json/JsonWriterUtils.kt[JSON writer utils] to help build Moshi adapters.
 
 TIP: Refer link:{testdir}/com/salesforce/revoman/integration/core/pq/adapters/ConnectInputRepWithGraphAdapter.java[ConnectInputRepWithGraphAdapter]
 for an advanced adapter use-case
 
+=== Pre- / Post-Hooks
+
+* A hook lets you fiddle with the execution by plugging in your code before or after a Step
+* You get the stepName and the entire rundown of what happened prior to this step as parameters
+* You can do things like mutate the environment, such that the subsequent steps are affected
+
 === Low-code
 
-TIP: We just saw a low-code link:{testdir}/com/salesforce/revoman/integration/core/pq/PQE2ETest.java[**E2E test**]
+TIP: Here is a low-code link:{testdir}/com/salesforce/revoman/integration/core/pq/PQE2ETest.java[**E2E test**]
 
 [.lead]
-The above test has low-code and low in Cognitive Complexity and is Transparent.
 Compared to a traditional Integration/Functional or E2E test, approximately, the amount of code needed is *89%* less using ReVoman.
+The above test doesn't just have low-code, but also low in Cognitive Complexity and Transparent in what it does.
 
-== Postman collection on Git
+== CI/CD integrability
 
-* Now that ReVoman hooks these templates into auto-builds or CI/CD, they always stay up to date, otherwise, Yoda makes sure they are with TFs.
-* The entire Postman collection guards each *check-in* in the form of a Test suite.
-* Any day, you can find a Postman collection for every feature you need to test, right in your VCS. Developers can import these templates directly from VCS for manual testing. This comes in very handy during FF/RF/Cross team blitz.
-* With ReVoman, you no more need a release task to keep your Postman collections up to date.
+* ReVoman is like a library that you can plug into any JVM program/test. Apart from adding a dependency in the build tool, there is no extra setup needed to hook these tests into CI/CD.
+* A nice side effect is, this lets the Postman collections always stay up to date and the entire Postman collection guards each *check-in* in the form of a Test suite augmenting manual testing.
+* Any day, you can find an up-to-date Postman collection for every feature you need to test, right in your VCS (Git). Developers can import these templates directly from VCS for manual testing. This comes in very handy during a team blitz.
 
 === Perf
 
@@ -301,17 +304,12 @@ image::orchestration.png[ReVoman flow]
 
 * It reads the environment JSON provided into in-memory.
 * Then it reads and Inflates each static template in the collection, replacing variables at runtime from the in-memory environment
-* It uses this information to Fire an HTTP request.
+* It unmarshalls the request into Strong JVM types using `requestConfig` and executes the pre-hooks for the step
+* It then does an HTTP request.
 * It reads the response and executes Postscript JS on the response and updates the in-memory environment.
-* It unmarshalls the response into Strong JVM types as per the `responseConfig` supplied and lets you run *Type-safe* validations on the strong-type and fails-fast at first failure.
-* Finally, if configured, the pre- /post-hook for the step gets triggered by passing the entire runDown
+* It unmarshalls the response into Strong JVM types using the `responseConfig` supplied and lets you run *Type-safe* validations on the strong-type and fails-fast at first failure.
+* Finally, all the post-hooks for the step get triggered
 * The iteration continues for all the steps in the template collection
-
-== Core Support
-
-* First-class Salesforce core support
-* Convert your persona-based Postman templates into JVM FTests and E2E tests that can be executed in auto-builds.
-* Supports Steps involving Async operations
 
 == Unified testing strategy
 
@@ -325,8 +323,8 @@ image::orchestration.png[ReVoman flow]
 [.lead]
 The future looks bright
 
+* *It's built with extensibility* in mind. It can easily be extended to support other template formats.
 * In-built polling support for Async steps
-* *It's built with extensibility* in mind. It can easily be extended to support other template formats like *Kaiju*.
 ** You should be able to run Kaiju availability tests right from your IDE and debug them too
 * Flow control through YAML config
 
