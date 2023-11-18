@@ -75,7 +75,7 @@ toc::[]
 === The Problem
 
 * The majority of JVM SaaS applications are REST-based. But the API automation is done through a Mul-*T*-verse of Integration/Functional tests, E2E tests and Manual tests, each with its own frameworks, tools, and internal utilities, testing almost the same code flow.
-* These custom alien automation frameworks, often built using low-level tools like link:https://rest-assured.io/[**REST Assured**] are specific to a service or domain and are rigid to reuse, extend and difficult to maintain.
+* These custom alien automation frameworks, often built using low-level tools like link:https://rest-assured.io/[**REST Assured**] which are specific to a service or domain and are rigid to reuse, extend and difficult to maintain.
 * This automation competes on cognitive complexity and learning curve with the Prod code, and mostly, automation wins.
 * After a point, the API automation may deviate from its purpose of augmenting real end-user interaction and turns into a foot-chain for development.
 
@@ -104,7 +104,7 @@ Let’s check out how you can perform *Template-Driven-Testing* with ReVoman:
 
 === Input
 
-`revUp` is the method with triggers the execution. You can configure this execution with multiple  
+`revUp` is the method to invoke to trigger the execution. You can customize the execution by supplying a configuration.
 
 [source,java,indent=0,options="nowrap"]
 ----
