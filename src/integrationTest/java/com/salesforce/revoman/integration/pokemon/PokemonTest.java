@@ -52,7 +52,9 @@ class PokemonTest {
               }
             });
     final var pokemonResultsValidationConfig =
-        ValidationConfig.<Results, String>toValidate().withValidator(resultSizeValidator, "Good");
+        ValidationConfig.<Results, String>toValidate()
+            .withValidator(resultSizeValidator, "Good")
+            .prepare();
     //noinspection Convert2Lambda
     final var preHook =
         Mockito.spy(

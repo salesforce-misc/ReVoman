@@ -15,7 +15,7 @@ import com.salesforce.revoman.input.HookConfig.HookType
 import com.salesforce.revoman.input.HookConfig.HookType.PRE
 import com.salesforce.revoman.output.Rundown
 import com.salesforce.revoman.output.Rundown.StepReport.TxInfo
-import com.salesforce.vador.config.base.BaseValidationConfig.BaseValidationConfigBuilder
+import com.salesforce.vador.config.ValidationConfig
 import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.JsonAdapter.Factory
 import io.vavr.control.Either
@@ -98,7 +98,7 @@ internal interface KickDef {
   @Value.Check
   fun validateConfig() {
     require(
-      !haltOnAnyFailure() || (haltOnAnyFailure() && haltOnAnyFailureExceptForSteps().isEmpty())
+      !haltOnAnyFailure() || (haltOnAnyFailure() && haltOnAnyFailureExceptForSteps().isEmpty()),
     ) {
       "'haltOnAnyFailureExceptForSteps' should be empty when 'haltOnAnyFailure' is set to True"
     }
@@ -162,15 +162,13 @@ private constructor(
   }
 }
 
-typealias ValidationConfig = BaseValidationConfigBuilder<out Any, out Any?, *, *>
-
 data class ResponseConfig
 private constructor(
   val stepName: String,
   val ifSuccess: Boolean,
   val responseType: Type,
   val customAdapter: Either<JsonAdapter<Any>, Factory>? = null,
-  val validationConfig: ValidationConfig? = null
+  val validationConfig: ValidationConfig<*, *>? = null
 ) {
   companion object {
     @JvmStatic
@@ -265,7 +263,7 @@ private constructor(
     fun validateIfSuccess(
       stepName: String,
       successType: Type,
-      validationConfig: ValidationConfig,
+      validationConfig: ValidationConfig<*, *>,
     ): Set<ResponseConfig> =
       setOf(ResponseConfig(stepName, true, successType, null, validationConfig))
 
@@ -273,7 +271,7 @@ private constructor(
     fun validateIfSuccess(
       stepNames: Set<String>,
       successType: Type,
-      validationConfig: ValidationConfig,
+      validationConfig: ValidationConfig<*, *>,
     ): Set<ResponseConfig> =
       stepNames.flatMap { validateIfSuccess(it, successType, validationConfig) }.toSet()
 
@@ -281,7 +279,7 @@ private constructor(
     fun validateIfSuccess(
       stepName: String,
       successType: Type,
-      validationConfig: ValidationConfig,
+      validationConfig: ValidationConfig<*, *>,
       customAdapter: JsonAdapter<Any>
     ): Set<ResponseConfig> =
       setOf(ResponseConfig(stepName, true, successType, left(customAdapter), validationConfig))
@@ -290,7 +288,7 @@ private constructor(
     fun validateIfSuccess(
       stepNames: Set<String>,
       successType: Type,
-      validationConfig: ValidationConfig,
+      validationConfig: ValidationConfig<*, *>,
       customAdapter: JsonAdapter<Any>
     ): Set<ResponseConfig> =
       stepNames
@@ -301,7 +299,7 @@ private constructor(
     fun validateIfSuccess(
       stepName: String,
       successType: Type,
-      validationConfig: ValidationConfig,
+      validationConfig: ValidationConfig<*, *>,
       customAdapterFactory: Factory
     ): Set<ResponseConfig> =
       setOf(
@@ -312,7 +310,7 @@ private constructor(
     fun validateIfSuccess(
       stepNames: Set<String>,
       successType: Type,
-      validationConfig: ValidationConfig,
+      validationConfig: ValidationConfig<*, *>,
       customAdapterFactory: Factory
     ): Set<ResponseConfig> =
       stepNames
@@ -323,7 +321,7 @@ private constructor(
     fun validateIfFailed(
       stepName: String,
       errorType: Type,
-      validationConfig: ValidationConfig,
+      validationConfig: ValidationConfig<*, *>,
     ): Set<ResponseConfig> =
       setOf(ResponseConfig(stepName, false, errorType, null, validationConfig))
 
@@ -331,7 +329,7 @@ private constructor(
     fun validateIfFailed(
       stepNames: Set<String>,
       errorType: Type,
-      validationConfig: ValidationConfig,
+      validationConfig: ValidationConfig<*, *>,
     ): Set<ResponseConfig> =
       stepNames.flatMap { validateIfFailed(it, errorType, validationConfig) }.toSet()
 
@@ -339,7 +337,7 @@ private constructor(
     fun validateIfFailed(
       stepName: String,
       errorType: Type,
-      validationConfig: ValidationConfig,
+      validationConfig: ValidationConfig<*, *>,
       customAdapter: JsonAdapter<Any>
     ): Set<ResponseConfig> =
       setOf(ResponseConfig(stepName, false, errorType, left(customAdapter), validationConfig))
@@ -348,7 +346,7 @@ private constructor(
     fun validateIfFailed(
       stepNames: Set<String>,
       errorType: Type,
-      validationConfig: ValidationConfig,
+      validationConfig: ValidationConfig<*, *>,
       customAdapter: JsonAdapter<Any>
     ): Set<ResponseConfig> =
       stepNames.flatMap { validateIfFailed(it, errorType, validationConfig, customAdapter) }.toSet()
@@ -357,7 +355,7 @@ private constructor(
     fun validateIfFailed(
       stepName: String,
       errorType: Type,
-      validationConfig: ValidationConfig,
+      validationConfig: ValidationConfig<*, *>,
       customAdapterFactory: Factory
     ): Set<ResponseConfig> =
       setOf(
@@ -368,7 +366,7 @@ private constructor(
     fun validateIfFailed(
       stepNames: Set<String>,
       errorType: Type,
-      validationConfig: ValidationConfig,
+      validationConfig: ValidationConfig<*, *>,
       customAdapterFactory: Factory
     ): Set<ResponseConfig> =
       stepNames

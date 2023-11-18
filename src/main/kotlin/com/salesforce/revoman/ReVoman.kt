@@ -261,7 +261,7 @@ object ReVoman {
           }
           .flatMap { responseObj ->
             runChecked(stepName, RESPONSE_VALIDATION) {
-                responseConfig?.validationConfig?.let { validate(responseObj, it.prepare()) }
+                responseConfig?.validationConfig?.let { validate(responseObj, it) }
               }
               .fold(
                 { validationExeException ->

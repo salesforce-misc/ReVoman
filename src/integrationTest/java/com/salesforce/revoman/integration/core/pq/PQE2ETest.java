@@ -75,12 +75,14 @@ class PQE2ETest {
         ValidationConfig.<PlaceQuoteOutputRepresentation, String>toValidate()
             .withValidator(
                 (resp -> Boolean.TRUE.equals(resp.getSuccess()) ? "success" : "sync-failure"),
-                "success");
+                "success")
+            .prepare();
     final var validatePQErrorResponse =
         ValidationConfig.<PlaceQuoteOutputRepresentation, String>toValidate()
             .withValidator(
                 (resp -> Boolean.FALSE.equals(resp.getSuccess()) ? "sync-failure" : "success"),
-                "sync-failure");
+                "sync-failure")
+            .prepare();
     // tag::pq-e2e-with-revoman-config-demo[]
     final var pqRundown =
         ReVoman.revUp( // <1>
@@ -128,7 +130,8 @@ class PQE2ETest {
                           Thread.sleep(20000);
                         }))
                 .responseConfig( // <9>
-                    unmarshallSuccessResponse("quote-related-records", CompositeResponse.class), // <9.1>
+                    unmarshallSuccessResponse(
+                        "quote-related-records", CompositeResponse.class), // <9.1>
                     validateIfSuccess( // <9.2>
                         ASYNC_STEP_NAMES,
                         PlaceQuoteOutputRepresentation.class,
