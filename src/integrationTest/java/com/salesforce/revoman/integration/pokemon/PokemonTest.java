@@ -10,6 +10,7 @@ package com.salesforce.revoman.integration.pokemon;
 import static com.salesforce.revoman.input.HookConfig.post;
 import static com.salesforce.revoman.input.HookConfig.pre;
 import static com.salesforce.revoman.input.ResponseConfig.validateIfSuccess;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.times;
@@ -23,7 +24,6 @@ import com.salesforce.revoman.output.Rundown.StepReport.TxInfo;
 import com.salesforce.vador.config.ValidationConfig;
 import com.salesforce.vador.types.Validator;
 import java.util.Map;
-import org.assertj.core.api.Assertions;
 import org.http4k.core.Request;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
@@ -73,9 +73,8 @@ class PokemonTest {
             new PostHook() {
               @Override
               public void accept(@NotNull String stepName, @NotNull Rundown rundown) {
-                Assertions.assertThat(rundown.mutableEnv)
-                    .containsEntry("limit", String.valueOf(newLimit));
-                Assertions.assertThat(rundown.mutableEnv).containsEntry("pokemonName", "bulbasaur");
+                assertThat(rundown.mutableEnv).containsEntry("limit", String.valueOf(newLimit));
+                assertThat(rundown.mutableEnv).containsEntry("pokemonName", "bulbasaur");
               }
             });
     final var pokeRundown =
@@ -93,8 +92,8 @@ class PokemonTest {
     Mockito.verify(resultSizeValidator, times(1)).apply(any());
     Mockito.verify(preHook, times(1)).accept(anyString(), any(), any());
     Mockito.verify(postHook, times(1)).accept(anyString(), any());
-    Assertions.assertThat(pokeRundown.stepNameToReport).hasSize(5);
-    Assertions.assertThat(pokeRundown.mutableEnv)
+    assertThat(pokeRundown.stepNameToReport).hasSize(5);
+    assertThat(pokeRundown.mutableEnv)
         .containsExactlyInAnyOrderEntriesOf(
             Map.of(
                 "offset", String.valueOf(offset),

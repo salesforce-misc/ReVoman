@@ -89,7 +89,7 @@ internal interface KickDef {
       .filter { it.customAdapter != null }
       .groupBy({ it.responseType }, { it.customAdapter!! })
 
-  fun customAdapters(): List<Any>
+  fun customAdaptersForMarshalling(): List<Any>
 
   fun typesToIgnoreForMarshalling(): Set<Class<out Any>>
 
