@@ -29,7 +29,7 @@ nexus-publish = "2.0.0-rc-1"
 junit = "5.10.1"
 detekt = "1.23.3"
 spotless = "6.22.0"
-apache-log4j = "2.21.1"
+apache-log4j = "2.22.0"
 
 [libraries]
 java-vavr = { module = "io.vavr:vavr", version.ref = "java-vavr" }
