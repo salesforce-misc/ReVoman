@@ -116,7 +116,7 @@ data class Rundown(
     val exeFailure: ExeFailure?
       get() =
         failure(requestInfo, preHookFailure, responseInfo, postHookFailure)?.fold({ it }, { null })
-
+    
     val isHttpStatusSuccessful: Boolean
       get() =
         failure(requestInfo, preHookFailure, responseInfo, postHookFailure)

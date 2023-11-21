@@ -15,7 +15,7 @@ endif::[]
 :pmtemplates: src/integrationTest/resources/pm-templates
 :imagesdir: docs/images
 :prewrap!:
-:revoman-version: 0.21.5
+:revoman-version: 0.21.7
 
 ____
 
@@ -28,7 +28,7 @@ ____
 '''
 
 
-*ReVoman* is an API automation tool for JVM (Java/Kotlin) from the API-first SaaS company, *Salesforce*. It reimagines API automation by letting you execute a Postman collection in a JVM program/test.
+*ReVoman* is an API automation tool for JVM (Java/Kotlin) from the API-first SaaS company, *Salesforce*. It re-imagines API automation by letting you execute a Postman collection in a JVM program/test.
 
 '''
 
@@ -83,8 +83,7 @@ image::cognitive-complexity.png[]
 
 === The Solution
 
-* Contrary to custom frameworks, almost every team uses link:https://www.postman.com/product/what-is-postman[*Postman*] for manual testing
-* Postman collections contain a lot of information in a structured way, which when used can mitigate writing a lot of code
+Contrary to these custom frameworks, almost every team uses link:https://www.postman.com/product/what-is-postman[*Postman*] for manual testing their APIs. Postman collections contain a lot of information about your APIs and the order in which they need to be executed for manual testing, in a link:{pmtemplates}/pq/pq-with-rc.postman_collection.json[Structured Template]. Leveraging it, can mitigate writing a lot of code as we translate those manual steps into automation.
 
 ____
 
@@ -96,15 +95,13 @@ that you anyway would have created for your manual testing, and execute them thr
 ____
 
 
-=== API automation with _ReṼoman_
+== API automation with _ReṼoman_
 
-Let’s check out how you can perform *Template-Driven-Testing* with ReVoman:
-
-== API
+Let’s check out how you can perform *Template-Driven-Testing*:
 
 === Input
 
-`revUp` is the method to invoke to trigger the execution. You can customize the execution by supplying a configuration.
+Invoke `revUp`, supplying your postman templates and environments, along with your customizations through a configuration, to _kick-off_ the execution 
 
 [source,java,indent=0,options="nowrap"]
 ----
@@ -247,7 +244,7 @@ along with environment snapshot during that step execution. Here is what a debug
 
 image:rundown.png[Rundown of all steps]
 
-Here is a detailed view of one of those Step reports:
+Let's zoom into a detailed view of one of those Step reports:
 
 image:step-report.png[Step Report]
 
@@ -255,9 +252,12 @@ Here are the environment *key-value* pairs accumulated along the entire executio
 
 image:environment.png[Mutable environment after the execution completion]
 
+[.lead]
 `Rundown` has many convenience methods to ease applying further assertions on top of it.
 
-=== Type Safety with flexible JSON marshalling/serialization and unmarshalling/deserialization
+image:rundown-api.png[Rundown Convinience methods]
+
+=== Type Safety with flexible JSON <- -> POJO marshalling/serialization and unmarshalling/deserialization
 
 * ReVoman internally uses a modern JSON library called link:https://github.com/square/moshi[**Moshi**]
 * There may be a POJO that inherits or contains legacy classes which are hard or impossible to serialize. ReVoman lets you serialize such a legacy POJO by letting you pass `typesToIgnoreForMarshalling`, where you can you filter-out these legacy classes.
@@ -269,9 +269,29 @@ for an advanced adapter use-case
 
 === Pre- / Post-Hooks
 
-* A hook lets you fiddle with the execution by plugging in your code before or after a Step
-* You get the stepName and the entire rundown of what happened prior to this step as parameters
-* You can do things like mutate the environment, such that the subsequent steps are affected
+* A hook lets you fiddle with the execution by plugging in your code before or after a Step execution
+* You get the stepName and the entire rundown of what happened prior to this step as parameters, 
+as demonstrated in link:{testdir}/com/salesforce/revoman/integration/core/pq/PQE2ETest.java[PQE2ETest.java, tag=pq-e2e-with-revoman-config-demo]
+
+[source,java,indent=0,options="nowrap"]
+----
+
+.hooks(
+  pre(
+      stepName(s)ForHook,
+      (currentStepName, requestInfo, rundown) -> {
+        //...callback-code...
+      }),
+  post(
+      stepName(s)ForHook,
+      (currentStepName, rundown) -> {
+        //...callback-code...
+      })
+)
+
+----
+
+* You can do things like assertion on the rundown or environment and even mutate the environment, such that the execution of subsequent steps picks up those changes.
 
 === Low-code
 
@@ -284,14 +304,16 @@ The above test doesn't just have low-code, but also low in Cognitive Complexity 
 == CI/CD integrability
 
 * ReVoman is like a library that you can plug into any JVM program/test. Apart from adding a dependency in the build tool, there is no extra setup needed to hook these tests into CI/CD.
+
+== Up-to-date Postman collections that live along with Code in VCS 
+
 * A nice side effect is, this lets the Postman collections always stay up to date and the entire Postman collection guards each *check-in* in the form of a Test suite augmenting manual testing.
-* Any day, you can find an up-to-date Postman collection for every feature you need to test, right in your VCS (Git). Developers can import these templates directly from VCS for manual testing. This comes in very handy during a team blitz.
+* Any day, you can find an up-to-date Postman collection for every feature you need to test, right in your VCS (Git) along with your code. Developers can import these templates directly from VCS into Postman for manual testing. This comes in very handy during a team blitz.
 
 === Perf
 
 This entire execution of **70 steps**, which include **10 async steps**, took a mere *122 sec* on localhost.
 This can be much better on auto-build environments.
-(TBD: Capture the avg time taken on auto-builds)
 
 image:pq-revoman-test-time.png[Localhost Test time on FTest console]
 
@@ -313,19 +335,22 @@ image::orchestration.png[ReVoman flow]
 
 == Unified testing strategy
 
-* Bring a *Unified &amp; Simplified Test strategy* across the mul-**T**-verse (FTests, E2E Tests, and Manual testing with Postman). This is a generic tool, and just by changing the template, the same config/pattern can be reused for any feature flow agnostic of it being an FTest or E2E test
+* Bring a *Unified &amp; Simplified Test strategy* across the mul-**T**-verse (FTests, E2E Tests, and Manual testing with Postman) for any service. This is a generic tool, and just by changing the template, the same config/pattern can be reused for any feature flow agnostic of it being an FTest or E2E test
 * Transparency and better Traceability of issues
 * This forces engineers to think like *API-first customers* while writing tests.
-*FTest Data setup:* You can use the ReVoman for the FTest data setup too. This eliminates the need for different teams to write their own internal utilities for data setup.
+* *FTest Data setup:* You can use the ReVoman for the FTest data setup too. This eliminates the need for different teams to write their own internal utilities for data setup.
+* *E2E Test* can even reside outside the Service repo, as long as it can hit the service
 
 == Future
 
 [.lead]
 The future looks bright
 
+* API metrics and Analytics
 * *It's built with extensibility* in mind. It can easily be extended to support other template formats.
-* In-built polling support for Async steps
 ** You should be able to run Kaiju availability tests right from your IDE and debug them too
+* In-built polling support for Async steps
+* Payload generation
 * Flow control through YAML config
 
 == FAQs
