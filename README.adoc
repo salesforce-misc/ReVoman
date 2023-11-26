@@ -244,7 +244,7 @@ along with environment snapshot during that step execution. Here is what a debug
 
 image:rundown.png[Rundown of all steps]
 
-Let's zoom into a detailed view of one of those Step reports:
+🔍 Let's zoom into a detailed view of one of those Step reports:
 
 image:step-report.png[Step Report]
 
@@ -310,7 +310,7 @@ The above test doesn't just have low-code, but also low in Cognitive Complexity 
 * A nice side effect is, this lets the Postman collections always stay up to date and the entire Postman collection guards each *check-in* in the form of a Test suite augmenting manual testing.
 * Any day, you can find an up-to-date Postman collection for every feature you need to test, right in your VCS (Git) along with your code. Developers can import these templates directly from VCS into Postman for manual testing. This comes in very handy during a team blitz.
 
-=== Perf
+== Perf
 
 This entire execution of **70 steps**, which include **10 async steps**, took a mere *122 sec* on localhost.
 This can be much better on auto-build environments.
@@ -319,6 +319,14 @@ image:pq-revoman-test-time.png[Localhost Test time on FTest console]
 
 WARNING: ReVoman internally is very light-weight and the execution times are proportional
 to how your server responds or your network speeds.
+
+== Unified testing strategy
+
+* Bring a *Unified &amp; Simplified Test strategy* across the mul-**T**-verse (FTests, E2E Tests, and Manual testing with Postman) for any service. This is a generic tool, and just by changing the template, the same config/pattern can be reused for any feature flow agnostic of it being an FTest or E2E test
+* Transparency and better Traceability of issues
+* This forces engineers to think like *API-first customers* while writing tests.
+* *FTest Data setup:* You can use the ReVoman for the FTest data setup too. This eliminates the need for different teams to write their own internal utilities for data setup.
+* *E2E Test* can even reside outside the Service repo, as long as it can hit the service
 
 == Internal Orchestration
 
@@ -333,18 +341,10 @@ image::orchestration.png[ReVoman flow]
 * Finally, all the post-hooks for the step get triggered
 * The iteration continues for all the steps in the template collection
 
-== Unified testing strategy
-
-* Bring a *Unified &amp; Simplified Test strategy* across the mul-**T**-verse (FTests, E2E Tests, and Manual testing with Postman) for any service. This is a generic tool, and just by changing the template, the same config/pattern can be reused for any feature flow agnostic of it being an FTest or E2E test
-* Transparency and better Traceability of issues
-* This forces engineers to think like *API-first customers* while writing tests.
-* *FTest Data setup:* You can use the ReVoman for the FTest data setup too. This eliminates the need for different teams to write their own internal utilities for data setup.
-* *E2E Test* can even reside outside the Service repo, as long as it can hit the service
-
 == Future
 
 [.lead]
-The future looks bright
+The future looks bright with multiple impactful features in the pipeline:
 
 * API metrics and Analytics
 * *It's built with extensibility* in mind. It can easily be extended to support other template formats.
