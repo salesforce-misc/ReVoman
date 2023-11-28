@@ -101,7 +101,7 @@ Let’s check out how you can perform *Template-Driven-Testing*:
 
 === Input
 
-Invoke `revUp`, supplying your postman templates and environments, along with your customizations through a configuration, to _kick-off_ the execution 
+Invoke `revUp`, supplying your postman templates and environments, along with your customizations through a configuration, to _kick-off_ the execution
 
 [source,java,indent=0,options="nowrap"]
 ----
@@ -270,7 +270,7 @@ for an advanced adapter use-case
 === Pre- / Post-Hooks
 
 * A hook lets you fiddle with the execution by plugging in your code before or after a Step execution
-* You get the stepName and the entire rundown of what happened prior to this step as parameters, 
+* You get the stepName and the entire rundown of what happened prior to this step as parameters,
 as demonstrated in link:{testdir}/com/salesforce/revoman/integration/core/pq/PQE2ETest.java[PQE2ETest.java, tag=pq-e2e-with-revoman-config-demo]
 
 [source,java,indent=0,options="nowrap"]
@@ -305,7 +305,7 @@ The above test doesn't just have low-code, but also low in Cognitive Complexity 
 
 * ReVoman is like a library that you can plug into any JVM program/test. Apart from adding a dependency in the build tool, there is no extra setup needed to hook these tests into CI/CD.
 
-== Up-to-date Postman collections that live along with Code in VCS 
+== Up-to-date Postman collections that live along with Code in VCS
 
 * A nice side effect is, this lets the Postman collections always stay up to date and the entire Postman collection guards each *check-in* in the form of a Test suite augmenting manual testing.
 * Any day, you can find an up-to-date Postman collection for every feature you need to test, right in your VCS (Git) along with your code. Developers can import these templates directly from VCS into Postman for manual testing. This comes in very handy during a team blitz.
