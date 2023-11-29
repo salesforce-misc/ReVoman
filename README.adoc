@@ -252,6 +252,10 @@ Here are the environment *key-value* pairs accumulated along the entire executio
 
 image:environment.png[Mutable environment after the execution completion]
 
+You can watch your console to check what's going on in the execution
+
+image:pq-exe.gif[Monitor Execution]
+
 [.lead]
 `Rundown` has many convenience methods to ease applying further assertions on top of it.
 
