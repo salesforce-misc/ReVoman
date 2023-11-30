@@ -70,6 +70,9 @@ implementation("com.salesforce.revoman:revoman:{revoman-version}")
 
 toc::[]
 
+.Deck for Tech-Talk given in link:https://www.opensourceindia.in/osi-speakers-2023/gopala-sarma-akshintala/[Open Source India Conf]
+image::revoman-demo-thumbnail.png[link="https://bit.ly/revoman-deck"]
+
 == Why ReVoman?
 
 === The Problem
@@ -83,7 +86,12 @@ image::cognitive-complexity.png[]
 
 === The Solution
 
-Contrary to these custom frameworks, almost every team uses link:https://www.postman.com/product/what-is-postman[*Postman*] for manual testing their APIs. Postman collections contain a lot of information about your APIs and the order in which they need to be executed for manual testing, in a link:{pmtemplates}/pq/pq-with-rc.postman_collection.json[Structured Template]. Leveraging it, can mitigate writing a lot of code as we translate those manual steps into automation.
+Contrary to these custom frameworks,
+almost every team uses link:https://www.postman.com/product/what-is-postman[*Postman*] for manual testing their APIs.
+Postman collections contain a lot of information about your APIs and the order
+in which they need to be executed for manual testing,
+in a link:{pmtemplates}/pq/pq-with-rc.postman_collection.json[Structured Template].
+Leveraging it can mitigate writing a lot of code as we translate those manual steps into automation.
 
 ____
 
@@ -94,20 +102,20 @@ that you anyway would have created for your manual testing, and execute them thr
 
 ____
 
-
 == API automation with _ReṼoman_
 
 Let’s check out how you can perform *Template-Driven-Testing*:
 
 === Input
 
-Invoke `revUp`, supplying your postman templates and environments, along with your customizations through a configuration, to _kick-off_ the execution
+Invoke `revUp`, supplying your postman templates and environments, along with your customizations through a configuration, to _kick off_ the execution
 
 [source,java,indent=0,options="nowrap"]
 ----
-ReVoman.revUp(
-  Kick.configure()
-    ...
+final var rundown =
+  ReVoman.revUp(
+    Kick.configure()
+     ...
     .off())
 ----
 
@@ -215,7 +223,7 @@ endif::[]
 
 === Output
 
-After all this, you receive back a detailed *Rundown* of all the steps with all the Request-Response data,
+After all this, you receive back a detailed *Rundown* in return. It has all the Request-Response data for each step,
 along with all Strong types that you configured, such that you can seamlessly run more assertions on top of the run.
 
 [source,kotlin,indent=0,options="nowrap"]
@@ -237,23 +245,29 @@ StepReport(
 [.lead]
 It captures failure at any stage of a step during execution. Here is what all can go wrong:
 
+[#_failure_hierarchy]
 image:failure-hierarchy.png[Failure Hierarchy]
 
+[.lead]
 This rundown has everything you need to know about what happened during each step execution,
 along with environment snapshot during that step execution. Here is what a debugger view of a Rundown looks like:
 
 image:rundown.png[Rundown of all steps]
 
+[.lead]
 🔍 Let's zoom into a detailed view of one of those Step reports:
 
 image:step-report.png[Step Report]
 
+[.lead]
 Here are the environment *key-value* pairs accumulated along the entire execution:
 
 image:environment.png[Mutable environment after the execution completion]
 
-You can watch your console to check what's going on in the execution
+[.lead]
+It logs everything, so you can watch your console to check what's going on in the execution
 
+[#_logging]
 image:pq-exe.gif[Monitor Execution]
 
 [.lead]
@@ -316,7 +330,7 @@ The above test doesn't just have low-code, but also low in Cognitive Complexity 
 
 == Perf
 
-This entire execution of **70 steps**, which include **10 async steps**, took a mere *122 sec* on localhost.
+This entire execution of **~70 steps**, which includes **10 async steps**, took a mere *122 sec* on localhost.
 This can be much better on auto-build environments.
 
 image:pq-revoman-test-time.png[Localhost Test time on FTest console]
@@ -352,7 +366,7 @@ The future looks bright with multiple impactful features in the pipeline:
 
 * API metrics and Analytics
 * *It's built with extensibility* in mind. It can easily be extended to support other template formats.
-** You should be able to run Kaiju availability tests right from your IDE and debug them too
+** You should be able to run Kaiju availability tests (Salesforce specific) right from your IDE and debug them too
 * In-built polling support for Async steps
 * Payload generation
 * Flow control through YAML config
@@ -366,7 +380,7 @@ The future looks bright with multiple impactful features in the pipeline:
 * Debugging necessarily doesn't have to be with a debug point in the IDE.
 * To be able to debug, a developer needs to be informed about what went wrong and he/she should have ways to try and test an isolated portion of the run.
 * In the case of ReVoman, you have the whole Postman collection at your disposal along with the Rundown. The entire test is transparent.
-* This experience can be enhanced with more logging and better assertions.
+* This experience is enhanced with <<_failure_hierarchy,Explicit Failures>> and <<_logging,Logging>>
 
 === Why not use https://learning.postman.com/docs/collections/using-newman-cli/command-line-integration-with-newman[Newman] or https://learning.postman.com/docs/postman-cli/postman-cli-overview/#comparing-the-postman-cli-and-newman[Postman CLI]?
 
