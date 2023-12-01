@@ -36,8 +36,8 @@ import org.slf4j.LoggerFactory;
  *
  * <p>TODO: Add a mock server setup for this test.
  */
-class PQE2ETest {
-  private static final Logger LOGGER = LoggerFactory.getLogger(PQE2ETest.class);
+class PQE2EWithSMTest {
+  private static final Logger LOGGER = LoggerFactory.getLogger(PQE2EWithSMTest.class);
   private static final Set<String> ASYNC_STEP_NAMES =
       Set.of(
           "pq-create: qli+qlr (skip-pricing)",
@@ -67,7 +67,7 @@ class PQE2ETest {
       List.of(
           "pm-templates/pq/user-creation-and-setup-pq.postman_collection.json",
           "pm-templates/pq/pre-salesRep.postman_collection.json",
-          "pm-templates/pq/pq-with-rc.postman_collection.json");
+          "pm-templates/pq/pq-sm.postman_collection.json");
 
   @Test
   void revUpPQ() {
@@ -117,14 +117,12 @@ class PQE2ETest {
                             rundown.mutableEnv.set("$pricingPref", PricingPref.System.toString());
                           }
                         }),
-                    post("query-quote-and-related-records", PQE2ETest::assertAfterPQCreate),
+                    post("query-quote-and-related-records", PQE2EWithSMTest::assertAfterPQCreate),
                     post(
                         ASYNC_STEP_NAMES,
                         (stepName, rundown) -> {
                           LOGGER.info(
-                              "Waiting after Step: {} for the Quote: {} to get processed",
-                              stepName,
-                              rundown.mutableEnv.getString("quoteId"));
+                              "Waiting after Step: {} for the Quote to get processed", stepName);
                           // ! CAUTION 10/09/23 gopala.akshintala: This test can be flaky until
                           // polling is implemented
                           Thread.sleep(20000);
