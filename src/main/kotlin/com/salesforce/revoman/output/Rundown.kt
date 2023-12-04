@@ -20,6 +20,7 @@ import com.salesforce.revoman.output.Rundown.StepReport.ExeType.UNMARSHALL_REQUE
 import com.salesforce.revoman.output.Rundown.StepReport.ExeType.UNMARSHALL_RESPONSE
 import com.salesforce.revoman.output.Rundown.StepReport.HookFailure.PostHookFailure
 import com.salesforce.revoman.output.Rundown.StepReport.HookFailure.PreHookFailure
+import com.salesforce.revoman.output.Rundown.StepReport.RequestFailure.HttpRequestFailure
 import com.salesforce.revoman.output.postman.PostmanEnvironment
 import io.vavr.control.Either
 import io.vavr.control.Either.Left
@@ -71,7 +72,7 @@ data class Rundown(
     stepNameToReport.filter { it.key.contains("$folderName$FOLDER_DELIMITER") }.map { it.value }
 
   fun areAllStepsInFolderSuccessful(folderName: String): Boolean =
-    reportsForStepsInFolder(folderName).all { it?.isSuccessful ?: false }
+    reportsForStepsInFolder(folderName).all { it?.isSuccessful == true }
 
   fun reportForStepName(stepName: String): StepReport? {
     val stepNameVariants = stepNameVariants(stepName)
@@ -109,19 +110,15 @@ data class Rundown(
       postHookFailure,
       pm.environment.copy()
     )
+    val failure: Either<ExeFailure, TxInfo<Response>>? 
+    	= failure(requestInfo, preHookFailure, responseInfo, postHookFailure)
+    
+    val exeFailure: ExeFailure? = failure?.fold({ it }, { null })
 
-    val isSuccessful: Boolean
-      get() = failure(requestInfo, preHookFailure, responseInfo, postHookFailure) == null
+    val isSuccessful: Boolean = failure == null
 
-    val exeFailure: ExeFailure?
-      get() =
-        failure(requestInfo, preHookFailure, responseInfo, postHookFailure)?.fold({ it }, { null })
-
-    val isHttpStatusSuccessful: Boolean
-      get() =
-        failure(requestInfo, preHookFailure, responseInfo, postHookFailure)
-          ?.fold({ false }, { false })
-          ?: true
+    val isHttpStatusSuccessful: Boolean 
+        = failure?.fold({ it !is HttpRequestFailure || it is PostHookFailure }, { false }) != false
 
     companion object {
       private fun failure(
@@ -129,7 +126,7 @@ data class Rundown(
         preHookFailure: PreHookFailure? = null,
         responseInfo: Either<out ExeFailure, TxInfo<Response>>? = null,
         postHookFailure: PostHookFailure? = null,
-      ): Either<ExeFailure, ExeType>? =
+      ): Either<ExeFailure, TxInfo<Response>>? =
         when {
           requestInfo != null ->
             when (requestInfo) {
@@ -142,7 +139,7 @@ data class Rundown(
                       is Left -> left(responseInfo.left)
                       is Right ->
                         when {
-                          !responseInfo.get().httpMsg.status.successful -> right(HTTP_REQUEST)
+                          !responseInfo.get().httpMsg.status.successful -> right(responseInfo.get())
                           else ->
                             when {
                               postHookFailure != null -> left(postHookFailure)
@@ -195,7 +192,7 @@ data class Rundown(
       abstract val failure: Any
     }
 
-    sealed class RequestFailure private constructor() : ExeFailure() {
+    sealed class RequestFailure : ExeFailure() {
       abstract override val failure: Throwable
       abstract val requestInfo: TxInfo<Request>
 
@@ -214,7 +211,7 @@ data class Rundown(
       }
     }
 
-    sealed class HookFailure private constructor() : ExeFailure() {
+    sealed class HookFailure : ExeFailure() {
       abstract override val failure: Throwable
 
       data class PreHookFailure(override val failure: Throwable, val requestInfo: TxInfo<Request>) :
@@ -227,7 +224,7 @@ data class Rundown(
       }
     }
 
-    sealed class ResponseFailure private constructor() : ExeFailure() {
+    sealed class ResponseFailure : ExeFailure() {
       abstract override val failure: Throwable
       abstract val responseInfo: TxInfo<Response>
 
