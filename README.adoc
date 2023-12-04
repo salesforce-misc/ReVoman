@@ -90,7 +90,7 @@ Contrary to these custom frameworks,
 almost every team uses link:https://www.postman.com/product/what-is-postman[*Postman*] for manual testing their APIs.
 Postman collections contain a lot of information about your APIs and the order
 in which they need to be executed for manual testing,
-in a link:{pmtemplates}/pq/pq-with-rc.postman_collection.json[Structured Template].
+in a link:{pmtemplates}/pq/pq-sm.postman_collection.json[Structured Template].
 Leveraging it can mitigate writing a lot of code as we translate those manual steps into automation.
 
 ____
@@ -202,7 +202,7 @@ ifndef::env-github[]
 [source,java,indent=0,options="nowrap"]
 .link:{testdir}/com/salesforce/revoman/integration/core/pq/PQE2ETest.java[PQE2ETest.java, tag=pq-e2e-with-revoman-config-demo]
 ----
-include::{testdir}/com/salesforce/revoman/integration/core/pq/PQE2ETest.java[tag=pq-e2e-with-revoman-config-demo]
+include::{testdir}/com/salesforce/revoman/integration/core/pq/PQE2EWithSMTest.java[tag=pq-e2e-with-revoman-config-demo]
 ----
 <1> `revUp` is the method to call passing a configuration, built as below
 <2> Supply the path (relative to resources) to the Template Collection JSON file
@@ -268,7 +268,7 @@ image:environment.png[Mutable environment after the execution completion]
 It logs everything, so you can watch your console to check what's going on in the execution
 
 [#_logging]
-image:pq-exe.gif[Monitor Execution]
+image:pq-exe-logging.gif[Monitor Execution]
 
 [.lead]
 `Rundown` has many convenience methods to ease applying further assertions on top of it.
@@ -289,7 +289,7 @@ for an advanced adapter use-case
 
 * A hook lets you fiddle with the execution by plugging in your code before or after a Step execution
 * You get the stepName and the entire rundown of what happened prior to this step as parameters,
-as demonstrated in link:{testdir}/com/salesforce/revoman/integration/core/pq/PQE2ETest.java[PQE2ETest.java, tag=pq-e2e-with-revoman-config-demo]
+as demonstrated in link:{testdir}/com/salesforce/revoman/integration/core/pq/PQE2EWithSMTest.java[PQE2ETest.java, tag=pq-e2e-with-revoman-config-demo]
 
 [source,java,indent=0,options="nowrap"]
 ----
@@ -313,7 +313,7 @@ as demonstrated in link:{testdir}/com/salesforce/revoman/integration/core/pq/PQE
 
 === Low-code
 
-TIP: Here is a low-code link:{testdir}/com/salesforce/revoman/integration/core/pq/PQE2ETest.java[**E2E test**]
+TIP: Here is a low-code link:{testdir}/com/salesforce/revoman/integration/core/pq/PQE2EWithSMTest.java[**E2E test**]
 
 [.lead]
 Compared to a traditional Integration/Functional or E2E test, approximately, the amount of code needed is *89%* less using ReVoman.
