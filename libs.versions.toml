@@ -1,7 +1,7 @@
 [versions]
 kotlin = "2.0.0-Beta1"
-http4k = "5.10.3.0"
-moshix = "0.25.0"
+http4k = "5.10.5.0"
+moshix = "0.25.1"
 arrow = "1.2.1"
 graal = "22.3.3" # 22.3.3 Compatable with Java 11
 vador = "1.1.0"
@@ -9,26 +9,26 @@ java-vavr = "0.10.4"
 kotlin-vavr = "0.10.2"
 jetbrains-annotations = "24.1.0"
 guava = "32.1.3-jre"
-kover = "0.7.4"
+kover = "0.7.5"
 kotest = "5.8.0"
 spotbugs = "6.0.1"
 testLogger = "4.0.0"
 assertj-core = "3.24.2"
 assertj-vavr = "0.4.3"
 reflection-util = "2.14.0"
-kotlin-logging = "5.1.0"
+kotlin-logging = "5.1.1"
 apache-commons-lang3 = "3.14.0"
-underscore = "1.95"
+underscore = "1.96"
 kotlin-faker = "1.15.0"
 immutables = "2.10.0"
-mockito = "5.7.0"
+mockito = "5.8.0"
 spring = "5.3.30" # 5.3.30 Compatable with Java 11
 nexus-publish = "2.0.0-rc-1"
 
 # Common dependencies
 junit = "5.10.1"
-detekt = "1.23.3"
-spotless = "6.22.0"
+detekt = "1.23.4"
+spotless = "6.23.3"
 apache-log4j = "2.22.0"
 
 [libraries]
