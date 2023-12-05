@@ -37,8 +37,7 @@ data class Rundown(
   @JvmField val mutableEnv: PostmanEnvironment<Any?> = PostmanEnvironment(),
   private val stepsToIgnoreForFailure: Set<String>
 ) {
-  val immutableEnvMap
-    @JvmName("immutableEnvMap") get() = mutableEnv.toMap()
+  val immutableEnvMap = mutableEnv.toMap()
 
   val firstUnsuccessfulStepNameInOrder: String?
     @JvmName("firstUnsuccessfulStepNameInOrder")
