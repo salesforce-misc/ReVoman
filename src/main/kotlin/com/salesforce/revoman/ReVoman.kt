@@ -159,8 +159,7 @@ object ReVoman {
                 ?.fold(
                   { stepReport.copy(postHookFailure = it) },
                   { stepReport.copy(envSnapshot = pm.environment.copy()) },
-                )
-                ?: stepReport
+                ) ?: stepReport
             }
             .fold({ it }, { it })
         // * NOTE 15/10/23 gopala.akshintala: http status code can be non-success
@@ -280,8 +279,7 @@ object ReVoman {
                         responseInfo,
                       ),
                     )
-                  }
-                    ?: Right(responseInfo)
+                  } ?: Right(responseInfo)
                 },
               )
               .mapLeft { stepReport.copy(responseInfo = left(it)) }

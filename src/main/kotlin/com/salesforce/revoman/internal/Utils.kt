@@ -28,8 +28,7 @@ internal fun isContentTypeApplicationJson(httpMessage: HttpMessage) =
     httpMessage.header("content-type")?.let {
       StringUtils.deleteWhitespace(it)
         .equals(StringUtils.deleteWhitespace(APPLICATION_JSON.toHeaderValue()), ignoreCase = true)
-    }
-      ?: false
+    } ?: false
 
 internal fun readFileToString(fileRelativePath: String): String =
   Resources.getResource(fileRelativePath).readText()
@@ -66,8 +65,7 @@ internal inline fun <reified T : Hook> getHooksForStep(
   val stepNameVariants = stepNameVariants(currentStepName)
   return hookConfigs[hookType]
     ?.filter { stepNameVariants.contains(it.stepName) }
-    ?.map { it.hook as T }
-    ?: emptyList()
+    ?.map { it.hook as T } ?: emptyList()
 }
 
 internal fun stepNameVariants(stepName: String): Set<String> = buildSet {

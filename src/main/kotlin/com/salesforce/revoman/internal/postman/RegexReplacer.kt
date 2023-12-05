@@ -38,7 +38,8 @@ internal class RegexReplacer(
           ?: replaceRegexRecursively(dynamicVariableGenerator(variableKey))?.also {
             env[variableKey] = it
           }
-            ?: replaceRegexRecursively(env[variableKey] as String?) ?: matchResult.value
+          ?: replaceRegexRecursively(env[variableKey] as String?)
+          ?: matchResult.value
       }
     }
 

@@ -51,8 +51,7 @@ internal data class Request(
       header
         .firstOrNull { it.key.equals(CONTENT_TYPE.meta.name, ignoreCase = true) }
         ?.value
-        ?.let { ContentType.Text(it) }
-        ?: ContentType.APPLICATION_JSON
+        ?.let { ContentType.Text(it) } ?: ContentType.APPLICATION_JSON
     val uri = Uri.of(url.raw).queryParametersEncoded()
     return org.http4k.core
       .Request(Method.valueOf(method), uri)

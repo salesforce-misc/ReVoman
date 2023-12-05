@@ -43,8 +43,7 @@ internal fun initPmEnvironment(
         }
         ?.values
         ?.filter { it.enabled }
-        ?.associate { it.key to it.value }
-        ?: emptyMap()
+        ?.associate { it.key to it.value } ?: emptyMap()
     )
   }
 }

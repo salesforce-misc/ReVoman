@@ -109,15 +109,16 @@ data class Rundown(
       postHookFailure,
       pm.environment.copy()
     )
-    val failure: Either<ExeFailure, TxInfo<Response>>? 
-    	= failure(requestInfo, preHookFailure, responseInfo, postHookFailure)
-    
+
+    val failure: Either<ExeFailure, TxInfo<Response>>? =
+      failure(requestInfo, preHookFailure, responseInfo, postHookFailure)
+
     val exeFailure: ExeFailure? = failure?.fold({ it }, { null })
 
     val isSuccessful: Boolean = failure == null
 
-    val isHttpStatusSuccessful: Boolean 
-        = failure?.fold({ it !is HttpRequestFailure || it is PostHookFailure }, { false }) != false
+    val isHttpStatusSuccessful: Boolean =
+      failure?.fold({ it !is HttpRequestFailure || it is PostHookFailure }, { false }) != false
 
     companion object {
       private fun failure(

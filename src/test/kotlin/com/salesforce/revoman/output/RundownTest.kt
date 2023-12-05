@@ -35,7 +35,7 @@ class RundownTest {
     val stepReportSuccess = StepReport(Right(requestInfo))
     println(stepReportSuccess)
     stepReportSuccess.isHttpStatusSuccessful shouldBe true
-    
+
     val stepReportHttpFailure =
       StepReport(Left(HttpRequestFailure(RuntimeException("fakeRTE"), requestInfo)))
     println(stepReportHttpFailure)
@@ -47,10 +47,14 @@ class RundownTest {
     println(stepReportBadRequest)
     stepReportBadRequest.isHttpStatusSuccessful shouldBe false
 
-    val responseInfo: TxInfo<Response> =
-      TxInfo(String::class.java, "fakeResponse", Response(OK))
-    val stepReportPostHookFailure = 
-      StepReport(Right(requestInfo), null, Right(responseInfo), PostHookFailure(RuntimeException("fakeRTE")))
+    val responseInfo: TxInfo<Response> = TxInfo(String::class.java, "fakeResponse", Response(OK))
+    val stepReportPostHookFailure =
+      StepReport(
+        Right(requestInfo),
+        null,
+        Right(responseInfo),
+        PostHookFailure(RuntimeException("fakeRTE"))
+      )
     println(stepReportPostHookFailure)
     stepReportPostHookFailure.isHttpStatusSuccessful shouldBe true
   }
