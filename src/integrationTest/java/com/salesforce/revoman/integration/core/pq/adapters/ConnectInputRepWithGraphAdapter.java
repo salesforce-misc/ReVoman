@@ -30,27 +30,30 @@ import org.springframework.beans.BeanUtils;
 
 public class ConnectInputRepWithGraphAdapter<T extends ConnectInputRepresentationWithGraph>
     extends JsonAdapter<T> {
-  private final Class<T> type;
+  private final Class<T> pojoType;
 
   private final JsonAdapter<Object> dynamicJsonAdapter;
+  private final Moshi moshi;
 
-  private ConnectInputRepWithGraphAdapter(Class<T> type, JsonAdapter<Object> dynamicJsonAdapter) {
-    this.type = type;
-    this.dynamicJsonAdapter = dynamicJsonAdapter;
+
+  private ConnectInputRepWithGraphAdapter(Class<T> pojoType, JsonAdapter<Object> dynamicJsonAdapter, Moshi moshi) {
+    this.pojoType = pojoType;
+    this.dynamicJsonAdapter = dynamicJsonAdapter.serializeNulls();
+    this.moshi = moshi;
   }
 
   public static <T extends ConnectInputRepresentationWithGraph> Factory adapter(
-      final Class<T> type) {
+      final Class<T> pojoType) {
     return new Factory() {
       @Override
       public @Nullable JsonAdapter<?> create(
           @NotNull Type requestedType,
           @NotNull Set<? extends Annotation> annotations,
           @NotNull Moshi moshi) {
-        if (type != requestedType) {
+        if (pojoType != requestedType) {
           return null;
         }
-        return new ConnectInputRepWithGraphAdapter<>(type, moshi.adapter(Object.class));
+        return new ConnectInputRepWithGraphAdapter<>(pojoType, moshi.adapter(Object.class), moshi);
       }
     };
   }
@@ -58,7 +61,7 @@ public class ConnectInputRepWithGraphAdapter<T extends ConnectInputRepresentatio
   @Override
   public T fromJson(@NotNull JsonReader reader) {
     return objR(
-        () -> BeanUtils.instantiateClass(type),
+        () -> BeanUtils.instantiateClass(pojoType),
         reader,
         (pqir, key1) -> {
           if (key1.equals("graph")) {
@@ -98,7 +101,7 @@ public class ConnectInputRepWithGraphAdapter<T extends ConnectInputRepresentatio
                       }
                     }));
           } else {
-            readProps(reader, type, pqir, key1);
+            readProps(reader, pojoType, pqir, key1, moshi);
           }
         });
   }
@@ -111,10 +114,10 @@ public class ConnectInputRepWithGraphAdapter<T extends ConnectInputRepresentatio
         cirwg -> {
           writeProps(
               writer,
-              type,
+              pojoType,
               cirwg,
               Set.of(ObjectGraphInputRepresentation.class),
-              dynamicJsonAdapter);
+              moshi);
           objW(
               "graph",
               cirwg.getGraph(),

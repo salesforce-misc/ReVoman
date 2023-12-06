@@ -4,8 +4,9 @@ package com.salesforce.revoman.input.json
 
 import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.JsonWriter
-import java.util.function.Consumer
+import com.squareup.moshi.Moshi
 import org.springframework.beans.BeanUtils
+import java.util.function.Consumer
 
 fun <T> objW(name: String, obj: T, writer: JsonWriter, block: Consumer<T>): Unit =
   with(writer) {
@@ -97,18 +98,24 @@ fun <T> listW(list: List<T>?, writer: JsonWriter, block: Consumer<T>): JsonWrite
     }
   }
 
+// ! TODO 18/10/23 gopala.akshintala: Abstract it into a common artifact to be used in ReVoman
+
 fun <T> JsonWriter.writeProps(
-  type: Class<T>,
+  pojoType: Class<T>,
   bean: T,
   excludePropTypes: Set<Class<*>>,
-  dynamicJsonAdapter: JsonAdapter<Any>
+  moshi: Moshi
 ) =
-  BeanUtils.getPropertyDescriptors(type)
+  BeanUtils.getPropertyDescriptors(pojoType)
     .asSequence()
     .filterNot {
       it.propertyType.name == "java.lang.Class" || excludePropTypes.contains(it.propertyType)
     }
     .forEach {
+      checkNotNull(it.readMethod) {
+        throw IllegalStateException("Please add a getter for the Property: `${it.name}`")
+      }
       name(it.name)
-      dynamicJsonAdapter.toJson(this, it.readMethod(bean))
+      val delegate = moshi.adapter(it.propertyType) as JsonAdapter<Any>
+      delegate.toJson(this, it.readMethod(bean))
     }

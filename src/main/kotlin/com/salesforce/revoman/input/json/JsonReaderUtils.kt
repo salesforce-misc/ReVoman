@@ -2,9 +2,11 @@
 
 package com.salesforce.revoman.input.json
 
+import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.JsonReader
-import java.util.function.BiConsumer
+import com.squareup.moshi.Moshi
 import org.springframework.beans.BeanUtils
+import java.util.function.BiConsumer
 
 fun nextString(reader: JsonReader): String = reader.nextString()
 
@@ -49,33 +51,8 @@ fun JsonReader.anyMapR(): Map<String, Any?>? = skipNullOr {
 private fun <T> JsonReader.skipNullOr(fn: JsonReader.() -> T): T? =
   if (peek() == JsonReader.Token.NULL) skipValue().let { null } else fn()
 
-fun <T> JsonReader.readProps(type: Class<T>, bean: T, fieldName: String) {
-  val propType: Class<*> = BeanUtils.findPropertyType(fieldName, type)
-  val setter = { value: Any? ->
-    BeanUtils.getPropertyDescriptor(type, fieldName)?.writeMethod?.invoke(bean, value)
-  }
-  when {
-    propType.isEnum -> {
-      val value = nextString()
-      setter(propType.enumConstants.find { it.toString() == value })
-    }
-    propType.isPrimitive ->
-      when (propType.name) {
-        "int" -> setter(nextInt())
-        "boolean" -> setter(nextBoolean())
-        "long" -> setter(nextLong())
-        "double" -> setter(nextDouble())
-        else -> skipValue()
-      }
-    BeanUtils.isSimpleProperty(propType) ->
-      when (propType) {
-        String::class.javaObjectType -> setter(nextString())
-        Integer::class.javaObjectType -> setter(nextInt())
-        Boolean::class.javaObjectType -> setter(nextBoolean())
-        Long::class.javaObjectType -> setter(nextLong())
-        Double::class.javaObjectType -> setter(nextDouble())
-        else -> skipValue()
-      }
-    else -> skipValue()
-  }
+fun <T> JsonReader.readProps(pojoType: Class<T>, bean: T, fieldName: String, moshi: Moshi) = skipNullOr {
+  val propType: Class<*> = BeanUtils.findPropertyType(fieldName, pojoType)
+  val delegate: JsonAdapter<out Any?> = moshi.adapter(propType)
+  BeanUtils.getPropertyDescriptor(pojoType, fieldName)?.writeMethod?.invoke(bean, delegate.fromJson(this))
 }
