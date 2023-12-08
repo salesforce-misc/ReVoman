@@ -35,8 +35,8 @@ public class ConnectInputRepWithGraphAdapter<T extends ConnectInputRepresentatio
   private final JsonAdapter<Object> dynamicJsonAdapter;
   private final Moshi moshi;
 
-
-  private ConnectInputRepWithGraphAdapter(Class<T> pojoType, JsonAdapter<Object> dynamicJsonAdapter, Moshi moshi) {
+  private ConnectInputRepWithGraphAdapter(
+      Class<T> pojoType, JsonAdapter<Object> dynamicJsonAdapter, Moshi moshi) {
     this.pojoType = pojoType;
     this.dynamicJsonAdapter = dynamicJsonAdapter.serializeNulls();
     this.moshi = moshi;
@@ -112,12 +112,7 @@ public class ConnectInputRepWithGraphAdapter<T extends ConnectInputRepresentatio
         connectInputRepWithGraph,
         writer,
         cirwg -> {
-          writeProps(
-              writer,
-              pojoType,
-              cirwg,
-              Set.of(ObjectGraphInputRepresentation.class),
-              moshi);
+          writeProps(writer, pojoType, cirwg, Set.of(ObjectGraphInputRepresentation.class), moshi);
           objW(
               "graph",
               cirwg.getGraph(),

@@ -5,7 +5,7 @@
  * https://opensource.org/licenses/BSD-3-Clause
  * ****************************************************************************
  */
-package com.salesforce.revoman.internal.adapters
+package com.salesforce.revoman.internal.factories
 
 import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.JsonReader

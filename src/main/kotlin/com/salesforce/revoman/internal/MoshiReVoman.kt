@@ -7,7 +7,8 @@
  */
 package com.salesforce.revoman.internal
 
-import com.salesforce.revoman.internal.adapters.IgnoreUnknownFactory
+import com.salesforce.revoman.internal.factories.CaseInsensitiveEnumAdapter
+import com.salesforce.revoman.internal.factories.IgnoreUnknownFactory
 import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.JsonAdapter.Factory
 import com.squareup.moshi.Moshi
@@ -62,6 +63,7 @@ internal fun initMoshi(
   if (typesToIgnore.isNotEmpty()) {
     moshiBuilder.add(IgnoreUnknownFactory(typesToIgnore))
   }
+  moshiBuilder.add(CaseInsensitiveEnumAdapter.FACTORY)
   moshiReVoman = moshiBuilder.build()
   return object : ConfigurableMoshi(moshiBuilder) {}
 }

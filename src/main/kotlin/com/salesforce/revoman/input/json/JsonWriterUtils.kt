@@ -5,8 +5,8 @@ package com.salesforce.revoman.input.json
 import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.JsonWriter
 import com.squareup.moshi.Moshi
-import org.springframework.beans.BeanUtils
 import java.util.function.Consumer
+import org.springframework.beans.BeanUtils
 
 fun <T> objW(name: String, obj: T, writer: JsonWriter, block: Consumer<T>): Unit =
   with(writer) {
