@@ -52,4 +52,3 @@ internal class CaseInsensitiveEnumAdapter<T : Enum<T>>(val enumType: Class<T>) :
       }
   }
 }
-

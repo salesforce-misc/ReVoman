@@ -82,6 +82,7 @@ In link:build.gradle.kts[], follow the <<_versioning_strategy,Versioning Strateg
 ./gradlew publishToSonatype closeAndReleaseSonatypeStagingRepository -Dorg.gradle.parallel=false --no-configuration-cache
 ----
 
+* You can monitor for the new version jar to reflect in link:https://repo1.maven.org/maven2/com/salesforce/revoman/revoman/[Maven Central]. It usually takes less than 30 minutes.
 
 == Code of Conduct
 Please follow our link:CODE_OF_CONDUCT.md[Code of Conduct]
