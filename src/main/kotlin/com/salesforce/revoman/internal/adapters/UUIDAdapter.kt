@@ -1,4 +1,4 @@
-package org.revcloud.loki.common.json.adapters
+package com.salesforce.revoman.internal.adapters
 
 import com.squareup.moshi.FromJson
 import com.squareup.moshi.ToJson
