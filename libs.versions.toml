@@ -1,6 +1,6 @@
 [versions]
 kotlin = "2.0.0-Beta1"
-http4k = "5.10.6.0"
+http4k = "5.10.7.0"
 moshix = "0.25.1"
 arrow = "1.2.1"
 graal = "22.3.3" # 22.3.3 Compatable with Java 11
