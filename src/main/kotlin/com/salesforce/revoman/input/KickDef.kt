@@ -100,10 +100,13 @@ internal interface KickDef {
     require(
       !haltOnAnyFailure() || (haltOnAnyFailure() && haltOnAnyFailureExceptForSteps().isEmpty()),
     ) {
-      "'haltOnAnyFailureExceptForSteps' should be empty when 'haltOnAnyFailure' is set to True"
+      "`haltOnAnyFailureExceptForSteps` should be empty when `haltOnAnyFailure` is set to True"
     }
     require(Collections.disjoint(runOnlySteps(), skipSteps())) {
-      "'runOnlySteps' and 'skipSteps' cannot have intersection"
+      "`runOnlySteps` and `skipSteps` cannot contain same step names"
+    }
+    require(customAdaptersForMarshalling().all { it is JsonAdapter<*> || it is Factory }) {
+      "`customAdaptersForMarshalling` should be either of type `JsonAdapter` or `Factory`"
     }
   }
   // ! TODO 22/06/23 gopala.akshintala: Validate if validation config for a step is mentioned but

@@ -19,6 +19,9 @@ import com.salesforce.revoman.output.FOLDER_DELIMITER
 import com.salesforce.revoman.output.HTTP_METHOD_SEPARATOR
 import com.salesforce.revoman.output.INDEX_SEPARATOR
 import io.vavr.control.Either
+import okio.BufferedSource
+import okio.buffer
+import okio.source
 import org.apache.commons.lang3.StringUtils
 import org.http4k.core.ContentType.Companion.APPLICATION_JSON
 import org.http4k.core.HttpMessage
@@ -28,10 +31,10 @@ internal fun isContentTypeApplicationJson(httpMessage: HttpMessage) =
     httpMessage.header("content-type")?.let {
       StringUtils.deleteWhitespace(it)
         .equals(StringUtils.deleteWhitespace(APPLICATION_JSON.toHeaderValue()), ignoreCase = true)
-    } ?: false
+    } == true
 
-internal fun readFileToString(fileRelativePath: String): String =
-  Resources.getResource(fileRelativePath).readText()
+internal fun bufferFile(fileRelativePath: String): BufferedSource =
+  Resources.getResource(fileRelativePath).openStream().source().buffer()
 
 internal fun List<Item>.deepFlattenItems(
   parentFolderName: String = "",

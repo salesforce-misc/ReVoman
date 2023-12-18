@@ -26,7 +26,7 @@ import org.http4k.format.ThrowableAdapter
 import org.http4k.format.asConfigurable
 import org.http4k.format.withStandardMappings
 
-private val moshiBuilder =
+internal val moshiBuilder: Moshi.Builder =
   Moshi.Builder()
     .add(JsonString.Factory())
     .add(AdaptedBy.Factory())
@@ -35,19 +35,30 @@ private val moshiBuilder =
     .addLast(ThrowableAdapter)
     .addLast(ListAdapter)
     .addLast(MapAdapter)
+    .addLast(CaseInsensitiveEnumAdapter.FACTORY)
     .asConfigurable()
     .withStandardMappings()
     .done()
 
 private lateinit var moshiReVoman: Moshi
 
-@SuppressWarnings("kotlin:S3923")
 @JvmOverloads
 internal fun initMoshi(
-  customAdaptersWithType: Map<Type, List<Either<JsonAdapter<Any>, Factory>>> = emptyMap(),
   customAdapters: List<Any> = emptyList(),
+  customAdaptersWithType: Map<Type, List<Either<JsonAdapter<Any>, Factory>>> = emptyMap(),
   typesToIgnore: Set<Class<out Any>> = emptySet()
 ): ConfigurableMoshi {
+  buildMoshi(customAdapters, customAdaptersWithType, typesToIgnore)
+  moshiReVoman = moshiBuilder.build()
+  return object : ConfigurableMoshi(moshiBuilder) {}
+}
+
+@SuppressWarnings("kotlin:S3923")
+internal fun buildMoshi(
+  customAdapters: List<Any> = emptyList(),
+  customAdaptersWithType: Map<Type, List<Either<JsonAdapter<Any>, Factory>>> = emptyMap(),
+  typesToIgnore: Set<Class<out Any>> = emptySet()
+) {
   customAdaptersWithType.forEach { (type, customAdapters) ->
     customAdapters.forEach { customAdapter ->
       customAdapter.fold({ moshiBuilder.add(type, it) }, { moshiBuilder.add(it) })
@@ -63,9 +74,6 @@ internal fun initMoshi(
   if (typesToIgnore.isNotEmpty()) {
     moshiBuilder.add(IgnoreUnknownFactory(typesToIgnore))
   }
-  moshiBuilder.add(CaseInsensitiveEnumAdapter.FACTORY)
-  moshiReVoman = moshiBuilder.build()
-  return object : ConfigurableMoshi(moshiBuilder) {}
 }
 
 // * NOTE 12/03/23 gopala.akshintala: http4k doesn't yet have this method in-built

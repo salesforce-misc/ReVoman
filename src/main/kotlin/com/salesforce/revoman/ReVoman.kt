@@ -19,6 +19,7 @@ import com.salesforce.revoman.input.Kick
 import com.salesforce.revoman.input.RequestConfig
 import com.salesforce.revoman.input.ResponseConfig
 import com.salesforce.revoman.internal.asA
+import com.salesforce.revoman.internal.bufferFile
 import com.salesforce.revoman.internal.deepFlattenItems
 import com.salesforce.revoman.internal.executeTestScriptJs
 import com.salesforce.revoman.internal.getHooksForStep
@@ -33,7 +34,6 @@ import com.salesforce.revoman.internal.postman.pm
 import com.salesforce.revoman.internal.postman.state.Item
 import com.salesforce.revoman.internal.postman.state.Template
 import com.salesforce.revoman.internal.prepareHttpClient
-import com.salesforce.revoman.internal.readFileToString
 import com.salesforce.revoman.internal.shouldStepBeExecuted
 import com.salesforce.revoman.output.Rundown
 import com.salesforce.revoman.output.Rundown.StepReport
@@ -80,7 +80,7 @@ object ReVoman {
     val pmStepsDeepFlattened =
       kick
         .templatePaths()
-        .mapNotNull { pmTemplateAdapter.fromJson(readFileToString(it)) }
+        .mapNotNull { pmTemplateAdapter.fromJson(bufferFile(it)) }
         .flatMap { (pmSteps, authFromRoot) ->
           pmSteps.deepFlattenItems(authFromRoot = authFromRoot)
         }
@@ -89,8 +89,8 @@ object ReVoman {
         pmStepsDeepFlattened,
         kick,
         initMoshi(
-          kick.customAdaptersFromRequestConfig() + kick.customAdaptersFromResponseConfig(),
           kick.customAdaptersForMarshalling(),
+          kick.customAdaptersFromRequestConfig() + kick.customAdaptersFromResponseConfig(),
           kick.typesToIgnoreForMarshalling()
         )
       )

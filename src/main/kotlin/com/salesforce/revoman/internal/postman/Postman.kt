@@ -7,8 +7,8 @@
  */
 package com.salesforce.revoman.internal.postman
 
+import com.salesforce.revoman.internal.bufferFile
 import com.salesforce.revoman.internal.postman.state.Environment
-import com.salesforce.revoman.internal.readFileToString
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapter
 
@@ -32,15 +32,14 @@ internal fun initPmEnvironment(
     pm.environment.putAll(dynamicEnvironment)
   }
   val envAdapter = Moshi.Builder().build().adapter<Environment>()
+  val regexReplacer =
+    RegexReplacer(pm.environment, customDynamicVariables, dynamicVariableGenerator)
   // ! TODO 05/10/23 gopala.akshintala: Consider values from env file being parsed to replace
   pmEnvironmentPaths.forEach { envWithRegex ->
     pm.environment.putAll(
       envAdapter
-        .fromJson(readFileToString(envWithRegex))
-        ?.let {
-          RegexReplacer(pm.environment, customDynamicVariables, dynamicVariableGenerator)
-            .replaceRegex(it)
-        }
+        .fromJson(bufferFile(envWithRegex))
+        ?.let { regexReplacer.replaceRegex(it) }
         ?.values
         ?.filter { it.enabled }
         ?.associate { it.key to it.value } ?: emptyMap()

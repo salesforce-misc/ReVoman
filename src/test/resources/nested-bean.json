@@ -1,0 +1,10 @@
+{
+  "name": "container",
+  "bean": {
+    "name": "member",
+    "items": [
+      "item1",
+      "item2"
+    ]
+  }
+}

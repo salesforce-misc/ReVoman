@@ -25,7 +25,7 @@ class UtilsTest {
     val itemAdapter = Moshi.Builder().build().adapter<Template>()
     val stepNames =
       itemAdapter
-        .fromJson(readFileToString("pmCollection/steps-with-folders.json"))
+        .fromJson(bufferFile("pmCollection/steps-with-folders.json"))
         ?.item
         ?.deepFlattenItems()
         ?.map { it.name }
