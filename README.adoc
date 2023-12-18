@@ -15,7 +15,7 @@ endif::[]
 :pmtemplates: src/integrationTest/resources/pm-templates
 :imagesdir: docs/images
 :prewrap!:
-:revoman-version: 0.23.1
+:revoman-version: 0.24.0
 
 ____
 
@@ -310,6 +310,7 @@ as demonstrated in link:{testdir}/com/salesforce/revoman/integration/core/pq/PQE
 ----
 
 * You can do things like assertion on the rundown or environment and even mutate the environment, such that the execution of subsequent steps picks up those changes.
+* You can plug in your java code to create/generate values for environment variables which can be populated and picked-up by subsequent steps. For example, you may want to create some `xyzId` but you don't have a Postman collection, but instead a Java utility to generate/create it. You can invoke the utility in a pre-hook of a step which uses the variable `{{xyzId}}` in its template and set the value in `mutableEnv`, so the step picks it from there.
 
 === Low-code
 
