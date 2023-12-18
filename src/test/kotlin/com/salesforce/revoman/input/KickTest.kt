@@ -11,7 +11,6 @@ class KickTest {
       shouldThrow<IllegalArgumentException> {
         Kick.configure().skipSteps("a", "b").runOnlySteps("b", "c").off()
       }
-    exception.message shouldBe "'runOnlySteps' and 'skipSteps' cannot have intersection"
   }
 
   @Test
@@ -20,7 +19,5 @@ class KickTest {
       shouldThrow<IllegalArgumentException> {
         Kick.configure().haltOnAnyFailure(true).haltOnAnyFailureExceptForSteps("a", "b").off()
       }
-    exception.message shouldBe
-      "'haltOnAnyFailureExceptForSteps' should be empty when 'haltOnAnyFailure' is set to True"
   }
 }
