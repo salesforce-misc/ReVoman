@@ -249,7 +249,9 @@ It captures failure at any stage of a step during execution. Here is what all ca
 image:failure-hierarchy.png[Failure Hierarchy]
 
 [.lead]
-This rundown has everything you need to know about what happened during each step execution,
+This tool has particular emphasis on Debugging experience. 
+
+The rundown you get as a return from `revUp` after the execution completes has everything you need to know about what happened during each step execution,
 along with environment snapshot during that step execution. Here is what a debugger view of a Rundown looks like:
 
 image:rundown.png[Rundown of all steps]
@@ -274,6 +276,8 @@ image:pq-exe-logging.gif[Monitor Execution]
 `Rundown` has many convenience methods to ease applying further assertions on top of it.
 
 image:rundown-api.png[Rundown Convinience methods]
+
+== Features
 
 === Type Safety with flexible JSON <- -> POJO marshalling/serialization and unmarshalling/deserialization
 
@@ -310,7 +314,23 @@ as demonstrated in link:{testdir}/com/salesforce/revoman/integration/core/pq/PQE
 ----
 
 * You can do things like assertion on the rundown or environment and even mutate the environment, such that the execution of subsequent steps picks up those changes.
-* You can plug in your java code to create/generate values for environment variables which can be populated and picked-up by subsequent steps. For example, you may want to create some `xyzId` but you don't have a Postman collection, but instead a Java utility to generate/create it. You can invoke the utility in a pre-hook of a step which uses the variable `{{xyzId}}` in its template and set the value in `mutableEnv`, so the step picks it from there.
+* You can plug in your java code to create/generate values for environment variables which can be populated and picked-up by subsequent steps. For example, you may want to create some `xyzId` but you don't have a Postman collection, but instead a Java utility to generate/create it. You can invoke the utility in a pre-hook of a step (which uses the variable `{{xyzId}}` in its template) and set the value in `mutableEnv`, so the step can pick it from there.
+
+=== Compose modular Executions
+
+* You don't have to squash all your steps into one mega collection. Instead, you can break them into easy-to-manage modular collections. `revUp` accepts a list of collection paths through `templatePaths`
+* But that doesn't mean you have to execute all these templates in one-go. You can make multiple `revUp` calls.
+
+NOTE: Only `mutableEnv` is the mutable-shared state across step executions
+
+* If you wish to compose these executions, you can do so by adding the previous execution's `mutableEnv` to current execution using `dynamicEnvironment` parameter. This also comes in handy when you wish to execute a common step (e.g. `UserSetup`) inside a test setup method and use that environment for all the tests.
+
+=== Environment snapshot
+
+* You can use `envSnapshot` to assert if a step has executed as expected.
+* You can compare snapshots from different steps to monitor the execution progress.
+
+== USP
 
 === Low-code
 
@@ -320,14 +340,22 @@ TIP: Here is a low-code link:{testdir}/com/salesforce/revoman/integration/core/p
 Compared to a traditional Integration/Functional or E2E test, approximately, the amount of code needed is *89%* less using ReVoman.
 The above test doesn't just have low-code, but also low in Cognitive Complexity and Transparent in what it does.
 
-== CI/CD integrability
+=== CI/CD integrability
 
 * ReVoman is like a library that you can plug into any JVM program/test. Apart from adding a dependency in the build tool, there is no extra setup needed to hook these tests into CI/CD.
 
-== Up-to-date Postman collections that live along with Code in VCS
+=== Up-to-date Postman collections that live along with Code in VCS
 
 * A nice side effect is, this lets the Postman collections always stay up to date and the entire Postman collection guards each *check-in* in the form of a Test suite augmenting manual testing.
 * Any day, you can find an up-to-date Postman collection for every feature you need to test, right in your VCS (Git) along with your code. Developers can import these templates directly from VCS into Postman for manual testing. This comes in very handy during a team blitz.
+
+=== Unified testing strategy
+
+* Bring a *Unified &amp; Simplified Test strategy* across the mul-**T**-verse (FTests, E2E Tests, and Manual testing with Postman) for any service. This is a generic tool, and just by changing the template, the same config/pattern can be reused for any feature flow agnostic of it being an FTest or E2E test
+* Transparency and better Traceability of issues
+* This forces engineers to think like *API-first customers* while writing tests.
+* *FTest Data setup:* You can use the ReVoman for the FTest data setup too. This eliminates the need for different teams to write their own internal utilities for data setup.
+* *E2E Test* can even reside outside the Service repo, as long as it can hit the service
 
 == Perf
 
@@ -338,14 +366,6 @@ image:pq-revoman-test-time.png[Localhost Test time on FTest console]
 
 WARNING: ReVoman internally is very light-weight and the execution times are proportional
 to how your server responds or your network speeds.
-
-== Unified testing strategy
-
-* Bring a *Unified &amp; Simplified Test strategy* across the mul-**T**-verse (FTests, E2E Tests, and Manual testing with Postman) for any service. This is a generic tool, and just by changing the template, the same config/pattern can be reused for any feature flow agnostic of it being an FTest or E2E test
-* Transparency and better Traceability of issues
-* This forces engineers to think like *API-first customers* while writing tests.
-* *FTest Data setup:* You can use the ReVoman for the FTest data setup too. This eliminates the need for different teams to write their own internal utilities for data setup.
-* *E2E Test* can even reside outside the Service repo, as long as it can hit the service
 
 == Internal Orchestration
 
