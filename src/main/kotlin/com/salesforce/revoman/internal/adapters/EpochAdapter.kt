@@ -13,7 +13,7 @@ object EpochAdapter {
     return if (epoch.matches("\\d+".toRegex())) {
       Date.from(Instant.ofEpochSecond(epoch.toLong()))
     } else {
-      delegate.fromJson(epoch)
+      delegate.fromJsonValue(epoch)
     }
   }
 }

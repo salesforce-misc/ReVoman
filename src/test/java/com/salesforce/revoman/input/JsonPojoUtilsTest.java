@@ -21,10 +21,19 @@ class JsonPojoUtilsTest {
   }
 
   @Test
-  @DisplayName("json file with Epoch Date To Pojo")
-  void jsonFileWithEpochDateToPojo() {
+  @DisplayName("json with Epoch Date To Pojo")
+  void jsonWithEpochDateToPojo() {
     final var beanWithDate =
-        JsonPojoUtils.<BeanWithDate>jsonFileToPojo(BeanWithDate.class, "json/bean-with-date.json");
+        JsonPojoUtils.<BeanWithDate>jsonToPojo(BeanWithDate.class, "{\"date\": 1604216172813}");
+    assertThat(beanWithDate).isNotNull();
+    assertThat(beanWithDate.date).isNotNull();
+  }
+
+  @Test
+  @DisplayName("json with ISO Date To Pojo")
+  void jsonWithISODateToPojo() {
+    final var beanWithDate =
+        JsonPojoUtils.<BeanWithDate>jsonToPojo(BeanWithDate.class, "{\"date\": \"2015-09-01\"}");
     assertThat(beanWithDate).isNotNull();
     assertThat(beanWithDate.date).isNotNull();
   }
