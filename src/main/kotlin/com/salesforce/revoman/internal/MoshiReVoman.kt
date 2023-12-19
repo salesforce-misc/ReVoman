@@ -7,6 +7,9 @@
  */
 package com.salesforce.revoman.internal
 
+import com.salesforce.revoman.internal.adapters.BigDecimalAdapter
+import com.salesforce.revoman.internal.adapters.EpochAdapter
+import com.salesforce.revoman.internal.adapters.UUIDAdapter
 import com.salesforce.revoman.internal.factories.CaseInsensitiveEnumAdapter
 import com.salesforce.revoman.internal.factories.IgnoreUnknownFactory
 import com.squareup.moshi.JsonAdapter
@@ -30,12 +33,15 @@ internal val moshiBuilder: Moshi.Builder =
   Moshi.Builder()
     .add(JsonString.Factory())
     .add(AdaptedBy.Factory())
+    .add(BigDecimalAdapter)
+    .add(UUIDAdapter)
+    .add(EpochAdapter)
     .add(Date::class.java, Rfc3339DateJsonAdapter())
+    .addLast(CaseInsensitiveEnumAdapter.FACTORY)
     .addLast(EventAdapter)
     .addLast(ThrowableAdapter)
     .addLast(ListAdapter)
     .addLast(MapAdapter)
-    .addLast(CaseInsensitiveEnumAdapter.FACTORY)
     .asConfigurable()
     .withStandardMappings()
     .done()

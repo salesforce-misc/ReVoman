@@ -249,7 +249,7 @@ It captures failure at any stage of a step during execution. Here is what all ca
 image:failure-hierarchy.png[Failure Hierarchy]
 
 [.lead]
-This tool has particular emphasis on Debugging experience. 
+This tool has particular emphasis on Debugging experience.
 
 The rundown you get as a return from `revUp` after the execution completes has everything you need to know about what happened during each step execution,
 along with environment snapshot during that step execution. Here is what a debugger view of a Rundown looks like:
