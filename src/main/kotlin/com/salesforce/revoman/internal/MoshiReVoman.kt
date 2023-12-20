@@ -1,10 +1,5 @@
-/**
- * ****************************************************************************
- * Copyright (c) 2023, Salesforce, Inc. All rights reserved. SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or
- * https://opensource.org/licenses/BSD-3-Clause
- * ****************************************************************************
- */
+@file:JvmName("MoshiReVoman")
+
 package com.salesforce.revoman.internal
 
 import com.salesforce.revoman.internal.adapters.BigDecimalAdapter
@@ -29,23 +24,6 @@ import org.http4k.format.ThrowableAdapter
 import org.http4k.format.asConfigurable
 import org.http4k.format.withStandardMappings
 
-internal val moshiBuilder: Moshi.Builder =
-  Moshi.Builder()
-    .add(JsonString.Factory())
-    .add(AdaptedBy.Factory())
-    .add(BigDecimalAdapter)
-    .add(UUIDAdapter)
-    .add(EpochAdapter)
-    .add(Date::class.java, Rfc3339DateJsonAdapter())
-    .addLast(CaseInsensitiveEnumAdapter.FACTORY)
-    .addLast(EventAdapter)
-    .addLast(ThrowableAdapter)
-    .addLast(ListAdapter)
-    .addLast(MapAdapter)
-    .asConfigurable()
-    .withStandardMappings()
-    .done()
-
 private lateinit var moshiReVoman: Moshi
 
 @JvmOverloads
@@ -54,7 +32,7 @@ internal fun initMoshi(
   customAdaptersWithType: Map<Type, List<Either<JsonAdapter<Any>, Factory>>> = emptyMap(),
   typesToIgnore: Set<Class<out Any>> = emptySet()
 ): ConfigurableMoshi {
-  buildMoshi(customAdapters, customAdaptersWithType, typesToIgnore)
+  val moshiBuilder = buildMoshi(customAdapters, customAdaptersWithType, typesToIgnore)
   moshiReVoman = moshiBuilder.build()
   return object : ConfigurableMoshi(moshiBuilder) {}
 }
@@ -64,7 +42,23 @@ internal fun buildMoshi(
   customAdapters: List<Any> = emptyList(),
   customAdaptersWithType: Map<Type, List<Either<JsonAdapter<Any>, Factory>>> = emptyMap(),
   typesToIgnore: Set<Class<out Any>> = emptySet()
-) {
+): Moshi.Builder {
+  val moshiBuilder: Moshi.Builder =
+    Moshi.Builder()
+      .add(JsonString.Factory())
+      .add(AdaptedBy.Factory())
+      .add(BigDecimalAdapter)
+      .add(UUIDAdapter)
+      .add(EpochAdapter)
+      .add(Date::class.java, Rfc3339DateJsonAdapter())
+      .addLast(CaseInsensitiveEnumAdapter.FACTORY)
+      .addLast(EventAdapter)
+      .addLast(ThrowableAdapter)
+      .addLast(ListAdapter)
+      .addLast(MapAdapter)
+      .asConfigurable()
+      .withStandardMappings()
+      .done()
   customAdaptersWithType.forEach { (type, customAdapters) ->
     customAdapters.forEach { customAdapter ->
       customAdapter.fold({ moshiBuilder.add(type, it) }, { moshiBuilder.add(it) })
@@ -80,6 +74,7 @@ internal fun buildMoshi(
   if (typesToIgnore.isNotEmpty()) {
     moshiBuilder.add(IgnoreUnknownFactory(typesToIgnore))
   }
+  return moshiBuilder
 }
 
 // * NOTE 12/03/23 gopala.akshintala: http4k doesn't yet have this method in-built

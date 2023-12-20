@@ -15,7 +15,7 @@ endif::[]
 :pmtemplates: src/integrationTest/resources/pm-templates
 :imagesdir: docs/images
 :prewrap!:
-:revoman-version: 0.24.0
+:revoman-version: 0.24.3
 
 ____
 
@@ -288,6 +288,8 @@ image:rundown-api.png[Rundown Convinience methods]
 
 TIP: Refer link:{testdir}/com/salesforce/revoman/integration/core/pq/adapters/ConnectInputRepWithGraphAdapter.java[ConnectInputRepWithGraphAdapter]
 for an advanced adapter use-case
+
+* It also has link:{sourcedir}/com/salesforce/revoman/input/json/JsonPojoUtils.kt[JSON POJO Utils], which you can use to directly convert JSON to POJO and vice versa.
 
 === Pre- / Post-Hooks
 
