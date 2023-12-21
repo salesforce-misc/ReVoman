@@ -422,6 +422,7 @@ private constructor(val stepName: String, val hookType: HookType, val hook: Hook
   depluralize = true,
   add = "*",
   put = "*",
+  with = "override*",
   visibility = PUBLIC,
 )
 private annotation class Config
