@@ -105,9 +105,6 @@ internal interface KickDef {
     require(Collections.disjoint(runOnlySteps(), skipSteps())) {
       "`runOnlySteps` and `skipSteps` cannot contain same step names"
     }
-    require(customAdaptersForMarshalling().all { it is JsonAdapter<*> || it is Factory }) {
-      "`customAdaptersForMarshalling` should be either of type `JsonAdapter` or `Factory`"
-    }
   }
   // ! TODO 22/06/23 gopala.akshintala: Validate if validation config for a step is mentioned but
   // the stepName is not present
