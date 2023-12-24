@@ -5,7 +5,7 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  * ****************************************************************************
  */
-plugins { id("com.gradle.enterprise") version "3.16" }
+plugins { id("com.gradle.enterprise") version "3.16.1" }
 
 dependencyResolutionManagement {
   versionCatalogs { create("libs") { from(files("libs.versions.toml")) } }
