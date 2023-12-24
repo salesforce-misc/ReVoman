@@ -2,7 +2,7 @@
  * ****************************************************************************
  * Copyright (c) 2023, Salesforce, Inc. All rights reserved.
  * SPDX-License-Identifier${HTTP_METHOD_SEPARATOR}BSD-3-Clause For full license text, see the
- * LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * LICENSE file in the repo root or http://www.apache.org/licenses/LICENSE-2.0
  * ****************************************************************************
  */
 package com.salesforce.revoman.internal
