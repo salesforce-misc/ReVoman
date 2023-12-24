@@ -1,8 +1,8 @@
 /**
  * ****************************************************************************
- * Copyright (c) 2023, Salesforce, Inc. All rights reserved. SPDX-License-Identifier: BSD-3-Clause
+ * Copyright (c) 2023, Salesforce, Inc. All rights reserved. SPDX-License-Identifier: Apache License Version 2.0
  * For full license text, see the LICENSE file in the repo root or
- * https://opensource.org/licenses/BSD-3-Clause
+ * http://www.apache.org/licenses/LICENSE-2.0
  * ****************************************************************************
  */
 package com.salesforce.revoman.output
@@ -10,7 +10,6 @@ package com.salesforce.revoman.output
 import com.salesforce.revoman.internal.isStepNameInPassList
 import com.salesforce.revoman.internal.postman.pm
 import com.salesforce.revoman.internal.stepNameVariants
-import com.salesforce.revoman.internal.toVavr
 import com.salesforce.revoman.output.Rundown.StepReport.ExeType.HTTP_REQUEST
 import com.salesforce.revoman.output.Rundown.StepReport.ExeType.POST_HOOK
 import com.salesforce.revoman.output.Rundown.StepReport.ExeType.PRE_HOOK
@@ -153,6 +152,9 @@ data class Rundown(
             }
           else -> null
         }
+
+      private fun <L, R> arrow.core.Either<L, R>.toVavr(): Either<L, R> =
+        fold({ left(it) }, { right(it) })
     }
 
     data class TxInfo<HttpMsgT : HttpMessage>(

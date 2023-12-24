@@ -2,7 +2,7 @@
 
 package com.salesforce.revoman.input.json
 
-import com.salesforce.revoman.internal.bufferFile
+import com.salesforce.revoman.input.bufferFileInResources
 import com.salesforce.revoman.internal.buildMoshi
 import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.JsonAdapter.Factory
@@ -19,7 +19,7 @@ fun <PojoT : Any> jsonFileToPojo(
 ): PojoT? {
   val jsonAdapter =
     initMoshi<PojoT>(customAdapters, customAdaptersWithType, typesToIgnore, pojoType)
-  return jsonAdapter.fromJson(bufferFile(jsonFilePath))
+  return jsonAdapter.fromJson(bufferFileInResources(jsonFilePath))
 }
 
 @JvmOverloads

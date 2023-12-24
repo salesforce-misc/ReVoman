@@ -7,7 +7,7 @@
  */
 package com.salesforce.revoman.internal.postman
 
-import com.salesforce.revoman.internal.bufferFile
+import com.salesforce.revoman.input.bufferFileInResources
 import com.salesforce.revoman.internal.postman.state.Environment
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapter
@@ -38,7 +38,7 @@ internal fun initPmEnvironment(
   pmEnvironmentPaths.forEach { envWithRegex ->
     pm.environment.putAll(
       envAdapter
-        .fromJson(bufferFile(envWithRegex))
+        .fromJson(bufferFileInResources(envWithRegex))
         ?.let { regexReplacer.replaceRegex(it) }
         ?.values
         ?.filter { it.enabled }

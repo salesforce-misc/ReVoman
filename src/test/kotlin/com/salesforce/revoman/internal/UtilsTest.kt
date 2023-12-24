@@ -7,6 +7,7 @@
  */
 package com.salesforce.revoman.internal
 
+import com.salesforce.revoman.input.bufferFileInResources
 import com.salesforce.revoman.internal.postman.state.Template
 import com.salesforce.revoman.output.FOLDER_DELIMITER
 import com.salesforce.revoman.output.HTTP_METHOD_SEPARATOR
@@ -25,7 +26,7 @@ class UtilsTest {
     val itemAdapter = Moshi.Builder().build().adapter<Template>()
     val stepNames =
       itemAdapter
-        .fromJson(bufferFile("pmCollection/steps-with-folders.json"))
+        .fromJson(bufferFileInResources("pmCollection/steps-with-folders.json"))
         ?.item
         ?.deepFlattenItems()
         ?.map { it.name }

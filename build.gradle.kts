@@ -25,7 +25,7 @@ dependencies {
   implementation(libs.graal.js)
   implementation(libs.kotlin.faker)
   implementation(libs.underscore)
-  implementation(libs.guava)
+  implementation(libs.okio.jvm)
   implementation(libs.spring.beans)
   kapt(libs.immutables.value)
   compileOnly(libs.immutables.builder)

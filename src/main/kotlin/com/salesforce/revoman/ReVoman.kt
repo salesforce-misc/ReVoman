@@ -1,8 +1,8 @@
 /**
  * ****************************************************************************
- * Copyright (c) 2023, Salesforce, Inc. All rights reserved. SPDX-License-Identifier: BSD-3-Clause
+ * Copyright (c) 2023, Salesforce, Inc. All rights reserved. SPDX-License-Identifier: Apache License Version 2.0
  * For full license text, see the LICENSE file in the repo root or
- * https://opensource.org/licenses/BSD-3-Clause
+ * http://www.apache.org/licenses/LICENSE-2.0
  * ****************************************************************************
  */
 package com.salesforce.revoman
@@ -18,8 +18,8 @@ import com.salesforce.revoman.input.HookConfig.HookType.PRE
 import com.salesforce.revoman.input.Kick
 import com.salesforce.revoman.input.RequestConfig
 import com.salesforce.revoman.input.ResponseConfig
+import com.salesforce.revoman.input.bufferFileInResources
 import com.salesforce.revoman.internal.asA
-import com.salesforce.revoman.internal.bufferFile
 import com.salesforce.revoman.internal.deepFlattenItems
 import com.salesforce.revoman.internal.executeTestScriptJs
 import com.salesforce.revoman.internal.getHooksForStep
@@ -80,7 +80,7 @@ object ReVoman {
     val pmStepsDeepFlattened =
       kick
         .templatePaths()
-        .mapNotNull { pmTemplateAdapter.fromJson(bufferFile(it)) }
+        .mapNotNull { pmTemplateAdapter.fromJson(bufferFileInResources(it)) }
         .flatMap { (pmSteps, authFromRoot) ->
           pmSteps.deepFlattenItems(authFromRoot = authFromRoot)
         }

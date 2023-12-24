@@ -1,5 +1,5 @@
 [versions]
-kotlin = "2.0.0-Beta1"
+kotlin = "1.9.22"
 http4k = "5.10.7.0"
 moshix = "0.25.1"
 arrow = "1.2.1"
@@ -8,7 +8,7 @@ vador = "1.1.0"
 java-vavr = "0.10.4"
 kotlin-vavr = "0.10.2"
 jetbrains-annotations = "24.1.0"
-guava = "33.0.0-jre"
+okio = "3.7.0"
 kover = "0.7.5"
 kotest = "5.8.0"
 spotbugs = "6.0.2"
@@ -36,7 +36,7 @@ java-vavr = { module = "io.vavr:vavr", version.ref = "java-vavr" }
 kotlin-vavr = { module = "io.vavr:vavr-kotlin", version.ref = "kotlin-vavr" }
 arrow-core = { module = "io.arrow-kt:arrow-core", version.ref = "arrow" }
 jetbrains-annotations = { module = "org.jetbrains:annotations", version.ref = "jetbrains-annotations" }
-guava = { module = "com.google.guava:guava", version.ref = "guava" }
+okio-jvm = { module = "com.squareup.okio:okio-jvm", version.ref = "okio" }
 reflection-util = { module = "de.cronn:reflection-util", version.ref = "reflection-util" }
 testLogger-gradle = { module = "com.adarshr.test-logger:com.adarshr.test-logger.gradle.plugin", version.ref = "testLogger" }
 kotest-assertions-core = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }

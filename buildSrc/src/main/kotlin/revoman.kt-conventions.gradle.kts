@@ -19,7 +19,7 @@ dependencies { testImplementation(libs.kotestBundle) }
 tasks {
   withType<KotlinCompile> {
     kotlinOptions {
-      // ! -Xjvm-default=all" is needed for Immutables to work with Kotlin default methods
+      // ! "-Xjvm-default=all" is needed for Immutables to work with Kotlin default methods
       // https://kotlinlang.org/docs/java-to-kotlin-interop.html#compatibility-modes-for-default-methods
       freeCompilerArgs = listOf("-Xjvm-default=all", "-Xcontext-receivers", "-Xjdk-release=11")
     }

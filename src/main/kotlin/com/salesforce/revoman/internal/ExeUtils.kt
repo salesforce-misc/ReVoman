@@ -7,7 +7,6 @@
  */
 package com.salesforce.revoman.internal
 
-import com.google.common.io.Resources
 import com.salesforce.revoman.input.HookConfig
 import com.salesforce.revoman.input.HookConfig.Hook
 import com.salesforce.revoman.input.HookConfig.HookType
@@ -18,10 +17,6 @@ import com.salesforce.revoman.internal.postman.state.Item
 import com.salesforce.revoman.output.FOLDER_DELIMITER
 import com.salesforce.revoman.output.HTTP_METHOD_SEPARATOR
 import com.salesforce.revoman.output.INDEX_SEPARATOR
-import io.vavr.control.Either
-import okio.BufferedSource
-import okio.buffer
-import okio.source
 import org.apache.commons.lang3.StringUtils
 import org.http4k.core.ContentType.Companion.APPLICATION_JSON
 import org.http4k.core.HttpMessage
@@ -32,9 +27,6 @@ internal fun isContentTypeApplicationJson(httpMessage: HttpMessage) =
       StringUtils.deleteWhitespace(it)
         .equals(StringUtils.deleteWhitespace(APPLICATION_JSON.toHeaderValue()), ignoreCase = true)
     } == true
-
-internal fun bufferFile(fileRelativePath: String): BufferedSource =
-  Resources.getResource(fileRelativePath).openStream().source().buffer()
 
 internal fun List<Item>.deepFlattenItems(
   parentFolderName: String = "",
@@ -109,6 +101,3 @@ internal fun shouldStepBeExecuted(
     (runOnlySteps.isNotEmpty() && runOnlySteps.intersect(stepNameVariants).isNotEmpty()) ||
     (skipSteps.isNotEmpty() && skipSteps.intersect(stepNameVariants).isEmpty()))
 }
-
-internal fun <L, R> arrow.core.Either<L, R>.toVavr(): Either<L, R> =
-  fold({ Either.left(it) }, { Either.right(it) })
