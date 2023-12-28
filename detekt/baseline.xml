@@ -1,14 +1,9 @@
-<?xml version="1.0" ?>
-<!--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  ~ Copyright (c) 2023, Salesforce, Inc.
-  ~  All rights reserved.
-  ~  SPDX-License-Identifier: Apache License Version 2.0
-  ~  For full license text, see the LICENSE file in the repo root or http://www.apache.org/licenses/LICENSE-2.0
-  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-->
-
+<?xml version='1.0' encoding='UTF-8'?>
 <SmellBaseline>
   <ManuallySuppressedIssues>
-    <ID>TooManyFunctions:PostmanEnvironment.kt$PostmanEnvironment&lt;ValueT> : MutableMap</ID>
+    <ID>TooManyFunctions:ResponseConfig.kt$ResponseConfig$Companion</ID>
+    <ID>TooManyFunctions:PostmanEnvironment.kt$PostmanEnvironment&lt;ValueT : Any?> : MutableMap</ID>
+    <ID>TooManyFunctions:ExeUtils.kt$com.salesforce.revoman.internal.exe.ExeUtils.kt</ID>
   </ManuallySuppressedIssues>
   <CurrentIssues/>
 </SmellBaseline>
