@@ -6,7 +6,10 @@ import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.internal.asA
 import com.salesforce.revoman.internal.postman.pm
 import com.salesforce.revoman.output.Rundown
-import com.salesforce.revoman.output.Rundown.StepReport
+import com.salesforce.revoman.output.report.ExeType
+import com.salesforce.revoman.output.report.StepReport
+import com.salesforce.revoman.output.report.TxInfo
+import com.salesforce.revoman.output.report.failure.ResponseFailure
 import com.salesforce.vador.config.ValidationConfig
 import com.salesforce.vador.config.base.BaseValidationConfig
 import com.salesforce.vador.execution.Vador
@@ -43,28 +46,28 @@ internal fun unmarshallResponseAndValidate(
             )
           })
       val responseType: Type = responseConfig?.responseType ?: Any::class.java
-      runChecked(stepName, StepReport.ExeType.UNMARSHALL_RESPONSE) {
+      runChecked(stepName, ExeType.UNMARSHALL_RESPONSE) {
           moshiReVoman.asA<Any>(httpResponse.bodyString(), responseType)
         }
         .mapLeft {
           stepReport.copy(
             responseInfo =
               io.vavr.control.Either.left(
-                StepReport.ResponseFailure.UnmarshallResponseFailure(
+                ResponseFailure.UnmarshallResponseFailure(
                   it,
-                  StepReport.TxInfo(responseType, null, httpResponse),
+                  TxInfo(responseType, null, httpResponse),
                 ),
               ),
           )
         }
         .flatMap { responseObj ->
-          runChecked(stepName, StepReport.ExeType.RESPONSE_VALIDATION) {
+          runChecked(stepName, ExeType.RESPONSE_VALIDATION) {
               responseConfig?.validationConfig?.let { validate(responseObj, it) }
             }
             .fold(
               { validationExeException ->
                 Either.Left(
-                  StepReport.ResponseFailure.ResponseValidationFailure(
+                  ResponseFailure.ResponseValidationFailure(
                     validationExeException,
                     responseInfo,
                   ),
@@ -73,8 +76,8 @@ internal fun unmarshallResponseAndValidate(
               { validationFailure ->
                 validationFailure?.let {
                   Either.Left(
-                    StepReport.ResponseFailure.ResponseValidationFailure(
-                      StepReport.ResponseFailure.ResponseValidationFailure.ValidationFailure(
+                    ResponseFailure.ResponseValidationFailure(
+                      ResponseFailure.ResponseValidationFailure.ValidationFailure(
                         validationFailure
                       ),
                       responseInfo,

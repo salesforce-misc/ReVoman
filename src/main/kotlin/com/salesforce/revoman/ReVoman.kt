@@ -29,11 +29,11 @@ import com.salesforce.revoman.internal.postman.pm
 import com.salesforce.revoman.internal.postman.state.Item
 import com.salesforce.revoman.internal.postman.state.Template
 import com.salesforce.revoman.output.Rundown
-import com.salesforce.revoman.output.Rundown.StepReport
-import com.salesforce.revoman.output.Rundown.StepReport.ExeType.TEST_SCRIPT_JS
-import com.salesforce.revoman.output.Rundown.StepReport.RequestFailure.HttpRequestFailure
-import com.salesforce.revoman.output.Rundown.StepReport.ResponseFailure.TestScriptJsFailure
-import com.salesforce.revoman.output.Rundown.StepReport.TxInfo
+import com.salesforce.revoman.output.report.StepReport
+import com.salesforce.revoman.output.report.ExeType.TEST_SCRIPT_JS
+import com.salesforce.revoman.output.report.failure.RequestFailure.HttpRequestFailure
+import com.salesforce.revoman.output.report.failure.ResponseFailure.TestScriptJsFailure
+import com.salesforce.revoman.output.report.TxInfo
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapter
 import io.github.oshai.kotlinlogging.KotlinLogging

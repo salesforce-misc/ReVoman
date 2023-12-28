@@ -5,9 +5,10 @@ import com.salesforce.revoman.input.config.HookConfig
 import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.internal.postman.pm
 import com.salesforce.revoman.output.Rundown
-import com.salesforce.revoman.output.Rundown.StepReport
-import com.salesforce.revoman.output.Rundown.StepReport.HookFailure.PreHookFailure
-import com.salesforce.revoman.output.Rundown.StepReport.TxInfo
+import com.salesforce.revoman.output.report.ExeType
+import com.salesforce.revoman.output.report.StepReport
+import com.salesforce.revoman.output.report.failure.HookFailure.PreHookFailure
+import com.salesforce.revoman.output.report.TxInfo
 import org.http4k.core.Request
 
 internal fun preHookExe(
@@ -28,7 +29,7 @@ internal fun preHookExe(
       ))
     .asSequence()
     .map { preHook ->
-      runChecked(stepName, StepReport.ExeType.PRE_HOOK) {
+      runChecked(stepName, ExeType.PRE_HOOK) {
           preHook.accept(
             stepName,
             requestInfo,

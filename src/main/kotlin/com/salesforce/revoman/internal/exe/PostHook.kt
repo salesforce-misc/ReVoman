@@ -5,8 +5,9 @@ import com.salesforce.revoman.input.config.HookConfig.Hook.PostHook
 import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.internal.postman.pm
 import com.salesforce.revoman.output.Rundown
-import com.salesforce.revoman.output.Rundown.StepReport
-import com.salesforce.revoman.output.Rundown.StepReport.HookFailure.PostHookFailure
+import com.salesforce.revoman.output.report.ExeType
+import com.salesforce.revoman.output.report.StepReport
+import com.salesforce.revoman.output.report.failure.HookFailure.PostHookFailure
 
 internal fun postHookExe(
   stepName: String,
@@ -24,7 +25,7 @@ internal fun postHookExe(
       ))
     .asSequence()
     .map { postHook ->
-      runChecked(stepName, StepReport.ExeType.POST_HOOK) {
+      runChecked(stepName, ExeType.POST_HOOK) {
           postHook.accept(
             stepName,
             stepNameToReport[stepName]!!,

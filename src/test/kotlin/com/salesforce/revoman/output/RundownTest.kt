@@ -2,10 +2,10 @@ package com.salesforce.revoman.output
 
 import arrow.core.Either.Left
 import arrow.core.Either.Right
-import com.salesforce.revoman.output.Rundown.StepReport
-import com.salesforce.revoman.output.Rundown.StepReport.HookFailure.PostHookFailure
-import com.salesforce.revoman.output.Rundown.StepReport.RequestFailure.HttpRequestFailure
-import com.salesforce.revoman.output.Rundown.StepReport.TxInfo
+import com.salesforce.revoman.output.report.StepReport
+import com.salesforce.revoman.output.report.failure.HookFailure.PostHookFailure
+import com.salesforce.revoman.output.report.failure.RequestFailure.HttpRequestFailure
+import com.salesforce.revoman.output.report.TxInfo
 import io.kotest.matchers.shouldBe
 import org.http4k.core.Method.POST
 import org.http4k.core.Request

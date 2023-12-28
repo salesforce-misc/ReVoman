@@ -21,7 +21,8 @@ import com.salesforce.revoman.output.FOLDER_DELIMITER
 import com.salesforce.revoman.output.HTTP_METHOD_SEPARATOR
 import com.salesforce.revoman.output.INDEX_SEPARATOR
 import com.salesforce.revoman.output.Rundown
-import com.salesforce.revoman.output.Rundown.StepReport.TxInfo
+import com.salesforce.revoman.output.report.ExeType
+import com.salesforce.revoman.output.report.TxInfo
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.apache.commons.lang3.StringUtils
 import org.http4k.core.ContentType.Companion.APPLICATION_JSON
@@ -164,7 +165,7 @@ internal fun shouldStepBeExecuted(
 
 internal fun <T> runChecked(
   stepName: String,
-  exeType: Rundown.StepReport.ExeType,
+  exeType: ExeType,
   fn: () -> T
 ): Either<Throwable, T> =
   runCatching(fn)

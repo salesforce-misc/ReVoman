@@ -7,6 +7,8 @@ import com.salesforce.revoman.input.config.HookConfig.HookType.PRE
 import com.salesforce.revoman.input.config.StepPick.PostTxnStepPick
 import com.salesforce.revoman.input.config.StepPick.PreTxnStepPick
 import com.salesforce.revoman.output.Rundown
+import com.salesforce.revoman.output.report.StepReport
+import com.salesforce.revoman.output.report.TxInfo
 import io.vavr.control.Either
 import io.vavr.kotlin.left
 import io.vavr.kotlin.right
@@ -24,14 +26,14 @@ private constructor(val pick: Either<Pair<HookType, String>, StepPick>, val hook
       @Throws(Throwable::class)
       fun accept(
         stepName: String,
-        requestInfo: Rundown.StepReport.TxInfo<Request>,
+        requestInfo: TxInfo<Request>,
         rundown: Rundown
       )
     }
 
     fun interface PostHook : Hook {
       @Throws(Throwable::class)
-      fun accept(currentStepName: String, currentStepReport: Rundown.StepReport, rundown: Rundown)
+      fun accept(currentStepName: String, currentStepReport: StepReport, rundown: Rundown)
     }
   }
 

@@ -14,7 +14,7 @@ import static com.salesforce.revoman.input.config.ResponseConfig.unmarshallSucce
 import static com.salesforce.revoman.input.config.ResponseConfig.validateIfFailed;
 import static com.salesforce.revoman.input.config.ResponseConfig.validateIfSuccess;
 import static com.salesforce.revoman.integration.core.pq.adapters.ConnectInputRepWithGraphAdapter.adapter;
-import static com.salesforce.revoman.output.Rundown.StepReport.TxInfo.getPath;
+import static com.salesforce.revoman.output.report.TxInfo.getPath;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.salesforce.revoman.ReVoman;
@@ -23,7 +23,7 @@ import com.salesforce.revoman.input.config.StepPick.PostTxnStepPick;
 import com.salesforce.revoman.input.config.StepPick.PreTxnStepPick;
 import com.salesforce.revoman.integration.core.pq.connect.PlaceQuoteInputRepresentation;
 import com.salesforce.revoman.output.Rundown;
-import com.salesforce.revoman.output.Rundown.StepReport.TxInfo;
+import com.salesforce.revoman.output.report.TxInfo;
 import com.salesforce.vador.config.ValidationConfig;
 import java.util.List;
 import java.util.Map;

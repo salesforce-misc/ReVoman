@@ -1,8 +1,8 @@
 package com.salesforce.revoman.input.config
 
 import com.salesforce.revoman.output.Rundown
-import com.salesforce.revoman.output.Rundown.StepReport
-import com.salesforce.revoman.output.Rundown.StepReport.TxInfo
+import com.salesforce.revoman.output.report.StepReport
+import com.salesforce.revoman.output.report.TxInfo
 import org.http4k.core.Request
 
 sealed interface StepPick {

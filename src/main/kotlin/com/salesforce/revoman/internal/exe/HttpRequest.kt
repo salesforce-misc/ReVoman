@@ -4,7 +4,7 @@ import arrow.core.Either
 import com.salesforce.revoman.internal.postman.pm
 import com.salesforce.revoman.internal.postman.state.Item
 import com.salesforce.revoman.internal.prepareHttpClient
-import com.salesforce.revoman.output.Rundown.StepReport.ExeType.HTTP_REQUEST
+import com.salesforce.revoman.output.report.ExeType.HTTP_REQUEST
 import org.http4k.core.HttpHandler
 import org.http4k.core.Request
 import org.http4k.core.Response
