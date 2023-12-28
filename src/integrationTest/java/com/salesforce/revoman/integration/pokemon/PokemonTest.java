@@ -41,7 +41,7 @@ class PokemonTest {
   private static final PreTxnStepPick preLogHookPick =
       (ignore1, requestInfo, ignore2) -> requestInfo.containsHeader("preLog", "true");
   private static final PostTxnStepPick postLogHookPick =
-      (ignore, stepReport, rundown) ->
+      (stepReport, rundown) ->
           stepReport
               .getRequestInfo()
               .map(r -> r.containsHeader("postLog", "true"))
@@ -88,11 +88,9 @@ class PokemonTest {
         Mockito.spy(
             new PostHook() {
               @Override
-              public void accept(
-                  @NotNull String currentStepName,
-                  @NotNull StepReport currentStepReport,
-                  @NotNull Rundown rundown) {
-                LOGGER.info("Picked `postLogHook` for stepName: {}", currentStepName);
+              public void accept(@NotNull StepReport currentStepReport, @NotNull Rundown rundown) {
+                LOGGER.info(
+                    "Picked `postLogHook` for stepName: {}", currentStepReport.getStepName());
               }
             });
     //noinspection Convert2Lambda
@@ -112,8 +110,7 @@ class PokemonTest {
         Mockito.spy(
             new PostHook() {
               @Override
-              public void accept(
-                  @NotNull String ignore1, @NotNull StepReport ignore2, @NotNull Rundown rundown) {
+              public void accept(@NotNull StepReport ignore2, @NotNull Rundown rundown) {
                 assertThat(rundown.mutableEnv).containsEntry("limit", String.valueOf(newLimit));
                 assertThat(rundown.mutableEnv).containsEntry("pokemonName", "bulbasaur");
               }
@@ -136,9 +133,9 @@ class PokemonTest {
 
     Mockito.verify(resultSizeValidator, times(1)).apply(any());
     Mockito.verify(preHook, times(1)).accept(any(), any(), any());
-    Mockito.verify(postHook, times(1)).accept(anyString(), any(), any());
+    Mockito.verify(postHook, times(1)).accept(any(), any());
     Mockito.verify(preLogHook, times(1)).accept(anyString(), any(), any());
-    Mockito.verify(postLogHook, times(1)).accept(anyString(), any(), any());
+    Mockito.verify(postLogHook, times(1)).accept(any(), any());
     assertThat(pokeRundown.stepNameToReport).hasSize(5);
     assertThat(pokeRundown.mutableEnv)
         .containsExactlyInAnyOrderEntriesOf(

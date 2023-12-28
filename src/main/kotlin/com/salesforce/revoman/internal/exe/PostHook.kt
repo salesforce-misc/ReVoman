@@ -10,28 +10,29 @@ import com.salesforce.revoman.output.report.StepReport
 import com.salesforce.revoman.output.report.failure.HookFailure.PostHookFailure
 
 internal fun postHookExe(
-  stepName: String,
+  stepReport: StepReport,
   kick: Kick,
-  stepNameToReport: Map<String, StepReport>
-): Either<PostHookFailure, Unit>? =
-  (getHooksForStepName<PostHook>(
-      stepName,
+  stepReports: List<StepReport>
+): Either<PostHookFailure, Unit>? {
+  val currentStepName = stepReport.stepName
+  return (getHooksForStepName<PostHook>(
+      currentStepName,
       kick.postHooksWithStepNamesFlattened(),
     ) +
       pickPostHooks(
         kick.postHooksWithPicksFlattened(),
-        stepName,
-        Rundown(stepNameToReport, pm.environment, kick.haltOnAnyFailureExceptForSteps())
+        stepReport,
+        Rundown(stepReports, pm.environment, kick.haltOnAnyFailureExceptForSteps())
       ))
     .asSequence()
     .map { postHook ->
-      runChecked(stepName, ExeType.POST_HOOK) {
+      runChecked(currentStepName, ExeType.POST_HOOK) {
           postHook.accept(
-            stepName,
-            stepNameToReport[stepName]!!,
-            Rundown(stepNameToReport, pm.environment, kick.haltOnAnyFailureExceptForSteps())
+            stepReport,
+            Rundown(stepReports, pm.environment, kick.haltOnAnyFailureExceptForSteps())
           )
         }
         .mapLeft { PostHookFailure(it) }
     }
     .firstOrNull { it.isLeft() }
+}

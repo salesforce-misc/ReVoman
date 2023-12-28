@@ -7,15 +7,15 @@ import com.salesforce.revoman.internal.postman.pm
 import com.salesforce.revoman.output.Rundown
 import com.salesforce.revoman.output.report.ExeType
 import com.salesforce.revoman.output.report.StepReport
-import com.salesforce.revoman.output.report.failure.HookFailure.PreHookFailure
 import com.salesforce.revoman.output.report.TxInfo
+import com.salesforce.revoman.output.report.failure.HookFailure.PreHookFailure
 import org.http4k.core.Request
 
 internal fun preHookExe(
   stepName: String,
   kick: Kick,
   requestInfo: TxInfo<Request>,
-  stepNameToReport: Map<String, StepReport>
+  stepReports: List<StepReport>
 ): Either<PreHookFailure, Unit>? =
   (getHooksForStepName<HookConfig.Hook.PreHook>(
       stepName,
@@ -25,7 +25,7 @@ internal fun preHookExe(
         kick.preHooksWithPicksFlattened(),
         stepName,
         requestInfo,
-        Rundown(stepNameToReport, pm.environment, kick.haltOnAnyFailureExceptForSteps())
+        Rundown(stepReports, pm.environment, kick.haltOnAnyFailureExceptForSteps())
       ))
     .asSequence()
     .map { preHook ->
@@ -33,7 +33,7 @@ internal fun preHookExe(
           preHook.accept(
             stepName,
             requestInfo,
-            Rundown(stepNameToReport, pm.environment, kick.haltOnAnyFailureExceptForSteps())
+            Rundown(stepReports, pm.environment, kick.haltOnAnyFailureExceptForSteps())
           )
         }
         .mapLeft { PreHookFailure(it, requestInfo) }

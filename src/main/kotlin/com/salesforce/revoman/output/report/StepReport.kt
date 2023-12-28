@@ -1,16 +1,17 @@
-/***************************************************************************************************
- *  Copyright (c) 2023, Salesforce, Inc. All rights reserved. SPDX-License-Identifier: Apache License
- *  Version 2.0 For full license text, see the LICENSE file in the repo root or
- *  http://www.apache.org/licenses/LICENSE-2.0
- **************************************************************************************************/
-
+/**
+ * ************************************************************************************************
+ * Copyright (c) 2023, Salesforce, Inc. All rights reserved. SPDX-License-Identifier: Apache License
+ * Version 2.0 For full license text, see the LICENSE file in the repo root or
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * ************************************************************************************************
+ */
 package com.salesforce.revoman.output.report
 
 import com.salesforce.revoman.internal.postman.pm
-import com.salesforce.revoman.output.report.failure.HookFailure.PostHookFailure
-import com.salesforce.revoman.output.report.failure.HookFailure.PreHookFailure
 import com.salesforce.revoman.output.postman.PostmanEnvironment
 import com.salesforce.revoman.output.report.failure.ExeFailure
+import com.salesforce.revoman.output.report.failure.HookFailure.PostHookFailure
+import com.salesforce.revoman.output.report.failure.HookFailure.PreHookFailure
 import com.salesforce.revoman.output.report.failure.RequestFailure
 import com.salesforce.revoman.output.report.failure.ResponseFailure
 import io.vavr.control.Either
@@ -19,6 +20,7 @@ import org.http4k.core.Response
 
 data class StepReport
 private constructor(
+  val stepName: String,
   val requestInfo: Either<out RequestFailure, TxInfo<Request>>? = null,
   val preHookFailure: PreHookFailure? = null,
   val responseInfo: Either<out ResponseFailure, TxInfo<Response>>? = null,
@@ -26,11 +28,13 @@ private constructor(
   val envSnapshot: PostmanEnvironment<Any?>
 ) {
   internal constructor(
+    stepName: String,
     requestInfo: arrow.core.Either<RequestFailure, TxInfo<Request>>? = null,
     preHookFailure: PreHookFailure? = null,
     responseInfo: arrow.core.Either<ResponseFailure, TxInfo<Response>>? = null,
     postHookFailure: PostHookFailure? = null,
   ) : this(
+    stepName,
     requestInfo?.toVavr(),
     preHookFailure,
     responseInfo?.toVavr(),
@@ -46,7 +50,10 @@ private constructor(
   val isSuccessful: Boolean = failure == null
 
   val isHttpStatusSuccessful: Boolean =
-    failure?.fold({ it !is RequestFailure.HttpRequestFailure || it is PostHookFailure }, { false }) != false
+    failure?.fold(
+      { it !is RequestFailure.HttpRequestFailure || it is PostHookFailure },
+      { false }
+    ) != false
 
   companion object {
     private fun failure(
@@ -67,7 +74,8 @@ private constructor(
                     is Either.Left -> Either.left(responseInfo.left)
                     is Either.Right ->
                       when {
-                        !responseInfo.get().httpMsg.status.successful -> Either.right(responseInfo.get())
+                        !responseInfo.get().httpMsg.status.successful ->
+                          Either.right(responseInfo.get())
                         else ->
                           when {
                             postHookFailure != null -> Either.left(postHookFailure)
@@ -87,10 +95,11 @@ private constructor(
   }
 
   override fun toString(): String =
-    when {
-      exeFailure != null -> "❌$exeFailure"
-      !isHttpStatusSuccessful ->
-        "⚠️️Unsuccessful HTTP Status: ${responseInfo?.get()?.httpMsg?.status} \n${requestInfo?.get()}, ${responseInfo?.get()}"
-      else -> "✅${requestInfo?.get()}, ${responseInfo?.get()}"
-    }
+    stepName +
+      when {
+        exeFailure != null -> "❌$exeFailure"
+        !isHttpStatusSuccessful ->
+          "⚠️️Unsuccessful HTTP Status: ${responseInfo?.get()?.httpMsg?.status} \n${requestInfo?.get()}, ${responseInfo?.get()}"
+        else -> "✅${requestInfo?.get()}, ${responseInfo?.get()}"
+      }
 }

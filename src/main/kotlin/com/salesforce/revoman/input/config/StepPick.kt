@@ -16,7 +16,6 @@ sealed interface StepPick {
   }
 
   fun interface PostTxnStepPick : StepPick {
-    @Throws(Throwable::class)
-    fun pick(currentStepName: String, currentStepReport: StepReport, rundown: Rundown): Boolean
+    @Throws(Throwable::class) fun pick(currentStepReport: StepReport, rundown: Rundown): Boolean
   }
 }

@@ -17,11 +17,10 @@ import java.lang.reflect.Type
 import org.http4k.format.ConfigurableMoshi
 
 internal fun unmarshallResponseAndValidate(
-  stepName: String,
   stepReport: StepReport,
   kick: Kick,
   moshiReVoman: ConfigurableMoshi,
-  stepNameToReport: Map<String, StepReport>
+  stepReports: List<StepReport>
 ): Either<StepReport, StepReport> {
   val responseInfo = stepReport.responseInfo?.get()!!
   val httpResponse = responseInfo.httpMsg
@@ -30,23 +29,23 @@ internal fun unmarshallResponseAndValidate(
       val httpStatus = httpResponse.status.successful
       val responseConfig =
         (getResponseConfigForStepName(
-          stepName,
+          stepReport.stepName,
           httpStatus,
           kick.stepNameToResponseConfig(),
         )
           ?: kick.pickToResponseConfig()[httpStatus]?.let {
             pickResponseConfig(
               it,
-              stepName,
+              stepReport,
               Rundown(
-                stepNameToReport + (stepName to stepReport),
+                stepReports + stepReport,
                 pm.environment,
                 kick.haltOnAnyFailureExceptForSteps()
               )
             )
           })
       val responseType: Type = responseConfig?.responseType ?: Any::class.java
-      runChecked(stepName, ExeType.UNMARSHALL_RESPONSE) {
+      runChecked(stepReport.stepName, ExeType.UNMARSHALL_RESPONSE) {
           moshiReVoman.asA<Any>(httpResponse.bodyString(), responseType)
         }
         .mapLeft {
@@ -61,7 +60,7 @@ internal fun unmarshallResponseAndValidate(
           )
         }
         .flatMap { responseObj ->
-          runChecked(stepName, ExeType.RESPONSE_VALIDATION) {
+          runChecked(stepReport.stepName, ExeType.RESPONSE_VALIDATION) {
               responseConfig?.validationConfig?.let { validate(responseObj, it) }
             }
             .fold(

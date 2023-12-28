@@ -7,8 +7,8 @@ import com.salesforce.revoman.internal.postman.pm
 import com.salesforce.revoman.output.Rundown
 import com.salesforce.revoman.output.report.ExeType
 import com.salesforce.revoman.output.report.StepReport
-import com.salesforce.revoman.output.report.failure.RequestFailure.UnmarshallRequestFailure
 import com.salesforce.revoman.output.report.TxInfo
+import com.salesforce.revoman.output.report.failure.RequestFailure.UnmarshallRequestFailure
 import java.lang.reflect.Type
 import org.http4k.core.Request
 import org.http4k.format.ConfigurableMoshi
@@ -18,7 +18,7 @@ internal fun unmarshallRequest(
   pmRequest: com.salesforce.revoman.internal.postman.state.Request,
   kick: Kick,
   moshiReVoman: ConfigurableMoshi,
-  stepNameToReport: Map<String, StepReport>
+  stepReports: List<StepReport>
 ): Either<UnmarshallRequestFailure, TxInfo<Request>> {
   val httpRequest = pmRequest.toHttpRequest()
   val requestType: Type =
@@ -27,7 +27,7 @@ internal fun unmarshallRequest(
           kick.pickToRequestConfig(),
           stepName,
           TxInfo(null, null, httpRequest),
-          Rundown(stepNameToReport, pm.environment, kick.haltOnAnyFailureExceptForSteps())
+          Rundown(stepReports, pm.environment, kick.haltOnAnyFailureExceptForSteps())
         ))
       ?.requestType ?: Any::class.java
   return when {

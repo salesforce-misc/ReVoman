@@ -24,16 +24,11 @@ private constructor(val pick: Either<Pair<HookType, String>, StepPick>, val hook
   sealed interface Hook {
     fun interface PreHook : Hook {
       @Throws(Throwable::class)
-      fun accept(
-        stepName: String,
-        requestInfo: TxInfo<Request>,
-        rundown: Rundown
-      )
+      fun accept(stepName: String, requestInfo: TxInfo<Request>, rundown: Rundown)
     }
 
     fun interface PostHook : Hook {
-      @Throws(Throwable::class)
-      fun accept(currentStepName: String, currentStepReport: StepReport, rundown: Rundown)
+      @Throws(Throwable::class) fun accept(currentStepReport: StepReport, rundown: Rundown)
     }
   }
 

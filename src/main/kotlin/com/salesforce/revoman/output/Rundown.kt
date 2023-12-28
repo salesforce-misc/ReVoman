@@ -13,7 +13,7 @@ import com.salesforce.revoman.output.postman.PostmanEnvironment
 import com.salesforce.revoman.output.report.StepReport
 
 data class Rundown(
-  @JvmField val stepNameToReport: Map<String, StepReport> = emptyMap(),
+  @JvmField val stepNameToReport: List<StepReport> = emptyList(),
   @JvmField val mutableEnv: PostmanEnvironment<Any?> = PostmanEnvironment(),
   private val stepsToIgnoreForFailure: Set<String>
 ) {
@@ -21,53 +21,43 @@ data class Rundown(
 
   val firstUnsuccessfulStepNameInOrder: String?
     @JvmName("firstUnsuccessfulStepNameInOrder")
-    get() =
-      stepNameToReport.entries.firstOrNull { (_, stepReport) -> !stepReport.isSuccessful }?.key
+    get() = stepNameToReport.firstOrNull { !it.isSuccessful }?.stepName
 
-  val firstUnIgnoredUnsuccessfulStepNameInOrder: String?
-    @JvmName("firstUnIgnoredUnsuccessfulStepNameInOrder")
-    get() = firstUnIgnoredUnsuccessfulStepNameToReportInOrder()?.key
-
-  val firstUnIgnoredUnsuccessfulStepNameToReportInOrder: Pair<String, StepReport>?
-    @JvmName("firstUnIgnoredUnsuccessfulStepNameToReportInOrder")
-    get() = firstUnIgnoredUnsuccessfulStepNameToReportInOrder()?.toPair()
-
-  private fun firstUnIgnoredUnsuccessfulStepNameToReportInOrder(): Map.Entry<String, StepReport>? =
-    stepNameToReport.entries.firstOrNull { (stepName, stepReport) ->
-      !stepReport.isSuccessful && !isStepNameInPassList(stepName, stepsToIgnoreForFailure)
+  fun firstUnIgnoredUnsuccessfulStepReportInOrder(): StepReport? =
+    stepNameToReport.firstOrNull {
+      !it.isSuccessful && !isStepNameInPassList(it.stepName, stepsToIgnoreForFailure)
     }
 
   val areAllStepsSuccessful
-    @JvmName("areAllStepsSuccessful") get() = stepNameToReport.values.all { it.isSuccessful }
+    @JvmName("areAllStepsSuccessful") get() = stepNameToReport.all { it.isSuccessful }
 
   val areAllStepsExceptIgnoredSuccessful
     @JvmName("areAllStepsExceptIgnoredSuccessful")
     get() =
-      stepNameToReport.all { (stepName, stepReport) ->
-        stepReport.isSuccessful || isStepNameInPassList(stepName, stepsToIgnoreForFailure)
+      stepNameToReport.all {
+        it.isSuccessful || isStepNameInPassList(it.stepName, stepsToIgnoreForFailure)
       }
 
   fun reportsForStepsInFolder(folderName: String): List<StepReport?> =
-    stepNameToReport.filter { it.key.contains("$folderName$FOLDER_DELIMITER") }.map { it.value }
+    stepNameToReport.filter { it.stepName.contains("$folderName$FOLDER_DELIMITER") }
 
   fun areAllStepsInFolderSuccessful(folderName: String): Boolean =
     reportsForStepsInFolder(folderName).all { it?.isSuccessful == true }
 
   fun reportForStepName(stepName: String): StepReport? {
     val stepNameVariants = stepNameVariants(stepName)
-    return stepNameToReport.entries.firstOrNull { stepNameVariants.contains(it.key) }?.value
+    return stepNameToReport.firstOrNull { stepNameVariants.contains(it.stepName) }
   }
 
-  fun filterReportExcludingStepsWithName(stepNames: Set<String>): Map<String, StepReport> {
+  fun filterReportExcludingStepsWithName(stepNames: Set<String>): List<StepReport> {
     val stepNameVariantsToExclude = stepNames.flatMap { stepNameVariants(it) }
-    return stepNameToReport.filterKeys { !stepNameVariantsToExclude.contains(it) }
+    return stepNameToReport.filter { !stepNameVariantsToExclude.contains(it.stepName) }
   }
 
-  fun filterReportIncludingStepsWithName(stepNames: Set<String>): Map<String, StepReport> {
+  fun filterReportIncludingStepsWithName(stepNames: Set<String>): List<StepReport> {
     val stepNameVariantsToExclude = stepNames.flatMap { stepNameVariants(it) }
-    return stepNameToReport.filterKeys { stepNameVariantsToExclude.contains(it) }
+    return stepNameToReport.filter { stepNameVariantsToExclude.contains(it.stepName) }
   }
-
 }
 
 // ! TODO 12/10/23 gopala.akshintala: Come-up with a more sophisticated builders for steps

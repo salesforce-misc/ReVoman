@@ -22,7 +22,7 @@ import com.salesforce.revoman.input.config.Kick;
 import com.salesforce.revoman.input.config.StepPick.PostTxnStepPick;
 import com.salesforce.revoman.input.config.StepPick.PreTxnStepPick;
 import com.salesforce.revoman.integration.core.pq.connect.PlaceQuoteInputRepresentation;
-import com.salesforce.revoman.output.Rundown;
+import com.salesforce.revoman.output.postman.PostmanEnvironment;
 import com.salesforce.revoman.output.report.TxInfo;
 import com.salesforce.vador.config.ValidationConfig;
 import java.util.List;
@@ -65,8 +65,7 @@ class PQE2EWithSMTest {
   private static final PreTxnStepPick PRE_TXN_PICK_FOR_ASYNC_STEPS =
       (ignore1, requestInfo, ignore2) -> PQ_PATH.equalsIgnoreCase(getPath(requestInfo));
   private static final PostTxnStepPick POST_TXN_PICK_FOR_ASYNC_STEPS =
-      (stepName, stepReport, rundown) ->
-          stepReport.getRequestInfo().map(TxInfo::getPath).contains(PQ_PATH);
+      (stepReport, rundown) -> stepReport.getRequestInfo().map(TxInfo::getPath).contains(PQ_PATH);
 
   @Test
   void revUpPQ() {
@@ -118,13 +117,13 @@ class PQE2EWithSMTest {
                         }),
                     post(
                         "query-quote-and-related-records",
-                        (ignore1, ignore2, rundown) -> assertAfterPQCreate(rundown)),
+                        (ignore2, rundown) -> assertAfterPQCreate(rundown.mutableEnv)),
                     post(
                         POST_TXN_PICK_FOR_ASYNC_STEPS,
-                        (stepName, ignore, rundown) -> {
+                        (stepReport, ignore) -> {
                           LOGGER.info(
                               "Waiting in PostHook for Step: {} for the Quote to get processed",
-                              stepName);
+                              stepReport.getStepName());
                           // ! CAUTION 10/09/23 gopala.akshintala: This test can be flaky until
                           // polling is implemented
                           Thread.sleep(5000);
@@ -142,7 +141,7 @@ class PQE2EWithSMTest {
                         validatePQErrorResponse))
                 .insecureHttp(true) // <10>
                 .off()); // Kick-off
-    assertThat(pqRundown.firstUnIgnoredUnsuccessfulStepNameToReportInOrder()).isNull();
+    assertThat(pqRundown.firstUnIgnoredUnsuccessfulStepReportInOrder()).isNull();
     assertThat(pqRundown.mutableEnv)
         .containsAllEntriesOf(
             Map.of(
@@ -152,8 +151,7 @@ class PQE2EWithSMTest {
     // end::pq-e2e-with-revoman-config-demo[]
   }
 
-  static void assertAfterPQCreate(Rundown pqCreateQLIQLR) {
-    final var env = pqCreateQLIQLR.mutableEnv;
+  static void assertAfterPQCreate(PostmanEnvironment<Object> env) {
     // Quote: LineItemCount, quoteCalculationStatus
     assertThat(env).containsEntry("lineItemCount", 10);
     assertThat(env)

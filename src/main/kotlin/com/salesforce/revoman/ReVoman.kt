@@ -29,11 +29,11 @@ import com.salesforce.revoman.internal.postman.pm
 import com.salesforce.revoman.internal.postman.state.Item
 import com.salesforce.revoman.internal.postman.state.Template
 import com.salesforce.revoman.output.Rundown
-import com.salesforce.revoman.output.report.StepReport
 import com.salesforce.revoman.output.report.ExeType.TEST_SCRIPT_JS
+import com.salesforce.revoman.output.report.StepReport
+import com.salesforce.revoman.output.report.TxInfo
 import com.salesforce.revoman.output.report.failure.RequestFailure.HttpRequestFailure
 import com.salesforce.revoman.output.report.failure.ResponseFailure.TestScriptJsFailure
-import com.salesforce.revoman.output.report.TxInfo
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapter
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -75,24 +75,24 @@ object ReVoman {
     pmStepsFlattened: List<Item>,
     kick: Kick,
     moshiReVoman: ConfigurableMoshi,
-  ): Map<String, StepReport> {
+  ): List<StepReport> {
     var noFailureInStep = true
     return pmStepsFlattened
       .asSequence()
       .takeWhile { noFailureInStep }
       .filter { shouldStepBeExecuted(kick.runOnlySteps(), kick.skipSteps(), it.name) }
-      .fold(mapOf()) { stepNameToReport, itemWithRegex ->
+      .fold(listOf()) { stepReports, itemWithRegex ->
         val stepName = itemWithRegex.name
         logger.info { "***** Executing Step: $stepName *****" }
         val pmRequest: com.salesforce.revoman.internal.postman.state.Request =
           RegexReplacer(pm.environment, kick.customDynamicVariables())
             .replaceRegex(itemWithRegex.request)
         val stepReport: StepReport = // --------### UNMARSHALL-REQUEST ###--------
-          unmarshallRequest(stepName, pmRequest, kick, moshiReVoman, stepNameToReport)
-            .mapLeft { StepReport(Left(it)) }
+          unmarshallRequest(stepName, pmRequest, kick, moshiReVoman, stepReports)
+            .mapLeft { StepReport(stepName, Left(it)) }
             .map { requestInfo: TxInfo<Request> -> // --------### PRE-HOOKS ###--------
-              preHookExe(stepName, kick, requestInfo, stepNameToReport)?.mapLeft {
-                StepReport(Right(requestInfo), it)
+              preHookExe(stepName, kick, requestInfo, stepReports)?.mapLeft {
+                StepReport(stepName, Right(requestInfo), it)
               }
               requestInfo
             }
@@ -100,8 +100,8 @@ object ReVoman {
               val httpRequest =
                 RegexReplacer(pm.environment).replaceRegex(itemWithRegex.request).toHttpRequest()
               httpRequest(stepName, itemWithRegex, httpRequest, kick.insecureHttp())
-                .mapLeft { StepReport(Left(HttpRequestFailure(it, requestInfo))) }
-                .map { StepReport(Right(requestInfo), null, Right(TxInfo(httpMsg = it))) }
+                .mapLeft { StepReport(stepName, Left(HttpRequestFailure(it, requestInfo))) }
+                .map { StepReport(stepName, Right(requestInfo), null, Right(TxInfo(httpMsg = it))) }
             }
             .flatMap { stepReport: StepReport -> // --------### TEST-SCRIPT-JS ###--------
               val httpResponse = stepReport.responseInfo?.get()?.httpMsg!!
@@ -121,16 +121,10 @@ object ReVoman {
                 .map { stepReport }
             }
             .flatMap { stepReport: StepReport -> // ---### UNMARSHALL + VALIDATE RESPONSE ###---
-              unmarshallResponseAndValidate(
-                stepName,
-                stepReport,
-                kick,
-                moshiReVoman,
-                stepNameToReport
-              )
+              unmarshallResponseAndValidate(stepReport, kick, moshiReVoman, stepReports)
             }
             .map { stepReport: StepReport -> // --------### POST-HOOKS ###--------
-              postHookExe(stepName, kick, stepNameToReport + (stepName to stepReport))
+              postHookExe(stepReport, kick, stepReports + stepReport)
                 ?.fold(
                   { stepReport.copy(postHookFailure = it) },
                   { stepReport.copy(envSnapshot = pm.environment.copy()) },
@@ -142,7 +136,7 @@ object ReVoman {
           stepReport.isSuccessful ||
             kick.haltOnAnyFailure() ||
             isStepNameInPassList(stepName, kick.haltOnAnyFailureExceptForSteps())
-        stepNameToReport + (stepName to stepReport)
+        stepReports + stepReport
       }
   }
 }

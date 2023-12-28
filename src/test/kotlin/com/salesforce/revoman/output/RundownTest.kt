@@ -3,9 +3,9 @@ package com.salesforce.revoman.output
 import arrow.core.Either.Left
 import arrow.core.Either.Right
 import com.salesforce.revoman.output.report.StepReport
+import com.salesforce.revoman.output.report.TxInfo
 import com.salesforce.revoman.output.report.failure.HookFailure.PostHookFailure
 import com.salesforce.revoman.output.report.failure.RequestFailure.HttpRequestFailure
-import com.salesforce.revoman.output.report.TxInfo
 import io.kotest.matchers.shouldBe
 import org.http4k.core.Method.POST
 import org.http4k.core.Request
@@ -26,30 +26,33 @@ class RundownTest {
   // ! TODO 04/12/23 gopala.akshintala: Add assertions for toString
   @Test
   fun `StepReport toString`() {
+    val stepName = "3${INDEX_SEPARATOR}GET${HTTP_METHOD_SEPARATOR}nature"
     val requestInfo: TxInfo<Request> =
       TxInfo(
         String::class.java,
         "fakeRequest",
         Request(POST, Uri.of("https://overfullstack.github.io/"))
       )
-    val stepReportSuccess = StepReport(Right(requestInfo))
+    val stepReportSuccess = StepReport(stepName, Right(requestInfo))
     println(stepReportSuccess)
     stepReportSuccess.isHttpStatusSuccessful shouldBe true
 
     val stepReportHttpFailure =
-      StepReport(Left(HttpRequestFailure(RuntimeException("fakeRTE"), requestInfo)))
+      StepReport(stepName, Left(HttpRequestFailure(RuntimeException("fakeRTE"), requestInfo)))
     println(stepReportHttpFailure)
     stepReportHttpFailure.isHttpStatusSuccessful shouldBe false
 
     val badResponseInfo: TxInfo<Response> =
       TxInfo(String::class.java, "fakeResponse", Response(BAD_REQUEST).body("fakeResponse"))
-    val stepReportBadRequest = StepReport(Right(requestInfo), null, Right(badResponseInfo))
+    val stepReportBadRequest =
+      StepReport(stepName, Right(requestInfo), null, Right(badResponseInfo))
     println(stepReportBadRequest)
     stepReportBadRequest.isHttpStatusSuccessful shouldBe false
 
     val responseInfo: TxInfo<Response> = TxInfo(String::class.java, "fakeResponse", Response(OK))
     val stepReportPostHookFailure =
       StepReport(
+        stepName,
         Right(requestInfo),
         null,
         Right(responseInfo),

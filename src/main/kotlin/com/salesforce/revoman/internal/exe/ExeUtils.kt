@@ -22,6 +22,7 @@ import com.salesforce.revoman.output.HTTP_METHOD_SEPARATOR
 import com.salesforce.revoman.output.INDEX_SEPARATOR
 import com.salesforce.revoman.output.Rundown
 import com.salesforce.revoman.output.report.ExeType
+import com.salesforce.revoman.output.report.StepReport
 import com.salesforce.revoman.output.report.TxInfo
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.apache.commons.lang3.StringUtils
@@ -86,17 +87,16 @@ internal fun pickPreHooks(
 
 internal fun pickPostHooks(
   postHooksWithPicks: List<Pair<PostTxnStepPick, PostHook>>,
-  currentStepName: String,
+  currentStepReport: StepReport,
   rundown: Rundown
 ): List<PostHook> =
   postHooksWithPicks
     .asSequence()
-    .filter {
-      it.first.pick(currentStepName, rundown.reportForStepName(currentStepName)!!, rundown)
-    }
+    .filter { it.first.pick(currentStepReport, rundown) }
     .map { it.second }
     .toList()
 
+// ! TODO 28/12/23 gopala.akshintala: Improve perf by not using substring
 internal fun stepNameVariants(fqStepName: String): Set<String> = buildSet {
   add(fqStepName)
   add(fqStepName.substringAfterLast(INDEX_SEPARATOR))
@@ -127,14 +127,10 @@ internal fun pickRequestConfig(
 
 internal fun pickResponseConfig(
   pickToResponseConfig: List<Pair<PostTxnStepPick, ResponseConfig>>,
-  currentStepName: String,
+  currentStepReport: StepReport,
   rundown: Rundown
 ): ResponseConfig? =
-  pickToResponseConfig
-    .firstOrNull {
-      it.first.pick(currentStepName, rundown.reportForStepName(currentStepName)!!, rundown)
-    }
-    ?.second
+  pickToResponseConfig.firstOrNull { it.first.pick(currentStepReport, rundown) }?.second
 
 internal fun getResponseConfigForStepName(
   stepName: String,
@@ -163,11 +159,7 @@ internal fun shouldStepBeExecuted(
     (skipSteps.isNotEmpty() && skipSteps.intersect(stepNameVariants).isEmpty()))
 }
 
-internal fun <T> runChecked(
-  stepName: String,
-  exeType: ExeType,
-  fn: () -> T
-): Either<Throwable, T> =
+internal fun <T> runChecked(stepName: String, exeType: ExeType, fn: () -> T): Either<Throwable, T> =
   runCatching(fn)
     .fold(
       { Either.Right(it) },
