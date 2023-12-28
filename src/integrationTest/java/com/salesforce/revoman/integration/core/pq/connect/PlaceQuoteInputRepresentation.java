@@ -2,8 +2,15 @@ package com.salesforce.revoman.integration.core.pq.connect;
 
 public class PlaceQuoteInputRepresentation implements ConnectInputRepresentationWithGraph {
 
+  private PricingPreferenceEnum pricingPref;
+
+  private Boolean doAsync;
   private ObjectGraphInputRepresentation graph;
   private boolean isSetGraph;
+
+  public Boolean getDoAsync() {
+    return doAsync;
+  }
 
   public ObjectGraphInputRepresentation getGraph() {
     return this.graph;
@@ -18,10 +25,6 @@ public class PlaceQuoteInputRepresentation implements ConnectInputRepresentation
     return this.isSetGraph;
   }
 
-  private PricingPreferenceEnum pricingPref;
-
-  private Boolean doAsync;
-
   private boolean isSetPricingPref;
 
   private boolean isSetDoAsync;
@@ -33,10 +36,6 @@ public class PlaceQuoteInputRepresentation implements ConnectInputRepresentation
   public void setPricingPref(PricingPreferenceEnum pricingPref) {
     this.pricingPref = pricingPref;
     this.isSetPricingPref = true;
-  }
-
-  public Boolean getDoAsync() {
-    return doAsync;
   }
 
   public void setDoAsync(Boolean doAsync) {

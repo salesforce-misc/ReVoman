@@ -1,7 +1,7 @@
 {
 	"info": {
-		"_postman_id": "d385540f-2814-46db-8110-846694cdcfcb",
-		"name": "pq-with-rc",
+		"_postman_id": "6b9fba47-8128-4aaf-b6b2-9f8409a87ca2",
+		"name": "[sm] pq",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
 		"_exporter_id": "23827434"
 	},
@@ -43,7 +43,13 @@
 					],
 					"request": {
 						"method": "POST",
-						"header": [],
+						"header": [
+							{
+								"key": "isAsync",
+								"value": "true",
+								"type": "text"
+							}
+						],
 						"body": {
 							"mode": "raw",
 							"raw": "{\n  \"pricingPref\": \"skip\",\n  \"graph\": {\n    \"graphId\": \"pq-create: qli+qlr (skip-pricing)\",\n    \"records\": [\n      {\n        \"referenceId\": \"refQuote\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"Quote\",\n            \"method\": \"POST\"\n          },\n          \"Name\": \"Quote_{{$randomCompanyName}}\",\n          \"OpportunityId\": \"{{opportunityId}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItem1\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{evergreenPriceBookEntryId}}\",\n          \"Product2Id\": \"{{evergreenProductId}}\",\n          \"Quantity\": {{$quantity}},\n          \"UnitPrice\": {{unitPrice}},\n          \"PeriodBoundary\": \"Anniversary\",\n          \"BillingFrequency\": \"Monthly\",\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItem2\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{termedPriceBookEntryId}}\",\n          \"Product2Id\": \"{{termedProductId}}\",\n          \"Quantity\": {{$quantity}},\n          \"UnitPrice\": {{unitPrice}},\n          \"EndDate\": \"{{$randomFutureDate}}\",\n          \"PeriodBoundary\": \"DayOfPeriod\",\n          \"PeriodBoundaryDay\": 4,\n          \"BillingFrequency\": \"Monthly\",\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItem3\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{oneTimePriceBookEntryId}}\",\n          \"Product2Id\": \"{{oneTimeProductId}}\",\n          \"Quantity\": {{$quantity}},\n          \"UnitPrice\": {{unitPrice}},\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItem4\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{oneTimePriceBookEntryId}}\",\n          \"Product2Id\": \"{{oneTimeProductId}}\",\n          \"Quantity\": {{$quantity}},\n          \"UnitPrice\": {{unitPrice}},\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItem5\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{evergreenPriceBookEntryId}}\",\n          \"Product2Id\": \"{{evergreenProductId}}\",\n          \"Quantity\": {{$quantity}},\n          \"UnitPrice\": {{unitPrice}},\n          \"PeriodBoundary\": \"Anniversary\",\n          \"BillingFrequency\": \"Monthly\",\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItem6\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{termedPriceBookEntryId}}\",\n          \"Product2Id\": \"{{termedProductId}}\",\n          \"Quantity\": {{$quantity}},\n          \"UnitPrice\": {{unitPrice}},\n          \"EndDate\": \"{{$randomFutureDate}}\",\n          \"PeriodBoundary\": \"DayOfPeriod\",\n          \"PeriodBoundaryDay\": 4,\n          \"BillingFrequency\": \"Monthly\",\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItem7\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{oneTimePriceBookEntryId}}\",\n          \"Product2Id\": \"{{oneTimeProductId}}\",\n          \"Quantity\": {{$quantity}},\n          \"UnitPrice\": {{unitPrice}},\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItem8\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{oneTimePriceBookEntryId}}\",\n          \"Product2Id\": \"{{oneTimeProductId}}\",\n          \"Quantity\": {{$quantity}},\n          \"UnitPrice\": {{unitPrice}},\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItem9\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{evergreenPriceBookEntryId}}\",\n          \"Product2Id\": \"{{evergreenProductId}}\",\n          \"Quantity\": {{$quantity}},\n          \"UnitPrice\": {{unitPrice}},\n          \"PeriodBoundary\": \"Anniversary\",\n          \"BillingFrequency\": \"Monthly\",\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItem10\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{termedPriceBookEntryId}}\",\n          \"Product2Id\": \"{{termedProductId}}\",\n          \"Quantity\": {{$quantity}},\n          \"UnitPrice\": {{unitPrice}},\n          \"EndDate\": \"{{$randomFutureDate}}\",\n          \"PeriodBoundary\": \"DayOfPeriod\",\n          \"PeriodBoundaryDay\": 4,\n          \"BillingFrequency\": \"Monthly\",\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQLR1\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineRelationship\",\n            \"method\": \"POST\"\n          },\n          \"MainQuoteLineId\": \"@{refQuoteLineItem1.id}\",\n          \"AssociatedQuoteLineId\": \"@{refQuoteLineItem2.id}\",\n          \"ProductRelationshipTypeId\": \"{{productRelationshipTypeId}}\",\n          \"AssociatedQuoteLinePricing\": \"IncludedInBundlePrice\"\n        }\n      },\n      {\n        \"referenceId\": \"refQLR2\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineRelationship\",\n            \"method\": \"POST\"\n          },\n          \"MainQuoteLineId\": \"@{refQuoteLineItem1.id}\",\n          \"AssociatedQuoteLineId\": \"@{refQuoteLineItem3.id}\",\n          \"ProductRelationshipTypeId\": \"{{productRelationshipTypeId}}\",\n          \"AssociatedQuoteLinePricing\": \"IncludedInBundlePrice\"\n        }\n      },\n      {\n        \"referenceId\": \"refQLR3\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineRelationship\",\n            \"method\": \"POST\"\n          },\n          \"MainQuoteLineId\": \"@{refQuoteLineItem1.id}\",\n          \"AssociatedQuoteLineId\": \"@{refQuoteLineItem4.id}\",\n          \"ProductRelationshipTypeId\": \"{{productRelationshipTypeId}}\",\n          \"AssociatedQuoteLinePricing\": \"IncludedInBundlePrice\"\n        }\n      }\n    ]\n  }\n}",
@@ -152,10 +158,16 @@
 					],
 					"request": {
 						"method": "POST",
-						"header": [],
+						"header": [
+							{
+								"key": "isAsync",
+								"value": "true",
+								"type": "text"
+							}
+						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"pricingPref\": \"{{$pricingPref}}\",\n  \"graph\": {\n    \"graphId\": \"pq-create: qli+qlr\",\n    \"records\": [\n      {\n        \"referenceId\": \"refQuote\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"Quote\",\n            \"method\": \"POST\"\n          },\n          \"Name\": \"Quote_{{$randomCompanyName}}\",\n          \"OpportunityId\": \"{{opportunityId}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItem1\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{evergreenPriceBookEntryId}}\",\n          \"Product2Id\": \"{{evergreenProductId}}\",\n          \"Quantity\": {{$quantity}},\n          \"UnitPrice\": {{unitPrice}},\n          \"PeriodBoundary\": \"Anniversary\",\n          \"BillingFrequency\": \"Monthly\",\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItem2\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{termedPriceBookEntryId}}\",\n          \"Product2Id\": \"{{termedProductId}}\",\n          \"Quantity\": {{$quantity}},\n          \"UnitPrice\": {{unitPrice}},\n          \"EndDate\": \"{{$randomFutureDate}}\",\n          \"PeriodBoundary\": \"DayOfPeriod\",\n          \"PeriodBoundaryDay\": 4,\n          \"BillingFrequency\": \"Monthly\",\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItem3\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{oneTimePriceBookEntryId}}\",\n          \"Product2Id\": \"{{oneTimeProductId}}\",\n          \"Quantity\": {{$quantity}},\n          \"UnitPrice\": {{unitPrice}},\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItem4\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{oneTimePriceBookEntryId}}\",\n          \"Product2Id\": \"{{oneTimeProductId}}\",\n          \"Quantity\": {{$quantity}},\n          \"UnitPrice\": {{unitPrice}},\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItem5\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{evergreenPriceBookEntryId}}\",\n          \"Product2Id\": \"{{evergreenProductId}}\",\n          \"Quantity\": {{$quantity}},\n          \"UnitPrice\": {{unitPrice}},\n          \"PeriodBoundary\": \"Anniversary\",\n          \"BillingFrequency\": \"Monthly\",\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItem6\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{termedPriceBookEntryId}}\",\n          \"Product2Id\": \"{{termedProductId}}\",\n          \"Quantity\": {{$quantity}},\n          \"UnitPrice\": {{unitPrice}},\n          \"EndDate\": \"{{$randomFutureDate}}\",\n          \"PeriodBoundary\": \"DayOfPeriod\",\n          \"PeriodBoundaryDay\": 4,\n          \"BillingFrequency\": \"Monthly\",\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItem7\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{oneTimePriceBookEntryId}}\",\n          \"Product2Id\": \"{{oneTimeProductId}}\",\n          \"Quantity\": {{$quantity}},\n          \"UnitPrice\": {{unitPrice}},\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItem8\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{oneTimePriceBookEntryId}}\",\n          \"Product2Id\": \"{{oneTimeProductId}}\",\n          \"Quantity\": {{$quantity}},\n          \"UnitPrice\": {{unitPrice}},\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItem9\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{evergreenPriceBookEntryId}}\",\n          \"Product2Id\": \"{{evergreenProductId}}\",\n          \"Quantity\": {{$quantity}},\n          \"UnitPrice\": {{unitPrice}},\n          \"PeriodBoundary\": \"Anniversary\",\n          \"BillingFrequency\": \"Monthly\",\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItem10\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{termedPriceBookEntryId}}\",\n          \"Product2Id\": \"{{termedProductId}}\",\n          \"Quantity\": {{$quantity}},\n          \"UnitPrice\": {{unitPrice}},\n          \"EndDate\": \"{{$randomFutureDate}}\",\n          \"PeriodBoundary\": \"DayOfPeriod\",\n          \"PeriodBoundaryDay\": 4,\n          \"BillingFrequency\": \"Monthly\",\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQLR1\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineRelationship\",\n            \"method\": \"POST\"\n          },\n          \"MainQuoteLineId\": \"@{refQuoteLineItem1.id}\",\n          \"AssociatedQuoteLineId\": \"@{refQuoteLineItem2.id}\",\n          \"ProductRelationshipTypeId\": \"{{productRelationshipTypeId}}\",\n          \"AssociatedQuoteLinePricing\": \"IncludedInBundlePrice\"\n        }\n      },\n      {\n        \"referenceId\": \"refQLR2\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineRelationship\",\n            \"method\": \"POST\"\n          },\n          \"MainQuoteLineId\": \"@{refQuoteLineItem1.id}\",\n          \"AssociatedQuoteLineId\": \"@{refQuoteLineItem3.id}\",\n          \"ProductRelationshipTypeId\": \"{{productRelationshipTypeId}}\",\n          \"AssociatedQuoteLinePricing\": \"IncludedInBundlePrice\"\n        }\n      },\n      {\n        \"referenceId\": \"refQLR3\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineRelationship\",\n            \"method\": \"POST\"\n          },\n          \"MainQuoteLineId\": \"@{refQuoteLineItem1.id}\",\n          \"AssociatedQuoteLineId\": \"@{refQuoteLineItem4.id}\",\n          \"ProductRelationshipTypeId\": \"{{productRelationshipTypeId}}\",\n          \"AssociatedQuoteLinePricing\": \"IncludedInBundlePrice\"\n        }\n      }\n    ]\n  }\n}",
+							"raw": "{\n  \"pricingPref\": \"{{$pricingPref}}\",\n  \"graph\": {\n    \"graphId\": \"pq-create: qli+qlr\",\n    \"records\": [\n      {\n        \"referenceId\": \"refQuote\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"Quote\",\n            \"method\": \"POST\"\n          },\n          \"Name\": \"Quote_{{$randomCompanyName}}\",\n          \"OpportunityId\": \"{{opportunityId}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItem1\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{evergreenPriceBookEntryId}}\",\n          \"Product2Id\": \"{{evergreenProductId}}\",\n          \"Quantity\": {{$quantity}},\n          \"UnitPrice\": {{unitPrice}},\n          \"PeriodBoundary\": \"Anniversary\",\n          \"BillingFrequency\": \"Monthly\",\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItem2\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{termedPriceBookEntryId}}\",\n          \"Product2Id\": \"{{termedProductId}}\",\n          \"Quantity\": {{$quantity}},\n          \"UnitPrice\": {{unitPrice}},\n          \"EndDate\": \"{{$randomFutureDate}}\",\n          \"PeriodBoundary\": \"DayOfPeriod\",\n          \"PeriodBoundaryDay\": 4,\n          \"BillingFrequency\": \"Monthly\",\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItem3\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{oneTimePriceBookEntryId}}\",\n          \"Product2Id\": \"{{oneTimeProductId}}\",\n          \"Quantity\": {{$quantity}},\n          \"UnitPrice\": {{unitPrice}},\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItem4\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{oneTimePriceBookEntryId}}\",\n          \"Product2Id\": \"{{oneTimeProductId}}\",\n          \"Quantity\": {{$quantity}},\n          \"UnitPrice\": {{unitPrice}},\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItem5\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{evergreenPriceBookEntryId}}\",\n          \"Product2Id\": \"{{evergreenProductId}}\",\n          \"Quantity\": {{$quantity}},\n          \"UnitPrice\": {{unitPrice}},\n          \"PeriodBoundary\": \"Anniversary\",\n          \"BillingFrequency\": \"Monthly\",\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItem6\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{termedPriceBookEntryId}}\",\n          \"Product2Id\": \"{{termedProductId}}\",\n          \"Quantity\": {{$quantity}},\n          \"UnitPrice\": {{unitPrice}},\n          \"EndDate\": \"{{$randomFutureDate}}\",\n          \"PeriodBoundary\": \"DayOfPeriod\",\n          \"PeriodBoundaryDay\": 4,\n          \"BillingFrequency\": \"Monthly\",\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItem7\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{oneTimePriceBookEntryId}}\",\n          \"Product2Id\": \"{{oneTimeProductId}}\",\n          \"Quantity\": {{$quantity}},\n          \"UnitPrice\": {{unitPrice}},\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItem8\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{oneTimePriceBookEntryId}}\",\n          \"Product2Id\": \"{{oneTimeProductId}}\",\n          \"Quantity\": {{$quantity}},\n          \"UnitPrice\": {{unitPrice}},\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItem9\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{evergreenPriceBookEntryId}}\",\n          \"Product2Id\": \"{{evergreenProductId}}\",\n          \"Quantity\": {{$quantity}},\n          \"UnitPrice\": {{unitPrice}},\n          \"PeriodBoundary\": \"Anniversary\",\n          \"BillingFrequency\": \"Monthly\",\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItem10\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{termedPriceBookEntryId}}\",\n          \"Product2Id\": \"{{termedProductId}}\",\n          \"Quantity\": {{$quantity}},\n          \"UnitPrice\": {{unitPrice}},\n          \"EndDate\": \"{{$randomFutureDate}}\",\n          \"PeriodBoundary\": \"DayOfPeriod\",\n          \"PeriodBoundaryDay\": 4,\n          \"BillingFrequency\": \"Monthly\",\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQLR1\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineRelationship\",\n            \"method\": \"POST\"\n          },\n          \"MainQuoteLineId\": \"@{refQuoteLineItem1.id}\",\n          \"AssociatedQuoteLineId\": \"@{refQuoteLineItem2.id}\",\n          \"ProductRelationshipTypeId\": \"{{productRelationshipTypeId}}\",\n          \"AssociatedQuoteLinePricing\": \"IncludedInBundlePrice\"\n        }\n      },\n      {\n        \"referenceId\": \"refQLR2\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineRelationship\",\n            \"method\": \"POST\"\n          },\n          \"MainQuoteLineId\": \"@{refQuoteLineItem2.id}\",\n          \"AssociatedQuoteLineId\": \"@{refQuoteLineItem3.id}\",\n          \"ProductRelationshipTypeId\": \"{{productRelationshipTypeId}}\",\n          \"AssociatedQuoteLinePricing\": \"IncludedInBundlePrice\"\n        }\n      },\n      {\n        \"referenceId\": \"refQLR3\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineRelationship\",\n            \"method\": \"POST\"\n          },\n          \"MainQuoteLineId\": \"@{refQuoteLineItem3.id}\",\n          \"AssociatedQuoteLineId\": \"@{refQuoteLineItem4.id}\",\n          \"ProductRelationshipTypeId\": \"{{productRelationshipTypeId}}\",\n          \"AssociatedQuoteLinePricing\": \"IncludedInBundlePrice\"\n        }\n      }\n    ]\n  }\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -269,7 +281,9 @@
 									"pm.environment.set(\"$quantity\", Math.floor(Math.random() * 9 + 1));",
 									"",
 									"var futureDateTime = moment().add(365, \"days\");",
-									"pm.environment.set(\"$randomFutureDate\", futureDateTime.format(\"YYYY-MM-DD\"));"
+									"pm.environment.set(\"$randomFutureDate\", futureDateTime.format(\"YYYY-MM-DD\"));",
+									"",
+									"pm.environment.set(\"$pricingPref\", \"system\")"
 								],
 								"type": "text/javascript"
 							}
@@ -277,7 +291,13 @@
 					],
 					"request": {
 						"method": "POST",
-						"header": [],
+						"header": [
+							{
+								"key": "isAsync",
+								"value": "true",
+								"type": "text"
+							}
+						],
 						"body": {
 							"mode": "raw",
 							"raw": "{\n  \"pricingPref\": \"{{$pricingPref}}\",\n  \"graph\": {\n    \"graphId\": \"pq-update: qli(post+patch+delete)\",\n    \"records\": [\n      {\n        \"referenceId\": \"refQuote\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"Quote\",\n            \"method\": \"PATCH\",\n            \"id\": \"{{quoteId}}\"\n          }\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItemToCreate1\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{evergreenPriceBookEntryId}}\",\n          \"Product2Id\": \"{{evergreenProductId}}\",\n          \"Quantity\": 2.0,\n          \"UnitPrice\": {{unitPrice}},\n          \"PeriodBoundary\": \"Anniversary\",\n          \"BillingFrequency\": \"Monthly\",\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItemToCreate2\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{termedPriceBookEntryId}}\",\n          \"Product2Id\": \"{{termedProductId}}\",\n          \"Quantity\": 2.0,\n          \"UnitPrice\": {{unitPrice}},\n          \"EndDate\": \"{{$randomFutureDate}}\",\n          \"PeriodBoundary\": \"DayOfPeriod\",\n          \"PeriodBoundaryDay\": 4,\n          \"BillingFrequency\": \"Monthly\",\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQLRToCreate1\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineRelationship\",\n            \"method\": \"POST\"\n          },\n          \"MainQuoteLineId\": \"@{refQuoteLineItemToCreate1.id}\",\n          \"AssociatedQuoteLineId\": \"@{refQuoteLineItemToCreate2.id}\",\n          \"ProductRelationshipTypeId\": \"{{productRelationshipTypeId}}\",\n          \"AssociatedQuoteLinePricing\": \"IncludedInBundlePrice\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItemToPatch2\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"PATCH\",\n            \"id\": \"{{qliCreated5Id}}\"\n          },\n          \"Quantity\": 2.0,\n          \"UnitPrice\": {{unitPrice}}\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItemToDelete3\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"DELETE\",\n            \"id\": \"{{qliCreated10Id}}\"\n          }\n        }\n      }\n    ]\n  }\n}",
@@ -323,7 +343,9 @@
 									"pm.environment.set('$currentDate', moment().format((\"YYYY-MM-DD\")));",
 									"",
 									"var futureDateTime = moment().add(365, 'days');",
-									"pm.environment.set('$randomFutureDate', futureDateTime.format('YYYY-MM-DD'));"
+									"pm.environment.set('$randomFutureDate', futureDateTime.format('YYYY-MM-DD'));",
+									"",
+									"pm.environment.set(\"$pricingPref\", \"system\")"
 								],
 								"type": "text/javascript"
 							}
@@ -331,7 +353,13 @@
 					],
 					"request": {
 						"method": "POST",
-						"header": [],
+						"header": [
+							{
+								"key": "isAsync",
+								"value": "true",
+								"type": "text"
+							}
+						],
 						"body": {
 							"mode": "raw",
 							"raw": "{\n  \"pricingPref\": \"{{$pricingPref}}\",\n  \"graph\": {\n    \"graphId\": \"pq-update: qli(post+patch)-qla(post)\",\n    \"records\": [\n      {\n        \"referenceId\": \"refQuote\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"Quote\",\n            \"method\": \"PATCH\",\n            \"id\": \"{{quoteId}}\"\n          },\n          \"Name\": \"Quote_{{$randomCompanyName}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItemToCreate1\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{evergreenPriceBookEntryId}}\",\n          \"Product2Id\": \"{{evergreenProductId}}\",\n          \"Quantity\": 2.0,\n          \"UnitPrice\": {{unitPrice}},\n          \"PeriodBoundary\": \"Anniversary\",\n          \"BillingFrequency\": \"Monthly\",\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItemToPatch2\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"PATCH\",\n            \"id\": \"{{qliCreated5Id}}\"\n          },\n          \"Quantity\": 2.0,\n          \"UnitPrice\": {{unitPrice}}\n        }\n      }\n    ]\n  }\n}",
@@ -377,7 +405,9 @@
 									"pm.environment.set('$currentDate', moment().format((\"YYYY-MM-DD\")));",
 									"",
 									"var futureDateTime = moment().add(365, 'days');",
-									"pm.environment.set('$randomFutureDate', futureDateTime.format('YYYY-MM-DD'));"
+									"pm.environment.set('$randomFutureDate', futureDateTime.format('YYYY-MM-DD'));",
+									"",
+									"pm.environment.set(\"$pricingPref\", \"system\")"
 								],
 								"type": "text/javascript"
 							}
@@ -385,10 +415,78 @@
 					],
 					"request": {
 						"method": "POST",
-						"header": [],
+						"header": [
+							{
+								"key": "isAsync",
+								"value": "true",
+								"type": "text"
+							}
+						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"pricingPref\": \"{{$pricingPref}}\",\n    \"graph\": {\n        \"graphId\": \"pq-update: qli(all post)\",\n        \"records\": [\n            {\n                \"referenceId\": \"refQuote\",\n                \"record\": {\n                    \"attributes\": {\n                        \"type\": \"Quote\",\n                        \"method\": \"PATCH\",\n                        \"id\": \"{{quoteId}}\"\n                    },\n                    \"Name\": \"Quote_{{$randomCompanyName}}\"\n                }\n            },\n            {\n                \"referenceId\": \"refQuoteLineItem1\",\n                \"record\": {\n                    \"attributes\": {\n                        \"type\": \"QuoteLineItem\",\n                        \"method\": \"POST\"\n                    },\n                    \"QuoteId\": \"@{refQuote.id}\",\n                    \"PricebookEntryId\": \"{{evergreenPriceBookEntryId}}\",\n                    \"Product2Id\": \"{{evergreenProductId}}\",\n                    \"Quantity\": 2.0,\n                    \"UnitPrice\": {{unitPrice}},\n                    \"PeriodBoundary\": \"Anniversary\",\n                    \"BillingFrequency\": \"Monthly\",\n                    \"StartDate\": \"{{$currentDate}}\"\n                }\n            },\n            {\n                \"referenceId\": \"refQuoteLineItem2\",\n                \"record\": {\n                    \"attributes\": {\n                        \"type\": \"QuoteLineItem\",\n                        \"method\": \"POST\"\n                    },\n                    \"QuoteId\": \"@{refQuote.id}\",\n                    \"PricebookEntryId\": \"{{evergreenPriceBookEntryId}}\",\n                    \"Product2Id\": \"{{evergreenProductId}}\",\n                    \"Quantity\": 2.0,\n                    \"UnitPrice\": {{unitPrice}},\n                    \"PeriodBoundary\": \"Anniversary\",\n                    \"BillingFrequency\": \"Monthly\",\n                    \"StartDate\": \"{{$currentDate}}\"\n                }\n            },\n            {\n                \"referenceId\": \"refQuoteLineItem3\",\n                \"record\": {\n                    \"attributes\": {\n                        \"type\": \"QuoteLineItem\",\n                        \"method\": \"POST\"\n                    },\n                    \"QuoteId\": \"@{refQuote.id}\",\n                    \"PricebookEntryId\": \"{{termedPriceBookEntryId}}\",\n                    \"Product2Id\": \"{{termedProductId}}\",\n                    \"Quantity\": 2.0,\n                    \"UnitPrice\": {{unitPrice}},\n                    \"EndDate\": \"{{$randomFutureDate}}\",\n                    \"PeriodBoundary\": \"DayOfPeriod\",\n                    \"PeriodBoundaryDay\": 4,\n                    \"BillingFrequency\": \"Monthly\",\n                    \"StartDate\": \"{{$currentDate}}\"\n                }\n            },\n            {\n                \"referenceId\": \"refQuoteLineItem4\",\n                \"record\": {\n                    \"attributes\": {\n                        \"type\": \"QuoteLineItem\",\n                        \"method\": \"POST\"\n                    },\n                    \"QuoteId\": \"@{refQuote.id}\",\n                    \"PricebookEntryId\": \"{{oneTimePriceBookEntryId}}\",\n                    \"Product2Id\": \"{{oneTimeProductId}}\",\n                    \"Quantity\": 2.0,\n                    \"UnitPrice\": {{unitPrice}},\n                    \"StartDate\": \"{{$currentDate}}\"\n                }\n            }\n        ]\n    }\n}",
+							"raw": "{\n  \"pricingPref\": \"{{$pricingPref}}\",\n  \"graph\": {\n    \"graphId\": \"pq-update: qli(all post)\",\n    \"records\": [\n      {\n        \"referenceId\": \"refQuote\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"Quote\",\n            \"method\": \"PATCH\",\n            \"id\": \"{{quoteId}}\"\n          },\n          \"Name\": \"Quote_{{$randomCompanyName}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItem1\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{evergreenPriceBookEntryId}}\",\n          \"Product2Id\": \"{{evergreenProductId}}\",\n          \"Quantity\": 2.0,\n          \"UnitPrice\": {{unitPrice}},\n          \"PeriodBoundary\": \"Anniversary\",\n          \"BillingFrequency\": \"Monthly\",\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItem2\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{evergreenPriceBookEntryId}}\",\n          \"Product2Id\": \"{{evergreenProductId}}\",\n          \"Quantity\": 2.0,\n          \"UnitPrice\": {{unitPrice}},\n          \"PeriodBoundary\": \"Anniversary\",\n          \"BillingFrequency\": \"Monthly\",\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItem3\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{termedPriceBookEntryId}}\",\n          \"Product2Id\": \"{{termedProductId}}\",\n          \"Quantity\": 2.0,\n          \"UnitPrice\": {{unitPrice}},\n          \"EndDate\": \"{{$randomFutureDate}}\",\n          \"PeriodBoundary\": \"DayOfPeriod\",\n          \"PeriodBoundaryDay\": 4,\n          \"BillingFrequency\": \"Monthly\",\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItem4\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{oneTimePriceBookEntryId}}\",\n          \"Product2Id\": \"{{oneTimeProductId}}\",\n          \"Quantity\": 2.0,\n          \"UnitPrice\": {{unitPrice}},\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      }\n    ]\n  }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}{{versionPath}}/commerce/quotes/actions/place",
+							"host": [
+								"{{baseUrl}}{{versionPath}}"
+							],
+							"path": [
+								"commerce",
+								"quotes",
+								"actions",
+								"place"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "pq-update: empty",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"pm.environment.set(\"quoteId\", jsonData.quoteId);"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"var moment = require('moment');",
+									"pm.environment.set('$currentDate', moment().format((\"YYYY-MM-DD\")));",
+									"",
+									"var futureDateTime = moment().add(365, 'days');",
+									"pm.environment.set('$randomFutureDate', futureDateTime.format('YYYY-MM-DD'));",
+									"",
+									"pm.environment.set(\"$pricingPref\", \"system\")"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "isAsync",
+								"value": "true",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"pricingPref\": \"{{$pricingPref}}\",\n  \"graph\": {\n    \"graphId\": \"pq-update: qli(all post)\",\n    \"records\": [\n      {\n        \"referenceId\": \"refQuote\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"Quote\",\n            \"method\": \"PATCH\",\n            \"id\": \"{{quoteId}}\"\n          }\n        }\n      }\n    ]\n  }\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -433,7 +531,9 @@
 									"pm.environment.set(\"$quantity\", Math.floor(Math.random() * 9 + 1));",
 									"",
 									"var futureDateTime = moment().add(365, \"days\");",
-									"pm.environment.set(\"$randomFutureDate\", futureDateTime.format(\"YYYY-MM-DD\"));"
+									"pm.environment.set(\"$randomFutureDate\", futureDateTime.format(\"YYYY-MM-DD\"));",
+									"",
+									"pm.environment.set(\"$pricingPref\", \"system\")"
 								],
 								"type": "text/javascript"
 							}
@@ -441,7 +541,13 @@
 					],
 					"request": {
 						"method": "POST",
-						"header": [],
+						"header": [
+							{
+								"key": "isAsync",
+								"value": "true",
+								"type": "text"
+							}
+						],
 						"body": {
 							"mode": "raw",
 							"raw": "{\n  \"pricingPref\": \"{{$pricingPref}}\",\n  \"graph\": {\n    \"graphId\": \"pq-update: qli+qlr(all post)\",\n    \"records\": [\n      {\n        \"referenceId\": \"refQuote\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"Quote\",\n            \"method\": \"PATCH\",\n            \"id\": \"{{quoteId}}\"\n          },\n          \"Name\": \"Quote_{{$randomCompanyName}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItem1\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{evergreenPriceBookEntryId}}\",\n          \"Product2Id\": \"{{evergreenProductId}}\",\n          \"Quantity\": 2.0,\n          \"UnitPrice\": {{unitPrice}},\n          \"PeriodBoundary\": \"Anniversary\",\n          \"BillingFrequency\": \"Monthly\",\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItem2\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{evergreenPriceBookEntryId}}\",\n          \"Product2Id\": \"{{evergreenProductId}}\",\n          \"Quantity\": 2.0,\n          \"UnitPrice\": {{unitPrice}},\n          \"PeriodBoundary\": \"Anniversary\",\n          \"BillingFrequency\": \"Monthly\",\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItem3\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{termedPriceBookEntryId}}\",\n          \"Product2Id\": \"{{termedProductId}}\",\n          \"Quantity\": 2.0,\n          \"UnitPrice\": {{unitPrice}},\n          \"EndDate\": \"{{$randomFutureDate}}\",\n          \"PeriodBoundary\": \"DayOfPeriod\",\n          \"PeriodBoundaryDay\": 4,\n          \"BillingFrequency\": \"Monthly\",\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItem4\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{oneTimePriceBookEntryId}}\",\n          \"Product2Id\": \"{{oneTimeProductId}}\",\n          \"Quantity\": 2.0,\n          \"UnitPrice\": {{unitPrice}},\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQLR1\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineRelationship\",\n            \"method\": \"POST\"\n          },\n          \"MainQuoteLineId\": \"@{refQuoteLineItem1.id}\",\n          \"AssociatedQuoteLineId\": \"@{refQuoteLineItem2.id}\",\n          \"ProductRelationshipTypeId\": \"{{productRelationshipTypeId}}\",\n          \"AssociatedQuoteLinePricing\": \"IncludedInBundlePrice\"\n        }\n      },\n      {\n        \"referenceId\": \"refQLR2\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineRelationship\",\n            \"method\": \"POST\"\n          },\n          \"MainQuoteLineId\": \"@{refQuoteLineItem1.id}\",\n          \"AssociatedQuoteLineId\": \"@{refQuoteLineItem3.id}\",\n          \"ProductRelationshipTypeId\": \"{{productRelationshipTypeId}}\",\n          \"AssociatedQuoteLinePricing\": \"IncludedInBundlePrice\"\n        }\n      },\n      {\n        \"referenceId\": \"refQLR3\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineRelationship\",\n            \"method\": \"POST\"\n          },\n          \"MainQuoteLineId\": \"@{refQuoteLineItem2.id}\",\n          \"AssociatedQuoteLineId\": \"@{refQuoteLineItem4.id}\",\n          \"ProductRelationshipTypeId\": \"{{productRelationshipTypeId}}\",\n          \"AssociatedQuoteLinePricing\": \"IncludedInBundlePrice\"\n        }\n      }\n    ]\n  }\n}",
@@ -487,7 +593,9 @@
 									"pm.environment.set('$currentDate', moment().format((\"YYYY-MM-DD\")));",
 									"",
 									"var futureDateTime = moment().add(365, 'days');",
-									"pm.environment.set('$randomFutureDate', futureDateTime.format('YYYY-MM-DD'));"
+									"pm.environment.set('$randomFutureDate', futureDateTime.format('YYYY-MM-DD'));",
+									"",
+									"pm.environment.set(\"$pricingPref\", \"system\")"
 								],
 								"type": "text/javascript"
 							}
@@ -495,10 +603,16 @@
 					],
 					"request": {
 						"method": "POST",
-						"header": [],
+						"header": [
+							{
+								"key": "isAsync",
+								"value": "true",
+								"type": "text"
+							}
+						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"pricingPref\": \"{{$pricingPref}}\",\n    \"graph\": {\n        \"graphId\": \"pq-update: qli(all patch)\",\n        \"records\": [\n            {\n                \"referenceId\": \"refQuote\",\n                \"record\": {\n                    \"attributes\": {\n                        \"type\": \"Quote\",\n                        \"method\": \"PATCH\",\n                        \"id\": \"{{quoteId}}\"\n                    },\n                    \"Name\": \"Quote_{{$randomCompanyName}}\"\n                }\n            },\n            {\n                \"referenceId\": \"refQuoteLineItemToPatch1\",\n                \"record\": {\n                    \"attributes\": {\n                        \"type\": \"QuoteLineItem\",\n                        \"method\": \"PATCH\",\n                        \"id\": \"{{qliCreated5Id}}\"\n                    },\n                    \"Quantity\": 2.0,\n                    \"UnitPrice\": {{unitPrice}}\n                }\n            },\n            {\n                \"referenceId\": \"refQuoteLineItemToPatch2\",\n                \"record\": {\n                    \"attributes\": {\n                        \"type\": \"QuoteLineItem\",\n                        \"method\": \"PATCH\",\n                        \"id\": \"{{qliCreated6Id}}\"\n                    },\n                    \"Discount\": 2.0,\n                    \"UnitPrice\": {{unitPrice}}\n                }\n            },\n            {\n                \"referenceId\": \"refQuoteLineItemToPatch3\",\n                \"record\": {\n                    \"attributes\": {\n                        \"type\": \"QuoteLineItem\",\n                        \"method\": \"PATCH\",\n                        \"id\": \"{{qliCreated7Id}}\"\n                    },\n                    \"Quantity\": 2.0,\n                    \"Discount\": 7.0\n                }\n            }\n        ]\n    }\n}",
+							"raw": "{\n  \"pricingPref\": \"{{$pricingPref}}\",\n  \"graph\": {\n    \"graphId\": \"pq-update: qli(all patch)\",\n    \"records\": [\n      {\n        \"referenceId\": \"refQuote\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"Quote\",\n            \"method\": \"PATCH\",\n            \"id\": \"{{quoteId}}\"\n          },\n          \"Name\": \"Quote_{{$randomCompanyName}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItemToPatch1\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"PATCH\",\n            \"id\": \"{{qliCreated5Id}}\"\n          },\n          \"Quantity\": 2.0,\n          \"UnitPrice\": {{unitPrice}}\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItemToPatch2\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"PATCH\",\n            \"id\": \"{{qliCreated6Id}}\"\n          },\n          \"Discount\": 2.0,\n          \"UnitPrice\": {{unitPrice}}\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItemToPatch3\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"PATCH\",\n            \"id\": \"{{qliCreated7Id}}\"\n          },\n          \"Quantity\": 2.0,\n          \"Discount\": 7.0\n        }\n      }\n    ]\n  }\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -551,10 +665,16 @@
 					],
 					"request": {
 						"method": "POST",
-						"header": [],
+						"header": [
+							{
+								"key": "isAsync",
+								"value": "true",
+								"type": "text"
+							}
+						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"pricingPref\": \"{{$pricingPref}}\",\n    \"graph\": {\n        \"graphId\": \"pq-update: qli(all delete)\",\n        \"records\": [\n            {\n                \"referenceId\": \"refQuote\",\n                \"record\": {\n                    \"attributes\": {\n                        \"type\": \"Quote\",\n                        \"method\": \"PATCH\",\n                        \"id\": \"{{quoteId}}\"\n                    },\n                    \"Name\": \"Quote_{{$randomCompanyName}}\"\n                }\n            },\n            {\n                \"referenceId\": \"refQuoteLineItemToDelete1\",\n                \"record\": {\n                    \"attributes\": {\n                        \"type\": \"QuoteLineItem\",\n                        \"method\": \"DELETE\",\n                        \"id\": \"{{qliCreated9Id}}\"\n                    }\n                }\n            },\n            {\n                \"referenceId\": \"refQuoteLineItemToDelete2\",\n                \"record\": {\n                    \"attributes\": {\n                        \"type\": \"QuoteLineItem\",\n                        \"method\": \"DELETE\",\n                        \"id\": \"{{qliCreated8Id}}\"\n                    }\n                }\n            }\n        ]\n    }\n}",
+							"raw": "{\n  \"pricingPref\": \"{{$pricingPref}}\",\n  \"graph\": {\n    \"graphId\": \"pq-update: qli(all delete)\",\n    \"records\": [\n      {\n        \"referenceId\": \"refQuote\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"Quote\",\n            \"method\": \"PATCH\",\n            \"id\": \"{{quoteId}}\"\n          },\n          \"Name\": \"Quote_{{$randomCompanyName}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItemToDelete1\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"DELETE\",\n            \"id\": \"{{qliCreated8Id}}\"\n          }\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItemToDelete2\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"DELETE\",\n            \"id\": \"{{qliCreated9Id}}\"\n          }\n        }\n      }\n    ]\n  }\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -597,7 +717,9 @@
 									"pm.environment.set('$currentDate', moment().format((\"YYYY-MM-DD\")));",
 									"",
 									"var futureDateTime = moment().add(365, 'days');",
-									"pm.environment.set('$randomFutureDate', futureDateTime.format('YYYY-MM-DD'));"
+									"pm.environment.set('$randomFutureDate', futureDateTime.format('YYYY-MM-DD'));",
+									"",
+									"pm.environment.set(\"$pricingPref\", \"system\")"
 								],
 								"type": "text/javascript"
 							}
@@ -605,7 +727,13 @@
 					],
 					"request": {
 						"method": "POST",
-						"header": [],
+						"header": [
+							{
+								"key": "isAsync",
+								"value": "true",
+								"type": "text"
+							}
+						],
 						"body": {
 							"mode": "raw",
 							"raw": "{\n  \"pricingPref\": \"{{$pricingPref}}\",\n  \"graph\": {\n    \"graphId\": \"pq-update: qli(post+delete)\",\n    \"records\": [\n      {\n        \"referenceId\": \"refQuote\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"Quote\",\n            \"method\": \"PATCH\",\n            \"id\": \"{{quoteId}}\"\n          },\n          \"Name\": \"Quote_{{$randomCompanyName}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItem1\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{evergreenPriceBookEntryId}}\",\n          \"Product2Id\": \"{{evergreenProductId}}\",\n          \"Quantity\": 2.0,\n          \"UnitPrice\": {{unitPrice}},\n          \"PeriodBoundary\": \"Anniversary\",\n          \"BillingFrequency\": \"Monthly\",\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItemToDelete3\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"DELETE\",\n            \"id\": \"{{qliCreated7Id}}\"\n          }\n        }\n      }\n    ]\n  }\n}",
@@ -723,7 +851,7 @@
 								"header": [],
 								"body": {
 									"mode": "raw",
-									"raw": "{\n  \"pricingPref\": \"{{$pricingPref}}\",\n  \"graph\": {\n    \"graphId\": \"pq-create-without-quote (sync-error)\",\n    \"records\": [\n      {\n        \"referenceId\": \"refQuoteLineItem1\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{evergreenPriceBookEntryId}}\",\n          \"Product2Id\": \"{{evergreenProductId}}\",\n          \"Quantity\": {{$quantity}},\n          \"UnitPrice\": {{unitPrice}},\n          \"PeriodBoundary\": \"Anniversary\",\n          \"BillingFrequency\": \"Monthly\",\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      }\n    ]\n  }\n}",
+									"raw": "{\n  \"pricingPref\": \"{{$pricingPref}}\",\n  \"graph\": {\n    \"graphId\": \"pq-create: without-quote (sync-error)\",\n    \"records\": [\n      {\n        \"referenceId\": \"refQuoteLineItem1\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{evergreenPriceBookEntryId}}\",\n          \"Product2Id\": \"{{evergreenProductId}}\",\n          \"Quantity\": {{$quantity}},\n          \"UnitPrice\": {{unitPrice}},\n          \"PeriodBoundary\": \"Anniversary\",\n          \"BillingFrequency\": \"Monthly\",\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      }\n    ]\n  }\n}",
 									"options": {
 										"raw": {
 											"language": "json"
@@ -778,7 +906,64 @@
 								"header": [],
 								"body": {
 									"mode": "raw",
-									"raw": "{\n  \"pricingPref\": \"{{$pricingPref}}\",\n  \"graph\": {\n    \"graphId\": \"pq-update-invalid-method (sync-error)\",\n    \"records\": [\n      {\n        \"referenceId\": \"refQuote\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"Quote\",\n            \"method\": \"DELETE\",\n            \"id\": \"{{quoteId}}\"\n          }\n        }\n      }\n    ]\n  }\n}",
+									"raw": "{\n  \"pricingPref\": \"{{$pricingPref}}\",\n  \"graph\": {\n    \"graphId\": \"pq-update: invalid-method (sync-error)\",\n    \"records\": [\n      {\n        \"referenceId\": \"refQuote\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"Quote\",\n            \"method\": \"DELETE\",\n            \"id\": \"{{quoteId}}\"\n          }\n        }\n      }\n    ]\n  }\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}{{versionPath}}/commerce/quotes/actions/place",
+									"host": [
+										"{{baseUrl}}{{versionPath}}"
+									],
+									"path": [
+										"commerce",
+										"quotes",
+										"actions",
+										"place"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "pq-create-invalid-ql-field",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											""
+										],
+										"type": "text/javascript"
+									}
+								},
+								{
+									"listen": "prerequest",
+									"script": {
+										"exec": [
+											"var moment = require('moment');",
+											"pm.environment.set('$currentDate', moment().format((\"YYYY-MM-DD\")));",
+											"",
+											"pm.environment.set(\"$quantity\", Math.floor(Math.random() * 9 + 1));",
+											"",
+											"var futureDateTime = moment().add(365, 'days');",
+											"pm.environment.set('$randomFutureDate', futureDateTime.format('YYYY-MM-DD'));",
+											"",
+											"pm.environment.set(\"$pricingPref\", \"skip\")"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"pricingPref\": \"skip\",\n  \"graph\": {\n    \"graphId\": \"pq-create: invalid QLI (sync-error)\",\n    \"records\": [\n      {\n        \"referenceId\": \"refQuote\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"Quote\",\n            \"method\": \"POST\"\n          },\n          \"Name\": \"Quote_{{$randomCompanyName}}\",\n          \"OpportunityId\": \"{{opportunityId}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItem1\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{evergreenPriceBookEntryId}}\",\n          \"Product2Id\": \"{{evergreenProductId}}\",\n          \"Quantity\": {{$quantity}},\n          \"UnitPrice\": \"{{unitPrice}}\",\n          \"PeriodBoundary\": \"INVALID\",\n          \"BillingFrequency\": \"Monthly\",\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItem2\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{termedPriceBookEntryId}}\",\n          \"Product2Id\": \"{{termedProductId}}\",\n          \"Quantity\": {{$quantity}},\n          \"UnitPrice\": {{unitPrice}},\n          \"EndDate\": \"{{$randomFutureDate}}\",\n          \"PeriodBoundary\": \"DayOfPeriod\",\n          \"PeriodBoundaryDay\": 4,\n          \"BillingFrequency\": \"Monthly\",\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      }\n    ]\n  }\n}",
 									"options": {
 										"raw": {
 											"language": "json"

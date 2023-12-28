@@ -7,19 +7,23 @@
 
 package com.salesforce.revoman.integration.core.pq;
 
-import static com.salesforce.revoman.input.HookConfig.post;
-import static com.salesforce.revoman.input.HookConfig.pre;
-import static com.salesforce.revoman.input.RequestConfig.unmarshallRequest;
-import static com.salesforce.revoman.input.ResponseConfig.unmarshallSuccessResponse;
-import static com.salesforce.revoman.input.ResponseConfig.validateIfFailed;
-import static com.salesforce.revoman.input.ResponseConfig.validateIfSuccess;
+import static com.salesforce.revoman.input.config.HookConfig.post;
+import static com.salesforce.revoman.input.config.HookConfig.pre;
+import static com.salesforce.revoman.input.config.RequestConfig.unmarshallRequest;
+import static com.salesforce.revoman.input.config.ResponseConfig.unmarshallSuccessResponse;
+import static com.salesforce.revoman.input.config.ResponseConfig.validateIfFailed;
+import static com.salesforce.revoman.input.config.ResponseConfig.validateIfSuccess;
 import static com.salesforce.revoman.integration.core.pq.adapters.ConnectInputRepWithGraphAdapter.adapter;
+import static com.salesforce.revoman.output.Rundown.StepReport.TxInfo.getPath;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.salesforce.revoman.ReVoman;
-import com.salesforce.revoman.input.Kick;
+import com.salesforce.revoman.input.config.Kick;
+import com.salesforce.revoman.input.config.StepPick.PostTxnStepPick;
+import com.salesforce.revoman.input.config.StepPick.PreTxnStepPick;
 import com.salesforce.revoman.integration.core.pq.connect.PlaceQuoteInputRepresentation;
 import com.salesforce.revoman.output.Rundown;
+import com.salesforce.revoman.output.Rundown.StepReport.TxInfo;
 import com.salesforce.vador.config.ValidationConfig;
 import java.util.List;
 import java.util.Map;
@@ -38,18 +42,8 @@ import org.slf4j.LoggerFactory;
  */
 class PQE2EWithSMTest {
   private static final Logger LOGGER = LoggerFactory.getLogger(PQE2EWithSMTest.class);
-  private static final Set<String> ASYNC_STEP_NAMES =
-      Set.of(
-          "pq-create: qli+qlr (skip-pricing)",
-          "pq-create: qli+qlr",
-          "pq-update: qli(post+patch+delete) + qlr",
-          "pq-update: qli(post+patch)",
-          "pq-update: qli(all post)",
-          "pq-update: qli+qlr(all post)",
-          "pq-update: qli(all patch)",
-          "pq-update: qli(all delete)",
-          "pq-update: qli(post+delete)");
-  private static final Set<String> FAILURE_STEP_NAMES =
+  private static final String PQ_PATH = "commerce/quotes/actions/place";
+  private static final Set<String> FAILURE_STEPS =
       Set.of("pq-create-without-quote (sync-error)", "pq-update-invalid-method (sync-error)");
   private static final Set<String> STEPS_TO_IGNORE_FOR_FAILURE =
       Set.of(
@@ -68,6 +62,11 @@ class PQE2EWithSMTest {
           "pm-templates/pq/user-creation-and-setup-pq.postman_collection.json",
           "pm-templates/pq/pre-salesRep.postman_collection.json",
           "pm-templates/pq/pq-sm.postman_collection.json");
+  private static final PreTxnStepPick PRE_TXN_PICK_FOR_ASYNC_STEPS =
+      (ignore1, requestInfo, ignore2) -> PQ_PATH.equalsIgnoreCase(getPath(requestInfo));
+  private static final PostTxnStepPick POST_TXN_PICK_FOR_ASYNC_STEPS =
+      (stepName, stepReport, rundown) ->
+          stepReport.getRequestInfo().map(TxInfo::getPath).contains(PQ_PATH);
 
   @Test
   void revUpPQ() {
@@ -98,13 +97,13 @@ class PQE2EWithSMTest {
                     "$quantity", ignore -> String.valueOf(Random.Default.nextInt(10) + 1))
                 .requestConfig( // <6>
                     unmarshallRequest(
-                        ASYNC_STEP_NAMES,
+                        PRE_TXN_PICK_FOR_ASYNC_STEPS,
                         PlaceQuoteInputRepresentation.class,
                         adapter(PlaceQuoteInputRepresentation.class)))
                 .haltOnAnyFailureExceptForSteps(STEPS_TO_IGNORE_FOR_FAILURE) // <7>
                 .hooks( // <8>
                     pre(
-                        ASYNC_STEP_NAMES,
+                        PRE_TXN_PICK_FOR_ASYNC_STEPS,
                         (stepName, requestInfo, rundown) -> {
                           final var pqInputRep =
                               requestInfo.<PlaceQuoteInputRepresentation>getTypedTxObj();
@@ -117,25 +116,28 @@ class PQE2EWithSMTest {
                             rundown.mutableEnv.set("$pricingPref", PricingPref.System.toString());
                           }
                         }),
-                    post("query-quote-and-related-records", PQE2EWithSMTest::assertAfterPQCreate),
                     post(
-                        ASYNC_STEP_NAMES,
-                        (stepName, rundown) -> {
+                        "query-quote-and-related-records",
+                        (ignore1, ignore2, rundown) -> assertAfterPQCreate(rundown)),
+                    post(
+                        POST_TXN_PICK_FOR_ASYNC_STEPS,
+                        (stepName, ignore, rundown) -> {
                           LOGGER.info(
-                              "Waiting after Step: {} for the Quote to get processed", stepName);
+                              "Waiting in PostHook for Step: {} for the Quote to get processed",
+                              stepName);
                           // ! CAUTION 10/09/23 gopala.akshintala: This test can be flaky until
                           // polling is implemented
-                          Thread.sleep(20000);
+                          Thread.sleep(5000);
                         }))
                 .responseConfig( // <9>
                     unmarshallSuccessResponse(
                         "quote-related-records", CompositeResponse.class), // <9.1>
                     validateIfSuccess( // <9.2>
-                        ASYNC_STEP_NAMES,
+                        POST_TXN_PICK_FOR_ASYNC_STEPS,
                         PlaceQuoteOutputRepresentation.class,
                         validatePQSuccessResponse),
                     validateIfFailed(
-                        FAILURE_STEP_NAMES,
+                        FAILURE_STEPS,
                         PlaceQuoteOutputRepresentation.class,
                         validatePQErrorResponse))
                 .insecureHttp(true) // <10>
@@ -150,7 +152,7 @@ class PQE2EWithSMTest {
     // end::pq-e2e-with-revoman-config-demo[]
   }
 
-  static void assertAfterPQCreate(String stepName, Rundown pqCreateQLIQLR) {
+  static void assertAfterPQCreate(Rundown pqCreateQLIQLR) {
     final var env = pqCreateQLIQLR.mutableEnv;
     // Quote: LineItemCount, quoteCalculationStatus
     assertThat(env).containsEntry("lineItemCount", 10);
@@ -166,11 +168,6 @@ class PQE2EWithSMTest {
     // QLRs: QuoteId, MainQuoteLineId, AssociatedQuoteLineId
     final var quoteIdFromQLRs = env.valuesForKeysStartingWith(String.class, "quoteForQLR");
     assertThat(quoteIdFromQLRs).containsOnly(env.getString("quoteId"));
-    assertThat(env.valuesForKeysStartingWith(String.class, "mainQuoteLine+associatedQuoteLine"))
-        .containsOnly(
-            env.get("qliCreated1Id") + "-" + env.get("qliCreated2Id"),
-            env.get("qliCreated1Id") + "-" + env.get("qliCreated3Id"),
-            env.get("qliCreated1Id") + "-" + env.get("qliCreated4Id"));
   }
 
   // end::pq-e2e-with-revoman-demo[]

@@ -7,9 +7,10 @@
  */
 package com.salesforce.revoman.output
 
-import com.salesforce.revoman.internal.isStepNameInPassList
+import com.salesforce.revoman.input.json.jsonToPojo
+import com.salesforce.revoman.internal.exe.isStepNameInPassList
+import com.salesforce.revoman.internal.exe.stepNameVariants
 import com.salesforce.revoman.internal.postman.pm
-import com.salesforce.revoman.internal.stepNameVariants
 import com.salesforce.revoman.output.Rundown.StepReport.ExeType.HTTP_REQUEST
 import com.salesforce.revoman.output.Rundown.StepReport.ExeType.POST_HOOK
 import com.salesforce.revoman.output.Rundown.StepReport.ExeType.PRE_HOOK
@@ -21,6 +22,7 @@ import com.salesforce.revoman.output.Rundown.StepReport.HookFailure.PostHookFail
 import com.salesforce.revoman.output.Rundown.StepReport.HookFailure.PreHookFailure
 import com.salesforce.revoman.output.Rundown.StepReport.RequestFailure.HttpRequestFailure
 import com.salesforce.revoman.output.postman.PostmanEnvironment
+import com.squareup.moshi.JsonAdapter
 import io.vavr.control.Either
 import io.vavr.control.Either.Left
 import io.vavr.control.Either.Right
@@ -164,6 +166,27 @@ data class Rundown(
     ) {
       fun <T> getTypedTxObj(): T? = txObjType?.let { (it as Class<T>).cast(txObj) }
 
+      @JvmOverloads
+      fun <T : Any> getTypedTxObj(
+        txObjType: Type,
+        customAdapters: List<Any> = emptyList(),
+        customAdaptersWithType: Map<Type, List<Either<JsonAdapter<Any>, JsonAdapter.Factory>>> =
+          emptyMap(),
+        typesToIgnore: Set<Class<out Any>> = emptySet()
+      ): T? =
+        jsonToPojo(
+          txObjType,
+          httpMsg.bodyString(),
+          customAdapters,
+          customAdaptersWithType,
+          typesToIgnore
+        )
+
+      fun containsHeader(key: String): Boolean = httpMsg.headers.toMap().containsKey(key)
+
+      fun containsHeader(key: String, value: String): Boolean =
+        httpMsg.headers.contains(key to value)
+
       override fun toString(): String {
         val prefix =
           when (httpMsg) {
@@ -172,6 +195,10 @@ data class Rundown(
             else -> "TxInfo"
           }
         return "$prefix(Type=$txObjType, Obj=$txObj, $httpMsg)"
+      }
+
+      companion object {
+        @JvmStatic fun TxInfo<Request>.getPath(): String = httpMsg.uri.path
       }
     }
 
@@ -273,5 +300,5 @@ fun buildStepNameFromBasePath(basePath: String, vararg pathToAppend: String): St
   basePath + pathToAppend.joinToString(FOLDER_DELIMITER)
 
 const val FOLDER_DELIMITER = "|>"
-const val HTTP_METHOD_SEPARATOR = "~~> "
+const val HTTP_METHOD_SEPARATOR = " ~~> "
 const val INDEX_SEPARATOR = " ### "

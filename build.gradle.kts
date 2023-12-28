@@ -44,6 +44,7 @@ testing {
           implementation(libs.assertj.core)
           implementation(libs.mockito.core)
           implementation(libs.spring.beans)
+          implementation(libs.json.assert)
         }
       }
   }

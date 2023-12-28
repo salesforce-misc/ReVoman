@@ -23,6 +23,7 @@ kotlin-faker = "1.15.0"
 immutables = "2.10.0"
 mockito = "5.8.0"
 spring = "5.3.30" # 5.3.30 Compatable with Java 11
+json-assert = "1.5.1"
 nexus-publish = "2.0.0-rc-1"
 
 # Common dependencies
@@ -68,6 +69,7 @@ junit-jupiter = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = 
 junit-engine = { module = "org.junit.jupiter:junit-jupiter-engine" }
 mockito-core = { module = "org.mockito:mockito-core", version.ref = "mockito" }
 spring-beans = { module = "org.springframework:spring-beans", version.ref = "spring" }
+json-assert = { module = "org.skyscreamer:jsonassert", version.ref = "json-assert" }
 
 # Gradle plugins
 kotlin-gradle = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }

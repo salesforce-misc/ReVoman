@@ -1,9 +1,9 @@
 {
 	"info": {
-		"_postman_id": "55dd83f5-0427-43f2-a173-afa244649164",
+		"_postman_id": "91dce492-f58d-498e-aa37-cf5ac35fcd31",
 		"name": "pokemon",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-		"_exporter_id": "168171"
+		"_exporter_id": "23827434"
 	},
 	"item": [
 		{
@@ -80,7 +80,13 @@
 									],
 									"request": {
 										"method": "GET",
-										"header": [],
+										"header": [
+											{
+												"key": "postLog",
+												"value": "true",
+												"type": "text"
+											}
+										],
 										"url": {
 											"raw": "{{baseUrl}}/pokemon-color/{{id}}",
 											"host": [
@@ -89,6 +95,13 @@
 											"path": [
 												"pokemon-color",
 												"{{id}}"
+											],
+											"query": [
+												{
+													"key": "",
+													"value": "",
+													"disabled": true
+												}
 											]
 										}
 									},
@@ -185,7 +198,13 @@
 			],
 			"request": {
 				"method": "GET",
-				"header": [],
+				"header": [
+					{
+						"key": "preLog",
+						"value": "true",
+						"type": "text"
+					}
+				],
 				"url": {
 					"raw": "{{baseUrl}}/nature/{{id}}",
 					"host": [
