@@ -1,0 +1,13 @@
+<component name="CopyrightManager">
+  <settings default="oss-sf">
+    <module2copyright>
+      <element module="All" copyright="oss-sf" />
+    </module2copyright>
+    <LanguageOptions name="__TEMPLATE__">
+      <option name="separateBefore" value="true" />
+      <option name="separateAfter" value="true" />
+      <option name="lenBefore" value="100" />
+      <option name="lenAfter" value="100" />
+    </LanguageOptions>
+  </settings>
+</component>
