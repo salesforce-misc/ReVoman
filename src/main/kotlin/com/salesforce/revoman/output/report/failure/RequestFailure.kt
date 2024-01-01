@@ -7,7 +7,8 @@
  */
 package com.salesforce.revoman.output.report.failure
 
-import com.salesforce.revoman.output.report.ExeType
+import com.salesforce.revoman.output.report.ExeType.HTTP_REQUEST
+import com.salesforce.revoman.output.report.ExeType.UNMARSHALL_REQUEST
 import com.salesforce.revoman.output.report.TxInfo
 import org.http4k.core.Request
 
@@ -19,13 +20,13 @@ sealed class RequestFailure : ExeFailure() {
     override val failure: Throwable,
     override val requestInfo: TxInfo<Request>
   ) : RequestFailure() {
-    override val exeType = ExeType.UNMARSHALL_REQUEST
+    override val exeType = UNMARSHALL_REQUEST
   }
 
   data class HttpRequestFailure(
     override val failure: Throwable,
     override val requestInfo: TxInfo<Request>
   ) : RequestFailure() {
-    override val exeType = ExeType.HTTP_REQUEST
+    override val exeType = HTTP_REQUEST
   }
 }

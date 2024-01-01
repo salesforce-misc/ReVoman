@@ -7,18 +7,14 @@
  */
 package com.salesforce.revoman.input.config
 
-import com.salesforce.revoman.input.config.HookConfig.Hook.PostHook
-import com.salesforce.revoman.input.config.HookConfig.Hook.PreHook
-import com.salesforce.revoman.input.config.HookConfig.HookType.POST
-import com.salesforce.revoman.input.config.HookConfig.HookType.PRE
+import com.salesforce.revoman.input.config.StepPick.ExeStepPick
 import com.salesforce.revoman.input.config.StepPick.PostTxnStepPick
 import com.salesforce.revoman.input.config.StepPick.PreTxnStepPick
-import com.salesforce.revoman.internal.exe.fqStepNameToStepName
 import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.JsonAdapter.Factory
 import io.vavr.control.Either
 import java.lang.reflect.Type
-import java.util.*
+import java.util.Collections.disjoint
 import org.immutables.value.Value
 import org.immutables.value.Value.Style.ImplementationVisibility.PUBLIC
 
@@ -39,87 +35,41 @@ internal interface KickDef {
 
   fun customDynamicVariables(): Map<String, (String) -> String>
 
-  fun runOnlySteps(): Set<String>
+  fun runOnlySteps(): List<ExeStepPick>
 
-  fun skipSteps(): Set<String>
+  fun skipSteps(): List<ExeStepPick>
 
-  fun haltOnAnyFailureExceptForSteps(): Set<String>
+  fun haltOnAnyFailureExcept(): PostTxnStepPick?
 
   @Value.Default fun haltOnAnyFailure(): Boolean = false
 
-  fun hooks(): Set<Set<HookConfig>>
+  fun hooks(): Set<HookConfig>
 
-  @Value.Derived
-  fun preHooksWithStepNamesFlattened(): Map<String, List<PreHook>> =
-    hooks()
-      .flatten()
-      .filter { it.pick.isLeft && it.pick.left.first == PRE }
-      .groupBy({ it.pick.left.second }, { it.hook as PreHook })
+  @Value.Derived fun preHooks(): List<HookConfig> = hooks().filter { it.pick is PreTxnStepPick }
 
-  @Value.Derived
-  fun postHooksWithStepNamesFlattened(): Map<String, List<PostHook>> =
-    hooks()
-      .flatten()
-      .asSequence()
-      .filter { it.pick.isLeft && it.pick.left.first == POST }
-      .groupBy({ it.pick.left.second }, { it.hook as PostHook })
-
-  @Value.Derived
-  fun preHooksWithPicksFlattened(): List<Pair<PreTxnStepPick, PreHook>> =
-    hooks()
-      .flatten()
-      .filter { it.pick.isRight && it.pick.get() is PreTxnStepPick }
-      .map { it.pick.get() as PreTxnStepPick to it.hook as PreHook }
-
-  @Value.Derived
-  fun postHooksWithPicksFlattened(): List<Pair<PostTxnStepPick, PostHook>> =
-    hooks()
-      .flatten()
-      .filter { it.pick.isRight && it.pick.get() is PostTxnStepPick }
-      .map { it.pick.get() as PostTxnStepPick to it.hook as PostHook }
+  @Value.Derived fun postHooks(): List<HookConfig> = hooks().filter { it.pick is PostTxnStepPick }
 
   // * NOTE 29/10/23 gopala.akshintala: requestConfig/responseConfig are decoupled from pre- /
   // post-hook to allow setting up unmarshalling to strong types, on the final rundown,
   // agnostic of whether the step has any hook
 
-  fun requestConfig(): Set<Set<RequestConfig>>
-
-  @Value.Derived
-  fun stepNameToRequestConfig(): Map<String, RequestConfig> =
-    requestConfig().flatten().filter { it.pick.isLeft }.associateBy { it.pick.left }
-
-  @Value.Derived
-  fun pickToRequestConfig(): List<Pair<PreTxnStepPick, RequestConfig>> =
-    requestConfig().flatten().filter { it.pick.isRight }.map { it.pick.get() to it }
+  fun requestConfig(): Set<RequestConfig>
 
   @Value.Derived
   fun customAdaptersFromRequestConfig(): Map<Type, List<Either<JsonAdapter<Any>, Factory>>> =
     requestConfig()
-      .flatten()
       .filter { it.customAdapter != null }
       .groupBy({ it.requestType }, { it.customAdapter!! })
 
-  fun responseConfig(): Set<Set<ResponseConfig>>
+  fun responseConfig(): Set<ResponseConfig>
 
   @Value.Derived
-  fun stepNameToResponseConfig(): Map<Pair<Boolean, String>, ResponseConfig> =
-    responseConfig()
-      .flatten()
-      .filter { it.pick.isLeft }
-      .associateBy { it.ifSuccess to it.pick.left }
-
-  @Value.Derived
-  fun pickToResponseConfig(): Map<Boolean, List<Pair<PostTxnStepPick, ResponseConfig>>> =
-    responseConfig()
-      .flatten()
-      .filter { it.pick.isRight }
-      .map { it.pick.get() to it }
-      .groupBy { it.second.ifSuccess }
+  fun pickToResponseConfig(): Map<Boolean, List<ResponseConfig>> =
+    responseConfig().groupBy { it.ifSuccess }
 
   @Value.Derived
   fun customAdaptersFromResponseConfig(): Map<Type, List<Either<JsonAdapter<Any>, Factory>>> =
     responseConfig()
-      .flatten()
       .filter { it.customAdapter != null }
       .groupBy({ it.responseType }, { it.customAdapter!! })
 
@@ -132,37 +82,12 @@ internal interface KickDef {
   @Value.Check
   fun validateConfig() {
     require(
-      !haltOnAnyFailure() || (haltOnAnyFailure() && haltOnAnyFailureExceptForSteps().isEmpty()),
+      !haltOnAnyFailure() || (haltOnAnyFailure() && haltOnAnyFailureExcept() == null),
     ) {
-      "`haltOnAnyFailureExceptForSteps` should be empty when `haltOnAnyFailure` is set to True"
+      "`haltOnAnyFailureExcept` should NOT be set when `haltOnAnyFailure` is set to `True`"
     }
-    require(Collections.disjoint(runOnlySteps(), skipSteps())) {
+    require(disjoint(runOnlySteps(), skipSteps())) {
       "`runOnlySteps` and `skipSteps` cannot contain same step names"
-    }
-
-    val stepNamesWithMultipleRequestConfigs =
-      stepNameToRequestConfig()
-        .keys
-        // ! TODO 27/12/23 gopala.akshintala: This might not work if there is a mix of fullStepName
-        // and StepName, but it's a corner case as two steps with same name may have same
-        // requestConfig
-        .groupingBy { fqStepNameToStepName(it) }
-        .eachCount()
-        .filterValues { it > 1 }
-        .keys
-    require(stepNamesWithMultipleRequestConfigs.isEmpty()) {
-      "Duplicate RequestConfigs detected for stepNames: ${stepNamesWithMultipleRequestConfigs.joinToString(", ")}"
-    }
-
-    val stepNamesWithMultipleResponseConfigs =
-      stepNameToResponseConfig()
-        .keys
-        .groupingBy { fqStepNameToStepName(it.second) }
-        .eachCount()
-        .filterValues { it > 1 }
-        .keys
-    require(stepNamesWithMultipleResponseConfigs.isEmpty()) {
-      "Duplicate ResponseConfigs detected for stepNames: ${stepNamesWithMultipleResponseConfigs.joinToString(", ")}"
     }
   }
   // ! TODO 22/06/23 gopala.akshintala: Validate if validation config for a step is mentioned but

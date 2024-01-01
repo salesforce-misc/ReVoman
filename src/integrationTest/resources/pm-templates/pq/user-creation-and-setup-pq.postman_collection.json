@@ -1,7 +1,7 @@
 {
 	"info": {
 		"_postman_id": "51ef3fb7-78bd-4244-be0c-a9353d4747ee",
-		"name": "user-creation-and-setup-pq",
+		"name": "[sm] user-creation-and-setup-pq",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
 		"_exporter_id": "23827434"
 	},
@@ -144,7 +144,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<env:Envelope xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"\n    xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n    xmlns:env=\"http://schemas.xmlsoap.org/soap/envelope/\">\n  <env:Body>\n    <n1:login xmlns:n1=\"urn:partner.soap.sforce.com\">\n      <n1:username><![CDATA[{{username}}]]></n1:username>\n      <n1:password><![CDATA[{{password}}]]></n1:password>\n    </n1:login>\n  </env:Body>\n</env:Envelope>"
+							"raw": "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<env:Envelope xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"\n    xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n    xmlns:env=\"http://schemas.xmlsoap.org/soap/envelope/\">\n  <env:Body>\n    <n1:login xmlns:n1=\"urn:partner.soap.sforce.com\">\n      <n1:username><![CDATA[{{username}}]]></n1:username>\n      <n1:password><![CDATA[{{password}}{{secretToken-admin}}]]></n1:password>\n    </n1:login>\n  </env:Body>\n</env:Envelope>"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/services/Soap/u/{{version}}",
@@ -283,69 +283,13 @@
 					"response": []
 				},
 				{
-					"name": "TaxAdminUser",
-					"event": [
-						{
-							"listen": "prerequest",
-							"script": {
-								"exec": [
-									"pm.environment.set(\"taxAdminUserName\", 'taxAdmin@revoman.org');"
-								],
-								"type": "text/javascript"
-							}
-						},
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"var jsonData = JSON.parse(responseBody);",
-									"",
-									"var statusCode = jsonData.compositeResponse[0].httpStatusCode;",
-									"if (statusCode == 201) {",
-									"    jsonData.compositeResponse.forEach(function(response) {",
-									"        var referenceId = response.referenceId;",
-									"        if (referenceId === \"refUser\") {",
-									"            pm.environment.set(\"taxAdminUserId\", response.body.id);",
-									"        } ",
-									"    })",
-									"};"
-								],
-								"type": "text/javascript"
-							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"header": [],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"allOrNone\": true,\n  \"compositeRequest\": [\n    {\n      \"method\": \"POST\",\n      \"url\": \"{{versionPath}}/sobjects/User\",\n      \"referenceId\": \"refUser\",\n      \"body\": {\n        \"Username\": \"{{taxAdminUserName}}\",\n        \"ProfileId\": \"{{standardUserProfileId}}\",\n        \"Alias\": \"taxAdmin\",\n        \"Email\": \"{{$randomEmail}}\",\n        \"EmailEncodingKey\": \"ISO-8859-1\",\n        \"LastName\": \"TaxAdmin\",\n        \"LanguageLocaleKey\": \"en_US\",\n        \"LocaleSidKey\": \"en_US\",\n        \"TimeZoneSidKey\": \"America/Los_Angeles\"\n      }\n    },\n    {\n      \"method\": \"POST\",\n      \"url\": \"{{versionPath}}/sobjects/PermissionSetAssignment/\",\n      \"referenceId\": \"taxAdminPsgAssignment\",\n      \"body\": {\n        \"AssigneeId\": \"@{refUser.id}\",\n        \"PermissionSetGroupId\": \"{{taxAdminPsgId}}\"\n      }\n    }\n  ]\n}",
-							"options": {
-								"raw": {
-									"language": "json"
-								}
-							}
-						},
-						"url": {
-							"raw": "{{baseUrl}}{{versionPath}}/composite",
-							"host": [
-								"{{baseUrl}}{{versionPath}}"
-							],
-							"path": [
-								"composite"
-							]
-						}
-					},
-					"response": []
-				},
-				{
 					"name": "BillingAdminUser",
 					"event": [
 						{
 							"listen": "prerequest",
 							"script": {
 								"exec": [
-									"pm.environment.set(\"billingAdminUserName\", \"billingAdmin@revoman.org\");"
+									"pm.environment.set(\"billingAdminUserName\", \"billingAdmin-sm@revoman.org\");"
 								],
 								"type": "text/javascript"
 							}
@@ -406,13 +350,69 @@
 					"response": []
 				},
 				{
+					"name": "TaxAdminUser",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"pm.environment.set(\"taxAdminUserName\", 'taxAdmin-sm@revoman.org');"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"",
+									"var statusCode = jsonData.compositeResponse[0].httpStatusCode;",
+									"if (statusCode == 201) {",
+									"    jsonData.compositeResponse.forEach(function(response) {",
+									"        var referenceId = response.referenceId;",
+									"        if (referenceId === \"refUser\") {",
+									"            pm.environment.set(\"taxAdminUserId\", response.body.id);",
+									"        } ",
+									"    })",
+									"};"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"allOrNone\": true,\n  \"compositeRequest\": [\n    {\n      \"method\": \"POST\",\n      \"url\": \"{{versionPath}}/sobjects/User\",\n      \"referenceId\": \"refUser\",\n      \"body\": {\n        \"Username\": \"{{taxAdminUserName}}\",\n        \"ProfileId\": \"{{standardUserProfileId}}\",\n        \"Alias\": \"taxAdmin\",\n        \"Email\": \"{{$randomEmail}}\",\n        \"EmailEncodingKey\": \"ISO-8859-1\",\n        \"LastName\": \"TaxAdmin\",\n        \"LanguageLocaleKey\": \"en_US\",\n        \"LocaleSidKey\": \"en_US\",\n        \"TimeZoneSidKey\": \"America/Los_Angeles\"\n      }\n    },\n    {\n      \"method\": \"POST\",\n      \"url\": \"{{versionPath}}/sobjects/PermissionSetAssignment/\",\n      \"referenceId\": \"taxAdminPsgAssignment\",\n      \"body\": {\n        \"AssigneeId\": \"@{refUser.id}\",\n        \"PermissionSetGroupId\": \"{{taxAdminPsgId}}\"\n      }\n    }\n  ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}{{versionPath}}/composite",
+							"host": [
+								"{{baseUrl}}{{versionPath}}"
+							],
+							"path": [
+								"composite"
+							]
+						}
+					},
+					"response": []
+				},
+				{
 					"name": "ProductAndPricingAdminUser",
 					"event": [
 						{
 							"listen": "prerequest",
 							"script": {
 								"exec": [
-									"pm.environment.set(\"productAndPricingAdminUserName\", \"productAndPricingAdmin@revoman.org\");"
+									"pm.environment.set(\"productAndPricingAdminUserName\", \"productAndPricingAdmin-sm@revoman.org\");"
 								],
 								"type": "text/javascript"
 							}
@@ -477,7 +477,7 @@
 							"listen": "prerequest",
 							"script": {
 								"exec": [
-									"pm.environment.set(\"salesRepUserName\", \"salesRep@revoman.org\");"
+									"pm.environment.set(\"salesRepUserName\", \"salesRep-sm@revoman.org\");"
 								],
 								"type": "text/javascript"
 							}
@@ -643,7 +643,7 @@
 								],
 								"body": {
 									"mode": "raw",
-									"raw": "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<env:Envelope xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"\n    xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n    xmlns:env=\"http://schemas.xmlsoap.org/soap/envelope/\">\n  <env:Body>\n    <n1:login xmlns:n1=\"urn:partner.soap.sforce.com\">\n      <n1:username><![CDATA[{{billingAdminUserName}}]]></n1:username>\n      <n1:password><![CDATA[{{commonUserPassword}}]]></n1:password>\n    </n1:login>\n  </env:Body>\n</env:Envelope>"
+									"raw": "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<env:Envelope xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"\n    xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n    xmlns:env=\"http://schemas.xmlsoap.org/soap/envelope/\">\n  <env:Body>\n    <n1:login xmlns:n1=\"urn:partner.soap.sforce.com\">\n      <n1:username><![CDATA[{{billingAdminUserName}}]]></n1:username>\n      <n1:password><![CDATA[{{commonUserPassword}}{{secretToken-billingAdmin}}]]></n1:password>\n    </n1:login>\n  </env:Body>\n</env:Envelope>"
 								},
 								"url": {
 									"raw": "{{baseUrl}}/services/Soap/u/{{version}}",
@@ -1142,7 +1142,7 @@
 								],
 								"body": {
 									"mode": "raw",
-									"raw": "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<env:Envelope xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"\n    xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n    xmlns:env=\"http://schemas.xmlsoap.org/soap/envelope/\">\n  <env:Body>\n    <n1:login xmlns:n1=\"urn:partner.soap.sforce.com\">\n      <n1:username><![CDATA[{{taxAdminUserName}}]]></n1:username>\n      <n1:password><![CDATA[{{commonUserPassword}}]]></n1:password>\n    </n1:login>\n  </env:Body>\n</env:Envelope>"
+									"raw": "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<env:Envelope xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"\n    xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n    xmlns:env=\"http://schemas.xmlsoap.org/soap/envelope/\">\n  <env:Body>\n    <n1:login xmlns:n1=\"urn:partner.soap.sforce.com\">\n      <n1:username><![CDATA[{{taxAdminUserName}}]]></n1:username>\n      <n1:password><![CDATA[{{commonUserPassword}}{{secretToken-taxAdmin}}]]></n1:password>\n    </n1:login>\n  </env:Body>\n</env:Envelope>"
 								},
 								"url": {
 									"raw": "{{baseUrl}}/services/Soap/u/{{version}}",
@@ -1184,6 +1184,11 @@
 									{
 										"key": "Sforce-Call-Options",
 										"value": "client=SfdcInternalQA/..."
+									},
+									{
+										"key": "ignoreForFailure",
+										"value": "true",
+										"type": "text"
 									}
 								],
 								"body": {
@@ -1271,7 +1276,13 @@
 							],
 							"request": {
 								"method": "POST",
-								"header": [],
+								"header": [
+									{
+										"key": "ignoreForFailure",
+										"value": "true",
+										"type": "text"
+									}
+								],
 								"body": {
 									"mode": "raw",
 									"raw": "{\n    \"apexadapterid\":\"{{mockTaxAdapterId}}\", \n    \"developername\":\"{{$randomFirstName}}\",\n    \"masterlabel\":\"{{$randomLastName}}\"\n}",
@@ -1617,7 +1628,7 @@
 										],
 										"body": {
 											"mode": "raw",
-											"raw": "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<env:Envelope xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"\n    xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n    xmlns:env=\"http://schemas.xmlsoap.org/soap/envelope/\">\n  <env:Body>\n    <n1:login xmlns:n1=\"urn:partner.soap.sforce.com\">\n      <n1:username><![CDATA[{{productAndPricingAdminUserName}}]]></n1:username>\n      <n1:password><![CDATA[{{commonUserPassword}}]]></n1:password>\n    </n1:login>\n  </env:Body>\n</env:Envelope>"
+											"raw": "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<env:Envelope xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"\n    xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n    xmlns:env=\"http://schemas.xmlsoap.org/soap/envelope/\">\n  <env:Body>\n    <n1:login xmlns:n1=\"urn:partner.soap.sforce.com\">\n      <n1:username><![CDATA[{{productAndPricingAdminUserName}}]]></n1:username>\n      <n1:password><![CDATA[{{commonUserPassword}}{{secretToken-productAndPricingAdmin}}]]></n1:password>\n    </n1:login>\n  </env:Body>\n</env:Envelope>"
 										},
 										"url": {
 											"raw": "{{baseUrl}}/services/Soap/u/{{version}}",
@@ -1734,7 +1745,13 @@
 											]
 										},
 										"method": "POST",
-										"header": [],
+										"header": [
+											{
+												"key": "ignoreForFailure",
+												"value": "true",
+												"type": "text"
+											}
+										],
 										"body": {
 											"mode": "raw",
 											"raw": "{\n    \"Name\": \"Test Proration Policy\",\n    \"ProrationPolicyType\": \"StandardTimePeriods\",\n    \"RemainderStrategy\": \"AddToFirst\"\n}",
@@ -1899,7 +1916,13 @@
 											]
 										},
 										"method": "POST",
-										"header": [],
+										"header": [
+											{
+												"key": "ignoreForFailure",
+												"value": "true",
+												"type": "text"
+											}
+										],
 										"body": {
 											"mode": "raw",
 											"raw": "{\n    \"SellingModelType\": \"OneTime\",\n    \"Name\": \"OneTime PSM\",\n    \"Status\": \"Active\"\n}",
@@ -2163,7 +2186,13 @@
 											]
 										},
 										"method": "POST",
-										"header": [],
+										"header": [
+											{
+												"key": "ignoreForFailure",
+												"value": "true",
+												"type": "text"
+											}
+										],
 										"body": {
 											"mode": "raw",
 											"raw": "{\n    \"SellingModelType\": \"Evergreen\",\n    \"PricingTerm\": 1,\n    \"PricingTermUnit\": \"Months\",\n    \"Name\": \"Monthly Evergreen PSM\",\n    \"Status\": \"Active\"\n}",
@@ -2427,7 +2456,13 @@
 											]
 										},
 										"method": "POST",
-										"header": [],
+										"header": [
+											{
+												"key": "ignoreForFailure",
+												"value": "true",
+												"type": "text"
+											}
+										],
 										"body": {
 											"mode": "raw",
 											"raw": "{\n    \"SellingModelType\": \"TermDefined\",\n    \"PricingTerm\": 1,\n    \"PricingTermUnit\": \"Months\",\n    \"Name\": \"Monthly Termed PSM\",\n    \"Status\": \"Active\"\n}",
@@ -2638,6 +2673,11 @@
 										"name": "Content-Type",
 										"type": "text",
 										"value": "application/json"
+									},
+									{
+										"key": "ignoreForFailure",
+										"value": "true",
+										"type": "text"
 									}
 								],
 								"body": {

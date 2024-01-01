@@ -6,15 +6,11 @@ import java.io.File
 import okio.BufferedSource
 import okio.FileSystem
 import okio.Path.Companion.toPath
-import okio.Source
 import okio.buffer
 import okio.source
 
-private fun readFileInResources(fileRelativePath: String): Source =
-  FileSystem.RESOURCES.source(fileRelativePath.toPath())
-
 fun bufferFileInResources(fileRelativePath: String): BufferedSource =
-  readFileInResources(fileRelativePath).buffer()
+  FileSystem.RESOURCES.source(fileRelativePath.toPath()).buffer()
 
 fun readFileInResourcesToString(fileRelativePath: String): String =
   bufferFileInResources(fileRelativePath).readUtf8()

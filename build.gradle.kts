@@ -20,7 +20,6 @@ dependencies {
   api(libs.bundles.vador)
   api(libs.arrow.core)
   implementation(libs.bundles.kotlin.logging)
-  implementation(libs.apache.commons.lang3)
   implementation(libs.graal.sdk)
   implementation(libs.graal.js)
   implementation(libs.kotlin.faker)

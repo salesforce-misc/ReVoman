@@ -10,18 +10,20 @@ package com.salesforce.revoman.integration.pokemon;
 import static com.salesforce.revoman.input.config.HookConfig.post;
 import static com.salesforce.revoman.input.config.HookConfig.pre;
 import static com.salesforce.revoman.input.config.ResponseConfig.validateIfSuccess;
+import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.afterAllStepsContainingHeader;
+import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.afterStepName;
+import static com.salesforce.revoman.input.config.StepPick.PreTxnStepPick.beforeAllStepsContainingHeader;
+import static com.salesforce.revoman.input.config.StepPick.PreTxnStepPick.beforeStepName;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.times;
 
 import com.salesforce.revoman.ReVoman;
 import com.salesforce.revoman.input.config.HookConfig.Hook.PostHook;
 import com.salesforce.revoman.input.config.HookConfig.Hook.PreHook;
 import com.salesforce.revoman.input.config.Kick;
-import com.salesforce.revoman.input.config.StepPick.PostTxnStepPick;
-import com.salesforce.revoman.input.config.StepPick.PreTxnStepPick;
 import com.salesforce.revoman.output.Rundown;
+import com.salesforce.revoman.output.report.Step;
 import com.salesforce.revoman.output.report.StepReport;
 import com.salesforce.revoman.output.report.TxInfo;
 import com.salesforce.vador.config.ValidationConfig;
@@ -37,15 +39,6 @@ import org.slf4j.LoggerFactory;
 class PokemonTest {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(PokemonTest.class);
-
-  private static final PreTxnStepPick preLogHookPick =
-      (ignore1, requestInfo, ignore2) -> requestInfo.containsHeader("preLog", "true");
-  private static final PostTxnStepPick postLogHookPick =
-      (stepReport, rundown) ->
-          stepReport
-              .getRequestInfo()
-              .map(r -> r.containsHeader("postLog", "true"))
-              .getOrElse(false);
 
   @Test
   void pokemon() {
@@ -77,10 +70,10 @@ class PokemonTest {
             new PreHook() {
               @Override
               public void accept(
-                  @NotNull String stepName,
+                  @NotNull Step currentStep,
                   @NotNull TxInfo<Request> requestInfo,
                   @NotNull Rundown rundown) {
-                LOGGER.info("Picked `preLogHook` for stepName: {}", stepName);
+                LOGGER.info("Picked `preLogHook` for stepName: {}", currentStep);
               }
             });
     //noinspection Convert2Lambda
@@ -90,7 +83,7 @@ class PokemonTest {
               @Override
               public void accept(@NotNull StepReport currentStepReport, @NotNull Rundown rundown) {
                 LOGGER.info(
-                    "Picked `postLogHook` for stepName: {}", currentStepReport.getStepName());
+                    "Picked `postLogHook` for stepName: {}", currentStepReport.step.displayName);
               }
             });
     //noinspection Convert2Lambda
@@ -99,7 +92,7 @@ class PokemonTest {
             new PreHook() {
               @Override
               public void accept(
-                  @NotNull String stepName,
+                  @NotNull Step currentStep,
                   @NotNull TxInfo<Request> requestInfo,
                   @NotNull Rundown rundown) {
                 rundown.mutableEnv.set("limit", String.valueOf(newLimit));
@@ -121,12 +114,15 @@ class PokemonTest {
                 .templatePath(pmCollectionPath)
                 .environmentPath(pmEnvironmentPath)
                 .hooks(
-                    pre("all-pokemon", preHook),
-                    post("all-pokemon", postHook),
-                    pre(preLogHookPick, preLogHook),
-                    post(postLogHookPick, postLogHook))
+                    pre(beforeStepName("all-pokemon"), preHook),
+                    post(afterStepName("all-pokemon"), postHook),
+                    pre(beforeAllStepsContainingHeader("preLog"), preLogHook),
+                    post(afterAllStepsContainingHeader("postLog"), postLogHook))
                 .responseConfig(
-                    validateIfSuccess("all-pokemon", Results.class, pokemonResultsValidationConfig))
+                    validateIfSuccess(
+                        afterStepName("all-pokemon"),
+                        Results.class,
+                        pokemonResultsValidationConfig))
                 .dynamicEnvironment(dynamicEnvironment)
                 .haltOnAnyFailure(true)
                 .off());
@@ -134,9 +130,9 @@ class PokemonTest {
     Mockito.verify(resultSizeValidator, times(1)).apply(any());
     Mockito.verify(preHook, times(1)).accept(any(), any(), any());
     Mockito.verify(postHook, times(1)).accept(any(), any());
-    Mockito.verify(preLogHook, times(1)).accept(anyString(), any(), any());
+    Mockito.verify(preLogHook, times(1)).accept(any(), any(), any());
     Mockito.verify(postLogHook, times(1)).accept(any(), any());
-    assertThat(pokeRundown.stepNameToReport).hasSize(5);
+    assertThat(pokeRundown.stepReports).hasSize(5);
     assertThat(pokeRundown.mutableEnv)
         .containsExactlyInAnyOrderEntriesOf(
             Map.of(

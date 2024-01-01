@@ -8,6 +8,7 @@
 package com.salesforce.revoman.output.report
 
 import com.salesforce.revoman.input.json.jsonToPojo
+import com.salesforce.revoman.output.endsWith
 import com.squareup.moshi.JsonAdapter
 import io.vavr.control.Either
 import java.lang.reflect.Type
@@ -16,9 +17,9 @@ import org.http4k.core.Request
 import org.http4k.core.Response
 
 data class TxInfo<HttpMsgT : HttpMessage>(
-  val txObjType: Type? = null,
-  val txObj: Any? = null,
-  val httpMsg: HttpMsgT
+  @JvmField val txObjType: Type? = null,
+  @JvmField val txObj: Any? = null,
+  @JvmField val httpMsg: HttpMsgT
 ) {
   fun <T> getTypedTxObj(): T? = txObjType?.let { (it as Class<T>).cast(txObj) }
 
@@ -53,6 +54,10 @@ data class TxInfo<HttpMsgT : HttpMessage>(
   }
 
   companion object {
-    @JvmStatic fun TxInfo<Request>.getPath(): String = httpMsg.uri.path
+    @JvmStatic fun TxInfo<Request>.getURIPath(): String = httpMsg.uri.path
+
+    @JvmStatic
+    fun TxInfo<Request>.uriPathEndsWith(path: String): Boolean =
+      httpMsg.uri.path.trim('/').split("/").endsWith(path.trim('/').split("/"))
   }
 }

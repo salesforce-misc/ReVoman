@@ -2,6 +2,9 @@ package com.salesforce.revoman.output
 
 import arrow.core.Either.Left
 import arrow.core.Either.Right
+import com.salesforce.revoman.output.report.Step
+import com.salesforce.revoman.output.report.Step.Companion.HTTP_METHOD_SEPARATOR
+import com.salesforce.revoman.output.report.Step.Companion.INDEX_SEPARATOR
 import com.salesforce.revoman.output.report.StepReport
 import com.salesforce.revoman.output.report.TxInfo
 import com.salesforce.revoman.output.report.failure.HookFailure.PostHookFailure
@@ -17,12 +20,6 @@ import org.junit.jupiter.api.Test
 
 class RundownTest {
 
-  @Test
-  fun `build step name`() {
-    buildStepName("1.2.1", "POST", "product-setup", "OneTime", "One-Time Product") shouldBe
-      "1.2.1${INDEX_SEPARATOR}POST${HTTP_METHOD_SEPARATOR}product-setup${FOLDER_DELIMITER}OneTime${FOLDER_DELIMITER}One-Time Product"
-  }
-
   // ! TODO 04/12/23 gopala.akshintala: Add assertions for toString
   @Test
   fun `StepReport toString`() {
@@ -33,26 +30,38 @@ class RundownTest {
         "fakeRequest",
         Request(POST, Uri.of("https://overfullstack.github.io/"))
       )
-    val stepReportSuccess = StepReport(stepName, Right(requestInfo))
+    val stepReportSuccess =
+      StepReport(
+        Step("", stepName, com.salesforce.revoman.internal.postman.state.Request()),
+        Right(requestInfo)
+      )
     println(stepReportSuccess)
     stepReportSuccess.isHttpStatusSuccessful shouldBe true
 
     val stepReportHttpFailure =
-      StepReport(stepName, Left(HttpRequestFailure(RuntimeException("fakeRTE"), requestInfo)))
+      StepReport(
+        Step("", stepName, com.salesforce.revoman.internal.postman.state.Request()),
+        Left(HttpRequestFailure(RuntimeException("fakeRTE"), requestInfo))
+      )
     println(stepReportHttpFailure)
     stepReportHttpFailure.isHttpStatusSuccessful shouldBe false
 
     val badResponseInfo: TxInfo<Response> =
       TxInfo(String::class.java, "fakeResponse", Response(BAD_REQUEST).body("fakeResponse"))
     val stepReportBadRequest =
-      StepReport(stepName, Right(requestInfo), null, Right(badResponseInfo))
+      StepReport(
+        Step("", stepName, com.salesforce.revoman.internal.postman.state.Request()),
+        Right(requestInfo),
+        null,
+        Right(badResponseInfo)
+      )
     println(stepReportBadRequest)
     stepReportBadRequest.isHttpStatusSuccessful shouldBe false
 
     val responseInfo: TxInfo<Response> = TxInfo(String::class.java, "fakeResponse", Response(OK))
     val stepReportPostHookFailure =
       StepReport(
-        stepName,
+        Step("", stepName, com.salesforce.revoman.internal.postman.state.Request()),
         Right(requestInfo),
         null,
         Right(responseInfo),

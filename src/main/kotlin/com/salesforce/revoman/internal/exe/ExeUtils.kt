@@ -8,165 +8,122 @@
 package com.salesforce.revoman.internal.exe
 
 import arrow.core.Either
-import com.salesforce.revoman.input.config.HookConfig.Hook
+import arrow.core.Either.Left
+import arrow.core.Either.Right
+import com.salesforce.revoman.input.config.HookConfig
 import com.salesforce.revoman.input.config.HookConfig.Hook.PostHook
 import com.salesforce.revoman.input.config.HookConfig.Hook.PreHook
 import com.salesforce.revoman.input.config.RequestConfig
 import com.salesforce.revoman.input.config.ResponseConfig
+import com.salesforce.revoman.input.config.StepPick.ExeStepPick
 import com.salesforce.revoman.input.config.StepPick.PostTxnStepPick
 import com.salesforce.revoman.input.config.StepPick.PreTxnStepPick
-import com.salesforce.revoman.internal.postman.state.Auth
 import com.salesforce.revoman.internal.postman.state.Item
-import com.salesforce.revoman.output.FOLDER_DELIMITER
-import com.salesforce.revoman.output.HTTP_METHOD_SEPARATOR
-import com.salesforce.revoman.output.INDEX_SEPARATOR
 import com.salesforce.revoman.output.Rundown
 import com.salesforce.revoman.output.report.ExeType
+import com.salesforce.revoman.output.report.Folder
+import com.salesforce.revoman.output.report.Step
 import com.salesforce.revoman.output.report.StepReport
 import com.salesforce.revoman.output.report.TxInfo
 import io.github.oshai.kotlinlogging.KotlinLogging
-import org.apache.commons.lang3.StringUtils
 import org.http4k.core.ContentType.Companion.APPLICATION_JSON
 import org.http4k.core.HttpMessage
 import org.http4k.core.Request
 
-internal fun isContentTypeApplicationJson(httpMessage: HttpMessage) =
+internal fun isJsonBody(httpMessage: HttpMessage) =
   httpMessage.bodyString().isNotBlank() &&
     httpMessage.header("content-type")?.let {
-      StringUtils.deleteWhitespace(it)
-        .equals(StringUtils.deleteWhitespace(APPLICATION_JSON.toHeaderValue()), ignoreCase = true)
+      val contentType = it.split(";")
+      contentType.size > 1 && contentType[0].trim().equals(APPLICATION_JSON.value, true)
     } == true
 
-internal fun List<Item>.deepFlattenItems(
-  parentFolderName: String = "",
-  parentIndex: String = "",
-  authFromRoot: Auth? = null
-): List<Item> =
-  asSequence()
+internal fun deepFlattenItems(
+  items: List<Item>,
+  parentFolder: Folder? = null,
+  stepIndexFromParent: String = "",
+): List<Pair<Step, Item>> =
+  items
+    .asSequence()
     .flatMapIndexed { itemIndex, item ->
-      val concatWithParentFolder =
-        if (parentFolderName.isBlank()) item.name
-        else "$parentFolderName$FOLDER_DELIMITER${item.name}"
-      val index = if (parentIndex.isBlank()) "${itemIndex + 1}" else "$parentIndex.${itemIndex + 1}"
+      val stepIndex =
+        if (stepIndexFromParent.isBlank()) "${itemIndex + 1}"
+        else "$stepIndexFromParent.${itemIndex + 1}"
       item.item
-        ?.map { childItem -> childItem.copy(auth = childItem.auth ?: item.auth ?: authFromRoot) }
-        ?.deepFlattenItems(concatWithParentFolder, index)
+        ?.map { childItem -> childItem.copy(auth = childItem.auth ?: item.auth) }
+        ?.let {
+          val currentFolder = Folder(item.name, parentFolder)
+          parentFolder?.subFolders?.add(currentFolder)
+          deepFlattenItems(it, currentFolder, stepIndex)
+        }
         ?: listOf(
-          item.copy(
-            name =
-              "$index$INDEX_SEPARATOR${item.request.method}$HTTP_METHOD_SEPARATOR$concatWithParentFolder",
-            auth = item.auth ?: authFromRoot
-          )
+          Step(stepIndex, item.name, item.request, parentFolder) to item.copy(auth = item.auth)
         )
     }
     .toList()
 
-internal inline fun <reified T : Hook> getHooksForStepName(
-  currentStepName: String,
-  stepNameToHooks: Map<String, List<Hook>>
-): List<T> {
-  val stepNameVariants = stepNameVariants(currentStepName)
-  return stepNameToHooks
-    .filterKeys { stepNameVariants.contains(it) }
-    .values
-    .flatten()
-    .map { it as T }
-}
-
 internal fun pickPreHooks(
-  preHooksWithPicks: List<Pair<PreTxnStepPick, PreHook>>,
-  currentStepName: String,
+  preHooks: List<HookConfig>,
+  currentStep: Step,
   requestInfo: TxInfo<Request>,
   rundown: Rundown
 ): List<PreHook> =
-  preHooksWithPicks
+  preHooks
     .asSequence()
-    .filter { it.first.pick(currentStepName, requestInfo, rundown) }
-    .map { it.second }
+    .filter { (it.pick as PreTxnStepPick).pick(currentStep, requestInfo, rundown) }
+    .map { it.hook as PreHook }
     .toList()
 
 internal fun pickPostHooks(
-  postHooksWithPicks: List<Pair<PostTxnStepPick, PostHook>>,
+  postHooks: List<HookConfig>,
   currentStepReport: StepReport,
   rundown: Rundown
 ): List<PostHook> =
-  postHooksWithPicks
+  postHooks
     .asSequence()
-    .filter { it.first.pick(currentStepReport, rundown) }
-    .map { it.second }
+    .filter { (it.pick as PostTxnStepPick).pick(currentStepReport, rundown) }
+    .map { it.hook as PostHook }
     .toList()
 
-// ! TODO 28/12/23 gopala.akshintala: Improve perf by not using substring
-internal fun stepNameVariants(fqStepName: String): Set<String> = buildSet {
-  add(fqStepName)
-  add(fqStepName.substringAfterLast(INDEX_SEPARATOR))
-  add(fqStepNameToStepName(fqStepName))
-}
-
-internal fun fqStepNameToStepName(fqStepName: String): String =
-  if (fqStepName.contains(FOLDER_DELIMITER)) {
-    fqStepName.substringAfterLast(FOLDER_DELIMITER)
-  } else {
-    fqStepName.substringAfterLast(HTTP_METHOD_SEPARATOR)
-  }
-
-internal fun getRequestConfigForStepName(
-  stepName: String,
-  stepNameToRequestConfig: Map<String, RequestConfig>
-): RequestConfig? = stepNameVariants(stepName).firstNotNullOfOrNull { stepNameToRequestConfig[it] }
-
 internal fun pickRequestConfig(
-  pickToRequestConfig: List<Pair<PreTxnStepPick, RequestConfig>>,
-  currentStepName: String,
+  requestConfigs: Set<RequestConfig>,
+  currentStep: Step,
   currentRequestInfo: TxInfo<Request>,
   rundown: Rundown
 ): RequestConfig? =
-  pickToRequestConfig
-    .firstOrNull { it.first.pick(currentStepName, currentRequestInfo, rundown) }
-    ?.second
+  requestConfigs.firstOrNull { it.preTxnStepPick.pick(currentStep, currentRequestInfo, rundown) }
 
 internal fun pickResponseConfig(
-  pickToResponseConfig: List<Pair<PostTxnStepPick, ResponseConfig>>,
+  pickToResponseConfig: List<ResponseConfig>,
   currentStepReport: StepReport,
   rundown: Rundown
 ): ResponseConfig? =
-  pickToResponseConfig.firstOrNull { it.first.pick(currentStepReport, rundown) }?.second
-
-internal fun getResponseConfigForStepName(
-  stepName: String,
-  httpStatus: Boolean,
-  stepNameToResponseConfig: Map<Pair<Boolean, String>, ResponseConfig>
-): ResponseConfig? =
-  stepNameVariants(stepName).firstNotNullOfOrNull { stepNameToResponseConfig[httpStatus to it] }
-
-internal fun isStepNameInPassList(
-  currentStepName: String,
-  haltOnAnyFailureExceptForSteps: Set<String>
-) =
-  haltOnAnyFailureExceptForSteps.isEmpty() ||
-    haltOnAnyFailureExceptForSteps.contains(currentStepName) ||
-    haltOnAnyFailureExceptForSteps.intersect(stepNameVariants(currentStepName)).isNotEmpty()
+  pickToResponseConfig.firstOrNull { it.postTxnStepPick.pick(currentStepReport, rundown) }
 
 // ! TODO 24/06/23 gopala.akshintala: Regex support to filter Step Names
-internal fun shouldStepBeExecuted(
-  runOnlySteps: Set<String>,
-  skipSteps: Set<String>,
-  currentStepName: String
+internal fun shouldStepBePicked(
+  currentStep: Step,
+  runOnlySteps: List<ExeStepPick>,
+  skipSteps: List<ExeStepPick>
 ): Boolean {
-  val stepNameVariants = stepNameVariants(currentStepName)
-  return ((runOnlySteps.isEmpty() && skipSteps.isEmpty()) ||
-    (runOnlySteps.isNotEmpty() && runOnlySteps.intersect(stepNameVariants).isNotEmpty()) ||
-    (skipSteps.isNotEmpty() && skipSteps.intersect(stepNameVariants).isEmpty()))
+  if (runOnlySteps.isEmpty() && skipSteps.isEmpty()) {
+    return true
+  }
+  val runStep = runOnlySteps.isEmpty() || runOnlySteps.any { it.pick(currentStep) }
+  val skipStep = skipSteps.isNotEmpty() && skipSteps.any { it.pick(currentStep) }
+  check(runStep == skipStep) {
+    "$currentStep is ${if (runStep) "" else "NOT"} picked for both run and skip"
+  }
+  return runStep
 }
 
-internal fun <T> runChecked(stepName: String, exeType: ExeType, fn: () -> T): Either<Throwable, T> =
+internal fun <T> runChecked(step: Step, exeType: ExeType, fn: () -> T): Either<Throwable, T> =
   runCatching(fn)
     .fold(
-      { Either.Right(it) },
+      { Right(it) },
       {
-        logger.error(it) { "‼️ $stepName: Exception while executing $exeType" }
-        Either.Left(it)
-      }
+        logger.error(it) { "‼️ $step: Exception while executing $exeType" }
+        Left(it)
+      },
     )
 
 private val logger = KotlinLogging.logger {}

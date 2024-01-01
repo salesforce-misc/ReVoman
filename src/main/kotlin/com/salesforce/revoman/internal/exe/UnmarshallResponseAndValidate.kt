@@ -25,27 +25,18 @@ internal fun unmarshallResponseAndValidate(
   val responseInfo = stepReport.responseInfo?.get()!!
   val httpResponse = responseInfo.httpMsg
   return when {
-    isContentTypeApplicationJson(httpResponse) -> {
+    isJsonBody(httpResponse) -> {
       val httpStatus = httpResponse.status.successful
       val responseConfig =
-        (getResponseConfigForStepName(
-          stepReport.stepName,
-          httpStatus,
-          kick.stepNameToResponseConfig(),
-        )
-          ?: kick.pickToResponseConfig()[httpStatus]?.let {
-            pickResponseConfig(
-              it,
-              stepReport,
-              Rundown(
-                stepReports + stepReport,
-                pm.environment,
-                kick.haltOnAnyFailureExceptForSteps()
-              )
-            )
-          })
+        kick.pickToResponseConfig()[httpStatus]?.let {
+          pickResponseConfig(
+            it,
+            stepReport,
+            Rundown(stepReports + stepReport, pm.environment, kick.haltOnAnyFailureExcept())
+          )
+        }
       val responseType: Type = responseConfig?.responseType ?: Any::class.java
-      runChecked(stepReport.stepName, ExeType.UNMARSHALL_RESPONSE) {
+      runChecked(stepReport.step, ExeType.UNMARSHALL_RESPONSE) {
           moshiReVoman.asA<Any>(httpResponse.bodyString(), responseType)
         }
         .mapLeft {
@@ -60,7 +51,7 @@ internal fun unmarshallResponseAndValidate(
           )
         }
         .flatMap { responseObj ->
-          runChecked(stepReport.stepName, ExeType.RESPONSE_VALIDATION) {
+          runChecked(stepReport.step, ExeType.RESPONSE_VALIDATION) {
               responseConfig?.validationConfig?.let { validate(responseObj, it) }
             }
             .fold(

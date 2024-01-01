@@ -1,10 +1,65 @@
 {
   "item": [
     {
-      "name": "product-setup",
+      "name": "step-at-root",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "var jsonData = JSON.parse(responseBody);",
+              "if(jsonData.id!=null){",
+              "    pm.environment.set(\"accountId\", jsonData.id);",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        },
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              ""
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "name": "Content-Type",
+            "type": "text",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"ParentProductId\": \"{{evergreenProductId}}\",\n    \"ChildProductId\": \"{{termedProductId}}\", \n    \"ParentSellingModelId\": \"{{evergreenProductSellingModelId}}\",\n    \"ChildSellingModelId\": \"{{termedProductSellingModelId}}\",\n    \"ProductRelationshipTypeId\": \"{{productRelationshipTypeId}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/services/data/v{{version}}/sobjects/ProductRelatedComponent",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "services",
+            "data",
+            "v{{version}}",
+            "sobjects",
+            "ProductRelatedComponent"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "folder-1",
       "item": [
         {
-          "name": "pre",
+          "name": "folder-11",
           "item": [
             {
               "name": "Login to ProductPricingAdmin",
@@ -136,7 +191,7 @@
           ]
         },
         {
-          "name": "OneTime",
+          "name": "folder-12",
           "item": [
             {
               "name": "One-Time Product",
@@ -249,7 +304,7 @@
           ]
         },
         {
-          "name": "Evergreen",
+          "name": "folder-13",
           "item": [
             {
               "name": "Evergreen Product",
@@ -534,10 +589,10 @@
       ]
     },
     {
-      "name": "bundle-setup",
+      "name": "folder-2",
       "item": [
         {
-          "name": "ProductRelationshipType",
+          "name": "step-21",
           "event": [
             {
               "listen": "test",
@@ -593,7 +648,7 @@
           "response": []
         },
         {
-          "name": "ProductRelationShipType",
+          "name": "step-22",
           "event": [
             {
               "listen": "test",
@@ -655,7 +710,7 @@
           "response": []
         },
         {
-          "name": "ProductRelatedComponent",
+          "name": "step-23",
           "event": [
             {
               "listen": "test",

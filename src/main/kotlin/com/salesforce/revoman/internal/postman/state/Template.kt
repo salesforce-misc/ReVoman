@@ -9,6 +9,7 @@ package com.salesforce.revoman.internal.postman.state
 
 import com.squareup.moshi.JsonClass
 import org.http4k.core.ContentType
+import org.http4k.core.ContentType.Companion.APPLICATION_JSON
 import org.http4k.core.Method
 import org.http4k.core.Uri
 import org.http4k.core.queryParametersEncoded
@@ -19,7 +20,7 @@ import org.http4k.lens.Header.CONTENT_TYPE
 internal data class Template(val item: List<Item>, val auth: Auth?)
 
 @JsonClass(generateAdapter = true)
-internal data class Item(
+data class Item(
   val name: String = "",
   val item: List<Item>?,
   val request: Request = Request(),
@@ -27,31 +28,31 @@ internal data class Item(
   val event: List<Event>? = null
 )
 
-@JsonClass(generateAdapter = true) internal data class Script(val exec: List<String>)
-
-@JsonClass(generateAdapter = true) internal data class Header(val key: String, val value: String)
-
-@JsonClass(generateAdapter = true) internal data class Url(val raw: String = "")
-
-@JsonClass(generateAdapter = true) internal data class Body(val mode: String, val raw: String)
+@JsonClass(generateAdapter = true)
+data class Event(val listen: String, val script: Script) {
+  @JsonClass(generateAdapter = true) data class Script(val exec: List<String>)
+}
 
 @JsonClass(generateAdapter = true)
-internal data class Event(val listen: String, val script: Script)
-
-@JsonClass(generateAdapter = true)
-internal data class Request(
-  val method: String = "",
-  val header: List<Header> = emptyList(),
-  val url: Url = Url(),
-  val body: Body? = null,
-  val event: List<Event>? = null
+data class Request(
+  @JvmField val method: String = "",
+  @JvmField val header: List<Header> = emptyList(),
+  @JvmField val url: Url = Url(),
+  @JvmField val body: Body? = null,
+  @JvmField val event: List<Event>? = null
 ) {
+  @JsonClass(generateAdapter = true) data class Header(val key: String, val value: String)
+
+  @JsonClass(generateAdapter = true) data class Url(val raw: String = "")
+
+  @JsonClass(generateAdapter = true) data class Body(val mode: String, val raw: String)
+
   internal fun toHttpRequest(): org.http4k.core.Request {
     val contentType =
       header
         .firstOrNull { it.key.equals(CONTENT_TYPE.meta.name, ignoreCase = true) }
         ?.value
-        ?.let { ContentType.Text(it) } ?: ContentType.APPLICATION_JSON
+        ?.let { ContentType.Text(it) } ?: APPLICATION_JSON
     val uri = Uri.of(url.raw).queryParametersEncoded()
     return org.http4k.core
       .Request(Method.valueOf(method), uri)

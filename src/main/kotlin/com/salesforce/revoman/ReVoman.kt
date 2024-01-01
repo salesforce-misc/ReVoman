@@ -14,11 +14,10 @@ import com.salesforce.revoman.input.bufferFileInResources
 import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.internal.exe.deepFlattenItems
 import com.salesforce.revoman.internal.exe.httpRequest
-import com.salesforce.revoman.internal.exe.isStepNameInPassList
 import com.salesforce.revoman.internal.exe.postHookExe
 import com.salesforce.revoman.internal.exe.preHookExe
 import com.salesforce.revoman.internal.exe.runChecked
-import com.salesforce.revoman.internal.exe.shouldStepBeExecuted
+import com.salesforce.revoman.internal.exe.shouldStepBePicked
 import com.salesforce.revoman.internal.exe.unmarshallRequest
 import com.salesforce.revoman.internal.exe.unmarshallResponseAndValidate
 import com.salesforce.revoman.internal.executeTestScriptJs
@@ -30,6 +29,7 @@ import com.salesforce.revoman.internal.postman.state.Item
 import com.salesforce.revoman.internal.postman.state.Template
 import com.salesforce.revoman.output.Rundown
 import com.salesforce.revoman.output.report.ExeType.TEST_SCRIPT_JS
+import com.salesforce.revoman.output.report.Step
 import com.salesforce.revoman.output.report.StepReport
 import com.salesforce.revoman.output.report.TxInfo
 import com.salesforce.revoman.output.report.failure.RequestFailure.HttpRequestFailure
@@ -56,7 +56,7 @@ object ReVoman {
         .templatePaths()
         .mapNotNull { pmTemplateAdapter.fromJson(bufferFileInResources(it)) }
         .flatMap { (pmSteps, authFromRoot) ->
-          pmSteps.deepFlattenItems(authFromRoot = authFromRoot)
+          deepFlattenItems(pmSteps.map { it.copy(auth = it.auth ?: authFromRoot) })
         }
     val stepNameToReport =
       executeStepsSerially(
@@ -68,11 +68,11 @@ object ReVoman {
           kick.typesToIgnoreForMarshalling()
         )
       )
-    return Rundown(stepNameToReport, pm.environment, kick.haltOnAnyFailureExceptForSteps())
+    return Rundown(stepNameToReport, pm.environment, kick.haltOnAnyFailureExcept())
   }
 
   private fun executeStepsSerially(
-    pmStepsFlattened: List<Item>,
+    pmStepsFlattened: List<Pair<Step, Item>>,
     kick: Kick,
     moshiReVoman: ConfigurableMoshi,
   ): List<StepReport> {
@@ -80,32 +80,31 @@ object ReVoman {
     return pmStepsFlattened
       .asSequence()
       .takeWhile { noFailureInStep }
-      .filter { shouldStepBeExecuted(kick.runOnlySteps(), kick.skipSteps(), it.name) }
-      .fold(listOf()) { stepReports, itemWithRegex ->
-        val stepName = itemWithRegex.name
-        logger.info { "***** Executing Step: $stepName *****" }
+      .filter { (step, _) -> shouldStepBePicked(step, kick.runOnlySteps(), kick.skipSteps()) }
+      .fold(listOf()) { stepReports, (step, itemWithRegex) ->
+        logger.info { "***** Executing Step: $step *****" }
         val pmRequest: com.salesforce.revoman.internal.postman.state.Request =
           RegexReplacer(pm.environment, kick.customDynamicVariables())
             .replaceRegex(itemWithRegex.request)
-        val stepReport: StepReport = // --------### UNMARSHALL-REQUEST ###--------
-          unmarshallRequest(stepName, pmRequest, kick, moshiReVoman, stepReports)
-            .mapLeft { StepReport(stepName, Left(it)) }
+        val currentStepReport: StepReport = // --------### UNMARSHALL-REQUEST ###--------
+          unmarshallRequest(step, pmRequest, kick, moshiReVoman, stepReports)
+            .mapLeft { StepReport(step, Left(it)) }
             .map { requestInfo: TxInfo<Request> -> // --------### PRE-HOOKS ###--------
-              preHookExe(stepName, kick, requestInfo, stepReports)?.mapLeft {
-                StepReport(stepName, Right(requestInfo), it)
+              preHookExe(step, kick, requestInfo, stepReports)?.mapLeft {
+                StepReport(step, Right(requestInfo), it)
               }
               requestInfo
             }
             .flatMap { requestInfo: TxInfo<Request> -> // --------### HTTP-REQUEST ###--------
               val httpRequest =
                 RegexReplacer(pm.environment).replaceRegex(itemWithRegex.request).toHttpRequest()
-              httpRequest(stepName, itemWithRegex, httpRequest, kick.insecureHttp())
-                .mapLeft { StepReport(stepName, Left(HttpRequestFailure(it, requestInfo))) }
-                .map { StepReport(stepName, Right(requestInfo), null, Right(TxInfo(httpMsg = it))) }
+              httpRequest(step, itemWithRegex, httpRequest, kick.insecureHttp())
+                .mapLeft { StepReport(step, Left(HttpRequestFailure(it, requestInfo))) }
+                .map { StepReport(step, Right(requestInfo), null, Right(TxInfo(httpMsg = it))) }
             }
             .flatMap { stepReport: StepReport -> // --------### TEST-SCRIPT-JS ###--------
               val httpResponse = stepReport.responseInfo?.get()?.httpMsg!!
-              runChecked(stepName, TEST_SCRIPT_JS) {
+              runChecked(step, TEST_SCRIPT_JS) {
                   executeTestScriptJs(
                     itemWithRegex.event,
                     kick.customDynamicVariables(),
@@ -133,10 +132,19 @@ object ReVoman {
             .fold({ it }, { it })
         // * NOTE 15/10/23 gopala.akshintala: http status code can be non-success
         noFailureInStep =
-          stepReport.isSuccessful ||
+          currentStepReport.isSuccessful ||
             kick.haltOnAnyFailure() ||
-            isStepNameInPassList(stepName, kick.haltOnAnyFailureExceptForSteps())
-        stepReports + stepReport
+            (kick
+              .haltOnAnyFailureExcept()
+              ?.pick(
+                currentStepReport,
+                Rundown(
+                  stepReports + currentStepReport,
+                  pm.environment,
+                  kick.haltOnAnyFailureExcept()
+                )
+              ) ?: false)
+        stepReports + currentStepReport
       }
   }
 }

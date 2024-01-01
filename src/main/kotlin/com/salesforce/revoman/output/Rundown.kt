@@ -7,67 +7,50 @@
  */
 package com.salesforce.revoman.output
 
-import com.salesforce.revoman.internal.exe.isStepNameInPassList
-import com.salesforce.revoman.internal.exe.stepNameVariants
+import com.salesforce.revoman.input.config.StepPick.PostTxnStepPick
 import com.salesforce.revoman.output.postman.PostmanEnvironment
+import com.salesforce.revoman.output.report.Folder.Companion.FOLDER_DELIMITER
 import com.salesforce.revoman.output.report.StepReport
 
 data class Rundown(
-  @JvmField val stepNameToReport: List<StepReport> = emptyList(),
+  @JvmField val stepReports: List<StepReport> = emptyList(),
   @JvmField val mutableEnv: PostmanEnvironment<Any?> = PostmanEnvironment(),
-  private val stepsToIgnoreForFailure: Set<String>
+  private val stepsToIgnoreForFailurePick: PostTxnStepPick?
 ) {
-  val immutableEnvMap = mutableEnv.toMap()
+  @JvmField val immutableEnvMap = mutableEnv.toMap()
 
   val firstUnsuccessfulStepNameInOrder: String?
     @JvmName("firstUnsuccessfulStepNameInOrder")
-    get() = stepNameToReport.firstOrNull { !it.isSuccessful }?.stepName
+    get() = stepReports.firstOrNull { !it.isSuccessful }?.step?.name
 
   fun firstUnIgnoredUnsuccessfulStepReportInOrder(): StepReport? =
-    stepNameToReport.firstOrNull {
-      !it.isSuccessful && !isStepNameInPassList(it.stepName, stepsToIgnoreForFailure)
+    stepReports.firstOrNull {
+      !it.isSuccessful && !(stepsToIgnoreForFailurePick?.pick(it, this) ?: false)
     }
 
   val areAllStepsSuccessful
-    @JvmName("areAllStepsSuccessful") get() = stepNameToReport.all { it.isSuccessful }
+    @JvmName("areAllStepsSuccessful") get() = stepReports.all { it.isSuccessful }
 
   val areAllStepsExceptIgnoredSuccessful
     @JvmName("areAllStepsExceptIgnoredSuccessful")
     get() =
-      stepNameToReport.all {
-        it.isSuccessful || isStepNameInPassList(it.stepName, stepsToIgnoreForFailure)
-      }
+      stepReports.all { it.isSuccessful || (stepsToIgnoreForFailurePick?.pick(it, this) ?: false) }
 
   fun reportsForStepsInFolder(folderName: String): List<StepReport?> =
-    stepNameToReport.filter { it.stepName.contains("$folderName$FOLDER_DELIMITER") }
+    stepReports.filter { it.step.name.contains("$folderName$FOLDER_DELIMITER") }
 
   fun areAllStepsInFolderSuccessful(folderName: String): Boolean =
     reportsForStepsInFolder(folderName).all { it?.isSuccessful == true }
 
-  fun reportForStepName(stepName: String): StepReport? {
-    val stepNameVariants = stepNameVariants(stepName)
-    return stepNameToReport.firstOrNull { stepNameVariants.contains(it.stepName) }
-  }
+  fun reportForStepName(stepName: String): StepReport? =
+    stepReports.firstOrNull { it.step.stepNameMatches(stepName) }
 
-  fun filterReportExcludingStepsWithName(stepNames: Set<String>): List<StepReport> {
-    val stepNameVariantsToExclude = stepNames.flatMap { stepNameVariants(it) }
-    return stepNameToReport.filter { !stepNameVariantsToExclude.contains(it.stepName) }
-  }
+  fun filterReportExcludingStepsWithName(stepNames: Set<String>): List<StepReport> =
+    stepReports.filter { r -> !stepNames.any { r.step.stepNameMatches(it) } }
 
-  fun filterReportIncludingStepsWithName(stepNames: Set<String>): List<StepReport> {
-    val stepNameVariantsToExclude = stepNames.flatMap { stepNameVariants(it) }
-    return stepNameToReport.filter { stepNameVariantsToExclude.contains(it.stepName) }
-  }
+  fun filterReportIncludingStepsWithName(stepNames: Set<String>): List<StepReport> =
+    stepReports.filter { r -> stepNames.any { r.step.stepNameMatches(it) } }
 }
 
-// ! TODO 12/10/23 gopala.akshintala: Come-up with a more sophisticated builders for steps
-fun buildStepName(index: String, httpMethod: String, vararg path: String): String =
-  "${index}${INDEX_SEPARATOR}${httpMethod}${HTTP_METHOD_SEPARATOR}" +
-    path.joinToString(FOLDER_DELIMITER)
-
-fun buildStepNameFromBasePath(basePath: String, vararg pathToAppend: String): String =
-  basePath + pathToAppend.joinToString(FOLDER_DELIMITER)
-
-const val FOLDER_DELIMITER = "|>"
-const val HTTP_METHOD_SEPARATOR = " ~~> "
-const val INDEX_SEPARATOR = " ### "
+fun <T> List<T>.endsWith(list: List<T>): Boolean =
+  list.isNotEmpty() && list.size < size && subList(lastIndex - list.lastIndex, size) == list

@@ -7,7 +7,9 @@
  */
 package com.salesforce.revoman.output.report.failure
 
-import com.salesforce.revoman.output.report.ExeType
+import com.salesforce.revoman.output.report.ExeType.RESPONSE_VALIDATION
+import com.salesforce.revoman.output.report.ExeType.TEST_SCRIPT_JS
+import com.salesforce.revoman.output.report.ExeType.UNMARSHALL_RESPONSE
 import com.salesforce.revoman.output.report.TxInfo
 import org.http4k.core.Response
 
@@ -19,21 +21,21 @@ sealed class ResponseFailure : ExeFailure() {
     override val failure: Throwable,
     override val responseInfo: TxInfo<Response>
   ) : ResponseFailure() {
-    override val exeType = ExeType.TEST_SCRIPT_JS
+    override val exeType = TEST_SCRIPT_JS
   }
 
   data class UnmarshallResponseFailure(
     override val failure: Throwable,
     override val responseInfo: TxInfo<Response>
   ) : ResponseFailure() {
-    override val exeType = ExeType.UNMARSHALL_RESPONSE
+    override val exeType = UNMARSHALL_RESPONSE
   }
 
   data class ResponseValidationFailure(
     override val failure: Throwable,
     override val responseInfo: TxInfo<Response>
   ) : ResponseFailure() {
-    override val exeType = ExeType.RESPONSE_VALIDATION
+    override val exeType = RESPONSE_VALIDATION
 
     data class ValidationFailure(val failure: Any) : Throwable()
   }

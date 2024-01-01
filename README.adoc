@@ -266,7 +266,7 @@ image:step-report.png[Step Report]
 [.lead]
 Here are the environment *key-value* pairs accumulated along the entire execution:
 
-image:environment.png[Mutable environment after the execution completion]
+image:mutable-env.png[Mutable environment after the execution completion]
 
 [.lead]
 It logs everything, so you can watch your console to check what's going on in the execution

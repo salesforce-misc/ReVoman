@@ -848,7 +848,13 @@
 							],
 							"request": {
 								"method": "POST",
-								"header": [],
+								"header": [
+									{
+										"key": "ignoreForFailure",
+										"value": "true",
+										"type": "text"
+									}
+								],
 								"body": {
 									"mode": "raw",
 									"raw": "{\n  \"pricingPref\": \"{{$pricingPref}}\",\n  \"graph\": {\n    \"graphId\": \"pq-create: without-quote (sync-error)\",\n    \"records\": [\n      {\n        \"referenceId\": \"refQuoteLineItem1\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{evergreenPriceBookEntryId}}\",\n          \"Product2Id\": \"{{evergreenProductId}}\",\n          \"Quantity\": {{$quantity}},\n          \"UnitPrice\": {{unitPrice}},\n          \"PeriodBoundary\": \"Anniversary\",\n          \"BillingFrequency\": \"Monthly\",\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      }\n    ]\n  }\n}",
@@ -903,7 +909,13 @@
 							],
 							"request": {
 								"method": "POST",
-								"header": [],
+								"header": [
+									{
+										"key": "ignoreForFailure",
+										"value": "true",
+										"type": "text"
+									}
+								],
 								"body": {
 									"mode": "raw",
 									"raw": "{\n  \"pricingPref\": \"{{$pricingPref}}\",\n  \"graph\": {\n    \"graphId\": \"pq-update: invalid-method (sync-error)\",\n    \"records\": [\n      {\n        \"referenceId\": \"refQuote\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"Quote\",\n            \"method\": \"DELETE\",\n            \"id\": \"{{quoteId}}\"\n          }\n        }\n      }\n    ]\n  }\n}",
@@ -960,7 +972,13 @@
 							],
 							"request": {
 								"method": "POST",
-								"header": [],
+								"header": [
+									{
+										"key": "ignoreForFailure",
+										"value": "true",
+										"type": "text"
+									}
+								],
 								"body": {
 									"mode": "raw",
 									"raw": "{\n  \"pricingPref\": \"skip\",\n  \"graph\": {\n    \"graphId\": \"pq-create: invalid QLI (sync-error)\",\n    \"records\": [\n      {\n        \"referenceId\": \"refQuote\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"Quote\",\n            \"method\": \"POST\"\n          },\n          \"Name\": \"Quote_{{$randomCompanyName}}\",\n          \"OpportunityId\": \"{{opportunityId}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItem1\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{evergreenPriceBookEntryId}}\",\n          \"Product2Id\": \"{{evergreenProductId}}\",\n          \"Quantity\": {{$quantity}},\n          \"UnitPrice\": \"{{unitPrice}}\",\n          \"PeriodBoundary\": \"INVALID\",\n          \"BillingFrequency\": \"Monthly\",\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      },\n      {\n        \"referenceId\": \"refQuoteLineItem2\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"QuoteLineItem\",\n            \"method\": \"POST\"\n          },\n          \"QuoteId\": \"@{refQuote.id}\",\n          \"PricebookEntryId\": \"{{termedPriceBookEntryId}}\",\n          \"Product2Id\": \"{{termedProductId}}\",\n          \"Quantity\": {{$quantity}},\n          \"UnitPrice\": {{unitPrice}},\n          \"EndDate\": \"{{$randomFutureDate}}\",\n          \"PeriodBoundary\": \"DayOfPeriod\",\n          \"PeriodBoundaryDay\": 4,\n          \"BillingFrequency\": \"Monthly\",\n          \"StartDate\": \"{{$currentDate}}\"\n        }\n      }\n    ]\n  }\n}",

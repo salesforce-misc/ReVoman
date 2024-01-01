@@ -9,10 +9,12 @@ package com.salesforce.revoman.output.report
 
 import com.salesforce.revoman.internal.postman.pm
 import com.salesforce.revoman.output.postman.PostmanEnvironment
+import com.salesforce.revoman.output.report.TxInfo.Companion.uriPathEndsWith
 import com.salesforce.revoman.output.report.failure.ExeFailure
 import com.salesforce.revoman.output.report.failure.HookFailure.PostHookFailure
 import com.salesforce.revoman.output.report.failure.HookFailure.PreHookFailure
 import com.salesforce.revoman.output.report.failure.RequestFailure
+import com.salesforce.revoman.output.report.failure.RequestFailure.HttpRequestFailure
 import com.salesforce.revoman.output.report.failure.ResponseFailure
 import io.vavr.control.Either
 import org.http4k.core.Request
@@ -20,21 +22,21 @@ import org.http4k.core.Response
 
 data class StepReport
 private constructor(
-  val stepName: String,
-  val requestInfo: Either<out RequestFailure, TxInfo<Request>>? = null,
-  val preHookFailure: PreHookFailure? = null,
-  val responseInfo: Either<out ResponseFailure, TxInfo<Response>>? = null,
-  val postHookFailure: PostHookFailure? = null,
-  val envSnapshot: PostmanEnvironment<Any?>
+  @JvmField val step: Step,
+  @JvmField val requestInfo: Either<out RequestFailure, TxInfo<Request>>? = null,
+  @JvmField val preHookFailure: PreHookFailure? = null,
+  @JvmField val responseInfo: Either<out ResponseFailure, TxInfo<Response>>? = null,
+  @JvmField val postHookFailure: PostHookFailure? = null,
+  @JvmField val envSnapshot: PostmanEnvironment<Any?>
 ) {
   internal constructor(
-    stepName: String,
+    step: Step,
     requestInfo: arrow.core.Either<RequestFailure, TxInfo<Request>>? = null,
     preHookFailure: PreHookFailure? = null,
     responseInfo: arrow.core.Either<ResponseFailure, TxInfo<Response>>? = null,
     postHookFailure: PostHookFailure? = null,
   ) : this(
-    stepName,
+    step,
     requestInfo?.toVavr(),
     preHookFailure,
     responseInfo?.toVavr(),
@@ -42,18 +44,17 @@ private constructor(
     pm.environment.copy()
   )
 
+  @JvmField
   val failure: Either<ExeFailure, TxInfo<Response>>? =
     failure(requestInfo, preHookFailure, responseInfo, postHookFailure)
 
-  val exeFailure: ExeFailure? = failure?.fold({ it }, { null })
+  @JvmField val exeFailure: ExeFailure? = failure?.fold({ it }, { null })
 
-  val isSuccessful: Boolean = failure == null
+  @JvmField val isSuccessful: Boolean = failure == null
 
+  @JvmField
   val isHttpStatusSuccessful: Boolean =
-    failure?.fold(
-      { it !is RequestFailure.HttpRequestFailure || it is PostHookFailure },
-      { false }
-    ) != false
+    failure?.fold({ it !is HttpRequestFailure || it is PostHookFailure }, { false }) != false
 
   companion object {
     private fun failure(
@@ -92,10 +93,24 @@ private constructor(
 
     private fun <L, R> arrow.core.Either<L, R>.toVavr(): Either<L, R> =
       fold({ Either.left(it) }, { Either.right(it) })
+
+    @JvmStatic
+    fun Either<out RequestFailure, TxInfo<Request>>?.uriPathEndsWith(path: String): Boolean =
+      this?.fold({ false }, { it.uriPathEndsWith(path) }) ?: false
+
+    @JvmStatic
+    fun Either<out RequestFailure, TxInfo<Request>>?.containsHeader(key: String): Boolean =
+      this?.fold({ false }, { it.containsHeader(key) }) ?: false
+
+    @JvmStatic
+    fun Either<out RequestFailure, TxInfo<Request>>?.containsHeader(
+      key: String,
+      value: String
+    ): Boolean = this?.fold({ false }, { it.containsHeader(key, value) }) ?: false
   }
 
   override fun toString(): String =
-    stepName +
+    step.toString() +
       when {
         exeFailure != null -> "❌$exeFailure"
         !isHttpStatusSuccessful ->

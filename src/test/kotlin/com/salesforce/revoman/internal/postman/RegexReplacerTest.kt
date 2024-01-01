@@ -11,7 +11,6 @@ import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapter
 import io.kotest.matchers.equals.shouldNotBeEqual
 import io.kotest.matchers.maps.shouldContainAll
-import java.util.*
 import org.junit.jupiter.api.Test
 
 class RegexReplacerTest {
