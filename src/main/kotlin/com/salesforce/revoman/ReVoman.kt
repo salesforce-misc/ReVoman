@@ -89,11 +89,10 @@ object ReVoman {
         val currentStepReport: StepReport = // --------### UNMARSHALL-REQUEST ###--------
           unmarshallRequest(step, pmRequest, kick, moshiReVoman, stepReports)
             .mapLeft { StepReport(step, Left(it)) }
-            .map { requestInfo: TxInfo<Request> -> // --------### PRE-HOOKS ###--------
-              preHookExe(step, kick, requestInfo, stepReports)?.mapLeft {
-                StepReport(step, Right(requestInfo), it)
-              }
-              requestInfo
+            .flatMap { requestInfo: TxInfo<Request> -> // --------### PRE-HOOKS ###--------
+              preHookExe(step, kick, requestInfo, stepReports)
+                ?.mapLeft { StepReport(step, Right(requestInfo), it) }
+                ?.map { requestInfo } ?: Right(requestInfo)
             }
             .flatMap { requestInfo: TxInfo<Request> -> // --------### HTTP-REQUEST ###--------
               val httpRequest =
