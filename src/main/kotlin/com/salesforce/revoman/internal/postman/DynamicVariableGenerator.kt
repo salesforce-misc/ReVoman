@@ -30,7 +30,10 @@ private val dynamicVariableKeyToGenerator: Map<String, () -> String> =
     "\$randomUUID" to { UUID.randomUUID().toString() },
     "\$randomEmail" to { faker.internet.email() },
     "\$currentDate" to { LocalDate.now().toString() },
-    "\$randomFutureDate" to { LocalDate.now().plusDays(nextLong(1, 366)).toString() },
+    "\$randomFutureDate" to
+      {
+        LocalDate.now().let { it.plusDays(nextLong(1, it.lengthOfYear().toLong())).toString() }
+      },
     "\$epoch" to { System.currentTimeMillis().toString() },
   )
 

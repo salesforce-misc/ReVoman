@@ -14,7 +14,6 @@ import com.salesforce.revoman.output.report.failure.ExeFailure
 import com.salesforce.revoman.output.report.failure.HookFailure.PostHookFailure
 import com.salesforce.revoman.output.report.failure.HookFailure.PreHookFailure
 import com.salesforce.revoman.output.report.failure.RequestFailure
-import com.salesforce.revoman.output.report.failure.RequestFailure.HttpRequestFailure
 import com.salesforce.revoman.output.report.failure.ResponseFailure
 import io.vavr.control.Either
 import org.http4k.core.Request
@@ -53,8 +52,7 @@ private constructor(
   @JvmField val isSuccessful: Boolean = failure == null
 
   @JvmField
-  val isHttpStatusSuccessful: Boolean =
-    failure?.fold({ it !is HttpRequestFailure || it is PostHookFailure }, { false }) != false
+  val isHttpStatusSuccessful: Boolean = failure?.fold({ it !is PostHookFailure }, { true }) != true
 
   companion object {
     private fun failure(
