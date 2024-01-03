@@ -1,10 +1,9 @@
-/**
- * ****************************************************************************
- * Copyright (c) 2023, Salesforce, Inc. All rights reserved. SPDX-License-Identifier: Apache License
- * Version 2.0 For full license text, see the LICENSE file in the repo root or
- * http://www.apache.org/licenses/LICENSE-2.0
- * ****************************************************************************
- */
+/***************************************************************************************************
+ *  Copyright (c) 2023, Salesforce, Inc. All rights reserved. SPDX-License-Identifier: 
+ *           Apache License Version 2.0 
+ *  For full license text, see the LICENSE file in the repo root or
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ **************************************************************************************************/
 plugins { id("com.gradle.enterprise") version "3.16.1" }
 
 dependencyResolutionManagement {
