@@ -84,12 +84,12 @@ class PQE2EWithSMTest {
                         "$qlrFieldsToQuery", "Id, QuoteId, MainQuoteLineId, AssociatedQuoteLineId"))
                 .customDynamicVariable( // <5>
                     "$quantity", ignore -> String.valueOf(Random.Default.nextInt(10) + 1))
-                .requestConfig( // <6>
+                .haltOnAnyFailureExcept(afterAllStepsContainingHeader("ignoreForFailure")) // <6>
+                .requestConfig( // <7>
                     unmarshallRequest(
                         beforeAllStepsWithURIPathEndingWith(PQ_PATH),
                         PlaceQuoteInputRepresentation.class,
                         adapter(PlaceQuoteInputRepresentation.class)))
-                .haltOnAnyFailureExcept(afterAllStepsContainingHeader("ignoreForFailure")) // <7>
                 .hooks( // <8>
                     pre(
                         beforeAllStepsWithURIPathEndingWith(PQ_PATH),

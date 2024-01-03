@@ -130,58 +130,67 @@ ifdef::env-github[]
 ----
 ReVoman.revUp( // <1>
   Kick.configure()
-      .templatePaths(PQ_TEMPLATE_PATHS) // <2>
-      .environmentPath("pm-templates/pq/pq-env.postman_environment.json") // <3>
-      .dynamicEnvironment( // <4>
-          Map.of(
-              "$quoteFieldsToQuery", "LineItemCount, CalculationStatus",
-              "$qliFieldsToQuery", "Id, Product2Id",
-              "$qlrFieldsToQuery", "Id, QuoteId, MainQuoteLineId, AssociatedQuoteLineId"))
-      .customDynamicVariable( // <5>
-          "$quantity", ignore -> String.valueOf(Random.Default.nextInt(10) + 1))
-      .haltOnAnyFailureExceptForSteps(STEPS_TO_IGNORE_FOR_FAILURE) // <6>
-      .requestConfig( // <7>
-          unmarshallRequest(
-              ASYNC_STEP_NAMES,
-              PlaceQuoteInputRepresentation.class,
-              adapter(PlaceQuoteInputRepresentation.class)))
-      .hooks( // <8>
-          pre(
-              ASYNC_STEP_NAMES,
-              (stepName, requestInfo, rundown) -> {
-                final var pqInputRep =
-                    requestInfo.<PlaceQuoteInputRepresentation>getTypedTxObj();
-                assertThat(pqInputRep).isNotNull();
-                if ("pq-create: qli+qlr (skip-pricing)"
-                    .equals(pqInputRep.getGraph().getGraphId())) {
-                  LOGGER.info("Skip pricing for step: {}", stepName);
-                  rundown.mutableEnv.set("$pricingPref", PricingPref.Skip.toString());
-                } else {
-                  rundown.mutableEnv.set("$pricingPref", PricingPref.System.toString());
-                }}),
-          post("query-quote-and-related-records", PQE2ETest::assertAfterPQCreate),
-          post(
-              ASYNC_STEP_NAMES,
-              (stepName, rundown) -> {
-                LOGGER.info(
-                    "Waiting after Step: {} for the Quote: {} to get processed",
-                    stepName,
-                    rundown.mutableEnv.getString("quoteId"));
-                // ! CAUTION 10/09/23 gopala.akshintala: This test can be flaky until
-                // polling is implemented
-                Thread.sleep(20000);}))
-      .responseConfig( // <9>
-          unmarshallSuccessResponse("quote-related-records", CompositeResponse.class), // <9.1>
-          validateIfSuccess( // <9.2>
-              ASYNC_STEP_NAMES,
-              PlaceQuoteOutputRepresentation.class,
-              validatePQSuccessResponse),
-          validateIfFailed(
-              FAILURE_STEP_NAMES,
-              PlaceQuoteOutputRepresentation.class,
-              validatePQErrorResponse))
-      .insecureHttp(true) // <10>
-      .off()); // Kick-off
+    .templatePaths(PQ_TEMPLATE_PATHS) // <2>
+    .environmentPath("pm-templates/pq/pq-env.postman_environment.json") // <3>
+    .dynamicEnvironment( // <4>
+        Map.of(
+            "$quoteFieldsToQuery", "LineItemCount, CalculationStatus",
+            "$qliFieldsToQuery", "Id, Product2Id",
+            "$qlrFieldsToQuery", "Id, QuoteId, MainQuoteLineId, AssociatedQuoteLineId"))
+    .customDynamicVariable( // <5>
+        "$quantity", ignore -> String.valueOf(Random.Default.nextInt(10) + 1))
+    .haltOnAnyFailureExcept(afterAllStepsContainingHeader("ignoreForFailure")) // <6>
+    .requestConfig( // <7>
+        unmarshallRequest(
+            beforeAllStepsWithURIPathEndingWith(PQ_PATH),
+            PlaceQuoteInputRepresentation.class,
+            adapter(PlaceQuoteInputRepresentation.class)))
+    .hooks( // <8>
+        pre(
+            beforeAllStepsWithURIPathEndingWith(PQ_PATH),
+            (step, requestInfo, rundown) -> {
+              final var pqInputRep =
+                  requestInfo.<PlaceQuoteInputRepresentation>getTypedTxObj();
+              assertThat(pqInputRep).isNotNull();
+              if ("pq-create: qli+qlr (skip-pricing)"
+                  .equals(pqInputRep.getGraph().getGraphId())) {
+                LOGGER.info("Skip pricing for step: {}", step);
+                rundown.mutableEnv.set("$pricingPref", PricingPref.Skip.toString());
+              } else {
+                rundown.mutableEnv.set("$pricingPref", PricingPref.System.toString());
+              }
+            }),
+        post(
+            afterStepName("query-quote-and-related-records"),
+            (ignore, rundown) -> assertAfterPQCreate(rundown.mutableEnv)),
+        post(
+            afterAllStepsWithURIPathEndingWith(PQ_PATH),
+            (stepReport, ignore) -> {
+              LOGGER.info(
+                  "Waiting in PostHook for Step: {} for the Quote to get processed",
+                  stepReport.step.displayName);
+              Thread.sleep(5000);
+            }))
+    .responseConfig( // <9>
+        unmarshallSuccessResponse(
+            afterStepName("quote-related-records"), CompositeResponse.class), // <9.1>
+        validateIfSuccess( // <9.2>
+            afterAllStepsWithURIPathEndingWith(PQ_PATH),
+            PlaceQuoteOutputRepresentation.class,
+            VALIDATE_PQ_SUCCESS),
+        validateIfFailed(
+            afterAllStepsInFolder("errors|>sync"),
+            PlaceQuoteOutputRepresentation.class,
+            VALIDATE_PQ_SYNC_ERROR))
+    .insecureHttp(true) // <10>
+    .off()); // Kick-off
+assertThat(pqRundown.firstUnIgnoredUnsuccessfulStepReportInOrder()).isNull();
+assertThat(pqRundown.mutableEnv)
+.containsAllEntriesOf(
+  Map.of(
+      "quoteCalculationStatusForSkipPricing", PricingPref.Skip.completeStatus,
+      "quoteCalculationStatus", PricingPref.System.completeStatus,
+      "quoteCalculationStatusAfterAllUpdates", PricingPref.System.completeStatus));
 ----
 <1> `revUp` is the method to call passing a configuration, built as below
 <2> Supply the path (relative to resources) to the Template Collection JSON file
@@ -191,7 +200,6 @@ ReVoman.revUp( // <1>
 <6> It lets you be in charge of the Step Orchestration by letting you configure a pass-list of steps to ignore for failure
 <7> You can provide a strong type for your request to be marshalled into. You can use this strong type while executing pre-hooks
 <8> You can set up a pre- / post-hook around a Step via `hooks`, which can help as callbacks, especially for Async operations.
-** These runs despite the step are successful or failed. The entire rundown till that step shall be provided to the hook as a parameter
 <9> Provide configuration to unmarshall/deserialize response JSON into strong types
 <9.1> `unmarshallSuccessResponse` and `unmarshallErrorResponse` help you use strong types inside hooks.
 <9.2> Supply your validations/assertions to be run on a step response through `validateIfSuccess` and `validateIfFailed`
@@ -214,7 +222,6 @@ include::{testdir}/com/salesforce/revoman/integration/core/pq/PQE2EWithSMTest.ja
 <6> It lets you be in charge of the Step Orchestration by letting you configure a pass-list of steps to ignore for failure
 <7> You can provide a strong type for your request to be marshalled into. You can use this strong type while executing pre-hooks
 <8> You can set up a pre- / post-hook around a Step via `hooks`, which can help as callbacks, especially for Async operations.
-** These runs despite the step are successful or failed. The entire rundown till that step shall be provided to the hook as a parameter
 <9> Provide configuration to unmarshall/deserialize response JSON into strong types
 <9.1> `unmarshallSuccessResponse` and `unmarshallErrorResponse` help you use strong types inside hooks.
 <9.2> Supply your validations/assertions to be run on a step response through `validateIfSuccess` and `validateIfFailed`
@@ -231,16 +238,16 @@ along with all Strong types that you configured, such that you can seamlessly ru
 [source,kotlin,indent=0,options="nowrap"]
 ----
 Rundown(
-  stepNameToReport: Map<String, StepReport>,
+  stepNameToReport: List<StepReport>,
   environment: PostmanEnvironment)
 
 StepReport(
-    val status: String,
-    val requestInfo: Either<RequestFailure, TxInfo<Request>>?,
-    val preHookFailure: PreHookFailure?,
-    val responseInfo: Either<ResponseFailure, TxInfo<Response>>?,
-    val postHookFailure: PostHookFailure?,
-    val envSnapshot: PostmanEnvironment<Any?>
+  step: Step,
+  requestInfo: Either<out RequestFailure, TxInfo<Request>>? = null,
+  preHookFailure: PreHookFailure? = null,
+  responseInfo: Either<out ResponseFailure, TxInfo<Response>>? = null,
+  postHookFailure: PostHookFailure? = null,
+  envSnapshot: PostmanEnvironment<Any?>
 )
 ----
 
