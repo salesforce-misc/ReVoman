@@ -1,9 +1,12 @@
-/***************************************************************************************************
- *  Copyright (c) 2023, Salesforce, Inc. All rights reserved. SPDX-License-Identifier: 
- *           Apache License Version 2.0 
- *  For full license text, see the LICENSE file in the repo root or
- *  http://www.apache.org/licenses/LICENSE-2.0
- **************************************************************************************************/
+/**
+ * ************************************************************************************************
+ * Copyright (c) 2023, Salesforce, Inc. All rights reserved. SPDX-License-Identifier: Apache License
+ * Version 2.0 For full license text, see the LICENSE file in the repo root or
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * ************************************************************************************************
+ */
+@file:Suppress("InvisibleCharacter")
+
 package com.salesforce.revoman.internal.exe
 
 import arrow.core.Either
@@ -98,7 +101,6 @@ internal fun pickResponseConfig(
 ): ResponseConfig? =
   pickToResponseConfig.firstOrNull { it.postTxnStepPick.pick(currentStepReport, rundown) }
 
-// ! TODO 24/06/23 gopala.akshintala: Regex support to filter Step Names
 internal fun shouldStepBePicked(
   currentStep: Step,
   runOnlySteps: List<ExeStepPick>,
@@ -110,8 +112,9 @@ internal fun shouldStepBePicked(
   val runStep = runOnlySteps.isEmpty() || runOnlySteps.any { it.pick(currentStep) }
   val skipStep = skipSteps.isNotEmpty() && skipSteps.any { it.pick(currentStep) }
   check(runStep == skipStep) {
-    "$currentStep is ${if (runStep) "" else "NOT"} picked for both run and skip"
+    "‼️😵‍💫 Ambiguous - $currentStep is ${if (runStep) "" else "NOT"} picked for both run and skip execution"
   }
+  logger.info { "$currentStep is ${if (runStep) "" else "NOT 🚫"} picked for execution" }
   return runStep
 }
 
@@ -120,7 +123,7 @@ internal fun <T> runChecked(step: Step, exeType: ExeType, fn: () -> T): Either<T
     .fold(
       { Right(it) },
       {
-        logger.error(it) { "‼️ $step: Exception while executing $exeType" }
+        logger.error(it) { "‼️☠️ $step: Exception while executing $exeType" }
         Left(it)
       },
     )

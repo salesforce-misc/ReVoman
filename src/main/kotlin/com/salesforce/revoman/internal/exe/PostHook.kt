@@ -1,39 +1,45 @@
-/***************************************************************************************************
- *  Copyright (c) 2023, Salesforce, Inc. All rights reserved. SPDX-License-Identifier: 
- *           Apache License Version 2.0 
- *  For full license text, see the LICENSE file in the repo root or
- *  http://www.apache.org/licenses/LICENSE-2.0
- **************************************************************************************************/
-
+/**
+ * ************************************************************************************************
+ * Copyright (c) 2023, Salesforce, Inc. All rights reserved. SPDX-License-Identifier: Apache License
+ * Version 2.0 For full license text, see the LICENSE file in the repo root or
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * ************************************************************************************************
+ */
 package com.salesforce.revoman.internal.exe
 
 import arrow.core.Either
 import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.internal.postman.pm
 import com.salesforce.revoman.output.Rundown
-import com.salesforce.revoman.output.report.ExeType
+import com.salesforce.revoman.output.report.ExeType.POST_HOOK
 import com.salesforce.revoman.output.report.StepReport
 import com.salesforce.revoman.output.report.failure.HookFailure.PostHookFailure
+import io.github.oshai.kotlinlogging.KotlinLogging
 
 internal fun postHookExe(
-  stepReport: StepReport,
+  currentStepReport: StepReport,
   kick: Kick,
   stepReports: List<StepReport>
-): Either<PostHookFailure, Unit>? {
-  return pickPostHooks(
+): Either<PostHookFailure, Unit>? =
+  pickPostHooks(
       kick.postHooks(),
-      stepReport,
+      currentStepReport,
       Rundown(stepReports, pm.environment, kick.haltOnAnyFailureExcept())
     )
+    .also {
+      if (it.isNotEmpty())
+        logger.info { "Post hooks picked for ${currentStepReport.step} : ${it.size}" }
+    }
     .asSequence()
     .map { postHook ->
-      runChecked(stepReport.step, ExeType.POST_HOOK) {
+      runChecked(currentStepReport.step, POST_HOOK) {
           postHook.accept(
-            stepReport,
+            currentStepReport,
             Rundown(stepReports, pm.environment, kick.haltOnAnyFailureExcept())
           )
         }
         .mapLeft { PostHookFailure(it) }
     }
     .firstOrNull { it.isLeft() }
-}
+
+private val logger = KotlinLogging.logger {}
