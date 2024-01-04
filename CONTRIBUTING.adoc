@@ -57,7 +57,7 @@ TIP: You *don't* need a local Gradle installation as the `gradlew` (Gradle wrapp
 If you're a Java developer and new to Kotlin, don't worry, Kotlin is a JVM language and can be used anywhere Java is used.
 In fact, it has got the reputation of *"Better Java!"*.
 * A typical Java developer can ramp up on Kotlin in less than a week. These resources can help catalyze your ramp-up:
-** https://www.coursera.org/learn/kotlin-for-java-developers[*Kotlin for Java Developers | Coursera*], a free course 
+** https://www.coursera.org/learn/kotlin-for-java-developers[*Kotlin for Java Developers | Coursera*], a free course
 ** https://www.kotlinprimer.com/[The Kotlin Primer], tailor-made to facilitate Kotlin adoption inside Java-centric organizations
 * If you use Intellij, Kotlin plugin comes bundled.
 Similar development aids should be present for other code editors too.

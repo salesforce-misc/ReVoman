@@ -123,6 +123,8 @@ final var rundown =
 
 Let’s check out how to build this config with an example:
 
+TIP: To see it in action, refer a simpler example link:{testdir}/com/salesforce/revoman/integration/pokemon/PokemonTest.java[PokemonTest.java].
+
 ifdef::env-github[]
 
 [source,java,indent=0,options="nowrap"]
@@ -311,12 +313,12 @@ as demonstrated in link:{testdir}/com/salesforce/revoman/integration/core/pq/PQE
 
 .hooks(
   pre(
-      stepName(s)ForHook,
+      PreTxnStepHook,
       (currentStepName, requestInfo, rundown) -> {
         //...callback-code...
       }),
   post(
-      stepName(s)ForHook,
+      PostTxnStepHook,
       (currentStepName, rundown) -> {
         //...callback-code...
       })

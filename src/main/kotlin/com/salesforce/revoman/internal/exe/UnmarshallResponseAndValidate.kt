@@ -1,10 +1,10 @@
-/***************************************************************************************************
- *  Copyright (c) 2023, Salesforce, Inc. All rights reserved. SPDX-License-Identifier: 
- *           Apache License Version 2.0 
- *  For full license text, see the LICENSE file in the repo root or
- *  http://www.apache.org/licenses/LICENSE-2.0
- **************************************************************************************************/
-
+/**
+ * ************************************************************************************************
+ * Copyright (c) 2023, Salesforce, Inc. All rights reserved. SPDX-License-Identifier: Apache License
+ * Version 2.0 For full license text, see the LICENSE file in the repo root or
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * ************************************************************************************************
+ */
 package com.salesforce.revoman.internal.exe
 
 import arrow.core.Either
@@ -13,23 +13,26 @@ import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.internal.asA
 import com.salesforce.revoman.internal.postman.pm
 import com.salesforce.revoman.output.Rundown
-import com.salesforce.revoman.output.report.ExeType
+import com.salesforce.revoman.output.report.ExeType.RESPONSE_VALIDATION
+import com.salesforce.revoman.output.report.ExeType.UNMARSHALL_RESPONSE
 import com.salesforce.revoman.output.report.StepReport
 import com.salesforce.revoman.output.report.TxInfo
 import com.salesforce.revoman.output.report.failure.ResponseFailure
 import com.salesforce.vador.config.ValidationConfig
 import com.salesforce.vador.config.base.BaseValidationConfig
 import com.salesforce.vador.execution.Vador
+import io.exoquery.pprint
+import io.github.oshai.kotlinlogging.KotlinLogging
 import java.lang.reflect.Type
 import org.http4k.format.ConfigurableMoshi
 
 internal fun unmarshallResponseAndValidate(
-  stepReport: StepReport,
+  currentStepReport: StepReport,
   kick: Kick,
   moshiReVoman: ConfigurableMoshi,
   stepReports: List<StepReport>
 ): Either<StepReport, StepReport> {
-  val responseInfo = stepReport.responseInfo?.get()!!
+  val responseInfo = currentStepReport.responseInfo?.get()!!
   val httpResponse = responseInfo.httpMsg
   return when {
     isJsonBody(httpResponse) -> {
@@ -38,16 +41,21 @@ internal fun unmarshallResponseAndValidate(
         kick.pickToResponseConfig()[httpStatus]?.let {
           pickResponseConfig(
             it,
-            stepReport,
-            Rundown(stepReports + stepReport, pm.environment, kick.haltOnAnyFailureExcept())
+            currentStepReport,
+            Rundown(stepReports + currentStepReport, pm.environment, kick.haltOnAnyFailureExcept())
           )
         }
-      val responseType: Type = responseConfig?.responseType ?: Any::class.java
-      runChecked(stepReport.step, ExeType.UNMARSHALL_RESPONSE) {
+      val responseType: Type =
+        responseConfig
+          ?.also {
+            logger.info { "ResponseConfig found for the ${currentStepReport.step}: ${pprint(it)}" }
+          }
+          ?.responseType ?: Any::class.java
+      runChecked(currentStepReport.step, UNMARSHALL_RESPONSE) {
           moshiReVoman.asA<Any>(httpResponse.bodyString(), responseType)
         }
         .mapLeft {
-          stepReport.copy(
+          currentStepReport.copy(
             responseInfo =
               io.vavr.control.Either.left(
                 ResponseFailure.UnmarshallResponseFailure(
@@ -58,7 +66,7 @@ internal fun unmarshallResponseAndValidate(
           )
         }
         .flatMap { responseObj ->
-          runChecked(stepReport.step, ExeType.RESPONSE_VALIDATION) {
+          runChecked(currentStepReport.step, RESPONSE_VALIDATION) {
               responseConfig?.validationConfig?.let { validate(responseObj, it) }
             }
             .fold(
@@ -83,11 +91,11 @@ internal fun unmarshallResponseAndValidate(
                 } ?: Either.Right(responseInfo)
               },
             )
-            .mapLeft { stepReport.copy(responseInfo = io.vavr.control.Either.left(it)) }
+            .mapLeft { currentStepReport.copy(responseInfo = io.vavr.control.Either.left(it)) }
         }
-        .map { stepReport }
+        .map { currentStepReport }
     }
-    else -> Either.Right(stepReport)
+    else -> Either.Right(currentStepReport)
   }
 }
 
@@ -100,3 +108,5 @@ private fun validate(
     Vador.validateAndFailFast(responseObj, validationConfig as ValidationConfig<Any, Any?>)
       .orElse(null)
   }
+
+private val logger = KotlinLogging.logger {}

@@ -1,9 +1,10 @@
-/***************************************************************************************************
- *  Copyright (c) 2023, Salesforce, Inc. All rights reserved. SPDX-License-Identifier: 
- *           Apache License Version 2.0 
- *  For full license text, see the LICENSE file in the repo root or
- *  http://www.apache.org/licenses/LICENSE-2.0
- **************************************************************************************************/
+/**
+ * ************************************************************************************************
+ * Copyright (c) 2023, Salesforce, Inc. All rights reserved. SPDX-License-Identifier: Apache License
+ * Version 2.0 For full license text, see the LICENSE file in the repo root or
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * ************************************************************************************************
+ */
 package com.salesforce.revoman.input.config
 
 import com.salesforce.revoman.input.config.StepPick.ExeStepPick
@@ -89,9 +90,6 @@ internal interface KickDef {
       "`runOnlySteps` and `skipSteps` cannot contain same step names"
     }
   }
-  // ! TODO 22/06/23 gopala.akshintala: Validate if validation config for a step is mentioned but
-  // the stepName is not present
-  // ! TODO 22/06/23 gopala.akshintala: Validate if steps with the same name are used in config
 }
 
 @Target(AnnotationTarget.CLASS)

@@ -17,6 +17,7 @@ assertj-core = "3.25.1"
 assertj-vavr = "0.4.3"
 reflection-util = "2.15.0"
 kotlin-logging = "6.0.1"
+pprint = "1.0.0"
 apache-commons-lang3 = "3.14.0"
 underscore = "1.97"
 kotlin-faker = "1.15.0"
@@ -65,6 +66,7 @@ log4j-api = { module = "org.apache.logging.log4j:log4j-api", version.ref = "apac
 log4j-core = { module = "org.apache.logging.log4j:log4j-core", version.ref = "apache-log4j" }
 log4j-slf4j2-impl = { module = "org.apache.logging.log4j:log4j-slf4j2-impl", version.ref = "apache-log4j" }
 junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
+pprint = { module = "io.exoquery:pprint-kotlin", version.ref = "pprint" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "junit" }
 junit-engine = { module = "org.junit.jupiter:junit-jupiter-engine" }
 mockito-core = { module = "org.mockito:mockito-core", version.ref = "mockito" }
