@@ -14,6 +14,7 @@ import com.salesforce.revoman.input.bufferFileInResources
 import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.internal.exe.deepFlattenItems
 import com.salesforce.revoman.internal.exe.httpRequest
+import com.salesforce.revoman.internal.exe.isConsideredFailure
 import com.salesforce.revoman.internal.exe.postHookExe
 import com.salesforce.revoman.internal.exe.preHookExe
 import com.salesforce.revoman.internal.exe.runChecked
@@ -58,6 +59,7 @@ object ReVoman {
         .flatMap { (pmSteps, authFromRoot) ->
           deepFlattenItems(pmSteps.map { it.copy(auth = it.auth ?: authFromRoot) })
         }
+    logger.info { "Total steps from the Collection(s) provided: ${pmStepsDeepFlattened.size}" }
     val stepNameToReport =
       executeStepsSerially(
         pmStepsDeepFlattened,
@@ -130,19 +132,7 @@ object ReVoman {
             }
             .fold({ it }, { it })
         // * NOTE 15/10/23 gopala.akshintala: http status code can be non-success
-        noFailureInStep =
-          currentStepReport.isSuccessful ||
-            kick.haltOnAnyFailure() ||
-            (kick
-              .haltOnAnyFailureExcept()
-              ?.pick(
-                currentStepReport,
-                Rundown(
-                  stepReports + currentStepReport,
-                  pm.environment,
-                  kick.haltOnAnyFailureExcept()
-                )
-              ) ?: false)
+        noFailureInStep = isConsideredFailure(currentStepReport, kick, stepReports)
         stepReports + currentStepReport
       }
   }

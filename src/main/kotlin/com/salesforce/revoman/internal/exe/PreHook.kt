@@ -31,7 +31,7 @@ internal fun preHookExe(
       requestInfo,
       Rundown(stepReports, pm.environment, kick.haltOnAnyFailureExcept())
     )
-    .also { if (it.isNotEmpty()) logger.info { "Pre hooks picked for $currentStep : ${it.size}" } }
+    .also { if (it.isNotEmpty()) logger.info { "$currentStep Pre hooks picked : ${it.size}" } }
     .asSequence()
     .map { preHook ->
       runChecked(currentStep, PRE_HOOK) {

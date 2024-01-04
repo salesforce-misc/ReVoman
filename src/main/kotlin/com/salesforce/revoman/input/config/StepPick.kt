@@ -17,6 +17,7 @@ import com.salesforce.revoman.output.report.StepReport.Companion.containsHeader
 import com.salesforce.revoman.output.report.StepReport.Companion.uriPathEndsWith
 import com.salesforce.revoman.output.report.TxInfo
 import com.salesforce.revoman.output.report.TxInfo.Companion.uriPathEndsWith
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.http4k.core.Request
 
 sealed interface StepPick {
@@ -24,6 +25,7 @@ sealed interface StepPick {
     @Throws(Throwable::class) fun pick(step: Step): Boolean
 
     companion object PickUtils {
+      // ! TODO 04/01/24 gopala.akshintala: Common logger for all the OOTB picks
       @JvmStatic
       fun withName(stepName: String) = ExeStepPick { step -> step.stepNameMatches(stepName) }
 
@@ -96,3 +98,5 @@ sealed interface StepPick {
     }
   }
 }
+
+private val logger = KotlinLogging.logger {}

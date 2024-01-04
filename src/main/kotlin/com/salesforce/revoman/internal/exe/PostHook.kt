@@ -28,7 +28,7 @@ internal fun postHookExe(
     )
     .also {
       if (it.isNotEmpty())
-        logger.info { "Post hooks picked for ${currentStepReport.step} : ${it.size}" }
+        logger.info { "${currentStepReport.step} Post hooks picked : ${it.size}" }
     }
     .asSequence()
     .map { postHook ->

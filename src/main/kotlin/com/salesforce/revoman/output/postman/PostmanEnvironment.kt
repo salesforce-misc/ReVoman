@@ -7,6 +7,9 @@
  */
 package com.salesforce.revoman.output.postman
 
+import io.exoquery.pprint
+import io.github.oshai.kotlinlogging.KotlinLogging
+
 /** This is more like a value class (wrapper) on mutableEnv providing some useful utilities */
 data class PostmanEnvironment<ValueT : Any?>(
   private val mutableEnv: MutableMap<String, ValueT> = mutableMapOf()
@@ -16,11 +19,15 @@ data class PostmanEnvironment<ValueT : Any?>(
 
   fun set(key: String, value: ValueT) {
     mutableEnv[key] = value
+    logger.info {
+      "pm environment variable set through JS script : key : $key, value: ${pprint(value)}"
+    }
   }
 
   @Suppress("unused")
   fun unset(key: String) {
     mutableEnv.remove(key)
+    logger.info { "pm environment variable unset through JS script : key : $key" }
   }
 
   // ! TODO 24/06/23 gopala.akshintala: Support for Regex while querying environment
@@ -136,3 +143,5 @@ data class PostmanEnvironment<ValueT : Any?>(
       .mapNotNull { type.cast(it.value) }
       .toSet()
 }
+
+private val logger = KotlinLogging.logger {}

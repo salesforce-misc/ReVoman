@@ -15,6 +15,7 @@ import com.salesforce.revoman.internal.postman.pm
 import com.salesforce.revoman.output.Rundown
 import com.salesforce.revoman.output.report.ExeType.RESPONSE_VALIDATION
 import com.salesforce.revoman.output.report.ExeType.UNMARSHALL_RESPONSE
+import com.salesforce.revoman.output.report.Step
 import com.salesforce.revoman.output.report.StepReport
 import com.salesforce.revoman.output.report.TxInfo
 import com.salesforce.revoman.output.report.failure.ResponseFailure
@@ -24,6 +25,7 @@ import com.salesforce.vador.execution.Vador
 import io.exoquery.pprint
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.lang.reflect.Type
+import org.http4k.core.ContentType
 import org.http4k.format.ConfigurableMoshi
 
 internal fun unmarshallResponseAndValidate(
@@ -35,7 +37,7 @@ internal fun unmarshallResponseAndValidate(
   val responseInfo = currentStepReport.responseInfo?.get()!!
   val httpResponse = responseInfo.httpMsg
   return when {
-    isJsonBody(httpResponse) -> {
+    isJson(httpResponse) -> {
       val httpStatus = httpResponse.status.successful
       val responseConfig =
         kick.pickToResponseConfig()[httpStatus]?.let {
@@ -45,13 +47,12 @@ internal fun unmarshallResponseAndValidate(
             Rundown(stepReports + currentStepReport, pm.environment, kick.haltOnAnyFailureExcept())
           )
         }
+      val currentStep = currentStepReport.step
       val responseType: Type =
         responseConfig
-          ?.also {
-            logger.info { "ResponseConfig found for the ${currentStepReport.step}: ${pprint(it)}" }
-          }
+          ?.also { logger.info { "$currentStep ResponseConfig found : ${pprint(it)}" } }
           ?.responseType ?: Any::class.java
-      runChecked(currentStepReport.step, UNMARSHALL_RESPONSE) {
+      runChecked(currentStep, UNMARSHALL_RESPONSE) {
           moshiReVoman.asA<Any>(httpResponse.bodyString(), responseType)
         }
         .mapLeft {
@@ -66,8 +67,8 @@ internal fun unmarshallResponseAndValidate(
           )
         }
         .flatMap { responseObj ->
-          runChecked(currentStepReport.step, RESPONSE_VALIDATION) {
-              responseConfig?.validationConfig?.let { validate(responseObj, it) }
+          runChecked(currentStep, RESPONSE_VALIDATION) {
+              responseConfig?.validationConfig?.let { validate(currentStep, responseObj, it) }
             }
             .fold(
               { validationExeException ->
@@ -80,6 +81,9 @@ internal fun unmarshallResponseAndValidate(
               },
               { validationFailure ->
                 validationFailure?.let {
+                  logger.info {
+                    "${currentStepReport.step} Validation failed : ${pprint(validationFailure)}"
+                  }
                   Either.Left(
                     ResponseFailure.ResponseValidationFailure(
                       ResponseFailure.ResponseValidationFailure.ValidationFailure(
@@ -95,16 +99,23 @@ internal fun unmarshallResponseAndValidate(
         }
         .map { currentStepReport }
     }
-    else -> Either.Right(currentStepReport)
+    else -> {
+      logger.info {
+        "${currentStepReport.step} No JSON found in the Response body or content-type didn't match ${ContentType.APPLICATION_JSON.value}"
+      }
+      Either.Right(currentStepReport)
+    }
   }
 }
 
 // ! TODO gopala.akshintala 03/08/22: Extend the validation for other configs and strategies
 private fun validate(
+  currentStep: Step,
   responseObj: Any,
   validationConfig: BaseValidationConfig<out Any, out Any>?
 ): Any? =
   validationConfig?.let {
+    logger.info { "$currentStep ValidationConfig found : ${pprint(it)}" }
     Vador.validateAndFailFast(responseObj, validationConfig as ValidationConfig<Any, Any?>)
       .orElse(null)
   }
