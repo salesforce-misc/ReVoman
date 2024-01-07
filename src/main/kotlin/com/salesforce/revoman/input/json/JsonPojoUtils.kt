@@ -10,7 +10,7 @@
 package com.salesforce.revoman.input.json
 
 import com.salesforce.revoman.input.bufferFileInResources
-import com.salesforce.revoman.internal.buildMoshi
+import com.salesforce.revoman.internal.json.buildMoshi
 import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.JsonAdapter.Factory
 import io.vavr.control.Either

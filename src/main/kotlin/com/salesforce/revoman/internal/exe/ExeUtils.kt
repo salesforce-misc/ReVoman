@@ -12,27 +12,18 @@ package com.salesforce.revoman.internal.exe
 import arrow.core.Either
 import arrow.core.Either.Left
 import arrow.core.Either.Right
-import com.salesforce.revoman.input.config.HookConfig
-import com.salesforce.revoman.input.config.HookConfig.Hook.PostHook
-import com.salesforce.revoman.input.config.HookConfig.Hook.PreHook
 import com.salesforce.revoman.input.config.Kick
-import com.salesforce.revoman.input.config.RequestConfig
-import com.salesforce.revoman.input.config.ResponseConfig
 import com.salesforce.revoman.input.config.StepPick.ExeStepPick
-import com.salesforce.revoman.input.config.StepPick.PostTxnStepPick
-import com.salesforce.revoman.input.config.StepPick.PreTxnStepPick
 import com.salesforce.revoman.internal.postman.pm
-import com.salesforce.revoman.internal.postman.state.Item
+import com.salesforce.revoman.internal.postman.template.Item
 import com.salesforce.revoman.output.Rundown
 import com.salesforce.revoman.output.report.ExeType
 import com.salesforce.revoman.output.report.Folder
 import com.salesforce.revoman.output.report.Step
 import com.salesforce.revoman.output.report.StepReport
-import com.salesforce.revoman.output.report.TxInfo
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.http4k.core.ContentType.Companion.APPLICATION_JSON
 import org.http4k.core.HttpMessage
-import org.http4k.core.Request
 
 internal fun isJson(httpMessage: HttpMessage) =
   httpMessage.bodyString().isNotBlank() &&
@@ -64,44 +55,6 @@ internal fun deepFlattenItems(
         )
     }
     .toList()
-
-internal fun pickPreHooks(
-  preHooks: List<HookConfig>,
-  currentStep: Step,
-  requestInfo: TxInfo<Request>,
-  rundown: Rundown
-): List<PreHook> =
-  preHooks
-    .asSequence()
-    .filter { (it.pick as PreTxnStepPick).pick(currentStep, requestInfo, rundown) }
-    .map { it.hook as PreHook }
-    .toList()
-
-internal fun pickPostHooks(
-  postHooks: List<HookConfig>,
-  currentStepReport: StepReport,
-  rundown: Rundown
-): List<PostHook> =
-  postHooks
-    .asSequence()
-    .filter { (it.pick as PostTxnStepPick).pick(currentStepReport, rundown) }
-    .map { it.hook as PostHook }
-    .toList()
-
-internal fun pickRequestConfig(
-  requestConfigs: Set<RequestConfig>,
-  currentStep: Step,
-  currentRequestInfo: TxInfo<Request>,
-  rundown: Rundown
-): RequestConfig? =
-  requestConfigs.firstOrNull { it.preTxnStepPick.pick(currentStep, currentRequestInfo, rundown) }
-
-internal fun pickResponseConfig(
-  pickToResponseConfig: List<ResponseConfig>,
-  currentStepReport: StepReport,
-  rundown: Rundown
-): ResponseConfig? =
-  pickToResponseConfig.firstOrNull { it.postTxnStepPick.pick(currentStepReport, rundown) }
 
 internal fun shouldStepBePicked(
   currentStep: Step,

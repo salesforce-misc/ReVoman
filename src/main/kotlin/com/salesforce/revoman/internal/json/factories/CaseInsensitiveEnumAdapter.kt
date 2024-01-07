@@ -5,7 +5,7 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  * ************************************************************************************************
  */
-package com.salesforce.revoman.internal.factories
+package com.salesforce.revoman.internal.json.factories
 
 import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.JsonDataException

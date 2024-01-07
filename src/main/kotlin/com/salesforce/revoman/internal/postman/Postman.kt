@@ -8,7 +8,7 @@
 package com.salesforce.revoman.internal.postman
 
 import com.salesforce.revoman.input.bufferFileInResources
-import com.salesforce.revoman.internal.postman.state.Environment
+import com.salesforce.revoman.internal.postman.template.Environment
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapter
 

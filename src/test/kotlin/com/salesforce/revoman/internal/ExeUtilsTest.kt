@@ -9,7 +9,7 @@ package com.salesforce.revoman.internal
 
 import com.salesforce.revoman.input.bufferFileInResources
 import com.salesforce.revoman.internal.exe.deepFlattenItems
-import com.salesforce.revoman.internal.postman.state.Template
+import com.salesforce.revoman.internal.postman.template.Template
 import com.salesforce.revoman.output.report.Folder.Companion.FOLDER_DELIMITER
 import com.salesforce.revoman.output.report.Step.Companion.HTTP_METHOD_SEPARATOR
 import com.salesforce.revoman.output.report.Step.Companion.INDEX_SEPARATOR

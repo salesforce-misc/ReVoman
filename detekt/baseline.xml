@@ -1,11 +1,4 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<!--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  ~  Copyright (c) 2023, Salesforce, Inc. All rights reserved. SPDX-License-Identifier: 
-  ~           Apache License Version 2.0 
-  ~  For full license text, see the LICENSE file in the repo root or
-  ~  http://www.apache.org/licenses/LICENSE-2.0
-  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-->
-
 <SmellBaseline>
   <ManuallySuppressedIssues>
     <ID>TooManyFunctions:ResponseConfig.kt$ResponseConfig$Companion</ID>
@@ -13,6 +6,10 @@
     <ID>TooManyFunctions:ExeUtils.kt$com.salesforce.revoman.internal.exe.ExeUtils.kt</ID>
     <ID>LongMethod:ReVoman.kt$ReVoman$private fun executeStepsSerially( pmStepsFlattened: List&lt;Pair&lt;Step, Item>>, kick: Kick, moshiReVoman: ConfigurableMoshi, ): List&lt;StepReport></ID>
     <ID>SpreadOperator:Step.kt$Step$(*FOLDER_DELIMITER.toCharArray())</ID>
+    <ID>SpreadOperator:CaseInsensitiveEnumAdapter.kt$CaseInsensitiveEnumAdapter$(*nameStrings.toTypedArray())</ID>
+    <ID>TooManyFunctions:JsonWriterUtils.kt$com.salesforce.revoman.input.json.JsonWriterUtils.kt</ID>
+    <ID>TooManyFunctions:JsonReaderUtils.kt$com.salesforce.revoman.input.json.JsonReaderUtils.kt</ID>
+    <ID>TooManyFunctions:KickDef.kt$KickDef</ID>
   </ManuallySuppressedIssues>
   <CurrentIssues/>
 </SmellBaseline>

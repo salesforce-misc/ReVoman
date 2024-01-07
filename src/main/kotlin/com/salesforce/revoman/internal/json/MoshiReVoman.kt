@@ -7,13 +7,13 @@
  */
 @file:JvmName("MoshiReVoman")
 
-package com.salesforce.revoman.internal
+package com.salesforce.revoman.internal.json
 
-import com.salesforce.revoman.internal.adapters.BigDecimalAdapter
-import com.salesforce.revoman.internal.adapters.EpochAdapter
-import com.salesforce.revoman.internal.adapters.UUIDAdapter
-import com.salesforce.revoman.internal.factories.CaseInsensitiveEnumAdapter
-import com.salesforce.revoman.internal.factories.IgnoreUnknownFactory
+import com.salesforce.revoman.internal.json.adapters.BigDecimalAdapter
+import com.salesforce.revoman.internal.json.adapters.EpochAdapter
+import com.salesforce.revoman.internal.json.adapters.UUIDAdapter
+import com.salesforce.revoman.internal.json.factories.CaseInsensitiveEnumAdapter
+import com.salesforce.revoman.internal.json.factories.IgnoreUnknownFactory
 import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.JsonAdapter.Factory
 import com.squareup.moshi.Moshi

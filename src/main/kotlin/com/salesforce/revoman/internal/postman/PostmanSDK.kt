@@ -8,7 +8,7 @@
 package com.salesforce.revoman.internal.postman
 
 import com.github.underscore.U
-import com.salesforce.revoman.internal.postman.state.Request
+import com.salesforce.revoman.internal.postman.template.Request
 import com.salesforce.revoman.output.postman.PostmanEnvironment
 import com.squareup.moshi.JsonClass
 import com.squareup.moshi.Moshi

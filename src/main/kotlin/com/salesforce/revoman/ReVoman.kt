@@ -22,12 +22,12 @@ import com.salesforce.revoman.internal.exe.shouldStepBePicked
 import com.salesforce.revoman.internal.exe.unmarshallRequest
 import com.salesforce.revoman.internal.exe.unmarshallResponseAndValidate
 import com.salesforce.revoman.internal.executeTestScriptJs
-import com.salesforce.revoman.internal.initMoshi
+import com.salesforce.revoman.internal.json.initMoshi
 import com.salesforce.revoman.internal.postman.RegexReplacer
 import com.salesforce.revoman.internal.postman.initPmEnvironment
 import com.salesforce.revoman.internal.postman.pm
-import com.salesforce.revoman.internal.postman.state.Item
-import com.salesforce.revoman.internal.postman.state.Template
+import com.salesforce.revoman.internal.postman.template.Item
+import com.salesforce.revoman.internal.postman.template.Template
 import com.salesforce.revoman.output.Rundown
 import com.salesforce.revoman.output.report.ExeType.TEST_SCRIPT_JS
 import com.salesforce.revoman.output.report.Step
@@ -85,7 +85,7 @@ object ReVoman {
       .filter { (step, _) -> shouldStepBePicked(step, kick.runOnlySteps(), kick.skipSteps()) }
       .fold(listOf()) { stepReports, (step, itemWithRegex) ->
         logger.info { "***** Executing Step: $step *****" }
-        val pmRequest: com.salesforce.revoman.internal.postman.state.Request =
+        val pmRequest: com.salesforce.revoman.internal.postman.template.Request =
           RegexReplacer(pm.environment, kick.customDynamicVariables())
             .replaceRegex(itemWithRegex.request)
         val currentStepReport: StepReport = // --------### UNMARSHALL-REQUEST ###--------

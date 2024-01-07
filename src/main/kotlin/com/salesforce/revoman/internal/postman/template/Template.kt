@@ -5,7 +5,7 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  * ************************************************************************************************
  */
-package com.salesforce.revoman.internal.postman.state
+package com.salesforce.revoman.internal.postman.template
 
 import com.squareup.moshi.JsonClass
 import org.http4k.core.ContentType

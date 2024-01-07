@@ -5,7 +5,7 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  * ************************************************************************************************
  */
-package com.salesforce.revoman.internal.adapters
+package com.salesforce.revoman.internal.json.adapters
 
 import com.squareup.moshi.FromJson
 import com.squareup.moshi.ToJson

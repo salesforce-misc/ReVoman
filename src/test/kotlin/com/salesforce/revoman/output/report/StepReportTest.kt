@@ -9,7 +9,7 @@ package com.salesforce.revoman.output.report
 
 import arrow.core.Either.Left
 import arrow.core.Either.Right
-import com.salesforce.revoman.internal.postman.state.Request
+import com.salesforce.revoman.internal.postman.template.Request
 import com.salesforce.revoman.output.report.failure.HookFailure.PostHookFailure
 import com.salesforce.revoman.output.report.failure.RequestFailure.HttpRequestFailure
 import io.kotest.matchers.shouldBe

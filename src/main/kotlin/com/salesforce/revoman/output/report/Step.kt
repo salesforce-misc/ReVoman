@@ -7,7 +7,7 @@
  */
 package com.salesforce.revoman.output.report
 
-import com.salesforce.revoman.internal.postman.state.Request
+import com.salesforce.revoman.internal.postman.template.Request
 import com.salesforce.revoman.output.endsWith
 import com.salesforce.revoman.output.report.Folder.Companion.FOLDER_DELIMITER
 import java.util.Collections.indexOfSubList

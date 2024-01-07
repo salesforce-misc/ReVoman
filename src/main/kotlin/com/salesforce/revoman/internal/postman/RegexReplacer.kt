@@ -7,8 +7,8 @@
  */
 package com.salesforce.revoman.internal.postman
 
-import com.salesforce.revoman.internal.postman.state.Environment
-import com.salesforce.revoman.internal.postman.state.Request
+import com.salesforce.revoman.internal.postman.template.Environment
+import com.salesforce.revoman.internal.postman.template.Request
 
 private const val VARIABLE_KEY = "variableKey"
 val postManVariableRegex = "\\{\\{(?<$VARIABLE_KEY>[^{}]*?)}}".toRegex()

@@ -9,8 +9,8 @@ package com.salesforce.revoman.internal
 
 import com.salesforce.revoman.internal.postman.RegexReplacer
 import com.salesforce.revoman.internal.postman.pm
-import com.salesforce.revoman.internal.postman.state.Event
-import com.salesforce.revoman.internal.postman.state.Request
+import com.salesforce.revoman.internal.postman.template.Event
+import com.salesforce.revoman.internal.postman.template.Request
 import org.graalvm.polyglot.Context
 import org.graalvm.polyglot.HostAccess
 import org.graalvm.polyglot.Source
