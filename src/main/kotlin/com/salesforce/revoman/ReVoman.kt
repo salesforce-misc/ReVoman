@@ -93,8 +93,8 @@ object ReVoman {
             .mapLeft { StepReport(step, Left(it)) }
             .flatMap { requestInfo: TxInfo<Request> -> // --------### PRE-HOOKS ###--------
               preHookExe(step, kick, requestInfo, stepReports)
-                ?.mapLeft { StepReport(step, Right(requestInfo), it) }
-                ?.map { requestInfo } ?: Right(requestInfo)
+                .mapLeft { StepReport(step, Right(requestInfo), it) }
+                .map { requestInfo }
             }
             .flatMap { requestInfo: TxInfo<Request> -> // --------### HTTP-REQUEST ###--------
               val httpRequest =
@@ -125,10 +125,10 @@ object ReVoman {
             }
             .map { stepReport: StepReport -> // --------### POST-HOOKS ###--------
               postHookExe(stepReport, kick, stepReports + stepReport)
-                ?.fold(
+                .fold(
                   { stepReport.copy(postHookFailure = it) },
                   { stepReport.copy(envSnapshot = pm.environment.copy()) },
-                ) ?: stepReport
+                )
             }
             .fold({ it }, { it })
         // * NOTE 15/10/23 gopala.akshintala: http status code can be non-success

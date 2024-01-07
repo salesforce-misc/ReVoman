@@ -53,7 +53,7 @@ class PQE2EWithSMTest {
           ValidationConfig.<PlaceQuoteOutputRepresentation, String>toValidate()
               .withValidator(
                   (resp -> {
-                    LOGGER.info("🦾Validating PQ response for Success✅");
+                    LOGGER.info("🦾Validating PQ response for Success");
                     return Boolean.TRUE.equals(resp.getSuccess()) ? "success" : "sync-failure";
                   }),
                   "success")
@@ -63,7 +63,7 @@ class PQE2EWithSMTest {
           ValidationConfig.<PlaceQuoteOutputRepresentation, String>toValidate()
               .withValidator(
                   (resp -> {
-                    LOGGER.info("🦾Validating PQ response for Failure❌");
+                    LOGGER.info("🦾Validating PQ response for Failure");
                     return Boolean.FALSE.equals(resp.getSuccess()) ? "sync-failure" : "success";
                   }),
                   "sync-failure")

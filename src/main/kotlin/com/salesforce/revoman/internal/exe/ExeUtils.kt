@@ -29,7 +29,6 @@ import com.salesforce.revoman.output.report.Folder
 import com.salesforce.revoman.output.report.Step
 import com.salesforce.revoman.output.report.StepReport
 import com.salesforce.revoman.output.report.TxInfo
-import io.exoquery.pprint
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.http4k.core.ContentType.Companion.APPLICATION_JSON
 import org.http4k.core.HttpMessage
@@ -38,7 +37,6 @@ import org.http4k.core.Request
 internal fun isJson(httpMessage: HttpMessage) =
   httpMessage.bodyString().isNotBlank() &&
     httpMessage.header("content-type")?.let {
-      logger.info { "content-type: $it, ${pprint(httpMessage)}" }
       val contentType = it.split(";")
       contentType.size > 1 && contentType[0].trim().equals(APPLICATION_JSON.value, true)
     } == true

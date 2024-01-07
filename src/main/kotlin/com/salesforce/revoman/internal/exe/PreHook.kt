@@ -8,6 +8,7 @@
 package com.salesforce.revoman.internal.exe
 
 import arrow.core.Either
+import arrow.core.Either.Right
 import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.internal.postman.pm
 import com.salesforce.revoman.output.Rundown
@@ -24,7 +25,7 @@ internal fun preHookExe(
   kick: Kick,
   requestInfo: TxInfo<Request>,
   stepReports: List<StepReport>
-): Either<PreHookFailure, Unit>? =
+): Either<PreHookFailure, Unit> =
   pickPreHooks(
       kick.preHooks(),
       currentStep,
@@ -43,6 +44,6 @@ internal fun preHookExe(
         }
         .mapLeft { PreHookFailure(it, requestInfo) }
     }
-    .firstOrNull { it.isLeft() }
+    .firstOrNull { it.isLeft() } ?: Right(Unit)
 
 private val logger = KotlinLogging.logger {}

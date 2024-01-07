@@ -8,6 +8,7 @@
 package com.salesforce.revoman.internal.exe
 
 import arrow.core.Either
+import arrow.core.Either.Right
 import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.internal.postman.pm
 import com.salesforce.revoman.output.Rundown
@@ -20,7 +21,7 @@ internal fun postHookExe(
   currentStepReport: StepReport,
   kick: Kick,
   stepReports: List<StepReport>
-): Either<PostHookFailure, Unit>? =
+): Either<PostHookFailure, Unit> =
   pickPostHooks(
       kick.postHooks(),
       currentStepReport,
@@ -40,6 +41,6 @@ internal fun postHookExe(
         }
         .mapLeft { PostHookFailure(it) }
     }
-    .firstOrNull { it.isLeft() }
+    .firstOrNull { it.isLeft() } ?: Right(Unit)
 
 private val logger = KotlinLogging.logger {}
