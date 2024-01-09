@@ -131,7 +131,7 @@ class PQE2EWithSMTest {
                         VALIDATE_PQ_SYNC_ERROR))
                 .insecureHttp(true) // <10>
                 .off()); // Kick-off
-    assertThat(pqRundown.firstUnIgnoredUnsuccessfulStepReportInOrder).isNull();
+    assertThat(pqRundown.firstUnIgnoredUnsuccessfulStepReport()).isNull();
     assertThat(pqRundown.mutableEnv)
         .containsAllEntriesOf(
             Map.of(
