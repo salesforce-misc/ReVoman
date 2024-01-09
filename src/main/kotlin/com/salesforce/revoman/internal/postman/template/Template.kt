@@ -22,11 +22,13 @@ internal data class Template(val item: List<Item>, val auth: Auth?)
 @JsonClass(generateAdapter = true)
 data class Item(
   val name: String = "",
-  val item: List<Item>?,
+  val item: List<Item>? = null,
   val request: Request = Request(),
-  val auth: Auth?,
+  val auth: Auth? = null,
   val event: List<Event>? = null
-)
+) {
+  @JvmField val httpMethod = request.method
+}
 
 @JsonClass(generateAdapter = true)
 data class Event(val listen: String, val script: Script) {

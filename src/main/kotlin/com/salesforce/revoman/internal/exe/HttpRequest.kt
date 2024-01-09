@@ -8,7 +8,6 @@
 package com.salesforce.revoman.internal.exe
 
 import arrow.core.Either
-import com.salesforce.revoman.internal.postman.pm
 import com.salesforce.revoman.internal.postman.template.Item
 import com.salesforce.revoman.internal.prepareHttpClient
 import com.salesforce.revoman.output.report.ExeType.HTTP_REQUEST
@@ -28,7 +27,7 @@ internal fun httpRequest(
     // * as there can be intermediate auths
     val httpClient: HttpHandler =
       prepareHttpClient(
-        pm.environment.getString(itemWithRegex.auth?.bearerTokenKeyFromRegex),
+        itemWithRegex.auth?.bearerToken,
         insecureHttp,
       )
     httpClient(httpRequest)

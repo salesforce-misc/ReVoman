@@ -36,7 +36,7 @@ internal fun deepFlattenItems(
   items: List<Item>,
   parentFolder: Folder? = null,
   stepIndexFromParent: String = "",
-): List<Pair<Step, Item>> =
+): List<Step> =
   items
     .asSequence()
     .flatMapIndexed { itemIndex, item ->
@@ -49,10 +49,7 @@ internal fun deepFlattenItems(
           val currentFolder = Folder(item.name, parentFolder)
           parentFolder?.subFolders?.add(currentFolder)
           deepFlattenItems(it, currentFolder, stepIndex)
-        }
-        ?: listOf(
-          Step(stepIndex, item.name, item.request, parentFolder) to item.copy(auth = item.auth)
-        )
+        } ?: listOf(Step(stepIndex, item.name, item.copy(auth = item.auth), parentFolder))
     }
     .toList()
 

@@ -7,7 +7,7 @@
  */
 package com.salesforce.revoman.output.report
 
-import com.salesforce.revoman.internal.postman.template.Request
+import com.salesforce.revoman.internal.postman.template.Item
 import com.salesforce.revoman.output.endsWith
 import com.salesforce.revoman.output.report.Folder.Companion.FOLDER_DELIMITER
 import java.util.Collections.indexOfSubList
@@ -15,12 +15,12 @@ import java.util.Collections.indexOfSubList
 data class Step(
   @JvmField val index: String,
   @JvmField val name: String,
-  @JvmField val rawRequest: Request,
+  @JvmField val rawPMStep: Item,
   @JvmField val parentFolder: Folder? = null
 ) {
   @JvmField val path = parentFolder?.let { "$it$STEP_SEPARATOR$name" } ?: name
   @JvmField
-  val displayName = "$index$INDEX_SEPARATOR${rawRequest.method}$HTTP_METHOD_SEPARATOR$path"
+  val displayName = "$index$INDEX_SEPARATOR${rawPMStep.httpMethod}$HTTP_METHOD_SEPARATOR$path"
 
   @JvmField val isInRoot: Boolean = parentFolder == null
 
@@ -61,11 +61,8 @@ constructor(
   @JvmField val subFolders: MutableList<Folder> = mutableListOf()
 ) {
   @JvmField val isRoot: Boolean = parent == null
-  val path: List<Folder>
-    @JvmName("path") get() = parentPath + this
-
-  val parentPath: List<Folder>
-    @JvmName("parentPath") get() = parent?.parentPath?.plus(parent) ?: emptyList()
+  @JvmField val parentPath: List<Folder> = parent?.parentPath?.plus(parent) ?: emptyList()
+  @JvmField val path: List<Folder> = parentPath + this
 
   override fun toString(): String =
     if (isRoot) name
