@@ -31,7 +31,7 @@ class ExeUtilsTest {
           .fromJson(bufferFileInResources("pmCollection/steps-with-folders.json"))!!
           .item
       )
-      .map { it.first }
+      .map { it }
 
   @Test
   fun `stepNames for deepFlattened nested items`() {

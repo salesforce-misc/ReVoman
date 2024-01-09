@@ -9,6 +9,7 @@ package com.salesforce.revoman.output.report
 
 import arrow.core.Either.Left
 import arrow.core.Either.Right
+import com.salesforce.revoman.internal.postman.template.Item
 import com.salesforce.revoman.internal.postman.template.Request
 import com.salesforce.revoman.output.report.failure.HookFailure.PostHookFailure
 import com.salesforce.revoman.output.report.failure.RequestFailure.HttpRequestFailure
@@ -27,7 +28,10 @@ class StepReportTest {
       Request(method = POST.toString(), url = Request.Url("https://overfullstack.github.io/"))
     val requestInfo = TxInfo(String::class.java, "fakeRequest", rawRequest.toHttpRequest())
     val stepReportSuccess =
-      StepReport(Step("1.3.7", "HttpStatusSuccessful", rawRequest), Right(requestInfo))
+      StepReport(
+        Step("1.3.7", "HttpStatusSuccessful", Item(request = rawRequest)),
+        Right(requestInfo)
+      )
     println(stepReportSuccess)
     stepReportSuccess.isHttpStatusSuccessful shouldBe true
   }
@@ -39,7 +43,7 @@ class StepReportTest {
     val requestInfo = TxInfo(String::class.java, "fakeRequest", rawRequest.toHttpRequest())
     val stepReportHttpFailure =
       StepReport(
-        Step("1.3.7", "HttpRequestFailure", rawRequest),
+        Step("1.3.7", "HttpRequestFailure", Item(request = rawRequest)),
         Left(HttpRequestFailure(RuntimeException("fakeRTE"), requestInfo))
       )
     println(stepReportHttpFailure)
@@ -55,7 +59,7 @@ class StepReportTest {
       TxInfo(String::class.java, "fakeBadResponse", Response(BAD_REQUEST).body("fakeBadResponse"))
     val stepReportBadRequest =
       StepReport(
-        Step("", "BadResponse", rawRequest),
+        Step("", "BadResponse", Item(request = rawRequest)),
         Right(requestInfo),
         null,
         Right(badResponseInfo)
@@ -72,7 +76,7 @@ class StepReportTest {
     val responseInfo: TxInfo<Response> = TxInfo(String::class.java, "fakeResponse", Response(OK))
     val stepReportPostHookFailure =
       StepReport(
-        Step("", "PostHookFailure", rawRequest),
+        Step("", "PostHookFailure", Item(request = rawRequest)),
         Right(requestInfo),
         null,
         Right(responseInfo),

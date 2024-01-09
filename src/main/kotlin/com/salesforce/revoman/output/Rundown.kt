@@ -18,23 +18,18 @@ data class Rundown(
   private val stepsToIgnoreForFailurePick: PostTxnStepPick?
 ) {
   @JvmField val immutableEnvMap = mutableEnv.toMap()
-
-  val firstUnsuccessfulStepNameInOrder: String?
-    @JvmName("firstUnsuccessfulStepNameInOrder")
-    get() = stepReports.firstOrNull { !it.isSuccessful }?.step?.name
-
-  fun firstUnIgnoredUnsuccessfulStepReportInOrder(): StepReport? =
+  @JvmField
+  val firstUnsuccessfulStepNameInOrder: String? =
+    stepReports.firstOrNull { !it.isSuccessful }?.step?.name
+  @JvmField
+  val firstUnIgnoredUnsuccessfulStepReportInOrder: StepReport? =
     stepReports.firstOrNull {
       !it.isSuccessful && !(stepsToIgnoreForFailurePick?.pick(it, this) ?: false)
     }
-
-  val areAllStepsSuccessful
-    @JvmName("areAllStepsSuccessful") get() = stepReports.all { it.isSuccessful }
-
-  val areAllStepsExceptIgnoredSuccessful
-    @JvmName("areAllStepsExceptIgnoredSuccessful")
-    get() =
-      stepReports.all { it.isSuccessful || (stepsToIgnoreForFailurePick?.pick(it, this) ?: false) }
+  @JvmField val areAllStepsSuccessful = stepReports.all { it.isSuccessful }
+  @JvmField
+  val areAllStepsExceptIgnoredSuccessful =
+    stepReports.all { it.isSuccessful || (stepsToIgnoreForFailurePick?.pick(it, this) ?: false) }
 
   fun reportsForStepsInFolder(folderName: String): List<StepReport?> =
     stepReports.filter { it.step.name.contains("$folderName$FOLDER_DELIMITER") }

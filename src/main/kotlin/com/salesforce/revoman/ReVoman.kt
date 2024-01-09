@@ -26,7 +26,6 @@ import com.salesforce.revoman.internal.json.initMoshi
 import com.salesforce.revoman.internal.postman.RegexReplacer
 import com.salesforce.revoman.internal.postman.initPmEnvironment
 import com.salesforce.revoman.internal.postman.pm
-import com.salesforce.revoman.internal.postman.template.Item
 import com.salesforce.revoman.internal.postman.template.Template
 import com.salesforce.revoman.output.Rundown
 import com.salesforce.revoman.output.report.ExeType.TEST_SCRIPT_JS
@@ -74,7 +73,7 @@ object ReVoman {
   }
 
   private fun executeStepsSerially(
-    pmStepsFlattened: List<Pair<Step, Item>>,
+    pmStepsFlattened: List<Step>,
     kick: Kick,
     moshiReVoman: ConfigurableMoshi,
   ): List<StepReport> {
@@ -82,9 +81,10 @@ object ReVoman {
     return pmStepsFlattened
       .asSequence()
       .takeWhile { noFailureInStep }
-      .filter { (step, _) -> shouldStepBePicked(step, kick.runOnlySteps(), kick.skipSteps()) }
-      .fold(listOf()) { stepReports, (step, itemWithRegex) ->
+      .filter { shouldStepBePicked(it, kick.runOnlySteps(), kick.skipSteps()) }
+      .fold(listOf()) { stepReports, step ->
         logger.info { "***** Executing Step: $step *****" }
+        val itemWithRegex = step.rawPMStep
         val pmRequest: com.salesforce.revoman.internal.postman.template.Request =
           RegexReplacer(pm.environment, kick.customDynamicVariables())
             .replaceRegex(itemWithRegex.request)
