@@ -29,6 +29,20 @@ fun <PojoT : Any> jsonFileToPojo(
   return jsonAdapter.fromJson(bufferFileInResources(jsonFilePath))
 }
 
+inline fun <reified PojoT : Any> jsonFileToPojo(
+  jsonFilePath: String,
+  customAdapters: List<Any> = emptyList(),
+  customAdaptersWithType: Map<Type, List<Either<JsonAdapter<Any>, Factory>>> = emptyMap(),
+  typesToIgnore: Set<Class<out Any>> = emptySet()
+): PojoT? =
+  jsonFileToPojo(
+    PojoT::class.java,
+    jsonFilePath,
+    customAdapters,
+    customAdaptersWithType,
+    typesToIgnore
+  )
+
 @JvmOverloads
 fun <PojoT : Any> jsonToPojo(
   pojoType: Type,
@@ -41,6 +55,14 @@ fun <PojoT : Any> jsonToPojo(
     initMoshi<PojoT>(customAdapters, customAdaptersWithType, typesToIgnore, pojoType)
   return jsonAdapter.fromJson(jsonStr)
 }
+
+inline fun <reified PojoT : Any> jsonToPojo(
+  jsonStr: String,
+  customAdapters: List<Any> = emptyList(),
+  customAdaptersWithType: Map<Type, List<Either<JsonAdapter<Any>, Factory>>> = emptyMap(),
+  typesToIgnore: Set<Class<out Any>> = emptySet()
+): PojoT? =
+  jsonToPojo(PojoT::class.java, jsonStr, customAdapters, customAdaptersWithType, typesToIgnore)
 
 @JvmOverloads
 fun <PojoT : Any> pojoToJson(
@@ -55,6 +77,15 @@ fun <PojoT : Any> pojoToJson(
     initMoshi<PojoT>(customAdapters, customAdaptersWithType, typesToIgnore, pojoType)
   return (indent?.let { jsonAdapter.indent(indent) } ?: jsonAdapter).toJson(pojo)
 }
+
+inline fun <reified PojoT : Any> pojoToJson(
+  pojo: PojoT,
+  customAdapters: List<Any> = emptyList(),
+  customAdaptersWithType: Map<Type, List<Either<JsonAdapter<Any>, Factory>>> = emptyMap(),
+  typesToIgnore: Set<Class<out Any>> = emptySet(),
+  indent: String? = "  "
+): String? =
+  pojoToJson(PojoT::class.java, pojo, customAdapters, customAdaptersWithType, typesToIgnore, indent)
 
 @SuppressWarnings("kotlin:S3923")
 private fun <PojoT : Any> initMoshi(
