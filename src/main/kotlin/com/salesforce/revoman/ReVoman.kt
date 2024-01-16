@@ -115,7 +115,14 @@ object ReVoman {
                 }
                 .mapLeft {
                   stepReport.copy(
-                    responseInfo = left(TestScriptJsFailure(it, TxInfo(httpMsg = httpResponse)))
+                    responseInfo =
+                      left(
+                        TestScriptJsFailure(
+                          it,
+                          stepReport.requestInfo!!.get(),
+                          TxInfo(httpMsg = httpResponse)
+                        )
+                      )
                   )
                 }
                 .map { stepReport }

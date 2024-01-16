@@ -15,7 +15,7 @@ endif::[]
 :pmtemplates: src/integrationTest/resources/pm-templates
 :imagesdir: docs/images
 :prewrap!:
-:revoman-version: 0.30.1
+:revoman-version: 0.31.2
 
 ____
 
@@ -175,8 +175,8 @@ ReVoman.revUp( // <1>
             }))
     .responseConfig( // <9>
         unmarshallSuccessResponse(
-            afterStepName("quote-related-records"), CompositeResponse.class), // <9.1>
-        validateIfSuccess( // <9.2>
+            afterStepName("quote-related-records"), CompositeResponse.class), // <10>
+        validateIfSuccess( // <11>
             afterAllStepsWithURIPathEndingWith(PQ_PATH),
             PlaceQuoteOutputRepresentation.class,
             VALIDATE_PQ_SUCCESS),
@@ -184,7 +184,7 @@ ReVoman.revUp( // <1>
             afterAllStepsInFolder("errors|>sync"),
             PlaceQuoteOutputRepresentation.class,
             VALIDATE_PQ_SYNC_ERROR))
-    .insecureHttp(true) // <10>
+    .insecureHttp(true) // <12>
     .off()); // Kick-off
 assertThat(pqRundown.firstUnIgnoredUnsuccessfulStepReportInOrder()).isNull();
 assertThat(pqRundown.mutableEnv)
@@ -203,8 +203,8 @@ assertThat(pqRundown.mutableEnv)
 <7> You can provide a strong type for your request to be marshalled into. You can use this strong type while executing pre-hooks
 <8> You can set up a pre- / post-hook around a Step via `hooks`, which can help as callbacks, especially for Async operations.
 <9> Provide configuration to unmarshall/deserialize response JSON into strong types
-<9.1> `unmarshallSuccessResponse` and `unmarshallErrorResponse` help you use strong types inside hooks.
-<9.2> Supply your validations/assertions to be run on a step response through `validateIfSuccess` and `validateIfFailed`
+<10> `unmarshallSuccessResponse` and `unmarshallErrorResponse` help you use strong types inside hooks.
+<11> Supply your validations/assertions to be run on a step response through `validateIfSuccess` and `validateIfFailed`
 ** You can leverage the power of https://github.com/salesforce-misc/Vador[*Vador*] to write config-driven validations
 <10> [Not for Prod] Ignore Java cert issues when firing Http calls
 
@@ -225,10 +225,10 @@ include::{testdir}/com/salesforce/revoman/integration/core/pq/PQE2EWithSMTest.ja
 <7> You can provide a strong type for your request to be marshalled into. You can use this strong type while executing pre-hooks
 <8> You can set up a pre- / post-hook around a Step via `hooks`, which can help as callbacks, especially for Async operations.
 <9> Provide configuration to unmarshall/deserialize response JSON into strong types
-<9.1> `unmarshallSuccessResponse` and `unmarshallErrorResponse` help you use strong types inside hooks.
-<9.2> Supply your validations/assertions to be run on a step response through `validateIfSuccess` and `validateIfFailed`
+<10> `unmarshallSuccessResponse` and `unmarshallErrorResponse` help you use strong types inside hooks.
+<11> Supply your validations/assertions to be run on a step response through `validateIfSuccess` and `validateIfFailed`
 ** You can leverage the power of https://github.com/salesforce-misc/Vador[*Vador*] to write config-driven validations
-<10> [Not for Prod] Ignore Java cert issues when firing Http calls
+<12> [Not for Prod] Ignore Java cert issues when firing Http calls
 
 endif::[]
 
@@ -254,12 +254,6 @@ StepReport(
 ----
 
 [.lead]
-It captures failure at any stage of a step during execution. Here is what all can go wrong:
-
-[#_failure_hierarchy]
-image:failure-hierarchy.png[Failure Hierarchy]
-
-[.lead]
 This tool has particular emphasis on Debugging experience.
 
 The rundown you get as a return from `revUp` after the execution completes has everything you need to know about what happened during each step execution,
@@ -276,6 +270,12 @@ image:step-report.png[Step Report]
 Here are the environment *key-value* pairs accumulated along the entire execution:
 
 image:mutable-env.png[Mutable environment after the execution completion]
+
+[.lead]
+It captures failure at any stage of a step during execution. Here is what all can go wrong:
+
+[#_failure_hierarchy]
+image:failure-hierarchy.png[Failure Hierarchy]
 
 [.lead]
 It logs everything, so you can watch your console to check what's going on in the execution
@@ -362,12 +362,12 @@ The above test doesn't just have low-code, but also low in Cognitive Complexity 
 * A nice side effect is, this lets the Postman collections always stay up to date and the entire Postman collection guards each *check-in* in the form of a Test suite augmenting manual testing.
 * Any day, you can find an up-to-date Postman collection for every feature you need to test, right in your VCS (Git) along with your code. Developers can import these templates directly from VCS into Postman for manual testing. This comes in very handy during a team blitz.
 
-=== Unified testing strategy
+=== Unified framework to Automating Manual testing
 
-* Bring a *Unified &amp; Simplified Test strategy* across the mul-**T**-verse (FTests, E2E Tests, and Manual testing with Postman) for any service. This is a generic tool, and just by changing the template, the same config/pattern can be reused for any feature flow agnostic of it being an FTest or E2E test
-* Transparency and better Traceability of issues
+* Bring a *Unified &amp; Simplified Test strategy* across the mul-**T**-verse (FTests, E2E Tests, and Manual testing with Postman) for any service.
+* The automation stays as close as possible to Manual testing, leading to Transparency and better Traceability of issues
 * This forces engineers to think like *API-first customers* while writing tests.
-* *FTest Data setup:* You can use the ReVoman for the FTest data setup too. This eliminates the need for different teams to write their own internal utilities for data setup.
+* *Test Data setup:* You can use the ReVoman for the Test data setup too. This eliminates the need for different teams to write their own internal utilities for data setup.
 * *E2E Test* can even reside outside the Service repo, as long as it can hit the service
 
 == Perf

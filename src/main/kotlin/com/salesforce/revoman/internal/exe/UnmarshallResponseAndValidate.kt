@@ -39,8 +39,7 @@ internal fun unmarshallResponseAndValidate(
   moshiReVoman: ConfigurableMoshi,
   stepReports: List<StepReport>
 ): Either<StepReport, StepReport> {
-  val responseInfo = currentStepReport.responseInfo?.get()!!
-  val httpResponse = responseInfo.httpMsg
+  val httpResponse = currentStepReport.responseInfo!!.get().httpMsg
   return when {
     isJson(httpResponse) -> {
       val httpStatus = httpResponse.status.successful
@@ -62,6 +61,7 @@ internal fun unmarshallResponseAndValidate(
         responseConfig
           ?.also { logger.info { "$currentStep ResponseConfig found : ${pprint(it)}" } }
           ?.responseType ?: Any::class.java
+      val requestInfo = currentStepReport.requestInfo!!.get()
       runChecked(currentStep, UNMARSHALL_RESPONSE) {
           moshiReVoman.asA<Any>(httpResponse.bodyString(), responseType)
         }
@@ -71,22 +71,21 @@ internal fun unmarshallResponseAndValidate(
               left(
                 UnmarshallResponseFailure(
                   it,
-                  TxInfo(responseType, null, httpResponse),
+                  requestInfo,
+                  TxInfo(responseType, null, httpResponse)
                 ),
               ),
           )
         }
         .flatMap { responseObj ->
+          val responseInfo = TxInfo(responseType, responseObj, httpResponse)
           runChecked(currentStep, RESPONSE_VALIDATION) {
               responseConfig?.validationConfig?.let { validate(currentStep, responseObj, it) }
             }
             .fold(
               { validationExeException ->
                 Left(
-                  ResponseValidationFailure(
-                    validationExeException,
-                    responseInfo,
-                  ),
+                  ResponseValidationFailure(validationExeException, requestInfo, responseInfo),
                 )
               },
               { validationFailure ->
@@ -97,7 +96,8 @@ internal fun unmarshallResponseAndValidate(
                   Left(
                     ResponseValidationFailure(
                       ValidationFailure(validationFailure),
-                      responseInfo,
+                      requestInfo,
+                      responseInfo
                     ),
                   )
                 } ?: Right(responseInfo)

@@ -120,8 +120,8 @@ class PQE2EWithSMTest {
                         }))
                 .responseConfig( // <9>
                     unmarshallSuccessResponse(
-                        afterStepName("quote-related-records"), CompositeResponse.class), // <9.1>
-                    validateIfSuccess( // <9.2>
+                        afterStepName("quote-related-records"), CompositeResponse.class), // <10>
+                    validateIfSuccess( // <11>
                         afterAllStepsWithURIPathEndingWith(PQ_PATH),
                         PlaceQuoteOutputRepresentation.class,
                         VALIDATE_PQ_SUCCESS),
@@ -129,7 +129,7 @@ class PQE2EWithSMTest {
                         afterAllStepsInFolder("errors|>sync"),
                         PlaceQuoteOutputRepresentation.class,
                         VALIDATE_PQ_SYNC_ERROR))
-                .insecureHttp(true) // <10>
+                .insecureHttp(true) // <12>
                 .off()); // Kick-off
     assertThat(pqRundown.firstUnIgnoredUnsuccessfulStepReport()).isNull();
     assertThat(pqRundown.mutableEnv)
