@@ -6,22 +6,26 @@ version: "1.0"
 
 #Specify inspection profile for code analysis
 profile:
-  name: qodana.starter
+  name: qodana.recommended
 
 #Enable inspections
 #include:
 #  - name: <SomeEnabledInspectionId>
 
 #Disable inspections
-#exclude:
-#  - name: <SomeDisabledInspectionId>
+exclude:
+  - name: DataClassPrivateConstructor
+  - name: UnusedSymbol
 #    paths:
 #      - <path/where/not/run/inspection>
 
-projectJDK: 11 #(Applied in CI/CD pipeline)
+projectJDK: '11' #(Applied in CI/CD pipeline)
 
 #Execute shell command before Qodana execution (Applied in CI/CD pipeline)
-#bootstrap: sh ./prepare-qodana.sh
+bootstrap: |+
+  update-alternatives --list java
+  java --version
+  ./gradlew kaptKotlin
 
 #Install IDE plugins before Qodana execution (Applied in CI/CD pipeline)
 #plugins:
@@ -29,3 +33,4 @@ projectJDK: 11 #(Applied in CI/CD pipeline)
 
 #Specify Qodana linter for analysis (Applied in CI/CD pipeline)
 linter: jetbrains/qodana-jvm:latest
+
