@@ -47,7 +47,7 @@ class PQE2EWithSMTest {
           "pm-templates/pq/user-creation-and-setup-pq.postman_collection.json",
           "pm-templates/pq/pre-salesRep.postman_collection.json",
           "pm-templates/pq/pq-sm.postman_collection.json");
-  private static final String PQ_PATH = "commerce/quotes/actions/place";
+  private static final String PQ_ENV_PATH = "pm-templates/pq/pq-env.postman_environment.json";
   private static final ValidationConfig<PlaceQuoteOutputRepresentation, String>
       VALIDATE_PQ_SUCCESS =
           ValidationConfig.<PlaceQuoteOutputRepresentation, String>toValidate()
@@ -58,6 +58,7 @@ class PQE2EWithSMTest {
                   }),
                   "success")
               .prepare();
+  private static final String PQ_URI_PATH = "commerce/quotes/actions/place";
   private static final ValidationConfig<PlaceQuoteOutputRepresentation, String>
       VALIDATE_PQ_SYNC_ERROR =
           ValidationConfig.<PlaceQuoteOutputRepresentation, String>toValidate()
@@ -76,7 +77,7 @@ class PQE2EWithSMTest {
         ReVoman.revUp( // <1>
             Kick.configure()
                 .templatePaths(PQ_TEMPLATE_PATHS) // <2>
-                .environmentPath("pm-templates/pq/pq-env.postman_environment.json") // <3>
+                .environmentPath(PQ_ENV_PATH) // <3>
                 .dynamicEnvironment( // <4>
                     Map.of(
                         "$quoteFieldsToQuery", "LineItemCount, CalculationStatus",
@@ -87,12 +88,12 @@ class PQE2EWithSMTest {
                 .haltOnAnyFailureExcept(afterAllStepsContainingHeader("ignoreForFailure")) // <6>
                 .requestConfig( // <7>
                     unmarshallRequest(
-                        beforeAllStepsWithURIPathEndingWith(PQ_PATH),
+                        beforeAllStepsWithURIPathEndingWith(PQ_URI_PATH),
                         PlaceQuoteInputRepresentation.class,
                         adapter(PlaceQuoteInputRepresentation.class)))
                 .hooks( // <8>
                     pre(
-                        beforeAllStepsWithURIPathEndingWith(PQ_PATH),
+                        beforeAllStepsWithURIPathEndingWith(PQ_URI_PATH),
                         (step, requestInfo, rundown) -> {
                           final var pqInputRep =
                               requestInfo.<PlaceQuoteInputRepresentation>getTypedTxObj();
@@ -109,12 +110,12 @@ class PQE2EWithSMTest {
                         afterStepName("query-quote-and-related-records"),
                         (ignore, rundown) -> assertAfterPQCreate(rundown.mutableEnv)),
                     post(
-                        afterAllStepsWithURIPathEndingWith(PQ_PATH),
+                        afterAllStepsWithURIPathEndingWith(PQ_URI_PATH),
                         (stepReport, ignore) -> {
                           LOGGER.info(
                               "Waiting in PostHook for Step: {} for the Quote to get processed",
                               stepReport.step.displayName);
-                          // ! CAUTION 10/09/23 gopala.akshintala: This test can be flaky until
+                          // ! CAUTION 10/09/23 gopala.akshintala: This can be flaky until
                           // polling is implemented
                           Thread.sleep(5000);
                         }))
@@ -122,7 +123,7 @@ class PQE2EWithSMTest {
                     unmarshallSuccessResponse(
                         afterStepName("quote-related-records"), CompositeResponse.class), // <10>
                     validateIfSuccess( // <11>
-                        afterAllStepsWithURIPathEndingWith(PQ_PATH),
+                        afterAllStepsWithURIPathEndingWith(PQ_URI_PATH),
                         PlaceQuoteOutputRepresentation.class,
                         VALIDATE_PQ_SUCCESS),
                     validateIfFailed(

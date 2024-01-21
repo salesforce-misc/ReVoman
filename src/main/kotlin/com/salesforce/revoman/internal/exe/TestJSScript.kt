@@ -5,12 +5,17 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  * ************************************************************************************************
  */
-package com.salesforce.revoman.internal
+package com.salesforce.revoman.internal.exe
 
+import arrow.core.Either
 import com.salesforce.revoman.internal.postman.RegexReplacer
 import com.salesforce.revoman.internal.postman.pm
 import com.salesforce.revoman.internal.postman.template.Event
 import com.salesforce.revoman.internal.postman.template.Request
+import com.salesforce.revoman.output.report.ExeType
+import com.salesforce.revoman.output.report.Step
+import com.salesforce.revoman.output.report.StepReport
+import com.salesforce.revoman.output.report.failure.ResponseFailure.TestScriptJsFailure
 import org.graalvm.polyglot.Context
 import org.graalvm.polyglot.HostAccess
 import org.graalvm.polyglot.Source
@@ -42,21 +47,40 @@ private fun buildJsContext(useCommonjsRequire: Boolean = true): Context {
 }
 
 internal fun executeTestScriptJs(
+  currentStep: Step,
   events: List<Event>?,
   customDynamicVariables: Map<String, (String) -> String>,
   pmRequest: Request,
-  response: Response
+  stepReport: StepReport
+): Either<TestScriptJsFailure, Unit> =
+  runChecked(currentStep, ExeType.TEST_SCRIPT_JS) {
+      executeTestScriptJs(
+        events,
+        customDynamicVariables,
+        pmRequest,
+        stepReport.responseInfo!!.get().httpMsg
+      )
+    }
+    .mapLeft {
+      TestScriptJsFailure(it, stepReport.requestInfo!!.get(), stepReport.responseInfo!!.get())
+    }
+
+private fun executeTestScriptJs(
+  events: List<Event>?,
+  customDynamicVariables: Map<String, (String) -> String>,
+  pmRequest: Request,
+  httpResponse: Response
 ) {
   // ! TODO 12/03/23 gopala.akshintala: Find a way to surface-up what happened in the script, like
   // the Ids set etc
-  loadIntoPmEnvironment(pmRequest, response)
+  loadIntoPmEnvironment(pmRequest, httpResponse)
   val testScriptWithRegex = events?.find { it.listen == "test" }?.script?.exec?.joinToString("\n")
   val testScript =
     RegexReplacer(pm.environment, customDynamicVariables)
       .replaceRegexRecursively(testScriptWithRegex)
   if (!testScript.isNullOrBlank()) {
     val testSource = Source.newBuilder("js", testScript, "pmItemTestScript.js").build()
-    jsContext.getBindings("js").putMember("responseBody", response.bodyString())
+    jsContext.getBindings("js").putMember("responseBody", httpResponse.bodyString())
     // ! TODO gopala.akshintala 15/05/22: Keep a tab on jsContext mix-up from different steps
     jsContext.eval(testSource)
   }

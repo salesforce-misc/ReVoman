@@ -22,10 +22,10 @@ exclude:
 projectJDK: '11' #(Applied in CI/CD pipeline)
 
 #Execute shell command before Qodana execution (Applied in CI/CD pipeline)
-bootstrap: |+
-  update-alternatives --list java
-  java --version
-  ./gradlew kaptKotlin
+#bootstrap: |+
+#  update-alternatives --list java
+#  java --version
+#  ./gradlew kaptKotlin
 
 #Install IDE plugins before Qodana execution (Applied in CI/CD pipeline)
 #plugins:

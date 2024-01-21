@@ -28,11 +28,7 @@ internal class PostmanSDK {
     environment.set(key, value)
   }
 
-  @OptIn(ExperimentalStdlibApi::class)
-  @JvmField
-  val xml2Json = Xml2Json { xml ->
-    Moshi.Builder().build().adapter<Map<*, *>>().fromJson(U.xmlToJson(xml))
-  }
+  @JvmField val xml2Json = Xml2Json { xml -> jsonStrToMap(U.xmlToJson(xml)) }
 }
 
 @SuppressWarnings("kotlin:S6517")
@@ -42,4 +38,10 @@ internal fun interface Xml2Json {
 }
 
 @JsonClass(generateAdapter = true)
-data class Response(val code: String, val status: String, val body: String)
+data class Response(val code: String, val status: String, val body: String) {
+  fun json(): Map<*, *>? = jsonStrToMap(body)
+}
+
+@OptIn(ExperimentalStdlibApi::class)
+fun jsonStrToMap(jsonStr: String): Map<*, *>? =
+  Moshi.Builder().build().adapter<Map<*, *>>().fromJson(jsonStr)

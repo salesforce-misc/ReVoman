@@ -9,26 +9,38 @@ package com.salesforce.revoman.internal.exe
 
 import arrow.core.Either
 import com.salesforce.revoman.internal.postman.template.Item
-import com.salesforce.revoman.internal.prepareHttpClient
 import com.salesforce.revoman.output.report.ExeType.HTTP_REQUEST
 import com.salesforce.revoman.output.report.Step
-import org.http4k.core.HttpHandler
+import com.salesforce.revoman.output.report.TxInfo
+import com.salesforce.revoman.output.report.failure.RequestFailure.HttpRequestFailure
+import org.http4k.client.ApacheClient
+import org.http4k.client.PreCannedApacheHttpClients
+import org.http4k.core.Filter
+import org.http4k.core.NoOp
 import org.http4k.core.Request
 import org.http4k.core.Response
+import org.http4k.core.then
+import org.http4k.filter.ClientFilters
+import org.http4k.filter.DebuggingFilters
 
 internal fun httpRequest(
   currentStep: Step,
   itemWithRegex: Item,
   httpRequest: Request,
-  insecureHttp: Boolean
-): Either<Throwable, Response> =
+  insecureHttp: Boolean,
+): Either<HttpRequestFailure, TxInfo<Response>> =
   runChecked(currentStep, HTTP_REQUEST) {
-    // * NOTE gopala.akshintala 06/08/22: Preparing httpClient for each step,
-    // * as there can be intermediate auths
-    val httpClient: HttpHandler =
-      prepareHttpClient(
-        itemWithRegex.auth?.bearerToken,
-        insecureHttp,
-      )
-    httpClient(httpRequest)
-  }
+      // * NOTE gopala.akshintala 06/08/22: Preparing httpClient for each step,
+      // * as there can be intermediate auths
+      prepareHttpClient(itemWithRegex.auth?.bearerToken, insecureHttp)(httpRequest)
+    }
+    .mapLeft { HttpRequestFailure(it, TxInfo(httpMsg = httpRequest)) }
+    .map { TxInfo(httpMsg = it) }
+
+private fun prepareHttpClient(bearerToken: String?, insecureHttp: Boolean) =
+  DebuggingFilters.PrintRequestAndResponse()
+    .then(if (bearerToken.isNullOrEmpty()) Filter.NoOp else ClientFilters.BearerAuth(bearerToken))
+    .then(
+      if (insecureHttp) ApacheClient(client = PreCannedApacheHttpClients.insecureApacheHttpClient())
+      else ApacheClient()
+    )

@@ -17,7 +17,8 @@ import com.squareup.moshi.Types
 import com.squareup.moshi.internal.Util
 import java.lang.reflect.Type
 
-internal class CaseInsensitiveEnumAdapter<T : Enum<T>>(val enumType: Class<T>) : JsonAdapter<T>() {
+internal class CaseInsensitiveEnumAdapter<T : Enum<T>>(private val enumType: Class<T>) :
+  JsonAdapter<T>() {
   private val nameStrings =
     enumType.getEnumConstants().map { Util.jsonName(it.name, enumType.getField(it.name)) }
   private val options = JsonReader.Options.of(*nameStrings.toTypedArray())

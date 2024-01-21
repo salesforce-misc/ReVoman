@@ -10,30 +10,27 @@ package com.salesforce.revoman
 import arrow.core.Either.Left
 import arrow.core.Either.Right
 import arrow.core.flatMap
+import arrow.core.merge
 import com.salesforce.revoman.input.bufferFileInResources
 import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.internal.exe.deepFlattenItems
+import com.salesforce.revoman.internal.exe.executeTestScriptJs
 import com.salesforce.revoman.internal.exe.httpRequest
 import com.salesforce.revoman.internal.exe.isConsideredFailure
 import com.salesforce.revoman.internal.exe.postHookExe
 import com.salesforce.revoman.internal.exe.preHookExe
-import com.salesforce.revoman.internal.exe.runChecked
 import com.salesforce.revoman.internal.exe.shouldStepBePicked
 import com.salesforce.revoman.internal.exe.unmarshallRequest
 import com.salesforce.revoman.internal.exe.unmarshallResponseAndValidate
-import com.salesforce.revoman.internal.executeTestScriptJs
 import com.salesforce.revoman.internal.json.initMoshi
 import com.salesforce.revoman.internal.postman.RegexReplacer
 import com.salesforce.revoman.internal.postman.initPmEnvironment
 import com.salesforce.revoman.internal.postman.pm
 import com.salesforce.revoman.internal.postman.template.Template
 import com.salesforce.revoman.output.Rundown
-import com.salesforce.revoman.output.report.ExeType.TEST_SCRIPT_JS
 import com.salesforce.revoman.output.report.Step
 import com.salesforce.revoman.output.report.StepReport
 import com.salesforce.revoman.output.report.TxInfo
-import com.salesforce.revoman.output.report.failure.RequestFailure.HttpRequestFailure
-import com.salesforce.revoman.output.report.failure.ResponseFailure.TestScriptJsFailure
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapter
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -92,52 +89,38 @@ object ReVoman {
           unmarshallRequest(step, pmRequest, kick, moshiReVoman, stepReports)
             .mapLeft { StepReport(step, Left(it)) }
             .flatMap { requestInfo: TxInfo<Request> -> // --------### PRE-HOOKS ###--------
-              preHookExe(step, kick, requestInfo, stepReports)
-                .mapLeft { StepReport(step, Right(requestInfo), it) }
-                .map { requestInfo }
+              preHookExe(step, kick, requestInfo, stepReports).mapLeft {
+                StepReport(step, Right(requestInfo), it)
+              }
             }
-            .flatMap { requestInfo: TxInfo<Request> -> // --------### HTTP-REQUEST ###--------
+            .flatMap { // --------### HTTP-REQUEST ###--------
               val httpRequest =
                 RegexReplacer(pm.environment).replaceRegex(itemWithRegex.request).toHttpRequest()
               httpRequest(step, itemWithRegex, httpRequest, kick.insecureHttp())
-                .mapLeft { StepReport(step, Left(HttpRequestFailure(it, requestInfo))) }
-                .map { StepReport(step, Right(requestInfo), null, Right(TxInfo(httpMsg = it))) }
+                .mapLeft { StepReport(step, Left(it)) }
+                .map { StepReport(step, Right(TxInfo(httpMsg = httpRequest)), null, Right(it)) }
             }
             .flatMap { stepReport: StepReport -> // --------### TEST-SCRIPT-JS ###--------
-              val httpResponse = stepReport.responseInfo?.get()?.httpMsg!!
-              runChecked(step, TEST_SCRIPT_JS) {
-                  executeTestScriptJs(
-                    itemWithRegex.event,
-                    kick.customDynamicVariables(),
-                    pmRequest,
-                    httpResponse
-                  )
-                }
-                .mapLeft {
-                  stepReport.copy(
-                    responseInfo =
-                      left(
-                        TestScriptJsFailure(
-                          it,
-                          stepReport.requestInfo!!.get(),
-                          TxInfo(httpMsg = httpResponse)
-                        )
-                      )
-                  )
-                }
+              executeTestScriptJs(
+                  step,
+                  itemWithRegex.event,
+                  kick.customDynamicVariables(),
+                  pmRequest,
+                  stepReport
+                )
+                .mapLeft { stepReport.copy(responseInfo = left(it)) }
                 .map { stepReport }
             }
             .flatMap { stepReport: StepReport -> // ---### UNMARSHALL + VALIDATE RESPONSE ###---
               unmarshallResponseAndValidate(stepReport, kick, moshiReVoman, stepReports)
             }
-            .map { stepReport: StepReport -> // --------### POST-HOOKS ###--------
+            .flatMap { stepReport: StepReport -> // --------### POST-HOOKS ###--------
               postHookExe(stepReport, kick, stepReports + stepReport)
-                .fold(
-                  { stepReport.copy(postHookFailure = it) },
-                  { stepReport.copy(envSnapshot = pm.environment.copy()) },
-                )
+                .mapLeft { stepReport.copy(postHookFailure = it) }
+                .map { stepReport }
             }
-            .fold({ it }, { it })
+            .merge()
+            .copy(envSnapshot = pm.environment.copy())
         // * NOTE 15/10/23 gopala.akshintala: http status code can be non-success
         noFailureInStep = isConsideredFailure(currentStepReport, kick, stepReports)
         stepReports + currentStepReport

@@ -85,5 +85,5 @@ internal fun buildMoshi(
 }
 
 // * NOTE 12/03/23 gopala.akshintala: http4k doesn't yet have this method in-built
-internal fun <T : Any> ConfigurableMoshi.asA(input: String, target: Type): T =
+internal inline fun <reified T : Any> ConfigurableMoshi.asA(input: String, target: Type): T =
   moshiReVoman.adapter<T>(target).fromJson(input)!!

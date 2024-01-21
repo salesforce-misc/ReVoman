@@ -7,6 +7,7 @@
  */
 package com.salesforce.revoman.internal
 
+import com.salesforce.revoman.internal.exe.jsContext
 import org.graalvm.polyglot.Source
 import org.junit.jupiter.api.Test
 

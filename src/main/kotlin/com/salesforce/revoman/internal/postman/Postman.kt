@@ -22,6 +22,7 @@ internal fun initPmEnvironment(
   customDynamicVariables: Map<String, (String) -> String>,
   dynamicVariableGenerator: (String) -> String? = ::dynamicVariableGenerator
 ) {
+  // ! TODO 20/01/24 gopala.akshintala: Make env execution specific to support parallel executions
   // * NOTE 10/09/23 gopala.akshintala: Clear env for each new run
   pm.environment.clear()
   // ! TODO gopala.akshintala 19/05/22: Should we highlight if there are clashes between dynamic env

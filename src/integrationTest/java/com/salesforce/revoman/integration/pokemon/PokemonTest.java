@@ -38,19 +38,21 @@ import org.slf4j.LoggerFactory;
 
 class PokemonTest {
 
+  private static final String PM_COLLECTION_PATH =
+      "pm-templates/pokemon/pokemon.postman_collection.json";
+  private static final String PM_ENVIRONMENT_PATH =
+      "pm-templates/pokemon/pokemon.postman_environment.json";
+  private static final int LIMIT = 3;
+  private static final int OFFSET = 0;
   private static final Logger LOGGER = LoggerFactory.getLogger(PokemonTest.class);
 
   @Test
   void pokemon() {
-    final var offset = 0;
-    final var limit = 3;
     final var newLimit = 1;
-    final var pmCollectionPath = "pm-templates/pokemon/pokemon.postman_collection.json";
-    final var pmEnvironmentPath = "pm-templates/pokemon/pokemon.postman_environment.json";
     final var dynamicEnvironment =
         Map.of(
-            "offset", String.valueOf(offset),
-            "limit", String.valueOf(limit));
+            "offset", String.valueOf(OFFSET),
+            "limit", String.valueOf(LIMIT));
     //noinspection Convert2Lambda
     final var resultSizeValidator =
         Mockito.spy(
@@ -111,8 +113,8 @@ class PokemonTest {
     final var pokeRundown =
         ReVoman.revUp(
             Kick.configure()
-                .templatePath(pmCollectionPath)
-                .environmentPath(pmEnvironmentPath)
+                .templatePath(PM_COLLECTION_PATH)
+                .environmentPath(PM_ENVIRONMENT_PATH)
                 .hooks(
                     pre(beforeStepName("all-pokemon"), preHook),
                     post(afterStepName("all-pokemon"), postHook),
@@ -136,7 +138,7 @@ class PokemonTest {
     assertThat(pokeRundown.mutableEnv)
         .containsExactlyInAnyOrderEntriesOf(
             Map.of(
-                "offset", String.valueOf(offset),
+                "offset", String.valueOf(OFFSET),
                 "limit", String.valueOf(newLimit),
                 "baseUrl", "https://pokeapi.co/api/v2",
                 "id", "1",
