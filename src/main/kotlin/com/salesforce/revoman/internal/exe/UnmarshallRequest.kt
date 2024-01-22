@@ -8,6 +8,7 @@
 package com.salesforce.revoman.internal.exe
 
 import arrow.core.Either
+import arrow.core.Either.Right
 import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.internal.json.asA
 import com.salesforce.revoman.internal.postman.pm
@@ -42,7 +43,7 @@ internal fun unmarshallRequest(
           Rundown(stepReports, pm.environment, kick.haltOnAnyFailureExcept())
         )
       }
-      ?.also { logger.info { "$currentStep ResponseConfig found : ${pprint(it)}" } }
+      ?.also { logger.info { "$currentStep RequestConfig found : ${pprint(it)}" } }
       ?.requestType ?: Any::class.java
   return when {
     isJson(httpRequest) ->
@@ -53,9 +54,9 @@ internal fun unmarshallRequest(
     else -> {
       // ! TODO 15/10/23 gopala.akshintala: xml2Json
       logger.info {
-        "$currentStep No JSON found in the Request body or content-type didn't match ${APPLICATION_JSON.value}"
+        "$currentStep No JSON found in the Request body or content-type header didn't match ${APPLICATION_JSON.value}"
       }
-      Either.Right(null)
+      Right(null)
     }
   }.map { TxInfo(requestType, it, pmRequest.toHttpRequest()) }
 }

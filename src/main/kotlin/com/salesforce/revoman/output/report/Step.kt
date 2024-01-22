@@ -16,8 +16,10 @@ data class Step(
   @JvmField val index: String,
   @JvmField val name: String,
   @JvmField val rawPMStep: Item,
-  @JvmField val parentFolder: Folder? = null
+  @JvmField val parentFolder: Folder? = null,
 ) {
+  @JvmField var preHookCount: Int = 0
+  @JvmField var postHookCount: Int = 0
   @JvmField val path = parentFolder?.let { "$it$STEP_SEPARATOR$name" } ?: name
   @JvmField
   val displayName = "$index$INDEX_SEPARATOR${rawPMStep.httpMethod}$HTTP_METHOD_SEPARATOR$path"

@@ -89,16 +89,18 @@ object ReVoman {
           unmarshallRequest(step, pmRequest, kick, moshiReVoman, stepReports)
             .mapLeft { StepReport(step, Left(it)) }
             .flatMap { requestInfo: TxInfo<Request> -> // --------### PRE-HOOKS ###--------
-              preHookExe(step, kick, requestInfo, stepReports).mapLeft {
-                StepReport(step, Right(requestInfo), it)
-              }
+              preHookExe(step, kick, requestInfo, stepReports)
+                .mapLeft { StepReport(step, Right(requestInfo), it) }
+                .map { requestInfo }
             }
-            .flatMap { // --------### HTTP-REQUEST ###--------
+            .flatMap { requestInfo: TxInfo<Request> -> // --------### HTTP-REQUEST ###--------
               val httpRequest =
                 RegexReplacer(pm.environment).replaceRegex(itemWithRegex.request).toHttpRequest()
               httpRequest(step, itemWithRegex, httpRequest, kick.insecureHttp())
                 .mapLeft { StepReport(step, Left(it)) }
-                .map { StepReport(step, Right(TxInfo(httpMsg = httpRequest)), null, Right(it)) }
+                .map {
+                  StepReport(step, Right(requestInfo.copy(httpMsg = httpRequest)), null, Right(it))
+                }
             }
             .flatMap { stepReport: StepReport -> // --------### TEST-SCRIPT-JS ###--------
               executeTestScriptJs(

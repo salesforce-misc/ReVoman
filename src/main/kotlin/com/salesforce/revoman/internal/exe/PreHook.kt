@@ -10,8 +10,9 @@ package com.salesforce.revoman.internal.exe
 import arrow.core.Either
 import arrow.core.Either.Right
 import com.salesforce.revoman.input.config.HookConfig
+import com.salesforce.revoman.input.config.HookConfig.Hook.PreHook
 import com.salesforce.revoman.input.config.Kick
-import com.salesforce.revoman.input.config.StepPick
+import com.salesforce.revoman.input.config.StepPick.PreTxnStepPick
 import com.salesforce.revoman.internal.postman.pm
 import com.salesforce.revoman.output.Rundown
 import com.salesforce.revoman.output.report.ExeType.PRE_HOOK
@@ -52,12 +53,17 @@ private fun pickPreHooks(
   currentStep: Step,
   requestInfo: TxInfo<Request>,
   rundown: Rundown
-): List<HookConfig.Hook.PreHook> =
+): List<PreHook> =
   preHooks
     .asSequence()
-    .filter { (it.pick as StepPick.PreTxnStepPick).pick(currentStep, requestInfo, rundown) }
-    .map { it.hook as HookConfig.Hook.PreHook }
+    .filter { (it.pick as PreTxnStepPick).pick(currentStep, requestInfo, rundown) }
+    .map { it.hook as PreHook }
     .toList()
-    .also { if (it.isNotEmpty()) logger.info { "$currentStep Pre hooks picked : ${it.size}" } }
+    .also {
+      if (it.isNotEmpty()) {
+        logger.info { "$currentStep Picked Pre hook count : ${it.size}" }
+        currentStep.preHookCount = it.size
+      }
+    }
 
 private val logger = KotlinLogging.logger {}

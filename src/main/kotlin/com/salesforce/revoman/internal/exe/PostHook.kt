@@ -10,8 +10,9 @@ package com.salesforce.revoman.internal.exe
 import arrow.core.Either
 import arrow.core.Either.Right
 import com.salesforce.revoman.input.config.HookConfig
+import com.salesforce.revoman.input.config.HookConfig.Hook.PostHook
 import com.salesforce.revoman.input.config.Kick
-import com.salesforce.revoman.input.config.StepPick
+import com.salesforce.revoman.input.config.StepPick.PostTxnStepPick
 import com.salesforce.revoman.internal.postman.pm
 import com.salesforce.revoman.output.Rundown
 import com.salesforce.revoman.output.report.ExeType.POST_HOOK
@@ -45,15 +46,17 @@ private fun pickPostHooks(
   postHooks: List<HookConfig>,
   currentStepReport: StepReport,
   rundown: Rundown
-): List<HookConfig.Hook.PostHook> =
+): List<PostHook> =
   postHooks
     .asSequence()
-    .filter { (it.pick as StepPick.PostTxnStepPick).pick(currentStepReport, rundown) }
-    .map { it.hook as HookConfig.Hook.PostHook }
+    .filter { (it.pick as PostTxnStepPick).pick(currentStepReport, rundown) }
+    .map { it.hook as PostHook }
     .toList()
     .also {
-      if (it.isNotEmpty())
-        logger.info { "${currentStepReport.step} Post hooks picked : ${it.size}" }
+      if (it.isNotEmpty()) {
+        logger.info { "${currentStepReport.step} Picked Post hook count : ${it.size}" }
+        currentStepReport.step.postHookCount = it.size
+      }
     }
 
 private val logger = KotlinLogging.logger {}
