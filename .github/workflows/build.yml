@@ -11,7 +11,7 @@ jobs:
           java-version: 11
 
       - name: 'Setup Gradle'
-        uses: gradle/gradle-build-action@v2.11.1
+        uses: gradle/gradle-build-action@v2.12.0
 
       - name: 'Gradle test'
         run: ./gradlew test integrationTest --tests com.salesforce.revoman.integration.pokemon.PokemonTest
