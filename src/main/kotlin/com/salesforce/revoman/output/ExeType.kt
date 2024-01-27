@@ -13,7 +13,6 @@ enum class ExeType(private val exeName: String) {
   HTTP_REQUEST("http-request"),
   TEST_SCRIPT_JS("testScript-js"),
   UNMARSHALL_RESPONSE("unmarshall-response"),
-  RESPONSE_VALIDATION("response-validation"),
   POST_HOOK("post-hook");
 
   override fun toString(): String {

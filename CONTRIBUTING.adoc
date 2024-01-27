@@ -61,7 +61,6 @@ It may be slow for the first run, but subsequent runs should be faster.
 
 == Manual publishing
 
-[#_versioning_strategy]
 === Versioning Strategy
 
 ====

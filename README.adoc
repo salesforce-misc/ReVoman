@@ -16,15 +16,7 @@ endif::[]
 :pmtemplates: src/integrationTest/resources/pm-templates
 :imagesdir: docs/images
 :prewrap!:
-:revoman-version: 0.31.5
-
-____
-
-Re - Request/Response
-
-Ṽ - Validation
-
-____
+:revoman-version: 0.32.0
 
 '''
 
@@ -166,7 +158,7 @@ endif::[]
 ifndef::env-github[]
 
 [source,java,indent=0,options="nowrap"]
-.link:{testdir}/com/salesforce/revoman/integration/restfulapidev/RestfulAPIDevTest.java[RestfulAPIDevTest.java, tag=revoman-simple-demo]
+.link:{testdir}/com/salesforce/revoman/integration/restfulapidev/RestfulAPIDevTest.java[RestfulAPIDevTest.java,tag=revoman-simple-demo]
 ----
 include::{testdir}/com/salesforce/revoman/integration/restfulapidev/RestfulAPIDevTest.java[tag=revoman-simple-demo]
 ----
@@ -176,6 +168,7 @@ include::{testdir}/com/salesforce/revoman/integration/restfulapidev/RestfulAPIDe
 
 endif::[]
 
+[#_rundown]
 === Rundown
 
 After all this, you receive back a detailed *Rundown* in return.
@@ -221,85 +214,74 @@ ifdef::env-github[]
 .link:{testdir}/com/salesforce/revoman/integration/core/pq/PQE2ETest.java[PQE2EWithSMTest.java, tag=pq-e2e-with-revoman-config-demo]
 ----
 final var pqRundown =
-  ReVoman.revUp( // <1>
-    Kick.configure()
-        .templatePaths(PQ_TEMPLATE_PATHS) // <2>
-        .environmentPath(PQ_ENV_PATH) // <3>
-        .dynamicEnvironment( // <4>
-            Map.of(
-                "$quoteFieldsToQuery", "LineItemCount, CalculationStatus",
-                "$qliFieldsToQuery", "Id, Product2Id",
-                "$qlrFieldsToQuery", "Id, QuoteId, MainQuoteLineId, AssociatedQuoteLineId"))
-        .customDynamicVariable( // <5>
-            "$quantity", ignore -> String.valueOf(Random.Default.nextInt(10) + 1))
-        .haltOnAnyFailureExcept(afterAllStepsContainingHeader("ignoreForFailure")) // <6>
-        .requestConfig( // <7>
-            unmarshallRequest(
-                beforeAllStepsWithURIPathEndingWith(PQ_URI_PATH),
-                PlaceQuoteInputRepresentation.class,
-                adapter(PlaceQuoteInputRepresentation.class)))
-        .hooks( // <8>
-            pre(
-                beforeAllStepsWithURIPathEndingWith(PQ_URI_PATH),
-                (step, requestInfo, rundown) -> {
-                  final var pqInputRep =
-                      requestInfo.<PlaceQuoteInputRepresentation>getTypedTxObj();
-                  assertThat(pqInputRep).isNotNull();
-                  if ("pq-create: qli+qlr (skip-pricing)"
-                      .equals(pqInputRep.getGraph().getGraphId())) {
-                    LOGGER.info("Skip pricing for step: {}", step);
-                    rundown.mutableEnv.set("$pricingPref", PricingPref.Skip.toString());
-                  } else {
-                    rundown.mutableEnv.set("$pricingPref", PricingPref.System.toString());
-                  }
-                }),
-            post(
-                afterStepName("query-quote-and-related-records"),
-                (ignore, rundown) -> assertAfterPQCreate(rundown.mutableEnv)),
-            post(
-                afterAllStepsWithURIPathEndingWith(PQ_URI_PATH),
-                (stepReport, ignore) -> {
-                  LOGGER.info(
-                      "Waiting in PostHook for Step: {} for the Quote to get processed",
-                      stepReport.step.displayName);
-                  // ! CAUTION 10/09/23 gopala.akshintala: This can be flaky until
-                  // polling is implemented
-                  Thread.sleep(5000);
-                }))
-        .responseConfig( // <9>
-            unmarshallSuccessResponse(
-                afterStepName("quote-related-records"), CompositeResponse.class), // <10>
-            validateIfSuccess( // <11>
-                afterAllStepsWithURIPathEndingWith(PQ_URI_PATH),
-                PlaceQuoteOutputRepresentation.class,
-                VALIDATE_PQ_SUCCESS),
-            validateIfFailed(
-                afterAllStepsInFolder("errors|>sync"),
-                PlaceQuoteOutputRepresentation.class,
-                VALIDATE_PQ_SYNC_ERROR))
-        .insecureHttp(true) // <12>
-        .off()); // Kick-off
-assertThat(pqRundown.firstUnIgnoredUnsuccessfulStepReport()).isNull();
+    ReVoman.revUp( // <1>
+        Kick.configure()
+            .templatePaths(PQ_TEMPLATE_PATHS) // <2>
+            .environmentPath(PQ_ENV_PATH) // <3>
+            .dynamicEnvironment( // <4>
+                Map.of(
+                    "$quoteFieldsToQuery", "LineItemCount, CalculationStatus",
+                    "$qliFieldsToQuery", "Id, Product2Id",
+                    "$qlrFieldsToQuery", "Id, QuoteId, MainQuoteLineId, AssociatedQuoteLineId"))
+            .customDynamicVariable( // <5>
+                "$quantity", ignore -> String.valueOf(Random.Default.nextInt(10) + 1))
+            .haltOnAnyFailureExcept(afterAllStepsContainingHeader("ignoreForFailure")) // <6>
+            .requestConfig( // <7>
+                unmarshallRequest(
+                    beforeAllStepsWithURIPathEndingWith(PQ_URI_PATH),
+                    PlaceQuoteInputRepresentation.class,
+                    adapter(PlaceQuoteInputRepresentation.class)))
+            .hooks( // <8>
+                pre(
+                    beforeAllStepsWithURIPathEndingWith(PQ_URI_PATH),
+                    (step, requestInfo, rundown) -> {
+                      if (requestInfo.containsHeader(IS_SYNC_HEADER)) {
+                        LOGGER.info("Skip pricing for Sync step: {}", step);
+                        rundown.mutableEnv.set("$pricingPref", PricingPref.Skip.toString());
+                      } else {
+                        rundown.mutableEnv.set("$pricingPref", PricingPref.System.toString());
+                      }
+                    }),
+                post(
+                    afterAllStepsWithURIPathEndingWith(PQ_URI_PATH),
+                    (stepReport, ignore) -> {
+                      validatePQResponse(stepReport); // <9>
+                      LOGGER.info(
+                          "Waiting in PostHook of the Step: {}, for the Quote's Asynchronous processing to finish",
+                          stepReport.step.displayName);
+                      // ! CAUTION 10/09/23 gopala.akshintala: This can be flaky until
+                      // polling is implemented
+                      Thread.sleep(5000);
+                    }),
+                post(
+                    afterStepName("query-quote-and-related-records"),
+                    (ignore, rundown) -> assertAfterPQCreate(rundown.mutableEnv)))
+            .responseConfig( // <10>
+                unmarshallResponse(
+                    afterAllStepsWithURIPathEndingWith(PQ_URI_PATH),
+                    PlaceQuoteOutputRepresentation.class))
+            .insecureHttp(true) // <11>
+            .off()); // Kick-off
+assertThat(pqRundown.firstUnIgnoredUnsuccessfulStepReport()).isNull(); // <12>
 assertThat(pqRundown.mutableEnv)
-  .containsAllEntriesOf(
-      Map.of(
-          "quoteCalculationStatusForSkipPricing", PricingPref.Skip.completeStatus,
-          "quoteCalculationStatus", PricingPref.System.completeStatus,
-          "quoteCalculationStatusAfterAllUpdates", PricingPref.System.completeStatus));
+    .containsAllEntriesOf(
+        Map.of(
+            "quoteCalculationStatusForSkipPricing", PricingPref.Skip.completeStatus,
+            "quoteCalculationStatus", PricingPref.System.completeStatus,
+            "quoteCalculationStatusAfterAllUpdates", PricingPref.System.completeStatus));
 ----
 <1> `revUp` is the method to call passing a configuration, built as below
 <2> Supply the path (relative to resources) to the Template Collection JSON file
 <3> Supply the path (relative to resources) to the Environment JSON file
 <4> Supply any dynamic environment that is runtime-specific
 <5> Plug Custom dynamic variables that are prepared at runtime
-<6> It lets you be in charge of the Step Orchestration by letting you configure a pass-list of steps to ignore for failure
-<7> You can provide a strong type for your request to be marshalled into. You can use this strong type while executing pre-hooks
-<8> You can set up a pre- / post-hook around a Step via `hooks`, which can help as callbacks, especially for Async operations.
-<9> Provide configuration to unmarshall/deserialize response JSON into strong types
-<10> `unmarshallSuccessResponse` and `unmarshallErrorResponse` help you use strong types inside hooks.
-<11> Supply your validations/assertions to be run on a step response through `validateIfSuccess` and `validateIfFailed`
-** You can leverage the power of https://github.com/salesforce-misc/Vador[*Vador*] to write config-driven validations
-<10> Ignore Java cert issues when firing HTTP calls
+<6> <<#_execution_control>>
+<7> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Request Config>>
+<8> <<#_pre_and_post_hooks>>
+<9> <<#_response_validations>>
+<10> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Response Config>>
+<11> Ignore Java cert issues when firing HTTP calls
+<12> More assertions on top of <<#_rundown>>
 
 endif::[]
 ifndef::env-github[]
@@ -314,14 +296,13 @@ include::{testdir}/com/salesforce/revoman/integration/core/pq/PQE2EWithSMTest.ja
 <3> Supply the path (relative to resources) to the Environment JSON file
 <4> Supply any dynamic environment that is runtime-specific
 <5> Plug Custom dynamic variables that are prepared at runtime
-<6> It lets you be in charge of the Step Orchestration by letting you configure a pass-list of steps to ignore for failure
-<7> You can provide a strong type for your request to be marshalled into. You can use this strong type while executing pre-hooks
-<8> You can set up a pre- / post-hook around a Step via `hooks`, which can help as callbacks, especially for Async operations.
-<9> Provide configuration to unmarshall/deserialize response JSON into strong types
-<10> `unmarshallSuccessResponse` and `unmarshallErrorResponse` help you use strong types inside hooks.
-** You can leverage the power of https://github.com/salesforce-misc/Vador[*Vador*] to write config-driven validations
-<12> Ignore Java cert issues when firing HTTP calls
-
+<6> <<#_execution_control>>
+<7> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Request Config>>
+<8> <<#_pre_and_post_hooks>>
+<9> <<#_response_validations>>
+<10> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Response Config>>
+<11> Ignore Java cert issues when firing HTTP calls
+<12> More assertions on top of <<#_rundown>>
 endif::[]
 
 == Debugging UX
@@ -359,11 +340,12 @@ image:pq-exe-logging.gif[Monitor Execution]
 
 == Features
 
+[#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization]
 === Type Safety with flexible JSON <- -> POJO marshalling/serialization and unmarshalling/deserialization
 
 * ReṼoman internally uses a modern JSON library called https://github.com/square/moshi[**Moshi**]
-* There may be a POJO that inherits or contains legacy classes which are hard or impossible to serialize. ReṼoman lets you serialize such a legacy POJO by letting you pass `typesToIgnoreForMarshalling`, where you can filter-out these legacy classes.
-* The payload may not map to POJO, and you may need a custom adapter for Conversion. Moshi has it covered for you with its advanced adapter mechanism and ReṼoman accepts Moshi adapters via `requestConfig`, `responseConfig` and `customAdapters`
+* There may be a POJO that inherits or contains legacy classes which are hard or impossible to serialize.ReṼoman lets you serialize such a legacy POJO by letting you pass `typesToIgnoreForMarshalling`, where you can filter-out these legacy classes.
+* The payload may not map to POJO, and you may need a custom adapter for Conversion.Moshi has it covered for you with its advanced adapter mechanism and ReṼoman accepts Moshi adapters via `requestConfig`, `responseConfig` and `customAdapters`
 * ReṼoman also comes bundled with link:{sourcedir}/com/salesforce/revoman/input/json/JsonReaderUtils.kt[JSON Reader utils] and link:{sourcedir}/com/salesforce/revoman/input/json/JsonWriterUtils.kt[JSON Writer utils] to help build Moshi adapters.
 
 TIP: Refer link:{testdir}/com/salesforce/revoman/integration/core/pq/adapters/ConnectInputRepWithGraphAdapter.java[ConnectInputRepWithGraphAdapter]
@@ -371,6 +353,7 @@ for an advanced adapter use-case
 
 * It also has link:{sourcedir}/com/salesforce/revoman/input/json/JsonPojoUtils.kt[JSON POJO Utils], which you can use to directly convert JSON to POJO and vice versa.
 
+[#_execution_control]
 === Execution Control
 
 The configuration offers methods through which the execution strategy can be controlled without making any changes to the template:
@@ -404,10 +387,12 @@ The configuration offers methods through which the execution strategy can be con
 * You can do things like assertion on the rundown or environment and even mutate the environment, such that the execution of subsequent steps picks up those changes.
 * You can plug in your java code to create/generate values for environment variables which can be populated and picked-up by subsequent steps. For example, you may want some `xyzId` but you don't have a Postman collection, but instead have a Java utility to generate/create it. You can invoke the utility in a pre-hook of a step and set the value in `mutableEnv`, so the step can pick up the `{+{xyzId}+}` from there.
 
+[#_response_validations]
 ==== Response Validations
 
 * Post-Hooks are the best place to validate response right after the step.
 * If you have configured a strong type for your response through `responseConfig`, you can write type-safe validations by extracting your Strong type Object using `stepReport.responseInfo.get().<TypeT>getTypedTxnObj()` or `JsonPojoUtils.jsonToPojo()`
+* If your response data structure is non-trivial and have requirements to execute validations with different strategies like `fail-fast` or `error-accumulation`, consider using a library like https://github.com/salesforce-misc/Vador[*Vador*]
 
 === Compose modular Executions
 
@@ -495,7 +480,7 @@ The future looks bright with multiple impactful features in the pipeline:
 
 === How to Debug a step in the middle of an Execution?
 
-* You can add a link:#_pre_and_post_hooks[pre-hook] to the Step you are interested and add a debug point inside that. This gets hit before ReṼoman fires the request in that Step
+* You can add a <<#_pre_and_post_hooks,pre-hook>> to the Step you are interested and add a debug point inside that. This gets hit before ReṼoman fires the request in that Step
 * You can get more adventurous by attaching jar sources and directly adding conditional debug points inside the library source-code. You can search for logs in the source-code that indicate key operations to add conditional debug points with conditions like StepName etc.
 
 === Why not use https://learning.postman.com/docs/collections/using-newman-cli/command-line-integration-with-newman[Newman] or https://learning.postman.com/docs/postman-cli/postman-cli-overview/#comparing-the-postman-cli-and-newman[Postman CLI]?

@@ -8,24 +8,15 @@
 package com.salesforce.revoman.internal.exe
 
 import arrow.core.Either
-import arrow.core.Either.Left
 import arrow.core.Either.Right
-import arrow.core.flatMap
 import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.internal.json.asA
 import com.salesforce.revoman.internal.postman.pm
-import com.salesforce.revoman.output.ExeType.RESPONSE_VALIDATION
 import com.salesforce.revoman.output.ExeType.UNMARSHALL_RESPONSE
 import com.salesforce.revoman.output.Rundown
-import com.salesforce.revoman.output.report.Step
 import com.salesforce.revoman.output.report.StepReport
 import com.salesforce.revoman.output.report.TxnInfo
-import com.salesforce.revoman.output.report.failure.ResponseFailure.ResponseValidationFailure
-import com.salesforce.revoman.output.report.failure.ResponseFailure.ResponseValidationFailure.ValidationFailure
 import com.salesforce.revoman.output.report.failure.ResponseFailure.UnmarshallResponseFailure
-import com.salesforce.vador.config.ValidationConfig
-import com.salesforce.vador.config.base.BaseValidationConfig
-import com.salesforce.vador.execution.Vador
 import io.exoquery.pprint
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.vavr.control.Either.left
@@ -33,7 +24,7 @@ import java.lang.reflect.Type
 import org.http4k.core.ContentType.Companion.APPLICATION_JSON
 import org.http4k.format.ConfigurableMoshi
 
-internal fun unmarshallResponseAndValidate(
+internal fun unmarshallResponse(
   currentStepReport: StepReport,
   kick: Kick,
   moshiReVoman: ConfigurableMoshi,
@@ -44,7 +35,7 @@ internal fun unmarshallResponseAndValidate(
     isJson(httpResponse) -> {
       val httpStatus = httpResponse.status.successful
       val responseConfig =
-        kick.pickToResponseConfig()[httpStatus]?.let {
+        (kick.pickToResponseConfig()[httpStatus] ?: kick.pickToResponseConfig()[null])?.let {
           it.firstOrNull { pick ->
             pick.postTxnStepPick.pick(
               currentStepReport,
@@ -60,7 +51,7 @@ internal fun unmarshallResponseAndValidate(
       val responseType: Type =
         responseConfig
           ?.also { logger.info { "$currentStep ResponseConfig found : ${pprint(it)}" } }
-          ?.responseType ?: Any::class.java
+          ?.objType ?: Any::class.java
       val requestInfo = currentStepReport.requestInfo!!.get()
       runChecked(currentStep, UNMARSHALL_RESPONSE) {
           moshiReVoman.asA<Any>(httpResponse.bodyString(), responseType)
@@ -77,34 +68,6 @@ internal fun unmarshallResponseAndValidate(
               ),
           )
         }
-        .flatMap { responseObj ->
-          val responseInfo = TxnInfo(responseType, responseObj, httpResponse)
-          runChecked(currentStep, RESPONSE_VALIDATION) {
-              responseConfig?.validationConfig?.let { validate(currentStep, responseObj, it) }
-            }
-            .fold(
-              { validationExeException ->
-                Left(
-                  ResponseValidationFailure(validationExeException, requestInfo, responseInfo),
-                )
-              },
-              { validationFailure ->
-                validationFailure?.let {
-                  logger.info {
-                    "${currentStepReport.step} Validation failed : ${pprint(validationFailure)}"
-                  }
-                  Left(
-                    ResponseValidationFailure(
-                      ValidationFailure(validationFailure),
-                      requestInfo,
-                      responseInfo
-                    ),
-                  )
-                } ?: Right(responseInfo)
-              },
-            )
-            .mapLeft { currentStepReport.copy(responseInfo = left(it)) }
-        }
         .map { currentStepReport }
     }
     else -> {
@@ -115,17 +78,5 @@ internal fun unmarshallResponseAndValidate(
     }
   }
 }
-
-// ! TODO gopala.akshintala 03/08/22: Extend the validation for other configs and strategies
-private fun validate(
-  currentStep: Step,
-  responseObj: Any,
-  validationConfig: BaseValidationConfig<out Any, out Any>?
-): Any? =
-  validationConfig?.let {
-    logger.info { "$currentStep ValidationConfig found : ${pprint(it)}" }
-    Vador.validateAndFailFast(responseObj, validationConfig as ValidationConfig<Any, Any?>)
-      .orElse(null)
-  }
 
 private val logger = KotlinLogging.logger {}

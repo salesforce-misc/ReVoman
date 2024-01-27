@@ -21,7 +21,7 @@ import com.salesforce.revoman.internal.exe.postHookExe
 import com.salesforce.revoman.internal.exe.preHookExe
 import com.salesforce.revoman.internal.exe.shouldStepBePicked
 import com.salesforce.revoman.internal.exe.unmarshallRequest
-import com.salesforce.revoman.internal.exe.unmarshallResponseAndValidate
+import com.salesforce.revoman.internal.exe.unmarshallResponse
 import com.salesforce.revoman.internal.json.initMoshi
 import com.salesforce.revoman.internal.postman.RegexReplacer
 import com.salesforce.revoman.internal.postman.initPmEnvironment
@@ -113,8 +113,8 @@ object ReVoman {
                 .mapLeft { stepReport.copy(responseInfo = left(it)) }
                 .map { stepReport }
             }
-            .flatMap { stepReport: StepReport -> // ---### UNMARSHALL + VALIDATE RESPONSE ###---
-              unmarshallResponseAndValidate(stepReport, kick, moshiReVoman, stepReports)
+            .flatMap { stepReport: StepReport -> // ---### UNMARSHALL RESPONSE ###---
+              unmarshallResponse(stepReport, kick, moshiReVoman, stepReports)
             }
             .flatMap { stepReport: StepReport -> // --------### POST-HOOKS ###--------
               postHookExe(stepReport, kick, stepReports + stepReport)

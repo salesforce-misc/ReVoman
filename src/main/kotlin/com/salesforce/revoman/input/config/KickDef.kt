@@ -59,19 +59,19 @@ internal interface KickDef {
   fun customAdaptersFromRequestConfig(): Map<Type, List<Either<JsonAdapter<Any>, Factory>>> =
     requestConfig()
       .filter { it.customAdapter != null }
-      .groupBy({ it.requestType }, { it.customAdapter!! })
+      .groupBy({ it.objType }, { it.customAdapter!! })
 
   fun responseConfig(): Set<ResponseConfig>
 
   @Value.Derived
-  fun pickToResponseConfig(): Map<Boolean, List<ResponseConfig>> =
+  fun pickToResponseConfig(): Map<Boolean?, List<ResponseConfig>> =
     responseConfig().groupBy { it.ifSuccess }
 
   @Value.Derived
   fun customAdaptersFromResponseConfig(): Map<Type, List<Either<JsonAdapter<Any>, Factory>>> =
     responseConfig()
       .filter { it.customAdapter != null }
-      .groupBy({ it.responseType }, { it.customAdapter!! })
+      .groupBy({ it.objType }, { it.customAdapter!! })
 
   fun customAdaptersForMarshalling(): List<Any>
 

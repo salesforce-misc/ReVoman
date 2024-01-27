@@ -17,7 +17,8 @@ plugins {
 dependencies {
   api(libs.bundles.http4k)
   api(libs.moshix.adapters)
-  api(libs.bundles.vador)
+  api(libs.java.vavr)
+  api(libs.kotlin.vavr)
   api(libs.arrow.core)
   implementation(libs.bundles.kotlin.logging)
   implementation(libs.graal.sdk)

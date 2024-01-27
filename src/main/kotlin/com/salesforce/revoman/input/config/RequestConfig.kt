@@ -17,7 +17,7 @@ import java.lang.reflect.Type
 data class RequestConfig
 private constructor(
   val preTxnStepPick: PreTxnStepPick,
-  val requestType: Type,
+  val objType: Type,
   val customAdapter: Either<JsonAdapter<Any>, JsonAdapter.Factory>? = null
 ) {
   companion object {

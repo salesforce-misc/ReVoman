@@ -8,7 +8,6 @@
 package com.salesforce.revoman.input.config
 
 import com.salesforce.revoman.input.config.StepPick.PostTxnStepPick
-import com.salesforce.vador.config.ValidationConfig
 import com.squareup.moshi.JsonAdapter
 import io.vavr.control.Either
 import io.vavr.kotlin.left
@@ -18,12 +17,32 @@ import java.lang.reflect.Type
 data class ResponseConfig
 private constructor(
   val postTxnStepPick: PostTxnStepPick,
-  val ifSuccess: Boolean,
-  val responseType: Type,
+  val ifSuccess: Boolean?,
+  val objType: Type,
   val customAdapter: Either<JsonAdapter<Any>, JsonAdapter.Factory>? = null,
-  val validationConfig: ValidationConfig<*, *>? = null
 ) {
   companion object {
+    @JvmStatic
+    fun unmarshallResponse(
+      postTxnStepPick: PostTxnStepPick,
+      successType: Type,
+    ): ResponseConfig = ResponseConfig(postTxnStepPick, null, successType)
+
+    @JvmStatic
+    fun unmarshallResponse(
+      postTxnStepPick: PostTxnStepPick,
+      successType: Type,
+      customAdapter: JsonAdapter<Any>
+    ): ResponseConfig = ResponseConfig(postTxnStepPick, true, successType, left(customAdapter))
+
+    @JvmStatic
+    fun unmarshallResponse(
+      postTxnStepPick: PostTxnStepPick,
+      successType: Type,
+      customAdapterFactory: JsonAdapter.Factory
+    ): ResponseConfig =
+      ResponseConfig(postTxnStepPick, true, successType, right(customAdapterFactory))
+
     @JvmStatic
     fun unmarshallSuccessResponse(
       postTxnStepPick: PostTxnStepPick,
@@ -65,67 +84,5 @@ private constructor(
       customAdapterFactory: JsonAdapter.Factory
     ): ResponseConfig =
       ResponseConfig(postTxnStepPick, false, successType, right(customAdapterFactory))
-
-    @JvmStatic
-    fun validateIfSuccess(
-      postTxnStepPick: PostTxnStepPick,
-      successType: Type,
-      validationConfig: ValidationConfig<*, *>,
-    ): ResponseConfig = ResponseConfig(postTxnStepPick, true, successType, null, validationConfig)
-
-    @JvmStatic
-    fun validateIfSuccess(
-      postTxnStepPick: PostTxnStepPick,
-      successType: Type,
-      validationConfig: ValidationConfig<*, *>,
-      customAdapter: JsonAdapter<Any>
-    ): ResponseConfig =
-      ResponseConfig(postTxnStepPick, true, successType, left(customAdapter), validationConfig)
-
-    @JvmStatic
-    fun validateIfSuccess(
-      postTxnStepPick: PostTxnStepPick,
-      successType: Type,
-      validationConfig: ValidationConfig<*, *>,
-      customAdapterFactory: JsonAdapter.Factory
-    ): ResponseConfig =
-      ResponseConfig(
-        postTxnStepPick,
-        true,
-        successType,
-        right(customAdapterFactory),
-        validationConfig
-      )
-
-    @JvmStatic
-    fun validateIfFailed(
-      postTxnStepPick: PostTxnStepPick,
-      errorType: Type,
-      validationConfig: ValidationConfig<*, *>,
-    ): ResponseConfig = ResponseConfig(postTxnStepPick, false, errorType, null, validationConfig)
-
-    @JvmStatic
-    fun validateIfFailed(
-      postTxnStepPick: PostTxnStepPick,
-      errorType: Type,
-      validationConfig: ValidationConfig<*, *>,
-      customAdapter: JsonAdapter<Any>
-    ): ResponseConfig =
-      ResponseConfig(postTxnStepPick, false, errorType, left(customAdapter), validationConfig)
-
-    @JvmStatic
-    fun validateIfFailed(
-      postTxnStepPick: PostTxnStepPick,
-      errorType: Type,
-      validationConfig: ValidationConfig<*, *>,
-      customAdapterFactory: JsonAdapter.Factory
-    ): ResponseConfig =
-      ResponseConfig(
-        postTxnStepPick,
-        false,
-        errorType,
-        right(customAdapterFactory),
-        validationConfig
-      )
   }
 }

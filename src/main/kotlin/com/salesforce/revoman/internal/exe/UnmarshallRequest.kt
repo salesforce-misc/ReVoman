@@ -44,7 +44,7 @@ internal fun unmarshallRequest(
         )
       }
       ?.also { logger.info { "$currentStep RequestConfig found : ${pprint(it)}" } }
-      ?.requestType ?: Any::class.java
+      ?.objType ?: Any::class.java
   return when {
     isJson(httpRequest) ->
       runChecked<Any?>(currentStep, UNMARSHALL_REQUEST) {
