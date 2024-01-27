@@ -15,8 +15,8 @@ import com.salesforce.revoman.output.report.Step
 import com.salesforce.revoman.output.report.StepReport
 import com.salesforce.revoman.output.report.StepReport.Companion.containsHeader
 import com.salesforce.revoman.output.report.StepReport.Companion.uriPathEndsWith
-import com.salesforce.revoman.output.report.TxInfo
-import com.salesforce.revoman.output.report.TxInfo.Companion.uriPathEndsWith
+import com.salesforce.revoman.output.report.TxnInfo
+import com.salesforce.revoman.output.report.TxnInfo.Companion.uriPathEndsWith
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.http4k.core.Request
 
@@ -36,7 +36,7 @@ sealed interface StepPick {
 
   fun interface PreTxnStepPick : StepPick {
     @Throws(Throwable::class)
-    fun pick(currentStep: Step, currentRequestInfo: TxInfo<Request>, rundown: Rundown): Boolean
+    fun pick(currentStep: Step, currentRequestInfo: TxnInfo<Request>, rundown: Rundown): Boolean
 
     companion object PickUtils {
       @JvmStatic

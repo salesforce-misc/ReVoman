@@ -7,15 +7,15 @@
  */
 package com.salesforce.revoman.output.report.failure
 
-import com.salesforce.revoman.output.report.ExeType.POST_HOOK
-import com.salesforce.revoman.output.report.ExeType.PRE_HOOK
-import com.salesforce.revoman.output.report.TxInfo
+import com.salesforce.revoman.output.ExeType.POST_HOOK
+import com.salesforce.revoman.output.ExeType.PRE_HOOK
+import com.salesforce.revoman.output.report.TxnInfo
 import org.http4k.core.Request
 
 sealed class HookFailure : ExeFailure() {
   abstract override val failure: Throwable
 
-  data class PreHookFailure(override val failure: Throwable, val requestInfo: TxInfo<Request>) :
+  data class PreHookFailure(override val failure: Throwable, val requestInfo: TxnInfo<Request>) :
     HookFailure() {
     override val exeType = PRE_HOOK
   }

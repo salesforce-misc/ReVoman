@@ -9,7 +9,7 @@ package com.salesforce.revoman.output.report
 
 import com.salesforce.revoman.internal.postman.pm
 import com.salesforce.revoman.output.postman.PostmanEnvironment
-import com.salesforce.revoman.output.report.TxInfo.Companion.uriPathEndsWith
+import com.salesforce.revoman.output.report.TxnInfo.Companion.uriPathEndsWith
 import com.salesforce.revoman.output.report.failure.ExeFailure
 import com.salesforce.revoman.output.report.failure.HookFailure.PostHookFailure
 import com.salesforce.revoman.output.report.failure.HookFailure.PreHookFailure
@@ -22,17 +22,17 @@ import org.http4k.core.Response
 data class StepReport
 private constructor(
   @JvmField val step: Step,
-  @JvmField val requestInfo: Either<out RequestFailure, TxInfo<Request>>? = null,
+  @JvmField val requestInfo: Either<out RequestFailure, TxnInfo<Request>>? = null,
   @JvmField val preHookFailure: PreHookFailure? = null,
-  @JvmField val responseInfo: Either<out ResponseFailure, TxInfo<Response>>? = null,
+  @JvmField val responseInfo: Either<out ResponseFailure, TxnInfo<Response>>? = null,
   @JvmField val postHookFailure: PostHookFailure? = null,
   @JvmField val envSnapshot: PostmanEnvironment<Any?>
 ) {
   internal constructor(
     step: Step,
-    requestInfo: arrow.core.Either<RequestFailure, TxInfo<Request>>? = null,
+    requestInfo: arrow.core.Either<RequestFailure, TxnInfo<Request>>? = null,
     preHookFailure: PreHookFailure? = null,
-    responseInfo: arrow.core.Either<ResponseFailure, TxInfo<Response>>? = null,
+    responseInfo: arrow.core.Either<ResponseFailure, TxnInfo<Response>>? = null,
     postHookFailure: PostHookFailure? = null,
   ) : this(
     step,
@@ -44,7 +44,7 @@ private constructor(
   )
 
   @JvmField
-  val failure: Either<ExeFailure, TxInfo<Response>>? =
+  val failure: Either<ExeFailure, TxnInfo<Response>>? =
     failure(requestInfo, preHookFailure, responseInfo, postHookFailure)
 
   @JvmField val exeFailure: ExeFailure? = failure?.fold({ it }, { null })
@@ -56,11 +56,11 @@ private constructor(
 
   companion object {
     private fun failure(
-      requestInfo: Either<out ExeFailure, TxInfo<Request>>? = null,
+      requestInfo: Either<out ExeFailure, TxnInfo<Request>>? = null,
       preHookFailure: PreHookFailure? = null,
-      responseInfo: Either<out ExeFailure, TxInfo<Response>>? = null,
+      responseInfo: Either<out ExeFailure, TxnInfo<Response>>? = null,
       postHookFailure: PostHookFailure? = null,
-    ): Either<ExeFailure, TxInfo<Response>>? =
+    ): Either<ExeFailure, TxnInfo<Response>>? =
       when {
         requestInfo != null ->
           when (requestInfo) {
@@ -93,15 +93,15 @@ private constructor(
       fold({ Either.left(it) }, { Either.right(it) })
 
     @JvmStatic
-    fun Either<out RequestFailure, TxInfo<Request>>?.uriPathEndsWith(path: String): Boolean =
+    fun Either<out RequestFailure, TxnInfo<Request>>?.uriPathEndsWith(path: String): Boolean =
       this?.fold({ false }, { it.uriPathEndsWith(path) }) ?: false
 
     @JvmStatic
-    fun Either<out RequestFailure, TxInfo<Request>>?.containsHeader(key: String): Boolean =
+    fun Either<out RequestFailure, TxnInfo<Request>>?.containsHeader(key: String): Boolean =
       this?.fold({ false }, { it.containsHeader(key) }) ?: false
 
     @JvmStatic
-    fun Either<out RequestFailure, TxInfo<Request>>?.containsHeader(
+    fun Either<out RequestFailure, TxnInfo<Request>>?.containsHeader(
       key: String,
       value: String
     ): Boolean = this?.fold({ false }, { it.containsHeader(key, value) }) ?: false

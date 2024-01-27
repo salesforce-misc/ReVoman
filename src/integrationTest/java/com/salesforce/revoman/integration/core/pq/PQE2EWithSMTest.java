@@ -11,10 +11,7 @@ import static com.salesforce.revoman.input.config.HookConfig.post;
 import static com.salesforce.revoman.input.config.HookConfig.pre;
 import static com.salesforce.revoman.input.config.RequestConfig.unmarshallRequest;
 import static com.salesforce.revoman.input.config.ResponseConfig.unmarshallSuccessResponse;
-import static com.salesforce.revoman.input.config.ResponseConfig.validateIfFailed;
-import static com.salesforce.revoman.input.config.ResponseConfig.validateIfSuccess;
 import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.afterAllStepsContainingHeader;
-import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.afterAllStepsInFolder;
 import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.afterAllStepsWithURIPathEndingWith;
 import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.afterStepName;
 import static com.salesforce.revoman.input.config.StepPick.PreTxnStepPick.beforeAllStepsWithURIPathEndingWith;
@@ -23,9 +20,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.salesforce.revoman.ReVoman;
 import com.salesforce.revoman.input.config.Kick;
-import com.salesforce.revoman.integration.core.pq.connect.PlaceQuoteInputRepresentation;
+import com.salesforce.revoman.integration.core.pq.connect.request.PlaceQuoteInputRepresentation;
+import com.salesforce.revoman.integration.core.pq.connect.response.CompositeResponse;
+import com.salesforce.revoman.integration.core.pq.connect.response.PlaceQuoteOutputRepresentation;
 import com.salesforce.revoman.output.postman.PostmanEnvironment;
-import com.salesforce.vador.config.ValidationConfig;
+import com.salesforce.revoman.output.report.StepReport;
 import java.util.List;
 import java.util.Map;
 import kotlin.random.Random;
@@ -48,27 +47,7 @@ class PQE2EWithSMTest {
           "pm-templates/pq/pre-salesRep.postman_collection.json",
           "pm-templates/pq/pq-sm.postman_collection.json");
   private static final String PQ_ENV_PATH = "pm-templates/pq/pq-env.postman_environment.json";
-  private static final ValidationConfig<PlaceQuoteOutputRepresentation, String>
-      VALIDATE_PQ_SUCCESS =
-          ValidationConfig.<PlaceQuoteOutputRepresentation, String>toValidate()
-              .withValidator(
-                  (resp -> {
-                    LOGGER.info("🦾Validating PQ response for Success");
-                    return Boolean.TRUE.equals(resp.getSuccess()) ? "success" : "sync-failure";
-                  }),
-                  "success")
-              .prepare();
   private static final String PQ_URI_PATH = "commerce/quotes/actions/place";
-  private static final ValidationConfig<PlaceQuoteOutputRepresentation, String>
-      VALIDATE_PQ_SYNC_ERROR =
-          ValidationConfig.<PlaceQuoteOutputRepresentation, String>toValidate()
-              .withValidator(
-                  (resp -> {
-                    LOGGER.info("🦾Validating PQ response for Failure");
-                    return Boolean.FALSE.equals(resp.getSuccess()) ? "sync-failure" : "success";
-                  }),
-                  "sync-failure")
-              .prepare();
 
   @Test
   void revUpPQ() {
@@ -96,7 +75,7 @@ class PQE2EWithSMTest {
                         beforeAllStepsWithURIPathEndingWith(PQ_URI_PATH),
                         (step, requestInfo, rundown) -> {
                           final var pqInputRep =
-                              requestInfo.<PlaceQuoteInputRepresentation>getTypedTxObj();
+                              requestInfo.<PlaceQuoteInputRepresentation>getTypedTxnObj();
                           assertThat(pqInputRep).isNotNull();
                           if ("pq-create: qli+qlr (skip-pricing)"
                               .equals(pqInputRep.getGraph().getGraphId())) {
@@ -112,8 +91,9 @@ class PQE2EWithSMTest {
                     post(
                         afterAllStepsWithURIPathEndingWith(PQ_URI_PATH),
                         (stepReport, ignore) -> {
+                          validateResponse(stepReport);
                           LOGGER.info(
-                              "Waiting in PostHook for Step: {} for the Quote to get processed",
+                              "Waiting in PostHook of the Step: {}, for the Quote's Asynchronous processing to finish",
                               stepReport.step.displayName);
                           // ! CAUTION 10/09/23 gopala.akshintala: This can be flaky until
                           // polling is implemented
@@ -121,15 +101,7 @@ class PQE2EWithSMTest {
                         }))
                 .responseConfig( // <9>
                     unmarshallSuccessResponse(
-                        afterStepName("quote-related-records"), CompositeResponse.class), // <10>
-                    validateIfSuccess( // <11>
-                        afterAllStepsWithURIPathEndingWith(PQ_URI_PATH),
-                        PlaceQuoteOutputRepresentation.class,
-                        VALIDATE_PQ_SUCCESS),
-                    validateIfFailed(
-                        afterAllStepsInFolder("errors|>sync"),
-                        PlaceQuoteOutputRepresentation.class,
-                        VALIDATE_PQ_SYNC_ERROR))
+                        afterStepName("quote-related-records"), CompositeResponse.class)) // <10>
                 .insecureHttp(true) // <12>
                 .off()); // Kick-off
     assertThat(pqRundown.firstUnIgnoredUnsuccessfulStepReport()).isNull();
@@ -142,7 +114,13 @@ class PQE2EWithSMTest {
     // end::pq-e2e-with-revoman-config-demo[]
   }
 
-  static void assertAfterPQCreate(PostmanEnvironment<Object> env) {
+  private static void validateResponse(StepReport stepReport) {
+    final var successRespProp =
+        stepReport.responseInfo.get().<PlaceQuoteOutputRepresentation>getTypedTxnObj().getSuccess();
+    assertThat(successRespProp).isEqualTo(!stepReport.step.isInFolder("error|>sync"));
+  }
+
+  private static void assertAfterPQCreate(PostmanEnvironment<Object> env) {
     // Quote: LineItemCount, quoteCalculationStatus
     assertThat(env).containsEntry("lineItemCount", 10);
     assertThat(env)
@@ -158,8 +136,6 @@ class PQE2EWithSMTest {
     final var quoteIdFromQLRs = env.valuesForKeysStartingWith(String.class, "quoteForQLR");
     assertThat(quoteIdFromQLRs).containsOnly(env.getString("quoteId"));
   }
-
-  // end::pq-e2e-with-revoman-demo[]
 
   private enum PricingPref {
     Force("CompletedWithTax"),

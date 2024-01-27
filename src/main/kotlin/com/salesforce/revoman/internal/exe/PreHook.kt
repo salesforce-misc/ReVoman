@@ -14,11 +14,11 @@ import com.salesforce.revoman.input.config.HookConfig.Hook.PreHook
 import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.input.config.StepPick.PreTxnStepPick
 import com.salesforce.revoman.internal.postman.pm
+import com.salesforce.revoman.output.ExeType.PRE_HOOK
 import com.salesforce.revoman.output.Rundown
-import com.salesforce.revoman.output.report.ExeType.PRE_HOOK
 import com.salesforce.revoman.output.report.Step
 import com.salesforce.revoman.output.report.StepReport
-import com.salesforce.revoman.output.report.TxInfo
+import com.salesforce.revoman.output.report.TxnInfo
 import com.salesforce.revoman.output.report.failure.HookFailure.PreHookFailure
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.http4k.core.Request
@@ -26,7 +26,7 @@ import org.http4k.core.Request
 internal fun preHookExe(
   currentStep: Step,
   kick: Kick,
-  requestInfo: TxInfo<Request>,
+  requestInfo: TxnInfo<Request>,
   stepReports: List<StepReport>
 ): Either<PreHookFailure, Unit> =
   pickPreHooks(
@@ -51,7 +51,7 @@ internal fun preHookExe(
 private fun pickPreHooks(
   preHooks: List<HookConfig>,
   currentStep: Step,
-  requestInfo: TxInfo<Request>,
+  requestInfo: TxnInfo<Request>,
   rundown: Rundown
 ): List<PreHook> =
   preHooks

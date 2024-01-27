@@ -16,15 +16,15 @@ import org.http4k.core.HttpMessage
 import org.http4k.core.Request
 import org.http4k.core.Response
 
-data class TxInfo<HttpMsgT : HttpMessage>(
-  @JvmField val txObjType: Type? = null,
-  @JvmField val txObj: Any? = null,
+data class TxnInfo<HttpMsgT : HttpMessage>(
+  @JvmField val txnObjType: Type? = null,
+  @JvmField val txnObj: Any? = null,
   @JvmField val httpMsg: HttpMsgT
 ) {
-  fun <T> getTypedTxObj(): T? = txObjType?.let { (it as Class<T>).cast(txObj) }
+  fun <T> getTypedTxnObj(): T? = txnObjType?.let { (it as Class<T>).cast(txnObj) }
 
   @JvmOverloads
-  fun <T : Any> getTypedTxObj(
+  fun <T : Any> getTypedTxnObj(
     txObjType: Type,
     customAdapters: List<Any> = emptyList(),
     customAdaptersWithType: Map<Type, List<Either<JsonAdapter<Any>, JsonAdapter.Factory>>> =
@@ -48,16 +48,16 @@ data class TxInfo<HttpMsgT : HttpMessage>(
       when (httpMsg) {
         is Request -> "RequestInfo⬆️"
         is Response -> "ResponseInfo⬇️"
-        else -> "TxInfo"
+        else -> "TxnInfo"
       }
-    return "$prefix(Type=$txObjType, Obj=$txObj, $httpMsg)"
+    return "$prefix(Type=$txnObjType, Obj=$txnObj, $httpMsg)"
   }
 
   companion object {
-    @JvmStatic fun TxInfo<Request>.getURIPath(): String = httpMsg.uri.path
+    @JvmStatic fun TxnInfo<Request>.getURIPath(): String = httpMsg.uri.path
 
     @JvmStatic
-    fun TxInfo<Request>.uriPathEndsWith(path: String): Boolean =
+    fun TxnInfo<Request>.uriPathEndsWith(path: String): Boolean =
       httpMsg.uri.path.trim('/').split("/").endsWith(path.trim('/').split("/"))
   }
 }

@@ -11,7 +11,7 @@ import static com.salesforce.revoman.input.FileUtils.readFileInResourcesToString
 import static com.salesforce.revoman.integration.core.pq.adapters.ConnectInputRepWithGraphAdapter.adapter;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.salesforce.revoman.integration.core.pq.connect.PlaceQuoteInputRepresentation;
+import com.salesforce.revoman.integration.core.pq.connect.request.PlaceQuoteInputRepresentation;
 import java.util.List;
 import org.json.JSONException;
 import org.junit.jupiter.api.DisplayName;

@@ -7,7 +7,7 @@
  */
 package com.salesforce.revoman.output.report.failure
 
-import com.salesforce.revoman.output.report.ExeType
+import com.salesforce.revoman.output.ExeType
 
 sealed class ExeFailure {
   abstract val exeType: ExeType

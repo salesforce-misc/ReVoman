@@ -94,7 +94,7 @@ Contrary to these custom frameworks,
 almost every team uses https://www.postman.com/product/what-is-postman[*Postman*] for manual testing their APIs.
 Postman collections contain a lot of information about your APIs and the order
 in which they need to be executed for manual testing,
-in a link:{pmtemplates}/pq/pq-sm.postman_collection.json[Structured Template].
+in a https://www.postman.com/templates/[Structured Template].
 Leveraging it can mitigate writing a lot of code as we translate those manual steps into automation.
 
 ____
@@ -131,7 +131,8 @@ final var rundown =
 === Simple Example
 
 Let's start with a simple example.
-Here] is an exported Postman collection to hit a free public https://restful-api.dev/[RESTFUL-API].
+Here is a simple link:{pmtemplates}/restfulapidev/restful-api.dev.postman_collection.json[Exported Postman collection] and link:{pmtemplates}/restfulapidev/restful-api.dev.postman_environment.json[Environment],
+to hit a free public https://restful-api.dev/[RESTFUL-API].
 You can import and manually test this collection through the `Run collection` button like this:
 
 image::resfulapi-dev-pm.png[]
@@ -177,8 +178,9 @@ endif::[]
 
 === Rundown
 
-After all this, you receive back a detailed *Rundown* in return. It has all the Request-Response data for each step,
-along with all Strong types that you configured, such that you can seamlessly run more assertions on top of the run.
+After all this, you receive back a detailed *Rundown* in return.
+It contains everything you need to know about what happened in an execution,
+such that you can seamlessly run more assertions on top of the run.
 
 [source,kotlin,indent=0,options="nowrap"]
 ----
@@ -188,9 +190,9 @@ Rundown(
 
 StepReport(
   step: Step,
-  requestInfo: Either<RequestFailure, TxInfo<Request>>? = null, // <1>
+  requestInfo: Either<RequestFailure, TxnInfo<Request>>? = null, // <1>
   preHookFailure: PreHookFailure? = null,
-  responseInfo: Either<ResponseFailure, TxInfo<Response>>? = null,
+  responseInfo: Either<ResponseFailure, TxnInfo<Response>>? = null,
   postHookFailure: PostHookFailure? = null,
   envSnapshot: PostmanEnvironment<Any?> // <2>
 )
@@ -207,7 +209,11 @@ TIP: Another simple example to see in Action: link:{testdir}/com/salesforce/revo
 
 [.lead]
 ReṼoman isn't just limited to that;
-you can add more _bells & whistles_ (Custom Dynamic variables, Request and Response Configs, Pre- and Post-Hooks) to it:
+you can add more _bells & whistles_ like:
+
+* Custom Dynamic variables,
+* Request and Response Configs,
+* Pre- and Post-Hooks
 
 ifdef::env-github[]
 
@@ -293,7 +299,7 @@ assertThat(pqRundown.mutableEnv)
 <10> `unmarshallSuccessResponse` and `unmarshallErrorResponse` help you use strong types inside hooks.
 <11> Supply your validations/assertions to be run on a step response through `validateIfSuccess` and `validateIfFailed`
 ** You can leverage the power of https://github.com/salesforce-misc/Vador[*Vador*] to write config-driven validations
-<10> [Not for Prod] Ignore Java cert issues when firing HTTP calls
+<10> Ignore Java cert issues when firing HTTP calls
 
 endif::[]
 ifndef::env-github[]
@@ -313,13 +319,12 @@ include::{testdir}/com/salesforce/revoman/integration/core/pq/PQE2EWithSMTest.ja
 <8> You can set up a pre- / post-hook around a Step via `hooks`, which can help as callbacks, especially for Async operations.
 <9> Provide configuration to unmarshall/deserialize response JSON into strong types
 <10> `unmarshallSuccessResponse` and `unmarshallErrorResponse` help you use strong types inside hooks.
-<11> Supply your validations/assertions to be run on a step response through `validateIfSuccess` and `validateIfFailed`
 ** You can leverage the power of https://github.com/salesforce-misc/Vador[*Vador*] to write config-driven validations
-<12> [Not for Prod] Ignore Java cert issues when firing HTTP calls
+<12> Ignore Java cert issues when firing HTTP calls
 
 endif::[]
 
-== Debugging
+== Debugging UX
 
 [.lead]
 This tool has particular emphasis on Debugging experience.
@@ -330,12 +335,12 @@ along with environment snapshot during that step execution. Here is what a debug
 image:rundown.png[Rundown of all steps]
 
 [.lead]
-🔍 Let's zoom into a detailed view of one of those Step reports:
+🔍 Let's zoom into a detailed view of one of those Step reports, which contains complete Request and Response info along failure information if any:
 
 image:step-report.png[Step Report]
 
 [.lead]
-Here are the environment *key-value* pairs accumulated along the entire execution:
+Here are the environment *key-value* pairs accumulated along the entire execution and appended to the environment from file and dynamicEnvironment supplied:
 
 image:mutable-env.png[Mutable environment after the execution completion]
 
@@ -346,7 +351,8 @@ If something goes wrong at any stage during the Step execution, ReṼoman *fails
 image:step-execution.png[Step Execution]
 
 [.lead]
-ReṼoman logs everything, so you can watch your console to check what's going on in the execution
+ReṼoman logs all the key operations that happen inside its source-code.
+Watch your console to check what's going on in the execution or troubleshoot from CI/CD logs
 
 [#_logging]
 image:pq-exe-logging.gif[Monitor Execution]
@@ -365,16 +371,22 @@ for an advanced adapter use-case
 
 * It also has link:{sourcedir}/com/salesforce/revoman/input/json/JsonPojoUtils.kt[JSON POJO Utils], which you can use to directly convert JSON to POJO and vice versa.
 
+=== Execution Control
+
+The configuration offers methods through which the execution strategy can be controlled without making any changes to the template:
+
+* `haltOnAnyFailure` — This defaults to `false`. If set to `true`, the execution fails-fast when it encounters a failure.
+* `haltOnAnyFailureExcept`, `runOnlySteps`, `skipSteps` - All these accept a `predicate` of type `ExeStepPick`, which is invoked passing the current `Step` instance to decide whether to execute or skip a step.
+** There are some `ExeStepPick`s bundled with ReṼoman under `ExeStepPick.PickUtils` e.g `withName`, `inFolder` etc. You can write a custom predicate of you own too.
+
+[#_pre_and_post_hooks]
 === Pre- and Post-Hooks
 
 * A hook lets you fiddle with the execution by plugging in your code before or after a Step execution.
-* You can pass a `*StepPick` which is a `Predicate` used to qualify a step. ReṼoman comes with bundled under the namespace `PickUtils`. If those don't fit your need, you can write your own predicates.
-* You get the stepName and the entire rundown of what happened prior to this step as parameters,
-as demonstrated in link:{testdir}/com/salesforce/revoman/integration/core/pq/PQE2EWithSMTest.java[PQE2ETest.java, tag=pq-e2e-with-revoman-config-demo]
+* You can pass a `PreTxnStepPick/PostTxnStepPick` which is a `Predicate` used to qualify a step for Pre-/Post-Hook respectively. ReṼoman comes bundled with some predicates under the namespace `PreTxnStepPick.PickUtils/PostTxnStepPick.PickUtils` e.g `beforeAllStepsWithURIPathEndingWith`, `afterStepName` etc. If those don't fit your needs, you can write your own custom predicates too.
 
 [source,java,indent=0,options="nowrap"]
 ----
-
 .hooks(
   pre(
       PreTxnStepPick,
@@ -387,11 +399,15 @@ as demonstrated in link:{testdir}/com/salesforce/revoman/integration/core/pq/PQE
         //...callback-code...
       })
 )
-
 ----
 
 * You can do things like assertion on the rundown or environment and even mutate the environment, such that the execution of subsequent steps picks up those changes.
-* You can plug in your java code to create/generate values for environment variables which can be populated and picked-up by subsequent steps.For example, you may want to create some `xyzId` but you don't have a Postman collection, but instead a Java utility to generate/create it.You can invoke the utility in a pre-hook of a step (which uses the variable `{+{xyzId}+}` in its template) and set the value in `mutableEnv`, so the step can pick it from there.
+* You can plug in your java code to create/generate values for environment variables which can be populated and picked-up by subsequent steps. For example, you may want some `xyzId` but you don't have a Postman collection, but instead have a Java utility to generate/create it. You can invoke the utility in a pre-hook of a step and set the value in `mutableEnv`, so the step can pick up the `{+{xyzId}+}` from there.
+
+==== Response Validations
+
+* Post-Hooks are the best place to validate response right after the step.
+* If you have configured a strong type for your response through `responseConfig`, you can write type-safe validations by extracting your Strong type Object using `stepReport.responseInfo.get().<TypeT>getTypedTxnObj()` or `JsonPojoUtils.jsonToPojo()`
 
 === Compose modular Executions
 
@@ -477,20 +493,20 @@ The future looks bright with multiple impactful features in the pipeline:
 
 == FAQs
 
-=== Is Debugging challenging with ReṼoman?
+=== How to Debug a step in the middle of an Execution?
 
-* IDE debug points in the Prod code work as expected while running the test.
-* Coming to FTest code, we debug when we don't understand what's going on in the code.
-* Debugging necessarily doesn't have to be with a debug point in the IDE.
-* To be able to debug, a developer needs to be informed about what went wrong and he/she should have ways to try and test an isolated portion of the run.
-* In the case of ReṼoman, you have the whole Postman collection at your disposal along with the Rundown. The entire test is transparent.
-* This experience is enhanced with <<_failure_hierarchy,Explicit Failures>> and <<_logging,Logging>>
+* You can add a link:#_pre_and_post_hooks[pre-hook] to the Step you are interested and add a debug point inside that. This gets hit before ReṼoman fires the request in that Step
+* You can get more adventurous by attaching jar sources and directly adding conditional debug points inside the library source-code. You can search for logs in the source-code that indicate key operations to add conditional debug points with conditions like StepName etc.
 
 === Why not use https://learning.postman.com/docs/collections/using-newman-cli/command-line-integration-with-newman[Newman] or https://learning.postman.com/docs/postman-cli/postman-cli-overview/#comparing-the-postman-cli-and-newman[Postman CLI]?
 
 * ReṼoman may be similar to Newman or Postman CLI when it comes to executing a Postman collection, but the _similarities end there_.
-* Newman/Postman CLI are built for node cannot be executed within a JVM. Even if you are able to run with some hacky way, there is no easy way to assert results.
+* Newman or Postman CLI are built for node and cannot be executed within a JVM. Even if you are able to run with some hacky way, there is no easy way to assert results.
 * ReṼoman is JVM first that lets you configure a lot more, and gives you back a detailed report to assert in a typesafe way
-* Newman is limited and cannot be integrated into our automation model on JVM
 
-== link:CONTRIBUTING.adoc[🙌🏼Wanna Collab & Contribute?]
+== 🙌🏼 Consume-Collaborate-Contribute
+
+* This link:CONTRIBUTING.adoc[CONTRIBUTING] doc has all the information
+to set up this library on your local and get hands-on.
+* Any issues or PRs are welcome! ♥️
+* Join this https://sfdc.co/revoman-slack[Slack Community] to discuss issues or PRs related to Consumption-Collaboration-Contribution

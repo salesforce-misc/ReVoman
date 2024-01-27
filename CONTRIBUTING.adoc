@@ -21,26 +21,15 @@ endif::[]
 :imagesdir: images
 :toc:
 
-[#_versioning_strategy]
-== Versioning Strategy
-
-====
-<A>.<B>.<C>
-====
-
-* A = We broke something on purpose (Breaking API change)
-* B = Profit (Feature / Improvement)
-* C = We broke something by accident (Bug)
-
 == Source-code Setup
 
 === Install Java 11
 
-* It needs JDK 11 installed in your system. I recommend doing it via https://sdkman.io/install[SDKMAN]. After you install SDKMAN, run `sdk list java` -> Pick Identifier for your favorite java dist -> Run `sdk install java <Identifier-you-picked>  to install Java.
+It needs JDK 11 installed in your system. I recommend doing it via https://sdkman.io/install[SDKMAN]. After you install SDKMAN, run `sdk list java` -> Pick Identifier for your favorite java 11 dist -> Run `sdk install java <Identifier-you-picked>`  to install Java.
 
 === Build with Gradle
 
-* This is a simple Gradle project and has its own Gradle wrapper. So nothing to install. Just run this command
+This is a simple Gradle project and has its own Gradle wrapper. So nothing to install, run just this command:
 
 [source,bash]
 ----
@@ -49,7 +38,7 @@ endif::[]
 
 TIP: You *don't* need a local Gradle installation as the `gradlew` (Gradle wrapper) takes care of everything. But if you wish to install gradle locally, the recommendation is to  do it via https://sdkman.io/install[SDKMAN]. After you install SDKMAN, run `sdk install gradle` to install Gradle
 
-* You can run/debug the existing unit tests or write your own to play with the tool.
+You can run/debug the existing unit tests or write your own to play with the tool.
 
 === Kotlin
 
@@ -64,18 +53,28 @@ Similar development aids should be present for other code editors too.
 
 == Code Formatting
 
-* This repo uses https://github.com/diffplug/spotless[*Spotless*] for formatting files, as this repo has code from more than one programming-language.
-* Please run `./gradlew spotlessApply` before check-in to fix any formatting errors.
+This repo uses https://github.com/diffplug/spotless[*Spotless*] for formatting files. Please run `./gradlew spotlessApply` before check-in to fix any formatting errors.
 
-TIP: If you're on Intellij, replace your kbd:[Cmd+Shift+L] habit with kbd:[Ctrl]-kbd:[Ctrl] and run `gradle spotlessApply` (Or the respective action if you're on Eclipse).
-It may be slow for the first run, but later runs should be faster.
+TIP: If you're on Intellij, replace your kbd:[Cmd+Shift+L] habit with kbd:[Ctrl]-kbd:[Ctrl]
+and run `./gradlew spotlessApply` (Or the respective action if you're on VS Code/Eclipse).
+It may be slow for the first run, but subsequent runs should be faster.
 
 == Manual publishing
 
-In link:build.gradle.kts[], follow the <<_versioning_strategy,Versioning Strategy>>
+[#_versioning_strategy]
+=== Versioning Strategy
 
-* Follow the <<_versioning_strategy,Versioning Strategy>> to increment version link:buildSrc/{sourcedir}/Config.kt[here]
-** For SNAPSHOT releases, add a `-SNAPSHOT` at the end of version number
+====
+<A>.<B>.<C>
+====
+
+* A = Broke something on purpose (Breaking API change)
+* B = Profit (Feature / Improvement)
+* C = Broke something by accident (Bug)
+
+Follow the Versioning Strategy to increment version link:buildSrc/{sourcedir}/Config.kt[here]
+
+* For SNAPSHOT releases, add a `-SNAPSHOT` at the end of version number
 * Run this command to publish it to Nexus:
 
 [source,bash]

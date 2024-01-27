@@ -14,8 +14,8 @@ import com.salesforce.revoman.input.config.HookConfig.Hook.PostHook
 import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.input.config.StepPick.PostTxnStepPick
 import com.salesforce.revoman.internal.postman.pm
+import com.salesforce.revoman.output.ExeType.POST_HOOK
 import com.salesforce.revoman.output.Rundown
-import com.salesforce.revoman.output.report.ExeType.POST_HOOK
 import com.salesforce.revoman.output.report.StepReport
 import com.salesforce.revoman.output.report.failure.HookFailure.PostHookFailure
 import io.github.oshai.kotlinlogging.KotlinLogging

@@ -26,7 +26,7 @@ class StepReportTest {
   fun `StepReport HttpStatusSuccessful`() {
     val rawRequest =
       Request(method = POST.toString(), url = Request.Url("https://overfullstack.github.io/"))
-    val requestInfo = TxInfo(String::class.java, "fakeRequest", rawRequest.toHttpRequest())
+    val requestInfo = TxnInfo(String::class.java, "fakeRequest", rawRequest.toHttpRequest())
     val stepReportSuccess =
       StepReport(
         Step("1.3.7", "HttpStatusSuccessful", Item(request = rawRequest)),
@@ -40,7 +40,7 @@ class StepReportTest {
   fun `StepReport HttpRequestFailure`() {
     val rawRequest =
       Request(method = POST.toString(), url = Request.Url("https://overfullstack.github.io/"))
-    val requestInfo = TxInfo(String::class.java, "fakeRequest", rawRequest.toHttpRequest())
+    val requestInfo = TxnInfo(String::class.java, "fakeRequest", rawRequest.toHttpRequest())
     val stepReportHttpFailure =
       StepReport(
         Step("1.3.7", "HttpRequestFailure", Item(request = rawRequest)),
@@ -54,9 +54,9 @@ class StepReportTest {
   fun `StepReport Bad Response`() {
     val rawRequest =
       Request(method = POST.toString(), url = Request.Url("https://overfullstack.github.io/"))
-    val requestInfo = TxInfo(String::class.java, "fakeRequest", rawRequest.toHttpRequest())
-    val badResponseInfo: TxInfo<Response> =
-      TxInfo(String::class.java, "fakeBadResponse", Response(BAD_REQUEST).body("fakeBadResponse"))
+    val requestInfo = TxnInfo(String::class.java, "fakeRequest", rawRequest.toHttpRequest())
+    val badResponseInfo: TxnInfo<Response> =
+      TxnInfo(String::class.java, "fakeBadResponse", Response(BAD_REQUEST).body("fakeBadResponse"))
     val stepReportBadRequest =
       StepReport(
         Step("", "BadResponse", Item(request = rawRequest)),
@@ -72,8 +72,8 @@ class StepReportTest {
   fun `StepReport PostHookFailure`() {
     val rawRequest =
       Request(method = POST.toString(), url = Request.Url("https://overfullstack.github.io/"))
-    val requestInfo = TxInfo(String::class.java, "fakeRequest", rawRequest.toHttpRequest())
-    val responseInfo: TxInfo<Response> = TxInfo(String::class.java, "fakeResponse", Response(OK))
+    val requestInfo = TxnInfo(String::class.java, "fakeRequest", rawRequest.toHttpRequest())
+    val responseInfo: TxnInfo<Response> = TxnInfo(String::class.java, "fakeResponse", Response(OK))
     val stepReportPostHookFailure =
       StepReport(
         Step("", "PostHookFailure", Item(request = rawRequest)),

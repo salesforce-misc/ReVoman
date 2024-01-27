@@ -9,7 +9,6 @@ package com.salesforce.revoman.integration.pokemon;
 
 import static com.salesforce.revoman.input.config.HookConfig.post;
 import static com.salesforce.revoman.input.config.HookConfig.pre;
-import static com.salesforce.revoman.input.config.ResponseConfig.validateIfSuccess;
 import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.afterAllStepsContainingHeader;
 import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.afterStepName;
 import static com.salesforce.revoman.input.config.StepPick.PreTxnStepPick.beforeAllStepsContainingHeader;
@@ -25,9 +24,7 @@ import com.salesforce.revoman.input.config.Kick;
 import com.salesforce.revoman.output.Rundown;
 import com.salesforce.revoman.output.report.Step;
 import com.salesforce.revoman.output.report.StepReport;
-import com.salesforce.revoman.output.report.TxInfo;
-import com.salesforce.vador.config.ValidationConfig;
-import com.salesforce.vador.types.Validator;
+import com.salesforce.revoman.output.report.TxnInfo;
 import java.util.Map;
 import org.http4k.core.Request;
 import org.jetbrains.annotations.NotNull;
@@ -54,26 +51,13 @@ class PokemonTest {
             "offset", String.valueOf(OFFSET),
             "limit", String.valueOf(LIMIT));
     //noinspection Convert2Lambda
-    final var resultSizeValidator =
-        Mockito.spy(
-            new Validator<Results, String>() {
-              @Override
-              public String apply(Results results) {
-                return results.getResults().size() == newLimit ? "Good" : "Bad";
-              }
-            });
-    final var pokemonResultsValidationConfig =
-        ValidationConfig.<Results, String>toValidate()
-            .withValidator(resultSizeValidator, "Good")
-            .prepare();
-    //noinspection Convert2Lambda
     final var preLogHook =
         Mockito.spy(
             new PreHook() {
               @Override
               public void accept(
                   @NotNull Step currentStep,
-                  @NotNull TxInfo<Request> requestInfo,
+                  @NotNull TxnInfo<Request> requestInfo,
                   @NotNull Rundown rundown) {
                 LOGGER.info("Picked `preLogHook` for stepName: {}", currentStep);
               }
@@ -95,7 +79,7 @@ class PokemonTest {
               @Override
               public void accept(
                   @NotNull Step currentStep,
-                  @NotNull TxInfo<Request> requestInfo,
+                  @NotNull TxnInfo<Request> requestInfo,
                   @NotNull Rundown rundown) {
                 rundown.mutableEnv.set("limit", String.valueOf(newLimit));
               }
@@ -120,16 +104,10 @@ class PokemonTest {
                     post(afterStepName("all-pokemon"), postHook),
                     pre(beforeAllStepsContainingHeader("preLog"), preLogHook),
                     post(afterAllStepsContainingHeader("postLog"), postLogHook))
-                .responseConfig(
-                    validateIfSuccess(
-                        afterStepName("all-pokemon"),
-                        Results.class,
-                        pokemonResultsValidationConfig))
                 .dynamicEnvironment(dynamicEnvironment)
                 .haltOnAnyFailure(true)
                 .off());
 
-    Mockito.verify(resultSizeValidator, times(1)).apply(any());
     Mockito.verify(preHook, times(1)).accept(any(), any(), any());
     Mockito.verify(postHook, times(1)).accept(any(), any());
     Mockito.verify(preLogHook, times(1)).accept(any(), any(), any());

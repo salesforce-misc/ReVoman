@@ -5,10 +5,16 @@
  *  http://www.apache.org/licenses/LICENSE-2.0
  **************************************************************************************************/
 
-package com.salesforce.revoman.integration.core.pq.connect;
+package com.salesforce.revoman.integration.core.pq.connect.response;
 
-public enum PricingPreferenceEnum {
-  Force,
-  Skip,
-  System;
+public class ID {
+  private final String id;
+
+  public ID(String id) {
+    this.id = id;
+  }
+
+  public String getId() {
+    return id;
+  }
 }

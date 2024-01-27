@@ -18,11 +18,11 @@ import static com.salesforce.revoman.input.json.JsonWriterUtils.objW;
 import static com.salesforce.revoman.input.json.JsonWriterUtils.string;
 import static com.salesforce.revoman.input.json.JsonWriterUtils.writeProps;
 
-import com.salesforce.revoman.integration.core.pq.connect.ConnectInputRepresentationWithGraph;
-import com.salesforce.revoman.integration.core.pq.connect.ObjectGraphInputRepresentation;
-import com.salesforce.revoman.integration.core.pq.connect.ObjectInputRepresentationMap;
-import com.salesforce.revoman.integration.core.pq.connect.ObjectWithReferenceInputRepresentation;
-import com.salesforce.revoman.integration.core.pq.connect.ObjectWithReferenceInputRepresentationList;
+import com.salesforce.revoman.integration.core.pq.connect.request.ConnectInputRepresentationWithGraph;
+import com.salesforce.revoman.integration.core.pq.connect.request.ObjectGraphInputRepresentation;
+import com.salesforce.revoman.integration.core.pq.connect.request.ObjectInputRepresentationMap;
+import com.salesforce.revoman.integration.core.pq.connect.request.ObjectWithReferenceInputRepresentation;
+import com.salesforce.revoman.integration.core.pq.connect.request.ObjectWithReferenceInputRepresentationList;
 import com.squareup.moshi.JsonAdapter;
 import com.squareup.moshi.JsonReader;
 import com.squareup.moshi.JsonWriter;

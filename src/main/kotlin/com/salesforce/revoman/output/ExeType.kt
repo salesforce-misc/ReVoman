@@ -5,7 +5,7 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  * ************************************************************************************************
  */
-package com.salesforce.revoman.output.report
+package com.salesforce.revoman.output
 
 enum class ExeType(private val exeName: String) {
   UNMARSHALL_REQUEST("unmarshall-request"),

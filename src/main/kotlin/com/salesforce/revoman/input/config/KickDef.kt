@@ -35,13 +35,13 @@ internal interface KickDef {
 
   fun customDynamicVariables(): Map<String, (String) -> String>
 
-  fun runOnlySteps(): List<ExeStepPick>
-
-  fun skipSteps(): List<ExeStepPick>
+  @Value.Default fun haltOnAnyFailure(): Boolean = false
 
   fun haltOnAnyFailureExcept(): PostTxnStepPick?
 
-  @Value.Default fun haltOnAnyFailure(): Boolean = false
+  fun runOnlySteps(): List<ExeStepPick>
+
+  fun skipSteps(): List<ExeStepPick>
 
   fun hooks(): Set<HookConfig>
 

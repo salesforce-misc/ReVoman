@@ -12,11 +12,11 @@ import arrow.core.Either.Right
 import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.internal.json.asA
 import com.salesforce.revoman.internal.postman.pm
+import com.salesforce.revoman.output.ExeType.UNMARSHALL_REQUEST
 import com.salesforce.revoman.output.Rundown
-import com.salesforce.revoman.output.report.ExeType.UNMARSHALL_REQUEST
 import com.salesforce.revoman.output.report.Step
 import com.salesforce.revoman.output.report.StepReport
-import com.salesforce.revoman.output.report.TxInfo
+import com.salesforce.revoman.output.report.TxnInfo
 import com.salesforce.revoman.output.report.failure.RequestFailure.UnmarshallRequestFailure
 import io.exoquery.pprint
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -31,7 +31,7 @@ internal fun unmarshallRequest(
   kick: Kick,
   moshiReVoman: ConfigurableMoshi,
   stepReports: List<StepReport>
-): Either<UnmarshallRequestFailure, TxInfo<Request>> {
+): Either<UnmarshallRequestFailure, TxnInfo<Request>> {
   val httpRequest = pmRequest.toHttpRequest()
   val requestType: Type =
     kick
@@ -39,7 +39,7 @@ internal fun unmarshallRequest(
       .firstOrNull {
         it.preTxnStepPick.pick(
           currentStep,
-          TxInfo(null, null, httpRequest),
+          TxnInfo(null, null, httpRequest),
           Rundown(stepReports, pm.environment, kick.haltOnAnyFailureExcept())
         )
       }
@@ -50,7 +50,7 @@ internal fun unmarshallRequest(
       runChecked<Any?>(currentStep, UNMARSHALL_REQUEST) {
           pmRequest.body?.let { body -> moshiReVoman.asA(body.raw, requestType) }
         }
-        .mapLeft { UnmarshallRequestFailure(it, TxInfo(requestType, null, httpRequest)) }
+        .mapLeft { UnmarshallRequestFailure(it, TxnInfo(requestType, null, httpRequest)) }
     else -> {
       // ! TODO 15/10/23 gopala.akshintala: xml2Json
       logger.info {
@@ -58,7 +58,7 @@ internal fun unmarshallRequest(
       }
       Right(null)
     }
-  }.map { TxInfo(requestType, it, pmRequest.toHttpRequest()) }
+  }.map { TxnInfo(requestType, it, pmRequest.toHttpRequest()) }
 }
 
 private val logger = KotlinLogging.logger {}

@@ -5,12 +5,11 @@
  *  http://www.apache.org/licenses/LICENSE-2.0
  **************************************************************************************************/
 
-package com.salesforce.revoman.integration.core.pq.connect;
+package com.salesforce.revoman.integration.core.pq.connect.request;
 
 public class PlaceQuoteInputRepresentation implements ConnectInputRepresentationWithGraph {
 
   private PricingPreferenceEnum pricingPref;
-
   private Boolean doAsync;
   private ObjectGraphInputRepresentation graph;
   private boolean isSetGraph;

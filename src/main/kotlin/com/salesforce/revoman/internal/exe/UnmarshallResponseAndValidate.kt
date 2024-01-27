@@ -14,12 +14,12 @@ import arrow.core.flatMap
 import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.internal.json.asA
 import com.salesforce.revoman.internal.postman.pm
+import com.salesforce.revoman.output.ExeType.RESPONSE_VALIDATION
+import com.salesforce.revoman.output.ExeType.UNMARSHALL_RESPONSE
 import com.salesforce.revoman.output.Rundown
-import com.salesforce.revoman.output.report.ExeType.RESPONSE_VALIDATION
-import com.salesforce.revoman.output.report.ExeType.UNMARSHALL_RESPONSE
 import com.salesforce.revoman.output.report.Step
 import com.salesforce.revoman.output.report.StepReport
-import com.salesforce.revoman.output.report.TxInfo
+import com.salesforce.revoman.output.report.TxnInfo
 import com.salesforce.revoman.output.report.failure.ResponseFailure.ResponseValidationFailure
 import com.salesforce.revoman.output.report.failure.ResponseFailure.ResponseValidationFailure.ValidationFailure
 import com.salesforce.revoman.output.report.failure.ResponseFailure.UnmarshallResponseFailure
@@ -72,13 +72,13 @@ internal fun unmarshallResponseAndValidate(
                 UnmarshallResponseFailure(
                   it,
                   requestInfo,
-                  TxInfo(responseType, null, httpResponse)
+                  TxnInfo(responseType, null, httpResponse)
                 ),
               ),
           )
         }
         .flatMap { responseObj ->
-          val responseInfo = TxInfo(responseType, responseObj, httpResponse)
+          val responseInfo = TxnInfo(responseType, responseObj, httpResponse)
           runChecked(currentStep, RESPONSE_VALIDATION) {
               responseConfig?.validationConfig?.let { validate(currentStep, responseObj, it) }
             }

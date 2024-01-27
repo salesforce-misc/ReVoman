@@ -9,13 +9,14 @@ package com.salesforce.revoman.internal.exe
 
 import arrow.core.Either
 import com.salesforce.revoman.internal.postman.template.Item
-import com.salesforce.revoman.output.report.ExeType.HTTP_REQUEST
+import com.salesforce.revoman.output.ExeType.HTTP_REQUEST
 import com.salesforce.revoman.output.report.Step
-import com.salesforce.revoman.output.report.TxInfo
+import com.salesforce.revoman.output.report.TxnInfo
 import com.salesforce.revoman.output.report.failure.RequestFailure.HttpRequestFailure
 import org.http4k.client.ApacheClient
 import org.http4k.client.PreCannedApacheHttpClients
 import org.http4k.core.Filter
+import org.http4k.core.HttpHandler
 import org.http4k.core.NoOp
 import org.http4k.core.Request
 import org.http4k.core.Response
@@ -28,16 +29,16 @@ internal fun httpRequest(
   itemWithRegex: Item,
   httpRequest: Request,
   insecureHttp: Boolean,
-): Either<HttpRequestFailure, TxInfo<Response>> =
+): Either<HttpRequestFailure, TxnInfo<Response>> =
   runChecked(currentStep, HTTP_REQUEST) {
       // * NOTE gopala.akshintala 06/08/22: Preparing httpClient for each step,
       // * as there can be intermediate auths
       prepareHttpClient(itemWithRegex.auth?.bearerToken, insecureHttp)(httpRequest)
     }
-    .mapLeft { HttpRequestFailure(it, TxInfo(httpMsg = httpRequest)) }
-    .map { TxInfo(httpMsg = it) }
+    .mapLeft { HttpRequestFailure(it, TxnInfo(httpMsg = httpRequest)) }
+    .map { TxnInfo(httpMsg = it) }
 
-private fun prepareHttpClient(bearerToken: String?, insecureHttp: Boolean) =
+private fun prepareHttpClient(bearerToken: String?, insecureHttp: Boolean): HttpHandler =
   DebuggingFilters.PrintRequestAndResponse()
     .then(if (bearerToken.isNullOrEmpty()) Filter.NoOp else ClientFilters.BearerAuth(bearerToken))
     .then(

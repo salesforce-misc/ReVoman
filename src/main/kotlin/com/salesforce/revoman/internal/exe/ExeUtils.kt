@@ -16,8 +16,8 @@ import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.input.config.StepPick.ExeStepPick
 import com.salesforce.revoman.internal.postman.pm
 import com.salesforce.revoman.internal.postman.template.Item
+import com.salesforce.revoman.output.ExeType
 import com.salesforce.revoman.output.Rundown
-import com.salesforce.revoman.output.report.ExeType
 import com.salesforce.revoman.output.report.Folder
 import com.salesforce.revoman.output.report.Step
 import com.salesforce.revoman.output.report.StepReport

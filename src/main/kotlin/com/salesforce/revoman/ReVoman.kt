@@ -30,7 +30,7 @@ import com.salesforce.revoman.internal.postman.template.Template
 import com.salesforce.revoman.output.Rundown
 import com.salesforce.revoman.output.report.Step
 import com.salesforce.revoman.output.report.StepReport
-import com.salesforce.revoman.output.report.TxInfo
+import com.salesforce.revoman.output.report.TxnInfo
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapter
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -88,12 +88,12 @@ object ReVoman {
         val currentStepReport: StepReport = // --------### UNMARSHALL-REQUEST ###--------
           unmarshallRequest(step, pmRequest, kick, moshiReVoman, stepReports)
             .mapLeft { StepReport(step, Left(it)) }
-            .flatMap { requestInfo: TxInfo<Request> -> // --------### PRE-HOOKS ###--------
+            .flatMap { requestInfo: TxnInfo<Request> -> // --------### PRE-HOOKS ###--------
               preHookExe(step, kick, requestInfo, stepReports)
                 .mapLeft { StepReport(step, Right(requestInfo), it) }
                 .map { requestInfo }
             }
-            .flatMap { requestInfo: TxInfo<Request> -> // --------### HTTP-REQUEST ###--------
+            .flatMap { requestInfo: TxnInfo<Request> -> // --------### HTTP-REQUEST ###--------
               val httpRequest =
                 RegexReplacer(pm.environment).replaceRegex(itemWithRegex.request).toHttpRequest()
               httpRequest(step, itemWithRegex, httpRequest, kick.insecureHttp())

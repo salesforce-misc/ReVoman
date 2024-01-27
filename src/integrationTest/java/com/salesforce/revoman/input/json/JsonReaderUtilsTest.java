@@ -11,13 +11,10 @@ import static com.salesforce.revoman.integration.core.pq.adapters.ConnectInputRe
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
-import com.salesforce.revoman.integration.core.pq.connect.ObjectWithReferenceInputRepresentation;
-import com.salesforce.revoman.integration.core.pq.connect.PlaceQuoteInputRepresentation;
-import com.salesforce.revoman.integration.core.pq.connect.PricingPreferenceEnum;
+import com.salesforce.revoman.integration.core.pq.connect.request.PlaceQuoteInputRepresentation;
+import com.salesforce.revoman.integration.core.pq.connect.request.PricingPreferenceEnum;
 import com.squareup.moshi.JsonDataException;
-import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -62,25 +59,5 @@ class JsonReaderUtilsTest {
 
   private static class PojoWithEnum {
     PricingPreferenceEnum pricingPref;
-  }
-
-  @Test
-  @DisplayName("Transform PQInputRep")
-  void transformPqInputRep() {
-    final var pqAdapter = adapter(PlaceQuoteInputRepresentation.class);
-    final var pqInputRep =
-        JsonPojoUtils.<PlaceQuoteInputRepresentation>jsonFileToPojo(
-            PlaceQuoteInputRepresentation.class, "json/pq-payload.json", List.of(pqAdapter));
-    assertThat(pqInputRep).isNotNull();
-    final var pqInputRepTx = toJsonPreValueTransformer(pqInputRep);
-    System.out.println(pqInputRepTx);
-  }
-
-  static List<ObjectWithReferenceInputRepresentation> toJsonPreValueTransformer(
-      PlaceQuoteInputRepresentation placeQuoteInputRepresentation) {
-    final var records = placeQuoteInputRepresentation.getGraph().getRecords().getRecordsList();
-    return Collections.nCopies(5, records.get(0)).stream()
-        .peek(rec -> rec.setReferenceId(rec.getReferenceId() + "x"))
-        .collect(Collectors.toList());
   }
 }

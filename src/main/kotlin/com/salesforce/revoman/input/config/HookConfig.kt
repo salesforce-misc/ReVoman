@@ -14,14 +14,14 @@ import com.salesforce.revoman.input.config.StepPick.PreTxnStepPick
 import com.salesforce.revoman.output.Rundown
 import com.salesforce.revoman.output.report.Step
 import com.salesforce.revoman.output.report.StepReport
-import com.salesforce.revoman.output.report.TxInfo
+import com.salesforce.revoman.output.report.TxnInfo
 import org.http4k.core.Request
 
 data class HookConfig private constructor(val pick: StepPick, val hook: Hook) {
   sealed interface Hook {
     fun interface PreHook : Hook {
       @Throws(Throwable::class)
-      fun accept(currentStep: Step, requestInfo: TxInfo<Request>, rundown: Rundown)
+      fun accept(currentStep: Step, requestInfo: TxnInfo<Request>, rundown: Rundown)
     }
 
     fun interface PostHook : Hook {

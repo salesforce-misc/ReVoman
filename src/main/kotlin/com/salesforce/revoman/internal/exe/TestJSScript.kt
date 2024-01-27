@@ -12,7 +12,7 @@ import com.salesforce.revoman.internal.postman.RegexReplacer
 import com.salesforce.revoman.internal.postman.pm
 import com.salesforce.revoman.internal.postman.template.Event
 import com.salesforce.revoman.internal.postman.template.Request
-import com.salesforce.revoman.output.report.ExeType
+import com.salesforce.revoman.output.ExeType
 import com.salesforce.revoman.output.report.Step
 import com.salesforce.revoman.output.report.StepReport
 import com.salesforce.revoman.output.report.failure.ResponseFailure.TestScriptJsFailure

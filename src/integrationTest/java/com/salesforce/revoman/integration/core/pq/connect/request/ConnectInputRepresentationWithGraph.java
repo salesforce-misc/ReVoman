@@ -5,7 +5,7 @@
  *  http://www.apache.org/licenses/LICENSE-2.0
  **************************************************************************************************/
 
-package com.salesforce.revoman.integration.core.pq.connect;
+package com.salesforce.revoman.integration.core.pq.connect.request;
 
 public interface ConnectInputRepresentationWithGraph {
 
