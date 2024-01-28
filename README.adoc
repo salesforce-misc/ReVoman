@@ -332,6 +332,12 @@ If something goes wrong at any stage during the Step execution, ReṼoman *fails
 image:step-execution.png[Step Execution]
 
 [.lead]
+Here is the failure hierarchy of what can go wrong in this process
+
+[#_failure_hierarchy]
+image::failure-hierarchy.png[Failure Hierarchy]
+
+[.lead]
 ReṼoman logs all the key operations that happen inside its source-code.
 Watch your console to check what's going on in the execution or troubleshoot from CI/CD logs
 
@@ -345,7 +351,7 @@ image:pq-exe-logging.gif[Monitor Execution]
 
 * ReṼoman internally uses a modern JSON library called https://github.com/square/moshi[**Moshi**]
 * There may be a POJO that inherits or contains legacy classes which are hard or impossible to serialize.ReṼoman lets you serialize such a legacy POJO by letting you pass `typesToIgnoreForMarshalling`, where you can filter-out these legacy classes.
-* The payload may not map to POJO, and you may need a custom adapter for Conversion.Moshi has it covered for you with its advanced adapter mechanism and ReṼoman accepts Moshi adapters via `requestConfig`, `responseConfig` and `customAdapters`
+* The payload may not map to POJO, and you may need a custom adapter for Conversion. Moshi has it covered for you with its advanced adapter mechanism and ReṼoman accepts Moshi adapters via `requestConfig`, `responseConfig` and `customAdapters`
 * ReṼoman also comes bundled with link:{sourcedir}/com/salesforce/revoman/input/json/JsonReaderUtils.kt[JSON Reader utils] and link:{sourcedir}/com/salesforce/revoman/input/json/JsonWriterUtils.kt[JSON Writer utils] to help build Moshi adapters.
 
 TIP: Refer link:{testdir}/com/salesforce/revoman/integration/core/pq/adapters/ConnectInputRepWithGraphAdapter.java[ConnectInputRepWithGraphAdapter]
@@ -360,13 +366,15 @@ The configuration offers methods through which the execution strategy can be con
 
 * `haltOnAnyFailure` — This defaults to `false`. If set to `true`, the execution fails-fast when it encounters a failure.
 * `haltOnAnyFailureExcept`, `runOnlySteps`, `skipSteps` - All these accept a `predicate` of type `ExeStepPick`, which is invoked passing the current `Step` instance to decide whether to execute or skip a step.
-** There are some `ExeStepPick`s bundled with ReṼoman under `ExeStepPick.PickUtils` e.g `withName`, `inFolder` etc. You can write a custom predicate of you own too.
+** There are some `ExeStepPick` predicates bundled with ReṼoman under `ExeStepPick.PickUtils` e.g `withName`, `inFolder` etc. You can write a custom predicate of you own too.
 
 [#_pre_and_post_hooks]
 === Pre- and Post-Hooks
 
-* A hook lets you fiddle with the execution by plugging in your code before or after a Step execution.
-* You can pass a `PreTxnStepPick/PostTxnStepPick` which is a `Predicate` used to qualify a step for Pre-/Post-Hook respectively. ReṼoman comes bundled with some predicates under the namespace `PreTxnStepPick.PickUtils/PostTxnStepPick.PickUtils` e.g `beforeAllStepsWithURIPathEndingWith`, `afterStepName` etc. If those don't fit your needs, you can write your own custom predicates too.
+A hook lets you fiddle with the execution by plugging in your code before or after a Step execution.
+
+[#_step_picks]
+You can pass a `PreTxnStepPick/PostTxnStepPick` which is a `Predicate` used to qualify a step for Pre-/Post-Hook respectively. ReṼoman comes bundled with some predicates under the namespace `PreTxnStepPick.PickUtils/PostTxnStepPick.PickUtils` e.g `beforeAllStepsWithURIPathEndingWith`, `afterStepName` etc. If those don't fit your needs, you can write your own custom predicates too.
 
 [source,java,indent=0,options="nowrap"]
 ----
@@ -394,7 +402,7 @@ The configuration offers methods through which the execution strategy can be con
 * If you have configured a strong type for your response through `responseConfig`, you can write type-safe validations by extracting your Strong type Object using `stepReport.responseInfo.get().<TypeT>getTypedTxnObj()` or `JsonPojoUtils.jsonToPojo()`
 * If your response data structure is non-trivial and have requirements to execute validations with different strategies like `fail-fast` or `error-accumulation`, consider using a library like https://github.com/salesforce-misc/Vador[*Vador*]
 
-=== Compose modular Executions
+=== Compose Modular Executions
 
 * You don't have to squash all your steps into one mega collection. Instead, you can break them into easy-to-manage modular collections. `revUp` accepts a list of collection paths through `templatePaths`
 * But that doesn't mean you have to execute all these templates in one-go. You can make multiple `revUp` calls.
@@ -446,25 +454,6 @@ image:pq-revoman-test-time.png[Localhost Test time on FTest console]
 WARNING: ReṼoman internally is very light-weight, and the execution times are proportional
 to how your server responds or your network speed.
 
-== Internal Orchestration
-
-image::orchestration.png[ReṼoman flow]
-
-* It reads the environment JSON provided into in-memory.
-* Then it reads and Inflates each static template in the collection, replacing variables at runtime from the in-memory environment
-* It unmarshalls the request into Strong JVM types using `requestConfig` and executes the pre-hooks for the step
-* It then does an HTTP request.
-* It reads the response and executes Postscript JS on the response and updates the in-memory environment.
-* It unmarshalls the response into Strong JVM types using the `responseConfig` supplied and lets you run *Type-safe* validations on the strong-type and fails-fast at first failure.
-* Finally, all the post-hooks for the step get triggered
-* The iteration continues for all the steps in the template collection
-
-[.lead]
-Here is the failure hierarchy of what can go wrong in this process
-
-[#_failure_hierarchy]
-image::failure-hierarchy.png[Failure Hierarchy]
-
 == Future
 
 [.lead]
@@ -482,6 +471,11 @@ The future looks bright with multiple impactful features in the pipeline:
 
 * You can add a <<#_pre_and_post_hooks,pre-hook>> to the Step you are interested and add a debug point inside that. This gets hit before ReṼoman fires the request in that Step
 * You can get more adventurous by attaching jar sources and directly adding conditional debug points inside the library source-code. You can search for logs in the source-code that indicate key operations to add conditional debug points with conditions like StepName etc.
+
+=== Is there a way to Mark a Postman collection Step?
+
+* You can add key-value pairs to a Step Header (e.g., `ignoreForFailure=true`). 
+* You can use this information in <<#_step_picks,Step Picks>> or <<#_pre_and_post_hooks>> to identify a particular step to execute any conditional logic
 
 === Why not use https://learning.postman.com/docs/collections/using-newman-cli/command-line-integration-with-newman[Newman] or https://learning.postman.com/docs/postman-cli/postman-cli-overview/#comparing-the-postman-cli-and-newman[Postman CLI]?
 

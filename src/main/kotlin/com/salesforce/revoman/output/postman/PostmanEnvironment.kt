@@ -15,7 +15,8 @@ data class PostmanEnvironment<ValueT : Any?>(
   private val mutableEnv: MutableMap<String, ValueT> = mutableMapOf()
 ) : MutableMap<String, ValueT> by mutableEnv {
 
-  @JvmField val immutableEnvironment = mutableEnv.toMap()
+  @get:JvmName("immutableEnv")
+  val immutableEnvironment: Map<String, ValueT> by lazy { mutableEnv.toMap() }
 
   fun set(key: String, value: ValueT) {
     mutableEnv[key] = value

@@ -17,26 +17,28 @@ data class Rundown(
   @JvmField val mutableEnv: PostmanEnvironment<Any?> = PostmanEnvironment(),
   private val stepsToIgnoreForFailurePick: PostTxnStepPick?
 ) {
-  @JvmField val immutableEnvMap = mutableEnv.toMap()
-
-  val firstUnsuccessfulStepName: String?
-    @JvmName("firstUnsuccessfulStepName")
-    get() = stepReports.firstOrNull { !it.isSuccessful }?.step?.name
-
-  val firstUnIgnoredUnsuccessfulStepReport: StepReport?
-    @JvmName("firstUnIgnoredUnsuccessfulStepReport")
-    get() =
+  
+  @get:JvmName("immutableEnv")
+  val immutableEnv: Map<String, Any?> by lazy { mutableEnv.toMap() }
+	
+  @get:JvmName("firstUnsuccessfulStepName")
+  val firstUnsuccessfulStepName: String? by lazy {stepReports.firstOrNull { !it.isSuccessful }?.step?.name }
+  
+  @get:JvmName("firstUnIgnoredUnsuccessfulStepReport")
+  val firstUnIgnoredUnsuccessfulStepReport: StepReport? by lazy {
       stepReports.firstOrNull {
         !it.isSuccessful && !(stepsToIgnoreForFailurePick?.pick(it, this) ?: false)
       }
+    }
 
-  val areAllStepsSuccessful
-    @JvmName("areAllStepsSuccessful") get() = stepReports.all { it.isSuccessful }
+  @get:JvmName("areAllStepsSuccessful")
+  val areAllStepsSuccessful: Boolean by lazy {
+     stepReports.all { it.isSuccessful } }
 
-  val areAllStepsExceptIgnoredSuccessful
-    @JvmName("areAllStepsExceptIgnoredSuccessful")
-    get() =
-      stepReports.all { it.isSuccessful || (stepsToIgnoreForFailurePick?.pick(it, this) ?: false) }
+  @get:JvmName("areAllStepsExceptIgnoredSuccessful")
+  val areAllStepsExceptIgnoredSuccessful: Boolean by lazy {
+    stepReports.all { it.isSuccessful || (stepsToIgnoreForFailurePick?.pick(it, this) ?: false) }
+  }
 
   fun reportsForStepsInFolder(folderName: String): List<StepReport?> =
     stepReports.filter { it.step.name.contains("$folderName$FOLDER_DELIMITER") }
