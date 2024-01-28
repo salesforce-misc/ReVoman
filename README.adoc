@@ -102,12 +102,12 @@ ____
 
 === Template-Driven Testing
 
-* The exported Postman collection JSON file is referred to as Postman templates, as it contains some placeholders/variables in the `{+{variable-key}+}` pattern. You can read more about it https://learning.postman.com/docs/sending-requests/variables/[here]
+* The exported Postman collection JSON file is referred to as Postman templates, as it contains some placeholders/variables in the `+{{variable-key}}+` pattern. You can read more about it https://learning.postman.com/docs/sending-requests/variables/[here]
 * ReṼoman understands these templates and replaces these variables at the runtime, similar to Postman. It supports
-** Nested variables, e.g., `{{variable-key{+{nested-variable-key}+}}}`
+** Nested variables, e.g., `+{{variable-key{{nested-variable-key}}}}+`
 ** link:{sourcedir}/com/salesforce/revoman/internal/postman/DynamicVariableGenerator.kt[Dynamic variables], e.g., `{{$randomUUID}}`, `{{$randomEmail}}`
-** Custom Dynamic variables—You can plug your own dynamic variable generator if the in-built ones don't fit your need.
 
+[.lead]
 You can _kick off_ this *Template-Driven Testing* by invoking `revUp`,
 supplying your Postman templates and environments, and all your customizations through a configuration:
 
@@ -122,7 +122,6 @@ final var rundown =
 
 === Simple Example
 
-Let's start with a simple example.
 Here is a simple link:{pmtemplates}/restfulapidev/restful-api.dev.postman_collection.json[Exported Postman collection] and link:{pmtemplates}/restfulapidev/restful-api.dev.postman_environment.json[Environment],
 to hit a free public https://restful-api.dev/[RESTFUL-API].
 You can import and manually test this collection through the `Run collection` button like this:
@@ -202,11 +201,7 @@ TIP: Another simple example to see in Action: link:{testdir}/com/salesforce/revo
 
 [.lead]
 ReṼoman isn't just limited to that;
-you can add more _bells & whistles_ like:
-
-* Custom Dynamic variables,
-* Request and Response Configs,
-* Pre- and Post-Hooks
+you can add more _bells & whistles_:
 
 ifdef::env-github[]
 
@@ -274,7 +269,7 @@ assertThat(pqRundown.mutableEnv)
 <2> Supply the path (relative to resources) to the Template Collection JSON file
 <3> Supply the path (relative to resources) to the Environment JSON file
 <4> Supply any dynamic environment that is runtime-specific
-<5> Plug Custom dynamic variables that are prepared at runtime
+<5> <<#_custom-dynamic-variables, Custom dynamic variables>>
 <6> <<#_execution_control>>
 <7> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Request Config>>
 <8> <<#_pre_and_post_hooks>>
@@ -295,7 +290,7 @@ include::{testdir}/com/salesforce/revoman/integration/core/pq/PQE2EWithSMTest.ja
 <2> Supply the path (relative to resources) to the Template Collection JSON file
 <3> Supply the path (relative to resources) to the Environment JSON file
 <4> Supply any dynamic environment that is runtime-specific
-<5> Plug Custom dynamic variables that are prepared at runtime
+<5> <<#_custom-dynamic-variables, Custom dynamic variables>>
 <6> <<#_execution_control>>
 <7> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Request Config>>
 <8> <<#_pre_and_post_hooks>>
@@ -434,6 +429,11 @@ Each StepReport also has a `pmEnvSnapshot` to assert if a step has executed as e
 * You don't have to squash all your steps into one mega collection. Instead, you can break them into easy-to-manage modular collections. `revUp` accepts a list of collection paths through `templatePaths`
 * But that doesn't mean you have to execute all these templates in one-go.You can make multiple `revUp` calls.
 * If you wish to compose these executions, you can do so by adding the previous execution's `mutableEnv` to current execution using `dynamicEnvironment` parameter. This also comes in handy when you wish to execute a common step (e.g. `UserSetup`) inside a test setup method and use that environment for all the tests.
+
+[#_custom-dynamic-variables]
+==== Custom Dynamic variables 
+If the in-built dynamic variables don't fit your need, you can plug your own dynamic variable generator,
+to be invoked to generate a value for your custom variable-key in the template at runtime.
 
 == USP
 
