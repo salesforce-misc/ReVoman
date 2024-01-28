@@ -15,7 +15,7 @@ import com.salesforce.revoman.internal.postman.template.Request
 import com.salesforce.revoman.output.ExeType
 import com.salesforce.revoman.output.report.Step
 import com.salesforce.revoman.output.report.StepReport
-import com.salesforce.revoman.output.report.failure.ResponseFailure.TestScriptJsFailure
+import com.salesforce.revoman.output.report.failure.ResponseFailure.TestsJsFailure
 import org.graalvm.polyglot.Context
 import org.graalvm.polyglot.HostAccess
 import org.graalvm.polyglot.Source
@@ -46,26 +46,24 @@ private fun buildJsContext(useCommonjsRequire: Boolean = true): Context {
     .build()
 }
 
-internal fun executeTestScriptJs(
+internal fun executeTestsJS(
   currentStep: Step,
   events: List<Event>?,
   customDynamicVariables: Map<String, (String) -> String>,
   pmRequest: Request,
   stepReport: StepReport
-): Either<TestScriptJsFailure, Unit> =
-  runChecked(currentStep, ExeType.TEST_SCRIPT_JS) {
-      executeTestScriptJs(
+): Either<TestsJsFailure, Unit> =
+  runChecked(currentStep, ExeType.TESTS_JS) {
+      executeTestsJS(
         events,
         customDynamicVariables,
         pmRequest,
         stepReport.responseInfo!!.get().httpMsg
       )
     }
-    .mapLeft {
-      TestScriptJsFailure(it, stepReport.requestInfo!!.get(), stepReport.responseInfo!!.get())
-    }
+    .mapLeft { TestsJsFailure(it, stepReport.requestInfo!!.get(), stepReport.responseInfo!!.get()) }
 
-private fun executeTestScriptJs(
+private fun executeTestsJS(
   events: List<Event>?,
   customDynamicVariables: Map<String, (String) -> String>,
   pmRequest: Request,

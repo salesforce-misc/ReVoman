@@ -11,7 +11,7 @@ enum class ExeType(private val exeName: String) {
   UNMARSHALL_REQUEST("unmarshall-request"),
   PRE_HOOK("pre-hook"),
   HTTP_REQUEST("http-request"),
-  TEST_SCRIPT_JS("testScript-js"),
+  TESTS_JS("testScript-js"),
   UNMARSHALL_RESPONSE("unmarshall-response"),
   POST_HOOK("post-hook");
 

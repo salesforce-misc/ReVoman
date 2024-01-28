@@ -21,14 +21,14 @@ data class PostmanEnvironment<ValueT : Any?>(
   fun set(key: String, value: ValueT) {
     mutableEnv[key] = value
     logger.info {
-      "pm environment variable set through Test JS script : key : $key, value: ${pprint(value)}"
+      "pm environment variable set through Tests JS - key : $key, value: ${pprint(value)}"
     }
   }
 
   @Suppress("unused")
   fun unset(key: String) {
     mutableEnv.remove(key)
-    logger.info { "pm environment variable unset through JS script : key : $key" }
+    logger.info { "pm environment variable unset through Tests JS - key : $key" }
   }
 
   // ! TODO 24/06/23 gopala.akshintala: Support for Regex while querying environment

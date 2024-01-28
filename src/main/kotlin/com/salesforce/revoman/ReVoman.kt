@@ -14,7 +14,7 @@ import arrow.core.merge
 import com.salesforce.revoman.input.bufferFileInResources
 import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.internal.exe.deepFlattenItems
-import com.salesforce.revoman.internal.exe.executeTestScriptJs
+import com.salesforce.revoman.internal.exe.executeTestsJS
 import com.salesforce.revoman.internal.exe.httpRequest
 import com.salesforce.revoman.internal.exe.isConsideredFailure
 import com.salesforce.revoman.internal.exe.postHookExe
@@ -102,8 +102,8 @@ object ReVoman {
                   StepReport(step, Right(requestInfo.copy(httpMsg = httpRequest)), null, Right(it))
                 }
             }
-            .flatMap { stepReport: StepReport -> // --------### TEST-SCRIPT-JS ###--------
-              executeTestScriptJs(
+            .flatMap { stepReport: StepReport -> // --------### TESTS-JS ###--------
+              executeTestsJS(
                   step,
                   itemWithRegex.event,
                   kick.customDynamicVariables(),

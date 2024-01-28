@@ -16,7 +16,7 @@ endif::[]
 :pmtemplates: src/integrationTest/resources/pm-templates
 :imagesdir: docs/images
 :prewrap!:
-:revoman-version: 0.32.0
+:revoman-version: 0.32.1
 
 '''
 
@@ -392,8 +392,18 @@ You can pass a `PreTxnStepPick/PostTxnStepPick` which is a `Predicate` used to q
 )
 ----
 
-* You can do things like assertion on the rundown or environment and even mutate the environment, such that the execution of subsequent steps picks up those changes.
-* You can plug in your java code to create/generate values for environment variables which can be populated and picked-up by subsequent steps. For example, you may want some `xyzId` but you don't have a Postman collection, but instead have a Java utility to generate/create it. You can invoke the utility in a pre-hook of a step and set the value in `mutableEnv`, so the step can pick up the `{+{xyzId}+}` from there.
+You can do things like assertion on the rundown, response validation, or environment and even <<#_mutable_environment,mutate the environment>>, such that the execution of subsequent steps picks up those changes.
+
+[#_plug_in_your_java_code_in_between_postman_execution]
+==== Plug-in your Java code in-between Postman execution
+
+You can plug in your java code
+to create/generate values for environment variables
+which can be populated and picked-up by subsequent steps.
+For example, you may want some `xyzId` but you don't have a Postman collection to create it.
+But instead, you have a Java utility to generate/create it.
+You can invoke the utility in a pre-hook of a step and set the value in `rundown.mutableEnv`,
+so the subsequent steps can pick up value for `{+{xyzId}+}` variable from the environment.
 
 [#_response_validations]
 ==== Response Validations
@@ -402,19 +412,28 @@ You can pass a `PreTxnStepPick/PostTxnStepPick` which is a `Predicate` used to q
 * If you have configured a strong type for your response through `responseConfig`, you can write type-safe validations by extracting your Strong type Object using `stepReport.responseInfo.get().<TypeT>getTypedTxnObj()` or `JsonPojoUtils.jsonToPojo()`
 * If your response data structure is non-trivial and have requirements to execute validations with different strategies like `fail-fast` or `error-accumulation`, consider using a library like https://github.com/salesforce-misc/Vador[*Vador*]
 
+[#_tests_js_support]
+=== Tests JS support
+
+* This tool can execute JavaScript written under the https://learning.postman.com/docs/writing-scripts/script-references/test-examples/[Tests tab of Postman].Tests JS in a step is executed right after receiving an HTTP response.
+* The intention of supporting Tests JS is to make sure the Postman collection used for manual testing can be used *as-is* for the automation also.
+* ReṼoman currently supports basic JS operations, and the support will be enhanced incrementally.
+But the recommendation is not to add too much code here, as it is not intuitive to troubleshoot.Use it for simple operations like set environment variables and use Post-Hooks JVM code for any non-trivial operations.
+
+[#_mutable_environment]
+=== Mutable Environment
+
+* Environment is the only mutable-shared state across step executions, which can be used for data-passing between consumer and the library.
+* This can be mutated (set key-value pairs) through <<#_tests_js_support,Tests JS>> (using `pm.environment.set()`) and <<#_pre_and_post_hooks,Pre-/Post-Hooks>> (using the reference `rundown.mutableEnv`) during execution.
+
+==== `pmEnvSnapshot` in each StepReport
+Each StepReport also has a `pmEnvSnapshot` to assert if a step has executed as expected and compare snapshots from different steps to examine the execution progress.
+
 === Compose Modular Executions
 
 * You don't have to squash all your steps into one mega collection. Instead, you can break them into easy-to-manage modular collections. `revUp` accepts a list of collection paths through `templatePaths`
-* But that doesn't mean you have to execute all these templates in one-go. You can make multiple `revUp` calls.
-
-NOTE: Only `mutableEnv` is the mutable-shared state across step executions
-
+* But that doesn't mean you have to execute all these templates in one-go.You can make multiple `revUp` calls.
 * If you wish to compose these executions, you can do so by adding the previous execution's `mutableEnv` to current execution using `dynamicEnvironment` parameter. This also comes in handy when you wish to execute a common step (e.g. `UserSetup`) inside a test setup method and use that environment for all the tests.
-
-=== Environment snapshot
-
-* You can use `envSnapshot` to assert if a step has executed as expected.
-* You can compare snapshots from different steps to monitor the execution progress.
 
 == USP
 
@@ -474,8 +493,14 @@ The future looks bright with multiple impactful features in the pipeline:
 
 === Is there a way to Mark a Postman collection Step?
 
-* You can add key-value pairs to a Step Header (e.g., `ignoreForFailure=true`). 
+* You can add key-value pairs to a Step Header (e.g., `ignoreForFailure=true`).
 * You can use this information in <<#_step_picks,Step Picks>> or <<#_pre_and_post_hooks>> to identify a particular step to execute any conditional logic
+
+=== Do I need to migrate all my existing TestUtils to Postman Collections?
+
+You don't have to.
+This is a JVM first tool,
+and you can interlace your TestUtils through <<#_plug_in_your_java_code_in_between_postman_execution,Pre-/Post-Hooks>>
 
 === Why not use https://learning.postman.com/docs/collections/using-newman-cli/command-line-integration-with-newman[Newman] or https://learning.postman.com/docs/postman-cli/postman-cli-overview/#comparing-the-postman-cli-and-newman[Postman CLI]?
 
@@ -485,7 +510,6 @@ The future looks bright with multiple impactful features in the pipeline:
 
 == 🙌🏼 Consume-Collaborate-Contribute
 
-* This link:CONTRIBUTING.adoc[CONTRIBUTING] doc has all the information
-to set up this library on your local and get hands-on.
+* This link:CONTRIBUTING.adoc[CONTRIBUTING] doc has all the information to set up this library on your local and get hands-on.
 * Any issues or PRs are welcome! ♥️
 * Join this https://sfdc.co/revoman-slack[Slack Community] to discuss issues or PRs related to Consumption-Collaboration-Contribution
