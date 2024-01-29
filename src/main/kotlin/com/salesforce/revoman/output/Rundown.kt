@@ -36,7 +36,7 @@ data class Rundown(
     stepsToIgnoreForFailurePick
       ?.asSequence()
       ?.map { (exeType, postTxnPick) ->
-        stepReport.failureType == exeType && postTxnPick.pick(stepReport, this)
+        stepReport.exeTypeForFailure == exeType && postTxnPick.pick(stepReport, this)
       }
       ?.any { it } ?: false
 

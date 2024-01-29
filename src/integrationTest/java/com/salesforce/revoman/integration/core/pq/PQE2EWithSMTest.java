@@ -16,7 +16,7 @@ import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.after
 import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.afterStepName;
 import static com.salesforce.revoman.input.config.StepPick.PreTxnStepPick.beforeAllStepsWithURIPathEndingWith;
 import static com.salesforce.revoman.integration.core.pq.adapters.ConnectInputRepWithGraphAdapter.adapter;
-import static com.salesforce.revoman.output.ExeType.HTTP_STATUS_UNSUCCESSFUL;
+import static com.salesforce.revoman.output.ExeType.HTTP_STATUS;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.salesforce.revoman.ReVoman;
@@ -70,8 +70,7 @@ class PQE2EWithSMTest {
                 .customDynamicVariable( // <5>
                     "$quantity", ignore -> String.valueOf(Random.Default.nextInt(10) + 1))
                 .haltOnFailureOfTypeExcept(
-                    HTTP_STATUS_UNSUCCESSFUL,
-                    afterAllStepsContainingHeader("ignoreForFailure")) // <6>
+                    HTTP_STATUS, afterAllStepsContainingHeader("ignoreForFailure")) // <6>
                 .requestConfig( // <7>
                     unmarshallRequest(
                         beforeAllStepsWithURIPathEndingWith(PQ_URI_PATH),

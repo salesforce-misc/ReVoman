@@ -7,7 +7,7 @@
  */
 package com.salesforce.revoman.input.config
 
-import com.salesforce.revoman.output.ExeType.HTTP_STATUS_UNSUCCESSFUL
+import com.salesforce.revoman.output.ExeType.HTTP_STATUS
 import io.kotest.assertions.throwables.shouldThrow
 import org.junit.jupiter.api.Test
 
@@ -17,7 +17,7 @@ class KickTest {
     shouldThrow<IllegalArgumentException> {
       Kick.configure()
         .haltOnAnyFailure(true)
-        .haltOnFailureOfTypeExcept(HTTP_STATUS_UNSUCCESSFUL) { _, _ -> true }
+        .haltOnFailureOfTypeExcept(HTTP_STATUS) { _, _ -> true }
         .off()
     }
   }

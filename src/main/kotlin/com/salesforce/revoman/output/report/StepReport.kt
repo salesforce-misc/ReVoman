@@ -51,7 +51,7 @@ private constructor(
   val failure: Either<ExeFailure, HttpStatusUnsuccessful>? =
     failure(requestInfo, preHookFailure, responseInfo, postHookFailure)
 
-  @JvmField val failureType: ExeType? = failure?.fold({ it.exeType }, { it.exeType })
+  @JvmField val exeTypeForFailure: ExeType? = failure?.fold({ it.exeType }, { it.exeType })
 
   @JvmField val exeFailure: ExeFailure? = failure?.fold({ it }, { null })
 
