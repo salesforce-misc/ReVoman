@@ -16,7 +16,7 @@ endif::[]
 :pmtemplates: src/integrationTest/resources/pm-templates
 :imagesdir: docs/images
 :prewrap!:
-:revoman-version: 0.33.2
+:revoman-version: 0.33.3
 
 '''
 

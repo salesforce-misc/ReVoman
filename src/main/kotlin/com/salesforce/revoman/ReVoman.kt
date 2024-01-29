@@ -15,7 +15,7 @@ import com.salesforce.revoman.input.bufferFileInResources
 import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.internal.exe.deepFlattenItems
 import com.salesforce.revoman.internal.exe.executeTestsJS
-import com.salesforce.revoman.internal.exe.httpRequest
+import com.salesforce.revoman.internal.exe.fireHttpRequest
 import com.salesforce.revoman.internal.exe.postHookExe
 import com.salesforce.revoman.internal.exe.preHookExe
 import com.salesforce.revoman.internal.exe.shouldHaltExecution
@@ -95,9 +95,9 @@ object ReVoman {
               } ?: Right(requestInfo)
             }
             .flatMap { requestInfo: TxnInfo<Request> -> // --------### HTTP-REQUEST ###--------
-              val httpRequest =
-                RegexReplacer(pm.environment).replaceRegex(itemWithRegex.request).toHttpRequest()
-              httpRequest(step, itemWithRegex, httpRequest, kick.insecureHttp())
+              val item = RegexReplacer(pm.environment).replaceRegex(itemWithRegex)
+              val httpRequest = item.request.toHttpRequest()
+              fireHttpRequest(step, item.auth, httpRequest, kick.insecureHttp())
                 .mapLeft { StepReport(step, Left(it)) }
                 .map {
                   StepReport(step, Right(requestInfo.copy(httpMsg = httpRequest)), null, Right(it))

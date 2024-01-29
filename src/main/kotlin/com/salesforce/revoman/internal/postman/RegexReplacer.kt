@@ -7,7 +7,9 @@
  */
 package com.salesforce.revoman.internal.postman
 
+import com.salesforce.revoman.internal.postman.template.Auth.Bearer
 import com.salesforce.revoman.internal.postman.template.Environment
+import com.salesforce.revoman.internal.postman.template.Item
 import com.salesforce.revoman.internal.postman.template.Request
 
 private const val VARIABLE_KEY = "variableKey"
@@ -43,6 +45,15 @@ internal class RegexReplacer(
       }
     }
 
+  internal fun replaceRegex(item: Item): Item =
+    item.copy(
+      request = replaceRegex(item.request),
+      auth = item.auth?.copy(bearer = listOfNotNull(replaceRegex(item.auth.bearer.firstOrNull())))
+    )
+
+  private fun replaceRegex(bearer: Bearer?): Bearer? =
+    bearer?.copy(value = replaceRegexRecursively(bearer.value)!!)
+
   internal fun replaceRegex(request: Request): Request =
     request.copy(
       header =
@@ -56,7 +67,7 @@ internal class RegexReplacer(
       body = request.body?.copy(raw = replaceRegexRecursively(request.body.raw) ?: request.body.raw)
     )
 
-  fun replaceRegex(environment: Environment): Environment =
+  internal fun replaceRegex(environment: Environment): Environment =
     environment.copy(
       values =
         environment.values.map { envValue ->

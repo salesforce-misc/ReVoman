@@ -8,7 +8,7 @@
 package com.salesforce.revoman.internal.exe
 
 import arrow.core.Either
-import com.salesforce.revoman.internal.postman.template.Item
+import com.salesforce.revoman.internal.postman.template.Auth
 import com.salesforce.revoman.output.ExeType.HTTP_REQUEST
 import com.salesforce.revoman.output.report.Step
 import com.salesforce.revoman.output.report.TxnInfo
@@ -24,16 +24,17 @@ import org.http4k.core.then
 import org.http4k.filter.ClientFilters
 import org.http4k.filter.DebuggingFilters
 
-internal fun httpRequest(
+internal fun fireHttpRequest(
   currentStep: Step,
-  itemWithRegex: Item,
+  auth: Auth?,
   httpRequest: Request,
   insecureHttp: Boolean,
 ): Either<HttpRequestFailure, TxnInfo<Response>> =
   runChecked(currentStep, HTTP_REQUEST) {
       // * NOTE gopala.akshintala 06/08/22: Preparing httpClient for each step,
       // * as there can be intermediate auths
-      prepareHttpClient(itemWithRegex.auth?.bearerToken, insecureHttp)(httpRequest)
+      // ! TODO 29/01/24 gopala.akshintala: When would bearer token size be > 1?
+      prepareHttpClient(auth?.bearer?.firstOrNull()?.value, insecureHttp)(httpRequest)
     }
     .mapLeft { HttpRequestFailure(it, TxnInfo(httpMsg = httpRequest)) }
     .map { TxnInfo(httpMsg = it) }
