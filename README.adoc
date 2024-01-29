@@ -16,7 +16,7 @@ endif::[]
 :pmtemplates: src/integrationTest/resources/pm-templates
 :imagesdir: docs/images
 :prewrap!:
-:revoman-version: 0.33.1
+:revoman-version: 0.33.2
 
 '''
 
@@ -278,7 +278,7 @@ assertThat(pqRundown.mutableEnv)
 <8> <<#_pre_and_post_hooks>>
 <9> <<#_response_validations>>
 <10> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Response Config>>
-<11> <7> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Custom Adapters>>
+<11> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Custom Adapters>>
 <12> Ignore Java cert issues when firing HTTP calls
 <13> More assertions on top of <<#_rundown>>
 
@@ -300,8 +300,9 @@ include::{testdir}/com/salesforce/revoman/integration/core/pq/PQE2EWithSMTest.ja
 <8> <<#_pre_and_post_hooks>>
 <9> <<#_response_validations>>
 <10> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Response Config>>
-<11> Ignore Java cert issues when firing HTTP calls
-<12> More assertions on top of <<#_rundown>>
+<11> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Custom Adapters>>
+<12> Ignore Java cert issues when firing HTTP calls
+<13> More assertions on top of <<#_rundown>>
 endif::[]
 
 == Debugging UX
@@ -340,7 +341,7 @@ image::failure-hierarchy.png[Failure Hierarchy]
 ReṼoman logs all the key operations that happen inside its source-code.
 Watch your console to check what's going on in the execution or troubleshoot from CI/CD logs
 
-NOTE: link:docs/revoman-exe.log[📝Sample log] printed during execution
+NOTE: link:docs/revoman.exe.log[📝Sample log] printed during execution
 
 [#_logging]
 image:pq-exe-logging.gif[Monitor Execution]
@@ -351,7 +352,7 @@ image:pq-exe-logging.gif[Monitor Execution]
 === Type Safety with flexible JSON <- -> POJO marshalling/serialization and unmarshalling/deserialization
 
 * ReṼoman internally uses a modern JSON library called https://github.com/square/moshi[**Moshi**]
-* There may be a POJO that inherits or contains legacy classes which are hard or impossible to serialize.ReṼoman lets you serialize such a legacy POJO by letting you pass `typesToIgnoreForMarshalling`, where you can filter-out these legacy classes.
+* There may be a POJO that inherits or contains legacy classes which are hard or impossible to serialize. ReṼoman lets you serialize such a legacy POJO by letting you pass `typesToIgnoreForMarshalling`, where you can filter-out these legacy classes.
 * The payload may not map to POJO, and you may need a custom adapter for Conversion. Moshi has it covered for you with its advanced adapter mechanism and ReṼoman accepts Moshi adapters via `requestConfig`, `responseConfig` and `customAdapters`
 * ReṼoman also comes bundled with link:{sourcedir}/com/salesforce/revoman/input/json/JsonReaderUtils.kt[JSON Reader utils] and link:{sourcedir}/com/salesforce/revoman/input/json/JsonWriterUtils.kt[JSON Writer utils] to help build Moshi adapters.
 
@@ -417,7 +418,7 @@ so the subsequent steps can pick up value for `{+{xyzId}+}` variable from the en
 [#_tests_js_support]
 === Tests JS support
 
-* This tool can execute JavaScript written under the https://learning.postman.com/docs/writing-scripts/script-references/test-examples/[Tests tab of Postman].Tests JS in a step is executed right after receiving an HTTP response.
+* This tool can execute JavaScript written under the https://learning.postman.com/docs/writing-scripts/script-references/test-examples/[Tests tab of Postman]. Tests JS in a step is executed right after receiving an HTTP response.
 * The intention of supporting Tests JS is to make sure the Postman collection used for manual testing can be used *as-is* for the automation also.
 * ReṼoman currently supports basic JS operations, and the support will be enhanced incrementally.
 But the recommendation is not to add too much code here, as it is not intuitive to troubleshoot.Use it for simple operations like set environment variables and use Post-Hooks JVM code for any non-trivial operations.
@@ -500,7 +501,7 @@ The future looks bright with multiple impactful features in the pipeline:
 
 === Is there a way to Mark a Postman collection Step?
 
-* You can add key-value pairs to a Step Header (e.g., `ignoreForFailure=true`).
+* You can add key-value pairs to a Step Header (e.g., `ignoreHTTPStatusUnsuccessful=true`).
 * You can use this information in <<#_step_picks,Step Picks>> or <<#_pre_and_post_hooks>> to identify a particular step to execute any conditional logic
 
 === Do I need to migrate all my existing TestUtils to Postman Collections?

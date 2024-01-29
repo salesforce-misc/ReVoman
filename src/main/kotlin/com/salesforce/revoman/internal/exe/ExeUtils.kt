@@ -120,9 +120,9 @@ internal fun shouldHaltExecution(
         ?.also {
           logger.info {
             if (it) {
-              "${currentStepReport.step} failed with ${currentStepReport.failure}, but ignoring failure, as it qualifies haltOnFailureOfTypeExcept for ${currentStepReport.exeTypeForFailure}"
+              "${currentStepReport.step} failed, but ignoring failure, as it qualifies haltOnFailureOfTypeExcept for ${currentStepReport.exeTypeForFailure}"
             } else {
-              "${currentStepReport.step} failed with ${currentStepReport.failure}, and didn't qualify for haltOnAnyFailureExcept for ${currentStepReport.exeTypeForFailure}, so 🛑 halting the execution"
+              "${currentStepReport.step} failed, and doesn't qualify for haltOnAnyFailureExcept for ${currentStepReport.exeTypeForFailure}, so 🛑 halting the execution"
             }
           }
         }
