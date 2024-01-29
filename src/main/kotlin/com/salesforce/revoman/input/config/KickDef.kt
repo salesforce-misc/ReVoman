@@ -10,6 +10,7 @@ package com.salesforce.revoman.input.config
 import com.salesforce.revoman.input.config.StepPick.ExeStepPick
 import com.salesforce.revoman.input.config.StepPick.PostTxnStepPick
 import com.salesforce.revoman.input.config.StepPick.PreTxnStepPick
+import com.salesforce.revoman.output.ExeType
 import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.JsonAdapter.Factory
 import io.vavr.control.Either
@@ -37,7 +38,7 @@ internal interface KickDef {
 
   @Value.Default fun haltOnAnyFailure(): Boolean = false
 
-  fun haltOnAnyFailureExcept(): PostTxnStepPick?
+  fun haltOnFailureOfTypeExcept(): Map<ExeType, PostTxnStepPick>?
 
   fun runOnlySteps(): List<ExeStepPick>
 
@@ -82,7 +83,7 @@ internal interface KickDef {
   @Value.Check
   fun validateConfig() {
     require(
-      !haltOnAnyFailure() || (haltOnAnyFailure() && haltOnAnyFailureExcept() == null),
+      !haltOnAnyFailure() || (haltOnAnyFailure() && haltOnFailureOfTypeExcept() == null),
     ) {
       "`haltOnAnyFailureExcept` should NOT be set when `haltOnAnyFailure` is set to `True`"
     }

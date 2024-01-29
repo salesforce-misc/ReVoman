@@ -7,8 +7,6 @@
  */
 package com.salesforce.revoman.internal.exe
 
-import arrow.core.Either
-import arrow.core.Either.Right
 import com.salesforce.revoman.input.config.HookConfig
 import com.salesforce.revoman.input.config.HookConfig.Hook.PostHook
 import com.salesforce.revoman.input.config.Kick
@@ -24,23 +22,24 @@ internal fun postHookExe(
   currentStepReport: StepReport,
   kick: Kick,
   stepReports: List<StepReport>
-): Either<PostHookFailure, Unit> =
+): PostHookFailure? =
   pickPostHooks(
       kick.postHooks(),
       currentStepReport,
-      Rundown(stepReports, pm.environment, kick.haltOnAnyFailureExcept())
+      Rundown(stepReports, pm.environment, kick.haltOnFailureOfTypeExcept())
     )
     .asSequence()
     .map { postHook ->
       runChecked(currentStepReport.step, POST_HOOK) {
           postHook.accept(
             currentStepReport,
-            Rundown(stepReports, pm.environment, kick.haltOnAnyFailureExcept())
+            Rundown(stepReports, pm.environment, kick.haltOnFailureOfTypeExcept())
           )
         }
         .mapLeft { PostHookFailure(it) }
     }
-    .firstOrNull { it.isLeft() } ?: Right(Unit)
+    .firstOrNull { it.isLeft() }
+    ?.leftOrNull()
 
 private fun pickPostHooks(
   postHooks: List<HookConfig>,

@@ -13,7 +13,6 @@ import com.salesforce.revoman.output.report.TxnInfo
 import org.http4k.core.Request
 
 sealed class RequestFailure : ExeFailure() {
-  abstract override val failure: Throwable
   abstract val requestInfo: TxnInfo<Request>
 
   data class UnmarshallRequestFailure(

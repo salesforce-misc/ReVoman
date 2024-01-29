@@ -16,7 +16,7 @@ endif::[]
 :pmtemplates: src/integrationTest/resources/pm-templates
 :imagesdir: docs/images
 :prewrap!:
-:revoman-version: 0.32.1
+:revoman-version: 0.33.0
 
 '''
 
@@ -66,7 +66,7 @@ implementation("com.salesforce.revoman:revoman:{revoman-version}")
 
 toc::[]
 
-.Tech-Talk given at https://www.opensourceindia.in/osi-speakers-2023/gopala-sarma-akshintala/[Open Source Conf]
+.Tech-Talk given at https://www.opensourceindia.in/osi-speakers-2023/gopala-sarma-akshintala/[Open Source Conf], https://speakerdeck.com/gopalakshintala/revoman-a-template-driven-api-automation-tool-for-jvm[🎴Slide deck]
 image::revoman-demo-thumbnail.png[link="https://www.youtube.com/watch?v=YxeRddSFkxc&list=PLrJbJ9wDl9EC0bG6y9fyDylcfmB_lT_Or&index=2"]
 
 == Why ReṼoman?
@@ -220,7 +220,9 @@ final var pqRundown =
                     "$qlrFieldsToQuery", "Id, QuoteId, MainQuoteLineId, AssociatedQuoteLineId"))
             .customDynamicVariable( // <5>
                 "$quantity", ignore -> String.valueOf(Random.Default.nextInt(10) + 1))
-            .haltOnAnyFailureExcept(afterAllStepsContainingHeader("ignoreForFailure")) // <6>
+            .haltOnFailureOfTypeExcept(
+                HTTP_STATUS_UNSUCCESSFUL,
+                afterAllStepsContainingHeader("ignoreForFailure")) // <6>
             .requestConfig( // <7>
                 unmarshallRequest(
                     beforeAllStepsWithURIPathEndingWith(PQ_URI_PATH),
@@ -255,9 +257,10 @@ final var pqRundown =
                 unmarshallResponse(
                     afterAllStepsWithURIPathEndingWith(PQ_URI_PATH),
                     PlaceQuoteOutputRepresentation.class))
-            .insecureHttp(true) // <11>
+            .customAdaptersForMarshalling(new IDAdapter()) // <11>
+            .insecureHttp(true) // <12>
             .off()); // Kick-off
-assertThat(pqRundown.firstUnIgnoredUnsuccessfulStepReport()).isNull(); // <12>
+assertThat(pqRundown.firstUnIgnoredUnsuccessfulStepReport()).isNull(); // <13>
 assertThat(pqRundown.mutableEnv)
     .containsAllEntriesOf(
         Map.of(
@@ -275,8 +278,9 @@ assertThat(pqRundown.mutableEnv)
 <8> <<#_pre_and_post_hooks>>
 <9> <<#_response_validations>>
 <10> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Response Config>>
-<11> Ignore Java cert issues when firing HTTP calls
-<12> More assertions on top of <<#_rundown>>
+<11> <7> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Custom Adapters>>
+<12> Ignore Java cert issues when firing HTTP calls
+<13> More assertions on top of <<#_rundown>>
 
 endif::[]
 ifndef::env-github[]
@@ -336,6 +340,8 @@ image::failure-hierarchy.png[Failure Hierarchy]
 ReṼoman logs all the key operations that happen inside its source-code.
 Watch your console to check what's going on in the execution or troubleshoot from CI/CD logs
 
+NOTE: link:docs/revoman-exe.log[📝Sample log] printed during execution
+
 [#_logging]
 image:pq-exe-logging.gif[Monitor Execution]
 
@@ -360,7 +366,8 @@ for an advanced adapter use-case
 The configuration offers methods through which the execution strategy can be controlled without making any changes to the template:
 
 * `haltOnAnyFailure` — This defaults to `false`. If set to `true`, the execution fails-fast when it encounters a failure.
-* `haltOnAnyFailureExcept`, `runOnlySteps`, `skipSteps` - All these accept a `predicate` of type `ExeStepPick`, which is invoked passing the current `Step` instance to decide whether to execute or skip a step.
+* `haltOnFailureOfTypeExcept` — This accepts pairs of `ExeType` and a `PostTxnStepPick` which are used to check if a Step can be ignored for failure for a specific failure type
+* `runOnlySteps`, `skipSteps` — All these accept a `predicate` of type `ExeStepPick`, which is invoked passing the current `Step` instance to decide whether to execute or skip a step.
 ** There are some `ExeStepPick` predicates bundled with ReṼoman under `ExeStepPick.PickUtils` e.g `withName`, `inFolder` etc. You can write a custom predicate of you own too.
 
 [#_pre_and_post_hooks]
@@ -431,7 +438,7 @@ Each StepReport also has a `pmEnvSnapshot` to assert if a step has executed as e
 * If you wish to compose these executions, you can do so by adding the previous execution's `mutableEnv` to current execution using `dynamicEnvironment` parameter. This also comes in handy when you wish to execute a common step (e.g. `UserSetup`) inside a test setup method and use that environment for all the tests.
 
 [#_custom-dynamic-variables]
-==== Custom Dynamic variables 
+==== Custom Dynamic variables
 If the in-built dynamic variables don't fit your need, you can plug your own dynamic variable generator,
 to be invoked to generate a value for your custom variable-key in the template at runtime.
 

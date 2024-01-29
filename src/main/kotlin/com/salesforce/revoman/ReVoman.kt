@@ -16,9 +16,9 @@ import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.internal.exe.deepFlattenItems
 import com.salesforce.revoman.internal.exe.executeTestsJS
 import com.salesforce.revoman.internal.exe.httpRequest
-import com.salesforce.revoman.internal.exe.isConsideredFailure
 import com.salesforce.revoman.internal.exe.postHookExe
 import com.salesforce.revoman.internal.exe.preHookExe
+import com.salesforce.revoman.internal.exe.shouldHaltExecution
 import com.salesforce.revoman.internal.exe.shouldStepBePicked
 import com.salesforce.revoman.internal.exe.unmarshallRequest
 import com.salesforce.revoman.internal.exe.unmarshallResponse
@@ -30,6 +30,7 @@ import com.salesforce.revoman.internal.postman.template.Template
 import com.salesforce.revoman.output.Rundown
 import com.salesforce.revoman.output.report.Step
 import com.salesforce.revoman.output.report.StepReport
+import com.salesforce.revoman.output.report.StepReport.Companion.toVavr
 import com.salesforce.revoman.output.report.TxnInfo
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapter
@@ -66,7 +67,7 @@ object ReVoman {
           kick.typesToIgnoreForMarshalling()
         )
       )
-    return Rundown(stepNameToReport, pm.environment, kick.haltOnAnyFailureExcept())
+    return Rundown(stepNameToReport, pm.environment, kick.haltOnFailureOfTypeExcept())
   }
 
   private fun executeStepsSerially(
@@ -74,10 +75,10 @@ object ReVoman {
     kick: Kick,
     moshiReVoman: ConfigurableMoshi,
   ): List<StepReport> {
-    var noFailureInStep = true
+    var haltExecution = false
     return pmStepsFlattened
       .asSequence()
-      .takeWhile { noFailureInStep }
+      .takeWhile { !haltExecution }
       .filter { shouldStepBePicked(it, kick.runOnlySteps(), kick.skipSteps()) }
       .fold(listOf()) { stepReports, step ->
         logger.info { "***** Executing Step: $step *****" }
@@ -89,9 +90,9 @@ object ReVoman {
           unmarshallRequest(step, pmRequest, kick, moshiReVoman, stepReports)
             .mapLeft { StepReport(step, Left(it)) }
             .flatMap { requestInfo: TxnInfo<Request> -> // --------### PRE-HOOKS ###--------
-              preHookExe(step, kick, requestInfo, stepReports)
-                .mapLeft { StepReport(step, Right(requestInfo), it) }
-                .map { requestInfo }
+              preHookExe(step, kick, requestInfo, stepReports)?.let {
+                Left(StepReport(step, Right(requestInfo), it))
+              } ?: Right(requestInfo)
             }
             .flatMap { requestInfo: TxnInfo<Request> -> // --------### HTTP-REQUEST ###--------
               val httpRequest =
@@ -115,16 +116,18 @@ object ReVoman {
             }
             .flatMap { stepReport: StepReport -> // ---### UNMARSHALL RESPONSE ###---
               unmarshallResponse(stepReport, kick, moshiReVoman, stepReports)
+                .mapLeft { stepReport.copy(responseInfo = Left(it).toVavr()) }
+                .map { stepReport.copy(responseInfo = Right(it).toVavr()) }
             }
-            .flatMap { stepReport: StepReport -> // --------### POST-HOOKS ###--------
-              postHookExe(stepReport, kick, stepReports + stepReport)
-                .mapLeft { stepReport.copy(postHookFailure = it) }
-                .map { stepReport }
+            .map { stepReport: StepReport -> // --------### POST-HOOKS ###--------
+              stepReport.copy(
+                postHookFailure = postHookExe(stepReport, kick, stepReports + stepReport)
+              )
             }
             .merge()
             .copy(envSnapshot = pm.environment.copy())
         // * NOTE 15/10/23 gopala.akshintala: http status code can be non-success
-        noFailureInStep = isConsideredFailure(currentStepReport, kick, stepReports)
+        haltExecution = shouldHaltExecution(currentStepReport, kick, stepReports)
         stepReports + currentStepReport
       }
   }

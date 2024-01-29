@@ -16,14 +16,18 @@ import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.after
 import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.afterStepName;
 import static com.salesforce.revoman.input.config.StepPick.PreTxnStepPick.beforeAllStepsWithURIPathEndingWith;
 import static com.salesforce.revoman.integration.core.pq.adapters.ConnectInputRepWithGraphAdapter.adapter;
+import static com.salesforce.revoman.output.ExeType.HTTP_STATUS_UNSUCCESSFUL;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.salesforce.revoman.ReVoman;
 import com.salesforce.revoman.input.config.Kick;
 import com.salesforce.revoman.integration.core.pq.connect.request.PlaceQuoteInputRepresentation;
+import com.salesforce.revoman.integration.core.pq.connect.response.ID;
 import com.salesforce.revoman.integration.core.pq.connect.response.PlaceQuoteOutputRepresentation;
 import com.salesforce.revoman.output.postman.PostmanEnvironment;
 import com.salesforce.revoman.output.report.StepReport;
+import com.squareup.moshi.FromJson;
+import com.squareup.moshi.ToJson;
 import java.util.List;
 import java.util.Map;
 import kotlin.random.Random;
@@ -48,6 +52,7 @@ class PQE2EWithSMTest {
   private static final String PQ_ENV_PATH = "pm-templates/pq/pq-env.postman_environment.json";
   private static final String PQ_URI_PATH = "commerce/quotes/actions/place";
   private static final String IS_SYNC_HEADER = "isSync";
+  private static final String SYNC_ERROR_FOLDER_NAME = "errors|>sync";
 
   @Test
   void revUpPQ() {
@@ -64,7 +69,9 @@ class PQE2EWithSMTest {
                         "$qlrFieldsToQuery", "Id, QuoteId, MainQuoteLineId, AssociatedQuoteLineId"))
                 .customDynamicVariable( // <5>
                     "$quantity", ignore -> String.valueOf(Random.Default.nextInt(10) + 1))
-                .haltOnAnyFailureExcept(afterAllStepsContainingHeader("ignoreForFailure")) // <6>
+                .haltOnFailureOfTypeExcept(
+                    HTTP_STATUS_UNSUCCESSFUL,
+                    afterAllStepsContainingHeader("ignoreForFailure")) // <6>
                 .requestConfig( // <7>
                     unmarshallRequest(
                         beforeAllStepsWithURIPathEndingWith(PQ_URI_PATH),
@@ -99,9 +106,10 @@ class PQE2EWithSMTest {
                     unmarshallResponse(
                         afterAllStepsWithURIPathEndingWith(PQ_URI_PATH),
                         PlaceQuoteOutputRepresentation.class))
-                .insecureHttp(true) // <11>
+                .customAdaptersForMarshalling(new IDAdapter()) // <11>
+                .insecureHttp(true) // <12>
                 .off()); // Kick-off
-    assertThat(pqRundown.firstUnIgnoredUnsuccessfulStepReport()).isNull(); // <12>
+    assertThat(pqRundown.firstUnIgnoredUnsuccessfulStepReport()).isNull(); // <13>
     assertThat(pqRundown.mutableEnv)
         .containsAllEntriesOf(
             Map.of(
@@ -114,7 +122,7 @@ class PQE2EWithSMTest {
   private static void validatePQResponse(StepReport stepReport) {
     final var successRespProp =
         stepReport.responseInfo.get().<PlaceQuoteOutputRepresentation>getTypedTxnObj().getSuccess();
-    assertThat(successRespProp).isEqualTo(!stepReport.step.isInFolder("error|>sync"));
+    assertThat(successRespProp).isEqualTo(!stepReport.step.isInFolder(SYNC_ERROR_FOLDER_NAME));
   }
 
   private static void assertAfterPQCreate(PostmanEnvironment<Object> env) {
@@ -143,6 +151,18 @@ class PQE2EWithSMTest {
 
     PricingPref(String completeStatus) {
       this.completeStatus = completeStatus;
+    }
+  }
+
+  static class IDAdapter {
+    @FromJson
+    ID fromJson(String id) {
+      return new ID(id);
+    }
+
+    @ToJson
+    String toJson(ID id) {
+      return id.getId();
     }
   }
 }

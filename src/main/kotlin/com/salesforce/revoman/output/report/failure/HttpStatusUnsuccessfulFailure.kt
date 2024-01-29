@@ -5,20 +5,16 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  * ************************************************************************************************
  */
-package com.salesforce.revoman.input.config
+package com.salesforce.revoman.output.report.failure
 
 import com.salesforce.revoman.output.ExeType.HTTP_STATUS_UNSUCCESSFUL
-import io.kotest.assertions.throwables.shouldThrow
-import org.junit.jupiter.api.Test
+import com.salesforce.revoman.output.report.TxnInfo
+import org.http4k.core.Request
+import org.http4k.core.Response
 
-class KickTest {
-  @Test
-  fun `'haltOnAnyFailureExceptForSteps' should be null when 'haltOnAnyFailure' is set to True`() {
-    shouldThrow<IllegalArgumentException> {
-      Kick.configure()
-        .haltOnAnyFailure(true)
-        .haltOnFailureOfTypeExcept(HTTP_STATUS_UNSUCCESSFUL) { _, _ -> true }
-        .off()
-    }
-  }
+data class HttpStatusUnsuccessful(
+  val requestInfo: TxnInfo<Request>,
+  val responseInfo: TxnInfo<Response>,
+) {
+  val exeType = HTTP_STATUS_UNSUCCESSFUL
 }

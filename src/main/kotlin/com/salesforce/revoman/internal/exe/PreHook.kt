@@ -7,8 +7,6 @@
  */
 package com.salesforce.revoman.internal.exe
 
-import arrow.core.Either
-import arrow.core.Either.Right
 import com.salesforce.revoman.input.config.HookConfig
 import com.salesforce.revoman.input.config.HookConfig.Hook.PreHook
 import com.salesforce.revoman.input.config.Kick
@@ -28,12 +26,12 @@ internal fun preHookExe(
   kick: Kick,
   requestInfo: TxnInfo<Request>,
   stepReports: List<StepReport>
-): Either<PreHookFailure, Unit> =
+): PreHookFailure? =
   pickPreHooks(
       kick.preHooks(),
       currentStep,
       requestInfo,
-      Rundown(stepReports, pm.environment, kick.haltOnAnyFailureExcept())
+      Rundown(stepReports, pm.environment, kick.haltOnFailureOfTypeExcept())
     )
     .asSequence()
     .map { preHook ->
@@ -41,12 +39,13 @@ internal fun preHookExe(
           preHook.accept(
             currentStep,
             requestInfo,
-            Rundown(stepReports, pm.environment, kick.haltOnAnyFailureExcept())
+            Rundown(stepReports, pm.environment, kick.haltOnFailureOfTypeExcept())
           )
         }
         .mapLeft { PreHookFailure(it, requestInfo) }
     }
-    .firstOrNull { it.isLeft() } ?: Right(Unit)
+    .firstOrNull { it.isLeft() }
+    ?.leftOrNull()
 
 private fun pickPreHooks(
   preHooks: List<HookConfig>,

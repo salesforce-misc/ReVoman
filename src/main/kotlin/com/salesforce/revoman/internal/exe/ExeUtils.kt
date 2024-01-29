@@ -88,39 +88,45 @@ internal fun <T> runChecked(
     )
 }
 
-internal fun isConsideredFailure(
+internal fun shouldHaltExecution(
   currentStepReport: StepReport,
   kick: Kick,
   stepReports: List<StepReport>
 ): Boolean =
   when {
-    currentStepReport.isSuccessful -> true
+    currentStepReport.isSuccessful -> false
     kick.haltOnAnyFailure() -> {
       logger.info {
-        "${currentStepReport.step} failed, halting execution as `haltOnAnyFailure` is set to `true`"
+        "${currentStepReport.step} failed with ${currentStepReport.failure}, 🛑 halting the execution, as haltOnAnyFailure=true"
       }
       true
     }
     else -> {
       kick
-        .haltOnAnyFailureExcept()
-        ?.pick(
-          currentStepReport,
-          Rundown(
-            stepReports + currentStepReport,
-            pm.environment,
-            kick.haltOnAnyFailureExcept(),
-          ),
-        )
+        .haltOnFailureOfTypeExcept()
+        ?.asSequence()
+        ?.map { (exeType, postTxnPick) ->
+          currentStepReport.failureType == exeType &&
+            postTxnPick.pick(
+              currentStepReport,
+              Rundown(
+                stepReports + currentStepReport,
+                pm.environment,
+                kick.haltOnFailureOfTypeExcept(),
+              ),
+            )
+        }
+        ?.any { it }
         ?.also {
           logger.info {
             if (it) {
-              "${currentStepReport.step} failed, but ignoring failure as it qualifies `haltOnAnyFailureExcept`"
+              "${currentStepReport.step} failed with ${currentStepReport.failure}, but ignoring failure, as it qualifies haltOnFailureOfTypeExcept for ${currentStepReport.failureType}"
             } else {
-              "${currentStepReport.step} failed and didn't qualify for `haltOnAnyFailureExcept`, so halting the execution"
+              "${currentStepReport.step} failed with ${currentStepReport.failure}, and didn't qualify for haltOnAnyFailureExcept for ${currentStepReport.failureType}, so 🛑 halting the execution"
             }
           }
-        } ?: false
+        }
+        ?.not() ?: true
     }
   }
 

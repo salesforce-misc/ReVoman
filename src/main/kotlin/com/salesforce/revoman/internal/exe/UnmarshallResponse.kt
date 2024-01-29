@@ -19,9 +19,9 @@ import com.salesforce.revoman.output.report.TxnInfo
 import com.salesforce.revoman.output.report.failure.ResponseFailure.UnmarshallResponseFailure
 import io.exoquery.pprint
 import io.github.oshai.kotlinlogging.KotlinLogging
-import io.vavr.control.Either.left
 import java.lang.reflect.Type
 import org.http4k.core.ContentType.Companion.APPLICATION_JSON
+import org.http4k.core.Response
 import org.http4k.format.ConfigurableMoshi
 
 internal fun unmarshallResponse(
@@ -29,7 +29,7 @@ internal fun unmarshallResponse(
   kick: Kick,
   moshiReVoman: ConfigurableMoshi,
   stepReports: List<StepReport>
-): Either<StepReport, StepReport> {
+): Either<UnmarshallResponseFailure, TxnInfo<Response>> {
   val httpResponse = currentStepReport.responseInfo!!.get().httpMsg
   return when {
     isJson(httpResponse) -> {
@@ -42,7 +42,7 @@ internal fun unmarshallResponse(
               Rundown(
                 stepReports + currentStepReport,
                 pm.environment,
-                kick.haltOnAnyFailureExcept()
+                kick.haltOnFailureOfTypeExcept()
               )
             )
           }
@@ -57,24 +57,15 @@ internal fun unmarshallResponse(
           moshiReVoman.asA<Any>(httpResponse.bodyString(), responseType)
         }
         .mapLeft {
-          currentStepReport.copy(
-            responseInfo =
-              left(
-                UnmarshallResponseFailure(
-                  it,
-                  requestInfo,
-                  TxnInfo(responseType, null, httpResponse)
-                ),
-              ),
-          )
+          UnmarshallResponseFailure(it, requestInfo, TxnInfo(responseType, null, httpResponse))
         }
-        .map { currentStepReport }
+        .map { TxnInfo(responseType, it, httpResponse) }
     }
     else -> {
       logger.info {
         "${currentStepReport.step} No JSON found in the Response body or content-type didn't match ${APPLICATION_JSON.value}"
       }
-      Right(currentStepReport)
+      Right(TxnInfo(null, null, httpResponse, false))
     }
   }
 }

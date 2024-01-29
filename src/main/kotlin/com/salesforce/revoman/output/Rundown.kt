@@ -15,29 +15,37 @@ import com.salesforce.revoman.output.report.StepReport
 data class Rundown(
   @JvmField val stepReports: List<StepReport> = emptyList(),
   @JvmField val mutableEnv: PostmanEnvironment<Any?> = PostmanEnvironment(),
-  private val stepsToIgnoreForFailurePick: PostTxnStepPick?
+  private val stepsToIgnoreForFailurePick: Map<ExeType, PostTxnStepPick>?
 ) {
 
   @get:JvmName("immutableEnv") val immutableEnv: Map<String, Any?> by lazy { mutableEnv.toMap() }
 
-  @get:JvmName("firstUnsuccessfulStepName")
-  val firstUnsuccessfulStepName: String? by lazy {
-    stepReports.firstOrNull { !it.isSuccessful }?.step?.name
+  @get:JvmName("firstUnsuccessfulStepReport")
+  val firstUnsuccessfulStepReport: StepReport? by lazy {
+    stepReports.firstOrNull { !it.isSuccessful }
   }
 
   @get:JvmName("firstUnIgnoredUnsuccessfulStepReport")
   val firstUnIgnoredUnsuccessfulStepReport: StepReport? by lazy {
-    stepReports.firstOrNull {
-      !it.isSuccessful && !(stepsToIgnoreForFailurePick?.pick(it, this) ?: false)
+    stepReports.firstOrNull { stepReport ->
+      !stepReport.isSuccessful && !isStepIgnoredForFailure(stepReport)
     }
   }
+
+  private fun isStepIgnoredForFailure(stepReport: StepReport): Boolean =
+    stepsToIgnoreForFailurePick
+      ?.asSequence()
+      ?.map { (exeType, postTxnPick) ->
+        stepReport.failureType == exeType && postTxnPick.pick(stepReport, this)
+      }
+      ?.any { it } ?: false
 
   @get:JvmName("areAllStepsSuccessful")
   val areAllStepsSuccessful: Boolean by lazy { stepReports.all { it.isSuccessful } }
 
   @get:JvmName("areAllStepsExceptIgnoredSuccessful")
   val areAllStepsExceptIgnoredSuccessful: Boolean by lazy {
-    stepReports.all { it.isSuccessful || (stepsToIgnoreForFailurePick?.pick(it, this) ?: false) }
+    stepReports.all { it.isSuccessful || !isStepIgnoredForFailure(it) }
   }
 
   fun reportsForStepsInFolder(folderName: String): List<StepReport?> =

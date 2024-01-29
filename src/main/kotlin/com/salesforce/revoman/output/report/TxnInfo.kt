@@ -19,7 +19,8 @@ import org.http4k.core.Response
 data class TxnInfo<HttpMsgT : HttpMessage>(
   @JvmField val txnObjType: Type? = null,
   @JvmField val txnObj: Any? = null,
-  @JvmField val httpMsg: HttpMsgT
+  @JvmField val httpMsg: HttpMsgT,
+  @JvmField val isJson: Boolean = true
 ) {
   fun <T> getTypedTxnObj(): T? = txnObjType?.let { (it as Class<T>).cast(txnObj) }
 

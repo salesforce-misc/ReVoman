@@ -40,7 +40,7 @@ internal fun unmarshallRequest(
         it.preTxnStepPick.pick(
           currentStep,
           TxnInfo(null, null, httpRequest),
-          Rundown(stepReports, pm.environment, kick.haltOnAnyFailureExcept())
+          Rundown(stepReports, pm.environment, kick.haltOnFailureOfTypeExcept())
         )
       }
       ?.also { logger.info { "$currentStep RequestConfig found : ${pprint(it)}" } }
@@ -56,7 +56,7 @@ internal fun unmarshallRequest(
       logger.info {
         "$currentStep No JSON found in the Request body or content-type header didn't match ${APPLICATION_JSON.value}"
       }
-      Right(null)
+      Right(TxnInfo(null, null, httpRequest, false))
     }
   }.map { TxnInfo(requestType, it, pmRequest.toHttpRequest()) }
 }

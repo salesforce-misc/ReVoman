@@ -11,5 +11,5 @@ import com.salesforce.revoman.output.ExeType
 
 sealed class ExeFailure {
   abstract val exeType: ExeType
-  abstract val failure: Any
+  abstract val failure: Throwable
 }

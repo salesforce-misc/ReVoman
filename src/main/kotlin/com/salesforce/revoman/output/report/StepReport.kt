@@ -8,14 +8,18 @@
 package com.salesforce.revoman.output.report
 
 import com.salesforce.revoman.internal.postman.pm
+import com.salesforce.revoman.output.ExeType
 import com.salesforce.revoman.output.postman.PostmanEnvironment
 import com.salesforce.revoman.output.report.TxnInfo.Companion.uriPathEndsWith
 import com.salesforce.revoman.output.report.failure.ExeFailure
 import com.salesforce.revoman.output.report.failure.HookFailure.PostHookFailure
 import com.salesforce.revoman.output.report.failure.HookFailure.PreHookFailure
+import com.salesforce.revoman.output.report.failure.HttpStatusUnsuccessful
 import com.salesforce.revoman.output.report.failure.RequestFailure
 import com.salesforce.revoman.output.report.failure.ResponseFailure
 import io.vavr.control.Either
+import io.vavr.control.Either.left
+import io.vavr.control.Either.right
 import org.http4k.core.Request
 import org.http4k.core.Response
 
@@ -44,8 +48,10 @@ private constructor(
   )
 
   @JvmField
-  val failure: Either<ExeFailure, TxnInfo<Response>>? =
+  val failure: Either<ExeFailure, HttpStatusUnsuccessful>? =
     failure(requestInfo, preHookFailure, responseInfo, postHookFailure)
+
+  @JvmField val failureType: ExeType? = failure?.fold({ it.exeType }, { it.exeType })
 
   @JvmField val exeFailure: ExeFailure? = failure?.fold({ it }, { null })
 
@@ -60,24 +66,24 @@ private constructor(
       preHookFailure: PreHookFailure? = null,
       responseInfo: Either<out ExeFailure, TxnInfo<Response>>? = null,
       postHookFailure: PostHookFailure? = null,
-    ): Either<ExeFailure, TxnInfo<Response>>? =
+    ): Either<ExeFailure, HttpStatusUnsuccessful>? =
       when {
         requestInfo != null ->
           when (requestInfo) {
-            is Either.Left -> Either.left(requestInfo.left)
+            is Either.Left -> left(requestInfo.left)
             else ->
               when {
-                preHookFailure != null -> Either.left(preHookFailure)
+                preHookFailure != null -> left(preHookFailure)
                 responseInfo != null ->
                   when (responseInfo) {
-                    is Either.Left -> Either.left(responseInfo.left)
+                    is Either.Left -> left(responseInfo.left)
                     is Either.Right ->
                       when {
                         !responseInfo.get().httpMsg.status.successful ->
-                          Either.right(responseInfo.get())
+                          right(HttpStatusUnsuccessful(requestInfo.get(), responseInfo.get()))
                         else ->
                           when {
-                            postHookFailure != null -> Either.left(postHookFailure)
+                            postHookFailure != null -> left(postHookFailure)
                             else -> null
                           }
                       }
@@ -89,8 +95,7 @@ private constructor(
         else -> null
       }
 
-    private fun <L, R> arrow.core.Either<L, R>.toVavr(): Either<L, R> =
-      fold({ Either.left(it) }, { Either.right(it) })
+    fun <L, R> arrow.core.Either<L, R>.toVavr(): Either<L, R> = fold({ left(it) }, { right(it) })
 
     @JvmStatic
     fun Either<out RequestFailure, TxnInfo<Request>>?.uriPathEndsWith(path: String): Boolean =
@@ -110,7 +115,7 @@ private constructor(
   override fun toString(): String =
     step.toString() +
       when {
-        exeFailure != null -> "❌$exeFailure"
+        exeFailure != null -> " ❌$exeFailure\n${exeFailure.failure.stackTraceToString()}"
         !isHttpStatusSuccessful ->
           "⚠️️Unsuccessful HTTP Status: ${responseInfo?.get()?.httpMsg?.status} \n${requestInfo?.get()}, ${responseInfo?.get()}"
         else -> "✅${requestInfo?.get()}, ${responseInfo?.get()}"

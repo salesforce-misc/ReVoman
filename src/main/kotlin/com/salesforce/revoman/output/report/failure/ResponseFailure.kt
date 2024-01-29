@@ -14,7 +14,6 @@ import org.http4k.core.Request
 import org.http4k.core.Response
 
 sealed class ResponseFailure : ExeFailure() {
-  abstract override val failure: Throwable
   abstract val requestInfo: TxnInfo<Request>
   abstract val responseInfo: TxnInfo<Response>
 
