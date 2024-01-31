@@ -12,7 +12,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 
 /** This is more like a value class (wrapper) on mutableEnv providing some useful utilities */
 data class PostmanEnvironment<ValueT : Any?>(
-  private val mutableEnv: MutableMap<String, ValueT> = mutableMapOf()
+  internal val mutableEnv: MutableMap<String, ValueT> = mutableMapOf()
 ) : MutableMap<String, ValueT> by mutableEnv {
 
   @get:JvmName("immutableEnv") val immutableEnv: Map<String, ValueT> by lazy { mutableEnv.toMap() }

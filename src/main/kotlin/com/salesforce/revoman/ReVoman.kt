@@ -125,7 +125,10 @@ object ReVoman {
               )
             }
             .merge()
-            .copy(envSnapshot = pm.environment.copy())
+            .copy(
+              envSnapshot =
+                pm.environment.copy(mutableEnv = pm.environment.mutableEnv.toMutableMap())
+            )
         // * NOTE 15/10/23 gopala.akshintala: http status code can be non-success
         haltExecution = shouldHaltExecution(currentStepReport, kick, stepReports)
         stepReports + currentStepReport
