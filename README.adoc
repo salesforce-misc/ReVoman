@@ -31,6 +31,7 @@ essentially translating your manual testing into Automation, without any loss.
 But it's even better!
 
 image::postman-run.png[]
+image::manual-to-automation.png[Manual to Automation]
 
 [.lead]
 It strikes a balance between _flexibility_
