@@ -51,6 +51,7 @@ class PQE2EWithSMTest {
           "pm-templates/pq/pq-sm.postman_collection.json");
   private static final String PQ_ENV_PATH = "pm-templates/pq/pq-env.postman_environment.json";
   private static final String PQ_URI_PATH = "commerce/quotes/actions/place";
+  private static final String COMPOSITE_GRAPH_URI_PATH = "composite/graph";
   private static final String IS_SYNC_HEADER = "isSync";
   private static final String SYNC_ERROR_FOLDER_NAME = "errors|>sync";
 
@@ -86,6 +87,14 @@ class PQE2EWithSMTest {
                           } else {
                             rundown.mutableEnv.set("$pricingPref", PricingPref.System.toString());
                           }
+                        }),
+                    post(
+                        afterAllStepsWithURIPathEndingWith(COMPOSITE_GRAPH_URI_PATH),
+                        (stepReport, ignore) -> {
+                          final var isSuccessful =
+                              stepReport.responseInfo.map(
+                                  responseTxnInfo ->
+                                      responseTxnInfo.<Map<String, Object>>getTypedTxnObj().get());
                         }),
                     post(
                         afterAllStepsWithURIPathEndingWith(PQ_URI_PATH),
