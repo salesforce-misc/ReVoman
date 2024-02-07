@@ -89,14 +89,6 @@ class PQE2EWithSMTest {
                           }
                         }),
                     post(
-                        afterAllStepsWithURIPathEndingWith(COMPOSITE_GRAPH_URI_PATH),
-                        (stepReport, ignore) -> {
-                          final var isSuccessful =
-                              stepReport.responseInfo.map(
-                                  responseTxnInfo ->
-                                      responseTxnInfo.<Map<String, Object>>getTypedTxnObj().get());
-                        }),
-                    post(
                         afterAllStepsWithURIPathEndingWith(PQ_URI_PATH),
                         (stepReport, ignore) -> {
                           validatePQResponse(stepReport); // <9>
