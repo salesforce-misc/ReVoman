@@ -1,169 +1,169 @@
 {
-	"info": {
-		"_postman_id": "231180d4-afcd-43ee-877a-5df828c1d58d",
-		"name": "pre-salesRep",
-		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-		"_exporter_id": "23827434"
-	},
-	"item": [
-		{
-			"name": "Login to SalesRep",
-			"event": [
-				{
-					"listen": "prerequest",
-					"script": {
-						"exec": [
-							""
-						],
-						"type": "text/javascript"
-					}
-				},
-				{
-					"listen": "test",
-					"script": {
-						"exec": [
-							"var jsonData = xml2Json(responseBody);",
-							"var sessionId = jsonData['soapenv:Envelope']['soapenv:Body'].loginResponse.result.sessionId",
-							"pm.environment.set(\"accessToken\", sessionId);"
-						],
-						"type": "text/javascript"
-					}
-				}
-			],
-			"protocolProfileBehavior": {
-				"disabledSystemHeaders": {
-					"accept": true,
-					"content-type": true
-				}
-			},
-			"request": {
-				"method": "POST",
-				"header": [
-					{
-						"key": "Content-Type",
-						"value": "text/xml"
-					},
-					{
-						"key": "SOAPAction",
-						"value": "login"
-					},
-					{
-						"key": "charset",
-						"value": "UTF-8",
-						"type": "text"
-					},
-					{
-						"key": "Accept",
-						"value": "text/xml",
-						"type": "text"
-					}
-				],
-				"body": {
-					"mode": "raw",
-					"raw": "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<env:Envelope xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"\n    xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n    xmlns:env=\"http://schemas.xmlsoap.org/soap/envelope/\">\n  <env:Body>\n    <n1:login xmlns:n1=\"urn:partner.soap.sforce.com\">\n      <n1:username><![CDATA[{{salesRepUserName}}]]></n1:username>\n      <n1:password><![CDATA[{{commonUserPassword}}]]></n1:password>\n    </n1:login>\n  </env:Body>\n</env:Envelope>"
-				},
-				"url": {
-					"raw": "{{baseUrl}}/services/Soap/u/{{version}}",
-					"host": [
-						"{{baseUrl}}"
-					],
-					"path": [
-						"services",
-						"Soap",
-						"u",
-						"{{version}}"
-					]
-				},
-				"description": "Login to Salesforce"
-			},
-			"response": []
-		},
-		{
-			"name": "Account + Opportunity + Contact",
-			"event": [
-				{
-					"listen": "test",
-					"script": {
-						"exec": [
-							"var graphData = JSON.parse(responseBody).graphs[0];",
-							"",
-							"if (graphData.isSuccessful) {",
-							"  graphData.graphResponse.compositeResponse.forEach(response => ",
-							"    pm.environment.set(response.referenceId + \"Id\", response.body.id))",
-							"}",
-							""
-						],
-						"type": "text/javascript"
-					}
-				},
-				{
-					"listen": "prerequest",
-					"script": {
-						"exec": [
-							"var moment = require('moment');",
-							"var futureDateTime = moment().add(364, 'days');",
-							"pm.environment.set('$randomFutureDate', futureDateTime.format('YYYY-MM-DD'));"
-						],
-						"type": "text/javascript"
-					}
-				}
-			],
-			"request": {
-				"method": "POST",
-				"header": [
-					{
-						"key": "Content-Type",
-						"name": "Content-Type",
-						"type": "text",
-						"value": "application/json"
-					}
-				],
-				"body": {
-					"mode": "raw",
-					"raw": "{\n  \"graphs\": [\n    {\n      \"graphId\": \"1\",\n      \"compositeRequest\": [\n        {\n          \"method\": \"POST\",\n          \"url\": \"{{versionPath}}/sobjects/Account\",\n          \"referenceId\": \"account\",\n          \"body\": {\n            \"Name\": \"{{$randomFirstName}} Account\",\n            \"BillingPostalCode\": \"94003\",\n            \"BillingCity\": \"San Mateo\",\n            \"BillingState\": \"CA\",\n            \"BillingStreet\": \"856 Homewood Ave.\",\n            \"BillingCountry\": \"United States\",\n            \"ShippingStreet\": \"856 Homewood Ave.\",\n            \"ShippingPostalCode\": \"94003\",\n            \"ShippingCountry\": \"United States\",\n            \"ShippingState\": \"CA\",\n            \"ShippingCity\": \"San Mateo\"\n          }\n        },\n        {\n          \"method\": \"POST\",\n          \"url\": \"{{versionPath}}/sobjects/Contact\",\n          \"referenceId\": \"contact\",\n          \"body\": {\n            \"AccountId\": \"@{account.id}\",\n            \"FirstName\": \"{{$randomFirstName}}\",\n            \"LastName\": \"{{$randomLastName}}\",\n            \"Email\": \"{{$randomEmail}}\"\n          }\n        },\n        {\n          \"method\": \"POST\",\n          \"url\": \"{{versionPath}}/sobjects/Opportunity\",\n          \"referenceId\": \"opportunity\",\n          \"body\": {\n            \"Name\": \"Opportunity_{{$randomCompanyName}}\",\n            \"AccountId\": \"@{account.id}\",\n            \"StageName\": \"Prospecting\",\n            \"Pricebook2Id\": \"{{standardPricebookId}}\",\n            \"CloseDate\": \"{{$randomFutureDate}}\"\n          }\n        }\n      ]\n    }\n  ]\n}"
-				},
-				"url": {
-					"raw": "{{baseUrl}}{{versionPath}}/composite/graph",
-					"host": [
-						"{{baseUrl}}{{versionPath}}"
-					],
-					"path": [
-						"composite",
-						"graph"
-					]
-				}
-			},
-			"response": []
-		}
-	],
-	"auth": {
-		"type": "bearer",
-		"bearer": [
-			{
-				"key": "token",
-				"value": "{{accessToken}}",
-				"type": "string"
-			}
-		]
-	},
-	"event": [
-		{
-			"listen": "prerequest",
-			"script": {
-				"type": "text/javascript",
-				"exec": [
-					""
-				]
-			}
-		},
-		{
-			"listen": "test",
-			"script": {
-				"type": "text/javascript",
-				"exec": [
-					""
-				]
-			}
-		}
-	]
+  "info" : {
+    "_postman_id" : "231180d4-afcd-43ee-877a-5df828c1d58d",
+    "name" : "pre-salesRep",
+    "schema" : "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id" : "23827434"
+  },
+  "item" : [
+    {
+      "name" : "Login to SalesRep",
+      "event" : [
+        {
+          "listen" : "prerequest",
+          "script" : {
+            "exec" : [
+              ""
+            ],
+            "type" : "text/javascript"
+          }
+        },
+        {
+          "listen" : "test",
+          "script" : {
+            "exec" : [
+              "var jsonData = xml2Json(responseBody);",
+              "var sessionId = jsonData['soapenv:Envelope']['soapenv:Body'].loginResponse.result.sessionId",
+              "pm.environment.set(\"accessToken\", sessionId);"
+            ],
+            "type" : "text/javascript"
+          }
+        }
+      ],
+      "protocolProfileBehavior" : {
+        "disabledSystemHeaders" : {
+          "accept" : true,
+          "content-type" : true
+        }
+      },
+      "request" : {
+        "method" : "POST",
+        "header" : [
+          {
+            "key" : "Content-Type",
+            "value" : "text/xml"
+          },
+          {
+            "key" : "SOAPAction",
+            "value" : "login"
+          },
+          {
+            "key" : "charset",
+            "value" : "UTF-8",
+            "type" : "text"
+          },
+          {
+            "key" : "Accept",
+            "value" : "text/xml",
+            "type" : "text"
+          }
+        ],
+        "body" : {
+          "mode" : "raw",
+          "raw" : "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<env:Envelope xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"\n    xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n    xmlns:env=\"http://schemas.xmlsoap.org/soap/envelope/\">\n  <env:Body>\n    <n1:login xmlns:n1=\"urn:partner.soap.sforce.com\">\n      <n1:username><![CDATA[{{salesRepUserName}}]]></n1:username>\n      <n1:password><![CDATA[{{commonUserPassword}}]]></n1:password>\n    </n1:login>\n  </env:Body>\n</env:Envelope>"
+        },
+        "url" : {
+          "raw" : "{{baseUrl}}/services/Soap/u/{{version}}",
+          "host" : [
+            "{{baseUrl}}"
+          ],
+          "path" : [
+            "services",
+            "Soap",
+            "u",
+            "{{version}}"
+          ]
+        },
+        "description" : "Login to Salesforce"
+      },
+      "response" : []
+    },
+    {
+      "name" : "Account + Opportunity + Contact",
+      "event" : [
+        {
+          "listen" : "test",
+          "script" : {
+            "exec" : [
+              "var graphData = JSON.parse(responseBody).graphs[0];",
+              "",
+              "if (graphData.isSuccessful) {",
+              "  graphData.graphResponse.compositeResponse.forEach(response => ",
+              "    pm.environment.set(response.referenceId + \"Id\", response.body.id))",
+              "}",
+              ""
+            ],
+            "type" : "text/javascript"
+          }
+        },
+        {
+          "listen" : "prerequest",
+          "script" : {
+            "exec" : [
+              "var moment = require('moment');",
+              "var futureDateTime = moment().add(364, 'days');",
+              "pm.environment.set('$randomFutureDate', futureDateTime.format('YYYY-MM-DD'));"
+            ],
+            "type" : "text/javascript"
+          }
+        }
+      ],
+      "request" : {
+        "method" : "POST",
+        "header" : [
+          {
+            "key" : "Content-Type",
+            "name" : "Content-Type",
+            "type" : "text",
+            "value" : "application/json"
+          }
+        ],
+        "body" : {
+          "mode" : "raw",
+          "raw" : "{\n  \"graphs\": [\n    {\n      \"graphId\": \"1\",\n      \"compositeRequest\": [\n        {\n          \"method\": \"POST\",\n          \"url\": \"{{versionPath}}/sobjects/Account\",\n          \"referenceId\": \"account\",\n          \"body\": {\n            \"Name\": \"{{$randomFirstName}} Account\",\n            \"BillingPostalCode\": \"94003\",\n            \"BillingCity\": \"San Mateo\",\n            \"BillingState\": \"CA\",\n            \"BillingStreet\": \"856 Homewood Ave.\",\n            \"BillingCountry\": \"United States\",\n            \"ShippingStreet\": \"856 Homewood Ave.\",\n            \"ShippingPostalCode\": \"94003\",\n            \"ShippingCountry\": \"United States\",\n            \"ShippingState\": \"CA\",\n            \"ShippingCity\": \"San Mateo\"\n          }\n        },\n        {\n          \"method\": \"POST\",\n          \"url\": \"{{versionPath}}/sobjects/Contact\",\n          \"referenceId\": \"contact\",\n          \"body\": {\n            \"AccountId\": \"@{account.id}\",\n            \"FirstName\": \"{{$randomFirstName}}\",\n            \"LastName\": \"{{$randomLastName}}\",\n            \"Email\": \"{{$randomEmail}}\"\n          }\n        },\n        {\n          \"method\": \"POST\",\n          \"url\": \"{{versionPath}}/sobjects/Opportunity\",\n          \"referenceId\": \"opportunity\",\n          \"body\": {\n            \"Name\": \"Opportunity_{{$randomCompanyName}}\",\n            \"AccountId\": \"@{account.id}\",\n            \"StageName\": \"Prospecting\",\n            \"Pricebook2Id\": \"{{standardPricebookId}}\",\n            \"CloseDate\": \"{{$randomFutureDate}}\"\n          }\n        }\n      ]\n    }\n  ]\n}"
+        },
+        "url" : {
+          "raw" : "{{baseUrl}}{{versionPath}}/composite/graph",
+          "host" : [
+            "{{baseUrl}}{{versionPath}}"
+          ],
+          "path" : [
+            "composite",
+            "graph"
+          ]
+        }
+      },
+      "response" : []
+    }
+  ],
+  "auth" : {
+    "type" : "bearer",
+    "bearer" : [
+      {
+        "key" : "token",
+        "value" : "{{accessToken}}",
+        "type" : "string"
+      }
+    ]
+  },
+  "event" : [
+    {
+      "listen" : "prerequest",
+      "script" : {
+        "type" : "text/javascript",
+        "exec" : [
+          ""
+        ]
+      }
+    },
+    {
+      "listen" : "test",
+      "script" : {
+        "type" : "text/javascript",
+        "exec" : [
+          ""
+        ]
+      }
+    }
+  ]
 }

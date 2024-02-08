@@ -35,6 +35,7 @@ private val dynamicVariableKeyToGenerator: Map<String, () -> String> =
         LocalDate.now().let { it.plusDays(nextLong(1, it.lengthOfYear().toLong())).toString() }
       },
     "\$epoch" to { System.currentTimeMillis().toString() },
+    "\$currentRequestName" to { pm.info.requestName }
   )
 
 internal fun dynamicVariableGenerator(key: String): String? =

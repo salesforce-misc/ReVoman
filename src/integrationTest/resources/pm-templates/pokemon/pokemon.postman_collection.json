@@ -1,222 +1,222 @@
 {
-	"info": {
-		"_postman_id": "91dce492-f58d-498e-aa37-cf5ac35fcd31",
-		"name": "pokemon",
-		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-		"_exporter_id": "23827434"
-	},
-	"item": [
-		{
-			"name": "all-pokemon",
-			"item": [
-				{
-					"name": "all-pokemon",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"var jsonData = JSON.parse(responseBody)",
-									"var pokemon = jsonData[\"results\"][0]",
-									"var pokemonName = pokemon.name",
-									"pm.environment.set(\"pokemonName\", pokemonName)",
-									"var lastIndex = pokemon.url.lastIndexOf(\"/\")",
-									"var id = pokemon.url.substring(lastIndex - 1, lastIndex)",
-									"pm.environment.set(\"id\", id)"
-								],
-								"type": "text/javascript"
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/pokemon?offset={{offset}}&limit={{limit}}",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"pokemon"
-							],
-							"query": [
-								{
-									"key": "offset",
-									"value": "{{offset}}"
-								},
-								{
-									"key": "limit",
-									"value": "{{limit}}"
-								}
-							]
-						}
-					},
-					"response": []
-				}
-			]
-		},
-		{
-			"name": "pokemon",
-			"item": [
-				{
-					"name": "props",
-					"item": [
-						{
-							"name": "color",
-							"item": [
-								{
-									"name": "color",
-									"event": [
-										{
-											"listen": "test",
-											"script": {
-												"exec": [
-													"var jsonData = JSON.parse(responseBody)",
-													"pm.environment.set(\"color\", jsonData[\"name\"])"
-												],
-												"type": "text/javascript"
-											}
-										}
-									],
-									"request": {
-										"method": "GET",
-										"header": [
-											{
-												"key": "postLog",
-												"value": "true",
-												"type": "text"
-											}
-										],
-										"url": {
-											"raw": "{{baseUrl}}/pokemon-color/{{id}}",
-											"host": [
-												"{{baseUrl}}"
-											],
-											"path": [
-												"pokemon-color",
-												"{{id}}"
-											],
-											"query": [
-												{
-													"key": "",
-													"value": "",
-													"disabled": true
-												}
-											]
-										}
-									},
-									"response": []
-								}
-							]
-						},
-						{
-							"name": "gender",
-							"event": [
-								{
-									"listen": "test",
-									"script": {
-										"exec": [
-											"var jsonData = JSON.parse(responseBody)",
-											"pm.environment.set(\"gender\", jsonData[\"name\"])"
-										],
-										"type": "text/javascript"
-									}
-								}
-							],
-							"request": {
-								"method": "GET",
-								"header": [],
-								"url": {
-									"raw": "{{baseUrl}}/gender/{{id}}",
-									"host": [
-										"{{baseUrl}}"
-									],
-									"path": [
-										"gender",
-										"{{id}}"
-									]
-								}
-							},
-							"response": []
-						}
-					]
-				},
-				{
-					"name": "abilities",
-					"event": [
-						{
-							"listen": "prerequest",
-							"script": {
-								"exec": [
-									""
-								],
-								"type": "text/javascript"
-							}
-						},
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"var jsonData = JSON.parse(responseBody)",
-									"pm.environment.set(\"ability\", jsonData[\"name\"])"
-								],
-								"type": "text/javascript"
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/ability/{{id}}",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"ability",
-								"{{id}}"
-							]
-						}
-					},
-					"response": []
-				}
-			]
-		},
-		{
-			"name": "nature",
-			"event": [
-				{
-					"listen": "test",
-					"script": {
-						"exec": [
-							"var jsonData = JSON.parse(responseBody)",
-							"pm.environment.set(\"nature\", jsonData[\"name\"])"
-						],
-						"type": "text/javascript"
-					}
-				}
-			],
-			"request": {
-				"method": "GET",
-				"header": [
-					{
-						"key": "preLog",
-						"value": "true",
-						"type": "text"
-					}
-				],
-				"url": {
-					"raw": "{{baseUrl}}/nature/{{id}}",
-					"host": [
-						"{{baseUrl}}"
-					],
-					"path": [
-						"nature",
-						"{{id}}"
-					]
-				}
-			},
-			"response": []
-		}
-	]
+  "info" : {
+    "_postman_id" : "91dce492-f58d-498e-aa37-cf5ac35fcd31",
+    "name" : "pokemon",
+    "schema" : "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id" : "23827434"
+  },
+  "item" : [
+    {
+      "name" : "all-pokemon",
+      "item" : [
+        {
+          "name" : "all-pokemon",
+          "event" : [
+            {
+              "listen" : "test",
+              "script" : {
+                "exec" : [
+                  "var jsonData = JSON.parse(responseBody)",
+                  "var pokemon = jsonData[\"results\"][0]",
+                  "var pokemonName = pokemon.name",
+                  "pm.environment.set(\"pokemonName\", pokemonName)",
+                  "var lastIndex = pokemon.url.lastIndexOf(\"/\")",
+                  "var id = pokemon.url.substring(lastIndex - 1, lastIndex)",
+                  "pm.environment.set(\"id\", id)"
+                ],
+                "type" : "text/javascript"
+              }
+            }
+          ],
+          "request" : {
+            "method" : "GET",
+            "header" : [],
+            "url" : {
+              "raw" : "{{baseUrl}}/pokemon?offset={{offset}}&limit={{limit}}",
+              "host" : [
+                "{{baseUrl}}"
+              ],
+              "path" : [
+                "pokemon"
+              ],
+              "query" : [
+                {
+                  "key" : "offset",
+                  "value" : "{{offset}}"
+                },
+                {
+                  "key" : "limit",
+                  "value" : "{{limit}}"
+                }
+              ]
+            }
+          },
+          "response" : []
+        }
+      ]
+    },
+    {
+      "name" : "pokemon",
+      "item" : [
+        {
+          "name" : "props",
+          "item" : [
+            {
+              "name" : "color",
+              "item" : [
+                {
+                  "name" : "color",
+                  "event" : [
+                    {
+                      "listen" : "test",
+                      "script" : {
+                        "exec" : [
+                          "var jsonData = JSON.parse(responseBody)",
+                          "pm.environment.set(\"color\", jsonData[\"name\"])"
+                        ],
+                        "type" : "text/javascript"
+                      }
+                    }
+                  ],
+                  "request" : {
+                    "method" : "GET",
+                    "header" : [
+                      {
+                        "key" : "postLog",
+                        "value" : "true",
+                        "type" : "text"
+                      }
+                    ],
+                    "url" : {
+                      "raw" : "{{baseUrl}}/pokemon-color/{{id}}",
+                      "host" : [
+                        "{{baseUrl}}"
+                      ],
+                      "path" : [
+                        "pokemon-color",
+                        "{{id}}"
+                      ],
+                      "query" : [
+                        {
+                          "key" : "",
+                          "value" : "",
+                          "disabled" : true
+                        }
+                      ]
+                    }
+                  },
+                  "response" : []
+                }
+              ]
+            },
+            {
+              "name" : "gender",
+              "event" : [
+                {
+                  "listen" : "test",
+                  "script" : {
+                    "exec" : [
+                      "var jsonData = JSON.parse(responseBody)",
+                      "pm.environment.set(\"gender\", jsonData[\"name\"])"
+                    ],
+                    "type" : "text/javascript"
+                  }
+                }
+              ],
+              "request" : {
+                "method" : "GET",
+                "header" : [],
+                "url" : {
+                  "raw" : "{{baseUrl}}/gender/{{id}}",
+                  "host" : [
+                    "{{baseUrl}}"
+                  ],
+                  "path" : [
+                    "gender",
+                    "{{id}}"
+                  ]
+                }
+              },
+              "response" : []
+            }
+          ]
+        },
+        {
+          "name" : "abilities",
+          "event" : [
+            {
+              "listen" : "prerequest",
+              "script" : {
+                "exec" : [
+                  ""
+                ],
+                "type" : "text/javascript"
+              }
+            },
+            {
+              "listen" : "test",
+              "script" : {
+                "exec" : [
+                  "var jsonData = JSON.parse(responseBody)",
+                  "pm.environment.set(\"ability\", jsonData[\"name\"])"
+                ],
+                "type" : "text/javascript"
+              }
+            }
+          ],
+          "request" : {
+            "method" : "GET",
+            "header" : [],
+            "url" : {
+              "raw" : "{{baseUrl}}/ability/{{id}}",
+              "host" : [
+                "{{baseUrl}}"
+              ],
+              "path" : [
+                "ability",
+                "{{id}}"
+              ]
+            }
+          },
+          "response" : []
+        }
+      ]
+    },
+    {
+      "name" : "nature",
+      "event" : [
+        {
+          "listen" : "test",
+          "script" : {
+            "exec" : [
+              "var jsonData = JSON.parse(responseBody)",
+              "pm.environment.set(\"nature\", jsonData[\"name\"])"
+            ],
+            "type" : "text/javascript"
+          }
+        }
+      ],
+      "request" : {
+        "method" : "GET",
+        "header" : [
+          {
+            "key" : "preLog",
+            "value" : "true",
+            "type" : "text"
+          }
+        ],
+        "url" : {
+          "raw" : "{{baseUrl}}/nature/{{id}}",
+          "host" : [
+            "{{baseUrl}}"
+          ],
+          "path" : [
+            "nature",
+            "{{id}}"
+          ]
+        }
+      },
+      "response" : []
+    }
+  ]
 }

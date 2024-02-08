@@ -55,7 +55,7 @@ internal fun executeTestsJS(
   stepReport: StepReport
 ): Either<TestsJsFailure, Unit> =
   runChecked(currentStep, ExeType.TESTS_JS) {
-      executeTestsJS(
+      executeWithPolyglot(
         events,
         customDynamicVariables,
         pmRequest,
@@ -64,7 +64,7 @@ internal fun executeTestsJS(
     }
     .mapLeft { TestsJsFailure(it, stepReport.requestInfo!!.get(), stepReport.responseInfo!!.get()) }
 
-private fun executeTestsJS(
+private fun executeWithPolyglot(
   events: List<Event>?,
   customDynamicVariables: Map<String, (String) -> String>,
   pmRequest: Request,
@@ -85,8 +85,8 @@ private fun executeTestsJS(
   }
 }
 
-private fun loadIntoPmEnvironment(stepRequest: Request, response: Response) {
-  pm.request = stepRequest
+private fun loadIntoPmEnvironment(pmRequest: Request, response: Response) {
+  pm.request = pmRequest
   pm.response =
     com.salesforce.revoman.internal.postman.Response(
       response.status.code,

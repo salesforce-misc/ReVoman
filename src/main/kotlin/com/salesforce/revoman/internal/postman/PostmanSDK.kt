@@ -23,6 +23,7 @@ internal class PostmanSDK {
   @JvmField val environment: PostmanEnvironment<Any?> = PostmanEnvironment()
   lateinit var request: Request
   lateinit var response: Response
+  lateinit var info: Info
 
   @Suppress("unused")
   fun setEnvironmentVariable(key: String, value: String) {
@@ -44,6 +45,8 @@ internal fun interface Xml2Json {
 data class Response(val code: Int, val status: String, val body: String) {
   fun json(): Value? = jsContext.eval("js", "jsonStr => JSON.parse(jsonStr)").execute(body)
 }
+
+data class Info(val requestName: String)
 
 @OptIn(ExperimentalStdlibApi::class)
 fun jsonStrToObj(jsonStr: String): Any? = moshiReVoman.adapter<Any>().fromJson(jsonStr)

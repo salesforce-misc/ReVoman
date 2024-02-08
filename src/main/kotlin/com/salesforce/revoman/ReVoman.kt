@@ -23,6 +23,7 @@ import com.salesforce.revoman.internal.exe.shouldStepBePicked
 import com.salesforce.revoman.internal.exe.unmarshallRequest
 import com.salesforce.revoman.internal.exe.unmarshallResponse
 import com.salesforce.revoman.internal.json.initMoshi
+import com.salesforce.revoman.internal.postman.Info
 import com.salesforce.revoman.internal.postman.RegexReplacer
 import com.salesforce.revoman.internal.postman.initPmEnvironment
 import com.salesforce.revoman.internal.postman.pm
@@ -83,6 +84,7 @@ object ReVoman {
       .fold(listOf()) { stepReports, step ->
         logger.info { "***** Executing Step: $step *****" }
         val itemWithRegex = step.rawPMStep
+        pm.info = Info(step.name)
         val pmRequest: com.salesforce.revoman.internal.postman.template.Request =
           RegexReplacer(pm.environment, kick.customDynamicVariables())
             .replaceRegex(itemWithRegex.request)

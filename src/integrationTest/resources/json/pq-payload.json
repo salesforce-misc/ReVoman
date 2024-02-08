@@ -1,99 +1,99 @@
 {
-  "pricingPref": "System",
-  "doAsync": true,
-  "graph": {
-    "graphId": "pq-create-with-bundles",
-    "records": [
+  "pricingPref" : "System",
+  "doAsync" : true,
+  "graph" : {
+    "graphId" : "pq-create-with-bundles",
+    "records" : [
       {
-        "referenceId": "refQuote",
-        "record": {
-          "attributes": {
-            "type": "Quote",
-            "method": "POST"
+        "referenceId" : "refQuote",
+        "record" : {
+          "attributes" : {
+            "type" : "Quote",
+            "method" : "POST"
           },
-          "Name": "Quote_{{$randomCompanyName}}",
-          "OpportunityId": "{{opportunityId}}"
+          "Name" : "Quote_{{$randomCompanyName}}",
+          "OpportunityId" : "{{opportunityId}}"
         }
       },
       {
-        "referenceId": "refQuoteItem1",
-        "record": {
-          "attributes": {
-            "type": "QuoteLineItem",
-            "method": "POST"
+        "referenceId" : "refQuoteItem1",
+        "record" : {
+          "attributes" : {
+            "type" : "QuoteLineItem",
+            "method" : "POST"
           },
-          "QuoteId": "@{refQuote.id}",
-          "PricebookEntryId": "{{evergreenPriceBookEntryId}}",
-          "Product2Id": "{{evergreenProductId}}",
-          "Quantity": 2.0,
-          "UnitPrice": 25.0,
-          "PeriodBoundary": "Anniversary",
-          "BillingFrequency": "Monthly",
-          "StartDate": "{{$currentDate}}"
+          "QuoteId" : "@{refQuote.id}",
+          "PricebookEntryId" : "{{evergreenPriceBookEntryId}}",
+          "Product2Id" : "{{evergreenProductId}}",
+          "Quantity" : 2.0,
+          "UnitPrice" : 25.0,
+          "PeriodBoundary" : "Anniversary",
+          "BillingFrequency" : "Monthly",
+          "StartDate" : "{{$currentDate}}"
         }
       },
       {
-        "referenceId": "refQuoteItem2",
-        "record": {
-          "attributes": {
-            "type": "QuoteLineItem",
-            "method": "POST"
+        "referenceId" : "refQuoteItem2",
+        "record" : {
+          "attributes" : {
+            "type" : "QuoteLineItem",
+            "method" : "POST"
           },
-          "QuoteId": "@{refQuote.id}",
-          "PricebookEntryId": "{{termedPriceBookEntryId}}",
-          "Product2Id": "{{termedProductId}}",
-          "Quantity": 2.0,
-          "UnitPrice": 25.0,
-          "EndDate": "{{$randomFutureDate}}",
-          "PeriodBoundary": "DayOfPeriod",
-          "PeriodBoundaryDay": 4,
-          "BillingFrequency": "Monthly",
-          "StartDate": "{{$currentDate}}"
+          "QuoteId" : "@{refQuote.id}",
+          "PricebookEntryId" : "{{termedPriceBookEntryId}}",
+          "Product2Id" : "{{termedProductId}}",
+          "Quantity" : 2.0,
+          "UnitPrice" : 25.0,
+          "EndDate" : "{{$randomFutureDate}}",
+          "PeriodBoundary" : "DayOfPeriod",
+          "PeriodBoundaryDay" : 4,
+          "BillingFrequency" : "Monthly",
+          "StartDate" : "{{$currentDate}}"
         }
       },
       {
-        "referenceId": "refQuoteItem3",
-        "record": {
-          "attributes": {
-            "type": "QuoteLineItem",
-            "method": "POST"
+        "referenceId" : "refQuoteItem3",
+        "record" : {
+          "attributes" : {
+            "type" : "QuoteLineItem",
+            "method" : "POST"
           },
-          "QuoteId": "@{refQuote.id}",
-          "PricebookEntryId": "{{oneTimePriceBookEntryId}}",
-          "Product2Id": "{{oneTimeProductId}}",
-          "Quantity": 2.0,
-          "UnitPrice": 25.0,
-          "StartDate": "{{$currentDate}}",
-          "BillingFrequency": null,
-          "PeriodBoundary": null
+          "QuoteId" : "@{refQuote.id}",
+          "PricebookEntryId" : "{{oneTimePriceBookEntryId}}",
+          "Product2Id" : "{{oneTimeProductId}}",
+          "Quantity" : 2.0,
+          "UnitPrice" : 25.0,
+          "StartDate" : "{{$currentDate}}",
+          "BillingFrequency" : null,
+          "PeriodBoundary" : null
         }
       },
       {
-        "referenceId": "refQuoteItem4",
-        "record": {
-          "attributes": {
-            "type": "QuoteLineItem",
-            "method": "POST"
+        "referenceId" : "refQuoteItem4",
+        "record" : {
+          "attributes" : {
+            "type" : "QuoteLineItem",
+            "method" : "POST"
           },
-          "QuoteId": "@{refQuote.id}",
-          "PricebookEntryId": "{{oneTimePriceBookEntryId}}",
-          "Product2Id": "{{oneTimeProductId}}",
-          "Quantity": 2.0,
-          "UnitPrice": 25.0,
-          "StartDate": "{{$currentDate}}"
+          "QuoteId" : "@{refQuote.id}",
+          "PricebookEntryId" : "{{oneTimePriceBookEntryId}}",
+          "Product2Id" : "{{oneTimeProductId}}",
+          "Quantity" : 2.0,
+          "UnitPrice" : 25.0,
+          "StartDate" : "{{$currentDate}}"
         }
       },
       {
-        "referenceId": "refQLR1",
-        "record": {
-          "attributes": {
-            "type": "QuoteLineRelationship",
-            "method": "POST"
+        "referenceId" : "refQLR1",
+        "record" : {
+          "attributes" : {
+            "type" : "QuoteLineRelationship",
+            "method" : "POST"
           },
-          "MainQuoteLineId": "@{refQuoteItem1.id}",
-          "AssociatedQuoteLineId": "@{refQuoteItem4.id}",
-          "ProductRelationshipTypeId": "{{productRelationshipTypeId}}",
-          "AssociatedQuoteLinePricing": "IncludedInBundlePrice"
+          "MainQuoteLineId" : "@{refQuoteItem1.id}",
+          "AssociatedQuoteLineId" : "@{refQuoteItem4.id}",
+          "ProductRelationshipTypeId" : "{{productRelationshipTypeId}}",
+          "AssociatedQuoteLinePricing" : "IncludedInBundlePrice"
         }
       }
     ]
