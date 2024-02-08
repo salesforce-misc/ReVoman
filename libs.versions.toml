@@ -4,7 +4,6 @@ http4k = "5.13.4.1"
 moshix = "0.25.1"
 arrow = "1.2.1"
 graal = "22.3.3" # 22.3.3 Compatable with Java 11
-vador = "1.1.0"
 java-vavr = "0.10.4"
 kotlin-vavr = "0.10.2"
 jetbrains-annotations = "24.1.0"
@@ -13,17 +12,16 @@ kover = "0.7.5"
 kotest = "5.8.0"
 spotbugs = "6.0.7"
 testLogger = "4.0.0"
+truth = "1.4.0"
 assertj-core = "3.25.3"
 assertj-vavr = "0.4.3"
-reflection-util = "2.15.0"
 kotlin-logging = "6.0.3"
 pprint = "2.0.1"
-apache-commons-lang3 = "3.14.0"
 underscore = "1.98"
 kotlin-faker = "1.15.0"
 immutables = "2.10.0"
 mockito = "5.10.0"
-spring = "5.3.30" # 5.3.30 Compatable with Java 11
+spring = "5.3.31" # 5.3.31 Compatable with Java 11
 json-assert = "1.5.1"
 nexus-publish = "2.0.0-rc-2"
 
@@ -39,21 +37,18 @@ kotlin-vavr = { module = "io.vavr:vavr-kotlin", version.ref = "kotlin-vavr" }
 arrow-core = { module = "io.arrow-kt:arrow-core", version.ref = "arrow" }
 jetbrains-annotations = { module = "org.jetbrains:annotations", version.ref = "jetbrains-annotations" }
 okio-jvm = { module = "com.squareup.okio:okio-jvm", version.ref = "okio" }
-reflection-util = { module = "de.cronn:reflection-util", version.ref = "reflection-util" }
 testLogger-gradle = { module = "com.adarshr.test-logger:com.adarshr.test-logger.gradle.plugin", version.ref = "testLogger" }
 kotest-assertions-core = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
 kotest-frameworkEngine = { module = "io.kotest:kotest-framework-engine", version.ref = "kotest" }
 kotest-property = { module = "io.kotest:kotest-property", version.ref = "kotest" }
 kotest-runnerJUnit5 = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }
+truth = { module = "com.google.truth:truth", version.ref = "truth" }
 assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertj-core" }
 assertj-vavr = { module = "org.assertj:assertj-vavr", version.ref = "assertj-vavr" }
-vador = { module = "com.salesforce.vador:vador", version.ref = "vador" }
-vador-matchers = { module = "com.salesforce.vador:vador-matchers", version.ref = "vador" }
 moshix-adapters = { module = "dev.zacsweers.moshix:moshi-adapters", version.ref = "moshix" }
 http4k-core = { module = "org.http4k:http4k-core", version.ref = "http4k" }
 http4k-client-apache = { module = "org.http4k:http4k-client-apache", version.ref = "http4k" }
 http4k-format-moshi = { module = "org.http4k:http4k-format-moshi", version.ref = "http4k" }
-apache-commons-lang3 = { module = "org.apache.commons:commons-lang3", version.ref = "apache-commons-lang3" }
 graal-sdk = { module = "org.graalvm.sdk:graal-sdk", version.ref = "graal" }
 graal-js = { module = "org.graalvm.js:js", version.ref = "graal" }
 underscore = { module = "com.github.javadev:underscore", version.ref = "underscore" }
@@ -65,10 +60,7 @@ kotlin-logging-jvm = { module = "io.github.oshai:kotlin-logging-jvm", version.re
 log4j-api = { module = "org.apache.logging.log4j:log4j-api", version.ref = "apache-log4j" }
 log4j-core = { module = "org.apache.logging.log4j:log4j-core", version.ref = "apache-log4j" }
 log4j-slf4j2-impl = { module = "org.apache.logging.log4j:log4j-slf4j2-impl", version.ref = "apache-log4j" }
-junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
 pprint = { module = "io.exoquery:pprint-kotlin", version.ref = "pprint" }
-junit-jupiter = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "junit" }
-junit-engine = { module = "org.junit.jupiter:junit-jupiter-engine" }
 mockito-core = { module = "org.mockito:mockito-core", version.ref = "mockito" }
 spring-beans = { module = "org.springframework:spring-beans", version.ref = "spring" }
 json-assert = { module = "org.skyscreamer:jsonassert", version.ref = "json-assert" }
@@ -87,8 +79,6 @@ kotest = [
     "kotest-property",
     "kotest-runnerJUnit5",
 ]
-junit = ["junit-jupiter", "junit-engine"]
-vador = ["vador", "vador-matchers"]
 http4k = ["http4k-core", "http4k-client-apache", "http4k-format-moshi"]
 kotlin-logging = ["kotlin-logging-jvm", "log4j-api", "log4j-core", "log4j-slf4j2-impl"]
 

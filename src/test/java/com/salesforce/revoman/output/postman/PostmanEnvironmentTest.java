@@ -7,7 +7,7 @@
 
 package com.salesforce.revoman.output.postman;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static com.google.common.truth.Truth.assertThat;
 
 import java.util.Map;
 import java.util.Set;
@@ -32,6 +32,6 @@ class PostmanEnvironmentTest {
             .mutableEnvCopyWithKeysEndingWith(String.class, "Id")
             .mutableEnvCopyWithKeysNotEndingWith(String.class, "PsgId", "UserId");
     assertThat(filteredEnv)
-        .containsExactlyInAnyOrderEntriesOf(Map.of("mockTaxAdapterId", "mockTaxAdapterId"));
+        .containsExactlyEntriesIn(Map.of("mockTaxAdapterId", "mockTaxAdapterId"));
   }
 }

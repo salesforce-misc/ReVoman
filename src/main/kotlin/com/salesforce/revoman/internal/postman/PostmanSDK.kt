@@ -8,14 +8,15 @@
 package com.salesforce.revoman.internal.postman
 
 import com.github.underscore.U
+import com.salesforce.revoman.internal.exe.jsContext
+import com.salesforce.revoman.internal.json.moshiReVoman
 import com.salesforce.revoman.internal.postman.template.Request
 import com.salesforce.revoman.output.postman.PostmanEnvironment
-import com.squareup.moshi.JsonClass
-import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapter
+import org.graalvm.polyglot.Value
 
 /**
- * SDK to be used in Javascript as per this API reference:
+ * SDK to use in TestsJs, to be compatible with the Postman API reference:
  * https://learning.postman.com/docs/writing-scripts/script-references/postman-sandbox-api-reference/
  */
 internal class PostmanSDK {
@@ -28,20 +29,21 @@ internal class PostmanSDK {
     environment.set(key, value)
   }
 
-  @JvmField val xml2Json = Xml2Json { xml -> jsonStrToMap(U.xmlToJson(xml)) }
+  @JvmField val xml2Json = Xml2Json { xml -> jsonStrToObj(U.xmlToJson(xml)) }
 }
 
 @SuppressWarnings("kotlin:S6517")
 @FunctionalInterface // DON'T REMOVE THIS. Polyglot won't work without this
 internal fun interface Xml2Json {
-  @Suppress("unused") fun xml2Json(xml: String): Map<*, *>?
+  @Suppress("unused") fun xml2Json(xml: String): Any?
 }
 
-@JsonClass(generateAdapter = true)
-data class Response(val code: String, val status: String, val body: String) {
-  fun json(): Map<*, *>? = jsonStrToMap(body)
+/**
+ * https://www.graalvm.org/22.3/reference-manual/embed-languages/#define-guest-language-functions-as-java-values
+ */
+data class Response(val code: Int, val status: String, val body: String) {
+  fun json(): Value? = jsContext.eval("js", "jsonStr => JSON.parse(jsonStr)").execute(body)
 }
 
 @OptIn(ExperimentalStdlibApi::class)
-fun jsonStrToMap(jsonStr: String): Map<*, *>? =
-  Moshi.Builder().build().adapter<Map<*, *>>().fromJson(jsonStr)
+fun jsonStrToObj(jsonStr: String): Any? = moshiReVoman.adapter<Any>().fromJson(jsonStr)

@@ -7,13 +7,13 @@
 
 package com.salesforce.revoman.integration.pokemon;
 
+import static com.google.common.truth.Truth.assertThat;
 import static com.salesforce.revoman.input.config.HookConfig.post;
 import static com.salesforce.revoman.input.config.HookConfig.pre;
 import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.afterAllStepsContainingHeader;
 import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.afterStepName;
 import static com.salesforce.revoman.input.config.StepPick.PreTxnStepPick.beforeAllStepsContainingHeader;
 import static com.salesforce.revoman.input.config.StepPick.PreTxnStepPick.beforeStepName;
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
 
@@ -114,7 +114,7 @@ class PokemonTest {
     Mockito.verify(postLogHook, times(1)).accept(any(), any());
     assertThat(pokeRundown.stepReports).hasSize(5);
     assertThat(pokeRundown.mutableEnv)
-        .containsExactlyInAnyOrderEntriesOf(
+        .containsExactlyEntriesIn(
             Map.of(
                 "offset", String.valueOf(OFFSET),
                 "limit", String.valueOf(newLimit),

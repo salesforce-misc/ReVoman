@@ -7,6 +7,7 @@
 
 package com.salesforce.revoman.integration.core.pq;
 
+import static com.google.common.truth.Truth.assertThat;
 import static com.salesforce.revoman.input.config.HookConfig.post;
 import static com.salesforce.revoman.input.config.HookConfig.pre;
 import static com.salesforce.revoman.input.config.RequestConfig.unmarshallRequest;
@@ -17,7 +18,6 @@ import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.after
 import static com.salesforce.revoman.input.config.StepPick.PreTxnStepPick.beforeAllStepsWithURIPathEndingWith;
 import static com.salesforce.revoman.integration.core.pq.adapters.ConnectInputRepWithGraphAdapter.adapter;
 import static com.salesforce.revoman.output.ExeType.HTTP_STATUS;
-import static org.assertj.core.api.Assertions.assertThat;
 
 import com.salesforce.revoman.ReVoman;
 import com.salesforce.revoman.input.config.Kick;
@@ -111,7 +111,7 @@ class PQE2EWithSMTest {
                 .off()); // Kick-off
     assertThat(pqRundown.firstUnIgnoredUnsuccessfulStepReport()).isNull(); // <13>
     assertThat(pqRundown.mutableEnv)
-        .containsAllEntriesOf(
+        .containsAtLeastEntriesIn(
             Map.of(
                 "quoteCalculationStatusForSkipPricing", PricingPref.Skip.completeStatus,
                 "quoteCalculationStatus", PricingPref.System.completeStatus,
@@ -136,10 +136,10 @@ class PQE2EWithSMTest {
     final var productIdsFromEnv = env.valuesForKeysEndingWith(String.class, "ProductId");
     final var productIdsFromCreatedQLIs =
         env.valuesForKeysStartingWith(String.class, "productForQLI");
-    assertThat(productIdsFromCreatedQLIs).containsAll(productIdsFromEnv);
+    assertThat(productIdsFromCreatedQLIs).containsAtLeastElementsIn(productIdsFromEnv);
     // QLRs: QuoteId
     final var quoteIdFromQLRs = env.valuesForKeysStartingWith(String.class, "quoteForQLR");
-    assertThat(quoteIdFromQLRs).containsOnly(env.getString("quoteId"));
+    assertThat(quoteIdFromQLRs).containsExactly(env.getString("quoteId"));
   }
 
   private enum PricingPref {

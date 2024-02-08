@@ -7,7 +7,7 @@
 
 package com.salesforce.revoman.input;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static com.google.common.truth.Truth.assertThat;
 
 import com.salesforce.revoman.input.json.JsonPojoUtils;
 import java.util.Date;
@@ -51,7 +51,7 @@ class JsonPojoUtilsTest {
     final var nestedBean = new NestedBean("container", new Bean("bean", List.of("item1", "item2")));
     final var nestedBeanJson = JsonPojoUtils.pojoToJson(NestedBean.class, nestedBean);
     System.out.println(nestedBeanJson);
-    assertThat(nestedBeanJson).isNotBlank();
+    assertThat(nestedBeanJson).isNotEmpty();
   }
 
   private static class Bean {

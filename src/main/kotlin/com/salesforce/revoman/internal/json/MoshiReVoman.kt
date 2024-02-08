@@ -31,7 +31,7 @@ import org.http4k.format.ThrowableAdapter
 import org.http4k.format.asConfigurable
 import org.http4k.format.withStandardMappings
 
-private lateinit var moshiReVoman: Moshi
+internal lateinit var moshiReVoman: Moshi
 
 @JvmOverloads
 internal fun initMoshi(

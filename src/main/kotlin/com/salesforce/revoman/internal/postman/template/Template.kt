@@ -7,7 +7,7 @@
  */
 package com.salesforce.revoman.internal.postman.template
 
-import com.salesforce.revoman.internal.postman.jsonStrToMap
+import com.salesforce.revoman.internal.postman.jsonStrToObj
 import com.squareup.moshi.JsonClass
 import org.http4k.core.ContentType
 import org.http4k.core.ContentType.Companion.APPLICATION_JSON
@@ -64,5 +64,5 @@ data class Request(
       .body(body?.raw ?: "")
   }
 
-  fun json(): Map<*, *>? = jsonStrToMap(body?.raw ?: "")
+  fun json(): Any? = jsonStrToObj(body?.raw ?: "")
 }

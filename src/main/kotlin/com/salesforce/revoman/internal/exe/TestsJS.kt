@@ -21,6 +21,7 @@ import org.graalvm.polyglot.HostAccess
 import org.graalvm.polyglot.Source
 import org.http4k.core.Response
 
+/** Refer: https://www.graalvm.org/22.3/reference-manual/embed-languages/ */
 internal val jsContext =
   buildJsContext(false).also {
     it.getBindings("js").putMember("pm", pm)
@@ -77,8 +78,8 @@ private fun executeTestsJS(
     RegexReplacer(pm.environment, customDynamicVariables)
       .replaceRegexRecursively(testScriptWithRegex)
   if (!testScript.isNullOrBlank()) {
-    val testSource = Source.newBuilder("js", testScript, "pmItemTestScript.js").build()
     jsContext.getBindings("js").putMember("responseBody", httpResponse.bodyString())
+    val testSource = Source.newBuilder("js", testScript, "pmItemTestScript.js").build()
     // ! TODO gopala.akshintala 15/05/22: Keep a tab on jsContext mix-up from different steps
     jsContext.eval(testSource)
   }
@@ -88,8 +89,8 @@ private fun loadIntoPmEnvironment(stepRequest: Request, response: Response) {
   pm.request = stepRequest
   pm.response =
     com.salesforce.revoman.internal.postman.Response(
+      response.status.code,
       response.status.toString(),
-      response.status.code.toString(),
       response.bodyString()
     )
 }

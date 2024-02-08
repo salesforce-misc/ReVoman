@@ -7,9 +7,9 @@
 
 package com.salesforce.revoman.input.json;
 
+import static com.google.common.truth.Truth.assertThat;
 import static com.salesforce.revoman.integration.core.pq.adapters.ConnectInputRepWithGraphAdapter.adapter;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.salesforce.revoman.integration.core.pq.connect.request.PlaceQuoteInputRepresentation;
 import com.salesforce.revoman.integration.core.pq.connect.request.PricingPreferenceEnum;
@@ -48,13 +48,16 @@ class JsonReaderUtilsTest {
   @Test
   @DisplayName("No Enum match found")
   void noEnumFound() {
-    assertThatExceptionOfType(JsonDataException.class)
-        .isThrownBy(
+    final var jsonDataException =
+        assertThrows(
+            JsonDataException.class,
             () -> {
               JsonPojoUtils.<PojoWithEnum>jsonToPojo(
                   PojoWithEnum.class, "{\n" + "  \"pricingPref\": \"XYZ\"\n" + "}");
-            })
-        .withMessage("Expected one of [Force, Skip, System] but was XYZ at path $.pricingPref");
+            });
+    assertThat(jsonDataException)
+        .hasMessageThat()
+        .contains("Expected one of [Force, Skip, System] but was XYZ at path $.pricingPref");
   }
 
   private static class PojoWithEnum {

@@ -21,18 +21,18 @@ dependencies {
   api(libs.kotlin.vavr)
   api(libs.arrow.core)
   implementation(libs.bundles.kotlin.logging)
+  implementation(libs.pprint)
   implementation(libs.graal.sdk)
   implementation(libs.graal.js)
   implementation(libs.kotlin.faker)
   implementation(libs.underscore)
   implementation(libs.okio.jvm)
   implementation(libs.spring.beans)
-  implementation(libs.pprint)
   kapt(libs.immutables.value)
   compileOnly(libs.immutables.builder)
   compileOnly(libs.immutables.value.annotations)
   compileOnly(libs.jetbrains.annotations)
-  testImplementation(libs.assertj.core)
+  testImplementation(libs.truth)
 }
 
 testing {
@@ -42,7 +42,7 @@ testing {
       registering(JvmTestSuite::class) {
         dependencies {
           implementation(project())
-          implementation(libs.assertj.core)
+          implementation(libs.truth)
           implementation(libs.mockito.core)
           implementation(libs.spring.beans)
           implementation(libs.json.assert)
