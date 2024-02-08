@@ -1,6 +1,6 @@
 [versions]
 kotlin = "1.9.22"
-http4k = "5.13.4.1"
+http4k = "5.13.5.0"
 moshix = "0.25.1"
 arrow = "1.2.1"
 graal = "22.3.3" # 22.3.3 Compatable with Java 11
@@ -16,7 +16,7 @@ truth = "1.4.0"
 assertj-core = "3.25.3"
 assertj-vavr = "0.4.3"
 kotlin-logging = "6.0.3"
-pprint = "2.0.1"
+pprint = "2.0.2"
 underscore = "1.98"
 kotlin-faker = "1.15.0"
 immutables = "2.10.0"
