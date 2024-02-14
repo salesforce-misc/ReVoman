@@ -5,7 +5,12 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  * ************************************************************************************************
  */
-const val GROUP_ID = "com.salesforce.revoman"
-const val VERSION = "0.33.7"
-const val ARTIFACT_ID = "revoman"
-const val STAGING_PROFILE_ID = "1ea0a23e61ba7d"
+package com.salesforce.revoman.input.json
+
+fun interface NestedNodeWriter<T> {
+  @Throws(Throwable::class) fun write(t: T)
+}
+
+fun interface NestedNodeReader<T> {
+  @Throws(Throwable::class) fun read(t: T, s: String)
+}

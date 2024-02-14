@@ -33,6 +33,7 @@ dependencies {
   compileOnly(libs.immutables.value.annotations)
   compileOnly(libs.jetbrains.annotations)
   testImplementation(libs.truth)
+  testImplementation(libs.json.assert)
 }
 
 testing {

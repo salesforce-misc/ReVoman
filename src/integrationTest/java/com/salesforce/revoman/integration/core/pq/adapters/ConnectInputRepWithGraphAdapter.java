@@ -27,7 +27,6 @@ import com.squareup.moshi.JsonAdapter;
 import com.squareup.moshi.JsonReader;
 import com.squareup.moshi.JsonWriter;
 import com.squareup.moshi.Moshi;
-import io.vavr.control.Try;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;
 import java.util.Set;
@@ -119,7 +118,12 @@ public class ConnectInputRepWithGraphAdapter<T extends ConnectInputRepresentatio
         connectInputRepWithGraph,
         writer,
         cirwg -> {
-          writeProps(writer, pojoType, cirwg, Set.of(ObjectGraphInputRepresentation.class), moshi);
+          writeProps(
+              writer,
+              pojoType,
+              cirwg,
+              Set.of(ObjectGraphInputRepresentation.class),
+              dynamicJsonAdapter);
           objW(
               "graph",
               cirwg.getGraph(),
@@ -136,12 +140,8 @@ public class ConnectInputRepWithGraphAdapter<T extends ConnectInputRepresentatio
                             writer,
                             rec -> {
                               string("referenceId", rec.getReferenceId(), writer);
-                              Try.run(
-                                  () -> {
-                                    writer.name("record");
-                                    dynamicJsonAdapter.toJson(
-                                        writer, rec.getRecord().getRecordBody());
-                                  });
+                              writer.name("record");
+                              dynamicJsonAdapter.toJson(writer, rec.getRecord().getRecordBody());
                             }));
               });
         });

@@ -1,0 +1,20 @@
+{
+  "pricingPref": "skip",
+  "configurationInput": "skip",
+  "graph": {
+    "graphId": "pq-update-quote",
+    "records": [
+      {
+        "referenceId": "refQuote",
+        "record": {
+          "attributes": {
+            "type": "Quote",
+            "method": "PATCH",
+            "id": "quoteId"
+          },
+          "Name": "Overfullstack"
+        }
+      }
+    ]
+  }
+}

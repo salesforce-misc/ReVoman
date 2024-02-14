@@ -5,11 +5,10 @@
  *  http://www.apache.org/licenses/LICENSE-2.0
  **************************************************************************************************/
 
-package com.salesforce.revoman.input;
+package com.salesforce.revoman.input.json;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.salesforce.revoman.input.json.JsonPojoUtils;
 import java.util.Date;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
