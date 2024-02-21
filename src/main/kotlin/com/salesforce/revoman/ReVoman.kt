@@ -28,11 +28,15 @@ import com.salesforce.revoman.internal.postman.RegexReplacer
 import com.salesforce.revoman.internal.postman.initPmEnvironment
 import com.salesforce.revoman.internal.postman.pm
 import com.salesforce.revoman.internal.postman.template.Template
+import com.salesforce.revoman.notification.NotificationFactory
+import com.salesforce.revoman.notification.NotifierTypes
 import com.salesforce.revoman.output.Rundown
 import com.salesforce.revoman.output.report.Step
 import com.salesforce.revoman.output.report.StepReport
 import com.salesforce.revoman.output.report.StepReport.Companion.toVavr
 import com.salesforce.revoman.output.report.TxnInfo
+import com.slack.api.webhook.Payload
+import com.slack.api.webhook.Payload.PayloadBuilder
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapter
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -68,7 +72,17 @@ object ReVoman {
           kick.typesToIgnoreForMarshalling()
         )
       )
+    
+    notifyUsers(kick, stepNameToReport)
     return Rundown(stepNameToReport, pm.environment, kick.haltOnFailureOfTypeExcept())
+  }
+
+  private fun notifyUsers(kick: Kick, stepNameToReport: List<StepReport>) {
+    val notifier = NotificationFactory().createNotifier<Payload>(NotifierTypes.SLACK)
+    val message = Payload.builder()
+      .text("Hello from app!!")
+      .build()
+    notifier.notifyUser(message)
   }
 
   private fun executeStepsSerially(
