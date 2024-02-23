@@ -28,7 +28,7 @@ class ExeUtilsTest {
         Moshi.Builder()
           .build()
           .adapter<Template>()
-          .fromJson(bufferFileInResources("pmCollection/steps-with-folders.json"))!!
+          .fromJson(bufferFileInResources("pm-templates/steps-with-folders.json"))!!
           .item
       )
       .map { it }

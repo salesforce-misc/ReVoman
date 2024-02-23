@@ -22,7 +22,7 @@ data class TxnInfo<HttpMsgT : HttpMessage>(
   @JvmField val httpMsg: HttpMsgT,
   @JvmField val isJson: Boolean = true
 ) {
-  fun <T> getTypedTxnObj(): T? = txnObjType?.let { (it as Class<T>).cast(txnObj) }
+  fun <T> getTypedTxnObj(): T? = (txnObjType as? Class<T>)?.cast(txnObj)
 
   @JvmOverloads
   fun <T : Any> getTypedTxnObj(

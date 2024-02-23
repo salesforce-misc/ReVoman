@@ -8,15 +8,15 @@
 package com.salesforce.revoman.internal.json.factories
 
 import com.squareup.moshi.JsonAdapter
+import com.squareup.moshi.JsonAdapter.Factory
 import com.squareup.moshi.JsonReader
 import com.squareup.moshi.JsonWriter
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
 import java.lang.reflect.Type
 
-internal class IgnoreUnknownFactory(private val typesToIgnore: Set<Class<out Any>>) :
-  JsonAdapter.Factory {
-  override fun create(type: Type, annotations: Set<Annotation?>, moshi: Moshi): JsonAdapter<*> {
+internal class IgnoreUnknownFactory(private val typesToIgnore: Set<Class<out Any>>) : Factory {
+  override fun create(type: Type, annotations: Set<Annotation?>, moshi: Moshi): JsonAdapter<*>? {
     val rawType: Class<*> = Types.getRawType(type)
     return if (typesToIgnore.contains(rawType)) {
       object : JsonAdapter<Type>() {
@@ -26,8 +26,6 @@ internal class IgnoreUnknownFactory(private val typesToIgnore: Set<Class<out Any
           // do nothing
         }
       }
-    } else {
-      moshi.nextAdapter<Any>(this, type, annotations)
-    }
+    } else null
   }
 }

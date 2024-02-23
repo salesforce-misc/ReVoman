@@ -11,6 +11,7 @@ package com.salesforce.revoman.internal.json
 
 import com.salesforce.revoman.internal.json.adapters.BigDecimalAdapter
 import com.salesforce.revoman.internal.json.adapters.EpochAdapter
+import com.salesforce.revoman.internal.json.adapters.TypeAdapter
 import com.salesforce.revoman.internal.json.adapters.UUIDAdapter
 import com.salesforce.revoman.internal.json.factories.CaseInsensitiveEnumAdapter
 import com.salesforce.revoman.internal.json.factories.IgnoreUnknownFactory
@@ -54,6 +55,7 @@ internal fun buildMoshi(
     Moshi.Builder()
       .add(JsonString.Factory())
       .add(AdaptedBy.Factory())
+      .add(TypeAdapter)
       .add(BigDecimalAdapter)
       .add(UUIDAdapter)
       .add(EpochAdapter)
