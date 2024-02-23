@@ -30,13 +30,14 @@ import com.salesforce.revoman.internal.postman.pm
 import com.salesforce.revoman.internal.postman.template.Template
 import com.salesforce.revoman.notification.NotificationFactory
 import com.salesforce.revoman.notification.NotifierTypes
+import com.salesforce.revoman.notification.reports.StepExecutionsResult
+import com.salesforce.revoman.notification.PayloadBuilder.slackSummaryReportPayloadBuilder
 import com.salesforce.revoman.output.Rundown
 import com.salesforce.revoman.output.report.Step
 import com.salesforce.revoman.output.report.StepReport
 import com.salesforce.revoman.output.report.StepReport.Companion.toVavr
 import com.salesforce.revoman.output.report.TxnInfo
 import com.slack.api.webhook.Payload
-import com.slack.api.webhook.Payload.PayloadBuilder
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapter
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -69,20 +70,23 @@ object ReVoman {
         initMoshi(
           kick.customAdaptersForMarshalling(),
           kick.customAdaptersFromRequestConfig() + kick.customAdaptersFromResponseConfig(),
-          kick.typesToIgnoreForMarshalling()
-        )
+          kick.typesToIgnoreForMarshalling(),
+        ),
       )
     
-    notifyUsers(kick, stepNameToReport)
+    val stepExecutionsResult = getStepReportDetails(stepNameToReport)
+    notifyUsers(stepExecutionsResult)
     return Rundown(stepNameToReport, pm.environment, kick.haltOnFailureOfTypeExcept())
   }
 
-  private fun notifyUsers(kick: Kick, stepNameToReport: List<StepReport>) {
+  private fun getStepReportDetails(stepNameToReport: List<StepReport>): StepExecutionsResult {
+    val summaryResult = StepExecutionsResult(stepNameToReport.size, stepNameToReport.count { it.isSuccessful  }, stepNameToReport.count { !it.isSuccessful  }, "https://www.google.com")
+    return summaryResult
+  }
+
+  private fun notifyUsers(stepExecutionsResult: StepExecutionsResult) {
     val notifier = NotificationFactory().createNotifier<Payload>(NotifierTypes.SLACK)
-    val message = Payload.builder()
-      .text("Hello from app!!")
-      .build()
-    notifier.notifyUser(message)
+    notifier.notifyUser(slackSummaryReportPayloadBuilder(stepExecutionsResult))
   }
 
   private fun executeStepsSerially(

@@ -1,8 +1,9 @@
-package com.salesforce.revoman.notification
+package com.salesforce.revoman.notification.slack
 
-import io.github.oshai.kotlinlogging.KotlinLogging
-import com.slack.api.Slack;
+import com.salesforce.revoman.notification.Notification
+import com.slack.api.Slack
 import com.slack.api.webhook.Payload
+import io.github.oshai.kotlinlogging.KotlinLogging
 
 class SlackNotifier<T> : Notification<T> {
   companion object {
@@ -20,6 +21,6 @@ class SlackNotifier<T> : Notification<T> {
     val response = slack.send(SLACK_WEBHOOK_URL, message as Payload);
     logger.info { "Got response: ${response.body}" }
   }
-}
 
-private val logger = KotlinLogging.logger {}
+  private val logger = KotlinLogging.logger {}
+}
