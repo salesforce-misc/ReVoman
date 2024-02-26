@@ -28,6 +28,10 @@ dependencies {
   implementation(libs.underscore)
   implementation(libs.okio.jvm)
   implementation(libs.spring.beans)
+  // Slack notification packages
+  implementation("com.slack.api:slack-api-client:1.38.1")
+  implementation("com.slack.api:slack-api-model-kotlin-extension:1.38.1")
+  implementation("com.slack.api:slack-api-client-kotlin-extension:1.38.1")
   kapt(libs.immutables.value)
   compileOnly(libs.immutables.builder)
   compileOnly(libs.immutables.value.annotations)
