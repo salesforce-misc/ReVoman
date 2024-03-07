@@ -11,12 +11,7 @@ jobs:
           java-version: 11
 
       - name: 'Setup Gradle'
-        uses: gradle/gradle-build-action@v3.1.0
+        uses: gradle/gradle-build-action@v3
 
       - name: 'Gradle test'
         run: ./gradlew test integrationTest --tests com.salesforce.revoman.integration.pokemon.PokemonTest
-        
-      - name: 'Qodana Scan'
-        uses: JetBrains/qodana-action@v2023.3
-        env:
-          QODANA_TOKEN: ${{ secrets.QODANA_TOKEN }}
