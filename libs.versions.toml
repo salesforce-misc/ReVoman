@@ -24,6 +24,7 @@ mockito = "5.10.0"
 spring = "5.3.31" # 5.3.31 Compatable with Java 11
 json-assert = "1.5.1"
 nexus-publish = "2.0.0-rc-2"
+kotlinx-datetime = "0.6.0-RC.2"
 
 # Common dependencies
 junit = "5.10.2"
@@ -64,6 +65,7 @@ pprint = { module = "io.exoquery:pprint-kotlin", version.ref = "pprint" }
 mockito-core = { module = "org.mockito:mockito-core", version.ref = "mockito" }
 spring-beans = { module = "org.springframework:spring-beans", version.ref = "spring" }
 json-assert = { module = "org.skyscreamer:jsonassert", version.ref = "json-assert" }
+kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime-jvm", version.ref = "kotlinx-datetime" }
 
 # Gradle plugins
 kotlin-gradle = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }

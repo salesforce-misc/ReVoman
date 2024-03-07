@@ -13,7 +13,6 @@ import com.squareup.moshi.JsonClass
 import com.squareup.moshi.adapter
 import io.kotest.matchers.shouldBe
 import java.text.SimpleDateFormat
-import java.time.Instant
 import java.util.*
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
@@ -39,7 +38,7 @@ class AdapterTest {
     """
         .trimIndent()
     val result = moshiReVoman.adapter<BeanWithDate>().fromJson(jsonWithEpoch)
-    result?.date shouldBe Date.from(Instant.ofEpochSecond(epochDate))
+    result?.date?.toInstant()?.toEpochMilli() shouldBe epochDate
   }
 
   @OptIn(ExperimentalStdlibApi::class)
