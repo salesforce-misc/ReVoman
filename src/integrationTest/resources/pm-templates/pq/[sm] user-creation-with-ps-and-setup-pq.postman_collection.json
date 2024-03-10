@@ -1,0 +1,2950 @@
+{
+	"info": {
+		"_postman_id": "887a1603-ed57-4a39-ac5f-0d2c02d72767",
+		"name": "[sm] user-creation-with-ps-and-setup-pq",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "23827434",
+		"_collection_link": "https://salesforce-734821.postman.co/workspace/Delphinus-%F0%9F%90%AC~8b8cf020-27dc-46b1-8de1-2b679073163c/collection/23827434-887a1603-ed57-4a39-ac5f-0d2c02d72767?action=share&source=collection_link&creator=23827434"
+	},
+	"item": [
+		{
+			"name": "user-creation",
+			"item": [
+				{
+					"name": "latest-api-version",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json()",
+									"var lastNode = jsonData.pop();",
+									"pm.environment.set(\"version\", lastNode.version);",
+									"pm.environment.set(\"versionPath\", lastNode.url);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"protocolProfileBehavior": {
+						"disabledSystemHeaders": {
+							"accept": true,
+							"content-type": true
+						},
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "text/xml"
+							},
+							{
+								"key": "SOAPAction",
+								"value": "login"
+							},
+							{
+								"key": "charset",
+								"value": "UTF-8",
+								"type": "text"
+							},
+							{
+								"key": "Accept",
+								"value": "text/xml",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<env:Envelope xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"\n    xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n    xmlns:env=\"http://schemas.xmlsoap.org/soap/envelope/\">\n  <env:Body>\n    <n1:login xmlns:n1=\"urn:partner.soap.sforce.com\">\n      <n1:username><![CDATA[{{username}}]]></n1:username>\n      <n1:password><![CDATA[{{password}}]]></n1:password>\n    </n1:login>\n  </env:Body>\n</env:Envelope>"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/services/data/",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"services",
+								"data",
+								""
+							]
+						},
+						"description": "Login to Salesforce"
+					},
+					"response": []
+				},
+				{
+					"name": "Login as SysAdmin",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = xml2Json(responseBody);",
+									"var sessionId = jsonData['soapenv:Envelope']['soapenv:Body'].loginResponse.result.sessionId",
+									"pm.environment.set(\"accessToken\", sessionId);",
+									"var result = jsonData['soapenv:Envelope']['soapenv:Body'].loginResponse.result;",
+									"",
+									"var adminUserId = result.userId",
+									"pm.environment.set(\"adminUserId\", adminUserId)",
+									"",
+									"var orgId = result.userInfo.organizationId",
+									"pm.environment.set(\"orgId\", orgId)"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"protocolProfileBehavior": {
+						"disabledSystemHeaders": {
+							"accept": true,
+							"content-type": true,
+							"user-agent": true
+						}
+					},
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "text/xml"
+							},
+							{
+								"key": "SOAPAction",
+								"value": "login"
+							},
+							{
+								"key": "charset",
+								"value": "UTF-8",
+								"type": "text"
+							},
+							{
+								"key": "Accept",
+								"value": "text/xml",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<env:Envelope xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"\n    xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n    xmlns:env=\"http://schemas.xmlsoap.org/soap/envelope/\">\n  <env:Body>\n    <n1:login xmlns:n1=\"urn:partner.soap.sforce.com\">\n      <n1:username><![CDATA[{{username}}]]></n1:username>\n      <n1:password><![CDATA[{{password}}{{secretToken-admin}}]]></n1:password>\n    </n1:login>\n  </env:Body>\n</env:Envelope>"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/services/Soap/u/{{version}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"services",
+								"Soap",
+								"u",
+								"{{version}}"
+							]
+						},
+						"description": "Login to Salesforce"
+					},
+					"response": []
+				},
+				{
+					"name": "Standard User Profile",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var statusCode = pm.response.code;",
+									"",
+									"var jsonData = pm.response.json()",
+									"if (jsonData.records[0]!=null) {",
+									"    pm.environment.set(\"standardUserProfileId\", jsonData.records[0].Id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Content-Type",
+								"name": "Content-Type",
+								"type": "text",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "{{baseUrl}}{{versionPath}}/query/?q=SELECT Id FROM Profile where Name = 'Standard User'",
+							"host": [
+								"{{baseUrl}}{{versionPath}}"
+							],
+							"path": [
+								"query",
+								""
+							],
+							"query": [
+								{
+									"key": "q",
+									"value": "SELECT Id FROM Profile where Name = 'Standard User'"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "BillingAdminPermSets",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"jsonData.records.forEach((record, index) => {",
+									"    pm.environment.set(\"billingAdminPS\" + (index + 1) + \"Id\", record.Id)",
+									"})"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Content-Type",
+								"name": "Content-Type",
+								"type": "text",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "{{baseUrl}}{{versionPath}}/query/?q=SELECT Id, Name FROM PermissionSet WHERE Id IN (SELECT PermissionSetId FROM PermissionSetGroupComponent WHERE PermissionSetGroup.DeveloperName IN ('SubscriptionManagementBillingAdmin'))",
+							"host": [
+								"{{baseUrl}}{{versionPath}}"
+							],
+							"path": [
+								"query",
+								""
+							],
+							"query": [
+								{
+									"key": "q",
+									"value": "SELECT Id, Name FROM PermissionSet WHERE Id IN (SELECT PermissionSetId FROM PermissionSetGroupComponent WHERE PermissionSetGroup.DeveloperName IN ('SubscriptionManagementBillingAdmin'))"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "BillingAdminUser",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"pm.environment.set(\"billingAdminUserName\", \"billingAdmin4-sm@revoman.org\");"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json()",
+									"pm.environment.set(\"billingAdminUserId\", jsonData.graphs[0].graphResponse.compositeResponse[0].body.id);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"graphs\": [\n    {\n      \"graphId\": \"1\",\n      \"compositeRequest\": [\n        {\n          \"method\": \"POST\",\n          \"url\": \"{{versionPath}}/sobjects/User\",\n          \"referenceId\": \"refUser\",\n          \"body\": {\n            \"Username\": \"{{billingAdminUserName}}\",\n            \"Alias\": \"bAdmin\",\n            \"ProfileId\": \"{{standardUserProfileId}}\",\n            \"Email\": \"{{$randomEmail}}\",\n            \"EmailEncodingKey\": \"ISO-8859-1\",\n            \"LastName\": \"Cloudy\",\n            \"LanguageLocaleKey\": \"en_US\",\n            \"LocaleSidKey\": \"en_US\",\n            \"TimeZoneSidKey\": \"America/Los_Angeles\"\n          }\n        },\n        {\n          \"method\": \"POST\",\n          \"url\": \"{{versionPath}}/sobjects/PermissionSetAssignment/\",\n          \"referenceId\": \"billingAdminPS1Assignment\",\n          \"body\": {\n            \"AssigneeId\": \"@{refUser.id}\",\n            \"PermissionSetId\": \"{{billingAdminPS1Id}}\"\n          }\n        },\n        {\n          \"method\": \"POST\",\n          \"url\": \"{{versionPath}}/sobjects/PermissionSetAssignment/\",\n          \"referenceId\": \"billingAdminPS2Assignment\",\n          \"body\": {\n            \"AssigneeId\": \"@{refUser.id}\",\n            \"PermissionSetId\": \"{{billingAdminPS2Id}}\"\n          }\n        },\n        {\n          \"method\": \"POST\",\n          \"url\": \"{{versionPath}}/sobjects/PermissionSetAssignment/\",\n          \"referenceId\": \"billingAdminPS3Assignment\",\n          \"body\": {\n            \"AssigneeId\": \"@{refUser.id}\",\n            \"PermissionSetId\": \"{{billingAdminPS3Id}}\"\n          }\n        },\n        {\n          \"method\": \"POST\",\n          \"url\": \"{{versionPath}}/sobjects/PermissionSetAssignment/\",\n          \"referenceId\": \"billingAdminPS4Assignment\",\n          \"body\": {\n            \"AssigneeId\": \"@{refUser.id}\",\n            \"PermissionSetId\": \"{{billingAdminPS4Id}}\"\n          }\n        },\n        {\n          \"method\": \"POST\",\n          \"url\": \"{{versionPath}}/sobjects/PermissionSetAssignment/\",\n          \"referenceId\": \"billingAdminPS5Assignment\",\n          \"body\": {\n            \"AssigneeId\": \"@{refUser.id}\",\n            \"PermissionSetId\": \"{{billingAdminPS5Id}}\"\n          }\n        },\n        {\n          \"method\": \"POST\",\n          \"url\": \"{{versionPath}}/sobjects/PermissionSetAssignment/\",\n          \"referenceId\": \"billingAdminPS6Assignment\",\n          \"body\": {\n            \"AssigneeId\": \"@{refUser.id}\",\n            \"PermissionSetId\": \"{{billingAdminPS6Id}}\"\n          }\n        }\n      ]\n    }\n  ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}{{versionPath}}/composite/graph",
+							"host": [
+								"{{baseUrl}}{{versionPath}}"
+							],
+							"path": [
+								"composite",
+								"graph"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "TaxPermSets",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"jsonData.records.forEach((record, index) => {",
+									"    pm.environment.set(\"taxAdminPS\" + (index + 1) + \"Id\", record.Id)",
+									"})"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Content-Type",
+								"name": "Content-Type",
+								"type": "text",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "{{baseUrl}}{{versionPath}}/query/?q=SELECT Id, Name FROM PermissionSet WHERE Id IN (SELECT PermissionSetId FROM PermissionSetGroupComponent WHERE PermissionSetGroup.DeveloperName IN ('SubscriptionManagementTaxAdmin'))",
+							"host": [
+								"{{baseUrl}}{{versionPath}}"
+							],
+							"path": [
+								"query",
+								""
+							],
+							"query": [
+								{
+									"key": "q",
+									"value": "SELECT Id, Name FROM PermissionSet WHERE Id IN (SELECT PermissionSetId FROM PermissionSetGroupComponent WHERE PermissionSetGroup.DeveloperName IN ('SubscriptionManagementTaxAdmin'))"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "TaxAdminUser",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"pm.environment.set(\"taxAdminUserName\", \"taxAdmin-sm@revoman.org\")"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json()",
+									"pm.environment.set(\"taxAdminUserId\", jsonData.graphs[0].graphResponse.compositeResponse[0].body.id);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"graphs\": [\n    {\n      \"graphId\": \"1\",\n      \"compositeRequest\": [\n        {\n          \"method\": \"POST\",\n          \"url\": \"{{versionPath}}/sobjects/User\",\n          \"referenceId\": \"refUser\",\n          \"body\": {\n            \"Username\": \"{{taxAdminUserName}}\",\n            \"ProfileId\": \"{{standardUserProfileId}}\",\n            \"Alias\": \"taxAdmin\",\n            \"Email\": \"{{$randomEmail}}\",\n            \"EmailEncodingKey\": \"ISO-8859-1\",\n            \"LastName\": \"TaxAdmin\",\n            \"LanguageLocaleKey\": \"en_US\",\n            \"LocaleSidKey\": \"en_US\",\n            \"TimeZoneSidKey\": \"America/Los_Angeles\"\n          }\n        },\n        {\n          \"method\": \"POST\",\n          \"url\": \"{{versionPath}}/sobjects/PermissionSetAssignment/\",\n          \"referenceId\": \"taxAdminPS1Assignment\",\n          \"body\": {\n            \"AssigneeId\": \"@{refUser.id}\",\n            \"PermissionSetId\": \"{{taxAdminPS1Id}}\"\n          }\n        }\n      ]\n    }\n  ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}{{versionPath}}/composite/graph",
+							"host": [
+								"{{baseUrl}}{{versionPath}}"
+							],
+							"path": [
+								"composite",
+								"graph"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "ProductAndPricingAdminPermsets Copy",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"jsonData.records.forEach((record, index) => {",
+									"    pm.environment.set(\"productAndPricingAdminPS\" + (index + 1) + \"Id\", record.Id)",
+									"})"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Content-Type",
+								"name": "Content-Type",
+								"type": "text",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "{{baseUrl}}{{versionPath}}/query/?q=SELECT Id, Name FROM PermissionSet WHERE Id IN (SELECT PermissionSetId FROM PermissionSetGroupComponent WHERE PermissionSetGroup.DeveloperName IN ('SubscriptionManagementProductAndPricingAdmin'))",
+							"host": [
+								"{{baseUrl}}{{versionPath}}"
+							],
+							"path": [
+								"query",
+								""
+							],
+							"query": [
+								{
+									"key": "q",
+									"value": "SELECT Id, Name FROM PermissionSet WHERE Id IN (SELECT PermissionSetId FROM PermissionSetGroupComponent WHERE PermissionSetGroup.DeveloperName IN ('SubscriptionManagementProductAndPricingAdmin'))"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "ProductAndPricingAdminUser",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"pm.environment.set(\"productAndPricingAdminUserName\", \"productAndPricingAdmin-sm@revoman.org\");"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json()",
+									"pm.environment.set(\"productAndPricingAdminUserId\", jsonData.graphs[0].graphResponse.compositeResponse[0].body.id);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"graphs\": [\n    {\n      \"graphId\": \"1\",\n      \"compositeRequest\": [\n        {\n          \"method\": \"POST\",\n          \"url\": \"{{versionPath}}/sobjects/User\",\n          \"referenceId\": \"refUser\",\n          \"body\": {\n            \"Username\": \"{{productAndPricingAdminUserName}}\",\n            \"ProfileId\": \"{{standardUserProfileId}}\",\n            \"Alias\": \"prodPr\",\n            \"Email\": \"{{$randomEmail}}\",\n            \"EmailEncodingKey\": \"ISO-8859-1\",\n            \"LastName\": \"Codey\",\n            \"LanguageLocaleKey\": \"en_US\",\n            \"LocaleSidKey\": \"en_US\",\n            \"TimeZoneSidKey\": \"America/Los_Angeles\"\n          }\n        },\n        {\n          \"method\": \"POST\",\n          \"url\": \"{{versionPath}}/sobjects/PermissionSetAssignment/\",\n          \"referenceId\": \"productAndPricingAdminPS1Assignment\",\n          \"body\": {\n            \"AssigneeId\": \"@{refUser.id}\",\n            \"PermissionSetId\": \"{{productAndPricingAdminPS1Id}}\"\n          }\n        },\n        {\n          \"method\": \"POST\",\n          \"url\": \"{{versionPath}}/sobjects/PermissionSetAssignment/\",\n          \"referenceId\": \"productAndPricingAdminPS2Assignment\",\n          \"body\": {\n            \"AssigneeId\": \"@{refUser.id}\",\n            \"PermissionSetId\": \"{{productAndPricingAdminPS2Id}}\"\n          }\n        },\n        {\n          \"method\": \"POST\",\n          \"url\": \"{{versionPath}}/sobjects/PermissionSetAssignment/\",\n          \"referenceId\": \"productAndPricingAdminPS3Assignment\",\n          \"body\": {\n            \"AssigneeId\": \"@{refUser.id}\",\n            \"PermissionSetId\": \"{{productAndPricingAdminPS3Id}}\"\n          }\n        }\n      ]\n    }\n  ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}{{versionPath}}/composite/graph",
+							"host": [
+								"{{baseUrl}}{{versionPath}}"
+							],
+							"path": [
+								"composite",
+								"graph"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "SalesRepPermSets",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"jsonData.records.forEach((record, index) => {",
+									"    pm.environment.set(\"salesRepPS\" + (index + 1) + \"Id\", record.Id)",
+									"})"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Content-Type",
+								"name": "Content-Type",
+								"type": "text",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "{{baseUrl}}{{versionPath}}/query/?q=SELECT Id, Name FROM PermissionSet WHERE Id IN (SELECT PermissionSetId FROM PermissionSetGroupComponent WHERE PermissionSetGroup.DeveloperName IN ('SubscriptionManagementSalesRep'))",
+							"host": [
+								"{{baseUrl}}{{versionPath}}"
+							],
+							"path": [
+								"query",
+								""
+							],
+							"query": [
+								{
+									"key": "q",
+									"value": "SELECT Id, Name FROM PermissionSet WHERE Id IN (SELECT PermissionSetId FROM PermissionSetGroupComponent WHERE PermissionSetGroup.DeveloperName IN ('SubscriptionManagementSalesRep'))"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "SalesRep",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"pm.environment.set(\"salesRepUserName\", \"salesRep-sm@revoman.org\");"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json()",
+									"pm.environment.set(\"salesRepUserId\", jsonData.graphs[0].graphResponse.compositeResponse[0].body.id)"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"graphs\": [\n    {\n      \"graphId\": \"1\",\n      \"compositeRequest\": [\n        {\n          \"method\": \"POST\",\n          \"url\": \"{{versionPath}}/sobjects/User\",\n          \"referenceId\": \"refUser\",\n          \"body\": {\n            \"Username\": \"{{salesRepUserName}}\",\n            \"ProfileId\": \"{{standardUserProfileId}}\",\n            \"Alias\": \"salesRep\",\n            \"Email\": \"{{$randomEmail}}\",\n            \"EmailEncodingKey\": \"ISO-8859-1\",\n            \"LastName\": \"Salaar\",\n            \"LanguageLocaleKey\": \"en_US\",\n            \"LocaleSidKey\": \"en_US\",\n            \"TimeZoneSidKey\": \"America/Los_Angeles\"\n          }\n        },\n        {\n          \"method\": \"POST\",\n          \"url\": \"{{versionPath}}/sobjects/PermissionSetAssignment/\",\n          \"referenceId\": \"salesRepPS1Assignment\",\n          \"body\": {\n            \"AssigneeId\": \"@{refUser.id}\",\n            \"PermissionSetId\": \"{{salesRepPS1Id}}\"\n          }\n        },\n        {\n          \"method\": \"POST\",\n          \"url\": \"{{versionPath}}/sobjects/PermissionSetAssignment/\",\n          \"referenceId\": \"salesRepPS2Assignment\",\n          \"body\": {\n            \"AssigneeId\": \"@{refUser.id}\",\n            \"PermissionSetId\": \"{{salesRepPS2Id}}\"\n          }\n        }\n      ]\n    }\n  ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}{{versionPath}}/composite/graph",
+							"host": [
+								"{{baseUrl}}{{versionPath}}"
+							],
+							"path": [
+								"composite",
+								"graph"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "password-reset",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"allOrNone\": false,\n  \"compositeRequest\": [\n    {\n      \"method\": \"POST\",\n      \"url\": \"{{versionPath}}/sobjects/User/{{taxAdminUserId}}/password\",\n      \"referenceId\": \"taxAdminNewPassword\",\n      \"body\": {\n        \"NewPassword\": \"{{commonUserPassword}}\"\n      }\n    },\n    {\n      \"method\": \"POST\",\n      \"url\": \"{{versionPath}}/sobjects/User/{{billingAdminUserId}}/password\",\n      \"referenceId\": \"billingAdminNewPassword\",\n      \"body\": {\n        \"NewPassword\": \"{{commonUserPassword}}\"\n      }\n    },\n    {\n      \"method\": \"POST\",\n      \"url\": \"{{versionPath}}/sobjects/User/{{productAndPricingAdminUserId}}/password\",\n      \"referenceId\": \"productAndPricingAdminNewPassword\",\n      \"body\": {\n        \"NewPassword\": \"{{commonUserPassword}}\"\n      }\n    },\n    {\n      \"method\": \"POST\",\n      \"url\": \"{{versionPath}}/sobjects/User/{{salesRepUserId}}/password\",\n      \"referenceId\": \"salesRepNewPassword\",\n      \"body\": {\n        \"NewPassword\": \"{{commonUserPassword}}\"\n      }\n    }\n  ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}{{versionPath}}/composite",
+							"host": [
+								"{{baseUrl}}{{versionPath}}"
+							],
+							"path": [
+								"composite"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "setup",
+			"item": [
+				{
+					"name": "billing-setup",
+					"item": [
+						{
+							"name": "Login to BillingAdmin",
+							"event": [
+								{
+									"listen": "prerequest",
+									"script": {
+										"exec": [
+											""
+										],
+										"type": "text/javascript"
+									}
+								},
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"var jsonData = xml2Json(responseBody);",
+											"var sessionId = jsonData['soapenv:Envelope']['soapenv:Body'].loginResponse.result.sessionId",
+											"pm.environment.set(\"accessToken\", sessionId);"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"protocolProfileBehavior": {
+								"disabledSystemHeaders": {
+									"accept": true,
+									"content-type": true
+								}
+							},
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "text/xml"
+									},
+									{
+										"key": "SOAPAction",
+										"value": "login"
+									},
+									{
+										"key": "charset",
+										"value": "UTF-8",
+										"type": "text"
+									},
+									{
+										"key": "Accept",
+										"value": "text/xml",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<env:Envelope xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"\n    xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n    xmlns:env=\"http://schemas.xmlsoap.org/soap/envelope/\">\n  <env:Body>\n    <n1:login xmlns:n1=\"urn:partner.soap.sforce.com\">\n      <n1:username><![CDATA[{{billingAdminUserName}}]]></n1:username>\n      <n1:password><![CDATA[{{commonUserPassword}}{{secretToken-billingAdmin}}]]></n1:password>\n    </n1:login>\n  </env:Body>\n</env:Envelope>"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/services/Soap/u/{{version}}",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"services",
+										"Soap",
+										"u",
+										"{{version}}"
+									]
+								},
+								"description": "Login to Salesforce"
+							},
+							"response": []
+						},
+						{
+							"name": "Billing Policy",
+							"event": [
+								{
+									"listen": "prerequest",
+									"script": {
+										"exec": [
+											""
+										],
+										"type": "text/javascript"
+									}
+								},
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"var jsonData = pm.response.json()",
+											"pm.environment.set(\"billingPolicyId\", jsonData.id)"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"Name\": \"Test Billinng Policy\",\n    \"Status\": \"Draft\",\n    \"BillingTreatmentSelection\": \"Default\",\n    \"Description\": \"Test Billinng Policy\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}{{versionPath}}/sobjects/BillingPolicy/",
+									"host": [
+										"{{baseUrl}}{{versionPath}}"
+									],
+									"path": [
+										"sobjects",
+										"BillingPolicy",
+										""
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Billing Treatment",
+							"event": [
+								{
+									"listen": "prerequest",
+									"script": {
+										"exec": [
+											""
+										],
+										"type": "text/javascript"
+									}
+								},
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"var jsonData = pm.response.json()",
+											"pm.environment.set(\"billingTreatmentId\", jsonData.id)"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"Name\": \"Test Billing Treatment\",\n    \"BillingPolicyId\": \"{{billingPolicyId}}\",\n    \"Description\": \"Test Billing Treatment\",\n    \"Status\": \"Draft\",\n    \"ExcludeFromBilling\":\"No\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}{{versionPath}}/sobjects/BillingTreatment/",
+									"host": [
+										"{{baseUrl}}{{versionPath}}"
+									],
+									"path": [
+										"sobjects",
+										"BillingTreatment",
+										""
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Billing Treatment Item",
+							"event": [
+								{
+									"listen": "prerequest",
+									"script": {
+										"exec": [
+											""
+										],
+										"type": "text/javascript"
+									}
+								},
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"var jsonData = pm.response.json()",
+											"pm.environment.set(\"billingTreatmentItemId\", jsonData.id)"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"Name\": \"Test Billing Treatment Item\",\n    \"Status\": \"Draft\",\n    \"Sequencing\": \"Manual\",\n    \"ProcessingOrder\": 0,\n    \"BillingTreatmentId\": \"{{billingTreatmentId}}\",\n    \"Description\": \"Test Billing Treatment Item\",\n    \"type\": \"Percentage\",\n    \"BillingType\": \"Advance\",\n    \"Percentage\": 100,\n    \"Controller\": \"BillingScheduleGroup\",\n    \"Handling0Amount\": \"CreateInvoice\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}{{versionPath}}/sobjects/BillingTreatmentItem/",
+									"host": [
+										"{{baseUrl}}{{versionPath}}"
+									],
+									"path": [
+										"sobjects",
+										"BillingTreatmentItem",
+										""
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Update Billing Treatment Item",
+							"event": [
+								{
+									"listen": "prerequest",
+									"script": {
+										"exec": [
+											""
+										],
+										"type": "text/javascript"
+									}
+								},
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											" ",
+											" "
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "PATCH",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"Status\": \"Active\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}{{versionPath}}/sobjects/BillingTreatmentItem/{{billingTreatmentItemId}}",
+									"host": [
+										"{{baseUrl}}{{versionPath}}"
+									],
+									"path": [
+										"sobjects",
+										"BillingTreatmentItem",
+										"{{billingTreatmentItemId}}"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Update Billing Treatment",
+							"event": [
+								{
+									"listen": "prerequest",
+									"script": {
+										"exec": [
+											""
+										],
+										"type": "text/javascript"
+									}
+								},
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											" ",
+											" "
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "PATCH",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"Status\": \"Active\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}{{versionPath}}/sobjects/BillingTreatment/{{billingTreatmentId}}",
+									"host": [
+										"{{baseUrl}}{{versionPath}}"
+									],
+									"path": [
+										"sobjects",
+										"BillingTreatment",
+										"{{billingTreatmentId}}"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Update Billing Policy",
+							"event": [
+								{
+									"listen": "prerequest",
+									"script": {
+										"exec": [
+											""
+										],
+										"type": "text/javascript"
+									}
+								},
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											" ",
+											" "
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "PATCH",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"Status\": \"Active\",\n    \"DefaultBillingTreatmentId\": \"{{billingTreatmentId}}\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}{{versionPath}}/sobjects/BillingPolicy/{{billingPolicyId}}",
+									"host": [
+										"{{baseUrl}}{{versionPath}}"
+									],
+									"path": [
+										"sobjects",
+										"BillingPolicy",
+										"{{billingPolicyId}}"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Payment Term",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"var jsonData = pm.response.json()",
+											"pm.environment.set(\"paymentTermId\", jsonData.id);"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"name": "Content-Type",
+										"type": "text",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"Name\": \"Test Payment Term\",\n    \"IsDefault\": false,\n    \"Description\": \"Test Payment Term\",\n    \"Status\": \"Draft\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}{{versionPath}}/sobjects/PaymentTerm",
+									"host": [
+										"{{baseUrl}}{{versionPath}}"
+									],
+									"path": [
+										"sobjects",
+										"PaymentTerm"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Payment Term Item",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											" ",
+											" "
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"name": "Content-Type",
+										"type": "text",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"Type\": \"Period-Based\",\n    \"Period\": 30,\n    \"PeriodUnit\": \"Days\",\n    \"PaymentTermId\": \"{{paymentTermId}}\",\n    \"PaymentTimeframe\": \"Standard\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}{{versionPath}}/sobjects/PaymentTermItem",
+									"host": [
+										"{{baseUrl}}{{versionPath}}"
+									],
+									"path": [
+										"sobjects",
+										"PaymentTermItem"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Update Payment Term",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											" ",
+											" "
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "PATCH",
+								"header": [
+									{
+										"key": "Content-Type",
+										"name": "Content-Type",
+										"type": "text",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"IsDefault\": true,\n    \"Status\": \"Active\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}{{versionPath}}/sobjects/PaymentTerm/{{paymentTermId}}",
+									"host": [
+										"{{baseUrl}}{{versionPath}}"
+									],
+									"path": [
+										"sobjects",
+										"PaymentTerm",
+										"{{paymentTermId}}"
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "tax-setup",
+					"item": [
+						{
+							"name": "Login as TaxAdmin",
+							"event": [
+								{
+									"listen": "prerequest",
+									"script": {
+										"exec": [
+											""
+										],
+										"type": "text/javascript"
+									}
+								},
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"var jsonData = xml2Json(responseBody);",
+											"var sessionId = jsonData['soapenv:Envelope']['soapenv:Body'].loginResponse.result.sessionId",
+											"pm.environment.set(\"accessToken\", sessionId);"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"protocolProfileBehavior": {
+								"disabledSystemHeaders": {
+									"accept": true,
+									"content-type": true
+								}
+							},
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "text/xml"
+									},
+									{
+										"key": "SOAPAction",
+										"value": "login"
+									},
+									{
+										"key": "charset",
+										"value": "UTF-8",
+										"type": "text"
+									},
+									{
+										"key": "Accept",
+										"value": "text/xml",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<env:Envelope xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"\n    xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n    xmlns:env=\"http://schemas.xmlsoap.org/soap/envelope/\">\n  <env:Body>\n    <n1:login xmlns:n1=\"urn:partner.soap.sforce.com\">\n      <n1:username><![CDATA[{{taxAdminUserName}}]]></n1:username>\n      <n1:password><![CDATA[{{commonUserPassword}}{{secretToken-taxAdmin}}]]></n1:password>\n    </n1:login>\n  </env:Body>\n</env:Envelope>"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/services/Soap/u/{{version}}",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"services",
+										"Soap",
+										"u",
+										"{{version}}"
+									]
+								},
+								"description": "Login to Salesforce"
+							},
+							"response": []
+						},
+						{
+							"name": "MockTaxAdapter",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"var jsonData = pm.response.json()",
+											"pm.environment.set(\"mockTaxAdapterId\", jsonData.id);"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									},
+									{
+										"key": "Sforce-Call-Options",
+										"value": "client=SfdcInternalQA/..."
+									},
+									{
+										"key": "ignoreHTTPStatusUnsuccessful",
+										"value": "true",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"attributes\": {\n        \"type\": \"ApexClass\",\n        \"referenceId\": \"ApexClassReferenceId\"\n    },\n    \"ApiVersion\": \"{{version}}\",\n    \"Status\": \"Active\",\n    \"Body\": \"global virtual class MockAdapter implements commercetax.TaxEngineAdapter {\\n\\n    global commercetax.TaxEngineResponse processRequest(commercetax.TaxEngineContext taxEngineContext) {\\n        commercetax.RequestType requestType = taxEngineContext.getRequestType();\\n        commercetax.CalculateTaxRequest request = (commercetax.CalculateTaxRequest)taxEngineContext.getRequest();\\n        if(request.documentCode == null) {\\n            return new commercetax.ErrorResponse(commercetax.resultcode.TaxEngineError, '404', 'documentCode  is mandatory');\\n        }\\n        if(request.documentCode == 'TaxEngineError') {\\n            return new commercetax.ErrorResponse(commercetax.resultcode.TaxEngineError, '504', 'documentCode  - not supported');\\n        }\\n        if(request.documentCode == 'simulateUnhandledExceptionInAdapter') {\\n            Integer foo = 5/0 ;\\n        }\\n        if(request.documentCode == 'simulateValidationFailureInAdapter') {\\n            return new commercetax.ErrorResponse(commercetax.resultcode.TaxEngineError, '400', 'validations for documentCode failed in adapter');\\n        }\\n        if(request.documentCode == 'simulateMalformedErrorInAdapter') {\\n                    return new commercetax.ErrorResponse(commercetax.resultcode.TaxEngineError, null, 'malformed adapter error response');\\n        }\\n        if(request.documentCode == 'simulateTaxEngineProcessFailure') {\\n            return new commercetax.ErrorResponse(commercetax.resultcode.TaxEngineError, '500', 'Tax Engine couldnt process your request');\\n        }\\n\\n        if(requestType == commercetax.RequestType.CalculateTax){\\n            commercetax.calculatetaxtype type = request.taxtype;\\n            String docCode='';\\n            if(request.DocumentCode == 'simulateEmptyDocumentCode')\\n                docCode = '';\\n            else if(request.DocumentCode != null)\\n                docCode =request.DocumentCode;             \\n            else if(request.ReferenceEntityId != null) docCode = request.ReferenceEntityId;\\n            else docCode =  String.valueOf(getRandomInteger(0,2147483647));\\n            commercetax.CalculateTaxResponse response = new commercetax.CalculateTaxResponse();\\n            if(request.isCommit == true) {\\n                response.setStatus(commercetax.TaxTransactionStatus.Committed);\\n            } else {\\n                response.setStatus(commercetax.TaxTransactionStatus.Uncommitted);\\n            }\\n            response.setDocumentCode(docCode);\\n            response.setReferenceDocumentCode(request.referenceDocumentCode);\\n            response.setTaxType(type);\\n            response.setStatusDescription('statusDescription');\\n            if(request.sellerDetails.code == 'testSellerCode') {\\n                response.setDescription('SellerCode fetched from TaxEngine entity');\\n            }\\n            else {\\n                response.setDescription('description');\\n            }\\n           response.setEffectiveDate(system.now());\\n           if(request.transactionDate == null) {\\n              response.setTransactionDate(system.now());\\n           } else {\\n              response.setTransactionDate(request.transactionDate);\\n           }\\n           if(request.taxTransactionType == null) {\\n               response.setTaxTransactionType(commercetax.TaxTransactionType.Debit);\\n           } else {\\n               response.setTaxTransactionType(request.taxTransactionType);\\n           }\\n\\n            if(request.currencyIsoCode == null || request.currencyIsoCode == '') {\\n               response.setCurrencyIsoCode('USD');\\n            } else {\\n               response.setCurrencyIsoCode(request.currencyIsoCode);\\n            }\\n            response.setReferenceEntityId(request.ReferenceEntityId);\\n            Double totalTax = 0.0;\\n            Double totalAmount = 0.0;\\n            List<commercetax.LineItemResponse> lineItemResponses = new List<commercetax.LineItemResponse>();\\n            for(Commercetax.TaxLineItemRequest lineItem : request.lineItems){\\n                commercetax.AddressesResponse addressesRes = new commercetax.AddressesResponse();\\n                if(request.DocumentCode == 'SetsNullForResponseWithoutException'){\\n\\t                addressesRes.setShipFrom(null);\\n\\t                addressesRes.setShipTO(null);\\n\\t                addressesRes.setSoldTo(null);\\n                }else{\\n\\t                commercetax.AddressResponse addRes = new commercetax.AddressResponse();\\n\\t                addRes.setLocationCode('locationCode');\\n\\t                addressesRes.setShipFrom(addRes);\\n\\t                addressesRes.setShipTO(addRes);\\n\\t                addressesRes.setSoldTo(addRes);\\n                }\\n                commercetax.LineItemResponse lineItemResponse = new commercetax.LineItemResponse();\\n                Double totalLineTax = 0;\\n                List<commercetax.TaxDetailsResponse> taxDetailsResponses = new List<commercetax.TaxDetailsResponse>();\\n                for(integer i =0;i<1;i++){\\n                    Integer rate  = 1;\\n                    Double taxableAmount = lineItem.amount;\\n                    commercetax.TaxDetailsResponse taxDetailsResponse = new commercetax.TaxDetailsResponse();\\n                    taxDetailsResponse.setRate(Double.valueOf(rate));\\n                    taxDetailsResponse.setTaxableAmount(taxableAmount);\\n                    Double tax = taxableAmount*rate;\\n                    totalLineTax+=tax;\\n                    taxDetailsResponse.setTax(taxableAmount*rate);\\n                    taxDetailsResponse.setExemptAmount(0);\\n                    taxDetailsResponse.setExemptReason('exemptReason');\\n                    taxDetailsResponse.setTaxRegionId('taxRegionId');\\n                    taxDetailsResponse.setTaxId(String.valueOf(getRandomInteger(0,2323233)));\\n                    taxDetailsResponse.setSerCode('serCode');\\n                    taxDetailsResponse.setTaxAuthorityTypeId('taxAuthorityTypeId');\\n                    if(request.DocumentCode == 'SetsNullForResponseWithoutException'){\\n\\t\\t\\t\\t\\t\\ttaxDetailsResponse.setImposition(null);\\t\\n\\t            \\t}else{\\n\\t                    commercetax.ImpositionResponse imposition = new commercetax.ImpositionResponse();\\n                        imposition.setSubType('subtype');\\n                        imposition.setType('type');\\n\\t\\t\\t\\t\\t\\ttaxDetailsResponse.setImposition(imposition);\\t            \\t\\n\\t\\t\\t\\t\\t}\\n\\t            \\t\\n                    if(request.DocumentCode == 'SetsNullForResponseWithoutException'){\\n\\t                \\ttaxDetailsResponse.setJurisdiction(null);\\n\\t            \\t}else{\\n\\t\\t            \\tcommercetax.JurisdictionResponse jurisdiction = new commercetax.JurisdictionResponse();\\n                        jurisdiction.setCountry('country');\\n                        jurisdiction.setRegion('region');\\n                        jurisdiction.setName('name');\\n                        jurisdiction.setStateAssignedNumber('stateAssignedNo');\\n                        jurisdiction.setId('id');\\n                        jurisdiction.setLevel('level');\\n                        taxDetailsResponse.setJurisdiction(jurisdiction);\\n\\t            \\t}\\n            \\t\\n                    taxDetailsResponses.add(taxDetailsResponse);\\n                }\\n                lineItemResponse.setTaxes(taxDetailsResponses);\\n                totalTax +=totalLineTax;\\n                totalAmount+=lineItem.amount;\\n                \\n                if(request.DocumentCode == 'SetsNullForResponseWithException'){\\n\\t                lineItemResponse.setAmountDetails(null);\\n            \\t}else{\\n\\t                commercetax.AmountDetailsResponse amountResponse = new commercetax.AmountDetailsResponse();\\n\\t                amountResponse.setTotalAmountWithTax(totalTax+totalAmount);\\n\\t                amountResponse.setExemptAmount(0);\\n\\t                amountResponse.setTotalAmount(totalAmount);\\n\\t                amountResponse.setTaxAmount(totalTax);\\n\\t                lineItemResponse.setAmountDetails(amountResponse);\\n\\t            }\\n                lineItemResponse.setEffectiveDate(system.now());\\n                lineItemResponse.setTaxCode(lineItem.taxCode);\\n                lineItemResponse.setProductCode(lineItem.ProductCode);\\n                lineItemResponse.setLineNumber(lineItem.linenumber);\\n                lineItemResponse.setIsTaxable(true);\\n                lineItemResponse.setQuantity(lineItem.quantity);\\n                if(request.DocumentCode == 'SetsNullForResponseWithoutException'){\\n\\t\\t\\t\\t\\tlineItemResponse.setAddresses(null);\\n            \\t}else{\\n            \\t\\tlineItemResponse.setAddresses(addressesRes);\\n                }\\n            \\tlineItemResponses.add(lineItemResponse);\\n            }\\n\\t\\t\\tif(request.DocumentCode == 'SetsNullForResponseWithException'){\\n\\t\\t\\t\\tlineItemResponses.add(null);\\n            }\\n\\t        if(request.documentCode == 'nolines') {\\n\\t            // logic to skip adding lines to response\\n\\t        } else {\\n\\t                response.setLineItems(lineItemResponses);\\n\\t        }\\n            if(request.DocumentCode == 'SetsNullForResponseWithException'){\\n            \\tresponse.setAmountDetails(null);\\n            }else{\\n            \\tcommercetax.AmountDetailsResponse headerAmountResponse = new commercetax.AmountDetailsResponse();\\n                headerAmountResponse.setTotalAmountWithTax(totalTax+totalAmount);\\n                headerAmountResponse.setExemptAmount(0);\\n                headerAmountResponse.setTotalAmount(totalAmount);\\n                headerAmountResponse.setTaxAmount(totalTax);\\n                response.setAmountDetails(headerAmountResponse);\\n\\t            }\\n            commercetax.AddressesResponse addressesRes = new commercetax.AddressesResponse();\\n            commercetax.AddressResponse addRes = new commercetax.AddressResponse();\\n            addRes.setLocationCode('locationCode');\\n            addressesRes.setShipFrom(addRes);\\n            addRes.setLocationCode('locationCode');\\n            addressesRes.setShipTO(addRes);\\n            addRes.setLocationCode('locationCode');\\n            addressesRes.setSoldTo(addRes);\\n            response.setAddresses(addressesRes);\\n            return response;\\n\\n        }\\n        else\\n            return null;\\n    }\\n\\n    public static Integer getRandomInteger(Integer min, Integer max)\\n    {\\n        return min + (Integer.valueOf(Math.random()) * (max - min));\\n    }\\n}\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}{{versionPath}}/sobjects/ApexClass",
+									"host": [
+										"{{baseUrl}}{{versionPath}}"
+									],
+									"path": [
+										"sobjects",
+										"ApexClass"
+									]
+								},
+								"description": "Login to Salesforce"
+							},
+							"response": []
+						},
+						{
+							"name": "MockTaxAdapter",
+							"event": [
+								{
+									"listen": "prerequest",
+									"script": {
+										"exec": [
+											""
+										],
+										"type": "text/javascript"
+									}
+								},
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"var jsonData = pm.response.json()",
+											"pm.environment.set(\"mockTaxAdapterId\", jsonData.records[0].Id);",
+											""
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}{{versionPath}}/query/?q=SELECT Id FROM ApexClass WHERE Name='MockAdapter'",
+									"host": [
+										"{{baseUrl}}{{versionPath}}"
+									],
+									"path": [
+										"query",
+										""
+									],
+									"query": [
+										{
+											"key": "q",
+											"value": "SELECT Id FROM ApexClass WHERE Name='MockAdapter'"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "TaxEngineProvider",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"var jsonData = pm.response.json()",
+											"pm.environment.set(\"taxEngineProviderId\", jsonData.id);"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "ignoreHTTPStatusUnsuccessful",
+										"value": "true",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"apexadapterid\":\"{{mockTaxAdapterId}}\", \n    \"developername\":\"{{$randomFirstName}}\",\n    \"masterlabel\":\"{{$randomLastName}}\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}{{versionPath}}/sobjects/Taxengineprovider",
+									"host": [
+										"{{baseUrl}}{{versionPath}}"
+									],
+									"path": [
+										"sobjects",
+										"Taxengineprovider"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "TaxEngineProvider",
+							"event": [
+								{
+									"listen": "prerequest",
+									"script": {
+										"exec": [
+											""
+										],
+										"type": "text/javascript"
+									}
+								},
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"var jsonData = pm.response.json()",
+											"pm.environment.set(\"taxEngineProviderId\", jsonData.records[0].Id);",
+											""
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}{{versionPath}}/query/?q=select id from TaxEngineProvider where ApexAdapterId = '{{mockTaxAdapterId}}'",
+									"host": [
+										"{{baseUrl}}{{versionPath}}"
+									],
+									"path": [
+										"query",
+										""
+									],
+									"query": [
+										{
+											"key": "q",
+											"value": "select id from TaxEngineProvider where ApexAdapterId = '{{mockTaxAdapterId}}'"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "NamedCredential",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"var jsonData = pm.response.json()",
+											"pm.environment.set(\"namedCredentialId\", jsonData.id);",
+											""
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"FullName\": \"TaxNamedCred_{{$randomInt}}\",\n    \"Metadata\": {\n        \"allowMergeFieldsInBody\": \"false\",\n        \"allowMergeFieldsInHeader\": \"false\",\n        \"label\": \"Mock\",\n        \"endpoint\": \"https://mockendpoint.free.beeceptor.com\",\n        \"principalType\": \"NamedUser\",\n        \"protocol\": \"Password\",\n        \"username\": \"MockUsername\",\n        \"password\":\"MockPassword\",\n        \"generateAuthorizationHeader\": \"true\"\n    }\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}{{versionPath}}/tooling/sobjects/NamedCredential",
+									"host": [
+										"{{baseUrl}}{{versionPath}}"
+									],
+									"path": [
+										"tooling",
+										"sobjects",
+										"NamedCredential"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "TaxEngine",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"var jsonData = pm.response.json()",
+											"pm.environment.set(\"taxEngineId\", jsonData.id);"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"taxEngineProviderId\": \"{{taxEngineProviderId}}\",\n    \"merchantcredentialid\": \"{{namedCredentialId}}\",\n    \"taxenginename\": \"{{$randomCompanyName}}\",\n    \"Status\": \"Active\",\n    \"sellercode\": \"Billing2\",\n    \"taxenginecity\": \"Irvine\",\n    \"taxenginestate\": \"California\",\n    \"taxenginecountry\": \"US\",\n    \"taxenginepostalcode\": \"92614\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}{{versionPath}}/sobjects/TaxEngine",
+									"host": [
+										"{{baseUrl}}{{versionPath}}"
+									],
+									"path": [
+										"sobjects",
+										"TaxEngine"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "TaxPolicy",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"var jsonData = pm.response.json()",
+											"pm.environment.set(\"taxPolicyId\", jsonData.id);",
+											""
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Sforce-Call-Options",
+										"value": "client=SfdcInternalQA/...",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"Name\": \"My Tax Policy\",\n    \"Status\": \"Draft\",\n    \"TreatmentSelection\": \"Default\",\n    \"Description\": \"Test description\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}{{versionPath}}/sobjects/TaxPolicy",
+									"host": [
+										"{{baseUrl}}{{versionPath}}"
+									],
+									"path": [
+										"sobjects",
+										"TaxPolicy"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "TaxTreatment",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"var jsonData = pm.response.json()",
+											"pm.environment.set(\"taxTreatmentId\", jsonData.id);",
+											""
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"Name\": \"Test Tax Treatment\",\n    \"TaxPolicyId\": \"{{taxPolicyId}}\",\n    \"TaxEngineId\": \"{{taxEngineId}}\",\n    \"Description\": \"Test Tax Treatment\",\n    \"TaxCode\": \"PA020111\",\n    \"ProductCode\": \"Test123\",\n    \"IsTaxable\": true,\n    \"Status\": \"Active\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}{{versionPath}}/sobjects/TaxTreatment/",
+									"host": [
+										"{{baseUrl}}{{versionPath}}"
+									],
+									"path": [
+										"sobjects",
+										"TaxTreatment",
+										""
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Tax Policy",
+							"event": [
+								{
+									"listen": "prerequest",
+									"script": {
+										"exec": [
+											""
+										],
+										"type": "text/javascript"
+									}
+								},
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											""
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "PATCH",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"Status\": \"Active\",\n    \"DefaultTaxTreatmentId\": \"{{taxTreatmentId}}\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}{{versionPath}}/sobjects/TaxPolicy/{{taxPolicyId}}",
+									"host": [
+										"{{baseUrl}}{{versionPath}}"
+									],
+									"path": [
+										"sobjects",
+										"TaxPolicy",
+										"{{taxPolicyId}}"
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "product-setup",
+					"item": [
+						{
+							"name": "pre",
+							"item": [
+								{
+									"name": "Login to ProductPricingAdmin",
+									"event": [
+										{
+											"listen": "prerequest",
+											"script": {
+												"exec": [
+													""
+												],
+												"type": "text/javascript"
+											}
+										},
+										{
+											"listen": "test",
+											"script": {
+												"exec": [
+													"var jsonData = xml2Json(responseBody);",
+													"var sessionId = jsonData['soapenv:Envelope']['soapenv:Body'].loginResponse.result.sessionId",
+													"pm.environment.set(\"accessToken\", sessionId);"
+												],
+												"type": "text/javascript"
+											}
+										}
+									],
+									"protocolProfileBehavior": {
+										"disabledSystemHeaders": {
+											"accept": true,
+											"content-type": true
+										}
+									},
+									"request": {
+										"method": "POST",
+										"header": [
+											{
+												"key": "Content-Type",
+												"value": "text/xml"
+											},
+											{
+												"key": "SOAPAction",
+												"value": "login"
+											},
+											{
+												"key": "charset",
+												"value": "UTF-8",
+												"type": "text"
+											},
+											{
+												"key": "Accept",
+												"value": "text/xml",
+												"type": "text"
+											}
+										],
+										"body": {
+											"mode": "raw",
+											"raw": "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<env:Envelope xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"\n    xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n    xmlns:env=\"http://schemas.xmlsoap.org/soap/envelope/\">\n  <env:Body>\n    <n1:login xmlns:n1=\"urn:partner.soap.sforce.com\">\n      <n1:username><![CDATA[{{productAndPricingAdminUserName}}]]></n1:username>\n      <n1:password><![CDATA[{{commonUserPassword}}{{secretToken-productAndPricingAdmin}}]]></n1:password>\n    </n1:login>\n  </env:Body>\n</env:Envelope>"
+										},
+										"url": {
+											"raw": "{{baseUrl}}/services/Soap/u/{{version}}",
+											"host": [
+												"{{baseUrl}}"
+											],
+											"path": [
+												"services",
+												"Soap",
+												"u",
+												"{{version}}"
+											]
+										},
+										"description": "Login to Salesforce"
+									},
+									"response": []
+								},
+								{
+									"name": "StandardPriceBook",
+									"event": [
+										{
+											"listen": "test",
+											"script": {
+												"exec": [
+													"var jsonData = pm.response.json()",
+													"pm.environment.set(\"standardPricebookId\", jsonData.records[0].Id);"
+												],
+												"type": "text/javascript"
+											}
+										}
+									],
+									"protocolProfileBehavior": {
+										"disableBodyPruning": true
+									},
+									"request": {
+										"auth": {
+											"type": "bearer",
+											"bearer": [
+												{
+													"key": "token",
+													"value": "{{accessToken}}",
+													"type": "string"
+												}
+											]
+										},
+										"method": "GET",
+										"header": [
+											{
+												"key": "Content-Type",
+												"value": "application/json",
+												"type": "text"
+											},
+											{
+												"key": "Sforce-Call-Options",
+												"value": "client=SfdcInternalQA/...",
+												"type": "text"
+											}
+										],
+										"body": {
+											"mode": "raw",
+											"raw": ""
+										},
+										"url": {
+											"raw": "{{baseUrl}}{{versionPath}}/query/?q=SELECT Id FROM Pricebook2 WHERE IsStandard = true AND isActive = true",
+											"host": [
+												"{{baseUrl}}{{versionPath}}"
+											],
+											"path": [
+												"query",
+												""
+											],
+											"query": [
+												{
+													"key": "q",
+													"value": "SELECT Id FROM Pricebook2 WHERE IsStandard = true AND isActive = true"
+												}
+											]
+										}
+									},
+									"response": []
+								},
+								{
+									"name": "Proration Policy",
+									"event": [
+										{
+											"listen": "prerequest",
+											"script": {
+												"exec": [
+													""
+												],
+												"type": "text/javascript"
+											}
+										},
+										{
+											"listen": "test",
+											"script": {
+												"exec": [
+													"var jsonData = pm.response.json()",
+													"pm.environment.set(\"prorationPolicyId\", jsonData.id);"
+												],
+												"type": "text/javascript"
+											}
+										}
+									],
+									"request": {
+										"auth": {
+											"type": "bearer",
+											"bearer": [
+												{
+													"key": "token",
+													"value": "{{accessToken}}",
+													"type": "string"
+												}
+											]
+										},
+										"method": "POST",
+										"header": [
+											{
+												"key": "ignoreHTTPStatusUnsuccessful",
+												"value": "true",
+												"type": "text"
+											}
+										],
+										"body": {
+											"mode": "raw",
+											"raw": "{\n    \"Name\": \"Test Proration Policy\",\n    \"ProrationPolicyType\": \"StandardTimePeriods\",\n    \"RemainderStrategy\": \"AddToFirst\"\n}",
+											"options": {
+												"raw": {
+													"language": "json"
+												}
+											}
+										},
+										"url": {
+											"raw": "{{baseUrl}}{{versionPath}}/sobjects/ProrationPolicy/",
+											"host": [
+												"{{baseUrl}}{{versionPath}}"
+											],
+											"path": [
+												"sobjects",
+												"ProrationPolicy",
+												""
+											]
+										}
+									},
+									"response": []
+								},
+								{
+									"name": "Proration Policy",
+									"event": [
+										{
+											"listen": "test",
+											"script": {
+												"exec": [
+													"var jsonData = pm.response.json()",
+													"pm.environment.set(\"prorationPolicyId\", jsonData.records[0].Id);"
+												],
+												"type": "text/javascript"
+											}
+										}
+									],
+									"protocolProfileBehavior": {
+										"disableBodyPruning": true
+									},
+									"request": {
+										"method": "GET",
+										"header": [
+											{
+												"key": "Content-Type",
+												"name": "Content-Type",
+												"type": "text",
+												"value": "application/json"
+											}
+										],
+										"body": {
+											"mode": "raw",
+											"raw": ""
+										},
+										"url": {
+											"raw": "{{baseUrl}}{{versionPath}}/query/?q=SELECT Id, Name FROM ProrationPolicy where Name LIKE '%25Test%25' and RemainderStrategy = 'AddToFirst' and ProrationPolicyType = 'StandardTimePeriods'",
+											"host": [
+												"{{baseUrl}}{{versionPath}}"
+											],
+											"path": [
+												"query",
+												""
+											],
+											"query": [
+												{
+													"key": "q",
+													"value": "SELECT Id, Name FROM ProrationPolicy where Name LIKE '%25Test%25' and RemainderStrategy = 'AddToFirst' and ProrationPolicyType = 'StandardTimePeriods'"
+												}
+											]
+										}
+									},
+									"response": []
+								}
+							]
+						},
+						{
+							"name": "OneTime",
+							"item": [
+								{
+									"name": "One-Time Product",
+									"event": [
+										{
+											"listen": "prerequest",
+											"script": {
+												"exec": [
+													""
+												],
+												"type": "text/javascript"
+											}
+										},
+										{
+											"listen": "test",
+											"script": {
+												"exec": [
+													"var jsonData = pm.response.json()",
+													"if(jsonData.id!=null){",
+													"    pm.environment.set(\"oneTimeProductId\", jsonData.id);",
+													"}"
+												],
+												"type": "text/javascript"
+											}
+										}
+									],
+									"request": {
+										"method": "POST",
+										"header": [],
+										"body": {
+											"mode": "raw",
+											"raw": "{\n    \"Name\": \"One-Time\",\n    \"ProductCode\": \"OneTime\",\n    \"IsActive\": true,\n    \"Type\": \"Bundle\",\n    \"BillingPolicyId\": \"{{billingPolicyId}}\",\n    \"TaxPolicyId\": \"{{taxPolicyId}}\"\n}",
+											"options": {
+												"raw": {
+													"language": "json"
+												}
+											}
+										},
+										"url": {
+											"raw": "{{baseUrl}}{{versionPath}}/sobjects/Product2/",
+											"host": [
+												"{{baseUrl}}{{versionPath}}"
+											],
+											"path": [
+												"sobjects",
+												"Product2",
+												""
+											]
+										}
+									},
+									"response": []
+								},
+								{
+									"name": "OneTime PSM",
+									"event": [
+										{
+											"listen": "prerequest",
+											"script": {
+												"exec": [
+													""
+												],
+												"type": "text/javascript"
+											}
+										},
+										{
+											"listen": "test",
+											"script": {
+												"exec": [
+													"var jsonData = pm.response.json()",
+													"pm.environment.set(\"oneTimeSellingModelId\", jsonData.id);"
+												],
+												"type": "text/javascript"
+											}
+										}
+									],
+									"request": {
+										"auth": {
+											"type": "bearer",
+											"bearer": [
+												{
+													"key": "token",
+													"value": "{{accessToken}}",
+													"type": "string"
+												}
+											]
+										},
+										"method": "POST",
+										"header": [
+											{
+												"key": "ignoreHTTPStatusUnsuccessful",
+												"value": "true",
+												"type": "text"
+											}
+										],
+										"body": {
+											"mode": "raw",
+											"raw": "{\n    \"SellingModelType\": \"OneTime\",\n    \"Name\": \"OneTime PSM\",\n    \"Status\": \"Active\"\n}",
+											"options": {
+												"raw": {
+													"language": "json"
+												}
+											}
+										},
+										"url": {
+											"raw": "{{baseUrl}}{{versionPath}}/sobjects/ProductSellingModel/",
+											"host": [
+												"{{baseUrl}}{{versionPath}}"
+											],
+											"path": [
+												"sobjects",
+												"ProductSellingModel",
+												""
+											]
+										}
+									},
+									"response": []
+								},
+								{
+									"name": "OneTime PSM",
+									"event": [
+										{
+											"listen": "test",
+											"script": {
+												"exec": [
+													"var jsonData = pm.response.json()",
+													"pm.environment.set(\"oneTimeProductSellingModelId\", jsonData.records[0].Id);"
+												],
+												"type": "text/javascript"
+											}
+										}
+									],
+									"protocolProfileBehavior": {
+										"disableBodyPruning": true
+									},
+									"request": {
+										"method": "GET",
+										"header": [
+											{
+												"key": "Content-Type",
+												"name": "Content-Type",
+												"type": "text",
+												"value": "application/json"
+											}
+										],
+										"body": {
+											"mode": "raw",
+											"raw": ""
+										},
+										"url": {
+											"raw": "{{baseUrl}}{{versionPath}}/query/?q=SELECT Id, SellingModelType, PricingTerm, PricingTermUnit, Status FROM ProductSellingModel where SellingModelType = 'OneTime'",
+											"host": [
+												"{{baseUrl}}{{versionPath}}"
+											],
+											"path": [
+												"query",
+												""
+											],
+											"query": [
+												{
+													"key": "q",
+													"value": "SELECT Id, SellingModelType, PricingTerm, PricingTermUnit, Status FROM ProductSellingModel where SellingModelType = 'OneTime'"
+												}
+											]
+										}
+									},
+									"response": []
+								},
+								{
+									"name": "OneTime PSMO",
+									"event": [
+										{
+											"listen": "prerequest",
+											"script": {
+												"exec": [
+													""
+												],
+												"type": "text/javascript"
+											}
+										},
+										{
+											"listen": "test",
+											"script": {
+												"exec": [
+													"var jsonData = pm.response.json()",
+													"pm.environment.set(\"oneTimeSellingModelOptionId\", jsonData.id);"
+												],
+												"type": "text/javascript"
+											}
+										}
+									],
+									"request": {
+										"method": "POST",
+										"header": [],
+										"body": {
+											"mode": "raw",
+											"raw": "{\n    \"ProductSellingModelId\": \"{{oneTimeProductSellingModelId}}\",\n    \"Product2Id\": \"{{oneTimeProductId}}\"\n}\n\n",
+											"options": {
+												"raw": {
+													"language": "json"
+												}
+											}
+										},
+										"url": {
+											"raw": "{{baseUrl}}{{versionPath}}/sobjects/ProductSellingModelOption/",
+											"host": [
+												"{{baseUrl}}{{versionPath}}"
+											],
+											"path": [
+												"sobjects",
+												"ProductSellingModelOption",
+												""
+											]
+										}
+									},
+									"response": []
+								},
+								{
+									"name": "OneTime PBE",
+									"event": [
+										{
+											"listen": "prerequest",
+											"script": {
+												"exec": [
+													""
+												],
+												"type": "text/javascript"
+											}
+										},
+										{
+											"listen": "test",
+											"script": {
+												"exec": [
+													"var jsonData = pm.response.json()",
+													"pm.environment.set(\"oneTimePriceBookEntryId\", jsonData.id);",
+													""
+												],
+												"type": "text/javascript"
+											}
+										}
+									],
+									"request": {
+										"method": "POST",
+										"header": [],
+										"body": {
+											"mode": "raw",
+											"raw": "{\n    \"ProductSellingModelId\": \"{{oneTimeProductSellingModelId}}\",\n    \"Product2Id\": \"{{oneTimeProductId}}\",\n    \"IsActive\": true,\n    \"Pricebook2Id\": \"{{standardPricebookId}}\",\n    \"UnitPrice\": \"{{unitPrice}}\"\n}",
+											"options": {
+												"raw": {
+													"language": "json"
+												}
+											}
+										},
+										"url": {
+											"raw": "{{baseUrl}}{{versionPath}}/sobjects/pricebookentry/",
+											"host": [
+												"{{baseUrl}}{{versionPath}}"
+											],
+											"path": [
+												"sobjects",
+												"pricebookentry",
+												""
+											]
+										}
+									},
+									"response": []
+								}
+							]
+						},
+						{
+							"name": "Evergreen",
+							"item": [
+								{
+									"name": "Evergreen Product",
+									"event": [
+										{
+											"listen": "prerequest",
+											"script": {
+												"exec": [
+													""
+												],
+												"type": "text/javascript"
+											}
+										},
+										{
+											"listen": "test",
+											"script": {
+												"exec": [
+													"var jsonData = pm.response.json()",
+													"if (jsonData.id != null) {",
+													"    pm.environment.set(\"evergreenProductId\", jsonData.id);",
+													"}"
+												],
+												"type": "text/javascript"
+											}
+										}
+									],
+									"request": {
+										"method": "POST",
+										"header": [],
+										"body": {
+											"mode": "raw",
+											"raw": "{\n    \"Name\": \"Evergreen\",\n    \"ProductCode\": \"Evergreen\",\n    \"Type\": \"Bundle\",\n    \"IsActive\": true,\n    \"BillingPolicyId\": \"{{billingPolicyId}}\",\n    \"TaxPolicyId\": \"{{taxPolicyId}}\"\n}",
+											"options": {
+												"raw": {
+													"language": "json"
+												}
+											}
+										},
+										"url": {
+											"raw": "{{baseUrl}}{{versionPath}}/sobjects/Product2/",
+											"host": [
+												"{{baseUrl}}{{versionPath}}"
+											],
+											"path": [
+												"sobjects",
+												"Product2",
+												""
+											]
+										}
+									},
+									"response": []
+								},
+								{
+									"name": "Evergreen PSM",
+									"event": [
+										{
+											"listen": "prerequest",
+											"script": {
+												"exec": [
+													""
+												],
+												"type": "text/javascript"
+											}
+										},
+										{
+											"listen": "test",
+											"script": {
+												"exec": [
+													"var jsonData = pm.response.json()",
+													"pm.environment.set(\"evergreenProductSellingModelId\", jsonData.id);"
+												],
+												"type": "text/javascript"
+											}
+										}
+									],
+									"request": {
+										"auth": {
+											"type": "bearer",
+											"bearer": [
+												{
+													"key": "token",
+													"value": "{{accessToken}}",
+													"type": "string"
+												}
+											]
+										},
+										"method": "POST",
+										"header": [
+											{
+												"key": "ignoreHTTPStatusUnsuccessful",
+												"value": "true",
+												"type": "text"
+											}
+										],
+										"body": {
+											"mode": "raw",
+											"raw": "{\n    \"SellingModelType\": \"Evergreen\",\n    \"PricingTerm\": 1,\n    \"PricingTermUnit\": \"Months\",\n    \"Name\": \"Monthly Evergreen PSM\",\n    \"Status\": \"Active\"\n}",
+											"options": {
+												"raw": {
+													"language": "json"
+												}
+											}
+										},
+										"url": {
+											"raw": "{{baseUrl}}{{versionPath}}/sobjects/ProductSellingModel/",
+											"host": [
+												"{{baseUrl}}{{versionPath}}"
+											],
+											"path": [
+												"sobjects",
+												"ProductSellingModel",
+												""
+											]
+										}
+									},
+									"response": []
+								},
+								{
+									"name": "Evergreen PSM",
+									"event": [
+										{
+											"listen": "test",
+											"script": {
+												"exec": [
+													"var jsonData = pm.response.json()",
+													"pm.environment.set(\"evergreenProductSellingModelId\", jsonData.records[0].Id);"
+												],
+												"type": "text/javascript"
+											}
+										}
+									],
+									"protocolProfileBehavior": {
+										"disableBodyPruning": true
+									},
+									"request": {
+										"method": "GET",
+										"header": [
+											{
+												"key": "Content-Type",
+												"name": "Content-Type",
+												"type": "text",
+												"value": "application/json"
+											}
+										],
+										"body": {
+											"mode": "raw",
+											"raw": ""
+										},
+										"url": {
+											"raw": "{{baseUrl}}{{versionPath}}/query/?q=SELECT Id, SellingModelType, PricingTerm, PricingTermUnit, Status FROM ProductSellingModel where SellingModelType = 'Evergreen'",
+											"host": [
+												"{{baseUrl}}{{versionPath}}"
+											],
+											"path": [
+												"query",
+												""
+											],
+											"query": [
+												{
+													"key": "q",
+													"value": "SELECT Id, SellingModelType, PricingTerm, PricingTermUnit, Status FROM ProductSellingModel where SellingModelType = 'Evergreen'"
+												}
+											]
+										}
+									},
+									"response": []
+								},
+								{
+									"name": "Evergreen PSMO",
+									"event": [
+										{
+											"listen": "prerequest",
+											"script": {
+												"exec": [
+													""
+												],
+												"type": "text/javascript"
+											}
+										},
+										{
+											"listen": "test",
+											"script": {
+												"exec": [
+													"var jsonData = pm.response.json()",
+													"pm.environment.set(\"evergreenProductSellingModelOptionId\", jsonData.id);"
+												],
+												"type": "text/javascript"
+											}
+										}
+									],
+									"request": {
+										"method": "POST",
+										"header": [],
+										"body": {
+											"mode": "raw",
+											"raw": "{\n    \"ProductSellingModelId\": \"{{evergreenProductSellingModelId}}\",\n    \"Product2Id\": \"{{evergreenProductId}}\",\n    \"ProrationPolicyId\": \"{{prorationPolicyId}}\"\n}",
+											"options": {
+												"raw": {
+													"language": "json"
+												}
+											}
+										},
+										"url": {
+											"raw": "{{baseUrl}}{{versionPath}}/sobjects/ProductSellingModelOption/",
+											"host": [
+												"{{baseUrl}}{{versionPath}}"
+											],
+											"path": [
+												"sobjects",
+												"ProductSellingModelOption",
+												""
+											]
+										}
+									},
+									"response": []
+								},
+								{
+									"name": "Evergreen PBE",
+									"event": [
+										{
+											"listen": "prerequest",
+											"script": {
+												"exec": [
+													""
+												],
+												"type": "text/javascript"
+											}
+										},
+										{
+											"listen": "test",
+											"script": {
+												"exec": [
+													"var jsonData = pm.response.json()",
+													"pm.environment.set(\"evergreenPriceBookEntryId\", jsonData.id);",
+													""
+												],
+												"type": "text/javascript"
+											}
+										}
+									],
+									"request": {
+										"method": "POST",
+										"header": [],
+										"body": {
+											"mode": "raw",
+											"raw": "{\n    \"ProductSellingModelId\": \"{{evergreenProductSellingModelId}}\",\n    \"Product2Id\": \"{{evergreenProductId}}\",\n    \"IsActive\": true,\n    \"Pricebook2Id\": \"{{standardPricebookId}}\",\n    \"UnitPrice\": \"{{unitPrice}}\"\n}",
+											"options": {
+												"raw": {
+													"language": "json"
+												}
+											}
+										},
+										"url": {
+											"raw": "{{baseUrl}}{{versionPath}}/sobjects/pricebookentry/",
+											"host": [
+												"{{baseUrl}}{{versionPath}}"
+											],
+											"path": [
+												"sobjects",
+												"pricebookentry",
+												""
+											]
+										}
+									},
+									"response": []
+								}
+							]
+						},
+						{
+							"name": "Termed",
+							"item": [
+								{
+									"name": "Termed Product",
+									"event": [
+										{
+											"listen": "prerequest",
+											"script": {
+												"exec": [
+													""
+												],
+												"type": "text/javascript"
+											}
+										},
+										{
+											"listen": "test",
+											"script": {
+												"exec": [
+													"var jsonData = pm.response.json()",
+													"if (jsonData.id != null) {",
+													"    pm.environment.set(\"termedProductId\", jsonData.id);",
+													"}"
+												],
+												"type": "text/javascript"
+											}
+										}
+									],
+									"request": {
+										"method": "POST",
+										"header": [],
+										"body": {
+											"mode": "raw",
+											"raw": "{\n    \"Name\": \"Termed\",\n    \"ProductCode\": \"Termed\",\n    \"Type\": \"Bundle\",\n    \"IsActive\": true,\n    \"BillingPolicyId\": \"{{billingPolicyId}}\",\n    \"TaxPolicyId\": \"{{taxPolicyId}}\"\n}",
+											"options": {
+												"raw": {
+													"language": "json"
+												}
+											}
+										},
+										"url": {
+											"raw": "{{baseUrl}}{{versionPath}}/sobjects/Product2/",
+											"host": [
+												"{{baseUrl}}{{versionPath}}"
+											],
+											"path": [
+												"sobjects",
+												"Product2",
+												""
+											]
+										}
+									},
+									"response": []
+								},
+								{
+									"name": "Termed PSM",
+									"event": [
+										{
+											"listen": "prerequest",
+											"script": {
+												"exec": [
+													""
+												],
+												"type": "text/javascript"
+											}
+										},
+										{
+											"listen": "test",
+											"script": {
+												"exec": [
+													"var jsonData = pm.response.json()",
+													"pm.environment.set(\"termedProductSellingModelId\", jsonData.id);"
+												],
+												"type": "text/javascript"
+											}
+										}
+									],
+									"request": {
+										"auth": {
+											"type": "bearer",
+											"bearer": [
+												{
+													"key": "token",
+													"value": "{{accessToken}}",
+													"type": "string"
+												}
+											]
+										},
+										"method": "POST",
+										"header": [
+											{
+												"key": "ignoreHTTPStatusUnsuccessful",
+												"value": "true",
+												"type": "text"
+											}
+										],
+										"body": {
+											"mode": "raw",
+											"raw": "{\n    \"SellingModelType\": \"TermDefined\",\n    \"PricingTerm\": 1,\n    \"PricingTermUnit\": \"Months\",\n    \"Name\": \"Monthly Termed PSM\",\n    \"Status\": \"Active\"\n}",
+											"options": {
+												"raw": {
+													"language": "json"
+												}
+											}
+										},
+										"url": {
+											"raw": "{{baseUrl}}{{versionPath}}/sobjects/ProductSellingModel/",
+											"host": [
+												"{{baseUrl}}{{versionPath}}"
+											],
+											"path": [
+												"sobjects",
+												"ProductSellingModel",
+												""
+											]
+										}
+									},
+									"response": []
+								},
+								{
+									"name": "Termed PSM",
+									"event": [
+										{
+											"listen": "test",
+											"script": {
+												"exec": [
+													"var jsonData = pm.response.json()",
+													"pm.environment.set(\"termedProductSellingModelId\", jsonData.records[0].Id);"
+												],
+												"type": "text/javascript"
+											}
+										}
+									],
+									"protocolProfileBehavior": {
+										"disableBodyPruning": true
+									},
+									"request": {
+										"method": "GET",
+										"header": [
+											{
+												"key": "Content-Type",
+												"name": "Content-Type",
+												"type": "text",
+												"value": "application/json"
+											}
+										],
+										"body": {
+											"mode": "raw",
+											"raw": ""
+										},
+										"url": {
+											"raw": "{{baseUrl}}{{versionPath}}/query/?q=SELECT Id, SellingModelType, PricingTerm, PricingTermUnit, Status FROM ProductSellingModel where SellingModelType = 'TermDefined' and PricingTerm = 1",
+											"host": [
+												"{{baseUrl}}{{versionPath}}"
+											],
+											"path": [
+												"query",
+												""
+											],
+											"query": [
+												{
+													"key": "q",
+													"value": "SELECT Id, SellingModelType, PricingTerm, PricingTermUnit, Status FROM ProductSellingModel where SellingModelType = 'TermDefined' and PricingTerm = 1"
+												}
+											]
+										}
+									},
+									"response": []
+								},
+								{
+									"name": "Termed PSMO",
+									"event": [
+										{
+											"listen": "prerequest",
+											"script": {
+												"exec": [
+													""
+												],
+												"type": "text/javascript"
+											}
+										},
+										{
+											"listen": "test",
+											"script": {
+												"exec": [
+													"var jsonData = pm.response.json()",
+													"pm.environment.set(\"termedProductSellingModelOptionId\", jsonData.id);"
+												],
+												"type": "text/javascript"
+											}
+										}
+									],
+									"request": {
+										"method": "POST",
+										"header": [],
+										"body": {
+											"mode": "raw",
+											"raw": "{\n    \"ProductSellingModelId\": \"{{termedProductSellingModelId}}\",\n    \"Product2Id\": \"{{termedProductId}}\",\n    \"ProrationPolicyId\": \"{{prorationPolicyId}}\"\n}",
+											"options": {
+												"raw": {
+													"language": "json"
+												}
+											}
+										},
+										"url": {
+											"raw": "{{baseUrl}}{{versionPath}}/sobjects/ProductSellingModelOption/",
+											"host": [
+												"{{baseUrl}}{{versionPath}}"
+											],
+											"path": [
+												"sobjects",
+												"ProductSellingModelOption",
+												""
+											]
+										}
+									},
+									"response": []
+								},
+								{
+									"name": "Termed PBE",
+									"event": [
+										{
+											"listen": "prerequest",
+											"script": {
+												"exec": [
+													""
+												],
+												"type": "text/javascript"
+											}
+										},
+										{
+											"listen": "test",
+											"script": {
+												"exec": [
+													"var jsonData = pm.response.json()",
+													"pm.environment.set(\"termedPriceBookEntryId\", jsonData.id);"
+												],
+												"type": "text/javascript"
+											}
+										}
+									],
+									"request": {
+										"method": "POST",
+										"header": [],
+										"body": {
+											"mode": "raw",
+											"raw": "{\n    \"ProductSellingModelId\": \"{{termedProductSellingModelId}}\",\n    \"Product2Id\": \"{{termedProductId}}\",\n    \"IsActive\": true,\n    \"Pricebook2Id\": \"{{standardPricebookId}}\",\n    \"UnitPrice\": \"{{unitPrice}}\"\n}",
+											"options": {
+												"raw": {
+													"language": "json"
+												}
+											}
+										},
+										"url": {
+											"raw": "{{baseUrl}}{{versionPath}}/sobjects/pricebookentry/",
+											"host": [
+												"{{baseUrl}}{{versionPath}}"
+											],
+											"path": [
+												"sobjects",
+												"pricebookentry",
+												""
+											]
+										}
+									},
+									"response": []
+								}
+							]
+						}
+					]
+				},
+				{
+					"name": "bundle-setup",
+					"item": [
+						{
+							"name": "ProductRelationshipType",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"var jsonData = pm.response.json()",
+											"pm.environment.set(\"productRelationshipTypeId\", jsonData.id);",
+											""
+										],
+										"type": "text/javascript"
+									}
+								},
+								{
+									"listen": "prerequest",
+									"script": {
+										"exec": [
+											""
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"name": "Content-Type",
+										"type": "text",
+										"value": "application/json"
+									},
+									{
+										"key": "ignoreHTTPStatusUnsuccessful",
+										"value": "true",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"Name\":\"Bundle PRT\",\n    \"MainProductRoleCat\": \"Bundle\",\n    \"AssociatedProductRoleCat\": \"BundleComponent\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}{{versionPath}}/sobjects/ProductRelationshipType",
+									"host": [
+										"{{baseUrl}}{{versionPath}}"
+									],
+									"path": [
+										"sobjects",
+										"ProductRelationshipType"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "ProductRelationShipType",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"var jsonData = pm.response.json()",
+											"pm.environment.set(\"productRelationshipTypeId\", jsonData.records[0].Id);",
+											"",
+											""
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"protocolProfileBehavior": {
+								"disableBodyPruning": true
+							},
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Content-Type",
+										"name": "Content-Type",
+										"value": "application/json",
+										"type": "text"
+									},
+									{
+										"key": "Sforce-Call-Options",
+										"value": "client=SfdcInternalQA/...",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": ""
+								},
+								"url": {
+									"raw": "{{baseUrl}}{{versionPath}}/query/?q=SELECT id FROM ProductRelationShipType where MainProductRoleCat='Bundle' AND AssociatedProductRoleCat='BundleComponent'",
+									"host": [
+										"{{baseUrl}}{{versionPath}}"
+									],
+									"path": [
+										"query",
+										""
+									],
+									"query": [
+										{
+											"key": "q",
+											"value": "SELECT id FROM ProductRelationShipType where MainProductRoleCat='Bundle' AND AssociatedProductRoleCat='BundleComponent'"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "ProductRelatedComponent",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"var jsonData = pm.response.json()",
+											"pm.environment.set(\"ProductRelatedComponentId\", jsonData.id);"
+										],
+										"type": "text/javascript"
+									}
+								},
+								{
+									"listen": "prerequest",
+									"script": {
+										"exec": [
+											""
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"name": "Content-Type",
+										"type": "text",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\"ParentProductId\": \"{{evergreenProductId}}\",\n    \"ChildProductId\": \"{{termedProductId}}\", \n    \"ParentSellingModelId\": \"{{evergreenProductSellingModelId}}\",\n    \"ChildSellingModelId\": \"{{termedProductSellingModelId}}\",\n    \"ProductRelationshipTypeId\": \"{{productRelationshipTypeId}}\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}{{versionPath}}/sobjects/ProductRelatedComponent",
+									"host": [
+										"{{baseUrl}}{{versionPath}}"
+									],
+									"path": [
+										"sobjects",
+										"ProductRelatedComponent"
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				}
+			]
+		}
+	],
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{accessToken}}",
+				"type": "string"
+			}
+		]
+	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	]
+}

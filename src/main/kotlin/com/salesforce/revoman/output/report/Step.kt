@@ -20,7 +20,8 @@ data class Step(
 ) {
   @JvmField var preHookCount: Int = 0
   @JvmField var postHookCount: Int = 0
-  @JvmField val path = parentFolder?.let { "$it$STEP_SEPARATOR$name" } ?: name
+  @JvmField
+  val path = parentFolder?.let { "$it$STEP_NAME_SEPARATOR$name$STEP_NAME_TERMINATOR" } ?: name
   @JvmField
   val displayName = "$index$INDEX_SEPARATOR${rawPMStep.httpMethod}$HTTP_METHOD_SEPARATOR$path"
 
@@ -38,7 +39,7 @@ data class Step(
     name == stepName || displayName == stepName || pathEndsWith(stepName)
 
   private fun pathEndsWith(semiStepPath: String): Boolean {
-    val stepNameFromPath: List<String> = semiStepPath.split(STEP_SEPARATOR)
+    val stepNameFromPath: List<String> = semiStepPath.split(STEP_NAME_SEPARATOR)
     if (stepNameFromPath.size != 2 || name != stepNameFromPath[1]) {
       return false
     }
@@ -51,7 +52,8 @@ data class Step(
   companion object {
     const val HTTP_METHOD_SEPARATOR = " ~~> "
     const val INDEX_SEPARATOR = " ### "
-    const val STEP_SEPARATOR = "|="
+    const val STEP_NAME_SEPARATOR = "<|||"
+    const val STEP_NAME_TERMINATOR = "|||>"
   }
 }
 

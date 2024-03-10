@@ -35,18 +35,20 @@ internal fun unmarshallResponse(
     isJson(httpResponse) -> {
       val httpStatus = httpResponse.status.successful
       val responseConfig =
-        (kick.pickToResponseConfig()[httpStatus] ?: kick.pickToResponseConfig()[null])?.let {
-          it.firstOrNull { pick ->
-            pick.postTxnStepPick.pick(
-              currentStepReport,
-              Rundown(
-                stepReports + currentStepReport,
-                pm.environment,
-                kick.haltOnFailureOfTypeExcept()
+        (kick.pickToResponseConfig()[httpStatus].orEmpty() +
+            kick.pickToResponseConfig()[null].orEmpty())
+          .let {
+            it.firstOrNull { pick ->
+              pick.postTxnStepPick.pick(
+                currentStepReport,
+                Rundown(
+                  stepReports + currentStepReport,
+                  pm.environment,
+                  kick.haltOnFailureOfTypeExcept()
+                )
               )
-            )
+            }
           }
-        }
       val currentStep = currentStepReport.step
       val responseType: Type =
         responseConfig

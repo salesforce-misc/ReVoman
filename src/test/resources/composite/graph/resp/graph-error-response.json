@@ -1,0 +1,57 @@
+{
+  "graphs" : [
+    {
+      "graphId" : "1",
+      "graphResponse" : {
+        "compositeResponse" : [
+          {
+            "body" : [
+              {
+                "errorCode" : "PROCESSING_HALTED",
+                "message" : "The transaction was rolled back since another operation in the same transaction failed."
+              }
+            ],
+            "httpHeaders" : {},
+            "httpStatusCode" : 400,
+            "referenceId" : "account"
+          },
+          {
+            "body" : [
+              {
+                "errorCode" : "DUPLICATE_VALUE",
+                "fields" : [],
+                "message" : "duplicate value found: Name duplicates value on record with id: 0tjxx00000001H3AAI"
+              }
+            ],
+            "httpHeaders" : {},
+            "httpStatusCode" : 400,
+            "referenceId" : "attributeDefinition"
+          },
+          {
+            "body" : [
+              {
+                "errorCode" : "PROCESSING_HALTED",
+                "message" : "The transaction was rolled back since another operation in the same transaction failed."
+              }
+            ],
+            "httpHeaders" : {},
+            "httpStatusCode" : 400,
+            "referenceId" : "contact"
+          },
+          {
+            "body" : [
+              {
+                "errorCode" : "PROCESSING_HALTED",
+                "message" : "The transaction was rolled back since another operation in the same transaction failed."
+              }
+            ],
+            "httpHeaders" : {},
+            "httpStatusCode" : 400,
+            "referenceId" : "opportunity"
+          }
+        ]
+      },
+      "isSuccessful" : false
+    }
+  ]
+}

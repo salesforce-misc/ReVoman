@@ -33,7 +33,7 @@ private constructor(
       postTxnStepPick: PostTxnStepPick,
       successType: Type,
       customAdapter: JsonAdapter<Any>
-    ): ResponseConfig = ResponseConfig(postTxnStepPick, true, successType, left(customAdapter))
+    ): ResponseConfig = ResponseConfig(postTxnStepPick, null, successType, left(customAdapter))
 
     @JvmStatic
     fun unmarshallResponse(
@@ -41,7 +41,7 @@ private constructor(
       successType: Type,
       customAdapterFactory: JsonAdapter.Factory
     ): ResponseConfig =
-      ResponseConfig(postTxnStepPick, true, successType, right(customAdapterFactory))
+      ResponseConfig(postTxnStepPick, null, successType, right(customAdapterFactory))
 
     @JvmStatic
     fun unmarshallSuccessResponse(

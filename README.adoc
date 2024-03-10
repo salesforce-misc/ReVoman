@@ -229,7 +229,11 @@ final var pqRundown =
                     beforeAllStepsWithURIPathEndingWith(PQ_URI_PATH),
                     PlaceQuoteInputRepresentation.class,
                     adapter(PlaceQuoteInputRepresentation.class)))
-            .hooks( // <8>
+            .responseConfig( // <8>
+                unmarshallResponse(
+                    afterAllStepsWithURIPathEndingWith(PQ_URI_PATH),
+                    PlaceQuoteOutputRepresentation.class))
+            .hooks( // <9>
                 pre(
                     beforeAllStepsWithURIPathEndingWith(PQ_URI_PATH),
                     (step, requestInfo, rundown) -> {
@@ -243,7 +247,7 @@ final var pqRundown =
                 post(
                     afterAllStepsWithURIPathEndingWith(PQ_URI_PATH),
                     (stepReport, ignore) -> {
-                      validatePQResponse(stepReport); // <9>
+                      validatePQResponse(stepReport); // <10>
                       LOGGER.info(
                           "Waiting in PostHook of the Step: {}, for the Quote's Asynchronous processing to finish",
                           stepReport.step.displayName);
@@ -254,10 +258,6 @@ final var pqRundown =
                 post(
                     afterStepName("query-quote-and-related-records"),
                     (ignore, rundown) -> assertAfterPQCreate(rundown.mutableEnv)))
-            .responseConfig( // <10>
-                unmarshallResponse(
-                    afterAllStepsWithURIPathEndingWith(PQ_URI_PATH),
-                    PlaceQuoteOutputRepresentation.class))
             .customAdaptersForMarshalling(new IDAdapter()) // <11>
             .insecureHttp(true) // <12>
             .off()); // Kick-off
@@ -276,9 +276,9 @@ assertThat(pqRundown.mutableEnv)
 <5> <<#_custom-dynamic-variables, Custom dynamic variables>>
 <6> <<#_execution_control>>
 <7> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Request Config>>
-<8> <<#_pre_and_post_hooks>>
-<9> <<#_response_validations>>
-<10> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Response Config>>
+<8> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Response Config>>
+<9> <<#_pre_and_post_hooks>>
+<10> <<#_response_validations>>
 <11> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Custom Adapters>>
 <12> Ignore Java cert issues when firing HTTP calls
 <13> More assertions on top of <<#_rundown>>
@@ -298,9 +298,9 @@ include::{testdir}/com/salesforce/revoman/integration/core/pq/PQE2EWithSMTest.ja
 <5> <<#_custom-dynamic-variables, Custom dynamic variables>>
 <6> <<#_execution_control>>
 <7> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Request Config>>
-<8> <<#_pre_and_post_hooks>>
-<9> <<#_response_validations>>
-<10> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Response Config>>
+<8> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Response Config>>
+<9> <<#_pre_and_post_hooks>>
+<10> <<#_response_validations>>
 <11> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Custom Adapters>>
 <12> Ignore Java cert issues when firing HTTP calls
 <13> More assertions on top of <<#_rundown>>

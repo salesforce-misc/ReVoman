@@ -1,0 +1,50 @@
+{
+  "graphs": [
+    {
+      "graphId": "1",
+      "compositeRequest": [
+        {
+          "method": "POST",
+          "url": "/services/data/v61.0/sobjects/Account",
+          "referenceId": "account",
+          "body": {
+            "Name": "Micki Account",
+            "BillingPostalCode": "94003",
+            "BillingCity": "San Mateo",
+            "BillingState": "CA",
+            "BillingStreet": "856 Homewood Ave.",
+            "BillingCountry": "United States",
+            "ShippingStreet": "856 Homewood Ave.",
+            "ShippingPostalCode": "94003",
+            "ShippingCountry": "United States",
+            "ShippingState": "CA",
+            "ShippingCity": "San Mateo"
+          }
+        },
+        {
+          "method": "POST",
+          "url": "/services/data/v61.0/sobjects/Contact",
+          "referenceId": "contact",
+          "body": {
+            "AccountId": "@{account.id}",
+            "FirstName": "Laurence",
+            "LastName": "Jacobson",
+            "Email": "mr.lorrie.sawayn@yahoo.com"
+          }
+        },
+        {
+          "method": "POST",
+          "url": "/services/data/v61.0/sobjects/Opportunity",
+          "referenceId": "opportunity",
+          "body": {
+            "Name": "Opportunity_Shanahan Group",
+            "AccountId": "@{account.id}",
+            "StageName": "Prospecting",
+            "Pricebook2Id": "01sxx0000005ptpAAA",
+            "CloseDate": "2024-09-28"
+          }
+        }
+      ]
+    }
+  ]
+}

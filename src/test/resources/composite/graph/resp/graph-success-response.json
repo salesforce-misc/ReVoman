@@ -1,0 +1,48 @@
+{
+  "graphs" : [
+    {
+      "graphId" : "1",
+      "graphResponse" : {
+        "compositeResponse" : [
+          {
+            "body" : {
+              "id" : "001xx000003Gdl5AAC",
+              "success" : true,
+              "errors" : []
+            },
+            "httpHeaders" : {
+              "Location" : "/services/data/v61.0/sobjects/Account/001xx000003Gdl5AAC"
+            },
+            "httpStatusCode" : 201,
+            "referenceId" : "account"
+          },
+          {
+            "body" : {
+              "id" : "003xx000004Wks0AAC",
+              "success" : true,
+              "errors" : []
+            },
+            "httpHeaders" : {
+              "Location" : "/services/data/v61.0/sobjects/Contact/003xx000004Wks0AAC"
+            },
+            "httpStatusCode" : 201,
+            "referenceId" : "contact"
+          },
+          {
+            "body" : {
+              "id" : "006xx000001a5eKAAQ",
+              "success" : true,
+              "errors" : []
+            },
+            "httpHeaders" : {
+              "Location" : "/services/data/v61.0/sobjects/Opportunity/006xx000001a5eKAAQ"
+            },
+            "httpStatusCode" : 201,
+            "referenceId" : "opportunity"
+          }
+        ]
+      },
+      "isSuccessful" : true
+    }
+  ]
+}

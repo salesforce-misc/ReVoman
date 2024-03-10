@@ -21,6 +21,7 @@ import static com.salesforce.revoman.output.ExeType.HTTP_STATUS;
 
 import com.salesforce.revoman.ReVoman;
 import com.salesforce.revoman.input.config.Kick;
+import com.salesforce.revoman.input.json.adapters.CompositeGraphResponse;
 import com.salesforce.revoman.integration.core.pq.connect.request.PlaceQuoteInputRepresentation;
 import com.salesforce.revoman.integration.core.pq.connect.response.ID;
 import com.salesforce.revoman.integration.core.pq.connect.response.PlaceQuoteOutputRepresentation;
@@ -46,9 +47,9 @@ class PQE2EWithSMTest {
   private static final Logger LOGGER = LoggerFactory.getLogger(PQE2EWithSMTest.class);
   private static final List<String> PQ_TEMPLATE_PATHS =
       List.of(
-          "pm-templates/pq/user-creation-and-setup-pq.postman_collection.json",
+          "pm-templates/pq/[sm] user-creation-with-ps-and-setup-pq.postman_collection.json",
           "pm-templates/pq/pre-salesRep.postman_collection.json",
-          "pm-templates/pq/pq-sm.postman_collection.json");
+          "pm-templates/pq/[sm] pq.postman_collection.json");
   private static final String PQ_ENV_PATH = "pm-templates/pq/pq-env.postman_environment.json";
   private static final String PQ_URI_PATH = "commerce/quotes/actions/place";
   private static final String COMPOSITE_GRAPH_URI_PATH = "composite/graph";
@@ -71,13 +72,22 @@ class PQE2EWithSMTest {
                 .customDynamicVariable( // <5>
                     "$quantity", ignore -> String.valueOf(Random.Default.nextInt(10) + 1))
                 .haltOnFailureOfTypeExcept(
-                    HTTP_STATUS, afterAllStepsContainingHeader("ignoreForFailure")) // <6>
+                    HTTP_STATUS,
+                    afterAllStepsContainingHeader("ignoreHTTPStatusUnsuccessful")) // <6>
                 .requestConfig( // <7>
                     unmarshallRequest(
                         beforeAllStepsWithURIPathEndingWith(PQ_URI_PATH),
                         PlaceQuoteInputRepresentation.class,
                         adapter(PlaceQuoteInputRepresentation.class)))
-                .hooks( // <8>
+                .responseConfig( // <8>
+                    unmarshallResponse(
+                        afterAllStepsWithURIPathEndingWith(PQ_URI_PATH),
+                        PlaceQuoteOutputRepresentation.class),
+                    unmarshallResponse(
+                        afterAllStepsWithURIPathEndingWith(COMPOSITE_GRAPH_URI_PATH),
+                        CompositeGraphResponse.class,
+                        CompositeGraphResponse.ADAPTER))
+                .hooks( // <9>
                     pre(
                         beforeAllStepsWithURIPathEndingWith(PQ_URI_PATH),
                         (step, requestInfo, rundown) -> {
@@ -91,7 +101,7 @@ class PQE2EWithSMTest {
                     post(
                         afterAllStepsWithURIPathEndingWith(PQ_URI_PATH),
                         (stepReport, ignore) -> {
-                          validatePQResponse(stepReport); // <9>
+                          validatePQResponse(stepReport); // <10>
                           LOGGER.info(
                               "Waiting in PostHook of the Step: {}, for the Quote's Asynchronous processing to finish",
                               stepReport.step.displayName);
@@ -100,12 +110,11 @@ class PQE2EWithSMTest {
                           Thread.sleep(5000);
                         }),
                     post(
+                        afterAllStepsWithURIPathEndingWith(COMPOSITE_GRAPH_URI_PATH),
+                        (stepReport, ignore) -> validateCompositeGraphResponse(stepReport)),
+                    post(
                         afterStepName("query-quote-and-related-records"),
                         (ignore, rundown) -> assertAfterPQCreate(rundown.mutableEnv)))
-                .responseConfig( // <10>
-                    unmarshallResponse(
-                        afterAllStepsWithURIPathEndingWith(PQ_URI_PATH),
-                        PlaceQuoteOutputRepresentation.class))
                 .customAdaptersForMarshalling(new IDAdapter()) // <11>
                 .insecureHttp(true) // <12>
                 .off()); // Kick-off
@@ -123,6 +132,12 @@ class PQE2EWithSMTest {
     final var successRespProp =
         stepReport.responseInfo.get().<PlaceQuoteOutputRepresentation>getTypedTxnObj().getSuccess();
     assertThat(successRespProp).isEqualTo(!stepReport.step.isInFolder(SYNC_ERROR_FOLDER_NAME));
+  }
+
+  private static void validateCompositeGraphResponse(StepReport stepReport) {
+    final var graphResponse =
+        stepReport.responseInfo.get().<CompositeGraphResponse>getTypedTxnObj().getGraphs().get(0);
+    assertThat(graphResponse.isSuccessful()).isTrue();
   }
 
   private static void assertAfterPQCreate(PostmanEnvironment<Object> env) {
@@ -154,6 +169,7 @@ class PQE2EWithSMTest {
     }
   }
 
+  // * NOTE 10 Mar 2024 gopala.akshintala: Custom Type Adapter
   static class IDAdapter {
     @FromJson
     ID fromJson(String id) {
