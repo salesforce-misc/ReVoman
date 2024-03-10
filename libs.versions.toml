@@ -30,7 +30,7 @@ kotlinx-datetime = "0.6.0-RC.2"
 junit = "5.10.2"
 detekt = "1.23.5"
 spotless = "6.25.0"
-apache-log4j = "2.23.0"
+apache-log4j = "2.23.1"
 
 [libraries]
 java-vavr = { module = "io.vavr:vavr", version.ref = "java-vavr" }
