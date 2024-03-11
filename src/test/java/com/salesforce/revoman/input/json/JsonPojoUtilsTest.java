@@ -8,13 +8,96 @@
 package com.salesforce.revoman.input.json;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.salesforce.revoman.input.FileUtils.readFileInResourcesToString;
 
+import com.salesforce.revoman.input.json.adapters.CompositeGraphResponse;
+import com.salesforce.revoman.input.json.adapters.CompositeGraphResponse.Graph.ErrorGraph;
+import com.salesforce.revoman.input.json.adapters.CompositeGraphResponse.Graph.SuccessGraph;
+import com.salesforce.revoman.input.json.adapters.SObjectGraphRequestMarshaller;
+import com.salesforce.revoman.input.json.pojo.SObjectGraphRequest;
+import com.salesforce.revoman.input.json.pojo.SObjectGraphRequest.Entity;
+import com.salesforce.revoman.input.json.pojo.SObjectGraphRequest.SObjectWithReferenceRequest;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
+import org.json.JSONException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.skyscreamer.jsonassert.JSONAssert;
+import org.skyscreamer.jsonassert.JSONCompareMode;
 
 class JsonPojoUtilsTest {
+
+  @Test
+  @DisplayName("DiMorphic CompositeGraph Success Response --> POJO --> JSON")
+  void compositeGraphSuccessResponseMarshallUnmarshall() throws JSONException {
+    final var graphSuccessResponseJsonStr =
+        readFileInResourcesToString("composite/graph/resp/graph-success-response.json");
+    final var successGraphResponse =
+        JsonPojoUtils.<CompositeGraphResponse>jsonToPojo(
+            CompositeGraphResponse.class,
+            graphSuccessResponseJsonStr,
+            List.of(CompositeGraphResponse.ADAPTER));
+    assertThat(successGraphResponse.getGraphs().get(0)).isInstanceOf(SuccessGraph.class);
+    final var successGraphResponseUnmarshalled =
+        JsonPojoUtils.pojoToJson(
+            CompositeGraphResponse.class,
+            successGraphResponse,
+            List.of(CompositeGraphResponse.ADAPTER));
+    JSONAssert.assertEquals(
+        graphSuccessResponseJsonStr, successGraphResponseUnmarshalled, JSONCompareMode.STRICT);
+  }
+
+  @Test
+  @DisplayName("DiMorphic CompositeGraph Error Response --> POJO --> JSON")
+  void compositeGraphErrorResponseMarshallUnmarshall() throws JSONException {
+    final var graphErrorResponseJsonStr =
+        readFileInResourcesToString("composite/graph/resp/graph-error-response.json");
+    final var errorGraphResponse =
+        JsonPojoUtils.<CompositeGraphResponse>jsonToPojo(
+            CompositeGraphResponse.class,
+            graphErrorResponseJsonStr,
+            List.of(CompositeGraphResponse.ADAPTER));
+    assertThat(errorGraphResponse.getGraphs().get(0)).isInstanceOf(ErrorGraph.class);
+    final var errorGraphResponseUnmarshalled =
+        JsonPojoUtils.pojoToJson(
+            CompositeGraphResponse.class,
+            errorGraphResponse,
+            List.of(CompositeGraphResponse.ADAPTER));
+    JSONAssert.assertEquals(
+        graphErrorResponseJsonStr, errorGraphResponseUnmarshalled, JSONCompareMode.STRICT);
+  }
+
+  @DisplayName("toJson: SObjectGraphRequest POJO --> PQ Payload JSON")
+  @Test
+  void sObjectGraphMarshallToPQPayload() throws JSONException {
+    final var pqTestInputRepMarshaller =
+        SObjectGraphRequestMarshaller.adapter(
+            Map.of("pricingPref", "skip", "configurationInput", "skip"));
+    final var pqPayloadJsonStr =
+        JsonPojoUtils.pojoToJson(
+            SObjectGraphRequest.class,
+            prepareSObjectGraphReqPojo(),
+            List.of(pqTestInputRepMarshaller));
+    final var expectedPQPayload = readFileInResourcesToString("json/pq-graph-req.json");
+    JSONAssert.assertEquals(expectedPQPayload, pqPayloadJsonStr, JSONCompareMode.STRICT);
+  }
+
+  static SObjectGraphRequest prepareSObjectGraphReqPojo() {
+    return new SObjectGraphRequest(
+        "pq-update-quote",
+        List.of(
+            new SObjectWithReferenceRequest(
+                "refQuote",
+                new Entity(
+                    Map.of(
+                        "attributes",
+                        Map.of("type", "Quote", "method", "PATCH", "id", "quoteId"),
+                        "Name",
+                        "Overfullstack")))));
+  }
 
   @Test
   @DisplayName("json file To Pojo")
@@ -29,19 +112,22 @@ class JsonPojoUtilsTest {
   @Test
   @DisplayName("json with Epoch Date To Pojo")
   void jsonWithEpochDateToPojo() {
+    final var epochDate = 1604216172747L;
     final var beanWithDate =
-        JsonPojoUtils.<BeanWithDate>jsonToPojo(BeanWithDate.class, "{\"date\": 1604216172813}");
+        JsonPojoUtils.<BeanWithDate>jsonToPojo(BeanWithDate.class, "{\"date\": " + epochDate + "}");
     assertThat(beanWithDate).isNotNull();
-    assertThat(beanWithDate.date).isNotNull();
+    assertThat(beanWithDate.date.toInstant().toEpochMilli()).isEqualTo(epochDate);
   }
 
   @Test
   @DisplayName("json with ISO Date To Pojo")
-  void jsonWithISODateToPojo() {
+  void jsonWithISODateToPojo() throws ParseException {
+    final var date = "2015-09-01";
     final var beanWithDate =
-        JsonPojoUtils.<BeanWithDate>jsonToPojo(BeanWithDate.class, "{\"date\": \"2015-09-01\"}");
+        JsonPojoUtils.<BeanWithDate>jsonToPojo(BeanWithDate.class, "{\"date\": \"" + date + "\"}");
     assertThat(beanWithDate).isNotNull();
-    assertThat(beanWithDate.date).isNotNull();
+    final var formatter = new SimpleDateFormat("yyyy-MM-dd");
+    assertThat(beanWithDate.date).isEqualTo(formatter.parse(date));
   }
 
   @Test

@@ -8,6 +8,7 @@
 package com.salesforce.revoman.input.json.pojo;
 
 import java.util.List;
+import java.util.Map;
 
 public class SObjectGraphRequest {
 
@@ -25,5 +26,35 @@ public class SObjectGraphRequest {
 
   public List<SObjectWithReferenceRequest> getRecords() {
     return this.records;
+  }
+
+  public static class Entity {
+    private final Map<String, Object> fields;
+
+    public Entity(Map<String, Object> fields) {
+      this.fields = fields;
+    }
+
+    public Map<String, Object> getFields() {
+      return fields;
+    }
+  }
+
+  public static class SObjectWithReferenceRequest {
+    private final String referenceId;
+    private final Entity record;
+
+    public SObjectWithReferenceRequest(String referenceId, Entity record) {
+      this.referenceId = referenceId;
+      this.record = record;
+    }
+
+    public String getReferenceId() {
+      return this.referenceId;
+    }
+
+    public Entity getRecord() {
+      return this.record;
+    }
   }
 }

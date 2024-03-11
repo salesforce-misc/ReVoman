@@ -64,6 +64,18 @@ inline fun <reified PojoT : Any> jsonToPojo(
 ): PojoT? =
   jsonToPojo(PojoT::class.java, jsonStr, customAdapters, customAdaptersWithType, typesToIgnore)
 
+/**
+ * Generate a JSON string from a POJO object.
+ *
+ * @param pojoType The type of the POJO object.
+ * @param pojo The POJO object to be converted to JSON.
+ * @param customAdapters A list of custom adapters for Moshi to use during the conversion.
+ * @param customAdaptersWithType A map of custom adapters with their respective types.
+ * @param typesToIgnore A set of classes to ignore during the conversion.
+ * @param indent An optional string for pretty-printing the JSON output.
+ * @param <PojoT> The type of the POJO object.
+ * @return A JSON string or null if the input is null.
+ */
 @JvmOverloads
 fun <PojoT : Any> pojoToJson(
   pojoType: Type,

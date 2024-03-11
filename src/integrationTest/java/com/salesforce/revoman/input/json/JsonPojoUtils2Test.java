@@ -8,6 +8,7 @@
 package com.salesforce.revoman.input.json;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.salesforce.revoman.input.FileUtils.readFileInResourcesToString;
 import static com.salesforce.revoman.integration.core.pq.adapters.ConnectInputRepWithGraphAdapter.adapter;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -15,10 +16,29 @@ import com.salesforce.revoman.integration.core.pq.connect.request.PlaceQuoteInpu
 import com.salesforce.revoman.integration.core.pq.connect.request.PricingPreferenceEnum;
 import com.squareup.moshi.JsonDataException;
 import java.util.List;
+import org.json.JSONException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.skyscreamer.jsonassert.JSONAssert;
+import org.skyscreamer.jsonassert.JSONCompareMode;
 
-class JsonReaderUtilsTest {
+class JsonPojoUtils2Test {
+
+  @Test
+  @DisplayName("toJson: PQ Payload JSON -> PlaceQuoteInputRep -> PQ Payload JSON")
+  void pqInputRepToPQPayloadJson() throws JSONException {
+    final var pqAdapter = adapter(PlaceQuoteInputRepresentation.class);
+    final var pqPayloadJsonFilePath = "json/pq-payload.json";
+    final var pqInputRep =
+        JsonPojoUtils.<PlaceQuoteInputRepresentation>jsonFileToPojo(
+            PlaceQuoteInputRepresentation.class, pqPayloadJsonFilePath, List.of(pqAdapter));
+    assertThat(pqInputRep).isNotNull();
+    final var pqPayloadJsonStr =
+        JsonPojoUtils.pojoToJson(
+            PlaceQuoteInputRepresentation.class, pqInputRep, List.of(pqAdapter));
+    final var expectedPQPayload = readFileInResourcesToString(pqPayloadJsonFilePath);
+    JSONAssert.assertEquals(expectedPQPayload, pqPayloadJsonStr, JSONCompareMode.STRICT);
+  }
 
   @Test
   @DisplayName("fromJson: PQ payload JSON --> PlaceQuoteInputRep")
