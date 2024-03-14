@@ -15,10 +15,10 @@ import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
 import java.lang.reflect.Type
 
-internal class IgnoreUnknownFactory(private val typesToIgnore: Set<Class<out Any>>) : Factory {
+internal class SkipTypesFactory(private val typesToSkip: Set<Class<out Any>>) : Factory {
   override fun create(type: Type, annotations: Set<Annotation?>, moshi: Moshi): JsonAdapter<*>? {
     val rawType: Class<*> = Types.getRawType(type)
-    return if (typesToIgnore.contains(rawType)) {
+    return if (typesToSkip.contains(rawType)) {
       object : JsonAdapter<Type>() {
         override fun fromJson(reader: JsonReader): Type? {
           reader.skipValue()

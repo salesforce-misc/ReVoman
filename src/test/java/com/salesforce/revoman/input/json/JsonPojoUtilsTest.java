@@ -43,9 +43,11 @@ class JsonPojoUtilsTest {
     assertThat(successGraphResponse.getGraphs().get(0)).isInstanceOf(SuccessGraph.class);
     final var successGraphResponseUnmarshalled =
         JsonPojoUtils.pojoToJson(
-            CompositeGraphResponse.class,
-            successGraphResponse,
-            List.of(CompositeGraphResponse.ADAPTER));
+            Pojo.marshall()
+                .pojoType(CompositeGraphResponse.class)
+                .pojo(successGraphResponse)
+                .customAdapter(CompositeGraphResponse.ADAPTER)
+                .done());
     JSONAssert.assertEquals(
         graphSuccessResponseJsonStr, successGraphResponseUnmarshalled, JSONCompareMode.STRICT);
   }

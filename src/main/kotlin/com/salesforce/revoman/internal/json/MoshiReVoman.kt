@@ -14,7 +14,7 @@ import com.salesforce.revoman.internal.json.adapters.EpochAdapter
 import com.salesforce.revoman.internal.json.adapters.TypeAdapter
 import com.salesforce.revoman.internal.json.adapters.UUIDAdapter
 import com.salesforce.revoman.internal.json.factories.CaseInsensitiveEnumAdapter
-import com.salesforce.revoman.internal.json.factories.IgnoreUnknownFactory
+import com.salesforce.revoman.internal.json.factories.SkipTypesFactory
 import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.JsonAdapter.Factory
 import com.squareup.moshi.Moshi
@@ -81,7 +81,7 @@ internal fun buildMoshi(
     }
   }
   if (typesToIgnore.isNotEmpty()) {
-    moshiBuilder.add(IgnoreUnknownFactory(typesToIgnore))
+    moshiBuilder.add(SkipTypesFactory(typesToIgnore))
   }
   return moshiBuilder
 }

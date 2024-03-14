@@ -31,15 +31,14 @@ class JsonPojoUtils2Test {
   @DisplayName("toJson: PQ Payload JSON -> PlaceQuoteInputRep -> PQ Payload JSON")
   void pqInputRepToPQPayloadJson() throws JSONException {
     final var pqAdapter = adapter(PlaceQuoteInputRepresentation.class);
-    final var pqPayloadJsonFilePath = "json/pq-payload.json";
+    final var expectedPQPayload = readFileInResourcesToString("json/pq-payload.json");
     final var pqInputRep =
-        JsonPojoUtils.<PlaceQuoteInputRepresentation>jsonFileToPojo(
-            PlaceQuoteInputRepresentation.class, pqPayloadJsonFilePath, List.of(pqAdapter));
+        JsonPojoUtils.<PlaceQuoteInputRepresentation>jsonToPojo(
+            PlaceQuoteInputRepresentation.class, expectedPQPayload, List.of(pqAdapter));
     assertThat(pqInputRep).isNotNull();
     final var pqPayloadJsonStr =
         JsonPojoUtils.pojoToJson(
             PlaceQuoteInputRepresentation.class, pqInputRep, List.of(pqAdapter));
-    final var expectedPQPayload = readFileInResourcesToString(pqPayloadJsonFilePath);
     JSONAssert.assertEquals(expectedPQPayload, pqPayloadJsonStr, JSONCompareMode.STRICT);
   }
 
@@ -48,8 +47,12 @@ class JsonPojoUtils2Test {
   void pqPayloadJsonToPQInputRep() {
     final var pqAdapter = adapter(PlaceQuoteInputRepresentation.class);
     final var pqInputRep =
-        JsonPojoUtils.<PlaceQuoteInputRepresentation>jsonFileToPojo(
-            PlaceQuoteInputRepresentation.class, "json/pq-payload.json", List.of(pqAdapter));
+        JsonPojoUtils.jsonFileToPojo(
+            JsonFile.<PlaceQuoteInputRepresentation>unmarshall()
+                .pojoType(PlaceQuoteInputRepresentation.class)
+                .jsonFilePath("json/pq-payload.json")
+                .customAdapter(pqAdapter)
+                .done());
     assertThat(pqInputRep).isNotNull();
     assertThat(pqInputRep.getPricingPref()).isEqualTo(PricingPreferenceEnum.System);
     assertThat(pqInputRep.getDoAsync()).isTrue();
@@ -63,8 +66,12 @@ class JsonPojoUtils2Test {
   void unmarshallMarshallPqResponse() throws JSONException {
     final var pqResponseFromJson = readFileInResourcesToString("json/pq-response.json");
     final var pqResp =
-        JsonPojoUtils.<PlaceQuoteOutputRepresentation>jsonToPojo(
-            PlaceQuoteOutputRepresentation.class, pqResponseFromJson, List.of(new IDAdapter()));
+        JsonPojoUtils.jsonToPojo(
+            JsonString.<PlaceQuoteOutputRepresentation>unmarshall()
+                .pojoType(PlaceQuoteOutputRepresentation.class)
+                .jsonString(pqResponseFromJson)
+                .customAdapter(new IDAdapter())
+                .done());
     assertNotNull(pqResp);
     final var pqOutputRepJson =
         JsonPojoUtils.pojoToJson(
