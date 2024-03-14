@@ -99,6 +99,7 @@ fun JsonWriter.mapW(map: Map<String, Any?>, dynamicJsonAdapter: JsonAdapter<Any>
   }
 }
 
+/** BeanUtils is used to read even the private fields with a getter */
 fun <T> JsonWriter.writeProps(
   pojoType: Class<T>,
   bean: T,

@@ -51,7 +51,7 @@ data class TxnInfo<HttpMsgT : HttpMessage>(
         is Response -> "ResponseInfo⬇️"
         else -> "TxnInfo"
       }
-    return "$prefix(Type=$txnObjType, Obj=$txnObj, $httpMsg)"
+    return "$prefix ~~>\nType=$txnObjType\nObj=$txnObj\n$httpMsg"
   }
 
   companion object {

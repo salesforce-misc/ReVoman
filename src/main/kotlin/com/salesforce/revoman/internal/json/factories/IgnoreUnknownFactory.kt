@@ -20,10 +20,13 @@ internal class IgnoreUnknownFactory(private val typesToIgnore: Set<Class<out Any
     val rawType: Class<*> = Types.getRawType(type)
     return if (typesToIgnore.contains(rawType)) {
       object : JsonAdapter<Type>() {
-        override fun fromJson(reader: JsonReader): Type? = null
+        override fun fromJson(reader: JsonReader): Type? {
+          reader.skipValue()
+          return null
+        }
 
         override fun toJson(writer: JsonWriter, value: Type?) {
-          // do nothing
+          writer.nullValue()
         }
       }
     } else null

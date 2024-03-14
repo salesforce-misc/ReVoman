@@ -117,7 +117,7 @@ private constructor(
       when {
         exeFailure != null -> " ❌$exeFailure\n${exeFailure.failure.stackTraceToString()}"
         !isHttpStatusSuccessful ->
-          " ⚠️️Unsuccessful HTTP Status: ${responseInfo?.get()?.httpMsg?.status} \n${requestInfo?.get()}, ${responseInfo?.get()}"
+          " ⚠️️Unsuccessful HTTP Status: ${responseInfo?.get()?.httpMsg?.status} \n${requestInfo?.get()} \n${responseInfo?.get()}"
         else -> "✅${requestInfo?.get()}, ${responseInfo?.get()}"
       }
 }

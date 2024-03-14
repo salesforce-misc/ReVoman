@@ -10,10 +10,13 @@ package com.salesforce.revoman.input.json;
 import static com.google.common.truth.Truth.assertThat;
 import static com.salesforce.revoman.input.FileUtils.readFileInResourcesToString;
 import static com.salesforce.revoman.integration.core.pq.adapters.ConnectInputRepWithGraphAdapter.adapter;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import com.salesforce.revoman.integration.core.pq.adapters.IDAdapter;
 import com.salesforce.revoman.integration.core.pq.connect.request.PlaceQuoteInputRepresentation;
 import com.salesforce.revoman.integration.core.pq.connect.request.PricingPreferenceEnum;
+import com.salesforce.revoman.integration.core.pq.connect.response.PlaceQuoteOutputRepresentation;
 import com.squareup.moshi.JsonDataException;
 import java.util.List;
 import org.json.JSONException;
@@ -53,6 +56,20 @@ class JsonPojoUtils2Test {
     final var graph = pqInputRep.getGraph();
     assertThat(graph).isNotNull();
     assertThat(graph.getRecords().getRecordsList()).hasSize(6);
+  }
+
+  @Test
+  @DisplayName("JSON --> PQ Response --> JSON")
+  void unmarshallMarshallPqResponse() throws JSONException {
+    final var pqResponseFromJson = readFileInResourcesToString("json/pq-response.json");
+    final var pqResp =
+        JsonPojoUtils.<PlaceQuoteOutputRepresentation>jsonToPojo(
+            PlaceQuoteOutputRepresentation.class, pqResponseFromJson, List.of(new IDAdapter()));
+    assertNotNull(pqResp);
+    final var pqOutputRepJson =
+        JsonPojoUtils.pojoToJson(
+            PlaceQuoteOutputRepresentation.class, pqResp, List.of(new IDAdapter()));
+    JSONAssert.assertEquals(pqResponseFromJson, pqOutputRepJson, JSONCompareMode.STRICT);
   }
 
   @Test

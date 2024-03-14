@@ -22,13 +22,11 @@ import static com.salesforce.revoman.output.ExeType.HTTP_STATUS;
 import com.salesforce.revoman.ReVoman;
 import com.salesforce.revoman.input.config.Kick;
 import com.salesforce.revoman.input.json.adapters.CompositeGraphResponse;
+import com.salesforce.revoman.integration.core.pq.adapters.IDAdapter;
 import com.salesforce.revoman.integration.core.pq.connect.request.PlaceQuoteInputRepresentation;
-import com.salesforce.revoman.integration.core.pq.connect.response.ID;
 import com.salesforce.revoman.integration.core.pq.connect.response.PlaceQuoteOutputRepresentation;
 import com.salesforce.revoman.output.postman.PostmanEnvironment;
 import com.salesforce.revoman.output.report.StepReport;
-import com.squareup.moshi.FromJson;
-import com.squareup.moshi.ToJson;
 import java.util.List;
 import java.util.Map;
 import kotlin.random.Random;
@@ -166,19 +164,6 @@ class PQE2EWithSMTest {
 
     PricingPref(String completeStatus) {
       this.completeStatus = completeStatus;
-    }
-  }
-
-  // * NOTE 10 Mar 2024 gopala.akshintala: Custom Type Adapter
-  static class IDAdapter {
-    @FromJson
-    ID fromJson(String id) {
-      return new ID(id);
-    }
-
-    @ToJson
-    String toJson(ID id) {
-      return id.getId();
     }
   }
 }
