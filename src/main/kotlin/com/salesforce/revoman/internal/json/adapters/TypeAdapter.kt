@@ -15,5 +15,5 @@ import java.util.*
 object TypeAdapter {
   @ToJson fun toJson(type: Type): String = type.toString()
 
-  @FromJson fun fromJson(typeStr: String): Type? = null
+  @FromJson fun fromJson(ignore: String): Type? = null
 }

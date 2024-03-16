@@ -8,6 +8,7 @@
 package com.salesforce.revoman.internal.postman
 
 import io.kotest.matchers.maps.shouldContain
+import io.mockk.mockk
 import org.junit.jupiter.api.Test
 
 class PostmanTest {
@@ -16,12 +17,13 @@ class PostmanTest {
   fun `unmarshall Env File with Regex and Dynamic variable`() {
     val epoch = System.currentTimeMillis().toString()
     val dummyDynamicVariableGenerator = { r: String -> if (r == "\$epoch") epoch else null }
-    initPmEnvironment(
-      setOf("env-with-regex.json"),
-      mutableMapOf("un" to "userName"),
-      emptyMap(),
-      dummyDynamicVariableGenerator
-    )
-    pm.environment shouldContain ("userName" to "user-$epoch@xyz.com")
+    val env =
+      mergeEnvs(
+        setOf("env-with-regex.json"),
+        mutableMapOf("un" to "userName"),
+      )
+    val regexReplacer = RegexReplacer(env.toMutableMap(), emptyMap(), dummyDynamicVariableGenerator)
+    val envWithVariablesReplaced = regexReplacer.replaceVariablesInEnv(mockk(), mockk())
+    envWithVariablesReplaced shouldContain ("userName" to "user-$epoch@xyz.com")
   }
 }

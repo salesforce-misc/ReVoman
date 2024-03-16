@@ -35,6 +35,7 @@ dependencies {
   compileOnly(libs.jetbrains.annotations)
   testImplementation(libs.truth)
   testImplementation(libs.json.assert)
+  testImplementation(libs.mockk)
 }
 
 testing {

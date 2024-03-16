@@ -14,7 +14,6 @@ import arrow.core.Either.Left
 import arrow.core.Either.Right
 import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.input.config.StepPick.ExeStepPick
-import com.salesforce.revoman.internal.postman.pm
 import com.salesforce.revoman.internal.postman.template.Item
 import com.salesforce.revoman.output.ExeType
 import com.salesforce.revoman.output.Rundown
@@ -109,11 +108,7 @@ internal fun shouldHaltExecution(
           currentStepReport.exeTypeForFailure == exeType &&
             postTxnPick.pick(
               currentStepReport,
-              Rundown(
-                stepReports + currentStepReport,
-                pm.environment,
-                kick.haltOnFailureOfTypeExcept(),
-              ),
+              Rundown(stepReports + currentStepReport, kick.haltOnFailureOfTypeExcept()),
             )
         }
         ?.any { it }

@@ -7,10 +7,12 @@
  */
 package com.salesforce.revoman.internal.postman
 
+import com.salesforce.revoman.input.config.CustomDynamicVariableGenerator
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapter
 import io.kotest.matchers.equals.shouldNotBeEqual
 import io.kotest.matchers.maps.shouldContainAll
+import io.mockk.mockk
 import org.junit.jupiter.api.Test
 
 class RegexReplacerTest {
@@ -33,7 +35,7 @@ class RegexReplacerTest {
       }
       """
         .trimIndent()
-    val resultStr = regexReplacer.replaceRegexRecursively(jsonStr)!!
+    val resultStr = regexReplacer.replaceVariablesRecursively(jsonStr, mockk(), mockk())!!
     val result = Moshi.Builder().build().adapter<Map<String, String>>().fromJson(resultStr)!!
     result shouldContainAll mapOf("epoch" to epoch, "key" to "value-$epoch")
   }
@@ -42,7 +44,7 @@ class RegexReplacerTest {
   @Test
   fun `custom dynamic variables`() {
     val customEpoch = "Custom - ${System.currentTimeMillis()}"
-    val customDynamicVariableGenerator = { _: String -> customEpoch }
+    val customDynamicVariableGenerator = CustomDynamicVariableGenerator { _, _, _ -> customEpoch }
     val regexReplacer =
       RegexReplacer(
         mutableMapOf("key" to "value-{{\$customEpoch}}"),
@@ -56,7 +58,7 @@ class RegexReplacerTest {
       }
       """
         .trimIndent()
-    val resultStr = regexReplacer.replaceRegexRecursively(jsonStr)!!
+    val resultStr = regexReplacer.replaceVariablesRecursively(jsonStr, mockk(), mockk())!!
     val result = Moshi.Builder().build().adapter<Map<String, String>>().fromJson(resultStr)!!
     result shouldContainAll mapOf("epoch" to customEpoch, "key" to "value-$customEpoch")
   }
@@ -73,7 +75,7 @@ class RegexReplacerTest {
       }
       """
         .trimIndent()
-    val resultStr = regexReplacer.replaceRegexRecursively(jsonStr)!!
+    val resultStr = regexReplacer.replaceVariablesRecursively(jsonStr, mockk(), mockk())!!
     val result = Moshi.Builder().build().adapter<Map<String, String>>().fromJson(resultStr)!!
     result["key1"]!! shouldNotBeEqual result["key2"]!!
   }

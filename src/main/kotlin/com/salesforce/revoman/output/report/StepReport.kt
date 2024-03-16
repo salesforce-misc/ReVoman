@@ -7,6 +7,8 @@
  */
 package com.salesforce.revoman.output.report
 
+import arrow.core.Either.Left
+import arrow.core.Either.Right
 import com.salesforce.revoman.internal.postman.pm
 import com.salesforce.revoman.output.ExeType
 import com.salesforce.revoman.output.postman.PostmanEnvironment
@@ -96,6 +98,8 @@ private constructor(
       }
 
     fun <L, R> arrow.core.Either<L, R>.toVavr(): Either<L, R> = fold({ left(it) }, { right(it) })
+
+    fun <L, R> Either<L, R>.toArrow(): arrow.core.Either<L, R> = fold({ Left(it) }, { Right(it) })
 
     @JvmStatic
     fun Either<out RequestFailure, TxnInfo<Request>>?.uriPathEndsWith(path: String): Boolean =

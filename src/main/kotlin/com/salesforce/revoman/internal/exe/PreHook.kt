@@ -11,7 +11,6 @@ import com.salesforce.revoman.input.config.HookConfig
 import com.salesforce.revoman.input.config.HookConfig.Hook.PreHook
 import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.input.config.StepPick.PreTxnStepPick
-import com.salesforce.revoman.internal.postman.pm
 import com.salesforce.revoman.output.ExeType.PRE_HOOK
 import com.salesforce.revoman.output.Rundown
 import com.salesforce.revoman.output.report.Step
@@ -31,7 +30,7 @@ internal fun preHookExe(
       kick.preHooks(),
       currentStep,
       requestInfo,
-      Rundown(stepReports, pm.environment, kick.haltOnFailureOfTypeExcept())
+      Rundown(stepReports, kick.haltOnFailureOfTypeExcept())
     )
     .asSequence()
     .map { preHook ->
@@ -39,7 +38,7 @@ internal fun preHookExe(
           preHook.accept(
             currentStep,
             requestInfo,
-            Rundown(stepReports, pm.environment, kick.haltOnFailureOfTypeExcept())
+            Rundown(stepReports, kick.haltOnFailureOfTypeExcept())
           )
         }
         .mapLeft { PreHookFailure(it, requestInfo) }

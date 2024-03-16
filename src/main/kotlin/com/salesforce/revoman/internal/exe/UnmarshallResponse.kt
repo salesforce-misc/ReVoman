@@ -11,7 +11,6 @@ import arrow.core.Either
 import arrow.core.Either.Right
 import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.internal.json.asA
-import com.salesforce.revoman.internal.postman.pm
 import com.salesforce.revoman.output.ExeType.UNMARSHALL_RESPONSE
 import com.salesforce.revoman.output.Rundown
 import com.salesforce.revoman.output.report.StepReport
@@ -41,11 +40,7 @@ internal fun unmarshallResponse(
             it.firstOrNull { pick ->
               pick.postTxnStepPick.pick(
                 currentStepReport,
-                Rundown(
-                  stepReports + currentStepReport,
-                  pm.environment,
-                  kick.haltOnFailureOfTypeExcept()
-                )
+                Rundown(stepReports + currentStepReport, kick.haltOnFailureOfTypeExcept())
               )
             }
           }

@@ -8,14 +8,15 @@
 package com.salesforce.revoman.output
 
 import com.salesforce.revoman.input.config.StepPick.PostTxnStepPick
+import com.salesforce.revoman.internal.postman.pm
 import com.salesforce.revoman.output.postman.PostmanEnvironment
 import com.salesforce.revoman.output.report.Folder.Companion.FOLDER_DELIMITER
 import com.salesforce.revoman.output.report.StepReport
 
 data class Rundown(
   @JvmField val stepReports: List<StepReport> = emptyList(),
-  @JvmField val mutableEnv: PostmanEnvironment<Any?> = PostmanEnvironment(),
-  private val stepsToIgnoreForFailurePick: Map<ExeType, PostTxnStepPick>?
+  private val stepsToIgnoreForFailurePick: Map<ExeType, PostTxnStepPick>?,
+  @JvmField val mutableEnv: PostmanEnvironment<Any?> = pm.environment
 ) {
 
   @get:JvmName("immutableEnv") val immutableEnv: Map<String, Any?> by lazy { mutableEnv.toMap() }

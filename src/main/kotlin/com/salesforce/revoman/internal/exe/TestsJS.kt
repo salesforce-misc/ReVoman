@@ -13,6 +13,7 @@ import com.salesforce.revoman.internal.postman.pm
 import com.salesforce.revoman.internal.postman.template.Event
 import com.salesforce.revoman.internal.postman.template.Request
 import com.salesforce.revoman.output.ExeType
+import com.salesforce.revoman.output.Rundown
 import com.salesforce.revoman.output.report.Step
 import com.salesforce.revoman.output.report.StepReport
 import com.salesforce.revoman.output.report.failure.ResponseFailure.TestsJsFailure
@@ -50,33 +51,28 @@ private fun buildJsContext(useCommonjsRequire: Boolean = true): Context {
 internal fun executeTestsJS(
   currentStep: Step,
   events: List<Event>?,
-  customDynamicVariables: Map<String, (String) -> String>,
+  regexReplacer: RegexReplacer,
   pmRequest: Request,
-  stepReport: StepReport
+  stepReport: StepReport,
+  rundown: Rundown
 ): Either<TestsJsFailure, Unit> =
   runChecked(currentStep, ExeType.TESTS_JS) {
-      executeWithPolyglot(
-        events,
-        customDynamicVariables,
-        pmRequest,
-        stepReport.responseInfo!!.get().httpMsg
-      )
+      executeWithPolyglot(events, regexReplacer, pmRequest, stepReport, rundown)
     }
     .mapLeft { TestsJsFailure(it, stepReport.requestInfo!!.get(), stepReport.responseInfo!!.get()) }
 
 private fun executeWithPolyglot(
   events: List<Event>?,
-  customDynamicVariables: Map<String, (String) -> String>,
+  regexReplacer: RegexReplacer,
   pmRequest: Request,
-  httpResponse: Response
+  stepReport: StepReport,
+  rundown: Rundown
 ) {
-  // ! TODO 12/03/23 gopala.akshintala: Find a way to surface-up what happened in the script, like
-  // the Ids set etc
+  val httpResponse = stepReport.responseInfo!!.get().httpMsg
   loadIntoPmEnvironment(pmRequest, httpResponse)
   val testScriptWithRegex = events?.find { it.listen == "test" }?.script?.exec?.joinToString("\n")
   val testScript =
-    RegexReplacer(pm.environment, customDynamicVariables)
-      .replaceRegexRecursively(testScriptWithRegex)
+    regexReplacer.replaceVariablesRecursively(testScriptWithRegex, stepReport, rundown)
   if (!testScript.isNullOrBlank()) {
     jsContext.getBindings("js").putMember("responseBody", httpResponse.bodyString())
     val testSource = Source.newBuilder("js", testScript, "pmItemTestScript.js").build()

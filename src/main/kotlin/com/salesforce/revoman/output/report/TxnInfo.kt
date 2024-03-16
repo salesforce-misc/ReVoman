@@ -47,11 +47,11 @@ data class TxnInfo<HttpMsgT : HttpMessage>(
   override fun toString(): String {
     val prefix =
       when (httpMsg) {
-        is Request -> "RequestInfo⬆️"
-        is Response -> "ResponseInfo⬇️"
+        is Request -> "⬆️RequestInfo ~~>"
+        is Response -> "⬇️ResponseInfo <~~"
         else -> "TxnInfo"
       }
-    return "$prefix ~~>\nType=$txnObjType\nObj=$txnObj\n$httpMsg"
+    return "$prefix\nType=$txnObjType\nObj=$txnObj\n$httpMsg"
   }
 
   companion object {

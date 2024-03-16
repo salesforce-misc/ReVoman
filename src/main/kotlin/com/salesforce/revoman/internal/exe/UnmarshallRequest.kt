@@ -11,7 +11,6 @@ import arrow.core.Either
 import arrow.core.Either.Right
 import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.internal.json.asA
-import com.salesforce.revoman.internal.postman.pm
 import com.salesforce.revoman.output.ExeType.UNMARSHALL_REQUEST
 import com.salesforce.revoman.output.Rundown
 import com.salesforce.revoman.output.report.Step
@@ -40,7 +39,7 @@ internal fun unmarshallRequest(
         it.preTxnStepPick.pick(
           currentStep,
           TxnInfo(null, null, httpRequest),
-          Rundown(stepReports, pm.environment, kick.haltOnFailureOfTypeExcept())
+          Rundown(stepReports, kick.haltOnFailureOfTypeExcept())
         )
       }
       ?.also { logger.info { "$currentStep RequestConfig found : ${pprint(it)}" } }

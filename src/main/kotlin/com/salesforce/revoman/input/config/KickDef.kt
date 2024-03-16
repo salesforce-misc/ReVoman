@@ -11,6 +11,8 @@ import com.salesforce.revoman.input.config.StepPick.ExeStepPick
 import com.salesforce.revoman.input.config.StepPick.PostTxnStepPick
 import com.salesforce.revoman.input.config.StepPick.PreTxnStepPick
 import com.salesforce.revoman.output.ExeType
+import com.salesforce.revoman.output.Rundown
+import com.salesforce.revoman.output.report.StepReport
 import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.JsonAdapter.Factory
 import io.vavr.control.Either
@@ -34,7 +36,7 @@ internal interface KickDef {
     if (dynamicEnvironments().isEmpty()) emptyMap()
     else dynamicEnvironments().reduce { acc, map -> acc + map }
 
-  fun customDynamicVariables(): Map<String, (String) -> String>
+  fun customDynamicVariableGenerators(): Map<String, CustomDynamicVariableGenerator>
 
   @Value.Default fun haltOnAnyFailure(): Boolean = false
 
@@ -91,6 +93,10 @@ internal interface KickDef {
       "`runOnlySteps` and `skipSteps` cannot contain same step names"
     }
   }
+}
+
+fun interface CustomDynamicVariableGenerator {
+  fun generate(variableName: String, currentStepReport: StepReport, rundown: Rundown): String
 }
 
 @Target(AnnotationTarget.CLASS)

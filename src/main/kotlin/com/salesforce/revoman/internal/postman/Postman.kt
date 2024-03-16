@@ -16,34 +16,22 @@ import com.squareup.moshi.adapter
 internal val pm = PostmanSDK()
 
 @OptIn(ExperimentalStdlibApi::class)
-internal fun initPmEnvironment(
+internal fun mergeEnvs(
   pmEnvironmentPaths: Set<String>,
-  dynamicEnvironment: Map<String, String?>?,
-  customDynamicVariables: Map<String, (String) -> String>,
-  dynamicVariableGenerator: (String) -> String? = ::dynamicVariableGenerator
-) {
-  // ! TODO 20/01/24 gopala.akshintala: Make env, execution specific to support parallel executions
-  // * NOTE 10/09/23 gopala.akshintala: Clear env for each new run
-  pm.environment.clear()
+  dynamicEnvironment: Map<String, String?>
+): Map<String, String?> {
   // ! TODO gopala.akshintala 19/05/22: Should we highlight if there are clashes between dynamic env
   // and env path?
   // * NOTE 10/09/23 gopala.akshintala: Adding dynamic variables first, as they can be used to regex
   // replace in env path
-  if (!dynamicEnvironment.isNullOrEmpty()) {
-    pm.environment.putAll(dynamicEnvironment)
-  }
   val envAdapter = Moshi.Builder().build().adapter<Environment>()
-  val regexReplacer =
-    RegexReplacer(pm.environment, customDynamicVariables, dynamicVariableGenerator)
   // ! TODO 05/10/23 gopala.akshintala: Consider values from env file being parsed to replace
-  pmEnvironmentPaths.forEach { envWithRegex ->
-    pm.environment.putAll(
-      envAdapter
-        .fromJson(bufferFileInResources(envWithRegex))
-        ?.let { regexReplacer.replaceRegex(it) }
-        ?.values
-        ?.filter { it.enabled }
-        ?.associate { it.key to it.value } ?: emptyMap()
-    )
-  }
+  val envFromEnvFiles =
+    pmEnvironmentPaths
+      .flatMap { envWithRegex ->
+        envAdapter.fromJson(bufferFileInResources(envWithRegex))?.values?.filter { it.enabled }
+          ?: emptyList()
+      }
+      .associate { it.key to it.value }
+  return dynamicEnvironment + envFromEnvFiles
 }
