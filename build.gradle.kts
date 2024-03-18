@@ -9,9 +9,11 @@ plugins {
   id("revoman.root-conventions")
   id("revoman.publishing-conventions")
   id("revoman.kt-conventions")
-  id(libs.plugins.kover.pluginId)
-  alias(libs.plugins.nexus.publish)
   alias(libs.plugins.moshix)
+  alias(libs.plugins.node.gradle)
+  alias(libs.plugins.kover)
+  alias(libs.plugins.nexus.publish)
+  alias(libs.plugins.gradle.taskinfo)
 }
 
 dependencies {
@@ -52,6 +54,13 @@ testing {
         }
       }
   }
+}
+
+node { nodeProjectDir = file("${project.projectDir}/js") }
+
+tasks {
+  check { dependsOn(npmInstall) }
+  test { dependsOn(npmInstall) }
 }
 
 koverReport { defaults { xml { onCheck = true } } }

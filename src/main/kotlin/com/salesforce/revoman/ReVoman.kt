@@ -13,7 +13,9 @@ import arrow.core.flatMap
 import arrow.core.merge
 import com.salesforce.revoman.input.bufferFileInResources
 import com.salesforce.revoman.input.config.Kick
+import com.salesforce.revoman.input.initJSContext
 import com.salesforce.revoman.internal.exe.deepFlattenItems
+import com.salesforce.revoman.internal.exe.executePreReqJS
 import com.salesforce.revoman.internal.exe.executeTestsJS
 import com.salesforce.revoman.internal.exe.fireHttpRequest
 import com.salesforce.revoman.internal.exe.postHookExe
@@ -24,6 +26,7 @@ import com.salesforce.revoman.internal.exe.unmarshallRequest
 import com.salesforce.revoman.internal.exe.unmarshallResponse
 import com.salesforce.revoman.internal.json.initMoshi
 import com.salesforce.revoman.internal.postman.Info
+import com.salesforce.revoman.internal.postman.PostmanSDK
 import com.salesforce.revoman.internal.postman.RegexReplacer
 import com.salesforce.revoman.internal.postman.dynamicVariableGenerator
 import com.salesforce.revoman.internal.postman.mergeEnvs
@@ -64,7 +67,7 @@ object ReVoman {
         initMoshi(
           kick.customAdaptersForMarshalling(),
           kick.customAdaptersFromRequestConfig() + kick.customAdaptersFromResponseConfig(),
-          kick.typesToIgnoreForMarshalling()
+          kick.skipTypes()
         )
       )
     return Rundown(stepNameToReport, kick.haltOnFailureOfTypeExcept())
@@ -76,8 +79,13 @@ object ReVoman {
     kick: Kick,
     moshiReVoman: ConfigurableMoshi,
   ): List<StepReport> {
+    val regexReplacer =
+      RegexReplacer(kick.customDynamicVariableGenerators(), ::dynamicVariableGenerator)
+    // ! TODO 17 Mar 2024 gopala.akshintala: Streamline global mutable state `pm`
+    pm = PostmanSDK(regexReplacer)
     pm.environment.clear()
     pm.environment.putAll(environment)
+    initJSContext(kick.nodeModulesResourceRelativePath())
     var haltExecution = false
     return pmStepsFlattened
       .asSequence()
@@ -89,18 +97,20 @@ object ReVoman {
         pm.info = Info(step.name)
         val stepReport = StepReport(step)
         val rundown = Rundown(stepReports + stepReport, kick.haltOnFailureOfTypeExcept())
-        val regexReplacer =
-          RegexReplacer(
-            pm.environment,
-            kick.customDynamicVariableGenerators(),
-            ::dynamicVariableGenerator
-          )
+        pm.currentStepReport = stepReport
+        pm.rundown = rundown
         pm.environment.putAll(regexReplacer.replaceVariablesInEnv(stepReport, rundown))
-        val pmRequest: com.salesforce.revoman.internal.postman.template.Request =
-          regexReplacer.replaceVariablesInRequest(itemWithRegex.request, stepReport, rundown)
-        val currentStepReport: StepReport = // --------### UNMARSHALL-REQUEST ###--------
-          unmarshallRequest(step, pmRequest, kick, moshiReVoman, stepReports)
-            .mapLeft { StepReport(step, Left(it)) }
+        regexReplacer.replaceVariablesInRequest(itemWithRegex.request, stepReport, rundown)
+        val currentStepReport: StepReport = // --------### PRE-REQUEST-JS ###--------
+          executePreReqJS(step, itemWithRegex, stepReport)
+            .mapLeft { stepReport.copy(requestInfo = left(it)) }
+            .flatMap { // --------### UNMARSHALL-REQUEST ###--------
+              val pmRequest: com.salesforce.revoman.internal.postman.template.Request =
+                regexReplacer.replaceVariablesInRequest(itemWithRegex.request, stepReport, rundown)
+              unmarshallRequest(step, pmRequest, kick, moshiReVoman, stepReports).mapLeft {
+                StepReport(step, Left(it))
+              }
+            }
             .flatMap { requestInfo: TxnInfo<Request> -> // --------### PRE-HOOKS ###--------
               preHookExe(step, kick, requestInfo, stepReports)?.let {
                 Left(StepReport(step, Right(requestInfo), it))
@@ -128,14 +138,9 @@ object ReVoman {
                 }
             }
             .flatMap { sr: StepReport -> // --------### TESTS-JS ###--------
-              executeTestsJS(
-                  step,
-                  itemWithRegex.event,
-                  regexReplacer,
-                  pmRequest,
-                  sr,
-                  Rundown(stepReports + sr, kick.haltOnFailureOfTypeExcept())
-                )
+              pm.currentStepReport = sr
+              pm.rundown = Rundown(stepReports + sr, kick.haltOnFailureOfTypeExcept())
+              executeTestsJS(step, itemWithRegex, sr)
                 .mapLeft { sr.copy(responseInfo = left(it)) }
                 .map { sr }
             }

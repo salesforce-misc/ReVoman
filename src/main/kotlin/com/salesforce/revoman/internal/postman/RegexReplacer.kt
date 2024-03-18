@@ -18,7 +18,6 @@ private const val VARIABLE_KEY = "variableKey"
 val postManVariableRegex = "\\{\\{(?<$VARIABLE_KEY>[^{}]*?)}}".toRegex()
 
 internal class RegexReplacer(
-  private val env: MutableMap<String, Any?> = mutableMapOf(),
   private val customDynamicVariableGenerators: Map<String, CustomDynamicVariableGenerator> =
     emptyMap(),
   private val dynamicVariableGenerator: (String) -> String? = ::dynamicVariableGenerator
@@ -48,14 +47,21 @@ internal class RegexReplacer(
               rundown
             )
           }
-          ?.also { value -> env[variableKey] = value }
+          ?.also { value -> pm.environment[variableKey] = value }
           ?: replaceVariablesRecursively(
               dynamicVariableGenerator(variableKey),
               currentStepReport,
               rundown
             )
-            ?.also { value -> env[variableKey] = value }
-          ?: replaceVariablesRecursively(env[variableKey] as String?, currentStepReport, rundown)
+            ?.also { value -> pm.environment[variableKey] = value }
+          ?: (if (pm.environment[variableKey] is String)
+              replaceVariablesRecursively(
+                pm.environment[variableKey] as String,
+                currentStepReport,
+                rundown
+              )
+            else pm.environment[variableKey].toString())
+            ?.also { value -> pm.environment[variableKey] = value }
           ?: matchResult.value
       }
     }
@@ -115,7 +121,7 @@ internal class RegexReplacer(
     currentStepReport: StepReport,
     rundown: Rundown
   ): Map<String, Any?> =
-    env
+    pm.environment
       .toMap()
       .entries
       .associateBy(

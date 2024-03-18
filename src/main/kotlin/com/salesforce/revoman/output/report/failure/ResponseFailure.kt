@@ -17,7 +17,7 @@ sealed class ResponseFailure : ExeFailure() {
   abstract val requestInfo: TxnInfo<Request>
   abstract val responseInfo: TxnInfo<Response>
 
-  data class TestsJsFailure(
+  data class TestsJSFailure(
     override val failure: Throwable,
     override val requestInfo: TxnInfo<Request>,
     override val responseInfo: TxnInfo<Response>,

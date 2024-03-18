@@ -27,6 +27,7 @@ private val dynamicVariableKeyToGenerator: Map<String, () -> String> =
     "\$randomWord" to faker.lorem::words,
     "\$randomInt" to { nextInt(0, Int.MAX_VALUE).toString() },
     "\$randomAdjective" to faker.adjective::positive,
+    "\$guid" to { UUID.randomUUID().toString() },
     "\$randomUUID" to { UUID.randomUUID().toString() },
     "\$randomEmail" to { faker.internet.email() },
     "\$currentDate" to { LocalDate.now().toString() },
@@ -34,7 +35,7 @@ private val dynamicVariableKeyToGenerator: Map<String, () -> String> =
       {
         LocalDate.now().let { it.plusDays(nextLong(1, it.lengthOfYear().toLong())).toString() }
       },
-    "\$epoch" to { System.currentTimeMillis().toString() },
+    "\$timestamp" to { System.currentTimeMillis().toString() },
     "\$currentRequestName" to { pm.info.requestName }
   )
 

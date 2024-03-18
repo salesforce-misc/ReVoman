@@ -16,7 +16,7 @@ endif::[]
 :pmtemplates: src/integrationTest/resources/pm-templates
 :imagesdir: docs/images
 :prewrap!:
-:revoman-version: 0.34.3
+:revoman-version: 0.40.0
 
 '''
 
@@ -27,7 +27,7 @@ endif::[]
 [.lead]
 To start with, think of it as Postman for JVM (Java/Kotlin);
 that emulates this *Run* button on a collection through a Java program,
-essentially translating your manual testing into Automation, without any loss.
+essentially translating your manual testing into Automation, without any loss or resistance.
 But it's even better!
 
 image::postman-run.png[]

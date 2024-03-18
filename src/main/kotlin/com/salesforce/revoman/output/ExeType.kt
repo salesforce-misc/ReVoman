@@ -10,6 +10,7 @@ package com.salesforce.revoman.output
 enum class ExeType(private val exeName: String) {
   UNMARSHALL_REQUEST("unmarshall-request"),
   PRE_HOOK("pre-hook"),
+  PRE_REQUEST_JS("pre-request-js"),
   HTTP_REQUEST("http-request"),
   HTTP_STATUS("http-status"),
   TESTS_JS("tests-js"),

@@ -31,6 +31,8 @@ internal interface KickDef {
 
   fun dynamicEnvironments(): List<Map<String, String>>
 
+  fun nodeModulesResourceRelativePath(): String?
+
   @Value.Derived
   fun dynamicEnvironmentsFlattened(): Map<String, String> =
     if (dynamicEnvironments().isEmpty()) emptyMap()
@@ -78,7 +80,7 @@ internal interface KickDef {
 
   fun customAdaptersForMarshalling(): List<Any>
 
-  fun typesToIgnoreForMarshalling(): Set<Class<out Any>>
+  fun skipTypes(): Set<Class<out Any>>
 
   @Value.Default fun insecureHttp(): Boolean = false
 

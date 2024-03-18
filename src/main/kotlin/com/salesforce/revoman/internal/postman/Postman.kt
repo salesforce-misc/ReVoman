@@ -12,9 +12,6 @@ import com.salesforce.revoman.internal.postman.template.Environment
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapter
 
-// * NOTE 10/09/23 gopala.akshintala: This needs to be Global singleton for Graal JS to work
-internal val pm = PostmanSDK()
-
 @OptIn(ExperimentalStdlibApi::class)
 internal fun mergeEnvs(
   pmEnvironmentPaths: Set<String>,

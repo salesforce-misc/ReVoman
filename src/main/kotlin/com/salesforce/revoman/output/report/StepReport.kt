@@ -119,9 +119,9 @@ private constructor(
   override fun toString(): String =
     step.toString() +
       when {
-        exeFailure != null -> " ❌$exeFailure\n${exeFailure.failure.stackTraceToString()}"
+        exeFailure != null -> " =>> ❌$exeFailure\n${exeFailure.failure.stackTraceToString()}"
         !isHttpStatusSuccessful ->
-          " ⚠️️Unsuccessful HTTP Status: ${responseInfo?.get()?.httpMsg?.status} \n${requestInfo?.get()} \n${responseInfo?.get()}"
-        else -> "✅${requestInfo?.get()}, ${responseInfo?.get()}"
+          " =>> ⚠️️Unsuccessful HTTP Status: ${responseInfo?.get()?.httpMsg?.status}\n${requestInfo?.get()}\n${responseInfo?.get()}"
+        else -> "✅${requestInfo?.get()}\n${responseInfo?.get()}"
       }
 }

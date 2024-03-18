@@ -5,27 +5,66 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  * ************************************************************************************************
  */
-package com.salesforce.revoman.internal
+package com.salesforce.revoman.input
 
 import com.google.common.truth.Truth.assertThat
-import com.salesforce.revoman.input.readFileInResourcesToString
-import com.salesforce.revoman.internal.exe.jsContext
 import com.salesforce.revoman.internal.json.initMoshi
+import com.salesforce.revoman.internal.postman.PostmanSDK
+import com.salesforce.revoman.internal.postman.RegexReplacer
 import com.salesforce.revoman.internal.postman.Response
 import com.salesforce.revoman.internal.postman.pm
-import org.graalvm.polyglot.Source
+import io.mockk.mockk
+import java.time.LocalDate
 import org.http4k.core.Status.Companion.CREATED
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 
-class JSContextTest {
+class JSUtilsTest {
 
   companion object {
     @BeforeAll
     @JvmStatic
     fun setup() {
       initMoshi()
+      pm = PostmanSDK(RegexReplacer())
+      pm.currentStepReport = mockk()
+      pm.rundown = mockk()
+      initJSContext("js")
     }
+  }
+
+  @Test
+  fun `eval JS with moment`() {
+    evaluateJS(
+      """
+          var moment = require('moment')
+          pm.environment.set("${"$"}currentDate", moment().format(("YYYY-MM-DD")))
+        """
+        .trimIndent()
+    )
+    assertThat(pm.environment).containsEntry("\$currentDate", LocalDate.now().toString())
+  }
+
+  @Test
+  fun `eval JS with pm variables replaceIn`() {
+    evaluateJS(
+      """
+          const stringWithVars = pm.variables.replaceIn("Hi, my name is {{${"$"}randomFirstName}}");
+          console.log(stringWithVars);
+        """
+        .trimIndent()
+    )
+  }
+
+  @Test
+  fun `eval JS with lodash`() {
+    evaluateJS(
+      """
+          pm.environment.set("${"$"}randomNum", _.random(10))
+        """
+        .trimIndent()
+    )
+    assertThat(pm.environment.getInt("\$randomNum")).isWithin(10)
   }
 
   @Test
@@ -51,16 +90,13 @@ class JSContextTest {
         .trimIndent()
     val callingScript =
       """
-      var jsonData=xml2Json(responseBody);
+      var jsonData = xml2Json(responseBody);
       console.log(jsonData);
       var sessionId = jsonData['soapenv:Envelope']['soapenv:Body'].loginResponse.result.sessionId
       pm.environment.set("accessToken", sessionId);
     """
         .trimIndent()
-    val source = Source.newBuilder("js", callingScript, "myScript.js").build()
-    val jsBindings = jsContext.getBindings("js")
-    jsBindings.putMember("responseBody", responseBody)
-    jsContext.eval(source)
+    evaluateJS(callingScript, mapOf("responseBody" to responseBody))
     assertThat(pm.environment).containsEntry("accessToken", "session-key-set-in-js")
   }
 
@@ -86,8 +122,7 @@ class JSContextTest {
         CREATED.toString(),
         httpResponseStr,
       )
-    val testSource = Source.newBuilder("js", testScript, "pmItemTestScript.js").build()
-    jsContext.eval(testSource)
+    evaluateJS(testScript)
     assertThat(pm.environment)
       .containsAtLeastEntriesIn(
         mapOf(

@@ -4,7 +4,7 @@
 		"name": "[sm] user-creation-with-ps-and-setup-pq",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
 		"_exporter_id": "23827434",
-		"_collection_link": "https://salesforce-734821.postman.co/workspace/Delphinus-%F0%9F%90%AC~8b8cf020-27dc-46b1-8de1-2b679073163c/collection/23827434-887a1603-ed57-4a39-ac5f-0d2c02d72767?action=share&source=collection_link&creator=23827434"
+		"_collection_link": "https://salesforce-734821.postman.co/workspace/Delphinus-%25F0%259F%2590%25AC~8b8cf020-27dc-46b1-8de1-2b679073163c/collection/23827434-887a1603-ed57-4a39-ac5f-0d2c02d72767?action=share&source=collection_link&creator=23827434"
 	},
 	"item": [
 		{
@@ -276,7 +276,7 @@
 							"listen": "prerequest",
 							"script": {
 								"exec": [
-									"pm.environment.set(\"billingAdminUserName\", \"billingAdmin4-sm@revoman.org\");"
+									"pm.environment.set(\"billingAdminUserName\", pm.variables.replaceIn(\"billingAdmin-sm-{{$timestamp}}@revoman.org\"));"
 								],
 								"type": "text/javascript"
 							}
@@ -386,7 +386,7 @@
 							"listen": "prerequest",
 							"script": {
 								"exec": [
-									"pm.environment.set(\"taxAdminUserName\", \"taxAdmin-sm@revoman.org\")"
+									"pm.environment.set(\"taxAdminUserName\", pm.variables.replaceIn(\"taxAdmin-sm-{{$timestamp}}@revoman.org\"));"
 								],
 								"type": "text/javascript"
 							}
@@ -486,7 +486,7 @@
 							"listen": "prerequest",
 							"script": {
 								"exec": [
-									"pm.environment.set(\"productAndPricingAdminUserName\", \"productAndPricingAdmin-sm@revoman.org\");"
+									"pm.environment.set(\"productAndPricingAdminUserName\", pm.variables.replaceIn(\"productAndPricingAdmin-sm-{{$timestamp}}@revoman.org\"));"
 								],
 								"type": "text/javascript"
 							}
@@ -596,7 +596,7 @@
 							"listen": "prerequest",
 							"script": {
 								"exec": [
-									"pm.environment.set(\"salesRepUserName\", \"salesRep-sm@revoman.org\");"
+									"pm.environment.set(\"salesRepUserName\", pm.variables.replaceIn(\"salesRep-sm-{{$timestamp}}@revoman.org\"));"
 								],
 								"type": "text/javascript"
 							}
@@ -2182,7 +2182,7 @@
 										"header": [],
 										"body": {
 											"mode": "raw",
-											"raw": "{\n    \"ProductSellingModelId\": \"{{oneTimeProductSellingModelId}}\",\n    \"Product2Id\": \"{{oneTimeProductId}}\",\n    \"IsActive\": true,\n    \"Pricebook2Id\": \"{{standardPricebookId}}\",\n    \"UnitPrice\": \"{{unitPrice}}\"\n}",
+											"raw": "{\n    \"ProductSellingModelId\": \"{{oneTimeProductSellingModelId}}\",\n    \"Product2Id\": \"{{oneTimeProductId}}\",\n    \"IsActive\": true,\n    \"Pricebook2Id\": \"{{standardPricebookId}}\",\n    \"UnitPrice\": \"{{$unitPrice}}\"\n}",
 											"options": {
 												"raw": {
 													"language": "json"
@@ -2452,7 +2452,7 @@
 										"header": [],
 										"body": {
 											"mode": "raw",
-											"raw": "{\n    \"ProductSellingModelId\": \"{{evergreenProductSellingModelId}}\",\n    \"Product2Id\": \"{{evergreenProductId}}\",\n    \"IsActive\": true,\n    \"Pricebook2Id\": \"{{standardPricebookId}}\",\n    \"UnitPrice\": \"{{unitPrice}}\"\n}",
+											"raw": "{\n    \"ProductSellingModelId\": \"{{evergreenProductSellingModelId}}\",\n    \"Product2Id\": \"{{evergreenProductId}}\",\n    \"IsActive\": true,\n    \"Pricebook2Id\": \"{{standardPricebookId}}\",\n    \"UnitPrice\": \"{{$unitPrice}}\"\n}",
 											"options": {
 												"raw": {
 													"language": "json"
@@ -2721,7 +2721,7 @@
 										"header": [],
 										"body": {
 											"mode": "raw",
-											"raw": "{\n    \"ProductSellingModelId\": \"{{termedProductSellingModelId}}\",\n    \"Product2Id\": \"{{termedProductId}}\",\n    \"IsActive\": true,\n    \"Pricebook2Id\": \"{{standardPricebookId}}\",\n    \"UnitPrice\": \"{{unitPrice}}\"\n}",
+											"raw": "{\n    \"ProductSellingModelId\": \"{{termedProductSellingModelId}}\",\n    \"Product2Id\": \"{{termedProductId}}\",\n    \"IsActive\": true,\n    \"Pricebook2Id\": \"{{standardPricebookId}}\",\n    \"UnitPrice\": \"{{$unitPrice}}\"\n}",
 											"options": {
 												"raw": {
 													"language": "json"
@@ -2897,7 +2897,7 @@
 								],
 								"body": {
 									"mode": "raw",
-									"raw": "{\"ParentProductId\": \"{{evergreenProductId}}\",\n    \"ChildProductId\": \"{{termedProductId}}\", \n    \"ParentSellingModelId\": \"{{evergreenProductSellingModelId}}\",\n    \"ChildSellingModelId\": \"{{termedProductSellingModelId}}\",\n    \"ProductRelationshipTypeId\": \"{{productRelationshipTypeId}}\"\n}"
+									"raw": "{\n    \"ParentProductId\": \"{{evergreenProductId}}\",\n    \"ChildProductId\": \"{{termedProductId}}\", \n    \"ParentSellingModelId\": \"{{evergreenProductSellingModelId}}\",\n    \"ChildSellingModelId\": \"{{termedProductSellingModelId}}\",\n    \"ProductRelationshipTypeId\": \"{{productRelationshipTypeId}}\"\n}"
 								},
 								"url": {
 									"raw": "{{baseUrl}}{{versionPath}}/sobjects/ProductRelatedComponent",

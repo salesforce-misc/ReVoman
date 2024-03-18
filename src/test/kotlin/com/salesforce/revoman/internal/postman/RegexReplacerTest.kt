@@ -22,11 +22,8 @@ class RegexReplacerTest {
   fun `dynamic variables - Body + dynamic env`() {
     val epoch = System.currentTimeMillis().toString()
     val dummyDynamicVariableGenerator = { key: String -> if (key == "\$epoch") epoch else null }
-    val regexReplacer =
-      RegexReplacer(
-        mutableMapOf("key" to "value-{{\$epoch}}"),
-        dynamicVariableGenerator = dummyDynamicVariableGenerator
-      )
+    pm.environment["key"] = "value-{{\$epoch}}"
+    val regexReplacer = RegexReplacer(dynamicVariableGenerator = dummyDynamicVariableGenerator)
     val jsonStr =
       """
       {
@@ -45,11 +42,8 @@ class RegexReplacerTest {
   fun `custom dynamic variables`() {
     val customEpoch = "Custom - ${System.currentTimeMillis()}"
     val customDynamicVariableGenerator = CustomDynamicVariableGenerator { _, _, _ -> customEpoch }
-    val regexReplacer =
-      RegexReplacer(
-        mutableMapOf("key" to "value-{{\$customEpoch}}"),
-        mapOf("\$customEpoch" to customDynamicVariableGenerator)
-      )
+    pm.environment["key"] = "value-{{\$customEpoch}}"
+    val regexReplacer = RegexReplacer(mapOf("\$customEpoch" to customDynamicVariableGenerator))
     val jsonStr =
       """
       {

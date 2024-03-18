@@ -67,14 +67,10 @@ class PQE2EWithSMTest {
                         "$quoteFieldsToQuery", "LineItemCount, CalculationStatus",
                         "$qliFieldsToQuery", "Id, Product2Id",
                         "$qlrFieldsToQuery", "Id, QuoteId, MainQuoteLineId, AssociatedQuoteLineId"))
-                .customDynamicVariableGenerators(
-                    Map.of( // <5>
-                        "$quantity",
-                            (ignore1, ignore2, ignore3) ->
-                                String.valueOf(Random.Default.nextInt(10) + 1),
-                        "$requestName",
-                            (ignore1, currentStepReport, ignore3) ->
-                                currentStepReport.step.rawPMStep.getName()))
+                .customDynamicVariableGenerator( // <5>
+                    "$unitPrice",
+                    (ignore1, ignore2, ignore3) -> String.valueOf(Random.Default.nextInt(999) + 1))
+                .nodeModulesResourceRelativePath("js")
                 .haltOnFailureOfTypeExcept(
                     HTTP_STATUS,
                     afterAllStepsContainingHeader("ignoreHTTPStatusUnsuccessful")) // <6>
