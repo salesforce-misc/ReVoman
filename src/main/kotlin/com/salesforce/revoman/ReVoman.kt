@@ -95,7 +95,8 @@ object ReVoman {
         logger.info { "***** Executing Step: $step *****" }
         val itemWithRegex = step.rawPMStep
         pm.info = Info(step.name)
-        val stepReport = StepReport(step)
+        val stepReport =
+          StepReport(step, Right(TxnInfo(httpMsg = itemWithRegex.request.toHttpRequest())))
         val rundown = Rundown(stepReports + stepReport, kick.haltOnFailureOfTypeExcept())
         pm.currentStepReport = stepReport
         pm.rundown = rundown
