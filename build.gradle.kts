@@ -58,10 +58,10 @@ testing {
 
 node { nodeProjectDir = file("${project.projectDir}/js") }
 
-tasks {
+/*tasks {
   check { dependsOn(npmInstall) }
   test { dependsOn(npmInstall) }
-}
+}*/
 
 koverReport { defaults { xml { onCheck = true } } }
 

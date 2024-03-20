@@ -25,7 +25,7 @@ internal fun initJSContext(nodeModulesRelativePath: String?) {
   val options = buildMap {
     if (!nodeModulesRelativePath.isNullOrBlank()) {
       put("js.commonjs-require", "true")
-      put(NODE_MODULES_PATH_KEY, nodeModulesRelativePath)
+      put(NODE_MODULES_PATH_KEY, javaClass.classLoader.getResource(nodeModulesRelativePath)?.path)
       imports = "var _ = require('lodash')\n"
     }
     put("js.esm-eval-returns-exports", "true")
