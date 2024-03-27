@@ -149,7 +149,7 @@
 									"var futureDateTime = moment().add(365, 'days');",
 									"pm.environment.set('$randomFutureDate', futureDateTime.format('YYYY-MM-DD'));",
 									"",
-									"pm.environment.set(\"$pricingPref\", \"skip\")",
+									"pm.environment.set(\"$pricingPref\", \"system\")",
 									"pm.environment.set(\"$quantity\", _.random(1, 10));",
 									"pm.environment.set(\"$requestName\", pm.info.requestName)"
 								],
@@ -282,7 +282,7 @@
 									"var futureDateTime = moment().add(365, 'days');",
 									"pm.environment.set('$randomFutureDate', futureDateTime.format('YYYY-MM-DD'));",
 									"",
-									"pm.environment.set(\"$pricingPref\", \"skip\")",
+									"pm.environment.set(\"$pricingPref\", \"system\")",
 									"pm.environment.set(\"$quantity\", _.random(1, 10));",
 									"pm.environment.set(\"$requestName\", pm.info.requestName)"
 								],
@@ -346,7 +346,7 @@
 									"var futureDateTime = moment().add(365, 'days');",
 									"pm.environment.set('$randomFutureDate', futureDateTime.format('YYYY-MM-DD'));",
 									"",
-									"pm.environment.set(\"$pricingPref\", \"skip\")",
+									"pm.environment.set(\"$pricingPref\", \"system\")",
 									"pm.environment.set(\"$quantity\", _.random(1, 10));",
 									"pm.environment.set(\"$requestName\", pm.info.requestName)"
 								],
@@ -410,7 +410,7 @@
 									"var futureDateTime = moment().add(365, 'days');",
 									"pm.environment.set('$randomFutureDate', futureDateTime.format('YYYY-MM-DD'));",
 									"",
-									"pm.environment.set(\"$pricingPref\", \"skip\")",
+									"pm.environment.set(\"$pricingPref\", \"system\")",
 									"pm.environment.set(\"$quantity\", _.random(1, 10));",
 									"pm.environment.set(\"$requestName\", pm.info.requestName)"
 								],
@@ -474,7 +474,7 @@
 									"var futureDateTime = moment().add(365, 'days');",
 									"pm.environment.set('$randomFutureDate', futureDateTime.format('YYYY-MM-DD'));",
 									"",
-									"pm.environment.set(\"$pricingPref\", \"skip\")",
+									"pm.environment.set(\"$pricingPref\", \"system\")",
 									"pm.environment.set(\"$quantity\", _.random(1, 10));",
 									"pm.environment.set(\"$requestName\", pm.info.requestName)"
 								],
@@ -538,7 +538,7 @@
 									"var futureDateTime = moment().add(365, 'days');",
 									"pm.environment.set('$randomFutureDate', futureDateTime.format('YYYY-MM-DD'));",
 									"",
-									"pm.environment.set(\"$pricingPref\", \"skip\")",
+									"pm.environment.set(\"$pricingPref\", \"system\")",
 									"pm.environment.set(\"$quantity\", _.random(1, 10));",
 									"pm.environment.set(\"$requestName\", pm.info.requestName)"
 								],
@@ -602,7 +602,7 @@
 									"var futureDateTime = moment().add(365, 'days');",
 									"pm.environment.set('$randomFutureDate', futureDateTime.format('YYYY-MM-DD'));",
 									"",
-									"pm.environment.set(\"$pricingPref\", \"skip\")",
+									"pm.environment.set(\"$pricingPref\", \"system\")",
 									"pm.environment.set(\"$quantity\", _.random(1, 10));",
 									"pm.environment.set(\"$requestName\", pm.info.requestName)"
 								],
@@ -666,7 +666,7 @@
 									"var futureDateTime = moment().add(365, 'days');",
 									"pm.environment.set('$randomFutureDate', futureDateTime.format('YYYY-MM-DD'));",
 									"",
-									"pm.environment.set(\"$pricingPref\", \"skip\")",
+									"pm.environment.set(\"$pricingPref\", \"system\")",
 									"pm.environment.set(\"$quantity\", _.random(1, 10));",
 									"pm.environment.set(\"$requestName\", pm.info.requestName)"
 								],
@@ -730,7 +730,7 @@
 									"var futureDateTime = moment().add(365, 'days');",
 									"pm.environment.set('$randomFutureDate', futureDateTime.format('YYYY-MM-DD'));",
 									"",
-									"pm.environment.set(\"$pricingPref\", \"skip\")",
+									"pm.environment.set(\"$pricingPref\", \"system\")",
 									"pm.environment.set(\"$quantity\", _.random(1, 10));",
 									"pm.environment.set(\"$requestName\", pm.info.requestName)"
 								],
@@ -851,7 +851,7 @@
 											"var futureDateTime = moment().add(365, 'days');",
 											"pm.environment.set('$randomFutureDate', futureDateTime.format('YYYY-MM-DD'));",
 											"",
-											"pm.environment.set(\"$pricingPref\", \"skip\")",
+											"pm.environment.set(\"$pricingPref\", \"system\")",
 											"pm.environment.set(\"$quantity\", _.random(1, 10));",
 											"pm.environment.set(\"$requestName\", pm.info.requestName)"
 										],
@@ -919,7 +919,7 @@
 											"var futureDateTime = moment().add(365, 'days');",
 											"pm.environment.set('$randomFutureDate', futureDateTime.format('YYYY-MM-DD'));",
 											"",
-											"pm.environment.set(\"$pricingPref\", \"skip\")",
+											"pm.environment.set(\"$pricingPref\", \"system\")",
 											"pm.environment.set(\"$quantity\", _.random(1, 10));",
 											"pm.environment.set(\"$requestName\", pm.info.requestName)"
 										],
@@ -987,7 +987,7 @@
 											"var futureDateTime = moment().add(365, 'days');",
 											"pm.environment.set('$randomFutureDate', futureDateTime.format('YYYY-MM-DD'));",
 											"",
-											"pm.environment.set(\"$pricingPref\", \"skip\")",
+											"pm.environment.set(\"$pricingPref\", \"system\")",
 											"pm.environment.set(\"$quantity\", _.random(1, 10));",
 											"pm.environment.set(\"$requestName\", pm.info.requestName)"
 										],

@@ -43,7 +43,6 @@ internal fun initJSContext(nodeModulesRelativePath: String?) {
         val contextBindings = it.getBindings("js")
         contextBindings.putMember("pm", pm)
         contextBindings.putMember("xml2Json", pm.xml2Json)
-        contextBindings.putMember("xml2Json", pm.xml2Json)
       }
 }
 
