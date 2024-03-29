@@ -92,22 +92,22 @@ class PQE2EWithSMTest {
                         beforeAllStepsWithURIPathEndingWith(PQ_URI_PATH),
                         (step, requestInfo, rundown) -> {
                           if (requestInfo.containsHeader(IS_SYNC_HEADER)) {
-                            LOGGER.info("Skip pricing for Sync step: {}", step);
-                            rundown.mutableEnv.set("$pricingPref", PricingPref.Skip.toString());
-                          } else {
-                            rundown.mutableEnv.set("$pricingPref", PricingPref.System.toString());
+                            LOGGER.info("This is a Sync step: {}", step);
                           }
                         }),
                     post(
                         afterAllStepsWithURIPathEndingWith(PQ_URI_PATH),
                         (stepReport, ignore) -> {
                           validatePQResponse(stepReport); // <10>
-                          LOGGER.info(
-                              "Waiting in PostHook of the Step: {}, for the Quote's Asynchronous processing to finish",
-                              stepReport.step.displayName);
-                          // ! CAUTION 10/09/23 gopala.akshintala: This can be flaky until
-                          // polling is implemented
-                          Thread.sleep(5000);
+                          final var isSyncStep = stepReport.responseInfo.get().containsHeader(IS_SYNC_HEADER);
+                          if (!isSyncStep) {
+                            LOGGER.info(
+                                "Waiting in PostHook of the Async Step: {}, for the Quote's Asynchronous processing to finish",
+                                stepReport.step);
+                            // ! CAUTION 10/09/23 gopala.akshintala: This can be flaky until
+                            // polling is implemented
+                            Thread.sleep(5000);
+                          }
                         }),
                     post(
                         afterAllStepsWithURIPathEndingWith(COMPOSITE_GRAPH_URI_PATH),
@@ -131,7 +131,8 @@ class PQE2EWithSMTest {
   private static void validatePQResponse(StepReport stepReport) {
     final var successRespProp =
         stepReport.responseInfo.get().<PlaceQuoteOutputRepresentation>getTypedTxnObj().getSuccess();
-    assertThat(successRespProp).isEqualTo(!stepReport.step.isInFolder(SYNC_ERROR_FOLDER_NAME));
+    final var isStepExpectedToFail = stepReport.step.isInFolder(SYNC_ERROR_FOLDER_NAME);
+    assertThat(successRespProp).isEqualTo(!isStepExpectedToFail);
   }
 
   private static void validateCompositeGraphResponse(StepReport stepReport) {

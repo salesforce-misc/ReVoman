@@ -61,7 +61,6 @@ internal fun buildMoshi(
       .add(UUIDAdapter)
       .add(EpochAdapter)
       .add(Date::class.java, Rfc3339DateJsonAdapter())
-      .add(KotlinJsonAdapterFactory())
       .addLast(CaseInsensitiveEnumAdapter.FACTORY)
       .addLast(EventAdapter)
       .addLast(ThrowableAdapter)
