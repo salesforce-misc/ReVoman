@@ -27,6 +27,7 @@ import com.salesforce.revoman.integration.core.pq.connect.request.PlaceQuoteInpu
 import com.salesforce.revoman.integration.core.pq.connect.response.PlaceQuoteOutputRepresentation;
 import com.salesforce.revoman.output.postman.PostmanEnvironment;
 import com.salesforce.revoman.output.report.StepReport;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import kotlin.random.Random;
@@ -37,9 +38,14 @@ import org.slf4j.LoggerFactory;
 /**
  * ----------------------------------------~~~~~ NOTE ~~~~~-----------------------------------------
  * This is only a sample to demo a full-blown test. You may not be able to execute this, as it needs
- * a specific server setup.
+ * a specific server setup. If you are a Salesforce core developer, it takes less than 5 minutes to
+ * setup an SM org,
  *
- * <p>TODO: Add a mock server setup for this test.
+ * <p>- Follow these instructions: <a href="http://sfdc.co/sm-org-setup">SM Org setup</a>. - Replace
+ * baseUrl of your server, username and password of the org admin here: <a
+ * href="///resources/pm-templates/pq/pq-env.postman_environment.json">pq-env.postman_environment.json</a>
+ *
+ * <p>- TODO: Add a mock server setup for this test.
  */
 class PQE2EWithSMTest {
   private static final Logger LOGGER = LoggerFactory.getLogger(PQE2EWithSMTest.class);
@@ -99,7 +105,8 @@ class PQE2EWithSMTest {
                         afterAllStepsWithURIPathEndingWith(PQ_URI_PATH),
                         (stepReport, ignore) -> {
                           validatePQResponse(stepReport); // <10>
-                          final var isSyncStep = stepReport.responseInfo.get().containsHeader(IS_SYNC_HEADER);
+                          final var isSyncStep =
+                              stepReport.responseInfo.get().containsHeader(IS_SYNC_HEADER);
                           if (!isSyncStep) {
                             LOGGER.info(
                                 "Waiting in PostHook of the Async Step: {}, for the Quote's Asynchronous processing to finish",
@@ -144,10 +151,13 @@ class PQE2EWithSMTest {
   private static void assertAfterPQCreate(PostmanEnvironment<Object> env) {
     // Quote: LineItemCount, quoteCalculationStatus
     assertThat(env).containsEntry("lineItemCount", 10);
-    assertThat(env)
-        .containsEntry(
-            "quoteCalculationStatus",
-            PricingPref.valueOf(env.getString("$pricingPref")).completeStatus);
+    final var pricingPrefFromEnv = env.getString("$pricingPref");
+    final var actualCompleteStatus =
+        Arrays.stream(PricingPref.values())
+            .filter(e -> e.name().equalsIgnoreCase(pricingPrefFromEnv))
+            .findFirst()
+            .map(e -> e.completeStatus);
+    assertThat(env).containsEntry("quoteCalculationStatus", actualCompleteStatus.get());
     // QLIs: Product2Id
     final var productIdsFromEnv = env.valuesForKeysEndingWith(String.class, "ProductId");
     final var productIdsFromCreatedQLIs =

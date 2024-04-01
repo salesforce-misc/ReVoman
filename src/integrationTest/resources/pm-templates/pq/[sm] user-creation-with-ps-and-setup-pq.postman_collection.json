@@ -4,7 +4,7 @@
 		"name": "[sm] user-creation-with-ps-and-setup-pq",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
 		"_exporter_id": "23827434",
-		"_collection_link": "https://salesforce-734821.postman.co/workspace/Delphinus-%25F0%259F%2590%25AC~8b8cf020-27dc-46b1-8de1-2b679073163c/collection/23827434-887a1603-ed57-4a39-ac5f-0d2c02d72767?action=share&source=collection_link&creator=23827434"
+		"_collection_link": "https://salesforce-734821.postman.co/workspace/Delphinus-%F0%9F%90%AC~8b8cf020-27dc-46b1-8de1-2b679073163c/collection/23827434-887a1603-ed57-4a39-ac5f-0d2c02d72767?action=share&source=collection_link&creator=23827434"
 	},
 	"item": [
 		{
@@ -698,6 +698,111 @@
 		{
 			"name": "setup",
 			"item": [
+				{
+					"name": "StdPricebook",
+					"item": [
+						{
+							"name": "StandardPriceBook",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"var jsonData = pm.response.json()",
+											"pm.environment.set(\"standardPricebookId\", jsonData.records[0].Id);"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"protocolProfileBehavior": {
+								"disableBodyPruning": true
+							},
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json",
+										"type": "text"
+									},
+									{
+										"key": "Sforce-Call-Options",
+										"value": "client=SfdcInternalQA/...",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": ""
+								},
+								"url": {
+									"raw": "{{baseUrl}}{{versionPath}}/query/?q=SELECT Id FROM Pricebook2 WHERE IsStandard = true",
+									"host": [
+										"{{baseUrl}}{{versionPath}}"
+									],
+									"path": [
+										"query",
+										""
+									],
+									"query": [
+										{
+											"key": "q",
+											"value": "SELECT Id FROM Pricebook2 WHERE IsStandard = true"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Pricebook",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											""
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "PATCH",
+								"header": [
+									{
+										"key": "Content-Type",
+										"name": "Content-Type",
+										"value": "application/json",
+										"type": "text"
+									},
+									{
+										"key": "Sforce-Call-Options",
+										"value": "client=SfdcInternalQA/...",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"IsActive\": true\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}{{versionPath}}/sobjects/Pricebook2/{{standardPricebookId}}",
+									"host": [
+										"{{baseUrl}}{{versionPath}}"
+									],
+									"path": [
+										"sobjects",
+										"Pricebook2",
+										"{{standardPricebookId}}"
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				},
 				{
 					"name": "billing-setup",
 					"item": [
