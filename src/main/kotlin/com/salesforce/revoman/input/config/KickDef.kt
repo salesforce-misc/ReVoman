@@ -31,7 +31,7 @@ internal interface KickDef {
 
   fun dynamicEnvironments(): List<Map<String, String>>
 
-  fun nodeModulesResourceRelativePath(): String?
+  fun nodeModulesRelativePath(): String?
 
   @Value.Derived
   fun dynamicEnvironmentsFlattened(): Map<String, String> =

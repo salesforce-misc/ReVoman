@@ -76,7 +76,7 @@ class PQE2EWithSMTest {
                 .customDynamicVariableGenerator( // <5>
                     "$unitPrice",
                     (ignore1, ignore2, ignore3) -> String.valueOf(Random.Default.nextInt(999) + 1))
-                .nodeModulesResourceRelativePath("js") // <6>
+                .nodeModulesRelativePath("js") // <6>
                 .haltOnFailureOfTypeExcept(
                     HTTP_STATUS,
                     afterAllStepsContainingHeader("ignoreHTTPStatusUnsuccessful")) // <7>

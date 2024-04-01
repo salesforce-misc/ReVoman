@@ -17,7 +17,7 @@ endif::[]
 :pmtemplates: src/integrationTest/resources/pm-templates
 :imagesdir: docs/images
 :prewrap!:
-:revoman-version: 0.40.3
+:revoman-version: 0.40.4
 
 '''
 
@@ -224,7 +224,7 @@ final var pqRundown =
           .customDynamicVariableGenerator( // <5>
               "$unitPrice",
               (ignore1, ignore2, ignore3) -> String.valueOf(Random.Default.nextInt(999) + 1))
-          .nodeModulesResourceRelativePath("js") // <6>
+          .nodeModulesRelativePath("js") // <6>
           .haltOnFailureOfTypeExcept(
               HTTP_STATUS,
               afterAllStepsContainingHeader("ignoreHTTPStatusUnsuccessful")) // <7>
@@ -445,7 +445,7 @@ Pre-req and Tests scripts support makes sure that the Postman collection used fo
 * This tool can execute JavaScript written under the https://learning.postman.com/docs/writing-scripts/script-references/test-examples/[Pre-req and Tests tabs of Postman].
 ** Pre-req JS is executed as the first step before Unmarshall request.
 ** Tests JS is executed right after receiving an HTTP response.
-* ReṼoman supports using of any `npm` modules inside your Pre-req and Tests javascript. You can install `npm` modules in any folder and supply in the Kick config, the relative path of the parent folder that contains the `node_modules` folder using `nodeModulesResourceRelativePath(...)`. Use those `npm` modules inside your scripts with `require(...)`, for example:
+* ReṼoman supports using of any `npm` modules inside your Pre-req and Tests javascript. You can install `npm` modules in any folder and supply in the Kick config, the relative path of the parent folder that contains the `node_modules` folder using `nodeModulesRelativePath(...)`. Use those `npm` modules inside your scripts with `require(...)`, for example:
 
 [source,javascript,indent=0,options="nowrap"]
 ----

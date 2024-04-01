@@ -88,7 +88,7 @@ object ReVoman {
     pm = PostmanSDK(regexReplacer)
     pm.environment.clear()
     pm.environment.putAll(environment)
-    initJSContext(kick.nodeModulesResourceRelativePath())
+    initJSContext(kick.nodeModulesRelativePath())
     var haltExecution = false
     return pmStepsFlattened
       .asSequence()
