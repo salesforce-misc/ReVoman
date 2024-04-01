@@ -121,7 +121,7 @@ final var rundown =
     .off())
 ----
 
-=== Simple Example
+=== A Simple Example
 
 Here is a simple link:{pmtemplates}/restfulapidev/restful-api.dev.postman_collection.json[Exported Postman collection] and link:{pmtemplates}/restfulapidev/restful-api.dev.postman_environment.json[Environment],
 to hit a free public https://restful-api.dev/[RESTFUL-API].
@@ -196,7 +196,8 @@ StepReport(
 [.lead]
 `Rundown` has many convenience methods to ease applying further assertions on top of it.
 
-TIP: Another simple example to see in Action: link:{testdir}/com/salesforce/revoman/integration/pokemon/PokemonTest.java[PokemonTest.java].
+TIP:
+Other simple examples to see in Action: link:{testdir}/com/salesforce/revoman/integration/pokemon/PokemonTest.java[PokemonTest.java]
 
 === Advanced Example
 
@@ -207,87 +208,98 @@ you can add more _bells & whistles_:
 ifdef::env-github[]
 
 [source,java,indent=0,options="nowrap"]
-.link:{testdir}/com/salesforce/revoman/integration/core/pq/PQE2ETest.java[PQE2EWithSMTest.java, tag=pq-e2e-with-revoman-config-demo]
+.link:{testdir}/com/salesforce/revoman/integration/core/pq/PQE2EWithSMTest.java[PQE2EWithSMTest.java, tag=pq-e2e-with-revoman-config-demo]
 ----
 final var pqRundown =
-    ReVoman.revUp( // <1>
-        Kick.configure()
-            .templatePaths(PQ_TEMPLATE_PATHS) // <2>
-            .environmentPath(PQ_ENV_PATH) // <3>
-            .dynamicEnvironment( // <4>
-                Map.of(
-                    "$quoteFieldsToQuery", "LineItemCount, CalculationStatus",
-                    "$qliFieldsToQuery", "Id, Product2Id",
-                    "$qlrFieldsToQuery", "Id, QuoteId, MainQuoteLineId, AssociatedQuoteLineId"))
-            .customDynamicVariable( // <5>
-                "$quantity", ignore -> String.valueOf(Random.Default.nextInt(10) + 1))
-            .haltOnFailureOfTypeExcept(
-                HTTP_STATUS_UNSUCCESSFUL,
-                afterAllStepsContainingHeader("ignoreForFailure")) // <6>
-            .requestConfig( // <7>
-                unmarshallRequest(
-                    beforeAllStepsWithURIPathEndingWith(PQ_URI_PATH),
-                    PlaceQuoteInputRepresentation.class,
-                    adapter(PlaceQuoteInputRepresentation.class)))
-            .responseConfig( // <8>
-                unmarshallResponse(
-                    afterAllStepsWithURIPathEndingWith(PQ_URI_PATH),
-                    PlaceQuoteOutputRepresentation.class))
-            .hooks( // <9>
-                pre(
-                    beforeAllStepsWithURIPathEndingWith(PQ_URI_PATH),
-                    (step, requestInfo, rundown) -> {
-                      if (requestInfo.containsHeader(IS_SYNC_HEADER)) {
-                        LOGGER.info("Skip pricing for Sync step: {}", step);
-                        rundown.mutableEnv.set("$pricingPref", PricingPref.Skip.toString());
-                      } else {
-                        rundown.mutableEnv.set("$pricingPref", PricingPref.System.toString());
-                      }
-                    }),
-                post(
-                    afterAllStepsWithURIPathEndingWith(PQ_URI_PATH),
-                    (stepReport, ignore) -> {
-                      validatePQResponse(stepReport); // <10>
+  ReVoman.revUp( // <1>
+      Kick.configure()
+          .templatePaths(PQ_TEMPLATE_PATHS) // <2>
+          .environmentPath(PQ_ENV_PATH) // <3>
+          .dynamicEnvironment( // <4>
+              Map.of(
+                  "$quoteFieldsToQuery", "LineItemCount, CalculationStatus",
+                  "$qliFieldsToQuery", "Id, Product2Id",
+                  "$qlrFieldsToQuery", "Id, QuoteId, MainQuoteLineId, AssociatedQuoteLineId"))
+          .customDynamicVariableGenerator( // <5>
+              "$unitPrice",
+              (ignore1, ignore2, ignore3) -> String.valueOf(Random.Default.nextInt(999) + 1))
+          .nodeModulesResourceRelativePath("js") // <6>
+          .haltOnFailureOfTypeExcept(
+              HTTP_STATUS,
+              afterAllStepsContainingHeader("ignoreHTTPStatusUnsuccessful")) // <7>
+          .requestConfig( // <8>
+              unmarshallRequest(
+                  beforeAllStepsWithURIPathEndingWith(PQ_URI_PATH),
+                  PlaceQuoteInputRepresentation.class,
+                  adapter(PlaceQuoteInputRepresentation.class)))
+          .responseConfig( // <9>
+              unmarshallResponse(
+                  afterAllStepsWithURIPathEndingWith(PQ_URI_PATH),
+                  PlaceQuoteOutputRepresentation.class),
+              unmarshallResponse(
+                  afterAllStepsWithURIPathEndingWith(COMPOSITE_GRAPH_URI_PATH),
+                  CompositeGraphResponse.class,
+                  CompositeGraphResponse.ADAPTER))
+          .hooks( // <10>
+              pre(
+                  beforeAllStepsWithURIPathEndingWith(PQ_URI_PATH),
+                  (step, requestInfo, rundown) -> {
+                    if (requestInfo.containsHeader(IS_SYNC_HEADER)) {
+                      LOGGER.info("This is a Sync step: {}", step);
+                    }
+                  }),
+              post(
+                  afterAllStepsWithURIPathEndingWith(PQ_URI_PATH),
+                  (stepReport, ignore) -> {
+                    validatePQResponse(stepReport); // <11>
+                    final var isSyncStep =
+                        stepReport.responseInfo.get().containsHeader(IS_SYNC_HEADER);
+                    if (!isSyncStep) {
                       LOGGER.info(
-                          "Waiting in PostHook of the Step: {}, for the Quote's Asynchronous processing to finish",
-                          stepReport.step.displayName);
+                          "Waiting in PostHook of the Async Step: {}, for the Quote's Asynchronous processing to finish",
+                          stepReport.step);
                       // ! CAUTION 10/09/23 gopala.akshintala: This can be flaky until
                       // polling is implemented
                       Thread.sleep(5000);
-                    }),
-                post(
-                    afterStepName("query-quote-and-related-records"),
-                    (ignore, rundown) -> assertAfterPQCreate(rundown.mutableEnv)))
-            .customAdaptersForMarshalling(new IDAdapter()) // <11>
-            .insecureHttp(true) // <12>
-            .off()); // Kick-off
-assertThat(pqRundown.firstUnIgnoredUnsuccessfulStepReport()).isNull(); // <13>
+                    }
+                  }),
+              post(
+                  afterAllStepsWithURIPathEndingWith(COMPOSITE_GRAPH_URI_PATH),
+                  (stepReport, ignore) -> validateCompositeGraphResponse(stepReport)),
+              post(
+                  afterStepName("query-quote-and-related-records"),
+                  (ignore, rundown) -> assertAfterPQCreate(rundown.mutableEnv)))
+          .customAdaptersForMarshalling(new IDAdapter()) // <12>
+          .insecureHttp(true) // <13>
+          .off()); // Kick-off
+assertThat(pqRundown.firstUnIgnoredUnsuccessfulStepReport()).isNull(); // <14>
 assertThat(pqRundown.mutableEnv)
-    .containsAllEntriesOf(
-        Map.of(
-            "quoteCalculationStatusForSkipPricing", PricingPref.Skip.completeStatus,
-            "quoteCalculationStatus", PricingPref.System.completeStatus,
-            "quoteCalculationStatusAfterAllUpdates", PricingPref.System.completeStatus));
+  .containsAtLeastEntriesIn(
+      Map.of(
+          "quoteCalculationStatusForSkipPricing", PricingPref.Skip.completeStatus,
+          "quoteCalculationStatus", PricingPref.System.completeStatus,
+          "quoteCalculationStatusAfterAllUpdates", PricingPref.System.completeStatus));
 ----
 <1> `revUp` is the method to call passing a configuration, built as below
 <2> Supply the path (relative to resources) to the Template Collection JSON file
 <3> Supply the path (relative to resources) to the Environment JSON file
 <4> Supply any dynamic environment that is runtime-specific
-<5> <<#_custom-dynamic-variables, Custom dynamic variables>>
-<6> <<#_execution_control>>
-<7> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Request Config>>
-<8> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Response Config>>
-<9> <<#_pre_and_post_hooks>>
-<10> <<#_response_validations>>
-<11> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Custom Adapters>>
-<12> Ignore Java cert issues when firing HTTP calls
-<13> More assertions on top of <<#_rundown>>
+<5> <<Custom Dynamic variables>>
+<6> <<Pre-req and Tests scripts>>
+<7> <<Execution Control>>
+<8> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Request Config>>
+<9> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Response Config>>
+<10> <<#_pre_and_post_hooks>>
+<11> <<#_response_validations>>
+<12> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Custom Adapters>>
+<13> Ignore Java cert issues when firing HTTP calls
+<14> More assertions on top of <<#_rundown>>
 
 endif::[]
 ifndef::env-github[]
 
 [source,java,indent=0,options="nowrap"]
-.link:{testdir}/com/salesforce/revoman/integration/core/pq/PQE2ETest.java[PQE2ETest.java, tag=pq-e2e-with-revoman-config-demo]
+.link:{testdir}/com/salesforce/revoman/integration/core/pq/PQE2EWithSMTest.java[PQE2ETest.java, tag=pq-e2e-with-revoman-config-demo]
 ----
 include::{testdir}/com/salesforce/revoman/integration/core/pq/PQE2EWithSMTest.java[tag=pq-e2e-with-revoman-config-demo]
 ----
@@ -295,15 +307,16 @@ include::{testdir}/com/salesforce/revoman/integration/core/pq/PQE2EWithSMTest.ja
 <2> Supply the path (relative to resources) to the Template Collection JSON file
 <3> Supply the path (relative to resources) to the Environment JSON file
 <4> Supply any dynamic environment that is runtime-specific
-<5> <<#_custom-dynamic-variables, Custom dynamic variables>>
-<6> <<#_execution_control>>
-<7> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Request Config>>
-<8> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Response Config>>
-<9> <<#_pre_and_post_hooks>>
-<10> <<#_response_validations>>
-<11> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Custom Adapters>>
-<12> Ignore Java cert issues when firing HTTP calls
-<13> More assertions on top of <<#_rundown>>
+<5> <<Custom Dynamic variables>>
+<6> <<Pre-req and Tests scripts>>
+<7> <<Execution Control>>
+<8> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Request Config>>
+<9> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Response Config>>
+<10> <<#_pre_and_post_hooks>>
+<11> <<#_response_validations>>
+<12> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Custom Adapters>>
+<13> Ignore Java cert issues when firing HTTP calls
+<14> More assertions on top of <<#_rundown>>
 endif::[]
 
 == Debugging UX
@@ -329,13 +342,11 @@ image:mutable-env.png[Mutable environment after the execution completion]
 [.lead]
 If something goes wrong at any stage during the Step execution, ReṼoman *fails-fast* and captures the `Failure` in StepReport:
 
-[#_step_execution]
 image:step-execution.png[Step Execution]
 
 [.lead]
 Here is the failure hierarchy of what can go wrong in this process
 
-[#_failure_hierarchy]
 image::failure-hierarchy.png[Failure Hierarchy]
 
 [.lead]
@@ -344,7 +355,6 @@ Watch your console to check what's going on in the execution or troubleshoot fro
 
 NOTE: link:docs/revoman.exe.log[📝Sample log] printed during execution
 
-[#_logging]
 image:pq-exe-logging.gif[Monitor Execution]
 
 == Features
@@ -353,8 +363,8 @@ image:pq-exe-logging.gif[Monitor Execution]
 === Type Safety with flexible JSON <- -> POJO marshalling/serialization and unmarshalling/deserialization
 
 * ReṼoman internally uses a modern JSON library called https://github.com/square/moshi[**Moshi**]
-* There may be a POJO that inherits or contains legacy classes which are hard or impossible to serialize. ReṼoman lets you serialize such a legacy POJO by letting you pass `typesToIgnoreForMarshalling`, where you can filter-out these legacy classes.
-* The payload may not map to POJO, and you may need a custom adapter for Conversion. Moshi has it covered for you with its advanced adapter mechanism and ReṼoman accepts Moshi adapters via `requestConfig`, `responseConfig` and `customAdapters`
+* There may be a POJO that inherits or contains legacy classes which are hard or impossible to serialize. ReṼoman lets you serialize such a legacy POJO by letting you pass `skipTypes`, where you can filter-out these legacy class types.
+* The payload may not map to POJO, and you may need a custom adapter for Conversion. Moshi has it covered for you with its advanced adapter mechanism and ReṼoman accepts Moshi adapters via `requestConfig`, `responseConfig` and `customAdaptersForMarshalling`
 * ReṼoman also comes bundled with link:{sourcedir}/com/salesforce/revoman/input/json/JsonReaderUtils.kt[JSON Reader utils] and link:{sourcedir}/com/salesforce/revoman/input/json/JsonWriterUtils.kt[JSON Writer utils] to help build Moshi adapters.
 
 TIP: Refer link:{testdir}/com/salesforce/revoman/integration/core/pq/adapters/ConnectInputRepWithGraphAdapter.java[ConnectInputRepWithGraphAdapter]
@@ -362,7 +372,6 @@ for an advanced adapter use-case
 
 * It also has link:{sourcedir}/com/salesforce/revoman/input/json/JsonPojoUtils.kt[JSON POJO Utils], which you can use to directly convert JSON to POJO and vice versa.
 
-[#_execution_control]
 === Execution Control
 
 The configuration offers methods through which the execution strategy can be controlled without making any changes to the template:
@@ -396,7 +405,9 @@ You can pass a `PreTxnStepPick/PostTxnStepPick` which is a `Predicate` used to q
 )
 ----
 
-You can do things like assertion on the rundown, response validation, or environment and even <<#_mutable_environment,mutate the environment>>, such that the execution of subsequent steps picks up those changes.
+You can do things like assertion on the rundown, response validation,
+or environment and even <<#_mutable_environment,mutate the environment>>,
+such that the execution of subsequent steps picks up those changes.
 
 [#_plug_in_your_java_code_in_between_postman_execution]
 ==== Plug-in your Java code in-between Postman execution
@@ -416,19 +427,42 @@ so the subsequent steps can pick up value for `{+{xyzId}+}` variable from the en
 * If you have configured a strong type for your response through `responseConfig`, you can write type-safe validations by extracting your Strong type Object using `stepReport.responseInfo.get().<TypeT>getTypedTxnObj()` or `JsonPojoUtils.jsonToPojo()`
 * If your response data structure is non-trivial and have requirements to execute validations with different strategies like `fail-fast` or `error-accumulation`, consider using a library like https://github.com/salesforce-misc/Vador[*Vador*]
 
-[#_tests_js_support]
-=== Tests JS support
+=== Pre-req and Tests scripts
 
-* This tool can execute JavaScript written under the https://learning.postman.com/docs/writing-scripts/script-references/test-examples/[Tests tab of Postman]. Tests JS in a step is executed right after receiving an HTTP response.
-* The intention of supporting Tests JS is to make sure the Postman collection used for manual testing can be used *as-is* for the automation also.
-* ReṼoman currently supports basic JS operations, and the support will be enhanced incrementally.
-But the recommendation is not to add too much code here, as it is not intuitive to troubleshoot.Use it for simple operations like set environment variables and use Post-Hooks JVM code for any non-trivial operations.
+[.lead]
+Pre-req and Tests scripts support makes sure that the Postman collection used for manual testing can be used *as-is* for the automation also, without any resistance to modify or overhead of maintaining separate versions for manual and automation.
+
+* This tool can execute JavaScript written under the https://learning.postman.com/docs/writing-scripts/script-references/test-examples/[Pre-req and Tests tabs of Postman].
+** Pre-req JS is executed as the first step before Unmarshall request.
+** Tests JS is executed right after receiving an HTTP response.
+* ReṼoman supports using of any `npm` modules inside your Pre-req and Tests javascript. You can install `npm` modules in any folder and supply in the Kick config, the relative path of the parent folder that contains the `node_modules` folder using `nodeModulesResourceRelativePath(...)`. Use those `npm` modules inside your scripts with `require(...)`, for example:
+
+[source,javascript,indent=0,options="nowrap"]
+----
+var moment = require("moment");
+pm.environment.set("$currentDate", moment().format(("YYYY-MM-DD")));
+var futureDateTime = moment().add(365, 'days');
+pm.environment.set('$randomFutureDate', futureDateTime.format('YYYY-MM-DD'));
+
+pm.environment.set("$quantity", _.random(1, 10)); // lodash doesn't need require
+----
+
+[TIP]
+====
+* `node_modules` adds a lot of files to check in. You may replace them with a single distribution file
+
+image::node_modules.png[]
+
+* If `node_modules` is ignored on your git repo, you can force-add to check in using the command `git add -f <path>/node_modules`
+====
+
+CAUTION: The recommendation is not to add too much code in Pre-req and Tests scripts, as it is not intuitive to troubleshoot. Use it for simple operations like set environment variables and use Post-Hooks JVM code for any non-trivial operations.
 
 [#_mutable_environment]
 === Mutable Environment
 
 * Environment is the only mutable-shared state across step executions, which can be used for data-passing between consumer and the library.
-* This can be mutated (set key-value pairs) through <<#_tests_js_support,Tests JS>> (using `pm.environment.set()`) and <<#_pre_and_post_hooks,Pre-/Post-Hooks>> (using the reference `rundown.mutableEnv`) during execution.
+* This can be mutated (set key-value pairs) through <<Pre-req and Tests scripts>> (using `pm.environment.set()`) and <<#_pre_and_post_hooks,Pre-/Post-Hooks>> (using the reference `rundown.mutableEnv`) during execution.
 
 ==== `pmEnvSnapshot` in each StepReport
 Each StepReport also has a `pmEnvSnapshot` to assert if a step has executed as expected and compare snapshots from different steps to examine the execution progress.
@@ -439,16 +473,15 @@ Each StepReport also has a `pmEnvSnapshot` to assert if a step has executed as e
 * But that doesn't mean you have to execute all these templates in one-go.You can make multiple `revUp` calls.
 * If you wish to compose these executions, you can do so by adding the previous execution's `mutableEnv` to current execution using `dynamicEnvironment` parameter. This also comes in handy when you wish to execute a common step (e.g. `UserSetup`) inside a test setup method and use that environment for all the tests.
 
-[#_custom-dynamic-variables]
 ==== Custom Dynamic variables
-If the in-built dynamic variables don't fit your need, you can plug your own dynamic variable generator,
+If the in-built dynamic variables don't fit your need, you can plug your own dynamic variable generator
 to be invoked to generate a value for your custom variable-key in the template at runtime.
 
 == USP
 
 === Low-code
 
-TIP: Here is an example of a low-code link:{testdir}/com/salesforce/revoman/integration/core/pq/PQE2EWithSMTest.java[**E2E test**] that automates *~70 steps*
+TIP: Here is an example of a low-code link:{testdir}/com/salesforce/revoman/integration/core/pq/PQE2EWithSMTest.java[**E2E test**] that automates *~75 steps*
 
 [.lead]
 Compared to a traditional Integration/Functional or E2E test, approximately, the amount of code needed is *89%* less using ReṼoman.

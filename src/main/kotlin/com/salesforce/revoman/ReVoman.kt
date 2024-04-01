@@ -58,7 +58,10 @@ object ReVoman {
         .flatMap { (pmSteps, authFromRoot) ->
           deepFlattenItems(pmSteps.map { it.copy(auth = it.auth ?: authFromRoot) })
         }
-    logger.info { "Total steps from the Collection(s) provided: ${pmStepsDeepFlattened.size}" }
+    logger.info {
+      val templateCount = kick.templatePaths().size
+      "Total Steps from ${if (templateCount > 1) "$templateCount Collections" else "the Collection"} provided: ${pmStepsDeepFlattened.size}"
+    }
     val stepNameToReport =
       executeStepsSerially(
         pmStepsDeepFlattened,

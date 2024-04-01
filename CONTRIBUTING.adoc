@@ -45,7 +45,7 @@ This is a simple Gradle project and has its own Gradle wrapper. So nothing to in
 ./gradlew clean build
 ----
 
-TIP: You *don't* need a local Gradle installation as the `gradlew` (Gradle wrapper) takes care of everything. But if you wish to install gradle locally, the recommendation is to  do it via https://sdkman.io/install[SDKMAN]. After you install SDKMAN, run `sdk install gradle` to install Gradle
+TIP: You *don't* need a local Gradle installation as the `gradlew` (Gradle wrapper) takes care of everything. But if you wish to install Gradle locally, the recommendation is to  do it via https://sdkman.io/install[SDKMAN]. After you install SDKMAN, run `sdk install gradle` to install Gradle
 
 You can run/debug the existing unit tests or write your own to play with the tool.
 

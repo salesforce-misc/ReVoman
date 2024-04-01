@@ -76,16 +76,16 @@ class PQE2EWithSMTest {
                 .customDynamicVariableGenerator( // <5>
                     "$unitPrice",
                     (ignore1, ignore2, ignore3) -> String.valueOf(Random.Default.nextInt(999) + 1))
-                .nodeModulesResourceRelativePath("js")
+                .nodeModulesResourceRelativePath("js") // <6>
                 .haltOnFailureOfTypeExcept(
                     HTTP_STATUS,
-                    afterAllStepsContainingHeader("ignoreHTTPStatusUnsuccessful")) // <6>
-                .requestConfig( // <7>
+                    afterAllStepsContainingHeader("ignoreHTTPStatusUnsuccessful")) // <7>
+                .requestConfig( // <8>
                     unmarshallRequest(
                         beforeAllStepsWithURIPathEndingWith(PQ_URI_PATH),
                         PlaceQuoteInputRepresentation.class,
                         adapter(PlaceQuoteInputRepresentation.class)))
-                .responseConfig( // <8>
+                .responseConfig( // <9>
                     unmarshallResponse(
                         afterAllStepsWithURIPathEndingWith(PQ_URI_PATH),
                         PlaceQuoteOutputRepresentation.class),
@@ -93,7 +93,7 @@ class PQE2EWithSMTest {
                         afterAllStepsWithURIPathEndingWith(COMPOSITE_GRAPH_URI_PATH),
                         CompositeGraphResponse.class,
                         CompositeGraphResponse.ADAPTER))
-                .hooks( // <9>
+                .hooks( // <10>
                     pre(
                         beforeAllStepsWithURIPathEndingWith(PQ_URI_PATH),
                         (step, requestInfo, rundown) -> {
@@ -104,7 +104,7 @@ class PQE2EWithSMTest {
                     post(
                         afterAllStepsWithURIPathEndingWith(PQ_URI_PATH),
                         (stepReport, ignore) -> {
-                          validatePQResponse(stepReport); // <10>
+                          validatePQResponse(stepReport); // <11>
                           final var isSyncStep =
                               stepReport.responseInfo.get().containsHeader(IS_SYNC_HEADER);
                           if (!isSyncStep) {
@@ -122,10 +122,10 @@ class PQE2EWithSMTest {
                     post(
                         afterStepName("query-quote-and-related-records"),
                         (ignore, rundown) -> assertAfterPQCreate(rundown.mutableEnv)))
-                .customAdaptersForMarshalling(new IDAdapter()) // <11>
-                .insecureHttp(true) // <12>
+                .customAdaptersForMarshalling(new IDAdapter()) // <12>
+                .insecureHttp(true) // <13>
                 .off()); // Kick-off
-    assertThat(pqRundown.firstUnIgnoredUnsuccessfulStepReport()).isNull(); // <13>
+    assertThat(pqRundown.firstUnIgnoredUnsuccessfulStepReport()).isNull(); // <14>
     assertThat(pqRundown.mutableEnv)
         .containsAtLeastEntriesIn(
             Map.of(
