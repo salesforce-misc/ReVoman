@@ -68,7 +68,7 @@ object ReVoman {
         environment,
         kick,
         initMoshi(
-          kick.customAdaptersForMarshalling(),
+          kick.customAdapters(),
           kick.customAdaptersFromRequestConfig() + kick.customAdaptersFromResponseConfig(),
           kick.skipTypes()
         )

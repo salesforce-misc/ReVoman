@@ -14,7 +14,7 @@ import org.graalvm.polyglot.Context
 import org.graalvm.polyglot.HostAccess
 import org.graalvm.polyglot.Source
 import org.graalvm.polyglot.Value
-
+// ! TODO 01 Apr 2024 gopala.akshintala: Refactor this into a Class with DI
 /** Refer: https://www.graalvm.org/22.3/reference-manual/embed-languages/ */
 private lateinit var jsContext: Context
 
@@ -46,7 +46,7 @@ internal fun initJSContext(nodeModulesRelativePath: String?) {
       }
 }
 
-fun evaluateJS(js: String, bindings: Map<String, Any> = emptyMap()): Value? {
+internal fun evaluateJS(js: String, bindings: Map<String, Any> = emptyMap()): Value? {
   val contextBindings = jsContext.getBindings("js")
   bindings.forEach { (key, value) -> contextBindings.putMember(key, value) }
   val jsSource = Source.newBuilder("js", imports + js, "script.js").build()

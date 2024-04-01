@@ -78,7 +78,7 @@ internal interface KickDef {
       .filter { it.customAdapter != null }
       .groupBy({ it.objType }, { it.customAdapter!! })
 
-  fun customAdaptersForMarshalling(): List<Any>
+  fun customAdapters(): List<Any>
 
   fun skipTypes(): Set<Class<out Any>>
 

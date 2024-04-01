@@ -12,11 +12,12 @@ endif::[]
 :toc:
 :toc-placement!:
 :sourcedir: src/main/kotlin
-:testdir: src/integrationTest/java
+:testdir: src/test/java
+:integrationtestdir: src/integrationTest/java
 :pmtemplates: src/integrationTest/resources/pm-templates
 :imagesdir: docs/images
 :prewrap!:
-:revoman-version: 0.40.2
+:revoman-version: 0.40.3
 
 '''
 
@@ -130,13 +131,13 @@ You can import and manually test this collection through the `Run collection` bu
 image::resfulapi-dev-pm.png[]
 
 You can automate the same
-using ReṼoman in a link:{testdir}/com/salesforce/revoman/integration/restfulapidev/RestfulAPIDevTest.java[Junit test]
+using ReṼoman in a link:{integrationtestdir}/com/salesforce/revoman/integration/restfulapidev/RestfulAPIDevTest.java[Junit test]
 by supplying the template and environment path:
 
 ifdef::env-github[]
 
 [source,java,indent=0,options="nowrap"]
-.link:{testdir}/com/salesforce/revoman/integration/restfulapidev/RestfulAPIDevTest.java[RestfulAPIDevTest.java, tag=revoman-simple-demo]
+.link:{integrationtestdir}/com/salesforce/revoman/integration/restfulapidev/RestfulAPIDevTest.java[RestfulAPIDevTest.java, tag=revoman-simple-demo]
 ----
 @Test
 @DisplayName("restful-api.dev")
@@ -158,9 +159,9 @@ endif::[]
 ifndef::env-github[]
 
 [source,java,indent=0,options="nowrap"]
-.link:{testdir}/com/salesforce/revoman/integration/restfulapidev/RestfulAPIDevTest.java[RestfulAPIDevTest.java,tag=revoman-simple-demo]
+.link:{integrationtestdir}/com/salesforce/revoman/integration/restfulapidev/RestfulAPIDevTest.java[RestfulAPIDevTest.java,tag=revoman-simple-demo]
 ----
-include::{testdir}/com/salesforce/revoman/integration/restfulapidev/RestfulAPIDevTest.java[tag=revoman-simple-demo]
+include::{integrationtestdir}/com/salesforce/revoman/integration/restfulapidev/RestfulAPIDevTest.java[tag=revoman-simple-demo]
 ----
 <1> `revUp` is the method to call passing a configuration, built as below
 <2> Supply an exported Postman collection JSON file path
@@ -197,7 +198,7 @@ StepReport(
 `Rundown` has many convenience methods to ease applying further assertions on top of it.
 
 TIP:
-Other simple examples to see in Action: link:{testdir}/com/salesforce/revoman/integration/pokemon/PokemonTest.java[PokemonTest.java]
+Other simple examples to see in Action: link:{integrationtestdir}/com/salesforce/revoman/integration/pokemon/PokemonTest.java[PokemonTest.java]
 
 === Advanced Example
 
@@ -208,7 +209,7 @@ you can add more _bells & whistles_:
 ifdef::env-github[]
 
 [source,java,indent=0,options="nowrap"]
-.link:{testdir}/com/salesforce/revoman/integration/core/pq/PQE2EWithSMTest.java[PQE2EWithSMTest.java, tag=pq-e2e-with-revoman-config-demo]
+.link:{integrationtestdir}/com/salesforce/revoman/integration/core/pq/PQE2EWithSMTest.java[PQE2EWithSMTest.java, tag=pq-e2e-with-revoman-config-demo]
 ----
 final var pqRundown =
   ReVoman.revUp( // <1>
@@ -269,7 +270,7 @@ final var pqRundown =
               post(
                   afterStepName("query-quote-and-related-records"),
                   (ignore, rundown) -> assertAfterPQCreate(rundown.mutableEnv)))
-          .customAdaptersForMarshalling(new IDAdapter()) // <12>
+          .customAdapters(new IDAdapter()) // <12>
           .insecureHttp(true) // <13>
           .off()); // Kick-off
 assertThat(pqRundown.firstUnIgnoredUnsuccessfulStepReport()).isNull(); // <14>
@@ -299,9 +300,9 @@ endif::[]
 ifndef::env-github[]
 
 [source,java,indent=0,options="nowrap"]
-.link:{testdir}/com/salesforce/revoman/integration/core/pq/PQE2EWithSMTest.java[PQE2ETest.java, tag=pq-e2e-with-revoman-config-demo]
+.link:{integrationtestdir}/com/salesforce/revoman/integration/core/pq/PQE2EWithSMTest.java[PQE2ETest.java, tag=pq-e2e-with-revoman-config-demo]
 ----
-include::{testdir}/com/salesforce/revoman/integration/core/pq/PQE2EWithSMTest.java[tag=pq-e2e-with-revoman-config-demo]
+include::{integrationtestdir}/com/salesforce/revoman/integration/core/pq/PQE2EWithSMTest.java[tag=pq-e2e-with-revoman-config-demo]
 ----
 <1> `revUp` is the method to call passing a configuration, built as below
 <2> Supply the path (relative to resources) to the Template Collection JSON file
@@ -364,13 +365,22 @@ image:pq-exe-logging.gif[Monitor Execution]
 
 * ReṼoman internally uses a modern JSON library called https://github.com/square/moshi[**Moshi**]
 * There may be a POJO that inherits or contains legacy classes which are hard or impossible to serialize. ReṼoman lets you serialize such a legacy POJO by letting you pass `skipTypes`, where you can filter-out these legacy class types.
-* The payload may not map to POJO, and you may need a custom adapter for Conversion. Moshi has it covered for you with its advanced adapter mechanism and ReṼoman accepts Moshi adapters via `requestConfig`, `responseConfig` and `customAdaptersForMarshalling`
+* The payload may not map to POJO, and you may need a custom adapter for Conversion. Moshi has it covered for you with its advanced adapter mechanism and ReṼoman accepts Moshi adapters via `requestConfig`, `responseConfig` and `customAdapters`
 * ReṼoman also comes bundled with link:{sourcedir}/com/salesforce/revoman/input/json/JsonReaderUtils.kt[JSON Reader utils] and link:{sourcedir}/com/salesforce/revoman/input/json/JsonWriterUtils.kt[JSON Writer utils] to help build Moshi adapters.
 
-TIP: Refer link:{testdir}/com/salesforce/revoman/integration/core/pq/adapters/ConnectInputRepWithGraphAdapter.java[ConnectInputRepWithGraphAdapter]
+TIP: Refer link:{integrationtestdir}/com/salesforce/revoman/integration/core/pq/adapters/ConnectInputRepWithGraphAdapter.java[ConnectInputRepWithGraphAdapter]
 for an advanced adapter use-case
 
-* It also has link:{sourcedir}/com/salesforce/revoman/input/json/JsonPojoUtils.kt[JSON POJO Utils], which you can use to directly convert JSON to POJO and vice versa.
+==== JSON POJO Utils
+
+link:{sourcedir}/com/salesforce/revoman/input/json/JsonPojoUtils.kt[JSON POJO Utils] can be used to directly convert JSON to POJO and vice versa.
+
+[TIP]
+====
+Examples to refer:
+* link:{testdir}/com/salesforce/revoman/input/json/JsonPojoUtilsTest.java[JsonPojoUtilsTest]
+* link:{integrationtestdir}/com/salesforce/revoman/input/json/JsonPojoUtils2Test.java[JsonPojoUtils2Test]
+====
 
 === Execution Control
 
@@ -481,7 +491,7 @@ to be invoked to generate a value for your custom variable-key in the template a
 
 === Low-code
 
-TIP: Here is an example of a low-code link:{testdir}/com/salesforce/revoman/integration/core/pq/PQE2EWithSMTest.java[**E2E test**] that automates *~75 steps*
+TIP: Here is an example of a low-code link:{integrationtestdir}/com/salesforce/revoman/integration/core/pq/PQE2EWithSMTest.java[**E2E test**] that automates *~75 steps*
 
 [.lead]
 Compared to a traditional Integration/Functional or E2E test, approximately, the amount of code needed is *89%* less using ReṼoman.
