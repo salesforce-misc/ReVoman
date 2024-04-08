@@ -11,6 +11,7 @@ endif::[]
 :hide-uri-scheme:
 :toc:
 :toc-placement!:
+:figure-caption!:
 :sourcedir: src/main/kotlin
 :testdir: src/test/java
 :integrationtestdir: src/integrationTest/java
@@ -32,7 +33,7 @@ essentially translating your manual testing into Automation, without any loss or
 But it's even better!
 
 image::postman-run.png[]
-image::manual-to-automation.png[Manual to Automation]
+image::manual-to-automation.png[Manual to Automation, align="center"]
 
 [.lead]
 It strikes a balance between _flexibility_
@@ -68,19 +69,19 @@ implementation("com.salesforce.revoman:revoman:{revoman-version}")
 
 toc::[]
 
-.Tech-Talk given at https://www.opensourceindia.in/osi-speakers-2023/gopala-sarma-akshintala/[Open Source Conf], https://speakerdeck.com/gopalakshintala/revoman-a-template-driven-api-automation-tool-for-jvm[🎴Slide deck]
-image::revoman-demo-thumbnail.png[link="https://www.youtube.com/watch?v=YxeRddSFkxc&list=PLrJbJ9wDl9EC0bG6y9fyDylcfmB_lT_Or&index=2"]
+.Tech-Talk given at https://www.opensourceindia.in/osi-speakers-2023/gopala-sarma-akshintala/[Open Source Conf - 2023], https://speakerdeck.com/gopalakshintala/revoman-a-template-driven-api-automation-tool-for-jvm[🎴Slide deck]
+image::revoman-demo-thumbnail.png[link="https://www.youtube.com/watch?v=YxeRddSFkxc&list=PLrJbJ9wDl9EC0bG6y9fyDylcfmB_lT_Or&index=2", align="center"]
 
 == Why ReṼoman?
 
 === The Problem
 
 * The majority of JVM SaaS applications are REST-based. But the API automation is done through a Mul-*T*-verse of Integration/Functional tests, E2E tests and Manual tests, each with its own frameworks, tools, and internal utilities, testing almost the same code flow.
-* These custom alien automation frameworks, often built using low-level tools like https://rest-assured.io/[**REST Assured**] which are specific to a service or domain and are rigid to reuse, extend and difficult to maintain.
+* These custom alien automation frameworks, often built using low-level tools like https://rest-assured.io/[**REST Assured**], are specific to a service or domain and are rigid to reuse, extend and difficult to maintain.
 * This automation competes on cognitive complexity and learning curve with the Prod code, and mostly, automation wins.
 * After a point, the API automation may deviate from its purpose of augmenting real end-user interaction and turns into a foot-chain for development.
 
-image::cognitive-complexity.png[]
+image::cognitive-complexity.png[align="center"]
 
 === The Solution
 
@@ -93,10 +94,10 @@ Leveraging it can mitigate writing a lot of code as we translate those manual st
 
 ____
 
-* How _productive_ would it be, if you can plug your exported Postman collection,
+* How _productive_ would it be, if you can plug your exported Postman collection template,
 that you anyway would have created for your manual testing, and execute them through your JVM tests?
 
-* How about a Universal API automation tool promotes low code and low-cognitive-complexity and strikes a balance between flexibility and ease of use?
+* How about a Universal API automation tool that promotes low code and low-cognitive-complexity and strikes a balance between flexibility and ease of use?
 
 ____
 
@@ -104,13 +105,14 @@ ____
 
 === Template-Driven Testing
 
-* The exported Postman collection JSON file is referred to as Postman templates, as it contains some placeholders/variables in the `+{{variable-key}}+` pattern. You can read more about it https://learning.postman.com/docs/sending-requests/variables/[here]
+* The exported Postman collection JSON file is referred to as a Postman template, as it contains some placeholders/variables in the `+{{variable-key}}+` pattern. You can read more about it https://learning.postman.com/docs/sending-requests/variables/[here]
 * ReṼoman understands these templates and replaces these variables at the runtime, similar to Postman. It supports
 ** Nested variables, e.g., `+{{variable-key{{nested-variable-key}}}}+`
 ** link:{sourcedir}/com/salesforce/revoman/internal/postman/DynamicVariableGenerator.kt[Dynamic variables], e.g., `{{$randomUUID}}`, `{{$randomEmail}}`
+** <<Custom Dynamic variables>>
 
 [.lead]
-You can _kick off_ this *Template-Driven Testing* by invoking `revUp`,
+You can _kick off_ this *Template-Driven Testing* by invoking `ReVoman.revUp()`,
 supplying your Postman templates and environments, and all your customizations through a configuration:
 
 [source,java,indent=0,options="nowrap"]
@@ -148,12 +150,13 @@ void restfulApiDev() {
           .templatePath(PM_COLLECTION_PATH) // <2>
           .environmentPath(PM_ENVIRONMENT_PATH) // <3>
           .off());
-  assertThat(rundown.stepReports).hasSize(3);
+  assertThat(rundown.stepReports).hasSize(3); // <4>
 }
 ----
 <1> `revUp` is the method to call passing a configuration, built as below
 <2> Supply an exported Postman collection JSON file path
 <3> Supply an exported Postman environment JSON file path
+<4> Run more assertions on the <<Rundown>>
 
 endif::[]
 ifndef::env-github[]
@@ -166,10 +169,10 @@ include::{integrationtestdir}/com/salesforce/revoman/integration/restfulapidev/R
 <1> `revUp` is the method to call passing a configuration, built as below
 <2> Supply an exported Postman collection JSON file path
 <3> Supply an exported Postman environment JSON file path
+<4> Run more assertions on the <<Rundown>>
 
 endif::[]
 
-[#_rundown]
 === Rundown
 
 After all this, you receive back a detailed *Rundown* in return.
@@ -197,14 +200,13 @@ StepReport(
 [.lead]
 `Rundown` has many convenience methods to ease applying further assertions on top of it.
 
-TIP:
-Other simple examples to see in Action: link:{integrationtestdir}/com/salesforce/revoman/integration/pokemon/PokemonTest.java[PokemonTest.java]
+TIP: Other simple examples to see in Action: link:{integrationtestdir}/com/salesforce/revoman/integration/pokemon/PokemonTest.java[PokemonTest.java]
 
 === Advanced Example
 
 [.lead]
-ReṼoman isn't just limited to that;
-you can add more _bells & whistles_:
+ReṼoman isn't just limited to executing Collection like Postman;
+you can add more _bells & whistles_ 🔔:
 
 ifdef::env-github[]
 
@@ -281,7 +283,7 @@ assertThat(pqRundown.mutableEnv)
           "quoteCalculationStatus", PricingPref.System.completeStatus,
           "quoteCalculationStatusAfterAllUpdates", PricingPref.System.completeStatus));
 ----
-<1> `revUp` is the method to call passing a configuration, built as below
+<1> `revUp()` is the method to call passing a configuration, built as below
 <2> Supply the path (relative to resources) to the Template Collection JSON file
 <3> Supply the path (relative to resources) to the Environment JSON file
 <4> Supply any dynamic environment that is runtime-specific
@@ -291,10 +293,10 @@ assertThat(pqRundown.mutableEnv)
 <8> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Request Config>>
 <9> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Response Config>>
 <10> <<#_pre_and_post_hooks>>
-<11> <<#_response_validations>>
+<11> <<Response Validations>>
 <12> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Custom Adapters>>
 <13> Ignore Java cert issues when firing HTTP calls
-<14> More assertions on top of <<#_rundown>>
+<14> Run more assertions on the <<Rundown>>
 
 endif::[]
 ifndef::env-github[]
@@ -304,7 +306,7 @@ ifndef::env-github[]
 ----
 include::{integrationtestdir}/com/salesforce/revoman/integration/core/pq/PQE2EWithSMTest.java[tag=pq-e2e-with-revoman-config-demo]
 ----
-<1> `revUp` is the method to call passing a configuration, built as below
+<1> `revUp()` is the method to call passing a configuration, built as below
 <2> Supply the path (relative to resources) to the Template Collection JSON file
 <3> Supply the path (relative to resources) to the Environment JSON file
 <4> Supply any dynamic environment that is runtime-specific
@@ -314,19 +316,16 @@ include::{integrationtestdir}/com/salesforce/revoman/integration/core/pq/PQE2EWi
 <8> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Request Config>>
 <9> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Response Config>>
 <10> <<#_pre_and_post_hooks>>
-<11> <<#_response_validations>>
+<11> <<Response Validations>>
 <12> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Custom Adapters>>
 <13> Ignore Java cert issues when firing HTTP calls
-<14> More assertions on top of <<#_rundown>>
+<14> Run more assertions on the <<Rundown>>
 endif::[]
 
 == Debugging UX
 
 [.lead]
-This tool has particular emphasis on Debugging experience.
-
-The rundown you get as a return from `revUp` after the execution completes has everything you need to know about what happened during each step execution,
-along with environment snapshot during that step execution. Here is what a debugger view of a Rundown looks like:
+This tool has particular emphasis on Debugging experience. Here is what a debugger view of a <<Rundown>> looks like:
 
 image:rundown.png[Rundown of all steps]
 
@@ -377,7 +376,8 @@ link:{sourcedir}/com/salesforce/revoman/input/json/JsonPojoUtils.kt[JSON POJO Ut
 
 [TIP]
 ====
-Examples to refer:
+See in Action:
+
 * link:{testdir}/com/salesforce/revoman/input/json/JsonPojoUtilsTest.java[JsonPojoUtilsTest]
 * link:{integrationtestdir}/com/salesforce/revoman/input/json/JsonPojoUtils2Test.java[JsonPojoUtils2Test]
 ====
@@ -389,7 +389,7 @@ The configuration offers methods through which the execution strategy can be con
 * `haltOnAnyFailure` — This defaults to `false`. If set to `true`, the execution fails-fast when it encounters a failure.
 * `haltOnFailureOfTypeExcept` — This accepts pairs of `ExeType` and a `PostTxnStepPick` which are used to check if a Step can be ignored for failure for a specific failure type
 * `runOnlySteps`, `skipSteps` — All these accept a `predicate` of type `ExeStepPick`, which is invoked passing the current `Step` instance to decide whether to execute or skip a step.
-** There are some `ExeStepPick` predicates bundled with ReṼoman under `ExeStepPick.PickUtils` e.g `withName`, `inFolder` etc. You can write a custom predicate of you own too.
+** There are some `ExeStepPick` predicates bundled with ReṼoman under `ExeStepPick.PickUtils` e.g `withName`, `inFolder` etc. You can write a custom predicate of your own too.
 
 [#_pre_and_post_hooks]
 === Pre- and Post-Hooks
@@ -428,24 +428,21 @@ which can be populated and picked-up by subsequent steps.
 For example, you may want some `xyzId` but you don't have a Postman collection to create it.
 But instead, you have a Java utility to generate/create it.
 You can invoke the utility in a pre-hook of a step and set the value in `rundown.mutableEnv`,
-so the subsequent steps can pick up value for `{+{xyzId}+}` variable from the environment.
+so the later steps can pick up value for `+{{xyzId}}+` variable from the environment.
 
-[#_response_validations]
 ==== Response Validations
 
 * Post-Hooks are the best place to validate response right after the step.
-* If you have configured a strong type for your response through `responseConfig`, you can write type-safe validations by extracting your Strong type Object using `stepReport.responseInfo.get().<TypeT>getTypedTxnObj()` or `JsonPojoUtils.jsonToPojo()`
+* If you have configured a strong type for your response through `responseConfig`, you can write type-safe validations by extracting your Strong type Object using `stepReport.responseInfo.get().<TypeT>getTypedTxnObj()` (if you have configured `responseConfig()` or `customAdapters()`) or use `JsonPojoUtils.jsonToPojo(TypeT, stepReport.responseInfo.get().httpMsg.bodyString())` to convert it inline.
 * If your response data structure is non-trivial and have requirements to execute validations with different strategies like `fail-fast` or `error-accumulation`, consider using a library like https://github.com/salesforce-misc/Vador[*Vador*]
 
 === Pre-req and Tests scripts
 
-[.lead]
-Pre-req and Tests scripts support makes sure that the Postman collection used for manual testing can be used *as-is* for the automation also, without any resistance to modify or overhead of maintaining separate versions for manual and automation.
-
-* This tool can execute JavaScript written under the https://learning.postman.com/docs/writing-scripts/script-references/test-examples/[Pre-req and Tests tabs of Postman].
+* Postman lets you write custom javascript in https://learning.postman.com/docs/writing-scripts/script-references/test-examples/[Pre-req and Tests tabs] that get executed before and after a step respectively. When you export the collection as a template, these scripts also come bundled.
+* ReṼoman can execute this javascript on JVM. This support ensures that the Postman collection used for manual testing can be used *as-is* for the automation also, without any resistance to modify or overhead of maintaining separate versions for manual and automation.
 ** Pre-req JS is executed as the first step before Unmarshall request.
 ** Tests JS is executed right after receiving an HTTP response.
-* ReṼoman supports using of any `npm` modules inside your Pre-req and Tests javascript. You can install `npm` modules in any folder and supply in the Kick config, the relative path of the parent folder that contains the `node_modules` folder using `nodeModulesRelativePath(...)`. Use those `npm` modules inside your scripts with `require(...)`, for example:
+* ReṼoman supports using `npm` modules inside your Pre-req and Tests javascript. You can install `npm` modules in any folder and supply in the `Kick` config, the relative path of the parent folder that contains the `node_modules` folder using `nodeModulesRelativePath(...)`. Use those `npm` modules inside your scripts with `require(...)`, for example:
 
 [source,javascript,indent=0,options="nowrap"]
 ----
@@ -454,12 +451,12 @@ pm.environment.set("$currentDate", moment().format(("YYYY-MM-DD")));
 var futureDateTime = moment().add(365, 'days');
 pm.environment.set('$randomFutureDate', futureDateTime.format('YYYY-MM-DD'));
 
-pm.environment.set("$quantity", _.random(1, 10)); // lodash doesn't need require
+pm.environment.set("$quantity", _.random(1, 10)); // lodash doesn't need `require`
 ----
 
 [TIP]
 ====
-* `node_modules` adds a lot of files to check in. You may replace them with a single distribution file
+* `node_modules` Adds a lot of files to check in. You may replace them with a single distribution file
 
 image::node_modules.png[]
 
@@ -479,11 +476,12 @@ Each StepReport also has a `pmEnvSnapshot` to assert if a step has executed as e
 
 === Compose Modular Executions
 
-* You don't have to squash all your steps into one mega collection. Instead, you can break them into easy-to-manage modular collections. `revUp` accepts a list of collection paths through `templatePaths`
-* But that doesn't mean you have to execute all these templates in one-go.You can make multiple `revUp` calls.
+* You don't have to squash all your steps into one mega collection. Instead, you can break them into easy-to-manage modular collections. `ReVoman.revUp()` accepts a list of collection paths through `templatePaths()`
+* But that doesn't mean you have to execute all these templates in one-go. You can make multiple `ReVoman.revUp()` calls for different collection.
 * If you wish to compose these executions, you can do so by adding the previous execution's `mutableEnv` to current execution using `dynamicEnvironment` parameter. This also comes in handy when you wish to execute a common step (e.g. `UserSetup`) inside a test setup method and use that environment for all the tests.
 
-==== Custom Dynamic variables
+=== Custom Dynamic variables
+
 If the in-built dynamic variables don't fit your need, you can plug your own dynamic variable generator
 to be invoked to generate a value for your custom variable-key in the template at runtime.
 
@@ -517,10 +515,10 @@ The above test doesn't just have low code, but also low in Cognitive Complexity 
 
 == Perf
 
-This entire execution of **~70 steps**, which includes **10 async steps**, took a mere *122 sec* on localhost.
+This entire execution of **~75 steps**, which includes **10 async steps**, took a mere *122 sec* on localhost.
 This can be much better on auto-build environments.
 
-image:pq-revoman-test-time.png[Localhost Test time on FTest console]
+image:pq-revoman-test-time.png[Localhost Test time on FTest console for ~75 steps]
 
 WARNING: ReṼoman internally is very light-weight, and the execution times are proportional
 to how your server responds or your network speed.
@@ -541,7 +539,7 @@ The future looks bright with multiple impactful features in the pipeline:
 === How to Debug a step in the middle of an Execution?
 
 * You can add a <<#_pre_and_post_hooks,pre-hook>> to the Step you are interested and add a debug point inside that. This gets hit before ReṼoman fires the request in that Step
-* You can get more adventurous by attaching jar sources and directly adding conditional debug points inside the library source-code. You can search for logs in the source-code that indicate key operations to add conditional debug points with conditions like StepName etc.
+* You can get more adventurous by attaching revoman jar sources and directly adding conditional debug points inside this library source-code. You can search for logs in the source-code that indicate key operations to add conditional debug points with conditions like StepName etc.
 
 === Is there a way to Mark a Postman collection Step?
 

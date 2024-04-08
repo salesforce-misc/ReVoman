@@ -31,7 +31,7 @@ class RestfulAPIDevTest {
                 .environmentPath(PM_ENVIRONMENT_PATH) // <3>
                 .nodeModulesRelativePath("js")
                 .off());
-    assertThat(rundown.stepReports).hasSize(3);
+    assertThat(rundown.stepReports).hasSize(3); // <4>
   }
   // end::revoman-simple-demo[]
 }

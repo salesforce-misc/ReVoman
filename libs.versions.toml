@@ -10,7 +10,6 @@ jetbrains-annotations = "24.1.0"
 okio = "3.9.0"
 kover = "0.7.6"
 kotest = "5.8.1"
-spotbugs = "6.0.10"
 testLogger = "4.0.0"
 truth = "1.4.2"
 assertj-core = "3.25.3"
@@ -75,7 +74,6 @@ mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 kotlin-gradle = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
 detekt-gradle = { module = "io.gitlab.arturbosch.detekt:detekt-gradle-plugin", version.ref = "detekt" }
 spotless-gradle = { module = "com.diffplug.spotless:spotless-plugin-gradle", version.ref = "spotless" }
-spotbugs-gradle = { module = "com.github.spotbugs.snom:spotbugs-gradle-plugin", version.ref = "spotbugs" }
 
 [bundles]
 kotest = [
@@ -92,7 +90,6 @@ kover = { id = "org.jetbrains.kotlinx.kover", version.ref = "kover" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
-spotbugs = { id = "com.github.spotbugs", version.ref = "spotbugs" }
 testLogger = { id = "com.adarshr.test-logger", version.ref = "testLogger" }
 moshix = { id = "dev.zacsweers.moshix", version.ref = "moshix" }
 kapt = { id = "org.jetbrains.kotlin.kapt", version.ref = "kotlin" }
