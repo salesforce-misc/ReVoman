@@ -22,6 +22,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.json.JSONException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -77,13 +78,13 @@ class JsonPojoUtilsTest {
   void sObjectGraphMarshallToPQPayload() throws JSONException {
     final var pqTestInputRepMarshaller =
         SObjectGraphRequestMarshaller.adapter(
-            Map.of("pricingPref", "skip", "configurationInput", "skip"));
+            Map.of("pricingPref", "skip", "configurationInput", "skip"), Set.of("name"));
     final var pqPayloadJsonStr =
         JsonPojoUtils.pojoToJson(
             SObjectGraphRequest.class,
             prepareSObjectGraphReqPojo(),
             List.of(pqTestInputRepMarshaller));
-    final var expectedPQPayload = readFileInResourcesToString("json/pq-graph-req.json");
+    final var expectedPQPayload = readFileInResourcesToString("json/pq-graph-req-masked.json");
     JSONAssert.assertEquals(expectedPQPayload, pqPayloadJsonStr, JSONCompareMode.STRICT);
   }
 

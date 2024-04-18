@@ -20,11 +20,16 @@ dependencyResolutionManagement {
   }
 }
 
-gradleEnterprise {
+val isCI = !System.getenv("CI").isNullOrEmpty()
+
+develocity {
   buildScan {
-    publishAlways()
-    termsOfServiceUrl = "https://gradle.com/help/legal-terms-of-use"
-    termsOfServiceAgree = "yes"
+    publishing.onlyIf {
+      it.buildResult.failures.isNotEmpty() && !System.getenv("CI").isNullOrEmpty()
+    }
+    uploadInBackground.set(!isCI)
+    termsOfUseUrl = "https://gradle.com/help/legal-terms-of-use"
+    termsOfUseAgree = "yes"
   }
 }
 
