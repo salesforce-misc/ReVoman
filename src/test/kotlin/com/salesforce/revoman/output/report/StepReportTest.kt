@@ -11,6 +11,7 @@ import arrow.core.Either.Left
 import arrow.core.Either.Right
 import com.salesforce.revoman.internal.postman.template.Item
 import com.salesforce.revoman.internal.postman.template.Request
+import com.salesforce.revoman.internal.postman.template.Url
 import com.salesforce.revoman.output.report.failure.HookFailure.PostHookFailure
 import com.salesforce.revoman.output.report.failure.RequestFailure.HttpRequestFailure
 import io.kotest.matchers.shouldBe
@@ -25,7 +26,7 @@ class StepReportTest {
   @Test
   fun `StepReport HttpStatusSuccessful`() {
     val rawRequest =
-      Request(method = POST.toString(), url = Request.Url("https://overfullstack.github.io/"))
+      Request(method = POST.toString(), url = Url("https://overfullstack.github.io/"))
     val requestInfo = TxnInfo(String::class.java, "fakeRequest", rawRequest.toHttpRequest())
     val stepReportSuccess =
       StepReport(
@@ -39,7 +40,7 @@ class StepReportTest {
   @Test
   fun `StepReport HttpRequestFailure`() {
     val rawRequest =
-      Request(method = POST.toString(), url = Request.Url("https://overfullstack.github.io/"))
+      Request(method = POST.toString(), url = Url("https://overfullstack.github.io/"))
     val requestInfo = TxnInfo(String::class.java, "fakeRequest", rawRequest.toHttpRequest())
     val stepReportHttpFailure =
       StepReport(
@@ -53,7 +54,7 @@ class StepReportTest {
   @Test
   fun `StepReport Bad Response`() {
     val rawRequest =
-      Request(method = POST.toString(), url = Request.Url("https://overfullstack.github.io/"))
+      Request(method = POST.toString(), url = Url("https://overfullstack.github.io/"))
     val requestInfo = TxnInfo(String::class.java, "fakeRequest", rawRequest.toHttpRequest())
     val badResponseInfo: TxnInfo<Response> =
       TxnInfo(String::class.java, "fakeBadResponse", Response(BAD_REQUEST).body("fakeBadResponse"))
@@ -71,7 +72,7 @@ class StepReportTest {
   @Test
   fun `StepReport PostHookFailure`() {
     val rawRequest =
-      Request(method = POST.toString(), url = Request.Url("https://overfullstack.github.io/"))
+      Request(method = POST.toString(), url = Url("https://overfullstack.github.io/"))
     val requestInfo = TxnInfo(String::class.java, "fakeRequest", rawRequest.toHttpRequest())
     val responseInfo: TxnInfo<Response> = TxnInfo(String::class.java, "fakeResponse", Response(OK))
     val stepReportPostHookFailure =

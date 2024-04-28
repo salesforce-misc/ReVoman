@@ -11,16 +11,14 @@ import com.salesforce.revoman.input.config.CustomDynamicVariableGenerator
 import com.salesforce.revoman.internal.postman.template.Auth.Bearer
 import com.salesforce.revoman.internal.postman.template.Item
 import com.salesforce.revoman.internal.postman.template.Request
-import com.salesforce.revoman.output.Rundown
-import com.salesforce.revoman.output.report.StepReport
 
 private const val VARIABLE_KEY = "variableKey"
 val postManVariableRegex = "\\{\\{(?<$VARIABLE_KEY>[^{}]*?)}}".toRegex()
 
-internal class RegexReplacer(
+class RegexReplacer(
   private val customDynamicVariableGenerators: Map<String, CustomDynamicVariableGenerator> =
     emptyMap(),
-  private val dynamicVariableGenerator: (String) -> String? = ::dynamicVariableGenerator
+  private val dynamicVariableGenerator: (String, PostmanSDK) -> String? = ::dynamicVariableGenerator
 ) {
   /**
    * <p>
@@ -33,8 +31,7 @@ internal class RegexReplacer(
    */
   internal fun replaceVariablesRecursively(
     stringWithRegexToReplace: String?,
-    currentStepReport: StepReport,
-    rundown: Rundown
+    pm: PostmanSDK
   ): String? =
     stringWithRegexToReplace?.let {
       postManVariableRegex.replace(it) { matchResult ->
@@ -42,93 +39,60 @@ internal class RegexReplacer(
         customDynamicVariableGenerators[variableKey]
           ?.let { cdvg ->
             replaceVariablesRecursively(
-              cdvg.generate(variableKey, currentStepReport, rundown),
-              currentStepReport,
-              rundown
+              cdvg.generate(variableKey, pm.currentStepReport, pm.rundown),
+              pm
             )
           }
           ?.also { value -> pm.environment[variableKey] = value }
-          ?: replaceVariablesRecursively(
-              dynamicVariableGenerator(variableKey),
-              currentStepReport,
-              rundown
-            )
-            ?.also { value -> pm.environment[variableKey] = value }
+          ?: replaceVariablesRecursively(dynamicVariableGenerator(variableKey, pm), pm)?.also {
+            value ->
+            pm.environment[variableKey] = value
+          }
           ?: (if (pm.environment[variableKey] is String)
-              replaceVariablesRecursively(
-                pm.environment[variableKey] as String,
-                currentStepReport,
-                rundown
-              )
+              replaceVariablesRecursively(pm.environment[variableKey] as String, pm)
             else pm.environment[variableKey].toString())
             ?.also { value -> pm.environment[variableKey] = value }
           ?: matchResult.value
       }
     }
 
-  internal fun replaceVariablesInPmItem(
-    item: Item,
-    currentStepReport: StepReport,
-    rundown: Rundown
-  ): Item =
+  internal fun replaceVariablesInPmItem(item: Item, pm: PostmanSDK): Item =
     item.copy(
-      request = replaceVariablesInRequest(item.request, currentStepReport, rundown),
+      request = replaceVariablesInRequestRecursively(item.request, pm),
       auth =
         item.auth?.copy(
-          bearer =
-            listOfNotNull(
-              replaceVariablesInBearer(item.auth.bearer.firstOrNull(), currentStepReport, rundown)
-            )
+          bearer = listOfNotNull(replaceVariablesInBearer(item.auth.bearer.firstOrNull(), pm))
         )
     )
 
-  private fun replaceVariablesInBearer(
-    bearer: Bearer?,
-    currentStepReport: StepReport,
-    rundown: Rundown
-  ): Bearer? =
-    bearer?.copy(value = replaceVariablesRecursively(bearer.value, currentStepReport, rundown)!!)
+  private fun replaceVariablesInBearer(bearer: Bearer?, pm: PostmanSDK): Bearer? =
+    bearer?.copy(value = replaceVariablesRecursively(bearer.value, pm)!!)
 
-  internal fun replaceVariablesInRequest(
-    request: Request,
-    currentStepReport: StepReport,
-    rundown: Rundown
-  ): Request =
+  internal fun replaceVariablesInRequestRecursively(request: Request, pm: PostmanSDK): Request =
     request.copy(
       header =
         request.header.map { header ->
           header.copy(
-            key = replaceVariablesRecursively(header.key, currentStepReport, rundown) ?: header.key,
-            value =
-              replaceVariablesRecursively(header.value, currentStepReport, rundown) ?: header.value
+            key = replaceVariablesRecursively(header.key, pm) ?: header.key,
+            value = replaceVariablesRecursively(header.value, pm) ?: header.value
           )
         },
       url =
-        request.url.copy(
-          raw =
-            replaceVariablesRecursively(request.url.raw, currentStepReport, rundown)
-              ?: request.url.raw
-        ),
+        request.url.copy(raw = replaceVariablesRecursively(request.url.raw, pm) ?: request.url.raw),
       body =
         request.body?.copy(
-          raw =
-            replaceVariablesRecursively(request.body.raw, currentStepReport, rundown)
-              ?: request.body.raw
+          raw = replaceVariablesRecursively(request.body.raw, pm) ?: request.body.raw
         )
     )
 
-  internal fun replaceVariablesInEnv(
-    currentStepReport: StepReport,
-    rundown: Rundown
-  ): Map<String, Any?> =
+  internal fun replaceVariablesInEnv(pm: PostmanSDK): Map<String, Any?> =
     pm.environment
       .toMap()
       .entries
       .associateBy(
-        { replaceVariablesRecursively(it.key, currentStepReport, rundown)!! },
+        { replaceVariablesRecursively(it.key, pm)!! },
         {
-          if (it.value is String?)
-            replaceVariablesRecursively(it.value as String?, currentStepReport, rundown)
+          if (it.value is String?) replaceVariablesRecursively(it.value as String?, pm)
           else it.value
         }
       )

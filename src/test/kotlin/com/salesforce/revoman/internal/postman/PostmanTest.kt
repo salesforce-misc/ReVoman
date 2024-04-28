@@ -16,15 +16,18 @@ class PostmanTest {
   @Test
   fun `unmarshall Env File with Regex and Dynamic variable`() {
     val epoch = System.currentTimeMillis().toString()
-    val dummyDynamicVariableGenerator = { r: String -> if (r == "\$epoch") epoch else null }
+    val dummyDynamicVariableGenerator = { r: String, _: PostmanSDK ->
+      if (r == "\$epoch") epoch else null
+    }
+    val regexReplacer = RegexReplacer(emptyMap(), dummyDynamicVariableGenerator)
+    val pm = PostmanSDK(mockk(), null, regexReplacer)
     pm.environment.putAll(
       mergeEnvs(
         setOf("env-with-regex.json"),
         mutableMapOf("un" to "userName"),
       )
     )
-    val regexReplacer = RegexReplacer(emptyMap(), dummyDynamicVariableGenerator)
-    val envWithVariablesReplaced = regexReplacer.replaceVariablesInEnv(mockk(), mockk())
+    val envWithVariablesReplaced = regexReplacer.replaceVariablesInEnv(pm)
     envWithVariablesReplaced shouldContain ("userName" to "user-$epoch@xyz.com")
   }
 }

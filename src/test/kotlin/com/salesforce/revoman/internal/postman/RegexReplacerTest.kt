@@ -16,14 +16,16 @@ import io.mockk.mockk
 import org.junit.jupiter.api.Test
 
 class RegexReplacerTest {
-
   @OptIn(ExperimentalStdlibApi::class)
   @Test
   fun `dynamic variables - Body + dynamic env`() {
     val epoch = System.currentTimeMillis().toString()
-    val dummyDynamicVariableGenerator = { key: String -> if (key == "\$epoch") epoch else null }
-    pm.environment["key"] = "value-{{\$epoch}}"
+    val dummyDynamicVariableGenerator = { key: String, _: PostmanSDK ->
+      if (key == "\$epoch") epoch else null
+    }
     val regexReplacer = RegexReplacer(dynamicVariableGenerator = dummyDynamicVariableGenerator)
+    val pm = PostmanSDK(mockk(), null, regexReplacer)
+    pm.environment["key"] = "value-{{\$epoch}}"
     val jsonStr =
       """
       {
@@ -32,7 +34,7 @@ class RegexReplacerTest {
       }
       """
         .trimIndent()
-    val resultStr = regexReplacer.replaceVariablesRecursively(jsonStr, mockk(), mockk())!!
+    val resultStr = regexReplacer.replaceVariablesRecursively(jsonStr, pm)!!
     val result = Moshi.Builder().build().adapter<Map<String, String>>().fromJson(resultStr)!!
     result shouldContainAll mapOf("epoch" to epoch, "key" to "value-$epoch")
   }
@@ -42,8 +44,16 @@ class RegexReplacerTest {
   fun `custom dynamic variables`() {
     val customEpoch = "Custom - ${System.currentTimeMillis()}"
     val customDynamicVariableGenerator = CustomDynamicVariableGenerator { _, _, _ -> customEpoch }
+    val noopDynamicVariableGenerator = { _: String, _: PostmanSDK -> null }
+    val regexReplacer =
+      RegexReplacer(
+        mapOf("\$customEpoch" to customDynamicVariableGenerator),
+        noopDynamicVariableGenerator
+      )
+    val pm = PostmanSDK(mockk(), null, regexReplacer)
     pm.environment["key"] = "value-{{\$customEpoch}}"
-    val regexReplacer = RegexReplacer(mapOf("\$customEpoch" to customDynamicVariableGenerator))
+    pm.currentStepReport = mockk()
+    pm.rundown = mockk()
     val jsonStr =
       """
       {
@@ -52,7 +62,7 @@ class RegexReplacerTest {
       }
       """
         .trimIndent()
-    val resultStr = regexReplacer.replaceVariablesRecursively(jsonStr, mockk(), mockk())!!
+    val resultStr = regexReplacer.replaceVariablesRecursively(jsonStr, pm)!!
     val result = Moshi.Builder().build().adapter<Map<String, String>>().fromJson(resultStr)!!
     result shouldContainAll mapOf("epoch" to customEpoch, "key" to "value-$customEpoch")
   }
@@ -61,6 +71,7 @@ class RegexReplacerTest {
   @Test
   fun `duplicate dynamic variables should have different values`() {
     val regexReplacer = RegexReplacer()
+    val pm = PostmanSDK(mockk(), regexReplacer = regexReplacer)
     val jsonStr =
       """
       {
@@ -69,7 +80,7 @@ class RegexReplacerTest {
       }
       """
         .trimIndent()
-    val resultStr = regexReplacer.replaceVariablesRecursively(jsonStr, mockk(), mockk())!!
+    val resultStr = regexReplacer.replaceVariablesRecursively(jsonStr, pm)!!
     val result = Moshi.Builder().build().adapter<Map<String, String>>().fromJson(resultStr)!!
     result["key1"]!! shouldNotBeEqual result["key2"]!!
   }

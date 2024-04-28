@@ -7,7 +7,7 @@
  */
 package com.salesforce.revoman.internal.postman.template
 
-import com.salesforce.revoman.internal.postman.jsonStrToObj
+import com.salesforce.revoman.internal.postman.PostmanSDK
 import com.squareup.moshi.JsonClass
 import org.http4k.core.ContentType
 import org.http4k.core.ContentType.Companion.APPLICATION_JSON
@@ -36,6 +36,12 @@ data class Event(val listen: String, val script: Script) {
   @JsonClass(generateAdapter = true) data class Script(val exec: List<String>)
 }
 
+@JsonClass(generateAdapter = true) data class Header(val key: String, val value: String)
+
+@JsonClass(generateAdapter = true) data class Url(val raw: String = "")
+
+@JsonClass(generateAdapter = true) data class Body(val mode: String, val raw: String)
+
 @JsonClass(generateAdapter = true)
 data class Request(
   @JvmField val method: String = "",
@@ -44,12 +50,6 @@ data class Request(
   @JvmField val body: Body? = null,
   @JvmField val event: List<Event>? = null
 ) {
-  @JsonClass(generateAdapter = true) data class Header(val key: String, val value: String)
-
-  @JsonClass(generateAdapter = true) data class Url(val raw: String = "")
-
-  @JsonClass(generateAdapter = true) data class Body(val mode: String, val raw: String)
-
   internal fun toHttpRequest(): org.http4k.core.Request {
     val contentType =
       header
@@ -64,5 +64,5 @@ data class Request(
       .body(body?.raw ?: "")
   }
 
-  fun json(): Any? = jsonStrToObj(body?.raw ?: "")
+  internal fun toPMSDKRequest(pm: PostmanSDK): PostmanSDK.Request = pm.from(this)
 }

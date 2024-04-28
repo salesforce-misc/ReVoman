@@ -11,9 +11,8 @@ import arrow.core.Either
 import arrow.core.Either.Right
 import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.internal.json.asA
+import com.salesforce.revoman.internal.postman.PostmanSDK
 import com.salesforce.revoman.output.ExeType.UNMARSHALL_RESPONSE
-import com.salesforce.revoman.output.Rundown
-import com.salesforce.revoman.output.report.StepReport
 import com.salesforce.revoman.output.report.TxnInfo
 import com.salesforce.revoman.output.report.failure.ResponseFailure.UnmarshallResponseFailure
 import io.exoquery.pprint
@@ -24,12 +23,11 @@ import org.http4k.core.Response
 import org.http4k.format.ConfigurableMoshi
 
 internal fun unmarshallResponse(
-  currentStepReport: StepReport,
   kick: Kick,
   moshiReVoman: ConfigurableMoshi,
-  stepReports: List<StepReport>
+  pm: PostmanSDK
 ): Either<UnmarshallResponseFailure, TxnInfo<Response>> {
-  val httpResponse = currentStepReport.responseInfo!!.get().httpMsg
+  val httpResponse = pm.currentStepReport.responseInfo!!.get().httpMsg
   return when {
     isJson(httpResponse) -> {
       val httpStatus = httpResponse.status.successful
@@ -37,19 +35,14 @@ internal fun unmarshallResponse(
         (kick.pickToResponseConfig()[httpStatus].orEmpty() +
             kick.pickToResponseConfig()[null].orEmpty())
           .let {
-            it.firstOrNull { pick ->
-              pick.postTxnStepPick.pick(
-                currentStepReport,
-                Rundown(stepReports + currentStepReport, kick.haltOnFailureOfTypeExcept())
-              )
-            }
+            it.firstOrNull { pick -> pick.postTxnStepPick.pick(pm.currentStepReport, pm.rundown) }
           }
-      val currentStep = currentStepReport.step
+      val currentStep = pm.currentStepReport.step
       val responseType: Type =
         responseConfig
           ?.also { logger.info { "$currentStep ResponseConfig found : ${pprint(it)}" } }
           ?.objType ?: Any::class.java
-      val requestInfo = currentStepReport.requestInfo!!.get()
+      val requestInfo = pm.currentStepReport.requestInfo!!.get()
       runChecked(currentStep, UNMARSHALL_RESPONSE) {
           moshiReVoman.asA<Any>(httpResponse.bodyString(), responseType)
         }
@@ -60,7 +53,7 @@ internal fun unmarshallResponse(
     }
     else -> {
       logger.info {
-        "${currentStepReport.step} No JSON found in the Response body or content-type didn't match ${APPLICATION_JSON.value}"
+        "${pm.currentStepReport.step} No JSON found in the Response body or content-type didn't match ${APPLICATION_JSON.value}"
       }
       Right(TxnInfo(null, null, httpResponse, false))
     }

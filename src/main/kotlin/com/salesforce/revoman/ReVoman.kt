@@ -13,7 +13,6 @@ import arrow.core.flatMap
 import arrow.core.merge
 import com.salesforce.revoman.input.bufferFileInResources
 import com.salesforce.revoman.input.config.Kick
-import com.salesforce.revoman.input.initJSContext
 import com.salesforce.revoman.internal.exe.deepFlattenItems
 import com.salesforce.revoman.internal.exe.executePreReqJS
 import com.salesforce.revoman.internal.exe.executeTestsJS
@@ -30,12 +29,10 @@ import com.salesforce.revoman.internal.postman.PostmanSDK
 import com.salesforce.revoman.internal.postman.RegexReplacer
 import com.salesforce.revoman.internal.postman.dynamicVariableGenerator
 import com.salesforce.revoman.internal.postman.mergeEnvs
-import com.salesforce.revoman.internal.postman.pm
 import com.salesforce.revoman.internal.postman.template.Template
 import com.salesforce.revoman.output.Rundown
 import com.salesforce.revoman.output.report.Step
 import com.salesforce.revoman.output.report.StepReport
-import com.salesforce.revoman.output.report.StepReport.Companion.toArrow
 import com.salesforce.revoman.output.report.StepReport.Companion.toVavr
 import com.salesforce.revoman.output.report.TxnInfo
 import com.squareup.moshi.Moshi
@@ -49,7 +46,6 @@ object ReVoman {
   @JvmStatic
   @OptIn(ExperimentalStdlibApi::class)
   fun revUp(kick: Kick): Rundown {
-    val environment = mergeEnvs(kick.environmentPaths(), kick.dynamicEnvironmentsFlattened())
     val pmTemplateAdapter = Moshi.Builder().build().adapter<Template>()
     val pmStepsDeepFlattened =
       kick
@@ -62,33 +58,34 @@ object ReVoman {
       val templateCount = kick.templatePaths().size
       "Total Steps from ${if (templateCount > 1) "$templateCount Collections" else "the Collection"} provided: ${pmStepsDeepFlattened.size}"
     }
-    val stepNameToReport =
-      executeStepsSerially(
-        pmStepsDeepFlattened,
-        environment,
-        kick,
-        initMoshi(
-          kick.customAdapters(),
-          kick.customAdaptersFromRequestConfig() + kick.customAdaptersFromResponseConfig(),
-          kick.skipTypes()
-        )
+    val regexReplacer =
+      RegexReplacer(kick.customDynamicVariableGenerators(), ::dynamicVariableGenerator)
+    val moshiReVoman =
+      initMoshi(
+        kick.customAdapters(),
+        kick.customAdaptersFromRequestConfig() + kick.customAdaptersFromResponseConfig(),
+        kick.skipTypes()
       )
-    return Rundown(stepNameToReport, kick.haltOnFailureOfTypeExcept())
+    val environment = mergeEnvs(kick.environmentPaths(), kick.dynamicEnvironmentsFlattened())
+    val pm =
+      PostmanSDK(
+        moshiReVoman,
+        kick.nodeModulesRelativePath(),
+        regexReplacer,
+        environment.toMutableMap(),
+      )
+    val stepNameToReport =
+      executeStepsSerially(pmStepsDeepFlattened, kick, moshiReVoman, regexReplacer, pm)
+    return Rundown(stepNameToReport, kick.haltOnFailureOfTypeExcept(), pm.environment)
   }
 
   private fun executeStepsSerially(
     pmStepsFlattened: List<Step>,
-    environment: Map<String, String?>,
     kick: Kick,
     moshiReVoman: ConfigurableMoshi,
+    regexReplacer: RegexReplacer,
+    pm: PostmanSDK
   ): List<StepReport> {
-    val regexReplacer =
-      RegexReplacer(kick.customDynamicVariableGenerators(), ::dynamicVariableGenerator)
-    // ! TODO 17 Mar 2024 gopala.akshintala: Streamline global mutable state `pm`
-    pm = PostmanSDK(regexReplacer)
-    pm.environment.clear()
-    pm.environment.putAll(environment)
-    initJSContext(kick.nodeModulesRelativePath())
     var haltExecution = false
     return pmStepsFlattened
       .asSequence()
@@ -97,64 +94,61 @@ object ReVoman {
       .fold(listOf()) { stepReports, step ->
         logger.info { "***** Executing Step: $step *****" }
         val itemWithRegex = step.rawPMStep
-        pm.info = Info(step.name)
-        val stepReport =
+        val preStepReport =
           StepReport(step, Right(TxnInfo(httpMsg = itemWithRegex.request.toHttpRequest())))
-        val rundown = Rundown(stepReports + stepReport, kick.haltOnFailureOfTypeExcept())
-        pm.currentStepReport = stepReport
-        pm.rundown = rundown
-        pm.environment.putAll(regexReplacer.replaceVariablesInEnv(stepReport, rundown))
-        regexReplacer.replaceVariablesInRequest(itemWithRegex.request, stepReport, rundown)
+        pm.info = Info(step.name)
+        pm.currentStepReport = preStepReport
+        pm.rundown =
+          Rundown(stepReports + preStepReport, kick.haltOnFailureOfTypeExcept(), pm.environment)
+        pm.environment.putAll(regexReplacer.replaceVariablesInEnv(pm))
         val currentStepReport: StepReport = // --------### PRE-REQUEST-JS ###--------
-          executePreReqJS(step, itemWithRegex, stepReport)
-            .mapLeft { stepReport.copy(requestInfo = left(it)) }
+          executePreReqJS(step, itemWithRegex, pm)
+            .mapLeft { preStepReport.copy(requestInfo = left(it)) }
             .flatMap { // --------### UNMARSHALL-REQUEST ###--------
-              val pmRequest: com.salesforce.revoman.internal.postman.template.Request =
-                regexReplacer.replaceVariablesInRequest(itemWithRegex.request, stepReport, rundown)
-              unmarshallRequest(step, pmRequest, kick, moshiReVoman, stepReports).mapLeft {
-                StepReport(step, Left(it))
+              val pmRequest =
+                regexReplacer.replaceVariablesInRequestRecursively(itemWithRegex.request, pm)
+              unmarshallRequest(step, pmRequest, kick, moshiReVoman, pm).mapLeft {
+                preStepReport.copy(requestInfo = left(it))
               }
             }
             .flatMap { requestInfo: TxnInfo<Request> -> // --------### PRE-HOOKS ###--------
-              preHookExe(step, kick, requestInfo, stepReports)?.let {
-                Left(StepReport(step, Right(requestInfo), it))
-              } ?: Right(StepReport(step, Right(requestInfo)))
+              preHookExe(step, kick, requestInfo, pm)?.let {
+                Left(
+                  preStepReport.copy(requestInfo = Right(requestInfo).toVavr(), preHookFailure = it)
+                )
+              } ?: Right(preStepReport.copy(requestInfo = Right(requestInfo).toVavr()))
             }
             .flatMap { sr: StepReport -> // --------### HTTP-REQUEST ###--------
-              val item =
-                regexReplacer.replaceVariablesInPmItem(
-                  itemWithRegex,
-                  sr,
-                  Rundown(stepReports + sr, kick.haltOnFailureOfTypeExcept())
-                )
+              pm.currentStepReport = sr
+              pm.rundown = pm.rundown.copy(stepReports = pm.rundown.stepReports + sr)
+              val item = regexReplacer.replaceVariablesInPmItem(itemWithRegex, pm)
               val httpRequest = item.request.toHttpRequest()
               fireHttpRequest(step, item.auth, httpRequest, kick.insecureHttp())
-                .mapLeft { StepReport(step, Left(it)) }
+                .mapLeft { sr.copy(requestInfo = Left(it).toVavr()) }
                 .map {
-                  StepReport(
-                    step,
-                    sr.requestInfo?.toArrow()?.map { txnInfo ->
-                      txnInfo.copy(httpMsg = httpRequest)
-                    },
-                    null,
-                    Right(it)
+                  sr.copy(
+                    requestInfo =
+                      sr.requestInfo?.map { txnInfo -> txnInfo.copy(httpMsg = httpRequest) },
+                    responseInfo = Right(it).toVavr(),
                   )
                 }
             }
             .flatMap { sr: StepReport -> // --------### TESTS-JS ###--------
               pm.currentStepReport = sr
-              pm.rundown = Rundown(stepReports + sr, kick.haltOnFailureOfTypeExcept())
-              executeTestsJS(step, itemWithRegex, sr)
+              pm.rundown = pm.rundown.copy(stepReports = pm.rundown.stepReports + sr)
+              executeTestsJS(step, itemWithRegex, pm)
                 .mapLeft { sr.copy(responseInfo = left(it)) }
                 .map { sr }
             }
             .flatMap { sr: StepReport -> // ---### UNMARSHALL RESPONSE ###---
-              unmarshallResponse(sr, kick, moshiReVoman, stepReports)
+              unmarshallResponse(kick, moshiReVoman, pm)
                 .mapLeft { sr.copy(responseInfo = Left(it).toVavr()) }
                 .map { sr.copy(responseInfo = Right(it).toVavr()) }
             }
             .map { sr: StepReport -> // --------### POST-HOOKS ###--------
-              sr.copy(postHookFailure = postHookExe(sr, kick, stepReports + sr))
+              pm.currentStepReport = sr
+              pm.rundown = pm.rundown.copy(stepReports = pm.rundown.stepReports + sr)
+              sr.copy(postHookFailure = postHookExe(kick, pm))
             }
             .merge()
             .copy(
@@ -162,7 +156,7 @@ object ReVoman {
                 pm.environment.copy(mutableEnv = pm.environment.mutableEnv.toMutableMap())
             )
         // * NOTE 15/10/23 gopala.akshintala: http status code can be non-success
-        haltExecution = shouldHaltExecution(currentStepReport, kick, stepReports)
+        haltExecution = shouldHaltExecution(currentStepReport, kick, pm)
         stepReports + currentStepReport
       }
   }

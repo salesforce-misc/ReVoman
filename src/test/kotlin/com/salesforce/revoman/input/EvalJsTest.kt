@@ -9,82 +9,105 @@ package com.salesforce.revoman.input
 
 import com.google.common.truth.Truth.assertThat
 import com.salesforce.revoman.internal.json.initMoshi
+import com.salesforce.revoman.internal.postman.Info
 import com.salesforce.revoman.internal.postman.PostmanSDK
-import com.salesforce.revoman.internal.postman.RegexReplacer
-import com.salesforce.revoman.internal.postman.Response
-import com.salesforce.revoman.internal.postman.pm
+import io.kotest.matchers.ints.shouldBeInRange
+import io.kotest.matchers.maps.shouldContain
+import io.kotest.matchers.shouldBe
 import io.mockk.mockk
 import java.time.LocalDate
 import org.http4k.core.Status.Companion.CREATED
-import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 
-class JSUtilsTest {
+class EvalJsTest {
+  private val pm: PostmanSDK = PostmanSDK(initMoshi(), "js")
 
-  companion object {
-    @BeforeAll
-    @JvmStatic
-    fun setup() {
-      initMoshi()
-      pm = PostmanSDK(RegexReplacer())
-      pm.currentStepReport = mockk()
-      pm.rundown = mockk()
-      initJSContext("js")
-    }
+  @Test
+  fun `pm environment get set`() {
+    pm.environment.set("hello", "world")
+    pm
+      .evaluateJS(
+        """
+        variable => {
+          pm.environment.set("sand", "dunes")
+          return pm.environment.get(variable)
+        }
+        """
+          .trimIndent(),
+      )
+      .execute("hello")
+      .asString() shouldBe "world"
+    pm.environment shouldContain Pair("sand", "dunes")
+  }
+
+  @Test
+  fun `pm info get set`() {
+    pm.info = Info("postIt")
+    pm
+      .evaluateJS(
+        """
+        pm.info.requestName
+        """
+          .trimIndent(),
+      )
+      .asString() shouldBe "postIt"
+  }
+
+  @Test
+  fun `pm variables replaceIn`() {
+    pm.currentStepReport = mockk()
+    pm.rundown = mockk()
+    pm
+      .evaluateJS(
+        """
+          pm.variables.replaceIn("Today is {{${"$"}currentDate}}")
+        """
+          .trimIndent(),
+      )
+      .asString() shouldBe "Today is ${LocalDate.now()}"
   }
 
   @Test
   fun `eval JS with moment`() {
-    evaluateJS(
+    pm.evaluateJS(
       """
           var moment = require('moment')
           pm.environment.set("${"$"}currentDate", moment().format(("YYYY-MM-DD")))
         """
         .trimIndent()
     )
-    assertThat(pm.environment).containsEntry("\$currentDate", LocalDate.now().toString())
-  }
-
-  @Test
-  fun `eval JS with pm variables replaceIn`() {
-    evaluateJS(
-      """
-          const stringWithVars = pm.variables.replaceIn("Hi, my name is {{${"$"}randomFirstName}}");
-          console.log(stringWithVars);
-        """
-        .trimIndent()
-    )
+    pm.environment shouldContain Pair("\$currentDate", LocalDate.now().toString())
   }
 
   @Test
   fun `eval JS with lodash`() {
-    evaluateJS(
+    pm.evaluateJS(
       """
           pm.environment.set("${"$"}randomNum", _.random(10))
         """
         .trimIndent()
     )
-    assertThat(pm.environment.getInt("\$randomNum")).isWithin(10)
+    pm.environment.getInt("\$randomNum")!! shouldBeInRange 0..10
   }
 
   @Test
-  fun xmlSoapParse() {
-    val responseBody =
+  fun xml2json() {
+    val xmlResponse =
       """
       <?xml version="1.0" encoding="UTF-8"?>
       <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns="urn:partner.soap.sforce.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-          <soapenv:Body>
-              <loginResponse>
-                  <result>
-                      <metadataServerUrl>https://trialorgsforu-ec.test1.my.pc-rnd.salesforce.com/services/Soap/m/55.0/00DRN0000009wGZ</metadataServerUrl>
-                      <passwordExpired>false</passwordExpired>
-                      <sandbox>false</sandbox>
-                      <serverUrl>https://trialorgsforu-ec.test1.my.pc-rnd.salesforce.com/services/Soap/u/55.0/00DRN0000009wGZ</serverUrl>
-                      <sessionId>session-key-set-in-js</sessionId>
-                      <userId>005RN000000bTH9YAM</userId>
-                  </result>
-              </loginResponse>
-          </soapenv:Body>
+        <soapenv:Body>
+          <loginResponse>
+              <result>
+                <metadataServerUrl>https://trialorgsforu-ec.test1.my.pc-rnd.salesforce.com/services/Soap/m/55.0/00DRN0000009wGZ</metadataServerUrl>
+                <passwordExpired>false</passwordExpired>
+                <sandbox>false</sandbox>
+                <serverUrl>https://trialorgsforu-ec.test1.my.pc-rnd.salesforce.com/services/Soap/u/55.0/00DRN0000009wGZ</serverUrl>
+                <sessionId>session-key-set-in-js</sessionId>
+                <userId>005RN000000bTH9YAM</userId>
+              </result>
+            </loginResponse>
+        </soapenv:Body>
       </soapenv:Envelope>
     """
         .trimIndent()
@@ -96,8 +119,8 @@ class JSUtilsTest {
       pm.environment.set("accessToken", sessionId);
     """
         .trimIndent()
-    evaluateJS(callingScript, mapOf("responseBody" to responseBody))
-    assertThat(pm.environment).containsEntry("accessToken", "session-key-set-in-js")
+    pm.evaluateJS(callingScript, mapOf("responseBody" to xmlResponse))
+    pm.environment shouldContain Pair("accessToken", "session-key-set-in-js")
   }
 
   @Test
@@ -116,13 +139,8 @@ class JSUtilsTest {
       """
         .trimIndent()
     val httpResponseStr = readFileInResourcesToString("json/composite-query-response.json")
-    pm.response =
-      Response(
-        CREATED.code,
-        CREATED.toString(),
-        httpResponseStr,
-      )
-    evaluateJS(testScript)
+    pm.setResponse(CREATED.code, CREATED.toString(), httpResponseStr)
+    pm.evaluateJS(testScript)
     assertThat(pm.environment)
       .containsAtLeastEntriesIn(
         mapOf(

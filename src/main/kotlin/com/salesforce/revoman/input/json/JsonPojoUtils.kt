@@ -147,10 +147,8 @@ private fun <PojoT : Any> initMoshi(
   customAdaptersWithType: Map<Type, List<Either<JsonAdapter<Any>, Factory>>> = emptyMap(),
   skipTypes: Set<Class<out Any>> = emptySet(),
   pojoType: Type
-): JsonAdapter<PojoT> {
-  val moshiBuilder = buildMoshi(customAdapters, customAdaptersWithType, skipTypes)
-  return moshiBuilder.build().adapter(pojoType)
-}
+): JsonAdapter<PojoT> =
+  buildMoshi(customAdapters, customAdaptersWithType, skipTypes).build().adapter(pojoType)
 
 @PojoConfig
 @Value.Immutable

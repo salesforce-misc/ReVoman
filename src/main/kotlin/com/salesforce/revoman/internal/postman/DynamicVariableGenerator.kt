@@ -15,7 +15,7 @@ import kotlin.random.Random.Default.nextLong
 
 private val faker = faker {}
 
-private val dynamicVariableKeyToGenerator: Map<String, () -> String> =
+private val dynamicVariableGenerators: Map<String, () -> String> =
   mapOf(
     "\$randomFirstName" to faker.name::firstName,
     "\$randomLastName" to faker.name::lastName,
@@ -36,8 +36,10 @@ private val dynamicVariableKeyToGenerator: Map<String, () -> String> =
         LocalDate.now().let { it.plusDays(nextLong(1, it.lengthOfYear().toLong())).toString() }
       },
     "\$timestamp" to { System.currentTimeMillis().toString() },
-    "\$currentRequestName" to { pm.info.requestName }
   )
 
-internal fun dynamicVariableGenerator(key: String): String? =
-  dynamicVariableKeyToGenerator[key]?.invoke()
+private val dynamicVariableGeneratorsWithPM: Map<String, (PostmanSDK) -> String> =
+  mapOf("\$currentRequestName" to { it.info.requestName })
+
+internal fun dynamicVariableGenerator(key: String, pm: PostmanSDK): String? =
+  dynamicVariableGenerators[key]?.invoke() ?: dynamicVariableGeneratorsWithPM[key]?.invoke(pm)
