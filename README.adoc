@@ -18,7 +18,7 @@ endif::[]
 :pmtemplates: src/integrationTest/resources/pm-templates
 :imagesdir: docs/images
 :prewrap!:
-:revoman-version: 0.41.0
+:revoman-version: 0.41.1
 
 '''
 
@@ -272,7 +272,7 @@ final var pqRundown =
               post(
                   afterStepName("query-quote-and-related-records"),
                   (ignore, rundown) -> assertAfterPQCreate(rundown.mutableEnv)))
-          .customAdapters(new IDAdapter()) // <12>
+          .globalCustomTypeAdapter(new IDAdapter()) // <12>
           .insecureHttp(true) // <13>
           .off()); // Kick-off
 assertThat(pqRundown.firstUnIgnoredUnsuccessfulStepReport()).isNull(); // <14>
@@ -294,7 +294,7 @@ assertThat(pqRundown.mutableEnv)
 <9> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Response Config>>
 <10> <<#_pre_and_post_hooks>>
 <11> <<Response Validations>>
-<12> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Custom Adapters>>
+<12> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Global Custom Type Adapters>>
 <13> Ignore Java cert issues when firing HTTP calls
 <14> Run more assertions on the <<Rundown>>
 
@@ -317,7 +317,7 @@ include::{integrationtestdir}/com/salesforce/revoman/integration/core/pq/PQE2EWi
 <9> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Response Config>>
 <10> <<#_pre_and_post_hooks>>
 <11> <<Response Validations>>
-<12> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Custom Adapters>>
+<12> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Global Custom Type Adapters>>
 <13> Ignore Java cert issues when firing HTTP calls
 <14> Run more assertions on the <<Rundown>>
 endif::[]
@@ -363,8 +363,11 @@ image:pq-exe-logging.gif[Monitor Execution]
 === Type Safety with flexible JSON <- -> POJO marshalling/serialization and unmarshalling/deserialization
 
 * ReṼoman internally uses a modern JSON library called https://github.com/square/moshi[**Moshi**]
-* There may be a POJO that inherits or contains legacy classes which are hard or impossible to serialize. ReṼoman lets you serialize such a legacy POJO by letting you pass `skipTypes`, where you can filter-out these legacy class types.
-* The payload may not map to POJO, and you may need a custom adapter for Conversion. Moshi has it covered for you with its advanced adapter mechanism and ReṼoman accepts Moshi adapters via `requestConfig`, `responseConfig` and `customAdapters`
+* There may be a POJO that inherits or contains legacy types which are hard or impossible to serialize. ReṼoman lets you serialize such types through `globalSkipTypes`, where you can filter-out these legacy types from Marshalling/Unmarshalling, only focussing on fields that matter.
+* The payload may not map to POJO, and you may need a custom types adapter for Marshalling/Unmarshalling. Moshi has it covered for you with its advanced adapter mechanism and ReṼoman accepts Moshi adapters via
+** `requestConfig` — For types present as part of request payload for qualified Steps
+** `responseConfig` — For types present as part of response payload for qualified Steps
+** `globalCustomTypeAdapters` — For types present as part of request payload anywhere
 * ReṼoman also comes bundled with link:{sourcedir}/com/salesforce/revoman/input/json/JsonReaderUtils.kt[JSON Reader utils] and link:{sourcedir}/com/salesforce/revoman/input/json/JsonWriterUtils.kt[JSON Writer utils] to help build Moshi adapters.
 
 TIP: Refer link:{integrationtestdir}/com/salesforce/revoman/integration/core/pq/adapters/ConnectInputRepWithGraphAdapter.java[ConnectInputRepWithGraphAdapter]
@@ -433,7 +436,7 @@ so the later steps can pick up value for `+{{xyzId}}+` variable from the environ
 ==== Response Validations
 
 * Post-Hooks are the best place to validate response right after the step.
-* If you have configured a strong type for your response through `responseConfig`, you can write type-safe validations by extracting your Strong type Object using `stepReport.responseInfo.get().<TypeT>getTypedTxnObj()` (if you have configured `responseConfig()` or `customAdapters()`) or use `JsonPojoUtils.jsonToPojo(TypeT, stepReport.responseInfo.get().httpMsg.bodyString())` to convert it inline.
+* If you have configured a strong type for your response through `responseConfig`, you can write type-safe validations by extracting your Strong type Object using `stepReport.responseInfo.get().<TypeT>getTypedTxnObj()` (if you have configured `responseConfig()` or `globalCustomTypeAdapters()`) or use `JsonPojoUtils.jsonToPojo(TypeT, stepReport.responseInfo.get().httpMsg.bodyString())` to convert it inline.
 * If your response data structure is non-trivial and have requirements to execute validations with different strategies like `fail-fast` or `error-accumulation`, consider using a library like https://github.com/salesforce-misc/Vador[*Vador*]
 
 === Pre-req and Tests scripts

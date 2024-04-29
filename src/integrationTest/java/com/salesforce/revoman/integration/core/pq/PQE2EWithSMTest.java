@@ -122,7 +122,7 @@ class PQE2EWithSMTest {
                     post(
                         afterStepName("query-quote-and-related-records"),
                         (ignore, rundown) -> assertAfterPQCreate(rundown.mutableEnv)))
-                .customAdapters(new IDAdapter()) // <12>
+                .globalCustomTypeAdapter(new IDAdapter()) // <12>
                 .insecureHttp(true) // <13>
                 .off()); // Kick-off
     assertThat(pqRundown.firstUnIgnoredUnsuccessfulStepReport()).isNull(); // <14>

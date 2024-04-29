@@ -55,16 +55,16 @@ internal interface KickDef {
   @Value.Derived fun postHooks(): List<HookConfig> = hooks().filter { it.pick is PostTxnStepPick }
 
   // * NOTE 29/10/23 gopala.akshintala: requestConfig/responseConfig are decoupled from pre- /
-  // post-hook to allow setting up unmarshalling to strong types, on the final rundown,
-  // agnostic of whether the step has any hook
+  // post-hook to allow setting up unmarshalling to strong types on the final rundown for
+  // post-execution assertions agnostic of whether the step has any hooks
 
   fun requestConfig(): Set<RequestConfig>
 
   @Value.Derived
-  fun customAdaptersFromRequestConfig(): Map<Type, List<Either<JsonAdapter<Any>, Factory>>> =
+  fun customTypeAdaptersFromRequestConfig(): Map<Type, List<Either<JsonAdapter<Any>, Factory>>> =
     requestConfig()
-      .filter { it.customAdapter != null }
-      .groupBy({ it.objType }, { it.customAdapter!! })
+      .filter { it.customTypeAdapter != null }
+      .groupBy({ it.objType }, { it.customTypeAdapter!! })
 
   fun responseConfig(): Set<ResponseConfig>
 
@@ -73,14 +73,14 @@ internal interface KickDef {
     responseConfig().groupBy { it.ifSuccess }
 
   @Value.Derived
-  fun customAdaptersFromResponseConfig(): Map<Type, List<Either<JsonAdapter<Any>, Factory>>> =
+  fun customTypeAdaptersFromResponseConfig(): Map<Type, List<Either<JsonAdapter<Any>, Factory>>> =
     responseConfig()
-      .filter { it.customAdapter != null }
-      .groupBy({ it.objType }, { it.customAdapter!! })
+      .filter { it.customTypeAdapter != null }
+      .groupBy({ it.objType }, { it.customTypeAdapter!! })
 
-  fun customAdapters(): List<Any>
+  fun globalCustomTypeAdapters(): List<Any>
 
-  fun skipTypes(): Set<Class<out Any>>
+  fun globalSkipTypes(): Set<Class<out Any>>
 
   @Value.Default fun insecureHttp(): Boolean = false
 

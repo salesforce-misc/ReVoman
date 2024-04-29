@@ -62,9 +62,9 @@ object ReVoman {
       RegexReplacer(kick.customDynamicVariableGenerators(), ::dynamicVariableGenerator)
     val moshiReVoman =
       initMoshi(
-        kick.customAdapters(),
-        kick.customAdaptersFromRequestConfig() + kick.customAdaptersFromResponseConfig(),
-        kick.skipTypes()
+        kick.globalCustomTypeAdapters(),
+        kick.customTypeAdaptersFromRequestConfig() + kick.customTypeAdaptersFromResponseConfig(),
+        kick.globalSkipTypes()
       )
     val environment = mergeEnvs(kick.environmentPaths(), kick.dynamicEnvironmentsFlattened())
     val pm =

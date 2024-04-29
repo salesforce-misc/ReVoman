@@ -19,7 +19,7 @@ private constructor(
   val postTxnStepPick: PostTxnStepPick,
   val ifSuccess: Boolean?,
   val objType: Type,
-  val customAdapter: Either<JsonAdapter<Any>, JsonAdapter.Factory>? = null,
+  val customTypeAdapter: Either<JsonAdapter<Any>, JsonAdapter.Factory>? = null,
 ) {
   companion object {
     @JvmStatic
@@ -32,16 +32,16 @@ private constructor(
     fun unmarshallResponse(
       postTxnStepPick: PostTxnStepPick,
       successType: Type,
-      customAdapter: JsonAdapter<Any>
-    ): ResponseConfig = ResponseConfig(postTxnStepPick, null, successType, left(customAdapter))
+      customTypeAdapter: JsonAdapter<Any>
+    ): ResponseConfig = ResponseConfig(postTxnStepPick, null, successType, left(customTypeAdapter))
 
     @JvmStatic
     fun unmarshallResponse(
       postTxnStepPick: PostTxnStepPick,
       successType: Type,
-      customAdapterFactory: JsonAdapter.Factory
+      customTypeAdapterFactory: JsonAdapter.Factory
     ): ResponseConfig =
-      ResponseConfig(postTxnStepPick, null, successType, right(customAdapterFactory))
+      ResponseConfig(postTxnStepPick, null, successType, right(customTypeAdapterFactory))
 
     @JvmStatic
     fun unmarshallSuccessResponse(
@@ -53,16 +53,16 @@ private constructor(
     fun unmarshallSuccessResponse(
       postTxnStepPick: PostTxnStepPick,
       successType: Type,
-      customAdapter: JsonAdapter<Any>
-    ): ResponseConfig = ResponseConfig(postTxnStepPick, true, successType, left(customAdapter))
+      customTypeAdapter: JsonAdapter<Any>
+    ): ResponseConfig = ResponseConfig(postTxnStepPick, true, successType, left(customTypeAdapter))
 
     @JvmStatic
     fun unmarshallSuccessResponse(
       postTxnStepPick: PostTxnStepPick,
       successType: Type,
-      customAdapterFactory: JsonAdapter.Factory
+      customTypeAdapterFactory: JsonAdapter.Factory
     ): ResponseConfig =
-      ResponseConfig(postTxnStepPick, true, successType, right(customAdapterFactory))
+      ResponseConfig(postTxnStepPick, true, successType, right(customTypeAdapterFactory))
 
     @JvmStatic
     fun unmarshallErrorResponse(
@@ -74,15 +74,15 @@ private constructor(
     fun unmarshallErrorResponse(
       postTxnStepPick: PostTxnStepPick,
       successType: Type,
-      customAdapter: JsonAdapter<Any>
-    ): ResponseConfig = ResponseConfig(postTxnStepPick, false, successType, left(customAdapter))
+      customTypeAdapter: JsonAdapter<Any>
+    ): ResponseConfig = ResponseConfig(postTxnStepPick, false, successType, left(customTypeAdapter))
 
     @JvmStatic
     fun unmarshallErrorResponse(
       postTxnStepPick: PostTxnStepPick,
       successType: Type,
-      customAdapterFactory: JsonAdapter.Factory
+      customTypeAdapterFactory: JsonAdapter.Factory
     ): ResponseConfig =
-      ResponseConfig(postTxnStepPick, false, successType, right(customAdapterFactory))
+      ResponseConfig(postTxnStepPick, false, successType, right(customTypeAdapterFactory))
   }
 }
