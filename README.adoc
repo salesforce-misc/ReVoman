@@ -28,7 +28,7 @@ endif::[]
 
 [.lead]
 To start with, think of it as Postman for JVM (Java/Kotlin);
-that emulates this *Run* button on a collection through a Java program,
+that emulates the https://learning.postman.com/docs/collections/running-collections/intro-to-collection-runs/[**Postman Collection Runner**] through a Java program,
 essentially translating your manual testing into Automation, without any loss or resistance.
 But it's even better!
 
