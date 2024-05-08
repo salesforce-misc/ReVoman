@@ -33,23 +33,6 @@ import org.http4k.format.asConfigurable
 import org.http4k.format.withStandardMappings
 
 internal lateinit var moshiReVoman: Moshi
-private val moshiBuilder: Moshi.Builder =
-  Moshi.Builder()
-    .add(JsonString.Factory())
-    .add(AdaptedBy.Factory())
-    .add(TypeAdapter)
-    .add(BigDecimalAdapter)
-    .add(UUIDAdapter)
-    .add(EpochAdapter)
-    .add(Date::class.java, Rfc3339DateJsonAdapter())
-    .addLast(CaseInsensitiveEnumAdapter.FACTORY)
-    .addLast(EventAdapter)
-    .addLast(ThrowableAdapter)
-    .addLast(ListAdapter)
-    .addLast(MapAdapter)
-    .asConfigurable()
-    .withStandardMappings()
-    .done()
 
 @JvmOverloads
 internal fun initMoshi(
@@ -68,6 +51,25 @@ internal fun buildMoshi(
   customAdaptersWithType: Map<Type, List<Either<JsonAdapter<Any>, Factory>>> = emptyMap(),
   typesToIgnore: Set<Class<out Any>> = emptySet()
 ): Moshi.Builder {
+  // * NOTE 08 May 2024 gopala.akshintala: This cannot be static singleton as adapters added mutates
+  // the singleton
+  val moshiBuilder =
+    Moshi.Builder()
+      .add(JsonString.Factory())
+      .add(AdaptedBy.Factory())
+      .add(TypeAdapter)
+      .add(BigDecimalAdapter)
+      .add(UUIDAdapter)
+      .add(EpochAdapter)
+      .add(Date::class.java, Rfc3339DateJsonAdapter())
+      .addLast(CaseInsensitiveEnumAdapter.FACTORY)
+      .addLast(EventAdapter)
+      .addLast(ThrowableAdapter)
+      .addLast(ListAdapter)
+      .addLast(MapAdapter)
+      .asConfigurable()
+      .withStandardMappings()
+      .done()
   customAdaptersWithType.forEach { (type, customAdapters) ->
     customAdapters.forEach { customAdapter ->
       customAdapter.fold({ moshiBuilder.add(type, it) }, { moshiBuilder.add(it) })
