@@ -136,8 +136,9 @@ class PQE2EWithSMTest {
   }
 
   private static void validatePQResponse(StepReport stepReport) {
-    final var successRespProp =
-        stepReport.responseInfo.get().<PlaceQuoteOutputRepresentation>getTypedTxnObj().getSuccess();
+    final var pqInputRep =
+        stepReport.responseInfo.get().<PlaceQuoteOutputRepresentation>getTypedTxnObj();
+    final var successRespProp = pqInputRep.getSuccess();
     final var isStepExpectedToFail = stepReport.step.isInFolder(SYNC_ERROR_FOLDER_NAME);
     assertThat(successRespProp).isEqualTo(!isStepExpectedToFail);
   }

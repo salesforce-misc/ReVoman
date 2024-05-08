@@ -1,10 +1,14 @@
 package com.salesforce.revoman.input.json.adapters
 
 import com.salesforce.revoman.input.json.adapters.CompositeGraphResponse.Graph.ErrorGraph
+import com.salesforce.revoman.input.json.adapters.CompositeGraphResponse.Graph.ErrorGraph.GraphErrorResponse.CompositeErrorResponse
+import com.salesforce.revoman.input.json.adapters.CompositeGraphResponse.Graph.ErrorGraph.GraphErrorResponse.CompositeErrorResponse.Body
 import com.salesforce.revoman.input.json.adapters.CompositeGraphResponse.Graph.SuccessGraph
 import com.salesforce.revoman.input.json.factories.DiMorphicAdapter
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
+
+private const val PROCESSING_HALTED = "PROCESSING_HALTED"
 
 @JsonClass(generateAdapter = true)
 data class CompositeGraphResponse(val graphs: List<Graph>) {
@@ -42,6 +46,16 @@ data class CompositeGraphResponse(val graphs: List<Graph>) {
       val graphResponse: GraphErrorResponse,
       override val isSuccessful: Boolean
     ) : Graph {
+      @Json(ignore = true)
+      @JvmField
+      val errorResponses: List<CompositeErrorResponse> =
+        graphResponse.compositeResponse.filter {
+          it.body.firstOrNull()?.errorCode != PROCESSING_HALTED
+        }
+      @Json(ignore = true)
+      @JvmField
+      val firstErrorResponseBody: Body? = errorResponses.firstOrNull()?.body?.firstOrNull()
+
       @JsonClass(generateAdapter = true)
       data class GraphErrorResponse(val compositeResponse: List<CompositeErrorResponse>) {
         @JsonClass(generateAdapter = true)

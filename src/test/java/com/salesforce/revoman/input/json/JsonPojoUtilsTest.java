@@ -63,7 +63,10 @@ class JsonPojoUtilsTest {
             CompositeGraphResponse.class,
             graphErrorResponseJsonStr,
             List.of(CompositeGraphResponse.ADAPTER));
-    assertThat(errorGraphResponse.getGraphs().get(0)).isInstanceOf(ErrorGraph.class);
+    final var errorGraph = errorGraphResponse.getGraphs().get(0);
+    assertThat(errorGraph).isInstanceOf(ErrorGraph.class);
+    assertThat(((ErrorGraph) errorGraph).firstErrorResponseBody.getErrorCode())
+        .isEqualTo("DUPLICATE_VALUE");
     final var errorGraphResponseUnmarshalled =
         JsonPojoUtils.pojoToJson(
             CompositeGraphResponse.class,
