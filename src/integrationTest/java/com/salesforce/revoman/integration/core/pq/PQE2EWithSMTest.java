@@ -18,10 +18,12 @@ import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.after
 import static com.salesforce.revoman.input.config.StepPick.PreTxnStepPick.beforeAllStepsWithURIPathEndingWith;
 import static com.salesforce.revoman.integration.core.pq.adapters.ConnectInputRepWithGraphAdapter.adapter;
 import static com.salesforce.revoman.output.ExeType.HTTP_STATUS;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.salesforce.revoman.ReVoman;
 import com.salesforce.revoman.input.config.Kick;
 import com.salesforce.revoman.input.json.adapters.CompositeGraphResponse;
+import com.salesforce.revoman.input.json.adapters.CompositeGraphResponse.Graph.ErrorGraph;
 import com.salesforce.revoman.integration.core.pq.adapters.IDAdapter;
 import com.salesforce.revoman.integration.core.pq.connect.request.PlaceQuoteInputRepresentation;
 import com.salesforce.revoman.integration.core.pq.connect.response.PlaceQuoteOutputRepresentation;
@@ -144,9 +146,19 @@ class PQE2EWithSMTest {
   }
 
   private static void validateCompositeGraphResponse(StepReport stepReport) {
-    final var graphResponse =
-        stepReport.responseInfo.get().<CompositeGraphResponse>getTypedTxnObj().getGraphs().get(0);
-    assertThat(graphResponse.isSuccessful()).isTrue();
+    final var responseTxnInfo = stepReport.responseInfo.get();
+    final var graphResp =
+        responseTxnInfo.<CompositeGraphResponse>getTypedTxnObj().getGraphs().get(0);
+    assertTrue(
+        graphResp.isSuccessful(),
+        () -> {
+          final var firstErrorResponseBody = ((ErrorGraph) graphResp).firstErrorResponseBody;
+          return String.format(
+              "Unsuccessful Composite Graph response%n{%n  first errorCode: %s%n  first errorMessage: %s%n}%n%s",
+              firstErrorResponseBody.getErrorCode(),
+              firstErrorResponseBody.getMessage(),
+              responseTxnInfo.httpMsg.toMessage());
+        });
   }
 
   private static void assertAfterPQCreate(PostmanEnvironment<Object> env) {
