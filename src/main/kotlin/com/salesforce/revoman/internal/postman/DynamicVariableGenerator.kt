@@ -8,18 +8,19 @@
 package com.salesforce.revoman.internal.postman
 
 import io.github.serpro69.kfaker.faker
-import kotlinx.datetime.Clock
-import org.apache.commons.lang3.RandomStringUtils
 import java.time.LocalDate
 import java.util.*
 import kotlin.random.Random.Default.nextBoolean
 import kotlin.random.Random.Default.nextInt
 import kotlin.random.Random.Default.nextLong
+import kotlinx.datetime.Clock
+import org.apache.commons.lang3.RandomStringUtils
 
 private val faker = faker {}
 
 /**
- * https://learning.postman.com/docs/writing-scripts/script-references/variables-list/
+ * [Postman
+ * Variables](https://learning.postman.com/docs/writing-scripts/script-references/variables-list/)
  */
 private val dynamicVariableGenerators: Map<String, () -> String> =
   mapOf(
@@ -40,11 +41,13 @@ private val dynamicVariableGenerators: Map<String, () -> String> =
     // Phone, address, and location
     "\$randomCity" to faker.address::city,
     // Grammar
-    "\$randomWord" to faker.lorem::words,
+    "\$randomAdjective" to faker.adjective::positive,
+    // Business
     "\$randomCompanyName" to faker.company::name,
     "\$randomWord" to faker.lorem::words,
-    "\$randomAdjective" to faker.adjective::positive,
+    // Domains, emails, and usernames
     "\$randomEmail" to { faker.internet.email() },
+    // Date time
     "\$currentDate" to { LocalDate.now().toString() },
     "\$randomFutureDate" to
       {
