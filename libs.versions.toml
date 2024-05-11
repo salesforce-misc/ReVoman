@@ -1,6 +1,7 @@
 [versions]
 kotlin = "1.9.24"
 http4k = "5.19.0.0"
+immutables = "2.10.1"
 moshix = "0.25.1"
 arrow = "1.2.4"
 graal = "22.3.3" # 22.3.3 Compatable with Java 11
@@ -18,7 +19,7 @@ kotlin-logging = "6.0.9"
 pprint = "2.0.2"
 underscore = "1.101"
 kotlin-faker = "1.16.0"
-immutables = "2.10.1"
+apache-commons-lang3 = "3.14.0"
 mockito = "5.11.0"
 spring = "5.3.31" # 5.3.31 Compatable with Java 11
 json-assert = "1.5.1"
@@ -68,6 +69,7 @@ mockito-core = { module = "org.mockito:mockito-core", version.ref = "mockito" }
 spring-beans = { module = "org.springframework:spring-beans", version.ref = "spring" }
 json-assert = { module = "org.skyscreamer:jsonassert", version.ref = "json-assert" }
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime-jvm", version.ref = "kotlinx-datetime" }
+apache-commons-lang3 = { module = "org.apache.commons:commons-lang3", version.ref = "apache-commons-lang3" }
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 
 # Gradle plugins

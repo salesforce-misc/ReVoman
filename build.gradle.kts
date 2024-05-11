@@ -23,6 +23,7 @@ dependencies {
   api(libs.kotlin.vavr)
   api(libs.arrow.core)
   api(libs.kotlinx.datetime)
+  implementation(libs.apache.commons.lang3)
   implementation(libs.bundles.kotlin.logging)
   implementation(libs.pprint)
   implementation(libs.graal.sdk)
