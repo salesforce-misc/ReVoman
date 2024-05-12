@@ -1,8 +1,8 @@
 [versions]
-kotlin = "1.9.24"
+kotlin = "2.0.0-RC3"
+moshix = "0.26.0-alpha03"
 http4k = "5.19.0.0"
 immutables = "2.10.1"
-moshix = "0.25.1"
 arrow = "1.2.4"
 graal = "22.3.3" # 22.3.3 Compatable with Java 11
 java-vavr = "0.10.4"
