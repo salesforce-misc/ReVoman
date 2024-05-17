@@ -16,6 +16,10 @@ val libs: VersionCatalog = extensions.getByType<VersionCatalogsExtension>().name
 
 dependencies { testImplementation(libs.kotestBundle) }
 
+kapt {
+  useBuildCache = true
+}
+
 tasks {
   withType<KotlinCompile> {
     kotlinOptions {
