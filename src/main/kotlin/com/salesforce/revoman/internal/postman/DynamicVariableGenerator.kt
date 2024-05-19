@@ -19,8 +19,9 @@ import org.apache.commons.lang3.RandomStringUtils
 private val faker = faker {}
 
 /**
- * [Postman
- * Variables](https://learning.postman.com/docs/writing-scripts/script-references/variables-list/)
+ * @see <a
+ *   href="https://learning.postman.com/docs/writing-scripts/script-references/variables-list/">Postman
+ *   Variables</a>
  */
 private val dynamicVariableGenerators: Map<String, () -> String> =
   mapOf(
@@ -34,6 +35,12 @@ private val dynamicVariableGenerators: Map<String, () -> String> =
     "\$randomBoolean" to { nextBoolean().toString() },
     "\$randomInt" to { nextInt(0, Int.MAX_VALUE).toString() },
     "\$randomColor" to faker.color::name,
+    "\$randomHexColor" to { "#${getRandomHex()}${getRandomHex()}${getRandomHex()}" },
+    // Internet and IP addresses
+    "\$randomIP" to faker.internet::iPv4Address,
+    "\$randomIPV6" to faker.internet::iPv6Address,
+    "\$randomMACAddress" to { faker.internet.macAddress() },
+    "\$randomPassword" to { RandomStringUtils.randomAlphanumeric(15) },
     // Names
     "\$randomFirstName" to faker.name::firstName,
     "\$randomLastName" to faker.name::lastName,
@@ -54,6 +61,8 @@ private val dynamicVariableGenerators: Map<String, () -> String> =
         LocalDate.now().let { it.plusDays(nextLong(1, it.lengthOfYear().toLong())).toString() }
       },
   )
+
+fun getRandomHex() = nextInt(255).toString(16).uppercase()
 
 private val dynamicVariableGeneratorsWithPM: Map<String, (PostmanSDK) -> String> =
   mapOf("\$currentRequestName" to { it.info.requestName })

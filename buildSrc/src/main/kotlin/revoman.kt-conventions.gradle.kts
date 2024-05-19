@@ -5,7 +5,7 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  * ************************************************************************************************
  */
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_2_0
 
 plugins {
   kotlin("jvm")
@@ -20,12 +20,10 @@ kapt {
   useBuildCache = true
 }
 
-tasks {
-  withType<KotlinCompile> {
-    kotlinOptions {
-      // ! "-Xjvm-default=all" is needed for Immutables to work with Kotlin default methods
-      // https://kotlinlang.org/docs/java-to-kotlin-interop.html#compatibility-modes-for-default-methods
-      freeCompilerArgs = listOf("-Xjvm-default=all", "-Xcontext-receivers", "-Xjdk-release=11")
-    }
-  }
+kotlin { 
+  compilerOptions {
+    languageVersion.set(KOTLIN_2_0)
+    apiVersion.set(KOTLIN_2_0)
+    freeCompilerArgs.addAll("-Xjvm-default=all", "-Xcontext-receivers", "-Xjdk-release=11")
+  } 
 }

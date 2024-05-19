@@ -1,6 +1,6 @@
 [versions]
 kotlin = "2.0.0-RC3"
-moshix = "0.26.0-alpha03"
+moshix = "0.27.0-alpha01"
 http4k = "5.19.0.0"
 immutables = "2.10.1"
 arrow = "1.2.4"
