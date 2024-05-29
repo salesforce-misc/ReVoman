@@ -5,7 +5,7 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  * ************************************************************************************************
  */
-plugins { id("com.gradle.develocity") version "3.17.3" }
+plugins { id("com.gradle.develocity") version "3.17.4" }
 
 dependencyResolutionManagement {
   versionCatalogs { create("libs") { from(files("libs.versions.toml")) } }
