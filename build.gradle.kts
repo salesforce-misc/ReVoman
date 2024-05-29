@@ -64,7 +64,7 @@ tasks {
   test { dependsOn(npmInstall) }
 }
 
-koverReport { defaults { xml { onCheck = true } } }
+kover { reports { total { html { onCheck = true } } } }
 
 moshi { enableSealed = true }
 

@@ -8,7 +8,7 @@ import com.salesforce.revoman.input.json.factories.DiMorphicAdapter
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 
-private const val PROCESSING_HALTED = "PROCESSING_HALTED"
+private val CLIENT_ERROR = 400..499
 
 @JsonClass(generateAdapter = true)
 data class CompositeGraphResponse(val graphs: List<Graph>) {
@@ -49,9 +49,7 @@ data class CompositeGraphResponse(val graphs: List<Graph>) {
       @Json(ignore = true)
       @JvmField
       val errorResponses: List<CompositeErrorResponse> =
-        graphResponse.compositeResponse.filter {
-          it.body.firstOrNull()?.errorCode != PROCESSING_HALTED
-        }
+        graphResponse.compositeResponse.filter { it.httpStatusCode in CLIENT_ERROR }
       @Json(ignore = true)
       @JvmField
       val firstErrorResponseBody: Body? = errorResponses.firstOrNull()?.body?.firstOrNull()

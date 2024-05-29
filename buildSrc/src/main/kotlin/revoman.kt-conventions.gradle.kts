@@ -22,8 +22,6 @@ kapt {
 
 kotlin { 
   compilerOptions {
-    languageVersion.set(KOTLIN_2_0)
-    apiVersion.set(KOTLIN_2_0)
     freeCompilerArgs.addAll("-Xjvm-default=all", "-Xcontext-receivers", "-Xjdk-release=11")
   } 
 }

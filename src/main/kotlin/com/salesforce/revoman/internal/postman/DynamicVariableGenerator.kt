@@ -49,9 +49,9 @@ private val dynamicVariableGenerators: Map<String, () -> String> =
     "\$randomCity" to faker.address::city,
     // Grammar
     "\$randomAdjective" to faker.adjective::positive,
+    "\$randomWord" to faker.lorem::words,
     // Business
     "\$randomCompanyName" to faker.company::name,
-    "\$randomWord" to faker.lorem::words,
     // Domains, emails, and usernames
     "\$randomEmail" to { faker.internet.email() },
     // Date time
