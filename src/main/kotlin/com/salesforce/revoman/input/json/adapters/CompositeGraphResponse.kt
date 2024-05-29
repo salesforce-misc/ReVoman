@@ -9,6 +9,9 @@ import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 
 private val CLIENT_ERROR = 400..499
+private const val PROCESSING_HALTED = "PROCESSING_HALTED"
+private const val OPERATION_IN_TRANSACTION_FAILED_ERROR =
+  "The transaction was rolled back since another operation in the same transaction failed."
 
 @JsonClass(generateAdapter = true)
 data class CompositeGraphResponse(val graphs: List<Graph>) {
@@ -49,7 +52,13 @@ data class CompositeGraphResponse(val graphs: List<Graph>) {
       @Json(ignore = true)
       @JvmField
       val errorResponses: List<CompositeErrorResponse> =
-        graphResponse.compositeResponse.filter { it.httpStatusCode in CLIENT_ERROR }
+        graphResponse.compositeResponse.filter {
+          it.httpStatusCode in CLIENT_ERROR &&
+            it.body.firstOrNull()?.let {
+              it.errorCode == PROCESSING_HALTED ||
+                it.message == OPERATION_IN_TRANSACTION_FAILED_ERROR
+            } != true
+        }
       @Json(ignore = true)
       @JvmField
       val firstErrorResponseBody: Body? = errorResponses.firstOrNull()?.body?.firstOrNull()
