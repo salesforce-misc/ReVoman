@@ -13,14 +13,8 @@ import com.salesforce.revoman.input.config.Kick
 import org.junit.jupiter.api.Test
 
 class RestfulAPIDevKtTest {
-  private val PM_COLLECTION_PATH =
-    "pm-templates/restfulapidev/restful-api.dev.postman_collection.json"
-
-  private val PM_ENVIRONMENT_PATH =
-    "pm-templates/restfulapidev/restful-api.dev.postman_environment.json"
-
   @Test
-  fun `restful-api dev`() {
+  fun `execute restful-api dev pm collection`() {
     val rundown =
       ReVoman.revUp( // <1>
         Kick.configure()
@@ -30,5 +24,13 @@ class RestfulAPIDevKtTest {
           .off()
       )
     assertThat(rundown.stepReports).hasSize(3)
+    assertThat(rundown.firstUnsuccessfulStepReport).isNull()
+  }
+
+  companion object {
+    private const val PM_COLLECTION_PATH =
+      "pm-templates/restfulapidev/restful-api.dev.postman_collection.json"
+    private const val PM_ENVIRONMENT_PATH =
+      "pm-templates/restfulapidev/restful-api.dev.postman_environment.json"
   }
 }
