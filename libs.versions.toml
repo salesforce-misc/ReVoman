@@ -1,6 +1,6 @@
 [versions]
-kotlin = "2.0.10"
-moshix = "0.27.2"
+kotlin = "2.0.20"
+moshix = "0.28.0"
 http4k = "5.28.1.0"
 immutables = "2.10.1"
 arrow = "1.2.4"
