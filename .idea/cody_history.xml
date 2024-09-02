@@ -11,6 +11,18 @@
                 <accountId value="VXNlcjoyOQ==" />
                 <internalId value="8199a5a6-9bf2-452a-9288-e4e1fe692e97" />
               </chat>
+              <chat>
+                <internalId value="e1577e8b-e986-4ece-9955-767271ed3454" />
+              </chat>
+              <chat>
+                <internalId value="534fb9a4-a5e1-41e3-8481-799b3dddebd5" />
+              </chat>
+              <chat>
+                <internalId value="84dee5d4-267d-4e1c-bc0c-d9287ab990ef" />
+              </chat>
+              <chat>
+                <internalId value="cc1c5a80-564e-49cf-bc9c-6e2d9762bdf4" />
+              </chat>
             </list>
           </chats>
         </AccountData>

@@ -123,6 +123,8 @@ class JsonPojoUtilsTest {
         JsonPojoUtils.<BeanWithDate>jsonToPojo(BeanWithDate.class, "{\"date\": " + epochDate + "}");
     assertThat(beanWithDate).isNotNull();
     assertThat(beanWithDate.date.toInstant().toEpochMilli()).isEqualTo(epochDate);
+    final var beanWithDateJson = JsonPojoUtils.pojoToJson(BeanWithDate.class, beanWithDate);
+    assertThat(beanWithDateJson).isNotNull();
   }
 
   @Test

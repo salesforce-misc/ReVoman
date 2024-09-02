@@ -330,7 +330,7 @@ This tool has particular emphasis on Debugging experience. Here is what a debugg
 image:rundown.png[Rundown of all steps]
 
 [.lead]
-🔍 Let's zoom into a detailed view of one of those Step reports, which contains complete Request and Response info along failure information if any:
+🔍 Let's zoom into a detailed view of one of those Step reports, which contains complete Request and Response info along with failure information if any:
 
 image:step-report.png[Step Report]
 
