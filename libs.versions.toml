@@ -1,7 +1,7 @@
 [versions]
 kotlin = "2.0.20"
 moshix = "0.28.0"
-http4k = "5.29.0.0"
+http4k = "5.30.0.0"
 immutables = "2.10.1"
 arrow = "1.2.4"
 graal = "22.3.3" # 22.3.3 Compatable with Java 11
@@ -33,7 +33,7 @@ junit = "5.10.2"
 kover = "0.8.3"
 detekt = "1.23.6"
 spotless = "6.25.0"
-apache-log4j = "2.23.1"
+apache-log4j = "2.24.0"
 
 [libraries]
 java-vavr = { module = "io.vavr:vavr", version.ref = "java-vavr" }
