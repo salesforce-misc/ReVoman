@@ -67,6 +67,9 @@ Gradle Kts
 implementation("com.salesforce.revoman:revoman:{revoman-version}")
 ----
 
+[.lead]
+Minimum Java Version required = 11
+
 toc::[]
 
 .Tech-Talk given at https://www.opensourceindia.in/osi-speakers-2023/gopala-sarma-akshintala/[Open Source Conf - 2023], https://speakerdeck.com/gopalakshintala/revoman-a-template-driven-api-automation-tool-for-jvm[🎴Slide deck]
