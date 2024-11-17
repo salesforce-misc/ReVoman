@@ -1,0 +1,56 @@
+{
+	"info": {
+		"_postman_id": "00262e9b-48de-4d72-bea9-5db5c77029cb",
+		"name": "Apigee",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "23827434"
+	},
+	"item": [
+		{
+			"name": "Apigee",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							""
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"var xml2js = require('xml2js')",
+							"xml2js.parseString(pm.response.text(), { explicitArray: false }, (_, jsonResponse) => {",
+							"  let result = jsonResponse.root.city",
+							"  pm.environment.set(\"city\", result)",
+							"})"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "https://mocktarget.apigee.net/xml",
+					"protocol": "https",
+					"host": [
+						"mocktarget",
+						"apigee",
+						"net"
+					],
+					"path": [
+						"xml"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}

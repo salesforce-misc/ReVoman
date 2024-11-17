@@ -25,3 +25,6 @@ fun readFileInResourcesToString(fileRelativePath: String): String =
 fun bufferFile(file: File): BufferedSource = file.source().buffer()
 
 fun readFileToString(file: File): String = bufferFile(file).readUtf8()
+
+fun writeToFileInResources(fileRelativePath: String, content: String) =
+  FileSystem.RESOURCES.write(fileRelativePath.toPath()) { writeUtf8(content) }

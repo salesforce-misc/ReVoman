@@ -149,12 +149,15 @@ class PostmanSDK(
      * [Functions as Java Values](https://www.graalvm.org/22.3/reference-manual/embed-languages/#define-guest-language-functions-as-java-values):
      */
     fun json(): Value = jsonStrToObj(body)
+    
+    fun text(): String = body
   }
 
   @Suppress("unused")
   fun setEnvironmentVariable(key: String, value: String) {
     environment.set(key, value)
   }
+  
 }
 
 data class Info(@JvmField val requestName: String)

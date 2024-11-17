@@ -18,7 +18,7 @@ endif::[]
 :pmtemplates: src/integrationTest/resources/pm-templates
 :imagesdir: docs/images
 :prewrap!:
-:revoman-version: 0.41.6
+:revoman-version: 0.42.0
 
 '''
 
@@ -72,7 +72,7 @@ Minimum Java Version required = 11
 
 toc::[]
 
-.Tech-Talk given at https://www.opensourceindia.in/osi-speakers-2023/gopala-sarma-akshintala/[Open Source Conf - 2023], https://speakerdeck.com/gopalakshintala/revoman-a-template-driven-api-automation-tool-for-jvm[🎴Slide deck]
+.Tech-Talk given at https://www.opensourceindia.in/osi-speakers-2023/gopala-sarma-akshintala/[Open Source Conf—2023], https://speakerdeck.com/gopalakshintala/revoman-a-template-driven-api-automation-tool-for-jvm[🎴Slide deck]
 image::revoman-demo-thumbnail.png[link="https://www.youtube.com/watch?v=YxeRddSFkxc&list=PLrJbJ9wDl9EC0bG6y9fyDylcfmB_lT_Or&index=2", align="center"]
 
 == Why ReṼoman?
@@ -444,12 +444,19 @@ so the later steps can pick up value for `+{{xyzId}}+` variable from the environ
 
 === Pre-req and Tests scripts
 
-* Postman lets you write custom javascript in https://learning.postman.com/docs/writing-scripts/script-references/test-examples/[Pre-req and Tests tabs] that get executed before and after a step respectively. When you export the collection as a template, these scripts also come bundled.
-* ReṼoman can execute this javascript on JVM. This support ensures that the Postman collection used for manual testing can be used *as-is* for the automation also, without any resistance to modify or overhead of maintaining separate versions for manual and automation.
+* Postman lets you write custom JavaScript in https://learning.postman.com/docs/writing-scripts/script-references/test-examples/[Pre-req and Tests tabs] that get executed before and after a step respectively. When you export the collection as a template, these scripts also come bundled.
+* ReṼoman can execute this JavaScript on JVM. This support ensures that the Postman collection used for manual testing can be used *as-is* for the automation also, without any resistance to modify or overhead of maintaining separate versions for manual and automation.
 ** Pre-req JS is executed as the first step before Unmarshall request.
 ** Tests JS is executed right after receiving an HTTP response.
-* ReṼoman supports using `npm` modules inside your Pre-req and Tests javascript. You can install `npm` modules in any folder and supply in the `Kick` config, the relative path of the parent folder that contains the `node_modules` folder using `nodeModulesRelativePath(...)`. Use those `npm` modules inside your scripts with `require(...)`, for example:
+* ReṼoman supports using `npm` modules inside your Pre-req and Tests JavaScript. You can install `npm` modules in any folder using traditional commands like `npm install <module>` and supply in the `Kick` config, the relative path of the parent folder that contains the `node_modules` folder using `nodeModulesRelativePath(...)`. Use those `npm` modules inside your scripts with `require(...)`, for example:
 
+.Install `moment` with npm
+[source,shellscript,indent=0,options="nowrap"]
+----
+npm install moment
+----
+
+.Use inside pre- / post-script
 [source,javascript,indent=0,options="nowrap"]
 ----
 var moment = require("moment");
@@ -462,7 +469,7 @@ pm.environment.set("$quantity", _.random(1, 10)); // lodash doesn't need `requir
 
 [TIP]
 ====
-* `node_modules` Adds a lot of files to check in. You may replace them with a single distribution file
+* `node_modules` adds a lot of files to check in. You may replace them with a single distribution file
 
 image::node_modules.png[]
 
