@@ -59,6 +59,11 @@ data class CompositeGraphResponse(val graphs: List<Graph>) {
                 it.message == OPERATION_IN_TRANSACTION_FAILED_ERROR
             } != true
         }
+
+      @Json(ignore = true)
+      @JvmField
+      val firstErrorResponse: CompositeErrorResponse? = errorResponses.firstOrNull()
+
       @Json(ignore = true)
       @JvmField
       val firstErrorResponseBody: Body? = errorResponses.firstOrNull()?.body?.firstOrNull()
