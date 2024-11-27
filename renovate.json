@@ -17,8 +17,7 @@
     {
       "matchPackageNames": [
         "org.graalvm.sdk:graal-sdk",
-        "org.graalvm.js:js",
-        "org.springframework:spring-beans"
+        "org.graalvm.js:js"
       ],
       "enabled": false
     }

@@ -26,5 +26,5 @@ fun bufferFile(file: File): BufferedSource = file.source().buffer()
 
 fun readFileToString(file: File): String = bufferFile(file).readUtf8()
 
-fun writeToFileInResources(fileRelativePath: String, content: String) =
-  FileSystem.RESOURCES.write(fileRelativePath.toPath()) { writeUtf8(content) }
+fun writeToFileInTheModule(fileRelativePath: String, content: String) =
+  FileSystem.SYSTEM.write(fileRelativePath.toPath()) { writeUtf8(content) }

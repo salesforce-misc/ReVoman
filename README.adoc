@@ -473,7 +473,7 @@ pm.environment.set("$quantity", _.random(1, 10)); // lodash doesn't need `requir
 
 image::node_modules.png[]
 
-* If `node_modules` is ignored on your git repo, you can force-add to check in using the command `git add -f <path>/node_modules`
+* If `node_modules` is ignored on your git repo, you can force-add to check in using the command `git add -all -f <path>/node_modules`
 ====
 
 CAUTION: The recommendation is not to add too much code in Pre-req and Tests scripts, as it is not intuitive to troubleshoot. Use it for simple operations like set environment variables and use Post-Hooks JVM code for any non-trivial operations.
