@@ -21,10 +21,12 @@ description = "ReVoman - A template-driven API automation tool for JVM (Java/Kot
 
 repositories { mavenCentral() }
 
+val libs: VersionCatalog = extensions.getByType<VersionCatalogsExtension>().named("libs")
+
 java {
   withJavadocJar()
   withSourcesJar()
-  toolchain { languageVersion = JavaLanguageVersion.of(11) }
+  toolchain { languageVersion.set(JavaLanguageVersion.of(libs.jdk.toString())) }
 }
 
 publishing {

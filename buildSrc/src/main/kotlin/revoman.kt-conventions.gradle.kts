@@ -5,8 +5,6 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  * ************************************************************************************************
  */
-import org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_2_0
-
 plugins {
   kotlin("jvm")
   kotlin("kapt")
@@ -22,6 +20,6 @@ kapt {
 
 kotlin { 
   compilerOptions {
-    freeCompilerArgs.addAll("-Xjvm-default=all", "-Xcontext-receivers", "-Xjdk-release=11")
+    freeCompilerArgs.addAll("-Xjvm-default=all", "-Xcontext-receivers", "-Xjdk-release=${libs.jdk}")
   } 
 }
