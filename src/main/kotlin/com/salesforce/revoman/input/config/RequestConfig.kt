@@ -15,7 +15,7 @@ import io.vavr.kotlin.right
 import java.lang.reflect.Type
 
 data class RequestConfig
-private constructor(
+internal constructor(
   val preTxnStepPick: PreTxnStepPick,
   val objType: Type,
   val customTypeAdapter: Either<JsonAdapter<Any>, JsonAdapter.Factory>? = null

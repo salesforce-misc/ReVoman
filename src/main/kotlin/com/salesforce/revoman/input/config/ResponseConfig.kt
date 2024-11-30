@@ -15,7 +15,7 @@ import io.vavr.kotlin.right
 import java.lang.reflect.Type
 
 data class ResponseConfig
-private constructor(
+internal constructor(
   val postTxnStepPick: PostTxnStepPick,
   val ifSuccess: Boolean?,
   val objType: Type,

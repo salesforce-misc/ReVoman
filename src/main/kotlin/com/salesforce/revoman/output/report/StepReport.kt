@@ -25,7 +25,7 @@ import org.http4k.core.Request
 import org.http4k.core.Response
 
 data class StepReport
-private constructor(
+internal constructor(
   @JvmField val step: Step,
   @JvmField val requestInfo: Either<out RequestFailure, TxnInfo<Request>>? = null,
   @JvmField val preHookFailure: PreHookFailure? = null,

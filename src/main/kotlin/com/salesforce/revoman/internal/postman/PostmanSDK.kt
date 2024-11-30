@@ -8,7 +8,6 @@
 package com.salesforce.revoman.internal.postman
 
 import com.github.underscore.U
-import com.salesforce.revoman.internal.postman.PostmanSDK.Xml2Json
 import com.salesforce.revoman.internal.postman.template.Body
 import com.salesforce.revoman.internal.postman.template.Event
 import com.salesforce.revoman.internal.postman.template.Header
@@ -20,6 +19,7 @@ import org.graalvm.polyglot.Context
 import org.graalvm.polyglot.HostAccess
 import org.graalvm.polyglot.Source
 import org.graalvm.polyglot.Value
+import org.graalvm.polyglot.io.IOAccess
 import org.http4k.format.ConfigurableMoshi
 
 /**
@@ -66,7 +66,7 @@ class PostmanSDK(
       jsContext =
         Context.newBuilder("js")
           .allowExperimentalOptions(true)
-          .allowIO(true)
+          .allowIO(IOAccess.ALL)
           .options(options)
           .allowHostAccess(HostAccess.ALL)
           .allowHostClassLookup { true }

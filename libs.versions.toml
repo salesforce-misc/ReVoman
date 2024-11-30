@@ -1,11 +1,11 @@
 [versions]
 jdk = "17"
-kotlin = "2.0.20"
-moshix = "0.28.0"
+kotlin = "2.1.0"
+moshix = "0.29.0"
 http4k = "5.31.1.0"
 immutables = "2.10.1"
 arrow = "1.2.4"
-graal = "23.0.6" # 23.0.6 Compatible with Java 17
+graal = "24.1.1" # 23.0.6 Compatible with Java 17
 java-vavr = "0.10.4"
 kotlin-vavr = "0.10.2"
 jetbrains-annotations = "26.0.0"
@@ -21,7 +21,7 @@ underscore = "1.105"
 kotlin-faker = "1.16.0"
 apache-commons-lang3 = "3.17.0"
 mockito = "5.14.0"
-spring = "6.2.0" # 5.3.31 Compatable with Java 11
+spring = "6.2.0"
 json-assert = "1.5.3"
 nexus-publish = "2.0.0"
 kotlinx-datetime = "0.6.1"

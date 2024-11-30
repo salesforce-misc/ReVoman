@@ -17,6 +17,7 @@ import com.salesforce.revoman.output.report.StepReport
 import com.salesforce.revoman.output.report.TxnInfo
 import org.http4k.core.Request
 
+@ExposedCopyVisibility
 data class HookConfig private constructor(val pick: StepPick, val hook: Hook) {
   sealed interface Hook {
     fun interface PreHook : Hook {

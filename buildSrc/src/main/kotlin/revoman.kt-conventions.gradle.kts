@@ -20,6 +20,6 @@ kapt {
 
 kotlin { 
   compilerOptions {
-    freeCompilerArgs.addAll("-Xjvm-default=all", "-Xcontext-receivers", "-Xjdk-release=${libs.jdk}")
+    freeCompilerArgs.addAll("-Xjvm-default=all", "-Xcontext-receivers", "-Xjdk-release=${libs.jdk}", "-Xconsistent-data-class-copy-visibility")
   } 
 }
