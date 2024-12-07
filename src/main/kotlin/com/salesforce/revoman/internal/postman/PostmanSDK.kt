@@ -19,7 +19,6 @@ import org.graalvm.polyglot.Context
 import org.graalvm.polyglot.HostAccess
 import org.graalvm.polyglot.Source
 import org.graalvm.polyglot.Value
-import org.graalvm.polyglot.io.IOAccess
 import org.http4k.format.ConfigurableMoshi
 
 /**
@@ -66,7 +65,8 @@ class PostmanSDK(
       jsContext =
         Context.newBuilder("js")
           .allowExperimentalOptions(true)
-          .allowIO(IOAccess.ALL)
+          // ! TODO 07 Dec 2024 gopala.akshintala: Using this for core compatability
+          .allowIO(true) 
           .options(options)
           .allowHostAccess(HostAccess.ALL)
           .allowHostClassLookup { true }
