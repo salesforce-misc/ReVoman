@@ -26,7 +26,6 @@ dependencies {
   implementation(libs.apache.commons.lang3)
   implementation(libs.bundles.kotlin.logging)
   implementation(libs.pprint)
-  implementation(libs.graal.polyglot)
   implementation(libs.graal.js)
   implementation(libs.kotlin.faker)
   implementation(libs.underscore)
