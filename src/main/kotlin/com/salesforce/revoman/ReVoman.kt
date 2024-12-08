@@ -14,8 +14,8 @@ import arrow.core.merge
 import com.salesforce.revoman.input.bufferFileInResources
 import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.internal.exe.deepFlattenItems
+import com.salesforce.revoman.internal.exe.executePostResJS
 import com.salesforce.revoman.internal.exe.executePreReqJS
-import com.salesforce.revoman.internal.exe.executeTestsJS
 import com.salesforce.revoman.internal.exe.fireHttpRequest
 import com.salesforce.revoman.internal.exe.postHookExe
 import com.salesforce.revoman.internal.exe.preHookExe
@@ -43,6 +43,23 @@ import org.http4k.core.Request
 import org.http4k.format.ConfigurableMoshi
 
 object ReVoman {
+  @JvmStatic
+  @OptIn(ExperimentalStdlibApi::class)
+  fun revUp(vararg kicks: Kick): List<Rundown> =
+    kicks
+      .fold(mapOf<String, String>() to listOf<Rundown>()) { (accumulatedMutableEnv, rundowns), kick
+        ->
+        val rundown =
+          revUp(
+            kick.overrideDynamicEnvironments(
+              kick.dynamicEnvironmentsFlattened(),
+              accumulatedMutableEnv
+            )
+          )
+        rundown.mutableEnv.mutableEnvCopyWithValuesOfType<String>() to (rundowns + rundown)
+      }
+      .second
+
   @JvmStatic
   @OptIn(ExperimentalStdlibApi::class)
   fun revUp(kick: Kick): Rundown {
@@ -101,7 +118,7 @@ object ReVoman {
         pm.rundown =
           Rundown(stepReports + preStepReport, kick.haltOnFailureOfTypeExcept(), pm.environment)
         pm.environment.putAll(regexReplacer.replaceVariablesInEnv(pm))
-        val currentStepReport: StepReport = // --------### PRE-REQUEST-JS ###--------
+        val currentStepReport: StepReport = // --------### PRE-REQ-JS ###--------
           executePreReqJS(step, itemWithRegex, pm)
             .mapLeft { preStepReport.copy(requestInfo = left(it)) }
             .flatMap { // --------### UNMARSHALL-REQUEST ###--------
@@ -133,10 +150,10 @@ object ReVoman {
                   )
                 }
             }
-            .flatMap { sr: StepReport -> // --------### TESTS-JS ###--------
+            .flatMap { sr: StepReport -> // --------### PRE-RES-JS ###--------
               pm.currentStepReport = sr
               pm.rundown = pm.rundown.copy(stepReports = pm.rundown.stepReports + sr)
-              executeTestsJS(step, itemWithRegex, pm)
+              executePostResJS(step, itemWithRegex, pm)
                 .mapLeft { sr.copy(responseInfo = left(it)) }
                 .map { sr }
             }

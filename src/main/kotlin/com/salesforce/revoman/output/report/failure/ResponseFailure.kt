@@ -7,7 +7,7 @@
  */
 package com.salesforce.revoman.output.report.failure
 
-import com.salesforce.revoman.output.ExeType.TESTS_JS
+import com.salesforce.revoman.output.ExeType.POST_RES_JS
 import com.salesforce.revoman.output.ExeType.UNMARSHALL_RESPONSE
 import com.salesforce.revoman.output.report.TxnInfo
 import org.http4k.core.Request
@@ -17,12 +17,12 @@ sealed class ResponseFailure : ExeFailure() {
   abstract val requestInfo: TxnInfo<Request>
   abstract val responseInfo: TxnInfo<Response>
 
-  data class TestsJSFailure(
+  data class PostResJSFailure(
     override val failure: Throwable,
     override val requestInfo: TxnInfo<Request>,
     override val responseInfo: TxnInfo<Response>,
   ) : ResponseFailure() {
-    override val exeType = TESTS_JS
+    override val exeType = POST_RES_JS
   }
 
   data class UnmarshallResponseFailure(

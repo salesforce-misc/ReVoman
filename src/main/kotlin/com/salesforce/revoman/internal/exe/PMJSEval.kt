@@ -12,24 +12,22 @@ import arrow.core.Either.Right
 import com.salesforce.revoman.internal.postman.PostmanSDK
 import com.salesforce.revoman.internal.postman.template.Item
 import com.salesforce.revoman.internal.postman.template.Request
-import com.salesforce.revoman.output.ExeType.PRE_REQUEST_JS
-import com.salesforce.revoman.output.ExeType.TESTS_JS
+import com.salesforce.revoman.output.ExeType.POST_RES_JS
+import com.salesforce.revoman.output.ExeType.PRE_REQ_JS
 import com.salesforce.revoman.output.report.Step
 import com.salesforce.revoman.output.report.StepReport
-import com.salesforce.revoman.output.report.failure.RequestFailure.PreRequestJSFailure
-import com.salesforce.revoman.output.report.failure.ResponseFailure.TestsJSFailure
+import com.salesforce.revoman.output.report.failure.RequestFailure.PreReqJSFailure
+import com.salesforce.revoman.output.report.failure.ResponseFailure.PostResJSFailure
 
 internal fun executePreReqJS(
   currentStep: Step,
   item: Item,
   pm: PostmanSDK
-): Either<PreRequestJSFailure, Unit> {
+): Either<PreReqJSFailure, Unit> {
   val preReqJS = item.event?.find { it.listen == "prerequest" }?.script?.exec?.joinToString("\n")
   return if (!preReqJS.isNullOrBlank()) {
-    runChecked(currentStep, PRE_REQUEST_JS) {
-        executePreReqJSWithPolyglot(preReqJS, item.request, pm)
-      }
-      .mapLeft { PreRequestJSFailure(it, pm.currentStepReport.requestInfo!!.get()) }
+    runChecked(currentStep, PRE_REQ_JS) { executePreReqJSWithPolyglot(preReqJS, item.request, pm) }
+      .mapLeft { PreReqJSFailure(it, pm.currentStepReport.requestInfo!!.get()) }
   } else {
     Right(Unit)
   }
@@ -40,18 +38,18 @@ private fun executePreReqJSWithPolyglot(preReqJS: String, pmRequest: Request, pm
   pm.evaluateJS(preReqJS)
 }
 
-internal fun executeTestsJS(
+internal fun executePostResJS(
   currentStep: Step,
   item: Item,
   pm: PostmanSDK
-): Either<TestsJSFailure, Unit> {
-  val testsJS = item.event?.find { it.listen == "test" }?.script?.exec?.joinToString("\n")
-  return if (!testsJS.isNullOrBlank()) {
-    runChecked(currentStep, TESTS_JS) {
-        executeTestsJSWithPolyglot(testsJS, item.request, pm.currentStepReport, pm)
+): Either<PostResJSFailure, Unit> {
+  val postResJs = item.event?.find { it.listen == "test" }?.script?.exec?.joinToString("\n")
+  return if (!postResJs.isNullOrBlank()) {
+    runChecked(currentStep, POST_RES_JS) {
+        executePostResJSWithPolyglot(postResJs, item.request, pm.currentStepReport, pm)
       }
       .mapLeft {
-        TestsJSFailure(
+        PostResJSFailure(
           it,
           pm.currentStepReport.requestInfo!!.get(),
           pm.currentStepReport.responseInfo!!.get()
@@ -62,13 +60,13 @@ internal fun executeTestsJS(
   }
 }
 
-private fun executeTestsJSWithPolyglot(
-  testsJs: String,
+private fun executePostResJSWithPolyglot(
+  postResJS: String,
   pmRequest: Request,
   stepReport: StepReport,
   pm: PostmanSDK
 ) {
   val httpResponse = stepReport.responseInfo!!.get().httpMsg
   pm.setRequestAndResponse(pm.from(pmRequest), httpResponse)
-  pm.evaluateJS(testsJs, mapOf("responseBody" to httpResponse.bodyString()))
+  pm.evaluateJS(postResJS, mapOf("responseBody" to httpResponse.bodyString()))
 }

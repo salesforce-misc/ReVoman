@@ -44,6 +44,9 @@ data class PostmanEnvironment<ValueT : Any?>(
         .toMutableMap()
     )
 
+  inline fun <reified T> mutableEnvCopyWithValuesOfType(): PostmanEnvironment<T> =
+    mutableEnvCopyWithValuesOfType(T::class.java)
+
   fun <T> mutableEnvCopyWithKeysStartingWith(
     type: Class<T>,
     vararg prefixes: String
@@ -56,6 +59,10 @@ data class PostmanEnvironment<ValueT : Any?>(
         .mapValues { type.cast(it.value) }
         .toMutableMap()
     )
+
+  inline fun <reified T> mutableEnvCopyWithKeysStartingWith(
+    vararg prefixes: String
+  ): PostmanEnvironment<T> = mutableEnvCopyWithKeysStartingWith(T::class.java, *prefixes)
 
   fun <T> mutableEnvCopyExcludingKeys(
     type: Class<T>,

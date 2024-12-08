@@ -22,7 +22,7 @@ import org.graalvm.polyglot.Value
 import org.http4k.format.ConfigurableMoshi
 
 /**
- * SDK to use in TestsJs, to be compatible with the Postman API reference:
+ * SDK to execute pre-req and post-res js scripts, to be compatible with the Postman API reference:
  * https://learning.postman.com/docs/writing-scripts/script-references/postman-sandbox-api-reference/
  */
 class PostmanSDK(
@@ -66,7 +66,8 @@ class PostmanSDK(
         Context.newBuilder("js")
           .allowExperimentalOptions(true)
           // ! TODO 07 Dec 2024 gopala.akshintala: Using this for core compatability
-          .allowIO(true) 
+          .allowIO(true)
+          .allowExperimentalOptions(true)
           .options(options)
           .allowHostAccess(HostAccess.ALL)
           .allowHostClassLookup { true }
