@@ -57,19 +57,17 @@ class RegexReplacer(
     }
 
   internal fun replaceVariablesInPmItem(item: Item, pm: PostmanSDK): Item =
-    item.copy(
-      request = replaceVariablesInRequestRecursively(item.request, pm),
-      auth =
-        item.auth?.copy(
-          bearer = listOfNotNull(replaceVariablesInBearer(item.auth.bearer.firstOrNull(), pm))
-        )
-    )
+    item.copy(request = replaceVariablesInRequestRecursively(item.request, pm))
 
   private fun replaceVariablesInBearer(bearer: Bearer?, pm: PostmanSDK): Bearer? =
     bearer?.copy(value = replaceVariablesRecursively(bearer.value, pm)!!)
 
   internal fun replaceVariablesInRequestRecursively(request: Request, pm: PostmanSDK): Request =
     request.copy(
+      auth =
+        request.auth?.copy(
+          bearer = listOfNotNull(replaceVariablesInBearer(request.auth.bearer.firstOrNull(), pm))
+        ),
       header =
         request.header.map { header ->
           header.copy(

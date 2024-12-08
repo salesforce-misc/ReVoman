@@ -43,12 +43,16 @@ internal fun deepFlattenItems(
         if (stepIndexFromParent.isBlank()) "${itemIndex + 1}"
         else "$stepIndexFromParent.${itemIndex + 1}"
       item.item
-        ?.map { childItem -> childItem.copy(auth = childItem.auth ?: item.auth) }
+        ?.map { childItem ->
+          childItem.copy(
+            request = childItem.request.copy(auth = childItem.request.auth ?: item.request.auth)
+          )
+        }
         ?.let {
           val currentFolder = Folder(item.name, parentFolder)
           parentFolder?.subFolders?.add(currentFolder)
           deepFlattenItems(it, currentFolder, stepIndex)
-        } ?: listOf(Step(stepIndex, item.name, item.copy(auth = item.auth), parentFolder))
+        } ?: listOf(Step(stepIndex, item, parentFolder))
     }
     .toList()
 
@@ -121,7 +125,7 @@ internal fun shouldHaltExecution(
             }
           }
         }
-        ?.not() ?: true
+        ?.not() != false
     }
   }
 

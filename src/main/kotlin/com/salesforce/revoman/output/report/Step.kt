@@ -14,10 +14,10 @@ import java.util.Collections.indexOfSubList
 
 data class Step(
   @JvmField val index: String,
-  @JvmField val name: String,
   @JvmField val rawPMStep: Item,
   @JvmField val parentFolder: Folder? = null,
 ) {
+  @JvmField val name: String = rawPMStep.name
   @JvmField var preHookCount: Int = 0
   @JvmField var postHookCount: Int = 0
   @JvmField

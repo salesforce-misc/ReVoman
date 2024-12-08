@@ -43,12 +43,15 @@ import org.http4k.core.Request
 import org.http4k.format.ConfigurableMoshi
 
 object ReVoman {
+
   @JvmStatic
-  @OptIn(ExperimentalStdlibApi::class)
-  fun revUp(vararg kicks: Kick): List<Rundown> =
+  @JvmOverloads
+  fun revUp(
+    dynamicEnvironment: Map<String, String> = mapOf<String, String>(),
+    vararg kicks: Kick
+  ): List<Rundown> =
     kicks
-      .fold(mapOf<String, String>() to listOf<Rundown>()) { (accumulatedMutableEnv, rundowns), kick
-        ->
+      .fold(dynamicEnvironment to listOf<Rundown>()) { (accumulatedMutableEnv, rundowns), kick ->
         val rundown =
           revUp(
             kick.overrideDynamicEnvironments(
@@ -67,10 +70,16 @@ object ReVoman {
     val pmStepsDeepFlattened =
       kick
         .templatePaths()
+        .asSequence()
         .mapNotNull { pmTemplateAdapter.fromJson(bufferFileInResources(it)) }
         .flatMap { (pmSteps, authFromRoot) ->
-          deepFlattenItems(pmSteps.map { it.copy(auth = it.auth ?: authFromRoot) })
+          deepFlattenItems(
+            pmSteps.map { item ->
+              item.copy(request = item.request.copy(auth = item.request.auth ?: authFromRoot))
+            }
+          )
         }
+        .toList()
     logger.info {
       val templateCount = kick.templatePaths().size
       "Total Steps from ${if (templateCount > 1) "$templateCount Collections" else "the Collection"} provided: ${pmStepsDeepFlattened.size}"
@@ -140,7 +149,7 @@ object ReVoman {
               pm.rundown = pm.rundown.copy(stepReports = pm.rundown.stepReports + sr)
               val item = regexReplacer.replaceVariablesInPmItem(itemWithRegex, pm)
               val httpRequest = item.request.toHttpRequest()
-              fireHttpRequest(step, item.auth, httpRequest, kick.insecureHttp())
+              fireHttpRequest(step, item.request.auth, httpRequest, kick.insecureHttp())
                 .mapLeft { sr.copy(requestInfo = Left(it).toVavr()) }
                 .map {
                   sr.copy(

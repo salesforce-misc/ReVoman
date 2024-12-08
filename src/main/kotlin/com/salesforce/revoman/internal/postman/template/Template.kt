@@ -25,7 +25,6 @@ data class Item(
   val name: String = "",
   val item: List<Item>? = null,
   val request: Request = Request(),
-  val auth: Auth? = null,
   val event: List<Event>? = null
 ) {
   @JvmField val httpMethod = request.method
@@ -44,6 +43,7 @@ data class Event(val listen: String, val script: Script) {
 
 @JsonClass(generateAdapter = true)
 data class Request(
+  @JvmField val auth: Auth? = null,
   @JvmField val method: String = "",
   @JvmField val header: List<Header> = emptyList(),
   @JvmField val url: Url = Url(),
