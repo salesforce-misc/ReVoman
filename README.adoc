@@ -209,7 +209,7 @@ TIP: Other simple examples to see in Action: link:{integrationtestdir}/com/sales
 
 [.lead]
 ReṼoman isn't just limited to executing Collection like Postman;
-you can add more _bells & whistles_ 🔔:
+you can add more _bells and whistles_ 🔔:
 
 ifdef::env-github[]
 
@@ -291,7 +291,7 @@ assertThat(pqRundown.mutableEnv)
 <3> Supply the path (relative to resources) to the Environment JSON file
 <4> Supply any dynamic environment that is runtime-specific
 <5> <<Custom Dynamic variables>>
-<6> <<Pre-req and Tests scripts>>
+<6> <<Pre-req and Post-res scripts>>
 <7> <<Execution Control>>
 <8> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Request Config>>
 <9> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Response Config>>
@@ -314,7 +314,7 @@ include::{integrationtestdir}/com/salesforce/revoman/integration/core/pq/PQE2EWi
 <3> Supply the path (relative to resources) to the Environment JSON file
 <4> Supply any dynamic environment that is runtime-specific
 <5> <<Custom Dynamic variables>>
-<6> <<Pre-req and Tests scripts>>
+<6> <<Pre-req and Post-res scripts>>
 <7> <<Execution Control>>
 <8> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Request Config>>
 <9> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Response Config>>
@@ -442,13 +442,13 @@ so the later steps can pick up value for `+{{xyzId}}+` variable from the environ
 * If you have configured a strong type for your response through `responseConfig`, you can write type-safe validations by extracting your Strong type Object using `stepReport.responseInfo.get().<TypeT>getTypedTxnObj()` (if you have configured `responseConfig()` or `globalCustomTypeAdapters()`) or use `JsonPojoUtils.jsonToPojo(TypeT, stepReport.responseInfo.get().httpMsg.bodyString())` to convert it inline.
 * If your response data structure is non-trivial and have requirements to execute validations with different strategies like `fail-fast` or `error-accumulation`, consider using a library like https://github.com/salesforce-misc/Vador[*Vador*]
 
-=== Pre-req and Tests scripts
+=== Pre-req and Post-res scripts
 
-* Postman lets you write custom JavaScript in https://learning.postman.com/docs/writing-scripts/script-references/test-examples/[Pre-req and Tests tabs] that get executed before and after a step respectively. When you export the collection as a template, these scripts also come bundled.
+* Postman lets you write custom JavaScript in https://learning.postman.com/docs/writing-scripts/script-references/test-examples/[Pre-req and Post-res tabs] that get executed before and after a step respectively. When you export the collection as a template, these scripts also come bundled.
 * ReṼoman can execute this JavaScript on JVM. This support ensures that the Postman collection used for manual testing can be used *as-is* for the automation also, without any resistance to modify or overhead of maintaining separate versions for manual and automation.
-** Pre-req JS is executed as the first step before Unmarshall request.
-** Tests JS is executed right after receiving an HTTP response.
-* ReṼoman supports using `npm` modules inside your Pre-req and Tests JavaScript. You can install `npm` modules in any folder using traditional commands like `npm install <module>` and supply in the `Kick` config, the relative path of the parent folder that contains the `node_modules` folder using `nodeModulesRelativePath(...)`. Use those `npm` modules inside your scripts with `require(...)`, for example:
+** Pre-req JS script is executed as the first step before Unmarshall request.
+** Post-res JS script is executed right after receiving an HTTP response.
+* ReṼoman supports using `npm` modules inside your Pre-req and Post-res JS scripts. You can install `npm` modules in any folder using traditional commands like `npm install <module>` and supply in the `Kick` config, the relative path of the parent folder that contains the `node_modules` folder using `nodeModulesRelativePath(...)`. Use those `npm` modules inside your scripts with `require(...)`, for example:
 
 .Install `moment` with npm
 [source,shellscript,indent=0,options="nowrap"]
@@ -476,13 +476,13 @@ image::node_modules.png[]
 * If `node_modules` is ignored on your git repo, you can force-add to check in using the command `git add -all -f <path>/node_modules`
 ====
 
-CAUTION: The recommendation is not to add too much code in Pre-req and Tests scripts, as it is not intuitive to troubleshoot. Use it for simple operations like set environment variables and use Post-Hooks JVM code for any non-trivial operations.
+CAUTION: The recommendation is not to add too much code in <<Pre-req and Post-res scripts>>, as it is not intuitive to troubleshoot. Use it for simple operations like set environment variables and use Post-Hooks JVM code for any non-trivial operations.
 
 [#_mutable_environment]
 === Mutable Environment
 
 * Environment is the only mutable-shared state across step executions, which can be used for data-passing between consumer and the library.
-* This can be mutated (set key-value pairs) through <<Pre-req and Tests scripts>> (using `pm.environment.set()`) and <<#_pre_and_post_hooks,Pre-/Post-Hooks>> (using the reference `rundown.mutableEnv`) during execution.
+* This can be mutated (set key-value pairs) through <<Pre-req and Post-res scripts>> (using `pm.environment.set()`) and <<#_pre_and_post_hooks,Pre-/Post-Hooks>> (using the reference `rundown.mutableEnv`) during execution.
 
 ==== `pmEnvSnapshot` in each StepReport
 Each StepReport also has a `pmEnvSnapshot` to assert if a step has executed as expected and compare snapshots from different steps to examine the execution progress.
@@ -554,9 +554,9 @@ The future looks bright with multiple impactful features in the pipeline:
 * You can add a <<#_pre_and_post_hooks,pre-hook>> to the Step you are interested and add a debug point inside that. This gets hit before ReṼoman fires the request in that Step
 * You can get more adventurous by attaching revoman jar sources and directly adding conditional debug points inside this library source-code. You can search for logs in the source-code that indicate key operations to add conditional debug points with conditions like StepName etc.
 
-=== Is there a way to Mark a Postman collection Step?
+=== Is there a way to add Metadata to a Postman collection Step?
 
-* You can add key-value pairs to a Step Header (e.g., `ignoreHTTPStatusUnsuccessful=true`).
+* You can add key-value pairs to a Step's HTTP Headers section (e.g., `ignoreHTTPStatusUnsuccessful=true`).
 * You can use this information in <<#_step_picks,Step Picks>> or <<#_pre_and_post_hooks>> to identify a particular step to execute any conditional logic
 
 === Do I need to migrate all my existing TestUtils to Postman Collections?
