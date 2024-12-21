@@ -7,6 +7,7 @@
  */
 import org.gradle.api.artifacts.ExternalModuleDependencyBundle
 import org.gradle.api.artifacts.VersionCatalog
+import org.gradle.api.artifacts.VersionConstraint
 import org.gradle.api.provider.Property
 import org.gradle.api.provider.Provider
 import org.gradle.plugin.use.PluginDependency
@@ -18,7 +19,7 @@ infix fun <T> Property<T>.by(value: T) {
   set(value)
 }
 
-internal val VersionCatalog.jdk
+internal val VersionCatalog.jdk: VersionConstraint
   get() = getVersion("jdk")
 
 internal val VersionCatalog.kotestBundle: Provider<ExternalModuleDependencyBundle>

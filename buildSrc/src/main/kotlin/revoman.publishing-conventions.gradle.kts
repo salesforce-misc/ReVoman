@@ -5,7 +5,6 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  * ************************************************************************************************
  */
-import org.gradle.kotlin.dsl.invoke
 
 plugins {
   `maven-publish`
@@ -21,12 +20,9 @@ description = "ReVoman - A template-driven API automation tool for JVM (Java/Kot
 
 repositories { mavenCentral() }
 
-val libs: VersionCatalog = extensions.getByType<VersionCatalogsExtension>().named("libs")
-
 java {
   withJavadocJar()
   withSourcesJar()
-  toolchain { languageVersion.set(JavaLanguageVersion.of(libs.jdk.toString())) }
 }
 
 publishing {

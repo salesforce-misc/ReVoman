@@ -18,8 +18,9 @@ kapt {
   useBuildCache = true
 }
 
-kotlin { 
+kotlin {
+  jvmToolchain(libs.jdk.toString().toInt())
   compilerOptions {
-    freeCompilerArgs.addAll("-Xjvm-default=all", "-Xcontext-receivers", "-Xjdk-release=${libs.jdk}", "-Xconsistent-data-class-copy-visibility")
+    freeCompilerArgs.addAll("-Xjvm-default=all", "-Xcontext-receivers", "-Xconsistent-data-class-copy-visibility")
   } 
 }
