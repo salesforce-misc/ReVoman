@@ -11,7 +11,7 @@ plugins {
   id("revoman.kt-conventions")
   alias(libs.plugins.moshix)
   alias(libs.plugins.node.gradle)
-  alias(libs.plugins.kover)
+  // alias(libs.plugins.kover)
   alias(libs.plugins.nexus.publish)
   alias(libs.plugins.gradle.taskinfo)
 }
@@ -63,7 +63,7 @@ tasks {
   test { dependsOn(npmInstall) }
 }
 
-kover { reports { total { html { onCheck = true } } } }
+// kover { reports { total { html { onCheck = true } } } }
 
 moshi { enableSealed = true }
 

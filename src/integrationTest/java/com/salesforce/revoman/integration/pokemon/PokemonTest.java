@@ -10,9 +10,11 @@ package com.salesforce.revoman.integration.pokemon;
 import static com.google.common.truth.Truth.assertThat;
 import static com.salesforce.revoman.input.config.HookConfig.post;
 import static com.salesforce.revoman.input.config.HookConfig.pre;
-import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.afterAllStepsContainingHeader;
+import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.afterStepContainingHeader;
+import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.afterStepContainingURIPathOfAny;
 import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.afterStepName;
-import static com.salesforce.revoman.input.config.StepPick.PreTxnStepPick.beforeAllStepsContainingHeader;
+import static com.salesforce.revoman.input.config.StepPick.PreTxnStepPick.beforeStepContainingHeader;
+import static com.salesforce.revoman.input.config.StepPick.PreTxnStepPick.beforeStepContainingURIPathOfAny;
 import static com.salesforce.revoman.input.config.StepPick.PreTxnStepPick.beforeStepName;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
@@ -59,7 +61,7 @@ class PokemonTest {
                   @NotNull Step currentStep,
                   @NotNull TxnInfo<Request> requestInfo,
                   @NotNull Rundown rundown) {
-                LOGGER.info("Picked `preLogHook` for stepName: {}", currentStep);
+                LOGGER.info("Picked `preLogHook` before stepName: {}", currentStep);
               }
             });
     //noinspection Convert2Lambda
@@ -67,9 +69,9 @@ class PokemonTest {
         Mockito.spy(
             new PostHook() {
               @Override
-              public void accept(@NotNull StepReport currentStepReport, @NotNull Rundown rundown) {
+              public void accept(@NotNull StepReport stepReport, @NotNull Rundown rundown) {
                 LOGGER.info(
-                    "Picked `postLogHook` for stepName: {}", currentStepReport.step.displayName);
+                    "Picked `postLogHook` after stepName: {}", stepReport.step.displayName);
               }
             });
     //noinspection Convert2Lambda
@@ -94,6 +96,16 @@ class PokemonTest {
                 assertThat(rundown.mutableEnv).containsEntry("pokemonName", "bulbasaur");
               }
             });
+    //noinspection Convert2Lambda
+    final var postHookAfterURIPath =
+        Mockito.spy(
+            new PostHook() {
+              @Override
+              public void accept(@NotNull StepReport stepReport, @NotNull Rundown ignore) {
+                LOGGER.info(
+                    "Picked `postHookAfterURIPath` after stepName: {} with raw URI: {}", stepReport.step.displayName, stepReport.step.rawPMStep.getRequest().url);
+              }
+            });
     final var pokeRundown =
         ReVoman.revUp(
             Kick.configure()
@@ -102,14 +114,16 @@ class PokemonTest {
                 .hooks(
                     pre(beforeStepName("all-pokemon"), preHook),
                     post(afterStepName("all-pokemon"), postHook),
-                    pre(beforeAllStepsContainingHeader("preLog"), preLogHook),
-                    post(afterAllStepsContainingHeader("postLog"), postLogHook))
+                    post(afterStepContainingURIPathOfAny("nature"), postHookAfterURIPath),
+                    pre(beforeStepContainingHeader("preLog"), preLogHook),
+                    post(afterStepContainingHeader("postLog"), postLogHook))
                 .dynamicEnvironment(dynamicEnvironment)
                 .haltOnAnyFailure(true)
                 .off());
 
     Mockito.verify(preHook, times(1)).accept(any(), any(), any());
     Mockito.verify(postHook, times(1)).accept(any(), any());
+    Mockito.verify(postHookAfterURIPath, times(1)).accept(any(), any());
     Mockito.verify(preLogHook, times(1)).accept(any(), any(), any());
     Mockito.verify(postLogHook, times(1)).accept(any(), any());
     assertThat(pokeRundown.stepReports).hasSize(5);

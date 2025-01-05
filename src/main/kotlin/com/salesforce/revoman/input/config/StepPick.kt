@@ -7,17 +7,13 @@
  */
 package com.salesforce.revoman.input.config
 
-import com.salesforce.revoman.input.config.StepPick.ExeStepPick
-import com.salesforce.revoman.input.config.StepPick.PostTxnStepPick
-import com.salesforce.revoman.input.config.StepPick.PreTxnStepPick
 import com.salesforce.revoman.output.Rundown
 import com.salesforce.revoman.output.report.Step
 import com.salesforce.revoman.output.report.StepReport
 import com.salesforce.revoman.output.report.StepReport.Companion.containsHeader
-import com.salesforce.revoman.output.report.StepReport.Companion.uriPathEndsWith
+import com.salesforce.revoman.output.report.StepReport.Companion.uriPathContains
 import com.salesforce.revoman.output.report.TxnInfo
-import com.salesforce.revoman.output.report.TxnInfo.Companion.uriPathEndsWith
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.salesforce.revoman.output.report.TxnInfo.Companion.uriPathContains
 import org.http4k.core.Request
 
 sealed interface StepPick {
@@ -40,30 +36,25 @@ sealed interface StepPick {
 
     companion object PickUtils {
       @JvmStatic
-      fun beforeStepName(stepNameSubstring: String) = PreTxnStepPick { currentStep, _, _ ->
-        currentStep.stepNameMatches(stepNameSubstring)
+      fun beforeStepName(vararg stepNameSubstrings: String) = PreTxnStepPick { currentStep, _, _ ->
+        stepNameSubstrings.any { currentStep.stepNameMatches(it) }
       }
 
       @JvmStatic
-      fun beforeAllStepNames(stepNamesSubstrings: Set<String>) =
-        PreTxnStepPick { currentStep, _, _ ->
-          stepNamesSubstrings.any { currentStep.stepNameMatches(it) }
-        }
-
-      @JvmStatic
-      fun beforeAllStepsInFolder(folderPath: String) = PreTxnStepPick { step, _, _ ->
+      fun beforeEachStepInFolder(folderPath: String) = PreTxnStepPick { step, _, _ ->
         step.isInFolder(folderPath)
       }
 
       @JvmStatic
-      fun beforeAllStepsContainingHeader(key: String) = PreTxnStepPick { _, requestInfo, _ ->
+      fun beforeStepContainingHeader(key: String) = PreTxnStepPick { _, requestInfo, _ ->
         requestInfo.containsHeader(key)
       }
 
       @JvmStatic
-      fun beforeAllStepsWithURIPathEndingWith(path: String) = PreTxnStepPick { _, requestInfo, _ ->
-        requestInfo.uriPathEndsWith(path)
-      }
+      fun beforeStepContainingURIPathOfAny(vararg paths: String) =
+        PreTxnStepPick { _, requestInfo, _ ->
+          paths.any { requestInfo.uriPathContains(it) }
+        }
     }
   }
 
@@ -72,31 +63,24 @@ sealed interface StepPick {
 
     companion object PickUtils {
       @JvmStatic
-      fun afterStepName(stepNameSubstring: String) = PostTxnStepPick { stepReport, _ ->
-        stepReport.step.stepNameMatches(stepNameSubstring)
+      fun afterStepName(vararg stepNameSubstrings: String) = PostTxnStepPick { stepReport, _ ->
+        stepNameSubstrings.any { stepReport.step.stepNameMatches(it) }
       }
 
       @JvmStatic
-      fun afterAllStepNames(stepNamesSubstrings: Set<String>) = PostTxnStepPick { stepReport, _ ->
-        stepNamesSubstrings.any { stepReport.step.stepNameMatches(it) }
-      }
-
-      @JvmStatic
-      fun afterAllStepsInFolder(folderPath: String) = PostTxnStepPick { stepReport, _ ->
+      fun afterEachStepInFolder(folderPath: String) = PostTxnStepPick { stepReport, _ ->
         stepReport.step.isInFolder(folderPath)
       }
 
       @JvmStatic
-      fun afterAllStepsContainingHeader(key: String) = PostTxnStepPick { stepReport, _ ->
+      fun afterStepContainingHeader(key: String) = PostTxnStepPick { stepReport, _ ->
         stepReport.requestInfo.containsHeader(key)
       }
 
       @JvmStatic
-      fun afterAllStepsWithURIPathEndingWith(path: String) = PostTxnStepPick { stepReport, _ ->
-        stepReport.requestInfo.uriPathEndsWith(path)
+      fun afterStepContainingURIPathOfAny(vararg paths: String) = PostTxnStepPick { stepReport, _ ->
+        paths.any { stepReport.requestInfo.uriPathContains(it) }
       }
     }
   }
 }
-
-private val logger = KotlinLogging.logger {}

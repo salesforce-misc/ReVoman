@@ -18,7 +18,7 @@ endif::[]
 :pmtemplates: src/integrationTest/resources/pm-templates
 :imagesdir: docs/images
 :prewrap!:
-:revoman-version: 0.42.5
+:revoman-version: 0.5.0
 
 '''
 
@@ -37,7 +37,7 @@ image::manual-to-automation.png[Manual to Automation, align="center"]
 
 [.lead]
 It strikes a balance between _flexibility_
-provided by low-level tools like https://rest-assured.io/[**REST Assured**] and _ease of use_
+provided by low-level tools like https://rest-assured.io/[**REST Assured**] or https://cucumber.io/[**Cucumber**] and _ease of use_
 provided by UI tools like https://www.postman.com/[**Postman**]
 
 image::hybrid-tool.png[]
@@ -235,27 +235,27 @@ final var pqRundown =
               afterAllStepsContainingHeader("ignoreHTTPStatusUnsuccessful")) // <7>
           .requestConfig( // <8>
               unmarshallRequest(
-                  beforeAllStepsWithURIPathEndingWith(PQ_URI_PATH),
+                  beforeStepContainingURIPathOfAny(PQ_URI_PATH),
                   PlaceQuoteInputRepresentation.class,
                   adapter(PlaceQuoteInputRepresentation.class)))
           .responseConfig( // <9>
               unmarshallResponse(
-                  afterAllStepsWithURIPathEndingWith(PQ_URI_PATH),
+                  afterStepContainingURIPathOfAny(PQ_URI_PATH),
                   PlaceQuoteOutputRepresentation.class),
               unmarshallResponse(
-                  afterAllStepsWithURIPathEndingWith(COMPOSITE_GRAPH_URI_PATH),
+                  afterStepContainingURIPathOfAny(COMPOSITE_GRAPH_URI_PATH),
                   CompositeGraphResponse.class,
                   CompositeGraphResponse.ADAPTER))
           .hooks( // <10>
               pre(
-                  beforeAllStepsWithURIPathEndingWith(PQ_URI_PATH),
+                  beforeStepContainingURIPathOfAny(PQ_URI_PATH),
                   (step, requestInfo, rundown) -> {
                     if (requestInfo.containsHeader(IS_SYNC_HEADER)) {
                       LOGGER.info("This is a Sync step: {}", step);
                     }
                   }),
               post(
-                  afterAllStepsWithURIPathEndingWith(PQ_URI_PATH),
+                  afterStepContainingURIPathOfAny(PQ_URI_PATH),
                   (stepReport, ignore) -> {
                     validatePQResponse(stepReport); // <11>
                     final var isSyncStep =
@@ -270,7 +270,7 @@ final var pqRundown =
                     }
                   }),
               post(
-                  afterAllStepsWithURIPathEndingWith(COMPOSITE_GRAPH_URI_PATH),
+                  afterStepContainingURIPathOfAny(COMPOSITE_GRAPH_URI_PATH),
                   (stepReport, ignore) -> validateCompositeGraphResponse(stepReport)),
               post(
                   afterStepName("query-quote-and-related-records"),
@@ -403,7 +403,7 @@ The configuration offers methods through which the execution strategy can be con
 A hook lets you fiddle with the execution by plugging in your code before or after a Step execution.
 
 [#_step_picks]
-You can pass a `PreTxnStepPick/PostTxnStepPick` which is a `Predicate` used to qualify a step for Pre-/Post-Hook respectively. ReṼoman comes bundled with some predicates under the namespace `PreTxnStepPick.PickUtils/PostTxnStepPick.PickUtils` e.g `beforeAllStepsWithURIPathEndingWith`, `afterStepName` etc. If those don't fit your needs, you can write your own custom predicates too.
+You can pass a `PreTxnStepPick/PostTxnStepPick` which is a `Predicate` used to qualify a step for Pre-/Post-Hook respectively. ReṼoman comes bundled with some predicates under the namespace `PreTxnStepPick.PickUtils/PostTxnStepPick.PickUtils` e.g `beforeStepContainingURIPathOfAny`, `afterStepName` etc. If those don't fit your needs, you can write your own custom predicates too.
 
 [source,java,indent=0,options="nowrap"]
 ----
@@ -484,7 +484,14 @@ CAUTION: The recommendation is not to add too much code in <<Pre-req and Post-re
 * Environment is the only mutable-shared state across step executions, which can be used for data-passing between consumer and the library.
 * This can be mutated (set key-value pairs) through <<Pre-req and Post-res scripts>> (using `pm.environment.set()`) and <<#_pre_and_post_hooks,Pre-/Post-Hooks>> (using the reference `rundown.mutableEnv`) during execution.
 
+==== Read Mutable Environment as Postman Environment JSON format
+
+You may want to troubleshoot manually with Postman using the Mutable environment built during the ReṼoman execution.
+`rundown.getEnvInPostmanEnvJSONFormat()` converts the mutable environment into a Postman JSON format,
+so you can copy and import that conveniently into Postman.
+
 ==== `pmEnvSnapshot` in each StepReport
+
 Each StepReport also has a `pmEnvSnapshot` to assert if a step has executed as expected and compare snapshots from different steps to examine the execution progress.
 
 === Compose Modular Executions

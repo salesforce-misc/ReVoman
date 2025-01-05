@@ -13,6 +13,7 @@ import com.salesforce.revoman.internal.json.adapters.BigDecimalAdapter
 import com.salesforce.revoman.internal.json.adapters.EpochAdapter
 import com.salesforce.revoman.internal.json.adapters.TypeAdapter
 import com.salesforce.revoman.internal.json.adapters.UUIDAdapter
+import com.salesforce.revoman.internal.json.factories.AlwaysSerializeNullsFactory
 import com.salesforce.revoman.internal.json.factories.CaseInsensitiveEnumAdapter
 import com.salesforce.revoman.internal.json.factories.SkipTypesFactory
 import com.squareup.moshi.JsonAdapter
@@ -63,6 +64,7 @@ internal fun buildMoshi(
       .add(EpochAdapter)
       .add(Date::class.java, Rfc3339DateJsonAdapter())
       .addLast(CaseInsensitiveEnumAdapter.FACTORY)
+      .addLast(AlwaysSerializeNullsFactory())
       .addLast(EventAdapter)
       .addLast(ThrowableAdapter)
       .addLast(ListAdapter)
@@ -88,6 +90,6 @@ internal fun buildMoshi(
   return moshiBuilder
 }
 
-// * NOTE 12/03/23 gopala.akshintala: http4k doesn't yet have this method in-built
-internal inline fun <reified T : Any> ConfigurableMoshi.asA(input: String, target: Type): T =
-  moshiReVoman.adapter<T>(target).fromJson(input)!!
+@Target(AnnotationTarget.CLASS)
+@Retention(AnnotationRetention.RUNTIME)
+annotation class AlwaysSerializeNulls

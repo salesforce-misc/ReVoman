@@ -10,12 +10,12 @@ package com.salesforce.revoman.internal.exe
 import arrow.core.Either
 import arrow.core.Either.Right
 import com.salesforce.revoman.input.config.Kick
-import com.salesforce.revoman.internal.json.asA
 import com.salesforce.revoman.internal.postman.PostmanSDK
 import com.salesforce.revoman.output.ExeType.UNMARSHALL_REQUEST
 import com.salesforce.revoman.output.report.Step
 import com.salesforce.revoman.output.report.TxnInfo
 import com.salesforce.revoman.output.report.failure.RequestFailure.UnmarshallRequestFailure
+import com.squareup.moshi.rawType
 import io.exoquery.pprint
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.lang.reflect.Type
@@ -42,7 +42,7 @@ internal fun unmarshallRequest(
   return when {
     isJson(httpRequest) ->
       runChecked<Any?>(currentStep, UNMARSHALL_REQUEST) {
-          pmRequest.body?.let { body -> moshiReVoman.asA(body.raw, requestType) }
+          pmRequest.body?.let { body -> moshiReVoman.asA(body.raw, requestType.rawType.kotlin) }
         }
         .mapLeft { UnmarshallRequestFailure(it, TxnInfo(requestType, null, httpRequest)) }
     else -> {

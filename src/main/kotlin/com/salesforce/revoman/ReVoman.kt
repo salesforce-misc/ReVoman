@@ -102,7 +102,7 @@ object ReVoman {
       )
     val stepNameToReport =
       executeStepsSerially(pmStepsDeepFlattened, kick, moshiReVoman, regexReplacer, pm)
-    return Rundown(stepNameToReport, kick.haltOnFailureOfTypeExcept(), pm.environment)
+    return Rundown(stepNameToReport, pm.environment, kick.haltOnFailureOfTypeExcept(), moshiReVoman)
   }
 
   private fun executeStepsSerially(
@@ -125,7 +125,12 @@ object ReVoman {
         pm.info = Info(step.name)
         pm.currentStepReport = preStepReport
         pm.rundown =
-          Rundown(stepReports + preStepReport, kick.haltOnFailureOfTypeExcept(), pm.environment)
+          Rundown(
+            stepReports + preStepReport,
+            pm.environment,
+            kick.haltOnFailureOfTypeExcept(),
+            moshiReVoman
+          )
         pm.environment.putAll(regexReplacer.replaceVariablesInEnv(pm))
         val currentStepReport: StepReport = // --------### PRE-REQ-JS ###--------
           executePreReqJS(step, itemWithRegex, pm)

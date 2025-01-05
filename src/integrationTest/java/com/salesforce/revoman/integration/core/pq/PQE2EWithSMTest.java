@@ -12,10 +12,10 @@ import static com.salesforce.revoman.input.config.HookConfig.post;
 import static com.salesforce.revoman.input.config.HookConfig.pre;
 import static com.salesforce.revoman.input.config.RequestConfig.unmarshallRequest;
 import static com.salesforce.revoman.input.config.ResponseConfig.unmarshallResponse;
-import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.afterAllStepsContainingHeader;
-import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.afterAllStepsWithURIPathEndingWith;
+import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.afterStepContainingHeader;
+import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.afterStepContainingURIPathOfAny;
 import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.afterStepName;
-import static com.salesforce.revoman.input.config.StepPick.PreTxnStepPick.beforeAllStepsWithURIPathEndingWith;
+import static com.salesforce.revoman.input.config.StepPick.PreTxnStepPick.beforeStepContainingURIPathOfAny;
 import static com.salesforce.revoman.integration.core.pq.adapters.ConnectInputRepWithGraphAdapter.adapter;
 import static com.salesforce.revoman.output.ExeType.HTTP_STATUS;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -80,31 +80,30 @@ class PQE2EWithSMTest {
                     (ignore1, ignore2, ignore3) -> String.valueOf(Random.Default.nextInt(999) + 1))
                 .nodeModulesRelativePath("js") // <6>
                 .haltOnFailureOfTypeExcept(
-                    HTTP_STATUS,
-                    afterAllStepsContainingHeader("ignoreHTTPStatusUnsuccessful")) // <7>
+                    HTTP_STATUS, afterStepContainingHeader("ignoreHTTPStatusUnsuccessful")) // <7>
                 .requestConfig( // <8>
                     unmarshallRequest(
-                        beforeAllStepsWithURIPathEndingWith(PQ_URI_PATH),
+                        beforeStepContainingURIPathOfAny(PQ_URI_PATH),
                         PlaceQuoteInputRepresentation.class,
                         adapter(PlaceQuoteInputRepresentation.class)))
                 .responseConfig( // <9>
                     unmarshallResponse(
-                        afterAllStepsWithURIPathEndingWith(PQ_URI_PATH),
+                        afterStepContainingURIPathOfAny(PQ_URI_PATH),
                         PlaceQuoteOutputRepresentation.class),
                     unmarshallResponse(
-                        afterAllStepsWithURIPathEndingWith(COMPOSITE_GRAPH_URI_PATH),
+                        afterStepContainingURIPathOfAny(COMPOSITE_GRAPH_URI_PATH),
                         CompositeGraphResponse.class,
                         CompositeGraphResponse.ADAPTER))
                 .hooks( // <10>
                     pre(
-                        beforeAllStepsWithURIPathEndingWith(PQ_URI_PATH),
+                        beforeStepContainingURIPathOfAny(PQ_URI_PATH),
                         (step, requestInfo, rundown) -> {
                           if (requestInfo.containsHeader(IS_SYNC_HEADER)) {
                             LOGGER.info("This is a Sync step: {}", step);
                           }
                         }),
                     post(
-                        afterAllStepsWithURIPathEndingWith(PQ_URI_PATH),
+                        afterStepContainingURIPathOfAny(PQ_URI_PATH),
                         (stepReport, ignore) -> {
                           validatePQResponse(stepReport); // <11>
                           final var isSyncStep =
@@ -119,7 +118,7 @@ class PQE2EWithSMTest {
                           }
                         }),
                     post(
-                        afterAllStepsWithURIPathEndingWith(COMPOSITE_GRAPH_URI_PATH),
+                        afterStepContainingURIPathOfAny(COMPOSITE_GRAPH_URI_PATH),
                         (stepReport, ignore) -> validateCompositeGraphResponse(stepReport)),
                     post(
                         afterStepName("query-quote-and-related-records"),

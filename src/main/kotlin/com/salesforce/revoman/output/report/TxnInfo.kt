@@ -8,10 +8,10 @@
 package com.salesforce.revoman.output.report
 
 import com.salesforce.revoman.input.json.jsonToPojo
-import com.salesforce.revoman.output.endsWith
 import com.squareup.moshi.JsonAdapter
 import io.vavr.control.Either
 import java.lang.reflect.Type
+import java.util.Collections.indexOfSubList
 import org.http4k.core.HttpMessage
 import org.http4k.core.Request
 import org.http4k.core.Response
@@ -58,7 +58,7 @@ data class TxnInfo<HttpMsgT : HttpMessage>(
     @JvmStatic fun TxnInfo<Request>.getURIPath(): String = httpMsg.uri.path
 
     @JvmStatic
-    fun TxnInfo<Request>.uriPathEndsWith(path: String): Boolean =
-      httpMsg.uri.path.trim('/').split("/").endsWith(path.trim('/').split("/"))
+    fun TxnInfo<Request>.uriPathContains(path: String): Boolean =
+      indexOfSubList(httpMsg.uri.path.trim('/').split("/"), path.trim('/').split("/")) != -1
   }
 }
