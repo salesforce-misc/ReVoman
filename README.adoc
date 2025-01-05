@@ -18,7 +18,7 @@ endif::[]
 :pmtemplates: src/integrationTest/resources/pm-templates
 :imagesdir: docs/images
 :prewrap!:
-:revoman-version: 0.5.0
+:revoman-version: 0.5.1
 
 '''
 
@@ -487,7 +487,7 @@ CAUTION: The recommendation is not to add too much code in <<Pre-req and Post-re
 ==== Read Mutable Environment as Postman Environment JSON format
 
 You may want to troubleshoot manually with Postman using the Mutable environment built during the ReṼoman execution.
-`rundown.getEnvInPostmanEnvJSONFormat()` converts the mutable environment into a Postman JSON format,
+`rundown.envInPostmanEnvJSONFormat()` converts the mutable environment into a Postman JSON format,
 so you can copy and import that conveniently into Postman.
 
 ==== `pmEnvSnapshot` in each StepReport

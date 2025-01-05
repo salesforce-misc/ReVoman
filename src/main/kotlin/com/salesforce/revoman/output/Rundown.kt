@@ -22,7 +22,7 @@ data class Rundown(
 ) {
   @get:JvmName("immutableEnv") val immutableEnv: Map<String, Any?> by lazy { mutableEnv.toMap() }
 
-  @get:JvmName("postmanEnvJson")
+  @get:JvmName("envInPostmanEnvJSONFormat")
   val envInPostmanEnvJSONFormat: String by lazy {
     moshiReVoman.prettify(moshiReVoman.asFormatString(fromMap(mutableEnv, moshiReVoman)))
   }
