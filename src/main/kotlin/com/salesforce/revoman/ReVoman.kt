@@ -121,7 +121,11 @@ object ReVoman {
         logger.info { "***** Executing Step: $step *****" }
         val itemWithRegex = step.rawPMStep
         val preStepReport =
-          StepReport(step, Right(TxnInfo(httpMsg = itemWithRegex.request.toHttpRequest())))
+          StepReport(
+            step,
+            Right(TxnInfo(httpMsg = itemWithRegex.request.toHttpRequest())),
+            moshiReVoman = moshiReVoman,
+          )
         pm.info = Info(step.name)
         pm.currentStepReport = preStepReport
         pm.rundown =

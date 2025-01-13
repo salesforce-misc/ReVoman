@@ -9,6 +9,7 @@ package com.salesforce.revoman.output.report
 
 import arrow.core.Either.Left
 import arrow.core.Either.Right
+import com.salesforce.revoman.internal.postman.template.Environment.Companion.fromMap
 import com.salesforce.revoman.output.ExeType
 import com.salesforce.revoman.output.postman.PostmanEnvironment
 import com.salesforce.revoman.output.report.TxnInfo.Companion.uriPathContains
@@ -23,6 +24,7 @@ import io.vavr.control.Either.left
 import io.vavr.control.Either.right
 import org.http4k.core.Request
 import org.http4k.core.Response
+import org.http4k.format.ConfigurableMoshi
 
 data class StepReport
 internal constructor(
@@ -31,20 +33,23 @@ internal constructor(
   @JvmField val preHookFailure: PreHookFailure? = null,
   @JvmField val responseInfo: Either<out ResponseFailure, TxnInfo<Response>>? = null,
   @JvmField val postHookFailure: PostHookFailure? = null,
-  @JvmField val envSnapshot: PostmanEnvironment<Any?> = PostmanEnvironment()
+  private val moshiReVoman: ConfigurableMoshi,
+  @JvmField val envSnapshot: PostmanEnvironment<Any?> = PostmanEnvironment(),
 ) {
   internal constructor(
     step: Step,
     requestInfo: arrow.core.Either<RequestFailure, TxnInfo<Request>>? = null,
     preHookFailure: PreHookFailure? = null,
     responseInfo: arrow.core.Either<ResponseFailure, TxnInfo<Response>>? = null,
-    postHookFailure: PostHookFailure? = null
+    postHookFailure: PostHookFailure? = null,
+    moshiReVoman: ConfigurableMoshi,
   ) : this(
     step,
     requestInfo?.toVavr(),
     preHookFailure,
     responseInfo?.toVavr(),
     postHookFailure,
+    moshiReVoman,
   )
 
   @JvmField
@@ -59,6 +64,11 @@ internal constructor(
 
   @JvmField
   val isHttpStatusSuccessful: Boolean = failure?.fold({ it !is PostHookFailure }, { true }) != true
+
+  @get:JvmName("envSnapShotInPostmanEnvJSONFormat")
+  val envSnapShotInPostmanEnvJSONFormat: String by lazy {
+    moshiReVoman.prettify(moshiReVoman.asFormatString(fromMap(envSnapshot, moshiReVoman)))
+  }
 
   companion object {
     private fun failure(
@@ -110,7 +120,7 @@ internal constructor(
     @JvmStatic
     fun Either<out RequestFailure, TxnInfo<Request>>?.containsHeader(
       key: String,
-      value: String
+      value: String,
     ): Boolean = this?.fold({ false }, { it.containsHeader(key, value) }) ?: false
   }
 
