@@ -14,7 +14,6 @@ import kotlin.random.Random.Default.nextBoolean
 import kotlin.random.Random.Default.nextInt
 import kotlin.random.Random.Default.nextLong
 import kotlinx.datetime.Clock
-import org.apache.commons.lang3.RandomStringUtils
 
 private val faker = faker {}
 
@@ -31,7 +30,7 @@ private val dynamicVariableGenerators: Map<String, () -> String> =
     "\$isoTimestamp" to { Clock.System.now().toString() },
     "\$randomUUID" to { UUID.randomUUID().toString() },
     // Text, numbers, and colors
-    "\$randomAlphaNumeric" to { RandomStringUtils.randomAlphanumeric(1) },
+    "\$randomAlphaNumeric" to { randomAlphanumeric(1) },
     "\$randomBoolean" to { nextBoolean().toString() },
     "\$randomInt" to { nextInt(0, Int.MAX_VALUE).toString() },
     "\$randomColor" to faker.color::name,
@@ -40,7 +39,7 @@ private val dynamicVariableGenerators: Map<String, () -> String> =
     "\$randomIP" to faker.internet::iPv4Address,
     "\$randomIPV6" to faker.internet::iPv6Address,
     "\$randomMACAddress" to { faker.internet.macAddress() },
-    "\$randomPassword" to { RandomStringUtils.randomAlphanumeric(15) },
+    "\$randomPassword" to { randomAlphanumeric(15) },
     // Names
     "\$randomFirstName" to faker.name::firstName,
     "\$randomLastName" to faker.name::lastName,
@@ -63,6 +62,11 @@ private val dynamicVariableGenerators: Map<String, () -> String> =
   )
 
 fun getRandomHex() = nextInt(255).toString(16).uppercase()
+
+private val charPool = ('a'..'z') + ('A'..'Z') + ('0'..'9')
+
+fun randomAlphanumeric(length: Int) =
+  (1..length).map { charPool[nextInt(0, charPool.size)] }.joinToString("")
 
 private val dynamicVariableGeneratorsWithPM: Map<String, (PostmanSDK) -> String> =
   mapOf("\$currentRequestName" to { it.info.requestName })

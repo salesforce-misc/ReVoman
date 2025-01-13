@@ -19,7 +19,6 @@ kotlin-logging = "7.0.0"
 pprint = "3.0.0"
 underscore = "1.105"
 kotlin-faker = "1.16.0"
-apache-commons-lang3 = "3.17.0"
 mockito = "5.14.0"
 spring = "6.2.0"
 json-assert = "1.5.3"
@@ -70,7 +69,6 @@ mockito-core = { module = "org.mockito:mockito-core", version.ref = "mockito" }
 spring-beans = { module = "org.springframework:spring-beans", version.ref = "spring" }
 json-assert = { module = "org.skyscreamer:jsonassert", version.ref = "json-assert" }
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime-jvm", version.ref = "kotlinx-datetime" }
-apache-commons-lang3 = { module = "org.apache.commons:commons-lang3", version.ref = "apache-commons-lang3" }
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 
 # Gradle plugins

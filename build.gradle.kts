@@ -11,7 +11,7 @@ plugins {
   id("revoman.kt-conventions")
   alias(libs.plugins.moshix)
   alias(libs.plugins.node.gradle)
-  // alias(libs.plugins.kover)
+  alias(libs.plugins.kover)
   alias(libs.plugins.nexus.publish)
   alias(libs.plugins.gradle.taskinfo)
 }
@@ -23,7 +23,6 @@ dependencies {
   api(libs.kotlin.vavr)
   api(libs.arrow.core)
   api(libs.kotlinx.datetime)
-  implementation(libs.apache.commons.lang3)
   implementation(libs.bundles.kotlin.logging)
   implementation(libs.pprint)
   implementation(libs.graal.js)

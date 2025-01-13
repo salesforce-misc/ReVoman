@@ -25,8 +25,8 @@ class RegexReplacer(
    * Order of Variable resolution
    * <ul>
    * <li>Custom Dynamic Variables</li>
-   * <li>Dynamic variable supplied through config </li>
-   * <li>Environment built during execution + Postman environment supplied as a file through
+   * <li>Generated Dynamic variables</li>
+   * <li>Dynamic Environment supplied through config + Environment built during execution + Postman environment supplied as a file through
    *   config</li>
    * </ul>
    */
