@@ -20,7 +20,7 @@ data class TxnInfo<HttpMsgT : HttpMessage>(
   @JvmField val txnObjType: Type? = null,
   @JvmField val txnObj: Any? = null,
   @JvmField val httpMsg: HttpMsgT,
-  @JvmField val isJson: Boolean = true
+  @JvmField val isJson: Boolean = true,
 ) {
   fun <T> getTypedTxnObj(): T? = (txnObjType as? Class<T>)?.cast(txnObj)
 
@@ -30,14 +30,14 @@ data class TxnInfo<HttpMsgT : HttpMessage>(
     customAdapters: List<Any> = emptyList(),
     customAdaptersWithType: Map<Type, List<Either<JsonAdapter<Any>, JsonAdapter.Factory>>> =
       emptyMap(),
-    typesToIgnore: Set<Class<out Any>> = emptySet()
+    typesToIgnore: Set<Class<out Any>> = emptySet(),
   ): T? =
     jsonToPojo(
       txObjType,
       httpMsg.bodyString(),
       customAdapters,
       customAdaptersWithType,
-      typesToIgnore
+      typesToIgnore,
     )
 
   fun containsHeader(key: String): Boolean = httpMsg.headers.toMap().containsKey(key)

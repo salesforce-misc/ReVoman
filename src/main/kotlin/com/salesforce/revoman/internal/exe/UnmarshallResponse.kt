@@ -25,7 +25,7 @@ import org.http4k.format.ConfigurableMoshi
 internal fun unmarshallResponse(
   kick: Kick,
   moshiReVoman: ConfigurableMoshi,
-  pm: PostmanSDK
+  pm: PostmanSDK,
 ): Either<UnmarshallResponseFailure, TxnInfo<Response>> {
   val httpResponse = pm.currentStepReport.responseInfo!!.get().httpMsg
   return when {

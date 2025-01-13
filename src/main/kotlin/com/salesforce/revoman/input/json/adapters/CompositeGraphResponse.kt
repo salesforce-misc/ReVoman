@@ -23,7 +23,7 @@ data class CompositeGraphResponse(val graphs: List<Graph>) {
     data class SuccessGraph(
       override val graphId: String,
       val graphResponse: GraphResponse,
-      override val isSuccessful: Boolean
+      override val isSuccessful: Boolean,
     ) : Graph {
       @JsonClass(generateAdapter = true)
       data class GraphResponse(val compositeResponse: List<CompositeResponse>) {
@@ -32,7 +32,7 @@ data class CompositeGraphResponse(val graphs: List<Graph>) {
           val body: Body,
           val httpHeaders: HttpHeaders,
           val httpStatusCode: Int,
-          val referenceId: String
+          val referenceId: String,
         ) {
           @JsonClass(generateAdapter = true)
           data class Body(val errors: List<Any>, val id: String, val success: Boolean)
@@ -47,7 +47,7 @@ data class CompositeGraphResponse(val graphs: List<Graph>) {
     data class ErrorGraph(
       override val graphId: String,
       val graphResponse: GraphErrorResponse,
-      override val isSuccessful: Boolean
+      override val isSuccessful: Boolean,
     ) : Graph {
       @Json(ignore = true)
       @JvmField
@@ -75,7 +75,7 @@ data class CompositeGraphResponse(val graphs: List<Graph>) {
           val body: List<Body>,
           val httpHeaders: HttpHeaders,
           val httpStatusCode: Int,
-          val referenceId: String
+          val referenceId: String,
         ) {
           @JsonClass(generateAdapter = true)
           data class Body(val errorCode: String, val fields: List<Any>?, val message: String)
@@ -94,7 +94,7 @@ data class CompositeGraphResponse(val graphs: List<Graph>) {
         "isSuccessful",
         true,
         SuccessGraph::class.java,
-        ErrorGraph::class.java
+        ErrorGraph::class.java,
       )
   }
 }

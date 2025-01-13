@@ -25,7 +25,7 @@ class EnvironmentTest {
         "key2" to "2",
         "key3" to listOf(1, 2, 3),
         "key4" to mapOf("4" to 4),
-        "key5" to null
+        "key5" to null,
       )
     val envFromMap = fromMap(env, moshiReVoman)
     val envInPostmanFormat = moshiReVoman.asFormatString(envFromMap)

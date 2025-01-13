@@ -31,7 +31,7 @@ data class Step(
     parentFolder?.let {
       indexOfSubList(
         it.path.map { f -> f.name },
-        folderPath.trim(*FOLDER_DELIMITER.toCharArray()).split(FOLDER_DELIMITER)
+        folderPath.trim(*FOLDER_DELIMITER.toCharArray()).split(FOLDER_DELIMITER),
       ) != -1
     } ?: folderPath.isBlank()
 
@@ -62,7 +62,7 @@ data class Folder
 constructor(
   @JvmField val name: String,
   @JvmField val parent: Folder? = null,
-  @JvmField val subFolders: MutableList<Folder> = mutableListOf()
+  @JvmField val subFolders: MutableList<Folder> = mutableListOf(),
 ) {
   @JvmField val isRoot: Boolean = parent == null
   @JvmField val parentPath: List<Folder> = parent?.parentPath?.plus(parent) ?: emptyList()

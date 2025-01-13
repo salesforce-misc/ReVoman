@@ -33,7 +33,7 @@ internal fun postHookExe(kick: Kick, pm: PostmanSDK): PostHookFailure? =
 private fun pickPostHooks(
   postHooks: List<HookConfig>,
   currentStepReport: StepReport,
-  rundown: Rundown
+  rundown: Rundown,
 ): List<PostHook> =
   postHooks
     .asSequence()

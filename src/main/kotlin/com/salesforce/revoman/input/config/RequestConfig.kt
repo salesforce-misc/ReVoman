@@ -18,27 +18,25 @@ data class RequestConfig
 internal constructor(
   val preTxnStepPick: PreTxnStepPick,
   val objType: Type,
-  val customTypeAdapter: Either<JsonAdapter<Any>, JsonAdapter.Factory>? = null
+  val customTypeAdapter: Either<JsonAdapter<Any>, JsonAdapter.Factory>? = null,
 ) {
   companion object {
     @JvmStatic
-    fun unmarshallRequest(
-      preTxnStepPick: PreTxnStepPick,
-      requestType: Type,
-    ): RequestConfig = RequestConfig(preTxnStepPick, requestType)
+    fun unmarshallRequest(preTxnStepPick: PreTxnStepPick, requestType: Type): RequestConfig =
+      RequestConfig(preTxnStepPick, requestType)
 
     @JvmStatic
     fun unmarshallRequest(
       preTxnStepPick: PreTxnStepPick,
       requestType: Type,
-      customTypeAdapter: JsonAdapter<Any>
+      customTypeAdapter: JsonAdapter<Any>,
     ): RequestConfig = RequestConfig(preTxnStepPick, requestType, left(customTypeAdapter))
 
     @JvmStatic
     fun unmarshallRequest(
       preTxnStepPick: PreTxnStepPick,
       requestType: Type,
-      customTypeAdapterFactory: JsonAdapter.Factory
+      customTypeAdapterFactory: JsonAdapter.Factory,
     ): RequestConfig = RequestConfig(preTxnStepPick, requestType, right(customTypeAdapterFactory))
   }
 }

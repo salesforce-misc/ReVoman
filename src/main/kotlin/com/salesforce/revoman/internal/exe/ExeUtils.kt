@@ -59,7 +59,7 @@ internal fun deepFlattenItems(
 internal fun shouldStepBePicked(
   currentStep: Step,
   runOnlySteps: List<ExeStepPick>,
-  skipSteps: List<ExeStepPick>
+  skipSteps: List<ExeStepPick>,
 ): Boolean {
   if (runOnlySteps.isEmpty() && skipSteps.isEmpty()) {
     return true
@@ -78,7 +78,7 @@ internal fun shouldStepBePicked(
 internal fun <T> runChecked(
   currentStep: Step,
   exeType: ExeType,
-  fn: () -> T
+  fn: () -> T,
 ): Either<Throwable, T> {
   logger.info { "$currentStep Executing $exeType" }
   return runCatching(fn)
@@ -94,7 +94,7 @@ internal fun <T> runChecked(
 internal fun shouldHaltExecution(
   currentStepReport: StepReport,
   kick: Kick,
-  pm: PostmanSDK
+  pm: PostmanSDK,
 ): Boolean =
   when {
     currentStepReport.isSuccessful -> false
@@ -112,7 +112,7 @@ internal fun shouldHaltExecution(
           currentStepReport.exeTypeForFailure == exeType &&
             postTxnPick.pick(
               currentStepReport,
-              pm.rundown.copy(stepReports = pm.rundown.stepReports + currentStepReport)
+              pm.rundown.copy(stepReports = pm.rundown.stepReports + currentStepReport),
             )
         }
         ?.any { it }

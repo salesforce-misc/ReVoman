@@ -18,7 +18,7 @@ data class Rundown(
   @JvmField val stepReports: List<StepReport> = emptyList(),
   @JvmField val mutableEnv: PostmanEnvironment<Any?>,
   private val stepsToIgnoreForFailurePick: Map<ExeType, PostTxnStepPick>?,
-  private val moshiReVoman: ConfigurableMoshi
+  private val moshiReVoman: ConfigurableMoshi,
 ) {
   @get:JvmName("immutableEnv") val immutableEnv: Map<String, Any?> by lazy { mutableEnv.toMap() }
 

@@ -25,14 +25,14 @@ sealed class RequestFailure : ExeFailure() {
 
   data class UnmarshallRequestFailure(
     override val failure: Throwable,
-    override val requestInfo: TxnInfo<Request>
+    override val requestInfo: TxnInfo<Request>,
   ) : RequestFailure() {
     override val exeType = UNMARSHALL_REQUEST
   }
 
   data class HttpRequestFailure(
     override val failure: Throwable,
-    override val requestInfo: TxnInfo<Request>
+    override val requestInfo: TxnInfo<Request>,
   ) : RequestFailure() {
     override val exeType = HTTP_REQUEST
   }

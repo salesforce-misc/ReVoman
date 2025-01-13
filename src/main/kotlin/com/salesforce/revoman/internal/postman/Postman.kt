@@ -15,7 +15,7 @@ import com.squareup.moshi.adapter
 @OptIn(ExperimentalStdlibApi::class)
 internal fun mergeEnvs(
   pmEnvironmentPaths: Set<String>,
-  dynamicEnvironment: Map<String, String?>
+  dynamicEnvironment: Map<String, String?>,
 ): Map<String, String?> {
   // ! TODO gopala.akshintala 19/05/22: Should we highlight if there are clashes between dynamic env
   // and env path?

@@ -62,7 +62,7 @@ internal class CaseInsensitiveEnumAdapter<T : Enum<T>>(private val enumType: Cla
         override fun create(
           type: Type,
           annotations: Set<Annotation>,
-          moshi: Moshi
+          moshi: Moshi,
         ): JsonAdapter<*>? {
           val rawType: Class<*> = Types.getRawType(type)
           if (!rawType.isEnum) {

@@ -58,13 +58,13 @@ private constructor(
       labelKey: String,
       labelValueForSuccess: Boolean,
       successType: Type,
-      errorType: Type
+      errorType: Type,
     ): Factory =
       object : Factory {
         override fun create(
           type: Type,
           annotations: Set<Annotation>,
-          moshi: Moshi
+          moshi: Moshi,
         ): JsonAdapter<*>? {
           if (type.rawType != baseType || annotations.isNotEmpty()) {
             return null
@@ -72,7 +72,7 @@ private constructor(
           return DiMorphicAdapter(
               labelKey,
               Triple(labelValueForSuccess, successType, moshi.adapter(successType)),
-              errorType to moshi.adapter(errorType)
+              errorType to moshi.adapter(errorType),
             )
             .nullSafe()
         }

@@ -48,7 +48,7 @@ object ReVoman {
   @JvmOverloads
   fun revUp(
     dynamicEnvironment: Map<String, String> = mapOf<String, String>(),
-    vararg kicks: Kick
+    vararg kicks: Kick,
   ): List<Rundown> =
     kicks
       .fold(dynamicEnvironment to listOf<Rundown>()) { (accumulatedMutableEnv, rundowns), kick ->
@@ -56,7 +56,7 @@ object ReVoman {
           revUp(
             kick.overrideDynamicEnvironments(
               kick.dynamicEnvironmentsFlattened(),
-              accumulatedMutableEnv
+              accumulatedMutableEnv,
             )
           )
         rundown.mutableEnv.mutableEnvCopyWithValuesOfType<String>() to (rundowns + rundown)
@@ -90,7 +90,7 @@ object ReVoman {
       initMoshi(
         kick.globalCustomTypeAdapters(),
         kick.customTypeAdaptersFromRequestConfig() + kick.customTypeAdaptersFromResponseConfig(),
-        kick.globalSkipTypes()
+        kick.globalSkipTypes(),
       )
     val environment = mergeEnvs(kick.environmentPaths(), kick.dynamicEnvironmentsFlattened())
     val pm =
@@ -110,7 +110,7 @@ object ReVoman {
     kick: Kick,
     moshiReVoman: ConfigurableMoshi,
     regexReplacer: RegexReplacer,
-    pm: PostmanSDK
+    pm: PostmanSDK,
   ): List<StepReport> {
     var haltExecution = false
     return pmStepsFlattened
@@ -129,7 +129,7 @@ object ReVoman {
             stepReports + preStepReport,
             pm.environment,
             kick.haltOnFailureOfTypeExcept(),
-            moshiReVoman
+            moshiReVoman,
           )
         pm.environment.putAll(regexReplacer.replaceVariablesInEnv(pm))
         val currentStepReport: StepReport = // --------### PRE-REQ-JS ###--------

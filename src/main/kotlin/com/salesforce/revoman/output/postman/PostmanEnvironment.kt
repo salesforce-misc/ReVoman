@@ -49,7 +49,7 @@ data class PostmanEnvironment<ValueT : Any?>(
 
   fun <T> mutableEnvCopyWithKeysStartingWith(
     type: Class<T>,
-    vararg prefixes: String
+    vararg prefixes: String,
   ): PostmanEnvironment<T> =
     PostmanEnvironment(
       mutableEnv
@@ -66,7 +66,7 @@ data class PostmanEnvironment<ValueT : Any?>(
 
   fun <T> mutableEnvCopyExcludingKeys(
     type: Class<T>,
-    whiteListKeys: Set<String>
+    whiteListKeys: Set<String>,
   ): PostmanEnvironment<T> =
     PostmanEnvironment(
       mutableEnv
@@ -77,7 +77,7 @@ data class PostmanEnvironment<ValueT : Any?>(
 
   fun <T> mutableEnvCopyWithKeysNotStartingWith(
     type: Class<T>,
-    vararg prefixes: String
+    vararg prefixes: String,
   ): PostmanEnvironment<T> =
     PostmanEnvironment(
       mutableEnv
@@ -90,7 +90,7 @@ data class PostmanEnvironment<ValueT : Any?>(
 
   fun <T> mutableEnvCopyWithKeysEndingWith(
     type: Class<T>,
-    vararg suffixes: String
+    vararg suffixes: String,
   ): PostmanEnvironment<T> =
     PostmanEnvironment(
       mutableEnv
@@ -101,7 +101,7 @@ data class PostmanEnvironment<ValueT : Any?>(
 
   fun <T> mutableEnvCopyWithKeysNotEndingWith(
     type: Class<T>,
-    vararg suffixes: String
+    vararg suffixes: String,
   ): PostmanEnvironment<T> =
     PostmanEnvironment(
       mutableEnv

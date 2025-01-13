@@ -48,7 +48,7 @@ class RegexReplacerTest {
     val regexReplacer =
       RegexReplacer(
         mapOf("\$customEpoch" to customDynamicVariableGenerator),
-        noopDynamicVariableGenerator
+        noopDynamicVariableGenerator,
       )
     val pm = PostmanSDK(mockk(), null, regexReplacer)
     pm.environment["key"] = "value-{{\$customEpoch}}"

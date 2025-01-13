@@ -21,12 +21,7 @@ class PostmanTest {
     }
     val regexReplacer = RegexReplacer(emptyMap(), dummyDynamicVariableGenerator)
     val pm = PostmanSDK(mockk(), null, regexReplacer)
-    pm.environment.putAll(
-      mergeEnvs(
-        setOf("env-with-regex.json"),
-        mutableMapOf("un" to "userName"),
-      )
-    )
+    pm.environment.putAll(mergeEnvs(setOf("env-with-regex.json"), mutableMapOf("un" to "userName")))
     val envWithVariablesReplaced = regexReplacer.replaceVariablesInEnv(pm)
     envWithVariablesReplaced shouldContain ("userName" to "user-$epoch@xyz.com")
   }

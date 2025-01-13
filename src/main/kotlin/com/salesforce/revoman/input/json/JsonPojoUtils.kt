@@ -34,7 +34,7 @@ fun <PojoT : Any> jsonFileToPojo(
   jsonFilePath: String,
   customAdapters: List<Any> = emptyList(),
   customAdaptersWithType: Map<Type, List<Either<JsonAdapter<Any>, Factory>>> = emptyMap(),
-  skipTypes: Set<Class<out Any>> = emptySet()
+  skipTypes: Set<Class<out Any>> = emptySet(),
 ): PojoT? {
   val jsonAdapter = initMoshi<PojoT>(customAdapters, customAdaptersWithType, skipTypes, pojoType)
   return jsonAdapter.fromJson(bufferFileInResources(jsonFilePath))
@@ -46,14 +46,14 @@ fun <PojoT : Any> jsonFileToPojo(jsonFile: JsonFile<PojoT>): PojoT? =
     jsonFile.jsonFilePath(),
     jsonFile.customAdapters(),
     jsonFile.customAdaptersWithType(),
-    jsonFile.skipTypes()
+    jsonFile.skipTypes(),
   )
 
 inline fun <reified PojoT : Any> jsonFileToPojo(
   jsonFilePath: String,
   customAdapters: List<Any> = emptyList(),
   customAdaptersWithType: Map<Type, List<Either<JsonAdapter<Any>, Factory>>> = emptyMap(),
-  skipTypes: Set<Class<out Any>> = emptySet()
+  skipTypes: Set<Class<out Any>> = emptySet(),
 ): PojoT? =
   jsonFileToPojo(PojoT::class.java, jsonFilePath, customAdapters, customAdaptersWithType, skipTypes)
 
@@ -74,7 +74,7 @@ fun <PojoT : Any> jsonToPojo(
   jsonStr: String,
   customAdapters: List<Any> = emptyList(),
   customAdaptersWithType: Map<Type, List<Either<JsonAdapter<Any>, Factory>>> = emptyMap(),
-  skipTypes: Set<Class<out Any>> = emptySet()
+  skipTypes: Set<Class<out Any>> = emptySet(),
 ): PojoT? {
   val jsonAdapter = initMoshi<PojoT>(customAdapters, customAdaptersWithType, skipTypes, pojoType)
   return jsonAdapter.fromJson(jsonStr)
@@ -86,14 +86,14 @@ fun <PojoT : Any> jsonToPojo(jsonString: JsonString<PojoT>): PojoT? =
     jsonString.jsonString(),
     jsonString.customAdapters(),
     jsonString.customAdaptersWithType(),
-    jsonString.skipTypes()
+    jsonString.skipTypes(),
   )
 
 inline fun <reified PojoT : Any> jsonToPojo(
   jsonStr: String,
   customAdapters: List<Any> = emptyList(),
   customAdaptersWithType: Map<Type, List<Either<JsonAdapter<Any>, Factory>>> = emptyMap(),
-  skipTypes: Set<Class<out Any>> = emptySet()
+  skipTypes: Set<Class<out Any>> = emptySet(),
 ): PojoT? =
   jsonToPojo(PojoT::class.java, jsonStr, customAdapters, customAdaptersWithType, skipTypes)
 
@@ -116,7 +116,7 @@ fun <PojoT : Any> pojoToJson(
   customAdapters: List<Any> = emptyList(),
   customAdaptersWithType: Map<Type, List<Either<JsonAdapter<Any>, Factory>>> = emptyMap(),
   skipTypes: Set<Class<out Any>> = emptySet(),
-  indent: String? = "  "
+  indent: String? = "  ",
 ): String? {
   val jsonAdapter = initMoshi<PojoT>(customAdapters, customAdaptersWithType, skipTypes, pojoType)
   return (indent?.let { jsonAdapter.indent(indent) } ?: jsonAdapter).toJson(pojo)
@@ -129,7 +129,7 @@ fun <PojoT : Any> pojoToJson(config: Pojo<PojoT>): String? =
     config.customAdapters(),
     config.customAdaptersWithType(),
     config.skipTypes(),
-    config.indent()
+    config.indent(),
   )
 
 inline fun <reified PojoT : Any> pojoToJson(
@@ -137,7 +137,7 @@ inline fun <reified PojoT : Any> pojoToJson(
   customAdapters: List<Any> = emptyList(),
   customAdaptersWithType: Map<Type, List<Either<JsonAdapter<Any>, Factory>>> = emptyMap(),
   skipTypes: Set<Class<out Any>> = emptySet(),
-  indent: String? = "  "
+  indent: String? = "  ",
 ): String? =
   pojoToJson(PojoT::class.java, pojo, customAdapters, customAdaptersWithType, skipTypes, indent)
 
@@ -146,7 +146,7 @@ private fun <PojoT : Any> initMoshi(
   customAdapters: List<Any> = emptyList(),
   customAdaptersWithType: Map<Type, List<Either<JsonAdapter<Any>, Factory>>> = emptyMap(),
   skipTypes: Set<Class<out Any>> = emptySet(),
-  pojoType: Type
+  pojoType: Type,
 ): JsonAdapter<PojoT> =
   buildMoshi(customAdapters, customAdaptersWithType, skipTypes).build().adapter(pojoType)
 

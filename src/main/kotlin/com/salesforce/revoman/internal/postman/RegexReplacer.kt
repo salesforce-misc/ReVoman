@@ -13,25 +13,26 @@ import com.salesforce.revoman.internal.postman.template.Item
 import com.salesforce.revoman.internal.postman.template.Request
 
 private const val VARIABLE_KEY = "variableKey"
-val postManVariableRegex = "\\{\\{(?<$VARIABLE_KEY>[^{}]*?)}}".toRegex()
+private val postManVariableRegex = "\\{\\{(?<$VARIABLE_KEY>[^{}]*?)}}".toRegex()
 
 class RegexReplacer(
   private val customDynamicVariableGenerators: Map<String, CustomDynamicVariableGenerator> =
     emptyMap(),
-  private val dynamicVariableGenerator: (String, PostmanSDK) -> String? = ::dynamicVariableGenerator
+  private val dynamicVariableGenerator: (String, PostmanSDK) -> String? = ::dynamicVariableGenerator,
 ) {
   /**
    * <p>
    * Order of Variable resolution
    * <ul>
    * <li>Custom Dynamic Variables</li>
-   * <li>Dynamic Variables</li>
-   * <li>Dynamic Environment + Environment from file</li>
+   * <li>Dynamic variable supplied through config </li>
+   * <li>Environment built during execution + Postman environment supplied as a file through
+   *   config</li>
    * </ul>
    */
   internal fun replaceVariablesRecursively(
     stringWithRegexToReplace: String?,
-    pm: PostmanSDK
+    pm: PostmanSDK,
   ): String? =
     stringWithRegexToReplace?.let {
       postManVariableRegex.replace(it) { matchResult ->
@@ -40,7 +41,7 @@ class RegexReplacer(
           ?.let { cdvg ->
             replaceVariablesRecursively(
               cdvg.generate(variableKey, pm.currentStepReport, pm.rundown),
-              pm
+              pm,
             )
           }
           ?.also { value -> pm.environment[variableKey] = value }
@@ -72,7 +73,7 @@ class RegexReplacer(
         request.header.map { header ->
           header.copy(
             key = replaceVariablesRecursively(header.key, pm) ?: header.key,
-            value = replaceVariablesRecursively(header.value, pm) ?: header.value
+            value = replaceVariablesRecursively(header.value, pm) ?: header.value,
           )
         },
       url =
@@ -80,7 +81,7 @@ class RegexReplacer(
       body =
         request.body?.copy(
           raw = replaceVariablesRecursively(request.body.raw, pm) ?: request.body.raw
-        )
+        ),
     )
 
   internal fun replaceVariablesInEnv(pm: PostmanSDK): Map<String, Any?> =
@@ -92,6 +93,6 @@ class RegexReplacer(
         {
           if (it.value is String?) replaceVariablesRecursively(it.value as String?, pm)
           else it.value
-        }
+        },
       )
 }

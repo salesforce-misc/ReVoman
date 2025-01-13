@@ -86,9 +86,7 @@ internal interface KickDef {
 
   @Value.Check
   fun validateConfig() {
-    require(
-      !haltOnAnyFailure() || (haltOnAnyFailure() && haltOnFailureOfTypeExcept() == null),
-    ) {
+    require(!haltOnAnyFailure() || (haltOnAnyFailure() && haltOnFailureOfTypeExcept() == null)) {
       "`haltOnAnyFailureExcept` should NOT be set when `haltOnAnyFailure` is set to `True`"
     }
     require(disjoint(runOnlySteps(), skipSteps())) {

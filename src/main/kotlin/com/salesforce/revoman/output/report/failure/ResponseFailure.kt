@@ -28,7 +28,7 @@ sealed class ResponseFailure : ExeFailure() {
   data class UnmarshallResponseFailure(
     override val failure: Throwable,
     override val requestInfo: TxnInfo<Request>,
-    override val responseInfo: TxnInfo<Response>
+    override val responseInfo: TxnInfo<Response>,
   ) : ResponseFailure() {
     override val exeType = UNMARSHALL_RESPONSE
   }

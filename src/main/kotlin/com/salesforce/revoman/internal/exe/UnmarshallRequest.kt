@@ -28,7 +28,7 @@ internal fun unmarshallRequest(
   pmRequest: com.salesforce.revoman.internal.postman.template.Request,
   kick: Kick,
   moshiReVoman: ConfigurableMoshi,
-  pm: PostmanSDK
+  pm: PostmanSDK,
 ): Either<UnmarshallRequestFailure, TxnInfo<Request>> {
   val httpRequest = pmRequest.toHttpRequest()
   val requestType: Type =

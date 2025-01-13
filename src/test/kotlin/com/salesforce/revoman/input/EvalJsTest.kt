@@ -33,7 +33,7 @@ class EvalJsTest {
           return pm.environment.get(variable)
         }
         """
-          .trimIndent(),
+          .trimIndent()
       )
       .execute("hello")
       .asString() shouldBe "world"
@@ -48,7 +48,7 @@ class EvalJsTest {
         """
         pm.info.requestName
         """
-          .trimIndent(),
+          .trimIndent()
       )
       .asString() shouldBe "postIt"
   }
@@ -62,7 +62,7 @@ class EvalJsTest {
         """
           pm.variables.replaceIn("Today is {{${"$"}currentDate}}")
         """
-          .trimIndent(),
+          .trimIndent()
       )
       .asString() shouldBe "Today is ${LocalDate.now()}"
   }

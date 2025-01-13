@@ -29,7 +29,7 @@ class PostmanSDK(
   private val moshiReVoman: ConfigurableMoshi,
   nodeModulesRelativePath: String? = null,
   val regexReplacer: RegexReplacer = RegexReplacer(),
-  mutableEnv: MutableMap<String, Any?> = mutableMapOf()
+  mutableEnv: MutableMap<String, Any?> = mutableMapOf(),
 ) {
   @JvmField val environment: PostmanEnvironment<Any?> = PostmanEnvironment(mutableEnv)
   lateinit var info: Info
@@ -129,7 +129,7 @@ class PostmanSDK(
     @JvmField val header: List<Header> = emptyList(),
     @JvmField val url: Url = Url(),
     @JvmField val body: Body? = null,
-    @JvmField val event: List<Event>? = null
+    @JvmField val event: List<Event>? = null,
   ) {
     fun json(): Value? = body?.raw?.let { jsonStrToObj(it) }
 
@@ -143,7 +143,7 @@ class PostmanSDK(
   inner class Response(
     @JvmField val code: Int,
     @JvmField val status: String,
-    @JvmField val body: String
+    @JvmField val body: String,
   ) {
     /**
      * This is implemented using

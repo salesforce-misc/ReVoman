@@ -73,7 +73,7 @@ fun <T> listW(
   name: String,
   list: List<T>?,
   writer: JsonWriter,
-  block: NestedNodeWriter<T>
+  block: NestedNodeWriter<T>,
 ): JsonWriter =
   with(writer) {
     name(name)

@@ -22,7 +22,7 @@ import com.salesforce.revoman.output.report.failure.ResponseFailure.PostResJSFai
 internal fun executePreReqJS(
   currentStep: Step,
   item: Item,
-  pm: PostmanSDK
+  pm: PostmanSDK,
 ): Either<PreReqJSFailure, Unit> {
   val preReqJS = item.event?.find { it.listen == "prerequest" }?.script?.exec?.joinToString("\n")
   return if (!preReqJS.isNullOrBlank()) {
@@ -41,7 +41,7 @@ private fun executePreReqJSWithPolyglot(preReqJS: String, pmRequest: Request, pm
 internal fun executePostResJS(
   currentStep: Step,
   item: Item,
-  pm: PostmanSDK
+  pm: PostmanSDK,
 ): Either<PostResJSFailure, Unit> {
   val postResJs = item.event?.find { it.listen == "test" }?.script?.exec?.joinToString("\n")
   return if (!postResJs.isNullOrBlank()) {
@@ -52,7 +52,7 @@ internal fun executePostResJS(
         PostResJSFailure(
           it,
           pm.currentStepReport.requestInfo!!.get(),
-          pm.currentStepReport.responseInfo!!.get()
+          pm.currentStepReport.responseInfo!!.get(),
         )
       }
   } else {
@@ -64,7 +64,7 @@ private fun executePostResJSWithPolyglot(
   postResJS: String,
   pmRequest: Request,
   stepReport: StepReport,
-  pm: PostmanSDK
+  pm: PostmanSDK,
 ) {
   val httpResponse = stepReport.responseInfo!!.get().httpMsg
   pm.setRequestAndResponse(pm.from(pmRequest), httpResponse)

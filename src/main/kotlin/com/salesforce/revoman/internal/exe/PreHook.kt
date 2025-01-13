@@ -24,7 +24,7 @@ internal fun preHookExe(
   currentStep: Step,
   kick: Kick,
   requestInfo: TxnInfo<Request>,
-  pm: PostmanSDK
+  pm: PostmanSDK,
 ): PreHookFailure? =
   pickPreHooks(kick.preHooks(), currentStep, requestInfo, pm.rundown)
     .asSequence()
@@ -39,7 +39,7 @@ private fun pickPreHooks(
   preHooks: List<HookConfig>,
   currentStep: Step,
   requestInfo: TxnInfo<Request>,
-  rundown: Rundown
+  rundown: Rundown,
 ): List<PreHook> =
   preHooks
     .asSequence()

@@ -14,7 +14,6 @@ import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.after
 import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.afterStepContainingURIPathOfAny;
 import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.afterStepName;
 import static com.salesforce.revoman.input.config.StepPick.PreTxnStepPick.beforeStepContainingHeader;
-import static com.salesforce.revoman.input.config.StepPick.PreTxnStepPick.beforeStepContainingURIPathOfAny;
 import static com.salesforce.revoman.input.config.StepPick.PreTxnStepPick.beforeStepName;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
@@ -70,8 +69,7 @@ class PokemonTest {
             new PostHook() {
               @Override
               public void accept(@NotNull StepReport stepReport, @NotNull Rundown rundown) {
-                LOGGER.info(
-                    "Picked `postLogHook` after stepName: {}", stepReport.step.displayName);
+                LOGGER.info("Picked `postLogHook` after stepName: {}", stepReport.step.displayName);
               }
             });
     //noinspection Convert2Lambda
@@ -103,7 +101,9 @@ class PokemonTest {
               @Override
               public void accept(@NotNull StepReport stepReport, @NotNull Rundown ignore) {
                 LOGGER.info(
-                    "Picked `postHookAfterURIPath` after stepName: {} with raw URI: {}", stepReport.step.displayName, stepReport.step.rawPMStep.getRequest().url);
+                    "Picked `postHookAfterURIPath` after stepName: {} with raw URI: {}",
+                    stepReport.step.displayName,
+                    stepReport.step.rawPMStep.getRequest().url);
               }
             });
     final var pokeRundown =

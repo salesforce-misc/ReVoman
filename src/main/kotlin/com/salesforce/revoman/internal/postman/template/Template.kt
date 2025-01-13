@@ -25,7 +25,7 @@ data class Item(
   val name: String = "",
   val item: List<Item>? = null,
   val request: Request = Request(),
-  val event: List<Event>? = null
+  val event: List<Event>? = null,
 ) {
   @JvmField val httpMethod = request.method
 }
@@ -48,7 +48,7 @@ data class Request(
   @JvmField val header: List<Header> = emptyList(),
   @JvmField val url: Url = Url(),
   @JvmField val body: Body? = null,
-  @JvmField val event: List<Event>? = null
+  @JvmField val event: List<Event>? = null,
 ) {
   internal fun toHttpRequest(): org.http4k.core.Request {
     val contentType =
