@@ -18,7 +18,7 @@ endif::[]
 :pmtemplates: src/integrationTest/resources/pm-templates
 :imagesdir: docs/images
 :prewrap!:
-:revoman-version: 0.5.1
+:revoman-version: 0.5.2
 
 '''
 
@@ -200,9 +200,9 @@ Rundown(
 StepReport(
   step: Step,
   requestInfo: Either<RequestFailure, TxnInfo<Request>>? = null, // <1>
-  preHookFailure: PreHookFailure? = null,
+  preStepHookFailure: PreStepHookFailure? = null,
   responseInfo: Either<ResponseFailure, TxnInfo<Response>>? = null,
-  postHookFailure: PostHookFailure? = null,
+  postStepHookFailure: PostStepHookFailure? = null,
   envSnapshot: PostmanEnvironment<Any?> // <2>
 )
 ----
@@ -304,7 +304,7 @@ assertThat(pqRundown.mutableEnv)
 <7> <<Execution Control>>
 <8> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Request Config>>
 <9> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Response Config>>
-<10> <<#_pre_and_post_hooks>>
+<10> <<#_pre_and_post_step_hooks>>
 <11> <<Response Validations>>
 <12> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Global Custom Type Adapters>>
 <13> Ignore Java cert issues when firing HTTP calls
@@ -327,7 +327,7 @@ include::{integrationtestdir}/com/salesforce/revoman/integration/core/pq/PQE2EWi
 <7> <<Execution Control>>
 <8> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Request Config>>
 <9> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Response Config>>
-<10> <<#_pre_and_post_hooks>>
+<10> <<#_pre_and_post_step_hooks>>
 <11> <<Response Validations>>
 <12> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Global Custom Type Adapters>>
 <13> Ignore Java cert issues when firing HTTP calls
@@ -406,8 +406,8 @@ The configuration offers methods through which the execution strategy can be con
 * `runOnlySteps`, `skipSteps` — All these accept a `predicate` of type `ExeStepPick`, which is invoked passing the current `Step` instance to decide whether to execute or skip a step.
 ** There are some `ExeStepPick` predicates bundled with ReṼoman under `ExeStepPick.PickUtils` e.g `withName`, `inFolder` etc. You can write a custom predicate of your own too.
 
-[#_pre_and_post_hooks]
-=== Pre- and Post-Hooks
+[#_pre_and_post_step_hooks]
+=== Pre- and Post-Step Hooks
 
 A hook lets you fiddle with the execution by plugging in your code before or after a Step execution.
 
@@ -491,7 +491,7 @@ CAUTION: The recommendation is not to add too much code in <<Pre-req and Post-re
 === Mutable Environment
 
 * Environment is the only mutable-shared state across step executions, which can be used for data passing between the consumer and the library.
-* This can be mutated (set key-value pairs) through <<Pre-req and Post-res scripts>> (using `pm.environment.set()`) and <<#_pre_and_post_hooks,Pre-/Post-Hooks>> (using the reference `rundown.mutableEnv`) during execution.
+* This can be mutated (set key-value pairs) through <<Pre-req and Post-res scripts>> (using `pm.environment.set()`) and <<#_pre_and_post_step_hooks,Pre-/Post-Hooks>> (using the reference `rundown.mutableEnv`) during execution.
 
 ==== Read Mutable Environment as Postman Environment JSON format
 
@@ -507,7 +507,8 @@ Each StepReport also has a `pmEnvSnapshot` to assert if a step has executed as e
 
 * You don't have to squash all your steps into one mega collection. Instead, you can break them into easy-to-manage modular collections. `ReVoman.revUp()` accepts a list of collection paths through `templatePaths()`
 * But that doesn't mean you have to execute all these templates in one-go. You can make multiple `ReVoman.revUp()` calls for different collections.
-* If you wish to compose these executions, you can do so by adding the previous execution's `mutableEnv` to the current execution using the `dynamicEnvironment` parameter. This also comes in handy when you wish to execute a common step (e.g. `UserSetup`) inside a Test setup method and use that environment for all the tests.
+* If you wish to compose these executions in a specific order, you can use the `revUp` overload which accepts a vararg `Kick` configs.
+** You can also achieve the same yourself, by adding the previous execution's `mutableEnv` to the current execution using the `dynamicEnvironment` parameter. This also comes in handy when you wish to execute a common step (e.g. `UserSetup`) inside a Test setup method and use that environment for all the tests.
 
 === Custom Dynamic variables
 
@@ -567,13 +568,13 @@ The future looks bright with multiple impactful features in the pipeline:
 
 === How to Debug a step in the middle of an Execution?
 
-* You can add a <<#_pre_and_post_hooks,pre-hook>> to the Step you are interested and add a debug point inside that. This gets hit before ReṼoman fires the request in that Step
+* You can add a <<#_pre_and_post_step_hooks,pre-hook>> to the Step you are interested and add a debug point inside that. This gets hit before ReṼoman fires the request in that Step
 * You can get more adventurous by attaching revoman jar sources and directly adding conditional debug points inside this library source-code. You can search for logs in the source-code that indicate key operations to add conditional debug points with conditions like StepName etc.
 
 === Is there a way to add Metadata to a Postman collection Step?
 
 * You can add key-value pairs to a Step's HTTP Headers section (e.g., `ignoreHTTPStatusUnsuccessful=true`).
-* You can use this information in <<#_step_picks,Step Picks>> or <<#_pre_and_post_hooks>> to identify a particular step to execute any conditional logic
+* You can use this information in <<#_step_picks,Step Picks>> or <<#_pre_and_post_step_hooks>> to identify a particular step to execute any conditional logic
 
 === Do I need to migrate all my existing TestUtils to Postman Collections?
 

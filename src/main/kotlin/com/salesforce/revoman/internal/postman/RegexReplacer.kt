@@ -26,8 +26,8 @@ class RegexReplacer(
    * <ul>
    * <li>Custom Dynamic Variables</li>
    * <li>Generated Dynamic variables</li>
-   * <li>Dynamic Environment supplied through config + Environment built during execution + Postman environment supplied as a file through
-   *   config</li>
+   * <li>Dynamic Environment supplied through config + Environment built during execution + Postman
+   *   environment supplied as a file through config</li>
    * </ul>
    */
   internal fun replaceVariablesRecursively(

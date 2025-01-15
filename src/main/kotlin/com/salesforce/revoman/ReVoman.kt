@@ -11,7 +11,9 @@ import arrow.core.Either.Left
 import arrow.core.Either.Right
 import arrow.core.flatMap
 import arrow.core.merge
+import com.salesforce.revoman.input.PostExeHook
 import com.salesforce.revoman.input.bufferFileInResources
+import com.salesforce.revoman.input.bufferInputStream
 import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.internal.exe.deepFlattenItems
 import com.salesforce.revoman.internal.exe.executePostResJS
@@ -43,12 +45,20 @@ import org.http4k.core.Request
 import org.http4k.format.ConfigurableMoshi
 
 object ReVoman {
+  @JvmStatic
+  @JvmOverloads
+  fun revUp(
+    vararg kicks: Kick,
+    postExeHook: PostExeHook = PostExeHook { _, _ -> },
+    dynamicEnvironment: Map<String, String> = emptyMap(),
+  ): List<Rundown> = revUp(kicks.toList(), postExeHook, dynamicEnvironment)
 
   @JvmStatic
   @JvmOverloads
   fun revUp(
-    dynamicEnvironment: Map<String, String> = mapOf<String, String>(),
-    vararg kicks: Kick,
+    kicks: List<Kick>,
+    postExeHook: PostExeHook = PostExeHook { _, _ -> },
+    dynamicEnvironment: Map<String, String> = emptyMap(),
   ): List<Rundown> =
     kicks
       .fold(dynamicEnvironment to listOf<Rundown>()) { (accumulatedMutableEnv, rundowns), kick ->
@@ -59,7 +69,9 @@ object ReVoman {
               accumulatedMutableEnv,
             )
           )
-        rundown.mutableEnv.mutableEnvCopyWithValuesOfType<String>() to (rundowns + rundown)
+        val accumulatedRundowns = rundowns + rundown
+        postExeHook.accept(rundown, accumulatedRundowns)
+        rundown.mutableEnv.mutableEnvCopyWithValuesOfType<String>() to accumulatedRundowns
       }
       .second
 
@@ -67,11 +79,13 @@ object ReVoman {
   @OptIn(ExperimentalStdlibApi::class)
   fun revUp(kick: Kick): Rundown {
     val pmTemplateAdapter = Moshi.Builder().build().adapter<Template>()
+    val templateBuffers =
+      kick.templatePaths().map { bufferFileInResources(it) } +
+        kick.templateInputStreams().map { bufferInputStream(it) }
     val pmStepsDeepFlattened =
-      kick
-        .templatePaths()
+      templateBuffers
         .asSequence()
-        .mapNotNull { pmTemplateAdapter.fromJson(bufferFileInResources(it)) }
+        .mapNotNull { pmTemplateAdapter.fromJson(it) }
         .flatMap { (pmSteps, authFromRoot) ->
           deepFlattenItems(
             pmSteps.map { item ->
@@ -92,7 +106,12 @@ object ReVoman {
         kick.customTypeAdaptersFromRequestConfig() + kick.customTypeAdaptersFromResponseConfig(),
         kick.globalSkipTypes(),
       )
-    val environment = mergeEnvs(kick.environmentPaths(), kick.dynamicEnvironmentsFlattened())
+    val environment =
+      mergeEnvs(
+        kick.environmentPaths(),
+        kick.environmentInputStreams(),
+        kick.dynamicEnvironmentsFlattened(),
+      )
     val pm =
       PostmanSDK(
         moshiReVoman,
@@ -149,7 +168,10 @@ object ReVoman {
             .flatMap { requestInfo: TxnInfo<Request> -> // --------### PRE-HOOKS ###--------
               preHookExe(step, kick, requestInfo, pm)?.let {
                 Left(
-                  preStepReport.copy(requestInfo = Right(requestInfo).toVavr(), preHookFailure = it)
+                  preStepReport.copy(
+                    requestInfo = Right(requestInfo).toVavr(),
+                    preStepHookFailure = it,
+                  )
                 )
               } ?: Right(preStepReport.copy(requestInfo = Right(requestInfo).toVavr()))
             }
@@ -183,7 +205,7 @@ object ReVoman {
             .map { sr: StepReport -> // --------### POST-HOOKS ###--------
               pm.currentStepReport = sr
               pm.rundown = pm.rundown.copy(stepReports = pm.rundown.stepReports + sr)
-              sr.copy(postHookFailure = postHookExe(kick, pm))
+              sr.copy(postStepHookFailure = postHookExe(kick, pm))
             }
             .merge()
             .copy(

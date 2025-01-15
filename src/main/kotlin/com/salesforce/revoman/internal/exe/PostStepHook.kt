@@ -8,24 +8,24 @@
 package com.salesforce.revoman.internal.exe
 
 import com.salesforce.revoman.input.config.HookConfig
-import com.salesforce.revoman.input.config.HookConfig.Hook.PostHook
+import com.salesforce.revoman.input.config.HookConfig.StepHook.PostStepHook
 import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.input.config.StepPick.PostTxnStepPick
 import com.salesforce.revoman.internal.postman.PostmanSDK
-import com.salesforce.revoman.output.ExeType.POST_HOOK
+import com.salesforce.revoman.output.ExeType.POST_STEP_HOOK
 import com.salesforce.revoman.output.Rundown
 import com.salesforce.revoman.output.report.StepReport
-import com.salesforce.revoman.output.report.failure.HookFailure.PostHookFailure
+import com.salesforce.revoman.output.report.failure.HookFailure.PostStepHookFailure
 import io.github.oshai.kotlinlogging.KotlinLogging
 
-internal fun postHookExe(kick: Kick, pm: PostmanSDK): PostHookFailure? =
+internal fun postHookExe(kick: Kick, pm: PostmanSDK): PostStepHookFailure? =
   pickPostHooks(kick.postHooks(), pm.currentStepReport, pm.rundown)
     .asSequence()
     .map { postHook ->
-      runChecked(pm.currentStepReport.step, POST_HOOK) {
+      runChecked(pm.currentStepReport.step, POST_STEP_HOOK) {
           postHook.accept(pm.currentStepReport, pm.rundown)
         }
-        .mapLeft { PostHookFailure(it) }
+        .mapLeft { PostStepHookFailure(it) }
     }
     .firstOrNull { it.isLeft() }
     ?.leftOrNull()
@@ -34,11 +34,11 @@ private fun pickPostHooks(
   postHooks: List<HookConfig>,
   currentStepReport: StepReport,
   rundown: Rundown,
-): List<PostHook> =
+): List<PostStepHook> =
   postHooks
     .asSequence()
     .filter { (it.pick as PostTxnStepPick).pick(currentStepReport, rundown) }
-    .map { it.hook as PostHook }
+    .map { it.stepHook as PostStepHook }
     .toList()
     .also {
       if (it.isNotEmpty()) {

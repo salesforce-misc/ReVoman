@@ -12,7 +12,7 @@ import arrow.core.Either.Right
 import com.salesforce.revoman.internal.postman.template.Item
 import com.salesforce.revoman.internal.postman.template.Request
 import com.salesforce.revoman.internal.postman.template.Url
-import com.salesforce.revoman.output.report.failure.HookFailure.PostHookFailure
+import com.salesforce.revoman.output.report.failure.HookFailure.PostStepHookFailure
 import com.salesforce.revoman.output.report.failure.RequestFailure.HttpRequestFailure
 import io.kotest.matchers.shouldBe
 import io.mockk.mockk
@@ -79,16 +79,16 @@ class StepReportTest {
       Request(method = POST.toString(), url = Url("https://overfullstack.github.io/"))
     val requestInfo = TxnInfo(String::class.java, "fakeRequest", rawRequest.toHttpRequest())
     val responseInfo: TxnInfo<Response> = TxnInfo(String::class.java, "fakeResponse", Response(OK))
-    val stepReportPostHookFailure =
+    val stepReportPostStepHookFailure =
       StepReport(
         Step("", Item(request = rawRequest)),
         Right(requestInfo),
         null,
         Right(responseInfo),
-        PostHookFailure(RuntimeException("fakeRTE")),
+        PostStepHookFailure(RuntimeException("fakeRTE")),
         mockk(),
       )
-    println(stepReportPostHookFailure)
-    stepReportPostHookFailure.isHttpStatusSuccessful shouldBe true
+    println(stepReportPostStepHookFailure)
+    stepReportPostStepHookFailure.isHttpStatusSuccessful shouldBe true
   }
 }

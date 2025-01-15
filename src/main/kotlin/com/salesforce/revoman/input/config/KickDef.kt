@@ -16,6 +16,7 @@ import com.salesforce.revoman.output.report.StepReport
 import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.JsonAdapter.Factory
 import io.vavr.control.Either
+import java.io.InputStream
 import java.lang.reflect.Type
 import java.util.Collections.disjoint
 import org.immutables.value.Value
@@ -24,10 +25,15 @@ import org.immutables.value.Value.Style.ImplementationVisibility.PUBLIC
 @Config
 @Value.Immutable
 internal interface KickDef {
-  // * NOTE 29/10/23 gopala.akshintala: `List` coz it allows adding a template twice
+  // * NOTE 29/10/23 gopala.akshintala: `List` coz it allows adding a template twice,
+  // as there can be use-cases to execute the same template twice
   fun templatePaths(): List<String>
 
+  fun templateInputStreams(): List<InputStream>
+
   fun environmentPaths(): Set<String>
+
+  fun environmentInputStreams(): List<InputStream>
 
   fun dynamicEnvironments(): List<Map<String, String>>
 

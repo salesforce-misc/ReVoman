@@ -7,8 +7,8 @@
  */
 package com.salesforce.revoman.input.config
 
-import com.salesforce.revoman.input.config.HookConfig.Hook.PostHook
-import com.salesforce.revoman.input.config.HookConfig.Hook.PreHook
+import com.salesforce.revoman.input.config.HookConfig.StepHook.PostStepHook
+import com.salesforce.revoman.input.config.HookConfig.StepHook.PreStepHook
 import com.salesforce.revoman.input.config.StepPick.PostTxnStepPick
 import com.salesforce.revoman.input.config.StepPick.PreTxnStepPick
 import com.salesforce.revoman.output.Rundown
@@ -18,21 +18,22 @@ import com.salesforce.revoman.output.report.TxnInfo
 import org.http4k.core.Request
 
 @ExposedCopyVisibility
-data class HookConfig private constructor(val pick: StepPick, val hook: Hook) {
-  sealed interface Hook {
-    fun interface PreHook : Hook {
+data class HookConfig private constructor(val pick: StepPick, val stepHook: StepHook) {
+  sealed interface StepHook {
+    fun interface PreStepHook : StepHook {
       @Throws(Throwable::class)
       fun accept(currentStep: Step, requestInfo: TxnInfo<Request>, rundown: Rundown)
     }
 
-    fun interface PostHook : Hook {
+    fun interface PostStepHook : StepHook {
       @Throws(Throwable::class) fun accept(currentStepReport: StepReport, rundown: Rundown)
     }
   }
 
   companion object {
-    @JvmStatic fun pre(pick: PreTxnStepPick, hook: PreHook): HookConfig = HookConfig(pick, hook)
+    @JvmStatic fun pre(pick: PreTxnStepPick, hook: PreStepHook): HookConfig = HookConfig(pick, hook)
 
-    @JvmStatic fun post(pick: PostTxnStepPick, hook: PostHook): HookConfig = HookConfig(pick, hook)
+    @JvmStatic
+    fun post(pick: PostTxnStepPick, hook: PostStepHook): HookConfig = HookConfig(pick, hook)
   }
 }

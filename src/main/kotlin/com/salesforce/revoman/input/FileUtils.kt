@@ -10,6 +10,7 @@
 package com.salesforce.revoman.input
 
 import java.io.File
+import java.io.InputStream
 import okio.BufferedSource
 import okio.FileSystem
 import okio.Path.Companion.toPath
@@ -21,6 +22,11 @@ fun bufferFileInResources(fileRelativePath: String): BufferedSource =
 
 fun readFileInResourcesToString(fileRelativePath: String): String =
   bufferFileInResources(fileRelativePath).readUtf8()
+
+fun bufferInputStream(inputStream: InputStream): BufferedSource = inputStream.source().buffer()
+
+fun readInputStreamToString(inputStream: InputStream): String =
+  bufferInputStream(inputStream).readUtf8()
 
 fun bufferFile(file: File): BufferedSource = file.source().buffer()
 

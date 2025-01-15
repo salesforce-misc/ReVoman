@@ -5,7 +5,10 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  * ************************************************************************************************
  */
-const val GROUP_ID = "com.salesforce.revoman"
-const val VERSION = "0.5.2"
-const val ARTIFACT_ID = "revoman"
-const val STAGING_PROFILE_ID = "1ea0a23e61ba7d"
+package com.salesforce.revoman.input
+
+import com.salesforce.revoman.output.Rundown
+
+fun interface PostExeHook {
+  @Throws(Throwable::class) fun accept(currentRundown: Rundown, rundowns: List<Rundown>)
+}

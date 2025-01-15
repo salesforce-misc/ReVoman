@@ -8,15 +8,15 @@
 package com.salesforce.revoman.internal.exe
 
 import com.salesforce.revoman.input.config.HookConfig
-import com.salesforce.revoman.input.config.HookConfig.Hook.PreHook
+import com.salesforce.revoman.input.config.HookConfig.StepHook.PreStepHook
 import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.input.config.StepPick.PreTxnStepPick
 import com.salesforce.revoman.internal.postman.PostmanSDK
-import com.salesforce.revoman.output.ExeType.PRE_HOOK
+import com.salesforce.revoman.output.ExeType.PRE_STEP_HOOK
 import com.salesforce.revoman.output.Rundown
 import com.salesforce.revoman.output.report.Step
 import com.salesforce.revoman.output.report.TxnInfo
-import com.salesforce.revoman.output.report.failure.HookFailure.PreHookFailure
+import com.salesforce.revoman.output.report.failure.HookFailure.PreStepHookFailure
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.http4k.core.Request
 
@@ -25,12 +25,14 @@ internal fun preHookExe(
   kick: Kick,
   requestInfo: TxnInfo<Request>,
   pm: PostmanSDK,
-): PreHookFailure? =
+): PreStepHookFailure? =
   pickPreHooks(kick.preHooks(), currentStep, requestInfo, pm.rundown)
     .asSequence()
     .map { preHook ->
-      runChecked(currentStep, PRE_HOOK) { preHook.accept(currentStep, requestInfo, pm.rundown) }
-        .mapLeft { PreHookFailure(it, requestInfo) }
+      runChecked(currentStep, PRE_STEP_HOOK) {
+          preHook.accept(currentStep, requestInfo, pm.rundown)
+        }
+        .mapLeft { PreStepHookFailure(it, requestInfo) }
     }
     .firstOrNull { it.isLeft() }
     ?.leftOrNull()
@@ -40,11 +42,11 @@ private fun pickPreHooks(
   currentStep: Step,
   requestInfo: TxnInfo<Request>,
   rundown: Rundown,
-): List<PreHook> =
+): List<PreStepHook> =
   preHooks
     .asSequence()
     .filter { (it.pick as PreTxnStepPick).pick(currentStep, requestInfo, rundown) }
-    .map { it.hook as PreHook }
+    .map { it.stepHook as PreStepHook }
     .toList()
     .also {
       if (it.isNotEmpty()) {

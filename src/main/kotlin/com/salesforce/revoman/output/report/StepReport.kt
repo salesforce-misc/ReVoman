@@ -14,8 +14,8 @@ import com.salesforce.revoman.output.ExeType
 import com.salesforce.revoman.output.postman.PostmanEnvironment
 import com.salesforce.revoman.output.report.TxnInfo.Companion.uriPathContains
 import com.salesforce.revoman.output.report.failure.ExeFailure
-import com.salesforce.revoman.output.report.failure.HookFailure.PostHookFailure
-import com.salesforce.revoman.output.report.failure.HookFailure.PreHookFailure
+import com.salesforce.revoman.output.report.failure.HookFailure.PostStepHookFailure
+import com.salesforce.revoman.output.report.failure.HookFailure.PreStepHookFailure
 import com.salesforce.revoman.output.report.failure.HttpStatusUnsuccessful
 import com.salesforce.revoman.output.report.failure.RequestFailure
 import com.salesforce.revoman.output.report.failure.ResponseFailure
@@ -30,31 +30,31 @@ data class StepReport
 internal constructor(
   @JvmField val step: Step,
   @JvmField val requestInfo: Either<out RequestFailure, TxnInfo<Request>>? = null,
-  @JvmField val preHookFailure: PreHookFailure? = null,
+  @JvmField val preStepHookFailure: PreStepHookFailure? = null,
   @JvmField val responseInfo: Either<out ResponseFailure, TxnInfo<Response>>? = null,
-  @JvmField val postHookFailure: PostHookFailure? = null,
+  @JvmField val postStepHookFailure: PostStepHookFailure? = null,
   private val moshiReVoman: ConfigurableMoshi,
   @JvmField val envSnapshot: PostmanEnvironment<Any?> = PostmanEnvironment(),
 ) {
   internal constructor(
     step: Step,
     requestInfo: arrow.core.Either<RequestFailure, TxnInfo<Request>>? = null,
-    preHookFailure: PreHookFailure? = null,
+    preStepHookFailure: PreStepHookFailure? = null,
     responseInfo: arrow.core.Either<ResponseFailure, TxnInfo<Response>>? = null,
-    postHookFailure: PostHookFailure? = null,
+    postStepHookFailure: PostStepHookFailure? = null,
     moshiReVoman: ConfigurableMoshi,
   ) : this(
     step,
     requestInfo?.toVavr(),
-    preHookFailure,
+    preStepHookFailure,
     responseInfo?.toVavr(),
-    postHookFailure,
+    postStepHookFailure,
     moshiReVoman,
   )
 
   @JvmField
   val failure: Either<ExeFailure, HttpStatusUnsuccessful>? =
-    failure(requestInfo, preHookFailure, responseInfo, postHookFailure)
+    failure(requestInfo, preStepHookFailure, responseInfo, postStepHookFailure)
 
   @JvmField val exeTypeForFailure: ExeType? = failure?.fold({ it.exeType }, { it.exeType })
 
@@ -63,7 +63,8 @@ internal constructor(
   @JvmField val isSuccessful: Boolean = failure == null
 
   @JvmField
-  val isHttpStatusSuccessful: Boolean = failure?.fold({ it !is PostHookFailure }, { true }) != true
+  val isHttpStatusSuccessful: Boolean =
+    failure?.fold({ it !is PostStepHookFailure }, { true }) != true
 
   @get:JvmName("envSnapShotInPostmanEnvJSONFormat")
   val envSnapShotInPostmanEnvJSONFormat: String by lazy {
@@ -73,9 +74,9 @@ internal constructor(
   companion object {
     private fun failure(
       requestInfo: Either<out ExeFailure, TxnInfo<Request>>? = null,
-      preHookFailure: PreHookFailure? = null,
+      preStepHookFailure: PreStepHookFailure? = null,
       responseInfo: Either<out ExeFailure, TxnInfo<Response>>? = null,
-      postHookFailure: PostHookFailure? = null,
+      postStepHookFailure: PostStepHookFailure? = null,
     ): Either<ExeFailure, HttpStatusUnsuccessful>? =
       when {
         requestInfo != null ->
@@ -83,7 +84,7 @@ internal constructor(
             is Either.Left -> left(requestInfo.left)
             else ->
               when {
-                preHookFailure != null -> left(preHookFailure)
+                preStepHookFailure != null -> left(preStepHookFailure)
                 responseInfo != null ->
                   when (responseInfo) {
                     is Either.Left -> left(responseInfo.left)
@@ -93,7 +94,7 @@ internal constructor(
                           right(HttpStatusUnsuccessful(requestInfo.get(), responseInfo.get()))
                         else ->
                           when {
-                            postHookFailure != null -> left(postHookFailure)
+                            postStepHookFailure != null -> left(postStepHookFailure)
                             else -> null
                           }
                       }

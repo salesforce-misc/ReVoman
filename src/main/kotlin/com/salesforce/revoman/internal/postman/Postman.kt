@@ -8,13 +8,16 @@
 package com.salesforce.revoman.internal.postman
 
 import com.salesforce.revoman.input.bufferFileInResources
+import com.salesforce.revoman.input.bufferInputStream
 import com.salesforce.revoman.internal.postman.template.Environment
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapter
+import java.io.InputStream
 
 @OptIn(ExperimentalStdlibApi::class)
 internal fun mergeEnvs(
   pmEnvironmentPaths: Set<String>,
+  pmEnvironmentInputStreams: List<InputStream>,
   dynamicEnvironment: Map<String, String?>,
 ): Map<String, String?> {
   // ! TODO gopala.akshintala 19/05/22: Should we highlight if there are clashes between dynamic env
@@ -23,11 +26,13 @@ internal fun mergeEnvs(
   // replace in env path
   val envAdapter = Moshi.Builder().build().adapter<Environment>()
   // ! TODO 05/10/23 gopala.akshintala: Consider values from env file being parsed to replace
+  val envFileBuffers =
+    pmEnvironmentPaths.map { bufferFileInResources(it) } +
+      pmEnvironmentInputStreams.map { bufferInputStream(it) }
   val envFromEnvFiles =
-    pmEnvironmentPaths
+    envFileBuffers
       .flatMap { envWithRegex ->
-        envAdapter.fromJson(bufferFileInResources(envWithRegex))?.values?.filter { it.enabled }
-          ?: emptyList()
+        envAdapter.fromJson(envWithRegex)?.values?.filter { it.enabled } ?: emptyList()
       }
       .associate { it.key to it.value }
   return dynamicEnvironment + envFromEnvFiles

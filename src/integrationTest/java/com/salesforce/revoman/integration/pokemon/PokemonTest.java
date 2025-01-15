@@ -19,8 +19,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
 
 import com.salesforce.revoman.ReVoman;
-import com.salesforce.revoman.input.config.HookConfig.Hook.PostHook;
-import com.salesforce.revoman.input.config.HookConfig.Hook.PreHook;
+import com.salesforce.revoman.input.config.HookConfig.StepHook.PostStepHook;
+import com.salesforce.revoman.input.config.HookConfig.StepHook.PreStepHook;
 import com.salesforce.revoman.input.config.Kick;
 import com.salesforce.revoman.output.Rundown;
 import com.salesforce.revoman.output.report.Step;
@@ -54,7 +54,7 @@ class PokemonTest {
     //noinspection Convert2Lambda
     final var preLogHook =
         Mockito.spy(
-            new PreHook() {
+            new PreStepHook() {
               @Override
               public void accept(
                   @NotNull Step currentStep,
@@ -66,7 +66,7 @@ class PokemonTest {
     //noinspection Convert2Lambda
     final var postLogHook =
         Mockito.spy(
-            new PostHook() {
+            new PostStepHook() {
               @Override
               public void accept(@NotNull StepReport stepReport, @NotNull Rundown rundown) {
                 LOGGER.info("Picked `postLogHook` after stepName: {}", stepReport.step.displayName);
@@ -75,7 +75,7 @@ class PokemonTest {
     //noinspection Convert2Lambda
     final var preHook =
         Mockito.spy(
-            new PreHook() {
+            new PreStepHook() {
               @Override
               public void accept(
                   @NotNull Step currentStep,
@@ -87,7 +87,7 @@ class PokemonTest {
     //noinspection Convert2Lambda
     final var postHook =
         Mockito.spy(
-            new PostHook() {
+            new PostStepHook() {
               @Override
               public void accept(@NotNull StepReport ignore2, @NotNull Rundown rundown) {
                 assertThat(rundown.mutableEnv).containsEntry("limit", String.valueOf(newLimit));
@@ -97,7 +97,7 @@ class PokemonTest {
     //noinspection Convert2Lambda
     final var postHookAfterURIPath =
         Mockito.spy(
-            new PostHook() {
+            new PostStepHook() {
               @Override
               public void accept(@NotNull StepReport stepReport, @NotNull Rundown ignore) {
                 LOGGER.info(
