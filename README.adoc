@@ -68,7 +68,7 @@ implementation("com.salesforce.revoman:revoman:{revoman-version}")
 ----
 
 [.lead]
-Minimum Java Version required = 11
+Minimum Java Version required = 17
 
 toc::[]
 

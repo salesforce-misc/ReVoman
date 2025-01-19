@@ -49,14 +49,14 @@ spotless {
     removeUnusedImports()
     googleJavaFormat()
     trimTrailingWhitespace()
-    indentWithSpaces(2)
+    leadingSpacesToTabs(2)
     endWithNewline()
     targetExclude("build/**", ".gradle/**", "generated/**", "bin/**", "out/**", "tmp/**")
   }
   format("documentation") {
     target("*.md", "*.adoc")
     trimTrailingWhitespace()
-    indentWithSpaces(2)
+    leadingSpacesToTabs(2)
     endWithNewline()
   }
 }

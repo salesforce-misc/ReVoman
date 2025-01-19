@@ -116,6 +116,21 @@ class JsonPojoUtilsTest {
   }
 
   @Test
+  @DisplayName("Simple JSON to Map")
+  void simpleJsonToMap() {
+    final var json = """
+        {
+          "key1": "value1",
+          "key2": "value2"
+        }
+        """;
+    final var mapFromJSON =
+        JsonPojoUtils.<Map<String, String>>jsonToPojo(Map.class, json);
+    assertThat(mapFromJSON).isNotNull();
+    assertThat(mapFromJSON).containsExactlyEntriesIn(Map.of("key1", "value1", "key2", "value2"));
+  }
+
+  @Test
   @DisplayName("json with Epoch Date To Pojo")
   void jsonWithEpochDateToPojo() {
     final var epochDate = 1604216172747L;

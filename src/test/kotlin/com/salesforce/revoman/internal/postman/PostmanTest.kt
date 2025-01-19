@@ -24,7 +24,7 @@ class PostmanTest {
     pm.environment.putAll(
       mergeEnvs(
         setOf("env-with-regex.json"),
-        kick.environmentInputStreams(),
+        emptyList(),
         mutableMapOf("un" to "userName"),
       )
     )
