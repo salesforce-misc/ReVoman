@@ -12,24 +12,24 @@ import java.util.List;
 
 public class ObjectWithReferenceInputRepresentationList {
 
-  private List<ObjectWithReferenceInputRepresentation> recordsList;
-  private boolean isSetRecordsList;
+	private List<ObjectWithReferenceInputRepresentation> recordsList;
+	private boolean isSetRecordsList;
 
-  public ObjectWithReferenceInputRepresentationList() {
-    super();
-    this.recordsList = new ArrayList<>();
-  }
+	public ObjectWithReferenceInputRepresentationList() {
+		super();
+		this.recordsList = new ArrayList<>();
+	}
 
-  public List<ObjectWithReferenceInputRepresentation> getRecordsList() {
-    return this.recordsList;
-  }
+	public List<ObjectWithReferenceInputRepresentation> getRecordsList() {
+		return this.recordsList;
+	}
 
-  public void setRecordsList(List<ObjectWithReferenceInputRepresentation> recordsList) {
-    this.recordsList = recordsList;
-    this.isSetRecordsList = true;
-  }
+	public void setRecordsList(List<ObjectWithReferenceInputRepresentation> recordsList) {
+		this.recordsList = recordsList;
+		this.isSetRecordsList = true;
+	}
 
-  public boolean _isSetRecordsList() {
-    return this.isSetRecordsList;
-  }
+	public boolean _isSetRecordsList() {
+		return this.isSetRecordsList;
+	}
 }

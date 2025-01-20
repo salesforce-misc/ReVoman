@@ -49,9 +49,9 @@ Maven
 [source,xml,subs=attributes+]
 ----
 <dependency>
-  <groupId>com.salesforce.revoman</groupId>
-  <artifactId>revoman</artifactId>
-  <version>{revoman-version}</version>
+	<groupId>com.salesforce.revoman</groupId>
+	<artifactId>revoman</artifactId>
+	<version>{revoman-version}</version>
 </dependency>
 ----
 [.lead]
@@ -130,10 +130,10 @@ supplying your Postman templates and environments, and all your customizations t
 [source,java,indent=0,options="nowrap"]
 ----
 final var rundown =
-  ReVoman.revUp(
-    Kick.configure()
-     ...
-    .off())
+	ReVoman.revUp(
+		Kick.configure()
+		...
+		.off())
 ----
 
 === A Simple Example
@@ -156,13 +156,13 @@ ifdef::env-github[]
 @Test
 @DisplayName("restful-api.dev")
 void restfulApiDev() {
-  final var rundown =
-    ReVoman.revUp( // <1>
-      Kick.configure()
-          .templatePath(PM_COLLECTION_PATH) // <2>
-          .environmentPath(PM_ENVIRONMENT_PATH) // <3>
-          .off());
-  assertThat(rundown.stepReports).hasSize(3); // <4>
+	final var rundown =
+		ReVoman.revUp( // <1>
+			Kick.configure()
+					.templatePath(PM_COLLECTION_PATH) // <2>
+					.environmentPath(PM_ENVIRONMENT_PATH) // <3>
+					.off());
+	assertThat(rundown.stepReports).hasSize(3); // <4>
 }
 ----
 <1> `revUp` is the method to call passing a configuration, built as below
@@ -194,16 +194,16 @@ such that you can seamlessly run more assertions on top of the run.
 [source,kotlin,indent=0,options="nowrap"]
 ----
 Rundown(
-  val stepReports: List<StepReport>,
-  val mutableEnv: PostmanEnvironment<Any?>)
+	val stepReports: List<StepReport>,
+	val mutableEnv: PostmanEnvironment<Any?>)
 
 StepReport(
-  step: Step,
-  requestInfo: Either<RequestFailure, TxnInfo<Request>>? = null, // <1>
-  preStepHookFailure: PreStepHookFailure? = null,
-  responseInfo: Either<ResponseFailure, TxnInfo<Response>>? = null,
-  postStepHookFailure: PostStepHookFailure? = null,
-  envSnapshot: PostmanEnvironment<Any?> // <2>
+	step: Step,
+	requestInfo: Either<RequestFailure, TxnInfo<Request>>? = null, // <1>
+	preStepHookFailure: PreStepHookFailure? = null,
+	responseInfo: Either<ResponseFailure, TxnInfo<Response>>? = null,
+	postStepHookFailure: PostStepHookFailure? = null,
+	envSnapshot: PostmanEnvironment<Any?> // <2>
 )
 ----
 <1> https://docs.vavr.io/#_either[`Either` type from the VAVR] library represents either of the two states, error or success
@@ -226,74 +226,74 @@ ifdef::env-github[]
 .link:{integrationtestdir}/com/salesforce/revoman/integration/core/pq/PQE2EWithSMTest.java[PQE2EWithSMTest.java, tag=pq-e2e-with-revoman-config-demo]
 ----
 final var pqRundown =
-  ReVoman.revUp( // <1>
-      Kick.configure()
-          .templatePaths(PQ_TEMPLATE_PATHS) // <2>
-          .environmentPath(PQ_ENV_PATH) // <3>
-          .dynamicEnvironment( // <4>
-              Map.of(
-                  "$quoteFieldsToQuery", "LineItemCount, CalculationStatus",
-                  "$qliFieldsToQuery", "Id, Product2Id",
-                  "$qlrFieldsToQuery", "Id, QuoteId, MainQuoteLineId, AssociatedQuoteLineId"))
-          .customDynamicVariableGenerator( // <5>
-              "$unitPrice",
-              (ignore1, ignore2, ignore3) -> String.valueOf(Random.Default.nextInt(999) + 1))
-          .nodeModulesRelativePath("js") // <6>
-          .haltOnFailureOfTypeExcept(
-              HTTP_STATUS,
-              afterAllStepsContainingHeader("ignoreHTTPStatusUnsuccessful")) // <7>
-          .requestConfig( // <8>
-              unmarshallRequest(
-                  beforeStepContainingURIPathOfAny(PQ_URI_PATH),
-                  PlaceQuoteInputRepresentation.class,
-                  adapter(PlaceQuoteInputRepresentation.class)))
-          .responseConfig( // <9>
-              unmarshallResponse(
-                  afterStepContainingURIPathOfAny(PQ_URI_PATH),
-                  PlaceQuoteOutputRepresentation.class),
-              unmarshallResponse(
-                  afterStepContainingURIPathOfAny(COMPOSITE_GRAPH_URI_PATH),
-                  CompositeGraphResponse.class,
-                  CompositeGraphResponse.ADAPTER))
-          .hooks( // <10>
-              pre(
-                  beforeStepContainingURIPathOfAny(PQ_URI_PATH),
-                  (step, requestInfo, rundown) -> {
-                    if (requestInfo.containsHeader(IS_SYNC_HEADER)) {
-                      LOGGER.info("This is a Sync step: {}", step);
-                    }
-                  }),
-              post(
-                  afterStepContainingURIPathOfAny(PQ_URI_PATH),
-                  (stepReport, ignore) -> {
-                    validatePQResponse(stepReport); // <11>
-                    final var isSyncStep =
-                        stepReport.responseInfo.get().containsHeader(IS_SYNC_HEADER);
-                    if (!isSyncStep) {
-                      LOGGER.info(
-                          "Waiting in PostHook of the Async Step: {}, for the Quote's Asynchronous processing to finish",
-                          stepReport.step);
-                      // ! CAUTION 10/09/23 gopala.akshintala: This can be flaky until
-                      // polling is implemented
-                      Thread.sleep(5000);
-                    }
-                  }),
-              post(
-                  afterStepContainingURIPathOfAny(COMPOSITE_GRAPH_URI_PATH),
-                  (stepReport, ignore) -> validateCompositeGraphResponse(stepReport)),
-              post(
-                  afterStepName("query-quote-and-related-records"),
-                  (ignore, rundown) -> assertAfterPQCreate(rundown.mutableEnv)))
-          .globalCustomTypeAdapter(new IDAdapter()) // <12>
-          .insecureHttp(true) // <13>
-          .off()); // Kick-off
+	ReVoman.revUp( // <1>
+			Kick.configure()
+					.templatePaths(PQ_TEMPLATE_PATHS) // <2>
+					.environmentPath(PQ_ENV_PATH) // <3>
+					.dynamicEnvironment( // <4>
+							Map.of(
+									"$quoteFieldsToQuery", "LineItemCount, CalculationStatus",
+									"$qliFieldsToQuery", "Id, Product2Id",
+									"$qlrFieldsToQuery", "Id, QuoteId, MainQuoteLineId, AssociatedQuoteLineId"))
+					.customDynamicVariableGenerator( // <5>
+							"$unitPrice",
+							(ignore1, ignore2, ignore3) -> String.valueOf(Random.Default.nextInt(999) + 1))
+					.nodeModulesRelativePath("js") // <6>
+					.haltOnFailureOfTypeExcept(
+							HTTP_STATUS,
+							afterAllStepsContainingHeader("ignoreHTTPStatusUnsuccessful")) // <7>
+					.requestConfig( // <8>
+							unmarshallRequest(
+									beforeStepContainingURIPathOfAny(PQ_URI_PATH),
+									PlaceQuoteInputRepresentation.class,
+									adapter(PlaceQuoteInputRepresentation.class)))
+					.responseConfig( // <9>
+							unmarshallResponse(
+									afterStepContainingURIPathOfAny(PQ_URI_PATH),
+									PlaceQuoteOutputRepresentation.class),
+							unmarshallResponse(
+									afterStepContainingURIPathOfAny(COMPOSITE_GRAPH_URI_PATH),
+									CompositeGraphResponse.class,
+									CompositeGraphResponse.ADAPTER))
+					.hooks( // <10>
+							pre(
+									beforeStepContainingURIPathOfAny(PQ_URI_PATH),
+									(step, requestInfo, rundown) -> {
+										if (requestInfo.containsHeader(IS_SYNC_HEADER)) {
+											LOGGER.info("This is a Sync step: {}", step);
+										}
+									}),
+							post(
+									afterStepContainingURIPathOfAny(PQ_URI_PATH),
+									(stepReport, ignore) -> {
+										validatePQResponse(stepReport); // <11>
+										final var isSyncStep =
+												stepReport.responseInfo.get().containsHeader(IS_SYNC_HEADER);
+										if (!isSyncStep) {
+											LOGGER.info(
+													"Waiting in PostHook of the Async Step: {}, for the Quote's Asynchronous processing to finish",
+													stepReport.step);
+											// ! CAUTION 10/09/23 gopala.akshintala: This can be flaky until
+											// polling is implemented
+											Thread.sleep(5000);
+										}
+									}),
+							post(
+									afterStepContainingURIPathOfAny(COMPOSITE_GRAPH_URI_PATH),
+									(stepReport, ignore) -> validateCompositeGraphResponse(stepReport)),
+							post(
+									afterStepName("query-quote-and-related-records"),
+									(ignore, rundown) -> assertAfterPQCreate(rundown.mutableEnv)))
+					.globalCustomTypeAdapter(new IDAdapter()) // <12>
+					.insecureHttp(true) // <13>
+					.off()); // Kick-off
 assertThat(pqRundown.firstUnIgnoredUnsuccessfulStepReport()).isNull(); // <14>
 assertThat(pqRundown.mutableEnv)
-  .containsAtLeastEntriesIn(
-      Map.of(
-          "quoteCalculationStatusForSkipPricing", PricingPref.Skip.completeStatus,
-          "quoteCalculationStatus", PricingPref.System.completeStatus,
-          "quoteCalculationStatusAfterAllUpdates", PricingPref.System.completeStatus));
+	.containsAtLeastEntriesIn(
+			Map.of(
+					"quoteCalculationStatusForSkipPricing", PricingPref.Skip.completeStatus,
+					"quoteCalculationStatus", PricingPref.System.completeStatus,
+					"quoteCalculationStatusAfterAllUpdates", PricingPref.System.completeStatus));
 ----
 <1> `revUp()` is the method to call passing a configuration, built as below
 <2> Supply the path (relative to resources) to the Template Collection JSON file/files
@@ -417,16 +417,16 @@ You can pass a `PreTxnStepPick/PostTxnStepPick` which is a `Predicate` used to q
 [source,java,indent=0,options="nowrap"]
 ----
 .hooks(
-  pre(
-      PreTxnStepPick,
-      (currentStepName, requestInfo, rundown) -> {
-        //...callback-code...
-      }),
-  post(
-      PostTxnStepPick,
-      (currentStepName, rundown) -> {
-        //...callback-code...
-      })
+	pre(
+			PreTxnStepPick,
+			(currentStepName, requestInfo, rundown) -> {
+				//...callback-code...
+			}),
+	post(
+			PostTxnStepPick,
+			(currentStepName, rundown) -> {
+				//...callback-code...
+			})
 )
 ----
 

@@ -31,187 +31,187 @@ import org.skyscreamer.jsonassert.JSONCompareMode;
 
 class JsonPojoUtilsTest {
 
-  @Test
-  @DisplayName("DiMorphic CompositeGraph Success Response --> POJO --> JSON")
-  void compositeGraphSuccessResponseMarshallUnmarshall() throws JSONException {
-    final var graphSuccessResponseJsonStr =
-        readFileInResourcesToString("composite/graph/resp/graph-success-response.json");
-    final var successGraphResponse =
-        JsonPojoUtils.<CompositeGraphResponse>jsonToPojo(
-            CompositeGraphResponse.class,
-            graphSuccessResponseJsonStr,
-            List.of(CompositeGraphResponse.ADAPTER));
-    assertThat(successGraphResponse.getGraphs().get(0)).isInstanceOf(SuccessGraph.class);
-    final var successGraphResponseUnmarshalled =
-        JsonPojoUtils.pojoToJson(
-            Pojo.marshall()
-                .pojoType(CompositeGraphResponse.class)
-                .pojo(successGraphResponse)
-                .customAdapter(CompositeGraphResponse.ADAPTER)
-                .done());
-    JSONAssert.assertEquals(
-        graphSuccessResponseJsonStr, successGraphResponseUnmarshalled, JSONCompareMode.STRICT);
-  }
+	@Test
+	@DisplayName("DiMorphic CompositeGraph Success Response --> POJO --> JSON")
+	void compositeGraphSuccessResponseMarshallUnmarshall() throws JSONException {
+		final var graphSuccessResponseJsonStr =
+				readFileInResourcesToString("composite/graph/resp/graph-success-response.json");
+		final var successGraphResponse =
+				JsonPojoUtils.<CompositeGraphResponse>jsonToPojo(
+						CompositeGraphResponse.class,
+						graphSuccessResponseJsonStr,
+						List.of(CompositeGraphResponse.ADAPTER));
+		assertThat(successGraphResponse.getGraphs().get(0)).isInstanceOf(SuccessGraph.class);
+		final var successGraphResponseUnmarshalled =
+				JsonPojoUtils.pojoToJson(
+						Pojo.marshall()
+								.pojoType(CompositeGraphResponse.class)
+								.pojo(successGraphResponse)
+								.customAdapter(CompositeGraphResponse.ADAPTER)
+								.done());
+		JSONAssert.assertEquals(
+				graphSuccessResponseJsonStr, successGraphResponseUnmarshalled, JSONCompareMode.STRICT);
+	}
 
-  @Test
-  @DisplayName("DiMorphic CompositeGraph Error Response --> POJO --> JSON")
-  void compositeGraphErrorResponseMarshallUnmarshall() throws JSONException {
-    final var graphErrorResponseJsonStr =
-        readFileInResourcesToString("composite/graph/resp/graph-error-response.json");
-    final var errorGraphResponse =
-        JsonPojoUtils.<CompositeGraphResponse>jsonToPojo(
-            CompositeGraphResponse.class,
-            graphErrorResponseJsonStr,
-            List.of(CompositeGraphResponse.ADAPTER));
-    final var errorGraph = errorGraphResponse.getGraphs().get(0);
-    assertThat(errorGraph).isInstanceOf(ErrorGraph.class);
-    assertThat(((ErrorGraph) errorGraph).firstErrorResponseBody.getErrorCode())
-        .isEqualTo("DUPLICATE_VALUE");
-    final var errorGraphResponseUnmarshalled =
-        JsonPojoUtils.pojoToJson(
-            CompositeGraphResponse.class,
-            errorGraphResponse,
-            List.of(CompositeGraphResponse.ADAPTER));
-    JSONAssert.assertEquals(
-        graphErrorResponseJsonStr, errorGraphResponseUnmarshalled, JSONCompareMode.STRICT);
-  }
+	@Test
+	@DisplayName("DiMorphic CompositeGraph Error Response --> POJO --> JSON")
+	void compositeGraphErrorResponseMarshallUnmarshall() throws JSONException {
+		final var graphErrorResponseJsonStr =
+				readFileInResourcesToString("composite/graph/resp/graph-error-response.json");
+		final var errorGraphResponse =
+				JsonPojoUtils.<CompositeGraphResponse>jsonToPojo(
+						CompositeGraphResponse.class,
+						graphErrorResponseJsonStr,
+						List.of(CompositeGraphResponse.ADAPTER));
+		final var errorGraph = errorGraphResponse.getGraphs().get(0);
+		assertThat(errorGraph).isInstanceOf(ErrorGraph.class);
+		assertThat(((ErrorGraph) errorGraph).firstErrorResponseBody.getErrorCode())
+				.isEqualTo("DUPLICATE_VALUE");
+		final var errorGraphResponseUnmarshalled =
+				JsonPojoUtils.pojoToJson(
+						CompositeGraphResponse.class,
+						errorGraphResponse,
+						List.of(CompositeGraphResponse.ADAPTER));
+		JSONAssert.assertEquals(
+				graphErrorResponseJsonStr, errorGraphResponseUnmarshalled, JSONCompareMode.STRICT);
+	}
 
-  @DisplayName("toJson: SObjectGraphRequest POJO --> PQ Payload JSON")
-  @Test
-  void sObjectGraphMarshallToPQPayload() throws JSONException {
-    final var pqTestInputRepMarshaller =
-        SObjectGraphRequestMarshaller.adapter(
-            Map.of("pricingPref", "skip", "configurationInput", "skip"), Set.of("name"));
-    final var pqPayloadJsonStr =
-        JsonPojoUtils.pojoToJson(
-            SObjectGraphRequest.class,
-            prepareSObjectGraphReqPojo(),
-            List.of(pqTestInputRepMarshaller));
-    final var expectedPQPayload = readFileInResourcesToString("json/pq-graph-req-masked.json");
-    JSONAssert.assertEquals(expectedPQPayload, pqPayloadJsonStr, JSONCompareMode.STRICT);
-  }
+	@DisplayName("toJson: SObjectGraphRequest POJO --> PQ Payload JSON")
+	@Test
+	void sObjectGraphMarshallToPQPayload() throws JSONException {
+		final var pqTestInputRepMarshaller =
+				SObjectGraphRequestMarshaller.adapter(
+						Map.of("pricingPref", "skip", "configurationInput", "skip"), Set.of("name"));
+		final var pqPayloadJsonStr =
+				JsonPojoUtils.pojoToJson(
+						SObjectGraphRequest.class,
+						prepareSObjectGraphReqPojo(),
+						List.of(pqTestInputRepMarshaller));
+		final var expectedPQPayload = readFileInResourcesToString("json/pq-graph-req-masked.json");
+		JSONAssert.assertEquals(expectedPQPayload, pqPayloadJsonStr, JSONCompareMode.STRICT);
+	}
 
-  static SObjectGraphRequest prepareSObjectGraphReqPojo() {
-    return new SObjectGraphRequest(
-        "pq-update-quote",
-        List.of(
-            new SObjectWithReferenceRequest(
-                "refQuote",
-                new Entity(
-                    Map.of(
-                        "attributes",
-                        Map.of("type", "Quote", "method", "PATCH", "id", "quoteId"),
-                        "Name",
-                        "Overfullstack")))));
-  }
+	static SObjectGraphRequest prepareSObjectGraphReqPojo() {
+		return new SObjectGraphRequest(
+				"pq-update-quote",
+				List.of(
+						new SObjectWithReferenceRequest(
+								"refQuote",
+								new Entity(
+										Map.of(
+												"attributes",
+												Map.of("type", "Quote", "method", "PATCH", "id", "quoteId"),
+												"Name",
+												"Overfullstack")))));
+	}
 
-  @Test
-  @DisplayName("json file To Pojo")
-  void jsonFileToPojo() {
-    final var nestedBeanFromJson =
-        JsonPojoUtils.<NestedBean>jsonFileToPojo(NestedBean.class, "json/nested-bean.json");
-    assertThat(nestedBeanFromJson).isNotNull();
-    assertThat(nestedBeanFromJson.getName()).isEqualTo("container");
-    assertThat(nestedBeanFromJson.getBean().getItems()).hasSize(2);
-  }
+	@Test
+	@DisplayName("json file To Pojo")
+	void jsonFileToPojo() {
+		final var nestedBeanFromJson =
+				JsonPojoUtils.<NestedBean>jsonFileToPojo(NestedBean.class, "json/nested-bean.json");
+		assertThat(nestedBeanFromJson).isNotNull();
+		assertThat(nestedBeanFromJson.getName()).isEqualTo("container");
+		assertThat(nestedBeanFromJson.getBean().getItems()).hasSize(2);
+	}
 
-  @Test
-  @DisplayName("Simple JSON to Map")
-  void simpleJsonToMap() {
-    final var json = """
-        {
-          "key1": "value1",
-          "key2": "value2"
-        }
-        """;
-    final var mapFromJSON =
-        JsonPojoUtils.<Map<String, String>>jsonToPojo(Map.class, json);
-    assertThat(mapFromJSON).isNotNull();
-    assertThat(mapFromJSON).containsExactlyEntriesIn(Map.of("key1", "value1", "key2", "value2"));
-  }
+	@Test
+	@DisplayName("Simple JSON to Map")
+	void simpleJsonToMap() {
+		final var json =
+				"""
+				{
+					"key1": "value1",
+					"key2": "value2"
+				}
+				""";
+		final var mapFromJSON = JsonPojoUtils.<Map<String, String>>jsonToPojo(Map.class, json);
+		assertThat(mapFromJSON).isNotNull();
+		assertThat(mapFromJSON).containsExactlyEntriesIn(Map.of("key1", "value1", "key2", "value2"));
+	}
 
-  @Test
-  @DisplayName("json with Epoch Date To Pojo")
-  void jsonWithEpochDateToPojo() {
-    final var epochDate = 1604216172747L;
-    final var beanWithDate =
-        JsonPojoUtils.<BeanWithDate>jsonToPojo(BeanWithDate.class, "{\"date\": " + epochDate + "}");
-    assertThat(beanWithDate).isNotNull();
-    assertThat(beanWithDate.date.toInstant().toEpochMilli()).isEqualTo(epochDate);
-    final var beanWithDateJson = JsonPojoUtils.pojoToJson(BeanWithDate.class, beanWithDate);
-    assertThat(beanWithDateJson).isNotNull();
-  }
+	@Test
+	@DisplayName("json with Epoch Date To Pojo")
+	void jsonWithEpochDateToPojo() {
+		final var epochDate = 1604216172747L;
+		final var beanWithDate =
+				JsonPojoUtils.<BeanWithDate>jsonToPojo(BeanWithDate.class, "{\"date\": " + epochDate + "}");
+		assertThat(beanWithDate).isNotNull();
+		assertThat(beanWithDate.date.toInstant().toEpochMilli()).isEqualTo(epochDate);
+		final var beanWithDateJson = JsonPojoUtils.pojoToJson(BeanWithDate.class, beanWithDate);
+		assertThat(beanWithDateJson).isNotNull();
+	}
 
-  @Test
-  @DisplayName("json with ISO Date To Pojo")
-  void jsonWithISODateToPojo() throws ParseException {
-    final var date = "2015-09-01";
-    final var beanWithDate =
-        JsonPojoUtils.<BeanWithDate>jsonToPojo(BeanWithDate.class, "{\"date\": \"" + date + "\"}");
-    assertThat(beanWithDate).isNotNull();
-    final var formatter = new SimpleDateFormat("yyyy-MM-dd");
-    assertThat(beanWithDate.date).isEqualTo(formatter.parse(date));
-  }
+	@Test
+	@DisplayName("json with ISO Date To Pojo")
+	void jsonWithISODateToPojo() throws ParseException {
+		final var date = "2015-09-01";
+		final var beanWithDate =
+				JsonPojoUtils.<BeanWithDate>jsonToPojo(BeanWithDate.class, "{\"date\": \"" + date + "\"}");
+		assertThat(beanWithDate).isNotNull();
+		final var formatter = new SimpleDateFormat("yyyy-MM-dd");
+		assertThat(beanWithDate.date).isEqualTo(formatter.parse(date));
+	}
 
-  @Test
-  @DisplayName("pojo to json")
-  void pojoToJson() {
-    final var nestedBean = new NestedBean("container", new Bean("bean", List.of("item1", "item2")));
-    final var nestedBeanJson = JsonPojoUtils.pojoToJson(NestedBean.class, nestedBean);
-    System.out.println(nestedBeanJson);
-    assertThat(nestedBeanJson).isNotEmpty();
-  }
+	@Test
+	@DisplayName("pojo to json")
+	void pojoToJson() {
+		final var nestedBean = new NestedBean("container", new Bean("bean", List.of("item1", "item2")));
+		final var nestedBeanJson = JsonPojoUtils.pojoToJson(NestedBean.class, nestedBean);
+		System.out.println(nestedBeanJson);
+		assertThat(nestedBeanJson).isNotEmpty();
+	}
 
-  private static class Bean {
-    private final String name;
-    private final List<String> items;
+	private static class Bean {
+		private final String name;
+		private final List<String> items;
 
-    private Bean(String name, List<String> items) {
-      this.name = name;
-      this.items = items;
-    }
+		private Bean(String name, List<String> items) {
+			this.name = name;
+			this.items = items;
+		}
 
-    public String getName() {
-      return name;
-    }
+		public String getName() {
+			return name;
+		}
 
-    public List<String> getItems() {
-      return items;
-    }
-  }
+		public List<String> getItems() {
+			return items;
+		}
+	}
 
-  private static class NestedBean {
-    private final String name;
-    private final Bean bean;
+	private static class NestedBean {
+		private final String name;
+		private final Bean bean;
 
-    private NestedBean(String name, Bean bean) {
-      this.name = name;
-      this.bean = bean;
-    }
+		private NestedBean(String name, Bean bean) {
+			this.name = name;
+			this.bean = bean;
+		}
 
-    public String getName() {
-      return name;
-    }
+		public String getName() {
+			return name;
+		}
 
-    public Bean getBean() {
-      return bean;
-    }
-  }
+		public Bean getBean() {
+			return bean;
+		}
+	}
 
-  private static class BeanWithDate {
-    private final Date date;
+	private static class BeanWithDate {
+		private final Date date;
 
-    private BeanWithDate(Date date) {
-      this.date = date;
-    }
+		private BeanWithDate(Date date) {
+			this.date = date;
+		}
 
-    public Date getDate() {
-      return date;
-    }
+		public Date getDate() {
+			return date;
+		}
 
-    @Override
-    public String toString() {
-      return "BeanWithDate{" + "date=" + date + '}';
-    }
-  }
+		@Override
+		public String toString() {
+			return "BeanWithDate{" + "date=" + date + '}';
+		}
+	}
 }

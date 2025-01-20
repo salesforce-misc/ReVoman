@@ -62,7 +62,7 @@ tasks {
   test { dependsOn(npmInstall) }
 }
 
-// kover { reports { total { html { onCheck = true } } } }
+kover { reports { total { html { onCheck = true } } } }
 
 moshi { enableSealed = true }
 

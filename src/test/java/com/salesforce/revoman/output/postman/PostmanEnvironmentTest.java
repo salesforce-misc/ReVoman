@@ -15,23 +15,23 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 class PostmanEnvironmentTest {
-  @Test
-  @DisplayName("Multi level filtering")
-  void multiLevelFiltering() {
-    final var postmanEnv =
-        new PostmanEnvironment<>(
-            Map.of(
-                "standardPricebookId", "fakeStandardPricebookId",
-                "accessToken", "fakeAccessToken",
-                "salesRepPsgId", "fakePsgId",
-                "salesRepUserId", "fakeUserId",
-                "mockTaxAdapterId", "mockTaxAdapterId"));
-    final var filteredEnv =
-        postmanEnv
-            .mutableEnvCopyExcludingKeys(String.class, Set.of("standardPricebookId"))
-            .mutableEnvCopyWithKeysEndingWith(String.class, "Id")
-            .mutableEnvCopyWithKeysNotEndingWith(String.class, "PsgId", "UserId");
-    assertThat(filteredEnv)
-        .containsExactlyEntriesIn(Map.of("mockTaxAdapterId", "mockTaxAdapterId"));
-  }
+	@Test
+	@DisplayName("Multi level filtering")
+	void multiLevelFiltering() {
+		final var postmanEnv =
+				new PostmanEnvironment<>(
+						Map.of(
+								"standardPricebookId", "fakeStandardPricebookId",
+								"accessToken", "fakeAccessToken",
+								"salesRepPsgId", "fakePsgId",
+								"salesRepUserId", "fakeUserId",
+								"mockTaxAdapterId", "mockTaxAdapterId"));
+		final var filteredEnv =
+				postmanEnv
+						.mutableEnvCopyExcludingKeys(String.class, Set.of("standardPricebookId"))
+						.mutableEnvCopyWithKeysEndingWith(String.class, "Id")
+						.mutableEnvCopyWithKeysNotEndingWith(String.class, "PsgId", "UserId");
+		assertThat(filteredEnv)
+				.containsExactlyEntriesIn(Map.of("mockTaxAdapterId", "mockTaxAdapterId"));
+	}
 }

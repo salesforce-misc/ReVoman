@@ -31,7 +31,7 @@ gradle-taskinfo = "2.2.0"
 # Common dependencies
 
 junit = "5.11.4"
-kover = "0.9.0"
+kover = "0.9.1"
 detekt = "1.23.7"
 spotless = "7.0.1"
 apache-log4j = "2.24.0"

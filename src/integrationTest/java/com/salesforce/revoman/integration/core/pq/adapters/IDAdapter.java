@@ -13,13 +13,13 @@ import com.squareup.moshi.ToJson;
 
 // * NOTE 10 Mar 2024 gopala.akshintala: Custom Type Adapter
 public class IDAdapter {
-  @FromJson
-  ID fromJson(String id) {
-    return new ID(id);
-  }
+	@FromJson
+	ID fromJson(String id) {
+		return new ID(id);
+	}
 
-  @ToJson
-  String toJson(ID id) {
-    return id.getId();
-  }
+	@ToJson
+	String toJson(ID id) {
+		return id.getId();
+	}
 }

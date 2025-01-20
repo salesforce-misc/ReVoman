@@ -9,35 +9,35 @@ package com.salesforce.revoman.integration.core.pq.connect.request;
 
 public class ObjectWithReferenceInputRepresentation {
 
-  private String referenceId;
-  private ObjectInputRepresentationMap record;
+	private String referenceId;
+	private ObjectInputRepresentationMap record;
 
-  private boolean isSetReferenceId;
-  private boolean isSetRecord;
+	private boolean isSetReferenceId;
+	private boolean isSetRecord;
 
-  public ObjectInputRepresentationMap getRecord() {
-    return this.record;
-  }
+	public ObjectInputRepresentationMap getRecord() {
+		return this.record;
+	}
 
-  public void setRecord(ObjectInputRepresentationMap record) {
-    this.record = record;
-    this.isSetRecord = true;
-  }
+	public void setRecord(ObjectInputRepresentationMap record) {
+		this.record = record;
+		this.isSetRecord = true;
+	}
 
-  public String getReferenceId() {
-    return this.referenceId;
-  }
+	public String getReferenceId() {
+		return this.referenceId;
+	}
 
-  public void setReferenceId(String referenceId) {
-    this.referenceId = referenceId;
-    this.isSetReferenceId = true;
-  }
+	public void setReferenceId(String referenceId) {
+		this.referenceId = referenceId;
+		this.isSetReferenceId = true;
+	}
 
-  public boolean _isSetRecord() {
-    return this.isSetRecord;
-  }
+	public boolean _isSetRecord() {
+		return this.isSetRecord;
+	}
 
-  public boolean _isSetReferenceId() {
-    return this.isSetReferenceId;
-  }
+	public boolean _isSetReferenceId() {
+		return this.isSetReferenceId;
+	}
 }

@@ -8,7 +8,7 @@
 package com.salesforce.revoman.integration.core.pq.connect.request;
 
 public enum PricingPreferenceEnum {
-  Force,
-  Skip,
-  System;
+	Force,
+	Skip,
+	System;
 }
