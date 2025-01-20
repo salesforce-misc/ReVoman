@@ -10,7 +10,6 @@ package com.salesforce.revoman.internal.json.adapters
 import com.squareup.moshi.FromJson
 import com.squareup.moshi.ToJson
 import java.lang.reflect.Type
-import java.util.*
 
 object TypeAdapter {
   @ToJson fun toJson(type: Type): String = type.toString()

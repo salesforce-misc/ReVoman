@@ -8,24 +8,16 @@
 package com.salesforce.revoman.output
 
 import com.salesforce.revoman.input.config.StepPick.PostTxnStepPick
-import com.salesforce.revoman.internal.postman.template.Environment.Companion.fromMap
 import com.salesforce.revoman.output.postman.PostmanEnvironment
 import com.salesforce.revoman.output.report.Folder.Companion.FOLDER_DELIMITER
 import com.salesforce.revoman.output.report.StepReport
-import org.http4k.format.ConfigurableMoshi
 
 data class Rundown(
   @JvmField val stepReports: List<StepReport> = emptyList(),
   @JvmField val mutableEnv: PostmanEnvironment<Any?>,
   private val stepsToIgnoreForFailurePick: Map<ExeType, PostTxnStepPick>?,
-  private val moshiReVoman: ConfigurableMoshi,
 ) {
   @get:JvmName("immutableEnv") val immutableEnv: Map<String, Any?> by lazy { mutableEnv.toMap() }
-
-  @get:JvmName("envInPostmanEnvJSONFormat")
-  val envInPostmanEnvJSONFormat: String by lazy {
-    moshiReVoman.prettify(moshiReVoman.asFormatString(fromMap(mutableEnv, moshiReVoman)))
-  }
 
   @get:JvmName("firstUnsuccessfulStepReport")
   val firstUnsuccessfulStepReport: StepReport? by lazy {

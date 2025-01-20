@@ -35,7 +35,7 @@ internal fun unmarshallRequest(
     kick
       .requestConfig()
       .firstOrNull {
-        it.preTxnStepPick.pick(currentStep, TxnInfo(null, null, httpRequest), pm.rundown)
+        it.preTxnStepPick.pick(currentStep, TxnInfo(httpMsg = httpRequest), pm.rundown)
       }
       ?.also { logger.info { "$currentStep RequestConfig found : ${pprint(it)}" } }
       ?.objType ?: Any::class.java
@@ -50,7 +50,7 @@ internal fun unmarshallRequest(
       logger.info {
         "$currentStep No JSON found in the Request body or content-type header didn't match ${APPLICATION_JSON.value}"
       }
-      Right(TxnInfo(null, null, httpRequest, false))
+      Right(TxnInfo(httpMsg = httpRequest, isJson = false))
     }
   }.map { TxnInfo(requestType, it, pmRequest.toHttpRequest()) }
 }

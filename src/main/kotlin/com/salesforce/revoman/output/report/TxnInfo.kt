@@ -16,29 +16,58 @@ import org.http4k.core.HttpMessage
 import org.http4k.core.Request
 import org.http4k.core.Response
 
-data class TxnInfo<HttpMsgT : HttpMessage>(
-  @JvmField val txnObjType: Type? = null,
+data class TxnInfo<HttpMsgT : HttpMessage>
+@JvmOverloads
+constructor(
+  @JvmField val txnObjType: Type = Any::class.java,
   @JvmField val txnObj: Any? = null,
   @JvmField val httpMsg: HttpMsgT,
   @JvmField val isJson: Boolean = true,
 ) {
-  fun <T> getTypedTxnObj(): T? = (txnObjType as? Class<T>)?.cast(txnObj)
-
   @JvmOverloads
   fun <T : Any> getTypedTxnObj(
-    txObjType: Type,
+    txnObjType: Type = this.txnObjType,
     customAdapters: List<Any> = emptyList(),
     customAdaptersWithType: Map<Type, List<Either<JsonAdapter<Any>, JsonAdapter.Factory>>> =
       emptyMap(),
     typesToIgnore: Set<Class<out Any>> = emptySet(),
   ): T? =
-    jsonToPojo(
-      txObjType,
-      httpMsg.bodyString(),
-      customAdapters,
-      customAdaptersWithType,
-      typesToIgnore,
-    )
+    when {
+      customAdapters.isEmpty() &&
+        customAdaptersWithType.isEmpty() &&
+        typesToIgnore.isEmpty() &&
+        this.txnObjType == Any::class.java -> (txnObjType as? Class<T>)?.cast(txnObj)
+      else ->
+        jsonToPojo(
+          txnObjType,
+          httpMsg.bodyString(),
+          customAdapters,
+          customAdaptersWithType,
+          typesToIgnore,
+        )
+    }
+
+  @JvmOverloads
+  inline fun <reified T : Any> getTxnObj(
+    customAdapters: List<Any> = emptyList(),
+    customAdaptersWithType: Map<Type, List<Either<JsonAdapter<Any>, JsonAdapter.Factory>>> =
+      emptyMap(),
+    typesToIgnore: Set<Class<out Any>> = emptySet(),
+  ): T? =
+    when {
+      customAdapters.isEmpty() &&
+        customAdaptersWithType.isEmpty() &&
+        typesToIgnore.isEmpty() &&
+        txnObjType == Any::class.java -> txnObj as? T
+      else ->
+        jsonToPojo(
+          T::class.java,
+          httpMsg.bodyString(),
+          customAdapters,
+          customAdaptersWithType,
+          typesToIgnore,
+        )
+    }
 
   fun containsHeader(key: String): Boolean = httpMsg.headers.toMap().containsKey(key)
 

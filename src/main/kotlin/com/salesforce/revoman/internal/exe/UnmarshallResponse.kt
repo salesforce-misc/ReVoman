@@ -55,7 +55,7 @@ internal fun unmarshallResponse(
       logger.info {
         "${pm.currentStepReport.step} No JSON found in the Response body or content-type didn't match ${APPLICATION_JSON.value}"
       }
-      Right(TxnInfo(null, null, httpResponse, false))
+      Right(TxnInfo(httpMsg = httpResponse, isJson = false))
     }
   }
 }

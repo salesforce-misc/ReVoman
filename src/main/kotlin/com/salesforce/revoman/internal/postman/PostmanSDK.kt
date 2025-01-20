@@ -31,7 +31,7 @@ class PostmanSDK(
   val regexReplacer: RegexReplacer = RegexReplacer(),
   mutableEnv: MutableMap<String, Any?> = mutableMapOf(),
 ) {
-  @JvmField val environment: PostmanEnvironment<Any?> = PostmanEnvironment(mutableEnv)
+  @JvmField val environment: PostmanEnvironment<Any?> = PostmanEnvironment(mutableEnv, moshiReVoman)
   lateinit var info: Info
   lateinit var request: Request
   lateinit var response: Response

@@ -9,7 +9,6 @@ package com.salesforce.revoman.output.report
 
 import arrow.core.Either.Left
 import arrow.core.Either.Right
-import com.salesforce.revoman.internal.postman.template.Environment.Companion.fromMap
 import com.salesforce.revoman.output.ExeType
 import com.salesforce.revoman.output.postman.PostmanEnvironment
 import com.salesforce.revoman.output.report.TxnInfo.Companion.uriPathContains
@@ -24,7 +23,6 @@ import io.vavr.control.Either.left
 import io.vavr.control.Either.right
 import org.http4k.core.Request
 import org.http4k.core.Response
-import org.http4k.format.ConfigurableMoshi
 
 data class StepReport
 internal constructor(
@@ -33,7 +31,6 @@ internal constructor(
   @JvmField val preStepHookFailure: PreStepHookFailure? = null,
   @JvmField val responseInfo: Either<out ResponseFailure, TxnInfo<Response>>? = null,
   @JvmField val postStepHookFailure: PostStepHookFailure? = null,
-  private val moshiReVoman: ConfigurableMoshi,
   @JvmField val envSnapshot: PostmanEnvironment<Any?> = PostmanEnvironment(),
 ) {
   internal constructor(
@@ -42,14 +39,12 @@ internal constructor(
     preStepHookFailure: PreStepHookFailure? = null,
     responseInfo: arrow.core.Either<ResponseFailure, TxnInfo<Response>>? = null,
     postStepHookFailure: PostStepHookFailure? = null,
-    moshiReVoman: ConfigurableMoshi,
   ) : this(
     step,
     requestInfo?.toVavr(),
     preStepHookFailure,
     responseInfo?.toVavr(),
     postStepHookFailure,
-    moshiReVoman,
   )
 
   @JvmField
@@ -65,11 +60,6 @@ internal constructor(
   @JvmField
   val isHttpStatusSuccessful: Boolean =
     failure?.fold({ it !is PostStepHookFailure }, { true }) != true
-
-  @get:JvmName("envSnapShotInPostmanEnvJSONFormat")
-  val envSnapShotInPostmanEnvJSONFormat: String by lazy {
-    moshiReVoman.prettify(moshiReVoman.asFormatString(fromMap(envSnapshot, moshiReVoman)))
-  }
 
   companion object {
     private fun failure(

@@ -1,0 +1,29 @@
+{
+  "name": "env-from-revoman",
+  "values": [
+    {
+      "key": "key1",
+      "value": "1",
+      "enabled": true
+    },
+    {
+      "key": "key2",
+      "value": "2",
+      "enabled": true
+    },
+    {
+      "key": "key3",
+      "value": "[1,2,3]",
+      "enabled": true
+    },
+    {
+      "key": "key4",
+      "value": "{\"4\":4}",
+      "enabled": true
+    },
+    {
+      "key": "key5",
+      "enabled": true
+    }
+  ]
+}

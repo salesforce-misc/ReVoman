@@ -7,15 +7,28 @@
  */
 package com.salesforce.revoman.output.postman
 
+import com.salesforce.revoman.internal.json.initMoshi
+import com.salesforce.revoman.internal.postman.template.Environment.Companion.fromMap
+import com.squareup.moshi.rawType
 import io.exoquery.pprint
 import io.github.oshai.kotlinlogging.KotlinLogging
+import java.lang.reflect.Type
+import org.http4k.format.ConfigurableMoshi
 
-/** This is more like a value class (wrapper) on mutableEnv providing some useful utilities */
-data class PostmanEnvironment<ValueT : Any?>(
-  internal val mutableEnv: MutableMap<String, ValueT> = mutableMapOf()
+/** This is a Wrapper on `mutableEnv` map, providing some useful utilities */
+data class PostmanEnvironment<ValueT : Any?>
+@JvmOverloads
+constructor(
+  val mutableEnv: MutableMap<String, ValueT> = mutableMapOf(),
+  val moshiReVoman: ConfigurableMoshi = initMoshi(),
 ) : MutableMap<String, ValueT> by mutableEnv {
 
   @get:JvmName("immutableEnv") val immutableEnv: Map<String, ValueT> by lazy { mutableEnv.toMap() }
+
+  @get:JvmName("postmanEnvJSONFormat")
+  val postmanEnvJSONFormat: String by lazy {
+    moshiReVoman.prettify(moshiReVoman.asFormatString(fromMap(mutableEnv, moshiReVoman)))
+  }
 
   fun set(key: String, value: ValueT) {
     mutableEnv[key] = value
@@ -41,7 +54,8 @@ data class PostmanEnvironment<ValueT : Any?>(
       mutableEnv
         .filter { type.isInstance(it.value) }
         .mapValues { type.cast(it.value) }
-        .toMutableMap()
+        .toMutableMap(),
+      moshiReVoman,
     )
 
   inline fun <reified T> mutableEnvCopyWithValuesOfType(): PostmanEnvironment<T> =
@@ -57,7 +71,8 @@ data class PostmanEnvironment<ValueT : Any?>(
           type.isInstance(it.value) && prefixes.any { prefix -> it.key.startsWith(prefix) }
         }
         .mapValues { type.cast(it.value) }
-        .toMutableMap()
+        .toMutableMap(),
+      moshiReVoman,
     )
 
   inline fun <reified T> mutableEnvCopyWithKeysStartingWith(
@@ -72,7 +87,8 @@ data class PostmanEnvironment<ValueT : Any?>(
       mutableEnv
         .filter { type.isInstance(it.value) && !whiteListKeys.contains(it.key) }
         .mapValues { type.cast(it.value) }
-        .toMutableMap()
+        .toMutableMap(),
+      moshiReVoman,
     )
 
   fun <T> mutableEnvCopyWithKeysNotStartingWith(
@@ -85,8 +101,26 @@ data class PostmanEnvironment<ValueT : Any?>(
           type.isInstance(it.value) && prefixes.all { suffix -> !it.key.startsWith(suffix) }
         }
         .mapValues { type.cast(it.value) }
-        .toMutableMap()
+        .toMutableMap(),
+      moshiReVoman,
     )
+
+  fun <T : Any> getTypedObj(key: String, objType: Type): T? {
+    val value = mutableEnv[key]
+    return when {
+      objType.rawType.isInstance(value) -> value
+      else -> moshiReVoman.asA(moshiReVoman.asFormatString(value as Any), objType.rawType.kotlin)
+    }
+      as T
+  }
+
+  inline fun <reified T : Any> getObj(key: String): T? {
+    val value = mutableEnv[key]
+    return when {
+      value is T -> value
+      else -> moshiReVoman.asA(moshiReVoman.asFormatString(value as Any), T::class)
+    }
+  }
 
   fun <T> mutableEnvCopyWithKeysEndingWith(
     type: Class<T>,
@@ -96,7 +130,8 @@ data class PostmanEnvironment<ValueT : Any?>(
       mutableEnv
         .filter { type.isInstance(it.value) && suffixes.any { suffix -> it.key.endsWith(suffix) } }
         .mapValues { type.cast(it.value) }
-        .toMutableMap()
+        .toMutableMap(),
+      moshiReVoman,
     )
 
   fun <T> mutableEnvCopyWithKeysNotEndingWith(
@@ -107,7 +142,8 @@ data class PostmanEnvironment<ValueT : Any?>(
       mutableEnv
         .filter { type.isInstance(it.value) && suffixes.all { suffix -> !it.key.endsWith(suffix) } }
         .mapValues { type.cast(it.value) }
-        .toMutableMap()
+        .toMutableMap(),
+      moshiReVoman,
     )
 
   fun <T> valuesForKeysStartingWith(type: Class<T>, prefix: String): Set<T> =

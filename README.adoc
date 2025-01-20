@@ -18,7 +18,7 @@ endif::[]
 :pmtemplates: src/integrationTest/resources/pm-templates
 :imagesdir: docs/images
 :prewrap!:
-:revoman-version: 0.5.2
+:revoman-version: 0.5.3
 
 '''
 
@@ -304,7 +304,7 @@ assertThat(pqRundown.mutableEnv)
 <7> <<Execution Control>>
 <8> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Request Config>>
 <9> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Response Config>>
-<10> <<#_pre_and_post_step_hooks>>
+<10> <<#_pre_step_and_post_step_hooks>>
 <11> <<Response Validations>>
 <12> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Global Custom Type Adapters>>
 <13> Ignore Java cert issues when firing HTTP calls
@@ -327,7 +327,7 @@ include::{integrationtestdir}/com/salesforce/revoman/integration/core/pq/PQE2EWi
 <7> <<Execution Control>>
 <8> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Request Config>>
 <9> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Response Config>>
-<10> <<#_pre_and_post_step_hooks>>
+<10> <<#_pre_step_and_post_step_hooks>>
 <11> <<Response Validations>>
 <12> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Global Custom Type Adapters>>
 <13> Ignore Java cert issues when firing HTTP calls
@@ -406,33 +406,45 @@ The configuration offers methods through which the execution strategy can be con
 * `runOnlySteps`, `skipSteps` — All these accept a `predicate` of type `ExeStepPick`, which is invoked passing the current `Step` instance to decide whether to execute or skip a step.
 ** There are some `ExeStepPick` predicates bundled with ReṼoman under `ExeStepPick.PickUtils` e.g `withName`, `inFolder` etc. You can write a custom predicate of your own too.
 
-[#_pre_and_post_step_hooks]
-=== Pre- and Post-Step Hooks
+[#_pre_step_and_post_step_hooks]
+=== Pre-Step and Post-Step Hooks
 
 A hook lets you fiddle with the execution by plugging in your code before or after a Step execution.
 
 [#_step_picks]
-You can pass a `PreTxnStepPick/PostTxnStepPick` which is a `Predicate` used to qualify a step for Pre-/Post-Hook respectively. ReṼoman comes bundled with some predicates under the namespace `PreTxnStepPick.PickUtils/PostTxnStepPick.PickUtils` e.g `beforeStepContainingURIPathOfAny`, `afterStepName` etc. If those don't fit your needs, you can write your own custom predicates too.
+You can pass a `PreTxnStepPick/PostTxnStepPick` which is a `Predicate` used
+to qualify a step for Pre-Step/Post-Step Hook respectively.
+ReṼoman comes
+bundled with some predicates under the namespace `PreTxnStepPick.PickUtils`/`PostTxnStepPick.PickUtils` e.g `beforeStepContainingURIPathOfAny`,
+`afterStepName` etc. If those don't fit your needs, you can write your own custom predicates like below:
+
+[source,java,indent=0,options="nowrap"]
+----
+final var preTxnStepPick = (currentStep, requestInfo, rundown) -> LOGGER.info("Picked `preLogHook` before stepName: {}", currentStep)
+final var postTxnStepPick = (stepReport, rundown) -> LOGGER.info("Picked `postLogHook` after stepName: {}", stepReport.step.displayName)
+----
+
+Add them to the config as below:
 
 [source,java,indent=0,options="nowrap"]
 ----
 .hooks(
 	pre(
-			PreTxnStepPick,
+			preTxnStepPick,
 			(currentStepName, requestInfo, rundown) -> {
-				//...callback-code...
+				//...code...
 			}),
 	post(
-			PostTxnStepPick,
+			postTxnStepPick,
 			(currentStepName, rundown) -> {
-				//...callback-code...
+				//...code...
 			})
 )
 ----
 
 You can do things like assertion on the rundown, response validation,
-or environment and even <<#_mutable_environment,mutate the environment>>,
-such that the execution of subsequent steps picks up those changes.
+or even <<#_mutable_environment,mutate the environment>> with a value you programmatically derived,
+such that the execution of later steps picks up those changes.
 
 [#_plug_in_your_java_code_in_between_postman_execution]
 ==== Plug-in your Java code in-between Postman execution
@@ -465,7 +477,7 @@ so the later steps can pick up value for `+{{xyzId}}+` variable from the environ
 npm install moment
 ----
 
-.Use inside pre- / post-script
+.Use inside pre-req and post-res scripts
 [source,javascript,indent=0,options="nowrap"]
 ----
 var moment = require("moment");
@@ -491,12 +503,12 @@ CAUTION: The recommendation is not to add too much code in <<Pre-req and Post-re
 === Mutable Environment
 
 * Environment is the only mutable-shared state across step executions, which can be used for data passing between the consumer and the library.
-* This can be mutated (set key-value pairs) through <<Pre-req and Post-res scripts>> (using `pm.environment.set()`) and <<#_pre_and_post_step_hooks,Pre-/Post-Hooks>> (using the reference `rundown.mutableEnv`) during execution.
+* This can be mutated (set key-value pairs) through <<Pre-req and Post-res scripts>> (using `pm.environment.set()`) and <<#_pre_step_and_post_step_hooks,Pre-/Post-Hooks>> (using the reference `rundown.mutableEnv`) during execution.
 
 ==== Read Mutable Environment as Postman Environment JSON format
 
 You may want to troubleshoot manually with Postman using the Mutable environment built during the ReṼoman execution.
-`rundown.envInPostmanEnvJSONFormat()` converts the mutable environment into a Postman JSON format,
+`rundown.mutableEnv.postmanEnvJSONFormat()` converts the mutable environment into a Postman JSON format,
 so you can copy and import that conveniently into Postman.
 
 ==== `pmEnvSnapshot` in each StepReport
@@ -568,13 +580,13 @@ The future looks bright with multiple impactful features in the pipeline:
 
 === How to Debug a step in the middle of an Execution?
 
-* You can add a <<#_pre_and_post_step_hooks,pre-hook>> to the Step you are interested and add a debug point inside that. This gets hit before ReṼoman fires the request in that Step
+* You can add a <<#_pre_step_and_post_step_hooks,pre-hook>> to the Step you are interested and add a debug point inside that. This gets hit before ReṼoman fires the request in that Step
 * You can get more adventurous by attaching revoman jar sources and directly adding conditional debug points inside this library source-code. You can search for logs in the source-code that indicate key operations to add conditional debug points with conditions like StepName etc.
 
 === Is there a way to add Metadata to a Postman collection Step?
 
 * You can add key-value pairs to a Step's HTTP Headers section (e.g., `ignoreHTTPStatusUnsuccessful=true`).
-* You can use this information in <<#_step_picks,Step Picks>> or <<#_pre_and_post_step_hooks>> to identify a particular step to execute any conditional logic
+* You can use this information in <<#_step_picks,Step Picks>> or <<#_pre_step_and_post_step_hooks>> to identify a particular step to execute any conditional logic
 
 === Do I need to migrate all my existing TestUtils to Postman Collections?
 

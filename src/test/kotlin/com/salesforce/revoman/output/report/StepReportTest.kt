@@ -15,7 +15,6 @@ import com.salesforce.revoman.internal.postman.template.Url
 import com.salesforce.revoman.output.report.failure.HookFailure.PostStepHookFailure
 import com.salesforce.revoman.output.report.failure.RequestFailure.HttpRequestFailure
 import io.kotest.matchers.shouldBe
-import io.mockk.mockk
 import org.http4k.core.Method.POST
 import org.http4k.core.Response
 import org.http4k.core.Status.Companion.BAD_REQUEST
@@ -30,11 +29,7 @@ class StepReportTest {
       Request(method = POST.toString(), url = Url("https://overfullstack.github.io/"))
     val requestInfo = TxnInfo(String::class.java, "fakeRequest", rawRequest.toHttpRequest())
     val stepReportSuccess =
-      StepReport(
-        Step("1.3.7", Item(request = rawRequest)),
-        Right(requestInfo),
-        moshiReVoman = mockk(),
-      )
+      StepReport(Step("1.3.7", Item(request = rawRequest)), Right(requestInfo))
     println(stepReportSuccess)
     stepReportSuccess.isHttpStatusSuccessful shouldBe true
   }
@@ -48,7 +43,6 @@ class StepReportTest {
       StepReport(
         Step("1.3.7", Item(request = rawRequest)),
         Left(HttpRequestFailure(RuntimeException("fakeRTE"), requestInfo)),
-        moshiReVoman = mockk(),
       )
     println(stepReportHttpFailure)
     stepReportHttpFailure.isHttpStatusSuccessful shouldBe false
@@ -67,7 +61,6 @@ class StepReportTest {
         Right(requestInfo),
         null,
         Right(badResponseInfo),
-        moshiReVoman = mockk(),
       )
     println(stepReportBadRequest)
     stepReportBadRequest.isHttpStatusSuccessful shouldBe false
@@ -86,7 +79,6 @@ class StepReportTest {
         null,
         Right(responseInfo),
         PostStepHookFailure(RuntimeException("fakeRTE")),
-        mockk(),
       )
     println(stepReportPostStepHookFailure)
     stepReportPostStepHookFailure.isHttpStatusSuccessful shouldBe true
