@@ -108,16 +108,18 @@ constructor(
   fun <T : Any> getTypedObj(key: String, objType: Type): T? {
     val value = mutableEnv[key]
     return when {
+      value == null -> null
       objType.rawType.isInstance(value) -> value
       else -> moshiReVoman.asA(moshiReVoman.asFormatString(value as Any), objType.rawType.kotlin)
     }
-      as T
+      as T?
   }
 
   inline fun <reified T : Any> getObj(key: String): T? {
     val value = mutableEnv[key]
-    return when {
-      value is T -> value
+    return when (value) {
+      null,
+      is T -> value
       else -> moshiReVoman.asA(moshiReVoman.asFormatString(value as Any), T::class)
     }
   }

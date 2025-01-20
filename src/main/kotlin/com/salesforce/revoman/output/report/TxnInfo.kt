@@ -33,10 +33,8 @@ constructor(
     typesToIgnore: Set<Class<out Any>> = emptySet(),
   ): T? =
     when {
-      customAdapters.isEmpty() &&
-        customAdaptersWithType.isEmpty() &&
-        typesToIgnore.isEmpty() &&
-        this.txnObjType == Any::class.java -> (txnObjType as? Class<T>)?.cast(txnObj)
+      customAdapters.isEmpty() && customAdaptersWithType.isEmpty() && typesToIgnore.isEmpty() ->
+        (txnObjType as? Class<T>)?.cast(txnObj)
       else ->
         jsonToPojo(
           txnObjType,
@@ -55,10 +53,8 @@ constructor(
     typesToIgnore: Set<Class<out Any>> = emptySet(),
   ): T? =
     when {
-      customAdapters.isEmpty() &&
-        customAdaptersWithType.isEmpty() &&
-        typesToIgnore.isEmpty() &&
-        txnObjType == Any::class.java -> txnObj as? T
+      customAdapters.isEmpty() && customAdaptersWithType.isEmpty() && typesToIgnore.isEmpty() ->
+        txnObj as? T
       else ->
         jsonToPojo(
           T::class.java,

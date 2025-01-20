@@ -18,7 +18,7 @@ endif::[]
 :pmtemplates: src/integrationTest/resources/pm-templates
 :imagesdir: docs/images
 :prewrap!:
-:revoman-version: 0.5.3
+:revoman-version: 0.5.4
 
 '''
 
@@ -409,7 +409,7 @@ The configuration offers methods through which the execution strategy can be con
 [#_pre_step_and_post_step_hooks]
 === Pre-Step and Post-Step Hooks
 
-A hook lets you fiddle with the execution by plugging in your code before or after a Step execution.
+A hook lets you fiddle with the execution by plugging in your custom code before or after a Step execution.
 
 [#_step_picks]
 You can pass a `PreTxnStepPick/PostTxnStepPick` which is a `Predicate` used
@@ -442,9 +442,12 @@ Add them to the config as below:
 )
 ----
 
-You can do things like assertion on the rundown, response validation,
+* You can do things like assertion on the rundown, response validation,
 or even <<#_mutable_environment,mutate the environment>> with a value you programmatically derived,
 such that the execution of later steps picks up those changes.
+* Reserve hooks for plugging in your custom code or asserting and fail-fast in the middle of execution.
+If your assertions can wait till the final rundown,
+it's cleaner to write them after the `revUp()` returns the rundown instead of adding hooks for each step
 
 [#_plug_in_your_java_code_in_between_postman_execution]
 ==== Plug-in your Java code in-between Postman execution
