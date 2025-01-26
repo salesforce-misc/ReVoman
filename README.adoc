@@ -483,36 +483,41 @@ npm install moment
 .Use inside pre-req and post-res scripts
 [source,javascript,indent=0,options="nowrap"]
 ----
-var moment = require("moment");
-pm.environment.set("$currentDate", moment().format(("YYYY-MM-DD")));
-var futureDateTime = moment().add(365, 'days');
-pm.environment.set('$randomFutureDate', futureDateTime.format('YYYY-MM-DD'));
+var moment = require("moment") 
+var _ = require('lodash')
 
-pm.environment.set("$quantity", _.random(1, 10)); // lodash doesn't need `require`
+pm.environment.set("$currentDate", moment().format(("YYYY-MM-DD")))
+var futureDateTime = moment().add(365, 'days')
+pm.environment.set('$randomFutureDate', futureDateTime.format('YYYY-MM-DD'))
+
+pm.environment.set("$quantity", _.random(1, 10))
 ----
 
 [TIP]
 ====
-* `node_modules` adds a lot of files to check-in. You may replace them with a single distribution file
+* `node_modules` Adds a lot of files to check in. You may replace them with a single distribution file
 
 image::node_modules.png[]
 
 * If `node_modules` is ignored on your git repo, you can force-add to check in using the command `git add -all -f <path>/node_modules`
 ====
 
-CAUTION: The recommendation is not to add too much code in <<Pre-req and Post-res scripts>>, as it is not intuitive to troubleshoot. Use it for simple operations like set environment variables and use Post-Hooks JVM code for any non-trivial operations.
+CAUTION: The recommendation is not to add too much code in <<Pre-req and Post-res scripts>>, as they not intuitive to troubleshoot through debugging. Use it for simple operations like set environment variables and use <<#_pre_step_and_post_step_hooks,Pre-Step /Post-Step Hooks>> for any non-trivial operations, which are intuitive to debug.
 
 [#_mutable_environment]
 === Mutable Environment
 
 * Environment is the only mutable-shared state across step executions, which can be used for data passing between the consumer and the library.
-* This can be mutated (set key-value pairs) through <<Pre-req and Post-res scripts>> (using `pm.environment.set()`) and <<#_pre_step_and_post_step_hooks,Pre-/Post-Hooks>> (using the reference `rundown.mutableEnv`) during execution.
+* This can be mutated (set key-value pairs) through <<Pre-req and Post-res scripts>> (using `pm.environment.set()`) and <<#_pre_step_and_post_step_hooks,Pre-Step /Post-Step Hooks>> (using the reference `rundown.mutableEnv`) during execution.
 
 ==== Read Mutable Environment as Postman Environment JSON format
 
 You may want to troubleshoot manually with Postman using the Mutable environment built during the ReṼoman execution.
 `rundown.mutableEnv.postmanEnvJSONFormat()` converts the mutable environment into a Postman JSON format,
-so you can copy and import that conveniently into Postman.
+so you can copy and import that environment conveniently into Postman.
+
+TIP: You do NOT need to save the copied Postman environment JSON from the debugger into file.
+You can paste (kbd:[Ctrl+v]) directly in the Postman environment window
 
 ==== `pmEnvSnapshot` in each StepReport
 
