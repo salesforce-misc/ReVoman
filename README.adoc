@@ -375,8 +375,8 @@ image:pq-exe-logging.gif[Monitor Execution]
 === Type Safety with flexible JSON <- -> POJO marshalling/serialization and unmarshalling/deserialization
 
 * ReṼoman internally uses a modern JSON library called https://github.com/square/moshi[**Moshi**]
-* There may be a POJO that inherits or contains legacy types that are hard or impossible to serialize. ReṼoman lets you serialize such types through `globalSkipTypes`, where you can filter out these legacy types from Marshalling/Unmarshalling, only focussing on fields that matter.
-* The payload may not map to POJO, and you may need a custom types adapter for Marshalling/Unmarshalling. Moshi has it covered for you with its advanced adapter mechanism and ReṼoman accepts Moshi adapters via
+* There may be a POJO that inherits or contains legacy types that are hard or impossible to serialize. ReṼoman lets you serialize only types that matter, through `globalSkipTypes`, where you can filter out these legacy types from Marshalling/Unmarshalling
+* The JSON structure may not align with the POJO, and you may need a _Custom Type Adapter_ for Marshalling/Unmarshalling. Moshi has it covered for you with its advanced adapter mechanism and ReṼoman accepts Moshi adapters via:
 ** `requestConfig` — For types present as part of request payload for qualified Steps
 ** `responseConfig` — For types present as part of response payload for qualified Steps
 ** `globalCustomTypeAdapters` — For types present as part of request payload anywhere
@@ -387,7 +387,7 @@ for an advanced adapter use-case
 
 ==== JSON POJO Utils
 
-link:{sourcedir}/com/salesforce/revoman/input/json/JsonPojoUtils.kt[JSON POJO Utils] can be used to directly convert JSON to POJO and vice versa.
+The bundled link:{sourcedir}/com/salesforce/revoman/input/json/JsonPojoUtils.kt[JSON POJO Utils] can be used to directly convert JSON to POJO and vice versa.
 
 [TIP]
 ====
@@ -409,7 +409,7 @@ The configuration offers methods through which the execution strategy can be con
 [#_pre_step_and_post_step_hooks]
 === Pre-Step and Post-Step Hooks
 
-A hook lets you fiddle with the execution by plugging in your custom code before or after a Step execution.
+A hook lets you fiddle with the execution by plugging in your custom JVM code before or after a Step execution.
 
 [#_step_picks]
 You can pass a `PreTxnStepPick/PostTxnStepPick` which is a `Predicate` used
@@ -483,7 +483,7 @@ npm install moment
 .Use inside pre-req and post-res scripts
 [source,javascript,indent=0,options="nowrap"]
 ----
-var moment = require("moment") 
+var moment = require("moment")
 var _ = require('lodash')
 
 pm.environment.set("$currentDate", moment().format(("YYYY-MM-DD")))

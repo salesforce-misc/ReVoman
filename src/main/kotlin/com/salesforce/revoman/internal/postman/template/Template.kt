@@ -9,7 +9,6 @@ package com.salesforce.revoman.internal.postman.template
 
 import com.salesforce.revoman.internal.postman.PostmanSDK
 import com.squareup.moshi.JsonClass
-import org.http4k.core.ContentType
 import org.http4k.core.ContentType.Companion.APPLICATION_JSON
 import org.http4k.core.ContentType.Companion.Text
 import org.http4k.core.Method

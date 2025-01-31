@@ -13,8 +13,15 @@ import com.salesforce.revoman.output.ExeType.HTTP_REQUEST
 import com.salesforce.revoman.output.report.Step
 import com.salesforce.revoman.output.report.TxnInfo
 import com.salesforce.revoman.output.report.failure.RequestFailure.HttpRequestFailure
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient
+import org.apache.hc.client5.http.impl.classic.HttpClientBuilder
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager
+import org.apache.hc.client5.http.socket.ConnectionSocketFactory
+import org.apache.hc.client5.http.socket.PlainConnectionSocketFactory.INSTANCE
+import org.apache.hc.client5.http.ssl.SSLConnectionSocketFactory
+import org.apache.hc.core5.http.config.RegistryBuilder
+import org.apache.hc.core5.ssl.SSLContextBuilder
 import org.http4k.client.ApacheClient
-import org.http4k.client.PreCannedApacheHttpClients.insecureApacheHttpClient
 import org.http4k.core.Filter
 import org.http4k.core.HttpHandler
 import org.http4k.core.NoOp
@@ -42,7 +49,22 @@ internal fun fireHttpRequest(
 private fun prepareHttpClient(bearerToken: String?, insecureHttp: Boolean): HttpHandler =
   DebuggingFilters.PrintRequestAndResponse()
     .then(if (bearerToken.isNullOrEmpty()) Filter.NoOp else ClientFilters.BearerAuth(bearerToken))
-    .then(
-      if (insecureHttp) ApacheClient(client = insecureApacheHttpClient())
-      else ApacheClient()
-    )
+    .then(if (insecureHttp) ApacheClient(client = insecureApacheHttpClient()) else ApacheClient())
+
+/** Only for Testing. DO NOT USE IN PROD */
+fun insecureApacheHttpClient(): CloseableHttpClient =
+  SSLContextBuilder()
+    .loadTrustMaterial(null) { _, _ -> true }
+    .build()
+    .run {
+      HttpClientBuilder.create()
+        .setConnectionManager(
+          PoolingHttpClientConnectionManager(
+            RegistryBuilder.create<ConnectionSocketFactory>()
+              .register("http", INSTANCE)
+              .register("https", SSLConnectionSocketFactory(this) { _, _ -> true })
+              .build()
+          )
+        )
+        .build()
+    }
