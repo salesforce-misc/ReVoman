@@ -11,6 +11,7 @@ import com.salesforce.revoman.internal.postman.PostmanSDK
 import com.squareup.moshi.JsonClass
 import org.http4k.core.ContentType
 import org.http4k.core.ContentType.Companion.APPLICATION_JSON
+import org.http4k.core.ContentType.Companion.Text
 import org.http4k.core.Method
 import org.http4k.core.Uri
 import org.http4k.core.queryParametersEncoded
@@ -55,13 +56,13 @@ data class Request(
       header
         .firstOrNull { it.key.equals(CONTENT_TYPE.meta.name, ignoreCase = true) }
         ?.value
-        ?.let { ContentType.Text(it) } ?: APPLICATION_JSON
-    val uri = Uri.of(url.raw).queryParametersEncoded()
+        ?.let { Text(it) } ?: APPLICATION_JSON
+    val uri = Uri.of(url.raw.trim()).queryParametersEncoded()
     return org.http4k.core
       .Request(Method.valueOf(method), uri)
       .with(CONTENT_TYPE of contentType)
-      .headers(header.map { it.key to it.value })
-      .body(body?.raw ?: "")
+      .headers(header.map { it.key.trim() to it.value.trim() })
+      .body(body?.raw?.trim() ?: "")
   }
 
   internal fun toPMSDKRequest(pm: PostmanSDK): PostmanSDK.Request = pm.from(this)

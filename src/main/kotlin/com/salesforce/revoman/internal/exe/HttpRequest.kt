@@ -14,7 +14,7 @@ import com.salesforce.revoman.output.report.Step
 import com.salesforce.revoman.output.report.TxnInfo
 import com.salesforce.revoman.output.report.failure.RequestFailure.HttpRequestFailure
 import org.http4k.client.ApacheClient
-import org.http4k.client.PreCannedApacheHttpClients
+import org.http4k.client.PreCannedApacheHttpClients.insecureApacheHttpClient
 import org.http4k.core.Filter
 import org.http4k.core.HttpHandler
 import org.http4k.core.NoOp
@@ -43,6 +43,6 @@ private fun prepareHttpClient(bearerToken: String?, insecureHttp: Boolean): Http
   DebuggingFilters.PrintRequestAndResponse()
     .then(if (bearerToken.isNullOrEmpty()) Filter.NoOp else ClientFilters.BearerAuth(bearerToken))
     .then(
-      if (insecureHttp) ApacheClient(client = PreCannedApacheHttpClients.insecureApacheHttpClient())
+      if (insecureHttp) ApacheClient(client = insecureApacheHttpClient())
       else ApacheClient()
     )
