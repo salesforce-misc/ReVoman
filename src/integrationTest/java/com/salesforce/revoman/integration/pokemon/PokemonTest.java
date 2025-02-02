@@ -10,6 +10,7 @@ package com.salesforce.revoman.integration.pokemon;
 import static com.google.common.truth.Truth.assertThat;
 import static com.salesforce.revoman.input.config.HookConfig.post;
 import static com.salesforce.revoman.input.config.HookConfig.pre;
+import static com.salesforce.revoman.input.config.ResponseConfig.unmarshallResponse;
 import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.afterStepContainingHeader;
 import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.afterStepContainingURIPathOfAny;
 import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.afterStepName;
@@ -89,9 +90,11 @@ class PokemonTest {
 				Mockito.spy(
 						new PostStepHook() {
 							@Override
-							public void accept(@NotNull StepReport ignore2, @NotNull Rundown rundown) {
+							public void accept(@NotNull StepReport stepReport, @NotNull Rundown rundown) {
 								assertThat(rundown.mutableEnv).containsEntry("limit", String.valueOf(newLimit));
-								assertThat(rundown.mutableEnv).containsEntry("pokemonName", "bulbasaur");
+								final var results =
+										stepReport.responseInfo.get().<AllPokemon>getTypedTxnObj().getResults();
+								assertThat(results.size()).isEqualTo(newLimit);
 							}
 						});
 		//noinspection Convert2Lambda
@@ -99,7 +102,7 @@ class PokemonTest {
 				Mockito.spy(
 						new PostStepHook() {
 							@Override
-							public void accept(@NotNull StepReport stepReport, @NotNull Rundown ignore) {
+							public void accept(@NotNull StepReport stepReport, @NotNull Rundown rundown) {
 								LOGGER.info(
 										"Picked `postHookAfterURIPath` after stepName: {} with raw URI: {}",
 										stepReport.step.displayName,
@@ -111,6 +114,7 @@ class PokemonTest {
 						Kick.configure()
 								.templatePath(PM_COLLECTION_PATH)
 								.environmentPath(PM_ENVIRONMENT_PATH)
+								.responseConfig(unmarshallResponse(afterStepName("all-pokemon"), AllPokemon.class))
 								.hooks(
 										pre(beforeStepName("all-pokemon"), preHook),
 										post(afterStepName("all-pokemon"), postHook),
@@ -121,11 +125,7 @@ class PokemonTest {
 								.haltOnAnyFailure(true)
 								.off());
 
-		Mockito.verify(preHook, times(1)).accept(any(), any(), any());
-		Mockito.verify(postHook, times(1)).accept(any(), any());
-		Mockito.verify(postHookAfterURIPath, times(1)).accept(any(), any());
-		Mockito.verify(preLogHook, times(1)).accept(any(), any(), any());
-		Mockito.verify(postLogHook, times(1)).accept(any(), any());
+		assertThat(pokeRundown.firstUnIgnoredUnsuccessfulStepReport()).isNull();
 		assertThat(pokeRundown.stepReports).hasSize(5);
 		assertThat(pokeRundown.mutableEnv)
 				.containsExactlyEntriesIn(
@@ -139,5 +139,10 @@ class PokemonTest {
 								"gender", "female",
 								"ability", "stench",
 								"nature", "hardy"));
+		Mockito.verify(preHook, times(1)).accept(any(), any(), any());
+		Mockito.verify(postHook, times(1)).accept(any(), any());
+		Mockito.verify(postHookAfterURIPath, times(1)).accept(any(), any());
+		Mockito.verify(preLogHook, times(1)).accept(any(), any(), any());
+		Mockito.verify(postLogHook, times(1)).accept(any(), any());
 	}
 }

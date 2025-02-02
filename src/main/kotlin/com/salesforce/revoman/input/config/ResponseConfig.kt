@@ -19,7 +19,7 @@ internal constructor(
   val postTxnStepPick: PostTxnStepPick,
   val ifSuccess: Boolean?,
   val objType: Type,
-  val customTypeAdapter: Either<JsonAdapter<Any>, JsonAdapter.Factory>? = null,
+  val customTypeAdapter: Either<JsonAdapter<out Any>, JsonAdapter.Factory>? = null,
 ) {
   companion object {
     @JvmStatic
@@ -30,7 +30,7 @@ internal constructor(
     fun unmarshallResponse(
       postTxnStepPick: PostTxnStepPick,
       successType: Type,
-      customTypeAdapter: JsonAdapter<Any>,
+      customTypeAdapter: JsonAdapter<out Any>,
     ): ResponseConfig = ResponseConfig(postTxnStepPick, null, successType, left(customTypeAdapter))
 
     @JvmStatic

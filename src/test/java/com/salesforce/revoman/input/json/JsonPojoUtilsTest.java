@@ -118,6 +118,7 @@ class JsonPojoUtilsTest {
 	@Test
 	@DisplayName("Simple JSON to Map")
 	void simpleJsonToMap() {
+		// language=json
 		final var json =
 				"""
 				{

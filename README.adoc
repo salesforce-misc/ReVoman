@@ -18,7 +18,7 @@ endif::[]
 :pmtemplates: src/integrationTest/resources/pm-templates
 :imagesdir: docs/images
 :prewrap!:
-:revoman-version: 0.5.5
+:revoman-version: 0.5.6
 
 '''
 
@@ -127,7 +127,7 @@ In the case of collision between variable keys, the precedence order to derive a
 You can _kick off_ this *Template-Driven Testing* by invoking `ReVoman.revUp()`,
 supplying your Postman templates and environments, and all your customizations through a configuration:
 
-[source,java,indent=0,options="nowrap"]
+[source,java,indent=0,tabsize=2,options="nowrap"]
 ----
 final var rundown =
 	ReVoman.revUp(
@@ -150,7 +150,7 @@ by supplying the template and environment path:
 
 ifdef::env-github[]
 
-[source,java,indent=0,options="nowrap"]
+[source,java,indent=0,tabsize=2,options="nowrap"]
 .link:{integrationtestdir}/com/salesforce/revoman/integration/restfulapidev/RestfulAPIDevTest.java[RestfulAPIDevTest.java, tag=revoman-simple-demo]
 ----
 @Test
@@ -162,18 +162,20 @@ void restfulApiDev() {
 					.templatePath(PM_COLLECTION_PATH) // <2>
 					.environmentPath(PM_ENVIRONMENT_PATH) // <3>
 					.off());
-	assertThat(rundown.stepReports).hasSize(3); // <4>
+	assertThat(rundown.firstUnIgnoredUnsuccessfulStepReport()).isNull(); // <4>
+	assertThat(rundown.stepReports).hasSize(3); // <5>
 }
 ----
 <1> `revUp` is the method to call passing a configuration, built as below
 <2> Supply an exported Postman collection JSON file path
 <3> Supply an exported Postman environment JSON file path
-<4> Run more assertions on the <<Rundown>>
+<4> Assert that the execution doesn't have any failures
+<5> Run more assertions on the <<Rundown>>
 
 endif::[]
 ifndef::env-github[]
 
-[source,java,indent=0,options="nowrap"]
+[source,java,indent=0,tabsize=2,options="nowrap"]
 .link:{integrationtestdir}/com/salesforce/revoman/integration/restfulapidev/RestfulAPIDevTest.java[RestfulAPIDevTest.java,tag=revoman-simple-demo]
 ----
 include::{integrationtestdir}/com/salesforce/revoman/integration/restfulapidev/RestfulAPIDevTest.java[tag=revoman-simple-demo]
@@ -181,7 +183,8 @@ include::{integrationtestdir}/com/salesforce/revoman/integration/restfulapidev/R
 <1> `revUp` is the method to call passing a configuration, built as below
 <2> Supply an exported Postman collection JSON file path
 <3> Supply an exported Postman environment JSON file path
-<4> Run more assertions on the <<Rundown>>
+<4> Assert that the execution doesn't have any failures
+<5> Run more assertions on the <<Rundown>>
 
 endif::[]
 
@@ -191,7 +194,7 @@ After all this, you receive back a detailed *Rundown* in return.
 It contains everything you need to know about what happened in an execution,
 such that you can seamlessly run more assertions on top of the run.
 
-[source,kotlin,indent=0,options="nowrap"]
+[source,kotlin,indent=0,tabsize=2,options="nowrap"]
 ----
 Rundown(
 	val stepReports: List<StepReport>,
@@ -222,7 +225,7 @@ you can add more _bells and whistles_ 🔔:
 
 ifdef::env-github[]
 
-[source,java,indent=0,options="nowrap"]
+[source,java,indent=0,tabsize=2,options="nowrap"]
 .link:{integrationtestdir}/com/salesforce/revoman/integration/core/pq/PQE2EWithSMTest.java[PQE2EWithSMTest.java, tag=pq-e2e-with-revoman-config-demo]
 ----
 final var pqRundown =
@@ -313,7 +316,7 @@ assertThat(pqRundown.mutableEnv)
 endif::[]
 ifndef::env-github[]
 
-[source,java,indent=0,options="nowrap"]
+[source,java,indent=0,tabsize=2,options="nowrap"]
 .link:{integrationtestdir}/com/salesforce/revoman/integration/core/pq/PQE2EWithSMTest.java[PQE2ETest.java, tag=pq-e2e-with-revoman-config-demo]
 ----
 include::{integrationtestdir}/com/salesforce/revoman/integration/core/pq/PQE2EWithSMTest.java[tag=pq-e2e-with-revoman-config-demo]
@@ -378,8 +381,20 @@ image:pq-exe-logging.gif[Monitor Execution]
 * There may be a POJO that inherits or contains legacy types that are hard or impossible to serialize. ReṼoman lets you serialize only types that matter, through `globalSkipTypes`, where you can filter out these legacy types from Marshalling/Unmarshalling
 * The JSON structure may not align with the POJO, and you may need a _Custom Type Adapter_ for Marshalling/Unmarshalling. Moshi has it covered for you with its advanced adapter mechanism and ReṼoman accepts Moshi adapters via:
 ** `requestConfig` — For types present as part of request payload for qualified Steps
-** `responseConfig` — For types present as part of response payload for qualified Steps
-** `globalCustomTypeAdapters` — For types present as part of request payload anywhere
+** `responseConfig` — For types present as part of response payload for qualified Steps. You can configure separate adapters for success and error response. Use bundled static factory methods like `unmarshallSuccessResponse()` and `unmarshallErrorResponse()` for expressiveness.
+
+[TIP]
+====
+Success or Error response is determined by default with HTTP Status Code (SUCCESSFUL = `200 <=statusCode <=299`). There may be a scenario
+that you cannot depend on HTTP Status Code to distinguish between Success or Error.
+In such a case,
+you can leverage a bundled Moshi factory link:{sourcedir}/com/salesforce/revoman/input/json/factories/DiMorphicAdapter.kt[DiMorphicAdapter]
+that deals with it dynamically.
+Refer link:{sourcedir}/com/salesforce/revoman/input/json/adapters/CompositeGraphResponse.kt[CompositeGraphResponse]
+for an example usage
+====
+
+** `globalCustomTypeAdapters` — For types present as part of request/response payload anywhere
 * ReṼoman also comes bundled with link:{sourcedir}/com/salesforce/revoman/input/json/JsonReaderUtils.kt[JSON Reader utils] and link:{sourcedir}/com/salesforce/revoman/input/json/JsonWriterUtils.kt[JSON Writer utils] to help build Moshi adapters.
 
 TIP: Refer link:{integrationtestdir}/com/salesforce/revoman/integration/core/pq/adapters/ConnectInputRepWithGraphAdapter.java[ConnectInputRepWithGraphAdapter]
@@ -418,7 +433,7 @@ ReṼoman comes
 bundled with some predicates under the namespace `PreTxnStepPick.PickUtils`/`PostTxnStepPick.PickUtils` e.g `beforeStepContainingURIPathOfAny`,
 `afterStepName` etc. If those don't fit your needs, you can write your own custom predicates like below:
 
-[source,java,indent=0,options="nowrap"]
+[source,java,indent=0,tabsize=2,options="nowrap"]
 ----
 final var preTxnStepPick = (currentStep, requestInfo, rundown) -> LOGGER.info("Picked `preLogHook` before stepName: {}", currentStep)
 final var postTxnStepPick = (stepReport, rundown) -> LOGGER.info("Picked `postLogHook` after stepName: {}", stepReport.step.displayName)
@@ -426,7 +441,7 @@ final var postTxnStepPick = (stepReport, rundown) -> LOGGER.info("Picked `postLo
 
 Add them to the config as below:
 
-[source,java,indent=0,options="nowrap"]
+[source,java,indent=0,tabsize=2,options="nowrap"]
 ----
 .hooks(
 	pre(
@@ -481,7 +496,7 @@ npm install moment
 ----
 
 .Use inside pre-req and post-res scripts
-[source,javascript,indent=0,options="nowrap"]
+[source,javascript,indent=0,tabsize=2,options="nowrap"]
 ----
 var moment = require("moment")
 var _ = require('lodash')

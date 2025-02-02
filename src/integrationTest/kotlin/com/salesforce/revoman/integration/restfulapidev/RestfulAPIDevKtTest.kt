@@ -23,8 +23,8 @@ class RestfulAPIDevKtTest {
           .nodeModulesRelativePath("js")
           .off()
       )
-    assertThat(rundown.stepReports).hasSize(3)
     assertThat(rundown.firstUnsuccessfulStepReport).isNull()
+    assertThat(rundown.stepReports).hasSize(3)
   }
 
   companion object {

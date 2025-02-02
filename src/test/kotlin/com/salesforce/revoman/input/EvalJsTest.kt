@@ -92,6 +92,7 @@ class EvalJsTest {
 
   @Test
   fun xml2json() {
+    // language=xml
     val xmlResponse =
       """
       <?xml version="1.0" encoding="UTF-8"?>
@@ -111,6 +112,7 @@ class EvalJsTest {
       </soapenv:Envelope>
     """
         .trimIndent()
+    // language=javascript
     val callingScript =
       """
       var jsonData = xml2Json(responseBody);

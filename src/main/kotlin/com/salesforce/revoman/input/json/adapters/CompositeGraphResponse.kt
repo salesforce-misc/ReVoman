@@ -54,9 +54,9 @@ data class CompositeGraphResponse(val graphs: List<Graph>) {
       val errorResponses: List<CompositeErrorResponse> =
         graphResponse.compositeResponse.filter {
           it.httpStatusCode in CLIENT_ERROR &&
-            it.body.firstOrNull()?.let {
-              it.errorCode == PROCESSING_HALTED ||
-                it.message == OPERATION_IN_TRANSACTION_FAILED_ERROR
+            it.body.firstOrNull()?.let { error ->
+              error.errorCode == PROCESSING_HALTED ||
+                error.message == OPERATION_IN_TRANSACTION_FAILED_ERROR
             } != true
         }
 

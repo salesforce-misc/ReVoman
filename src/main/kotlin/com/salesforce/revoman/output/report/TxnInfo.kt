@@ -28,7 +28,7 @@ constructor(
   fun <T : Any> getTypedTxnObj(
     txnObjType: Type = this.txnObjType,
     customAdapters: List<Any> = emptyList(),
-    customAdaptersWithType: Map<Type, List<Either<JsonAdapter<Any>, JsonAdapter.Factory>>> =
+    customAdaptersWithType: Map<Type, List<Either<JsonAdapter<out Any>, JsonAdapter.Factory>>> =
       emptyMap(),
     typesToIgnore: Set<Class<out Any>> = emptySet(),
   ): T? =
@@ -48,7 +48,7 @@ constructor(
   @JvmOverloads
   inline fun <reified T : Any> getTxnObj(
     customAdapters: List<Any> = emptyList(),
-    customAdaptersWithType: Map<Type, List<Either<JsonAdapter<Any>, JsonAdapter.Factory>>> =
+    customAdaptersWithType: Map<Type, List<Either<JsonAdapter<out Any>, JsonAdapter.Factory>>> =
       emptyMap(),
     typesToIgnore: Set<Class<out Any>> = emptySet(),
   ): T? =

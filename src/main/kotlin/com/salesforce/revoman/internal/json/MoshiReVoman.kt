@@ -38,7 +38,7 @@ internal lateinit var moshiReVoman: Moshi
 @JvmOverloads
 internal fun initMoshi(
   customAdapters: List<Any> = emptyList(),
-  customAdaptersWithType: Map<Type, List<Either<JsonAdapter<Any>, Factory>>> = emptyMap(),
+  customAdaptersWithType: Map<Type, List<Either<JsonAdapter<out Any>, Factory>>> = emptyMap(),
   typesToIgnore: Set<Class<out Any>> = emptySet(),
 ): ConfigurableMoshi {
   val moshiBuilder = buildMoshi(customAdapters, customAdaptersWithType, typesToIgnore)
@@ -49,7 +49,7 @@ internal fun initMoshi(
 @SuppressWarnings("kotlin:S3923")
 internal fun buildMoshi(
   customAdapters: List<Any> = emptyList(),
-  customAdaptersWithType: Map<Type, List<Either<JsonAdapter<Any>, Factory>>> = emptyMap(),
+  customAdaptersWithType: Map<Type, List<Either<JsonAdapter<out Any>, Factory>>> = emptyMap(),
   typesToIgnore: Set<Class<out Any>> = emptySet(),
 ): Moshi.Builder {
   // * NOTE 08 May 2024 gopala.akshintala: This cannot be static singleton as adapters added mutates
