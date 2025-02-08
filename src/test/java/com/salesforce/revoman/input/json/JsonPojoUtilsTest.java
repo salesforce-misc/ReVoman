@@ -32,48 +32,46 @@ import org.skyscreamer.jsonassert.JSONCompareMode;
 class JsonPojoUtilsTest {
 
 	@Test
-	@DisplayName("DiMorphic CompositeGraph Success Response --> POJO --> JSON")
-	void compositeGraphSuccessResponseMarshallUnmarshall() throws JSONException {
-		final var graphSuccessResponseJsonStr =
-				readFileInResourcesToString("composite/graph/resp/graph-success-response.json");
-		final var successGraphResponse =
-				JsonPojoUtils.<CompositeGraphResponse>jsonToPojo(
-						CompositeGraphResponse.class,
-						graphSuccessResponseJsonStr,
-						List.of(CompositeGraphResponse.ADAPTER));
-		assertThat(successGraphResponse.getGraphs().get(0)).isInstanceOf(SuccessGraph.class);
-		final var successGraphResponseUnmarshalled =
-				JsonPojoUtils.pojoToJson(
-						Pojo.marshall()
-								.pojoType(CompositeGraphResponse.class)
-								.pojo(successGraphResponse)
-								.customAdapter(CompositeGraphResponse.ADAPTER)
-								.done());
-		JSONAssert.assertEquals(
-				graphSuccessResponseJsonStr, successGraphResponseUnmarshalled, JSONCompareMode.STRICT);
-	}
+	@DisplayName("DiMorphic CompositeGraph Success/Error Response --> POJO --> JSON")
+	void compositeGraphResponseDiMorphicMarshallUnmarshall() throws JSONException {
+		// JSON --> POJO
+		final var jsonFileConfig =
+				JsonFile.<CompositeGraphResponse>unmarshall()
+						.pojoType(CompositeGraphResponse.class)
+						.customAdapter(CompositeGraphResponse.ADAPTER);
 
-	@Test
-	@DisplayName("DiMorphic CompositeGraph Error Response --> POJO --> JSON")
-	void compositeGraphErrorResponseMarshallUnmarshall() throws JSONException {
-		final var graphErrorResponseJsonStr =
-				readFileInResourcesToString("composite/graph/resp/graph-error-response.json");
+		final var successGraphResponse =
+				JsonPojoUtils.jsonFileToPojo(
+						jsonFileConfig.jsonFilePath("composite/graph/resp/graph-success-response.json").done());
+		assertThat(successGraphResponse.getGraphs().get(0)).isInstanceOf(SuccessGraph.class);
+
 		final var errorGraphResponse =
-				JsonPojoUtils.<CompositeGraphResponse>jsonToPojo(
-						CompositeGraphResponse.class,
-						graphErrorResponseJsonStr,
-						List.of(CompositeGraphResponse.ADAPTER));
+				JsonPojoUtils.jsonFileToPojo(
+						jsonFileConfig.jsonFilePath("composite/graph/resp/graph-error-response.json").done());
 		final var errorGraph = errorGraphResponse.getGraphs().get(0);
 		assertThat(errorGraph).isInstanceOf(ErrorGraph.class);
 		assertThat(((ErrorGraph) errorGraph).firstErrorResponseBody.getErrorCode())
 				.isEqualTo("DUPLICATE_VALUE");
-		final var errorGraphResponseUnmarshalled =
-				JsonPojoUtils.pojoToJson(
-						CompositeGraphResponse.class,
-						errorGraphResponse,
-						List.of(CompositeGraphResponse.ADAPTER));
+
+		// POJO --> JSON
+		final var pojoToJsonConfig =
+				Pojo.<CompositeGraphResponse>marshall()
+						.pojoType(CompositeGraphResponse.class)
+						.customAdapter(CompositeGraphResponse.ADAPTER);
+
+		final var successGraphResponseUnmarshalled =
+				JsonPojoUtils.pojoToJson(pojoToJsonConfig.pojo(successGraphResponse).done());
 		JSONAssert.assertEquals(
-				graphErrorResponseJsonStr, errorGraphResponseUnmarshalled, JSONCompareMode.STRICT);
+				readFileInResourcesToString("composite/graph/resp/graph-success-response.json"),
+				successGraphResponseUnmarshalled,
+				JSONCompareMode.STRICT);
+
+		final var errorGraphResponseUnmarshalled =
+				JsonPojoUtils.pojoToJson(pojoToJsonConfig.pojo(errorGraphResponse).done());
+		JSONAssert.assertEquals(
+				readFileInResourcesToString("composite/graph/resp/graph-error-response.json"),
+				errorGraphResponseUnmarshalled,
+				JSONCompareMode.STRICT);
 	}
 
 	@DisplayName("toJson: SObjectGraphRequest POJO --> PQ Payload JSON")

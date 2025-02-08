@@ -27,7 +27,7 @@ class PostmanEnvironmentKtTest {
         "key4" to mapOf("4" to 4),
         "key5" to null,
       )
-    val pm = PostmanEnvironment<Any?>(env)
+    val pm = PostmanEnvironment(env)
     val postmanEnvJSONFormatStr = readFileInResourcesToString("mutable-env-to-pm.json")
     JSONAssert.assertEquals(
       pm.postmanEnvJSONFormat,
@@ -46,7 +46,7 @@ class PostmanEnvironmentKtTest {
         "key4" to mapOf("4" to 4),
         "key5" to null,
       )
-    val pm = PostmanEnvironment<Any?>(env)
+    val pm = PostmanEnvironment(env)
     pm.getObj<Int>("key1")!! shouldBeEqual env["key1"] as Int
     pm.getObj<String>("key2")!! shouldBeEqual env["key2"] as String
     pm.getObj<List<Int>>("key3")!! shouldBeEqual env["key3"] as List<Int>

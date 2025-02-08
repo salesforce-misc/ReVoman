@@ -27,6 +27,7 @@ import com.salesforce.revoman.output.Rundown;
 import com.salesforce.revoman.output.report.Step;
 import com.salesforce.revoman.output.report.StepReport;
 import com.salesforce.revoman.output.report.TxnInfo;
+import java.util.List;
 import java.util.Map;
 import org.http4k.core.Request;
 import org.jetbrains.annotations.NotNull;
@@ -93,7 +94,7 @@ class PokemonTest {
 							public void accept(@NotNull StepReport stepReport, @NotNull Rundown rundown) {
 								assertThat(rundown.mutableEnv).containsEntry("limit", String.valueOf(newLimit));
 								final var results =
-										stepReport.responseInfo.get().<AllPokemon>getTypedTxnObj().getResults();
+										stepReport.responseInfo.get().<AllPokemon>getTypedTxnObj().results;
 								assertThat(results.size()).isEqualTo(newLimit);
 							}
 						});
@@ -144,5 +145,9 @@ class PokemonTest {
 		Mockito.verify(postHookAfterURIPath, times(1)).accept(any(), any());
 		Mockito.verify(preLogHook, times(1)).accept(any(), any(), any());
 		Mockito.verify(postLogHook, times(1)).accept(any(), any());
+	}
+
+	public record AllPokemon(int count, String next, String previous, List<Result> results) {
+		public record Result(String name, String url) {}
 	}
 }

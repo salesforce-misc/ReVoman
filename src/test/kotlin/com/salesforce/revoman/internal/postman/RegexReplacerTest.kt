@@ -11,11 +11,27 @@ import com.salesforce.revoman.input.config.CustomDynamicVariableGenerator
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapter
 import io.kotest.matchers.equals.shouldNotBeEqual
+import io.kotest.matchers.maps.shouldContain
 import io.kotest.matchers.maps.shouldContainAll
 import io.mockk.mockk
 import org.junit.jupiter.api.Test
 
 class RegexReplacerTest {
+  @Test
+  fun `unmarshall Env File with Regex and Dynamic variable`() {
+    val epoch = System.currentTimeMillis().toString()
+    val dummyDynamicVariableGenerator = { r: String, _: PostmanSDK ->
+      if (r == "\$epoch") epoch else null
+    }
+    val regexReplacer = RegexReplacer(emptyMap(), dummyDynamicVariableGenerator)
+    val pm = PostmanSDK(mockk(), null, regexReplacer)
+    pm.environment.putAll(
+      mergeEnvs(setOf("env-with-regex.json"), emptyList(), mutableMapOf("un" to "userName"))
+    )
+    val envWithVariablesReplaced = regexReplacer.replaceVariablesInEnv(pm)
+    envWithVariablesReplaced shouldContain ("userName" to "user-$epoch@xyz.com")
+  }
+  
   @OptIn(ExperimentalStdlibApi::class)
   @Test
   fun `dynamic variables - Body + dynamic env`() {

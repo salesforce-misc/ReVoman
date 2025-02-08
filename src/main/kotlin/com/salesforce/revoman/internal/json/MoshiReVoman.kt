@@ -33,8 +33,6 @@ import org.http4k.format.ThrowableAdapter
 import org.http4k.format.asConfigurable
 import org.http4k.format.withStandardMappings
 
-internal lateinit var moshiReVoman: Moshi
-
 @JvmOverloads
 internal fun initMoshi(
   customAdapters: List<Any> = emptyList(),
@@ -42,7 +40,6 @@ internal fun initMoshi(
   typesToIgnore: Set<Class<out Any>> = emptySet(),
 ): ConfigurableMoshi {
   val moshiBuilder = buildMoshi(customAdapters, customAdaptersWithType, typesToIgnore)
-  moshiReVoman = moshiBuilder.build()
   return object : ConfigurableMoshi(moshiBuilder) {}
 }
 

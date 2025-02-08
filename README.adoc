@@ -377,32 +377,68 @@ image:pq-exe-logging.gif[Monitor Execution]
 [#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization]
 === Type Safety with flexible JSON <- -> POJO marshalling/serialization and unmarshalling/deserialization
 
-* ReṼoman internally uses a modern JSON library called https://github.com/square/moshi[**Moshi**]
-* There may be a POJO that inherits or contains legacy types that are hard or impossible to serialize. ReṼoman lets you serialize only types that matter, through `globalSkipTypes`, where you can filter out these legacy types from Marshalling/Unmarshalling
-* The JSON structure may not align with the POJO, and you may need a _Custom Type Adapter_ for Marshalling/Unmarshalling. Moshi has it covered for you with its advanced adapter mechanism and ReṼoman accepts Moshi adapters via:
-** `requestConfig` — For types present as part of request payload for qualified Steps
-** `responseConfig` — For types present as part of response payload for qualified Steps. You can configure separate adapters for success and error response. Use bundled static factory methods like `unmarshallSuccessResponse()` and `unmarshallErrorResponse()` for expressiveness.
+Postman operates purely with JSON.
+When interoperating Postman with JVM,
+unmarshalling/deserialization of JSON into a POJO and vice versa helps in writing Type-safe JVM code and enhances the debugging experience on JVM.
+ReṼoman internally uses a modern JSON library called https://github.com/square/moshi[**Moshi**].
+Simple types whose JSON structure aligns with the POJO data structure can directly be converted.
+But when the JSON structure may not align with the POJO,
+you may need a _Custom Type Adapter_ for Marshalling to JSON or Unmarshalling from JSON.
+Moshi has it covered for you with its advanced adapter mechanism and ReṼoman accepts Moshi adapters.
+Checkout these methods that help us interop between Postman and JVM:
+
+==== `globalSkipTypes()`
+
+There may be a POJO that inherits or contains legacy types that are hard or impossible to serialize.
+ReṼoman lets you serialize only types that matter, through `globalSkipTypes`,
+where you can filter out these legacy types from Marshalling/Unmarshalling
+
+==== `requestConfig()`
+
+* Configure Moshi adapters to unmarshall/deserialize _Request_ JSON payload to a POJO on certain steps.
+* You may use the bundled static factory methods named `RequestConfig.unmarshallResponse()` for expressiveness.
+* You can pass a `PreTxnStepPick` which is a `Predicate` used
+to qualify a step whose Request JSON payload needs to be unmarshalled/deserialized.
+* If you have set up `requestConfig()` once, wherever you wish to access the request in your <<#_pre_step_and_post_step_hooks,Pre-Step Hooks>>, you can call `stepReport.responseInfo.get().<TypeT>getTypedTxnObj()` which returns a Strong type to conveniently assert.
+* If you don't pass anything in this config, Moshi unmarshalls into default data structures like `LinkedHashMap`
+
+==== `responseConfig()`
+
+* Configure Moshi adapters to unmarshall/deserialize _Response_ JSON payload to a POJO on certain steps.
+* You can configure separate adapters for success and error response. Success or Error response is determined by default with HTTP Status Code (SUCCESSFUL: `200 < = statusCode < = 299`).
+* Use bundled static factory methods like `ResponseConfig.unmarshallSuccessResponse()` and `ResponseConfig.unmarshallErrorResponse()` for expressiveness.
+* You can pass a `PostTxnStepPick` which is a `Predicate` used
+to qualify a step whose Response JSON payload needs to be unmarshalled/deserialized.
+* If you have set up `responseConfig()` once, wherever you wish to access or assert the response in your <<#_pre_step_and_post_step_hooks,Post-Step Hooks>>, you can call `stepReport.responseInfo.get().<TypeT>getTypedTxnObj()` which returns a Strong type to conveniently assert.
+* If you don't pass anything in this config, Moshi unmarshalls into default data structures like `LinkedHashMap`
 
 [TIP]
 ====
-Success or Error response is determined by default with HTTP Status Code (SUCCESSFUL = `200 <=statusCode <=299`). There may be a scenario
+* There may be a scenario
 that you cannot depend on HTTP Status Code to distinguish between Success or Error.
-In such a case,
+* In such a case,
 you can leverage a bundled Moshi factory link:{sourcedir}/com/salesforce/revoman/input/json/factories/DiMorphicAdapter.kt[DiMorphicAdapter]
-that deals with it dynamically.
-Refer link:{sourcedir}/com/salesforce/revoman/input/json/adapters/CompositeGraphResponse.kt[CompositeGraphResponse]
-for an example usage
+that deals with it dynamically based on a `boolean` attribute value in the response JSON.
+See `DiMorphicAdapter` in action from the test `compositeGraphResponseDiMorphicMarshallUnmarshall()` in link:{testdir}/com/salesforce/revoman/input/json/JsonPojoUtilsTest.java[JsonPojoUtilsTest].
+* You may also refer to link:https://square.github.io/moshi/1.x/moshi-adapters/adapters/com.squareup.moshi.adapters/-polymorphic-json-adapter-factory/index.html[PolymorphicJsonAdapterFactory] for Marshalling/Unmarshalling based on `String` type attribute.
 ====
 
-** `globalCustomTypeAdapters` — For types present as part of request/response payload anywhere
-* ReṼoman also comes bundled with link:{sourcedir}/com/salesforce/revoman/input/json/JsonReaderUtils.kt[JSON Reader utils] and link:{sourcedir}/com/salesforce/revoman/input/json/JsonWriterUtils.kt[JSON Writer utils] to help build Moshi adapters.
+==== `globalCustomTypeAdapters()`
 
-TIP: Refer link:{integrationtestdir}/com/salesforce/revoman/integration/core/pq/adapters/ConnectInputRepWithGraphAdapter.java[ConnectInputRepWithGraphAdapter]
-for an advanced adapter use-case
+These adapters are used for marshalling/unmarshalling request/response payload for any step. 
+These compliment the custom adapters setup in `requestConfig()` or `responseConfig()` 
+
+==== JSON Reader/Writer Utils to build Moshi adapters
+
+ReṼoman also comes
+bundled with link:{sourcedir}/com/salesforce/revoman/input/json/JsonReaderUtils.kt[JSON Reader utils] and link:{sourcedir}/com/salesforce/revoman/input/json/JsonWriterUtils.kt[JSON Writer utils]
+to help build Moshi adapters.
+
+TIP: Refer link:{integrationtestdir}/com/salesforce/revoman/integration/core/pq/adapters/ConnectInputRepWithGraphAdapter.java[ConnectInputRepWithGraphAdapter] on how these utils come in handy in building an advanced Moshi adapter
 
 ==== JSON POJO Utils
 
-The bundled link:{sourcedir}/com/salesforce/revoman/input/json/JsonPojoUtils.kt[JSON POJO Utils] can be used to directly convert JSON to POJO and vice versa.
+The bundled link:{sourcedir}/com/salesforce/revoman/input/json/JsonPojoUtils.kt[JSON POJO Utils] can be used to directly to convert JSON to POJO and vice versa.
 
 [TIP]
 ====
@@ -411,6 +447,12 @@ See in Action:
 * link:{testdir}/com/salesforce/revoman/input/json/JsonPojoUtilsTest.java[JsonPojoUtilsTest]
 * link:{integrationtestdir}/com/salesforce/revoman/input/json/JsonPojoUtils2Test.java[JsonPojoUtils2Test]
 ====
+
+==== `rundown.mutableEnv.getTypedObj()`
+
+You can read an environment variable value as a Strong type.
+See it in action: `getTypedObj()`
+test from link:{testdir}/com/salesforce/revoman/output/postman/PostmanEnvironmentTest.java[PostmanEnvironmentTest]
 
 === Execution Control
 
@@ -430,8 +472,8 @@ A hook lets you fiddle with the execution by plugging in your custom JVM code be
 You can pass a `PreTxnStepPick/PostTxnStepPick` which is a `Predicate` used
 to qualify a step for Pre-Step/Post-Step Hook respectively.
 ReṼoman comes
-bundled with some predicates under the namespace `PreTxnStepPick.PickUtils`/`PostTxnStepPick.PickUtils` e.g `beforeStepContainingURIPathOfAny`,
-`afterStepName` etc. If those don't fit your needs, you can write your own custom predicates like below:
+bundled with some predicates under the namespace `PreTxnStepPick.PickUtils`/`PostTxnStepPick.PickUtils` e.g `beforeStepContainingURIPathOfAny()`,
+`afterStepName()` etc. If those don't fit your needs, you can write your own custom predicates like below:
 
 [source,java,indent=0,tabsize=2,options="nowrap"]
 ----
@@ -457,7 +499,7 @@ Add them to the config as below:
 )
 ----
 
-* You can do things like assertion on the rundown, response validation,
+* You can do things like assertion on the rundown, <<#_response_validations,Response Validations>>,
 or even <<#_mutable_environment,mutate the environment>> with a value you programmatically derived,
 such that the execution of later steps picks up those changes.
 * Reserve hooks for plugging in your custom code or asserting and fail-fast in the middle of execution.
@@ -475,6 +517,7 @@ Instead, you have a Java utility to generate/create it.
 You can invoke the utility in a pre-hook of a step and set the value in `rundown.mutableEnv`,
 so the later steps can pick up value for `+{{xyzId}}+` variable from the environment.
 
+[#_response_validations]
 ==== Response Validations
 
 * Post-Hooks are the best place to validate response right after the step.
@@ -517,7 +560,7 @@ image::node_modules.png[]
 * If `node_modules` is ignored on your git repo, you can force-add to check in using the command `git add -all -f <path>/node_modules`
 ====
 
-CAUTION: The recommendation is not to add too much code in <<Pre-req and Post-res scripts>>, as they not intuitive to troubleshoot through debugging. Use it for simple operations like set environment variables and use <<#_pre_step_and_post_step_hooks,Pre-Step /Post-Step Hooks>> for any non-trivial operations, which are intuitive to debug.
+CAUTION: The recommendation is not to add too much code in <<Pre-req and Post-res scripts>>, as it's not intuitive to troubleshoot through debugging. Use it for simple operations that can be understood without debugging, and use <<#_pre_step_and_post_step_hooks,Pre-Step /Post-Step Hooks>> for any non-trivial operations, which are intuitive to debug.
 
 [#_mutable_environment]
 === Mutable Environment
