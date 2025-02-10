@@ -5,7 +5,7 @@
  *  http://www.apache.org/licenses/LICENSE-2.0
  **************************************************************************************************/
 
-package com.salesforce.revoman.integration.core.pq.adapters;
+package com.salesforce.revoman.integration.core.adapters;
 
 import static com.salesforce.revoman.input.json.JsonReaderUtils.anyMapR;
 import static com.salesforce.revoman.input.json.JsonReaderUtils.listR;

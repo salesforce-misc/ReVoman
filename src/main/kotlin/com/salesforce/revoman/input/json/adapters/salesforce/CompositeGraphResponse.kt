@@ -1,9 +1,16 @@
-package com.salesforce.revoman.input.json.adapters
+/**
+ * ************************************************************************************************
+ * Copyright (c) 2023, Salesforce, Inc. All rights reserved. SPDX-License-Identifier: Apache License
+ * Version 2.0 For full license text, see the LICENSE file in the repo root or
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * ************************************************************************************************
+ */
+package com.salesforce.revoman.input.json.adapters.salesforce
 
-import com.salesforce.revoman.input.json.adapters.CompositeGraphResponse.Graph.ErrorGraph
-import com.salesforce.revoman.input.json.adapters.CompositeGraphResponse.Graph.ErrorGraph.GraphErrorResponse.CompositeErrorResponse
-import com.salesforce.revoman.input.json.adapters.CompositeGraphResponse.Graph.ErrorGraph.GraphErrorResponse.CompositeErrorResponse.Body
-import com.salesforce.revoman.input.json.adapters.CompositeGraphResponse.Graph.SuccessGraph
+import com.salesforce.revoman.input.json.adapters.salesforce.CompositeGraphResponse.Graph.ErrorGraph
+import com.salesforce.revoman.input.json.adapters.salesforce.CompositeGraphResponse.Graph.ErrorGraph.GraphErrorResponse.CompositeErrorResponse
+import com.salesforce.revoman.input.json.adapters.salesforce.CompositeGraphResponse.Graph.ErrorGraph.GraphErrorResponse.CompositeErrorResponse.Body
+import com.salesforce.revoman.input.json.adapters.salesforce.CompositeGraphResponse.Graph.SuccessGraph
 import com.salesforce.revoman.input.json.factories.DiMorphicAdapter
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass

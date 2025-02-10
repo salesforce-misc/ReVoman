@@ -5,7 +5,7 @@
  *  http://www.apache.org/licenses/LICENSE-2.0
  **************************************************************************************************/
 
-package com.salesforce.revoman.integration.core.pq.adapters;
+package com.salesforce.revoman.integration.core.adapters;
 
 import com.salesforce.revoman.integration.core.pq.connect.response.ID;
 import com.squareup.moshi.FromJson;
@@ -13,6 +13,8 @@ import com.squareup.moshi.ToJson;
 
 // * NOTE 10 Mar 2024 gopala.akshintala: Custom Type Adapter
 public class IDAdapter {
+	public static final IDAdapter INSTANCE = new IDAdapter();
+
 	@FromJson
 	ID fromJson(String id) {
 		return new ID(id);

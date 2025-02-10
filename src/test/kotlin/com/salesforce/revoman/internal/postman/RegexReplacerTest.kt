@@ -31,7 +31,7 @@ class RegexReplacerTest {
     val envWithVariablesReplaced = regexReplacer.replaceVariablesInEnv(pm)
     envWithVariablesReplaced shouldContain ("userName" to "user-$epoch@xyz.com")
   }
-  
+
   @OptIn(ExperimentalStdlibApi::class)
   @Test
   fun `dynamic variables - Body + dynamic env`() {

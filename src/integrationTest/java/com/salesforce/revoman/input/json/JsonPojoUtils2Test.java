@@ -9,11 +9,11 @@ package com.salesforce.revoman.input.json;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.salesforce.revoman.input.FileUtils.readFileInResourcesToString;
-import static com.salesforce.revoman.integration.core.pq.adapters.ConnectInputRepWithGraphAdapter.adapter;
+import static com.salesforce.revoman.integration.core.adapters.ConnectInputRepWithGraphAdapter.adapter;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import com.salesforce.revoman.integration.core.pq.adapters.IDAdapter;
+import com.salesforce.revoman.integration.core.adapters.IDAdapter;
 import com.salesforce.revoman.integration.core.pq.connect.request.PlaceQuoteInputRepresentation;
 import com.salesforce.revoman.integration.core.pq.connect.request.PricingPreferenceEnum;
 import com.salesforce.revoman.integration.core.pq.connect.response.PlaceQuoteOutputRepresentation;

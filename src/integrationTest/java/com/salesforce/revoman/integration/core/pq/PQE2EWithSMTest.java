@@ -16,15 +16,14 @@ import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.after
 import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.afterStepContainingURIPathOfAny;
 import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.afterStepName;
 import static com.salesforce.revoman.input.config.StepPick.PreTxnStepPick.beforeStepContainingURIPathOfAny;
-import static com.salesforce.revoman.integration.core.pq.adapters.ConnectInputRepWithGraphAdapter.adapter;
+import static com.salesforce.revoman.integration.core.CoreUtils.assertCompositeGraphResponseSuccess;
+import static com.salesforce.revoman.integration.core.adapters.ConnectInputRepWithGraphAdapter.adapter;
 import static com.salesforce.revoman.output.ExeType.HTTP_STATUS;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.salesforce.revoman.ReVoman;
 import com.salesforce.revoman.input.config.Kick;
-import com.salesforce.revoman.input.json.adapters.CompositeGraphResponse;
-import com.salesforce.revoman.input.json.adapters.CompositeGraphResponse.Graph.ErrorGraph;
-import com.salesforce.revoman.integration.core.pq.adapters.IDAdapter;
+import com.salesforce.revoman.input.json.adapters.salesforce.CompositeGraphResponse;
+import com.salesforce.revoman.integration.core.adapters.IDAdapter;
 import com.salesforce.revoman.integration.core.pq.connect.request.PlaceQuoteInputRepresentation;
 import com.salesforce.revoman.integration.core.pq.connect.response.PlaceQuoteOutputRepresentation;
 import com.salesforce.revoman.output.postman.PostmanEnvironment;
@@ -45,18 +44,19 @@ import org.slf4j.LoggerFactory;
  *
  * <p>- Follow these instructions: <a href="http://sfdc.co/sm-org-setup">SM Org setup</a>. - Replace
  * baseUrl of your server, username and password of the org admin here: <a
- * href="///resources/pm-templates/pq/pq-env.postman_environment.json">pq-env.postman_environment.json</a>
+ * href="///resources/pm-templates/core/pq/pq-env.postman_environment.json">pq-env.postman_environment.json</a>
  *
  * <p>- TODO: Add a mock server setup for this test.
  */
 class PQE2EWithSMTest {
 	private static final Logger LOGGER = LoggerFactory.getLogger(PQE2EWithSMTest.class);
+	private static final String PQ_COLLECTION_PATH = "pm-templates/core/pq";
 	private static final List<String> PQ_TEMPLATE_PATHS =
 			List.of(
-					"pm-templates/pq/[sm] user-creation-with-ps-and-setup-pq.postman_collection.json",
-					"pm-templates/pq/pre-salesRep.postman_collection.json",
-					"pm-templates/pq/[sm] pq.postman_collection.json");
-	private static final String PQ_ENV_PATH = "pm-templates/pq/pq-env.postman_environment.json";
+					PQ_COLLECTION_PATH + "/[sm] user-creation-with-ps-and-setup-pq.postman_collection.json",
+					PQ_COLLECTION_PATH + "/pre-salesRep.postman_collection.json",
+					PQ_COLLECTION_PATH + "/[sm] pq.postman_collection.json");
+	private static final String PQ_ENV_PATH = PQ_COLLECTION_PATH + "/pq-env.postman_environment.json";
 	private static final String PQ_URI_PATH = "commerce/quotes/actions/place";
 	private static final String COMPOSITE_GRAPH_URI_PATH = "composite/graph";
 	private static final String IS_SYNC_HEADER = "isSync";
@@ -119,11 +119,11 @@ class PQE2EWithSMTest {
 												}),
 										post(
 												afterStepContainingURIPathOfAny(COMPOSITE_GRAPH_URI_PATH),
-												(stepReport, ignore) -> validateCompositeGraphResponse(stepReport)),
+												(stepReport, ignore) -> assertCompositeGraphResponseSuccess(stepReport)),
 										post(
 												afterStepName("query-quote-and-related-records"),
 												(ignore, rundown) -> assertAfterPQCreate(rundown.mutableEnv)))
-								.globalCustomTypeAdapter(new IDAdapter()) // <12>
+								.globalCustomTypeAdapter(IDAdapter.INSTANCE) // <12>
 								.insecureHttp(true) // <13>
 								.off()); // Kick-off
 		assertThat(pqRundown.firstUnIgnoredUnsuccessfulStepReport()).isNull(); // <14>
@@ -137,27 +137,11 @@ class PQE2EWithSMTest {
 	}
 
 	private static void validatePQResponse(StepReport stepReport) {
-		final var pqInputRep =
+		final var pqOutputRep =
 				stepReport.responseInfo.get().<PlaceQuoteOutputRepresentation>getTypedTxnObj();
-		final var successRespProp = pqInputRep.getSuccess();
+		final var successRespProp = pqOutputRep.getSuccess();
 		final var isStepExpectedToFail = stepReport.step.isInFolder(SYNC_ERROR_FOLDER_NAME);
 		assertThat(successRespProp).isEqualTo(!isStepExpectedToFail);
-	}
-
-	private static void validateCompositeGraphResponse(StepReport stepReport) {
-		final var responseTxnInfo = stepReport.responseInfo.get();
-		final var graphResp =
-				responseTxnInfo.<CompositeGraphResponse>getTypedTxnObj().getGraphs().get(0);
-		assertTrue(
-				graphResp.isSuccessful(),
-				() -> {
-					final var firstErrorResponseBody = ((ErrorGraph) graphResp).firstErrorResponseBody;
-					return String.format(
-							"Unsuccessful Composite Graph response%n{%n  first errorCode: %s%n  first errorMessage: %s%n}%n%s",
-							firstErrorResponseBody.getErrorCode(),
-							firstErrorResponseBody.getMessage(),
-							responseTxnInfo.httpMsg.toMessage());
-				});
 	}
 
 	private static void assertAfterPQCreate(PostmanEnvironment<Object> env) {

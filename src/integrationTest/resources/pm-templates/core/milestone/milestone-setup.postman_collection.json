@@ -1,0 +1,625 @@
+{
+	"info": {
+		"_postman_id": "1c781427-0751-4e80-be15-a61b9c887020",
+		"name": "milestone-setup",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "23827434",
+		"_collection_link": "https://salesforce-734821.postman.co/workspace/billing~1c6fbe60-fabb-4988-890b-b032cf03e25d/collection/23827434-1c781427-0751-4e80-be15-a61b9c887020?action=share&source=collection_link&creator=23827434"
+	},
+	"item": [
+		{
+			"name": "billing-setup-milestone",
+			"item": [
+				{
+					"name": "Login as BillingAdmin",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var xml2js = require('xml2js')",
+									"xml2js.parseString(pm.response.text(), { explicitArray: false }, (_, jsonResponse) => {",
+									"  let result = jsonResponse['soapenv:Envelope']['soapenv:Body'].loginResponse.result",
+									"  pm.environment.set(\"accessToken\", result.sessionId)",
+									"})"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"protocolProfileBehavior": {
+						"disabledSystemHeaders": {
+							"accept": true,
+							"content-type": true
+						}
+					},
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "text/xml"
+							},
+							{
+								"key": "SOAPAction",
+								"value": "login"
+							},
+							{
+								"key": "charset",
+								"value": "UTF-8",
+								"type": "text"
+							},
+							{
+								"key": "Accept",
+								"value": "text/xml",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<env:Envelope xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"\n    xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n    xmlns:env=\"http://schemas.xmlsoap.org/soap/envelope/\">\n  <env:Body>\n    <n1:login xmlns:n1=\"urn:partner.soap.sforce.com\">\n      <n1:username><![CDATA[{{billingAdminUserName}}]]></n1:username>\n      <n1:password><![CDATA[{{commonUserPassword}}{{secretToken}}]]></n1:password>\n    </n1:login>\n  </env:Body>\n</env:Envelope>"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/services/Soap/u/{{version}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"services",
+								"Soap",
+								"u",
+								"{{version}}"
+							]
+						},
+						"description": "Login to Salesforce"
+					},
+					"response": []
+				},
+				{
+					"name": "BillingTreatmentItems",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var graphData = pm.response.json().graphs[0];",
+									"",
+									"pm.environment.set(\"billingPolicyId\", graphData.graphResponse.compositeResponse[0].body.id)",
+									"pm.environment.set(\"billingTreatmentId\", graphData.graphResponse.compositeResponse[1].body.id)",
+									"graphData.graphResponse.compositeResponse.slice(2).forEach((response, index) =>",
+									"  pm.environment.set(\"billingTreatmentItem\" + index + \"Id\", response.body.id))",
+									""
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"graphs\": [\n    {\n      \"graphId\": \"1\",\n      \"compositeRequest\": [\n        {\n          \"method\": \"POST\",\n          \"url\": \"{{versionPath}}/sobjects/BillingPolicy\",\n          \"referenceId\": \"billingPolicy\",\n          \"body\": {\n            \"Name\": \"ReVoman Billing Policy\",\n            \"Status\": \"Draft\",\n            \"BillingTreatmentSelection\": \"Default\",\n            \"Description\": \"ReVoman Billing Policy\"\n          }\n        },\n        {\n          \"method\": \"POST\",\n          \"url\": \"{{versionPath}}/sobjects/BillingTreatment\",\n          \"referenceId\": \"billingTreatment\",\n          \"body\": {\n            \"Name\": \"ReVoman Milestone Billing Treatment\",\n            \"BillingPolicyId\": \"@{billingPolicy.id}\",\n            \"Description\": \"Test Billing Treatment\",\n            \"Status\": \"Draft\",\n            \"ExcludeFromBilling\": \"No\",\n            \"IsMilestoneBilling\": true\n          }\n        },\n        {\n          \"method\": \"POST\",\n          \"url\": \"{{versionPath}}/sobjects/BillingTreatmentItem\",\n          \"referenceId\": \"bti1\",\n          \"body\": {\n            \"Name\": \"ReVoman Milestone Billing Treatment Item 1\",\n            \"Status\": \"Active\",\n            \"Sequencing\": \"None\",\n            \"ProcessingOrder\": 0,\n            \"BillingTreatmentId\": \"@{billingTreatment.id}\",\n            \"Description\": \"Test Billing Treatment Item\",\n            \"type\": \"Percentage\",\n            \"BillingType\": \"None\",\n            \"Percentage\": 30,\n            \"Controller\": \"None\",\n            \"Handling0Amount\": \"None\",\n            \"MilestoneType\": \"Date\",\n            \"MilestoneStartDate\": \"OrderProductActivation\",\n            \"MilestoneStartDateOffset\": 1,\n            \"MilestoneStartDateOffsetUnit\": \"Months\"\n          }\n        },\n        {\n          \"method\": \"POST\",\n          \"url\": \"{{versionPath}}/sobjects/BillingTreatmentItem\",\n          \"referenceId\": \"bti2\",\n          \"body\": {\n            \"Name\": \"ReVoman Milestone Billing Treatment Item 2\",\n            \"Status\": \"Active\",\n            \"Sequencing\": \"None\",\n            \"ProcessingOrder\": 0,\n            \"BillingTreatmentId\": \"@{billingTreatment.id}\",\n            \"Description\": \"Test Billing Treatment Item\",\n            \"type\": \"Percentage\",\n            \"BillingType\": \"None\",\n            \"Percentage\": 30,\n            \"Controller\": \"None\",\n            \"Handling0Amount\": \"None\",\n            \"MilestoneType\": \"Date\",\n            \"MilestoneStartDate\": \"OrderProductActivation\",\n            \"MilestoneStartDateOffset\": 2,\n            \"MilestoneStartDateOffsetUnit\": \"Months\"\n          }\n        },\n        {\n          \"method\": \"POST\",\n          \"url\": \"{{versionPath}}/sobjects/BillingTreatmentItem\",\n          \"referenceId\": \"bti3\",\n          \"body\": {\n            \"Name\": \"ReVoman Milestone Billing Treatment Item 3\",\n            \"Status\": \"Active\",\n            \"Sequencing\": \"None\",\n            \"ProcessingOrder\": 0,\n            \"BillingTreatmentId\": \"@{billingTreatment.id}\",\n            \"Description\": \"Test Billing Treatment Item\",\n            \"type\": \"Percentage\",\n            \"BillingType\": \"None\",\n            \"Percentage\": 30,\n            \"Controller\": \"None\",\n            \"Handling0Amount\": \"None\",\n            \"MilestoneType\": \"Date\",\n            \"MilestoneStartDate\": \"OrderProductActivation\",\n            \"MilestoneStartDateOffset\": 3,\n            \"MilestoneStartDateOffsetUnit\": \"Months\"\n          }\n        }\n      ]\n    }\n  ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}{{versionPath}}/composite/graph",
+							"host": [
+								"{{baseUrl}}{{versionPath}}"
+							],
+							"path": [
+								"composite",
+								"graph"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "BillingTreatment",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"Status\": \"Active\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}{{versionPath}}/sobjects/BillingTreatment/{{billingTreatmentId}}",
+							"host": [
+								"{{baseUrl}}{{versionPath}}"
+							],
+							"path": [
+								"sobjects",
+								"BillingTreatment",
+								"{{billingTreatmentId}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "BillingPolicy",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"Status\": \"Active\",\n    \"DefaultBillingTreatmentId\": \"{{billingTreatmentId}}\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}{{versionPath}}/sobjects/BillingPolicy/{{billingPolicyId}}",
+							"host": [
+								"{{baseUrl}}{{versionPath}}"
+							],
+							"path": [
+								"sobjects",
+								"BillingPolicy",
+								"{{billingPolicyId}}"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "product-setup",
+			"item": [
+				{
+					"name": "OneTime",
+					"item": [
+						{
+							"name": "Login as ProductPricingAdmin",
+							"event": [
+								{
+									"listen": "prerequest",
+									"script": {
+										"exec": [
+											""
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								},
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"var xml2js = require('xml2js')",
+											"xml2js.parseString(pm.response.text(), { explicitArray: false }, (_, jsonResponse) => {",
+											"  let result = jsonResponse['soapenv:Envelope']['soapenv:Body'].loginResponse.result",
+											"  pm.environment.set(\"accessToken\", result.sessionId)",
+											"})"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"protocolProfileBehavior": {
+								"disabledSystemHeaders": {
+									"accept": true,
+									"content-type": true
+								}
+							},
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "text/xml"
+									},
+									{
+										"key": "SOAPAction",
+										"value": "login"
+									},
+									{
+										"key": "charset",
+										"value": "UTF-8",
+										"type": "text"
+									},
+									{
+										"key": "Accept",
+										"value": "text/xml",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<env:Envelope xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"\n    xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n    xmlns:env=\"http://schemas.xmlsoap.org/soap/envelope/\">\n  <env:Body>\n    <n1:login xmlns:n1=\"urn:partner.soap.sforce.com\">\n      <n1:username><![CDATA[{{productAndPricingAdminUserName}}]]></n1:username>\n      <n1:password><![CDATA[{{commonUserPassword}}]]></n1:password>\n    </n1:login>\n  </env:Body>\n</env:Envelope>"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/services/Soap/u/{{version}}",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"services",
+										"Soap",
+										"u",
+										"{{version}}"
+									]
+								},
+								"description": "Login to Salesforce"
+							},
+							"response": []
+						},
+						{
+							"name": "OneTime Product",
+							"event": [
+								{
+									"listen": "prerequest",
+									"script": {
+										"exec": [
+											""
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								},
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"var jsonData = pm.response.json();",
+											"if(jsonData.id!=null){",
+											"    pm.environment.set(\"oneTimeProductId\", jsonData.id);",
+											"}"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"Name\": \"ReVoman OneTime\",\n    \"ProductCode\": \"ReVoman OneTime\",\n    \"IsActive\": true,\n    \"Type\": \"Bundle\",\n    \"ConfigureDuringSale\": \"Allowed\",\n    \"BillingPolicyId\": \"{{billingPolicyId}}\",\n    \"TaxPolicyId\": \"{{taxPolicyId}}\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}{{versionPath}}/sobjects/Product2/",
+									"host": [
+										"{{baseUrl}}{{versionPath}}"
+									],
+									"path": [
+										"sobjects",
+										"Product2",
+										""
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "OneTime PSM",
+							"event": [
+								{
+									"listen": "prerequest",
+									"script": {
+										"exec": [
+											""
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								},
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"var jsonData = pm.response.json();",
+											"pm.environment.set(\"oneTimeSellingModelId\", jsonData.id);"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "ignoreHTTPStatusUnsuccessful",
+										"value": "true",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"SellingModelType\": \"OneTime\",\n    \"Name\": \"OneTime PSM\",\n    \"Status\": \"Active\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}{{versionPath}}/sobjects/ProductSellingModel/",
+									"host": [
+										"{{baseUrl}}{{versionPath}}"
+									],
+									"path": [
+										"sobjects",
+										"ProductSellingModel",
+										""
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "OneTime PSM",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"var jsonData = pm.response.json();",
+											"pm.environment.set(\"oneTimeProductSellingModelId\", jsonData.records[0].Id);"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"protocolProfileBehavior": {
+								"disableBodyPruning": true
+							},
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": ""
+								},
+								"url": {
+									"raw": "{{baseUrl}}{{versionPath}}/query/?q=SELECT Id, SellingModelType, PricingTerm, PricingTermUnit, Status FROM ProductSellingModel WHERE SellingModelType = 'OneTime'",
+									"host": [
+										"{{baseUrl}}{{versionPath}}"
+									],
+									"path": [
+										"query",
+										""
+									],
+									"query": [
+										{
+											"key": "q",
+											"value": "SELECT Id, SellingModelType, PricingTerm, PricingTermUnit, Status FROM ProductSellingModel WHERE SellingModelType = 'OneTime'"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "OneTime PSMO",
+							"event": [
+								{
+									"listen": "prerequest",
+									"script": {
+										"exec": [
+											""
+										],
+										"type": "text/javascript"
+									}
+								},
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"var jsonData = pm.response.json();",
+											"pm.environment.set(\"oneTimeSellingModelOptionId\", jsonData.id);"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"ProductSellingModelId\": \"{{oneTimeProductSellingModelId}}\",\n    \"Product2Id\": \"{{oneTimeProductId}}\"\n}\n\n",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}{{versionPath}}/sobjects/ProductSellingModelOption/",
+									"host": [
+										"{{baseUrl}}{{versionPath}}"
+									],
+									"path": [
+										"sobjects",
+										"ProductSellingModelOption",
+										""
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "OneTime PBE",
+							"event": [
+								{
+									"listen": "prerequest",
+									"script": {
+										"exec": [
+											""
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								},
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"var jsonData = pm.response.json();",
+											"pm.environment.set(\"oneTimePriceBookEntryId\", jsonData.id);",
+											""
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"ProductSellingModelId\": \"{{oneTimeProductSellingModelId}}\",\n    \"Product2Id\": \"{{oneTimeProductId}}\",\n    \"IsActive\": true,\n    \"Pricebook2Id\": \"{{standardPricebookId}}\",\n    \"UnitPrice\": \"{{$unitPrice}}\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}{{versionPath}}/sobjects/pricebookentry/",
+									"host": [
+										"{{baseUrl}}{{versionPath}}"
+									],
+									"path": [
+										"sobjects",
+										"pricebookentry",
+										""
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				}
+			]
+		}
+	],
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{accessToken}}",
+				"type": "string"
+			}
+		]
+	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		}
+	]
+}

@@ -48,9 +48,9 @@ object ReVoman {
   @JvmStatic
   @JvmOverloads
   fun revUp(
-    vararg kicks: Kick,
     postExeHook: PostExeHook = PostExeHook { _, _ -> },
     dynamicEnvironment: Map<String, String> = emptyMap(),
+    vararg kicks: Kick,
   ): List<Rundown> = revUp(kicks.toList(), postExeHook, dynamicEnvironment)
 
   @JvmStatic

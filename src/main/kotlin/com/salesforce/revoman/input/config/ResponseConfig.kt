@@ -51,7 +51,7 @@ internal constructor(
     fun unmarshallSuccessResponse(
       postTxnStepPick: PostTxnStepPick,
       successType: Type,
-      customTypeAdapter: JsonAdapter<Any>,
+      customTypeAdapter: JsonAdapter<out Any>,
     ): ResponseConfig = ResponseConfig(postTxnStepPick, true, successType, left(customTypeAdapter))
 
     @JvmStatic
@@ -72,7 +72,7 @@ internal constructor(
     fun unmarshallErrorResponse(
       postTxnStepPick: PostTxnStepPick,
       successType: Type,
-      customTypeAdapter: JsonAdapter<Any>,
+      customTypeAdapter: JsonAdapter<out Any>,
     ): ResponseConfig = ResponseConfig(postTxnStepPick, false, successType, left(customTypeAdapter))
 
     @JvmStatic

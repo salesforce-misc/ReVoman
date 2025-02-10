@@ -1,0 +1,876 @@
+{
+	"info": {
+		"_postman_id": "6d4408f2-0e8e-43dc-9e0e-958825246388",
+		"name": "bmp-create-runtime",
+		"description": "- SalesOpsRep: Create an Order using PST and Activate it",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "23827434",
+		"_collection_link": "https://salesforce-734821.postman.co/workspace/1c6fbe60-fabb-4988-890b-b032cf03e25d/collection/23827434-6d4408f2-0e8e-43dc-9e0e-958825246388?source=collection_link"
+	},
+	"item": [
+		{
+			"name": "create-order",
+			"item": [
+				{
+					"name": "Login as SalesOpsRep",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var xml2js = require('xml2js')",
+									"xml2js.parseString(pm.response.text(), { explicitArray: false }, (_, jsonResponse) => {",
+									"  let result = jsonResponse['soapenv:Envelope']['soapenv:Body'].loginResponse.result",
+									"  pm.environment.set(\"accessToken\", result.sessionId)",
+									"})"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"protocolProfileBehavior": {
+						"disabledSystemHeaders": {
+							"accept": true,
+							"content-type": true
+						}
+					},
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "text/xml"
+							},
+							{
+								"key": "SOAPAction",
+								"value": "login"
+							},
+							{
+								"key": "charset",
+								"value": "UTF-8",
+								"type": "text"
+							},
+							{
+								"key": "Accept",
+								"value": "text/xml",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<env:Envelope xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"\n    xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n    xmlns:env=\"http://schemas.xmlsoap.org/soap/envelope/\">\n  <env:Body>\n    <n1:login xmlns:n1=\"urn:partner.soap.sforce.com\">\n      <n1:username><![CDATA[{{salesOpsRepUserName}}]]></n1:username>\n      <n1:password><![CDATA[{{commonUserPassword}}]]></n1:password>\n    </n1:login>\n  </env:Body>\n</env:Envelope>"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/services/Soap/u/{{version}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"services",
+								"Soap",
+								"u",
+								"{{version}}"
+							]
+						},
+						"description": "Login to Salesforce"
+					},
+					"response": []
+				},
+				{
+					"name": "Account + Contact",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var graphData = pm.response.json().graphs[0];",
+									"",
+									"if (graphData.isSuccessful) {",
+									"  graphData.graphResponse.compositeResponse.forEach(response => ",
+									"    pm.environment.set(response.referenceId + \"Id\", response.body.id))",
+									"}",
+									""
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						},
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"var moment = require('moment');",
+									"var futureDateTime = moment().add(364, 'days');",
+									"pm.environment.set('$randomFutureDate', futureDateTime.format('YYYY-MM-DD'));",
+									"",
+									"pm.environment.set(\"$attributeName\", \"revoman-attr\");"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"graphs\": [\n    {\n      \"graphId\": \"1\",\n      \"compositeRequest\": [\n        {\n          \"method\": \"POST\",\n          \"url\": \"{{versionPath}}/sobjects/Account\",\n          \"referenceId\": \"account\",\n          \"body\": {\n            \"Name\": \"ReVoman - {{$randomLastName}}\",\n            \"BillingPostalCode\": \"94003\",\n            \"BillingCity\": \"San Mateo\",\n            \"BillingState\": \"CA\",\n            \"BillingStreet\": \"856 Homewood Ave.\",\n            \"BillingCountry\": \"United States\",\n            \"ShippingStreet\": \"856 Homewood Ave.\",\n            \"ShippingPostalCode\": \"94003\",\n            \"ShippingCountry\": \"United States\",\n            \"ShippingState\": \"CA\",\n            \"ShippingCity\": \"San Mateo\"\n          }\n        },\n        {\n          \"method\": \"POST\",\n          \"url\": \"{{versionPath}}/sobjects/Contact\",\n          \"referenceId\": \"contact\",\n          \"body\": {\n            \"AccountId\": \"@{account.id}\",\n            \"FirstName\": \"ReVoman - {{$randomFirstName}}\",\n            \"LastName\": \"{{$randomLastName}}\",\n            \"Email\": \"{{$randomEmail}}\"\n          }\n        }\n      ]\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}{{versionPath}}/composite/graph",
+							"host": [
+								"{{baseUrl}}{{versionPath}}"
+							],
+							"path": [
+								"composite",
+								"graph"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "pst-create-order",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json()",
+									"pm.environment.set(\"orderId\", jsonData.salesTransactionId);",
+									""
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						},
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"var moment = require(\"moment\");",
+									"var _ = require('lodash')",
+									"pm.environment.set(\"$currentDate\", moment().format((\"YYYY-MM-DD\")));",
+									"",
+									"var futureDateTime = moment().add(365, 'days');",
+									"pm.environment.set('$randomFutureDate', futureDateTime.format('YYYY-MM-DD'));",
+									"",
+									"pm.environment.set(\"$pricingPref\", \"system\")",
+									"pm.environment.set(\"$unitPrice\", _.random(1, 100));",
+									"pm.environment.set(\"$quantity\", _.random(1, 10));",
+									"pm.environment.set(\"$requestName\", pm.info.requestName)"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"pricingPref\": \"{{$pricingPref}}\",\n  \"configurationPref\": {\n    \"configurationMethod\": \"skip\"\n  },\n  \"graph\": {\n    \"graphId\": \"{{$requestName}}\",\n    \"records\": [\n      {\n        \"referenceId\": \"refOrder\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"Order\",\n            \"method\": \"POST\"\n          },\n          \"Status\": \"Draft\",\n          \"AccountId\": \"{{accountId}}\",\n          \"Pricebook2Id\": \"{{standardPricebookId}}\",\n          \"BillToContactId\": \"{{contactId}}\",\n          \"EffectiveDate\": \"2024-11-20\",\n          \"BillingStreet\": \"Block 3, DivyaSree Orion IT/ITES SEZ, Raidurg Village\",\n          \"BillingCity\": \"Hyderabad\",\n          \"BillingState\": \"TS\",\n          \"BillingPostalCode\": \"500032\",\n          \"BillingCountry\": \"India\",\n          \"ShippingStreet\": \"Block 3, DivyaSree Orion IT/ITES SEZ, Raidurg Village\",\n          \"ShippingCity\": \"Hyderabad\",\n          \"ShippingState\": \"TS\",\n          \"ShippingPostalCode\": \"500032\",\n          \"ShippingCountry\": \"India\"\n        }\n      },\n      {\n        \"referenceId\": \"refAppTag\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"AppUsageAssignment\",\n            \"method\": \"POST\"\n          },\n          \"AppUsageType\": \"RevenueLifecycleManagement\",\n          \"RecordId\": \"@{refOrder.id}\"\n        }\n      },\n      {\n        \"referenceId\": \"refOrderAction\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"OrderAction\",\n            \"method\": \"POST\"\n          },\n          \"OrderId\": \"@{refOrder.id}\",\n          \"Type\": \"Add\"\n        }\n      },\n      {\n        \"referenceId\": \"OrderItem1\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"OrderItem\",\n            \"method\": \"POST\"\n          },\n          \"OrderId\": \"@{refOrder.id}\",\n          \"PricebookEntryId\": \"{{oneTimePriceBookEntryId}}\",\n          \"Product2Id\": \"{{oneTimeProductId}}\",\n          \"Quantity\": {{$quantity}},\n          \"UnitPrice\": {{$unitPrice}},\n          \"OrderActionId\": \"@{refOrderAction.id}\"\n        }\n      }\n    ]\n  }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}{{versionPath}}/connect/rev/sales-transaction/actions/place",
+							"host": [
+								"{{baseUrl}}{{versionPath}}"
+							],
+							"path": [
+								"connect",
+								"rev",
+								"sales-transaction",
+								"actions",
+								"place"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "query-order-and-related-records",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json()",
+									"var orderResult = jsonData.compositeResponse[0].body.records[0]",
+									"pm.environment.set(\"orderCalculationStatus\", orderResult.CalculationStatus)",
+									"",
+									"jsonData.compositeResponse[1].body.records.forEach((record, index) => {",
+									"  pm.environment.set(\"orderItem\" + (index + 1) + \"Id\", record.Id)",
+									"})"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						},
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"pm.environment.set(\"$orderFieldsToQuery\", \"OrderNumber, CalculationStatus\")",
+									"pm.environment.set(\"$oiFieldsToQuery\", \"Id, OrderItemNumber, NetUnitPrice\")"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"allOrNone\": false,\n  \"compositeRequest\": [\n    {\n      \"method\": \"GET\",\n      \"url\": \"{{versionPath}}/query/?q=SELECT {{$orderFieldsToQuery}} FROM Order WHERE Id = '{{orderId}}'\",\n      \"referenceId\": \"order\"\n    },\n    {\n      \"method\": \"GET\",\n      \"url\": \"{{versionPath}}/query/?q=SELECT {{$oiFieldsToQuery}} FROM OrderItem WHERE OrderId = '{{orderId}}'\",\n      \"referenceId\": \"orderItems\"\n    }\n  ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}{{versionPath}}/composite",
+							"host": [
+								"{{baseUrl}}{{versionPath}}"
+							],
+							"path": [
+								"composite"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Order",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						},
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PATCH",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"Status\": \"Activated\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}{{versionPath}}/sobjects/Order/{{orderId}}",
+							"host": [
+								"{{baseUrl}}{{versionPath}}"
+							],
+							"path": [
+								"sobjects",
+								"Order",
+								"{{orderId}}"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "bs-new-sale",
+			"item": [
+				{
+					"name": "Login as BillingOps",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var xml2js = require('xml2js')",
+									"xml2js.parseString(pm.response.text(), { explicitArray: false }, (_, jsonResponse) => {",
+									"  let result = jsonResponse['soapenv:Envelope']['soapenv:Body'].loginResponse.result",
+									"  pm.environment.set(\"accessToken\", result.sessionId)",
+									"})"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"protocolProfileBehavior": {
+						"disabledSystemHeaders": {
+							"accept": true,
+							"content-type": true
+						}
+					},
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "text/xml"
+							},
+							{
+								"key": "SOAPAction",
+								"value": "login"
+							},
+							{
+								"key": "charset",
+								"value": "UTF-8",
+								"type": "text"
+							},
+							{
+								"key": "Accept",
+								"value": "text/xml",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<env:Envelope xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"\n    xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n    xmlns:env=\"http://schemas.xmlsoap.org/soap/envelope/\">\n  <env:Body>\n    <n1:login xmlns:n1=\"urn:partner.soap.sforce.com\">\n      <n1:username><![CDATA[{{billingOpsUserName}}]]></n1:username>\n      <n1:password><![CDATA[{{commonUserPassword}}{{secretToken}}]]></n1:password>\n    </n1:login>\n  </env:Body>\n</env:Envelope>"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/services/Soap/u/{{version}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"services",
+								"Soap",
+								"u",
+								"{{version}}"
+							]
+						},
+						"description": "Login to Salesforce"
+					},
+					"response": []
+				},
+				{
+					"name": "bt2bs-ia",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"pm.environment.set(\"billingScheduleId\", jsonData[0].outputValues.orderId);",
+									""
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "isAsync",
+								"value": "true",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"inputs\": [\n    {\n      \"billingTransactionId\": \"{{orderId}}\"\n    }\n  ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}{{versionPath}}/actions/standard/createBillingSchedulesFromBillingTransaction",
+							"host": [
+								"{{baseUrl}}{{versionPath}}"
+							],
+							"path": [
+								"actions",
+								"standard",
+								"createBillingSchedulesFromBillingTransaction"
+							],
+							"query": [
+								{
+									"key": "Authorization",
+									"value": "",
+									"disabled": true
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json",
+									"disabled": true
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "query-bs-bmp-bmpi",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json()",
+									"",
+									"jsonData.compositeResponse[0].body.records.forEach((record, index) => {",
+									"  pm.environment.set(\"billingSchedule\" + (index + 1) + \"Id\", record.Id)",
+									"  pm.environment.set(\"billingSchedule\" + (index + 1) + \"Status\", record.Status)",
+									"})",
+									"",
+									"jsonData.compositeResponse[1].body.records.forEach((record, index) => {",
+									"  pm.environment.set(\"billingMilestonePlan\" + (index + 1) + \"Id\", record.Id)",
+									"  pm.environment.set(\"billingMilestonePlan\" + (index + 1) + \"Status\", record.Status)",
+									"})",
+									"",
+									"jsonData.compositeResponse[2].body.records.forEach((record, index) => {",
+									"  pm.environment.set(\"billingMilestonePlanItem\" + (index + 1) + \"Id\", record.Id)",
+									"  pm.environment.set(\"billingMilestonePlanItem\" + (index + 1) + \"Status\", record.Status)",
+									"})"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						},
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"pm.environment.set(\"$bsFieldsToQuery\", \"Id, Status, BillingMilestonePlanId\")",
+									"pm.environment.set(\"$bmpFieldsToQuery\", \"Id, Status\")",
+									"pm.environment.set(\"$bmpiFieldsToQuery\", \"Id, Status, MilestoneAccomplishmentDate\")"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"allOrNone\": false,\n  \"compositeRequest\": [\n    {\n      \"method\": \"GET\",\n      \"url\": \"{{versionPath}}/query/?q=Select {{$bsFieldsToQuery}} FROM BillingSchedule WHERE ReferenceEntityItemId in (Select Id FROM OrderItem WHERE OrderId = '{{orderId}}')\",\n      \"referenceId\": \"billingScheduleForOrderId\"\n    },\n    {\n      \"method\": \"GET\",\n      \"url\": \"{{versionPath}}/query/?q=SELECT {{$bmpFieldsToQuery}} FROM BillingMilestonePlan WHERE ReferenceItemId = '@{billingScheduleForOrderId.records[0].Id}'\",\n      \"referenceId\": \"billingMilestonePlan\"\n    },\n    {\n      \"method\": \"GET\",\n      \"url\": \"{{versionPath}}/query/?q=SELECT {{$bmpiFieldsToQuery}} FROM BillingMilestonePlanItem WHERE BillingMilestonePlanId = '@{billingMilestonePlan.records[0].Id}' ORDER BY MilestoneAccomplishmentDate\",\n      \"referenceId\": \"billingMilestonePlanItems\"\n    }\n  ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}{{versionPath}}/composite",
+							"host": [
+								"{{baseUrl}}{{versionPath}}"
+							],
+							"path": [
+								"composite"
+							]
+						}
+					},
+					"response": []
+				}
+			],
+			"description": "As BillingOps, Create Billing Schedule out of an orderId for all the OrderItems"
+		},
+		{
+			"name": "invoice",
+			"item": [
+				{
+					"name": "invoice-first-bmpi",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						},
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"var moment = require('moment')",
+									"",
+									"pm.environment.set(\"milestone1Date\", moment().add(1, 'month').format(\"YYYY-MM-DD\"))",
+									"pm.environment.set(\"milestone2Date\", moment().add(2, 'month').format(\"YYYY-MM-DD\"))",
+									"pm.environment.set(\"milestone3Date\", moment().add(3, 'month').format(\"YYYY-MM-DD\"))"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "isAsync",
+								"value": "true",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"billingScheduleIds\": [\n    \"{{billingSchedule1Id}}\"\n  ],\n  \"action\": \"Posted\",\n  \"targetDate\": \"{{milestone1Date}}\",\n  \"invoiceDate\": \"{{$currentDate}}\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}{{versionPath}}/commerce/invoicing/invoices/collection/actions/generate",
+							"host": [
+								"{{baseUrl}}{{versionPath}}"
+							],
+							"path": [
+								"commerce",
+								"invoicing",
+								"invoices",
+								"collection",
+								"actions",
+								"generate"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "query-invoice-and-related-records",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json()",
+									"",
+									"jsonData.compositeResponse[0].body.records.forEach((record, index) => {",
+									"  pm.environment.set(\"invoiceLine\" + (index + 1) + \"Id\", record.Id)",
+									"  pm.environment.set(\"invoice\" + (index + 1) + \"Id\", record.invoiceId)",
+									"  pm.environment.set(\"invoice\" + (index + 1) + \"Status\", record.Invoice.Status)",
+									"})",
+									"",
+									"jsonData.compositeResponse[1].body.records.forEach((record, index) => {",
+									"  pm.environment.set(\"billingSchedule\" + (index + 1) + \"Id\", record.Id)",
+									"  pm.environment.set(\"billingSchedule\" + (index + 1) + \"Status\", record.Status)",
+									"})",
+									"",
+									"jsonData.compositeResponse[2].body.records.forEach((record, index) => {",
+									"  pm.environment.set(\"billingMilestonePlan\" + (index + 1) + \"Id\", record.Id)",
+									"  pm.environment.set(\"billingMilestonePlan\" + (index + 1) + \"Status\", record.Status)",
+									"})",
+									"",
+									"jsonData.compositeResponse[3].body.records.forEach((record, index) => {",
+									"  pm.environment.set(\"billingMilestonePlanItem\" + (index + 1) + \"Id\", record.Id)",
+									"  pm.environment.set(\"billingMilestonePlanItem\" + (index + 1) + \"Status\", record.Status)",
+									"})"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						},
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"pm.environment.set(\"$invLineFieldsToQuery\", \"Id, InvoiceId, Invoice.status\")",
+									"pm.environment.set(\"$bsFieldsToQuery\", \"Id, Status\")",
+									"pm.environment.set(\"$bmpFieldsToQuery\", \"Id, Status\")",
+									"pm.environment.set(\"$bmpiFieldsToQuery\", \"Id, MilestoneAccomplishmentDate, Status\")"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"allOrNone\": false,\n  \"compositeRequest\": [\n    {\n      \"method\": \"GET\",\n      \"url\": \"{{versionPath}}/query/?q=SELECT {{$invLineFieldsToQuery}} FROM InvoiceLine WHERE billingScheduleId = '{{billingSchedule1Id}}'\",\n      \"referenceId\": \"invoiceLines\"\n    },\n    {\n      \"method\": \"GET\",\n      \"url\": \"{{versionPath}}/query/?q=SELECT {{$bsFieldsToQuery}} FROM BillingSchedule WHERE Id = '{{billingSchedule1Id}}'\",\n      \"referenceId\": \"billingSchedule\"\n    },\n    {\n      \"method\": \"GET\",\n      \"url\": \"{{versionPath}}/query/?q=SELECT {{$bmpFieldsToQuery}} FROM BillingMilestonePlan WHERE ReferenceItemId = '{{billingSchedule1Id}}'\",\n      \"referenceId\": \"billingMilestonePlan\"\n    },\n    {\n      \"method\": \"GET\",\n      \"url\": \"{{versionPath}}/query/?q=SELECT {{$bmpiFieldsToQuery}} FROM BillingMilestonePlanItem WHERE BillingMilestonePlanId = '@{billingMilestonePlan.records[0].Id}' ORDER BY MilestoneAccomplishmentDate\",\n      \"referenceId\": \"billingMilestonePlanItems\"\n    }\n  ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}{{versionPath}}/composite",
+							"host": [
+								"{{baseUrl}}{{versionPath}}"
+							],
+							"path": [
+								"composite"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "invoice-all-bmpis",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						},
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"var moment = require('moment')",
+									"",
+									"pm.environment.set(\"milestone1Date\", moment().add(1, 'month').format(\"YYYY-MM-DD\"))",
+									"pm.environment.set(\"milestone2Date\", moment().add(2, 'month').format(\"YYYY-MM-DD\"))",
+									"pm.environment.set(\"milestone3Date\", moment().add(3, 'month').format(\"YYYY-MM-DD\"))"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "isAsync",
+								"value": "true",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"billingScheduleIds\": [\n    \"{{billingSchedule1Id}}\"\n  ],\n  \"action\": \"Posted\",\n  \"targetDate\": \"{{milestone3Date}}\",\n  \"invoiceDate\": \"{{$currentDate}}\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}{{versionPath}}/commerce/invoicing/invoices/collection/actions/generate",
+							"host": [
+								"{{baseUrl}}{{versionPath}}"
+							],
+							"path": [
+								"commerce",
+								"invoicing",
+								"invoices",
+								"collection",
+								"actions",
+								"generate"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "query-invoice-and-related-records",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json()",
+									"",
+									"jsonData.compositeResponse[0].body.records.forEach((record, index) => {",
+									"  pm.environment.set(\"invoiceLine\" + (index + 1) + \"Id\", record.Id)",
+									"  pm.environment.set(\"invoice\" + (index + 1) + \"Id\", record.invoiceId)",
+									"  pm.environment.set(\"invoice\" + (index + 1) + \"Status\", record.Invoice.Status)",
+									"})",
+									"",
+									"jsonData.compositeResponse[1].body.records.forEach((record, index) => {",
+									"  pm.environment.set(\"billingSchedule\" + (index + 1) + \"Id\", record.Id)",
+									"  pm.environment.set(\"billingSchedule\" + (index + 1) + \"Status\", record.Status)",
+									"})",
+									"",
+									"jsonData.compositeResponse[2].body.records.forEach((record, index) => {",
+									"  pm.environment.set(\"billingMilestonePlan\" + (index + 1) + \"Id\", record.Id)",
+									"  pm.environment.set(\"billingMilestonePlan\" + (index + 1) + \"Status\", record.Status)",
+									"})",
+									"",
+									"jsonData.compositeResponse[3].body.records.forEach((record, index) => {",
+									"  pm.environment.set(\"billingMilestonePlanItem\" + (index + 1) + \"Id\", record.Id)",
+									"  pm.environment.set(\"billingMilestonePlanItem\" + (index + 1) + \"Status\", record.Status)",
+									"})"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						},
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"pm.environment.set(\"$invLineFieldsToQuery\", \"Id, InvoiceId, Invoice.status\")",
+									"pm.environment.set(\"$bsFieldsToQuery\", \"Id, Status\")",
+									"pm.environment.set(\"$bmpFieldsToQuery\", \"Id, Status\")",
+									"pm.environment.set(\"$bmpiFieldsToQuery\", \"Id, MilestoneAccomplishmentDate, Status\")"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"allOrNone\": false,\n  \"compositeRequest\": [\n    {\n      \"method\": \"GET\",\n      \"url\": \"{{versionPath}}/query/?q=SELECT {{$invLineFieldsToQuery}} FROM InvoiceLine WHERE billingScheduleId = '{{billingSchedule1Id}}'\",\n      \"referenceId\": \"invoiceLines\"\n    },\n    {\n      \"method\": \"GET\",\n      \"url\": \"{{versionPath}}/query/?q=SELECT {{$bsFieldsToQuery}} FROM BillingSchedule WHERE Id = '{{billingSchedule1Id}}'\",\n      \"referenceId\": \"billingSchedule\"\n    },\n    {\n      \"method\": \"GET\",\n      \"url\": \"{{versionPath}}/query/?q=SELECT {{$bmpFieldsToQuery}} FROM BillingMilestonePlan WHERE ReferenceItemId = '{{billingSchedule1Id}}'\",\n      \"referenceId\": \"billingMilestonePlan\"\n    },\n    {\n      \"method\": \"GET\",\n      \"url\": \"{{versionPath}}/query/?q=SELECT {{$bmpiFieldsToQuery}} FROM BillingMilestonePlanItem WHERE BillingMilestonePlanId = '@{billingMilestonePlan.records[0].Id}' ORDER BY MilestoneAccomplishmentDate\",\n      \"referenceId\": \"billingMilestonePlanItems\"\n    }\n  ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}{{versionPath}}/composite",
+							"host": [
+								"{{baseUrl}}{{versionPath}}"
+							],
+							"path": [
+								"composite"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{accessToken}}",
+				"type": "string"
+			}
+		]
+	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		}
+	]
+}

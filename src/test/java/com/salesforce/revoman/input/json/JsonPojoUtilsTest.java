@@ -10,10 +10,10 @@ package com.salesforce.revoman.input.json;
 import static com.google.common.truth.Truth.assertThat;
 import static com.salesforce.revoman.input.FileUtils.readFileInResourcesToString;
 
-import com.salesforce.revoman.input.json.adapters.CompositeGraphResponse;
-import com.salesforce.revoman.input.json.adapters.CompositeGraphResponse.Graph.ErrorGraph;
-import com.salesforce.revoman.input.json.adapters.CompositeGraphResponse.Graph.SuccessGraph;
 import com.salesforce.revoman.input.json.adapters.SObjectGraphRequestMarshaller;
+import com.salesforce.revoman.input.json.adapters.salesforce.CompositeGraphResponse;
+import com.salesforce.revoman.input.json.adapters.salesforce.CompositeGraphResponse.Graph.ErrorGraph;
+import com.salesforce.revoman.input.json.adapters.salesforce.CompositeGraphResponse.Graph.SuccessGraph;
 import com.salesforce.revoman.input.json.pojo.SObjectGraphRequest;
 import com.salesforce.revoman.input.json.pojo.SObjectGraphRequest.Entity;
 import com.salesforce.revoman.input.json.pojo.SObjectGraphRequest.SObjectWithReferenceRequest;

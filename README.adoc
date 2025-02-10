@@ -18,7 +18,7 @@ endif::[]
 :pmtemplates: src/integrationTest/resources/pm-templates
 :imagesdir: docs/images
 :prewrap!:
-:revoman-version: 0.5.6
+:revoman-version: 0.5.7
 
 '''
 
@@ -209,7 +209,7 @@ StepReport(
 	envSnapshot: PostmanEnvironment<Any?> // <2>
 )
 ----
-<1> https://docs.vavr.io/#_either[`Either` type from the VAVR] library represents either of the two states, error or success
+<1> https://docs.vavr.io/#_either[`Either` type from the VAVR] library represents either of the two states, used here to represent error or success
 <2> Snapshot of Environment at the end of each step execution. It can be compared with previous or next step environment snapshots to see what changed in this step
 
 [.lead]
@@ -399,8 +399,8 @@ where you can filter out these legacy types from Marshalling/Unmarshalling
 * You may use the bundled static factory methods named `RequestConfig.unmarshallResponse()` for expressiveness.
 * You can pass a `PreTxnStepPick` which is a `Predicate` used
 to qualify a step whose Request JSON payload needs to be unmarshalled/deserialized.
-* If you have set up `requestConfig()` once, wherever you wish to access the request in your <<#_pre_step_and_post_step_hooks,Pre-Step Hooks>>, you can call `stepReport.responseInfo.get().<TypeT>getTypedTxnObj()` which returns a Strong type to conveniently assert.
-* If you don't pass anything in this config, Moshi unmarshalls into default data structures like `LinkedHashMap`
+* If you have set up `requestConfig()` once, wherever you wish to read the request in your <<#_pre_step_and_post_step_hooks,Pre-Step Hooks>>, you can call `stepReport.requestInfo.get().<TypeT>getTypedTxnObj()` which returns your request JSON as a Strong type.
+* If you don't configure it for a step, Moshi unmarshalls the step request JSON into default data structures like `LinkedHashMap`
 
 ==== `responseConfig()`
 
@@ -409,8 +409,8 @@ to qualify a step whose Request JSON payload needs to be unmarshalled/deserializ
 * Use bundled static factory methods like `ResponseConfig.unmarshallSuccessResponse()` and `ResponseConfig.unmarshallErrorResponse()` for expressiveness.
 * You can pass a `PostTxnStepPick` which is a `Predicate` used
 to qualify a step whose Response JSON payload needs to be unmarshalled/deserialized.
-* If you have set up `responseConfig()` once, wherever you wish to access or assert the response in your <<#_pre_step_and_post_step_hooks,Post-Step Hooks>>, you can call `stepReport.responseInfo.get().<TypeT>getTypedTxnObj()` which returns a Strong type to conveniently assert.
-* If you don't pass anything in this config, Moshi unmarshalls into default data structures like `LinkedHashMap`
+* If you have set up `responseConfig()` once, wherever you wish to read or assert the response in your <<#_pre_step_and_post_step_hooks,Post-Step Hooks>>, you can call `stepReport.responseInfo.get().<TypeT>getTypedTxnObj()` which returns your response JSON as a Strong type to conveniently assert.
+* If you don't configure it for a step, Moshi unmarshalls the Step response JSON into default data structures like `LinkedHashMap`
 
 [TIP]
 ====
@@ -425,8 +425,8 @@ See `DiMorphicAdapter` in action from the test `compositeGraphResponseDiMorphicM
 
 ==== `globalCustomTypeAdapters()`
 
-These adapters are used for marshalling/unmarshalling request/response payload for any step. 
-These compliment the custom adapters setup in `requestConfig()` or `responseConfig()` 
+* These come handy when the same POJO/Data structure (e.g `ID`) is present across multiple Request or Response POJOs. These adapters compliment the custom adapters setup in `requestConfig()` or `responseConfig()` wherever these types are present.
+* But these adapters won't be used to marshall/unmarshall before or after each step execution. Which means you won't be able to Strong types in the debug view. Although, you can get them on-demand using the respective `getTypedObj()` method.
 
 ==== JSON Reader/Writer Utils to build Moshi adapters
 
@@ -434,7 +434,7 @@ ReṼoman also comes
 bundled with link:{sourcedir}/com/salesforce/revoman/input/json/JsonReaderUtils.kt[JSON Reader utils] and link:{sourcedir}/com/salesforce/revoman/input/json/JsonWriterUtils.kt[JSON Writer utils]
 to help build Moshi adapters.
 
-TIP: Refer link:{integrationtestdir}/com/salesforce/revoman/integration/core/pq/adapters/ConnectInputRepWithGraphAdapter.java[ConnectInputRepWithGraphAdapter] on how these utils come in handy in building an advanced Moshi adapter
+TIP: Refer link:{integrationtestdir}/com/salesforce/revoman/integration/core/adapters/ConnectInputRepWithGraphAdapter.java[ConnectInputRepWithGraphAdapter] on how these utils come in handy in building an advanced Moshi adapter
 
 ==== JSON POJO Utils
 
@@ -447,12 +447,6 @@ See in Action:
 * link:{testdir}/com/salesforce/revoman/input/json/JsonPojoUtilsTest.java[JsonPojoUtilsTest]
 * link:{integrationtestdir}/com/salesforce/revoman/input/json/JsonPojoUtils2Test.java[JsonPojoUtils2Test]
 ====
-
-==== `rundown.mutableEnv.getTypedObj()`
-
-You can read an environment variable value as a Strong type.
-See it in action: `getTypedObj()`
-test from link:{testdir}/com/salesforce/revoman/output/postman/PostmanEnvironmentTest.java[PostmanEnvironmentTest]
 
 === Execution Control
 
@@ -577,6 +571,12 @@ so you can copy and import that environment conveniently into Postman.
 TIP: You do NOT need to save the copied Postman environment JSON from the debugger into file.
 You can paste (kbd:[Ctrl+v]) directly in the Postman environment window
 
+==== Read Environment value into Strong type
+
+You can read any value from mutableEnv as a Strong type using `rundown.mutableEnv.<TypeT>getTypedObj()`
+See it in action: `getTypedObj()`
+test from link:{testdir}/com/salesforce/revoman/output/postman/PostmanEnvironmentTest.java[PostmanEnvironmentTest]
+
 ==== `pmEnvSnapshot` in each StepReport
 
 Each StepReport also has a `pmEnvSnapshot` to assert if a step has executed as expected and compare snapshots from different steps to examine the execution progress.
@@ -585,7 +585,7 @@ Each StepReport also has a `pmEnvSnapshot` to assert if a step has executed as e
 
 * You don't have to squash all your steps into one mega collection. Instead, you can break them into easy-to-manage modular collections. `ReVoman.revUp()` accepts a list of collection paths through `templatePaths()`
 * But that doesn't mean you have to execute all these templates in one-go. You can make multiple `ReVoman.revUp()` calls for different collections.
-* If you wish to compose these executions in a specific order, you can use the `revUp` overload which accepts a vararg `Kick` configs.
+* If you wish to compose these executions in a specific order, you can use the `revUp()` overload which accepts a vararg `Kick` configs.
 ** You can also achieve the same yourself, by adding the previous execution's `mutableEnv` to the current execution using the `dynamicEnvironment` parameter. This also comes in handy when you wish to execute a common step (e.g. `UserSetup`) inside a Test setup method and use that environment for all the tests.
 
 === Custom Dynamic variables
@@ -602,6 +602,12 @@ TIP: Here is an example of a low-code link:{integrationtestdir}/com/salesforce/r
 [.lead]
 Compared to a traditional Integration/Functional or E2E test, approximately, the amount of code needed is *89%* less using ReṼoman.
 The above test doesn't just have low code, but also low in Cognitive Complexity and Transparent in what it does.
+
+=== Low Learning Curve
+
+Familiarity with Postman gets you a long way in understanding this tool.
+Playing with the existing link:{integrationtestdir}[Integration Tests]
+and writing a couple of hands-on tests should get you started.
 
 === CI/CD integrability
 
@@ -658,7 +664,7 @@ The future looks bright with multiple impactful features in the pipeline:
 
 You don't have to.
 This is a JVM-first tool,
-and you can interlace your TestUtils through <<#_plug_in_your_java_code_in_between_postman_execution,Pre-/Post-Hooks>>
+and you can interlace your TestUtils through <<#_plug_in_your_java_code_in_between_postman_execution,Pre-Step/Post-Step Hooks>>
 
 === Why not use https://learning.postman.com/docs/collections/using-newman-cli/command-line-integration-with-newman[Newman] or https://learning.postman.com/docs/postman-cli/postman-cli-overview/#comparing-the-postman-cli-and-newman[Postman CLI]?
 
