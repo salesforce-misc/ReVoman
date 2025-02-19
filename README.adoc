@@ -125,7 +125,7 @@ In the case of collision between variable keys, the precedence order to derive a
 
 [.lead]
 You can _kick off_ this *Template-Driven Testing* by invoking `ReVoman.revUp()`,
-supplying your Postman templates and environments, and all your customizations through a configuration:
+supplying your Postman templates and environments, and all your customizations through a *Configuration*:
 
 [source,java,indent=0,tabsize=2,options="nowrap"]
 ----
@@ -337,6 +337,11 @@ include::{integrationtestdir}/com/salesforce/revoman/integration/core/pq/PQE2EWi
 <14> Run more assertions on the <<Rundown>>
 endif::[]
 
+== Reuse Config
+
+You can define a base common config and reuse it by overriding certain properties using the `override...()` methods,
+which are present for each config attribute
+
 == Debugging UX
 
 [.lead]
@@ -365,7 +370,8 @@ Here is the failure hierarchy of what can go wrong in this process
 image::failure-hierarchy.png[Failure Hierarchy]
 
 [.lead]
-ReṼoman logs all the key operations that happen inside its source-code.
+ReṼoman logs all the key operations that happen inside its source-code,
+including how the environment variables are being mutated by a step in its <<Pre-req and Post-res scripts>>.
 Watch your console to check what's going on in the execution or troubleshoot from CI/CD logs
 
 NOTE: link:docs/revoman.exe.log[📝Sample log] printed during execution

@@ -15,6 +15,8 @@ import com.salesforce.revoman.internal.postman.template.Url
 import com.salesforce.revoman.output.Rundown
 import com.salesforce.revoman.output.postman.PostmanEnvironment
 import com.salesforce.revoman.output.report.StepReport
+import io.exoquery.pprint
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.graalvm.polyglot.Context
 import org.graalvm.polyglot.HostAccess
 import org.graalvm.polyglot.Source
@@ -36,6 +38,7 @@ class PostmanSDK(
   lateinit var request: Request
   lateinit var response: Response
   lateinit var currentStepReport: StepReport
+  @Suppress("unused")
   @JvmField val variables: Variables = Variables()
   lateinit var rundown: Rundown
   @JvmField val xml2Json = Xml2Json { xml -> moshiReVoman.asA(U.xmlToJson(xml)) }
@@ -112,14 +115,21 @@ class PostmanSDK(
     evaluateJS("jsonStr => JSON.parse(jsonStr)").execute(jsonStr)
 
   inner class Variables {
-    fun has(variableKey: String) = environment.containsKey(variableKey)
+    fun has(key: String) = environment.containsKey(key)
 
-    fun get(variableKey: String) = environment[variableKey]
+    fun get(key: String) = environment[key]
 
-    fun set(variableKey: String, value: String) {
-      environment.set(variableKey, value)
+    fun set(key: String, value: String) {
+      logger.info { "pm environment variable set through JS in Step: ${currentStepReport.step} - key: $key, value: ${pprint(value)}" }
+      environment.set(key, value)
     }
 
+    fun unset(key: String) {
+      logger.info { "pm environment variable unset through JS in Step: ${currentStepReport.step} - key: $key" }
+      environment.unset(key)
+    }
+
+    @Suppress("unused")
     fun replaceIn(stringToReplace: String): String =
       regexReplacer.replaceVariablesRecursively(stringToReplace, this@PostmanSDK) ?: ""
   }
@@ -161,3 +171,5 @@ class PostmanSDK(
 }
 
 data class Info(@JvmField val requestName: String)
+
+private val logger = KotlinLogging.logger {}

@@ -32,7 +32,7 @@ constructor(
 
   fun set(key: String, value: ValueT) {
     mutableEnv[key] = value
-    logger.info { "pm environment variable set through JS - key: $key, value: ${pprint(value)}" }
+    logger.info { "pm environment variable set - key: $key, value: ${pprint(value)}" }
   }
 
   @Suppress("unused")
