@@ -123,6 +123,8 @@ In the case of collision between variable keys, the precedence order to derive a
 . Dynamic Environment supplied through config + Environment built during execution + Postman environment supplied as a file through config
 ====
 
+TIP: For Dynamic variables, which gets populated from Java code, use $ sign within a variable to indicate it needs to be populated during manual testing. E.g.: `{{$unitPrice}}`
+
 [.lead]
 You can _kick off_ this *Template-Driven Testing* by invoking `ReVoman.revUp()`,
 supplying your Postman templates and environments, and all your customizations through a *Configuration*:
