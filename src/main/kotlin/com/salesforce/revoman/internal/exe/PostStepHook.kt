@@ -20,7 +20,6 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 
 internal fun postHookExe(kick: Kick, pm: PostmanSDK): PostStepHookFailure? =
   pickPostHooks(kick.postHooks(), pm.currentStepReport, pm.rundown)
-    .asSequence()
     .map { postHook ->
       runChecked(pm.currentStepReport.step, POST_STEP_HOOK) {
           postHook.accept(pm.currentStepReport, pm.rundown)
@@ -34,16 +33,15 @@ private fun pickPostHooks(
   postHooks: List<HookConfig>,
   currentStepReport: StepReport,
   rundown: Rundown,
-): List<PostStepHook> =
+): Sequence<PostStepHook> =
   postHooks
     .asSequence()
     .filter { (it.pick as PostTxnStepPick).pick(currentStepReport, rundown) }
     .map { it.stepHook as PostStepHook }
-    .toList()
     .also {
-      if (it.isNotEmpty()) {
-        logger.info { "${currentStepReport.step} Picked Post hook count : ${it.size}" }
-        currentStepReport.step.postHookCount = it.size
+      if (it.iterator().hasNext()) {
+        logger.info { "${currentStepReport.step} Picked Post hook count : ${it.count()}" }
+        currentStepReport.step.postHookCount = it.count()
       }
     }
 

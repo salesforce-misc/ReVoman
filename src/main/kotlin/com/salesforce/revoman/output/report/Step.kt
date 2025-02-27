@@ -69,11 +69,12 @@ constructor(
   @JvmField val path: List<Folder> = parentPath + this
 
   override fun toString(): String =
-    if (isRoot) name
-    else
-      parentPath.joinToString(separator = FOLDER_DELIMITER, postfix = FOLDER_DELIMITER) {
-        it.name
-      } + name
+    when {
+        isRoot -> name
+        else -> parentPath.joinToString(separator = FOLDER_DELIMITER, postfix = FOLDER_DELIMITER) {
+          it.name
+        } + name
+    }
 
   companion object {
     const val FOLDER_DELIMITER = "|>"

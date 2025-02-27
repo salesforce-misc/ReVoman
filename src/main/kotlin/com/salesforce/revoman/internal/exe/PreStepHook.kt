@@ -27,7 +27,6 @@ internal fun preHookExe(
   pm: PostmanSDK,
 ): PreStepHookFailure? =
   pickPreHooks(kick.preHooks(), currentStep, requestInfo, pm.rundown)
-    .asSequence()
     .map { preHook ->
       runChecked(currentStep, PRE_STEP_HOOK) {
           preHook.accept(currentStep, requestInfo, pm.rundown)
@@ -42,16 +41,15 @@ private fun pickPreHooks(
   currentStep: Step,
   requestInfo: TxnInfo<Request>,
   rundown: Rundown,
-): List<PreStepHook> =
+): Sequence<PreStepHook> =
   preHooks
     .asSequence()
     .filter { (it.pick as PreTxnStepPick).pick(currentStep, requestInfo, rundown) }
     .map { it.stepHook as PreStepHook }
-    .toList()
     .also {
-      if (it.isNotEmpty()) {
-        logger.info { "$currentStep Picked Pre hook count : ${it.size}" }
-        currentStep.preHookCount = it.size
+      if (it.iterator().hasNext()) {
+        logger.info { "$currentStep Picked Pre hook count : ${it.count()}" }
+        currentStep.preHookCount = it.count()
       }
     }
 

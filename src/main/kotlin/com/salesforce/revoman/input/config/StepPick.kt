@@ -35,6 +35,13 @@ sealed interface StepPick {
     fun pick(currentStep: Step, currentRequestInfo: TxnInfo<Request>, rundown: Rundown): Boolean
 
     companion object PickUtils {
+      /**
+       * If there are steps with the same name, you may pass the stepName along with the folderPath,
+       * where each folder is seperated by FOLDER_DELIMITER {@see com.salesforce.revoman.output.report.Folder.FOLDER_DELIMITER}
+       * You may not have to pass the entire path,
+       * you can pass the path from the Least common Ancestor
+       * to uniquely identify the step of your interest to add this Hook
+       */
       @JvmStatic
       fun beforeStepName(vararg stepNameSubstrings: String) = PreTxnStepPick { currentStep, _, _ ->
         stepNameSubstrings.any { currentStep.stepNameMatches(it) }
@@ -50,6 +57,9 @@ sealed interface StepPick {
         requestInfo.containsHeader(key)
       }
 
+      /**
+       * Provide either a full URI path or a partial URI path that can uniquely identify the request
+       */
       @JvmStatic
       fun beforeStepContainingURIPathOfAny(vararg paths: String) =
         PreTxnStepPick { _, requestInfo, _ ->
@@ -62,6 +72,13 @@ sealed interface StepPick {
     @Throws(Throwable::class) fun pick(currentStepReport: StepReport, rundown: Rundown): Boolean
 
     companion object PickUtils {
+      /**
+       * If there are steps with the same name, you may pass the stepName along with the folderPath, 
+       * where each folder is seperated by FOLDER_DELIMITER {@see com.salesforce.revoman.output.report.Folder.FOLDER_DELIMITER}
+       * You may not have to pass the entire path,
+       * you can pass the path from the Least common Ancestor
+       * to uniquely identify the step of your interest to add this Hook 
+       */
       @JvmStatic
       fun afterStepName(vararg stepNameSubstrings: String) = PostTxnStepPick { stepReport, _ ->
         stepNameSubstrings.any { stepReport.step.stepNameMatches(it) }
@@ -77,6 +94,9 @@ sealed interface StepPick {
         stepReport.requestInfo.containsHeader(key)
       }
 
+      /**
+       * Provide either a full URI path or a partial URI path that can uniquely identify the request
+       */
       @JvmStatic
       fun afterStepContainingURIPathOfAny(vararg paths: String) = PostTxnStepPick { stepReport, _ ->
         paths.any { stepReport.requestInfo.uriPathContains(it) }
