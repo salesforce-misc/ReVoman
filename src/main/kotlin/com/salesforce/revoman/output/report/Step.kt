@@ -70,8 +70,9 @@ constructor(
 
   override fun toString(): String =
     when {
-        isRoot -> name
-        else -> parentPath.joinToString(separator = FOLDER_DELIMITER, postfix = FOLDER_DELIMITER) {
+      isRoot -> name
+      else ->
+        parentPath.joinToString(separator = FOLDER_DELIMITER, postfix = FOLDER_DELIMITER) {
           it.name
         } + name
     }

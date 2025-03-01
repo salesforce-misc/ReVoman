@@ -37,7 +37,7 @@ internal fun fireHttpRequest(
   httpRequest: Request,
   insecureHttp: Boolean,
 ): Either<HttpRequestFailure, TxnInfo<Response>> =
-  runChecked(currentStep, HTTP_REQUEST) {
+  runCatching(currentStep, HTTP_REQUEST) {
       // * NOTE gopala.akshintala 06/08/22: Preparing httpClient for each step,
       // * as there can be intermediate auths
       // ! TODO 29/01/24 gopala.akshintala: When would bearer token size be > 1?

@@ -28,7 +28,7 @@ internal fun preHookExe(
 ): PreStepHookFailure? =
   pickPreHooks(kick.preHooks(), currentStep, requestInfo, pm.rundown)
     .map { preHook ->
-      runChecked(currentStep, PRE_STEP_HOOK) {
+      runCatching(currentStep, PRE_STEP_HOOK) {
           preHook.accept(currentStep, requestInfo, pm.rundown)
         }
         .mapLeft { PreStepHookFailure(it, requestInfo) }

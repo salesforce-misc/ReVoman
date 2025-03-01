@@ -26,7 +26,7 @@ internal fun executePreReqJS(
 ): Either<PreReqJSFailure, Unit> {
   val preReqJS = item.event?.find { it.listen == "prerequest" }?.script?.exec?.joinToString("\n")
   return if (!preReqJS.isNullOrBlank()) {
-    runChecked(currentStep, PRE_REQ_JS) { executePreReqJSWithPolyglot(preReqJS, item.request, pm) }
+    runCatching(currentStep, PRE_REQ_JS) { executePreReqJSWithPolyglot(preReqJS, item.request, pm) }
       .mapLeft { PreReqJSFailure(it, pm.currentStepReport.requestInfo!!.get()) }
   } else {
     Right(Unit)
@@ -45,7 +45,7 @@ internal fun executePostResJS(
 ): Either<PostResJSFailure, Unit> {
   val postResJs = item.event?.find { it.listen == "test" }?.script?.exec?.joinToString("\n")
   return if (!postResJs.isNullOrBlank()) {
-    runChecked(currentStep, POST_RES_JS) {
+    runCatching(currentStep, POST_RES_JS) {
         executePostResJSWithPolyglot(postResJs, item.request, pm.currentStepReport, pm)
       }
       .mapLeft {

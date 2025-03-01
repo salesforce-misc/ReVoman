@@ -43,7 +43,7 @@ internal fun unmarshallResponse(
           ?.also { logger.info { "$currentStep ResponseConfig found : ${pprint(it)}" } }
           ?.objType ?: Any::class.java
       val requestInfo = pm.currentStepReport.requestInfo!!.get()
-      runChecked(currentStep, UNMARSHALL_RESPONSE) {
+      runCatching(currentStep, UNMARSHALL_RESPONSE) {
           moshiReVoman.asA(httpResponse.bodyString(), responseType.rawType.kotlin)
         }
         .mapLeft {

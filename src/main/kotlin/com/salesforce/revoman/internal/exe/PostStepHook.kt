@@ -21,7 +21,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 internal fun postHookExe(kick: Kick, pm: PostmanSDK): PostStepHookFailure? =
   pickPostHooks(kick.postHooks(), pm.currentStepReport, pm.rundown)
     .map { postHook ->
-      runChecked(pm.currentStepReport.step, POST_STEP_HOOK) {
+      runCatching(pm.currentStepReport.step, POST_STEP_HOOK) {
           postHook.accept(pm.currentStepReport, pm.rundown)
         }
         .mapLeft { PostStepHookFailure(it) }

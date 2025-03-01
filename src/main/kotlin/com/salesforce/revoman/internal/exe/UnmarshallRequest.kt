@@ -41,7 +41,7 @@ internal fun unmarshallRequest(
       ?.objType ?: Any::class.java
   return when {
     isJson(httpRequest) ->
-      runChecked(currentStep, UNMARSHALL_REQUEST) {
+      runCatching(currentStep, UNMARSHALL_REQUEST) {
           pmRequest.body?.let { body -> moshiReVoman.asA(body.raw, requestType.rawType.kotlin) }
         }
         .mapLeft { UnmarshallRequestFailure(it, TxnInfo(requestType, null, httpRequest)) }

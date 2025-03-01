@@ -75,7 +75,7 @@ internal fun shouldStepBePicked(
   return runStep
 }
 
-internal fun <T> runChecked(
+internal fun <T> runCatching(
   currentStep: Step,
   exeType: ExeType,
   fn: () -> T,
