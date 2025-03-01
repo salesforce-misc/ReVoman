@@ -16,6 +16,7 @@ import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.after
 import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.afterStepName;
 import static com.salesforce.revoman.input.config.StepPick.PreTxnStepPick.beforeStepContainingHeader;
 import static com.salesforce.revoman.input.config.StepPick.PreTxnStepPick.beforeStepName;
+import static org.assertj.vavr.api.VavrAssertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
 
@@ -27,6 +28,7 @@ import com.salesforce.revoman.output.Rundown;
 import com.salesforce.revoman.output.report.Step;
 import com.salesforce.revoman.output.report.StepReport;
 import com.salesforce.revoman.output.report.TxnInfo;
+import com.salesforce.revoman.output.report.failure.HookFailure.PostStepHookFailure;
 import java.util.List;
 import java.util.Map;
 import org.http4k.core.Request;
@@ -45,6 +47,8 @@ class PokemonTest {
 	private static final int LIMIT = 3;
 	private static final int OFFSET = 0;
 	private static final Logger LOGGER = LoggerFactory.getLogger(PokemonTest.class);
+	private static final RuntimeException RUNTIME_EXCEPTION =
+			new RuntimeException("This won't interrupt the execution as `haltOnAnyFailure` is not set");
 
 	@Test
 	void pokemon() {
@@ -72,6 +76,7 @@ class PokemonTest {
 							@Override
 							public void accept(@NotNull StepReport stepReport, @NotNull Rundown rundown) {
 								LOGGER.info("Picked `postLogHook` after stepName: {}", stepReport.step.displayName);
+								throw RUNTIME_EXCEPTION;
 							}
 						});
 		//noinspection Convert2Lambda
@@ -123,10 +128,10 @@ class PokemonTest {
 										pre(beforeStepContainingHeader("preLog"), preLogHook),
 										post(afterStepContainingHeader("postLog"), postLogHook))
 								.dynamicEnvironment(dynamicEnvironment)
-								.haltOnAnyFailure(true)
 								.off());
 
-		assertThat(pokeRundown.firstUnIgnoredUnsuccessfulStepReport()).isNull();
+		assertThat(pokeRundown.firstUnIgnoredUnsuccessfulStepReport().failure)
+				.containsOnLeft(new PostStepHookFailure(RUNTIME_EXCEPTION));
 		assertThat(pokeRundown.stepReports).hasSize(5);
 		assertThat(pokeRundown.mutableEnv)
 				.containsExactlyEntriesIn(

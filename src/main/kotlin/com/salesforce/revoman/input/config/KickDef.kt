@@ -48,7 +48,7 @@ internal interface KickDef {
 
   @Value.Default fun haltOnAnyFailure(): Boolean = false
 
-  fun haltOnFailureOfTypeExcept(): Map<ExeType, PostTxnStepPick>?
+  fun haltOnFailureOfTypeExcept(): Map<ExeType, PostTxnStepPick>
 
   fun runOnlySteps(): List<ExeStepPick>
 
@@ -94,8 +94,8 @@ internal interface KickDef {
 
   @Value.Check
   fun validateConfig() {
-    require(!haltOnAnyFailure() || (haltOnAnyFailure() && haltOnFailureOfTypeExcept() == null)) {
-      "`haltOnAnyFailureExcept` should NOT be set when `haltOnAnyFailure` is set to `True`"
+    require(!haltOnAnyFailure() || (haltOnAnyFailure() && haltOnFailureOfTypeExcept().isEmpty())) {
+      "`haltOnAnyFailureExcept` should NOT be set when `haltOnAnyFailure` is set to true"
     }
     require(disjoint(runOnlySteps(), skipSteps())) {
       "`runOnlySteps` and `skipSteps` cannot contain same step names"

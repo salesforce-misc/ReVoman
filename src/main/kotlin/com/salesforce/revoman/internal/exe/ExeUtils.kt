@@ -98,34 +98,41 @@ internal fun shouldHaltExecution(
 ): Boolean =
   when {
     currentStepReport.isSuccessful -> false
-    kick.haltOnAnyFailure() -> {
-      logger.info {
-        "${currentStepReport.step} failed with ${currentStepReport.failure}, 🛑 halting the execution, as haltOnAnyFailure=true"
-      }
-      true
-    }
     else -> {
-      kick
-        .haltOnFailureOfTypeExcept()
-        ?.asSequence()
-        ?.map { (exeType, postTxnPick) ->
-          currentStepReport.exeTypeForFailure == exeType &&
-            postTxnPick.pick(
-              currentStepReport,
-              pm.rundown.copy(stepReports = pm.rundown.stepReports + currentStepReport),
-            )
+      logger.info { "${currentStepReport.step} failed with ${currentStepReport.failure}" }
+      when {
+        kick.haltOnAnyFailure() -> {
+          logger.info { "🛑 Halting the execution, as `haltOnAnyFailure` is set to true" }
+          true
         }
-        ?.any { it }
-        ?.also {
+        kick.haltOnFailureOfTypeExcept().isEmpty() -> {
           logger.info {
-            if (it) {
-              "${currentStepReport.step} failed, but ignoring failure, as it qualifies haltOnFailureOfTypeExcept for ${currentStepReport.exeTypeForFailure}"
-            } else {
-              "${currentStepReport.step} failed, and doesn't qualify for haltOnAnyFailureExcept for ${currentStepReport.exeTypeForFailure}, so 🛑 halting the execution"
-            }
+            "Continuing the execution, as `haltOnAnyFailure` is set to false and `haltOnFailureOfTypeExcept` is empty"
           }
+          false
         }
-        ?.not() != false
+        else ->
+          kick
+            .haltOnFailureOfTypeExcept()
+            .asSequence()
+            .any { (exeType, postTxnPick) ->
+              currentStepReport.exeTypeForFailure == exeType &&
+                postTxnPick.pick(
+                  currentStepReport,
+                  pm.rundown.copy(stepReports = pm.rundown.stepReports + currentStepReport),
+                )
+            }
+            .not()
+            .also {
+              logger.info {
+                if (it) {
+                  "${currentStepReport.step} doesn't qualify `haltOnFailureOfTypeExcept` for ${currentStepReport.exeTypeForFailure}, so 🛑 halting the execution"
+                } else {
+                  "Continuing the execution, as the step qualifies `haltOnFailureOfTypeExcept` for ${currentStepReport.exeTypeForFailure}"
+                }
+              }
+            }
+      }
     }
   }
 

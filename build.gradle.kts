@@ -50,6 +50,7 @@ testing {
           implementation(libs.mockito.core)
           implementation(libs.spring.beans)
           implementation(libs.json.assert)
+          implementation(libs.assertj.vavr)
         }
       }
   }

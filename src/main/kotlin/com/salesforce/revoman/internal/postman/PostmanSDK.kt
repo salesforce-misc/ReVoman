@@ -38,8 +38,7 @@ class PostmanSDK(
   lateinit var request: Request
   lateinit var response: Response
   lateinit var currentStepReport: StepReport
-  @Suppress("unused")
-  @JvmField val variables: Variables = Variables()
+  @Suppress("unused") @JvmField val variables: Variables = Variables()
   lateinit var rundown: Rundown
   @JvmField val xml2Json = Xml2Json { xml -> moshiReVoman.asA(U.xmlToJson(xml)) }
   // * NOTE 28 Apr 2024 gopala.akshintala: This has to be initialized at last
@@ -120,12 +119,16 @@ class PostmanSDK(
     fun get(key: String) = environment[key]
 
     fun set(key: String, value: String) {
-      logger.info { "pm environment variable set through JS in Step: ${currentStepReport.step} - key: $key, value: ${pprint(value)}" }
+      logger.info {
+        "pm environment variable set through JS in Step: ${currentStepReport.step} - key: $key, value: ${pprint(value)}"
+      }
       environment.set(key, value)
     }
 
     fun unset(key: String) {
-      logger.info { "pm environment variable unset through JS in Step: ${currentStepReport.step} - key: $key" }
+      logger.info {
+        "pm environment variable unset through JS in Step: ${currentStepReport.step} - key: $key"
+      }
       environment.unset(key)
     }
 
