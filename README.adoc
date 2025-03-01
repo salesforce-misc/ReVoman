@@ -312,7 +312,7 @@ assertThat(pqRundown.mutableEnv)
 <10> <<#_pre_step_and_post_step_hooks>>
 <11> <<Response Validations>>
 <12> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Global Custom Type Adapters>>
-<13> Ignore Java cert issues when firing HTTP calls
+<13> Ignore Java cert issues when firing HTTP calls. To be used only for local testing, like hitting localhost
 <14> Run more assertions on the <<Rundown>>
 
 endif::[]
@@ -335,7 +335,7 @@ include::{integrationtestdir}/com/salesforce/revoman/integration/core/pq/PQE2EWi
 <10> <<#_pre_step_and_post_step_hooks>>
 <11> <<Response Validations>>
 <12> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Global Custom Type Adapters>>
-<13> Ignore Java cert issues when firing HTTP calls
+<13> Ignore Java cert issues when firing HTTP calls. To be used only for local testing, like hitting localhost
 <14> Run more assertions on the <<Rundown>>
 endif::[]
 
@@ -344,15 +344,17 @@ endif::[]
 You can define a base common config and reuse it by overriding certain properties using the `override...()` methods,
 which are present for each config attribute
 
-== Debugging UX
+[#_debugging_dx]
+== Troubleshooting DX
 
+=== IDE debugger view
 [.lead]
-This tool has a particular emphasis on the Debugging experience. Here is what a debugger view of a <<Rundown>> looks like:
+This tool has a particular emphasis on the Debugging experience.Here is what a debugger view of a <<Rundown>> looks like:
 
 image:rundown.png[Rundown of all steps]
 
 [.lead]
-🔍 Let's zoom into a detailed view of one of those Step reports, which contains complete Request and Response info along with failure information if any:
+🔍 Let's zoom into a detailed view of one of these Step reports, which contains complete Request and Response info along with failure information if any:
 
 image:step-report.png[Step Report]
 
@@ -361,24 +363,40 @@ Here are the environment *key-value* pairs accumulated along the entire executio
 
 image:mutable-env.png[Mutable environment after the execution completion]
 
+[#_granular_failure_reporting]
+=== Granular Failure reporting
+
 [.lead]
-If something goes wrong at any stage during the Step execution, ReṼoman *fails-fast* and captures the `Failure` in StepReport:
+During a step execution if something goes wrong (like ) at any of these stages
+ReṼoman captures the `Failure` in StepReport:
 
 image:step-execution.png[Step Execution]
+
+[NOTE]
+====
+* `HttpRequestFailure` happens if there is an exception while making the request.It is different from HTTP Error response.
+* HTTP Success or Error response is determined by default with HTTP Status Code (SUCCESSFUL: `200 < = statusCode < = 299`).
+* HTTP Error response does *NOT* halt the execution by default.
+* You can control this behavior using <<_execution_control>>
+====
 
 [.lead]
 Here is the failure hierarchy of what can go wrong in this process
 
 image::failure-hierarchy.png[Failure Hierarchy]
 
+=== Logging
+
 [.lead]
 ReṼoman logs all the key operations that happen inside its source-code,
 including how the environment variables are being mutated by a step in its <<Pre-req and Post-res scripts>>.
 Watch your console to check what's going on in the execution or troubleshoot from CI/CD logs
 
-NOTE: link:docs/revoman.exe.log[📝Sample log] printed during execution
+TIP: link:docs/revoman.exe.log[📝Sample log] printed during execution
 
 image:pq-exe-logging.gif[Monitor Execution]
+
+TIP: If the execution halts due to any failure, the failure and failed step information can be found in the logs for easy troubleshooting
 
 == Features
 
@@ -456,14 +474,26 @@ See in Action:
 * link:{integrationtestdir}/com/salesforce/revoman/input/json/JsonPojoUtils2Test.java[JsonPojoUtils2Test]
 ====
 
+[#_execution_control]
 === Execution Control
 
-The configuration offers methods through which the execution strategy can be controlled without making any changes to the template:
+If an exception is thrown during the execution of any step,
+the execution *fails fast for that step*,
+and captures the exception as a <<_granular_failure_reporting,Failure>> in the StepReport.
+However, the execution of next steps may or may not halt, depending on the below Configuration options:
 
-* `haltOnAnyFailure` — This defaults to `false`. If set to `true`, the execution fails-fast when it encounters a failure.
-* `haltOnFailureOfTypeExcept` — This accepts pairs of `ExeType` and a `PostTxnStepPick` which are used to check if a Step can be ignored for failure for a specific failure type
-* `runOnlySteps`, `skipSteps` — All these accept a `predicate` of type `ExeStepPick`, which is invoked passing the current `Step` instance to decide whether to execute or skip a step.
-** There are some `ExeStepPick` predicates bundled with ReṼoman under `ExeStepPick.PickUtils` e.g `withName`, `inFolder` etc. You can write a custom predicate of your own too.
+* `haltOnAnyFailure` — This defaults to `false`. If set to `true`, the execution of steps fails-fast when it encounters a failure.
+* `haltOnFailureOfTypeExcept` — This accepts pairs of `ExeType` and a `PostTxnStepPick` which are used to check if a Step can be ignored for failure for a specific failure type or halt the execution of next steps
+
+These Configuration options, as their names suggest,
+let you conditionally run or skip steps in a chain of steps from the template, without the need to change the template.
+
+* `runOnlySteps`, `skipSteps` — These accept a `predicate` of type `ExeStepPick`, which is invoked passing the current `Step` instance to decide whether to execute or skip a step.
+
+TIP: There are some `ExeStepPick` predicates
+bundled with ReṼoman under link:{sourcedir}/com/salesforce/revoman/input/config/StepPick.kt[`ExeStepPick.PickUtils`]
+e.g `withName`,
+`inFolder` etc. You can write a custom predicate of your own too.
 
 [#_pre_step_and_post_step_hooks]
 === Pre-Step and Post-Step Hooks
@@ -473,8 +503,10 @@ A hook lets you fiddle with the execution by plugging in your custom JVM code be
 [#_step_picks]
 You can pass a `PreTxnStepPick/PostTxnStepPick` which is a `Predicate` used
 to qualify a step for Pre-Step/Post-Step Hook respectively.
+
 ReṼoman comes
-bundled with some predicates under the namespace `PreTxnStepPick.PickUtils`/`PostTxnStepPick.PickUtils` e.g `beforeStepContainingURIPathOfAny()`,
+bundled with some predicates under the namespace link:{sourcedir}/com/salesforce/revoman/input/config/StepPick.kt[`PreTxnStepPick.PickUtils`/`PostTxnStepPick.PickUtils`]
+e.g `beforeStepContainingURIPathOfAny()`,
 `afterStepName()` etc. If those don't fit your needs, you can write your own custom predicates like below:
 
 [source,java,indent=0,tabsize=2,options="nowrap"]
@@ -598,8 +630,12 @@ Each StepReport also has a `pmEnvSnapshot` to assert if a step has executed as e
 
 === Custom Dynamic variables
 
-If the in-built dynamic variables don't fit your needs, you can plug your own dynamic variable generator
-to be invoked to generate a value for your custom variable-key in the template at runtime.
+ReṼoman comes
+bundled with some link:{sourcedir}/com/salesforce/revoman/internal/postman/DynamicVariableGenerator.kt[Dynamic variable generators].
+If the in-built dynamic variables don't fit your needs, you can plug your own dynamic variable generator,
+by providing an instance of `CustomDynamicVariableGenerator`.
+This shall
+be invoked to generate a value for your custom variable-key in the template at runtime
 
 == USP
 

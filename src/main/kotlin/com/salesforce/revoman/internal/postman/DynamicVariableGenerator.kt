@@ -21,6 +21,12 @@ private val faker = faker {}
  * @see <a
  *   href="https://learning.postman.com/docs/writing-scripts/script-references/variables-list/">Postman
  *   Variables</a>
+ *
+ *   This may not be an exhaustive list of all dynamic variables supported by Postman. We keep
+ *   adding on the need-basis so it will grow over time. If what is need is not present here, You
+ *   may either contribute or use @see <a
+ *   href="https://github.com/salesforce-misc/ReVoman#custom-dynamic-variables/">Custom Dynamic
+ *   Variables</a>
  */
 private val dynamicVariableGenerators: Map<String, () -> String> =
   mapOf(
