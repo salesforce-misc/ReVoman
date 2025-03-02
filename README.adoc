@@ -68,7 +68,7 @@ implementation("com.salesforce.revoman:revoman:{revoman-version}")
 ----
 
 [.lead]
-Minimum Java Version required = 17
+Minimum Java Version required = 21
 
 toc::[]
 
@@ -363,21 +363,21 @@ Here are the environment *key-value* pairs accumulated along the entire executio
 
 image:mutable-env.png[Mutable environment after the execution completion]
 
-[#_granular_failure_reporting]
-=== Granular Failure reporting
+[#_step_procedure]
+=== Step Procedure
 
 [.lead]
-During a step execution if something goes wrong (like ) at any of these stages
-ReṼoman captures the `Failure` in StepReport:
+A Step waterfalls through all these stages and if there is any exception at any stage,
+the step procedure fails-fast, and ReṼoman captures the `Failure` in the respective StepReport:
 
-image:step-execution.png[Step Execution]
+image:step-procedure.png[Step Procedure]
 
 [NOTE]
 ====
 * `HttpRequestFailure` happens if there is an exception while making the request.It is different from HTTP Error response.
 * HTTP Success or Error response is determined by default with HTTP Status Code (SUCCESSFUL: `200 < = statusCode < = 299`).
-* HTTP Error response does *NOT* halt the execution by default.
-* You can control this behavior using <<_execution_control>>
+* HTTP Error response does *NOT* halt the execution of steps by default.
+* You can configure this behavior using <<Execution Control>>
 ====
 
 [.lead]
@@ -389,7 +389,7 @@ image::failure-hierarchy.png[Failure Hierarchy]
 
 [.lead]
 ReṼoman logs all the key operations that happen inside its source-code,
-including how the environment variables are being mutated by a step in its <<Pre-req and Post-res scripts>>.
+including how a step mutates environment variables in its <<Pre-req and Post-res scripts>>.
 Watch your console to check what's going on in the execution or troubleshoot from CI/CD logs
 
 TIP: link:docs/revoman.exe.log[📝Sample log] printed during execution
@@ -477,13 +477,13 @@ See in Action:
 [#_execution_control]
 === Execution Control
 
-If an exception is thrown during the execution of any step,
-the execution *fails fast for that step*,
-and captures the exception as a <<_granular_failure_reporting,Failure>> in the StepReport.
-However, the execution of next steps may or may not halt, depending on the below Configuration options:
+If an exception is thrown during the procedure of any step,
+the <<Step Procedure>> *fails fast for that step*.
+However, the execution of next steps won't halt by default.
+You can configure this behavior to *fail-fast* using the below Configuration options:
 
-* `haltOnAnyFailure` — This defaults to `false`. If set to `true`, the execution of steps fails-fast when it encounters a failure.
-* `haltOnFailureOfTypeExcept` — This accepts pairs of `ExeType` and a `PostTxnStepPick` which are used to check if a Step can be ignored for failure for a specific failure type or halt the execution of next steps
+* `haltOnAnyFailure` — This defaults to `false`. If set to `true`, the execution of steps fails-fast when it encounters a failure. This also halts if there is a HTTP error response
+* `haltOnFailureOfTypeExcept` — You may configure to Fail-fast only for a specific Failure type by providing an `ExeType`. Along with it, you may provide a  `PostTxnStepPick` which is used to check if a Step can be ignored for that specific failure type or halt the execution of next steps
 
 These Configuration options, as their names suggest,
 let you conditionally run or skip steps in a chain of steps from the template, without the need to change the template.
