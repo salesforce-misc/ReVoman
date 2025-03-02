@@ -203,8 +203,7 @@ object ReVoman {
               envSnapshot =
                 pm.environment.copy(mutableEnv = pm.environment.mutableEnv.toMutableMap())
             )
-        // * NOTE 15/10/23 gopala.akshintala: http status code can be non-success
-        haltExecution = shouldHaltExecution(currentStepReport, kick, pm)
+        haltExecution = shouldHaltExecution(currentStepReport, kick, pm.rundown)
         stepReports + currentStepReport
       }
   }

@@ -14,9 +14,10 @@ import arrow.core.Either.Left
 import arrow.core.Either.Right
 import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.input.config.StepPick.ExeStepPick
-import com.salesforce.revoman.internal.postman.PostmanSDK
 import com.salesforce.revoman.internal.postman.template.Item
 import com.salesforce.revoman.output.ExeType
+import com.salesforce.revoman.output.Rundown
+import com.salesforce.revoman.output.Rundown.Companion.isStepIgnoredForFailure
 import com.salesforce.revoman.output.report.Folder
 import com.salesforce.revoman.output.report.Step
 import com.salesforce.revoman.output.report.StepReport
@@ -91,10 +92,11 @@ internal fun <T> runCatching(
     )
 }
 
+// ! TODO 01 Mar 2025 gopala.akshintala: Unit test this
 internal fun shouldHaltExecution(
   currentStepReport: StepReport,
   kick: Kick,
-  pm: PostmanSDK,
+  rundown: Rundown,
 ): Boolean =
   when {
     currentStepReport.isSuccessful -> false
@@ -114,26 +116,15 @@ internal fun shouldHaltExecution(
           false
         }
         else ->
-          kick
-            .haltOnFailureOfTypeExcept()
-            .asSequence()
-            .any { (exeType, postTxnPick) ->
-              currentStepReport.exeTypeForFailure == exeType &&
-                postTxnPick.pick(
-                  currentStepReport,
-                  pm.rundown.copy(stepReports = pm.rundown.stepReports + currentStepReport),
-                )
-            }
-            .not()
-            .also {
-              logger.info {
-                if (it) {
-                  "${currentStepReport.step} doesn't qualify `haltOnFailureOfTypeExcept` for ${currentStepReport.exeTypeForFailure}, so 🛑 halting the execution of next steps"
-                } else {
-                  "Continuing the execution of next steps, as the step qualifies `haltOnFailureOfTypeExcept` for ${currentStepReport.exeTypeForFailure}"
-                }
+          !isStepIgnoredForFailure(currentStepReport, rundown).also {
+            logger.info {
+              if (it) {
+                "${currentStepReport.step} doesn't qualify `haltOnFailureOfTypeExcept`, so 🛑 halting the execution of next steps"
+              } else {
+                "Continuing the execution of next steps, as the step qualifies `haltOnFailureOfTypeExcept`"
               }
             }
+          }
       }
     }
   }

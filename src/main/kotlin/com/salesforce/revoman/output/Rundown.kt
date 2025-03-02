@@ -15,7 +15,7 @@ import com.salesforce.revoman.output.report.StepReport
 data class Rundown(
   @JvmField val stepReports: List<StepReport> = emptyList(),
   @JvmField val mutableEnv: PostmanEnvironment<Any?>,
-  private val stepsToIgnoreForFailurePick: Map<ExeType, PostTxnStepPick>?,
+  private val haltOnFailureOfTypeExcept: Map<ExeType, PostTxnStepPick?>,
 ) {
   @get:JvmName("immutableEnv") val immutableEnv: Map<String, Any?> by lazy { mutableEnv.toMap() }
 
@@ -27,24 +27,16 @@ data class Rundown(
   @get:JvmName("firstUnIgnoredUnsuccessfulStepReport")
   val firstUnIgnoredUnsuccessfulStepReport: StepReport? by lazy {
     stepReports.firstOrNull { stepReport ->
-      !stepReport.isSuccessful && !isStepIgnoredForFailure(stepReport)
+      !stepReport.isSuccessful && !isStepIgnoredForFailure(stepReport, this)
     }
   }
-
-  private fun isStepIgnoredForFailure(stepReport: StepReport): Boolean =
-    stepsToIgnoreForFailurePick
-      ?.asSequence()
-      ?.map { (exeType, postTxnPick) ->
-        stepReport.exeTypeForFailure == exeType && postTxnPick.pick(stepReport, this)
-      }
-      ?.any { it } ?: false
 
   @get:JvmName("areAllStepsSuccessful")
   val areAllStepsSuccessful: Boolean by lazy { stepReports.all { it.isSuccessful } }
 
   @get:JvmName("areAllStepsExceptIgnoredSuccessful")
   val areAllStepsExceptIgnoredSuccessful: Boolean by lazy {
-    stepReports.all { it.isSuccessful || !isStepIgnoredForFailure(it) }
+    stepReports.all { it.isSuccessful || !isStepIgnoredForFailure(it, this) }
   }
 
   fun reportsForStepsInFolder(folderName: String): List<StepReport?> =
@@ -61,6 +53,17 @@ data class Rundown(
 
   fun filterReportIncludingStepsWithName(stepNames: Set<String>): List<StepReport> =
     stepReports.filter { r -> stepNames.any { r.step.stepNameMatches(it) } }
+
+  companion object {
+    fun isStepIgnoredForFailure(stepReport: StepReport, rundown: Rundown): Boolean =
+      rundown.haltOnFailureOfTypeExcept
+        .asSequence()
+        .map { (exeType, postTxnPick) ->
+          stepReport.exeTypeForFailure == exeType &&
+            (postTxnPick?.pick(stepReport, rundown) ?: false)
+        }
+        .any { it }
+  }
 }
 
 fun <T> List<T>.endsWith(list: List<T>): Boolean =

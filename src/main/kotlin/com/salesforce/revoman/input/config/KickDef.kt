@@ -48,7 +48,7 @@ internal interface KickDef {
 
   @Value.Default fun haltOnAnyFailure(): Boolean = false
 
-  fun haltOnFailureOfTypeExcept(): Map<ExeType, PostTxnStepPick>
+  fun haltOnFailureOfTypeExcept(): Map<ExeType, PostTxnStepPick?>
 
   fun runOnlySteps(): List<ExeStepPick>
 
