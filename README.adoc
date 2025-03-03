@@ -339,10 +339,30 @@ include::{integrationtestdir}/com/salesforce/revoman/integration/core/pq/PQE2EWi
 <14> Run more assertions on the <<Rundown>>
 endif::[]
 
-== Reuse Config
+== Config
 
-You can define a base common config and reuse it by overriding certain properties using the `override...()` methods,
-which are present for each config attribute
+[.lead]
+Config built using `Kick.configure()` is *Immutable*.
+
+When there are many tests leveraging the same config with minor modifications, You can define a common config and add your variations (like add more hooks), 
+using `override...()` methods,
+which are present for all config attributes, to create a new instance of config.
+
+CAUTION: The new instance created from common config using `override...()` replaces the attributes. 
+
+* For iterable attributes (like `List`, `Map` etc), intentionally there are no methods to `add` or `append` or `prepend` attributes when creating new instance, to prevent any mix-up with the order of attributes. You can use any collection appending utilities to prepend/append previous hooks.
+
+[source,java,indent=0,tabsize=2,options="nowrap"]
+----
+POKEMON_COMMON_CONFIG.overrideHooks(kotlin.collections.SetsKt.plus(POKEMON_COMMON_CONFIG.hooks(), post(.../*My Hooks*/))
+----
+
+* However, you can construct a new instance by accumulating attributes from other instances using `from()` method, like below
+
+[source,java,indent=0,tabsize=2,options="nowrap"]
+----
+Kick.configure().from(configInstance1).from(configInstance2)...off();
+----
 
 [#_debugging_dx]
 == Troubleshooting DX
