@@ -38,7 +38,7 @@ open class MoshiReVoman(builder: Moshi.Builder) {
 
   private inline fun <reified PojoT : Any> lenientAdapter(): JsonAdapter<PojoT?> =
     moshi.adapter<PojoT>(PojoT::class.java).lenient()
-  
+
   fun <PojoT : Any> fromJson(input: String?, targetType: Type = Any::class.java): PojoT? =
     input?.let { lenientAdapter<PojoT>(targetType).fromJson(it) }
 
@@ -55,10 +55,11 @@ open class MoshiReVoman(builder: Moshi.Builder) {
   fun <PojoT : Any> toPrettyJson(
     input: PojoT?,
     sourceType: Type = input?.javaClass ?: Any::class.java,
-    indent: String = "  "
+    indent: String = "  ",
   ): String = lenientAdapter<PojoT>(sourceType).indent(indent).toJson(input)
-  
-  inline fun <reified PojoT : Any> toPrettyJson(input: PojoT?, indent: String = "  "): String = toPrettyJson(input, PojoT::class.java, indent)
+
+  inline fun <reified PojoT : Any> toPrettyJson(input: PojoT?, indent: String = "  "): String =
+    toPrettyJson(input, PojoT::class.java, indent)
 
   fun <PojoT : Any> objToJsonStrToObj(
     input: Any?,

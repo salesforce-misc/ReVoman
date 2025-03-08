@@ -61,7 +61,15 @@ data class Request(
       .Request(Method.valueOf(method), uri)
       .with(CONTENT_TYPE of contentType)
       .headers(header.map { it.key.trim() to it.value.trim() })
-      .body(body?.raw?.trim() ?: "")
+      .body(body?.raw?.trim()?.let { removeJsonComments(it) } ?: "")
+  }
+
+  companion object {
+    private fun removeJsonComments(json: String): String {
+      val singleLineComment = """//.*""".toRegex()
+      val multiLineComment = """/\*[\s\S]*?\*/""".toRegex()
+      return json.replace(multiLineComment, "").replace(singleLineComment, "")
+    }
   }
 
   internal fun toPMSDKRequest(pm: PostmanSDK): PostmanSDK.Request = pm.from(this)

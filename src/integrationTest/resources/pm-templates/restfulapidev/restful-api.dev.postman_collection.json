@@ -43,8 +43,7 @@
 					"script": {
 						"exec": [
 							"var responseJson = pm.response.json();",
-							"pm.environment.set(\"objId\", responseJson.id);",
-							""
+							"pm.environment.set(\"objId\", responseJson.id);"
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -55,6 +54,8 @@
 					"script": {
 						"exec": [
 							"var moment = require('moment')",
+							"var _ = require('lodash')",
+							"",
 							"pm.environment.set(\"$currentYear\", moment().year())",
 							"pm.environment.set(\"$randomPrice\", _.random(1, 1000))"
 						],
@@ -68,7 +69,7 @@
 				"header": [],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n   \"name\": \"AI Phone\",  \"data\": {\n      \"year\": {{$currentYear}},\n      \"price\": {{$randomPrice}}\n   }\n}",
+					"raw": "{\n  \"name\": \"{{$randomProduct}}\", // Dynamic variable\n  \"data\": {\n    \"year\": {{$currentYear}}, // Variable set via Pre-req\n    \"price\": {{$randomPrice}} // Variable set via Pre-req\n  }\n}",
 					"options": {
 						"raw": {
 							"language": "json"

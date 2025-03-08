@@ -18,7 +18,7 @@ endif::[]
 :pmtemplates: src/integrationTest/resources/pm-templates
 :imagesdir: docs/images
 :prewrap!:
-:revoman-version: 0.6.0
+:revoman-version: 0.6.1
 
 '''
 
@@ -499,10 +499,10 @@ See in Action:
 
 If an exception is thrown during the procedure of any step,
 the <<Step Procedure>> *fails fast for that step*.
-However, the execution of next steps won't halt by default.
+However, the execution of next *steps won't halt by default*.
 You can configure this behavior to *fail-fast* using the below Configuration options:
 
-* `haltOnAnyFailure` — This defaults to `false`. If set to `true`, the execution of steps fails-fast when it encounters a failure. This also halts if there is a HTTP error response
+* `haltOnAnyFailure` — This defaults to `false`. If set to `true`, the execution of steps fails-fast when it encounters a failure. This also halts if there is an HTTP error response
 * `haltOnFailureOfTypeExcept` — You may configure to Fail-fast only for a specific Failure type by providing an `ExeType`. Along with it, you may provide a  `PostTxnStepPick` which is used to check if a Step can be ignored for that specific failure type or halt the execution of next steps
 
 These Configuration options, as their names suggest,
@@ -514,6 +514,13 @@ TIP: There are some `ExeStepPick` predicates
 bundled with ReṼoman under link:{sourcedir}/com/salesforce/revoman/input/config/StepPick.kt[`ExeStepPick.PickUtils`]
 e.g `withName`,
 `inFolder` etc. You can write a custom predicate of your own too.
+
+==== Compose Modular Executions
+
+* You don't have to squash all your steps into one mega collection. Instead, you can break them into easy-to-manage modular collections. `ReVoman.revUp()` accepts a list of collection paths through `templatePaths()`
+* But that doesn't mean you have to execute all these templates in one-go. You can make multiple `ReVoman.revUp()` calls for different collections.
+* If you wish to compose these executions in a specific order, you can use the `revUp()` overload which accepts a vararg `Kick` configs.
+** You can also achieve the same yourself, by adding the previous execution's `mutableEnv` to the current execution using the `dynamicEnvironment` parameter. This also comes in handy when you wish to execute a common step (e.g. `UserSetup`) inside a Test setup method and use that environment for all the tests.
 
 [#_pre_step_and_post_step_hooks]
 === Pre-Step and Post-Step Hooks
@@ -640,13 +647,6 @@ test from link:{testdir}/com/salesforce/revoman/output/postman/PostmanEnvironmen
 ==== `pmEnvSnapshot` in each StepReport
 
 Each StepReport also has a `pmEnvSnapshot` to assert if a step has executed as expected and compare snapshots from different steps to examine the execution progress.
-
-=== Compose Modular Executions
-
-* You don't have to squash all your steps into one mega collection. Instead, you can break them into easy-to-manage modular collections. `ReVoman.revUp()` accepts a list of collection paths through `templatePaths()`
-* But that doesn't mean you have to execute all these templates in one-go. You can make multiple `ReVoman.revUp()` calls for different collections.
-* If you wish to compose these executions in a specific order, you can use the `revUp()` overload which accepts a vararg `Kick` configs.
-** You can also achieve the same yourself, by adding the previous execution's `mutableEnv` to the current execution using the `dynamicEnvironment` parameter. This also comes in handy when you wish to execute a common step (e.g. `UserSetup`) inside a Test setup method and use that environment for all the tests.
 
 === Custom Dynamic variables
 
