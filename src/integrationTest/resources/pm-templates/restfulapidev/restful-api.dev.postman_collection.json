@@ -46,7 +46,8 @@
 							"pm.environment.set(\"objId\", responseJson.id);",
 							""
 						],
-						"type": "text/javascript"
+						"type": "text/javascript",
+						"packages": {}
 					}
 				},
 				{
@@ -57,7 +58,8 @@
 							"pm.environment.set(\"$currentYear\", moment().year())",
 							"pm.environment.set(\"$randomPrice\", _.random(1, 1000))"
 						],
-						"type": "text/javascript"
+						"type": "text/javascript",
+						"packages": {}
 					}
 				}
 			],
@@ -66,7 +68,7 @@
 				"header": [],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n   \"name\": \"AI Phone\",\n   \"data\": {\n      \"year\": {{$currentYear}},\n      \"price\": {{$randomPrice}}\n   }\n}",
+					"raw": "{\n   \"name\": \"AI Phone\",  \"data\": {\n      \"year\": {{$currentYear}},\n      \"price\": {{$randomPrice}}\n   }\n}",
 					"options": {
 						"raw": {
 							"language": "json"

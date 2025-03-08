@@ -5,8 +5,6 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  * ************************************************************************************************
  */
-@file:JvmName("MoshiReVoman")
-
 package com.salesforce.revoman.internal.json
 
 import com.salesforce.revoman.internal.json.adapters.BigDecimalAdapter
@@ -24,8 +22,7 @@ import dev.zacsweers.moshix.adapters.AdaptedBy
 import dev.zacsweers.moshix.adapters.JsonString
 import io.vavr.control.Either
 import java.lang.reflect.Type
-import java.util.Date
-import org.http4k.format.ConfigurableMoshi
+import java.util.*
 import org.http4k.format.EventAdapter
 import org.http4k.format.ListAdapter
 import org.http4k.format.MapAdapter
@@ -33,14 +30,50 @@ import org.http4k.format.ThrowableAdapter
 import org.http4k.format.asConfigurable
 import org.http4k.format.withStandardMappings
 
+open class MoshiReVoman(builder: Moshi.Builder) {
+  private val moshi = builder.build()
+
+  private fun <PojoT : Any> lenientAdapter(targetType: Type): JsonAdapter<PojoT?> =
+    moshi.adapter<PojoT>(targetType).lenient()
+
+  private inline fun <reified PojoT : Any> lenientAdapter(): JsonAdapter<PojoT?> =
+    moshi.adapter<PojoT>(PojoT::class.java).lenient()
+  
+  fun <PojoT : Any> fromJson(input: String?, targetType: Type = Any::class.java): PojoT? =
+    input?.let { lenientAdapter<PojoT>(targetType).fromJson(it) }
+
+  inline fun <reified PojoT : Any> fromJson(input: String?): PojoT? =
+    fromJson(input, PojoT::class.java)
+
+  fun <PojoT : Any> toJson(
+    input: PojoT?,
+    sourceType: Type = input?.javaClass ?: Any::class.java,
+  ): String = lenientAdapter<PojoT>(sourceType).toJson(input)
+
+  inline fun <reified PojoT : Any> toJson(input: PojoT?): String = toJson(input, PojoT::class.java)
+
+  fun <PojoT : Any> toPrettyJson(
+    input: PojoT?,
+    sourceType: Type = input?.javaClass ?: Any::class.java,
+    indent: String = "  "
+  ): String = lenientAdapter<PojoT>(sourceType).indent(indent).toJson(input)
+  
+  inline fun <reified PojoT : Any> toPrettyJson(input: PojoT?, indent: String = "  "): String = toPrettyJson(input, PojoT::class.java, indent)
+
+  fun <PojoT : Any> objToJsonStrToObj(
+    input: Any?,
+    targetType: Type = input?.javaClass ?: Any::class.java,
+  ): PojoT? = lenientAdapter<PojoT>(targetType).fromJson(toJson(input))
+}
+
 @JvmOverloads
 internal fun initMoshi(
   customAdapters: List<Any> = emptyList(),
   customAdaptersWithType: Map<Type, List<Either<JsonAdapter<out Any>, Factory>>> = emptyMap(),
   typesToIgnore: Set<Class<out Any>> = emptySet(),
-): ConfigurableMoshi {
+): MoshiReVoman {
   val moshiBuilder = buildMoshi(customAdapters, customAdaptersWithType, typesToIgnore)
-  return object : ConfigurableMoshi(moshiBuilder) {}
+  return object : MoshiReVoman(moshiBuilder) {}
 }
 
 @SuppressWarnings("kotlin:S3923")

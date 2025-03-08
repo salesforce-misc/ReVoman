@@ -23,7 +23,7 @@
     },
     {
       "key" : "key5",
-      "value" : null,
+      "value" : "null",
       "enabled" : true
     }
   ]

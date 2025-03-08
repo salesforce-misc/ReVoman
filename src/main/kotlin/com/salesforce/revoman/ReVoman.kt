@@ -25,6 +25,7 @@ import com.salesforce.revoman.internal.exe.shouldHaltExecution
 import com.salesforce.revoman.internal.exe.shouldStepBePicked
 import com.salesforce.revoman.internal.exe.unmarshallRequest
 import com.salesforce.revoman.internal.exe.unmarshallResponse
+import com.salesforce.revoman.internal.json.MoshiReVoman
 import com.salesforce.revoman.internal.json.initMoshi
 import com.salesforce.revoman.internal.postman.Info
 import com.salesforce.revoman.internal.postman.PostmanSDK
@@ -42,7 +43,6 @@ import com.squareup.moshi.adapter
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.vavr.control.Either.left
 import org.http4k.core.Request
-import org.http4k.format.ConfigurableMoshi
 
 object ReVoman {
   @JvmStatic
@@ -127,7 +127,7 @@ object ReVoman {
   private fun executeStepsSerially(
     pmStepsFlattened: List<Step>,
     kick: Kick,
-    moshiReVoman: ConfigurableMoshi,
+    moshiReVoman: MoshiReVoman,
     regexReplacer: RegexReplacer,
     pm: PostmanSDK,
   ): List<StepReport> {

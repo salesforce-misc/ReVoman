@@ -8,8 +8,8 @@
 package com.salesforce.revoman.internal.postman.template
 
 import com.salesforce.revoman.internal.json.AlwaysSerializeNulls
+import com.salesforce.revoman.internal.json.MoshiReVoman
 import com.squareup.moshi.JsonClass
-import org.http4k.format.ConfigurableMoshi
 
 @JsonClass(generateAdapter = true)
 internal data class Environment(val name: String?, val values: List<EnvValue>) {
@@ -20,15 +20,15 @@ internal data class Environment(val name: String?, val values: List<EnvValue>) {
   companion object {
     const val POSTMAN_ENV_NAME = "env-from-revoman"
 
-    fun fromMap(envMap: Map<String, Any?>, moshiReVoman: ConfigurableMoshi): Environment {
+    fun fromMap(envMap: Map<String, Any?>, moshiReVoman: MoshiReVoman): Environment {
       val values =
         envMap.entries.map { (key, value) ->
           val valueStr =
             when (value) {
-              null,
               is String -> value
-              value::class.javaPrimitiveType?.isPrimitive -> value.toString()
-              else -> moshiReVoman.asFormatString(value)
+              // * NOTE 08 Mar 2025 gopala.akshintala: To be consistent with Postman app behavior
+              null -> "null"
+              else -> moshiReVoman.toJson(value)
             }
           EnvValue(key, valueStr, true)
         }

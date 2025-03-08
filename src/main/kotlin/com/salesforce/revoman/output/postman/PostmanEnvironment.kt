@@ -7,27 +7,27 @@
  */
 package com.salesforce.revoman.output.postman
 
+import com.salesforce.revoman.internal.json.MoshiReVoman
 import com.salesforce.revoman.internal.json.initMoshi
 import com.salesforce.revoman.internal.postman.template.Environment.Companion.fromMap
 import com.squareup.moshi.rawType
 import io.exoquery.pprint
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.lang.reflect.Type
-import org.http4k.format.ConfigurableMoshi
 
 /** This is a Wrapper on `mutableEnv` map, providing some useful utilities */
 data class PostmanEnvironment<ValueT : Any?>
 @JvmOverloads
 constructor(
   val mutableEnv: MutableMap<String, ValueT> = mutableMapOf(),
-  val moshiReVoman: ConfigurableMoshi = initMoshi(),
+  val moshiReVoman: MoshiReVoman = initMoshi(),
 ) : MutableMap<String, ValueT> by mutableEnv {
 
   @get:JvmName("immutableEnv") val immutableEnv: Map<String, ValueT> by lazy { mutableEnv.toMap() }
 
   @get:JvmName("postmanEnvJSONFormat")
   val postmanEnvJSONFormat: String by lazy {
-    moshiReVoman.prettify(moshiReVoman.asFormatString(fromMap(mutableEnv, moshiReVoman)))
+    moshiReVoman.toJson(fromMap(mutableEnv, moshiReVoman))
   }
 
   fun set(key: String, value: ValueT) {
@@ -110,19 +110,12 @@ constructor(
     return when {
       value == null -> null
       objType.rawType.isInstance(value) -> value
-      else -> moshiReVoman.asA(moshiReVoman.asFormatString(value as Any), objType.rawType.kotlin)
+      else -> moshiReVoman.objToJsonStrToObj(value, objType)
     }
       as T?
   }
 
-  inline fun <reified T : Any> getObj(key: String): T? {
-    val value = mutableEnv[key]
-    return when (value) {
-      null,
-      is T -> value
-      else -> moshiReVoman.asA(moshiReVoman.asFormatString(value as Any), T::class)
-    }
-  }
+  inline fun <reified T : Any> getObj(key: String): T? = getTypedObj(key, T::class.java)
 
   fun <T> mutableEnvCopyWithKeysEndingWith(
     type: Class<T>,

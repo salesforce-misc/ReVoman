@@ -8,6 +8,7 @@
 package com.salesforce.revoman.internal.postman
 
 import com.github.underscore.U
+import com.salesforce.revoman.internal.json.MoshiReVoman
 import com.salesforce.revoman.internal.postman.template.Body
 import com.salesforce.revoman.internal.postman.template.Event
 import com.salesforce.revoman.internal.postman.template.Header
@@ -21,14 +22,13 @@ import org.graalvm.polyglot.Context
 import org.graalvm.polyglot.HostAccess
 import org.graalvm.polyglot.Source
 import org.graalvm.polyglot.Value
-import org.http4k.format.ConfigurableMoshi
 
 /**
  * SDK to execute pre-req and post-res js scripts, to be compatible with the Postman API reference:
  * https://learning.postman.com/docs/writing-scripts/script-references/postman-sandbox-api-reference/
  */
 class PostmanSDK(
-  private val moshiReVoman: ConfigurableMoshi,
+  private val moshiReVoman: MoshiReVoman,
   nodeModulesRelativePath: String? = null,
   val regexReplacer: RegexReplacer = RegexReplacer(),
   mutableEnv: MutableMap<String, Any?> = mutableMapOf(),
@@ -40,7 +40,7 @@ class PostmanSDK(
   lateinit var currentStepReport: StepReport
   @Suppress("unused") @JvmField val variables: Variables = Variables()
   lateinit var rundown: Rundown
-  @JvmField val xml2Json = Xml2Json { xml -> moshiReVoman.asA(U.xmlToJson(xml)) }
+  @JvmField val xml2Json = Xml2Json { xml -> moshiReVoman.fromJson(U.xmlToJson(xml)) }
   // * NOTE 28 Apr 2024 gopala.akshintala: This has to be initialized at last
   private val jsEvaluator: JSEvaluator = JSEvaluator(nodeModulesRelativePath)
 

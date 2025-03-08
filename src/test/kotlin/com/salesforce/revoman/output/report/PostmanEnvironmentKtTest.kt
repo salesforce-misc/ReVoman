@@ -27,10 +27,10 @@ class PostmanEnvironmentKtTest {
         "key4" to mapOf("4" to 4),
         "key5" to null,
       )
-    val pm = PostmanEnvironment(env)
-    val postmanEnvJSONFormatStr = readFileInResourcesToString("mutable-env-to-pm.json")
+    val pmEnv = PostmanEnvironment(env)
+    val postmanEnvJSONFormatStr = readFileInResourcesToString("env-from-revoman.json")
     JSONAssert.assertEquals(
-      pm.postmanEnvJSONFormat,
+      pmEnv.postmanEnvJSONFormat,
       postmanEnvJSONFormatStr,
       JSONCompareMode.STRICT,
     )
@@ -46,11 +46,11 @@ class PostmanEnvironmentKtTest {
         "key4" to mapOf("4" to 4),
         "key5" to null,
       )
-    val pm = PostmanEnvironment(env)
-    pm.getObj<Int>("key1")!! shouldBeEqual env["key1"] as Int
-    pm.getObj<String>("key2")!! shouldBeEqual env["key2"] as String
-    pm.getObj<List<Int>>("key3")!! shouldBeEqual env["key3"] as List<Int>
-    pm.getObj<Map<String, Int>>("key4")!! shouldContainExactly env["key4"] as Map<String, Int>
-    pm.getObj<Any>("key5") shouldBe null
+    val pmEnv = PostmanEnvironment(env)
+    pmEnv.getObj<Int>("key1")!! shouldBeEqual env["key1"] as Int
+    pmEnv.getObj<String>("key2")!! shouldBeEqual env["key2"] as String
+    pmEnv.getObj<List<Int>>("key3")!! shouldBeEqual env["key3"] as List<Int>
+    pmEnv.getObj<Map<String, Int>>("key4")!! shouldContainExactly env["key4"] as Map<String, Int>
+    pmEnv.getObj<Any>("key5") shouldBe null
   }
 }

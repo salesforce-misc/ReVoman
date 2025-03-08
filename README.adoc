@@ -344,11 +344,11 @@ endif::[]
 [.lead]
 Config built using `Kick.configure()` is *Immutable*.
 
-When there are many tests leveraging the same config with minor modifications, You can define a common config and add your variations (like add more hooks), 
+When there are many tests leveraging the same config with minor modifications, You can define a common config and add your variations (like add more hooks),
 using `override...()` methods,
 which are present for all config attributes, to create a new instance of config.
 
-CAUTION: The new instance created from common config using `override...()` replaces the attributes. 
+CAUTION: The new instance created from common config using `override...()` replaces the attributes.
 
 * For iterable attributes (like `List`, `Map` etc), intentionally there are no methods to `add` or `append` or `prepend` attributes when creating new instance, to prevent any mix-up with the order of attributes. You can use any collection appending utilities to prepend/append previous hooks.
 

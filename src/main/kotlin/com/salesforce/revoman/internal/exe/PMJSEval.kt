@@ -21,12 +21,15 @@ import com.salesforce.revoman.output.report.failure.ResponseFailure.PostResJSFai
 
 internal fun executePreReqJS(
   currentStep: Step,
-  item: Item,
+  itemWithRegex: Item,
   pm: PostmanSDK,
 ): Either<PreReqJSFailure, Unit> {
-  val preReqJS = item.event?.find { it.listen == "prerequest" }?.script?.exec?.joinToString("\n")
+  val preReqJS =
+    itemWithRegex.event?.find { it.listen == "prerequest" }?.script?.exec?.joinToString("\n")
   return if (!preReqJS.isNullOrBlank()) {
-    runCatching(currentStep, PRE_REQ_JS) { executePreReqJSWithPolyglot(preReqJS, item.request, pm) }
+    runCatching(currentStep, PRE_REQ_JS) {
+        executePreReqJSWithPolyglot(preReqJS, itemWithRegex.request, pm)
+      }
       .mapLeft { PreReqJSFailure(it, pm.currentStepReport.requestInfo!!.get()) }
   } else {
     Right(Unit)

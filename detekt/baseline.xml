@@ -4,7 +4,7 @@
     <ID>TooManyFunctions:ResponseConfig.kt$ResponseConfig$Companion</ID>
     <ID>TooManyFunctions:PostmanEnvironment.kt$PostmanEnvironment&lt;ValueT : Any?> : MutableMap</ID>
     <ID>TooManyFunctions:ExeUtils.kt$com.salesforce.revoman.internal.exe.ExeUtils.kt</ID>
-    <ID>LongMethod:ReVoman.kt$ReVoman$private fun executeStepsSerially( pmStepsFlattened: List&lt;Pair&lt;Step, Item>>, kick: Kick, moshiReVoman: ConfigurableMoshi, ): List&lt;StepReport></ID>
+    <ID>LongMethod:ReVoman.kt$ReVoman$private fun executeStepsSerially( pmStepsFlattened: List&lt;Pair&lt;Step, Item>>, kick: Kick, moshiReVoman: MoshiReVoman, ): List&lt;StepReport></ID>
     <ID>SpreadOperator:Step.kt$Step$(*FOLDER_DELIMITER.toCharArray())</ID>
     <ID>SpreadOperator:CaseInsensitiveEnumAdapter.kt$CaseInsensitiveEnumAdapter$(*nameStrings.toTypedArray())</ID>
     <ID>TooManyFunctions:JsonWriterUtils.kt$com.salesforce.revoman.input.json.JsonWriterUtils.kt</ID>
