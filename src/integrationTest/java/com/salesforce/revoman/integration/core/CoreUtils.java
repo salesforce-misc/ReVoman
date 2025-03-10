@@ -17,6 +17,7 @@ import com.salesforce.revoman.input.config.ResponseConfig;
 import com.salesforce.revoman.input.json.adapters.salesforce.CompositeGraphResponse;
 import com.salesforce.revoman.input.json.adapters.salesforce.CompositeGraphResponse.Graph.ErrorGraph;
 import com.salesforce.revoman.output.report.StepReport;
+import java.util.List;
 import kotlin.collections.CollectionsKt;
 
 public class CoreUtils {
@@ -39,7 +40,11 @@ public class CoreUtils {
 	public static void assertCompositeGraphResponseSuccess(StepReport stepReport) {
 		final var responseTxnInfo = stepReport.responseInfo.get();
 		final var graphResp =
-				responseTxnInfo.<CompositeGraphResponse>getTypedTxnObj().getGraphs().get(0);
+				responseTxnInfo
+						.<CompositeGraphResponse>getTypedTxnObj(
+								CompositeGraphResponse.class, List.of(CompositeGraphResponse.ADAPTER))
+						.getGraphs()
+						.get(0);
 		assertTrue(
 				graphResp.isSuccessful(),
 				() -> {

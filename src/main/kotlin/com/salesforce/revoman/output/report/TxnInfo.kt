@@ -7,7 +7,7 @@
  */
 package com.salesforce.revoman.output.report
 
-import com.salesforce.revoman.input.json.jsonToPojo
+import com.salesforce.revoman.internal.json.MoshiReVoman
 import com.squareup.moshi.JsonAdapter
 import io.vavr.control.Either
 import java.lang.reflect.Type
@@ -23,47 +23,27 @@ constructor(
   @JvmField val txnObj: Any? = null,
   @JvmField val httpMsg: HttpMsgT,
   @JvmField val isJson: Boolean = true,
+  private val moshiReVoman: MoshiReVoman,
 ) {
   @JvmOverloads
   fun <T : Any> getTypedTxnObj(
     txnObjType: Type = this.txnObjType,
     customAdapters: List<Any> = emptyList(),
-    customAdaptersWithType: Map<Type, List<Either<JsonAdapter<out Any>, JsonAdapter.Factory>>> =
+    customAdaptersWithType: Map<Type, Either<JsonAdapter<out Any>, JsonAdapter.Factory>> =
       emptyMap(),
     typesToIgnore: Set<Class<out Any>> = emptySet(),
-  ): T? =
-    when {
-      customAdapters.isEmpty() && customAdaptersWithType.isEmpty() && typesToIgnore.isEmpty() ->
-        (txnObjType as? Class<T>)?.cast(txnObj)
-      else ->
-        jsonToPojo(
-          txnObjType,
-          httpMsg.bodyString(),
-          customAdapters,
-          customAdaptersWithType,
-          typesToIgnore,
-        )
-    }
+  ): T? {
+    moshiReVoman.addAdapters(customAdapters, customAdaptersWithType, typesToIgnore)
+    return moshiReVoman.fromJson(httpMsg.bodyString(), txnObjType)
+  }
 
   @JvmOverloads
   inline fun <reified T : Any> getTxnObj(
     customAdapters: List<Any> = emptyList(),
-    customAdaptersWithType: Map<Type, List<Either<JsonAdapter<out Any>, JsonAdapter.Factory>>> =
+    customAdaptersWithType: Map<Type, Either<JsonAdapter<out Any>, JsonAdapter.Factory>> =
       emptyMap(),
     typesToIgnore: Set<Class<out Any>> = emptySet(),
-  ): T? =
-    when {
-      customAdapters.isEmpty() && customAdaptersWithType.isEmpty() && typesToIgnore.isEmpty() ->
-        txnObj as? T
-      else ->
-        jsonToPojo(
-          T::class.java,
-          httpMsg.bodyString(),
-          customAdapters,
-          customAdaptersWithType,
-          typesToIgnore,
-        )
-    }
+  ): T? = getTypedTxnObj(T::class.java, customAdapters, customAdaptersWithType, typesToIgnore)
 
   fun containsHeader(key: String): Boolean = httpMsg.headers.toMap().containsKey(key)
 

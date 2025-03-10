@@ -10,7 +10,7 @@
 package com.salesforce.revoman.input.json
 
 import com.salesforce.revoman.input.bufferFileInResources
-import com.salesforce.revoman.internal.json.buildMoshi
+import com.salesforce.revoman.internal.json.MoshiReVoman.Companion.initMoshi
 import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.JsonAdapter.Factory
 import io.vavr.control.Either
@@ -33,7 +33,7 @@ fun <PojoT : Any> jsonFileToPojo(
   pojoType: Type,
   jsonFilePath: String,
   customAdapters: List<Any> = emptyList(),
-  customAdaptersWithType: Map<Type, List<Either<JsonAdapter<out Any>, Factory>>> = emptyMap(),
+  customAdaptersWithType: Map<Type, Either<JsonAdapter<out Any>, Factory>> = emptyMap(),
   skipTypes: Set<Class<out Any>> = emptySet(),
 ): PojoT? {
   val jsonAdapter = initMoshi<PojoT>(customAdapters, customAdaptersWithType, skipTypes, pojoType)
@@ -52,7 +52,7 @@ fun <PojoT : Any> jsonFileToPojo(jsonFile: JsonFile<PojoT>): PojoT? =
 inline fun <reified PojoT : Any> jsonFileToPojo(
   jsonFilePath: String,
   customAdapters: List<Any> = emptyList(),
-  customAdaptersWithType: Map<Type, List<Either<JsonAdapter<out Any>, Factory>>> = emptyMap(),
+  customAdaptersWithType: Map<Type, Either<JsonAdapter<out Any>, Factory>> = emptyMap(),
   skipTypes: Set<Class<out Any>> = emptySet(),
 ): PojoT? =
   jsonFileToPojo(PojoT::class.java, jsonFilePath, customAdapters, customAdaptersWithType, skipTypes)
@@ -73,7 +73,7 @@ fun <PojoT : Any> jsonToPojo(
   pojoType: Type,
   jsonStr: String,
   customAdapters: List<Any> = emptyList(),
-  customAdaptersWithType: Map<Type, List<Either<JsonAdapter<out Any>, Factory>>> = emptyMap(),
+  customAdaptersWithType: Map<Type, Either<JsonAdapter<out Any>, Factory>> = emptyMap(),
   skipTypes: Set<Class<out Any>> = emptySet(),
 ): PojoT? {
   val jsonAdapter = initMoshi<PojoT>(customAdapters, customAdaptersWithType, skipTypes, pojoType)
@@ -92,7 +92,7 @@ fun <PojoT : Any> jsonToPojo(jsonString: JsonString<PojoT>): PojoT? =
 inline fun <reified PojoT : Any> jsonToPojo(
   jsonStr: String,
   customAdapters: List<Any> = emptyList(),
-  customAdaptersWithType: Map<Type, List<Either<JsonAdapter<out Any>, Factory>>> = emptyMap(),
+  customAdaptersWithType: Map<Type, Either<JsonAdapter<out Any>, Factory>> = emptyMap(),
   skipTypes: Set<Class<out Any>> = emptySet(),
 ): PojoT? =
   jsonToPojo(PojoT::class.java, jsonStr, customAdapters, customAdaptersWithType, skipTypes)
@@ -114,7 +114,7 @@ fun <PojoT : Any> pojoToJson(
   pojoType: Type,
   pojo: PojoT,
   customAdapters: List<Any> = emptyList(),
-  customAdaptersWithType: Map<Type, List<Either<JsonAdapter<out Any>, Factory>>> = emptyMap(),
+  customAdaptersWithType: Map<Type, Either<JsonAdapter<out Any>, Factory>> = emptyMap(),
   skipTypes: Set<Class<out Any>> = emptySet(),
   indent: String? = "  ",
 ): String? {
@@ -135,7 +135,7 @@ fun <PojoT : Any> pojoToJson(config: Pojo<PojoT>): String? =
 inline fun <reified PojoT : Any> pojoToJson(
   pojo: PojoT,
   customAdapters: List<Any> = emptyList(),
-  customAdaptersWithType: Map<Type, List<Either<JsonAdapter<out Any>, Factory>>> = emptyMap(),
+  customAdaptersWithType: Map<Type, Either<JsonAdapter<out Any>, Factory>> = emptyMap(),
   skipTypes: Set<Class<out Any>> = emptySet(),
   indent: String? = "  ",
 ): String? =
@@ -144,11 +144,11 @@ inline fun <reified PojoT : Any> pojoToJson(
 @SuppressWarnings("kotlin:S3923")
 private fun <PojoT : Any> initMoshi(
   customAdapters: List<Any> = emptyList(),
-  customAdaptersWithType: Map<Type, List<Either<JsonAdapter<out Any>, Factory>>> = emptyMap(),
+  customAdaptersWithType: Map<Type, Either<JsonAdapter<out Any>, Factory>> = emptyMap(),
   skipTypes: Set<Class<out Any>> = emptySet(),
   pojoType: Type,
 ): JsonAdapter<PojoT> =
-  buildMoshi(customAdapters, customAdaptersWithType, skipTypes).build().adapter(pojoType)
+  initMoshi(customAdapters, customAdaptersWithType, skipTypes).adapter(pojoType)
 
 @PojoConfig
 @Value.Immutable
@@ -159,7 +159,7 @@ internal interface PojoDef<PojoT> {
 
   fun customAdapters(): List<Any>
 
-  fun customAdaptersWithType(): Map<Type, List<Either<JsonAdapter<out Any>, Factory>>>
+  fun customAdaptersWithType(): Map<Type, Either<JsonAdapter<out Any>, Factory>>
 
   fun skipTypes(): Set<Class<out Any>>
 
@@ -186,7 +186,7 @@ internal interface JsonConfig<PojoT> {
 
   fun customAdapters(): List<Any>
 
-  fun customAdaptersWithType(): Map<Type, List<Either<JsonAdapter<out Any>, Factory>>>
+  fun customAdaptersWithType(): Map<Type, Either<JsonAdapter<out Any>, Factory>>
 
   fun skipTypes(): Set<Class<out Any>>
 }

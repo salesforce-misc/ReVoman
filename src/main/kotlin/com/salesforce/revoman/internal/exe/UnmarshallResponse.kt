@@ -46,15 +46,19 @@ internal fun unmarshallResponse(
           moshiReVoman.fromJson<Any>(httpResponse.bodyString(), responseType)
         }
         .mapLeft {
-          UnmarshallResponseFailure(it, requestInfo, TxnInfo(responseType, null, httpResponse))
+          UnmarshallResponseFailure(
+            it,
+            requestInfo,
+            TxnInfo(responseType, null, httpResponse, moshiReVoman = moshiReVoman),
+          )
         }
-        .map { TxnInfo(responseType, it, httpResponse) }
+        .map { TxnInfo(responseType, it, httpResponse, moshiReVoman = moshiReVoman) }
     }
     else -> {
       logger.info {
         "${pm.currentStepReport.step} No JSON found in the Response body or content-type didn't match ${APPLICATION_JSON.value}"
       }
-      Right(TxnInfo(httpMsg = httpResponse, isJson = false))
+      Right(TxnInfo(httpMsg = httpResponse, isJson = false, moshiReVoman = moshiReVoman))
     }
   }
 }

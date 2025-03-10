@@ -18,7 +18,7 @@ endif::[]
 :pmtemplates: src/integrationTest/resources/pm-templates
 :imagesdir: docs/images
 :prewrap!:
-:revoman-version: 0.6.1
+:revoman-version: 0.6.2
 
 '''
 
@@ -423,15 +423,16 @@ TIP: If the execution halts due to any failure, the failure and failed step info
 [#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization]
 === Type Safety with flexible JSON <- -> POJO marshalling/serialization and unmarshalling/deserialization
 
+[.lead]
 Postman operates purely with JSON.
 When interoperating Postman with JVM,
 unmarshalling/deserialization of JSON into a POJO and vice versa helps in writing Type-safe JVM code and enhances the debugging experience on JVM.
+
 ReṼoman internally uses a modern JSON library called https://github.com/square/moshi[**Moshi**].
 Simple types whose JSON structure aligns with the POJO data structure can directly be converted.
 But when the JSON structure may not align with the POJO,
 you may need a _Custom Type Adapter_ for Marshalling to JSON or Unmarshalling from JSON.
-Moshi has it covered for you with its advanced adapter mechanism and ReṼoman accepts Moshi adapters.
-Checkout these methods that help us interop between Postman and JVM:
+Moshi has it covered for you with its advanced adapter mechanism and ReṼoman accepts Moshi adapters via these config methods:
 
 ==== `globalSkipTypes()`
 
@@ -445,8 +446,7 @@ where you can filter out these legacy types from Marshalling/Unmarshalling
 * You may use the bundled static factory methods named `RequestConfig.unmarshallResponse()` for expressiveness.
 * You can pass a `PreTxnStepPick` which is a `Predicate` used
 to qualify a step whose Request JSON payload needs to be unmarshalled/deserialized.
-* If you have set up `requestConfig()` once, wherever you wish to read the request in your <<#_pre_step_and_post_step_hooks,Pre-Step Hooks>>, you can call `stepReport.requestInfo.get().<TypeT>getTypedTxnObj()` which returns your request JSON as a Strong type.
-* If you don't configure it for a step, Moshi unmarshalls the step request JSON into default data structures like `LinkedHashMap`
+* If you have set up `requestConfig()` once in the config, wherever you wish to read the request in your <<#_pre_step_and_post_step_hooks,Pre-Step Hooks>>, you can call `stepReport.requestInfo.get().<TypeT>getTypedTxnObj()` which returns your request JSON as a Strong type.
 
 ==== `responseConfig()`
 
@@ -456,7 +456,6 @@ to qualify a step whose Request JSON payload needs to be unmarshalled/deserializ
 * You can pass a `PostTxnStepPick` which is a `Predicate` used
 to qualify a step whose Response JSON payload needs to be unmarshalled/deserialized.
 * If you have set up `responseConfig()` once, wherever you wish to read or assert the response in your <<#_pre_step_and_post_step_hooks,Post-Step Hooks>>, you can call `stepReport.responseInfo.get().<TypeT>getTypedTxnObj()` which returns your response JSON as a Strong type to conveniently assert.
-* If you don't configure it for a step, Moshi unmarshalls the Step response JSON into default data structures like `LinkedHashMap`
 
 [TIP]
 ====
@@ -471,8 +470,11 @@ See `DiMorphicAdapter` in action from the test `compositeGraphResponseDiMorphicM
 
 ==== `globalCustomTypeAdapters()`
 
-* These come handy when the same POJO/Data structure (e.g `ID`) is present across multiple Request or Response POJOs. These adapters compliment the custom adapters setup in `requestConfig()` or `responseConfig()` wherever these types are present.
-* But these adapters won't be used to marshall/unmarshall before or after each step execution. Which means you won't be able to Strong types in the debug view. Although, you can get them on-demand using the respective `getTypedObj()` method.
+* These come handy when the same POJO/Data structure (e.g. `ID`) is present across multiple Request or Response POJOs. These adapters compliment the custom adapters setup in `requestConfig()` or `responseConfig()` wherever these types are present.
+
+NOTE: If you don't configure any adapters, you can either pass the adapter at runtime using the overload `stepReport.requestInfo.get().<TypeT>getTypedTxnObj(type, customAdapters, customAdaptersForType)` or Moshi by default unmarshalls the step's request/response JSON into a generic data structures like `LinkedHashMap`
+
+CAUTION: All these adapters supplied from various config methods are appended to the same Moshi instance internally. Read more about link:https://github.com/square/moshi#composing-adapters[Moshi adapter composition]. This means you don't have to supply the adapters repeatedly for the same type. This also means your adapters may get overridden unexpectedly. Keep this in mind while troubleshooting any serialize/deserialize issues. If you wish to manage Moshi yourself, you can get a copy of internal Moshi via `pokeRundown.mutableEnv.moshiReVoman().internalMoshiCopy()`.
 
 ==== JSON Reader/Writer Utils to build Moshi adapters
 

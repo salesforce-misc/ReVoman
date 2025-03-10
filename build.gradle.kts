@@ -16,6 +16,8 @@ plugins {
   alias(libs.plugins.gradle.taskinfo)
 }
 
+val mockitoAgent = configurations.create("mockitoAgent")
+
 dependencies {
   api(libs.bundles.http4k)
   api(libs.moshix.adapters)
@@ -36,23 +38,24 @@ dependencies {
   compileOnly(libs.jetbrains.annotations)
   testImplementation(libs.truth)
   testImplementation(libs.json.assert)
+  mockitoAgent(libs.mockito.core) { isTransitive = false }
   testImplementation(libs.mockk)
 }
 
 testing {
   suites {
     val test by getting(JvmTestSuite::class) { useJUnitJupiter(libs.versions.junit.get()) }
-    val integrationTest by
-      registering(JvmTestSuite::class) {
-        dependencies {
-          implementation(project())
-          implementation(libs.truth)
-          implementation(libs.mockito.core)
-          implementation(libs.spring.beans)
-          implementation(libs.json.assert)
-          implementation(libs.assertj.vavr)
-        }
+
+    register<JvmTestSuite>("integrationTest") {
+      dependencies {
+        implementation(project())
+        implementation(libs.truth)
+        implementation(libs.mockito.core)
+        implementation(libs.spring.beans)
+        implementation(libs.json.assert)
+        implementation(libs.assertj.vavr)
       }
+    }
   }
 }
 

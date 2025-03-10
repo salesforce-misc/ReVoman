@@ -34,7 +34,11 @@ internal fun unmarshallRequest(
     kick
       .requestConfig()
       .firstOrNull {
-        it.preTxnStepPick.pick(currentStep, TxnInfo(httpMsg = httpRequest), pm.rundown)
+        it.preTxnStepPick.pick(
+          currentStep,
+          TxnInfo(httpMsg = httpRequest, moshiReVoman = moshiReVoman),
+          pm.rundown,
+        )
       }
       ?.also { logger.info { "$currentStep RequestConfig found : ${pprint(it)}" } }
       ?.objType ?: Any::class.java
@@ -43,15 +47,20 @@ internal fun unmarshallRequest(
       runCatching(currentStep, UNMARSHALL_REQUEST) {
           pmRequest.body?.let { body -> moshiReVoman.fromJson<Any>(body.raw, requestType) }
         }
-        .mapLeft { UnmarshallRequestFailure(it, TxnInfo(requestType, null, httpRequest)) }
+        .mapLeft {
+          UnmarshallRequestFailure(
+            it,
+            TxnInfo(requestType, null, httpRequest, moshiReVoman = moshiReVoman),
+          )
+        }
     else -> {
       // ! TODO 15/10/23 gopala.akshintala: xml2Json
       logger.info {
         "$currentStep No JSON found in the Request body or content-type header didn't match ${APPLICATION_JSON.value}"
       }
-      Right(TxnInfo(httpMsg = httpRequest, isJson = false))
+      Right(TxnInfo(httpMsg = httpRequest, isJson = false, moshiReVoman = moshiReVoman))
     }
-  }.map { TxnInfo(requestType, it, pmRequest.toHttpRequest()) }
+  }.map { TxnInfo(requestType, it, pmRequest.toHttpRequest(), moshiReVoman = moshiReVoman) }
 }
 
 private val logger = KotlinLogging.logger {}

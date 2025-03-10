@@ -9,6 +9,7 @@ package com.salesforce.revoman.output.report
 
 import arrow.core.Either.Left
 import arrow.core.Either.Right
+import com.salesforce.revoman.internal.json.MoshiReVoman.Companion.initMoshi
 import com.salesforce.revoman.internal.postman.template.Item
 import com.salesforce.revoman.internal.postman.template.Request
 import com.salesforce.revoman.internal.postman.template.Url
@@ -23,11 +24,19 @@ import org.junit.jupiter.api.Test
 
 class StepReportTest {
 
+  private val moshiReVoman = initMoshi()
+
   @Test
   fun `StepReport HttpStatusSuccessful`() {
     val rawRequest =
       Request(method = POST.toString(), url = Url("https://overfullstack.github.io/"))
-    val requestInfo = TxnInfo(String::class.java, "fakeRequest", rawRequest.toHttpRequest())
+    val requestInfo =
+      TxnInfo(
+        String::class.java,
+        "fakeRequest",
+        rawRequest.toHttpRequest(),
+        moshiReVoman = moshiReVoman,
+      )
     val stepReportSuccess =
       StepReport(Step("1.3.7", Item(request = rawRequest)), Right(requestInfo))
     println(stepReportSuccess)
@@ -38,7 +47,13 @@ class StepReportTest {
   fun `StepReport HttpRequestFailure`() {
     val rawRequest =
       Request(method = POST.toString(), url = Url("https://overfullstack.github.io/"))
-    val requestInfo = TxnInfo(String::class.java, "fakeRequest", rawRequest.toHttpRequest())
+    val requestInfo =
+      TxnInfo(
+        String::class.java,
+        "fakeRequest",
+        rawRequest.toHttpRequest(),
+        moshiReVoman = moshiReVoman,
+      )
     val stepReportHttpFailure =
       StepReport(
         Step("1.3.7", Item(request = rawRequest)),
@@ -52,9 +67,20 @@ class StepReportTest {
   fun `StepReport Bad Response`() {
     val rawRequest =
       Request(method = POST.toString(), url = Url("https://overfullstack.github.io/"))
-    val requestInfo = TxnInfo(String::class.java, "fakeRequest", rawRequest.toHttpRequest())
+    val requestInfo =
+      TxnInfo(
+        String::class.java,
+        "fakeRequest",
+        rawRequest.toHttpRequest(),
+        moshiReVoman = moshiReVoman,
+      )
     val badResponseInfo: TxnInfo<Response> =
-      TxnInfo(String::class.java, "fakeBadResponse", Response(BAD_REQUEST).body("fakeBadResponse"))
+      TxnInfo(
+        String::class.java,
+        "fakeBadResponse",
+        Response(BAD_REQUEST).body("fakeBadResponse"),
+        moshiReVoman = moshiReVoman,
+      )
     val stepReportBadRequest =
       StepReport(
         Step("", Item(request = rawRequest)),
@@ -70,8 +96,15 @@ class StepReportTest {
   fun `StepReport PostHookFailure`() {
     val rawRequest =
       Request(method = POST.toString(), url = Url("https://overfullstack.github.io/"))
-    val requestInfo = TxnInfo(String::class.java, "fakeRequest", rawRequest.toHttpRequest())
-    val responseInfo: TxnInfo<Response> = TxnInfo(String::class.java, "fakeResponse", Response(OK))
+    val requestInfo =
+      TxnInfo(
+        String::class.java,
+        "fakeRequest",
+        rawRequest.toHttpRequest(),
+        moshiReVoman = moshiReVoman,
+      )
+    val responseInfo: TxnInfo<Response> =
+      TxnInfo(String::class.java, "fakeResponse", Response(OK), moshiReVoman = moshiReVoman)
     val stepReportPostStepHookFailure =
       StepReport(
         Step("", Item(request = rawRequest)),

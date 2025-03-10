@@ -67,11 +67,10 @@ internal interface KickDef {
   fun requestConfig(): Set<RequestConfig>
 
   @Value.Derived
-  fun customTypeAdaptersFromRequestConfig():
-    Map<Type, List<Either<JsonAdapter<out Any>, Factory>>> =
+  fun customTypeAdaptersFromRequestConfig(): Map<Type, Either<JsonAdapter<out Any>, Factory>> =
     requestConfig()
       .filter { it.customTypeAdapter != null }
-      .groupBy({ it.objType }, { it.customTypeAdapter!! })
+      .associate { it.objType to it.customTypeAdapter!! }
 
   fun responseConfig(): Set<ResponseConfig>
 
@@ -80,11 +79,10 @@ internal interface KickDef {
     responseConfig().groupBy { it.ifSuccess }
 
   @Value.Derived
-  fun customTypeAdaptersFromResponseConfig():
-    Map<Type, List<Either<JsonAdapter<out Any>, Factory>>> =
+  fun customTypeAdaptersFromResponseConfig(): Map<Type, Either<JsonAdapter<out Any>, Factory>> =
     responseConfig()
       .filter { it.customTypeAdapter != null }
-      .groupBy({ it.objType }, { it.customTypeAdapter!! })
+      .associate { it.objType to it.customTypeAdapter!! }
 
   fun globalCustomTypeAdapters(): List<Any>
 

@@ -8,7 +8,7 @@
 package com.salesforce.revoman.output.postman
 
 import com.salesforce.revoman.internal.json.MoshiReVoman
-import com.salesforce.revoman.internal.json.initMoshi
+import com.salesforce.revoman.internal.json.MoshiReVoman.Companion.initMoshi
 import com.salesforce.revoman.internal.postman.template.Environment.Companion.fromMap
 import com.squareup.moshi.rawType
 import io.exoquery.pprint
@@ -20,6 +20,7 @@ data class PostmanEnvironment<ValueT : Any?>
 @JvmOverloads
 constructor(
   val mutableEnv: MutableMap<String, ValueT> = mutableMapOf(),
+  @get:JvmName("moshiReVoman")
   val moshiReVoman: MoshiReVoman = initMoshi(),
 ) : MutableMap<String, ValueT> by mutableEnv {
 

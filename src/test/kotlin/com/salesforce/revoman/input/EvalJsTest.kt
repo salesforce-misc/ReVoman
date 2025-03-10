@@ -8,7 +8,7 @@
 package com.salesforce.revoman.input
 
 import com.google.common.truth.Truth.assertThat
-import com.salesforce.revoman.internal.json.initMoshi
+import com.salesforce.revoman.internal.json.MoshiReVoman.Companion.initMoshi
 import com.salesforce.revoman.internal.postman.Info
 import com.salesforce.revoman.internal.postman.PostmanSDK
 import io.kotest.matchers.ints.shouldBeInRange

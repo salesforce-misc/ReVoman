@@ -26,7 +26,7 @@ import com.salesforce.revoman.internal.exe.shouldStepBePicked
 import com.salesforce.revoman.internal.exe.unmarshallRequest
 import com.salesforce.revoman.internal.exe.unmarshallResponse
 import com.salesforce.revoman.internal.json.MoshiReVoman
-import com.salesforce.revoman.internal.json.initMoshi
+import com.salesforce.revoman.internal.json.MoshiReVoman.Companion.initMoshi
 import com.salesforce.revoman.internal.postman.Info
 import com.salesforce.revoman.internal.postman.PostmanSDK
 import com.salesforce.revoman.internal.postman.RegexReplacer
@@ -140,7 +140,12 @@ object ReVoman {
         logger.info { "***** Executing Step: $step *****" }
         val itemWithRegex = step.rawPMStep
         val preStepReport =
-          StepReport(step, Right(TxnInfo(httpMsg = itemWithRegex.request.toHttpRequest())))
+          StepReport(
+            step,
+            Right(
+              TxnInfo(httpMsg = itemWithRegex.request.toHttpRequest(), moshiReVoman = moshiReVoman)
+            ),
+          )
         pm.info = Info(step.name)
         pm.currentStepReport = preStepReport
         pm.rundown =
@@ -171,7 +176,13 @@ object ReVoman {
               pm.rundown = pm.rundown.copy(stepReports = pm.rundown.stepReports + sr)
               val item = regexReplacer.replaceVariablesInPmItem(itemWithRegex, pm)
               val httpRequest = item.request.toHttpRequest()
-              fireHttpRequest(step, item.request.auth, httpRequest, kick.insecureHttp())
+              fireHttpRequest(
+                  step,
+                  item.request.auth,
+                  httpRequest,
+                  kick.insecureHttp(),
+                  moshiReVoman,
+                )
                 .mapLeft { sr.copy(requestInfo = Left(it).toVavr()) }
                 .map {
                   sr.copy(

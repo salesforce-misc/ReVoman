@@ -31,12 +31,27 @@ import org.http4k.format.asConfigurable
 import org.http4k.format.withStandardMappings
 
 open class MoshiReVoman(builder: Moshi.Builder) {
-  private val moshi = builder.build()
+  private var moshi = builder.build()
 
-  private fun <PojoT : Any> lenientAdapter(targetType: Type): JsonAdapter<PojoT?> =
-    moshi.adapter<PojoT>(targetType).lenient()
+  @get:JvmName("internalMoshiCopy") val moshiCopy: Moshi by lazy { moshi.newBuilder().build() }
 
-  private inline fun <reified PojoT : Any> lenientAdapter(): JsonAdapter<PojoT?> =
+  @Synchronized
+  fun addAdapters(
+    customAdapters: List<Any> = emptyList(),
+    customAdaptersWithType: Map<Type, Either<JsonAdapter<out Any>, Factory>> = emptyMap(),
+    typesToIgnore: Set<Class<out Any>> = emptySet(),
+  ) {
+    val builder = moshi.newBuilder()
+    addAdapters(builder, customAdapters, customAdaptersWithType, typesToIgnore)
+    moshi = builder.build()
+  }
+
+  fun <PojoT : Any> adapter(targetType: Type): JsonAdapter<PojoT> = moshi.adapter<PojoT>(targetType)
+
+  fun <PojoT : Any> lenientAdapter(targetType: Type): JsonAdapter<PojoT> =
+    adapter<PojoT>(targetType).lenient()
+
+  private inline fun <reified PojoT : Any> lenientAdapter(): JsonAdapter<PojoT> =
     moshi.adapter<PojoT>(PojoT::class.java).lenient()
 
   fun <PojoT : Any> fromJson(input: String?, targetType: Type = Any::class.java): PojoT? =
@@ -65,60 +80,71 @@ open class MoshiReVoman(builder: Moshi.Builder) {
     input: Any?,
     targetType: Type = input?.javaClass ?: Any::class.java,
   ): PojoT? = lenientAdapter<PojoT>(targetType).fromJson(toJson(input))
-}
 
-@JvmOverloads
-internal fun initMoshi(
-  customAdapters: List<Any> = emptyList(),
-  customAdaptersWithType: Map<Type, List<Either<JsonAdapter<out Any>, Factory>>> = emptyMap(),
-  typesToIgnore: Set<Class<out Any>> = emptySet(),
-): MoshiReVoman {
-  val moshiBuilder = buildMoshi(customAdapters, customAdaptersWithType, typesToIgnore)
-  return object : MoshiReVoman(moshiBuilder) {}
-}
+  companion object {
+    @Synchronized
+    @JvmOverloads
+    internal fun initMoshi(
+      customAdapters: List<Any> = emptyList(),
+      customAdaptersWithType: Map<Type, Either<JsonAdapter<out Any>, Factory>> = emptyMap(),
+      typesToIgnore: Set<Class<out Any>> = emptySet(),
+    ): MoshiReVoman {
+      val moshiBuilder = buildMoshi(customAdapters, customAdaptersWithType, typesToIgnore)
+      return object : MoshiReVoman(moshiBuilder) {}
+    }
 
-@SuppressWarnings("kotlin:S3923")
-internal fun buildMoshi(
-  customAdapters: List<Any> = emptyList(),
-  customAdaptersWithType: Map<Type, List<Either<JsonAdapter<out Any>, Factory>>> = emptyMap(),
-  typesToIgnore: Set<Class<out Any>> = emptySet(),
-): Moshi.Builder {
-  // * NOTE 08 May 2024 gopala.akshintala: This cannot be static singleton as adapters added mutates
-  // the singleton
-  val moshiBuilder =
-    Moshi.Builder()
-      .add(JsonString.Factory())
-      .add(AdaptedBy.Factory())
-      .add(TypeAdapter)
-      .add(BigDecimalAdapter)
-      .add(UUIDAdapter)
-      .add(EpochAdapter)
-      .add(Date::class.java, Rfc3339DateJsonAdapter())
-      .addLast(CaseInsensitiveEnumAdapter.FACTORY)
-      .addLast(AlwaysSerializeNullsFactory())
-      .addLast(EventAdapter)
-      .addLast(ThrowableAdapter)
-      .addLast(ListAdapter)
-      .addLast(MapAdapter)
-      .asConfigurable()
-      .withStandardMappings()
-      .done()
-  customAdaptersWithType.forEach { (type, customAdapters) ->
-    customAdapters.forEach { customAdapter ->
-      customAdapter.fold({ moshiBuilder.add(type, it) }, { moshiBuilder.add(it) })
+    private fun buildMoshi(
+      customAdapters: List<Any> = emptyList(),
+      customAdaptersWithType: Map<Type, Either<JsonAdapter<out Any>, Factory>> = emptyMap(),
+      typesToIgnore: Set<Class<out Any>> = emptySet(),
+    ): Moshi.Builder {
+      // * NOTE 08 May 2024 gopala.akshintala: This cannot be static singleton as adapters added
+      // mutates
+      // the singleton
+      val moshiBuilder =
+        Moshi.Builder()
+          .add(JsonString.Factory())
+          .add(AdaptedBy.Factory())
+          .add(TypeAdapter)
+          .add(BigDecimalAdapter)
+          .add(UUIDAdapter)
+          .add(EpochAdapter)
+          .add(Date::class.java, Rfc3339DateJsonAdapter())
+          .addLast(CaseInsensitiveEnumAdapter.FACTORY)
+          .addLast(AlwaysSerializeNullsFactory())
+          .addLast(EventAdapter)
+          .addLast(ThrowableAdapter)
+          .addLast(ListAdapter)
+          .addLast(MapAdapter)
+          .asConfigurable()
+          .withStandardMappings()
+          .done()
+      addAdapters(moshiBuilder, customAdapters, customAdaptersWithType, typesToIgnore)
+      return moshiBuilder
+    }
+
+    @SuppressWarnings("kotlin:S3923")
+    private fun addAdapters(
+      moshiBuilder: Moshi.Builder,
+      customAdapters: List<Any>,
+      customAdaptersWithType: Map<Type, Either<JsonAdapter<out Any>, Factory>>,
+      typesToIgnore: Set<Class<out Any>>,
+    ) {
+      customAdaptersWithType.forEach { (type, customAdapter) ->
+        customAdapter.fold({ moshiBuilder.add(type, it) }, { moshiBuilder.add(it) })
+      }
+      for (adapter in customAdapters) {
+        if (adapter is Factory) {
+          moshiBuilder.add(adapter)
+        } else {
+          moshiBuilder.add(adapter)
+        }
+      }
+      if (typesToIgnore.isNotEmpty()) {
+        moshiBuilder.add(SkipTypesFactory(typesToIgnore))
+      }
     }
   }
-  for (adapter in customAdapters) {
-    if (adapter is Factory) {
-      moshiBuilder.add(adapter)
-    } else {
-      moshiBuilder.add(adapter)
-    }
-  }
-  if (typesToIgnore.isNotEmpty()) {
-    moshiBuilder.add(SkipTypesFactory(typesToIgnore))
-  }
-  return moshiBuilder
 }
 
 @Target(AnnotationTarget.CLASS)

@@ -129,7 +129,7 @@ class PokemonTest {
 										post(afterStepContainingHeader("postLog"), postLogHook))
 								.dynamicEnvironment(dynamicEnvironment)
 								.off());
-
+    
 		assertThat(pokeRundown.firstUnIgnoredUnsuccessfulStepReport().failure)
 				.containsOnLeft(new PostStepHookFailure(RUNTIME_EXCEPTION));
 		assertThat(pokeRundown.stepReports).hasSize(5);

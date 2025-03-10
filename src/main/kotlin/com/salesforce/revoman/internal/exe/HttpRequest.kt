@@ -8,6 +8,7 @@
 package com.salesforce.revoman.internal.exe
 
 import arrow.core.Either
+import com.salesforce.revoman.internal.json.MoshiReVoman
 import com.salesforce.revoman.internal.postman.template.Auth
 import com.salesforce.revoman.output.ExeType.HTTP_REQUEST
 import com.salesforce.revoman.output.report.Step
@@ -36,6 +37,7 @@ internal fun fireHttpRequest(
   auth: Auth?,
   httpRequest: Request,
   insecureHttp: Boolean,
+  moshiReVoman: MoshiReVoman,
 ): Either<HttpRequestFailure, TxnInfo<Response>> =
   runCatching(currentStep, HTTP_REQUEST) {
       // * NOTE gopala.akshintala 06/08/22: Preparing httpClient for each step,
@@ -43,8 +45,8 @@ internal fun fireHttpRequest(
       // ! TODO 29/01/24 gopala.akshintala: When would bearer token size be > 1?
       prepareHttpClient(auth?.bearer?.firstOrNull()?.value, insecureHttp)(httpRequest)
     }
-    .mapLeft { HttpRequestFailure(it, TxnInfo(httpMsg = httpRequest)) }
-    .map { TxnInfo(httpMsg = it) }
+    .mapLeft { HttpRequestFailure(it, TxnInfo(httpMsg = httpRequest, moshiReVoman = moshiReVoman)) }
+    .map { TxnInfo(httpMsg = it, moshiReVoman = moshiReVoman) }
 
 private fun prepareHttpClient(bearerToken: String?, insecureHttp: Boolean): HttpHandler =
   DebuggingFilters.PrintRequestAndResponse()
