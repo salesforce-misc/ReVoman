@@ -33,7 +33,8 @@ import org.http4k.format.withStandardMappings
 open class MoshiReVoman(builder: Moshi.Builder) {
   private var moshi = builder.build()
 
-  @get:JvmName("internalMoshiCopy") val moshiCopy: Moshi by lazy { moshi.newBuilder().build() }
+  @get:JvmName("internalMoshiCopy")
+  val internalMoshiCopy: Moshi by lazy { moshi.newBuilder().build() }
 
   @Synchronized
   fun addAdapters(
@@ -50,9 +51,6 @@ open class MoshiReVoman(builder: Moshi.Builder) {
 
   fun <PojoT : Any> lenientAdapter(targetType: Type): JsonAdapter<PojoT> =
     adapter<PojoT>(targetType).lenient()
-
-  private inline fun <reified PojoT : Any> lenientAdapter(): JsonAdapter<PojoT> =
-    moshi.adapter<PojoT>(PojoT::class.java).lenient()
 
   fun <PojoT : Any> fromJson(input: String?, targetType: Type = Any::class.java): PojoT? =
     input?.let { lenientAdapter<PojoT>(targetType).fromJson(it) }

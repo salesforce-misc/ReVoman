@@ -20,8 +20,7 @@ data class PostmanEnvironment<ValueT : Any?>
 @JvmOverloads
 constructor(
   val mutableEnv: MutableMap<String, ValueT> = mutableMapOf(),
-  @get:JvmName("moshiReVoman")
-  val moshiReVoman: MoshiReVoman = initMoshi(),
+  @get:JvmName("moshiReVoman") val moshiReVoman: MoshiReVoman = initMoshi(),
 ) : MutableMap<String, ValueT> by mutableEnv {
 
   @get:JvmName("immutableEnv") val immutableEnv: Map<String, ValueT> by lazy { mutableEnv.toMap() }
