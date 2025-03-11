@@ -354,10 +354,10 @@ CAUTION: The new instance created from common config using `override...()` repla
 
 [source,java,indent=0,tabsize=2,options="nowrap"]
 ----
-POKEMON_COMMON_CONFIG.overrideHooks(kotlin.collections.SetsKt.plus(POKEMON_COMMON_CONFIG.hooks(), post(.../*My Hooks*/))
+POKEMON_COMMON_CONFIG.overrideHooks(kotlin.collections.CollectionsKt.plus(POKEMON_COMMON_CONFIG.hooks(), post(.../*My Hooks*/))
 ----
 
-* However, you can construct a new instance by accumulating attributes from other instances using `from()` method, like below
+* You can also construct a new instance by accumulating attributes from other instances using `from()` method, like below:
 
 [source,java,indent=0,tabsize=2,options="nowrap"]
 ----
@@ -579,6 +579,8 @@ For example, you may want some `xyzId` but you don't have a Postman collection t
 Instead, you have a Java utility to generate/create it.
 You can invoke the utility in a pre-hook of a step and set the value in `rundown.mutableEnv`,
 so the later steps can pick up value for `+{{xyzId}}+` variable from the environment.
+
+CAUTION: When a Step qualifies for more than one hook, hooks are executed in the same sequence they are configured, either using `hooks()` or `overrideHooks()`. Both these methods accept an `iterable`. Make sure to pass an Ordered Iterable (like `ArrayList<>`), if you are particular about Order in which hooks should execute for a Step.
 
 [#_response_validations]
 ==== Response Validations
