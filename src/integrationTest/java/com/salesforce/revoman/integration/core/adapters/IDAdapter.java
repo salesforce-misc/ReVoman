@@ -22,6 +22,6 @@ public class IDAdapter {
 
 	@ToJson
 	String toJson(ID id) {
-		return id.getId();
+		return id.id();
 	}
 }

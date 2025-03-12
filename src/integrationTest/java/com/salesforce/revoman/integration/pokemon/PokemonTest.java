@@ -24,11 +24,14 @@ import com.salesforce.revoman.ReVoman;
 import com.salesforce.revoman.input.config.HookConfig.StepHook.PostStepHook;
 import com.salesforce.revoman.input.config.HookConfig.StepHook.PreStepHook;
 import com.salesforce.revoman.input.config.Kick;
+import com.salesforce.revoman.integration.core.adapters.IDAdapter;
+import com.salesforce.revoman.integration.core.pq.connect.response.ID;
 import com.salesforce.revoman.output.Rundown;
 import com.salesforce.revoman.output.report.Step;
 import com.salesforce.revoman.output.report.StepReport;
 import com.salesforce.revoman.output.report.TxnInfo;
 import com.salesforce.revoman.output.report.failure.HookFailure.PostStepHookFailure;
+import com.squareup.moshi.Json;
 import java.util.List;
 import java.util.Map;
 import org.http4k.core.Request;
@@ -113,6 +116,14 @@ class PokemonTest {
 										"Picked `postHookAfterURIPath` after stepName: {} with raw URI: {}",
 										stepReport.step.displayName,
 										stepReport.step.rawPMStep.getRequest().url);
+								final var id =
+										stepReport
+												.responseInfo
+												.map(
+														ri ->
+																ri.<Color>getTypedTxnObj(Color.class, List.of(new IDAdapter())).id)
+												.getOrNull();
+								assertThat(id.id()).isEqualTo(rundown.mutableEnv.get("id"));
 							}
 						});
 		final var pokeRundown =
@@ -124,7 +135,7 @@ class PokemonTest {
 								.hooks(
 										pre(beforeStepName("all-pokemon"), preHook),
 										post(afterStepName("all-pokemon"), postHook),
-										post(afterStepContainingURIPathOfAny("nature"), postHookAfterURIPath),
+										post(afterStepContainingURIPathOfAny("pokemon-color"), postHookAfterURIPath),
 										pre(beforeStepContainingHeader("preLog"), preLogHook),
 										post(afterStepContainingHeader("postLog"), postLogHook))
 								.dynamicEnvironment(dynamicEnvironment)
@@ -154,5 +165,17 @@ class PokemonTest {
 
 	public record AllPokemon(int count, String next, String previous, List<Result> results) {
 		public record Result(String name, String url) {}
+	}
+
+	public record Color(
+			ID id,
+			String name,
+			List<Name> names,
+			@Json(name = "pokemon_species") List<PokemonSpecies> pokemonSpecies) {
+		public record Name(Language language, String name) {
+			public record Language(String name, String url) {}
+		}
+
+		public record PokemonSpecies(String name, String url) {}
 	}
 }

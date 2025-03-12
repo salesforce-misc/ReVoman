@@ -18,7 +18,7 @@ data class ResponseConfig
 internal constructor(
   val postTxnStepPick: PostTxnStepPick,
   val ifSuccess: Boolean?,
-  val objType: Type,
+  val responseType: Type,
   val customTypeAdapter: Either<JsonAdapter<out Any>, JsonAdapter.Factory>? = null,
 ) {
   companion object {

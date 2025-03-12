@@ -40,7 +40,7 @@ internal fun unmarshallResponse(
       val responseType: Type =
         responseConfig
           ?.also { logger.info { "$currentStep ResponseConfig found : ${pprint(it)}" } }
-          ?.objType ?: Any::class.java
+          ?.responseType ?: Any::class.java
       val requestInfo = pm.currentStepReport.requestInfo!!.get()
       runCatching(currentStep, UNMARSHALL_RESPONSE) {
           moshiReVoman.fromJson<Any>(httpResponse.bodyString(), responseType)

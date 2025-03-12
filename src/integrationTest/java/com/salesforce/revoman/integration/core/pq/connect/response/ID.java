@@ -7,14 +7,4 @@
 
 package com.salesforce.revoman.integration.core.pq.connect.response;
 
-public class ID {
-	private final String id;
-
-	public ID(String id) {
-		this.id = id;
-	}
-
-	public String getId() {
-		return id;
-	}
-}
+public record ID(String id) {}

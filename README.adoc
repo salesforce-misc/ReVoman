@@ -364,6 +364,8 @@ POKEMON_COMMON_CONFIG.overrideHooks(kotlin.collections.CollectionsKt.plus(POKEMO
 Kick.configure().from(configInstance1).from(configInstance2)...off();
 ----
 
+CAUTION: Iterable attributes (like `List`, `Map` etc) accept an `Iterable`. If you are particular about the order, make sure to pass an Ordered instance of `Iterable` (like `ArrayList`)
+
 [#_debugging_dx]
 == Troubleshooting DX
 
@@ -580,7 +582,7 @@ Instead, you have a Java utility to generate/create it.
 You can invoke the utility in a pre-hook of a step and set the value in `rundown.mutableEnv`,
 so the later steps can pick up value for `+{{xyzId}}+` variable from the environment.
 
-CAUTION: When a Step qualifies for more than one hook, hooks are executed in the same sequence they are configured, either using `hooks()` or `overrideHooks()`. Both these methods accept an `iterable`. Make sure to pass an Ordered Iterable (like `ArrayList<>`), if you are particular about Order in which hooks should execute for a Step.
+CAUTION: When a Step qualifies for more than one hook, hooks are executed in the same sequence they are configured, either using `hooks()` or `overrideHooks()`. Both these methods accept an `iterable`. Make sure to pass an Ordered Iterable (like `ArrayList`), if you are particular about Order in which hooks should execute for a Step.
 
 [#_response_validations]
 ==== Response Validations
