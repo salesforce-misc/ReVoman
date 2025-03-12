@@ -114,16 +114,15 @@ ____
 ** link:{sourcedir}/com/salesforce/revoman/internal/postman/DynamicVariableGenerator.kt[Dynamic variables], e.g., `{{$randomUUID}}`, `{{$randomEmail}}`
 ** <<Custom Dynamic variables>>
 
-[NOTE]
-====
+[#_variable_resolution_precedence]
+==== Variable resolution precedence
 In the case of collision between variable keys, the precedence order to derive a value to replace any key is:
 
-. Custom Dynamic variables
-. Generated Dynamic variables
-. Dynamic Environment supplied through config + Environment built during execution + Postman environment supplied as a file through config
-====
+* Custom Dynamic variables
+* Generated Dynamic variables
+* Dynamic Environment supplied through config + Environment built during execution + Postman environment supplied as a file through config
 
-TIP: For Dynamic variables, which gets populated from Java code, use $ sign within a variable to indicate it needs to be populated during manual testing. E.g.: `{{$unitPrice}}`
+TIP: For Dynamic variables, which gets populated from Java code, use $ sign within a variable to indicate it needs to be populated during manual testing.E.g.: `{{$unitPrice}}`
 
 [.lead]
 You can _kick off_ this *Template-Driven Testing* by invoking `ReVoman.revUp()`,
@@ -662,6 +661,8 @@ If the in-built dynamic variables don't fit your needs, you can plug your own dy
 by providing an instance of `CustomDynamicVariableGenerator`.
 This shall
 be invoked to generate a value for your custom variable-key in the template at runtime
+
+TIP: Custom dynamic variable generators have the top most precedence for variable resolution. This can be leveraged to override variables set via any other way. 
 
 == USP
 

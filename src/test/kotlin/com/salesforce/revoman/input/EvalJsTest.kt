@@ -59,8 +59,8 @@ class EvalJsTest {
     pm.rundown = mockk()
     pm
       .evaluateJS(
-        """
-          pm.variables.replaceIn("Today is {{${"$"}currentDate}}")
+        $$"""
+          pm.variables.replaceIn("Today is {{$currentDate}}")
         """
           .trimIndent()
       )
@@ -70,24 +70,24 @@ class EvalJsTest {
   @Test
   fun `eval JS with moment`() {
     pm.evaluateJS(
-      """
+      $$"""
           var moment = require('moment')
-          pm.environment.set("${"$"}currentDate", moment().format(("YYYY-MM-DD")))
+          pm.environment.set("$currentDate", moment().format(("YYYY-MM-DD")))
         """
         .trimIndent()
     )
-    pm.environment shouldContain Pair("\$currentDate", LocalDate.now().toString())
+    pm.environment shouldContain Pair($$"$currentDate", LocalDate.now().toString())
   }
 
   @Test
   fun `eval JS with lodash`() {
     pm.evaluateJS(
-      """
-          pm.environment.set("${"$"}randomNum", _.random(10))
+      $$"""
+          pm.environment.set("$randomNum", _.random(10))
         """
         .trimIndent()
     )
-    pm.environment.getInt("\$randomNum")!! shouldBeInRange 0..10
+    pm.environment.getInt($$"$randomNum")!! shouldBeInRange 0..10
   }
 
   @Test

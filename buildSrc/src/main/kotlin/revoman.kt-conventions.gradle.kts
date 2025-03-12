@@ -21,6 +21,6 @@ kapt {
 kotlin {
   jvmToolchain(libs.jdk.toString().toInt())
   compilerOptions {
-    freeCompilerArgs.addAll("-Xjvm-default=all", "-Xcontext-receivers", "-Xconsistent-data-class-copy-visibility")
+    freeCompilerArgs.addAll("-Xjvm-default=all", "-Xcontext-receivers", "-Xconsistent-data-class-copy-visibility", "-Xmulti-dollar-interpolation")
   } 
 }

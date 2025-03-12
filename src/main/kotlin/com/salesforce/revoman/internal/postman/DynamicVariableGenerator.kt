@@ -31,38 +31,38 @@ private val faker = faker {}
 private val dynamicVariableGenerators: Map<String, () -> String> =
   mapOf(
     // Common
-    "\$guid" to { UUID.randomUUID().toString() },
-    "\$timestamp" to { Clock.System.now().epochSeconds.toString() },
-    "\$isoTimestamp" to { Clock.System.now().toString() },
-    "\$randomUUID" to { UUID.randomUUID().toString() },
+    $$"$guid" to { UUID.randomUUID().toString() },
+    $$"$timestamp" to { Clock.System.now().epochSeconds.toString() },
+    $$"$isoTimestamp" to { Clock.System.now().toString() },
+    $$"$randomUUID" to { UUID.randomUUID().toString() },
     // Text, numbers, and colors
-    "\$randomAlphaNumeric" to { randomAlphanumeric(1) },
-    "\$randomBoolean" to { nextBoolean().toString() },
-    "\$randomInt" to { nextInt(0, Int.MAX_VALUE).toString() },
-    "\$randomColor" to faker.color::name,
-    "\$randomHexColor" to { "#${getRandomHex()}${getRandomHex()}${getRandomHex()}" },
+    $$"$randomAlphaNumeric" to { randomAlphanumeric(1) },
+    $$"$randomBoolean" to { nextBoolean().toString() },
+    $$"$randomInt" to { nextInt(0, Int.MAX_VALUE).toString() },
+    $$"$randomColor" to faker.color::name,
+    $$"$randomHexColor" to { "#${getRandomHex()}${getRandomHex()}${getRandomHex()}" },
     // Internet and IP addresses
-    "\$randomIP" to faker.internet::iPv4Address,
-    "\$randomIPV6" to faker.internet::iPv6Address,
-    "\$randomMACAddress" to { faker.internet.macAddress() },
-    "\$randomPassword" to { randomAlphanumeric(15) },
+    $$"$randomIP" to faker.internet::iPv4Address,
+    $$"$randomIPV6" to faker.internet::iPv6Address,
+    $$"$randomMACAddress" to { faker.internet.macAddress() },
+    $$"$randomPassword" to { randomAlphanumeric(15) },
     // Names
-    "\$randomFirstName" to faker.name::firstName,
-    "\$randomLastName" to faker.name::lastName,
-    "\$randomUserName" to { faker.name.firstName() + faker.name.lastName() },
+    $$"$randomFirstName" to faker.name::firstName,
+    $$"$randomLastName" to faker.name::lastName,
+    $$"$randomUserName" to { faker.name.firstName() + faker.name.lastName() },
     // Phone, address, and location
-    "\$randomCity" to faker.address::city,
+    $$"$randomCity" to faker.address::city,
     // Grammar
-    "\$randomAdjective" to faker.adjective::positive,
-    "\$randomWord" to faker.lorem::words,
+    $$"$randomAdjective" to faker.adjective::positive,
+    $$"$randomWord" to faker.lorem::words,
     // Business
-    "\$randomCompanyName" to faker.company::name,
-    "\$randomProduct" to faker.industrySegments::sector,
+    $$"$randomCompanyName" to faker.company::name,
+    $$"$randomProduct" to faker.industrySegments::sector,
     // Domains, emails, and usernames
-    "\$randomEmail" to { faker.internet.email() },
+    $$"$randomEmail" to { faker.internet.email() },
     // Date time
-    "\$currentDate" to { LocalDate.now().toString() },
-    "\$randomFutureDate" to
+    $$"$currentDate" to { LocalDate.now().toString() },
+    $$"$randomFutureDate" to
       {
         LocalDate.now().let { it.plusDays(nextLong(1, it.lengthOfYear().toLong())).toString() }
       },
@@ -76,7 +76,7 @@ fun randomAlphanumeric(length: Int) =
   (1..length).map { charPool[nextInt(0, charPool.size)] }.joinToString("")
 
 private val dynamicVariableGeneratorsWithPM: Map<String, (PostmanSDK) -> String> =
-  mapOf("\$currentRequestName" to { it.info.requestName })
+  mapOf($$"$currentRequestName" to { it.info.requestName })
 
 internal fun dynamicVariableGenerator(key: String, pm: PostmanSDK): String? =
   dynamicVariableGenerators[key]?.invoke() ?: dynamicVariableGeneratorsWithPM[key]?.invoke(pm)

@@ -21,7 +21,7 @@ class RegexReplacerTest {
   fun `unmarshall Env File with Regex and Dynamic variable`() {
     val epoch = System.currentTimeMillis().toString()
     val dummyDynamicVariableGenerator = { r: String, _: PostmanSDK ->
-      if (r == "\$epoch") epoch else null
+      if (r == $$"$epoch") epoch else null
     }
     val regexReplacer = RegexReplacer(emptyMap(), dummyDynamicVariableGenerator)
     val pm = PostmanSDK(mockk(), null, regexReplacer)
@@ -37,15 +37,15 @@ class RegexReplacerTest {
   fun `dynamic variables - Body + dynamic env`() {
     val epoch = System.currentTimeMillis().toString()
     val dummyDynamicVariableGenerator = { key: String, _: PostmanSDK ->
-      if (key == "\$epoch") epoch else null
+      if (key == $$"$epoch") epoch else null
     }
     val regexReplacer = RegexReplacer(dynamicVariableGenerator = dummyDynamicVariableGenerator)
     val pm = PostmanSDK(mockk(), null, regexReplacer)
-    pm.environment["key"] = "value-{{\$epoch}}"
+    pm.environment["key"] = $$"value-{{$epoch}}"
     val jsonStr =
-      """
+      $$"""
       {
-        "epoch": "{{${"$"}epoch}}",
+        "epoch": "{{$epoch}}",
         "key": "{{key}}"
       }
       """
@@ -63,17 +63,19 @@ class RegexReplacerTest {
     val noopDynamicVariableGenerator = { _: String, _: PostmanSDK -> null }
     val regexReplacer =
       RegexReplacer(
-        mapOf("\$customEpoch" to customDynamicVariableGenerator),
+        mapOf($$"$customEpoch" to customDynamicVariableGenerator),
         noopDynamicVariableGenerator,
       )
     val pm = PostmanSDK(mockk(), null, regexReplacer)
-    pm.environment["key"] = "value-{{\$customEpoch}}"
+    pm.environment["key"] = $$"value-{{$customEpoch}}"
+    // This should get shadowed by custom dynamic variable
+    pm.environment[$$"$customEpoch"] = $$"value-{{$customEpoch}}"
     pm.currentStepReport = mockk()
     pm.rundown = mockk()
     val jsonStr =
-      """
+      $$"""
       {
-        "epoch": "{{${"$"}customEpoch}}",
+        "epoch": "{{$customEpoch}}",
         "key": "{{key}}"
       }
       """
@@ -85,14 +87,14 @@ class RegexReplacerTest {
 
   @OptIn(ExperimentalStdlibApi::class)
   @Test
-  fun `duplicate dynamic variables should have different values`() {
+  fun `duplicate dynamic variables for random value generation should have different values`() {
     val regexReplacer = RegexReplacer()
     val pm = PostmanSDK(mockk(), regexReplacer = regexReplacer)
     val jsonStr =
-      """
+      $$"""
       {
-        "key1": "{{${"$"}randomUUID}}",
-        "key2": "{{${"$"}randomUUID}}"
+        "key1": "{{$randomUUID}}",
+        "key2": "{{$randomUUID}}"
       }
       """
         .trimIndent()
