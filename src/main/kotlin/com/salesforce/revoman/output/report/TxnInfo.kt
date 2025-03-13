@@ -49,6 +49,8 @@ constructor(
 
   fun containsHeader(key: String, value: String): Boolean = httpMsg.headers.contains(key to value)
 
+  fun getHeaderValue(key: String): String? = httpMsg.headers.toMap()[key]
+
   override fun toString(): String {
     val prefix =
       when (httpMsg) {

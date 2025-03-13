@@ -18,7 +18,7 @@ endif::[]
 :pmtemplates: src/integrationTest/resources/pm-templates
 :imagesdir: docs/images
 :prewrap!:
-:revoman-version: 0.6.3
+:revoman-version: 0.6.3.1
 
 '''
 
@@ -662,7 +662,7 @@ by providing an instance of `CustomDynamicVariableGenerator`.
 This shall
 be invoked to generate a value for your custom variable-key in the template at runtime
 
-TIP: Custom dynamic variable generators have the top most precedence for variable resolution. This can be leveraged to override variables set via any other way. 
+TIP: Custom dynamic variable generators have the top most precedence for variable resolution. This can be leveraged to override variables set via any other way.
 
 == USP
 
