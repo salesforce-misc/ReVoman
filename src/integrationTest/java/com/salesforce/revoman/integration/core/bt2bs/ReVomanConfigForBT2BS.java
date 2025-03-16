@@ -64,8 +64,10 @@ public final class ReVomanConfigForBT2BS {
 							HTTP_STATUS, afterStepContainingHeader(IGNORE_HTTP_STATUS_UNSUCCESSFUL))
 					.responseConfig(unmarshallCompositeGraphResponse())
 					.hook(ASSERT_COMPOSITE_GRAPH_RESPONSE_SUCCESS)
+					.haltOnFailureOfTypeExcept(
+							HTTP_STATUS, afterStepContainingHeader(IGNORE_HTTP_STATUS_UNSUCCESSFUL))
+					.globalCustomTypeAdapter(IDAdapter.INSTANCE)
 					.nodeModulesRelativePath(NODE_MODULE_RELATIVE_PATH)
-					.insecureHttp(true)
 					.off();
 
 	// ## Milestone Config
@@ -76,8 +78,9 @@ public final class ReVomanConfigForBT2BS {
 					.templatePath(MB_POSTMAN_COLLECTION_PATH)
 					.responseConfig(unmarshallCompositeGraphResponse())
 					.hooks(MEMQ_AWAIT, ASSERT_COMPOSITE_GRAPH_RESPONSE_SUCCESS)
+					.haltOnFailureOfTypeExcept(
+							HTTP_STATUS, afterStepContainingHeader(IGNORE_HTTP_STATUS_UNSUCCESSFUL))
 					.globalCustomTypeAdapter(IDAdapter.INSTANCE)
 					.nodeModulesRelativePath(NODE_MODULE_RELATIVE_PATH)
-					.insecureHttp(true)
 					.off();
 }

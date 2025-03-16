@@ -7,7 +7,7 @@
  */
 package com.salesforce.revoman.internal.postman.template
 
-import com.salesforce.revoman.internal.postman.PostmanSDK
+import com.salesforce.revoman.internal.json.MoshiReVoman
 import com.squareup.moshi.JsonClass
 import org.http4k.core.ContentType.Companion.APPLICATION_JSON
 import org.http4k.core.ContentType.Companion.Text
@@ -50,27 +50,33 @@ data class Request(
   @JvmField val body: Body? = null,
   @JvmField val event: List<Event>? = null,
 ) {
-  internal fun toHttpRequest(): org.http4k.core.Request {
-    val contentType =
-      header
-        .firstOrNull { it.key.equals(CONTENT_TYPE.meta.name, ignoreCase = true) }
-        ?.value
-        ?.let { Text(it) } ?: APPLICATION_JSON
+  internal fun toHttpRequest(moshiReVoman: MoshiReVoman?): org.http4k.core.Request {
     val uri = Uri.of(url.raw.trim()).queryParametersEncoded()
-    return org.http4k.core
-      .Request(Method.valueOf(method), uri)
-      .with(CONTENT_TYPE of contentType)
-      .headers(header.map { it.key.trim() to it.value.trim() })
-      .body(body?.raw?.trim()?.let { removeJsonComments(it) } ?: "")
+    var contentTypeHeader =
+      header.firstOrNull { CONTENT_TYPE.meta.name.equals(it.key, true) }?.value?.let { Text(it) }
+    val cleansedRawBody =
+      body?.raw?.trim()?.let {
+        when {
+          it.isBlank() -> it
+          else ->
+            // ! TODO 15 Mar 2025 gopala.akshintala: Detect the right content type if absent
+            when {
+              contentTypeHeader?.value == null ||
+                APPLICATION_JSON.value.equals(contentTypeHeader.value, true) -> {
+                runCatching { moshiReVoman?.jsonToObjToPrettyJson(it) ?: it }
+                  .onSuccess { if (contentTypeHeader == null) contentTypeHeader = APPLICATION_JSON }
+                  .getOrDefault(it)
+              }
+              else -> it
+            }
+        }
+      } ?: ""
+    val request =
+      org.http4k.core
+        .Request(Method.valueOf(method), uri)
+        .headers(header.map { it.key.trim() to it.value.trim() })
+        .body(cleansedRawBody)
+    return if (contentTypeHeader != null) request.with(CONTENT_TYPE of contentTypeHeader)
+    else request
   }
-
-  companion object {
-    private fun removeJsonComments(json: String): String {
-      val singleLineComment = """//.*""".toRegex()
-      val multiLineComment = """/\*[\s\S]*?\*/""".toRegex()
-      return json.replace(multiLineComment, "").replace(singleLineComment, "")
-    }
-  }
-
-  internal fun toPMSDKRequest(pm: PostmanSDK): PostmanSDK.Request = pm.from(this)
 }

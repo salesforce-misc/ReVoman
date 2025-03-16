@@ -20,36 +20,36 @@ import com.salesforce.revoman.output.report.failure.HookFailure.PreStepHookFailu
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.http4k.core.Request
 
-internal fun preHookExe(
+internal fun preStepHookExe(
   currentStep: Step,
   kick: Kick,
   requestInfo: TxnInfo<Request>,
   pm: PostmanSDK,
 ): PreStepHookFailure? =
-  pickPreHooks(kick.preHooks(), currentStep, requestInfo, pm.rundown)
-    .map { preHook ->
+  pickPreStepHooks(kick.preStepHooks(), currentStep, requestInfo, pm.rundown)
+    .map { preStepHook ->
       runCatching(currentStep, PRE_STEP_HOOK) {
-          preHook.accept(currentStep, requestInfo, pm.rundown)
+          preStepHook.accept(currentStep, requestInfo, pm.rundown)
         }
         .mapLeft { PreStepHookFailure(it, requestInfo) }
     }
     .firstOrNull { it.isLeft() }
     ?.leftOrNull()
 
-private fun pickPreHooks(
-  preHooks: List<HookConfig>,
+private fun pickPreStepHooks(
+  preStepHooks: List<HookConfig>,
   currentStep: Step,
   requestInfo: TxnInfo<Request>,
   rundown: Rundown,
 ): Sequence<PreStepHook> =
-  preHooks
+  preStepHooks
     .asSequence()
     .filter { (it.pick as PreTxnStepPick).pick(currentStep, requestInfo, rundown) }
     .map { it.stepHook as PreStepHook }
     .also {
       if (it.iterator().hasNext()) {
         logger.info { "$currentStep Picked Pre hook count : ${it.count()}" }
-        currentStep.preHookCount = it.count()
+        currentStep.preStepHookCount = it.count()
       }
     }
 

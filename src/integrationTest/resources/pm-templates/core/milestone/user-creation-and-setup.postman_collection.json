@@ -1,11 +1,11 @@
 {
 	"info": {
-		"_postman_id": "d20e73b0-932d-4eea-9fc2-bce49402a28d",
+		"_postman_id": "24b2f897-c467-4be3-b13e-98fe1f421719",
 		"name": "user-creation-and-setup",
 		"description": "- Create Persona Users\n    \n- Setup Tax and Pre-setup for Product",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
 		"_exporter_id": "23827434",
-		"_collection_link": "https://salesforce-734821.postman.co/workspace/1c6fbe60-fabb-4988-890b-b032cf03e25d/collection/23827434-d20e73b0-932d-4eea-9fc2-bce49402a28d?source=collection_link"
+		"_collection_link": "https://salesforce-734821.postman.co/workspace/billing~1c6fbe60-fabb-4988-890b-b032cf03e25d/collection/23827434-24b2f897-c467-4be3-b13e-98fe1f421719?action=share&source=collection_link&creator=23827434"
 	},
 	"item": [
 		{
@@ -216,7 +216,7 @@
 					"response": []
 				},
 				{
-					"name": "TaxPermSets",
+					"name": "TaxAdminPermSets",
 					"event": [
 						{
 							"listen": "test",
@@ -226,6 +226,16 @@
 									"jsonData.records.forEach((record, index) => {",
 									"    pm.environment.set(\"taxAdminPS\" + (index + 1) + \"Id\", record.Id)",
 									"})"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						},
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"pm.environment.set(\"taxAdminPermSets\", \"'RevLifecycleManagementTaxConfiguration', 'RevenueLifecycleManagementBillingTaxAdmin'\")"
 								],
 								"type": "text/javascript",
 								"packages": {}
@@ -249,7 +259,7 @@
 							"raw": ""
 						},
 						"url": {
-							"raw": "{{baseUrl}}{{versionPath}}/query/?q=SELECT Id from PermissionSet WHERE Name IN ('RevLifecycleManagementTaxConfiguration', 'RevenueLifecycleManagementBillingTaxAdmin')",
+							"raw": "{{baseUrl}}{{versionPath}}/query/?q=SELECT Id FROM PermissionSet WHERE Name IN ({{taxAdminPermSets}})",
 							"host": [
 								"{{baseUrl}}{{versionPath}}"
 							],
@@ -260,7 +270,7 @@
 							"query": [
 								{
 									"key": "q",
-									"value": "SELECT Id from PermissionSet WHERE Name IN ('RevLifecycleManagementTaxConfiguration', 'RevenueLifecycleManagementBillingTaxAdmin')"
+									"value": "SELECT Id FROM PermissionSet WHERE Name IN ({{taxAdminPermSets}})"
 								}
 							]
 						}
@@ -318,7 +328,7 @@
 					"response": []
 				},
 				{
-					"name": "ProductAndPricingAdminPermsets",
+					"name": "ProductAndPricingAdminPermSets",
 					"event": [
 						{
 							"listen": "test",
@@ -328,6 +338,16 @@
 									"jsonData.records.forEach((record, index) => {",
 									"    pm.environment.set(\"productAndPricingAdminPS\" + (index + 1) + \"Id\", record.Id)",
 									"})"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						},
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"pm.environment.set(\"productAndPricingAdminPermSets\", \"'RevLifecycleManagementCalculatePricesApi', 'RevLifecycleManagementProductAndPriceConfigurationApi', 'RevLifecycleManagementProductImportApi', 'ProductCatalogManagementAdministrator', 'RevenueLifecycleManagementBillingAdmin'\")"
 								],
 								"type": "text/javascript",
 								"packages": {}
@@ -351,7 +371,7 @@
 							"raw": ""
 						},
 						"url": {
-							"raw": "{{baseUrl}}{{versionPath}}/query/?q=SELECT Id from PermissionSet WHERE Name IN ('RevLifecycleManagementCalculatePricesApi', 'RevLifecycleManagementProductAndPriceConfigurationApi', 'RevLifecycleManagementProductImportApi', 'ProductCatalogManagementAdministrator', 'RevenueLifecycleManagementBillingAdmin')",
+							"raw": "{{baseUrl}}{{versionPath}}/query/?q=SELECT Id FROM PermissionSet WHERE Name IN ({{productAndPricingAdminPermSets}})",
 							"host": [
 								"{{baseUrl}}{{versionPath}}"
 							],
@@ -362,7 +382,7 @@
 							"query": [
 								{
 									"key": "q",
-									"value": "SELECT Id from PermissionSet WHERE Name IN ('RevLifecycleManagementCalculatePricesApi', 'RevLifecycleManagementProductAndPriceConfigurationApi', 'RevLifecycleManagementProductImportApi', 'ProductCatalogManagementAdministrator', 'RevenueLifecycleManagementBillingAdmin')"
+									"value": "SELECT Id FROM PermissionSet WHERE Name IN ({{productAndPricingAdminPermSets}})"
 								}
 							]
 						}
@@ -449,7 +469,7 @@
 							"listen": "prerequest",
 							"script": {
 								"exec": [
-									"pm.environment.set(\"customSalesRepPermSet\", \"Custom_Sales_Rep_Perm_Set\")"
+									"pm.environment.set(\"salesRepPermSets\", \"'RevLifecycleManagementQuotePricesTaxes', 'ProductDiscoveryUser', 'ProductCatalogManagementViewer', 'ContextServiceRuntimePsl', 'Custom_Sales_Ops_Rep_Perm_Set'\")"
 								],
 								"type": "text/javascript",
 								"packages": {}
@@ -473,7 +493,7 @@
 							"raw": ""
 						},
 						"url": {
-							"raw": "{{baseUrl}}{{versionPath}}/query/?q=SELECT Id from PermissionSet WHERE Name IN ('RevLifecycleManagementQuotePricesTaxes', 'ProductDiscoveryUser', 'ProductCatalogManagementViewer', 'ContextServiceRuntimePsl', '{{customSalesRepPermSet}}')",
+							"raw": "{{baseUrl}}{{versionPath}}/query/?q=SELECT Id FROM PermissionSet WHERE Name IN ({{salesRepPermSets}})",
 							"host": [
 								"{{baseUrl}}{{versionPath}}"
 							],
@@ -484,7 +504,7 @@
 							"query": [
 								{
 									"key": "q",
-									"value": "SELECT Id from PermissionSet WHERE Name IN ('RevLifecycleManagementQuotePricesTaxes', 'ProductDiscoveryUser', 'ProductCatalogManagementViewer', 'ContextServiceRuntimePsl', '{{customSalesRepPermSet}}')"
+									"value": "SELECT Id FROM PermissionSet WHERE Name IN ({{salesRepPermSets}})"
 								}
 							]
 						}
@@ -571,7 +591,7 @@
 							"listen": "prerequest",
 							"script": {
 								"exec": [
-									"pm.environment.set(\"customSalesOpsRepPermSet\", \"Custom_Sales_Ops_Rep_Perm_Set\")"
+									"pm.environment.set(\"salesOpsRepPermSets\", \"'RevLifecycleManagementCreateOrderFromQuote', 'RevLifecycleManagementCalculatePricesApi', 'RevLifecycleManagementCoreCPQAssetization', 'RevLifecycleManagementPlaceOrderApi', 'RevLifecycleManagementQuotePricesTaxes', 'RevLifecycleManagementTaxConfiguration', 'RevLifecycleManagementInitiateAmendmentApi', 'RevLifecycleManagementInitiateCancellationApi', 'RevLifecycleManagementInitiateRenewalApi', 'ContextServiceRuntimePsl', 'Custom_Sales_Ops_Rep_Perm_Set'\")"
 								],
 								"type": "text/javascript",
 								"packages": {}
@@ -595,7 +615,7 @@
 							"raw": ""
 						},
 						"url": {
-							"raw": "{{baseUrl}}{{versionPath}}/query/?q=SELECT Id from PermissionSet WHERE Name IN ('RevLifecycleManagementCreateOrderFromQuote', 'RevLifecycleManagementCalculatePricesApi', 'RevLifecycleManagementCoreCPQAssetization', 'RevLifecycleManagementPlaceOrderApi', 'RevLifecycleManagementQuotePricesTaxes', 'RevLifecycleManagementTaxConfiguration', 'RevLifecycleManagementInitiateAmendmentApi', 'RevLifecycleManagementInitiateCancellationApi', 'RevLifecycleManagementInitiateRenewalApi', 'ContextServiceRuntimePsl', '{{customSalesOpsRepPermSet}}')",
+							"raw": "{{baseUrl}}{{versionPath}}/query/?q=SELECT Id FROM PermissionSet WHERE Name IN ({{salesOpsRepPermSets}})",
 							"host": [
 								"{{baseUrl}}{{versionPath}}"
 							],
@@ -606,7 +626,7 @@
 							"query": [
 								{
 									"key": "q",
-									"value": "SELECT Id from PermissionSet WHERE Name IN ('RevLifecycleManagementCreateOrderFromQuote', 'RevLifecycleManagementCalculatePricesApi', 'RevLifecycleManagementCoreCPQAssetization', 'RevLifecycleManagementPlaceOrderApi', 'RevLifecycleManagementQuotePricesTaxes', 'RevLifecycleManagementTaxConfiguration', 'RevLifecycleManagementInitiateAmendmentApi', 'RevLifecycleManagementInitiateCancellationApi', 'RevLifecycleManagementInitiateRenewalApi', 'ContextServiceRuntimePsl', '{{customSalesOpsRepPermSet}}')"
+									"value": "SELECT Id FROM PermissionSet WHERE Name IN ({{salesOpsRepPermSets}})"
 								}
 							]
 						}
@@ -688,6 +708,16 @@
 								"type": "text/javascript",
 								"packages": {}
 							}
+						},
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"pm.environment.set(\"billingOpsRepPermSets\", \"'RevenueLifecycleManagementBillingOperations', 'ProductCatalogManagementAdministrator', 'RevLifecycleManagementUsageDesignUser'\");"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
 						}
 					],
 					"protocolProfileBehavior": {
@@ -707,7 +737,7 @@
 							"raw": ""
 						},
 						"url": {
-							"raw": "{{baseUrl}}{{versionPath}}/query/?q=SELECT Id from PermissionSet WHERE Name IN ('RevenueLifecycleManagementBillingOperations', 'ProductCatalogManagementAdministrator', 'RevLifecycleManagementUsageDesignUser')",
+							"raw": "{{baseUrl}}{{versionPath}}/query/?q=SELECT Id FROM PermissionSet WHERE Name IN ({{billingOpsRepPermSets}})",
 							"host": [
 								"{{baseUrl}}{{versionPath}}"
 							],
@@ -718,7 +748,7 @@
 							"query": [
 								{
 									"key": "q",
-									"value": "SELECT Id from PermissionSet WHERE Name IN ('RevenueLifecycleManagementBillingOperations', 'ProductCatalogManagementAdministrator', 'RevLifecycleManagementUsageDesignUser')"
+									"value": "SELECT Id FROM PermissionSet WHERE Name IN ({{billingOpsRepPermSets}})"
 								}
 							]
 						}
@@ -800,6 +830,16 @@
 								"type": "text/javascript",
 								"packages": {}
 							}
+						},
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"pm.environment.set(\"billingAdminPermSets\", \"'RevenueLifecycleManagementBillingAdmin'\")"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
 						}
 					],
 					"protocolProfileBehavior": {
@@ -819,7 +859,7 @@
 							"raw": ""
 						},
 						"url": {
-							"raw": "{{baseUrl}}{{versionPath}}/query/?q=SELECT Id from PermissionSet WHERE Name IN ('RevenueLifecycleManagementBillingAdmin')",
+							"raw": "{{baseUrl}}{{versionPath}}/query/?q=SELECT Id FROM PermissionSet WHERE Name IN ({{billingAdminPermSets}})",
 							"host": [
 								"{{baseUrl}}{{versionPath}}"
 							],
@@ -830,7 +870,7 @@
 							"query": [
 								{
 									"key": "q",
-									"value": "SELECT Id from PermissionSet WHERE Name IN ('RevenueLifecycleManagementBillingAdmin')"
+									"value": "SELECT Id FROM PermissionSet WHERE Name IN ({{billingAdminPermSets}})"
 								}
 							]
 						}
@@ -1368,7 +1408,7 @@
 								"header": [],
 								"body": {
 									"mode": "raw",
-									"raw": "{\n    \"Name\": \"ReVoman Tax Treatment\",\n    \"TaxPolicyId\": \"{{taxPolicyId}}\",\n    \"TaxEngineId\": \"{{taxEngineId}}\",\n    \"Description\": \"Test Tax Treatment\",\n    \"TaxCode\": \"PA020111\",\n    \"ProductCode\": \"Test123\",\n    \"IsTaxable\": true,\n    \"Status\": \"Active\"\n}",
+									"raw": "{\n  \"Name\": \"ReVoman Tax Treatment\",\n  \"TaxPolicyId\": \"{{taxPolicyId}}\",\n  \"TaxEngineId\": \"{{taxEngineId}}\",\n  \"Description\": \"Test Tax Treatment\",\n  \"TaxCode\": \"PA020111\",\n  \"ProductCode\": \"{{$randomCompanyName}}\",\n  \"IsTaxable\": true,\n  \"Status\": \"Active\"\n}",
 									"options": {
 										"raw": {
 											"language": "json"

@@ -22,15 +22,6 @@ import com.salesforce.revoman.output.report.Folder
 import com.salesforce.revoman.output.report.Step
 import com.salesforce.revoman.output.report.StepReport
 import io.github.oshai.kotlinlogging.KotlinLogging
-import org.http4k.core.ContentType.Companion.APPLICATION_JSON
-import org.http4k.core.HttpMessage
-
-internal fun isJson(httpMessage: HttpMessage) =
-  httpMessage.bodyString().isNotBlank() &&
-    httpMessage.header("content-type")?.let {
-      val contentType = it.split(";")
-      contentType.size > 1 && contentType[0].trim().equals(APPLICATION_JSON.value, true)
-    } == true
 
 internal fun deepFlattenItems(
   items: List<Item>,
@@ -111,17 +102,17 @@ internal fun shouldHaltExecution(
         }
         kick.haltOnFailureOfTypeExcept().isEmpty() -> {
           logger.info {
-            "Continuing the execution of next steps, as `haltOnAnyFailure` is set to false and `haltOnFailureOfTypeExcept` is empty"
+            "Continuing the execution of next steps, as `haltOnAnyFailure=${kick.haltOnAnyFailure()}` and `haltOnFailureOfTypeExcept` is empty"
           }
           false
         }
         else ->
-          !isStepIgnoredForFailure(currentStepReport, rundown).also {
+          (!isStepIgnoredForFailure(currentStepReport, rundown)).also {
             logger.info {
               if (it) {
-                "${currentStepReport.step} doesn't qualify `haltOnFailureOfTypeExcept`, so 🛑 halting the execution of next steps"
+                "${currentStepReport.step} doesn't qualify `haltOnFailureOfTypeExcept` for `exeTypeForFailure=${currentStepReport.exeTypeForFailure}`, so 🛑 halting the execution of next steps"
               } else {
-                "Continuing the execution of next steps, as the step qualifies `haltOnFailureOfTypeExcept`"
+                "Continuing the execution of next steps, as the step is ignored for `exeTypeForFailure=${currentStepReport.exeTypeForFailure}`"
               }
             }
           }

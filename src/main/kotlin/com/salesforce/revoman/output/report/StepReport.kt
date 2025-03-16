@@ -31,7 +31,7 @@ internal constructor(
   @JvmField val preStepHookFailure: PreStepHookFailure? = null,
   @JvmField val responseInfo: Either<out ResponseFailure, TxnInfo<Response>>? = null,
   @JvmField val postStepHookFailure: PostStepHookFailure? = null,
-  @JvmField val envSnapshot: PostmanEnvironment<Any?> = PostmanEnvironment(),
+  @JvmField val pmEnvSnapshot: PostmanEnvironment<Any?>,
 ) {
   internal constructor(
     step: Step,
@@ -39,12 +39,14 @@ internal constructor(
     preStepHookFailure: PreStepHookFailure? = null,
     responseInfo: arrow.core.Either<ResponseFailure, TxnInfo<Response>>? = null,
     postStepHookFailure: PostStepHookFailure? = null,
+    pmEnvSnapshot: PostmanEnvironment<Any?>,
   ) : this(
     step,
     requestInfo?.toVavr(),
     preStepHookFailure,
     responseInfo?.toVavr(),
     postStepHookFailure,
+    pmEnvSnapshot,
   )
 
   @JvmField

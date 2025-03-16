@@ -21,6 +21,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import java.lang.reflect.Type
 import org.http4k.core.ContentType.Companion.APPLICATION_JSON
 import org.http4k.core.Request
+import org.http4k.lens.contentType
 
 internal fun unmarshallRequest(
   currentStep: Step,
@@ -29,38 +30,48 @@ internal fun unmarshallRequest(
   moshiReVoman: MoshiReVoman,
   pm: PostmanSDK,
 ): Either<UnmarshallRequestFailure, TxnInfo<Request>> {
-  val httpRequest = pmRequest.toHttpRequest()
-  val requestType: Type =
-    kick
-      .requestConfig()
-      .firstOrNull {
-        it.preTxnStepPick.pick(
-          currentStep,
-          TxnInfo(httpMsg = httpRequest, moshiReVoman = moshiReVoman),
-          pm.rundown,
-        )
-      }
-      ?.also { logger.info { "$currentStep RequestConfig found : ${pprint(it)}" } }
-      ?.requestType ?: Any::class.java
+  val httpRequest = pmRequest.toHttpRequest(moshiReVoman)
   return when {
-    isJson(httpRequest) ->
+    httpRequest.bodyString().isNotBlank() &&
+      APPLICATION_JSON.value.equals(httpRequest.contentType()?.value, true) -> {
+      val requestType: Type =
+        kick
+          .requestConfig()
+          .firstOrNull {
+            it.preTxnStepPick.pick(
+              currentStep,
+              TxnInfo(httpMsg = httpRequest, moshiReVoman = moshiReVoman),
+              pm.rundown,
+            )
+          }
+          ?.also { logger.info { "$currentStep RequestConfig found : ${pprint(it)}" } }
+          ?.requestType ?: Any::class.java
       runCatching(currentStep, UNMARSHALL_REQUEST) {
           pmRequest.body?.let { body -> moshiReVoman.fromJson<Any>(body.raw, requestType) }
         }
         .mapLeft {
           UnmarshallRequestFailure(
             it,
-            TxnInfo(requestType, null, httpRequest, moshiReVoman = moshiReVoman),
+            TxnInfo(txnObjType = requestType, httpMsg = httpRequest, moshiReVoman = moshiReVoman),
           )
         }
+        .map {
+          TxnInfo(
+            txnObjType = requestType,
+            txnObj = it,
+            httpMsg = httpRequest,
+            moshiReVoman = moshiReVoman,
+          )
+        }
+    }
     else -> {
       // ! TODO 15/10/23 gopala.akshintala: xml2Json
       logger.info {
-        "$currentStep No JSON found in the Request body or content-type header didn't match ${APPLICATION_JSON.value}"
+        "$currentStep Blank Request body or content-type ${httpRequest.contentType()?.value} didn't match ${APPLICATION_JSON.value}"
       }
-      Right(TxnInfo(httpMsg = httpRequest, isJson = false, moshiReVoman = moshiReVoman))
+      Right(TxnInfo(isJson = false, httpMsg = httpRequest, moshiReVoman = moshiReVoman))
     }
-  }.map { TxnInfo(requestType, it, pmRequest.toHttpRequest(), moshiReVoman = moshiReVoman) }
+  }
 }
 
 private val logger = KotlinLogging.logger {}

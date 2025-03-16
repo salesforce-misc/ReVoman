@@ -83,7 +83,7 @@ class PokemonTest {
 							}
 						});
 		//noinspection Convert2Lambda
-		final var preHook =
+		final var preStepHook =
 				Mockito.spy(
 						new PreStepHook() {
 							@Override
@@ -95,7 +95,7 @@ class PokemonTest {
 							}
 						});
 		//noinspection Convert2Lambda
-		final var postHook =
+		final var postStepHook =
 				Mockito.spy(
 						new PostStepHook() {
 							@Override
@@ -133,8 +133,8 @@ class PokemonTest {
 								.environmentPath(PM_ENVIRONMENT_PATH)
 								.responseConfig(unmarshallResponse(afterStepName("all-pokemon"), AllPokemon.class))
 								.hooks(
-										pre(beforeStepName("all-pokemon"), preHook),
-										post(afterStepName("all-pokemon"), postHook),
+										pre(beforeStepName("all-pokemon"), preStepHook),
+										post(afterStepName("all-pokemon"), postStepHook),
 										post(afterStepContainingURIPathOfAny("pokemon-color"), postHookAfterURIPath),
 										pre(beforeStepContainingHeader("preLog"), preLogHook),
 										post(afterStepContainingHeader("postLog"), postLogHook))
@@ -156,8 +156,8 @@ class PokemonTest {
 								"gender", "female",
 								"ability", "stench",
 								"nature", "hardy"));
-		Mockito.verify(preHook, times(1)).accept(any(), any(), any());
-		Mockito.verify(postHook, times(1)).accept(any(), any());
+		Mockito.verify(preStepHook, times(1)).accept(any(), any(), any());
+		Mockito.verify(postStepHook, times(1)).accept(any(), any());
 		Mockito.verify(postHookAfterURIPath, times(1)).accept(any(), any());
 		Mockito.verify(preLogHook, times(1)).accept(any(), any(), any());
 		Mockito.verify(postLogHook, times(1)).accept(any(), any());

@@ -22,6 +22,7 @@ import org.graalvm.polyglot.Context
 import org.graalvm.polyglot.HostAccess
 import org.graalvm.polyglot.Source
 import org.graalvm.polyglot.Value
+import org.intellij.lang.annotations.Language
 
 /**
  * SDK to execute pre-req and post-res js scripts, to be compatible with the Postman API reference:
@@ -110,26 +111,27 @@ class PostmanSDK(
   fun evaluateJS(js: String, bindings: Map<String, Any> = emptyMap()): Value =
     jsEvaluator.evaluateJS(js, bindings)
 
+  @Language("JavaScript")
   fun jsonStrToObj(jsonStr: String): Value =
-    evaluateJS("jsonStr => JSON.parse(jsonStr)").execute(jsonStr)
+    evaluateJS("jsonStr => JSON.parse(jsonStr, {allowComments: true})").execute(jsonStr)
 
   inner class Variables {
-    fun has(key: String) = environment.containsKey(key)
+    fun has(key: String): Boolean = environment.containsKey(key)
 
-    fun get(key: String) = environment[key]
+    fun get(key: String): Any? = environment[key]
 
-    fun set(key: String, value: String) {
+    fun set(key: String, value: Any?) {
+      environment.set(key, value)
       logger.info {
         "pm environment variable set through JS in Step: ${currentStepReport.step} - key: $key, value: ${pprint(value)}"
       }
-      environment.set(key, value)
     }
 
     fun unset(key: String) {
+      environment.unset(key)
       logger.info {
         "pm environment variable unset through JS in Step: ${currentStepReport.step} - key: $key"
       }
-      environment.unset(key)
     }
 
     @Suppress("unused")
@@ -150,7 +152,7 @@ class PostmanSDK(
       Request(header = header, url = url, body = body)
   }
 
-  fun from(request: com.salesforce.revoman.internal.postman.template.Request): PostmanSDK.Request =
+  fun from(request: com.salesforce.revoman.internal.postman.template.Request): Request =
     Request(request.method, request.header, request.url, request.body, request.event)
 
   inner class Response(

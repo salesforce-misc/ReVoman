@@ -43,7 +43,8 @@
 					"script": {
 						"exec": [
 							"var responseJson = pm.response.json();",
-							"pm.environment.set(\"objId\", responseJson.id);"
+							"pm.environment.set(\"objId\", responseJson.id);",
+							"pm.environment.set(\"data\", responseJson.data)"
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -91,6 +92,18 @@
 		},
 		{
 			"name": "get-object-by-id",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							"console.log(pm.environment.get(\"data\"))"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
 			"request": {
 				"method": "GET",
 				"header": [],

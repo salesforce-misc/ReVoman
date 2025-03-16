@@ -20,6 +20,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import java.lang.reflect.Type
 import org.http4k.core.ContentType.Companion.APPLICATION_JSON
 import org.http4k.core.Response
+import org.http4k.lens.contentType
 
 internal fun unmarshallResponse(
   kick: Kick,
@@ -28,7 +29,8 @@ internal fun unmarshallResponse(
 ): Either<UnmarshallResponseFailure, TxnInfo<Response>> {
   val httpResponse = pm.currentStepReport.responseInfo!!.get().httpMsg
   return when {
-    isJson(httpResponse) -> {
+    httpResponse.bodyString().isNotBlank() &&
+      APPLICATION_JSON.value.equals(httpResponse.contentType()?.value, true) -> {
       val httpStatus = httpResponse.status.successful
       val responseConfig =
         (kick.pickToResponseConfig()[httpStatus].orEmpty() +
@@ -49,16 +51,23 @@ internal fun unmarshallResponse(
           UnmarshallResponseFailure(
             it,
             requestInfo,
-            TxnInfo(responseType, null, httpResponse, moshiReVoman = moshiReVoman),
+            TxnInfo(txnObjType = responseType, httpMsg = httpResponse, moshiReVoman = moshiReVoman),
           )
         }
-        .map { TxnInfo(responseType, it, httpResponse, moshiReVoman = moshiReVoman) }
+        .map {
+          TxnInfo(
+            txnObjType = responseType,
+            txnObj = it,
+            httpMsg = httpResponse,
+            moshiReVoman = moshiReVoman,
+          )
+        }
     }
     else -> {
       logger.info {
-        "${pm.currentStepReport.step} No JSON found in the Response body or content-type didn't match ${APPLICATION_JSON.value}"
+        "${pm.currentStepReport.step} Blank Response body or ${httpResponse.contentType()?.value} didn't match ${APPLICATION_JSON.value}"
       }
-      Right(TxnInfo(httpMsg = httpResponse, isJson = false, moshiReVoman = moshiReVoman))
+      Right(TxnInfo(isJson = false, httpMsg = httpResponse, moshiReVoman = moshiReVoman))
     }
   }
 }

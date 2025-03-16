@@ -18,30 +18,30 @@ import com.salesforce.revoman.output.report.StepReport
 import com.salesforce.revoman.output.report.failure.HookFailure.PostStepHookFailure
 import io.github.oshai.kotlinlogging.KotlinLogging
 
-internal fun postHookExe(kick: Kick, pm: PostmanSDK): PostStepHookFailure? =
-  pickPostHooks(kick.postHooks(), pm.currentStepReport, pm.rundown)
-    .map { postHook ->
+internal fun postStepHookExe(kick: Kick, pm: PostmanSDK): PostStepHookFailure? =
+  pickPostStepHooks(kick.postStepHooks(), pm.currentStepReport, pm.rundown)
+    .map { postStepHook ->
       runCatching(pm.currentStepReport.step, POST_STEP_HOOK) {
-          postHook.accept(pm.currentStepReport, pm.rundown)
+          postStepHook.accept(pm.currentStepReport, pm.rundown)
         }
         .mapLeft { PostStepHookFailure(it) }
     }
     .firstOrNull { it.isLeft() }
     ?.leftOrNull()
 
-private fun pickPostHooks(
-  postHooks: List<HookConfig>,
+private fun pickPostStepHooks(
+  postStepHooks: List<HookConfig>,
   currentStepReport: StepReport,
   rundown: Rundown,
 ): Sequence<PostStepHook> =
-  postHooks
+  postStepHooks
     .asSequence()
     .filter { (it.pick as PostTxnStepPick).pick(currentStepReport, rundown) }
     .map { it.stepHook as PostStepHook }
     .also {
       if (it.iterator().hasNext()) {
         logger.info { "${currentStepReport.step} Picked Post hook count : ${it.count()}" }
-        currentStepReport.step.postHookCount = it.count()
+        currentStepReport.step.postStepHookCount = it.count()
       }
     }
 

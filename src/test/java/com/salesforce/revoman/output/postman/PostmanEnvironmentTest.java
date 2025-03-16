@@ -10,6 +10,7 @@ package com.salesforce.revoman.output.postman;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.squareup.moshi.Types;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -42,7 +43,35 @@ class PostmanEnvironmentTest {
 	void getTypedObj() {
 		final var env =
 				io.vavr.collection.HashMap.of(
-						"key1", 1, "key2", "2", "key3", List.of(1, 2, 3), "key4", Map.of("4", 4), "key5", null);
+						"key1",
+						1,
+						"key2",
+						"2",
+						"key3",
+						List.of(1, 2, 3),
+						"key4",
+						Map.of("4", 4),
+						"key5",
+						new ArrayList<>(List.of("a", "b", "c")),
+						"key6",
+						"""
+							{
+								"attributes": {
+									"type": "BillingSchedule",
+									"url": "/services/data/v64.0/sobjects/BillingSchedule/44bSG000000WOyTYAW"
+								},
+								"Id": "44bSG000000WOyTYAW",
+								"Status": "ReadyForInvoicing",
+								"NextBillingDate": "2024-10-07",
+								"NextChargeFromDate": "2024-10-07",
+								"BilledThroughPeriod": null,
+								"CancellationDate": null,
+								"TotalAmount": 89.99,
+								"Category": "Original"
+							}
+								""",
+						"key7",
+						null);
 		final var pm = new PostmanEnvironment<>(env.toJavaMap());
 		assertThat(pm.<Integer>getTypedObj("key1", Integer.class)).isEqualTo(env.get("key1").get());
 		assertThat(pm.<String>getTypedObj("key2", String.class)).isEqualTo(env.get("key2").get());
@@ -54,6 +83,14 @@ class PostmanEnvironmentTest {
 						pm.<Map<String, Integer>>getTypedObj(
 								"key4", Types.newParameterizedType(Map.class, String.class, Integer.class)))
 				.containsExactlyEntriesIn((Map<?, ?>) env.get("key4").get());
-		assertThat(pm.<Object>getTypedObj("key5", Object.class)).isNull();
+		assertThat(
+						pm.<List<String>>getTypedObj(
+								"key5", Types.newParameterizedType(List.class, String.class)))
+				.containsExactlyElementsIn((Iterable<?>) env.get("key5").get());
+		assertThat(
+						pm.<Map<String, Object>>getTypedObj(
+								"key6", Types.newParameterizedType(Map.class, String.class, Object.class)))
+				.isInstanceOf(Map.class);
+		assertThat(pm.<Object>getTypedObj("key7", Object.class)).isNull();
 	}
 }

@@ -56,9 +56,10 @@ internal interface KickDef {
 
   fun hooks(): List<HookConfig>
 
-  @Value.Derived fun preHooks(): List<HookConfig> = hooks().filter { it.pick is PreTxnStepPick }
+  @Value.Derived fun preStepHooks(): List<HookConfig> = hooks().filter { it.pick is PreTxnStepPick }
 
-  @Value.Derived fun postHooks(): List<HookConfig> = hooks().filter { it.pick is PostTxnStepPick }
+  @Value.Derived
+  fun postStepHooks(): List<HookConfig> = hooks().filter { it.pick is PostTxnStepPick }
 
   // * NOTE 29/10/23 gopala.akshintala: requestConfig/responseConfig are decoupled from pre-step /
   // post-step hook to allow setting up unmarshalling to strong types on the final rundown for

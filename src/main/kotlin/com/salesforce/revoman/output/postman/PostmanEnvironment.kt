@@ -10,9 +10,12 @@ package com.salesforce.revoman.output.postman
 import com.salesforce.revoman.internal.json.MoshiReVoman
 import com.salesforce.revoman.internal.json.MoshiReVoman.Companion.initMoshi
 import com.salesforce.revoman.internal.postman.template.Environment.Companion.fromMap
+import com.salesforce.revoman.output.report.Step
+import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.rawType
 import io.exoquery.pprint
 import io.github.oshai.kotlinlogging.KotlinLogging
+import io.vavr.control.Either
 import java.lang.reflect.Type
 
 /** This is a Wrapper on `mutableEnv` map, providing some useful utilities */
@@ -23,6 +26,8 @@ constructor(
   @get:JvmName("moshiReVoman") val moshiReVoman: MoshiReVoman = initMoshi(),
 ) : MutableMap<String, ValueT> by mutableEnv {
 
+  internal lateinit var currentStep: Step
+
   @get:JvmName("immutableEnv") val immutableEnv: Map<String, ValueT> by lazy { mutableEnv.toMap() }
 
   @get:JvmName("postmanEnvJSONFormat")
@@ -32,13 +37,15 @@ constructor(
 
   fun set(key: String, value: ValueT) {
     mutableEnv[key] = value
-    logger.info { "pm environment variable set - key: $key, value: ${pprint(value)}" }
+    logger.info {
+      "pm environment variable set in Step: $currentStep - key: $key, value: ${pprint(value)}"
+    }
   }
 
   @Suppress("unused")
   fun unset(key: String) {
     mutableEnv.remove(key)
-    logger.info { "pm environment variable unset through JS - key: $key" }
+    logger.info { "pm environment variable unset through JS in Step: $currentStep - key: $key" }
   }
 
   // ! TODO 24/06/23 gopala.akshintala: Support for Regex while querying environment
@@ -105,17 +112,51 @@ constructor(
       moshiReVoman,
     )
 
-  fun <T : Any> getTypedObj(key: String, objType: Type): T? {
+  @JvmOverloads
+  fun <PojoT : Any> getTypedObj(
+    key: String,
+    targetType: Type,
+    customAdapters: List<Any> = emptyList(),
+    customAdaptersWithType: Map<Type, Either<JsonAdapter<out Any>, JsonAdapter.Factory>> =
+      emptyMap(),
+    typesToIgnore: Set<Type> = emptySet(),
+  ): PojoT? {
     val value = mutableEnv[key]
     return when {
       value == null -> null
-      objType.rawType.isInstance(value) -> value
-      else -> moshiReVoman.objToJsonStrToObj(value, objType)
+      targetType.rawType.isPrimitive && targetType.rawType.isInstance(value) -> value
+      else -> {
+        moshiReVoman.addAdapters(customAdapters, customAdaptersWithType, typesToIgnore)
+        when (value) {
+          is String -> moshiReVoman.fromJson(value, targetType)
+          else -> moshiReVoman.objToJsonStrToObj(value, targetType)
+        }
+      }
     }
-      as T?
+      as PojoT?
   }
 
-  inline fun <reified T : Any> getObj(key: String): T? = getTypedObj(key, T::class.java)
+  @JvmOverloads
+  inline fun <reified PojoT : Any> getObj(
+    key: String,
+    customAdapters: List<Any> = emptyList(),
+    customAdaptersWithType: Map<Type, Either<JsonAdapter<out Any>, JsonAdapter.Factory>> =
+      emptyMap(),
+    typesToIgnore: Set<Type> = emptySet(),
+  ): PojoT? {
+    val value = mutableEnv[key]
+    return when (value) {
+      null -> null
+      is PojoT -> value
+      else -> {
+        moshiReVoman.addAdapters(customAdapters, customAdaptersWithType, typesToIgnore)
+        when (value) {
+          is String -> moshiReVoman.fromJson(value)
+          else -> moshiReVoman.objToJsonStrToObj(value)
+        }
+      }
+    }
+  }
 
   fun <T> mutableEnvCopyWithKeysEndingWith(
     type: Class<T>,

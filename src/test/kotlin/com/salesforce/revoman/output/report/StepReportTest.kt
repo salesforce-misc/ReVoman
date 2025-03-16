@@ -13,6 +13,7 @@ import com.salesforce.revoman.internal.json.MoshiReVoman.Companion.initMoshi
 import com.salesforce.revoman.internal.postman.template.Item
 import com.salesforce.revoman.internal.postman.template.Request
 import com.salesforce.revoman.internal.postman.template.Url
+import com.salesforce.revoman.output.postman.PostmanEnvironment
 import com.salesforce.revoman.output.report.failure.HookFailure.PostStepHookFailure
 import com.salesforce.revoman.output.report.failure.RequestFailure.HttpRequestFailure
 import io.kotest.matchers.shouldBe
@@ -32,13 +33,17 @@ class StepReportTest {
       Request(method = POST.toString(), url = Url("https://overfullstack.github.io/"))
     val requestInfo =
       TxnInfo(
-        String::class.java,
-        "fakeRequest",
-        rawRequest.toHttpRequest(),
+        txnObjType = String::class.java,
+        txnObj = "fakeRequest",
+        httpMsg = rawRequest.toHttpRequest(moshiReVoman),
         moshiReVoman = moshiReVoman,
       )
     val stepReportSuccess =
-      StepReport(Step("1.3.7", Item(request = rawRequest)), Right(requestInfo))
+      StepReport(
+        Step("1.3.7", Item(request = rawRequest)),
+        Right(requestInfo),
+        pmEnvSnapshot = PostmanEnvironment(),
+      )
     println(stepReportSuccess)
     stepReportSuccess.isHttpStatusSuccessful shouldBe true
   }
@@ -49,15 +54,16 @@ class StepReportTest {
       Request(method = POST.toString(), url = Url("https://overfullstack.github.io/"))
     val requestInfo =
       TxnInfo(
-        String::class.java,
-        "fakeRequest",
-        rawRequest.toHttpRequest(),
+        txnObjType = String::class.java,
+        txnObj = "fakeRequest",
+        httpMsg = rawRequest.toHttpRequest(moshiReVoman),
         moshiReVoman = moshiReVoman,
       )
     val stepReportHttpFailure =
       StepReport(
         Step("1.3.7", Item(request = rawRequest)),
         Left(HttpRequestFailure(RuntimeException("fakeRTE"), requestInfo)),
+        pmEnvSnapshot = PostmanEnvironment(),
       )
     println(stepReportHttpFailure)
     stepReportHttpFailure.isHttpStatusSuccessful shouldBe false
@@ -69,16 +75,16 @@ class StepReportTest {
       Request(method = POST.toString(), url = Url("https://overfullstack.github.io/"))
     val requestInfo =
       TxnInfo(
-        String::class.java,
-        "fakeRequest",
-        rawRequest.toHttpRequest(),
+        txnObjType = String::class.java,
+        txnObj = "fakeRequest",
+        httpMsg = rawRequest.toHttpRequest(moshiReVoman),
         moshiReVoman = moshiReVoman,
       )
     val badResponseInfo: TxnInfo<Response> =
       TxnInfo(
-        String::class.java,
-        "fakeBadResponse",
-        Response(BAD_REQUEST).body("fakeBadResponse"),
+        txnObjType = String::class.java,
+        txnObj = "fakeBadResponse",
+        httpMsg = Response(BAD_REQUEST).body("fakeBadResponse"),
         moshiReVoman = moshiReVoman,
       )
     val stepReportBadRequest =
@@ -87,6 +93,7 @@ class StepReportTest {
         Right(requestInfo),
         null,
         Right(badResponseInfo),
+        pmEnvSnapshot = PostmanEnvironment(),
       )
     println(stepReportBadRequest)
     stepReportBadRequest.isHttpStatusSuccessful shouldBe false
@@ -98,13 +105,18 @@ class StepReportTest {
       Request(method = POST.toString(), url = Url("https://overfullstack.github.io/"))
     val requestInfo =
       TxnInfo(
-        String::class.java,
-        "fakeRequest",
-        rawRequest.toHttpRequest(),
+        txnObjType = String::class.java,
+        txnObj = "fakeRequest",
+        httpMsg = rawRequest.toHttpRequest(moshiReVoman),
         moshiReVoman = moshiReVoman,
       )
     val responseInfo: TxnInfo<Response> =
-      TxnInfo(String::class.java, "fakeResponse", Response(OK), moshiReVoman = moshiReVoman)
+      TxnInfo(
+        txnObjType = String::class.java,
+        txnObj = "fakeResponse",
+        httpMsg = Response(OK),
+        moshiReVoman = moshiReVoman,
+      )
     val stepReportPostStepHookFailure =
       StepReport(
         Step("", Item(request = rawRequest)),
@@ -112,6 +124,7 @@ class StepReportTest {
         null,
         Right(responseInfo),
         PostStepHookFailure(RuntimeException("fakeRTE")),
+        PostmanEnvironment(),
       )
     println(stepReportPostStepHookFailure)
     stepReportPostStepHookFailure.isHttpStatusSuccessful shouldBe true

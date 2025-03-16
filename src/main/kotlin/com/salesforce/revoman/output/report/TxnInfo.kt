@@ -9,6 +9,7 @@ package com.salesforce.revoman.output.report
 
 import com.salesforce.revoman.internal.json.MoshiReVoman
 import com.squareup.moshi.JsonAdapter
+import com.squareup.moshi.rawType
 import io.vavr.control.Either
 import java.lang.reflect.Type
 import java.util.Collections.indexOfSubList
@@ -19,37 +20,56 @@ import org.http4k.core.Response
 data class TxnInfo<HttpMsgT : HttpMessage>
 @JvmOverloads
 constructor(
-  @JvmField val txnObjType: Type = Any::class.java,
+  @JvmField val isJson: Boolean = true,
+  @JvmField val txnObjType: Type? = if (isJson) Any::class.java else null,
   @JvmField val txnObj: Any? = null,
   @JvmField val httpMsg: HttpMsgT,
-  @JvmField val isJson: Boolean = true,
-  private val moshiReVoman: MoshiReVoman,
+  val moshiReVoman: MoshiReVoman,
 ) {
   @JvmOverloads
   fun <T : Any> getTypedTxnObj(
-    txnObjType: Type = this.txnObjType,
+    txnObjType: Type = this.txnObjType ?: Any::class.java,
     customAdapters: List<Any> = emptyList(),
     customAdaptersWithType: Map<Type, Either<JsonAdapter<out Any>, JsonAdapter.Factory>> =
       emptyMap(),
-    typesToIgnore: Set<Class<out Any>> = emptySet(),
-  ): T? {
-    moshiReVoman.addAdapters(customAdapters, customAdaptersWithType, typesToIgnore)
-    return moshiReVoman.fromJson(httpMsg.bodyString(), txnObjType)
-  }
+    typesToIgnore: Set<Type> = emptySet(),
+  ): T? =
+    when {
+      // ! TODO 15/10/23 gopala.akshintala: xml2Json
+      !isJson ->
+        throw IllegalCallerException("Non JSON (like XML) marshalling to POJO is not yet supported")
+      txnObjType == this.txnObjType -> txnObj
+      else -> {
+        moshiReVoman.addAdapters(customAdapters, customAdaptersWithType, typesToIgnore)
+        moshiReVoman.fromJson(httpMsg.bodyString(), txnObjType)
+      }
+    }
+      as T?
 
   @JvmOverloads
-  inline fun <reified T : Any> getTxnObj(
+  inline fun <reified PojoT : Any> getTxnObj(
     customAdapters: List<Any> = emptyList(),
     customAdaptersWithType: Map<Type, Either<JsonAdapter<out Any>, JsonAdapter.Factory>> =
       emptyMap(),
-    typesToIgnore: Set<Class<out Any>> = emptySet(),
-  ): T? = getTypedTxnObj(T::class.java, customAdapters, customAdaptersWithType, typesToIgnore)
+    typesToIgnore: Set<Type> = emptySet(),
+  ): PojoT? =
+    when {
+      // ! TODO 15/10/23 gopala.akshintala: xml2Json
+      !isJson ->
+        throw IllegalCallerException("Non JSON (like XML) marshalling to POJO is not yet supported")
+      txnObjType != null && PojoT::class.java == txnObjType.rawType -> txnObj
+      else -> {
+        moshiReVoman.addAdapters(customAdapters, customAdaptersWithType, typesToIgnore)
+        moshiReVoman.fromJson(httpMsg.bodyString())
+      }
+    }
+      as PojoT?
 
   fun containsHeader(key: String): Boolean = httpMsg.headers.toMap().containsKey(key)
 
   fun containsHeader(key: String, value: String): Boolean = httpMsg.headers.contains(key to value)
 
-  fun getHeaderValue(key: String): String? = httpMsg.headers.toMap()[key]
+  fun getHeaderValue(key: String): String? = httpMsg.header(key)
 
   override fun toString(): String {
     val prefix =

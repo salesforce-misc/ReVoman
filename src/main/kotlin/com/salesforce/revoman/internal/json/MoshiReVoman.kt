@@ -13,10 +13,11 @@ import com.salesforce.revoman.internal.json.adapters.TypeAdapter
 import com.salesforce.revoman.internal.json.adapters.UUIDAdapter
 import com.salesforce.revoman.internal.json.factories.AlwaysSerializeNullsFactory
 import com.salesforce.revoman.internal.json.factories.CaseInsensitiveEnumAdapter
-import com.salesforce.revoman.internal.json.factories.SkipTypesFactory
+import com.salesforce.revoman.internal.json.factories.IgnoreTypesFactory
 import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.JsonAdapter.Factory
 import com.squareup.moshi.Moshi
+import com.squareup.moshi.adapter
 import com.squareup.moshi.adapters.Rfc3339DateJsonAdapter
 import dev.zacsweers.moshix.adapters.AdaptedBy
 import dev.zacsweers.moshix.adapters.JsonString
@@ -31,7 +32,7 @@ import org.http4k.format.asConfigurable
 import org.http4k.format.withStandardMappings
 
 open class MoshiReVoman(builder: Moshi.Builder) {
-  private var moshi = builder.build()
+  var moshi: Moshi = builder.build()
 
   @get:JvmName("internalMoshiCopy")
   val internalMoshiCopy: Moshi by lazy { moshi.newBuilder().build() }
@@ -40,30 +41,38 @@ open class MoshiReVoman(builder: Moshi.Builder) {
   fun addAdapters(
     customAdapters: List<Any> = emptyList(),
     customAdaptersWithType: Map<Type, Either<JsonAdapter<out Any>, Factory>> = emptyMap(),
-    typesToIgnore: Set<Class<out Any>> = emptySet(),
+    typesToIgnore: Set<Type> = emptySet(),
   ) {
-    val builder = moshi.newBuilder()
-    addAdapters(builder, customAdapters, customAdaptersWithType, typesToIgnore)
-    moshi = builder.build()
+    if (customAdapters.isNotEmpty() || customAdaptersWithType.isNotEmpty()) {
+      val builder = moshi.newBuilder()
+      addAdapters(builder, customAdapters, customAdaptersWithType, typesToIgnore)
+      moshi = builder.build()
+    }
   }
 
   fun <PojoT : Any> adapter(targetType: Type): JsonAdapter<PojoT> = moshi.adapter<PojoT>(targetType)
 
+  @OptIn(ExperimentalStdlibApi::class)
+  inline fun <reified PojoT : Any> adapter(): JsonAdapter<PojoT> = moshi.adapter<PojoT>()
+
   fun <PojoT : Any> lenientAdapter(targetType: Type): JsonAdapter<PojoT> =
     adapter<PojoT>(targetType).lenient()
+
+  inline fun <reified PojoT : Any> lenientAdapter(): JsonAdapter<PojoT> = adapter<PojoT>().lenient()
 
   fun <PojoT : Any> fromJson(input: String?, targetType: Type = Any::class.java): PojoT? =
     input?.let { lenientAdapter<PojoT>(targetType).fromJson(it) }
 
   inline fun <reified PojoT : Any> fromJson(input: String?): PojoT? =
-    fromJson(input, PojoT::class.java)
+    input?.let { lenientAdapter<PojoT>().fromJson(it) }
 
   fun <PojoT : Any> toJson(
     input: PojoT?,
     sourceType: Type = input?.javaClass ?: Any::class.java,
   ): String = lenientAdapter<PojoT>(sourceType).toJson(input)
 
-  inline fun <reified PojoT : Any> toJson(input: PojoT?): String = toJson(input, PojoT::class.java)
+  inline fun <reified PojoT : Any> toJson(input: PojoT?): String =
+    lenientAdapter<PojoT>().toJson(input)
 
   fun <PojoT : Any> toPrettyJson(
     input: PojoT?,
@@ -72,12 +81,17 @@ open class MoshiReVoman(builder: Moshi.Builder) {
   ): String = lenientAdapter<PojoT>(sourceType).indent(indent).toJson(input)
 
   inline fun <reified PojoT : Any> toPrettyJson(input: PojoT?, indent: String = "  "): String =
-    toPrettyJson(input, PojoT::class.java, indent)
+    lenientAdapter<PojoT>().indent(indent).toJson(input)
 
   fun <PojoT : Any> objToJsonStrToObj(
     input: Any?,
     targetType: Type = input?.javaClass ?: Any::class.java,
   ): PojoT? = lenientAdapter<PojoT>(targetType).fromJson(toJson(input))
+
+  inline fun <reified PojoT : Any> objToJsonStrToObj(input: Any?): PojoT? =
+    lenientAdapter<PojoT>().fromJson(toJson(input))
+
+  fun jsonToObjToPrettyJson(input: String?): String? = input?.let { toPrettyJson(fromJson(it)) }
 
   companion object {
     @Synchronized
@@ -85,7 +99,7 @@ open class MoshiReVoman(builder: Moshi.Builder) {
     internal fun initMoshi(
       customAdapters: List<Any> = emptyList(),
       customAdaptersWithType: Map<Type, Either<JsonAdapter<out Any>, Factory>> = emptyMap(),
-      typesToIgnore: Set<Class<out Any>> = emptySet(),
+      typesToIgnore: Set<Type> = emptySet(),
     ): MoshiReVoman {
       val moshiBuilder = buildMoshi(customAdapters, customAdaptersWithType, typesToIgnore)
       return object : MoshiReVoman(moshiBuilder) {}
@@ -94,7 +108,7 @@ open class MoshiReVoman(builder: Moshi.Builder) {
     private fun buildMoshi(
       customAdapters: List<Any> = emptyList(),
       customAdaptersWithType: Map<Type, Either<JsonAdapter<out Any>, Factory>> = emptyMap(),
-      typesToIgnore: Set<Class<out Any>> = emptySet(),
+      typesToIgnore: Set<Type> = emptySet(),
     ): Moshi.Builder {
       // * NOTE 08 May 2024 gopala.akshintala: This cannot be static singleton as adapters added
       // mutates
@@ -126,7 +140,7 @@ open class MoshiReVoman(builder: Moshi.Builder) {
       moshiBuilder: Moshi.Builder,
       customAdapters: List<Any>,
       customAdaptersWithType: Map<Type, Either<JsonAdapter<out Any>, Factory>>,
-      typesToIgnore: Set<Class<out Any>>,
+      typesToIgnore: Set<Type>,
     ) {
       customAdaptersWithType.forEach { (type, customAdapter) ->
         customAdapter.fold({ moshiBuilder.add(type, it) }, { moshiBuilder.add(it) })
@@ -139,7 +153,7 @@ open class MoshiReVoman(builder: Moshi.Builder) {
         }
       }
       if (typesToIgnore.isNotEmpty()) {
-        moshiBuilder.add(SkipTypesFactory(typesToIgnore))
+        moshiBuilder.add(IgnoreTypesFactory(typesToIgnore))
       }
     }
   }

@@ -19,8 +19,8 @@ import com.salesforce.revoman.internal.exe.deepFlattenItems
 import com.salesforce.revoman.internal.exe.executePostResJS
 import com.salesforce.revoman.internal.exe.executePreReqJS
 import com.salesforce.revoman.internal.exe.fireHttpRequest
-import com.salesforce.revoman.internal.exe.postHookExe
-import com.salesforce.revoman.internal.exe.preHookExe
+import com.salesforce.revoman.internal.exe.postStepHookExe
+import com.salesforce.revoman.internal.exe.preStepHookExe
 import com.salesforce.revoman.internal.exe.shouldHaltExecution
 import com.salesforce.revoman.internal.exe.shouldStepBePicked
 import com.salesforce.revoman.internal.exe.unmarshallRequest
@@ -138,13 +138,19 @@ object ReVoman {
       .filter { shouldStepBePicked(it, kick.runOnlySteps(), kick.skipSteps()) }
       .fold(listOf()) { stepReports, step ->
         logger.info { "***** Executing Step: $step *****" }
+        pm.environment.currentStep = step
         val itemWithRegex = step.rawPMStep
         val preStepReport =
           StepReport(
-            step,
-            Right(
-              TxnInfo(httpMsg = itemWithRegex.request.toHttpRequest(), moshiReVoman = moshiReVoman)
-            ),
+            step = step,
+            requestInfo =
+              Right(
+                TxnInfo(
+                  httpMsg = itemWithRegex.request.toHttpRequest(null),
+                  moshiReVoman = moshiReVoman,
+                )
+              ),
+            pmEnvSnapshot = pm.environment,
           )
         pm.info = Info(step.name)
         pm.currentStepReport = preStepReport
@@ -162,7 +168,7 @@ object ReVoman {
               }
             }
             .flatMap { requestInfo: TxnInfo<Request> -> // --------### PRE-HOOKS ###--------
-              preHookExe(step, kick, requestInfo, pm)?.let {
+              preStepHookExe(step, kick, requestInfo, pm)?.let {
                 Left(
                   preStepReport.copy(
                     requestInfo = Right(requestInfo).toVavr(),
@@ -174,8 +180,10 @@ object ReVoman {
             .flatMap { sr: StepReport -> // --------### HTTP-REQUEST ###--------
               pm.currentStepReport = sr
               pm.rundown = pm.rundown.copy(stepReports = pm.rundown.stepReports + sr)
+              // * NOTE 15 Mar 2025 gopala.akshintala: Replace again to accommodate variables set by
+              // PRE-REQ-JS
               val item = regexReplacer.replaceVariablesInPmItem(itemWithRegex, pm)
-              val httpRequest = item.request.toHttpRequest()
+              val httpRequest = item.request.toHttpRequest(moshiReVoman)
               fireHttpRequest(
                   step,
                   item.request.auth,
@@ -207,11 +215,11 @@ object ReVoman {
             .map { sr: StepReport -> // --------### POST-HOOKS ###--------
               pm.currentStepReport = sr
               pm.rundown = pm.rundown.copy(stepReports = pm.rundown.stepReports + sr)
-              sr.copy(postStepHookFailure = postHookExe(kick, pm))
+              sr.copy(postStepHookFailure = postStepHookExe(kick, pm))
             }
             .merge()
             .copy(
-              envSnapshot =
+              pmEnvSnapshot =
                 pm.environment.copy(mutableEnv = pm.environment.mutableEnv.toMutableMap())
             )
         haltExecution = shouldHaltExecution(currentStepReport, kick, pm.rundown)

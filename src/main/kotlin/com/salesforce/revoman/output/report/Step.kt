@@ -18,8 +18,8 @@ data class Step(
   @JvmField val parentFolder: Folder? = null,
 ) {
   @JvmField val name: String = rawPMStep.name
-  @JvmField var preHookCount: Int = 0
-  @JvmField var postHookCount: Int = 0
+  @JvmField var preStepHookCount: Int = 0
+  @JvmField var postStepHookCount: Int = 0
   @JvmField
   val path = parentFolder?.let { "$it$STEP_NAME_SEPARATOR$name$STEP_NAME_TERMINATOR" } ?: name
   @JvmField
