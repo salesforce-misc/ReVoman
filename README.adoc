@@ -18,7 +18,7 @@ endif::[]
 :pmtemplates: src/integrationTest/resources/pm-templates
 :imagesdir: docs/images
 :prewrap!:
-:revoman-version: 0.6.3.1
+:revoman-version: 0.7.0
 
 '''
 
@@ -464,7 +464,7 @@ to qualify a step whose Response JSON payload needs to be unmarshalled/deseriali
 that you cannot depend on HTTP Status Code to distinguish between Success or Error.
 * In such a case,
 you can leverage a bundled Moshi factory link:{sourcedir}/com/salesforce/revoman/input/json/factories/DiMorphicAdapter.kt[DiMorphicAdapter]
-that deals with it dynamically based on a `boolean` attribute value in the response JSON.
+that deals with it dynamically based on a `Predicate`.
 See `DiMorphicAdapter` in action from the test `compositeGraphResponseDiMorphicMarshallUnmarshall()` in link:{testdir}/com/salesforce/revoman/input/json/JsonPojoUtilsTest.java[JsonPojoUtilsTest].
 * You may also refer to link:https://square.github.io/moshi/1.x/moshi-adapters/adapters/com.squareup.moshi.adapters/-polymorphic-json-adapter-factory/index.html[PolymorphicJsonAdapterFactory] for Marshalling/Unmarshalling based on `String` type attribute.
 ====

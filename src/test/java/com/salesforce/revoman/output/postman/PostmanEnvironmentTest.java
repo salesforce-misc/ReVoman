@@ -69,7 +69,7 @@ class PostmanEnvironmentTest {
 								"TotalAmount": 89.99,
 								"Category": "Original"
 							}
-								""",
+							""",
 						"key7",
 						null);
 		final var pm = new PostmanEnvironment<>(env.toJavaMap());
