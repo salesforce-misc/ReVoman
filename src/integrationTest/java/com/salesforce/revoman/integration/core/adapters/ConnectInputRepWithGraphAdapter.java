@@ -41,10 +41,9 @@ public class ConnectInputRepWithGraphAdapter<T extends ConnectInputRepresentatio
 	private final JsonAdapter<Object> dynamicJsonAdapter;
 	private final Moshi moshi;
 
-	private ConnectInputRepWithGraphAdapter(
-			Class<T> pojoType, JsonAdapter<Object> dynamicJsonAdapter, Moshi moshi) {
+	private ConnectInputRepWithGraphAdapter(Class<T> pojoType, Moshi moshi) {
 		this.pojoType = pojoType;
-		this.dynamicJsonAdapter = dynamicJsonAdapter.serializeNulls();
+		this.dynamicJsonAdapter = moshi.adapter(Object.class).serializeNulls();
 		this.moshi = moshi;
 	}
 
@@ -59,7 +58,7 @@ public class ConnectInputRepWithGraphAdapter<T extends ConnectInputRepresentatio
 				if (pojoType != requestedType) {
 					return null;
 				}
-				return new ConnectInputRepWithGraphAdapter<>(pojoType, moshi.adapter(Object.class), moshi);
+				return new ConnectInputRepWithGraphAdapter<>(pojoType, moshi);
 			}
 		};
 	}

@@ -12,8 +12,8 @@ import com.squareup.moshi.JsonDataException
 import com.squareup.moshi.JsonReader
 import com.squareup.moshi.JsonWriter
 import com.squareup.moshi.Moshi
-import com.squareup.moshi.Types
 import com.squareup.moshi.internal.Util
+import com.squareup.moshi.rawType
 import java.lang.reflect.Type
 
 /**
@@ -64,7 +64,7 @@ internal class CaseInsensitiveEnumAdapter<T : Enum<T>>(private val enumType: Cla
           annotations: Set<Annotation>,
           moshi: Moshi,
         ): JsonAdapter<*>? {
-          val rawType: Class<*> = Types.getRawType(type)
+          val rawType: Class<*> = type.rawType
           if (!rawType.isEnum) {
             return null
           }

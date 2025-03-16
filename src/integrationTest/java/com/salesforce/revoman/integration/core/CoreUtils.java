@@ -44,13 +44,13 @@ public class CoreUtils {
 						.<CompositeGraphResponse>getTypedTxnObj(
 								CompositeGraphResponse.class, List.of(CompositeGraphResponse.ADAPTER))
 						.getGraphs()
-						.get(0);
+						.getFirst();
 		assertTrue(
 				graphResp.isSuccessful(),
 				() -> {
 					final var firstErrorResponse =
-							CollectionsKt.first(((ErrorGraph) graphResp).errorResponses);
-					final var firstErrorResponseBody = ((ErrorGraph) graphResp).firstErrorResponseBody;
+							CollectionsKt.first(((ErrorGraph) graphResp).errorResponses());
+					final var firstErrorResponseBody = ((ErrorGraph) graphResp).firstErrorResponseBody();
 					return String.format(
 							"Unsuccessful Composite Graph response%n{%n  first error ReferenceId: %s%n  first errorCode: %s%n  first errorMessage: %s%n}%n%s",
 							firstErrorResponse.getReferenceId(),

@@ -1,0 +1,36 @@
+{
+  "compositeResponse": [
+    {
+      "body": {
+        "totalSize": 0,
+        "done": true,
+        "records": []
+      },
+      "httpHeaders": {},
+      "httpStatusCode": 200,
+      "referenceId": "billingScheduleForOrderId"
+    },
+    {
+      "body": [
+        {
+          "errorCode": "PROCESSING_HALTED",
+          "message": "Invalid reference specified. No value for billingScheduleForOrderId.records[0].Id found in billingScheduleForOrderId. Provided referenceId ('billingScheduleForOrderId.records[0].Id') must start with a letter or a number, and it can contain only letters, numbers and underscores ('_')."
+        }
+      ],
+      "httpHeaders": {},
+      "httpStatusCode": 400,
+      "referenceId": "billingMilestonePlan"
+    },
+    {
+      "body": [
+        {
+          "errorCode": "PROCESSING_HALTED",
+          "message": "Execution halted as previous operation (billingMilestonePlan) was not successful."
+        }
+      ],
+      "httpHeaders": {},
+      "httpStatusCode": 400,
+      "referenceId": "billingMilestonePlanItems"
+    }
+  ]
+}

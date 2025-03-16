@@ -8,17 +8,12 @@
 package com.salesforce.revoman.input.json.adapters.salesforce
 
 import com.salesforce.revoman.input.json.adapters.salesforce.CompositeGraphResponse.Graph.ErrorGraph
-import com.salesforce.revoman.input.json.adapters.salesforce.CompositeGraphResponse.Graph.ErrorGraph.GraphErrorResponse.CompositeErrorResponse
-import com.salesforce.revoman.input.json.adapters.salesforce.CompositeGraphResponse.Graph.ErrorGraph.GraphErrorResponse.CompositeErrorResponse.Body
+import com.salesforce.revoman.input.json.adapters.salesforce.CompositeGraphResponse.Graph.ErrorGraph.ErrorGraphResponse.CompositeErrorResponse
+import com.salesforce.revoman.input.json.adapters.salesforce.CompositeGraphResponse.Graph.ErrorGraph.ErrorGraphResponse.CompositeErrorResponse.Body
 import com.salesforce.revoman.input.json.adapters.salesforce.CompositeGraphResponse.Graph.SuccessGraph
 import com.salesforce.revoman.input.json.factories.DiMorphicAdapter
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
-
-private val CLIENT_ERROR = 400..499
-private const val PROCESSING_HALTED = "PROCESSING_HALTED"
-private const val OPERATION_IN_TRANSACTION_FAILED_ERROR =
-  "The transaction was rolled back since another operation in the same transaction failed."
 
 @JsonClass(generateAdapter = true)
 data class CompositeGraphResponse(val graphs: List<Graph>) {
@@ -53,30 +48,33 @@ data class CompositeGraphResponse(val graphs: List<Graph>) {
     @JsonClass(generateAdapter = true)
     data class ErrorGraph(
       override val graphId: String,
-      val graphResponse: GraphErrorResponse,
+      val graphResponse: ErrorGraphResponse,
       override val isSuccessful: Boolean,
     ) : Graph {
       @Json(ignore = true)
-      @JvmField
-      val errorResponses: List<CompositeErrorResponse> =
+      @get:JvmName("errorResponses")
+      val errorResponses: List<CompositeErrorResponse> by lazy {
         graphResponse.compositeResponse.filter {
-          it.httpStatusCode in CLIENT_ERROR &&
+          it.httpStatusCode !in SUCCESSFUL &&
             it.body.firstOrNull()?.let { error ->
               error.errorCode == PROCESSING_HALTED ||
                 error.message == OPERATION_IN_TRANSACTION_FAILED_ERROR
             } != true
         }
+      }
 
       @Json(ignore = true)
-      @JvmField
-      val firstErrorResponse: CompositeErrorResponse? = errorResponses.firstOrNull()
+      @get:JvmName("firstErrorResponse")
+      val firstErrorResponse: CompositeErrorResponse? by lazy { errorResponses.firstOrNull() }
 
       @Json(ignore = true)
-      @JvmField
-      val firstErrorResponseBody: Body? = errorResponses.firstOrNull()?.body?.firstOrNull()
+      @get:JvmName("firstErrorResponseBody")
+      val firstErrorResponseBody: Body? by lazy {
+        errorResponses.firstOrNull()?.body?.firstOrNull()
+      }
 
       @JsonClass(generateAdapter = true)
-      data class GraphErrorResponse(val compositeResponse: List<CompositeErrorResponse>) {
+      data class ErrorGraphResponse(val compositeResponse: List<CompositeErrorResponse>) {
         @JsonClass(generateAdapter = true)
         data class CompositeErrorResponse(
           val body: List<Body>,
@@ -99,7 +97,7 @@ data class CompositeGraphResponse(val graphs: List<Graph>) {
       DiMorphicAdapter.of(
         Graph::class.java,
         "isSuccessful",
-        true,
+        { it.nextBoolean() },
         SuccessGraph::class.java,
         ErrorGraph::class.java,
       )

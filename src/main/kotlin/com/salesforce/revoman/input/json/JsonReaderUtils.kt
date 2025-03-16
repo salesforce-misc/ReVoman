@@ -26,10 +26,10 @@ fun skipValue(reader: JsonReader) = reader.skipValue()
 
 fun nextName(reader: JsonReader): String = reader.nextName()
 
-fun <T> objR(mk: () -> T, reader: JsonReader, block: NestedNodeReader<T>): T =
+fun <T> objR(supplier: () -> T, reader: JsonReader, block: NestedNodeReader<T>): T =
   with(reader) {
     beginObject()
-    val item = mk()
+    val item = supplier()
     while (hasNext()) {
       block.read(item, nextName())
     }
@@ -37,11 +37,14 @@ fun <T> objR(mk: () -> T, reader: JsonReader, block: NestedNodeReader<T>): T =
     item
   }
 
-fun <T> listR(mk: () -> T, reader: JsonReader, fn: NestedNodeReader<T>): List<T?>? =
+fun <T> JsonReader.objR(supplier: () -> T, block: T.(String) -> Unit): T =
+  objR(supplier, this, block)
+
+fun <T> listR(supplier: () -> T, reader: JsonReader, fn: NestedNodeReader<T>): List<T?>? =
   reader.skipNullOr {
     val items = mutableListOf<T?>()
     beginArray()
-    while (hasNext()) items += objR(mk, this, fn)
+    while (hasNext()) items += objR(supplier, this, fn)
     endArray()
     items
   }
@@ -60,8 +63,8 @@ private fun <T> JsonReader.skipNullOr(fn: JsonReader.() -> T): T? =
 fun <T> JsonReader.readProps(pojoType: Class<T>, bean: T, fieldName: String, moshi: Moshi) =
   skipNullOr {
     val propType: Class<*> = BeanUtils.findPropertyType(fieldName, pojoType)
-    // * NOTE 15 Feb 2024 gopala.akshintala: Since data type info is lost with JSON, we cannot use
-    // dynamicAdapter
+    // * NOTE 15 Feb 2024 gopala.akshintala: Since data type info gets lost with JSON,
+    // dynamicJsonAdapter cannot be used
     val delegate: JsonAdapter<out Any?> = moshi.adapter(propType)
     BeanUtils.getPropertyDescriptor(pojoType, fieldName)
       ?.writeMethod

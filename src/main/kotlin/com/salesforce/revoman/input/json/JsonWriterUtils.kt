@@ -13,13 +13,15 @@ import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.JsonWriter
 import org.springframework.beans.BeanUtils
 
-fun <T> objW(name: String, obj: T, writer: JsonWriter, fn: NestedNodeWriter<T>): Unit =
+fun <T> objW(name: String, obj: T?, writer: JsonWriter, fn: NestedNodeWriter<T>): Unit =
   with(writer) {
     name(name)
     objW(obj, writer, fn)
   }
 
-fun <T> objW(obj: T, writer: JsonWriter, fn: NestedNodeWriter<T>): Unit =
+fun <T> JsonWriter.objW(name: String, obj: T?, fn: T.() -> Unit): Unit = objW(name, obj, this, fn)
+
+fun <T> objW(obj: T?, writer: JsonWriter, fn: NestedNodeWriter<T>): Unit =
   with(writer) {
     if (obj == null) {
       nullValue()
@@ -29,6 +31,8 @@ fun <T> objW(obj: T, writer: JsonWriter, fn: NestedNodeWriter<T>): Unit =
       endObject()
     }
   }
+
+fun <T> JsonWriter.objW(obj: T?, fn: T.() -> Unit): Unit = objW(obj, this, fn)
 
 fun string(name: String, value: String?, writer: JsonWriter): Unit = writer.string(name, value)
 
@@ -92,14 +96,14 @@ fun <T> listW(list: List<T>?, writer: JsonWriter, fn: NestedNodeWriter<T>): Json
     }
   }
 
-fun JsonWriter.mapW(map: Map<String, Any?>, dynamicJsonAdapter: JsonAdapter<Any>) {
-  map.forEach { (key: String, value: Any?) ->
+fun JsonWriter.mapW(map: Map<String, Any?>?, dynamicJsonAdapter: JsonAdapter<Any>) {
+  map?.forEach { (key: String, value: Any?) ->
     name(key)
     dynamicJsonAdapter.toJson(this, value)
-  }
+  } ?: nullValue()
 }
 
-/** BeanUtils is used to read even the private fields with a getter */
+// * NOTE 15 Mar 2025 gopala.akshintala: BeanUtils can read even the private fields with a getter
 fun <T> JsonWriter.writeProps(
   pojoType: Class<T>,
   bean: T,

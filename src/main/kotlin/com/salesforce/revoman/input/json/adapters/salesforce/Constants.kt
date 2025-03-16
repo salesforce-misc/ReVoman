@@ -7,18 +7,8 @@
  */
 package com.salesforce.revoman.input.json.adapters.salesforce
 
-import com.squareup.moshi.JsonClass
-
-@JsonClass(generateAdapter = true)
-data class CompositeGraphRequest(val graphs: List<Graph>) {
-  @JsonClass(generateAdapter = true)
-  data class Graph(val compositeRequest: List<CompositeRequest>, val graphId: String) {
-    @JsonClass(generateAdapter = true)
-    data class CompositeRequest(
-      val body: Map<String, Any?>,
-      val method: String,
-      val referenceId: String,
-      val url: String,
-    )
-  }
-}
+internal val SUCCESSFUL = 200..299
+internal val CLIENT_ERROR = 400..499
+internal const val PROCESSING_HALTED = "PROCESSING_HALTED"
+internal const val OPERATION_IN_TRANSACTION_FAILED_ERROR =
+  "The transaction was rolled back since another operation in the same transaction failed."

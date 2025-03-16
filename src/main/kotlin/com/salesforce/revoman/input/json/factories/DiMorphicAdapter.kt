@@ -19,26 +19,25 @@ import java.lang.reflect.Type
 class DiMorphicAdapter
 private constructor(
   private val labelKey: String,
-  private val successAdapter: Triple<Boolean, Type, JsonAdapter<Any>>,
+  private val successAdapter: Triple<(JsonReader) -> Boolean, Type, JsonAdapter<Any>>,
   private val errorAdapter: Pair<Type, JsonAdapter<Any>>,
 ) : JsonAdapter<Any>() {
   override fun fromJson(reader: JsonReader): Any? {
-    val peeked = reader.peekJson()
-    val labelValue = peeked.use(::labelValue)
+    val readerAtLabelKey = findLabelValue(reader.peekJson())
     val jsonAdapter =
-      if (successAdapter.first == labelValue) successAdapter.third else errorAdapter.second
+      if (readerAtLabelKey.use(successAdapter.first)) successAdapter.third else errorAdapter.second
     return jsonAdapter.fromJson(reader)
   }
 
-  private fun labelValue(reader: JsonReader): Boolean {
+  private fun findLabelValue(reader: JsonReader): JsonReader {
     reader.beginObject()
     while (reader.hasNext()) {
       if (reader.selectName(Options.of(labelKey)) == -1) {
         reader.skipName()
         reader.skipValue()
-        continue
+      } else {
+        return reader
       }
-      return reader.nextBoolean()
     }
     throw JsonDataException("Missing label for $labelKey")
   }
@@ -56,7 +55,7 @@ private constructor(
     fun of(
       baseType: Type,
       labelKey: String,
-      labelValueForSuccess: Boolean,
+      successPredicate: (JsonReader) -> Boolean,
       successType: Type,
       errorType: Type,
     ): Factory =
@@ -71,7 +70,7 @@ private constructor(
           }
           return DiMorphicAdapter(
               labelKey,
-              Triple(labelValueForSuccess, successType, moshi.adapter(successType)),
+              Triple(successPredicate, successType, moshi.adapter(successType)),
               errorType to moshi.adapter(errorType),
             )
             .nullSafe()
