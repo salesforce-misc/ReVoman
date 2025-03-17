@@ -12,8 +12,10 @@ import com.salesforce.revoman.output.report.Step
 import com.salesforce.revoman.output.report.StepReport
 import com.salesforce.revoman.output.report.StepReport.Companion.containsHeader
 import com.salesforce.revoman.output.report.StepReport.Companion.uriPathContains
+import com.salesforce.revoman.output.report.StepReport.Companion.uriPathEndsWith
 import com.salesforce.revoman.output.report.TxnInfo
 import com.salesforce.revoman.output.report.TxnInfo.Companion.uriPathContains
+import com.salesforce.revoman.output.report.TxnInfo.Companion.uriPathEndsWith
 import org.http4k.core.Request
 
 sealed interface StepPick {
@@ -65,6 +67,12 @@ sealed interface StepPick {
         PreTxnStepPick { _, requestInfo, _ ->
           paths.any { requestInfo.uriPathContains(it) }
         }
+
+      @JvmStatic
+      fun beforeStepEndingWithURIPathOfAny(vararg paths: String) =
+        PreTxnStepPick { _, requestInfo, _ ->
+          paths.any { requestInfo.uriPathEndsWith(it) }
+        }
     }
   }
 
@@ -100,6 +108,11 @@ sealed interface StepPick {
       @JvmStatic
       fun afterStepContainingURIPathOfAny(vararg paths: String) = PostTxnStepPick { stepReport, _ ->
         paths.any { stepReport.requestInfo.uriPathContains(it) }
+      }
+
+      @JvmStatic
+      fun afterStepEndingWithURIPathOfAny(vararg paths: String) = PostTxnStepPick { stepReport, _ ->
+        paths.any { stepReport.requestInfo.uriPathEndsWith(it) }
       }
     }
   }

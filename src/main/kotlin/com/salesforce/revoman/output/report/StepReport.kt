@@ -12,6 +12,7 @@ import arrow.core.Either.Right
 import com.salesforce.revoman.output.ExeType
 import com.salesforce.revoman.output.postman.PostmanEnvironment
 import com.salesforce.revoman.output.report.TxnInfo.Companion.uriPathContains
+import com.salesforce.revoman.output.report.TxnInfo.Companion.uriPathEndsWith
 import com.salesforce.revoman.output.report.failure.ExeFailure
 import com.salesforce.revoman.output.report.failure.HookFailure.PostStepHookFailure
 import com.salesforce.revoman.output.report.failure.HookFailure.PreStepHookFailure
@@ -105,6 +106,10 @@ internal constructor(
     @JvmStatic
     fun Either<out RequestFailure, TxnInfo<Request>>?.uriPathContains(path: String): Boolean =
       this?.fold({ false }, { it.uriPathContains(path) }) ?: false
+
+    @JvmStatic
+    fun Either<out RequestFailure, TxnInfo<Request>>?.uriPathEndsWith(path: String): Boolean =
+      this?.fold({ false }, { it.uriPathEndsWith(path) }) ?: false
 
     @JvmStatic
     fun Either<out RequestFailure, TxnInfo<Request>>?.containsHeader(key: String): Boolean =

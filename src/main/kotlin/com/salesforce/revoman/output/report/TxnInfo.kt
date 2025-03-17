@@ -87,5 +87,13 @@ constructor(
     @JvmStatic
     fun TxnInfo<Request>.uriPathContains(path: String): Boolean =
       indexOfSubList(httpMsg.uri.path.trim('/').split("/"), path.trim('/').split("/")) != -1
+
+    @JvmStatic
+    fun TxnInfo<Request>.uriPathEndsWith(path: String): Boolean {
+      val sourcePath = httpMsg.uri.path.trim('/').split("/")
+      val targetPath = path.trim('/').split("/")
+      return indexOfSubList(sourcePath, targetPath) != -1 &&
+        indexOfSubList(sourcePath, targetPath) + targetPath.lastIndex == sourcePath.lastIndex
+    }
   }
 }

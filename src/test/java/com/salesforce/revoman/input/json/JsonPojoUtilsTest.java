@@ -14,9 +14,9 @@ import com.salesforce.revoman.input.json.adapters.SObjectGraphRequestMarshaller;
 import com.salesforce.revoman.input.json.adapters.salesforce.CompositeGraphResponse;
 import com.salesforce.revoman.input.json.adapters.salesforce.CompositeGraphResponse.Graph.ErrorGraph;
 import com.salesforce.revoman.input.json.adapters.salesforce.CompositeGraphResponse.Graph.SuccessGraph;
-import com.salesforce.revoman.input.json.adapters.salesforce.CompositeQueryResponse;
-import com.salesforce.revoman.input.json.adapters.salesforce.CompositeQueryResponse.QueryResponse.ErrorQueryResponse;
-import com.salesforce.revoman.input.json.adapters.salesforce.CompositeQueryResponse.QueryResponse.SuccessQueryResponse;
+import com.salesforce.revoman.input.json.adapters.salesforce.CompositeResponse;
+import com.salesforce.revoman.input.json.adapters.salesforce.CompositeResponse.Response.ErrorResponse;
+import com.salesforce.revoman.input.json.adapters.salesforce.CompositeResponse.Response.SuccessResponse;
 import com.salesforce.revoman.input.json.pojo.SObjectGraphRequest;
 import com.salesforce.revoman.input.json.pojo.SObjectGraphRequest.Entity;
 import com.salesforce.revoman.input.json.pojo.SObjectGraphRequest.SObjectWithReferenceRequest;
@@ -82,9 +82,9 @@ class JsonPojoUtilsTest {
 	void compositeQueryResponseDiMorphicMarshallUnmarshall() throws JSONException {
 		// JSON --> POJO
 		final var jsonFileConfig =
-				JsonFile.<CompositeQueryResponse>unmarshall()
-						.pojoType(CompositeQueryResponse.class)
-						.customAdapter(CompositeQueryResponse.ADAPTER);
+				JsonFile.<CompositeResponse>unmarshall()
+						.pojoType(CompositeResponse.class)
+						.customAdapter(CompositeResponse.ADAPTER);
 
 		final var successCompositeQueryResponse =
 				JsonPojoUtils.jsonFileToPojo(
@@ -95,8 +95,7 @@ class JsonPojoUtilsTest {
 		successCompositeQueryResponse
 				.getCompositeResponse()
 				.forEach(
-						successQueryResponse ->
-								assertThat(successQueryResponse).isInstanceOf(SuccessQueryResponse.class));
+						successResponse -> assertThat(successResponse).isInstanceOf(SuccessResponse.class));
 
 		final var errorCompositeQueryResponse =
 				JsonPojoUtils.jsonFileToPojo(
@@ -106,9 +105,7 @@ class JsonPojoUtilsTest {
 		assertThat(errorCompositeQueryResponse.isSuccessful()).isFalse();
 		errorCompositeQueryResponse
 				.getCompositeResponse()
-				.forEach(
-						errorQueryResponse ->
-								assertThat(errorQueryResponse).isInstanceOf(ErrorQueryResponse.class));
+				.forEach(errorResponse -> assertThat(errorResponse).isInstanceOf(ErrorResponse.class));
 		assertThat(errorCompositeQueryResponse.firstErrorResponseBody().getMessage())
 				.contains("Invalid reference specified");
 
@@ -119,19 +116,19 @@ class JsonPojoUtilsTest {
 								.done());
 		assertThat(partialSuccessCompositeQueryResponse.isSuccessful()).isFalse();
 		assertThat(partialSuccessCompositeQueryResponse.getCompositeResponse().getFirst())
-				.isInstanceOf(SuccessQueryResponse.class);
+				.isInstanceOf(SuccessResponse.class);
 		assertThat(partialSuccessCompositeQueryResponse.getCompositeResponse().get(1))
-				.isInstanceOf(ErrorQueryResponse.class);
+				.isInstanceOf(ErrorResponse.class);
 		assertThat(partialSuccessCompositeQueryResponse.getCompositeResponse().get(2))
-				.isInstanceOf(ErrorQueryResponse.class);
+				.isInstanceOf(ErrorResponse.class);
 		assertThat(partialSuccessCompositeQueryResponse.firstErrorResponseBody().getMessage())
 				.contains("Invalid reference specified");
 
 		// POJO --> JSON
 		final var pojoToJsonConfig =
-				Pojo.<CompositeQueryResponse>marshall()
-						.pojoType(CompositeQueryResponse.class)
-						.customAdapter(CompositeQueryResponse.ADAPTER);
+				Pojo.<CompositeResponse>marshall()
+						.pojoType(CompositeResponse.class)
+						.customAdapter(CompositeResponse.ADAPTER);
 
 		final var successCompositeQueryResponseUnmarshalled =
 				JsonPojoUtils.pojoToJson(pojoToJsonConfig.pojo(successCompositeQueryResponse).done());

@@ -1,10 +1,10 @@
 package com.salesforce.revoman.input.json.adapters.salesforce
 
-import com.salesforce.revoman.input.json.adapters.salesforce.CompositeQueryResponse.QueryResponse.ErrorQueryResponse
-import com.salesforce.revoman.input.json.adapters.salesforce.CompositeQueryResponse.QueryResponse.ErrorQueryResponse.ErrorBody
-import com.salesforce.revoman.input.json.adapters.salesforce.CompositeQueryResponse.QueryResponse.SuccessQueryResponse
-import com.salesforce.revoman.input.json.adapters.salesforce.CompositeQueryResponse.QueryResponse.SuccessQueryResponse.Body.Record
-import com.salesforce.revoman.input.json.adapters.salesforce.CompositeQueryResponse.QueryResponse.SuccessQueryResponse.Body.Record.Attributes
+import com.salesforce.revoman.input.json.adapters.salesforce.CompositeResponse.Response.ErrorResponse
+import com.salesforce.revoman.input.json.adapters.salesforce.CompositeResponse.Response.ErrorResponse.ErrorBody
+import com.salesforce.revoman.input.json.adapters.salesforce.CompositeResponse.Response.SuccessResponse
+import com.salesforce.revoman.input.json.adapters.salesforce.CompositeResponse.Response.SuccessResponse.Body.Record
+import com.salesforce.revoman.input.json.adapters.salesforce.CompositeResponse.Response.SuccessResponse.Body.Record.Attributes
 import com.salesforce.revoman.input.json.factories.DiMorphicAdapter
 import com.salesforce.revoman.input.json.mapW
 import com.salesforce.revoman.input.json.objW
@@ -21,20 +21,20 @@ import dev.zacsweers.moshix.adapters.AdaptedBy
 import java.lang.reflect.Type
 
 @JsonClass(generateAdapter = true)
-data class CompositeQueryResponse(val compositeResponse: List<QueryResponse>) {
+data class CompositeResponse(val compositeResponse: List<Response>) {
 
-  sealed interface QueryResponse {
+  sealed interface Response {
     val httpStatusCode: Int
     val referenceId: String
     val httpHeaders: HttpHeaders
 
     @JsonClass(generateAdapter = true)
-    data class SuccessQueryResponse(
+    data class SuccessResponse(
       val body: Body,
       override val httpHeaders: HttpHeaders,
       override val httpStatusCode: Int,
       override val referenceId: String,
-    ) : QueryResponse {
+    ) : Response {
       @JsonClass(generateAdapter = true)
       data class Body(val done: Boolean, val records: List<Record>, val totalSize: Int) {
         @JsonClass(generateAdapter = true)
@@ -97,12 +97,12 @@ data class CompositeQueryResponse(val compositeResponse: List<QueryResponse>) {
     }
 
     @JsonClass(generateAdapter = true)
-    data class ErrorQueryResponse(
+    data class ErrorResponse(
       val body: List<ErrorBody>,
       override val httpHeaders: HttpHeaders,
       override val httpStatusCode: Int,
       override val referenceId: String,
-    ) : QueryResponse {
+    ) : Response {
       @JsonClass(generateAdapter = true)
       data class ErrorBody(val errorCode: String, val message: String)
     }
@@ -112,9 +112,9 @@ data class CompositeQueryResponse(val compositeResponse: List<QueryResponse>) {
 
   @Json(ignore = true)
   @get:JvmName("errorResponses")
-  val errorResponses: List<ErrorQueryResponse> by lazy {
+  val errorResponses: List<ErrorResponse> by lazy {
     compositeResponse
-      .mapNotNull { it as? ErrorQueryResponse }
+      .mapNotNull { it as? ErrorResponse }
       .filter {
         it.httpStatusCode !in SUCCESSFUL_HTTP_STATUSES &&
           it.body.firstOrNull()?.let { error ->
@@ -144,7 +144,7 @@ data class CompositeQueryResponse(val compositeResponse: List<QueryResponse>) {
 
   @Json(ignore = true)
   @get:JvmName("firstErrorResponse")
-  val firstErrorResponse: ErrorQueryResponse? by lazy { errorResponses.firstOrNull() }
+  val firstErrorResponse: ErrorResponse? by lazy { errorResponses.firstOrNull() }
 
   @Json(ignore = true)
   @get:JvmName("firstErrorResponseBody")
@@ -156,11 +156,11 @@ data class CompositeQueryResponse(val compositeResponse: List<QueryResponse>) {
     @JvmField
     val ADAPTER =
       DiMorphicAdapter.of(
-        QueryResponse::class.java,
+        Response::class.java,
         "httpStatusCode",
         { it.nextInt() in SUCCESSFUL_HTTP_STATUSES },
-        SuccessQueryResponse::class.java,
-        ErrorQueryResponse::class.java,
+        SuccessResponse::class.java,
+        ErrorResponse::class.java,
       )
   }
 }
