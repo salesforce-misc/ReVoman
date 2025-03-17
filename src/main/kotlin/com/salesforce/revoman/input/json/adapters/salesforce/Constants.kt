@@ -7,8 +7,7 @@
  */
 package com.salesforce.revoman.input.json.adapters.salesforce
 
-internal val SUCCESSFUL = 200..299
-internal val CLIENT_ERROR = 400..499
+internal val SUCCESSFUL_HTTP_STATUSES = 200..299
 internal const val PROCESSING_HALTED = "PROCESSING_HALTED"
 internal const val OPERATION_IN_TRANSACTION_FAILED_ERROR =
   "The transaction was rolled back since another operation in the same transaction failed."

@@ -55,7 +55,7 @@ data class CompositeGraphResponse(val graphs: List<Graph>) {
       @get:JvmName("errorResponses")
       val errorResponses: List<CompositeErrorResponse> by lazy {
         graphResponse.compositeResponse.filter {
-          it.httpStatusCode !in SUCCESSFUL &&
+          it.httpStatusCode !in SUCCESSFUL_HTTP_STATUSES &&
             it.body.firstOrNull()?.let { error ->
               error.errorCode == PROCESSING_HALTED ||
                 error.message == OPERATION_IN_TRANSACTION_FAILED_ERROR

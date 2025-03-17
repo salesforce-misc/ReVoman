@@ -38,14 +38,14 @@ data class CompositeQueryResponse(val compositeResponse: List<QueryResponse>) {
       @JsonClass(generateAdapter = true)
       data class Body(val done: Boolean, val records: List<Record>, val totalSize: Int) {
         @JsonClass(generateAdapter = true)
-        @AdaptedBy(RecordAdapterFactory::class)
+        @AdaptedBy(RecordFactory::class)
         data class Record(val attributes: Attributes, val recordBody: Map<String, Any?>) {
           @JsonClass(generateAdapter = true)
           data class Attributes(val type: String, val url: String)
         }
       }
 
-      class RecordAdapterFactory : JsonAdapter.Factory {
+      class RecordFactory : JsonAdapter.Factory {
         override fun create(
           type: Type,
           annotations: Set<Annotation>,
@@ -57,42 +57,42 @@ data class CompositeQueryResponse(val compositeResponse: List<QueryResponse>) {
             null
           }
         }
-      }
 
-      class RecordAdapter(val moshi: Moshi) : JsonAdapter<Record>() {
-        private val options = JsonReader.Options.of("attributes")
-        @OptIn(ExperimentalStdlibApi::class)
-        private val attributesJsonAdapter = moshi.adapter<Attributes>()
-        @OptIn(ExperimentalStdlibApi::class) private val dynamicJsonAdapter = moshi.adapter<Any>()
+        class RecordAdapter(val moshi: Moshi) : JsonAdapter<Record>() {
+          private val options = JsonReader.Options.of("attributes")
+          @OptIn(ExperimentalStdlibApi::class)
+          private val attributesJsonAdapter = moshi.adapter<Attributes>()
+          @OptIn(ExperimentalStdlibApi::class) private val dynamicJsonAdapter = moshi.adapter<Any>()
 
-        override fun fromJson(reader: JsonReader): Record? {
-          reader.beginObject()
-          var attributes: Attributes? = null
-          val recordBody = mutableMapOf<String, Any?>()
-          while (reader.hasNext()) {
-            when (reader.selectName(options)) {
-              0 -> {
-                if (attributes != null) {
-                  throw JsonDataException("Duplicate attributes Node")
+          override fun fromJson(reader: JsonReader): Record? {
+            reader.beginObject()
+            var attributes: Attributes? = null
+            val recordBody = mutableMapOf<String, Any?>()
+            while (reader.hasNext()) {
+              when (reader.selectName(options)) {
+                0 -> {
+                  if (attributes != null) {
+                    throw JsonDataException("Duplicate attributes Node")
+                  }
+                  attributes = attributesJsonAdapter.fromJson(reader)
                 }
-                attributes = attributesJsonAdapter.fromJson(reader)
+                -1 -> recordBody[reader.nextName()] = reader.readJsonValue()!!
+                else -> throw AssertionError()
               }
-              -1 -> recordBody[reader.nextName()] = reader.readJsonValue()!!
-              else -> throw AssertionError()
             }
+            reader.endObject()
+            return Record(attributes!!, recordBody)
           }
-          reader.endObject()
-          return Record(attributes!!, recordBody)
-        }
 
-        override fun toJson(writer: JsonWriter, record: Record?) =
-          with(writer) {
-            objW(record) {
-              name("attributes")
-              attributesJsonAdapter.toJson(this@with, attributes)
-              mapW(recordBody, dynamicJsonAdapter)
+          override fun toJson(writer: JsonWriter, record: Record?) =
+            with(writer) {
+              objW(record) {
+                name("attributes")
+                attributesJsonAdapter.toJson(this@with, attributes)
+                mapW(recordBody, dynamicJsonAdapter)
+              }
             }
-          }
+        }
       }
     }
 
@@ -116,7 +116,7 @@ data class CompositeQueryResponse(val compositeResponse: List<QueryResponse>) {
     compositeResponse
       .mapNotNull { it as? ErrorQueryResponse }
       .filter {
-        it.httpStatusCode !in SUCCESSFUL &&
+        it.httpStatusCode !in SUCCESSFUL_HTTP_STATUSES &&
           it.body.firstOrNull()?.let { error ->
             error.errorCode == PROCESSING_HALTED &&
               error.message == OPERATION_IN_TRANSACTION_FAILED_ERROR
@@ -125,12 +125,22 @@ data class CompositeQueryResponse(val compositeResponse: List<QueryResponse>) {
   }
 
   @Json(ignore = true)
+  @get:JvmName("isSuccessful")
+  val isSuccessful: Boolean by lazy {
+    compositeResponse.all { it.httpStatusCode in SUCCESSFUL_HTTP_STATUSES }
+  }
+
+  @Json(ignore = true)
   @get:JvmName("errorResponseCount")
-  val errorResponseCount: Int by lazy { errorResponses.size }
+  val errorResponseCount: Int by lazy {
+    compositeResponse.count { it.httpStatusCode !in SUCCESSFUL_HTTP_STATUSES }
+  }
 
   @Json(ignore = true)
   @get:JvmName("successResponseCount")
-  val successResponseCount: Int by lazy { compositeResponse.size - errorResponseCount }
+  val successResponseCount: Int by lazy {
+    compositeResponse.count { it.httpStatusCode in SUCCESSFUL_HTTP_STATUSES }
+  }
 
   @Json(ignore = true)
   @get:JvmName("firstErrorResponse")
@@ -148,7 +158,7 @@ data class CompositeQueryResponse(val compositeResponse: List<QueryResponse>) {
       DiMorphicAdapter.of(
         QueryResponse::class.java,
         "httpStatusCode",
-        { it.nextInt() in SUCCESSFUL },
+        { it.nextInt() in SUCCESSFUL_HTTP_STATUSES },
         SuccessQueryResponse::class.java,
         ErrorQueryResponse::class.java,
       )

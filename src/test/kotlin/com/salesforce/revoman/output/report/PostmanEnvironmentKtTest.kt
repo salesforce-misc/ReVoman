@@ -14,7 +14,6 @@ import io.kotest.matchers.equals.shouldBeEqual
 import io.kotest.matchers.maps.shouldContainExactly
 import io.kotest.matchers.maps.shouldNotBeEmpty
 import io.kotest.matchers.shouldBe
-import io.kotest.matchers.types.shouldBeInstanceOf
 import org.junit.jupiter.api.Test
 import org.skyscreamer.jsonassert.JSONAssert
 import org.skyscreamer.jsonassert.JSONCompareMode
@@ -73,9 +72,7 @@ class PostmanEnvironmentKtTest {
     pmEnv.getObj<List<Int>>("key3")!! shouldBeEqual env["key3"] as List<Int>
     pmEnv.getObj<Map<String, Int>>("key4")!! shouldContainExactly env["key4"] as Map<String, Int>
     pmEnv.getObj<List<String>>("key5")!! shouldContainExactly env["key5"] as List<String>
-    pmEnv
-      .getObj<Map<String, Any?>>("key6")!!
-      .shouldNotBeEmpty()
+    pmEnv.getObj<Map<String, Any?>>("key6")!!.shouldNotBeEmpty()
     pmEnv.getObj<Any>("key7") shouldBe null
   }
 }

@@ -91,6 +91,7 @@ class JsonPojoUtilsTest {
 						jsonFileConfig
 								.jsonFilePath("composite/query/resp/query-response-all-success.json")
 								.done());
+		assertThat(successCompositeQueryResponse.isSuccessful()).isTrue();
 		successCompositeQueryResponse
 				.getCompositeResponse()
 				.forEach(
@@ -102,6 +103,7 @@ class JsonPojoUtilsTest {
 						jsonFileConfig
 								.jsonFilePath("composite/query/resp/query-response-all-error.json")
 								.done());
+		assertThat(errorCompositeQueryResponse.isSuccessful()).isFalse();
 		errorCompositeQueryResponse
 				.getCompositeResponse()
 				.forEach(
@@ -115,6 +117,7 @@ class JsonPojoUtilsTest {
 						jsonFileConfig
 								.jsonFilePath("composite/query/resp/query-response-partial-success.json")
 								.done());
+		assertThat(partialSuccessCompositeQueryResponse.isSuccessful()).isFalse();
 		assertThat(partialSuccessCompositeQueryResponse.getCompositeResponse().getFirst())
 				.isInstanceOf(SuccessQueryResponse.class);
 		assertThat(partialSuccessCompositeQueryResponse.getCompositeResponse().get(1))
