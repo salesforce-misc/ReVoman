@@ -40,7 +40,7 @@ import org.slf4j.LoggerFactory;
  * ----------------------------------------~~~~~ NOTE ~~~~~-----------------------------------------
  * This is only a sample to demo a full-blown test. You may not be able to execute this, as it needs
  * a specific server setup. If you are a Salesforce core developer, it takes less than 5 minutes to
- * setup an SM org,
+ * set up an SM org.
  *
  * <p>- Follow these instructions: <a href="http://sfdc.co/sm-org-setup">SM Org setup</a>. - Replace
  * baseUrl of your server, username and password of the org admin here: <a

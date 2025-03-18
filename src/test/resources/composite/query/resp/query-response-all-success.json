@@ -150,6 +150,18 @@
       "httpHeaders": {},
       "httpStatusCode": 200,
       "referenceId": "qlrs"
+    },
+    {
+      "body": null,
+      "httpHeaders": {},
+      "httpStatusCode": 204,
+      "referenceId": "taxAdminNewPassword"
+    },
+    {
+      "body": null,
+      "httpHeaders": {},
+      "httpStatusCode": 204,
+      "referenceId": "productAndPricingAdminNewPassword"
     }
   ]
 }

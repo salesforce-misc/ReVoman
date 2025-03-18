@@ -92,8 +92,8 @@ constructor(
     fun TxnInfo<Request>.uriPathEndsWith(path: String): Boolean {
       val sourcePath = httpMsg.uri.path.trim('/').split("/")
       val targetPath = path.trim('/').split("/")
-      return indexOfSubList(sourcePath, targetPath) != -1 &&
-        indexOfSubList(sourcePath, targetPath) + targetPath.lastIndex == sourcePath.lastIndex
+      val indexOfSubList = indexOfSubList(sourcePath, targetPath)
+      return indexOfSubList != -1 && indexOfSubList + targetPath.lastIndex == sourcePath.lastIndex
     }
   }
 }

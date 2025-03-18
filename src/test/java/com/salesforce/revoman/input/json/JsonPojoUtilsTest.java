@@ -78,8 +78,8 @@ class JsonPojoUtilsTest {
 	}
 
 	@Test
-	@DisplayName("DiMorphic CompositeQuery Success/Error QueryResponse --> POJO --> JSON")
-	void compositeQueryResponseDiMorphicMarshallUnmarshall() throws JSONException {
+	@DisplayName("DiMorphic Composite Success/Error Response --> POJO --> JSON")
+	void compositeResponseDiMorphicMarshallUnmarshall() throws JSONException {
 		// JSON --> POJO
 		final var jsonFileConfig =
 				JsonFile.<CompositeResponse>unmarshall()

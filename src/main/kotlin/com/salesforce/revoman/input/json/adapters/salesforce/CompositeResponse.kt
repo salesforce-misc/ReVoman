@@ -8,6 +8,7 @@ import com.salesforce.revoman.input.json.adapters.salesforce.CompositeResponse.R
 import com.salesforce.revoman.input.json.factories.DiMorphicAdapter
 import com.salesforce.revoman.input.json.mapW
 import com.salesforce.revoman.input.json.objW
+import com.salesforce.revoman.internal.json.AlwaysSerializeNulls
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.JsonClass
@@ -29,8 +30,9 @@ data class CompositeResponse(val compositeResponse: List<Response>) {
     val httpHeaders: HttpHeaders
 
     @JsonClass(generateAdapter = true)
+    @AlwaysSerializeNulls
     data class SuccessResponse(
-      val body: Body,
+      val body: Body?,
       override val httpHeaders: HttpHeaders,
       override val httpStatusCode: Int,
       override val referenceId: String,

@@ -18,7 +18,7 @@ endif::[]
 :pmtemplates: src/integrationTest/resources/pm-templates
 :imagesdir: docs/images
 :prewrap!:
-:revoman-version: 0.7.1
+:revoman-version: 0.7.2
 
 '''
 
@@ -456,7 +456,7 @@ to qualify a step whose Request JSON payload needs to be unmarshalled/deserializ
 * Use bundled static factory methods like `ResponseConfig.unmarshallSuccessResponse()` and `ResponseConfig.unmarshallErrorResponse()` for expressiveness.
 * You can pass a `PostTxnStepPick` which is a `Predicate` used
 to qualify a step whose Response JSON payload needs to be unmarshalled/deserialized.
-* If you have set up `responseConfig()` once, wherever you wish to read or assert the response in your <<#_pre_step_and_post_step_hooks,Post-Step Hooks>>, you can call `stepReport.responseInfo.get().<TypeT>getTypedTxnObj()` which returns your response JSON as a Strong type to conveniently assert.
+* If you have set up `responseConfig()` once, wherever you wish to read or assert the response in your <<#_pre_step_and_post_step_hooks,Post-Step Hooks>>, you can call `stepReport.responseInfo.get().<TypeT>getTypedTxnObj()` which returns your response JSON as a Strong type.
 
 [TIP]
 ====

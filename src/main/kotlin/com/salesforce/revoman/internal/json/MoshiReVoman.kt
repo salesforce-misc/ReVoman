@@ -111,8 +111,7 @@ open class MoshiReVoman(builder: Moshi.Builder) {
       typesToIgnore: Set<Type> = emptySet(),
     ): Moshi.Builder {
       // * NOTE 08 May 2024 gopala.akshintala: This cannot be static singleton as adapters added
-      // mutates
-      // the singleton
+      // mutates the singleton.
       val moshiBuilder =
         Moshi.Builder()
           .add(JsonString.Factory())

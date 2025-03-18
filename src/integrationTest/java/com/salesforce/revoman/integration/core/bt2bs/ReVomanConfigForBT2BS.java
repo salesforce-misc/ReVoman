@@ -10,7 +10,9 @@ import static com.salesforce.revoman.input.config.HookConfig.post;
 import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.afterStepContainingHeader;
 import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.afterStepContainingURIPathOfAny;
 import static com.salesforce.revoman.integration.core.CoreUtils.ASSERT_COMPOSITE_GRAPH_RESPONSE_SUCCESS;
+import static com.salesforce.revoman.integration.core.CoreUtils.ASSERT_COMPOSITE_RESPONSE_SUCCESS;
 import static com.salesforce.revoman.integration.core.CoreUtils.unmarshallCompositeGraphResponse;
+import static com.salesforce.revoman.integration.core.CoreUtils.unmarshallCompositeResponse;
 import static com.salesforce.revoman.output.ExeType.HTTP_STATUS;
 
 import com.salesforce.revoman.input.config.HookConfig;
@@ -33,8 +35,8 @@ public final class ReVomanConfigForBT2BS {
 			Kick.configure()
 					.templatePath(USER_CREATION_AND_SETUP_COLLECTION_PATH)
 					.environmentPath(ENV_PATH)
-					.responseConfig(unmarshallCompositeGraphResponse())
-					.hook(ASSERT_COMPOSITE_GRAPH_RESPONSE_SUCCESS)
+					.responseConfig(unmarshallCompositeGraphResponse(), unmarshallCompositeResponse())
+					.hooks(ASSERT_COMPOSITE_GRAPH_RESPONSE_SUCCESS, ASSERT_COMPOSITE_RESPONSE_SUCCESS)
 					.nodeModulesRelativePath(NODE_MODULE_RELATIVE_PATH)
 					.haltOnFailureOfTypeExcept(
 							HTTP_STATUS, afterStepContainingHeader(IGNORE_HTTP_STATUS_UNSUCCESSFUL))
@@ -62,8 +64,8 @@ public final class ReVomanConfigForBT2BS {
 					.templatePath(MB_SETUP_POSTMAN_COLLECTION_PATH)
 					.haltOnFailureOfTypeExcept(
 							HTTP_STATUS, afterStepContainingHeader(IGNORE_HTTP_STATUS_UNSUCCESSFUL))
-					.responseConfig(unmarshallCompositeGraphResponse())
-					.hook(ASSERT_COMPOSITE_GRAPH_RESPONSE_SUCCESS)
+					.responseConfig(unmarshallCompositeGraphResponse(), unmarshallCompositeResponse())
+					.hooks(ASSERT_COMPOSITE_GRAPH_RESPONSE_SUCCESS, ASSERT_COMPOSITE_RESPONSE_SUCCESS)
 					.haltOnFailureOfTypeExcept(
 							HTTP_STATUS, afterStepContainingHeader(IGNORE_HTTP_STATUS_UNSUCCESSFUL))
 					.globalCustomTypeAdapter(IDAdapter.INSTANCE)
@@ -76,8 +78,11 @@ public final class ReVomanConfigForBT2BS {
 	static final Kick MILESTONE_CONFIG =
 			Kick.configure()
 					.templatePath(MB_POSTMAN_COLLECTION_PATH)
-					.responseConfig(unmarshallCompositeGraphResponse())
-					.hooks(MEMQ_AWAIT, ASSERT_COMPOSITE_GRAPH_RESPONSE_SUCCESS)
+					.responseConfig(unmarshallCompositeGraphResponse(), unmarshallCompositeResponse())
+					.hooks(
+							MEMQ_AWAIT,
+							ASSERT_COMPOSITE_GRAPH_RESPONSE_SUCCESS,
+							ASSERT_COMPOSITE_RESPONSE_SUCCESS)
 					.haltOnFailureOfTypeExcept(
 							HTTP_STATUS, afterStepContainingHeader(IGNORE_HTTP_STATUS_UNSUCCESSFUL))
 					.globalCustomTypeAdapter(IDAdapter.INSTANCE)
