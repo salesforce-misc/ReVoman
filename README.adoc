@@ -128,7 +128,7 @@ ____
 ==== Why Postman Templates?
 
 The exported Postman collection JSON file is referred to as a Postman template, as it contains some placeholders/variables in the `+{{variable-key}}+` pattern. You can read more about it https://learning.postman.com/docs/sending-requests/variables/[here].
-This is a popular and proven pattern that interconnects multiple requests like a Graph. This is not unique to Postman, but Postman is popular and has a full-blown UI, which makes it an attractive choice to support Postman templates. But that said, the tool is modular, and the implementation is not coupled with any Postman related contracts. *In the future, we can think of supporting more template formats*
+This is a popular and proven pattern that interconnects multiple requests like a Graph. This is not unique to Postman, but Postman is popular and familiar in the dev community and has a full-blown UI, which makes it an attractive choice to support Postman templates. But that said, ReṼoman is modular, and the implementation is not coupled with any Postman related contracts. *In the future, we can think of supporting more template formats*
 
 ==== Variable support in ReṼoman
 
@@ -703,7 +703,7 @@ The above test doesn't just have low code, but also low in Cognitive Complexity 
 
 Familiarity with Postman gets you a long way in understanding this tool.
 Playing with the existing link:{integrationtestdir}[Integration Tests]
-and writing a couple of hands-on tests should get you started.
+and writing a couple of hands-on tests should get you started quickly.
 
 === CI/CD integrability
 
