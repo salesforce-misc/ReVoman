@@ -18,7 +18,7 @@ endif::[]
 :pmtemplates: src/integrationTest/resources/pm-templates
 :imagesdir: docs/images
 :prewrap!:
-:revoman-version: 0.7.2
+:revoman-version: 0.7.3
 
 '''
 
@@ -38,15 +38,32 @@ image::manual-to-automation.png[Manual to Automation, align="center"]
 [.lead]
 It strikes a balance between _flexibility_
 provided by low-level tools like https://rest-assured.io/[**REST Assured**] or https://cucumber.io/[**Cucumber**] and _ease of use_
-provided by UI tools like https://www.postman.com/[**Postman**]
+provided by UI tools like https://www.postman.com/[**Postman**].
 
 image::hybrid-tool.png[]
+
+[.lead]
+The fundamental principle of this tool is
+to automate your Postman collection on JVM *without compromising on Manual testing*.
+Which means
+the collections used in JVM automation can be maintained
+to always be ready for Manually trying them out importing into Postman.
+
+== Why not use https://learning.postman.com/docs/collections/using-newman-cli/command-line-integration-with-newman[Newman] or https://learning.postman.com/docs/postman-cli/postman-cli-overview/#comparing-the-postman-cli-and-newman[Postman CLI]?
+
+* ReṼoman may be similar to Newman or Postman CLI when it comes to executing a Postman collection, but the _similarities end there_
+* Newman or Postman CLI are built for node and cannot be executed within a JVM. Even if you are able to run in some hacky way, there is no easy way to assert results.
+* ReṼoman is JVM first that lets you seamlessly integrate with your existing Java ecosystem. It lets you configure more — for example, the <<#_pre_step_and_post_step_hooks,Hooks>> feature lets you plug in your custom JVM code in-between the execution. 
+* ReṼoman has a strong emphasis on <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization,Type-Safety>>, leveraging JVM strong types over JSON for writing assertions and custom code
+
+[.lead]
+Read more in the <<USP>>
 
 == Artifact
 
 [.lead]
 Maven
-[source,xml,subs=attributes+]
+[source,xml,subs=attributes+,tabsize=2]
 ----
 <dependency>
 	<groupId>com.salesforce.revoman</groupId>
@@ -108,11 +125,18 @@ ____
 
 === Template-Driven Testing
 
-* The exported Postman collection JSON file is referred to as a Postman template, as it contains some placeholders/variables in the `+{{variable-key}}+` pattern. You can read more about it https://learning.postman.com/docs/sending-requests/variables/[here]
-* ReṼoman understands these templates and replaces these variables at the runtime, similar to Postman. It supports
-** Nested variables, e.g., `+{{variable-key{{nested-variable-key}}}}+`
-** link:{sourcedir}/com/salesforce/revoman/internal/postman/DynamicVariableGenerator.kt[Dynamic variables], e.g., `{{$randomUUID}}`, `{{$randomEmail}}`
-** <<Custom Dynamic variables>>
+==== Why Postman Templates?
+
+The exported Postman collection JSON file is referred to as a Postman template, as it contains some placeholders/variables in the `+{{variable-key}}+` pattern. You can read more about it https://learning.postman.com/docs/sending-requests/variables/[here].
+This is a popular and proven pattern that interconnects multiple requests like a Graph. This is not unique to Postman, but Postman is popular and has a full-blown UI, which makes it an attractive choice to support Postman templates. But that said, the tool is modular, and the implementation is not coupled with any Postman related contracts. *In the future, we can think of supporting more template formats*
+
+==== Variable support in ReṼoman
+
+* Variables, e.g., `+{{variable-key}}+`
+* Nested variables, e.g., `+{{variable-key{{nested-variable-key}}}}+`
+* link:{sourcedir}/com/salesforce/revoman/internal/postman/DynamicVariableGenerator.kt[Dynamic variables],
+e.g., `{{$randomUUID}}`, `{{$randomEmail}}`
+* <<Custom Dynamic variables>>
 
 [#_variable_resolution_precedence]
 ==== Variable resolution precedence
@@ -139,7 +163,7 @@ final var rundown =
 
 === A Simple Example
 
-Here is a simple link:{pmtemplates}/restfulapidev/restful-api.dev.postman_collection.json[Exported Postman collection] and link:{pmtemplates}/restfulapidev/restful-api.dev.postman_environment.json[Environment],
+Here is a simple link:{pmtemplates}/restfulapidev/restful-api.dev.postman_collection.json[Exported Postman collection] and link:{pmtemplates}/restfulapidev/restful-api.dev.postman_environment.json[Environment] JSON files,
 to hit a free public https://restful-api.dev/[RESTFUL-API].
 You can import and manually test this collection through the `Run collection` button like this:
 
@@ -214,7 +238,7 @@ StepReport(
 <2> Snapshot of Environment at the end of each step execution. It can be compared with previous or next step environment snapshots to see what changed in this step
 
 [.lead]
-`Rundown` has many convenient methods to ease applying further assertions on top of it.
+`Rundown` has many convenient methods to ease applying further assertions on top of it. Checkout its <<#_ide_debugger_view,IDE Debugger view>>
 
 TIP: Other simple examples to see in Action: link:{integrationtestdir}/com/salesforce/revoman/integration/pokemon/PokemonTest.java[PokemonTest.java]
 
@@ -368,6 +392,7 @@ CAUTION: Iterable attributes (like `List`, `Map` etc) accept an `Iterable`. If y
 [#_debugging_dx]
 == Troubleshooting DX
 
+[#_ide_debugger_view]
 === IDE debugger view
 [.lead]
 This tool has a particular emphasis on the Debugging experience.Here is what a debugger view of a <<Rundown>> looks like:
@@ -736,12 +761,6 @@ The future looks bright with multiple impactful features in the pipeline:
 You don't have to.
 This is a JVM-first tool,
 and you can interlace your TestUtils through <<#_plug_in_your_java_code_in_between_postman_execution,Pre-Step/Post-Step Hooks>>
-
-=== Why not use https://learning.postman.com/docs/collections/using-newman-cli/command-line-integration-with-newman[Newman] or https://learning.postman.com/docs/postman-cli/postman-cli-overview/#comparing-the-postman-cli-and-newman[Postman CLI]?
-
-* ReṼoman may be similar to Newman or Postman CLI when it comes to executing a Postman collection, but the _similarities end there_.
-* Newman or Postman CLI are built for node and cannot be executed within a JVM. Even if you are able to run in some hacky way, there is no easy way to assert results.
-* ReṼoman is JVM first that lets you configure a lot more, and gives you back a detailed report to assert in a typesafe way
 
 == 🙌🏼 Consume-Collaborate-Contribute
 

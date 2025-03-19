@@ -13,8 +13,11 @@ import org.http4k.core.Request
 import org.http4k.core.Response
 
 data class HttpStatusUnsuccessful(
+  @JvmField
   val requestInfo: TxnInfo<Request>,
+  @JvmField
   val responseInfo: TxnInfo<Response>,
 ) {
+  @JvmField
   val exeType = HTTP_STATUS
 }

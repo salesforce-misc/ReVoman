@@ -123,7 +123,7 @@ class StepReportTest {
         Right(requestInfo),
         null,
         Right(responseInfo),
-        PostStepHookFailure(RuntimeException("fakeRTE")),
+        PostStepHookFailure(RuntimeException("fakeRTE"), requestInfo, responseInfo),
         PostmanEnvironment(),
       )
     println(stepReportPostStepHookFailure)

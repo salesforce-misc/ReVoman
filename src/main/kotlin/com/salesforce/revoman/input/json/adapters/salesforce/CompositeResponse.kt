@@ -78,7 +78,7 @@ data class CompositeResponse(val compositeResponse: List<Response>) {
                   }
                   attributes = attributesJsonAdapter.fromJson(reader)
                 }
-                -1 -> recordBody[reader.nextName()] = reader.readJsonValue()!!
+                -1 -> recordBody[reader.nextName()] = reader.readJsonValue()
                 else -> throw AssertionError()
               }
             }

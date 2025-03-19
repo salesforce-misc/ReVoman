@@ -141,8 +141,9 @@ class PokemonTest {
 								.dynamicEnvironment(dynamicEnvironment)
 								.off());
 
-		assertThat(pokeRundown.firstUnIgnoredUnsuccessfulStepReport().failure)
-				.containsOnLeft(new PostStepHookFailure(RUNTIME_EXCEPTION));
+		final var postHookFailure = pokeRundown.firstUnIgnoredUnsuccessfulStepReport().failure;
+		assertThat(postHookFailure).containsLeftInstanceOf(PostStepHookFailure.class);
+		assertThat(postHookFailure.getLeft().getFailure()).isEqualTo(RUNTIME_EXCEPTION);
 		assertThat(pokeRundown.stepReports).hasSize(5);
 		assertThat(pokeRundown.mutableEnv)
 				.containsExactlyEntriesIn(
