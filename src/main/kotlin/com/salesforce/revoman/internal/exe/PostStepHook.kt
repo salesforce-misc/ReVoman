@@ -24,7 +24,13 @@ internal fun postStepHookExe(kick: Kick, pm: PostmanSDK): PostStepHookFailure? =
       runCatching(pm.currentStepReport.step, POST_STEP_HOOK) {
           postStepHook.accept(pm.currentStepReport, pm.rundown)
         }
-        .mapLeft { PostStepHookFailure(it, pm.currentStepReport.requestInfo!!.get(), pm.currentStepReport.responseInfo!!.get()) }
+        .mapLeft {
+          PostStepHookFailure(
+            it,
+            pm.currentStepReport.requestInfo!!.get(),
+            pm.currentStepReport.responseInfo!!.get(),
+          )
+        }
     }
     .firstOrNull { it.isLeft() }
     ?.leftOrNull()

@@ -53,7 +53,7 @@ to always be ready for Manually trying them out importing into Postman.
 
 * ReṼoman may be similar to Newman or Postman CLI when it comes to executing a Postman collection, but the _similarities end there_
 * Newman or Postman CLI are built for node and cannot be executed within a JVM. Even if you are able to run in some hacky way, there is no easy way to assert results.
-* ReṼoman is JVM first that lets you seamlessly integrate with your existing Java ecosystem. It lets you configure more — for example, the <<#_pre_step_and_post_step_hooks,Hooks>> feature lets you plug in your custom JVM code in-between the execution. 
+* ReṼoman is JVM first that lets you seamlessly integrate with your existing Java ecosystem. It lets you configure more — for example, the <<#_pre_step_and_post_step_hooks,Hooks>> feature lets you plug in your custom JVM code in-between the execution.
 * ReṼoman has a strong emphasis on <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization,Type-Safety>>, leveraging JVM strong types over JSON for writing assertions and custom code
 
 [.lead]

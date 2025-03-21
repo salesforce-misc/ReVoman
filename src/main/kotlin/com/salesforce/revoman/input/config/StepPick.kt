@@ -39,10 +39,10 @@ sealed interface StepPick {
     companion object PickUtils {
       /**
        * If there are steps with the same name, you may pass the stepName along with the folderPath,
-       * where each folder is seperated by FOLDER_DELIMITER {@see
-       * com.salesforce.revoman.output.report.Folder.FOLDER_DELIMITER} You may not have to pass the
-       * entire path, you can pass the path from the Least common Ancestor to uniquely identify the
-       * step of your interest to add this Hook
+       * where each folder is seperated by
+       * [FOLDER_DELIMITER][com.salesforce.revoman.output.report.Folder.FOLDER_DELIMITER]. You may
+       * not need to pass the entire path, you can pass the path from the Least common Ancestor to
+       * uniquely identify the step of your interest to add this Hook
        */
       @JvmStatic
       fun beforeStepName(vararg stepNameSubstrings: String) = PreTxnStepPick { currentStep, _, _ ->
