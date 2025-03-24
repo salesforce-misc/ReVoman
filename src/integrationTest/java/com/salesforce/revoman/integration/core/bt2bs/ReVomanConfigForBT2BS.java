@@ -30,7 +30,7 @@ public final class ReVomanConfigForBT2BS {
 	// ## User creation and Setup
 	static final String COLLECTION_PATH = "pm-templates/core/milestone/";
 	private static final String USER_CREATION_AND_SETUP_COLLECTION_PATH =
-			COLLECTION_PATH + "user-creation-and-setup.postman_collection.json";
+			COLLECTION_PATH + "persona-creation-and-setup.postman_collection.json";
 	static final Kick USER_CREATION_AND_SETUP_CONFIG =
 			Kick.configure()
 					.templatePath(USER_CREATION_AND_SETUP_COLLECTION_PATH)

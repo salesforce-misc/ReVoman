@@ -32,7 +32,7 @@ class RestfulAPIDevTest {
 								.nodeModulesRelativePath("js")
 								.off());
 		assertThat(rundown.firstUnIgnoredUnsuccessfulStepReport()).isNull(); // <4>
-		assertThat(rundown.stepReports).hasSize(3); // <5>
+		assertThat(rundown.stepReports).hasSize(4); // <5>
 	}
 	// end::revoman-simple-demo[]
 }

@@ -24,7 +24,7 @@ class RestfulAPIDevKtTest {
           .off()
       )
     assertThat(rundown.firstUnsuccessfulStepReport).isNull()
-    assertThat(rundown.stepReports).hasSize(3)
+    assertThat(rundown.stepReports).hasSize(4)
   }
 
   companion object {

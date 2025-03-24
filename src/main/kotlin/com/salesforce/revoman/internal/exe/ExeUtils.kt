@@ -102,7 +102,7 @@ internal fun shouldHaltExecution(
         }
         kick.haltOnFailureOfTypeExcept().isEmpty() -> {
           logger.info {
-            "Continuing the execution of next steps, as `haltOnAnyFailure=${kick.haltOnAnyFailure()}` and `haltOnFailureOfTypeExcept` is empty"
+            "🛝 Continuing the execution of next steps, as `haltOnAnyFailure=${kick.haltOnAnyFailure()}` and `haltOnFailureOfTypeExcept` is empty"
           }
           false
         }
@@ -112,7 +112,7 @@ internal fun shouldHaltExecution(
               if (it) {
                 "${currentStepReport.step} doesn't qualify `haltOnFailureOfTypeExcept` for `exeTypeForFailure=${currentStepReport.exeTypeForFailure}`, so 🛑 halting the execution of next steps"
               } else {
-                "Continuing the execution of next steps, as the step is ignored for `exeTypeForFailure=${currentStepReport.exeTypeForFailure}`"
+                "🛝 Continuing the execution of next steps, as the step is ignored for `exeTypeForFailure=${currentStepReport.exeTypeForFailure}`"
               }
             }
           }

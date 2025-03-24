@@ -30,11 +30,8 @@ class RegexReplacer(
    *   environment supplied as a file through config</li>
    * </ul>
    */
-  internal fun replaceVariablesRecursively(
-    stringWithRegexToReplace: String?,
-    pm: PostmanSDK,
-  ): String? =
-    stringWithRegexToReplace?.let {
+  internal fun replaceVariablesRecursively(stringWithRegex: String?, pm: PostmanSDK): String? =
+    stringWithRegex?.let {
       postManVariableRegex.replace(it) { matchResult ->
         val variableKey = matchResult.groups[VARIABLE_KEY]?.value!!
         customDynamicVariableGenerators[variableKey]

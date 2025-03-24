@@ -1,7 +1,7 @@
 {
 	"info": {
 		"_postman_id": "24b2f897-c467-4be3-b13e-98fe1f421719",
-		"name": "user-creation-and-setup",
+		"name": "persona-creation-and-setup",
 		"description": "- Create Persona Users\n    \n- Setup Tax and Pre-setup for Product",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
 		"_exporter_id": "23827434",

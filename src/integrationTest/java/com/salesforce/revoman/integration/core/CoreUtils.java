@@ -52,8 +52,8 @@ public class CoreUtils {
 			"""
 						Unsuccessful Composite Graph response for graphId: %s
 						{
-								first errorCode: %s
-								first errorMessage: %s
+								"first errorCode": "%s"
+								"first errorMessage: "%s"
 						}
 						StepReport:
 						%s""";
@@ -75,8 +75,7 @@ public class CoreUtils {
 					graphResp.isSuccessful() || containsHeader(stepReport.requestInfo, expectToFailHeader),
 					() -> {
 						final var firstErrorResponseBody = ((ErrorGraph) graphResp).firstErrorResponseBody();
-						return String.format(
-								UNSUCCESSFUL_COMPOSITE_GRAPH_RESPONSE_ERROR_MSG,
+						return UNSUCCESSFUL_COMPOSITE_GRAPH_RESPONSE_ERROR_MSG.formatted(
 								graphResp.getGraphId(),
 								firstErrorResponseBody.getErrorCode(),
 								firstErrorResponseBody.getMessage(),
@@ -110,8 +109,8 @@ public class CoreUtils {
 			"""
 						Unsuccessful Composite response:
 						{
-								first errorCode: %s
-								first errorMessage: %s
+								"first errorCode": "%s"
+								"first errorMessage": "%s"
 						}
 						StepReport:
 						%s""";
@@ -129,8 +128,7 @@ public class CoreUtils {
 				compositeResp.isSuccessful() || containsHeader(stepReport.requestInfo, expectToFailHeader),
 				() -> {
 					final var firstErrorResponseBody = compositeResp.firstErrorResponseBody();
-					return String.format(
-							UNSUCCESSFUL_COMPOSITE_RESPONSE_ERROR_MSG,
+					return UNSUCCESSFUL_COMPOSITE_RESPONSE_ERROR_MSG.formatted(
 							firstErrorResponseBody.getErrorCode(),
 							firstErrorResponseBody.getMessage(),
 							stepReport);

@@ -18,7 +18,7 @@ endif::[]
 :pmtemplates: src/integrationTest/resources/pm-templates
 :imagesdir: docs/images
 :prewrap!:
-:revoman-version: 0.7.3
+:revoman-version: 0.7.3.1
 
 '''
 
@@ -188,7 +188,7 @@ void restfulApiDev() {
 					.environmentPath(PM_ENVIRONMENT_PATH) // <3>
 					.off());
 	assertThat(rundown.firstUnIgnoredUnsuccessfulStepReport()).isNull(); // <4>
-	assertThat(rundown.stepReports).hasSize(3); // <5>
+	assertThat(rundown.stepReports).hasSize(4); // <5>
 }
 ----
 <1> `revUp` is the method to call passing a configuration, built as below

@@ -9,6 +9,8 @@ package com.salesforce.revoman.internal.postman.template
 
 import com.salesforce.revoman.internal.json.MoshiReVoman
 import com.squareup.moshi.JsonClass
+import io.github.oshai.kotlinlogging.KotlinLogging
+import java.util.regex.Pattern
 import org.http4k.core.ContentType.Companion.APPLICATION_JSON
 import org.http4k.core.ContentType.Companion.Text
 import org.http4k.core.Method
@@ -62,9 +64,17 @@ data class Request(
             // ! TODO 15 Mar 2025 gopala.akshintala: Detect the right content type if absent
             when {
               contentTypeHeader?.value == null ||
-                APPLICATION_JSON.value.equals(contentTypeHeader.value, true) -> {
+                (APPLICATION_JSON.value.equals(contentTypeHeader.value, true) &&
+                  containsComments(it)) -> {
                 runCatching { moshiReVoman?.jsonToObjToPrettyJson(it) ?: it }
-                  .onSuccess { if (contentTypeHeader == null) contentTypeHeader = APPLICATION_JSON }
+                  .onSuccess {
+                    if (contentTypeHeader == null) {
+                      logger.info {
+                        "Detected JSON Content type, adding $APPLICATION_JSON as content-type Header"
+                      }
+                      contentTypeHeader = APPLICATION_JSON
+                    }
+                  }
                   .getOrDefault(it)
               }
               else -> it
@@ -79,4 +89,17 @@ data class Request(
     return if (contentTypeHeader != null) request.with(CONTENT_TYPE of contentTypeHeader)
     else request
   }
+
+  companion object {
+    private val COMMENT_PATTERN = Pattern.compile("//.*|/\\*[\\s\\S]*?\\*/")
+
+    // * NOTE 24 Mar 2025 gopala.akshintala: This may give false positives when a string like
+    // "https://..." is present in JSON key or value
+    fun containsComments(str: String): Boolean =
+      COMMENT_PATTERN.matcher(str).find().also {
+        if (it) logger.info { "String may contain Comments" }
+      }
+  }
 }
+
+private val logger = KotlinLogging.logger {}
