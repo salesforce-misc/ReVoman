@@ -7,8 +7,6 @@
  */
 package com.salesforce.revoman.output.report
 
-import arrow.core.Either.Left
-import arrow.core.Either.Right
 import com.salesforce.revoman.output.ExeType
 import com.salesforce.revoman.output.postman.PostmanEnvironment
 import com.salesforce.revoman.output.report.TxnInfo.Companion.uriPathContains
@@ -101,8 +99,6 @@ internal constructor(
 
     fun <L, R> arrow.core.Either<L, R>.toVavr(): Either<L, R> = fold({ left(it) }, { right(it) })
 
-    fun <L, R> Either<L, R>.toArrow(): arrow.core.Either<L, R> = fold({ Left(it) }, { Right(it) })
-
     @JvmStatic
     fun Either<out RequestFailure, TxnInfo<Request>>?.uriPathContains(path: String): Boolean =
       this?.fold({ false }, { it.uriPathContains(path) }) ?: false
@@ -123,7 +119,7 @@ internal constructor(
   }
 
   override fun toString(): String =
-    step.toString() +
+    "$step" +
       when {
         exeFailure != null -> " =>> ❌$exeFailure\n${exeFailure.failure.stackTraceToString()}"
         !isHttpStatusSuccessful ->

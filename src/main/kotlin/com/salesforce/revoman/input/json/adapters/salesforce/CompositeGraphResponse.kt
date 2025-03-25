@@ -64,6 +64,10 @@ data class CompositeGraphResponse(val graphs: List<Graph>) {
       }
 
       @Json(ignore = true)
+      @get:JvmName("firstErrorReferenceId")
+      val firstErrorReferenceId: String? by lazy { errorResponses.firstOrNull()?.referenceId }
+      
+      @Json(ignore = true)
       @get:JvmName("firstErrorResponse")
       val firstErrorResponse: CompositeErrorResponse? by lazy { errorResponses.firstOrNull() }
 

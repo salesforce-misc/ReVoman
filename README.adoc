@@ -18,7 +18,7 @@ endif::[]
 :pmtemplates: src/integrationTest/resources/pm-templates
 :imagesdir: docs/images
 :prewrap!:
-:revoman-version: 0.7.3.1
+:revoman-version: 0.7.4
 
 '''
 
@@ -500,7 +500,7 @@ See `DiMorphicAdapter` in action from the test `compositeGraphResponseDiMorphicM
 
 NOTE: If you don't configure any adapters, you can either pass the adapter at runtime using the overload `stepReport.requestInfo.get().<TypeT>getTypedTxnObj(type, customAdapters, customAdaptersForType)` or Moshi by default unmarshalls the step's request/response JSON into a generic data structures like `LinkedHashMap`
 
-CAUTION: All these adapters supplied from various config methods are appended to the same Moshi instance internally. Read more about link:https://github.com/square/moshi#composing-adapters[Moshi adapter composition]. This means you don't have to supply the adapters repeatedly for the same type. This also means your adapters may get overridden unexpectedly. Keep this in mind while troubleshooting any serialize/deserialize issues. If you wish to manage Moshi yourself, you can get a copy of internal Moshi via `pokeRundown.mutableEnv.moshiReVoman().internalMoshiCopy()`.
+CAUTION: All these adapters supplied from various config methods per a `revUp()` execution are appended to the same Moshi instance created in that thread. Read more about link:https://github.com/square/moshi#composing-adapters[Moshi adapter composition]. This means you don't have to supply the adapters repeatedly for the same type. This also means your adapters may get overridden unexpectedly. Keep this in mind while troubleshooting any serialize/deserialize issues. If you wish to manage Moshi yourself, you can get a copy of internal Moshi via `pokeRundown.mutableEnv.moshiReVoman().internalMoshiCopy()`.
 
 ==== JSON Reader/Writer Utils to build Moshi adapters
 
