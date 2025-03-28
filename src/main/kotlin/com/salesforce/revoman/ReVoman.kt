@@ -115,7 +115,7 @@ object ReVoman {
     val pm =
       PostmanSDK(
         moshiReVoman,
-        kick.nodeModulesRelativePath(),
+        kick.nodeModulesPath(),
         regexReplacer,
         environment.toMutableMap(),
       )

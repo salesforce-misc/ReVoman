@@ -88,8 +88,7 @@ class RegexReplacerTest {
   @OptIn(ExperimentalStdlibApi::class)
   @Test
   fun `duplicate dynamic variables for random value generation should have different values`() {
-    val regexReplacer = RegexReplacer()
-    val pm = PostmanSDK(mockk(), regexReplacer = regexReplacer)
+    val pm = PostmanSDK(mockk())
     val jsonStr =
       $$"""
       {
@@ -98,7 +97,7 @@ class RegexReplacerTest {
       }
       """
         .trimIndent()
-    val resultStr = regexReplacer.replaceVariablesRecursively(jsonStr, pm)!!
+    val resultStr = pm.regexReplacer.replaceVariablesRecursively(jsonStr, pm)!!
     val result = Moshi.Builder().build().adapter<Map<String, String>>().fromJson(resultStr)!!
     result["key1"]!! shouldNotBeEqual result["key2"]!!
   }

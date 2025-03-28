@@ -17,7 +17,7 @@ class ApigeeKtTest {
   fun `xml2js apigee`() {
     val rundown =
       ReVoman.revUp(
-        Kick.configure().templatePath(PM_COLLECTION_PATH).nodeModulesRelativePath("js").off()
+        Kick.configure().templatePath(PM_COLLECTION_PATH).nodeModulesPath("js").off()
       )
     assertThat(rundown.stepReports).hasSize(1)
     assertThat(rundown.firstUnsuccessfulStepReport).isNull()

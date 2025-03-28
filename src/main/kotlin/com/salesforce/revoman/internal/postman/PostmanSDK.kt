@@ -30,8 +30,8 @@ import org.intellij.lang.annotations.Language
  */
 class PostmanSDK(
   private val moshiReVoman: MoshiReVoman,
-  nodeModulesRelativePath: String? = null,
-  val regexReplacer: RegexReplacer = RegexReplacer(),
+  nodeModulesPath: String? = null,
+  internal val regexReplacer: RegexReplacer = RegexReplacer(),
   mutableEnv: MutableMap<String, Any?> = mutableMapOf(),
 ) {
   @JvmField val environment: PostmanEnvironment<Any?> = PostmanEnvironment(mutableEnv, moshiReVoman)
@@ -43,7 +43,7 @@ class PostmanSDK(
   lateinit var rundown: Rundown
   @JvmField val xml2Json = Xml2Json { xml -> moshiReVoman.fromJson(U.xmlToJson(xml)) }
   // * NOTE 28 Apr 2024 gopala.akshintala: This has to be initialized at last
-  private val jsEvaluator: JSEvaluator = JSEvaluator(nodeModulesRelativePath)
+  private val jsEvaluator: JSEvaluator = JSEvaluator(nodeModulesPath)
 
   @SuppressWarnings("kotlin:S6517")
   @FunctionalInterface // DON'T REMOVE THIS. Polyglot won't work without this
@@ -51,15 +51,16 @@ class PostmanSDK(
     @Suppress("unused") fun xml2Json(xml: String): Any?
   }
 
-  inner class JSEvaluator(nodeModulesRelativePath: String? = null) {
+  inner class JSEvaluator(nodeModulesPath: String? = null) {
     private val jsContext: Context
     private var imports = ""
 
     init {
       val options = buildMap {
-        if (!nodeModulesRelativePath.isNullOrBlank()) {
+        if (!nodeModulesPath.isNullOrBlank()) {
+          logger.info { "nodeModulesPath: $nodeModulesPath" }
           put("js.commonjs-require", "true")
-          put("js.commonjs-require-cwd", nodeModulesRelativePath)
+          put("js.commonjs-require-cwd", nodeModulesPath)
           imports = "var _ = require('lodash')\n"
         }
         put("js.esm-eval-returns-exports", "true")

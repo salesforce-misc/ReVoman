@@ -29,7 +29,7 @@ class RestfulAPIDevTest {
 						Kick.configure()
 								.templatePath(PM_COLLECTION_PATH) // <2>
 								.environmentPath(PM_ENVIRONMENT_PATH) // <3>
-								.nodeModulesRelativePath("js")
+								.nodeModulesPath("js")
 								.off());
 		assertThat(rundown.firstUnIgnoredUnsuccessfulStepReport()).isNull(); // <4>
 		assertThat(rundown.stepReports).hasSize(4); // <5>
