@@ -20,7 +20,7 @@ class RestfulAPIDevKtTest {
         Kick.configure()
           .templatePath(PM_COLLECTION_PATH) // <2>
           .environmentPath(PM_ENVIRONMENT_PATH) // <3>
-          .nodeModulesRelativePath("js")
+          .nodeModulesPath("js")
           .off()
       )
     assertThat(rundown.firstUnsuccessfulStepReport).isNull()

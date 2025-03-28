@@ -9,7 +9,7 @@ package com.salesforce.revoman.integration.core.bt2bs;
 import static com.google.common.truth.Truth.assertThat;
 import static com.salesforce.revoman.integration.core.bt2bs.ReVomanConfigForBT2BS.MILESTONE_CONFIG;
 import static com.salesforce.revoman.integration.core.bt2bs.ReVomanConfigForBT2BS.MILESTONE_SETUP_CONFIG;
-import static com.salesforce.revoman.integration.core.bt2bs.ReVomanConfigForBT2BS.USER_CREATION_AND_SETUP_CONFIG;
+import static com.salesforce.revoman.integration.core.bt2bs.ReVomanConfigForBT2BS.PERSONA_CREATION_AND_SETUP_CONFIG;
 
 import com.salesforce.revoman.ReVoman;
 import java.util.Map;
@@ -24,7 +24,7 @@ class MilestoneBillingE2ETest {
 				ReVoman.revUp(
 						(rundown, ignore) ->
 								assertThat(rundown.firstUnIgnoredUnsuccessfulStepReport()).isNull(),
-						USER_CREATION_AND_SETUP_CONFIG,
+						PERSONA_CREATION_AND_SETUP_CONFIG,
 						MILESTONE_SETUP_CONFIG,
 						MILESTONE_CONFIG);
 		assertThat(CollectionsKt.last(mbRundown).mutableEnv)

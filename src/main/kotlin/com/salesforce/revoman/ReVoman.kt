@@ -113,12 +113,7 @@ object ReVoman {
         kick.dynamicEnvironmentsFlattened(),
       )
     val pm =
-      PostmanSDK(
-        moshiReVoman,
-        kick.nodeModulesRelativePath(),
-        regexReplacer,
-        environment.toMutableMap(),
-      )
+      PostmanSDK(moshiReVoman, kick.nodeModulesPath(), regexReplacer, environment.toMutableMap())
     val stepNameToReport =
       executeStepsSerially(pmStepsDeepFlattened, kick, moshiReVoman, regexReplacer, pm)
     return Rundown(stepNameToReport, pm.environment, kick.haltOnFailureOfTypeExcept())

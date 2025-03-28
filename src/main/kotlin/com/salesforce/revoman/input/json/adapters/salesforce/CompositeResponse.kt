@@ -147,7 +147,7 @@ data class CompositeResponse(val compositeResponse: List<Response>) {
   @Json(ignore = true)
   @get:JvmName("firstErrorReferenceId")
   val firstErrorReferenceId: String? by lazy { errorResponses.firstOrNull()?.referenceId }
-  
+
   @Json(ignore = true)
   @get:JvmName("firstErrorResponse")
   val firstErrorResponse: ErrorResponse? by lazy { errorResponses.firstOrNull() }

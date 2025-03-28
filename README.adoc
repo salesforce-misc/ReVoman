@@ -18,7 +18,7 @@ endif::[]
 :pmtemplates: src/integrationTest/resources/pm-templates
 :imagesdir: docs/images
 :prewrap!:
-:revoman-version: 0.7.4
+:revoman-version: 0.7.4.1
 
 '''
 
@@ -266,7 +266,7 @@ final var pqRundown =
 					.customDynamicVariableGenerator( // <5>
 							"$unitPrice",
 							(ignore1, ignore2, ignore3) -> String.valueOf(Random.Default.nextInt(999) + 1))
-					.nodeModulesRelativePath("js") // <6>
+					.nodeModulesPath("js") // <6>
 					.haltOnFailureOfTypeExcept(
 							HTTP_STATUS,
 							afterAllStepsContainingHeader("ignoreHTTPStatusUnsuccessful")) // <7>
@@ -621,7 +621,7 @@ CAUTION: When a Step qualifies for more than one hook, hooks are executed in the
 * ReṼoman can execute this JavaScript on JVM. This support ensures that the Postman collection used for manual testing can be used *as-is* for the automation also, without any resistance to modify or overhead of maintaining separate versions for manual and automation.
 ** Pre-req JS script is executed as the first step before Unmarshall request.
 ** Post-res JS script is executed right after receiving an HTTP response.
-* ReṼoman supports using `npm` modules inside your Pre-req and Post-res JS scripts. You can install `npm` modules in any folder using traditional commands like `npm install <module>` and supply in the `Kick` config, the relative path of the parent folder that contains the `node_modules` folder using `nodeModulesRelativePath(...)`. Use those `npm` modules inside your scripts with `require(...)`, for example:
+* ReṼoman supports using `npm` modules inside your Pre-req and Post-res JS scripts. You can install `npm` modules in any folder using traditional commands like `npm install <module>` and supply in the `Kick` config, an absolute or relative path (relative to Project directory) to the folder that contains the `node_modules` folder using `nodeModulesPath(...)`. Use those `npm` modules inside your scripts with `require(...)`, for example:
 
 .Install `moment` with npm
 [source,shellscript,indent=0,options="nowrap"]
@@ -641,6 +641,8 @@ pm.environment.set('$randomFutureDate', futureDateTime.format('YYYY-MM-DD'))
 
 pm.environment.set("$quantity", _.random(1, 10))
 ----
+
+CAUTION: It is not supported to load `node_modules` from jar. For example, `/Users/username/some-path/revoman-root/build/libs/revoman-root-0.40.0.jar!/js` is an invalid path. link:https://graalvm.slack.com/archives/CN9L59P61/p1710937088860679?thread_ts=1710767437.443019&cid=CN9L59P61[Refer this known issue]
 
 [TIP]
 ====

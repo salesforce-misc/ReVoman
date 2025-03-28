@@ -29,15 +29,15 @@ public final class ReVomanConfigForBT2BS {
 
 	// ## User creation and Setup
 	static final String COLLECTION_PATH = "pm-templates/core/milestone/";
-	private static final String USER_CREATION_AND_SETUP_COLLECTION_PATH =
+	private static final String PERSONA_CREATION_AND_SETUP_COLLECTION_PATH =
 			COLLECTION_PATH + "persona-creation-and-setup.postman_collection.json";
-	static final Kick USER_CREATION_AND_SETUP_CONFIG =
+	static final Kick PERSONA_CREATION_AND_SETUP_CONFIG =
 			Kick.configure()
-					.templatePath(USER_CREATION_AND_SETUP_COLLECTION_PATH)
+					.templatePath(PERSONA_CREATION_AND_SETUP_COLLECTION_PATH)
 					.environmentPath(ENV_PATH)
 					.responseConfig(unmarshallCompositeGraphResponse(), unmarshallCompositeResponse())
 					.hooks(ASSERT_COMPOSITE_GRAPH_RESPONSE_SUCCESS, ASSERT_COMPOSITE_RESPONSE_SUCCESS)
-					.nodeModulesRelativePath(NODE_MODULE_RELATIVE_PATH)
+					.nodeModulesPath(NODE_MODULE_RELATIVE_PATH)
 					.haltOnFailureOfTypeExcept(
 							HTTP_STATUS, afterStepContainingHeader(IGNORE_HTTP_STATUS_UNSUCCESSFUL))
 					.insecureHttp(true)
@@ -69,7 +69,7 @@ public final class ReVomanConfigForBT2BS {
 					.haltOnFailureOfTypeExcept(
 							HTTP_STATUS, afterStepContainingHeader(IGNORE_HTTP_STATUS_UNSUCCESSFUL))
 					.globalCustomTypeAdapter(IDAdapter.INSTANCE)
-					.nodeModulesRelativePath(NODE_MODULE_RELATIVE_PATH)
+					.nodeModulesPath(NODE_MODULE_RELATIVE_PATH)
 					.off();
 
 	// ## Milestone Config
@@ -86,6 +86,6 @@ public final class ReVomanConfigForBT2BS {
 					.haltOnFailureOfTypeExcept(
 							HTTP_STATUS, afterStepContainingHeader(IGNORE_HTTP_STATUS_UNSUCCESSFUL))
 					.globalCustomTypeAdapter(IDAdapter.INSTANCE)
-					.nodeModulesRelativePath(NODE_MODULE_RELATIVE_PATH)
+					.nodeModulesPath(NODE_MODULE_RELATIVE_PATH)
 					.off();
 }
