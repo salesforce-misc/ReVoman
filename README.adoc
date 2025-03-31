@@ -715,7 +715,8 @@ and writing a couple of hands-on tests should get you started quickly.
 === Up-to-date Postman collections that live along with Code in VCS
 
 * A nice side effect is, this lets the Postman collections always stay up to date and the entire Postman collection guards each *check-in* in the form of a Test suite augmenting manual testing.
-* Any day, you can find an up-to-date Postman collection for every feature you need to test, right in your VCS (Git) along with your code. Developers can import these templates directly from VCS into Postman for manual testing. This comes in very handy during a team blitz.
+* Any day, you can find an up-to-date Postman collection for every feature you need to test, right in your VCS (Git) along with your code. Developers can import these templates directly from VCS into Postman for manual testing. This comes in very handy during a team blitz/bug-bash.
+* The low-code test itself acts like a live Runbook, stitching all the scattered Postman collections, that can explain a scenario to anyone doing an exploratory testing.
 
 === Unified framework for Automating __Persona-based__ Manual testing
 
