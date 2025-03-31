@@ -64,7 +64,8 @@ class PostmanEnvironmentKtTest {
             "Category": "Original"
           }
           """,
-        "key7" to null,
+        "key7" to "some string",
+        "key8" to null,
       )
     val pmEnv = PostmanEnvironment(env)
     pmEnv.getObj<Int>("key1")!! shouldBeEqual env["key1"] as Int
@@ -73,6 +74,7 @@ class PostmanEnvironmentKtTest {
     pmEnv.getObj<Map<String, Int>>("key4")!! shouldContainExactly env["key4"] as Map<String, Int>
     pmEnv.getObj<List<String>>("key5")!! shouldContainExactly env["key5"] as List<String>
     pmEnv.getObj<Map<String, Any?>>("key6")!!.shouldNotBeEmpty()
-    pmEnv.getObj<Any>("key7") shouldBe null
+    pmEnv.getObj<String>("key7") shouldBe env["key7"]
+    pmEnv.getObj<Any>("key8") shouldBe null
   }
 }

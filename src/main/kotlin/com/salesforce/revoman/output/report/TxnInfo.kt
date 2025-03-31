@@ -27,24 +27,26 @@ constructor(
   val moshiReVoman: MoshiReVoman,
 ) {
   @JvmOverloads
-  fun <T : Any> getTypedTxnObj(
-    txnObjType: Type = this.txnObjType ?: Any::class.java,
+  fun <PojoT : Any> getTypedTxnObj(
+    targetType: Type = this.txnObjType ?: Any::class.java,
     customAdapters: List<Any> = emptyList(),
     customAdaptersWithType: Map<Type, Either<JsonAdapter<out Any>, JsonAdapter.Factory>> =
       emptyMap(),
     typesToIgnore: Set<Type> = emptySet(),
-  ): T? =
+  ): PojoT? =
     when {
       // ! TODO 15/10/23 gopala.akshintala: xml2Json
+      txnObj == null -> null
+      targetType.rawType.isInstance(txnObj) -> txnObj
+      targetType == String::class.java -> txnObj
       !isJson ->
         throw IllegalCallerException("Non JSON (like XML) marshalling to POJO is not yet supported")
-      txnObjType == this.txnObjType -> txnObj
       else -> {
         moshiReVoman.addAdapters(customAdapters, customAdaptersWithType, typesToIgnore)
-        moshiReVoman.fromJson(httpMsg.bodyString(), txnObjType)
+        moshiReVoman.fromJson(httpMsg.bodyString(), targetType)
       }
     }
-      as T?
+      as PojoT?
 
   @JvmOverloads
   inline fun <reified PojoT : Any> getTxnObj(
@@ -54,10 +56,11 @@ constructor(
     typesToIgnore: Set<Type> = emptySet(),
   ): PojoT? =
     when {
-      // ! TODO 15/10/23 gopala.akshintala: xml2Json
+      txnObj == null -> null
+      txnObj is PojoT -> txnObj
+      PojoT::class == String::class -> txnObj
       !isJson ->
         throw IllegalCallerException("Non JSON (like XML) marshalling to POJO is not yet supported")
-      txnObjType != null && PojoT::class.java == txnObjType.rawType -> txnObj
       else -> {
         moshiReVoman.addAdapters(customAdapters, customAdaptersWithType, typesToIgnore)
         moshiReVoman.fromJson(httpMsg.bodyString())

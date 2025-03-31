@@ -71,6 +71,8 @@ class PostmanEnvironmentTest {
 							}
 							""",
 						"key7",
+						"some string",
+						"key8",
 						null);
 		final var pm = new PostmanEnvironment<>(env.toJavaMap());
 		assertThat(pm.<Integer>getTypedObj("key1", Integer.class)).isEqualTo(env.get("key1").get());
@@ -91,6 +93,7 @@ class PostmanEnvironmentTest {
 						pm.<Map<String, Object>>getTypedObj(
 								"key6", Types.newParameterizedType(Map.class, String.class, Object.class)))
 				.isInstanceOf(Map.class);
-		assertThat(pm.<Object>getTypedObj("key7", Object.class)).isNull();
+		assertThat(pm.<String>getTypedObj("key7", String.class)).isEqualTo(env.get("key7"));
+		assertThat(pm.<Object>getTypedObj("key8", Object.class)).isNull();
 	}
 }

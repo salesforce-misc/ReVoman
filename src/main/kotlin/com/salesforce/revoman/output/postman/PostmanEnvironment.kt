@@ -125,6 +125,7 @@ constructor(
     return when {
       value == null -> null
       targetType.rawType.isPrimitive && targetType.rawType.isInstance(value) -> value
+      targetType == String::class.java -> value
       else -> {
         moshiReVoman.addAdapters(customAdapters, customAdaptersWithType, typesToIgnore)
         when (value) {
@@ -145,9 +146,10 @@ constructor(
     typesToIgnore: Set<Type> = emptySet(),
   ): PojoT? {
     val value = mutableEnv[key]
-    return when (value) {
-      null -> null
-      is PojoT -> value
+    return when {
+      value == null -> null
+      value is PojoT -> value
+      PojoT::class == String::class -> value as PojoT
       else -> {
         moshiReVoman.addAdapters(customAdapters, customAdaptersWithType, typesToIgnore)
         when (value) {
