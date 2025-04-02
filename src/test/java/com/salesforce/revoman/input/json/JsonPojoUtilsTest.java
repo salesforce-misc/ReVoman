@@ -46,12 +46,12 @@ class JsonPojoUtilsTest {
 		final var successGraphResponse =
 				JsonPojoUtils.jsonFileToPojo(
 						jsonFileConfig.jsonFilePath("composite/graph/resp/graph-response-success.json").done());
-		assertThat(successGraphResponse.getGraphs().getFirst()).isInstanceOf(SuccessGraph.class);
+		assertThat(successGraphResponse.getGraphs().get(0)).isInstanceOf(SuccessGraph.class);
 
 		final var errorGraphResponse =
 				JsonPojoUtils.jsonFileToPojo(
 						jsonFileConfig.jsonFilePath("composite/graph/resp/graph-response-error.json").done());
-		final var errorGraph = errorGraphResponse.getGraphs().getFirst();
+		final var errorGraph = errorGraphResponse.getGraphs().get(0);
 		assertThat(errorGraph).isInstanceOf(ErrorGraph.class);
 		assertThat(((ErrorGraph) errorGraph).firstErrorResponseBody().getErrorCode())
 				.isEqualTo("DUPLICATE_VALUE");
@@ -115,7 +115,7 @@ class JsonPojoUtilsTest {
 								.jsonFilePath("composite/query/resp/query-response-partial-success.json")
 								.done());
 		assertThat(partialSuccessCompositeQueryResponse.isSuccessful()).isFalse();
-		assertThat(partialSuccessCompositeQueryResponse.getCompositeResponse().getFirst())
+		assertThat(partialSuccessCompositeQueryResponse.getCompositeResponse().get(0))
 				.isInstanceOf(SuccessResponse.class);
 		assertThat(partialSuccessCompositeQueryResponse.getCompositeResponse().get(1))
 				.isInstanceOf(ErrorResponse.class);

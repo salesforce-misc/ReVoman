@@ -17,7 +17,10 @@
     {
       "matchPackageNames": [
         "org.graalvm.sdk:graal-sdk",
-        "org.graalvm.js:js"
+        "org.graalvm.js:js",
+        "org.http4k:http4k-core",
+        "org.http4k:http4k-client-apache",
+        "org.http4k:http4k-format-moshi"
       ],
       "enabled": false
     }
