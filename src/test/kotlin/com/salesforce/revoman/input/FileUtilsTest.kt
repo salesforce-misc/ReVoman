@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Test
 class FileUtilsTest {
   @Test
   fun `read file from resources to string`() {
-    readFileInResourcesToString("env-with-regex.json").shouldNotBeBlank()
+    readFileToString("env-with-regex.json").shouldNotBeBlank()
   }
 
   @Test

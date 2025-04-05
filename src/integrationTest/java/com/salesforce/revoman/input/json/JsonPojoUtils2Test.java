@@ -8,7 +8,7 @@
 package com.salesforce.revoman.input.json;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.salesforce.revoman.input.FileUtils.readFileInResourcesToString;
+import static com.salesforce.revoman.input.FileUtils.readFileToString;
 import static com.salesforce.revoman.integration.core.adapters.ConnectInputRepWithGraphAdapter.adapter;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -31,7 +31,7 @@ class JsonPojoUtils2Test {
 	@DisplayName("toJson: PQ Payload JSON -> PlaceQuoteInputRep -> PQ Payload JSON")
 	void pqInputRepToPQPayloadJson() throws JSONException {
 		final var pqAdapter = adapter(PlaceQuoteInputRepresentation.class);
-		final var expectedPQPayload = readFileInResourcesToString("json/pq-payload.json");
+		final var expectedPQPayload = readFileToString("json/pq-payload.json");
 		final var pqInputRep =
 				JsonPojoUtils.<PlaceQuoteInputRepresentation>jsonToPojo(
 						PlaceQuoteInputRepresentation.class, expectedPQPayload, List.of(pqAdapter));
@@ -64,7 +64,7 @@ class JsonPojoUtils2Test {
 	@Test
 	@DisplayName("JSON --> PQ Response --> JSON")
 	void unmarshallMarshallPqResponse() throws JSONException {
-		final var pqResponseFromJson = readFileInResourcesToString("json/pq-response.json");
+		final var pqResponseFromJson = readFileToString("json/pq-response.json");
 		final var pqResp =
 				JsonPojoUtils.jsonToPojo(
 						JsonString.<PlaceQuoteOutputRepresentation>unmarshall()

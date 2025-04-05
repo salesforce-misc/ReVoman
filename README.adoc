@@ -18,7 +18,7 @@ endif::[]
 :pmtemplates: src/integrationTest/resources/pm-templates
 :imagesdir: docs/images
 :prewrap!:
-:revoman-version: 0.7.6
+:revoman-version: 0.7.7
 
 '''
 
@@ -324,11 +324,11 @@ assertThat(pqRundown.mutableEnv)
 					"quoteCalculationStatusAfterAllUpdates", PricingPref.System.completeStatus));
 ----
 <1> `revUp()` is the method to call passing a configuration, built as below
-<2> Supply the path (relative to resources) to the Template Collection JSON file/files
-<3> Supply the path (relative to resources) to the Environment JSON file/files
+<2> Supply the path (absolute or relative to resources) to the Template Collection JSON file/files
+<3> Supply the path (absolute or relative to resources) to the Environment JSON file/files
 <4> Supply any dynamic environment that is runtime-specific
 <5> <<Custom Dynamic variables>>
-<6> Node modules path (relative to resources) to be used inside <<Pre-req and Post-res scripts>>
+<6> Node modules path (absolute or relative to project directory) to be used inside <<Pre-req and Post-res scripts>>
 <7> <<Execution Control>>
 <8> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Request Config>>
 <9> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Response Config>>
@@ -347,11 +347,11 @@ ifndef::env-github[]
 include::{integrationtestdir}/com/salesforce/revoman/integration/core/pq/PQE2EWithSMTest.java[tag=pq-e2e-with-revoman-config-demo]
 ----
 <1> `revUp()` is the method to call passing a configuration, built as below
-<2> Supply the path (relative to resources) to the Template Collection JSON file/files
-<3> Supply the path (relative to resources) to the Environment JSON file/files
+<2> Supply the path (absolute or relative to resources) to the Template Collection JSON file/files
+<3> Supply the path (absolute or relative to resources) to the Environment JSON file/files
 <4> Supply any dynamic environment that is runtime-specific
 <5> <<Custom Dynamic variables>>
-<6> Node modules path (relative to resources) to be used inside <<Pre-req and Post-res scripts>>
+<6> Node modules path (absolute or relative to project directory) to be used inside <<Pre-req and Post-res scripts>>
 <7> <<Execution Control>>
 <8> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Request Config>>
 <9> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Response Config>>
@@ -621,7 +621,10 @@ CAUTION: When a Step qualifies for more than one hook, hooks are executed in the
 * ReṼoman can execute this JavaScript on JVM. This support ensures that the Postman collection used for manual testing can be used *as-is* for the automation also, without any resistance to modify or overhead of maintaining separate versions for manual and automation.
 ** Pre-req JS script is executed as the first step before Unmarshall request.
 ** Post-res JS script is executed right after receiving an HTTP response.
-* ReṼoman supports using `npm` modules inside your Pre-req and Post-res JS scripts. You can install `npm` modules in any folder using traditional commands like `npm install <module>` and supply in the `Kick` config, an absolute or relative path (relative to Project directory) to the folder that contains the `node_modules` folder using `nodeModulesPath(...)`. Use those `npm` modules inside your scripts with `require(...)`, for example:
+
+==== `npm` modules to use with `require(...)`
+
+ReṼoman supports using `npm` modules inside your Pre-req and Post-res JS scripts. You can install `npm` modules in any folder using traditional commands like `npm install <module>` and supply in the `Kick` config, an absolute path or relative path (relative to Project directory, for e.g., link:js[js] in this project) to the parent folder that contains the `node_modules` folder using `nodeModulesPath(...)`. Use those `npm` modules inside your scripts with `require(...)`, for example:
 
 .Install `moment` with npm
 [source,shellscript,indent=0,options="nowrap"]

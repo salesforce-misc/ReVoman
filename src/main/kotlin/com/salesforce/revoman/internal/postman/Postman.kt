@@ -7,7 +7,7 @@
  */
 package com.salesforce.revoman.internal.postman
 
-import com.salesforce.revoman.input.bufferFileInResources
+import com.salesforce.revoman.input.bufferFile
 import com.salesforce.revoman.input.bufferInputStream
 import com.salesforce.revoman.internal.postman.template.Environment
 import com.squareup.moshi.Moshi
@@ -27,7 +27,7 @@ internal fun mergeEnvs(
   val envAdapter = Moshi.Builder().build().adapter<Environment>()
   // ! TODO 05/10/23 gopala.akshintala: Consider values from env file being parsed to replace
   val envFileBuffers =
-    pmEnvironmentPaths.map { bufferFileInResources(it) } +
+    pmEnvironmentPaths.map { bufferFile(it) } +
       pmEnvironmentInputStreams.map { bufferInputStream(it) }
   val envFromEnvFiles =
     envFileBuffers

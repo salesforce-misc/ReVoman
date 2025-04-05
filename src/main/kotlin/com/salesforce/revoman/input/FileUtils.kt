@@ -9,19 +9,20 @@
 
 package com.salesforce.revoman.input
 
-import java.io.File
-import java.io.InputStream
 import okio.BufferedSource
-import okio.FileSystem
+import okio.FileSystem.Companion.RESOURCES
+import okio.FileSystem.Companion.SYSTEM
 import okio.Path.Companion.toPath
 import okio.buffer
 import okio.source
+import java.io.File
+import java.io.InputStream
 
-fun bufferFileInResources(fileRelativePath: String): BufferedSource =
-  FileSystem.RESOURCES.source(fileRelativePath.toPath()).buffer()
+fun bufferFile(filePath: String): BufferedSource =
+  filePath.toPath().let { (if (it.isAbsolute) SYSTEM else RESOURCES).source(it).buffer() }
 
-fun readFileInResourcesToString(fileRelativePath: String): String =
-  bufferFileInResources(fileRelativePath).readUtf8()
+fun readFileToString(filePath: String): String =
+  bufferFile(filePath).readUtf8()
 
 fun bufferInputStream(inputStream: InputStream): BufferedSource = inputStream.source().buffer()
 
@@ -32,5 +33,5 @@ fun bufferFile(file: File): BufferedSource = file.source().buffer()
 
 fun readFileToString(file: File): String = bufferFile(file).readUtf8()
 
-fun writeToFileInTheModule(fileRelativePath: String, content: String) =
-  FileSystem.SYSTEM.write(fileRelativePath.toPath()) { writeUtf8(content) }
+fun writeToFile(filePath: String, content: String) =
+  SYSTEM.write(filePath.toPath()) { writeUtf8(content) }

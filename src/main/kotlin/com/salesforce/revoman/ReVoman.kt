@@ -12,7 +12,7 @@ import arrow.core.Either.Right
 import arrow.core.flatMap
 import arrow.core.merge
 import com.salesforce.revoman.input.PostExeHook
-import com.salesforce.revoman.input.bufferFileInResources
+import com.salesforce.revoman.input.bufferFile
 import com.salesforce.revoman.input.bufferInputStream
 import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.internal.exe.deepFlattenItems
@@ -80,7 +80,7 @@ object ReVoman {
   fun revUp(kick: Kick): Rundown {
     val pmTemplateAdapter = Moshi.Builder().build().adapter<Template>()
     val templateBuffers =
-      kick.templatePaths().map { bufferFileInResources(it) } +
+      kick.templatePaths().map { bufferFile(it) } +
         kick.templateInputStreams().map { bufferInputStream(it) }
     val pmStepsDeepFlattened =
       templateBuffers

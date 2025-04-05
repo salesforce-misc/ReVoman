@@ -7,7 +7,7 @@
  */
 package com.salesforce.revoman.output.report
 
-import com.salesforce.revoman.input.readFileInResourcesToString
+import com.salesforce.revoman.input.readFileToString
 import com.salesforce.revoman.output.postman.PostmanEnvironment
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.equals.shouldBeEqual
@@ -30,7 +30,7 @@ class PostmanEnvironmentKtTest {
         "key5" to null,
       )
     val pmEnv = PostmanEnvironment(env)
-    val postmanEnvJSONFormatStr = readFileInResourcesToString("env-from-revoman.json")
+    val postmanEnvJSONFormatStr = readFileToString("env-from-revoman.json")
     JSONAssert.assertEquals(
       pmEnv.postmanEnvJSONFormat,
       postmanEnvJSONFormatStr,

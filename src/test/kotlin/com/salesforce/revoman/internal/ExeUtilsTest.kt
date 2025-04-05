@@ -7,7 +7,7 @@
  */
 package com.salesforce.revoman.internal
 
-import com.salesforce.revoman.input.bufferFileInResources
+import com.salesforce.revoman.input.bufferFile
 import com.salesforce.revoman.internal.exe.deepFlattenItems
 import com.salesforce.revoman.internal.postman.template.Template
 import com.salesforce.revoman.output.report.Folder.Companion.FOLDER_DELIMITER
@@ -29,7 +29,7 @@ class ExeUtilsTest {
         Moshi.Builder()
           .build()
           .adapter<Template>()
-          .fromJson(bufferFileInResources("pm-templates/steps-with-folders.json"))!!
+          .fromJson(bufferFile("pm-templates/steps-with-folders.json"))!!
           .item
       )
       .map { it }

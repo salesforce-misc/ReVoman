@@ -140,7 +140,7 @@ class EvalJsTest {
         })
       """
         .trimIndent()
-    val httpResponseStr = readFileInResourcesToString("composite/query/resp/query-response-all-success.json")
+    val httpResponseStr = readFileToString("composite/query/resp/query-response-all-success.json")
     pm.setResponse(CREATED.code, CREATED.toString(), httpResponseStr)
     pm.evaluateJS(testScript)
     assertThat(pm.environment)

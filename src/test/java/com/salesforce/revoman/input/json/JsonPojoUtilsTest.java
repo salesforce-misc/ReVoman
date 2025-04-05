@@ -8,7 +8,7 @@
 package com.salesforce.revoman.input.json;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.salesforce.revoman.input.FileUtils.readFileInResourcesToString;
+import static com.salesforce.revoman.input.FileUtils.readFileToString;
 
 import com.salesforce.revoman.input.json.adapters.SObjectGraphRequestMarshaller;
 import com.salesforce.revoman.input.json.adapters.salesforce.CompositeGraphResponse;
@@ -65,14 +65,14 @@ class JsonPojoUtilsTest {
 		final var successGraphResponseUnmarshalled =
 				JsonPojoUtils.pojoToJson(pojoToJsonConfig.pojo(successGraphResponse).done());
 		JSONAssert.assertEquals(
-				readFileInResourcesToString("composite/graph/resp/graph-response-success.json"),
+				readFileToString("composite/graph/resp/graph-response-success.json"),
 				successGraphResponseUnmarshalled,
 				JSONCompareMode.STRICT);
 
 		final var errorGraphResponseUnmarshalled =
 				JsonPojoUtils.pojoToJson(pojoToJsonConfig.pojo(errorGraphResponse).done());
 		JSONAssert.assertEquals(
-				readFileInResourcesToString("composite/graph/resp/graph-response-error.json"),
+				readFileToString("composite/graph/resp/graph-response-error.json"),
 				errorGraphResponseUnmarshalled,
 				JSONCompareMode.STRICT);
 	}
@@ -133,14 +133,14 @@ class JsonPojoUtilsTest {
 		final var successCompositeQueryResponseUnmarshalled =
 				JsonPojoUtils.pojoToJson(pojoToJsonConfig.pojo(successCompositeQueryResponse).done());
 		JSONAssert.assertEquals(
-				readFileInResourcesToString("composite/query/resp/query-response-all-success.json"),
+				readFileToString("composite/query/resp/query-response-all-success.json"),
 				successCompositeQueryResponseUnmarshalled,
 				JSONCompareMode.STRICT);
 
 		final var errorCompositeQueryResponseUnmarshalled =
 				JsonPojoUtils.pojoToJson(pojoToJsonConfig.pojo(errorCompositeQueryResponse).done());
 		JSONAssert.assertEquals(
-				readFileInResourcesToString("composite/query/resp/query-response-all-error.json"),
+				readFileToString("composite/query/resp/query-response-all-error.json"),
 				errorCompositeQueryResponseUnmarshalled,
 				JSONCompareMode.STRICT);
 
@@ -148,7 +148,7 @@ class JsonPojoUtilsTest {
 				JsonPojoUtils.pojoToJson(
 						pojoToJsonConfig.pojo(partialSuccessCompositeQueryResponse).done());
 		JSONAssert.assertEquals(
-				readFileInResourcesToString("composite/query/resp/query-response-partial-success.json"),
+				readFileToString("composite/query/resp/query-response-partial-success.json"),
 				partialSuccessCompositeQueryResponseUnmarshalled,
 				JSONCompareMode.STRICT);
 	}
@@ -164,7 +164,7 @@ class JsonPojoUtilsTest {
 						SObjectGraphRequest.class,
 						prepareSObjectGraphReqPojo(),
 						List.of(pqTestInputRepMarshaller));
-		final var expectedPQPayload = readFileInResourcesToString("json/pq-graph-req-masked.json");
+		final var expectedPQPayload = readFileToString("json/pq-graph-req-masked.json");
 		JSONAssert.assertEquals(expectedPQPayload, pqPayloadJsonStr, JSONCompareMode.STRICT);
 	}
 

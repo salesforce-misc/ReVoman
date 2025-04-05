@@ -32,7 +32,7 @@ constructor(
 
   @get:JvmName("postmanEnvJSONFormat")
   val postmanEnvJSONFormat: String by lazy {
-    moshiReVoman.toJson(fromMap(mutableEnv, moshiReVoman))
+    moshiReVoman.toPrettyJson(fromMap(mutableEnv, moshiReVoman))
   }
 
   fun set(key: String, value: ValueT) {
