@@ -19,6 +19,7 @@ plugins {
 val mockitoAgent = configurations.create("mockitoAgent")
 
 dependencies {
+  api(platform(libs.http4k.bom))
   api(libs.bundles.http4k)
   api(libs.moshix.adapters)
   api(libs.java.vavr)

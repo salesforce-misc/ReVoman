@@ -51,9 +51,10 @@ truth = { module = "com.google.truth:truth", version.ref = "truth" }
 assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertj-core" }
 assertj-vavr = { module = "org.assertj:assertj-vavr", version.ref = "assertj-vavr" }
 moshix-adapters = { module = "dev.zacsweers.moshix:moshi-adapters", version.ref = "moshix" }
-http4k-core = { module = "org.http4k:http4k-core", version.ref = "http4k" }
-http4k-client-apache = { module = "org.http4k:http4k-client-apache", version.ref = "http4k" }
-http4k-format-moshi = { module = "org.http4k:http4k-format-moshi", version.ref = "http4k" }
+http4k-bom = { module = "org.http4k:http4k-bom", version.ref = "http4k" }
+http4k-core = { module = "org.http4k:http4k-core" }
+http4k-client-apache = { module = "org.http4k:http4k-client-apache" }
+http4k-format-moshi = { module = "org.http4k:http4k-format-moshi" }
 graal-js = { module = "org.graalvm.js:js-language", version.ref = "graal" }
 underscore = { module = "com.github.javadev:underscore", version.ref = "underscore" }
 kotlin-faker = { module = "io.github.serpro69:kotlin-faker", version.ref = "kotlin-faker" }
