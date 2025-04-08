@@ -14,6 +14,7 @@
     <ID>MagicNumber:Constants.kt$499</ID>
     <ID>MagicNumber:Constants.kt$200</ID>
     <ID>MagicNumber:Constants.kt$299</ID>
+    <ID>FunctionNaming:RestfulAPIDevKtTest.kt$RestfulAPIDevKtTest$@Test fun `execute restful-api dev pm collection`()</ID>
   </ManuallySuppressedIssues>
   <CurrentIssues/>
 </SmellBaseline>

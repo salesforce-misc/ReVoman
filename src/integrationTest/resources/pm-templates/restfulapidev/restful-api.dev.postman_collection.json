@@ -44,7 +44,8 @@
 						"exec": [
 							"var responseJson = pm.response.json();",
 							"pm.environment.set(\"objId\", responseJson.id);",
-							"pm.environment.set(\"data\", responseJson.data)"
+							"pm.environment.set(\"data\", responseJson.data)",
+							"pm.environment.set(\"productName\", responseJson.name)"
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -91,7 +92,7 @@
 			"response": []
 		},
 		{
-			"name": "add-object-2",
+			"name": "update-object",
 			"event": [
 				{
 					"listen": "test",
@@ -121,17 +122,11 @@
 				}
 			],
 			"request": {
-				"method": "POST",
-				"header": [
-					{
-						"key": "Content-Type",
-						"value": "application/json",
-						"type": "text"
-					}
-				],
+				"method": "PATCH",
+				"header": [],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n  \"name\": \"{{$randomProduct}}\", // Dynamic variable\n  \"data\": {\n    \"year\": {{$currentYear}}, // Variable set via Pre-req\n    \"price\": {{$randomPrice}} // Variable set via Pre-req\n  }\n}",
+					"raw": "{\n  \"name\": \"updated - {{productName}}\" // Update Name\n}",
 					"options": {
 						"raw": {
 							"language": "json"
@@ -139,13 +134,14 @@
 					}
 				},
 				"url": {
-					"raw": "https://{{uri}}/objects",
+					"raw": "https://{{uri}}/objects/{{objId}}",
 					"protocol": "https",
 					"host": [
 						"{{uri}}"
 					],
 					"path": [
-						"objects"
+						"objects",
+						"{{objId}}"
 					]
 				}
 			},

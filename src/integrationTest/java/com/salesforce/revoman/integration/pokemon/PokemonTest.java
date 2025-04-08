@@ -60,42 +60,42 @@ class PokemonTest {
 				Map.of(
 						"offset", String.valueOf(OFFSET),
 						"limit", String.valueOf(LIMIT));
-		//noinspection Convert2Lambda
+		@SuppressWarnings("Convert2Lambda")
 		final var preLogHook =
 				Mockito.spy(
 						new PreStepHook() {
 							@Override
 							public void accept(
 									@NotNull Step currentStep,
-									@NotNull TxnInfo<Request> requestInfo,
-									@NotNull Rundown rundown) {
+									@NotNull TxnInfo<Request> ignore1,
+									@NotNull Rundown ignore2) {
 								LOGGER.info("Picked `preLogHook` before stepName: {}", currentStep);
 							}
 						});
-		//noinspection Convert2Lambda
+		@SuppressWarnings("Convert2Lambda")
 		final var postLogHook =
 				Mockito.spy(
 						new PostStepHook() {
 							@Override
-							public void accept(@NotNull StepReport stepReport, @NotNull Rundown rundown) {
+							public void accept(@NotNull StepReport stepReport, @NotNull Rundown ignore) {
 								LOGGER.info("Picked `postLogHook` after stepName: {}", stepReport.step.displayName);
 								throw RUNTIME_EXCEPTION;
 							}
 						});
-		//noinspection Convert2Lambda
-		final var preStepHook =
+		@SuppressWarnings("Convert2Lambda")
+		final var preStepHookBeforeStepName =
 				Mockito.spy(
 						new PreStepHook() {
 							@Override
 							public void accept(
-									@NotNull Step currentStep,
-									@NotNull TxnInfo<Request> requestInfo,
+									@NotNull Step ignore1,
+									@NotNull TxnInfo<Request> ignore2,
 									@NotNull Rundown rundown) {
 								rundown.mutableEnv.set("limit", String.valueOf(newLimit));
 							}
 						});
-		//noinspection Convert2Lambda
-		final var postStepHook =
+		@SuppressWarnings("Convert2Lambda")
+		final var postStepHookAfterStepName =
 				Mockito.spy(
 						new PostStepHook() {
 							@Override
@@ -106,14 +106,14 @@ class PokemonTest {
 								assertThat(results.size()).isEqualTo(newLimit);
 							}
 						});
-		//noinspection Convert2Lambda
-		final var postHookAfterURIPath =
+		@SuppressWarnings("Convert2Lambda")
+		final var postStepHookAfterURIPath =
 				Mockito.spy(
 						new PostStepHook() {
 							@Override
 							public void accept(@NotNull StepReport stepReport, @NotNull Rundown rundown) {
 								LOGGER.info(
-										"Picked `postHookAfterURIPath` after stepName: {} with raw URI: {}",
+										"Picked `postStepHookAfterURIPath` after stepName: {} with raw URI: {}",
 										stepReport.step.displayName,
 										stepReport.step.rawPMStep.getRequest().url);
 								final var id =
@@ -133,9 +133,10 @@ class PokemonTest {
 								.environmentPath(PM_ENVIRONMENT_PATH)
 								.responseConfig(unmarshallResponse(afterStepName("all-pokemon"), AllPokemon.class))
 								.hooks(
-										pre(beforeStepName("all-pokemon"), preStepHook),
-										post(afterStepName("all-pokemon"), postStepHook),
-										post(afterStepContainingURIPathOfAny("pokemon-color"), postHookAfterURIPath),
+										pre(beforeStepName("all-pokemon"), preStepHookBeforeStepName),
+										post(afterStepName("all-pokemon"), postStepHookAfterStepName),
+										post(
+												afterStepContainingURIPathOfAny("pokemon-color"), postStepHookAfterURIPath),
 										pre(beforeStepContainingHeader("preLog"), preLogHook),
 										post(afterStepContainingHeader("postLog"), postLogHook))
 								.dynamicEnvironment(dynamicEnvironment)
@@ -157,9 +158,9 @@ class PokemonTest {
 								"gender", "female",
 								"ability", "stench",
 								"nature", "hardy"));
-		Mockito.verify(preStepHook, times(1)).accept(any(), any(), any());
-		Mockito.verify(postStepHook, times(1)).accept(any(), any());
-		Mockito.verify(postHookAfterURIPath, times(1)).accept(any(), any());
+		Mockito.verify(preStepHookBeforeStepName, times(1)).accept(any(), any(), any());
+		Mockito.verify(postStepHookAfterStepName, times(1)).accept(any(), any());
+		Mockito.verify(postStepHookAfterURIPath, times(1)).accept(any(), any());
 		Mockito.verify(preLogHook, times(1)).accept(any(), any(), any());
 		Mockito.verify(postLogHook, times(1)).accept(any(), any());
 	}
