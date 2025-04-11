@@ -66,7 +66,7 @@ data class Request(
               contentTypeHeader?.value == null ||
                 (APPLICATION_JSON.value.equals(contentTypeHeader.value, true) &&
                   containsComments(it)) -> {
-                runCatching { moshiReVoman?.jsonToObjToPrettyJson(it) ?: it }
+                runCatching { moshiReVoman?.jsonToObjToPrettyJson(it, true) ?: it }
                   .onSuccess {
                     if (contentTypeHeader == null) {
                       logger.info {

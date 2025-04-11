@@ -71,7 +71,7 @@
 				"header": [],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n  \"name\": \"{{$randomProduct}}\", // Dynamic variable\n  \"data\": {\n    \"year\": {{$currentYear}}, // Variable set via Pre-req\n    \"price\": {{$randomPrice}} // Variable set via Pre-req\n  }\n}",
+					"raw": "{\n  \"name\": \"{{$randomProduct}}\", // Dynamic variable\n  \"data\": {\n    \"year\": {{$currentYear}}, // Variable set via Pre-req\n    \"price\": {{$randomPrice}}, // Variable set via Pre-req\n    \"CPU model\": null\n  }\n}",
 					"options": {
 						"raw": {
 							"language": "json"

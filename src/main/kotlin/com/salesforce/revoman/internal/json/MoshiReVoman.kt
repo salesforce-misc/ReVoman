@@ -22,14 +22,13 @@ import com.squareup.moshi.adapters.Rfc3339DateJsonAdapter
 import dev.zacsweers.moshix.adapters.AdaptedBy
 import dev.zacsweers.moshix.adapters.JsonString
 import io.vavr.control.Either
-import java.lang.reflect.Type
-import java.util.*
-import org.http4k.format.EventAdapter
 import org.http4k.format.ListAdapter
 import org.http4k.format.MapAdapter
 import org.http4k.format.ThrowableAdapter
 import org.http4k.format.asConfigurable
 import org.http4k.format.withStandardMappings
+import java.lang.reflect.Type
+import java.util.*
 
 open class MoshiReVoman(builder: Moshi.Builder) {
   var moshi: Moshi = builder.build()
@@ -55,10 +54,18 @@ open class MoshiReVoman(builder: Moshi.Builder) {
   @OptIn(ExperimentalStdlibApi::class)
   inline fun <reified PojoT : Any> adapter(): JsonAdapter<PojoT> = moshi.adapter<PojoT>()
 
-  fun <PojoT : Any> lenientAdapter(targetType: Type): JsonAdapter<PojoT> =
-    adapter<PojoT>(targetType).lenient()
+  fun <PojoT : Any> lenientAdapter(
+    targetType: Type,
+    serializeNulls: Boolean = false,
+  ): JsonAdapter<PojoT> =
+    (if (serializeNulls) adapter<PojoT>(targetType).serializeNulls()
+      else adapter<PojoT>(targetType))
+      .lenient()
 
-  inline fun <reified PojoT : Any> lenientAdapter(): JsonAdapter<PojoT> = adapter<PojoT>().lenient()
+  inline fun <reified PojoT : Any> lenientAdapter(
+    serializeNulls: Boolean = false
+  ): JsonAdapter<PojoT> =
+    (if (serializeNulls) adapter<PojoT>().serializeNulls() else adapter<PojoT>()).lenient()
 
   fun <PojoT : Any> fromJson(input: String?, targetType: Type = Any::class.java): PojoT? =
     input?.let { lenientAdapter<PojoT>(targetType).fromJson(it) }
@@ -67,21 +74,25 @@ open class MoshiReVoman(builder: Moshi.Builder) {
     input?.let { lenientAdapter<PojoT>().fromJson(it) }
 
   fun <PojoT : Any> toJson(
-    input: PojoT?,
+    input: PojoT?, serializeNulls: Boolean = false,
     sourceType: Type = input?.javaClass ?: Any::class.java,
-  ): String = lenientAdapter<PojoT>(sourceType).toJson(input)
+  ): String = lenientAdapter<PojoT>(sourceType, serializeNulls).toJson(input)
 
-  inline fun <reified PojoT : Any> toJson(input: PojoT?): String =
-    lenientAdapter<PojoT>().toJson(input)
+  inline fun <reified PojoT : Any> toJson(input: PojoT?, serializeNulls: Boolean = false): String =
+    lenientAdapter<PojoT>(serializeNulls).toJson(input)
 
   fun <PojoT : Any> toPrettyJson(
     input: PojoT?,
     sourceType: Type = input?.javaClass ?: Any::class.java,
+    serializeNulls: Boolean = false,
     indent: String = "  ",
-  ): String = lenientAdapter<PojoT>(sourceType).indent(indent).toJson(input)
+  ): String = lenientAdapter<PojoT>(sourceType, serializeNulls).indent(indent).toJson(input)
 
-  inline fun <reified PojoT : Any> toPrettyJson(input: PojoT?, indent: String = "  "): String =
-    lenientAdapter<PojoT>().indent(indent).toJson(input)
+  inline fun <reified PojoT : Any> toPrettyJson(
+    input: PojoT?,
+    serializeNulls: Boolean = false,
+    indent: String = "  ",
+  ): String = lenientAdapter<PojoT>(serializeNulls).indent(indent).toJson(input)
 
   fun <PojoT : Any> objToJsonStrToObj(
     input: Any?,
@@ -91,7 +102,8 @@ open class MoshiReVoman(builder: Moshi.Builder) {
   inline fun <reified PojoT : Any> objToJsonStrToObj(input: Any?): PojoT? =
     lenientAdapter<PojoT>().fromJson(toJson(input))
 
-  fun jsonToObjToPrettyJson(input: String?): String? = input?.let { toPrettyJson(fromJson(it)) }
+  fun jsonToObjToPrettyJson(input: String?, serializeNulls: Boolean = false): String? =
+    input?.let { toPrettyJson(fromJson(it), serializeNulls) }
 
   companion object {
     @Synchronized
@@ -123,7 +135,6 @@ open class MoshiReVoman(builder: Moshi.Builder) {
           .add(Date::class.java, Rfc3339DateJsonAdapter())
           .addLast(CaseInsensitiveEnumAdapter.FACTORY)
           .addLast(AlwaysSerializeNullsFactory())
-          .addLast(EventAdapter)
           .addLast(ThrowableAdapter)
           .addLast(ListAdapter)
           .addLast(MapAdapter)
