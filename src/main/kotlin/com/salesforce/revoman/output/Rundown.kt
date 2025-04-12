@@ -16,8 +16,20 @@ data class Rundown(
   @JvmField val stepReports: List<StepReport> = emptyList(),
   @JvmField val mutableEnv: PostmanEnvironment<Any?>,
   private val haltOnFailureOfTypeExcept: Map<ExeType, PostTxnStepPick?>,
+  @JvmField val providedStepsToExecuteCount: Int,
 ) {
   @get:JvmName("immutableEnv") val immutableEnv: Map<String, Any?> by lazy { mutableEnv.toMap() }
+
+  @get:JvmName("executedStepCount") val executedStepCount: Int by lazy { stepReports.size }
+
+  @get:JvmName("httpFailureStepCount")
+  val httpFailureStepCount: Int by lazy { stepReports.count { !it.isHttpStatusSuccessful } }
+
+  @get:JvmName("unsuccessfulStepCount")
+  val unsuccessfulStepCount: Int by lazy { stepReports.count { !it.isSuccessful } }
+
+  @get:JvmName("executionFailureStepCount")
+  val executionFailureStepCount: Int by lazy { stepReports.count { it.failure?.isLeft ?: false } }
 
   @get:JvmName("firstUnsuccessfulStepReport")
   val firstUnsuccessfulStepReport: StepReport? by lazy {

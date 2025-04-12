@@ -116,7 +116,12 @@ object ReVoman {
       PostmanSDK(moshiReVoman, kick.nodeModulesPath(), regexReplacer, environment.toMutableMap())
     val stepNameToReport =
       executeStepsSerially(pmStepsDeepFlattened, kick, moshiReVoman, regexReplacer, pm)
-    return Rundown(stepNameToReport, pm.environment, kick.haltOnFailureOfTypeExcept())
+    return Rundown(
+      stepNameToReport,
+      pm.environment,
+      kick.haltOnFailureOfTypeExcept(),
+      pmStepsDeepFlattened.size,
+    )
   }
 
   private fun executeStepsSerially(
@@ -150,7 +155,12 @@ object ReVoman {
         pm.info = Info(step.name)
         pm.currentStepReport = preStepReport
         pm.rundown =
-          Rundown(stepReports + preStepReport, pm.environment, kick.haltOnFailureOfTypeExcept())
+          Rundown(
+            stepReports + preStepReport,
+            pm.environment,
+            kick.haltOnFailureOfTypeExcept(),
+            pmStepsFlattened.size,
+          )
         pm.environment.putAll(regexReplacer.replaceVariablesInEnv(pm))
         val currentStepReport: StepReport = // --------### PRE-REQ-JS ###--------
           executePreReqJS(step, itemWithRegex, pm)

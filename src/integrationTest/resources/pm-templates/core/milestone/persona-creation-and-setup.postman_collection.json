@@ -469,7 +469,7 @@
 							"listen": "prerequest",
 							"script": {
 								"exec": [
-									"pm.environment.set(\"salesRepPermSets\", \"'RevLifecycleManagementQuotePricesTaxes', 'ProductDiscoveryUser', 'ProductCatalogManagementViewer', 'ContextServiceRuntimePsl', 'Custom_Sales_Ops_Rep_Perm_Set'\")"
+									"pm.environment.set(\"salesRepPermSets\", \"'RevLifecycleManagementQuotePricesTaxes', 'ProductDiscoveryUser', 'ProductCatalogManagementViewer', 'ContextServiceRuntimePsl', 'Custom_Sales_Rep_Perm_Set'\")"
 								],
 								"type": "text/javascript",
 								"packages": {}

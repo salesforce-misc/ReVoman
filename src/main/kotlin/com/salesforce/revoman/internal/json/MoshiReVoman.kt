@@ -22,13 +22,13 @@ import com.squareup.moshi.adapters.Rfc3339DateJsonAdapter
 import dev.zacsweers.moshix.adapters.AdaptedBy
 import dev.zacsweers.moshix.adapters.JsonString
 import io.vavr.control.Either
+import java.lang.reflect.Type
+import java.util.*
 import org.http4k.format.ListAdapter
 import org.http4k.format.MapAdapter
 import org.http4k.format.ThrowableAdapter
 import org.http4k.format.asConfigurable
 import org.http4k.format.withStandardMappings
-import java.lang.reflect.Type
-import java.util.*
 
 open class MoshiReVoman(builder: Moshi.Builder) {
   var moshi: Moshi = builder.build()
@@ -74,7 +74,8 @@ open class MoshiReVoman(builder: Moshi.Builder) {
     input?.let { lenientAdapter<PojoT>().fromJson(it) }
 
   fun <PojoT : Any> toJson(
-    input: PojoT?, serializeNulls: Boolean = false,
+    input: PojoT?,
+    serializeNulls: Boolean = false,
     sourceType: Type = input?.javaClass ?: Any::class.java,
   ): String = lenientAdapter<PojoT>(sourceType, serializeNulls).toJson(input)
 
