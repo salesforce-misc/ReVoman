@@ -16,7 +16,8 @@ class RestfulAPIDevKtTest {
   @Test
   fun `execute restful-api dev pm collection`() {
     val rundown =
-      ReVoman.revUp( // <1>
+      ReVoman.revUp(
+        // <1>
         Kick.configure()
           .templatePath(PM_COLLECTION_PATH) // <2>
           .environmentPath(PM_ENVIRONMENT_PATH) // <3>

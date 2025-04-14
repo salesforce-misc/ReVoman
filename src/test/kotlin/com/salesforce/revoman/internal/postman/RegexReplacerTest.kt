@@ -8,6 +8,7 @@
 package com.salesforce.revoman.internal.postman
 
 import com.salesforce.revoman.input.config.CustomDynamicVariableGenerator
+import com.salesforce.revoman.internal.postman.template.Environment.Companion.mergeEnvs
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapter
 import io.kotest.matchers.equals.shouldNotBeEqual
@@ -34,7 +35,7 @@ class RegexReplacerTest {
 
   @OptIn(ExperimentalStdlibApi::class)
   @Test
-  fun `dynamic variables - Body + dynamic env`() {
+  fun `dynamic variables replacement in JSON string and dynamic env`() {
     val epoch = System.currentTimeMillis().toString()
     val dummyDynamicVariableGenerator = { key: String, _: PostmanSDK ->
       if (key == $$"$epoch") epoch else null

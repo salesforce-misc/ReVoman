@@ -6,6 +6,6 @@
  * ************************************************************************************************
  */
 const val GROUP_ID = "com.salesforce.revoman"
-const val VERSION = "0.7.8.1"
+const val VERSION = "0.7.9"
 const val ARTIFACT_ID = "revoman"
 const val STAGING_PROFILE_ID = "1ea0a23e61ba7d"

@@ -18,7 +18,7 @@ endif::[]
 :pmtemplates: src/integrationTest/resources/pm-templates
 :imagesdir: docs/images
 :prewrap!:
-:revoman-version: 0.7.8.1
+:revoman-version: 0.7.9
 
 '''
 
@@ -52,8 +52,9 @@ to always be ready for Manually trying them out importing into Postman.
 == Why not use https://learning.postman.com/docs/collections/using-newman-cli/command-line-integration-with-newman[Newman] or https://learning.postman.com/docs/postman-cli/postman-cli-overview/#comparing-the-postman-cli-and-newman[Postman CLI]?
 
 * ReṼoman may be similar to Newman or Postman CLI when it comes to executing a Postman collection, but the _similarities end there_
-* Newman or Postman CLI are built for node and cannot be executed within a JVM. Even if you are able to run in some hacky way, there is no easy way to assert results.
-* ReṼoman is JVM first that lets you seamlessly integrate with your existing Java ecosystem. It lets you configure more — for example, the <<#_pre_step_and_post_step_hooks,Hooks>> feature lets you plug in your custom JVM code in-between the execution.
+* Newman or Postman CLI are built for node and cannot be executed within a JVM. Even if you are able to run with some hacky way, there is no easy way to assert results.
+* ReṼoman is JVM first that lets you seamlessly integrate with your existing Java ecosystem. 
+* It has more features, like <<#_pre_step_and_post_step_hooks,Hooks>> feature lets you plug in your custom JVM code in-between the execution. The <<Rundown>> is much richer in providing execution information than the link:{pmtemplates}/restfulapidev/postman-cli-reports/restful-api.dev-2025-04-14-13-16-43.json[newman/postman-cli reports]  
 * ReṼoman has a strong emphasis on <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization,Type-Safety>>, leveraging JVM strong types over JSON for writing assertions and custom code
 
 [.lead]
@@ -128,25 +129,7 @@ ____
 ==== Why Postman Templates?
 
 The exported Postman collection JSON file is referred to as a Postman template, as it contains some placeholders/variables in the `+{{variable-key}}+` pattern. You can read more about it https://learning.postman.com/docs/sending-requests/variables/[here].
-This is a popular and proven pattern that interconnects multiple requests like a Graph. This is not unique to Postman, but Postman is popular and familiar in the dev community and has a full-blown UI, which makes it an attractive choice to support Postman templates. But that said, ReṼoman is modular, and the implementation is not coupled with any Postman related contracts. *In the future, we can think of supporting more template formats*
-
-==== Variable support in ReṼoman
-
-* Variables, e.g., `+{{variable-key}}+`
-* Nested variables, e.g., `+{{variable-key{{nested-variable-key}}}}+`
-* link:{sourcedir}/com/salesforce/revoman/internal/postman/DynamicVariableGenerator.kt[Dynamic variables],
-e.g., `{{$randomUUID}}`, `{{$randomEmail}}`
-* <<Custom Dynamic variables>>
-
-[#_variable_resolution_precedence]
-==== Variable resolution precedence
-In the case of collision between variable keys, the precedence order to derive a value to replace any key is:
-
-* Custom Dynamic variables
-* Generated Dynamic variables
-* Dynamic Environment supplied through config + Environment built during execution + Postman environment supplied as a file through config
-
-TIP: For Dynamic variables, which gets populated from Java code, use $ sign within a variable to indicate it needs to be populated during manual testing.E.g.: `{{$unitPrice}}`
+This is a popular and proven pattern that interconnects multiple endpoint requests like a Graph. This is not unique to Postman, but Postman is popular and familiar in the dev community and has a full-blown UI, which makes it an attractive choice to start with supporting Postman templates. But that said, ReṼoman is modular, and the implementation is not coupled with any Postman related contracts. *In the future, we can think of supporting more template formats*
 
 [.lead]
 You can _kick off_ this *Template-Driven Testing* by invoking `ReVoman.revUp()`,
@@ -362,7 +345,26 @@ include::{integrationtestdir}/com/salesforce/revoman/integration/core/pq/PQE2EWi
 <14> Run more assertions on the <<Rundown>>
 endif::[]
 
-== Config
+=== Variables
+
+* Variables, e.g., `+{{variable-key}}+`
+* Nested variables, e.g., `+{{variable-key{{nested-variable-key}}}}+`
+* link:{sourcedir}/com/salesforce/revoman/internal/postman/DynamicVariableGenerator.kt[Dynamic variables],
+e.g., `{{$randomUUID}}`, `{{$randomEmail}}`
+* <<Custom Dynamic variables>>
+
+==== Variable resolution precedence
+In the case of collision between variable keys, the precedence order to derive a value to replace any key is:
+
+* <<Custom Dynamic variables>>
+* link:{sourcedir}/com/salesforce/revoman/internal/postman/DynamicVariableGenerator.kt[Dynamic variables]
+* Environment built during execution
+* Dynamic Environment supplied through config
+* Postman Environment supplied as a file path through config
+
+TIP: Variable naming Convention: For Dynamic variables, which gets populated from Java code, use `$` sign within a variable to indicate it needs to be populated during manual testing, e.g.: `{{$unitPrice}}`.
+
+=== Config management
 
 [.lead]
 Config built using `Kick.configure()` is *Immutable*.
@@ -377,7 +379,7 @@ CAUTION: The new instance created from common config using `override...()` repla
 
 [source,java,indent=0,tabsize=2,options="nowrap"]
 ----
-POKEMON_COMMON_CONFIG.overrideHooks(kotlin.collections.CollectionsKt.plus(POKEMON_COMMON_CONFIG.hooks(), post(.../*My Hooks*/))
+COMMON_CONFIG.overrideHooks(kotlin.collections.CollectionsKt.plus(COMMON_CONFIG.hooks(), post(.../*My Hooks*/))
 ----
 
 * You can also construct a new instance by accumulating attributes from other instances using `from()` method, like below:
@@ -389,7 +391,6 @@ Kick.configure().from(configInstance1).from(configInstance2)...off();
 
 CAUTION: Iterable attributes (like `List`, `Map` etc) accept an `Iterable`. If you are particular about the order, make sure to pass an Ordered instance of `Iterable` (like `ArrayList`)
 
-[#_debugging_dx]
 == Troubleshooting DX
 
 [#_ide_debugger_view]

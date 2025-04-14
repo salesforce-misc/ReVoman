@@ -32,6 +32,7 @@ import org.http4k.core.then
 import org.http4k.filter.ClientFilters
 import org.http4k.filter.DebuggingFilters
 
+@JvmSynthetic
 internal fun fireHttpRequest(
   currentStep: Step,
   auth: Auth?,
@@ -54,7 +55,7 @@ private fun prepareHttpClient(bearerToken: String?, insecureHttp: Boolean): Http
     .then(if (insecureHttp) ApacheClient(client = insecureApacheHttpClient()) else ApacheClient())
 
 /** Only for Testing. DO NOT USE IN PROD */
-fun insecureApacheHttpClient(): CloseableHttpClient =
+private fun insecureApacheHttpClient(): CloseableHttpClient =
   SSLContextBuilder()
     .loadTrustMaterial(null) { _, _ -> true }
     .build()

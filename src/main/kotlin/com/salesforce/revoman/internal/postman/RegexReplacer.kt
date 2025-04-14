@@ -21,14 +21,12 @@ class RegexReplacer(
   private val dynamicVariableGenerator: (String, PostmanSDK) -> String? = ::dynamicVariableGenerator,
 ) {
   /**
-   * <p>
-   * Order of Variable resolution
-   * <ul>
-   * <li>Custom Dynamic Variables</li>
-   * <li>Generated Dynamic variables</li>
-   * <li>Dynamic Environment supplied through config + Environment built during execution + Postman
-   *   environment supplied as a file through config</li>
-   * </ul>
+   * ## Order of Variable resolution
+   * - Custom Dynamic Variables
+   * - Dynamic variables
+   * - Environment built during execution
+   * - Dynamic Environment supplied through config
+   * - Postman Environment supplied as a file through config
    */
   internal fun replaceVariablesRecursively(stringWithRegex: String?, pm: PostmanSDK): String? =
     stringWithRegex?.let {

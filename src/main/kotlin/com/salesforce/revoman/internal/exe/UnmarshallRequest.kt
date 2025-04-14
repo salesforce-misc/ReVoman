@@ -23,6 +23,7 @@ import org.http4k.core.ContentType.Companion.APPLICATION_JSON
 import org.http4k.core.Request
 import org.http4k.lens.contentType
 
+@JvmSynthetic
 internal fun unmarshallRequest(
   currentStep: Step,
   pmRequest: com.salesforce.revoman.internal.postman.template.Request,

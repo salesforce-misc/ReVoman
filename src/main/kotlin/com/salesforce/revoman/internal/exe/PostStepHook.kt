@@ -18,6 +18,7 @@ import com.salesforce.revoman.output.report.StepReport
 import com.salesforce.revoman.output.report.failure.HookFailure.PostStepHookFailure
 import io.github.oshai.kotlinlogging.KotlinLogging
 
+@JvmSynthetic
 internal fun postStepHookExe(kick: Kick, pm: PostmanSDK): PostStepHookFailure? =
   pickPostStepHooks(kick.postStepHooks(), pm.currentStepReport, pm.rundown)
     .map { postStepHook ->

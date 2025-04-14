@@ -22,6 +22,7 @@ import org.http4k.core.ContentType.Companion.APPLICATION_JSON
 import org.http4k.core.Response
 import org.http4k.lens.contentType
 
+@JvmSynthetic
 internal fun unmarshallResponse(
   kick: Kick,
   moshiReVoman: MoshiReVoman,

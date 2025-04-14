@@ -20,6 +20,7 @@ import com.salesforce.revoman.output.report.failure.HookFailure.PreStepHookFailu
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.http4k.core.Request
 
+@JvmSynthetic
 internal fun preStepHookExe(
   currentStep: Step,
   kick: Kick,
@@ -36,6 +37,7 @@ internal fun preStepHookExe(
     .firstOrNull { it.isLeft() }
     ?.leftOrNull()
 
+@JvmSynthetic
 private fun pickPreStepHooks(
   preStepHooks: List<HookConfig>,
   currentStep: Step,

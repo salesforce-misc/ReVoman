@@ -19,6 +19,7 @@ import com.salesforce.revoman.output.report.StepReport
 import com.salesforce.revoman.output.report.failure.RequestFailure.PreReqJSFailure
 import com.salesforce.revoman.output.report.failure.ResponseFailure.PostResJSFailure
 
+@JvmSynthetic
 internal fun executePreReqJS(
   currentStep: Step,
   itemWithRegex: Item,
@@ -41,6 +42,7 @@ private fun executePreReqJSWithPolyglot(preReqJS: String, pmRequest: Request, pm
   pm.evaluateJS(preReqJS)
 }
 
+@JvmSynthetic
 internal fun executePostResJS(
   currentStep: Step,
   item: Item,

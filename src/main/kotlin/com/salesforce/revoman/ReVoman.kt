@@ -31,7 +31,7 @@ import com.salesforce.revoman.internal.postman.Info
 import com.salesforce.revoman.internal.postman.PostmanSDK
 import com.salesforce.revoman.internal.postman.RegexReplacer
 import com.salesforce.revoman.internal.postman.dynamicVariableGenerator
-import com.salesforce.revoman.internal.postman.mergeEnvs
+import com.salesforce.revoman.internal.postman.template.Environment.Companion.mergeEnvs
 import com.salesforce.revoman.internal.postman.template.Template
 import com.salesforce.revoman.output.Rundown
 import com.salesforce.revoman.output.report.Step
