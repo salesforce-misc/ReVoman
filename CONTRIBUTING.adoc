@@ -23,7 +23,7 @@ endif::[]
 
 == Source-code Setup
 
-=== Install Java 21
+=== Install Java
 
 It needs JDK 17 installed in your system.
 Recommendation is to do it via https://sdkman.io/install[SDKMAN].
