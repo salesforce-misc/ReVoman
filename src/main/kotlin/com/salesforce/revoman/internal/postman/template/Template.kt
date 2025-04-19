@@ -8,6 +8,7 @@
 package com.salesforce.revoman.internal.postman.template
 
 import com.salesforce.revoman.internal.json.MoshiReVoman
+import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.util.regex.Pattern
@@ -20,7 +21,15 @@ import org.http4k.core.with
 import org.http4k.lens.Header.CONTENT_TYPE
 
 @JsonClass(generateAdapter = true)
-internal data class Template(val item: List<Item>, val auth: Auth?)
+data class Template(val info: Info, val item: List<Item>, val auth: Auth? = null)
+
+@JsonClass(generateAdapter = true)
+data class Info(
+  @Json(name = "_postman_id") val postmanId: String,
+  val name: String,
+  val schema: String,
+  @Json(name = "_exporter_id") val exporterId: String,
+)
 
 @JsonClass(generateAdapter = true)
 data class Item(

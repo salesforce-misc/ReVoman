@@ -10,20 +10,24 @@ package com.salesforce.revoman.output.report
 import com.salesforce.revoman.internal.postman.template.Item
 import com.salesforce.revoman.output.endsWith
 import com.salesforce.revoman.output.report.Folder.Companion.FOLDER_DELIMITER
+import com.squareup.moshi.JsonClass
 import java.util.Collections.indexOfSubList
 
+@JsonClass(generateAdapter = true)
 data class Step(
   @JvmField val index: String,
-  @JvmField val rawPMStep: Item,
+  @JvmField val rawPmStep: Item,
   @JvmField val parentFolder: Folder? = null,
 ) {
-  @JvmField val name: String = rawPMStep.name
+  @JvmField val name: String = rawPmStep.name
   @JvmField var preStepHookCount: Int = 0
   @JvmField var postStepHookCount: Int = 0
   @JvmField
-  val path = parentFolder?.let { "$it$STEP_NAME_SEPARATOR$name$STEP_NAME_TERMINATOR" } ?: name
+  val displayPath =
+    parentFolder?.let { "$it$STEP_NAME_SEPARATOR$name$STEP_NAME_TERMINATOR" } ?: name
   @JvmField
-  val displayName = "$index$INDEX_SEPARATOR${rawPMStep.httpMethod}$HTTP_METHOD_SEPARATOR$path"
+  val displayName =
+    "$index$INDEX_SEPARATOR${rawPmStep.httpMethod}$HTTP_METHOD_SEPARATOR$displayPath"
 
   @JvmField val isInRoot: Boolean = parentFolder == null
 
@@ -57,6 +61,7 @@ data class Step(
   }
 }
 
+@JsonClass(generateAdapter = true)
 data class Folder
 @JvmOverloads
 constructor(

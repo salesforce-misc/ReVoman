@@ -32,8 +32,12 @@ import com.salesforce.revoman.internal.postman.PostmanSDK
 import com.salesforce.revoman.internal.postman.RegexReplacer
 import com.salesforce.revoman.internal.postman.dynamicVariableGenerator
 import com.salesforce.revoman.internal.postman.template.Environment.Companion.mergeEnvs
+import com.salesforce.revoman.internal.postman.template.Event
 import com.salesforce.revoman.internal.postman.template.Template
 import com.salesforce.revoman.output.Rundown
+import com.salesforce.revoman.output.report.PostmanCollectionGraph
+import com.salesforce.revoman.output.report.PostmanCollectionGraph.Edge
+import com.salesforce.revoman.output.report.PostmanCollectionGraph.Node
 import com.salesforce.revoman.output.report.Step
 import com.salesforce.revoman.output.report.StepReport
 import com.salesforce.revoman.output.report.StepReport.Companion.toVavr
@@ -42,6 +46,8 @@ import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapter
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.vavr.control.Either.left
+import java.io.InputStream
+import java.util.*
 import org.http4k.core.Request
 
 object ReVoman {
@@ -78,26 +84,7 @@ object ReVoman {
   @JvmStatic
   @OptIn(ExperimentalStdlibApi::class)
   fun revUp(kick: Kick): Rundown {
-    val pmTemplateAdapter = Moshi.Builder().build().adapter<Template>()
-    val templateBuffers =
-      kick.templatePaths().map { bufferFile(it) } +
-        kick.templateInputStreams().map { bufferInputStream(it) }
-    val pmStepsDeepFlattened =
-      templateBuffers
-        .asSequence()
-        .mapNotNull { pmTemplateAdapter.fromJson(it) }
-        .flatMap { (pmSteps, authFromRoot) ->
-          deepFlattenItems(
-            pmSteps.map { item ->
-              item.copy(request = item.request.copy(auth = item.request.auth ?: authFromRoot))
-            }
-          )
-        }
-        .toList()
-    logger.info {
-      val templateCount = kick.templatePaths().size
-      "Total Steps from ${if (templateCount > 1) "$templateCount Collections" else "the Collection"} provided: ${pmStepsDeepFlattened.size}"
-    }
+    val pmStepsDeepFlattened = deepFlattenPmSteps(kick.templatePaths(), kick.templateInputStreams())
     val regexReplacer =
       RegexReplacer(kick.customDynamicVariableGenerators(), ::dynamicVariableGenerator)
     val moshiReVoman =
@@ -106,14 +93,19 @@ object ReVoman {
         kick.customTypeAdaptersFromRequestConfig() + kick.customTypeAdaptersFromResponseConfig(),
         kick.globalSkipTypes(),
       )
-    val environment =
+    val mergedEnvironment =
       mergeEnvs(
         kick.environmentPaths(),
         kick.environmentInputStreams(),
         kick.dynamicEnvironmentsFlattened(),
       )
     val pm =
-      PostmanSDK(moshiReVoman, kick.nodeModulesPath(), regexReplacer, environment.toMutableMap())
+      PostmanSDK(
+        moshiReVoman,
+        kick.nodeModulesPath(),
+        regexReplacer,
+        mergedEnvironment.toMutableMap(),
+      )
     val stepNameToReport =
       executeStepsSerially(pmStepsDeepFlattened, kick, moshiReVoman, regexReplacer, pm)
     return Rundown(
@@ -122,6 +114,33 @@ object ReVoman {
       kick.haltOnFailureOfTypeExcept(),
       pmStepsDeepFlattened.size,
     )
+  }
+
+  @OptIn(ExperimentalStdlibApi::class)
+  private fun deepFlattenPmSteps(
+    templatePaths: List<String>,
+    templateInputStreams: List<InputStream>,
+  ): List<Step> {
+    val pmTemplateAdapter = Moshi.Builder().build().adapter<Template>()
+    val templateBuffers =
+      templatePaths.map { bufferFile(it) } + templateInputStreams.map { bufferInputStream(it) }
+    val pmStepsDeepFlattened =
+      templateBuffers
+        .asSequence()
+        .mapNotNull { pmTemplateAdapter.fromJson(it) }
+        .flatMap { (_, pmSteps, authFromRoot) ->
+          deepFlattenItems(
+            pmSteps.map { item ->
+              item.copy(request = item.request.copy(auth = item.request.auth ?: authFromRoot))
+            }
+          )
+        }
+        .toList()
+    logger.info {
+      val templateCount = templatePaths.size
+      "Total Steps from ${if (templateCount > 1) "$templateCount Collections" else "the Collection"} provided: ${pmStepsDeepFlattened.size}"
+    }
+    return pmStepsDeepFlattened
   }
 
   private fun executeStepsSerially(
@@ -139,7 +158,7 @@ object ReVoman {
       .fold(listOf()) { stepReports, step ->
         logger.info { "***** Executing Step: $step *****" }
         pm.environment.currentStep = step
-        val itemWithRegex = step.rawPMStep
+        val itemWithRegex = step.rawPmStep
         val preStepReport =
           StepReport(
             step = step,
@@ -230,6 +249,90 @@ object ReVoman {
         haltExecution = shouldHaltExecution(currentStepReport, kick, pm.rundown)
         stepReports + currentStepReport
       }
+  }
+
+  fun buildDepGraph(kick: Kick): PostmanCollectionGraph {
+    val pmStepsDeepFlattened = deepFlattenPmSteps(kick.templatePaths(), kick.templateInputStreams())
+    val nodes =
+      pmStepsDeepFlattened.map { step ->
+        val setsVariables = step.rawPmStep.event?.let { findSetVariables(it) } ?: emptySet()
+        // ! TODO 18 Apr 2025 gopala.akshintala: Use other attributes also like header
+        val usesVariables =
+          findUsedVariables(step.rawPmStep.request.url.raw) +
+            findUsedVariables(step.rawPmStep.request.body?.raw)
+        Node(step.index, step.rawPmStep, setsVariables, usesVariables)
+      }
+    val edges = mutableListOf<Edge>()
+
+    // ! TODO 18 Apr 2025 gopala.akshintala: Optimize
+    for (targetNode in nodes) {
+      for (useVar in targetNode.uses) {
+        for (sourceNode in nodes) {
+          if (sourceNode.index != targetNode.index && sourceNode.sets.contains(useVar)) {
+            edges.add(Edge(sourceNode, targetNode, useVar))
+          }
+        }
+      }
+    }
+    val variableChains = mutableMapOf<String, List<Node>>()
+    edges.forEach { edge ->
+      val chain = mutableListOf(edge.source, edge.target)
+      var currentEdge = edge
+      while (true) {
+        val nextEdge = edges.find { it.target == currentEdge.source }
+        if (nextEdge == null) break
+        chain.add(0, nextEdge.source)
+        currentEdge = nextEdge
+      }
+      variableChains[edge.connectingVariable] = chain
+    }
+    val varToTemplate =
+      variableChains.mapValues { (variable, nodesForVar) ->
+        Template(
+          com.salesforce.revoman.internal.postman.template.Info(
+            UUID.randomUUID().toString(),
+            "postman-collection-for-$variable",
+            "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+            "23827434",
+          ),
+          nodesForVar.map { it.item },
+        )
+      }
+    return PostmanCollectionGraph(
+      "Postman Collection dependency Graph based on how environment variables are set and used",
+      varToTemplate,
+    )
+  }
+
+  private val setVariableRegex =
+    """(?:pm\.environment\.set|postman\.setEnvironmentVariable)\s*\(\s*["']([^"']+)["']\s*,"""
+      .toRegex()
+  private val useVariableRegex = """\{\{([^}]+)}}""".toRegex()
+
+  private fun findSetVariables(events: List<Event>): Set<String> {
+    val variables = mutableSetOf<String>()
+    events
+      .filter { it.listen == "test" }
+      .flatMap { it.script.exec }
+      .forEach { line ->
+        setVariableRegex.findAll(line).forEach { matchResult ->
+          if (matchResult.groupValues.size > 1) {
+            variables.add(matchResult.groupValues[1])
+          }
+        }
+      }
+    return variables
+  }
+
+  private fun findUsedVariables(body: String?): Set<String> {
+    if (body == null) return emptySet()
+    val variables = mutableSetOf<String>()
+    useVariableRegex.findAll(body).forEach { matchResult ->
+      if (matchResult.groupValues.size > 1) {
+        variables.add(matchResult.groupValues[1])
+      }
+    }
+    return variables
   }
 }
 

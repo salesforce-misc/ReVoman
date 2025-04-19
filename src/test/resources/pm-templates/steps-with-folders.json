@@ -1,4 +1,10 @@
 {
+  "info": {
+    "_postman_id": "8e2843e3-f3e9-4c55-a49d-89429fd02a83",
+    "name": "restful-api.dev",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "23827434"
+  },
   "item": [
     {
       "name": "step-at-root",

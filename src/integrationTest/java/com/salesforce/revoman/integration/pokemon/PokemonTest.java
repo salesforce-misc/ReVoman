@@ -115,7 +115,7 @@ class PokemonTest {
 								LOGGER.info(
 										"Picked `postStepHookAfterURIPath` after stepName: {} with raw URI: {}",
 										stepReport.step.displayName,
-										stepReport.step.rawPMStep.getRequest().url);
+										stepReport.step.rawPmStep.getRequest().url);
 								final var id =
 										stepReport
 												.responseInfo
