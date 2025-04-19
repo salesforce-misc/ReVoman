@@ -23,19 +23,15 @@ class ReVomanTest {
   fun `build dep graph restful-api dev pm collection`() {
     val depGraph =
       ReVoman.buildDepGraph(
-        // <1>
         Kick.configure()
-          .templatePath(PM_COLLECTION_PATH) // <2>
-          .environmentPath(PM_ENVIRONMENT_PATH) // <3>
+          .templatePaths(
+            "pm-templates/core/milestone/persona-creation-and-setup.postman_collection.json",
+            "pm-templates/core/milestone/milestone-setup.postman_collection.json",
+            "pm-templates/core/milestone/bmp-create-runtime.postman_collection.json",
+          )
+          .environmentPath("pm-templates/core/milestone/env.postman_environment.json")
           .off()
       )
     println(depGraph.toJson())
-  }
-
-  companion object {
-    private const val PM_COLLECTION_PATH =
-      "pm-templates/restfulapidev/restful-api.dev.postman_collection.json"
-    private const val PM_ENVIRONMENT_PATH =
-      "pm-templates/restfulapidev/restful-api.dev.postman_environment.json"
   }
 }

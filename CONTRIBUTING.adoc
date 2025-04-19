@@ -68,9 +68,7 @@ TIP: If you're on Intellij, replace your kbd:[Cmd+Shift+L] habit with kbd:[Ctrl]
 and run `./gradlew spotlessApply` (Or the respective action if you're on VS Code/Eclipse).
 It may be slow for the first run, but subsequent runs should be faster.
 
-== Manual publishing
-
-=== Versioning Strategy
+== Versioning Strategy
 
 ====
 <A>.<B>.<C>
@@ -80,7 +78,9 @@ It may be slow for the first run, but subsequent runs should be faster.
 * B = Profit (Feature / Improvement)
 * C = Broke something by accident (Bug)
 
-Follow the Versioning Strategy to increment version link:buildSrc/{sourcedir}/Config.kt[here]
+== Manual publishing
+
+Follow the <<Versioning Strategy>> to increment version link:buildSrc/{sourcedir}/Config.kt[here]
 
 * For SNAPSHOT releases, add a `-SNAPSHOT` at the end of version number
 * Run this command to publish it to Nexus:
@@ -90,7 +90,7 @@ Follow the Versioning Strategy to increment version link:buildSrc/{sourcedir}/Co
 ./gradlew publishToSonatype closeAndReleaseSonatypeStagingRepository -Dorg.gradle.parallel=false --no-configuration-cache
 ----
 
-* You can monitor for the new version jar to reflect in link:https://repo1.maven.org/maven2/com/salesforce/revoman/revoman/[Maven Central]. It usually takes less than 30 minutes.
+* It usually takes _10-to–30 minutes_ for the new version jar to be available in link:https://repo1.maven.org/maven2/com/salesforce/revoman/revoman/[Maven Central].
 
 == Code of Conduct
 Please follow our link:CODE_OF_CONDUCT.md[Code of Conduct]

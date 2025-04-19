@@ -8,28 +8,37 @@
 package com.salesforce.revoman.output
 
 import com.salesforce.revoman.input.config.StepPick.PostTxnStepPick
+import com.salesforce.revoman.internal.json.MoshiReVoman
+import com.salesforce.revoman.internal.json.MoshiReVoman.Companion.initMoshi
+import com.salesforce.revoman.output.Rundown.Stats.Unsuccessful
 import com.salesforce.revoman.output.postman.PostmanEnvironment
 import com.salesforce.revoman.output.report.Folder.Companion.FOLDER_DELIMITER
 import com.salesforce.revoman.output.report.StepReport
+import com.squareup.moshi.Json
+import com.squareup.moshi.JsonClass
 
 data class Rundown(
   @JvmField val stepReports: List<StepReport> = emptyList(),
   @JvmField val mutableEnv: PostmanEnvironment<Any?>,
   private val haltOnFailureOfTypeExcept: Map<ExeType, PostTxnStepPick?>,
-  @JvmField val providedStepsToExecuteCount: Int,
+  private val providedStepsToExecuteCount: Int,
+  private val moshiReVoman: MoshiReVoman,
 ) {
   @get:JvmName("immutableEnv") val immutableEnv: Map<String, Any?> by lazy { mutableEnv.toMap() }
 
-  @get:JvmName("executedStepCount") val executedStepCount: Int by lazy { stepReports.size }
-
-  @get:JvmName("httpFailureStepCount")
-  val httpFailureStepCount: Int by lazy { stepReports.count { !it.isHttpStatusSuccessful } }
-
-  @get:JvmName("unsuccessfulStepCount")
-  val unsuccessfulStepCount: Int by lazy { stepReports.count { !it.isSuccessful } }
-
-  @get:JvmName("executionFailureStepCount")
-  val executionFailureStepCount: Int by lazy { stepReports.count { it.failure?.isLeft ?: false } }
+  @get:JvmName("stats")
+  val stats: Stats by lazy {
+    Stats(
+      providedStepsToExecuteCount,
+      stepReports.size,
+      Unsuccessful(
+        stepReports.count { !it.isSuccessful },
+        stepReports.count { !it.isHttpStatusSuccessful },
+        stepReports.count { it.failure?.isLeft ?: false },
+      ),
+      moshiReVoman,
+    )
+  }
 
   @get:JvmName("firstUnsuccessfulStepReport")
   val firstUnsuccessfulStepReport: StepReport? by lazy {
@@ -75,6 +84,23 @@ data class Rundown(
             (postTxnPick?.pick(stepReport, rundown) ?: false)
         }
         .any { it }
+  }
+
+  @JsonClass(generateAdapter = true)
+  data class Stats(
+    val providedStepsToExecuteCount: Int,
+    val executedStepCount: Int,
+    val unsuccessful: Unsuccessful,
+    @Json(ignore = true) private val moshiReVoman: MoshiReVoman = initMoshi(),
+  ) {
+    @JsonClass(generateAdapter = true)
+    data class Unsuccessful(
+      val total: Int,
+      val httpFailureStepCount: Int,
+      val executionFailureStepCount: Int,
+    )
+
+    fun toJson() = moshiReVoman.toPrettyJson(this)
   }
 }
 

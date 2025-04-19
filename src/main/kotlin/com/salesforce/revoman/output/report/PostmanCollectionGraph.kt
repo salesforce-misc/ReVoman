@@ -15,10 +15,19 @@ import com.squareup.moshi.JsonClass
 @JsonClass(generateAdapter = true)
 data class PostmanCollectionGraph(val description: String, val edges: Map<String, Template>) {
   @JsonClass(generateAdapter = true)
-  data class Edge(val source: Node, val target: Node, val connectingVariable: String)
+  data class Edge(val source: Node, val target: Node, val connectingVariable: String) {
+    override fun toString(): String = "${source.item.name} -> ${target.item.name} :$connectingVariable:"
+  }
 
   @JsonClass(generateAdapter = true)
-  data class Node(val index: String, val item: Item, val sets: Set<String>, val uses: Set<String>)
+  data class Node(
+    val index: String,
+    val item: Item,
+    val setsVariables: Set<String>,
+    val usesVariables: Set<String>,
+  ) {
+    override fun toString(): String = item.name
+  }
 
   @OptIn(ExperimentalStdlibApi::class) fun toJson(): String = initMoshi().toPrettyJson(this)
 }

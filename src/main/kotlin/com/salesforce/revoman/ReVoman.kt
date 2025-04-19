@@ -47,8 +47,10 @@ import com.squareup.moshi.adapter
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.vavr.control.Either.left
 import java.io.InputStream
-import java.util.*
+import kotlin.collections.flatMap
 import org.http4k.core.Request
+import java.util.UUID
+import kotlin.collections.map
 
 object ReVoman {
   @JvmStatic
@@ -108,12 +110,16 @@ object ReVoman {
       )
     val stepNameToReport =
       executeStepsSerially(pmStepsDeepFlattened, kick, moshiReVoman, regexReplacer, pm)
-    return Rundown(
-      stepNameToReport,
-      pm.environment,
-      kick.haltOnFailureOfTypeExcept(),
-      pmStepsDeepFlattened.size,
-    )
+    val rundown =
+      Rundown(
+        stepNameToReport,
+        pm.environment,
+        kick.haltOnFailureOfTypeExcept(),
+        pmStepsDeepFlattened.size,
+        moshiReVoman,
+      )
+    logger.info { "Execution finished. Stats:\n ${rundown.stats.toJson()}" }
+    return rundown
   }
 
   @OptIn(ExperimentalStdlibApi::class)
@@ -179,6 +185,7 @@ object ReVoman {
             pm.environment,
             kick.haltOnFailureOfTypeExcept(),
             pmStepsFlattened.size,
+            moshiReVoman,
           )
         pm.environment.putAll(regexReplacer.replaceVariablesInEnv(pm))
         val currentStepReport: StepReport = // --------### PRE-REQ-JS ###--------
@@ -262,32 +269,23 @@ object ReVoman {
             findUsedVariables(step.rawPmStep.request.body?.raw)
         Node(step.index, step.rawPmStep, setsVariables, usesVariables)
       }
-    val edges = mutableListOf<Edge>()
-
-    // ! TODO 18 Apr 2025 gopala.akshintala: Optimize
-    for (targetNode in nodes) {
-      for (useVar in targetNode.uses) {
-        for (sourceNode in nodes) {
-          if (sourceNode.index != targetNode.index && sourceNode.sets.contains(useVar)) {
-            edges.add(Edge(sourceNode, targetNode, useVar))
-          }
+    val edges =
+      nodes.flatMap { node1 ->
+        nodes.flatMap { node2 ->
+          node1.usesVariables.intersect(node2.setsVariables).map { Edge(node2, node1, it) }
         }
       }
-    }
-    val variableChains = mutableMapOf<String, List<Node>>()
-    edges.forEach { edge ->
-      val chain = mutableListOf(edge.source, edge.target)
-      var currentEdge = edge
-      while (true) {
-        val nextEdge = edges.find { it.target == currentEdge.source }
-        if (nextEdge == null) break
-        chain.add(0, nextEdge.source)
-        currentEdge = nextEdge
-      }
-      variableChains[edge.connectingVariable] = chain
-    }
-    val varToTemplate =
-      variableChains.mapValues { (variable, nodesForVar) ->
+    val edgeGroups: Map<String, Pair<Node, List<Node>>> =
+      edges
+        .groupBy { it.connectingVariable to it.source }
+        .mapValues { (_, edges) -> edges.map { it.target } }
+        .map { (key, value) -> key.first to (key.second to value) }
+        .toMap()
+
+    val variableToTemplate =
+      edgeGroups.entries.associate { (key, value) ->
+        key to  exeChain(key, edgeGroups) + value.first
+      }.mapValues { (variable, node) ->
         Template(
           com.salesforce.revoman.internal.postman.template.Info(
             UUID.randomUUID().toString(),
@@ -295,13 +293,22 @@ object ReVoman {
             "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
             "23827434",
           ),
-          nodesForVar.map { it.item },
+          node.map { it.item },
         )
       }
+
     return PostmanCollectionGraph(
-      "Postman Collection dependency Graph based on how environment variables are set and used",
-      varToTemplate,
+      "A map of variable to Postman collection template to execute to set that variable",
+      variableToTemplate
     )
+  }
+
+  fun exeChain(variable: String, edgeGroups: Map<String, Pair<Node, List<Node>>>): List<Node> {
+    val (varSetNode, _) = edgeGroups[variable] ?: return emptyList()
+    val levelNodes =
+      edgeGroups.filterKeys { it in varSetNode.usesVariables }.values.map { it.first }.distinct()
+    return (levelNodes.flatMap { it.usesVariables.flatMap { useVar -> exeChain(useVar, edgeGroups) } } + levelNodes)
+      .distinct()
   }
 
   private val setVariableRegex =
