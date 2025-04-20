@@ -34,7 +34,8 @@ data class Rundown(
       Unsuccessful(
         stepReports.count { !it.isSuccessful },
         stepReports.count { !it.isHttpStatusSuccessful },
-        stepReports.count { it.failure?.isLeft ?: false },
+        executionFailureSteps.size,
+        ignoredForFailureSteps.size,
       ),
       moshiReVoman,
     )
@@ -47,9 +48,7 @@ data class Rundown(
 
   @get:JvmName("firstUnIgnoredUnsuccessfulStepReport")
   val firstUnIgnoredUnsuccessfulStepReport: StepReport? by lazy {
-    stepReports.firstOrNull { stepReport ->
-      !stepReport.isSuccessful && !isStepIgnoredForFailure(stepReport, this)
-    }
+    stepReports.firstOrNull { !it.isSuccessful && !isStepIgnoredForFailure(it, this) }
   }
 
   @get:JvmName("areAllStepsSuccessful")
@@ -58,6 +57,16 @@ data class Rundown(
   @get:JvmName("areAllStepsExceptIgnoredSuccessful")
   val areAllStepsExceptIgnoredSuccessful: Boolean by lazy {
     stepReports.all { it.isSuccessful || !isStepIgnoredForFailure(it, this) }
+  }
+
+  @get:JvmName("ignoredForFailureSteps")
+  val ignoredForFailureSteps: List<StepReport> by lazy {
+    stepReports.filter { !it.isSuccessful && isStepIgnoredForFailure(it, this) }
+  }
+
+  @get:JvmName("executionFailureSteps")
+  val executionFailureSteps: List<StepReport> by lazy {
+    stepReports.filter { it.failure?.isLeft ?: false }
   }
 
   fun reportsForStepsInFolder(folderName: String): List<StepReport?> =
@@ -77,13 +86,9 @@ data class Rundown(
 
   companion object {
     fun isStepIgnoredForFailure(stepReport: StepReport, rundown: Rundown): Boolean =
-      rundown.haltOnFailureOfTypeExcept
-        .asSequence()
-        .map { (exeType, postTxnPick) ->
-          stepReport.exeTypeForFailure == exeType &&
-            (postTxnPick?.pick(stepReport, rundown) ?: false)
-        }
-        .any { it }
+      rundown.haltOnFailureOfTypeExcept.any { (exeType, postTxnPick) ->
+        stepReport.exeTypeForFailure == exeType && (postTxnPick?.pick(stepReport, rundown) ?: false)
+      }
   }
 
   @JsonClass(generateAdapter = true)
@@ -98,6 +103,7 @@ data class Rundown(
       val total: Int,
       val httpFailureStepCount: Int,
       val executionFailureStepCount: Int,
+      val ignoredForFailureSteps: Int,
     )
 
     fun toJson() = moshiReVoman.toPrettyJson(this)
