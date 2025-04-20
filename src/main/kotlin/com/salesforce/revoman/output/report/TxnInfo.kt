@@ -10,6 +10,7 @@ package com.salesforce.revoman.output.report
 import com.salesforce.revoman.internal.json.MoshiReVoman
 import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.rawType
+import io.exoquery.pprint
 import io.vavr.control.Either
 import java.lang.reflect.Type
 import java.util.Collections.indexOfSubList
@@ -81,7 +82,7 @@ constructor(
         is Response -> "⬇️ Response Info <~~"
         else -> "TxnInfo"
       }
-    return "\n$prefix\nType=$txnObjType\nObj=$txnObj\n$httpMsg"
+    return "\n${pprint(prefix)}\nType=$txnObjType\nObj=$txnObj\n${pprint(httpMsg)}"
   }
 
   companion object {

@@ -11,6 +11,7 @@ import com.salesforce.revoman.internal.postman.template.Item
 import com.salesforce.revoman.output.endsWith
 import com.salesforce.revoman.output.report.Folder.Companion.FOLDER_DELIMITER
 import com.squareup.moshi.JsonClass
+import io.exoquery.pprint
 import java.util.Collections.indexOfSubList
 
 @JsonClass(generateAdapter = true)
@@ -51,7 +52,7 @@ data class Step(
     return parentFolder?.path?.endsWith(folderPath) ?: folderPath.isEmpty()
   }
 
-  override fun toString(): String = displayName
+  override fun toString(): String = pprint(displayName).toString()
 
   companion object {
     const val HTTP_METHOD_SEPARATOR = " ~~> "

@@ -15,7 +15,6 @@ import com.squareup.moshi.JsonClass
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapter
 import java.io.InputStream
-import kotlin.collections.plus
 
 @JsonClass(generateAdapter = true)
 internal data class Environment(val name: String?, val values: List<EnvValue>) {
