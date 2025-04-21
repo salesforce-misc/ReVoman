@@ -1,0 +1,36 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# MCP Tool Usage Guide
+
+## Overview
+This guide explains how to use the MCP tools for Postman collection operations in the Revoman project.
+
+## Query Chain MCP Tool
+The `query-chain` MCP tool helps create variables by executing a sequence of Postman collections in a specific order.
+
+### When to Use
+- When asked "How can I create X" (e.g., "How can I create an Order")
+- When creating a new variable (e.g., "How to create variable `orderId`")
+- When you need to understand the sequence of operations to create a specific entity
+
+### Collection Order (MUST FOLLOW)
+The collections MUST be provided in this exact order:
+1. `persona-creation-and-setup.postman_collection.json` - Sets up user personas and permissions
+2. `milestone-setup.postman_collection.json` - Configures milestone-related settings
+3. `bmp-create-runtime.postman_collection.json` - Creates runtime entities and finalizes setup
+
+### Best Practices
+- Always provide detailed explanations of the returned Postman collection
+- Use absolute paths when specifying collection files
+- Format collection paths as a CSV string
+- Verify the order matches the sequence above before executing
+
+### Example Usage
+For creating an Order:
+1. Use `query-chain` MCP tool
+2. Provide collection paths in CSV format following the order above
+3. Specify the target variable (e.g., `orderId`)
+4. Execute and analyze the returned collection

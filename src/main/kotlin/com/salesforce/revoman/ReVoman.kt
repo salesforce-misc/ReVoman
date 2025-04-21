@@ -35,6 +35,7 @@ import com.salesforce.revoman.internal.postman.template.Environment.Companion.me
 import com.salesforce.revoman.internal.postman.template.Event
 import com.salesforce.revoman.internal.postman.template.Template
 import com.salesforce.revoman.output.Rundown
+import com.salesforce.revoman.output.postman.PostmanEnvironment
 import com.salesforce.revoman.output.report.PostmanCollectionGraph
 import com.salesforce.revoman.output.report.PostmanCollectionGraph.Edge
 import com.salesforce.revoman.output.report.PostmanCollectionGraph.Node
@@ -44,13 +45,12 @@ import com.salesforce.revoman.output.report.StepReport.Companion.toVavr
 import com.salesforce.revoman.output.report.TxnInfo
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapter
+import io.exoquery.pprint
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.vavr.control.Either.left
 import java.io.InputStream
-import kotlin.collections.flatMap
+import java.util.*
 import org.http4k.core.Request
-import java.util.UUID
-import kotlin.collections.map
 
 object ReVoman {
   @JvmStatic
@@ -87,6 +87,17 @@ object ReVoman {
   @OptIn(ExperimentalStdlibApi::class)
   fun revUp(kick: Kick): Rundown {
     val pmStepsDeepFlattened = deepFlattenPmSteps(kick.templatePaths(), kick.templateInputStreams())
+    return execute(kick, pmStepsDeepFlattened)
+  }
+
+  private fun execute(kick: Kick, pmStepsDeepFlattened: List<Step>): Rundown {
+    val mergedEnvironment: MutableMap<String, Any?> =
+      mergeEnvs(
+          kick.environmentPaths(),
+          kick.environmentInputStreams(),
+          kick.dynamicEnvironmentsFlattened(),
+        )
+        .toMutableMap()
     val regexReplacer =
       RegexReplacer(kick.customDynamicVariableGenerators(), ::dynamicVariableGenerator)
     val moshiReVoman =
@@ -95,19 +106,7 @@ object ReVoman {
         kick.customTypeAdaptersFromRequestConfig() + kick.customTypeAdaptersFromResponseConfig(),
         kick.globalSkipTypes(),
       )
-    val mergedEnvironment =
-      mergeEnvs(
-        kick.environmentPaths(),
-        kick.environmentInputStreams(),
-        kick.dynamicEnvironmentsFlattened(),
-      )
-    val pm =
-      PostmanSDK(
-        moshiReVoman,
-        kick.nodeModulesPath(),
-        regexReplacer,
-        mergedEnvironment.toMutableMap(),
-      )
+    val pm = PostmanSDK(moshiReVoman, kick.nodeModulesPath(), regexReplacer, mergedEnvironment)
     val stepNameToReport =
       executeStepsSerially(pmStepsDeepFlattened, kick, moshiReVoman, regexReplacer, pm)
     val rundown =
@@ -118,7 +117,7 @@ object ReVoman {
         pmStepsDeepFlattened.size,
         moshiReVoman,
       )
-    logger.info { "Execution finished. Stats:\n ${rundown.stats.toJson()}" }
+    logger.info { "🏁Execution finished. Stats:\n ${pprint(rundown.stats.toJson())}" }
     return rundown
   }
 
@@ -144,7 +143,7 @@ object ReVoman {
         .toList()
     logger.info {
       val templateCount = templatePaths.size
-      "Total Steps from ${if (templateCount > 1) "$templateCount Collections" else "the Collection"} provided: ${pmStepsDeepFlattened.size}"
+      "Total Steps from ${if (templateCount > 1) "$templateCount Collections" else "the Collection"} provided: ${pprint(pmStepsDeepFlattened.size)}"
     }
     return pmStepsDeepFlattened
   }
@@ -258,17 +257,76 @@ object ReVoman {
       }
   }
 
-  fun buildDepGraph(kick: Kick): PostmanCollectionGraph {
-    val pmStepsDeepFlattened = deepFlattenPmSteps(kick.templatePaths(), kick.templateInputStreams())
-    val nodes =
-      pmStepsDeepFlattened.map { step ->
-        val setsVariables = step.rawPmStep.event?.let { findSetVariables(it) } ?: emptySet()
-        // ! TODO 18 Apr 2025 gopala.akshintala: Use other attributes also like header
-        val usesVariables =
-          findUsedVariables(step.rawPmStep.request.url.raw) +
-            findUsedVariables(step.rawPmStep.request.body?.raw)
-        Node(step.index, step.rawPmStep, setsVariables, usesVariables)
+  fun exeChain(variableName: String, kick: Kick): List<Node> {
+    val nodes = itemsAsNodes(kick)
+    val executionChain = mutableListOf<Node>()
+    for (node in nodes) {
+      executionChain.add(node)
+      if (variableName in node.setsVariables) {
+        return executionChain
       }
+    }
+    return emptyList()
+  }
+
+  fun queryChainForVariable(variableName: String, kick: Kick): PostmanCollectionGraph {
+    val exeChain = exeChain(variableName, kick)
+    check(exeChain.isNotEmpty()) { "Variable $variableName not found in any node's setsVariables" }
+    return PostmanCollectionGraph(
+      "Execution chain to set variable: $variableName",
+      mapOf(
+        variableName to
+          Template(
+            com.salesforce.revoman.internal.postman.template.Info(
+              UUID.randomUUID().toString(),
+              "postman-collection-for-$variableName",
+              "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+              "23827434",
+            ),
+            exeChain.map { it.step.rawPmStep },
+          )
+      ),
+    )
+  }
+
+  fun exeChainForVariable(variableName: String, kick: Kick): PostmanEnvironment<Any?> {
+    val exeChain = exeChain(variableName, kick)
+    check(exeChain.isNotEmpty()) { "Variable $variableName not found in any node's setsVariables" }
+    val rundown = execute(kick, exeChain.map { it.step })
+    return rundown.mutableEnv
+  }
+
+  private fun diffExeChain(prevVariableName: String, variableName: String, kick: Kick): List<Node> {
+    val nodes = itemsAsNodes(kick)
+    return nodes
+      .dropWhile { prevVariableName !in it.usesVariables }
+      .takeWhile { variableName !in it.setsVariables }
+      .let { chain ->
+        if (chain.isNotEmpty() && variableName in chain.last().setsVariables) chain else emptyList()
+      }
+  }
+
+  fun diffExeChainForVariable(
+    prevVariableName: String,
+    variableName: String,
+    kick: Kick,
+  ): PostmanEnvironment<Any?> {
+    val exeChain = diffExeChain(prevVariableName, variableName, kick)
+    check(exeChain.isNotEmpty()) { "Variable $variableName not found in any node's setsVariables" }
+    val rundown = execute(kick, exeChain.map { it.step })
+    return rundown.mutableEnv
+  }
+
+  fun findMissingUsesVariables(kick: Kick): List<String> {
+    val nodes = itemsAsNodes(kick)
+    val allSetVariables = nodes.flatMap { it.setsVariables }.toSet()
+    return nodes
+      .flatMap { node -> node.usesVariables.filter { variable -> variable !in allSetVariables } }
+      .distinct()
+  }
+
+  fun buildDepGraph(kick: Kick): PostmanCollectionGraph {
+    val nodes = itemsAsNodes(kick)
     val edges =
       nodes.flatMap { node1 ->
         nodes.flatMap { node2 ->
@@ -283,31 +341,50 @@ object ReVoman {
         .toMap()
 
     val variableToTemplate =
-      edgeGroups.entries.associate { (key, value) ->
-        key to  exeChain(key, edgeGroups) + value.first
-      }.mapValues { (variable, node) ->
-        Template(
-          com.salesforce.revoman.internal.postman.template.Info(
-            UUID.randomUUID().toString(),
-            "postman-collection-for-$variable",
-            "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-            "23827434",
-          ),
-          node.map { it.item },
-        )
-      }
+      edgeGroups.entries
+        .associate { (key, value) -> key to exeChainBfs(key, edgeGroups) + value.first }
+        .mapValues { (variable, node) ->
+          Template(
+            com.salesforce.revoman.internal.postman.template.Info(
+              UUID.randomUUID().toString(),
+              "postman-collection-for-$variable",
+              "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+              "23827434",
+            ),
+            node.map { it.step.rawPmStep },
+          )
+        }
 
     return PostmanCollectionGraph(
       "A map of variable to Postman collection template to execute to set that variable",
-      variableToTemplate
+      variableToTemplate,
     )
   }
 
-  fun exeChain(variable: String, edgeGroups: Map<String, Pair<Node, List<Node>>>): List<Node> {
+  private fun itemsAsNodes(kick: Kick): List<Node> {
+    val pmStepsDeepFlattened = deepFlattenPmSteps(kick.templatePaths(), kick.templateInputStreams())
+    val nodes =
+      pmStepsDeepFlattened.map { step ->
+        val setsVariables = step.rawPmStep.event?.let { findSetVariables(it) } ?: emptySet()
+        // ! TODO 18 Apr 2025 gopala.akshintala: Use other attributes also like header
+        val usesVariables =
+          findUsedVariables(step.rawPmStep.request.url.raw) +
+            findUsedVariables(step.rawPmStep.request.body?.raw)
+        Node(step, setsVariables, usesVariables)
+      }
+    return nodes
+  }
+
+  private fun exeChainBfs(
+    variable: String,
+    edgeGroups: Map<String, Pair<Node, List<Node>>>,
+  ): List<Node> {
     val (varSetNode, _) = edgeGroups[variable] ?: return emptyList()
     val levelNodes =
       edgeGroups.filterKeys { it in varSetNode.usesVariables }.values.map { it.first }.distinct()
-    return (levelNodes.flatMap { it.usesVariables.flatMap { useVar -> exeChain(useVar, edgeGroups) } } + levelNodes)
+    return (levelNodes.flatMap {
+        it.usesVariables.flatMap { useVar -> exeChainBfs(useVar, edgeGroups) }
+      } + levelNodes)
       .distinct()
   }
 

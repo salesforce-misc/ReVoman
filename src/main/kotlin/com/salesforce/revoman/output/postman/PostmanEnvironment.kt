@@ -12,6 +12,7 @@ import com.salesforce.revoman.internal.json.MoshiReVoman.Companion.initMoshi
 import com.salesforce.revoman.internal.postman.template.Environment.Companion.fromMap
 import com.salesforce.revoman.output.report.Step
 import com.squareup.moshi.JsonAdapter
+import com.squareup.moshi.JsonClass
 import com.squareup.moshi.rawType
 import io.exoquery.pprint
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -27,6 +28,8 @@ constructor(
 ) : MutableMap<String, ValueT> by mutableEnv {
 
   internal lateinit var currentStep: Step
+  @JvmField
+  val variableToSetStep: MutableMap<String, Step?> = mutableEnv.mapValues { null }.toMutableMap()
 
   @get:JvmName("immutableEnv") val immutableEnv: Map<String, ValueT> by lazy { mutableEnv.toMap() }
 
@@ -35,8 +38,16 @@ constructor(
     moshiReVoman.toPrettyJson(fromMap(mutableEnv, moshiReVoman))
   }
 
+  @get:JvmName("envJson")
+  val envJson: String by lazy {
+    val environment =
+      mutableEnv.map { (key, value) -> EnvEntry(key, value, variableToSetStep[key]?.name) }
+    moshiReVoman.toPrettyJson(environment)
+  }
+
   fun set(key: String, value: ValueT) {
     mutableEnv[key] = value
+    variableToSetStep[key] = currentStep
     logger.info {
       "pm environment variable set in Step: $currentStep - key: $key, value: ${pprint(value)}"
     }
@@ -45,6 +56,7 @@ constructor(
   @Suppress("unused")
   fun unset(key: String) {
     mutableEnv.remove(key)
+    variableToSetStep.remove(key)
     logger.info { "pm environment variable unset through JS in Step: $currentStep - key: $key" }
   }
 
@@ -221,6 +233,9 @@ constructor(
       .filter { type.isInstance(it.value) && suffixes.all { suffix -> !it.key.endsWith(suffix) } }
       .mapNotNull { type.cast(it.value) }
       .toSet()
+
+  @JsonClass(generateAdapter = true)
+  data class EnvEntry(val key: String, val value: Any?, val lastSetStepName: String?)
 }
 
 private val logger = KotlinLogging.logger {}

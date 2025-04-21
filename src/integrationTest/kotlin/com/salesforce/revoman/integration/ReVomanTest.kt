@@ -34,4 +34,40 @@ class ReVomanTest {
       )
     println(depGraph.toJson())
   }
+
+  @Test
+  fun `query exe chain milestone pm collection`() {
+    val chain =
+      ReVoman.queryChainForVariable(
+        "orderId",
+        Kick.configure()
+          .templatePaths(
+            "pm-templates/core/milestone/persona-creation-and-setup.postman_collection.json",
+            "pm-templates/core/milestone/milestone-setup.postman_collection.json",
+            "pm-templates/core/milestone/bmp-create-runtime.postman_collection.json",
+          )
+          .nodeModulesPath("js")
+          .environmentPath("pm-templates/core/milestone/env.postman_environment.json")
+          .off(),
+      )
+    println(chain.toJson())
+  }
+
+  @Test
+  fun `exe chain milestone pm collection`() {
+    val mutableEnv =
+      ReVoman.exeChainForVariable(
+        "orderId",
+        Kick.configure()
+          .templatePaths(
+            "pm-templates/core/milestone/persona-creation-and-setup.postman_collection.json",
+            "pm-templates/core/milestone/milestone-setup.postman_collection.json",
+            "pm-templates/core/milestone/bmp-create-runtime.postman_collection.json",
+          )
+          .nodeModulesPath("js")
+          .environmentPath("pm-templates/core/milestone/env.postman_environment.json")
+          .off(),
+      )
+    println(mutableEnv.envJson)
+  }
 }

@@ -109,7 +109,7 @@ open class MoshiReVoman(builder: Moshi.Builder) {
   companion object {
     @Synchronized
     @JvmOverloads
-    internal fun initMoshi(
+    fun initMoshi(
       customAdapters: List<Any> = emptyList(),
       customAdaptersWithType: Map<Type, Either<JsonAdapter<out Any>, Factory>> = emptyMap(),
       typesToIgnore: Set<Type> = emptySet(),

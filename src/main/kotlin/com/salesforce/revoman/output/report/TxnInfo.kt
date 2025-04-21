@@ -82,7 +82,7 @@ constructor(
         is Response -> "⬇️ Response Info <~~"
         else -> "TxnInfo"
       }
-    return "\n${pprint(prefix)}\nType=$txnObjType\nObj=$txnObj\n${pprint(httpMsg)}"
+    return "\n${pprint(prefix)}\nType=$txnObjType\nObj=$txnObj\n${pprint(httpMsg.toString())}"
   }
 
   companion object {

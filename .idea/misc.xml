@@ -1,11 +1,58 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="BazelDisableImportNotification">
-    <option name="disabled" value="true" />
+  <component name="CodyProjectSettings">
+    <option name="defaultBranchName" value="master" />
+    <option name="remoteUrlReplacements" value="gitcore.soma.salesforce.com/core-2206/core-public,perforce://ssl:proxy1-ci.p4.core-perforce.aws-esvc1-useast2.aws.sfdc.is:1999//app/main/core/ " />
+  </component>
+  <component name="ComposerSettings">
+    <execution />
   </component>
   <component name="ExternalStorageConfigurationManager" enabled="true" />
-  <component name="FrameworkDetectionExcludesConfiguration">
-    <file type="web" url="file://$PROJECT_DIR$" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="corretto-17 (2)" project-jdk-type="JavaSDK" />
+  <component name="ProjectUserFactors">
+    <factor id="completionFinishedType">
+      <dailyData date="20-03-2025">
+        <observation name="cancelled" value="23.0" />
+        <observation name="explicitSelect" value="1.0" />
+      </dailyData>
+    </factor>
+    <factor id="completionType">
+      <dailyData date="20-03-2025">
+        <observation name="BASIC" value="1.0" />
+      </dailyData>
+    </factor>
+    <factor id="completionUsage">
+      <dailyData date="20-03-2025">
+        <observation name="count" value="24.0" />
+      </dailyData>
+    </factor>
+    <factor id="fullLineFactors" />
+    <factor id="itemPosition">
+      <dailyData date="20-03-2025">
+        <observation name="0" value="1.0" />
+      </dailyData>
+    </factor>
+    <factor id="mnemonicsUsage">
+      <dailyData date="20-03-2025">
+        <observation name="total" value="1.0" />
+        <observation name="withMnemonics" value="0.0" />
+      </dailyData>
+    </factor>
+    <factor id="prefixLength">
+      <dailyData date="20-03-2025">
+        <observation name="2" value="1.0" />
+      </dailyData>
+    </factor>
+    <factor id="prefixMatchingType">
+      <dailyData date="20-03-2025">
+        <observation name="START_WITH" value="1.0" />
+      </dailyData>
+    </factor>
+    <factor id="templatesUsage">
+      <dailyData date="20-03-2025">
+        <observation name="totalStartingWithPrefix" value="1.0" />
+      </dailyData>
+    </factor>
+    <factor id="timeBetweenTyping" />
   </component>
-  <component name="ProjectRootManager" version="2" languageLevel="JDK_17" default="true" project-jdk-name="corretto-17 (2)" project-jdk-type="JavaSDK" />
 </project>

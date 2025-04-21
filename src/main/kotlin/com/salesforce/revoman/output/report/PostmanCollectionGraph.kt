@@ -8,25 +8,23 @@
 package com.salesforce.revoman.output.report
 
 import com.salesforce.revoman.internal.json.MoshiReVoman.Companion.initMoshi
-import com.salesforce.revoman.internal.postman.template.Item
 import com.salesforce.revoman.internal.postman.template.Template
 import com.squareup.moshi.JsonClass
 
 @JsonClass(generateAdapter = true)
-data class PostmanCollectionGraph(val description: String, val edges: Map<String, Template>) {
+data class PostmanCollectionGraph(
+  val description: String,
+  val variableNameToTemplate: Map<String, Template>,
+) {
   @JsonClass(generateAdapter = true)
   data class Edge(val source: Node, val target: Node, val connectingVariable: String) {
-    override fun toString(): String = "${source.item.name} -> ${target.item.name} :$connectingVariable:"
+    override fun toString(): String =
+      "${source.step.name} -> ${target.step.name} :$connectingVariable:"
   }
 
   @JsonClass(generateAdapter = true)
-  data class Node(
-    val index: String,
-    val item: Item,
-    val setsVariables: Set<String>,
-    val usesVariables: Set<String>,
-  ) {
-    override fun toString(): String = item.name
+  data class Node(val step: Step, val setsVariables: Set<String>, val usesVariables: Set<String>) {
+    override fun toString(): String = step.name
   }
 
   @OptIn(ExperimentalStdlibApi::class) fun toJson(): String = initMoshi().toPrettyJson(this)
