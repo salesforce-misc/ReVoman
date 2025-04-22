@@ -21,7 +21,7 @@ import org.junit.jupiter.api.Test
 
 class EvalJsTest {
   private val pm: PostmanSDK = PostmanSDK(initMoshi(), "js")
-
+  
   @Test
   fun `pm environment get set`() {
     pm.environment.set("hello", "world")

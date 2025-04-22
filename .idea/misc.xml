@@ -8,6 +8,9 @@
     <execution />
   </component>
   <component name="ExternalStorageConfigurationManager" enabled="true" />
+  <component name="FrameworkDetectionExcludesConfiguration">
+    <file type="web" url="file://$PROJECT_DIR$" />
+  </component>
   <component name="ProjectRootManager" version="2" project-jdk-name="corretto-17 (2)" project-jdk-type="JavaSDK" />
   <component name="ProjectUserFactors">
     <factor id="completionFinishedType">
