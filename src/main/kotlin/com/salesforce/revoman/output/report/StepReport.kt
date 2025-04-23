@@ -31,8 +31,7 @@ internal constructor(
   @JvmField val preStepHookFailure: PreStepHookFailure? = null,
   @JvmField val responseInfo: Either<out ResponseFailure, TxnInfo<Response>>? = null,
   @JvmField val postStepHookFailure: PostStepHookFailure? = null,
-  @Json(ignore = true)
-  @JvmField val pmEnvSnapshot: PostmanEnvironment<Any?> = PostmanEnvironment(),
+  @Json(ignore = true) @JvmField val pmEnvSnapshot: PostmanEnvironment<Any?> = PostmanEnvironment(),
 ) {
   internal constructor(
     step: Step,

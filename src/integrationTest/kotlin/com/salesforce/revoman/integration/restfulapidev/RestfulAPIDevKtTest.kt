@@ -10,7 +10,6 @@ package com.salesforce.revoman.integration.restfulapidev
 import com.google.common.truth.Truth.assertThat
 import com.salesforce.revoman.ReVoman
 import com.salesforce.revoman.input.config.Kick
-import com.salesforce.revoman.internal.json.MoshiReVoman.Companion.initMoshi
 import org.junit.jupiter.api.Test
 
 class RestfulAPIDevKtTest {

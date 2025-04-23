@@ -18,10 +18,8 @@ import java.util.Collections.indexOfSubList
 @JsonClass(generateAdapter = true)
 data class Step(
   @JvmField val index: String,
-  @Json(ignore = true)
-  @JvmField val rawPmStep: Item = Item(),
-  @Json(ignore = true)
-  @JvmField val parentFolder: Folder? = null,
+  @Json(ignore = true) @JvmField val rawPmStep: Item = Item(),
+  @Json(ignore = true) @JvmField val parentFolder: Folder? = null,
 ) {
   @JvmField val name: String = rawPmStep.name
   @JvmField var preStepHookCount: Int = 0

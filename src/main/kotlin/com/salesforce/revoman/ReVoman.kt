@@ -35,7 +35,6 @@ import com.salesforce.revoman.internal.postman.template.Environment.Companion.me
 import com.salesforce.revoman.internal.postman.template.Event
 import com.salesforce.revoman.internal.postman.template.Template
 import com.salesforce.revoman.output.Rundown
-import com.salesforce.revoman.output.postman.PostmanEnvironment
 import com.salesforce.revoman.output.report.PostmanCollectionGraph
 import com.salesforce.revoman.output.report.PostmanCollectionGraph.Edge
 import com.salesforce.revoman.output.report.PostmanCollectionGraph.Node
@@ -306,11 +305,7 @@ object ReVoman {
       }
   }
 
-  fun diffExeChainForVariable(
-    prevVariableName: String,
-    variableName: String,
-    kick: Kick,
-  ): Rundown {
+  fun diffExeChainForVariable(prevVariableName: String, variableName: String, kick: Kick): Rundown {
     val exeChain = diffExeChain(prevVariableName, variableName, kick)
     check(exeChain.isNotEmpty()) { "Variable $variableName not found in any node's setsVariables" }
     val rundown = execute(kick, exeChain.map { it.step })

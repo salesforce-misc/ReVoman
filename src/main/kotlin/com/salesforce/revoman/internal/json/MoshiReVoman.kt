@@ -27,8 +27,6 @@ import dev.zacsweers.moshix.adapters.JsonString
 import io.vavr.control.Either
 import java.lang.reflect.Type
 import java.util.*
-import org.http4k.core.MemoryRequest
-import org.http4k.core.MemoryResponse
 import org.http4k.core.Request
 import org.http4k.core.Response
 import org.http4k.format.ListAdapter

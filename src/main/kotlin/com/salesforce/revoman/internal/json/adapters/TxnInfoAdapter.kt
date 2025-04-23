@@ -14,13 +14,11 @@ import com.squareup.moshi.JsonReader
 import com.squareup.moshi.JsonWriter
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.rawType
-import org.http4k.core.HttpMessage
-import java.lang.reflect.ParameterizedType
 import java.lang.reflect.Type
+import org.http4k.core.HttpMessage
+import org.http4k.core.Request
 
-class TxnInfoAdapter<HttpMsgT : HttpMessage>(
-  moshi: Moshi,
-) : JsonAdapter<TxnInfo<HttpMsgT>>() {
+class TxnInfoAdapter<HttpMsgT : HttpMessage>(moshi: Moshi) : JsonAdapter<TxnInfo<HttpMsgT>>() {
   private val anyAdapter: JsonAdapter<Any> = moshi.adapter(Any::class.java)
   private val typeAdapter: JsonAdapter<Type> = moshi.adapter(Type::class.java)
 
@@ -60,7 +58,6 @@ class TxnInfoAdapter<HttpMsgT : HttpMessage>(
       writer.nullValue()
       return
     }
-
     writer.beginObject()
     writer.name("isJson").value(value.isJson)
     if (value.txnObjType != null) {
@@ -71,8 +68,27 @@ class TxnInfoAdapter<HttpMsgT : HttpMessage>(
       writer.name("txnObj")
       anyAdapter.toJson(writer, value.txnObj)
     }
-    writer.name("httpMsg")
-    writer.value(value.httpMsg.toString())
+    if (value.httpMsg is Request) {
+      writer.name("request")
+      writer.beginObject()
+      writer.name("method").value(value.httpMsg.method.toString())
+      writer.name("uri").value(value.httpMsg.uri.toString())
+    } else {
+      writer.name("response")
+      writer.beginObject()
+    }
+    writer.name("headers")
+    writer.beginArray()
+    value.httpMsg.headers.toMap().forEach { (key, value) ->
+      writer.beginObject()
+      writer.name("key").value(key)
+      writer.name("value").value(value)
+      writer.endObject()
+    }
+    writer.endArray()
+    writer.name("version").value(value.httpMsg.version)
+    writer.name("body").value(value.httpMsg.bodyString())
+    writer.endObject()
     writer.endObject()
   }
 

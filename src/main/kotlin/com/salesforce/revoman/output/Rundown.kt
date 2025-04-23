@@ -22,8 +22,7 @@ data class Rundown(
   @JvmField val mutableEnv: PostmanEnvironment<Any?>,
   private val haltOnFailureOfTypeExcept: Map<ExeType, PostTxnStepPick?>,
   private val providedStepsToExecuteCount: Int,
-  @Json(ignore = true)
-  private val moshiReVoman: MoshiReVoman,
+  @Json(ignore = true) private val moshiReVoman: MoshiReVoman,
 ) {
   @get:JvmName("immutableEnv") val immutableEnv: Map<String, Any?> by lazy { mutableEnv.toMap() }
 
