@@ -55,7 +55,7 @@ class ReVomanTest {
 
   @Test
   fun `exe chain milestone pm collection`() {
-    val mutableEnv =
+    val rundown =
       ReVoman.exeChainForVariable(
         "orderId",
         Kick.configure()
@@ -68,6 +68,6 @@ class ReVomanTest {
           .environmentPath("pm-templates/core/milestone/env.postman_environment.json")
           .off(),
       )
-    println(mutableEnv.envJson)
+    println(rundown.toJson())
   }
 }

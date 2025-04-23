@@ -10,6 +10,7 @@ package com.salesforce.revoman.output.report
 import com.salesforce.revoman.internal.postman.template.Item
 import com.salesforce.revoman.output.endsWith
 import com.salesforce.revoman.output.report.Folder.Companion.FOLDER_DELIMITER
+import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 import io.exoquery.pprint
 import java.util.Collections.indexOfSubList
@@ -17,7 +18,9 @@ import java.util.Collections.indexOfSubList
 @JsonClass(generateAdapter = true)
 data class Step(
   @JvmField val index: String,
-  @JvmField val rawPmStep: Item,
+  @Json(ignore = true)
+  @JvmField val rawPmStep: Item = Item(),
+  @Json(ignore = true)
   @JvmField val parentFolder: Folder? = null,
 ) {
   @JvmField val name: String = rawPmStep.name

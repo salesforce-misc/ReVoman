@@ -7,8 +7,11 @@
  */
 package com.salesforce.revoman.internal.json
 
+import com.salesforce.revoman.input.json.adapters.vavr.EitherAdapter
 import com.salesforce.revoman.internal.json.adapters.BigDecimalAdapter
 import com.salesforce.revoman.internal.json.adapters.EpochAdapter
+import com.salesforce.revoman.internal.json.adapters.RundownAdapter
+import com.salesforce.revoman.internal.json.adapters.TxnInfoAdapter
 import com.salesforce.revoman.internal.json.adapters.TypeAdapter
 import com.salesforce.revoman.internal.json.adapters.UUIDAdapter
 import com.salesforce.revoman.internal.json.factories.AlwaysSerializeNullsFactory
@@ -24,6 +27,10 @@ import dev.zacsweers.moshix.adapters.JsonString
 import io.vavr.control.Either
 import java.lang.reflect.Type
 import java.util.*
+import org.http4k.core.MemoryRequest
+import org.http4k.core.MemoryResponse
+import org.http4k.core.Request
+import org.http4k.core.Response
 import org.http4k.format.ListAdapter
 import org.http4k.format.MapAdapter
 import org.http4k.format.ThrowableAdapter
@@ -133,12 +140,16 @@ open class MoshiReVoman(builder: Moshi.Builder) {
           .add(BigDecimalAdapter)
           .add(UUIDAdapter)
           .add(EpochAdapter)
+          .add(EitherAdapter.FACTORY)
           .add(Date::class.java, Rfc3339DateJsonAdapter())
           .addLast(CaseInsensitiveEnumAdapter.FACTORY)
           .addLast(AlwaysSerializeNullsFactory())
           .addLast(ThrowableAdapter)
           .addLast(ListAdapter)
           .addLast(MapAdapter)
+          .addLast(TxnInfoAdapter.factory<Request>())
+          .addLast(TxnInfoAdapter.factory<Response>())
+          .addLast(RundownAdapter.factory())
           .asConfigurable()
           .withStandardMappings()
           .done()

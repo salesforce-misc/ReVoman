@@ -289,11 +289,11 @@ object ReVoman {
     )
   }
 
-  fun exeChainForVariable(variableName: String, kick: Kick): PostmanEnvironment<Any?> {
+  fun exeChainForVariable(variableName: String, kick: Kick): Rundown {
     val exeChain = exeChain(variableName, kick)
     check(exeChain.isNotEmpty()) { "Variable $variableName not found in any node's setsVariables" }
     val rundown = execute(kick, exeChain.map { it.step })
-    return rundown.mutableEnv
+    return rundown
   }
 
   private fun diffExeChain(prevVariableName: String, variableName: String, kick: Kick): List<Node> {
@@ -310,11 +310,11 @@ object ReVoman {
     prevVariableName: String,
     variableName: String,
     kick: Kick,
-  ): PostmanEnvironment<Any?> {
+  ): Rundown {
     val exeChain = diffExeChain(prevVariableName, variableName, kick)
     check(exeChain.isNotEmpty()) { "Variable $variableName not found in any node's setsVariables" }
     val rundown = execute(kick, exeChain.map { it.step })
-    return rundown.mutableEnv
+    return rundown
   }
 
   fun findMissingUsesVariables(kick: Kick): List<String> {

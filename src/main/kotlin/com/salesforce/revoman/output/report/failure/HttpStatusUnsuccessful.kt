@@ -9,9 +9,11 @@ package com.salesforce.revoman.output.report.failure
 
 import com.salesforce.revoman.output.ExeType.HTTP_STATUS
 import com.salesforce.revoman.output.report.TxnInfo
+import com.squareup.moshi.JsonClass
 import org.http4k.core.Request
 import org.http4k.core.Response
 
+@JsonClass(generateAdapter = true)
 data class HttpStatusUnsuccessful(
   @JvmField val requestInfo: TxnInfo<Request>,
   @JvmField val responseInfo: TxnInfo<Response>,

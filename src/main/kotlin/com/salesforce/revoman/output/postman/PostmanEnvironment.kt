@@ -47,7 +47,7 @@ constructor(
 
   fun set(key: String, value: ValueT) {
     mutableEnv[key] = value
-    variableToSetStep[key] = if(::currentStep.isInitialized) currentStep else null
+    variableToSetStep[key] = if (::currentStep.isInitialized) currentStep else null
     logger.info {
       "pm environment variable set in Step: $currentStep - key: $key, value: ${pprint(value)}"
     }

@@ -17,6 +17,7 @@ import com.salesforce.revoman.output.report.failure.HookFailure.PreStepHookFailu
 import com.salesforce.revoman.output.report.failure.HttpStatusUnsuccessful
 import com.salesforce.revoman.output.report.failure.RequestFailure
 import com.salesforce.revoman.output.report.failure.ResponseFailure
+import com.squareup.moshi.Json
 import io.vavr.control.Either
 import io.vavr.control.Either.left
 import io.vavr.control.Either.right
@@ -30,7 +31,8 @@ internal constructor(
   @JvmField val preStepHookFailure: PreStepHookFailure? = null,
   @JvmField val responseInfo: Either<out ResponseFailure, TxnInfo<Response>>? = null,
   @JvmField val postStepHookFailure: PostStepHookFailure? = null,
-  @JvmField val pmEnvSnapshot: PostmanEnvironment<Any?>,
+  @Json(ignore = true)
+  @JvmField val pmEnvSnapshot: PostmanEnvironment<Any?> = PostmanEnvironment(),
 ) {
   internal constructor(
     step: Step,

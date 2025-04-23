@@ -7,7 +7,7 @@
  */
 package com.salesforce.revoman.output
 
-enum class ExeType(private val exeName: String) {
+enum class ExeType(val exeName: String) {
   UNMARSHALL_REQUEST("unmarshall-request"),
   PRE_STEP_HOOK("pre-step-hook"),
   PRE_REQ_JS("pre-req-js"),

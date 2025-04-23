@@ -11,11 +11,15 @@ import com.salesforce.revoman.output.ExeType.HTTP_REQUEST
 import com.salesforce.revoman.output.ExeType.PRE_REQ_JS
 import com.salesforce.revoman.output.ExeType.UNMARSHALL_REQUEST
 import com.salesforce.revoman.output.report.TxnInfo
+import com.squareup.moshi.JsonClass
+import dev.zacsweers.moshix.sealed.annotations.TypeLabel
 import org.http4k.core.Request
 
+@JsonClass(generateAdapter = true, generator = "sealed:type")
 sealed class RequestFailure : ExeFailure() {
   abstract val requestInfo: TxnInfo<Request>
 
+  @TypeLabel("pre-req-js")
   data class PreReqJSFailure(
     override val failure: Throwable,
     override val requestInfo: TxnInfo<Request>,
@@ -23,6 +27,7 @@ sealed class RequestFailure : ExeFailure() {
     override val exeType = PRE_REQ_JS
   }
 
+  @TypeLabel("unmarshall-request")
   data class UnmarshallRequestFailure(
     override val failure: Throwable,
     override val requestInfo: TxnInfo<Request>,
@@ -30,6 +35,7 @@ sealed class RequestFailure : ExeFailure() {
     override val exeType = UNMARSHALL_REQUEST
   }
 
+  @TypeLabel("http-request")
   data class HttpRequestFailure(
     override val failure: Throwable,
     override val requestInfo: TxnInfo<Request>,
