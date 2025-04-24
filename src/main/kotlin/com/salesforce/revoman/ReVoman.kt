@@ -270,7 +270,9 @@ object ReVoman {
 
   fun queryChainForVariable(variableName: String, kick: Kick): PostmanCollectionGraph {
     val exeChain = exeChain(variableName, kick)
-    check(exeChain.isNotEmpty()) { "Variable $variableName not found in any node's setsVariables" }
+    check(exeChain.isNotEmpty()) {
+      "Variable `$variableName` not found in any node's setsVariables"
+    }
     return PostmanCollectionGraph(
       "Execution chain to set variable: $variableName",
       mapOf(
@@ -301,7 +303,10 @@ object ReVoman {
       .dropWhile { prevVariableName !in it.usesVariables }
       .takeWhile { variableName !in it.setsVariables }
       .let { chain ->
-        if (chain.isNotEmpty() && variableName in chain.last().setsVariables) chain else emptyList()
+        if (chain.isNotEmpty()) {
+          val lastNode = nodes[nodes.indexOf(chain.last()) + 1]
+          if (variableName in lastNode.setsVariables) chain + lastNode else emptyList()
+        } else emptyList()
       }
   }
 
