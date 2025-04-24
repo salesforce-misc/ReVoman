@@ -304,8 +304,11 @@ object ReVoman {
       .takeWhile { variableName !in it.setsVariables }
       .let { chain ->
         if (chain.isNotEmpty()) {
-          val lastNode = nodes[nodes.indexOf(chain.last()) + 1]
-          if (variableName in lastNode.setsVariables) chain + lastNode else emptyList()
+          val lastNodeIndex = nodes.indexOf(chain.last()) + 1
+          if (lastNodeIndex < nodes.size) {
+            val lastNode = nodes[lastNodeIndex]
+            if (variableName in lastNode.setsVariables) chain + lastNode else emptyList()
+          } else emptyList()
         } else emptyList()
       }
   }
