@@ -8,6 +8,7 @@
 package com.salesforce.revoman.internal.postman.template
 
 import com.salesforce.revoman.internal.json.MoshiReVoman
+import com.salesforce.revoman.internal.json.MoshiReVoman.Companion.initMoshi
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -21,7 +22,9 @@ import org.http4k.core.with
 import org.http4k.lens.Header.CONTENT_TYPE
 
 @JsonClass(generateAdapter = true)
-data class Template(val info: Info, val item: List<Item>, val auth: Auth? = null)
+data class Template(val info: Info, val item: List<Item>, val auth: Auth? = null) {
+  fun toJson() = initMoshi().toPrettyJson(this)
+}
 
 @JsonClass(generateAdapter = true)
 data class Info(

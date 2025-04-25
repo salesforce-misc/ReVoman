@@ -268,25 +268,19 @@ object ReVoman {
     return emptyList()
   }
 
-  fun queryChainForVariable(variableName: String, kick: Kick): PostmanCollectionGraph {
+  fun queryChainForVariable(variableName: String, kick: Kick): Template {
     val exeChain = exeChain(variableName, kick)
     check(exeChain.isNotEmpty()) {
       "Variable `$variableName` not found in any node's setsVariables"
     }
-    return PostmanCollectionGraph(
-      "Execution chain to set variable: $variableName",
-      mapOf(
-        variableName to
-          Template(
-            com.salesforce.revoman.internal.postman.template.Info(
-              UUID.randomUUID().toString(),
-              "postman-collection-for-$variableName",
-              "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-              "23827434",
-            ),
-            exeChain.map { it.step.rawPmStep },
-          )
+    return Template(
+      com.salesforce.revoman.internal.postman.template.Info(
+        UUID.randomUUID().toString(),
+        "postman-collection-for-$variableName",
+        "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+        "23827434",
       ),
+      exeChain.map { it.step.rawPmStep },
     )
   }
 

@@ -37,7 +37,7 @@ class ReVomanTest {
 
   @Test
   fun `query exe chain milestone pm collection`() {
-    val chain =
+    val template =
       ReVoman.queryChainForVariable(
         "orderId",
         Kick.configure()
@@ -50,7 +50,7 @@ class ReVomanTest {
           .environmentPath("pm-templates/core/milestone/env.postman_environment.json")
           .off(),
       )
-    println(chain.toJson())
+    println(template.toJson())
   }
 
   @Test
