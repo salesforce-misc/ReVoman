@@ -15,13 +15,14 @@ import com.squareup.moshi.JsonClass
 import io.exoquery.pprint
 import java.util.Collections.indexOfSubList
 
-@JsonClass(generateAdapter = true)
 data class Step(
   @JvmField val index: String,
   @Json(ignore = true) @JvmField val rawPmStep: Item = Item(),
   @Json(ignore = true) @JvmField val parentFolder: Folder? = null,
 ) {
   @JvmField val name: String = rawPmStep.name
+  @JvmField
+  var isIgnoredForFailure = false
   @JvmField var preStepHookCount: Int = 0
   @JvmField var postStepHookCount: Int = 0
   @JvmField
@@ -88,3 +89,10 @@ constructor(
     const val FOLDER_DELIMITER = "|>"
   }
 }
+
+@JsonClass(generateAdapter = true)
+data class StepJson(
+  val index: String,
+  val name: String,
+  val isIgnoredForFailure: Boolean
+)

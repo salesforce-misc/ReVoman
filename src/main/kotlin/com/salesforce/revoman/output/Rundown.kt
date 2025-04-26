@@ -84,11 +84,14 @@ data class Rundown(
   fun filterReportIncludingStepsWithName(stepNames: Set<String>): List<StepReport> =
     stepReports.filter { r -> stepNames.any { r.step.stepNameMatches(it) } }
 
+  fun isStepIgnoredForFailure(stepReport: StepReport): Boolean =
+    haltOnFailureOfTypeExcept.any { (exeType, postTxnPick) ->
+      stepReport.exeTypeForFailure == exeType && (postTxnPick?.pick(stepReport, this) ?: false)
+    }
+
   companion object {
-    fun isStepIgnoredForFailure(stepReport: StepReport, rundown: Rundown): Boolean =
-      rundown.haltOnFailureOfTypeExcept.any { (exeType, postTxnPick) ->
-        stepReport.exeTypeForFailure == exeType && (postTxnPick?.pick(stepReport, rundown) ?: false)
-      }
+    fun isStepIgnoredForFailure(stepReport: StepReport, rundown: Rundown): Boolean = 
+      rundown.isStepIgnoredForFailure(stepReport)
   }
 
   @JsonClass(generateAdapter = true)

@@ -11,6 +11,7 @@ import com.salesforce.revoman.input.json.adapters.vavr.EitherAdapter
 import com.salesforce.revoman.internal.json.adapters.BigDecimalAdapter
 import com.salesforce.revoman.internal.json.adapters.EpochAdapter
 import com.salesforce.revoman.internal.json.adapters.RundownAdapter
+import com.salesforce.revoman.internal.json.adapters.StepAdapter
 import com.salesforce.revoman.internal.json.adapters.TxnInfoAdapter
 import com.salesforce.revoman.internal.json.adapters.TypeAdapter
 import com.salesforce.revoman.internal.json.adapters.UUIDAdapter
@@ -147,6 +148,7 @@ open class MoshiReVoman(builder: Moshi.Builder) {
           .addLast(MapAdapter)
           .addLast(TxnInfoAdapter.factory<Request>())
           .addLast(TxnInfoAdapter.factory<Response>())
+          .addLast(StepAdapter)
           .addLast(RundownAdapter.factory())
           .asConfigurable()
           .withStandardMappings()

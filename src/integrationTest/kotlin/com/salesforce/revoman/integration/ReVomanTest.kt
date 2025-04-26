@@ -60,9 +60,7 @@ class ReVomanTest {
         "orderId",
         Kick.configure()
           .templatePaths(
-            "pm-templates/core/milestone/persona-creation-and-setup.postman_collection.json",
-            "pm-templates/core/milestone/milestone-setup.postman_collection.json",
-            "pm-templates/core/milestone/bmp-create-runtime.postman_collection.json",
+            "pm-templates/core/milestone/place-order.postman_collection.json",
           )
           .nodeModulesPath("js")
           .environmentPath("pm-templates/core/milestone/env.postman_environment.json")
@@ -75,13 +73,11 @@ class ReVomanTest {
   fun `resume chain milestone pm collection`() {
     val rundown =
       ReVoman.diffExeChainForVariable(
+        "oneTimePriceBookEntryId",
         "orderId",
-        "invoiceId",
         Kick.configure()
           .templatePaths(
-            "pm-templates/core/milestone/persona-creation-and-setup.postman_collection.json",
-            "pm-templates/core/milestone/milestone-setup.postman_collection.json",
-            "pm-templates/core/milestone/bmp-create-runtime.postman_collection.json",
+            "pm-templates/core/milestone/place-order.postman_collection.json",
           )
           .nodeModulesPath("js")
           .environmentPath("pm-templates/core/milestone/env.postman_environment.json")

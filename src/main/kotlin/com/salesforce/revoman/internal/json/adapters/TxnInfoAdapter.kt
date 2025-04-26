@@ -60,14 +60,6 @@ class TxnInfoAdapter<HttpMsgT : HttpMessage>(moshi: Moshi) : JsonAdapter<TxnInfo
     }
     writer.beginObject()
     writer.name("isJson").value(value.isJson)
-    if (value.txnObjType != null) {
-      writer.name("txnObjType")
-      typeAdapter.toJson(writer, value.txnObjType)
-    }
-    if (value.txnObj != null) {
-      writer.name("txnObj")
-      anyAdapter.toJson(writer, value.txnObj)
-    }
     if (value.httpMsg is Request) {
       writer.name("request")
       writer.beginObject()
