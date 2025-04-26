@@ -24,8 +24,8 @@ sealed class ResponseFailure : ExeFailure() {
   @TypeLabel("post-res-js")
   data class PostResJSFailure(
     override val failure: Throwable,
-    @Json(ignore = true) override val requestInfo: TxnInfo<Request>?,
-    @Json(ignore = true) override val responseInfo: TxnInfo<Response>?,
+    @Json(ignore = true) override val requestInfo: TxnInfo<Request>? = null,
+    @Json(ignore = true) override val responseInfo: TxnInfo<Response>? = null,
   ) : ResponseFailure() {
     override val exeType = POST_RES_JS
   }
@@ -33,8 +33,8 @@ sealed class ResponseFailure : ExeFailure() {
   @TypeLabel("unmarshall-response")
   data class UnmarshallResponseFailure(
     override val failure: Throwable,
-    @Json(ignore = true) override val requestInfo: TxnInfo<Request>?,
-    @Json(ignore = true) override val responseInfo: TxnInfo<Response>?,
+    @Json(ignore = true) override val requestInfo: TxnInfo<Request>? = null,
+    @Json(ignore = true) override val responseInfo: TxnInfo<Response>? = null,
   ) : ResponseFailure() {
     override val exeType = UNMARSHALL_RESPONSE
   }

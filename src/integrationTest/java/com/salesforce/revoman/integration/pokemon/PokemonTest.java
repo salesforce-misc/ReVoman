@@ -146,7 +146,8 @@ class PokemonTest {
 		assertThat(postHookFailure).containsLeftInstanceOf(PostStepHookFailure.class);
 		assertThat(postHookFailure.getLeft().getFailure()).isEqualTo(RUNTIME_EXCEPTION);
 		assertThat(pokeRundown.stepReports).hasSize(5);
-		assertThat(pokeRundown.mutableEnv)
+    System.out.println(pokeRundown.toJson());
+    assertThat(pokeRundown.mutableEnv)
 				.containsExactlyEntriesIn(
 						Map.of(
 								"offset", String.valueOf(OFFSET),

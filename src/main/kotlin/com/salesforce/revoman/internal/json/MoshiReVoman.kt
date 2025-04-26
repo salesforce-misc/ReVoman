@@ -12,6 +12,7 @@ import com.salesforce.revoman.internal.json.adapters.BigDecimalAdapter
 import com.salesforce.revoman.internal.json.adapters.EpochAdapter
 import com.salesforce.revoman.internal.json.adapters.RundownAdapter
 import com.salesforce.revoman.internal.json.adapters.StepAdapter
+import com.salesforce.revoman.internal.json.adapters.ThrowableAdapter
 import com.salesforce.revoman.internal.json.adapters.TxnInfoAdapter
 import com.salesforce.revoman.internal.json.adapters.TypeAdapter
 import com.salesforce.revoman.internal.json.adapters.UUIDAdapter
@@ -32,7 +33,6 @@ import org.http4k.core.Request
 import org.http4k.core.Response
 import org.http4k.format.ListAdapter
 import org.http4k.format.MapAdapter
-import org.http4k.format.ThrowableAdapter
 import org.http4k.format.asConfigurable
 import org.http4k.format.withStandardMappings
 
@@ -143,12 +143,12 @@ open class MoshiReVoman(builder: Moshi.Builder) {
           .add(Date::class.java, Rfc3339DateJsonAdapter())
           .addLast(CaseInsensitiveEnumAdapter.FACTORY)
           .addLast(AlwaysSerializeNullsFactory())
-          .addLast(ThrowableAdapter)
           .addLast(ListAdapter)
           .addLast(MapAdapter)
           .addLast(TxnInfoAdapter.factory<Request>())
           .addLast(TxnInfoAdapter.factory<Response>())
           .addLast(StepAdapter)
+          .addLast(ThrowableAdapter())
           .addLast(RundownAdapter.factory())
           .asConfigurable()
           .withStandardMappings()

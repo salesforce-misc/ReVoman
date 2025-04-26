@@ -7,11 +7,13 @@
  */
 package com.salesforce.revoman.output.report.failure
 
+import com.salesforce.revoman.internal.json.adapters.ThrowableAdapter
 import com.salesforce.revoman.output.ExeType.POST_STEP_HOOK
 import com.salesforce.revoman.output.ExeType.PRE_STEP_HOOK
 import com.salesforce.revoman.output.report.TxnInfo
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
+import dev.zacsweers.moshix.adapters.AdaptedBy
 import dev.zacsweers.moshix.sealed.annotations.TypeLabel
 import org.http4k.core.Request
 import org.http4k.core.Response
@@ -23,16 +25,16 @@ sealed class HookFailure : ExeFailure() {
   @TypeLabel("pre-step-hook")
   data class PreStepHookFailure(
     override val failure: Throwable,
-    @Json(ignore = true) override val requestInfo: TxnInfo<Request>,
+    @Json(ignore = true) override val requestInfo: TxnInfo<Request>? = null,
   ) : HookFailure() {
     override val exeType = PRE_STEP_HOOK
   }
 
   @TypeLabel("post-step-hook")
   data class PostStepHookFailure(
-    override val failure: Throwable,
-    @Json(ignore = true) override val requestInfo: TxnInfo<Request>?,
-    @Json(ignore = true) @JvmField val responseInfo: TxnInfo<Response>?,
+    @AdaptedBy(ThrowableAdapter::class) override val failure: Throwable,
+    @Json(ignore = true) override val requestInfo: TxnInfo<Request>? = null,
+    @Json(ignore = true) @JvmField val responseInfo: TxnInfo<Response>? = null,
   ) : HookFailure() {
     override val exeType = POST_STEP_HOOK
   }

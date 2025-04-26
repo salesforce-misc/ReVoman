@@ -16,10 +16,8 @@ import org.http4k.core.Response
 
 @JsonClass(generateAdapter = true)
 data class HttpStatusUnsuccessful(
-  @Json(ignore = true)
-  @JvmField val requestInfo: TxnInfo<Request>?,
-  @Json(ignore = true)
-  @JvmField val responseInfo: TxnInfo<Response>?,
+  @Json(ignore = true) @JvmField val requestInfo: TxnInfo<Request>? = null,
+  @Json(ignore = true) @JvmField val responseInfo: TxnInfo<Response>? = null,
 ) {
   @JvmField val exeType = HTTP_STATUS
 }
