@@ -18,7 +18,7 @@ import org.http4k.core.Response
 
 @JsonClass(generateAdapter = true, generator = "sealed:type")
 sealed class HookFailure : ExeFailure() {
-  @Json(ignore = true) abstract val requestInfo: TxnInfo<Request>
+  @Json(ignore = true) abstract val requestInfo: TxnInfo<Request>?
 
   @TypeLabel("pre-step-hook")
   data class PreStepHookFailure(
@@ -31,8 +31,8 @@ sealed class HookFailure : ExeFailure() {
   @TypeLabel("post-step-hook")
   data class PostStepHookFailure(
     override val failure: Throwable,
-    @Json(ignore = true) override val requestInfo: TxnInfo<Request>,
-    @Json(ignore = true) @JvmField val responseInfo: TxnInfo<Response>,
+    @Json(ignore = true) override val requestInfo: TxnInfo<Request>?,
+    @Json(ignore = true) @JvmField val responseInfo: TxnInfo<Response>?,
   ) : HookFailure() {
     override val exeType = POST_STEP_HOOK
   }

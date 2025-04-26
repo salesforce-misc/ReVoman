@@ -18,12 +18,12 @@ import org.http4k.core.Request
 
 @JsonClass(generateAdapter = true, generator = "sealed:type")
 sealed class RequestFailure : ExeFailure() {
-  @Json(ignore = true) abstract val requestInfo: TxnInfo<Request>
+  @Json(ignore = true) abstract val requestInfo: TxnInfo<Request>?
 
   @TypeLabel("pre-req-js")
   data class PreReqJSFailure(
     override val failure: Throwable,
-    @Json(ignore = true) override val requestInfo: TxnInfo<Request>,
+    @Json(ignore = true) override val requestInfo: TxnInfo<Request>?,
   ) : RequestFailure() {
     override val exeType = PRE_REQ_JS
   }
@@ -31,7 +31,7 @@ sealed class RequestFailure : ExeFailure() {
   @TypeLabel("unmarshall-request")
   data class UnmarshallRequestFailure(
     override val failure: Throwable,
-    @Json(ignore = true) override val requestInfo: TxnInfo<Request>,
+    @Json(ignore = true) override val requestInfo: TxnInfo<Request>?,
   ) : RequestFailure() {
     override val exeType = UNMARSHALL_REQUEST
   }
@@ -39,7 +39,7 @@ sealed class RequestFailure : ExeFailure() {
   @TypeLabel("http-request")
   data class HttpRequestFailure(
     override val failure: Throwable,
-    @Json(ignore = true) override val requestInfo: TxnInfo<Request>,
+    @Json(ignore = true) override val requestInfo: TxnInfo<Request>?,
   ) : RequestFailure() {
     override val exeType = HTTP_REQUEST
   }

@@ -8,6 +8,7 @@
 package com.salesforce.revoman.output.report
 
 import com.salesforce.revoman.internal.json.MoshiReVoman
+import com.salesforce.revoman.internal.json.MoshiReVoman.Companion.initMoshi
 import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.rawType
 import io.exoquery.pprint
@@ -25,7 +26,7 @@ constructor(
   @JvmField val txnObjType: Type? = if (isJson) Any::class.java else null,
   @JvmField val txnObj: Any? = null,
   @JvmField val httpMsg: HttpMsgT,
-  val moshiReVoman: MoshiReVoman,
+  val moshiReVoman: MoshiReVoman = initMoshi(),
 ) {
   @JvmOverloads
   fun <PojoT : Any> getTypedTxnObj(
