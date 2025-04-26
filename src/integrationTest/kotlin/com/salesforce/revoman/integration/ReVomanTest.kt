@@ -59,9 +59,7 @@ class ReVomanTest {
       ReVoman.exeChainForVariable(
         "orderId",
         Kick.configure()
-          .templatePaths(
-            "pm-templates/core/milestone/place-order.postman_collection.json",
-          )
+          .templatePaths("pm-templates/core/milestone/place-order.postman_collection.json")
           .nodeModulesPath("js")
           .environmentPath("pm-templates/core/milestone/env.postman_environment.json")
           .off(),
@@ -76,9 +74,7 @@ class ReVomanTest {
         "oneTimePriceBookEntryId",
         "orderId",
         Kick.configure()
-          .templatePaths(
-            "pm-templates/core/milestone/place-order.postman_collection.json",
-          )
+          .templatePaths("pm-templates/core/milestone/place-order.postman_collection.json")
           .nodeModulesPath("js")
           .environmentPath("pm-templates/core/milestone/env.postman_environment.json")
           .off(),

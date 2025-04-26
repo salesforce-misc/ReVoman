@@ -21,8 +21,7 @@ data class Step(
   @Json(ignore = true) @JvmField val parentFolder: Folder? = null,
 ) {
   @JvmField val name: String = rawPmStep.name
-  @JvmField
-  var isIgnoredForFailure = false
+  @JvmField var isIgnoredForFailure = false
   @JvmField var preStepHookCount: Int = 0
   @JvmField var postStepHookCount: Int = 0
   @JvmField
@@ -91,8 +90,4 @@ constructor(
 }
 
 @JsonClass(generateAdapter = true)
-data class StepJson(
-  val index: String,
-  val name: String,
-  val isIgnoredForFailure: Boolean
-)
+data class StepJson(val index: String, val name: String, val isIgnoredForFailure: Boolean)

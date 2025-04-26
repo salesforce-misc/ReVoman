@@ -26,9 +26,8 @@ data class Rundown(
 ) {
   @get:JvmName("immutableEnv") val immutableEnv: Map<String, Any?> by lazy { mutableEnv.toMap() }
 
-  @JvmField
-  var haltedInBetween = false
-  
+  @JvmField var haltedInBetween = false
+
   @get:JvmName("stats")
   val stats: Stats by lazy {
     Stats(
@@ -93,7 +92,7 @@ data class Rundown(
     }
 
   companion object {
-    fun isStepIgnoredForFailure(stepReport: StepReport, rundown: Rundown): Boolean = 
+    fun isStepIgnoredForFailure(stepReport: StepReport, rundown: Rundown): Boolean =
       rundown.isStepIgnoredForFailure(stepReport)
   }
 

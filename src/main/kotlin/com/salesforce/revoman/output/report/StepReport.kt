@@ -48,7 +48,7 @@ internal constructor(
     postStepHookFailure,
     pmEnvSnapshot,
   )
-  
+
   @JvmField
   val failure: Either<ExeFailure, HttpStatusUnsuccessful>? =
     failure(requestInfo, preStepHookFailure, responseInfo, postStepHookFailure)

@@ -14,7 +14,8 @@ import com.squareup.moshi.ToJson
 import java.util.UUID
 
 object StepAdapter {
-  @ToJson fun toJson(step: Step): StepJson = StepJson(step.index, step.name, step.isIgnoredForFailure)
+  @ToJson
+  fun toJson(step: Step): StepJson = StepJson(step.index, step.name, step.isIgnoredForFailure)
 
-  @FromJson fun fromJson(uuidStr: String): UUID =TODO()
+  @FromJson fun fromJson(uuidStr: String): UUID = TODO()
 }
