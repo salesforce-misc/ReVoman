@@ -26,6 +26,9 @@ data class Rundown(
 ) {
   @get:JvmName("immutableEnv") val immutableEnv: Map<String, Any?> by lazy { mutableEnv.toMap() }
 
+  @JvmField
+  var haltedInBetween = false
+  
   @get:JvmName("stats")
   val stats: Stats by lazy {
     Stats(

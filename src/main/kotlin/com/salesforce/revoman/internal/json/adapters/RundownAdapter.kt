@@ -64,19 +64,20 @@ class RundownAdapter(moshi: Moshi) : JsonAdapter<Rundown>() {
     )
   }
 
-  override fun toJson(writer: JsonWriter, value: Rundown?) {
-    if (value == null) {
+  override fun toJson(writer: JsonWriter, rundown: Rundown?) {
+    if (rundown == null) {
       writer.nullValue()
       return
     }
 
     writer.beginObject()
     writer.name("stepReports")
-    stepReportAdapter.toJson(writer, value.stepReports)
+    stepReportAdapter.toJson(writer, rundown.stepReports)
     writer.name("mutableEnv")
-    postmanEnvAdapter.toJson(writer, value.mutableEnv)
+    postmanEnvAdapter.toJson(writer, rundown.mutableEnv)
+    writer.name("haltedInBetween").value(rundown.haltedInBetween)
     writer.name("stats")
-    statsAdapter.toJson(writer, value.stats)
+    statsAdapter.toJson(writer, rundown.stats)
     writer.endObject()
   }
 
