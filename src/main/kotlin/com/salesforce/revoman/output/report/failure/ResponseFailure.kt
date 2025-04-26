@@ -10,6 +10,7 @@ package com.salesforce.revoman.output.report.failure
 import com.salesforce.revoman.output.ExeType.POST_RES_JS
 import com.salesforce.revoman.output.ExeType.UNMARSHALL_RESPONSE
 import com.salesforce.revoman.output.report.TxnInfo
+import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 import dev.zacsweers.moshix.sealed.annotations.TypeLabel
 import org.http4k.core.Request
@@ -17,13 +18,17 @@ import org.http4k.core.Response
 
 @JsonClass(generateAdapter = true, generator = "sealed:type")
 sealed class ResponseFailure : ExeFailure() {
+  @Json(ignore = true)
   abstract val requestInfo: TxnInfo<Request>
+  @Json(ignore = true)
   abstract val responseInfo: TxnInfo<Response>
 
   @TypeLabel("post-res-js")
   data class PostResJSFailure(
     override val failure: Throwable,
+    @Json(ignore = true)
     override val requestInfo: TxnInfo<Request>,
+    @Json(ignore = true)
     override val responseInfo: TxnInfo<Response>,
   ) : ResponseFailure() {
     override val exeType = POST_RES_JS
@@ -32,7 +37,9 @@ sealed class ResponseFailure : ExeFailure() {
   @TypeLabel("unmarshall-response")
   data class UnmarshallResponseFailure(
     override val failure: Throwable,
+    @Json(ignore = true)
     override val requestInfo: TxnInfo<Request>,
+    @Json(ignore = true)
     override val responseInfo: TxnInfo<Response>,
   ) : ResponseFailure() {
     override val exeType = UNMARSHALL_RESPONSE

@@ -110,9 +110,9 @@ internal fun shouldHaltExecution(
           (!isStepIgnoredForFailure(currentStepReport, rundown)).also {
             logger.info {
               if (it) {
+                rundown.haltedInBetween = true
                 "${currentStepReport.step} doesn't qualify `haltOnFailureOfTypeExcept` for `exeTypeForFailure=${currentStepReport.exeTypeForFailure}`, so 🛑 halting the execution of next steps"
               } else {
-                rundown.haltedInBetween = true
                 currentStepReport.step.isIgnoredForFailure = true
                 "🛝 Continuing the execution of next steps, as the step is ignored for `exeTypeForFailure=${currentStepReport.exeTypeForFailure}`"
               }

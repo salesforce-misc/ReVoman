@@ -10,6 +10,7 @@ package com.salesforce.revoman.output.report.failure
 import com.salesforce.revoman.output.ExeType.POST_STEP_HOOK
 import com.salesforce.revoman.output.ExeType.PRE_STEP_HOOK
 import com.salesforce.revoman.output.report.TxnInfo
+import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 import dev.zacsweers.moshix.sealed.annotations.TypeLabel
 import org.http4k.core.Request
@@ -17,11 +18,14 @@ import org.http4k.core.Response
 
 @JsonClass(generateAdapter = true, generator = "sealed:type")
 sealed class HookFailure : ExeFailure() {
-
+  @Json(ignore = true)
+  abstract val requestInfo: TxnInfo<Request>
+  
   @TypeLabel("pre-step-hook")
   data class PreStepHookFailure(
     override val failure: Throwable,
-    @JvmField val requestInfo: TxnInfo<Request>,
+    @Json(ignore = true)
+    override val requestInfo: TxnInfo<Request>,
   ) : HookFailure() {
     override val exeType = PRE_STEP_HOOK
   }
@@ -29,7 +33,9 @@ sealed class HookFailure : ExeFailure() {
   @TypeLabel("post-step-hook")
   data class PostStepHookFailure(
     override val failure: Throwable,
-    @JvmField val requestInfo: TxnInfo<Request>,
+    @Json(ignore = true)
+    override val requestInfo: TxnInfo<Request>,
+    @Json(ignore = true)
     @JvmField val responseInfo: TxnInfo<Response>,
   ) : HookFailure() {
     override val exeType = POST_STEP_HOOK
