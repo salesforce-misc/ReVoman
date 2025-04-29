@@ -4,7 +4,7 @@ kotlin = "2.1.20"
 moshix = "0.30.0"
 http4k = "5.47.0.0" # Compatable with JDK 17
 immutables = "2.10.1"
-arrow = "2.1.0"
+arrow = "2.1.1"
 graal = "24.2.1"
 java-vavr = "0.10.6"
 kotlin-vavr = "0.10.2"
@@ -25,7 +25,7 @@ json-assert = "1.5.3"
 nexus-publish = "2.0.0"
 kotlinx-datetime = "0.6.2"
 node-gradle = "7.1.0"
-mockk = "1.14.0"
+mockk = "1.14.2"
 gradle-taskinfo = "2.2.0"
 
 # Common dependencies
