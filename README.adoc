@@ -24,6 +24,8 @@ endif::[]
 
 *ReṼoman* is an API automation tool for JVM (Java/Kotlin) from the API-first SaaS company, *Salesforce*. It re-imagines API automation by letting you execute a Postman collection in a JVM program/test.
 
+NOTE: NO licensed Postman SDKs are used inside this project. This is written ground up natively in JVM 
+
 '''
 
 [.lead]
@@ -373,7 +375,7 @@ When there are many tests leveraging the same config with minor modifications, Y
 using `override...()` methods,
 which are present for all config attributes, to create a new instance of config.
 
-CAUTION: The new instance created from common config using `override...()` replaces the attributes.
+IMPORTANT: The new instance created from common config using `override...()` replaces the attributes.
 
 * For iterable attributes (like `List`, `Map` etc), intentionally there are no methods to `add` or `append` or `prepend` attributes when creating new instance, to prevent any mix-up with the order of attributes. You can use any collection appending utilities to prepend/append previous hooks.
 
@@ -389,7 +391,7 @@ COMMON_CONFIG.overrideHooks(kotlin.collections.CollectionsKt.plus(COMMON_CONFIG.
 Kick.configure().from(configInstance1).from(configInstance2)...off();
 ----
 
-CAUTION: Iterable attributes (like `List`, `Map` etc) accept an `Iterable`. If you are particular about the order, make sure to pass an Ordered instance of `Iterable` (like `ArrayList`)
+IMPORTANT: Iterable attributes (like `List`, `Map` etc) accept an `Iterable`. If you are particular about the order, make sure to pass an Ordered instance of `Iterable` (like `ArrayList`)
 
 == Troubleshooting DX
 
@@ -607,7 +609,7 @@ Instead, you have a Java utility to generate/create it.
 You can invoke the utility in a pre-hook of a step and set the value in `rundown.mutableEnv`,
 so the later steps can pick up value for `+{{xyzId}}+` variable from the environment.
 
-CAUTION: When a Step qualifies for more than one hook, hooks are executed in the same sequence they are configured, either using `hooks()` or `overrideHooks()`. Both these methods accept an `iterable`. Make sure to pass an Ordered Iterable (like `ArrayList`), if you are particular about Order in which hooks should execute for a Step.
+IMPORTANT: When a Step qualifies for more than one hook, hooks are executed in the same sequence they are configured, either using `hooks()` or `overrideHooks()`. Both these methods accept an `iterable`. Make sure to pass an Ordered Iterable (like `ArrayList`), if you are particular about Order in which hooks should execute for a Step.
 
 [#_response_validations]
 ==== Response Validations
@@ -646,7 +648,7 @@ pm.environment.set('$randomFutureDate', futureDateTime.format('YYYY-MM-DD'))
 pm.environment.set("$quantity", _.random(1, 10))
 ----
 
-CAUTION: It is not supported to load `node_modules` from jar. For example, `/Users/username/some-path/revoman-root/build/libs/revoman-root-0.40.0.jar!/js` is an invalid path. link:https://graalvm.slack.com/archives/CN9L59P61/p1710937088860679?thread_ts=1710767437.443019&cid=CN9L59P61[Refer this known issue]
+IMPORTANT: It is not supported to load `node_modules` from jar. For example, `/Users/username/some-path/revoman-root/build/libs/revoman-root-0.40.0.jar!/js` is an invalid path. link:https://graalvm.slack.com/archives/CN9L59P61/p1710937088860679?thread_ts=1710767437.443019&cid=CN9L59P61[Refer this known issue]
 
 [TIP]
 ====
