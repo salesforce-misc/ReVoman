@@ -55,9 +55,10 @@ to always be ready for Manually trying them out importing into Postman.
 
 * ReṼoman may be similar to Newman or Postman CLI when it comes to executing a Postman collection, but the _similarities end there_
 * Newman or Postman CLI are built for node and cannot be executed within a JVM. Even if you are able to run with some hacky way, there is no easy way to assert results.
-* ReṼoman is JVM first that lets you seamlessly integrate with your existing Java ecosystem.
-* It has more features, like <<#_pre_step_and_post_step_hooks,Hooks>> feature lets you plug in your custom JVM code in-between the execution. The <<Rundown>> is much richer in providing execution information than the link:{pmtemplates}/restfulapidev/postman-cli-reports/restful-api.dev-2025-04-14-13-16-43.json[newman/postman-cli reports]
-* ReṼoman has a strong emphasis on <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization,Type-Safety>>, leveraging JVM strong types over JSON for writing assertions and custom code
+* Built for the JVM, ReṼoman fits naturally within your current JVM stack. 
+* Its <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization,Type Safety>> bridges the gap between strongly-typed JVM code and flexible JSON.
+* It has more features, like <<#_pre_step_and_post_step_hooks,Hooks>> feature that lets you plug in your custom JVM code in-between the execution. The <<Rundown>> is much richer in providing execution information than the link:{pmtemplates}/restfulapidev/postman-cli-reports/restful-api.dev-2025-04-14-13-16-43.json[newman/postman-cli reports]
+* It's not limited to Postman templates. We have plans to support more popular templates formats like ThunderClient, Bruno, etc. which offers versatality for consumers.
 
 [.lead]
 Read more in the <<USP>>
@@ -429,10 +430,14 @@ image:step-procedure.png[Step Procedure]
 * You can configure this behavior using <<Execution Control>>
 ====
 
+=== Failure Hierarchy
+
 [.lead]
 Here is the failure hierarchy of what can go wrong in this process
 
 image::failure-hierarchy.png[Failure Hierarchy]
+
+These failures are assertion friendly and provide clear messages with necessary stacktraces to help you troubleshoot.
 
 === Logging
 
@@ -594,14 +599,14 @@ Add them to the config as below:
 * You can do things like assertion on the rundown, <<#_response_validations,Response Validations>>,
 or even <<#_mutable_environment,mutate the environment>> with a value you programmatically derived,
 such that the execution of later steps picks up those changes.
-* Reserve hooks for plugging in your custom code or asserting and fail-fast in the middle of execution.
+* Reserve hooks for plugging in your custom code or asserting to fail-fast in the middle of execution.
 If your assertions can wait till the final rundown,
 it's cleaner to write them after the `revUp()` returns the rundown instead of adding hooks for each step
 
-[#_plug_in_your_java_code_in_between_postman_execution]
-==== Plug-in your Java code in-between Postman execution
+[#_plug_in_your_custom_jvm_code_in_between_postman_execution]
+==== Plug-in your Custom JVM code in-between Postman executions
 
-You can plug in your java code
+You can plug in your custom JVM code
 to create/generate values for environment variables
 which can be populated and picked-up by subsequent steps.
 For example, you may want some `xyzId` but you don't have a Postman collection to create it.
@@ -769,7 +774,7 @@ The future looks bright with multiple impactful features in the pipeline:
 
 You don't have to.
 This is a JVM-first tool,
-and you can interlace your TestUtils through <<#_plug_in_your_java_code_in_between_postman_execution,Pre-Step/Post-Step Hooks>>
+and you can interlace your TestUtils through <<#_plug_in_your_custom_jvm_code_in_between_postman_execution,Pre-Step/Post-Step Hooks>>
 
 == 🙌🏼 Consume-Collaborate-Contribute
 
