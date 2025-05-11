@@ -189,13 +189,7 @@ object ReVoman {
               // PRE-REQ-JS
               val item = regexReplacer.replaceVariablesInPmItem(itemWithRegex, pm)
               val httpRequest = item.request.toHttpRequest(moshiReVoman)
-              fireHttpRequest(
-                  step,
-                  item.request.auth,
-                  httpRequest,
-                  kick.insecureHttp(),
-                  moshiReVoman,
-                )
+              fireHttpRequest(step, httpRequest, kick.insecureHttp(), moshiReVoman)
                 .mapLeft { sr.copy(requestInfo = Left(it).toVavr()) }
                 .map {
                   sr.copy(

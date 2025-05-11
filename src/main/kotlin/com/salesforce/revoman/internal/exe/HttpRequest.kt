@@ -9,7 +9,6 @@ package com.salesforce.revoman.internal.exe
 
 import arrow.core.Either
 import com.salesforce.revoman.internal.json.MoshiReVoman
-import com.salesforce.revoman.internal.postman.template.Auth
 import com.salesforce.revoman.output.ExeType.HTTP_REQUEST
 import com.salesforce.revoman.output.report.Step
 import com.salesforce.revoman.output.report.TxnInfo
@@ -23,19 +22,15 @@ import org.apache.hc.client5.http.ssl.SSLConnectionSocketFactory
 import org.apache.hc.core5.http.config.RegistryBuilder
 import org.apache.hc.core5.ssl.SSLContextBuilder
 import org.http4k.client.ApacheClient
-import org.http4k.core.Filter
 import org.http4k.core.HttpHandler
-import org.http4k.core.NoOp
 import org.http4k.core.Request
 import org.http4k.core.Response
 import org.http4k.core.then
-import org.http4k.filter.ClientFilters
 import org.http4k.filter.DebuggingFilters
 
 @JvmSynthetic
 internal fun fireHttpRequest(
   currentStep: Step,
-  auth: Auth?,
   httpRequest: Request,
   insecureHttp: Boolean,
   moshiReVoman: MoshiReVoman,
@@ -44,14 +39,13 @@ internal fun fireHttpRequest(
       // * NOTE gopala.akshintala 06/08/22: Preparing httpClient for each step,
       // * as there can be intermediate auths
       // ! TODO 29/01/24 gopala.akshintala: When would bearer token size be > 1?
-      prepareHttpClient(auth?.bearer?.firstOrNull()?.value, insecureHttp)(httpRequest)
+      prepareHttpClient(insecureHttp)(httpRequest)
     }
     .mapLeft { HttpRequestFailure(it, TxnInfo(httpMsg = httpRequest, moshiReVoman = moshiReVoman)) }
     .map { TxnInfo(httpMsg = it, moshiReVoman = moshiReVoman) }
 
-private fun prepareHttpClient(bearerToken: String?, insecureHttp: Boolean): HttpHandler =
+private fun prepareHttpClient(insecureHttp: Boolean): HttpHandler =
   DebuggingFilters.PrintRequestAndResponse()
-    .then(if (bearerToken.isNullOrEmpty()) Filter.NoOp else ClientFilters.BearerAuth(bearerToken))
     .then(if (insecureHttp) ApacheClient(client = insecureApacheHttpClient()) else ApacheClient())
 
 /** Only for Testing. DO NOT USE IN PROD */

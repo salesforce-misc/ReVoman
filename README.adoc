@@ -18,13 +18,13 @@ endif::[]
 :pmtemplates: src/integrationTest/resources/pm-templates
 :imagesdir: docs/images
 :prewrap!:
-:revoman-version: 0.7.9
+:revoman-version: 0.8.0
 
 '''
 
 *ReṼoman* is an API automation tool for JVM (Java/Kotlin) from the API-first SaaS company, *Salesforce*. It re-imagines API automation by letting you execute a Postman collection in a JVM program/test.
 
-NOTE: NO licensed Postman SDKs are used inside this project. This is written ground up natively in JVM 
+NOTE: NO licensed Postman SDKs are used inside this project. This is written ground up natively in JVM
 
 '''
 
@@ -55,7 +55,7 @@ to always be ready for Manually trying them out importing into Postman.
 
 * ReṼoman may be similar to Newman or Postman CLI when it comes to executing a Postman collection, but the _similarities end there_
 * Newman or Postman CLI are built for node and cannot be executed within a JVM. Even if you are able to run with some hacky way, there is no easy way to assert results.
-* Built for the JVM, ReṼoman fits naturally within your current JVM stack. 
+* Built for the JVM, ReṼoman fits naturally within your current JVM stack.
 * Its <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization,Type Safety>> bridges the gap between strongly-typed JVM code and flexible JSON.
 * It has more features, like <<#_pre_step_and_post_step_hooks,Hooks>> feature that lets you plug in your custom JVM code in-between the execution. The <<Rundown>> is much richer in providing execution information than the link:{pmtemplates}/restfulapidev/postman-cli-reports/restful-api.dev-2025-04-14-13-16-43.json[newman/postman-cli reports]
 * It's not limited to Postman templates. We have plans to support more popular templates formats like ThunderClient, Bruno, etc. which offers versatality for consumers.
@@ -661,7 +661,7 @@ IMPORTANT: It is not supported to load `node_modules` from jar. For example, `/U
 
 image::node_modules.png[]
 
-* If `node_modules` is ignored on your git repo, you can force-add to check in using the command `git add -all -f <path>/node_modules`
+* If `node_modules` is ignored on your git repo, you can force-add to check in using the command `git add --all -f <path>/node_modules`
 ====
 
 CAUTION: The recommendation is not to add too much code in <<Pre-req and Post-res scripts>>, as it's not intuitive to troubleshoot through debugging. Use it for simple operations that can be understood without debugging, and use <<#_pre_step_and_post_step_hooks,Pre-Step /Post-Step Hooks>> for any non-trivial operations, which are intuitive to debug.

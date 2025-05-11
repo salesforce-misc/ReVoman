@@ -18,6 +18,7 @@ import org.http4k.core.Uri
 import org.http4k.core.queryParametersEncoded
 import org.http4k.core.with
 import org.http4k.lens.Header.CONTENT_TYPE
+import org.http4k.lens.bearerAuth
 
 @JsonClass(generateAdapter = true)
 internal data class Template(val item: List<Item>, val auth: Auth?)
@@ -86,8 +87,13 @@ data class Request(
         .Request(Method.valueOf(method), uri)
         .headers(header.map { it.key.trim() to it.value.trim() })
         .body(cleansedRawBody)
-    return if (contentTypeHeader != null) request.with(CONTENT_TYPE of contentTypeHeader)
-    else request
+    val requestWithAuth =
+      auth?.bearer?.firstOrNull()?.value?.let {
+        // * NOTE 11 May 2025 gopala.akshintala: Auth in headers will be overridden by Auth from
+        // request, to align with Postman app behavior
+        request.removeHeader("Authorization").bearerAuth(it)
+      } ?: request
+    return contentTypeHeader?.let { requestWithAuth.with(CONTENT_TYPE of it) } ?: requestWithAuth
   }
 
   companion object {
