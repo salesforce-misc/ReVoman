@@ -71,4 +71,12 @@ kover { reports { total { html { onCheck = true } } } }
 
 moshi { enableSealed = true }
 
-nexusPublishing { this.repositories { sonatype { stagingProfileId = STAGING_PROFILE_ID } } }
+nexusPublishing {
+  this.repositories {
+    sonatype {
+      stagingProfileId = STAGING_PROFILE_ID
+      nexusUrl = uri("https://ossrh-staging-api.central.sonatype.com/service/local/")
+      snapshotRepositoryUrl = uri("https://central.sonatype.com/repository/maven-snapshots/")
+    }
+  }
+}

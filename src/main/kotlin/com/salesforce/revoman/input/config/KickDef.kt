@@ -35,14 +35,9 @@ internal interface KickDef {
 
   fun environmentInputStreams(): List<InputStream>
 
-  fun dynamicEnvironments(): List<Map<String, String>>
+  fun dynamicEnvironment(): Map<String, Any?>
 
   fun nodeModulesPath(): String?
-
-  @Value.Derived
-  fun dynamicEnvironmentsFlattened(): Map<String, String> =
-    if (dynamicEnvironments().isEmpty()) emptyMap()
-    else dynamicEnvironments().reduce { acc, map -> acc + map }
 
   fun customDynamicVariableGenerators(): Map<String, CustomDynamicVariableGenerator>
 

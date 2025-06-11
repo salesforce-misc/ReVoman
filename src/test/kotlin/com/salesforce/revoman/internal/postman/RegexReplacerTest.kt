@@ -8,6 +8,7 @@
 package com.salesforce.revoman.internal.postman
 
 import com.salesforce.revoman.input.config.CustomDynamicVariableGenerator
+import com.salesforce.revoman.internal.json.MoshiReVoman.Companion.initMoshi
 import com.salesforce.revoman.internal.postman.template.Environment.Companion.mergeEnvs
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapter
@@ -18,6 +19,8 @@ import io.mockk.mockk
 import org.junit.jupiter.api.Test
 
 class RegexReplacerTest {
+  private val moshiReVoman = initMoshi()
+
   @Test
   fun `unmarshall Env File with Regex and Dynamic variable`() {
     val epoch = System.currentTimeMillis().toString()
@@ -25,7 +28,7 @@ class RegexReplacerTest {
       if (r == $$"$epoch") epoch else null
     }
     val regexReplacer = RegexReplacer(emptyMap(), dummyDynamicVariableGenerator)
-    val pm = PostmanSDK(mockk(), null, regexReplacer)
+    val pm = PostmanSDK(moshiReVoman, null, regexReplacer)
     pm.environment.putAll(
       mergeEnvs(setOf("env-with-regex.json"), emptyList(), mutableMapOf("un" to "userName"))
     )
@@ -41,7 +44,7 @@ class RegexReplacerTest {
       if (key == $$"$epoch") epoch else null
     }
     val regexReplacer = RegexReplacer(dynamicVariableGenerator = dummyDynamicVariableGenerator)
-    val pm = PostmanSDK(mockk(), null, regexReplacer)
+    val pm = PostmanSDK(moshiReVoman, null, regexReplacer)
     pm.environment["key"] = $$"value-{{$epoch}}"
     val jsonStr =
       $$"""
@@ -67,7 +70,7 @@ class RegexReplacerTest {
         mapOf($$"$customEpoch" to customDynamicVariableGenerator),
         noopDynamicVariableGenerator,
       )
-    val pm = PostmanSDK(mockk(), null, regexReplacer)
+    val pm = PostmanSDK(moshiReVoman, null, regexReplacer)
     pm.environment["key"] = $$"value-{{$customEpoch}}"
     // This should get shadowed by custom dynamic variable
     pm.environment[$$"$customEpoch"] = $$"value-{{$customEpoch}}"
@@ -89,7 +92,7 @@ class RegexReplacerTest {
   @OptIn(ExperimentalStdlibApi::class)
   @Test
   fun `duplicate dynamic variables for random value generation should have different values`() {
-    val pm = PostmanSDK(mockk())
+    val pm = PostmanSDK(moshiReVoman)
     val jsonStr =
       $$"""
       {

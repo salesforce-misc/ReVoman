@@ -63,12 +63,7 @@ object ReVoman {
     kicks
       .fold(dynamicEnvironment to listOf<Rundown>()) { (accumulatedMutableEnv, rundowns), kick ->
         val rundown =
-          revUp(
-            kick.overrideDynamicEnvironments(
-              kick.dynamicEnvironmentsFlattened(),
-              accumulatedMutableEnv,
-            )
-          )
+          revUp(kick.overrideDynamicEnvironment(kick.dynamicEnvironment() + accumulatedMutableEnv))
         val accumulatedRundowns = rundowns + rundown
         postExeHook.accept(rundown, accumulatedRundowns)
         rundown.mutableEnv.mutableEnvCopyWithValuesOfType<String>() to accumulatedRundowns
@@ -107,11 +102,7 @@ object ReVoman {
         kick.globalSkipTypes(),
       )
     val environment =
-      mergeEnvs(
-        kick.environmentPaths(),
-        kick.environmentInputStreams(),
-        kick.dynamicEnvironmentsFlattened(),
-      )
+      mergeEnvs(kick.environmentPaths(), kick.environmentInputStreams(), kick.dynamicEnvironment())
     val pm =
       PostmanSDK(moshiReVoman, kick.nodeModulesPath(), regexReplacer, environment.toMutableMap())
     val stepNameToReport =

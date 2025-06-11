@@ -106,6 +106,14 @@ open class MoshiReVoman(builder: Moshi.Builder) {
   fun jsonToObjToPrettyJson(input: String?, serializeNulls: Boolean = false): String? =
     input?.let { toPrettyJson(fromJson(it), serializeNulls) }
 
+  fun anyToString(value: Any?): String =
+    when (value) {
+      is String -> value
+      // * NOTE 08 Mar 2025 gopala.akshintala: To be consistent with Postman app behavior
+      null -> "null"
+      else -> toJson(value)
+    }
+
   companion object {
     @Synchronized
     @JvmOverloads

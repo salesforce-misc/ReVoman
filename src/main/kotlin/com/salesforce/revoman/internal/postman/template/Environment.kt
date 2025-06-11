@@ -28,16 +28,7 @@ internal data class Environment(val name: String?, val values: List<EnvValue>) {
 
     fun fromMap(envMap: Map<String, Any?>, moshiReVoman: MoshiReVoman): Environment {
       val values =
-        envMap.entries.map { (key, value) ->
-          val valueStr =
-            when (value) {
-              is String -> value
-              // * NOTE 08 Mar 2025 gopala.akshintala: To be consistent with Postman app behavior
-              null -> "null"
-              else -> moshiReVoman.toJson(value)
-            }
-          EnvValue(key, valueStr, true)
-        }
+        envMap.entries.map { (key, value) -> EnvValue(key, moshiReVoman.anyToString(value), true) }
       return Environment(POSTMAN_ENV_NAME, values)
     }
 
@@ -45,8 +36,8 @@ internal data class Environment(val name: String?, val values: List<EnvValue>) {
     internal fun mergeEnvs(
       pmEnvironmentPaths: Set<String>,
       pmEnvironmentInputStreams: List<InputStream>,
-      dynamicEnvironment: Map<String, String?>,
-    ): Map<String, String?> {
+      dynamicEnvironment: Map<String, Any?>,
+    ): Map<String, Any?> {
       val envAdapter = Moshi.Builder().build().adapter<Environment>()
       val envFromEnvFiles =
         (pmEnvironmentPaths.map { bufferFile(it) } +
@@ -57,6 +48,7 @@ internal data class Environment(val name: String?, val values: List<EnvValue>) {
           .associate { it.key to it.value }
       // * NOTE 10/09/23 gopala.akshintala: dynamicEnvironment keys replace envFromEnvFiles when
       // clashed
+      // ! TODO 11 Jun 2025 gopala.akshintala: serialize only during regex replace
       return envFromEnvFiles + dynamicEnvironment
     }
   }

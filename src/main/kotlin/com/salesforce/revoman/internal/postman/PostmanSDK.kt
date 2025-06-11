@@ -51,6 +51,8 @@ class PostmanSDK(
     @Suppress("unused") fun xml2Json(xml: String): Any?
   }
 
+  internal fun getAsString(key: String): String = moshiReVoman.anyToString(environment[key])
+
   inner class JSEvaluator(nodeModulesPath: String? = null) {
     private val jsContext: Context
     private var imports = ""

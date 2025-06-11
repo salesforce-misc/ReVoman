@@ -44,10 +44,9 @@ class RegexReplacer(
             value ->
             pm.environment[variableKey] = value
           }
-          ?: (if (pm.environment[variableKey] is String)
-              replaceVariablesRecursively(pm.environment[variableKey] as String, pm)
-            else pm.environment[variableKey].toString())
-            ?.also { value -> pm.environment[variableKey] = value }
+          ?: replaceVariablesRecursively(pm.getAsString(variableKey), pm)?.also { value ->
+            pm.environment[variableKey] = value
+          }
           ?: matchResult.value
       }
     }
