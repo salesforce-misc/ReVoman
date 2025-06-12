@@ -18,7 +18,7 @@ endif::[]
 :pmtemplates: src/integrationTest/resources/pm-templates
 :imagesdir: docs/images
 :prewrap!:
-:revoman-version: 0.8.1
+:revoman-version: 0.8.2
 
 '''
 
@@ -383,6 +383,13 @@ IMPORTANT: The new instance created from common config using `override...()` rep
 [source,java,indent=0,tabsize=2,options="nowrap"]
 ----
 COMMON_CONFIG.overrideHooks(kotlin.collections.CollectionsKt.plus(COMMON_CONFIG.hooks(), post(.../*My Hooks*/))
+----
+
+* There is a utility function in `com.salesforce.revoman.input.config.KickDef.plus` to merge multiple `java.util.Map`s into one, which can be used to merge `dynamicEnvironment`
+
+[source,java,indent=0,tabsize=2,options="nowrap"]
+----
+Kick.configure().dynamicEnvironment(plus(dynamicEnvironment1, dynamicEnvironment2))
 ----
 
 * You can also construct a new instance by accumulating attributes from other instances using `from()` method, like below:

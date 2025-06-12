@@ -10,6 +10,7 @@ package com.salesforce.revoman.integration.pokemon;
 import static com.google.common.truth.Truth.assertThat;
 import static com.salesforce.revoman.input.config.HookConfig.post;
 import static com.salesforce.revoman.input.config.HookConfig.pre;
+import static com.salesforce.revoman.input.config.KickDef.plus;
 import static com.salesforce.revoman.input.config.ResponseConfig.unmarshallResponse;
 import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.afterStepContainingHeader;
 import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.afterStepContainingURIPathOfAny;
@@ -56,10 +57,10 @@ class PokemonTest {
 	@Test
 	void pokemon() {
 		final var newLimit = 1;
-		final var dynamicEnvironment =
-				Map.of(
-						"offset", String.valueOf(OFFSET),
-						"limit", String.valueOf(LIMIT));
+		final var dynamicEnvironment1 =
+				Map.of("offset", String.valueOf(OFFSET));
+    final var dynamicEnvironment2 =
+        Map.of("limit", String.valueOf(LIMIT));
 		@SuppressWarnings("Convert2Lambda")
 		final var preLogHook =
 				Mockito.spy(
@@ -139,7 +140,7 @@ class PokemonTest {
 												afterStepContainingURIPathOfAny("pokemon-color"), postStepHookAfterURIPath),
 										pre(beforeStepContainingHeader("preLog"), preLogHook),
 										post(afterStepContainingHeader("postLog"), postLogHook))
-								.dynamicEnvironment(dynamicEnvironment)
+								.dynamicEnvironment(plus(dynamicEnvironment1, dynamicEnvironment2))
 								.off());
 
 		final var postHookFailure = pokeRundown.firstUnIgnoredUnsuccessfulStepReport().failure;

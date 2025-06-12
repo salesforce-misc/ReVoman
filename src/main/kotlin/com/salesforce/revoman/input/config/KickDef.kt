@@ -95,6 +95,13 @@ internal interface KickDef {
       "`runOnlySteps` and `skipSteps` cannot contain same step names"
     }
   }
+  
+  companion object {
+    @JvmStatic
+    @SafeVarargs
+    fun plus(vararg maps: Map<String, out Any?>): Map<String, Any?> =
+      maps.reduce { acc, map -> acc + map }
+  }
 }
 
 fun interface CustomDynamicVariableGenerator {
