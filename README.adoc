@@ -385,10 +385,13 @@ IMPORTANT: The new instance created from common config using `override...()` rep
 COMMON_CONFIG.overrideHooks(kotlin.collections.CollectionsKt.plus(COMMON_CONFIG.hooks(), post(.../*My Hooks*/))
 ----
 
-* There is a utility function in `com.salesforce.revoman.input.config.KickDef.plus` to merge multiple `java.util.Map`s into one, which can be used to merge `dynamicEnvironment`
+* There is a static utility function in `com.salesforce.revoman.input.config.KickDef.plus` to merge multiple `java.util.Map`s into one, which can be used to merge `dynamicEnvironment`
 
 [source,java,indent=0,tabsize=2,options="nowrap"]
 ----
+import static com.salesforce.revoman.input.config.KickDef.plus;
+...
+
 Kick.configure().dynamicEnvironment(plus(dynamicEnvironment1, dynamicEnvironment2))
 ----
 
