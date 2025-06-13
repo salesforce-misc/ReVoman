@@ -50,7 +50,7 @@ constructor(
 
   // ! TODO 24/06/23 gopala.akshintala: Support for Regex while querying environment
 
-  fun getString(key: String?) = mutableEnv[key] as String?
+  fun getAsString(key: String?) = moshiReVoman.anyToString(mutableEnv[key])
 
   fun getInt(key: String?) = mutableEnv[key] as Int?
 

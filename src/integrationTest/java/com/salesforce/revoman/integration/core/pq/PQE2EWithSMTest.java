@@ -147,7 +147,7 @@ class PQE2EWithSMTest {
 	private static void assertAfterPQCreate(PostmanEnvironment<Object> env) {
 		// Quote: LineItemCount, quoteCalculationStatus
 		assertThat(env).containsEntry("lineItemCount", 10);
-		final var pricingPrefFromEnv = env.getString("$pricingPref");
+		final var pricingPrefFromEnv = env.getAsString("$pricingPref");
 		final var actualCompleteStatus =
 				Arrays.stream(PricingPref.values())
 						.filter(e -> e.name().equalsIgnoreCase(pricingPrefFromEnv))
@@ -161,7 +161,7 @@ class PQE2EWithSMTest {
 		assertThat(productIdsFromCreatedQLIs).containsAtLeastElementsIn(productIdsFromEnv);
 		// QLRs: QuoteId
 		final var quoteIdFromQLRs = env.valuesForKeysStartingWith(String.class, "quoteForQLR");
-		assertThat(quoteIdFromQLRs).containsExactly(env.getString("quoteId"));
+		assertThat(quoteIdFromQLRs).containsExactly(env.getAsString("quoteId"));
 	}
 
 	private enum PricingPref {
