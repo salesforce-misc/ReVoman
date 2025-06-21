@@ -545,21 +545,20 @@ See in Action:
 
 If an exception is thrown during the procedure of any step,
 the <<Step Procedure>> *fails fast for that step*.
-However, the execution of next *steps won't halt by default*.
+However, the execution of _next steps won't halt by default_.
 You can configure this behavior to *fail-fast* using the below Configuration options:
 
 * `haltOnAnyFailure` — This defaults to `false`. If set to `true`, the execution of steps fails-fast when it encounters a failure. This also halts if there is an HTTP error response
 * `haltOnFailureOfTypeExcept` — You may configure to Fail-fast only for a specific Failure type by providing an `ExeType`. Along with it, you may provide a  `PostTxnStepPick` which is used to check if a Step can be ignored for that specific failure type or halt the execution of next steps
 
-These Configuration options, as their names suggest,
+The below Configuration options, as their names suggest,
 let you conditionally run or skip steps in a chain of steps from the template, without the need to change the template.
 
 * `runOnlySteps`, `skipSteps` — These accept a `predicate` of type `ExeStepPick`, which is invoked passing the current `Step` instance to decide whether to execute or skip a step.
 
-TIP: There are some `ExeStepPick` predicates
+TIP: Before writing a custom predicate, checkout these OOTB `ExeStepPick` predicates
 bundled with ReṼoman under link:{sourcedir}/com/salesforce/revoman/input/config/StepPick.kt[`ExeStepPick.PickUtils`]
-e.g `withName`,
-`inFolder` etc. You can write a custom predicate of your own too.
+e.g `withName`, `inFolder` etc.
 
 ==== Compose Modular Executions
 
@@ -681,6 +680,8 @@ CAUTION: The recommendation is not to add too much code in <<Pre-req and Post-re
 
 * Environment is the only mutable-shared state across step executions, which can be used for data passing between the consumer and the library.
 * This can be mutated (set key-value pairs) through <<Pre-req and Post-res scripts>> (using `pm.environment.set()`) and <<#_pre_step_and_post_step_hooks,Pre-Step /Post-Step Hooks>> (using the reference `rundown.mutableEnv`) during execution.
+* Mutable Environment is `Map<String, Object>` (in Java) or `Map<String, Any?>` (in Kotlin). If you store a POJO as the value, it gets serialized to JSON when used to replace a `{{variable-key}}` placeholder. While fetching a POJO value from `mutableEnv` in JVM code, you may use `mutableEnv.get()` to get the value as a POJO, or `mutableEnv.getAsString()` to read it as a serialized JSON string.
+* While serializing/deserializing, the <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization,customer adapters configured>> via `Kick` config shall be used. You may supply more adapters if needed via `Kick` config.
 
 ==== Read Mutable Environment as Postman Environment JSON format
 
@@ -763,7 +764,10 @@ to how your server responds or your network speed.
 The future looks bright with multiple impactful features in the pipeline:
 
 * API metrics and Analytics
-* *It's built with extensibility* in mind. It can easily be extended to support other template formats, such as Kaiju templates used for availability testing.
+* Support other template formats
+** For developers, the IntelliJ HTTP Client offers a built-in plugin that enables HTTP calls directly within the IDE. Supporting this format eliminates the need to switch environments, allowing for seamless manual testing and automation without ever exiting the IDE.
+** Support formats like Cucumber to take input data and assert output data.
+** Support formats for other popular tools, such as ThunderClient, Insomnia, etc
 * In-built polling support for Async steps
 * Payload generation
 * Flow control through YAML config
