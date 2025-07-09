@@ -11,10 +11,12 @@ import com.squareup.moshi.FromJson
 import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.JsonReader
 import java.util.Date
-import kotlinx.datetime.Instant
-import kotlinx.datetime.toJavaInstant
+import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
+import kotlin.time.toJavaInstant
 
 object EpochAdapter {
+  @OptIn(ExperimentalTime::class)
   @FromJson
   fun fromJson(reader: JsonReader, delegate: JsonAdapter<Date>): Date? {
     val epoch = reader.nextString()
