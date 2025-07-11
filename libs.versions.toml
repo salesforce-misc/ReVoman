@@ -34,7 +34,7 @@ junit = "5.11.4"
 kover = "0.9.1"
 detekt = "1.23.8"
 spotless = "7.1.0"
-apache-log4j = "2.25.0"
+apache-log4j = "2.25.1"
 
 [libraries]
 java-vavr = { module = "io.vavr:vavr", version.ref = "java-vavr" }
