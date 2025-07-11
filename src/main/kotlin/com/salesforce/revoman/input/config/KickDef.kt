@@ -35,7 +35,7 @@ internal interface KickDef {
 
   fun environmentInputStreams(): List<InputStream>
 
-  fun dynamicEnvironment(): Map<String, Any?>
+  @AllowNulls fun dynamicEnvironment(): Map<String, Any?>
 
   fun nodeModulesPath(): String?
 
@@ -95,7 +95,7 @@ internal interface KickDef {
       "`runOnlySteps` and `skipSteps` cannot contain same step names"
     }
   }
-  
+
   companion object {
     @JvmStatic
     @SafeVarargs
@@ -103,6 +103,8 @@ internal interface KickDef {
       maps.reduce { acc, map -> acc + map }
   }
 }
+
+annotation class AllowNulls
 
 fun interface CustomDynamicVariableGenerator {
   fun generate(variableName: String, currentStepReport: StepReport, rundown: Rundown): String

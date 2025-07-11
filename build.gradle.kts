@@ -65,7 +65,6 @@ node { nodeProjectDir = file("${project.projectDir}/js") }
 tasks {
   check { dependsOn(npmInstall) }
   test { dependsOn(npmInstall) }
-  withType<Jar> { archiveBaseName = "revoman" }
 }
 
 kover { reports { total { html { onCheck = true } } } }
