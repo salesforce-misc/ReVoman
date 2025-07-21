@@ -185,13 +185,6 @@
 					],
 					"request": {
 						"method": "POST",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer 00DLT000005y8W6!AQEAQM_BzmGAc9C50ew5dHciarq4jL2hDuUcvpDDQnqw3SIs5Snt8ZCQJX2lbe9swZW6vHPy9.paaSYRkjHzhMd.Fx3EZ6Gc",
-								"type": "text"
-							}
-						],
 						"body": {
 							"mode": "raw",
 							"raw": "{\n  \"pricingPref\": \"{{$pricingPref}}\",\n  \"configurationPref\": {\n    \"configurationMethod\": \"skip\"\n  },\n  \"graph\": {\n    \"graphId\": \"{{$requestName}}\",\n    \"records\": [\n      {\n        \"referenceId\": \"refOrder\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"Order\",\n            \"method\": \"POST\"\n          },\n          \"Status\": \"Draft\",\n          \"AccountId\": \"{{accountId}}\",\n          \"Pricebook2Id\": \"{{standardPricebookId}}\",\n          \"BillToContactId\": \"{{contactId}}\",\n          \"EffectiveDate\": \"2024-11-20\",\n          \"BillingStreet\": \"Block 3, DivyaSree Orion IT/ITES SEZ, Raidurg Village\",\n          \"BillingCity\": \"Hyderabad\",\n          \"BillingState\": \"TS\",\n          \"BillingPostalCode\": \"500032\",\n          \"BillingCountry\": \"India\",\n          \"ShippingStreet\": \"Block 3, DivyaSree Orion IT/ITES SEZ, Raidurg Village\",\n          \"ShippingCity\": \"Hyderabad\",\n          \"ShippingState\": \"TS\",\n          \"ShippingPostalCode\": \"500032\",\n          \"ShippingCountry\": \"India\"\n        }\n      },\n      {\n        \"referenceId\": \"refAppTag\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"AppUsageAssignment\",\n            \"method\": \"POST\"\n          },\n          \"AppUsageType\": \"RevenueLifecycleManagement\",\n          \"RecordId\": \"@{refOrder.id}\"\n        }\n      },\n      {\n        \"referenceId\": \"refOrderAction\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"OrderAction\",\n            \"method\": \"POST\"\n          },\n          \"OrderId\": \"@{refOrder.id}\",\n          \"Type\": \"Add\"\n        }\n      },\n      {\n        \"referenceId\": \"OrderItem1\",\n        \"record\": {\n          \"attributes\": {\n            \"type\": \"OrderItem\",\n            \"method\": \"POST\"\n          },\n          \"OrderId\": \"@{refOrder.id}\",\n          \"PricebookEntryId\": \"{{oneTimePriceBookEntryId}}\",\n          \"Product2Id\": \"{{oneTimeProductId}}\",\n          \"Quantity\": {{$quantity}},\n          \"UnitPrice\": {{$unitPrice}},\n          \"OrderActionId\": \"@{refOrderAction.id}\"\n        }\n      }\n    ]\n  }\n}",
