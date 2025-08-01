@@ -1,5 +1,5 @@
 [versions]
-jdk = "17"
+jdk = "21"
 kotlin = "2.2.0"
 moshix = "0.31.0"
 http4k = "5.47.0.0" # Compatable with JDK 17
