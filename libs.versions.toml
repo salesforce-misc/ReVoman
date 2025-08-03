@@ -1,8 +1,8 @@
 [versions]
-jdk = "17"
+jdk = "21"
 kotlin = "2.2.0"
 moshix = "0.31.0"
-http4k = "5.47.0.0" # Compatable with JDK 17
+http4k = "6.15.1.0"
 immutables = "2.11.1"
 arrow = "2.1.2"
 graal = "24.2.2"

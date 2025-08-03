@@ -46,12 +46,12 @@ class JsonPojoUtilsTest {
 		final var successGraphResponse =
 				JsonPojoUtils.jsonFileToPojo(
 						jsonFileConfig.jsonFilePath("composite/graph/resp/graph-response-success.json").done());
-		assertThat(successGraphResponse.getGraphs().get(0)).isInstanceOf(SuccessGraph.class);
+		assertThat(successGraphResponse.getGraphs().getFirst()).isInstanceOf(SuccessGraph.class);
 
 		final var errorGraphResponse =
 				JsonPojoUtils.jsonFileToPojo(
 						jsonFileConfig.jsonFilePath("composite/graph/resp/graph-response-error.json").done());
-		final var errorGraph = errorGraphResponse.getGraphs().get(0);
+		final var errorGraph = errorGraphResponse.getGraphs().getFirst();
 		assertThat(errorGraph).isInstanceOf(ErrorGraph.class);
 		assertThat(((ErrorGraph) errorGraph).firstErrorResponseBody().getErrorCode())
 				.isEqualTo("DUPLICATE_VALUE");
