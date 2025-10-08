@@ -119,7 +119,7 @@ Leveraging it can mitigate writing a lot of code as we translate those manual st
 ____
 
 * How _productive_ would it be, if you could plug your exported Postman collection template,
-that you anyway would have created for your manual testing and executed through your JVM tests?
+that you anyway would have created for your manual testing and execute them through your JVM tests?
 
 * How about a Universal API automation tool that promotes low code and low-cognitive-complexity and strikes a balance between flexibility and ease of use?
 
