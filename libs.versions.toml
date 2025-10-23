@@ -1,8 +1,8 @@
 [versions]
 jdk = "21"
-kotlin = "2.2.20"
+kotlin = "2.2.21"
 moshix = "0.32.0"
-http4k = "6.20.0.0"
+http4k = "6.20.0.1"
 immutables = "2.11.6"
 arrow = "2.1.2"
 graal = "25.0.1"
