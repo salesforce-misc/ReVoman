@@ -2,6 +2,7 @@
   "extends": [
     "config:recommended"
   ],
+  "ignoreUnstable": false,
   "automerge": true,
   "commitBodyTable": true,
   "packageRules": [
