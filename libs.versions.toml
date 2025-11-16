@@ -1,6 +1,6 @@
 [versions]
 jdk = "21"
-kotlin = "2.2.21"
+kotlin = "2.3.0-Beta2"
 moshix = "0.33.0"
 http4k = "6.20.2.1"
 immutables = "2.11.6"
