@@ -38,7 +38,7 @@ sdk install java 21.0.8-amzn
 
 === Build with Gradle
 
-This is a simple Gradle project and has its own Gradle wrapper. Nothing to install, run just this command:
+This is a simple Gradle project and has its own Gradle wrapper. You may need `npm` installed and nothing else, run just this command:
 
 [source,bash]
 ----
