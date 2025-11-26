@@ -26,7 +26,7 @@ nexus-publish = "2.0.0"
 kotlinx-datetime = "0.7.1-0.6.x-compat"
 node-gradle = "7.1.0"
 mockk = "1.14.6"
-gradle-taskinfo = "2.2.0"
+gradle-taskinfo = "2.2.1"
 
 # Common dependencies
 
