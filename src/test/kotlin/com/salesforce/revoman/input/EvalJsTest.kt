@@ -71,9 +71,9 @@ class EvalJsTest {
   fun `eval JS with moment`() {
     pm.evaluateJS(
       $$"""
-          var moment = require('moment')
-          pm.environment.set("$currentDate", moment().format(("YYYY-MM-DD")))
-        """
+        var moment = require('moment')
+        pm.environment.set("$currentDate", moment().format(("YYYY-MM-DD")))
+      """
         .trimIndent()
     )
     pm.environment shouldContain Pair($$"$currentDate", LocalDate.now().toString())
@@ -83,8 +83,8 @@ class EvalJsTest {
   fun `eval JS with lodash`() {
     pm.evaluateJS(
       $$"""
-          pm.environment.set("$randomNum", _.random(10))
-        """
+        pm.environment.set("$randomNum", _.random(10))
+      """
         .trimIndent()
     )
     pm.environment.getInt($$"$randomNum")!! shouldBeInRange 0..10
@@ -95,31 +95,31 @@ class EvalJsTest {
     // language=xml
     val xmlResponse =
       """
-      <?xml version="1.0" encoding="UTF-8"?>
-      <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns="urn:partner.soap.sforce.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-        <soapenv:Body>
-          <loginResponse>
-              <result>
-                <metadataServerUrl>https://trialorgsforu-ec.test1.my.pc-rnd.salesforce.com/services/Soap/m/55.0/00DRN0000009wGZ</metadataServerUrl>
-                <passwordExpired>false</passwordExpired>
-                <sandbox>false</sandbox>
-                <serverUrl>https://trialorgsforu-ec.test1.my.pc-rnd.salesforce.com/services/Soap/u/55.0/00DRN0000009wGZ</serverUrl>
-                <sessionId>session-key-set-in-js</sessionId>
-                <userId>005RN000000bTH9YAM</userId>
-              </result>
-            </loginResponse>
-        </soapenv:Body>
-      </soapenv:Envelope>
-    """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns="urn:partner.soap.sforce.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+          <soapenv:Body>
+            <loginResponse>
+                <result>
+                  <metadataServerUrl>https://trialorgsforu-ec.test1.my.pc-rnd.salesforce.com/services/Soap/m/55.0/00DRN0000009wGZ</metadataServerUrl>
+                  <passwordExpired>false</passwordExpired>
+                  <sandbox>false</sandbox>
+                  <serverUrl>https://trialorgsforu-ec.test1.my.pc-rnd.salesforce.com/services/Soap/u/55.0/00DRN0000009wGZ</serverUrl>
+                  <sessionId>session-key-set-in-js</sessionId>
+                  <userId>005RN000000bTH9YAM</userId>
+                </result>
+              </loginResponse>
+          </soapenv:Body>
+        </soapenv:Envelope>
+      """
         .trimIndent()
     // language=javascript
     val callingScript =
       """
-      var jsonData = xml2Json(responseBody);
-      console.log(jsonData);
-      var sessionId = jsonData['soapenv:Envelope']['soapenv:Body'].loginResponse.result.sessionId
-      pm.environment.set("accessToken", sessionId);
-    """
+        var jsonData = xml2Json(responseBody);
+        console.log(jsonData);
+        var sessionId = jsonData['soapenv:Envelope']['soapenv:Body'].loginResponse.result.sessionId
+        pm.environment.set("accessToken", sessionId);
+      """
         .trimIndent()
     pm.evaluateJS(callingScript, mapOf("responseBody" to xmlResponse))
     pm.environment shouldContain Pair("accessToken", "session-key-set-in-js")
