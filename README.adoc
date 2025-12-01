@@ -490,7 +490,7 @@ where you can filter out these legacy types from Marshalling/Unmarshalling
 * You may use the bundled static factory methods named `RequestConfig.unmarshallResponse()` for expressiveness.
 * You can pass a `PreTxnStepPick` which is a `Predicate` used
 to qualify a step whose Request JSON payload needs to be unmarshalled/deserialized.
-* If you have set up `requestConfig()` once in the config, wherever you wish to read the request in your <<#_pre_step_and_post_step_hooks,Pre-Step Hooks>>, you can call `stepReport.requestInfo.get().<TypeT>getTypedTxnObj()` which returns your request JSON as a Strong type.
+* If you have set up `requestConfig()` once in the config, wherever you wish to read or assert the request, you can call `stepReport.requestInfo.get().<TypeT>getTypedTxnObj()` which returns your request JSON as a Strong type.
 
 ==== `responseConfig()`
 
@@ -499,7 +499,7 @@ to qualify a step whose Request JSON payload needs to be unmarshalled/deserializ
 * Use bundled static factory methods like `ResponseConfig.unmarshallSuccessResponse()` and `ResponseConfig.unmarshallErrorResponse()` for expressiveness.
 * You can pass a `PostTxnStepPick` which is a `Predicate` used
 to qualify a step whose Response JSON payload needs to be unmarshalled/deserialized.
-* If you have set up `responseConfig()` once, wherever you wish to read or assert the response in your <<#_pre_step_and_post_step_hooks,Post-Step Hooks>>, you can call `stepReport.responseInfo.get().<TypeT>getTypedTxnObj()` which returns your response JSON as a Strong type.
+* If you have set up `responseConfig()` once, wherever you wish to read or assert the response, you can call `stepReport.responseInfo.get().<TypeT>getTypedTxnObj()` which returns your response JSON as a Strong type.
 
 [TIP]
 ====
