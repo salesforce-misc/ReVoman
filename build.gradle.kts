@@ -60,11 +60,18 @@ testing {
   }
 }
 
-node { nodeProjectDir = file("${project.projectDir}/js") }
+node {
+  nodeProjectDir = file("${project.projectDir}/js")
+  download = true
+}
 
 tasks {
   check { dependsOn(npmInstall) }
-  test { dependsOn(npmInstall) }
+  test {
+    dependsOn(npmInstall)
+    jvmArgs.add("-javaagent:${mockitoAgent.asPath}")
+  }
+  named<Test>("integrationTest") { jvmArgs.add("-javaagent:${mockitoAgent.asPath}") }
 }
 
 kover { reports { total { html { onCheck = true } } } }
