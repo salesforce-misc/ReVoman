@@ -18,6 +18,7 @@ import com.squareup.moshi.JsonAdapter.Factory
 import io.vavr.control.Either
 import java.io.InputStream
 import java.lang.reflect.Type
+import java.util.AbstractMap.SimpleEntry
 import java.util.Collections.disjoint
 import org.immutables.value.Value
 import org.immutables.value.Value.Style.ImplementationVisibility.PUBLIC
@@ -99,8 +100,27 @@ internal interface KickDef {
   companion object {
     @JvmStatic
     @SafeVarargs
-    fun plus(vararg maps: Map<String, out Any?>): Map<String, Any?> =
-      maps.reduce { acc, map -> acc + map }
+    fun <K, V> intoMap(vararg items: Any): Map<K, V> where K : Any, V : Any? =
+      items
+        .flatMap { item ->
+          when (item) {
+            is Map<*, *> -> (item as Map<K, V>).entries
+            is Pair<*, *> -> listOf(SimpleEntry(item.first as K, item.second as V))
+            else ->
+              throw IllegalArgumentException("Expected Map<K,V> or Pair<K,V>, got ${item::class}")
+          }
+        }
+        .associate { it.key to it.value }
+
+    @JvmStatic
+    @SafeVarargs
+    fun <T> intoList(vararg items: Any): List<T> =
+      items.flatMap { item ->
+        when (item) {
+          is Collection<*> -> item.map { it as T }
+          else -> listOf(item as T)
+        }
+      }
   }
 }
 
