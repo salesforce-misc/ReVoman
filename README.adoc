@@ -22,7 +22,7 @@ endif::[]
 
 '''
 
-*ReṼoman* is an API automation tool for JVM (Java/Kotlin) from the API-first SaaS company, *Salesforce*. It re-imagines API automation by letting you execute a Postman collection in a JVM program/test.
+*ReṼoman* is an API orchestration/automation tool for JVM (Java/Kotlin) from the API-first SaaS company, *Salesforce*. It re-imagines API orchestration/automation by letting you execute a Postman collection in a JVM program/test.
 
 NOTE: NO licensed Postman SDKs are used inside this project. This is written ground up natively in JVM
 
@@ -103,7 +103,7 @@ image::revoman-demo-thumbnail.png[link="https://www.youtube.com/watch?v=YxeRddSF
 * The majority of JVM SaaS applications are REST-based. But the API automation is done through a Mul-*T*-verse of Integration/Functional tests, E2E tests and Manual tests, each with its own frameworks, tools, and internal utilities, testing almost the same code flow.
 * These custom alien automation frameworks, often built using low-level tools like https://rest-assured.io/[**REST Assured**], are specific to a service or domain and are rigid to reuse, extend and difficult to maintain.
 * This automation competes on cognitive complexity and learning curve with the Prod code, and mostly, automation wins.
-* After a point, the API automation may deviate from its purpose of augmenting real end-user interaction and turns into a foot-chain for development.
+* After a point, the API orchestration/automation may deviate from its purpose of augmenting real end-user interaction and turns into a foot-chain for development.
 
 image::cognitive-complexity.png[align="center"]
 
@@ -121,11 +121,11 @@ ____
 * How _productive_ would it be, if you could plug your exported Postman collection template,
 that you anyway would have created for your manual testing and execute them through your JVM tests?
 
-* How about a Universal API automation tool that promotes low code and low-cognitive-complexity and strikes a balance between flexibility and ease of use?
+* How about a Universal API orchestration/automation tool that promotes low code and low-cognitive-complexity and strikes a balance between flexibility and ease of use?
 
 ____
 
-== API automation with _ReṼoman_
+== API orchestration/automation with _ReṼoman_
 
 === Template-Driven Testing
 
