@@ -10,7 +10,7 @@ package com.salesforce.revoman.integration.pokemon;
 import static com.google.common.truth.Truth.assertThat;
 import static com.salesforce.revoman.input.config.HookConfig.post;
 import static com.salesforce.revoman.input.config.HookConfig.pre;
-import static com.salesforce.revoman.input.config.KickDef.plus;
+import static com.salesforce.revoman.input.config.KickDef.intoMap;
 import static com.salesforce.revoman.input.config.ResponseConfig.unmarshallResponse;
 import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.afterStepContainingHeader;
 import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.afterStepContainingURIPathOfAny;
@@ -59,9 +59,9 @@ class PokemonTest {
 	@Test
 	void pokemon() {
 		final var newLimit = 1;
-		final var dynamicEnvironment1 = Map.of("offset", String.valueOf(OFFSET));
+		final var dynamicEnvironment1 = Map.of("offset", OFFSET);
 		final var dynamicEnvironment2 =
-				MapsKt.mapOf(new Pair<>("limit", String.valueOf(LIMIT)), new Pair<>("null", null));
+				MapsKt.mapOf(new Pair<>("limit", LIMIT), new Pair<>("null", null));
 		@SuppressWarnings("Convert2Lambda")
 		final var preLogHook =
 				Mockito.spy(
@@ -93,7 +93,7 @@ class PokemonTest {
 									@NotNull Step ignore1,
 									@NotNull TxnInfo<Request> ignore2,
 									@NotNull Rundown rundown) {
-								rundown.mutableEnv.set("limit", String.valueOf(newLimit));
+								rundown.mutableEnv.set("limit", newLimit);
 							}
 						});
 		@SuppressWarnings("Convert2Lambda")
@@ -102,7 +102,7 @@ class PokemonTest {
 						new PostStepHook() {
 							@Override
 							public void accept(@NotNull StepReport stepReport, @NotNull Rundown rundown) {
-								assertThat(rundown.mutableEnv).containsEntry("limit", String.valueOf(newLimit));
+								assertThat(rundown.mutableEnv).containsEntry("limit", newLimit);
 								final var results =
 										stepReport.responseInfo.get().<AllPokemon>getTypedTxnObj().results;
 								assertThat(results.size()).isEqualTo(newLimit);
@@ -143,7 +143,7 @@ class PokemonTest {
 						.off();
 		final var pokeRundown =
 				ReVoman.revUp(
-						config.overrideDynamicEnvironment(plus(dynamicEnvironment1, dynamicEnvironment2)));
+						config.overrideDynamicEnvironment(intoMap(dynamicEnvironment1, dynamicEnvironment2)));
 
 		final var postHookFailure = pokeRundown.firstUnIgnoredUnsuccessfulStepReport().failure;
 		assertThat(postHookFailure).containsLeftInstanceOf(PostStepHookFailure.class);
@@ -152,8 +152,8 @@ class PokemonTest {
 		assertThat(pokeRundown.mutableEnv)
 				.containsExactlyEntriesIn(
 						MapsKt.mapOf(
-								new Pair<>("offset", String.valueOf(OFFSET)),
-								new Pair<>("limit", String.valueOf(newLimit)),
+								new Pair<>("offset", OFFSET),
+								new Pair<>("limit", newLimit),
 								new Pair<>("baseUrl", "https://pokeapi.co/api/v2"),
 								new Pair<>("id", "1"),
 								new Pair<>("pokemonName", "bulbasaur"),

@@ -678,10 +678,11 @@ CAUTION: The recommendation is not to add too much code in <<Pre-req and Post-re
 [#_mutable_environment]
 === Mutable Environment
 
-* Environment is the only mutable-shared state across step executions, which can be used for data passing between the consumer and the library.
-* This can be mutated (set key-value pairs) through <<Pre-req and Post-res scripts>> (using `pm.environment.set()`) and <<#_pre_step_and_post_step_hooks,Pre-Step /Post-Step Hooks>> (using the reference `rundown.mutableEnv`) during execution.
-* Mutable Environment is `Map<String, Object>` (in Java) or `Map<String, Any?>` (in Kotlin). If you store a POJO as the value, it gets serialized to JSON when used to replace a `{{variable-key}}` placeholder. While fetching a POJO value from `mutableEnv` in JVM code, you may use `mutableEnv.get()` to get the value as a POJO, or `mutableEnv.getAsString()` to read it as a serialized JSON string.
-* While serializing/deserializing, the <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization,customer adapters configured>> via `Kick` config shall be used. You may supply more adapters if needed via `Kick` config.
+* Environment is the only mutable-shared state across step executions, which can be used for data passing between the consumer and the library and across steps during execution.
+* Use-cases to usually mutate are in <<Pre-req and Post-res scripts>> (using `pm.environment.set()`) and <<#_pre_step_and_post_step_hooks,Pre-Step /Post-Step Hooks>> (using the reference `rundown.mutableEnv`) during execution.
+* Mutable Environment is `Map<String, Object>` (in Java) or `Map<String, Any?>` (in Kotlin), so you can use it to store any type of values, not just limited to `String` type.
+
+NOTE: If a `mutableEnv` entry holds a POJO value, the value in the entry gets mutated to a serialized JSON String inside the `mutableEnv`, before getting used for variable replacement. This also takes care of replacing any variable placeholders inside POJO attribute values recursively. Although we can, the value is not deserialized back to POJO for perf reasons. You can always <<_read_environment_value_into_strong_type, read a specific value back as POJO>>, as needed.
 
 ==== Read Mutable Environment as Postman Environment JSON format
 
@@ -692,11 +693,15 @@ so you can copy and import that environment conveniently into Postman.
 TIP: You do NOT need to save the copied Postman environment JSON from the debugger into file.
 You can paste (kbd:[Ctrl+v]) directly in the Postman environment window
 
+[#_read_environment_value_into_strong_type]
 ==== Read Environment value into Strong type
 
 You can read any value from mutableEnv as a Strong type using `rundown.mutableEnv.<TypeT>getTypedObj()`
 See it in action: `getTypedObj()`
 test from link:{testdir}/com/salesforce/revoman/output/postman/PostmanEnvironmentTest.java[PostmanEnvironmentTest]
+
+TIP: While serializing/deserializing, the <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization,customer adapters configured>> 
+via `Kick` config shall be used.You may supply more adapters if needed via `Kick` config.
 
 ==== `pmEnvSnapshot` in each StepReport
 

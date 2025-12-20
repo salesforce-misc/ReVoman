@@ -30,8 +30,8 @@ class RegexReplacer(
    */
   internal fun replaceVariablesRecursively(stringWithRegex: String?, pm: PostmanSDK): String? =
     stringWithRegex?.let {
-      postManVariableRegex.replace(it) { matchResult ->
-        val variableKey = matchResult.groups[VARIABLE_KEY]?.value!!
+      postManVariableRegex.replace(it) { variable ->
+        val variableKey = variable.groups[VARIABLE_KEY]?.value!!
         customDynamicVariableGenerators[variableKey]
           ?.let { cdvg ->
             replaceVariablesRecursively(
@@ -39,15 +39,16 @@ class RegexReplacer(
               pm,
             )
           }
-          ?.also { value -> pm.environment[variableKey] = value }
+          ?.also { value -> setItBackInEnvironment(variableKey, value, pm) }
           ?: replaceVariablesRecursively(dynamicVariableGenerator(variableKey, pm), pm)?.also {
             value ->
-            pm.environment[variableKey] = value
+            setItBackInEnvironment(variableKey, value, pm)
           }
-          ?: replaceVariablesRecursively(pm.getAsString(variableKey), pm)?.also { value ->
-            pm.environment[variableKey] = value
+          ?: replaceVariablesRecursively(pm.environment.getAsString(variableKey), pm)?.also { value
+            ->
+            setItBackInEnvironment(variableKey, value, pm)
           }
-          ?: matchResult.value
+          ?: variable.value
       }
     }
 
@@ -89,4 +90,22 @@ class RegexReplacer(
           else it.value
         },
       )
+
+  companion object {
+    private fun setItBackInEnvironment(variableKey: String, value: String, pm: PostmanSDK) {
+      val currentValue = pm.environment[variableKey]
+      // * NOTE 20 Dec 2025 gopala.akshintala: Not doing `fromJson` for perf reasons.
+      // One can always use `getTypedObj()` to deserialize
+      val convertedValue: Any? =
+        when (currentValue) {
+          is Int -> value.toIntOrNull()
+          is Long -> value.toLongOrNull()
+          is Double -> value.toDoubleOrNull()
+          is Float -> value.toFloatOrNull()
+          is Boolean -> value.toBooleanStrictOrNull()
+          else -> value
+        }
+      pm.environment[variableKey] = convertedValue ?: value
+    }
+  }
 }

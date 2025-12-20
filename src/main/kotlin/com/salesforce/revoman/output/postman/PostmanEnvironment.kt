@@ -48,12 +48,6 @@ constructor(
     logger.info { "pm environment variable unset through JS in Step: $currentStep - key: $key" }
   }
 
-  // ! TODO 24/06/23 gopala.akshintala: Support for Regex while querying environment
-
-  fun getAsString(key: String?) = moshiReVoman.anyToString(mutableEnv[key])
-
-  fun getInt(key: String?) = mutableEnv[key] as Int?
-
   // ! TODO 13/09/23 gopala.akshintala: Refactor code to remove duplication
 
   fun <T> mutableEnvCopyWithValuesOfType(type: Class<T>): PostmanEnvironment<T> =
@@ -111,6 +105,12 @@ constructor(
         .toMutableMap(),
       moshiReVoman,
     )
+
+  // ! TODO 24/06/23 gopala.akshintala: Support for Regex while querying environment
+
+  fun getAsString(key: String?) = moshiReVoman.anyToString(mutableEnv[key])
+
+  fun getInt(key: String?) = mutableEnv[key] as Int?
 
   @JvmOverloads
   fun <PojoT : Any> getTypedObj(
