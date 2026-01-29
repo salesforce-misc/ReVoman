@@ -409,7 +409,7 @@ IMPORTANT: Iterable attributes (like `List`, `Map` etc) accept an `Iterable`. If
 [#_ide_debugger_view]
 === IDE debugger view
 [.lead]
-This tool has a particular emphasis on the Debugging experience.Here is what a debugger view of a <<Rundown>> looks like:
+This tool has a particular emphasis on the Debugging experience. Here is what a debugger view of a <<Rundown>> looks like:
 
 image:rundown.png[Rundown of all steps]
 
@@ -434,7 +434,7 @@ image:step-procedure.png[Step Procedure]
 
 [NOTE]
 ====
-* `HttpRequestFailure` happens if there is an exception while making the request.It is different from HTTP Error response.
+* `HttpRequestFailure` happens if there is an exception while making the request. It is different from HTTP Error response.
 * HTTP Success or Error response is determined by default with HTTP Status Code (SUCCESSFUL: `200 < = statusCode < = 299`).
 * HTTP Error response does *NOT* halt the execution of steps by default.
 * You can configure this behavior using <<Execution Control>>
@@ -700,7 +700,7 @@ You can read any value from mutableEnv as a Strong type using `rundown.mutableEn
 See it in action: `getTypedObj()`
 test from link:{testdir}/com/salesforce/revoman/output/postman/PostmanEnvironmentTest.java[PostmanEnvironmentTest]
 
-TIP: While serializing/deserializing, the <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization,customer adapters configured>> 
+TIP: While serializing/deserializing, the <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization,customer adapters configured>>
 via `Kick` config shall be used.You may supply more adapters if needed via `Kick` config.
 
 ==== `pmEnvSnapshot` in each StepReport
@@ -730,9 +730,12 @@ The above test doesn't just have low code, but also low in Cognitive Complexity 
 
 === Low Learning Curve
 
-Familiarity with Postman gets you a long way in understanding this tool.
-Playing with the existing link:{integrationtestdir}[Integration Tests]
+The learning curve is way-way-low compared to any other automation frameworks out there (like Cucumber, RestAssured, etc), as there is no proprietary syntax or template formats required for this tool. Familiarity with Postman gets you a long way in understanding this tool. Playing with the existing link:{integrationtestdir}[Integration Tests]
 and writing a couple of hands-on tests should get you started quickly.
+
+=== Low setup and maintenance ‘Tax’
+Unlike tools like Cucumber, which demand a high setup and maintenance ‘Tax’ with a lot of glue code, this tool has no strict requirements for wiring your Postman collections with code. They are loosely coupled, and the relative path to the collection JSON file in the config is the only link between them, so you are free to organize your collections and code independently.
+
 
 === CI/CD integrability
 
