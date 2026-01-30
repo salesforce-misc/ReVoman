@@ -8,6 +8,7 @@
 package com.salesforce.revoman.internal.postman
 
 import com.salesforce.revoman.input.config.CustomDynamicVariableGenerator
+import io.github.oshai.kotlinlogging.KotlinLogging
 import com.salesforce.revoman.internal.postman.template.Auth.Bearer
 import com.salesforce.revoman.internal.postman.template.Item
 import com.salesforce.revoman.internal.postman.template.Request
@@ -19,6 +20,7 @@ class RegexReplacer(
   private val customDynamicVariableGenerators: Map<String, CustomDynamicVariableGenerator> =
     emptyMap(),
   private val dynamicVariableGenerator: (String, PostmanSDK) -> String? = ::dynamicVariableGenerator,
+  private val maxVariableResolutionDepth: Int = DEFAULT_MAX_RESOLUTION_DEPTH,
 ) {
   /**
    * ## Order of Variable resolution
@@ -29,27 +31,35 @@ class RegexReplacer(
    * - Postman Environment supplied as a file through config
    */
   internal fun replaceVariablesRecursively(stringWithRegex: String?, pm: PostmanSDK): String? =
-    stringWithRegex?.let {
-      postManVariableRegex.replace(it) { variable ->
-        val variableKey = variable.groups[VARIABLE_KEY]?.value!!
-        customDynamicVariableGenerators[variableKey]
-          ?.let { cdvg ->
-            replaceVariablesRecursively(
-              cdvg.generate(variableKey, pm.currentStepReport, pm.rundown),
-              pm,
-            )
-          }
-          ?.also { value -> setItBackInEnvironment(variableKey, value, pm) }
-          ?: replaceVariablesRecursively(dynamicVariableGenerator(variableKey, pm), pm)?.also {
-            value ->
-            setItBackInEnvironment(variableKey, value, pm)
-          }
-          ?: replaceVariablesRecursively(pm.environment.getAsString(variableKey), pm)?.also { value
-            ->
-            setItBackInEnvironment(variableKey, value, pm)
-          }
-          ?: variable.value
+    stringWithRegex?.let { input ->
+      var current = input
+      var depth = 0
+      while (depth < maxVariableResolutionDepth && postManVariableRegex.containsMatchIn(current)) {
+        val replaced = replaceVariablesOnce(current, pm)
+        if (replaced == current) {
+          break
+        }
+        current = replaced
+        depth++
       }
+      if (depth >= maxVariableResolutionDepth && postManVariableRegex.containsMatchIn(current)) {
+        logger.warn {
+          "Max variable resolution depth reached ($maxVariableResolutionDepth). Leaving unresolved variables as-is."
+        }
+      }
+      current
+    }
+
+  private fun replaceVariablesOnce(input: String, pm: PostmanSDK): String =
+    postManVariableRegex.replace(input) { variable ->
+      val variableKey = variable.groups[VARIABLE_KEY]?.value!!
+      val resolvedValue =
+        customDynamicVariableGenerators[variableKey]
+          ?.generate(variableKey, pm.currentStepReport, pm.rundown)
+          ?: dynamicVariableGenerator(variableKey, pm)
+          ?: pm.environment.getAsString(variableKey)
+      resolvedValue?.also { value -> setItBackInEnvironment(variableKey, value, pm) }
+        ?: variable.value
     }
 
   internal fun replaceVariablesInPmItem(item: Item, pm: PostmanSDK): Item =
@@ -92,6 +102,8 @@ class RegexReplacer(
       )
 
   companion object {
+    private const val DEFAULT_MAX_RESOLUTION_DEPTH = 10
+
     private fun setItBackInEnvironment(variableKey: String, value: String, pm: PostmanSDK) {
       val currentValue = pm.environment[variableKey]
       // * NOTE 20 Dec 2025 gopala.akshintala: Not doing `fromJson` for perf reasons.
@@ -109,3 +121,5 @@ class RegexReplacer(
     }
   }
 }
+
+private val logger = KotlinLogging.logger {}

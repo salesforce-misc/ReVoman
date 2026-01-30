@@ -69,11 +69,10 @@ internal fun executePostResJS(
 
 private fun executePostResJSWithPolyglot(
   postResJS: String,
-  pmRequest: Request,
   stepReport: StepReport,
   pm: PostmanSDK,
 ) {
   val httpResponse = stepReport.responseInfo!!.get().httpMsg
-  pm.setRequestAndResponse(pm.from(pmRequest), httpResponse)
+  pm.setResponse(httpResponse)
   pm.evaluateJS(postResJS, mapOf("responseBody" to httpResponse.bodyString()))
 }
