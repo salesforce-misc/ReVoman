@@ -1,0 +1,26 @@
+---
+alwaysApply: true
+---
+
+- Use this codebase's functional Kotlin style: pure functions, sequences, immutable state, when expressions
+- Reduce state mutation as much as possible. Prefer state transformation
+- While generating Kotlin code, specify all variable types and functional return types explicitly
+
+# Functional Programming Patterns
+
+- Keep functional code simple: avoid nested functions, unnecessary data classes, and over-engineered chains
+- Follow the functional style from the existing codebase
+- Chain operations using sequences: prefer `.asSequence()` for multiple transformations
+- Build immutable data flow: pass state through parameters, return new state instead of mutating
+- Use functional combinators: `map`, `filter`, `flatMap`, `fold`, `firstOrNull` over loops
+- Prefer single-expression functions that return directly from when/if expressions
+- Prefer direct recursion with parameters over complex state objects
+
+# Kotlin-Specific Patterns
+- Always use `when` expressions over if-else chains
+- Use ranges: `downTo`, `until`, `in`, `indices` for iterations
+- String operations: use `substring(range)` with IntRange, not separate indices
+- Choose `firstOrNull` over complex sequence chains when finding first valid element
+- Collection operations: use `+` operator for adding to immutable collections
+- Use `?.let { }` with elvis `?:` for clean null handling
+- Use `firstOrNull()` with elvis `?:` for fallback values
