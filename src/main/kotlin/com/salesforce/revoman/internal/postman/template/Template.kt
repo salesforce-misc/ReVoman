@@ -96,6 +96,24 @@ data class Request(
     return contentTypeHeader?.let { requestWithAuth.with(CONTENT_TYPE of it) } ?: requestWithAuth
   }
 
+  internal fun toHttpRequestSafe(moshiReVoman: MoshiReVoman?): org.http4k.core.Request =
+    runCatching { toHttpRequest(moshiReVoman) }
+      .onFailure { error ->
+        logger.warn(error) {
+          "Failed to build http request from method='${method.trim()}' url='${url.raw.trim()}', using fallback"
+        }
+      }
+      .getOrElse {
+        val safeMethod = runCatching { Method.valueOf(method) }.getOrDefault(Method.GET)
+        val safeUri =
+          runCatching { Uri.of(url.raw.trim()).queryParametersEncoded() }
+            .getOrDefault(Uri.of("http://invalid.invalid"))
+        org.http4k.core
+          .Request(safeMethod, safeUri)
+          .headers(header.map { it.key.trim() to it.value.trim() })
+          .body(body?.raw?.trim().orEmpty())
+      }
+
   companion object {
     private val COMMENT_PATTERN = Pattern.compile("//.*|/\\*[\\s\\S]*?\\*/")
 

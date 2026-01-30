@@ -31,7 +31,7 @@ internal fun unmarshallRequest(
   moshiReVoman: MoshiReVoman,
   pm: PostmanSDK,
 ): Either<UnmarshallRequestFailure, TxnInfo<Request>> {
-  val httpRequest = pmRequest.toHttpRequest(moshiReVoman)
+  val httpRequest = pmRequest.toHttpRequestSafe(moshiReVoman)
   return when {
     httpRequest.bodyString().isNotBlank() &&
       APPLICATION_JSON.value.equals(httpRequest.contentType()?.value, true) -> {

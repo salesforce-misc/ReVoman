@@ -51,7 +51,7 @@ internal fun executePostResJS(
   val postResJs = item.event?.find { it.listen == "test" }?.script?.exec?.joinToString("\n")
   return if (!postResJs.isNullOrBlank()) {
     runCatching(currentStep, POST_RES_JS) {
-        executePostResJSWithPolyglot(postResJs, item.request, pm.currentStepReport, pm)
+        executePostResJSWithPolyglot(postResJs, pm.currentStepReport, pm)
       }
       .mapLeft {
         PostResJSFailure(
@@ -67,11 +67,10 @@ internal fun executePostResJS(
 
 private fun executePostResJSWithPolyglot(
   postResJS: String,
-  pmRequest: Request,
   stepReport: StepReport,
   pm: PostmanSDK,
 ) {
   val httpResponse = stepReport.responseInfo!!.get().httpMsg
-  pm.setRequestAndResponse(pm.from(pmRequest), httpResponse)
+  pm.setResponse(httpResponse)
   pm.evaluateJS(postResJS, mapOf("responseBody" to httpResponse.bodyString()))
 }

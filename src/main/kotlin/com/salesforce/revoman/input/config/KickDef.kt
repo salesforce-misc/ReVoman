@@ -42,6 +42,12 @@ internal interface KickDef {
 
   fun customDynamicVariableGenerators(): Map<String, CustomDynamicVariableGenerator>
 
+  @Value.Default fun jsExecutionConfig(): JsExecutionConfig = JsExecutionConfig()
+
+  @Value.Default fun loggingConfig(): LoggingConfig = LoggingConfig()
+
+  @Value.Default fun maxVariableResolutionDepth(): Int = 10
+
   @Value.Default fun haltOnAnyFailure(): Boolean = false
 
   fun haltOnFailureOfTypeExcept(): Map<ExeType, PostTxnStepPick?>
@@ -94,6 +100,9 @@ internal interface KickDef {
     }
     require(disjoint(runOnlySteps(), skipSteps())) {
       "`runOnlySteps` and `skipSteps` cannot contain same step names"
+    }
+    require(maxVariableResolutionDepth() > 0) {
+      "`maxVariableResolutionDepth` should be greater than 0"
     }
   }
 

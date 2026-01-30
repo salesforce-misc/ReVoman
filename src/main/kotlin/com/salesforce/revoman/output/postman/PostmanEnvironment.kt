@@ -9,11 +9,11 @@ package com.salesforce.revoman.output.postman
 
 import com.salesforce.revoman.internal.json.MoshiReVoman
 import com.salesforce.revoman.internal.json.MoshiReVoman.Companion.initMoshi
+import com.salesforce.revoman.internal.logging.LogPolicy
 import com.salesforce.revoman.internal.postman.template.Environment.Companion.fromMap
 import com.salesforce.revoman.output.report.Step
 import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.rawType
-import io.exoquery.pprint
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.vavr.control.Either
 import java.lang.reflect.Type
@@ -37,8 +37,9 @@ constructor(
 
   fun set(key: String, value: ValueT) {
     mutableEnv[key] = value
+    val logValue = LogPolicy.formatEnvValue(key, value)
     logger.info {
-      "pm environment variable set in Step: $currentStep - key: $key, value: ${pprint(value)}"
+      "pm environment variable set in Step: $currentStep - key: $key, value: $logValue"
     }
   }
 

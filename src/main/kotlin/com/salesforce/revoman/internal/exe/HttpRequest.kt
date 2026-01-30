@@ -9,6 +9,7 @@ package com.salesforce.revoman.internal.exe
 
 import arrow.core.Either
 import com.salesforce.revoman.internal.json.MoshiReVoman
+import com.salesforce.revoman.internal.logging.LogPolicy
 import com.salesforce.revoman.output.ExeType.HTTP_REQUEST
 import com.salesforce.revoman.output.report.Step
 import com.salesforce.revoman.output.report.TxnInfo
@@ -25,8 +26,7 @@ import org.http4k.client.ApacheClient
 import org.http4k.core.HttpHandler
 import org.http4k.core.Request
 import org.http4k.core.Response
-import org.http4k.core.then
-import org.http4k.filter.DebuggingFilters
+import io.github.oshai.kotlinlogging.KotlinLogging
 
 @JvmSynthetic
 internal fun fireHttpRequest(
@@ -39,14 +39,47 @@ internal fun fireHttpRequest(
       // * NOTE gopala.akshintala 06/08/22: Preparing httpClient for each step,
       // * as there can be intermediate auths
       // ! TODO 29/01/24 gopala.akshintala: When would bearer token size be > 1?
-      prepareHttpClient(insecureHttp)(httpRequest)
+      logHttpRequest(currentStep, httpRequest)
+      prepareHttpClient(insecureHttp)(httpRequest).also { response ->
+        logHttpResponse(currentStep, response)
+      }
     }
     .mapLeft { HttpRequestFailure(it, TxnInfo(httpMsg = httpRequest, moshiReVoman = moshiReVoman)) }
     .map { TxnInfo(httpMsg = it, moshiReVoman = moshiReVoman) }
 
 private fun prepareHttpClient(insecureHttp: Boolean): HttpHandler =
-  DebuggingFilters.PrintRequestAndResponse()
-    .then(if (insecureHttp) ApacheClient(client = insecureApacheHttpClient()) else ApacheClient())
+  if (insecureHttp) insecureApacheClient else secureApacheClient
+
+private fun logHttpRequest(currentStep: Step, httpRequest: Request) {
+  if (!LogPolicy.shouldLogHttpRequests()) return
+  val headers =
+    httpRequest.headers
+      .joinToString { (name, value) ->
+        val sanitized = if (LogPolicy.shouldRedactHeader(name)) "<redacted>" else value
+        "$name=$sanitized"
+      }
+  val body =
+    if (LogPolicy.shouldLogHttpBodies()) LogPolicy.formatBody(httpRequest.bodyString())
+    else "<omitted>"
+  logger.info {
+    "$currentStep HTTP request: method=${httpRequest.method} uri=${httpRequest.uri} headers=[$headers] body=$body"
+  }
+}
+
+private fun logHttpResponse(currentStep: Step, response: Response) {
+  if (!LogPolicy.shouldLogHttpResponses()) return
+  val headers =
+    response.headers.joinToString { (name, value) ->
+      val sanitized = if (LogPolicy.shouldRedactHeader(name)) "<redacted>" else value
+      "$name=$sanitized"
+    }
+  val body =
+    if (LogPolicy.shouldLogHttpBodies()) LogPolicy.formatBody(response.bodyString())
+    else "<omitted>"
+  logger.info {
+    "$currentStep HTTP response: status=${response.status} headers=[$headers] body=$body"
+  }
+}
 
 /** Only for Testing. DO NOT USE IN PROD */
 private fun insecureApacheHttpClient(): CloseableHttpClient =
@@ -65,3 +98,9 @@ private fun insecureApacheHttpClient(): CloseableHttpClient =
         )
         .build()
     }
+
+private val secureApacheClient: HttpHandler = ApacheClient()
+
+private val insecureApacheClient: HttpHandler = ApacheClient(client = insecureApacheHttpClient())
+
+private val logger = KotlinLogging.logger {}
