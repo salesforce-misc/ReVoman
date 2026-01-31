@@ -69,9 +69,11 @@ tasks {
   check { dependsOn(npmInstall) }
   test {
     dependsOn(npmInstall)
-    jvmArgs.add("-javaagent:${mockitoAgent.asPath}")
+    jvmArgs("-javaagent:${mockitoAgent.singleFile.absolutePath}")
   }
-  named<Test>("integrationTest") { jvmArgs.add("-javaagent:${mockitoAgent.asPath}") }
+  named<Test>("integrationTest") { 
+    jvmArgs("-javaagent:${mockitoAgent.singleFile.absolutePath}")
+  }
 }
 
 kover { reports { total { html { onCheck = true } } } }
