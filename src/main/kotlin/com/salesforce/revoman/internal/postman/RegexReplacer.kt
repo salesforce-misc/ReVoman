@@ -8,6 +8,7 @@
 package com.salesforce.revoman.internal.postman
 
 import com.salesforce.revoman.input.config.CustomDynamicVariableGenerator
+import com.salesforce.revoman.input.template.TemplateFormat
 import io.github.oshai.kotlinlogging.KotlinLogging
 import com.salesforce.revoman.internal.postman.template.Auth.Bearer
 import com.salesforce.revoman.internal.postman.template.Item
@@ -57,9 +58,25 @@ class RegexReplacer(
         customDynamicVariableGenerators[variableKey]
           ?.generate(variableKey, pm.currentStepReport, pm.rundown)
           ?: dynamicVariableGenerator(variableKey, pm)
-          ?: pm.environment.getAsString(variableKey)
-      resolvedValue?.also { value -> setItBackInEnvironment(variableKey, value, pm) }
-        ?: variable.value
+          ?: when (pm.templateFormat) {
+            TemplateFormat.JETBRAINS_HTTP -> pm.resolveJetbrainsVariableAsString(variableKey)
+            TemplateFormat.POSTMAN_JSON -> pm.getRequestVariableAsString(variableKey)
+              ?: pm.environment.getAsString(variableKey)
+          }
+
+      when (pm.templateFormat) {
+        TemplateFormat.JETBRAINS_HTTP -> resolvedValue ?: variable.value
+        TemplateFormat.POSTMAN_JSON -> {
+          if (resolvedValue != null) {
+            if (pm.getRequestVariableAsString(variableKey) == null) {
+              setItBackInEnvironment(variableKey, resolvedValue, pm)
+            }
+            resolvedValue
+          } else {
+            variable.value
+          }
+        }
+      }
     }
 
   internal fun replaceVariablesInPmItem(item: Item, pm: PostmanSDK): Item =

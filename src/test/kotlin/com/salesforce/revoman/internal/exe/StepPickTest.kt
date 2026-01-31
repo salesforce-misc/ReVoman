@@ -12,6 +12,7 @@ import com.salesforce.revoman.internal.postman.template.Item
 import com.salesforce.revoman.internal.postman.template.Request
 import com.salesforce.revoman.internal.postman.template.Url
 import com.salesforce.revoman.output.report.Step
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import org.junit.jupiter.api.Test
@@ -26,24 +27,20 @@ class StepPickTest {
   @Test
   fun `no picks defaults to run`() {
     val result = shouldStepBePicked(sampleStep(), emptyList(), emptyList())
-    result.shouldRun shouldBe true
-    result.isAmbiguous shouldBe false
+    result shouldBe true
   }
 
   @Test
   fun `skip pick prevents execution`() {
     val skip = listOf(ExeStepPick { true })
     val result = shouldStepBePicked(sampleStep(), emptyList(), skip)
-    result.shouldRun shouldBe false
-    result.isAmbiguous shouldBe false
+    result shouldBe false
   }
 
   @Test
   fun `run and skip picks are ambiguous`() {
     val picks = listOf(ExeStepPick { true })
-    val result = shouldStepBePicked(sampleStep(), picks, picks)
-    result.shouldRun shouldBe false
-    result.isAmbiguous shouldBe true
-    result.message shouldContain "Ambiguous"
+    val failure = shouldThrow<IllegalStateException> { shouldStepBePicked(sampleStep(), picks, picks) }
+    failure.message shouldContain "Ambiguous"
   }
 }
