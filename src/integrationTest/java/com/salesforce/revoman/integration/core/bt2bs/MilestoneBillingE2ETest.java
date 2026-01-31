@@ -14,8 +14,10 @@ import static com.salesforce.revoman.integration.core.bt2bs.ReVomanConfigForBT2B
 import com.salesforce.revoman.ReVoman;
 import java.util.Map;
 import kotlin.collections.CollectionsKt;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
+@Disabled("This needs local core server")
 class MilestoneBillingE2ETest {
 
 	@Test

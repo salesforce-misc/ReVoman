@@ -15,6 +15,7 @@ import com.squareup.moshi.adapter
 import io.kotest.matchers.equals.shouldNotBeEqual
 import io.kotest.matchers.maps.shouldContain
 import io.kotest.matchers.maps.shouldContainAll
+import io.kotest.matchers.shouldBe
 import io.mockk.mockk
 import org.junit.jupiter.api.Test
 
@@ -104,5 +105,20 @@ class RegexReplacerTest {
     val resultStr = pm.regexReplacer.replaceVariablesRecursively(jsonStr, pm)!!
     val result = Moshi.Builder().build().adapter<Map<String, String>>().fromJson(resultStr)!!
     result["key1"]!! shouldNotBeEqual result["key2"]!!
+  }
+
+  @Test
+  fun `request variables override without persisting`() {
+    val pm = PostmanSDK(moshiReVoman)
+    pm.environment["temp"] = "env-value"
+    pm.requestVariables["temp"] = "request-value"
+
+    val replaced = pm.regexReplacer.replaceVariablesRecursively("{{temp}}", pm)
+    replaced shouldBe "request-value"
+    pm.environment["temp"] shouldBe "env-value"
+
+    pm.clearRequestVariables()
+    val replacedAfterClear = pm.regexReplacer.replaceVariablesRecursively("{{temp}}", pm)
+    replacedAfterClear shouldBe "env-value"
   }
 }

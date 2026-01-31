@@ -1,0 +1,16 @@
+@baseUrl = https://example.org
+### Get Pokemon
+< {%
+client.global.set("limit", 1)
+%}
+GET {{baseUrl}}/pokemon?limit={{limit}}
+X-Test: yes
+
+> {%
+client.test("status ok", function() {
+  client.assert(response.status === 200, "status not ok");
+});
+%}
+###
+# @name = short-get
+{{baseUrl}}/short

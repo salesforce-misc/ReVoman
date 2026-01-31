@@ -10,6 +10,8 @@ package com.salesforce.revoman.input.config
 import com.salesforce.revoman.input.config.StepPick.ExeStepPick
 import com.salesforce.revoman.input.config.StepPick.PostTxnStepPick
 import com.salesforce.revoman.input.config.StepPick.PreTxnStepPick
+import com.salesforce.revoman.internal.template.TemplateProvider
+import com.salesforce.revoman.internal.template.TemplateProviders
 import com.salesforce.revoman.output.ExeType
 import com.salesforce.revoman.output.Rundown
 import com.salesforce.revoman.output.report.StepReport
@@ -31,6 +33,9 @@ internal interface KickDef {
   fun templatePaths(): List<String>
 
   fun templateInputStreams(): List<InputStream>
+
+  @Value.Default
+  fun templateProviders(): List<TemplateProvider> = TemplateProviders.defaults()
 
   fun environmentPaths(): Set<String>
 
@@ -104,6 +109,7 @@ internal interface KickDef {
     require(maxVariableResolutionDepth() > 0) {
       "`maxVariableResolutionDepth` should be greater than 0"
     }
+    require(templateProviders().isNotEmpty()) { "`templateProviders` should not be empty" }
   }
 
   companion object {

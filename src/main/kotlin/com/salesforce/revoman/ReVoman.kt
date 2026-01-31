@@ -12,10 +12,7 @@ import arrow.core.Either.Right
 import arrow.core.flatMap
 import arrow.core.merge
 import com.salesforce.revoman.input.PostExeHook
-import com.salesforce.revoman.input.bufferFile
-import com.salesforce.revoman.input.bufferInputStream
 import com.salesforce.revoman.input.config.Kick
-import com.salesforce.revoman.internal.exe.deepFlattenItems
 import com.salesforce.revoman.internal.exe.executePostResJS
 import com.salesforce.revoman.internal.exe.executePreReqJS
 import com.salesforce.revoman.internal.exe.fireHttpRequest
@@ -32,14 +29,16 @@ import com.salesforce.revoman.internal.postman.PostmanSDK
 import com.salesforce.revoman.internal.postman.RegexReplacer
 import com.salesforce.revoman.internal.postman.dynamicVariableGenerator
 import com.salesforce.revoman.internal.postman.template.Environment.Companion.mergeEnvs
-import com.salesforce.revoman.internal.postman.template.Template
+import com.salesforce.revoman.internal.httpclient.HttpClientEnvironment
+import com.salesforce.revoman.internal.template.TemplateLoadResult
+import com.salesforce.revoman.internal.template.TemplateProviders
+import com.salesforce.revoman.internal.template.TemplateType
+import com.salesforce.revoman.input.template.TemplateFormat
 import com.salesforce.revoman.output.Rundown
 import com.salesforce.revoman.output.report.Step
 import com.salesforce.revoman.output.report.StepReport
 import com.salesforce.revoman.output.report.StepReport.Companion.toVavr
 import com.salesforce.revoman.output.report.TxnInfo
-import com.squareup.moshi.Moshi
-import com.squareup.moshi.adapter
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.vavr.control.Either.left
 import org.http4k.core.Request
@@ -71,27 +70,18 @@ object ReVoman {
       .second
 
   @JvmStatic
-  @OptIn(ExperimentalStdlibApi::class)
   fun revUp(kick: Kick): Rundown {
-    val pmTemplateAdapter = Moshi.Builder().build().adapter<Template>()
-    val templateBuffers =
-      kick.templatePaths().map { bufferFile(it) } +
-        kick.templateInputStreams().map { bufferInputStream(it) }
-    val pmStepsDeepFlattened =
-      templateBuffers
-        .asSequence()
-        .mapNotNull { pmTemplateAdapter.fromJson(it) }
-        .flatMap { (pmSteps, authFromRoot) ->
-          deepFlattenItems(
-            pmSteps.map { item ->
-              item.copy(request = item.request.copy(auth = item.request.auth ?: authFromRoot))
-            }
-          )
-        }
-        .toList()
+    val templateResults = TemplateProviders.loadTemplates(kick)
+    val pmStepsDeepFlattened = templateResults.flatMap { it.steps }
+    val fileVariablesByStep = templateResults.associateFileVariablesByStep()
     logger.info {
-      val templateCount = kick.templatePaths().size
-      "Total Steps from ${if (templateCount > 1) "$templateCount Collections" else "the Collection"} provided: ${pmStepsDeepFlattened.size}"
+      val templateLabel =
+        when (val templateCount = templateResults.size) {
+          0 -> "0 Templates"
+          1 -> "the Template"
+          else -> "$templateCount Templates"
+        }
+      "Total Steps from $templateLabel provided: ${pmStepsDeepFlattened.size}"
     }
     val regexReplacer =
       RegexReplacer(kick.customDynamicVariableGenerators(), ::dynamicVariableGenerator)
@@ -101,12 +91,29 @@ object ReVoman {
         kick.customTypeAdaptersFromRequestConfig() + kick.customTypeAdaptersFromResponseConfig(),
         kick.globalSkipTypes(),
       )
-    val environment =
-      mergeEnvs(kick.environmentPaths(), kick.environmentInputStreams(), kick.dynamicEnvironment())
+    val postmanEnvironment =
+      mergeEnvs(postmanEnvPaths(kick), kick.environmentInputStreams(), kick.dynamicEnvironment())
+    val httpEnvironment =
+      HttpClientEnvironment.mergeEnvs(httpEnvPaths(kick), emptyList(), kick.dynamicEnvironment())
+    val combinedEnvironment =
+      postmanEnvironment + httpEnvironment.filterKeys { !postmanEnvironment.containsKey(it) }
     val pm =
-      PostmanSDK(moshiReVoman, kick.nodeModulesPath(), regexReplacer, environment.toMutableMap())
+      PostmanSDK(
+        moshiReVoman,
+        kick.nodeModulesPath(),
+        regexReplacer,
+        combinedEnvironment.toMutableMap(),
+      )
+    pm.updateJetbrainsEnvironment(httpEnvironment)
     val stepNameToReport =
-      executeStepsSerially(pmStepsDeepFlattened, kick, moshiReVoman, regexReplacer, pm)
+      executeStepsSerially(
+        pmStepsDeepFlattened,
+        kick,
+        moshiReVoman,
+        regexReplacer,
+        pm,
+        fileVariablesByStep,
+      )
     return Rundown(
       stepNameToReport,
       pm.environment,
@@ -121,6 +128,7 @@ object ReVoman {
     moshiReVoman: MoshiReVoman,
     regexReplacer: RegexReplacer,
     pm: PostmanSDK,
+    fileVariablesByStep: Map<Step, Map<String, Any?>>,
   ): List<StepReport> {
     var haltExecution = false
     return pmStepsFlattened
@@ -130,14 +138,25 @@ object ReVoman {
       .fold(listOf()) { stepReports, step ->
         logger.info { "***** Executing Step: $step *****" }
         pm.environment.currentStep = step
+        pm.clearRequestVariables()
+        pm.setTemplateContext(step.templateType.toTemplateFormat(), fileVariablesByStep[step].orEmpty())
         val itemWithRegex = step.rawPMStep
+        val itemForPreReq =
+          if (step.templateType == TemplateType.JETBRAINS_HTTP) {
+            itemWithRegex.copy(request = pm.applyGlobalHeaders(itemWithRegex.request))
+          } else {
+            itemWithRegex
+          }
+        if (step.templateType == TemplateType.JETBRAINS_HTTP) {
+          pm.updateJetbrainsRequest(itemForPreReq.request)
+        }
         val preStepReport =
           StepReport(
             step = step,
             requestInfo =
               Right(
                 TxnInfo(
-                  httpMsg = itemWithRegex.request.toHttpRequest(null),
+                  httpMsg = itemForPreReq.request.toHttpRequest(null),
                   moshiReVoman = moshiReVoman,
                 )
               ),
@@ -154,11 +173,20 @@ object ReVoman {
           )
         pm.environment.putAll(regexReplacer.replaceVariablesInEnv(pm))
         val currentStepReport: StepReport = // --------### PRE-REQ-JS ###--------
-          executePreReqJS(step, itemWithRegex, pm)
+          executePreReqJS(step, itemForPreReq, pm)
             .mapLeft { preStepReport.copy(requestInfo = left(it)) }
             .flatMap { // --------### UNMARSHALL-REQUEST ###--------
+              val itemForRequest =
+                if (step.templateType == TemplateType.JETBRAINS_HTTP) {
+                  itemWithRegex.copy(request = pm.applyGlobalHeaders(itemWithRegex.request))
+                } else {
+                  itemWithRegex
+                }
+              if (step.templateType == TemplateType.JETBRAINS_HTTP) {
+                pm.updateJetbrainsRequest(itemForRequest.request)
+              }
               val pmRequest =
-                regexReplacer.replaceVariablesInRequestRecursively(itemWithRegex.request, pm)
+                regexReplacer.replaceVariablesInRequestRecursively(itemForRequest.request, pm)
               unmarshallRequest(step, pmRequest, kick, moshiReVoman, pm).mapLeft {
                 preStepReport.copy(requestInfo = left(it))
               }
@@ -178,7 +206,13 @@ object ReVoman {
               pm.rundown = pm.rundown.copy(stepReports = pm.rundown.stepReports + sr)
               // * NOTE 15 Mar 2025 gopala.akshintala: Replace again to accommodate variables set by
               // PRE-REQ-JS
-              val item = regexReplacer.replaceVariablesInPmItem(itemWithRegex, pm)
+              val itemForRequest =
+                if (step.templateType == TemplateType.JETBRAINS_HTTP) {
+                  itemWithRegex.copy(request = pm.applyGlobalHeaders(itemWithRegex.request))
+                } else {
+                  itemWithRegex
+                }
+              val item = regexReplacer.replaceVariablesInPmItem(itemForRequest, pm)
               val httpRequest = item.request.toHttpRequest(moshiReVoman)
               fireHttpRequest(step, httpRequest, kick.insecureHttp(), moshiReVoman)
                 .mapLeft { sr.copy(requestInfo = Left(it).toVavr()) }
@@ -193,6 +227,9 @@ object ReVoman {
             .flatMap { sr: StepReport -> // --------### PRE-RES-JS ###--------
               pm.currentStepReport = sr
               pm.rundown = pm.rundown.copy(stepReports = pm.rundown.stepReports + sr)
+              if (step.templateType == TemplateType.JETBRAINS_HTTP) {
+                pm.updateJetbrainsResponse(sr.responseInfo!!.get().httpMsg)
+              }
               executePostResJS(step, itemWithRegex, pm)
                 .mapLeft { sr.copy(responseInfo = left(it)) }
                 .map { sr }
@@ -219,3 +256,19 @@ object ReVoman {
 }
 
 private val logger = KotlinLogging.logger {}
+
+private fun postmanEnvPaths(kick: Kick): Set<String> =
+  kick.environmentPaths().filterNot(HttpClientEnvironment::isHttpClientEnvPath).toSet()
+
+private fun httpEnvPaths(kick: Kick): Set<String> =
+  kick.environmentPaths().filter(HttpClientEnvironment::isHttpClientEnvPath).toSet()
+
+private fun TemplateType.toTemplateFormat(): TemplateFormat =
+  when (this) {
+    TemplateType.POSTMAN -> TemplateFormat.POSTMAN_JSON
+    TemplateType.JETBRAINS_HTTP -> TemplateFormat.JETBRAINS_HTTP
+  }
+
+private fun List<TemplateLoadResult>.associateFileVariablesByStep():
+  Map<Step, Map<String, Any?>> =
+  flatMap { result -> result.steps.map { step -> step to result.fileVariables } }.toMap()

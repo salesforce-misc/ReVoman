@@ -8,6 +8,7 @@
 package com.salesforce.revoman.output.report
 
 import com.salesforce.revoman.internal.postman.template.Item
+import com.salesforce.revoman.internal.template.TemplateType
 import com.salesforce.revoman.output.endsWith
 import com.salesforce.revoman.output.report.Folder.Companion.FOLDER_DELIMITER
 import java.util.Collections.indexOfSubList
@@ -16,6 +17,7 @@ data class Step(
   @JvmField val index: String,
   @JvmField val rawPMStep: Item,
   @JvmField val parentFolder: Folder? = null,
+  @JvmField val templateType: TemplateType = TemplateType.POSTMAN,
 ) {
   @JvmField val name: String = rawPMStep.name
   @JvmField var preStepHookCount: Int = 0
@@ -76,6 +78,24 @@ constructor(
           it.name
         } + name
     }
+
+  override fun hashCode(): Int {
+    var result = name.hashCode()
+    result = 31 * result + (parent?.name?.hashCode() ?: 0)
+    return result
+  }
+
+  override fun equals(other: Any?): Boolean {
+    if (this === other) return true
+    if (javaClass != other?.javaClass) return false
+
+    other as Folder
+
+    if (name != other.name) return false
+    if (parent?.name != other.parent?.name) return false
+
+    return true
+  }
 
   companion object {
     const val FOLDER_DELIMITER = "|>"

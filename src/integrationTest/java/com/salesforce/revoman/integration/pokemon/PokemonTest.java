@@ -17,9 +17,9 @@ import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.after
 import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.afterStepName;
 import static com.salesforce.revoman.input.config.StepPick.PreTxnStepPick.beforeStepContainingHeader;
 import static com.salesforce.revoman.input.config.StepPick.PreTxnStepPick.beforeStepName;
-import static org.assertj.vavr.api.VavrAssertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import com.salesforce.revoman.ReVoman;
 import com.salesforce.revoman.input.config.HookConfig.StepHook.PostStepHook;
@@ -37,6 +37,7 @@ import java.util.List;
 import java.util.Map;
 import kotlin.Pair;
 import kotlin.collections.MapsKt;
+import org.assertj.vavr.api.VavrAssertions;
 import org.http4k.core.Request;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
@@ -146,7 +147,7 @@ class PokemonTest {
 						config.overrideDynamicEnvironment(intoMap(dynamicEnvironment1, dynamicEnvironment2)));
 
 		final var postHookFailure = pokeRundown.firstUnIgnoredUnsuccessfulStepReport().failure;
-		assertThat(postHookFailure).containsLeftInstanceOf(PostStepHookFailure.class);
+		VavrAssertions.assertThat(postHookFailure).containsLeftInstanceOf(PostStepHookFailure.class);
 		assertThat(postHookFailure.getLeft().getFailure()).isEqualTo(RUNTIME_EXCEPTION);
 		assertThat(pokeRundown.stepReports).hasSize(5);
 		assertThat(pokeRundown.mutableEnv)
@@ -162,11 +163,11 @@ class PokemonTest {
 								new Pair<>("ability", "stench"),
 								new Pair<>("nature", "hardy"),
 								new Pair<>("null", null)));
-		Mockito.verify(preStepHookBeforeStepName, times(1)).accept(any(), any(), any());
-		Mockito.verify(postStepHookAfterStepName, times(1)).accept(any(), any());
-		Mockito.verify(postStepHookAfterURIPath, times(1)).accept(any(), any());
-		Mockito.verify(preLogHook, times(1)).accept(any(), any(), any());
-		Mockito.verify(postLogHook, times(1)).accept(any(), any());
+		verify(preStepHookBeforeStepName, times(1)).accept(any(), any(), any());
+		verify(postStepHookAfterStepName, times(1)).accept(any(), any());
+		verify(postStepHookAfterURIPath, times(1)).accept(any(), any());
+		verify(preLogHook, times(1)).accept(any(), any(), any());
+		verify(postLogHook, times(1)).accept(any(), any());
 	}
 
 	public record AllPokemon(int count, String next, String previous, List<Result> results) {
