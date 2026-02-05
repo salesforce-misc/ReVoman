@@ -54,11 +54,11 @@ to always be ready for Manually trying them out importing into Postman.
 == Why not use https://learning.postman.com/docs/collections/using-newman-cli/command-line-integration-with-newman[Newman] or https://learning.postman.com/docs/postman-cli/postman-cli-overview/#comparing-the-postman-cli-and-newman[Postman CLI]?
 
 * ReṼoman may be similar to Newman or Postman CLI when it comes to executing a Postman collection, but the _similarities end there_
-* Newman or Postman CLI are built for node and cannot be executed within a JVM. Even if you are able to run with some hacky way, there is no easy way to assert results.
+* Newman or Postman CLI are built for node and cannot be executed within a JVM. Even if you are able to run with some hacky way, there are no easy ways to measure code-coverage or assert results on your JVM stack.
 * Built for the JVM, ReṼoman fits naturally within your current JVM stack.
 * Its <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization,Type Safety>> bridges the gap between strongly-typed JVM code and flexible JSON.
 * It has more features, like <<#_pre_step_and_post_step_hooks,Hooks>> feature that lets you plug in your custom JVM code in-between the execution. The <<Rundown>> is much richer in providing execution information than the link:{pmtemplates}/restfulapidev/postman-cli-reports/restful-api.dev-2025-04-14-13-16-43.json[newman/postman-cli reports]
-* It's not limited to Postman templates. We have plans to support more popular templates formats like ThunderClient, Bruno, etc. which offers versatality for consumers.
+* It's not limited to Postman templates. We have plans to support more popular templates formats like JetBrains HTTP Client, Bruno, etc. which offers versatility for consumers.
 
 [.lead]
 Read more in the <<USP>>
