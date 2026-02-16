@@ -22,6 +22,7 @@ import org.graalvm.polyglot.Context
 import org.graalvm.polyglot.HostAccess
 import org.graalvm.polyglot.Source
 import org.graalvm.polyglot.Value
+import org.graalvm.polyglot.io.IOAccess
 import org.intellij.lang.annotations.Language
 
 /**
@@ -69,8 +70,7 @@ class PostmanSDK(
       jsContext =
         Context.newBuilder("js")
           .allowExperimentalOptions(true)
-          // ! TODO 07 Dec 2024 gopala.akshintala: Using this for core compatability
-          .allowIO(true)
+          .allowIO(IOAccess.ALL)
           .allowExperimentalOptions(true)
           .options(options)
           .allowHostAccess(HostAccess.ALL)

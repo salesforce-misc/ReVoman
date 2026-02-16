@@ -45,8 +45,4 @@ develocity {
   }
 }
 
-includeBuild("../../.") {
-  name = "koog"
-}
-
 rootProject.name = "revoman-root"
