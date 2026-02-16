@@ -5,20 +5,32 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  * ************************************************************************************************
  */
-plugins { id("com.gradle.develocity") version "4.3.2" }
 
-dependencyResolutionManagement {
-  versionCatalogs { create("libs") { from(files("libs.versions.toml")) } }
-  pluginManagement {
-    repositories {
-      mavenCentral()
-      gradlePluginPortal()
-      google()
-      maven("https://s01.oss.sonatype.org/content/repositories/snapshots")
-      maven("https://oss.sonatype.org/content/repositories/snapshots")
-    }
+pluginManagement {
+  repositories {
+    mavenCentral()
+    gradlePluginPortal()
+    google()
+    maven("https://s01.oss.sonatype.org/content/repositories/snapshots")
+    maven("https://oss.sonatype.org/content/repositories/snapshots")
   }
 }
+
+dependencyResolutionManagement {
+  versionCatalogs { 
+    create("ktorLibs") { from("io.ktor:ktor-version-catalog:3.4.0") }
+  }
+  repositories {
+    maven("https://packages.jetbrains.team/maven/p/grazi/grazie-platform-public") {
+      mavenContent {
+        includeGroup("ai.koog")
+      }
+    }
+    mavenCentral()
+  }
+}
+
+plugins { id("com.gradle.develocity") version "4.3.2" }
 
 val isCI = !System.getenv("CI").isNullOrEmpty()
 
@@ -31,6 +43,10 @@ develocity {
     termsOfUseUrl = "https://gradle.com/help/legal-terms-of-use"
     termsOfUseAgree = "yes"
   }
+}
+
+includeBuild("../../.") {
+  name = "koog"
 }
 
 rootProject.name = "revoman-root"

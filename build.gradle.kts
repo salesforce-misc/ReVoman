@@ -13,12 +13,12 @@ plugins {
   alias(libs.plugins.node.gradle)
   alias(libs.plugins.kover)
   alias(libs.plugins.nexus.publish)
-  alias(libs.plugins.gradle.taskinfo)
 }
 
 val mockitoAgent = configurations.create("mockitoAgent")
 
 dependencies {
+  implementation(libs.koog.agents)
   api(platform(libs.http4k.bom))
   api(libs.bundles.http4k)
   api(libs.moshix.adapters)
