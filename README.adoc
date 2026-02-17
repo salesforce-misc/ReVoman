@@ -18,7 +18,7 @@ endif::[]
 :pmtemplates: src/integrationTest/resources/pm-templates
 :imagesdir: docs/images
 :prewrap!:
-:revoman-version: 0.80.4
+:revoman-version: 0.82.0
 
 '''
 
@@ -217,11 +217,15 @@ StepReport(
 	preStepHookFailure: PreStepHookFailure? = null,
 	responseInfo: Either<ResponseFailure, TxnInfo<Response>>? = null,
 	postStepHookFailure: PostStepHookFailure? = null,
-	envSnapshot: PostmanEnvironment<Any?> // <2>
+	pollingFailure: PollingFailure? = null, // <2>
+	pollingReport: PollingReport? = null, // <3>
+	envSnapshot: PostmanEnvironment<Any?> // <4>
 )
 ----
 <1> https://docs.vavr.io/#_either[`Either` type from the VAVR] library represents either of the two states, used here to represent error or success
-<2> Snapshot of Environment at the end of each step execution. It can be compared with previous or next step environment snapshots to see what changed in this step
+<2> Captured when <<#_polling_for_async_steps,polling>> fails due to timeout or request error
+<3> Captured on successful polling completion, containing attempt count, duration, and responses
+<4> Snapshot of Environment at the end of each step execution. It can be compared with previous or next step environment snapshots to see what changed in this step
 
 [.lead]
 `Rundown` has many convenient methods to ease applying further assertions on top of it. Checkout its <<#_ide_debugger_view,IDE Debugger view>>
@@ -438,6 +442,7 @@ image:step-procedure.png[Step Procedure]
 * HTTP Success or Error response is determined by default with HTTP Status Code (SUCCESSFUL: `200 < = statusCode < = 299`).
 * HTTP Error response does *NOT* halt the execution of steps by default.
 * You can configure this behavior using <<Execution Control>>
+* If <<#_polling_for_async_steps,Polling>> is configured for a step, it is executed after Post-Step Hooks. A `PollingFailure` is captured in the `StepReport` if polling fails.
 ====
 
 === Failure Hierarchy
@@ -718,6 +723,64 @@ be invoked to generate a value for your custom variable-key in the template at r
 
 TIP: Custom dynamic variable generators have the top most precedence for variable resolution. This can be leveraged to override variables set via any other way.
 
+[#_polling_for_async_steps]
+=== Polling for Async Steps
+
+Many API workflows involve asynchronous operations where you submit a request and then poll a status endpoint until the operation completes.
+ReṼoman has built-in polling support through `pollingConfig()`, eliminating the need for fragile `Thread.sleep()` workarounds in <<#_dynamic_pre_step_and_post_step_hooks,Post-Step Hooks>>.
+
+==== Configuration
+
+Configure polling using the `PollingConfig` builder DSL and pass it to the `Kick` config:
+
+[source,java,indent=0,tabsize=2,options="nowrap"]
+----
+Kick.configure()
+	.templatePath(PM_COLLECTION_PATH)
+	.pollingConfig(
+		PollingConfig.poll(afterStepName("submit-async-job")) // <1>
+			.request((stepReport, env) -> // <2>
+				Request.create(Method.GET, env.get("statusUrl").toString()))
+			.every(Duration.ofSeconds(5)) // <3>
+			.timeout(Duration.ofSeconds(60)) // <4>
+			.until((response, env) -> // <5>
+				response.bodyString().contains("\"status\":\"COMPLETED\"")))
+	.off();
+----
+<1> `poll()` accepts a `PostTxnStepPick` predicate to select which step triggers polling
+<2> `request()` builds the HTTP request for each poll attempt, using the step's report and current environment
+<3> `every()` sets the interval between poll attempts (default: *2 seconds*)
+<4> `timeout()` sets the maximum duration before giving up (default: *30 seconds*)
+<5> `until()` is the terminal operation — the `PollingCompletionPredicate` receives each poll response and returns `true` when the async operation is complete
+
+==== How it works
+
+After a step completes successfully and matches the `PostTxnStepPick`, ReṼoman:
+
+. Builds and fires the poll request using the configured `PollingRequestBuilder`
+. Evaluates the response with the `PollingCompletionPredicate`
+. If `true`, records a `PollingReport` (with attempt count, total duration, and all responses) in the `StepReport`
+. If `false`, waits for the configured interval and retries
+. If the timeout elapses without completion, reports a `PollingTimeoutFailure`
+. If the request builder or HTTP call throws, reports a `PollingRequestFailure`
+
+==== Polling Report
+
+On success, `StepReport.pollingReport` contains:
+
+* `pollAttempts` — number of attempts until completion
+* `totalDuration` — wall-clock time spent polling
+* `responses` — all HTTP responses collected during polling
+
+==== Failure handling
+
+Polling failures are captured in `StepReport.pollingFailure` and follow the same <<Failure Hierarchy>> as other failures:
+
+* `PollingTimeoutFailure` — polling exceeded the configured timeout
+* `PollingRequestFailure` — the request builder or HTTP call threw an exception
+
+NOTE: If the `PollingCompletionPredicate` throws an exception, it is treated as returning `false` (i.e., not yet complete), and polling continues.
+
 == USP
 
 === Low-code
@@ -776,7 +839,6 @@ The future looks bright with multiple impactful features in the pipeline:
 ** For developers, the IntelliJ HTTP Client offers a built-in plugin that enables HTTP calls directly within the IDE. Supporting this format eliminates the need to switch environments, allowing for seamless manual testing and automation without ever exiting the IDE.
 ** Support formats like Cucumber to take input data and assert output data.
 ** Support formats for other popular tools, such as ThunderClient, Insomnia, etc
-* In-built polling support for Async steps
 * Payload generation
 * Flow control through YAML config
 
@@ -784,7 +846,7 @@ The future looks bright with multiple impactful features in the pipeline:
 
 === How to Debug a step in the middle of an Execution?
 
-* You can add a <<#_dynamic_pre_step_and_post_step_hooks,pre-hook>> to the Step you are interested and add a debug point inside that. This gets hit before ReṼoman fires the request in that Step
+* You can add a <<#_dynamic_pre_step_and_post_step_hooks,pre-hook>> to the Step you are interested in and add a debug point inside that. This gets hit before ReṼoman fires the request in that Step
 * You can get more adventurous by attaching revoman jar sources and directly adding conditional debug points inside this library source-code. You can search for logs in the source-code that indicate key operations to add conditional debug points with conditions like StepName etc.
 
 === Is there a way to add Metadata to a Postman collection Step?
