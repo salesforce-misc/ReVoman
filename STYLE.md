@@ -7,6 +7,7 @@
 ## Functional Programming Patterns
 
 - Reduce state mutation as much as possible. Prefer state transformation
+- When using monadic data structures like `Either`, `Result`, `Option`, etc., use the monadic operations like `map`, `flatMap`, `fold`, etc. to transform the data, instead of using `when` expressions.
 - Follow the functional style from the existing codebase
 - Chain operations using sequences: prefer `.asSequence()` for multiple transformations
 - Avoid imperative loops if possible

@@ -9,8 +9,11 @@
 # Build without tests
 ./gradlew assemble
 
-# Run all tests
+# Run unit tests
 ./gradlew test
+
+# Run all tests
+./gradlew test integrationTest
 
 # Run specific test class
 ./gradlew test integrationTest --tests "com.salesforce.revoman.integration.pokemon.PokemonTest"
@@ -28,5 +31,4 @@
 ## Development Environment
 
 - **JDK**: 21+ required for JVM target
-- **Build System**: Gradle with version catalogs for dependency management
 - **Targets**: JVM
