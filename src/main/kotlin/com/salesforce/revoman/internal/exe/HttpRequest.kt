@@ -44,11 +44,11 @@ internal fun fireHttpRequest(
     .mapLeft { HttpRequestFailure(it, TxnInfo(httpMsg = httpRequest, moshiReVoman = moshiReVoman)) }
     .map { TxnInfo(httpMsg = it, moshiReVoman = moshiReVoman) }
 
-private fun prepareHttpClient(insecureHttp: Boolean): HttpHandler =
+internal fun prepareHttpClient(insecureHttp: Boolean): HttpHandler =
   DebuggingFilters.PrintRequestAndResponse()
     .then(if (insecureHttp) ApacheClient(client = insecureApacheHttpClient()) else ApacheClient())
 
-/** Only for Testing. DO NOT USE IN PROD */
+/** WARNING: Only for Testing. DO NOT USE IN PROD */
 private fun insecureApacheHttpClient(): CloseableHttpClient =
   SSLContextBuilder()
     .loadTrustMaterial(null) { _, _ -> true }

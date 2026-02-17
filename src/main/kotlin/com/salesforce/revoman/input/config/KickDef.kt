@@ -50,6 +50,8 @@ internal interface KickDef {
 
   fun skipSteps(): List<ExeStepPick>
 
+  fun pollingConfig(): List<PollingConfig>
+
   fun hooks(): List<HookConfig>
 
   @Value.Derived fun preStepHooks(): List<HookConfig> = hooks().filter { it.pick is PreTxnStepPick }

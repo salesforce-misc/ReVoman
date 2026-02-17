@@ -10,6 +10,7 @@ package com.salesforce.revoman.integration.core.pq;
 import static com.google.common.truth.Truth.assertThat;
 import static com.salesforce.revoman.input.config.HookConfig.post;
 import static com.salesforce.revoman.input.config.HookConfig.pre;
+import static com.salesforce.revoman.input.config.PollingConfig.poll;
 import static com.salesforce.revoman.input.config.RequestConfig.unmarshallRequest;
 import static com.salesforce.revoman.input.config.ResponseConfig.unmarshallResponse;
 import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.afterStepContainingHeader;
@@ -19,6 +20,8 @@ import static com.salesforce.revoman.input.config.StepPick.PreTxnStepPick.before
 import static com.salesforce.revoman.integration.core.CoreUtils.assertCompositeGraphResponseSuccess;
 import static com.salesforce.revoman.integration.core.adapters.ConnectInputRepWithGraphAdapter.adapter;
 import static com.salesforce.revoman.output.ExeType.HTTP_STATUS;
+import static com.salesforce.revoman.output.report.StepReport.containsHeader;
+import static com.salesforce.revoman.output.report.StepReport.uriPathContains;
 
 import com.salesforce.revoman.ReVoman;
 import com.salesforce.revoman.input.config.Kick;
@@ -28,10 +31,13 @@ import com.salesforce.revoman.integration.core.pq.connect.request.PlaceQuoteInpu
 import com.salesforce.revoman.integration.core.pq.connect.response.PlaceQuoteOutputRepresentation;
 import com.salesforce.revoman.output.postman.PostmanEnvironment;
 import com.salesforce.revoman.output.report.StepReport;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import kotlin.random.Random;
+import org.http4k.core.Method;
+import org.http4k.core.Request;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -106,29 +112,33 @@ class PQE2EWithSMTest {
 												}),
 										post(
 												afterStepContainingURIPathOfAny(PQ_URI_PATH),
-												(stepReport, ignore) -> {
-													validatePQResponse(stepReport); // <11>
-													final var isSyncStep =
-															stepReport.responseInfo.get().containsHeader(IS_SYNC_HEADER);
-													if (!isSyncStep) {
-														LOGGER.info(
-																"Waiting in PostHook of the Async Step: {}, for the Quote's Asynchronous processing to finish",
-																stepReport.step);
-														// ! CAUTION 10/09/23 gopala.akshintala: This can be flaky until
-														// polling is implemented
-														Thread.sleep(5000);
-													}
-												}),
+												(stepReport, ignore) -> validatePQResponse(stepReport)), // <11>
 										post(
 												afterStepContainingURIPathOfAny(COMPOSITE_GRAPH_URI_PATH),
 												(stepReport, ignore) -> assertCompositeGraphResponseSuccess(stepReport)),
 										post(
 												afterStepName("query-quote-and-related-records"),
 												(ignore, rundown) -> assertAfterPQCreate(rundown.mutableEnv)))
-								.globalCustomTypeAdapter(IDAdapter.INSTANCE) // <12>
-								.insecureHttp(true) // <13>
+								.pollingConfig( // <12>
+										poll((stepReport, rundown) ->
+														uriPathContains(stepReport.requestInfo, PQ_URI_PATH)
+																&& !containsHeader(stepReport.requestInfo, IS_SYNC_HEADER))
+												.request(
+														(stepReport, env) ->
+																Request.create(
+																		Method.GET,
+																		"%s/%s/sobjects/Quote/%s"
+																				.formatted(
+																						env.getAsString("baseUrl"),
+																						env.getAsString("versionPath"),
+																						env.getAsString("quoteId"))))
+												.every(Duration.ofSeconds(2))
+												.timeout(Duration.ofSeconds(30))
+												.until((response, env) -> response.bodyString().contains("Completed")))
+								.globalCustomTypeAdapter(IDAdapter.INSTANCE) // <13>
+								.insecureHttp(true) // <14>
 								.off()); // Kick-off
-		assertThat(pqRundown.firstUnIgnoredUnsuccessfulStepReport()).isNull(); // <14>
+		assertThat(pqRundown.firstUnIgnoredUnsuccessfulStepReport()).isNull(); // <15>
 		assertThat(pqRundown.mutableEnv)
 				.containsAtLeastEntriesIn(
 						Map.of(

@@ -15,11 +15,7 @@ pluginManagement {
   }
 }
 
-dependencyResolutionManagement {
-  repositories {
-    mavenCentral()
-  }
-}
+dependencyResolutionManagement { repositories { mavenCentral() } }
 
 plugins { id("com.gradle.develocity") version "4.3.2" }
 
