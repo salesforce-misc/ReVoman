@@ -57,7 +57,7 @@ to always be ready for Manually trying them out importing into Postman.
 * Newman or Postman CLI are built for node and cannot be executed within a JVM. Even if you are able to run with some hacky way, there are no easy ways to measure code-coverage or assert results on your JVM stack.
 * Built for the JVM, ReṼoman fits naturally within your current JVM stack.
 * Its <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization,Type Safety>> bridges the gap between strongly-typed JVM code and flexible JSON.
-* It has more features, like <<#_pre_step_and_post_step_hooks,Hooks>> feature that lets you plug in your custom JVM code in-between the execution. The <<Rundown>> is much richer in providing execution information than the link:{pmtemplates}/restfulapidev/postman-cli-reports/restful-api.dev-2025-04-14-13-16-43.json[newman/postman-cli reports]
+* It has more features, like <<#_dynamic_pre_step_and_post_step_hooks,Hooks>> feature that lets you plug in your custom JVM code in-between the execution. The <<Rundown>> is much richer in providing execution information than the link:{pmtemplates}/restfulapidev/postman-cli-reports/restful-api.dev-2025-04-14-13-16-43.json[newman/postman-cli reports]
 * It's not limited to Postman templates. We have plans to support more popular templates formats like JetBrains HTTP Client, Bruno, etc. which offers versatility for consumers.
 
 [.lead]
@@ -318,7 +318,7 @@ assertThat(pqRundown.mutableEnv)
 <7> <<Execution Control>>
 <8> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Request Config>>
 <9> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Response Config>>
-<10> <<#_pre_step_and_post_step_hooks>>
+<10> <<#_dynamic_pre_step_and_post_step_hooks>>
 <11> <<Response Validations>>
 <12> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Global Custom Type Adapters>>
 <13> Ignore Java cert issues when firing HTTP calls. To be used only for local testing, like hitting localhost
@@ -341,7 +341,7 @@ include::{integrationtestdir}/com/salesforce/revoman/integration/core/pq/PQE2EWi
 <7> <<Execution Control>>
 <8> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Request Config>>
 <9> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Response Config>>
-<10> <<#_pre_step_and_post_step_hooks>>
+<10> <<#_dynamic_pre_step_and_post_step_hooks>>
 <11> <<Response Validations>>
 <12> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Global Custom Type Adapters>>
 <13> Ignore Java cert issues when firing HTTP calls. To be used only for local testing, like hitting localhost
@@ -567,14 +567,14 @@ e.g `withName`, `inFolder` etc.
 * If you wish to compose these executions in a specific order, you can use the `revUp()` overload which accepts a vararg `Kick` configs.
 ** You can also achieve the same yourself, by adding the previous execution's `mutableEnv` to the current execution using the `dynamicEnvironment` parameter. This also comes in handy when you wish to execute a common step (e.g. `UserSetup`) inside a Test setup method and use that environment for all the tests.
 
-[#_pre_step_and_post_step_hooks]
-=== Pre-Step and Post-Step Hooks
+[#_dynamic_pre_step_and_post_step_hooks]
+=== Dynamic Pre-Step and Post-Step Hooks
 
 A hook lets you fiddle with the execution by plugging in your custom JVM code before or after a Step execution.
 
 [#_step_picks]
 You can pass a `PreTxnStepPick/PostTxnStepPick` which is a `Predicate` used
-to qualify a step for Pre-Step/Post-Step Hook respectively.
+to qualify a step for Pre-Step/Post-Step Hook respectively. The `Predicate` enables you to write **Dynamic** hooks, which can fire for multiple qualified steps.
 
 ReṼoman comes
 bundled with some predicates under the namespace link:{sourcedir}/com/salesforce/revoman/input/config/StepPick.kt[`PreTxnStepPick.PickUtils`/`PostTxnStepPick.PickUtils`]
@@ -673,13 +673,13 @@ image::node_modules.png[]
 * If `node_modules` is ignored on your git repo, you can force-add to check in using the command `git add --all -f <path>/node_modules`
 ====
 
-CAUTION: The recommendation is not to add too much code in <<Pre-req and Post-res scripts>>, as it's not intuitive to troubleshoot through debugging. Use it for simple operations that can be understood without debugging, and use <<#_pre_step_and_post_step_hooks,Pre-Step /Post-Step Hooks>> for any non-trivial operations, which are intuitive to debug.
+CAUTION: The recommendation is not to add too much code in <<Pre-req and Post-res scripts>>, as it's not intuitive to troubleshoot through debugging. Use it for simple operations that can be understood without debugging, and use <<#_dynamic_pre_step_and_post_step_hooks,Pre-Step /Post-Step Hooks>> for any non-trivial operations, which are intuitive to debug.
 
 [#_mutable_environment]
 === Mutable Environment
 
 * Environment is the only mutable-shared state across step executions, which can be used for data passing between the consumer and the library and across steps during execution.
-* Use-cases to usually mutate are in <<Pre-req and Post-res scripts>> (using `pm.environment.set()`) and <<#_pre_step_and_post_step_hooks,Pre-Step /Post-Step Hooks>> (using the reference `rundown.mutableEnv`) during execution.
+* Use-cases to usually mutate are in <<Pre-req and Post-res scripts>> (using `pm.environment.set()`) and <<#_dynamic_pre_step_and_post_step_hooks,Pre-Step /Post-Step Hooks>> (using the reference `rundown.mutableEnv`) during execution.
 * Mutable Environment is `Map<String, Object>` (in Java) or `Map<String, Any?>` (in Kotlin), so you can use it to store any type of values, not just limited to `String` type.
 
 NOTE: If a `mutableEnv` entry holds a POJO value, the value in the entry gets mutated to a serialized JSON String inside the `mutableEnv`, before getting used for variable replacement. This also takes care of replacing any variable placeholders inside POJO attribute values recursively. Although we can, the value is not deserialized back to POJO for perf reasons. You can always <<_read_environment_value_into_strong_type, read a specific value back as POJO>>, as needed.
@@ -784,13 +784,13 @@ The future looks bright with multiple impactful features in the pipeline:
 
 === How to Debug a step in the middle of an Execution?
 
-* You can add a <<#_pre_step_and_post_step_hooks,pre-hook>> to the Step you are interested and add a debug point inside that. This gets hit before ReṼoman fires the request in that Step
+* You can add a <<#_dynamic_pre_step_and_post_step_hooks,pre-hook>> to the Step you are interested and add a debug point inside that. This gets hit before ReṼoman fires the request in that Step
 * You can get more adventurous by attaching revoman jar sources and directly adding conditional debug points inside this library source-code. You can search for logs in the source-code that indicate key operations to add conditional debug points with conditions like StepName etc.
 
 === Is there a way to add Metadata to a Postman collection Step?
 
 * You can add key-value pairs to a Step's HTTP Headers section (e.g., `ignoreHTTPStatusUnsuccessful=true`).
-* You can use this information in <<#_step_picks,Step Picks>> or <<#_pre_step_and_post_step_hooks>> to identify a particular step to execute any conditional logic
+* You can use this information in <<#_step_picks,Step Picks>> or <<#_dynamic_pre_step_and_post_step_hooks>> to identify a particular step to execute any conditional logic
 
 === Do I need to migrate all my existing TestUtils to Postman Collections?
 

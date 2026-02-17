@@ -35,3 +35,7 @@
 - Use `?.let { }` with elvis `?:` for clean null handling
 - Use `firstOrNull()` with elvis `?:` for fallback values
 - While generating Kotlin code, if not obvious, specify variable types and function return types explicitly. Use Named parameters only in ambiguous situations.
+
+# Java Code Style
+
+- Use the latest features of Java as per the JDK version

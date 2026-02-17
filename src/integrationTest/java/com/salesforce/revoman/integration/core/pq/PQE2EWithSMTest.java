@@ -32,6 +32,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import kotlin.random.Random;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,6 +49,7 @@ import org.slf4j.LoggerFactory;
  *
  * <p>- TODO: Add a mock server setup for this test.
  */
+@Disabled("This needs local core server")
 class PQE2EWithSMTest {
 	private static final Logger LOGGER = LoggerFactory.getLogger(PQE2EWithSMTest.class);
 	private static final String PQ_COLLECTION_PATH = "pm-templates/core/pq";

@@ -18,7 +18,7 @@
 # Run specific test class
 ./gradlew test integrationTest --tests "com.salesforce.revoman.integration.pokemon.PokemonTest"
 
-# Run specific test method  
+# Run specific test method
 ./gradlew jvmTest --tests "com.salesforce.revoman.internal.postman.RegexReplacerTest.custom dynamic variables"
 
 # Compile test classes only (for faster iteration)
