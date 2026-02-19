@@ -18,7 +18,7 @@ endif::[]
 :pmtemplates: src/integrationTest/resources/pm-templates
 :imagesdir: docs/images
 :prewrap!:
-:revoman-version: 0.80.4
+:revoman-version: 0.82.0
 
 '''
 
@@ -57,7 +57,7 @@ to always be ready for Manually trying them out importing into Postman.
 * Newman or Postman CLI are built for node and cannot be executed within a JVM. Even if you are able to run with some hacky way, there are no easy ways to measure code-coverage or assert results on your JVM stack.
 * Built for the JVM, ReṼoman fits naturally within your current JVM stack.
 * Its <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization,Type Safety>> bridges the gap between strongly-typed JVM code and flexible JSON.
-* It has more features, like <<#_pre_step_and_post_step_hooks,Hooks>> feature that lets you plug in your custom JVM code in-between the execution. The <<Rundown>> is much richer in providing execution information than the link:{pmtemplates}/restfulapidev/postman-cli-reports/restful-api.dev-2025-04-14-13-16-43.json[newman/postman-cli reports]
+* It has more features, like <<#_dynamic_pre_step_and_post_step_hooks,Hooks>> feature that lets you plug in your custom JVM code in-between the execution. The <<Rundown>> is much richer in providing execution information than the link:{pmtemplates}/restfulapidev/postman-cli-reports/restful-api.dev-2025-04-14-13-16-43.json[newman/postman-cli reports]
 * It's not limited to Postman templates. We have plans to support more popular templates formats like JetBrains HTTP Client, Bruno, etc. which offers versatility for consumers.
 
 [.lead]
@@ -217,11 +217,15 @@ StepReport(
 	preStepHookFailure: PreStepHookFailure? = null,
 	responseInfo: Either<ResponseFailure, TxnInfo<Response>>? = null,
 	postStepHookFailure: PostStepHookFailure? = null,
-	envSnapshot: PostmanEnvironment<Any?> // <2>
+	pollingFailure: PollingFailure? = null, // <2>
+	pollingReport: PollingReport? = null, // <3>
+	envSnapshot: PostmanEnvironment<Any?> // <4>
 )
 ----
 <1> https://docs.vavr.io/#_either[`Either` type from the VAVR] library represents either of the two states, used here to represent error or success
-<2> Snapshot of Environment at the end of each step execution. It can be compared with previous or next step environment snapshots to see what changed in this step
+<2> Captured when <<#_polling_for_async_steps,polling>> fails due to timeout or request error
+<3> Captured on successful polling completion, containing attempt count, duration, and responses
+<4> Snapshot of Environment at the end of each step execution. It can be compared with previous or next step environment snapshots to see what changed in this step
 
 [.lead]
 `Rundown` has many convenient methods to ease applying further assertions on top of it. Checkout its <<#_ide_debugger_view,IDE Debugger view>>
@@ -318,7 +322,7 @@ assertThat(pqRundown.mutableEnv)
 <7> <<Execution Control>>
 <8> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Request Config>>
 <9> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Response Config>>
-<10> <<#_pre_step_and_post_step_hooks>>
+<10> <<#_dynamic_pre_step_and_post_step_hooks>>
 <11> <<Response Validations>>
 <12> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Global Custom Type Adapters>>
 <13> Ignore Java cert issues when firing HTTP calls. To be used only for local testing, like hitting localhost
@@ -341,7 +345,7 @@ include::{integrationtestdir}/com/salesforce/revoman/integration/core/pq/PQE2EWi
 <7> <<Execution Control>>
 <8> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Request Config>>
 <9> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Response Config>>
-<10> <<#_pre_step_and_post_step_hooks>>
+<10> <<#_dynamic_pre_step_and_post_step_hooks>>
 <11> <<Response Validations>>
 <12> <<#_type_safety_with_flexible_json_pojo_marshallingserialization_and_unmarshallingdeserialization, Global Custom Type Adapters>>
 <13> Ignore Java cert issues when firing HTTP calls. To be used only for local testing, like hitting localhost
@@ -438,6 +442,7 @@ image:step-procedure.png[Step Procedure]
 * HTTP Success or Error response is determined by default with HTTP Status Code (SUCCESSFUL: `200 < = statusCode < = 299`).
 * HTTP Error response does *NOT* halt the execution of steps by default.
 * You can configure this behavior using <<Execution Control>>
+* If <<#_polling_for_async_steps,Polling>> is configured for a step, it is executed after Post-Step Hooks. A `PollingFailure` is captured in the `StepReport` if polling fails.
 ====
 
 === Failure Hierarchy
@@ -567,14 +572,14 @@ e.g `withName`, `inFolder` etc.
 * If you wish to compose these executions in a specific order, you can use the `revUp()` overload which accepts a vararg `Kick` configs.
 ** You can also achieve the same yourself, by adding the previous execution's `mutableEnv` to the current execution using the `dynamicEnvironment` parameter. This also comes in handy when you wish to execute a common step (e.g. `UserSetup`) inside a Test setup method and use that environment for all the tests.
 
-[#_pre_step_and_post_step_hooks]
-=== Pre-Step and Post-Step Hooks
+[#_dynamic_pre_step_and_post_step_hooks]
+=== Dynamic Pre-Step and Post-Step Hooks
 
 A hook lets you fiddle with the execution by plugging in your custom JVM code before or after a Step execution.
 
 [#_step_picks]
 You can pass a `PreTxnStepPick/PostTxnStepPick` which is a `Predicate` used
-to qualify a step for Pre-Step/Post-Step Hook respectively.
+to qualify a step for Pre-Step/Post-Step Hook respectively. The `Predicate` enables you to write **Dynamic** hooks, which can fire for multiple qualified steps.
 
 ReṼoman comes
 bundled with some predicates under the namespace link:{sourcedir}/com/salesforce/revoman/input/config/StepPick.kt[`PreTxnStepPick.PickUtils`/`PostTxnStepPick.PickUtils`]
@@ -673,13 +678,13 @@ image::node_modules.png[]
 * If `node_modules` is ignored on your git repo, you can force-add to check in using the command `git add --all -f <path>/node_modules`
 ====
 
-CAUTION: The recommendation is not to add too much code in <<Pre-req and Post-res scripts>>, as it's not intuitive to troubleshoot through debugging. Use it for simple operations that can be understood without debugging, and use <<#_pre_step_and_post_step_hooks,Pre-Step /Post-Step Hooks>> for any non-trivial operations, which are intuitive to debug.
+CAUTION: The recommendation is not to add too much code in <<Pre-req and Post-res scripts>>, as it's not intuitive to troubleshoot through debugging. Use it for simple operations that can be understood without debugging, and use <<#_dynamic_pre_step_and_post_step_hooks,Pre-Step /Post-Step Hooks>> for any non-trivial operations, which are intuitive to debug.
 
 [#_mutable_environment]
 === Mutable Environment
 
 * Environment is the only mutable-shared state across step executions, which can be used for data passing between the consumer and the library and across steps during execution.
-* Use-cases to usually mutate are in <<Pre-req and Post-res scripts>> (using `pm.environment.set()`) and <<#_pre_step_and_post_step_hooks,Pre-Step /Post-Step Hooks>> (using the reference `rundown.mutableEnv`) during execution.
+* Use-cases to usually mutate are in <<Pre-req and Post-res scripts>> (using `pm.environment.set()`) and <<#_dynamic_pre_step_and_post_step_hooks,Pre-Step /Post-Step Hooks>> (using the reference `rundown.mutableEnv`) during execution.
 * Mutable Environment is `Map<String, Object>` (in Java) or `Map<String, Any?>` (in Kotlin), so you can use it to store any type of values, not just limited to `String` type.
 
 NOTE: If a `mutableEnv` entry holds a POJO value, the value in the entry gets mutated to a serialized JSON String inside the `mutableEnv`, before getting used for variable replacement. This also takes care of replacing any variable placeholders inside POJO attribute values recursively. Although we can, the value is not deserialized back to POJO for perf reasons. You can always <<_read_environment_value_into_strong_type, read a specific value back as POJO>>, as needed.
@@ -717,6 +722,64 @@ This shall
 be invoked to generate a value for your custom variable-key in the template at runtime
 
 TIP: Custom dynamic variable generators have the top most precedence for variable resolution. This can be leveraged to override variables set via any other way.
+
+[#_polling_for_async_steps]
+=== Polling for Async Steps
+
+Many API workflows involve asynchronous operations where you submit a request and then poll a status endpoint until the operation completes.
+ReṼoman has built-in polling support through `pollingConfig()`, eliminating the need for fragile `Thread.sleep()` workarounds in <<#_dynamic_pre_step_and_post_step_hooks,Post-Step Hooks>>.
+
+==== Configuration
+
+Configure polling using the `PollingConfig` builder DSL and pass it to the `Kick` config:
+
+[source,java,indent=0,tabsize=2,options="nowrap"]
+----
+Kick.configure()
+	.templatePath(PM_COLLECTION_PATH)
+	.pollingConfig(
+		PollingConfig.poll(afterStepName("submit-async-job")) // <1>
+			.request((stepReport, env) -> // <2>
+				Request.create(Method.GET, env.get("statusUrl").toString()))
+			.every(Duration.ofSeconds(5)) // <3>
+			.timeout(Duration.ofSeconds(60)) // <4>
+			.until((response, env) -> // <5>
+				response.bodyString().contains("\"status\":\"COMPLETED\"")))
+	.off();
+----
+<1> `poll()` accepts a `PostTxnStepPick` predicate to select which step triggers polling
+<2> `request()` builds the HTTP request for each poll attempt, using the step's report and current environment
+<3> `every()` sets the interval between poll attempts (default: *2 seconds*)
+<4> `timeout()` sets the maximum duration before giving up (default: *30 seconds*)
+<5> `until()` is the terminal operation — the `PollingCompletionPredicate` receives each poll response and returns `true` when the async operation is complete
+
+==== How it works
+
+After a step completes successfully and matches the `PostTxnStepPick`, ReṼoman:
+
+. Builds and fires the poll request using the configured `PollingRequestBuilder`
+. Evaluates the response with the `PollingCompletionPredicate`
+. If `true`, records a `PollingReport` (with attempt count, total duration, and all responses) in the `StepReport`
+. If `false`, waits for the configured interval and retries
+. If the timeout elapses without completion, reports a `PollingTimeoutFailure`
+. If the request builder or HTTP call throws, reports a `PollingRequestFailure`
+
+==== Polling Report
+
+On success, `StepReport.pollingReport` contains:
+
+* `pollAttempts` — number of attempts until completion
+* `totalDuration` — wall-clock time spent polling
+* `responses` — all HTTP responses collected during polling
+
+==== Failure handling
+
+Polling failures are captured in `StepReport.pollingFailure` and follow the same <<Failure Hierarchy>> as other failures:
+
+* `PollingTimeoutFailure` — polling exceeded the configured timeout
+* `PollingRequestFailure` — the request builder or HTTP call threw an exception
+
+NOTE: If the `PollingCompletionPredicate` throws an exception, it is treated as returning `false` (i.e., not yet complete), and polling continues.
 
 == USP
 
@@ -776,7 +839,6 @@ The future looks bright with multiple impactful features in the pipeline:
 ** For developers, the IntelliJ HTTP Client offers a built-in plugin that enables HTTP calls directly within the IDE. Supporting this format eliminates the need to switch environments, allowing for seamless manual testing and automation without ever exiting the IDE.
 ** Support formats like Cucumber to take input data and assert output data.
 ** Support formats for other popular tools, such as ThunderClient, Insomnia, etc
-* In-built polling support for Async steps
 * Payload generation
 * Flow control through YAML config
 
@@ -784,13 +846,13 @@ The future looks bright with multiple impactful features in the pipeline:
 
 === How to Debug a step in the middle of an Execution?
 
-* You can add a <<#_pre_step_and_post_step_hooks,pre-hook>> to the Step you are interested and add a debug point inside that. This gets hit before ReṼoman fires the request in that Step
+* You can add a <<#_dynamic_pre_step_and_post_step_hooks,pre-hook>> to the Step you are interested in and add a debug point inside that. This gets hit before ReṼoman fires the request in that Step
 * You can get more adventurous by attaching revoman jar sources and directly adding conditional debug points inside this library source-code. You can search for logs in the source-code that indicate key operations to add conditional debug points with conditions like StepName etc.
 
 === Is there a way to add Metadata to a Postman collection Step?
 
 * You can add key-value pairs to a Step's HTTP Headers section (e.g., `ignoreHTTPStatusUnsuccessful=true`).
-* You can use this information in <<#_step_picks,Step Picks>> or <<#_pre_step_and_post_step_hooks>> to identify a particular step to execute any conditional logic
+* You can use this information in <<#_step_picks,Step Picks>> or <<#_dynamic_pre_step_and_post_step_hooks>> to identify a particular step to execute any conditional logic
 
 === Do I need to migrate all my existing TestUtils to Postman Collections?
 

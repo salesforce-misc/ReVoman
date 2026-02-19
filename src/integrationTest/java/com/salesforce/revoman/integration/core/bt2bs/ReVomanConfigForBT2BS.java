@@ -6,7 +6,7 @@
 
 package com.salesforce.revoman.integration.core.bt2bs;
 
-import static com.salesforce.revoman.input.config.HookConfig.post;
+import static com.salesforce.revoman.input.config.PollingConfig.poll;
 import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.afterStepContainingHeader;
 import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.afterStepContainingURIPathOfAny;
 import static com.salesforce.revoman.integration.core.CoreUtils.ASSERT_COMPOSITE_GRAPH_RESPONSE_SUCCESS;
@@ -15,9 +15,12 @@ import static com.salesforce.revoman.integration.core.CoreUtils.unmarshallCompos
 import static com.salesforce.revoman.integration.core.CoreUtils.unmarshallCompositeResponse;
 import static com.salesforce.revoman.output.ExeType.HTTP_STATUS;
 
-import com.salesforce.revoman.input.config.HookConfig;
 import com.salesforce.revoman.input.config.Kick;
+import com.salesforce.revoman.input.config.PollingConfig;
 import com.salesforce.revoman.integration.core.adapters.IDAdapter;
+import java.time.Duration;
+import org.http4k.core.Method;
+import org.http4k.core.Request;
 
 public final class ReVomanConfigForBT2BS {
 
@@ -50,11 +53,21 @@ public final class ReVomanConfigForBT2BS {
 	static final String ASSETIZE_IA = "actions/standard/createOrUpdateAssetFromOrder";
 	static final String AMEND_API = "connect/revenue-management/assets/actions/amend";
 	static final String CANCEL_API = "connect/revenue-management/assets/actions/cancel";
-	public static final HookConfig MEMQ_AWAIT =
-			post(
-					afterStepContainingURIPathOfAny(
-							PST, STANDALONE_INVOICE_IA, ASSETIZE_IA, AMEND_API, CANCEL_API),
-					(ignore1, ignore2) -> Thread.sleep(5000));
+	public static final PollingConfig MEMQ_AWAIT =
+			poll(afterStepContainingURIPathOfAny(
+							PST, STANDALONE_INVOICE_IA, ASSETIZE_IA, AMEND_API, CANCEL_API))
+					.request(
+							(stepReport, env) ->
+									Request.create(
+											Method.GET,
+											"%s/%s/sobjects/SalesTransaction/%s"
+													.formatted(
+															env.getAsString("baseUrl"),
+															env.getAsString("versionPath"),
+															env.getAsString("salesTransactionId"))))
+					.every(Duration.ofSeconds(2))
+					.timeout(Duration.ofSeconds(30))
+					.until((response, env) -> response.bodyString().contains("Completed"));
 
 	// ## Milestone Setup Config
 	private static final String MB_SETUP_POSTMAN_COLLECTION_PATH =
@@ -79,10 +92,8 @@ public final class ReVomanConfigForBT2BS {
 			Kick.configure()
 					.templatePath(MB_POSTMAN_COLLECTION_PATH)
 					.responseConfig(unmarshallCompositeGraphResponse(), unmarshallCompositeResponse())
-					.hooks(
-							MEMQ_AWAIT,
-							ASSERT_COMPOSITE_GRAPH_RESPONSE_SUCCESS,
-							ASSERT_COMPOSITE_RESPONSE_SUCCESS)
+					.hooks(ASSERT_COMPOSITE_GRAPH_RESPONSE_SUCCESS, ASSERT_COMPOSITE_RESPONSE_SUCCESS)
+					.pollingConfig(MEMQ_AWAIT)
 					.haltOnFailureOfTypeExcept(
 							HTTP_STATUS, afterStepContainingHeader(IGNORE_HTTP_STATUS_UNSUCCESSFUL))
 					.globalCustomTypeAdapter(IDAdapter.INSTANCE)

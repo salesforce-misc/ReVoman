@@ -5,7 +5,13 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  * ************************************************************************************************
  */
-const val GROUP_ID = "com.salesforce.revoman"
-const val VERSION = "0.82.0"
-const val ARTIFACT_ID = "revoman"
-const val STAGING_PROFILE_ID = "1ea0a23e61ba7d"
+package com.salesforce.revoman.output.report
+
+import java.time.Duration
+import org.http4k.core.Response
+
+data class PollingReport(
+  @JvmField val pollAttempts: Int,
+  @JvmField val totalDuration: Duration,
+  @JvmField val responses: List<Response>,
+)

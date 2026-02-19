@@ -16,6 +16,7 @@ import com.salesforce.revoman.input.bufferFile
 import com.salesforce.revoman.input.bufferInputStream
 import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.internal.exe.deepFlattenItems
+import com.salesforce.revoman.internal.exe.executePolling
 import com.salesforce.revoman.internal.exe.executePostResJS
 import com.salesforce.revoman.internal.exe.executePreReqJS
 import com.salesforce.revoman.internal.exe.fireHttpRequest
@@ -206,6 +207,11 @@ object ReVoman {
               pm.currentStepReport = sr
               pm.rundown = pm.rundown.copy(stepReports = pm.rundown.stepReports + sr)
               sr.copy(postStepHookFailure = postStepHookExe(kick, pm))
+            }
+            .flatMap { sr: StepReport -> // --------### POLLING ###--------
+              executePolling(kick.pollingConfig(), sr, pm.rundown, pm, kick.insecureHttp())
+                .mapLeft { sr.copy(pollingFailure = it) }
+                .map { pollingReport -> pollingReport?.let { sr.copy(pollingReport = it) } ?: sr }
             }
             .merge()
             .copy(

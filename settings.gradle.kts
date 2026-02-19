@@ -5,7 +5,6 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  * ************************************************************************************************
  */
-
 pluginManagement {
   repositories {
     mavenCentral()
@@ -16,19 +15,7 @@ pluginManagement {
   }
 }
 
-dependencyResolutionManagement {
-  versionCatalogs { 
-    create("ktorLibs") { from("io.ktor:ktor-version-catalog:3.4.0") }
-  }
-  repositories {
-    maven("https://packages.jetbrains.team/maven/p/grazi/grazie-platform-public") {
-      mavenContent {
-        includeGroup("ai.koog")
-      }
-    }
-    mavenCentral()
-  }
-}
+dependencyResolutionManagement { repositories { mavenCentral() } }
 
 plugins { id("com.gradle.develocity") version "4.3.2" }
 

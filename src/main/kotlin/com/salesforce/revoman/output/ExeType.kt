@@ -15,7 +15,8 @@ enum class ExeType(private val exeName: String) {
   HTTP_STATUS("http-status"),
   POST_RES_JS("post-res-js"),
   UNMARSHALL_RESPONSE("unmarshall-response"),
-  POST_STEP_HOOK("post-step-hook");
+  POST_STEP_HOOK("post-step-hook"),
+  POLLING("polling");
 
   override fun toString(): String {
     return exeName

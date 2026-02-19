@@ -15,6 +15,7 @@ import com.salesforce.revoman.output.report.failure.ExeFailure
 import com.salesforce.revoman.output.report.failure.HookFailure.PostStepHookFailure
 import com.salesforce.revoman.output.report.failure.HookFailure.PreStepHookFailure
 import com.salesforce.revoman.output.report.failure.HttpStatusUnsuccessful
+import com.salesforce.revoman.output.report.failure.PollingFailure
 import com.salesforce.revoman.output.report.failure.RequestFailure
 import com.salesforce.revoman.output.report.failure.ResponseFailure
 import io.vavr.control.Either
@@ -30,6 +31,8 @@ internal constructor(
   @JvmField val preStepHookFailure: PreStepHookFailure? = null,
   @JvmField val responseInfo: Either<out ResponseFailure, TxnInfo<Response>>? = null,
   @JvmField val postStepHookFailure: PostStepHookFailure? = null,
+  @JvmField val pollingFailure: PollingFailure? = null,
+  @JvmField val pollingReport: PollingReport? = null,
   @JvmField val pmEnvSnapshot: PostmanEnvironment<Any?>,
 ) {
   internal constructor(
@@ -38,6 +41,8 @@ internal constructor(
     preStepHookFailure: PreStepHookFailure? = null,
     responseInfo: arrow.core.Either<ResponseFailure, TxnInfo<Response>>? = null,
     postStepHookFailure: PostStepHookFailure? = null,
+    pollingFailure: PollingFailure? = null,
+    pollingReport: PollingReport? = null,
     pmEnvSnapshot: PostmanEnvironment<Any?>,
   ) : this(
     step,
@@ -45,12 +50,14 @@ internal constructor(
     preStepHookFailure,
     responseInfo?.toVavr(),
     postStepHookFailure,
+    pollingFailure,
+    pollingReport,
     pmEnvSnapshot,
   )
 
   @JvmField
   val failure: Either<ExeFailure, HttpStatusUnsuccessful>? =
-    failure(requestInfo, preStepHookFailure, responseInfo, postStepHookFailure)
+    failure(requestInfo, preStepHookFailure, responseInfo, postStepHookFailure, pollingFailure)
 
   @JvmField val exeTypeForFailure: ExeType? = failure?.fold({ it.exeType }, { it.exeType })
 
@@ -68,6 +75,7 @@ internal constructor(
       preStepHookFailure: PreStepHookFailure? = null,
       responseInfo: Either<out ExeFailure, TxnInfo<Response>>? = null,
       postStepHookFailure: PostStepHookFailure? = null,
+      pollingFailure: PollingFailure? = null,
     ): Either<ExeFailure, HttpStatusUnsuccessful>? =
       when {
         requestInfo != null ->
@@ -86,6 +94,7 @@ internal constructor(
                         else ->
                           when {
                             postStepHookFailure != null -> left(postStepHookFailure)
+                            pollingFailure != null -> left(pollingFailure)
                             else -> null
                           }
                       }
