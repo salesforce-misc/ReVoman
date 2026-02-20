@@ -100,6 +100,7 @@ internal interface KickDef {
   }
 
   companion object {
+    @Suppress("UNCHECKED_CAST")
     @JvmStatic
     @SafeVarargs
     fun <K, V> intoMap(vararg items: Any): Map<K, V> where K : Any, V : Any? =
@@ -114,6 +115,7 @@ internal interface KickDef {
         }
         .associate { it.key to it.value }
 
+    @Suppress("UNCHECKED_CAST")
     @JvmStatic
     @SafeVarargs
     fun <T> intoList(vararg items: Any): List<T> =

@@ -13,7 +13,7 @@ import java.util.*
 import kotlin.random.Random.Default.nextBoolean
 import kotlin.random.Random.Default.nextInt
 import kotlin.random.Random.Default.nextLong
-import kotlinx.datetime.Clock
+import kotlin.time.Clock.System
 
 private val faker = faker {}
 
@@ -32,8 +32,8 @@ private val dynamicVariableGenerators: Map<String, () -> String> =
   mapOf(
     // Common
     $$"$guid" to { UUID.randomUUID().toString() },
-    $$"$timestamp" to { Clock.System.now().epochSeconds.toString() },
-    $$"$isoTimestamp" to { Clock.System.now().toString() },
+    $$"$timestamp" to { System.now().epochSeconds.toString() },
+    $$"$isoTimestamp" to { System.now().toString() },
     $$"$randomUUID" to { UUID.randomUUID().toString() },
     // Text, numbers, and colors
     $$"$randomAlphaNumeric" to { randomAlphanumeric(1) },
@@ -52,12 +52,6 @@ private val dynamicVariableGenerators: Map<String, () -> String> =
     $$"$randomUserName" to { faker.name.firstName() + faker.name.lastName() },
     // Phone, address, and location
     $$"$randomCity" to faker.address::city,
-    // Grammar
-    $$"$randomAdjective" to faker.adjective::positive,
-    $$"$randomWord" to faker.lorem::words,
-    // Business
-    $$"$randomCompanyName" to faker.company::name,
-    $$"$randomProduct" to faker.industrySegments::sector,
     // Domains, emails, and usernames
     $$"$randomEmail" to { faker.internet.email() },
     // Date time

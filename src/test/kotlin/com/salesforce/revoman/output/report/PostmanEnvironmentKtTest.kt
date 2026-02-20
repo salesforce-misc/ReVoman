@@ -38,6 +38,7 @@ class PostmanEnvironmentKtTest {
     )
   }
 
+  @Suppress("UNCHECKED_CAST")
   @Test
   fun getObj() {
     val env =

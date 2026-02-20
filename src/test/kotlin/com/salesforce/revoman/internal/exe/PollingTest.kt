@@ -170,7 +170,7 @@ class PollingTest {
         insecureHttp = false,
       )
     result.shouldBeInstanceOf<Right<PollingReport>>()
-    val report = result.value!!
+    val report = result.value
     report.pollAttempts shouldBe 1
     report.responses.size shouldBe 1
   }
@@ -196,7 +196,7 @@ class PollingTest {
         insecureHttp = false,
       )
     result.shouldBeInstanceOf<Right<PollingReport>>()
-    val report = result.value!!
+    val report = result.value
     report.pollAttempts shouldBe 3
     report.responses.size shouldBe 3
   }
@@ -279,7 +279,7 @@ class PollingTest {
         insecureHttp = false,
       )
     result.shouldBeInstanceOf<Right<PollingReport>>()
-    val report = result.value!!
+    val report = result.value
     report.pollAttempts shouldBe 2
   }
 }
