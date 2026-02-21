@@ -20,22 +20,22 @@ import org.junit.jupiter.api.Test;
 @Disabled("This needs local core server")
 class MilestoneBillingE2ETest {
 
-	@Test
-	void testMilestoneBillingE2E() {
-		final var mbRundown =
-				ReVoman.revUp(
-						(rundown, ignore) ->
-								assertThat(rundown.firstUnIgnoredUnsuccessfulStepReport()).isNull(),
-						PERSONA_CREATION_AND_SETUP_CONFIG,
-						MILESTONE_SETUP_CONFIG,
-						MILESTONE_CONFIG);
-		assertThat(CollectionsKt.last(mbRundown).mutableEnv)
-				.containsAtLeastEntriesIn(
-						Map.of(
-								"billingMilestonePlan1Status", "Completely Billed",
-								"billingMilestonePlanItem1Status", "Invoiced",
-								"billingSchedule1Status", "CompletelyBilled",
-								"invoice1Status", "Posted",
-								"invoice2Status", "Posted"));
-	}
+  @Test
+  void testMilestoneBillingE2E() {
+    final var mbRundown =
+        ReVoman.revUp(
+            (rundown, ignore) ->
+                assertThat(rundown.firstUnIgnoredUnsuccessfulStepReport()).isNull(),
+            PERSONA_CREATION_AND_SETUP_CONFIG,
+            MILESTONE_SETUP_CONFIG,
+            MILESTONE_CONFIG);
+    assertThat(CollectionsKt.last(mbRundown).mutableEnv)
+        .containsAtLeastEntriesIn(
+            Map.of(
+                "billingMilestonePlan1Status", "Completely Billed",
+                "billingMilestonePlanItem1Status", "Invoiced",
+                "billingSchedule1Status", "CompletelyBilled",
+                "invoice1Status", "Posted",
+                "invoice2Status", "Posted"));
+  }
 }

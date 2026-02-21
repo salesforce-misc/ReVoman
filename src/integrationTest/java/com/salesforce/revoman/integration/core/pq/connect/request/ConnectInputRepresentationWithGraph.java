@@ -9,7 +9,7 @@ package com.salesforce.revoman.integration.core.pq.connect.request;
 
 public interface ConnectInputRepresentationWithGraph {
 
-	void setGraph(ObjectGraphInputRepresentation graph);
+  void setGraph(ObjectGraphInputRepresentation graph);
 
-	ObjectGraphInputRepresentation getGraph();
+  ObjectGraphInputRepresentation getGraph();
 }

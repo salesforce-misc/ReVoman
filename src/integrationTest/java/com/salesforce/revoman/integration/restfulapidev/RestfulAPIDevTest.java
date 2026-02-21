@@ -15,24 +15,24 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 class RestfulAPIDevTest {
-	private static final String PM_COLLECTION_PATH =
-			"pm-templates/restfulapidev/restful-api.dev.postman_collection.json";
-	private static final String PM_ENVIRONMENT_PATH =
-			"pm-templates/restfulapidev/restful-api.dev.postman_environment.json";
+  private static final String PM_COLLECTION_PATH =
+      "pm-templates/restfulapidev/restful-api.dev.postman_collection.json";
+  private static final String PM_ENVIRONMENT_PATH =
+      "pm-templates/restfulapidev/restful-api.dev.postman_environment.json";
 
-	// tag::revoman-simple-demo[]
-	@Test
-	@DisplayName("restful-api.dev")
-	void restfulApiDev() {
-		final var rundown =
-				ReVoman.revUp( // <1>
-						Kick.configure()
-								.templatePath(PM_COLLECTION_PATH) // <2>
-								.environmentPath(PM_ENVIRONMENT_PATH) // <3>
-								.nodeModulesPath("js")
-								.off());
-		assertThat(rundown.firstUnIgnoredUnsuccessfulStepReport()).isNull(); // <4>
-		assertThat(rundown.stepReports).hasSize(4); // <5>
-	}
-	// end::revoman-simple-demo[]
+  // tag::revoman-simple-demo[]
+  @Test
+  @DisplayName("restful-api.dev")
+  void restfulApiDev() {
+    final var rundown =
+        ReVoman.revUp( // <1>
+            Kick.configure()
+                .templatePath(PM_COLLECTION_PATH) // <2>
+                .environmentPath(PM_ENVIRONMENT_PATH) // <3>
+                .nodeModulesPath("js")
+                .off());
+    assertThat(rundown.firstUnIgnoredUnsuccessfulStepReport()).isNull(); // <4>
+    assertThat(rundown.stepReports).hasSize(4); // <5>
+  }
+  // end::revoman-simple-demo[]
 }

@@ -8,27 +8,27 @@
 package com.salesforce.revoman.integration.core.pq.connect.response;
 
 public class PlaceQuoteErrorResponseRepresentation {
-	private final String referenceId;
-	private final String errorCode;
-	private final String message;
+  private final String referenceId;
+  private final String errorCode;
+  private final String message;
 
-	public PlaceQuoteErrorResponseRepresentation(
-			final String referenceId, final String errorCode, final String message) {
-		super();
-		this.referenceId = referenceId;
-		this.errorCode = errorCode;
-		this.message = message;
-	}
+  public PlaceQuoteErrorResponseRepresentation(
+      final String referenceId, final String errorCode, final String message) {
+    super();
+    this.referenceId = referenceId;
+    this.errorCode = errorCode;
+    this.message = message;
+  }
 
-	public String getMessage() {
-		return message;
-	}
+  public String getMessage() {
+    return message;
+  }
 
-	public String getErrorCode() {
-		return errorCode;
-	}
+  public String getErrorCode() {
+    return errorCode;
+  }
 
-	public String getReferenceId() {
-		return referenceId;
-	}
+  public String getReferenceId() {
+    return referenceId;
+  }
 }
