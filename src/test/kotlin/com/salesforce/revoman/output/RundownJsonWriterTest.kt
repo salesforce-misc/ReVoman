@@ -259,7 +259,7 @@ class RundownJsonWriterTest {
   @Test
   fun `toJson default verbosity is STANDARD`() {
     val rundown = successfulRundown()
-    val jsonDefault = rundown.toJson()
+    val jsonDefault = rundown.toJson(Verbosity.STANDARD)
     val jsonStandard = rundown.toJson(Verbosity.STANDARD)
     jsonDefault shouldBe jsonStandard
   }

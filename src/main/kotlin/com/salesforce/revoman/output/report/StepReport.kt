@@ -21,6 +21,7 @@ import com.salesforce.revoman.output.report.failure.ResponseFailure
 import io.vavr.control.Either
 import io.vavr.control.Either.left
 import io.vavr.control.Either.right
+import java.time.Duration
 import org.http4k.core.Request
 import org.http4k.core.Response
 
@@ -33,6 +34,7 @@ internal constructor(
   @JvmField val postStepHookFailure: PostStepHookFailure? = null,
   @JvmField val pollingFailure: PollingFailure? = null,
   @JvmField val pollingReport: PollingReport? = null,
+  @JvmField val exeTimings: Map<ExeType, Duration> = emptyMap(),
   @JvmField val pmEnvSnapshot: PostmanEnvironment<Any?>,
 ) {
   internal constructor(
@@ -43,6 +45,7 @@ internal constructor(
     postStepHookFailure: PostStepHookFailure? = null,
     pollingFailure: PollingFailure? = null,
     pollingReport: PollingReport? = null,
+    exeTimings: Map<ExeType, Duration> = emptyMap(),
     pmEnvSnapshot: PostmanEnvironment<Any?>,
   ) : this(
     step,
@@ -52,6 +55,7 @@ internal constructor(
     postStepHookFailure,
     pollingFailure,
     pollingReport,
+    exeTimings,
     pmEnvSnapshot,
   )
 

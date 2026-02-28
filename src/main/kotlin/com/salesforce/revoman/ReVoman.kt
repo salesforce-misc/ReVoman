@@ -34,6 +34,15 @@ import com.salesforce.revoman.internal.postman.RegexReplacer
 import com.salesforce.revoman.internal.postman.dynamicVariableGenerator
 import com.salesforce.revoman.internal.postman.template.Environment.Companion.mergeEnvs
 import com.salesforce.revoman.internal.postman.template.Template
+import com.salesforce.revoman.output.ExeType
+import com.salesforce.revoman.output.ExeType.HTTP_REQUEST
+import com.salesforce.revoman.output.ExeType.POLLING
+import com.salesforce.revoman.output.ExeType.POST_RES_JS
+import com.salesforce.revoman.output.ExeType.POST_STEP_HOOK
+import com.salesforce.revoman.output.ExeType.PRE_REQ_JS
+import com.salesforce.revoman.output.ExeType.PRE_STEP_HOOK
+import com.salesforce.revoman.output.ExeType.UNMARSHALL_REQUEST
+import com.salesforce.revoman.output.ExeType.UNMARSHALL_RESPONSE
 import com.salesforce.revoman.output.Rundown
 import com.salesforce.revoman.output.report.Step
 import com.salesforce.revoman.output.report.StepReport
@@ -43,6 +52,8 @@ import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapter
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.vavr.control.Either.left
+import java.time.Duration
+import java.time.Instant
 import org.http4k.core.Request
 
 object ReVoman {
@@ -130,6 +141,7 @@ object ReVoman {
       .filter { shouldStepBePicked(it, kick.runOnlySteps(), kick.skipSteps()) }
       .fold(listOf()) { stepReports, step ->
         logger.info { "***** Executing Step: $step *****" }
+        val exeTimings: MutableMap<ExeType, Duration> = mutableMapOf()
         pm.environment.currentStep = step
         val itemWithRegex = step.rawPMStep
         val preStepReport =
@@ -155,24 +167,26 @@ object ReVoman {
           )
         pm.environment.putAll(regexReplacer.replaceVariablesInEnv(pm))
         val currentStepReport: StepReport = // --------### PRE-REQ-JS ###--------
-          executePreReqJS(step, itemWithRegex, pm)
+          timed(exeTimings, PRE_REQ_JS) { executePreReqJS(step, itemWithRegex, pm) }
             .mapLeft { preStepReport.copy(requestInfo = left(it)) }
             .flatMap { // --------### UNMARSHALL-REQUEST ###--------
-              val pmRequest =
-                regexReplacer.replaceVariablesInRequestRecursively(itemWithRegex.request, pm)
-              unmarshallRequest(step, pmRequest, kick, moshiReVoman, pm).mapLeft {
-                preStepReport.copy(requestInfo = left(it))
-              }
+              timed(exeTimings, UNMARSHALL_REQUEST) {
+                  val pmRequest =
+                    regexReplacer.replaceVariablesInRequestRecursively(itemWithRegex.request, pm)
+                  unmarshallRequest(step, pmRequest, kick, moshiReVoman, pm)
+                }
+                .mapLeft { preStepReport.copy(requestInfo = left(it)) }
             }
             .flatMap { requestInfo: TxnInfo<Request> -> // --------### PRE-HOOKS ###--------
-              preStepHookExe(step, kick, requestInfo, pm)?.let {
-                Left(
-                  preStepReport.copy(
-                    requestInfo = Right(requestInfo).toVavr(),
-                    preStepHookFailure = it,
+              timed(exeTimings, PRE_STEP_HOOK) { preStepHookExe(step, kick, requestInfo, pm) }
+                ?.let {
+                  Left(
+                    preStepReport.copy(
+                      requestInfo = Right(requestInfo).toVavr(),
+                      preStepHookFailure = it,
+                    )
                   )
-                )
-              } ?: Right(preStepReport.copy(requestInfo = Right(requestInfo).toVavr()))
+                } ?: Right(preStepReport.copy(requestInfo = Right(requestInfo).toVavr()))
             }
             .flatMap { sr: StepReport -> // --------### HTTP-REQUEST ###--------
               pm.currentStepReport = sr
@@ -181,7 +195,9 @@ object ReVoman {
               // PRE-REQ-JS
               val item = regexReplacer.replaceVariablesInPmItem(itemWithRegex, pm)
               val httpRequest = item.request.toHttpRequest(moshiReVoman)
-              fireHttpRequest(step, httpRequest, kick.insecureHttp(), moshiReVoman)
+              timed(exeTimings, HTTP_REQUEST) {
+                  fireHttpRequest(step, httpRequest, kick.insecureHttp(), moshiReVoman)
+                }
                 .mapLeft { sr.copy(requestInfo = Left(it).toVavr()) }
                 .map {
                   sr.copy(
@@ -191,37 +207,50 @@ object ReVoman {
                   )
                 }
             }
-            .flatMap { sr: StepReport -> // --------### PRE-RES-JS ###--------
+            .flatMap { sr: StepReport -> // --------### POST-RES-JS ###--------
               pm.currentStepReport = sr
               pm.rundown = pm.rundown.copy(stepReports = pm.rundown.stepReports + sr)
-              executePostResJS(step, itemWithRegex, pm)
+              timed(exeTimings, POST_RES_JS) { executePostResJS(step, itemWithRegex, pm) }
                 .mapLeft { sr.copy(responseInfo = left(it)) }
                 .map { sr }
             }
             .flatMap { sr: StepReport -> // ---### UNMARSHALL RESPONSE ###---
-              unmarshallResponse(kick, moshiReVoman, pm)
+              timed(exeTimings, UNMARSHALL_RESPONSE) { unmarshallResponse(kick, moshiReVoman, pm) }
                 .mapLeft { sr.copy(responseInfo = Left(it).toVavr()) }
                 .map { sr.copy(responseInfo = Right(it).toVavr()) }
             }
             .map { sr: StepReport -> // --------### POST-HOOKS ###--------
               pm.currentStepReport = sr
               pm.rundown = pm.rundown.copy(stepReports = pm.rundown.stepReports + sr)
-              sr.copy(postStepHookFailure = postStepHookExe(kick, pm))
+              val postHookFailure = timed(exeTimings, POST_STEP_HOOK) { postStepHookExe(kick, pm) }
+              sr.copy(postStepHookFailure = postHookFailure)
             }
             .flatMap { sr: StepReport -> // --------### POLLING ###--------
-              executePolling(kick.pollingConfig(), sr, pm.rundown, pm, kick.insecureHttp())
+              timed(exeTimings, POLLING) {
+                  executePolling(kick.pollingConfig(), sr, pm.rundown, pm, kick.insecureHttp())
+                }
                 .mapLeft { sr.copy(pollingFailure = it) }
                 .map { pollingReport -> pollingReport?.let { sr.copy(pollingReport = it) } ?: sr }
             }
             .merge()
             .copy(
+              exeTimings = exeTimings,
               pmEnvSnapshot =
-                pm.environment.copy(mutableEnv = pm.environment.mutableEnv.toMutableMap())
+                pm.environment.copy(mutableEnv = pm.environment.mutableEnv.toMutableMap()),
             )
         haltExecution = shouldHaltExecution(currentStepReport, kick, pm.rundown)
         stepReports + currentStepReport
       }
   }
+}
+
+private inline fun <T> timed(
+  exeTimings: MutableMap<ExeType, Duration>,
+  exeType: ExeType,
+  block: () -> T,
+): T {
+  val start = Instant.now()
+  return block().also { exeTimings[exeType] = Duration.between(start, Instant.now()) }
 }
 
 private val logger = KotlinLogging.logger {}

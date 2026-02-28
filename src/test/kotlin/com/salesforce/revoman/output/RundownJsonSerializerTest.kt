@@ -20,6 +20,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
+import java.time.Duration
 import org.http4k.core.Method.GET
 import org.http4k.core.Method.POST
 import org.http4k.core.Response
@@ -45,6 +46,7 @@ class RundownJsonSerializerTest {
     json shouldContain "key1"
     json shouldNotContain "\"value1\"" // Values not included in SUMMARY
     json shouldNotContain "\"requestInfo\"" // Request info not included in SUMMARY
+    json shouldNotContain "\"exeTimings\"" // Timings not included in SUMMARY
   }
 
   @Test
@@ -60,6 +62,7 @@ class RundownJsonSerializerTest {
     json shouldContain "\"value1\"" // Values included in STANDARD
     json shouldContain "\"stepReports\""
     json shouldContain "\"isSuccessful\""
+    json shouldContain "\"exeTimings\"" // Timings included in STANDARD
     json shouldNotContain "\"requestInfo\"" // Request details not in STANDARD
   }
 
@@ -75,6 +78,7 @@ class RundownJsonSerializerTest {
     json shouldContain "\"uri\""
     json shouldContain "\"method\""
     json shouldContain "\"statusCode\""
+    json shouldContain "\"exeTimings\"" // Timings included in DETAILED
     json shouldNotContain "\"body\"" // Body not included in DETAILED
   }
 
@@ -91,13 +95,14 @@ class RundownJsonSerializerTest {
     json shouldContain "\"method\""
     json shouldContain "\"body\"" // Body included in FULL
     json shouldContain "\"pmEnvSnapshot\"" // Environment snapshot in FULL
+    json shouldContain "\"exeTimings\"" // Timings included in FULL
   }
 
   @Test
   @DisplayName("toJson default verbosity is STANDARD")
   fun testToJsonDefaultVerbosity() {
     val rundown = createSampleRundown()
-    val jsonDefault = rundown.toJson()
+    val jsonDefault = rundown.toJson(RundownVerbosity.STANDARD)
     val jsonStandard = rundown.toJson(RundownVerbosity.STANDARD)
 
     jsonDefault shouldBe jsonStandard
@@ -113,6 +118,50 @@ class RundownJsonSerializerTest {
     val parsed = moshiReVoman.fromJson<Map<String, Any>>(json)
     parsed shouldNotBe null
     parsed?.containsKey("executedStepCount") shouldBe true
+  }
+
+  @Test
+  @DisplayName("toJson includes exeTimings with correct keys and values")
+  fun testToJsonExeTimings() {
+    val rawRequest = Request(method = POST.toString(), url = Url("http://example.com/api/test"))
+    val step = Step(index = "1", rawPMStep = Item(name = "Timed Step", request = rawRequest))
+
+    val timings =
+      mapOf(
+        ExeType.PRE_REQ_JS to Duration.ofMillis(5),
+        ExeType.UNMARSHALL_REQUEST to Duration.ofMillis(12),
+        ExeType.HTTP_REQUEST to Duration.ofMillis(234),
+        ExeType.UNMARSHALL_RESPONSE to Duration.ofMillis(8),
+      )
+
+    val stepReport =
+      StepReport(
+        step = step,
+        requestInfo =
+          Right(
+            TxnInfo(httpMsg = rawRequest.toHttpRequest(moshiReVoman), moshiReVoman = moshiReVoman)
+          ),
+        exeTimings = timings,
+        pmEnvSnapshot = PostmanEnvironment(mutableMapOf("key1" to "value1"), moshiReVoman),
+      )
+
+    val rundown =
+      Rundown(
+        stepReports = listOf(stepReport),
+        mutableEnv = PostmanEnvironment(mutableMapOf("key1" to "value1"), moshiReVoman),
+        haltOnFailureOfTypeExcept = emptyMap(),
+        providedStepsToExecuteCount = 1,
+      )
+
+    val json = rundown.toJson(RundownVerbosity.STANDARD)
+    json shouldContain "\"exeTimings\""
+    json shouldContain "\"pre-req-js\""
+    json shouldContain "\"unmarshall-request\""
+    json shouldContain "\"http-request\""
+    json shouldContain "\"unmarshall-response\""
+
+    val summaryJson = rundown.toJson(RundownVerbosity.SUMMARY)
+    summaryJson shouldNotContain "\"exeTimings\""
   }
 
   private fun createSampleRundown(): Rundown {
@@ -138,7 +187,8 @@ class RundownJsonSerializerTest {
         null,
         null,
         null,
-        PostmanEnvironment(mutableMapOf("key1" to "value1", "key2" to 123), moshiReVoman),
+        pmEnvSnapshot =
+          PostmanEnvironment(mutableMapOf("key1" to "value1", "key2" to 123), moshiReVoman),
       )
 
     return Rundown(

@@ -289,6 +289,16 @@ private fun writeStepReport(
         } ?: writer.nullValue()
       }
 
+      // * Execution timings (STANDARD and above)
+      if (verbosity >= RundownVerbosity.STANDARD) {
+        writer.name("exeTimings")
+        writer.beginObject()
+        report.exeTimings.forEach { (exeType, duration) ->
+          lng(exeType.toString(), duration.toMillis(), writer)
+        }
+        writer.endObject()
+      }
+
       // * Environment snapshot (FULL only)
       if (verbosity == RundownVerbosity.FULL) {
         val anyAdapter =
