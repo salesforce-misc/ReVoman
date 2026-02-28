@@ -15,11 +15,9 @@ import com.salesforce.revoman.output.report.TxnInfo
 import com.salesforce.revoman.output.report.failure.RequestFailure.HttpRequestFailure
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient
 import org.apache.hc.client5.http.impl.classic.HttpClientBuilder
-import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager
-import org.apache.hc.client5.http.socket.ConnectionSocketFactory
-import org.apache.hc.client5.http.socket.PlainConnectionSocketFactory.INSTANCE
-import org.apache.hc.client5.http.ssl.SSLConnectionSocketFactory
-import org.apache.hc.core5.http.config.RegistryBuilder
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder
+import org.apache.hc.client5.http.ssl.ClientTlsStrategyBuilder
+import org.apache.hc.client5.http.ssl.NoopHostnameVerifier
 import org.apache.hc.core5.ssl.SSLContextBuilder
 import org.http4k.client.ApacheClient
 import org.http4k.core.HttpHandler
@@ -53,15 +51,17 @@ private fun insecureApacheHttpClient(): CloseableHttpClient =
   SSLContextBuilder()
     .loadTrustMaterial(null) { _, _ -> true }
     .build()
-    .run {
+    .let { sslContext ->
       HttpClientBuilder.create()
         .setConnectionManager(
-          PoolingHttpClientConnectionManager(
-            RegistryBuilder.create<ConnectionSocketFactory>()
-              .register("http", INSTANCE)
-              .register("https", SSLConnectionSocketFactory(this) { _, _ -> true })
-              .build()
-          )
+          PoolingHttpClientConnectionManagerBuilder.create()
+            .setTlsSocketStrategy(
+              ClientTlsStrategyBuilder.create()
+                .setSslContext(sslContext)
+                .setHostnameVerifier(NoopHostnameVerifier.INSTANCE)
+                .buildClassic()
+            )
+            .build()
         )
         .build()
     }
