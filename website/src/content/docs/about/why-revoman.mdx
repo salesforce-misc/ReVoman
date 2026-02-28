@@ -1,0 +1,46 @@
+---
+title: "Why ReVoman?"
+description: Understanding the problem ReVoman solves and why it exists
+---
+
+## Why not use Newman or Postman CLI?
+
+ReVoman may be similar to [Newman](https://learning.postman.com/docs/collections/using-newman-cli/command-line-integration-with-newman)
+or [Postman CLI](https://learning.postman.com/docs/postman-cli/postman-cli-overview/#comparing-the-postman-cli-and-newman)
+when it comes to executing a Postman collection, but the _similarities end there_.
+
+- **Newman or Postman CLI are built for Node** and cannot be executed within a JVM. Even if you are able to run them with some hacky way, there are no easy ways to measure code coverage or assert results on your JVM stack.
+- **Built for the JVM**, ReVoman fits naturally within your current JVM stack.
+- Its [Type Safety](/ReVoman/guides/type-safety/) bridges the gap between strongly-typed JVM code and flexible JSON.
+- It has more features, like [Pre/Post Hooks](/ReVoman/guides/hooks/) that let you plug in your custom JVM code in-between the execution. The [Rundown](/ReVoman/getting-started/rundown/) is much richer in providing execution information than newman/postman-cli reports.
+- It's not limited to Postman templates. There are plans to support more popular template formats like JetBrains HTTP Client, Bruno, etc., which offers versatility for consumers.
+
+:::tip
+Read more about what makes ReVoman special in the [Unique Selling Points](/ReVoman/about/usp/) section.
+:::
+
+---
+
+## The Problem
+
+- The majority of JVM SaaS applications are REST-based. But the API automation is done through a Mul-**T**-verse of Integration/Functional tests, E2E tests and Manual tests, each with its own frameworks, tools, and internal utilities, testing almost the same code flow.
+- These custom alien automation frameworks, often built using low-level tools like [REST Assured](https://rest-assured.io/), are specific to a service or domain and are rigid to reuse, extend, and difficult to maintain.
+- This automation competes on cognitive complexity and learning curve with the Prod code, and mostly, automation wins.
+- After a point, the API orchestration/automation may deviate from its purpose of augmenting real end-user interaction and turns into a foot-chain for development.
+
+![Cognitive Complexity of custom automation frameworks](../../../assets/images/cognitive-complexity.png)
+
+---
+
+## The Solution
+
+Contrary to these custom frameworks,
+almost every team uses [Postman](https://www.postman.com/product/what-is-postman) for manual testing their APIs.
+Postman collections contain a lot of information about your APIs and the order
+in which they need to be executed for manual testing,
+in a [Structured Template](https://www.postman.com/templates/).
+Leveraging it can mitigate writing a lot of code as we translate those manual steps into automation.
+
+> - How _productive_ would it be, if you could plug your exported Postman collection template, that you anyway would have created for your manual testing, and execute them through your JVM tests?
+>
+> - How about a Universal API orchestration/automation tool that promotes low code and low cognitive complexity and strikes a balance between flexibility and ease of use?

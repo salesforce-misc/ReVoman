@@ -1,0 +1,18 @@
+---
+title: FAQs
+description: Frequently asked questions about ReVoman
+---
+
+## How to debug a step in the middle of an execution?
+
+- You can add a [pre-hook](/ReVoman/guides/hooks/) to the Step you are interested in and add a debug point inside that. This gets hit before ReVoman fires the request in that Step.
+- You can get more adventurous by attaching the revoman jar sources and directly adding conditional debug points inside this library source-code. You can search for logs in the source-code that indicate key operations to add conditional debug points with conditions like StepName etc.
+
+## Is there a way to add metadata to a Postman collection Step?
+
+- You can add key-value pairs to a Step's HTTP Headers section (e.g., `ignoreHTTPStatusUnsuccessful=true`).
+- You can use this information in [Step Picks](/ReVoman/guides/hooks/#step-picks) or [Pre/Post Hooks](/ReVoman/guides/hooks/) to identify a particular step and execute any conditional logic.
+
+## Do I need to migrate all my existing TestUtils to Postman Collections?
+
+You don't have to. This is a JVM-first tool, and you can interlace your TestUtils through [Pre-Step/Post-Step Hooks](/ReVoman/guides/hooks/#plug-in-your-custom-jvm-code-in-between-postman-executions).

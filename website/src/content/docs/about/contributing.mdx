@@ -1,0 +1,113 @@
+---
+title: "Contributing"
+description: How to set up and contribute to the ReVoman project
+---
+
+## Source-code Setup
+
+### Install Java
+
+ReVoman needs JDK 21 installed in your system.
+The recommendation is to do it via [SDKMAN](https://sdkman.io/install).
+After you install SDKMAN,
+run `sdk list java` -> Pick an identifier for your favorite Java distribution -> Run `sdk install java <Identifier-you-picked>`
+to install Java. For example:
+
+```bash
+sdk install java 21.0.8-amzn
+```
+
+### Build with Gradle
+
+This is a simple Gradle project and has its own Gradle wrapper. You may need `npm` installed and nothing else -- just run this command:
+
+```bash
+./gradlew clean build
+```
+
+:::tip
+You **don't** need a local Gradle installation as the `gradlew` (Gradle wrapper) takes care of everything. But if you wish to install Gradle locally, the recommendation is to do it via [SDKMAN](https://sdkman.io/install). After you install SDKMAN, run `sdk install gradle` to install Gradle.
+:::
+
+You can run/debug the existing unit tests or write your own to play with the tool.
+
+### Kotlin
+
+- The code base is a mix of Java and Kotlin. If you're a Java developer and new to Kotlin, don't worry -- Kotlin is a JVM language and can be used anywhere Java is used. In fact, it has got the reputation of **"Better Java!"**
+- A typical Java developer can ramp up on Kotlin in less than a week. These resources can help catalyze your ramp-up:
+  - [Learn Kotlin by Example](https://play.kotlinlang.org/byExample/overview)
+  - [Kotlin for Java Developers | Coursera](https://www.coursera.org/learn/kotlin-for-java-developers) -- a free course
+  - [The Kotlin Primer](https://www.kotlinprimer.com/) -- tailor-made to facilitate Kotlin adoption inside Java-centric organizations
+- If you use IntelliJ, the Kotlin plugin comes bundled.
+- If you use VS Code-based IDEs (e.g., Cursor, Windsurf), install the official [Kotlin Language Server plugin](https://github.com/Kotlin/kotlin-lsp). Similar development aids should be present for other code editors too.
+
+---
+
+## Code Formatting
+
+This repo uses [Spotless](https://github.com/diffplug/spotless) for formatting files.
+Please run `./gradlew spotlessApply` before check-in to fix any formatting errors.
+
+:::tip
+If you're on IntelliJ, replace your <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd> habit with <kbd>Ctrl</kbd>+<kbd>Ctrl</kbd>
+and run `./gradlew spotlessApply` (or the respective action if you're on VS Code/Eclipse).
+It may be slow for the first run, but subsequent runs should be faster.
+:::
+
+---
+
+## Manual Publishing
+
+### Gradle Nexus Publish Plugin
+
+We use [Gradle Nexus Publish Plugin](https://github.com/gradle-nexus/publish-plugin#publishing-to-maven-central-via-sonatype-central)
+to publish to Maven Central. Follow the usage instructions to set up Sonatype credentials and add them to your `~/.gradle/gradle.properties`.
+
+```bash
+sonatypeUsername=<your-username>
+sonatypePassword=<your-password>
+```
+
+### Versioning Strategy
+
+```
+<A>.<B>.<C>
+```
+
+- **A** = Broke something on purpose (Breaking API change)
+- **B** = Profit (Feature / Improvement)
+- **C** = Broke something by accident (Bug)
+
+Follow the Versioning Strategy to increment the version in `buildSrc/src/main/kotlin/Config.kt`.
+For SNAPSHOT releases, add a `-SNAPSHOT` at the end of the version number.
+
+### Publish
+
+Run this command to publish to Nexus:
+
+```bash
+./gradlew publishToSonatype closeAndReleaseSonatypeStagingRepository -Dorg.gradle.parallel=false --no-configuration-cache
+```
+
+You can monitor for the new version jar to reflect in [Maven Central](https://repo1.maven.org/maven2/com/salesforce/revoman/revoman/). It usually takes less than 30 minutes.
+
+---
+
+## Community
+
+- Any issues or PRs are welcome!
+- Join the [Slack Community](https://sfdc.co/revoman-slack) to discuss issues or PRs related to Consumption-Collaboration-Contribution
+
+---
+
+## Code of Conduct
+
+Please follow our [Code of Conduct](https://github.com/salesforce-misc/ReVoman/blob/master/CODE_OF_CONDUCT.md).
+
+---
+
+## License
+
+By contributing your code,
+you agree to license your contribution under the terms of our project [LICENSE](https://github.com/salesforce-misc/ReVoman/blob/master/LICENSE)
+and to sign the [Salesforce CLA](https://cla.salesforce.com/sign-cla).

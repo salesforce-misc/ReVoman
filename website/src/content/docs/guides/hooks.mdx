@@ -1,0 +1,54 @@
+---
+title: Pre/Post Hooks
+description: Dynamic pre-step and post-step hooks for plugging in custom JVM code
+---
+
+A hook lets you fiddle with the execution by plugging in your custom JVM code before or after a Step execution.
+
+## Dynamic hooks with Step Picks
+
+You can pass a `PreTxnStepPick` / `PostTxnStepPick` which is a `Predicate` used to qualify a step for Pre-Step/Post-Step Hook respectively. The `Predicate` enables you to write **Dynamic** hooks, which can fire for multiple qualified steps.
+
+ReVoman comes bundled with some predicates under the namespace `PreTxnStepPick.PickUtils` / `PostTxnStepPick.PickUtils`, e.g., `beforeStepContainingURIPathOfAny()`, `afterStepName()` etc. If those don't fit your needs, you can write your own custom predicates like below:
+
+```java
+final var preTxnStepPick = (currentStep, requestInfo, rundown) -> LOGGER.info("Picked `preLogHook` before stepName: {}", currentStep)
+final var postTxnStepPick = (stepReport, rundown) -> LOGGER.info("Picked `postLogHook` after stepName: {}", stepReport.step.displayName)
+```
+
+Add them to the config as below:
+
+```java
+.hooks(
+    pre(
+            preTxnStepPick,
+            (currentStepName, requestInfo, rundown) -> {
+                //...code...
+            }),
+    post(
+            postTxnStepPick,
+            (currentStepName, rundown) -> {
+                //...code...
+            })
+)
+```
+
+- You can do things like assertion on the rundown, [Response Validations](#response-validations), or even [mutate the environment](/ReVoman/guides/mutable-environment/) with a value you programmatically derived, such that the execution of later steps picks up those changes.
+- Reserve hooks for plugging in your custom code or asserting to fail-fast in the middle of execution. If your assertions can wait till the final rundown, it's cleaner to write them after the `revUp()` returns the rundown instead of adding hooks for each step.
+
+## Plug-in your Custom JVM code in-between Postman executions
+
+You can plug in your custom JVM code to create/generate values for environment variables which can be populated and picked-up by subsequent steps.
+For example, you may want some `xyzId` but you don't have a Postman collection to create it.
+Instead, you have a Java utility to generate/create it.
+You can invoke the utility in a pre-hook of a step and set the value in `rundown.mutableEnv`, so the later steps can pick up value for `{{xyzId}}` variable from the environment.
+
+:::caution
+When a Step qualifies for more than one hook, hooks are executed in the same sequence they are configured, either using `hooks()` or `overrideHooks()`. Both these methods accept an `iterable`. Make sure to pass an Ordered Iterable (like `ArrayList`), if you are particular about the order in which hooks should execute for a Step.
+:::
+
+## Response Validations
+
+- Post-Hooks are the best place to validate response right after the step.
+- If you have configured a strong type for your response through `responseConfig`, you can write type-safe validations by extracting your Strong type Object using `stepReport.responseInfo.get().<TypeT>getTypedTxnObj()` (if you have configured `responseConfig()` or `globalCustomTypeAdapters()`) or use `JsonPojoUtils.jsonToPojo(TypeT, stepReport.responseInfo.get().httpMsg.bodyString())` to convert it inline.
+- If your response data structure is non-trivial and has requirements to execute validations with different strategies like `fail-fast` or `error-accumulation`, consider using a library like [**Vador**](https://github.com/salesforce-misc/Vador).

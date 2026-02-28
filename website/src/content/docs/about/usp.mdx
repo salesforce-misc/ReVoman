@@ -1,0 +1,50 @@
+---
+title: "Unique Selling Points"
+description: What makes ReVoman stand out from other API automation tools
+---
+
+## Low-code
+
+:::tip
+Here is an example of a low-code E2E test that automates **~75 steps**.
+:::
+
+Compared to a traditional Integration/Functional or E2E test, approximately, the amount of code needed is **89% less** using ReVoman.
+The test doesn't just have low code, but is also low in Cognitive Complexity and transparent in what it does.
+
+---
+
+## Low Learning Curve
+
+The learning curve is way-way-low compared to any other automation frameworks out there (like Cucumber, REST Assured, etc.), as there is no proprietary syntax or template formats required for this tool. Familiarity with Postman gets you a long way in understanding this tool. Playing with the existing integration tests and writing a couple of hands-on tests should get you started quickly.
+
+---
+
+## Low Setup and Maintenance 'Tax'
+
+Unlike tools like Cucumber, which demand a high setup and maintenance 'Tax' with a lot of glue code, this tool has no strict requirements for wiring your Postman collections with code. They are loosely coupled, and the relative path to the collection JSON file in the config is the only link between them, so you are free to organize your collections and code independently.
+
+---
+
+## CI/CD Integrability
+
+- ReVoman is like any JVM library that you can plug into any JVM program/test (e.g., JUnit tests or Integration tests).
+- Apart from adding a dependency in the build tool, there is **no extra setup needed** to execute these tests with ReVoman in CI/CD.
+
+---
+
+## Up-to-date Postman Collections that Live Along with Code in VCS
+
+- A nice side effect is, this lets the Postman collections always stay up to date and the entire Postman collection guards each **check-in** in the form of a test suite augmenting manual testing.
+- Any day, you can find an up-to-date Postman collection for every feature you need to test, right in your VCS (Git) along with your code. Developers can import these templates directly from VCS into Postman for manual testing. This comes in very handy during a team blitz/bug-bash.
+- The low-code test itself acts like a live Runbook, stitching all the scattered Postman collections, that can explain a scenario to anyone doing an exploratory testing.
+
+---
+
+## Unified Framework for Automating Persona-based Manual Testing
+
+- ReVoman brings a **Unified & Simplified Test strategy** across the mul-**T**-verse (Integration Tests, E2E Tests, and Manual testing with Postman) for any API.
+- The automation stays as close as possible to Persona-based Manual testing, leading to Transparency and better Traceability of issues.
+- This forces engineers to think like **API-first customers** while writing tests.
+- **Test Data setup:** You can use ReVoman for test data setup too. This eliminates the need for different teams to write their own internal utilities for data setup.
+- **E2E Test** can even reside outside the Service repo, as long as it can hit the service API.

@@ -1,0 +1,18 @@
+---
+title: Logging
+description: Monitor execution through console logs and CI/CD output
+---
+
+ReVoman logs all the key operations that happen inside its source code,
+including how a step mutates environment variables in its [Pre-req and Post-res scripts](/ReVoman/guides/scripts/).
+Watch your console to check what's going on in the execution or troubleshoot from CI/CD logs.
+
+:::tip
+[Sample log](https://github.com/salesforce-misc/ReVoman/blob/master/docs/revoman.exe.log) printed during execution
+:::
+
+![Monitor Execution](/ReVoman/images/pq-exe-logging.gif)
+
+:::tip
+If the execution halts due to any failure, the failure and failed step information can be found in the logs for easy troubleshooting.
+:::

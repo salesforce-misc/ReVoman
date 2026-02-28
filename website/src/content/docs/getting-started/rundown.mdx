@@ -1,0 +1,91 @@
+---
+title: Rundown
+description: Understanding the Rundown result object and its structured JSON serialization
+---
+
+After all this, you receive back a detailed **Rundown** in return.
+It contains everything you need to know about what happened in an execution,
+such that you can seamlessly run more assertions on top of the run.
+
+```kotlin
+Rundown(
+    val stepReports: List<StepReport>,
+    val mutableEnv: PostmanEnvironment<Any?>)
+
+StepReport(
+    step: Step,
+    requestInfo: Either<RequestFailure, TxnInfo<Request>>? = null, // (1)
+    preStepHookFailure: PreStepHookFailure? = null,
+    responseInfo: Either<ResponseFailure, TxnInfo<Response>>? = null,
+    postStepHookFailure: PostStepHookFailure? = null,
+    pollingFailure: PollingFailure? = null, // (2)
+    pollingReport: PollingReport? = null, // (3)
+    exeTimings: Map<ExeType, Duration>, // (4)
+    envSnapshot: PostmanEnvironment<Any?> // (5)
+)
+```
+
+1. [`Either` type from the VAVR](https://docs.vavr.io/#_either) library represents either of the two states, used here to represent error or success
+2. Captured when [polling](/ReVoman/guides/polling/) fails due to timeout or request error
+3. Captured on successful polling completion, containing attempt count, duration, and responses
+4. [Execution timing metrics](/ReVoman/troubleshooting/#execution-timing-metrics) for each sub-step of the step procedure (PRE_REQ_JS, HTTP_REQUEST, etc.)
+5. Snapshot of Environment at the end of each step execution. It can be compared with previous or next step environment snapshots to see what changed in this step
+
+`Rundown` has many convenient methods to ease applying further assertions on top of it. Check out its [IDE Debugger view](/ReVoman/troubleshooting/#ide-debugger-view).
+
+### `toJson()` -- Structured JSON Serialization
+
+`Rundown` can be serialized to structured JSON using `toJson()`, with a `Verbosity` parameter to control the level of detail.
+This is useful for AI agents consuming ReVoman via protocols like MCP, or for logging and diagnostics.
+
+```java
+// Kotlin
+val json = rundown.toJson()                    // STANDARD (default)
+val json = rundown.toJson(Verbosity.SUMMARY)   // Quick health check
+val json = rundown.toJson(Verbosity.VERBOSE)   // Full debugging detail
+
+// Java
+String json = RundownJsonWriter.toJson(rundown);
+String json = RundownJsonWriter.toJson(rundown, Verbosity.VERBOSE);
+```
+
+**Verbosity levels:**
+
+- `SUMMARY` -- Counts, success flags, and first unsuccessful step report (step name + failure type/message only). Ideal for quick pass/fail checks.
+- `STANDARD` _(default)_ -- Summary + all step reports with step identity, request method/URI, response status code, [execution timing metrics](/ReVoman/troubleshooting/#execution-timing-metrics), and failure details. No HTTP bodies.
+- `VERBOSE` -- Everything: HTTP headers, request/response bodies, environment snapshots per step, execution timing metrics, polling details, stack traces, and the final mutable environment.
+
+#### Execution Timing in JSON Output
+
+When serializing a `Rundown` to JSON using `toJson()`, execution timings are included at `STANDARD` verbosity level and above:
+
+```json
+{
+  "stepReports": [
+    {
+      "stepName": "Create User",
+      "exeTimings": {
+        "pre-req-js": 5,
+        "unmarshall-request": 12,
+        "http-request": 234,
+        "post-res-js": 3,
+        "unmarshall-response": 8,
+        "post-step-hook": 15
+      },
+      ...
+    }
+  ]
+}
+```
+
+- Keys use kebab-case format (e.g., `"pre-req-js"`, `"http-request"`)
+- Values are in milliseconds
+- Timings are **not** included in `SUMMARY` verbosity
+
+:::tip
+For a detailed reference on `Rundown` serialization, see the [Rundown Serialization](/ReVoman/reference/rundown-serialization/) reference page.
+:::
+
+:::tip
+Other simple examples to see in action: [PokemonTest.java](https://github.com/salesforce-misc/ReVoman/blob/master/src/integrationTest/java/com/salesforce/revoman/integration/pokemon/PokemonTest.java)
+:::

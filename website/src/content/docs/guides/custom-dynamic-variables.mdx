@@ -1,0 +1,13 @@
+---
+title: Custom Dynamic Variables
+description: Plug your own dynamic variable generators into ReVoman
+---
+
+ReVoman comes bundled with some [Dynamic variable generators](https://github.com/salesforce-misc/ReVoman/blob/master/src/main/kotlin/com/salesforce/revoman/internal/postman/DynamicVariableGenerator.kt).
+If the in-built dynamic variables don't fit your needs, you can plug your own dynamic variable generator,
+by providing an instance of `CustomDynamicVariableGenerator`.
+This shall be invoked to generate a value for your custom variable-key in the template at runtime.
+
+:::tip
+Custom dynamic variable generators have the **topmost precedence** for variable resolution. This can be leveraged to override variables set via any other way.
+:::

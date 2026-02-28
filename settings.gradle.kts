@@ -33,3 +33,5 @@ develocity {
 }
 
 rootProject.name = "revoman-root"
+
+include(":website")

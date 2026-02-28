@@ -1,0 +1,43 @@
+---
+title: Config Management
+description: Immutable config pattern and override methods in ReVoman
+---
+
+Config built using `Kick.configure()` is **Immutable**.
+
+When there are many tests leveraging the same config with minor modifications, you can define a common config and add your variations (like add more hooks), using `override...()` methods, which are present for all config attributes, to create a new instance of config.
+
+:::caution
+The new instance created from common config using `override...()` **replaces** the attributes.
+:::
+
+## Merging iterable attributes
+
+For iterable attributes (like `List`, `Map` etc), intentionally there are no methods to `add` or `append` or `prepend` attributes when creating a new instance, to prevent any mix-up with the order of attributes. You can use any collection appending utilities to prepend/append previous hooks:
+
+```java
+COMMON_CONFIG.overrideHooks(kotlin.collections.CollectionsKt.plus(COMMON_CONFIG.hooks(), post(.../*My Hooks*/))
+```
+
+## Merging dynamic environments with `plus()`
+
+There is a static utility function in `com.salesforce.revoman.input.config.KickDef.plus` to merge multiple `java.util.Map`s into one, which can be used to merge `dynamicEnvironment`:
+
+```java
+import static com.salesforce.revoman.input.config.KickDef.plus;
+...
+
+Kick.configure().dynamicEnvironment(plus(dynamicEnvironment1, dynamicEnvironment2))
+```
+
+## Composing configs with `from()`
+
+You can also construct a new instance by accumulating attributes from other instances using the `from()` method:
+
+```java
+Kick.configure().from(configInstance1).from(configInstance2)...off();
+```
+
+:::caution
+Iterable attributes (like `List`, `Map` etc) accept an `Iterable`. If you are particular about the order, make sure to pass an Ordered instance of `Iterable` (like `ArrayList`).
+:::

@@ -1,0 +1,71 @@
+---
+title: Type Safety & Marshalling
+description: JSON-POJO marshalling/unmarshalling with Moshi in ReVoman
+---
+
+Postman operates purely with JSON.
+When interoperating Postman with JVM,
+unmarshalling/deserialization of JSON into a POJO and vice versa helps in writing Type-safe JVM code and enhances the debugging experience on JVM.
+
+ReVoman internally uses a modern JSON library called [**Moshi**](https://github.com/square/moshi).
+Simple types whose JSON structure aligns with the POJO data structure can directly be converted.
+But when the JSON structure may not align with the POJO,
+you may need a _Custom Type Adapter_ for Marshalling to JSON or Unmarshalling from JSON.
+Moshi has it covered for you with its advanced adapter mechanism, and ReVoman accepts Moshi adapters via these config methods:
+
+## `globalSkipTypes()`
+
+There may be a POJO that inherits or contains legacy types that are hard or impossible to serialize.
+ReVoman lets you serialize only types that matter, through `globalSkipTypes`,
+where you can filter out these legacy types from Marshalling/Unmarshalling.
+
+## `requestConfig()`
+
+- Configure Moshi adapters to unmarshall/deserialize _Request_ JSON payload to a POJO on certain steps.
+- You may use the bundled static factory methods named `RequestConfig.unmarshallResponse()` for expressiveness.
+- You can pass a `PreTxnStepPick` which is a `Predicate` used to qualify a step whose Request JSON payload needs to be unmarshalled/deserialized.
+- If you have set up `requestConfig()` once in the config, wherever you wish to read or assert the request, you can call `stepReport.requestInfo.get().<TypeT>getTypedTxnObj()` which returns your request JSON as a Strong type.
+
+## `responseConfig()`
+
+- Configure Moshi adapters to unmarshall/deserialize _Response_ JSON payload to a POJO on certain steps.
+- You can configure separate adapters for success and error response. Success or Error response is determined by default with HTTP Status Code (SUCCESSFUL: `200 <= statusCode <= 299`).
+- Use bundled static factory methods like `ResponseConfig.unmarshallSuccessResponse()` and `ResponseConfig.unmarshallErrorResponse()` for expressiveness.
+- You can pass a `PostTxnStepPick` which is a `Predicate` used to qualify a step whose Response JSON payload needs to be unmarshalled/deserialized.
+- If you have set up `responseConfig()` once, wherever you wish to read or assert the response, you can call `stepReport.responseInfo.get().<TypeT>getTypedTxnObj()` which returns your response JSON as a Strong type.
+
+:::tip
+- There may be a scenario that you cannot depend on HTTP Status Code to distinguish between Success or Error.
+- In such a case, you can leverage a bundled Moshi factory `DiMorphicAdapter` that deals with it dynamically based on a `Predicate`. See `DiMorphicAdapter` in action from the test `compositeGraphResponseDiMorphicMarshallUnmarshall()` in `JsonPojoUtilsTest`.
+- You may also refer to [PolymorphicJsonAdapterFactory](https://square.github.io/moshi/1.x/moshi-adapters/adapters/com.squareup.moshi.adapters/-polymorphic-json-adapter-factory/index.html) for Marshalling/Unmarshalling based on `String` type attribute.
+:::
+
+## `globalCustomTypeAdapters()`
+
+These come handy when the same POJO/Data structure (e.g. `ID`) is present across multiple Request or Response POJOs. These adapters complement the custom adapters setup in `requestConfig()` or `responseConfig()` wherever these types are present.
+
+:::note
+If you don't configure any adapters, you can either pass the adapter at runtime using the overload `stepReport.requestInfo.get().<TypeT>getTypedTxnObj(type, customAdapters, customAdaptersForType)` or Moshi by default unmarshalls the step's request/response JSON into a generic data structure like `LinkedHashMap`.
+:::
+
+:::danger
+All these adapters supplied from various config methods per a `revUp()` execution are appended to the same Moshi instance created in that thread. Read more about [Moshi adapter composition](https://github.com/square/moshi#composing-adapters). This means you don't have to supply the adapters repeatedly for the same type. This also means your adapters may get overridden unexpectedly. Keep this in mind while troubleshooting any serialize/deserialize issues. If you wish to manage Moshi yourself, you can get a copy of internal Moshi via `pokeRundown.mutableEnv.moshiReVoman().internalMoshiCopy()`.
+:::
+
+## JSON Reader/Writer Utils
+
+ReVoman also comes bundled with JSON Reader utils and JSON Writer utils to help build Moshi adapters.
+
+:::tip
+Refer to `ConnectInputRepWithGraphAdapter` on how these utils come in handy in building an advanced Moshi adapter.
+:::
+
+## JSON POJO Utils
+
+The bundled JSON POJO Utils can be used directly to convert JSON to POJO and vice versa.
+
+:::tip
+See in Action:
+- `JsonPojoUtilsTest`
+- `JsonPojoUtils2Test`
+:::

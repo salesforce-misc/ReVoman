@@ -1,0 +1,25 @@
+---
+title: Variables
+description: Variable types, resolution, and naming conventions in ReVoman
+---
+
+ReVoman supports several types of variables for use in your Postman collections:
+
+- **Variables**, e.g., `{{variable-key}}`
+- **Nested variables**, e.g., `{{variable-key{{nested-variable-key}}}}`
+- **[Dynamic variables](https://github.com/salesforce-misc/ReVoman/blob/master/src/main/kotlin/com/salesforce/revoman/internal/postman/DynamicVariableGenerator.kt)**, e.g., `{{$randomUUID}}`, `{{$randomEmail}}`
+- **[Custom Dynamic variables](/ReVoman/guides/custom-dynamic-variables/)**
+
+## Variable resolution precedence
+
+In the case of collision between variable keys, the precedence order to derive a value to replace any key is:
+
+1. [Custom Dynamic variables](/ReVoman/guides/custom-dynamic-variables/)
+2. [Dynamic variables](https://github.com/salesforce-misc/ReVoman/blob/master/src/main/kotlin/com/salesforce/revoman/internal/postman/DynamicVariableGenerator.kt)
+3. Environment built during execution
+4. Dynamic Environment supplied through config
+5. Postman Environment supplied as a file path through config
+
+:::tip
+**Variable naming convention:** For Dynamic variables which get populated from Java code, use a `$` sign within a variable to indicate it needs to be populated during manual testing, e.g.: `{{$unitPrice}}`.
+:::

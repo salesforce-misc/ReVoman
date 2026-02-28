@@ -1,0 +1,93 @@
+---
+title: Advanced Example
+description: A fully annotated Place Quote E2E test showcasing ReVoman's advanced features
+---
+
+ReVoman isn't just limited to executing a Collection like Postman; you can add more _bells and whistles_:
+
+```java title="PQE2EWithSMTest.java"
+final var pqRundown =
+    ReVoman.revUp( // (1)
+            Kick.configure()
+                    .templatePaths(PQ_TEMPLATE_PATHS) // (2)
+                    .environmentPath(PQ_ENV_PATH) // (3)
+                    .dynamicEnvironment( // (4)
+                            Map.of(
+                                    "$quoteFieldsToQuery", "LineItemCount, CalculationStatus",
+                                    "$qliFieldsToQuery", "Id, Product2Id",
+                                    "$qlrFieldsToQuery", "Id, QuoteId, MainQuoteLineId, AssociatedQuoteLineId"))
+                    .customDynamicVariableGenerator( // (5)
+                            "$unitPrice",
+                            (ignore1, ignore2, ignore3) -> String.valueOf(Random.Default.nextInt(999) + 1))
+                    .nodeModulesPath("js") // (6)
+                    .haltOnFailureOfTypeExcept(
+                            HTTP_STATUS,
+                            afterAllStepsContainingHeader("ignoreHTTPStatusUnsuccessful")) // (7)
+                    .requestConfig( // (8)
+                            unmarshallRequest(
+                                    beforeStepContainingURIPathOfAny(PQ_URI_PATH),
+                                    PlaceQuoteInputRepresentation.class,
+                                    adapter(PlaceQuoteInputRepresentation.class)))
+                    .responseConfig( // (9)
+                            unmarshallResponse(
+                                    afterStepContainingURIPathOfAny(PQ_URI_PATH),
+                                    PlaceQuoteOutputRepresentation.class),
+                            unmarshallResponse(
+                                    afterStepContainingURIPathOfAny(COMPOSITE_GRAPH_URI_PATH),
+                                    CompositeGraphResponse.class,
+                                    CompositeGraphResponse.ADAPTER))
+                    .hooks( // (10)
+                            pre(
+                                    beforeStepContainingURIPathOfAny(PQ_URI_PATH),
+                                    (step, requestInfo, rundown) -> {
+                                        if (requestInfo.containsHeader(IS_SYNC_HEADER)) {
+                                            LOGGER.info("This is a Sync step: {}", step);
+                                        }
+                                    }),
+                            post(
+                                    afterStepContainingURIPathOfAny(PQ_URI_PATH),
+                                    (stepReport, ignore) -> {
+                                        validatePQResponse(stepReport); // (11)
+                                        final var isSyncStep =
+                                                stepReport.responseInfo.get().containsHeader(IS_SYNC_HEADER);
+                                        if (!isSyncStep) {
+                                            LOGGER.info(
+                                                    "Waiting in PostHook of the Async Step: {}, for the Quote's Asynchronous processing to finish",
+                                                    stepReport.step);
+                                            // ! CAUTION 10/09/23 gopala.akshintala: This can be flaky until
+                                            // polling is implemented
+                                            Thread.sleep(5000);
+                                        }
+                                    }),
+                            post(
+                                    afterStepContainingURIPathOfAny(COMPOSITE_GRAPH_URI_PATH),
+                                    (stepReport, ignore) -> validateCompositeGraphResponse(stepReport)),
+                            post(
+                                    afterStepName("query-quote-and-related-records"),
+                                    (ignore, rundown) -> assertAfterPQCreate(rundown.mutableEnv)))
+                    .globalCustomTypeAdapter(new IDAdapter()) // (12)
+                    .insecureHttp(true) // (13)
+                    .off()); // Kick-off
+assertThat(pqRundown.firstUnIgnoredUnsuccessfulStepReport()).isNull(); // (14)
+assertThat(pqRundown.mutableEnv)
+    .containsAtLeastEntriesIn(
+            Map.of(
+                    "quoteCalculationStatusForSkipPricing", PricingPref.Skip.completeStatus,
+                    "quoteCalculationStatus", PricingPref.System.completeStatus,
+                    "quoteCalculationStatusAfterAllUpdates", PricingPref.System.completeStatus));
+```
+
+1. `revUp()` is the method to call passing a configuration, built as below
+2. Supply the path (absolute or relative to resources) to the Template Collection JSON file/files
+3. Supply the path (absolute or relative to resources) to the Environment JSON file/files
+4. Supply any dynamic environment that is runtime-specific -- see [Mutable Environment](/ReVoman/guides/mutable-environment/)
+5. [Custom Dynamic Variables](/ReVoman/guides/custom-dynamic-variables/) -- generate dynamic values for template placeholders at runtime
+6. Node modules path (absolute or relative to project directory) to be used inside [Pre-req and Post-res Scripts](/ReVoman/guides/scripts/)
+7. [Execution Control](/ReVoman/guides/execution-control/) -- configure which failure types halt execution and which are ignored
+8. [Request Config](/ReVoman/guides/type-safety/) -- configure request unmarshalling with type-safe POJO mapping and custom adapters
+9. [Response Config](/ReVoman/guides/type-safety/) -- configure response unmarshalling with type-safe POJO mapping and custom adapters
+10. [Pre/Post Hooks](/ReVoman/guides/hooks/) -- attach dynamic pre-step and post-step hooks with flexible step matching
+11. Response validations inside post-step hooks -- see [Pre/Post Hooks](/ReVoman/guides/hooks/)
+12. [Global Custom Type Adapters](/ReVoman/guides/type-safety/) -- register Moshi adapters that apply across all marshalling/unmarshalling
+13. Ignore Java cert issues when firing HTTP calls. To be used only for local testing, like hitting localhost
+14. Run more assertions on the [Rundown](/ReVoman/getting-started/rundown/)

@@ -1,0 +1,48 @@
+---
+title: Pre-req & Post-res Scripts
+description: JavaScript execution on JVM for Postman pre-request and post-response scripts
+---
+
+- Postman lets you write custom JavaScript in [Pre-req and Post-res tabs](https://learning.postman.com/docs/writing-scripts/script-references/test-examples/) that get executed before and after a step respectively. When you export the collection as a template, these scripts also come bundled.
+- ReVoman can execute this JavaScript on JVM. This support ensures that the Postman collection used for manual testing can be used **as-is** for the automation also, without any resistance to modify or overhead of maintaining separate versions for manual and automation.
+  - Pre-req JS script is executed as the first step before Unmarshall request.
+  - Post-res JS script is executed right after receiving an HTTP response.
+
+## `npm` modules to use with `require(...)`
+
+ReVoman supports using `npm` modules inside your Pre-req and Post-res JS scripts. You can install `npm` modules in any folder using traditional commands like `npm install <module>` and supply in the `Kick` config, an absolute path or relative path (relative to Project directory) to the parent folder that contains the `node_modules` folder using `nodeModulesPath(...)`. Use those `npm` modules inside your scripts with `require(...)`, for example:
+
+### Install `moment` with npm
+
+```shell
+npm install moment
+```
+
+### Use inside pre-req and post-res scripts
+
+```javascript
+var moment = require("moment")
+var _ = require('lodash')
+
+pm.environment.set("$currentDate", moment().format(("YYYY-MM-DD")))
+var futureDateTime = moment().add(365, 'days')
+pm.environment.set('$randomFutureDate', futureDateTime.format('YYYY-MM-DD'))
+
+pm.environment.set("$quantity", _.random(1, 10))
+```
+
+:::caution
+It is not supported to load `node_modules` from jar. For example, `/Users/username/some-path/revoman-root/build/libs/revoman-root-0.40.0.jar!/js` is an invalid path. [Refer to this known issue](https://graalvm.slack.com/archives/CN9L59P61/p1710937088860679?thread_ts=1710767437.443019&cid=CN9L59P61).
+:::
+
+:::tip
+- `node_modules` adds a lot of files to check in. You may replace them with a single distribution file.
+
+![node_modules](../../../assets/images/node_modules.png)
+
+- If `node_modules` is ignored on your git repo, you can force-add to check in using the command `git add --all -f <path>/node_modules`.
+:::
+
+:::danger
+The recommendation is not to add too much code in Pre-req and Post-res scripts, as it's not intuitive to troubleshoot through debugging. Use it for simple operations that can be understood without debugging, and use [Pre-Step/Post-Step Hooks](/ReVoman/guides/hooks/) for any non-trivial operations, which are intuitive to debug.
+:::

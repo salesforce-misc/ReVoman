@@ -1,0 +1,35 @@
+---
+title: Mutable Environment
+description: Shared mutable state across step executions for data passing
+---
+
+- Environment is the only mutable-shared state across step executions, which can be used for data passing between the consumer and the library and across steps during execution.
+- Use-cases to usually mutate are in [Pre-req and Post-res scripts](/ReVoman/guides/scripts/) (using `pm.environment.set()`) and [Pre-Step/Post-Step Hooks](/ReVoman/guides/hooks/) (using the reference `rundown.mutableEnv`) during execution.
+- Mutable Environment is `Map<String, Object>` (in Java) or `Map<String, Any?>` (in Kotlin), so you can use it to store any type of values, not just limited to `String` type.
+
+:::note
+If a `mutableEnv` entry holds a POJO value, the value in the entry gets mutated to a serialized JSON String inside the `mutableEnv`, before getting used for variable replacement. This also takes care of replacing any variable placeholders inside POJO attribute values recursively. Although we can, the value is not deserialized back to POJO for performance reasons. You can always [read a specific value back as POJO](#read-environment-value-into-strong-type), as needed.
+:::
+
+## Read as Postman Environment JSON format
+
+You may want to troubleshoot manually with Postman using the Mutable environment built during the ReVoman execution.
+`rundown.mutableEnv.postmanEnvJSONFormat()` converts the mutable environment into a Postman JSON format,
+so you can copy and import that environment conveniently into Postman.
+
+:::tip
+You do NOT need to save the copied Postman environment JSON from the debugger into a file. You can paste (<kbd>Ctrl+V</kbd>) directly in the Postman environment window.
+:::
+
+## Read Environment value into Strong type
+
+You can read any value from mutableEnv as a Strong type using `rundown.mutableEnv.<TypeT>getTypedObj()`.
+See it in action: `getTypedObj()` test from `PostmanEnvironmentTest`.
+
+:::tip
+While serializing/deserializing, the [custom adapters configured](/ReVoman/guides/type-safety/) via `Kick` config shall be used. You may supply more adapters if needed via `Kick` config.
+:::
+
+## `pmEnvSnapshot` in each StepReport
+
+Each StepReport also has a `pmEnvSnapshot` to assert if a step has executed as expected and compare snapshots from different steps to examine the execution progress.

@@ -284,3 +284,7 @@ fabric.properties
 
 .vscode/
 .kotlin
+
+### Website (Astro Starlight)
+website/dist/
+website/.astro/
