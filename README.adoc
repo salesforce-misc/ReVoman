@@ -230,6 +230,29 @@ StepReport(
 [.lead]
 `Rundown` has many convenient methods to ease applying further assertions on top of it. Checkout its <<#_ide_debugger_view,IDE Debugger view>>
 
+==== `toJson()` — Structured JSON Serialization
+
+`Rundown` can be serialized to structured JSON using `toJson()`, with a `Verbosity` parameter to control the level of detail.
+This is useful for AI agents consuming ReṼoman via protocols like MCP, or for logging and diagnostics.
+
+[source,java,indent=0,tabsize=2,options="nowrap"]
+----
+// Kotlin
+val json = rundown.toJson()                    // STANDARD (default)
+val json = rundown.toJson(Verbosity.SUMMARY)   // Quick health check
+val json = rundown.toJson(Verbosity.VERBOSE)   // Full debugging detail
+
+// Java
+String json = RundownJsonWriter.toJson(rundown);
+String json = RundownJsonWriter.toJson(rundown, Verbosity.VERBOSE);
+----
+
+*Verbosity levels:*
+
+* `SUMMARY` — Counts, success flags, and first unsuccessful step report (step name + failure type/message only). Ideal for quick pass/fail checks.
+* `STANDARD` _(default)_ — Summary + all step reports with step identity, request method/URI, response status code, and failure details. No HTTP bodies.
+* `VERBOSE` — Everything: HTTP headers, request/response bodies, environment snapshots per step, polling details, stack traces, and the final mutable environment.
+
 TIP: Other simple examples to see in Action: link:{integrationtestdir}/com/salesforce/revoman/integration/pokemon/PokemonTest.java[PokemonTest.java]
 
 === Advanced Example
