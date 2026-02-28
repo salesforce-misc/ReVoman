@@ -61,9 +61,6 @@ internal fun shouldStepBePicked(
   check(!(runStep && skipStep)) {
     "‼️😵‍💫 Ambiguous - $currentStep is picked for both run and skip execution"
   }
-  if (skipStep) {
-    logger.info { "$currentStep skipped for execution" }
-  }
   return runStep
 }
 
@@ -72,7 +69,7 @@ internal fun <T> runCatching(
   exeType: ExeType,
   fn: () -> T,
 ): Either<Throwable, T> {
-  logger.info { "$currentStep Executing $exeType" }
+  logger.debug { "$currentStep Executing $exeType" }
   return runCatching(fn)
     .fold(
       { Right(it) },
@@ -92,27 +89,27 @@ internal fun shouldHaltExecution(
   when {
     currentStepReport.isSuccessful -> false
     else -> {
-      logger.info { "${currentStepReport.step} failed with ${currentStepReport.failure}" }
+      logger.debug { "${currentStepReport.step} failed with ${currentStepReport.failure}" }
       when {
         kick.haltOnAnyFailure() -> {
-          logger.info {
-            "🛑 Halting the execution of next steps, as `haltOnAnyFailure` is set to true"
+          logger.debug {
+            "Halting the execution of next steps, as `haltOnAnyFailure` is set to true"
           }
           true
         }
         kick.haltOnFailureOfTypeExcept().isEmpty() -> {
-          logger.info {
-            "🛝 Continuing the execution of next steps, as `haltOnAnyFailure=${kick.haltOnAnyFailure()}` and `haltOnFailureOfTypeExcept` is empty"
+          logger.debug {
+            "Continuing the execution of next steps, as `haltOnAnyFailure=${kick.haltOnAnyFailure()}` and `haltOnFailureOfTypeExcept` is empty"
           }
           false
         }
         else ->
           (!isStepIgnoredForFailure(currentStepReport, rundown)).also {
-            logger.info {
+            logger.debug {
               if (it) {
-                "${currentStepReport.step} doesn't qualify `haltOnFailureOfTypeExcept` for `exeTypeForFailure=${currentStepReport.exeTypeForFailure}`, so 🛑 halting the execution of next steps"
+                "${currentStepReport.step} doesn't qualify `haltOnFailureOfTypeExcept` for `exeTypeForFailure=${currentStepReport.exeTypeForFailure}`, so halting the execution of next steps"
               } else {
-                "🛝 Continuing the execution of next steps, as the step is ignored for `exeTypeForFailure=${currentStepReport.exeTypeForFailure}`"
+                "Continuing the execution of next steps, as the step is ignored for `exeTypeForFailure=${currentStepReport.exeTypeForFailure}`"
               }
             }
           }

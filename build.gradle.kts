@@ -27,6 +27,7 @@ dependencies {
   api(libs.kotlinx.datetime)
   implementation(libs.bundles.kotlin.logging)
   implementation(libs.pprint)
+  implementation(libs.mordant)
   implementation(libs.graal.js)
   implementation(libs.kotlin.faker)
   implementation(libs.underscore)

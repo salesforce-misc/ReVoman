@@ -31,6 +31,8 @@ import com.salesforce.revoman.internal.http.HttpClientEnvParser
 import com.salesforce.revoman.internal.http.HttpFileTemplateParser
 import com.salesforce.revoman.internal.json.MoshiReVoman
 import com.salesforce.revoman.internal.json.MoshiReVoman.Companion.initMoshi
+import com.salesforce.revoman.internal.logging.MordantTui
+import com.salesforce.revoman.internal.logging.TuiLogger
 import com.salesforce.revoman.internal.postman.Info
 import com.salesforce.revoman.internal.postman.PostmanSDK
 import com.salesforce.revoman.internal.postman.PostmanTemplateParser
@@ -99,14 +101,7 @@ object ReVoman {
 
     val allSteps = postmanSteps + httpFileSteps
     logger.info {
-      val postmanCount = kick.templatePaths().size
-      val httpFileCount = kick.httpFilePaths().size
-      val sources = buildList {
-        if (postmanCount > 0)
-          add("$postmanCount Postman Collection${if (postmanCount > 1) "s" else ""}")
-        if (httpFileCount > 0) add("$httpFileCount HTTP file${if (httpFileCount > 1) "s" else ""}")
-      }
-      "Total Steps from ${sources.joinToString(" + ")}: ${allSteps.size}"
+      TuiLogger.kickBanner(kick.templatePaths().size, kick.httpFilePaths().size, allSteps.size)
     }
     val regexReplacer =
       RegexReplacer(kick.customDynamicVariableGenerators(), ::dynamicVariableGenerator)
@@ -130,13 +125,15 @@ object ReVoman {
       )
     val pm =
       PostmanSDK(moshiReVoman, kick.nodeModulesPath(), regexReplacer, environment.toMutableMap())
-    val stepNameToReport = executeStepsSerially(allSteps, kick, moshiReVoman, regexReplacer, pm)
-    return Rundown(
-      stepNameToReport,
-      pm.environment,
-      kick.haltOnFailureOfTypeExcept(),
-      allSteps.size,
-    )
+    val tui = MordantTui(allSteps.size)
+    tui.start()
+    val stepNameToReport =
+      executeStepsSerially(allSteps, kick, moshiReVoman, regexReplacer, pm, tui)
+    tui.finish()
+    val rundown =
+      Rundown(stepNameToReport, pm.environment, kick.haltOnFailureOfTypeExcept(), allSteps.size)
+    logger.info { TuiLogger.rundownSummary(rundown) }
+    return rundown
   }
 
   private fun executeStepsSerially(
@@ -145,14 +142,19 @@ object ReVoman {
     moshiReVoman: MoshiReVoman,
     regexReplacer: RegexReplacer,
     pm: PostmanSDK,
+    tui: MordantTui,
   ): List<StepReport> {
     var haltExecution = false
     return pmStepsFlattened
       .asSequence()
       .takeWhile { !haltExecution }
-      .filter { shouldStepBePicked(it, kick.runOnlySteps(), kick.skipSteps()) }
       .fold(listOf()) { stepReports, step ->
-        logger.info { "***** Executing Step: $step *****" }
+        if (!shouldStepBePicked(step, kick.runOnlySteps(), kick.skipSteps())) {
+          tui.println(TuiLogger.skippedStep(step))
+          return@fold stepReports
+        }
+        val executedIndex = stepReports.size + 1
+        tui.onStepStart(step, executedIndex, pmStepsFlattened.size)
         val exeTimings: MutableMap<ExeType, Duration> = mutableMapOf()
         pm.environment.currentStep = step
         val itemWithRegex = step.rawPMStep
@@ -178,11 +180,12 @@ object ReVoman {
             pmStepsFlattened.size,
           )
         pm.environment.putAll(regexReplacer.replaceVariablesInEnv(pm))
+        val onSubStep = tui::onSubStepStart
         val currentStepReport: StepReport = // --------### PRE-REQ-JS ###--------
-          timed(exeTimings, PRE_REQ_JS) { executePreReqJS(step, itemWithRegex, pm) }
+          timed(exeTimings, PRE_REQ_JS, onSubStep) { executePreReqJS(step, itemWithRegex, pm) }
             .mapLeft { preStepReport.copy(requestInfo = left(it)) }
             .flatMap { // --------### UNMARSHALL-REQUEST ###--------
-              timed(exeTimings, UNMARSHALL_REQUEST) {
+              timed(exeTimings, UNMARSHALL_REQUEST, onSubStep) {
                   val pmRequest =
                     regexReplacer.replaceVariablesInRequestRecursively(itemWithRegex.request, pm)
                   unmarshallRequest(step, pmRequest, kick, moshiReVoman, pm)
@@ -190,7 +193,9 @@ object ReVoman {
                 .mapLeft { preStepReport.copy(requestInfo = left(it)) }
             }
             .flatMap { requestInfo: TxnInfo<Request> -> // --------### PRE-HOOKS ###--------
-              timed(exeTimings, PRE_STEP_HOOK) { preStepHookExe(step, kick, requestInfo, pm) }
+              timed(exeTimings, PRE_STEP_HOOK, onSubStep) {
+                  preStepHookExe(step, kick, requestInfo, pm)
+                }
                 ?.let {
                   Left(
                     preStepReport.copy(
@@ -207,7 +212,7 @@ object ReVoman {
               // PRE-REQ-JS
               val item = regexReplacer.replaceVariablesInPmItem(itemWithRegex, pm)
               val httpRequest = item.request.toHttpRequest(moshiReVoman)
-              timed(exeTimings, HTTP_REQUEST) {
+              timed(exeTimings, HTTP_REQUEST, onSubStep) {
                   fireHttpRequest(step, httpRequest, kick.insecureHttp(), moshiReVoman)
                 }
                 .mapLeft { sr.copy(requestInfo = Left(it).toVavr()) }
@@ -222,23 +227,28 @@ object ReVoman {
             .flatMap { sr: StepReport -> // --------### POST-RES-JS ###--------
               pm.currentStepReport = sr
               pm.rundown = pm.rundown.copy(stepReports = pm.rundown.stepReports + sr)
-              timed(exeTimings, POST_RES_JS) { executePostResJS(step, itemWithRegex, pm) }
+              timed(exeTimings, POST_RES_JS, onSubStep) {
+                  executePostResJS(step, itemWithRegex, pm)
+                }
                 .mapLeft { sr.copy(responseInfo = left(it)) }
                 .map { sr }
             }
             .flatMap { sr: StepReport -> // ---### UNMARSHALL RESPONSE ###---
-              timed(exeTimings, UNMARSHALL_RESPONSE) { unmarshallResponse(kick, moshiReVoman, pm) }
+              timed(exeTimings, UNMARSHALL_RESPONSE, onSubStep) {
+                  unmarshallResponse(kick, moshiReVoman, pm)
+                }
                 .mapLeft { sr.copy(responseInfo = Left(it).toVavr()) }
                 .map { sr.copy(responseInfo = Right(it).toVavr()) }
             }
             .map { sr: StepReport -> // --------### POST-HOOKS ###--------
               pm.currentStepReport = sr
               pm.rundown = pm.rundown.copy(stepReports = pm.rundown.stepReports + sr)
-              val postHookFailure = timed(exeTimings, POST_STEP_HOOK) { postStepHookExe(kick, pm) }
+              val postHookFailure =
+                timed(exeTimings, POST_STEP_HOOK, onSubStep) { postStepHookExe(kick, pm) }
               sr.copy(postStepHookFailure = postHookFailure)
             }
             .flatMap { sr: StepReport -> // --------### POLLING ###--------
-              timed(exeTimings, POLLING) {
+              timed(exeTimings, POLLING, onSubStep) {
                   executePolling(kick.pollingConfig(), sr, pm.rundown, pm, kick.insecureHttp())
                 }
                 .mapLeft { sr.copy(pollingFailure = it) }
@@ -251,6 +261,15 @@ object ReVoman {
                 pm.environment.copy(mutableEnv = pm.environment.mutableEnv.toMutableMap()),
             )
         haltExecution = shouldHaltExecution(currentStepReport, kick, pm.rundown)
+        tui.println(
+          TuiLogger.stepReport(
+            currentStepReport,
+            executedIndex,
+            pmStepsFlattened.size,
+            haltExecution,
+          )
+        )
+        tui.onStepComplete()
         stepReports + currentStepReport
       }
   }
@@ -259,8 +278,10 @@ object ReVoman {
 private inline fun <T> timed(
   exeTimings: MutableMap<ExeType, Duration>,
   exeType: ExeType,
+  noinline onStart: ((ExeType) -> Unit)? = null,
   block: () -> T,
 ): T {
+  onStart?.invoke(exeType)
   val start = Instant.now()
   return block().also { exeTimings[exeType] = Duration.between(start, Instant.now()) }
 }
