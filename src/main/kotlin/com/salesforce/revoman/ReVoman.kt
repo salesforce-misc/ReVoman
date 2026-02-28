@@ -15,7 +15,8 @@ import com.salesforce.revoman.input.PostExeHook
 import com.salesforce.revoman.input.bufferFile
 import com.salesforce.revoman.input.bufferInputStream
 import com.salesforce.revoman.input.config.Kick
-import com.salesforce.revoman.internal.exe.deepFlattenItems
+import com.salesforce.revoman.input.readFileToString
+import com.salesforce.revoman.input.readInputStreamToString
 import com.salesforce.revoman.internal.exe.executePolling
 import com.salesforce.revoman.internal.exe.executePostResJS
 import com.salesforce.revoman.internal.exe.executePreReqJS
@@ -26,14 +27,16 @@ import com.salesforce.revoman.internal.exe.shouldHaltExecution
 import com.salesforce.revoman.internal.exe.shouldStepBePicked
 import com.salesforce.revoman.internal.exe.unmarshallRequest
 import com.salesforce.revoman.internal.exe.unmarshallResponse
+import com.salesforce.revoman.internal.http.HttpClientEnvParser
+import com.salesforce.revoman.internal.http.HttpFileTemplateParser
 import com.salesforce.revoman.internal.json.MoshiReVoman
 import com.salesforce.revoman.internal.json.MoshiReVoman.Companion.initMoshi
 import com.salesforce.revoman.internal.postman.Info
 import com.salesforce.revoman.internal.postman.PostmanSDK
+import com.salesforce.revoman.internal.postman.PostmanTemplateParser
 import com.salesforce.revoman.internal.postman.RegexReplacer
 import com.salesforce.revoman.internal.postman.dynamicVariableGenerator
 import com.salesforce.revoman.internal.postman.template.Environment.Companion.mergeEnvs
-import com.salesforce.revoman.internal.postman.template.Template
 import com.salesforce.revoman.output.ExeType
 import com.salesforce.revoman.output.ExeType.HTTP_REQUEST
 import com.salesforce.revoman.output.ExeType.POLLING
@@ -48,8 +51,6 @@ import com.salesforce.revoman.output.report.Step
 import com.salesforce.revoman.output.report.StepReport
 import com.salesforce.revoman.output.report.StepReport.Companion.toVavr
 import com.salesforce.revoman.output.report.TxnInfo
-import com.squareup.moshi.Moshi
-import com.squareup.moshi.adapter
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.vavr.control.Either.left
 import java.time.Duration
@@ -83,27 +84,29 @@ object ReVoman {
       .second
 
   @JvmStatic
-  @OptIn(ExperimentalStdlibApi::class)
   fun revUp(kick: Kick): Rundown {
-    val pmTemplateAdapter = Moshi.Builder().build().adapter<Template>()
-    val templateBuffers =
+    // Parse Postman templates
+    val postmanBuffers =
       kick.templatePaths().map { bufferFile(it) } +
         kick.templateInputStreams().map { bufferInputStream(it) }
-    val pmStepsDeepFlattened =
-      templateBuffers
-        .asSequence()
-        .mapNotNull { pmTemplateAdapter.fromJson(it) }
-        .flatMap { (pmSteps, authFromRoot) ->
-          deepFlattenItems(
-            pmSteps.map { item ->
-              item.copy(request = item.request.copy(auth = item.request.auth ?: authFromRoot))
-            }
-          )
-        }
-        .toList()
+    val postmanSteps = PostmanTemplateParser().parse(postmanBuffers)
+
+    // Parse HTTP files
+    val httpFileBuffers =
+      kick.httpFilePaths().map { bufferFile(it) } +
+        kick.httpFileInputStreams().map { bufferInputStream(it) }
+    val httpFileSteps = HttpFileTemplateParser().parse(httpFileBuffers)
+
+    val allSteps = postmanSteps + httpFileSteps
     logger.info {
-      val templateCount = kick.templatePaths().size
-      "Total Steps from ${if (templateCount > 1) "$templateCount Collections" else "the Collection"} provided: ${pmStepsDeepFlattened.size}"
+      val postmanCount = kick.templatePaths().size
+      val httpFileCount = kick.httpFilePaths().size
+      val sources = buildList {
+        if (postmanCount > 0)
+          add("$postmanCount Postman Collection${if (postmanCount > 1) "s" else ""}")
+        if (httpFileCount > 0) add("$httpFileCount HTTP file${if (httpFileCount > 1) "s" else ""}")
+      }
+      "Total Steps from ${sources.joinToString(" + ")}: ${allSteps.size}"
     }
     val regexReplacer =
       RegexReplacer(kick.customDynamicVariableGenerators(), ::dynamicVariableGenerator)
@@ -113,17 +116,26 @@ object ReVoman {
         kick.customTypeAdaptersFromRequestConfig() + kick.customTypeAdaptersFromResponseConfig(),
         kick.globalSkipTypes(),
       )
+    // Merge environments: Postman env files + HTTP Client env files + dynamic environment
+    val httpClientEnv: Map<String, Any?> =
+      (kick.httpClientEnvPaths().map { readFileToString(it) } +
+          kick.httpClientEnvInputStreams().map { readInputStreamToString(it) })
+        .flatMap { HttpClientEnvParser.parseEnv(it, kick.httpClientEnvName()).entries }
+        .associate { it.key to it.value }
     val environment =
-      mergeEnvs(kick.environmentPaths(), kick.environmentInputStreams(), kick.dynamicEnvironment())
+      mergeEnvs(
+        kick.environmentPaths(),
+        kick.environmentInputStreams(),
+        httpClientEnv + kick.dynamicEnvironment(),
+      )
     val pm =
       PostmanSDK(moshiReVoman, kick.nodeModulesPath(), regexReplacer, environment.toMutableMap())
-    val stepNameToReport =
-      executeStepsSerially(pmStepsDeepFlattened, kick, moshiReVoman, regexReplacer, pm)
+    val stepNameToReport = executeStepsSerially(allSteps, kick, moshiReVoman, regexReplacer, pm)
     return Rundown(
       stepNameToReport,
       pm.environment,
       kick.haltOnFailureOfTypeExcept(),
-      pmStepsDeepFlattened.size,
+      allSteps.size,
     )
   }
 

@@ -73,5 +73,9 @@ private fun executePostResJSWithPolyglot(
 ) {
   val httpResponse = stepReport.responseInfo!!.get().httpMsg
   pm.setRequestAndResponse(pm.from(pmRequest), httpResponse)
-  pm.evaluateJS(postResJS, mapOf("responseBody" to httpResponse.bodyString()))
+  val httpClientResponse = pm.buildHttpClientResponse(httpResponse)
+  pm.evaluateJS(
+    postResJS,
+    mapOf("responseBody" to httpResponse.bodyString(), "response" to httpClientResponse),
+  )
 }

@@ -1,11 +1,11 @@
 ---
 title: "ReVoman (Rev-Woman)"
-description: API Orchestration & Automation tool for JVM (Java/Kotlin) from Salesforce
+description: Multi-format API Orchestration & Automation tool for JVM (Java/Kotlin) from Salesforce
 template: splash
 hero:
   tagline: |
-    An API orchestration/automation tool for JVM (Java/Kotlin) from the API-first SaaS company, Salesforce.
-    Re-imagines API orchestration by letting you execute a Postman collection in a JVM program/test.
+    A multi-format API orchestration/automation tool for JVM (Java/Kotlin) from the API-first SaaS company, Salesforce.
+    Re-imagines API orchestration by letting you execute API workflow templates — Postman collections or JetBrains HTTP files — in a JVM program/test.
   image:
     file: ../../assets/images/hybrid-tool.png
   actions:
@@ -25,10 +25,8 @@ hero:
 
 import { Tabs, TabItem, Card, CardGrid } from '@astrojs/starlight/components';
 
-Think of it as **Postman for JVM** (Java/Kotlin) -- it emulates the
-[Postman Collection Runner](https://learning.postman.com/docs/collections/running-collections/intro-to-collection-runs/)
-through a Java program, essentially translating your manual testing into automation, without any loss or resistance.
-**But it's even better!**
+ReVoman executes API workflow templates through a JVM program, translating manual testing into automation without resistance.
+It supports **multiple template formats** — bring your existing Postman collections or JetBrains `.http` files.
 
 ![Postman Run](../../assets/images/postman-run.png)
 
@@ -36,12 +34,9 @@ through a Java program, essentially translating your manual testing into automat
 
 It strikes a balance between _flexibility_ provided by low-level tools like
 [REST Assured](https://rest-assured.io/) or [Cucumber](https://cucumber.io/) and _ease of use_
-provided by UI tools like [Postman](https://www.postman.com/).
+provided by UI tools like [Postman](https://www.postman.com/) or [JetBrains HTTP Client](https://www.jetbrains.com/help/idea/http-client-in-product-code-editor.html).
 
-The fundamental principle of this tool is **Template-Driven Testing**,
-where the Postman collection JSON is the template.
-Which means the collections used in JVM automation can be maintained
-to always be ready for manually trying them out by importing into Postman.
+The fundamental principle is **Template-Driven Testing** — your existing API workflow templates become the test specification.
 
 :::note
 NO licensed Postman SDKs are used inside this project. This is written ground up natively in JVM.
@@ -49,11 +44,24 @@ NO licensed Postman SDKs are used inside this project. This is written ground up
 
 ---
 
+## Supported Template Formats
+
+<CardGrid>
+  <Card title="Postman Collections" icon="document">
+    Use exported Postman collection JSON files as templates. Includes support for pre-request scripts, test scripts, and `npm` modules via GraalVM.
+  </Card>
+  <Card title="JetBrains HTTP Files" icon="document">
+    Use `.http` files from JetBrains IDEs. Includes support for response handlers and pre-request handlers, with the HTTP Client JavaScript API.
+  </Card>
+</CardGrid>
+
+---
+
 ## Features
 
 <CardGrid>
-  <Card title="Template-Driven" icon="document">
-    Use your existing Postman collections as test templates. No proprietary syntax or formats required.
+  <Card title="Multi-Format" icon="list-format">
+    Supports Postman collections and JetBrains `.http` files. A clean `TemplateParser` abstraction makes it straightforward to add more formats.
   </Card>
   <Card title="Type-Safe" icon="approve-check">
     Bridges the gap between strongly-typed JVM code and flexible JSON with built-in marshalling and unmarshalling.
@@ -62,7 +70,7 @@ NO licensed Postman SDKs are used inside this project. This is written ground up
     Approximately 89% less code compared to traditional integration/E2E tests. Low cognitive complexity and transparent.
   </Card>
   <Card title="CI/CD Ready" icon="rocket">
-    Works like any JVM library -- plug into JUnit tests or integration tests. No extra setup needed for CI/CD.
+    Works like any JVM library — plug into JUnit tests or integration tests. No extra setup needed for CI/CD.
   </Card>
 </CardGrid>
 

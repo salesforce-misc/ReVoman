@@ -8,7 +8,7 @@ export default defineConfig({
     starlight({
       title: "ReVoman",
       description:
-        "API Orchestration & Automation tool for JVM (Java/Kotlin) from Salesforce",
+        "Multi-format API Orchestration & Automation tool for JVM (Java/Kotlin) from Salesforce",
       social: [
         {
           icon: "github",
@@ -36,6 +36,7 @@ export default defineConfig({
           label: "Getting Started",
           items: [
             { label: "Quick Start", slug: "getting-started" },
+            { label: "Adoption Guide", slug: "getting-started/adoption-guide" },
             { label: "Rundown", slug: "getting-started/rundown" },
             {
               label: "Advanced Example",
@@ -46,6 +47,10 @@ export default defineConfig({
         {
           label: "Guides",
           items: [
+            {
+              label: "Template Formats",
+              slug: "guides/template-formats",
+            },
             { label: "Variables", slug: "guides/variables" },
             {
               label: "Config Management",
@@ -61,7 +66,7 @@ export default defineConfig({
             },
             { label: "Pre/Post Hooks", slug: "guides/hooks" },
             {
-              label: "Pre-req & Post-res Scripts",
+              label: "Scripts & Response Handlers",
               slug: "guides/scripts",
             },
             {

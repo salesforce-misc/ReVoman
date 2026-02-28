@@ -12,7 +12,22 @@ endif::[]
 :revoman-version: 0.82.0
 
 *ReṼoman* is an API orchestration/automation tool for JVM (Java/Kotlin) from the API-first SaaS company, *Salesforce*.
-It re-imagines API orchestration/automation by letting you execute a Postman collection in a JVM program/test.
+It re-imagines API orchestration by letting you execute API workflow templates -- Postman collections or JetBrains `.http` files -- in a JVM program/test.
+
+=== Supported Template Formats
+
+[cols="1,1,1"]
+|===
+|Format |Config |Status
+
+|Postman Collection (`.json`)
+|`templatePath(...)`
+|✅ Stable
+
+|JetBrains HTTP Client (`.http`)
+|`httpFilePath(...)`
+|✅ Stable
+|===
 
 NOTE: NO licensed Postman SDKs are used inside this project. This is written ground up natively in JVM.
 

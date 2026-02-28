@@ -32,9 +32,19 @@ internal interface KickDef {
 
   fun templateInputStreams(): List<InputStream>
 
+  fun httpFilePaths(): List<String>
+
+  fun httpFileInputStreams(): List<InputStream>
+
   fun environmentPaths(): Set<String>
 
   fun environmentInputStreams(): List<InputStream>
+
+  fun httpClientEnvPaths(): Set<String>
+
+  fun httpClientEnvInputStreams(): List<InputStream>
+
+  fun httpClientEnvName(): String?
 
   @AllowNulls fun dynamicEnvironment(): Map<String, Any?>
 

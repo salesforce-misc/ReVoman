@@ -1,0 +1,193 @@
+---
+title: Adoption Guide
+description: A structured ramp-up plan for teams adopting ReVoman
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+This guide provides a paved path for teams looking to adopt ReVoman for API orchestration and automation. Follow the phases sequentially — each builds on the previous.
+
+---
+
+## Phase 1: Explore (Day 1)
+
+**Goal:** Understand what ReVoman does and see it in action.
+
+<CardGrid>
+  <Card title="1. Read the landing page" icon="open-book">
+    Understand the [Template-Driven Testing](/ReVoman/) concept and [why ReVoman exists](/ReVoman/about/why-revoman/).
+  </Card>
+  <Card title="2. Watch the tech talk" icon="youtube">
+    The [Open Source Conf 2023 talk](https://www.youtube.com/watch?v=YxeRddSFkxc) gives a 20-minute overview.
+  </Card>
+  <Card title="3. Clone and run" icon="rocket">
+    Clone the repo, run `./gradlew integrationTest`, and see all tests pass. Read the test output.
+  </Card>
+</CardGrid>
+
+---
+
+## Phase 2: First Test (Day 2-3)
+
+**Goal:** Write your first ReVoman test against a public API.
+
+### Step 1: Choose your template format
+
+Pick the format that matches your team's workflow:
+
+- **Postman collection** — if your team already uses Postman for manual testing
+- **JetBrains `.http` file** — if your team uses IntelliJ and prefers lightweight text files
+
+### Step 2: Study the reference tests
+
+| Format | Simple Example | Full Example |
+|--------|---------------|--------------|
+| Postman | [RestfulAPIDevTest.java](https://github.com/salesforce-misc/ReVoman/blob/master/src/integrationTest/java/com/salesforce/revoman/integration/restfulapidev/RestfulAPIDevTest.java) | [PokemonTest.java](https://github.com/salesforce-misc/ReVoman/blob/master/src/integrationTest/java/com/salesforce/revoman/integration/pokemon/PokemonTest.java) |
+| HTTP file | [RestfulAPIDevKtTest.kt](https://github.com/salesforce-misc/ReVoman/blob/master/src/integrationTest/kotlin/com/salesforce/revoman/integration/restfulapidev/RestfulAPIDevKtTest.kt) | [PokemonHttpFileTest.java](https://github.com/salesforce-misc/ReVoman/blob/master/src/integrationTest/java/com/salesforce/revoman/integration/pokemon/PokemonHttpFileTest.java) |
+
+### Step 3: Write a hello-world test
+
+1. Create a template (Postman collection or `.http` file) for a public API like [https://restful-api.dev](https://restful-api.dev/) or [https://pokeapi.co](https://pokeapi.co/)
+2. Add the ReVoman dependency to your `build.gradle.kts` or `pom.xml`
+3. Write a JUnit test that calls `ReVoman.revUp()` and asserts the rundown
+4. Run it — see it pass
+
+```java title="Minimal test"
+@Test
+void myFirstTest() {
+    final var rundown = ReVoman.revUp(
+        Kick.configure()
+            .templatePath("my-collection.postman_collection.json") // or .httpFilePath("my-requests.http")
+            .off());
+    assertThat(rundown.firstUnIgnoredUnsuccessfulStepReport()).isNull();
+}
+```
+
+---
+
+## Phase 3: Integrate with Your Service (Week 1)
+
+**Goal:** Automate a real API flow from your service.
+
+### Step 1: Export or create your templates
+
+- **Postman users:** Export an existing collection and environment from Postman. Place them in `src/integrationTest/resources/`.
+- **HTTP file users:** Create `.http` files for your API flow and an `http-client.env.json` with your service URLs.
+
+### Step 2: Add environment configuration
+
+Supply runtime-specific values through `dynamicEnvironment()`:
+
+```java
+Kick.configure()
+    .templatePath("my-collection.json")
+    .environmentPath("my-env.json")
+    .dynamicEnvironment(Map.of(
+        "baseUrl", testServerUrl,
+        "authToken", getTestAuthToken()))
+    .off()
+```
+
+### Step 3: Add response unmarshalling
+
+Configure [type-safe response handling](/ReVoman/guides/type-safety/) to deserialize responses into your domain objects:
+
+```java
+.responseConfig(
+    unmarshallResponse(afterStepName("create-user"), UserResponse.class))
+```
+
+### Step 4: Add hooks for assertions
+
+Use [pre/post hooks](/ReVoman/guides/hooks/) to validate responses mid-flow:
+
+```java
+.hooks(
+    post(afterStepName("create-user"), (stepReport, rundown) -> {
+        var user = stepReport.responseInfo.get().<UserResponse>getTypedTxnObj();
+        assertThat(user.id()).isNotNull();
+    }))
+```
+
+---
+
+## Phase 4: Production-Grade Tests (Week 2-3)
+
+**Goal:** Build robust, maintainable test suites.
+
+### Execution control
+
+- Use `haltOnAnyFailure(true)` to stop on first failure during development
+- Use `haltOnFailureOfTypeExcept(...)` for nuanced control in CI — see [Execution Control](/ReVoman/guides/execution-control/)
+
+### Polling for async operations
+
+If your service has asynchronous steps, configure [polling](/ReVoman/guides/polling/):
+
+```java
+.pollingConfig(
+    PollingConfig.configure()
+        .pick(afterStepName("submit-order"))
+        .requestBuilder((stepReport, env) -> buildPollRequest(env))
+        .completionPredicate((response, env) -> isComplete(response))
+        .off())
+```
+
+### Multi-step chaining
+
+Use multiple `Kick` configurations chained with `ReVoman.revUp(kick1, kick2, ...)`. Environment variables propagate across kicks automatically.
+
+### Debugging
+
+- Set breakpoints in your hooks — they're standard JVM code
+- Use the [IDE debugger view](/ReVoman/troubleshooting/) to inspect StepReports and the Rundown
+- Check [execution timing metrics](/ReVoman/troubleshooting/#execution-timing-metrics) to identify slow steps
+
+---
+
+## Phase 5: Team Rollout
+
+**Goal:** Scale adoption across the team.
+
+### Establish conventions
+
+1. **Template location:** Store templates in `src/integrationTest/resources/` or `src/test/resources/`
+2. **Naming:** Name test classes after the workflow they test (e.g., `PlaceOrderE2ETest`)
+3. **Environment separation:** Use `http-client.env.json` environments or Postman environments for different targets (dev, staging, prod)
+
+### Documentation as tests
+
+- Templates in VCS serve as living documentation of your API flows
+- Developers can import Postman collections or open `.http` files directly for manual testing
+- The test code itself acts as a runbook for each workflow
+
+### CI/CD integration
+
+ReVoman tests are standard JUnit tests — no special CI setup needed:
+
+```bash
+./gradlew integrationTest
+```
+
+### Measure progress
+
+Use the [Rundown](/ReVoman/getting-started/rundown/) to track:
+- Step count and success rate
+- [Execution timing](/ReVoman/troubleshooting/#execution-timing-metrics) per step
+- [JSON serialization](/ReVoman/reference/rundown-serialization/) for reporting
+
+---
+
+## Common Pitfalls
+
+:::caution
+**Don't over-script.** Keep JavaScript in templates minimal. Use [JVM hooks](/ReVoman/guides/hooks/) for complex logic — they're easier to debug and maintain.
+:::
+
+:::caution
+**Don't hardcode URLs.** Use `{{variable}}` placeholders in templates and supply values through environment files or `dynamicEnvironment()`.
+:::
+
+:::caution
+**Don't test everything in one collection.** Break flows into logical collections/files. Chain them with multiple `Kick` configurations if needed.
+:::

@@ -1,0 +1,41 @@
+### all-pokemon
+GET {{baseUrl}}/pokemon?offset={{offset}}&limit={{limit}}
+
+> {%
+    var pokemon = response.body.results[0];
+    var pokemonName = pokemon.name;
+    client.global.set("pokemonName", pokemonName);
+    var lastIndex = pokemon.url.lastIndexOf("/");
+    var id = pokemon.url.substring(lastIndex - 1, lastIndex);
+    client.global.set("id", id);
+%}
+
+### color
+GET {{baseUrl}}/pokemon-color/{{id}}
+postLog: true
+
+> {%
+    client.global.set("color", response.body.name);
+%}
+
+### gender
+GET {{baseUrl}}/gender/{{id}}
+
+> {%
+    client.global.set("gender", response.body.name);
+%}
+
+### abilities
+GET {{baseUrl}}/ability/{{id}}
+
+> {%
+    client.global.set("ability", response.body.name);
+%}
+
+### nature
+GET {{baseUrl}}/nature/{{id}}
+preLog: true
+
+> {%
+    client.global.set("nature", response.body.name);
+%}

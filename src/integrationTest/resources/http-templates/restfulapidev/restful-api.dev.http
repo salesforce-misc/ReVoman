@@ -1,0 +1,43 @@
+### all-objects
+GET https://{{uri}}/objects
+
+### add-object
+< {%
+    client.global.set("$currentYear", new Date().getFullYear());
+    client.global.set("$randomPrice", Math.floor(Math.random() * 1000) + 1);
+%}
+POST https://{{uri}}/objects
+Content-Type: application/json
+
+{
+  "name": "{{$randomProduct}}",
+  "data": {
+    "year": {{$currentYear}},
+    "price": {{$randomPrice}},
+    "CPU model": null
+  }
+}
+
+> {%
+    client.global.set("objId", response.body.id);
+    client.global.set("productName", response.body.name);
+%}
+
+### update-object
+< {%
+    client.global.set("$currentYear", new Date().getFullYear());
+    client.global.set("$randomPrice", Math.floor(Math.random() * 1000) + 1);
+%}
+PATCH https://{{uri}}/objects/{{objId}}
+Content-Type: application/json
+
+{
+  "name": "updated - {{productName}}"
+}
+
+> {%
+    client.global.set("objId", response.body.id);
+%}
+
+### get-object-by-id
+GET https://{{uri}}/objects/{{objId}}

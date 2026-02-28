@@ -1,0 +1,169 @@
+---
+title: Template Formats
+description: Supported API workflow template formats — Postman collections and JetBrains HTTP files
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+ReVoman supports multiple API workflow template formats through a clean `TemplateParser` abstraction. Each format has its own parser that converts template files into ReVoman's internal step model, so the entire execution pipeline — variable substitution, hooks, type-safe marshalling, polling — works identically regardless of source format.
+
+## Postman Collections
+
+Postman collections (`.json`) are the original format supported by ReVoman. Export your collection from Postman and use it as a test template.
+
+### Configuration
+
+```java
+Kick.configure()
+    .templatePath("pm-templates/my-collection.postman_collection.json")
+    .environmentPath("pm-templates/my-env.postman_environment.json")
+    .off()
+```
+
+### Features
+
+- Nested folder structure (hierarchy preserved as step paths)
+- Pre-request and test scripts via GraalVM JavaScript
+- `npm` module support (`require('moment')`, `require('lodash')`) via `nodeModulesPath(...)`
+- Collection-level and folder-level auth inheritance
+- `{{variable}}` placeholder syntax
+- All [Postman dynamic variables](https://github.com/salesforce-misc/ReVoman/blob/master/src/main/kotlin/com/salesforce/revoman/internal/postman/DynamicVariableGenerator.kt) (`{{$randomUUID}}`, `{{$timestamp}}`, etc.)
+
+### Environment format
+
+Postman environment files have this structure:
+
+```json title="my-env.postman_environment.json"
+{
+  "values": [
+    { "key": "baseUrl", "value": "https://api.example.com", "enabled": true },
+    { "key": "token", "value": "abc123", "enabled": true }
+  ]
+}
+```
+
+---
+
+## JetBrains HTTP Files
+
+JetBrains `.http` files are a lightweight, IDE-native format for defining HTTP requests. They can be created in IntelliJ IDEA, WebStorm, or any text editor. ReVoman parses these files according to the [JetBrains HTTP request in editor spec](https://github.com/JetBrains/http-request-in-editor-spec/blob/master/spec.md).
+
+### Configuration
+
+```java
+Kick.configure()
+    .httpFilePath("http-templates/my-requests.http")
+    .httpClientEnvPath("http-templates/http-client.env.json")
+    .httpClientEnvName("dev")
+    .off()
+```
+
+### `.http` file syntax
+
+```http title="example.http"
+### Create User
+POST https://{{baseUrl}}/users
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "name": "John",
+  "email": "john@example.com"
+}
+
+> {%
+    client.global.set("userId", response.body.id);
+%}
+
+### Get User
+GET https://{{baseUrl}}/users/{{userId}}
+
+> {%
+    client.assert(response.status === 200, "Expected 200");
+    client.global.set("userName", response.body.name);
+%}
+```
+
+### Syntax elements
+
+| Element | Syntax | Description |
+|---------|--------|-------------|
+| Request separator | `###` or `### Name` | Separates requests, optional name after `###` |
+| Request name | `### my-request` or `// @name my-request` | Names the step for hook matching |
+| Method + URL | `GET https://...` | First non-comment line |
+| Headers | `Key: Value` | One per line, before blank line |
+| Body | After blank line | Until response handler or end |
+| Response handler | `> {% ... %}` | JavaScript executed after response |
+| Pre-request handler | `< {% ... %}` | JavaScript executed before request |
+| Variables | `{{variable}}` | Same syntax as Postman |
+| Comments | `#` or `//` | Line comments (not `###`) |
+
+### Features
+
+- Flat request structure (no folders)
+- Response handlers (`> {% ... %}`) with HTTP Client JavaScript API
+- Pre-request handlers (`< {% ... %}`)
+- `{{variable}}` placeholder syntax (same as Postman)
+- All ReVoman dynamic variables work (`{{$randomUUID}}`, `{{$timestamp}}`, etc.)
+- Validate `.http` files independently with `ijhttp` CLI
+
+:::note
+JetBrains `.http` files don't support `npm` modules. Use standard JavaScript built-ins (`Date`, `Math`, `JSON`, etc.) in handlers.
+:::
+
+### Environment format
+
+The `http-client.env.json` file uses environment names as top-level keys:
+
+```json title="http-client.env.json"
+{
+  "dev": {
+    "baseUrl": "https://dev.api.example.com",
+    "token": "dev-token"
+  },
+  "prod": {
+    "baseUrl": "https://api.example.com",
+    "token": "prod-token"
+  }
+}
+```
+
+Select the environment by name in your config:
+
+```java
+.httpClientEnvName("dev")
+```
+
+If no name is specified, the first environment in the file is used.
+
+---
+
+## Mixing Formats
+
+You can use both Postman and HTTP file templates in a single `Kick` configuration. Steps from all sources are concatenated and executed sequentially:
+
+```java
+Kick.configure()
+    .templatePath("pm-templates/auth.postman_collection.json")
+    .httpFilePath("http-templates/business-logic.http")
+    .environmentPath("pm-templates/env.postman_environment.json")
+    .off()
+```
+
+:::tip
+This is useful when migrating from Postman to `.http` files incrementally — you can run old and new templates side by side.
+:::
+
+---
+
+## Choosing a Format
+
+| Consideration | Postman | JetBrains `.http` |
+|---|---|---|
+| Best for | Teams already using Postman | Teams using IntelliJ IDEs |
+| IDE support | Postman app | IntelliJ, WebStorm, VS Code |
+| Folder nesting | Yes | No (flat, use multiple files) |
+| npm modules in scripts | Yes (`nodeModulesPath`) | No (vanilla JS only) |
+| CLI validation | — | `ijhttp` |
+| VCS friendly | JSON (verbose) | Plain text (compact, diff-friendly) |
+| Learning curve | Postman familiarity | Read the `.http` syntax |

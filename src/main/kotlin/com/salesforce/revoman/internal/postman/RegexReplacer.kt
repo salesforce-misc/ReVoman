@@ -31,7 +31,7 @@ class RegexReplacer(
   internal fun replaceVariablesRecursively(stringWithRegex: String?, pm: PostmanSDK): String? =
     stringWithRegex?.let {
       postManVariableRegex.replace(it) { variable ->
-        val variableKey = variable.groups[VARIABLE_KEY]?.value!!
+        val variableKey = variable.groups[VARIABLE_KEY]?.value!!.trim()
         customDynamicVariableGenerators[variableKey]
           ?.let { cdvg ->
             replaceVariablesRecursively(

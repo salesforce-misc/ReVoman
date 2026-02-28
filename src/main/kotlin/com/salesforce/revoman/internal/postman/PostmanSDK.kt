@@ -43,6 +43,7 @@ class PostmanSDK(
   @Suppress("unused") @JvmField val variables: Variables = Variables()
   lateinit var rundown: Rundown
   @JvmField val xml2Json = Xml2Json { xml -> moshiReVoman.fromJson(U.xmlToJson(xml)) }
+  @Suppress("unused") @JvmField val httpClient: HttpClient = HttpClient()
   // * NOTE 28 Apr 2024 gopala.akshintala: This has to be initialized at last
   private val jsEvaluator: JSEvaluator = JSEvaluator(nodeModulesPath)
 
@@ -79,6 +80,7 @@ class PostmanSDK(
       val contextBindings = jsContext.getBindings("js")
       contextBindings.putMember("pm", this@PostmanSDK)
       contextBindings.putMember("xml2Json", this@PostmanSDK.xml2Json)
+      contextBindings.putMember("client", this@PostmanSDK.httpClient)
     }
 
     internal fun evaluateJS(js: String, bindings: Map<String, Any> = emptyMap()): Value {
@@ -173,6 +175,92 @@ class PostmanSDK(
   @Suppress("unused")
   fun setEnvironmentVariable(key: String, value: String) {
     environment.set(key, value)
+  }
+
+  // --- JetBrains HTTP Client JS API bindings ---
+
+  internal fun buildHttpClientResponse(httpResponse: org.http4k.core.Response): HttpClientResponse =
+    HttpClientResponse(
+      httpResponse.bodyString(),
+      httpResponse.status.code,
+      httpResponse.headers.filter { it.second != null }.associate { it.first to it.second!! },
+      ::jsonStrToObj,
+    )
+
+  inner class HttpClient {
+    @JvmField val global = HttpClientGlobal()
+
+    fun test(name: String, fn: Value) {
+      logger.info { "HTTP Client test: $name" }
+      fn.execute()
+    }
+
+    fun assert(condition: Boolean, message: String?) {
+      check(condition) { message ?: "HTTP Client assertion failed" }
+    }
+
+    fun log(message: Any?) {
+      logger.info { "HTTP Client log: $message" }
+    }
+  }
+
+  inner class HttpClientGlobal {
+    fun set(key: String, value: Any?) {
+      environment[key] = value
+      logger.info {
+        "HTTP Client global variable set in Step: ${currentStepReport.step} - key: $key, value: ${pprint(value)}"
+      }
+    }
+
+    fun get(key: String): Any? = environment[key]
+
+    fun isEmpty(): Boolean = environment.isEmpty()
+
+    fun clear(key: String) {
+      environment.remove(key)
+    }
+  }
+
+  class HttpClientResponse(
+    private val rawBody: String,
+    @JvmField val status: Int,
+    private val responseHeaders: Map<String, String>,
+    private val jsonParser: ((String) -> Value)? = null,
+  ) {
+    @JvmField val headers = HttpClientResponseHeaders(responseHeaders)
+    @JvmField
+    val contentType: String? =
+      responseHeaders.entries
+        .firstOrNull { it.key.equals("Content-Type", ignoreCase = true) }
+        ?.value
+
+    /**
+     * Returns parsed JSON object for JSON content types, raw string otherwise (matching ijhttp).
+     */
+    @JvmField val body: Any = parseBody(rawBody, contentType, jsonParser)
+
+    companion object {
+      private fun parseBody(
+        rawBody: String,
+        contentType: String?,
+        jsonParser: ((String) -> Value)?,
+      ): Any =
+        if (
+          contentType != null &&
+            contentType.contains("json", ignoreCase = true) &&
+            jsonParser != null
+        )
+          runCatching { jsonParser(rawBody) }.getOrDefault(rawBody)
+        else rawBody
+    }
+  }
+
+  class HttpClientResponseHeaders(private val headerMap: Map<String, String>) {
+    fun valueOf(name: String): String? =
+      headerMap.entries.firstOrNull { it.key.equals(name, ignoreCase = true) }?.value
+
+    fun valuesOf(name: String): List<String> =
+      headerMap.entries.filter { it.key.equals(name, ignoreCase = true) }.map { it.value }
   }
 }
 

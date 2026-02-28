@@ -28,10 +28,28 @@ class RestfulAPIDevKtTest {
     assertThat(rundown.stepReports).hasSize(4)
   }
 
+  @Test
+  fun `execute restful-api dev via http file`() {
+    val rundown =
+      ReVoman.revUp(
+        Kick.configure()
+          .httpFilePath(HTTP_FILE_PATH)
+          .httpClientEnvPath(HTTP_CLIENT_ENV_PATH)
+          .httpClientEnvName("dev")
+          .off()
+      )
+    assertThat(rundown.firstUnsuccessfulStepReport).isNull()
+    assertThat(rundown.stepReports).hasSize(4)
+    assertThat(rundown.mutableEnv).containsKey("objId")
+    assertThat(rundown.mutableEnv).containsKey("productName")
+  }
+
   companion object {
     private const val PM_COLLECTION_PATH =
       "pm-templates/restfulapidev/restful-api.dev.postman_collection.json"
     private const val PM_ENVIRONMENT_PATH =
       "pm-templates/restfulapidev/restful-api.dev.postman_environment.json"
+    private const val HTTP_FILE_PATH = "http-templates/restfulapidev/restful-api.dev.http"
+    private const val HTTP_CLIENT_ENV_PATH = "http-templates/restfulapidev/http-client.env.json"
   }
 }
