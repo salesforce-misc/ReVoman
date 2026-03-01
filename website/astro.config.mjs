@@ -78,6 +78,10 @@ export default defineConfig({
               slug: "guides/custom-dynamic-variables",
             },
             { label: "Polling (Async Steps)", slug: "guides/polling" },
+            {
+              label: "Mock Server Testing",
+              slug: "guides/mock-server",
+            },
           ],
         },
         {

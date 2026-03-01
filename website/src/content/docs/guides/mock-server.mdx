@@ -1,0 +1,96 @@
+---
+title: Mock Server Testing
+description: Test-driven development with mock HTTP handlers — validate API metadata without a real server
+---
+
+ReVoman's `httpHandler()` config lets you swap the real HTTP client with a mock handler, enabling **test-driven development** for your API metadata.
+The entire pipeline still runs — variable resolution, pre-request scripts, request construction, post-response scripts, unmarshalling, hooks, and polling — only the network call is replaced.
+
+## Why mock?
+
+API test development typically has two stages:
+
+1. **Get the API metadata right** — correct variable mapping, scripts, response handling
+2. **Test against a real server** — validate actual behavior
+
+Stage 1 shouldn't require a running server. With `httpHandler()`, you can iterate on your Postman collections or HTTP files locally, catch variable chaining bugs, script errors, and configuration issues — all without network access.
+
+## Basic usage
+
+Since http4k's `HttpHandler` is just `(Request) -> Response`, pass any function that returns mock responses:
+
+```java
+Kick.configure()
+    .templatePath("my-collection.postman_collection.json")
+    .environmentPath("my-env.postman_environment.json")
+    .httpHandler(request -> {
+        var path = request.getUri().getPath();
+        if (path.contains("/api/users")) {
+            return Response.create(Status.OK)
+                .header("Content-Type", "application/json")
+                .body("{\"id\": 1, \"name\": \"mock-user\"}");
+        }
+        return Response.create(Status.NOT_FOUND);
+    })
+    .off();
+```
+
+The mock handler receives the **fully resolved** request — all `{{variables}}` are already substituted, pre-request scripts have run, and headers are set.
+
+## What still runs
+
+When `httpHandler()` is set, the full execution pipeline continues:
+
+| Phase | Runs? | Notes |
+|---|---|---|
+| Variable resolution | Yes | `{{variables}}` resolved from environment |
+| Pre-request scripts | Yes | JavaScript executes via GraalVM |
+| Request unmarshalling | Yes | POJO mapping via `requestConfig()` |
+| Pre-step hooks | Yes | Your hooks fire normally |
+| **HTTP request** | **Mocked** | Your handler replaces the real client |
+| Post-response scripts | Yes | JavaScript executes on mock response |
+| Response unmarshalling | Yes | POJO mapping via `responseConfig()` |
+| Post-step hooks | Yes | Assertions run against mock data |
+| Polling | Yes | Handler receives poll requests too |
+
+## Polling with mocks
+
+Polling works with mock handlers. Your handler receives the poll requests and should return a response that satisfies the `until()` predicate:
+
+```java
+.httpHandler(request -> {
+    if (request.getUri().getPath().contains("/status/")) {
+        // Return "Completed" so polling finishes on first attempt
+        return Response.create(Status.OK)
+            .body("{\"status\": \"Completed\"}");
+    }
+    // ... other handlers
+})
+.pollingConfig(
+    poll(afterStepName("async-step"))
+        .request((report, env) -> Request.create(Method.GET, env.get("statusUrl")))
+        .until((response, env) -> response.bodyString().contains("Completed")))
+```
+
+## Multiple Kick configs
+
+When using multiple `Kick` configs with `ReVoman.revUp(kick1, kick2, kick3)`, each config can have its own `httpHandler()`. Or use `overrideHttpHandler()` to apply a mock handler to an existing config:
+
+```java
+var handler = buildMockHandler();
+ReVoman.revUp(
+    existingConfig1.overrideHttpHandler(handler),
+    existingConfig2.overrideHttpHandler(handler),
+    existingConfig3.overrideHttpHandler(handler));
+```
+
+## Tips
+
+- **Return valid JSON** for steps with post-response scripts — the scripts need to parse the response
+- **Match URL patterns** rather than exact URLs, since variables in URLs are resolved at runtime
+- **Use stateful handlers** (with `AtomicInteger` counters) when the same endpoint is called multiple times with different expected responses
+- **Check request headers** to distinguish between normal and error-scenario steps (e.g., steps with `ignoreHTTPStatusUnsuccessful` header expect failure responses)
+
+:::note
+When `httpHandler()` is set, `insecureHttp()` has no effect since the real HTTP client is bypassed entirely.
+:::

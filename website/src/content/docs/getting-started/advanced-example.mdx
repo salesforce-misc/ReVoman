@@ -91,3 +91,7 @@ assertThat(pqRundown.mutableEnv)
 12. [Global Custom Type Adapters](/ReVoman/guides/type-safety/) -- register Moshi adapters that apply across all marshalling/unmarshalling
 13. Ignore Java cert issues when firing HTTP calls. To be used only for local testing, like hitting localhost
 14. Run more assertions on the [Rundown](/ReVoman/getting-started/rundown/)
+
+:::tip[Run without a server]
+This test requires a real Salesforce server. A companion mock test (`PQE2EMockTest`) uses the same collections and Kick config with an `httpHandler()` to run entirely offline — validating variable chaining, scripts, hooks, and unmarshalling without network access. See the [Mock Server Testing](/ReVoman/guides/mock-server/) guide.
+:::

@@ -35,12 +35,13 @@ internal fun executePolling(
   rundown: Rundown,
   pm: PostmanSDK,
   insecureHttp: Boolean,
+  httpHandler: HttpHandler? = null,
 ): Either<PollingFailure, PollingReport?> {
   if (!currentStepReport.isSuccessful) return null.right()
   val matchingConfig: PollingConfig =
     pollingConfigs.firstOrNull { it.pick.pick(currentStepReport, rundown) } ?: return null.right()
   logger.info { "${currentStepReport.step} Polling triggered" }
-  val httpClient: HttpHandler = prepareHttpClient(insecureHttp)
+  val httpClient: HttpHandler = httpHandler ?: prepareHttpClient(insecureHttp)
   val responses: MutableList<Response> = mutableListOf()
   val startTime: Instant = Instant.now()
   var attempts = 0

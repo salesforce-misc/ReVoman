@@ -32,12 +32,14 @@ internal fun fireHttpRequest(
   httpRequest: Request,
   insecureHttp: Boolean,
   moshiReVoman: MoshiReVoman,
+  httpHandler: HttpHandler? = null,
 ): Either<HttpRequestFailure, TxnInfo<Response>> =
   runCatching(currentStep, HTTP_REQUEST) {
       // * NOTE gopala.akshintala 06/08/22: Preparing httpClient for each step,
       // * as there can be intermediate auths
       // ! TODO 29/01/24 gopala.akshintala: When would bearer token size be > 1?
-      prepareHttpClient(insecureHttp)(httpRequest)
+      val client = httpHandler ?: prepareHttpClient(insecureHttp)
+      client(httpRequest)
     }
     .mapLeft { HttpRequestFailure(it, TxnInfo(httpMsg = httpRequest, moshiReVoman = moshiReVoman)) }
     .map { TxnInfo(httpMsg = it, moshiReVoman = moshiReVoman) }

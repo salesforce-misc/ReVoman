@@ -213,7 +213,13 @@ object ReVoman {
               val item = regexReplacer.replaceVariablesInPmItem(itemWithRegex, pm)
               val httpRequest = item.request.toHttpRequest(moshiReVoman)
               timed(exeTimings, HTTP_REQUEST, onSubStep) {
-                  fireHttpRequest(step, httpRequest, kick.insecureHttp(), moshiReVoman)
+                  fireHttpRequest(
+                    step,
+                    httpRequest,
+                    kick.insecureHttp(),
+                    moshiReVoman,
+                    kick.httpHandler(),
+                  )
                 }
                 .mapLeft { sr.copy(requestInfo = Left(it).toVavr()) }
                 .map {
@@ -249,7 +255,14 @@ object ReVoman {
             }
             .flatMap { sr: StepReport -> // --------### POLLING ###--------
               timed(exeTimings, POLLING, onSubStep) {
-                  executePolling(kick.pollingConfig(), sr, pm.rundown, pm, kick.insecureHttp())
+                  executePolling(
+                    kick.pollingConfig(),
+                    sr,
+                    pm.rundown,
+                    pm,
+                    kick.insecureHttp(),
+                    kick.httpHandler(),
+                  )
                 }
                 .mapLeft { sr.copy(pollingFailure = it) }
                 .map { pollingReport -> pollingReport?.let { sr.copy(pollingReport = it) } ?: sr }

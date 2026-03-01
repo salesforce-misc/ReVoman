@@ -20,6 +20,7 @@ import java.io.InputStream
 import java.lang.reflect.Type
 import java.util.AbstractMap.SimpleEntry
 import java.util.Collections.disjoint
+import org.http4k.core.HttpHandler
 import org.immutables.value.Value
 import org.immutables.value.Value.Style.ImplementationVisibility.PUBLIC
 
@@ -96,6 +97,14 @@ internal interface KickDef {
   fun globalCustomTypeAdapters(): List<Any>
 
   fun globalSkipTypes(): Set<Class<out Any>>
+
+  /**
+   * Optional HTTP handler that replaces the real HTTP client for all requests (including polling).
+   * Use this for mock/test-driven development — the full pipeline (variable resolution, scripts,
+   * hooks, unmarshalling) still runs, only the network call is swapped. When set, [insecureHttp]
+   * has no effect.
+   */
+  fun httpHandler(): HttpHandler?
 
   @Value.Default fun insecureHttp(): Boolean = false
 
