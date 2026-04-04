@@ -71,7 +71,7 @@ class StepReportPollingTest {
         null,
         pollingFailure,
         null,
-        PostmanEnvironment(),
+        pmEnvSnapshot = PostmanEnvironment(),
       )
     report.isSuccessful shouldBe false
     report.exeTypeForFailure shouldBe POLLING
@@ -97,7 +97,7 @@ class StepReportPollingTest {
         null,
         pollingFailure,
         null,
-        PostmanEnvironment(),
+        pmEnvSnapshot = PostmanEnvironment(),
       )
     report.isSuccessful shouldBe false
     report.exeTypeForFailure shouldBe POLLING
@@ -123,7 +123,7 @@ class StepReportPollingTest {
         null,
         null,
         pollingReport,
-        PostmanEnvironment(),
+        pmEnvSnapshot = PostmanEnvironment(),
       )
     report.isSuccessful shouldBe true
     report.pollingReport shouldBe pollingReport
@@ -152,7 +152,7 @@ class StepReportPollingTest {
         postStepHookFailure,
         pollingFailure,
         null,
-        PostmanEnvironment(),
+        pmEnvSnapshot = PostmanEnvironment(),
       )
     report.isSuccessful shouldBe false
     report.exeTypeForFailure shouldBe POST_STEP_HOOK
