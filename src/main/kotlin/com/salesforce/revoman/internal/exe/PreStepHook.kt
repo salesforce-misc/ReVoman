@@ -11,7 +11,6 @@ import com.salesforce.revoman.input.config.HookConfig
 import com.salesforce.revoman.input.config.HookConfig.StepHook.PreStepHook
 import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.input.config.StepPick.PreTxnStepPick
-import com.salesforce.revoman.internal.postman.PostmanSDK
 import com.salesforce.revoman.output.ExeType.PRE_STEP_HOOK
 import com.salesforce.revoman.output.Rundown
 import com.salesforce.revoman.output.report.Step
@@ -25,12 +24,12 @@ internal fun preStepHookExe(
   currentStep: Step,
   kick: Kick,
   requestInfo: TxnInfo<Request>,
-  pm: PostmanSDK,
+  rundown: Rundown,
 ): PreStepHookFailure? =
-  pickPreStepHooks(kick.preStepHooks(), currentStep, requestInfo, pm.rundown)
+  pickPreStepHooks(kick.preStepHooks(), currentStep, requestInfo, rundown)
     .map { preStepHook ->
       runCatching(currentStep, PRE_STEP_HOOK) {
-          preStepHook.accept(currentStep, requestInfo, pm.rundown)
+          preStepHook.accept(currentStep, requestInfo, rundown)
         }
         .mapLeft { PreStepHookFailure(it, requestInfo) }
     }

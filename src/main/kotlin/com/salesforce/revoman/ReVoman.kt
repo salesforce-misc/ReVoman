@@ -54,8 +54,6 @@ import com.squareup.moshi.adapter
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.vavr.control.Either.left
 import java.time.Duration
-import kotlin.time.measureTimedValue
-import kotlin.time.toJavaDuration
 import org.http4k.core.Request
 
 object ReVoman {
@@ -169,18 +167,22 @@ object ReVoman {
           )
         pm.environment.putAll(regexReplacer.replaceVariablesInEnv(pm))
         val currentStepReport: StepReport = // --------### PRE-REQ-JS ###--------
-          timed(step, exeTimings, PRE_REQ_JS) { executePreReqJS(step, itemWithRegex, pm) }
+          timed(step, exeTimings, PRE_REQ_JS) {
+              executePreReqJS(step, itemWithRegex, preStepReport, pm)
+            }
             .mapLeft { preStepReport.copy(requestInfo = left(it)) }
             .flatMap { // --------### UNMARSHALL-REQUEST ###--------
               timed(step, exeTimings, UNMARSHALL_REQUEST) {
                   val pmRequest =
                     regexReplacer.replaceVariablesInRequestRecursively(itemWithRegex.request, pm)
-                  unmarshallRequest(step, pmRequest, kick, moshiReVoman, pm)
+                  unmarshallRequest(step, pmRequest, kick, moshiReVoman, pm.rundown)
                 }
                 .mapLeft { preStepReport.copy(requestInfo = left(it)) }
             }
             .flatMap { requestInfo: TxnInfo<Request> -> // --------### PRE-HOOKS ###--------
-              timed(step, exeTimings, PRE_STEP_HOOK) { preStepHookExe(step, kick, requestInfo, pm) }
+              timed(step, exeTimings, PRE_STEP_HOOK) {
+                  preStepHookExe(step, kick, requestInfo, pm.rundown)
+                }
                 ?.let {
                   Left(
                     preStepReport.copy(
@@ -210,18 +212,21 @@ object ReVoman {
             }
             .flatMap { sr: StepReport -> // --------### POST-RES-JS ###--------
               pm.syncProgress(sr)
-              timed(step, exeTimings, POST_RES_JS) { executePostResJS(step, itemWithRegex, pm) }
+              timed(step, exeTimings, POST_RES_JS) { executePostResJS(step, itemWithRegex, sr, pm) }
                 .mapLeft { sr.copy(responseInfo = left(it)) }
                 .map { sr }
             }
             .flatMap { sr: StepReport -> // ---### UNMARSHALL RESPONSE ###---
-              timed(step, exeTimings, UNMARSHALL_RESPONSE) { unmarshallResponse(kick, moshiReVoman, pm) }
+              timed(step, exeTimings, UNMARSHALL_RESPONSE) {
+                  unmarshallResponse(kick, moshiReVoman, sr, pm.rundown)
+                }
                 .mapLeft { sr.copy(responseInfo = Left(it).toVavr()) }
                 .map { sr.copy(responseInfo = Right(it).toVavr()) }
             }
             .map { sr: StepReport -> // --------### POST-HOOKS ###--------
               pm.syncProgress(sr)
-              val postHookFailure = timed(step, exeTimings, POST_STEP_HOOK) { postStepHookExe(kick, pm) }
+              val postHookFailure =
+                timed(step, exeTimings, POST_STEP_HOOK) { postStepHookExe(kick, sr, pm.rundown) }
               sr.copy(postStepHookFailure = postHookFailure)
             }
             .flatMap { sr: StepReport -> // --------### POLLING ###--------
