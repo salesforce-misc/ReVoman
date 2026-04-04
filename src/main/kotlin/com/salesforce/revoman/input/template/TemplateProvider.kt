@@ -34,13 +34,13 @@ internal data class TemplateSource(
     if (trimmed.isBlank()) return trimmed
     if (File(trimmed).isAbsolute) return trimmed
     return baseDir?.let { base ->
-      if (isAbsoluteSourcePath) File(base, trimmed).path else File(base, trimmed).path.replace('\\', '/')
+      if (isAbsoluteSourcePath) File(base, trimmed).path
+      else File(base, trimmed).path.replace('\\', '/')
     } ?: trimmed
   }
 
   companion object {
-    fun fromPath(path: String): TemplateSource =
-      TemplateSource(readFileToString(path), path, path)
+    fun fromPath(path: String): TemplateSource = TemplateSource(readFileToString(path), path, path)
 
     fun fromInputStream(inputStream: InputStream, sourceName: String): TemplateSource =
       TemplateSource(readInputStreamToString(inputStream), null, sourceName)

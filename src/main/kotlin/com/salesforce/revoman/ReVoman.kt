@@ -13,7 +13,7 @@ import arrow.core.flatMap
 import arrow.core.merge
 import com.salesforce.revoman.input.PostExeHook
 import com.salesforce.revoman.input.config.Kick
-import com.salesforce.revoman.internal.exe.deepFlattenItems
+import com.salesforce.revoman.input.template.TemplateFormat
 import com.salesforce.revoman.internal.exe.executePolling
 import com.salesforce.revoman.internal.exe.executePostResJS
 import com.salesforce.revoman.internal.exe.executePreReqJS
@@ -25,6 +25,7 @@ import com.salesforce.revoman.internal.exe.shouldStepBePicked
 import com.salesforce.revoman.internal.exe.timed
 import com.salesforce.revoman.internal.exe.unmarshallRequest
 import com.salesforce.revoman.internal.exe.unmarshallResponse
+import com.salesforce.revoman.internal.httpclient.HttpClientEnvironment
 import com.salesforce.revoman.internal.json.MoshiReVoman
 import com.salesforce.revoman.internal.json.MoshiReVoman.Companion.initMoshi
 import com.salesforce.revoman.internal.postman.Info
@@ -32,7 +33,9 @@ import com.salesforce.revoman.internal.postman.PostmanSDK
 import com.salesforce.revoman.internal.postman.RegexReplacer
 import com.salesforce.revoman.internal.postman.dynamicVariableGenerator
 import com.salesforce.revoman.internal.postman.template.Environment.Companion.mergeEnvs
-import com.salesforce.revoman.internal.postman.template.Template
+import com.salesforce.revoman.internal.template.TemplateLoadResult
+import com.salesforce.revoman.internal.template.TemplateProviders
+import com.salesforce.revoman.internal.template.TemplateType
 import com.salesforce.revoman.output.ExeType
 import com.salesforce.revoman.output.ExeType.HTTP_REQUEST
 import com.salesforce.revoman.output.ExeType.POLLING
@@ -42,11 +45,6 @@ import com.salesforce.revoman.output.ExeType.PRE_REQ_JS
 import com.salesforce.revoman.output.ExeType.PRE_STEP_HOOK
 import com.salesforce.revoman.output.ExeType.UNMARSHALL_REQUEST
 import com.salesforce.revoman.output.ExeType.UNMARSHALL_RESPONSE
-import com.salesforce.revoman.internal.httpclient.HttpClientEnvironment
-import com.salesforce.revoman.internal.template.TemplateLoadResult
-import com.salesforce.revoman.internal.template.TemplateProviders
-import com.salesforce.revoman.internal.template.TemplateType
-import com.salesforce.revoman.input.template.TemplateFormat
 import com.salesforce.revoman.output.Rundown
 import com.salesforce.revoman.output.report.Step
 import com.salesforce.revoman.output.report.StepReport
@@ -154,7 +152,10 @@ object ReVoman {
         val exeTimings: MutableMap<ExeType, Duration> = mutableMapOf()
         pm.environment.currentStep = step
         pm.clearRequestVariables()
-        pm.setTemplateContext(step.templateType.toTemplateFormat(), fileVariablesByStep[step].orEmpty())
+        pm.setTemplateContext(
+          step.templateType.toTemplateFormat(),
+          fileVariablesByStep[step].orEmpty(),
+        )
         val itemWithRegex = step.rawPMStep
         val itemForPreReq =
           if (step.templateType == TemplateType.JETBRAINS_HTTP) {
@@ -194,18 +195,18 @@ object ReVoman {
             .mapLeft { preStepReport.copy(requestInfo = left(it)) }
             .flatMap { // --------### UNMARSHALL-REQUEST ###--------
               timed(step, exeTimings, UNMARSHALL_REQUEST) {
-                val itemForRequest =
+                  val itemForRequest =
+                    if (step.templateType == TemplateType.JETBRAINS_HTTP) {
+                      itemWithRegex.copy(request = pm.applyGlobalHeaders(itemWithRegex.request))
+                    } else {
+                      itemWithRegex
+                    }
                   if (step.templateType == TemplateType.JETBRAINS_HTTP) {
-                    itemWithRegex.copy(request = pm.applyGlobalHeaders(itemWithRegex.request))
-                  } else {
-                    itemWithRegex
+                    pm.updateJetbrainsRequest(itemForRequest.request)
                   }
-                if (step.templateType == TemplateType.JETBRAINS_HTTP) {
-                  pm.updateJetbrainsRequest(itemForRequest.request)
-                }
-                val pmRequest =
-                  regexReplacer.replaceVariablesInRequestRecursively(itemForRequest.request, pm)
-                unmarshallRequest(step, pmRequest, kick, moshiReVoman, pm.rundown)
+                  val pmRequest =
+                    regexReplacer.replaceVariablesInRequestRecursively(itemForRequest.request, pm)
+                  unmarshallRequest(step, pmRequest, kick, moshiReVoman, pm.rundown)
                 }
                 .mapLeft { preStepReport.copy(requestInfo = left(it)) }
             }
@@ -301,6 +302,5 @@ private fun TemplateType.toTemplateFormat(): TemplateFormat =
     TemplateType.JETBRAINS_HTTP -> TemplateFormat.JETBRAINS_HTTP
   }
 
-private fun List<TemplateLoadResult>.associateFileVariablesByStep():
-  Map<Step, Map<String, Any?>> =
+private fun List<TemplateLoadResult>.associateFileVariablesByStep(): Map<Step, Map<String, Any?>> =
   flatMap { result -> result.steps.map { step -> step to result.fileVariables } }.toMap()

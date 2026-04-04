@@ -15,9 +15,9 @@ import com.squareup.moshi.JsonClass
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
 import com.squareup.moshi.adapter
+import io.github.oshai.kotlinlogging.KotlinLogging
 import java.io.InputStream
 import kotlin.collections.plus
-import io.github.oshai.kotlinlogging.KotlinLogging
 
 @JsonClass(generateAdapter = true)
 internal data class Environment(val name: String?, val values: List<EnvValue>) {
@@ -53,10 +53,7 @@ internal data class Environment(val name: String?, val values: List<EnvValue>) {
       return envFromEnvFiles + inlineVariables + dynamicEnvironment
     }
 
-    private fun parseEnvironment(
-      content: String,
-      httpEnvironmentName: String?,
-    ): Map<String, Any?> =
+    private fun parseEnvironment(content: String, httpEnvironmentName: String?): Map<String, Any?> =
       parsePostmanEnvironment(content)
         ?: parseJetBrainsEnvironment(content, httpEnvironmentName)
         ?: emptyMap()
@@ -67,8 +64,7 @@ internal data class Environment(val name: String?, val values: List<EnvValue>) {
       val env =
         runCatching { envAdapter.fromJson(content) }
           .onFailure { logger.warn(it) { "Failed to parse Postman environment" } }
-          .getOrNull()
-          ?: return null
+          .getOrNull() ?: return null
       return env.values.filter { it.enabled }.associate { it.key to it.value }
     }
 
@@ -82,8 +78,7 @@ internal data class Environment(val name: String?, val values: List<EnvValue>) {
       val rawMap =
         runCatching { adapter.fromJson(content) }
           .onFailure { logger.warn(it) { "Failed to parse JetBrains environment" } }
-          .getOrNull()
-          ?: return null
+          .getOrNull() ?: return null
       return extractJetBrainsEnv(rawMap, httpEnvironmentName)
     }
 

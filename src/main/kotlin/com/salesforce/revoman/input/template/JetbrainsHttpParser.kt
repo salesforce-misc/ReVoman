@@ -99,7 +99,11 @@ internal class JetbrainsHttpParser {
       while (index < lines.size) {
         val bodyLine = lines[index]
         val bodyTrimmed = bodyLine.trim()
-        if (isSeparator(bodyTrimmed) || isResponseHandlerLine(bodyTrimmed) || isResponseRefLine(bodyTrimmed)) {
+        if (
+          isSeparator(bodyTrimmed) ||
+            isResponseHandlerLine(bodyTrimmed) ||
+            isResponseRefLine(bodyTrimmed)
+        ) {
           break
         }
         if (!isCommentLine(bodyTrimmed)) {
@@ -152,11 +156,7 @@ internal class JetbrainsHttpParser {
     trimmed.startsWith("# @name") || trimmed.startsWith("// @name")
 
   private fun parseNameLine(trimmed: String): String? {
-    val sanitized =
-      trimmed
-        .removePrefix("#")
-        .removePrefix("//")
-        .trim()
+    val sanitized = trimmed.removePrefix("#").removePrefix("//").trim()
     if (!sanitized.startsWith("@name")) return null
     val withoutPrefix = sanitized.removePrefix("@name").trim()
     return withoutPrefix.removePrefix("=").trim().ifBlank { null }
@@ -198,8 +198,7 @@ internal class JetbrainsHttpParser {
         "CONNECT",
         "PATCH",
         "OPTIONS",
-        "TRACE",
-        -> first
+        "TRACE" -> first
         else -> "GET"
       }
     val url =

@@ -102,15 +102,16 @@ class PostmanSDK(
     }
 
     /**
-     * Resets the JavaScript context by clearing user-defined variables
-     * while preserving the SDK bindings (pm, xml2Json, client, request, response, $env)
-     * 
-     * Note: Due to GraalVM limitations, we can't actually remove global variables,
-     * but we can set them to undefined to effectively clear them.
+     * Resets the JavaScript context by clearing user-defined variables while preserving the SDK
+     * bindings (pm, xml2Json, client, request, response, $env)
+     *
+     * Note: Due to GraalVM limitations, we can't actually remove global variables, but we can set
+     * them to undefined to effectively clear them.
      */
     internal fun resetContext() {
       // Evaluate a script to get all global properties
-      val script = """
+      val script =
+        """
         (function() {
           var globalKeys = Object.keys(this);
           var persistentKeys = ${persistentBindings.joinToString(", ", "[", "]") { "\"$it\"" }};
@@ -127,25 +128,27 @@ class PostmanSDK(
           }
           return keysToReset;
         }).call(this)
-      """.trimIndent()
-      
+      """
+          .trimIndent()
+
       jsContext.eval("js", script)
     }
 
     /**
-     * Evaluates JavaScript in an isolated scope to prevent variable pollution
-     * while preserving access to persistent SDK bindings
+     * Evaluates JavaScript in an isolated scope to prevent variable pollution while preserving
+     * access to persistent SDK bindings
      */
     internal fun evaluateJSIsolated(js: String, bindings: Map<String, Any> = emptyMap()): Value {
       // First, clear any existing user-defined variables to prevent pollution
       resetContext()
-      
+
       // Add temporary bindings for this execution
       val contextBindings = jsContext.getBindings("js")
       bindings.forEach { (key, value) -> contextBindings.putMember(key, value) }
-      
+
       // Execute the script with a wrapper to capture and clean up temporary variables
-      val wrappedScript = """
+      val wrappedScript =
+        """
         (function() {
           var __preExecKeys = Object.keys(this).filter(k => k !== '__preExecKeys');
           var __result = (function() {
@@ -157,8 +160,8 @@ class PostmanSDK(
           var __bindingKeys = ${bindings.keys.joinToString(", ", "[", "]") { "\"$it\"" }};
           for (var i = 0; i < __postExecKeys.length; i++) {
             var key = __postExecKeys[i];
-            if (__preExecKeys.indexOf(key) === -1 && 
-                __persistentKeys.indexOf(key) === -1 && 
+            if (__preExecKeys.indexOf(key) === -1 &&
+                __persistentKeys.indexOf(key) === -1 &&
                 __bindingKeys.indexOf(key) === -1 &&
                 !key.startsWith('__')) {
               this[key] = undefined;
@@ -166,18 +169,19 @@ class PostmanSDK(
           }
           return __result;
         }).call(this)
-      """.trimIndent()
-      
+      """
+          .trimIndent()
+
       val jsSource = Source.newBuilder("js", imports + wrappedScript, "script.js").build()
       val result = jsContext.eval(jsSource)
-      
+
       // Clean up temporary bindings
-      bindings.keys.forEach { key -> 
+      bindings.keys.forEach { key ->
         if (key !in persistentBindings) {
           contextBindings.removeMember(key)
         }
       }
-      
+
       return result
     }
 
@@ -217,7 +221,9 @@ class PostmanSDK(
     jetbrainsResponse.body = body
   }
 
-  internal fun updateJetbrainsRequest(pmRequest: com.salesforce.revoman.internal.postman.template.Request) {
+  internal fun updateJetbrainsRequest(
+    pmRequest: com.salesforce.revoman.internal.postman.template.Request
+  ) {
     jetbrainsRequest.update(pmRequest)
   }
 
@@ -257,15 +263,13 @@ class PostmanSDK(
   fun evaluateJS(js: String, bindings: Map<String, Any> = emptyMap()): Value =
     jsEvaluator.evaluateJS(js, bindings)
 
-  /**
-   * Evaluates JavaScript in an isolated scope to prevent variable pollution between executions
-   */
+  /** Evaluates JavaScript in an isolated scope to prevent variable pollution between executions */
   fun evaluateJSIsolated(js: String, bindings: Map<String, Any> = emptyMap()): Value =
     jsEvaluator.evaluateJSIsolated(js, bindings)
 
   /**
-   * Resets the JavaScript context by removing all user-defined variables
-   * while preserving SDK bindings (pm, xml2Json, client, request, response, $env)
+   * Resets the JavaScript context by removing all user-defined variables while preserving SDK
+   * bindings (pm, xml2Json, client, request, response, $env)
    */
   fun resetJSContext() {
     jsEvaluator.resetContext()
@@ -364,7 +368,8 @@ class PostmanSDK(
   @Suppress("unused")
   inner class JetbrainsRequest {
     @JvmField val variables: JetbrainsRequestVariables = JetbrainsRequestVariables()
-    @JvmField val environment: JetbrainsVariableStore = JetbrainsVariableStore { jetbrainsEnvironment }
+    @JvmField
+    val environment: JetbrainsVariableStore = JetbrainsVariableStore { jetbrainsEnvironment }
     @JvmField var method: String = ""
     @JvmField var url: String = ""
     @JvmField var body: String? = null
@@ -417,9 +422,7 @@ class PostmanSDK(
   ): com.salesforce.revoman.internal.postman.template.Request {
     if (globalHeaders.isEmpty()) return request
     val existing = request.header.associateBy { it.key.lowercase() }.toMutableMap()
-    globalHeaders.forEach { (key, value) ->
-      existing[key.lowercase()] = Header(key, value)
-    }
+    globalHeaders.forEach { (key, value) -> existing[key.lowercase()] = Header(key, value) }
     return request.copy(header = existing.values.toList())
   }
 
@@ -448,10 +451,8 @@ class PostmanSDK(
     val environment: JetbrainsVariableStore = JetbrainsVariableStore { jetbrainsEnvironment }
     @JvmField
     val global: JetbrainsVariableStore = JetbrainsVariableStore { this@PostmanSDK.environment }
-    @JvmField
-    val file: JetbrainsVariableStore = JetbrainsVariableStore { jetbrainsFileVariables }
-    @JvmField
-    val request: JetbrainsVariableStore = JetbrainsVariableStore { requestVariables }
+    @JvmField val file: JetbrainsVariableStore = JetbrainsVariableStore { jetbrainsFileVariables }
+    @JvmField val request: JetbrainsVariableStore = JetbrainsVariableStore { requestVariables }
   }
 
   @Suppress("unused")
@@ -461,6 +462,7 @@ class PostmanSDK(
 
   private sealed interface JsonPathToken {
     data class Key(val name: String) : JsonPathToken
+
     data class Index(val index: Int) : JsonPathToken
   }
 
@@ -546,8 +548,9 @@ class PostmanSDK(
       index++
     }
     val content = key.substring(tokenStart, index).trim()
-    val token = content.toIntOrNull()?.let { JsonPathToken.Index(it) }
-      ?: if (content.isBlank()) null else JsonPathToken.Key(content)
+    val token =
+      content.toIntOrNull()?.let { JsonPathToken.Index(it) }
+        ?: if (content.isBlank()) null else JsonPathToken.Key(content)
     return token to (index + 1)
   }
 }

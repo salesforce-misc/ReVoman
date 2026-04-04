@@ -14,6 +14,7 @@ import com.salesforce.revoman.output.ExeType.HTTP_REQUEST
 import com.salesforce.revoman.output.report.Step
 import com.salesforce.revoman.output.report.TxnInfo
 import com.salesforce.revoman.output.report.failure.RequestFailure.HttpRequestFailure
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient
 import org.apache.hc.client5.http.impl.classic.HttpClientBuilder
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder
@@ -24,7 +25,6 @@ import org.http4k.client.ApacheClient
 import org.http4k.core.HttpHandler
 import org.http4k.core.Request
 import org.http4k.core.Response
-import io.github.oshai.kotlinlogging.KotlinLogging
 
 @JvmSynthetic
 internal fun fireHttpRequest(
@@ -51,11 +51,10 @@ internal fun prepareHttpClient(insecureHttp: Boolean): HttpHandler =
 private fun logHttpRequest(currentStep: Step, httpRequest: Request) {
   if (!LogPolicy.shouldLogHttpRequests()) return
   val headers =
-    httpRequest.headers
-      .joinToString { (name, value) ->
-        val sanitized = if (LogPolicy.shouldRedactHeader(name)) "<redacted>" else value
-        "$name=$sanitized"
-      }
+    httpRequest.headers.joinToString { (name, value) ->
+      val sanitized = if (LogPolicy.shouldRedactHeader(name)) "<redacted>" else value
+      "$name=$sanitized"
+    }
   val body =
     if (LogPolicy.shouldLogHttpBodies()) LogPolicy.formatBody(httpRequest.bodyString())
     else "<omitted>"

@@ -46,10 +46,7 @@ internal data class TemplateSource(
     }
 
     fun fromInputStream(index: Int, inputStream: InputStream): TemplateSource =
-      TemplateSource(
-        name = "input-stream-$index",
-        content = readInputStreamToString(inputStream),
-      )
+      TemplateSource(name = "input-stream-$index", content = readInputStreamToString(inputStream))
   }
 }
 

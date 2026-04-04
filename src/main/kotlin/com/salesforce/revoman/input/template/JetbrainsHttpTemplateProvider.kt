@@ -45,10 +45,7 @@ internal class JetbrainsHttpTemplateProvider : TemplateProvider {
 
   private fun JetbrainsHttpRequest.toPostmanItem(): Item {
     val events =
-      listOfNotNull(
-        preRequestScript?.toEvent("prerequest"),
-        responseHandlerScript?.toEvent("test"),
-      )
+      listOfNotNull(preRequestScript?.toEvent("prerequest"), responseHandlerScript?.toEvent("test"))
         .ifEmpty { null }
     val request =
       Request(

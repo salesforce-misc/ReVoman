@@ -53,9 +53,16 @@ class JetBrainsHttpRuntimeTest {
     runtime.beginStep(request)
 
     val httpResponse = Response(Status.OK).body("{\"ok\":true}")
-    val requestInfo = Right(TxnInfo(httpMsg = request.toHttpRequestSafe(moshi), moshiReVoman = moshi))
+    val requestInfo =
+      Right(TxnInfo(httpMsg = request.toHttpRequestSafe(moshi), moshiReVoman = moshi))
     val responseInfo = Right(TxnInfo(httpMsg = httpResponse, moshiReVoman = moshi))
-    val stepReport = StepReport(step = step, requestInfo = requestInfo, responseInfo = responseInfo, pmEnvSnapshot = pm.environment)
+    val stepReport =
+      StepReport(
+        step = step,
+        requestInfo = requestInfo,
+        responseInfo = responseInfo,
+        pmEnvSnapshot = pm.environment,
+      )
     pm.currentStepReport = stepReport
 
     runtime.executeResponseHandlerScript("client.global.set('token', 'abc');", stepReport)

@@ -17,21 +17,28 @@ internal class JetBrainsHttpTemplateProvider : TemplateProvider {
   override fun supports(source: TemplateSource): Boolean =
     when (source.extension) {
       "http",
-      "rest",
-      -> true
+      "rest" -> true
       else ->
-        source.content.lineSequence().map { it.trim() }.any { line ->
-          line.startsWith("###") ||
-            line.startsWith("http://") ||
-            line.startsWith("https://") ||
-            line.matches(Regex("^(GET|HEAD|POST|PUT|DELETE|CONNECT|PATCH|OPTIONS|TRACE)\\s+.*"))
-        }
+        source.content
+          .lineSequence()
+          .map { it.trim() }
+          .any { line ->
+            line.startsWith("###") ||
+              line.startsWith("http://") ||
+              line.startsWith("https://") ||
+              line.matches(Regex("^(GET|HEAD|POST|PUT|DELETE|CONNECT|PATCH|OPTIONS|TRACE)\\s+.*"))
+          }
     }
 
   override fun load(source: TemplateSource): TemplateLoadResult {
     val parseResult = JetBrainsHttpParser.parse(source)
     val items = parseResult.requests.map { it.toItem() }
     val steps = deepFlattenItems(items, templateType = TemplateType.JETBRAINS_HTTP)
-    return TemplateLoadResult(TemplateType.JETBRAINS_HTTP, source.name, steps, parseResult.fileVariables)
+    return TemplateLoadResult(
+      TemplateType.JETBRAINS_HTTP,
+      source.name,
+      steps,
+      parseResult.fileVariables,
+    )
   }
 }

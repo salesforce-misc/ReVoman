@@ -124,8 +124,7 @@ class PokemonHttpTest {
                         .responseInfo
                         .map(
                             ri ->
-                                ri.<Color>getTypedTxnObj(Color.class, List.of(new IDAdapter()))
-                                    .id)
+                                ri.<Color>getTypedTxnObj(Color.class, List.of(new IDAdapter())).id)
                         .getOrNull();
                 assertThat(id.id()).isEqualTo(rundown.mutableEnv.get("id"));
               }

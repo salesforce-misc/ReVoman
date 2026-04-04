@@ -26,15 +26,14 @@ internal data class JetBrainsHttpRequest(
   val responseHandlerScript: String? = null,
 ) {
   fun toItem(): Item {
-    val events =
-      buildList {
-        preRequestScript
-          ?.takeIf { it.isNotBlank() }
-          ?.let { add(Event("prerequest", Event.Script(it.lines()))) }
-        responseHandlerScript
-          ?.takeIf { it.isNotBlank() }
-          ?.let { add(Event("test", Event.Script(it.lines()))) }
-      }
+    val events = buildList {
+      preRequestScript
+        ?.takeIf { it.isNotBlank() }
+        ?.let { add(Event("prerequest", Event.Script(it.lines()))) }
+      responseHandlerScript
+        ?.takeIf { it.isNotBlank() }
+        ?.let { add(Event("test", Event.Script(it.lines()))) }
+    }
     val requestBody = body?.let { Body(mode = "raw", raw = it) }
     return Item(
       name = name,
@@ -106,9 +105,11 @@ internal object JetBrainsHttpParser {
           index++
           break
         }
-        if (isRequestSeparator(headerTrimmed) ||
-          headerTrimmed.startsWith(">") ||
-          headerTrimmed.startsWith("<>")) {
+        if (
+          isRequestSeparator(headerTrimmed) ||
+            headerTrimmed.startsWith(">") ||
+            headerTrimmed.startsWith("<>")
+        ) {
           break
         }
         if (isComment(headerTrimmed)) {
@@ -135,9 +136,11 @@ internal object JetBrainsHttpParser {
       while (index < lines.size) {
         val bodyLine = lines[index].trimEnd()
         val bodyTrimmed = bodyLine.trim()
-        if (isRequestSeparator(bodyTrimmed) ||
-          bodyTrimmed.startsWith(">") ||
-          bodyTrimmed.startsWith("<>")) {
+        if (
+          isRequestSeparator(bodyTrimmed) ||
+            bodyTrimmed.startsWith(">") ||
+            bodyTrimmed.startsWith("<>")
+        ) {
           break
         }
         if (bodyTrimmed.startsWith("<") && bodyLines.isEmpty()) {
@@ -168,8 +171,7 @@ internal object JetBrainsHttpParser {
       val name =
         pendingName?.takeIf { it.isNotBlank() }
           ?: "$method ${resolvedUrl.trim().ifBlank { "request-${requests.size + 1}" }}"
-      val preRequestScript =
-        pendingPreScripts.joinToString("\n").ifBlank { null }
+      val preRequestScript = pendingPreScripts.joinToString("\n").ifBlank { null }
       pendingPreScripts.clear()
       pendingName = null
 
@@ -188,10 +190,7 @@ internal object JetBrainsHttpParser {
     return JetBrainsHttpParseResult(requests, fileVariables)
   }
 
-  private fun parseRequestLine(
-    lines: List<String>,
-    startIndex: Int,
-  ): Triple<String, String, Int> {
+  private fun parseRequestLine(lines: List<String>, startIndex: Int): Triple<String, String, Int> {
     val line = lines[startIndex].trimEnd()
     val trimmed = line.trim()
     val tokens = trimmed.split(Regex("\\s+")).filter { it.isNotBlank() }
@@ -294,12 +293,7 @@ internal object JetBrainsHttpParser {
 
   private fun parseNameComment(trimmed: String): String {
     val withoutPrefix =
-      trimmed
-        .removePrefix("#")
-        .removePrefix("//")
-        .trim()
-        .removePrefix("@name")
-        .trim()
+      trimmed.removePrefix("#").removePrefix("//").trim().removePrefix("@name").trim()
     return withoutPrefix.removePrefix("=").trim()
   }
 

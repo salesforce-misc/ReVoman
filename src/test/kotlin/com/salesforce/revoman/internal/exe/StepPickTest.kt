@@ -40,7 +40,8 @@ class StepPickTest {
   @Test
   fun `run and skip picks are ambiguous`() {
     val picks = listOf(ExeStepPick { true })
-    val failure = shouldThrow<IllegalStateException> { shouldStepBePicked(sampleStep(), picks, picks) }
+    val failure =
+      shouldThrow<IllegalStateException> { shouldStepBePicked(sampleStep(), picks, picks) }
     failure.message shouldContain "Ambiguous"
   }
 }

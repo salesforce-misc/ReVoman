@@ -18,8 +18,7 @@ internal class PostmanTemplateProvider(private val moshi: Moshi = Moshi.Builder(
   TemplateProvider {
   override val format: TemplateFormat = TemplateFormat.POSTMAN_JSON
 
-  @OptIn(ExperimentalStdlibApi::class)
-  private val adapter = moshi.adapter<Template>()
+  @OptIn(ExperimentalStdlibApi::class) private val adapter = moshi.adapter<Template>()
 
   override fun supports(source: TemplateSource): Boolean {
     val extension = source.extension?.lowercase()
@@ -31,8 +30,7 @@ internal class PostmanTemplateProvider(private val moshi: Moshi = Moshi.Builder(
     val template =
       runCatching { adapter.fromJson(source.content) }
         .onFailure { error -> logger.warn(error) { "Failed to parse Postman template" } }
-        .getOrNull()
-        ?: return TemplateParseResult(format, source.sourceName, emptyList())
+        .getOrNull() ?: return TemplateParseResult(format, source.sourceName, emptyList())
     val items =
       template.item.map { item ->
         item.copy(request = item.request.copy(auth = item.request.auth ?: template.auth))

@@ -17,7 +17,8 @@ import java.io.InputStream
 internal object HttpClientEnvironment {
   private val logger = KotlinLogging.logger {}
   private val moshi = Moshi.Builder().build()
-  private val mapType = Types.newParameterizedType(Map::class.java, String::class.java, Any::class.java)
+  private val mapType =
+    Types.newParameterizedType(Map::class.java, String::class.java, Any::class.java)
   private val adapter = moshi.adapter<Map<String, Any?>>(mapType)
 
   internal fun isHttpClientEnvPath(path: String): Boolean {
@@ -36,10 +37,11 @@ internal object HttpClientEnvironment {
         .sortedBy { it.isPrivate }
         .mapNotNull { source -> parseEnv(source) } +
         envStreams.mapIndexedNotNull { index, stream ->
-          parseEnv(EnvSource("env-stream-${index + 1}", readInputStreamToString(stream), null, false))
+          parseEnv(
+            EnvSource("env-stream-${index + 1}", readInputStreamToString(stream), null, false)
+          )
         }
-    val merged =
-      sources.fold(emptyMap<String, Any?>()) { acc, env -> acc + env.values }
+    val merged = sources.fold(emptyMap<String, Any?>()) { acc, env -> acc + env.values }
     return merged + dynamicEnvironment
   }
 

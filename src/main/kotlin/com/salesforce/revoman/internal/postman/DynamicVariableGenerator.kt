@@ -91,12 +91,9 @@ private val randomIntegerPattern =
   Regex("""^\${'$'}random\.integer\(\s*(-?\d+)\s*,\s*(-?\d+)\s*\)$""")
 private val randomFloatPattern =
   Regex("""^\${'$'}random\.float\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)$""")
-private val randomAlphaPattern =
-  Regex("""^\${'$'}random\.alphabetic\(\s*(\d+)\s*\)$""")
-private val randomAlnumPattern =
-  Regex("""^\${'$'}random\.alphanumeric\(\s*(\d+)\s*\)$""")
-private val randomHexPattern =
-  Regex("""^\${'$'}random\.hexadecimal\(\s*(\d+)\s*\)$""")
+private val randomAlphaPattern = Regex("""^\${'$'}random\.alphabetic\(\s*(\d+)\s*\)$""")
+private val randomAlnumPattern = Regex("""^\${'$'}random\.alphanumeric\(\s*(\d+)\s*\)$""")
+private val randomHexPattern = Regex("""^\${'$'}random\.hexadecimal\(\s*(\d+)\s*\)$""")
 
 internal fun dynamicVariableGenerator(key: String, pm: PostmanSDK): String? {
   if (key.startsWith($$"$env.")) {
@@ -126,5 +123,6 @@ internal fun dynamicVariableGenerator(key: String, pm: PostmanSDK): String? {
     val length = match.groupValues[1].toInt()
     return randomHexadecimal(length.coerceAtLeast(1))
   }
-  return dynamicVariableGenerators[key]?.invoke() ?: dynamicVariableGeneratorsWithPM[key]?.invoke(pm)
+  return dynamicVariableGenerators[key]?.invoke()
+    ?: dynamicVariableGeneratorsWithPM[key]?.invoke(pm)
 }

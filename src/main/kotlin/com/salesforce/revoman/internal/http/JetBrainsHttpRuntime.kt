@@ -90,9 +90,12 @@ internal class JetBrainsHttpRuntime(
   }
 
   private fun executeScript(script: String, bindings: Map<String, Any>) {
-    runCatching { 
-      pm.evaluateJSIsolated(script, bindings) // Use isolated evaluation to prevent variable pollution
-    }
+    runCatching {
+        pm.evaluateJSIsolated(
+          script,
+          bindings,
+        ) // Use isolated evaluation to prevent variable pollution
+      }
       .onFailure { failure ->
         if (failure is ClientExit) {
           return
@@ -142,11 +145,9 @@ internal class JetBrainsHttpRuntime(
       pm.environment.set(varName, varValue)
     }
 
-    @Suppress("unused")
-    fun get(varName: String): Any? = pm.environment[varName]
+    @Suppress("unused") fun get(varName: String): Any? = pm.environment[varName]
 
-    @Suppress("unused")
-    fun isEmpty(): Boolean = pm.environment.isEmpty()
+    @Suppress("unused") fun isEmpty(): Boolean = pm.environment.isEmpty()
 
     @Suppress("unused")
     fun clear(varName: String) {
@@ -193,11 +194,9 @@ internal class JetBrainsHttpRuntime(
     @Suppress("unused")
     val headers: RequestHeaders = RequestHeaders(request?.header.orEmpty(), pm, regexReplacer)
 
-    @Suppress("unused")
-    fun url(): String = url.tryGetSubstituted()
+    @Suppress("unused") fun url(): String = url.tryGetSubstituted()
 
-    @Suppress("unused")
-    fun body(): String = body.tryGetSubstituted()
+    @Suppress("unused") fun body(): String = body.tryGetSubstituted()
   }
 
   internal class RequestVariables(private val runtime: JetBrainsHttpRuntime) {
@@ -206,8 +205,7 @@ internal class JetBrainsHttpRuntime(
       runtime.setRequestVariable(name, value)
     }
 
-    @Suppress("unused")
-    fun get(name: String): Any? = runtime.getRequestVariable(name)
+    @Suppress("unused") fun get(name: String): Any? = runtime.getRequestVariable(name)
 
     @Suppress("unused")
     fun clear(name: String) {
@@ -223,8 +221,7 @@ internal class JetBrainsHttpRuntime(
     @Suppress("unused") fun getRaw(): String = raw
 
     @Suppress("unused")
-    fun tryGetSubstituted(): String =
-      regexReplacer.replaceVariablesRecursively(raw, pm) ?: raw
+    fun tryGetSubstituted(): String = regexReplacer.replaceVariablesRecursively(raw, pm) ?: raw
   }
 
   internal class RequestHeaders(
@@ -237,9 +234,9 @@ internal class JetBrainsHttpRuntime(
 
     @Suppress("unused")
     fun findByName(name: String): RequestHeader? =
-      headers.firstOrNull { it.key.equals(name, ignoreCase = true) }?.let {
-        RequestHeader(it, pm, regexReplacer)
-      }
+      headers
+        .firstOrNull { it.key.equals(name, ignoreCase = true) }
+        ?.let { RequestHeader(it, pm, regexReplacer) }
   }
 
   internal class RequestHeader(
@@ -260,20 +257,24 @@ internal class JetBrainsHttpRuntime(
     @JvmField @Suppress("unused") val status: Int = response.status.code
     @JvmField @Suppress("unused") val body: String = response.bodyString()
     @JvmField @Suppress("unused") val headers: ResponseHeaders = ResponseHeaders(response)
-    @JvmField @Suppress("unused") val contentType: ContentTypeInfo? =
+    @JvmField
+    @Suppress("unused")
+    val contentType: ContentTypeInfo? =
       response.contentType()?.let { ContentTypeInfo(it.value, null) }
   }
 
   internal class ResponseHeaders(private val response: org.http4k.core.Response) {
-    @Suppress("unused")
-    fun valueOf(headerName: String): String? = response.header(headerName)
+    @Suppress("unused") fun valueOf(headerName: String): String? = response.header(headerName)
 
     @Suppress("unused")
     fun valuesOf(headerName: String): List<String?> =
       response.headers.filter { it.first.equals(headerName, true) }.map { it.second }
   }
 
-  internal data class ContentTypeInfo(@Suppress("unused") val mimeType: String, @Suppress("unused") val charset: String?)
+  internal data class ContentTypeInfo(
+    @Suppress("unused") val mimeType: String,
+    @Suppress("unused") val charset: String?,
+  )
 
   private object MissingValue
 

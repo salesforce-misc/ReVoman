@@ -13,10 +13,7 @@ import com.salesforce.revoman.internal.postman.PostmanTemplateProvider
 
 internal object TemplateProviders {
   fun defaults(): List<TemplateProvider> =
-    listOf(
-      PostmanTemplateProvider(),
-      JetBrainsHttpTemplateProvider(),
-    )
+    listOf(PostmanTemplateProvider(), JetBrainsHttpTemplateProvider())
 
   fun loadTemplates(kick: Kick): List<TemplateLoadResult> {
     val sources = loadSources(kick)

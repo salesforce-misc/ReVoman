@@ -34,8 +34,7 @@ internal interface KickDef {
 
   fun templateInputStreams(): List<InputStream>
 
-  @Value.Default
-  fun templateProviders(): List<TemplateProvider> = TemplateProviders.defaults()
+  @Value.Default fun templateProviders(): List<TemplateProvider> = TemplateProviders.defaults()
 
   fun environmentPaths(): Set<String>
 

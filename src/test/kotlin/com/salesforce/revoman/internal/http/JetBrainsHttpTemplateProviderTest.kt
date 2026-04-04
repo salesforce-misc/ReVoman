@@ -32,13 +32,7 @@ class JetBrainsHttpTemplateProviderTest {
         .trimIndent()
     val provider = JetBrainsHttpTemplateProvider()
     val result =
-      provider.load(
-        TemplateSource(
-          name = "sample.http",
-          content = content,
-          extension = "http",
-        )
-      )
+      provider.load(TemplateSource(name = "sample.http", content = content, extension = "http"))
 
     result.fileVariables["baseUrl"] shouldBe "https://example.com"
     result.steps shouldHaveSize 1

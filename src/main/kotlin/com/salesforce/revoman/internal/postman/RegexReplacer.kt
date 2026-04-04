@@ -9,10 +9,10 @@ package com.salesforce.revoman.internal.postman
 
 import com.salesforce.revoman.input.config.CustomDynamicVariableGenerator
 import com.salesforce.revoman.input.template.TemplateFormat
-import io.github.oshai.kotlinlogging.KotlinLogging
 import com.salesforce.revoman.internal.postman.template.Auth.Bearer
 import com.salesforce.revoman.internal.postman.template.Item
 import com.salesforce.revoman.internal.postman.template.Request
+import io.github.oshai.kotlinlogging.KotlinLogging
 
 private const val VARIABLE_KEY = "variableKey"
 private val postManVariableRegex = "\\{\\{(?<$VARIABLE_KEY>[^{}]*?)}}".toRegex()
@@ -20,7 +20,8 @@ private val postManVariableRegex = "\\{\\{(?<$VARIABLE_KEY>[^{}]*?)}}".toRegex()
 class RegexReplacer(
   private val customDynamicVariableGenerators: Map<String, CustomDynamicVariableGenerator> =
     emptyMap(),
-  private val dynamicVariableGenerator: (String, PostmanSDK) -> String? = ::dynamicVariableGenerator,
+  private val dynamicVariableGenerator: (String, PostmanSDK) -> String? =
+    ::dynamicVariableGenerator,
   private val maxVariableResolutionDepth: Int = DEFAULT_MAX_RESOLUTION_DEPTH,
 ) {
   /**
@@ -55,13 +56,16 @@ class RegexReplacer(
     postManVariableRegex.replace(input) { variable ->
       val variableKey = variable.groups[VARIABLE_KEY]?.value!!
       val resolvedValue =
-        customDynamicVariableGenerators[variableKey]
-          ?.generate(variableKey, pm.currentStepReport, pm.rundown)
+        customDynamicVariableGenerators[variableKey]?.generate(
+          variableKey,
+          pm.currentStepReport,
+          pm.rundown,
+        )
           ?: dynamicVariableGenerator(variableKey, pm)
           ?: when (pm.templateFormat) {
             TemplateFormat.JETBRAINS_HTTP -> pm.resolveJetbrainsVariableAsString(variableKey)
-            TemplateFormat.POSTMAN_JSON -> pm.getRequestVariableAsString(variableKey)
-              ?: pm.environment.getAsString(variableKey)
+            TemplateFormat.POSTMAN_JSON ->
+              pm.getRequestVariableAsString(variableKey) ?: pm.environment.getAsString(variableKey)
           }
 
       when (pm.templateFormat) {

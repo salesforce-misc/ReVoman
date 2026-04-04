@@ -39,8 +39,7 @@ internal class JetBrainsClient(
     }
   }
 
-  @Suppress("unused")
-  fun exit() {}
+  @Suppress("unused") fun exit() {}
 
   class Global(private val environment: PostmanEnvironment<Any?>) {
     fun set(name: String, value: Any?) {
@@ -130,20 +129,19 @@ internal class JetBrainsResponse(private val moshiReVoman: MoshiReVoman) {
   }
 
   private fun parseBody(responseBody: String, mimeType: String): Any? {
-    val looksJson = mimeType.contains("json", ignoreCase = true) ||
-      responseBody.trimStart().startsWith("{") ||
-      responseBody.trimStart().startsWith("[")
+    val looksJson =
+      mimeType.contains("json", ignoreCase = true) ||
+        responseBody.trimStart().startsWith("{") ||
+        responseBody.trimStart().startsWith("[")
     if (!looksJson) return responseBody
     return runCatching { moshiReVoman.fromJson<Any>(responseBody) }.getOrDefault(responseBody)
   }
 }
 
 internal class JetBrainsResponseHeaders(private val headers: Map<String, List<String>>) {
-  fun valueOf(headerName: String): String? =
-    headers[headerName.lowercase()]?.firstOrNull()
+  fun valueOf(headerName: String): String? = headers[headerName.lowercase()]?.firstOrNull()
 
-  fun valuesOf(headerName: String): List<String> =
-    headers[headerName.lowercase()].orEmpty()
+  fun valuesOf(headerName: String): List<String> = headers[headerName.lowercase()].orEmpty()
 
   companion object {
     fun from(response: Response): JetBrainsResponseHeaders {
@@ -156,14 +154,18 @@ internal class JetBrainsResponseHeaders(private val headers: Map<String, List<St
   }
 }
 
-internal data class JetBrainsContentType(@JvmField val mimeType: String, @JvmField val charset: String) {
+internal data class JetBrainsContentType(
+  @JvmField val mimeType: String,
+  @JvmField val charset: String,
+) {
   companion object {
     fun from(contentTypeHeader: String?): JetBrainsContentType {
       if (contentTypeHeader.isNullOrBlank()) return JetBrainsContentType("", "")
       val parts = contentTypeHeader.split(";").map { it.trim() }
       val mimeType = parts.firstOrNull().orEmpty()
       val charset =
-        parts.firstOrNull { it.startsWith("charset=", ignoreCase = true) }
+        parts
+          .firstOrNull { it.startsWith("charset=", ignoreCase = true) }
           ?.substringAfter("=")
           ?.trim()
           .orEmpty()
