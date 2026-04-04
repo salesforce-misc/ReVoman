@@ -11,8 +11,8 @@ import arrow.core.Either
 import arrow.core.Either.Right
 import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.internal.json.MoshiReVoman
-import com.salesforce.revoman.internal.postman.PostmanSDK
 import com.salesforce.revoman.output.ExeType.UNMARSHALL_REQUEST
+import com.salesforce.revoman.output.Rundown
 import com.salesforce.revoman.output.report.Step
 import com.salesforce.revoman.output.report.TxnInfo
 import com.salesforce.revoman.output.report.failure.RequestFailure.UnmarshallRequestFailure
@@ -29,7 +29,7 @@ internal fun unmarshallRequest(
   pmRequest: com.salesforce.revoman.internal.postman.template.Request,
   kick: Kick,
   moshiReVoman: MoshiReVoman,
-  pm: PostmanSDK,
+  rundown: Rundown,
 ): Either<UnmarshallRequestFailure, TxnInfo<Request>> {
   val httpRequest = pmRequest.toHttpRequest(moshiReVoman)
   return when {
@@ -42,7 +42,7 @@ internal fun unmarshallRequest(
             it.preTxnStepPick.pick(
               currentStep,
               TxnInfo(httpMsg = httpRequest, moshiReVoman = moshiReVoman),
-              pm.rundown,
+              rundown,
             )
           }
           ?.also { logger.info { "$currentStep RequestConfig found : ${pprint(it)}" } }

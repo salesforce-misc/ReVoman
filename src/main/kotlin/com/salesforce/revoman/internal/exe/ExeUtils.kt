@@ -22,6 +22,9 @@ import com.salesforce.revoman.output.report.Folder
 import com.salesforce.revoman.output.report.Step
 import com.salesforce.revoman.output.report.StepReport
 import io.github.oshai.kotlinlogging.KotlinLogging
+import java.time.Duration
+import kotlin.time.measureTimedValue
+import kotlin.time.toJavaDuration
 
 internal fun deepFlattenItems(
   items: List<Item>,
@@ -81,6 +84,18 @@ internal fun <T> runCatching(
         Left(it)
       },
     )
+}
+
+internal inline fun <T> timed(
+  currentStep: Step,
+  exeTimings: MutableMap<ExeType, Duration>,
+  exeType: ExeType,
+  block: () -> T,
+): T {
+  val (result, elapsed) = measureTimedValue(block)
+  exeTimings[exeType] = elapsed.toJavaDuration()
+  logger.info { "$currentStep $exeType completed in $elapsed" }
+  return result
 }
 
 // ! TODO 01 Mar 2025 gopala.akshintala: Unit test this

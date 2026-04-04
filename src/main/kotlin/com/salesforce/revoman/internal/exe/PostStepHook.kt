@@ -11,7 +11,6 @@ import com.salesforce.revoman.input.config.HookConfig
 import com.salesforce.revoman.input.config.HookConfig.StepHook.PostStepHook
 import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.input.config.StepPick.PostTxnStepPick
-import com.salesforce.revoman.internal.postman.PostmanSDK
 import com.salesforce.revoman.output.ExeType.POST_STEP_HOOK
 import com.salesforce.revoman.output.Rundown
 import com.salesforce.revoman.output.report.StepReport
@@ -19,17 +18,21 @@ import com.salesforce.revoman.output.report.failure.HookFailure.PostStepHookFail
 import io.github.oshai.kotlinlogging.KotlinLogging
 
 @JvmSynthetic
-internal fun postStepHookExe(kick: Kick, pm: PostmanSDK): PostStepHookFailure? =
-  pickPostStepHooks(kick.postStepHooks(), pm.currentStepReport, pm.rundown)
+internal fun postStepHookExe(
+  kick: Kick,
+  currentStepReport: StepReport,
+  rundown: Rundown,
+): PostStepHookFailure? =
+  pickPostStepHooks(kick.postStepHooks(), currentStepReport, rundown)
     .map { postStepHook ->
-      runCatching(pm.currentStepReport.step, POST_STEP_HOOK) {
-          postStepHook.accept(pm.currentStepReport, pm.rundown)
+      runCatching(currentStepReport.step, POST_STEP_HOOK) {
+          postStepHook.accept(currentStepReport, rundown)
         }
         .mapLeft {
           PostStepHookFailure(
             it,
-            pm.currentStepReport.requestInfo!!.get(),
-            pm.currentStepReport.responseInfo!!.get(),
+            currentStepReport.requestInfo!!.get(),
+            currentStepReport.responseInfo!!.get(),
           )
         }
     }

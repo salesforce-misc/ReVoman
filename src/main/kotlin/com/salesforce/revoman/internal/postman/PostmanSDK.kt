@@ -90,6 +90,11 @@ class PostmanSDK(
     }
   }
 
+  internal fun syncProgress(stepReport: StepReport) {
+    currentStepReport = stepReport
+    rundown = rundown.copy(stepReports = rundown.stepReports + stepReport)
+  }
+
   internal fun setRequestAndResponse(pmRequest: Request, httpResponse: org.http4k.core.Response) {
     request = pmRequest
     response =

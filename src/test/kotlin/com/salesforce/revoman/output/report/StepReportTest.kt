@@ -126,7 +126,7 @@ class StepReportTest {
         PostStepHookFailure(RuntimeException("fakeRTE"), requestInfo, responseInfo),
         null,
         null,
-        PostmanEnvironment(),
+        pmEnvSnapshot = PostmanEnvironment(),
       )
     println(stepReportPostStepHookFailure)
     stepReportPostStepHookFailure.isHttpStatusSuccessful shouldBe true
