@@ -547,10 +547,6 @@ ReṼoman logs all the key operations that happen inside its source-code,
 including how a step mutates environment variables in its <<Pre-req and Post-res scripts>>.
 Watch your console to check what's going on in the execution or troubleshoot from CI/CD logs
 
-TIP: link:docs/revoman.exe.log[📝Sample log] printed during execution
-
-image:pq-exe-logging.gif[Monitor Execution]
-
 TIP: If the execution halts due to any failure, the failure and failed step information can be found in the logs for easy troubleshooting
 
 == Features
