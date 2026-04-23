@@ -17,6 +17,7 @@ import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.after
 import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.afterStepName;
 import static com.salesforce.revoman.input.config.StepPick.PreTxnStepPick.beforeStepContainingHeader;
 import static com.salesforce.revoman.input.config.StepPick.PreTxnStepPick.beforeStepName;
+import static org.assertj.vavr.api.VavrAssertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -37,7 +38,6 @@ import java.util.List;
 import java.util.Map;
 import kotlin.Pair;
 import kotlin.collections.MapsKt;
-import org.assertj.vavr.api.VavrAssertions;
 import org.http4k.core.Request;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
@@ -45,24 +45,24 @@ import org.mockito.Mockito;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-class PokemonTest {
+class PokemonHttpTest {
 
-  private static final String PM_COLLECTION_PATH =
-      "pm-templates/pokemon/pokemon.postman_collection.json";
-  private static final String PM_ENVIRONMENT_PATH =
-      "pm-templates/pokemon/pokemon.postman_environment.json";
+  private static final String HTTP_TEMPLATE_PATH = "http-templates/pokemon/pokemon.http";
+  private static final String HTTP_ENVIRONMENT_PATH = "http-templates/pokemon/http-client.env.json";
+  private static final String ALL_POKEMON_STEP = "all-pokemon";
+  private static final String ENV_LIMIT = "limit";
   private static final int LIMIT = 3;
   private static final int OFFSET = 0;
-  private static final Logger LOGGER = LoggerFactory.getLogger(PokemonTest.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(PokemonHttpTest.class);
   private static final RuntimeException RUNTIME_EXCEPTION =
       new RuntimeException("This won't interrupt the execution as `haltOnAnyFailure` is not set");
 
   @Test
-  void pokemon() {
+  void pokemonHttp() {
     final var newLimit = 1;
     final var dynamicEnvironment1 = Map.of("offset", OFFSET);
     final var dynamicEnvironment2 =
-        MapsKt.mapOf(new Pair<>("limit", LIMIT), new Pair<>("null", null));
+        MapsKt.mapOf(new Pair<>(ENV_LIMIT, LIMIT), new Pair<>("null", null));
     @SuppressWarnings("Convert2Lambda")
     final var preLogHook =
         Mockito.spy(
@@ -94,7 +94,7 @@ class PokemonTest {
                   @NotNull Step ignore1,
                   @NotNull TxnInfo<Request> ignore2,
                   @NotNull Rundown rundown) {
-                rundown.mutableEnv.set("limit", newLimit);
+                rundown.mutableEnv.set(ENV_LIMIT, newLimit);
               }
             });
     @SuppressWarnings("Convert2Lambda")
@@ -103,7 +103,7 @@ class PokemonTest {
             new PostStepHook() {
               @Override
               public void accept(@NotNull StepReport stepReport, @NotNull Rundown rundown) {
-                assertThat(rundown.mutableEnv).containsEntry("limit", newLimit);
+                assertThat(rundown.mutableEnv).containsEntry(ENV_LIMIT, newLimit);
                 final var results =
                     stepReport.responseInfo.get().<AllPokemon>getTypedTxnObj().results;
                 assertThat(results.size()).isEqualTo(newLimit);
@@ -131,12 +131,12 @@ class PokemonTest {
             });
     final var config =
         Kick.configure()
-            .templatePath(PM_COLLECTION_PATH)
-            .environmentPath(PM_ENVIRONMENT_PATH)
-            .responseConfig(unmarshallResponse(afterStepName("all-pokemon"), AllPokemon.class))
+            .templatePath(HTTP_TEMPLATE_PATH)
+            .environmentPath(HTTP_ENVIRONMENT_PATH)
+            .responseConfig(unmarshallResponse(afterStepName(ALL_POKEMON_STEP), AllPokemon.class))
             .hooks(
-                pre(beforeStepName("all-pokemon"), preStepHookBeforeStepName),
-                post(afterStepName("all-pokemon"), postStepHookAfterStepName),
+                pre(beforeStepName(ALL_POKEMON_STEP), preStepHookBeforeStepName),
+                post(afterStepName(ALL_POKEMON_STEP), postStepHookAfterStepName),
                 post(afterStepContainingURIPathOfAny("pokemon-color"), postStepHookAfterURIPath),
                 pre(beforeStepContainingHeader("preLog"), preLogHook),
                 post(afterStepContainingHeader("postLog"), postLogHook))
@@ -147,14 +147,14 @@ class PokemonTest {
             config.overrideDynamicEnvironment(intoMap(dynamicEnvironment1, dynamicEnvironment2)));
 
     final var postHookFailure = pokeRundown.firstUnIgnoredUnsuccessfulStepReport().failure;
-    VavrAssertions.assertThat(postHookFailure).containsLeftInstanceOf(PostStepHookFailure.class);
+    assertThat(postHookFailure).containsLeftInstanceOf(PostStepHookFailure.class);
     assertThat(postHookFailure.getLeft().getFailure()).isEqualTo(RUNTIME_EXCEPTION);
     assertThat(pokeRundown.stepReports).hasSize(5);
     assertThat(pokeRundown.mutableEnv)
         .containsExactlyEntriesIn(
             MapsKt.mapOf(
                 new Pair<>("offset", OFFSET),
-                new Pair<>("limit", newLimit),
+                new Pair<>(ENV_LIMIT, newLimit),
                 new Pair<>("baseUrl", "https://pokeapi.co/api/v2"),
                 new Pair<>("id", "1"),
                 new Pair<>("pokemonName", "bulbasaur"),

@@ -171,4 +171,22 @@ class EvalJsTest {
         )
       )
   }
+
+  @Test
+  fun `jetbrains client global set uses response body`() {
+    val httpResponseStr = """{"name":"pikachu"}"""
+    pm.setResponse(CREATED.code, CREATED.toString(), httpResponseStr)
+    val value =
+      pm
+        .evaluateJS(
+          """
+          var jsonData = typeof response.body === "string" ? JSON.parse(response.body) : response.body
+          client.global.set("pokemon", jsonData.name)
+          client.global.get("pokemon")
+          """
+            .trimIndent()
+        )
+        .asString()
+    value shouldBe "pikachu"
+  }
 }

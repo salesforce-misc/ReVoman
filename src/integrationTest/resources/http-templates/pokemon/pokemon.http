@@ -1,0 +1,56 @@
+@offset = 0
+@limit = 3
+
+### all-pokemon
+< {%
+client.global.set("limit", 1);
+%}
+GET {{baseUrl}}/pokemon?offset={{offset}}&limit={{limit}}
+
+> {%
+var jsonData = typeof response.body === "string" ? JSON.parse(response.body) : response.body;
+var pokemon = jsonData.results[0];
+var pokemonName = pokemon.name;
+client.global.set("pokemonName", pokemonName);
+var urlParts = pokemon.url.split("/").filter(part => part.length > 0);
+var id = urlParts[urlParts.length - 1];
+client.global.set("id", id);
+%}
+
+###
+### pokemon-color
+GET {{baseUrl}}/pokemon-color/{{id}}
+postLog: true
+
+> {%
+var jsonData = typeof response.body === "string" ? JSON.parse(response.body) : response.body;
+client.global.set("color", jsonData.name);
+%}
+
+###
+### pokemon-gender
+GET {{baseUrl}}/gender/{{id}}
+
+> {%
+var jsonData = typeof response.body === "string" ? JSON.parse(response.body) : response.body;
+client.global.set("gender", jsonData.name);
+%}
+
+###
+### pokemon-ability
+GET {{baseUrl}}/ability/{{id}}
+
+> {%
+  const jsonData = typeof response.body === "string" ? JSON.parse(response.body) : response.body;
+  client.global.set("ability", jsonData.name);
+%}
+
+###
+### nature
+GET {{baseUrl}}/nature/{{id}}
+preLog: true
+
+> {%
+var jsonData = typeof response.body === "string" ? JSON.parse(response.body) : response.body;
+client.global.set("nature", jsonData.name);
+%}

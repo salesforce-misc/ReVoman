@@ -26,6 +26,7 @@ internal fun executePreReqJS(
   currentStepReport: StepReport,
   pm: PostmanSDK,
 ): Either<PreReqJSFailure, Unit> {
+  pm.setRequest(pm.from(itemWithRegex.request))
   val preReqJS =
     itemWithRegex.event?.find { it.listen == "prerequest" }?.script?.exec?.joinToString("\n")
   return if (!preReqJS.isNullOrBlank()) {
@@ -39,8 +40,8 @@ internal fun executePreReqJS(
 }
 
 private fun executePreReqJSWithPolyglot(preReqJS: String, pmRequest: Request, pm: PostmanSDK) {
-  pm.request = pm.from(pmRequest)
-  pm.evaluateJS(preReqJS)
+  pm.setRequest(pm.from(pmRequest))
+  pm.evaluateJSIsolated(preReqJS) // Use isolated evaluation to prevent variable pollution
 }
 
 @JvmSynthetic
@@ -69,11 +70,10 @@ internal fun executePostResJS(
 
 private fun executePostResJSWithPolyglot(
   postResJS: String,
-  pmRequest: Request,
   stepReport: StepReport,
   pm: PostmanSDK,
 ) {
   val httpResponse = stepReport.responseInfo!!.get().httpMsg
-  pm.setRequestAndResponse(pm.from(pmRequest), httpResponse)
-  pm.evaluateJS(postResJS, mapOf("responseBody" to httpResponse.bodyString()))
+  pm.setResponse(httpResponse)
+  pm.evaluateJSIsolated(postResJS, mapOf("responseBody" to httpResponse.bodyString()))
 }

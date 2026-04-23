@@ -15,6 +15,7 @@ import arrow.core.Either.Right
 import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.input.config.StepPick.ExeStepPick
 import com.salesforce.revoman.internal.postman.template.Item
+import com.salesforce.revoman.internal.template.TemplateType
 import com.salesforce.revoman.output.ExeType
 import com.salesforce.revoman.output.Rundown
 import com.salesforce.revoman.output.Rundown.Companion.isStepIgnoredForFailure
@@ -30,6 +31,7 @@ internal fun deepFlattenItems(
   items: List<Item>,
   parentFolder: Folder? = null,
   stepIndexFromParent: String = "",
+  templateType: TemplateType = TemplateType.POSTMAN,
 ): List<Step> =
   items
     .asSequence()
@@ -46,8 +48,8 @@ internal fun deepFlattenItems(
         ?.let {
           val currentFolder = Folder(item.name, parentFolder)
           parentFolder?.subFolders?.add(currentFolder)
-          deepFlattenItems(it, currentFolder, stepIndex)
-        } ?: listOf(Step(stepIndex, item, parentFolder))
+          deepFlattenItems(it, currentFolder, stepIndex, templateType)
+        } ?: listOf(Step(stepIndex, item, parentFolder, templateType))
     }
     .toList()
 
@@ -61,11 +63,13 @@ internal fun shouldStepBePicked(
   }
   val runStep = runOnlySteps.isEmpty() || runOnlySteps.any { it.pick(currentStep) }
   val skipStep = skipSteps.isNotEmpty() && skipSteps.any { it.pick(currentStep) }
-  check(!(runStep && skipStep)) {
+  val hasRunOnlyPick = runOnlySteps.isNotEmpty()
+  check(!(hasRunOnlyPick && runStep && skipStep)) {
     "‼️😵‍💫 Ambiguous - $currentStep is picked for both run and skip execution"
   }
   if (skipStep) {
     logger.info { "$currentStep skipped for execution" }
+    return false
   }
   return runStep
 }

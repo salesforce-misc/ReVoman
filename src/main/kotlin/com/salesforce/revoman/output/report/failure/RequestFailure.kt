@@ -9,6 +9,7 @@ package com.salesforce.revoman.output.report.failure
 
 import com.salesforce.revoman.output.ExeType.HTTP_REQUEST
 import com.salesforce.revoman.output.ExeType.PRE_REQ_JS
+import com.salesforce.revoman.output.ExeType.STEP_PICK
 import com.salesforce.revoman.output.ExeType.UNMARSHALL_REQUEST
 import com.salesforce.revoman.output.report.TxnInfo
 import org.http4k.core.Request
@@ -21,6 +22,13 @@ sealed class RequestFailure : ExeFailure() {
     override val requestInfo: TxnInfo<Request>,
   ) : RequestFailure() {
     override val exeType = PRE_REQ_JS
+  }
+
+  data class StepPickFailure(
+    override val failure: Throwable,
+    override val requestInfo: TxnInfo<Request>,
+  ) : RequestFailure() {
+    override val exeType = STEP_PICK
   }
 
   data class UnmarshallRequestFailure(
