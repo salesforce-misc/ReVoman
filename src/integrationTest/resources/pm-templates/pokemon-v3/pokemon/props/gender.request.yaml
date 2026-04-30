@@ -1,0 +1,10 @@
+$kind: http-request
+url: "{{baseUrl}}/gender/{{id}}"
+method: GET
+scripts:
+  - type: afterResponse
+    code: |-
+      var jsonData = JSON.parse(responseBody)
+      pm.environment.set("gender", jsonData["name"])
+    language: text/javascript
+order: 2000

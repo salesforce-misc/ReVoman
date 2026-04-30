@@ -1,0 +1,4 @@
+name: Pokemon
+values:
+  - key: baseUrl
+    value: 'https://pokeapi.co/api/v2'

@@ -1,0 +1,18 @@
+$kind: http-request
+url: "{{baseUrl}}/pokemon?offset={{offset}}&limit={{limit}}"
+method: GET
+queryParams:
+  offset: "{{offset}}"
+  limit: "{{limit}}"
+scripts:
+  - type: afterResponse
+    code: |-
+      var jsonData = JSON.parse(responseBody)
+      var pokemon = jsonData["results"][0]
+      var pokemonName = pokemon.name
+      pm.environment.set("pokemonName", pokemonName)
+      var lastIndex = pokemon.url.lastIndexOf("/")
+      var id = pokemon.url.substring(lastIndex - 1, lastIndex)
+      pm.environment.set("id", id)
+    language: text/javascript
+order: 1000
