@@ -1,8 +1,8 @@
 [versions]
 jdk = "21"
-kotlin = "2.3.21"
+kotlin = "2.4.0-Beta2"
 moshix = "0.35.0"
-http4k = "6.44.0.0"
+http4k = "6.46.0.0"
 immutables = "2.12.1"
 arrow = "2.2.2.1"
 graal = "25.0.3"
@@ -15,7 +15,7 @@ testLogger = "4.0.0"
 truth = "1.4.5"
 assertj-core = "4.0.0-M1"
 assertj-vavr = "0.5.0"
-kotlin-logging = "8.0.01"
+kotlin-logging = "8.0.02"
 pprint = "3.0.0"
 underscore = "1.120"
 kotlin-faker = "2.0.0-rc.13"
@@ -34,7 +34,7 @@ junit = "5.11.4"
 kover = "0.9.8"
 detekt = "1.23.8"
 spotless = "8.4.0"
-apache-log4j = "3.0.0-beta2"
+apache-log4j = "3.0.0-beta3"
 
 [libraries]
 java-vavr = { module = "io.vavr:vavr", version.ref = "java-vavr" }
