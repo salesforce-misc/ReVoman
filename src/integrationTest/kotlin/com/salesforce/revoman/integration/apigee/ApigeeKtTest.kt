@@ -23,6 +23,6 @@ class ApigeeKtTest {
   }
 
   companion object {
-    private const val PM_COLLECTION_PATH = "pm-templates/apigee/apigee.postman_collection.json"
+    private const val PM_COLLECTION_PATH = "pm-templates/v2/apigee/apigee.postman_collection.json"
   }
 }

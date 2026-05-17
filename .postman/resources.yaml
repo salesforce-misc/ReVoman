@@ -1,9 +1,6 @@
 # Use this workspace to collaborate
-workspace:
-  id: e414cdfe-5f37-4491-9f86-2c3e6aea24fc
-
 localResources:
   collections:
-    - ../src/integrationTest/resources/pm-templates/pokemon-v3
+    - ../src/integrationTest/resources/pm-templates/v3/pokemon
   environments:
-    - ../src/integrationTest/resources/pm-templates/pokemon-v3/Pokemon.environment.yaml
+    - ../src/integrationTest/resources/pm-templates/v3/pokemon/Pokemon.environment.yaml

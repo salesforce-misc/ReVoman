@@ -26,12 +26,12 @@ public final class ReVomanConfigForBT2BS {
 
   private ReVomanConfigForBT2BS() {}
 
-  static final String ENV_PATH = "pm-templates/core/milestone/env.postman_environment.json";
+  static final String ENV_PATH = "pm-templates/v2/core/milestone/env.postman_environment.json";
   static final String IGNORE_HTTP_STATUS_UNSUCCESSFUL = "ignoreHTTPStatusUnsuccessful";
   static final String NODE_MODULE_RELATIVE_PATH = "js";
 
   // ## User creation and Setup
-  static final String COLLECTION_PATH = "pm-templates/core/milestone/";
+  static final String COLLECTION_PATH = "pm-templates/v2/core/milestone/";
   private static final String PERSONA_CREATION_AND_SETUP_COLLECTION_PATH =
       COLLECTION_PATH + "persona-creation-and-setup.postman_collection.json";
   static final Kick PERSONA_CREATION_AND_SETUP_CONFIG =
