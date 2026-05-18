@@ -32,6 +32,7 @@ dependencies {
   implementation(libs.underscore)
   implementation(libs.okio.jvm)
   implementation(libs.spring.beans)
+  implementation(libs.snakeyaml)
   kapt(libs.immutables.value)
   compileOnly(libs.immutables.builder)
   compileOnly(libs.immutables.value.annotations)
