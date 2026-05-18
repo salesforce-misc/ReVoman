@@ -71,4 +71,39 @@ class V3YamlReaderTest {
     assertThat(req.scripts).isEmpty()
     assertThat(req.auth).isEmpty()
   }
+
+  @Test
+  fun testReadRequestPostWithBodyAndMultiScript() {
+    val yaml =
+      """
+      ${'$'}kind: http-request
+      url: https://{{uri}}/objects
+      method: POST
+      body:
+        type: json
+        content: |-
+          {
+            "name": "x"
+          }
+      scripts:
+        - type: afterResponse
+          code: |-
+            var responseJson = pm.response.json();
+          language: text/javascript
+        - type: beforeRequest
+          code: |-
+            var moment = require('moment')
+          language: text/javascript
+      order: 2000
+      """
+        .trimIndent()
+    val req = V3YamlReader.readRequest(yaml)
+    assertThat(req.method).isEqualTo("POST")
+    assertThat(req.body).isNotNull()
+    assertThat(req.body!!.type).isEqualTo("json")
+    assertThat(req.body!!.content).contains("\"name\": \"x\"")
+    assertThat(req.scripts).hasSize(2)
+    assertThat(req.scripts[0].type).isEqualTo("afterResponse")
+    assertThat(req.scripts[1].type).isEqualTo("beforeRequest")
+  }
 }
