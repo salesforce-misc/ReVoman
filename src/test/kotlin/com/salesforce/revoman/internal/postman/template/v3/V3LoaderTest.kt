@@ -37,4 +37,23 @@ class V3LoaderTest {
     assertThat(nested.name).isEqualTo("overrides-auth")
     assertThat(nested.request.auth!!.bearer.single().value).isEqualTo("INNER")
   }
+
+  @Test
+  fun testLoadThrowsWhenDefinitionMissing() {
+    val dir = File("src/test/resources/pm-templates/v3/no-def")
+    val ex =
+      org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException::class.java) {
+        V3Loader.load(dir)
+      }
+    assertThat(ex.message).contains("Not a v3 collection root")
+    assertThat(ex.message).contains(".resources/definition.yaml")
+  }
+
+  @Test
+  fun testLoadHandlesBracketsAndSpacesInPath() {
+    val dir = File("src/test/resources/pm-templates/v3/with [brackets]")
+    val items = V3Loader.load(dir)
+    assertThat(items).hasSize(1)
+    assertThat(items[0].name).isEqualTo("req")
+  }
 }
