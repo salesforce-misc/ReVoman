@@ -20,4 +20,21 @@ class V3LoaderTest {
     val names = items.map { it.name }
     assertThat(names).containsExactly("b", "c", "a").inOrder()
   }
+
+  @Test
+  fun testLoadNestedCollectionWithAuthInheritanceAndOverride() {
+    val dir = File("src/test/resources/pm-templates/v3/nested")
+    val items = V3Loader.load(dir)
+    assertThat(items).hasSize(2)
+    assertThat(items[0].name).isEqualTo("inherits-auth")
+    assertThat(items[0].request.auth!!.bearer.single().value).isEqualTo("OUTER")
+
+    val sub = items[1]
+    assertThat(sub.name).isEqualTo("sub")
+    assertThat(sub.item).isNotNull()
+    assertThat(sub.item).hasSize(1)
+    val nested = sub.item!!.single()
+    assertThat(nested.name).isEqualTo("overrides-auth")
+    assertThat(nested.request.auth!!.bearer.single().value).isEqualTo("INNER")
+  }
 }
