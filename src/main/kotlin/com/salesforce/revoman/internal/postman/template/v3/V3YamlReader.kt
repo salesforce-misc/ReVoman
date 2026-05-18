@@ -21,6 +21,22 @@ internal object V3YamlReader {
     return mapToRequest(map)
   }
 
+  fun readEnv(yaml: String): V3Env {
+    val map = parseYaml(yaml)
+    @Suppress("UNCHECKED_CAST")
+    val values = (map["values"] as? List<Map<String, Any?>>) ?: emptyList()
+    return V3Env(
+      name = map["name"]?.toString(),
+      values =
+        values.map { m ->
+          V3EnvValue(
+            key = m["key"]?.toString() ?: error("v3 env value missing 'key'"),
+            value = m["value"]?.toString(),
+          )
+        },
+    )
+  }
+
   private fun mapToRequest(map: Map<String, Any?>): V3Request =
     V3Request(
       kind = strOrDefault(map["\$kind"], "http-request"),

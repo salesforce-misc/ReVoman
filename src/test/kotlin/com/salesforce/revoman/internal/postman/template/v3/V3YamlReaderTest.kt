@@ -106,4 +106,43 @@ class V3YamlReaderTest {
     assertThat(req.scripts[0].type).isEqualTo("afterResponse")
     assertThat(req.scripts[1].type).isEqualTo("beforeRequest")
   }
+
+  @Test
+  fun testYaml11BooleansCoercedToString() {
+    val yaml =
+      """
+      ${'$'}kind: http-request
+      url: "{{baseUrl}}/x"
+      method: GET
+      headers:
+        preLog: yes
+        onFlag: on
+        offFlag: off
+      """
+        .trimIndent()
+    val req = V3YamlReader.readRequest(yaml)
+    assertThat(req.headers["preLog"]).isEqualTo("true")
+    assertThat(req.headers["onFlag"]).isEqualTo("true")
+    assertThat(req.headers["offFlag"]).isEqualTo("false")
+  }
+
+  @Test
+  fun testReadEnv() {
+    val yaml =
+      """
+      name: Pokemon
+      values:
+        - key: baseUrl
+          value: 'https://pokeapi.co/api/v2'
+        - key: enabled
+          value: yes
+      """
+        .trimIndent()
+    val env = V3YamlReader.readEnv(yaml)
+    assertThat(env.name).isEqualTo("Pokemon")
+    assertThat(env.values).hasSize(2)
+    assertThat(env.values[0].key).isEqualTo("baseUrl")
+    assertThat(env.values[0].value).isEqualTo("https://pokeapi.co/api/v2")
+    assertThat(env.values[1].value).isEqualTo("true")
+  }
 }
