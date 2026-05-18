@@ -1,0 +1,17 @@
+$kind: http-request
+url: https://example.com/x
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {"a":1}
+scripts:
+  - type: afterResponse
+    code: console.log("after")
+    language: text/javascript
+  - type: beforeRequest
+    code: console.log("before")
+    language: text/javascript
+order: 1000
