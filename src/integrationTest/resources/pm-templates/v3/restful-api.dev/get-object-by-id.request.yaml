@@ -1,0 +1,8 @@
+$kind: http-request
+url: https://{{uri}}/objects/{{objId}}
+method: GET
+scripts:
+  - type: beforeRequest
+    code: console.log(pm.environment.get("data"))
+    language: text/javascript
+order: 4000

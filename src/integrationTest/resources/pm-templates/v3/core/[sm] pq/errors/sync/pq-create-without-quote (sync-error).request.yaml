@@ -1,0 +1,48 @@
+$kind: http-request
+url: "{{baseUrl}}{{versionPath}}/commerce/quotes/actions/place"
+method: POST
+headers:
+  ignoreHTTPStatusUnsuccessful: "true"
+  isSync: "true"
+body:
+  type: json
+  content: |-
+    {
+      "pricingPref": "{{$pricingPref}}",
+      "graph": {
+        "graphId": "{{$requestName}}",
+        "records": [
+          {
+            "referenceId": "refQuoteLineItem1",
+            "record": {
+              "attributes": {
+                "type": "QuoteLineItem",
+                "method": "POST"
+              },
+              "QuoteId": "@{refQuote.id}",
+              "PricebookEntryId": "{{evergreenPriceBookEntryId}}",
+              "Product2Id": "{{evergreenProductId}}",
+              "Quantity": {{$quantity}},
+              "UnitPrice": {{$unitPrice}},
+              "PeriodBoundary": "Anniversary",
+              "BillingFrequency": "Monthly",
+              "StartDate": "{{$currentDate}}"
+            }
+          }
+        ]
+      }
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      var moment = require("moment");
+      pm.environment.set("$currentDate", moment().format(("YYYY-MM-DD")));
+
+      var futureDateTime = moment().add(365, 'days');
+      pm.environment.set('$randomFutureDate', futureDateTime.format('YYYY-MM-DD'));
+
+      pm.environment.set("$pricingPref", "system")
+      pm.environment.set("$quantity", _.random(1, 10));
+      pm.environment.set("$requestName", pm.info.requestName)
+    language: text/javascript
+order: 1000

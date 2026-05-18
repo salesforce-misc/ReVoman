@@ -1,0 +1,14 @@
+$kind: http-request
+url: "{{baseUrl}}{{versionPath}}/sobjects/Order/{{orderId}}"
+method: PATCH
+body:
+  type: json
+  content: |-
+    {
+      "Status": "Activated"
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{accessToken}}"
+order: 5000

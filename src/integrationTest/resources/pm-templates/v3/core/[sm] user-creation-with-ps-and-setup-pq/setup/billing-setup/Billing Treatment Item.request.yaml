@@ -1,0 +1,26 @@
+$kind: http-request
+url: "{{baseUrl}}{{versionPath}}/sobjects/BillingTreatmentItem/"
+method: POST
+body:
+  type: json
+  content: |-
+    {
+        "Name": "Test Billing Treatment Item",
+        "Status": "Draft",
+        "Sequencing": "Manual",
+        "ProcessingOrder": 0,
+        "BillingTreatmentId": "{{billingTreatmentId}}",
+        "Description": "Test Billing Treatment Item",
+        "type": "Percentage",
+        "BillingType": "Advance",
+        "Percentage": 100,
+        "Controller": "BillingScheduleGroup",
+        "Handling0Amount": "CreateInvoice"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      var jsonData = pm.response.json()
+      pm.environment.set("billingTreatmentItemId", jsonData.id)
+    language: text/javascript
+order: 4000

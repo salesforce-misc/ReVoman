@@ -1,0 +1,19 @@
+$kind: http-request
+url: "{{baseUrl}}{{versionPath}}/sobjects/BillingPolicy/"
+method: POST
+body:
+  type: json
+  content: |-
+    {
+        "Name": "Test Billinng Policy",
+        "Status": "Draft",
+        "BillingTreatmentSelection": "Default",
+        "Description": "Test Billinng Policy"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      var jsonData = pm.response.json()
+      pm.environment.set("billingPolicyId", jsonData.id)
+    language: text/javascript
+order: 2000

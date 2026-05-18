@@ -1,0 +1,17 @@
+$kind: http-request
+url: "{{baseUrl}}{{versionPath}}/sobjects/PaymentTerm/{{paymentTermId}}"
+method: PATCH
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+        "IsDefault": true,
+        "Status": "Active"
+    }
+scripts:
+  - type: afterResponse
+    code: "\ \n "
+    language: text/javascript
+order: 10000

@@ -1,0 +1,53 @@
+$kind: http-request
+url: "{{baseUrl}}{{versionPath}}/composite"
+method: POST
+body:
+  type: json
+  content: |-
+    {
+      "allOrNone": false,
+      "compositeRequest": [
+        {
+          "method": "GET",
+          "url": "{{versionPath}}/query/?q=Select {{$bsFieldsToQuery}} FROM BillingSchedule WHERE ReferenceEntityItemId in (Select Id FROM OrderItem WHERE OrderId = '{{orderId}}')",
+          "referenceId": "billingScheduleForOrderId"
+        },
+        {
+          "method": "GET",
+          "url": "{{versionPath}}/query/?q=SELECT {{$bmpFieldsToQuery}} FROM BillingMilestonePlan WHERE ReferenceItemId = '@{billingScheduleForOrderId.records[0].Id}'",
+          "referenceId": "billingMilestonePlan"
+        },
+        {
+          "method": "GET",
+          "url": "{{versionPath}}/query/?q=SELECT {{$bmpiFieldsToQuery}} FROM BillingMilestonePlanItem WHERE BillingMilestonePlanId = '@{billingMilestonePlan.records[0].Id}' ORDER BY MilestoneAccomplishmentDate",
+          "referenceId": "billingMilestonePlanItems"
+        }
+      ]
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      var jsonData = pm.response.json()
+
+      jsonData.compositeResponse[0].body.records.forEach((record, index) => {
+        pm.environment.set("billingSchedule" + (index + 1) + "Id", record.Id)
+        pm.environment.set("billingSchedule" + (index + 1) + "Status", record.Status)
+      })
+
+      jsonData.compositeResponse[1].body.records.forEach((record, index) => {
+        pm.environment.set("billingMilestonePlan" + (index + 1) + "Id", record.Id)
+        pm.environment.set("billingMilestonePlan" + (index + 1) + "Status", record.Status)
+      })
+
+      jsonData.compositeResponse[2].body.records.forEach((record, index) => {
+        pm.environment.set("billingMilestonePlanItem" + (index + 1) + "Id", record.Id)
+        pm.environment.set("billingMilestonePlanItem" + (index + 1) + "Status", record.Status)
+      })
+    language: text/javascript
+  - type: beforeRequest
+    code: |-
+      pm.environment.set("$bsFieldsToQuery", "Id, Status, BillingMilestonePlanId")
+      pm.environment.set("$bmpFieldsToQuery", "Id, Status")
+      pm.environment.set("$bmpiFieldsToQuery", "Id, Status, MilestoneAccomplishmentDate")
+    language: text/javascript
+order: 3000

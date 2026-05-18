@@ -1,0 +1,117 @@
+$kind: http-request
+name: "pq-update: qli(post+patch+delete) + qlr"
+url: "{{baseUrl}}{{versionPath}}/commerce/quotes/actions/place"
+method: POST
+headers:
+  isAsync: "true"
+body:
+  type: json
+  content: |-
+    {
+      "pricingPref": "{{$pricingPref}}",
+      "graph": {
+        "graphId": "{{$requestName}}",
+        "records": [
+          {
+            "referenceId": "refQuote",
+            "record": {
+              "attributes": {
+                "type": "Quote",
+                "method": "PATCH",
+                "id": "{{quoteId}}"
+              }
+            }
+          },
+          {
+            "referenceId": "refQuoteLineItemToCreate1",
+            "record": {
+              "attributes": {
+                "type": "QuoteLineItem",
+                "method": "POST"
+              },
+              "QuoteId": "@{refQuote.id}",
+              "PricebookEntryId": "{{evergreenPriceBookEntryId}}",
+              "Product2Id": "{{evergreenProductId}}",
+              "Quantity": 2.0,
+              "UnitPrice": {{$unitPrice}},
+              "PeriodBoundary": "Anniversary",
+              "BillingFrequency": "Monthly",
+              "StartDate": "{{$currentDate}}"
+            }
+          },
+          {
+            "referenceId": "refQuoteLineItemToCreate2",
+            "record": {
+              "attributes": {
+                "type": "QuoteLineItem",
+                "method": "POST"
+              },
+              "QuoteId": "@{refQuote.id}",
+              "PricebookEntryId": "{{termedPriceBookEntryId}}",
+              "Product2Id": "{{termedProductId}}",
+              "Quantity": 2.0,
+              "UnitPrice": {{$unitPrice}},
+              "EndDate": "{{$randomFutureDate}}",
+              "PeriodBoundary": "DayOfPeriod",
+              "PeriodBoundaryDay": 4,
+              "BillingFrequency": "Monthly",
+              "StartDate": "{{$currentDate}}"
+            }
+          },
+          {
+            "referenceId": "refQLRToCreate1",
+            "record": {
+              "attributes": {
+                "type": "QuoteLineRelationship",
+                "method": "POST"
+              },
+              "MainQuoteLineId": "@{refQuoteLineItemToCreate1.id}",
+              "AssociatedQuoteLineId": "@{refQuoteLineItemToCreate2.id}",
+              "ProductRelationshipTypeId": "{{productRelationshipTypeId}}",
+              "AssociatedQuoteLinePricing": "IncludedInBundlePrice"
+            }
+          },
+          {
+            "referenceId": "refQuoteLineItemToPatch2",
+            "record": {
+              "attributes": {
+                "type": "QuoteLineItem",
+                "method": "PATCH",
+                "id": "{{qliCreated5Id}}"
+              },
+              "Quantity": 2.0,
+              "UnitPrice": {{$unitPrice}}
+            }
+          },
+          {
+            "referenceId": "refQuoteLineItemToDelete3",
+            "record": {
+              "attributes": {
+                "type": "QuoteLineItem",
+                "method": "DELETE",
+                "id": "{{qliCreated10Id}}"
+              }
+            }
+          }
+        ]
+      }
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      var jsonData = pm.response.json()
+      pm.environment.set("quoteId", jsonData.quoteId);
+    language: text/javascript
+  - type: beforeRequest
+    code: |-
+      var moment = require("moment");
+      pm.environment.set("$currentDate", moment().format(("YYYY-MM-DD")));
+
+      var futureDateTime = moment().add(365, 'days');
+      pm.environment.set('$randomFutureDate', futureDateTime.format('YYYY-MM-DD'));
+
+      pm.environment.set("$pricingPref", "system")
+      pm.environment.set("$quantity", _.random(1, 10));
+      pm.environment.set("$requestName", pm.info.requestName)
+    language: text/javascript
+order: 1000

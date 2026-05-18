@@ -1,0 +1,22 @@
+$kind: http-request
+url: "{{baseUrl}}{{versionPath}}/query/?q=SELECT Id FROM Pricebook2 WHERE IsStandard = true AND isActive = true"
+method: GET
+headers:
+  Content-Type: application/json
+  Sforce-Call-Options: client=SfdcInternalQA/...
+queryParams:
+  q: SELECT Id FROM Pricebook2 WHERE IsStandard = true AND isActive = true
+body:
+  type: text
+  content: ""
+auth:
+  type: bearer
+  credentials:
+    token: "{{accessToken}}"
+scripts:
+  - type: afterResponse
+    code: |-
+      var jsonData = pm.response.json();
+      pm.environment.set("standardPricebookId", jsonData.records[0].Id);
+    language: text/javascript
+order: 2000

@@ -1,0 +1,90 @@
+$kind: http-request
+url: "{{baseUrl}}{{versionPath}}/composite/graph"
+method: POST
+body:
+  type: json
+  content: |-
+    {
+      "graphs": [
+        {
+          "graphId": "1",
+          "compositeRequest": [
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/User",
+              "referenceId": "refUser",
+              "body": {
+                "Username": "{{productAndPricingAdminUserName}}",
+                "ProfileId": "{{standardUserProfileId}}",
+                "Alias": "prodPr",
+                "Email": "{{productAndPricingAdminUserName}}",
+                "EmailEncodingKey": "ISO-8859-1",
+                "LastName": "Codey",
+                "LanguageLocaleKey": "en_US",
+                "LocaleSidKey": "en_US",
+                "TimeZoneSidKey": "America/Los_Angeles"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/PermissionSetAssignment/",
+              "referenceId": "productAndPricingAdminPS1Assignment",
+              "body": {
+                "AssigneeId": "@{refUser.id}",
+                "PermissionSetId": "{{productAndPricingAdminPS1Id}}"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/PermissionSetAssignment/",
+              "referenceId": "productAndPricingAdminPS2Assignment",
+              "body": {
+                "AssigneeId": "@{refUser.id}",
+                "PermissionSetId": "{{productAndPricingAdminPS2Id}}"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/PermissionSetAssignment/",
+              "referenceId": "productAndPricingAdminPS3Assignment",
+              "body": {
+                "AssigneeId": "@{refUser.id}",
+                "PermissionSetId": "{{productAndPricingAdminPS3Id}}"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/PermissionSetAssignment/",
+              "referenceId": "productAndPricingAdminPS4Assignment",
+              "body": {
+                "AssigneeId": "@{refUser.id}",
+                "PermissionSetId": "{{productAndPricingAdminPS4Id}}"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/PermissionSetAssignment/",
+              "referenceId": "productAndPricingAdminPS5Assignment",
+              "body": {
+                "AssigneeId": "@{refUser.id}",
+                "PermissionSetId": "{{productAndPricingAdminPS5Id}}"
+              }
+            }
+          ]
+        }
+      ]
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{accessToken}}"
+scripts:
+  - type: beforeRequest
+    code: pm.environment.set("productAndPricingAdminUserName", pm.variables.replaceIn("productAndPricingAdmin-rlm-{{$timestamp}}@revoman.org"));
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      var jsonData = pm.response.json()
+      pm.environment.set("productAndPricingAdminUserId", jsonData.graphs[0].graphResponse.compositeResponse[0].body.id);
+    language: text/javascript
+order: 7000

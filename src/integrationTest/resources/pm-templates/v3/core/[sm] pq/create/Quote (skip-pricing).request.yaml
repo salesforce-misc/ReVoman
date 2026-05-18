@@ -1,0 +1,16 @@
+$kind: http-request
+url: "{{baseUrl}}{{versionPath}}/sobjects/Quote/{{quoteIdWithSkipPricing}}"
+method: GET
+headers:
+  Content-Type: application/json
+  Sforce-Call-Options: client=SfdcInternalQA/...
+body:
+  type: text
+  content: ""
+scripts:
+  - type: afterResponse
+    code: |-
+      var quoteResult = pm.response.json()
+      pm.environment.set("quoteCalculationStatusForSkipPricing", quoteResult.CalculationStatus)
+    language: text/javascript
+order: 2000

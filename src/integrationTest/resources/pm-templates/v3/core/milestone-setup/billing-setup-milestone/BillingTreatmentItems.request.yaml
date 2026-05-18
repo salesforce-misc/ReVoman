@@ -1,0 +1,116 @@
+$kind: http-request
+url: "{{baseUrl}}{{versionPath}}/composite/graph"
+method: POST
+body:
+  type: json
+  content: |-
+    {
+      "graphs": [
+        {
+          "graphId": "1",
+          "compositeRequest": [ // BTIs: 30, 30, 30
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/BillingPolicy",
+              "referenceId": "billingPolicy",
+              "body": {
+                "Name": "ReVoman Billing Policy",
+                "Status": "Draft",
+                "BillingTreatmentSelection": "Default",
+                "Description": "ReVoman Billing Policy"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/BillingTreatment",
+              "referenceId": "billingTreatment",
+              "body": {
+                "Name": "ReVoman Milestone Billing Treatment",
+                "BillingPolicyId": "@{billingPolicy.id}",
+                "Description": "Test Billing Treatment",
+                "Status": "Draft",
+                "ExcludeFromBilling": "No",
+                "IsMilestoneBilling": true
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/BillingTreatmentItem",
+              "referenceId": "bti1",
+              "body": {
+                "Name": "ReVoman Milestone Billing Treatment Item 1",
+                "Status": "Active",
+                "Sequencing": "None",
+                "ProcessingOrder": 0,
+                "BillingTreatmentId": "@{billingTreatment.id}",
+                "Description": "Test Billing Treatment Item",
+                "type": "Percentage",
+                "BillingType": "None",
+                "Percentage": 30,
+                "Controller": "None",
+                "Handling0Amount": "None",
+                "MilestoneType": "Date",
+                "MilestoneStartDate": "OrderProductActivation",
+                "MilestoneStartDateOffset": 1,
+                "MilestoneStartDateOffsetUnit": "Months"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/BillingTreatmentItem",
+              "referenceId": "bti2",
+              "body": {
+                "Name": "ReVoman Milestone Billing Treatment Item 2",
+                "Status": "Active",
+                "Sequencing": "None",
+                "ProcessingOrder": 0,
+                "BillingTreatmentId": "@{billingTreatment.id}",
+                "Description": "Test Billing Treatment Item",
+                "type": "Percentage",
+                "BillingType": "None",
+                "Percentage": 30,
+                "Controller": "None",
+                "Handling0Amount": "None",
+                "MilestoneType": "Date",
+                "MilestoneStartDate": "OrderProductActivation",
+                "MilestoneStartDateOffset": 2,
+                "MilestoneStartDateOffsetUnit": "Months"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/BillingTreatmentItem",
+              "referenceId": "bti3",
+              "body": {
+                "Name": "ReVoman Milestone Billing Treatment Item 3",
+                "Status": "Active",
+                "Sequencing": "None",
+                "ProcessingOrder": 0,
+                "BillingTreatmentId": "@{billingTreatment.id}",
+                "Description": "Test Billing Treatment Item",
+                "type": "Percentage",
+                "BillingType": "None",
+                "Percentage": 30,
+                "Controller": "None",
+                "Handling0Amount": "None",
+                "MilestoneType": "Date",
+                "MilestoneStartDate": "OrderProductActivation",
+                "MilestoneStartDateOffset": 3,
+                "MilestoneStartDateOffsetUnit": "Months"
+              }
+            }
+          ]
+        }
+      ]
+    }
+scripts:
+  - type: afterResponse
+    code: |
+      var graphData = pm.response.json().graphs[0];
+
+      pm.environment.set("billingPolicyId", graphData.graphResponse.compositeResponse[0].body.id)
+      pm.environment.set("billingTreatmentId", graphData.graphResponse.compositeResponse[1].body.id)
+      graphData.graphResponse.compositeResponse.slice(2).forEach((response, index) =>
+        pm.environment.set("billingTreatmentItem" + index + "Id", response.body.id))
+    language: text/javascript
+order: 2000

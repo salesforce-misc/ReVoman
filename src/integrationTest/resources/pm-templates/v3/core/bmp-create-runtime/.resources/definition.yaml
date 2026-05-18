@@ -1,0 +1,8 @@
+$kind: collection
+description: "- SalesOpsRep: Create an Order using PST and Activate it"
+auth:
+  - id: 5661541b-6f8f-4b74-a338-35786f011442
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{accessToken}}"

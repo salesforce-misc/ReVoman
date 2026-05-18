@@ -1,0 +1,11 @@
+$kind: http-request
+url: "{{baseUrl}}{{versionPath}}/sobjects/TaxPolicy/{{taxPolicyId}}"
+method: PATCH
+body:
+  type: json
+  content: |-
+    {
+        "Status": "Active",
+        "DefaultTaxTreatmentId": "{{taxTreatmentId}}"
+    }
+order: 10000

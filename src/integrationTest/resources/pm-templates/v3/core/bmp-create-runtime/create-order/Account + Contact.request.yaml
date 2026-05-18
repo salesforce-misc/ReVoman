@@ -1,0 +1,65 @@
+$kind: http-request
+url: "{{baseUrl}}{{versionPath}}/composite/graph"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "graphs": [
+        {
+          "graphId": "1",
+          "compositeRequest": [
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/Account",
+              "referenceId": "account",
+              "body": {
+                "Name": "ReVoman - {{$randomLastName}}",
+                "BillingPostalCode": "94003",
+                "BillingCity": "San Mateo",
+                "BillingState": "CA",
+                "BillingStreet": "856 Homewood Ave.",
+                "BillingCountry": "United States",
+                "ShippingStreet": "856 Homewood Ave.",
+                "ShippingPostalCode": "94003",
+                "ShippingCountry": "United States",
+                "ShippingState": "CA",
+                "ShippingCity": "San Mateo"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/Contact",
+              "referenceId": "contact",
+              "body": {
+                "AccountId": "@{account.id}",
+                "FirstName": "ReVoman - {{$randomFirstName}}",
+                "LastName": "{{$randomLastName}}",
+                "Email": "{{$randomEmail}}"
+              }
+            }
+          ]
+        }
+      ]
+    }
+scripts:
+  - type: afterResponse
+    code: |
+      var graphData = pm.response.json().graphs[0];
+
+      if (graphData.isSuccessful) {
+        graphData.graphResponse.compositeResponse.forEach(response => 
+          pm.environment.set(response.referenceId + "Id", response.body.id))
+      }
+    language: text/javascript
+  - type: beforeRequest
+    code: |-
+      var moment = require('moment');
+      var futureDateTime = moment().add(364, 'days');
+      pm.environment.set('$randomFutureDate', futureDateTime.format('YYYY-MM-DD'));
+
+      pm.environment.set("$attributeName", "revoman-attr");
+    language: text/javascript
+order: 2000

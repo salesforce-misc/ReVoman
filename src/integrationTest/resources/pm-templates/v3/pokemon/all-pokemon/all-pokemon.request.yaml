@@ -1,4 +1,6 @@
 $kind: http-request
+name: all-pokemon
+description: Get all pokemon
 url: "{{baseUrl}}/pokemon?offset={{offset}}&limit={{limit}}"
 method: GET
 queryParams:

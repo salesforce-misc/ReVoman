@@ -1,0 +1,20 @@
+$kind: http-request
+url: "{{baseUrl}}{{versionPath}}/sobjects/pricebookentry/"
+method: POST
+body:
+  type: json
+  content: |-
+    {
+        "ProductSellingModelId": "{{oneTimeProductSellingModelId}}",
+        "Product2Id": "{{oneTimeProductId}}",
+        "IsActive": true,
+        "Pricebook2Id": "{{standardPricebookId}}",
+        "UnitPrice": "{{$unitPrice}}"
+    }
+scripts:
+  - type: afterResponse
+    code: |
+      var jsonData = pm.response.json()
+      pm.environment.set("oneTimePriceBookEntryId", jsonData.id);
+    language: text/javascript
+order: 5000

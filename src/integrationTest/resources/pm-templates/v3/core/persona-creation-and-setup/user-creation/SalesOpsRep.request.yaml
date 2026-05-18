@@ -1,0 +1,144 @@
+$kind: http-request
+url: "{{baseUrl}}{{versionPath}}/composite/graph"
+method: POST
+body:
+  type: json
+  content: |-
+    {
+      "graphs": [
+        {
+          "graphId": "1",
+          "compositeRequest": [
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/User",
+              "referenceId": "refUser",
+              "body": {
+                "Username": "{{salesOpsRepUserName}}",
+                "ProfileId": "{{standardUserProfileId}}",
+                "Alias": "salesOps",
+                "Email": "{{salesOpsRepUserName}}",
+                "EmailEncodingKey": "ISO-8859-1",
+                "LastName": "Pushpa",
+                "LanguageLocaleKey": "en_US",
+                "LocaleSidKey": "en_US",
+                "TimeZoneSidKey": "America/Los_Angeles"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/PermissionSetAssignment/",
+              "referenceId": "salesOpsPS1Assignment",
+              "body": {
+                "AssigneeId": "@{refUser.id}",
+                "PermissionSetId": "{{salesOpsPS1Id}}"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/PermissionSetAssignment/",
+              "referenceId": "salesOpsPS2Assignment",
+              "body": {
+                "AssigneeId": "@{refUser.id}",
+                "PermissionSetId": "{{salesOpsPS2Id}}"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/PermissionSetAssignment/",
+              "referenceId": "salesOpsPS3Assignment",
+              "body": {
+                "AssigneeId": "@{refUser.id}",
+                "PermissionSetId": "{{salesOpsPS3Id}}"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/PermissionSetAssignment/",
+              "referenceId": "salesOpsPS4Assignment",
+              "body": {
+                "AssigneeId": "@{refUser.id}",
+                "PermissionSetId": "{{salesOpsPS4Id}}"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/PermissionSetAssignment/",
+              "referenceId": "salesOpsPS5Assignment",
+              "body": {
+                "AssigneeId": "@{refUser.id}",
+                "PermissionSetId": "{{salesOpsPS5Id}}"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/PermissionSetAssignment/",
+              "referenceId": "salesOpsPS6Assignment",
+              "body": {
+                "AssigneeId": "@{refUser.id}",
+                "PermissionSetId": "{{salesOpsPS6Id}}"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/PermissionSetAssignment/",
+              "referenceId": "salesOpsPS7Assignment",
+              "body": {
+                "AssigneeId": "@{refUser.id}",
+                "PermissionSetId": "{{salesOpsPS7Id}}"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/PermissionSetAssignment/",
+              "referenceId": "salesOpsPS8Assignment",
+              "body": {
+                "AssigneeId": "@{refUser.id}",
+                "PermissionSetId": "{{salesOpsPS8Id}}"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/PermissionSetAssignment/",
+              "referenceId": "salesOpsPS9Assignment",
+              "body": {
+                "AssigneeId": "@{refUser.id}",
+                "PermissionSetId": "{{salesOpsPS9Id}}"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/PermissionSetAssignment/",
+              "referenceId": "salesOpsPS10Assignment",
+              "body": {
+                "AssigneeId": "@{refUser.id}",
+                "PermissionSetId": "{{salesOpsPS10Id}}"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/PermissionSetAssignment/",
+              "referenceId": "salesOpsPS11Assignment",
+              "body": {
+                "AssigneeId": "@{refUser.id}",
+                "PermissionSetId": "{{salesOpsPS11Id}}"
+              }
+            }
+          ]
+        }
+      ]
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{accessToken}}"
+scripts:
+  - type: beforeRequest
+    code: pm.environment.set("salesOpsRepUserName", pm.variables.replaceIn("salesOps-rlm-{{$timestamp}}@revoman.org"))
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      var jsonData = pm.response.json()
+      pm.environment.set("salesOpsRepUserId", jsonData.graphs[0].graphResponse.compositeResponse[0].body.id)
+    language: text/javascript
+order: 11000

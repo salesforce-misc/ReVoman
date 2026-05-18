@@ -1,0 +1,21 @@
+$kind: http-request
+url: "{{baseUrl}}{{versionPath}}/sobjects/PaymentTerm"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+        "Name": "Test Payment Term",
+        "IsDefault": false,
+        "Description": "Test Payment Term",
+        "Status": "Draft"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      var jsonData = pm.response.json()
+      pm.environment.set("paymentTermId", jsonData.id);
+    language: text/javascript
+order: 8000

@@ -1,0 +1,24 @@
+$kind: http-request
+url: "{{baseUrl}}{{versionPath}}/sobjects/ProductSellingModel/"
+method: POST
+headers:
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+        "SellingModelType": "OneTime",
+        "Name": "OneTime PSM",
+        "Status": "Active"
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{accessToken}}"
+scripts:
+  - type: afterResponse
+    code: |-
+      var jsonData = pm.response.json()
+      pm.environment.set("oneTimeSellingModelId", jsonData.id);
+    language: text/javascript
+order: 2000

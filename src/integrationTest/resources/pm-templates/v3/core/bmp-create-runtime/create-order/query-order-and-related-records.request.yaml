@@ -1,0 +1,38 @@
+$kind: http-request
+url: "{{baseUrl}}{{versionPath}}/composite"
+method: POST
+body:
+  type: json
+  content: |-
+    {
+      "allOrNone": false,
+      "compositeRequest": [
+        {
+          "method": "GET",
+          "url": "{{versionPath}}/query/?q=SELECT {{$orderFieldsToQuery}} FROM Order WHERE Id = '{{orderId}}'",
+          "referenceId": "order"
+        },
+        {
+          "method": "GET",
+          "url": "{{versionPath}}/query/?q=SELECT {{$oiFieldsToQuery}} FROM OrderItem WHERE OrderId = '{{orderId}}'",
+          "referenceId": "orderItems"
+        }
+      ]
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      var jsonData = pm.response.json()
+      var orderResult = jsonData.compositeResponse[0].body.records[0]
+      pm.environment.set("orderCalculationStatus", orderResult.CalculationStatus)
+
+      jsonData.compositeResponse[1].body.records.forEach((record, index) => {
+        pm.environment.set("orderItem" + (index + 1) + "Id", record.Id)
+      })
+    language: text/javascript
+  - type: beforeRequest
+    code: |-
+      pm.environment.set("$orderFieldsToQuery", "OrderNumber, CalculationStatus")
+      pm.environment.set("$oiFieldsToQuery", "Id, OrderItemNumber, NetUnitPrice")
+    language: text/javascript
+order: 4000

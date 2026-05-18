@@ -1,0 +1,24 @@
+name: bt2bs
+values:
+  - key: baseUrl
+    value: ''
+  - key: username
+    value: ''
+  - key: password
+    value: ''
+  - key: commonUserPassword
+    value: ''
+  - key: $unitPrice
+    value: '63.00'
+  - key: secretToken-admin
+    value: ''
+  - key: secretToken
+    value: ''
+  - key: secretToken-billingAdmin
+    value: ''
+  - key: secretToken-taxAdmin
+    value: ''
+  - key: secretToken-productAndPricingAdmin
+    value: ''
+  - key: secretToken-salesRep
+    value: ''

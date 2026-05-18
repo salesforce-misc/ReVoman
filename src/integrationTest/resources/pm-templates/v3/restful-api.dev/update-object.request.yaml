@@ -1,0 +1,25 @@
+$kind: http-request
+url: https://{{uri}}/objects/{{objId}}
+method: PATCH
+body:
+  type: json
+  content: |-
+    {
+      "name": "updated - {{productName}}" // Update Name
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      var responseJson = pm.response.json();
+      pm.environment.set("objId", responseJson.id);
+      pm.environment.set("data", responseJson.data)
+    language: text/javascript
+  - type: beforeRequest
+    code: |-
+      var moment = require('moment')
+      var _ = require('lodash')
+
+      pm.environment.set("$currentYear", moment().year())
+      pm.environment.set("$randomPrice", _.random(1, 1000))
+    language: text/javascript
+order: 3000

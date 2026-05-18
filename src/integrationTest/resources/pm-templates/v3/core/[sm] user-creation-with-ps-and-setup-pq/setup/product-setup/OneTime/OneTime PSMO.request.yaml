@@ -1,0 +1,18 @@
+$kind: http-request
+url: "{{baseUrl}}{{versionPath}}/sobjects/ProductSellingModelOption/"
+method: POST
+body:
+  type: json
+  content: |+
+    {
+        "ProductSellingModelId": "{{oneTimeProductSellingModelId}}",
+        "Product2Id": "{{oneTimeProductId}}"
+    }
+
+scripts:
+  - type: afterResponse
+    code: |-
+      var jsonData = pm.response.json()
+      pm.environment.set("oneTimeSellingModelOptionId", jsonData.id);
+    language: text/javascript
+order: 4000

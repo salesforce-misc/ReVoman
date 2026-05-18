@@ -1,0 +1,20 @@
+$kind: http-request
+url: "{{baseUrl}}{{versionPath}}/sobjects/Taxengineprovider"
+method: POST
+headers:
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+        "apexadapterid":"{{mockTaxAdapterId}}", 
+        "developername":"{{$randomFirstName}}",
+        "masterlabel":"{{$randomLastName}}"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      var jsonData = pm.response.json()
+      pm.environment.set("taxEngineProviderId", jsonData.id);
+    language: text/javascript
+order: 4000

@@ -1,0 +1,18 @@
+$kind: http-request
+name: OneTime PSM
+url: "{{baseUrl}}{{versionPath}}/query/?q=SELECT Id, SellingModelType, PricingTerm, PricingTermUnit, Status FROM ProductSellingModel WHERE SellingModelType = 'OneTime'"
+method: GET
+headers:
+  Content-Type: application/json
+queryParams:
+  q: SELECT Id, SellingModelType, PricingTerm, PricingTermUnit, Status FROM ProductSellingModel WHERE SellingModelType = 'OneTime'
+body:
+  type: text
+  content: ""
+scripts:
+  - type: afterResponse
+    code: |-
+      var jsonData = pm.response.json();
+      pm.environment.set("oneTimeProductSellingModelId", jsonData.records[0].Id);
+    language: text/javascript
+order: 4000

@@ -1,6 +1,32 @@
 # Use this workspace to collaborate
+
+
 localResources:
   collections:
     - ../src/integrationTest/resources/pm-templates/v3/pokemon
+    - ../src/integrationTest/resources/pm-templates/v3/Apigee
+    - ../src/integrationTest/resources/pm-templates/v3/restful-api.dev
+    - ../src/integrationTest/resources/pm-templates/v3/core/[sm] pq
+    - ../src/integrationTest/resources/pm-templates/v3/core/[sm] user-creation-with-ps-and-setup-pq
+    - ../src/integrationTest/resources/pm-templates/v3/core/pre-salesRep
+    - ../src/integrationTest/resources/pm-templates/v3/core/bmp-create-runtime
+    - ../src/integrationTest/resources/pm-templates/v3/core/persona-creation-and-setup
+    - ../src/integrationTest/resources/pm-templates/v3/core/milestone-setup
   environments:
     - ../src/integrationTest/resources/pm-templates/v3/pokemon/Pokemon.environment.yaml
+    - ../src/integrationTest/resources/pm-templates/v3/restful-api.dev/restful-api.dev.environment.yaml
+    - ../src/integrationTest/resources/pm-templates/v3/core/milestone-setup/bt2bs.environment.yaml
+    - ../src/integrationTest/resources/pm-templates/v3/core/[sm] pq/pq.environment.yaml
+
+# Each entry here maps a local resource to one or more corresponding objects in Postman Cloud
+
+cloudResources:
+  collections:
+    ../postman/collections/Apigee: 17accf1e-ebfb-48d9-b71b-983d5759a67d
+    ../postman/collections/restful-api.dev: 3863538c-e19f-4723-bbf5-aa0e07cf87fb
+    ../postman/collections/[sm] pq: d7a8eb39-f4f2-4760-9f52-1dfb52a0864f
+    ../postman/collections/[sm] user-creation-with-ps-and-setup-pq: fb324e3c-c4ea-422d-98c6-fbc8d7a5be03
+    ../postman/collections/pre-salesRep: 4e621d64-828e-4265-9f26-8c125a12be74
+    ../postman/collections/bmp-create-runtime: f22009b7-e4de-4ac6-918d-7581dd79de6e
+    ../postman/collections/persona-creation-and-setup: a747ef82-6fbe-4ce3-8b4b-cfd131e33db3
+    ../postman/collections/milestone-setup: 0daa0356-10bd-47b0-83e1-239747ee442c

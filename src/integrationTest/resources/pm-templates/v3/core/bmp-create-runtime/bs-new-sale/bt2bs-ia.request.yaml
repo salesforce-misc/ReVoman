@@ -1,0 +1,33 @@
+$kind: http-request
+url: "{{baseUrl}}{{versionPath}}/actions/standard/createBillingSchedulesFromBillingTransaction"
+method: POST
+headers:
+  isAsync: "true"
+queryParams:
+  - key: Authorization
+    value: ""
+    disabled: true
+  - key: Content-Type
+    value: application/json
+    disabled: true
+body:
+  type: json
+  content: |-
+    {
+      "inputs": [
+        {
+          "billingTransactionId": "{{orderId}}"
+        }
+      ]
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{accessToken}}"
+scripts:
+  - type: afterResponse
+    code: |
+      var jsonData = pm.response.json();
+      pm.environment.set("billingScheduleId", jsonData[0].outputValues.orderId);
+    language: text/javascript
+order: 2000

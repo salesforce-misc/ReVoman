@@ -1,0 +1,20 @@
+$kind: http-request
+url: "{{baseUrl}}{{versionPath}}/sobjects/ProductSellingModel/"
+method: POST
+headers:
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "SellingModelType": "OneTime",
+      "Name": "ReVoman OneTime PSM",
+      "Status": "Active"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      var jsonData = pm.response.json();
+      pm.environment.set("oneTimeSellingModelId", jsonData.id);
+    language: text/javascript
+order: 3000

@@ -1,0 +1,18 @@
+$kind: http-request
+url: "{{baseUrl}}{{versionPath}}/sobjects/ProductSellingModelOption/"
+method: POST
+body:
+  type: json
+  content: |-
+    {
+        "ProductSellingModelId": "{{termedProductSellingModelId}}",
+        "Product2Id": "{{termedProductId}}",
+        "ProrationPolicyId": "{{prorationPolicyId}}"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      var jsonData = pm.response.json()
+      pm.environment.set("termedProductSellingModelOptionId", jsonData.id);
+    language: text/javascript
+order: 4000

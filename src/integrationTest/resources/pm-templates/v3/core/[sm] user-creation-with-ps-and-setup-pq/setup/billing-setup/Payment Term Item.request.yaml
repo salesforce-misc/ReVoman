@@ -1,0 +1,20 @@
+$kind: http-request
+url: "{{baseUrl}}{{versionPath}}/sobjects/PaymentTermItem"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+        "Type": "Period-Based",
+        "Period": 30,
+        "PeriodUnit": "Days",
+        "PaymentTermId": "{{paymentTermId}}",
+        "PaymentTimeframe": "Standard"
+    }
+scripts:
+  - type: afterResponse
+    code: "\ \n "
+    language: text/javascript
+order: 9000

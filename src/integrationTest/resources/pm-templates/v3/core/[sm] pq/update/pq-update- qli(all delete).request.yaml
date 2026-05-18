@@ -1,0 +1,67 @@
+$kind: http-request
+name: "pq-update: qli(all delete)"
+url: "{{baseUrl}}{{versionPath}}/commerce/quotes/actions/place"
+method: POST
+headers:
+  isAsync: "true"
+body:
+  type: json
+  content: |-
+    {
+      "pricingPref": "{{$pricingPref}}",
+      "graph": {
+        "graphId": "{{$requestName}}",
+        "records": [
+          {
+            "referenceId": "refQuote",
+            "record": {
+              "attributes": {
+                "type": "Quote",
+                "method": "PATCH",
+                "id": "{{quoteId}}"
+              },
+              "Name": "Quote_{{$randomCompanyName}}"
+            }
+          },
+          {
+            "referenceId": "refQuoteLineItemToDelete1",
+            "record": {
+              "attributes": {
+                "type": "QuoteLineItem",
+                "method": "DELETE",
+                "id": "{{qliCreated8Id}}"
+              }
+            }
+          },
+          {
+            "referenceId": "refQuoteLineItemToDelete2",
+            "record": {
+              "attributes": {
+                "type": "QuoteLineItem",
+                "method": "DELETE",
+                "id": "{{qliCreated9Id}}"
+              }
+            }
+          }
+        ]
+      }
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      var jsonData = pm.response.json()
+      pm.environment.set("quoteId", jsonData.quoteId);
+    language: text/javascript
+  - type: beforeRequest
+    code: |-
+      var moment = require("moment");
+      pm.environment.set("$currentDate", moment().format(("YYYY-MM-DD")));
+
+      var futureDateTime = moment().add(365, 'days');
+      pm.environment.set('$randomFutureDate', futureDateTime.format('YYYY-MM-DD'));
+
+      pm.environment.set("$pricingPref", "system")
+      pm.environment.set("$quantity", _.random(1, 10));
+      pm.environment.set("$requestName", pm.info.requestName)
+    language: text/javascript
+order: 7000

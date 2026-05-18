@@ -563,7 +563,9 @@ ReṼoman internally uses a modern JSON library called https://github.com/square
 Simple types whose JSON structure aligns with the POJO data structure can directly be converted.
 But when the JSON structure may not align with the POJO,
 you may need a _Custom Type Adapter_ for Marshalling to JSON or Unmarshalling from JSON.
-Moshi has it covered for you with its advanced adapter mechanism and ReṼoman accepts Moshi adapters via these config methods:
+Moshi has it covered for you with its advanced adapter mechanism and ReṼoman accepts Moshi adapters via these config methods.
+The best part of Moshi is, you can write adapters without any need to add annotations (you can add if you want). 
+This helps even if you have no control over the POJOs you are operating on.
 
 ==== `globalSkipTypes()`
 

@@ -1,0 +1,31 @@
+$kind: http-request
+url: https://{{uri}}/objects
+method: POST
+body:
+  type: json
+  content: |-
+    {
+      "name": "{{$randomProduct}}", // Dynamic variable
+      "data": {
+        "year": {{$currentYear}}, // Variable set via Pre-req
+        "price": {{$randomPrice}}, // Variable set via Pre-req
+        "CPU model": null
+      }
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      var responseJson = pm.response.json();
+      pm.environment.set("objId", responseJson.id);
+      pm.environment.set("data", responseJson.data)
+      pm.environment.set("productName", responseJson.name)
+    language: text/javascript
+  - type: beforeRequest
+    code: |-
+      var moment = require('moment')
+      var _ = require('lodash')
+
+      pm.environment.set("$currentYear", moment().year())
+      pm.environment.set("$randomPrice", _.random(1, 1000))
+    language: text/javascript
+order: 2000

@@ -1,0 +1,22 @@
+$kind: http-request
+url: "{{baseUrl}}{{versionPath}}/query/?q=SELECT Id FROM PermissionSet WHERE Name IN ({{billingAdminPermSets}})"
+method: GET
+headers:
+  Content-Type: application/json
+queryParams:
+  q: SELECT Id FROM PermissionSet WHERE Name IN ({{billingAdminPermSets}})
+body:
+  type: text
+  content: ""
+scripts:
+  - type: afterResponse
+    code: |-
+      var jsonData = pm.response.json();
+      jsonData.records.forEach((record, index) => {
+          pm.environment.set("billingAdminPS" + (index + 1) + "Id", record.Id)
+      })
+    language: text/javascript
+  - type: beforeRequest
+    code: pm.environment.set("billingAdminPermSets", "'RevenueLifecycleManagementBillingAdmin'")
+    language: text/javascript
+order: 14000

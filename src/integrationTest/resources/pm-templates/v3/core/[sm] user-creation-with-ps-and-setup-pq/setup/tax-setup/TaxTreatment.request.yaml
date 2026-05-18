@@ -1,0 +1,23 @@
+$kind: http-request
+url: "{{baseUrl}}{{versionPath}}/sobjects/TaxTreatment/"
+method: POST
+body:
+  type: json
+  content: |-
+    {
+        "Name": "Test Tax Treatment",
+        "TaxPolicyId": "{{taxPolicyId}}",
+        "TaxEngineId": "{{taxEngineId}}",
+        "Description": "Test Tax Treatment",
+        "TaxCode": "PA020111",
+        "ProductCode": "Test123",
+        "IsTaxable": true,
+        "Status": "Active"
+    }
+scripts:
+  - type: afterResponse
+    code: |
+      var jsonData = pm.response.json()
+      pm.environment.set("taxTreatmentId", jsonData.id);
+    language: text/javascript
+order: 9000

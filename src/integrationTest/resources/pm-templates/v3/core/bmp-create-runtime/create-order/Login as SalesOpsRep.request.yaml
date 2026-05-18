@@ -1,0 +1,37 @@
+$kind: http-request
+description: Login to Salesforce
+url: "{{baseUrl}}/services/Soap/u/{{version}}"
+method: POST
+headers:
+  Content-Type: text/xml
+  SOAPAction: login
+  charset: UTF-8
+  Accept: text/xml
+body:
+  type: text
+  content: |-
+    <?xml version="1.0" encoding="utf-8" ?>
+    <env:Envelope xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns:env="http://schemas.xmlsoap.org/soap/envelope/">
+      <env:Body>
+        <n1:login xmlns:n1="urn:partner.soap.sforce.com">
+          <n1:username><![CDATA[{{salesOpsRepUserName}}]]></n1:username>
+          <n1:password><![CDATA[{{commonUserPassword}}]]></n1:password>
+        </n1:login>
+      </env:Body>
+    </env:Envelope>
+scripts:
+  - type: afterResponse
+    code: |-
+      var xml2js = require('xml2js')
+      xml2js.parseString(pm.response.text(), { explicitArray: false }, (_, jsonResponse) => {
+        let result = jsonResponse['soapenv:Envelope']['soapenv:Body'].loginResponse.result
+        pm.environment.set("accessToken", result.sessionId)
+      })
+    language: text/javascript
+settings:
+  disabledSystemHeaders:
+    - accept
+    - content-type
+order: 1000
