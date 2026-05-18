@@ -16,6 +16,57 @@ internal object V3YamlReader {
     return mapToCollectionDef(map)
   }
 
+  fun readRequest(yaml: String): V3Request {
+    val map = parseYaml(yaml)
+    return mapToRequest(map)
+  }
+
+  private fun mapToRequest(map: Map<String, Any?>): V3Request =
+    V3Request(
+      kind = strOrDefault(map["\$kind"], "http-request"),
+      name = map["name"]?.toString(),
+      description = map["description"]?.toString(),
+      url = map["url"]?.toString() ?: error("v3 request missing required field: url"),
+      method = map["method"]?.toString() ?: error("v3 request missing required field: method"),
+      headers = strMap(map["headers"]),
+      queryParams = strMap(map["queryParams"]),
+      body = mapToBody(map["body"]),
+      scripts = mapToScripts(map["scripts"]),
+      auth = mapToAuthList(map["auth"]),
+      settings = mapToSettings(map["settings"]),
+      order = (map["order"] as? Number)?.toInt(),
+    )
+
+  private fun strMap(value: Any?): Map<String, String> {
+    @Suppress("UNCHECKED_CAST") val m = value as? Map<String, Any?> ?: return emptyMap()
+    return m.entries.associate { (k, v) -> k to (v?.toString() ?: "") }
+  }
+
+  private fun mapToBody(value: Any?): V3Body? {
+    @Suppress("UNCHECKED_CAST") val m = value as? Map<String, Any?> ?: return null
+    val type = m["type"]?.toString() ?: return null
+    val content = m["content"]?.toString() ?: ""
+    return V3Body(type = type, content = content)
+  }
+
+  private fun mapToScripts(value: Any?): List<V3Script> {
+    @Suppress("UNCHECKED_CAST") val list = value as? List<Map<String, Any?>> ?: return emptyList()
+    return list.map { m ->
+      V3Script(
+        type = m["type"]?.toString() ?: error("v3 script missing 'type'"),
+        code = m["code"]?.toString() ?: "",
+        language = m["language"]?.toString(),
+      )
+    }
+  }
+
+  private fun mapToSettings(value: Any?): V3Settings? {
+    @Suppress("UNCHECKED_CAST") val m = value as? Map<String, Any?> ?: return null
+    @Suppress("UNCHECKED_CAST")
+    val disabled = (m["disabledSystemHeaders"] as? List<Any?>)?.map { it.toString() } ?: emptyList()
+    return V3Settings(disabledSystemHeaders = disabled)
+  }
+
   private fun parseYaml(yaml: String): Map<String, Any?> {
     @Suppress("UNCHECKED_CAST")
     return (Yaml().load<Any?>(yaml) as? Map<String, Any?>) ?: emptyMap()

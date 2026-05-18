@@ -48,4 +48,27 @@ class V3YamlReaderTest {
     assertThat(auth.name).isEqualTo("bearer auth")
     assertThat(auth.credentials).containsEntry("token", "{{accessToken}}")
   }
+
+  @Test
+  fun testReadRequestBasicGet() {
+    val yaml =
+      """
+      ${'$'}kind: http-request
+      url: "{{baseUrl}}/nature/{{id}}"
+      method: GET
+      headers:
+        preLog: "true"
+      order: 3000
+      """
+        .trimIndent()
+    val req = V3YamlReader.readRequest(yaml)
+    assertThat(req.kind).isEqualTo("http-request")
+    assertThat(req.url).isEqualTo("{{baseUrl}}/nature/{{id}}")
+    assertThat(req.method).isEqualTo("GET")
+    assertThat(req.headers).containsEntry("preLog", "true")
+    assertThat(req.order).isEqualTo(3000)
+    assertThat(req.body).isNull()
+    assertThat(req.scripts).isEmpty()
+    assertThat(req.auth).isEmpty()
+  }
 }
