@@ -23,4 +23,29 @@ class V3YamlReaderTest {
     assertThat(def.order).isNull()
     assertThat(def.auth).isEmpty()
   }
+
+  @Test
+  fun testReadCollectionDefWithAuthAndOrder() {
+    val yaml =
+      """
+      ${'$'}kind: collection
+      order: 1000
+      auth:
+        - id: 88daae21-effd-4cd0-b24a-65bc7a382e35
+          type: bearer
+          name: bearer auth
+          credentials:
+            token: "{{accessToken}}"
+      """
+        .trimIndent()
+    val def = V3YamlReader.readCollectionDef(yaml)
+    assertThat(def.kind).isEqualTo("collection")
+    assertThat(def.order).isEqualTo(1000)
+    assertThat(def.auth).hasSize(1)
+    val auth = def.auth.single()
+    assertThat(auth.id).isEqualTo("88daae21-effd-4cd0-b24a-65bc7a382e35")
+    assertThat(auth.type).isEqualTo("bearer")
+    assertThat(auth.name).isEqualTo("bearer auth")
+    assertThat(auth.credentials).containsEntry("token", "{{accessToken}}")
+  }
 }
