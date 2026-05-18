@@ -69,4 +69,137 @@ class V3ToV2ConverterTest {
     val merged = V3ToV2Converter.mergeQueryParams("{{baseUrl}}/x", emptyMap())
     assertThat(merged).isEqualTo("{{baseUrl}}/x")
   }
+
+  @Test
+  fun testConvertJsonBodyToRawMode() {
+    val v3 =
+      V3Request(
+        url = "{{baseUrl}}/x",
+        method = "POST",
+        body = V3Body(type = "json", content = """{"a":1}"""),
+      )
+    val item = V3ToV2Converter.toItem(v3, fallbackName = "x", inheritedAuth = null)
+    assertThat(item.request.body).isNotNull()
+    assertThat(item.request.body!!.mode).isEqualTo("raw")
+    assertThat(item.request.body!!.raw).isEqualTo("""{"a":1}""")
+  }
+
+  @Test
+  fun testConvertTextBodyToRawMode() {
+    val v3 =
+      V3Request(
+        url = "{{baseUrl}}/x",
+        method = "POST",
+        body = V3Body(type = "text", content = "<xml/>"),
+      )
+    val item = V3ToV2Converter.toItem(v3, fallbackName = "x", inheritedAuth = null)
+    assertThat(item.request.body!!.mode).isEqualTo("raw")
+    assertThat(item.request.body!!.raw).isEqualTo("<xml/>")
+  }
+
+  @Test
+  fun testAfterResponseScriptMapsToTestEvent() {
+    val v3 =
+      V3Request(
+        url = "{{baseUrl}}/x",
+        method = "GET",
+        scripts = listOf(V3Script(type = "afterResponse", code = "console.log(1)\nconsole.log(2)")),
+      )
+    val item = V3ToV2Converter.toItem(v3, fallbackName = "x", inheritedAuth = null)
+    assertThat(item.event).isNotNull()
+    assertThat(item.event).hasSize(1)
+    val event = item.event!!.single()
+    assertThat(event.listen).isEqualTo("test")
+    assertThat(event.script.exec).containsExactly("console.log(1)", "console.log(2)").inOrder()
+  }
+
+  @Test
+  fun testBeforeRequestScriptMapsToPrerequestEvent() {
+    val v3 =
+      V3Request(
+        url = "{{baseUrl}}/x",
+        method = "GET",
+        scripts = listOf(V3Script(type = "beforeRequest", code = "var x = 1")),
+      )
+    val item = V3ToV2Converter.toItem(v3, fallbackName = "x", inheritedAuth = null)
+    val event = item.event!!.single()
+    assertThat(event.listen).isEqualTo("prerequest")
+  }
+
+  @Test
+  fun testMultipleScriptsOfSameTypeAreMergedIntoOneEvent() {
+    val v3 =
+      V3Request(
+        url = "{{baseUrl}}/x",
+        method = "GET",
+        scripts =
+          listOf(
+            V3Script(type = "afterResponse", code = "a()"),
+            V3Script(type = "afterResponse", code = "b()"),
+          ),
+      )
+    val item = V3ToV2Converter.toItem(v3, fallbackName = "x", inheritedAuth = null)
+    assertThat(item.event).hasSize(1)
+    assertThat(item.event!!.single().script.exec).containsExactly("a()", "b()").inOrder()
+  }
+
+  @Test
+  fun testUnknownScriptTypeIsSkipped() {
+    val v3 =
+      V3Request(
+        url = "{{baseUrl}}/x",
+        method = "GET",
+        scripts = listOf(V3Script(type = "unknown", code = "x")),
+      )
+    val item = V3ToV2Converter.toItem(v3, fallbackName = "x", inheritedAuth = null)
+    assertThat(item.event).isNull()
+  }
+
+  @Test
+  fun testConvertBearerAuthFromV3List() {
+    val authList =
+      listOf(V3Auth(type = "bearer", name = "bearer auth", credentials = mapOf("token" to "abc")))
+    val auth = V3ToV2Converter.toAuth(authList)!!
+    assertThat(auth.type).isEqualTo("bearer")
+    assertThat(auth.bearer).hasSize(1)
+    val b = auth.bearer.single()
+    assertThat(b.key).isEqualTo("bearer auth")
+    assertThat(b.type).isEqualTo("bearer")
+    assertThat(b.value).isEqualTo("abc")
+  }
+
+  @Test
+  fun testNonBearerAuthIsDropped() {
+    val authList =
+      listOf(V3Auth(type = "basic", credentials = mapOf("username" to "u", "password" to "p")))
+    val auth = V3ToV2Converter.toAuth(authList)
+    assertThat(auth).isNull()
+  }
+
+  @Test
+  fun testRequestAuthOverridesInheritedAuth() {
+    val inherited =
+      V3ToV2Converter.toAuth(
+        listOf(V3Auth(type = "bearer", credentials = mapOf("token" to "INHERITED")))
+      )
+    val v3 =
+      V3Request(
+        url = "{{baseUrl}}/x",
+        method = "GET",
+        auth = listOf(V3Auth(type = "bearer", credentials = mapOf("token" to "OVERRIDDEN"))),
+      )
+    val item = V3ToV2Converter.toItem(v3, fallbackName = "x", inheritedAuth = inherited)
+    assertThat(item.request.auth!!.bearer.single().value).isEqualTo("OVERRIDDEN")
+  }
+
+  @Test
+  fun testInheritedAuthAppliesWhenRequestHasNoAuth() {
+    val inherited =
+      V3ToV2Converter.toAuth(
+        listOf(V3Auth(type = "bearer", credentials = mapOf("token" to "INHERITED")))
+      )
+    val v3 = V3Request(url = "{{baseUrl}}/x", method = "GET")
+    val item = V3ToV2Converter.toItem(v3, fallbackName = "x", inheritedAuth = inherited)
+    assertThat(item.request.auth!!.bearer.single().value).isEqualTo("INHERITED")
+  }
 }
