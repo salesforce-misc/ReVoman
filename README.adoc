@@ -199,6 +199,54 @@ include::{integrationtestdir}/com/salesforce/revoman/integration/restfulapidev/R
 
 endif::[]
 
+=== Postman Collection v3 (directory tree of YAML files)
+
+ReṼoman accepts Postman v3 collections in addition to v2.
+Detection is automatic — pass a directory path containing `.resources/definition.yaml` for v3, or a `.json` file for v2.
+
+.Detection rules
+[cols="1,1"]
+|===
+| Input | Loader
+
+| Path to a `.json` file | v2 (existing)
+| Path to a directory containing `.resources/definition.yaml` | v3 (new)
+| Environment file ending in `.json` | v2 (existing)
+| Environment file ending in `.yaml` or `.yml` | v3 (new)
+|===
+
+.Example
+[source,kotlin,indent=0,tabsize=2,options="nowrap"]
+----
+ReVoman.revUp(
+  Kick.configure()
+    .templatePath("pm-templates/v3/pokemon")  // v3 directory
+    .environmentPath("pm-templates/v3/pokemon/Pokemon.environment.yaml")  // v3 env
+    .off()
+)
+----
+
+.v3 collection layout
+[source]
+----
+my-collection/
+├── .resources/
+│   └── definition.yaml          // {kind: collection, optional auth, optional order}
+├── request-a.request.yaml       // {kind: http-request, url, method, ...}
+├── request-b.request.yaml
+├── sub-folder/
+│   ├── .resources/
+│   │   └── definition.yaml
+│   └── nested-request.request.yaml
+└── my-collection.environment.yaml  // optional, passed via environmentPath
+----
+
+.Known limitations of v3 support
+* v3 collections must be supplied as a directory path; `templateInputStreams()` is v2-only.
+* `*.environment.yaml` files must be supplied as a path; `environmentInputStreams()` is v2-only.
+* Only `bearer` auth is supported (matches existing v2 limitation).
+* `description` and `settings.disabledSystemHeaders` fields are parsed but ignored at runtime.
+
 === Rundown
 
 After all this, you receive back a detailed *Rundown* in return.
@@ -564,7 +612,7 @@ Simple types whose JSON structure aligns with the POJO data structure can direct
 But when the JSON structure may not align with the POJO,
 you may need a _Custom Type Adapter_ for Marshalling to JSON or Unmarshalling from JSON.
 Moshi has it covered for you with its advanced adapter mechanism and ReṼoman accepts Moshi adapters via these config methods.
-The best part of Moshi is, you can write adapters without any need to add annotations (you can add if you want). 
+The best part of Moshi is, you can write adapters without any need to add annotations (you can add if you want).
 This helps even if you have no control over the POJOs you are operating on.
 
 ==== `globalSkipTypes()`

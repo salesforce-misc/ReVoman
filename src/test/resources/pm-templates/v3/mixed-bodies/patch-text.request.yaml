@@ -1,0 +1,9 @@
+$kind: http-request
+url: https://example.com/x
+method: PATCH
+headers:
+  Content-Type: text/plain
+body:
+  type: text
+  content: hello
+order: 2000

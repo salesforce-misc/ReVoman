@@ -86,21 +86,28 @@ object ReVoman {
   @OptIn(ExperimentalStdlibApi::class)
   fun revUp(kick: Kick): Rundown {
     val pmTemplateAdapter = Moshi.Builder().build().adapter<Template>()
-    val templateBuffers =
-      kick.templatePaths().map { bufferFile(it) } +
-        kick.templateInputStreams().map { bufferInputStream(it) }
-    val pmStepsDeepFlattened =
-      templateBuffers
-        .asSequence()
-        .mapNotNull { pmTemplateAdapter.fromJson(it) }
-        .flatMap { (pmSteps, authFromRoot) ->
-          deepFlattenItems(
-            pmSteps.map { item ->
-              item.copy(request = item.request.copy(auth = item.request.auth ?: authFromRoot))
-            }
-          )
+    val itemsFromPaths: List<com.salesforce.revoman.internal.postman.template.Item> =
+      kick.templatePaths().flatMap { path ->
+        val v3Dir = resolveV3CollectionDir(path)
+        when {
+          v3Dir != null -> com.salesforce.revoman.internal.postman.template.v3.V3Loader.load(v3Dir)
+          else ->
+            pmTemplateAdapter.fromJson(bufferFile(path))?.let { (pmSteps, authFromRoot) ->
+              pmSteps.map { item ->
+                item.copy(request = item.request.copy(auth = item.request.auth ?: authFromRoot))
+              }
+            } ?: emptyList()
         }
-        .toList()
+      }
+    val itemsFromStreams: List<com.salesforce.revoman.internal.postman.template.Item> =
+      kick.templateInputStreams().flatMap { stream ->
+        pmTemplateAdapter.fromJson(bufferInputStream(stream))?.let { (pmSteps, authFromRoot) ->
+          pmSteps.map { item ->
+            item.copy(request = item.request.copy(auth = item.request.auth ?: authFromRoot))
+          }
+        } ?: emptyList()
+      }
+    val pmStepsDeepFlattened = deepFlattenItems(itemsFromPaths + itemsFromStreams)
     logger.info {
       val templateCount = kick.templatePaths().size
       "Total Steps from ${if (templateCount > 1) "$templateCount Collections" else "the Collection"} provided: ${pmStepsDeepFlattened.size}"
@@ -245,6 +252,16 @@ object ReVoman {
         haltExecution = shouldHaltExecution(currentStepReport, kick, pm.rundown)
         stepReports + currentStepReport
       }
+  }
+
+  private fun resolveV3CollectionDir(path: String): java.io.File? {
+    val direct = java.io.File(path)
+    val v3Marker = ".resources/definition.yaml"
+    if (direct.isDirectory && java.io.File(direct, v3Marker).isFile) return direct
+    val url = Thread.currentThread().contextClassLoader.getResource(path) ?: return null
+    val viaResource = java.io.File(url.toURI())
+    return if (viaResource.isDirectory && java.io.File(viaResource, v3Marker).isFile) viaResource
+    else null
   }
 }
 
