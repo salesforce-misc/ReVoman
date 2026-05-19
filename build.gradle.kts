@@ -45,11 +45,11 @@ dependencies {
 
 testing {
   suites {
-    val test by getting(JvmTestSuite::class) { useJUnitJupiter(libs.versions.junit.get()) }
+    getByName<JvmTestSuite>("test") { useJUnitJupiter(libs.versions.junit.get()) }
 
     register<JvmTestSuite>("integrationTest") {
       dependencies {
-        implementation(project())
+        implementation(project(":"))
         implementation(libs.truth)
         implementation(libs.mockito.core)
         implementation(libs.spring.beans)
