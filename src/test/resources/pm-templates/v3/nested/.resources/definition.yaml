@@ -1,0 +1,7 @@
+$kind: collection
+auth:
+  - id: outer-auth-id
+    type: bearer
+    name: outer
+    credentials:
+      token: OUTER

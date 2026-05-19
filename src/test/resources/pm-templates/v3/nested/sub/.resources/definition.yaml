@@ -1,0 +1,8 @@
+$kind: collection
+order: 2000
+auth:
+  - id: inner-auth-id
+    type: bearer
+    name: inner
+    credentials:
+      token: INNER

@@ -16,9 +16,9 @@ import org.junit.jupiter.api.Test;
 
 class RestfulAPIDevTest {
   private static final String PM_COLLECTION_PATH =
-      "pm-templates/restfulapidev/restful-api.dev.postman_collection.json";
+      "pm-templates/v2/restfulapidev/restful-api.dev.postman_collection.json";
   private static final String PM_ENVIRONMENT_PATH =
-      "pm-templates/restfulapidev/restful-api.dev.postman_environment.json";
+      "pm-templates/v2/restfulapidev/restful-api.dev.postman_environment.json";
 
   // tag::revoman-simple-demo[]
   @Test

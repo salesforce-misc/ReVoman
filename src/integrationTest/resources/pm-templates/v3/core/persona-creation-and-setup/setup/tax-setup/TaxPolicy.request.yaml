@@ -1,0 +1,21 @@
+$kind: http-request
+url: "{{baseUrl}}{{versionPath}}/sobjects/TaxPolicy"
+method: POST
+headers:
+  Sforce-Call-Options: client=SfdcInternalQA/...
+body:
+  type: json
+  content: |-
+    {
+        "Name": "ReVoman Tax Policy",
+        "Status": "Draft",
+        "TreatmentSelection": "Default",
+        "Description": "Test description"
+    }
+scripts:
+  - type: afterResponse
+    code: |
+      var jsonData = pm.response.json();
+      pm.environment.set("taxPolicyId", jsonData.id);
+    language: text/javascript
+order: 8000

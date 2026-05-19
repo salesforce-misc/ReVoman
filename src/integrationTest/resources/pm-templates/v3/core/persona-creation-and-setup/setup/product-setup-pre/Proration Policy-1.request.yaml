@@ -1,0 +1,18 @@
+$kind: http-request
+name: Proration Policy
+url: "{{baseUrl}}{{versionPath}}/query/?q=SELECT Id, Name FROM ProrationPolicy WHERE Name LIKE '%25ReVoman%25' and RemainderStrategy = 'AddToFirst' and ProrationPolicyType = 'StandardTimePeriods'"
+method: GET
+headers:
+  Content-Type: application/json
+queryParams:
+  q: SELECT Id, Name FROM ProrationPolicy WHERE Name LIKE '%25ReVoman%25' and RemainderStrategy = 'AddToFirst' and ProrationPolicyType = 'StandardTimePeriods'
+body:
+  type: text
+  content: ""
+scripts:
+  - type: afterResponse
+    code: |-
+      var jsonData = pm.response.json();
+      pm.environment.set("prorationPolicyId", jsonData.records[0].Id);
+    language: text/javascript
+order: 4000

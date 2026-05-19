@@ -1,0 +1,54 @@
+$kind: http-request
+url: "{{baseUrl}}{{versionPath}}/composite"
+method: POST
+body:
+  type: json
+  content: |-
+    {
+      "allOrNone": false,
+      "compositeRequest": [
+        {
+          "method": "GET",
+          "url": "{{versionPath}}/query/?q=select {{$quoteFieldsToQuery}} from Quote where Id = '{{quoteId}}'",
+          "referenceId": "quote"
+        },
+        {
+          "method": "GET",
+          "url": "{{versionPath}}/query/?q=select {{$qliFieldsToQuery}} from QuoteLineItem where QuoteId = '{{quoteId}}'",
+          "referenceId": "qlis"
+        },
+        {
+          "method": "GET",
+          "url": "{{versionPath}}/query/?q=select {{$qlrFieldsToQuery}} from QuoteLineRelationship where QuoteId = '{{quoteId}}'",
+          "referenceId": "qlrs"
+        }
+      ]
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      var jsonData = pm.response.json()
+      var quoteResult = jsonData.compositeResponse[0].body.records[0]
+      pm.environment.set("lineItemCount", quoteResult.LineItemCount)
+      pm.environment.set("quoteCalculationStatus", quoteResult.CalculationStatus)
+
+      var quoteLineResultRecords = jsonData.compositeResponse[1].body.records
+      quoteLineResultRecords.forEach((record, index) => {
+          pm.environment.set("qliCreated" + (index + 1) + "Id", record.Id)
+          pm.environment.set("productForQLI" + (index + 1) + "Id", record.Product2Id)
+      })
+
+      var qlrResult = jsonData.compositeResponse[2].body;
+      pm.environment.set("qlrCount", qlrResult.totalSize)
+      qlrResult.records.forEach((record, index) => {
+          pm.environment.set("quoteForQLR" + (index + 1) + "Id", record.QuoteId)
+          pm.environment.set("mainQuoteLine+associatedQuoteLine" + (index + 1) + "ForQLR", record.MainQuoteLineId + "-" + record.AssociatedQuoteLineId)
+      })
+    language: text/javascript
+  - type: beforeRequest
+    code: |-
+      pm.environment.set("$quoteFieldsToQuery", "LineItemCount, CalculationStatus")
+      pm.environment.set("$qliFieldsToQuery", "Id, Product2Id")
+      pm.environment.set("$qlrFieldsToQuery", "Id, QuoteId, MainQuoteLineId, AssociatedQuoteLineId")
+    language: text/javascript
+order: 4000

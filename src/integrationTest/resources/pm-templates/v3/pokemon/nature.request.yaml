@@ -1,0 +1,12 @@
+$kind: http-request
+url: "{{baseUrl}}/nature/{{id}}"
+method: GET
+headers:
+  preLog: "true"
+scripts:
+  - type: afterResponse
+    code: |-
+      var jsonData = JSON.parse(responseBody)
+      pm.environment.set("nature", jsonData["name"])
+    language: text/javascript
+order: 3000

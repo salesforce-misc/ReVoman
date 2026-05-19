@@ -1,0 +1,19 @@
+$kind: http-request
+url: "{{baseUrl}}{{versionPath}}/query/?q=SELECT Id, Name FROM PermissionSet WHERE Id IN (SELECT PermissionSetId FROM PermissionSetGroupComponent WHERE PermissionSetGroup.DeveloperName IN ('SubscriptionManagementProductAndPricingAdmin'))"
+method: GET
+headers:
+  Content-Type: application/json
+queryParams:
+  q: SELECT Id, Name FROM PermissionSet WHERE Id IN (SELECT PermissionSetId FROM PermissionSetGroupComponent WHERE PermissionSetGroup.DeveloperName IN ('SubscriptionManagementProductAndPricingAdmin'))
+body:
+  type: text
+  content: ""
+scripts:
+  - type: afterResponse
+    code: |-
+      var jsonData = pm.response.json();
+      jsonData.records.forEach((record, index) => {
+          pm.environment.set("productAndPricingAdminPS" + (index + 1) + "Id", record.Id)
+      })
+    language: text/javascript
+order: 8000

@@ -1,0 +1,4 @@
+$kind: http-request
+url: https://{{uri}}/objects
+method: GET
+order: 1000

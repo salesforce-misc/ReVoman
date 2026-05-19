@@ -1,0 +1,65 @@
+$kind: http-request
+url: "{{baseUrl}}{{versionPath}}/composite"
+method: POST
+body:
+  type: json
+  content: |-
+    {
+      "allOrNone": false,
+      "compositeRequest": [
+        {
+          "method": "GET",
+          "url": "{{versionPath}}/query/?q=SELECT {{$invLineFieldsToQuery}} FROM InvoiceLine WHERE billingScheduleId = '{{billingSchedule1Id}}'",
+          "referenceId": "invoiceLines"
+        },
+        {
+          "method": "GET",
+          "url": "{{versionPath}}/query/?q=SELECT {{$bsFieldsToQuery}} FROM BillingSchedule WHERE Id = '{{billingSchedule1Id}}'",
+          "referenceId": "billingSchedule"
+        },
+        {
+          "method": "GET",
+          "url": "{{versionPath}}/query/?q=SELECT {{$bmpFieldsToQuery}} FROM BillingMilestonePlan WHERE ReferenceItemId = '{{billingSchedule1Id}}'",
+          "referenceId": "billingMilestonePlan"
+        },
+        {
+          "method": "GET",
+          "url": "{{versionPath}}/query/?q=SELECT {{$bmpiFieldsToQuery}} FROM BillingMilestonePlanItem WHERE BillingMilestonePlanId = '@{billingMilestonePlan.records[0].Id}' ORDER BY MilestoneAccomplishmentDate",
+          "referenceId": "billingMilestonePlanItems"
+        }
+      ]
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      var jsonData = pm.response.json()
+
+      jsonData.compositeResponse[0].body.records.forEach((record, index) => {
+        pm.environment.set("invoiceLine" + (index + 1) + "Id", record.Id)
+        pm.environment.set("invoice" + (index + 1) + "Id", record.invoiceId)
+        pm.environment.set("invoice" + (index + 1) + "Status", record.Invoice.Status)
+      })
+
+      jsonData.compositeResponse[1].body.records.forEach((record, index) => {
+        pm.environment.set("billingSchedule" + (index + 1) + "Id", record.Id)
+        pm.environment.set("billingSchedule" + (index + 1) + "Status", record.Status)
+      })
+
+      jsonData.compositeResponse[2].body.records.forEach((record, index) => {
+        pm.environment.set("billingMilestonePlan" + (index + 1) + "Id", record.Id)
+        pm.environment.set("billingMilestonePlan" + (index + 1) + "Status", record.Status)
+      })
+
+      jsonData.compositeResponse[3].body.records.forEach((record, index) => {
+        pm.environment.set("billingMilestonePlanItem" + (index + 1) + "Id", record.Id)
+        pm.environment.set("billingMilestonePlanItem" + (index + 1) + "Status", record.Status)
+      })
+    language: text/javascript
+  - type: beforeRequest
+    code: |-
+      pm.environment.set("$invLineFieldsToQuery", "Id, InvoiceId, Invoice.status")
+      pm.environment.set("$bsFieldsToQuery", "Id, Status")
+      pm.environment.set("$bmpFieldsToQuery", "Id, Status")
+      pm.environment.set("$bmpiFieldsToQuery", "Id, MilestoneAccomplishmentDate, Status")
+    language: text/javascript
+order: 2000

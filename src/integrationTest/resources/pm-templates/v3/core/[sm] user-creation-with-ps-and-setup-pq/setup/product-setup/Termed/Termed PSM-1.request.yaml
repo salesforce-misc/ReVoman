@@ -1,0 +1,18 @@
+$kind: http-request
+name: Termed PSM
+url: "{{baseUrl}}{{versionPath}}/query/?q=SELECT Id, SellingModelType, PricingTerm, PricingTermUnit, Status FROM ProductSellingModel where SellingModelType = 'TermDefined' and PricingTerm = 1"
+method: GET
+headers:
+  Content-Type: application/json
+queryParams:
+  q: SELECT Id, SellingModelType, PricingTerm, PricingTermUnit, Status FROM ProductSellingModel where SellingModelType = 'TermDefined' and PricingTerm = 1
+body:
+  type: text
+  content: ""
+scripts:
+  - type: afterResponse
+    code: |-
+      var jsonData = pm.response.json()
+      pm.environment.set("termedProductSellingModelId", jsonData.records[0].Id);
+    language: text/javascript
+order: 3000

@@ -1,0 +1,16 @@
+$kind: http-request
+url: "{{baseUrl}}/pokemon-color/{{id}}"
+method: GET
+headers:
+  postLog: "true"
+queryParams:
+  - key: ""
+    value: ""
+    disabled: true
+scripts:
+  - type: afterResponse
+    code: |-
+      var jsonData = JSON.parse(responseBody)
+      pm.environment.set("color", jsonData["name"])
+    language: text/javascript
+order: 1000

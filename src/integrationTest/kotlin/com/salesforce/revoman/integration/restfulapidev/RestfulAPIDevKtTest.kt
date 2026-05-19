@@ -30,8 +30,8 @@ class RestfulAPIDevKtTest {
 
   companion object {
     private const val PM_COLLECTION_PATH =
-      "pm-templates/restfulapidev/restful-api.dev.postman_collection.json"
+      "pm-templates/v2/restfulapidev/restful-api.dev.postman_collection.json"
     private const val PM_ENVIRONMENT_PATH =
-      "pm-templates/restfulapidev/restful-api.dev.postman_environment.json"
+      "pm-templates/v2/restfulapidev/restful-api.dev.postman_environment.json"
   }
 }

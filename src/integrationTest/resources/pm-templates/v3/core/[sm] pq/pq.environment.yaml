@@ -1,0 +1,20 @@
+name: pq
+values:
+  - key: baseUrl
+    value: 'https://localhost:6101'
+  - key: username
+    value: ''
+  - key: password
+    value: ''
+  - key: commonUserPassword
+    value: ''
+  - key: secretToken-admin
+    value: ''
+  - key: secretToken-billingAdmin
+    value: ''
+  - key: secretToken-taxAdmin
+    value: ''
+  - key: secretToken-productAndPricingAdmin
+    value: ''
+  - key: secretToken-salesRep
+    value: ''

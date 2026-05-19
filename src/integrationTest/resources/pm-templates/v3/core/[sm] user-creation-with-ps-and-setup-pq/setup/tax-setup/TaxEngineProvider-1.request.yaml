@@ -1,0 +1,13 @@
+$kind: http-request
+name: TaxEngineProvider
+url: "{{baseUrl}}{{versionPath}}/query/?q=select id from TaxEngineProvider where ApexAdapterId = '{{mockTaxAdapterId}}'"
+method: GET
+queryParams:
+  q: select id from TaxEngineProvider where ApexAdapterId = '{{mockTaxAdapterId}}'
+scripts:
+  - type: afterResponse
+    code: |
+      var jsonData = pm.response.json()
+      pm.environment.set("taxEngineProviderId", jsonData.records[0].Id);
+    language: text/javascript
+order: 5000

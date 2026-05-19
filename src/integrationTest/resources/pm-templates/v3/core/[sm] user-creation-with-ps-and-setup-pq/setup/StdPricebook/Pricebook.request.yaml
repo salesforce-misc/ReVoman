@@ -1,0 +1,13 @@
+$kind: http-request
+url: "{{baseUrl}}{{versionPath}}/sobjects/Pricebook2/{{standardPricebookId}}"
+method: PATCH
+headers:
+  Content-Type: application/json
+  Sforce-Call-Options: client=SfdcInternalQA/...
+body:
+  type: text
+  content: |-
+    {
+        "IsActive": true
+    }
+order: 2000

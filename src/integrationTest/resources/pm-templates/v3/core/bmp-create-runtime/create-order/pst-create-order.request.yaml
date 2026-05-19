@@ -1,0 +1,99 @@
+$kind: http-request
+url: "{{baseUrl}}{{versionPath}}/connect/rev/sales-transaction/actions/place"
+method: POST
+body:
+  type: json
+  content: |-
+    {
+      "pricingPref": "{{$pricingPref}}",
+      "configurationPref": {
+        "configurationMethod": "skip"
+      },
+      "graph": {
+        "graphId": "{{$requestName}}",
+        "records": [
+          {
+            "referenceId": "refOrder",
+            "record": {
+              "attributes": {
+                "type": "Order",
+                "method": "POST"
+              },
+              "Status": "Draft",
+              "AccountId": "{{accountId}}",
+              "Pricebook2Id": "{{standardPricebookId}}",
+              "BillToContactId": "{{contactId}}",
+              "EffectiveDate": "2024-11-20",
+              "BillingStreet": "Block 3, DivyaSree Orion IT/ITES SEZ, Raidurg Village",
+              "BillingCity": "Hyderabad",
+              "BillingState": "TS",
+              "BillingPostalCode": "500032",
+              "BillingCountry": "India",
+              "ShippingStreet": "Block 3, DivyaSree Orion IT/ITES SEZ, Raidurg Village",
+              "ShippingCity": "Hyderabad",
+              "ShippingState": "TS",
+              "ShippingPostalCode": "500032",
+              "ShippingCountry": "India"
+            }
+          },
+          {
+            "referenceId": "refAppTag",
+            "record": {
+              "attributes": {
+                "type": "AppUsageAssignment",
+                "method": "POST"
+              },
+              "AppUsageType": "RevenueLifecycleManagement",
+              "RecordId": "@{refOrder.id}"
+            }
+          },
+          {
+            "referenceId": "refOrderAction",
+            "record": {
+              "attributes": {
+                "type": "OrderAction",
+                "method": "POST"
+              },
+              "OrderId": "@{refOrder.id}",
+              "Type": "Add"
+            }
+          },
+          {
+            "referenceId": "OrderItem1",
+            "record": {
+              "attributes": {
+                "type": "OrderItem",
+                "method": "POST"
+              },
+              "OrderId": "@{refOrder.id}",
+              "PricebookEntryId": "{{oneTimePriceBookEntryId}}",
+              "Product2Id": "{{oneTimeProductId}}",
+              "Quantity": {{$quantity}},
+              "UnitPrice": {{$unitPrice}},
+              "OrderActionId": "@{refOrderAction.id}"
+            }
+          }
+        ]
+      }
+    }
+scripts:
+  - type: afterResponse
+    code: |
+      var jsonData = pm.response.json()
+      pm.environment.set("orderId", jsonData.salesTransactionId);
+    language: text/javascript
+  - type: beforeRequest
+    code: |-
+      var moment = require("moment");
+      var _ = require('lodash')
+      pm.environment.set("$currentDate", moment().format(("YYYY-MM-DD")));
+
+      var futureDateTime = moment().add(365, 'days');
+      pm.environment.set('$randomFutureDate', futureDateTime.format('YYYY-MM-DD'));
+
+      pm.environment.set("$pricingPref", "system")
+      pm.environment.set("$unitPrice", _.random(1, 100));
+      pm.environment.set("$quantity", _.random(1, 10));
+      pm.environment.set("$requestName", pm.info.requestName)
+    language: text/javascript
+order: 3000

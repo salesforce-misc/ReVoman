@@ -1,0 +1,10 @@
+$kind: http-request
+url: "{{baseUrl}}/ability/{{id}}"
+method: GET
+scripts:
+  - type: afterResponse
+    code: |-
+      var jsonData = JSON.parse(responseBody)
+      pm.environment.set("ability", jsonData["name"])
+    language: text/javascript
+order: 2000

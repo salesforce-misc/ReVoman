@@ -1,0 +1,11 @@
+$kind: collection
+description: |-
+  - Create Persona Users
+      
+  - Setup Tax and Pre-setup for Product
+auth:
+  - id: 785f1054-70b7-4155-927b-10e4222647b8
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{accessToken}}"

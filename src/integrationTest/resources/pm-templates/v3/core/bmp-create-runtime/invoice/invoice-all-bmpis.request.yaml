@@ -1,0 +1,30 @@
+$kind: http-request
+url: "{{baseUrl}}{{versionPath}}/commerce/invoicing/invoices/collection/actions/generate"
+method: POST
+headers:
+  isAsync: "true"
+body:
+  type: json
+  content: |-
+    {
+      "billingScheduleIds": [
+        "{{billingSchedule1Id}}"
+      ],
+      "action": "Posted",
+      "targetDate": "{{milestone3Date}}",
+      "invoiceDate": "{{$currentDate}}"
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{accessToken}}"
+scripts:
+  - type: beforeRequest
+    code: |-
+      var moment = require('moment')
+
+      pm.environment.set("milestone1Date", moment().add(1, 'month').format("YYYY-MM-DD"))
+      pm.environment.set("milestone2Date", moment().add(2, 'month').format("YYYY-MM-DD"))
+      pm.environment.set("milestone3Date", moment().add(3, 'month').format("YYYY-MM-DD"))
+    language: text/javascript
+order: 3000

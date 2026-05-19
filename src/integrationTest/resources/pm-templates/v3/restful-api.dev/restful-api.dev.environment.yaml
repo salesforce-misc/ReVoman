@@ -1,0 +1,4 @@
+name: restful-api.dev
+values:
+  - key: uri
+    value: api.restful-api.dev

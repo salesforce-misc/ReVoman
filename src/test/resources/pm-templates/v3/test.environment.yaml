@@ -1,0 +1,8 @@
+name: Test
+values:
+  - key: baseUrl
+    value: 'https://example.com'
+  - key: count
+    value: 5
+  - key: emptyValue
+    value:

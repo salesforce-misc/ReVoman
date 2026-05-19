@@ -47,9 +47,9 @@ import org.slf4j.LoggerFactory;
 class PokemonTest {
 
   private static final String PM_COLLECTION_PATH =
-      "pm-templates/pokemon/pokemon.postman_collection.json";
+      "pm-templates/v2/pokemon/pokemon.postman_collection.json";
   private static final String PM_ENVIRONMENT_PATH =
-      "pm-templates/pokemon/pokemon.postman_environment.json";
+      "pm-templates/v2/pokemon/pokemon.postman_environment.json";
   private static final int LIMIT = 3;
   private static final int OFFSET = 0;
   private static final Logger LOGGER = LoggerFactory.getLogger(PokemonTest.class);

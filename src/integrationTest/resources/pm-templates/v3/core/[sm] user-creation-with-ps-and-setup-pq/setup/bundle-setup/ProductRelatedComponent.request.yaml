@@ -1,0 +1,22 @@
+$kind: http-request
+url: "{{baseUrl}}{{versionPath}}/sobjects/ProductRelatedComponent"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+        "ParentProductId": "{{evergreenProductId}}",
+        "ChildProductId": "{{termedProductId}}", 
+        "ParentSellingModelId": "{{evergreenProductSellingModelId}}",
+        "ChildSellingModelId": "{{termedProductSellingModelId}}",
+        "ProductRelationshipTypeId": "{{productRelationshipTypeId}}"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      var jsonData = pm.response.json()
+      pm.environment.set("ProductRelatedComponentId", jsonData.id);
+    language: text/javascript
+order: 3000

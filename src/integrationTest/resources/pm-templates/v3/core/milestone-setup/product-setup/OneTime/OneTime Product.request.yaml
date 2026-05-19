@@ -1,0 +1,24 @@
+$kind: http-request
+url: "{{baseUrl}}{{versionPath}}/sobjects/Product2/"
+method: POST
+body:
+  type: json
+  content: |-
+    {
+      "Name": "ReVoman OneTime",
+      "ProductCode": "ReVoman OneTime",
+      "IsActive": true,
+      "Type": "Bundle",
+      "ConfigureDuringSale": "Allowed",
+      "BillingPolicyId": "{{billingPolicyId}}",
+      "TaxPolicyId": "{{taxPolicyId}}"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      var jsonData = pm.response.json();
+      if(jsonData.id!=null){
+          pm.environment.set("oneTimeProductId", jsonData.id);
+      }
+    language: text/javascript
+order: 2000

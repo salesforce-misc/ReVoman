@@ -1,0 +1,4 @@
+$kind: http-request
+url: https://example.com/inner
+method: GET
+order: 1000

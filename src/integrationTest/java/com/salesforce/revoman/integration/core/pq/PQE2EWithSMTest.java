@@ -51,14 +51,14 @@ import org.slf4j.LoggerFactory;
  *
  * <p>- Follow these instructions: <a href="http://sfdc.co/sm-org-setup">SM Org setup</a>. - Replace
  * baseUrl of your server, username and password of the org admin here: <a
- * href="///resources/pm-templates/core/pq/pq-env.postman_environment.json">pq-env.postman_environment.json</a>
+ * href="///resources/pm-templates/v2/core/pq/pq-env.postman_environment.json">pq-env.postman_environment.json</a>
  *
  * <p>- TODO: Add a mock server setup for this test.
  */
 @Disabled("This needs local core server")
 class PQE2EWithSMTest {
   private static final Logger LOGGER = LoggerFactory.getLogger(PQE2EWithSMTest.class);
-  private static final String PQ_COLLECTION_PATH = "pm-templates/core/pq";
+  private static final String PQ_COLLECTION_PATH = "pm-templates/v2/core/pq";
   private static final List<String> PQ_TEMPLATE_PATHS =
       List.of(
           PQ_COLLECTION_PATH + "/[sm] user-creation-with-ps-and-setup-pq.postman_collection.json",

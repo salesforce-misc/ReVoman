@@ -1,0 +1,24 @@
+$kind: http-request
+url: "{{baseUrl}}{{versionPath}}/sobjects/ProrationPolicy/"
+method: POST
+headers:
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+        "Name": "ReVoman Proration Policy",
+        "ProrationPolicyType": "StandardTimePeriods",
+        "RemainderStrategy": "AddToFirst"
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{accessToken}}"
+scripts:
+  - type: afterResponse
+    code: |-
+      var jsonData = pm.response.json();
+      pm.environment.set("prorationPolicyId", jsonData.id);
+    language: text/javascript
+order: 3000

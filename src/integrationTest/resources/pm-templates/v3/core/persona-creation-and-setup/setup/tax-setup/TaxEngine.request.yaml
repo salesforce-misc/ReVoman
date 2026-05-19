@@ -1,0 +1,24 @@
+$kind: http-request
+url: "{{baseUrl}}{{versionPath}}/sobjects/TaxEngine"
+method: POST
+body:
+  type: json
+  content: |-
+    {
+        "taxEngineProviderId": "{{taxEngineProviderId}}",
+        "merchantcredentialid": "{{namedCredentialId}}",
+        "taxenginename": "{{$randomCompanyName}}",
+        "Status": "Active",
+        "sellercode": "Billing2",
+        "taxenginecity": "Irvine",
+        "taxenginestate": "California",
+        "taxenginecountry": "US",
+        "taxenginepostalcode": "92614"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      var jsonData = pm.response.json();
+      pm.environment.set("taxEngineId", jsonData.id);
+    language: text/javascript
+order: 7000

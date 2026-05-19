@@ -1,0 +1,15 @@
+$kind: http-request
+url: "{{baseUrl}}{{versionPath}}/sobjects/BillingPolicy/{{billingPolicyId}}"
+method: PATCH
+body:
+  type: json
+  content: |-
+    {
+        "Status": "Active",
+        "DefaultBillingTreatmentId": "{{billingTreatmentId}}"
+    }
+scripts:
+  - type: afterResponse
+    code: "\ \n "
+    language: text/javascript
+order: 7000

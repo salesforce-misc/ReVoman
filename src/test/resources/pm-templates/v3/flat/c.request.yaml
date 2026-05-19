@@ -1,0 +1,4 @@
+$kind: http-request
+url: https://example.com/c
+method: GET
+order: 2000

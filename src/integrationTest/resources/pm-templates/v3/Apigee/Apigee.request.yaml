@@ -1,0 +1,14 @@
+$kind: http-request
+name: Apigee
+url: https://mocktarget.apigee.net/xml
+method: GET
+scripts:
+  - type: afterResponse
+    code: |-
+      var xml2js = require('xml2js')
+      xml2js.parseString(pm.response.text(), { explicitArray: false }, (_, jsonResponse) => {
+        let result = jsonResponse.root.city
+        pm.environment.set("city", result)
+      })
+    language: text/javascript
+order: 1000

@@ -1,0 +1,13 @@
+$kind: http-request
+name: MockTaxAdapter
+url: "{{baseUrl}}{{versionPath}}/query/?q=SELECT Id FROM ApexClass WHERE Name='MockAdapter'"
+method: GET
+queryParams:
+  q: SELECT Id FROM ApexClass WHERE Name='MockAdapter'
+scripts:
+  - type: afterResponse
+    code: |
+      var jsonData = pm.response.json();
+      pm.environment.set("mockTaxAdapterId", jsonData.records[0].Id);
+    language: text/javascript
+order: 3000

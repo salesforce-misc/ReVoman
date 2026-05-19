@@ -10,6 +10,7 @@ java-vavr = "1.0.1"
 kotlin-vavr = "0.10.2"
 jetbrains-annotations = "26.1.0"
 okio = "3.17.0"
+snakeyaml = "2.5"
 kotest = "6.1.11"
 testLogger = "4.0.0"
 truth = "1.4.5"
@@ -42,6 +43,7 @@ kotlin-vavr = { module = "io.vavr:vavr-kotlin", version.ref = "kotlin-vavr" }
 arrow-core = { module = "io.arrow-kt:arrow-core", version.ref = "arrow" }
 jetbrains-annotations = { module = "org.jetbrains:annotations", version.ref = "jetbrains-annotations" }
 okio-jvm = { module = "com.squareup.okio:okio-jvm", version.ref = "okio" }
+snakeyaml = { module = "org.yaml:snakeyaml", version.ref = "snakeyaml" }
 testLogger-gradle = { module = "com.adarshr.test-logger:com.adarshr.test-logger.gradle.plugin", version.ref = "testLogger" }
 kotest-assertions-core = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
 kotest-frameworkEngine = { module = "io.kotest:kotest-framework-engine", version.ref = "kotest" }

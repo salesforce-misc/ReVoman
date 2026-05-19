@@ -1,0 +1,20 @@
+$kind: http-request
+name: ProductRelationShipType
+url: "{{baseUrl}}{{versionPath}}/query/?q=SELECT id FROM ProductRelationShipType where MainProductRoleCat='Bundle' AND AssociatedProductRoleCat='BundleComponent'"
+method: GET
+headers:
+  Content-Type: application/json
+  Sforce-Call-Options: client=SfdcInternalQA/...
+queryParams:
+  q: SELECT id FROM ProductRelationShipType where MainProductRoleCat='Bundle' AND AssociatedProductRoleCat='BundleComponent'
+body:
+  type: text
+  content: ""
+scripts:
+  - type: afterResponse
+    code: |+
+      var jsonData = pm.response.json()
+      pm.environment.set("productRelationshipTypeId", jsonData.records[0].Id);
+
+    language: text/javascript
+order: 2000

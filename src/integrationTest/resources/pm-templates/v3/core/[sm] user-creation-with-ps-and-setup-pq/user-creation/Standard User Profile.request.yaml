@@ -1,0 +1,21 @@
+$kind: http-request
+url: "{{baseUrl}}{{versionPath}}/query/?q=SELECT Id FROM Profile where Name = 'Standard User'"
+method: GET
+headers:
+  Content-Type: application/json
+queryParams:
+  q: SELECT Id FROM Profile where Name = 'Standard User'
+body:
+  type: text
+  content: ""
+scripts:
+  - type: afterResponse
+    code: |-
+      var statusCode = pm.response.code;
+
+      var jsonData = pm.response.json()
+      if (jsonData.records[0]!=null) {
+          pm.environment.set("standardUserProfileId", jsonData.records[0].Id);
+      }
+    language: text/javascript
+order: 3000
