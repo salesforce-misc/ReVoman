@@ -56,4 +56,20 @@ class V3LoaderTest {
     assertThat(items).hasSize(1)
     assertThat(items[0].name).isEqualTo("req")
   }
+
+  @Test
+  fun testLoadMixedBodies() {
+    val dir = File("src/test/resources/pm-templates/v3/mixed-bodies")
+    val items = V3Loader.load(dir)
+    assertThat(items).hasSize(2)
+    val post = items[0]
+    assertThat(post.name).isEqualTo("post-json")
+    assertThat(post.request.method).isEqualTo("POST")
+    assertThat(post.request.body!!.raw).contains("\"a\":1")
+    assertThat(post.event).isNotNull()
+    assertThat(post.event!!.map { it.listen }.toSet()).containsExactly("test", "prerequest")
+    val patch = items[1]
+    assertThat(patch.request.method).isEqualTo("PATCH")
+    assertThat(patch.request.body!!.raw).isEqualTo("hello")
+  }
 }

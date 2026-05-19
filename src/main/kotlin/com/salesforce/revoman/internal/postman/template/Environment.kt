@@ -39,17 +39,31 @@ internal data class Environment(val name: String?, val values: List<EnvValue>) {
       dynamicEnvironment: Map<String, Any?>,
     ): Map<String, Any?> {
       val envAdapter = Moshi.Builder().build().adapter<Environment>()
-      val envFromEnvFiles =
-        (pmEnvironmentPaths.map { bufferFile(it) } +
-            pmEnvironmentInputStreams.map { bufferInputStream(it) })
-          .flatMap { envWithRegex ->
-            envAdapter.fromJson(envWithRegex)?.values?.filter { it.enabled } ?: emptyList()
+      val envFromYamlPaths: Map<String, Any?> =
+        pmEnvironmentPaths
+          .filter { it.endsWith(".yaml") || it.endsWith(".yml") }
+          .fold(emptyMap()) { acc, path ->
+            acc + com.salesforce.revoman.internal.postman.template.v3.V3EnvLoader.loadFromPath(path)
+          }
+      val envFromJsonPaths: Map<String, Any?> =
+        pmEnvironmentPaths
+          .filterNot { it.endsWith(".yaml") || it.endsWith(".yml") }
+          .map { bufferFile(it) }
+          .flatMap { source ->
+            envAdapter.fromJson(source)?.values?.filter { it.enabled } ?: emptyList()
+          }
+          .associate { it.key to it.value }
+      val envFromStreams: Map<String, Any?> =
+        pmEnvironmentInputStreams
+          .map { bufferInputStream(it) }
+          .flatMap { source ->
+            envAdapter.fromJson(source)?.values?.filter { it.enabled } ?: emptyList()
           }
           .associate { it.key to it.value }
       // * NOTE 10/09/23 gopala.akshintala: dynamicEnvironment keys replace envFromEnvFiles when
       // clashed
       // ! TODO 11 Jun 2025 gopala.akshintala: serialize only during regex replace
-      return envFromEnvFiles + dynamicEnvironment
+      return envFromYamlPaths + envFromJsonPaths + envFromStreams + dynamicEnvironment
     }
   }
 }
