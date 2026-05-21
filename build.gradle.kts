@@ -28,7 +28,7 @@ dependencies {
   implementation(libs.bundles.kotlin.logging)
   implementation(libs.pprint)
   implementation(libs.graal.js)
-  implementation(libs.kotlin.faker)
+  implementation(libs.datafaker)
   implementation(libs.underscore)
   implementation(libs.okio.jvm)
   implementation(libs.spring.beans)

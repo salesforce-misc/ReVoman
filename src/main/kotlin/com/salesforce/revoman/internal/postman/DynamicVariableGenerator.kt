@@ -7,15 +7,15 @@
  */
 package com.salesforce.revoman.internal.postman
 
-import io.github.serpro69.kfaker.faker
 import java.time.LocalDate
 import java.util.*
 import kotlin.random.Random.Default.nextBoolean
 import kotlin.random.Random.Default.nextInt
 import kotlin.random.Random.Default.nextLong
 import kotlin.time.Clock.System
+import net.datafaker.Faker
 
-private val faker = faker {}
+private val faker = Faker()
 
 /**
  * @see <a
@@ -39,21 +39,21 @@ private val dynamicVariableGenerators: Map<String, () -> String> =
     $$"$randomAlphaNumeric" to { randomAlphanumeric(1) },
     $$"$randomBoolean" to { nextBoolean().toString() },
     $$"$randomInt" to { nextInt(0, Int.MAX_VALUE).toString() },
-    $$"$randomColor" to faker.color::name,
+    $$"$randomColor" to { faker.color().name() },
     $$"$randomHexColor" to { "#${getRandomHex()}${getRandomHex()}${getRandomHex()}" },
     // Internet and IP addresses
-    $$"$randomIP" to faker.internet::iPv4Address,
-    $$"$randomIPV6" to faker.internet::iPv6Address,
-    $$"$randomMACAddress" to { faker.internet.macAddress() },
+    $$"$randomIP" to { faker.internet().ipV4Address() },
+    $$"$randomIPV6" to { faker.internet().ipV6Address() },
+    $$"$randomMACAddress" to { faker.internet().macAddress() },
     $$"$randomPassword" to { randomAlphanumeric(15) },
     // Names
-    $$"$randomFirstName" to faker.name::firstName,
-    $$"$randomLastName" to faker.name::lastName,
-    $$"$randomUserName" to { faker.name.firstName() + faker.name.lastName() },
+    $$"$randomFirstName" to { faker.name().firstName() },
+    $$"$randomLastName" to { faker.name().lastName() },
+    $$"$randomUserName" to { faker.name().firstName() + faker.name().lastName() },
     // Phone, address, and location
-    $$"$randomCity" to faker.address::city,
+    $$"$randomCity" to { faker.address().city() },
     // Domains, emails, and usernames
-    $$"$randomEmail" to { faker.internet.email() },
+    $$"$randomEmail" to { faker.internet().emailAddress() },
     // Date time
     $$"$currentDate" to { LocalDate.now().toString() },
     $$"$randomFutureDate" to
