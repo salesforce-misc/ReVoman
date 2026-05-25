@@ -59,15 +59,19 @@ internal fun shouldStepBePicked(
   if (runOnlySteps.isEmpty() && skipSteps.isEmpty()) {
     return true
   }
-  val runStep = runOnlySteps.isEmpty() || runOnlySteps.any { it.pick(currentStep) }
   val skipStep = skipSteps.isNotEmpty() && skipSteps.any { it.pick(currentStep) }
-  check(!(runStep && skipStep)) {
+  // Ambiguity only exists when a step is *explicitly* picked by both lists. An empty
+  // runOnlySteps means "run anything not skipped" — not a positive pick that conflicts
+  // with skipSteps.
+  val explicitlyRunStep = runOnlySteps.isNotEmpty() && runOnlySteps.any { it.pick(currentStep) }
+  check(!(explicitlyRunStep && skipStep)) {
     "‼️😵‍💫 Ambiguous - $currentStep is picked for both run and skip execution"
   }
   if (skipStep) {
     logger.info { "$currentStep skipped for execution" }
+    return false
   }
-  return runStep
+  return runOnlySteps.isEmpty() || explicitlyRunStep
 }
 
 internal fun <T> runCatching(

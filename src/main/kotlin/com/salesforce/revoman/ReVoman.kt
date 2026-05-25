@@ -259,6 +259,11 @@ object ReVoman {
     val v3Marker = ".resources/definition.yaml"
     if (direct.isDirectory && java.io.File(direct, v3Marker).isFile) return direct
     val url = Thread.currentThread().contextClassLoader.getResource(path) ?: return null
+    // Only filesystem-backed resources can be resolved as a v3 directory. Jar-backed resources
+    // (URL scheme like "jar:file:..." or "resource:...") have non-hierarchical URIs and would
+    // throw "URI is not hierarchical" from File(URI) — those are v2 single-file JSON collections
+    // packaged inside the test jar; let the caller fall through to the v2 adapter path.
+    if (url.protocol != "file") return null
     val viaResource = java.io.File(url.toURI())
     return if (viaResource.isDirectory && java.io.File(viaResource, v3Marker).isFile) viaResource
     else null

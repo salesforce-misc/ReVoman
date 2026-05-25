@@ -19,4 +19,22 @@ class V3DetectionTest {
       ReVoman.revUp(Kick.configure().templatePath("pm-templates/v3/flat").insecureHttp(true).off())
     assertThat(rundown.providedStepsToExecuteCount).isEqualTo(3)
   }
+
+  /**
+   * Regression for `URI is not hierarchical` when a v2 single-file JSON collection is loaded via
+   * the classloader from a jar-backed resource (FTest scenario). resolveV3CollectionDir must return
+   * null for non-`file:` URLs so the caller routes to the v2 JSON adapter path.
+   */
+  @Test
+  fun testRevUpAcceptsV2SingleFileCollectionPathFromClasspath() {
+    val rundown =
+      ReVoman.revUp(
+        Kick.configure()
+          .templatePath("pm-templates/v2/steps-without-folders.postman_collection.json")
+          .insecureHttp(true)
+          .off()
+      )
+    // Just verify it loaded steps — no URI exception.
+    assertThat(rundown.providedStepsToExecuteCount).isGreaterThan(0)
+  }
 }
