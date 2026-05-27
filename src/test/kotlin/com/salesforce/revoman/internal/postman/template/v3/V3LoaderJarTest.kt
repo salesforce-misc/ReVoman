@@ -63,8 +63,8 @@ class V3LoaderJarTest {
   }
 
   /**
-   * Read-only okio FileSystem view over a Java NIO FileSystem (e.g., a jar zipfs).
-   * Only the methods V3Loader actually calls are implemented; everything else throws.
+   * Read-only okio FileSystem view over a Java NIO FileSystem (e.g., a jar zipfs). Only the methods
+   * V3Loader actually calls are implemented; everything else throws.
    */
   private class NioZipFileSystem(private val nioFs: java.nio.file.FileSystem) : FileSystem() {
     override fun list(dir: Path): List<Path> =
@@ -72,8 +72,7 @@ class V3LoaderJarTest {
         stream.map { it.toOkioPath() }.toList()
       }
 
-    override fun listOrNull(dir: Path): List<Path>? =
-      runCatching { list(dir) }.getOrNull()
+    override fun listOrNull(dir: Path): List<Path>? = runCatching { list(dir) }.getOrNull()
 
     override fun metadataOrNull(path: Path): FileMetadata? =
       runCatching {
@@ -110,8 +109,11 @@ class V3LoaderJarTest {
     override fun openReadOnly(file: Path): okio.FileHandle =
       throw UnsupportedOperationException("use source()")
 
-    override fun openReadWrite(file: Path, mustCreate: Boolean, mustExist: Boolean): okio.FileHandle =
-      throw UnsupportedOperationException("read-only")
+    override fun openReadWrite(
+      file: Path,
+      mustCreate: Boolean,
+      mustExist: Boolean,
+    ): okio.FileHandle = throw UnsupportedOperationException("read-only")
 
     override fun sink(file: Path, mustCreate: Boolean): Sink =
       throw UnsupportedOperationException("read-only")

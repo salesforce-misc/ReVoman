@@ -254,7 +254,6 @@ object ReVoman {
         stepReports + currentStepReport
       }
   }
-
 }
 
 private val logger = KotlinLogging.logger {}

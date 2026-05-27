@@ -39,9 +39,7 @@ class V3LoaderTest {
   @Test
   fun testLoadThrowsWhenDefinitionMissing() {
     val ex =
-      assertThrows(IllegalStateException::class.java) {
-        V3Loader.load("pm-templates/v3/no-def")
-      }
+      assertThrows(IllegalStateException::class.java) { V3Loader.load("pm-templates/v3/no-def") }
     assertThat(ex.message).contains("Not a v3 collection root")
     assertThat(ex.message).contains(".resources/definition.yaml")
   }
