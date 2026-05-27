@@ -9,6 +9,7 @@ package com.salesforce.revoman.internal.postman.template
 
 import com.salesforce.revoman.input.bufferFile
 import com.salesforce.revoman.input.bufferInputStream
+import com.salesforce.revoman.input.isV3EnvFile
 import com.salesforce.revoman.internal.json.AlwaysSerializeNulls
 import com.salesforce.revoman.internal.json.MoshiReVoman
 import com.squareup.moshi.JsonClass
@@ -41,13 +42,13 @@ internal data class Environment(val name: String?, val values: List<EnvValue>) {
       val envAdapter = Moshi.Builder().build().adapter<Environment>()
       val envFromYamlPaths: Map<String, Any?> =
         pmEnvironmentPaths
-          .filter { it.endsWith(".yaml") || it.endsWith(".yml") }
+          .filter { isV3EnvFile(it) }
           .fold(emptyMap()) { acc, path ->
             acc + com.salesforce.revoman.internal.postman.template.v3.V3EnvLoader.loadFromPath(path)
           }
       val envFromJsonPaths: Map<String, Any?> =
         pmEnvironmentPaths
-          .filterNot { it.endsWith(".yaml") || it.endsWith(".yml") }
+          .filterNot { isV3EnvFile(it) }
           .map { bufferFile(it) }
           .flatMap { source ->
             envAdapter.fromJson(source)?.values?.filter { it.enabled } ?: emptyList()
