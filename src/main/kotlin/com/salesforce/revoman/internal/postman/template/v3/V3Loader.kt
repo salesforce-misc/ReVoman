@@ -16,8 +16,9 @@ import okio.Path
 import okio.Path.Companion.toPath
 import okio.buffer
 
+internal const val V3_DEFINITION_REL_PATH = ".resources/definition.yaml"
+
 internal object V3Loader {
-  private const val DEF_REL_PATH = ".resources/definition.yaml"
   private const val REQUEST_SUFFIX = ".request.yaml"
 
   fun load(rootPath: String): List<Item> {
@@ -73,16 +74,17 @@ internal object V3Loader {
     return p to fs
   }
 
-  private fun hasDef(dir: Path, fs: FileSystem): Boolean = fs.exists(dir / DEF_REL_PATH)
+  private fun hasDef(dir: Path, fs: FileSystem): Boolean = fs.exists(dir / V3_DEFINITION_REL_PATH)
 
   private fun readDefOrNull(dir: Path, fs: FileSystem): V3CollectionDef? {
-    val defFile = dir / DEF_REL_PATH
+    val defFile = dir / V3_DEFINITION_REL_PATH
     if (!fs.exists(defFile)) return null
     return V3YamlReader.readCollectionDef(fs.source(defFile).buffer().readUtf8())
   }
 
   private fun readDefOrThrow(dir: Path, fs: FileSystem): V3CollectionDef =
-    readDefOrNull(dir, fs) ?: error("Not a v3 collection root: $dir. Missing $DEF_REL_PATH")
+    readDefOrNull(dir, fs)
+      ?: error("Not a v3 collection root: $dir. Missing $V3_DEFINITION_REL_PATH")
 }
 
 private val logger = KotlinLogging.logger {}
