@@ -33,4 +33,26 @@ class FileUtilsTest {
     assertThat(isV3EnvFile("env")).isFalse()
     assertThat(isV3EnvFile("path/to/foo.environment.yaml")).isTrue()
   }
+
+  @Test
+  fun testIsV3CollectionTrueForClasspathDirWithMarker() {
+    assertThat(isV3Collection("pm-templates/v3/flat")).isTrue()
+  }
+
+  @Test
+  fun testIsV3CollectionFalseForDirWithoutMarker() {
+    assertThat(isV3Collection("pm-templates/v3/no-def")).isFalse()
+  }
+
+  @Test
+  fun testIsV3CollectionFalseForV2JsonFile() {
+    assertThat(isV3Collection("pm-templates/v2/steps-without-folders.postman_collection.json"))
+      .isFalse()
+  }
+
+  @Test
+  fun testIsV3CollectionFalseForMissingPath() {
+    assertThat(isV3Collection("pm-templates/v3/does-not-exist")).isFalse()
+    assertThat(isV3Collection("missing-classpath-resource")).isFalse()
+  }
 }

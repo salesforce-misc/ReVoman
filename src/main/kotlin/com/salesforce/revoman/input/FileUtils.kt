@@ -36,3 +36,15 @@ fun isV3EnvFile(path: String): Boolean = path.endsWith(".yaml") || path.endsWith
 
 fun writeToFile(filePath: String, content: String) =
   SYSTEM.write(filePath.toPath()) { writeUtf8(content) }
+
+private const val V3_DEFINITION_REL_PATH = ".resources/definition.yaml"
+
+fun isV3Collection(path: String): Boolean =
+  runCatching {
+      val p = path.toPath()
+      val fs = if (p.isAbsolute) SYSTEM else RESOURCES
+      val md = fs.metadataOrNull(p) ?: return@runCatching false
+      if (!md.isDirectory) return@runCatching false
+      fs.exists(p / V3_DEFINITION_REL_PATH)
+    }
+    .getOrDefault(false)
