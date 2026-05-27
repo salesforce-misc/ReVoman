@@ -20,6 +20,8 @@ description = "ReVoman - A template-driven API automation tool for JVM (Java/Kot
 
 repositories { mavenCentral() }
 
+base { archivesName.set(ARTIFACT_ID) }
+
 java {
   withJavadocJar()
   withSourcesJar()

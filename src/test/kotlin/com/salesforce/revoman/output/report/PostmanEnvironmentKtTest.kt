@@ -78,4 +78,30 @@ class PostmanEnvironmentKtTest {
     pmEnv.getObj<String>("key7") shouldBe env["key7"]
     pmEnv.getObj<Any>("key8") shouldBe null
   }
+
+  @Test
+  fun getAsString() {
+    val env =
+      mutableMapOf(
+        "key1" to "hello",
+        "key2" to "",
+        "key3" to 42,
+        "key4" to true,
+        "key5" to 3.14,
+        "key6" to listOf(1, 2, 3),
+        "key7" to mapOf("a" to 1),
+        "key8" to null,
+      )
+    val pmEnv = PostmanEnvironment(env)
+    pmEnv.getAsString("key1") shouldBe "hello"
+    pmEnv.getAsString("key2") shouldBe ""
+    pmEnv.getAsString("key3") shouldBe "42"
+    pmEnv.getAsString("key4") shouldBe "true"
+    pmEnv.getAsString("key5") shouldBe "3.14"
+    pmEnv.getAsString("key6") shouldBe "[1,2,3]"
+    JSONAssert.assertEquals("""{"a":1}""", pmEnv.getAsString("key7"), JSONCompareMode.STRICT)
+    pmEnv.getAsString("key8") shouldBe "null"
+    pmEnv.getAsString("missing") shouldBe "null"
+    pmEnv.getAsString(null) shouldBe "null"
+  }
 }

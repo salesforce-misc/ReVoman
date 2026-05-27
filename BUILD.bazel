@@ -5,11 +5,15 @@ package(default_visibility = ["//visibility:public"])
 java_import(
     name = "com_salesforce_revoman_revoman",
     jars = glob(
-        ["build/libs/revoman-root-*.jar"],
+        ["build/libs/revoman-*.jar"],
+        exclude = [
+            "build/libs/revoman-*-sources.jar",
+            "build/libs/revoman-*-javadoc.jar",
+        ],
         allow_empty = False,
     ),
     srcjar = glob(
-        ["build/libs/revoman-root-*-sources.jar"],
+        ["build/libs/revoman-*-sources.jar"],
         allow_empty = False,
     )[0],
 )
