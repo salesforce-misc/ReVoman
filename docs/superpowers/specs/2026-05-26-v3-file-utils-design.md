@@ -2,7 +2,7 @@
 
 Status: Approved (design phase)
 Date: 2026-05-26
-Branch: `feat-mock-server`
+Branch: `feat-v3-reader-util`
 
 ## Goal
 
@@ -277,7 +277,7 @@ No new log messages. Existing v3 loader/converter warnings preserved.
 
 ## Rollout
 
-Single PR on `feat-mock-server` branch. Files touched:
+Single PR on `feat-v3-reader-util` branch. Files touched:
 - `src/main/kotlin/com/salesforce/revoman/internal/postman/template/v3/V3Loader.kt` (refactor)
 - `src/main/kotlin/com/salesforce/revoman/input/FileUtils.kt` (3 new public functions)
 - `src/main/kotlin/com/salesforce/revoman/ReVoman.kt` (drop `resolveV3CollectionDir`, use `isV3Collection`)
