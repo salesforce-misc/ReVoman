@@ -7,6 +7,7 @@
  */
 package com.salesforce.revoman.input
 
+import com.google.common.truth.Truth.assertThat
 import io.kotest.matchers.string.shouldNotBeBlank
 import java.io.File
 import org.junit.jupiter.api.Test
@@ -21,5 +22,15 @@ class FileUtilsTest {
   fun `read file to string`() {
     val file = File("src/test/resources/env-with-regex.json")
     readFileToString(file).shouldNotBeBlank()
+  }
+
+  @Test
+  fun testIsV3EnvFileTruthTable() {
+    assertThat(isV3EnvFile("env.yaml")).isTrue()
+    assertThat(isV3EnvFile("env.yml")).isTrue()
+    assertThat(isV3EnvFile("env.YAML")).isFalse()
+    assertThat(isV3EnvFile("env.json")).isFalse()
+    assertThat(isV3EnvFile("env")).isFalse()
+    assertThat(isV3EnvFile("path/to/foo.environment.yaml")).isTrue()
   }
 }

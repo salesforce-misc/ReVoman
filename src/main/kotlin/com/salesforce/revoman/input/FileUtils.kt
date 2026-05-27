@@ -32,5 +32,7 @@ fun bufferFile(file: File): BufferedSource = file.source().buffer()
 
 fun readFileToString(file: File): String = bufferFile(file).readUtf8()
 
+fun isV3EnvFile(path: String): Boolean = path.endsWith(".yaml") || path.endsWith(".yml")
+
 fun writeToFile(filePath: String, content: String) =
   SYSTEM.write(filePath.toPath()) { writeUtf8(content) }
