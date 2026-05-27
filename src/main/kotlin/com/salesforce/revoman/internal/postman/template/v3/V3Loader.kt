@@ -11,10 +11,8 @@ import com.salesforce.revoman.internal.postman.template.Auth
 import com.salesforce.revoman.internal.postman.template.Item
 import com.salesforce.revoman.internal.postman.template.Request
 import io.github.oshai.kotlinlogging.KotlinLogging
-import java.io.File
 import okio.FileSystem
 import okio.Path
-import okio.Path.Companion.toOkioPath
 import okio.Path.Companion.toPath
 import okio.buffer
 
@@ -26,8 +24,6 @@ internal object V3Loader {
     val (path, fs) = resolvePath(rootPath)
     return load(path, fs)
   }
-
-  fun load(rootDir: File): List<Item> = load(rootDir.toOkioPath(), FileSystem.SYSTEM)
 
   fun load(rootPath: Path, fs: FileSystem): List<Item> {
     require(fs.metadataOrNull(rootPath)?.isDirectory == true) {
