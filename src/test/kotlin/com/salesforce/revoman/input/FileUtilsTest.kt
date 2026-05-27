@@ -55,4 +55,17 @@ class FileUtilsTest {
     assertThat(isV3Collection("pm-templates/v3/does-not-exist")).isFalse()
     assertThat(isV3Collection("missing-classpath-resource")).isFalse()
   }
+
+  @Test
+  fun testBufferV3DefinitionReadsMarkerContent() {
+    val content = bufferV3Definition("pm-templates/v3/flat").readUtf8()
+    assertThat(content).contains("\$kind: collection")
+  }
+
+  @Test
+  fun testBufferV3DefinitionThrowsWhenMarkerMissing() {
+    org.junit.jupiter.api.Assertions.assertThrows(java.io.FileNotFoundException::class.java) {
+      bufferV3Definition("pm-templates/v3/no-def").use { it.readUtf8() }
+    }
+  }
 }

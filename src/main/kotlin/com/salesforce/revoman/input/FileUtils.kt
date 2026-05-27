@@ -48,3 +48,9 @@ fun isV3Collection(path: String): Boolean =
       fs.exists(p / V3_DEFINITION_REL_PATH)
     }
     .getOrDefault(false)
+
+fun bufferV3Definition(collectionDir: String): BufferedSource {
+  val p = collectionDir.toPath()
+  val fs = if (p.isAbsolute) SYSTEM else RESOURCES
+  return fs.source(p / V3_DEFINITION_REL_PATH).buffer()
+}
