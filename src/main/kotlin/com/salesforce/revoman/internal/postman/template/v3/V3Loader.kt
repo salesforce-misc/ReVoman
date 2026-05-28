@@ -7,13 +7,14 @@
  */
 package com.salesforce.revoman.internal.postman.template.v3
 
+import com.salesforce.revoman.input.resolveClasspathDir
 import com.salesforce.revoman.internal.postman.template.Auth
 import com.salesforce.revoman.internal.postman.template.Item
 import com.salesforce.revoman.internal.postman.template.Request
 import io.github.oshai.kotlinlogging.KotlinLogging
+import java.io.FileNotFoundException
 import okio.FileSystem
 import okio.Path
-import okio.Path.Companion.toPath
 import okio.buffer
 
 internal const val V3_DEFINITION_REL_PATH = ".resources/definition.yaml"
@@ -22,7 +23,9 @@ internal object V3Loader {
   private const val REQUEST_SUFFIX = ".request.yaml"
 
   fun load(rootPath: String): List<Item> {
-    val (path, fs) = resolvePath(rootPath)
+    val (path, fs) =
+      resolveClasspathDir(rootPath, V3_DEFINITION_REL_PATH)
+        ?: throw FileNotFoundException("v3 collection not found on classpath: $rootPath")
     return load(path, fs)
   }
 
@@ -66,12 +69,6 @@ internal object V3Loader {
         }
 
     return (folderEntries + requestEntries).sortedBy { it.second }.map { it.first }
-  }
-
-  private fun resolvePath(path: String): Pair<Path, FileSystem> {
-    val p = path.toPath()
-    val fs = if (p.isAbsolute) FileSystem.SYSTEM else FileSystem.RESOURCES
-    return p to fs
   }
 
   private fun hasDef(dir: Path, fs: FileSystem): Boolean = fs.exists(dir / V3_DEFINITION_REL_PATH)
