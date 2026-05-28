@@ -7,6 +7,7 @@
  */
 package com.salesforce.revoman.input
 
+import com.google.common.truth.Truth.assertThat
 import io.kotest.matchers.string.shouldNotBeBlank
 import java.io.File
 import org.junit.jupiter.api.Test
@@ -21,5 +22,50 @@ class FileUtilsTest {
   fun `read file to string`() {
     val file = File("src/test/resources/env-with-regex.json")
     readFileToString(file).shouldNotBeBlank()
+  }
+
+  @Test
+  fun testIsV3EnvFileTruthTable() {
+    assertThat(isV3EnvFile("env.yaml")).isTrue()
+    assertThat(isV3EnvFile("env.yml")).isTrue()
+    assertThat(isV3EnvFile("env.YAML")).isFalse()
+    assertThat(isV3EnvFile("env.json")).isFalse()
+    assertThat(isV3EnvFile("env")).isFalse()
+    assertThat(isV3EnvFile("path/to/foo.environment.yaml")).isTrue()
+  }
+
+  @Test
+  fun testIsV3CollectionTrueForClasspathDirWithMarker() {
+    assertThat(isV3Collection("pm-templates/v3/flat")).isTrue()
+  }
+
+  @Test
+  fun testIsV3CollectionFalseForDirWithoutMarker() {
+    assertThat(isV3Collection("pm-templates/v3/no-def")).isFalse()
+  }
+
+  @Test
+  fun testIsV3CollectionFalseForV2JsonFile() {
+    assertThat(isV3Collection("pm-templates/v2/steps-without-folders.postman_collection.json"))
+      .isFalse()
+  }
+
+  @Test
+  fun testIsV3CollectionFalseForMissingPath() {
+    assertThat(isV3Collection("pm-templates/v3/does-not-exist")).isFalse()
+    assertThat(isV3Collection("missing-classpath-resource")).isFalse()
+  }
+
+  @Test
+  fun testBufferV3DefinitionReadsMarkerContent() {
+    val content = bufferV3Definition("pm-templates/v3/flat").readUtf8()
+    assertThat(content).contains("\$kind: collection")
+  }
+
+  @Test
+  fun testBufferV3DefinitionThrowsWhenMarkerMissing() {
+    org.junit.jupiter.api.Assertions.assertThrows(java.io.FileNotFoundException::class.java) {
+      bufferV3Definition("pm-templates/v3/no-def").use { it.readUtf8() }
+    }
   }
 }

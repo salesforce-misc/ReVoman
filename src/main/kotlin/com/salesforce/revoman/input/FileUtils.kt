@@ -9,17 +9,22 @@
 
 package com.salesforce.revoman.input
 
+import com.salesforce.revoman.internal.postman.template.v3.V3_DEFINITION_REL_PATH
 import java.io.File
+import java.io.FileNotFoundException
 import java.io.InputStream
 import okio.BufferedSource
-import okio.FileSystem.Companion.RESOURCES
 import okio.FileSystem.Companion.SYSTEM
 import okio.Path.Companion.toPath
 import okio.buffer
 import okio.source
 
-fun bufferFile(filePath: String): BufferedSource =
-  filePath.toPath().let { (if (it.isAbsolute) SYSTEM else RESOURCES).source(it).buffer() }
+fun bufferFile(filePath: String): BufferedSource {
+  val (path, fs) =
+    resolveClasspath(filePath)
+      ?: throw FileNotFoundException("file not found on classpath: $filePath")
+  return fs.source(path).buffer()
+}
 
 fun readFileToString(filePath: String): String = bufferFile(filePath).readUtf8()
 
@@ -32,5 +37,36 @@ fun bufferFile(file: File): BufferedSource = file.source().buffer()
 
 fun readFileToString(file: File): String = bufferFile(file).readUtf8()
 
+/** Returns `true` if `path` ends with `.yaml` or `.yml` (case-sensitive). */
+fun isV3EnvFile(path: String): Boolean = path.endsWith(".yaml") || path.endsWith(".yml")
+
 fun writeToFile(filePath: String, content: String) =
   SYSTEM.write(filePath.toPath()) { writeUtf8(content) }
+
+/**
+ * Returns `true` if `path` is a v3 collection directory (contains `.resources/definition.yaml`).
+ *
+ * Total: never throws. Returns `false` for missing paths, files, or any I/O error. Resolves
+ * absolute paths via the filesystem and relative paths via the thread context classloader
+ * (jar-aware via NIO ZipFS).
+ */
+fun isV3Collection(path: String): Boolean =
+  runCatching {
+      val (p, fs) = resolveClasspathDir(path, V3_DEFINITION_REL_PATH) ?: return@runCatching false
+      val md = fs.metadataOrNull(p) ?: return@runCatching false
+      if (!md.isDirectory) return@runCatching false
+      fs.exists(p / V3_DEFINITION_REL_PATH)
+    }
+    .getOrDefault(false)
+
+/**
+ * Buffers the root `.resources/definition.yaml` of a v3 collection directory.
+ *
+ * Throws `FileNotFoundException` if the marker is missing. Gate with [isV3Collection] to avoid.
+ */
+fun bufferV3Definition(collectionDir: String): BufferedSource {
+  val (p, fs) =
+    resolveClasspathDir(collectionDir, V3_DEFINITION_REL_PATH)
+      ?: throw FileNotFoundException("v3 collection not found on classpath: $collectionDir")
+  return fs.source(p / V3_DEFINITION_REL_PATH).buffer()
+}

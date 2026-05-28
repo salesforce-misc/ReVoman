@@ -7,61 +7,81 @@
  */
 package com.salesforce.revoman.internal.postman.template.v3
 
+import com.salesforce.revoman.input.resolveClasspathDir
 import com.salesforce.revoman.internal.postman.template.Auth
 import com.salesforce.revoman.internal.postman.template.Item
 import com.salesforce.revoman.internal.postman.template.Request
 import io.github.oshai.kotlinlogging.KotlinLogging
-import java.io.File
+import java.io.FileNotFoundException
+import okio.FileSystem
+import okio.Path
+import okio.buffer
+
+internal const val V3_DEFINITION_REL_PATH = ".resources/definition.yaml"
 
 internal object V3Loader {
-  private const val DEF_REL_PATH = ".resources/definition.yaml"
   private const val REQUEST_SUFFIX = ".request.yaml"
 
-  fun load(rootDir: File): List<Item> {
-    require(rootDir.isDirectory) {
-      "v3 collection root must be a directory: ${rootDir.absolutePath}"
-    }
-    val rootDef = readDefOrThrow(rootDir)
-    return walk(rootDir, parentAuth = V3ToV2Converter.toAuth(rootDef.auth))
+  fun load(rootPath: String): List<Item> {
+    val (path, fs) =
+      resolveClasspathDir(rootPath, V3_DEFINITION_REL_PATH)
+        ?: throw FileNotFoundException("v3 collection not found on classpath: $rootPath")
+    return load(path, fs)
   }
 
-  private fun walk(dir: File, parentAuth: Auth?): List<Item> {
-    val def = readDefOrNull(dir)
+  fun load(rootPath: Path, fs: FileSystem): List<Item> {
+    require(fs.metadataOrNull(rootPath)?.isDirectory == true) {
+      "v3 collection root must be a directory: $rootPath"
+    }
+    val rootDef = readDefOrThrow(rootPath, fs)
+    return walk(rootPath, fs, parentAuth = V3ToV2Converter.toAuth(rootDef.auth))
+  }
+
+  private fun walk(dir: Path, fs: FileSystem, parentAuth: Auth?): List<Item> {
+    val def = readDefOrNull(dir, fs)
     val effectiveAuth =
       if (def != null && def.auth.isNotEmpty()) V3ToV2Converter.toAuth(def.auth) else parentAuth
 
+    val children = fs.list(dir)
     val requestEntries: List<Pair<Item, Int>> =
-      (dir.listFiles { f -> f.isFile && f.name.endsWith(REQUEST_SUFFIX) } ?: emptyArray()).map {
-        file ->
-        val v3req = V3YamlReader.readRequest(file.readText())
-        val fallbackName = file.name.removeSuffix(REQUEST_SUFFIX)
-        val item =
-          V3ToV2Converter.toItem(v3req, fallbackName = fallbackName, inheritedAuth = effectiveAuth)
-        item to (v3req.order ?: Int.MAX_VALUE)
-      }
+      children
+        .filter { fs.metadataOrNull(it)?.isRegularFile == true && it.name.endsWith(REQUEST_SUFFIX) }
+        .map { file ->
+          val v3req = V3YamlReader.readRequest(fs.source(file).buffer().readUtf8())
+          val fallbackName = file.name.removeSuffix(REQUEST_SUFFIX)
+          val item =
+            V3ToV2Converter.toItem(
+              v3req,
+              fallbackName = fallbackName,
+              inheritedAuth = effectiveAuth,
+            )
+          item to (v3req.order ?: Int.MAX_VALUE)
+        }
 
     val folderEntries: List<Pair<Item, Int>> =
-      (dir.listFiles { f -> f.isDirectory && hasDef(f) } ?: emptyArray()).map { sub ->
-        val subDef = readDefOrThrow(sub)
-        val children = walk(sub, parentAuth = effectiveAuth)
-        val folderItem = Item(name = sub.name, item = children, request = Request())
-        folderItem to (subDef.order ?: Int.MAX_VALUE)
-      }
+      children
+        .filter { fs.metadataOrNull(it)?.isDirectory == true && hasDef(it, fs) }
+        .map { sub ->
+          val subDef = readDefOrThrow(sub, fs)
+          val nestedItems = walk(sub, fs, parentAuth = effectiveAuth)
+          val folderItem = Item(name = sub.name, item = nestedItems, request = Request())
+          folderItem to (subDef.order ?: Int.MAX_VALUE)
+        }
 
     return (folderEntries + requestEntries).sortedBy { it.second }.map { it.first }
   }
 
-  private fun hasDef(dir: File): Boolean = File(dir, DEF_REL_PATH).isFile
+  private fun hasDef(dir: Path, fs: FileSystem): Boolean = fs.exists(dir / V3_DEFINITION_REL_PATH)
 
-  private fun readDefOrNull(dir: File): V3CollectionDef? {
-    val defFile = File(dir, DEF_REL_PATH)
-    if (!defFile.isFile) return null
-    return V3YamlReader.readCollectionDef(defFile.readText())
+  private fun readDefOrNull(dir: Path, fs: FileSystem): V3CollectionDef? {
+    val defFile = dir / V3_DEFINITION_REL_PATH
+    if (!fs.exists(defFile)) return null
+    return V3YamlReader.readCollectionDef(fs.source(defFile).buffer().readUtf8())
   }
 
-  private fun readDefOrThrow(dir: File): V3CollectionDef =
-    readDefOrNull(dir)
-      ?: error("Not a v3 collection root: ${dir.absolutePath}. Missing $DEF_REL_PATH")
+  private fun readDefOrThrow(dir: Path, fs: FileSystem): V3CollectionDef =
+    readDefOrNull(dir, fs)
+      ?: error("Not a v3 collection root: $dir. Missing $V3_DEFINITION_REL_PATH")
 }
 
 private val logger = KotlinLogging.logger {}

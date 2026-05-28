@@ -15,6 +15,7 @@ import com.salesforce.revoman.input.PostExeHook
 import com.salesforce.revoman.input.bufferFile
 import com.salesforce.revoman.input.bufferInputStream
 import com.salesforce.revoman.input.config.Kick
+import com.salesforce.revoman.input.isV3Collection
 import com.salesforce.revoman.internal.exe.deepFlattenItems
 import com.salesforce.revoman.internal.exe.executePolling
 import com.salesforce.revoman.internal.exe.executePostResJS
@@ -35,6 +36,7 @@ import com.salesforce.revoman.internal.postman.RegexReplacer
 import com.salesforce.revoman.internal.postman.dynamicVariableGenerator
 import com.salesforce.revoman.internal.postman.template.Environment.Companion.mergeEnvs
 import com.salesforce.revoman.internal.postman.template.Template
+import com.salesforce.revoman.internal.postman.template.v3.V3Loader.load
 import com.salesforce.revoman.output.ExeType
 import com.salesforce.revoman.output.ExeType.HTTP_REQUEST
 import com.salesforce.revoman.output.ExeType.POLLING
@@ -88,15 +90,14 @@ object ReVoman {
     val pmTemplateAdapter = Moshi.Builder().build().adapter<Template>()
     val itemsFromPaths: List<com.salesforce.revoman.internal.postman.template.Item> =
       kick.templatePaths().flatMap { path ->
-        val v3Dir = resolveV3CollectionDir(path)
-        when {
-          v3Dir != null -> com.salesforce.revoman.internal.postman.template.v3.V3Loader.load(v3Dir)
-          else ->
-            pmTemplateAdapter.fromJson(bufferFile(path))?.let { (pmSteps, authFromRoot) ->
-              pmSteps.map { item ->
-                item.copy(request = item.request.copy(auth = item.request.auth ?: authFromRoot))
-              }
-            } ?: emptyList()
+        if (isV3Collection(path)) {
+          load(path)
+        } else {
+          pmTemplateAdapter.fromJson(bufferFile(path))?.let { (pmSteps, authFromRoot) ->
+            pmSteps.map { item ->
+              item.copy(request = item.request.copy(auth = item.request.auth ?: authFromRoot))
+            }
+          } ?: emptyList()
         }
       }
     val itemsFromStreams: List<com.salesforce.revoman.internal.postman.template.Item> =
@@ -252,16 +253,6 @@ object ReVoman {
         haltExecution = shouldHaltExecution(currentStepReport, kick, pm.rundown)
         stepReports + currentStepReport
       }
-  }
-
-  private fun resolveV3CollectionDir(path: String): java.io.File? {
-    val direct = java.io.File(path)
-    val v3Marker = ".resources/definition.yaml"
-    if (direct.isDirectory && java.io.File(direct, v3Marker).isFile) return direct
-    val url = Thread.currentThread().contextClassLoader.getResource(path) ?: return null
-    val viaResource = java.io.File(url.toURI())
-    return if (viaResource.isDirectory && java.io.File(viaResource, v3Marker).isFile) viaResource
-    else null
   }
 }
 

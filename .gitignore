@@ -284,3 +284,4 @@ fabric.properties
 
 .vscode/
 .kotlin
+.claude/settings.local.json

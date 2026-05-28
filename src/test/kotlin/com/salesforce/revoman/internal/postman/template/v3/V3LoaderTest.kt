@@ -8,14 +8,13 @@
 package com.salesforce.revoman.internal.postman.template.v3
 
 import com.google.common.truth.Truth.assertThat
-import java.io.File
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 
 class V3LoaderTest {
   @Test
   fun testLoadFlatCollectionOrdersByOrderField() {
-    val dir = File("src/test/resources/pm-templates/v3/flat")
-    val items = V3Loader.load(dir)
+    val items = V3Loader.load("pm-templates/v3/flat")
     assertThat(items).hasSize(3)
     val names = items.map { it.name }
     assertThat(names).containsExactly("b", "c", "a").inOrder()
@@ -23,8 +22,7 @@ class V3LoaderTest {
 
   @Test
   fun testLoadNestedCollectionWithAuthInheritanceAndOverride() {
-    val dir = File("src/test/resources/pm-templates/v3/nested")
-    val items = V3Loader.load(dir)
+    val items = V3Loader.load("pm-templates/v3/nested")
     assertThat(items).hasSize(2)
     assertThat(items[0].name).isEqualTo("inherits-auth")
     assertThat(items[0].request.auth!!.bearer.single().value).isEqualTo("OUTER")
@@ -40,27 +38,22 @@ class V3LoaderTest {
 
   @Test
   fun testLoadThrowsWhenDefinitionMissing() {
-    val dir = File("src/test/resources/pm-templates/v3/no-def")
     val ex =
-      org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException::class.java) {
-        V3Loader.load(dir)
-      }
+      assertThrows(IllegalStateException::class.java) { V3Loader.load("pm-templates/v3/no-def") }
     assertThat(ex.message).contains("Not a v3 collection root")
     assertThat(ex.message).contains(".resources/definition.yaml")
   }
 
   @Test
   fun testLoadHandlesBracketsAndSpacesInPath() {
-    val dir = File("src/test/resources/pm-templates/v3/with [brackets]")
-    val items = V3Loader.load(dir)
+    val items = V3Loader.load("pm-templates/v3/with [brackets]")
     assertThat(items).hasSize(1)
     assertThat(items[0].name).isEqualTo("req")
   }
 
   @Test
   fun testLoadMixedBodies() {
-    val dir = File("src/test/resources/pm-templates/v3/mixed-bodies")
-    val items = V3Loader.load(dir)
+    val items = V3Loader.load("pm-templates/v3/mixed-bodies")
     assertThat(items).hasSize(2)
     val post = items[0]
     assertThat(post.name).isEqualTo("post-json")
