@@ -674,3 +674,79 @@ Cross-checked the spec sections against tasks:
 ---
 
 Plan complete and saved to `docs/superpowers/plans/2026-05-27-revomanutils-slim.md`.
+
+---
+
+## Revision: 2026-05-28 — Status, root-cause discovery, and revoman-side fix
+
+### What actually happened on the first run-through
+
+Tasks 3–6 were executed against revoman 0.9.2, yielding core commit `6d6432a49f65` ("refactor(revoman-utils): slim path-routing to dev-mode override only"). FTests failed in jar-backed v3 mode. A partial revert (`2555a4147495`) re-introduced a focused jar-to-tempdir materializer and the diagnosing message claimed:
+
+> "okio.FileSystem.RESOURCES cannot list directories inside JARs reliably"
+
+This diagnosis was directionally wrong.
+
+### Real root cause
+
+`okio.FileSystem.RESOURCES` is a JVM singleton initialized as:
+
+```kotlin
+val RESOURCES: FileSystem = ResourceFileSystem(
+  classLoader = ResourceFileSystem::class.java.classLoader,
+  indexEagerly = false,
+)
+```
+
+The classloader is captured at static-init and never reconsidered. In bazel runfiles topologies (and any deployment using a child / sibling classloader for consumer resources — URLClassLoader, OSGi, app servers), `RESOURCES` cannot see the consumer's resources at all because the okio class is loaded by the parent and never sees the child's URLs.
+
+Symptoms manifested as:
+
+1. `isV3Collection(jarPath)` → `RESOURCES.metadataOrNull(p)` returned null → revoman fell into v2 Moshi branch → `bufferFile(jarPath)` → `RESOURCES.source(p)` → `FileNotFoundException: file not found`.
+2. Even after the resolver was switched to thread context classloader, jar entry paths arrived percent-encoded (`0%20-%20auth`). NIO ZipFS `getPath` does NOT URL-decode, so spaces in folder names broke the lookup.
+
+### Fix shipped on 2026-05-28 (revoman repo `feat-v3-reader-util`)
+
+Commit `9740d6d`:
+
+- New file `src/main/kotlin/com/salesforce/revoman/input/ClasspathResolver.kt`:
+  - `resolveClasspath(path)` — file lookup via `Thread.currentThread().contextClassLoader.getResource(...)`.
+  - `resolveClasspathDir(dirPath, sentinelRelPath)` — directory lookup. Tries direct first; falls back to probing `dirPath + sentinelRelPath` because `URLClassLoader.getResource("some/dir")` returns null even when the jar has explicit dir entries.
+  - For jar URLs, opens NIO `FileSystems.newFileSystem(jarUri)` and wraps with `okio.FileSystem.Companion.asOkioFileSystem`. Caches NIO `FileSystem` instances per jar URI in a process-wide `ConcurrentHashMap`.
+  - Decodes percent-encoded entry segments via `URI.create(s).path` before handing to `getPath` (handles `%20` for spaces, `%5B`/`%5D` for brackets).
+- Rewired in:
+  - `FileUtils.bufferFile` — uses `resolveClasspath`.
+  - `isV3Collection`, `bufferV3Definition` — use `resolveClasspathDir(path, V3_DEFINITION_REL_PATH)`.
+  - `V3Loader.load(rootPath: String)` — uses `resolveClasspathDir(rootPath, V3_DEFINITION_REL_PATH)`. Removed private `resolvePath` helper.
+- New integration test `src/integrationTest/kotlin/com/salesforce/revoman/integration/jarmode/JarModeRevUpKtTest.kt`:
+  - Builds in-memory jar with v3 fixtures (`flat`, `with [brackets]`).
+  - Mounts on `URLClassLoader`, sets as thread context CL.
+  - Asserts: fixture visible via CCL; `isV3Collection` returns true for jar dir; full `ReVoman.revUp(Kick)` resolves all 3 steps; spaces+brackets path resolves 1 step.
+  - Pre-fix: `FileNotFoundException`. Post-fix: 4 tests passing.
+
+Test results post-fix: 105 unit + 19 integration + 4 jar-mode = all green. Zero regressions.
+
+### Core-side application (commit `00080a2244d3` on `t/wfs/revoman-core-fwk`)
+
+`ReVomanUtils.java` re-slimmed to 286 lines:
+
+- Dropped `materializeJarV3DirToTempDir` (re-introduced by `2555a4147495`).
+- Restored to the slim shape from `6d6432a49f65`.
+- KDoc updated to reference revoman's classpath resolver instead of `okio.FileSystem.RESOURCES`.
+
+End-to-end verification: `unified.scheduling.revoman.UnifiedValidationE2ETest.testAllRulesPositiveCleanSA` passed in 220s with the locally-overridden revoman jar (bazel `--override_repository=com_salesforce_revoman_revoman=...` already wired in core's `.bazelrc-local`).
+
+### Done summary (commits)
+
+| Repo | Branch | Commit | Subject |
+|---|---|---|---|
+| revoman | `feat-v3-reader-util` | `9740d6d` | fix(v3): resolve classpath via TCCL + NIO ZipFS, not okio.FileSystem.RESOURCES |
+| core | `t/wfs/revoman-core-fwk` | `00080a2244d3` | refactor(loki-core): re-slim ReVomanUtils now that ReVoman handles jar v3 dirs |
+
+### Outstanding work
+
+1. Release a new revoman version containing `9740d6d` (currently the local override jar `revoman-0.9.2.jar` is the only build with the fix; the published 0.9.2 on Maven Central does not have it).
+2. Bump core's revoman dep to that new version; remove `--override_repository` from `.bazelrc-local` so CI builds pick it up too.
+3. Open core PR for the slim ReVomanUtils once the new revoman is consumable.
+4. (Optional) Add a unit test in revoman for `resolveClasspathDir` covering: file-system dir, jar dir without explicit dir entry (sentinel fallback), jar dir with spaces (URL decoding), missing path returns null.
+
