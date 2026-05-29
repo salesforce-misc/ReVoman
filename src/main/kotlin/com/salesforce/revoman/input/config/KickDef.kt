@@ -115,6 +115,19 @@ internal interface KickDef {
         }
         .associate { it.key to it.value }
 
+    /**
+     * Merge maps with explicit precedence. [base] is the floor (lowest precedence); each map in
+     * [overlays] is applied in order, so later overlays win on key clashes — consistent with
+     * ReVoman's last-wins env-merge convention. Unlike [intoMap], the floor is named, so callers
+     * cannot accidentally invert precedence by ordering or nesting.
+     */
+    @JvmStatic
+    fun <K, V> overlay(base: Map<out K, V>, vararg overlays: Map<out K, V>): Map<K, V> =
+      buildMap {
+        putAll(base)
+        overlays.forEach { putAll(it) }
+      }
+
     @Suppress("UNCHECKED_CAST")
     @JvmStatic
     @SafeVarargs
