@@ -28,7 +28,7 @@ import org.junit.jupiter.api.Test
 class V3LoaderJarTest {
   @Test
   fun testLoadV3CollectionFromJarEntries() {
-    val jar = packageFixtureIntoJar("src/test/resources/pm-templates/v3/flat")
+    val jar = packageFixtureIntoJar("src/test/resources/pm-templates/v3/flat", prefix = "flat")
     val jarUri = URI.create("jar:${jar.toURI()}")
 
     FileSystems.newFileSystem(jarUri, emptyMap<String, Any>()).use { nioFs ->
@@ -39,11 +39,28 @@ class V3LoaderJarTest {
     }
   }
 
-  private fun packageFixtureIntoJar(srcDir: String): File {
+  @Test
+  fun testSubfolderInheritsGrandparentAuthFromJarEntries() {
+    val jar =
+      packageFixtureIntoJar("src/test/resources/pm-templates/v3/grandparent", prefix = "grandparent")
+    val jarUri = URI.create("jar:${jar.toURI()}")
+
+    FileSystems.newFileSystem(jarUri, emptyMap<String, Any>()).use { nioFs ->
+      // Root at the child subfolder inside the jar; it has no auth and must inherit GRANDPARENT by
+      // walking up the jar entries (jar-safe ancestor resolution, the v3-jar gap regression guard).
+      val items = V3Loader.load("/grandparent/child".toPath(), NioZipFileSystem(nioFs))
+      assertThat(items).hasSize(2)
+      assertThat(items[0].name).isEqualTo("req")
+      assertThat(items[0].request.auth!!.bearer.single().value).isEqualTo("GRANDPARENT")
+      assertThat(items[1].name).isEqualTo("grandchild")
+    }
+  }
+
+  private fun packageFixtureIntoJar(srcDir: String, prefix: String): File {
     val src = File(srcDir)
     require(src.isDirectory) { "fixture source dir not found: $srcDir" }
     val jar = Files.createTempFile("v3-fixture-", ".jar").toFile().apply { deleteOnExit() }
-    JarOutputStream(jar.outputStream()).use { jos -> writeDirInto(jos, src, prefix = "flat") }
+    JarOutputStream(jar.outputStream()).use { jos -> writeDirInto(jos, src, prefix = prefix) }
     return jar
   }
 
