@@ -1,0 +1,7 @@
+$kind: collection
+auth:
+  - id: gp-auth-id
+    type: bearer
+    name: grandparent
+    credentials:
+      token: GRANDPARENT

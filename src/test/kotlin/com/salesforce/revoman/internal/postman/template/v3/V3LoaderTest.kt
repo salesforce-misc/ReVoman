@@ -65,4 +65,22 @@ class V3LoaderTest {
     assertThat(patch.request.method).isEqualTo("PATCH")
     assertThat(patch.request.body!!.raw).isEqualTo("hello")
   }
+
+  @Test
+  fun testLoadSubfolderInheritsAuthFromGrandparentDefinition() {
+    // Root the load at the CHILD folder (as a Kick's templatePath would). The child has no auth;
+    // it must inherit the grandparent collection's bearer token by walking up.
+    val items = V3Loader.load("pm-templates/v3/grandparent/child")
+    assertThat(items).hasSize(1)
+    assertThat(items[0].name).isEqualTo("req")
+    assertThat(items[0].request.auth!!.bearer.single().value).isEqualTo("GRANDPARENT")
+  }
+
+  @Test
+  fun testSubfolderOwnAuthOverridesGrandparentSeed() {
+    // Sanity: when the loaded root DOES declare auth, it wins over any ancestor.
+    // Reuse the nested fixture whose root declares OUTER.
+    val items = V3Loader.load("pm-templates/v3/nested")
+    assertThat(items[0].request.auth!!.bearer.single().value).isEqualTo("OUTER")
+  }
 }

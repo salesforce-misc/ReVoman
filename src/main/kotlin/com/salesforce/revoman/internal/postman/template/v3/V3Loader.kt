@@ -34,7 +34,24 @@ internal object V3Loader {
       "v3 collection root must be a directory: $rootPath"
     }
     val rootDef = readDefOrThrow(rootPath, fs)
-    return walk(rootPath, fs, parentAuth = V3ToV2Converter.toAuth(rootDef.auth))
+    val rootAuth = V3ToV2Converter.toAuth(rootDef.auth)
+    // If the root folder itself declares auth, it wins. Otherwise seed from the nearest ancestor
+    // that has a definition.yaml with auth (Postman collection->folder inheritance across the
+    // filesystem). Walk UP within the same FileSystem; do NOT re-resolve via classpath (jar dirs
+    // are not resolvable by getResource).
+    val seedAuth = rootAuth ?: nearestAncestorAuth(rootPath, fs)
+    return walk(rootPath, fs, parentAuth = seedAuth)
+  }
+
+  private fun nearestAncestorAuth(start: Path, fs: FileSystem): Auth? {
+    var dir = start.parent
+    while (dir != null) {
+      val def = readDefOrNull(dir, fs) ?: break // stop at first ancestor with no definition.yaml
+      val auth = V3ToV2Converter.toAuth(def.auth)
+      if (auth != null) return auth
+      dir = dir.parent
+    }
+    return null
   }
 
   private fun walk(dir: Path, fs: FileSystem, parentAuth: Auth?): List<Item> {
