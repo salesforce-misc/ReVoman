@@ -46,4 +46,12 @@ class KickTest {
     val creds = mapOf("accessToken" to "persona-token")
     overlay<String, String>(base, creds)["accessToken"] shouldBe "persona-token"
   }
+
+  @Test
+  fun `overlay with three layers sharing a key - final overlay wins (the revUpAs pattern)`() {
+    val env = mapOf("accessToken" to "admin")
+    val dynamicEnvironment = mapOf("accessToken" to "config-override")
+    val creds = mapOf("accessToken" to "persona")
+    overlay<String, String>(env, dynamicEnvironment, creds)["accessToken"] shouldBe "persona"
+  }
 }
