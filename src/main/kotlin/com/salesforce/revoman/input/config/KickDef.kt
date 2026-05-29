@@ -122,11 +122,10 @@ internal interface KickDef {
      * cannot accidentally invert precedence by ordering or nesting.
      */
     @JvmStatic
-    fun <K, V> overlay(base: Map<out K, V>, vararg overlays: Map<out K, V>): Map<K, V> =
-      buildMap {
-        putAll(base)
-        overlays.forEach { putAll(it) }
-      }
+    fun <K, V> overlay(base: Map<out K, V>, vararg overlays: Map<out K, V>): Map<K, V> = buildMap {
+      putAll(base)
+      overlays.forEach { putAll(it) }
+    }
 
     @Suppress("UNCHECKED_CAST")
     @JvmStatic

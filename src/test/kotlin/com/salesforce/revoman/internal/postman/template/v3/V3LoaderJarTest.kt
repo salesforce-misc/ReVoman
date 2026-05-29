@@ -42,7 +42,10 @@ class V3LoaderJarTest {
   @Test
   fun testSubfolderInheritsGrandparentAuthFromJarEntries() {
     val jar =
-      packageFixtureIntoJar("src/test/resources/pm-templates/v3/grandparent", prefix = "grandparent")
+      packageFixtureIntoJar(
+        "src/test/resources/pm-templates/v3/grandparent",
+        prefix = "grandparent",
+      )
     val jarUri = URI.create("jar:${jar.toURI()}")
 
     FileSystems.newFileSystem(jarUri, emptyMap<String, Any>()).use { nioFs ->

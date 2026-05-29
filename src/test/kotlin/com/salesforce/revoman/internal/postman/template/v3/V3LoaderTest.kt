@@ -74,7 +74,8 @@ class V3LoaderTest {
     assertThat(items).hasSize(2)
     assertThat(items[0].name).isEqualTo("req")
     assertThat(items[0].request.auth!!.bearer.single().value).isEqualTo("GRANDPARENT")
-    // Second item is the grandchild subfolder (used by testEmptyAuthListDoesNotBlockGrandparentInheritance)
+    // Second item is the grandchild subfolder (used by
+    // testEmptyAuthListDoesNotBlockGrandparentInheritance)
     assertThat(items[1].name).isEqualTo("grandchild")
   }
 
