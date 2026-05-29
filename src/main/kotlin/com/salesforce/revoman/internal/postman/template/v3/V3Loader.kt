@@ -47,8 +47,10 @@ internal object V3Loader {
     var dir = start.parent
     while (dir != null) {
       val def = readDefOrNull(dir, fs) ?: break // stop at first ancestor with no definition.yaml
-      val auth = V3ToV2Converter.toAuth(def.auth)
-      if (auth != null) return auth
+      // An explicitly-declared (non-empty) auth list bounds inheritance, mirroring walk()'s
+      // `def.auth.isNotEmpty()` check — even if the declared type is unsupported and toAuth
+      // returns null, the nearest declaration wins (no skipping further up).
+      if (def.auth.isNotEmpty()) return V3ToV2Converter.toAuth(def.auth)
       dir = dir.parent
     }
     return null

@@ -71,9 +71,11 @@ class V3LoaderTest {
     // Root the load at the CHILD folder (as a Kick's templatePath would). The child has no auth;
     // it must inherit the grandparent collection's bearer token by walking up.
     val items = V3Loader.load("pm-templates/v3/grandparent/child")
-    assertThat(items).hasSize(1)
+    assertThat(items).hasSize(2)
     assertThat(items[0].name).isEqualTo("req")
     assertThat(items[0].request.auth!!.bearer.single().value).isEqualTo("GRANDPARENT")
+    // Second item is the grandchild subfolder (used by testEmptyAuthListDoesNotBlockGrandparentInheritance)
+    assertThat(items[1].name).isEqualTo("grandchild")
   }
 
   @Test
@@ -82,5 +84,14 @@ class V3LoaderTest {
     // Reuse the nested fixture whose root declares OUTER.
     val items = V3Loader.load("pm-templates/v3/nested")
     assertThat(items[0].request.auth!!.bearer.single().value).isEqualTo("OUTER")
+  }
+
+  @Test
+  fun testEmptyAuthListDoesNotBlockGrandparentInheritance() {
+    // grandchild declares `auth: []` (empty = no auth); child has no auth; grandparent has bearer.
+    // Inheritance must skip the empty list and the no-auth child, reaching the grandparent.
+    val items = V3Loader.load("pm-templates/v3/grandparent/child/grandchild")
+    assertThat(items).hasSize(1)
+    assertThat(items[0].request.auth!!.bearer.single().value).isEqualTo("GRANDPARENT")
   }
 }
