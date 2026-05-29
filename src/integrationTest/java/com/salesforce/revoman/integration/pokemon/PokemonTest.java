@@ -10,7 +10,7 @@ package com.salesforce.revoman.integration.pokemon;
 import static com.google.common.truth.Truth.assertThat;
 import static com.salesforce.revoman.input.config.HookConfig.post;
 import static com.salesforce.revoman.input.config.HookConfig.pre;
-import static com.salesforce.revoman.input.config.KickDef.intoMap;
+import static com.salesforce.revoman.input.config.KickDef.overlay;
 import static com.salesforce.revoman.input.config.ResponseConfig.unmarshallResponse;
 import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.afterStepContainingHeader;
 import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.afterStepContainingURIPathOfAny;
@@ -143,7 +143,7 @@ class PokemonTest {
             .off();
     final var pokeRundown =
         ReVoman.revUp(
-            config.overrideDynamicEnvironment(intoMap(dynamicEnvironment1, dynamicEnvironment2)));
+            config.overrideDynamicEnvironment(overlay(dynamicEnvironment1, dynamicEnvironment2)));
 
     final var postHookFailure = pokeRundown.firstUnIgnoredUnsuccessfulStepReport().failure;
     assertThat(postHookFailure).containsLeftInstanceOf(PostStepHookFailure.class);
