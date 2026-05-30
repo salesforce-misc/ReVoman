@@ -122,6 +122,7 @@ internal interface KickDef {
      * cannot accidentally invert precedence by ordering or nesting.
      */
     @JvmStatic
+    @SafeVarargs
     fun <K, V> overlay(base: Map<out K, V>, vararg overlays: Map<out K, V>): Map<K, V> = buildMap {
       putAll(base)
       overlays.forEach { putAll(it) }
