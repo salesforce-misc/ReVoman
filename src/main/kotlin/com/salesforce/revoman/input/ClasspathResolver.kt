@@ -9,6 +9,7 @@
 
 package com.salesforce.revoman.input
 
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.net.JarURLConnection
 import java.net.URI
@@ -114,10 +115,7 @@ private fun splitJarUrl(url: URL, fallbackEntry: String?): Pair<URI, String>? {
   val sep = s.indexOf("!/")
   if (sep > 0) {
     val jarUri = URI.create(s.substring(0, sep + 2))
-    // URI parses + decodes percent-encoded segments (e.g. `%20` -> ` `). Required because
-    // `java.nio.file.FileSystem.getPath` does not URL-decode and a literal `%20` in an entry
-    // name will not match the underlying zip entry whose name is a real space.
-    val entry = URI.create(s.substring(sep + 1)).path
+    val entry = decodeJarEntryPath(s.substring(sep + 1))
     return jarUri to entry
   }
   return runCatching {
@@ -127,4 +125,42 @@ private fun splitJarUrl(url: URL, fallbackEntry: String?): Pair<URI, String>? {
       jarUri to entry
     }
     .getOrNull()
+}
+
+/**
+ * Percent-decodes a jar entry path (e.g. `%20` -> ` `, `%C3%A9` -> `é`) while leaving every other
+ * character literal. Required because `java.nio.file.FileSystem.getPath` does not URL-decode, so a
+ * literal `%20` would not match a zip entry whose real name has a space.
+ *
+ * Unlike `URI.create(entry).path`, this tolerates raw `[`, `]`, and other characters that strict
+ * RFC-2396 rejects as illegal in a path. Some classloader URL stream handlers (Spring Boot
+ * nested-jar, bazel runfiles) leave brackets raw in the jar URL but still encode spaces as `%20`,
+ * producing a string that is not a valid URI. `+` stays a literal `+` (jar entries are not form
+ * data). Consecutive `%XX` escapes are gathered into a byte buffer and decoded as UTF-8 so
+ * multibyte characters round-trip.
+ */
+internal fun decodeJarEntryPath(entry: String): String {
+  val out = StringBuilder(entry.length)
+  val bytes = ByteArrayOutputStream()
+  var i = 0
+  while (i < entry.length) {
+    val c = entry[i]
+    if (c == '%' && i + 2 < entry.length) {
+      val hi = Character.digit(entry[i + 1], 16)
+      val lo = Character.digit(entry[i + 2], 16)
+      if (hi >= 0 && lo >= 0) {
+        bytes.write((hi shl 4) + lo)
+        i += 3
+        continue
+      }
+    }
+    if (bytes.size() > 0) {
+      out.append(bytes.toByteArray().toString(Charsets.UTF_8))
+      bytes.reset()
+    }
+    out.append(c)
+    i++
+  }
+  if (bytes.size() > 0) out.append(bytes.toByteArray().toString(Charsets.UTF_8))
+  return out.toString()
 }
