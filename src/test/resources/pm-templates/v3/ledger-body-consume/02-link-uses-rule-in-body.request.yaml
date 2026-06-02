@@ -1,0 +1,17 @@
+$kind: http-request
+url: "{{baseUrl}}/link"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "SchedulingRuleId": "{{ruleId}}",
+      "IsActive": true
+    }
+order: 2000
+scripts:
+  - type: afterResponse
+    code: pm.environment.set("linkId", "L1")
+    language: text/javascript

@@ -247,6 +247,28 @@ class LedgerSkipE2ETest {
   }
 
   @Test
+  fun `consumed in a POST body of a key produced by a PRIOR step is captured (real-shape repro)`() {
+    // Mirrors the real UnifiedValidation link steps: step1 sets ruleId via afterResponse; step2
+    // POSTs with {{ruleId}} in its JSON BODY (not the URL) and also produces linkId. The link
+    // step's learned entry MUST record ruleId as consumed.
+    val rundown =
+      ReVoman.revUp(
+        Kick.configure()
+          .templatePath("pm-templates/v3/ledger-body-consume")
+          .dynamicEnvironment("baseUrl", baseUrl)
+          .insecureHttp(true)
+          .off()
+      )
+    val linkStep = rundown.stepReports.first { it.step.name.contains("link") }.step
+    val entry = rundown.learnedLedger[linkStep.path]!!
+    assertThat(entry.produces).contains("linkId")
+    assertThat(entry.consumed).contains("ruleId")
+    // baseUrl is a dynamicEnvironment key consumed in the URL of EVERY step — if consumed capture
+    // works at all, it must be recorded here too (sanity: capture isn't selective to body-only).
+    assertThat(entry.consumed).contains("baseUrl")
+  }
+
+  @Test
   fun `learnedLedger entry carries the keys a producing step consumed (provenance)`() {
     // A step that reads {{seedKey}} (consumed) in its URL AND sets producedId (produced). The
     // learned entry must record BOTH: produces for skip, consumed for the provenance graph.

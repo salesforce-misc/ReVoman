@@ -1,0 +1,8 @@
+$kind: http-request
+url: "{{baseUrl}}/rule"
+method: GET
+order: 1000
+scripts:
+  - type: afterResponse
+    code: pm.environment.set("ruleId", "R1")
+    language: text/javascript
