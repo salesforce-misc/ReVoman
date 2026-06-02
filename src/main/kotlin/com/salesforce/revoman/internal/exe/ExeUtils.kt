@@ -79,11 +79,15 @@ internal fun shouldStepBePicked(
  * Ledger-skip predicate: skip a step's HTTP dispatch iff the ledger has an entry for it whose
  * produced keys are ALL already in [env] AND whose producer fingerprint matches the step's current
  * [Step.sourceHash]. Empty-produces entries are NEVER skippable (read-only steps must always run);
- * a hash mismatch falls through to run (warn-and-run, handled by the caller).
+ * a hash mismatch falls through to run (warn-and-run, handled by the caller). An EMPTY hash on
+ * either side is treated as "unknown" and never matches — a real v3-loaded step and a real ledgered
+ * entry both carry a computed sha256, so an empty hash can only come from a non-v3 step or a
+ * corrupt/hand-crafted ledger; in that case we must run, not skip on an incidental "" == "".
  */
 internal fun ledgerSkipDecision(step: Step, ledger: LedgerSnapshot, env: Set<String>): Boolean {
   val entry = ledger.steps[step.path] ?: return false
   if (entry.produces.isEmpty()) return false
+  if (entry.hash.isEmpty() || step.sourceHash.isEmpty()) return false
   if (entry.hash != step.sourceHash) return false
   return env.containsAll(entry.produces)
 }
