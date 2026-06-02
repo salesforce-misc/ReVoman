@@ -66,14 +66,16 @@ internal object V3Loader {
       children
         .filter { fs.metadataOrNull(it)?.isRegularFile == true && it.name.endsWith(REQUEST_SUFFIX) }
         .map { file ->
-          val v3req = V3YamlReader.readRequest(fs.source(file).buffer().readUtf8())
+          val rawYaml = fs.source(file).buffer().readUtf8()
+          val v3req = V3YamlReader.readRequest(rawYaml)
           val fallbackName = file.name.removeSuffix(REQUEST_SUFFIX)
           val item =
             V3ToV2Converter.toItem(
-              v3req,
-              fallbackName = fallbackName,
-              inheritedAuth = effectiveAuth,
-            )
+                v3req,
+                fallbackName = fallbackName,
+                inheritedAuth = effectiveAuth,
+              )
+              .copy(sourceHash = sha256Hex(rawYaml))
           item to (v3req.order ?: Int.MAX_VALUE)
         }
 
@@ -102,5 +104,10 @@ internal object V3Loader {
     readDefOrNull(dir, fs)
       ?: error("Not a v3 collection root: $dir. Missing $V3_DEFINITION_REL_PATH")
 }
+
+internal fun sha256Hex(s: String): String =
+  java.security.MessageDigest.getInstance("SHA-256")
+    .digest(s.toByteArray(Charsets.UTF_8))
+    .joinToString("") { "%02x".format(it) }
 
 private val logger = KotlinLogging.logger {}

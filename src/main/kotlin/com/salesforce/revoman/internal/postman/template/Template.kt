@@ -29,6 +29,13 @@ data class Item(
   val item: List<Item>? = null,
   val request: Request = Request(),
   val event: List<Event>? = null,
+  /**
+   * Transient (not part of the Postman schema) sha256 of this item's `.request.yaml` source,
+   * populated for v3-loaded leaf items. Carried forward to [Step.sourceHash]. "" when unknown.
+   */
+  @field:[com.squareup.moshi.Json(ignore = true)]
+  @JvmField
+  val sourceHash: String = "",
 ) {
   @JvmField val httpMethod = request.method
 }

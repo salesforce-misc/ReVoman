@@ -16,6 +16,8 @@ data class Step(
   @JvmField val index: String,
   @JvmField val rawPMStep: Item,
   @JvmField val parentFolder: Folder? = null,
+  /** sha256 of this step's `.request.yaml` source; "" when unknown. Staleness fingerprint. */
+  @JvmField val sourceHash: String = "",
 ) {
   @JvmField val name: String = rawPMStep.name
   @JvmField var preStepHookCount: Int = 0

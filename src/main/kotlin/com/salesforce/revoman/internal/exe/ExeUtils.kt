@@ -47,7 +47,7 @@ internal fun deepFlattenItems(
           val currentFolder = Folder(item.name, parentFolder)
           parentFolder?.subFolders?.add(currentFolder)
           deepFlattenItems(it, currentFolder, stepIndex)
-        } ?: listOf(Step(stepIndex, item, parentFolder))
+        } ?: listOf(Step(stepIndex, item, parentFolder, item.sourceHash))
     }
     .toList()
 
