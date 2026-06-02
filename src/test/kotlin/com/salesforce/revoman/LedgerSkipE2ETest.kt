@@ -123,6 +123,78 @@ class LedgerSkipE2ETest {
   }
 
   @Test
+  fun `a var set in a PostStepHook attributes to the triggering step's produces`() {
+    // The user's design position: a var set inside a step-qualified hook belongs to that step's
+    // ledger entry. PostStepHook fires INSIDE the step fold (currentStep still the triggering
+    // step), so a hook .set() must be captured as produced BY that step.
+    val kick =
+      Kick.configure()
+        .templatePath(collection) // single GET step, produces nothing on its own
+        .dynamicEnvironment("baseUrl", baseUrl)
+        .insecureHttp(true)
+        .hooks(
+          com.salesforce.revoman.input.config.HookConfig.post(
+            com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.afterStepName("produce-id")
+          ) { stepReport, rundown ->
+            rundown.mutableEnv.set("hookProducedId", "H1")
+          }
+        )
+        .off()
+    val rundown = ReVoman.revUp(kick)
+    val stepPath = rundown.stepReports.first().step.path
+    assertThat(rundown.learnedLedger[stepPath]!!.produces).contains("hookProducedId")
+  }
+
+  @Test
+  fun `a var set in a collection-level PostExeHook does NOT leak into any step's learned ledger`() {
+    // The collection-level PostExeHook fires in the OUTER kick-fold (ReVoman.kt:85), AFTER each
+    // kick's learnedLedger is already frozen (:151). So a var it sets cannot retroactively attach
+    // to any step's ledger entry. This LOCKS that a PostExeHook write is excluded from the
+    // persisted ledger (not mis-attributed to a stale step) — the safe outcome.
+    val kick =
+      Kick.configure()
+        .templatePath(collection)
+        .dynamicEnvironment("baseUrl", baseUrl)
+        .insecureHttp(true)
+        .off()
+    val rundowns =
+      ReVoman.revUp(
+        listOf(kick),
+        { currentRundown, _ -> currentRundown.mutableEnv.set("postExeHookId", "PEH1") },
+      )
+    val learned = rundowns.single().learnedLedger
+    // No step entry claims to produce the PostExeHook-set key.
+    assertThat(learned.values.flatMap { it.produces }).doesNotContain("postExeHookId")
+  }
+
+  @Test
+  fun `a PostStepHook index-set write is NOT captured as produced (only set() is)`() {
+    // Capture contract: only pm.environment.set(...) records a produced key. The delegated
+    // index-set (mutableEnv[k]=) is intentionally bypassed — that is the SAME bypass the warm-skip
+    // inject relies on (ReVoman.kt:187 injects via index-set so reused keys are not re-recorded as
+    // produced). A hook that writes via index-set is therefore invisible to the ledger BY DESIGN;
+    // hook producers must use .set() to be ledgered.
+    val kick =
+      Kick.configure()
+        .templatePath(collection)
+        .dynamicEnvironment("baseUrl", baseUrl)
+        .insecureHttp(true)
+        .hooks(
+          com.salesforce.revoman.input.config.HookConfig.post(
+            com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.afterStepName("produce-id")
+          ) { _, rundown ->
+            rundown.mutableEnv["indexSetId"] = "IDX1" // index-set, NOT .set()
+          }
+        )
+        .off()
+    val rundown = ReVoman.revUp(kick)
+    // The key IS in the env (the write happened)...
+    assertThat(rundown.mutableEnv.getAsString("indexSetId")).isEqualTo("IDX1")
+    // ...but no step claims to PRODUCE it (index-set is not captured).
+    assertThat(rundown.learnedLedger.values.flatMap { it.produces }).doesNotContain("indexSetId")
+  }
+
+  @Test
   fun `learnedLedger entry carries the keys a producing step consumed (provenance)`() {
     // A step that reads {{seedKey}} (consumed) in its URL AND sets producedId (produced). The
     // learned entry must record BOTH: produces for skip, consumed for the provenance graph.

@@ -143,6 +143,16 @@ object ReVoman {
       PostmanSDK(moshiReVoman, kick.nodeModulesPath(), regexReplacer, environment.toMutableMap())
     val stepNameToReport =
       executeStepsSerially(pmStepsDeepFlattened, kick, moshiReVoman, regexReplacer, pm)
+    // --- LEDGER CAPTURE CONTRACT (what becomes a ledgered producer) ---
+    // A step's `envVars` is snapshotted at the END of its fold iteration (below), AFTER its
+    // post-step hooks run, so a var a step-qualified PostStepHook/PreStepHook `.set()`s IS captured
+    // as produced BY that triggering step — matching the design intent that a hook-set var belongs
+    // to the step that qualified the hook. Two writes are intentionally NOT captured: (1) the
+    // delegated index-set `mutableEnv[k]=` (the same bypass the warm-skip inject uses, so reused
+    // keys are not re-recorded as produced), and (2) a var set in the collection-level PostExeHook,
+    // which fires in the OUTER kick-fold AFTER this learnedLedger is already frozen — it has no
+    // single triggering step, so it is excluded rather than mis-attributed. Hook producers that
+    // want to be ledgered must use `pm.environment.set(...)` from a step-qualified hook.
     val learnedLedger =
       stepNameToReport
         .filter { it.envVars.produced.isNotEmpty() }
