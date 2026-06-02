@@ -92,6 +92,39 @@ internal fun ledgerSkipDecision(step: Step, ledger: LedgerSnapshot, env: Set<Str
   return env.containsAll(entry.produces)
 }
 
+/**
+ * Collision guard: the set of step paths that must NOT be ledger-skipped because they are an
+ * EARLIER producer of a key that a LATER step also produces. Skipping such a step would inject the
+ * LATER (final) value in place of the value the earlier step actually wrote — and any step BETWEEN
+ * them that consumed the earlier value would then read the wrong value (silently wrong, no loud
+ * failure). So only the LAST producer of a re-set key is safely skippable; every earlier producer
+ * of it always runs.
+ *
+ * Pure over the run's picked steps in EXECUTION ORDER ([orderedSteps]) and the [ledger]: a step is
+ * shadowed iff ANY key in its ledgered `produces` is also produced by a step appearing later in
+ * [orderedSteps]. Steps with no ledger entry are ignored (they run anyway). Collision-free
+ * collections (every key produced by exactly one step) yield an empty set — zero behavior change.
+ */
+internal fun shadowedProducerPaths(
+  orderedSteps: List<Step>,
+  ledger: LedgerSnapshot,
+): Set<String> {
+  // Last execution index at which each key is produced (by any ledgered step).
+  val lastProducerIndexByKey = mutableMapOf<String, Int>()
+  orderedSteps.forEachIndexed { index, step ->
+    ledger.steps[step.path]?.produces?.forEach { key -> lastProducerIndexByKey[key] = index }
+  }
+  return orderedSteps
+    .asSequence()
+    .withIndex()
+    .filter { (index, step) ->
+      ledger.steps[step.path]?.produces?.any { key -> lastProducerIndexByKey[key]!! > index }
+        ?: false
+    }
+    .map { (_, step) -> step.path }
+    .toSet()
+}
+
 internal fun <T> runCatching(
   currentStep: Step,
   exeType: ExeType,

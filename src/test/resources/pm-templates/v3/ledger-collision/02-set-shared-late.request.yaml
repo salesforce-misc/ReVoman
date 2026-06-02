@@ -1,0 +1,8 @@
+$kind: http-request
+url: "{{baseUrl}}/late"
+method: GET
+order: 2000
+scripts:
+  - type: afterResponse
+    code: pm.environment.set("sharedId", "LATE")
+    language: text/javascript

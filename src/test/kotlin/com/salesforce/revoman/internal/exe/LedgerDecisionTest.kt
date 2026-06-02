@@ -95,6 +95,90 @@ class LedgerDecisionTest {
     assertThat(ledgerSkipDecision(s, snap, setOf("saId1"))).isFalse()
   }
 
+  // --- Collision guard: a key produced by >1 step is only safely skippable at its LAST producer ---
+
+  private fun namedStep(name: String, hash: String = "h"): Step =
+    Step(index = "1", rawPMStep = Item(name = name), sourceHash = hash)
+
+  @Test
+  fun `no collision - every key produced by one step - nothing shadowed`() {
+    val s1 = namedStep("create-sa-1")
+    val s2 = namedStep("create-sa-2")
+    val snap =
+      LedgerSnapshot(
+        "00D",
+        mapOf(
+          s1.path to LedgerEntry(setOf("saId1"), "h"),
+          s2.path to LedgerEntry(setOf("saId2"), "h"),
+        ),
+        emptyMap(),
+      )
+    assertThat(shadowedProducerPaths(listOf(s1, s2), snap)).isEmpty()
+  }
+
+  @Test
+  fun `two steps set the same key - only the EARLIER producer is shadowed`() {
+    val early = namedStep("create-sa-early")
+    val late = namedStep("recreate-sa-late")
+    val snap =
+      LedgerSnapshot(
+        "00D",
+        mapOf(
+          early.path to LedgerEntry(setOf("saId1"), "h"),
+          late.path to LedgerEntry(setOf("saId1"), "h"),
+        ),
+        emptyMap(),
+      )
+    // Execution order is the list order: early before late.
+    val shadowed = shadowedProducerPaths(listOf(early, late), snap)
+    assertThat(shadowed).containsExactly(early.path)
+    assertThat(shadowed).doesNotContain(late.path)
+  }
+
+  @Test
+  fun `three producers of one key - all but the last are shadowed`() {
+    val a = namedStep("set-x-a")
+    val b = namedStep("set-x-b")
+    val c = namedStep("set-x-c")
+    val snap =
+      LedgerSnapshot(
+        "00D",
+        mapOf(
+          a.path to LedgerEntry(setOf("x"), "h"),
+          b.path to LedgerEntry(setOf("x"), "h"),
+          c.path to LedgerEntry(setOf("x"), "h"),
+        ),
+        emptyMap(),
+      )
+    assertThat(shadowedProducerPaths(listOf(a, b, c), snap)).containsExactly(a.path, b.path)
+  }
+
+  @Test
+  fun `a step producing a collision key AND a unique key is still shadowed (must run)`() {
+    // If skipped, the collision key would be injected with the LATER value -> intermediate consumer
+    // wrong. So a step is shadowed if ANY produced key is re-set by a later step.
+    val early = namedStep("create-both")
+    val late = namedStep("recreate-shared")
+    val snap =
+      LedgerSnapshot(
+        "00D",
+        mapOf(
+          early.path to LedgerEntry(setOf("shared", "uniqueToEarly"), "h"),
+          late.path to LedgerEntry(setOf("shared"), "h"),
+        ),
+        emptyMap(),
+      )
+    assertThat(shadowedProducerPaths(listOf(early, late), snap)).containsExactly(early.path)
+  }
+
+  @Test
+  fun `steps without a ledger entry are ignored by the collision scan`() {
+    val ledgered = namedStep("ledgered")
+    val unledgered = namedStep("not-in-ledger")
+    val snap = LedgerSnapshot("00D", mapOf(ledgered.path to LedgerEntry(setOf("k"), "h")), emptyMap())
+    assertThat(shadowedProducerPaths(listOf(unledgered, ledgered), snap)).isEmpty()
+  }
+
   @Test
   fun `Kick defaults to EMPTY ledger - builder ledger() and immutable overrideLedger() set it`() {
     val kick = Kick.configure().off()

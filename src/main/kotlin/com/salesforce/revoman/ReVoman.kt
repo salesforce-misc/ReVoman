@@ -24,6 +24,7 @@ import com.salesforce.revoman.internal.exe.fireHttpRequest
 import com.salesforce.revoman.internal.exe.ledgerSkipDecision
 import com.salesforce.revoman.internal.exe.postStepHookExe
 import com.salesforce.revoman.internal.exe.preStepHookExe
+import com.salesforce.revoman.internal.exe.shadowedProducerPaths
 import com.salesforce.revoman.internal.exe.shouldHaltExecution
 import com.salesforce.revoman.internal.exe.shouldStepBePicked
 import com.salesforce.revoman.internal.exe.timed
@@ -177,17 +178,24 @@ object ReVoman {
     pm: PostmanSDK,
   ): List<StepReport> {
     var haltExecution = false
-    return pmStepsFlattened
+    val pickedSteps =
+      pmStepsFlattened.filter { shouldStepBePicked(it, kick.runOnlySteps(), kick.skipSteps()) }
+    // Collision guard (computed once over the picked steps in execution order): a key produced by
+    // >1 step is only safely ledger-skippable at its LAST producer. Earlier producers of a re-set
+    // key must always run, else a skipped earlier step would be injected with the LATER value and
+    // an intermediate consumer of the earlier value would read it wrong. Empty for collision-free
+    // collections (every key produced once) — zero behavior change there.
+    val shadowedPaths = shadowedProducerPaths(pickedSteps, kick.ledger())
+    return pickedSteps
       .asSequence()
       .takeWhile { !haltExecution }
-      .filter { shouldStepBePicked(it, kick.runOnlySteps(), kick.skipSteps()) }
       .fold(listOf<StepReport>()) { stepReports, step ->
         pm.environment.currentStep = step
         // --------### LEDGER WARM-PATH: skip+inject / warn-and-run ###--------
         val ledger = kick.ledger()
         val entry = ledger.steps[step.path]
         val envKeys = pm.environment.keys
-        if (ledgerSkipDecision(step, ledger, envKeys)) {
+        if (step.path !in shadowedPaths && ledgerSkipDecision(step, ledger, envKeys)) {
           val skipEntry = entry!!
           logger.info { "***** Ledger-skip Step (reusing ${skipEntry.produces}): $step *****" }
           // Inject ledgered values via the delegated index-set (NOT `set()`), so the reused keys

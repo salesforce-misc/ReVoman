@@ -1,0 +1,8 @@
+$kind: http-request
+url: "{{baseUrl}}/early"
+method: GET
+order: 1000
+scripts:
+  - type: afterResponse
+    code: pm.environment.set("sharedId", "EARLY")
+    language: text/javascript

@@ -195,6 +195,58 @@ class LedgerSkipE2ETest {
   }
 
   @Test
+  fun `collision guard - earlier producer of a re-set key still runs on a warm run, only the last is skipped`() {
+    val collision = "pm-templates/v3/ledger-collision"
+    // Cold run to learn the two real step paths + hashes.
+    val cold =
+      ReVoman.revUp(
+        Kick.configure()
+          .templatePath(collision)
+          .dynamicEnvironment("baseUrl", baseUrl)
+          .insecureHttp(true)
+          .off()
+      )
+    val early = cold.stepReports[0].step
+    val late = cold.stepReports[1].step
+    assertThat(early.name).contains("early")
+    assertThat(late.name).contains("late")
+
+    // Warm ledger: BOTH steps produce `sharedId`, with `sharedId` already present in env so the
+    // env-superset precondition is met for both. Without the collision guard, the EARLY step would
+    // be skipped + injected with the final value — wrong. The guard must keep EARLY running.
+    val snap =
+      LedgerSnapshot(
+        orgId = null,
+        steps =
+          mapOf(
+            early.path to LedgerEntry(setOf("sharedId"), early.sourceHash),
+            late.path to LedgerEntry(setOf("sharedId"), late.sourceHash),
+          ),
+        values = mapOf("sharedId" to "LEDGERED"),
+      )
+    val hitsBefore = serverHits.get()
+    val warm =
+      ReVoman.revUp(
+        Kick.configure()
+          .templatePath(collision)
+          .dynamicEnvironment("baseUrl", baseUrl)
+          .insecureHttp(true)
+          .ledger(snap)
+          .off()
+      )
+
+    val earlyReport = warm.reportForStepName(early.path)!!
+    val lateReport = warm.reportForStepName(late.path)!!
+    // EARLY ran (shadowed by the later producer of sharedId): it made a real HTTP request.
+    assertThat(earlyReport.requestInfo).isNotNull()
+    // LATE was ledger-skipped (last producer, safe): no HTTP.
+    assertThat(lateReport.requestInfo).isNull()
+    assertThat(lateReport.responseInfo).isNull()
+    // Exactly ONE request reached the server (early only, not late).
+    assertThat(serverHits.get()).isEqualTo(hitsBefore + 1)
+  }
+
+  @Test
   fun `learnedLedger entry carries the keys a producing step consumed (provenance)`() {
     // A step that reads {{seedKey}} (consumed) in its URL AND sets producedId (produced). The
     // learned entry must record BOTH: produces for skip, consumed for the provenance graph.
