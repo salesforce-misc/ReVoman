@@ -75,6 +75,23 @@ internal constructor(
     failure?.fold({ it !is PostStepHookFailure }, { true }) != true
 
   companion object {
+    /**
+     * A RECORDED report for a step whose HTTP dispatch was skipped on a warm run because the ledger
+     * already carried its [produced] keys (reused, not re-executed). [env] is snapshotted so the
+     * report reflects the env AFTER the ledgered values were injected.
+     */
+    @JvmStatic
+    fun ledgerSkipped(
+      step: Step,
+      produced: Set<String>,
+      env: PostmanEnvironment<Any?>,
+    ): StepReport =
+      StepReport(
+        step = step,
+        pmEnvSnapshot = env.copy(mutableEnv = env.mutableEnv.toMutableMap()),
+        envVars = StepEnvVars(produced = produced),
+      )
+
     private fun failure(
       requestInfo: Either<out ExeFailure, TxnInfo<Request>>? = null,
       preStepHookFailure: PreStepHookFailure? = null,

@@ -21,6 +21,7 @@ import com.salesforce.revoman.internal.exe.executePolling
 import com.salesforce.revoman.internal.exe.executePostResJS
 import com.salesforce.revoman.internal.exe.executePreReqJS
 import com.salesforce.revoman.internal.exe.fireHttpRequest
+import com.salesforce.revoman.internal.exe.ledgerSkipDecision
 import com.salesforce.revoman.internal.exe.postStepHookExe
 import com.salesforce.revoman.internal.exe.preStepHookExe
 import com.salesforce.revoman.internal.exe.shouldHaltExecution
@@ -47,6 +48,7 @@ import com.salesforce.revoman.output.ExeType.PRE_STEP_HOOK
 import com.salesforce.revoman.output.ExeType.UNMARSHALL_REQUEST
 import com.salesforce.revoman.output.ExeType.UNMARSHALL_RESPONSE
 import com.salesforce.revoman.output.Rundown
+import com.salesforce.revoman.output.ledger.LedgerEntry
 import com.salesforce.revoman.output.report.Step
 import com.salesforce.revoman.output.report.StepEnvVars
 import com.salesforce.revoman.output.report.StepReport
@@ -128,11 +130,16 @@ object ReVoman {
       PostmanSDK(moshiReVoman, kick.nodeModulesPath(), regexReplacer, environment.toMutableMap())
     val stepNameToReport =
       executeStepsSerially(pmStepsDeepFlattened, kick, moshiReVoman, regexReplacer, pm)
+    val learnedLedger =
+      stepNameToReport
+        .filter { it.envVars.produced.isNotEmpty() }
+        .associate { it.step.path to LedgerEntry(it.envVars.produced, it.step.sourceHash) }
     return Rundown(
       stepNameToReport,
       pm.environment,
       kick.haltOnFailureOfTypeExcept(),
       pmStepsDeepFlattened.size,
+      learnedLedger,
     )
   }
 
@@ -148,10 +155,34 @@ object ReVoman {
       .asSequence()
       .takeWhile { !haltExecution }
       .filter { shouldStepBePicked(it, kick.runOnlySteps(), kick.skipSteps()) }
-      .fold(listOf()) { stepReports, step ->
+      .fold(listOf<StepReport>()) { stepReports, step ->
+        pm.environment.currentStep = step
+        // --------### LEDGER WARM-PATH: skip+inject / warn-and-run ###--------
+        val ledger = kick.ledger()
+        val entry = ledger.steps[step.path]
+        val envKeys = pm.environment.keys
+        if (ledgerSkipDecision(step, ledger, envKeys)) {
+          logger.info { "***** Ledger-skip Step (reusing ${entry!!.produces}): $step *****" }
+          // Inject ledgered values via the delegated index-set (NOT `set()`), so the reused keys
+          // are NOT recorded as "produced" by this skipped step — keeps learnedLedger clean.
+          entry!!.produces.forEach { key -> pm.environment[key] = ledger.values[key] }
+          return@fold stepReports + StepReport.ledgerSkipped(step, entry.produces, pm.environment)
+        }
+        if (
+          entry != null &&
+            entry.produces.isNotEmpty() &&
+            entry.hash.isNotEmpty() &&
+            step.sourceHash.isNotEmpty() &&
+            entry.hash != step.sourceHash &&
+            envKeys.containsAll(entry.produces)
+        ) {
+          logger.warn {
+            "[ledger] stale: ${step.path} producer def changed " +
+              "(hash ${entry.hash} -> ${step.sourceHash}) -> running step, refreshing entry"
+          }
+        }
         logger.info { "***** Executing Step: $step *****" }
         val exeTimings: MutableMap<ExeType, Duration> = mutableMapOf()
-        pm.environment.currentStep = step
         val itemWithRegex = step.rawPMStep
         val preStepReport =
           StepReport(

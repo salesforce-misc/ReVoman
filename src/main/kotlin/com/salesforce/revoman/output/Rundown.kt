@@ -8,6 +8,7 @@
 package com.salesforce.revoman.output
 
 import com.salesforce.revoman.input.config.StepPick.PostTxnStepPick
+import com.salesforce.revoman.output.ledger.LedgerEntry
 import com.salesforce.revoman.output.postman.PostmanEnvironment
 import com.salesforce.revoman.output.report.Folder.Companion.FOLDER_DELIMITER
 import com.salesforce.revoman.output.report.StepReport
@@ -17,6 +18,7 @@ data class Rundown(
   @JvmField val mutableEnv: PostmanEnvironment<Any?>,
   private val haltOnFailureOfTypeExcept: Map<ExeType, PostTxnStepPick?>,
   @JvmField val providedStepsToExecuteCount: Int,
+  @JvmField val learnedLedger: Map<String, LedgerEntry> = emptyMap(),
 ) {
   @get:JvmName("immutableEnv") val immutableEnv: Map<String, Any?> by lazy { mutableEnv.toMap() }
 
