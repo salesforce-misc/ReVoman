@@ -162,11 +162,25 @@ object ReVoman {
         val entry = ledger.steps[step.path]
         val envKeys = pm.environment.keys
         if (ledgerSkipDecision(step, ledger, envKeys)) {
-          logger.info { "***** Ledger-skip Step (reusing ${entry!!.produces}): $step *****" }
+          val skipEntry = entry!!
+          logger.info { "***** Ledger-skip Step (reusing ${skipEntry.produces}): $step *****" }
           // Inject ledgered values via the delegated index-set (NOT `set()`), so the reused keys
-          // are NOT recorded as "produced" by this skipped step — keeps learnedLedger clean.
-          entry!!.produces.forEach { key -> pm.environment[key] = ledger.values[key] }
-          return@fold stepReports + StepReport.ledgerSkipped(step, entry.produces, pm.environment)
+          // are NOT recorded as "produced" by this skipped step in the live per-step capture. A
+          // produced key absent from `ledger.values` (partial/corrupt ledger) is NOT injected as a
+          // silent null (which would stringify to "null" downstream): warn and leave the existing
+          // env value, which the env-superset precondition guarantees is present.
+          skipEntry.produces.forEach { key ->
+            if (ledger.values.containsKey(key)) {
+              pm.environment[key] = ledger.values[key]
+            } else {
+              logger.warn {
+                "[ledger] ${step.path} reuses produced key '$key' but it is missing from " +
+                  "ledger.values -> keeping existing env value, not injecting null"
+              }
+            }
+          }
+          return@fold stepReports +
+            StepReport.ledgerSkipped(step, skipEntry.produces, pm.environment)
         }
         if (
           entry != null &&
