@@ -81,7 +81,8 @@ fun readLedgerYaml(filePath: String): LedgerFile =
 /**
  * Read a flat top-level YAML mapping (e.g. a human-friendly `config.yaml` of `key: value` lines)
  * into a plain map. Unlike [readLedgerYaml], this does NOT expect a postman-env `values` array.
- * Returns an empty map for empty/blank content.
+ * Returns an empty map for empty/blank content OR for non-mapping content (a top-level list or bare
+ * scalar) — so a malformed config silently reads as empty rather than erroring.
  */
 fun readYamlMap(filePath: String): Map<String, Any?> =
   V3YamlReader.readFlatMap(readFileToString(filePath))

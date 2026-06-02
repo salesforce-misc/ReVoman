@@ -39,7 +39,10 @@ internal object V3YamlReader {
     )
   }
 
-  /** Parse a flat top-level YAML mapping (e.g. a config file) to a plain map. */
+  /**
+   * Parse a flat top-level YAML mapping (e.g. a config file) to a plain map. Non-mapping content (a
+   * top-level list or bare scalar) and empty/blank input yield an empty map.
+   */
   fun readFlatMap(yaml: String): Map<String, Any?> = parseYaml(yaml)
 
   fun readLedger(yaml: String): LedgerFile {
