@@ -36,16 +36,46 @@ class V3YamlLedgerTest {
   }
 
   @Test
+  fun `readLedger parses consumed list (provenance), absent consumed yields empty`() {
+    val yaml =
+      """
+      name: ledger-00Dxx
+      values:
+        - {key: schedulingPolicyId, value: '0Sp1', enabled: true}
+      x-revoman-ledger:
+        orgId: 00Dxx
+        steps:
+          "policies|>create<|||create-policy|||>":
+            produces: [schedulingPolicyId]
+            consumed: [ruleId, resourceId]
+            hash: abc
+          "fixtures|>sa<|||create-sa|||>":
+            produces: [saId1]
+            hash: def
+      """
+        .trimIndent()
+    val f = V3YamlReader.readLedger(yaml)
+    assertThat(f.steps["policies|>create<|||create-policy|||>"]!!.consumed)
+      .containsExactly("ruleId", "resourceId")
+    // A step with no `consumed:` key parses to an empty set, not null.
+    assertThat(f.steps["fixtures|>sa<|||create-sa|||>"]!!.consumed).isEmpty()
+  }
+
+  @Test
   fun `writer output is re-readable AND parses as a plain v3 env (values only)`() {
     val file =
       LedgerFile(
         name = "ledger-00Dxx",
         values = mapOf("saId1" to "08p1"),
         orgId = "00Dxx",
-        steps = mapOf("fixtures|>sa<|||create-sa|||>" to LedgerEntry(setOf("saId1"), "abc")),
+        steps =
+          mapOf(
+            "fixtures|>sa<|||create-sa|||>" to
+              LedgerEntry(setOf("saId1"), "abc", consumed = setOf("policyId"))
+          ),
       )
     val dumped = V3YamlWriter.dump(file)
-    // Round-trips as a ledger
+    // Round-trips as a ledger (incl. consumed provenance)
     assertThat(V3YamlReader.readLedger(dumped)).isEqualTo(file)
     // And still parses as a plain postman env (sibling ignored, values intact)
     val asEnv = V3YamlReader.readEnv(dumped)

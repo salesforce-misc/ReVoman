@@ -61,7 +61,9 @@ internal object V3YamlReader {
       stepsRaw.mapValues { (_, e) ->
         @Suppress("UNCHECKED_CAST")
         val produces = (e["produces"] as? List<Any?>)?.map { it.toString() }?.toSet() ?: emptySet()
-        LedgerEntry(produces, e["hash"]?.toString() ?: "")
+        @Suppress("UNCHECKED_CAST")
+        val consumed = (e["consumed"] as? List<Any?>)?.map { it.toString() }?.toSet() ?: emptySet()
+        LedgerEntry(produces, e["hash"]?.toString() ?: "", consumed)
       }
     return LedgerFile(
       name = map["name"]?.toString(),

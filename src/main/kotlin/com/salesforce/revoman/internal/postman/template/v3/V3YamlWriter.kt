@@ -24,7 +24,11 @@ internal object V3YamlWriter {
         "orgId" to file.orgId,
         "steps" to
           file.steps.mapValues { (_, e) ->
-            linkedMapOf("produces" to e.produces.toList(), "hash" to e.hash)
+            linkedMapOf<String, Any?>("produces" to e.produces.toList(), "hash" to e.hash).apply {
+              // `consumed` is provenance metadata — emit only when non-empty so files stay tidy;
+              // an absent key parses back to an empty set (round-trip-equal).
+              if (e.consumed.isNotEmpty()) this["consumed"] = e.consumed.toList()
+            }
           },
       )
     val opts =

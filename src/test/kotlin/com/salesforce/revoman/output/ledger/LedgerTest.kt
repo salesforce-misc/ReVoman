@@ -19,6 +19,15 @@ class LedgerTest {
   }
 
   @Test
+  fun `LedgerEntry carries consumed keys (provenance) defaulting empty`() {
+    val withConsumed =
+      LedgerEntry(produces = setOf("schedulingPolicyId"), consumed = setOf("ruleId"), hash = "abc")
+    assertThat(withConsumed.consumed).containsExactly("ruleId")
+    // Backward-compat: a positionally-constructed entry (produces, hash) has empty consumed.
+    assertThat(LedgerEntry(setOf("saId1"), "abc").consumed).isEmpty()
+  }
+
+  @Test
   fun `empty snapshot has no steps and no values`() {
     val s = LedgerSnapshot(orgId = null, steps = emptyMap(), values = emptyMap())
     assertThat(s.steps).isEmpty()

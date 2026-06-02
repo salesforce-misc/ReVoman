@@ -1,0 +1,8 @@
+$kind: http-request
+url: "{{baseUrl}}/echo?seed={{seedKey}}"
+method: GET
+order: 1000
+scripts:
+  - type: afterResponse
+    code: pm.environment.set("producedId", "P1")
+    language: text/javascript

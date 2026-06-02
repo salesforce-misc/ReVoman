@@ -7,8 +7,22 @@
  */
 package com.salesforce.revoman.output.ledger
 
-/** One ledgered step: which env keys it produced + a fingerprint of its producer definition. */
-data class LedgerEntry(@JvmField val produces: Set<String>, @JvmField val hash: String)
+/**
+ * One ledgered step: which env keys it produced + a fingerprint of its producer definition, plus
+ * the keys it consumed (read via `{{key}}`). [consumed] is provenance/transparency only — it does
+ * NOT gate the skip decision (that is [produces] + [hash]); it yields a self-documenting
+ * producer→consumer graph. Last positionally + defaulted so the historical `(produces, hash)`
+ * constructor stays source-compatible.
+ */
+data class LedgerEntry
+@JvmOverloads
+constructor(
+  @JvmField val produces: Set<String>,
+  @JvmField val hash: String,
+  // `@JvmOverloads` keeps the historical 2-arg `LedgerEntry(produces, hash)` constructor visible to
+  // Java callers — a Kotlin default alone only telescopes for Kotlin callers, not Java.
+  @JvmField val consumed: Set<String> = emptySet(),
+)
 
 /** What revUp consults on a warm run: per-step entries (keyed on `Step.path`) + produced values. */
 data class LedgerSnapshot(

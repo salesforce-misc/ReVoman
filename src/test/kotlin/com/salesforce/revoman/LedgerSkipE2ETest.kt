@@ -99,6 +99,47 @@ class LedgerSkipE2ETest {
     assertThat(warm.learnedLedger).containsExactly(stepPath, LedgerEntry(setOf(producedKey), hash))
   }
 
+  @Test
+  fun `warm skip re-emits the reused entry's consumed (provenance survives warm runs)`() {
+    // Cold run to learn the real step path + sourceHash.
+    val cold = ReVoman.revUp(kick())
+    val firstStep = cold.stepReports.first().step
+    val stepPath = firstStep.path
+    val hash = firstStep.sourceHash
+
+    val producedKey = "ledgeredKey"
+    // The ledgered entry carries CONSUMED provenance (as a cold run would have recorded).
+    val snap =
+      LedgerSnapshot(
+        orgId = null,
+        steps =
+          mapOf(stepPath to LedgerEntry(setOf(producedKey), hash, consumed = setOf("seedKey"))),
+        values = mapOf(producedKey to "LEDGERED_VALUE"),
+      )
+    val warm = ReVoman.revUp(kick(snap))
+    // Skipped step re-emits the entry; consumed must NOT be silently dropped, else a warm-run
+    // LedgerStore.merge (last-write-wins putAll) would erase the provenance on every loop.
+    assertThat(warm.learnedLedger[stepPath]!!.consumed).containsExactly("seedKey")
+  }
+
+  @Test
+  fun `learnedLedger entry carries the keys a producing step consumed (provenance)`() {
+    // A step that reads {{seedKey}} (consumed) in its URL AND sets producedId (produced). The
+    // learned entry must record BOTH: produces for skip, consumed for the provenance graph.
+    val kick =
+      Kick.configure()
+        .templatePath("pm-templates/v3/ledger-consume")
+        .dynamicEnvironment("baseUrl", baseUrl)
+        .dynamicEnvironment("seedKey", "SEED")
+        .insecureHttp(true)
+        .off()
+    val rundown = ReVoman.revUp(kick)
+    val stepPath = rundown.stepReports.first().step.path
+    val entry = rundown.learnedLedger[stepPath]!!
+    assertThat(entry.produces).containsExactly("producedId")
+    assertThat(entry.consumed).contains("seedKey")
+  }
+
   companion object {
     private lateinit var server: HttpServer
     private val serverHits = AtomicInteger(0)

@@ -146,7 +146,10 @@ object ReVoman {
     val learnedLedger =
       stepNameToReport
         .filter { it.envVars.produced.isNotEmpty() }
-        .associate { it.step.path to LedgerEntry(it.envVars.produced, it.step.sourceHash) }
+        .associate {
+          it.step.path to
+            LedgerEntry(it.envVars.produced, it.step.sourceHash, it.envVars.consumed)
+        }
     return Rundown(
       stepNameToReport,
       pm.environment,
@@ -193,7 +196,7 @@ object ReVoman {
             }
           }
           return@fold stepReports +
-            StepReport.ledgerSkipped(step, skipEntry.produces, pm.environment)
+            StepReport.ledgerSkipped(step, skipEntry.produces, pm.environment, skipEntry.consumed)
         }
         if (
           entry != null &&
