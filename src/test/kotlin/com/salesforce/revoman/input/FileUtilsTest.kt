@@ -10,6 +10,7 @@ package com.salesforce.revoman.input
 import com.google.common.truth.Truth.assertThat
 import io.kotest.matchers.string.shouldNotBeBlank
 import java.io.File
+import java.nio.file.Files
 import org.junit.jupiter.api.Test
 
 class FileUtilsTest {
@@ -67,5 +68,38 @@ class FileUtilsTest {
     org.junit.jupiter.api.Assertions.assertThrows(java.io.FileNotFoundException::class.java) {
       bufferV3Definition("pm-templates/v3/no-def").use { it.readUtf8() }
     }
+  }
+
+  @Test
+  fun `readYamlMap parses a flat key-value yaml`() {
+    val tmp = Files.createTempFile("config", ".yaml")
+    Files.writeString(
+      tmp,
+      """
+      baseUrl: https://localhost:6101
+      username: admin@local.org
+      password: secret
+      apiVersion: 68.0
+      """
+        .trimIndent(),
+    )
+    val map = readYamlMap(tmp.toAbsolutePath().toString())
+    assertThat(map)
+      .containsExactly(
+        "baseUrl",
+        "https://localhost:6101",
+        "username",
+        "admin@local.org",
+        "password",
+        "secret",
+        "apiVersion",
+        68.0,
+      )
+  }
+
+  @Test
+  fun `readYamlMap returns empty for empty yaml`() {
+    val tmp = Files.createTempFile("empty", ".yaml")
+    assertThat(readYamlMap(tmp.toAbsolutePath().toString())).isEmpty()
   }
 }

@@ -39,6 +39,9 @@ internal object V3YamlReader {
     )
   }
 
+  /** Parse a flat top-level YAML mapping (e.g. a config file) to a plain map. */
+  fun readFlatMap(yaml: String): Map<String, Any?> = parseYaml(yaml)
+
   fun readLedger(yaml: String): LedgerFile {
     val map = parseYaml(yaml)
     @Suppress("UNCHECKED_CAST")

@@ -79,6 +79,14 @@ fun readLedgerYaml(filePath: String): LedgerFile =
   V3YamlReader.readLedger(readFileToString(filePath))
 
 /**
+ * Read a flat top-level YAML mapping (e.g. a human-friendly `config.yaml` of `key: value` lines)
+ * into a plain map. Unlike [readLedgerYaml], this does NOT expect a postman-env `values` array.
+ * Returns an empty map for empty/blank content.
+ */
+fun readYamlMap(filePath: String): Map<String, Any?> =
+  V3YamlReader.readFlatMap(readFileToString(filePath))
+
+/**
  * Write a ledger file. `values` stays postman-importable; metadata in the `x-revoman-ledger`
  * sibling.
  */
