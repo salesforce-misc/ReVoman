@@ -74,11 +74,12 @@ class LedgerSkipE2ETest {
       )
 
     // The skip predicate requires the produced keys to ALREADY be in env (env-superset). In the
-    // real warm flow the ledger file's `values` are imported into the postman env up front; here we
-    // simulate that precondition with a placeholder, then assert the skip branch OVERWRITES it with
-    // the authoritative ledgered value (proving the inject ran, not the HTTP-producing step).
+    // real warm flow `revUp` seeds the ledger snapshot's `values` into the env up front (as the
+    // lowest-precedence floor), which is what satisfies that precondition — no manual pre-seed. We
+    // pass ONLY the snapshot and assert the skip branch injected the authoritative ledgered value
+    // (proving the seeding + inject ran, not the HTTP-producing step).
     val hitsBefore = serverHits.get()
-    val warm = ReVoman.revUp(kick(snap, producedKey to "PLACEHOLDER"))
+    val warm = ReVoman.revUp(kick(snap)) // NO producedKey pre-seed — ledger.values must seed it
 
     // The single step was skipped -> ZERO requests reached the loopback server. This structurally
     // proves "skipped, not run", independent of the report shape.

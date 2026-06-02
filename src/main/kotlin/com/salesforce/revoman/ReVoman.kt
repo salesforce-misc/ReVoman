@@ -124,8 +124,21 @@ object ReVoman {
         kick.customTypeAdaptersFromRequestConfig() + kick.customTypeAdaptersFromResponseConfig(),
         kick.globalSkipTypes(),
       )
+    // Seed the ledger snapshot's produced-key values as the lowest-precedence FLOOR: a real warm
+    // run satisfies the `ledgerSkipDecision` env-superset precondition only if the produced keys
+    // are
+    // already present in the env. `Map.plus` lets the right-hand side win on key clash, so the real
+    // env (mergeEnvs) OVERRIDES the ledger values — ledger is only a fallback. For non-ledger runs
+    // `kick.ledger().values` is empty (LedgerSnapshot.EMPTY), so this prepends an empty map =
+    // no-op.
+    val ledgerValues: Map<String, Any?> = kick.ledger().values
     val environment =
-      mergeEnvs(kick.environmentPaths(), kick.environmentInputStreams(), kick.dynamicEnvironment())
+      ledgerValues +
+        mergeEnvs(
+          kick.environmentPaths(),
+          kick.environmentInputStreams(),
+          kick.dynamicEnvironment(),
+        )
     val pm =
       PostmanSDK(moshiReVoman, kick.nodeModulesPath(), regexReplacer, environment.toMutableMap())
     val stepNameToReport =
