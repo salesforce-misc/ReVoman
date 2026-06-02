@@ -9,7 +9,10 @@
 
 package com.salesforce.revoman.input
 
+import com.salesforce.revoman.internal.postman.template.v3.V3YamlReader
+import com.salesforce.revoman.internal.postman.template.v3.V3YamlWriter
 import com.salesforce.revoman.internal.postman.template.v3.V3_DEFINITION_REL_PATH
+import com.salesforce.revoman.output.ledger.LedgerFile
 import java.io.File
 import java.io.FileNotFoundException
 import java.io.InputStream
@@ -70,3 +73,14 @@ fun bufferV3Definition(collectionDir: String): BufferedSource {
       ?: throw FileNotFoundException("v3 collection not found on classpath: $collectionDir")
   return fs.source(p / V3_DEFINITION_REL_PATH).buffer()
 }
+
+/** Read a ledger file (postman-env `values` + `x-revoman-ledger` sibling). */
+fun readLedgerYaml(filePath: String): LedgerFile =
+  V3YamlReader.readLedger(readFileToString(filePath))
+
+/**
+ * Write a ledger file. `values` stays postman-importable; metadata in the `x-revoman-ledger`
+ * sibling.
+ */
+fun writeLedgerYaml(filePath: String, ledger: LedgerFile) =
+  writeToFile(filePath, V3YamlWriter.dump(ledger))
