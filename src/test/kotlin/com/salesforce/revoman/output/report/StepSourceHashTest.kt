@@ -11,6 +11,7 @@ import com.google.common.truth.Truth.assertThat
 import com.salesforce.revoman.internal.exe.deepFlattenItems
 import com.salesforce.revoman.internal.postman.template.Item
 import com.salesforce.revoman.internal.postman.template.v3.V3Loader
+import com.salesforce.revoman.internal.postman.template.v3.sha256Hex
 import org.junit.jupiter.api.Test
 
 class StepSourceHashTest {
@@ -42,5 +43,15 @@ class StepSourceHashTest {
     assertThat(steps.all { it.sourceHash.isNotEmpty() }).isTrue()
     // And each Step's hash matches its source Item's hash.
     assertThat(steps.all { it.sourceHash == it.rawPMStep.sourceHash }).isTrue()
+  }
+
+  @Test
+  fun `editing the request source changes the hash, identical source keeps it`() {
+    // The staleness signal: a producer-definition edit must yield a different fingerprint, so a
+    // warm run detects the change and re-runs instead of reusing a stale ledgered id.
+    val original = "url: /a\nmethod: GET\n"
+    val edited = "url: /b\nmethod: GET\n"
+    assertThat(sha256Hex(original)).isNotEqualTo(sha256Hex(edited))
+    assertThat(sha256Hex(original)).isEqualTo(sha256Hex(original))
   }
 }
