@@ -28,6 +28,22 @@ constructor(
 
   internal lateinit var currentStep: Step
 
+  // --- Ledger capture: per-step produced/consumed env keys. Keyed by Step identity so a
+  //     reused-thread env can carry multiple steps' deltas; read out when StepReport is built. ---
+  private val producedKeysByStep: MutableMap<Step, MutableSet<String>> = mutableMapOf()
+  private val consumedKeysByStep: MutableMap<Step, MutableSet<String>> = mutableMapOf()
+
+  fun producedKeysFor(step: Step): Set<String> = producedKeysByStep[step]?.toSet() ?: emptySet()
+
+  fun consumedKeysFor(step: Step): Set<String> = consumedKeysByStep[step]?.toSet() ?: emptySet()
+
+  /** Record a READ of [key] during the current step (regex `{{key}}` resolved against env). */
+  fun recordConsumed(key: String) {
+    if (::currentStep.isInitialized) {
+      consumedKeysByStep.getOrPut(currentStep) { mutableSetOf() }.add(key)
+    }
+  }
+
   @get:JvmName("immutableEnv") val immutableEnv: Map<String, ValueT> by lazy { mutableEnv.toMap() }
 
   @get:JvmName("postmanEnvJSONFormat")
@@ -37,6 +53,9 @@ constructor(
 
   fun set(key: String, value: ValueT) {
     mutableEnv[key] = value
+    if (::currentStep.isInitialized) {
+      producedKeysByStep.getOrPut(currentStep) { mutableSetOf() }.add(key)
+    }
     logger.info {
       "pm environment variable set in Step: $currentStep - key: $key, value: ${pprint(value)}"
     }
@@ -45,6 +64,7 @@ constructor(
   @Suppress("unused")
   fun unset(key: String) {
     mutableEnv.remove(key)
+    if (::currentStep.isInitialized) producedKeysByStep[currentStep]?.remove(key)
     logger.info { "pm environment variable unset through JS in Step: $currentStep - key: $key" }
   }
 
