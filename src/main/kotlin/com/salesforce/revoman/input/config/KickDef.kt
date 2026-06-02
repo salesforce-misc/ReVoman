@@ -12,6 +12,7 @@ import com.salesforce.revoman.input.config.StepPick.PostTxnStepPick
 import com.salesforce.revoman.input.config.StepPick.PreTxnStepPick
 import com.salesforce.revoman.output.ExeType
 import com.salesforce.revoman.output.Rundown
+import com.salesforce.revoman.output.ledger.LedgerSnapshot
 import com.salesforce.revoman.output.report.StepReport
 import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.JsonAdapter.Factory
@@ -49,6 +50,8 @@ internal interface KickDef {
   fun runOnlySteps(): List<ExeStepPick>
 
   fun skipSteps(): List<ExeStepPick>
+
+  @Value.Default fun ledger(): LedgerSnapshot = LedgerSnapshot.EMPTY
 
   fun pollingConfig(): List<PollingConfig>
 

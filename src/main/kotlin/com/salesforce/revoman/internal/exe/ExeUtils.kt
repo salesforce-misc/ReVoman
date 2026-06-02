@@ -18,6 +18,7 @@ import com.salesforce.revoman.internal.postman.template.Item
 import com.salesforce.revoman.output.ExeType
 import com.salesforce.revoman.output.Rundown
 import com.salesforce.revoman.output.Rundown.Companion.isStepIgnoredForFailure
+import com.salesforce.revoman.output.ledger.LedgerSnapshot
 import com.salesforce.revoman.output.report.Folder
 import com.salesforce.revoman.output.report.Step
 import com.salesforce.revoman.output.report.StepReport
@@ -72,6 +73,19 @@ internal fun shouldStepBePicked(
     return false
   }
   return runOnlySteps.isEmpty() || explicitlyRunStep
+}
+
+/**
+ * Ledger-skip predicate: skip a step's HTTP dispatch iff the ledger has an entry for it whose
+ * produced keys are ALL already in [env] AND whose producer fingerprint matches the step's current
+ * [Step.sourceHash]. Empty-produces entries are NEVER skippable (read-only steps must always run);
+ * a hash mismatch falls through to run (warn-and-run, handled by the caller).
+ */
+internal fun ledgerSkipDecision(step: Step, ledger: LedgerSnapshot, env: Set<String>): Boolean {
+  val entry = ledger.steps[step.path] ?: return false
+  if (entry.produces.isEmpty()) return false
+  if (entry.hash != step.sourceHash) return false
+  return env.containsAll(entry.produces)
 }
 
 internal fun <T> runCatching(
