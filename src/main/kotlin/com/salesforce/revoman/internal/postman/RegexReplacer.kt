@@ -46,6 +46,7 @@ class RegexReplacer(
           }
           ?: replaceVariablesRecursively(pm.environment.getAsString(variableKey), pm)?.also { value
             ->
+            pm.environment.recordConsumed(variableKey)
             setItBackInEnvironment(variableKey, value, pm)
           }
           ?: variable.value
