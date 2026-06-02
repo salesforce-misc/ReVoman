@@ -7,6 +7,8 @@
  */
 package com.salesforce.revoman.internal.postman.template.v3
 
+import com.salesforce.revoman.output.ledger.LedgerEntry
+import com.salesforce.revoman.output.ledger.LedgerFile
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.yaml.snakeyaml.Yaml
 
@@ -34,6 +36,32 @@ internal object V3YamlReader {
             value = m["value"]?.toString(),
           )
         },
+    )
+  }
+
+  fun readLedger(yaml: String): LedgerFile {
+    val map = parseYaml(yaml)
+    @Suppress("UNCHECKED_CAST")
+    val values = (map["values"] as? List<Map<String, Any?>>) ?: emptyList()
+    val valueMap =
+      values.associate { m ->
+        (m["key"]?.toString() ?: error("ledger value missing 'key'")) to m["value"]?.toString()
+      }
+    @Suppress("UNCHECKED_CAST")
+    val ledgerMeta = (map["x-revoman-ledger"] as? Map<String, Any?>) ?: emptyMap()
+    @Suppress("UNCHECKED_CAST")
+    val stepsRaw = (ledgerMeta["steps"] as? Map<String, Map<String, Any?>>) ?: emptyMap()
+    val steps =
+      stepsRaw.mapValues { (_, e) ->
+        @Suppress("UNCHECKED_CAST")
+        val produces = (e["produces"] as? List<Any?>)?.map { it.toString() }?.toSet() ?: emptySet()
+        LedgerEntry(produces, e["hash"]?.toString() ?: "")
+      }
+    return LedgerFile(
+      name = map["name"]?.toString(),
+      values = valueMap,
+      orgId = ledgerMeta["orgId"]?.toString(),
+      steps = steps,
     )
   }
 
