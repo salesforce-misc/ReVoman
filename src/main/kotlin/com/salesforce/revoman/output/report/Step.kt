@@ -61,11 +61,15 @@ data class Step(
 
 data class Folder
 @JvmOverloads
-constructor(
-  @JvmField val name: String,
-  @JvmField val parent: Folder? = null,
-  @JvmField val subFolders: MutableList<Folder> = mutableListOf(),
-) {
+constructor(@JvmField val name: String, @JvmField val parent: Folder? = null) {
+  // Down-link to children, populated while building the folder tree (deepFlattenItems). Kept OUT of
+  // the primary constructor on purpose: a `data class` derives equals/hashCode from constructor
+  // props only, and `parent` (up) + `subFolders` (down) form a cycle that makes the generated
+  // hashCode/equals recurse forever — fatal once a nested Step is used as a HashMap/HashSet key
+  // (the ledger's per-step produced/consumed capture does exactly that). subFolders is only ever
+  // written, never read for logic (navigation uses `parent`/`path`), so excluding it is safe.
+  @JvmField val subFolders: MutableList<Folder> = mutableListOf()
+
   @JvmField val isRoot: Boolean = parent == null
   @JvmField val parentPath: List<Folder> = parent?.parentPath?.plus(parent) ?: emptyList()
   @JvmField val path: List<Folder> = parentPath + this
