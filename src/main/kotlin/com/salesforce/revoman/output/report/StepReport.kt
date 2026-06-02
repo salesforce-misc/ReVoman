@@ -36,6 +36,7 @@ internal constructor(
   @JvmField val pollingReport: PollingReport? = null,
   @JvmField val exeTimings: Map<ExeType, Duration> = emptyMap(),
   @JvmField val pmEnvSnapshot: PostmanEnvironment<Any?>,
+  @JvmField val envVars: StepEnvVars = StepEnvVars(),
 ) {
   internal constructor(
     step: Step,

@@ -48,6 +48,7 @@ import com.salesforce.revoman.output.ExeType.UNMARSHALL_REQUEST
 import com.salesforce.revoman.output.ExeType.UNMARSHALL_RESPONSE
 import com.salesforce.revoman.output.Rundown
 import com.salesforce.revoman.output.report.Step
+import com.salesforce.revoman.output.report.StepEnvVars
 import com.salesforce.revoman.output.report.StepReport
 import com.salesforce.revoman.output.report.StepReport.Companion.toVavr
 import com.salesforce.revoman.output.report.TxnInfo
@@ -249,6 +250,11 @@ object ReVoman {
               exeTimings = exeTimings,
               pmEnvSnapshot =
                 pm.environment.copy(mutableEnv = pm.environment.mutableEnv.toMutableMap()),
+              envVars =
+                StepEnvVars(
+                  produced = pm.environment.producedKeysFor(step),
+                  consumed = pm.environment.consumedKeysFor(step),
+                ),
             )
         haltExecution = shouldHaltExecution(currentStepReport, kick, pm.rundown)
         stepReports + currentStepReport
