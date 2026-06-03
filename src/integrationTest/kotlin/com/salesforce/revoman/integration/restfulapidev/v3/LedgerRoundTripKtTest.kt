@@ -33,7 +33,9 @@ import org.junit.jupiter.api.Test
  */
 class LedgerRoundTripKtTest {
 
-  /** Cold run = LEARN: a real POST to restful-api.dev produces keys → they land in learnedLedger. */
+  /**
+   * Cold run = LEARN: a real POST to restful-api.dev produces keys → they land in learnedLedger.
+   */
   @Test
   fun `cold run learns producer keys from a real API call`() {
     val cold = revUp()
@@ -52,16 +54,17 @@ class LedgerRoundTripKtTest {
   }
 
   /**
-   * Warm run = SKIP + INJECT: with a ledger entry matching the producer's real path + sourceHash and
-   * its produced keys, the producer step's HTTP dispatch is SKIPPED and the ledgered values are
+   * Warm run = SKIP + INJECT: with a ledger entry matching the producer's real path + sourceHash
+   * and its produced keys, the producer step's HTTP dispatch is SKIPPED and the ledgered values are
    * injected into the env instead.
    *
-   * HONEST CAVEAT against a real API: because `add-object` is skipped, `objId` comes from the ledger
-   * (a fixed, non-server id). The downstream PATCH/GET then call the REAL api.restful-api.dev with
-   * that ledgered id, which legitimately 404s (no such server-side object). That's fine — it does
-   * NOT undermine what we're validating (the PRODUCER step was skipped, no HTTP, value injected). So
-   * we deliberately do NOT assert `firstUnsuccessfulStepReport == null` on the warm run; we assert
-   * only the producer-step skip properties.
+   * HONEST CAVEAT against a real API: because `add-object` is skipped, `objId` comes from the
+   * ledger (a fixed, non-server id). The downstream PATCH/GET then call the REAL
+   * api.restful-api.dev with that ledgered id, which legitimately 404s (no such server-side
+   * object). That's fine — it does NOT undermine what we're validating (the PRODUCER step was
+   * skipped, no HTTP, value injected). So we deliberately do NOT assert
+   * `firstUnsuccessfulStepReport == null` on the warm run; we assert only the producer-step skip
+   * properties.
    */
   @Test
   fun `warm run with ledger skips the producer step yet injects the ledgered value`() {

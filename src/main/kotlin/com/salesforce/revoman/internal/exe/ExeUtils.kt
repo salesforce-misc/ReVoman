@@ -105,10 +105,7 @@ internal fun ledgerSkipDecision(step: Step, ledger: LedgerSnapshot, env: Set<Str
  * [orderedSteps]. Steps with no ledger entry are ignored (they run anyway). Collision-free
  * collections (every key produced by exactly one step) yield an empty set — zero behavior change.
  */
-internal fun shadowedProducerPaths(
-  orderedSteps: List<Step>,
-  ledger: LedgerSnapshot,
-): Set<String> {
+internal fun shadowedProducerPaths(orderedSteps: List<Step>, ledger: LedgerSnapshot): Set<String> {
   // Last execution index at which each key is produced (by any ledgered step).
   val lastProducerIndexByKey = mutableMapOf<String, Int>()
   orderedSteps.forEachIndexed { index, step ->

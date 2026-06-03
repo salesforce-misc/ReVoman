@@ -158,8 +158,7 @@ object ReVoman {
       stepNameToReport
         .filter { it.envVars.produced.isNotEmpty() }
         .associate {
-          it.step.path to
-            LedgerEntry(it.envVars.produced, it.step.sourceHash, it.envVars.consumed)
+          it.step.path to LedgerEntry(it.envVars.produced, it.step.sourceHash, it.envVars.consumed)
         }
     return Rundown(
       stepNameToReport,

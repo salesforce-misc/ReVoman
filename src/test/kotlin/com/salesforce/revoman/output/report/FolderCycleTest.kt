@@ -35,8 +35,7 @@ class FolderCycleTest {
 
   @Test
   fun `a nested Step is usable as a HashMap key (ledger capture does this)`() {
-    val step =
-      Step(index = "1", rawPMStep = Item(name = "color"), parentFolder = nestedFolder())
+    val step = Step(index = "1", rawPMStep = Item(name = "color"), parentFolder = nestedFolder())
     val map = HashMap<Step, String>()
     map[step] = "v" // hashes Step -> parentFolder -> Folder.hashCode; must terminate
     assertThat(map[step]).isEqualTo("v")

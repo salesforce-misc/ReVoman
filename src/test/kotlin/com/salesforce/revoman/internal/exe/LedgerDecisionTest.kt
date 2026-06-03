@@ -95,7 +95,8 @@ class LedgerDecisionTest {
     assertThat(ledgerSkipDecision(s, snap, setOf("saId1"))).isFalse()
   }
 
-  // --- Collision guard: a key produced by >1 step is only safely skippable at its LAST producer ---
+  // --- Collision guard: a key produced by >1 step is only safely skippable at its LAST producer
+  // ---
 
   private fun namedStep(name: String, hash: String = "h"): Step =
     Step(index = "1", rawPMStep = Item(name = name), sourceHash = hash)
@@ -175,7 +176,8 @@ class LedgerDecisionTest {
   fun `steps without a ledger entry are ignored by the collision scan`() {
     val ledgered = namedStep("ledgered")
     val unledgered = namedStep("not-in-ledger")
-    val snap = LedgerSnapshot("00D", mapOf(ledgered.path to LedgerEntry(setOf("k"), "h")), emptyMap())
+    val snap =
+      LedgerSnapshot("00D", mapOf(ledgered.path to LedgerEntry(setOf("k"), "h")), emptyMap())
     assertThat(shadowedProducerPaths(listOf(unledgered, ledgered), snap)).isEmpty()
   }
 

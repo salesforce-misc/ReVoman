@@ -78,9 +78,9 @@ internal constructor(
     /**
      * A RECORDED report for a step whose HTTP dispatch was skipped on a warm run because the ledger
      * already carried its [produced] keys (reused, not re-executed). [env] is snapshotted so the
-     * report reflects the env AFTER the ledgered values were injected. [consumed] is carried through
-     * from the reused ledger entry so the re-emitted `learnedLedger` keeps the provenance graph —
-     * otherwise a warm-run merge (last-write-wins) would erase consumed on every loop.
+     * report reflects the env AFTER the ledgered values were injected. [consumed] is carried
+     * through from the reused ledger entry so the re-emitted `learnedLedger` keeps the provenance
+     * graph — otherwise a warm-run merge (last-write-wins) would erase consumed on every loop.
      */
     @JvmStatic
     @JvmOverloads
