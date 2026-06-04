@@ -47,6 +47,24 @@ class PmSandboxScriptApiTest {
   }
 
   @Test
+  fun `integral numbers round-trip as Int not Double`() {
+    // JSON has no int/double distinction; the bridge must narrow integral doubles back to Int so
+    // consumer code (getInt, equality vs Int literals) sees the same type the old in-JS path gave.
+    val r = runTest("pm.environment.set('n', 1);")
+    r.environment["n"] shouldBe 1
+  }
+
+  @Test
+  fun `untouched integral env value keeps its Int type`() {
+    // A pre-existing integral env value the script never touches must come back as the same Int,
+    // not a Double — otherwise the env-sync diff would spuriously flag it as produced and corrupt
+    // the stored type (regression guard for the Pokemon limit=1 -> 1.0 bug).
+    val r =
+      runTest("pm.test('noop', () => pm.expect(true).to.eql(true));", env = mapOf("limit" to 1))
+    r.environment["limit"] shouldBe 1
+  }
+
+  @Test
   fun `pm response json and status assertions`() {
     val r =
       sandbox.execute(

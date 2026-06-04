@@ -258,14 +258,32 @@ internal class SandboxBridge {
           .mapNotNull {
             val e = it as? Map<*, *> ?: return@mapNotNull null
             val k = e["key"] as? String ?: return@mapNotNull null
-            k to e["value"]
+            k to normalizeNumber(e["value"])
           }
           .toMap()
       is Map<*, *> ->
-        values.entries.mapNotNull { (k, v) -> (k as? String)?.let { it to v } }.toMap()
+        values.entries
+          .mapNotNull { (k, v) -> (k as? String)?.let { it to normalizeNumber(v) } }
+          .toMap()
       else -> emptyMap()
     }
   }
+
+  /**
+   * The bridge decodes all JSON numbers as `Double` (JSON has no int/double distinction). ReVoman's
+   * env, the old in-JS path, and consumer assertions/`getInt` expect integral values to stay `Int`/
+   * `Long`. Narrow integral doubles back so an unchanged `limit=1` round-trips as `1`, not `1.0` —
+   * which also keeps [diffScopes] from spuriously flagging untouched numeric keys as produced.
+   */
+  private fun normalizeNumber(value: Any?): Any? =
+    when (value) {
+      is Double ->
+        if (value % 1.0 == 0.0 && !value.isInfinite()) {
+          if (value in Int.MIN_VALUE.toDouble()..Int.MAX_VALUE.toDouble()) value.toInt()
+          else value.toLong()
+        } else value
+      else -> value
+    }
 
   private companion object {
     private val logger = KotlinLogging.logger {}
