@@ -33,7 +33,15 @@ internal class SandboxBridge {
   private val loop = SandboxEventLoop()
   private val emits = mutableListOf<String>() // raw Flatted strings, guest -> host
 
+  // Lifecycle flags: a single instance boots once and closes once.
+  private var booted = false
+  private var closed = false
+
   fun boot() {
+    check(!booted) { "sandbox: boot() already called" }
+    // Set immediately so a re-entrant/double boot fails fast. Note: a failed boot is terminal for
+    // this instance (booted stays true) — discard it and create a fresh SandboxBridge to retry.
+    booted = true
     ctx =
       Context.newBuilder("js")
         .allowExperimentalOptions(true)
@@ -153,6 +161,10 @@ internal class SandboxBridge {
     val options: ProxyObject =
       ProxyObject.fromMap(
         linkedMapOf<String, Any?>(
+          // Phase 1: timeoutMs is forwarded to the guest but enforced in VIRTUAL time (timers run
+          // on the virtual-time SandboxEventLoop), so it does NOT bound host wall-clock/CPU time.
+          // SandboxEventLoop's RUNAWAY_BACKSTOP guards async runaways; real wall-clock timeout
+          // enforcement is Phase 2 (when real I/O exists).
           "timeout" to timeoutMs,
           "cursor" to ProxyObject.fromMap(HashMap<String, Any?>()),
           "allowSkipRequest" to (target == ScriptTarget.PRE_REQUEST),
@@ -166,7 +178,9 @@ internal class SandboxBridge {
   }
 
   fun close() {
+    if (closed) return
     if (::ctx.isInitialized) ctx.close(true)
+    closed = true
   }
 
   private fun scopeToProxy(scope: PmScope): ProxyObject =
@@ -210,11 +224,10 @@ internal class SandboxBridge {
         }
         "execution.error.$id" -> {
           val errObj = parsed.getOrNull(2)
-          val msg =
-            (errObj as? Map<*, *>)?.get("message") as? String
-              ?: errObj?.toString()
-              ?: "sandbox error"
-          error = RuntimeException(msg)
+          val errMap = errObj as? Map<*, *>
+          val msg = errMap?.get("message") as? String ?: errObj?.toString() ?: "sandbox error"
+          val stack = errMap?.get("stack") as? String
+          error = RuntimeException(if (stack != null) "$msg\n$stack" else msg)
         }
         "execution.result.$id" -> {
           val execution = parsed.getOrNull(2) as? Map<*, *> ?: continue
