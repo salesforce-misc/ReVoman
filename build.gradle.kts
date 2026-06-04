@@ -65,6 +65,34 @@ node {
   download = true
 }
 
+// Regenerates the vendored Postman sandbox resources from a pinned postman-sandbox version.
+// These resources ARE committed (so consumers need no Node at runtime — JVM-first). To upgrade:
+// bump pmSandboxVersion, run `./gradlew generatePmSandbox`, commit the changed resources.
+val pmSandboxVersion = "6.7.0"
+
+tasks.register<Exec>("generatePmSandbox") {
+  group = "postman"
+  description = "Regenerate vendored postman-sandbox bootcode resources (pinned $pmSandboxVersion)"
+  val outDir = layout.projectDirectory.dir("src/main/resources/postman-sandbox")
+  workingDir = layout.buildDirectory.dir("pm-sandbox-gen").get().asFile
+  doFirst { workingDir.mkdirs() }
+  commandLine(
+    "bash",
+    "-c",
+    """
+        set -e
+        npm init -y >/dev/null 2>&1 || true
+        npm install postman-sandbox@$pmSandboxVersion postman-collection >/dev/null 2>&1
+        mkdir -p "${'$'}{OUT}"
+        node -e "require('./node_modules/postman-sandbox/.cache/bootcode.browser.js')((e,c)=>{if(e)throw e;require('fs').writeFileSync(process.env.OUT+'/bootcode.js',c)})"
+        node -e "require('fs').writeFileSync(process.env.OUT+'/bridge-client.js', require('./node_modules/uvm/lib/bridge-client')())"
+        node -e "require('fs').writeFileSync(process.env.OUT+'/pm-sandbox-version.txt', require('./node_modules/postman-sandbox/package.json').version)"
+        """
+      .trimIndent(),
+  )
+  environment("OUT", outDir.asFile.absolutePath)
+}
+
 tasks {
   check { dependsOn(npmInstall) }
   test {

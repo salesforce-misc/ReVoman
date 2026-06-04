@@ -36,6 +36,7 @@ import com.salesforce.revoman.internal.postman.Info
 import com.salesforce.revoman.internal.postman.PostmanSDK
 import com.salesforce.revoman.internal.postman.RegexReplacer
 import com.salesforce.revoman.internal.postman.dynamicVariableGenerator
+import com.salesforce.revoman.internal.postman.sandbox.PmSandbox
 import com.salesforce.revoman.internal.postman.template.Environment.Companion.mergeEnvs
 import com.salesforce.revoman.internal.postman.template.Template
 import com.salesforce.revoman.internal.postman.template.v3.V3Loader.load
@@ -143,7 +144,9 @@ object ReVoman {
     val pm =
       PostmanSDK(moshiReVoman, kick.nodeModulesPath(), regexReplacer, environment.toMutableMap())
     val stepNameToReport =
-      executeStepsSerially(pmStepsDeepFlattened, kick, moshiReVoman, regexReplacer, pm)
+      PmSandbox().use { sandbox ->
+        executeStepsSerially(pmStepsDeepFlattened, kick, moshiReVoman, regexReplacer, pm, sandbox)
+      }
     // --- LEDGER CAPTURE CONTRACT (what becomes a ledgered producer) ---
     // A step's `envVars` is snapshotted at the END of its fold iteration (below), AFTER its
     // post-step hooks run, so a var a step-qualified PostStepHook/PreStepHook `.set()`s IS captured
@@ -175,6 +178,7 @@ object ReVoman {
     moshiReVoman: MoshiReVoman,
     regexReplacer: RegexReplacer,
     pm: PostmanSDK,
+    sandbox: PmSandbox,
   ): List<StepReport> {
     var haltExecution = false
     val pickedSteps =
@@ -255,7 +259,7 @@ object ReVoman {
         pm.environment.putAll(regexReplacer.replaceVariablesInEnv(pm))
         val currentStepReport: StepReport = // --------### PRE-REQ-JS ###--------
           timed(step, exeTimings, PRE_REQ_JS) {
-              executePreReqJS(step, itemWithRegex, preStepReport, pm)
+              executePreReqJS(step, itemWithRegex, preStepReport, pm, sandbox)
             }
             .mapLeft { preStepReport.copy(requestInfo = left(it)) }
             .flatMap { // --------### UNMARSHALL-REQUEST ###--------
@@ -299,7 +303,9 @@ object ReVoman {
             }
             .flatMap { sr: StepReport -> // --------### POST-RES-JS ###--------
               pm.syncProgress(sr)
-              timed(step, exeTimings, POST_RES_JS) { executePostResJS(step, itemWithRegex, sr, pm) }
+              timed(step, exeTimings, POST_RES_JS) {
+                  executePostResJS(step, itemWithRegex, sr, pm, sandbox)
+                }
                 .mapLeft { sr.copy(responseInfo = left(it)) }
                 .map { sr }
             }
