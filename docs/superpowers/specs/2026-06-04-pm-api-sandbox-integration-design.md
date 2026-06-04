@@ -37,6 +37,19 @@ implemented and verified:
 - Sandbox `timeoutMs` is forwarded but enforced in virtual time only (no host wall-clock bound).
 - `pm.cookies`/`pm.vault`/`pm.datasets` out of scope.
 - Old `PostmanSDK.evaluateJS` shim retained for back-compat (`EvalJsTest`); removal is Phase 3.
+- **Cross-script non-primitive env values:** only String/Number/Boolean/null cross the bridge, so a
+  value a *script* sets as an object/array (`pm.environment.set('x', resp.json().data)`) is stored
+  in the Kotlin env but is NOT visible to a *later* script's `pm.environment.get('x')` (the old
+  in-JS path exposed it live). Real Postman env semantics are string-valued, and the only known
+  collection doing this (`restful-api.dev`) uses it solely in a `console.log` (no assertion), so no
+  test regresses — but it is a genuine behavior change. Phase 2 may widen the bridge to
+  JSON-serialize script-set objects if a real consumer needs it.
+- **Same-value re-set:** the old path recorded a key as "produced" even when re-set to its existing
+  value; the diff model only flags changed/new keys. This can only *reduce* ledger warm-skip
+  coverage (the step re-runs), never cause a wrong skip — both the skip precondition and the
+  shadow-collision guard key off `produces`.
+- Two GraalJS contexts boot per run (the retained legacy `PostmanSDK.JSEvaluator` + the sandbox);
+  collapses to one when the shim is removed in Phase 3.
 
 ## Problem
 
