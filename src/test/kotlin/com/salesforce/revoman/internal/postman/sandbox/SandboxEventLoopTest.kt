@@ -33,6 +33,15 @@ class SandboxEventLoopTest {
   }
 
   @Test
+  fun `equal-delay timers fire in registration order`() {
+    val loop = SandboxEventLoop()
+    val order = mutableListOf<Int>()
+    (1..10).forEach { n -> loop.schedule({ order.add(n) }, 10) }
+    loop.run()
+    order shouldContainExactly (1..10).toList()
+  }
+
+  @Test
   fun `clear cancels a pending timed task`() {
     val loop = SandboxEventLoop()
     val order = mutableListOf<String>()
@@ -47,10 +56,13 @@ class SandboxEventLoopTest {
   fun `nested scheduling drains fully`() {
     val loop = SandboxEventLoop()
     val order = mutableListOf<Int>()
-    loop.schedule({
-      order.add(1)
-      loop.schedule({ order.add(2) }, 0)
-    }, 0)
+    loop.schedule(
+      {
+        order.add(1)
+        loop.schedule({ order.add(2) }, 0)
+      },
+      0,
+    )
     loop.run()
     order shouldContainExactly listOf(1, 2)
   }

@@ -16,7 +16,7 @@ import java.util.PriorityQueue
  */
 internal class SandboxEventLoop {
   private val ready: ArrayDeque<Runnable> = ArrayDeque()
-  private val timers: PriorityQueue<LongArray> = PriorityQueue(compareBy { it[0] })
+  private val timers: PriorityQueue<LongArray> = PriorityQueue(compareBy({ it[0] }, { it[1] }))
   private val timerFns: MutableMap<Long, Runnable> = HashMap()
   private var seq: Long = 1
   private var virtualNow: Long = 0
@@ -24,8 +24,14 @@ internal class SandboxEventLoop {
   fun schedule(task: Runnable, delayMs: Long): Long {
     val id = seq++
     if (delayMs <= 0) {
-      ready.addLast(Runnable { timerFns.remove(id); task.run() })
+      ready.addLast(
+        Runnable {
+          timerFns.remove(id)
+          task.run()
+        }
+      )
     } else {
+      // [expiryTime, id] — id breaks ties so equal-delay timers stay FIFO
       timers.add(longArrayOf(virtualNow + delayMs, id))
       timerFns[id] = task
     }
@@ -40,8 +46,13 @@ internal class SandboxEventLoop {
   fun run() {
     var guard = 0
     while (true) {
-      check(++guard <= RUNAWAY_BACKSTOP) { "sandbox event loop runaway (> $RUNAWAY_BACKSTOP iterations)" }
-      ready.removeFirstOrNull()?.let { it.run(); continue }
+      check(++guard <= RUNAWAY_BACKSTOP) {
+        "sandbox event loop runaway (> $RUNAWAY_BACKSTOP iterations)"
+      }
+      ready.removeFirstOrNull()?.let {
+        it.run()
+        continue
+      }
       val next = timers.poll() ?: break
       val fn = timerFns.remove(next[1]) ?: continue // cancelled
       virtualNow = maxOf(virtualNow, next[0])
