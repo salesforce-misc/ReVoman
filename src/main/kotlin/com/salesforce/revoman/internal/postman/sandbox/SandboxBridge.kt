@@ -229,6 +229,13 @@ internal class SandboxBridge {
           val stack = errMap?.get("stack") as? String
           error = RuntimeException(if (stack != null) "$msg\n$stack" else msg)
         }
+        // Phase 1: pm.sendRequest dispatches execution.request.<id> expecting a host HTTP
+        // responder.
+        // None is wired yet, so the script's await never resumes and no execution.result arrives.
+        // Surface a crisp, intentional error instead of silently returning empty scopes. Wiring the
+        // http4k responder is Phase 2.
+        "execution.request.$id" ->
+          error = UnsupportedOperationException("pm.sendRequest is not supported yet (Phase 2)")
         "execution.result.$id" -> {
           val execution = parsed.getOrNull(2) as? Map<*, *> ?: continue
           environment = scopeValues(execution["environment"])
