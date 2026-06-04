@@ -19,6 +19,11 @@ import com.squareup.moshi.Types
  *
  * Returns the decoded root. Bridge event payloads are always a top-level array, so callers cast to
  * `List<*>` and read `(eventName, ...args)`.
+ *
+ * Recursion depth tracks the object-graph nesting depth, not slot count. Bridge payloads
+ * (`execution.result` and friends) are broad-but-shallow, so this is safe in practice; a future
+ * iterative rewrite would be needed only if pathologically deep (thousands of levels) user JSON
+ * ever flows through.
  */
 internal object Flatted {
   private val slotsAdapter =
