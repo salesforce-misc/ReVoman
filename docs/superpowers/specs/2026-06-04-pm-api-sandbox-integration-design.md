@@ -1,8 +1,42 @@
 # Design: Integrate Postman's Real `pm` Sandbox API (Zero-Drift)
 
 **Date:** 2026-06-04
-**Status:** Approved (design); pending spec review → implementation plan
+**Status:** Phase 1 implemented & verified (2026-06-04). Phases 2–3 pending.
 **Author:** Gopal S Akshintala (with Claude)
+**Phase 1 plan:** `docs/superpowers/plans/2026-06-04-pm-sandbox-phase1.md`
+
+## Phase 1 Completion Note (2026-06-04)
+
+Phase 1 (script-only pm APIs via the real sandbox; `pm.sendRequest` + control flow stubbed) is
+implemented and verified:
+
+- New `internal.postman.sandbox` package: `SandboxEventLoop`, `Flatted`, `SandboxResources`,
+  `PmExecutionContext`/result model, `SandboxBridge` (boots the real bootcode), `PmSandbox` facade,
+  `diffScopes`. Vendored resources under `src/main/resources/postman-sandbox/` (+ `generatePmSandbox`
+  Gradle task). `PmJsEval` routes pre-req/test scripts through `PmSandbox`; `ReVoman` owns one
+  sandbox per run.
+- **Verification:** `./gradlew build -x integrationTest` BUILD SUCCESSFUL (compile, spotlessCheck,
+  detekt, Kover, all 191 unit tests). Integration: every test not depending on the external
+  `api.restful-api.dev` passes — incl. PokemonTest, Pokemon V2-vs-V3 env/step equivalence, and both
+  ledger round-trip tests (the ledger parity gate, green when the external API was healthy). The 5
+  red integration tests are all the `api.restful-api.dev` public demo API returning HTTP 405 to all
+  callers (confirmed via raw `curl`) — an external outage, unrelated to this change.
+- **Env-sync refinement (beyond original plan):** only sandbox-safe env values
+  (String/Number/Boolean/null) cross the bridge; ReVoman's typed POJOs stay in the Kotlin env.
+  Integral JSON numbers are narrowed back to `Int`/`Long` on scope read-back (JSON has no int/double
+  distinction) so values round-trip with their original type and the diff doesn't spuriously flag
+  untouched numeric keys. Regression tests added.
+
+### Phase 1 known limitations (carry into Phase 2/3)
+
+- `pm.sendRequest` raises `UnsupportedOperationException("...Phase 2")` (no host HTTP responder yet).
+- `pm.execution.setNextRequest`/`skipRequest` decoded into the result model but not wired to the
+  sequencer.
+- `pm.test` assertions are decoded into `PmExecutionResult.assertions` but not yet attached to
+  `StepReport` (Phase 2).
+- Sandbox `timeoutMs` is forwarded but enforced in virtual time only (no host wall-clock bound).
+- `pm.cookies`/`pm.vault`/`pm.datasets` out of scope.
+- Old `PostmanSDK.evaluateJS` shim retained for back-compat (`EvalJsTest`); removal is Phase 3.
 
 ## Problem
 
