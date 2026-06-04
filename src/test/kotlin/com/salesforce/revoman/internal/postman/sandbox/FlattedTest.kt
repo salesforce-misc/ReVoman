@@ -29,7 +29,8 @@ class FlattedTest {
 
   @Test
   fun `decodes numbers and null`() {
-    val decoded = Flatted.parse("""[["1","2","3"],"x",42,null]""") as List<*>
+    // Flatted.stringify(["x", 42, null]) => [["1",42,null],"x"]
+    val decoded = Flatted.parse("""[["1",42,null],"x"]""") as List<*>
     decoded[0] shouldBe "x"
     (decoded[1] as Number).toInt() shouldBe 42
     decoded[2] shouldBe null
