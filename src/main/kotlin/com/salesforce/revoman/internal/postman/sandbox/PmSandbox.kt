@@ -16,6 +16,7 @@ package com.salesforce.revoman.internal.postman.sandbox
 internal class PmSandbox : AutoCloseable {
   private val bridge = SandboxBridge()
   private var booted = false
+  private var closed = false
   private var idSeq = 0L
 
   private fun ensureBooted() {
@@ -31,12 +32,14 @@ internal class PmSandbox : AutoCloseable {
     context: PmExecutionContext,
     timeoutMs: Long = DEFAULT_TIMEOUT_MS,
   ): PmExecutionResult {
+    check(!closed) { "sandbox: execute() after close()" }
     ensureBooted()
     return bridge.dispatchExecute("step${idSeq++}", script, target, context, timeoutMs)
   }
 
   override fun close() {
     if (booted) bridge.close()
+    closed = true
   }
 
   private companion object {
