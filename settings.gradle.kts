@@ -17,7 +17,7 @@ pluginManagement {
 
 dependencyResolutionManagement { repositories { mavenCentral() } }
 
-plugins { id("com.gradle.develocity") version "4.4.1" }
+plugins { id("com.gradle.develocity") version "4.4.2" }
 
 val isCI = !System.getenv("CI").isNullOrEmpty()
 
