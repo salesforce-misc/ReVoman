@@ -32,6 +32,8 @@ import com.salesforce.revoman.internal.exe.unmarshallRequest
 import com.salesforce.revoman.internal.exe.unmarshallResponse
 import com.salesforce.revoman.internal.json.MoshiReVoman
 import com.salesforce.revoman.internal.json.MoshiReVoman.Companion.initMoshi
+import com.salesforce.revoman.internal.log.RevomanLog
+import com.salesforce.revoman.internal.log.RunLogContext
 import com.salesforce.revoman.internal.postman.Info
 import com.salesforce.revoman.internal.postman.PostmanSDK
 import com.salesforce.revoman.internal.postman.RegexReplacer
@@ -51,6 +53,8 @@ import com.salesforce.revoman.output.ExeType.UNMARSHALL_REQUEST
 import com.salesforce.revoman.output.ExeType.UNMARSHALL_RESPONSE
 import com.salesforce.revoman.output.Rundown
 import com.salesforce.revoman.output.ledger.LedgerEntry
+import com.salesforce.revoman.output.log.Outcome
+import com.salesforce.revoman.output.log.StepEvent
 import com.salesforce.revoman.output.report.Step
 import com.salesforce.revoman.output.report.StepEnvVars
 import com.salesforce.revoman.output.report.StepReport
@@ -58,7 +62,6 @@ import com.salesforce.revoman.output.report.StepReport.Companion.toVavr
 import com.salesforce.revoman.output.report.TxnInfo
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapter
-import io.github.oshai.kotlinlogging.KotlinLogging
 import io.vavr.control.Either.left
 import java.time.Duration
 import org.http4k.core.Request
@@ -92,6 +95,20 @@ object ReVoman {
   @JvmStatic
   @OptIn(ExperimentalStdlibApi::class)
   fun revUp(kick: Kick): Rundown {
+    // BORROW the sink for this run only: install on the ThreadLocal, remove in finally. Do NOT
+    // close() it — the caller OWNS the sink's lifecycle. A single caller-supplied sink commonly
+    // spans MANY revUp calls (persona-creation, general-setup, the test body, cleanup); closing it
+    // here would shut the writer after the first revUp and silently drop every later run's output.
+    RunLogContext.install(kick.runLogSink())
+    try {
+      return revUpInternal(kick)
+    } finally {
+      RunLogContext.remove()
+    }
+  }
+
+  @OptIn(ExperimentalStdlibApi::class)
+  private fun revUpInternal(kick: Kick): Rundown {
     val pmTemplateAdapter = Moshi.Builder().build().adapter<Template>()
     val itemsFromPaths: List<com.salesforce.revoman.internal.postman.template.Item> =
       kick.templatePaths().flatMap { path ->
@@ -114,7 +131,7 @@ object ReVoman {
         } ?: emptyList()
       }
     val pmStepsDeepFlattened = deepFlattenItems(itemsFromPaths + itemsFromStreams)
-    logger.info {
+    RevomanLog.info {
       val templateCount = kick.templatePaths().size
       "Total Steps from ${if (templateCount > 1) "$templateCount Collections" else "the Collection"} provided: ${pmStepsDeepFlattened.size}"
     }
@@ -200,7 +217,8 @@ object ReVoman {
         val envKeys = pm.environment.keys
         if (step.path !in shadowedPaths && ledgerSkipDecision(step, ledger, envKeys)) {
           val skipEntry = entry!!
-          logger.info { "***** Ledger-skip Step (reusing ${skipEntry.produces}): $step *****" }
+          RevomanLog.info { "***** Ledger-skip Step (reusing ${skipEntry.produces}): $step *****" }
+          RevomanLog.event(StepEvent.LedgerSkipped(step.path, skipEntry.produces))
           // Inject ledgered values via the delegated index-set (NOT `set()`), so the reused keys
           // are NOT recorded as "produced" by this skipped step in the live per-step capture. A
           // produced key absent from `ledger.values` (partial/corrupt ledger) is NOT injected as a
@@ -210,7 +228,7 @@ object ReVoman {
             if (ledger.values.containsKey(key)) {
               pm.environment[key] = ledger.values[key]
             } else {
-              logger.warn {
+              RevomanLog.warn {
                 "[ledger] ${step.path} reuses produced key '$key' but it is missing from " +
                   "ledger.values -> keeping existing env value, not injecting null"
               }
@@ -227,12 +245,13 @@ object ReVoman {
             entry.hash != step.sourceHash &&
             envKeys.containsAll(entry.produces)
         ) {
-          logger.warn {
+          RevomanLog.warn {
             "[ledger] stale: ${step.path} producer def changed " +
               "(hash ${entry.hash} -> ${step.sourceHash}) -> running step, refreshing entry"
           }
         }
-        logger.info { "***** Executing Step: $step *****" }
+        RevomanLog.info { "***** Executing Step: $step *****" }
+        RevomanLog.event(StepEvent.StepStarted(step.path, step.name))
         val exeTimings: MutableMap<ExeType, Duration> = mutableMapOf()
         val itemWithRegex = step.rawPMStep
         val preStepReport =
@@ -341,9 +360,20 @@ object ReVoman {
                 ),
             )
         haltExecution = shouldHaltExecution(currentStepReport, kick, pm.rundown)
+        RevomanLog.event(
+          StepEvent.StepFinished(
+            path = step.path,
+            httpStatus =
+              if (currentStepReport.responseInfo != null && currentStepReport.responseInfo.isRight)
+                currentStepReport.responseInfo.get().httpMsg.status.code
+              else null,
+            produced = currentStepReport.envVars.produced,
+            consumed = currentStepReport.envVars.consumed,
+            tookMs = currentStepReport.exeTimings.values.sumOf { it.toMillis() },
+            outcome = if (currentStepReport.isSuccessful) Outcome.SUCCESS else Outcome.FAILED,
+          )
+        )
         stepReports + currentStepReport
       }
   }
 }
-
-private val logger = KotlinLogging.logger {}

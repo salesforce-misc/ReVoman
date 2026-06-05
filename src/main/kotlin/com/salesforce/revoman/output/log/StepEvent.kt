@@ -7,7 +7,10 @@
  */
 package com.salesforce.revoman.output.log
 
-/** Per-step outcome surfaced to a [RunLogSink]; mirrors a [com.salesforce.revoman.output.report.StepReport]. */
+/**
+ * Per-step outcome surfaced to a [RunLogSink]; mirrors a
+ * [com.salesforce.revoman.output.report.StepReport].
+ */
 enum class Outcome {
   SUCCESS,
   FAILED,

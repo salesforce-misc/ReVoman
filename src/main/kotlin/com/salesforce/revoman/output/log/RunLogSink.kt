@@ -33,7 +33,12 @@ interface RunLogSink {
   /** A structured step-boundary [event]. */
   fun event(event: StepEvent)
 
-  /** Flush and release resources. Called once when the run ends (success or failure). */
+  /**
+   * Flush and release resources. ReVoman NEVER calls this — the CALLER owns the sink's lifecycle
+   * and must close it. One caller-supplied sink may span many
+   * [com.salesforce.revoman.ReVoman.revUp] runs (e.g. setup + body + cleanup), so ReVoman only
+   * borrows it per run and never closes it.
+   */
   fun close()
 
   /** The default no-op sink: the library behaves exactly as it did before this seam existed. */
