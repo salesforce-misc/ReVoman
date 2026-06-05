@@ -9,6 +9,7 @@ package com.salesforce.revoman.input.config
 
 import com.salesforce.revoman.input.config.KickDef.Companion.overlay
 import com.salesforce.revoman.output.ExeType.HTTP_STATUS
+import com.salesforce.revoman.output.log.RunLogSink
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.maps.shouldContainExactly
 import io.kotest.matchers.shouldBe
@@ -53,5 +54,25 @@ class KickTest {
     val dynamicEnvironment = mapOf("accessToken" to "config-override")
     val creds = mapOf("accessToken" to "persona")
     overlay<String, String>(env, dynamicEnvironment, creds)["accessToken"] shouldBe "persona"
+  }
+
+  @Test
+  fun `runLogSink defaults to NoOp`() {
+    val kick = Kick.configure().templatePath("unused").off()
+    kick.runLogSink() shouldBe RunLogSink.NoOp
+  }
+
+  @Test
+  fun `runLogSink override is honored`() {
+    val sink =
+      object : RunLogSink {
+        override fun line(level: com.salesforce.revoman.output.log.LogLevel, message: String) {}
+
+        override fun event(event: com.salesforce.revoman.output.log.StepEvent) {}
+
+        override fun close() {}
+      }
+    val kick = Kick.configure().templatePath("unused").runLogSink(sink).off()
+    kick.runLogSink() shouldBe sink
   }
 }
