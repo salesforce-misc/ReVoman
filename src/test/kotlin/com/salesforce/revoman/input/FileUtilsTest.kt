@@ -20,6 +20,12 @@ class FileUtilsTest {
   }
 
   @Test
+  fun `readGzippedFileToString inflates a gzipped classpath resource`() {
+    val content = readGzippedFileToString("gzip-fixture.txt.gz")
+    assertThat(content).isEqualTo("hello gzip world\nline two with vic.gov.au token\n")
+  }
+
+  @Test
   fun `read file to string`() {
     val file = File("src/test/resources/env-with-regex.json")
     readFileToString(file).shouldNotBeBlank()

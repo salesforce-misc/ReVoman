@@ -20,6 +20,7 @@ import okio.BufferedSource
 import okio.FileSystem.Companion.SYSTEM
 import okio.Path.Companion.toPath
 import okio.buffer
+import okio.gzip
 import okio.source
 
 fun bufferFile(filePath: String): BufferedSource {
@@ -30,6 +31,15 @@ fun bufferFile(filePath: String): BufferedSource {
 }
 
 fun readFileToString(filePath: String): String = bufferFile(filePath).readUtf8()
+
+/**
+ * Reads a gzip-compressed classpath resource and returns its inflated UTF-8 content. Resolution
+ * goes through [bufferFile] (the thread-context-classloader-aware ClasspathResolver), so this is
+ * jar/bazel/URLClassLoader/OSGi-safe just like [readFileToString]. okio's [gzip] source validates
+ * the gzip header/CRC and throws `IOException` on a corrupt stream.
+ */
+fun readGzippedFileToString(filePath: String): String =
+  bufferFile(filePath).gzip().buffer().readUtf8()
 
 fun bufferInputStream(inputStream: InputStream): BufferedSource = inputStream.source().buffer()
 
