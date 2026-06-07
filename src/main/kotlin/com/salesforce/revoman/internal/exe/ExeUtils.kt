@@ -83,8 +83,21 @@ internal fun shouldStepBePicked(
  * either side is treated as "unknown" and never matches — a real v3-loaded step and a real ledgered
  * entry both carry a computed sha256, so an empty hash can only come from a non-v3 step or a
  * corrupt/hand-crafted ledger; in that case we must run, not skip on an incidental "" == "".
+ *
+ * A step opts OUT of skipping — NEVER skipped, even when a perfectly cacheable producer — via either
+ * the per-step `x-revoman-ledger: off` header ([Step.optsOutOfLedger]) OR a central Kick-level pick
+ * in [optOutSteps] (e.g. by URL pattern). Its response is the assertion target, so it must always
+ * dispatch fresh. Without this, an act-step that incidentally `pm.environment.set(...)`s a value
+ * (e.g. a booking call computing its own scheduled-time window) would be treated as an idempotent
+ * producer and skipped on warm runs, handing the test a cached null body to assert on.
  */
-internal fun ledgerSkipDecision(step: Step, ledger: LedgerSnapshot, env: Set<String>): Boolean {
+internal fun ledgerSkipDecision(
+  step: Step,
+  ledger: LedgerSnapshot,
+  env: Set<String>,
+  optOutSteps: List<ExeStepPick> = emptyList(),
+): Boolean {
+  if (step.optsOutOfLedger || optOutSteps.any { it.pick(step) }) return false
   val entry = ledger.steps[step.path] ?: return false
   if (entry.produces.isEmpty()) return false
   if (entry.hash.isEmpty() || step.sourceHash.isEmpty()) return false

@@ -131,4 +131,39 @@ class StepReportTest {
     println(stepReportPostStepHookFailure)
     stepReportPostStepHookFailure.isHttpStatusSuccessful shouldBe true
   }
+
+  @Test
+  fun `ledger-skipped report is flagged isLedgerSkipped and the guard throws`() {
+    val skipped =
+      StepReport.ledgerSkipped(
+        Step("1", Item(name = "schedule", request = Request())),
+        setOf("bookingStart"),
+        PostmanEnvironment(),
+      )
+    // No request/response was sent, yet the report is "successful".
+    skipped.isSuccessful shouldBe true
+    skipped.isLedgerSkipped shouldBe true
+    // The guard a test's response-accessor calls must fail loud on it.
+    val ex =
+      org.junit.jupiter.api.assertThrows<IllegalStateException> {
+        StepReport.assertNotLedgerSkipped(skipped)
+      }
+    ex.message!!.contains("LEDGER-SKIPPED") shouldBe true
+  }
+
+  @Test
+  fun `a normally executed report is NOT ledger-skipped and passes the guard`() {
+    val rawRequest = Request(method = POST.toString(), url = Url("https://overfullstack.github.io/"))
+    val requestInfo =
+      TxnInfo(
+        txnObjType = String::class.java,
+        txnObj = "fakeRequest",
+        httpMsg = rawRequest.toHttpRequest(moshiReVoman),
+        moshiReVoman = moshiReVoman,
+      )
+    val executed =
+      StepReport(Step("1", Item(request = rawRequest)), Right(requestInfo), pmEnvSnapshot = PostmanEnvironment())
+    executed.isLedgerSkipped shouldBe false
+    StepReport.assertNotLedgerSkipped(executed) // no-op, must not throw
+  }
 }

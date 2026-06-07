@@ -52,6 +52,18 @@ internal interface KickDef {
 
   fun skipSteps(): List<ExeStepPick>
 
+  /**
+   * Steps that must NEVER be skipped by the ledger warm-path, declared centrally by pick (e.g.
+   * [ExeStepPick.stepEndingWithURIPathOfAny]`("/actions/schedule", ...)`) instead of per-yaml
+   * header. A step whose RESPONSE a test asserts on (an act-step under test) must always dispatch
+   * fresh — ledger-skipping it would hand the assertion a cached/null body. This is the
+   * self-maintaining counterpart to the per-step `x-revoman-ledger: off` header
+   * ([Step.optsOutOfLedger]): a single URL pattern covers every present and future act-step, so no
+   * yaml edit is needed when a new one is added. The header and these picks are OR'd — either opts a
+   * step out. Empty by default (zero behavior change).
+   */
+  fun ledgerOptOutSteps(): List<ExeStepPick>
+
   @Value.Default fun ledger(): LedgerSnapshot = LedgerSnapshot.EMPTY
 
   @Value.Default fun runLogSink(): RunLogSink = RunLogSink.NoOp

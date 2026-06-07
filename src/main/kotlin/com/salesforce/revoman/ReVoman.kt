@@ -215,7 +215,10 @@ object ReVoman {
         val ledger = kick.ledger()
         val entry = ledger.steps[step.path]
         val envKeys = pm.environment.keys
-        if (step.path !in shadowedPaths && ledgerSkipDecision(step, ledger, envKeys)) {
+        if (
+          step.path !in shadowedPaths &&
+            ledgerSkipDecision(step, ledger, envKeys, kick.ledgerOptOutSteps())
+        ) {
           val skipEntry = entry!!
           RevomanLog.info { "***** Ledger-skip Step (reusing ${skipEntry.produces}): $step *****" }
           RevomanLog.event(StepEvent.LedgerSkipped(step.path, skipEntry.produces))

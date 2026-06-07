@@ -29,6 +29,21 @@ sealed interface StepPick {
 
       @JvmStatic
       fun inFolder(folderPath: String) = ExeStepPick { step -> step.isInFolder(folderPath) }
+
+      /**
+       * Picks a step by its raw (pre-substitution) request URL path ENDING with any of [paths] —
+       * the pre-execution analogue of [PostTxnStepPick.afterStepEndingWithURIPathOfAny], usable for
+       * picks that must decide BEFORE the request is sent (e.g. ledger opt-out). Query string is
+       * ignored.
+       */
+      @JvmStatic
+      fun stepEndingWithURIPathOfAny(vararg paths: String) =
+        ExeStepPick { step -> step.uriPathEndsWith(*paths) }
+
+      /** Picks a step whose raw request URL CONTAINS any of [paths]. */
+      @JvmStatic
+      fun stepContainingURIPathOfAny(vararg paths: String) =
+        ExeStepPick { step -> step.uriContains(*paths) }
     }
   }
 

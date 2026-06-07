@@ -9,7 +9,11 @@ package com.salesforce.revoman.internal.exe
 
 import com.google.common.truth.Truth.assertThat
 import com.salesforce.revoman.input.config.Kick
+import com.salesforce.revoman.input.config.StepPick.ExeStepPick
+import com.salesforce.revoman.internal.postman.template.Header
 import com.salesforce.revoman.internal.postman.template.Item
+import com.salesforce.revoman.internal.postman.template.Request
+import com.salesforce.revoman.internal.postman.template.Url
 import com.salesforce.revoman.output.ledger.LedgerEntry
 import com.salesforce.revoman.output.ledger.LedgerSnapshot
 import com.salesforce.revoman.output.report.Step
@@ -80,6 +84,111 @@ class LedgerDecisionTest {
       )
     assertThat(ledgerSkipDecision(s, snap, setOf("saId1"))).isFalse() // missing saId2
     assertThat(ledgerSkipDecision(s, snap, setOf("saId1", "saId2"))).isTrue() // both present
+  }
+
+  @Test
+  fun `does NOT skip a step that opts out via x-revoman-ledger off header (even when otherwise skippable)`() {
+    // An act-step under assertion that ALSO produces a key (e.g. a booking call that
+    // pm.environment.set()s its own scheduled-time window) is, by the base predicate, a perfectly
+    // cacheable producer — but its RESPONSE is the assertion target, so it must always dispatch.
+    val optedOut =
+      Step(
+        index = "1",
+        rawPMStep =
+          Item(
+            name = "schedule-booking",
+            request = Request(header = listOf(Header(Step.LEDGER_HEADER, Step.LEDGER_OFF))),
+          ),
+        sourceHash = "h1",
+      )
+    val snap =
+      LedgerSnapshot(
+        "00D",
+        mapOf(optedOut.path to LedgerEntry(setOf("bookingStart"), optedOut.sourceHash)),
+        mapOf("bookingStart" to "2026-07-01T15:00:00Z"),
+      )
+    // Base predicate would say skip (produces present, hash matches, env superset) — opt-out wins.
+    assertThat(ledgerSkipDecision(optedOut, snap, setOf("bookingStart"))).isFalse()
+  }
+
+  @Test
+  fun `does NOT skip a step matched by a Kick-level ledgerOptOut pick (URL pattern)`() {
+    val actStep =
+      Step(
+        index = "1",
+        rawPMStep =
+          Item(
+            name = "schedule",
+            request = Request(url = Url(raw = "{{baseUrl}}/connect/unified-scheduling/actions/schedule")),
+          ),
+        sourceHash = "h1",
+      )
+    val snap =
+      LedgerSnapshot(
+        "00D",
+        mapOf(actStep.path to LedgerEntry(setOf("bookingStart"), actStep.sourceHash)),
+        mapOf("bookingStart" to "v"),
+      )
+    val optOut = listOf(ExeStepPick.stepEndingWithURIPathOfAny("/actions/schedule"))
+    // Base predicate would skip; the URL-pattern pick opts it out.
+    assertThat(ledgerSkipDecision(actStep, snap, setOf("bookingStart"), optOut)).isFalse()
+    // A different step NOT matched by the pick (and no header) is still skippable.
+    val setupStep =
+      Step(
+        index = "2",
+        rawPMStep =
+          Item(name = "create-policy", request = Request(url = Url(raw = "{{baseUrl}}/sobjects/SchedulingPolicy"))),
+        sourceHash = "h2",
+      )
+    val snap2 =
+      LedgerSnapshot(
+        "00D",
+        mapOf(setupStep.path to LedgerEntry(setOf("policyId"), setupStep.sourceHash)),
+        mapOf("policyId" to "p1"),
+      )
+    assertThat(ledgerSkipDecision(setupStep, snap2, setOf("policyId"), optOut)).isTrue()
+  }
+
+  @Test
+  fun `opt-out header is case-insensitive on key and value`() {
+    val optedOut =
+      Step(
+        index = "1",
+        rawPMStep =
+          Item(
+            name = "schedule-booking",
+            request = Request(header = listOf(Header("X-ReVoman-Ledger", "OFF"))),
+          ),
+        sourceHash = "h1",
+      )
+    val snap =
+      LedgerSnapshot(
+        "00D",
+        mapOf(optedOut.path to LedgerEntry(setOf("k"), optedOut.sourceHash)),
+        mapOf("k" to "v"),
+      )
+    assertThat(ledgerSkipDecision(optedOut, snap, setOf("k"))).isFalse()
+  }
+
+  @Test
+  fun `a header other than off does NOT opt out (still skippable)`() {
+    val notOptedOut =
+      Step(
+        index = "1",
+        rawPMStep =
+          Item(
+            name = "create-sa",
+            request = Request(header = listOf(Header(Step.LEDGER_HEADER, "on"))),
+          ),
+        sourceHash = "h1",
+      )
+    val snap =
+      LedgerSnapshot(
+        "00D",
+        mapOf(notOptedOut.path to LedgerEntry(setOf("saId1"), notOptedOut.sourceHash)),
+        mapOf("saId1" to "08p1"),
+      )
+    assertThat(ledgerSkipDecision(notOptedOut, snap, setOf("saId1"))).isTrue()
   }
 
   @Test

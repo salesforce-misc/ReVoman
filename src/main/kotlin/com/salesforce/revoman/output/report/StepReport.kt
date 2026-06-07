@@ -74,6 +74,16 @@ internal constructor(
   val isHttpStatusSuccessful: Boolean =
     failure?.fold({ it !is PostStepHookFailure }, { true }) != true
 
+  /**
+   * True when this step's HTTP dispatch was SKIPPED on a warm run by the ledger (its produced keys
+   * were reused, not re-executed) — see [Companion.ledgerSkipped]. Such a report carries NO
+   * [requestInfo]/[responseInfo] (nothing was sent), so reading its response yields null. A test
+   * that asserts on this step's response body must ensure the step opts out of the ledger
+   * ([Step.optsOutOfLedger] / `ledgerOptOutSteps`); the [assertNotLedgerSkipped] guard fails loud if
+   * it didn't. Uniquely identifiable as a successful report that nonetheless never sent a request.
+   */
+  @JvmField val isLedgerSkipped: Boolean = isSuccessful && requestInfo == null && responseInfo == null
+
   companion object {
     /**
      * A RECORDED report for a step whose HTTP dispatch was skipped on a warm run because the ledger
@@ -131,6 +141,26 @@ internal constructor(
           }
         else -> null
       }
+
+    /**
+     * Guardrail for tests that read a step's response: throws if [stepReport] was
+     * [isLedgerSkipped], because its response body is null/stale (the request was never sent on this
+     * warm run). The fix the message points at: mark the step to opt out of the ledger — either the
+     * per-step `x-revoman-ledger: off` header or a Kick-level `ledgerOptOutSteps(...)` pick — so it
+     * always dispatches fresh. Call this from a test's response-reading accessor (e.g. a
+     * `rawResponse(stepReport)` helper) so an omission fails loudly at run time instead of silently
+     * asserting on cached data. No-op for a normally executed step.
+     */
+    @JvmStatic
+    fun assertNotLedgerSkipped(stepReport: StepReport) {
+      check(!stepReport.isLedgerSkipped) {
+        "Step '${stepReport.step}' was LEDGER-SKIPPED, so its response is null — a test must not " +
+          "assert on a ledger-skipped step's response. Mark it to opt out of the ledger: add the " +
+          "`x-revoman-ledger: off` request header, or a Kick-level " +
+          "`ledgerOptOutSteps(ExeStepPick.stepEndingWithURIPathOfAny(\"<uri>\"))` pick, so it " +
+          "always dispatches fresh."
+      }
+    }
 
     fun <L, R> arrow.core.Either<L, R>.toVavr(): Either<L, R> = fold({ left(it) }, { right(it) })
 
