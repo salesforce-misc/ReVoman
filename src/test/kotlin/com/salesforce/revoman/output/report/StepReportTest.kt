@@ -153,7 +153,8 @@ class StepReportTest {
 
   @Test
   fun `a normally executed report is NOT ledger-skipped and passes the guard`() {
-    val rawRequest = Request(method = POST.toString(), url = Url("https://overfullstack.github.io/"))
+    val rawRequest =
+      Request(method = POST.toString(), url = Url("https://overfullstack.github.io/"))
     val requestInfo =
       TxnInfo(
         txnObjType = String::class.java,
@@ -162,7 +163,11 @@ class StepReportTest {
         moshiReVoman = moshiReVoman,
       )
     val executed =
-      StepReport(Step("1", Item(request = rawRequest)), Right(requestInfo), pmEnvSnapshot = PostmanEnvironment())
+      StepReport(
+        Step("1", Item(request = rawRequest)),
+        Right(requestInfo),
+        pmEnvSnapshot = PostmanEnvironment(),
+      )
     executed.isLedgerSkipped shouldBe false
     StepReport.assertNotLedgerSkipped(executed) // no-op, must not throw
   }

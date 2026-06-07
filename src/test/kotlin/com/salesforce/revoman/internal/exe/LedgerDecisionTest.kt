@@ -119,7 +119,8 @@ class LedgerDecisionTest {
         rawPMStep =
           Item(
             name = "schedule",
-            request = Request(url = Url(raw = "{{baseUrl}}/connect/unified-scheduling/actions/schedule")),
+            request =
+              Request(url = Url(raw = "{{baseUrl}}/connect/unified-scheduling/actions/schedule")),
           ),
         sourceHash = "h1",
       )
@@ -137,7 +138,10 @@ class LedgerDecisionTest {
       Step(
         index = "2",
         rawPMStep =
-          Item(name = "create-policy", request = Request(url = Url(raw = "{{baseUrl}}/sobjects/SchedulingPolicy"))),
+          Item(
+            name = "create-policy",
+            request = Request(url = Url(raw = "{{baseUrl}}/sobjects/SchedulingPolicy")),
+          ),
         sourceHash = "h2",
       )
     val snap2 =

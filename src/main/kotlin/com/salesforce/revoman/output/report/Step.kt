@@ -46,8 +46,8 @@ data class Step(
    * ledger warm-path. A step whose RESPONSE is the assertion target (an act-step under test, e.g. a
    * booking/validation call the test reads the body of) must ALWAYS dispatch fresh: ledger-skipping
    * it would inject the prior run's cached produced values and hand the assertion a
-   * [StepReport.ledgerSkipped] with no response to read. This is an intrinsic, permanent property of
-   * such a step — distinct from idempotent setup producers (create-user/policy/rule), which the
+   * [StepReport.ledgerSkipped] with no response to read. This is an intrinsic, permanent property
+   * of such a step — distinct from idempotent setup producers (create-user/policy/rule), which the
    * ledger SHOULD skip+reuse on warm runs. Case-insensitive on both header key and the `off` value.
    */
   @JvmField
@@ -86,10 +86,10 @@ data class Step(
     const val STEP_NAME_TERMINATOR = "|||>"
 
     /**
-     * Request-header directive that opts a step OUT of the ledger warm-path (see [optsOutOfLedger]).
-     * `x-revoman-*` mirrors the library's existing internal-directive header namespace; the value
-     * must be `off`. Sent on the wire like any other custom header — servers ignore unknown `x-`
-     * headers, so it is harmless to the request under test.
+     * Request-header directive that opts a step OUT of the ledger warm-path (see
+     * [optsOutOfLedger]). `x-revoman-*` mirrors the library's existing internal-directive header
+     * namespace; the value must be `off`. Sent on the wire like any other custom header — servers
+     * ignore unknown `x-` headers, so it is harmless to the request under test.
      */
     const val LEDGER_HEADER = "x-revoman-ledger"
     const val LEDGER_OFF = "off"

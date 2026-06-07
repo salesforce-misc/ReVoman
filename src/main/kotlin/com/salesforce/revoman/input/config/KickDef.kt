@@ -59,8 +59,8 @@ internal interface KickDef {
    * fresh — ledger-skipping it would hand the assertion a cached/null body. This is the
    * self-maintaining counterpart to the per-step `x-revoman-ledger: off` header
    * ([Step.optsOutOfLedger]): a single URL pattern covers every present and future act-step, so no
-   * yaml edit is needed when a new one is added. The header and these picks are OR'd — either opts a
-   * step out. Empty by default (zero behavior change).
+   * yaml edit is needed when a new one is added. The header and these picks are OR'd — either opts
+   * a step out. Empty by default (zero behavior change).
    */
   fun ledgerOptOutSteps(): List<ExeStepPick>
 

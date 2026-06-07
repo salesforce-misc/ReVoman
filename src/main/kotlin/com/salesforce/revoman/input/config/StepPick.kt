@@ -37,13 +37,15 @@ sealed interface StepPick {
        * ignored.
        */
       @JvmStatic
-      fun stepEndingWithURIPathOfAny(vararg paths: String) =
-        ExeStepPick { step -> step.uriPathEndsWith(*paths) }
+      fun stepEndingWithURIPathOfAny(vararg paths: String) = ExeStepPick { step ->
+        step.uriPathEndsWith(*paths)
+      }
 
       /** Picks a step whose raw request URL CONTAINS any of [paths]. */
       @JvmStatic
-      fun stepContainingURIPathOfAny(vararg paths: String) =
-        ExeStepPick { step -> step.uriContains(*paths) }
+      fun stepContainingURIPathOfAny(vararg paths: String) = ExeStepPick { step ->
+        step.uriContains(*paths)
+      }
     }
   }
 
