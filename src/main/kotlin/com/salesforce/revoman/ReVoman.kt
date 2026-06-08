@@ -24,6 +24,7 @@ import com.salesforce.revoman.internal.exe.fireHttpRequest
 import com.salesforce.revoman.internal.exe.ledgerSkipDecision
 import com.salesforce.revoman.internal.exe.postStepHookExe
 import com.salesforce.revoman.internal.exe.preStepHookExe
+import com.salesforce.revoman.internal.exe.renderHttpMsg
 import com.salesforce.revoman.internal.exe.shadowedProducerPaths
 import com.salesforce.revoman.internal.exe.shouldHaltExecution
 import com.salesforce.revoman.internal.exe.shouldStepBePicked
@@ -363,6 +364,7 @@ object ReVoman {
                 ),
             )
         haltExecution = shouldHaltExecution(currentStepReport, kick, pm.rundown)
+        val captureForSink = RunLogContext.hasActiveSink()
         RevomanLog.event(
           StepEvent.StepFinished(
             path = step.path,
@@ -374,6 +376,28 @@ object ReVoman {
             consumed = currentStepReport.envVars.consumed,
             tookMs = currentStepReport.exeTimings.values.sumOf { it.toMillis() },
             outcome = if (currentStepReport.isSuccessful) Outcome.SUCCESS else Outcome.FAILED,
+            requestMsg =
+              if (captureForSink &&
+                currentStepReport.requestInfo != null && currentStepReport.requestInfo.isRight)
+                renderHttpMsg(currentStepReport.requestInfo.get().httpMsg)
+              else null,
+            responseMsg =
+              if (captureForSink &&
+                currentStepReport.responseInfo != null && currentStepReport.responseInfo.isRight)
+                renderHttpMsg(currentStepReport.responseInfo.get().httpMsg)
+              else null,
+            producedValues =
+              if (captureForSink)
+                currentStepReport.envVars.produced.associateWith {
+                  currentStepReport.pmEnvSnapshot[it]?.toString()
+                }
+              else emptyMap(),
+            consumedValues =
+              if (captureForSink)
+                currentStepReport.envVars.consumed.associateWith {
+                  currentStepReport.pmEnvSnapshot[it]?.toString()
+                }
+              else emptyMap(),
           )
         )
         stepReports + currentStepReport

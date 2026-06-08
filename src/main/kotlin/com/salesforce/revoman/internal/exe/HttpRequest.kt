@@ -25,8 +25,6 @@ import org.http4k.core.HttpHandler
 import org.http4k.core.HttpMessage
 import org.http4k.core.Request
 import org.http4k.core.Response
-import org.http4k.core.then
-import org.http4k.filter.DebuggingFilters
 
 @JvmSynthetic
 internal fun fireHttpRequest(
@@ -62,8 +60,7 @@ internal fun renderHttpMsg(httpMsg: HttpMessage): String {
 }
 
 internal fun prepareHttpClient(insecureHttp: Boolean): HttpHandler =
-  DebuggingFilters.PrintRequestAndResponse()
-    .then(if (insecureHttp) ApacheClient(client = insecureApacheHttpClient()) else ApacheClient())
+  if (insecureHttp) ApacheClient(client = insecureApacheHttpClient()) else ApacheClient()
 
 /** WARNING: Only for Testing. DO NOT USE IN PROD */
 private fun insecureApacheHttpClient(): CloseableHttpClient =
