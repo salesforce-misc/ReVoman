@@ -45,7 +45,8 @@ class BigDecimalAdapterTest {
 
   @Test
   fun `preserves zero scale`() {
-    assertThat(moshi.toJson(BigDecimal("0.00"), sourceType = BigDecimal::class.java)).isEqualTo("0.00")
+    assertThat(moshi.toJson(BigDecimal("0.00"), sourceType = BigDecimal::class.java))
+      .isEqualTo("0.00")
     assertThat(moshi.toJson(BigDecimal("0"), sourceType = BigDecimal::class.java)).isEqualTo("0")
   }
 }

@@ -377,13 +377,19 @@ object ReVoman {
             tookMs = currentStepReport.exeTimings.values.sumOf { it.toMillis() },
             outcome = if (currentStepReport.isSuccessful) Outcome.SUCCESS else Outcome.FAILED,
             requestMsg =
-              if (captureForSink &&
-                currentStepReport.requestInfo != null && currentStepReport.requestInfo.isRight)
+              if (
+                captureForSink &&
+                  currentStepReport.requestInfo != null &&
+                  currentStepReport.requestInfo.isRight
+              )
                 renderHttpMsg(currentStepReport.requestInfo.get().httpMsg)
               else null,
             responseMsg =
-              if (captureForSink &&
-                currentStepReport.responseInfo != null && currentStepReport.responseInfo.isRight)
+              if (
+                captureForSink &&
+                  currentStepReport.responseInfo != null &&
+                  currentStepReport.responseInfo.isRight
+              )
                 renderHttpMsg(currentStepReport.responseInfo.get().httpMsg)
               else null,
             producedValues =

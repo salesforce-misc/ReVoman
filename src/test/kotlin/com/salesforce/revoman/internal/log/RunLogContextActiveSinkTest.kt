@@ -31,11 +31,15 @@ class RunLogContextActiveSinkTest {
 
   @Test
   fun `real sink - active`() {
-    RunLogContext.install(object : RunLogSink {
-      override fun line(level: LogLevel, message: String) {}
-      override fun event(event: StepEvent) {}
-      override fun close() {}
-    })
+    RunLogContext.install(
+      object : RunLogSink {
+        override fun line(level: LogLevel, message: String) {}
+
+        override fun event(event: StepEvent) {}
+
+        override fun close() {}
+      }
+    )
     assertThat(RunLogContext.hasActiveSink()).isTrue()
   }
 }

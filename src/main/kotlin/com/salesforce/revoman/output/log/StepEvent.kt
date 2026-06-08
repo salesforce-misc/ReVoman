@@ -35,7 +35,9 @@ sealed interface StepEvent {
     val outcome: Outcome,
     /** Full HTTP request as `\n`-normalized wire text, JSON body pretty-printed; null if absent. */
     val requestMsg: String? = null,
-    /** Full HTTP response as `\n`-normalized wire text, JSON body pretty-printed; null on failure. */
+    /**
+     * Full HTTP response as `\n`-normalized wire text, JSON body pretty-printed; null on failure.
+     */
     val responseMsg: String? = null,
     /** Produced env keys mapped to their post-step values (`toString()`); empty if none. */
     val producedValues: Map<String, String?> = emptyMap(),

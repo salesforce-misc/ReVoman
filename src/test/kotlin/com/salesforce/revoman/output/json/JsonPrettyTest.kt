@@ -19,8 +19,7 @@ class JsonPrettyTest {
 
   @Test
   fun `preserves structural chars inside a string literal`() {
-    assertThat(JsonPretty.pretty("""{"q":"a,b:{c}"}"""))
-      .isEqualTo("{\n  \"q\": \"a,b:{c}\"\n}")
+    assertThat(JsonPretty.pretty("""{"q":"a,b:{c}"}""")).isEqualTo("{\n  \"q\": \"a,b:{c}\"\n}")
   }
 
   @Test
@@ -51,8 +50,7 @@ class JsonPrettyTest {
   @Test
   fun `handles escaped backslash before closing quote`() {
     // value is  C:\  — the \\ is an escaped backslash, the next " is the real terminator.
-    assertThat(JsonPretty.pretty("""{"path":"C:\\"}"""))
-      .isEqualTo("{\n  \"path\": \"C:\\\\\"\n}")
+    assertThat(JsonPretty.pretty("""{"path":"C:\\"}""")).isEqualTo("{\n  \"path\": \"C:\\\\\"\n}")
   }
 
   @Test
@@ -65,7 +63,6 @@ class JsonPrettyTest {
 
   @Test
   fun `honors a custom indent`() {
-    assertThat(JsonPretty.pretty("""{"a":1}""", "    "))
-      .isEqualTo("{\n    \"a\": 1\n}")
+    assertThat(JsonPretty.pretty("""{"a":1}""", "    ")).isEqualTo("{\n    \"a\": 1\n}")
   }
 }

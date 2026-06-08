@@ -49,7 +49,8 @@ object JsonPretty {
           i = end + 1
           continue
         }
-        '{', '[' -> {
+        '{',
+        '[' -> {
           val next = nextNonWs(json, i + 1)
           if (next < n && ((c == '{' && json[next] == '}') || (c == '[' && json[next] == ']'))) {
             sb.append(c).append(json[next])
@@ -59,13 +60,17 @@ object JsonPretty {
           depth++
           sb.append(c).append('\n').append(indent.repeat(depth))
         }
-        '}', ']' -> {
+        '}',
+        ']' -> {
           depth--
           sb.append('\n').append(indent.repeat(depth)).append(c)
         }
         ',' -> sb.append(",\n").append(indent.repeat(depth))
         ':' -> sb.append(": ")
-        ' ', '\t', '\n', '\r' -> {} // drop existing insignificant whitespace
+        ' ',
+        '\t',
+        '\n',
+        '\r' -> {} // drop existing insignificant whitespace
         else -> sb.append(c)
       }
       i++
