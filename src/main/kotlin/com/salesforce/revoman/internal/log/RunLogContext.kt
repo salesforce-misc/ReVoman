@@ -28,6 +28,17 @@ internal object RunLogContext {
 
   fun current(): RunLogSink? = holder.get()
 
+  /**
+   * True only when a NON-NoOp sink is installed for the current run. The emit site uses this to
+   * SKIP eagerly rendering the (potentially large) HTTP request/response + env-value maps when no
+   * real consumer will read them — so the default no-sink path (every library consumer that does
+   * not set `runLogSink`) pays zero rendering cost, exactly as before this capture existed.
+   */
+  fun hasActiveSink(): Boolean {
+    val sink = holder.get()
+    return sink != null && sink !== RunLogSink.NoOp
+  }
+
   fun remove() = holder.remove()
 }
 
