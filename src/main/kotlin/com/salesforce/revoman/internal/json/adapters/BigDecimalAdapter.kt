@@ -8,11 +8,20 @@
 package com.salesforce.revoman.internal.json.adapters
 
 import com.squareup.moshi.FromJson
+import com.squareup.moshi.JsonWriter
 import com.squareup.moshi.ToJson
 import java.math.BigDecimal
 
 object BigDecimalAdapter {
-  @ToJson fun toJson(value: BigDecimal) = value.toDouble()
+  // Write the BigDecimal as an EXACT JSON number. JsonWriter.value(Number) emits the Number's
+  // toString() verbatim as a bare JSON number — no Double hop, so full precision is preserved
+  // (the old `value.toDouble()` rounded, e.g. 5 -> 5.0 and large/high-scale values to E-notation).
+  @ToJson
+  fun toJson(writer: JsonWriter, value: BigDecimal) {
+    writer.value(value as Number)
+  }
 
-  @FromJson fun fromJson(string: String) = BigDecimal(string)
+  // Read side is already exact: the number token is consumed as its literal string and
+  // reconstructed.
+  @FromJson fun fromJson(string: String): BigDecimal = BigDecimal(string)
 }
