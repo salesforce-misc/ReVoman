@@ -13,8 +13,12 @@ internal enum class ScriptTarget(val listen: String) {
   TEST("test"),
 }
 
-/** A single variable scope (environment / globals / collectionVariables) as key→value. */
-internal data class PmScope(val id: String, val values: Map<String, Any?>)
+/**
+ * A single variable scope (environment / globals / collectionVariables) as key→value. [name] is the
+ * scope's display name (e.g. the environment name) — exposed to scripts via `pm.environment.name`;
+ * null when the scope is unnamed.
+ */
+internal data class PmScope(val id: String, val values: Map<String, Any?>, val name: String? = null)
 
 /**
  * Everything the sandbox needs to execute one script. Variable scopes are snapshots taken from

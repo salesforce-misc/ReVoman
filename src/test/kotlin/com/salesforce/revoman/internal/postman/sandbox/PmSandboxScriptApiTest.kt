@@ -65,6 +65,53 @@ class PmSandboxScriptApiTest {
   }
 
   @Test
+  fun `pm collectionVariables get set unset round-trips`() {
+    val r =
+      sandbox.execute(
+        """
+        pm.test('reads seeded collectionVariable', () =>
+          pm.expect(pm.collectionVariables.get('seed')).to.eql('seedVal'));
+        pm.collectionVariables.set('produced', 'p1');
+        pm.collectionVariables.unset('toRemove');
+        pm.test('reads back set collectionVariable', () =>
+          pm.expect(pm.collectionVariables.get('produced')).to.eql('p1'));
+        """
+          .trimIndent(),
+        ScriptTarget.TEST,
+        PmExecutionContext(
+          environment = PmScope("e", emptyMap()),
+          collectionVariables = PmScope("cv", mapOf("seed" to "seedVal", "toRemove" to "x")),
+        ),
+      )
+    r.error shouldBe null
+    r.assertions[0].passed shouldBe true // get() reads the seeded value
+    r.assertions[1].passed shouldBe true // set() is visible within the same script
+    r.collectionVariables["produced"] shouldBe "p1" // set() round-trips back to the host
+    (r.collectionVariables.containsKey("toRemove")) shouldBe false // unset() round-trips back
+  }
+
+  @Test
+  fun `console log runs but is not captured in the execution result`() {
+    val r =
+      runTest(
+        """
+        console.log('hello from pm', { a: 1 });
+        console.warn('a warning');
+        console.error('an error');
+        console.info('some info');
+        pm.test('script completed after console calls', () => pm.expect(true).to.be.true);
+        """
+          .trimIndent()
+      )
+    // console.* exist in the sandbox (bootcode provides them) so calling them does NOT throw.
+    r.error shouldBe null
+    r.assertions[0].passed shouldBe true
+    // PmExecutionResult has NO console/log field: the guest dispatches `execution.console` events
+    // but SandboxBridge.decodeResult has no branch for them and boot installs no capture — so the
+    // logged lines are silently dropped, never surfaced to the host or printed by ReVoman.
+  }
+
+  @Test
   fun `pm response json and status assertions`() {
     val r =
       sandbox.execute(
