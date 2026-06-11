@@ -37,6 +37,15 @@ internal constructor(
   @JvmField val exeTimings: Map<ExeType, Duration> = emptyMap(),
   @JvmField val pmEnvSnapshot: PostmanEnvironment<Any?>,
   @JvmField val envVars: StepEnvVars = StepEnvVars(),
+  /** `pm.test(...)` results recorded across this step's scripts (pre-request and post-response). */
+  @JvmField val pmTestAssertions: List<PmTestAssertion> = emptyList(),
+  /**
+   * Next request set via `pm.execution.setNextRequest(...)` in this step's scripts, if any.
+   *
+   * CAPTURED ONLY — ReVoman executes steps linearly and does NOT yet honor this directive to
+   * reorder/skip (Phase 2 will). Treat this as an observed signal, not proof of a jump.
+   */
+  @JvmField val nextRequest: String? = null,
 ) {
   internal constructor(
     step: Step,

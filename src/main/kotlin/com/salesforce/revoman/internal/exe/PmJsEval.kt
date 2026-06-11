@@ -9,6 +9,7 @@ package com.salesforce.revoman.internal.exe
 
 import arrow.core.Either
 import arrow.core.Either.Right
+import com.salesforce.revoman.internal.log.RevomanLog
 import com.salesforce.revoman.internal.postman.PostmanSDK
 import com.salesforce.revoman.internal.postman.sandbox.PmExecutionContext
 import com.salesforce.revoman.internal.postman.sandbox.PmSandbox
@@ -19,6 +20,7 @@ import com.salesforce.revoman.internal.postman.template.Item
 import com.salesforce.revoman.internal.postman.template.Request
 import com.salesforce.revoman.output.ExeType.POST_RES_JS
 import com.salesforce.revoman.output.ExeType.PRE_REQ_JS
+import com.salesforce.revoman.output.report.PmTestAssertion
 import com.salesforce.revoman.output.report.Step
 import com.salesforce.revoman.output.report.StepReport
 import com.salesforce.revoman.output.report.failure.RequestFailure.PreReqJSFailure
@@ -37,7 +39,14 @@ internal fun executePreReqJS(
   return if (!preReqJS.isNullOrBlank()) {
     runCatching(currentStep, PRE_REQ_JS) {
         pm.request = pm.from(itemWithRegex.request)
-        runSandboxScript(preReqJS, ScriptTarget.PRE_REQUEST, itemWithRegex.request, pm, sandbox)
+        runSandboxScript(
+          preReqJS,
+          ScriptTarget.PRE_REQUEST,
+          itemWithRegex.request,
+          pm,
+          sandbox,
+          currentStep,
+        )
       }
       .mapLeft { PreReqJSFailure(it, currentStepReport.requestInfo!!.get()) }
   } else {
@@ -58,7 +67,7 @@ internal fun executePostResJS(
     runCatching(currentStep, POST_RES_JS) {
         val httpResponse = currentStepReport.responseInfo!!.get().httpMsg
         pm.setRequestAndResponse(pm.from(item.request), httpResponse)
-        runSandboxScript(postResJs, ScriptTarget.TEST, item.request, pm, sandbox)
+        runSandboxScript(postResJs, ScriptTarget.TEST, item.request, pm, sandbox, currentStep)
       }
       .mapLeft {
         PostResJSFailure(
@@ -73,15 +82,18 @@ internal fun executePostResJS(
 }
 
 /**
- * Runs a pm script in the real Postman sandbox, then applies the returned environment scope back
- * onto [PostmanSDK.environment] via a diff so the ledger records produced/unset keys exactly as the
- * old in-JS `pm.environment.set` path did. Throws on a script error so the surrounding
- * [runCatching] maps it to the right failure type.
+ * Runs a pm script in the real Postman sandbox, then applies the returned scopes back onto the
+ * [PostmanSDK] so the rest of ReVoman observes script effects:
+ * - environment: diffed back via [PostmanSDK.environment] set/unset (the ledger path — unchanged).
+ * - collectionVariables: diffed back via [PostmanSDK.collectionVariables] set/unset.
+ * - pm.test assertions + setNextRequest: stashed per [step] for the executor to read onto
+ *   StepReport.
  *
- * Only sandbox-safe env values (String/Number/Boolean/null — i.e. real Postman variable semantics)
- * are sent into and read back from the sandbox. ReVoman additionally stores typed POJOs in the env
- * (set by hooks for cross-step reuse); those are NOT pm-script variables, would not survive the
- * Flatted round-trip cleanly, and are intentionally left untouched in the Kotlin env.
+ * Throws on a script error so the surrounding [runCatching] maps it to the right failure type.
+ *
+ * Only sandbox-safe values (String/Number/Boolean/null — real Postman variable semantics) are sent
+ * into and read back from the sandbox. Typed POJOs ReVoman stores in the env (hooks, cross-step
+ * reuse) are NOT pm-script variables and are intentionally left untouched in the Kotlin env.
  */
 private fun runSandboxScript(
   script: String,
@@ -89,27 +101,49 @@ private fun runSandboxScript(
   pmRequest: Request,
   pm: PostmanSDK,
   sandbox: PmSandbox,
+  step: Step,
 ) {
-  val before: Map<String, Any?> = sandboxSafeEnv(pm)
+  val beforeEnv: Map<String, Any?> = sandboxSafeEnv(pm.environment.mutableEnv)
+  val beforeCVars: Map<String, Any?> = sandboxSafeEnv(pm.collectionVariables.mutableEnv)
   val context =
     PmExecutionContext(
-      environment = PmScope("environment", before),
+      environment = PmScope("environment", beforeEnv, name = pm.environmentName),
+      collectionVariables = PmScope("collectionVariables", beforeCVars),
       request = requestAsContextMap(pmRequest),
       response = if (target == ScriptTarget.TEST) responseAsContextMap(pm) else null,
     )
   val result = sandbox.execute(script, target, context)
   result.error?.let { throw it }
+
   // Apply env mutations back through the same set()/unset() paths the ledger reads.
-  val diff = diffScopes(before, result.environment)
-  diff.produced.forEach { key -> pm.environment.set(key, result.environment[key]) }
-  diff.unset.forEach { key -> pm.environment.unset(key) }
+  val envDiff = diffScopes(beforeEnv, result.environment)
+  envDiff.produced.forEach { key -> pm.environment.set(key, result.environment[key]) }
+  envDiff.unset.forEach { key -> pm.environment.unset(key) }
+
+  // Apply collection-variable mutations back (no ledger involvement — separate store).
+  val cVarDiff = diffScopes(beforeCVars, result.collectionVariables)
+  cVarDiff.produced.forEach { key ->
+    pm.collectionVariables.set(key, result.collectionVariables[key])
+  }
+  cVarDiff.unset.forEach { key -> pm.collectionVariables.unset(key) }
+
+  // Surface pm.test results + setNextRequest onto the StepReport (read by the executor fold).
+  pm.recordPmTestAssertions(
+    step,
+    result.assertions.map { PmTestAssertion(it.name, it.passed, it.skipped, it.error) },
+  )
+  result.nextRequest?.let { next ->
+    pm.recordNextRequest(step, next)
+    RevomanLog.warn {
+      "pm.execution.setNextRequest('$next') was captured but ReVoman does not yet reorder steps " +
+        "(linear execution); directive recorded on StepReport.nextRequest only (Phase 2 will honor it)."
+    }
+  }
 }
 
-/** Env entries that are real Postman variable values (safe to round-trip through the sandbox). */
-private fun sandboxSafeEnv(pm: PostmanSDK): Map<String, Any?> =
-  pm.environment.mutableEnv.filterValues {
-    it == null || it is String || it is Number || it is Boolean
-  }
+/** Filters a scope map to sandbox-safe values (real Postman variable values). */
+private fun sandboxSafeEnv(scope: Map<String, Any?>): Map<String, Any?> =
+  scope.filterValues { it == null || it is String || it is Number || it is Boolean }
 
 private fun requestAsContextMap(request: Request): Map<String, Any?> =
   linkedMapOf(

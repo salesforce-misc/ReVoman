@@ -23,10 +23,11 @@ class V3EnvLoaderTest {
   fun testMergeEnvsAcceptsV3YamlAndDynamicEnv() {
     val merged =
       com.salesforce.revoman.internal.postman.template.Environment.mergeEnvs(
-        pmEnvironmentPaths = setOf("pm-templates/v3/test.environment.yaml"),
-        pmEnvironmentInputStreams = emptyList(),
-        dynamicEnvironment = mapOf("override" to "yes"),
-      )
+          pmEnvironmentPaths = setOf("pm-templates/v3/test.environment.yaml"),
+          pmEnvironmentInputStreams = emptyList(),
+          dynamicEnvironment = mapOf("override" to "yes"),
+        )
+        .values
     assertThat(merged).containsEntry("baseUrl", "https://example.com")
     assertThat(merged).containsEntry("count", "5")
     assertThat(merged).containsEntry("override", "yes")

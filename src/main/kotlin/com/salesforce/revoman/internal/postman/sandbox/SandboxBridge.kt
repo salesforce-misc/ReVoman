@@ -186,14 +186,18 @@ internal class SandboxBridge {
   private fun scopeToProxy(scope: PmScope): ProxyObject =
     ProxyObject.fromMap(
       linkedMapOf<String, Any?>(
-        "id" to scope.id,
-        "values" to
-          ProxyArray.fromList(
-            scope.values.map { (k, v) ->
-              ProxyObject.fromMap(linkedMapOf<String, Any?>("key" to k, "value" to v))
-            }
-          ),
-      )
+          "id" to scope.id,
+          "values" to
+            ProxyArray.fromList(
+              scope.values.map { (k, v) ->
+                ProxyObject.fromMap(linkedMapOf<String, Any?>("key" to k, "value" to v))
+              }
+            ),
+        )
+        // postman-collection's VariableScope carries an optional `name`; forwarding it makes
+        // `pm.environment.name` (and other named scopes) readable from scripts. Omit when null so
+        // unnamed scopes stay unnamed rather than becoming the string "null".
+        .also { m -> scope.name?.let { m["name"] = it } }
     )
 
   private fun decodeResult(id: String): PmExecutionResult {
@@ -202,6 +206,7 @@ internal class SandboxBridge {
     var environment: Map<String, Any?> = emptyMap()
     var globals: Map<String, Any?> = emptyMap()
     var collectionVariables: Map<String, Any?> = emptyMap()
+    var nextRequest: String? = null
 
     for (raw in emits) {
       val parsed = Flatted.parse(raw) as? List<*> ?: continue
@@ -241,10 +246,21 @@ internal class SandboxBridge {
           environment = scopeValues(execution["environment"])
           globals = scopeValues(execution["globals"])
           collectionVariables = scopeValues(execution["collectionVariables"])
+          // `pm.execution.setNextRequest(name)` writes `execution.return.nextRequest`. Capture it
+          // as
+          // a control-flow directive; the step sequencer consumes it in Phase 2.
+          nextRequest = (execution["return"] as? Map<*, *>)?.get("nextRequest") as? String
         }
       }
     }
-    return PmExecutionResult(environment, globals, collectionVariables, assertions, error)
+    return PmExecutionResult(
+      environment,
+      globals,
+      collectionVariables,
+      assertions,
+      error,
+      nextRequest,
+    )
   }
 
   /**

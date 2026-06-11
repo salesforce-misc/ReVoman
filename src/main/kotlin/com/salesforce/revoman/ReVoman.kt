@@ -152,15 +152,12 @@ object ReVoman {
     // `kick.ledger().values` is empty (LedgerSnapshot.EMPTY), so this prepends an empty map =
     // no-op.
     val ledgerValues: Map<String, Any?> = kick.ledger().values
-    val environment =
-      ledgerValues +
-        mergeEnvs(
-          kick.environmentPaths(),
-          kick.environmentInputStreams(),
-          kick.dynamicEnvironment(),
-        )
+    val mergedEnv =
+      mergeEnvs(kick.environmentPaths(), kick.environmentInputStreams(), kick.dynamicEnvironment())
+    val environment = ledgerValues + mergedEnv.values
     val pm =
       PostmanSDK(moshiReVoman, kick.nodeModulesPath(), regexReplacer, environment.toMutableMap())
+    pm.environmentName = mergedEnv.name
     val stepNameToReport =
       PmSandbox().use { sandbox ->
         executeStepsSerially(pmStepsDeepFlattened, kick, moshiReVoman, regexReplacer, pm, sandbox)
@@ -362,6 +359,8 @@ object ReVoman {
                   produced = pm.environment.producedKeysFor(step),
                   consumed = pm.environment.consumedKeysFor(step),
                 ),
+              pmTestAssertions = pm.pmTestAssertionsFor(step),
+              nextRequest = pm.nextRequestFor(step),
             )
         haltExecution = shouldHaltExecution(currentStepReport, kick, pm.rundown)
         val captureForSink = RunLogContext.hasActiveSink()
