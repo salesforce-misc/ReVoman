@@ -15,6 +15,8 @@ import com.salesforce.revoman.internal.postman.template.Header
 import com.salesforce.revoman.internal.postman.template.Url
 import com.salesforce.revoman.output.Rundown
 import com.salesforce.revoman.output.postman.PostmanEnvironment
+import com.salesforce.revoman.output.report.PmTestAssertion
+import com.salesforce.revoman.output.report.Step
 import com.salesforce.revoman.output.report.StepReport
 import io.exoquery.pprint
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -36,6 +38,25 @@ class PostmanSDK(
   mutableEnv: MutableMap<String, Any?> = mutableMapOf(),
 ) {
   @JvmField val environment: PostmanEnvironment<Any?> = PostmanEnvironment(mutableEnv, moshiReVoman)
+
+  /**
+   * Collection-level variables (`pm.collectionVariables`). A plain key→value store reusing
+   * [PostmanEnvironment] for its set/unset/toMap utilities; its per-step ledger capture stays
+   * dormant because [PostmanEnvironment.currentStep] is never set on this instance. Script-seeded
+   * only (ReVoman does not parse collection-root `variable[]`), so it starts empty and is populated
+   * by scripts calling `pm.collectionVariables.set(...)`.
+   */
+  @JvmField
+  val collectionVariables: PostmanEnvironment<Any?> = PostmanEnvironment(mutableMapOf(), moshiReVoman)
+
+  /** The active environment's display name, exposed to scripts via `pm.environment.name`. */
+  @JvmField var environmentName: String? = null
+
+  // Per-step capture written by PmJsEval after each sandbox run, read by the executor fold when it
+  // builds the StepReport. Keyed by Step (a step can run a pre-req AND a post-res script).
+  private val pmTestAssertionsByStep: MutableMap<Step, List<PmTestAssertion>> = mutableMapOf()
+  private val nextRequestByStep: MutableMap<Step, String?> = mutableMapOf()
+
   lateinit var info: Info
   lateinit var request: Request
   lateinit var response: Response
@@ -94,6 +115,25 @@ class PostmanSDK(
     currentStepReport = stepReport
     rundown = rundown.copy(stepReports = rundown.stepReports + stepReport)
   }
+
+  /** Accumulates assertions across a step's pre-req + post-res scripts. */
+  internal fun recordPmTestAssertions(step: Step, assertions: List<PmTestAssertion>) {
+    pmTestAssertionsByStep[step] = (pmTestAssertionsByStep[step] ?: emptyList()) + assertions
+  }
+
+  internal fun pmTestAssertionsFor(step: Step): List<PmTestAssertion> =
+    pmTestAssertionsByStep[step] ?: emptyList()
+
+  /**
+   * Last-write-wins: a post-res `setNextRequest` overrides a pre-req one (matches Postman). A null
+   * (never recorded) and an explicit `setNextRequest(null)` clear are intentionally indistinguishable
+   * — both mean "no jump".
+   */
+  internal fun recordNextRequest(step: Step, nextRequest: String?) {
+    nextRequestByStep[step] = nextRequest
+  }
+
+  internal fun nextRequestFor(step: Step): String? = nextRequestByStep[step]
 
   internal fun setRequestAndResponse(pmRequest: Request, httpResponse: org.http4k.core.Response) {
     request = pmRequest
