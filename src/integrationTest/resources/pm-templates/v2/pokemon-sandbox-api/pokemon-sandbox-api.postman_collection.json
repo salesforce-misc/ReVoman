@@ -1,0 +1,164 @@
+{
+	"info": {
+		"_postman_id": "a1b2c3d4-1111-2222-3333-pokemonsandbox",
+		"name": "pokemon-sandbox-api",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "all-pokemon",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+							"var json = pm.response.json();",
+							"pm.test('has results array', function () { pm.expect(json.results).to.be.an('array'); });",
+							"pm.test('environment has a name', function () { pm.expect(pm.environment.name).to.be.a('string'); });",
+							"var firstName = json.results[0].name;",
+							"pm.environment.set('pokemonName', firstName);",
+							"pm.collectionVariables.set('firstPokemon', firstName);",
+							"pm.collectionVariables.set('resultCount', json.results.length);"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/pokemon?limit={{limit}}"
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "pokemon-by-name",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test('response code is 200', function () { pm.expect(pm.response.code).to.eql(200); });",
+							"pm.test('text body is non-empty', function () { pm.expect(pm.response.text().length).to.be.above(0); });",
+							"pm.test('collection var carried over', function () { pm.expect(pm.collectionVariables.get('firstPokemon')).to.be.a('string'); });",
+							"var allCVars = pm.collectionVariables.toObject();",
+							"pm.test('toObject exposes resultCount', function () { pm.expect(allCVars).to.have.property('resultCount'); });",
+							"var json = pm.response.json();",
+							"pm.collectionVariables.set('pokemonId', json.id);",
+							"pm.execution.setNextRequest('pokemon-species');"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/pokemon/{{pokemonName}}"
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "pokemon-species",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test('species status 200', function () { pm.response.to.have.status(200); });",
+							"pm.test('id matches earlier pokemon', function () { pm.expect(pm.response.json().id).to.eql(pm.collectionVariables.get('pokemonId')); });"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/pokemon-species/{{pokemonName}}"
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "add-object",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test('object created', function () { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });",
+							"pm.environment.set('objId', pm.response.json().id);"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"name\": \"revoman-{{pokemonName}}\",\n  \"data\": { \"source\": \"revoman-sandbox-test\" }\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "https://{{uri}}/objects"
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "update-object",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test('request body was readable', function () { pm.expect(pm.request.body.raw).to.include('updated-revoman'); });",
+							"pm.test('update echoes new name', function () { pm.expect(pm.response.json().data.name).to.eql('updated-revoman'); });"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "PUT",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"name\": \"revoman-{{pokemonName}}\",\n  \"data\": { \"name\": \"updated-revoman\" }\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "https://{{uri}}/objects/{{objId}}"
+				}
+			},
+			"response": []
+		}
+	]
+}
