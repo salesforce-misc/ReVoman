@@ -86,7 +86,8 @@ internal fun executePostResJS(
  * [PostmanSDK] so the rest of ReVoman observes script effects:
  * - environment: diffed back via [PostmanSDK.environment] set/unset (the ledger path — unchanged).
  * - collectionVariables: diffed back via [PostmanSDK.collectionVariables] set/unset.
- * - pm.test assertions + setNextRequest: stashed per [step] for the executor to read onto StepReport.
+ * - pm.test assertions + setNextRequest: stashed per [step] for the executor to read onto
+ *   StepReport.
  *
  * Throws on a script error so the surrounding [runCatching] maps it to the right failure type.
  *

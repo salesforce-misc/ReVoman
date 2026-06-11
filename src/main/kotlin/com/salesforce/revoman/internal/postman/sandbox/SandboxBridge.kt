@@ -246,7 +246,8 @@ internal class SandboxBridge {
           environment = scopeValues(execution["environment"])
           globals = scopeValues(execution["globals"])
           collectionVariables = scopeValues(execution["collectionVariables"])
-          // `pm.execution.setNextRequest(name)` writes `execution.return.nextRequest`. Capture it as
+          // `pm.execution.setNextRequest(name)` writes `execution.return.nextRequest`. Capture it
+          // as
           // a control-flow directive; the step sequencer consumes it in Phase 2.
           nextRequest = (execution["return"] as? Map<*, *>)?.get("nextRequest") as? String
         }

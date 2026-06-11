@@ -15,11 +15,7 @@ class MergeEnvsNameTest {
   @Test
   fun `mergeEnvs reads the environment name from a v2 json env file`() {
     val merged =
-      mergeEnvs(
-        setOf("pm-templates/mini-env.postman_environment.json"),
-        emptyList(),
-        emptyMap(),
-      )
+      mergeEnvs(setOf("pm-templates/mini-env.postman_environment.json"), emptyList(), emptyMap())
     merged.name shouldBe "Pokemon"
     merged.values["baseUrl"] shouldBe "https://pokeapi.co/api/v2"
   }

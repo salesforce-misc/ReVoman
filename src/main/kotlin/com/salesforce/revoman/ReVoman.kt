@@ -153,11 +153,7 @@ object ReVoman {
     // no-op.
     val ledgerValues: Map<String, Any?> = kick.ledger().values
     val mergedEnv =
-      mergeEnvs(
-        kick.environmentPaths(),
-        kick.environmentInputStreams(),
-        kick.dynamicEnvironment(),
-      )
+      mergeEnvs(kick.environmentPaths(), kick.environmentInputStreams(), kick.dynamicEnvironment())
     val environment = ledgerValues + mergedEnv.values
     val pm =
       PostmanSDK(moshiReVoman, kick.nodeModulesPath(), regexReplacer, environment.toMutableMap())

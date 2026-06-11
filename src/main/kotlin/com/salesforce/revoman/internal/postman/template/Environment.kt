@@ -49,7 +49,8 @@ internal data class Environment(val name: String?, val values: List<EnvValue>) {
         pmEnvironmentPaths
           .filter { isV3EnvFile(it) }
           .map { com.salesforce.revoman.internal.postman.template.v3.V3EnvLoader.readWithName(it) }
-      val envFromYamlPaths: Map<String, Any?> = yamlEnvs.fold(emptyMap()) { acc, e -> acc + e.values }
+      val envFromYamlPaths: Map<String, Any?> =
+        yamlEnvs.fold(emptyMap()) { acc, e -> acc + e.values }
 
       // V2 json paths — parse to Environment once, derive values + name.
       val jsonEnvs: List<Environment> =

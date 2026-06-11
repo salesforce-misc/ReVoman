@@ -14,8 +14,8 @@ import org.junit.jupiter.api.TestInstance
 
 /**
  * Per-feature coverage of the script-only `pm` APIs ReVoman commits to supporting in Phase 1,
- * grouped by Postman API area. Each test runs the REAL postman-sandbox bootcode under GraalJS (boots
- * once for the class) so it characterizes the actual behavior, not a shim.
+ * grouped by Postman API area. Each test runs the REAL postman-sandbox bootcode under GraalJS
+ * (boots once for the class) so it characterizes the actual behavior, not a shim.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class PmSandboxApiCoverageTest {

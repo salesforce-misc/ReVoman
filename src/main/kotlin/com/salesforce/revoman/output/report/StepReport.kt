@@ -37,9 +37,7 @@ internal constructor(
   @JvmField val exeTimings: Map<ExeType, Duration> = emptyMap(),
   @JvmField val pmEnvSnapshot: PostmanEnvironment<Any?>,
   @JvmField val envVars: StepEnvVars = StepEnvVars(),
-  /**
-   * `pm.test(...)` results recorded across this step's scripts (pre-request and post-response).
-   */
+  /** `pm.test(...)` results recorded across this step's scripts (pre-request and post-response). */
   @JvmField val pmTestAssertions: List<PmTestAssertion> = emptyList(),
   /**
    * Next request set via `pm.execution.setNextRequest(...)` in this step's scripts, if any.

@@ -47,7 +47,8 @@ class PostmanSDK(
    * by scripts calling `pm.collectionVariables.set(...)`.
    */
   @JvmField
-  val collectionVariables: PostmanEnvironment<Any?> = PostmanEnvironment(mutableMapOf(), moshiReVoman)
+  val collectionVariables: PostmanEnvironment<Any?> =
+    PostmanEnvironment(mutableMapOf(), moshiReVoman)
 
   /** The active environment's display name, exposed to scripts via `pm.environment.name`. */
   @JvmField var environmentName: String? = null
@@ -126,8 +127,8 @@ class PostmanSDK(
 
   /**
    * Last-write-wins: a post-res `setNextRequest` overrides a pre-req one (matches Postman). A null
-   * (never recorded) and an explicit `setNextRequest(null)` clear are intentionally indistinguishable
-   * — both mean "no jump".
+   * (never recorded) and an explicit `setNextRequest(null)` clear are intentionally
+   * indistinguishable — both mean "no jump".
    */
   internal fun recordNextRequest(step: Step, nextRequest: String?) {
     nextRequestByStep[step] = nextRequest
