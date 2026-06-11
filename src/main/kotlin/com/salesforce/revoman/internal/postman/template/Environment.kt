@@ -18,6 +18,9 @@ import com.squareup.moshi.adapter
 import java.io.InputStream
 import kotlin.collections.plus
 
+/** The merged environment values plus the chosen environment display name (null if unnamed). */
+internal data class MergedEnv(val name: String?, val values: Map<String, Any?>)
+
 @JsonClass(generateAdapter = true)
 internal data class Environment(val name: String?, val values: List<EnvValue>) {
   @AlwaysSerializeNulls
@@ -38,33 +41,39 @@ internal data class Environment(val name: String?, val values: List<EnvValue>) {
       pmEnvironmentPaths: Set<String>,
       pmEnvironmentInputStreams: List<InputStream>,
       dynamicEnvironment: Map<String, Any?>,
-    ): Map<String, Any?> {
+    ): MergedEnv {
       val envAdapter = Moshi.Builder().build().adapter<Environment>()
-      val envFromYamlPaths: Map<String, Any?> =
+
+      // V3 yaml paths — read name + values from each.
+      val yamlEnvs: List<com.salesforce.revoman.internal.postman.template.v3.V3EnvRead> =
         pmEnvironmentPaths
           .filter { isV3EnvFile(it) }
-          .fold(emptyMap()) { acc, path ->
-            acc + com.salesforce.revoman.internal.postman.template.v3.V3EnvLoader.loadFromPath(path)
-          }
-      val envFromJsonPaths: Map<String, Any?> =
+          .map { com.salesforce.revoman.internal.postman.template.v3.V3EnvLoader.readWithName(it) }
+      val envFromYamlPaths: Map<String, Any?> = yamlEnvs.fold(emptyMap()) { acc, e -> acc + e.values }
+
+      // V2 json paths — parse to Environment once, derive values + name.
+      val jsonEnvs: List<Environment> =
         pmEnvironmentPaths
           .filterNot { isV3EnvFile(it) }
-          .map { bufferFile(it) }
-          .flatMap { source ->
-            envAdapter.fromJson(source)?.values?.filter { it.enabled } ?: emptyList()
-          }
-          .associate { it.key to it.value }
+          .mapNotNull { envAdapter.fromJson(bufferFile(it)) }
+      val envFromJsonPaths: Map<String, Any?> =
+        jsonEnvs.flatMap { it.values.filter { v -> v.enabled } }.associate { it.key to it.value }
+
+      // Streams — parse to Environment once (single read), derive values + name.
+      val streamEnvs: List<Environment> =
+        pmEnvironmentInputStreams.mapNotNull { envAdapter.fromJson(bufferInputStream(it)) }
       val envFromStreams: Map<String, Any?> =
-        pmEnvironmentInputStreams
-          .map { bufferInputStream(it) }
-          .flatMap { source ->
-            envAdapter.fromJson(source)?.values?.filter { it.enabled } ?: emptyList()
-          }
-          .associate { it.key to it.value }
+        streamEnvs.flatMap { it.values.filter { v -> v.enabled } }.associate { it.key to it.value }
+
       // * NOTE 10/09/23 gopala.akshintala: dynamicEnvironment keys replace envFromEnvFiles when
       // clashed
       // ! TODO 11 Jun 2025 gopala.akshintala: serialize only during regex replace
-      return envFromYamlPaths + envFromJsonPaths + envFromStreams + dynamicEnvironment
+      val values = envFromYamlPaths + envFromJsonPaths + envFromStreams + dynamicEnvironment
+      // Name precedence mirrors value order: last non-null wins (yaml -> json -> streams).
+      val name =
+        (yamlEnvs.map { it.name } + jsonEnvs.map { it.name } + streamEnvs.map { it.name })
+          .lastOrNull { it != null }
+      return MergedEnv(name, values)
     }
   }
 }
