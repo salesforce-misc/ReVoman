@@ -53,19 +53,23 @@ constructor(
 
   fun set(key: String, value: ValueT) {
     mutableEnv[key] = value
-    if (::currentStep.isInitialized) {
-      producedKeysByStep.getOrPut(currentStep) { mutableSetOf() }.add(key)
-    }
+    // `currentStep` is a lateinit set only on the step-bound `environment` instance; stores like
+    // `collectionVariables` never set it. Read it null-safely so the ledger capture AND the log
+    // line
+    // both no-op on an unstepped instance — interpolating an uninitialized lateinit would throw.
+    val step: Step? = if (::currentStep.isInitialized) currentStep else null
+    if (step != null) producedKeysByStep.getOrPut(step) { mutableSetOf() }.add(key)
     logger.info {
-      "pm environment variable set in Step: $currentStep - key: $key, value: ${pprint(value)}"
+      "pm environment variable set in Step: $step - key: $key, value: ${pprint(value)}"
     }
   }
 
   @Suppress("unused")
   fun unset(key: String) {
     mutableEnv.remove(key)
-    if (::currentStep.isInitialized) producedKeysByStep[currentStep]?.remove(key)
-    logger.info { "pm environment variable unset through JS in Step: $currentStep - key: $key" }
+    val step: Step? = if (::currentStep.isInitialized) currentStep else null
+    if (step != null) producedKeysByStep[step]?.remove(key)
+    logger.info { "pm environment variable unset through JS in Step: $step - key: $key" }
   }
 
   // ! TODO 13/09/23 gopala.akshintala: Refactor code to remove duplication
