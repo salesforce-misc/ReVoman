@@ -161,6 +161,7 @@ object ReVoman {
     val environment = ledgerValues + mergedEnv.values
     val pm =
       PostmanSDK(moshiReVoman, kick.nodeModulesPath(), regexReplacer, environment.toMutableMap())
+    pm.environmentName = mergedEnv.name
     val stepNameToReport =
       PmSandbox().use { sandbox ->
         executeStepsSerially(pmStepsDeepFlattened, kick, moshiReVoman, regexReplacer, pm, sandbox)
