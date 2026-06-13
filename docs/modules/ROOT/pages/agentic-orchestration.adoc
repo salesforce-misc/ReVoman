@@ -6,16 +6,7 @@ ReṼoman is an *API Orchestration Engine*: you hand it a workflow of interdepen
 
 The building block ReṼoman provides for agentic systems is a deterministic execution step that takes *executable API metadata* in and produces *Context Information* out:
 
-[source]
-----
-executable API metadata (API-Graph)
-        │
-        ▼
-   ReṼoman executes the graph  ──▶  Rundown / toJson(VERBOSITY)  =  "Context Information"
-        │ (resolves deps, auth, polling, type-safe payloads)            │
-        ▼                                                               ▼
-   deterministic, JVM-native                              consumed by an agentic-workflow Node
-----
+image::the-loop.svg[Executable API metadata enters the ReṼoman engine, which executes the graph and returns a Rundown of Context Information consumed by an agentic-workflow Node, align="center"]
 
 . *executable API metadata (API-Graph)* — the workflow of interdependent calls, with the order and the data dependencies between them.
 . *ReṼoman executes the graph* — deterministically, on the JVM: resolving data dependencies between calls, handling auth, polling for async outcomes, and marshalling type-safe payloads.
