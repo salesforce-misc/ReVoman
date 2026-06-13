@@ -1,0 +1,31 @@
+= Variables
+
+Variables are how the xref:executable-api-metadata.adoc[executable API metadata] expresses *data dependencies* between graph steps: a value produced by one call is parked under a key and replayed into a later call's request. ReṼoman resolves variables as it executes the graph, passing data between steps:
+
+* Variables, e.g., `+{{variable-key}}+`
+* Nested variables, e.g., `+{{variable-key{{nested-variable-key}}}}+`
+* {gh-blob}/{sourcedir}/com/salesforce/revoman/internal/postman/DynamicVariableGenerator.kt[Dynamic variables], e.g., `{{$randomUUID}}`, `{{$randomEmail}}`
+* xref:variables.adoc#custom-dynamic-variables[Custom Dynamic variables]
+
+== Variable resolution precedence
+
+In the case of collision between variable keys, the precedence order to derive a value to replace a key is:
+
+* xref:variables.adoc#custom-dynamic-variables[Custom Dynamic variables]
+* {gh-blob}/{sourcedir}/com/salesforce/revoman/internal/postman/DynamicVariableGenerator.kt[Dynamic variables]
+* Environment built during execution
+* Dynamic Environment supplied through config
+* Postman Environment supplied as a file path through config
+
+TIP: Variable naming convention: for Dynamic variables populated from Java code, use `$` within a variable to indicate it needs to be populated during manual testing, e.g.: `{{$unitPrice}}`.
+
+[#custom-dynamic-variables]
+== Custom Dynamic variables
+
+ReṼoman comes bundled with some {gh-blob}/{sourcedir}/com/salesforce/revoman/internal/postman/DynamicVariableGenerator.kt[Dynamic variable generators]. If the in-built dynamic variables don't fit your needs, you can plug your own generator by providing an instance of `CustomDynamicVariableGenerator`. This is invoked to generate a value for your custom variable-key in the template at runtime.
+
+TIP: Custom dynamic variable generators have the top-most precedence for variable resolution. This can be leveraged to override variables set via any other way.
+
+== Related
+
+* xref:mutable-environment.adoc[] — how resolved values accumulate into the mutable environment across the run.

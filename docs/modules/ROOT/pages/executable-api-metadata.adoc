@@ -1,0 +1,79 @@
+= Executable API Metadata
+
+*Executable API metadata* is the input ReṼoman runs: a workflow of interdependent API calls — the patent's *API-Graph* — capturing both the *order* the calls go out in and the *data dependencies* between them (one call's response feeding the next call's request). It is a graph, not a flat list: edges are the values that flow from step to step.
+
+ReṼoman reads this metadata serialized in the *Postman V2/V3 format* — a serialization choice like JSON over XML, with no tie to the Postman app or SDK. The format is how the graph is written down; ReṼoman is the engine that executes it.
+
+== Why the Postman format?
+
+The exported Postman collection JSON file is referred to as a *Postman template*, as it contains placeholders/variables in the `+{{variable-key}}+` pattern. This is a popular, proven pattern that interconnects multiple endpoint requests like a Graph. It is not unique to Postman, but Postman is popular and familiar in the dev community and has a full-blown UI, which makes it an attractive choice as a *starting* serialization to author that graph in.
+
+The choice is pragmatic, not an allegiance: a proven, graph-like serialization with a mature authoring UI. ReṼoman is modular, and the implementation is not coupled with any Postman-related contracts — what the engine consumes is the executable API metadata, regardless of how it was written down.
+
+NOTE: Roadmap — supporting additional serialization formats for the same executable API metadata is future work, not a present-tense capability.
+
+[.lead]
+You _kick off_ execution by invoking `ReVoman.revUp()`, supplying your serialized metadata (templates) and environments, and all your customizations through a *Configuration*:
+
+[source,java,indent=0,tabsize=2,options="nowrap"]
+----
+final var rundown =
+    ReVoman.revUp(
+        Kick.configure()
+        ...
+        .off())
+----
+
+See xref:getting-started.adoc[] for a runnable first example, and xref:configuration.adoc[] for the full `Kick` configuration surface.
+
+== Two serializations of the same metadata: v2 and v3
+
+ReṼoman accepts Postman v3 collections in addition to v2. These are two serializations of the *same* executable API metadata — v2 a single `.json` file, v3 a directory tree of YAML files. Detection is automatic — pass a directory path containing `.resources/definition.yaml` for v3, or a `.json` file for v2.
+
+.Detection rules
+[cols="1,1"]
+|===
+| Input | Loader
+
+| Path to a `.json` file | v2 (existing)
+| Path to a directory containing `.resources/definition.yaml` | v3 (new)
+| Environment file ending in `.json` | v2 (existing)
+| Environment file ending in `.yaml` or `.yml` | v3 (new)
+|===
+
+.Example
+[source,kotlin,indent=0,tabsize=2,options="nowrap"]
+----
+ReVoman.revUp(
+  Kick.configure()
+    .templatePath("pm-templates/v3/pokemon")  // v3 directory
+    .environmentPath("pm-templates/v3/pokemon/Pokemon.environment.yaml")  // v3 env
+    .off()
+)
+----
+
+.v3 collection layout
+[source]
+----
+my-collection/
+├── .resources/
+│   └── definition.yaml          // {kind: collection, optional auth, optional order}
+├── request-a.request.yaml       // {kind: http-request, url, method, ...}
+├── request-b.request.yaml
+├── sub-folder/
+│   ├── .resources/
+│   │   └── definition.yaml
+│   └── nested-request.request.yaml
+└── my-collection.environment.yaml  // optional, passed via environmentPath
+----
+
+.Known limitations of v3 support
+* v3 collections must be supplied as a directory path; `templateInputStreams()` is v2-only.
+* `*.environment.yaml` files must be supplied as a path; `environmentInputStreams()` is v2-only.
+* Only `bearer` auth is supported (matches existing v2 limitation).
+* `description` and `settings.disabledSystemHeaders` fields are parsed but ignored at runtime.
+
+== Related
+
+* xref:variables.adoc[] — how the `+{{variable-key}}+` placeholders carry data dependencies between graph steps.
+* xref:rundown.adoc[] — what you get back after the engine executes the graph.
