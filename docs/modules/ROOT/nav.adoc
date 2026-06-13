@@ -1,1 +1,29 @@
-* xref:index.adoc[Home]
+.xref:index.adoc[Overview]
+* xref:agentic-orchestration.adoc[Agentic API Orchestration]
+* xref:why-revoman.adoc[Why ReṼoman?]
+
+.Get Started
+* xref:getting-started.adoc[Getting Started]
+* xref:configuration.adoc[Configuration]
+
+.Concepts
+* xref:executable-api-metadata.adoc[Executable API Metadata]
+* xref:rundown.adoc[Rundown]
+* xref:step-procedure.adoc[Step Procedure]
+* xref:variables.adoc[Variables]
+
+.Features
+* xref:type-safety.adoc[Type Safety]
+* xref:hooks.adoc[Hooks]
+* xref:scripts-and-pm-apis.adoc[Scripts & pm APIs]
+* xref:polling.adoc[Polling]
+* xref:timing-metrics.adoc[Timing Metrics]
+* xref:mutable-environment.adoc[Mutable Environment]
+* xref:execution-control.adoc[Execution Control]
+
+.Applications
+* xref:applications.adoc[Applications]
+
+.Help
+* xref:troubleshooting.adoc[Troubleshooting & FAQ]
+* xref:contributing.adoc[Contributing]
