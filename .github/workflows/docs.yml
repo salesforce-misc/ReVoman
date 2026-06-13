@@ -10,6 +10,10 @@ permissions:
   contents: read
   pages: write
   id-token: write
+env:
+  # Run the bundled JS actions (configure-pages, deploy-pages, upload-pages-artifact)
+  # on Node 24 instead of the deprecated Node 20 runtime.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -27,7 +31,7 @@ jobs:
     - name: Install Node.js
       uses: actions/setup-node@v5
       with:
-        node-version: '20'
+        node-version: '24'
     - name: Install Antora + Lunr extension
       run: npm i antora @antora/lunr-extension
     - name: Generate Site
