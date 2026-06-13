@@ -285,3 +285,7 @@ fabric.properties
 .vscode/
 .kotlin
 .claude/settings.local.json
+
+# Antora docs site build output
+build/site/
+.cache/antora/
