@@ -33,6 +33,7 @@ class PokemonSandboxApiTest {
   @Test
   @DisplayName("script-only pm APIs surface end-to-end")
   void pmSandboxApisEndToEnd() {
+    // tag::pm-sandbox-revup[]
     final Rundown rundown =
         ReVoman.revUp(
             Kick.configure()
@@ -40,6 +41,7 @@ class PokemonSandboxApiTest {
                 .environmentPath(PM_ENVIRONMENT_PATH)
                 .nodeModulesPath("js")
                 .off());
+    // end::pm-sandbox-revup[]
 
     // No step failed (HTTP + all scripts ran without thrown error).
     assertThat(rundown.firstUnIgnoredUnsuccessfulStepReport()).isNull();
@@ -53,6 +55,7 @@ class PokemonSandboxApiTest {
     assertThat(rundown.mutableEnv).containsKey("pokemonName");
     assertThat(rundown.mutableEnv).containsKey("objId"); // add-object POST set this for the PUT
 
+    // tag::pm-sandbox-asserts[]
     // --- pm.collectionVariables set in step 1, read in steps 2-3 (cross-step) ---
     final StepReport byName = rundown.reportForStepName("pokemon-by-name");
     assertThat(byName).isNotNull();
@@ -68,6 +71,7 @@ class PokemonSandboxApiTest {
     // a failing pm.test is DATA (passed=false), and allMatch on an empty list passes vacuously, so
     // assert this step actually produced assertions.
     assertThat(rundown.reportForStepName("pokemon-species").pmTestAssertions).isNotEmpty();
+    // end::pm-sandbox-asserts[]
 
     // --- pm.request.body via restful-api.dev PUT ---
     final StepReport update = rundown.reportForStepName("update-object");
