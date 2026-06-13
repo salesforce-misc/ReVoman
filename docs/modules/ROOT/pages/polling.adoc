@@ -27,6 +27,7 @@ Kick.configure()
 
 == How it works
 After a step completes successfully and matches the `PostTxnStepPick`, ReṼoman:
+
 . Builds and fires the poll request using the configured `PollingRequestBuilder`
 . Evaluates the response with the `PollingCompletionPredicate`
 . If `true`, records a `PollingReport` (with attempt count, total duration, and all responses) in the `StepReport`

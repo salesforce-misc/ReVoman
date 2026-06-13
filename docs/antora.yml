@@ -8,6 +8,7 @@ asciidoc:
     revoman-version: 0.9.14@
     hide-uri-scheme: '@'
     table-caption: false
+    experimental: ''
     gh-blob: https://github.com/salesforce-misc/ReVoman/blob/master
     sourcedir: src/main/kotlin
     testdir: src/test/java
