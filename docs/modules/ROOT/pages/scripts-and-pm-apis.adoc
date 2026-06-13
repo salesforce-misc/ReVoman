@@ -1,0 +1,80 @@
+= Scripts & pm APIs
+
+== Pre-req and Post-res scripts
+
+* The Postman format lets you write custom JavaScript in pre-req and post-res tabs that execute before and after a step respectively. When you export the collection, these scripts come bundled.
+* ReṼoman executes this JavaScript on the JVM. This ensures the same API metadata used for manual testing can be used *as-is* for automation — no resistance to modify, no overhead of separate manual/automation versions.
+** Pre-req JS runs first, before unmarshalling the request.
+** Post-res JS runs right after receiving an HTTP response.
+
+=== `npm` modules with `require(...)`
+ReṼoman supports using `npm` modules inside your pre-req and post-res JS. Install modules in any folder with `npm install <module>`, supply the parent folder of `node_modules` to the `Kick` config via `nodeModulesPath(...)` (absolute, or relative to the project directory), and `require(...)` them:
+
+.Install `moment` with npm
+[source,shellscript,indent=0,options="nowrap"]
+----
+npm install moment
+----
+
+.Use inside pre-req and post-res scripts
+[source,javascript,indent=0,tabsize=2,options="nowrap"]
+----
+var moment = require("moment")
+var _ = require('lodash')
+
+pm.environment.set("$currentDate", moment().format(("YYYY-MM-DD")))
+var futureDateTime = moment().add(365, 'days')
+pm.environment.set('$randomFutureDate', futureDateTime.format('YYYY-MM-DD'))
+
+pm.environment.set("$quantity", _.random(1, 10))
+----
+
+IMPORTANT: Loading `node_modules` from a jar is not supported. For example, `/Users/username/some-path/revoman-root/build/libs/revoman-root-0.40.0.jar!/js` is an invalid path. (See this https://graalvm.slack.com/archives/CN9L59P61/p1710937088860679?thread_ts=1710767437.443019&cid=CN9L59P61[known issue].)
+
+[TIP]
+====
+* `node_modules` adds a lot of files to check in. You may replace them with a single distribution file.
+
+image::node_modules.png[]
+
+* If `node_modules` is ignored in your git repo, you can force-add it with `git add --all -f <path>/node_modules`.
+====
+
+CAUTION: Don't add too much code in pre-req/post-res scripts — it's not intuitive to troubleshoot via debugging. Use them for simple operations understandable without debugging, and use xref:hooks.adoc#dynamic-pre-step-and-post-step-hooks[Pre-Step/Post-Step Hooks] for non-trivial operations (which are intuitive to debug).
+
+== Supported `pm` script APIs
+
+ReṼoman runs your collection's pre-request and post-response JavaScript on the JVM through a real Postman-compatible sandbox. The following script-only `pm` APIs are supported and surface their effects on the xref:rundown.adoc[Rundown]:
+
+[cols="1,2"]
+|===
+| API | Behavior in ReṼoman
+
+| `pm.environment` (+ `pm.environment.name`) | Reads/writes flow into the xref:mutable-environment.adoc[mutable environment].
+| `pm.collectionVariables` (`.get` / `.set` / `.toObject`) | Collection-scoped key/value store; values set in one step's script are visible to later steps' scripts.
+| `pm.request.body`, `pm.response.code` / `.json` / `.text` / `.to.have.status` | Request/response fed into the script context.
+| `pm.test`, `pm.expect` | Assertion results recorded on `StepReport.pmTestAssertions`.
+| `pm.execution.setNextRequest` | Captured on `StepReport.nextRequest` (see note below).
+|===
+
+Two read-only fields on each `StepReport` expose script outcomes:
+
+* `pmTestAssertions: List<PmTestAssertion>` — every `pm.test(...)` result across the step's pre-request and post-response scripts. `PmTestAssertion` carries `name`, `passed`, `skipped`, and `error`.
+* `nextRequest: String?` — the value passed to `pm.execution.setNextRequest(...)`, if any.
+
+[CAUTION]
+====
+`nextRequest` is *captured only*. ReṼoman executes steps linearly and does *not yet* honor the directive to reorder or skip steps (that is planned). Treat it as an observed signal, not proof of a jump.
+====
+
+.Current limitations
+* `pm.sendRequest` is not supported.
+* Collection-root `variable[]` is not parsed; `pm.collectionVariables` is script-seeded only.
+
+.End-to-end: script-only pm APIs through a real run
+[source,java,indent=0,tabsize=2,options="nowrap"]
+----
+include::example$it/com/salesforce/revoman/integration/pokemon/PokemonSandboxApiTest.java[tag=pm-sandbox-asserts]
+----
+
+These script outcomes land on the xref:rundown.adoc[Rundown]; environment reads and writes flow through the xref:mutable-environment.adoc#mutable-environment[mutable environment]; and for logic too involved for a pre-req/post-res script, reach for xref:hooks.adoc[Hooks] instead.
