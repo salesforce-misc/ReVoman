@@ -1,0 +1,49 @@
+= Configuration
+
+You kick off execution by invoking `ReVoman.revUp()`, supplying your API metadata (Postman templates) and environments, and all your customizations through a *Configuration*:
+
+[source,java,indent=0,tabsize=2,options="nowrap"]
+----
+final var rundown =
+    ReVoman.revUp(
+        Kick.configure()
+        ...
+        .off())
+----
+
+The configuration is where you plug everything in — the metadata and environment paths, type-safe payload mappings, and the xref:hooks.adoc[pre/post-step hooks] that let you run custom JVM code in between execution steps.
+
+== Config management
+
+[.lead]
+Config built using `Kick.configure()` is *Immutable*.
+
+When there are many tests leveraging the same config with minor modifications, you can define a common config and add variations (like more hooks) using `override...()` methods, which are present for all config attributes, to create a new instance of config.
+
+IMPORTANT: The new instance created from common config using `override...()` replaces the attributes.
+
+* For iterable attributes (like `List`, `Map` etc), intentionally there are no `add`/`append`/`prepend` methods when creating a new instance, to prevent any mix-up with the order of attributes. Use any collection appending utilities to prepend/append previous hooks.
+
+[source,java,indent=0,tabsize=2,options="nowrap"]
+----
+COMMON_CONFIG.overrideHooks(kotlin.collections.CollectionsKt.plus(COMMON_CONFIG.hooks(), post(.../*My Hooks*/))
+----
+
+* There is a static utility function `com.salesforce.revoman.input.config.KickDef.plus` to merge multiple `java.util.Map`s into one, usable to merge `dynamicEnvironment`:
+
+[source,java,indent=0,tabsize=2,options="nowrap"]
+----
+import static com.salesforce.revoman.input.config.KickDef.plus;
+...
+
+Kick.configure().dynamicEnvironment(plus(dynamicEnvironment1, dynamicEnvironment2))
+----
+
+* You can also construct a new instance by accumulating attributes from other instances using `from()`:
+
+[source,java,indent=0,tabsize=2,options="nowrap"]
+----
+Kick.configure().from(configInstance1).from(configInstance2)...off();
+----
+
+IMPORTANT: Iterable attributes (like `List`, `Map` etc) accept an `Iterable`. If you are particular about the order, make sure to pass an Ordered `Iterable` (like `ArrayList`).
