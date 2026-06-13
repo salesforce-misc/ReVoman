@@ -1,0 +1,41 @@
+name: Publish Docs to GitHub Pages
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v5
+      with:
+        # Antora needs full history for url: . content sources
+        fetch-depth: 0
+    - name: Configure Pages
+      uses: actions/configure-pages@v5
+    - name: Install Node.js
+      uses: actions/setup-node@v5
+      with:
+        node-version: '18'
+    - name: Install Antora + Lunr extension
+      run: npm i antora @antora/lunr-extension
+    - name: Generate Site
+      run: npx antora antora-playbook.yml
+    - name: Upload Artifacts
+      uses: actions/upload-pages-artifact@v4
+      with:
+        path: build/site
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v4

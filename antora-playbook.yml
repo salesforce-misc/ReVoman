@@ -3,6 +3,7 @@ antora:
   - require: '@antora/lunr-extension'
 site:
   title: ReṼoman
+  url: https://salesforce-misc.github.io/ReVoman
   start_page: revoman::index.adoc
 content:
   sources:
