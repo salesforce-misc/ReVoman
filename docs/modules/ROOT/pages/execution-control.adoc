@@ -1,0 +1,19 @@
+[#execution-control]
+= Execution Control
+
+If an exception is thrown during the procedure of any step, the xref:step-procedure.adoc#step-procedure[Step Procedure] *fails fast for that step*. However, the execution of _next steps won't halt by default_. You can configure this to *fail-fast* using these Configuration options:
+
+* `haltOnAnyFailure` — Defaults to `false`. If `true`, execution fails-fast on any failure. This also halts on an HTTP error response.
+* `haltOnFailureOfTypeExcept` — Fail-fast only for a specific Failure type by providing an `ExeType`. You may also provide a `PostTxnStepPick` used to check if a Step can be ignored for that specific failure type, otherwise halt the execution of next steps.
+
+The below options, as their names suggest, conditionally run or skip steps in a chain from the template, without changing the template:
+
+* `runOnlySteps`, `skipSteps` — Accept a `predicate` of type `ExeStepPick`, invoked with the current `Step` instance to decide whether to execute or skip a step.
+
+TIP: Before writing a custom predicate, check the OOTB `ExeStepPick` predicates bundled with ReṼoman under {gh-blob}/{sourcedir}/com/salesforce/revoman/input/config/StepPick.kt[`ExeStepPick.PickUtils`] e.g. `withName`, `inFolder` etc.
+
+== Compose Modular Executions
+* You don't have to squash all steps into one mega collection. Break them into easy-to-manage modular collections. `ReVoman.revUp()` accepts a list of collection paths through `templatePaths()`.
+* But you don't have to execute all these templates in one go. You can make multiple `ReVoman.revUp()` calls for different collections.
+* If you wish to compose these executions in a specific order, use the `revUp()` overload which accepts a vararg of `Kick` configs.
+** You can also achieve the same by adding the previous execution's `mutableEnv` to the current execution via the `dynamicEnvironment` parameter. This also comes in handy when you execute a common step (e.g. `UserSetup`) inside a Test setup method and use that environment for all the tests.
