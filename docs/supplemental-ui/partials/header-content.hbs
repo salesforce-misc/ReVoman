@@ -4,7 +4,7 @@
       <a class="navbar-item" href="{{or site.url (or siteRootPath '/')}}">{{site.title}}</a>
       {{#if env.SITE_SEARCH_PROVIDER}}
       <div class="navbar-item search hide-for-print">
-        <div id="search-input"></div>
+        <input id="search-input" type="text" placeholder="Search" autocomplete="off">
       </div>
       {{/if}}
       <button class="navbar-burger" aria-controls="topbar-nav" aria-expanded="false" aria-label="Toggle main menu">
