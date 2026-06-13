@@ -24,7 +24,7 @@ ReṼoman reads *executable API metadata* and executes it on the JVM. Today that
 To get an intuition for it, think of how the https://learning.postman.com/docs/collections/running-collections/intro-to-collection-runs/[Postman Collection Runner] walks a collection step by step. ReṼoman performs that same deterministic, step-by-step execution of an API-Graph — but inside a Java/Kotlin program or test, so your manual testing translates into automation without any loss or resistance. And it goes further.
 
 image::postman-run.png[]
-image::manual-to-automation.png[Manual to Automation, align="center"]
+image::orchestration-flow.svg[Executable API metadata flows through the ReṼoman engine into a Rundown of Context Information, align="center"]
 
 == A hybrid tool
 

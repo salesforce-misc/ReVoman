@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 420" font-family="'Helvetica Neue',Arial,sans-serif">
+  <defs>
+    <filter id="sh2" x="-10%" y="-10%" width="120%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#1a1a1a" flood-opacity="0.16"/>
+    </filter>
+    <marker id="arrLow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#2E8746"/>
+    </marker>
+    <marker id="arrHigh" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#C0392B"/>
+    </marker>
+  </defs>
+
+  <text x="500" y="52" text-anchor="middle" font-size="26" font-weight="800" fill="#2b2b2b">Cognitive Complexity &amp; Learning Curve</text>
+
+  <!-- gradient meter -->
+  <rect x="90"  y="250" width="273" height="95" rx="10" fill="#3DAE5A" filter="url(#sh2)"/>
+  <rect x="363" y="250" width="274" height="95" fill="#F2C744"/>
+  <rect x="637" y="250" width="273" height="95" rx="10" fill="#E5544B"/>
+  <text x="226" y="312" text-anchor="middle" font-size="30" font-weight="800" fill="#FFFFFF">LOW</text>
+  <text x="774" y="312" text-anchor="middle" font-size="30" font-weight="800" fill="#FFFFFF">HIGH</text>
+  <text x="500" y="378" text-anchor="middle" font-size="14" font-style="italic" fill="#666">cognitive complexity &#183; learning curve &#183; maintenance tax</text>
+
+  <!-- ReVoman card (low) -->
+  <rect x="90" y="95" width="273" height="105" rx="14" fill="#EFEAFA" stroke="#6B4FBB" stroke-width="2.5" filter="url(#sh2)"/>
+  <text x="226" y="132" text-anchor="middle" font-size="20" font-weight="800" fill="#3A2A66">Re&#x1E7C;oman</text>
+  <text x="226" y="158" text-anchor="middle" font-size="14" fill="#4b3a78">executable API metadata,</text>
+  <text x="226" y="177" text-anchor="middle" font-size="14" fill="#4b3a78">low-code, one source of truth</text>
+  <line x1="226" y1="200" x2="226" y2="246" stroke="#2E8746" stroke-width="3.5" marker-end="url(#arrLow)"/>
+
+  <!-- Custom framework card (high) -->
+  <rect x="637" y="95" width="273" height="105" rx="14" fill="#FBE9E7" stroke="#C0392B" stroke-width="2.5" filter="url(#sh2)"/>
+  <text x="774" y="132" text-anchor="middle" font-size="18" font-weight="800" fill="#7A241C">Custom automation frameworks</text>
+  <text x="774" y="158" text-anchor="middle" font-size="14" fill="#8c3328">alien per-service glue,</text>
+  <text x="774" y="177" text-anchor="middle" font-size="14" fill="#8c3328">rigid to reuse &amp; maintain</text>
+  <line x1="774" y1="200" x2="774" y2="246" stroke="#C0392B" stroke-width="3.5" marker-end="url(#arrHigh)"/>
+</svg>

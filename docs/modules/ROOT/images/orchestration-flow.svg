@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 300" font-family="'Helvetica Neue',Arial,sans-serif">
+  <defs>
+    <linearGradient id="engine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7E5BC2"/>
+      <stop offset="1" stop-color="#4B2E83"/>
+    </linearGradient>
+    <linearGradient id="meta" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#EAF1FE"/>
+      <stop offset="1" stop-color="#D2E2FC"/>
+    </linearGradient>
+    <linearGradient id="ctx" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#E7F6EC"/>
+      <stop offset="1" stop-color="#CDEBD7"/>
+    </linearGradient>
+    <filter id="sh" x="-12%" y="-12%" width="124%" height="135%">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#1a1a1a" flood-opacity="0.18"/>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#3a3a3a"/>
+    </marker>
+  </defs>
+
+  <!-- connectors (gaps widened so labels never overlap the nodes) -->
+  <line x1="270" y1="150" x2="392" y2="150" stroke="#3a3a3a" stroke-width="3" marker-end="url(#arrow)"/>
+  <text x="331" y="138" text-anchor="middle" font-size="13" font-style="italic" fill="#444">executes the graph</text>
+  <line x1="730" y1="150" x2="852" y2="150" stroke="#3a3a3a" stroke-width="3" marker-end="url(#arrow)"/>
+  <text x="791" y="138" text-anchor="middle" font-size="13" font-style="italic" fill="#444">returns</text>
+
+  <!-- node: metadata -->
+  <rect x="30" y="95" width="240" height="110" rx="16" fill="url(#meta)" stroke="#3367D6" stroke-width="2.5" filter="url(#sh)"/>
+  <text x="150" y="138" text-anchor="middle" font-size="18" font-weight="700" fill="#1A2B4A">Executable API Metadata</text>
+  <text x="150" y="166" text-anchor="middle" font-size="15" fill="#395178">(the API-Graph)</text>
+
+  <!-- node: engine -->
+  <rect x="392" y="58" width="338" height="184" rx="18" fill="url(#engine)" stroke="#3A2266" stroke-width="3" filter="url(#sh)"/>
+  <text x="561" y="106" text-anchor="middle" font-size="24" font-weight="800" fill="#FFFFFF">Re&#x1E7C;oman</text>
+  <text x="561" y="136" text-anchor="middle" font-size="18" font-weight="600" fill="#F2ECFF">API Orchestration Engine</text>
+  <text x="561" y="174" text-anchor="middle" font-size="13.5" fill="#E4D8FA">resolves data dependencies, auth,</text>
+  <text x="561" y="194" text-anchor="middle" font-size="13.5" fill="#E4D8FA">polling &amp; type-safe payloads</text>
+  <text x="561" y="214" text-anchor="middle" font-size="13.5" fill="#E4D8FA">deterministically on the JVM</text>
+
+  <!-- node: context information -->
+  <rect x="852" y="95" width="248" height="110" rx="16" fill="url(#ctx)" stroke="#1E7E34" stroke-width="2.5" filter="url(#sh)"/>
+  <text x="976" y="130" text-anchor="middle" font-size="18" font-weight="700" fill="#143620">Rundown</text>
+  <text x="976" y="152" text-anchor="middle" font-size="13" fill="#22512F">= Context Information (toJson)</text>
+  <text x="976" y="176" text-anchor="middle" font-size="13" fill="#2c6b3d">consumed by JVM code</text>
+  <text x="976" y="193" text-anchor="middle" font-size="13" fill="#2c6b3d">or an agentic Node</text>
+</svg>

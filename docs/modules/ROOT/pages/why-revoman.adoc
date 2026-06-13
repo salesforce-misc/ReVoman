@@ -7,7 +7,7 @@
 * This automation competes on cognitive complexity and learning curve with the Prod code, and mostly, automation wins.
 * After a point, the API orchestration/automation may deviate from its purpose of augmenting real end-user interaction and turns into a foot-chain for development.
 
-image::cognitive-complexity.png[align="center"]
+image::cognitive-complexity.svg[ReṼoman keeps cognitive complexity low; custom automation frameworks push it high, align="center"]
 
 == The Solution
 
