@@ -63,31 +63,39 @@ image::docs/modules/ROOT/images/revoman-demo-thumbnail.png[link="https://www.you
 
 Full docs: https://salesforce-misc.github.io/ReVoman
 
-Each topic below links to its published page. Source pages live in `docs/modules/ROOT/pages/` (one concept per file) — handy for an agent or a human reading only this README.
+Each topic links to its published page. The source for every page lives in `docs/modules/ROOT/pages/<page-name>.adoc` (one concept per file) — e.g. the _Hooks_ page below is `docs/modules/ROOT/pages/hooks.adoc`.
 
-[cols="2,2"]
+[%noheader,cols="1,1",frame=none,grid=none]
 |===
-| Topic (published docs) | Source page
+| https://salesforce-misc.github.io/ReVoman/revoman/index.html[Overview / pitch]
+| https://salesforce-misc.github.io/ReVoman/revoman/agentic-orchestration.html[Agentic API Orchestration]
 
-| https://salesforce-misc.github.io/ReVoman/revoman/index.html[Overview / pitch] | `docs/modules/ROOT/pages/index.adoc`
-| https://salesforce-misc.github.io/ReVoman/revoman/agentic-orchestration.html[Agentic API Orchestration] | `docs/modules/ROOT/pages/agentic-orchestration.adoc`
-| https://salesforce-misc.github.io/ReVoman/revoman/why-revoman.html[Why ReṼoman?] | `docs/modules/ROOT/pages/why-revoman.adoc`
-| https://salesforce-misc.github.io/ReVoman/revoman/getting-started.html[Getting started] | `docs/modules/ROOT/pages/getting-started.adoc`
-| https://salesforce-misc.github.io/ReVoman/revoman/configuration.html[Configuration] | `docs/modules/ROOT/pages/configuration.adoc`
-| https://salesforce-misc.github.io/ReVoman/revoman/executable-api-metadata.html[Executable API metadata (v2/v3)] | `docs/modules/ROOT/pages/executable-api-metadata.adoc`
-| https://salesforce-misc.github.io/ReVoman/revoman/rundown.html[Rundown & toJson] | `docs/modules/ROOT/pages/rundown.adoc`
-| https://salesforce-misc.github.io/ReVoman/revoman/step-procedure.html[Step procedure & failures] | `docs/modules/ROOT/pages/step-procedure.adoc`
-| https://salesforce-misc.github.io/ReVoman/revoman/variables.html[Variables] | `docs/modules/ROOT/pages/variables.adoc`
-| https://salesforce-misc.github.io/ReVoman/revoman/type-safety.html[Type safety (Moshi)] | `docs/modules/ROOT/pages/type-safety.adoc`
-| https://salesforce-misc.github.io/ReVoman/revoman/hooks.html[Hooks] | `docs/modules/ROOT/pages/hooks.adoc`
-| https://salesforce-misc.github.io/ReVoman/revoman/scripts-and-pm-apis.html[Scripts & pm APIs] | `docs/modules/ROOT/pages/scripts-and-pm-apis.adoc`
-| https://salesforce-misc.github.io/ReVoman/revoman/polling.html[Polling] | `docs/modules/ROOT/pages/polling.adoc`
-| https://salesforce-misc.github.io/ReVoman/revoman/timing-metrics.html[Timing metrics] | `docs/modules/ROOT/pages/timing-metrics.adoc`
-| https://salesforce-misc.github.io/ReVoman/revoman/mutable-environment.html[Mutable environment] | `docs/modules/ROOT/pages/mutable-environment.adoc`
-| https://salesforce-misc.github.io/ReVoman/revoman/execution-control.html[Execution control] | `docs/modules/ROOT/pages/execution-control.adoc`
-| https://salesforce-misc.github.io/ReVoman/revoman/applications.html[Applications (testing, etc.)] | `docs/modules/ROOT/pages/applications.adoc`
-| https://salesforce-misc.github.io/ReVoman/revoman/troubleshooting.html[Troubleshooting & FAQ] | `docs/modules/ROOT/pages/troubleshooting.adoc`
-| https://salesforce-misc.github.io/ReVoman/revoman/contributing.html[Contributing] | `docs/modules/ROOT/pages/contributing.adoc`
+| https://salesforce-misc.github.io/ReVoman/revoman/why-revoman.html[Why ReṼoman?]
+| https://salesforce-misc.github.io/ReVoman/revoman/getting-started.html[Getting started]
+
+| https://salesforce-misc.github.io/ReVoman/revoman/configuration.html[Configuration]
+| https://salesforce-misc.github.io/ReVoman/revoman/executable-api-metadata.html[Executable API metadata (v2/v3)]
+
+| https://salesforce-misc.github.io/ReVoman/revoman/rundown.html[Rundown & toJson]
+| https://salesforce-misc.github.io/ReVoman/revoman/step-procedure.html[Step procedure & failures]
+
+| https://salesforce-misc.github.io/ReVoman/revoman/variables.html[Variables]
+| https://salesforce-misc.github.io/ReVoman/revoman/type-safety.html[Type safety (Moshi)]
+
+| https://salesforce-misc.github.io/ReVoman/revoman/hooks.html[Hooks]
+| https://salesforce-misc.github.io/ReVoman/revoman/scripts-and-pm-apis.html[Scripts & pm APIs]
+
+| https://salesforce-misc.github.io/ReVoman/revoman/polling.html[Polling]
+| https://salesforce-misc.github.io/ReVoman/revoman/timing-metrics.html[Timing metrics]
+
+| https://salesforce-misc.github.io/ReVoman/revoman/mutable-environment.html[Mutable environment]
+| https://salesforce-misc.github.io/ReVoman/revoman/execution-control.html[Execution control]
+
+| https://salesforce-misc.github.io/ReVoman/revoman/applications.html[Applications (testing, etc.)]
+| https://salesforce-misc.github.io/ReVoman/revoman/troubleshooting.html[Troubleshooting & FAQ]
+
+| https://salesforce-misc.github.io/ReVoman/revoman/contributing.html[Contributing]
+|
 |===
 
 == 🙌🏼 Consume-Collaborate-Contribute
