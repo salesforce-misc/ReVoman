@@ -1,0 +1,46 @@
+= Agentic API Orchestration
+
+ReṼoman is an *API Orchestration Engine*: you hand it a workflow of interdependent API calls as *executable API metadata* — an API-Graph — and it *executes that graph*. That precise verb is what keeps the headline honest: the engine runs a given graph; it does not decide which graph to run.
+
+== The loop
+
+The building block ReṼoman provides for agentic systems is a deterministic execution step that takes *executable API metadata* in and produces *Context Information* out:
+
+image::the-loop.svg[Executable API metadata enters the ReṼoman engine, which executes the graph and returns a Rundown of Context Information consumed by an agentic-workflow Node, align="center"]
+
+. *executable API metadata (API-Graph)* — the workflow of interdependent calls, with the order and the data dependencies between them.
+. *ReṼoman executes the graph* — deterministically, on the JVM: resolving data dependencies between calls, handling auth, polling for async outcomes, and marshalling type-safe payloads.
+. *Rundown / `toJson(VERBOSITY)`* — a structured record of everything that happened. This is the patent's *Context Information*.
+. An *agentic-workflow Node* consumes that Context Information to decide what comes next.
+
+== This ships today, not aspiration
+
+The output an agentic Node consumes is the *real shipped* `Rundown`. Calling `Rundown.toJson(Verbosity.VERBOSE)` emits `stepReports` / `mutableEnv` / `stats` — the exact shape a Node reads:
+
+* `stepReports` — per-step request/response, marshalled payloads, and outcome.
+* `mutableEnv` — the environment as mutated across the run, carrying values resolved between steps.
+* `stats` — execution statistics and timing.
+
+This is a proof point that exists in the engine today, not a promise. See xref:rundown.adoc[] for the full shape.
+
+== A light analogy
+
+Picture a restaurant kitchen. The API-Graph is the pre-planned menu set — the dishes and the order they go out in. ReṼoman is the kitchen manager that orchestrates the line cooks to actually produce those dishes, then hands the head chef a tidy summary of what was served and how it went. The manager executes the menu it was given; it does not invent the menu.
+
+== Execution vs. orchestration: staying precise
+
+The patent draws a clean line:
+
+* *Orchestration* (the agentic layer) chooses and couples API-Graphs to workflow Nodes — deciding _which_ graph runs and _how_ its output feeds the next decision.
+* *Execution* (ReṼoman) runs a _given_ API-Graph and returns Context Information.
+
+ReṼoman is strictly the *execution engine*. "API Orchestration Engine" is the product headline, and it is held precise by the verb "executes the graph" — the engine is the deterministic execution layer beneath an agentic orchestration system, not the agentic layer itself.
+
+== Roadmap
+
+The following are *direction* — where this is heading — and are *not shipped* today. Do not read them as present-tense capabilities:
+
+* *MCP tool-definition autogen* — generating MCP tool definitions from OAS plus API-Graph metadata, so an agent can discover and call a graph as a tool.
+* *Dynamic coupling of agentic workflows to API-Graphs* — letting an agentic layer bind workflow Nodes to API-Graphs at runtime.
+
+Today, ReṼoman delivers the deterministic execution half of that picture: feed it an API-Graph, get back Context Information.

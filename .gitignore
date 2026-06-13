@@ -285,3 +285,10 @@ fabric.properties
 .vscode/
 .kotlin
 .claude/settings.local.json
+
+# Antora docs site build output
+build/site/
+.cache/antora/
+# npm manifest from local Antora/Lunr install (CI installs deps itself; not committed)
+package.json
+package-lock.json

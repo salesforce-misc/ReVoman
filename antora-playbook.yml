@@ -1,0 +1,19 @@
+antora:
+  extensions:
+  - require: '@antora/lunr-extension'
+site:
+  title: ReṼoman
+  url: https://salesforce-misc.github.io/ReVoman
+  start_page: revoman::index.adoc
+content:
+  sources:
+  - url: .
+    branches: HEAD
+    start_path: docs
+ui:
+  bundle:
+    url: https://gitlab.com/antora/antora-ui-default/-/jobs/artifacts/HEAD/raw/build/ui-bundle.zip?job=bundle-stable
+    snapshot: true
+  supplemental_files: ./docs/supplemental-ui
+output:
+  dir: ./build/site

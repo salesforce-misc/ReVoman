@@ -1,0 +1,51 @@
+= Applications
+
+ReṼoman is an xref:index.adoc[API Orchestration Engine]. Executing a graph of API metadata and returning a structured xref:rundown.adoc[Rundown] enables several applications:
+
+== Agentic API Orchestration
+
+(HEADLINE application.) Today: ReṼoman executes the API-Graph deterministically on the JVM and returns the xref:agentic-orchestration.adoc[Context Information] (`Rundown`/`toJson`) an agentic-workflow Node consumes. See xref:agentic-orchestration.adoc[Agentic API Orchestration] for the full loop.
+
+NOTE: Roadmap (not shipped): MCP tool-definition autogen from OAS + API-Graph metadata, and dynamic coupling of agentic workflows to API-Graphs. These are direction, not present-tense capabilities.
+
+== API Test Automation
+
+(One powerful application of the engine.) Driving an API-Graph deterministically and asserting on the returned xref:rundown.adoc[Rundown] makes ReṼoman a capable API test-automation tool. Everything below is an application of the engine — not the tool's identity.
+
+=== Low-code
+
+TIP: Here is a low-code {gh-blob}/{integrationtestdir}/com/salesforce/revoman/integration/core/pq/PQE2EWithSMTest.java[E2E test] that automates *~75 steps*.
+
+Compared to a traditional Integration/Functional or E2E test, approximately *89%* less code is needed using ReṼoman. The test isn't just low-code but also low in Cognitive Complexity and transparent in what it does.
+
+=== Low Learning Curve
+
+The learning curve is way-way-low compared to other automation frameworks (Cucumber, RestAssured, etc.), as there's no proprietary syntax or template format required. Familiarity with the API metadata format gets you a long way. Playing with the existing {gh-blob}/{integrationtestdir}[Integration Tests] and writing a couple of hands-on tests gets you started quickly.
+
+=== Low setup and maintenance 'Tax'
+
+Unlike tools like Cucumber which demand high setup/maintenance 'Tax' with lots of glue code, this has no strict requirements wiring your API metadata with code. They're loosely coupled — the relative path to the collection in the config is the only link — so you organize collections and code independently.
+
+=== CI/CD integrability
+
+ReṼoman is like any JVM library you plug into any JVM program/test (JUnit, integration tests). Apart from adding a build dependency, there's *no extra setup* to run these tests in CI/CD.
+
+=== Up-to-date collections that live with code in VCS
+
+A nice side effect: the collections stay up to date and the entire collection guards each *check-in* as a test suite augmenting manual testing. You can find an up-to-date collection for every feature in VCS (Git) with your code. Developers can import these directly from VCS into Postman for manual testing — handy during a team blitz/bug-bash. The low-code test acts like a live Runbook, stitching scattered collections to explain a scenario to anyone doing exploratory testing.
+
+=== Unified framework for Automating Persona-based Manual testing
+
+Brings a *Unified & Simplified Test strategy* across the mul-**T**-verse (Integration Tests, E2E Tests, Manual testing) for any API. Stays as close as possible to Persona-based Manual testing → Transparency and better Traceability. Forces engineers to think like *API-first customers*. *Test Data setup*: use ReṼoman for test-data setup too, eliminating per-team internal data-setup utilities. *E2E Test* can reside outside the Service repo as long as it can hit the service API.
+
+== Orchestrated Workflows & Test-Data Setup
+
+Beyond testing, the engine drives any sequence of interdependent API calls: standing up test data, seeding an environment, or running an operational workflow. Because each xref:hooks.adoc#plug-in-custom-jvm-code[step can interleave custom JVM code] and pass values forward through the xref:mutable-environment.adoc[mutable environment], ReṼoman can orchestrate setup that would otherwise need bespoke per-team utilities.
+
+== Performance
+
+This entire execution of *~75 steps*, including *10 async steps*, took a mere *122 sec* on localhost. This can be much better in auto-build environments.
+
+image::pq-revoman-test-time.png[Localhost Test time on FTest console for ~75 steps]
+
+WARNING: ReṼoman internally is very light-weight; execution times are proportional to how your server responds or your network speed.

@@ -1,0 +1,56 @@
+= Get Started
+
+Wire ReṼoman into your JVM project, then run your first API-Graph against a live public API.
+
+== Artifact
+
+[.lead]
+Maven
+[source,xml,subs=attributes+,tabsize=2]
+----
+<dependency>
+    <groupId>com.salesforce.revoman</groupId>
+    <artifactId>revoman</artifactId>
+    <version>{revoman-version}</version>
+</dependency>
+----
+
+[.lead]
+Bazel
+[source,bzl,subs=attributes+]
+----
+"com.salesforce.revoman:revoman"
+----
+
+[.lead]
+Gradle Kts
+[source,kts,subs=attributes+]
+----
+implementation("com.salesforce.revoman:revoman:{revoman-version}")
+----
+
+[.lead]
+Minimum Java Version required = 21
+
+.Tech-Talk given at https://www.opensourceindia.in/osi-speakers-2023/gopala-sarma-akshintala/[Open Source Conf—2023], https://speakerdeck.com/gopalakshintala/revoman-a-template-driven-api-automation-tool-for-jvm[🎴Slide deck]
+image::revoman-demo-thumbnail.png[link="https://www.youtube.com/watch?v=YxeRddSFkxc&list=PLrJbJ9wDl9EC0bG6y9fyDylcfmB_lT_Or&index=2", align="center"]
+
+== A Simple Example
+
+Here is a simple exported Postman collection and Environment JSON file, to hit a free public https://restful-api.dev/[RESTFUL-API]. You can import this metadata and manually test it through the `Run collection` button:
+
+image::resfulapi-dev-pm.png[]
+
+You can automate the same with ReṼoman by supplying the metadata and environment paths. The example below demonstrates the engine executing API metadata (serialized in the Postman V2 schema) directly on the JVM — the very metadata you would author for manual trials becomes an automated run:
+
+[source,java,indent=0,tabsize=2,options="nowrap"]
+----
+include::example$it/com/salesforce/revoman/integration/restfulapidev/RestfulAPIDevTest.java[tag=revoman-simple-demo]
+----
+<1> `revUp` is the method to call passing a configuration, built as below
+<2> Supply an exported Postman collection JSON file path
+<3> Supply an exported Postman environment JSON file path
+<4> Assert that the execution doesn't have any failures
+<5> Run more assertions on the xref:rundown.adoc[Rundown]
+
+Next, see xref:configuration.adoc[] for how you build that configuration through `Kick.configure()`, and xref:rundown.adoc[] for the structured result the engine hands back.

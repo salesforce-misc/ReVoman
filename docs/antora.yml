@@ -1,0 +1,16 @@
+name: revoman
+version: ~
+title: ReṼoman
+nav:
+- modules/ROOT/nav.adoc
+asciidoc:
+  attributes:
+    revoman-version: 0.9.14@
+    hide-uri-scheme: '@'
+    table-caption: false
+    experimental: ''
+    gh-blob: https://github.com/salesforce-misc/ReVoman/blob/master
+    sourcedir: src/main/kotlin
+    testdir: src/test/java
+    integrationtestdir: src/integrationTest/java
+    pmtemplates: src/integrationTest/resources/pm-templates

@@ -1,0 +1,42 @@
+= Step Procedure
+
+[#ide-debugger-view]
+== IDE debugger view
+
+This tool has a particular emphasis on the Debugging experience. Here is what a debugger view of a xref:rundown.adoc[Rundown] looks like:
+
+image:rundown.png[Rundown of all steps]
+
+🔍 Let's zoom into a detailed view of one of these Step reports, which contains complete Request and Response info along with failure information if any:
+
+image:step-report.png[Step Report]
+
+Here are the environment *key-value* pairs accumulated along the entire execution and appended to the environment from the file and `dynamicEnvironment` supplied:
+
+image:mutable-env.png[Mutable environment after the execution completion]
+
+[#step-procedure]
+== The Step Lifecycle
+
+A Step waterfalls through all these stages and if there is any exception at any stage, the step procedure fails-fast, and ReṼoman captures the `Failure` in the respective StepReport:
+
+image:step-procedure.png[Step Procedure]
+
+[NOTE]
+====
+* `HttpRequestFailure` happens if there is an exception while making the request. It is different from HTTP Error response.
+* HTTP Success or Error response is determined by default with HTTP Status Code (SUCCESSFUL: `200 <= statusCode <= 299`).
+* HTTP Error response does *NOT* halt the execution of steps by default.
+* You can configure this behavior using xref:execution-control.adoc[Execution Control]
+* If xref:polling.adoc[Polling] is configured for a step, it is executed after Post-Step Hooks. A `PollingFailure` is captured in the `StepReport` if polling fails.
+====
+
+== Failure Hierarchy
+
+Here is the failure hierarchy of what can go wrong in this process
+
+image::failure-hierarchy.png[Failure Hierarchy]
+
+These failures are assertion friendly and provide clear messages with necessary stacktraces to help you troubleshoot.
+
+TIP: Each sub-step of the step procedure is timed; see xref:timing-metrics.adoc[Execution Timing Metrics].
