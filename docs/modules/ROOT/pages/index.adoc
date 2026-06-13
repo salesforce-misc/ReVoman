@@ -1,0 +1,11 @@
+= ReṼoman
+
+ReṼoman is an API Orchestration Engine for the JVM. (placeholder — real pitch comes in the content plan.)
+
+Current version: {revoman-version}
+
+[source,java]
+----
+var x = 1; // <1>
+----
+<1> A callout, proving callout rendering works.
