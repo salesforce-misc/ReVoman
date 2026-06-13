@@ -1,0 +1,19 @@
+= Troubleshooting & FAQ
+
+== Logging
+ReṼoman logs all key operations inside its source code, including how a step mutates environment variables in its xref:scripts-and-pm-apis.adoc[Pre-req and Post-res scripts]. Watch your console to see what's going on, or troubleshoot from CI/CD logs.
+
+TIP: If execution halts due to a failure, the failure and failed-step information can be found in the logs for easy troubleshooting.
+
+== FAQs
+
+=== How to Debug a step in the middle of an Execution?
+* Add a xref:hooks.adoc#dynamic-pre-step-and-post-step-hooks[pre-hook] to the Step you're interested in and add a debug point inside it. This gets hit before ReṼoman fires the request in that Step.
+* You can get more adventurous by attaching revoman jar sources and adding conditional debug points directly inside the library source. Search for logs in the source that indicate key operations to place conditional debug points (conditions like StepName).
+
+=== Is there a way to add Metadata to a Postman collection Step?
+* Add key-value pairs to a Step's HTTP Headers section (e.g., `ignoreHTTPStatusUnsuccessful=true`).
+* Use this in xref:hooks.adoc#step-picks[Step Picks] or xref:hooks.adoc#dynamic-pre-step-and-post-step-hooks[hooks] to identify a particular step to execute conditional logic.
+
+=== Do I need to migrate all my existing TestUtils to Postman Collections?
+You don't have to. This is a JVM-first tool, and you can interlace your TestUtils through xref:hooks.adoc#plug-in-custom-jvm-code[Pre-Step/Post-Step Hooks].

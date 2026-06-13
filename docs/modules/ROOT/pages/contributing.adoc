@@ -1,0 +1,7 @@
+= Contributing
+
+🙌🏼 *Consume-Collaborate-Contribute*
+
+* The {gh-blob}/CONTRIBUTING.adoc[CONTRIBUTING] doc has all the information to set up this library locally and get hands-on.
+* Any issues or PRs are welcome! ♥️
+* Join the https://sfdc.co/revoman-slack[Slack Community] to discuss issues or PRs related to Consumption-Collaboration-Contribution.
