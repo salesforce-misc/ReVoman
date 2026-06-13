@@ -1,3 +1,6 @@
+antora:
+  extensions:
+  - require: '@antora/lunr-extension'
 site:
   title: ReṼoman
   start_page: revoman::index.adoc
