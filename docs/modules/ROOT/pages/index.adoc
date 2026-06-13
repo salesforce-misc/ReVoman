@@ -4,8 +4,9 @@ ReṼoman is an API Orchestration Engine for the JVM. (placeholder — real pitc
 
 Current version: {revoman-version}
 
-[source,java]
+.Live include from a passing integration test
+[source,java,indent=0,tabsize=2,options="nowrap"]
 ----
-var x = 1; // <1>
+include::example$it/com/salesforce/revoman/integration/restfulapidev/RestfulAPIDevTest.java[tag=revoman-simple-demo]
 ----
-<1> A callout, proving callout rendering works.
+<1> `revUp` is the method to call passing a configuration.
