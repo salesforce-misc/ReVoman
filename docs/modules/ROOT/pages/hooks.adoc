@@ -1,0 +1,72 @@
+= Hooks
+
+== Advanced Example
+
+ReṼoman isn't limited to firing a collection — you can add more _bells and whistles_ 🔔. This end-to-end example wires hooks, type-safe request/response config, dynamic variables, and execution control together:
+
+[source,java,indent=0,tabsize=2,options="nowrap"]
+----
+include::example$it/com/salesforce/revoman/integration/core/pq/PQE2EWithSMTest.java[tag=pq-e2e-with-revoman-config-demo]
+----
+<1> `revUp()` is the method to call passing a configuration, built as below
+<2> Supply the path (absolute or relative to resources) to the Template Collection JSON file/files
+<3> Supply the path (absolute or relative to resources) to the Environment JSON file/files
+<4> Supply any dynamic environment that is runtime-specific
+<5> xref:variables.adoc#custom-dynamic-variables[Custom Dynamic variables]
+<6> Node modules path (absolute or relative to project directory) to be used inside xref:scripts-and-pm-apis.adoc[Pre-req and Post-res scripts]
+<7> xref:execution-control.adoc[Execution Control]
+<8> xref:type-safety.adoc[Request Config]
+<9> xref:type-safety.adoc[Response Config]
+<10> xref:hooks.adoc#dynamic-pre-step-and-post-step-hooks[Dynamic Pre/Post-Step Hooks]
+<11> xref:hooks.adoc#response-validations[Response Validations]
+<12> xref:type-safety.adoc[Global Custom Type Adapters]
+<13> Ignore Java cert issues when firing HTTP calls. To be used only for local testing, like hitting localhost
+<14> Run more assertions on the xref:rundown.adoc[Rundown]
+
+[#dynamic-pre-step-and-post-step-hooks]
+== Dynamic Pre-Step and Post-Step Hooks
+
+A hook lets you fiddle with the execution by plugging in your custom JVM code before or after a Step execution.
+
+[#step-picks]
+You can pass a `PreTxnStepPick`/`PostTxnStepPick` which is a `Predicate` used to qualify a step for Pre-Step/Post-Step Hook respectively. The `Predicate` enables *Dynamic* hooks, which can fire for multiple qualified steps.
+
+ReṼoman comes bundled with some predicates under {gh-blob}/{sourcedir}/com/salesforce/revoman/input/config/StepPick.kt[`PreTxnStepPick.PickUtils`/`PostTxnStepPick.PickUtils`] e.g. `beforeStepContainingURIPathOfAny()`, `afterStepName()` etc. If those don't fit, write your own:
+
+[source,java,indent=0,tabsize=2,options="nowrap"]
+----
+final var preTxnStepPick = (currentStep, requestInfo, rundown) -> LOGGER.info("Picked `preLogHook` before stepName: {}", currentStep)
+final var postTxnStepPick = (stepReport, rundown) -> LOGGER.info("Picked `postLogHook` after stepName: {}", stepReport.step.displayName)
+----
+
+Add them to the config:
+[source,java,indent=0,tabsize=2,options="nowrap"]
+----
+.hooks(
+    pre(
+            preTxnStepPick,
+            (currentStepName, requestInfo, rundown) -> {
+                //...code...
+            }),
+    post(
+            postTxnStepPick,
+            (currentStepName, rundown) -> {
+                //...code...
+            })
+)
+----
+
+* You can assert on the rundown, do xref:hooks.adoc#response-validations[Response Validations], or even xref:mutable-environment.adoc[mutate the environment] with a programmatically derived value, so later steps pick up those changes.
+* Reserve hooks for plugging in custom code or asserting to fail-fast mid-execution. If your assertions can wait till the final rundown, it's cleaner to write them after `revUp()` returns the rundown.
+
+[#plug-in-custom-jvm-code]
+=== Plug-in your Custom JVM code in-between executions
+You can plug in custom JVM code to create/generate values for environment variables, populated and picked up by subsequent steps. For example, you may want some `xyzId` but you don't have a collection step to create it — you have a Java utility instead. Invoke it in a pre-hook and set the value in `rundown.mutableEnv`, so later steps pick up `+{{xyzId}}+` from the environment.
+
+IMPORTANT: When a Step qualifies for more than one hook, hooks execute in the same sequence they are configured (via `hooks()` or `overrideHooks()`). Both accept an `iterable` — pass an Ordered Iterable (like `ArrayList`) if order matters.
+
+[#response-validations]
+=== Response Validations
+* Post-Hooks are the best place to validate response right after the step.
+* If you configured a strong type via `responseConfig`, write type-safe validations by extracting your type with `stepReport.responseInfo.get().<TypeT>getTypedTxnObj()` (if `responseConfig()`/`globalCustomTypeAdapters()` configured) or `JsonPojoUtils.jsonToPojo(TypeT, stepReport.responseInfo.get().httpMsg.bodyString())` inline.
+* If your response is non-trivial and needs strategies like `fail-fast` or `error-accumulation`, consider a library like Vador (https://github.com/salesforce-misc/Vador).
