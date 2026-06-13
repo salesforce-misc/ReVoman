@@ -19,9 +19,10 @@ include::example$it/com/salesforce/revoman/integration/core/pq/PQE2EWithSMTest.j
 <9> xref:type-safety.adoc[Response Config]
 <10> xref:hooks.adoc#dynamic-pre-step-and-post-step-hooks[Dynamic Pre/Post-Step Hooks]
 <11> xref:hooks.adoc#response-validations[Response Validations]
-<12> xref:type-safety.adoc[Global Custom Type Adapters]
-<13> Ignore Java cert issues when firing HTTP calls. To be used only for local testing, like hitting localhost
-<14> Run more assertions on the xref:rundown.adoc[Rundown]
+<12> xref:polling.adoc[Polling] config for async steps
+<13> xref:type-safety.adoc[Global Custom Type Adapters]
+<14> Ignore Java cert issues when firing HTTP calls. To be used only for local testing, like hitting localhost
+<15> Run more assertions on the xref:rundown.adoc[Rundown]
 
 [#dynamic-pre-step-and-post-step-hooks]
 == Dynamic Pre-Step and Post-Step Hooks

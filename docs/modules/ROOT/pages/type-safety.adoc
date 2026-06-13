@@ -23,7 +23,7 @@ where you can filter out these legacy types from Marshalling/Unmarshalling.
 == `requestConfig()`
 
 * Configure Moshi adapters to unmarshall/deserialize _Request_ JSON payload to a POJO on certain steps.
-* You may use the bundled static factory methods named `RequestConfig.unmarshallResponse()` for expressiveness.
+* You may use the bundled static factory methods named `RequestConfig.unmarshallRequest()` for expressiveness.
 * You can pass a `PreTxnStepPick` which is a `Predicate` used
 to qualify a step whose Request JSON payload needs to be unmarshalled/deserialized.
 * If you have set up `requestConfig()` once in the config, wherever you wish to read or assert the request, you can call `stepReport.requestInfo.get().<TypeT>getTypedTxnObj()` which returns your request JSON as a Strong type.
