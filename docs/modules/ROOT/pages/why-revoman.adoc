@@ -1,0 +1,39 @@
+= Why ReṼoman?
+
+== The Problem
+
+* The majority of JVM SaaS applications are REST-based. But the API automation is done through a Mul-*T*-verse of Integration/Functional tests, E2E tests and Manual tests, each with its own frameworks, tools, and internal utilities, testing almost the same code flow.
+* These custom alien automation frameworks, often built using low-level tools like https://rest-assured.io/[REST Assured], are specific to a service or domain and are rigid to reuse, extend, and difficult to maintain.
+* This automation competes on cognitive complexity and learning curve with the Prod code, and mostly, automation wins.
+* After a point, the API orchestration/automation may deviate from its purpose of augmenting real end-user interaction and turns into a foot-chain for development.
+
+image::cognitive-complexity.png[align="center"]
+
+== The Solution
+
+Contrary to these custom frameworks, almost every team already uses https://www.postman.com/product/what-is-postman[Postman] for manual testing their APIs. A Postman collection captures a lot about your APIs and the order in which they run for manual testing — it is, in effect, *executable API metadata* in a structured schema. Leveraging that metadata directly mitigates writing a lot of code, because the manual steps _are_ the workflow you want to automate.
+
+____
+
+* How _productive_ would it be if you could plug in the executable API metadata you already authored for manual testing and execute it through your JVM tests?
+* How about an API Orchestration Engine that promotes low code and low cognitive complexity, and strikes a balance between flexibility and ease of use?
+
+____
+
+ReṼoman is that engine. It reads the executable API metadata you already have — today serialized in the Postman V2/V3 schema — and executes the graph on the JVM. See xref:executable-api-metadata.adoc[] for the data format, xref:type-safety.adoc[] for how it bridges JVM types and JSON, and xref:hooks.adoc[] for plugging custom JVM code into the run.
+
+== A runner is not an orchestration engine
+
+You might reach for https://learning.postman.com/docs/collections/using-newman-cli/command-line-integration-with-newman[Newman] or the https://learning.postman.com/docs/postman-cli/postman-cli-overview/[Postman CLI] to run a collection from the command line. They overlap with ReṼoman only at the narrow point of "execute a collection" — the _similarities end there_. A runner cannot be an orchestration engine inside your JVM or agentic stack:
+
+* *Built for Node, not the JVM.* Newman and the Postman CLI run on Node and cannot execute within a JVM. Even with a hacky shell-out, there is no easy way to measure code coverage or assert results on your JVM stack.
+* *JVM-native.* Built for the JVM, ReṼoman fits naturally within your current JVM stack — coverage, assertions, and all.
+* *Type safety.* Its xref:type-safety.adoc[] bridges the gap between strongly-typed JVM code and flexible JSON, so payloads come back as POJOs you can assert on directly.
+* *Richer execution model.* It has more features, like dynamic xref:hooks.adoc[pre/post-step hooks] that let you plug custom JVM code in between execution steps. The xref:rundown.adoc[Rundown] is far richer in execution information than the newman/postman-cli reports — and that Rundown is the structured Context Information described in xref:agentic-orchestration.adoc[].
+
+In short, a runner emits a pass/fail report; an orchestration engine executes an API-Graph, resolves the dependencies between steps, and returns structured Context Information your JVM code — or an agentic Node — can build on. See xref:applications.adoc[] for what that unlocks.
+
+[NOTE]
+====
+*Roadmap, not present-tense.* ReṼoman is not meant to stay tied to a single input schema. The direction is to support more authoring formats — JetBrains HTTP Client, Bruno, and others — for added versatility. This is *future direction*, not a capability that ships today; today the engine reads executable API metadata in the Postman V2/V3 schema.
+====
