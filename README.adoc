@@ -23,7 +23,7 @@ NOTE: NO licensed Postman SDKs are used inside this project. This is written gro
 
 [TIP]
 ====
-*📖 Full documentation: https://salesforce-misc.github.io/ReVoman*
+*📖 Full documentation: https://sfdc.co/revoman-docs*
 
 The sections below are a quick start. Every feature has a focused page on the site.
 ====
@@ -61,7 +61,7 @@ image::docs/modules/ROOT/images/revoman-demo-thumbnail.png[link="https://www.you
 
 == Documentation
 
-Full docs: https://salesforce-misc.github.io/ReVoman
+Full docs: https://sfdc.co/revoman-docs
 
 Each topic links to its published page. The source for every page lives in `docs/modules/ROOT/pages/<page-name>.adoc` (one concept per file) — e.g. the _Hooks_ page below is `docs/modules/ROOT/pages/hooks.adoc`.
 

@@ -1,4 +1,4 @@
-= ReṼoman
+= ReṼoman 🦹🏻‍♀️
 
 ReṼoman is an *API Orchestration Engine* for the JVM. You describe a workflow of interdependent API calls as *executable API metadata*; ReṼoman executes that graph — resolving data dependencies between calls, handling auth, polling, and type-safe payloads — and returns a structured *Rundown* of everything that happened. This makes it a building block for *Agentic API Orchestration*, with API test automation as one powerful application.
 
