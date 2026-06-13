@@ -16,7 +16,7 @@ Here are the environment *key-value* pairs accumulated along the entire executio
 image:mutable-env.png[Mutable environment after the execution completion]
 
 [#step-procedure]
-== Step Procedure
+== The Step Lifecycle
 
 A Step waterfalls through all these stages and if there is any exception at any stage, the step procedure fails-fast, and ReṼoman captures the `Failure` in the respective StepReport:
 

@@ -33,14 +33,15 @@ StepReport(
 
 `Rundown` can be serialized to structured JSON using `toJson()`, with a `Verbosity` parameter to control detail. This output is the xref:agentic-orchestration.adoc[Context Information] an agentic Node consumes, and is also useful for logging and diagnostics.
 
-[source,java,indent=0,tabsize=2,options="nowrap"]
+[source,kotlin,indent=0,tabsize=2,options="nowrap"]
 ----
-// Kotlin
 val json = rundown.toJson()                    // STANDARD (default)
 val json = rundown.toJson(Verbosity.SUMMARY)   // Quick health check
 val json = rundown.toJson(Verbosity.VERBOSE)   // Full debugging detail
+----
 
-// Java
+[source,java,indent=0,tabsize=2,options="nowrap"]
+----
 String json = RundownJsonWriter.toJson(rundown);
 String json = RundownJsonWriter.toJson(rundown, Verbosity.VERBOSE);
 ----
