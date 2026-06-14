@@ -11,3 +11,52 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
     <link rel="stylesheet" href="{{{uiRootPath}}}/css/revoman-theme.css">
+    {{!--
+      Theme toggle behaviour. Runs inline in <head> so the active theme is set
+      on <html> BEFORE first paint — no flash of the wrong theme (FOUC).
+
+      Resolution order:
+        1. explicit choice saved in localStorage ("light" | "dark")
+        2. otherwise the OS preference (prefers-color-scheme) — kept live, so a
+           user who never toggled tracks their OS until they do.
+      The toggle button (#rv-theme-toggle, markup in header-content) is wired on
+      DOMContentLoaded; clicking it saves an explicit choice and stops the OS
+      from overriding it.
+    --}}
+    <script>
+      (function () {
+        var KEY = "rv-theme";
+        var root = document.documentElement;
+        var mql = window.matchMedia("(prefers-color-scheme: dark)");
+
+        function stored() {
+          try { return localStorage.getItem(KEY); } catch (e) { return null; }
+        }
+        function resolved() {
+          var s = stored();
+          return s === "light" || s === "dark" ? s : (mql.matches ? "dark" : "light");
+        }
+        function apply(theme) {
+          root.setAttribute("data-theme", theme);
+        }
+
+        // 1. Pre-paint: apply immediately (no FOUC).
+        apply(resolved());
+
+        // 2. Follow the OS while the user hasn't made an explicit choice.
+        mql.addEventListener("change", function () {
+          if (!stored()) apply(mql.matches ? "dark" : "light");
+        });
+
+        // 3. Wire the button once the DOM is ready.
+        document.addEventListener("DOMContentLoaded", function () {
+          var btn = document.getElementById("rv-theme-toggle");
+          if (!btn) return;
+          btn.addEventListener("click", function () {
+            var next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+            try { localStorage.setItem(KEY, next); } catch (e) {}
+            apply(next);
+          });
+        });
+      })();
+    </script>

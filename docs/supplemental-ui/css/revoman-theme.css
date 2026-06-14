@@ -74,37 +74,43 @@
 
 /* ----------------------------------------------------------------------------
    3. Design tokens — dark theme (same names, remapped values)
+
+   Applied when <html data-theme="dark">. The theme-init script in
+   partials/head-meta.hbs resolves the active theme before first paint:
+   it reads the saved choice from localStorage, and when none is saved it
+   falls back to the OS `prefers-color-scheme`. So the OS preference is still
+   the default — the manual toggle just overrides it. Driving the switch off a
+   single attribute (not a media query) lets one CSS block serve both the
+   auto and the explicitly-chosen dark states.
    ------------------------------------------------------------------------- */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --rv-accent: #fb7c4c;
-    --rv-accent-hover: #fd9670;
-    --rv-accent-soft: rgba(251, 124, 76, 0.12);
+:root[data-theme="dark"] {
+  --rv-accent: #fb7c4c;
+  --rv-accent-hover: #fd9670;
+  --rv-accent-soft: rgba(251, 124, 76, 0.12);
 
-    --rv-bg: #17140f;
-    --rv-bg-subtle: #1e1a15;
-    --rv-bg-code: #1c1813;
-    --rv-nav-bg: #161310;
-    --rv-border: #2c2720;
-    --rv-border-strong: #3a342b;
+  --rv-bg: #17140f;
+  --rv-bg-subtle: #1e1a15;
+  --rv-bg-code: #1c1813;
+  --rv-nav-bg: #161310;
+  --rv-border: #2c2720;
+  --rv-border-strong: #3a342b;
 
-    --rv-text: #ece8e1;
-    --rv-text-muted: #aaa298;
-    --rv-text-faint: #7d766b;
-    --rv-heading: #f7f4ee;
+  --rv-text: #ece8e1;
+  --rv-text-muted: #aaa298;
+  --rv-text-faint: #7d766b;
+  --rv-heading: #f7f4ee;
 
-    --rv-navbar-bg: #110f0c;
-    --rv-navbar-text: #f2efe8;
+  --rv-navbar-bg: #110f0c;
+  --rv-navbar-text: #f2efe8;
 
-    --rv-note: #60a5fa;
-    --rv-tip: #4ade80;
-    --rv-important: #fb7185;
-    --rv-warning: #fbbf24;
-    --rv-caution: #fb923c;
+  --rv-note: #60a5fa;
+  --rv-tip: #4ade80;
+  --rv-important: #fb7185;
+  --rv-warning: #fbbf24;
+  --rv-caution: #fb923c;
 
-    --rv-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 18px rgba(0, 0, 0, 0.45);
-    --rv-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-  }
+  --rv-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 18px rgba(0, 0, 0, 0.45);
+  --rv-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
 /* ----------------------------------------------------------------------------
@@ -125,6 +131,59 @@ body {
 .doc dd,
 .doc td.content {
   line-height: 1.65;
+}
+
+/* Prose ink. The stock bundle hardcodes `.doc { color: #333 }` (plus #5d5d5d
+   on list items, block titles, etc.), which out-specifies the `body` color
+   above — so without these overrides every paragraph stays near-black and
+   vanishes on the dark background. Bind the whole `.doc` text family to tokens
+   so both themes track the palette. */
+.doc {
+  color: var(--rv-text);
+}
+
+.doc p,
+.doc li,
+.doc dd,
+.doc td.content,
+.doc th.tableblock,
+.doc p.tableblock,
+.doc .colist > table td,
+.doc dl,
+.doc dt {
+  color: var(--rv-text);
+}
+
+.doc strong,
+.doc b {
+  color: var(--rv-heading);
+}
+
+/* Block titles (figure/table/listing captions, "Current limitations" etc.) */
+.doc .admonitionblock .title,
+.doc .exampleblock .title,
+.doc .imageblock .title,
+.doc .listingblock .title,
+.doc .literalblock .title,
+.doc .openblock .title,
+.doc .videoblock .title,
+.doc .dlist .title,
+.doc table.tableblock caption,
+.doc .ulist .title,
+.doc .olist .title {
+  color: var(--rv-text-faint);
+}
+
+/* Blockquotes / verse */
+.doc .quoteblock,
+.doc .verseblock {
+  color: var(--rv-text-muted);
+  background: var(--rv-bg-subtle);
+  border-left-color: var(--rv-border-strong);
+}
+
+.doc .quoteblock .attribution {
+  color: var(--rv-text-faint);
 }
 
 /* Headings — solid ink, tight, bold. No gradient clip. */
@@ -196,6 +255,27 @@ body {
 .navbar-item:first-child {
   font-weight: 650;
   letter-spacing: -0.01em;
+}
+
+/* Burger dropdown panel (shown <1024px). The stock bundle hardcodes
+   `.navbar-menu { background: #fff }` (twice — base + the mobile media query),
+   so the collapsed menu drops a white sheet under the dark ink bar and the
+   GitHub link + theme toggle look like white blocks. Treat the dropdown as an
+   extension of the ink bar instead: same dark surface, both themes. */
+.navbar-menu {
+  background: var(--rv-navbar-bg);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.35);
+}
+
+.navbar-menu .navbar-item,
+.navbar-menu a.navbar-item {
+  color: var(--rv-navbar-text);
+}
+
+.navbar-menu .navbar-link:hover,
+.navbar-menu a.navbar-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--rv-navbar-text);
 }
 
 /* Brand logo chip before the title */
@@ -315,6 +395,16 @@ body {
   color: var(--rv-text-faint);
 }
 
+/* Toolbar glyphs — the sidebar-toggle hamburger (menu.svg / back.svg) and the
+   breadcrumb home icon (home-o.svg / home.svg) are background-image SVGs with
+   #222 baked in by the bundle. On the dark toolbar they're dark-on-dark and
+   vanish — and `color` can't touch a background-image. Invert the glyph in dark
+   mode so it reads as near-white; light mode leaves the SVG untouched. */
+:root[data-theme="dark"] .nav-toggle,
+:root[data-theme="dark"] .toolbar .home-link {
+  filter: invert(0.9) hue-rotate(180deg);
+}
+
 /* ----------------------------------------------------------------------------
    9. Code — inline + blocks
    ------------------------------------------------------------------------- */
@@ -348,6 +438,16 @@ pre {
   padding: 1.1em 1.2em;
   font-size: 0.84rem;
   line-height: 1.6;
+}
+
+/* Base code text. The bundle leaves non-highlighted code tokens at the
+   inherited `.doc` #333, which disappears on the dark code surface — pin the
+   default token color so un-tokenised code (and the `.hljs` base) stays legible
+   in both themes. */
+.doc pre code,
+.doc pre code .hljs,
+.doc .listingblock pre code {
+  color: var(--rv-text);
 }
 
 /* Image/example titles → small-caps label */
@@ -501,4 +601,124 @@ button:focus-visible,
 input:focus-visible {
   outline: 2px solid var(--rv-accent);
   outline-offset: 2px;
+}
+
+/* ----------------------------------------------------------------------------
+   13. Theme toggle — sun/moon button
+
+   Markup lives in partials/header-content.hbs; behaviour in the init script in
+   partials/head-meta.hbs. Both icons sit stacked in the button; the active
+   theme decides which one shows, so the control reads as "tap to switch to the
+   other mode": sun visible in dark mode, moon visible in light mode.
+
+   The button always rides a dark surface — the ink bar on the wide layout, and
+   (since §6 makes the burger dropdown dark too) the collapsed menu as well — so
+   it carries one consistent translucent-white-on-ink treatment matching the
+   GitHub button, in both themes and at every width. */
+.rv-theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 0.45rem;
+  color: var(--rv-navbar-text);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.rv-theme-toggle:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.38);
+  color: var(--rv-navbar-text);
+}
+
+.rv-theme-toggle svg {
+  width: 1.05rem;
+  height: 1.05rem;
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Show one icon per theme. Default (light) shows the moon (→ go dark);
+   dark shows the sun (→ go light). */
+.rv-theme-toggle .rv-icon-sun {
+  display: none;
+}
+.rv-theme-toggle .rv-icon-moon {
+  display: block;
+}
+:root[data-theme="dark"] .rv-theme-toggle .rv-icon-sun {
+  display: block;
+}
+:root[data-theme="dark"] .rv-theme-toggle .rv-icon-moon {
+  display: none;
+}
+
+/* ----------------------------------------------------------------------------
+   14. Syntax highlighting — dark palette
+
+   The stock UI bundles a GitHub-*light* highlight.js theme (keyword #333,
+   title #900, tag navy, symbol #990073, …) — all dark hues that are unreadable
+   on the dark code surface. Light mode keeps that original palette; this block
+   remaps each token to a warm, accessible dark palette ONLY under
+   [data-theme="dark"]. Selectors mirror the bundle's grouping so specificity
+   matches and the override lands. Tuned to sit beside the rust accent.
+   ------------------------------------------------------------------------- */
+:root[data-theme="dark"] .doc .hljs-comment,
+:root[data-theme="dark"] .doc .hljs-quote {
+  color: #8c867e;
+}
+:root[data-theme="dark"] .doc .hljs-keyword,
+:root[data-theme="dark"] .doc .hljs-selector-tag,
+:root[data-theme="dark"] .doc .hljs-subst {
+  color: #fb923c;
+}
+:root[data-theme="dark"] .doc .hljs-literal,
+:root[data-theme="dark"] .doc .hljs-number,
+:root[data-theme="dark"] .doc .hljs-tag .hljs-attr,
+:root[data-theme="dark"] .doc .hljs-template-variable,
+:root[data-theme="dark"] .doc .hljs-variable,
+:root[data-theme="dark"] .doc .hljs-attr,
+:root[data-theme="dark"] .doc .hljs-attribute {
+  color: #7dd3a8;
+}
+:root[data-theme="dark"] .doc .hljs-doctag,
+:root[data-theme="dark"] .doc .hljs-string {
+  color: #f0a868;
+}
+:root[data-theme="dark"] .doc .hljs-section,
+:root[data-theme="dark"] .doc .hljs-selector-id,
+:root[data-theme="dark"] .doc .hljs-title {
+  color: #fbbf24;
+}
+:root[data-theme="dark"] .doc .hljs-class .hljs-title,
+:root[data-theme="dark"] .doc .hljs-type {
+  color: #6db4e6;
+}
+:root[data-theme="dark"] .doc .hljs-name,
+:root[data-theme="dark"] .doc .hljs-tag {
+  color: #6db4e6;
+}
+:root[data-theme="dark"] .doc .hljs-built_in,
+:root[data-theme="dark"] .doc .hljs-builtin-name {
+  color: #5fb3c9;
+}
+:root[data-theme="dark"] .doc .hljs-link,
+:root[data-theme="dark"] .doc .hljs-regexp {
+  color: #4ade80;
+}
+:root[data-theme="dark"] .doc .hljs-bullet,
+:root[data-theme="dark"] .doc .hljs-symbol {
+  color: #d99ad9;
+}
+:root[data-theme="dark"] .doc .hljs-meta {
+  color: #aaa298;
 }

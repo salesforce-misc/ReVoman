@@ -292,3 +292,6 @@ build/site/
 # npm manifest from local Antora/Lunr install (CI installs deps itself; not committed)
 package.json
 package-lock.json
+
+# cmux browser test artifacts (local-only)
+cmux-assets/
