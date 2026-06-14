@@ -12,6 +12,10 @@ NOTE: Roadmap (not shipped): MCP tool-definition autogen from OAS + API-Graph me
 
 (One powerful application of the engine.) Driving an API-Graph deterministically and asserting on the returned xref:rundown.adoc[Rundown] makes ReṼoman a capable API test-automation tool. Everything below is an application of the engine — not the tool's identity.
 
+=== Execute without compromising manual testing
+
+The guiding principle of this application is to execute your API metadata on the JVM *without compromising on manual testing*. Because the engine executes the very metadata you already author for manual trials, the same metadata stays ready to import back into Postman and try out by hand. JVM automation and manual testing share one source of truth instead of drifting apart — which also keeps the executable metadata (the patent's API-Graph) honest and in sync with the production APIs it describes.
+
 === Low-code
 
 TIP: Here is a low-code {gh-blob}/{integrationtestdir}/com/salesforce/revoman/integration/core/pq/PQE2EWithSMTest.java[E2E test] that automates *~75 steps*.

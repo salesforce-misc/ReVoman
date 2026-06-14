@@ -17,11 +17,11 @@ Current version: {revoman-version}
 
 NOTE: NO licensed Postman SDKs are used inside this project. This is written ground up natively in JVM.
 
-== From manual testing to JVM-native execution
+== How the engine works
 
-ReṼoman reads *executable API metadata* and executes it on the JVM. Today that metadata is serialized in the Postman V2/V3 collection schema — a schema choice in the same spirit as picking JSON over XML. A service that serializes its data as JSON is not "a JSON tool"; likewise, ReṼoman reading Postman-schema metadata is not "a Postman tool." It is decoupled from Postman the app/SDK and written ground-up natively for the JVM.
+ReṼoman reads *executable API metadata* and executes it on the JVM, returning a structured xref:rundown.adoc[Rundown] — the *Context Information* an agentic-workflow Node consumes. Today that metadata is serialized in the Postman V2/V3 collection schema — a schema choice in the same spirit as picking JSON over XML. A service that serializes its data as JSON is not "a JSON tool"; likewise, ReṼoman reading Postman-schema metadata is not "a Postman tool." It is decoupled from Postman the app/SDK and written ground-up natively for the JVM.
 
-To get an intuition for it, think of how the https://learning.postman.com/docs/collections/running-collections/intro-to-collection-runs/[Postman Collection Runner] walks a collection step by step. ReṼoman performs that same deterministic, step-by-step execution of an API-Graph — but inside a Java/Kotlin program or test, so your manual testing translates into automation without any loss or resistance. And it goes further.
+To get an intuition for the execution, think of how the https://learning.postman.com/docs/collections/running-collections/intro-to-collection-runs/[Postman Collection Runner] walks a collection step by step. ReṼoman performs that same deterministic, step-by-step execution of an API-Graph — but inside a Java/Kotlin program — resolving the data dependencies between calls, handling auth and polling, and returning the Rundown your JVM code, or an agentic Node, builds on. And it goes further.
 
 image::postman-run.png[]
 image::orchestration-flow-v2.svg[Executable API metadata flows through the ReṼoman engine into a Rundown of Context Information, align="center"]
@@ -31,10 +31,6 @@ image::orchestration-flow-v2.svg[Executable API metadata flows through the ReṼ
 The engine strikes a balance between the _flexibility_ of low-level tools like https://rest-assured.io/[REST Assured] or https://cucumber.io/[Cucumber] and the _ease of use_ of UI tools like https://www.postman.com/[Postman].
 
 image::hybrid-tool.png[]
-
-== Fundamental principle: execute without compromising manual testing
-
-The fundamental principle of the engine is to execute your API metadata on the JVM *without compromising on manual testing*. Because the engine executes the very metadata you already author for manual trials, the same metadata stays ready to import back into Postman and try out by hand. JVM automation and manual testing share one source of truth instead of drifting apart.
 
 == Where to next
 
