@@ -1,0 +1,13 @@
+    {{!--
+      ReṼoman theme toggle — this partial is the single switch for the custom skin.
+      Loaded by the bundle's head.hbs AFTER head-styles (site.css), so everything
+      here layers on top of the stock Antora UI without forking the bundle.
+
+      To disable the theme: empty this file (reverts to stock UI).
+      To swap the theme:    point the <link> below at a different css file.
+      To re-skin in place:  edit the :root tokens in css/revoman-theme.css.
+    --}}
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+    <link rel="stylesheet" href="{{{uiRootPath}}}/css/revoman-theme.css">

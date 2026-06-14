@@ -1,0 +1,504 @@
+/* =============================================================================
+   ReṼoman theme — a modular, additive skin over the stock Antora default UI.
+
+   DESIGN
+     Editorial, warm-ink monochrome with a single restrained accent — the rust
+     from the ReṼoman wordmark. Inspired by the docs sites that read as premium
+     rather than decorated: Vercel/Next.js (mono ink, hairline borders, Geist),
+     Stripe & Tailwind (whitespace, one accent used sparingly), Bun (warm
+     neutrals). No gradients, no second hue — color earns its place.
+
+   HOW IT LOADS
+     partials/head-meta.hbs injects this file AFTER the bundle's site.css, so
+     every rule here overrides the stock UI without forking the bundle. Upgrading
+     the UI bundle keeps working; this layer just re-applies on top.
+
+   HOW TO TOGGLE / SWAP
+     • Disable the theme  → empty partials/head-meta.hbs.
+     • Re-skin the theme  → edit only the :root tokens below; rules consume
+                            tokens, not raw values.
+     • Replace the theme  → drop in a different css file and point head-meta at it.
+   ========================================================================== */
+
+/* ----------------------------------------------------------------------------
+   1. Fonts
+   ------------------------------------------------------------------------- */
+:root {
+  --rv-font-sans: "IBM Plex Sans", -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, sans-serif;
+  --rv-font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono",
+    Menlo, monospace;
+}
+
+/* ----------------------------------------------------------------------------
+   2. Design tokens — light theme (the single place to re-skin)
+   ------------------------------------------------------------------------- */
+:root {
+  /* Accent — the rust/terracotta from the ReṼoman wordmark. The ONLY hue. */
+  --rv-accent: #c2410c;
+  --rv-accent-hover: #9a3412;
+  --rv-accent-soft: rgba(194, 65, 12, 0.08);
+
+  /* Surfaces — warm-tinted neutrals, not pure cold grey */
+  --rv-bg: #ffffff;
+  --rv-bg-subtle: #faf9f7;
+  --rv-bg-code: #fafaf9;
+  --rv-nav-bg: #fbfbfa;
+  --rv-border: #eceae6;
+  --rv-border-strong: #ddd9d2;
+
+  /* Text — warm near-black ink */
+  --rv-text: #1c1917;
+  --rv-text-muted: #57534e;
+  --rv-text-faint: #8c867e;
+  --rv-heading: #0f0d0c;
+
+  /* Top bar — solid warm ink, no gradient */
+  --rv-navbar-bg: #1c1917;
+  --rv-navbar-text: #fafaf9;
+
+  /* Admonition tints — semantic, restrained (standard in great docs) */
+  --rv-note: #2563eb;
+  --rv-tip: #15803d;
+  --rv-important: #be123c;
+  --rv-warning: #b45309;
+  --rv-caution: #c2410c;
+
+  /* Shape & motion — hairline borders, barely-there lift */
+  --rv-radius: 0.5rem;
+  --rv-radius-sm: 0.375rem;
+  --rv-shadow: 0 1px 2px rgba(28, 25, 23, 0.04),
+    0 2px 8px rgba(28, 25, 23, 0.05);
+  --rv-shadow-sm: 0 1px 2px rgba(28, 25, 23, 0.05);
+}
+
+/* ----------------------------------------------------------------------------
+   3. Design tokens — dark theme (same names, remapped values)
+   ------------------------------------------------------------------------- */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --rv-accent: #fb7c4c;
+    --rv-accent-hover: #fd9670;
+    --rv-accent-soft: rgba(251, 124, 76, 0.12);
+
+    --rv-bg: #17140f;
+    --rv-bg-subtle: #1e1a15;
+    --rv-bg-code: #1c1813;
+    --rv-nav-bg: #161310;
+    --rv-border: #2c2720;
+    --rv-border-strong: #3a342b;
+
+    --rv-text: #ece8e1;
+    --rv-text-muted: #aaa298;
+    --rv-text-faint: #7d766b;
+    --rv-heading: #f7f4ee;
+
+    --rv-navbar-bg: #110f0c;
+    --rv-navbar-text: #f2efe8;
+
+    --rv-note: #60a5fa;
+    --rv-tip: #4ade80;
+    --rv-important: #fb7185;
+    --rv-warning: #fbbf24;
+    --rv-caution: #fb923c;
+
+    --rv-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 18px rgba(0, 0, 0, 0.45);
+    --rv-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  }
+}
+
+/* ----------------------------------------------------------------------------
+   4. Base typography
+   ------------------------------------------------------------------------- */
+body {
+  font-family: var(--rv-font-sans);
+  background: var(--rv-bg);
+  color: var(--rv-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.55;
+  letter-spacing: -0.003em;
+}
+
+.doc p,
+.doc li,
+.doc dd,
+.doc td.content {
+  line-height: 1.65;
+}
+
+/* Headings — solid ink, tight, bold. No gradient clip. */
+.doc h1,
+.doc h2,
+.doc h3,
+.doc h4,
+.doc h5,
+.doc h6 {
+  color: var(--rv-heading);
+  font-weight: 650;
+  letter-spacing: -0.021em;
+  line-height: 1.25;
+}
+
+.doc h1.page {
+  font-size: 2.4rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  margin-top: 1.5rem;
+}
+
+.doc h2 {
+  border-bottom: 1px solid var(--rv-border);
+  padding-bottom: 0.35rem;
+  margin-top: 2.4rem;
+}
+
+.doc h1.sect0 {
+  background: var(--rv-bg-subtle);
+  border-radius: var(--rv-radius-sm);
+}
+
+/* ----------------------------------------------------------------------------
+   5. Links
+   ------------------------------------------------------------------------- */
+.doc a,
+.doc a code {
+  color: var(--rv-accent);
+  text-decoration: none;
+  transition: color 0.12s ease, border-color 0.12s ease;
+}
+
+.doc a:hover {
+  color: var(--rv-accent-hover);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-thickness: 1px;
+}
+
+.doc a.xref:hover {
+  text-decoration-color: var(--rv-accent);
+}
+
+/* ----------------------------------------------------------------------------
+   6. Top navbar — solid warm ink
+   ------------------------------------------------------------------------- */
+.navbar {
+  background: var(--rv-navbar-bg);
+  color: var(--rv-navbar-text);
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.navbar-item,
+.navbar-item:first-child a {
+  color: var(--rv-navbar-text);
+}
+
+.navbar-item:first-child {
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+/* Brand logo chip before the title */
+.navbar-brand .navbar-item:first-child::before {
+  content: "";
+  display: inline-block;
+  width: 1.6rem;
+  height: 1.6rem;
+  margin-right: 0.55rem;
+  vertical-align: -0.4rem;
+  background: url(../img/favicon.png) center / cover no-repeat;
+  border-radius: 0.4rem;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18);
+}
+
+/* GitHub button — quiet outline on the ink bar */
+.navbar .button {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: var(--rv-navbar-text);
+  border-radius: 0.45rem;
+  font-weight: 550;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.navbar .button:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.38);
+}
+
+/* Search input on the ink bar */
+.navbar .search #search-input {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 0.45rem;
+  color: var(--rv-navbar-text);
+  padding: 0.25rem 0.6rem;
+  outline: none;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.navbar .search #search-input::placeholder {
+  color: rgba(250, 250, 249, 0.5);
+}
+
+.navbar .search #search-input:focus {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+/* ----------------------------------------------------------------------------
+   7. Side nav
+   ------------------------------------------------------------------------- */
+.nav {
+  background: var(--rv-nav-bg);
+  border-right: 1px solid var(--rv-border);
+  box-shadow: none;
+}
+
+.nav-panel-menu .nav-list .nav-list {
+  border-left: 1px solid var(--rv-border);
+}
+
+.nav-menu h3.title {
+  color: var(--rv-text-faint);
+  font-size: 0.7rem;
+  font-weight: 650;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.nav-menu a.nav-link {
+  color: var(--rv-text-muted);
+  border-radius: var(--rv-radius-sm);
+  /* Left padding clears the active accent bar so text never hugs it; applied to
+     every link so the active state doesn't shift text horizontally. */
+  padding: 0.12rem 0.4rem 0.12rem 0.6rem;
+  margin-left: -0.4rem;
+  transition: color 0.12s ease, background 0.12s ease;
+}
+
+.nav-menu a.nav-link:hover {
+  color: var(--rv-text);
+  background: var(--rv-bg-subtle);
+}
+
+/* Active page — straight accent bar + faint tint.
+   Left corners squared so the inset bar stays a straight line (rounded left
+   corners would bend the inset shadow into an arc); right corners stay rounded. */
+.nav-menu .is-current-page > .nav-link,
+.nav-menu .is-active > .nav-link {
+  color: var(--rv-accent);
+  font-weight: 600;
+  background: var(--rv-accent-soft);
+  border-radius: 0 var(--rv-radius-sm) var(--rv-radius-sm) 0;
+  box-shadow: inset 2px 0 0 var(--rv-accent);
+}
+
+/* ----------------------------------------------------------------------------
+   8. Toolbar / breadcrumbs
+   ------------------------------------------------------------------------- */
+.toolbar {
+  background: var(--rv-bg);
+  color: var(--rv-text-muted);
+  box-shadow: 0 1px 0 var(--rv-border);
+}
+
+.toolbar a {
+  color: var(--rv-text-muted);
+}
+
+.toolbar a:hover {
+  color: var(--rv-accent);
+}
+
+.edit-this-page a {
+  color: var(--rv-text-faint);
+}
+
+/* ----------------------------------------------------------------------------
+   9. Code — inline + blocks
+   ------------------------------------------------------------------------- */
+code,
+pre {
+  font-family: var(--rv-font-mono);
+  /* JetBrains Mono ligatures ON — !=, ->, =>, === render as designed glyphs */
+  font-feature-settings: "liga" 1, "calt" 1;
+}
+
+/* Inline code — neutral chip, not accent-tinted (keeps prose calm) */
+.doc p code,
+.doc li code,
+.doc td.content code,
+.doc dd code {
+  background: var(--rv-bg-subtle);
+  color: var(--rv-text);
+  border: 1px solid var(--rv-border);
+  border-radius: var(--rv-radius-sm);
+  font-size: 0.84em;
+  padding: 0.1em 0.36em;
+}
+
+/* Code blocks — rounded, hairline border, faint lift */
+.doc pre.highlight code,
+.doc .listingblock pre {
+  background: var(--rv-bg-code);
+  border: 1px solid var(--rv-border);
+  border-radius: var(--rv-radius);
+  box-shadow: var(--rv-shadow-sm);
+  padding: 1.1em 1.2em;
+  font-size: 0.84rem;
+  line-height: 1.6;
+}
+
+/* Image/example titles → small-caps label */
+.doc .imageblock .title,
+.doc .exampleblock .title {
+  color: var(--rv-text-faint);
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-style: normal;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+/* Listing-block titles → source-file caption (carries a link to the .java) */
+.doc .listingblock > .title {
+  color: var(--rv-text-faint);
+  font-size: 0.8rem;
+  font-weight: 500;
+  font-style: normal;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* The source-file link inside a listing title — mono filename tab */
+.doc .listingblock > .title a {
+  font-family: var(--rv-font-mono);
+  font-size: 0.95em;
+  color: var(--rv-accent);
+}
+
+.doc .listingblock > .title a:hover {
+  color: var(--rv-accent-hover);
+}
+
+/* Callout numbers (the ①②③ markers) — white number on a filled accent circle.
+   Stock UI renders the digit via ::after inheriting text color, so the fill
+   needs an explicit light color or the number vanishes. */
+.doc .conum[data-value] {
+  background: var(--rv-accent);
+  border-color: var(--rv-accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+.doc .conum[data-value]::after {
+  color: #fff;
+}
+
+/* ----------------------------------------------------------------------------
+   10. Admonitions — soft tinted cards (drop the boxed table look)
+   ------------------------------------------------------------------------- */
+.doc .admonitionblock > table td.content {
+  background: var(--rv-bg-subtle);
+  border: 1px solid var(--rv-border);
+  border-left-width: 3px;
+  border-radius: var(--rv-radius-sm);
+  padding: 1rem 1.1rem 0.85rem;
+}
+
+.doc .admonitionblock.note > table td.content {
+  border-left-color: var(--rv-note);
+}
+.doc .admonitionblock.tip > table td.content {
+  border-left-color: var(--rv-tip);
+}
+.doc .admonitionblock.important > table td.content {
+  border-left-color: var(--rv-important);
+}
+.doc .admonitionblock.warning > table td.content {
+  border-left-color: var(--rv-warning);
+}
+.doc .admonitionblock.caution > table td.content {
+  border-left-color: var(--rv-caution);
+}
+
+/* Keep the stock pill icons, align colors with the card accent */
+.admonitionblock td.icon i.icon-note {
+  background-color: var(--rv-note);
+}
+.admonitionblock td.icon i.icon-tip {
+  background-color: var(--rv-tip);
+}
+.admonitionblock td.icon i.icon-important {
+  background-color: var(--rv-important);
+}
+.admonitionblock td.icon i.icon-warning {
+  background-color: var(--rv-warning);
+}
+.admonitionblock td.icon i.icon-caution {
+  background-color: var(--rv-caution);
+}
+
+/* ----------------------------------------------------------------------------
+   11. Tables, TOC, images
+   ------------------------------------------------------------------------- */
+.doc table.tableblock {
+  border-radius: var(--rv-radius-sm);
+  overflow: hidden;
+}
+
+.doc table.tableblock thead th {
+  background: var(--rv-bg-subtle);
+  color: var(--rv-heading);
+  border-bottom: 2px solid var(--rv-border-strong);
+}
+
+/* Right-hand "Contents" TOC */
+.toc .toc-menu h3 {
+  color: var(--rv-text-faint);
+  font-size: 0.7rem;
+  font-weight: 650;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.toc .toc-menu a {
+  color: var(--rv-text-muted);
+  border-left: 2px solid var(--rv-border);
+  transition: color 0.12s ease, border-color 0.12s ease;
+}
+
+.toc .toc-menu a:hover,
+.toc .toc-menu a.is-active {
+  color: var(--rv-accent);
+  border-left-color: var(--rv-accent);
+}
+
+/* Images — gentle rounding + lift so screenshots feel intentional */
+.doc .imageblock img,
+.doc .image img {
+  border-radius: var(--rv-radius-sm);
+}
+
+.doc .imageblock:not(.text-center) img {
+  box-shadow: var(--rv-shadow);
+}
+
+/* ----------------------------------------------------------------------------
+   12. Footer + misc
+   ------------------------------------------------------------------------- */
+.footer {
+  color: var(--rv-text-faint);
+}
+
+::selection {
+  background: var(--rv-accent-soft);
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--rv-accent);
+  outline-offset: 2px;
+}

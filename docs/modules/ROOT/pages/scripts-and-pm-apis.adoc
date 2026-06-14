@@ -71,7 +71,7 @@ Two read-only fields on each `StepReport` expose script outcomes:
 * `pm.sendRequest` is not supported.
 * Collection-root `variable[]` is not parsed; `pm.collectionVariables` is script-seeded only.
 
-.End-to-end: script-only pm APIs through a real run
+.End-to-end: script-only pm APIs through a real run → {gh-blob}/{integrationtestdir}/com/salesforce/revoman/integration/pokemon/PokemonSandboxApiTest.java[PokemonSandboxApiTest.java^]
 [source,java,indent=0,tabsize=2,options="nowrap"]
 ----
 include::example$it/com/salesforce/revoman/integration/pokemon/PokemonSandboxApiTest.java[tag=pm-sandbox-asserts]

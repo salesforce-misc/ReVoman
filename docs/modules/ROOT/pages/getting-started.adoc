@@ -43,6 +43,7 @@ image::resfulapi-dev-pm.png[]
 
 You can automate the same with ReṼoman by supplying the metadata and environment paths. The example below demonstrates the engine executing API metadata (serialized in the Postman V2 schema) directly on the JVM — the very metadata you would author for manual trials becomes an automated run:
 
+.Live include from a passing integration test → {gh-blob}/{integrationtestdir}/com/salesforce/revoman/integration/restfulapidev/RestfulAPIDevTest.java[RestfulAPIDevTest.java^]
 [source,java,indent=0,tabsize=2,options="nowrap"]
 ----
 include::example$it/com/salesforce/revoman/integration/restfulapidev/RestfulAPIDevTest.java[tag=revoman-simple-demo]

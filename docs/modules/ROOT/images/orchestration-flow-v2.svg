@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 300" font-family="'IBM Plex Sans', Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" role="img" aria-label="Executable API metadata flows through the ReṼoman engine into a Rundown of Context Information">
+  <style>
+    :root {
+      --bg: #faf9f7; --box: #ffffff;
+      --ink: #1c1917; --muted: #57534e; --faint: #8c867e;
+      --border: #ddd9d2; --accent: #c2410c; --accent-soft: #fdf0e8;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1c1813; --box: #1e1a15;
+        --ink: #ece8e1; --muted: #aaa298; --faint: #7d766b;
+        --border: #3a342b; --accent: #fb7c4c; --accent-soft: #2a1c12;
+      }
+    }
+    .card { fill: var(--bg); }
+    .box { fill: var(--box); stroke: var(--border); }
+    .box-engine { fill: var(--accent-soft); stroke: var(--accent); }
+    .title { fill: var(--ink); font-weight: 700; }
+    .engine-title { fill: var(--accent); font-weight: 700; }
+    .sub { fill: var(--muted); }
+    .faint { fill: var(--faint); }
+    .edge { stroke: var(--faint); fill: none; }
+    .edge-label { fill: var(--faint); }
+  </style>
+
+  <rect class="card" x="0" y="0" width="1120" height="300" rx="14"/>
+
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#8c867e"/>
+    </marker>
+  </defs>
+
+  <!-- Box 1: Executable API Metadata -->
+  <rect class="box" x="48" y="95" width="236" height="110" rx="12" stroke-width="1.5"/>
+  <text class="title" x="166" y="138" text-anchor="middle" font-size="19">Executable API</text>
+  <text class="title" x="166" y="162" text-anchor="middle" font-size="19">Metadata</text>
+  <text class="faint" x="166" y="184" text-anchor="middle" font-size="12.5">the API-Graph</text>
+
+  <!-- edge 1 -->
+  <line class="edge" x1="296" y1="150" x2="392" y2="150" stroke-width="1.6" marker-end="url(#arrow)"/>
+  <text class="edge-label" x="344" y="141" text-anchor="middle" font-size="12.5">executes</text>
+
+  <!-- Box 2: ReṼoman engine (accent) -->
+  <rect class="box-engine" x="404" y="62" width="312" height="176" rx="14" stroke-width="2"/>
+  <text class="engine-title" x="560" y="108" text-anchor="middle" font-size="30">ReṼoman</text>
+  <text class="sub" x="560" y="134" text-anchor="middle" font-size="14.5" font-weight="600">API Orchestration Engine</text>
+  <text class="faint" x="560" y="166" text-anchor="middle" font-size="12.5">resolves data dependencies, auth,</text>
+  <text class="faint" x="560" y="186" text-anchor="middle" font-size="12.5">polling &amp; type-safe payloads —</text>
+  <text class="faint" x="560" y="206" text-anchor="middle" font-size="12.5">deterministically, on the JVM</text>
+
+  <!-- edge 2 -->
+  <line class="edge" x1="728" y1="150" x2="824" y2="150" stroke-width="1.6" marker-end="url(#arrow)"/>
+  <text class="edge-label" x="776" y="141" text-anchor="middle" font-size="12.5">returns</text>
+
+  <!-- Box 3: Rundown -->
+  <rect class="box" x="836" y="95" width="236" height="110" rx="12" stroke-width="1.5"/>
+  <text class="title" x="954" y="136" text-anchor="middle" font-size="19">Rundown</text>
+  <text class="sub" x="954" y="160" text-anchor="middle" font-size="13">= Context Information</text>
+  <text class="faint" x="954" y="182" text-anchor="middle" font-size="11.5">for JVM code or an agentic Node</text>
+</svg>

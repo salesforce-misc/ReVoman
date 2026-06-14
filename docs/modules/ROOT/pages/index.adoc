@@ -24,7 +24,7 @@ ReṼoman reads *executable API metadata* and executes it on the JVM. Today that
 To get an intuition for it, think of how the https://learning.postman.com/docs/collections/running-collections/intro-to-collection-runs/[Postman Collection Runner] walks a collection step by step. ReṼoman performs that same deterministic, step-by-step execution of an API-Graph — but inside a Java/Kotlin program or test, so your manual testing translates into automation without any loss or resistance. And it goes further.
 
 image::postman-run.png[]
-image::orchestration-flow.svg[Executable API metadata flows through the ReṼoman engine into a Rundown of Context Information, align="center"]
+image::orchestration-flow-v2.svg[Executable API metadata flows through the ReṼoman engine into a Rundown of Context Information, align="center"]
 
 == A hybrid tool
 
@@ -41,9 +41,13 @@ The fundamental principle of the engine is to execute your API metadata on the J
 * xref:agentic-orchestration.adoc[] — how the engine is the execution layer beneath Agentic API Orchestration, and how the `Rundown` becomes Context Information.
 * xref:getting-started.adoc[] — wire ReṼoman into your JVM project and run your first graph.
 
-.Live include from a passing integration test
+.Live include from a passing integration test → {gh-blob}/{integrationtestdir}/com/salesforce/revoman/integration/restfulapidev/RestfulAPIDevTest.java[RestfulAPIDevTest.java^]
 [source,java,indent=0,tabsize=2,options="nowrap"]
 ----
 include::example$it/com/salesforce/revoman/integration/restfulapidev/RestfulAPIDevTest.java[tag=revoman-simple-demo]
 ----
-<1> `revUp` is the method to call passing a configuration.
+<1> `revUp` is the single entry point — you hand it a `Configuration` and it executes the graph.
+<2> `templatePath` points at the executable API metadata (the Postman collection) to run.
+<3> `environmentPath` supplies the environment variables that metadata resolves against.
+<4> `firstUnIgnoredUnsuccessfulStepReport()` returns `null` when every non-ignored step succeeded — the assertion that the run was clean.
+<5> `stepReports` holds one report per executed step; here we assert all four steps ran.

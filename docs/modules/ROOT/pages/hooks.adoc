@@ -4,6 +4,7 @@
 
 ReṼoman isn't limited to firing a collection — you can add more _bells and whistles_ 🔔. This end-to-end example wires hooks, type-safe request/response config, dynamic variables, and execution control together:
 
+.Live include from a passing integration test → {gh-blob}/{integrationtestdir}/com/salesforce/revoman/integration/core/pq/PQE2EWithSMTest.java[PQE2EWithSMTest.java^]
 [source,java,indent=0,tabsize=2,options="nowrap"]
 ----
 include::example$it/com/salesforce/revoman/integration/core/pq/PQE2EWithSMTest.java[tag=pq-e2e-with-revoman-config-demo]
