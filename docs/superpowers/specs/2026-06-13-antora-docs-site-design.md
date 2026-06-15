@@ -83,7 +83,6 @@ Postman.**
 | Page | From README section(s) | Nav group | Framing notes |
 | --- | --- | --- | --- |
 | `index.adoc` | new headline, hybrid-tool, principle | Overview | Leads "API Orchestration Engine for JVM"; executable-API-metadata; agentic building block; testing = one application |
-| `agentic-orchestration.adoc` | **new** (from positioning spec) | Overview | Engine→Context Information→agent-Node loop; grounded in real `toJson(VERBOSE)`; roadmap subsection |
 | `why-revoman.adoc` | Why ReṼoman (Problem/Solution), Newman comparison | Overview | Newman section reframed: runner ≠ orchestration engine |
 | `getting-started.adoc` | Artifact, Simple Example | Get Started | `{revoman-version}` attrs; `include::` the RestfulAPIDev demo by tag |
 | `configuration.adoc` | `revUp()`, Kick, Config management (override/from) | Get Started | |
@@ -98,12 +97,18 @@ Postman.**
 | `timing-metrics.adoc` | Execution timing metrics | Features | |
 | `mutable-environment.adoc` | Mutable env, read-as-POJO, snapshots | Features | framed as cross-step context store |
 | `execution-control.adoc` | halt/run/skip, modular executions | Features | |
-| `applications.adoc` | **new** — USP + Perf reorganized | Applications | Agentic Orchestration (headline) → Test Automation → data setup |
+| `applications.adoc` | **new** — applications overview/landing | Applications | Short landing: links the 3 applications + Performance; today-vs-roadmap NOTE |
+| `agentic-orchestration.adoc` | **new** (from positioning spec) | Applications | Engine→Context Information→agent-Node loop; grounded in real `toJson(VERBOSE)`; roadmap subsection. *The headline application* |
+| `application-test-automation.adoc` | USP material (low-code, learning curve, CI/CD, persona-based, VCS) | Applications | Reframed as one application, not the identity |
+| `application-orchestrated-workflows.adoc` | data-setup/orchestration material | Applications | step-interleaved JVM code + mutable-env dependency passing |
+| `performance.adoc` | Perf (~75-step, 122s) | Applications | standalone perf proof point |
 | `troubleshooting.adoc` | Logging, FAQs | Help | |
 | `contributing.adoc` | Consume-Collaborate-Contribute | Help | |
 
-~19 pages, 6 nav groups (Overview, Get Started, Concepts, Features, Applications, Help). Internal
-`<<anchor>>` refs become Antora `xref:page.adoc#anchor[]`.
+~22 pages, 6 nav groups (Overview, Get Started, Concepts, Features, Applications, Help). The
+Applications group splits the formerly-single `applications.adoc` into an overview + one page per
+application (Agentic Orchestration moved here from Overview) + a standalone Performance page.
+Internal `<<anchor>>` refs become Antora `xref:page.adoc#anchor[]`.
 
 ## PM-Sandbox Backfill (the real content gap)
 

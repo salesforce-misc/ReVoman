@@ -1,0 +1,7 @@
+{{!--
+  ReṼoman title override — replaces the stock default-UI separator " :: " with " | ".
+  The bundle's head.hbs loads {{> head-title}}; a supplemental partial at this same path
+  shadows the bundle's copy, so this is the single switch for the browser-tab/SEO title.
+  To revert to stock: delete this file (bundle's head-title.hbs renders " :: " again).
+--}}
+    <title>{{{detag (or page.title defaultPageTitle)}}}{{#with site.title}} | {{this}}{{/with}}</title>

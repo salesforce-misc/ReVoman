@@ -1,0 +1,35 @@
+= API Test Automation
+
+(One powerful application of the engine.) Driving an API-Graph deterministically and asserting on the returned xref:rundown.adoc[Rundown] makes ReṼoman a capable API test-automation tool. Everything below is an application of the engine — not the tool's identity.
+
+== Execute without compromising manual testing
+
+The guiding principle of this application is to execute your API metadata on the JVM *without compromising on manual testing*. Because the engine executes the very metadata you already author for manual trials, the same metadata stays ready to import back into Postman and try out by hand. JVM automation and manual testing share one source of truth instead of drifting apart — which also keeps the executable metadata (the patent's API-Graph) honest and in sync with the production APIs it describes.
+
+== Low-code
+
+TIP: Here is a low-code {gh-blob}/{integrationtestdir}/com/salesforce/revoman/integration/core/pq/PQE2EWithSMTest.java[E2E test] that automates *~75 steps*.
+
+Compared to a traditional Integration/Functional or E2E test, approximately *89%* less code is needed using ReṼoman. The test isn't just low-code but also low in Cognitive Complexity and transparent in what it does.
+
+== Low Learning Curve
+
+The learning curve is way-way-low compared to other automation frameworks (Cucumber, RestAssured, etc.), as there's no proprietary syntax or template format required. Familiarity with the API metadata format gets you a long way. Playing with the existing {gh-blob}/{integrationtestdir}[Integration Tests] and writing a couple of hands-on tests gets you started quickly.
+
+== Low setup and maintenance 'Tax'
+
+Unlike tools like Cucumber which demand high setup/maintenance 'Tax' with lots of glue code, this has no strict requirements wiring your API metadata with code. They're loosely coupled — the relative path to the collection in the config is the only link — so you organize collections and code independently.
+
+== CI/CD integrability
+
+ReṼoman is like any JVM library you plug into any JVM program/test (JUnit, integration tests). Apart from adding a build dependency, there's *no extra setup* to run these tests in CI/CD.
+
+== Up-to-date collections that live with code in VCS
+
+A nice side effect: the collections stay up to date and the entire collection guards each *check-in* as a test suite augmenting manual testing. You can find an up-to-date collection for every feature in VCS (Git) with your code. Developers can import these directly from VCS into Postman for manual testing — handy during a team blitz/bug-bash. The low-code test acts like a live Runbook, stitching scattered collections to explain a scenario to anyone doing exploratory testing.
+
+== Unified framework for Automating Persona-based Manual testing
+
+Brings a *Unified & Simplified Test strategy* across the mul-**T**-verse (Integration Tests, E2E Tests, Manual testing) for any API. Stays as close as possible to Persona-based Manual testing → Transparency and better Traceability. Forces engineers to think like *API-first customers*. *Test Data setup*: use ReṼoman for test-data setup too, eliminating per-team internal data-setup utilities. *E2E Test* can reside outside the Service repo as long as it can hit the service API.
+
+See xref:performance.adoc[Performance] for what a real ~75-step run costs.

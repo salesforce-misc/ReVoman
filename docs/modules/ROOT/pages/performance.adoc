@@ -1,0 +1,7 @@
+= Performance
+
+This entire execution of *~75 steps*, including *10 async steps*, took a mere *122 sec* on localhost. This can be much better in auto-build environments.
+
+image::pq-revoman-test-time.png[Localhost Test time on FTest console for ~75 steps]
+
+WARNING: ReṼoman internally is very light-weight; execution times are proportional to how your server responds or your network speed.
