@@ -50,8 +50,46 @@ class PostmanSDK(
   val collectionVariables: PostmanEnvironment<Any?> =
     PostmanEnvironment(mutableMapOf(), moshiReVoman)
 
+  /**
+   * Global variables (`pm.globals`). A peer of [environment] and [collectionVariables] reusing
+   * [PostmanEnvironment] for its set/unset/toMap utilities; its per-step ledger capture stays
+   * dormant because [PostmanEnvironment.currentStep] is never set on this instance (so `set()` logs
+   * `Step: null` and records no produced keys). Script-seeded only (ReVoman does not parse a
+   * Postman globals export), so it starts empty and is populated by scripts calling
+   * `pm.globals.set(...)`.
+   */
+  @JvmField val globals: PostmanEnvironment<Any?> = PostmanEnvironment(mutableMapOf(), moshiReVoman)
+
   /** The active environment's display name, exposed to scripts via `pm.environment.name`. */
   @JvmField var environmentName: String? = null
+
+  /**
+   * Postman variable-scope precedence (narrowest wins): `environment` ▸ `collectionVariables` ▸
+   * `globals`. Returns the value from the first scope that *contains* [key], or `null` when no
+   * scope knows it. A scope holding `key=null` still counts as containing it (presence ≠ value) —
+   * use [hasScopedValue] to distinguish. Single source of truth for both `pm.variables` and the
+   * `{{key}}` regex resolution in [RegexReplacer].
+   */
+  internal fun resolveScopedValue(key: String): Any? =
+    when {
+      environment.containsKey(key) -> environment[key]
+      collectionVariables.containsKey(key) -> collectionVariables[key]
+      globals.containsKey(key) -> globals[key]
+      else -> null
+    }
+
+  /** True when any scope (environment / collectionVariables / globals) contains [key]. */
+  internal fun hasScopedValue(key: String): Boolean =
+    environment.containsKey(key) || collectionVariables.containsKey(key) || globals.containsKey(key)
+
+  /** The scope that owns [key] by precedence, or `null` if no scope contains it. */
+  internal fun scopeForKey(key: String): PostmanEnvironment<Any?>? =
+    when {
+      environment.containsKey(key) -> environment
+      collectionVariables.containsKey(key) -> collectionVariables
+      globals.containsKey(key) -> globals
+      else -> null
+    }
 
   // Per-step capture written by PmJsEval after each sandbox run, read by the executor fold when it
   // builds the StepReport. Keyed by Step (a step can run a pre-req AND a post-res script).
@@ -162,10 +200,17 @@ class PostmanSDK(
   fun jsonStrToObj(jsonStr: String): Value =
     evaluateJS("jsonStr => JSON.parse(jsonStr, {allowComments: true})").execute(jsonStr)
 
+  /**
+   * `pm.variables` — the aggregate READ view across all scopes, honoring Postman precedence
+   * (`environment` ▸ `collectionVariables` ▸ `globals`). Reads ([has]/[get]) walk the chain; writes
+   * ([set]/[unset]) target the [environment] scope. Real Postman's `pm.variables.set` writes the
+   * ephemeral *local* scope, which ReVoman does not model — environment is the closest persistent
+   * analog, and routing there preserves long-standing behavior (see design D1).
+   */
   inner class Variables {
-    fun has(key: String): Boolean = environment.containsKey(key)
+    fun has(key: String): Boolean = hasScopedValue(key)
 
-    fun get(key: String): Any? = environment[key]
+    fun get(key: String): Any? = resolveScopedValue(key)
 
     fun set(key: String, value: Any?) {
       environment.set(key, value)

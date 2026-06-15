@@ -55,6 +55,33 @@ class PokemonSandboxApiTest {
     assertThat(rundown.mutableEnv).containsKey("pokemonName");
     assertThat(rundown.mutableEnv).containsKey("objId"); // add-object POST set this for the PUT
 
+    // --- pm.globals: cross-step persistence + Rundown exposure (impossible before scopes work) ---
+    // A global set in all-pokemon's pre-req is read back in pokemon-species' test (cross-step), and
+    // surfaces directly on the Rundown.
+    assertThat(rundown.globals.containsKey("runTag")).isTrue();
+    assertThat(rundown.globals.get("runTag")).isEqualTo("revoman-run");
+    // The colliding global ('limit'='999') lives in the globals scope; env's 'limit'='5' is
+    // separate.
+    assertThat(rundown.globals.get("limit")).isEqualTo("999");
+    assertThat(rundown.mutableEnv.get("limit")).isEqualTo("5");
+
+    // --- pm.collectionVariables now exposed directly on the Rundown (was inaccessible before) ---
+    assertThat(rundown.collectionVariables.containsKey("firstPokemon")).isTrue();
+    assertThat(rundown.collectionVariables.containsKey("resultCount")).isTrue();
+    assertThat(rundown.collectionVariables.containsKey("pokemonId")).isTrue();
+    // Scopes are isolated: a collection variable never leaks into the environment scope.
+    assertThat(rundown.mutableEnv).doesNotContainKey("firstPokemon");
+
+    // --- {{globalKey}} resolves through the real regex path into a request body (precedence) ---
+    // add-object's body uses {{runTag}} (a GLOBAL); the fired request must carry the resolved
+    // value.
+    final StepReport addObject = rundown.reportForStepName("add-object");
+    assertThat(addObject).isNotNull();
+    assertThat(addObject.requestInfo.get().httpMsg.bodyString()).contains("revoman-run");
+
+    // The all-pokemon URL uses {{limit}}, present in BOTH env (5) and globals (999); env wins.
+    assertThat(allPokemon.requestInfo.get().httpMsg.getUri().getQuery()).contains("limit=5");
+
     // tag::pm-sandbox-asserts[]
     // --- pm.collectionVariables set in step 1, read in steps 2-3 (cross-step) ---
     final StepReport byName = rundown.reportForStepName("pokemon-by-name");

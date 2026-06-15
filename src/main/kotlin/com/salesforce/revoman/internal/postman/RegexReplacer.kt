@@ -24,9 +24,10 @@ class RegexReplacer(
    * ## Order of Variable resolution
    * - Custom Dynamic Variables
    * - Dynamic variables
-   * - Environment built during execution
-   * - Dynamic Environment supplied through config
-   * - Postman Environment supplied as a file through config
+   * - Postman variable scopes, by precedence (narrowest wins): `environment` ▸
+   *   `collectionVariables` ▸ `globals`. Only the `environment` scope participates in the warm-run
+   *   ledger (`recordConsumed`) and the type-coercing write-back (`setItBackInEnvironment`); a hit
+   *   from `collectionVariables` or `globals` is resolved but left untouched in its own store.
    */
   internal fun replaceVariablesRecursively(stringWithRegex: String?, pm: PostmanSDK): String? =
     stringWithRegex?.let {
@@ -44,13 +45,31 @@ class RegexReplacer(
             value ->
             setItBackInEnvironment(variableKey, value, pm)
           }
-          ?: replaceVariablesRecursively(pm.environment.getAsString(variableKey), pm)?.also { value
-            ->
-            pm.environment.recordConsumed(variableKey)
-            setItBackInEnvironment(variableKey, value, pm)
-          }
+          ?: resolveFromScopes(variableKey, pm)
           ?: variable.value
       }
+    }
+
+  /**
+   * Resolves [variableKey] across the three persistent Postman scopes by precedence (`environment`
+   * ▸ `collectionVariables` ▸ `globals`), using containment so a scope that holds the key wins even
+   * over a narrower scope that does not. The `environment` hit keeps its historical side effects
+   * (ledger `recordConsumed` + type-coercing `setItBackInEnvironment`); `collectionVariables` and
+   * `globals` hits are read-only — no ledger involvement, no write-back into their stores. Returns
+   * `null` when no scope contains the key (caller falls back to the literal `{{key}}`).
+   */
+  private fun resolveFromScopes(variableKey: String, pm: PostmanSDK): String? =
+    when {
+      pm.environment.containsKey(variableKey) ->
+        replaceVariablesRecursively(pm.environment.getAsString(variableKey), pm)?.also { value ->
+          pm.environment.recordConsumed(variableKey)
+          setItBackInEnvironment(variableKey, value, pm)
+        }
+      pm.collectionVariables.containsKey(variableKey) ->
+        replaceVariablesRecursively(pm.collectionVariables.getAsString(variableKey), pm)
+      pm.globals.containsKey(variableKey) ->
+        replaceVariablesRecursively(pm.globals.getAsString(variableKey), pm)
+      else -> null
     }
 
   internal fun replaceVariablesInPmItem(item: Item, pm: PostmanSDK): Item =

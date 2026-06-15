@@ -9,6 +9,18 @@
 			"name": "all-pokemon",
 			"event": [
 				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							"// Seed a GLOBAL in the very first step; later steps read it back (cross-step persistence proof).",
+							"pm.globals.set('runTag', 'revoman-run');",
+							"// A global that COLLIDES with an environment key of the same name; precedence must pick env.",
+							"pm.globals.set('limit', '999');"
+						],
+						"type": "text/javascript"
+					}
+				},
+				{
 					"listen": "test",
 					"script": {
 						"exec": [
@@ -16,6 +28,8 @@
 							"var json = pm.response.json();",
 							"pm.test('has results array', function () { pm.expect(json.results).to.be.an('array'); });",
 							"pm.test('environment has a name', function () { pm.expect(pm.environment.name).to.be.a('string'); });",
+							"pm.test('global runTag is readable in same run', function () { pm.expect(pm.globals.get('runTag')).to.eql('revoman-run'); });",
+							"pm.test('pm.variables resolves env over global on a name collision', function () { pm.expect(pm.variables.get('limit')).to.eql('5'); });",
 							"var firstName = json.results[0].name;",
 							"pm.environment.set('pokemonName', firstName);",
 							"pm.collectionVariables.set('firstPokemon', firstName);",
@@ -71,7 +85,8 @@
 					"script": {
 						"exec": [
 							"pm.test('species status 200', function () { pm.response.to.have.status(200); });",
-							"pm.test('id matches earlier pokemon', function () { pm.expect(pm.response.json().id).to.eql(pm.collectionVariables.get('pokemonId')); });"
+							"pm.test('id matches earlier pokemon', function () { pm.expect(pm.response.json().id).to.eql(pm.collectionVariables.get('pokemonId')); });",
+							"pm.test('global runTag persisted across steps', function () { pm.expect(pm.globals.get('runTag')).to.eql('revoman-run'); });"
 						],
 						"type": "text/javascript"
 					}
@@ -110,7 +125,7 @@
 				],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n  \"name\": \"revoman-{{pokemonName}}\",\n  \"data\": { \"source\": \"revoman-sandbox-test\" }\n}",
+					"raw": "{\n  \"name\": \"revoman-{{pokemonName}}\",\n  \"data\": { \"source\": \"revoman-sandbox-test\", \"runTag\": \"{{runTag}}\" }\n}",
 					"options": {
 						"raw": {
 							"language": "json"

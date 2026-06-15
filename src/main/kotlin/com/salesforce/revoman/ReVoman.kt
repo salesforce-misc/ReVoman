@@ -184,6 +184,8 @@ object ReVoman {
       kick.haltOnFailureOfTypeExcept(),
       pmStepsDeepFlattened.size,
       learnedLedger,
+      pm.collectionVariables,
+      pm.globals,
     )
   }
 
@@ -275,6 +277,8 @@ object ReVoman {
             pm.environment,
             kick.haltOnFailureOfTypeExcept(),
             pmStepsFlattened.size,
+            collectionVariables = pm.collectionVariables,
+            globals = pm.globals,
           )
         pm.environment.putAll(regexReplacer.replaceVariablesInEnv(pm))
         val currentStepReport: StepReport = // --------### PRE-REQ-JS ###--------

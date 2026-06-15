@@ -19,6 +19,17 @@ data class Rundown(
   private val haltOnFailureOfTypeExcept: Map<ExeType, PostTxnStepPick?>,
   @JvmField val providedStepsToExecuteCount: Int,
   @JvmField val learnedLedger: Map<String, LedgerEntry> = emptyMap(),
+  /**
+   * The `pm.collectionVariables` scope after the run — a peer of [mutableEnv] (which is the
+   * `pm.environment` scope). Script-seeded only; defaulted empty so existing constructions and
+   * callers are unaffected.
+   */
+  @JvmField val collectionVariables: PostmanEnvironment<Any?> = PostmanEnvironment(),
+  /**
+   * The `pm.globals` scope after the run — a peer of [mutableEnv]. Script-seeded only; defaulted
+   * empty so existing constructions and callers are unaffected.
+   */
+  @JvmField val globals: PostmanEnvironment<Any?> = PostmanEnvironment(),
 ) {
   @get:JvmName("immutableEnv") val immutableEnv: Map<String, Any?> by lazy { mutableEnv.toMap() }
 

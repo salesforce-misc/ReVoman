@@ -86,6 +86,8 @@ internal fun executePostResJS(
  * [PostmanSDK] so the rest of ReVoman observes script effects:
  * - environment: diffed back via [PostmanSDK.environment] set/unset (the ledger path — unchanged).
  * - collectionVariables: diffed back via [PostmanSDK.collectionVariables] set/unset.
+ * - globals: diffed back via [PostmanSDK.globals] set/unset (separate store, no ledger
+ *   involvement).
  * - pm.test assertions + setNextRequest: stashed per [step] for the executor to read onto
  *   StepReport.
  *
@@ -105,9 +107,11 @@ private fun runSandboxScript(
 ) {
   val beforeEnv: Map<String, Any?> = sandboxSafeEnv(pm.environment.mutableEnv)
   val beforeCVars: Map<String, Any?> = sandboxSafeEnv(pm.collectionVariables.mutableEnv)
+  val beforeGlobals: Map<String, Any?> = sandboxSafeEnv(pm.globals.mutableEnv)
   val context =
     PmExecutionContext(
       environment = PmScope("environment", beforeEnv, name = pm.environmentName),
+      globals = PmScope("globals", beforeGlobals),
       collectionVariables = PmScope("collectionVariables", beforeCVars),
       request = requestAsContextMap(pmRequest),
       response = if (target == ScriptTarget.TEST) responseAsContextMap(pm) else null,
@@ -126,6 +130,11 @@ private fun runSandboxScript(
     pm.collectionVariables.set(key, result.collectionVariables[key])
   }
   cVarDiff.unset.forEach { key -> pm.collectionVariables.unset(key) }
+
+  // Apply global mutations back (no ledger involvement — separate store, like collectionVariables).
+  val gVarDiff = diffScopes(beforeGlobals, result.globals)
+  gVarDiff.produced.forEach { key -> pm.globals.set(key, result.globals[key]) }
+  gVarDiff.unset.forEach { key -> pm.globals.unset(key) }
 
   // Surface pm.test results + setNextRequest onto the StepReport (read by the executor fold).
   pm.recordPmTestAssertions(
