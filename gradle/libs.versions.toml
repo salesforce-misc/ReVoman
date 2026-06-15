@@ -36,7 +36,6 @@ kover = "0.9.8"
 detekt = "1.23.8"
 spotless = "8.6.0"
 apache-log4j = "3.0.0-beta2"
-apache-log4j-core = "3.0.0-beta3"
 
 [libraries]
 java-vavr = { module = "io.vavr:vavr", version.ref = "java-vavr" }
@@ -66,7 +65,7 @@ immutables-builder = { module = "org.immutables:builder", version.ref = "immutab
 immutables-value-annotations = { module = "org.immutables:value-annotations", version.ref = "immutables" }
 kotlin-logging-jvm = { module = "io.github.oshai:kotlin-logging-jvm", version.ref = "kotlin-logging" }
 log4j-api = { module = "org.apache.logging.log4j:log4j-api", version.ref = "apache-log4j" }
-log4j-core = { module = "org.apache.logging.log4j:log4j-core", version.ref = "apache-log4j-core" }
+log4j-core = { module = "org.apache.logging.log4j:log4j-core", version.ref = "apache-log4j" }
 log4j-slf4j2-impl = { module = "org.apache.logging.log4j:log4j-slf4j2-impl", version.ref = "apache-log4j" }
 pprint = { module = "io.exoquery:pprint-kotlin", version.ref = "pprint" }
 mockito-core = { module = "org.mockito:mockito-core", version.ref = "mockito" }

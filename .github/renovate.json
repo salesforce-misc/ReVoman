@@ -17,6 +17,15 @@
       "matchPackageNames": [
         "*"
       ]
+    },
+    {
+      "description": "Keep log4j artifacts version-aligned. Only log4j-core published 3.0.0-beta3; log4j-api and log4j-slf4j2-impl cap at beta2 on Central, so an independent core bump to beta3 yields NoSuchMethodError ServiceLoaderUtil.safeStream at runtime. Skip the orphan beta3 until api/slf4j2-impl catch up.",
+      "matchPackageNames": [
+        "org.apache.logging.log4j:log4j-api",
+        "org.apache.logging.log4j:log4j-core",
+        "org.apache.logging.log4j:log4j-slf4j2-impl"
+      ],
+      "allowedVersions": "!/-beta3$/"
     }
   ]
 }
