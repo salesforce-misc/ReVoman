@@ -10,10 +10,6 @@ permissions:
   contents: read
   pages: write
   id-token: write
-env:
-  # Run the bundled JS actions (configure-pages, deploy-pages, upload-pages-artifact)
-  # on Node 24 instead of the deprecated Node 20 runtime.
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -22,14 +18,14 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v5
+      uses: actions/checkout@v6
       with:
         # Antora needs full history for url: . content sources
         fetch-depth: 0
     - name: Configure Pages
-      uses: actions/configure-pages@v5
+      uses: actions/configure-pages@v6
     - name: Install Node.js
-      uses: actions/setup-node@v5
+      uses: actions/setup-node@v6
       with:
         node-version: '24'
     - name: Install Antora + Lunr extension
@@ -37,9 +33,9 @@ jobs:
     - name: Generate Site
       run: npx antora antora-playbook.yml
     - name: Upload Artifacts
-      uses: actions/upload-pages-artifact@v4
+      uses: actions/upload-pages-artifact@v5
       with:
         path: build/site
     - name: Deploy to GitHub Pages
       id: deployment
-      uses: actions/deploy-pages@v4
+      uses: actions/deploy-pages@v5
