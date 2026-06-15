@@ -9,7 +9,7 @@
     --}}
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap">
     <link rel="stylesheet" href="{{{uiRootPath}}}/css/revoman-theme.css">
     {{!--
       Theme toggle behaviour. Runs inline in <head> so the active theme is set
@@ -51,12 +51,25 @@
         // 3. Wire the button once the DOM is ready.
         document.addEventListener("DOMContentLoaded", function () {
           var btn = document.getElementById("rv-theme-toggle");
-          if (!btn) return;
-          btn.addEventListener("click", function () {
-            var next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
-            try { localStorage.setItem(KEY, next); } catch (e) {}
-            apply(next);
-          });
+          if (btn) {
+            btn.addEventListener("click", function () {
+              var next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+              try { localStorage.setItem(KEY, next); } catch (e) {}
+              apply(next);
+            });
+          }
+
+          // Landing hero (home page only): opt INTO the Rundown readout
+          // animation. The readout is fully visible by default; we add
+          // `.rv-anim` to play the staggered reveal ONLY when the element is
+          // present and the user hasn't asked for reduced motion. So a paused
+          // tab, a no-JS client, or a reduced-motion user always sees the
+          // finished readout — the animation is pure enhancement.
+          var readout = document.querySelector(".rv-readout");
+          if (readout &&
+              !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+            readout.classList.add("rv-anim");
+          }
         });
       })();
     </script>

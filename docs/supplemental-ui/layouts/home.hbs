@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+{{!--
+  ReṼoman landing layout — a minimal, full-bleed shell for the home page only.
+
+  Selected by `:page-layout: home` in modules/ROOT/pages/index.adoc. It mirrors
+  the bundle's default.hbs (so the same <head>, navbar, theme CSS, web fonts and
+  light/dark toggle all load) but DROPS the docs chrome — the left nav, the
+  breadcrumb toolbar and the right-hand TOC — and renders page.contents straight
+  into a full-width <main>. The landing markup itself lives in index.adoc (a
+  single AsciiDoc passthrough block), so content stays in the docs source tree;
+  this layout is just the frame.
+
+  Every other page keeps using the bundle's default.hbs untouched.
+--}}
+{{> head defaultPageTitle='Untitled'}}
+  </head>
+  <body class="home{{#with (or page.attributes.role page.role)}} {{{this}}}{{/with}}">
+{{> header}}
+    <main class="rv-home">
+{{{page.contents}}}
+    </main>
+{{> footer}}
+  </body>
+</html>

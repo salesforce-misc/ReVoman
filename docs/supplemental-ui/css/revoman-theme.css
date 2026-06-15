@@ -28,16 +28,25 @@
     "Segoe UI", Roboto, sans-serif;
   --rv-font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono",
     Menlo, monospace;
+  /* Display face — Space Grotesk's mechanical, slightly-condensed spine reads
+     as "engine," not "magazine." Used on headings (display role); body stays
+     Plex Sans, data/chrome stays JetBrains Mono. Three roles, each earned. */
+  --rv-font-display: "Space Grotesk", "IBM Plex Sans", -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 /* ----------------------------------------------------------------------------
    2. Design tokens — light theme (the single place to re-skin)
    ------------------------------------------------------------------------- */
 :root {
-  /* Accent — the rust/terracotta from the ReṼoman wordmark. The ONLY hue. */
-  --rv-accent: #c2410c;
-  --rv-accent-hover: #9a3412;
-  --rv-accent-soft: rgba(194, 65, 12, 0.08);
+  /* Accent — Claude-coral, the ONLY hue. Deliberately a warm clay-coral (not
+     Postman's bright #FF6C37, and warmer/pinker than a pure rust): the base
+     coral is #D97757, deepened here to #b75333 so it clears WCAG AA (≈4.9:1)
+     as link/CTA text on white. The pure #D97757 still shows through in the soft
+     tints and the dark theme, where it reads as itself. */
+  --rv-accent: #b75333;
+  --rv-accent-hover: #983f22;
+  --rv-accent-soft: rgba(217, 119, 87, 0.10);
 
   /* Surfaces — warm-tinted neutrals, not pure cold grey */
   --rv-bg: #ffffff;
@@ -84,9 +93,12 @@
    auto and the explicitly-chosen dark states.
    ------------------------------------------------------------------------- */
 :root[data-theme="dark"] {
-  --rv-accent: #fb7c4c;
-  --rv-accent-hover: #fd9670;
-  --rv-accent-soft: rgba(251, 124, 76, 0.12);
+  /* Claude-coral lifted for dark surfaces. The base coral #D97757 reads true
+     here against warm-ink; #de8160 lifts it just enough for body-text legibility
+     (≈6.5:1 on the dark bg) without tipping into a neon orange. */
+  --rv-accent: #de8160;
+  --rv-accent-hover: #e89a7d;
+  --rv-accent-soft: rgba(217, 119, 87, 0.15);
 
   --rv-bg: #17140f;
   --rv-bg-subtle: #1e1a15;
@@ -186,23 +198,24 @@ body {
   color: var(--rv-text-faint);
 }
 
-/* Headings — solid ink, tight, bold. No gradient clip. */
+/* Headings — Space Grotesk display face, solid ink, tight. No gradient clip. */
 .doc h1,
 .doc h2,
 .doc h3,
 .doc h4,
 .doc h5,
 .doc h6 {
+  font-family: var(--rv-font-display);
   color: var(--rv-heading);
-  font-weight: 650;
-  letter-spacing: -0.021em;
-  line-height: 1.25;
+  font-weight: 600;
+  letter-spacing: -0.018em;
+  line-height: 1.22;
 }
 
 .doc h1.page {
-  font-size: 2.4rem;
+  font-size: 2.5rem;
   font-weight: 700;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.028em;
   margin-top: 1.5rem;
 }
 
@@ -721,4 +734,764 @@ input:focus-visible {
 }
 :root[data-theme="dark"] .doc .hljs-meta {
   color: #aaa298;
+}
+
+/* =============================================================================
+   15. LANDING PAGE  (.rv-home)
+
+   Scoped entirely under `.rv-home` (the <main> in layouts/home.hbs) so none of
+   this leaks into the 19 docs pages. The landing's job: in ~10s, SHOW the
+   engine — a graph of API steps executing in order into a structured Rundown.
+
+   Identity = engine telemetry, not editorial. Signature = the hero "Rundown
+   readout": the engine's own output, the 4 real steps of the restful-api.dev
+   demo animating in on load. Boldness is spent there; every other band stays
+   quiet. Reuses the existing palette tokens (rust = brand/active, the semantic
+   green = pass) so light/dark Just Work via §2/§3.
+   ========================================================================== */
+
+/* Landing-only status + surface tokens, derived from the shared palette */
+.rv-home {
+  --rv-pass: var(--rv-tip);            /* green pass dot — reuse semantic token */
+  --rv-panel: #16140f;                 /* warm-ink engine panel (both themes)  */
+  --rv-panel-line: #2b2620;
+  --rv-panel-text: #ece8e1;
+  --rv-panel-faint: #8c867e;
+  --rv-maxw: 1120px;
+
+  display: block;
+  padding-top: 3.5rem;                 /* clear the fixed navbar (bundle: 3.5rem) */
+  background: var(--rv-bg);
+  color: var(--rv-text);
+  font-family: var(--rv-font-sans);
+  overflow-x: hidden;
+}
+
+/* ---- shared landing primitives ------------------------------------------- */
+.rv-eyebrow,
+.rv-section-marker {
+  font-family: var(--rv-font-mono);
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--rv-text-faint);
+  margin: 0;
+}
+
+.rv-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--rv-accent);
+}
+
+.rv-eyebrow__dot {
+  width: 0.42rem;
+  height: 0.42rem;
+  border-radius: 50%;
+  background: var(--rv-accent);
+  box-shadow: 0 0 0 3px var(--rv-accent-soft);
+}
+
+.rv-section-marker {
+  color: var(--rv-accent);
+}
+
+.rv-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-family: var(--rv-font-sans);
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1;
+  padding: 0.72rem 1.2rem;
+  border-radius: var(--rv-radius-sm);
+  text-decoration: none;
+  border: 1px solid transparent;
+  transition: transform 0.12s ease, background 0.15s ease,
+    border-color 0.15s ease, color 0.15s ease;
+}
+
+.rv-btn--primary {
+  background: var(--rv-accent);
+  color: #fff;
+}
+.rv-btn--primary:hover {
+  background: var(--rv-accent-hover);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.rv-btn--ghost {
+  background: transparent;
+  color: var(--rv-text);
+  border-color: var(--rv-border-strong);
+}
+.rv-btn--ghost:hover {
+  border-color: var(--rv-accent);
+  color: var(--rv-accent);
+}
+
+.rv-tag {
+  display: inline-block;
+  font-family: var(--rv-font-mono);
+  font-size: 0.74rem;
+  font-weight: 500;
+  color: var(--rv-accent);
+  background: var(--rv-accent-soft);
+  border: 1px solid var(--rv-accent-soft);
+  border-radius: 0.3rem;
+  padding: 0.1rem 0.42rem;
+}
+
+.rv-dot-sep {
+  color: var(--rv-border-strong);
+  margin: 0 0.1rem;
+}
+
+/* ---- HERO ----------------------------------------------------------------- */
+.rv-hero {
+  max-width: var(--rv-maxw);
+  margin: 0 auto;
+  padding: clamp(2.5rem, 6vw, 5rem) 1.5rem clamp(2.5rem, 5vw, 4rem);
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  gap: clamp(2rem, 5vw, 4rem);
+  align-items: center;
+}
+
+.rv-hero__copy {
+  min-width: 0;
+}
+
+.rv-hero__title {
+  font-family: var(--rv-font-display);
+  font-weight: 700;
+  font-size: clamp(2.3rem, 5.2vw, 3.5rem);
+  line-height: 1.04;
+  letter-spacing: -0.035em;
+  color: var(--rv-heading);
+  margin: 1rem 0 0;
+}
+
+.rv-hero__title-accent {
+  color: var(--rv-accent);
+}
+
+.rv-hero__lede {
+  font-size: clamp(1rem, 1.4vw, 1.12rem);
+  line-height: 1.6;
+  color: var(--rv-text-muted);
+  margin: 1.25rem 0 0;
+  max-width: 34rem;
+}
+.rv-hero__lede strong {
+  color: var(--rv-heading);
+  font-weight: 600;
+}
+.rv-hero__lede a {
+  color: var(--rv-accent);
+  text-decoration: none;
+  border-bottom: 1px solid var(--rv-accent-soft);
+}
+.rv-hero__lede a:hover {
+  border-bottom-color: var(--rv-accent);
+}
+
+.rv-hero__cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.75rem;
+}
+
+.rv-hero__meta {
+  font-size: 0.82rem;
+  color: var(--rv-text-faint);
+  margin-top: 1.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* ---- SIGNATURE: the Rundown readout panel -------------------------------- */
+.rv-readout {
+  margin: 0;
+  background: var(--rv-panel);
+  border: 1px solid var(--rv-panel-line);
+  border-radius: var(--rv-radius);
+  box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.5),
+    0 1px 0 rgba(255, 255, 255, 0.04) inset;
+  overflow: hidden;
+  font-family: var(--rv-font-mono);
+  color: var(--rv-panel-text);
+}
+
+.rv-readout__bar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.9rem;
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid var(--rv-panel-line);
+  font-size: 0.74rem;
+}
+
+.rv-readout__dots {
+  display: inline-flex;
+  gap: 0.32rem;
+}
+.rv-readout__dots i {
+  width: 0.62rem;
+  height: 0.62rem;
+  border-radius: 50%;
+  background: var(--rv-panel-line);
+}
+
+.rv-readout__file {
+  color: var(--rv-panel-faint);
+  letter-spacing: 0.02em;
+}
+
+.rv-readout__live {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--rv-panel-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.66rem;
+}
+.rv-readout__live-dot {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background: var(--rv-pass);
+  animation: rv-pulse 1.6s ease-in-out infinite;
+}
+
+.rv-readout__steps {
+  list-style: none;
+  margin: 0;
+  padding: 0.5rem 0;
+}
+
+.rv-step {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.95rem;
+  font-size: 0.84rem;
+  border-left: 2px solid transparent;
+}
+
+/* Page-load reveal — PROGRESSIVE ENHANCEMENT.
+   The readout is fully visible by default (no-JS, paused tab, crawler, and the
+   unfocused-webview case all see the finished state). The staggered fade-up
+   only runs once JS adds `.rv-anim` to the figure AND motion is allowed — so
+   the animation can never be the reason content is missing. */
+.rv-anim .rv-step {
+  opacity: 0;
+  transform: translateY(6px);
+  animation: rv-step-in 0.45s ease forwards;
+  animation-delay: calc(0.25s + var(--i) * 0.28s);
+}
+
+.rv-step__idx {
+  color: var(--rv-panel-faint);
+  font-size: 0.72rem;
+}
+
+.rv-step__verb {
+  font-weight: 600;
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  padding: 0.12rem 0.4rem;
+  border-radius: 0.28rem;
+  border: 1px solid currentColor;
+  min-width: 3.4rem;
+  text-align: center;
+}
+.rv-verb--post  { color: #7dd3a8; }
+.rv-verb--get   { color: #6db4e6; }
+.rv-verb--patch { color: #fbbf24; }
+
+.rv-step__path {
+  color: var(--rv-panel-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rv-step__var {
+  color: var(--rv-panel-faint);
+}
+
+.rv-step__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+.rv-step__ms {
+  color: var(--rv-panel-faint);
+  font-size: 0.74rem;
+}
+.rv-step__dot {
+  width: 0.62rem;
+  height: 0.62rem;
+  border-radius: 50%;
+  background: var(--rv-panel-line);
+  position: relative;
+}
+/* The dot's resting state IS the green "passed" pip (default-visible). */
+.rv-step__dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--rv-pass);
+  box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.16);
+}
+/* Under animation, it "resolves" to green just after its row appears. */
+.rv-anim .rv-step__dot::after {
+  opacity: 0;
+  transform: scale(0.4);
+  animation: rv-dot-pass 0.4s ease forwards;
+  animation-delay: calc(0.55s + var(--i) * 0.28s);
+}
+
+.rv-readout__out {
+  border-top: 1px solid var(--rv-panel-line);
+  padding: 0.85rem 0.95rem 1rem;
+  background: rgba(0, 0, 0, 0.18);
+}
+.rv-anim .rv-readout__out {
+  opacity: 0;
+  animation: rv-step-in 0.5s ease forwards;
+  animation-delay: 1.7s;     /* after the 4 steps have resolved */
+}
+.rv-readout__prompt {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--rv-accent);
+  margin-bottom: 0.5rem;
+}
+.rv-readout__prompt::before {
+  content: "› ";
+  color: var(--rv-panel-faint);
+}
+.rv-readout__json {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--rv-panel-text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.rv-j-brace { color: var(--rv-panel-faint); }
+.rv-j-key   { color: #6db4e6; }
+.rv-j-meta  { color: #7dd3a8; }
+
+@keyframes rv-step-in {
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes rv-dot-pass {
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes rv-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.35; }
+}
+
+/* ---- BANDS (shared) ------------------------------------------------------- */
+.rv-band {
+  max-width: var(--rv-maxw);
+  margin: 0 auto;
+  padding: clamp(3rem, 7vw, 5.5rem) 1.5rem;
+  border-top: 1px solid var(--rv-border);
+}
+
+.rv-band__head {
+  max-width: 44rem;
+}
+.rv-band__title {
+  font-family: var(--rv-font-display);
+  font-weight: 700;
+  font-size: clamp(1.7rem, 3.2vw, 2.3rem);
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  color: var(--rv-heading);
+  margin: 0.7rem 0 0;
+}
+.rv-band__sub {
+  font-size: 1rem;
+  line-height: 1.65;
+  color: var(--rv-text-muted);
+  margin: 1rem 0 0;
+}
+.rv-band__sub a {
+  color: var(--rv-accent);
+  text-decoration: none;
+  border-bottom: 1px solid var(--rv-accent-soft);
+}
+.rv-band__sub a:hover { border-bottom-color: var(--rv-accent); }
+
+/* ---- HOW: 3 moves --------------------------------------------------------- */
+.rv-steps3 {
+  list-style: none;
+  margin: 2.5rem 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+}
+.rv-move {
+  position: relative;
+  padding: 1.4rem 1.3rem;
+  background: var(--rv-bg-subtle);
+  border: 1px solid var(--rv-border);
+  border-radius: var(--rv-radius);
+}
+.rv-move__idx {
+  font-family: var(--rv-font-mono);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--rv-accent);
+  background: var(--rv-accent-soft);
+  border-radius: 0.3rem;
+  padding: 0.12rem 0.45rem;
+}
+.rv-move__title {
+  font-family: var(--rv-font-display);
+  font-size: 1.12rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--rv-heading);
+  margin: 0.85rem 0 0;
+}
+.rv-move__body {
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: var(--rv-text-muted);
+  margin: 0.5rem 0 0;
+}
+.rv-move__body a {
+  color: var(--rv-accent);
+  text-decoration: none;
+  border-bottom: 1px solid var(--rv-accent-soft);
+}
+.rv-move__body a:hover { border-bottom-color: var(--rv-accent); }
+.rv-move__body code {
+  font-family: var(--rv-font-mono);
+  font-size: 0.86em;
+  background: var(--rv-bg-code);
+  border: 1px solid var(--rv-border);
+  border-radius: 0.3rem;
+  padding: 0.05em 0.32em;
+}
+
+.rv-flowfig {
+  margin: 2.5rem 0 0;
+  padding: 1.5rem;
+  background: var(--rv-bg-subtle);
+  border: 1px solid var(--rv-border);
+  border-radius: var(--rv-radius);
+  text-align: center;
+}
+.rv-flowfig svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 1120px;
+  margin: 0 auto;
+}
+
+/* The flow diagram is inlined (not an <img>) so it lives in the document and
+   inherits the active theme. Its element classes bind to the same --rv-* tokens
+   as the rest of the page, so the light/dark TOGGLE drives it — an external
+   <img> could only ever see the OS `prefers-color-scheme`, which is why it used
+   to flash a white card whenever the toggle and the OS disagreed. */
+.rv-flowfig svg .box {
+  fill: var(--rv-bg);
+  stroke: var(--rv-border-strong);
+}
+.rv-flowfig svg .box-engine {
+  fill: var(--rv-accent-soft);
+  stroke: var(--rv-accent);
+}
+.rv-flowfig svg .title {
+  fill: var(--rv-heading);
+}
+.rv-flowfig svg .engine-title {
+  fill: var(--rv-accent);
+}
+.rv-flowfig svg .sub {
+  fill: var(--rv-text-muted);
+}
+.rv-flowfig svg .faint,
+.rv-flowfig svg .edge-label {
+  fill: var(--rv-text-faint);
+}
+.rv-flowfig svg .edge,
+.rv-flowfig svg .edge-arrow {
+  stroke: var(--rv-text-faint);
+}
+.rv-flowfig svg .edge-arrow {
+  fill: var(--rv-text-faint);
+  stroke: none;
+}
+
+/* "The loop" diagram on the agentic page — same inline-token approach as the
+   flow figure (tracks the theme toggle, no <img> leak). Drawn as a true cycle:
+   the agent orchestrates on the left, ReṼoman executes on the right, an
+   API-Graph rides the top arc in and a Rundown of Context Information rides the
+   bottom arc back. The returned artifact carries the accent because the Context
+   Information is the valuable output the agent reasons over. */
+.rv-loopfig {
+  margin: 1.75rem 0 0;
+  padding: clamp(1rem, 2.5vw, 1.75rem);
+  background: var(--rv-bg-subtle);
+  border: 1px solid var(--rv-border);
+  border-radius: var(--rv-radius);
+}
+.rv-loopfig svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 820px;
+  margin: 0 auto;
+}
+.rv-loopfig svg .box {
+  fill: var(--rv-bg);
+  stroke: var(--rv-border-strong);
+}
+.rv-loopfig svg .box-engine {
+  fill: var(--rv-accent-soft);
+  stroke: var(--rv-accent);
+}
+.rv-loopfig svg .title {
+  fill: var(--rv-heading);
+}
+.rv-loopfig svg .engine-title {
+  fill: var(--rv-accent);
+}
+.rv-loopfig svg .sub {
+  fill: var(--rv-text-muted);
+}
+.rv-loopfig svg .faint {
+  fill: var(--rv-text-faint);
+}
+.rv-loopfig svg .caption {
+  fill: var(--rv-text-faint);
+  font-family: var(--rv-font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+.rv-loopfig svg .edge {
+  stroke: var(--rv-text-faint);
+  fill: none;
+}
+.rv-loopfig svg .edge-arrow {
+  fill: var(--rv-text-faint);
+  stroke: none;
+}
+.rv-loopfig svg .pill {
+  fill: var(--rv-bg);
+  stroke: var(--rv-border-strong);
+}
+.rv-loopfig svg .pill-text {
+  fill: var(--rv-text-muted);
+  font-family: var(--rv-font-mono);
+  font-weight: 500;
+}
+.rv-loopfig svg .pill-accent {
+  fill: var(--rv-accent-soft);
+  stroke: var(--rv-accent);
+}
+
+/* ---- APPLICATIONS grid ---------------------------------------------------- */
+.rv-appgrid {
+  margin: 2.5rem 0 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+}
+.rv-appcard {
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem 1.4rem;
+  background: var(--rv-bg);
+  border: 1px solid var(--rv-border);
+  border-radius: var(--rv-radius);
+  text-decoration: none;
+  transition: border-color 0.15s ease, transform 0.12s ease,
+    box-shadow 0.15s ease;
+}
+.rv-appcard:hover {
+  border-color: var(--rv-accent);
+  transform: translateY(-2px);
+  box-shadow: var(--rv-shadow);
+}
+.rv-appcard__tag {
+  font-family: var(--rv-font-mono);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--rv-text-faint);
+}
+.rv-appcard__title {
+  font-family: var(--rv-font-display);
+  font-size: 1.18rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--rv-heading);
+  margin: 0.55rem 0 0;
+}
+.rv-appcard__body {
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: var(--rv-text-muted);
+  margin: 0.55rem 0 0;
+  flex: 1;
+}
+.rv-appcard__body code {
+  font-family: var(--rv-font-mono);
+  font-size: 0.86em;
+}
+.rv-appcard__go {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--rv-accent);
+  margin-top: 1rem;
+}
+
+/* ---- HONEST: today vs roadmap -------------------------------------------- */
+.rv-honest__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+}
+.rv-honest__col {
+  padding: 1.6rem 1.5rem;
+  border: 1px solid var(--rv-border);
+  border-radius: var(--rv-radius);
+  background: var(--rv-bg-subtle);
+}
+.rv-honest__col--today {
+  border-left: 3px solid var(--rv-pass);
+}
+.rv-honest__col--road {
+  border-left: 3px solid var(--rv-warning);
+}
+.rv-honest__label {
+  font-family: var(--rv-font-mono);
+  font-size: 0.74rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0 0 1rem;
+}
+.rv-honest__label--today { color: var(--rv-tip); }
+.rv-honest__label--road  { color: var(--rv-warning); }
+.rv-honest__list {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.6rem;
+}
+.rv-honest__list li {
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: var(--rv-text-muted);
+}
+.rv-honest__list code {
+  font-family: var(--rv-font-mono);
+  font-size: 0.86em;
+  background: var(--rv-bg-code);
+  border: 1px solid var(--rv-border);
+  border-radius: 0.3rem;
+  padding: 0.05em 0.3em;
+}
+.rv-honest__list a {
+  color: var(--rv-accent);
+  text-decoration: none;
+  border-bottom: 1px solid var(--rv-accent-soft);
+}
+.rv-honest__list a:hover { border-bottom-color: var(--rv-accent); }
+.rv-honest__foot {
+  font-size: 0.84rem;
+  font-style: italic;
+  color: var(--rv-text-faint);
+  margin: 1rem 0 0;
+}
+
+/* ---- final CTA ------------------------------------------------------------ */
+.rv-cta {
+  max-width: var(--rv-maxw);
+  margin: 0 auto;
+  padding: clamp(3.5rem, 8vw, 6rem) 1.5rem;
+  border-top: 1px solid var(--rv-border);
+  text-align: center;
+}
+.rv-cta__title {
+  font-family: var(--rv-font-display);
+  font-weight: 700;
+  font-size: clamp(1.8rem, 4vw, 2.6rem);
+  letter-spacing: -0.03em;
+  color: var(--rv-heading);
+  margin: 0;
+}
+.rv-cta__sub {
+  font-size: 1.05rem;
+  color: var(--rv-text-muted);
+  margin: 1rem 0 0;
+}
+.rv-cta__sub code {
+  font-family: var(--rv-font-mono);
+  font-size: 0.88em;
+  color: var(--rv-accent);
+}
+.rv-cta .rv-hero__cta {
+  justify-content: center;
+}
+
+/* ---- responsive ----------------------------------------------------------- */
+@media (max-width: 900px) {
+  .rv-hero {
+    grid-template-columns: 1fr;
+  }
+  .rv-readout { order: 2; }
+  .rv-steps3,
+  .rv-appgrid {
+    grid-template-columns: 1fr;
+  }
+  .rv-honest__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---- reduced motion: render the final state instantly --------------------
+   Belt-and-braces: the JS gate (§ head-meta) already withholds `.rv-anim` when
+   the user prefers reduced motion, but if `.rv-anim` ever lands anyway, force
+   every animated element to its resting (visible) state. */
+@media (prefers-reduced-motion: reduce) {
+  .rv-anim .rv-step,
+  .rv-anim .rv-readout__out {
+    opacity: 1;
+    transform: none;
+    animation: none;
+  }
+  .rv-anim .rv-step__dot::after {
+    opacity: 1;
+    transform: scale(1);
+    animation: none;
+  }
+  .rv-readout__live-dot {
+    animation: none;
+  }
 }

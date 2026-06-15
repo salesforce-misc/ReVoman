@@ -1,49 +1,205 @@
-= ReṼoman 🦹🏻‍♀️
+= ReṼoman
+:page-layout: home
+:page-description: ReṼoman is an API Orchestration Engine for the JVM — execute a graph of interdependent API calls described as executable API metadata, and get back a structured Rundown. The execution layer beneath Agentic API Orchestration.
+:!page-toc:
 
-ReṼoman is an *API Orchestration Engine* for the JVM. You describe a workflow of interdependent API calls as *executable API metadata*; ReṼoman executes that graph — resolving data dependencies between calls, handling auth, polling, and type-safe payloads — and returns a structured *Rundown* of everything that happened. This makes it a building block for *Agentic API Orchestration*, with API test automation as one powerful application.
+// =============================================================================
+// LANDING PAGE
+//
+// This page renders with the custom `home` layout
+// (docs/supplemental-ui/layouts/home.hbs) — full-bleed, no docs sidebar/TOC.
+// The markup below is one AsciiDoc passthrough block; `subs=attributes+` lets
+// {revoman-version} / {gh-blob} resolve. The landing's styles are scoped under
+// `.rv-home` in docs/supplemental-ui/css/revoman-theme.css (§15+).
+//
+// All substantive prose still lives in the dedicated pages this links to
+// (why-revoman, agentic-orchestration, rundown, getting-started, applications…).
+// This page is the front door, not a content silo.
+//
+// The hero "Rundown readout" mirrors a REAL passing integration test —
+// restful-api.dev: POST/GET/GET/PATCH on /objects, 4 steps, all green —
+// see src/integrationTest/.../restfulapidev/RestfulAPIDevTest.java.
+// =============================================================================
 
-ReṼoman comes from the API-first SaaS company, *Salesforce*.
+[subs="attributes+"]
+++++
+<section class="rv-hero">
+  <div class="rv-hero__copy">
+    <p class="rv-eyebrow"><span class="rv-eyebrow__dot"></span>API Orchestration Engine · JVM</p>
+    <h1 class="rv-hero__title">Execute your API&nbsp;graph.<br><span class="rv-hero__title-accent">Get back a Rundown.</span></h1>
+    <p class="rv-hero__lede">
+      Describe a workflow of interdependent API calls as <strong>executable API metadata</strong>.
+      ReṼoman executes that graph on the JVM — resolving data dependencies, auth, and polling —
+      and returns a structured <strong>Rundown</strong> of everything that happened.
+      The deterministic execution layer beneath <a href="agentic-orchestration.html">Agentic API Orchestration</a>.
+    </p>
+    <div class="rv-hero__cta">
+      <a class="rv-btn rv-btn--primary" href="getting-started.html">Get started <span aria-hidden="true">→</span></a>
+      <a class="rv-btn rv-btn--ghost" href="https://github.com/salesforce-misc/ReVoman">View on GitHub</a>
+    </div>
+    <p class="rv-hero__meta">
+      <span class="rv-tag">v{revoman-version}</span>
+      <span class="rv-dot-sep">·</span> Apache-2.0
+      <span class="rv-dot-sep">·</span> from the API-first SaaS company, Salesforce
+      <span class="rv-dot-sep">·</span> no licensed Postman SDKs
+    </p>
+  </div>
 
-Current version: {revoman-version}
+  <!-- SIGNATURE: a live Rundown readout. The engine's own output, animating
+       on load — the 4 real steps of the restful-api.dev demo run in order,
+       each resolving to a green status, then the panel reveals toJson(). -->
+  <figure class="rv-readout" aria-label="A ReṼoman Rundown: four API steps executing in order, then the JSON output">
+    <figcaption class="rv-readout__bar">
+      <span class="rv-readout__dots"><i></i><i></i><i></i></span>
+      <span class="rv-readout__file">rundown</span>
+      <span class="rv-readout__live"><span class="rv-readout__live-dot"></span>executing</span>
+    </figcaption>
+    <ol class="rv-readout__steps">
+      <li class="rv-step" style="--i:0">
+        <span class="rv-step__idx">01</span>
+        <span class="rv-step__verb rv-verb--post">POST</span>
+        <span class="rv-step__path">/objects</span>
+        <span class="rv-step__status"><span class="rv-step__ms">142&thinsp;ms</span><span class="rv-step__dot"></span></span>
+      </li>
+      <li class="rv-step" style="--i:1">
+        <span class="rv-step__idx">02</span>
+        <span class="rv-step__verb rv-verb--get">GET</span>
+        <span class="rv-step__path">/objects</span>
+        <span class="rv-step__status"><span class="rv-step__ms">88&thinsp;ms</span><span class="rv-step__dot"></span></span>
+      </li>
+      <li class="rv-step" style="--i:2">
+        <span class="rv-step__idx">03</span>
+        <span class="rv-step__verb rv-verb--get">GET</span>
+        <span class="rv-step__path">/objects/<span class="rv-step__var">\{id}</span></span>
+        <span class="rv-step__status"><span class="rv-step__ms">76&thinsp;ms</span><span class="rv-step__dot"></span></span>
+      </li>
+      <li class="rv-step" style="--i:3">
+        <span class="rv-step__idx">04</span>
+        <span class="rv-step__verb rv-verb--patch">PATCH</span>
+        <span class="rv-step__path">/objects/<span class="rv-step__var">\{id}</span></span>
+        <span class="rv-step__status"><span class="rv-step__ms">110&thinsp;ms</span><span class="rv-step__dot"></span></span>
+      </li>
+    </ol>
+    <div class="rv-readout__out">
+      <span class="rv-readout__prompt">rundown.toJson(VERBOSE)</span>
+      <pre class="rv-readout__json"><span class="rv-j-brace">{</span> <span class="rv-j-key">"stepReports"</span>: <span class="rv-j-meta">[ 4 — all passed ]</span>, <span class="rv-j-key">"mutableEnv"</span>: <span class="rv-j-meta">{…}</span>, <span class="rv-j-key">"stats"</span>: <span class="rv-j-meta">{…}</span> <span class="rv-j-brace">}</span></pre>
+    </div>
+  </figure>
+</section>
 
-[NOTE]
-====
-*What ships today vs. what's on the roadmap.* ReṼoman is honest about the line between the two.
+<section class="rv-band rv-how">
+  <header class="rv-band__head">
+    <p class="rv-section-marker">// how the engine works</p>
+    <h2 class="rv-band__title">A graph in. A Rundown out.</h2>
+    <p class="rv-band__sub">
+      Think of the <a href="https://learning.postman.com/docs/collections/running-collections/intro-to-collection-runs/">Postman Collection Runner</a> walking a collection step by step — but inside a Java/Kotlin program, resolving the dependencies between calls. Today that metadata is serialized in the Postman&nbsp;V2/V3 schema; reading Postman-schema metadata no more makes this "a Postman tool" than emitting JSON makes a service "a JSON tool."
+    </p>
+  </header>
+  <ol class="rv-steps3">
+    <li class="rv-move">
+      <span class="rv-move__idx">01</span>
+      <h3 class="rv-move__title">Feed it the metadata</h3>
+      <p class="rv-move__body">An <a href="executable-api-metadata.html">API-Graph</a>: the workflow of interdependent calls, with the order and the data dependencies between them.</p>
+    </li>
+    <li class="rv-move">
+      <span class="rv-move__idx">02</span>
+      <h3 class="rv-move__title">It executes the graph</h3>
+      <p class="rv-move__body">Deterministically, on the JVM — resolving data dependencies, handling auth, polling for async outcomes, marshalling <a href="type-safety.html">type-safe</a> payloads.</p>
+    </li>
+    <li class="rv-move">
+      <span class="rv-move__idx">03</span>
+      <h3 class="rv-move__title">Get back a Rundown</h3>
+      <p class="rv-move__body">A structured record of everything that happened. <a href="rundown.html">Rundown</a><code>.toJson(VERBOSITY)</code> is the Context Information an agentic Node consumes.</p>
+    </li>
+  </ol>
+  <figure class="rv-flowfig">
+    <!-- Inlined (not <img>) so it inherits the page theme — its classes bind to
+         the --rv-* tokens in revoman-theme.css (§15), tracking the light/dark
+         toggle. Geometry mirrors images/orchestration-flow-v2.svg. -->
+    <svg viewBox="0 0 1120 300" font-family="'IBM Plex Sans', Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" role="img" aria-label="Executable API metadata flows through the ReṼoman engine into a Rundown of Context Information">
+      <defs>
+        <marker id="rv-flow-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path class="edge-arrow" d="M0 0 L10 5 L0 10 z"/>
+        </marker>
+      </defs>
+      <rect class="box" x="48" y="95" width="236" height="110" rx="12" stroke-width="1.5"/>
+      <text class="title" x="166" y="138" text-anchor="middle" font-size="19">Executable API</text>
+      <text class="title" x="166" y="162" text-anchor="middle" font-size="19">Metadata</text>
+      <text class="faint" x="166" y="184" text-anchor="middle" font-size="12.5">the API-Graph</text>
+      <line class="edge" x1="296" y1="150" x2="392" y2="150" stroke-width="1.6" marker-end="url(#rv-flow-arrow)"/>
+      <text class="edge-label" x="344" y="141" text-anchor="middle" font-size="12.5">executes</text>
+      <rect class="box-engine" x="404" y="62" width="312" height="176" rx="14" stroke-width="2"/>
+      <text class="engine-title" x="560" y="108" text-anchor="middle" font-size="30">ReṼoman</text>
+      <text class="sub" x="560" y="134" text-anchor="middle" font-size="14.5" font-weight="600">API Orchestration Engine</text>
+      <text class="faint" x="560" y="166" text-anchor="middle" font-size="12.5">resolves data dependencies, auth,</text>
+      <text class="faint" x="560" y="186" text-anchor="middle" font-size="12.5">polling &amp; type-safe payloads —</text>
+      <text class="faint" x="560" y="206" text-anchor="middle" font-size="12.5">deterministically, on the JVM</text>
+      <line class="edge" x1="728" y1="150" x2="824" y2="150" stroke-width="1.6" marker-end="url(#rv-flow-arrow)"/>
+      <text class="edge-label" x="776" y="141" text-anchor="middle" font-size="12.5">returns</text>
+      <rect class="box" x="836" y="95" width="236" height="110" rx="12" stroke-width="1.5"/>
+      <text class="title" x="954" y="136" text-anchor="middle" font-size="19">Rundown</text>
+      <text class="sub" x="954" y="160" text-anchor="middle" font-size="13">= Context Information</text>
+      <text class="faint" x="954" y="182" text-anchor="middle" font-size="11.5">for JVM code or an agentic Node</text>
+    </svg>
+  </figure>
+</section>
 
-*Today* — an API Orchestration Engine that deterministically executes executable API metadata (serialized in the Postman V2/V3 schema) on the JVM, resolving data dependencies, auth, and polling; returns a `Rundown` whose `toJson(VERBOSITY)` is structured *Context Information*; offers type safety, dynamic hooks, timing metrics, and the Postman `pm.*` script APIs.
+<section class="rv-band rv-apps">
+  <header class="rv-band__head">
+    <p class="rv-section-marker">// one engine, many applications</p>
+    <h2 class="rv-band__title">What executing a graph unlocks</h2>
+  </header>
+  <div class="rv-appgrid">
+    <a class="rv-appcard" href="agentic-orchestration.html">
+      <span class="rv-appcard__tag">execution layer</span>
+      <h3 class="rv-appcard__title">Agentic API Orchestration</h3>
+      <p class="rv-appcard__body">The deterministic step beneath an agentic workflow: metadata in, the <code>Rundown</code> as Context Information out.</p>
+      <span class="rv-appcard__go">Read more →</span>
+    </a>
+    <a class="rv-appcard" href="application-test-automation.html">
+      <span class="rv-appcard__tag">most-used today</span>
+      <h3 class="rv-appcard__title">API Test Automation</h3>
+      <p class="rv-appcard__body">Replace bespoke REST-Assured harnesses with the executable metadata your team already authored in Postman.</p>
+      <span class="rv-appcard__go">Read more →</span>
+    </a>
+    <a class="rv-appcard" href="application-orchestrated-workflows.html">
+      <span class="rv-appcard__tag">setup &amp; data</span>
+      <h3 class="rv-appcard__title">Orchestrated Workflows</h3>
+      <p class="rv-appcard__body">Drive multi-step test-data setup and end-to-end flows from one ordered, type-safe API-Graph.</p>
+      <span class="rv-appcard__go">Read more →</span>
+    </a>
+  </div>
+</section>
 
-*Roadmap* (direction, *not* shipped — never read these as present-tense capabilities): format-agnosticism beyond Postman V2/V3; MCP tool-definition autogen; dynamic coupling of agentic workflows to API-Graphs. These are clearly labeled wherever they appear.
-====
+<section class="rv-band rv-honest">
+  <div class="rv-honest__grid">
+    <div class="rv-honest__col rv-honest__col--today">
+      <p class="rv-honest__label rv-honest__label--today">Ships today</p>
+      <ul class="rv-honest__list">
+        <li>Deterministic execution of executable API metadata (Postman&nbsp;V2/V3 schema) on the JVM</li>
+        <li>Resolves data dependencies, auth, and polling between steps</li>
+        <li>A <code>Rundown</code> whose <code>toJson(VERBOSITY)</code> is structured Context Information</li>
+        <li><a href="type-safety.html">Type safety</a>, dynamic <a href="hooks.html">hooks</a>, <a href="timing-metrics.html">timing metrics</a>, and the Postman <code>pm.*</code> script APIs — written ground-up for the JVM</li>
+      </ul>
+    </div>
+    <div class="rv-honest__col rv-honest__col--road">
+      <p class="rv-honest__label rv-honest__label--road">Roadmap — direction, not shipped</p>
+      <ul class="rv-honest__list">
+        <li>Format-agnosticism beyond Postman V2/V3 (HTTP Client, Bruno, …)</li>
+        <li>MCP tool-definition autogen from OAS + API-Graph metadata</li>
+        <li>Dynamic coupling of agentic workflows to API-Graphs at runtime</li>
+      </ul>
+      <p class="rv-honest__foot">Never read these as present-tense capabilities. ReṼoman is honest about the line.</p>
+    </div>
+  </div>
+</section>
 
-NOTE: NO licensed Postman SDKs are used inside this project. This is written ground up natively in JVM.
-
-== How the engine works
-
-ReṼoman reads *executable API metadata* and executes it on the JVM, returning a structured xref:rundown.adoc[Rundown] — the *Context Information* an agentic-workflow Node consumes. Today that metadata is serialized in the Postman V2/V3 collection schema — a schema choice in the same spirit as picking JSON over XML. A service that serializes its data as JSON is not "a JSON tool"; likewise, ReṼoman reading Postman-schema metadata is not "a Postman tool." It is decoupled from Postman the app/SDK and written ground-up natively for the JVM.
-
-To get an intuition for the execution, think of how the https://learning.postman.com/docs/collections/running-collections/intro-to-collection-runs/[Postman Collection Runner] walks a collection step by step. ReṼoman performs that same deterministic, step-by-step execution of an API-Graph — but inside a Java/Kotlin program — resolving the data dependencies between calls, handling auth and polling, and returning the Rundown your JVM code, or an agentic Node, builds on. And it goes further.
-
-image::postman-run.png[]
-image::orchestration-flow-v2.svg[Executable API metadata flows through the ReṼoman engine into a Rundown of Context Information, align="center"]
-
-== A hybrid tool
-
-The engine strikes a balance between the _flexibility_ of low-level tools like https://rest-assured.io/[REST Assured] or https://cucumber.io/[Cucumber] and the _ease of use_ of UI tools like https://www.postman.com/[Postman].
-
-image::hybrid-tool.png[]
-
-== Where to next
-
-* xref:agentic-orchestration.adoc[] — how the engine is the execution layer beneath Agentic API Orchestration, and how the `Rundown` becomes Context Information.
-* xref:getting-started.adoc[] — wire ReṼoman into your JVM project and run your first graph.
-
-.Live include from a passing integration test → {gh-blob}/{integrationtestdir}/com/salesforce/revoman/integration/restfulapidev/RestfulAPIDevTest.java[RestfulAPIDevTest.java^]
-[source,java,indent=0,tabsize=2,options="nowrap"]
-----
-include::example$it/com/salesforce/revoman/integration/restfulapidev/RestfulAPIDevTest.java[tag=revoman-simple-demo]
-----
-<1> `revUp` is the single entry point — you hand it a `Configuration` and it executes the graph.
-<2> `templatePath` points at the executable API metadata (the Postman collection) to run.
-<3> `environmentPath` supplies the environment variables that metadata resolves against.
-<4> `firstUnIgnoredUnsuccessfulStepReport()` returns `null` when every non-ignored step succeeded — the assertion that the run was clean.
-<5> `stepReports` holds one report per executed step; here we assert all four steps ran.
+<section class="rv-cta">
+  <h2 class="rv-cta__title">Wire it into your JVM project.</h2>
+  <p class="rv-cta__sub">One entry point — <code>ReVoman.revUp(config)</code> — executes the graph and hands you the Rundown.</p>
+  <div class="rv-hero__cta">
+    <a class="rv-btn rv-btn--primary" href="getting-started.html">Get started <span aria-hidden="true">→</span></a>
+    <a class="rv-btn rv-btn--ghost" href="why-revoman.html">Why ReṼoman?</a>
+  </div>
+</section>
+++++
