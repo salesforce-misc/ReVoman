@@ -50,12 +50,16 @@ ReṼoman runs your collection's pre-request and post-response JavaScript on the
 |===
 | API | Behavior in ReṼoman
 
-| `pm.environment` (+ `pm.environment.name`) | Reads/writes flow into the xref:mutable-environment.adoc[mutable environment].
-| `pm.collectionVariables` (`.get` / `.set` / `.toObject`) | Collection-scoped key/value store; values set in one step's script are visible to later steps' scripts.
+| `pm.environment` (+ `pm.environment.name`) | Reads/writes flow into the xref:mutable-environment.adoc[mutable environment]. Surfaced on `rundown.mutableEnv`.
+| `pm.collectionVariables` (`.get` / `.set` / `.toObject`) | Collection-scoped key/value store; values set in one step's script are visible to later steps' scripts. Surfaced on `rundown.collectionVariables`.
+| `pm.globals` (`.get` / `.set` / `.unset`) | Global-scoped key/value store; like `pm.collectionVariables`, persists across steps. Surfaced on `rundown.globals`.
+| `pm.variables` (`.get` / `.has`) | Aggregate *read* view across all scopes, honoring xref:variables.adoc#variable-resolution-precedence[Postman precedence] (`environment` ▸ `collectionVariables` ▸ `globals`).
 | `pm.request.body`, `pm.response.code` / `.json` / `.text` / `.to.have.status` | Request/response fed into the script context.
 | `pm.test`, `pm.expect` | Assertion results recorded on `StepReport.pmTestAssertions`.
 | `pm.execution.setNextRequest` | Captured on `StepReport.nextRequest` (see note below).
 |===
+
+All three persistent scopes — `pm.environment`, `pm.collectionVariables`, `pm.globals` — are also resolved in `+{{key}}+` variable substitution, by the same xref:variables.adoc#variable-resolution-precedence[precedence]. Only the `environment` scope feeds the xref:mutable-environment.adoc[mutable environment] and the warm-run ledger; `collectionVariables` and `globals` are sibling stores.
 
 Two read-only fields on each `StepReport` expose script outcomes:
 
@@ -69,7 +73,7 @@ Two read-only fields on each `StepReport` expose script outcomes:
 
 .Current limitations
 * `pm.sendRequest` is not supported.
-* Collection-root `variable[]` is not parsed; `pm.collectionVariables` is script-seeded only.
+* Collection-root `variable[]` is not parsed; `pm.collectionVariables` and `pm.globals` are script-seeded only (a producer step's script `.set`s a value, a downstream step reads it).
 
 .End-to-end: script-only pm APIs through a real run → {gh-blob}/{integrationtestdir}/com/salesforce/revoman/integration/pokemon/PokemonSandboxApiTest.java[PokemonSandboxApiTest.java^]
 [source,java,indent=0,tabsize=2,options="nowrap"]

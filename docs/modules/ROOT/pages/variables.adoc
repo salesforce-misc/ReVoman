@@ -7,15 +7,19 @@ Variables are how the xref:executable-api-metadata.adoc[executable API metadata]
 * {gh-blob}/{sourcedir}/com/salesforce/revoman/internal/postman/DynamicVariableGenerator.kt[Dynamic variables], e.g., `{{$randomUUID}}`, `{{$randomEmail}}`
 * xref:variables.adoc#custom-dynamic-variables[Custom Dynamic variables]
 
+[#variable-resolution-precedence]
 == Variable resolution precedence
 
 In the case of collision between variable keys, the precedence order to derive a value to replace a key is:
 
 * xref:variables.adoc#custom-dynamic-variables[Custom Dynamic variables]
 * {gh-blob}/{sourcedir}/com/salesforce/revoman/internal/postman/DynamicVariableGenerator.kt[Dynamic variables]
-* Environment built during execution
-* Dynamic Environment supplied through config
-* Postman Environment supplied as a file path through config
+* The three persistent Postman scopes, in this order (narrowest wins, matching Postman):
+** `pm.environment` — the xref:mutable-environment.adoc[mutable environment] built during execution (also seeded from the Postman Environment file / dynamic environment supplied through config)
+** `pm.collectionVariables`
+** `pm.globals`
+
+So a key present in the environment shadows the same key in `collectionVariables`, which in turn shadows `globals`. The same chain backs `pm.variables.get(key)` inside scripts. Only an `environment`-scope hit feeds the xref:mutable-environment.adoc[mutable environment] write-back and the warm-run ledger; `collectionVariables` / `globals` hits resolve read-only.
 
 TIP: Variable naming convention: for Dynamic variables populated from Java code, use `$` within a variable to indicate it needs to be populated during manual testing, e.g.: `{{$unitPrice}}`.
 

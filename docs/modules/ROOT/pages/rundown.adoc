@@ -6,7 +6,9 @@ After execution you receive a detailed *Rundown*. It contains everything about w
 ----
 Rundown(
     val stepReports: List<StepReport>,
-    val mutableEnv: PostmanEnvironment<Any?>)
+    val mutableEnv: PostmanEnvironment<Any?>,           // pm.environment scope
+    val collectionVariables: PostmanEnvironment<Any?>,  // pm.collectionVariables scope
+    val globals: PostmanEnvironment<Any?>)              // pm.globals scope
 
 StepReport(
     step: Step,
