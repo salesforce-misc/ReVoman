@@ -8,6 +8,7 @@
 package com.salesforce.revoman.internal.postman
 
 import com.salesforce.revoman.input.config.CustomDynamicVariableGenerator
+import com.salesforce.revoman.internal.log.RevomanLog
 import com.salesforce.revoman.internal.postman.template.Auth.Bearer
 import com.salesforce.revoman.internal.postman.template.Item
 import com.salesforce.revoman.internal.postman.template.Request
@@ -64,11 +65,16 @@ class RegexReplacer(
         replaceVariablesRecursively(pm.environment.getAsString(variableKey), pm)?.also { value ->
           pm.environment.recordConsumed(variableKey)
           setItBackInEnvironment(variableKey, value, pm)
+          RevomanLog.debug { "{{$variableKey}} resolved from scope 'environment'" }
         }
       pm.collectionVariables.containsKey(variableKey) ->
-        replaceVariablesRecursively(pm.collectionVariables.getAsString(variableKey), pm)
+        replaceVariablesRecursively(pm.collectionVariables.getAsString(variableKey), pm)?.also {
+          RevomanLog.debug { "{{$variableKey}} resolved from scope 'collectionVariables'" }
+        }
       pm.globals.containsKey(variableKey) ->
-        replaceVariablesRecursively(pm.globals.getAsString(variableKey), pm)
+        replaceVariablesRecursively(pm.globals.getAsString(variableKey), pm)?.also {
+          RevomanLog.debug { "{{$variableKey}} resolved from scope 'globals'" }
+        }
       else -> null
     }
 

@@ -50,6 +50,8 @@ internal object RunLogContext {
 internal object RevomanLog {
   @PublishedApi internal val logger = KotlinLogging.logger {}
 
+  inline fun debug(crossinline msg: () -> String) = tee(LogLevel.DEBUG, msg)
+
   inline fun info(crossinline msg: () -> String) = tee(LogLevel.INFO, msg)
 
   inline fun warn(crossinline msg: () -> String) = tee(LogLevel.WARN, msg)
@@ -66,6 +68,7 @@ internal object RevomanLog {
       // Fast path: no run sink — keep KotlinLogging's lazy lambda (msg() not evaluated when the
       // level is disabled), zero extra allocation.
       when (level) {
+        LogLevel.DEBUG -> logger.debug { msg() }
         LogLevel.INFO -> logger.info { msg() }
         LogLevel.WARN -> logger.warn { msg() }
         LogLevel.ERROR -> logger.error { msg() }
@@ -75,6 +78,7 @@ internal object RevomanLog {
     // Sink present: evaluate the message ONCE, reuse for both the logger and the sink.
     val rendered = msg()
     when (level) {
+      LogLevel.DEBUG -> logger.debug { rendered }
       LogLevel.INFO -> logger.info { rendered }
       LogLevel.WARN -> logger.warn { rendered }
       LogLevel.ERROR -> logger.error { rendered }

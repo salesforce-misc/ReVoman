@@ -9,12 +9,17 @@ package com.salesforce.revoman.internal.postman
 
 import com.salesforce.revoman.input.config.CustomDynamicVariableGenerator
 import com.salesforce.revoman.internal.json.MoshiReVoman.Companion.initMoshi
+import com.salesforce.revoman.internal.log.RunLogContext
 import com.salesforce.revoman.internal.postman.template.Item
+import com.salesforce.revoman.output.log.LogLevel
+import com.salesforce.revoman.output.log.RunLogSink
+import com.salesforce.revoman.output.log.StepEvent
 import com.salesforce.revoman.output.report.Step
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
 import io.mockk.mockk
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 
 /**
@@ -194,5 +199,57 @@ class RegexReplacerScopesTest {
     pm.collectionVariables.set("b", "{{c}}")
     pm.globals.set("c", "leaf")
     replace(pm, "{{a}}") shouldBe "leaf"
+  }
+
+  // ------------------------------------------------------------------ debug log: which scope won
+
+  private class RecordingSink : RunLogSink {
+    val lines = mutableListOf<Pair<LogLevel, String>>()
+
+    override fun line(level: LogLevel, message: String) {
+      lines += level to message
+    }
+
+    override fun event(event: StepEvent) {}
+
+    override fun close() {}
+  }
+
+  @AfterEach fun removeSink() = RunLogContext.remove()
+
+  private fun debugLinesFor(seed: PostmanSDK.() -> Unit): List<String> {
+    val sink = RecordingSink()
+    RunLogContext.install(sink)
+    val pm = pmWith()
+    pm.seed()
+    replace(pm, "{{k}}")
+    return sink.lines.filter { it.first == LogLevel.DEBUG }.map { it.second }
+  }
+
+  @Test
+  fun `debug log names the environment scope when env resolves the key`() {
+    debugLinesFor { environment.set("k", "env") } shouldContain
+      "{{k}} resolved from scope 'environment'"
+  }
+
+  @Test
+  fun `debug log names the collectionVariables scope when cv resolves the key`() {
+    debugLinesFor { collectionVariables.set("k", "cv") } shouldContain
+      "{{k}} resolved from scope 'collectionVariables'"
+  }
+
+  @Test
+  fun `debug log names the globals scope when a global resolves the key`() {
+    debugLinesFor { globals.set("k", "glob") } shouldContain "{{k}} resolved from scope 'globals'"
+  }
+
+  @Test
+  fun `debug log reports the winning scope on a collision (collectionVariables over globals)`() {
+    val lines = debugLinesFor {
+      collectionVariables.set("k", "cv")
+      globals.set("k", "glob")
+    }
+    lines shouldContain "{{k}} resolved from scope 'collectionVariables'"
+    lines shouldNotContain "{{k}} resolved from scope 'globals'"
   }
 }

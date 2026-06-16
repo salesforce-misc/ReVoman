@@ -9,6 +9,7 @@ package com.salesforce.revoman.output.log
 
 /** Severity of a teed [RunLogSink.line], mirroring the KotlinLogging level it was emitted at. */
 enum class LogLevel {
+  DEBUG,
   INFO,
   WARN,
   ERROR,

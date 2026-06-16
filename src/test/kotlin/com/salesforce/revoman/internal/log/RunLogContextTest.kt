@@ -43,12 +43,14 @@ class RunLogContextTest {
     val sink = RecordingSink()
     RunLogContext.install(sink)
     try {
+      RevomanLog.debug { "tracing" }
       RevomanLog.info { "hello" }
       RevomanLog.warn { "careful" }
     } finally {
       RunLogContext.remove()
     }
-    sink.lines shouldBe listOf(LogLevel.INFO to "hello", LogLevel.WARN to "careful")
+    sink.lines shouldBe
+      listOf(LogLevel.DEBUG to "tracing", LogLevel.INFO to "hello", LogLevel.WARN to "careful")
   }
 
   @Test

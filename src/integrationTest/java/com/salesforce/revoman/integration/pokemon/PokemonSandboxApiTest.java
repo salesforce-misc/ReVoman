@@ -73,7 +73,8 @@ class PokemonSandboxApiTest {
     // Scopes are isolated: a collection variable never leaks into the environment scope.
     assertThat(rundown.mutableEnv).doesNotContainKey("firstPokemon");
 
-    // --- {{key}} resolves through the real regex path into a request body (cross-step, both scopes) ---
+    // --- {{key}} resolves through the real regex path into a request body (cross-step, both
+    // scopes) ---
     // add-object's body uses {{runTag}} (a GLOBAL) and {{cvTag}} (a COLLECTION var), both set in
     // all-pokemon several steps earlier; the fired request must carry both resolved values.
     final StepReport addObject = rundown.reportForStepName("add-object");
