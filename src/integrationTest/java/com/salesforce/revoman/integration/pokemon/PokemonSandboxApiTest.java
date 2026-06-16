@@ -69,15 +69,18 @@ class PokemonSandboxApiTest {
     assertThat(rundown.collectionVariables.containsKey("firstPokemon")).isTrue();
     assertThat(rundown.collectionVariables.containsKey("resultCount")).isTrue();
     assertThat(rundown.collectionVariables.containsKey("pokemonId")).isTrue();
+    assertThat(rundown.collectionVariables.get("cvTag")).isEqualTo("cv-revoman");
     // Scopes are isolated: a collection variable never leaks into the environment scope.
     assertThat(rundown.mutableEnv).doesNotContainKey("firstPokemon");
 
-    // --- {{globalKey}} resolves through the real regex path into a request body (precedence) ---
-    // add-object's body uses {{runTag}} (a GLOBAL); the fired request must carry the resolved
-    // value.
+    // --- {{key}} resolves through the real regex path into a request body (cross-step, both scopes) ---
+    // add-object's body uses {{runTag}} (a GLOBAL) and {{cvTag}} (a COLLECTION var), both set in
+    // all-pokemon several steps earlier; the fired request must carry both resolved values.
     final StepReport addObject = rundown.reportForStepName("add-object");
     assertThat(addObject).isNotNull();
-    assertThat(addObject.requestInfo.get().httpMsg.bodyString()).contains("revoman-run");
+    final String addObjectBody = addObject.requestInfo.get().httpMsg.bodyString();
+    assertThat(addObjectBody).contains("revoman-run"); // {{runTag}} (global)
+    assertThat(addObjectBody).contains("cv-revoman"); // {{cvTag}} (collectionVariable)
 
     // The all-pokemon URL uses {{limit}}, present in BOTH env (5) and globals (999); env wins.
     assertThat(allPokemon.requestInfo.get().httpMsg.getUri().getQuery()).contains("limit=5");

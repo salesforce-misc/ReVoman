@@ -33,7 +33,9 @@
 							"var firstName = json.results[0].name;",
 							"pm.environment.set('pokemonName', firstName);",
 							"pm.collectionVariables.set('firstPokemon', firstName);",
-							"pm.collectionVariables.set('resultCount', json.results.length);"
+							"pm.collectionVariables.set('resultCount', json.results.length);",
+							"// Collection-scoped var consumed as {{cvTag}} in a later step's request body (cross-step regex proof).",
+							"pm.collectionVariables.set('cvTag', 'cv-revoman');"
 						],
 						"type": "text/javascript"
 					}
@@ -125,7 +127,7 @@
 				],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n  \"name\": \"revoman-{{pokemonName}}\",\n  \"data\": { \"source\": \"revoman-sandbox-test\", \"runTag\": \"{{runTag}}\" }\n}",
+					"raw": "{\n  \"name\": \"revoman-{{pokemonName}}\",\n  \"data\": { \"source\": \"revoman-sandbox-test\", \"runTag\": \"{{runTag}}\", \"cvTag\": \"{{cvTag}}\" }\n}",
 					"options": {
 						"raw": {
 							"language": "json"
