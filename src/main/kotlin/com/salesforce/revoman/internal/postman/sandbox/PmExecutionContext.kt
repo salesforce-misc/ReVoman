@@ -48,8 +48,11 @@ internal data class PmAssertion(
  *   diffs against the pre-snapshot to derive produced/unset).
  * - [assertions]: pm.test results (failures are data, NOT thrown).
  * - [error]: a thrown script error (pre-req/test JS failure) — null on success.
- * - [nextRequest]/[skipRequest]: control-flow directives (Phase 2 wires them to the sequencer;
- *   Phase 1 records them but the stubs never set them).
+ * - [nextRequest]: the `setNextRequest` argument; null when never set OR explicitly set to null.
+ * - [nextRequestSet]: true iff `setNextRequest` was called at all. Disambiguates an explicit
+ *   `setNextRequest(null)` (STOP) from "never called" (no directive) — both leave [nextRequest]
+ *   null.
+ * - [skipRequest]: true iff `pm.execution.skipRequest()` was called (pre-request only).
  */
 internal data class PmExecutionResult(
   val environment: Map<String, Any?>,
@@ -59,4 +62,5 @@ internal data class PmExecutionResult(
   val error: Throwable?,
   val nextRequest: String? = null,
   val skipRequest: Boolean = false,
+  val nextRequestSet: Boolean = false,
 )

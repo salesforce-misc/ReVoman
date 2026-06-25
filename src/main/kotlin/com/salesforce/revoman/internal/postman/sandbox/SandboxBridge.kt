@@ -208,6 +208,7 @@ internal class SandboxBridge {
     var collectionVariables: Map<String, Any?> = emptyMap()
     var nextRequest: String? = null
     var skipRequest = false
+    var nextRequestSet = false
 
     for (raw in emits) {
       val parsed = Flatted.parse(raw) as? List<*> ?: continue
@@ -251,7 +252,9 @@ internal class SandboxBridge {
           // `pm.execution.setNextRequest(name)` writes `execution.return.nextRequest`. Capture it
           // as
           // a control-flow directive; the step sequencer consumes it in Phase 2.
-          nextRequest = (execution["return"] as? Map<*, *>)?.get("nextRequest") as? String
+          val returnMap = (execution["return"] as? Map<*, *>)
+          nextRequestSet = returnMap?.containsKey("nextRequest") == true
+          nextRequest = returnMap?.get("nextRequest") as? String
         }
       }
     }
@@ -263,6 +266,7 @@ internal class SandboxBridge {
       error,
       nextRequest,
       skipRequest,
+      nextRequestSet,
     )
   }
 

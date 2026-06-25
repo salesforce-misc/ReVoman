@@ -162,4 +162,24 @@ class PmSandboxScriptApiTest {
     r.skipRequest shouldBe true
     r.error shouldBe null
   }
+
+  @Test
+  fun `setNextRequest with a name sets nextRequest and nextRequestSet`() {
+    val r = runTest("pm.execution.setNextRequest('target');")
+    r.nextRequest shouldBe "target"
+    r.nextRequestSet shouldBe true
+  }
+
+  @Test
+  fun `setNextRequest null sets the flag with a null name (STOP)`() {
+    val r = runTest("pm.execution.setNextRequest(null);")
+    r.nextRequest shouldBe null
+    r.nextRequestSet shouldBe true
+  }
+
+  @Test
+  fun `no setNextRequest call leaves nextRequestSet false`() {
+    val r = runTest("pm.test('noop', () => pm.expect(1).to.eql(1));")
+    r.nextRequestSet shouldBe false
+  }
 }
