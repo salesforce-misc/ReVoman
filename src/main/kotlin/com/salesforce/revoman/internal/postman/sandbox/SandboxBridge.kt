@@ -250,8 +250,7 @@ internal class SandboxBridge {
           globals = scopeValues(execution["globals"])
           collectionVariables = scopeValues(execution["collectionVariables"])
           // `pm.execution.setNextRequest(name)` writes `execution.return.nextRequest`. Capture it
-          // as
-          // a control-flow directive; the step sequencer consumes it in Phase 2.
+          // as a control-flow directive; the step sequencer consumes it to reorder execution.
           val returnMap = (execution["return"] as? Map<*, *>)
           nextRequestSet = returnMap?.containsKey("nextRequest") == true
           nextRequest = returnMap?.get("nextRequest") as? String

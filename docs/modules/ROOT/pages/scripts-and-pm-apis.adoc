@@ -56,7 +56,7 @@ ReṼoman runs your collection's pre-request and post-response JavaScript on the
 | `pm.variables` (`.get` / `.has`) | Aggregate *read* view across all scopes, honoring xref:variables.adoc#variable-resolution-precedence[Postman precedence] (`environment` ▸ `collectionVariables` ▸ `globals`).
 | `pm.request.body`, `pm.response.code` / `.json` / `.text` / `.to.have.status` | Request/response fed into the script context.
 | `pm.test`, `pm.expect` | Assertion results recorded on `StepReport.pmTestAssertions`. A *failing* assertion fails its step (and the Rundown) — see <<pm-test-failures>>.
-| `pm.execution.setNextRequest` | Captured on `StepReport.nextRequest` (see note below).
+| `pm.execution.setNextRequest` / `skipRequest` | Control-flow directives; now *honored* — see <<control-flow-directives>>.
 |===
 
 All three persistent scopes — `pm.environment`, `pm.collectionVariables`, `pm.globals` — are also resolved in `+{{key}}+` variable substitution, by the same xref:variables.adoc#variable-resolution-precedence[precedence]. Only the `environment` scope feeds the xref:mutable-environment.adoc[mutable environment] and the warm-run ledger; `collectionVariables` and `globals` are sibling stores.
@@ -65,12 +65,18 @@ Two read-only fields on each `StepReport` expose script outcomes:
 
 * `pmTestAssertions: List<PmTestAssertion>` — every `pm.test(...)` result across the step's pre-request and post-response scripts. `PmTestAssertion` carries `name`, `passed`, `skipped`, `error`, and `exeType` (the producing phase: `PRE_REQ_JS` or `POST_RES_JS`).
 * `pmTestFailure: List<PmTestFailure>` — the failed assertions of this step, grouped by phase (0–2 entries, pre-request first). Always populated when any assertion failed, *independent* of `failure`'s precedence — see <<pm-test-failures>>.
-* `nextRequest: String?` — the value passed to `pm.execution.setNextRequest(...)`, if any.
+* `nextRequest: String?` — the value passed to `pm.execution.setNextRequest(...)`, if any (honored by the sequencer).
 
-[CAUTION]
-====
-`nextRequest` is *captured only*. ReṼoman executes steps linearly and does *not yet* honor the directive to reorder or skip steps (that is planned). Treat it as an observed signal, not proof of a jump.
-====
+[#control-flow-directives]
+== Control-flow directives
+
+ReṼoman now honors `pm.execution.setNextRequest(name)` (jump to a named step), `setNextRequest(null)` (stop the run), and `pm.execution.skipRequest()` (skip HTTP dispatch in pre-request scripts). These let your scripts implement conditional logic, loops, and early exits.
+
+* **Jump**: `pm.execution.setNextRequest("Step Name")` causes the next executed step to be the named step (case-sensitive match on the step's `name` field). A jump disables the ledger warm-path from the divergence point onward.
+* **Stop**: `pm.execution.setNextRequest(null)` stops the run immediately after the current step. `Rundown.stopReason` will be `STOPPED_BY_DIRECTIVE`.
+* **Skip**: `pm.execution.skipRequest()` (pre-request only) skips the HTTP dispatch for the current step; the step succeeds with no request/response. Post-response scripts still run if present.
+
+Loops are bounded by the `maxStepExecutionFactor` Kick knob (default 10): if a run executes more than `factor × collectionStepCount` steps, it halts with `Rundown.stopReason = LOOP_BUDGET_EXCEEDED`. The terminal reason for any run appears on `Rundown.stopReason` (`COMPLETED` / `STOPPED_BY_DIRECTIVE` / `HALTED_ON_FAILURE` / `LOOP_BUDGET_EXCEEDED`).
 
 .Current limitations
 * `pm.sendRequest` is not supported.
