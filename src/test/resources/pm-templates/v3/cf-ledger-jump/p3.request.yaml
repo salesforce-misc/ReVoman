@@ -1,0 +1,5 @@
+$kind: http-request
+name: p3
+url: "{{baseUrl}}/p3"
+method: GET
+order: 3000
