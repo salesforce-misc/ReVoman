@@ -137,9 +137,13 @@ private fun runSandboxScript(
   gVarDiff.unset.forEach { key -> pm.globals.unset(key) }
 
   // Surface pm.test results + setNextRequest onto the StepReport (read by the executor fold).
+  // Each assertion is stamped with the phase that produced it (pre-request vs test script).
+  val phaseExeType = if (target == ScriptTarget.PRE_REQUEST) PRE_REQ_JS else POST_RES_JS
   pm.recordPmTestAssertions(
     step,
-    result.assertions.map { PmTestAssertion(it.name, it.passed, it.skipped, it.error) },
+    result.assertions.map {
+      PmTestAssertion(it.name, it.passed, it.skipped, it.error, phaseExeType)
+    },
   )
   result.nextRequest?.let { next ->
     pm.recordNextRequest(step, next)

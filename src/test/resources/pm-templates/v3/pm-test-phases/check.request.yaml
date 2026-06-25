@@ -1,0 +1,14 @@
+$kind: http-request
+name: check
+url: "{{baseUrl}}/check"
+method: GET
+scripts:
+  - type: beforeRequest
+    code: |-
+      pm.test('pre-req assertion runs', () => pm.expect(1).to.eql(1));
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      pm.test('post-res assertion runs', () => pm.expect(pm.response.code).to.eql(200));
+    language: text/javascript
+order: 1000
