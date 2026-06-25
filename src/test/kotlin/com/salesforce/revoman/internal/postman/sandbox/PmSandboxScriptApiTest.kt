@@ -150,4 +150,16 @@ class PmSandboxScriptApiTest {
     val r = runTest("throw new Error('boom');")
     (r.error?.message?.contains("boom")) shouldBe true
   }
+
+  @Test
+  fun `skipRequest in pre-request sets skipRequest flag and does not hang`() {
+    val r =
+      sandbox.execute(
+        "pm.execution.skipRequest();",
+        ScriptTarget.PRE_REQUEST,
+        PmExecutionContext(environment = PmScope("e", emptyMap())),
+      )
+    r.skipRequest shouldBe true
+    r.error shouldBe null
+  }
 }
