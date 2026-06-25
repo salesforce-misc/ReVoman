@@ -1,0 +1,5 @@
+$kind: http-request
+name: after
+url: "{{baseUrl}}/after"
+method: GET
+order: 2000

@@ -1,0 +1,5 @@
+$kind: http-request
+name: b
+url: "{{baseUrl}}/b"
+method: GET
+order: 2000

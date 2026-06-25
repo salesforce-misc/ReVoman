@@ -1,0 +1,5 @@
+$kind: http-request
+name: c
+url: "{{baseUrl}}/c"
+method: GET
+order: 3000

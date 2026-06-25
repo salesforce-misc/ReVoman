@@ -1,0 +1,10 @@
+$kind: http-request
+name: a
+url: "{{baseUrl}}/a"
+method: GET
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.execution.setNextRequest('does-not-exist');
+    language: text/javascript
+order: 1000
