@@ -74,7 +74,7 @@ ReṼoman now honors `pm.execution.setNextRequest(name)` (jump to a named step),
 
 * **Jump**: `pm.execution.setNextRequest("Step Name")` causes the next executed step to be the named step (case-sensitive match on the step's `name` field). A jump disables the ledger warm-path from the divergence point onward.
 * **Stop**: `pm.execution.setNextRequest(null)` stops the run immediately after the current step. `Rundown.stopReason` will be `STOPPED_BY_DIRECTIVE`.
-* **Skip**: `pm.execution.skipRequest()` (pre-request only) skips the HTTP dispatch for the current step; the step succeeds with no request/response. Post-response scripts still run if present.
+* **Skip**: `pm.execution.skipRequest()` (pre-request only) skips the HTTP dispatch for the current step; the step succeeds with no request/response. Post-response scripts are also skipped; the run continues with the next step.
 
 Loops are bounded by the `maxStepExecutionFactor` Kick knob (default 10): if a run executes more than `factor × collectionStepCount` steps, it halts with `Rundown.stopReason = LOOP_BUDGET_EXCEEDED`. The terminal reason for any run appears on `Rundown.stopReason` (`COMPLETED` / `STOPPED_BY_DIRECTIVE` / `HALTED_ON_FAILURE` / `LOOP_BUDGET_EXCEEDED`).
 

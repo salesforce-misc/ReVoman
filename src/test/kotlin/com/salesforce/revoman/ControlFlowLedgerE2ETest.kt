@@ -75,6 +75,46 @@ class ControlFlowLedgerE2ETest {
     assertThat(hits["/p3"]?.get() ?: 0).isGreaterThan(p3Before)
   }
 
+  @Test
+  fun `unresolved jump keeps ledger warm-path for subsequent steps`() {
+    // Collection cf-unresolved: step a jumps to 'does-not-exist' (unresolved), then b runs.
+    val unresolvedKick =
+      Kick.configure()
+        .templatePath("pm-templates/v3/cf-unresolved")
+        .dynamicEnvironment("baseUrl", baseUrl)
+        .insecureHttp(true)
+
+    // Cold run to learn real paths + hashes.
+    val cold = ReVoman.revUp(unresolvedKick.off())
+    val aStep = cold.reportForStepName("a")!!.step
+    val bStep = cold.reportForStepName("b")!!.step
+
+    // Build a ledger that COULD skip both a and b.
+    val snap =
+      LedgerSnapshot(
+        orgId = null,
+        steps =
+          mapOf(
+            aStep.path to LedgerEntry(setOf("akey"), aStep.sourceHash),
+            bStep.path to LedgerEntry(setOf("bkey"), bStep.sourceHash),
+          ),
+        values = mapOf("akey" to "AV", "bkey" to "BV"),
+      )
+
+    val aBefore = hits["/a"]?.get() ?: 0
+    val bBefore = hits["/b"]?.get() ?: 0
+    val warm = ReVoman.revUp(unresolvedKick.ledger(snap).off())
+
+    // a is ledger-skipped (matching entry).
+    assertThat(hits["/a"]?.get() ?: 0).isEqualTo(aBefore)
+    assertThat(warm.reportForStepName("a")!!.isLedgerSkipped).isTrue()
+
+    // The jump in a is UNRESOLVED => linear continue to b WITHOUT latching bypassLedger.
+    // b MUST remain ledger-skipped (the warm-path was NOT disabled).
+    assertThat(hits["/b"]?.get() ?: 0).isEqualTo(bBefore)
+    assertThat(warm.reportForStepName("b")!!.isLedgerSkipped).isTrue()
+  }
+
   companion object {
     private lateinit var server: HttpServer
     private lateinit var baseUrl: String

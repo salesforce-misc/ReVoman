@@ -29,7 +29,10 @@ constructor(
   internal lateinit var currentStep: Step
 
   // --- Ledger capture: per-step produced/consumed env keys. Keyed by Step identity so a
-  //     reused-thread env can carry multiple steps' deltas; read out when StepReport is built. ---
+  //     reused-thread env can carry multiple steps' deltas; read out when StepReport is built.
+  //     NOTE: NOT reset between iterations — a step executing twice (control-flow loop) accumulates
+  //     the UNION of all iterations' keys. Benign for ledger learning and invisible when iterations
+  //     produce the same keys. ---
   private val producedKeysByStep: MutableMap<Step, MutableSet<String>> = mutableMapOf()
   private val consumedKeysByStep: MutableMap<Step, MutableSet<String>> = mutableMapOf()
 
