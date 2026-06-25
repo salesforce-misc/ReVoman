@@ -207,6 +207,7 @@ internal class SandboxBridge {
     var globals: Map<String, Any?> = emptyMap()
     var collectionVariables: Map<String, Any?> = emptyMap()
     var nextRequest: String? = null
+    var skipRequest = false
 
     for (raw in emits) {
       val parsed = Flatted.parse(raw) as? List<*> ?: continue
@@ -227,6 +228,7 @@ internal class SandboxBridge {
             )
           }
         }
+        "execution.skipRequest.$id" -> skipRequest = true
         "execution.error.$id" -> {
           val errObj = parsed.getOrNull(2)
           val errMap = errObj as? Map<*, *>
@@ -260,6 +262,7 @@ internal class SandboxBridge {
       assertions,
       error,
       nextRequest,
+      skipRequest,
     )
   }
 
