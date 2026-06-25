@@ -1,0 +1,10 @@
+$kind: http-request
+name: seed
+url: "{{baseUrl}}/seed"
+method: GET
+scripts:
+  - type: beforeRequest
+    code: |-
+      if (!pm.environment.get('count')) { pm.environment.set('count', 0); }
+    language: text/javascript
+order: 1000

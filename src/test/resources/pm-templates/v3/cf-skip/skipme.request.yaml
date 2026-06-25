@@ -1,0 +1,10 @@
+$kind: http-request
+name: skipme
+url: "{{baseUrl}}/skipme"
+method: GET
+scripts:
+  - type: beforeRequest
+    code: |-
+      pm.execution.skipRequest();
+    language: text/javascript
+order: 1000

@@ -1,0 +1,12 @@
+$kind: http-request
+name: loop
+url: "{{baseUrl}}/loop"
+method: GET
+scripts:
+  - type: afterResponse
+    code: |-
+      let n = Number(pm.environment.get('count')) + 1;
+      pm.environment.set('count', n);
+      if (n < 3) { pm.execution.setNextRequest('loop'); }
+    language: text/javascript
+order: 2000
