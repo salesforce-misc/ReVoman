@@ -18,7 +18,7 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
       with:
         # Antora needs full history for url: . content sources
         fetch-depth: 0
@@ -27,7 +27,7 @@ jobs:
     - name: Install Node.js
       uses: actions/setup-node@v6
       with:
-        node-version: '24'
+        node-version: '26'
     - name: Install Antora + Lunr extension
       run: npm i antora @antora/lunr-extension
     - name: Generate Site

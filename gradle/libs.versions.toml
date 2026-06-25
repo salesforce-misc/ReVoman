@@ -1,7 +1,7 @@
 [versions]
 jdk = "21"
 kotlin = "2.4.20-Beta1"
-moshix = "0.36.0"
+moshix = "1.7.20-Beta-0.18.3"
 http4k = "6.53.0.0"
 immutables = "2.12.2"
 arrow = "2.2.3"
