@@ -30,6 +30,7 @@ data class Rundown(
    * empty so existing constructions and callers are unaffected.
    */
   @JvmField val globals: PostmanEnvironment<Any?> = PostmanEnvironment(),
+  @JvmField val stopReason: StopReason = StopReason.COMPLETED,
 ) {
   @get:JvmName("immutableEnv") val immutableEnv: Map<String, Any?> by lazy { mutableEnv.toMap() }
 
@@ -71,7 +72,16 @@ data class Rundown(
   fun areAllStepsInFolderSuccessful(folderName: String): Boolean =
     reportsForStepsInFolder(folderName).all { it?.isSuccessful == true }
 
-  fun reportForStepName(stepName: String): StepReport? = stepReports.firstOrNull {
+  /**
+   * The report for the named step. When a step ran multiple times (a control-flow loop), returns
+   * the LAST (most-recent) execution. Use [reportsForStepName] for the full per-iteration history.
+   */
+  fun reportForStepName(stepName: String): StepReport? = stepReports.lastOrNull {
+    it.step.stepNameMatches(stepName)
+  }
+
+  /** All reports for the named step, in execution order (one per iteration for a looped step). */
+  fun reportsForStepName(stepName: String): List<StepReport> = stepReports.filter {
     it.step.stepNameMatches(stepName)
   }
 
