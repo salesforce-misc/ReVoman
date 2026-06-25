@@ -55,7 +55,7 @@ ReṼoman runs your collection's pre-request and post-response JavaScript on the
 | `pm.globals` (`.get` / `.set` / `.unset`) | Global-scoped key/value store; like `pm.collectionVariables`, persists across steps. Surfaced on `rundown.globals`.
 | `pm.variables` (`.get` / `.has`) | Aggregate *read* view across all scopes, honoring xref:variables.adoc#variable-resolution-precedence[Postman precedence] (`environment` ▸ `collectionVariables` ▸ `globals`).
 | `pm.request.body`, `pm.response.code` / `.json` / `.text` / `.to.have.status` | Request/response fed into the script context.
-| `pm.test`, `pm.expect` | Assertion results recorded on `StepReport.pmTestAssertions`.
+| `pm.test`, `pm.expect` | Assertion results recorded on `StepReport.pmTestAssertions`. A *failing* assertion fails its step (and the Rundown) — see <<pm-test-failures>>.
 | `pm.execution.setNextRequest` | Captured on `StepReport.nextRequest` (see note below).
 |===
 
@@ -63,7 +63,8 @@ All three persistent scopes — `pm.environment`, `pm.collectionVariables`, `pm.
 
 Two read-only fields on each `StepReport` expose script outcomes:
 
-* `pmTestAssertions: List<PmTestAssertion>` — every `pm.test(...)` result across the step's pre-request and post-response scripts. `PmTestAssertion` carries `name`, `passed`, `skipped`, and `error`.
+* `pmTestAssertions: List<PmTestAssertion>` — every `pm.test(...)` result across the step's pre-request and post-response scripts. `PmTestAssertion` carries `name`, `passed`, `skipped`, `error`, and `exeType` (the producing phase: `PRE_REQ_JS` or `POST_RES_JS`).
+* `pmTestFailure: List<PmTestFailure>` — the failed assertions of this step, grouped by phase (0–2 entries, pre-request first). Always populated when any assertion failed, *independent* of `failure`'s precedence — see <<pm-test-failures>>.
 * `nextRequest: String?` — the value passed to `pm.execution.setNextRequest(...)`, if any.
 
 [CAUTION]
@@ -82,3 +83,14 @@ include::example$it/com/salesforce/revoman/integration/pokemon/PokemonSandboxApi
 ----
 
 These script outcomes land on the xref:rundown.adoc[Rundown]; environment reads and writes flow through the xref:mutable-environment.adoc#mutable-environment[mutable environment]; and for logic too involved for a pre-req/post-res script, reach for xref:hooks.adoc[Hooks] instead.
+
+[#pm-test-failures]
+== A failing `pm.test` fails the step
+
+A failing `pm.test(...)` assertion fails its step — and therefore the xref:rundown.adoc[Rundown] — matching Postman/newman semantics. By default the run *continues* to the next step (the step is simply marked failed); set xref:execution-control.adoc[`haltOnAnyFailure(true)`] to fail-fast.
+
+A pm.test failure carries the `ExeType` of the phase that produced it — `PRE_REQ_JS` or `POST_RES_JS` — so you can exempt it from halting via `haltOnFailureOfTypeExcept(POST_RES_JS) { stepReport, rundown -> ... }` (or `PRE_REQ_JS`), exactly as for a script error.
+
+When *both* an HTTP/transport failure and a pm.test failure occur on the same step, both are surfaced: `StepReport.failure` carries the higher-precedence HTTP/transport cause (so a redundant `pm.test('status 200')` does not mask the real non-2xx response), while `StepReport.pmTestFailure` independently lists the assertion failures. `skipped` assertions (`pm.test.skip`) never contribute to failure.
+
+Per-assertion results — including `exeType` — appear in the JSON Rundown under each step's `pmTestAssertions`.
