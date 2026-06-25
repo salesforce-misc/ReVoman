@@ -46,4 +46,16 @@ sealed interface StepEvent {
   ) : StepEvent
 
   data class LedgerSkipped(override val path: String, val reused: Set<String>) : StepEvent
+
+  /** A pre-request `skipRequest()` skipped this step's HTTP dispatch. */
+  data class RequestSkipped(override val path: String) : StepEvent
+
+  /** `setNextRequest(name)` jumped from [path] to [toPath]. */
+  data class Jumped(override val path: String, val toPath: String) : StepEvent
+
+  /** The run stopped at [path] for [reason] (e.g. `setNextRequest(null)` or loop budget). */
+  data class RunStopped(override val path: String, val reason: String) : StepEvent
+
+  /** A jump loop exceeded the per-run execution [budget] at [path]. */
+  data class LoopBudgetExceeded(override val path: String, val budget: Int) : StepEvent
 }
