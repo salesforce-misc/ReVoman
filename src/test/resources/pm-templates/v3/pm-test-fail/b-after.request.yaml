@@ -1,0 +1,10 @@
+$kind: http-request
+name: b-after
+url: "{{baseUrl}}/b"
+method: GET
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('b ran', () => pm.expect(pm.response.code).to.eql(200));
+    language: text/javascript
+order: 2000
