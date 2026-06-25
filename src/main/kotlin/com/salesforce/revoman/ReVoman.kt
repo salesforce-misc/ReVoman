@@ -328,6 +328,11 @@ object ReVoman {
     pm: PostmanSDK,
     sandbox: PmSandbox,
   ): StepReport {
+    // Reset per-step capture each execution so a looped step doesn't inherit prior iteration's
+    // state.
+    // No-op on first run (the maps hold no entry for this step yet).
+    pm.resetCaptureForStep(step)
+
     // --------### LEDGER WARM-PATH: skip+inject / warn-and-run ###--------
     val ledger = kick.ledger()
     val entry = ledger.steps[step.path]

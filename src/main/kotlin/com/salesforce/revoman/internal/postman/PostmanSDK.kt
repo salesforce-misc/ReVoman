@@ -187,6 +187,19 @@ class PostmanSDK(
 
   internal fun skipRequestFor(step: Step): Boolean = skipRequestByStep[step] ?: false
 
+  /**
+   * Clears this step's per-execution control-flow + assertion capture. Called at the start of each
+   * execution so a step that runs more than once (a setNextRequest loop) does not inherit the prior
+   * iteration's directive/assertions. No-op on a step's first (or only) execution, so the common
+   * non-looping path is unaffected.
+   */
+  internal fun resetCaptureForStep(step: Step) {
+    nextRequestByStep.remove(step)
+    nextRequestSetByStep.remove(step)
+    skipRequestByStep.remove(step)
+    pmTestAssertionsByStep.remove(step)
+  }
+
   internal fun setRequestAndResponse(pmRequest: Request, httpResponse: org.http4k.core.Response) {
     request = pmRequest
     response =
