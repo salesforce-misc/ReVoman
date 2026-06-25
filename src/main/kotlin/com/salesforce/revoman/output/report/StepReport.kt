@@ -48,6 +48,14 @@ internal constructor(
   @JvmField val nextRequest: String? = null,
   /** True iff `setNextRequest` was called at all (distinguishes `setNextRequest(null)` STOP). */
   @JvmField val nextRequestSet: Boolean = false,
+  /**
+   * Iteration index of this execution of the step (0 for the common single-run case; >0 in a loop).
+   */
+  @JvmField val iteration: Int = 0,
+  /**
+   * Internal marker: this report is a pre-request `skipRequest()` skip (set by [requestSkipped]).
+   */
+  @JvmField val requestSkippedFlag: Boolean = false,
 ) {
   internal constructor(
     step: Step,
@@ -109,7 +117,16 @@ internal constructor(
    * request.
    */
   @JvmField
-  val isLedgerSkipped: Boolean = isSuccessful && requestInfo == null && responseInfo == null
+  val isLedgerSkipped: Boolean =
+    isSuccessful && requestInfo == null && responseInfo == null && !requestSkippedFlag
+
+  /**
+   * True when this step's HTTP dispatch was SKIPPED by a pre-request `pm.execution.skipRequest()`.
+   * Like [isLedgerSkipped] it carries no [requestInfo]/[responseInfo], but it is a script-driven
+   * skip (not a ledger reuse) and produces no env vars. Distinguished from [isLedgerSkipped] via an
+   * explicit marker so the two never conflate.
+   */
+  @JvmField val isRequestSkipped: Boolean = requestSkippedFlag
 
   companion object {
     /**
@@ -131,6 +148,26 @@ internal constructor(
         step = step,
         pmEnvSnapshot = env.copy(mutableEnv = env.mutableEnv.toMutableMap()),
         envVars = StepEnvVars(produced = produced, consumed = consumed),
+      )
+
+    /**
+     * A RECORDED report for a step whose HTTP dispatch was skipped by a pre-request
+     * `pm.execution.skipRequest()`. Successful (a skip is not a failure), carries no
+     * request/response, produces no env vars. [iteration] tags the loop iteration (0 if not
+     * looped).
+     */
+    @JvmStatic
+    @JvmOverloads
+    fun requestSkipped(
+      step: Step,
+      env: PostmanEnvironment<Any?>,
+      iteration: Int = 0,
+    ): StepReport =
+      StepReport(
+        step = step,
+        pmEnvSnapshot = env.copy(mutableEnv = env.mutableEnv.toMutableMap()),
+        iteration = iteration,
+        requestSkippedFlag = true,
       )
 
     private fun failure(
