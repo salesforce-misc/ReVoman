@@ -263,4 +263,50 @@ class RundownJsonWriterTest {
     val jsonStandard = rundown.toJson(Verbosity.STANDARD)
     jsonDefault shouldBe jsonStandard
   }
+
+  @Test
+  fun `STANDARD serializes pmTestAssertions array with passed and exeType`() {
+    val rawRequest = newRequest()
+    val requestInfo = newRequestInfo(rawRequest)
+    val responseInfo = newResponseInfo(OK, "{}")
+    val report =
+      StepReport(
+          Step("1", Item(name = "Check", request = rawRequest)),
+          Right(requestInfo),
+          responseInfo = Right(responseInfo),
+          pmEnvSnapshot = PostmanEnvironment(),
+        )
+        .copy(
+          pmTestAssertions =
+            listOf(
+              com.salesforce.revoman.output.report.PmTestAssertion(
+                "ok",
+                passed = true,
+                exeType = com.salesforce.revoman.output.ExeType.POST_RES_JS,
+              ),
+              com.salesforce.revoman.output.report.PmTestAssertion(
+                "bad",
+                passed = false,
+                error = "boom",
+                exeType = com.salesforce.revoman.output.ExeType.POST_RES_JS,
+              ),
+            )
+        )
+    val rundown =
+      Rundown(
+        stepReports = listOf(report),
+        mutableEnv = PostmanEnvironment(),
+        haltOnFailureOfTypeExcept = emptyMap(),
+        providedStepsToExecuteCount = 1,
+      )
+    val parsed = parseJson(rundown.toJson(Verbosity.STANDARD))
+    val steps = parsed["stepReports"] as List<*>
+    val assertions = (steps[0] as Map<*, *>)["pmTestAssertions"] as List<*>
+    assertions.size shouldBe 2
+    (assertions[0] as Map<*, *>)["name"] shouldBe "ok"
+    (assertions[0] as Map<*, *>)["passed"] shouldBe true
+    (assertions[0] as Map<*, *>)["exeType"] shouldBe "post-res-js"
+    (assertions[1] as Map<*, *>)["passed"] shouldBe false
+    (assertions[1] as Map<*, *>)["error"] shouldBe "boom"
+  }
 }
