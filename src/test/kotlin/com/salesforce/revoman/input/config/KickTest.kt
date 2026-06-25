@@ -75,4 +75,12 @@ class KickTest {
     val kick = Kick.configure().templatePath("unused").runLogSink(sink).off()
     kick.runLogSink() shouldBe sink
   }
+
+  @Test
+  fun `maxStepExecutionFactor defaults to 10 and is configurable`() {
+    val def = Kick.configure().templatePath("x").off()
+    def.maxStepExecutionFactor() shouldBe 10
+    val custom = Kick.configure().templatePath("x").maxStepExecutionFactor(3).off()
+    custom.maxStepExecutionFactor() shouldBe 3
+  }
 }
