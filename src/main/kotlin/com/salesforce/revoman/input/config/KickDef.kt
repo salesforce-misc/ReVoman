@@ -46,6 +46,14 @@ internal interface KickDef {
 
   @Value.Default fun haltOnAnyFailure(): Boolean = false
 
+  /**
+   * Per-run execution budget multiplier: the sequencer aborts once total step executions exceed
+   * `pickedSteps × maxStepExecutionFactor`. Bounds backward-jump loops created by
+   * `pm.execution.setNextRequest`. Default 10 is generous for legitimate loops while bounding
+   * runaways; a no-jump run executes each step once, far under the cap. Must be >= 1.
+   */
+  @Value.Default fun maxStepExecutionFactor(): Int = 10
+
   fun haltOnFailureOfTypeExcept(): Map<ExeType, PostTxnStepPick?>
 
   fun runOnlySteps(): List<ExeStepPick>
@@ -114,6 +122,9 @@ internal interface KickDef {
     }
     require(disjoint(runOnlySteps(), skipSteps())) {
       "`runOnlySteps` and `skipSteps` cannot contain same step names"
+    }
+    require(maxStepExecutionFactor() >= 1) {
+      "`maxStepExecutionFactor` must be >= 1, was ${maxStepExecutionFactor()}"
     }
   }
 
