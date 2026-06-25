@@ -16,7 +16,9 @@ import com.salesforce.revoman.input.bufferFile
 import com.salesforce.revoman.input.bufferInputStream
 import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.input.isV3Collection
+import com.salesforce.revoman.internal.exe.StepDirective
 import com.salesforce.revoman.internal.exe.deepFlattenItems
+import com.salesforce.revoman.internal.exe.directiveOf
 import com.salesforce.revoman.internal.exe.executePolling
 import com.salesforce.revoman.internal.exe.executePostResJS
 import com.salesforce.revoman.internal.exe.executePreReqJS
@@ -25,6 +27,7 @@ import com.salesforce.revoman.internal.exe.ledgerSkipDecision
 import com.salesforce.revoman.internal.exe.postStepHookExe
 import com.salesforce.revoman.internal.exe.preStepHookExe
 import com.salesforce.revoman.internal.exe.renderHttpMsg
+import com.salesforce.revoman.internal.exe.resolveTarget
 import com.salesforce.revoman.internal.exe.shadowedProducerPaths
 import com.salesforce.revoman.internal.exe.shouldHaltExecution
 import com.salesforce.revoman.internal.exe.shouldStepBePicked
@@ -53,6 +56,7 @@ import com.salesforce.revoman.output.ExeType.PRE_STEP_HOOK
 import com.salesforce.revoman.output.ExeType.UNMARSHALL_REQUEST
 import com.salesforce.revoman.output.ExeType.UNMARSHALL_RESPONSE
 import com.salesforce.revoman.output.Rundown
+import com.salesforce.revoman.output.StopReason
 import com.salesforce.revoman.output.ledger.LedgerEntry
 import com.salesforce.revoman.output.log.Outcome
 import com.salesforce.revoman.output.log.StepEvent
@@ -158,10 +162,11 @@ object ReVoman {
     val pm =
       PostmanSDK(moshiReVoman, kick.nodeModulesPath(), regexReplacer, environment.toMutableMap())
     pm.environmentName = mergedEnv.name
-    val stepNameToReport =
+    val sequenceResult =
       PmSandbox().use { sandbox ->
         executeStepsSerially(pmStepsDeepFlattened, kick, moshiReVoman, regexReplacer, pm, sandbox)
       }
+    val stepNameToReport = sequenceResult.reports
     // --- LEDGER CAPTURE CONTRACT (what becomes a ledgered producer) ---
     // A step's `envVars` is snapshotted at the END of its fold iteration (below), AFTER its
     // post-step hooks run, so a var a step-qualified PostStepHook/PreStepHook `.set()`s IS captured
@@ -186,8 +191,12 @@ object ReVoman {
       learnedLedger,
       pm.collectionVariables,
       pm.globals,
+      sequenceResult.stopReason,
     )
   }
+
+  /** The outcome of a full step sequence: the per-step reports and why the run terminated. */
+  internal data class SequenceResult(val reports: List<StepReport>, val stopReason: StopReason)
 
   private fun executeStepsSerially(
     pmStepsFlattened: List<Step>,
@@ -196,8 +205,7 @@ object ReVoman {
     regexReplacer: RegexReplacer,
     pm: PostmanSDK,
     sandbox: PmSandbox,
-  ): List<StepReport> {
-    var haltExecution = false
+  ): SequenceResult {
     val pickedSteps = pmStepsFlattened.filter {
       shouldStepBePicked(it, kick.runOnlySteps(), kick.skipSteps())
     }
@@ -207,36 +215,93 @@ object ReVoman {
     // an intermediate consumer of the earlier value would read it wrong. Empty for collision-free
     // collections (every key produced once) — zero behavior change there.
     val shadowedPaths = shadowedProducerPaths(pickedSteps, kick.ledger())
-    return pickedSteps
-      .asSequence()
-      .takeWhile { !haltExecution }
-      .fold(listOf<StepReport>()) { stepReports, step ->
-        pm.environment.currentStep = step
-        val currentStepReport =
-          runStep(
-            step,
-            iteration = 0,
-            bypassLedger = false,
-            stepReportsSoFar = stepReports,
-            pmStepsCount = pmStepsFlattened.size,
-            shadowedPaths = shadowedPaths,
-            kick = kick,
-            moshiReVoman = moshiReVoman,
-            regexReplacer = regexReplacer,
-            pm = pm,
-            sandbox = sandbox,
-          )
-        // A ledger-skip returns before BOTH the halt computation and the StepFinished emit in the
-        // legacy fold (it `return@fold`ed early), so neither ran — and `pm.rundown` is left at its
-        // prior value (uninitialized if the first step is skipped). Preserve that exactly: a
-        // skipped
-        // step is always successful (never halts) and emits only its LedgerSkipped event.
-        if (!currentStepReport.isLedgerSkipped) {
-          haltExecution = shouldHaltExecution(currentStepReport, kick, pm.rundown)
-          emitStepFinished(step, currentStepReport)
-        }
-        stepReports + currentStepReport
+    // Backward-jump runaway guard: at most `pickedSteps × maxStepExecutionFactor` executions.
+    val budget = pickedSteps.size * kick.maxStepExecutionFactor()
+
+    val reports = mutableListOf<StepReport>()
+    val iterationByPath = mutableMapOf<String, Int>()
+    var cursor = 0
+    var executions = 0
+    // ONE-WAY latch: once control flow diverges from the linear order (a real jump or a skip), the
+    // ledger's order assumption no longer holds, so steps from there on always dispatch fresh. The
+    // linear prefix BEFORE the first divergence still runs with the ledger fully active.
+    var bypassLedger = false
+    var stopReason = StopReason.COMPLETED
+
+    while (cursor in pickedSteps.indices) {
+      val step = pickedSteps[cursor]
+      pm.environment.currentStep = step
+      val iteration = iterationByPath.getOrDefault(step.path, 0)
+
+      val report =
+        runStep(
+          step,
+          iteration,
+          bypassLedger,
+          reports,
+          pmStepsFlattened.size,
+          shadowedPaths,
+          kick,
+          moshiReVoman,
+          regexReplacer,
+          pm,
+          sandbox,
+        )
+      reports += report
+      iterationByPath[step.path] = iteration + 1
+      executions++
+
+      // A ledger-skip records only its LedgerSkipped event (no StepFinished) and never halts — it
+      // is always successful and its `pm.rundown` is left at the prior value (preserve the legacy
+      // fold's early-return). A request-skip likewise diverges control flow (see below).
+      if (!report.isLedgerSkipped) emitStepFinished(step, report)
+      // A pre-request skip diverges control flow → the ledger's linear-order assumption is broken
+      // for every step after it.
+      if (report.isRequestSkipped) bypassLedger = true
+
+      // Budget guard (catches runaway backward-jump loops).
+      if (executions >= budget) {
+        RevomanLog.event(StepEvent.LoopBudgetExceeded(step.path, budget))
+        RevomanLog.warn { "🛑 Loop budget exceeded ($budget executions); stopping the run." }
+        stopReason = StopReason.LOOP_BUDGET_EXCEEDED
+        break
       }
+
+      // Failure halt: a ledger-skip can't fail (skip the check, matching the legacy early-return
+      // that also avoided reading the possibly-uninitialized `pm.rundown`). For every other report
+      // the halt predicate consults `pm.rundown` exactly as the legacy fold did.
+      if (!report.isLedgerSkipped && shouldHaltExecution(report, kick, pm.rundown)) {
+        stopReason = StopReason.HALTED_ON_FAILURE
+        break
+      }
+
+      cursor =
+        when (val directive = directiveOf(report)) {
+          StepDirective.None -> cursor + 1
+          StepDirective.Stop -> {
+            RevomanLog.event(StepEvent.RunStopped(step.path, "setNextRequest(null)"))
+            RevomanLog.info { "🛑 setNextRequest(null) at ${step.path} — stopping the run." }
+            stopReason = StopReason.STOPPED_BY_DIRECTIVE
+            pickedSteps.size // out of indices -> loop exits
+          }
+          is StepDirective.Jump -> {
+            bypassLedger = true
+            val target = resolveTarget(directive.target, pickedSteps, cursor)
+            if (target == null) {
+              RevomanLog.warn {
+                "⚠️ setNextRequest('${directive.target}') at ${step.path} matched no " +
+                  "picked step; continuing linearly."
+              }
+              cursor + 1
+            } else {
+              RevomanLog.event(StepEvent.Jumped(step.path, pickedSteps[target].path))
+              RevomanLog.info { "↪️ Jump ${step.path} -> ${pickedSteps[target].path}" }
+              target
+            }
+          }
+        }
+    }
+    return SequenceResult(reports, stopReason)
   }
 
   /**
@@ -334,9 +399,22 @@ object ReVoman {
         globals = pm.globals,
       )
     pm.environment.putAll(regexReplacer.replaceVariablesInEnv(pm))
-    return timed(step, exeTimings, PRE_REQ_JS) { // --------### PRE-REQ-JS ###--------
+    // --------### PRE-REQ-JS ###--------
+    // Run pre-req JS first, OUTSIDE the chain: it records `pm.execution.skipRequest()` onto the
+    // SDK.
+    // When pre-req SUCCEEDS and the script asked to skip, short-circuit BEFORE
+    // unmarshall/hooks/HTTP/
+    // post-res/polling — emit a successful `requestSkipped` report (no request/response, no env).
+    val preReqResult =
+      timed(step, exeTimings, PRE_REQ_JS) {
         executePreReqJS(step, itemWithRegex, preStepReport, pm, sandbox)
       }
+    if (preReqResult.isRight() && pm.skipRequestFor(step)) {
+      RevomanLog.event(StepEvent.RequestSkipped(step.path))
+      RevomanLog.info { "⏭️ skipRequest() at ${step.path} — skipping HTTP dispatch." }
+      return StepReport.requestSkipped(step, pm.environment, iteration)
+    }
+    return preReqResult
       .mapLeft { preStepReport.copy(requestInfo = left(it)) }
       .flatMap { // --------### UNMARSHALL-REQUEST ###--------
         timed(step, exeTimings, UNMARSHALL_REQUEST) {
