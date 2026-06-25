@@ -19,7 +19,8 @@ private val postManVariableRegex = "\\{\\{(?<$VARIABLE_KEY>[^{}]*?)}}".toRegex()
 class RegexReplacer(
   private val customDynamicVariableGenerators: Map<String, CustomDynamicVariableGenerator> =
     emptyMap(),
-  private val dynamicVariableGenerator: (String, PostmanSDK) -> String? = ::dynamicVariableGenerator,
+  private val dynamicVariableGenerator: (String, PostmanSDK) -> String? =
+    ::dynamicVariableGenerator,
 ) {
   /**
    * ## Order of Variable resolution

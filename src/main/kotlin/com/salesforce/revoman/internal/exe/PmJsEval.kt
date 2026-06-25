@@ -151,8 +151,9 @@ private fun runSandboxScript(
 }
 
 /** Filters a scope map to sandbox-safe values (real Postman variable values). */
-private fun sandboxSafeEnv(scope: Map<String, Any?>): Map<String, Any?> =
-  scope.filterValues { it == null || it is String || it is Number || it is Boolean }
+private fun sandboxSafeEnv(scope: Map<String, Any?>): Map<String, Any?> = scope.filterValues {
+  it == null || it is String || it is Number || it is Boolean
+}
 
 private fun requestAsContextMap(request: Request): Map<String, Any?> =
   linkedMapOf(

@@ -61,8 +61,9 @@ internal data class Environment(val name: String?, val values: List<EnvValue>) {
         jsonEnvs.flatMap { it.values.filter { v -> v.enabled } }.associate { it.key to it.value }
 
       // Streams — parse to Environment once (single read), derive values + name.
-      val streamEnvs: List<Environment> =
-        pmEnvironmentInputStreams.mapNotNull { envAdapter.fromJson(bufferInputStream(it)) }
+      val streamEnvs: List<Environment> = pmEnvironmentInputStreams.mapNotNull {
+        envAdapter.fromJson(bufferInputStream(it))
+      }
       val envFromStreams: Map<String, Any?> =
         streamEnvs.flatMap { it.values.filter { v -> v.enabled } }.associate { it.key to it.value }
 

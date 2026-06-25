@@ -149,13 +149,12 @@ internal interface KickDef {
     @Suppress("UNCHECKED_CAST")
     @JvmStatic
     @SafeVarargs
-    fun <T> intoList(vararg items: Any): List<T> =
-      items.flatMap { item ->
-        when (item) {
-          is Collection<*> -> item.map { it as T }
-          else -> listOf(item as T)
-        }
+    fun <T> intoList(vararg items: Any): List<T> = items.flatMap { item ->
+      when (item) {
+        is Collection<*> -> item.map { it as T }
+        else -> listOf(item as T)
       }
+    }
   }
 }
 

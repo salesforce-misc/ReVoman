@@ -49,22 +49,20 @@ internal object V3YamlReader {
     val map = parseYaml(yaml)
     @Suppress("UNCHECKED_CAST")
     val values = (map["values"] as? List<Map<String, Any?>>) ?: emptyList()
-    val valueMap =
-      values.associate { m ->
-        (m["key"]?.toString() ?: error("ledger value missing 'key'")) to m["value"]?.toString()
-      }
+    val valueMap = values.associate { m ->
+      (m["key"]?.toString() ?: error("ledger value missing 'key'")) to m["value"]?.toString()
+    }
     @Suppress("UNCHECKED_CAST")
     val ledgerMeta = (map["x-revoman-ledger"] as? Map<String, Any?>) ?: emptyMap()
     @Suppress("UNCHECKED_CAST")
     val stepsRaw = (ledgerMeta["steps"] as? Map<String, Map<String, Any?>>) ?: emptyMap()
-    val steps =
-      stepsRaw.mapValues { (_, e) ->
-        @Suppress("UNCHECKED_CAST")
-        val produces = (e["produces"] as? List<Any?>)?.map { it.toString() }?.toSet() ?: emptySet()
-        @Suppress("UNCHECKED_CAST")
-        val consumed = (e["consumed"] as? List<Any?>)?.map { it.toString() }?.toSet() ?: emptySet()
-        LedgerEntry(produces, e["hash"]?.toString() ?: "", consumed)
-      }
+    val steps = stepsRaw.mapValues { (_, e) ->
+      @Suppress("UNCHECKED_CAST")
+      val produces = (e["produces"] as? List<Any?>)?.map { it.toString() }?.toSet() ?: emptySet()
+      @Suppress("UNCHECKED_CAST")
+      val consumed = (e["consumed"] as? List<Any?>)?.map { it.toString() }?.toSet() ?: emptySet()
+      LedgerEntry(produces, e["hash"]?.toString() ?: "", consumed)
+    }
     return LedgerFile(
       name = map["name"]?.toString(),
       values = valueMap,

@@ -65,18 +65,17 @@ internal object V3ToV2Converter {
   }
 
   private fun toEvents(scripts: List<V3Script>): List<Event> {
-    val byListen =
-      scripts.groupBy { script ->
-        when (script.type) {
-          "afterResponse" -> "test"
-          "beforeRequest",
-          "prerequest" -> "prerequest"
-          else -> {
-            logger.warn { "v3 script type '${script.type}' not recognized; skipping." }
-            null
-          }
+    val byListen = scripts.groupBy { script ->
+      when (script.type) {
+        "afterResponse" -> "test"
+        "beforeRequest",
+        "prerequest" -> "prerequest"
+        else -> {
+          logger.warn { "v3 script type '${script.type}' not recognized; skipping." }
+          null
         }
       }
+    }
     return byListen.entries
       .filter { it.key != null }
       .map { (listen, scripts) ->

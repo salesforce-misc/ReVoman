@@ -26,6 +26,13 @@
         "org.apache.logging.log4j:log4j-slf4j2-impl"
       ],
       "allowedVersions": "!/-beta3$/"
+    },
+    {
+      "description": "Block the stray Kotlin-prefixed moshix version. 1.7.20-Beta-0.18.3 = Kotlin 1.7.20-Beta + moshix 0.18.3 from the old coupled scheme; it sorts above the decoupled 0.x releases, so Renovate keeps proposing it. Exclude just that version and let Renovate pick the highest of the rest.",
+      "matchPackageNames": [
+        "/^dev\\.zacsweers\\.moshix/"
+      ],
+      "allowedVersions": "!/^1\\.7\\.20-Beta-0\\.18\\.3$/"
     }
   ]
 }

@@ -64,20 +64,26 @@ data class Rundown(
     stepReports.all { it.isSuccessful || !isStepIgnoredForFailure(it, this) }
   }
 
-  fun reportsForStepsInFolder(folderName: String): List<StepReport?> =
-    stepReports.filter { it.step.name.contains("$folderName$FOLDER_DELIMITER") }
+  fun reportsForStepsInFolder(folderName: String): List<StepReport?> = stepReports.filter {
+    it.step.name.contains("$folderName$FOLDER_DELIMITER")
+  }
 
   fun areAllStepsInFolderSuccessful(folderName: String): Boolean =
     reportsForStepsInFolder(folderName).all { it?.isSuccessful == true }
 
-  fun reportForStepName(stepName: String): StepReport? =
-    stepReports.firstOrNull { it.step.stepNameMatches(stepName) }
+  fun reportForStepName(stepName: String): StepReport? = stepReports.firstOrNull {
+    it.step.stepNameMatches(stepName)
+  }
 
   fun filterReportExcludingStepsWithName(stepNames: Set<String>): List<StepReport> =
-    stepReports.filter { r -> !stepNames.any { r.step.stepNameMatches(it) } }
+    stepReports.filter { r ->
+      !stepNames.any { r.step.stepNameMatches(it) }
+    }
 
   fun filterReportIncludingStepsWithName(stepNames: Set<String>): List<StepReport> =
-    stepReports.filter { r -> stepNames.any { r.step.stepNameMatches(it) } }
+    stepReports.filter { r ->
+      stepNames.any { r.step.stepNameMatches(it) }
+    }
 
   companion object {
     fun isStepIgnoredForFailure(stepReport: StepReport, rundown: Rundown): Boolean =

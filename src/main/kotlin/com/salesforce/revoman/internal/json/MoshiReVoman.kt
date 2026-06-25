@@ -68,10 +68,13 @@ open class MoshiReVoman(builder: Moshi.Builder) {
     (if (serializeNulls) adapter<PojoT>().serializeNulls() else adapter<PojoT>()).lenient()
 
   fun <PojoT : Any> fromJson(input: String?, targetType: Type = Any::class.java): PojoT? =
-    input?.let { lenientAdapter<PojoT>(targetType).fromJson(it) }
+    input?.let {
+      lenientAdapter<PojoT>(targetType).fromJson(it)
+    }
 
-  inline fun <reified PojoT : Any> fromJson(input: String?): PojoT? =
-    input?.let { lenientAdapter<PojoT>().fromJson(it) }
+  inline fun <reified PojoT : Any> fromJson(input: String?): PojoT? = input?.let {
+    lenientAdapter<PojoT>().fromJson(it)
+  }
 
   fun <PojoT : Any> toJson(
     input: PojoT?,
@@ -103,8 +106,9 @@ open class MoshiReVoman(builder: Moshi.Builder) {
   inline fun <reified PojoT : Any> objToJsonStrToObj(input: Any?): PojoT? =
     lenientAdapter<PojoT>().fromJson(toJson(input))
 
-  fun jsonToObjToPrettyJson(input: String?, serializeNulls: Boolean = false): String? =
-    input?.let { toPrettyJson(fromJson(it), serializeNulls) }
+  fun jsonToObjToPrettyJson(input: String?, serializeNulls: Boolean = false): String? = input?.let {
+    toPrettyJson(fromJson(it), serializeNulls)
+  }
 
   fun anyToString(value: Any?): String =
     when (value) {

@@ -198,8 +198,9 @@ object ReVoman {
     sandbox: PmSandbox,
   ): List<StepReport> {
     var haltExecution = false
-    val pickedSteps =
-      pmStepsFlattened.filter { shouldStepBePicked(it, kick.runOnlySteps(), kick.skipSteps()) }
+    val pickedSteps = pmStepsFlattened.filter {
+      shouldStepBePicked(it, kick.runOnlySteps(), kick.skipSteps())
+    }
     // Collision guard (computed once over the picked steps in execution order): a key produced by
     // >1 step is only safely ledger-skippable at its LAST producer. Earlier producers of a re-set
     // key must always run, else a skipped earlier step would be injected with the LATER value and
