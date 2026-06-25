@@ -15,9 +15,11 @@ import com.salesforce.revoman.output.report.failure.ExeFailure
 import com.salesforce.revoman.output.report.failure.HookFailure.PostStepHookFailure
 import com.salesforce.revoman.output.report.failure.HookFailure.PreStepHookFailure
 import com.salesforce.revoman.output.report.failure.HttpStatusUnsuccessful
+import com.salesforce.revoman.output.report.failure.PmTestFailure
 import com.salesforce.revoman.output.report.failure.PollingFailure
 import com.salesforce.revoman.output.report.failure.RequestFailure
 import com.salesforce.revoman.output.report.failure.ResponseFailure
+import com.salesforce.revoman.output.report.failure.buildPmTestFailures
 import io.vavr.control.Either
 import io.vavr.control.Either.left
 import io.vavr.control.Either.right
@@ -69,9 +71,23 @@ internal constructor(
     pmEnvSnapshot,
   )
 
+  /**
+   * pm.test failures of this step, grouped by phase (0–2 entries, pre-request first). ALWAYS
+   * populated when any assertion failed, INDEPENDENT of [failure]'s precedence — so a co-occurring
+   * HTTP/transport failure (which wins [failure]) does not hide the assertion failure.
+   */
+  @JvmField val pmTestFailure: List<PmTestFailure> = buildPmTestFailures(pmTestAssertions)
+
   @JvmField
   val failure: Either<ExeFailure, HttpStatusUnsuccessful>? =
-    failure(requestInfo, preStepHookFailure, responseInfo, postStepHookFailure, pollingFailure)
+    failure(
+      requestInfo,
+      preStepHookFailure,
+      responseInfo,
+      postStepHookFailure,
+      pollingFailure,
+      pmTestFailure,
+    )
 
   @JvmField val exeTypeForFailure: ExeType? = failure?.fold({ it.exeType }, { it.exeType })
 
@@ -123,6 +139,7 @@ internal constructor(
       responseInfo: Either<out ExeFailure, TxnInfo<Response>>? = null,
       postStepHookFailure: PostStepHookFailure? = null,
       pollingFailure: PollingFailure? = null,
+      pmTestFailure: List<PmTestFailure> = emptyList(),
     ): Either<ExeFailure, HttpStatusUnsuccessful>? =
       when {
         requestInfo != null ->
@@ -142,6 +159,7 @@ internal constructor(
                           when {
                             postStepHookFailure != null -> left(postStepHookFailure)
                             pollingFailure != null -> left(pollingFailure)
+                            pmTestFailure.isNotEmpty() -> left(pmTestFailure.first())
                             else -> null
                           }
                       }
