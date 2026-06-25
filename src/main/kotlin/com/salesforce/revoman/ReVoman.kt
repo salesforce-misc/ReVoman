@@ -215,7 +215,7 @@ object ReVoman {
     // an intermediate consumer of the earlier value would read it wrong. Empty for collision-free
     // collections (every key produced once) — zero behavior change there.
     val shadowedPaths = shadowedProducerPaths(pickedSteps, kick.ledger())
-    // Backward-jump runaway guard: at most `pickedSteps × maxStepExecutionFactor` executions.
+    // Backward-jump runaway guard: up to `pickedSteps × maxStepExecutionFactor` executions allowed.
     val budget = pickedSteps.size * kick.maxStepExecutionFactor()
 
     val reports = mutableListOf<StepReport>()
@@ -260,7 +260,7 @@ object ReVoman {
       if (report.isRequestSkipped) bypassLedger = true
 
       // Budget guard (catches runaway backward-jump loops).
-      if (executions >= budget) {
+      if (executions > budget) {
         RevomanLog.event(StepEvent.LoopBudgetExceeded(step.path, budget))
         RevomanLog.warn { "🛑 Loop budget exceeded ($budget executions); stopping the run." }
         stopReason = StopReason.LOOP_BUDGET_EXCEEDED
