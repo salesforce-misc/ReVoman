@@ -212,206 +212,245 @@ object ReVoman {
       .takeWhile { !haltExecution }
       .fold(listOf<StepReport>()) { stepReports, step ->
         pm.environment.currentStep = step
-        // --------### LEDGER WARM-PATH: skip+inject / warn-and-run ###--------
-        val ledger = kick.ledger()
-        val entry = ledger.steps[step.path]
-        val envKeys = pm.environment.keys
-        if (
-          step.path !in shadowedPaths &&
-            ledgerSkipDecision(step, ledger, envKeys, kick.ledgerOptOutSteps())
-        ) {
-          val skipEntry = entry!!
-          RevomanLog.info { "***** Ledger-skip Step (reusing ${skipEntry.produces}): $step *****" }
-          RevomanLog.event(StepEvent.LedgerSkipped(step.path, skipEntry.produces))
-          // Inject ledgered values via the delegated index-set (NOT `set()`), so the reused keys
-          // are NOT recorded as "produced" by this skipped step in the live per-step capture. A
-          // produced key absent from `ledger.values` (partial/corrupt ledger) is NOT injected as a
-          // silent null (which would stringify to "null" downstream): warn and leave the existing
-          // env value, which the env-superset precondition guarantees is present.
-          skipEntry.produces.forEach { key ->
-            if (ledger.values.containsKey(key)) {
-              pm.environment[key] = ledger.values[key]
-            } else {
-              RevomanLog.warn {
-                "[ledger] ${step.path} reuses produced key '$key' but it is missing from " +
-                  "ledger.values -> keeping existing env value, not injecting null"
-              }
-            }
-          }
-          return@fold stepReports +
-            StepReport.ledgerSkipped(step, skipEntry.produces, pm.environment, skipEntry.consumed)
+        val currentStepReport =
+          runStep(
+            step,
+            iteration = 0,
+            bypassLedger = false,
+            stepReportsSoFar = stepReports,
+            pmStepsCount = pmStepsFlattened.size,
+            shadowedPaths = shadowedPaths,
+            kick = kick,
+            moshiReVoman = moshiReVoman,
+            regexReplacer = regexReplacer,
+            pm = pm,
+            sandbox = sandbox,
+          )
+        // A ledger-skip returns before BOTH the halt computation and the StepFinished emit in the
+        // legacy fold (it `return@fold`ed early), so neither ran — and `pm.rundown` is left at its
+        // prior value (uninitialized if the first step is skipped). Preserve that exactly: a
+        // skipped
+        // step is always successful (never halts) and emits only its LedgerSkipped event.
+        if (!currentStepReport.isLedgerSkipped) {
+          haltExecution = shouldHaltExecution(currentStepReport, kick, pm.rundown)
+          emitStepFinished(step, currentStepReport)
         }
-        if (
-          entry != null &&
-            entry.produces.isNotEmpty() &&
-            entry.hash.isNotEmpty() &&
-            step.sourceHash.isNotEmpty() &&
-            entry.hash != step.sourceHash &&
-            envKeys.containsAll(entry.produces)
-        ) {
-          RevomanLog.warn {
-            "[ledger] stale: ${step.path} producer def changed " +
-              "(hash ${entry.hash} -> ${step.sourceHash}) -> running step, refreshing entry"
-          }
-        }
-        RevomanLog.info { "***** Executing Step: $step *****" }
-        RevomanLog.event(StepEvent.StepStarted(step.path, step.name))
-        val exeTimings: MutableMap<ExeType, Duration> = mutableMapOf()
-        val itemWithRegex = step.rawPMStep
-        val preStepReport =
-          StepReport(
-            step = step,
-            requestInfo =
-              Right(
-                TxnInfo(
-                  httpMsg = itemWithRegex.request.toHttpRequest(null),
-                  moshiReVoman = moshiReVoman,
-                )
-              ),
-            pmEnvSnapshot = pm.environment,
-          )
-        pm.info = Info(step.name)
-        pm.currentStepReport = preStepReport
-        pm.rundown =
-          Rundown(
-            stepReports + preStepReport,
-            pm.environment,
-            kick.haltOnFailureOfTypeExcept(),
-            pmStepsFlattened.size,
-            collectionVariables = pm.collectionVariables,
-            globals = pm.globals,
-          )
-        pm.environment.putAll(regexReplacer.replaceVariablesInEnv(pm))
-        val currentStepReport: StepReport = // --------### PRE-REQ-JS ###--------
-          timed(step, exeTimings, PRE_REQ_JS) {
-              executePreReqJS(step, itemWithRegex, preStepReport, pm, sandbox)
-            }
-            .mapLeft { preStepReport.copy(requestInfo = left(it)) }
-            .flatMap { // --------### UNMARSHALL-REQUEST ###--------
-              timed(step, exeTimings, UNMARSHALL_REQUEST) {
-                  val pmRequest =
-                    regexReplacer.replaceVariablesInRequestRecursively(itemWithRegex.request, pm)
-                  unmarshallRequest(step, pmRequest, kick, moshiReVoman, pm.rundown)
-                }
-                .mapLeft { preStepReport.copy(requestInfo = left(it)) }
-            }
-            .flatMap { requestInfo: TxnInfo<Request> -> // --------### PRE-HOOKS ###--------
-              timed(step, exeTimings, PRE_STEP_HOOK) {
-                  preStepHookExe(step, kick, requestInfo, pm.rundown)
-                }
-                ?.let {
-                  Left(
-                    preStepReport.copy(
-                      requestInfo = Right(requestInfo).toVavr(),
-                      preStepHookFailure = it,
-                    )
-                  )
-                } ?: Right(preStepReport.copy(requestInfo = Right(requestInfo).toVavr()))
-            }
-            .flatMap { sr: StepReport -> // --------### HTTP-REQUEST ###--------
-              pm.syncProgress(sr)
-              // * NOTE 15 Mar 2025 gopala.akshintala: Replace again to accommodate variables set by
-              // PRE-REQ-JS
-              val item = regexReplacer.replaceVariablesInPmItem(itemWithRegex, pm)
-              val httpRequest = item.request.toHttpRequest(moshiReVoman)
-              timed(step, exeTimings, HTTP_REQUEST) {
-                  fireHttpRequest(step, httpRequest, kick.insecureHttp(), moshiReVoman)
-                }
-                .mapLeft { sr.copy(requestInfo = Left(it).toVavr()) }
-                .map {
-                  sr.copy(
-                    requestInfo =
-                      sr.requestInfo?.map { txnInfo -> txnInfo.copy(httpMsg = httpRequest) },
-                    responseInfo = Right(it).toVavr(),
-                  )
-                }
-            }
-            .flatMap { sr: StepReport -> // --------### POST-RES-JS ###--------
-              pm.syncProgress(sr)
-              timed(step, exeTimings, POST_RES_JS) {
-                  executePostResJS(step, itemWithRegex, sr, pm, sandbox)
-                }
-                .mapLeft { sr.copy(responseInfo = left(it)) }
-                .map { sr }
-            }
-            .flatMap { sr: StepReport -> // ---### UNMARSHALL RESPONSE ###---
-              timed(step, exeTimings, UNMARSHALL_RESPONSE) {
-                  unmarshallResponse(kick, moshiReVoman, sr, pm.rundown)
-                }
-                .mapLeft { sr.copy(responseInfo = Left(it).toVavr()) }
-                .map { sr.copy(responseInfo = Right(it).toVavr()) }
-            }
-            .map { sr: StepReport -> // --------### POST-HOOKS ###--------
-              pm.syncProgress(sr)
-              val postHookFailure =
-                timed(step, exeTimings, POST_STEP_HOOK) { postStepHookExe(kick, sr, pm.rundown) }
-              sr.copy(postStepHookFailure = postHookFailure)
-            }
-            .flatMap { sr: StepReport -> // --------### POLLING ###--------
-              timed(step, exeTimings, POLLING) {
-                  executePolling(kick.pollingConfig(), sr, pm.rundown, pm, kick.insecureHttp())
-                }
-                .mapLeft { sr.copy(pollingFailure = it) }
-                .map { pollingReport -> pollingReport?.let { sr.copy(pollingReport = it) } ?: sr }
-            }
-            .merge()
-            .copy(
-              exeTimings = exeTimings,
-              pmEnvSnapshot =
-                pm.environment.copy(mutableEnv = pm.environment.mutableEnv.toMutableMap()),
-              envVars =
-                StepEnvVars(
-                  produced = pm.environment.producedKeysFor(step),
-                  consumed = pm.environment.consumedKeysFor(step),
-                ),
-              pmTestAssertions = pm.pmTestAssertionsFor(step),
-              nextRequest = pm.nextRequestFor(step),
-              nextRequestSet = pm.nextRequestSetFor(step),
-            )
-        haltExecution = shouldHaltExecution(currentStepReport, kick, pm.rundown)
-        val captureForSink = RunLogContext.hasActiveSink()
-        RevomanLog.event(
-          StepEvent.StepFinished(
-            path = step.path,
-            httpStatus =
-              if (currentStepReport.responseInfo != null && currentStepReport.responseInfo.isRight)
-                currentStepReport.responseInfo.get().httpMsg.status.code
-              else null,
-            produced = currentStepReport.envVars.produced,
-            consumed = currentStepReport.envVars.consumed,
-            tookMs = currentStepReport.exeTimings.values.sumOf { it.toMillis() },
-            outcome = if (currentStepReport.isSuccessful) Outcome.SUCCESS else Outcome.FAILED,
-            requestMsg =
-              if (
-                captureForSink &&
-                  currentStepReport.requestInfo != null &&
-                  currentStepReport.requestInfo.isRight
-              )
-                renderHttpMsg(currentStepReport.requestInfo.get().httpMsg)
-              else null,
-            responseMsg =
-              if (
-                captureForSink &&
-                  currentStepReport.responseInfo != null &&
-                  currentStepReport.responseInfo.isRight
-              )
-                renderHttpMsg(currentStepReport.responseInfo.get().httpMsg)
-              else null,
-            producedValues =
-              if (captureForSink)
-                currentStepReport.envVars.produced.associateWith {
-                  currentStepReport.pmEnvSnapshot[it]?.toString()
-                }
-              else emptyMap(),
-            consumedValues =
-              if (captureForSink)
-                currentStepReport.envVars.consumed.associateWith {
-                  currentStepReport.pmEnvSnapshot[it]?.toString()
-                }
-              else emptyMap(),
-          )
-        )
         stepReports + currentStepReport
       }
+  }
+
+  /**
+   * Runs ONE step's full lifecycle (ledger warm-path → pre-req JS → unmarshall → hooks → HTTP →
+   * post-res → polling) and returns its [StepReport]. Pure relocation of the former fold body: it
+   * does NOT compute halt, emit the [StepEvent.StepFinished] event, or accumulate — the caller (the
+   * sequencer loop) owns that.
+   *
+   * When [bypassLedger] is true the ledger warm-path block (skip+inject AND the
+   * [shadowedPaths]/warn-and-run consultation) is skipped entirely and the step always dispatches
+   * fresh — used once control flow has diverged from the linear order the ledger assumes.
+   */
+  @OptIn(ExperimentalStdlibApi::class)
+  private fun runStep(
+    step: Step,
+    iteration: Int,
+    bypassLedger: Boolean,
+    stepReportsSoFar: List<StepReport>,
+    pmStepsCount: Int,
+    shadowedPaths: Set<String>,
+    kick: Kick,
+    moshiReVoman: MoshiReVoman,
+    regexReplacer: RegexReplacer,
+    pm: PostmanSDK,
+    sandbox: PmSandbox,
+  ): StepReport {
+    // --------### LEDGER WARM-PATH: skip+inject / warn-and-run ###--------
+    val ledger = kick.ledger()
+    val entry = ledger.steps[step.path]
+    val envKeys = pm.environment.keys
+    if (
+      !bypassLedger &&
+        step.path !in shadowedPaths &&
+        ledgerSkipDecision(step, ledger, envKeys, kick.ledgerOptOutSteps())
+    ) {
+      val skipEntry = entry!!
+      RevomanLog.info { "***** Ledger-skip Step (reusing ${skipEntry.produces}): $step *****" }
+      RevomanLog.event(StepEvent.LedgerSkipped(step.path, skipEntry.produces))
+      // Inject ledgered values via the delegated index-set (NOT `set()`), so the reused keys
+      // are NOT recorded as "produced" by this skipped step in the live per-step capture. A
+      // produced key absent from `ledger.values` (partial/corrupt ledger) is NOT injected as a
+      // silent null (which would stringify to "null" downstream): warn and leave the existing
+      // env value, which the env-superset precondition guarantees is present.
+      skipEntry.produces.forEach { key ->
+        if (ledger.values.containsKey(key)) {
+          pm.environment[key] = ledger.values[key]
+        } else {
+          RevomanLog.warn {
+            "[ledger] ${step.path} reuses produced key '$key' but it is missing from " +
+              "ledger.values -> keeping existing env value, not injecting null"
+          }
+        }
+      }
+      return StepReport.ledgerSkipped(step, skipEntry.produces, pm.environment, skipEntry.consumed)
+    }
+    if (
+      !bypassLedger &&
+        entry != null &&
+        entry.produces.isNotEmpty() &&
+        entry.hash.isNotEmpty() &&
+        step.sourceHash.isNotEmpty() &&
+        entry.hash != step.sourceHash &&
+        envKeys.containsAll(entry.produces)
+    ) {
+      RevomanLog.warn {
+        "[ledger] stale: ${step.path} producer def changed " +
+          "(hash ${entry.hash} -> ${step.sourceHash}) -> running step, refreshing entry"
+      }
+    }
+    RevomanLog.info { "***** Executing Step: $step *****" }
+    RevomanLog.event(StepEvent.StepStarted(step.path, step.name))
+    val exeTimings: MutableMap<ExeType, Duration> = mutableMapOf()
+    val itemWithRegex = step.rawPMStep
+    val preStepReport =
+      StepReport(
+        step = step,
+        requestInfo =
+          Right(
+            TxnInfo(
+              httpMsg = itemWithRegex.request.toHttpRequest(null),
+              moshiReVoman = moshiReVoman,
+            )
+          ),
+        pmEnvSnapshot = pm.environment,
+      )
+    pm.info = Info(step.name)
+    pm.currentStepReport = preStepReport
+    pm.rundown =
+      Rundown(
+        stepReportsSoFar + preStepReport,
+        pm.environment,
+        kick.haltOnFailureOfTypeExcept(),
+        pmStepsCount,
+        collectionVariables = pm.collectionVariables,
+        globals = pm.globals,
+      )
+    pm.environment.putAll(regexReplacer.replaceVariablesInEnv(pm))
+    return timed(step, exeTimings, PRE_REQ_JS) { // --------### PRE-REQ-JS ###--------
+        executePreReqJS(step, itemWithRegex, preStepReport, pm, sandbox)
+      }
+      .mapLeft { preStepReport.copy(requestInfo = left(it)) }
+      .flatMap { // --------### UNMARSHALL-REQUEST ###--------
+        timed(step, exeTimings, UNMARSHALL_REQUEST) {
+            val pmRequest =
+              regexReplacer.replaceVariablesInRequestRecursively(itemWithRegex.request, pm)
+            unmarshallRequest(step, pmRequest, kick, moshiReVoman, pm.rundown)
+          }
+          .mapLeft { preStepReport.copy(requestInfo = left(it)) }
+      }
+      .flatMap { requestInfo: TxnInfo<Request> -> // --------### PRE-HOOKS ###--------
+        timed(step, exeTimings, PRE_STEP_HOOK) {
+            preStepHookExe(step, kick, requestInfo, pm.rundown)
+          }
+          ?.let {
+            Left(
+              preStepReport.copy(
+                requestInfo = Right(requestInfo).toVavr(),
+                preStepHookFailure = it,
+              )
+            )
+          } ?: Right(preStepReport.copy(requestInfo = Right(requestInfo).toVavr()))
+      }
+      .flatMap { sr: StepReport -> // --------### HTTP-REQUEST ###--------
+        pm.syncProgress(sr)
+        // * NOTE 15 Mar 2025 gopala.akshintala: Replace again to accommodate variables set by
+        // PRE-REQ-JS
+        val item = regexReplacer.replaceVariablesInPmItem(itemWithRegex, pm)
+        val httpRequest = item.request.toHttpRequest(moshiReVoman)
+        timed(step, exeTimings, HTTP_REQUEST) {
+            fireHttpRequest(step, httpRequest, kick.insecureHttp(), moshiReVoman)
+          }
+          .mapLeft { sr.copy(requestInfo = Left(it).toVavr()) }
+          .map {
+            sr.copy(
+              requestInfo = sr.requestInfo?.map { txnInfo -> txnInfo.copy(httpMsg = httpRequest) },
+              responseInfo = Right(it).toVavr(),
+            )
+          }
+      }
+      .flatMap { sr: StepReport -> // --------### POST-RES-JS ###--------
+        pm.syncProgress(sr)
+        timed(step, exeTimings, POST_RES_JS) {
+            executePostResJS(step, itemWithRegex, sr, pm, sandbox)
+          }
+          .mapLeft { sr.copy(responseInfo = left(it)) }
+          .map { sr }
+      }
+      .flatMap { sr: StepReport -> // ---### UNMARSHALL RESPONSE ###---
+        timed(step, exeTimings, UNMARSHALL_RESPONSE) {
+            unmarshallResponse(kick, moshiReVoman, sr, pm.rundown)
+          }
+          .mapLeft { sr.copy(responseInfo = Left(it).toVavr()) }
+          .map { sr.copy(responseInfo = Right(it).toVavr()) }
+      }
+      .map { sr: StepReport -> // --------### POST-HOOKS ###--------
+        pm.syncProgress(sr)
+        val postHookFailure =
+          timed(step, exeTimings, POST_STEP_HOOK) { postStepHookExe(kick, sr, pm.rundown) }
+        sr.copy(postStepHookFailure = postHookFailure)
+      }
+      .flatMap { sr: StepReport -> // --------### POLLING ###--------
+        timed(step, exeTimings, POLLING) {
+            executePolling(kick.pollingConfig(), sr, pm.rundown, pm, kick.insecureHttp())
+          }
+          .mapLeft { sr.copy(pollingFailure = it) }
+          .map { pollingReport -> pollingReport?.let { sr.copy(pollingReport = it) } ?: sr }
+      }
+      .merge()
+      .copy(
+        exeTimings = exeTimings,
+        pmEnvSnapshot = pm.environment.copy(mutableEnv = pm.environment.mutableEnv.toMutableMap()),
+        envVars =
+          StepEnvVars(
+            produced = pm.environment.producedKeysFor(step),
+            consumed = pm.environment.consumedKeysFor(step),
+          ),
+        pmTestAssertions = pm.pmTestAssertionsFor(step),
+        nextRequest = pm.nextRequestFor(step),
+        nextRequestSet = pm.nextRequestSetFor(step),
+        iteration = iteration,
+      )
+  }
+
+  /** Emits the [StepEvent.StepFinished] boundary event for a finished step's [report]. */
+  private fun emitStepFinished(step: Step, report: StepReport) {
+    val captureForSink = RunLogContext.hasActiveSink()
+    RevomanLog.event(
+      StepEvent.StepFinished(
+        path = step.path,
+        httpStatus =
+          if (report.responseInfo != null && report.responseInfo.isRight)
+            report.responseInfo.get().httpMsg.status.code
+          else null,
+        produced = report.envVars.produced,
+        consumed = report.envVars.consumed,
+        tookMs = report.exeTimings.values.sumOf { it.toMillis() },
+        outcome = if (report.isSuccessful) Outcome.SUCCESS else Outcome.FAILED,
+        requestMsg =
+          if (captureForSink && report.requestInfo != null && report.requestInfo.isRight)
+            renderHttpMsg(report.requestInfo.get().httpMsg)
+          else null,
+        responseMsg =
+          if (captureForSink && report.responseInfo != null && report.responseInfo.isRight)
+            renderHttpMsg(report.responseInfo.get().httpMsg)
+          else null,
+        producedValues =
+          if (captureForSink)
+            report.envVars.produced.associateWith { report.pmEnvSnapshot[it]?.toString() }
+          else emptyMap(),
+        consumedValues =
+          if (captureForSink)
+            report.envVars.consumed.associateWith { report.pmEnvSnapshot[it]?.toString() }
+          else emptyMap(),
+      )
+    )
   }
 }
