@@ -19,6 +19,18 @@ import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 
+/**
+ * E2E for control-flow ledger behavior: proves a conditional jump disables the ledger warm-path
+ * from the divergence point onward.
+ *
+ * Network-free by design: a JDK [HttpServer] bound to loopback detects whether the warm run
+ * dispatches real HTTP or skips via ledger. The cold run learns the real step hashes and paths. The
+ * warm run is constructed with a ledger snapshot that could skip BOTH steps (p1 is in the linear
+ * prefix before the jump; p3 is the jump target). The proof: p1 remains ledger-skipped
+ * (pre-divergence), while p3 dispatches FRESH via HTTP despite a matching ledger entry (the jump
+ * target resets the warm-path from that point onward). This structurally proves control-flow
+ * overrides the ledger's determinism at the divergence.
+ */
 class ControlFlowLedgerE2ETest {
   private val collection = "pm-templates/v3/cf-ledger-jump"
 
@@ -49,16 +61,18 @@ class ControlFlowLedgerE2ETest {
         values = mapOf("p1key" to "P1V", "p3key" to "P3V"),
       )
 
-    val before = hits.getOrDefault("/p1", AtomicInteger(0)).get()
+    val p1Before = hits["/p1"]?.get() ?: 0
+    val p3Before = hits["/p3"]?.get() ?: 0
     val warm = ReVoman.revUp(kick(snap))
 
     // p1 is BEFORE the jump => ledger-skipped (no HTTP).
-    assertThat(hits.getOrDefault("/p1", AtomicInteger(0)).get()).isEqualTo(before)
+    assertThat(hits["/p1"]?.get() ?: 0).isEqualTo(p1Before)
     assertThat(warm.reportForStepName("p1")!!.isLedgerSkipped).isTrue()
 
     // p3 is the jump TARGET (control diverged) => dispatched fresh despite a matching entry.
     assertThat(warm.reportForStepName("p3")!!.isLedgerSkipped).isFalse()
     assertThat(warm.reportForStepName("p3")!!.responseInfo).isNotNull()
+    assertThat(hits["/p3"]?.get() ?: 0).isGreaterThan(p3Before)
   }
 
   companion object {
