@@ -42,12 +42,12 @@ internal constructor(
   /** `pm.test(...)` results recorded across this step's scripts (pre-request and post-response). */
   @JvmField val pmTestAssertions: List<PmTestAssertion> = emptyList(),
   /**
-   * Next request set via `pm.execution.setNextRequest(...)` in this step's scripts, if any.
-   *
-   * CAPTURED ONLY — ReVoman executes steps linearly and does NOT yet honor this directive to
-   * reorder/skip (Phase 2 will). Treat this as an observed signal, not proof of a jump.
+   * Next request set via `pm.execution.setNextRequest(...)` in this step's scripts, if any. Now
+   * HONORED by the sequencer: a name causes a jump, a null causes a run stop.
    */
   @JvmField val nextRequest: String? = null,
+  /** True iff `setNextRequest` was called at all (distinguishes `setNextRequest(null)` STOP). */
+  @JvmField val nextRequestSet: Boolean = false,
 ) {
   internal constructor(
     step: Step,

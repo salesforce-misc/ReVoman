@@ -366,6 +366,7 @@ object ReVoman {
                 ),
               pmTestAssertions = pm.pmTestAssertionsFor(step),
               nextRequest = pm.nextRequestFor(step),
+              nextRequestSet = pm.nextRequestSetFor(step),
             )
         haltExecution = shouldHaltExecution(currentStepReport, kick, pm.rundown)
         val captureForSink = RunLogContext.hasActiveSink()

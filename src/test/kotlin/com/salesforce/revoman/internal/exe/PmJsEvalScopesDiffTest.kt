@@ -141,4 +141,31 @@ class PmJsEvalScopesDiffTest {
     val pm = runPreReq("pm.environment.set('e', '1');")
     pm.globals.toMap().shouldBeEmpty()
   }
+
+  @Test
+  fun `setNextRequest and skipRequest directives are recorded on the SDK per step`() {
+    val s = step("s")
+    val pm = runPreReq("pm.execution.setNextRequest('z'); pm.execution.skipRequest();")
+    pm.nextRequestFor(s) shouldBe "z"
+    pm.nextRequestSetFor(s) shouldBe true
+    pm.skipRequestFor(s) shouldBe true
+  }
+
+  @Test
+  fun `setNextRequest null is recorded with set flag true distinguishing it from no directive`() {
+    val s = step("s")
+    val pm = runPreReq("pm.execution.setNextRequest(null);")
+    pm.nextRequestFor(s) shouldBe null
+    pm.nextRequestSetFor(s) shouldBe true
+    pm.skipRequestFor(s) shouldBe false
+  }
+
+  @Test
+  fun `no control flow directives leaves flags defaulting to false`() {
+    val s = step("s")
+    val pm = runPreReq("pm.environment.set('e', '1');")
+    pm.nextRequestFor(s) shouldBe null
+    pm.nextRequestSetFor(s) shouldBe false
+    pm.skipRequestFor(s) shouldBe false
+  }
 }

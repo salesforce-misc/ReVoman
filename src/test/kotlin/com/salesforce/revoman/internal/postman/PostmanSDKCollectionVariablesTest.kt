@@ -58,8 +58,8 @@ class PostmanSDKCollectionVariablesTest {
   fun `per-step nextRequest capture is keyed by step and last-write-wins`() {
     val pm = sdk()
     val s1 = step("s1")
-    pm.recordNextRequest(s1, "first")
-    pm.recordNextRequest(s1, "second")
+    pm.recordNextRequest(s1, "first", set = true)
+    pm.recordNextRequest(s1, "second", set = true)
     pm.nextRequestFor(s1) shouldBe "second"
     pm.nextRequestFor(step("other")) shouldBe null
   }

@@ -95,6 +95,8 @@ class PostmanSDK(
   // builds the StepReport. Keyed by Step (a step can run a pre-req AND a post-res script).
   private val pmTestAssertionsByStep: MutableMap<Step, List<PmTestAssertion>> = mutableMapOf()
   private val nextRequestByStep: MutableMap<Step, String?> = mutableMapOf()
+  private val nextRequestSetByStep: MutableMap<Step, Boolean> = mutableMapOf()
+  private val skipRequestByStep: MutableMap<Step, Boolean> = mutableMapOf()
 
   lateinit var info: Info
   lateinit var request: Request
@@ -164,15 +166,26 @@ class PostmanSDK(
     pmTestAssertionsByStep[step] ?: emptyList()
 
   /**
-   * Last-write-wins: a post-res `setNextRequest` overrides a pre-req one (matches Postman). A null
-   * (never recorded) and an explicit `setNextRequest(null)` clear are intentionally
-   * indistinguishable — both mean "no jump".
+   * Last-write-wins: a post-res `setNextRequest` overrides a pre-req one (matches Postman). [set]
+   * is true iff `setNextRequest` was called at all this phase, so the sequencer can tell an
+   * explicit `setNextRequest(null)` (STOP) from "never called" (no directive). The latest phase's
+   * [set] wins alongside its [nextRequest].
    */
-  internal fun recordNextRequest(step: Step, nextRequest: String?) {
+  internal fun recordNextRequest(step: Step, nextRequest: String?, set: Boolean) {
     nextRequestByStep[step] = nextRequest
+    nextRequestSetByStep[step] = set
   }
 
   internal fun nextRequestFor(step: Step): String? = nextRequestByStep[step]
+
+  internal fun nextRequestSetFor(step: Step): Boolean = nextRequestSetByStep[step] ?: false
+
+  /** Records a pre-request `pm.execution.skipRequest()` for [step]. */
+  internal fun recordSkipRequest(step: Step) {
+    skipRequestByStep[step] = true
+  }
+
+  internal fun skipRequestFor(step: Step): Boolean = skipRequestByStep[step] ?: false
 
   internal fun setRequestAndResponse(pmRequest: Request, httpResponse: org.http4k.core.Response) {
     request = pmRequest

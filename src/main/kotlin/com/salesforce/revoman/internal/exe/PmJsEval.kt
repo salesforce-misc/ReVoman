@@ -9,7 +9,6 @@ package com.salesforce.revoman.internal.exe
 
 import arrow.core.Either
 import arrow.core.Either.Right
-import com.salesforce.revoman.internal.log.RevomanLog
 import com.salesforce.revoman.internal.postman.PostmanSDK
 import com.salesforce.revoman.internal.postman.sandbox.PmExecutionContext
 import com.salesforce.revoman.internal.postman.sandbox.PmSandbox
@@ -145,12 +144,11 @@ private fun runSandboxScript(
       PmTestAssertion(it.name, it.passed, it.skipped, it.error, phaseExeType)
     },
   )
-  result.nextRequest?.let { next ->
-    pm.recordNextRequest(step, next)
-    RevomanLog.warn {
-      "pm.execution.setNextRequest('$next') was captured but ReVoman does not yet reorder steps " +
-        "(linear execution); directive recorded on StepReport.nextRequest only (Phase 2 will honor it)."
-    }
+  if (result.nextRequestSet) {
+    pm.recordNextRequest(step, result.nextRequest, set = true)
+  }
+  if (result.skipRequest) {
+    pm.recordSkipRequest(step)
   }
 }
 
