@@ -285,7 +285,6 @@ object ReVoman {
             pickedSteps.size // out of indices -> loop exits
           }
           is StepDirective.Jump -> {
-            bypassLedger = true
             val target = resolveTarget(directive.target, pickedSteps, cursor)
             if (target == null) {
               RevomanLog.warn {
@@ -294,6 +293,7 @@ object ReVoman {
               }
               cursor + 1
             } else {
+              bypassLedger = true
               RevomanLog.event(StepEvent.Jumped(step.path, pickedSteps[target].path))
               RevomanLog.info { "↪️ Jump ${step.path} -> ${pickedSteps[target].path}" }
               target
