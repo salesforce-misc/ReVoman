@@ -78,6 +78,7 @@ private fun StepReport.writeStepReport(writer: JsonWriter, verbosity: Verbosity)
     writeFailure(writer, this, verbosity)
     writePollingReport(writer, verbosity)
     writePollingFailure(writer, verbosity)
+    writePmTestAssertions(writer)
     if (verbosity == Verbosity.VERBOSE) {
       writer.name("envSnapshot")
       writeStringMap(writer, pmEnvSnapshot)
@@ -139,6 +140,19 @@ private fun StepReport.writePollingFailure(writer: JsonWriter, verbosity: Verbos
       if (verbosity == Verbosity.VERBOSE) {
         string("stackTrace", pf.failure.stackTraceToString(), writer)
       }
+    }
+  }
+}
+
+private fun StepReport.writePmTestAssertions(writer: JsonWriter) {
+  if (pmTestAssertions.isEmpty()) return
+  listW("pmTestAssertions", pmTestAssertions, writer) { a ->
+    objW(a, writer) { assertion ->
+      string("name", assertion.name, writer)
+      bool("passed", assertion.passed, writer)
+      bool("skipped", assertion.skipped, writer)
+      string("error", assertion.error, writer)
+      string("exeType", assertion.exeType.toString(), writer)
     }
   }
 }
