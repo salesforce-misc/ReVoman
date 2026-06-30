@@ -1,0 +1,11 @@
+$kind: http-request
+description: Decision 9 — IsPrimaryLocationEnabled=true so primary STMs are included in slot-gen.
+url: "{{baseUrl}}{{versionPath}}/sobjects/SchedulingRuleParameter"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    { "SchedulingRuleId": "{{dec9WorkingTerritoriesRuleId}}", "SchedulingParameterKey": "IsPrimaryLocationEnabled", "Value": "true" }
+order: 18000

@@ -1,0 +1,34 @@
+$kind: http-request
+description: >-
+  Decision 9 — the Confirmed Shift (08:00-16:00 tomorrow), created by the MANAGER persona so the manager
+  OWNS it (Shift OWD=Private → the case-worker cannot see it). SchedulingMethod=OnSite + TimeSlotType=Normal
+  are REQUIRED: without SchedulingMethod the slot-gen shift read does not attach the shift to the STM, so
+  even the owner gets zero slots.
+url: "{{baseUrl}}{{versionPath}}/sobjects/Shift"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "ServiceResourceId": "{{dec9ResourceId}}",
+      "ServiceTerritoryId": "{{dec9TerritoryId}}",
+      "StartTime": "{{dec9ShiftStart}}",
+      "EndTime": "{{dec9ShiftEnd}}",
+      "Status": "Confirmed",
+      "TimeSlotType": "Normal",
+      "SchedulingMethod": "OnSite"
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(8,0,0,0);
+      const e = new Date(s.getTime()); e.setUTCHours(16,0,0,0);
+      pm.environment.set("dec9ShiftStart", s.toISOString());
+      pm.environment.set("dec9ShiftEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: pm.environment.set("dec9ShiftId", pm.response.json().id);
+    language: text/javascript
+order: 20000

@@ -1,0 +1,11 @@
+$kind: http-request
+description: Decision 9 — link the WorkingTerritories rule to the policy.
+url: "{{baseUrl}}{{versionPath}}/tooling/sobjects/SchedulingPolicyRule"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    { "SchedulingPolicyId": "{{dec9PolicyId}}", "SchedulingRuleId": "{{dec9WorkingTerritoriesRuleId}}", "IsActive": true }
+order: 45000

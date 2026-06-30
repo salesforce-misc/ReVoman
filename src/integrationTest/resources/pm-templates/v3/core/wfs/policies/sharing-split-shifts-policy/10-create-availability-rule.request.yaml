@@ -1,0 +1,15 @@
+$kind: http-request
+description: Decision 9 — Availability rule (SchedulingRuleType C). Created by the manager persona.
+url: "{{baseUrl}}{{versionPath}}/sobjects/SchedulingRule"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    { "MasterLabel": "D9 Availability", "DeveloperName": "D9_Availability_{{$timestamp}}", "SchedulingRuleType": "C", "SchedulingCategory": "A" }
+scripts:
+  - type: afterResponse
+    code: pm.environment.set("dec9AvailabilityRuleId", pm.response.json().id);
+    language: text/javascript
+order: 10000
