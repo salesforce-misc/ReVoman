@@ -1,0 +1,48 @@
+$kind: http-request
+description: >-
+  Schedule resourceA into the AVAILABLE window tomorrow 11:00-12:00 UTC → Success. The read path offered
+  slots here; the write path keeps that promise on the shared cheap checks.
+url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/schedule"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "appointments": [
+        {
+          "schedulingMethod": "OnSite",
+          "schedulingPolicyId": "{{availabilityOpHoursPolicyId}}",
+          "coreDetails": {
+            "startTime": "{{parityAvailStart}}",
+            "endTime": "{{parityAvailEnd}}",
+            "status": "Scheduled",
+            "subject": "Decision 2 parity available write",
+            "workConfiguration": { "workTypeId": "{{requiredNonReqWorkTypeId}}" },
+            "locationConstraints": { "id": "{{requiredNonReqTerritoryId}}" }
+          },
+          "serviceAppointmentParent": { "id": "{{requiredNonReqAccountId}}" },
+          "assignedResources": [ { "isPrimaryResource": true, "isRequiredResource": true, "serviceResourceId": "{{requiredNonReqResourceAId}}" } ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(11, 0, 0, 0);
+      const e = new Date(s.getTime() + 60 * 60 * 1000);
+      pm.environment.set("parityAvailStart", s.toISOString());
+      pm.environment.set("parityAvailEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      const data = pm.response.json();
+      const appts = (data && data.appointments) || [];
+      pm.environment.set("parityWriteAvailStatus", appts.length ? appts[0].schedulingStatus : null);
+      console.log("DEC2 write-avail http=" + pm.response.code + " status=" + pm.environment.get("parityWriteAvailStatus"));
+    language: text/javascript
+order: 1300

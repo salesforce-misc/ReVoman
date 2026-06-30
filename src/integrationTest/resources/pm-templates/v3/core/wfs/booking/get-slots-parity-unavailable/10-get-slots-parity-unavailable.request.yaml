@@ -1,0 +1,48 @@
+$kind: http-request
+description: >-
+  GetAppointmentSlots, resourceA, UNAVAILABLE window tomorrow 17:00-18:00 UTC (outside member OH 08-16).
+  Read offers 0 slots (the shared cheap availability check fails). Counts data.result[].slots[].
+url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/get-appointment-slots"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "appointments": [
+        {
+          "schedulingMethod": "OnSite",
+          "schedulingPolicyId": "{{availabilityOpHoursPolicyId}}",
+          "coreDetails": {
+            "startTime": "{{parityUnavailStart}}",
+            "endTime": "{{parityUnavailEnd}}",
+            "appointmentMode": "Regular",
+            "workConfiguration": { "workTypeId": "{{requiredNonReqWorkTypeId}}" },
+            "locationConstraints": { "addressIds": ["{{requiredNonReqTerritoryId}}"] }
+          },
+          "serviceAppointmentParent": { "id": "{{requiredNonReqAccountId}}" },
+          "assignedResources": [ { "isRequiredResource": true, "serviceResourceId": "{{requiredNonReqResourceAId}}" } ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(17, 0, 0, 0);
+      const e = new Date(s.getTime() + 60 * 60 * 1000);
+      pm.environment.set("parityUnavailStart", s.toISOString());
+      pm.environment.set("parityUnavailEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      const data = pm.response.json() || {};
+      const results = data.result || [];
+      let n = 0; results.forEach(r => { n += (r.slots || []).length; });
+      pm.environment.set("parityReadUnavailSlotCount", String(n));
+      console.log("DEC2 read-unavail http=" + pm.response.code + " slots=" + n);
+    language: text/javascript
+order: 1100

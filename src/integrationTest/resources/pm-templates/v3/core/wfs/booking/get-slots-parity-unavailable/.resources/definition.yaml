@@ -1,0 +1,12 @@
+$kind: collection
+description: |-
+  Decision 2 — GetAppointmentSlots for resourceA in the UNAVAILABLE window (tomorrow 17:00-18:00 UTC,
+  OUTSIDE the resource's member OH 08-16 / Shift). The cheap availability check fails, so the read path
+  offers NO slots (count == 0). Paired with the UNAVAILABLE write act, this proves the read↔write
+  agreement on the cheap check (a not-shown slot is consistently not bookable).
+auth:
+  - id: 1a2b3c4d-0002-4aaa-9bbb-000000000022
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"
