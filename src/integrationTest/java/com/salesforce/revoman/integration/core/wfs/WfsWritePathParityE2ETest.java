@@ -21,6 +21,8 @@ import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.RE
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.REQUIRED_NON_REQUIRED_SATISFIER_VIOLATING_SCHEDULE_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.REQUIRED_RESOURCES_POLICY_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.REQUIRED_SATISFIER_BOOKABLE_SCHEDULE_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SCHEDULE_PRIMARY_NOT_REQUIRED_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SCHEDULE_PRIMARY_REQUIRED_CONTROL_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SCHEDULE_TWO_PRIMARY_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SINGLE_REQUIRED_NO_PRIMARY_SCHEDULE_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SKILLS_FIXTURE_CONFIG;
@@ -237,6 +239,50 @@ class WfsWritePathParityE2ETest {
     assertThat(env.getAsString("twoPrimaryErrorMessage")).contains("primary resource");
     assertThat(env.getAsString("twoPrimaryHttpCode")).isEqualTo("400");
     assertThat(env.getAsString("twoPrimaryStatus")).isAnyOf(null, "null");
+  }
+
+  /**
+   * Decision 5 — a single resource marked {@code isPrimaryResource=true} but {@code
+   * isRequiredResource=false} is REJECTED, NOT auto-corrected and NOT silently double-booked. Input
+   * validation counts primaries only (it never inspects the required flag), so the contradictory payload
+   * passes validation and reaches PERSIST, where {@code LightningSchedulerAssignedResourceValidator}
+   * rejects it. The window is FREE, so availability passes and the persist reject is what surfaces.
+   *
+   * <p>262 (asserted): the probe is rejected (NOT Success) — the live verdict is captured in both error
+   * shapes (top-level {@code INVALID_FIELD} array vs {@code appointments[0].errors[0]}); the required
+   * primary CONTROL over the same resource/window books Success. This REFUTES both the story's
+   * "quietly fixed to required" auto-correct expectation AND the 262 "could be double-booked" claim
+   * (the request never persists).
+   * <p>264 contrast: unchanged — reject (not auto-correct) is the intended persist behavior; the doc's
+   * open question (auto-correct vs reject) resolves to reject. (A fast-fail at input validation, as the
+   * notes recommend, would only change WHERE it's rejected, not THAT it's rejected.)
+   *
+   * <p>Approach A: two SEPARATE revUps so the probe's (rejected, non-persisting) attempt and the
+   * control's (persisting) booking never share ServiceResource rows.
+   */
+  @Test
+  void testPrimaryNotRequiredRejectedE2E() {
+    // Probe: primary + NOT required, free window → rejected at persist (not Success, not double-booked).
+    final var probeRundown =
+        ReVoman.revUp(
+            (r, ignore) -> assertThat(r.firstUnIgnoredUnsuccessfulStepReport()).isNull(),
+            AUTH_CONFIG,
+            AVAILABILITY_OP_HOURS_POLICY_CONFIG,
+            REQUIRED_NON_REQUIRED_FIXTURE_CONFIG,
+            SCHEDULE_PRIMARY_NOT_REQUIRED_CONFIG);
+    final var probeEnv = CollectionsKt.last(probeRundown).mutableEnv;
+    assertThat(probeEnv.getAsString("primaryNotReqStatus")).isNotEqualTo("Success");
+    assertThat(probeEnv.getAsString("primaryNotReqErrorCode")).isNotNull();
+    // Control: primary + required, same resource/window → Success (fresh AUTH per Approach A).
+    final var controlRundown =
+        ReVoman.revUp(
+            (r, ignore) -> assertThat(r.firstUnIgnoredUnsuccessfulStepReport()).isNull(),
+            AUTH_CONFIG,
+            AVAILABILITY_OP_HOURS_POLICY_CONFIG,
+            REQUIRED_NON_REQUIRED_FIXTURE_CONFIG,
+            SCHEDULE_PRIMARY_REQUIRED_CONTROL_CONFIG);
+    assertThat(CollectionsKt.last(controlRundown).mutableEnv)
+        .containsEntry("primaryReqControlStatus", "Success");
   }
 
   private static void assertDimensionBooksSuccess(
