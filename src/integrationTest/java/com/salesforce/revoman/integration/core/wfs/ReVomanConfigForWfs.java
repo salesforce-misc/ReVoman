@@ -18,34 +18,45 @@ import com.salesforce.revoman.integration.core.adapters.IDAdapter;
 
 /**
  * Off-core ReVoman INTEGRATION test config (NOT a ReVomanFTest) for the Workforce Scheduling (WFS)
- * read↔write parity scenarios. These are scripted HTTP clients that hit a remote WFS org/workspace and
- * stitch loosely-coupled V3 Postman collections via {@code ReVoman.revUp(...)}; they run as plain JUnit
- * tests in the integrationTest source set (mirrors the {@code bt2bs}/{@code pq} siblings).
+ * read↔write parity scenarios. These are scripted HTTP clients that hit a remote WFS org/workspace
+ * and stitch loosely-coupled V3 Postman collections via {@code ReVoman.revUp(...)}; they run as
+ * plain JUnit tests in the integrationTest source set (mirrors the {@code bt2bs}/{@code pq}
+ * siblings).
  *
  * <p>The collections are V3 (each folder is a directory carrying {@code .resources/definition.yaml}
  * + {@code *.request.yaml}); ReVoman auto-detects V3 from the {@code templatePath} directory. The
  * shared env is the V3 {@code ws.environment.yaml} (creds blanked — the reader fills baseUrl/tokens
  * for their own workspace).
  *
- * <p>Decisions under test (each characterizes live 262; the 264 contrast is in each test's javadoc):
+ * <p>Decisions under test (each characterizes live 262; the 264 contrast is in each test's
+ * javadoc):
  *
  * <ul>
- *   <li><b>1</b> — a NON-required "helper" resource is NOT fitness-checked on the Schedule write path
- *       (4 dims: excluded / territory / skills / working-locations). {@code WfsWritePathParityE2ETest}.
- *   <li><b>1.4</b> — a NON-required helper cannot satisfy an account's required-resource demand (262
- *       CRASHES with a serviceTerritoryMembers NPE rather than a clean RequiredResources error).
+ *   <li><b>1</b> — a NON-required "helper" resource is NOT fitness-checked on the Schedule write
+ *       path (4 dims: excluded / territory / skills / working-locations). {@code
+ *       WfsWritePathParityE2ETest}.
+ *   <li><b>1.4</b> — a NON-required helper cannot satisfy an account's required-resource demand
+ *       (262 CRASHES with a serviceTerritoryMembers NPE rather than a clean RequiredResources
+ *       error).
  *   <li><b>1.5</b> — a NON-required helper is not availability-checked, so it may double-book.
  *   <li><b>3</b> — a missing {@code isRequiredResource} flag (262 CRASHES) + the doc-L142 control
- *       (single {@code isRequiredResource=true}, no {@code isPrimaryResource}, must be a valid Schedule).
+ *       (single {@code isRequiredResource=true}, no {@code isPrimaryResource}, must be a valid
+ *       Schedule).
  *   <li><b>4</b> — two {@code isPrimaryResource=true} resources → clean input-validation reject
  *       ({@code INVALID_INPUT} / HTTP 400, "only one ... primary resource"), before availability.
- *   <li><b>5</b> — a primary resource marked NOT required is REJECTED at persist (no auto-correct, no
- *       double-book): probe rejected, required-primary control Success.
- *   <li><b>8</b> — {@code resourceLimitApptDistribution} caps the load-balancing read list ({@code 0} →
- *       empty). {@code WfsReadPathParityE2ETest}.
- *   <li><b>9</b> — the Shift availability read runs in user mode ({@code SystemMode.NONE}) while sibling
- *       reads run {@code SFDC_FULL}: a caller lacking sharing on a resource's Shift rows silently gets no
- *       slots (proven via a manager-owns-shifts / case-worker-reads cross-persona repro).
+ *   <li><b>5</b> — a primary resource marked NOT required is REJECTED at persist (no auto-correct,
+ *       no double-book): probe rejected, required-primary control Success.
+ *   <li><b>4z</b> — there is NO "reschedule must keep a primary" rule (refutes the doc): Arm A
+ *       (isPrimaryResource on a Delete entry) → INVALID_INPUT payload-field guard; Arm B (delete
+ *       primary, no flag) is allowed by the primary-count validator (zero primaries OK) — on 262 it
+ *       is rejected only by a downstream availability re-check (SlotNotAvailable), never by a
+ *       no-primary rule.
+ *   <li><b>8</b> — {@code resourceLimitApptDistribution} caps the load-balancing read list ({@code
+ *       0} → empty). {@code WfsReadPathParityE2ETest}.
+ *   <li><b>9</b> — the Shift availability read runs in user mode ({@code SystemMode.NONE}) while
+ *       sibling reads run {@code SFDC_FULL}: a caller lacking sharing on a resource's Shift rows
+ *       silently gets no slots (proven via a manager-owns-shifts / case-worker-reads cross-persona
+ *       repro).
  * </ul>
  *
  * <p>--------------------------------------- ENV / WORKSPACE SETUP (cannot be done over REST)
@@ -81,12 +92,17 @@ public final class ReVomanConfigForWfs {
   static final String NODE_MODULE_RELATIVE_PATH = "js";
   static final String IGNORE_HTTP_STATUS_UNSUCCESSFUL = "ignoreHTTPStatusUnsuccessful";
 
-  // ## Persona creation and setup. Admin SOAP-logs-in (adminToken/accessToken) ONLY for admin-only setup
-  // (create the case-worker [resourceA owner] + manager [resourceB owner] Users — needs Manage Users —
-  // and the setup-object Skill). The MANAGER is then minted as a REAL least-privilege session: set its
+  // ## Persona creation and setup. Admin SOAP-logs-in (adminToken/accessToken) ONLY for admin-only
+  // setup
+  // (create the case-worker [resourceA owner] + manager [resourceB owner] Users — needs Manage
+  // Users —
+  // and the setup-object Skill). The MANAGER is then minted as a REAL least-privilege session: set
+  // its
   // password → SOAP-login (v64) → its OWN {{managerToken}}. Every policy/fixture/act folder for
-  // Decisions 1/1.4/1.5/3/8 runs under {{managerToken}}, so the manager OWNS the policy + fixture rows it
-  // later books/reads against (no admin-token alias; the API-under-test runs as the manager, matching
+  // Decisions 1/1.4/1.5/3/8 runs under {{managerToken}}, so the manager OWNS the policy + fixture
+  // rows it
+  // later books/reads against (no admin-token alias; the API-under-test runs as the manager,
+  // matching
   // Decision 9). V3 `auth` folder.
   static final Kick AUTH_CONFIG = kickFor(V3_WFS_PATH + "auth");
 
@@ -100,7 +116,8 @@ public final class ReVomanConfigForWfs {
   static final Kick MATCH_SKILLS_POLICY_CONFIG =
       kickFor(V3_WFS_PATH + "policies/match-skills-non-required-policy");
 
-  // ## Decision 1.4 — required-resource demand (account ResourcePreference) cannot be satisfied by a
+  // ## Decision 1.4 — required-resource demand (account ResourcePreference) cannot be satisfied by
+  // a
   // NON-required helper.
   static final Kick REQUIRED_RESOURCES_POLICY_CONFIG =
       kickFor(V3_WFS_PATH + "policies/required-resources-availability-policy");
@@ -146,33 +163,67 @@ public final class ReVomanConfigForWfs {
   static final Kick SINGLE_REQUIRED_NO_PRIMARY_SCHEDULE_CONFIG =
       kickFor(V3_WFS_PATH + "booking/schedule-single-required-no-primary");
 
-  // ## Decision 4 — two primary resources → clean input-validation reject (INVALID_INPUT / HTTP 400,
+  // ## Decision 4 — two primary resources → clean input-validation reject (INVALID_INPUT / HTTP
+  // 400,
   // "Only one of the provided assigned resources can be a primary resource"). Caught up front in
   // ScheduleCommonValidator.validatePrimaryResourceConstraints, before availability/persist.
   static final Kick SCHEDULE_TWO_PRIMARY_CONFIG =
       kickFor(V3_WFS_PATH + "booking/schedule-two-primary");
 
-  // ## Decision 5 — a primary resource marked NOT required is REJECTED at persist (no auto-correct, no
-  // double-book). Probe: single isPrimaryResource=true, isRequiredResource=false → persist INVALID_FIELD.
+  // ## Decision 5 — a primary resource marked NOT required is REJECTED at persist (no auto-correct,
+  // no
+  // double-book). Probe: single isPrimaryResource=true, isRequiredResource=false → persist
+  // INVALID_FIELD.
   // Control: flip isRequiredResource=true → Success (isolates the reject to the not-required flag).
   static final Kick SCHEDULE_PRIMARY_NOT_REQUIRED_CONFIG =
       kickFor(V3_WFS_PATH + "booking/schedule-primary-not-required");
   static final Kick SCHEDULE_PRIMARY_REQUIRED_CONTROL_CONFIG =
       kickFor(V3_WFS_PATH + "booking/schedule-primary-required-control");
 
-  // ## Decision 8 — resourceLimitApptDistribution cap on the load-balancing read path (read-only). The
-  // workspace default OnSite policy carries the seeded DefaultOnSiteSchdPlcy_LoadBalancing objective, so
+  // ## Decision 4z — there is NO "reschedule must keep a primary" rule (the product doc's blanket
+  // "not
+  // possible" is WRONG). (Arm A) isPrimaryResource on a DeleteOperation entry → INVALID_INPUT
+  // "isPrimaryResource cannot be set for delete." (a payload-field guard in
+  // validateDeleteOperationFields).
+  // (Arm B) deleting the primary WITHOUT the flag → the primary-count validator allows zero
+  // primaries
+  // (validatePrimaryResourceCount only throws MultiplePrimary when primaryCount > 1), so no
+  // no-primary
+  // rejection fires. LIVE-OBSERVED on the 262 org: Arm B is rejected ONLY by the downstream
+  // availability
+  // re-check (INVALID_INPUT "The service resources are not available for the requested slot." /
+  // SlotNotAvailable) — 262 lacks the empty/no-op-reschedule availability short-circuit added in
+  // 264
+  // (precommit 58140158). Characterized faithfully (availability, not no-primary). Clean
+  // two-resource
+  // schedule sets up reschedCleanSaId for both arms.
+  static final Kick SCHEDULE_TWO_RESOURCE_CLEAN_CONFIG =
+      kickFor(V3_WFS_PATH + "booking/schedule-two-resource-clean");
+  static final Kick RESCHEDULE_DELETE_PRIMARY_WITH_FLAG_CONFIG =
+      kickFor(V3_WFS_PATH + "booking/reschedule-delete-primary-with-flag");
+  static final Kick RESCHEDULE_DELETE_PRIMARY_NO_FLAG_CONFIG =
+      kickFor(V3_WFS_PATH + "booking/reschedule-delete-primary-no-flag");
+
+  // ## Decision 8 — resourceLimitApptDistribution cap on the load-balancing read path (read-only).
+  // The
+  // workspace default OnSite policy carries the seeded DefaultOnSiteSchdPlcy_LoadBalancing
+  // objective, so
   // the read acts omit schedulingPolicyName and rely on the default policy.
   static final Kick GET_RESOURCES_LIMIT_ZERO_CONFIG =
       kickFor(V3_WFS_PATH + "booking/get-available-resources-limit-zero");
   static final Kick GET_RESOURCES_LIMIT_POSITIVE_CONFIG =
       kickFor(V3_WFS_PATH + "booking/get-available-resources-limit-positive");
 
-  // ## Decision 9 — Shift sharing-mode split (user-mode SystemMode.NONE shift read vs SFDC_FULL siblings).
-  // adminToken mints two real personas (manager + case-worker, each their OWN SOAP session); the manager
-  // creates + OWNS the policy/fixture/Shift rows; the case-worker (no sharing on the manager's Private
-  // shifts) is the sharing-deprived reader. Assigning WorkforceSchedulingManager/Resource auto-grants the
-  // WorkforceSchedulingPsl seat. The resource-owner User is admin-created (the manager cannot set ProfileId).
+  // ## Decision 9 — Shift sharing-mode split (user-mode SystemMode.NONE shift read vs SFDC_FULL
+  // siblings).
+  // adminToken mints two real personas (manager + case-worker, each their OWN SOAP session); the
+  // manager
+  // creates + OWNS the policy/fixture/Shift rows; the case-worker (no sharing on the manager's
+  // Private
+  // shifts) is the sharing-deprived reader. Assigning WorkforceSchedulingManager/Resource
+  // auto-grants the
+  // WorkforceSchedulingPsl seat. The resource-owner User is admin-created (the manager cannot set
+  // ProfileId).
   static final Kick AUTH_PERSONAS_DEC9_CONFIG = kickFor(V3_WFS_PATH + "auth-personas-dec9");
   static final Kick SHARING_SPLIT_POLICY_CONFIG =
       kickFor(V3_WFS_PATH + "policies/sharing-split-shifts-policy");

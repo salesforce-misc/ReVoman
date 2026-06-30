@@ -1,0 +1,55 @@
+$kind: http-request
+description: >-
+  Reschedule reschedCleanSaId, DeleteOperation on the primary resourceA WITHOUT isPrimaryResource (only
+  operation + serviceResourceId). The zero-primary outcome is ALLOWED by the primary-count validator
+  (RescheduleCommonValidator.validatePrimaryResourceCount only throws MultiplePrimary when primaryCount > 1
+  — "allow zero primaries for reschedule"), so there is NO "must keep a primary" rule. This REFUTES the
+  product doc's blanket "not possible to reschedule without a primary." LIVE-OBSERVED on the 262 org: the
+  request is not Success but is rejected with INVALID_INPUT / "The service resources are not available for
+  the requested slot." (SlotNotAvailable) — a DOWNSTREAM AVAILABILITY re-check, NOT a no-primary rule. On
+  this org's reschedule path slot-gen yields no slot (the empty/no-op-reschedule availability short-circuit
+  was only added in 264, precommit 58140158; 262 lacks it). Captured faithfully: the rejection is an
+  availability error, never a primary-count/required-primary error. Runs AFTER Arm A (which did not mutate
+  the SA, so resourceA is still present to delete here).
+url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/reschedule"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "rescheduleAppointments": [
+        {
+          "schedulingMethod": "OnSite",
+          "appointmentId": "{{reschedCleanSaId}}",
+          "assignedResources": [
+            {
+              "operation": "DeleteOperation",
+              "assignedResource": {
+                "serviceResourceId": "{{requiredNonReqResourceAId}}"
+              }
+            }
+          ]
+        }
+      ]
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.environment.set("reschedNoFlagHttpCode", String(pm.response.code));
+      const data = pm.response.json();
+      const appts = (data && data.appointments) || [];
+      const a0 = appts.length ? appts[0] : null;
+      pm.environment.set("reschedNoFlagStatus", a0 ? a0.schedulingStatus : null);
+      let ec = null, msg = null;
+      if (Array.isArray(data) && data.length) { ec = data[0].errorCode; msg = data[0].message; }
+      else if (a0 && a0.errors && a0.errors[0]) { ec = a0.errors[0].errorCode; msg = a0.errors[0].message; }
+      pm.environment.set("reschedNoFlagErrorCode", ec);
+      pm.environment.set("reschedNoFlagErrorMessage", msg);
+      console.log("DEC4z armB http=" + pm.response.code + " status=" + (a0 && a0.schedulingStatus) + " ec=" + ec + " msg=" + msg);
+    language: text/javascript
+order: 3000
