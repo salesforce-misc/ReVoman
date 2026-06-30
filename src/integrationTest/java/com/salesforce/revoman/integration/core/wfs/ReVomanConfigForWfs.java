@@ -57,6 +57,9 @@ import com.salesforce.revoman.integration.core.adapters.IDAdapter;
  *       sibling reads run {@code SFDC_FULL}: a caller lacking sharing on a resource's Shift rows
  *       silently gets no slots (proven via a manager-owns-shifts / case-worker-reads cross-persona
  *       repro).
+ *   <li><b>2</b> — a shown slot is a PROMISE on the cheap checks the read and write paths share
+ *       (characterized with availability: read offers slots ⟺ write Succeeds; read 0 ⟺ write
+ *       rejected).
  * </ul>
  *
  * <p>--------------------------------------- ENV / WORKSPACE SETUP (cannot be done over REST)
@@ -233,6 +236,25 @@ public final class ReVomanConfigForWfs {
       kickFor(V3_WFS_PATH + "booking/get-slots-sharing-split-as-manager");
   static final Kick GET_SLOTS_SHARING_SPLIT_AS_CASEWORKER_CONFIG =
       kickFor(V3_WFS_PATH + "booking/get-slots-sharing-split-as-caseworker");
+
+  // ## Decision 2 — "is a shown slot a promise?" The cheap checks
+  // (skill/territory/free-busy/location/
+  // excluded) are SHARED by the read and write paths, so a shown slot is a PROMISE on them.
+  // Characterized
+  // with availability: read offers slots in the available window ⟺ write into it Succeeds; read
+  // offers 0
+  // in the unavailable window ⟺ write is rejected. The field-match "shown-but-rejected" half is NOT
+  // characterizable on 262 (the three field-match rules are OnField/ESO-internal; the live OnSite
+  // path
+  // shares read==write) — see the test javadoc + decision log.
+  static final Kick GET_SLOTS_PARITY_AVAILABLE_CONFIG =
+      kickFor(V3_WFS_PATH + "booking/get-slots-parity-available");
+  static final Kick GET_SLOTS_PARITY_UNAVAILABLE_CONFIG =
+      kickFor(V3_WFS_PATH + "booking/get-slots-parity-unavailable");
+  static final Kick SCHEDULE_PARITY_UNAVAILABLE_CONFIG =
+      kickFor(V3_WFS_PATH + "booking/schedule-parity-unavailable");
+  static final Kick SCHEDULE_PARITY_AVAILABLE_CONFIG =
+      kickFor(V3_WFS_PATH + "booking/schedule-parity-available");
 
   /**
    * One Kick per V3 collection folder, all sharing the same shape as the {@code bt2bs} sibling:
