@@ -1,0 +1,12 @@
+$kind: collection
+description: |-
+  Decision 2 — Schedule resourceA into the UNAVAILABLE window (tomorrow 17:00-18:00 UTC). The write path
+  re-runs the SAME cheap availability check the read path used, so the booking is REJECTED (not Success).
+  This matches the read path offering 0 slots for the same window: read==write on the cheap check. Runs
+  before the available write so its (rejected, non-persisting) attempt cannot affect availability.
+auth:
+  - id: 1a2b3c4d-0002-4aaa-9bbb-000000000023
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"

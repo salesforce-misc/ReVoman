@@ -1,0 +1,12 @@
+$kind: collection
+description: |-
+  Decision 2 — Schedule resourceA into the AVAILABLE window (tomorrow 11:00-12:00 UTC, the window the read
+  path offered slots for). Books Success: the slot the read path SHOWED is a PROMISE on the shared cheap
+  checks — booking into it succeeds. This is the positive half of the read==write cheap-check parity.
+  Runs LAST (it persists an SA).
+auth:
+  - id: 1a2b3c4d-0002-4aaa-9bbb-000000000024
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"
