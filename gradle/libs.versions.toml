@@ -34,7 +34,7 @@ gradle-taskinfo = "3.0.2"
 junit = "5.11.4"
 kover = "0.9.8"
 detekt = "1.23.8"
-spotless = "8.7.0"
+spotless = "8.8.0"
 apache-log4j = "3.0.0-beta2"
 
 [libraries]
