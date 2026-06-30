@@ -1,0 +1,26 @@
+$kind: http-request
+description: >-
+  Availability rule (SchedulingRuleType C, category A). Created with DEFAULT ShiftUsage (no ShiftUsage
+  rule-param — the org rejects ShiftUsage=ConsiderOnlyOpHours on a type-C rule). The resources' wide
+  member OH 08-16 plus their Confirmed Shift 08-16 make the 11:00 booking slot resource-available — so
+  Availability is the baseline, not the blocker. Mirrors excluded-resources-availability-policy.
+url: "{{baseUrl}}{{versionPath}}/sobjects/SchedulingRule"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+body:
+  type: json
+  content: |-
+    {
+      "MasterLabel": "RequiredNonReq Availability",
+      "DeveloperName": "RequiredNonReq_Availability_{{$timestamp}}",
+      "SchedulingRuleType": "C",
+      "SchedulingCategory": "A"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.environment.set("requiredResourcesAvailabilityRuleId", pm.response.json().id);
+    language: text/javascript
+order: 10000

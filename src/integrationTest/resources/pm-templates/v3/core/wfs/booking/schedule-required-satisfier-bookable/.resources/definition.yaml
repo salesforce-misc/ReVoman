@@ -1,0 +1,18 @@
+$kind: collection
+description: |-
+  The CONTROL "act" for the RequiredResources-satisfaction proof (Fix A, D1.4). IDENTICAL to
+  schedule-required-non-required-satisfier-violating in every field EXCEPT ONE: resourceB (the sole
+  resource on the Account's ResourcePreference(Required) list) is flagged isRequiredResource=true here
+  instead of false. With resourceB in the REQUIRED assigned set, the appointment-level RequiredResources
+  satisfaction rule is satisfied, so the SA must NOT carry a RequiredResources error. Paired with the
+  violating act, this one-field A/B isolates resourceB's isRequiredResource flag as exactly what flips the
+  rule from firing to satisfied (D1.4). Like the sibling clean-bookable WorkingLocations disproof, the
+  booking may still be blocked by an unrelated availability/slot concern, so the Java test scopes its
+  verdict to the ABSENCE of the RequiredResources error code — the one dimension this flag flip controls.
+  Assertions live in the Java test.
+auth:
+  - id: 91a2b3c4-d5e6-47f8-8091-a2b3c4d5e6f8
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"
