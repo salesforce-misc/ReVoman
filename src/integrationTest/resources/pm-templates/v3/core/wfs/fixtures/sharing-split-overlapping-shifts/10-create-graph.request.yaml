@@ -1,0 +1,83 @@
+$kind: http-request
+description: >-
+  Decision 9 fixture, created by the MANAGER persona (so the manager OWNS these rows incl. the Shift in the
+  next step). Builds: territory OH + ServiceTerritory, a 60m WorkType (NO SchedulingMethod/IsRegular per 262
+  contract) + STWT, a ServiceResource (ResourceType=T, IsPrimary) on the admin-created resource-owner user
+  ({{dec9ResourceUserId}} — the manager cannot create a User), a primary ServiceTerritoryMember
+  (TerritoryType=P, effective a month ago), and an Account. The Confirmed Shift is created in a SEPARATE step
+  (Shift validates the ServiceResourceId at insert).
+url: "{{baseUrl}}{{versionPath}}/composite/graph"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "graphs": [
+        {
+          "graphId": "d9fixture",
+          "compositeRequest": [
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/OperatingHours",
+              "referenceId": "refTerritoryOh",
+              "body": { "Name": "D9 Territory OH {{$timestamp}}", "TimeZone": "GMT" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceTerritory",
+              "referenceId": "refTerritory",
+              "body": { "Name": "D9 Territory {{$timestamp}}", "OperatingHoursId": "@{refTerritoryOh.id}", "IsActive": true }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/WorkType",
+              "referenceId": "refWorkType",
+              "body": { "Name": "D9 WorkType {{$timestamp}}", "DurationType": "Minutes", "EstimatedDuration": 60 }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceTerritoryWorkType",
+              "referenceId": "refStwt",
+              "body": { "ServiceTerritoryId": "@{refTerritory.id}", "WorkTypeId": "@{refWorkType.id}" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceResource",
+              "referenceId": "refResource",
+              "body": { "Name": "D9 Resource {{$timestamp}}", "RelatedRecordId": "{{dec9ResourceUserId}}", "ResourceType": "T", "IsActive": true, "IsPrimary": true }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceTerritoryMember",
+              "referenceId": "refStm",
+              "body": { "ServiceTerritoryId": "@{refTerritory.id}", "ServiceResourceId": "@{refResource.id}", "TerritoryType": "P", "OperatingHoursId": "@{refTerritoryOh.id}", "EffectiveStartDate": "{{dec9StmEffectiveStart}}" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/Account",
+              "referenceId": "refAccount",
+              "body": { "Name": "D9 Account {{$timestamp}}" }
+            }
+          ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      // STM effective ~30 days ago (before any booking window).
+      const past = new Date(); past.setUTCDate(past.getUTCDate() - 30); past.setUTCHours(0,0,0,0);
+      pm.environment.set("dec9StmEffectiveStart", past.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      var cr = pm.response.json().graphs[0].graphResponse.compositeResponse;
+      var byRef = {}; cr.forEach(function(r){ byRef[r.referenceId] = r.body && r.body.id; });
+      pm.environment.set("dec9TerritoryId", byRef["refTerritory"]);
+      pm.environment.set("dec9WorkTypeId", byRef["refWorkType"]);
+      pm.environment.set("dec9ResourceId", byRef["refResource"]);
+      pm.environment.set("dec9AccountId", byRef["refAccount"]);
+    language: text/javascript
+order: 10000

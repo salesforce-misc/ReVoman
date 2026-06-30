@@ -1,0 +1,57 @@
+$kind: http-request
+description: >-
+  Decision 9 — admin creates the RESOURCE-OWNER user (the ServiceResource's RelatedRecordId). Created by
+  admin because creating a User (setting ProfileId) needs Manage Users, which the manager persona lacks.
+  Gets the WorkforceSchedulingResource permset so slot-gen's filterResourcesWithPerm admits the resource.
+url: "{{baseUrl}}{{versionPath}}/composite/graph"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "graphs": [
+        {
+          "graphId": "resUser",
+          "compositeRequest": [
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/User",
+              "referenceId": "refUser",
+              "body": {
+                "Username": "{{dec9ResourceUserName}}",
+                "ProfileId": "{{standardUserProfileId}}",
+                "Alias": "d9res",
+                "Email": "{{dec9ResourceUserName}}",
+                "EmailEncodingKey": "ISO-8859-1",
+                "LastName": "Dec9Resource",
+                "FirstName": "Riley",
+                "LanguageLocaleKey": "en_US",
+                "LocaleSidKey": "en_US",
+                "TimeZoneSidKey": "GMT"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/PermissionSetAssignment",
+              "referenceId": "refPsAssign",
+              "body": {
+                "AssigneeId": "@{refUser.id}",
+                "PermissionSetId": "{{unifiedPSResourceId}}"
+              }
+            }
+          ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: pm.environment.set("dec9ResourceUserName", pm.variables.replaceIn("dec9-resource-{{$timestamp}}@revoman.org"));
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      var d = pm.response.json();
+      pm.environment.set("dec9ResourceUserId", d.graphs[0].graphResponse.compositeResponse[0].body.id);
+    language: text/javascript
+order: 70000
