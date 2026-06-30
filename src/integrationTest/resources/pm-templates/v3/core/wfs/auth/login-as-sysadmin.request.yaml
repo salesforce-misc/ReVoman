@@ -1,0 +1,48 @@
+$kind: http-request
+description: >-
+  SOAP login-as-sysadmin: mints the workspace org session and seeds it as adminToken / managerToken /
+  accessToken so the rest of the WFS chain self-mints its bearer (no pre-filled token secrets in
+  ws.environment.yaml — only baseUrl/username/password are supplied). Modeled on the sibling
+  persona-creation-and-setup "Login as SysAdmin" V3 step. Runs FIRST (order 500) so every downstream
+  composite/graph + schedule call resolves a live {{adminToken}}/{{managerToken}}. The write-path
+  helper-fitness rule is caller-independent, so the manager bearer reuses the admin session here.
+url: "{{baseUrl}}/services/Soap/u/64.0"
+method: POST
+headers:
+  Content-Type: text/xml
+  SOAPAction: login
+  charset: UTF-8
+  Accept: text/xml
+body:
+  type: text
+  content: |-
+    <?xml version="1.0" encoding="utf-8" ?>
+    <env:Envelope xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns:env="http://schemas.xmlsoap.org/soap/envelope/">
+      <env:Body>
+        <n1:login xmlns:n1="urn:partner.soap.sforce.com">
+          <n1:username><![CDATA[{{username}}]]></n1:username>
+          <n1:password><![CDATA[{{password}}]]></n1:password>
+        </n1:login>
+      </env:Body>
+    </env:Envelope>
+scripts:
+  - type: afterResponse
+    code: |-
+      var xml2js = require('xml2js')
+      xml2js.parseString(pm.response.text(), { explicitArray: false }, (_, jsonResponse) => {
+        let result = jsonResponse['soapenv:Envelope']['soapenv:Body'].loginResponse.result
+        pm.environment.set("accessToken", result.sessionId)
+        pm.environment.set("adminToken", result.sessionId)
+        pm.environment.set("managerToken", result.sessionId)
+        pm.environment.set("adminUserId", result.userId)
+        pm.environment.set("orgId", result.userInfo.organizationId)
+      })
+    language: text/javascript
+settings:
+  disabledSystemHeaders:
+    - accept
+    - content-type
+    - user-agent
+order: 500
