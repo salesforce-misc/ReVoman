@@ -1,0 +1,22 @@
+$kind: collection
+description: |-
+  Scheduling policy for the NON-required-resource RequiredResources-satisfaction proof (Fix A, D1.4).
+  Carries three rules so the RequiredResources (appointment-level satisfaction) rule is the ONLY rule
+  that can fire on the act SA:
+    - Availability with DEFAULT ShiftUsage (no ShiftUsage rule-param — the org rejects
+      ShiftUsage=ConsiderOnlyOpHours on a type-C rule; mirrors excluded-resources-availability-policy).
+      Each resource's wide member OH 08-16 plus its Confirmed Shift 08-16 make the 11:00 slot available.
+    - WorkingTerritories with IsPrimaryLocationEnabled=true (so slot generation admits the fixture's
+      Primary ServiceTerritoryMembers; BOTH resources are Primary members so this passes for both and
+      does not shadow the verdict).
+    - RequiredResources (the rule under test: it passes only when a REQUIRED-flagged assigned resource is
+      on the Account's ResourcePreference(Required) list — a NON-required helper on that list must NOT
+      satisfy it, per D1.4).
+  Sets requiredResourcesPolicyId. Mirrors the rule/param/policy/link request shapes in
+  excluded-resources-availability-policy, swapping the ExcludedResources rule for RequiredResources.
+auth:
+  - id: 6e7f8091-a2b3-44c5-9d6e-7f8091a2b3c5
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"

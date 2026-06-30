@@ -1,0 +1,84 @@
+$kind: http-request
+description: >-
+  CONTROL: schedules a brand-new InBusiness SA into tomorrow 11:00-11:30 UTC under the same
+  Availability + WorkingTerritories + RequiredResources policy and fixture as the violating act. IDENTICAL
+  to the violating act in every way EXCEPT ONE field — resourceB (the sole resource on the Account's
+  ResourcePreference(Required) list) is flagged isRequiredResource=true here instead of false. With
+  resourceB now in the REQUIRED assigned set, the appointment-level RequiredResources satisfaction rule is
+  satisfied, so the SA must NOT carry a RequiredResources error. (The booking may still be blocked by an
+  unrelated availability/slot concern — exactly as the sibling clean-bookable WorkingLocations disproof
+  documents — so the Java test scopes its verdict to the absence of the RequiredResources error code, the
+  one dimension this flag flip controls.) Paired with the violating act, this is a one-field A/B that
+  isolates resourceB's isRequiredResource flag as what flips RequiredResources from firing to satisfied
+  (D1.4). Assertions live in the Java test.
+url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/schedule"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  # Act-step under assertion: its response IS the test's verdict, so it must always dispatch fresh.
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "appointments": [
+        {
+          "schedulingMethod": "OnSite",
+          "schedulingPolicyId": "{{requiredResourcesPolicyId}}",
+          "coreDetails": {
+            "startTime": "{{requiredSatisfierBookingStart}}",
+            "endTime": "{{requiredSatisfierBookingEnd}}",
+            "status": "Scheduled",
+            "subject": "Required satisfier RequiredResources control",
+            "workConfiguration": {
+              "workTypeId": "{{requiredNonReqWorkTypeId}}"
+            },
+            "locationConstraints": {
+              "id": "{{requiredNonReqTerritoryId}}"
+            }
+          },
+          "serviceAppointmentParent": {
+            "id": "{{requiredNonReqAccountId}}"
+          },
+          "assignedResources": [
+            {
+              "isPrimaryResource": true,
+              "isRequiredResource": true,
+              "serviceResourceId": "{{requiredNonReqResourceAId}}"
+            },
+            {
+              "isPrimaryResource": false,
+              "isRequiredResource": true,
+              "serviceResourceId": "{{requiredNonReqResourceBId}}"
+            }
+          ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      // Same window as the violating act (tomorrow 11:00-11:30 UTC, inside member OH 08-16 and the
+      // Confirmed Shift). Distinct env vars so the two acts never collide when run in one JVM.
+      const start = new Date();
+      start.setUTCDate(start.getUTCDate() + 1);
+      start.setUTCHours(11, 0, 0, 0);
+      const end = new Date(start.getTime() + 60 * 60 * 1000);
+      pm.environment.set("requiredSatisfierBookingStart", start.toISOString());
+      pm.environment.set("requiredSatisfierBookingEnd", end.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      // CONTROL verdict capture (top-level-array or appointments shape).
+      const data = pm.response.json();
+      const arr = Array.isArray(data) ? data : null;
+      const appts = (data && data.appointments) || [];
+      pm.environment.set("requiredSatisfierControlStatus", appts.length ? appts[0].schedulingStatus : null);
+      let ec = null;
+      if (arr && arr.length) { ec = arr[0].errorCode; }
+      else if (appts.length && appts[0].errors && appts[0].errors[0]) { ec = appts[0].errors[0].errorCode; }
+      pm.environment.set("requiredSatisfierControlErrorCode", ec);
+    language: text/javascript
+order: 1000

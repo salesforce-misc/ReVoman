@@ -1,0 +1,23 @@
+$kind: http-request
+description: >-
+  The scheduling policy linking the Availability + WorkingTerritories + RequiredResources rules. Sets
+  requiredResourcesPolicyId.
+url: "{{baseUrl}}{{versionPath}}/tooling/sobjects/SchedulingPolicy"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+body:
+  type: json
+  content: |-
+    {
+      "MasterLabel": "RequiredNonReq Policy",
+      "DeveloperName": "RequiredNonReq_Policy_{{$timestamp}}",
+      "SchedulingCategory": "A"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.environment.set("requiredResourcesPolicyId", pm.response.json().id);
+    language: text/javascript
+order: 30000

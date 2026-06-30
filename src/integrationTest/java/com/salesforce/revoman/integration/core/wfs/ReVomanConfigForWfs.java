@@ -78,6 +78,11 @@ public final class ReVomanConfigForWfs {
   static final Kick MATCH_SKILLS_POLICY_CONFIG =
       kickFor(V3_WFS_PATH + "policies/match-skills-non-required-policy");
 
+  // ## Decision 1.4 — required-resource demand (account ResourcePreference) cannot be satisfied by a
+  // NON-required helper.
+  static final Kick REQUIRED_RESOURCES_POLICY_CONFIG =
+      kickFor(V3_WFS_PATH + "policies/required-resources-availability-policy");
+
   // ## Fixtures (composite/graph data graphs: territory/OH/WorkType/resources/account/shifts).
   static final Kick DOUBLE_BOOK_FIXTURE_CONFIG =
       kickFor(V3_WFS_PATH + "fixtures/double-book-non-required");
@@ -90,6 +95,8 @@ public final class ReVomanConfigForWfs {
       kickFor(V3_WFS_PATH + "fixtures/skills-non-required-skill");
   static final Kick WORKING_LOCATIONS_FIXTURE_CONFIG =
       kickFor(V3_WFS_PATH + "fixtures/working-locations-secondary-non-required");
+  static final Kick REQUIRED_NON_REQUIRED_FIXTURE_CONFIG =
+      kickFor(V3_WFS_PATH + "fixtures/required-non-required");
 
   // ## Schedule act-steps (the Schedule write call whose response carries the verdict; each
   // captures
@@ -106,6 +113,10 @@ public final class ReVomanConfigForWfs {
       kickFor(V3_WFS_PATH + "booking/schedule-skills-non-required-violating");
   static final Kick WORKING_LOCATIONS_SCHEDULE_CONFIG =
       kickFor(V3_WFS_PATH + "booking/schedule-working-locations-secondary-non-required-violating");
+  static final Kick REQUIRED_NON_REQUIRED_SATISFIER_VIOLATING_SCHEDULE_CONFIG =
+      kickFor(V3_WFS_PATH + "booking/schedule-required-non-required-satisfier-violating");
+  static final Kick REQUIRED_SATISFIER_BOOKABLE_SCHEDULE_CONFIG =
+      kickFor(V3_WFS_PATH + "booking/schedule-required-satisfier-bookable");
 
   /**
    * One Kick per V3 collection folder, all sharing the same shape as the {@code bt2bs} sibling:
