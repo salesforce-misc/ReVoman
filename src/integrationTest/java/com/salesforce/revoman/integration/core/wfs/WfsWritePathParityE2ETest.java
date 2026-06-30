@@ -34,7 +34,6 @@ import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.WO
 import com.salesforce.revoman.ReVoman;
 import com.salesforce.revoman.input.config.Kick;
 import kotlin.collections.CollectionsKt;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -46,10 +45,6 @@ import org.junit.jupiter.api.Test;
  * control). Each scenario is its own {@code ReVoman.revUp(...)} starting with {@code AUTH_CONFIG}
  * (fresh env + fresh timestamped users → no ServiceResource (RelatedRecordId, ResourceType) collision).
  */
-@Disabled(
-    "needs a WFS workspace org: multi-resource pref (WorkforceSchdMulResSchdPref) + InBusinessScheduling"
-        + " enabled + Shift.Status DynEnum seeded + each Availability rule's ShiftUsage param. See"
-        + " ReVomanConfigForWfs.")
 class WfsWritePathParityE2ETest {
 
   /**

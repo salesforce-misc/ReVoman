@@ -7,8 +7,12 @@ description: >-
   Account's required list, but is assigned as NON-required. The window is inside member OH 08-16 and the
   Confirmed Shift, so Availability/WorkingTerritories are not the blocker. The RequiredResources
   satisfaction rule evaluates over the REQUIRED resources only ({resourceA}); since resourceA is not on
-  the required list and the non-required resourceB must NOT count (D1.4), the rule fires. Expected:
-  ScheduleError errorCode=RequiredResources, SA NOT scheduled.
+  the required list and the non-required resourceB must NOT count (D1.4), the rule fires. Runs as the
+  manager persona. Observed on live 262: instead of the doc-predicted clean ScheduleError
+  errorCode=RequiredResources, this CRASHES with errorCode=INTERNAL_SERVER_ERROR — a server NPE ("Cannot
+  invoke ArrayListMultimap.values() because this.serviceTerritoryMembers is null"), a 262 crash bug the
+  test characterizes verbatim. 264 contrast: the clean RequiredResources rejection (no crash). The Java
+  assertion + javadoc encode the observed NPE; this description records the 264-expected verdict for context.
 url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/schedule"
 method: POST
 headers:

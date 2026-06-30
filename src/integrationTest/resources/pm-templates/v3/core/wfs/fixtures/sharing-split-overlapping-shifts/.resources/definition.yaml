@@ -1,4 +1,20 @@
 $kind: collection
+description: |-
+  Fixture for the Decision-9 sharing-split read proof, built by the MANAGER persona ({{dec9ManagerToken}})
+  so the manager OWNS every row — critically the Confirmed Shift, whose Private OWD is the sharing gate the
+  proof exercises. Two steps:
+    - 10 composite/graph: territory OperatingHours + ServiceTerritory, a 60m WorkType (NO
+      SchedulingMethod/IsRegular per the 262 contract) + ServiceTerritoryWorkType, one ServiceResource
+      (ResourceType=T, IsPrimary) on the admin-created resource-owner user ({{dec9ResourceUserId}} — the
+      manager cannot create a User), a primary ServiceTerritoryMember (TerritoryType=P, effective ~30 days
+      ago), and an Account. Sets dec9TerritoryId / dec9WorkTypeId / dec9ResourceId / dec9AccountId.
+    - 20 a single Confirmed Shift (08:00-16:00 tomorrow) in a SEPARATE step because Shift validates its
+      ServiceResourceId at insert. SchedulingMethod=OnSite + TimeSlotType=Normal are REQUIRED: without
+      SchedulingMethod the slot-gen shift read does not attach the shift to the STM, so even the owner gets
+      ZERO slots. Sets dec9ShiftId.
+  Drives both get-slots-sharing-split acts: the manager (owner) sees this shift → slots; the case-worker,
+  with no sharing on it, sees none → zero slots, proving the empty result is the sharing gate not an empty
+  fixture.
 auth:
   - id: c3030303-0000-4000-8000-000000000003
     type: bearer

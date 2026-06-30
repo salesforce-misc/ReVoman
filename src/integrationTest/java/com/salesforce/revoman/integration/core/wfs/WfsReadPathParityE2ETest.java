@@ -19,7 +19,6 @@ import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SH
 
 import com.salesforce.revoman.ReVoman;
 import kotlin.collections.CollectionsKt;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -29,9 +28,6 @@ import org.junit.jupiter.api.Test;
  * sharing-mode split — user-mode SystemMode.NONE shift read vs SFDC_FULL sibling reads). Read-path
  * enforce contract: a rule violation / cap returns EMPTY slots/resources, HTTP 200, NO 400/exception.
  */
-@Disabled(
-    "needs a WFS workspace org: see ReVomanConfigForWfs. Decision 9 additionally needs Shift OWD=Private"
-        + " and a case-worker persona without sharing on the manager-owned Shift rows.")
 class WfsReadPathParityE2ETest {
 
   /**
