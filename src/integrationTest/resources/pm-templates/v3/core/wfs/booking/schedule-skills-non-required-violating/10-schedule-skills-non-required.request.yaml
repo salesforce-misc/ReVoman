@@ -1,0 +1,86 @@
+$kind: http-request
+description: >-
+  Schedules a brand-new OnSite SA into tomorrow 11:00-12:00 UTC with TWO assigned resources under the
+  Availability(default) + WorkingTerritories(IsPrimaryLocationEnabled=true) + MatchSkills policy
+  (matchSkillsNonReqPolicyId, MATCH_SKILLS_NON_REQ_POLICY_SETUP). resourceA (isRequiredResource=true,
+  isPrimaryResource=true) is fully clean — Primary open-ended member, Confirmed Shift, available, AND it
+  holds a ServiceResourceSkill for the Skill the WorkType requires. resourceB (isRequiredResource=false,
+  isPrimaryResource=false) is ALSO a Primary member with its own Confirmed Shift and an open-ended
+  membership (so WorkingTerritories, Availability and MatchTerritory all pass for it) but it has NO
+  ServiceResourceSkill for the required Skill — so MatchSkills is the only rule that can fire on it.
+  resourceB must be NON-primary AND NON-required in this request: the resolver's Layer-B primary-implies-
+  required guard would lift a primary resource into the required veto set, masking the over-scope bug, so
+  resourceB stays isPrimaryResource=false. Expected after the B1 fix (GREEN): ScheduleError
+  errorCode=MatchSkills, SA NOT scheduled. Before the fix (RED): the write path eligibility-checks REQUIRED
+  resources only, so resourceB's missing skill is never evaluated and the SA books
+  schedulingStatus=Success — the bug under test. A brand-new Schedule keeps the enforce verdict surfaced.
+url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/schedule"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  # Act-step under assertion: its response IS the test's verdict, so it must always dispatch fresh.
+  x-revoman-ledger: "off"
+  # CONTROL/verdict step: a non-2xx (e.g. "not available") is a legitimate verdict, must NOT halt the run.
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "appointments": [
+        {
+          "schedulingMethod": "OnSite",
+          "schedulingPolicyId": "{{matchSkillsNonReqPolicyId}}",
+          "coreDetails": {
+            "startTime": "{{skillsNonReqViolatingStart}}",
+            "endTime": "{{skillsNonReqViolatingEnd}}",
+            "status": "Scheduled",
+            "subject": "Non-required unskilled resource eligibility probe",
+            "workConfiguration": {
+              "workTypeId": "{{skillsNonReqWorkTypeId}}"
+            },
+            "locationConstraints": {
+              "id": "{{skillsNonReqTerritoryId}}"
+            }
+          },
+          "serviceAppointmentParent": {
+            "id": "{{skillsNonReqAccountId}}"
+          },
+          "assignedResources": [
+            {
+              "isPrimaryResource": true,
+              "isRequiredResource": true,
+              "serviceResourceId": "{{skillsNonReqResourceAId}}"
+            },
+            {
+              "isPrimaryResource": false,
+              "isRequiredResource": false,
+              "serviceResourceId": "{{skillsNonReqResourceBId}}"
+            }
+          ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      // Tomorrow 11:00-12:00 UTC: a window fully inside member OH (08-16), the Confirmed Shift (08-16) and
+      // both resources' open-ended ServiceTerritoryMember intervals — so Availability, WorkingTerritories
+      // and MatchTerritory all pass for BOTH resources. The ONLY dimension on which resourceB differs is
+      // its MISSING ServiceResourceSkill, so MatchSkills is the sole rule that can fire on resourceB.
+      const start = new Date();
+      start.setUTCDate(start.getUTCDate() + 1);
+      start.setUTCHours(11, 0, 0, 0);
+      const end = new Date(start.getTime() + 60 * 60 * 1000);
+      pm.environment.set("skillsNonReqViolatingStart", start.toISOString());
+      pm.environment.set("skillsNonReqViolatingEnd", end.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      // Capture the single appointment's schedulingStatus into the env for the JUnit Truth assertion
+      // (AppointmentCollectionOutputRepresentation.appointments[0].schedulingStatus). 262 hypothesis:
+      // the NON-required unskilled helper escapes the MatchSkills fitness rule -> Success.
+      const appointments = (pm.response.json() || {}).appointments || [];
+      pm.environment.set("skillsNonReqSchedulingStatus", appointments.length ? appointments[0].schedulingStatus : null);
+    language: text/javascript
+order: 1000

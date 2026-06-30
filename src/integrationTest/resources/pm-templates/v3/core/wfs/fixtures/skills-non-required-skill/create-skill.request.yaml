@@ -1,0 +1,33 @@
+$kind: http-request
+description: >-
+  Creates the master Skill in its OWN transaction, BEFORE the main data graph. Skill (keyPrefix 0C5,
+  the LiveAgent setupEntity the scheduling FKs point at) is a SETUP object; the rest of the fixture
+  (Account, ServiceResource, ServiceTerritory, TimeSlots, Shifts, …) are NON-setup objects. Salesforce
+  forbids setup + non-setup DML in the SAME transaction (MIXED_DML_OPERATION), so the Skill cannot live
+  inside the composite/graph that builds everything else — it would roll the whole graph back. Run under
+  {{adminToken}} because Skill.createAccess gates on "CustomizeApplication || isDoingSysAdmin" and the
+  manager persona (Standard User + WFS perm sets) holds neither; the admin token satisfies isDoingSysAdmin.
+  Sets skillsNonReqSkillId, which create-skills-non-required-graph then FK-references from SkillRequirement
+  and resourceA's ServiceResourceSkill (those are non-setup platform entities — FK-referencing a setup
+  object is not setup DML, so they stay in the graph).
+url: "{{baseUrl}}{{versionPath}}/sobjects/Skill"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "MasterLabel": "SNR Skill {{$timestamp}}",
+      "DeveloperName": "Skill_{{$timestamp}}"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      const jsonData = pm.response.json();
+      if (!jsonData.success) {
+        throw new Error("Skill create failed: " + JSON.stringify(jsonData.errors || jsonData));
+      }
+      pm.environment.set("skillsNonReqSkillId", jsonData.id);
+    language: text/javascript
+order: 250

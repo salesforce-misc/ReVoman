@@ -1,0 +1,36 @@
+$kind: collection
+description: |-
+  Fixture for the NON-required-WRONG-territory write-path eligibility proof (B1 territory, W-23049589).
+  The territory analogue of the excluded-non-required fixture: same TWO-assigned-resource graph, but the
+  violation dimension is per-slot MatchTerritory containment instead of the Account excluded list. Builds,
+  in one composite/graph call, a data graph for a Schedule of ONE brand-new OnSite SA carrying TWO
+  assigned resources under the Availability(ConsiderOnlyOpHours) + WorkingTerritories(primary) +
+  MatchTerritory policy (TERRITORY_PARTIAL_POLICY_SETUP), isolated so MatchTerritory is the ONLY rule that
+  can fire on resourceB:
+    - territory OperatingHours (08:00-16:00) + weekly OnSite TimeSlots; member OperatingHours (08-16).
+    - ServiceTerritory -> territory OH; WorkType (OnSite, 60m); ServiceTerritoryWorkType.
+    - resourceA: User-backed (caseWorkerUserId) ServiceResource (Technician, active, primary). Primary
+      ServiceTerritoryMember (TerritoryType=P) effective a month ago and OPEN-ENDED (never narrowed) +
+      Confirmed Shift 08:00-16:00 tomorrow, so resourceA is fully clean under Availability +
+      WorkingTerritories + MatchTerritory (its membership CONTAINS the whole booking window).
+    - resourceB: User-backed (caseManagerUserId — a DISTINCT user, since ServiceResource is DB-unique on
+      (RelatedRecordId, ResourceType)) ServiceResource (Technician, active). ALSO a Primary
+      ServiceTerritoryMember (so WorkingTerritories passes for resourceB too — its membership OVERLAPS the
+      booking window, isolating MatchTerritory as the only possible violation) + a Confirmed Shift
+      08:00-16:00 tomorrow so it is admitted as a REAL candidate (since W-22901809 a Shift is required to
+      be a candidate at all). resourceB's membership is then NARROWED to end at noon by a follow-up PATCH
+      (set-resource-b-territory-membership-effective-end) AFTER its Shift exists — so it does NOT CONTAIN
+      the straddle-noon booking window.
+    - Account (the SA parent context).
+  Sets territoryNonReqTerritoryId / territoryNonReqWorkTypeId / territoryNonReqAccountId /
+  territoryNonReqResourceAId / territoryNonReqResourceBId (+ resourceB STM id for the narrowing PATCH).
+  Drives schedule-territory-membership-non-required-violating: a Schedule with the NON-required,
+  wrong-territory resourceB must be rejected with errorCode MatchTerritory. Before the B1 fix (RED) it is
+  silently accepted (the write path eligibility-checked REQUIRED resources only), so the SA books
+  Success — that is the bug this fixture exposes. Assertions live in the Java test.
+auth:
+  - id: 9a8b7c6d-5e4f-4039-8b2c-1d0e9f8a7b6c
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"

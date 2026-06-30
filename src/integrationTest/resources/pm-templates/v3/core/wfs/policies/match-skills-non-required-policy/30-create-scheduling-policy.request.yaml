@@ -1,0 +1,23 @@
+$kind: http-request
+description: >-
+  The scheduling policy linking the Availability + WorkingTerritories + MatchSkills rules. Sets
+  matchSkillsNonReqPolicyId.
+url: "{{baseUrl}}{{versionPath}}/tooling/sobjects/SchedulingPolicy"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+body:
+  type: json
+  content: |-
+    {
+      "MasterLabel": "SkillsNonReq Policy",
+      "DeveloperName": "SkillsNonReq_Policy_{{$timestamp}}",
+      "SchedulingCategory": "A"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.environment.set("matchSkillsNonReqPolicyId", pm.response.json().id);
+    language: text/javascript
+order: 30000

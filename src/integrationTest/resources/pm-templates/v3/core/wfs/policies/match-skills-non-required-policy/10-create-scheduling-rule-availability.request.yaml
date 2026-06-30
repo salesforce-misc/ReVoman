@@ -1,0 +1,28 @@
+$kind: http-request
+description: >-
+  Availability rule (SchedulingRuleType C, category A). A type-C rule has NO default ShiftUsage, so the
+  next step (12-create-scheduling-rule-parameter-shift-usage) explicitly sets
+  ShiftUsage=ConsiderOpHoursAndShiftsUnion on this rule; without it the rule yields ZERO slots. With the
+  Union param the resource's wide member OH 08-16 ∪ its Confirmed Shift 08-16 make the 11:00 booking slot
+  resource-available for the REQUIRED resourceA — Availability is the baseline, not the blocker. Mirrors
+  the excluded-resources-availability-policy availability rule.
+url: "{{baseUrl}}{{versionPath}}/sobjects/SchedulingRule"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+body:
+  type: json
+  content: |-
+    {
+      "MasterLabel": "SkillsNonReq Availability",
+      "DeveloperName": "SkillsNonReq_Availability_{{$timestamp}}",
+      "SchedulingRuleType": "C",
+      "SchedulingCategory": "A"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.environment.set("skillsNonReqAvailabilityRuleId", pm.response.json().id);
+    language: text/javascript
+order: 10000

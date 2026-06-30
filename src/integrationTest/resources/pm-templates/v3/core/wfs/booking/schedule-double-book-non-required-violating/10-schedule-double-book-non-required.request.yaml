@@ -1,0 +1,71 @@
+$kind: http-request
+description: >-
+  Schedule into tomorrow 11:00-11:30 UTC with TWO assigned resources under availabilityOpHoursPolicyId.
+  resourceA (isRequiredResource=true, isPrimaryResource=true) is clean and free (member OH + Shift both
+  10:00-14:00 cover the window). resourceB (isRequiredResource=false) is a Primary member but UNAVAILABLE
+  at 11:00-11:30 (member OH + Shift both 12:00-14:00). 264: a NON-required helper is not
+  availability-checked → Success. 262 hypothesis: Success (no helper validation at all).
+url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/schedule"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  # Act-step under assertion: its response IS the test's verdict, so it must always dispatch fresh.
+  x-revoman-ledger: "off"
+body:
+  type: json
+  content: |-
+    {
+      "appointments": [
+        {
+          "schedulingMethod": "OnSite",
+          "schedulingPolicyId": "{{availabilityOpHoursPolicyId}}",
+          "coreDetails": {
+            "startTime": "{{doubleBookBookingStart}}",
+            "endTime": "{{doubleBookBookingEnd}}",
+            "status": "Scheduled",
+            "subject": "Double-book non-required helper SA",
+            "workConfiguration": {
+              "workTypeId": "{{doubleBookWorkTypeId}}"
+            },
+            "locationConstraints": {
+              "id": "{{doubleBookTerritoryId}}"
+            }
+          },
+          "serviceAppointmentParent": {
+            "id": "{{doubleBookAccountId}}"
+          },
+          "assignedResources": [
+            {
+              "isPrimaryResource": true,
+              "isRequiredResource": true,
+              "serviceResourceId": "{{doubleBookResourceAId}}"
+            },
+            {
+              "isPrimaryResource": false,
+              "isRequiredResource": false,
+              "serviceResourceId": "{{doubleBookResourceBId}}"
+            }
+          ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      const start = new Date();
+      start.setUTCDate(start.getUTCDate() + 1);
+      start.setUTCHours(11, 0, 0, 0);
+      const end = new Date(start.getTime() + 30 * 60 * 1000);
+      pm.environment.set("doubleBookBookingStart", start.toISOString());
+      pm.environment.set("doubleBookBookingEnd", end.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      // Capture the single appointment's schedulingStatus into the env for the JUnit Truth assertion
+      // (AppointmentCollectionOutputRepresentation.appointments[0].schedulingStatus). 262 hypothesis:
+      // the busy NON-required helper books anyway -> Success.
+      const appointments = (pm.response.json() || {}).appointments || [];
+      pm.environment.set("doubleBookNonRequiredSchedulingStatus", appointments.length ? appointments[0].schedulingStatus : null);
+    language: text/javascript
+order: 1000

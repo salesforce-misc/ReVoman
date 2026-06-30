@@ -1,0 +1,14 @@
+$kind: collection
+description: |-
+  CONTROL act for the Decision-1 double-book A/B on 262. Identical to the non-required act (same window,
+  fixture, policy) with ONE field flipped: resourceB isRequiredResource=true. A REQUIRED resource IS
+  availability-checked, so resourceB's OH∪Shift (12:00-14:00) not covering 11:00-11:30 turns the Schedule
+  down (ScheduleError / SlotNotAvailable). Proves resourceB is genuinely busy → the non-required act's
+  Success is the isRequiredResource flag's effect, not a vacuous booking. If 262 STILL books Success here,
+  that is a distinct finding (262 may not availability-check even a required resource) — record it.
+auth:
+  - id: 9c3d4e5f-6071-4283-9a9c-4d5e6f708293
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"

@@ -1,0 +1,83 @@
+$kind: http-request
+description: >-
+  Schedules a brand-new OnSite SA into tomorrow 11:00-11:30 UTC with TWO assigned resources under the
+  Availability(ConsiderOnlyOpHours) + WorkingTerritories(IsPrimaryLocationEnabled=true) policy
+  (availabilityOpHoursPolicyId). resourceA (isRequiredResource=true, isPrimaryResource=true) is a PRIMARY
+  member — fully clean. resourceB (isRequiredResource=false, isPrimaryResource=false) is a SECONDARY member
+  with its own Confirmed Shift (so Availability passes for it — isolating WorkingLocations) but the policy
+  includes only PRIMARY, so resourceB's Secondary role is "secondary disabled". The window is inside member
+  OH 08-16 and the Confirmed Shift, so Availability is not the blocker. Expected after Fix A: ScheduleError
+  errorCode=WorkingLocations, SA NOT scheduled — the write-path non-required eligibility pass (Pass B,
+  RESOURCE_ELIGIBILITY) rejects resourceB BEFORE get-slots runs, so this verdict is immune to slot-match
+  mechanics. Today (RED) the write path eligibility-checks REQUIRED resources only, so resourceB's
+  territory role is never evaluated and the SA books schedulingStatus=Success — the live bug under test.
+url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/schedule"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  # Act-step under assertion: its response IS the test's verdict, so it must always dispatch fresh.
+  x-revoman-ledger: "off"
+  # CONTROL/verdict step: a non-2xx (e.g. "not available") is a legitimate verdict, must NOT halt the run.
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "appointments": [
+        {
+          "schedulingMethod": "OnSite",
+          "schedulingPolicyId": "{{availabilityOpHoursPolicyId}}",
+          "coreDetails": {
+            "startTime": "{{workingLocationsSecondaryNonReqBookingStart}}",
+            "endTime": "{{workingLocationsSecondaryNonReqBookingEnd}}",
+            "status": "Scheduled",
+            "subject": "Non-required Secondary-member WorkingLocations probe",
+            "workConfiguration": {
+              "workTypeId": "{{workingLocationsSecondaryNonReqWorkTypeId}}"
+            },
+            "locationConstraints": {
+              "id": "{{workingLocationsSecondaryNonReqTerritoryId}}"
+            }
+          },
+          "serviceAppointmentParent": {
+            "id": "{{workingLocationsSecondaryNonReqAccountId}}"
+          },
+          "assignedResources": [
+            {
+              "isPrimaryResource": true,
+              "isRequiredResource": true,
+              "serviceResourceId": "{{workingLocationsSecondaryNonReqResourceAId}}"
+            },
+            {
+              "isPrimaryResource": false,
+              "isRequiredResource": false,
+              "serviceResourceId": "{{workingLocationsSecondaryNonReqResourceBId}}"
+            }
+          ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      // Tomorrow 11:00-11:30 UTC: inside member OH (08-16) AND the Confirmed Shift (08-16), so the
+      // Availability rule passes for the REQUIRED resourceA. The only rule that can fire on the
+      // NON-required resourceB is WorkingLocations (it is a Secondary member, and the policy includes
+      // only primary territory members).
+      const start = new Date();
+      start.setUTCDate(start.getUTCDate() + 1);
+      start.setUTCHours(11, 0, 0, 0);
+      const end = new Date(start.getTime() + 30 * 60 * 1000);
+      pm.environment.set("workingLocationsSecondaryNonReqBookingStart", start.toISOString());
+      pm.environment.set("workingLocationsSecondaryNonReqBookingEnd", end.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      // Capture the single appointment's schedulingStatus into the env for the JUnit Truth assertion
+      // (AppointmentCollectionOutputRepresentation.appointments[0].schedulingStatus). 262 hypothesis:
+      // the NON-required Secondary-member helper escapes the WorkingLocations fitness rule -> Success.
+      const appointments = (pm.response.json() || {}).appointments || [];
+      pm.environment.set("workingLocationsSecondaryNonReqSchedulingStatus", appointments.length ? appointments[0].schedulingStatus : null);
+    language: text/javascript
+order: 1000

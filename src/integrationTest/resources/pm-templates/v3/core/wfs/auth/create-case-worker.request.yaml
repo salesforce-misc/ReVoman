@@ -1,0 +1,51 @@
+$kind: http-request
+url: "{{baseUrl}}{{versionPath}}/composite/graph"
+method: POST
+body:
+  type: json
+  content: |-
+    {
+      "graphs": [
+        {
+          "graphId": "1",
+          "compositeRequest": [
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/User",
+              "referenceId": "refUser",
+              "body": {
+                "Username": "{{caseWorkerUserName}}",
+                "ProfileId": "{{standardUserProfileId}}",
+                "Alias": "marcus",
+                "Email": "{{caseWorkerUserName}}",
+                "EmailEncodingKey": "ISO-8859-1",
+                "LastName": "Brown",
+                "FirstName": "Marcus",
+                "LanguageLocaleKey": "en_US",
+                "LocaleSidKey": "en_US",
+                "TimeZoneSidKey": "Asia/Kolkata"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/PermissionSetAssignment/",
+              "referenceId": "unifiedPS1Assignemnt",
+              "body": {
+                "AssigneeId": "@{refUser.id}",
+                "PermissionSetId": "{{unifiedPSResourceId}}"
+              }
+            }
+          ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: pm.environment.set("caseWorkerUserName", pm.variables.replaceIn("case-worker-{{$timestamp}}@revoman.org"));
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      var jsonData = pm.response.json()
+      pm.environment.set("caseWorkerUserId", jsonData.graphs[0].graphResponse.compositeResponse[0].body.id);
+    language: text/javascript
+order: 15000

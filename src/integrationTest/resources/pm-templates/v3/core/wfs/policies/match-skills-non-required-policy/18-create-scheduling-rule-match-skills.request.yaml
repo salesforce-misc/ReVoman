@@ -1,0 +1,26 @@
+$kind: http-request
+description: >-
+  MatchSkills rule (the rule under test). It rejects an assigned resource that lacks a skill the
+  appointment's WorkType requires (a SkillRequirement). resourceB has NO ServiceResourceSkill for the
+  required Skill, so MatchSkills must veto it. The MatchSkills rule shape (SchedulingRuleType B,
+  category A) mirrors full-policy/050-create-scheduling-rule-match-skills.
+url: "{{baseUrl}}{{versionPath}}/sobjects/SchedulingRule"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+body:
+  type: json
+  content: |-
+    {
+      "MasterLabel": "SkillsNonReq MatchSkills",
+      "DeveloperName": "SkillsNonReq_MatchSkills_{{$timestamp}}",
+      "SchedulingRuleType": "B",
+      "SchedulingCategory": "A"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.environment.set("skillsNonReqMatchSkillsRuleId", pm.response.json().id);
+    language: text/javascript
+order: 18000

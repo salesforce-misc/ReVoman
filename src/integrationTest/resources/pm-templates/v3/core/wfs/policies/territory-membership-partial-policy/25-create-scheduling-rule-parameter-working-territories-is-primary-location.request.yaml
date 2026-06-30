@@ -1,0 +1,26 @@
+$kind: http-request
+description: >-
+  Set IsPrimaryLocationEnabled=true on the WorkingTerritories rule. This is what flips the policy's
+  shouldIncludePrimaryResources() flag to true, so slot generation's loadMembersInTerritory admits the
+  Primary ServiceTerritoryMember and surfaces the resource as a candidate. Without this the fixture's
+  Primary STM is filtered out and get-slots returns ZERO raw slots. Produces
+  territoryPartialWorkingTerritoriesPrimaryParamId.
+url: "{{baseUrl}}{{versionPath}}/sobjects/SchedulingRuleParameter"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+body:
+  type: json
+  content: |-
+    {
+      "SchedulingRuleId": "{{territoryPartialWorkingTerritoriesRuleId}}",
+      "SchedulingParameterKey": "IsPrimaryLocationEnabled",
+      "Value": "true"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.environment.set("territoryPartialWorkingTerritoriesPrimaryParamId", pm.response.json().id);
+    language: text/javascript
+order: 25000

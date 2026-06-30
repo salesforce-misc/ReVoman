@@ -1,0 +1,35 @@
+$kind: http-request
+description: >-
+  Narrows resourceB's ServiceTerritoryMember (created open-ended in the graph) to END at noon (12:00 UTC)
+  of the search day, making resourceB's membership PARTIAL over the 08-16 window. resourceA's membership is
+  left open-ended (clean). Done as a SEPARATE PATCH after the Shift exists because the Shift insert
+  validator requires the Shift to be fully contained in the membership interval — a partial membership at
+  graph time would reject the full-day (08-16) Shift. An STM update does not re-run that shift validation,
+  so the partial membership lands while resourceB's full-day Shift survives. After this, resourceB is still
+  admitted as a candidate (Shift + member OH + an OVERLAPPING membership, so WorkingTerritories passes) but
+  MatchTerritory committed containment finds resourceB's membership [month-ago, noon] does NOT fully
+  contain the straddle-noon booking window — so MatchTerritory is the only rule that fires on resourceB.
+  The manager owns the STM (created it in the graph), so the manager token can PATCH it.
+url: "{{baseUrl}}{{versionPath}}/sobjects/ServiceTerritoryMember/{{territoryNonReqResourceBStmId}}"
+method: PATCH
+headers:
+  Content-Type: application/json
+  Accept: application/json
+body:
+  type: json
+  content: |-
+    {
+      "EffectiveEndDate": "{{territoryNonReqResourceBStmEffectiveEnd}}"
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      // EffectiveEndDate = noon (12:00 UTC) of the search day (tomorrow). resourceB's membership now
+      // covers the morning of the 08-16 window but not the afternoon, so it OVERLAPS but does not CONTAIN
+      // the 11:30-12:30 straddle-noon booking window.
+      const effectiveEnd = new Date();
+      effectiveEnd.setUTCDate(effectiveEnd.getUTCDate() + 1);
+      effectiveEnd.setUTCHours(12, 0, 0, 0);
+      pm.environment.set("territoryNonReqResourceBStmEffectiveEnd", effectiveEnd.toISOString());
+    language: text/javascript
+order: 1000

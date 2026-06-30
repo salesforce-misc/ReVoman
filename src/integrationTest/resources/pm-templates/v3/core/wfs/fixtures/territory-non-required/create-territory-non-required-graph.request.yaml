@@ -1,0 +1,251 @@
+$kind: http-request
+description: >-
+  Builds the NON-required-WRONG-territory data graph in one composite/graph call (the territory analogue
+  of create-excluded-non-required-graph). ONE territory (OH 08-16 + weekly OnSite TimeSlots), ONE
+  member OH (08-16), ONE WorkType (OnSite 60m) + STWT, ONE Account. TWO User-backed ServiceResources
+  on DISTINCT users (ServiceResource is DB-unique on (RelatedRecordId, ResourceType)): resourceA on
+  caseWorkerUserId and resourceB on caseManagerUserId. Both are Primary ServiceTerritoryMembers
+  (TerritoryType=P) effective a month ago and created OPEN-ENDED (no EffectiveEndDate) carrying a wide
+  member OH (08-16), so WorkingTerritories passes for BOTH — this isolates MatchTerritory as the only rule
+  that can fire on resourceB. Both resources also get a Confirmed Shift 08-16 tomorrow: resourceA so it is
+  fully available and in-territory all day, and resourceB so that — since W-22901809 makes a Shift
+  unconditionally required for a resource to be admitted as a candidate — resourceB is a REAL candidate
+  whose territory the rule engine must check (without a Shift it would never reach the MatchTerritory
+  decision). The memberships are created open-ended deliberately: the Shift insert validator
+  (ShiftFunctions.isShiftTimeValidForTheServiceTerritoryMembershipEffectiveDates) requires the Shift to be
+  fully CONTAINED in the membership interval, so a partial membership at insert time would reject the
+  08-16 Shift. resourceB's membership is narrowed to end at noon by a SEPARATE follow-up PATCH step
+  (set-resource-b-territory-membership-effective-end) AFTER its Shift exists — STM update does not re-run
+  the shift validation, so the partial membership lands without rejecting the full-day Shift. resourceA's
+  membership stays open-ended (clean). Sets territoryNonReqTerritoryId / territoryNonReqWorkTypeId /
+  territoryNonReqAccountId / territoryNonReqResourceAId / territoryNonReqResourceBId /
+  territoryNonReqResourceBStmId.
+url: "{{baseUrl}}{{versionPath}}/composite/graph"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "graphs": [
+        {
+          "graphId": "territoryNonRequired",
+          "compositeRequest": [
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/OperatingHours",
+              "referenceId": "refTerritoryOh",
+              "body": { "Name": "TNR Territory OH {{$timestamp}}", "TimeZone": "GMT" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/OperatingHours",
+              "referenceId": "refMemberOh",
+              "body": { "Name": "TNR Member OH {{$timestamp}}", "TimeZone": "GMT" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refTerritoryTsMon",
+              "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Monday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refTerritoryTsTue",
+              "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Tuesday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refTerritoryTsWed",
+              "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Wednesday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refTerritoryTsThu",
+              "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Thursday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refTerritoryTsFri",
+              "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Friday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refTerritoryTsSat",
+              "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Saturday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refTerritoryTsSun",
+              "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Sunday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberTsMon",
+              "body": { "OperatingHoursId": "@{refMemberOh.id}", "DayOfWeek": "Monday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberTsTue",
+              "body": { "OperatingHoursId": "@{refMemberOh.id}", "DayOfWeek": "Tuesday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberTsWed",
+              "body": { "OperatingHoursId": "@{refMemberOh.id}", "DayOfWeek": "Wednesday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberTsThu",
+              "body": { "OperatingHoursId": "@{refMemberOh.id}", "DayOfWeek": "Thursday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberTsFri",
+              "body": { "OperatingHoursId": "@{refMemberOh.id}", "DayOfWeek": "Friday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberTsSat",
+              "body": { "OperatingHoursId": "@{refMemberOh.id}", "DayOfWeek": "Saturday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberTsSun",
+              "body": { "OperatingHoursId": "@{refMemberOh.id}", "DayOfWeek": "Sunday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceTerritory",
+              "referenceId": "refTerritory",
+              "body": { "Name": "TNR Territory {{$timestamp}}", "OperatingHoursId": "@{refTerritoryOh.id}", "IsActive": true }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/WorkType",
+              "referenceId": "refWorkType",
+              "body": { "Name": "TNR WorkType {{$timestamp}}", "DurationType": "Minutes", "EstimatedDuration": 60 }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceTerritoryWorkType",
+              "referenceId": "refStwt",
+              "body": { "ServiceTerritoryId": "@{refTerritory.id}", "WorkTypeId": "@{refWorkType.id}" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceResource",
+              "referenceId": "refResourceA",
+              "body": { "Name": "TNR Resource A {{$timestamp}}", "RelatedRecordId": "{{caseWorkerUserId}}", "ResourceType": "T", "IsActive": true, "IsPrimary": true }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceResource",
+              "referenceId": "refResourceB",
+              "body": { "Name": "TNR Resource B {{$timestamp}}", "RelatedRecordId": "{{caseManagerUserId}}", "ResourceType": "T", "IsActive": true, "IsPrimary": true }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceTerritoryMember",
+              "referenceId": "refStmA",
+              "body": { "ServiceTerritoryId": "@{refTerritory.id}", "ServiceResourceId": "@{refResourceA.id}", "TerritoryType": "P", "OperatingHoursId": "@{refMemberOh.id}", "EffectiveStartDate": "{{territoryNonReqStmEffectiveStart}}" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceTerritoryMember",
+              "referenceId": "refStmB",
+              "body": { "ServiceTerritoryId": "@{refTerritory.id}", "ServiceResourceId": "@{refResourceB.id}", "TerritoryType": "P", "OperatingHoursId": "@{refMemberOh.id}", "EffectiveStartDate": "{{territoryNonReqStmEffectiveStart}}" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/Shift",
+              "referenceId": "refShiftA",
+              "body": { "ServiceResourceId": "@{refResourceA.id}", "ServiceTerritoryId": "@{refTerritory.id}", "StartTime": "{{territoryNonReqShiftStart}}", "EndTime": "{{territoryNonReqShiftEnd}}", "TimeSlotType": "Normal", "SchedulingMethod": "OnSite", "Status": "Confirmed" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/Shift",
+              "referenceId": "refShiftB",
+              "body": { "ServiceResourceId": "@{refResourceB.id}", "ServiceTerritoryId": "@{refTerritory.id}", "StartTime": "{{territoryNonReqShiftStart}}", "EndTime": "{{territoryNonReqShiftEnd}}", "TimeSlotType": "Normal", "SchedulingMethod": "OnSite", "Status": "Confirmed" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/Account",
+              "referenceId": "refAccount",
+              "body": { "Name": "TNR Account {{$timestamp}}" }
+            }
+          ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      // Both ServiceTerritoryMembers are created effective a month ago and OPEN-ENDED (no
+      // EffectiveEndDate), so the Shift insert validator (which requires the Shift to be fully contained
+      // in the membership interval) accepts the full-day 08-16 Shift on BOTH resources. resourceB's
+      // membership is narrowed to end at noon by a SEPARATE follow-up PATCH AFTER its Shift exists (an STM
+      // update does not re-run the shift validation), making it PARTIAL over the booking window so
+      // MatchTerritory containment fails for it; resourceA's membership stays open-ended (clean).
+      const monthAgo = new Date();
+      monthAgo.setUTCMonth(monthAgo.getUTCMonth() - 1);
+      pm.environment.set("territoryNonReqStmEffectiveStart", monthAgo.toISOString());
+      // Confirmed Shift covering tomorrow 08:00-16:00 UTC for BOTH resources. Since W-22901809 slot
+      // generation unconditionally requires a Shift, the REQUIRED resourceA needs a Shift spanning the
+      // search window to be available; the NON-required resourceB ALSO needs one so it is admitted as a
+      // candidate at all and the MatchTerritory rule actually gets to evaluate (and reject) it — without
+      // a Shift resourceB would be pruned before the verdict, never exercising the bug.
+      const shiftStart = new Date();
+      shiftStart.setUTCDate(shiftStart.getUTCDate() + 1);
+      shiftStart.setUTCHours(8, 0, 0, 0);
+      const shiftEnd = new Date(shiftStart.getTime());
+      shiftEnd.setUTCHours(16, 0, 0, 0);
+      pm.environment.set("territoryNonReqShiftStart", shiftStart.toISOString());
+      pm.environment.set("territoryNonReqShiftEnd", shiftEnd.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      const jsonData = pm.response.json();
+      const responses = jsonData.graphs[0].graphResponse.compositeResponse;
+      responses.forEach((r) => {
+        if (r.httpStatusCode < 200 || r.httpStatusCode >= 300) {
+          throw new Error("Composite step " + r.referenceId + " failed: " + JSON.stringify(r.body));
+        }
+      });
+      const byRef = {};
+      responses.forEach(r => { byRef[r.referenceId] = r.body && r.body.id; });
+      // Set every id VERBATIM from the composite/graph response body (18-char canonical), exactly like
+      // the sibling fixtures excluded-non-required and territory-membership-partial: 18-char ids are what
+      // make WorkingLocations PASS on the required resourceA (the rule-check lookup canonicalizes to
+      // 18-char and the membership pool is keyed by the request form, so an 18-char request id keys and
+      // looks up in the same space and HITS).
+      pm.environment.set("territoryNonReqTerritoryId", byRef["refTerritory"]);
+      pm.environment.set("territoryNonReqWorkTypeId", byRef["refWorkType"]);
+      pm.environment.set("territoryNonReqAccountId", byRef["refAccount"]);
+      pm.environment.set("territoryNonReqResourceAId", byRef["refResourceA"]);
+      pm.environment.set("territoryNonReqResourceBId", byRef["refResourceB"]);
+      // resourceB's STM id is consumed by the narrowing PATCH (set-resource-b-territory-membership-effective-end).
+      pm.environment.set("territoryNonReqResourceBStmId", byRef["refStmB"]);
+      // Remaining ids captured for best-effort teardown.
+      pm.environment.set("territoryNonReqResourceAStmId", byRef["refStmA"]);
+      pm.environment.set("territoryNonReqShiftAId", byRef["refShiftA"]);
+      pm.environment.set("territoryNonReqShiftBId", byRef["refShiftB"]);
+      pm.environment.set("territoryNonReqStwtId", byRef["refStwt"]);
+      pm.environment.set("territoryNonReqTerritoryOhId", byRef["refTerritoryOh"]);
+      pm.environment.set("territoryNonReqMemberOhId", byRef["refMemberOh"]);
+    language: text/javascript
+order: 500

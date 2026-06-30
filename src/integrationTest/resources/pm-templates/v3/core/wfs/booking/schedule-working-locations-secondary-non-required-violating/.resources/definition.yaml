@@ -1,0 +1,23 @@
+$kind: collection
+description: |-
+  The "act" for the NON-required-Secondary-member WorkingLocations write-path eligibility proof (Fix A,
+  4th eligibility dimension). Schedules ONE brand-new OnSite SA into tomorrow 11:00-11:30 UTC (inside
+  member OH 08-16 and the Confirmed Shift) with TWO assigned resources under the
+  Availability(ConsiderOnlyOpHours) + WorkingTerritories(IsPrimaryLocationEnabled=true) policy
+  (availabilityOpHoursPolicyId, reusing AVAILABILITY_OP_HOURS_POLICY_SETUP):
+    - resourceA: isRequiredResource=true, isPrimaryResource=true — fully clean (PRIMARY member, Confirmed
+      Shift, available; WorkingLocations includes primary so it passes).
+    - resourceB: isRequiredResource=false, isPrimaryResource=false — a SECONDARY member with its own
+      Confirmed Shift (so it is a real candidate — Availability passes for it) but WorkingLocations does
+      NOT include Secondary (only IsPrimaryLocationEnabled is set), so its Secondary role is "secondary
+      disabled".
+  Expected after Fix A (GREEN): ScheduleError errorCode=WorkingLocations, SA NOT scheduled. Today (RED):
+  the write path only eligibility-checks REQUIRED resources, so resourceB's territory role is never
+  evaluated and the SA books schedulingStatus=Success — the live bug this scenario exposes. Assertions
+  live in the Java test.
+auth:
+  - id: 8d9e0f1a-2b3c-4d4e-8f5a-6b7c8d9e0f1a
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"

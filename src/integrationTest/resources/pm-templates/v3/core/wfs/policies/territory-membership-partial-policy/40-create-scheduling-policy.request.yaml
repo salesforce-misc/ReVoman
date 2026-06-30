@@ -1,0 +1,23 @@
+$kind: http-request
+description: >-
+  The scheduling policy that links the Availability + WorkingTerritories + MatchTerritory rules. Sets
+  territoryPartialPolicyId.
+url: "{{baseUrl}}{{versionPath}}/tooling/sobjects/SchedulingPolicy"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+body:
+  type: json
+  content: |-
+    {
+      "MasterLabel": "TerritoryPartial Policy",
+      "DeveloperName": "TerritoryPartial_Policy_{{$timestamp}}",
+      "SchedulingCategory": "A"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.environment.set("territoryPartialPolicyId", pm.response.json().id);
+    language: text/javascript
+order: 40000

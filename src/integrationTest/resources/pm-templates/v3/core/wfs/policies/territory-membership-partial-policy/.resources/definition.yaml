@@ -1,0 +1,20 @@
+$kind: collection
+description: |-
+  Scheduling policy for the per-slot MatchTerritory CONTAINMENT read/write-consistency proof
+  (Phase 2C). Carries three rules:
+    - Availability in ConsiderOnlyOpHours mode (so the resource's wide member OH 08-16 makes every
+      slot in the search window resource-available — Availability does NOT do the pruning here)
+    - WorkingTerritories with IsPrimaryLocationEnabled=true (so slot generation admits the
+      fixture's Primary ServiceTerritoryMember and surfaces raw slots across 08-16)
+    - MatchTerritory (the rule that DOES the per-slot pruning in Phase 2C: in committed mode it uses
+      interval CONTAINMENT via RuleResourcePredicates.membershipCoversWindow, so a carved slot whose
+      window is not fully inside the member's ServiceTerritoryMember Effective interval is pruned.
+      The OLD hand filter used membership EXISTENCE and would NOT have pruned it — this is the 2C
+      behavior delta this test exercises).
+  Sets territoryPartialPolicyId.
+auth:
+  - id: 8c1f2a3b-4d5e-46f7-a8b9-0c1d2e3f4a5b
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"

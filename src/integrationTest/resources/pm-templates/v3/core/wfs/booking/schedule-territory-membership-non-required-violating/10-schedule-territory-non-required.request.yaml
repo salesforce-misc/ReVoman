@@ -1,0 +1,88 @@
+$kind: http-request
+description: >-
+  Schedules a brand-new OnSite SA into tomorrow 11:30-12:30 UTC with TWO assigned resources under the
+  Availability(ConsiderOnlyOpHours) + WorkingTerritories(IsPrimaryLocationEnabled=true) + MatchTerritory
+  policy (territoryPartialPolicyId, reusing TERRITORY_PARTIAL_POLICY_SETUP). The window STRADDLES noon (the
+  resourceB membership end): resourceA (isRequiredResource=true, isPrimaryResource=true) is fully clean —
+  its OPEN-ENDED membership CONTAINS the whole window. resourceB (isRequiredResource=false,
+  isPrimaryResource=false) is ALSO a Primary territory member whose membership [month-ago, noon] OVERLAPS
+  the window (so WorkingTerritories passes for it — isolating MatchTerritory) but does NOT fully CONTAIN it
+  (noon < 12:30), so MatchTerritory committed containment (membershipCoversWindow) fails for resourceB. The
+  window is inside member OH 08-16 and the Confirmed Shift, so Availability is not the blocker. Expected
+  after the B1 fix: ScheduleError errorCode=MatchTerritory, SA NOT scheduled. Before the fix the write path
+  eligibility-checks REQUIRED resources only, so resourceB's territory is never evaluated and the SA books
+  schedulingStatus=Success — the bug under test. A brand-new Schedule avoids the existing-SA
+  IsPrimaryResource query so the enforce verdict is what surfaces.
+url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/schedule"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  # Act-step under assertion: its response IS the test's verdict, so it must always dispatch fresh.
+  x-revoman-ledger: "off"
+  # CONTROL/verdict step: a non-2xx (e.g. "not available") is a legitimate verdict, must NOT halt the run.
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "appointments": [
+        {
+          "schedulingMethod": "OnSite",
+          "schedulingPolicyId": "{{territoryPartialPolicyId}}",
+          "coreDetails": {
+            "startTime": "{{territoryNonReqViolatingStart}}",
+            "endTime": "{{territoryNonReqViolatingEnd}}",
+            "status": "Scheduled",
+            "subject": "Non-required wrong-territory resource eligibility probe",
+            "workConfiguration": {
+              "workTypeId": "{{territoryNonReqWorkTypeId}}"
+            },
+            "locationConstraints": {
+              "id": "{{territoryNonReqTerritoryId}}"
+            }
+          },
+          "serviceAppointmentParent": {
+            "id": "{{territoryNonReqAccountId}}"
+          },
+          "assignedResources": [
+            {
+              "isPrimaryResource": true,
+              "isRequiredResource": true,
+              "serviceResourceId": "{{territoryNonReqResourceAId}}"
+            },
+            {
+              "isPrimaryResource": false,
+              "isRequiredResource": false,
+              "serviceResourceId": "{{territoryNonReqResourceBId}}"
+            }
+          ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      // Tomorrow 11:30-12:30 UTC: a window that STRADDLES the resourceB ServiceTerritoryMember effective
+      // end (noon, 12:00). Deliberate: resourceB's membership [month-ago, noon] OVERLAPS this window (so
+      // WorkingTerritories — which admits a member whose interval merely overlaps the window — PASSES and
+      // does not shadow the verdict) but does NOT fully CONTAIN it (noon < 12:30), so the MatchTerritory
+      // committed-containment check (membershipCoversWindow) is the rule that fails on the NON-required
+      // resourceB. The REQUIRED resourceA's open-ended membership CONTAINS the window, so it is clean. The
+      // window is inside member OH (08-16) and the Confirmed Shift, so availability is not the blocker.
+      const start = new Date();
+      start.setUTCDate(start.getUTCDate() + 1);
+      start.setUTCHours(11, 30, 0, 0);
+      const end = new Date(start.getTime() + 60 * 60 * 1000);
+      pm.environment.set("territoryNonReqViolatingStart", start.toISOString());
+      pm.environment.set("territoryNonReqViolatingEnd", end.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      // Capture the single appointment's schedulingStatus into the env for the JUnit Truth assertion
+      // (AppointmentCollectionOutputRepresentation.appointments[0].schedulingStatus). 262 hypothesis:
+      // the NON-required wrong-territory helper escapes the MatchTerritory fitness rule -> Success.
+      const appointments = (pm.response.json() || {}).appointments || [];
+      pm.environment.set("territoryNonReqSchedulingStatus", appointments.length ? appointments[0].schedulingStatus : null);
+    language: text/javascript
+order: 1000

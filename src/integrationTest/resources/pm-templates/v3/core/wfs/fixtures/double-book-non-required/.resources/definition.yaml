@@ -1,0 +1,20 @@
+$kind: collection
+description: |-
+  Fixture for the Decision-1 DOUBLE-BOOK-ALLOWED characterization on 262. Builds, in one composite/graph
+  call as {{managerToken}}, a data graph for a Schedule of ONE brand-new OnSite SA with TWO assigned
+  resources. Availability is the UNION of member OH and Shift (bookable iff the window fits OH ∪ Shift):
+    - resourceA (caseWorkerUserId): Primary member, member OH A 10:00-14:00 + Confirmed Shift 10:00-14:00
+      → COVERS the 11:00-11:30 booking window → available.
+    - resourceB (caseManagerUserId, a DISTINCT user — ServiceResource is DB-unique on
+      (RelatedRecordId, ResourceType)): Primary member, member OH B 12:00-14:00 + Confirmed Shift
+      12:00-14:00 → the union does NOT contain 11:00-11:30 → UNAVAILABLE at the booked hour ("busy
+      elsewhere"). No competing SA / SA-status seed needed — the Shift-coverage gap is the availability
+      mechanism. (262-contract: OnSite SchedulingMethod enum; WorkType has no SchedulingMethod/IsRegular column.)
+  Sets doubleBook{Territory,WorkType,Account,ResourceA,ResourceB}Id (+ OH/shift ids). Drives both
+  double-book acts (non-required → Success on 264; required-conflict control → SlotNotAvailable).
+auth:
+  - id: 7a1b2c3d-4e5f-4061-9a7b-2c3d4e5f6071
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"

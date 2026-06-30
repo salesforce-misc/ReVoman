@@ -1,0 +1,29 @@
+$kind: http-request
+description: >-
+  CRITICAL — set ShiftUsage=ConsiderOpHoursAndShiftsUnion on the Availability rule (SchedulingRuleType
+  C). There is NO default ShiftUsage: without this SchedulingRuleParameter the Availability rule yields
+  ZERO slots (all four shouldConsider* predicates return false → empty intervals), so the REQUIRED
+  resourceA is never slot-available and the booking fails for the wrong reason. The Union value makes
+  availability the union of member OH and the Confirmed Shift, matching the fixture's wide windows.
+  Note: SchedulingRule + SchedulingRuleParameter live under /sobjects/ (SchedulingPolicy +
+  SchedulingPolicyRule under /tooling/sobjects/). Created right after the availability-rule-create step
+  so it carries territoryPartialAvailabilityRuleId.
+url: "{{baseUrl}}{{versionPath}}/sobjects/SchedulingRuleParameter"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+body:
+  type: json
+  content: |-
+    {
+      "SchedulingRuleId": "{{territoryPartialAvailabilityRuleId}}",
+      "SchedulingParameterKey": "ShiftUsage",
+      "Value": "ConsiderOpHoursAndShiftsUnion"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.environment.set("territoryPartialAvailabilityShiftUsageParamId", pm.response.json().id);
+    language: text/javascript
+order: 12000

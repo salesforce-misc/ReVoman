@@ -1,0 +1,29 @@
+$kind: http-request
+description: >-
+  MatchTerritory rule (SchedulingRuleType M, category A). This is the per-slot pruner in Phase 2C: in
+  committed mode it requires the assigned resource's ServiceTerritoryMember Effective interval to fully
+  CONTAIN the carved slot window (RuleResourcePredicates.membershipCoversWindow). On a search RANGE it
+  uses OVERLAP (so a member effective for part of the range is a valid candidate); per carved slot it
+  uses CONTAINMENT, so a slot whose window falls outside the membership interval (the afternoon, once
+  membership ends at noon) is pruned — the behavior the OLD existence-only hand filter would NOT have
+  pruned. Produces territoryPartialMatchTerritoryRuleId.
+url: "{{baseUrl}}{{versionPath}}/sobjects/SchedulingRule"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+body:
+  type: json
+  content: |-
+    {
+      "MasterLabel": "TerritoryPartial MatchTerritory Rule",
+      "DeveloperName": "TerritoryPartial_MatchTerritory_Rule_{{$timestamp}}",
+      "SchedulingRuleType": "M",
+      "SchedulingCategory": "A"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.environment.set("territoryPartialMatchTerritoryRuleId", pm.response.json().id);
+    language: text/javascript
+order: 30000

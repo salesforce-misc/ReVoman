@@ -1,0 +1,11 @@
+$kind: collection
+description: |-
+  Minimal scheduling policy with a single Availability rule in ConsiderOnlyOpHours mode. Kept
+  separate from full-policy so the Availability member-OH test asserts against ONLY the Availability
+  rule (no MatchSkills / WorkingLocations / VisitingHours noise). Sets availabilityOpHoursPolicyId.
+auth:
+  - id: 7c4d5e61-8a9b-4c2d-9e0f-1a2b3c4d5e80
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"

@@ -1,0 +1,21 @@
+$kind: collection
+description: |-
+  The "act" for the NON-required-excluded-resource write-path eligibility proof (Fix A, RED #1).
+  Schedules ONE brand-new OnSite SA into tomorrow 11:00-11:30 UTC (inside member OH 08-16 and the
+  Confirmed Shift) with TWO assigned resources under the Availability(default ShiftUsage) +
+  WorkingTerritories(IsPrimaryLocationEnabled=true) + ExcludedResources policy:
+    - resourceA: isRequiredResource=true, isPrimaryResource=true — fully clean (Primary member, Confirmed
+      Shift, available).
+    - resourceB: isRequiredResource=false, isPrimaryResource=false — also a Primary member with its own
+      Confirmed Shift (so it is a real candidate — WorkingTerritories and Availability pass for it) but on
+      the Account's excluded list.
+  Expected after Fix A (GREEN): ScheduleError errorCode=ExcludedResources, SA NOT scheduled. Today (RED):
+  the write path only eligibility-checks REQUIRED resources, so resourceB's excluded status is never
+  evaluated and the SA books schedulingStatus=Success — the live bug this scenario exposes. Assertions
+  live in the Java test.
+auth:
+  - id: 3b4c5d6e-7f80-4912-8a3b-4c5d6e7f8092
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"

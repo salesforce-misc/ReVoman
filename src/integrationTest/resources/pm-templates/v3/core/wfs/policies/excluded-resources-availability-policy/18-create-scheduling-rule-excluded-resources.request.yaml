@@ -1,0 +1,24 @@
+$kind: http-request
+description: >-
+  ExcludedResources rule (the rule under test). It rejects an assigned resource that is on the
+  appointment Account's excluded list (a ResourcePreference of type Excluded). resourceB is on that list.
+url: "{{baseUrl}}{{versionPath}}/sobjects/SchedulingRule"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+body:
+  type: json
+  content: |-
+    {
+      "MasterLabel": "ExcludedNonReq ExcludedResources",
+      "DeveloperName": "ExcludedNonReq_ExcludedResources_{{$timestamp}}",
+      "SchedulingRuleType": "ExcludedResources",
+      "SchedulingCategory": "A"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.environment.set("excludedResourcesExcludedRuleId", pm.response.json().id);
+    language: text/javascript
+order: 18000

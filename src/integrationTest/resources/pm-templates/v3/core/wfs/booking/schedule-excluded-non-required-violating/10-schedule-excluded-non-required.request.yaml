@@ -1,0 +1,80 @@
+$kind: http-request
+description: >-
+  Schedules a brand-new OnSite SA into tomorrow 11:00-11:30 UTC with TWO assigned resources under the
+  Availability(default ShiftUsage) + WorkingTerritories(IsPrimaryLocationEnabled=true) +
+  ExcludedResources policy. resourceA (isRequiredResource=true, isPrimaryResource=true) is fully clean.
+  resourceB (isRequiredResource=false, isPrimaryResource=false) is ALSO a Primary territory member (so
+  WorkingTerritories passes for it — isolating ExcludedResources) but is on the Account's excluded list
+  via a ResourcePreference(Excluded). The window is inside member OH 08-16 and the Confirmed Shift, so
+  Availability is not the blocker. Expected after Fix A: ScheduleError errorCode=ExcludedResources, SA
+  NOT scheduled. Today the write path eligibility-checks REQUIRED resources only, so resourceB's excluded
+  status is never evaluated and the SA books schedulingStatus=Success — the live bug under test.
+url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/schedule"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  # Act-step under assertion: its response IS the test's verdict, so it must always dispatch fresh.
+  x-revoman-ledger: "off"
+  # CONTROL/verdict step: a non-2xx (e.g. "not available") is a legitimate verdict, must NOT halt the run.
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "appointments": [
+        {
+          "schedulingMethod": "OnSite",
+          "schedulingPolicyId": "{{excludedResourcesPolicyId}}",
+          "coreDetails": {
+            "startTime": "{{excludedNonReqBookingStart}}",
+            "endTime": "{{excludedNonReqBookingEnd}}",
+            "status": "Scheduled",
+            "subject": "Non-required excluded resource eligibility probe",
+            "workConfiguration": {
+              "workTypeId": "{{excludedNonReqWorkTypeId}}"
+            },
+            "locationConstraints": {
+              "id": "{{excludedNonReqTerritoryId}}"
+            }
+          },
+          "serviceAppointmentParent": {
+            "id": "{{excludedNonReqAccountId}}"
+          },
+          "assignedResources": [
+            {
+              "isPrimaryResource": true,
+              "isRequiredResource": true,
+              "serviceResourceId": "{{excludedNonReqResourceAId}}"
+            },
+            {
+              "isPrimaryResource": false,
+              "isRequiredResource": false,
+              "serviceResourceId": "{{excludedNonReqResourceBId}}"
+            }
+          ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      // Tomorrow 11:00-11:30 UTC: inside member OH (08-16) AND the Confirmed Shift (08-16), so the
+      // Availability rule passes for the REQUIRED resourceA. The only rule that can fire on the
+      // NON-required resourceB is ExcludedResources (it is on the Account's excluded list).
+      const start = new Date();
+      start.setUTCDate(start.getUTCDate() + 1);
+      start.setUTCHours(11, 0, 0, 0);
+      const end = new Date(start.getTime() + 30 * 60 * 1000);
+      pm.environment.set("excludedNonReqBookingStart", start.toISOString());
+      pm.environment.set("excludedNonReqBookingEnd", end.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      // Capture the single appointment's schedulingStatus into the env for the JUnit Truth assertion
+      // (AppointmentCollectionOutputRepresentation.appointments[0].schedulingStatus). 262 hypothesis:
+      // the NON-required excluded helper escapes the ExcludedResources fitness rule -> Success.
+      const appointments = (pm.response.json() || {}).appointments || [];
+      pm.environment.set("excludedNonReqSchedulingStatus", appointments.length ? appointments[0].schedulingStatus : null);
+    language: text/javascript
+order: 1000

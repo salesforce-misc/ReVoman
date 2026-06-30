@@ -1,0 +1,22 @@
+$kind: collection
+description: |-
+  The "act" for the NON-required-WRONG-territory write-path eligibility proof (B1 territory, W-23049589) —
+  the territory analogue of schedule-excluded-non-required-violating. Schedules ONE brand-new OnSite SA
+  into tomorrow 11:30-12:30 UTC (a window that STRADDLES noon) with TWO assigned resources under the
+  Availability(ConsiderOnlyOpHours) + WorkingTerritories(primary) + MatchTerritory policy
+  (TERRITORY_PARTIAL_POLICY_SETUP):
+    - resourceA: isRequiredResource=true, isPrimaryResource=true — fully clean (Primary member, OPEN-ENDED
+      membership that CONTAINS the whole window, Confirmed Shift, available).
+    - resourceB: isRequiredResource=false, isPrimaryResource=false — also a Primary member with its own
+      Confirmed Shift (so it is a real candidate — WorkingTerritories and Availability pass for it) but its
+      membership ends at noon, so it does NOT contain the straddle-noon window.
+  Expected after the B1 fix (GREEN): ScheduleError errorCode=MatchTerritory, SA NOT scheduled. Before the
+  fix (RED): the write path only eligibility-checks REQUIRED resources, so resourceB's territory is never
+  evaluated and the SA books schedulingStatus=Success — the bug this scenario exposes. Assertions live in
+  the Java test.
+auth:
+  - id: 2b3c4d5e-6f70-4812-9a3b-4c5d6e7f8093
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"

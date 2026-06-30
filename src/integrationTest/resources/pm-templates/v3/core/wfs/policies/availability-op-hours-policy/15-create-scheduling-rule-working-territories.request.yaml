@@ -1,0 +1,21 @@
+$kind: http-request
+url: "{{baseUrl}}{{versionPath}}/sobjects/SchedulingRule"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+body:
+  type: json
+  content: |-
+    {
+      "MasterLabel": "Availability STM-OH WorkingTerritories",
+      "DeveloperName": "Availability_StmOh_WorkingTerritories_{{$timestamp}}",
+      "SchedulingRuleType": "WorkingTerritories",
+      "SchedulingCategory": "A"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.environment.set("availabilityOpHoursWorkingTerritoriesRuleId", pm.response.json().id);
+    language: text/javascript
+order: 15000

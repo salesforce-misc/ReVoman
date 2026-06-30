@@ -1,0 +1,33 @@
+$kind: collection
+description: |-
+  Fixture for the NON-REQUIRED-Secondary-member WorkingLocations write-path eligibility proof (Fix A, the
+  4th eligibility dimension — territory ROLE, distinct from MatchTerritory's membership CONTAINMENT).
+  Builds, in one composite/graph call, a data graph for a Schedule of ONE brand-new OnSite SA carrying
+  TWO assigned resources, isolated so WorkingLocations is the ONLY rule that can fire on resourceB:
+    - territory OperatingHours (08:00-16:00) + weekly OnSite TimeSlots
+    - ServiceTerritory -> territory OH; WorkType (OnSite, 60m); ServiceTerritoryWorkType
+    - resourceA: User-backed (caseWorkerUserId) ServiceResource (Technician, active, primary). PRIMARY
+      ServiceTerritoryMember (TerritoryType=P) effective a month ago + Confirmed Shift 08:00-16:00
+      tomorrow, so resourceA is fully clean under Availability + WorkingLocations(primary).
+    - resourceB: User-backed (caseManagerUserId — a DISTINCT user, since ServiceResource is DB-unique on
+      (RelatedRecordId, ResourceType)) ServiceResource (Technician, active). A SECONDARY
+      ServiceTerritoryMember (TerritoryType=S) + a Confirmed Shift 08:00-16:00 tomorrow. Under a
+      WorkingTerritories policy with IsPrimaryLocationEnabled=true / IsSecondaryLocationEnabled unset,
+      WorkingLocationsRuleCheck includes PRIMARY but NOT SECONDARY, so resourceB's Secondary membership is
+      "secondary disabled" — the ONLY rule that can fire on it (its Shift + member/territory OH make
+      Availability pass; it is genuinely a territory member so it is not a non-member). The write-path STM
+      bulk load (loadTerritoryMembersWithTypeBulk) does NOT filter by TerritoryType, so the Secondary row
+      IS loaded and projected as {S}; the rule then rejects it because Secondary is not included.
+    - Account (the SA parent context). NO ResourcePreference — Excluded/Required are not in play here.
+  Sets workingLocationsSecondaryNonReqTerritoryId / workingLocationsSecondaryNonReqWorkTypeId /
+  workingLocationsSecondaryNonReqAccountId / workingLocationsSecondaryNonReqResourceAId /
+  workingLocationsSecondaryNonReqResourceBId (+ shift start/end beforeRequest). Drives
+  schedule-working-locations-secondary-non-required-violating: a Schedule with the NON-required, Secondary
+  resourceB must be rejected with errorCode WorkingLocations. Today (RED, pre-Fix-A) it is silently
+  accepted (the write path only eligibility-checks REQUIRED resources), so the SA books Success.
+auth:
+  - id: 7c8d9e0f-1a2b-4c3d-8e4f-5a6b7c8d9e0f
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"

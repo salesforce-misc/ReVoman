@@ -1,0 +1,23 @@
+$kind: collection
+description: |-
+  Creates the master Skill for the NON-required-UNSKILLED-resource write-path eligibility proof (B1
+  skills, W-23049589), in its OWN collection so it lands under {{adminToken}} and in its OWN transaction.
+  Two independent reasons this cannot live in the skills-non-required data graph:
+    1. SETUP vs NON-setup DML: Skill (keyPrefix 0C5, the LiveAgent setupEntity the scheduling FKs point
+       at) is a SETUP object; the data graph (Account, ServiceResource, ServiceTerritory, …) is all
+       NON-setup. Salesforce forbids both in one transaction (MIXED_DML_OPERATION).
+    2. createAccess gate: Skill.createAccess = "CustomizeApplication || isDoingSysAdmin"; the manager
+       persona (Standard User + WFS perm sets) holds neither, so only {{adminToken}} (isDoingSysAdmin)
+       can create it.
+  Skill OWNERSHIP is irrelevant to the proof: the MatchSkills enforce path never SOQLs the Skill entity
+  directly — it reads ServiceResourceSkill + SkillRequirement (both FK the Skill by id), which the data
+  graph creates under {{managerToken}} so the manager OWNS them and the user-mode enforce SOQL can see
+  them. (Admin-owning the SR/STM/graph caused a sharing gap: the manager's user-mode WorkingLocations
+  load returned zero rows → spurious NOT_MEMBER. Keeping the graph manager-owned and only the Skill
+  admin-owned is what makes both walls fall.) Sets skillsNonReqSkillId for create-skills-non-required-graph.
+auth:
+  - id: 7c3e9d51-2a4b-4c8e-9f06-1b2d3e4f5a6b
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{adminToken}}"

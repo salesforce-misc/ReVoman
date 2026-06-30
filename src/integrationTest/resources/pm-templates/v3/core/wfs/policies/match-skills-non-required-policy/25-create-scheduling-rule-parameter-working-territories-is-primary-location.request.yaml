@@ -1,0 +1,24 @@
+$kind: http-request
+description: >-
+  Set IsPrimaryLocationEnabled=true on the WorkingTerritories rule so slot generation admits the
+  fixture's Primary ServiceTerritoryMembers and the brand-new Schedule finds the required resource
+  slot-available.
+url: "{{baseUrl}}{{versionPath}}/sobjects/SchedulingRuleParameter"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+body:
+  type: json
+  content: |-
+    {
+      "SchedulingRuleId": "{{skillsNonReqWorkingTerritoriesRuleId}}",
+      "SchedulingParameterKey": "IsPrimaryLocationEnabled",
+      "Value": "true"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.environment.set("skillsNonReqWorkingTerritoriesPrimaryParamId", pm.response.json().id);
+    language: text/javascript
+order: 25000

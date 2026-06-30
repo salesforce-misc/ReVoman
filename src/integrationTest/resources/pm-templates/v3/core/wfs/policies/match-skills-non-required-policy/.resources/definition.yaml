@@ -1,0 +1,24 @@
+$kind: collection
+description: |-
+  Scheduling policy for the NON-required-UNSKILLED-resource write-path eligibility proof (B1 skills,
+  W-23049589). The skills analogue of the excluded-resources-availability-policy: same
+  Availability + WorkingTerritories shape, but the veto rule under test is MatchSkills instead of
+  ExcludedResources. Carries three rules so resourceB's MISSING skill is the ONLY rule that can fire on it:
+    - Availability with an EXPLICIT ShiftUsage=ConsiderOpHoursAndShiftsUnion SchedulingRuleParameter
+      (a type-C rule has no default ShiftUsage; without the param it yields ZERO slots; mirrors
+      excluded-resources-availability-policy). Each resource's wide member OH 08-16 ∪ its Confirmed
+      Shift 08-16 make the 11:00 slot available.
+    - WorkingTerritories with IsPrimaryLocationEnabled=true (so slot generation admits the fixture's
+      Primary ServiceTerritoryMembers; BOTH resources are Primary members so this passes for both and
+      does not shadow the verdict).
+    - MatchSkills (the rule under test, kind=RESOURCE_FIT after the B1 fix: an assigned resource lacking
+      a skill the WorkType requires must be rejected). resourceA HAS a ServiceResourceSkill for the
+      required Skill; resourceB has NONE.
+  Sets matchSkillsNonReqPolicyId. Mirrors the rule/param/policy/link request shapes in
+  excluded-resources-availability-policy plus the MatchSkills rule/link from full-policy.
+auth:
+  - id: 375ca739-09bc-4eea-ad26-42ef640b6992
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"

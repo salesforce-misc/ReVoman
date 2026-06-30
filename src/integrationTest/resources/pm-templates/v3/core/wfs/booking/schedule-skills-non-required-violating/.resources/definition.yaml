@@ -1,0 +1,22 @@
+$kind: collection
+description: |-
+  The "act" for the NON-required-UNSKILLED write-path eligibility proof (B1 skills, W-23049589) — the
+  skills analogue of schedule-territory-membership-non-required-violating. Schedules ONE brand-new
+  OnSite SA into tomorrow 11:00-12:00 UTC with TWO assigned resources under the Availability(default)
+  + WorkingTerritories(primary) + MatchSkills policy (MATCH_SKILLS_NON_REQ_POLICY_SETUP):
+    - resourceA: isRequiredResource=true, isPrimaryResource=true — fully clean (Primary open-ended member,
+      Confirmed Shift, available, and HOLDS a ServiceResourceSkill for the WorkType's required Skill).
+    - resourceB: isRequiredResource=false, isPrimaryResource=false — also a Primary member with its own
+      Confirmed Shift and open-ended membership (so WorkingTerritories, Availability and MatchTerritory all
+      pass for it) but it has NO ServiceResourceSkill for the required Skill. It stays NON-primary so the
+      resolver's primary-implies-required guard does not lift it into the required veto set.
+  Expected after the B1 fix (GREEN): ScheduleError errorCode=MatchSkills, SA NOT scheduled. Before the fix
+  (RED): the write path only eligibility-checks REQUIRED resources, so resourceB's missing skill is never
+  evaluated and the SA books schedulingStatus=Success — the bug this scenario exposes. Assertions live in
+  the Java test.
+auth:
+  - id: 995488cf-5bf9-4506-93f4-d8d861b7b93c
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"

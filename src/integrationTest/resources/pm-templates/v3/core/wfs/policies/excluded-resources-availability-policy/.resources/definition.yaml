@@ -1,0 +1,20 @@
+$kind: collection
+description: |-
+  Scheduling policy for the NON-required-excluded-resource write-path eligibility proof (Fix A, RED #1).
+  Carries three rules so resourceB's ExcludedResources status is the ONLY rule that can fire on it:
+    - Availability with an EXPLICIT ShiftUsage=ConsiderOpHoursAndShiftsUnion SchedulingRuleParameter
+      (a type-C rule has no default ShiftUsage; without the param it yields ZERO slots; mirrors the
+      territory-membership-partial-policy). Each resource's wide member OH 08-16 ∪ its Confirmed Shift
+      08-16 make the 11:00 slot available.
+    - WorkingTerritories with IsPrimaryLocationEnabled=true (so slot generation admits the fixture's
+      Primary ServiceTerritoryMembers; BOTH resources are Primary members so this passes for both and
+      does not shadow the verdict).
+    - ExcludedResources (the rule under test: a resource on the Account's excluded list must be rejected).
+  Sets excludedResourcesPolicyId. Mirrors the rule/param/policy/link request shapes in
+  availability-op-hours-policy plus the ExcludedResources rule/link from full-policy.
+auth:
+  - id: 2a3b4c5d-6e7f-4801-9a2b-3c4d5e6f7081
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"

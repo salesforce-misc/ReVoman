@@ -1,0 +1,20 @@
+$kind: http-request
+url: "{{baseUrl}}{{versionPath}}/sobjects/SchedulingRuleParameter"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+body:
+  type: json
+  content: |-
+    {
+      "SchedulingRuleId": "{{availabilityOpHoursWorkingTerritoriesRuleId}}",
+      "SchedulingParameterKey": "IsPrimaryLocationEnabled",
+      "Value": "true"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.environment.set("availabilityOpHoursWorkingTerritoriesPrimaryParamId", pm.response.json().id);
+    language: text/javascript
+order: 25000

@@ -1,0 +1,24 @@
+$kind: http-request
+description: >-
+  Links the MatchTerritory rule to the policy (active). This is what makes policyInfo.shouldMatchTerritory()
+  true, so MatchTerritoryRuleCheck applies — and (since it is PER_SLOT_SAFE) folds into the read-path
+  per-slot pass that prunes slots outside the candidate's membership interval.
+url: "{{baseUrl}}{{versionPath}}/tooling/sobjects/SchedulingPolicyRule"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+body:
+  type: json
+  content: |-
+    {
+      "SchedulingPolicyId": "{{territoryPartialPolicyId}}",
+      "SchedulingRuleId": "{{territoryPartialMatchTerritoryRuleId}}",
+      "IsActive": true
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.environment.set("territoryPartialMatchTerritoryPolicyRuleId", pm.response.json().id);
+    language: text/javascript
+order: 60000

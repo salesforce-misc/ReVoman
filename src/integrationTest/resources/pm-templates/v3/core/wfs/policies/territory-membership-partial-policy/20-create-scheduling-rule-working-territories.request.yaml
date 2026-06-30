@@ -1,0 +1,28 @@
+$kind: http-request
+description: >-
+  Create the WorkingTerritories scheduling rule the MatchTerritory policy attaches. Combined with its
+  IsPrimaryLocationEnabled=true parameter (next step), this sets the policy's include-primary flag so
+  slot generation admits the fixture's Primary ServiceTerritoryMember (loadMembersInTerritory is gated
+  on includePrimary/includeSecondary — with neither set, the Primary STM is filtered out and slot-gen
+  yields ZERO raw slots). The resource IS a Primary member, so WorkingLocations also passes. Produces
+  territoryPartialWorkingTerritoriesRuleId.
+url: "{{baseUrl}}{{versionPath}}/sobjects/SchedulingRule"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+body:
+  type: json
+  content: |-
+    {
+      "MasterLabel": "TerritoryPartial WorkingTerritories",
+      "DeveloperName": "TerritoryPartial_WorkingTerritories_{{$timestamp}}",
+      "SchedulingRuleType": "WorkingTerritories",
+      "SchedulingCategory": "A"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.environment.set("territoryPartialWorkingTerritoriesRuleId", pm.response.json().id);
+    language: text/javascript
+order: 20000

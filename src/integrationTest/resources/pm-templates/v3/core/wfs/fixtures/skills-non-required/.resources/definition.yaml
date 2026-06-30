@@ -1,0 +1,44 @@
+$kind: collection
+description: |-
+  Fixture for the NON-required-UNSKILLED-resource write-path eligibility proof (B1 skills, W-23049589).
+  The skills analogue of the territory-non-required fixture: same TWO-assigned-resource graph, but the
+  violation dimension is MatchSkills (resourceB lacks a required skill) instead of per-slot MatchTerritory
+  containment. Builds, in one composite/graph call, a data graph for a Schedule of ONE brand-new
+  OnSite SA carrying TWO assigned resources under the Availability(default) + WorkingTerritories(primary)
+  + MatchSkills policy (MATCH_SKILLS_NON_REQ_POLICY_SETUP), isolated so MatchSkills is the ONLY rule that
+  can fire on resourceB:
+    - territory OperatingHours (08:00-16:00) + weekly OnSite TimeSlots; member OperatingHours (08-16).
+    - ServiceTerritory -> territory OH; WorkType (OnSite, 60m); ServiceTerritoryWorkType.
+    - Skill (master) + SkillRequirement (RelatedRecordId=WorkType, SkillId=Skill) so the WorkType REQUIRES
+      the Skill.
+    - resourceA: User-backed (caseWorkerUserId) ServiceResource (Technician, active, primary). Primary
+      ServiceTerritoryMember (TerritoryType=P) effective a month ago and OPEN-ENDED + Confirmed Shift
+      08:00-16:00 tomorrow + a ServiceResourceSkill for the required Skill — fully clean under Availability,
+      WorkingTerritories, MatchTerritory AND MatchSkills.
+    - resourceB: User-backed (caseManagerUserId — a DISTINCT user, since ServiceResource is DB-unique on
+      (RelatedRecordId, ResourceType)) ServiceResource (Technician, active). ALSO a Primary
+      ServiceTerritoryMember (so WorkingTerritories passes) + a Confirmed Shift 08:00-16:00 tomorrow so it
+      is admitted as a REAL candidate (since W-22901809 a Shift is required to be a candidate at all), with
+      an OPEN-ENDED membership that contains the booking window (so MatchTerritory passes too). resourceB
+      has NO ServiceResourceSkill for the required Skill — so MatchSkills is the only rule that can veto it.
+    - Account (the SA parent context).
+  Sets skillsNonReqTerritoryId / skillsNonReqWorkTypeId / skillsNonReqAccountId / skillsNonReqResourceAId /
+  skillsNonReqResourceBId / skillsNonReqSkillId. Drives schedule-skills-non-required-violating: a Schedule
+  with the NON-required, unskilled resourceB must be rejected with errorCode MatchSkills. Before the B1 fix
+  (RED) it is silently accepted (the write path eligibility-checked REQUIRED resources only), so the SA
+  books Success — that is the bug this fixture exposes. Assertions live in the Java test.
+  AUTH NOTE: seeds under {{managerToken}} so the MANAGER owns the ServiceResource / ServiceTerritoryMember /
+  Shift graph — the Schedule act's enforce-path rule SOQL runs in user mode as the manager, so admin-owned
+  rows would be invisible (a sharing gap that makes WorkingLocations spuriously report NOT_MEMBER, vetoing
+  the clean resourceA before MatchSkills can fire). The one thing the manager cannot create — the Skill
+  setupEntity (createAccess gates on CustomizeApplication || isDoingSysAdmin) — is created separately under
+  {{adminToken}} in the skills-non-required-skill collection; this graph only FK-references that Skill by id
+  from SkillRequirement and resourceA's ServiceResourceSkill, both NON-setup and manager-owned. Skill
+  ownership is irrelevant: the MatchSkills enforce path never SOQLs the Skill entity, only those two child
+  rows.
+auth:
+  - id: bb1cc22e-a1d7-4233-9e78-8f25b5a170f7
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"

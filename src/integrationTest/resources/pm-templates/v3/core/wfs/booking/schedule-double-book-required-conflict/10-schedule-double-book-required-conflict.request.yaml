@@ -1,0 +1,72 @@
+$kind: http-request
+description: >-
+  CONTROL — identical to the non-required double-book request with resourceB isRequiredResource=true.
+  Because a REQUIRED resource IS availability-checked, resourceB (member OH + Shift both 12:00-14:00, not
+  covering 11:00-11:30) trips Availability → ScheduleError / SlotNotAvailable. Busy-proof half of the A/B.
+url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/schedule"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  # Act-step under assertion: its response IS the test's verdict, so it must always dispatch fresh.
+  x-revoman-ledger: "off"
+  # This CONTROL is EXPECTED to be rejected (busy-proof: a required busy resource → not-available),
+  # so its non-2xx must NOT halt the run — the verdict is read from the captured status, not HTTP.
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "appointments": [
+        {
+          "schedulingMethod": "OnSite",
+          "schedulingPolicyId": "{{availabilityOpHoursPolicyId}}",
+          "coreDetails": {
+            "startTime": "{{doubleBookConflictStart}}",
+            "endTime": "{{doubleBookConflictEnd}}",
+            "status": "Scheduled",
+            "subject": "Double-book required-conflict control SA",
+            "workConfiguration": {
+              "workTypeId": "{{doubleBookWorkTypeId}}"
+            },
+            "locationConstraints": {
+              "id": "{{doubleBookTerritoryId}}"
+            }
+          },
+          "serviceAppointmentParent": {
+            "id": "{{doubleBookAccountId}}"
+          },
+          "assignedResources": [
+            {
+              "isPrimaryResource": true,
+              "isRequiredResource": true,
+              "serviceResourceId": "{{doubleBookResourceAId}}"
+            },
+            {
+              "isPrimaryResource": false,
+              "isRequiredResource": true,
+              "serviceResourceId": "{{doubleBookResourceBId}}"
+            }
+          ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      const start = new Date();
+      start.setUTCDate(start.getUTCDate() + 1);
+      start.setUTCHours(11, 0, 0, 0);
+      const end = new Date(start.getTime() + 30 * 60 * 1000);
+      pm.environment.set("doubleBookConflictStart", start.toISOString());
+      pm.environment.set("doubleBookConflictEnd", end.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      // Capture the single appointment's schedulingStatus into the env for the JUnit Truth assertion.
+      // Busy-proof control: flipping resourceB to isRequiredResource=true makes it availability-checked
+      // -> not-available, so this is anything other than Success.
+      const appointments = (pm.response.json() || {}).appointments || [];
+      pm.environment.set("doubleBookRequiredControlSchedulingStatus", appointments.length ? appointments[0].schedulingStatus : null);
+    language: text/javascript
+order: 1000

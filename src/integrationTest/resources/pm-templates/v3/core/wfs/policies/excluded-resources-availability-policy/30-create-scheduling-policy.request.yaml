@@ -1,0 +1,23 @@
+$kind: http-request
+description: >-
+  The scheduling policy linking the Availability + WorkingTerritories + ExcludedResources rules. Sets
+  excludedResourcesPolicyId.
+url: "{{baseUrl}}{{versionPath}}/tooling/sobjects/SchedulingPolicy"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+body:
+  type: json
+  content: |-
+    {
+      "MasterLabel": "ExcludedNonReq Policy",
+      "DeveloperName": "ExcludedNonReq_Policy_{{$timestamp}}",
+      "SchedulingCategory": "A"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.environment.set("excludedResourcesPolicyId", pm.response.json().id);
+    language: text/javascript
+order: 30000

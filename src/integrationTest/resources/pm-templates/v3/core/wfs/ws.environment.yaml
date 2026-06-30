@@ -1,0 +1,480 @@
+name: ws
+values:
+  - key: baseUrl
+    value: ''
+  - key: username
+    value: ''
+  - key: password
+    value: ''
+  - key: adminToken
+    value: ''
+  - key: accessToken
+    value: ''
+  - key: managerToken
+    value: ''
+  - key: secretToken
+    value: ''
+  - key: adminUsername
+    value: ''
+  - key: adminPassword
+    value: ''
+  - key: commonUserPassword
+    value: ''
+  - key: unitPrice
+    value: '77'
+  - key: adminUserId
+    value: 005xx000001X7mvAAC
+  - key: salesRepPsgId
+    value: 0PGxx0000004CCHGA2
+  - key: productAndPricingAdminPsgId
+    value: 0PGxx0000004CCJGA2
+  - key: taxAdminPsgId
+    value: 0PGxx0000004CCIGA2
+  - key: billingAdminPsgId
+    value: ''
+  - key: standardUserProfileId
+    value: 00exx000000n0COAAY
+  - key: taxAdminUserName
+    value: taxAdmin-rlm-1732283473@revoman.org
+  - key: taxAdminUserId
+    value: 005xx000001X7x7AAC
+  - key: billingAdminUserName
+    value: billingAdmin-rlm-1732283553@revoman.org
+  - key: billingAdminUserId
+    value: 005xx000001X80LAAS
+  - key: productAndPricingAdminUserName
+    value: productAndPricingAdmin-rlm-1732283487@revoman.org
+  - key: productAndPricingAdminUserId
+    value: 005xx000001X7x8AAC
+  - key: salesRepUserName
+    value: salesRep-rlm-1732283502@revoman.org
+  - key: salesRepUserId
+    value: 005xx000001X7x9AAC
+  - key: mockTaxAdapterId
+    value: 01pxx0000004UQuAAM
+  - key: billingPolicyId
+    value: 1BPxx0000004CguGAE
+  - key: billingTreatmentId
+    value: 1BTxx0000004Cc4GAE
+  - key: billingTreatmentItemId
+    value: ''
+  - key: paymentTermId
+    value: ''
+  - key: standardPricebookId
+    value: 01sxx0000005ptpAAA
+  - key: taxEngineProviderId
+    value: 6nyxx000000001dAAA
+  - key: namedCredentialId
+    value: 0XAxx000000003FGAQ
+  - key: taxEngineId
+    value: 08pxx0000004CNYAA2
+  - key: taxPolicyId
+    value: 1Tpxx0000004CDsCAM
+  - key: taxTreatmentId
+    value: 1ttxx000000004rAAA
+  - key: prorationPolicyId
+    value: 0muxx000000004rAAA
+  - key: oneTimeProductId
+    value: 01txx0000006iGyAAI
+  - key: oneTimeSellingModelId
+    value: 'null'
+  - key: oneTimeProductSellingModelId
+    value: 0jPxx0000000001EAA
+  - key: evergreenProductId
+    value: 01txx0000006iNQAAY
+  - key: evergreenProductSellingModelId
+    value: 0jPxx00000000RREAY
+  - key: termedProductId
+    value: 01txx0000006iP2AAI
+  - key: termedProductSellingModelId
+    value: 0jPxx00000000T3EAI
+  - key: oneTimePriceBookEntryId
+    value: 01uxx0000008yggAAA
+  - key: evergreenPriceBookEntryId
+    value: 01uxx0000008ytaAAA
+  - key: termedPriceBookEntryId
+    value: 01uxx0000008yvCAAQ
+  - key: productRelationshipTypeId
+    value: 0yoxx00000000BJAAY
+  - key: $currentDate
+    value: '2024-12-07'
+  - key: $randomFutureDate
+    value: '2025-12-07'
+  - key: contactId
+    value: 003xx000004WiWqAAK
+  - key: $pricingPref
+    value: system
+  - key: quoteId
+    value: 0Q0xx0000004CDsCAM
+  - key: $quoteFieldsToQuery
+    value: 'LineItemCount, CalculationStatus'
+  - key: $qliFieldsToQuery
+    value: 'Id, NetUnitPrice'
+  - key: $qlrFieldsToQuery
+    value: 'Id, QuoteId, MainQuoteLineId, AssociatedQuoteLineId'
+  - key: quoteCalculationStatus
+    value: TaxCalculationWaiting
+  - key: qlrCount
+    value: ''
+  - key: qliCreated1Id
+    value: 0QLxx0000004CIiGAM
+  - key: productForQLI1Id
+    value: 01txx0000006iDkAAI
+  - key: qliCreated2Id
+    value: ''
+  - key: productForQLI2Id
+    value: ''
+  - key: qliCreated3Id
+    value: ''
+  - key: billingScheduleId
+    value: 'null'
+  - key: productForQLI3Id
+    value: ''
+  - key: qliCreated4Id
+    value: ''
+  - key: productForQLI4Id
+    value: ''
+  - key: quoteForQLR1Id
+    value: ''
+  - key: associatedQuoteLineForQLR1Id
+    value: ''
+  - key: quoteForQLR2Id
+    value: ''
+  - key: associatedQuoteLineForQLR2Id
+    value: ''
+  - key: quoteForQLR3Id
+    value: ''
+  - key: associatedQuoteLineForQLR3Id
+    value: ''
+  - key: qliCreated5Id
+    value: ''
+  - key: productForQLI5Id
+    value: ''
+  - key: qliCreated6Id
+    value: ''
+  - key: productForQLI6Id
+    value: ''
+  - key: $attributeName
+    value: revoman-attr
+  - key: accountId
+    value: 2npxx00000000BJAAY
+  - key: attributeDefinitionId
+    value: 0tjxx000000009hAAA
+  - key: opportunityId
+    value: 006xx000001a2yCAAQ
+  - key: mainQuoteLine+associatedQuoteLine1ForQLR
+    value: ''
+  - key: mainQuoteLine+associatedQuoteLine2ForQLR
+    value: ''
+  - key: mainQuoteLine+associatedQuoteLine3ForQLR
+    value: ''
+  - key: qliCreated7Id
+    value: ''
+  - key: productForQLI7Id
+    value: ''
+  - key: qliCreated8Id
+    value: ''
+  - key: productForQLI8Id
+    value: ''
+  - key: qliCreated9Id
+    value: ''
+  - key: productForQLI9Id
+    value: ''
+  - key: qliCreated10Id
+    value: ''
+  - key: productForQLI10Id
+    value: ''
+  - key: lineItemCount
+    value: '1'
+  - key: taxEngineProdviderId
+    value: ''
+  - key: currentdate
+    value: ''
+  - key: quoteLineItemId
+    value: ''
+  - key: $qaFieldsToQuery
+    value: ''
+  - key: $quantity
+    value: '3'
+  - key: quoteIdWithSkipPricing
+    value: ''
+  - key: quoteCalculationStatusForSkipPricing
+    value: ''
+  - key: version
+    value: '67.0'
+  - key: versionPath
+    value: /services/data/v67.0
+  - key: orgId
+    value: 00Dxx00iDhF3Q8OEIV
+  - key: oneTimeSellingModelOptionId
+    value: 0iOxx000000009hEAA
+  - key: evergreenProductSellingModelOptionId
+    value: 0iOxx00000000ODEAY
+  - key: termedProductSellingModelOptionId
+    value: 0iOxx00000000PpEAI
+  - key: ProductRelatedComponentId
+    value: 0dSxx000000009hEAA
+  - key: salesOpsRepPsgId
+    value: ''
+  - key: qliCreated11Id
+    value: ''
+  - key: productForQLI11Id
+    value: ''
+  - key: quoteCalculationStatusAfterAllUpdates
+    value: ''
+  - key: $aotFieldsToQuery
+    value: Status
+  - key: accountName
+    value: ''
+  - key: currentDate
+    value: '2024-11-20'
+  - key: futureDate
+    value: '2025-11-19'
+  - key: $qliaFieldsToQuery
+    value: 'Id, AttributeDefinition.Name, AttributeValue'
+  - key: mainQuoteLineForQLR1Id
+    value: ''
+  - key: mainQuoteLineForQLR2Id
+    value: ''
+  - key: mainQuoteLineForQLR3Id
+    value: ''
+  - key: aotCount
+    value: '1'
+  - key: aot1Status
+    value: Completed
+  - key: qliaCount
+    value: ''
+  - key: qlia1-attributeName
+    value: ''
+  - key: qlia1-attributeValue
+    value: ''
+  - key: taxAdminPS1Id
+    value: 0PSxx0000004CouGAE
+  - key: productAndPricingAdminPS1Id
+    value: 0PSxx0000004CoPGAU
+  - key: productAndPricingAdminPS2Id
+    value: 0PSxx0000004CokGAE
+  - key: productAndPricingAdminPS3Id
+    value: 0PSxx0000004CorGAE
+  - key: salesRepPS1Id
+    value: 0PSxx0000004CodGAE
+  - key: salesRepPS2Id
+    value: 0PSxx0000004CpGGAU
+  - key: salesRepPS3Id
+    value: 0PSxx0000004CoUGAU
+  - key: salesRepPS4Id
+    value: 0PSxx0000004CoeGAE
+  - key: account4Id
+    value: ''
+  - key: salesRepPS5Id
+    value: 0PSxx0000004ColGAE
+  - key: salesRepPS6Id
+    value: ''
+  - key: salesRepPS7Id
+    value: ''
+  - key: salesRepPS8Id
+    value: ''
+  - key: salesRepPS9Id
+    value: ''
+  - key: salesRepPS10Id
+    value: ''
+  - key: salesOpsRepPS1Id
+    value: ''
+  - key: salesOpsRepPS2Id
+    value: ''
+  - key: salesOpsRepPS3Id
+    value: ''
+  - key: salesOpsRepPS4Id
+    value: ''
+  - key: salesOpsRepPS5Id
+    value: ''
+  - key: salesOpsRepPS6Id
+    value: ''
+  - key: salesOpsRepPS7Id
+    value: ''
+  - key: salesOpsRepPS8Id
+    value: ''
+  - key: salesOpsRepPS9Id
+    value: ''
+  - key: salesOpsRepPS10Id
+    value: ''
+  - key: salesOpsRepUserId
+    value: 005xx000001X7xAAAS
+  - key: productId
+    value: ''
+  - key: productAndPricingAdminPS4Id
+    value: 0PSxx0000004CopGAE
+  - key: productComponentGroupId
+    value: ''
+  - key: $requestName
+    value: place-order
+  - key: $unitPrice
+    value: '77'
+  - key: billingAdminPsg1Id
+    value: 0PSxx0000004CtsGAE
+  - key: billingAdminPS1Id
+    value: 0PSxx0000004Cp5GAE
+  - key: taxAdminPS2Id
+    value: 0PSxx0000004Cp4GAE
+  - key: billingOpsPS1Id
+    value: 0PSxx0000004CoPGAU
+  - key: billingOpsUserName
+    value: billingOps-rlm-1732283539@revoman.org
+  - key: billingOpsUserId
+    value: 005xx000001X7yjAAC
+  - key: flowExecutionUserName
+    value: bill@254.org
+  - key: billingTreatmentItem0Id
+    value: 1BDxx0000004CXEGA2
+  - key: billingTreatmentItem1Id
+    value: 1BDxx0000004CXFGA2
+  - key: billingTreatmentItem2Id
+    value: 1BDxx0000004CXGGA2
+  - key: productAndPricingAdminPS5Id
+    value: 0PSxx0000004Cp5GAE
+  - key: salesOpsPS1Id
+    value: 0PSxx0000004CofGAE
+  - key: salesOpsPS2Id
+    value: 0PSxx0000004CpGGAU
+  - key: salesOpsRepUserName
+    value: salesOps-rlm-1732283517@revoman.org
+  - key: orderId
+    value: 801xx000003GbRXAA0
+  - key: salesOpsPS3Id
+    value: 0PSxx0000004CokGAE
+  - key: salesOpsPS4Id
+    value: 0PSxx0000004CoZGAU
+  - key: salesOpsPS5Id
+    value: 0PSxx0000004CoRGAU
+  - key: salesOpsPS6Id
+    value: 0PSxx0000004CoaGAE
+  - key: salesOpsPS7Id
+    value: 0PSxx0000004CocGAE
+  - key: salesOpsPS8Id
+    value: 0PSxx0000004CobGAE
+  - key: salesOpsPS9Id
+    value: 0PSxx0000004CoXGAU
+  - key: salesOpsPS10Id
+    value: 0PSxx0000004ColGAE
+  - key: salesOpsPS11Id
+    value: 0PSxx0000004CouGAE
+  - key: billingOpsPS2Id
+    value: 0PSxx0000004Cp3GAE
+  - key: billingOpsPS3Id
+    value: 0PSxx0000004Cp6GAE
+  - key: billingOpsPS4Id
+    value: 0PSxx0000004DZsGAM
+  - key: billingOpsPS5Id
+    value: 0PSxx0000004CoEGAU
+  - key: billingOpsPS6Id
+    value: 0PSxx0000004CnUGAU
+  - key: billingOpsPS7Id
+    value: 0PSxx0000004CoFGAU
+  - key: billingOpsPS8Id
+    value: 0PSxx0000004CnWGAU
+  - key: billingMilestonePlanId
+    value: ''
+  - key: billingMilestonePlanItem0Id
+    value: ''
+  - key: billingMilestonePlanItem1Id
+    value: 1LSxx0000004CH8GAM
+  - key: billingMilestonePlanItem2Id
+    value: 1LSxx0000004CH6GAM
+  - key: $orderFieldsToQuery
+    value: 'OrderNumber, CalculationStatus'
+  - key: $oiFieldsToQuery
+    value: 'Id, OrderItemNumber, NetUnitPrice'
+  - key: orderCalculationStatus
+    value: CompletedWithTax
+  - key: orderItem1Id
+    value: 802xx000001ncOpAAI
+  - key: customSalesRepPermSet
+    value: Custom_Sales_Rep_Perm_Set
+  - key: customSalesOpsRepPermSet
+    value: Custom_Sales_Ops_Rep_Perm_Set
+  - key: milestoneDate
+    value: '2024-12-21'
+  - key: $invLineFieldsToQuery
+    value: 'Id, InvoiceId, Invoice.status'
+  - key: invoiceId
+    value: 3ttxx00000000JNAAY
+  - key: invoiceLine1Id
+    value: 5TVxx0000004CAeGAM
+  - key: milestone1Date
+    value: '2025-01-07'
+  - key: milestone2Date
+    value: '2025-02-07'
+  - key: milestone3Date
+    value: '2025-03-07'
+  - key: invoiceLine2Id
+    value: 5TVxx0000004CAeGAM
+  - key: invoice1Id
+    value: 'null'
+  - key: invoice2Id
+    value: 5TVxx0000004CAeGAM
+  - key: $bsFieldsToQuery
+    value: 'Id, Status'
+  - key: $bmpFieldsToQuery
+    value: 'Id, Status'
+  - key: $bmpiFieldsToQuery
+    value: 'Id, Status'
+  - key: invoice1Status
+    value: 'null'
+  - key: billingSchedule1Id
+    value: 44bxx0000004Cc5AAE
+  - key: billingSchedule1Status
+    value: ReadyForInvoicing
+  - key: billingMilestonePlan1Id
+    value: 1GTxx0000004CH6GAM
+  - key: billingMilestonePlan1Status
+    value: Active
+  - key: billingMilestonePlanItem1Status
+    value: Invoiced
+  - key: billingMilestonePlanItem2Status
+    value: Waiting for Milestone Accomplishment
+  - key: billingMilestonePlanItem3Id
+    value: 1LSxx0000004CH7GAM
+  - key: billingMilestonePlanItem3Status
+    value: Waiting for Milestone Accomplishment
+  - key: billingMilestonePlanItem4Id
+    value: 1LSxx0000004CH9GAM
+  - key: billingMilestonePlanItem4Status
+    value: Waiting for Milestone Accomplishment
+  - key: apiVersion
+    value: v67.0
+  - key: unifiedPermSets
+    value: '''WorkforceSchedulingManager'', ''WorkforceSchedulingResource'', ''UseAnyAPI'''
+  - key: unifiedPSManagerId
+    value: 0PSxx0000004DBYGA2
+  - key: unifiedPSResourceId
+    value: 0PSxx0000004D24GAE
+  - key: caseManagerUserId
+    value: 005xx000001X8O1AAK
+  - key: managerUserName
+    value: manager-1777360108@revoman.org
+  - key: saIdGood
+    value: 08pxx0000004Cc4AAE
+  - key: excludedResourceSaId
+    value: 08pxx0000004CdgAAE
+  - key: requiredResourceSaId
+    value: 08pxx0000004CdhAAE
+  - key: workingLocationsSaId
+    value: 08pxx0000004Cc5AAE
+  - key: matchSkillsSaId
+    value: 08pxx0000004CdiAAE
+  - key: visitingHoursSaId
+    value: 08pxx0000004CdjAAE
+  - key: startTimeIntervalSaId
+    value: 08pxx0000004Cc6AAE
+  - key: availabilitySaId
+    value: 08pxx0000004CfIAAU
+  - key: saId1Override
+    value: 08pxx0000004Cc4AAE
+  - key: saId2Override
+    value: 08pxx0000004CdgAAE
+  - key: schedulingPolicyId
+    value: 2npxx00000000GAAAY
+  - key: saId1
+    value: 08pxx0000004Cc4AAE
+  - key: saId2
+    value: 08pxx0000004CdgAAE

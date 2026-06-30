@@ -1,0 +1,32 @@
+$kind: collection
+description: |-
+  Fixture for the NON-REQUIRED-excluded-resource write-path eligibility proof (Fix A, RED #1). Builds, in
+  one composite/graph call, a data graph for a Schedule of ONE brand-new OnSite SA carrying TWO
+  assigned resources, isolated so ExcludedResources is the ONLY rule that can fire on resourceB:
+    - territory OperatingHours (08:00-16:00) + weekly OnSite TimeSlots
+    - ServiceTerritory -> territory OH; WorkType (OnSite, 60m); ServiceTerritoryWorkType
+    - resourceA: User-backed (caseWorkerUserId) ServiceResource (Technician, active, primary). Primary
+      ServiceTerritoryMember (TerritoryType=P) effective a month ago + Confirmed Shift 08:00-16:00
+      tomorrow, so resourceA is fully clean under Availability + WorkingTerritories.
+    - resourceB: User-backed (caseManagerUserId — a DISTINCT user, since ServiceResource is DB-unique on
+      (RelatedRecordId, ResourceType)) ServiceResource (Technician, active). ALSO a Primary
+      ServiceTerritoryMember (so WorkingTerritories/WorkingLocations passes for resourceB too, isolating
+      ExcludedResources as the only possible violation) + a Confirmed Shift 08:00-16:00 tomorrow. Since
+      W-22901809 makes a Shift unconditionally required to generate slots / be admitted, resourceB needs
+      its own Shift to become a REAL candidate whose excluded status the rule engine evaluates — without
+      it resourceB would be pruned before the ExcludedResources verdict and never exercise the bug.
+    - Account (the SA parent context).
+    - ResourcePreference(PreferenceType=Excluded, RelatedRecordId=Account, ServiceResourceId=resourceB) —
+      puts resourceB on the Account's excluded list.
+  Sets excludedNonReqTerritoryId / excludedNonReqWorkTypeId / excludedNonReqAccountId /
+  excludedNonReqResourceAId / excludedNonReqResourceBId (+ shift start/end beforeRequest like the
+  territory-membership-partial fixture). Drives schedule-excluded-non-required-violating: a Schedule with
+  the NON-required, excluded resourceB must be rejected with errorCode ExcludedResources. Today (RED) it
+  is silently accepted (the write path only eligibility-checks REQUIRED resources), so the SA books
+  Success — that is the live bug this fixture exposes.
+auth:
+  - id: 1f2e3d4c-5b6a-4798-8c9d-0e1f2a3b4c5d
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"

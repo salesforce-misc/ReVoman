@@ -1,0 +1,14 @@
+$kind: collection
+description: |-
+  The "act" for the Decision-1 DOUBLE-BOOK characterization (positive case) on 262. Schedules ONE
+  brand-new OnSite SA into tomorrow 11:00-11:30 UTC with TWO assigned resources under the
+  availability-op-hours policy: resourceA required+primary (clean, free) and resourceB NON-required
+  (Primary member with its own Shift, but UNAVAILABLE at 11:00-11:30). 264 books Success (availability not
+  checked for a non-required helper). 262 hypothesis: also Success (helper persisted with no validation).
+  Assertions are read from the typed response by the runner.
+auth:
+  - id: 8b2c3d4e-5f60-4172-9a8b-3c4d5e6f7182
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"

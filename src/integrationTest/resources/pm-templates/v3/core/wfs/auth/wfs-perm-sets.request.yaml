@@ -1,0 +1,28 @@
+$kind: http-request
+url: "{{baseUrl}}{{versionPath}}/query/?q=SELECT Id, Name FROM PermissionSet WHERE Name IN ({{unifiedPermSets}})"
+method: GET
+headers:
+  Content-Type: application/json
+queryParams:
+  q: SELECT Id, Name FROM PermissionSet WHERE Name IN ({{unifiedPermSets}})
+body:
+  type: text
+  content: ""
+scripts:
+  - type: afterResponse
+    code: |-
+      var jsonData = pm.response.json();
+      // Map each PermissionSet id by its Name, NOT by array index. SOQL `WHERE Name IN (...)`
+      // does NOT guarantee row order, so records[0]/records[1] are unreliable — relying on index
+      // silently assigns the WRONG SPS (e.g. case-worker gets WorkforceSchedulingManager instead
+      // of WorkforceSchedulingResource, losing the WorkforceSchedulingServiceResource user-perm
+      // that slot-gen's filterResourcesWithPerm requires → member stripped → 0 slots).
+      var byName = {};
+      jsonData.records.forEach(function (r) { byName[r.Name] = r.Id; });
+      pm.environment.set("unifiedPSManagerId", byName["WorkforceSchedulingManager"]);
+      pm.environment.set("unifiedPSResourceId", byName["WorkforceSchedulingResource"]);
+    language: text/javascript
+  - type: beforeRequest
+    code: pm.environment.set("unifiedPermSets", "'WorkforceSchedulingManager', 'WorkforceSchedulingResource'")
+    language: text/javascript
+order: 4000
