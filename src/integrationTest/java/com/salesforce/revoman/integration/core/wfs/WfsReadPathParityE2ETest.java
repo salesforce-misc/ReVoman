@@ -166,5 +166,11 @@ class WfsReadPathParityE2ETest {
     // Write keeps the promise: shown ⟺ Success, not-shown ⟺ rejected.
     assertThat(env.getAsString("parityWriteAvailStatus")).isEqualTo("Success");
     assertThat(env.getAsString("parityWriteUnavailStatus")).isNotEqualTo("Success");
+    // Pin the unavailable-write rejection to the AVAILABILITY cheap-check (not just any
+    // non-Success):
+    // INVALID_INPUT, "...not available for the requested slot."
+    assertThat(env.getAsString("parityWriteUnavailErrorCode")).isEqualTo("INVALID_INPUT");
+    assertThat(env.getAsString("parityWriteUnavailErrorMessage"))
+        .contains("not available for the requested slot");
   }
 }
