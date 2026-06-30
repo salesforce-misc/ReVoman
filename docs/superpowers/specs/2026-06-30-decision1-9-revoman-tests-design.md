@@ -1,7 +1,9 @@
 # Design — ReVoman tests for WFS read↔write parity decisions 1, 1.4, 1.5, 3, 8, 9
 
 **Date:** 2026-06-30
-**Status:** Approved design — ready for writing-plans.
+**Status:** IMPLEMENTED on `wfs/decision-1-9-revoman-tests` — all 6 decisions; final review READY WITH MINORS.
+See `~/work/impl-decisions/2026-06-30-decision1-9-revoman-tests-persona-auth.md` for divergences, the
+deferred persona-retrofit decision, and open questions.
 **Source decisions:** `~/work/impl-decisions/2026-06-21-PRODUCT-presentation-read-write-parity.md` (decisions 1, 1.4, 1.5, 3, 8, 9).
 **Target module:** `revoman-root` integrationTest source set — `src/integrationTest/java/com/salesforce/revoman/integration/core/wfs/`.
 
