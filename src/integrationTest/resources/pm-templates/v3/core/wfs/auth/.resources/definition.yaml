@@ -1,4 +1,17 @@
 $kind: collection
+description: |-
+  Bootstrap auth + persona setup for the WFS read/write parity (Decision-1/3) collections. Runs FIRST and,
+  in order, it: SOAP-logs in as the org SysAdmin to seed {{adminToken}}/{{accessToken}} (and intentionally
+  UNSETS {{managerToken}} so a broken manager-login fails loud instead of silently using the admin session);
+  resolves the Standard User Profile id and the WorkforceSchedulingManager / WorkforceSchedulingResource
+  PermissionSet ids (mapped BY NAME, not array index, since SOQL `WHERE Name IN (...)` row order is not
+  guaranteed); then admin-creates two least-privilege personas — a MANAGER (caseManagerUserId, gets the
+  Manager permset) and a CASE-WORKER (caseWorkerUserId, gets the Resource permset). It sets the manager's
+  password and SOAP-logs in AS the manager to mint {{managerToken}} — the real least-privilege manager
+  session that every downstream WFS policy/fixture/act folder runs under and OWNS its rows in (so user-mode
+  enforce/read SOQL can see them). User creation + password reset run under {{adminToken}} because the
+  manager persona lacks Manage Users. Sets adminToken, accessToken, managerToken, standardUserProfileId,
+  unifiedPSManagerId, unifiedPSResourceId, caseWorkerUserId, caseManagerUserId/managerUserId.
 auth:
   - id: 6d9dad7f-9819-4057-8eb8-e7c9b237c4d0
     type: bearer

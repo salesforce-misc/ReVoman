@@ -9,4 +9,4 @@ auth:
     type: bearer
     name: bearer auth
     credentials:
-      token: "{{adminToken}}"
+      token: "{{managerToken}}"

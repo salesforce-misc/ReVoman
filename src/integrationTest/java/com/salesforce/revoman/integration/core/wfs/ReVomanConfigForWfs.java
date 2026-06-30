@@ -77,9 +77,13 @@ public final class ReVomanConfigForWfs {
   static final String NODE_MODULE_RELATIVE_PATH = "js";
   static final String IGNORE_HTTP_STATUS_UNSUCCESSFUL = "ignoreHTTPStatusUnsuccessful";
 
-  // ## Persona creation and setup (login as admin, discover version, query profile + WFS perm sets,
-  // create the case-worker [resourceA anchor] and manager [resourceB helper] users). V3 `auth`
-  // folder.
+  // ## Persona creation and setup. Admin SOAP-logs-in (adminToken/accessToken) ONLY for admin-only setup
+  // (create the case-worker [resourceA owner] + manager [resourceB owner] Users — needs Manage Users —
+  // and the setup-object Skill). The MANAGER is then minted as a REAL least-privilege session: set its
+  // password → SOAP-login (v64) → its OWN {{managerToken}}. Every policy/fixture/act folder for
+  // Decisions 1/1.4/1.5/3/8 runs under {{managerToken}}, so the manager OWNS the policy + fixture rows it
+  // later books/reads against (no admin-token alias; the API-under-test runs as the manager, matching
+  // Decision 9). V3 `auth` folder.
   static final Kick AUTH_CONFIG = kickFor(V3_WFS_PATH + "auth");
 
   // ## Policies (each carries an Availability(C)+ShiftUsage(Union) rule plus the rule under test).
