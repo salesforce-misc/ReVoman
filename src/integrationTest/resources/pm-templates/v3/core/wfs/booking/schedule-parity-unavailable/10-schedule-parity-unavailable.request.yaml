@@ -44,10 +44,11 @@ scripts:
       const data = pm.response.json();
       const appts = (data && data.appointments) || [];
       pm.environment.set("parityWriteUnavailStatus", appts.length ? appts[0].schedulingStatus : null);
-      let ec = null;
-      if (Array.isArray(data) && data.length) { ec = data[0].errorCode; }
-      else if (appts.length && appts[0].errors && appts[0].errors[0]) { ec = appts[0].errors[0].errorCode; }
+      let ec = null, msg = null;
+      if (Array.isArray(data) && data.length) { ec = data[0].errorCode; msg = data[0].message; }
+      else if (appts.length && appts[0].errors && appts[0].errors[0]) { ec = appts[0].errors[0].errorCode; msg = appts[0].errors[0].message; }
       pm.environment.set("parityWriteUnavailErrorCode", ec);
-      console.log("DEC2 write-unavail http=" + pm.response.code + " status=" + pm.environment.get("parityWriteUnavailStatus") + " ec=" + ec);
+      pm.environment.set("parityWriteUnavailErrorMessage", msg);
+      console.log("DEC2 write-unavail http=" + pm.response.code + " status=" + pm.environment.get("parityWriteUnavailStatus") + " ec=" + ec + " msg=" + msg);
     language: text/javascript
 order: 1200

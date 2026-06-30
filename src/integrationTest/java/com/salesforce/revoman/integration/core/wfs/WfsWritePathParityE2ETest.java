@@ -234,14 +234,15 @@ class WfsWritePathParityE2ETest {
    * at input validation ({@code ScheduleCommonValidator.validatePrimaryResourceConstraints}),
    * before any availability/persist. Multi-resource scheduling requires EXACTLY one primary.
    *
-   * <p>262 (asserted): a clean top-level {@code ConnectErrorCode INVALID_INPUT} / HTTP 400 with
-   * message "Only one of the provided assigned resources can be a primary resource." No booking
-   * occurs (the throw is in {@code validatePayload}, so {@code appointments[0]} is absent → status
-   * null). Per the product doc the 262 ERA produced a "confusing database error"; the CURRENT code
-   * already returns the clean message, so this characterizes the 264 target.
-   *
-   * <p>264 contrast: unchanged — the clean {@code INVALID_INPUT} message is the intended behavior;
-   * no action needed (error-message polish already shipped).
+   * <p>Characterization-only (NOT a 262-broken→264-fixed contrast): the asserted output is the SAME
+   * on 262 and 264 — the clean message already ships on 262, so the two releases COINCIDE here and
+   * there is no behavior delta to flip. The live org returns a clean top-level {@code
+   * ConnectErrorCode INVALID_INPUT} / HTTP 400 with message "Only one of the provided assigned
+   * resource can be a primary resource." No booking occurs (the throw is in {@code
+   * validatePayload}, so {@code appointments[0]} is absent → status null). Per the product doc the
+   * 262 ERA was thought to produce a "confusing database error", but the CURRENT 262 code already
+   * returns this clean message, which is also the 264 target — so 262 == 264 (error-message polish
+   * already shipped).
    */
   @Test
   void testTwoPrimaryResourcesRejectedE2E() {
@@ -253,10 +254,11 @@ class WfsWritePathParityE2ETest {
             REQUIRED_NON_REQUIRED_FIXTURE_CONFIG,
             SCHEDULE_TWO_PRIMARY_CONFIG);
     final var env = CollectionsKt.last(rundown).mutableEnv;
-    // Clean input-validation reject: INVALID_INPUT, "primary resource" message, HTTP 400, no
-    // booking.
+    // Clean input-validation reject: INVALID_INPUT, "can be a primary resource" message (rules out
+    // a
+    // look-alike availability INVALID_INPUT, which has a different message), HTTP 400, no booking.
     assertThat(env.getAsString("twoPrimaryErrorCode")).isEqualTo("INVALID_INPUT");
-    assertThat(env.getAsString("twoPrimaryErrorMessage")).contains("primary resource");
+    assertThat(env.getAsString("twoPrimaryErrorMessage")).contains("can be a primary resource");
     assertThat(env.getAsString("twoPrimaryHttpCode")).isEqualTo("400");
     assertThat(env.getAsString("twoPrimaryStatus")).isAnyOf(null, "null");
   }
@@ -269,11 +271,15 @@ class WfsWritePathParityE2ETest {
    * LightningSchedulerAssignedResourceValidator} rejects it. The window is FREE, so availability
    * passes and the persist reject is what surfaces.
    *
-   * <p>262 (asserted): the probe is rejected (NOT Success) — the live verdict is captured in both
-   * error shapes (top-level {@code INVALID_FIELD} array vs {@code appointments[0].errors[0]}); the
-   * required primary CONTROL over the same resource/window books Success. This REFUTES both the
-   * story's "quietly fixed to required" auto-correct expectation AND the 262 "could be
-   * double-booked" claim (the request never persists).
+   * <p>262 (asserted): the probe is rejected with schedulingStatus=PersistError, errorCode={@code
+   * INVALID_FIELD}, message "Only an required service resource can be set as a primary service
+   * resource." — the live shape is now PINNED to {@code appointments[0].errors[0]} /
+   * schedulingStatus=PersistError / HTTP 201 (the capture script still probes both shapes, but the
+   * live response uses the per-appointment one). The required primary CONTROL over the same
+   * resource/window books Success. This REFUTES both the story's "quietly fixed to required"
+   * auto-correct expectation AND the 262 "could be double-booked" claim: the request is rejected AT
+   * PERSIST, so no ServiceAppointment is created, hence no double-book — INFERRED from the persist
+   * reject (no SA exists to query), not independently observed via an SA-count read.
    *
    * <p>264 contrast: unchanged — reject (not auto-correct) is the intended persist behavior; the
    * doc's open question (auto-correct vs reject) resolves to reject. (A fast-fail at input
@@ -295,8 +301,12 @@ class WfsWritePathParityE2ETest {
             REQUIRED_NON_REQUIRED_FIXTURE_CONFIG,
             SCHEDULE_PRIMARY_NOT_REQUIRED_CONFIG);
     final var probeEnv = CollectionsKt.last(probeRundown).mutableEnv;
-    assertThat(probeEnv.getAsString("primaryNotReqStatus")).isNotEqualTo("Success");
-    assertThat(probeEnv.getAsString("primaryNotReqErrorCode")).isNotNull();
+    assertThat(probeEnv.getAsString("primaryNotReqStatus")).isEqualTo("PersistError");
+    assertThat(probeEnv.getAsString("primaryNotReqErrorCode")).isEqualTo("INVALID_FIELD");
+    // Pin to the primary-must-be-required persist rule ("Only an required service resource can be
+    // set as a primary service resource.") — "primary service resource" is the safe substring.
+    assertThat(probeEnv.getAsString("primaryNotReqErrorMessage"))
+        .contains("primary service resource");
     // Control: primary + required, same resource/window → Success (fresh AUTH per Approach A).
     final var controlRundown =
         ReVoman.revUp(
@@ -313,9 +323,9 @@ class WfsWritePathParityE2ETest {
    * Decision 4z — there is NO "reschedule must keep a primary" rule (so the reschedule API does NOT
    * forbid leaving an appointment with no primary — the product doc's blanket "not possible to
    * schedule or reschedule without a primary" is WRONG); on this 262 org the delete-primary
-   * reschedule is then blocked only by a SEPARATE downstream availability gap, never by a
-   * primary rule. The doc conflates two independent rules. One revUp chains a clean two-resource
-   * Schedule (captures the SA id) then two reschedule arms over that SA.
+   * reschedule is then blocked only by a SEPARATE downstream availability gap, never by a primary
+   * rule. The doc conflates two independent rules. One revUp chains a clean two-resource Schedule
+   * (captures the SA id) then two reschedule arms over that SA.
    *
    * <p>262 (asserted): the clean Schedule books Success. Arm A — {@code DeleteOperation} on the
    * primary WITH {@code isPrimaryResource:true} on the delete entry — is rejected ({@code

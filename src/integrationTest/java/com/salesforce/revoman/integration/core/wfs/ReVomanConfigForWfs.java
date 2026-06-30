@@ -82,9 +82,12 @@ import com.salesforce.revoman.integration.core.adapters.IDAdapter;
  *       policy folders — without it slot-gen returns ZERO slots (there is no default).
  * </ul>
  *
- * Because those settings are pre-provisioned on the workspace, the E2E tests are excluded from
+ * <p>Those settings are pre-provisioned on the workspace, so these E2E tests are excluded from
  * aggregate runs (`gradle clean build`) by the {@code integration.core.*} test filter; invoke them
- * on-demand with {@code -PincludeCoreIT}.
+ * on-demand with {@code -PincludeCoreIT}. When run, they execute LIVE against the provisioned WFS
+ * workspace org via {@code ~/.revoman/config.yaml} external-org creds (baseUrl / username /
+ * password). They carry no {@code @Disabled} annotation — they are skipped only when those creds
+ * are absent.
  */
 public final class ReVomanConfigForWfs {
 
@@ -168,7 +171,7 @@ public final class ReVomanConfigForWfs {
 
   // ## Decision 4 — two primary resources → clean input-validation reject (INVALID_INPUT / HTTP
   // 400,
-  // "Only one of the provided assigned resources can be a primary resource"). Caught up front in
+  // "Only one of the provided assigned resource can be a primary resource"). Caught up front in
   // ScheduleCommonValidator.validatePrimaryResourceConstraints, before availability/persist.
   static final Kick SCHEDULE_TWO_PRIMARY_CONFIG =
       kickFor(V3_WFS_PATH + "booking/schedule-two-primary");
