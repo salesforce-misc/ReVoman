@@ -126,6 +126,14 @@ public final class ReVomanConfigForWfs {
   static final Kick SINGLE_REQUIRED_NO_PRIMARY_SCHEDULE_CONFIG =
       kickFor(V3_WFS_PATH + "booking/schedule-single-required-no-primary");
 
+  // ## Decision 8 — resourceLimitApptDistribution cap on the load-balancing read path (read-only). The
+  // workspace default OnSite policy carries the seeded DefaultOnSiteSchdPlcy_LoadBalancing objective, so
+  // the read acts omit schedulingPolicyName and rely on the default policy.
+  static final Kick GET_RESOURCES_LIMIT_ZERO_CONFIG =
+      kickFor(V3_WFS_PATH + "booking/get-available-resources-limit-zero");
+  static final Kick GET_RESOURCES_LIMIT_POSITIVE_CONFIG =
+      kickFor(V3_WFS_PATH + "booking/get-available-resources-limit-positive");
+
   /**
    * One Kick per V3 collection folder, all sharing the same shape as the {@code bt2bs} sibling:
    * composite/graph + composite response unmarshalling/asserting, IDAdapter, the JS node-modules

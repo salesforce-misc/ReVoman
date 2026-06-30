@@ -1,0 +1,38 @@
+$kind: http-request
+description: >-
+  Decision 8 Act 0 — GetAvailableResources with resourceLimitApptDistribution=0 on the default OnSite
+  load-balancing policy (schedulingPolicyName omitted → default policy). The cap is applied AFTER the
+  per-resource rules filter candidates; resourceLimitApptDistribution flows via Optional.ofNullable so 0
+  is present → AppointmentDistributionService.findLeastUtilizedResources does Stream.limit(0) → EMPTY list.
+  Read-only contract: HTTP 200, no exception. Stashes the availableResources count.
+url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/get-available-resources"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "parentRecordId": "{{requiredNonReqAccountId}}",
+      "workTypeId": "{{requiredNonReqWorkTypeId}}",
+      "territoryIds": ["{{requiredNonReqTerritoryId}}"],
+      "limit": 50,
+      "fieldLimit": 10,
+      "resourceLimitApptDistribution": 0
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      // availableResources is an array-of-arrays ([[ ...resources... ]]); flatten to count the real list.
+      const data = pm.response.json() || {};
+      const outer = data.availableResources || [];
+      const list = outer.flat ? outer.flat() : [].concat.apply([], outer);
+      pm.environment.set("limitZeroResourceCount", Array.isArray(list) ? list.length : 0);
+      let ec = null;
+      if (Array.isArray(data) && data.length) { ec = data[0].errorCode; }
+      pm.environment.set("limitZeroErrorCode", ec);
+    language: text/javascript
+order: 1000
