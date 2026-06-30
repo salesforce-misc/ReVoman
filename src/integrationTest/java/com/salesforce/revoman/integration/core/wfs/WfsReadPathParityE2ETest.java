@@ -64,7 +64,11 @@ class WfsReadPathParityE2ETest {
             GET_RESOURCES_LIMIT_ZERO_CONFIG,
             GET_RESOURCES_LIMIT_POSITIVE_CONFIG);
     final var env = CollectionsKt.last(rundown).mutableEnv;
+    // The empty list is the CAP (Stream.limit(0)), NOT an error response — assert no errorCode so the
+    // empty result can't be a false positive from a swallowed 4xx/5xx (both acts are ignore-HTTP-status).
+    assertThat(env.getAsString("limitZeroErrorCode")).isAnyOf(null, "null");
     assertThat(env.getAsString("limitZeroResourceCount")).isEqualTo("0");
+    assertThat(env.getAsString("limitPositiveErrorCode")).isAnyOf(null, "null");
     assertThat(Integer.parseInt(env.getAsString("limitPositiveResourceCount"))).isGreaterThan(0);
   }
 
