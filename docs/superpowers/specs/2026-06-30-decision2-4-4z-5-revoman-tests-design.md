@@ -1,5 +1,13 @@
 # Design — ReVoman tests for WFS read↔write parity Decisions 2, 4, 4z, 5
 
+> **STATUS: IMPLEMENTED (2026-06-30).** All four decisions landed as live-verified ReVoman integrationTest
+> tests (commits `1176dc4` Dec4, `99a9794` Dec5, `59f3954`+`c731795` Dec4z, `09fb608` Dec2, `8071048`
+> final-review minors). Final whole-branch review: READY WITH MINORS (no Critical/Important; all minors
+> fixed). The investigation reshaped the doc's claims — see decision log
+> `~/work/impl-decisions/2026-06-30-decision2-4-4z-5-revoman-tests.md` (4z doc-claim refuted; 4 already-clean;
+> 5 reject-not-autocorrect; 2 field-match half not characterizable on 262). 4z doc bug handed off:
+> `~/work/handoff/2026-06-30-wfs-doc-4z-no-primary-contradiction.md`.
+
 **Date:** 2026-06-30
 **Author:** Claude (autonomous mode, workspace box)
 **Branch:** `wfs/decision-1-9-revoman-tests` in `~/code-clones/work/revoman-root`
