@@ -9,6 +9,9 @@ package com.salesforce.revoman.integration.core.wfs;
 import static com.google.common.truth.Truth.assertThat;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.AUTH_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.AVAILABILITY_OP_HOURS_POLICY_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.DOUBLE_BOOK_FIXTURE_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.DOUBLE_BOOK_NON_REQUIRED_SCHEDULE_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.DOUBLE_BOOK_REQUIRED_CONFLICT_SCHEDULE_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.EXCLUDED_FIXTURE_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.EXCLUDED_RESOURCES_POLICY_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.EXCLUDED_SCHEDULE_CONFIG;
@@ -83,6 +86,30 @@ class WfsWritePathParityE2ETest {
         AVAILABILITY_OP_HOURS_POLICY_CONFIG,
         WORKING_LOCATIONS_FIXTURE_CONFIG,
         WORKING_LOCATIONS_SCHEDULE_CONFIG);
+  }
+
+  /**
+   * Decision 1.5 — a NON-required helper is NOT availability-checked, so it may double-book. The A/B
+   * flips ONLY isRequiredResource on resourceB over the SAME fixture (resourceB is BUSY at the window).
+   *
+   * <p>262 (asserted): the busy NON-required helper books Success (no availability check). The
+   * REQUIRED control (isRequiredResource=true) is availability-checked → not-Success.
+   * <p>264 contrast: the doc flags helper double-book as a gap InField blocks; under 264 the non-required
+   * act would also be rejected (not-available) rather than Success.
+   */
+  @Test
+  void testNonRequiredHelperDoubleBooksE2E() {
+    final var rundown =
+        ReVoman.revUp(
+            (r, ignore) -> assertThat(r.firstUnIgnoredUnsuccessfulStepReport()).isNull(),
+            AUTH_CONFIG,
+            AVAILABILITY_OP_HOURS_POLICY_CONFIG,
+            DOUBLE_BOOK_FIXTURE_CONFIG,
+            DOUBLE_BOOK_NON_REQUIRED_SCHEDULE_CONFIG,
+            DOUBLE_BOOK_REQUIRED_CONFLICT_SCHEDULE_CONFIG);
+    final var env = CollectionsKt.last(rundown).mutableEnv;
+    assertThat(env).containsEntry("doubleBookNonRequiredSchedulingStatus", "Success");
+    assertThat(env.getAsString("doubleBookRequiredControlSchedulingStatus")).isNotEqualTo("Success");
   }
 
   private static void assertDimensionBooksSuccess(
