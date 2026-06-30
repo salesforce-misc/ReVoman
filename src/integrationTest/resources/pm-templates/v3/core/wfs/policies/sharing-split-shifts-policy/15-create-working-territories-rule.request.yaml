@@ -1,0 +1,18 @@
+$kind: http-request
+description: >-
+  Decision 9 — WorkingTerritories rule. Without it (+ IsPrimaryLocationEnabled below)
+  SchedulingPolicyInfo.shouldIncludePrimaryResources() is false and primary (TerritoryType=P) STMs are
+  filtered out of slot-gen → zero STM → zero slots. Required for the resource to be a candidate.
+url: "{{baseUrl}}{{versionPath}}/sobjects/SchedulingRule"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    { "MasterLabel": "D9 WorkingTerritories", "DeveloperName": "D9_WorkingTerritories_{{$timestamp}}", "SchedulingRuleType": "WorkingTerritories", "SchedulingCategory": "A" }
+scripts:
+  - type: afterResponse
+    code: pm.environment.set("dec9WorkingTerritoriesRuleId", pm.response.json().id);
+    language: text/javascript
+order: 15000

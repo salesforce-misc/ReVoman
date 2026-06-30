@@ -132,6 +132,21 @@ public final class ReVomanConfigForWfs {
   static final Kick GET_RESOURCES_LIMIT_POSITIVE_CONFIG =
       kickFor(V3_WFS_PATH + "booking/get-available-resources-limit-positive");
 
+  // ## Decision 9 — Shift sharing-mode split (user-mode SystemMode.NONE shift read vs SFDC_FULL siblings).
+  // adminToken mints two real personas (manager + case-worker, each their OWN SOAP session); the manager
+  // creates + OWNS the policy/fixture/Shift rows; the case-worker (no sharing on the manager's Private
+  // shifts) is the sharing-deprived reader. Assigning WorkforceSchedulingManager/Resource auto-grants the
+  // WorkforceSchedulingPsl seat. The resource-owner User is admin-created (the manager cannot set ProfileId).
+  static final Kick AUTH_PERSONAS_DEC9_CONFIG = kickFor(V3_WFS_PATH + "auth-personas-dec9");
+  static final Kick SHARING_SPLIT_POLICY_CONFIG =
+      kickFor(V3_WFS_PATH + "policies/sharing-split-shifts-policy");
+  static final Kick SHARING_SPLIT_FIXTURE_CONFIG =
+      kickFor(V3_WFS_PATH + "fixtures/sharing-split-overlapping-shifts");
+  static final Kick GET_SLOTS_SHARING_SPLIT_AS_MANAGER_CONFIG =
+      kickFor(V3_WFS_PATH + "booking/get-slots-sharing-split-as-manager");
+  static final Kick GET_SLOTS_SHARING_SPLIT_AS_CASEWORKER_CONFIG =
+      kickFor(V3_WFS_PATH + "booking/get-slots-sharing-split-as-caseworker");
+
   /**
    * One Kick per V3 collection folder, all sharing the same shape as the {@code bt2bs} sibling:
    * composite/graph + composite response unmarshalling/asserting, IDAdapter, the JS node-modules

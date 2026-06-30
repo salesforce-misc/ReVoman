@@ -1,0 +1,50 @@
+$kind: http-request
+description: >-
+  Decision 9 CONTROL — GetSlots as the MANAGER (the Shift owner). The user-mode (SystemMode.NONE) shift
+  read sees the manager's own Confirmed shift → availability present → slots returned. Proves the empty
+  case-worker result below is the sharing gate, not an empty fixture. Window tomorrow 10:00-14:00 (≥ 60m WT,
+  inside the 08-16 shift).
+url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/get-appointment-slots"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "appointments": [
+        {
+          "schedulingMethod": "OnSite",
+          "schedulingPolicyId": "{{dec9PolicyId}}",
+          "coreDetails": {
+            "startTime": "{{dec9SlotsWindowStart}}",
+            "endTime": "{{dec9SlotsWindowEnd}}",
+            "appointmentMode": "Regular",
+            "workConfiguration": { "workTypeId": "{{dec9WorkTypeId}}" },
+            "locationConstraints": { "addressIds": ["{{dec9TerritoryId}}"] }
+          },
+          "serviceAppointmentParent": { "id": "{{dec9AccountId}}" },
+          "assignedResources": [ { "isRequiredResource": true, "serviceResourceId": "{{dec9ResourceId}}" } ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(10,0,0,0);
+      const e = new Date(s.getTime()); e.setUTCHours(14,0,0,0);
+      pm.environment.set("dec9SlotsWindowStart", s.toISOString());
+      pm.environment.set("dec9SlotsWindowEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      // result is [{slots:[...]}]; count the slots across all appointment results.
+      const data = pm.response.json() || {};
+      const results = data.result || [];
+      let n = 0; results.forEach(r => { n += (r.slots || []).length; });
+      pm.environment.set("dec9ManagerSlotCount", n);
+    language: text/javascript
+order: 10000

@@ -1,0 +1,58 @@
+$kind: http-request
+description: >-
+  Decision 9 — admin creates the MANAGER persona (the data-setup + owner identity). Standard User profile
+  + WorkforceSchedulingManager permset (grants WorkforceSchedulingUserAccess → can manage SchedulingPolicy
+  and own Shift rows; assigning the permset auto-grants the WorkforceSchedulingPsl license seat). A password
+  is set next so the manager can SOAP-login to its own session.
+url: "{{baseUrl}}{{versionPath}}/composite/graph"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "graphs": [
+        {
+          "graphId": "mgr",
+          "compositeRequest": [
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/User",
+              "referenceId": "refUser",
+              "body": {
+                "Username": "{{dec9ManagerUserName}}",
+                "ProfileId": "{{standardUserProfileId}}",
+                "Alias": "d9mgr",
+                "Email": "{{dec9ManagerUserName}}",
+                "EmailEncodingKey": "ISO-8859-1",
+                "LastName": "Dec9Manager",
+                "FirstName": "Morgan",
+                "LanguageLocaleKey": "en_US",
+                "LocaleSidKey": "en_US",
+                "TimeZoneSidKey": "America/Los_Angeles"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/PermissionSetAssignment",
+              "referenceId": "refPsAssign",
+              "body": {
+                "AssigneeId": "@{refUser.id}",
+                "PermissionSetId": "{{unifiedPSManagerId}}"
+              }
+            }
+          ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: pm.environment.set("dec9ManagerUserName", pm.variables.replaceIn("dec9-manager-{{$timestamp}}@revoman.org"));
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      var d = pm.response.json();
+      pm.environment.set("dec9ManagerUserId", d.graphs[0].graphResponse.compositeResponse[0].body.id);
+    language: text/javascript
+order: 10000

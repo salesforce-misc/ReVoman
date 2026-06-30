@@ -1,0 +1,7 @@
+$kind: collection
+auth:
+  - id: e5050505-0000-4000-8000-000000000005
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{dec9CaseWorkerToken}}"

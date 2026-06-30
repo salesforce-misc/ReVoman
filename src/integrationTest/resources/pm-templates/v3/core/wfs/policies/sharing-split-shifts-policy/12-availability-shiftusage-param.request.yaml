@@ -1,0 +1,11 @@
+$kind: http-request
+description: Decision 9 — ShiftUsage=ConsiderOnlyShifts so availability comes purely from Shift rows (the sharing-gated object).
+url: "{{baseUrl}}{{versionPath}}/sobjects/SchedulingRuleParameter"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    { "SchedulingRuleId": "{{dec9AvailabilityRuleId}}", "SchedulingParameterKey": "ShiftUsage", "Value": "ConsiderOnlyShifts" }
+order: 12000

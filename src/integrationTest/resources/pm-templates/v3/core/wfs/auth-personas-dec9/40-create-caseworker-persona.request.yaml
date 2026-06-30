@@ -1,0 +1,57 @@
+$kind: http-request
+description: >-
+  Decision 9 — admin creates the CASE-WORKER persona: the sharing-deprived READER. Standard User +
+  WorkforceSchedulingResource permset (+ PSL seat). It is NOT shared the manager's Private Shift rows, so
+  its user-mode (SystemMode.NONE) shift read sees none → empty availability.
+url: "{{baseUrl}}{{versionPath}}/composite/graph"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "graphs": [
+        {
+          "graphId": "cw",
+          "compositeRequest": [
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/User",
+              "referenceId": "refUser",
+              "body": {
+                "Username": "{{dec9CaseWorkerUserName}}",
+                "ProfileId": "{{standardUserProfileId}}",
+                "Alias": "d9cw",
+                "Email": "{{dec9CaseWorkerUserName}}",
+                "EmailEncodingKey": "ISO-8859-1",
+                "LastName": "Dec9CaseWorker",
+                "FirstName": "Casey",
+                "LanguageLocaleKey": "en_US",
+                "LocaleSidKey": "en_US",
+                "TimeZoneSidKey": "America/Los_Angeles"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/PermissionSetAssignment",
+              "referenceId": "refPsAssign",
+              "body": {
+                "AssigneeId": "@{refUser.id}",
+                "PermissionSetId": "{{unifiedPSResourceId}}"
+              }
+            }
+          ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: pm.environment.set("dec9CaseWorkerUserName", pm.variables.replaceIn("dec9-caseworker-{{$timestamp}}@revoman.org"));
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      var d = pm.response.json();
+      pm.environment.set("dec9CaseWorkerUserId", d.graphs[0].graphResponse.compositeResponse[0].body.id);
+    language: text/javascript
+order: 40000
