@@ -21,6 +21,7 @@ import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.RE
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.REQUIRED_NON_REQUIRED_SATISFIER_VIOLATING_SCHEDULE_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.REQUIRED_RESOURCES_POLICY_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.REQUIRED_SATISFIER_BOOKABLE_SCHEDULE_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SCHEDULE_TWO_PRIMARY_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SINGLE_REQUIRED_NO_PRIMARY_SCHEDULE_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SKILLS_FIXTURE_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SKILLS_SCHEDULE_CONFIG;
@@ -206,6 +207,36 @@ class WfsWritePathParityE2ETest {
             SINGLE_REQUIRED_NO_PRIMARY_SCHEDULE_CONFIG);
     assertThat(CollectionsKt.last(l142Rundown).mutableEnv)
         .containsEntry("singleRequiredNoPrimaryStatus", "Success");
+  }
+
+  /**
+   * Decision 4 — TWO assigned resources both {@code isPrimaryResource=true} are rejected UP FRONT at
+   * input validation ({@code ScheduleCommonValidator.validatePrimaryResourceConstraints}), before any
+   * availability/persist. Multi-resource scheduling requires EXACTLY one primary.
+   *
+   * <p>262 (asserted): a clean top-level {@code ConnectErrorCode INVALID_INPUT} / HTTP 400 with message
+   * "Only one of the provided assigned resources can be a primary resource." No booking occurs (the throw
+   * is in {@code validatePayload}, so {@code appointments[0]} is absent → status null). Per the product
+   * doc the 262 ERA produced a "confusing database error"; the CURRENT code already returns the clean
+   * message, so this characterizes the 264 target.
+   * <p>264 contrast: unchanged — the clean {@code INVALID_INPUT} message is the intended behavior; no
+   * action needed (error-message polish already shipped).
+   */
+  @Test
+  void testTwoPrimaryResourcesRejectedE2E() {
+    final var rundown =
+        ReVoman.revUp(
+            (r, ignore) -> assertThat(r.firstUnIgnoredUnsuccessfulStepReport()).isNull(),
+            AUTH_CONFIG,
+            AVAILABILITY_OP_HOURS_POLICY_CONFIG,
+            REQUIRED_NON_REQUIRED_FIXTURE_CONFIG,
+            SCHEDULE_TWO_PRIMARY_CONFIG);
+    final var env = CollectionsKt.last(rundown).mutableEnv;
+    // Clean input-validation reject: INVALID_INPUT, "primary resource" message, HTTP 400, no booking.
+    assertThat(env.getAsString("twoPrimaryErrorCode")).isEqualTo("INVALID_INPUT");
+    assertThat(env.getAsString("twoPrimaryErrorMessage")).contains("primary resource");
+    assertThat(env.getAsString("twoPrimaryHttpCode")).isEqualTo("400");
+    assertThat(env.getAsString("twoPrimaryStatus")).isAnyOf(null, "null");
   }
 
   private static void assertDimensionBooksSuccess(
