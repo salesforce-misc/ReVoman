@@ -31,7 +31,7 @@ import org.junit.jupiter.api.Test;
  */
 @Disabled(
     "needs a WFS workspace org: see ReVomanConfigForWfs. Decision 9 additionally needs Shift OWD=Private"
-        + " and a manager persona without sharing on admin-owned Shift rows.")
+        + " and a case-worker persona without sharing on the manager-owned Shift rows.")
 class WfsReadPathParityE2ETest {
 
   /**
