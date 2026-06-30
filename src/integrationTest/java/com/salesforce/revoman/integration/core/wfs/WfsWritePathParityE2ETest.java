@@ -6,7 +6,27 @@
 
 package com.salesforce.revoman.integration.core.wfs;
 
+import static com.google.common.truth.Truth.assertThat;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.AUTH_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.AVAILABILITY_OP_HOURS_POLICY_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.EXCLUDED_FIXTURE_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.EXCLUDED_RESOURCES_POLICY_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.EXCLUDED_SCHEDULE_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.MATCH_SKILLS_POLICY_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SKILLS_FIXTURE_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SKILLS_SCHEDULE_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SKILLS_SKILL_FIXTURE_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.TERRITORY_FIXTURE_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.TERRITORY_PARTIAL_POLICY_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.TERRITORY_SCHEDULE_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.WORKING_LOCATIONS_FIXTURE_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.WORKING_LOCATIONS_SCHEDULE_CONFIG;
+
+import com.salesforce.revoman.ReVoman;
+import com.salesforce.revoman.input.config.Kick;
+import kotlin.collections.CollectionsKt;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 /**
  * WFS read↔write parity write-path characterization (live 262; 264 contrast in each method's javadoc).
@@ -21,4 +41,55 @@ import org.junit.jupiter.api.Disabled;
     "needs a WFS workspace org: multi-resource pref (WorkforceSchdMulResSchdPref) + InBusinessScheduling"
         + " enabled + Shift.Status DynEnum seeded + each Availability rule's ShiftUsage param. See"
         + " ReVomanConfigForWfs.")
-class WfsWritePathParityE2ETest {}
+class WfsWritePathParityE2ETest {
+
+  /**
+   * Decision 1 — a NON-required "helper" resource is NOT fitness-checked on the Schedule write path,
+   * across four dimensions (EXCLUDED / TERRITORY / SKILLS / WORKING-LOCATIONS). Each dimension is a
+   * clean required+primary resourceA plus a NON-required resourceB violating exactly one rule.
+   *
+   * <p>262 (asserted): the helper escapes every fitness rule → each dimension books Success.
+   * <p>264 contrast: the helper WOULD be rejected with the matching rule code (ExcludedResources /
+   * MatchTerritory / MatchSkills / WorkingLocations) → flip each expected verdict to "ScheduleError".
+   *
+   * <p>Approach A: each dimension is its own revUp starting with AUTH_CONFIG → fresh env + fresh
+   * timestamped users, so the four dimensions' ServiceResource(RelatedRecordId, ResourceType) rows
+   * never collide (the SR-uniqueness collision that made the old single-revUp run roll back dims 2-4).
+   */
+  @Test
+  void testNonRequiredHelperFitnessE2E() {
+    assertDimensionBooksSuccess(
+        "excludedNonReqSchedulingStatus",
+        AUTH_CONFIG,
+        EXCLUDED_RESOURCES_POLICY_CONFIG,
+        EXCLUDED_FIXTURE_CONFIG,
+        EXCLUDED_SCHEDULE_CONFIG);
+    assertDimensionBooksSuccess(
+        "territoryNonReqSchedulingStatus",
+        AUTH_CONFIG,
+        TERRITORY_PARTIAL_POLICY_CONFIG,
+        TERRITORY_FIXTURE_CONFIG,
+        TERRITORY_SCHEDULE_CONFIG);
+    assertDimensionBooksSuccess(
+        "skillsNonReqSchedulingStatus",
+        AUTH_CONFIG,
+        MATCH_SKILLS_POLICY_CONFIG,
+        SKILLS_SKILL_FIXTURE_CONFIG,
+        SKILLS_FIXTURE_CONFIG,
+        SKILLS_SCHEDULE_CONFIG);
+    assertDimensionBooksSuccess(
+        "workingLocationsSecondaryNonReqSchedulingStatus",
+        AUTH_CONFIG,
+        AVAILABILITY_OP_HOURS_POLICY_CONFIG,
+        WORKING_LOCATIONS_FIXTURE_CONFIG,
+        WORKING_LOCATIONS_SCHEDULE_CONFIG);
+  }
+
+  private static void assertDimensionBooksSuccess(
+      final String verdictEnvKey, final Kick... configs) {
+    final var rundown =
+        ReVoman.revUp(
+            (r, ignore) -> assertThat(r.firstUnIgnoredUnsuccessfulStepReport()).isNull(), configs);
+    assertThat(CollectionsKt.last(rundown).mutableEnv).containsEntry(verdictEnvKey, "Success");
+  }
+}
