@@ -1,0 +1,73 @@
+$kind: http-request
+description: >-
+  Two resources (resourceA primary+required, resourceB non-primary+required), both free, tomorrow
+  11:00-12:00 UTC (60m == WorkType EstimatedDuration, inside member OH 08-16 + Shift). Books Success;
+  captures the created SA id (appointments[0].serviceAppointment.serviceAppointmentId) into
+  reschedCleanSaId for the reschedule acts. Must persist, so NOT ledger-off here would be wrong on warm
+  runs — this is a producer of reschedCleanSaId; ledger-off keeps it fresh.
+url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/schedule"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "appointments": [
+        {
+          "schedulingMethod": "OnSite",
+          "schedulingPolicyId": "{{availabilityOpHoursPolicyId}}",
+          "coreDetails": {
+            "startTime": "{{reschedWindowStart}}",
+            "endTime": "{{reschedWindowEnd}}",
+            "status": "Scheduled",
+            "subject": "Decision 4z clean two-resource SA",
+            "workConfiguration": {
+              "workTypeId": "{{requiredNonReqWorkTypeId}}"
+            },
+            "locationConstraints": {
+              "id": "{{requiredNonReqTerritoryId}}"
+            }
+          },
+          "serviceAppointmentParent": {
+            "id": "{{requiredNonReqAccountId}}"
+          },
+          "assignedResources": [
+            {
+              "isPrimaryResource": true,
+              "isRequiredResource": true,
+              "serviceResourceId": "{{requiredNonReqResourceAId}}"
+            },
+            {
+              "isPrimaryResource": false,
+              "isRequiredResource": true,
+              "serviceResourceId": "{{requiredNonReqResourceBId}}"
+            }
+          ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      const start = new Date();
+      start.setUTCDate(start.getUTCDate() + 1);
+      start.setUTCHours(11, 0, 0, 0);
+      const end = new Date(start.getTime() + 60 * 60 * 1000);
+      pm.environment.set("reschedWindowStart", start.toISOString());
+      pm.environment.set("reschedWindowEnd", end.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      const data = pm.response.json();
+      const appts = (data && data.appointments) || [];
+      const a0 = appts.length ? appts[0] : null;
+      pm.environment.set("reschedCleanStatus", a0 ? a0.schedulingStatus : null);
+      const saId = a0 && a0.serviceAppointment ? a0.serviceAppointment.serviceAppointmentId : null;
+      pm.environment.set("reschedCleanSaId", saId);
+      console.log("DEC4z clean http=" + pm.response.code + " status=" + (a0 && a0.schedulingStatus) + " saId=" + saId);
+    language: text/javascript
+order: 1000

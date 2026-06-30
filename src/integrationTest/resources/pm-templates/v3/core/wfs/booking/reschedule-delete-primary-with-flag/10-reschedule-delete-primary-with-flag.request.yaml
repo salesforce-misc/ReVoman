@@ -1,0 +1,47 @@
+$kind: http-request
+description: >-
+  Reschedule reschedCleanSaId, DeleteOperation on the primary resourceA WITH isPrimaryResource:true on the
+  delete entry → 400 INVALID_INPUT (InvalidPropertyForDelete, "isPrimaryResource cannot be set for
+  Delete"). Validation-only; the SA is NOT mutated (so Arm B below can still delete resourceA).
+url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/reschedule"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "rescheduleAppointments": [
+        {
+          "schedulingMethod": "OnSite",
+          "appointmentId": "{{reschedCleanSaId}}",
+          "assignedResources": [
+            {
+              "operation": "DeleteOperation",
+              "assignedResource": {
+                "isPrimaryResource": true,
+                "serviceResourceId": "{{requiredNonReqResourceAId}}"
+              }
+            }
+          ]
+        }
+      ]
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.environment.set("reschedWithFlagHttpCode", String(pm.response.code));
+      const data = pm.response.json();
+      const arr = Array.isArray(data) ? data : null;
+      const appts = (data && data.appointments) || [];
+      let ec = null, msg = null;
+      if (arr && arr.length) { ec = arr[0].errorCode; msg = arr[0].message; }
+      else if (appts.length && appts[0].errors && appts[0].errors[0]) { ec = appts[0].errors[0].errorCode; msg = appts[0].errors[0].message; }
+      pm.environment.set("reschedWithFlagErrorCode", ec);
+      pm.environment.set("reschedWithFlagErrorMessage", msg);
+      console.log("DEC4z armA http=" + pm.response.code + " ec=" + ec + " msg=" + msg);
+    language: text/javascript
+order: 2000
