@@ -1,0 +1,80 @@
+$kind: http-request
+description: >-
+  Two assigned resources BOTH isPrimaryResource=true → input-validation reject (top-level
+  ConnectErrorCode INVALID_INPUT, HTTP 400, "primary resource" message). No booking occurs (the throw
+  is in validatePayload, before per-appointment processing) → appointments[0] is absent. Window
+  tomorrow 11:00-12:00 UTC (60m == WorkType EstimatedDuration), inside member OH 08-16 + Shift; window
+  is irrelevant since validation fails first, but kept clean so the verdict is unambiguously the
+  primary-count rule and not an availability artefact.
+url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/schedule"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "appointments": [
+        {
+          "schedulingMethod": "OnSite",
+          "schedulingPolicyId": "{{availabilityOpHoursPolicyId}}",
+          "coreDetails": {
+            "startTime": "{{twoPrimaryStart}}",
+            "endTime": "{{twoPrimaryEnd}}",
+            "status": "Scheduled",
+            "subject": "Decision 4 two-primary probe",
+            "workConfiguration": {
+              "workTypeId": "{{requiredNonReqWorkTypeId}}"
+            },
+            "locationConstraints": {
+              "id": "{{requiredNonReqTerritoryId}}"
+            }
+          },
+          "serviceAppointmentParent": {
+            "id": "{{requiredNonReqAccountId}}"
+          },
+          "assignedResources": [
+            {
+              "isPrimaryResource": true,
+              "isRequiredResource": true,
+              "serviceResourceId": "{{requiredNonReqResourceAId}}"
+            },
+            {
+              "isPrimaryResource": true,
+              "isRequiredResource": true,
+              "serviceResourceId": "{{requiredNonReqResourceBId}}"
+            }
+          ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      const start = new Date();
+      start.setUTCDate(start.getUTCDate() + 1);
+      start.setUTCHours(11, 0, 0, 0);
+      const end = new Date(start.getTime() + 60 * 60 * 1000);
+      pm.environment.set("twoPrimaryStart", start.toISOString());
+      pm.environment.set("twoPrimaryEnd", end.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      // Two-primary is an input-validation reject → top-level ConnectErrorCode array [{errorCode,message}]
+      // + HTTP 400. Capture http code + both error shapes so the assertion can't be a false positive.
+      pm.environment.set("twoPrimaryHttpCode", String(pm.response.code));
+      const data = pm.response.json();
+      const arr = Array.isArray(data) ? data : null;
+      const appts = (data && data.appointments) || [];
+      pm.environment.set("twoPrimaryStatus", appts.length ? appts[0].schedulingStatus : null);
+      let ec = null, msg = null;
+      if (arr && arr.length) { ec = arr[0].errorCode; msg = arr[0].message; }
+      else if (appts.length && appts[0].errors && appts[0].errors[0]) { ec = appts[0].errors[0].errorCode; msg = appts[0].errors[0].message; }
+      pm.environment.set("twoPrimaryErrorCode", ec);
+      pm.environment.set("twoPrimaryErrorMessage", msg);
+      console.log("DEC4 http=" + pm.response.code + " ec=" + ec + " msg=" + msg);
+    language: text/javascript
+order: 1000

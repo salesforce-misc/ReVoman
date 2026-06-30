@@ -37,6 +37,8 @@ import com.salesforce.revoman.integration.core.adapters.IDAdapter;
  *   <li><b>1.5</b> — a NON-required helper is not availability-checked, so it may double-book.
  *   <li><b>3</b> — a missing {@code isRequiredResource} flag (262 CRASHES) + the doc-L142 control
  *       (single {@code isRequiredResource=true}, no {@code isPrimaryResource}, must be a valid Schedule).
+ *   <li><b>4</b> — two {@code isPrimaryResource=true} resources → clean input-validation reject
+ *       ({@code INVALID_INPUT} / HTTP 400, "only one ... primary resource"), before availability.
  *   <li><b>8</b> — {@code resourceLimitApptDistribution} caps the load-balancing read list ({@code 0} →
  *       empty). {@code WfsReadPathParityE2ETest}.
  *   <li><b>9</b> — the Shift availability read runs in user mode ({@code SystemMode.NONE}) while sibling
@@ -139,6 +141,12 @@ public final class ReVomanConfigForWfs {
       kickFor(V3_WFS_PATH + "booking/schedule-missing-required-flag");
   static final Kick SINGLE_REQUIRED_NO_PRIMARY_SCHEDULE_CONFIG =
       kickFor(V3_WFS_PATH + "booking/schedule-single-required-no-primary");
+
+  // ## Decision 4 — two primary resources → clean input-validation reject (INVALID_INPUT / HTTP 400,
+  // "Only one of the provided assigned resources can be a primary resource"). Caught up front in
+  // ScheduleCommonValidator.validatePrimaryResourceConstraints, before availability/persist.
+  static final Kick SCHEDULE_TWO_PRIMARY_CONFIG =
+      kickFor(V3_WFS_PATH + "booking/schedule-two-primary");
 
   // ## Decision 8 — resourceLimitApptDistribution cap on the load-balancing read path (read-only). The
   // workspace default OnSite policy carries the seeded DefaultOnSiteSchdPlcy_LoadBalancing objective, so
