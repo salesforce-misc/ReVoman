@@ -18,19 +18,31 @@ import com.salesforce.revoman.integration.core.adapters.IDAdapter;
 
 /**
  * Off-core ReVoman INTEGRATION test config (NOT a ReVomanFTest) for the Workforce Scheduling (WFS)
- * Decision-1 "non-required helper" scenarios. These are scripted HTTP clients that hit a remote WFS
- * org/workspace and stitch loosely-coupled V3 Postman collections via {@code ReVoman.revUp(...)};
- * they run as plain JUnit tests in the integrationTest source set (mirrors the {@code bt2bs}/{@code
- * pq} siblings).
+ * read↔write parity scenarios. These are scripted HTTP clients that hit a remote WFS org/workspace and
+ * stitch loosely-coupled V3 Postman collections via {@code ReVoman.revUp(...)}; they run as plain JUnit
+ * tests in the integrationTest source set (mirrors the {@code bt2bs}/{@code pq} siblings).
  *
  * <p>The collections are V3 (each folder is a directory carrying {@code .resources/definition.yaml}
  * + {@code *.request.yaml}); ReVoman auto-detects V3 from the {@code templatePath} directory. The
  * shared env is the V3 {@code ws.environment.yaml} (creds blanked — the reader fills baseUrl/tokens
  * for their own workspace).
  *
- * <p>Decision-1 unit-under-test: whether a NON-required "helper" resource (a 2nd AssignedResource
- * with {@code isRequiredResource=false}, riding along with a required+primary anchor) is validated
- * on the Schedule write path.
+ * <p>Decisions under test (each characterizes live 262; the 264 contrast is in each test's javadoc):
+ *
+ * <ul>
+ *   <li><b>1</b> — a NON-required "helper" resource is NOT fitness-checked on the Schedule write path
+ *       (4 dims: excluded / territory / skills / working-locations). {@code WfsWritePathParityE2ETest}.
+ *   <li><b>1.4</b> — a NON-required helper cannot satisfy an account's required-resource demand (262
+ *       CRASHES with a serviceTerritoryMembers NPE rather than a clean RequiredResources error).
+ *   <li><b>1.5</b> — a NON-required helper is not availability-checked, so it may double-book.
+ *   <li><b>3</b> — a missing {@code isRequiredResource} flag (262 CRASHES) + the doc-L142 control
+ *       (single {@code isRequiredResource=true}, no {@code isPrimaryResource}, must be a valid Schedule).
+ *   <li><b>8</b> — {@code resourceLimitApptDistribution} caps the load-balancing read list ({@code 0} →
+ *       empty). {@code WfsReadPathParityE2ETest}.
+ *   <li><b>9</b> — the Shift availability read runs in user mode ({@code SystemMode.NONE}) while sibling
+ *       reads run {@code SFDC_FULL}: a caller lacking sharing on a resource's Shift rows silently gets no
+ *       slots (proven via a manager-owns-shifts / case-worker-reads cross-persona repro).
+ * </ul>
  *
  * <p>--------------------------------------- ENV / WORKSPACE SETUP (cannot be done over REST)
  * ------
