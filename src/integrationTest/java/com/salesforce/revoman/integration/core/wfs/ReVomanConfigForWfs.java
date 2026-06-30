@@ -192,11 +192,13 @@ public final class ReVomanConfigForWfs {
   // rejection fires. LIVE-OBSERVED on the 262 org: Arm B is rejected ONLY by the downstream
   // availability
   // re-check (INVALID_INPUT "The service resources are not available for the requested slot." /
-  // SlotNotAvailable) — 262 lacks the empty/no-op-reschedule availability short-circuit added in
-  // 264
-  // (precommit 58140158). Characterized faithfully (availability, not no-primary). Clean
-  // two-resource
-  // schedule sets up reschedCleanSaId for both arms.
+  // SlotNotAvailable) — 262 lacks 264's reworked reschedule availability (the effective-set merge
+  // over the real surviving crew = existing − deleted ∪ created ∪ updated, which would find the
+  // surviving-crew slot; 264-only, verified by branch diff against 262 — the effective-set merge +
+  // rule-enforcer files are absent on 262). NOTE: 264's empty-effective-set short-circuit applies
+  // only to delete-ALL, not to this delete-primary-leaving-one case. Characterized faithfully
+  // (availability, not no-primary). Clean two-resource schedule sets up reschedCleanSaId for both
+  // arms.
   static final Kick SCHEDULE_TWO_RESOURCE_CLEAN_CONFIG =
       kickFor(V3_WFS_PATH + "booking/schedule-two-resource-clean");
   static final Kick RESCHEDULE_DELETE_PRIMARY_WITH_FLAG_CONFIG =

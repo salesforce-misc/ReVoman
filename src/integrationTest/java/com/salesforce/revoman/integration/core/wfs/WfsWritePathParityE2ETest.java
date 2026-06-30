@@ -310,9 +310,11 @@ class WfsWritePathParityE2ETest {
   }
 
   /**
-   * Decision 4z — a reschedule CAN leave an appointment with NO primary resource. The product doc's
-   * conclusion ("not possible to schedule or reschedule without a primary") is WRONG for the
-   * reschedule API: it conflates two independent rules. One revUp chains a clean two-resource
+   * Decision 4z — there is NO "reschedule must keep a primary" rule (so the reschedule API does NOT
+   * forbid leaving an appointment with no primary — the product doc's blanket "not possible to
+   * schedule or reschedule without a primary" is WRONG); on this 262 org the delete-primary
+   * reschedule is then blocked only by a SEPARATE downstream availability gap, never by a
+   * primary rule. The doc conflates two independent rules. One revUp chains a clean two-resource
    * Schedule (captures the SA id) then two reschedule arms over that SA.
    *
    * <p>262 (asserted): the clean Schedule books Success. Arm A — {@code DeleteOperation} on the
@@ -329,19 +331,26 @@ class WfsWritePathParityE2ETest {
    * see Step 10 decision log): Arm B is NOT Success; it is rejected with {@code INVALID_INPUT} /
    * HTTP 400 "The service resources are not available for the requested slot." — a DOWNSTREAM
    * AVAILABILITY re-check ({@code SlotNotAvailable}), never a primary-count / required-primary
-   * error. On 262 the reschedule slot-gen yields no slot because the empty / no-op-reschedule
-   * availability short-circuit was only added in 264 (precommit 58140158); 262 lacks it. The doc is
-   * still refuted at the validation layer (zero primaries is allowed); the test asserts the
-   * OBSERVED rejection faithfully (availability, NOT no-primary) rather than forcing a Success this
-   * org cannot produce. Adding {@code startTime}/{@code endTime} (Step 10 option 2) and switching
-   * to delete-ALL (Step 10 option 3) were both tried live and both still returned the same {@code
+   * error. On 262 the reschedule slot-gen yields no slot for the surviving non-primary crew because
+   * 264 reworked reschedule availability (an EFFECTIVE-SET MERGE that re-evaluates the REAL
+   * surviving crew = existing − deleted ∪ created ∪ updated) so the surviving-crew slot is found —
+   * and that rework is 264-only (verified by branch diff against 262: the effective-set merge +
+   * rule-enforcer files are absent on 262). 262 lacks it. (A separate empty-effective-set
+   * short-circuit also exists on 264, but it fires only when the crew is EMPTY, i.e. delete-ALL —
+   * NOT for this delete-primary-leaving-one case, where resourceB survives.) The doc is still
+   * refuted at the validation layer (zero primaries is allowed); the test asserts the OBSERVED
+   * rejection faithfully (availability, NOT no-primary) rather than forcing a Success this org
+   * cannot produce. Adding {@code startTime}/{@code endTime} (Step 10 option 2) and switching to
+   * delete-ALL (Step 10 option 3) were both tried live and both still returned the same {@code
    * SlotNotAvailable}, confirming the 262 availability-path gap.
    *
-   * <p>264 contrast: the empty / delete-all reschedule short-circuits availability as a valid
-   * no-resource outcome, so the same call would book {@code Success} on 264 — i.e. the doc's
-   * blanket claim is refuted even more directly there. The product OPEN QUESTION (should a
-   * reschedule be allowed to leave no primary?) is a DECISION, not a code bug: the primary-count
-   * validator already allows it.
+   * <p>264 contrast: 264 reworked reschedule availability (effective-set merge over the real
+   * surviving crew = existing − deleted ∪ created ∪ updated), so the surviving-crew slot is found
+   * and the same delete-primary call would book {@code Success} on 264 — i.e. the doc's blanket
+   * claim is refuted even more directly there. (264 also adds an empty-effective-set short-circuit,
+   * but that fires only for delete-ALL, not for this delete-primary-leaving-one case.) The product
+   * OPEN QUESTION (should a reschedule be allowed to leave no primary?) is a DECISION, not a code
+   * bug: the primary-count validator already allows it.
    */
   @Test
   void testRescheduleNoPrimaryE2E() {
@@ -363,8 +372,9 @@ class WfsWritePathParityE2ETest {
     assertThat(env.getAsString("reschedWithFlagErrorCode")).isEqualTo("INVALID_INPUT");
     assertThat(env.getAsString("reschedWithFlagHttpCode")).isEqualTo("400");
     // Arm B: delete the primary, no flag → rejected ONLY by the downstream availability re-check
-    // (SlotNotAvailable), NEVER by a no-primary rule (262 lacks the 264 empty-reschedule
-    // short-circuit).
+    // (SlotNotAvailable), NEVER by a no-primary rule (262 lacks 264's reworked reschedule
+    // availability — the effective-set merge over the real surviving crew that would find the
+    // surviving-crew slot).
     // This is what refutes the doc: there is no "must keep a primary" validation. Characterized
     // faithfully.
     assertThat(env.getAsString("reschedNoFlagStatus")).isNotEqualTo("Success");
