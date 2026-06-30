@@ -21,9 +21,12 @@ import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.RE
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.REQUIRED_NON_REQUIRED_SATISFIER_VIOLATING_SCHEDULE_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.REQUIRED_RESOURCES_POLICY_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.REQUIRED_SATISFIER_BOOKABLE_SCHEDULE_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.RESCHEDULE_DELETE_PRIMARY_NO_FLAG_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.RESCHEDULE_DELETE_PRIMARY_WITH_FLAG_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SCHEDULE_PRIMARY_NOT_REQUIRED_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SCHEDULE_PRIMARY_REQUIRED_CONTROL_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SCHEDULE_TWO_PRIMARY_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SCHEDULE_TWO_RESOURCE_CLEAN_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SINGLE_REQUIRED_NO_PRIMARY_SCHEDULE_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SKILLS_FIXTURE_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SKILLS_SCHEDULE_CONFIG;
@@ -40,28 +43,34 @@ import kotlin.collections.CollectionsKt;
 import org.junit.jupiter.api.Test;
 
 /**
- * WFS read↔write parity write-path characterization (live 262; 264 contrast in each method's javadoc).
- * Supersedes WfsHelperFitnessE2ETest (Decision 1) and WfsDoubleBookHelperE2ETest (Decision 1.5).
+ * WFS read↔write parity write-path characterization (live 262; 264 contrast in each method's
+ * javadoc). Supersedes WfsHelperFitnessE2ETest (Decision 1) and WfsDoubleBookHelperE2ETest
+ * (Decision 1.5).
  *
  * <p>Decisions covered: 1 (helper fitness), 1.4 (helper can't satisfy a required-resource demand),
- * 1.5 (helper double-books), 3 (missing isRequiredResource flag + the L142 single-required-no-primary
- * control). Each scenario is its own {@code ReVoman.revUp(...)} starting with {@code AUTH_CONFIG}
- * (fresh env + fresh timestamped users → no ServiceResource (RelatedRecordId, ResourceType) collision).
+ * 1.5 (helper double-books), 3 (missing isRequiredResource flag + the L142
+ * single-required-no-primary control). Each scenario is its own {@code ReVoman.revUp(...)} starting
+ * with {@code AUTH_CONFIG} (fresh env + fresh timestamped users → no ServiceResource
+ * (RelatedRecordId, ResourceType) collision).
  */
 class WfsWritePathParityE2ETest {
 
   /**
-   * Decision 1 — a NON-required "helper" resource is NOT fitness-checked on the Schedule write path,
-   * across four dimensions (EXCLUDED / TERRITORY / SKILLS / WORKING-LOCATIONS). Each dimension is a
-   * clean required+primary resourceA plus a NON-required resourceB violating exactly one rule.
+   * Decision 1 — a NON-required "helper" resource is NOT fitness-checked on the Schedule write
+   * path, across four dimensions (EXCLUDED / TERRITORY / SKILLS / WORKING-LOCATIONS). Each
+   * dimension is a clean required+primary resourceA plus a NON-required resourceB violating exactly
+   * one rule.
    *
    * <p>262 (asserted): the helper escapes every fitness rule → each dimension books Success.
+   *
    * <p>264 contrast: the helper WOULD be rejected with the matching rule code (ExcludedResources /
-   * MatchTerritory / MatchSkills / WorkingLocations) → flip each expected verdict to "ScheduleError".
+   * MatchTerritory / MatchSkills / WorkingLocations) → flip each expected verdict to
+   * "ScheduleError".
    *
    * <p>Approach A: each dimension is its own revUp starting with AUTH_CONFIG → fresh env + fresh
    * timestamped users, so the four dimensions' ServiceResource(RelatedRecordId, ResourceType) rows
-   * never collide (the SR-uniqueness collision that made the old single-revUp run roll back dims 2-4).
+   * never collide (the SR-uniqueness collision that made the old single-revUp run roll back dims
+   * 2-4).
    */
   @Test
   void testNonRequiredHelperFitnessE2E() {
@@ -93,13 +102,15 @@ class WfsWritePathParityE2ETest {
   }
 
   /**
-   * Decision 1.5 — a NON-required helper is NOT availability-checked, so it may double-book. The A/B
-   * flips ONLY isRequiredResource on resourceB over the SAME fixture (resourceB is BUSY at the window).
+   * Decision 1.5 — a NON-required helper is NOT availability-checked, so it may double-book. The
+   * A/B flips ONLY isRequiredResource on resourceB over the SAME fixture (resourceB is BUSY at the
+   * window).
    *
    * <p>262 (asserted): the busy NON-required helper books Success (no availability check). The
    * REQUIRED control (isRequiredResource=true) is availability-checked → not-Success.
-   * <p>264 contrast: the doc flags helper double-book as a gap InField blocks; under 264 the non-required
-   * act would also be rejected (not-available) rather than Success.
+   *
+   * <p>264 contrast: the doc flags helper double-book as a gap InField blocks; under 264 the
+   * non-required act would also be rejected (not-available) rather than Success.
    */
   @Test
   void testNonRequiredHelperDoubleBooksE2E() {
@@ -113,7 +124,8 @@ class WfsWritePathParityE2ETest {
             DOUBLE_BOOK_REQUIRED_CONFLICT_SCHEDULE_CONFIG);
     final var env = CollectionsKt.last(rundown).mutableEnv;
     assertThat(env).containsEntry("doubleBookNonRequiredSchedulingStatus", "Success");
-    assertThat(env.getAsString("doubleBookRequiredControlSchedulingStatus")).isNotEqualTo("Success");
+    assertThat(env.getAsString("doubleBookRequiredControlSchedulingStatus"))
+        .isNotEqualTo("Success");
   }
 
   /**
@@ -121,22 +133,25 @@ class WfsWritePathParityE2ETest {
    * (ResourcePreference Required). resourceA (required+primary) is clean but NOT on the account's
    * required list; resourceB IS on the required list but is assigned NON-required.
    *
-   * <p>262 (asserted): the violating booking CRASHES with errorCode=INTERNAL_SERVER_ERROR — a server
-   * NPE ("Cannot invoke ...ArrayListMultimap.values() because this.serviceTerritoryMembers is null"),
-   * NOT the predicted clean ScheduleError errorCode=RequiredResources (a 262 crash bug). The control
-   * (resourceB flipped to isRequiredResource=true) is rejected with NO RequiredResources error and no
-   * crash (availability may still block it — INVALID_INPUT not-available).
-   * <p>264 contrast: the violating booking gives a clean ScheduleError errorCode=RequiredResources
-   * (no crash) since the satisfaction rule evaluates over REQUIRED resources only and the non-required
-   * resourceB does not count; control unchanged.
+   * <p>262 (asserted): the violating booking CRASHES with errorCode=INTERNAL_SERVER_ERROR — a
+   * server NPE ("Cannot invoke ...ArrayListMultimap.values() because this.serviceTerritoryMembers
+   * is null"), NOT the predicted clean ScheduleError errorCode=RequiredResources (a 262 crash bug).
+   * The control (resourceB flipped to isRequiredResource=true) is rejected with NO
+   * RequiredResources error and no crash (availability may still block it — INVALID_INPUT
+   * not-available).
    *
-   * <p>Approach A: two SEPARATE revUps, each starting with AUTH_CONFIG → fresh env + fresh timestamped
-   * users, so the violating and control fixtures' ServiceResource(RelatedRecordId, ResourceType) rows
-   * never collide.
+   * <p>264 contrast: the violating booking gives a clean ScheduleError errorCode=RequiredResources
+   * (no crash) since the satisfaction rule evaluates over REQUIRED resources only and the
+   * non-required resourceB does not count; control unchanged.
+   *
+   * <p>Approach A: two SEPARATE revUps, each starting with AUTH_CONFIG → fresh env + fresh
+   * timestamped users, so the violating and control fixtures' ServiceResource(RelatedRecordId,
+   * ResourceType) rows never collide.
    */
   @Test
   void testNonRequiredHelperCannotSatisfyRequiredDemandE2E() {
-    // Violating: only a NON-required helper present for the account's required demand → 262 server NPE.
+    // Violating: only a NON-required helper present for the account's required demand → 262 server
+    // NPE.
     final var violatingRundown =
         ReVoman.revUp(
             (r, ignore) -> assertThat(r.firstUnIgnoredUnsuccessfulStepReport()).isNull(),
@@ -149,7 +164,8 @@ class WfsWritePathParityE2ETest {
         .isEqualTo("INTERNAL_SERVER_ERROR");
     assertThat(violatingEnv.getAsString("requiredNonReqSatisfierErrorMessage"))
         .contains("serviceTerritoryMembers");
-    // Control: a genuine required satisfier → no RequiredResources error (fresh AUTH per Approach A).
+    // Control: a genuine required satisfier → no RequiredResources error (fresh AUTH per Approach
+    // A).
     final var controlRundown =
         ReVoman.revUp(
             (r, ignore) -> assertThat(r.firstUnIgnoredUnsuccessfulStepReport()).isNull(),
@@ -165,23 +181,24 @@ class WfsWritePathParityE2ETest {
   /**
    * Decision 3 — a missing isRequiredResource flag, plus the doc L142 single-required-no-primary
    * control. Act A schedules a SINGLE assigned resource that OMITS isRequiredResource entirely (and
-   * isPrimaryResource), exercising the missing-flag code path. Act B (doc L142 control) sends a single
-   * isRequiredResource=true with NO isPrimaryResource on FRESH resources, which MUST be a valid
-   * Schedule (isPrimaryResource is multi-resource-only plumbing, NOT the Decision-1 variable). Both
-   * use AVAILABILITY_OP_HOURS_POLICY_CONFIG (Availability + WorkingTerritories, NO RequiredResources
-   * rule) over the required-non-required fixture, so the RequiredResources rule's Task-4 NPE does not
-   * confound the missing-flag probe.
+   * isPrimaryResource), exercising the missing-flag code path. Act B (doc L142 control) sends a
+   * single isRequiredResource=true with NO isPrimaryResource on FRESH resources, which MUST be a
+   * valid Schedule (isPrimaryResource is multi-resource-only plumbing, NOT the Decision-1
+   * variable). Both use AVAILABILITY_OP_HOURS_POLICY_CONFIG (Availability + WorkingTerritories, NO
+   * RequiredResources rule) over the required-non-required fixture, so the RequiredResources rule's
+   * Task-4 NPE does not confound the missing-flag probe.
    *
    * <p>262 (asserted): Act A CRASHES with errorCode=INTERNAL_SERVER_ERROR — a server NPE ("Cannot
    * invoke \"java.lang.Boolean.booleanValue()\" because the return value of
-   * \"common.api.soap.Entity.getField(String)\" is null"), the 262 missing-flag NPE the doc predicts.
-   * Act B → schedulingStatus=Success.
+   * \"common.api.soap.Entity.getField(String)\" is null"), the 262 missing-flag NPE the doc
+   * predicts. Act B → schedulingStatus=Success.
+   *
    * <p>264 contrast: Act A → a missing isRequiredResource is treated as not-required and handled
    * cleanly (no crash); Act B unchanged.
    *
-   * <p>Approach A: two SEPARATE revUps, each starting with AUTH_CONFIG → fresh env + fresh timestamped
-   * users, so the two acts' ServiceResource(RelatedRecordId, ResourceType) rows never collide. Both
-   * acts carry {@code ignoreHTTPStatusUnsuccessful: "true"} so {@code
+   * <p>Approach A: two SEPARATE revUps, each starting with AUTH_CONFIG → fresh env + fresh
+   * timestamped users, so the two acts' ServiceResource(RelatedRecordId, ResourceType) rows never
+   * collide. Both acts carry {@code ignoreHTTPStatusUnsuccessful: "true"} so {@code
    * firstUnIgnoredUnsuccessfulStepReport()} stays null.
    */
   @Test
@@ -199,7 +216,8 @@ class WfsWritePathParityE2ETest {
         .isEqualTo("INTERNAL_SERVER_ERROR");
     assertThat(missingFlagEnv.getAsString("missingRequiredFlagErrorMessage"))
         .contains("Boolean.booleanValue()");
-    // Act B (doc L142): single isRequiredResource=true, NO isPrimaryResource, FRESH resources → valid.
+    // Act B (doc L142): single isRequiredResource=true, NO isPrimaryResource, FRESH resources →
+    // valid.
     final var l142Rundown =
         ReVoman.revUp(
             (r, ignore) -> assertThat(r.firstUnIgnoredUnsuccessfulStepReport()).isNull(),
@@ -212,17 +230,18 @@ class WfsWritePathParityE2ETest {
   }
 
   /**
-   * Decision 4 — TWO assigned resources both {@code isPrimaryResource=true} are rejected UP FRONT at
-   * input validation ({@code ScheduleCommonValidator.validatePrimaryResourceConstraints}), before any
-   * availability/persist. Multi-resource scheduling requires EXACTLY one primary.
+   * Decision 4 — TWO assigned resources both {@code isPrimaryResource=true} are rejected UP FRONT
+   * at input validation ({@code ScheduleCommonValidator.validatePrimaryResourceConstraints}),
+   * before any availability/persist. Multi-resource scheduling requires EXACTLY one primary.
    *
-   * <p>262 (asserted): a clean top-level {@code ConnectErrorCode INVALID_INPUT} / HTTP 400 with message
-   * "Only one of the provided assigned resources can be a primary resource." No booking occurs (the throw
-   * is in {@code validatePayload}, so {@code appointments[0]} is absent → status null). Per the product
-   * doc the 262 ERA produced a "confusing database error"; the CURRENT code already returns the clean
-   * message, so this characterizes the 264 target.
-   * <p>264 contrast: unchanged — the clean {@code INVALID_INPUT} message is the intended behavior; no
-   * action needed (error-message polish already shipped).
+   * <p>262 (asserted): a clean top-level {@code ConnectErrorCode INVALID_INPUT} / HTTP 400 with
+   * message "Only one of the provided assigned resources can be a primary resource." No booking
+   * occurs (the throw is in {@code validatePayload}, so {@code appointments[0]} is absent → status
+   * null). Per the product doc the 262 ERA produced a "confusing database error"; the CURRENT code
+   * already returns the clean message, so this characterizes the 264 target.
+   *
+   * <p>264 contrast: unchanged — the clean {@code INVALID_INPUT} message is the intended behavior;
+   * no action needed (error-message polish already shipped).
    */
   @Test
   void testTwoPrimaryResourcesRejectedE2E() {
@@ -234,7 +253,8 @@ class WfsWritePathParityE2ETest {
             REQUIRED_NON_REQUIRED_FIXTURE_CONFIG,
             SCHEDULE_TWO_PRIMARY_CONFIG);
     final var env = CollectionsKt.last(rundown).mutableEnv;
-    // Clean input-validation reject: INVALID_INPUT, "primary resource" message, HTTP 400, no booking.
+    // Clean input-validation reject: INVALID_INPUT, "primary resource" message, HTTP 400, no
+    // booking.
     assertThat(env.getAsString("twoPrimaryErrorCode")).isEqualTo("INVALID_INPUT");
     assertThat(env.getAsString("twoPrimaryErrorMessage")).contains("primary resource");
     assertThat(env.getAsString("twoPrimaryHttpCode")).isEqualTo("400");
@@ -244,25 +264,29 @@ class WfsWritePathParityE2ETest {
   /**
    * Decision 5 — a single resource marked {@code isPrimaryResource=true} but {@code
    * isRequiredResource=false} is REJECTED, NOT auto-corrected and NOT silently double-booked. Input
-   * validation counts primaries only (it never inspects the required flag), so the contradictory payload
-   * passes validation and reaches PERSIST, where {@code LightningSchedulerAssignedResourceValidator}
-   * rejects it. The window is FREE, so availability passes and the persist reject is what surfaces.
+   * validation counts primaries only (it never inspects the required flag), so the contradictory
+   * payload passes validation and reaches PERSIST, where {@code
+   * LightningSchedulerAssignedResourceValidator} rejects it. The window is FREE, so availability
+   * passes and the persist reject is what surfaces.
    *
-   * <p>262 (asserted): the probe is rejected (NOT Success) — the live verdict is captured in both error
-   * shapes (top-level {@code INVALID_FIELD} array vs {@code appointments[0].errors[0]}); the required
-   * primary CONTROL over the same resource/window books Success. This REFUTES both the story's
-   * "quietly fixed to required" auto-correct expectation AND the 262 "could be double-booked" claim
-   * (the request never persists).
-   * <p>264 contrast: unchanged — reject (not auto-correct) is the intended persist behavior; the doc's
-   * open question (auto-correct vs reject) resolves to reject. (A fast-fail at input validation, as the
-   * notes recommend, would only change WHERE it's rejected, not THAT it's rejected.)
+   * <p>262 (asserted): the probe is rejected (NOT Success) — the live verdict is captured in both
+   * error shapes (top-level {@code INVALID_FIELD} array vs {@code appointments[0].errors[0]}); the
+   * required primary CONTROL over the same resource/window books Success. This REFUTES both the
+   * story's "quietly fixed to required" auto-correct expectation AND the 262 "could be
+   * double-booked" claim (the request never persists).
+   *
+   * <p>264 contrast: unchanged — reject (not auto-correct) is the intended persist behavior; the
+   * doc's open question (auto-correct vs reject) resolves to reject. (A fast-fail at input
+   * validation, as the notes recommend, would only change WHERE it's rejected, not THAT it's
+   * rejected.)
    *
    * <p>Approach A: two SEPARATE revUps so the probe's (rejected, non-persisting) attempt and the
    * control's (persisting) booking never share ServiceResource rows.
    */
   @Test
   void testPrimaryNotRequiredRejectedE2E() {
-    // Probe: primary + NOT required, free window → rejected at persist (not Success, not double-booked).
+    // Probe: primary + NOT required, free window → rejected at persist (not Success, not
+    // double-booked).
     final var probeRundown =
         ReVoman.revUp(
             (r, ignore) -> assertThat(r.firstUnIgnoredUnsuccessfulStepReport()).isNull(),
@@ -283,6 +307,71 @@ class WfsWritePathParityE2ETest {
             SCHEDULE_PRIMARY_REQUIRED_CONTROL_CONFIG);
     assertThat(CollectionsKt.last(controlRundown).mutableEnv)
         .containsEntry("primaryReqControlStatus", "Success");
+  }
+
+  /**
+   * Decision 4z — a reschedule CAN leave an appointment with NO primary resource. The product doc's
+   * conclusion ("not possible to schedule or reschedule without a primary") is WRONG for the
+   * reschedule API: it conflates two independent rules. One revUp chains a clean two-resource
+   * Schedule (captures the SA id) then two reschedule arms over that SA.
+   *
+   * <p>262 (asserted): the clean Schedule books Success. Arm A — {@code DeleteOperation} on the
+   * primary WITH {@code isPrimaryResource:true} on the delete entry — is rejected ({@code
+   * INVALID_INPUT}, HTTP 400, "isPrimaryResource cannot be set for Delete"): a PAYLOAD-FIELD guard
+   * ({@code RescheduleCommonValidator.validateDeleteOperationFields}), not a crew rule, so it does
+   * NOT mutate the SA. Arm B — {@code DeleteOperation} on the primary WITHOUT the flag — is NOT
+   * rejected by any primary rule: {@code validatePrimaryResourceCount} only throws {@code
+   * MultiplePrimary} when {@code primaryCount > 1} ("allow zero primaries for reschedule"), so
+   * there is NO "must keep a primary" rule — which is what refutes the doc. The Core func test
+   * {@code testRescheduleAppointmentDeleteAllAssignedResources} relies on the same allow-zero rule.
+   *
+   * <p>LIVE-OBSERVED on the 262 org under test (deviation from the brief's expected Arm-B Success —
+   * see Step 10 decision log): Arm B is NOT Success; it is rejected with {@code INVALID_INPUT} /
+   * HTTP 400 "The service resources are not available for the requested slot." — a DOWNSTREAM
+   * AVAILABILITY re-check ({@code SlotNotAvailable}), never a primary-count / required-primary
+   * error. On 262 the reschedule slot-gen yields no slot because the empty / no-op-reschedule
+   * availability short-circuit was only added in 264 (precommit 58140158); 262 lacks it. The doc is
+   * still refuted at the validation layer (zero primaries is allowed); the test asserts the
+   * OBSERVED rejection faithfully (availability, NOT no-primary) rather than forcing a Success this
+   * org cannot produce. Adding {@code startTime}/{@code endTime} (Step 10 option 2) and switching
+   * to delete-ALL (Step 10 option 3) were both tried live and both still returned the same {@code
+   * SlotNotAvailable}, confirming the 262 availability-path gap.
+   *
+   * <p>264 contrast: the empty / delete-all reschedule short-circuits availability as a valid
+   * no-resource outcome, so the same call would book {@code Success} on 264 — i.e. the doc's
+   * blanket claim is refuted even more directly there. The product OPEN QUESTION (should a
+   * reschedule be allowed to leave no primary?) is a DECISION, not a code bug: the primary-count
+   * validator already allows it.
+   */
+  @Test
+  void testRescheduleNoPrimaryE2E() {
+    final var rundown =
+        ReVoman.revUp(
+            (r, ignore) -> assertThat(r.firstUnIgnoredUnsuccessfulStepReport()).isNull(),
+            AUTH_CONFIG,
+            AVAILABILITY_OP_HOURS_POLICY_CONFIG,
+            REQUIRED_NON_REQUIRED_FIXTURE_CONFIG,
+            SCHEDULE_TWO_RESOURCE_CLEAN_CONFIG,
+            RESCHEDULE_DELETE_PRIMARY_WITH_FLAG_CONFIG,
+            RESCHEDULE_DELETE_PRIMARY_NO_FLAG_CONFIG);
+    final var env = CollectionsKt.last(rundown).mutableEnv;
+    // Setup booked, and the SA id was captured for the reschedule arms.
+    assertThat(env.getAsString("reschedCleanStatus")).isEqualTo("Success");
+    assertThat(env.getAsString("reschedCleanSaId")).isNotNull();
+    // Arm A: isPrimaryResource on a Delete entry → clean INVALID_INPUT (payload-field guard), HTTP
+    // 400.
+    assertThat(env.getAsString("reschedWithFlagErrorCode")).isEqualTo("INVALID_INPUT");
+    assertThat(env.getAsString("reschedWithFlagHttpCode")).isEqualTo("400");
+    // Arm B: delete the primary, no flag → rejected ONLY by the downstream availability re-check
+    // (SlotNotAvailable), NEVER by a no-primary rule (262 lacks the 264 empty-reschedule
+    // short-circuit).
+    // This is what refutes the doc: there is no "must keep a primary" validation. Characterized
+    // faithfully.
+    assertThat(env.getAsString("reschedNoFlagStatus")).isNotEqualTo("Success");
+    assertThat(env.getAsString("reschedNoFlagErrorCode")).isEqualTo("INVALID_INPUT");
+    assertThat(env.getAsString("reschedNoFlagHttpCode")).isEqualTo("400");
+    assertThat(env.getAsString("reschedNoFlagErrorMessage"))
+        .contains("not available for the requested slot");
   }
 
   private static void assertDimensionBooksSuccess(
