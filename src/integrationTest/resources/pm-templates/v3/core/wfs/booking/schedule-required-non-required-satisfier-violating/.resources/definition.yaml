@@ -1,0 +1,21 @@
+$kind: collection
+description: |-
+  The "act" for the NON-required-resource RequiredResources-satisfaction proof (Fix A, D1.4). Schedules
+  ONE brand-new InBusiness SA into tomorrow 11:00-11:30 UTC (inside member OH 08-16 and the Confirmed
+  Shift) with TWO assigned resources under the Availability(default ShiftUsage) +
+  WorkingTerritories(IsPrimaryLocationEnabled=true) + RequiredResources policy:
+    - resourceA: isRequiredResource=true, isPrimaryResource=true — clean, but NOT on the Account's
+      required list.
+    - resourceB: isRequiredResource=false, isPrimaryResource=false — also a Primary member with its own
+      Confirmed Shift (so WorkingTerritories and Availability pass for it) AND the sole resource on the
+      Account's ResourcePreference(Required) list.
+  RequiredResources is an appointment-level SATISFACTION rule that evaluates over the REQUIRED assigned
+  resources only ({resourceA}). resourceA is not on the required list, so it must fire RequiredResources —
+  the NON-required resourceB on the list must NOT silently satisfy the customer mandate (D1.4). Expected:
+  ScheduleError errorCode=RequiredResources, SA NOT scheduled. Assertions live in the Java test.
+auth:
+  - id: 8091a2b3-c4d5-46e7-9f80-91a2b3c4d5e7
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"

@@ -16,6 +16,10 @@ import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.EX
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.EXCLUDED_RESOURCES_POLICY_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.EXCLUDED_SCHEDULE_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.MATCH_SKILLS_POLICY_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.REQUIRED_NON_REQUIRED_FIXTURE_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.REQUIRED_NON_REQUIRED_SATISFIER_VIOLATING_SCHEDULE_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.REQUIRED_RESOURCES_POLICY_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.REQUIRED_SATISFIER_BOOKABLE_SCHEDULE_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SKILLS_FIXTURE_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SKILLS_SCHEDULE_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SKILLS_SKILL_FIXTURE_CONFIG;
@@ -110,6 +114,52 @@ class WfsWritePathParityE2ETest {
     final var env = CollectionsKt.last(rundown).mutableEnv;
     assertThat(env).containsEntry("doubleBookNonRequiredSchedulingStatus", "Success");
     assertThat(env.getAsString("doubleBookRequiredControlSchedulingStatus")).isNotEqualTo("Success");
+  }
+
+  /**
+   * Decision 1.4 — a NON-required helper CANNOT satisfy an account's required-resource demand
+   * (ResourcePreference Required). resourceA (required+primary) is clean but NOT on the account's
+   * required list; resourceB IS on the required list but is assigned NON-required.
+   *
+   * <p>262 (asserted): the violating booking CRASHES with errorCode=INTERNAL_SERVER_ERROR — a server
+   * NPE ("Cannot invoke ...ArrayListMultimap.values() because this.serviceTerritoryMembers is null"),
+   * NOT the predicted clean ScheduleError errorCode=RequiredResources (a 262 crash bug). The control
+   * (resourceB flipped to isRequiredResource=true) is rejected with NO RequiredResources error and no
+   * crash (availability may still block it — INVALID_INPUT not-available).
+   * <p>264 contrast: the violating booking gives a clean ScheduleError errorCode=RequiredResources
+   * (no crash) since the satisfaction rule evaluates over REQUIRED resources only and the non-required
+   * resourceB does not count; control unchanged.
+   *
+   * <p>Approach A: two SEPARATE revUps, each starting with AUTH_CONFIG → fresh env + fresh timestamped
+   * users, so the violating and control fixtures' ServiceResource(RelatedRecordId, ResourceType) rows
+   * never collide.
+   */
+  @Test
+  void testNonRequiredHelperCannotSatisfyRequiredDemandE2E() {
+    // Violating: only a NON-required helper present for the account's required demand → 262 server NPE.
+    final var violatingRundown =
+        ReVoman.revUp(
+            (r, ignore) -> assertThat(r.firstUnIgnoredUnsuccessfulStepReport()).isNull(),
+            AUTH_CONFIG,
+            REQUIRED_RESOURCES_POLICY_CONFIG,
+            REQUIRED_NON_REQUIRED_FIXTURE_CONFIG,
+            REQUIRED_NON_REQUIRED_SATISFIER_VIOLATING_SCHEDULE_CONFIG);
+    final var violatingEnv = CollectionsKt.last(violatingRundown).mutableEnv;
+    assertThat(violatingEnv.getAsString("requiredNonReqSatisfierErrorCode"))
+        .isEqualTo("INTERNAL_SERVER_ERROR");
+    assertThat(violatingEnv.getAsString("requiredNonReqSatisfierErrorMessage"))
+        .contains("serviceTerritoryMembers");
+    // Control: a genuine required satisfier → no RequiredResources error (fresh AUTH per Approach A).
+    final var controlRundown =
+        ReVoman.revUp(
+            (r, ignore) -> assertThat(r.firstUnIgnoredUnsuccessfulStepReport()).isNull(),
+            AUTH_CONFIG,
+            REQUIRED_RESOURCES_POLICY_CONFIG,
+            REQUIRED_NON_REQUIRED_FIXTURE_CONFIG,
+            REQUIRED_SATISFIER_BOOKABLE_SCHEDULE_CONFIG);
+    final var controlEnv = CollectionsKt.last(controlRundown).mutableEnv;
+    assertThat(controlEnv.getAsString("requiredSatisfierControlErrorCode"))
+        .isNotEqualTo("RequiredResources");
   }
 
   private static void assertDimensionBooksSuccess(

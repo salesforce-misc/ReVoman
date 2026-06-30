@@ -1,0 +1,26 @@
+$kind: http-request
+description: >-
+  WorkingTerritories rule. With IsPrimaryLocationEnabled=true (set next) slot generation admits the
+  fixture's Primary ServiceTerritoryMembers so both assigned resources resolve as available territory
+  members (slot generation filters out a Primary member unless this flag is on). Both resources are
+  Primary members, so this passes for both and never shadows the RequiredResources verdict.
+url: "{{baseUrl}}{{versionPath}}/sobjects/SchedulingRule"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+body:
+  type: json
+  content: |-
+    {
+      "MasterLabel": "RequiredNonReq WorkingTerritories",
+      "DeveloperName": "RequiredNonReq_WorkingTerritories_{{$timestamp}}",
+      "SchedulingRuleType": "WorkingTerritories",
+      "SchedulingCategory": "A"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.environment.set("requiredResourcesWorkingTerritoriesRuleId", pm.response.json().id);
+    language: text/javascript
+order: 15000
