@@ -16,10 +16,12 @@ import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.EX
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.EXCLUDED_RESOURCES_POLICY_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.EXCLUDED_SCHEDULE_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.MATCH_SKILLS_POLICY_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.MISSING_REQUIRED_FLAG_SCHEDULE_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.REQUIRED_NON_REQUIRED_FIXTURE_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.REQUIRED_NON_REQUIRED_SATISFIER_VIOLATING_SCHEDULE_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.REQUIRED_RESOURCES_POLICY_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.REQUIRED_SATISFIER_BOOKABLE_SCHEDULE_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SINGLE_REQUIRED_NO_PRIMARY_SCHEDULE_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SKILLS_FIXTURE_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SKILLS_SCHEDULE_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SKILLS_SKILL_FIXTURE_CONFIG;
@@ -160,6 +162,55 @@ class WfsWritePathParityE2ETest {
     final var controlEnv = CollectionsKt.last(controlRundown).mutableEnv;
     assertThat(controlEnv.getAsString("requiredSatisfierControlErrorCode"))
         .isNotEqualTo("RequiredResources");
+  }
+
+  /**
+   * Decision 3 — a missing isRequiredResource flag, plus the doc L142 single-required-no-primary
+   * control. Act A schedules a SINGLE assigned resource that OMITS isRequiredResource entirely (and
+   * isPrimaryResource), exercising the missing-flag code path. Act B (doc L142 control) sends a single
+   * isRequiredResource=true with NO isPrimaryResource on FRESH resources, which MUST be a valid
+   * Schedule (isPrimaryResource is multi-resource-only plumbing, NOT the Decision-1 variable). Both
+   * use AVAILABILITY_OP_HOURS_POLICY_CONFIG (Availability + WorkingTerritories, NO RequiredResources
+   * rule) over the required-non-required fixture, so the RequiredResources rule's Task-4 NPE does not
+   * confound the missing-flag probe.
+   *
+   * <p>262 (asserted): Act A CRASHES with errorCode=INTERNAL_SERVER_ERROR — a server NPE ("Cannot
+   * invoke \"java.lang.Boolean.booleanValue()\" because the return value of
+   * \"common.api.soap.Entity.getField(String)\" is null"), the 262 missing-flag NPE the doc predicts.
+   * Act B → schedulingStatus=Success.
+   * <p>264 contrast: Act A → a missing isRequiredResource is treated as not-required and handled
+   * cleanly (no crash); Act B unchanged.
+   *
+   * <p>Approach A: two SEPARATE revUps, each starting with AUTH_CONFIG → fresh env + fresh timestamped
+   * users, so the two acts' ServiceResource(RelatedRecordId, ResourceType) rows never collide. Both
+   * acts carry {@code ignoreHTTPStatusUnsuccessful: "true"} so {@code
+   * firstUnIgnoredUnsuccessfulStepReport()} stays null.
+   */
+  @Test
+  void testMissingRequiredFlagE2E() {
+    // Act A: a single assigned resource that OMITS isRequiredResource → 262 missing-flag NPE crash.
+    final var missingFlagRundown =
+        ReVoman.revUp(
+            (r, ignore) -> assertThat(r.firstUnIgnoredUnsuccessfulStepReport()).isNull(),
+            AUTH_CONFIG,
+            AVAILABILITY_OP_HOURS_POLICY_CONFIG,
+            REQUIRED_NON_REQUIRED_FIXTURE_CONFIG,
+            MISSING_REQUIRED_FLAG_SCHEDULE_CONFIG);
+    final var missingFlagEnv = CollectionsKt.last(missingFlagRundown).mutableEnv;
+    assertThat(missingFlagEnv.getAsString("missingRequiredFlagErrorCode"))
+        .isEqualTo("INTERNAL_SERVER_ERROR");
+    assertThat(missingFlagEnv.getAsString("missingRequiredFlagErrorMessage"))
+        .contains("Boolean.booleanValue()");
+    // Act B (doc L142): single isRequiredResource=true, NO isPrimaryResource, FRESH resources → valid.
+    final var l142Rundown =
+        ReVoman.revUp(
+            (r, ignore) -> assertThat(r.firstUnIgnoredUnsuccessfulStepReport()).isNull(),
+            AUTH_CONFIG,
+            AVAILABILITY_OP_HOURS_POLICY_CONFIG,
+            REQUIRED_NON_REQUIRED_FIXTURE_CONFIG,
+            SINGLE_REQUIRED_NO_PRIMARY_SCHEDULE_CONFIG);
+    assertThat(CollectionsKt.last(l142Rundown).mutableEnv)
+        .containsEntry("singleRequiredNoPrimaryStatus", "Success");
   }
 
   private static void assertDimensionBooksSuccess(

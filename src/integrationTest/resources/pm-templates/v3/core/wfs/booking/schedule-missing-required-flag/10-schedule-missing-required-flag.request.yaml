@@ -1,0 +1,72 @@
+$kind: http-request
+description: >-
+  Decision 3 Act A — schedules a SINGLE assigned resource that OMITS the isRequiredResource field entirely
+  (and isPrimaryResource). On 262 this exercised the missing-flag code path; this act captures the live 262
+  verdict shape without prejudging it. Uses the availability-op-hours policy (Availability +
+  WorkingTerritories, NO RequiredResources rule) over the required-non-required fixture's fully-available
+  resourceA, tomorrow 11:00-12:00 UTC (60m == the WorkType EstimatedDuration), inside member OH 08-16 and
+  the Confirmed Shift, so neither availability nor working-territories blocks resourceA.
+url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/schedule"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "appointments": [
+        {
+          "schedulingMethod": "OnSite",
+          "schedulingPolicyId": "{{availabilityOpHoursPolicyId}}",
+          "coreDetails": {
+            "startTime": "{{missingFlagBookingStart}}",
+            "endTime": "{{missingFlagBookingEnd}}",
+            "status": "Scheduled",
+            "subject": "Decision 3 missing isRequiredResource probe",
+            "workConfiguration": {
+              "workTypeId": "{{requiredNonReqWorkTypeId}}"
+            },
+            "locationConstraints": {
+              "id": "{{requiredNonReqTerritoryId}}"
+            }
+          },
+          "serviceAppointmentParent": {
+            "id": "{{requiredNonReqAccountId}}"
+          },
+          "assignedResources": [
+            {
+              "serviceResourceId": "{{requiredNonReqResourceAId}}"
+            }
+          ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      // Tomorrow 11:00-12:00 UTC: 60m window == WorkType EstimatedDuration, inside member OH 08-16 + Shift.
+      const start = new Date();
+      start.setUTCDate(start.getUTCDate() + 1);
+      start.setUTCHours(11, 0, 0, 0);
+      const end = new Date(start.getTime() + 60 * 60 * 1000);
+      pm.environment.set("missingFlagBookingStart", start.toISOString());
+      pm.environment.set("missingFlagBookingEnd", end.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      // CHAR: capture the 262 verdict shape without prejudging it (top-level-array error OR appointments).
+      const data = pm.response.json();
+      const arr = Array.isArray(data) ? data : null;
+      const appts = (data && data.appointments) || [];
+      pm.environment.set("missingRequiredFlagStatus", appts.length ? appts[0].schedulingStatus : null);
+      let ec = null, msg = null;
+      if (arr && arr.length) { ec = arr[0].errorCode; msg = arr[0].message; }
+      else if (appts.length && appts[0].errors && appts[0].errors[0]) { ec = appts[0].errors[0].errorCode; msg = appts[0].errors[0].message; }
+      pm.environment.set("missingRequiredFlagErrorCode", ec);
+      pm.environment.set("missingRequiredFlagErrorMessage", msg);
+      console.log("CHAR3A status=" + pm.environment.get("missingRequiredFlagStatus") + " ec=" + ec + " msg=" + msg);
+    language: text/javascript
+order: 1000

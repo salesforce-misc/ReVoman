@@ -1,0 +1,12 @@
+$kind: collection
+description: |-
+  Decision 3 Act A — schedule a SINGLE assigned resource that OMITS isRequiredResource entirely (and
+  isPrimaryResource), under the availability-op-hours policy (Availability + WorkingTerritories, NO
+  RequiredResources rule, so the account's required-pref does not confound the probe). Characterizes the
+  live 262 behavior of the missing-flag path. Assertion lives in the Java test.
+auth:
+  - id: 7a1b2c3d-4e5f-4061-8a2b-3c4d5e6f7a1b
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{adminToken}}"

@@ -120,6 +120,12 @@ public final class ReVomanConfigForWfs {
   static final Kick REQUIRED_SATISFIER_BOOKABLE_SCHEDULE_CONFIG =
       kickFor(V3_WFS_PATH + "booking/schedule-required-satisfier-bookable");
 
+  // ## Decision 3 — missing isRequiredResource flag (crash characterization) + the L142 control.
+  static final Kick MISSING_REQUIRED_FLAG_SCHEDULE_CONFIG =
+      kickFor(V3_WFS_PATH + "booking/schedule-missing-required-flag");
+  static final Kick SINGLE_REQUIRED_NO_PRIMARY_SCHEDULE_CONFIG =
+      kickFor(V3_WFS_PATH + "booking/schedule-single-required-no-primary");
+
   /**
    * One Kick per V3 collection folder, all sharing the same shape as the {@code bt2bs} sibling:
    * composite/graph + composite response unmarshalling/asserting, IDAdapter, the JS node-modules
