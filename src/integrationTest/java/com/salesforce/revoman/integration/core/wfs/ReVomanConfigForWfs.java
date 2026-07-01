@@ -284,6 +284,21 @@ public final class ReVomanConfigForWfs {
   static final Kick RESCHEDULE_DELETE_PRIMARY_NO_FLAG_CONFIG =
       kickFor(V3_WFS_PATH + "booking/reschedule-delete-primary-no-flag");
 
+  // ## Decision 4z delete-ALL probe — deletes BOTH assigned resources (no isPrimaryResource flag on
+  // either delete entry). The brief HYPOTHESIZED an empty-crew Success (extractServiceResourceIds
+  // skips DeleteOperation entries → empty required set → availability re-check passes), mirroring
+  // the
+  // Core func test testRescheduleAppointmentDeleteAllAssignedResources (asserts Success).
+  // LIVE-OBSERVED on this 262 org the probe is REJECTED with INVALID_INPUT / "The service resources
+  // are not available for the requested slot." (SlotNotAvailable) — the SAME downstream
+  // availability
+  // re-check that blocks the delete-primary Arm B; the empty-effective-set short-circuit the func
+  // test relies on is 264-only, so 262 does NOT get around the availability check even for
+  // delete-ALL.
+  // Characterized faithfully as the OBSERVED rejection, not the hypothesized Success.
+  static final Kick RESCHEDULE_DELETE_ALL_CONFIG =
+      kickFor(V3_WFS_PATH + "booking/reschedule-delete-all");
+
   // ## Decision 8 — resourceLimitApptDistribution cap on the load-balancing read path (read-only).
   // The
   // workspace default OnSite policy carries the seeded DefaultOnSiteSchdPlcy_LoadBalancing
@@ -380,7 +395,8 @@ public final class ReVomanConfigForWfs {
   // AppointmentStartTimeInterval rule with a 60-min interval SchedulingRuleParameter. The WorkType
   // carries no AppointmentStartTimeInterval so the POLICY value is used. A booking start OFF the
   // 60-min boundary (11:30-12:30 — the only hour-aligned start 12:00 overruns the window) is pruned
-  // by the read (0 slots) AND rejected by the write; an on-boundary control (11:00-12:00) returns >0
+  // by the read (0 slots) AND rejected by the write; an on-boundary control (11:00-12:00) returns
+  // >0
   // AND books Success.
   static final Kick START_TIME_INTERVAL_POLICY_CONFIG =
       kickFor(V3_WFS_PATH + "policies/start-time-interval-policy");
@@ -396,10 +412,14 @@ public final class ReVomanConfigForWfs {
       kickFor(V3_WFS_PATH + "booking/schedule-sti-control");
 
   // Task 6 — RequiredResources read side of the 262 read≠write DIVERGENCE. Over the SAME
-  // required-non-required fixture + RequiredResources policy as the write violating act, the READ path
-  // PRUNES cleanly (0 slots) when only a NON-required helper satisfies the account's required-resource
-  // demand, while the WRITE path on the same scenario CRASHES with a serviceTerritoryMembers NPE (D1.4,
-  // characterized in WfsWritePathParityE2ETest.testNonRequiredHelperCannotSatisfyRequiredDemandE2E). A
+  // required-non-required fixture + RequiredResources policy as the write violating act, the READ
+  // path
+  // PRUNES cleanly (0 slots) when only a NON-required helper satisfies the account's
+  // required-resource
+  // demand, while the WRITE path on the same scenario CRASHES with a serviceTerritoryMembers NPE
+  // (D1.4,
+  // characterized in
+  // WfsWritePathParityE2ETest.testNonRequiredHelperCannotSatisfyRequiredDemandE2E). A
   // genuine-required-satisfier control returns >0 slots (proves the fixture is bookable). See
   // WfsRulesParityE2ETest.testRequiredResourcesReadPrunesWhileWriteCrashesE2E.
   static final Kick GET_SLOTS_REQUIRED_VIOLATING_CONFIG =
@@ -407,15 +427,22 @@ public final class ReVomanConfigForWfs {
   static final Kick GET_SLOTS_REQUIRED_CONTROL_CONFIG =
       kickFor(V3_WFS_PATH + "booking/get-slots-required-control");
 
-  // Task 7 — cross-API agreement: the SAME MatchSkills violation (a required+primary resource lacking
+  // Task 7 — cross-API agreement: the SAME MatchSkills violation (a required+primary resource
+  // lacking
   // the WorkType's required skill) run through the 3 not-yet-exercised read APIs. All 4 read APIs
-  // (get-appointment-slots + these 3) reach the same loadSchedulableSlots engine; get-available-resources
+  // (get-appointment-slots + these 3) reach the same loadSchedulableSlots engine;
+  // get-available-resources
   // calls the same getCandidatesProcessor.process (AvailableResourcesServiceImpl:322) then only
-  // post-processes/truncates the surviving resources. The three appointment reads request resourceB via
-  // assignedResources so pruning it leaves 0 slots/candidates/available-slots; get-available-resources
-  // takes NO assignedResources and returns EVERY available resource, so the SKILLED resourceA survives
-  // while the UNSKILLED resourceB is pruned/ABSENT (LIVE-VERIFIED 2026-07-01 — confirms the full 7-rule
-  // engine, not a subset). Matches the schedule write's rejection. Reuses the Task-1 skills fixture +
+  // post-processes/truncates the surviving resources. The three appointment reads request resourceB
+  // via
+  // assignedResources so pruning it leaves 0 slots/candidates/available-slots;
+  // get-available-resources
+  // takes NO assignedResources and returns EVERY available resource, so the SKILLED resourceA
+  // survives
+  // while the UNSKILLED resourceB is pruned/ABSENT (LIVE-VERIFIED 2026-07-01 — confirms the full
+  // 7-rule
+  // engine, not a subset). Matches the schedule write's rejection. Reuses the Task-1 skills fixture
+  // +
   // policy and the existing GET_SLOTS_SKILLS_VIOLATING/SCHEDULE_SKILLS_VIOLATING acts. See
   // WfsRulesParityE2ETest.testCrossApiRuleAgreementE2E.
   static final Kick GET_CANDIDATES_SKILLS_VIOLATING_CONFIG =
@@ -427,15 +454,24 @@ public final class ReVomanConfigForWfs {
 
   // Task 8 — no-op reschedule short-circuit (write<read: SlotAvailabilityChecker:174-176
   // if (!timesAreChanging && !resourcesHaveChanged) return true is the ONE place the write skips
-  // getSlots/loadSchedulableSlots). Setup schedules resourceA (required+primary) into an available window
-  // (Success, captures noopSetupSaId over the availability-op-hours policy + required-non-required fixture).
-  // The no-op reschedule then reschedules that SA with NO time change + an UpdateOperation re-stating
-  // resourceA. LIVE + jdwp-VERIFIED 2026-07-01 that the short-circuit does NOT fire for a required-resource
-  // SA: haveResourcesChanged compares the existing SOQL required-id set (18-char) vs the request's, and the
-  // request-side id (stored RAW then truncated to 15-char by the ESO request DTO) never equals the 18-char
-  // existing id → resourcesHaveChanged==true (empty assignedResources is equally unequal); the two size-1
-  // sets sat in different hash buckets at the debugger. So the short-circuit is UNREACHABLE over REST for a
-  // required-resource SA — the reschedule recomputes and 262 500-CRASHES (ServiceTerritory.getServiceResourceIds
+  // getSlots/loadSchedulableSlots). Setup schedules resourceA (required+primary) into an available
+  // window
+  // (Success, captures noopSetupSaId over the availability-op-hours policy + required-non-required
+  // fixture).
+  // The no-op reschedule then reschedules that SA with NO time change + an UpdateOperation
+  // re-stating
+  // resourceA. LIVE + jdwp-VERIFIED 2026-07-01 that the short-circuit does NOT fire for a
+  // required-resource
+  // SA: haveResourcesChanged compares the existing SOQL required-id set (18-char) vs the request's,
+  // and the
+  // request-side id (stored RAW then truncated to 15-char by the ESO request DTO) never equals the
+  // 18-char
+  // existing id → resourcesHaveChanged==true (empty assignedResources is equally unequal); the two
+  // size-1
+  // sets sat in different hash buckets at the debugger. So the short-circuit is UNREACHABLE over
+  // REST for a
+  // required-resource SA — the reschedule recomputes and 262 500-CRASHES
+  // (ServiceTerritory.getServiceResourceIds
   // NPE, cf. Decision 1.4). This REFUTES the "no-op returns Success via the short-circuit" premise;
   // characterized faithfully. See WfsRulesParityE2ETest.testNoOpRescheduleShortCircuitE2E.
   static final Kick SCHEDULE_NOOP_RESCHED_SETUP_CONFIG =

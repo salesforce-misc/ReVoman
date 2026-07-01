@@ -1,0 +1,19 @@
+$kind: collection
+description: |-
+  Decision 4z delete-ALL probe — reschedules reschedCleanSaId with DeleteOperation entries for BOTH assigned
+  resources (resourceA + resourceB), no isPrimaryResource flag on either delete entry (only operation +
+  serviceResourceId). The brief HYPOTHESIZED this would get around the availability check on 262
+  (SlotAvailabilityChecker.isSlotAvailable computes its required-resource set via extractServiceResourceIds,
+  which SKIPS DeleteOperation entries → deleting ALL resources leaves an EMPTY required set → availability
+  passes → empty-crew Success), mirroring the Core func test
+  OnSiteRescheduleAppointmentsConnectApiTest.testRescheduleAppointmentDeleteAllAssignedResources (asserts
+  Success). LIVE-OBSERVED on this 262 org the probe is instead REJECTED with INVALID_INPUT / "The service
+  resources are not available for the requested slot." (SlotNotAvailable) — the same downstream availability
+  re-check that blocks the delete-primary Arm B; the empty-effective-set short-circuit the func test relies on
+  is 264-only. Runs under managerToken; ledger-off so it never replays a stale response.
+auth:
+  - id: 1a2b3c4d-004f-4aaa-9bbb-00000000004d
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"

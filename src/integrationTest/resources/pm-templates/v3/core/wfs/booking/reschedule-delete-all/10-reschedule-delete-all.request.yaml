@@ -1,0 +1,68 @@
+$kind: http-request
+description: >-
+  Reschedule reschedCleanSaId with a DeleteOperation on BOTH assigned resources (resourceA AND resourceB),
+  no isPrimaryResource flag on either delete entry (only operation + serviceResourceId). HYPOTHESIS (brief +
+  static code read + Core func test testRescheduleAppointmentDeleteAllAssignedResources, which asserts
+  Success): the primary-count validator ALLOWS zero primaries
+  (RescheduleCommonValidator.validatePrimaryResourceCount only throws MultiplePrimary when primaryCount > 1)
+  and the availability re-check computes its required-resource set via extractServiceResourceIds, which SKIPS
+  DeleteOperation entries → deleting ALL resources leaves an EMPTY required set → the availability check runs
+  against no resources and PASSES → the reschedule SUCCEEDS with an empty crew (no primary). LIVE-OBSERVED on
+  this 262 org (REFUTES the hypothesis): the request is NOT Success; it is rejected with INVALID_INPUT / HTTP
+  400 / top-level "The service resources are not available for the requested slot." (SlotNotAvailable),
+  schedulingStatus null — the SAME downstream availability re-check that blocks the delete-primary Arm B. On
+  262 the empty-crew delete-all does NOT get around the availability check (the empty-effective-set
+  short-circuit the Core func test relies on is 264-only; the effective-set merge + rule-enforcer files are
+  absent on 262). Characterized faithfully as the OBSERVED rejection rather than a forced Success. Runs after
+  the clean two-resource schedule set reschedCleanSaId (this act is exercised in its own revUp, so the SA
+  still has both resources).
+url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/reschedule"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "rescheduleAppointments": [
+        {
+          "schedulingMethod": "OnSite",
+          "appointmentId": "{{reschedCleanSaId}}",
+          "assignedResources": [
+            {
+              "operation": "DeleteOperation",
+              "assignedResource": {
+                "serviceResourceId": "{{requiredNonReqResourceAId}}"
+              }
+            },
+            {
+              "operation": "DeleteOperation",
+              "assignedResource": {
+                "serviceResourceId": "{{requiredNonReqResourceBId}}"
+              }
+            }
+          ]
+        }
+      ]
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.environment.set("reschedDeleteAllHttpCode", String(pm.response.code));
+      const data = pm.response.json();
+      const appts = (data && data.appointments) || [];
+      const a0 = appts.length ? appts[0] : null;
+      pm.environment.set("reschedDeleteAllStatus", a0 ? a0.schedulingStatus : null);
+      const saId = a0 && a0.serviceAppointment ? a0.serviceAppointment.serviceAppointmentId : null;
+      pm.environment.set("reschedDeleteAllSaId", saId);
+      let ec = null, msg = null;
+      if (Array.isArray(data) && data.length) { ec = data[0].errorCode; msg = data[0].message; }
+      else if (a0 && a0.errors && a0.errors[0]) { ec = a0.errors[0].errorCode; msg = a0.errors[0].message; }
+      pm.environment.set("reschedDeleteAllErrorCode", ec);
+      pm.environment.set("reschedDeleteAllErrorMessage", msg);
+      console.log("DEC4z deleteAll http=" + pm.response.code + " status=" + (a0 && a0.schedulingStatus) + " saId=" + saId + " ec=" + ec + " msg=" + msg);
+    language: text/javascript
+order: 4000
