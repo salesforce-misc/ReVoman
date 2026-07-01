@@ -1,0 +1,72 @@
+$kind: http-request
+description: >-
+  SETUP for the no-op reschedule short-circuit — schedule resourceA (required+primary), free, into
+  tomorrow 11:00-12:00 UTC (60m == WorkType EstimatedDuration, inside member OH 08-16 + Shift) under the
+  availability-op-hours policy. Books Success and captures the created SA id
+  (appointments[0].serviceAppointment.serviceAppointmentId) into noopSetupSaId + the status into
+  noopSetupStatus. The no-op reschedule act then reschedules THIS already-valid SA with NO time and NO
+  resource change, so SlotAvailabilityChecker short-circuits (returns true without recomputing slots).
+  ledger-off keeps it a fresh persist on every run.
+url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/schedule"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "appointments": [
+        {
+          "schedulingMethod": "OnSite",
+          "schedulingPolicyId": "{{availabilityOpHoursPolicyId}}",
+          "coreDetails": {
+            "startTime": "{{noopSetupWindowStart}}",
+            "endTime": "{{noopSetupWindowEnd}}",
+            "status": "Scheduled",
+            "subject": "Task 8 no-op reschedule setup SA",
+            "workConfiguration": {
+              "workTypeId": "{{requiredNonReqWorkTypeId}}"
+            },
+            "locationConstraints": {
+              "id": "{{requiredNonReqTerritoryId}}"
+            }
+          },
+          "serviceAppointmentParent": {
+            "id": "{{requiredNonReqAccountId}}"
+          },
+          "assignedResources": [
+            {
+              "isPrimaryResource": true,
+              "isRequiredResource": true,
+              "serviceResourceId": "{{requiredNonReqResourceAId}}"
+            }
+          ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      // Tomorrow 11:00-12:00 UTC — inside resourceA's member OH (08-16) + Confirmed Shift, so this is an
+      // AVAILABLE window and the schedule Succeeds. The no-op reschedule keeps EXACTLY this window.
+      const start = new Date();
+      start.setUTCDate(start.getUTCDate() + 1);
+      start.setUTCHours(11, 0, 0, 0);
+      const end = new Date(start.getTime() + 60 * 60 * 1000);
+      pm.environment.set("noopSetupWindowStart", start.toISOString());
+      pm.environment.set("noopSetupWindowEnd", end.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      const data = pm.response.json();
+      const appts = (data && data.appointments) || [];
+      const a0 = appts.length ? appts[0] : null;
+      pm.environment.set("noopSetupStatus", a0 ? a0.schedulingStatus : null);
+      const saId = a0 && a0.serviceAppointment ? a0.serviceAppointment.serviceAppointmentId : null;
+      pm.environment.set("noopSetupSaId", saId);
+      console.log("TASK8 setup http=" + pm.response.code + " status=" + (a0 && a0.schedulingStatus) + " saId=" + saId);
+    language: text/javascript
+order: 1000
