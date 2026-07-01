@@ -12,11 +12,52 @@ localResources:
     - ../src/integrationTest/resources/pm-templates/v3/core/bmp-create-runtime
     - ../src/integrationTest/resources/pm-templates/v3/core/persona-creation-and-setup
     - ../src/integrationTest/resources/pm-templates/v3/core/milestone-setup
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/auth
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/auth-personas-dec9
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-available-resources-limit-positive
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-available-resources-limit-zero
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-parity-available
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-parity-unavailable
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-sharing-split-as-caseworker
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-sharing-split-as-manager
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/reschedule-delete-primary-no-flag
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/reschedule-delete-primary-with-flag
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-double-book-non-required-violating
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-double-book-required-conflict
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-excluded-non-required-violating
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-missing-required-flag
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-parity-available
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-parity-unavailable
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-primary-not-required
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-primary-required-control
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-required-non-required-satisfier-violating
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-required-satisfier-bookable
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-single-required-no-primary
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-skills-non-required-violating
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-territory-membership-non-required-violating
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-two-primary
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-two-resource-clean
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-working-locations-secondary-non-required-violating
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/fixtures/double-book-non-required
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/fixtures/excluded-non-required
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/fixtures/required-non-required
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/fixtures/sharing-split-overlapping-shifts
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/fixtures/skills-non-required
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/fixtures/skills-non-required-skill
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/fixtures/territory-non-required
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/fixtures/working-locations-secondary-non-required
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/policies/availability-op-hours-policy
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/policies/excluded-resources-availability-policy
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/policies/match-skills-non-required-policy
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/policies/required-resources-availability-policy
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/policies/sharing-split-shifts-policy
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/policies/territory-membership-partial-policy
   environments:
     - ../src/integrationTest/resources/pm-templates/v3/pokemon/Pokemon.environment.yaml
     - ../src/integrationTest/resources/pm-templates/v3/restful-api.dev/restful-api.dev.environment.yaml
     - ../src/integrationTest/resources/pm-templates/v3/core/milestone-setup/bt2bs.environment.yaml
     - ../src/integrationTest/resources/pm-templates/v3/core/[sm] pq/pq.environment.yaml
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/ws.environment.yaml
 
 # Each entry here maps a local resource to one or more corresponding objects in Postman Cloud
 
