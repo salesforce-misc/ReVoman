@@ -59,18 +59,20 @@ import org.junit.jupiter.api.Test;
  * the 7 Common+InBusiness scheduling rules (RuleObjectiveMapper:108-125) evaluates identically on
  * the read APIs (get-appointment-slots/candidates/available-slots/available-resources →
  * InBusinessGetCandidatesSlotsDataService.loadSchedulableSlots) and the write APIs
- * (schedule/reschedule → SlotAvailabilityChecker → the same loadSchedulableSlots on recompute). Per rule a
- * differential matrix asserts read decision == write decision for a violating AND a control case.
+ * (schedule/reschedule → SlotAvailabilityChecker → the same loadSchedulableSlots on recompute). Per
+ * rule a differential matrix asserts read decision == write decision for a violating AND a control
+ * case.
  *
  * <p>FINDING: read==write holds for EVERY rule — NO read≠write divergence was found. The two things
- * the plan pre-labeled "divergences" were REFUTED by live evidence: (a) RequiredResources — read AND
- * write BOTH crash with the same {@code serviceTerritoryMembers} NPE on the shared engine (read==write,
- * a shared-engine 262 bug, not an asymmetry — {@link #testRequiredResourcesReadWriteBothCrashE2E}); and
- * (b) the reschedule no-op short-circuit ({@code SlotAvailabilityChecker:174-176}) is NOT reachable over
- * REST for a required-resource SA — the reschedule recomputes and 262 crashes
- * ({@link #testNoOpRescheduleShortCircuitE2E}). So the only asymmetries observed are shared-engine 262
- * crash bugs (identical on both paths) and an unreachable short-circuit — the read==write thesis holds
- * even more strongly than predicted. onField/inField rules are OUT OF SCOPE.
+ * the plan pre-labeled "divergences" were REFUTED by live evidence: (a) RequiredResources — read
+ * AND write BOTH crash with the same {@code serviceTerritoryMembers} NPE on the shared engine
+ * (read==write, a shared-engine 262 bug, not an asymmetry — {@link
+ * #testRequiredResourcesReadWriteBothCrashE2E}); and (b) the reschedule no-op short-circuit ({@code
+ * SlotAvailabilityChecker:174-176}) is NOT reachable over REST for a required-resource SA — the
+ * reschedule recomputes and 262 crashes ({@link #testNoOpRescheduleShortCircuitE2E}). So the only
+ * asymmetries observed are shared-engine 262 crash bugs (identical on both paths) and an
+ * unreachable short-circuit — the read==write thesis holds even more strongly than predicted.
+ * onField/inField rules are OUT OF SCOPE.
  */
 class WfsRulesParityE2ETest {
 
@@ -230,8 +232,8 @@ class WfsRulesParityE2ETest {
    * window) ⟺ write-violating rejected; read-control >0 (11:00-12:00 on-boundary) ⟺ write-control
    * Success.
    *
-   * <p>264 contrast: unchanged — AppointmentStartTimeInterval is a shared slot-stepping check on both
-   * paths.
+   * <p>264 contrast: unchanged — AppointmentStartTimeInterval is a shared slot-stepping check on
+   * both paths.
    */
   @Test
   void testStartTimeIntervalReadWriteParityE2E() {
@@ -256,29 +258,31 @@ class WfsRulesParityE2ETest {
   }
 
   /**
-   * RequiredResources — read==write, and on 262 BOTH paths CRASH identically. When only a NON-required
-   * helper satisfies the account's required-resource demand (resourceA required+primary but not on the
-   * Account's ResourcePreference(Required) list; resourceB on the list but assigned non-required), the
-   * READ path (GetAppointmentSlots) CRASHES with HTTP 500 {@code INTERNAL_SERVER_ERROR} — the SAME
-   * {@code serviceTerritoryMembers} NPE ("Cannot invoke ArrayListMultimap.values() because
-   * this.serviceTerritoryMembers is null") that the WRITE path throws
-   * (WfsWritePathParityE2ETest.testNonRequiredHelperCannotSatisfyRequiredDemandE2E). Because read and
-   * write share {@code InBusinessGetCandidatesSlotsDataService.loadSchedulableSlots}, the 262 NPE bug
-   * manifests IDENTICALLY on both — this is read==write (a shared-engine crash), NOT a divergence.
+   * RequiredResources — read==write, and on 262 BOTH paths CRASH identically. When only a
+   * NON-required helper satisfies the account's required-resource demand (resourceA
+   * required+primary but not on the Account's ResourcePreference(Required) list; resourceB on the
+   * list but assigned non-required), the READ path (GetAppointmentSlots) CRASHES with HTTP 500
+   * {@code INTERNAL_SERVER_ERROR} — the SAME {@code serviceTerritoryMembers} NPE ("Cannot invoke
+   * ArrayListMultimap.values() because this.serviceTerritoryMembers is null") that the WRITE path
+   * throws (WfsWritePathParityE2ETest.testNonRequiredHelperCannotSatisfyRequiredDemandE2E). Because
+   * read and write share {@code InBusinessGetCandidatesSlotsDataService.loadSchedulableSlots}, the
+   * 262 NPE bug manifests IDENTICALLY on both — this is read==write (a shared-engine crash), NOT a
+   * divergence.
    *
-   * <p>This REFUTES the plan's original hypothesis that read would prune cleanly while write crashed;
-   * live evidence (controller ran it directly, 2026-07-01) shows the read ALSO crashes. Recorded, not
-   * hidden. A control that flips resourceB to {@code isRequiredResource=true} (demand satisfied) does
-   * NOT crash — HTTP 201, no error — proving the crash is CONDITIONAL on the non-required-helper input,
-   * not a blanket fixture failure. (That satisfied-demand read returns 0 slots, HTTP 201; the crash, not
-   * the slot count, is this test's subject — a 500 NPE with the exact message is self-evidently the bug,
-   * so the usual control-returns-slots guardrail is unnecessary here.)
+   * <p>This REFUTES the plan's original hypothesis that read would prune cleanly while write
+   * crashed; live evidence (controller ran it directly, 2026-07-01) shows the read ALSO crashes.
+   * Recorded, not hidden. A control that flips resourceB to {@code isRequiredResource=true} (demand
+   * satisfied) does NOT crash — HTTP 201, no error — proving the crash is CONDITIONAL on the
+   * non-required-helper input, not a blanket fixture failure. (That satisfied-demand read returns 0
+   * slots, HTTP 201; the crash, not the slot count, is this test's subject — a 500 NPE with the
+   * exact message is self-evidently the bug, so the usual control-returns-slots guardrail is
+   * unnecessary here.)
    *
-   * <p>262 (asserted): read-violating CRASHES (INTERNAL_SERVER_ERROR / serviceTerritoryMembers NPE) ==
-   * write-violating (same crash, asserted in the write class); control read does not crash.
+   * <p>262 (asserted): read-violating CRASHES (INTERNAL_SERVER_ERROR / serviceTerritoryMembers NPE)
+   * == write-violating (same crash, asserted in the write class); control read does not crash.
    *
-   * <p>264 contrast: the NPE should become a clean RequiredResources rejection on BOTH paths — still
-   * read==write, just a clean error instead of a 500.
+   * <p>264 contrast: the NPE should become a clean RequiredResources rejection on BOTH paths —
+   * still read==write, just a clean error instead of a 500.
    */
   @Test
   void testRequiredResourcesReadWriteBothCrashE2E() {
@@ -292,12 +296,18 @@ class WfsRulesParityE2ETest {
             GET_SLOTS_REQUIRED_VIOLATING_CONFIG,
             GET_SLOTS_REQUIRED_CONTROL_CONFIG);
     final var env = CollectionsKt.last(rundown).mutableEnv;
-    // Read-violating CRASHES with the SAME serviceTerritoryMembers NPE the write path throws → the 262
-    // RequiredResources bug is read==write on the shared loadSchedulableSlots engine (NOT a divergence).
-    assertThat(env.getAsString("requiredReadViolatingErrorCode")).isEqualTo("INTERNAL_SERVER_ERROR");
-    assertThat(env.getAsString("requiredReadViolatingErrorMessage")).contains("serviceTerritoryMembers");
-    // Control (resourceB required → demand satisfied) does NOT crash — proves the crash is conditional on
-    // the non-required-helper input, not a dead fixture. (Satisfied-demand read returns 0 slots, HTTP 201.)
+    // Read-violating CRASHES with the SAME serviceTerritoryMembers NPE the write path throws → the
+    // 262
+    // RequiredResources bug is read==write on the shared loadSchedulableSlots engine (NOT a
+    // divergence).
+    assertThat(env.getAsString("requiredReadViolatingErrorCode"))
+        .isEqualTo("INTERNAL_SERVER_ERROR");
+    assertThat(env.getAsString("requiredReadViolatingErrorMessage"))
+        .contains("serviceTerritoryMembers");
+    // Control (resourceB required → demand satisfied) does NOT crash — proves the crash is
+    // conditional on
+    // the non-required-helper input, not a dead fixture. (Satisfied-demand read returns 0 slots,
+    // HTTP 201.)
     assertThat(env.getAsString("requiredReadControlErrorCode")).isAnyOf(null, "null");
     assertThat(env.getAsString("requiredReadControlHttpCode")).isEqualTo("201");
   }
@@ -305,24 +315,24 @@ class WfsRulesParityE2ETest {
   /**
    * Cross-API agreement — the SAME MatchSkills violation (a required+primary resource lacking the
    * WorkType's required skill) is pruned/rejected by ALL 4 rule-evaluating read APIs
-   * (get-appointment-slots, get-appointment-candidates, get-available-slots, get-available-resources)
-   * AND the schedule write API. Empirically proves they share the one loadSchedulableSlots engine, so
-   * the per-rule read==write matrix generalizes to every API. get-available-resources runs the FULL
-   * 7-rule engine too: AvailableResourcesServiceImpl:322 calls the same getCandidatesProcessor.process,
-   * then only post-processes/truncates the SURVIVING resources — so the skill-lacking resource is
-   * ABSENT from availableResources (it is NOT a subset that skips MatchSkills). All acts reuse the
-   * Task-1 skills fixture/policy and the existing get-slots + schedule violating acts; the 3 new reads
-   * carry the SAME body/window.
+   * (get-appointment-slots, get-appointment-candidates, get-available-slots,
+   * get-available-resources) AND the schedule write API. Empirically proves they share the one
+   * loadSchedulableSlots engine, so the per-rule read==write matrix generalizes to every API.
+   * get-available-resources runs the FULL 7-rule engine too: AvailableResourcesServiceImpl:322
+   * calls the same getCandidatesProcessor.process, then only post-processes/truncates the SURVIVING
+   * resources — so the skill-lacking resource is ABSENT from availableResources (it is NOT a subset
+   * that skips MatchSkills). All acts reuse the Task-1 skills fixture/policy and the existing
+   * get-slots + schedule violating acts; the 3 new reads carry the SAME body/window.
    *
    * <p>The three appointment reads (slots/candidates/available-slots) request the skill-lacking
    * resourceB via {@code assignedResources}, so MatchSkills pruning it leaves ZERO
-   * slots/candidates/available-slots. get-available-resources takes NO {@code assignedResources} — it
-   * returns EVERY available resource for the account/worktype/territory, so the SKILLED resourceA
-   * legitimately survives (total count 1) while the UNSKILLED resourceB is pruned; the parity claim
-   * there is resourceB's ABSENCE ({@code skillsAvailableResourcesViolatingPresent == 0}), which is the
-   * discovered-shape equivalent of the other reads' 0 (LIVE-VERIFIED 2026-07-01: availableResources
-   * held only "SNR Resource A", resourceB absent — confirming get-available-resources DOES run
-   * MatchSkills, resolving the earlier "subset" mis-hypothesis).
+   * slots/candidates/available-slots. get-available-resources takes NO {@code assignedResources} —
+   * it returns EVERY available resource for the account/worktype/territory, so the SKILLED
+   * resourceA legitimately survives (total count 1) while the UNSKILLED resourceB is pruned; the
+   * parity claim there is resourceB's ABSENCE ({@code skillsAvailableResourcesViolatingPresent ==
+   * 0}), which is the discovered-shape equivalent of the other reads' 0 (LIVE-VERIFIED 2026-07-01:
+   * availableResources held only "SNR Resource A", resourceB absent — confirming
+   * get-available-resources DOES run MatchSkills, resolving the earlier "subset" mis-hypothesis).
    *
    * <p>262 (asserted): the three appointment reads return 0 for the skill-lacking resource;
    * get-available-resources prunes it (resourceB absent); schedule rejects.
@@ -346,14 +356,18 @@ class WfsRulesParityE2ETest {
             SCHEDULE_SKILLS_VIOLATING_CONFIG);
     final var env = CollectionsKt.last(rundown).mutableEnv;
     // The three appointment reads (which request resourceB via assignedResources) prune it → 0
-    // slots/candidates/available-slots. The one loadSchedulableSlots engine agrees across all three.
+    // slots/candidates/available-slots. The one loadSchedulableSlots engine agrees across all
+    // three.
     assertThat(env.getAsString("skillsReadViolatingSlotCount")).isEqualTo("0");
     assertThat(env.getAsString("skillsCandidatesCount")).isEqualTo("0");
     assertThat(env.getAsString("skillsAvailableSlotsCount")).isEqualTo("0");
     // get-available-resources (no assignedResources → returns all available resources) prunes the
-    // skill-lacking resourceB while the skilled resourceA survives → resourceB ABSENT confirms it too
-    // runs the full 7-rule engine (MatchSkills), not a rule-skipping subset. Assert the survivor set is
-    // NON-empty (resourceA present) so "resourceB absent" can't be a green-on-empty/error false positive
+    // skill-lacking resourceB while the skilled resourceA survives → resourceB ABSENT confirms it
+    // too
+    // runs the full 7-rule engine (MatchSkills), not a rule-skipping subset. Assert the survivor
+    // set is
+    // NON-empty (resourceA present) so "resourceB absent" can't be a green-on-empty/error false
+    // positive
     // — absence AMONG a live returned set is the strictly-stronger, self-defending parity claim.
     assertThat(Integer.parseInt(env.getAsString("skillsAvailableResourcesCount"))).isGreaterThan(0);
     assertThat(env.getAsString("skillsAvailableResourcesViolatingPresent")).isEqualTo("0");
@@ -362,44 +376,50 @@ class WfsRulesParityE2ETest {
   }
 
   /**
-   * No-op reschedule short-circuit (write<read) — the {@code SlotAvailabilityChecker:174-176} branch
-   * {@code if (!timesAreChanging && !resourcesHaveChanged) return true} is the ONE place the write path does
-   * LESS rule evaluation than a read would (it skips {@code getSlots}/{@code loadSchedulableSlots}). This test
-   * characterizes what a no-op reschedule of an already-valid required-resource SA ACTUALLY does on the 262
-   * org — and REFUTES the plan's premise that it returns Success via that short-circuit.
+   * No-op reschedule short-circuit (write<read) — the {@code SlotAvailabilityChecker:174-176}
+   * branch {@code if (!timesAreChanging && !resourcesHaveChanged) return true} is the ONE place the
+   * write path does LESS rule evaluation than a read would (it skips {@code getSlots}/{@code
+   * loadSchedulableSlots}). This test characterizes what a no-op reschedule of an already-valid
+   * required-resource SA ACTUALLY does on the 262 org — and REFUTES the plan's premise that it
+   * returns Success via that short-circuit.
    *
-   * <p>LIVE-OBSERVED (2026-07-01, controller ran it directly; the {@code SlotAvailabilityChecker:174-176}
-   * short-circuit is confirmed to exist in source):
+   * <p>LIVE-OBSERVED (2026-07-01, controller ran it directly; the {@code
+   * SlotAvailabilityChecker:174-176} short-circuit is confirmed to exist in source):
    *
    * <ul>
-   *   <li>The setup schedules resourceA (required+primary) into an available window (tomorrow 11:00-12:00) →
-   *       Success, capturing {@code noopSetupSaId}. (On the schedule leg {@code timesAreChanging==true}, so it
-   *       does not short-circuit regardless.)
-   *   <li>On the RESCHEDULE leg {@code timesAreChanging==false} (no startTime/endTime), yet the short-circuit
-   *       does NOT fire — {@code haveResourcesChanged} (SlotAvailabilityChecker:237, a raw {@code .equals()} on
-   *       the required-ServiceResourceId sets with no canonicalization) returns true, so it recomputes and
-   *       262 CRASHES (below). WHY resourcesHaveChanged is true for a re-stated no-op — JDWP-CONFIRMED
-   *       (2026-07-01, breakpoint at SlotAvailabilityChecker:237): the existing SA's required-resource id set
-   *       is {@code [0Hnxx0000004GB2CAM]} (18-char, from SOQL) while the request's is {@code [0Hnxx0000004GB2]}
-   *       (15-char) — the ESO request DTO truncates the wire id to 15-char even though the fixture sends 18-char
-   *       — so {@code {18-char} ≠ {15-char}} → resourcesHaveChanged==true. (This is the repo's 15/18-char
-   *       ResourceId canonicalization gotcha surfacing in the reschedule short-circuit comparison. An EMPTY
-   *       assignedResources would equally differ: {@code {} ≠ {resourceA}}.) So for a required-resource SA the
+   *   <li>The setup schedules resourceA (required+primary) into an available window (tomorrow
+   *       11:00-12:00) → Success, capturing {@code noopSetupSaId}. (On the schedule leg {@code
+   *       timesAreChanging==true}, so it does not short-circuit regardless.)
+   *   <li>On the RESCHEDULE leg {@code timesAreChanging==false} (no startTime/endTime), yet the
+   *       short-circuit does NOT fire — {@code haveResourcesChanged} (SlotAvailabilityChecker:237,
+   *       a raw {@code .equals()} on the required-ServiceResourceId sets with no canonicalization)
+   *       returns true, so it recomputes and 262 CRASHES (below). WHY resourcesHaveChanged is true
+   *       for a re-stated no-op — JDWP-CONFIRMED (2026-07-01, breakpoint at
+   *       SlotAvailabilityChecker:237): the existing SA's required-resource id set is {@code
+   *       [0Hnxx0000004GB2CAM]} (18-char, from SOQL) while the request's is {@code
+   *       [0Hnxx0000004GB2]} (15-char) — the ESO request DTO truncates the wire id to 15-char even
+   *       though the fixture sends 18-char — so {@code {18-char} ≠ {15-char}} →
+   *       resourcesHaveChanged==true. (This is the repo's 15/18-char ResourceId canonicalization
+   *       gotcha surfacing in the reschedule short-circuit comparison. An EMPTY assignedResources
+   *       would equally differ: {@code {} ≠ {resourceA}}.) So for a required-resource SA the
    *       short-circuit is effectively UNREACHABLE over REST.
-   *   <li>The reschedule recompute then CRASHES on 262 with HTTP 500 {@code INTERNAL_SERVER_ERROR}: "Cannot
-   *       invoke java.util.List.iterator() because the return value of ServiceTerritory.getServiceResourceIds()
-   *       is null" — a 262 reschedule-recompute NPE (a THIRD null-field variant, distinct from the
-   *       {@code serviceTerritoryMembers} NPE on schedule/read). schedulingStatus is null (NOT Success).
+   *   <li>The reschedule recompute then CRASHES on 262 with HTTP 500 {@code INTERNAL_SERVER_ERROR}:
+   *       "Cannot invoke java.util.List.iterator() because the return value of
+   *       ServiceTerritory.getServiceResourceIds() is null" — a 262 reschedule-recompute NPE (a
+   *       THIRD null-field variant, distinct from the {@code serviceTerritoryMembers} NPE on
+   *       schedule/read). schedulingStatus is null (NOT Success).
    * </ul>
    *
-   * <p>262 (asserted — what the test PINS): setup schedule Success + saId captured; the no-op reschedule does
-   * NOT return Success — it 500-crashes (INTERNAL_SERVER_ERROR / ServiceTerritory.getServiceResourceIds NPE).
-   * The write<read short-circuit exists in code but is NOT reached on this required-resource-SA REST path
-   * (jdwp-confirmed 15/18-char id mismatch, above). The crash — not the mechanism — is what the assertions
-   * verify (the mechanism is confirmed by jdwp, recorded in the decision log).
+   * <p>262 (asserted — what the test PINS): setup schedule Success + saId captured; the no-op
+   * reschedule does NOT return Success — it 500-crashes (INTERNAL_SERVER_ERROR /
+   * ServiceTerritory.getServiceResourceIds NPE). The write<read short-circuit exists in code but is
+   * NOT reached on this required-resource-SA REST path (jdwp-confirmed 15/18-char id mismatch,
+   * above). The crash — not the mechanism — is what the assertions verify (the mechanism is
+   * confirmed by jdwp, recorded in the decision log).
    *
-   * <p>264 contrast: the short-circuit is intended; 264's reworked reschedule availability (effective-set
-   * merge over the real surviving crew) is what would let a genuine no-op resolve cleanly rather than 500.
+   * <p>264 contrast: the short-circuit is intended; 264's reworked reschedule availability
+   * (effective-set merge over the real surviving crew) is what would let a genuine no-op resolve
+   * cleanly rather than 500.
    */
   @Test
   void testNoOpRescheduleShortCircuitE2E() {
@@ -413,13 +433,18 @@ class WfsRulesParityE2ETest {
             SCHEDULE_NOOP_RESCHED_SETUP_CONFIG,
             RESCHEDULE_NOOP_CONFIG);
     final var env = CollectionsKt.last(rundown).mutableEnv;
-    // Setup schedules resourceA into the available window and persists an SA → Success + a captured id.
+    // Setup schedules resourceA into the available window and persists an SA → Success + a captured
+    // id.
     assertThat(env.getAsString("noopSetupStatus")).isEqualTo("Success");
     assertThat(env.getAsString("noopSetupSaId")).isNotNull();
-    // No-op reschedule of a required-resource SA does NOT hit the short-circuit (resourcesHaveChanged==true,
-    // jdwp-confirmed: existing 18-char id set != request 15-char id set) → it recomputes, and 262's reschedule
-    // recompute 500-crashes with the ServiceTerritory.getServiceResourceIds NPE. schedulingStatus is null (NOT
-    // Success). This REFUTES the "no-op returns Success via the short-circuit" premise for this REST path.
+    // No-op reschedule of a required-resource SA does NOT hit the short-circuit
+    // (resourcesHaveChanged==true,
+    // jdwp-confirmed: existing 18-char id set != request 15-char id set) → it recomputes, and 262's
+    // reschedule
+    // recompute 500-crashes with the ServiceTerritory.getServiceResourceIds NPE. schedulingStatus
+    // is null (NOT
+    // Success). This REFUTES the "no-op returns Success via the short-circuit" premise for this
+    // REST path.
     assertThat(env.getAsString("noopReschedStatus")).isNotEqualTo("Success");
     assertThat(env.getAsString("noopReschedHttpCode")).isEqualTo("500");
     assertThat(env.getAsString("noopReschedErrorCode")).isEqualTo("INTERNAL_SERVER_ERROR");
