@@ -342,7 +342,10 @@ class WfsRulesParityE2ETest {
     assertThat(env.getAsString("skillsAvailableSlotsCount")).isEqualTo("0");
     // get-available-resources (no assignedResources → returns all available resources) prunes the
     // skill-lacking resourceB while the skilled resourceA survives → resourceB ABSENT confirms it too
-    // runs the full 7-rule engine (MatchSkills), not a rule-skipping subset.
+    // runs the full 7-rule engine (MatchSkills), not a rule-skipping subset. Assert the survivor set is
+    // NON-empty (resourceA present) so "resourceB absent" can't be a green-on-empty/error false positive
+    // — absence AMONG a live returned set is the strictly-stronger, self-defending parity claim.
+    assertThat(Integer.parseInt(env.getAsString("skillsAvailableResourcesCount"))).isGreaterThan(0);
     assertThat(env.getAsString("skillsAvailableResourcesViolatingPresent")).isEqualTo("0");
     // Write agrees with all 4 reads → the per-rule read==write matrix generalizes to every API.
     assertThat(env.getAsString("skillsWriteViolatingStatus")).isNotEqualTo("Success");
