@@ -78,10 +78,13 @@ Before these tests were written, the team recorded manual observations for scena
 - We found the same: two primaries are turned down cleanly and up front, with a message that means the same thing.
 - The only difference is tiny wording — this org phrases it in the singular ("assigned resource"). Same meaning, no behavior difference.
 
-### Scenario 4z — a reschedule that leaves no primary resource. **DEVIATION**
+### Scenario 4z — a reschedule that leaves no primary resource. **DEVIATION (on the reason, not the end result)**
 - The manual observation concluded it is simply not possible to reschedule without a primary resource, and quoted a specific "cannot be set for Delete" error as the reason.
-- We found that reschedule does allow a request with no primary resource — there is no rule that forces you to keep one — so the blanket "not possible" conclusion is wrong.
-- Where and why they differ: the quoted error only shows up in one narrow case, when the request explicitly flags the primary field while removing it — it is a rule about which fields the request may contain, not a "you must keep a primary" rule. Removing the primary without that flag is allowed; on this release the booking then simply cannot land, but it is stopped by an ordinary "that time is not available" check, never by a primary-resource rule. This matches the contradictory older test the observation itself flagged. Our test also surfaced a separate crash the observation never mentioned: a reschedule that changes nothing still crashes on this release. Net: the quoted error is real in that one narrow case, but the conclusion built on it is a documentation bug.
+- **What we found:** the observation's *end result* holds on today's release — you can't actually complete a reschedule that ends with no primary — but its *reason is wrong*, and on the next release even the end result flips.
+- **The reason is wrong.** There is no rule forcing you to keep a primary. The reschedule's validation step **explicitly allows zero primaries** (confirmed in code, and matching the contradictory older test the observation itself flagged). The quoted "cannot be set for Delete" error only appears in one narrow case — when the removal request explicitly includes the primary flag — and it's a rule about which fields the request may contain, not a "you must keep a primary" rule.
+- **Why it still can't complete today.** We tried all three ways to end up with no primary and live-tested each: (1) remove the primary *with* the flag → refused as invalid input; (2) remove the primary but keep another required worker → blocked by an ordinary "that time is not available" check; (3) **remove every worker** → *also* blocked by that same availability check. So on today's release every path is stopped — but by an availability check, never by a "must keep a primary" rule.
+- **Next release changes even the end result.** The "remove every worker" path is expected to succeed on the next release (it adds a shortcut that skips the availability check when no workers remain), genuinely leaving an appointment with no primary. So the observation's blanket "not possible" is wrong there too.
+- **Correction note:** an earlier draft of this report suggested "remove every worker" already gets around the check *today* — live testing showed it does **not** on this release (it's blocked like the others); that escape is next-release-only. Our tests also surfaced a separate crash the observation never mentioned: a reschedule that changes nothing crashes on this release. Net: the observation's conclusion is a documentation bug — right outcome today, wrong reason, and wrong for the next release.
 
 ### Scenario 5 — can a primary resource be optional? **CONFIRMED**
 - The manual observation said the service does not quietly fix a "primary but not required" request as the ticket assumed; instead it turns the request down at the save step, so there is no double-booking.
@@ -144,16 +147,21 @@ Before these tests were written, the team recorded manual observations for scena
 
 - **Probe:** a single worker marked "primary" but "not required" — a contradiction. **Today: refused at the final save step**, message "Only an required service resource can be set as a primary service resource." This disproves two worries: the system does **not** silently "fix" the contradiction, and it does **not** let the worker slip through to be double-booked (nothing gets saved). *Next release: unchanged — refusing is the intended behavior.*
 - **Control:** same worker, now correctly marked "required." **Today: books successfully** — pinning the refusal specifically to the "not required" flag.
+- **Where the refusal happens (data layer, not just this API):** this rule is enforced at the **data layer — a save hook on the assigned-resource record itself**, inside the platform's standard save pipeline. That means it fires on **every** way of creating or updating an assigned resource — this scheduling API, an Apex script, a direct REST/SOAP record write, or a bulk load — not only on this booking path. It is active whenever the org has multi-resource scheduling turned on (the same org setting this whole area depends on). *(For engineers: the hook is `AssignedResourceFunctions.saveHook_ValidateOnce` → `LightningSchedulerAssignedResourceValidator` (`fieldservice-impl`), bound to the AssignedResource entity by naming convention rather than an explicit registration; gated by the multi-resource org preference. So it is a genuine DB-layer entity validation, not a scheduling-service-only check.)*
 
 #### Decision 4z — a reschedule *can* leave an appointment with no primary worker (the team's manual observation is wrong here)
 
 > **Test method:** `testRescheduleNoPrimaryE2E`.
 
-- **The claim we disproved:** the team's manual observation says "you can't reschedule an appointment to have no primary worker." That's **wrong for the reschedule path** — the validation step explicitly allows zero primaries. The observation also blames the wrong error.
-- **What actually happens:** we book a two-worker appointment, then try two ways to remove the primary:
-  - **With the "primary" flag on the removal request → refused** as an invalid request (a rule about which fields are allowed in the request, *not* a rule about crew makeup; the appointment is left untouched).
-  - **Without that flag → the removal is allowed by validation, but the booking still can't complete** — it's stopped later by an ordinary "that time isn't available" check, **never** by a "must keep a primary" rule.
-- **Takeaway:** this is a **documentation bug** (handed off separately), not a code bug. The open product question stands: *should* a reschedule be allowed to leave no primary? Today's validation allows it.
+> **Also:** `testRescheduleDeleteAllLeavesNoPrimaryE2E` (the "remove every worker" path).
+
+- **The claim we disproved (on the reason):** the team's manual observation says "you can't reschedule an appointment to have no primary worker," blaming a specific "cannot be set for Delete" error. The *reason* is wrong — the validation step explicitly allows zero primaries, and that error is a narrow field-rule, not a "must keep a primary" rule.
+- **What actually happens on today's release:** we book a two-worker appointment, then try all three ways to remove the primary — and every one is stopped, but never by a primary rule:
+  - **Remove the primary WITH the "primary" flag on the removal request → refused** as an invalid request (a rule about which fields are allowed in the request, *not* about crew makeup; the appointment is left untouched).
+  - **Remove the primary WITHOUT that flag, keeping another required worker → allowed by validation, but the booking can't complete** — stopped by an ordinary "that time isn't available" check.
+  - **Remove EVERY worker → also allowed by validation, but also stopped by that same availability check** (`testRescheduleDeleteAllLeavesNoPrimaryE2E`, live-verified). So on today's release even an empty crew can't complete.
+- **Next release flips the "remove every worker" path:** it adds a shortcut that skips the availability check when no workers remain, so that reschedule would succeed — genuinely leaving an appointment with no primary. (This matches the contradictory older test the observation itself flagged, which runs against next-release behavior.)
+- **Takeaway:** this is a **documentation bug** (handed off separately), not a code bug — the observation is right about the outcome today, but wrong about the reason, and wrong for the next release. The open product question stands: *should* a reschedule be allowed to leave no primary? The validation already allows it; only a separate availability check blocks it today.
 
 ---
 
@@ -179,6 +187,14 @@ Before these tests were written, the team recorded manual observations for scena
 
 - **Manager (owns the shifts, control):** **Today: sees slots** — the shift read uses the caller's own permissions, and the manager can see its own shifts. This proves the case-worker's empty result below is the permissions gate, not an empty setup.
 - **Case-worker (not shared the manager's private shifts):** identical request. **Today: sees zero slots, no error** — the shift read returns nothing because the case-worker can't see those shifts. The worker is still recognized (other reads use full access), but contributes no slots. *Next release, one option: align the permissions so the case-worker also sees slots.*
+
+**What "the case-worker should see slots" really means — and what the tension is.** This is *not* a claim that one worker should be able to see another worker's calendar. When the system looks for available slots, one call reads several things at once: who the workers are, their existing appointments, their time off, their calendar, and their **shifts**. Today every one of those reads ignores record-level sharing **except the shifts read**, which is filtered by what the requesting user personally has permission to see. So a worker is fully recognized as a candidate (because the other reads ignore sharing) yet contributes **no** availability (because the shifts read, honoring sharing, comes back empty for this user). The caller gets a successful, empty response with no explanation. **The smell is the inconsistency inside one operation** — the system half-applies sharing (enforced on shifts, bypassed on everything else), so the same call is half-secured and half-open, producing a silent blank instead of either real slots or a clear "you don't have access."
+
+**Is there a read-vs-write contradiction — could a case-worker *book* a slot it can't *see*? No.** Booking runs the *same* set of reads to check availability, in the same modes, so a user cannot book a slot the read never showed them — the booking is simply refused with "that time isn't available." Read (blocked) and write (blocked) stay consistent; the gate applies identically at both ends.
+
+**The two product options:**
+- **Option A — keep the sharing gate, but stop failing silently:** if shift visibility is a real access boundary, return a clear "you don't have visibility into this worker's availability" reason instead of a bare empty result.
+- **Option B — align the reads:** make the shifts read use the same sharing mode as its siblings (all full-access, or all user-permissions), so availability doesn't silently vanish for one input while every other input ignores sharing — and the case-worker sees the same slots the owning manager does.
 
 ---
 
@@ -217,7 +233,8 @@ Before these tests were written, the team recorded manual observations for scena
 | 5 | "Primary" but "not required" (probe) | Refused at save (no silent fix, no double-book) | ✅ |
 | 5c | "Primary" and "required" (control) | Books successfully | ✅ |
 | 4z-A | Reschedule removes primary, *with* the flag | Refused as an invalid request | ✅ |
-| 4z-B | Reschedule removes primary, *without* the flag | Allowed by validation; stopped only by an availability check | ✅ |
+| 4z-B | Reschedule removes primary, *without* the flag (keeps another worker) | Allowed by validation; stopped only by an availability check | ✅ |
+| 4z-C | Reschedule removes *every* worker (empty crew) | Allowed by validation; still stopped by the same availability check (next release: would succeed) | ✅ |
 | 2 | Are offered slots a real promise? | Yes — offered slot books; hidden slot is refused | ✅ |
 | 8a | "Return at most 0 workers" | Empty list, no error | ✅ |
 | 8b | "Return at most 50" (control) | Workers returned | ✅ |
