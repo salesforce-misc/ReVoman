@@ -1,16 +1,14 @@
 name: ws
 values:
   - key: baseUrl
-    value: ''
+    value: 'https://orgfarm-4dbef90d6c.my.salesforce-com.ulw8yfxin3z40n159sw1u8b.aa.crm.dev:6101'
   - key: username
-    value: ''
+    value: epic.out.e32ccc05f080@orgfarm.salesforce.com
   - key: password
-    value: ''
+    value: orgfarm1234
   - key: adminToken
     value: ''
   - key: accessToken
-    value: ''
-  - key: managerToken
     value: ''
   - key: secretToken
     value: ''
