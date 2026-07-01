@@ -1,0 +1,55 @@
+$kind: http-request
+description: >-
+  GetAppointmentSlots for the VisitingHours fixture's resource over tomorrow 09:00-10:00 UTC — inside
+  member OH / Confirmed Shift (08-16) but OUTSIDE the Account's visiting hours (10-14) — under the
+  Availability+WorkingTerritories+VisitingHours policy. Availability and WorkingLocations pass (the
+  resource is available and a Primary member), so the ONLY rule that can fire is
+  ServiceAppointmentVisitingHours, which prunes every carved slot not fully inside 10-14 → the read
+  offers ZERO slots. Counts data.result[].slots[] into visitingHoursReadViolatingSlotCount.
+url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/get-appointment-slots"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "appointments": [
+        {
+          "schedulingMethod": "OnSite",
+          "schedulingPolicyId": "{{visitingHoursPolicyId}}",
+          "coreDetails": {
+            "startTime": "{{visitingHoursViolatingStart}}",
+            "endTime": "{{visitingHoursViolatingEnd}}",
+            "appointmentMode": "Regular",
+            "workConfiguration": { "workTypeId": "{{visitingHoursWorkTypeId}}" },
+            "locationConstraints": { "addressIds": ["{{visitingHoursTerritoryId}}"] }
+          },
+          "serviceAppointmentParent": { "id": "{{visitingHoursAccountId}}" },
+          "assignedResources": [ { "isPrimaryResource": true, "isRequiredResource": true, "serviceResourceId": "{{visitingHoursResourceId}}" } ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      // Tomorrow 09:00-10:00 UTC: inside member OH / Confirmed Shift (08-16) but OUTSIDE the Account
+      // visiting hours (10-14), so ServiceAppointmentVisitingHours prunes every slot → 0.
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(9, 0, 0, 0);
+      const e = new Date(s.getTime() + 60 * 60 * 1000);
+      pm.environment.set("visitingHoursViolatingStart", s.toISOString());
+      pm.environment.set("visitingHoursViolatingEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      // VisitingHours prunes the out-of-visiting-hours window → read offers 0 slots.
+      const data = pm.response.json() || {};
+      const results = data.result || [];
+      let n = 0; results.forEach(r => { n += (r.slots || []).length; });
+      pm.environment.set("visitingHoursReadViolatingSlotCount", String(n));
+      console.log("RULESPARITY visitingHours read-violating slots=" + n);
+    language: text/javascript
+order: 1000

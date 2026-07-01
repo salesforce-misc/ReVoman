@@ -1,0 +1,31 @@
+$kind: collection
+description: |-
+  Fixture for the per-slot VisitingHours read/write-consistency proof. Builds a data graph where the
+  resource is available ALL day but the parent Account's visiting hours are NARROW (10-14):
+    - territory OperatingHours (08:00-16:00) + weekly InBusiness TimeSlots
+    - member OperatingHours (08:00-16:00, WIDE — equal to territory) + weekly OnSite TimeSlots,
+      so the Availability(ConsiderOpHoursAndShiftsUnion) rule keeps every slot in 08-16 (NOT the pruner)
+    - account-visiting-hours OperatingHours (10:00-14:00) + weekly OnSite TimeSlots
+    - ServiceTerritory -> territory OH; WorkType (60m EstimatedDuration, no SchedulingMethod/IsRegular
+      per the 262 contract); ServiceTerritoryWorkType
+    - User-backed ServiceResource (Technician, active, primary) + a Confirmed Shift (08-16) covering
+      the window (slot-gen unconditionally requires a Shift since W-22901809)
+    - ServiceTerritoryMember (TerritoryType=P, Primary) linking resource -> territory, carrying the
+      WIDE member OH, effective a month in the PAST
+    - Account created manager-owned (visiting-hours OH linked in a SECOND step)
+  The Account is linked to its visiting-hours OperatingHours via a SEPARATE admin-token PATCH step
+  (20-link-account-visiting-hours-oh): the WorkforceSchedulingManager permset has read=True but
+  edit=False FLS on Account.OperatingHoursId, so the manager-owned graph cannot set it inline
+  (INVALID_FIELD_FOR_INSERT_UPDATE); the admin token (isDoingSysAdmin) can. The manager still OWNS the
+  Account and has read FLS on the field, so the user-mode enforce/read of the account visiting hours
+  sees the link. Sets visitingHoursTerritoryId / visitingHoursResourceId / visitingHoursAccountId /
+  visitingHoursWorkTypeId / visitingHoursAccountOhId. No ServiceAppointment is created: the test drives
+  open GetSlots / Schedule requests, so the parent Account (whose visiting hours the rule reads) is the
+  only SA-context input needed. A booking window OUTSIDE 10-14 (violating) surfaces raw slots that
+  PerSlotRuleFilter prunes to 0; a window INSIDE 10-14 (control) survives.
+auth:
+  - id: 6d2b8f10-3c4a-49e1-8b7d-2a1f9c0e5b34
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"

@@ -121,6 +121,8 @@ public final class ReVomanConfigForWfs {
       kickFor(V3_WFS_PATH + "policies/territory-membership-partial-policy");
   static final Kick MATCH_SKILLS_POLICY_CONFIG =
       kickFor(V3_WFS_PATH + "policies/match-skills-non-required-policy");
+  static final Kick VISITING_HOURS_POLICY_CONFIG =
+      kickFor(V3_WFS_PATH + "policies/visiting-hours-op-hours-policy");
 
   // ## Decision 1.4 — required-resource demand (account ResourcePreference) cannot be satisfied by
   // a
@@ -142,6 +144,8 @@ public final class ReVomanConfigForWfs {
       kickFor(V3_WFS_PATH + "fixtures/working-locations-secondary-non-required");
   static final Kick REQUIRED_NON_REQUIRED_FIXTURE_CONFIG =
       kickFor(V3_WFS_PATH + "fixtures/required-non-required");
+  static final Kick VISITING_HOURS_FIXTURE_CONFIG =
+      kickFor(V3_WFS_PATH + "fixtures/visiting-hours-account-oh");
 
   // ## Schedule act-steps (the Schedule write call whose response carries the verdict; each
   // captures
@@ -289,6 +293,18 @@ public final class ReVomanConfigForWfs {
       kickFor(V3_WFS_PATH + "booking/schedule-workloc-violating");
   static final Kick SCHEDULE_WORKLOC_CONTROL_CONFIG =
       kickFor(V3_WFS_PATH + "booking/schedule-workloc-control");
+  // Task 4 — ServiceAppointmentVisitingHours (lifted+conformed from source): a booking window
+  // OUTSIDE
+  // the parent Account's VisitingHours OperatingHours (10-14) is pruned by the read (0 slots) AND
+  // rejected by the write; an in-visiting-hours control (11-12) returns >0 slots AND books Success.
+  static final Kick GET_SLOTS_VISITING_HOURS_VIOLATING_CONFIG =
+      kickFor(V3_WFS_PATH + "booking/get-slots-visiting-hours-violating");
+  static final Kick GET_SLOTS_VISITING_HOURS_CONTROL_CONFIG =
+      kickFor(V3_WFS_PATH + "booking/get-slots-visiting-hours-control");
+  static final Kick SCHEDULE_VISITING_HOURS_VIOLATING_CONFIG =
+      kickFor(V3_WFS_PATH + "booking/schedule-visiting-hours-violating");
+  static final Kick SCHEDULE_VISITING_HOURS_CONTROL_CONFIG =
+      kickFor(V3_WFS_PATH + "booking/schedule-visiting-hours-control");
 
   /**
    * One Kick per V3 collection folder, all sharing the same shape as the {@code bt2bs} sibling:
