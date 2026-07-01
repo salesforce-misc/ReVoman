@@ -1,0 +1,55 @@
+$kind: http-request
+description: >-
+  GetAppointmentSlots for resourceB (excludedNonReqResourceBId) assigned as the required+primary resource,
+  window tomorrow 11:00-12:00 UTC under the excluded-resources policy. resourceB is a Primary open-ended
+  member with a Confirmed Shift (08-16) so MatchTerritory/WorkingTerritories/Availability all pass — the
+  ONLY rule that can fire is ExcludedResources, because resourceB is on the appointment Account's excluded
+  list (a ResourcePreference PreferenceType=Excluded links the Account to resourceB). ExcludedResources
+  prunes it, so the read offers ZERO slots. Counts data.result[].slots[].
+url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/get-appointment-slots"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "appointments": [
+        {
+          "schedulingMethod": "OnSite",
+          "schedulingPolicyId": "{{excludedResourcesPolicyId}}",
+          "coreDetails": {
+            "startTime": "{{excludedParityStart}}",
+            "endTime": "{{excludedParityEnd}}",
+            "appointmentMode": "Regular",
+            "workConfiguration": { "workTypeId": "{{excludedNonReqWorkTypeId}}" },
+            "locationConstraints": { "addressIds": ["{{excludedNonReqTerritoryId}}"] }
+          },
+          "serviceAppointmentParent": { "id": "{{excludedNonReqAccountId}}" },
+          "assignedResources": [ { "isPrimaryResource": true, "isRequiredResource": true, "serviceResourceId": "{{excludedNonReqResourceBId}}" } ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      // Tomorrow 11:00-12:00 UTC: fully inside member OH (08-16) + Confirmed Shift (08-16), so the only
+      // rule that can fire is ExcludedResources (resourceB is on the Account's excluded list).
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(11, 0, 0, 0);
+      const e = new Date(s.getTime() + 60 * 60 * 1000);
+      pm.environment.set("excludedParityStart", s.toISOString());
+      pm.environment.set("excludedParityEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      // ExcludedResources prunes the excluded required resource → read offers 0 slots.
+      const data = pm.response.json() || {};
+      const results = data.result || [];
+      let n = 0; results.forEach(r => { n += (r.slots || []).length; });
+      pm.environment.set("excludedReadViolatingSlotCount", String(n));
+      console.log("RULESPARITY excluded read-violating slots=" + n);
+    language: text/javascript
+order: 1000

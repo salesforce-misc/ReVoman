@@ -1,0 +1,12 @@
+$kind: collection
+description: >-
+  Rules parity (ExcludedResources) WRITE control — Schedule the required+primary resource that is NOT on
+  the Account's excluded list into the window the read offered slots for → Success. ExcludedResources
+  passes on both read and write (loadSchedulableSlots shared), so the write keeps the read's promise.
+  This is the positive half of the ExcludedResources read==write matrix. Runs LAST (it persists an SA).
+auth:
+  - id: 3c2d1e00-0004-4aaa-9bbb-000000000004
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"
