@@ -1,0 +1,65 @@
+$kind: http-request
+description: >-
+  Reschedule reschedCleanSaId to leave TWO workers with NO primary via DEMOTE (no delete, no time change).
+  Two UpdateOperation entries: resourceA flipped to isPrimaryResource=false (isRequiredResource=true kept) and
+  resourceB re-stated isPrimaryResource=false + isRequiredResource=true — effective crew = 2 workers, 0
+  primaries. NO startTime/endTime (→ timesAreChanging==false). The whole question: does the SlotAvailabilityChecker
+  short-circuit (if (!timesAreChanging && !resourcesHaveChanged) return true) fire (nothing structurally changed,
+  only a primary flag), or does the 15/18-char record-id mismatch on the required-ServiceResourceId sets keep
+  resourcesHaveChanged==true → recompute → 262 CRASH; or is it BLOCKED by the availability re-check
+  (SlotNotAvailable); or does it SUCCEED and persist a 2-worker no-primary crew (a real bug worse than the doc
+  bug). Captures schedulingStatus, httpCode, errorCode, errorMessage from BOTH the top-level array shape and the
+  appointments[0].errors[0] shape. The HTTP status is ignored (ignoreHTTPStatusUnsuccessful) so the run reaches
+  the JUnit assertions regardless of a 400/500.
+url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/reschedule"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "rescheduleAppointments": [
+        {
+          "schedulingMethod": "OnSite",
+          "appointmentId": "{{reschedCleanSaId}}",
+          "assignedResources": [
+            {
+              "operation": "UpdateOperation",
+              "assignedResource": {
+                "isPrimaryResource": false,
+                "isRequiredResource": true,
+                "serviceResourceId": "{{requiredNonReqResourceAId}}"
+              }
+            },
+            {
+              "operation": "UpdateOperation",
+              "assignedResource": {
+                "isPrimaryResource": false,
+                "isRequiredResource": true,
+                "serviceResourceId": "{{requiredNonReqResourceBId}}"
+              }
+            }
+          ]
+        }
+      ]
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.environment.set("reschedDemoteHttpCode", String(pm.response.code));
+      const data = pm.response.json();
+      const appts = (data && data.appointments) || [];
+      const a0 = appts.length ? appts[0] : null;
+      pm.environment.set("reschedDemoteStatus", a0 ? a0.schedulingStatus : null);
+      let ec = null, msg = null;
+      if (Array.isArray(data) && data.length) { ec = data[0].errorCode; msg = data[0].message; }
+      else if (a0 && a0.errors && a0.errors[0]) { ec = a0.errors[0].errorCode; msg = a0.errors[0].message; }
+      pm.environment.set("reschedDemoteErrorCode", ec);
+      pm.environment.set("reschedDemoteErrorMessage", msg);
+      console.log("DEC4z demote http=" + pm.response.code + " status=" + (a0 && a0.schedulingStatus) + " ec=" + ec + " msg=" + msg);
+    language: text/javascript
+order: 4000

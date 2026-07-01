@@ -35,6 +35,7 @@ localResources:
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/reschedule-delete-all
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/reschedule-delete-primary-no-flag
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/reschedule-delete-primary-with-flag
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/reschedule-demote-primary-two-crew
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/reschedule-noop
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-double-book-non-required-violating
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-double-book-required-conflict
