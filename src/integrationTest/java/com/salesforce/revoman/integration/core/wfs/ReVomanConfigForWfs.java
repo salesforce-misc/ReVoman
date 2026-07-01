@@ -299,6 +299,21 @@ public final class ReVomanConfigForWfs {
   static final Kick RESCHEDULE_DELETE_ALL_CONFIG =
       kickFor(V3_WFS_PATH + "booking/reschedule-delete-all");
 
+  // ## Decision 4z DEMOTE probe — the under-guarded "leave TWO-or-more workers with NO primary"
+  // shape (the sibling delete arms only shrink the crew to 1 or 0). Reschedules the SAME clean
+  // two-resource SA (reschedCleanSaId) with NO startTime/endTime and TWO UpdateOperation entries:
+  // resourceA flipped to isPrimaryResource=false (still isRequiredResource=true) + resourceB
+  // re-stated non-primary+required → EFFECTIVE crew = 2 workers, 0 primaries.
+  // validatePrimaryResourceCount rejects only primaryCount > 1 (no NoPrimary check), so validation
+  // ALLOWS zero primaries → NOT blocked at validation. Characterizes whether 262 (a) CRASHES on the
+  // 15/18-char record-id resourcesHaveChanged mismatch (reschedule-recompute NPE), (b) is BLOCKED
+  // by
+  // the downstream availability re-check (SlotNotAvailable), or (c) SUCCEEDS and persists a
+  // 2-worker
+  // no-primary crew. Asserted as OBSERVED. Runs AFTER the clean two-resource setup.
+  static final Kick RESCHEDULE_DEMOTE_PRIMARY_TWO_CREW_CONFIG =
+      kickFor(V3_WFS_PATH + "booking/reschedule-demote-primary-two-crew");
+
   // ## Decision 8 — resourceLimitApptDistribution cap on the load-balancing read path (read-only).
   // The
   // workspace default OnSite policy carries the seeded DefaultOnSiteSchdPlcy_LoadBalancing

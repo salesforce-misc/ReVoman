@@ -1,0 +1,20 @@
+$kind: collection
+description: |-
+  Decision 4z DEMOTE probe — the under-guarded "leave TWO-or-more workers with NO primary" shape that the
+  sibling delete arms never build (they shrink the crew to 1 or 0). Reschedules the SAME clean two-resource SA
+  (reschedCleanSaId) with NO startTime/endTime and TWO UpdateOperation entries: resourceA flipped to
+  isPrimaryResource=false (still isRequiredResource=true) and resourceB re-stated non-primary+required — so the
+  EFFECTIVE crew stays 2 workers but 0 primaries. RescheduleCommonValidator.validatePrimaryResourceCount only
+  rejects primaryCount > 1 (no NoPrimary check), so validation ALLOWS zero primaries → this is NOT blocked at
+  validation. The open question characterized here: does 262 (a) CRASH on the 15/18-char record-id
+  resourcesHaveChanged mismatch in SlotAvailabilityChecker (the reschedule-recompute NPE family), (b) get
+  BLOCKED by the downstream availability re-check (SlotNotAvailable), or (c) SUCCEED and persist a 2-worker
+  no-primary crew. Captured faithfully as OBSERVED (dual error shape: top-level array AND
+  appointments[0].errors[0]); the JUnit assertion is written to whatever the org actually returns. Runs AFTER
+  the clean two-resource setup that captures reschedCleanSaId.
+auth:
+  - id: 1a2b3c4d-004f-4aaa-9bbb-00000000004e
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"
