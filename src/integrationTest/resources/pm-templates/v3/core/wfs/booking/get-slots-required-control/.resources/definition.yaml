@@ -1,0 +1,17 @@
+$kind: collection
+description: >-
+  Rules parity (RequiredResources) READ control — GetAppointmentSlots over the SAME required-non-required
+  fixture and RequiredResources policy as the violating read act, IDENTICAL in every way EXCEPT ONE field:
+  resourceB (the sole resource on the Account's ResourcePreference(Required) list) is flagged
+  isRequiredResource=true here instead of false. With resourceB now in the REQUIRED assigned set, the
+  RequiredResources satisfaction rule is satisfied, so the read is NOT pruned and offers >0 slots — proving
+  the fixture is genuinely bookable and the violating 0 is the RequiredResources rule (not a dead fixture).
+  Counts data.result[].slots[] into requiredReadControlSlotCount. The genuine-satisfier control books
+  cleanly on both read and write; only the non-required-helper violating case diverges (read prunes, write
+  crashes) — see WfsWritePathParityE2ETest.testNonRequiredHelperCannotSatisfyRequiredDemandE2E.
+auth:
+  - id: 7a6b5c00-0002-4aaa-9bbb-000000000002
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"

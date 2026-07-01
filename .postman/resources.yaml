@@ -17,6 +17,8 @@ localResources:
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-excluded-violating
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-parity-available
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-parity-unavailable
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-required-control
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-required-violating
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-skills-control
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-skills-violating
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-sharing-split-as-caseworker
