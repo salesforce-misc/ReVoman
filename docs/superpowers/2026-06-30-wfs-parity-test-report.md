@@ -41,7 +41,7 @@ Every scenario below has a plain-language description, what the product does tod
 | **Scheduling rule** | A condition a booking must satisfy. The ones in this report: **Skills** (worker has the needed skill), **Excluded** (worker isn't on the account's block-list), **Territory / Working-locations** (worker covers the area), **Availability** (worker is free), **Required-resources** (a worker the account demands is present), **Visiting-hours** (the time is within the customer's allowed hours), **Start-time-interval** (bookings start on set boundaries, e.g. on the hour). |
 | **Crash** | The server errored out (an "HTTP 500 / internal server error"). These are the known bugs we pin. |
 | **Rejected** | The server *deliberately* refused the request as invalid ("HTTP 400") — not a crash. |
-| **The product doc** | The design document describing how scheduling is *supposed* to behave. Several of its claims turned out to be wrong; those are noted below. |
+| **Manual observations from the team** | Notes the team recorded by hand (in shared docs) on how scheduling behaves, before these tests existed. Several of those notes turned out to be wrong; those are highlighted below. |
 | **Fresh setup** | Each scenario starts with a new login and brand-new test users, so scenarios can't interfere with one another. |
 | **Confirmed with a debugger** | We attached a live debugger to the running server to verify the exact cause. |
 
@@ -59,6 +59,34 @@ The `WfsRulesParityE2ETest` suite set out to prove the read and write sides appl
 We also corrected an earlier misunderstanding: the "get available resources" read **does** apply the full set of scheduling rules (it is not a stripped-down shortcut). So all four ways of reading are trustworthy mirrors of what a booking would do.
 
 Bottom line: because read and write share one engine, they agree by design — and the tests confirm it. The only oddities are (a) shared crashes that hit both sides equally, and (b) one shortcut that can't be reached today.
+
+---
+
+## How our findings compare to the manual observations from the team
+
+Before these tests were written, the team recorded manual observations for scenarios 2, 4, 4z, and 5. This section highlights where our live tests **confirmed** those observations and where they **deviated**.
+
+**Summary.** The one real deviation is **4z**: the manual observation's headline conclusion is wrong, and our live tests plus the code prove it — that one is a documentation bug. Scenarios **4** and **5** confirm the observations. Scenario **2** confirms the part we could test; the other half was not testable on this release, so it is neither confirmed nor contradicted.
+
+### Scenario 2 — is a shown slot a promise or a suggestion? **CONFIRMED (in part)**
+- The manual observation said the everyday checks (skill, territory, free/busy, location, excluded list) are a promise, while the costly "does every field match" checks are not re-run for each slot, so a shown slot can still be turned down on those at booking time.
+- We found the promise half is true: when the list offers a slot the booking goes through, and when the list hides a slot the booking is refused. We could not exercise the "shown but later rejected" half.
+- Where this falls short: the field-match checks only run in a scheduling mode that is an unfinished stub on this release, so there was no way to make a slot show up and then get rejected on those checks. This is a test-coverage limit, not a disagreement — that half remains untested rather than contradicted.
+
+### Scenario 4 — two primary resources on the final appointment. **CONFIRMED**
+- The manual observation said the interface will not let you pick two primary resources, and the service turns the request down with a clear "only one can be primary" message.
+- We found the same: two primaries are turned down cleanly and up front, with a message that means the same thing.
+- The only difference is tiny wording — this org phrases it in the singular ("assigned resource"). Same meaning, no behavior difference.
+
+### Scenario 4z — a reschedule that leaves no primary resource. **DEVIATION**
+- The manual observation concluded it is simply not possible to reschedule without a primary resource, and quoted a specific "cannot be set for Delete" error as the reason.
+- We found that reschedule does allow a request with no primary resource — there is no rule that forces you to keep one — so the blanket "not possible" conclusion is wrong.
+- Where and why they differ: the quoted error only shows up in one narrow case, when the request explicitly flags the primary field while removing it — it is a rule about which fields the request may contain, not a "you must keep a primary" rule. Removing the primary without that flag is allowed; on this release the booking then simply cannot land, but it is stopped by an ordinary "that time is not available" check, never by a primary-resource rule. This matches the contradictory older test the observation itself flagged. Our test also surfaced a separate crash the observation never mentioned: a reschedule that changes nothing still crashes on this release. Net: the quoted error is real in that one narrow case, but the conclusion built on it is a documentation bug.
+
+### Scenario 5 — can a primary resource be optional? **CONFIRMED**
+- The manual observation said the service does not quietly fix a "primary but not required" request as the ticket assumed; instead it turns the request down at the save step, so there is no double-booking.
+- We found exactly that: the request is turned down at the save step with the same message, it is not quietly corrected, and no double-booking happens.
+- One coverage note: our test covers the single-resource, open-time-slot path. Several sub-cases the observation lists — a busy slot failing on availability, a two-resource request with an optional primary, and booking with only an optional resource — were not separately tested. Those remain uncovered, not contradicted.
 
 ---
 
@@ -83,7 +111,7 @@ Bottom line: because read and write share one engine, they agree by design — a
 >
 > **Test method:** `testNonRequiredHelperCannotSatisfyRequiredDemandE2E`.
 
-- **1.4a — The demand is met only by a helper.** **Today: the server crashes** (a known 262 bug), instead of the clean rejection the product doc predicted. We record the crash exactly. *Next release: a clean rejection, no crash — at which point this test flips and alerts us.*
+- **1.4a — The demand is met only by a helper.** **Today: the server crashes** (a known 262 bug), instead of the clean rejection the team's manual observation predicted. We record the crash exactly. *Next release: a clean rejection, no crash — at which point this test flips and alerts us.*
 - **1.4b — A genuine required worker (control).** **Today: rejected because the worker isn't free** — importantly, *not* the required-resources error, confirming that path doesn't raise it by mistake.
 
 #### Decision 1.5 — a helper isn't checked for being free, so it can be double-booked (two scenarios)
@@ -117,11 +145,11 @@ Bottom line: because read and write share one engine, they agree by design — a
 - **Probe:** a single worker marked "primary" but "not required" — a contradiction. **Today: refused at the final save step**, message "Only an required service resource can be set as a primary service resource." This disproves two worries: the system does **not** silently "fix" the contradiction, and it does **not** let the worker slip through to be double-booked (nothing gets saved). *Next release: unchanged — refusing is the intended behavior.*
 - **Control:** same worker, now correctly marked "required." **Today: books successfully** — pinning the refusal specifically to the "not required" flag.
 
-#### Decision 4z — a reschedule *can* leave an appointment with no primary worker (the product doc is wrong here)
+#### Decision 4z — a reschedule *can* leave an appointment with no primary worker (the team's manual observation is wrong here)
 
 > **Test method:** `testRescheduleNoPrimaryE2E`.
 
-- **The claim we disproved:** the product doc says "you can't reschedule an appointment to have no primary worker." That's **wrong for the reschedule path** — the validation step explicitly allows zero primaries. The doc also blames the wrong error.
+- **The claim we disproved:** the team's manual observation says "you can't reschedule an appointment to have no primary worker." That's **wrong for the reschedule path** — the validation step explicitly allows zero primaries. The observation also blames the wrong error.
 - **What actually happens:** we book a two-worker appointment, then try two ways to remove the primary:
   - **With the "primary" flag on the removal request → refused** as an invalid request (a rule about which fields are allowed in the request, *not* a rule about crew makeup; the appointment is left untouched).
   - **Without that flag → the removal is allowed by validation, but the booking still can't complete** — it's stopped later by an ordinary "that time isn't available" check, **never** by a "must keep a primary" rule.
@@ -136,7 +164,7 @@ Bottom line: because read and write share one engine, they agree by design — a
 > **Test method:** `testCheapCheckReadWritePromiseE2E`.
 
 - Over a single worker, we compare an **available** window (inside its hours) and an **unavailable** window (outside). **Today:** the read offers slots in the available window *and* the booking succeeds there; the read offers zero slots in the unavailable window *and* the booking is refused there. So an offered slot is a genuine promise on these shared checks.
-- **Scope note:** the product doc also asks whether a *shown* slot could still be refused at booking on a costlier "field-match" rule. That half **can't be tested on 262** — those rules only run in a scheduling mode ("OnField") that is unfinished in this release, while the working mode shares read and write. Recorded, not attempted.
+- **Scope note:** the team's manual observation also asks whether a *shown* slot could still be refused at booking on a costlier "field-match" rule. That half **can't be tested on 262** — those rules only run in a scheduling mode ("OnField") that is unfinished in this release, while the working mode shares read and write. Recorded, not attempted.
 
 #### Decision 8 — the "limit how many workers to return" setting (two checks, one run)
 
@@ -216,7 +244,7 @@ The tests pin down **three separate crashes** in today's release, all in the sha
 2. **Read crash** for the same situation — new evidence the bug affects the read side too, because both share one engine (Required-resources rule test).
 3. **Reschedule crash** when re-running a reschedule — a different spot in the code (the no-op reschedule test).
 
-Plus a **documentation bug** (Decision 4z: the product doc's "you can't reschedule without a primary worker" is wrong) — handed off in `~/work/handoff/2026-07-01-wfs-doc-4z-no-primary-contradiction.md`.
+Plus a **documentation bug** (Decision 4z: the team's manual observation "you can't reschedule without a primary worker" is wrong) — handed off in `~/work/handoff/2026-07-01-wfs-doc-4z-no-primary-contradiction.md`.
 
 These crashes are today's real behavior. We pin them so the suite alerts us the moment the next release fixes them — at that point the test flips from "expects a crash" to failing, which is the signal to update it.
 
