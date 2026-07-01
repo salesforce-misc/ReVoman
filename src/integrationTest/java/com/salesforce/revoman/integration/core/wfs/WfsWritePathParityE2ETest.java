@@ -21,6 +21,7 @@ import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.RE
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.REQUIRED_NON_REQUIRED_SATISFIER_VIOLATING_SCHEDULE_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.REQUIRED_RESOURCES_POLICY_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.REQUIRED_SATISFIER_BOOKABLE_SCHEDULE_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.RESCHEDULE_DELETE_ALL_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.RESCHEDULE_DELETE_PRIMARY_NO_FLAG_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.RESCHEDULE_DELETE_PRIMARY_WITH_FLAG_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SCHEDULE_PRIMARY_NOT_REQUIRED_CONFIG;
@@ -398,6 +399,80 @@ class WfsWritePathParityE2ETest {
     assertThat(env.getAsString("reschedNoFlagErrorCode")).isEqualTo("INVALID_INPUT");
     assertThat(env.getAsString("reschedNoFlagHttpCode")).isEqualTo("400");
     assertThat(env.getAsString("reschedNoFlagErrorMessage"))
+        .contains("not available for the requested slot");
+  }
+
+  /**
+   * Decision 4z — delete-ALL reschedule, the end-to-end probe of "can a reschedule leave an
+   * appointment with no primary and get around the availability check?" This deletes BOTH assigned
+   * resources (resourceA + resourceB) with {@code DeleteOperation} and NO {@code isPrimaryResource}
+   * flag on either delete entry — the empty-crew case that the sibling {@link
+   * #testRescheduleNoPrimaryE2E} Arm B (delete the primary, keep a REQUIRED secondary) could not
+   * reach.
+   *
+   * <p>The brief's HYPOTHESIS (from a static code read + the Core func test {@code
+   * OnSiteRescheduleAppointmentsConnectApiTest.testRescheduleAppointmentDeleteAllAssignedResources},
+   * which asserts Success): the availability re-check ({@code
+   * SlotAvailabilityChecker.isSlotAvailable}) computes its required-resource set via {@code
+   * extractServiceResourceIds}, which SKIPS {@code DeleteOperation} entries → deleting ALL
+   * resources yields an EMPTY required set → the availability check runs against no resources and
+   * PASSES → the reschedule SUCCEEDS with an empty crew (no primary), proving Decision 4z
+   * end-to-end.
+   *
+   * <p>262 (LIVE-OBSERVED — REFUTES the hypothesis on this org): the clean two-resource Schedule
+   * books Success (captures {@code reschedCleanSaId}), but the delete-ALL reschedule is NOT Success
+   * — it is rejected with {@code INVALID_INPUT} / HTTP 400 / top-level "The service resources are
+   * not available for the requested slot." ({@code SlotNotAvailable}), {@code schedulingStatus ==
+   * null}, i.e. the SAME downstream availability re-check that blocks Arm B. On 262 the empty-crew
+   * delete-all does NOT get around the availability check — so it does NOT complete and does NOT
+   * leave a no-primary SA. The extractServiceResourceIds "skips deletes → empty set → passes" path
+   * does not hold on this org's reschedule availability. This is a genuine finding: the empty-crew
+   * short-circuit that the Core func test relies on is 264-only (verified elsewhere by branch diff
+   * — the effective-set merge + rule-enforcer files, incl. the empty-effective-set short-circuit,
+   * are absent on 262), so 262 still routes the empty-crew reschedule through slot-gen and blocks
+   * it. Per the characterization-honesty contract this asserts the OBSERVED rejection faithfully
+   * rather than forcing a Success this 262 org does not produce.
+   *
+   * <p>Doc-refutation status: Decision 4z (there is NO "reschedule must keep a primary" rule) is
+   * still refuted at the VALIDATION layer by {@link #testRescheduleNoPrimaryE2E} Arm B (zero
+   * primaries is allowed by {@code validatePrimaryResourceCount}); the END-TO-END empty-crew
+   * completion is 264-only and NOT reproducible on this 262 org.
+   *
+   * <p>264 contrast: 264 adds an empty-effective-set short-circuit that fires precisely for the
+   * delete-ALL (empty surviving crew) case, so on 264 the same call would return {@code Success}
+   * and leave a no-primary SA — the end-to-end proof the brief expected. That is a 262→264 behavior
+   * delta, not something 262 produces.
+   *
+   * <p>Own {@code revUp} starting with AUTH_CONFIG → fresh env + fresh timestamped users, so the SA
+   * created for this probe does not collide with the sibling reschedule test's fixtures.
+   */
+  @Test
+  void testRescheduleDeleteAllLeavesNoPrimaryE2E() {
+    ReVomanConfigForWfs.assumeExternalOrgCreds();
+    final var rundown =
+        ReVoman.revUp(
+            (r, ignore) -> assertThat(r.firstUnIgnoredUnsuccessfulStepReport()).isNull(),
+            AUTH_CONFIG,
+            AVAILABILITY_OP_HOURS_POLICY_CONFIG,
+            REQUIRED_NON_REQUIRED_FIXTURE_CONFIG,
+            SCHEDULE_TWO_RESOURCE_CLEAN_CONFIG,
+            RESCHEDULE_DELETE_ALL_CONFIG);
+    final var env = CollectionsKt.last(rundown).mutableEnv;
+    // Setup booked, and the SA id was captured for the delete-all reschedule.
+    assertThat(env.getAsString("reschedCleanStatus")).isEqualTo("Success");
+    assertThat(env.getAsString("reschedCleanSaId")).isNotNull();
+    // Delete-ALL reschedule on 262 is NOT Success: it is rejected by the SAME downstream
+    // availability
+    // re-check (SlotNotAvailable) that blocks the delete-primary Arm B — INVALID_INPUT / HTTP 400 /
+    // "not available for the requested slot", schedulingStatus null. On 262 the empty-crew
+    // delete-all
+    // does NOT get around the availability check (the empty-effective-set short-circuit the Core
+    // func
+    // test relies on is 264-only). Asserted as OBSERVED, not the brief's hypothesized Success.
+    assertThat(env.getAsString("reschedDeleteAllStatus")).isAnyOf(null, "null");
+    assertThat(env.getAsString("reschedDeleteAllErrorCode")).isEqualTo("INVALID_INPUT");
+    assertThat(env.getAsString("reschedDeleteAllHttpCode")).isEqualTo("400");
+    assertThat(env.getAsString("reschedDeleteAllErrorMessage"))
         .contains("not available for the requested slot");
   }
 

@@ -32,6 +32,7 @@ localResources:
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-visiting-hours-violating
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-workloc-control
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-workloc-violating
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/reschedule-delete-all
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/reschedule-delete-primary-no-flag
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/reschedule-delete-primary-with-flag
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/reschedule-noop
