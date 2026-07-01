@@ -1,232 +1,252 @@
 # Workforce Scheduling — Read/Write Parity Test Report
 
-**Suite:** `WfsWritePathParityE2ETest` + `WfsReadPathParityE2ETest` + `WfsRulesParityE2ETest`
+**Test suites:** `WfsWritePathParityE2ETest` + `WfsReadPathParityE2ETest` + `WfsRulesParityE2ETest`
 
-**Last verified:** 01 Jul 2026, live against the 262 WFS workspace org (`orgfarm-4dbef90d6c…:6101`)
+**Last verified:** 01 Jul 2026, run live against the Workforce Scheduling test org.
 
-**Release under test:** 262 (each test records *today's* behavior; the 264 expectation is noted per scenario)
-
----
-
-## Purpose
-
-This suite books and reads back real appointments against a live Workforce Scheduling org and pins down exactly how the product behaves today. They are **characterization tests**: each one asserts what the product *actually* does on release 262 — including several genuine crashes we don't want to paper over — and the description of each scenario states what release 264 is expected to change. When 264 lands and changes a behavior, the matching test will fail, and that failure is the signal the team is waiting for.
-
-The behaviors under test come from a set of product decisions about (a) how a **non-required "helper" resource** is treated when scheduling (Decisions 1 / 1.4 / 1.5 / 3), (b) two read-path presentation rules (a result cap and a sharing gate — Decisions 8 / 9), (c) primary-resource and reschedule invariants (Decisions 2 / 4 / 4z / 5), and (d) whether every scheduling **rule** evaluates identically on the read and write APIs (the *rules read==write parity* matrix).
-
-### The three test classes
-
-- **`WfsWritePathParityE2ETest`** — the write/booking path (Schedule + Reschedule). Decisions 1, 1.4, 1.5, 3, 4, 4z, 5.
-- **`WfsReadPathParityE2ETest`** — the read path (GetAvailableResources, GetSlots). Decisions 2, 8, 9.
-- **`WfsRulesParityE2ETest`** — proves each scheduling **rule** evaluates identically on read and write (read==write), across all four read APIs + both write APIs. The seven Common+InBusiness rules.
-
-All three are **live, environment-gated** tests: each `@Test` calls `ReVomanConfigForWfs.assumeExternalOrgCreds()` first and JUnit-**skips** (does not fail) when `~/.revoman/config.yaml` external-org creds are absent. Creds present → they run live; the committed `ws.environment.yaml` stays blank (no secrets).
-
-### Vocabulary
-
-- **Required resource** — a worker the appointment genuinely depends on; checked against every rule.
-- **Non-required "helper"** — a worker added alongside, flagged *not* required. The recurring question is *how much rule-checking a helper gets*.
-- **The anchor (a.k.a. resourceA)** — in the helper scenarios, the clean **required + primary** worker that always passes, so the *only* variable is the helper.
-- **The helper (a.k.a. resourceB)** — the non-required worker, set up to break exactly **one** rule, so the outcome is attributable to that rule alone.
-- **Policy / Fixture** — the rulebook the engine applies / the test data wired so only the rule under test can decide the outcome.
-- **schedulingStatus** — the verdict on a booking: `Success` = booked; `ScheduleError` / `PersistError` = rejected.
-- **read==write parity** — the same rule, run over the same fixture, produces the same decision on the read path (slots offered) and the write path (booking accepted/rejected).
+**Release under test:** 262 (see glossary). Each test records how the product behaves *today*; the note per scenario says what the next release (264) is expected to change.
 
 ---
 
-## The headline finding (rules read==write parity)
+## In one minute (for anyone)
 
-The `WfsRulesParityE2ETest` suite set out to prove read==write per rule *and to surface any divergence*. **Result: read==write holds for every rule — no genuine read≠write divergence was found.** The two things originally hypothesized as divergences were both **refuted** by live evidence:
+We ran ~28 real scheduling scenarios against a live Workforce Scheduling org — booking field-service appointments and asking "what time-slots are free?" — to answer one question: **does the "read" side agree with the "write" side?**
 
-- **RequiredResources** is read==write: the read path and the write path **both crash identically** with the same `serviceTerritoryMembers` NPE (they share one engine, so the 262 bug manifests on both) — a shared-engine crash, not an asymmetry.
-- **The reschedule no-op short-circuit** is **not reachable over REST** for a required-resource appointment (jdwp-confirmed: a 15/18-char ServiceResourceId mismatch always trips `resourcesHaveChanged`), so the reschedule recomputes and 262 crashes.
+- **Read side** = asking the system *"what slots / workers are available?"*
+- **Write side** = actually *booking* the appointment.
 
-Also corrected along the way: **`get-available-resources` is NOT a rule subset** — it runs the full seven-rule engine, then only post-processes/truncates the survivors. All four read APIs are faithful rule-parity surfaces.
+**Headline: read and write agree everywhere.** A slot the system offers can be booked; a slot it hides is refused. We went looking for places where the two disagree and found **none** — the two things we suspected might disagree turned out, on live testing, to agree after all.
 
-Net: the shared-engine design (`InBusinessGetCandidatesSlotsDataService.loadSchedulableSlots`, re-invoked on write via `SlotAvailabilityChecker`) makes read==write **structural**, and the tests confirm it — the only asymmetries observed are shared-engine 262 crash bugs (identical on both paths) and one unreachable short-circuit.
+Along the way we uncovered **three genuine crashes** in today's release and pinned them down on purpose, so that the moment the next release fixes them, the matching test will fail and tell us.
+
+Every scenario below has a plain-language description, what the product does today, and what the next release should change.
+
+---
+
+## Glossary (plain language)
+
+| Term | What it means |
+|---|---|
+| **262 / 264** | Salesforce release versions. **262** is the release running today (what we tested). **264** is the next release, expected to fix several of these behaviors. |
+| **Read path / Write path** | Read = "what slots or workers are available?" Write = "book this appointment." |
+| **"Read and write agree" (parity)** | A slot the read path *offers* can actually be *booked* by the write path; a slot the read path *hides* is *refused* by the write path. This report set out to confirm they always agree. |
+| **Characterization test** | A test that records what the product *actually* does today — bugs and all — rather than what it *should* do. When the behavior later changes, the test fails on purpose, which is the alert we want. |
+| **Resource / worker** | A technician assigned to an appointment. |
+| **Required resource** | A worker the appointment genuinely depends on; checked against every scheduling rule. |
+| **Non-required "helper"** | An extra worker added alongside, marked *not* required. The recurring question: how little rule-checking does a helper get? |
+| **Primary resource** | The lead worker on an appointment. An appointment needs exactly one. |
+| **Appointment** | The service-appointment record being booked or rescheduled. |
+| **Slot** | A bookable time window. |
+| **Operating hours / Visiting hours / Shift** | When a worker can work / when a customer accepts visits / a worker's scheduled block of time. |
+| **Scheduling rule** | A condition a booking must satisfy. The ones in this report: **Skills** (worker has the needed skill), **Excluded** (worker isn't on the account's block-list), **Territory / Working-locations** (worker covers the area), **Availability** (worker is free), **Required-resources** (a worker the account demands is present), **Visiting-hours** (the time is within the customer's allowed hours), **Start-time-interval** (bookings start on set boundaries, e.g. on the hour). |
+| **Crash** | The server errored out (an "HTTP 500 / internal server error"). These are the known bugs we pin. |
+| **Rejected** | The server *deliberately* refused the request as invalid ("HTTP 400") — not a crash. |
+| **The product doc** | The design document describing how scheduling is *supposed* to behave. Several of its claims turned out to be wrong; those are noted below. |
+| **Fresh setup** | Each scenario starts with a new login and brand-new test users, so scenarios can't interfere with one another. |
+| **Confirmed with a debugger** | We attached a live debugger to the running server to verify the exact cause. |
+
+*Note on the ✅ in the tables:* a checkmark means **the test ran and confirmed the recorded 262 behavior** — even when that behavior is a crash we are *deliberately* pinning. Green does **not** mean "healthy"; it means "faithfully recorded."
+
+---
+
+## The headline finding, explained
+
+The `WfsRulesParityE2ETest` suite set out to prove the read and write sides apply every scheduling rule the same way — and to surface any place they don't. **Result: they agree on every rule.** The two things originally suspected of disagreeing were both shown wrong by live testing:
+
+- **Required-resources rule:** the read side and the write side **both crash in exactly the same way** on the same bad input. Because both sides run through the *same underlying scheduling engine*, a bug in that engine shows up identically on both — so this is agreement (both crash together), not a disagreement.
+- **"No-op" reschedule shortcut:** we thought a reschedule that changes nothing would quietly succeed via a shortcut. Live testing (confirmed with a debugger) showed the shortcut never triggers for a real appointment, so the reschedule re-runs the full calculation and hits a crash instead.
+
+We also corrected an earlier misunderstanding: the "get available resources" read **does** apply the full set of scheduling rules (it is not a stripped-down shortcut). So all four ways of reading are trustworthy mirrors of what a booking would do.
+
+Bottom line: because read and write share one engine, they agree by design — and the tests confirm it. The only oddities are (a) shared crashes that hit both sides equally, and (b) one shortcut that can't be reached today.
 
 ---
 
 ## Scenario catalogue
 
-### `WfsWritePathParityE2ETest` (the write/booking path)
+### Booking path — `WfsWritePathParityE2ETest`
 
-#### Decision 1 — a non-required helper is NOT fitness-checked (four scenarios)
+#### Decision 1 — a non-required "helper" is not rule-checked (four scenarios)
 
-> **The claim:** add a helper that breaks one scheduling rule, and on 262 the booking still succeeds — the helper escapes the check. Verified across four rules; each its own `revUp` (fresh login + fresh users) so the four can't collide on resource uniqueness.
+> **The claim:** add a helper who breaks one scheduling rule, and on 262 the booking still succeeds — the helper skips the check. Verified across four different rules. Each runs with its own fresh setup so the four can't collide.
 >
-> **Method:** `testNonRequiredHelperFitnessE2E` — all four are dimensions of this one method.
+> **Test method:** `testNonRequiredHelperFitnessE2E` (all four are parts of this one method).
 
-- **1a Excluded** *(asserts `excludedNonReqSchedulingStatus == "Success"`)* — helper on the account's excluded list; only **ExcludedResources** can fire. **262: Success** (helper escapes). *(264: `ScheduleError`/ExcludedResources.)*
-- **1b Territory** *(`territoryNonReqSchedulingStatus == "Success"`)* — helper's membership overlaps but doesn't contain the window; only **MatchTerritory** can fire. **262: Success.** *(264: `ScheduleError`/MatchTerritory.)*
-- **1c Skills** *(`skillsNonReqSchedulingStatus == "Success"`)* — helper lacks the work-type skill; only **MatchSkills** can fire; helper kept non-primary so the primary-implies-required guard can't mask it. **262: Success.** *(264: `ScheduleError`/MatchSkills.)*
-- **1d Working-locations** *(`workingLocationsSecondaryNonReqSchedulingStatus == "Success"`)* — helper is a secondary member under a primary-only policy; only **WorkingLocations** can fire. **262: Success.** *(264: `ScheduleError`/WorkingLocations.)*
+- **1a — Excluded worker.** Helper is on the account's block-list; only the Excluded rule could stop it. **Today: books anyway** (helper skips the check). *Next release: should be rejected.*
+- **1b — Wrong territory.** Helper's territory coverage doesn't fully cover the booking window; only the Territory rule could stop it. **Today: books anyway.** *Next release: rejected.*
+- **1c — Missing skill.** The work needs a skill the helper doesn't have; only the Skills rule could stop it. **Today: books anyway.** *Next release: rejected.*
+- **1d — Wrong location role.** Helper is a "secondary" area member under a policy that only allows "primary" members; only the Working-locations rule could stop it. **Today: books anyway.** *Next release: rejected.*
 
-#### Decision 1.4 — a helper cannot satisfy a *required-resource demand* (two scenarios)
+#### Decision 1.4 — a helper can't fill a slot the account *requires* (two scenarios)
 
-> **Method:** `testNonRequiredHelperCannotSatisfyRequiredDemandE2E` — violating probe + control, two `revUp`s.
+> **The claim:** the account demands a specific worker be present. If that worker is added only as a helper, it must not count. We expected a clean rejection; today it crashes instead.
+>
+> **Test method:** `testNonRequiredHelperCannotSatisfyRequiredDemandE2E`.
 
-- **1.4a Violating** *(asserts `requiredNonReqSatisfierErrorCode == "INTERNAL_SERVER_ERROR"` **and** `…ErrorMessage contains "serviceTerritoryMembers"`)* — the account requires worker B via `ResourcePreference(Required)`, but B is only a helper. **262: server CRASH** (null-pointer on `serviceTerritoryMembers`), *not* the tidy RequiredResources rejection the doc predicted. Asserted verbatim. *(264: clean `ScheduleError`/RequiredResources → test flips.)*
-- **1.4b Control** *(`requiredSatisfierControlErrorCode != "RequiredResources"`)* — a genuine required worker. **262: rejected on availability** (`INVALID_INPUT`), not a RequiredResources error.
+- **1.4a — The demand is met only by a helper.** **Today: the server crashes** (a known 262 bug), instead of the clean rejection the product doc predicted. We record the crash exactly. *Next release: a clean rejection, no crash — at which point this test flips and alerts us.*
+- **1.4b — A genuine required worker (control).** **Today: rejected because the worker isn't free** — importantly, *not* the required-resources error, confirming that path doesn't raise it by mistake.
 
-#### Decision 1.5 — a helper is NOT availability-checked, so it can double-book (two scenarios)
+#### Decision 1.5 — a helper isn't checked for being free, so it can be double-booked (two scenarios)
 
-> **Method:** `testNonRequiredHelperDoubleBooksE2E` — one `revUp`, A/B flips only `isRequiredResource` on resourceB.
+> **The claim:** if the helper is already busy at that time, that doesn't block the booking — helpers aren't availability-checked. The two runs differ by a single flag.
+>
+> **Test method:** `testNonRequiredHelperDoubleBooksE2E`.
 
-- **1.5a Busy helper, non-required** *(`doubleBookNonRequiredSchedulingStatus == "Success"`)* — busy helper double-books, no availability check. **262: Success.** *(264: blocked as not-available.)*
-- **1.5b Same worker, flipped to required (control)** *(`doubleBookRequiredControlSchedulingStatus != "Success"`)* — a *required* worker **is** availability-checked. **262: rejected** (`400 INVALID_INPUT`). Cleanest helper-vs-required demonstration in the suite.
+- **1.5a — Busy helper, marked non-required.** **Today: books anyway** — the busy helper is double-booked, no availability check. *Next release: should be blocked as not-available.*
+- **1.5b — Same busy worker, marked required (control).** **Today: rejected as not-available** — a *required* worker **is** checked for being free. This before/after pair is the clearest demonstration of the helper-vs-required difference in the whole suite.
 
-#### Decision 3 — a missing `isRequiredResource` flag (two scenarios)
+#### Decision 3 — an appointment sent without the "required" flag (two scenarios)
 
-> **Method:** `testMissingRequiredFlagE2E` — Act A (missing flag) + Act B (control), two `revUp`s.
+> **The claim:** what happens when a worker is sent with no required-or-not flag at all? Today it crashes. Paired with a control proving the *primary* flag's absence is harmless.
+>
+> **Test method:** `testMissingRequiredFlagE2E`.
 
-- **3a Missing flag** *(asserts `missingRequiredFlagErrorCode == "INTERNAL_SERVER_ERROR"` **and** `…ErrorMessage contains "Boolean.booleanValue()"`)* — a resource sent with no `isRequiredResource`. **262: server CRASH** (null-pointer reading the missing flag). Asserted verbatim. *(264: treat missing as not-required → test flips.)*
-- **3b L142 control** *(`singleRequiredNoPrimaryStatus == "Success"`)* — a single `isRequiredResource=true` with no `isPrimaryResource`. **262: Success** — the absence of the *primary* flag is harmless.
+- **3a — Flag missing entirely.** **Today: the server crashes** (a known 262 bug reading the absent flag). Recorded exactly. *Next release: treat a missing flag as "not required" and handle it cleanly — test flips and alerts.*
+- **3b — One required worker, no primary flag (control).** **Today: books successfully** — confirms that leaving out the *primary* flag is harmless; only the *required* flag's absence breaks things.
 
-#### Decision 4 — two primary resources rejected up front *(NEW)*
+#### Decision 4 — two "primary" workers are refused up front
 
-> **Method:** `testTwoPrimaryResourcesRejectedE2E` — one `revUp`.
+> **Test method:** `testTwoPrimaryResourcesRejectedE2E`.
 
-- *Setup:* one appointment, **two** assigned resources both `isPrimaryResource=true` (both also required). Multi-resource scheduling requires exactly one primary, caught at **input validation** (`ScheduleCommonValidator.validatePrimaryResourceConstraints`), before availability/persist.
-- *Asserts:* `twoPrimaryErrorCode == "INVALID_INPUT"` **and** `twoPrimaryErrorMessage contains "can be a primary resource"` **and** `twoPrimaryHttpCode == "400"` **and** `twoPrimaryStatus` is null (no booking).
-- *262 result:* **clean HTTP 400 / `INVALID_INPUT`**, message "Only one of the provided assigned resource can be a primary resource." (org renders it singular). *(264: unchanged — the doc's "confusing DB error" era is over; 262 and 264 coincide, so this is characterization-only.)*
+- One appointment sent with **two** workers both marked "primary" (an appointment may have only one). **Today: refused immediately** as an invalid request (caught by the input-validation step, before anything is booked); message: "Only one of the provided assigned resource can be a primary resource." *Next release: unchanged — this clean message already shipped, so today and next release behave the same (recorded for completeness).*
 
-#### Decision 5 — a primary marked not-required is rejected at persist (no auto-correct, no double-book) *(NEW)*
+#### Decision 5 — a "primary" worker marked "not required" is refused (no silent fix, no double-book)
 
-> **Method:** `testPrimaryNotRequiredRejectedE2E` — probe + control, two `revUp`s.
+> **Test method:** `testPrimaryNotRequiredRejectedE2E`.
 
-- **5 probe** *(asserts `primaryNotReqStatus == "PersistError"` **and** `primaryNotReqErrorCode == "INVALID_FIELD"` **and** `primaryNotReqErrorMessage contains "primary service resource"`)* — a single resource `isPrimaryResource=true, isRequiredResource=false` into a **free** window. Input validation doesn't inspect the required flag, so it passes validation, availability passes (free), and it's **rejected at persist** (`fieldservice` `LightningSchedulerAssignedResourceValidator`). **262: `PersistError` / `INVALID_FIELD`**, message "Only an required service resource can be set as a primary service resource." (HTTP 201 with `appointments[0].errors[0]`). REFUTES both the story's "quietly fixed to required" (no auto-correct) and the 262 "could be double-booked" claim (nothing persists). *(264: unchanged — reject is intended.)*
-- **5 control** *(`primaryReqControlStatus == "Success"`)* — same resource/window, `isRequiredResource=true`. **262: Success** — isolates the reject to the not-required flag.
+- **Probe:** a single worker marked "primary" but "not required" — a contradiction. **Today: refused at the final save step**, message "Only an required service resource can be set as a primary service resource." This disproves two worries: the system does **not** silently "fix" the contradiction, and it does **not** let the worker slip through to be double-booked (nothing gets saved). *Next release: unchanged — refusing is the intended behavior.*
+- **Control:** same worker, now correctly marked "required." **Today: books successfully** — pinning the refusal specifically to the "not required" flag.
 
-#### Decision 4z — a reschedule CAN leave an appointment with no primary (the product doc's claim is wrong) *(NEW)*
+#### Decision 4z — a reschedule *can* leave an appointment with no primary worker (the product doc is wrong here)
 
-> **Method:** `testRescheduleNoPrimaryE2E` — one `revUp` chaining a clean two-resource schedule then two reschedule arms over the captured SA.
+> **Test method:** `testRescheduleNoPrimaryE2E`.
 
-- *Setup / claim:* the doc says "it is not possible to schedule or reschedule an appointment without a primary resource." This is **wrong for the reschedule API**: `RescheduleCommonValidator.validatePrimaryResourceCount` explicitly *allows* zero primaries; the doc's quoted error "isPrimaryResource cannot be set for Delete" is a **payload-field guard**, not a crew rule.
-- *Asserts:* clean schedule `reschedCleanStatus == "Success"` + `reschedCleanSaId` captured; **Arm A** (`DeleteOperation` on the primary **with** `isPrimaryResource:true`) → `reschedWithFlagErrorCode == "INVALID_INPUT"` + `reschedWithFlagHttpCode == "400"` (the payload-field guard; SA not mutated); **Arm B** (delete the primary **without** the flag) → `reschedNoFlagStatus != "Success"`, `reschedNoFlagErrorCode == "INVALID_INPUT"`, HTTP 400, message contains "not available for the requested slot".
-- *262 result:* the doc is **refuted at the validation layer** (no must-keep-primary rule). Live, Arm B does not complete either — but it is blocked by a **downstream availability re-check** (`SlotNotAvailable`), NEVER a primary rule. So end-to-end the 262 org can't leave a primary-less crew *via this path*, but for the reason the doc got wrong. **This is a DOC bug** (handed off), not a code bug; the product OPEN QUESTION "should a reschedule be allowed to leave no primary?" stands — today validation allows it.
-
----
-
-### `WfsReadPathParityE2ETest` (the read path)
-
-> Read-path contract: a rule violation or a cap returns an **empty** list (or a rejected booking on the paired write), never an unexpected 4xx/5xx on the read itself.
-
-#### Decision 2 — a shown slot is a promise on the shared cheap checks (read==write) *(NEW)*
-
-> **Method:** `testCheapCheckReadWritePromiseE2E` — one `revUp`: two GetSlots reads + two Schedule writes over one resource.
-
-- *Setup:* over a single resource, an **available** window (inside its OH+shift) and an **unavailable** window (outside). The cheap availability check is shared by read and write.
-- *Asserts:* `parityReadAvailSlotCount > 0` **and** `parityReadUnavailSlotCount == 0` **and** `parityWriteAvailStatus == "Success"` **and** `parityWriteUnavailStatus != "Success"` **and** `parityWriteUnavailErrorCode == "INVALID_INPUT"` + message "not available for the requested slot".
-- *262 result:* read offers slots in the available window ⟺ write Succeeds; read offers 0 in the unavailable window ⟺ write is rejected. Proves the shown slot is a **promise** on the shared cheap check.
-- *Scope honesty (in the test javadoc):* the doc's other half — a slot *shown* on the read path yet *turned down* at booking on a **field-match** rule — is **NOT characterizable on 262**: the three field-match rules (MatchFields/MatchBoolean/ExtendedMatch) are OnField-only, evaluated inside the external ESO optimizer; the OnField path is a 262 stub; the live OnSite path shares read==write. Recorded, not attempted.
-
-#### Decision 8 — the load-balancing result cap (two scenarios, one run)
-
-> **Method:** `testResourceLimitApptDistributionCapE2E`.
-
-- **8a Limit 0** *(`limitZeroResourceCount == 0` **and** `limitZeroErrorCode` null)* — **262: `availableResources: [[]]`**, empty, HTTP 200, no error. The empty list is the cap (`Stream.limit(0)`), confirmed by also asserting no error code.
-- **8b Limit 50 (control)** *(`limitPositiveResourceCount > 0` **and** `limitPositiveErrorCode` null)* — resources returned. Proves 0 is a literal cap-of-0, not "unlimited". *(264, if product picks "no cap": 0 → all eligible.)*
-
-#### Decision 9 — the silent shift-sharing gate (two scenarios, one run)
-
-> **Method:** `testShiftSharingModeSplitE2E` — mint manager + case-worker personas; manager (control) + case-worker (probe) reads.
-
-- **9a Manager (owner, control)** *(`dec9ManagerSlotCount > 0`)* — the owner's user-mode shift read sees its own shift. **262: slots returned.**
-- **9b Case-worker (no sharing, probe)** *(`dec9CaseWorkerSlotCount == 0`)* — identical request, no sharing on the manager's private shifts. **262: zero slots, HTTP 200, no error** — user-mode shift read returns empty, resource still admitted but contributes no slots. *(264, option B: align modes → case-worker also sees slots.)*
+- **The claim we disproved:** the product doc says "you can't reschedule an appointment to have no primary worker." That's **wrong for the reschedule path** — the validation step explicitly allows zero primaries. The doc also blames the wrong error.
+- **What actually happens:** we book a two-worker appointment, then try two ways to remove the primary:
+  - **With the "primary" flag on the removal request → refused** as an invalid request (a rule about which fields are allowed in the request, *not* a rule about crew makeup; the appointment is left untouched).
+  - **Without that flag → the removal is allowed by validation, but the booking still can't complete** — it's stopped later by an ordinary "that time isn't available" check, **never** by a "must keep a primary" rule.
+- **Takeaway:** this is a **documentation bug** (handed off separately), not a code bug. The open product question stands: *should* a reschedule be allowed to leave no primary? Today's validation allows it.
 
 ---
 
-### `WfsRulesParityE2ETest` (rules read==write parity) *(NEW class — 8 tests)*
+### Read path — `WfsReadPathParityE2ETest`
 
-> Each rule runs a **differential matrix**: a *violating* case (rule fires → read 0 slots AND write rejected) + a *control* (rule passes → read >0 AND write Success), asserting the read decision == the write decision in both rows. Each violation is on the **required+primary** resource (single-variable), and each control returns >0 + Success (proves the fixture is valid, so the violating 0 is the rule, not a dead fixture). A pruned-candidate write reject surfaces as a generic `INVALID_INPUT "not available for the requested slot"`, so the write-violating assertion is `status != "Success"` (the honest ceiling). Availability (the 7th Common rule) is already proven by `WfsReadPathParityE2ETest.testCheapCheckReadWritePromiseE2E` (Decision 2) and is referenced, not re-authored.
+#### Decision 2 — is an offered slot a real promise? (read and write agree on the cheap checks)
 
-- **MatchSkills** `testMatchSkillsReadWriteParityE2E` — required+primary resource lacks the skill. **PARITY:** read 0 ⟺ write reject; control >0 ⟺ Success.
-- **ExcludedResources** `testExcludedResourcesReadWriteParityE2E` — required+primary resource on the account excluded list. **PARITY.**
-- **WorkingLocations** `testWorkingLocationsReadWriteParityE2E` — the required+primary resource is a Secondary member under a primary-only policy (the WorkingTerritories rule's own `IsPrimaryLocationEnabled`/`IsSecondaryLocationEnabled` params drive `loadMembersInTerritory`, Core-confirmed). **PARITY.**
-- **VisitingHours** `testVisitingHoursReadWriteParityE2E` — booking window outside the account's visiting hours (09-10 outside VH 10-14) while inside the resource's OH+shift, so only VisitingHours can prune. Policy+fixture lifted from source and 262-conformed. **PARITY.**
-- **AppointmentStartTimeInterval** `testStartTimeIntervalReadWriteParityE2E` — an off-boundary start (11:30 vs an on-boundary 11:00 control) under a net-new policy that pins interval=60. **PARITY.**
-- **RequiredResources** `testRequiredResourcesReadWriteBothCrashE2E` — **read==write, BOTH crash.** The read path crashes with the SAME `serviceTerritoryMembers` NPE (HTTP 500 `INTERNAL_SERVER_ERROR`) the write path throws (1.4a) — they share `loadSchedulableSlots`, so the 262 bug is identical on both. *Asserts* `requiredReadViolatingErrorCode == "INTERNAL_SERVER_ERROR"` + message "serviceTerritoryMembers"; a satisfied-demand control does not crash (HTTP 201, null error, 0 slots — proving the crash is conditional on the non-required-helper input). **This REFUTES the plan's read-prunes/write-crashes divergence hypothesis** — it's a shared-engine crash, not an asymmetry.
-- **Cross-API agreement** `testCrossApiRuleAgreementE2E` — one MatchSkills violation run through **all four read APIs + schedule**: `get-appointment-slots` 0, `get-appointment-candidates` 0, `get-available-slots` 0, `get-available-resources` prunes the skill-lacking resource (resourceB **absent** while resourceA **survives**, survivor count > 0), and schedule rejects. Proves all four reads + write share the one engine → the per-rule matrix generalizes to every API, and confirms `get-available-resources` runs the **full** rule set (not a subset).
-- **No-op reschedule short-circuit** `testNoOpRescheduleShortCircuitE2E` — the `SlotAvailabilityChecker:174-176` short-circuit is **not reached over REST** for a required-resource SA. *Asserts* setup schedule Success + saId captured; the no-op reschedule → `status != "Success"`, HTTP 500, `INTERNAL_SERVER_ERROR`, message "getServiceResourceIds". **jdwp-confirmed mechanism** (breakpoint `SlotAvailabilityChecker:237`): the existing SA's required-resource id is 18-char (`0Hnxx0000004GB2CAM`, from SOQL) while the reschedule request's is 15-char (`0Hnxx0000004GB2`, the ESO request DTO truncates it) → the sets never match → `resourcesHaveChanged==true` → short-circuit skipped → recompute → 262 crash. **REFUTES the plan's "no-op returns Success via the short-circuit" premise**; the recurring 15/18-char ResourceId canonicalization gotcha, surfacing here.
+> **Test method:** `testCheapCheckReadWritePromiseE2E`.
 
----
+- Over a single worker, we compare an **available** window (inside its hours) and an **unavailable** window (outside). **Today:** the read offers slots in the available window *and* the booking succeeds there; the read offers zero slots in the unavailable window *and* the booking is refused there. So an offered slot is a genuine promise on these shared checks.
+- **Scope note:** the product doc also asks whether a *shown* slot could still be refused at booking on a costlier "field-match" rule. That half **can't be tested on 262** — those rules only run in a scheduling mode ("OnField") that is unfinished in this release, while the working mode shares read and write. Recorded, not attempted.
 
-## Recorded results at a glance
+#### Decision 8 — the "limit how many workers to return" setting (two checks, one run)
 
-| # | Scenario | Test method | 262 result | Status |
-|---|---|---|---|---|
-| 1a | Dec 1 excluded helper | `testNonRequiredHelperFitnessE2E` (1/4) | Success | ✅ |
-| 1b | Dec 1 territory helper | `testNonRequiredHelperFitnessE2E` (2/4) | Success | ✅ |
-| 1c | Dec 1 skills helper | `testNonRequiredHelperFitnessE2E` (3/4) | Success | ✅ |
-| 1d | Dec 1 working-locations helper | `testNonRequiredHelperFitnessE2E` (4/4) | Success | ✅ |
-| 1.4a | Dec 1.4 helper can't satisfy required | `testNonRequiredHelperCannotSatisfyRequiredDemandE2E` (violating) | **server crash** (serviceTerritoryMembers NPE) | ✅ |
-| 1.4b | Dec 1.4 genuine required (control) | `…CannotSatisfyRequiredDemandE2E` (control) | INVALID_INPUT (availability) | ✅ |
-| 1.5a | Dec 1.5 busy helper, non-required | `testNonRequiredHelperDoubleBooksE2E` | Success (double-books) | ✅ |
-| 1.5b | Dec 1.5 busy worker, required (control) | `testNonRequiredHelperDoubleBooksE2E` | rejected (not-available) | ✅ |
-| 3a | Dec 3 missing required flag | `testMissingRequiredFlagE2E` (Act A) | **server crash** (Boolean.booleanValue NPE) | ✅ |
-| 3b | Dec 3 single required, no primary (control) | `testMissingRequiredFlagE2E` (Act B) | Success | ✅ |
-| 4 | Dec 4 two primary resources | `testTwoPrimaryResourcesRejectedE2E` | HTTP 400 INVALID_INPUT (input validation) | ✅ |
-| 5 | Dec 5 primary not-required (probe) | `testPrimaryNotRequiredRejectedE2E` | PersistError / INVALID_FIELD (persist reject) | ✅ |
-| 5c | Dec 5 primary+required (control) | `testPrimaryNotRequiredRejectedE2E` | Success | ✅ |
-| 4z-A | Dec 4z reschedule delete-primary WITH flag | `testRescheduleNoPrimaryE2E` (Arm A) | HTTP 400 INVALID_INPUT (payload-field guard) | ✅ |
-| 4z-B | Dec 4z reschedule delete-primary NO flag | `testRescheduleNoPrimaryE2E` (Arm B) | HTTP 400 INVALID_INPUT (availability, not a primary rule) | ✅ |
-| 2 | Dec 2 cheap-check read==write promise | `testCheapCheckReadWritePromiseE2E` | read>0⟺Success; read0⟺rejected | ✅ |
-| 8a | Dec 8 limit 0 | `testResourceLimitApptDistributionCapE2E` | empty list `[[]]`, no error | ✅ |
-| 8b | Dec 8 limit 50 (control) | `testResourceLimitApptDistributionCapE2E` | resources returned | ✅ |
-| 9a | Dec 9 manager (owner, control) | `testShiftSharingModeSplitE2E` | slots returned | ✅ |
-| 9b | Dec 9 case-worker (no sharing) | `testShiftSharingModeSplitE2E` | 0 slots, 200, no error | ✅ |
-| R-skills | Rules parity MatchSkills | `testMatchSkillsReadWriteParityE2E` | read==write (parity) | ✅ |
-| R-excluded | Rules parity ExcludedResources | `testExcludedResourcesReadWriteParityE2E` | read==write (parity) | ✅ |
-| R-workloc | Rules parity WorkingLocations | `testWorkingLocationsReadWriteParityE2E` | read==write (parity) | ✅ |
-| R-visiting | Rules parity VisitingHours | `testVisitingHoursReadWriteParityE2E` | read==write (parity) | ✅ |
-| R-sti | Rules parity StartTimeInterval | `testStartTimeIntervalReadWriteParityE2E` | read==write (parity) | ✅ |
-| R-required | Rules parity RequiredResources | `testRequiredResourcesReadWriteBothCrashE2E` | read==write, **both crash** (serviceTerritoryMembers NPE) | ✅ |
-| R-crossapi | Rules parity cross-API agreement | `testCrossApiRuleAgreementE2E` | all 4 reads + write agree (prune/reject) | ✅ |
-| R-noop | Rules parity no-op reschedule | `testNoOpRescheduleShortCircuitE2E` | short-circuit unreachable → 500 (getServiceResourceIds NPE) | ✅ |
+> **Test method:** `testResourceLimitApptDistributionCapE2E`.
 
-Full `WfsRulesParityE2ETest` suite last run **8/8 green together** (BUILD SUCCESSFUL, 7m3s, 0 license issues).
+- **Limit 0:** **Today: returns an empty list, no error.** So "0" means a literal cap of zero, not "no limit." (We also confirm there was no hidden error, so an error can't masquerade as "empty.")
+- **Limit 50 (control):** **Today: returns workers.** Confirms the cap of 0 above really was the cap doing its job. *Next release, if the product chooses "no limit": 0 would return everyone.*
+
+#### Decision 9 — a silent permissions gate on who can see whose shifts (two checks, one run)
+
+> **Test method:** `testShiftSharingModeSplitE2E`.
+
+- **Manager (owns the shifts, control):** **Today: sees slots** — the shift read uses the caller's own permissions, and the manager can see its own shifts. This proves the case-worker's empty result below is the permissions gate, not an empty setup.
+- **Case-worker (not shared the manager's private shifts):** identical request. **Today: sees zero slots, no error** — the shift read returns nothing because the case-worker can't see those shifts. The worker is still recognized (other reads use full access), but contributes no slots. *Next release, one option: align the permissions so the case-worker also sees slots.*
 
 ---
 
-## Out-of-scope 262 bugs surfaced (handed off, not fixed here)
+### Rules read/write agreement — `WfsRulesParityE2ETest`
 
-The suite characterizes **three distinct 262 slot-gen NPE crashes** (all HTTP 500 `INTERNAL_SERVER_ERROR`), all in the shared `loadSchedulableSlots` engine — see `~/work/handoff/2026-07-01-wfs-262-slotgen-npe-family.md`:
+> **How each test works:** for one rule, we run a **bad case** (rule should fire → read offers zero slots *and* the booking is refused) and a **good case** (rule passes → read offers slots *and* the booking succeeds). We check the read decision and the write decision line up on both. Each bad case is set up so only the one rule under test can cause the outcome, and each good case is proven to work (so a "zero" in the bad case is genuinely the rule, not a broken setup). The Availability rule is already covered by Decision 2 above.
 
-1. `serviceTerritoryMembers` NPE on **Schedule** (Decision 1.4a / RequiredResources write path).
-2. Same `serviceTerritoryMembers` NPE on the **READ** path (GetSlots) for the same scenario — new evidence the bug is shared read+write (RequiredResources rules-parity test).
-3. `ServiceTerritory.getServiceResourceIds()` NPE on **Reschedule-recompute** (no-op reschedule test) — a distinct call site / null field.
-
-Plus a **DOC bug** (Decision 4z: the product doc's "cannot reschedule without a primary" is wrong) — see `~/work/handoff/2026-07-01-wfs-doc-4z-no-primary-contradiction.md`.
-
-These crashes are the intended 262 behavior — pinned so the suite alerts the moment 264 fixes them (the assertions flip from crash to clean).
-
----
-
-## Preconditions (why the tests are environment-gated)
-
-These run against a **provisioned WFS workspace org**, not unattended CI, and self-skip (JUnit assumption) when creds are absent. The org must have:
-
-- Multi-resource scheduling preference (`WorkforceSchdMulResSchdPref`) + InBusinessScheduling enabled.
-- The `Shift.Status` picklist seeded so `Confirmed` shifts validate.
-- Each resource: a confirmed shift covering the window + a territory membership effective in the past.
-- The 262 release contract honored in the data (`SchedulingMethod=OnSite` on timeslot/shift/booking; WorkType carries no SchedulingMethod/IsRegular; relative composite-graph URLs).
-- The **Workforce Scheduling** permission sets (Manager + Resource) assigned to the users.
-- External-org creds in `~/.revoman/config.yaml` (baseUrl/username/password) — auto-overlaid onto every Kick's environment; the committed `ws.environment.yaml` stays blank (no secrets committed).
-
-**Operational note:** the org accumulates timestamped `@revoman.org` personas across runs and can hit `LICENSE_LIMIT_EXCEEDED`; deactivate stale non-admin `@revoman.org` users to reclaim seats (never the admin `@orgfarm` user).
+- **Skills** (`testMatchSkillsReadWriteParityE2E`) — worker lacks the needed skill. **Read and write agree.**
+- **Excluded** (`testExcludedResourcesReadWriteParityE2E`) — worker on the account's block-list. **Read and write agree.**
+- **Territory / Working-locations** (`testWorkingLocationsReadWriteParityE2E`) — worker is a "secondary" area member under a "primary-only" policy. **Read and write agree.**
+- **Visiting hours** (`testVisitingHoursReadWriteParityE2E`) — booking time falls outside the customer's allowed hours (but inside the worker's hours, so only this rule can cause it). **Read and write agree.**
+- **Start-time interval** (`testStartTimeIntervalReadWriteParityE2E`) — booking starts off the allowed boundary (e.g. 11:30 when only on-the-hour is allowed) vs an on-boundary control. **Read and write agree.**
+- **Required-resources** (`testRequiredResourcesReadWriteBothCrashE2E`) — **read and write both crash** the same way (the same known 262 bug), because they share one engine. A good-case control does *not* crash (proving the crash only happens on the bad input). This is the scenario that disproved the "these two disagree" theory — it's a shared crash, not a disagreement.
+- **All four read APIs agree** (`testCrossApiRuleAgreementE2E`) — one "missing skill" case run through all four ways of reading *and* the booking: every read drops the skill-less worker (and keeps the qualified one), and the booking is refused. Proves all four reads and the write share one engine, so the per-rule results above apply to every API.
+- **"No-op" reschedule shortcut** (`testNoOpRescheduleShortCircuitE2E`) — a reschedule that changes nothing was expected to succeed via a shortcut. **Today it doesn't:** the shortcut is skipped and the reschedule crashes. *Confirmed with a debugger* — the cause is a Salesforce record-ID length mismatch (see the note below), so the system thinks the worker changed when it hasn't.
 
 ---
 
-## Coverage notes (gaps a careful author would close next)
+## Results at a glance
 
-The scenarios are well-isolated and the crash assertions are sharp. Honest gaps, for the record:
+*(✅ = the test ran and confirmed today's behavior, including the crashes we pin on purpose.)*
 
-1. **Caller identity isn't asserted.** The API-under-test runs as a least-privilege manager (proven live) rather than admin, but no test *fails* if someone re-aliases manager back to admin. A "the caller is the manager, not the admin" assertion would lock it in. (A fail-loud safeguard exists for a *broken* manager login, not for deliberate re-aliasing.)
-2. **Decision 8's cap only proves the extremes.** The fixture seeds two resources, so "limit 50" and "no limit" look identical — it proves *0 returns zero* but not that the cap *trims* a longer list. A "limit 1 over a 2-resource pool → exactly 1" scenario would prove truncation.
-3. **Decision 1's four scenarios are single-sided** *(now partially closed)*. Each proves the helper *books*; none has a paired "same violation *does* reject when the worker is required" control in that method. However, the new `WfsRulesParityE2ETest` matrix now provides exactly that paired violating+control coverage for MatchSkills / ExcludedResources / WorkingLocations (on the required+primary resource), so the "wrong-reason green" risk is materially reduced at the suite level; only the helper-specific single-sidedness remains in Decision 1 itself.
-4. **A couple of "not equal to X" assertions are loose** (1.4b, 1.5b, and the parity write-violating `!= Success`). "Anything but Success" also passes for an empty/null response; where the exact reject value is stable it could be tightened. (Decisions 4/5 and the crash tests now assert exact codes/messages, so this is confined to the availability-reject rows where the message is generic.)
-5. **Decision 4z / no-op reschedule "why" vs "what".** Both assert the observed 262 crash faithfully; the *mechanism* behind 4z's availability block and the no-op reschedule's `resourcesHaveChanged` are documented (the latter jdwp-confirmed as the 15/18-char id mismatch). Open product question for 4z stands: should a reschedule be allowed to leave no primary?
-6. **RequiredResources satisfied-control returns 0 slots** (rules-parity). The control proves *no crash* (HTTP 201) but returns 0 slots — why a satisfied-demand read yields no slots is noted but not investigated.
+| # | Scenario | What 262 does today | Test |
+|---|---|---|---|
+| 1a | Helper on the block-list | Books anyway (helper skips the check) | ✅ |
+| 1b | Helper in the wrong territory | Books anyway | ✅ |
+| 1c | Helper missing the skill | Books anyway | ✅ |
+| 1d | Helper in the wrong location role | Books anyway | ✅ |
+| 1.4a | Helper asked to fill a *required* slot | **Server crash** (known 262 bug) | ✅ |
+| 1.4b | A genuine required worker (control) | Rejected — worker isn't free | ✅ |
+| 1.5a | Busy helper, non-required | Books anyway (double-booked) | ✅ |
+| 1.5b | Busy worker, required (control) | Rejected — not free | ✅ |
+| 3a | Worker sent with no required flag | **Server crash** (known 262 bug) | ✅ |
+| 3b | One required worker, no primary flag (control) | Books successfully | ✅ |
+| 4 | Two "primary" workers | Refused up front as invalid | ✅ |
+| 5 | "Primary" but "not required" (probe) | Refused at save (no silent fix, no double-book) | ✅ |
+| 5c | "Primary" and "required" (control) | Books successfully | ✅ |
+| 4z-A | Reschedule removes primary, *with* the flag | Refused as an invalid request | ✅ |
+| 4z-B | Reschedule removes primary, *without* the flag | Allowed by validation; stopped only by an availability check | ✅ |
+| 2 | Are offered slots a real promise? | Yes — offered slot books; hidden slot is refused | ✅ |
+| 8a | "Return at most 0 workers" | Empty list, no error | ✅ |
+| 8b | "Return at most 50" (control) | Workers returned | ✅ |
+| 9a | Manager reading its own shifts (control) | Sees slots | ✅ |
+| 9b | Case-worker reading a manager's private shifts | Sees zero slots, no error | ✅ |
+| Rule: Skills | Read vs write on a missing skill | Agree | ✅ |
+| Rule: Excluded | Read vs write on a blocked worker | Agree | ✅ |
+| Rule: Territory | Read vs write on wrong location role | Agree | ✅ |
+| Rule: Visiting hours | Read vs write outside allowed hours | Agree | ✅ |
+| Rule: Start-time interval | Read vs write on an off-boundary start | Agree | ✅ |
+| Rule: Required-resources | Read vs write on the required-slot bug | Agree — **both crash the same way** | ✅ |
+| All 4 read APIs agree | Missing skill through every read + the booking | All drop the worker / refuse | ✅ |
+| No-op reschedule | Reschedule that changes nothing | Shortcut skipped → crash (record-ID mismatch) | ✅ |
+
+The full rules suite last ran **all 8 tests green together** (about 7 minutes, no license problems).
+
+---
+
+## Bugs found along the way (recorded, handed off — not fixed here)
+
+The tests pin down **three separate crashes** in today's release, all in the shared scheduling engine (details in `~/work/handoff/2026-07-01-wfs-262-slotgen-npe-family.md`):
+
+1. **Booking crash** when a required worker demand is met only by a helper (Decision 1.4a).
+2. **Read crash** for the same situation — new evidence the bug affects the read side too, because both share one engine (Required-resources rule test).
+3. **Reschedule crash** when re-running a reschedule — a different spot in the code (the no-op reschedule test).
+
+Plus a **documentation bug** (Decision 4z: the product doc's "you can't reschedule without a primary worker" is wrong) — handed off in `~/work/handoff/2026-07-01-wfs-doc-4z-no-primary-contradiction.md`.
+
+These crashes are today's real behavior. We pin them so the suite alerts us the moment the next release fixes them — at that point the test flips from "expects a crash" to failing, which is the signal to update it.
+
+**One extra detail on the reschedule crash (for engineers):** Salesforce record IDs come in a short 15-character form and a longer 18-character form that mean the same record. The reschedule request carries the short form while the stored appointment holds the long form, so the system concludes the worker changed when it hasn't — skips its "nothing to do" shortcut, re-runs the full calculation, and hits the crash. Confirmed with a debugger. This same 15-vs-18 mismatch has bitten this codebase before; fixing it at the boundary would also make the intended shortcut work.
+
+---
+
+## Preconditions (for whoever sets up the test org — skip if that's not you)
+
+These run against a **provisioned Workforce Scheduling org**, not unattended CI, and quietly **skip** if live-org credentials aren't configured. The org needs:
+
+- Multi-resource scheduling turned on (the setting that allows more than one worker per appointment) plus in-business scheduling enabled.
+- The Shift "Status" dropdown seeded so "Confirmed" shifts are valid.
+- Each worker: a confirmed shift covering the test window, and territory membership that started in the past.
+- The test data set up in the 262 style (the scheduling method set to "OnSite" on the relevant records; work types without the extra fields 264 adds).
+- The two Workforce Scheduling permission sets (Manager + Resource) assigned to the test users.
+- Live-org credentials in `~/.revoman/config.yaml` (URL, username, password). These are applied automatically at run time; the committed config file stays blank, so no credentials are ever committed.
+
+**Operational note:** each run creates timestamped test users, which pile up and can hit the org's user-license limit. When that happens, deactivate the old test users (the `@revoman.org` ones) to free up licenses — never the admin user.
+
+---
+
+## Coverage notes (honest gaps, for the next author)
+
+The scenarios are well-isolated and the crash checks are sharp. Remaining gaps:
+
+1. **We don't assert *who* is making the call.** The tests run as a limited-permission manager (not an admin), and that was verified live — but no test would *fail* if someone quietly switched it back to admin. A "the caller really is the manager" check would lock this in.
+2. **The "limit how many workers" test only proves the extremes.** The setup has just two workers, so "limit 50" and "no limit" look the same. It proves "0 returns nothing" but not that a cap *trims* a longer list. A "limit 1 out of 2 → exactly 1" case would prove trimming.
+3. **Decision 1's four helper scenarios are one-sided** *(now partly covered)*. Each proves the helper *books*; none has a paired "and the same problem *is* caught when the worker is required" check in that method. The new rules-agreement suite now provides exactly that paired coverage for Skills, Excluded, and Territory, so the risk of a test passing for the wrong reason is much lower at the suite level.
+4. **A few checks only say "not a success," not the exact reason.** Where the refusal message is generic (the availability rejections), the test can only confirm "it didn't succeed." Decisions 4 and 5 and the crash tests now check the exact code/message, so this is limited to the generic-refusal rows.
+5. **Why does a *satisfied* required-resources read return zero slots?** In the required-resources test, the good-case control proves there's no crash, but it also returns zero slots — why a satisfied request yields none is noted but not yet investigated.
 
 These are next-step suggestions, not defects in what exists today.
