@@ -378,13 +378,14 @@ class WfsRulesParityE2ETest {
    *   <li>On the RESCHEDULE leg {@code timesAreChanging==false} (no startTime/endTime), yet the short-circuit
    *       does NOT fire — {@code haveResourcesChanged} (SlotAvailabilityChecker:237, a raw {@code .equals()} on
    *       the required-ServiceResourceId sets with no canonicalization) returns true, so it recomputes and
-   *       262 CRASHES (below). WHY resourcesHaveChanged is true for a re-stated no-op is NOT fully pinned: an
-   *       EMPTY assignedResources trivially differs ({@code {} ≠ {resourceA}}); for an UpdateOperation
-   *       re-stating resourceA the request wire id is 18-char (this fixture sets ids verbatim/18-char), so the
-   *       set SHOULD match unless the ESO request DTO re-canonicalizes/truncates the id (a plausible instance
-   *       of the repo's 15/18-char ResourceId gotcha — but NOT re-confirmed here; jdwp was not re-attached).
-   *       OPEN (decision log): breakpoint {@code haveResourcesChanged} and dump both id sets to pin the exact
-   *       cause. Either way the OBSERVED outcome is: short-circuit does not fire → recompute.
+   *       262 CRASHES (below). WHY resourcesHaveChanged is true for a re-stated no-op — JDWP-CONFIRMED
+   *       (2026-07-01, breakpoint at SlotAvailabilityChecker:237): the existing SA's required-resource id set
+   *       is {@code [0Hnxx0000004GB2CAM]} (18-char, from SOQL) while the request's is {@code [0Hnxx0000004GB2]}
+   *       (15-char) — the ESO request DTO truncates the wire id to 15-char even though the fixture sends 18-char
+   *       — so {@code {18-char} ≠ {15-char}} → resourcesHaveChanged==true. (This is the repo's 15/18-char
+   *       ResourceId canonicalization gotcha surfacing in the reschedule short-circuit comparison. An EMPTY
+   *       assignedResources would equally differ: {@code {} ≠ {resourceA}}.) So for a required-resource SA the
+   *       short-circuit is effectively UNREACHABLE over REST.
    *   <li>The reschedule recompute then CRASHES on 262 with HTTP 500 {@code INTERNAL_SERVER_ERROR}: "Cannot
    *       invoke java.util.List.iterator() because the return value of ServiceTerritory.getServiceResourceIds()
    *       is null" — a 262 reschedule-recompute NPE (a THIRD null-field variant, distinct from the
@@ -394,7 +395,8 @@ class WfsRulesParityE2ETest {
    * <p>262 (asserted — what the test PINS): setup schedule Success + saId captured; the no-op reschedule does
    * NOT return Success — it 500-crashes (INTERNAL_SERVER_ERROR / ServiceTerritory.getServiceResourceIds NPE).
    * The write<read short-circuit exists in code but is NOT reached on this required-resource-SA REST path
-   * (exact reason flagged open above). The crash — not the mechanism — is what the assertions verify.
+   * (jdwp-confirmed 15/18-char id mismatch, above). The crash — not the mechanism — is what the assertions
+   * verify (the mechanism is confirmed by jdwp, recorded in the decision log).
    *
    * <p>264 contrast: the short-circuit is intended; 264's reworked reschedule availability (effective-set
    * merge over the real surviving crew) is what would let a genuine no-op resolve cleanly rather than 500.
@@ -414,11 +416,10 @@ class WfsRulesParityE2ETest {
     // Setup schedules resourceA into the available window and persists an SA → Success + a captured id.
     assertThat(env.getAsString("noopSetupStatus")).isEqualTo("Success");
     assertThat(env.getAsString("noopSetupSaId")).isNotNull();
-    // No-op reschedule of a required-resource SA does NOT hit the short-circuit (resourcesHaveChanged==true)
-    // → it recomputes, and 262's reschedule recompute 500-crashes with the ServiceTerritory.getServiceResourceIds
-    // NPE. schedulingStatus is null (NOT Success). This REFUTES the "no-op returns Success via the short-circuit"
-    // premise for this REST path. (Exact reason resourcesHaveChanged is true for a re-stated no-op is flagged
-    // open in the javadoc — the CRASH, not the mechanism, is what these assertions pin.)
+    // No-op reschedule of a required-resource SA does NOT hit the short-circuit (resourcesHaveChanged==true,
+    // jdwp-confirmed: existing 18-char id set != request 15-char id set) → it recomputes, and 262's reschedule
+    // recompute 500-crashes with the ServiceTerritory.getServiceResourceIds NPE. schedulingStatus is null (NOT
+    // Success). This REFUTES the "no-op returns Success via the short-circuit" premise for this REST path.
     assertThat(env.getAsString("noopReschedStatus")).isNotEqualTo("Success");
     assertThat(env.getAsString("noopReschedHttpCode")).isEqualTo("500");
     assertThat(env.getAsString("noopReschedErrorCode")).isEqualTo("INTERNAL_SERVER_ERROR");

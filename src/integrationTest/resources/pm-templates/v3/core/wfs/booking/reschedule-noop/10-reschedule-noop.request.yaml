@@ -3,20 +3,21 @@ description: >-
   NO-OP reschedule of the already-valid noopSetupSaId — attempts the SlotAvailabilityChecker:174-176
   short-circuit (if (!timesAreChanging && !resourcesHaveChanged) return true, the ONE write<read case) with NO
   startTime/endTime (→ timesAreChanging==false) and an UpdateOperation re-stating resourceA in its current
-  state (isPrimaryResource=true, isRequiredResource=true). LIVE-OBSERVED 2026-07-01: the short-circuit does
-  NOT fire — haveResourcesChanged (SlotAvailabilityChecker:237, a raw .equals() on the required-ServiceResourceId
-  sets, no canonicalization) returns true, so the reschedule recomputes. WHY it is true for a re-stated no-op
-  is NOT fully pinned: an EMPTY assignedResources trivially differs ({} != {resourceA}); for the UpdateOperation
-  re-stating resourceA the request wire id is 18-char (this fixture sets ids verbatim/18-char), so the set
-  SHOULD match unless the ESO request DTO re-canonicalizes/truncates it (a plausible instance of the repo's
-  15/18-char ResourceId gotcha — but NOT re-confirmed; jdwp was not re-attached). Regardless of the exact
-  cause, the OBSERVED outcome is: recompute, then 262 CRASHES with HTTP 500 INTERNAL_SERVER_ERROR "Cannot
+  state (isPrimaryResource=true, isRequiredResource=true). LIVE + JDWP-CONFIRMED 2026-07-01 (breakpoint at
+  SlotAvailabilityChecker:237): the short-circuit does NOT fire — haveResourcesChanged (a raw .equals() on the
+  required-ServiceResourceId sets, no canonicalization) returns true because the existing SA's id set is
+  [0Hnxx0000004GB2CAM] (18-char, from SOQL) while the request's is [0Hnxx0000004GB2] (15-char) — the ESO
+  request DTO truncates the wire id to 15-char even though this fixture sends 18-char — so {18-char} != {15-char}
+  (the repo's 15/18-char ResourceId gotcha in the reschedule short-circuit comparison; an EMPTY assignedResources
+  would equally differ, {} != {resourceA}). So the reschedule recomputes, then 262 CRASHES with HTTP 500
+  INTERNAL_SERVER_ERROR "Cannot
   invoke java.util.List.iterator() because the return value of ServiceTerritory.getServiceResourceIds() is
   null" (a THIRD 262 reschedule-recompute NPE variant, distinct from the serviceTerritoryMembers NPE on
   schedule/read). Captures noopReschedStatus (null, NOT Success) + httpCode/errorCode/errorMessage. This
   REFUTES the "no-op returns Success via the short-circuit" premise for this REST path (exact
-  resourcesHaveChanged cause flagged OPEN for the decision log). Runs AFTER the setup schedule. The HTTP 500
-  is ignored via ignoreHTTPStatusUnsuccessful so the run continues to the JUnit assertions.
+  resourcesHaveChanged cause jdwp-confirmed above: 18-char existing vs 15-char request id). Runs AFTER the
+  setup schedule. The HTTP 500 is ignored via ignoreHTTPStatusUnsuccessful so the run continues to the
+  JUnit assertions.
 url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/reschedule"
 method: POST
 headers:
