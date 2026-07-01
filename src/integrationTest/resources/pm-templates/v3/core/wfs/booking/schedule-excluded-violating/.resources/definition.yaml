@@ -1,0 +1,13 @@
+$kind: collection
+description: >-
+  Rules parity (ExcludedResources) WRITE violating — Schedule the required+primary resource that is on
+  the Account's excluded list into the same window the read pruned. The write re-runs the SAME
+  ExcludedResources rule (loadSchedulableSlots shared by read and write), so the booking is REJECTED (not
+  Success). Matches the read offering 0 slots: read==write on ExcludedResources. Runs before the control
+  write so its rejected, non-persisting attempt cannot affect availability.
+auth:
+  - id: 3c2d1e00-0003-4aaa-9bbb-000000000003
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"
