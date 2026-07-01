@@ -1,0 +1,27 @@
+$kind: http-request
+description: >-
+  The interval value: AppointmentStartTimeInterval = 60 minutes (a valid AppointmentStartTimeIntervalValue
+  picklist member: Sixty). getStartAdjustedForStartTimeFrequency rounds each candidate start UP so
+  minute % 60 == 0 (slots anchor on the hour), and the slot loop steps currentStart by 60 min. With a
+  60-min WorkType duration this makes an on-boundary start (e.g. 11:00) the only viable start in a tight
+  window: [11:00,12:00] fits (control >0), while [11:30,12:30] rounds 11:30 UP to 12:00 whose 60-min slot
+  ends 13:00 > 12:30 → pruned (violating 0).
+url: "{{baseUrl}}{{versionPath}}/sobjects/SchedulingRuleParameter"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+body:
+  type: json
+  content: |-
+    {
+      "SchedulingRuleId": "{{startTimeIntervalRuleId}}",
+      "SchedulingParameterKey": "AppointmentStartTimeInterval",
+      "Value": "60"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.environment.set("startTimeIntervalParamId", pm.response.json().id);
+    language: text/javascript
+order: 35000

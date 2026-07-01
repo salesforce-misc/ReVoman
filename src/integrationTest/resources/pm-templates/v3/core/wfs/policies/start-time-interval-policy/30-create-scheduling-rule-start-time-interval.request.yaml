@@ -1,0 +1,27 @@
+$kind: http-request
+description: >-
+  AppointmentStartTimeInterval rule (SchedulingRuleType AppointmentStartTimeInterval, category A) — the
+  rule under test and the sole IN_BUSINESS_RULE_TYPES member. SchedulingPolicyInfo.findRule(
+  AppointmentStartTimeInterval, Appointment) matches this rule; getAppointmentStartTimeInterval() then
+  reads its AppointmentStartTimeInterval parameter (step 35) and the slot calculator anchors/steps slot
+  starts on that interval.
+url: "{{baseUrl}}{{versionPath}}/sobjects/SchedulingRule"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+body:
+  type: json
+  content: |-
+    {
+      "MasterLabel": "STI StartTimeInterval Rule",
+      "DeveloperName": "STI_StartTimeInterval_Rule_{{$timestamp}}",
+      "SchedulingRuleType": "AppointmentStartTimeInterval",
+      "SchedulingCategory": "A"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.environment.set("startTimeIntervalRuleId", pm.response.json().id);
+    language: text/javascript
+order: 30000

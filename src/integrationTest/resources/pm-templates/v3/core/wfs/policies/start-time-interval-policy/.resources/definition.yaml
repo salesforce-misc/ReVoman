@@ -1,0 +1,30 @@
+$kind: collection
+description: |-
+  Scheduling policy for the AppointmentStartTimeInterval read==write parity proof (the sole
+  IN_BUSINESS_RULE_TYPES member). Carries three rules (each SchedulingPolicyRule active):
+    - Availability (SchedulingRuleType C) with an explicit ShiftUsage=ConsiderOpHoursAndShiftsUnion
+      parameter (step 12) — mandatory 262 conformance: with no ShiftUsage the Availability rule
+      yields ZERO slots. Union makes availability the union of the resource's wide member OH (08-16)
+      and its Confirmed Shift, so the whole 08-16 window is resource-available — Availability is the
+      BASELINE here, not the pruner.
+    - WorkingTerritories with IsPrimaryLocationEnabled=true (step 25) — flips
+      shouldIncludePrimaryResources() so slot-gen admits the fixture's Primary ServiceTerritoryMember
+      and surfaces raw slots (without it the Primary STM is filtered out and slot-gen yields ZERO).
+      The resource IS a Primary member so WorkingLocations also passes.
+    - AppointmentStartTimeInterval (SchedulingRuleType AppointmentStartTimeInterval, category A) with a
+      SchedulingRuleParameter key AppointmentStartTimeInterval = 60 (step 35) — the rule under test.
+      SchedulingPolicyInfo.getAppointmentStartTimeInterval() reads this value; the slot calculator
+      (InBusinessAppointmentSlotCalculator.getPotential*Intervals / getStartAdjustedForStartTimeFrequency)
+      rounds every candidate start UP to the next minute-multiple of 60 (so slots anchor on the hour in
+      the territory OH timezone) and steps by 60 min. With a 60-minute WorkType duration, a search window
+      whose only on-boundary start leaves less than 60 min before the window end yields ZERO slots
+      (violating); a window whose on-boundary start fits the full duration yields >0 (control). The
+      WorkType carries NO AppointmentStartTimeInterval so the POLICY value (not a WorkType override) is
+      used (getAppointmentStartTimeInterval(workType, policyInfo, ...) prefers WorkType when set).
+  Sets startTimeIntervalPolicyId.
+auth:
+  - id: 7a3c1d5e-9b2f-4a6c-8d0e-1f3a5b7c9d1e
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"

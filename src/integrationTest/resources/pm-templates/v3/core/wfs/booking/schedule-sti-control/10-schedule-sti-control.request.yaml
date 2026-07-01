@@ -1,0 +1,58 @@
+$kind: http-request
+description: >-
+  CONTROL — Schedule the STI fixture's required+primary resource into tomorrow 11:00-12:00 UTC, a window
+  whose start (11:00) is ON the policy's 60-min interval boundary, the same window the read offered slots
+  for → Success. The interval stepping keeps the hour-aligned start (loadSchedulableSlots shared), so the
+  write books Success — keeping the read's promise. Captures schedulingStatus + a single-shape errorCode
+  for diagnosability. Runs LAST (it persists an SA).
+url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/schedule"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "appointments": [
+        {
+          "schedulingMethod": "OnSite",
+          "schedulingPolicyId": "{{startTimeIntervalPolicyId}}",
+          "coreDetails": {
+            "startTime": "{{stiControlStart}}",
+            "endTime": "{{stiControlEnd}}",
+            "status": "Scheduled",
+            "subject": "Rules parity STI control write",
+            "workConfiguration": { "workTypeId": "{{stiWorkTypeId}}" },
+            "locationConstraints": { "id": "{{stiTerritoryId}}" }
+          },
+          "serviceAppointmentParent": { "id": "{{stiAccountId}}" },
+          "assignedResources": [ { "isPrimaryResource": true, "isRequiredResource": true, "serviceResourceId": "{{stiResourceId}}" } ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      // Same tomorrow 11:00-12:00 UTC window as the control read; start 11:00 is ON the 60-min interval
+      // boundary, so the interval stepping keeps the hour-aligned slot → Success.
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(11, 0, 0, 0);
+      const e = new Date(s.getTime() + 60 * 60 * 1000);
+      pm.environment.set("stiControlStart", s.toISOString());
+      pm.environment.set("stiControlEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      // Capture the single appointment's schedulingStatus for the JUnit Truth assertion (expected Success),
+      // plus a single-shape errorCode for diagnosability if it unexpectedly does not Succeed.
+      const data = pm.response.json();
+      const appts = (data && data.appointments) || [];
+      pm.environment.set("stiWriteControlStatus", appts.length ? appts[0].schedulingStatus : null);
+      let ec = null;
+      if (appts.length && appts[0].errors && appts[0].errors[0]) { ec = appts[0].errors[0].errorCode; }
+      pm.environment.set("stiWriteControlErrorCode", ec);
+      console.log("RULESPARITY sti write-control http=" + pm.response.code + " status=" + pm.environment.get("stiWriteControlStatus") + " ec=" + ec);
+    language: text/javascript
+order: 1300

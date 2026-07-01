@@ -1,0 +1,14 @@
+$kind: collection
+description: >-
+  Rules parity (AppointmentStartTimeInterval) WRITE control — Schedule the fixture's required+primary
+  resource into the window the read offered slots for (tomorrow 11:00-12:00 UTC, ON the policy's 60-min
+  interval boundary) → Success. The interval stepping keeps the hour-aligned start on both read and write
+  (loadSchedulableSlots shared), so the write keeps the read's promise. This is the positive half of the
+  AppointmentStartTimeInterval read==write matrix. Captures schedulingStatus + a single-shape errorCode.
+  Runs LAST (it persists an SA).
+auth:
+  - id: 6f5a4b00-0004-4aaa-9bbb-000000000004
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"

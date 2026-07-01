@@ -374,6 +374,27 @@ public final class ReVomanConfigForWfs {
   static final Kick SCHEDULE_VISITING_HOURS_CONTROL_CONFIG =
       kickFor(V3_WFS_PATH + "booking/schedule-visiting-hours-control");
 
+  // Task 5 — AppointmentStartTimeInterval (the sole IN_BUSINESS_RULE_TYPES member; net-new
+  // policy+fixture). The policy carries Availability(C)+ShiftUsage=Union AND
+  // WorkingTerritories+IsPrimaryLocationEnabled=true (both REQUIRED for slot-gen) PLUS an
+  // AppointmentStartTimeInterval rule with a 60-min interval SchedulingRuleParameter. The WorkType
+  // carries no AppointmentStartTimeInterval so the POLICY value is used. A booking start OFF the
+  // 60-min boundary (11:30-12:30 — the only hour-aligned start 12:00 overruns the window) is pruned
+  // by the read (0 slots) AND rejected by the write; an on-boundary control (11:00-12:00) returns >0
+  // AND books Success.
+  static final Kick START_TIME_INTERVAL_POLICY_CONFIG =
+      kickFor(V3_WFS_PATH + "policies/start-time-interval-policy");
+  static final Kick START_TIME_INTERVAL_FIXTURE_CONFIG =
+      kickFor(V3_WFS_PATH + "fixtures/start-time-interval");
+  static final Kick GET_SLOTS_STI_VIOLATING_CONFIG =
+      kickFor(V3_WFS_PATH + "booking/get-slots-sti-violating");
+  static final Kick GET_SLOTS_STI_CONTROL_CONFIG =
+      kickFor(V3_WFS_PATH + "booking/get-slots-sti-control");
+  static final Kick SCHEDULE_STI_VIOLATING_CONFIG =
+      kickFor(V3_WFS_PATH + "booking/schedule-sti-violating");
+  static final Kick SCHEDULE_STI_CONTROL_CONFIG =
+      kickFor(V3_WFS_PATH + "booking/schedule-sti-control");
+
   /**
    * One Kick per V3 collection folder, all sharing the same shape as the {@code bt2bs} sibling:
    * composite/graph + composite response unmarshalling/asserting, IDAdapter, the JS node-modules
