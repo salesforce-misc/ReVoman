@@ -18,6 +18,8 @@ localResources:
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-available-resources-limit-zero
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-parity-available
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-parity-unavailable
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-skills-control
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-skills-violating
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-sharing-split-as-caseworker
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-sharing-split-as-manager
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/reschedule-delete-primary-no-flag
@@ -33,7 +35,9 @@ localResources:
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-required-non-required-satisfier-violating
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-required-satisfier-bookable
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-single-required-no-primary
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-skills-control
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-skills-non-required-violating
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-skills-violating
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-territory-membership-non-required-violating
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-two-primary
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-two-resource-clean
