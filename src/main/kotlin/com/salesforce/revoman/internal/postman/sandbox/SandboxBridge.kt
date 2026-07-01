@@ -47,6 +47,13 @@ internal class SandboxBridge {
         .allowExperimentalOptions(true)
         .option("js.esm-eval-returns-exports", "true")
         .option("js.ecmascript-version", "2024")
+        // Silence GraalVM's "fallback runtime / interpreter only" warning. It fires whenever the
+        // host JVM lacks the Graal compiler (JVMCI) — the common case for consumers running on a
+        // stock JDK. As a library we can't add -XX:+EnableJVMCI to the consumer's JVM, and the
+        // sandbox is not on a hot path, so the interpreter fallback is acceptable. Suppressing it
+        // also removes the accompanying Truffle log-redirect notice (that warning was its only
+        // log).
+        .option("engine.WarnInterpreterOnly", "false")
         .allowHostAccess(HostAccess.ALL)
         .allowHostClassLookup { true }
         .build()
