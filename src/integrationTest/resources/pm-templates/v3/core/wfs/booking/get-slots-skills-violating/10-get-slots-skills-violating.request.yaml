@@ -1,0 +1,54 @@
+$kind: http-request
+description: >-
+  GetAppointmentSlots for resourceB (skillsNonReqResourceBId) assigned as the required+primary resource,
+  window tomorrow 11:00-12:00 UTC under the match-skills policy. resourceB is a Primary open-ended member
+  with a Confirmed Shift (08-16) so MatchTerritory/WorkingTerritories/Availability all pass — the ONLY
+  rule that can fire is MatchSkills, because resourceB LACKS the ServiceResourceSkill the WorkType
+  requires. MatchSkills prunes it, so the read offers ZERO slots. Counts data.result[].slots[].
+url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/get-appointment-slots"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "appointments": [
+        {
+          "schedulingMethod": "OnSite",
+          "schedulingPolicyId": "{{matchSkillsNonReqPolicyId}}",
+          "coreDetails": {
+            "startTime": "{{skillsParityStart}}",
+            "endTime": "{{skillsParityEnd}}",
+            "appointmentMode": "Regular",
+            "workConfiguration": { "workTypeId": "{{skillsNonReqWorkTypeId}}" },
+            "locationConstraints": { "addressIds": ["{{skillsNonReqTerritoryId}}"] }
+          },
+          "serviceAppointmentParent": { "id": "{{skillsNonReqAccountId}}" },
+          "assignedResources": [ { "isPrimaryResource": true, "isRequiredResource": true, "serviceResourceId": "{{skillsNonReqResourceBId}}" } ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      // Tomorrow 11:00-12:00 UTC: fully inside member OH (08-16) + Confirmed Shift (08-16), so the only
+      // rule that can fire is MatchSkills (resourceB lacks the required ServiceResourceSkill).
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(11, 0, 0, 0);
+      const e = new Date(s.getTime() + 60 * 60 * 1000);
+      pm.environment.set("skillsParityStart", s.toISOString());
+      pm.environment.set("skillsParityEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      // MatchSkills prunes the skill-lacking required resource → read offers 0 slots.
+      const data = pm.response.json() || {};
+      const results = data.result || [];
+      let n = 0; results.forEach(r => { n += (r.slots || []).length; });
+      pm.environment.set("skillsReadViolatingSlotCount", String(n));
+      console.log("RULESPARITY skills read-violating slots=" + n);
+    language: text/javascript
+order: 1000

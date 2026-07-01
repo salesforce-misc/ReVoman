@@ -1,0 +1,53 @@
+$kind: http-request
+description: >-
+  CONTROL — Schedule resourceA (skillsNonReqResourceAId) as the required+primary resource into the same
+  window tomorrow 11:00-12:00 UTC the read offered slots for → Success. resourceA HAS the required
+  ServiceResourceSkill, so MatchSkills passes and the write books Success — keeping the read's promise.
+  Captures schedulingStatus. Runs LAST (it persists an SA).
+url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/schedule"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "appointments": [
+        {
+          "schedulingMethod": "OnSite",
+          "schedulingPolicyId": "{{matchSkillsNonReqPolicyId}}",
+          "coreDetails": {
+            "startTime": "{{skillsParityStart}}",
+            "endTime": "{{skillsParityEnd}}",
+            "status": "Scheduled",
+            "subject": "Rules parity MatchSkills control write",
+            "workConfiguration": { "workTypeId": "{{skillsNonReqWorkTypeId}}" },
+            "locationConstraints": { "id": "{{skillsNonReqTerritoryId}}" }
+          },
+          "serviceAppointmentParent": { "id": "{{skillsNonReqAccountId}}" },
+          "assignedResources": [ { "isPrimaryResource": true, "isRequiredResource": true, "serviceResourceId": "{{skillsNonReqResourceAId}}" } ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      // Same tomorrow 11:00-12:00 UTC window as the reads; resourceA has the required skill so MatchSkills
+      // passes → Success.
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(11, 0, 0, 0);
+      const e = new Date(s.getTime() + 60 * 60 * 1000);
+      pm.environment.set("skillsParityStart", s.toISOString());
+      pm.environment.set("skillsParityEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      // Capture the single appointment's schedulingStatus for the JUnit Truth assertion (expected Success).
+      const data = pm.response.json();
+      const appts = (data && data.appointments) || [];
+      pm.environment.set("skillsWriteControlStatus", appts.length ? appts[0].schedulingStatus : null);
+      console.log("RULESPARITY skills write-control http=" + pm.response.code + " status=" + pm.environment.get("skillsWriteControlStatus"));
+    language: text/javascript
+order: 1300

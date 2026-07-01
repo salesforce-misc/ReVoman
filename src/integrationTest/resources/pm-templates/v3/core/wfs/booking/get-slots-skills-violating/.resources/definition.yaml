@@ -1,0 +1,11 @@
+$kind: collection
+description: >-
+  Rules parity (MatchSkills) READ violating — GetAppointmentSlots for the required+primary resource that
+  LACKS the WorkType's required skill under the match-skills policy. MatchSkills prunes it, so the read
+  offers ZERO slots. Paired with the write violating act to prove read==write on MatchSkills.
+auth:
+  - id: 2b1c0d00-0001-4aaa-9bbb-000000000001
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"
