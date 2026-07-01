@@ -34,31 +34,19 @@
 
 **Files:** none (git plumbing).
 
-- [ ] **Step 1: Create a fresh worktree off `master`**
+> **Base decision (2026-07-01, user):** `master` does NOT contain the WFS parity test files (`WfsReadPathParityE2ETest`, `WfsWritePathParityE2ETest`, `WfsRulesParityE2ETest`, current `ReVomanConfigForWfs.java`) — they live only on `wfs/decision-1-9-revoman-tests` (29 commits ahead, unmerged). Branch the worktree off `wfs/decision-1-9-revoman-tests` so Tasks 2–3 have their target files. The spec + plan are already committed there, so no cherry-pick is needed.
 
-The current branch is `wfs/decision-1-9-revoman-tests`. Create an isolated worktree on a new branch off `master` so the fix merges cleanly into `master`.
+- [ ] **Step 1: Create a fresh worktree off `wfs/decision-1-9-revoman-tests`**
 
 Run:
 ```bash
 cd /home/sfwork/code-clones/work/revoman-root
-git fetch origin 2>/dev/null || true
-git worktree add -b wfs/external-org-config ../revoman-external-org-config master
+git worktree add -b wfs/external-org-config ../revoman-external-org-config wfs/decision-1-9-revoman-tests
 cd ../revoman-external-org-config
 git branch --show-current
+ls docs/superpowers/plans/2026-07-01-wfs-external-org-config.md
 ```
-Expected: prints `wfs/external-org-config`.
-
-- [ ] **Step 2: Cherry-pick the design spec onto the new branch**
-
-The design spec was committed on `wfs/decision-1-9-revoman-tests`. Bring it onto the worktree branch so the plan+spec travel with the fix.
-
-Run:
-```bash
-git checkout wfs/decision-1-9-revoman-tests -- docs/superpowers/specs/2026-07-01-wfs-external-org-config-design.md docs/superpowers/plans/2026-07-01-wfs-external-org-config.md
-git add docs/superpowers/specs/2026-07-01-wfs-external-org-config-design.md docs/superpowers/plans/2026-07-01-wfs-external-org-config.md
-git commit -m "docs(wfs): design spec + plan for external-org config wiring"
-```
-Expected: one commit created on `wfs/external-org-config`.
+Expected: prints `wfs/external-org-config`; the plan file is present (it was committed on the parent branch).
 
 > All subsequent tasks run from the worktree dir `../revoman-external-org-config` (i.e. `/home/sfwork/code-clones/work/revoman-external-org-config`).
 
@@ -405,25 +393,29 @@ Expected: the test now dispatches (auth succeeds against the workspace org) and 
 
 - [ ] **Step 4: Merge to `master`**
 
-From the worktree, fast-forward/merge the branch into `master`.
+`wfs/external-org-config` was branched off `wfs/decision-1-9-revoman-tests`, so merging it to `master` brings the whole series (the 29 unmerged WFS commits) + this fix. That is intended per the user's base decision — "merge to master" means the series lands too. Merge from the main checkout, which is on the parent branch (`master` is not checked out in a worktree, so this is safe).
 
 Run:
 ```bash
 cd /home/sfwork/code-clones/work/revoman-root
 git checkout master
-git merge --no-ff wfs/external-org-config -m "merge: WFS external-org config wiring (~/.revoman/config.yaml)"
-git log --oneline -6
+git merge --no-ff wfs/external-org-config -m "merge: WFS parity tests + external-org config wiring (~/.revoman/config.yaml)"
+git log --oneline -8
 ```
-Expected: `master` contains the ExternalOrgConfig feature + wiring commits.
+Expected: `master` advances to include the WFS parity series AND the ExternalOrgConfig feature + wiring commits.
 
-- [ ] **Step 5: Clean up the worktree**
+> If the merge surfaces a conflict, STOP and report it — do not force-resolve. The branch is a linear descendant of `wfs/decision-1-9-revoman-tests`, so the only expected divergence is between `master` and that series; a clean `--no-ff` merge is expected.
+
+- [ ] **Step 5: Clean up the worktree + restore parent-branch checkout**
 
 Run:
 ```bash
+git checkout wfs/decision-1-9-revoman-tests
 git worktree remove ../revoman-external-org-config
+git branch -d wfs/external-org-config
 git worktree list
 ```
-Expected: the temporary worktree is gone; `master` retains the merge.
+Expected: the temporary worktree is gone; the fix branch is deleted (its commits now live on `master`); the main checkout is back on `wfs/decision-1-9-revoman-tests`.
 
 ---
 
