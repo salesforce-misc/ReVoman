@@ -1,0 +1,15 @@
+$kind: collection
+description: >-
+  Cross-API agreement (MatchSkills) READ via GetAvailableSlots — the SAME required+primary resource
+  that LACKS the WorkType's required skill under the match-skills policy. The body carries
+  assignedResources, so GetAvailableSlotServiceImpl dispatches to the get-appointment-slots path and
+  converts the result into result[].candidates[] (each candidate carrying a resourceIds array). Proves
+  this read API runs the same loadSchedulableSlots engine: MatchSkills prunes the skill-lacking
+  resource so ZERO available slots come back. Runs as {{managerToken}} (the least-privilege manager
+  persona that owns the fixture). Stashes skillsAvailableSlotsCount; assertions live in the Java test.
+auth:
+  - id: 8b7c6d00-0002-4aaa-9bbb-000000000002
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"

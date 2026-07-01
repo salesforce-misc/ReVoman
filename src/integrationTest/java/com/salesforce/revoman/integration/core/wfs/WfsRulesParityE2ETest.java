@@ -10,6 +10,9 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.AUTH_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.EXCLUDED_FIXTURE_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.EXCLUDED_RESOURCES_POLICY_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.GET_AVAILABLE_RESOURCES_SKILLS_VIOLATING_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.GET_AVAILABLE_SLOTS_SKILLS_VIOLATING_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.GET_CANDIDATES_SKILLS_VIOLATING_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.GET_SLOTS_EXCLUDED_CONTROL_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.GET_SLOTS_EXCLUDED_VIOLATING_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.GET_SLOTS_REQUIRED_CONTROL_CONFIG;
@@ -287,5 +290,61 @@ class WfsRulesParityE2ETest {
     // the non-required-helper input, not a dead fixture. (Satisfied-demand read returns 0 slots, HTTP 201.)
     assertThat(env.getAsString("requiredReadControlErrorCode")).isAnyOf(null, "null");
     assertThat(env.getAsString("requiredReadControlHttpCode")).isEqualTo("201");
+  }
+
+  /**
+   * Cross-API agreement — the SAME MatchSkills violation (a required+primary resource lacking the
+   * WorkType's required skill) is pruned/rejected by ALL 4 rule-evaluating read APIs
+   * (get-appointment-slots, get-appointment-candidates, get-available-slots, get-available-resources)
+   * AND the schedule write API. Empirically proves they share the one loadSchedulableSlots engine, so
+   * the per-rule read==write matrix generalizes to every API. get-available-resources runs the FULL
+   * 7-rule engine too: AvailableResourcesServiceImpl:322 calls the same getCandidatesProcessor.process,
+   * then only post-processes/truncates the SURVIVING resources — so the skill-lacking resource is
+   * ABSENT from availableResources (it is NOT a subset that skips MatchSkills). All acts reuse the
+   * Task-1 skills fixture/policy and the existing get-slots + schedule violating acts; the 3 new reads
+   * carry the SAME body/window.
+   *
+   * <p>The three appointment reads (slots/candidates/available-slots) request the skill-lacking
+   * resourceB via {@code assignedResources}, so MatchSkills pruning it leaves ZERO
+   * slots/candidates/available-slots. get-available-resources takes NO {@code assignedResources} — it
+   * returns EVERY available resource for the account/worktype/territory, so the SKILLED resourceA
+   * legitimately survives (total count 1) while the UNSKILLED resourceB is pruned; the parity claim
+   * there is resourceB's ABSENCE ({@code skillsAvailableResourcesViolatingPresent == 0}), which is the
+   * discovered-shape equivalent of the other reads' 0 (LIVE-VERIFIED 2026-07-01: availableResources
+   * held only "SNR Resource A", resourceB absent — confirming get-available-resources DOES run
+   * MatchSkills, resolving the earlier "subset" mis-hypothesis).
+   *
+   * <p>262 (asserted): the three appointment reads return 0 for the skill-lacking resource;
+   * get-available-resources prunes it (resourceB absent); schedule rejects.
+   *
+   * <p>264 contrast: unchanged — MatchSkills is a shared cheap check on every path.
+   */
+  @Test
+  void testCrossApiRuleAgreementE2E() {
+    ReVomanConfigForWfs.assumeExternalOrgCreds();
+    final var rundown =
+        ReVoman.revUp(
+            (r, ignore) -> assertThat(r.firstUnIgnoredUnsuccessfulStepReport()).isNull(),
+            AUTH_CONFIG,
+            MATCH_SKILLS_POLICY_CONFIG,
+            SKILLS_SKILL_FIXTURE_CONFIG,
+            SKILLS_FIXTURE_CONFIG,
+            GET_SLOTS_SKILLS_VIOLATING_CONFIG,
+            GET_CANDIDATES_SKILLS_VIOLATING_CONFIG,
+            GET_AVAILABLE_SLOTS_SKILLS_VIOLATING_CONFIG,
+            GET_AVAILABLE_RESOURCES_SKILLS_VIOLATING_CONFIG,
+            SCHEDULE_SKILLS_VIOLATING_CONFIG);
+    final var env = CollectionsKt.last(rundown).mutableEnv;
+    // The three appointment reads (which request resourceB via assignedResources) prune it → 0
+    // slots/candidates/available-slots. The one loadSchedulableSlots engine agrees across all three.
+    assertThat(env.getAsString("skillsReadViolatingSlotCount")).isEqualTo("0");
+    assertThat(env.getAsString("skillsCandidatesCount")).isEqualTo("0");
+    assertThat(env.getAsString("skillsAvailableSlotsCount")).isEqualTo("0");
+    // get-available-resources (no assignedResources → returns all available resources) prunes the
+    // skill-lacking resourceB while the skilled resourceA survives → resourceB ABSENT confirms it too
+    // runs the full 7-rule engine (MatchSkills), not a rule-skipping subset.
+    assertThat(env.getAsString("skillsAvailableResourcesViolatingPresent")).isEqualTo("0");
+    // Write agrees with all 4 reads → the per-rule read==write matrix generalizes to every API.
+    assertThat(env.getAsString("skillsWriteViolatingStatus")).isNotEqualTo("Success");
   }
 }

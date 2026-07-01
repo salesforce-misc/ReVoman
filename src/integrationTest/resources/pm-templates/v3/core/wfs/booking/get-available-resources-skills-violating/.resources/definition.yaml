@@ -1,0 +1,17 @@
+$kind: collection
+description: >-
+  Cross-API agreement (MatchSkills) READ via GetAvailableResources — over the SAME skills fixture
+  (Account/WorkType/Territory) under the match-skills policy. GetAvailableResources runs the FULL
+  7-rule engine (AvailableResourcesServiceImpl calls the same getCandidatesProcessor.process, then
+  only post-processes/truncates the SURVIVING resources), so the skill-lacking resourceB must be
+  PRUNED by MatchSkills and ABSENT from availableResources. limit/fieldLimit are set ABOVE the seeded
+  resource count so the Decision-8 truncation cap is a no-op — the only thing removing resourceB is
+  MatchSkills. Read-only contract: HTTP 200, no exception. Runs as {{managerToken}} (the
+  least-privilege manager persona that owns the fixture). Stashes skillsAvailableResourcesCount;
+  assertions live in the Java test.
+auth:
+  - id: 8b7c6d00-0003-4aaa-9bbb-000000000003
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"

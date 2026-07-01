@@ -13,6 +13,9 @@ localResources:
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/auth-personas-dec9
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-available-resources-limit-positive
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-available-resources-limit-zero
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-available-resources-skills-violating
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-available-slots-skills-violating
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-candidates-skills-violating
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-excluded-control
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-excluded-violating
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-parity-available
