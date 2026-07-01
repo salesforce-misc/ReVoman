@@ -1,0 +1,58 @@
+$kind: http-request
+description: >-
+  GetAppointmentSlots for resourceB (workingLocationsSecondaryNonReqResourceBId) assigned as the
+  required+primary resource, window tomorrow 11:00-12:00 UTC under the territory-membership-partial
+  policy. resourceB is a SECONDARY ServiceTerritoryMember (TerritoryType=S) with a Confirmed Shift
+  (08-16) covering the window, so Availability/MatchTerritory all pass and resourceB is admitted as a
+  real candidate — the ONLY rule that can fire is WorkingLocations, because the policy carries
+  WorkingTerritories with IsPrimaryLocationEnabled=true (include PRIMARY members only), so resourceB's
+  Secondary role is "secondary disabled". WorkingLocations prunes it, so the read offers ZERO slots.
+  Counts data.result[].slots[].
+url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/get-appointment-slots"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "appointments": [
+        {
+          "schedulingMethod": "OnSite",
+          "schedulingPolicyId": "{{territoryPartialPolicyId}}",
+          "coreDetails": {
+            "startTime": "{{worklocParityStart}}",
+            "endTime": "{{worklocParityEnd}}",
+            "appointmentMode": "Regular",
+            "workConfiguration": { "workTypeId": "{{workingLocationsSecondaryNonReqWorkTypeId}}" },
+            "locationConstraints": { "addressIds": ["{{workingLocationsSecondaryNonReqTerritoryId}}"] }
+          },
+          "serviceAppointmentParent": { "id": "{{workingLocationsSecondaryNonReqAccountId}}" },
+          "assignedResources": [ { "isPrimaryResource": true, "isRequiredResource": true, "serviceResourceId": "{{workingLocationsSecondaryNonReqResourceBId}}" } ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      // Tomorrow 11:00-12:00 UTC: fully inside member OH (08-16) + Confirmed Shift (08-16), so the only
+      // rule that can fire is WorkingLocations (resourceB is a Secondary territory member, and the policy
+      // includes only PRIMARY members).
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(11, 0, 0, 0);
+      const e = new Date(s.getTime() + 60 * 60 * 1000);
+      pm.environment.set("worklocParityStart", s.toISOString());
+      pm.environment.set("worklocParityEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      // WorkingLocations prunes the Secondary required resource → read offers 0 slots.
+      const data = pm.response.json() || {};
+      const results = data.result || [];
+      let n = 0; results.forEach(r => { n += (r.slots || []).length; });
+      pm.environment.set("worklocReadViolatingSlotCount", String(n));
+      console.log("RULESPARITY workloc read-violating slots=" + n);
+    language: text/javascript
+order: 1000

@@ -24,6 +24,8 @@ localResources:
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-skills-violating
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-sharing-split-as-caseworker
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-sharing-split-as-manager
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-workloc-control
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-workloc-violating
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/reschedule-delete-primary-no-flag
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/reschedule-delete-primary-with-flag
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-double-book-non-required-violating
@@ -46,6 +48,8 @@ localResources:
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-two-primary
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-two-resource-clean
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-working-locations-secondary-non-required-violating
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-workloc-control
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-workloc-violating
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/fixtures/double-book-non-required
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/fixtures/excluded-non-required
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/fixtures/required-non-required

@@ -1,0 +1,55 @@
+$kind: http-request
+description: >-
+  CONTROL — GetAppointmentSlots for resourceA (workingLocationsSecondaryNonReqResourceAId) assigned as
+  the required+primary resource, same window tomorrow 11:00-12:00 UTC under the
+  territory-membership-partial policy. resourceA is a PRIMARY ServiceTerritoryMember (TerritoryType=P),
+  which WorkingTerritories(IsPrimaryLocationEnabled=true) includes, so WorkingLocations passes → read
+  offers >0 slots. Proves the fixture is valid, so the violating 0 is the WorkingLocations rule (not a
+  dead fixture). Counts data.result[].slots[].
+url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/get-appointment-slots"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "appointments": [
+        {
+          "schedulingMethod": "OnSite",
+          "schedulingPolicyId": "{{territoryPartialPolicyId}}",
+          "coreDetails": {
+            "startTime": "{{worklocParityStart}}",
+            "endTime": "{{worklocParityEnd}}",
+            "appointmentMode": "Regular",
+            "workConfiguration": { "workTypeId": "{{workingLocationsSecondaryNonReqWorkTypeId}}" },
+            "locationConstraints": { "addressIds": ["{{workingLocationsSecondaryNonReqTerritoryId}}"] }
+          },
+          "serviceAppointmentParent": { "id": "{{workingLocationsSecondaryNonReqAccountId}}" },
+          "assignedResources": [ { "isPrimaryResource": true, "isRequiredResource": true, "serviceResourceId": "{{workingLocationsSecondaryNonReqResourceAId}}" } ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      // Same tomorrow 11:00-12:00 UTC window as the violating read; resourceA is a PRIMARY territory
+      // member, which the policy includes, so WorkingLocations passes and the read offers slots.
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(11, 0, 0, 0);
+      const e = new Date(s.getTime() + 60 * 60 * 1000);
+      pm.environment.set("worklocParityStart", s.toISOString());
+      pm.environment.set("worklocParityEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      // resourceA is a Primary member → WorkingLocations passes → read offers >0 slots.
+      const data = pm.response.json() || {};
+      const results = data.result || [];
+      let n = 0; results.forEach(r => { n += (r.slots || []).length; });
+      pm.environment.set("worklocReadControlSlotCount", String(n));
+      console.log("RULESPARITY workloc read-control slots=" + n);
+    language: text/javascript
+order: 1000
