@@ -13,11 +13,14 @@ import static com.salesforce.revoman.integration.core.CoreUtils.unmarshallCompos
 import static com.salesforce.revoman.integration.core.CoreUtils.unmarshallCompositeResponse;
 import static com.salesforce.revoman.output.ExeType.HTTP_STATUS;
 
+import com.salesforce.revoman.input.ExternalOrgConfig;
 import com.salesforce.revoman.input.config.Kick;
 import com.salesforce.revoman.integration.core.adapters.IDAdapter;
 import com.salesforce.revoman.output.log.LogLevel;
 import com.salesforce.revoman.output.log.RunLogSink;
 import com.salesforce.revoman.output.log.StepEvent;
+import java.util.Map;
+import org.junit.jupiter.api.Assumptions;
 
 /**
  * Off-core ReVoman INTEGRATION test config (NOT a ReVomanFTest) for the Workforce Scheduling (WFS)
@@ -93,6 +96,33 @@ import com.salesforce.revoman.output.log.StepEvent;
 public final class ReVomanConfigForWfs {
 
   private ReVomanConfigForWfs() {}
+
+  /**
+   * External-org creds overlaid onto every {@link #kickFor} Kick's {@code dynamicEnvironment}
+   * (which {@code Environment.mergeEnvs} applies LAST, so it overrides the blank {@code
+   * baseUrl}/{@code username}/{@code password} in the committed {@code ws.environment.yaml}). Read
+   * once from {@code ~/.revoman/config.yaml}; absent file → empty overlay (tests then skip via
+   * {@link #assumeExternalOrgCreds}). NEVER commit that file — it holds org creds and lives in
+   * {@code $HOME}.
+   */
+  static final Map<String, Object> EXTERNAL_ORG_CONFIG = ExternalOrgConfig.readExternalOrgConfig();
+
+  /**
+   * Skip (JUnit assumption — NOT fail) when the external-org creds are absent or blank, honoring
+   * this class's contract that the WFS tests "are skipped only when those creds are absent". Set
+   * {@code ~/.revoman/config.yaml} (baseUrl / username / password) to run them live.
+   */
+  static void assumeExternalOrgCreds() {
+    Assumptions.assumeTrue(
+        hasText("baseUrl") && hasText("username") && hasText("password"),
+        "WFS external-org creds absent — set ~/.revoman/config.yaml (baseUrl/username/password)."
+            + " Skipping.");
+  }
+
+  private static boolean hasText(final String key) {
+    final Object value = EXTERNAL_ORG_CONFIG.get(key);
+    return value != null && !value.toString().isBlank();
+  }
 
   static final String V3_WFS_PATH = "pm-templates/v3/core/wfs/";
   static final String ENV_PATH = V3_WFS_PATH + "ws.environment.yaml";
@@ -354,6 +384,7 @@ public final class ReVomanConfigForWfs {
     return Kick.configure()
         .templatePath(templatePath)
         .environmentPath(ENV_PATH)
+        .dynamicEnvironment(EXTERNAL_ORG_CONFIG)
         .responseConfig(unmarshallCompositeGraphResponse(), unmarshallCompositeResponse())
         .hooks(ASSERT_COMPOSITE_GRAPH_RESPONSE_SUCCESS, ASSERT_COMPOSITE_RESPONSE_SUCCESS)
         .globalCustomTypeAdapter(IDAdapter.INSTANCE)

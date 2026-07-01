@@ -74,6 +74,7 @@ class WfsWritePathParityE2ETest {
    */
   @Test
   void testNonRequiredHelperFitnessE2E() {
+    ReVomanConfigForWfs.assumeExternalOrgCreds();
     assertDimensionBooksSuccess(
         "excludedNonReqSchedulingStatus",
         AUTH_CONFIG,
@@ -114,6 +115,7 @@ class WfsWritePathParityE2ETest {
    */
   @Test
   void testNonRequiredHelperDoubleBooksE2E() {
+    ReVomanConfigForWfs.assumeExternalOrgCreds();
     final var rundown =
         ReVoman.revUp(
             (r, ignore) -> assertThat(r.firstUnIgnoredUnsuccessfulStepReport()).isNull(),
@@ -150,6 +152,7 @@ class WfsWritePathParityE2ETest {
    */
   @Test
   void testNonRequiredHelperCannotSatisfyRequiredDemandE2E() {
+    ReVomanConfigForWfs.assumeExternalOrgCreds();
     // Violating: only a NON-required helper present for the account's required demand → 262 server
     // NPE.
     final var violatingRundown =
@@ -203,6 +206,7 @@ class WfsWritePathParityE2ETest {
    */
   @Test
   void testMissingRequiredFlagE2E() {
+    ReVomanConfigForWfs.assumeExternalOrgCreds();
     // Act A: a single assigned resource that OMITS isRequiredResource → 262 missing-flag NPE crash.
     final var missingFlagRundown =
         ReVoman.revUp(
@@ -246,6 +250,7 @@ class WfsWritePathParityE2ETest {
    */
   @Test
   void testTwoPrimaryResourcesRejectedE2E() {
+    ReVomanConfigForWfs.assumeExternalOrgCreds();
     final var rundown =
         ReVoman.revUp(
             (r, ignore) -> assertThat(r.firstUnIgnoredUnsuccessfulStepReport()).isNull(),
@@ -291,6 +296,7 @@ class WfsWritePathParityE2ETest {
    */
   @Test
   void testPrimaryNotRequiredRejectedE2E() {
+    ReVomanConfigForWfs.assumeExternalOrgCreds();
     // Probe: primary + NOT required, free window → rejected at persist (not Success, not
     // double-booked).
     final var probeRundown =
@@ -364,6 +370,7 @@ class WfsWritePathParityE2ETest {
    */
   @Test
   void testRescheduleNoPrimaryE2E() {
+    ReVomanConfigForWfs.assumeExternalOrgCreds();
     final var rundown =
         ReVoman.revUp(
             (r, ignore) -> assertThat(r.firstUnIgnoredUnsuccessfulStepReport()).isNull(),
