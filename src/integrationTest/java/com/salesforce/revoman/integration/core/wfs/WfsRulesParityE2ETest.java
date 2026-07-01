@@ -64,6 +64,7 @@ class WfsRulesParityE2ETest {
    */
   @Test
   void testMatchSkillsReadWriteParityE2E() {
+    ReVomanConfigForWfs.assumeExternalOrgCreds();
     final var rundown =
         ReVoman.revUp(
             (r, ignore) -> assertThat(r.firstUnIgnoredUnsuccessfulStepReport()).isNull(),
@@ -96,6 +97,7 @@ class WfsRulesParityE2ETest {
    */
   @Test
   void testExcludedResourcesReadWriteParityE2E() {
+    ReVomanConfigForWfs.assumeExternalOrgCreds();
     final var rundown =
         ReVoman.revUp(
             (r, ignore) -> assertThat(r.firstUnIgnoredUnsuccessfulStepReport()).isNull(),
@@ -130,6 +132,7 @@ class WfsRulesParityE2ETest {
    */
   @Test
   void testWorkingLocationsReadWriteParityE2E() {
+    ReVomanConfigForWfs.assumeExternalOrgCreds();
     final var rundown =
         ReVoman.revUp(
             (r, ignore) -> assertThat(r.firstUnIgnoredUnsuccessfulStepReport()).isNull(),
@@ -167,6 +170,7 @@ class WfsRulesParityE2ETest {
    */
   @Test
   void testVisitingHoursReadWriteParityE2E() {
+    ReVomanConfigForWfs.assumeExternalOrgCreds();
     final var rundown =
         ReVoman.revUp(
             (r, ignore) -> assertThat(r.firstUnIgnoredUnsuccessfulStepReport()).isNull(),
