@@ -1,0 +1,70 @@
+$kind: http-request
+description: >-
+  CONTROL: GetAppointmentSlots, window tomorrow 11:00-12:00 UTC under the same RequiredResources policy and
+  required-non-required fixture as the violating read act. IDENTICAL to the violating read in every way
+  EXCEPT ONE field — resourceB (the sole resource on the Account's ResourcePreference(Required) list) is
+  flagged isRequiredResource=true here instead of false. With resourceB now in the REQUIRED assigned set,
+  the RequiredResources demand is satisfied, so the read does NOT hit the serviceTerritoryMembers NPE that
+  the violating read (non-required helper) triggers — it returns cleanly (HTTP 201, no error). LIVE-OBSERVED
+  on 262: this satisfied-demand read returns 0 slots (HTTP 201, errorCode null) — clean, NOT a crash. That
+  proves the violating read's HTTP 500 crash is CONDITIONAL on the non-required-helper input, not a blanket
+  fixture failure. Captures requiredReadControlSlotCount + requiredReadControlHttpCode/ErrorCode. Paired
+  with the violating read, this one-field A/B isolates resourceB's isRequiredResource flag as what flips
+  the read from crashing (non-required helper → NPE) to a clean response (demand satisfied).
+url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/get-appointment-slots"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "appointments": [
+        {
+          "schedulingMethod": "OnSite",
+          "schedulingPolicyId": "{{requiredResourcesPolicyId}}",
+          "coreDetails": {
+            "startTime": "{{requiredReadControlStart}}",
+            "endTime": "{{requiredReadControlEnd}}",
+            "appointmentMode": "Regular",
+            "workConfiguration": { "workTypeId": "{{requiredNonReqWorkTypeId}}" },
+            "locationConstraints": { "addressIds": ["{{requiredNonReqTerritoryId}}"] }
+          },
+          "serviceAppointmentParent": { "id": "{{requiredNonReqAccountId}}" },
+          "assignedResources": [
+            { "isPrimaryResource": true, "isRequiredResource": true, "serviceResourceId": "{{requiredNonReqResourceAId}}" },
+            { "isPrimaryResource": false, "isRequiredResource": true, "serviceResourceId": "{{requiredNonReqResourceBId}}" }
+          ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      // Same window as the violating read (tomorrow 11:00-12:00 UTC, inside member OH 08-16 and the
+      // Confirmed Shift). Distinct env vars so the two reads never collide when run in one JVM.
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(11, 0, 0, 0);
+      const e = new Date(s.getTime() + 60 * 60 * 1000);
+      pm.environment.set("requiredReadControlStart", s.toISOString());
+      pm.environment.set("requiredReadControlEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      // resourceB is now REQUIRED so the RequiredResources demand is satisfied → read is NOT pruned and
+      // offers >0 slots (proves the fixture is valid, so the violating 0 is the RequiredResources rule).
+      const data = pm.response.json() || {};
+      const results = data.result || [];
+      let n = 0; results.forEach(r => { n += (r.slots || []).length; });
+      pm.environment.set("requiredReadControlSlotCount", String(n));
+      // Capture the control's HTTP code + any error so we can tell a clean-empty read from a crash.
+      pm.environment.set("requiredReadControlHttpCode", String(pm.response.code));
+      let ec = null;
+      if (Array.isArray(data) && data.length) { ec = data[0].errorCode; }
+      else if (data && data.errors && data.errors[0]) { ec = data.errors[0].errorCode; }
+      pm.environment.set("requiredReadControlErrorCode", ec);
+      console.log("RULESPARITY required read-control http=" + pm.response.code + " slots=" + n + " ec=" + ec);
+    language: text/javascript
+order: 1000
