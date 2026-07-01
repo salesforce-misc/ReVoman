@@ -14,13 +14,19 @@ import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.GE
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.GET_SLOTS_EXCLUDED_VIOLATING_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.GET_SLOTS_SKILLS_CONTROL_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.GET_SLOTS_SKILLS_VIOLATING_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.GET_SLOTS_WORKLOC_CONTROL_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.GET_SLOTS_WORKLOC_VIOLATING_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.MATCH_SKILLS_POLICY_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SCHEDULE_EXCLUDED_CONTROL_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SCHEDULE_EXCLUDED_VIOLATING_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SCHEDULE_SKILLS_CONTROL_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SCHEDULE_SKILLS_VIOLATING_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SCHEDULE_WORKLOC_CONTROL_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SCHEDULE_WORKLOC_VIOLATING_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SKILLS_FIXTURE_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SKILLS_SKILL_FIXTURE_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.TERRITORY_PARTIAL_POLICY_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.WORKING_LOCATIONS_FIXTURE_CONFIG;
 
 import com.salesforce.revoman.ReVoman;
 import kotlin.collections.CollectionsKt;
@@ -101,5 +107,40 @@ class WfsRulesParityE2ETest {
     // Write agrees with read on BOTH rows → read==write for ExcludedResources.
     assertThat(env.getAsString("excludedWriteViolatingStatus")).isNotEqualTo("Success");
     assertThat(env.getAsString("excludedWriteControlStatus")).isEqualTo("Success");
+  }
+
+  /**
+   * WorkingLocations (SchedulingRuleType WorkingTerritories) — the required+primary resource
+   * outside its working-location/territory-membership window (here a SECONDARY
+   * ServiceTerritoryMember under a WorkingTerritories(IsPrimaryLocationEnabled=true) policy that
+   * includes PRIMARY members only) is pruned by the read (0 slots) AND rejected by the write; an
+   * in-window control (a PRIMARY member) returns >0 AND Success. Proves WorkingLocations runs
+   * identically read and write.
+   *
+   * <p>262 (asserted): read-violating 0 ⟺ write-violating rejected; read-control >0 ⟺ write-control
+   * Success.
+   *
+   * <p>264 contrast: unchanged — WorkingLocations is a shared cheap check on both paths.
+   */
+  @Test
+  void testWorkingLocationsReadWriteParityE2E() {
+    final var rundown =
+        ReVoman.revUp(
+            (r, ignore) -> assertThat(r.firstUnIgnoredUnsuccessfulStepReport()).isNull(),
+            AUTH_CONFIG,
+            TERRITORY_PARTIAL_POLICY_CONFIG,
+            WORKING_LOCATIONS_FIXTURE_CONFIG,
+            GET_SLOTS_WORKLOC_VIOLATING_CONFIG,
+            GET_SLOTS_WORKLOC_CONTROL_CONFIG,
+            SCHEDULE_WORKLOC_VIOLATING_CONFIG,
+            SCHEDULE_WORKLOC_CONTROL_CONFIG);
+    final var env = CollectionsKt.last(rundown).mutableEnv;
+    // Read prunes the Secondary-member violating resource; control returns slots (proves fixture
+    // valid).
+    assertThat(env.getAsString("worklocReadViolatingSlotCount")).isEqualTo("0");
+    assertThat(Integer.parseInt(env.getAsString("worklocReadControlSlotCount"))).isGreaterThan(0);
+    // Write agrees with read on BOTH rows → read==write for WorkingLocations.
+    assertThat(env.getAsString("worklocWriteViolatingStatus")).isNotEqualTo("Success");
+    assertThat(env.getAsString("worklocWriteControlStatus")).isEqualTo("Success");
   }
 }

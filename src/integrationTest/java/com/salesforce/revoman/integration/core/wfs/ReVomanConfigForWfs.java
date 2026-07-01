@@ -279,6 +279,14 @@ public final class ReVomanConfigForWfs {
       kickFor(V3_WFS_PATH + "booking/schedule-excluded-violating");
   static final Kick SCHEDULE_EXCLUDED_CONTROL_CONFIG =
       kickFor(V3_WFS_PATH + "booking/schedule-excluded-control");
+  static final Kick GET_SLOTS_WORKLOC_VIOLATING_CONFIG =
+      kickFor(V3_WFS_PATH + "booking/get-slots-workloc-violating");
+  static final Kick GET_SLOTS_WORKLOC_CONTROL_CONFIG =
+      kickFor(V3_WFS_PATH + "booking/get-slots-workloc-control");
+  static final Kick SCHEDULE_WORKLOC_VIOLATING_CONFIG =
+      kickFor(V3_WFS_PATH + "booking/schedule-workloc-violating");
+  static final Kick SCHEDULE_WORKLOC_CONTROL_CONFIG =
+      kickFor(V3_WFS_PATH + "booking/schedule-workloc-control");
 
   /**
    * One Kick per V3 collection folder, all sharing the same shape as the {@code bt2bs} sibling:
