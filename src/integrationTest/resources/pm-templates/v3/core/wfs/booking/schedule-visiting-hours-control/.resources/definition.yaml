@@ -1,0 +1,13 @@
+$kind: collection
+description: >-
+  Rules parity (ServiceAppointmentVisitingHours) WRITE control — Schedule the fixture's
+  required+primary resource into the window the read offered slots for (tomorrow 11:00-12:00 UTC,
+  INSIDE the Account's visiting hours 10-14) → Success. VisitingHours passes on both read and write
+  (loadSchedulableSlots shared), so the write keeps the read's promise. This is the positive half of
+  the VisitingHours read==write matrix. Runs LAST (it persists an SA).
+auth:
+  - id: 5e4f3a00-0004-4aaa-9bbb-000000000004
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"

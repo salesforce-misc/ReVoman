@@ -1,0 +1,26 @@
+$kind: http-request
+description: >-
+  Link the WorkingTerritories rule to the VisitingHours policy (active). With
+  IsPrimaryLocationEnabled=true this makes slot generation include the Primary member, so the resource
+  is surfaced and raw slots are generated across the search window; the per-slot PerSlotRuleFilter then
+  prunes those slots down to the Account's visiting hours. Produces
+  visitingHoursWorkingTerritoriesPolicyRuleId.
+url: "{{baseUrl}}{{versionPath}}/tooling/sobjects/SchedulingPolicyRule"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+body:
+  type: json
+  content: |-
+    {
+      "SchedulingPolicyId": "{{visitingHoursPolicyId}}",
+      "SchedulingRuleId": "{{visitingHoursWorkingTerritoriesRuleId}}",
+      "IsActive": true
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.environment.set("visitingHoursWorkingTerritoriesPolicyRuleId", pm.response.json().id);
+    language: text/javascript
+order: 70000

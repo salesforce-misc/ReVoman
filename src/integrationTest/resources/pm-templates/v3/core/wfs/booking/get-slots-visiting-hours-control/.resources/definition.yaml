@@ -1,0 +1,14 @@
+$kind: collection
+description: >-
+  Rules parity (ServiceAppointmentVisitingHours) READ control — GetAppointmentSlots for the same
+  required+primary resource over a window (tomorrow 11:00-12:00 UTC) that is INSIDE the parent
+  Account's visiting hours (10-14). All rules pass — Availability, WorkingLocations, AND VisitingHours
+  (the window is fully contained in the visiting hours) — so the read offers >0 slots. Proves the
+  fixture is valid, so the violating 0 is the VisitingHours rule firing (not a dead fixture). Paired
+  with the write control act to prove read==write on VisitingHours.
+auth:
+  - id: 5e4f3a00-0002-4aaa-9bbb-000000000002
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"

@@ -24,6 +24,8 @@ localResources:
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-skills-violating
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-sharing-split-as-caseworker
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-sharing-split-as-manager
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-visiting-hours-control
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-visiting-hours-violating
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-workloc-control
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-workloc-violating
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/reschedule-delete-primary-no-flag
@@ -47,6 +49,8 @@ localResources:
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-territory-membership-non-required-violating
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-two-primary
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-two-resource-clean
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-visiting-hours-control
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-visiting-hours-violating
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-working-locations-secondary-non-required-violating
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-workloc-control
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-workloc-violating
@@ -57,6 +61,7 @@ localResources:
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/fixtures/skills-non-required
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/fixtures/skills-non-required-skill
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/fixtures/territory-non-required
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/fixtures/visiting-hours-account-oh
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/fixtures/working-locations-secondary-non-required
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/policies/availability-op-hours-policy
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/policies/excluded-resources-availability-policy
@@ -64,6 +69,7 @@ localResources:
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/policies/required-resources-availability-policy
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/policies/sharing-split-shifts-policy
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/policies/territory-membership-partial-policy
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/policies/visiting-hours-op-hours-policy
   environments:
     - ../src/integrationTest/resources/pm-templates/v3/pokemon/Pokemon.environment.yaml
     - ../src/integrationTest/resources/pm-templates/v3/restful-api.dev/restful-api.dev.environment.yaml

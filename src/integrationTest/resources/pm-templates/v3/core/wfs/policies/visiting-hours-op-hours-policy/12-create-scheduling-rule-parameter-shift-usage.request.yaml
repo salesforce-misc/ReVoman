@@ -1,0 +1,30 @@
+$kind: http-request
+description: >-
+  CRITICAL — set ShiftUsage=ConsiderOpHoursAndShiftsUnion on the Availability rule (SchedulingRuleType
+  C). There is NO default ShiftUsage: without this SchedulingRuleParameter the Availability rule yields
+  ZERO slots (all four shouldConsider* predicates return false → empty intervals), so the resource is
+  never slot-available and slot-gen returns nothing. The Union value makes availability the union of
+  member OH (08-16) and the Confirmed Shift, matching the fixture's wide window; the per-slot
+  ServiceAppointmentVisitingHours rule then prunes the surfaced slots down to the Account's visiting
+  hours (10-14). SchedulingRule + SchedulingRuleParameter live under /sobjects/ (SchedulingPolicy +
+  SchedulingPolicyRule under /tooling/sobjects/). Created right after the availability-rule-create step
+  so it carries visitingHoursAvailabilityRuleId. Produces visitingHoursAvailabilityShiftUsageParamId.
+url: "{{baseUrl}}{{versionPath}}/sobjects/SchedulingRuleParameter"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+body:
+  type: json
+  content: |-
+    {
+      "SchedulingRuleId": "{{visitingHoursAvailabilityRuleId}}",
+      "SchedulingParameterKey": "ShiftUsage",
+      "Value": "ConsiderOpHoursAndShiftsUnion"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.environment.set("visitingHoursAvailabilityShiftUsageParamId", pm.response.json().id);
+    language: text/javascript
+order: 12000
