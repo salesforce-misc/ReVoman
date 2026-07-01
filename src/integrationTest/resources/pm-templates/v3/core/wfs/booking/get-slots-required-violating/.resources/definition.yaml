@@ -6,10 +6,13 @@ description: >-
   isPrimaryResource=true) is clean but NOT on the Account's ResourcePreference(Required) list; resourceB
   (isRequiredResource=false) IS the sole resource on the required list but is assigned NON-required. The
   RequiredResources satisfaction rule evaluates over the REQUIRED resources only ({resourceA}); resourceA
-  is not on the list and the non-required resourceB must NOT count (D1.4), so the read PRUNES the candidate
-  and offers ZERO slots. This is the READ side of the 262 divergence: read prunes cleanly (no crash) while
-  the write side on the SAME scenario CRASHES with a serviceTerritoryMembers NPE — see
-  WfsWritePathParityE2ETest.testNonRequiredHelperCannotSatisfyRequiredDemandE2E.
+  is not on the list and the non-required resourceB must NOT count (D1.4). LIVE-OBSERVED on 262: the READ
+  path does NOT prune cleanly — it CRASHES with HTTP 500 INTERNAL_SERVER_ERROR, the SAME
+  serviceTerritoryMembers NPE ("Cannot invoke ArrayListMultimap.values() because this.serviceTerritoryMembers
+  is null") the write path throws on this scenario. Because read and write share loadSchedulableSlots, the
+  262 bug manifests IDENTICALLY on both — this is read==write (a shared-engine crash), NOT a divergence
+  (refuting the plan's original read-prunes/write-crashes hypothesis). Captures the 500 slotCount(0) +
+  errorCode + message. See WfsWritePathParityE2ETest.testNonRequiredHelperCannotSatisfyRequiredDemandE2E.
 auth:
   - id: 7a6b5c00-0001-4aaa-9bbb-000000000001
     type: bearer
