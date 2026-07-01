@@ -1,0 +1,20 @@
+$kind: collection
+description: |-
+  Task 8 no-op reschedule short-circuit (write<read) — reschedules noopSetupSaId with NO time change (no
+  startTime/endTime → timesAreChanging==false) and an UpdateOperation re-stating resourceA
+  (isPrimaryResource=true, isRequiredResource=true), attempting the SlotAvailabilityChecker:174-176
+  short-circuit (if (!timesAreChanging && !resourcesHaveChanged) return true). LIVE + jdwp-VERIFIED 2026-07-01
+  that it does NOT fire: haveResourcesChanged compares the existing SA's required ServiceResourceId set (SOQL,
+  18-char) against the request's, and the request-side id (stored RAW then truncated to 15-char by the ESO
+  request DTO) never string-equals the 18-char existing id → resourcesHaveChanged==true (empty
+  assignedResources is equally unequal). For a required-resource SA the short-circuit is UNREACHABLE over REST.
+  The reschedule then recomputes and 262 CRASHES with HTTP 500 INTERNAL_SERVER_ERROR
+  (ServiceTerritory.getServiceResourceIds NPE — the 262 reschedule-recompute crash family, cf. Decision 1.4 /
+  RequiredResources), schedulingStatus null (NOT Success). This REFUTES the "no-op returns Success via the
+  short-circuit" premise; recorded faithfully, not forced.
+auth:
+  - id: 9c8d7e00-0002-4aaa-9bbb-000000000082
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"

@@ -1,0 +1,62 @@
+$kind: http-request
+description: >-
+  NO-OP reschedule of the already-valid noopSetupSaId — attempts the SlotAvailabilityChecker:174-176
+  short-circuit (if (!timesAreChanging && !resourcesHaveChanged) return true, the ONE write<read case) with NO
+  startTime/endTime (→ timesAreChanging==false) and an UpdateOperation re-stating resourceA in its current
+  state (isPrimaryResource=true, isRequiredResource=true). LIVE + jdwp-VERIFIED 2026-07-01 that the
+  short-circuit does NOT fire: haveResourcesChanged compares the existing SA's required ServiceResourceId set
+  (from SOQL, 18-char) against the request's, and the request-side id is stored RAW by
+  populateAssignedResourceFields then truncated to 15-char by the ESO request DTO — so {15-char} != {18-char}
+  → resourcesHaveChanged==true (the two size-1 sets landed in DIFFERENT hash buckets at the debugger,
+  confirming different id strings; an EMPTY assignedResources is equally != existing). For a required-resource
+  SA the short-circuit is thus UNREACHABLE over REST. The reschedule then recomputes (jdwp: :180 +
+  loadSchedulableSlots hit) and 262 CRASHES with HTTP 500 INTERNAL_SERVER_ERROR "Cannot invoke
+  java.util.List.iterator() because the return value of ServiceTerritory.getServiceResourceIds() is null"
+  (the 262 reschedule-recompute NPE family, cf. Decision 1.4 / RequiredResources). Captures noopReschedStatus
+  (null, NOT Success) + httpCode/errorCode/errorMessage. This REFUTES the "no-op returns Success via the
+  short-circuit" premise. Runs AFTER the setup schedule. The HTTP 500 is ignored via
+  ignoreHTTPStatusUnsuccessful so the run continues to the JUnit assertions.
+url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/reschedule"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "rescheduleAppointments": [
+        {
+          "schedulingMethod": "OnSite",
+          "appointmentId": "{{noopSetupSaId}}",
+          "assignedResources": [
+            {
+              "operation": "UpdateOperation",
+              "assignedResource": {
+                "isPrimaryResource": true,
+                "isRequiredResource": true,
+                "serviceResourceId": "{{requiredNonReqResourceAId}}"
+              }
+            }
+          ]
+        }
+      ]
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.environment.set("noopReschedHttpCode", String(pm.response.code));
+      const data = pm.response.json();
+      const appts = (data && data.appointments) || [];
+      const a0 = appts.length ? appts[0] : null;
+      pm.environment.set("noopReschedStatus", a0 ? a0.schedulingStatus : null);
+      let ec = null, msg = null;
+      if (Array.isArray(data) && data.length) { ec = data[0].errorCode; msg = data[0].message; }
+      else if (a0 && a0.errors && a0.errors[0]) { ec = a0.errors[0].errorCode; msg = a0.errors[0].message; }
+      pm.environment.set("noopReschedErrorCode", ec);
+      pm.environment.set("noopReschedErrorMessage", msg);
+      console.log("TASK8 noop-resched http=" + pm.response.code + " status=" + (a0 && a0.schedulingStatus) + " ec=" + ec + " msg=" + msg);
+    language: text/javascript
+order: 2000

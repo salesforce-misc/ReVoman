@@ -1,0 +1,13 @@
+$kind: collection
+description: |-
+  Task 8 setup (no-op reschedule short-circuit) — schedules ONE OnSite SA with a single required+primary
+  resourceA into an AVAILABLE window (tomorrow 11:00-12:00 UTC) under the plain Availability policy. Books
+  Success and captures the created serviceAppointmentId into noopSetupSaId, which the no-op reschedule act
+  consumes. Exactly one primary resource, so the schedule write path is satisfied. Reuses the
+  required-non-required fixture (resourceA is free in the window) + the availability-op-hours policy.
+auth:
+  - id: 9c8d7e00-0001-4aaa-9bbb-000000000081
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"
