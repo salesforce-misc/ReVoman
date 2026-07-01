@@ -3,19 +3,20 @@ description: >-
   NO-OP reschedule of the already-valid noopSetupSaId — attempts the SlotAvailabilityChecker:174-176
   short-circuit (if (!timesAreChanging && !resourcesHaveChanged) return true, the ONE write<read case) with NO
   startTime/endTime (→ timesAreChanging==false) and an UpdateOperation re-stating resourceA in its current
-  state (isPrimaryResource=true, isRequiredResource=true). LIVE + jdwp-VERIFIED 2026-07-01 that the
-  short-circuit does NOT fire: haveResourcesChanged compares the existing SA's required ServiceResourceId set
-  (from SOQL, 18-char) against the request's, and the request-side id is stored RAW by
-  populateAssignedResourceFields then truncated to 15-char by the ESO request DTO — so {15-char} != {18-char}
-  → resourcesHaveChanged==true (the two size-1 sets landed in DIFFERENT hash buckets at the debugger,
-  confirming different id strings; an EMPTY assignedResources is equally != existing). For a required-resource
-  SA the short-circuit is thus UNREACHABLE over REST. The reschedule then recomputes (jdwp: :180 +
-  loadSchedulableSlots hit) and 262 CRASHES with HTTP 500 INTERNAL_SERVER_ERROR "Cannot invoke
-  java.util.List.iterator() because the return value of ServiceTerritory.getServiceResourceIds() is null"
-  (the 262 reschedule-recompute NPE family, cf. Decision 1.4 / RequiredResources). Captures noopReschedStatus
-  (null, NOT Success) + httpCode/errorCode/errorMessage. This REFUTES the "no-op returns Success via the
-  short-circuit" premise. Runs AFTER the setup schedule. The HTTP 500 is ignored via
-  ignoreHTTPStatusUnsuccessful so the run continues to the JUnit assertions.
+  state (isPrimaryResource=true, isRequiredResource=true). LIVE-OBSERVED 2026-07-01: the short-circuit does
+  NOT fire — haveResourcesChanged (SlotAvailabilityChecker:237, a raw .equals() on the required-ServiceResourceId
+  sets, no canonicalization) returns true, so the reschedule recomputes. WHY it is true for a re-stated no-op
+  is NOT fully pinned: an EMPTY assignedResources trivially differs ({} != {resourceA}); for the UpdateOperation
+  re-stating resourceA the request wire id is 18-char (this fixture sets ids verbatim/18-char), so the set
+  SHOULD match unless the ESO request DTO re-canonicalizes/truncates it (a plausible instance of the repo's
+  15/18-char ResourceId gotcha — but NOT re-confirmed; jdwp was not re-attached). Regardless of the exact
+  cause, the OBSERVED outcome is: recompute, then 262 CRASHES with HTTP 500 INTERNAL_SERVER_ERROR "Cannot
+  invoke java.util.List.iterator() because the return value of ServiceTerritory.getServiceResourceIds() is
+  null" (a THIRD 262 reschedule-recompute NPE variant, distinct from the serviceTerritoryMembers NPE on
+  schedule/read). Captures noopReschedStatus (null, NOT Success) + httpCode/errorCode/errorMessage. This
+  REFUTES the "no-op returns Success via the short-circuit" premise for this REST path (exact
+  resourcesHaveChanged cause flagged OPEN for the decision log). Runs AFTER the setup schedule. The HTTP 500
+  is ignored via ignoreHTTPStatusUnsuccessful so the run continues to the JUnit assertions.
 url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/reschedule"
 method: POST
 headers:
