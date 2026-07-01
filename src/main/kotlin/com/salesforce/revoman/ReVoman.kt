@@ -76,7 +76,7 @@ object ReVoman {
   @JvmOverloads
   fun revUp(
     postExeHook: PostExeHook = PostExeHook { _, _ -> },
-    dynamicEnvironment: Map<String, String> = emptyMap(),
+    dynamicEnvironment: Map<String, Any?> = emptyMap(),
     vararg kicks: Kick,
   ): List<Rundown> = revUp(kicks.toList(), postExeHook, dynamicEnvironment)
 
@@ -85,7 +85,7 @@ object ReVoman {
   fun revUp(
     kicks: List<Kick>,
     postExeHook: PostExeHook = PostExeHook { _, _ -> },
-    dynamicEnvironment: Map<String, String> = emptyMap(),
+    dynamicEnvironment: Map<String, Any?> = emptyMap(),
   ): List<Rundown> =
     kicks
       .fold(dynamicEnvironment to listOf<Rundown>()) { (accumulatedMutableEnv, rundowns), kick ->
@@ -93,7 +93,12 @@ object ReVoman {
           revUp(kick.overrideDynamicEnvironment(kick.dynamicEnvironment() + accumulatedMutableEnv))
         val accumulatedRundowns = rundowns + rundown
         postExeHook.accept(rundown, accumulatedRundowns)
-        rundown.mutableEnv.mutableEnvCopyWithValuesOfType<String>() to accumulatedRundowns
+        // Thread the FULL env into the next kick — every value type, not just String.
+        // `immutableEnv`
+        // is an all-types snapshot (`mutableEnv.toMap()`); an earlier `<String>`-only copy silently
+        // dropped Int/POJO/List values a prior kick produced. See
+        // docs/superpowers/specs/2026-07-01-multi-kick-env-all-types-design.md
+        rundown.mutableEnv.immutableEnv to accumulatedRundowns
       }
       .second
 
