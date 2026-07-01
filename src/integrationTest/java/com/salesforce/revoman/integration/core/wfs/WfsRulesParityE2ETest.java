@@ -59,7 +59,7 @@ import org.junit.jupiter.api.Test;
  * the 7 Common+InBusiness scheduling rules (RuleObjectiveMapper:108-125) evaluates identically on
  * the read APIs (get-appointment-slots/candidates/available-slots/available-resources →
  * InBusinessGetCandidatesSlotsDataService.loadSchedulableSlots) and the write APIs
- * (schedule/reschedule → SlotAvailabilityChecker → same loadSchedulableSlots). Per rule a
+ * (schedule/reschedule → SlotAvailabilityChecker → the same loadSchedulableSlots on recompute). Per rule a
  * differential matrix asserts read decision == write decision for a violating AND a control case.
  *
  * <p>FINDING: read==write holds for EVERY rule — NO read≠write divergence was found. The two things
