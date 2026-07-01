@@ -62,6 +62,7 @@ class WfsReadPathParityE2ETest {
    */
   @Test
   void testResourceLimitApptDistributionCapE2E() {
+    ReVomanConfigForWfs.assumeExternalOrgCreds();
     final var rundown =
         ReVoman.revUp(
             (r, ignore) -> assertThat(r.firstUnIgnoredUnsuccessfulStepReport()).isNull(),
@@ -109,6 +110,7 @@ class WfsReadPathParityE2ETest {
    */
   @Test
   void testShiftSharingModeSplitE2E() {
+    ReVomanConfigForWfs.assumeExternalOrgCreds();
     final var rundown =
         ReVoman.revUp(
             (r, ignore) -> assertThat(r.firstUnIgnoredUnsuccessfulStepReport()).isNull(),
@@ -149,6 +151,7 @@ class WfsReadPathParityE2ETest {
    */
   @Test
   void testCheapCheckReadWritePromiseE2E() {
+    ReVomanConfigForWfs.assumeExternalOrgCreds();
     final var rundown =
         ReVoman.revUp(
             (r, ignore) -> assertThat(r.firstUnIgnoredUnsuccessfulStepReport()).isNull(),
