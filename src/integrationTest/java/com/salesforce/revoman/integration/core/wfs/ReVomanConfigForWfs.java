@@ -262,7 +262,8 @@ public final class ReVomanConfigForWfs {
       kickFor(V3_WFS_PATH + "booking/schedule-parity-available");
 
   // ## Rules read==write parity — one differential matrix per Common+InBusiness rule. Each rule: a
-  // violating act (rule fires → read 0 slots / write rejected) + a control act (rule passes → read >0 /
+  // violating act (rule fires → read 0 slots / write rejected) + a control act (rule passes → read
+  // >0 /
   // write Success), asserting read decision == write decision. See WfsRulesParityE2ETest.
   static final Kick GET_SLOTS_SKILLS_VIOLATING_CONFIG =
       kickFor(V3_WFS_PATH + "booking/get-slots-skills-violating");
@@ -272,6 +273,14 @@ public final class ReVomanConfigForWfs {
       kickFor(V3_WFS_PATH + "booking/schedule-skills-violating");
   static final Kick SCHEDULE_SKILLS_CONTROL_CONFIG =
       kickFor(V3_WFS_PATH + "booking/schedule-skills-control");
+  static final Kick GET_SLOTS_EXCLUDED_VIOLATING_CONFIG =
+      kickFor(V3_WFS_PATH + "booking/get-slots-excluded-violating");
+  static final Kick GET_SLOTS_EXCLUDED_CONTROL_CONFIG =
+      kickFor(V3_WFS_PATH + "booking/get-slots-excluded-control");
+  static final Kick SCHEDULE_EXCLUDED_VIOLATING_CONFIG =
+      kickFor(V3_WFS_PATH + "booking/schedule-excluded-violating");
+  static final Kick SCHEDULE_EXCLUDED_CONTROL_CONFIG =
+      kickFor(V3_WFS_PATH + "booking/schedule-excluded-control");
 
   /**
    * One Kick per V3 collection folder, all sharing the same shape as the {@code bt2bs} sibling:

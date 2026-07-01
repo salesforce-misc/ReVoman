@@ -1,0 +1,53 @@
+$kind: http-request
+description: >-
+  CONTROL — GetAppointmentSlots for resourceA (excludedNonReqResourceAId) assigned as the required+primary
+  resource, same window tomorrow 11:00-12:00 UTC under the excluded-resources policy. resourceA is NOT on
+  the Account's excluded list, so ExcludedResources passes → read offers >0 slots. Proves the fixture is
+  valid, so the violating 0 is the ExcludedResources rule (not a dead fixture). Counts data.result[].slots[].
+url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/get-appointment-slots"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "appointments": [
+        {
+          "schedulingMethod": "OnSite",
+          "schedulingPolicyId": "{{excludedResourcesPolicyId}}",
+          "coreDetails": {
+            "startTime": "{{excludedParityStart}}",
+            "endTime": "{{excludedParityEnd}}",
+            "appointmentMode": "Regular",
+            "workConfiguration": { "workTypeId": "{{excludedNonReqWorkTypeId}}" },
+            "locationConstraints": { "addressIds": ["{{excludedNonReqTerritoryId}}"] }
+          },
+          "serviceAppointmentParent": { "id": "{{excludedNonReqAccountId}}" },
+          "assignedResources": [ { "isPrimaryResource": true, "isRequiredResource": true, "serviceResourceId": "{{excludedNonReqResourceAId}}" } ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      // Same tomorrow 11:00-12:00 UTC window as the violating read; resourceA is NOT on the excluded list,
+      // so ExcludedResources passes and the read offers slots.
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(11, 0, 0, 0);
+      const e = new Date(s.getTime() + 60 * 60 * 1000);
+      pm.environment.set("excludedParityStart", s.toISOString());
+      pm.environment.set("excludedParityEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      // resourceA is not excluded → ExcludedResources passes → read offers >0 slots.
+      const data = pm.response.json() || {};
+      const results = data.result || [];
+      let n = 0; results.forEach(r => { n += (r.slots || []).length; });
+      pm.environment.set("excludedReadControlSlotCount", String(n));
+      console.log("RULESPARITY excluded read-control slots=" + n);
+    language: text/javascript
+order: 1000
