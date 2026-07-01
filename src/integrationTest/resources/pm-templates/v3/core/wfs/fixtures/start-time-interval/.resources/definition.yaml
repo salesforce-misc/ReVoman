@@ -1,0 +1,27 @@
+$kind: collection
+description: |-
+  Fixture for the AppointmentStartTimeInterval read==write parity proof. Builds a data graph where the
+  resource is available ALL day (08-16) so nothing but the start-time-interval stepping governs which
+  starts survive:
+    - territory OperatingHours (08:00-16:00, GMT) + weekly InBusiness TimeSlots (Normal, OnSite)
+    - member OperatingHours (08:00-16:00, WIDE == territory) + weekly OnSite TimeSlots, so the
+      Availability(ConsiderOpHoursAndShiftsUnion) rule keeps the whole 08-16 window (NOT the pruner)
+    - ServiceTerritory -> territory OH; WorkType (60m EstimatedDuration; NO SchedulingMethod/IsRegular
+      per the 262 contract; NO AppointmentStartTimeInterval so the POLICY interval, not a WorkType
+      override, is used); ServiceTerritoryWorkType
+    - User-backed ServiceResource (Technician, active, primary) on caseWorkerUserId + a Confirmed Shift
+      (08-16 tomorrow) covering the window (slot-gen unconditionally requires a Shift since W-22901809)
+    - ServiceTerritoryMember (TerritoryType=P, Primary) linking resource -> territory, carrying the WIDE
+      member OH, effective a month in the PAST so the Shift insert validator accepts the full-day Shift
+    - Account (manager-owned) as the SA-context parent
+  Sets stiTerritoryId / stiResourceId / stiAccountId / stiWorkTypeId. No ServiceAppointment is created:
+  the test drives open GetSlots / Schedule requests. Because the resource is available all day and the
+  territory OH timezone is GMT (matching the UTC booking windows), the ONLY thing that decides slot
+  survival is the policy's AppointmentStartTimeInterval (60 min): an on-boundary window (control) yields
+  >0, an off-boundary window whose only hour-aligned start overruns the window (violating) yields 0.
+auth:
+  - id: 8b4d2e6f-0c3a-4b7d-9e1f-2a4c6d8e0f2a
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"

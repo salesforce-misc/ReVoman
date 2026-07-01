@@ -1,0 +1,15 @@
+$kind: collection
+description: >-
+  Rules parity (AppointmentStartTimeInterval) READ control — GetAppointmentSlots for the same
+  required+primary resource over a window (tomorrow 11:00-12:00 UTC) whose start is ON the policy's 60-min
+  interval boundary (11:00, minute % 60 == 0). The hour-aligned start 11:00 with a 60-min slot ends 12:00,
+  exactly inside the window, so it survives. Availability, WorkingLocations AND the interval stepping all
+  pass, so the read offers >0 slots — proving the fixture is valid, so the violating 0 is the interval
+  rule firing (not a dead fixture). Counts data.result[].slots[] into stiReadControlSlotCount. Paired with
+  the write control act to prove read==write on AppointmentStartTimeInterval.
+auth:
+  - id: 6f5a4b00-0002-4aaa-9bbb-000000000002
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"

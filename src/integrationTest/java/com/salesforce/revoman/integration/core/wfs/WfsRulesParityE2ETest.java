@@ -14,6 +14,8 @@ import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.GE
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.GET_SLOTS_EXCLUDED_VIOLATING_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.GET_SLOTS_SKILLS_CONTROL_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.GET_SLOTS_SKILLS_VIOLATING_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.GET_SLOTS_STI_CONTROL_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.GET_SLOTS_STI_VIOLATING_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.GET_SLOTS_VISITING_HOURS_CONTROL_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.GET_SLOTS_VISITING_HOURS_VIOLATING_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.GET_SLOTS_WORKLOC_CONTROL_CONFIG;
@@ -23,12 +25,16 @@ import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SC
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SCHEDULE_EXCLUDED_VIOLATING_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SCHEDULE_SKILLS_CONTROL_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SCHEDULE_SKILLS_VIOLATING_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SCHEDULE_STI_CONTROL_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SCHEDULE_STI_VIOLATING_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SCHEDULE_VISITING_HOURS_CONTROL_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SCHEDULE_VISITING_HOURS_VIOLATING_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SCHEDULE_WORKLOC_CONTROL_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SCHEDULE_WORKLOC_VIOLATING_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SKILLS_FIXTURE_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SKILLS_SKILL_FIXTURE_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.START_TIME_INTERVAL_FIXTURE_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.START_TIME_INTERVAL_POLICY_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.TERRITORY_PARTIAL_POLICY_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.VISITING_HOURS_FIXTURE_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.VISITING_HOURS_POLICY_CONFIG;
@@ -189,5 +195,46 @@ class WfsRulesParityE2ETest {
     // Write agrees with read on BOTH rows → read==write for ServiceAppointmentVisitingHours.
     assertThat(env.getAsString("visitingHoursWriteViolatingStatus")).isNotEqualTo("Success");
     assertThat(env.getAsString("visitingHoursWriteControlStatus")).isEqualTo("Success");
+  }
+
+  /**
+   * AppointmentStartTimeInterval (the sole IN_BUSINESS_RULE_TYPES member) — a start time off the
+   * policy's interval boundary is pruned by the read (0 slots) AND rejected by the write; an
+   * on-boundary control returns >0 AND Success. Proves the interval rule runs identically read and
+   * write. The policy (net-new) carries Availability(ConsiderOpHoursAndShiftsUnion) +
+   * WorkingTerritories(IsPrimaryLocationEnabled) + an AppointmentStartTimeInterval rule whose
+   * SchedulingRuleParameter pins the interval to 60 min; the fixture (net-new) makes the resource
+   * available all day (08-16, GMT) so the interval stepping
+   * (InBusinessAppointmentSlotCalculator.getStartAdjustedForStartTimeFrequency, which rounds each
+   * start UP to the next hour and steps by 60 min) is the ONLY thing deciding which starts survive.
+   * The WorkType carries no AppointmentStartTimeInterval so the POLICY value is used.
+   *
+   * <p>262 (asserted): read-violating 0 (11:30-12:30 rounds to 12:00 whose 60-min slot overruns the
+   * window) ⟺ write-violating rejected; read-control >0 (11:00-12:00 on-boundary) ⟺ write-control
+   * Success.
+   *
+   * <p>264 contrast: unchanged — AppointmentStartTimeInterval is a shared slot-stepping check on both
+   * paths.
+   */
+  @Test
+  void testStartTimeIntervalReadWriteParityE2E() {
+    ReVomanConfigForWfs.assumeExternalOrgCreds();
+    final var rundown =
+        ReVoman.revUp(
+            (r, ignore) -> assertThat(r.firstUnIgnoredUnsuccessfulStepReport()).isNull(),
+            AUTH_CONFIG,
+            START_TIME_INTERVAL_POLICY_CONFIG,
+            START_TIME_INTERVAL_FIXTURE_CONFIG,
+            GET_SLOTS_STI_VIOLATING_CONFIG,
+            GET_SLOTS_STI_CONTROL_CONFIG,
+            SCHEDULE_STI_VIOLATING_CONFIG,
+            SCHEDULE_STI_CONTROL_CONFIG);
+    final var env = CollectionsKt.last(rundown).mutableEnv;
+    // Read prunes the off-boundary window; control returns slots (proves fixture valid).
+    assertThat(env.getAsString("stiReadViolatingSlotCount")).isEqualTo("0");
+    assertThat(Integer.parseInt(env.getAsString("stiReadControlSlotCount"))).isGreaterThan(0);
+    // Write agrees with read on BOTH rows → read==write for AppointmentStartTimeInterval.
+    assertThat(env.getAsString("stiWriteViolatingStatus")).isNotEqualTo("Success");
+    assertThat(env.getAsString("stiWriteControlStatus")).isEqualTo("Success");
   }
 }

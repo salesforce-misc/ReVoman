@@ -1,0 +1,55 @@
+$kind: http-request
+description: >-
+  GetAppointmentSlots for the STI fixture's resource over tomorrow 11:30-12:30 UTC — OFF the policy's
+  60-min interval boundary — under the Availability+WorkingTerritories+AppointmentStartTimeInterval
+  policy. Availability and WorkingLocations pass, so the ONLY governing rule is the start-time-interval
+  stepping: the start 11:30 rounds UP to the hour-aligned 12:00, whose 60-min slot (12:00-13:00) overruns
+  the 12:30 window end and is pruned → the read offers ZERO slots. Counts data.result[].slots[] into
+  stiReadViolatingSlotCount.
+url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/get-appointment-slots"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "appointments": [
+        {
+          "schedulingMethod": "OnSite",
+          "schedulingPolicyId": "{{startTimeIntervalPolicyId}}",
+          "coreDetails": {
+            "startTime": "{{stiViolatingStart}}",
+            "endTime": "{{stiViolatingEnd}}",
+            "appointmentMode": "Regular",
+            "workConfiguration": { "workTypeId": "{{stiWorkTypeId}}" },
+            "locationConstraints": { "addressIds": ["{{stiTerritoryId}}"] }
+          },
+          "serviceAppointmentParent": { "id": "{{stiAccountId}}" },
+          "assignedResources": [ { "isPrimaryResource": true, "isRequiredResource": true, "serviceResourceId": "{{stiResourceId}}" } ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      // Tomorrow 11:30-12:30 UTC: OFF the 60-min interval boundary. The only hour-aligned start in the
+      // window (12:00) needs a 60-min slot ending 13:00 > 12:30 → pruned → 0 slots.
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(11, 30, 0, 0);
+      const e = new Date(s.getTime() + 60 * 60 * 1000);
+      pm.environment.set("stiViolatingStart", s.toISOString());
+      pm.environment.set("stiViolatingEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      // Off-boundary window → interval stepping prunes the only hour-aligned start → read offers 0 slots.
+      const data = pm.response.json() || {};
+      const results = data.result || [];
+      let n = 0; results.forEach(r => { n += (r.slots || []).length; });
+      pm.environment.set("stiReadViolatingSlotCount", String(n));
+      console.log("RULESPARITY sti read-violating slots=" + n);
+    language: text/javascript
+order: 1000

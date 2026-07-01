@@ -1,0 +1,21 @@
+$kind: http-request
+description: Links the AppointmentStartTimeInterval rule (the rule under test) to the policy, IsActive true.
+url: "{{baseUrl}}{{versionPath}}/tooling/sobjects/SchedulingPolicyRule"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+body:
+  type: json
+  content: |-
+    {
+      "SchedulingPolicyId": "{{startTimeIntervalPolicyId}}",
+      "SchedulingRuleId": "{{startTimeIntervalRuleId}}",
+      "IsActive": true
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.environment.set("startTimeIntervalPolicyRuleId", pm.response.json().id);
+    language: text/javascript
+order: 70000

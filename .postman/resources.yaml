@@ -21,6 +21,8 @@ localResources:
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-skills-violating
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-sharing-split-as-caseworker
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-sharing-split-as-manager
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-sti-control
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-sti-violating
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-visiting-hours-control
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-visiting-hours-violating
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-workloc-control
@@ -43,6 +45,8 @@ localResources:
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-skills-control
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-skills-non-required-violating
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-skills-violating
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-sti-control
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-sti-violating
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-territory-membership-non-required-violating
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-two-primary
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-two-resource-clean
@@ -55,6 +59,7 @@ localResources:
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/fixtures/excluded-non-required
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/fixtures/required-non-required
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/fixtures/sharing-split-overlapping-shifts
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/fixtures/start-time-interval
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/fixtures/skills-non-required
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/fixtures/skills-non-required-skill
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/fixtures/territory-non-required
@@ -65,6 +70,7 @@ localResources:
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/policies/match-skills-non-required-policy
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/policies/required-resources-availability-policy
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/policies/sharing-split-shifts-policy
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/policies/start-time-interval-policy
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/policies/territory-membership-partial-policy
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/policies/visiting-hours-op-hours-policy
   environments:
