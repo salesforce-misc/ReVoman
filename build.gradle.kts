@@ -7,6 +7,8 @@
  */
 import java.util.zip.Deflater
 import java.util.zip.GZIPOutputStream
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat
+import org.gradle.api.tasks.testing.logging.TestLogEvent
 
 plugins {
   id("revoman.root-conventions")
@@ -203,6 +205,14 @@ tasks {
         excludeTestsMatching("com.salesforce.revoman.integration.core.*")
         isFailOnNoMatchingTests = false
       }
+    }
+    // Surface the verbose ReVoman execution trace (log4j2 DEBUG) on the console during the run instead
+    // of burying it in the per-test stdout capture file. Quieten with -Dlog.revoman.level=INFO.
+    testLogging {
+      showStandardStreams = true
+      events(TestLogEvent.PASSED, TestLogEvent.SKIPPED, TestLogEvent.FAILED)
+      exceptionFormat = TestExceptionFormat.FULL
+      showStackTraces = true
     }
   }
 }

@@ -45,6 +45,6 @@ scripts:
       const data = pm.response.json() || {};
       const results = data.result || [];
       let n = 0; results.forEach(r => { n += (r.slots || []).length; });
-      pm.environment.set("dec9ManagerSlotCount", n);
+      pm.environment.set("dec9ManagerSlotCount", String(n));
     language: text/javascript
 order: 10000
