@@ -1,0 +1,25 @@
+$kind: http-request
+description: >-
+  Availability rule (SchedulingRuleType C, category A). Paired with the ConsiderOnlyOpHours param so
+  the resource's wide member OH makes every search-window slot resource-available — Availability is
+  the BASELINE here, not the pruner.
+url: "{{baseUrl}}{{versionPath}}/sobjects/SchedulingRule"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+body:
+  type: json
+  content: |-
+    {
+      "MasterLabel": "VisitingHours Availability Test",
+      "DeveloperName": "VisitingHours_Availability_Test_{{$timestamp}}",
+      "SchedulingRuleType": "C",
+      "SchedulingCategory": "A"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.environment.set("visitingHoursAvailabilityRuleId", pm.response.json().id);
+    language: text/javascript
+order: 10000

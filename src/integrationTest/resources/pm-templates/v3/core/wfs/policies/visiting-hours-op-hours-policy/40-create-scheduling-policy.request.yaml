@@ -1,0 +1,22 @@
+$kind: http-request
+description: >-
+  The scheduling policy that links the Availability + VisitingHours rules. Sets visitingHoursPolicyId.
+url: "{{baseUrl}}{{versionPath}}/tooling/sobjects/SchedulingPolicy"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+body:
+  type: json
+  content: |-
+    {
+      "MasterLabel": "VisitingHours OpHours Policy",
+      "DeveloperName": "VisitingHours_OpHours_Policy_{{$timestamp}}",
+      "SchedulingCategory": "A"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.environment.set("visitingHoursPolicyId", pm.response.json().id);
+    language: text/javascript
+order: 40000

@@ -14,6 +14,8 @@ import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.GE
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.GET_SLOTS_EXCLUDED_VIOLATING_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.GET_SLOTS_SKILLS_CONTROL_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.GET_SLOTS_SKILLS_VIOLATING_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.GET_SLOTS_VISITING_HOURS_CONTROL_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.GET_SLOTS_VISITING_HOURS_VIOLATING_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.GET_SLOTS_WORKLOC_CONTROL_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.GET_SLOTS_WORKLOC_VIOLATING_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.MATCH_SKILLS_POLICY_CONFIG;
@@ -21,11 +23,15 @@ import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SC
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SCHEDULE_EXCLUDED_VIOLATING_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SCHEDULE_SKILLS_CONTROL_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SCHEDULE_SKILLS_VIOLATING_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SCHEDULE_VISITING_HOURS_CONTROL_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SCHEDULE_VISITING_HOURS_VIOLATING_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SCHEDULE_WORKLOC_CONTROL_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SCHEDULE_WORKLOC_VIOLATING_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SKILLS_FIXTURE_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SKILLS_SKILL_FIXTURE_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.TERRITORY_PARTIAL_POLICY_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.VISITING_HOURS_FIXTURE_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.VISITING_HOURS_POLICY_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.WORKING_LOCATIONS_FIXTURE_CONFIG;
 
 import com.salesforce.revoman.ReVoman;
@@ -142,5 +148,42 @@ class WfsRulesParityE2ETest {
     // Write agrees with read on BOTH rows → read==write for WorkingLocations.
     assertThat(env.getAsString("worklocWriteViolatingStatus")).isNotEqualTo("Success");
     assertThat(env.getAsString("worklocWriteControlStatus")).isEqualTo("Success");
+  }
+
+  /**
+   * ServiceAppointmentVisitingHours — a booking window OUTSIDE the parent Account's visiting hours
+   * (the Account's VisitingHours OperatingHours 10-14) is pruned by the read (0 slots) AND rejected
+   * by the write; an in-visiting-hours control (11-12) returns >0 slots AND books Success. Proves
+   * VisitingHours runs identically read and write (loadSchedulableSlots shared by both). The policy
+   * (Availability + WorkingTerritories(IsPrimaryLocationEnabled)) and fixture were LIFTED from
+   * source and CONFORMED to the 262 contract (WorkType has no SchedulingMethod/IsRegular; the
+   * Account is linked to its visiting-hours OH; the Availability rule carries ShiftUsage=Union).
+   *
+   * <p>262 (asserted): read-violating 0 ⟺ write-violating rejected; read-control >0 ⟺ write-control
+   * Success.
+   *
+   * <p>264 contrast: unchanged — ServiceAppointmentVisitingHours is a shared per-slot check on both
+   * paths.
+   */
+  @Test
+  void testVisitingHoursReadWriteParityE2E() {
+    final var rundown =
+        ReVoman.revUp(
+            (r, ignore) -> assertThat(r.firstUnIgnoredUnsuccessfulStepReport()).isNull(),
+            AUTH_CONFIG,
+            VISITING_HOURS_POLICY_CONFIG,
+            VISITING_HOURS_FIXTURE_CONFIG,
+            GET_SLOTS_VISITING_HOURS_VIOLATING_CONFIG,
+            GET_SLOTS_VISITING_HOURS_CONTROL_CONFIG,
+            SCHEDULE_VISITING_HOURS_VIOLATING_CONFIG,
+            SCHEDULE_VISITING_HOURS_CONTROL_CONFIG);
+    final var env = CollectionsKt.last(rundown).mutableEnv;
+    // Read prunes the out-of-visiting-hours window; control returns slots (proves fixture valid).
+    assertThat(env.getAsString("visitingHoursReadViolatingSlotCount")).isEqualTo("0");
+    assertThat(Integer.parseInt(env.getAsString("visitingHoursReadControlSlotCount")))
+        .isGreaterThan(0);
+    // Write agrees with read on BOTH rows → read==write for ServiceAppointmentVisitingHours.
+    assertThat(env.getAsString("visitingHoursWriteViolatingStatus")).isNotEqualTo("Success");
+    assertThat(env.getAsString("visitingHoursWriteControlStatus")).isEqualTo("Success");
   }
 }
