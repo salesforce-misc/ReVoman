@@ -206,7 +206,8 @@ tasks {
         isFailOnNoMatchingTests = false
       }
     }
-    // Surface the verbose ReVoman execution trace (log4j2 DEBUG) on the console during the run instead
+    // Surface the verbose ReVoman execution trace (log4j2 DEBUG) on the console during the run
+    // instead
     // of burying it in the per-test stdout capture file. Quieten with -Dlog.revoman.level=INFO.
     testLogging {
       showStandardStreams = true
