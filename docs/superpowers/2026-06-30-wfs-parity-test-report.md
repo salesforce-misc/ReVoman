@@ -37,23 +37,25 @@ Ten scenarios across six decisions. For each: the setup, the single rule it isol
 #### Decision 1 — a non-required helper is NOT fitness-checked (four scenarios)
 
 > **The claim:** add a helper that breaks one scheduling rule, and on 262 the booking still succeeds — the helper escapes the check. Verified across four different rules. Each runs as its own independent booking (fresh login + fresh users) so the four can't collide on resource uniqueness.
+>
+> **Handled by** `WfsWritePathParityE2ETest#testNonRequiredHelperFitnessE2E` — all four scenarios are dimensions of this one method (each its own `revUp` starting from `AUTH_CONFIG`).
 
-**1a — Excluded resources.**
+**1a — Excluded resources.** *(`testNonRequiredHelperFitnessE2E`, dim 1/4 — asserts `excludedNonReqSchedulingStatus`)*
 - *Setup:* anchor clean; helper is a primary territory member (so working-territories passes for it), but is on the account's **excluded list** via a `ResourcePreference(Excluded)`. Window sits inside both the operating hours and the confirmed shift, so availability can't be the blocker. Only the **ExcludedResources** rule can fire on the helper.
 - *Asserts:* `excludedNonReqSchedulingStatus == "Success"`.
 - *262 result:* **Success** — the excluded helper books anyway. *(264: expected `ScheduleError` / ExcludedResources.)*
 
-**1b — Territory membership.**
+**1b — Territory membership.** *(`testNonRequiredHelperFitnessE2E`, dim 2/4 — asserts `territoryNonReqSchedulingStatus`)*
 - *Setup:* window straddles noon. Anchor's territory membership is open-ended (covers the whole window). Helper's membership is `[a month ago, noon]` — it **overlaps** the window (so working-territories passes) but does **not fully contain** it (noon < 12:30), so the **MatchTerritory** committed-containment check fails for the helper. Availability is not the blocker.
 - *Asserts:* `territoryNonReqSchedulingStatus == "Success"`.
 - *262 result:* **Success** — the helper's territory is never evaluated. *(264: `ScheduleError` / MatchTerritory.)*
 
-**1c — Skills.**
+**1c — Skills.** *(`testNonRequiredHelperFitnessE2E`, dim 3/4 — asserts `skillsNonReqSchedulingStatus`)*
 - *Setup:* the work type requires a skill. Anchor holds that skill (a `ServiceResourceSkill`); helper does **not**. Helper otherwise passes territory, availability and territory-match, so **MatchSkills** is the only rule that can fire. Helper is kept **non-primary** deliberately — a primary resource would be lifted into the required set by the engine's primary-implies-required guard and mask the bug.
 - *Asserts:* `skillsNonReqSchedulingStatus == "Success"`.
 - *262 result:* **Success** — the skill-less helper books anyway. *(264: `ScheduleError` / MatchSkills.)*
 
-**1d — Working locations (secondary).**
+**1d — Working locations (secondary).** *(`testNonRequiredHelperFitnessE2E`, dim 4/4 — asserts `workingLocationsSecondaryNonReqSchedulingStatus`)*
 - *Setup:* anchor is a **primary** member; helper is a **secondary** member with its own confirmed shift (so availability passes), but the policy includes **primary only**, so the helper's secondary role is disabled. **WorkingLocations** is the only rule that can fire. This verdict is decided by the eligibility pass *before* slot-matching runs, so it's immune to slot mechanics.
 - *Asserts:* `workingLocationsSecondaryNonReqSchedulingStatus == "Success"`.
 - *262 result:* **Success** — the helper's location role is never evaluated. *(264: `ScheduleError` / WorkingLocations.)*
@@ -63,13 +65,15 @@ Ten scenarios across six decisions. For each: the setup, the single rule it isol
 #### Decision 1.4 — a helper cannot satisfy a *required-resource demand* (two scenarios)
 
 > **The claim:** the account itself requires worker B (via a `ResourcePreference(Required)`). If B is only added as a *helper*, it must not count as satisfying that demand. We expected a clean rejection; 262 instead crashes.
+>
+> **Handled by** `WfsWritePathParityE2ETest#testNonRequiredHelperCannotSatisfyRequiredDemandE2E` — the violating probe + control are two separate `revUp`s inside this one method.
 
-**1.4a — Violating (the demand is met only by a helper).**
+**1.4a — Violating (the demand is met only by a helper).** *(`testNonRequiredHelperCannotSatisfyRequiredDemandE2E`, violating arm — asserts `requiredNonReqSatisfierErrorCode` / `…ErrorMessage`)*
 - *Setup:* anchor is required+primary but is **not** on the account's required list; the helper **is** the sole required-listed resource, but is assigned non-required. Window is inside OH and the shift, so availability/territory aren't the blocker — the required-satisfaction rule is.
 - *Asserts:* `requiredNonReqSatisfierErrorCode == "INTERNAL_SERVER_ERROR"` **and** `requiredNonReqSatisfierErrorMessage contains "serviceTerritoryMembers"`.
 - *262 result:* **server CRASH** — a null-pointer on `serviceTerritoryMembers`, *not* the tidy RequiredResources rejection the product doc predicted. Asserted verbatim. *(264: expected a clean `ScheduleError` / RequiredResources, no crash — at which point this test flips and alerts.)*
 
-**1.4b — Control (a genuine required satisfier).**
+**1.4b — Control (a genuine required satisfier).** *(`testNonRequiredHelperCannotSatisfyRequiredDemandE2E`, control arm — asserts `requiredSatisfierControlErrorCode`)*
 - *Setup:* same fixture, but the booking presents a real required worker.
 - *Asserts:* `requiredSatisfierControlErrorCode != "RequiredResources"`.
 - *262 result:* rejected on **availability** (`INVALID_INPUT`, "service resources are not available"), i.e. not a RequiredResources error — confirming the required path doesn't spuriously raise that code.
@@ -79,13 +83,15 @@ Ten scenarios across six decisions. For each: the setup, the single rule it isol
 #### Decision 1.5 — a helper is NOT availability-checked, so it can double-book (two scenarios)
 
 > **The claim:** if the helper is already busy at the requested time, that doesn't block the booking — helpers aren't availability-checked. The A/B flips a single flag over the *same* fixture.
+>
+> **Handled by** `WfsWritePathParityE2ETest#testNonRequiredHelperDoubleBooksE2E` — both arms run in one `revUp` (A/B flips only `isRequiredResource` on resourceB).
 
-**1.5a — Helper busy, non-required.**
+**1.5a — Helper busy, non-required.** *(`testNonRequiredHelperDoubleBooksE2E` — asserts `doubleBookNonRequiredSchedulingStatus`)*
 - *Setup:* anchor free at the window; helper is a primary member but **busy** (its OH + shift are 12:00–14:00, the booking is 11:00–11:30). Helper assigned **non-required**.
 - *Asserts:* `doubleBookNonRequiredSchedulingStatus == "Success"`.
 - *262 result:* **Success** — the busy helper is double-booked, no availability check. *(264: expected to be blocked as not-available.)*
 
-**1.5b — Same helper, flipped to required (control).**
+**1.5b — Same helper, flipped to required (control).** *(`testNonRequiredHelperDoubleBooksE2E` — asserts `doubleBookRequiredControlSchedulingStatus`)*
 - *Setup:* identical, but the busy worker is now `isRequiredResource=true`.
 - *Asserts:* `doubleBookRequiredControlSchedulingStatus != "Success"`.
 - *262 result:* **rejected** (`400 INVALID_INPUT`, not-available) — a *required* worker **is** availability-checked. The before/after pair is the cleanest demonstration of the helper-vs-required difference in the suite.
@@ -95,13 +101,15 @@ Ten scenarios across six decisions. For each: the setup, the single rule it isol
 #### Decision 3 — a missing `isRequiredResource` flag (two scenarios)
 
 > **The claim:** what happens when a resource is sent without the required-flag at all? 262 crashes. Paired with a control proving the *primary* flag's absence is harmless.
+>
+> **Handled by** `WfsWritePathParityE2ETest#testMissingRequiredFlagE2E` — Act A (missing flag) + Act B (L142 control) are two separate `revUp`s inside this one method.
 
-**3a — Missing flag.**
+**3a — Missing flag.** *(`testMissingRequiredFlagE2E`, Act A — asserts `missingRequiredFlagErrorCode` / `…ErrorMessage`)*
 - *Setup:* a single assigned resource that **omits `isRequiredResource` entirely** (and `isPrimaryResource`), under a policy with no RequiredResources rule (so the account's required-pref can't confound the probe).
 - *Asserts:* `missingRequiredFlagErrorCode == "INTERNAL_SERVER_ERROR"` **and** `missingRequiredFlagErrorMessage contains "Boolean.booleanValue()"`.
 - *262 result:* **server CRASH** — a null-pointer reading the missing flag. Asserted verbatim. *(264: expected to treat a missing flag as not-required and handle it cleanly — test flips and alerts.)*
 
-**3b — L142 control (single required, no primary).**
+**3b — L142 control (single required, no primary).** *(`testMissingRequiredFlagE2E`, Act B — asserts `singleRequiredNoPrimaryStatus`)*
 - *Setup:* a single resource `isRequiredResource=true` with **no** `isPrimaryResource`, on fresh resources. (`isPrimaryResource` is multi-resource plumbing, not the Decision-1 variable, so this must be a valid booking.)
 - *Asserts:* `singleRequiredNoPrimaryStatus == "Success"`.
 - *262 result:* **Success** — confirms the absence of the *primary* flag is harmless; only the *required* flag's omission breaks things.
@@ -117,12 +125,14 @@ Ten scenarios across six decisions. For each: the setup, the single rule it isol
 #### Decision 8 — the load-balancing result cap (two scenarios, one run)
 
 > **The claim:** `resourceLimitApptDistribution` caps how many resources the "get available resources" read returns. The question: does a cap of **0** mean "return zero" or "no limit"? Both acts run over the same fixture under the default OnSite load-balancing policy (so the cap path executes).
+>
+> **Handled by** `WfsReadPathParityE2ETest#testResourceLimitApptDistributionCapE2E` — both acts in one `revUp` over the shared read-only fixture.
 
-**8a — Limit 0.**
+**8a — Limit 0.** *(`testResourceLimitApptDistributionCapE2E` — asserts `limitZeroResourceCount` / `limitZeroErrorCode`)*
 - *Asserts:* `limitZeroResourceCount == 0` **and** `limitZeroErrorCode` is null.
 - *262 result:* `availableResources: [[]]` — **empty**, HTTP 200, no error. The empty list is the cap (`Stream.limit(0)`), confirmed by also asserting there's no error code (so an error masquerading as "empty" can't pass).
 
-**8b — Limit 50 (control).**
+**8b — Limit 50 (control).** *(`testResourceLimitApptDistributionCapE2E` — asserts `limitPositiveResourceCount` / `limitPositiveErrorCode`)*
 - *Asserts:* `limitPositiveResourceCount > 0` **and** `limitPositiveErrorCode` is null.
 - *262 result:* resources returned. Proves 0 is a literal cap-of-0, not an "unlimited" sentinel. *(264, if product picks "no cap": 0 would return all eligible resources.)*
 
@@ -131,13 +141,15 @@ Ten scenarios across six decisions. For each: the setup, the single rule it isol
 #### Decision 9 — the silent shift-sharing gate (two scenarios, one run)
 
 > **The claim:** the shift-availability read respects the **caller's data sharing** (it runs in user mode), while the surrounding resource/territory reads run in full-access mode. So a caller who can't see a resource's shifts gets **no slots — silently, with no error**. This is the one decision whose result genuinely depends on *who is asking*, so it uses two real, distinct user sessions.
+>
+> **Handled by** `WfsReadPathParityE2ETest#testShiftSharingModeSplitE2E` — one `revUp`: mint manager + case-worker personas, then the manager (control) and case-worker (probe) reads.
 
-**9a — Manager (the shift owner) — control.**
+**9a — Manager (the shift owner) — control.** *(`testShiftSharingModeSplitE2E` — asserts `dec9ManagerSlotCount`)*
 - *Setup:* the manager owns the confirmed shift. GetSlots over a window (10:00–14:00, ≥ the 60-minute work type, inside the 08:00–16:00 shift).
 - *Asserts:* `dec9ManagerSlotCount > 0`.
 - *262 result:* **slots returned** — the owner's user-mode shift read sees its own shift. Proves the case-worker's empty result below is the sharing gate, not an empty fixture.
 
-**9b — Case worker (no sharing on the shift) — probe.**
+**9b — Case worker (no sharing on the shift) — probe.** *(`testShiftSharingModeSplitE2E` — asserts `dec9CaseWorkerSlotCount`)*
 - *Setup:* identical request, run as a case-worker persona with **no sharing** on the manager's private shift rows.
 - *Asserts:* `dec9CaseWorkerSlotCount == 0`.
 - *262 result:* **zero slots, HTTP 200, no error** — the user-mode shift read returns an empty shift list, so no availability; the resource is still *admitted* (the full-access reads see it) but contributes no slots. *(264, option B: align the modes so the case-worker would also see slots.)*
@@ -146,22 +158,22 @@ Ten scenarios across six decisions. For each: the setup, the single rule it isol
 
 ## Recorded results at a glance
 
-| # | Scenario | Assertion | 262 result | Status |
-|---|---|---|---|---|
-| 1a | Dec 1 excluded helper | status == Success | Success | ✅ |
-| 1b | Dec 1 territory helper | status == Success | Success | ✅ |
-| 1c | Dec 1 skills helper | status == Success | Success | ✅ |
-| 1d | Dec 1 working-locations helper | status == Success | Success | ✅ |
-| 1.4a | Dec 1.4 helper can't satisfy required | errorCode INTERNAL_SERVER_ERROR + serviceTerritoryMembers | server crash | ✅ |
-| 1.4b | Dec 1.4 genuine required (control) | errorCode != RequiredResources | INVALID_INPUT (availability) | ✅ |
-| 1.5a | Dec 1.5 busy helper, non-required | status == Success | Success | ✅ |
-| 1.5b | Dec 1.5 busy worker, required (control) | status != Success | rejected (not-available) | ✅ |
-| 3a | Dec 3 missing required flag | errorCode INTERNAL_SERVER_ERROR + Boolean.booleanValue() | server crash | ✅ |
-| 3b | Dec 3 single required, no primary (control) | status == Success | Success | ✅ |
-| 8a | Dec 8 limit 0 | count == 0, no error | empty list `[[]]` | ✅ |
-| 8b | Dec 8 limit 50 (control) | count > 0, no error | resources returned | ✅ |
-| 9a | Dec 9 manager (owner, control) | slots > 0 | slots returned | ✅ |
-| 9b | Dec 9 case-worker (no sharing) | slots == 0 | 0 slots, 200, no error | ✅ |
+| # | Scenario | Test method | Assertion | 262 result | Status |
+|---|---|---|---|---|---|
+| 1a | Dec 1 excluded helper | `testNonRequiredHelperFitnessE2E` (dim 1/4) | status == Success | Success | ✅ |
+| 1b | Dec 1 territory helper | `testNonRequiredHelperFitnessE2E` (dim 2/4) | status == Success | Success | ✅ |
+| 1c | Dec 1 skills helper | `testNonRequiredHelperFitnessE2E` (dim 3/4) | status == Success | Success | ✅ |
+| 1d | Dec 1 working-locations helper | `testNonRequiredHelperFitnessE2E` (dim 4/4) | status == Success | Success | ✅ |
+| 1.4a | Dec 1.4 helper can't satisfy required | `testNonRequiredHelperCannotSatisfyRequiredDemandE2E` (violating) | errorCode INTERNAL_SERVER_ERROR + serviceTerritoryMembers | server crash | ✅ |
+| 1.4b | Dec 1.4 genuine required (control) | `testNonRequiredHelperCannotSatisfyRequiredDemandE2E` (control) | errorCode != RequiredResources | INVALID_INPUT (availability) | ✅ |
+| 1.5a | Dec 1.5 busy helper, non-required | `testNonRequiredHelperDoubleBooksE2E` | status == Success | Success | ✅ |
+| 1.5b | Dec 1.5 busy worker, required (control) | `testNonRequiredHelperDoubleBooksE2E` | status != Success | rejected (not-available) | ✅ |
+| 3a | Dec 3 missing required flag | `testMissingRequiredFlagE2E` (Act A) | errorCode INTERNAL_SERVER_ERROR + Boolean.booleanValue() | server crash | ✅ |
+| 3b | Dec 3 single required, no primary (control) | `testMissingRequiredFlagE2E` (Act B) | status == Success | Success | ✅ |
+| 8a | Dec 8 limit 0 | `testResourceLimitApptDistributionCapE2E` | count == 0, no error | empty list `[[]]` | ✅ |
+| 8b | Dec 8 limit 50 (control) | `testResourceLimitApptDistributionCapE2E` | count > 0, no error | resources returned | ✅ |
+| 9a | Dec 9 manager (owner, control) | `testShiftSharingModeSplitE2E` | slots > 0 | slots returned | ✅ |
+| 9b | Dec 9 case-worker (no sharing) | `testShiftSharingModeSplitE2E` | slots == 0 | 0 slots, 200, no error | ✅ |
 
 The two **server crashes** (1.4a, 3a) are the intended 262 behavior — known product defects, pinned down so the suite alerts the moment 264 fixes them.
 
