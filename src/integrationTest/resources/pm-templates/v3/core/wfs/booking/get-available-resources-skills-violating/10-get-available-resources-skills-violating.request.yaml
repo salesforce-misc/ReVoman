@@ -1,0 +1,56 @@
+$kind: http-request
+description: >-
+  GetAvailableResources over the skills fixture (Account/WorkType/Territory) under the match-skills
+  policy. AvailableResourcesServiceImpl:322 calls the same getCandidatesProcessor.process (the FULL
+  7-rule engine) then only post-processes/truncates the SURVIVING resources, so MatchSkills prunes the
+  skill-lacking resourceB and it is ABSENT from availableResources. Unlike the appointment reads this
+  action takes NO assignedResources — it returns EVERY available resource for the
+  account/worktype/territory, so the SKILLED resourceA legitimately survives (count 1) while the
+  UNSKILLED resourceB is pruned. The parity claim is thus resourceB's ABSENCE, not an empty list.
+  limit=50/fieldLimit=10 sit ABOVE the seeded 2-resource count so the Decision-8 truncation cap is a
+  no-op — the only thing removing resourceB is MatchSkills. Read-only contract: HTTP 200, no exception.
+  availableResources is an array-of-arrays; flatten and scan ids for resourceB.
+url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/get-available-resources"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "parentRecordId": "{{skillsNonReqAccountId}}",
+      "workTypeId": "{{skillsNonReqWorkTypeId}}",
+      "territoryIds": ["{{skillsNonReqTerritoryId}}"],
+      "limit": 50,
+      "fieldLimit": 10
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      // availableResources is an array-of-arrays ([[ ...resource objects... ]]); flatten it. Each entry
+      // carries id / recordData.Id. This action returns EVERY available resource (no assignedResources
+      // input), so the SKILLED resourceA survives while the UNSKILLED resourceB is pruned by MatchSkills.
+      // The parity claim the Java test asserts is resourceB's ABSENCE (skillsAvailableResourcesViolatingPresent
+      // == 0), NOT an empty list. skillsAvailableResourcesCount (total survivors) is captured for context.
+      const data = pm.response.json() || {};
+      const outer = data.availableResources || [];
+      const list = outer.flat ? outer.flat() : [].concat.apply([], outer);
+      const arr = Array.isArray(list) ? list : [];
+      pm.environment.set("skillsAvailableResourcesCount", String(arr.length));
+      // Match ids by 15-char prefix so 15/18-char canonicalization differences never mask a hit.
+      const resB = String(pm.environment.get("skillsNonReqResourceBId") || "").substring(0, 15);
+      let violatingPresent = 0;
+      arr.forEach(r => {
+        const rid = String((r && (r.id || (r.recordData && r.recordData.Id))) || "").substring(0, 15);
+        if (resB && rid === resB) { violatingPresent += 1; }
+      });
+      pm.environment.set("skillsAvailableResourcesViolatingPresent", String(violatingPresent));
+      let ec = null;
+      if (Array.isArray(data) && data.length) { ec = data[0].errorCode; }
+      pm.environment.set("skillsAvailableResourcesErrorCode", ec);
+      console.log("RULESPARITY skills available-resources total=" + arr.length + " violatingPresent=" + violatingPresent + " ec=" + ec);
+    language: text/javascript
+order: 1030

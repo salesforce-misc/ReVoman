@@ -407,6 +407,24 @@ public final class ReVomanConfigForWfs {
   static final Kick GET_SLOTS_REQUIRED_CONTROL_CONFIG =
       kickFor(V3_WFS_PATH + "booking/get-slots-required-control");
 
+  // Task 7 — cross-API agreement: the SAME MatchSkills violation (a required+primary resource lacking
+  // the WorkType's required skill) run through the 3 not-yet-exercised read APIs. All 4 read APIs
+  // (get-appointment-slots + these 3) reach the same loadSchedulableSlots engine; get-available-resources
+  // calls the same getCandidatesProcessor.process (AvailableResourcesServiceImpl:322) then only
+  // post-processes/truncates the surviving resources. The three appointment reads request resourceB via
+  // assignedResources so pruning it leaves 0 slots/candidates/available-slots; get-available-resources
+  // takes NO assignedResources and returns EVERY available resource, so the SKILLED resourceA survives
+  // while the UNSKILLED resourceB is pruned/ABSENT (LIVE-VERIFIED 2026-07-01 — confirms the full 7-rule
+  // engine, not a subset). Matches the schedule write's rejection. Reuses the Task-1 skills fixture +
+  // policy and the existing GET_SLOTS_SKILLS_VIOLATING/SCHEDULE_SKILLS_VIOLATING acts. See
+  // WfsRulesParityE2ETest.testCrossApiRuleAgreementE2E.
+  static final Kick GET_CANDIDATES_SKILLS_VIOLATING_CONFIG =
+      kickFor(V3_WFS_PATH + "booking/get-candidates-skills-violating");
+  static final Kick GET_AVAILABLE_SLOTS_SKILLS_VIOLATING_CONFIG =
+      kickFor(V3_WFS_PATH + "booking/get-available-slots-skills-violating");
+  static final Kick GET_AVAILABLE_RESOURCES_SKILLS_VIOLATING_CONFIG =
+      kickFor(V3_WFS_PATH + "booking/get-available-resources-skills-violating");
+
   /**
    * One Kick per V3 collection folder, all sharing the same shape as the {@code bt2bs} sibling:
    * composite/graph + composite response unmarshalling/asserting, IDAdapter, the JS node-modules
