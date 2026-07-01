@@ -61,9 +61,16 @@ import org.junit.jupiter.api.Test;
  * InBusinessGetCandidatesSlotsDataService.loadSchedulableSlots) and the write APIs
  * (schedule/reschedule → SlotAvailabilityChecker → same loadSchedulableSlots). Per rule a
  * differential matrix asserts read decision == write decision for a violating AND a control case.
- * Records the two genuine read≠write divergences: the reschedule no-op short-circuit
- * (SlotAvailabilityChecker:174-176) and the RequiredResources 262 NPE. onField/inField rules are
- * OUT OF SCOPE.
+ *
+ * <p>FINDING: read==write holds for EVERY rule — NO read≠write divergence was found. The two things
+ * the plan pre-labeled "divergences" were REFUTED by live evidence: (a) RequiredResources — read AND
+ * write BOTH crash with the same {@code serviceTerritoryMembers} NPE on the shared engine (read==write,
+ * a shared-engine 262 bug, not an asymmetry — {@link #testRequiredResourcesReadWriteBothCrashE2E}); and
+ * (b) the reschedule no-op short-circuit ({@code SlotAvailabilityChecker:174-176}) is NOT reachable over
+ * REST for a required-resource SA — the reschedule recomputes and 262 crashes
+ * ({@link #testNoOpRescheduleShortCircuitE2E}). So the only asymmetries observed are shared-engine 262
+ * crash bugs (identical on both paths) and an unreachable short-circuit — the read==write thesis holds
+ * even more strongly than predicted. onField/inField rules are OUT OF SCOPE.
  */
 class WfsRulesParityE2ETest {
 
