@@ -1,5 +1,16 @@
 # Design — WFS rules read==write parity ReVoman suite (Q1/Q2/Q3 proofs)
 
+> **STATUS: IMPLEMENTED (2026-07-01).** All 9 tasks landed in `WfsRulesParityE2ETest` (8 @Tests here +
+> Availability referenced from Decision 2), each live-verified against the workspace org. Final
+> whole-suite review: READY WITH MINORS (no Critical/Important; doc-coherence minors fixed).
+> **KEY OUTCOME — read==write holds for EVERY rule; NO read≠write divergence found.** The two
+> "divergences" this spec predicted were BOTH refuted by live evidence: RequiredResources is read==write
+> (both paths crash identically on the shared-engine 262 NPE), and the reschedule no-op short-circuit is
+> unreachable over REST (reschedule recomputes and 262-crashes). Also corrected: get-available-resources
+> is NOT a rule subset — it runs the full 7-rule engine. 3 distinct 262 slot-gen NPE bugs characterized +
+> handed off. Full narrative: `~/work/impl-decisions/2026-06-30-wfs-rules-readwrite-parity.md`; bug
+> handoff: `~/work/handoff/2026-07-01-wfs-262-slotgen-npe-family.md`.
+
 **Date:** 2026-06-30
 **Author:** Claude (autonomous mode, workspace box)
 **Branch:** `wfs/decision-1-9-revoman-tests` in `~/code-clones/work/revoman-root`
