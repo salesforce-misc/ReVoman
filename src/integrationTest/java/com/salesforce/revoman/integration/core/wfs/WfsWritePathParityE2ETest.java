@@ -24,6 +24,7 @@ import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.RE
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.RESCHEDULE_DELETE_ALL_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.RESCHEDULE_DELETE_PRIMARY_NO_FLAG_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.RESCHEDULE_DELETE_PRIMARY_WITH_FLAG_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.RESCHEDULE_DEMOTE_PRIMARY_TWO_CREW_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SCHEDULE_PRIMARY_NOT_REQUIRED_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SCHEDULE_PRIMARY_REQUIRED_CONTROL_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SCHEDULE_TWO_PRIMARY_CONFIG;
@@ -473,6 +474,72 @@ class WfsWritePathParityE2ETest {
     assertThat(env.getAsString("reschedDeleteAllErrorCode")).isEqualTo("INVALID_INPUT");
     assertThat(env.getAsString("reschedDeleteAllHttpCode")).isEqualTo("400");
     assertThat(env.getAsString("reschedDeleteAllErrorMessage"))
+        .contains("not available for the requested slot");
+  }
+
+  /**
+   * Decision 4z DEMOTE — the under-guarded "reschedule leaves TWO-or-more workers with NO primary"
+   * shape that the sibling delete arms ({@link #testRescheduleNoPrimaryE2E} Arm B shrinks to 1
+   * survivor; {@link #testRescheduleDeleteAllLeavesNoPrimaryE2E} shrinks to 0) never build. A clean
+   * two-resource Schedule (resourceA primary+required, resourceB non-primary+required) captures
+   * {@code reschedCleanSaId}; the reschedule then sends TWO {@code UpdateOperation} entries with NO
+   * {@code startTime}/{@code endTime}: resourceA flipped to {@code isPrimaryResource=false} (still
+   * {@code isRequiredResource=true}) and resourceB re-stated non-primary+required — so the
+   * EFFECTIVE crew stays 2 workers but ZERO primaries. {@code
+   * RescheduleCommonValidator.validatePrimaryResourceCount} rejects only {@code primaryCount > 1}
+   * (no NoPrimary check), so validation ALLOWS zero primaries — this is NOT blocked at validation.
+   * The demote keeps the SAME required resources (only a primary flag flips), the best shot at
+   * making {@code resourcesHaveChanged==false} and reaching the {@code SlotAvailabilityChecker}
+   * short-circuit (nothing structurally changed).
+   *
+   * <p>262 (LIVE-OBSERVED 2026-07-01 on the org under test): the clean two-resource Schedule books
+   * Success (captures {@code reschedCleanSaId}); the demote reschedule is NOT Success — it is
+   * rejected with schedulingStatus null, {@code INVALID_INPUT} / HTTP 400 / top-level "The service
+   * resources are not available for the requested slot." ({@code SlotNotAvailable}) — the SAME
+   * downstream availability re-check that blocks the delete-primary Arm B and the delete-ALL probe.
+   * So on 262 a demote-to-2-workers-no-primary reschedule is BLOCKED by the reschedule availability
+   * re-check; it does NOT crash on the 15/18-char record-id bug (that recompute NPE variant is
+   * reached only after the availability check clears — here availability rejects first) and it does
+   * NOT succeed/persist a no-primary crew. The short-circuit does NOT fire (the 15/18-char
+   * required-id mismatch keeps resourcesHaveChanged true, so slot-gen still runs and rejects). The
+   * doc is still refuted at the VALIDATION layer (zero primaries is allowed); the availability
+   * rejection is a separate downstream gap. Asserted as OBSERVED, not the brief's hypothesized
+   * crash/success.
+   *
+   * <p>264 contrast: 264 reworked reschedule availability (an effective-set merge over the REAL
+   * surviving crew = existing − deleted ∪ created ∪ updated), so the surviving 2-worker crew's slot
+   * is found and this demote would either book {@code Success} (leaving a no-primary crew — a
+   * product DECISION, not a code bug, since the primary-count validator already allows it) — a
+   * 262→264 behavior delta, not something 262 produces.
+   *
+   * <p>Own {@code revUp} starting with AUTH_CONFIG → fresh env + fresh timestamped users, so this
+   * probe's SA does not collide with the sibling reschedule tests' fixtures.
+   */
+  @Test
+  void testRescheduleDemotePrimaryTwoCrewNoPrimaryE2E() {
+    ReVomanConfigForWfs.assumeExternalOrgCreds();
+    final var rundown =
+        ReVoman.revUp(
+            (r, ignore) -> assertThat(r.firstUnIgnoredUnsuccessfulStepReport()).isNull(),
+            AUTH_CONFIG,
+            AVAILABILITY_OP_HOURS_POLICY_CONFIG,
+            REQUIRED_NON_REQUIRED_FIXTURE_CONFIG,
+            SCHEDULE_TWO_RESOURCE_CLEAN_CONFIG,
+            RESCHEDULE_DEMOTE_PRIMARY_TWO_CREW_CONFIG);
+    final var env = CollectionsKt.last(rundown).mutableEnv;
+    // Setup booked, and the SA id was captured for the demote reschedule.
+    assertThat(env.getAsString("reschedCleanStatus")).isEqualTo("Success");
+    assertThat(env.getAsString("reschedCleanSaId")).isNotNull();
+    // Demote-to-2-workers-no-primary on 262 is NOT Success: it is rejected by the SAME downstream
+    // availability re-check (SlotNotAvailable) that blocks the delete-primary Arm B — INVALID_INPUT
+    // /
+    // HTTP 400 / "not available for the requested slot", schedulingStatus null. It does NOT crash
+    // on
+    // the 15/18-char record-id bug and does NOT persist a no-primary crew. Asserted as OBSERVED.
+    assertThat(env.getAsString("reschedDemoteStatus")).isAnyOf(null, "null");
+    assertThat(env.getAsString("reschedDemoteErrorCode")).isEqualTo("INVALID_INPUT");
+    assertThat(env.getAsString("reschedDemoteHttpCode")).isEqualTo("400");
+    assertThat(env.getAsString("reschedDemoteErrorMessage"))
         .contains("not available for the requested slot");
   }
 
