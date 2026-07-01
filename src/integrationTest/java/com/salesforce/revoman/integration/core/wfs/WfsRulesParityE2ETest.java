@@ -8,6 +8,7 @@ package com.salesforce.revoman.integration.core.wfs;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.AUTH_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.AVAILABILITY_OP_HOURS_POLICY_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.EXCLUDED_FIXTURE_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.EXCLUDED_RESOURCES_POLICY_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.GET_AVAILABLE_RESOURCES_SKILLS_VIOLATING_CONFIG;
@@ -28,8 +29,10 @@ import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.GE
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.MATCH_SKILLS_POLICY_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.REQUIRED_NON_REQUIRED_FIXTURE_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.REQUIRED_RESOURCES_POLICY_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.RESCHEDULE_NOOP_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SCHEDULE_EXCLUDED_CONTROL_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SCHEDULE_EXCLUDED_VIOLATING_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SCHEDULE_NOOP_RESCHED_SETUP_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SCHEDULE_SKILLS_CONTROL_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SCHEDULE_SKILLS_VIOLATING_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SCHEDULE_STI_CONTROL_CONFIG;
@@ -349,5 +352,68 @@ class WfsRulesParityE2ETest {
     assertThat(env.getAsString("skillsAvailableResourcesViolatingPresent")).isEqualTo("0");
     // Write agrees with all 4 reads → the per-rule read==write matrix generalizes to every API.
     assertThat(env.getAsString("skillsWriteViolatingStatus")).isNotEqualTo("Success");
+  }
+
+  /**
+   * No-op reschedule short-circuit (write<read) — the {@code SlotAvailabilityChecker:174-176} branch
+   * {@code if (!timesAreChanging && !resourcesHaveChanged) return true} is the ONE place the write path does
+   * LESS rule evaluation than a read would (it skips {@code getSlots}/{@code loadSchedulableSlots}). This test
+   * characterizes what a no-op reschedule of an already-valid required-resource SA ACTUALLY does on the 262
+   * org — and REFUTES the plan's premise that it returns Success via that short-circuit.
+   *
+   * <p>LIVE + jdwp-VERIFIED (2026-07-01, jdwp attached to the workspace Core server, breakpoints at
+   * SlotAvailabilityChecker:174 and :180 + InBusinessGetCandidatesSlotsDataService.loadSchedulableSlots):
+   *
+   * <ul>
+   *   <li>The setup schedules resourceA (required+primary) into an available window (tomorrow 11:00-12:00) →
+   *       Success, capturing {@code noopSetupSaId}. On the schedule leg {@code timesAreChanging==true}, so it
+   *       (correctly) does NOT short-circuit — it reaches :180 and calls loadSchedulableSlots (all three
+   *       breakpoints hit).
+   *   <li>On the RESCHEDULE leg {@code timesAreChanging==false} (no startTime/endTime) BUT
+   *       {@code resourcesHaveChanged==true} — so the short-circuit does NOT fire and it recomputes (:180 +
+   *       loadSchedulableSlots hit). WHY resourcesHaveChanged is always true here: {@code haveResourcesChanged}
+   *       compares the existing SA's required ServiceResourceId set (from SOQL, 18-char) against the request's
+   *       (an EMPTY assignedResources → {} ≠ {resourceA}; and an UpdateOperation re-stating resourceA →
+   *       {@code populateAssignedResourceFields} stores the RAW request id, which the ESO request DTO
+   *       truncates to 15-char, so {15-char} ≠ {18-char}). The two size-1 sets landed in DIFFERENT hash
+   *       buckets — confirming different id strings. So for ANY validly-scheduled (i.e. required-resource) SA
+   *       the short-circuit is effectively UNREACHABLE over REST.
+   *   <li>The reschedule recompute then CRASHES on 262 with HTTP 500 {@code INTERNAL_SERVER_ERROR}: "Cannot
+   *       invoke java.util.List.iterator() because the return value of ServiceTerritory.getServiceResourceIds()
+   *       is null" — the same 262 reschedule-recompute NPE family as Decision 1.4 / the RequiredResources read
+   *       crash. schedulingStatus is null (NOT Success).
+   * </ul>
+   *
+   * <p>262 (asserted): setup schedule Success + saId captured; no-op reschedule does NOT return Success —
+   * resourcesHaveChanged==true keeps it off the short-circuit and 262's reschedule recompute 500-crashes
+   * (INTERNAL_SERVER_ERROR / ServiceTerritory.getServiceResourceIds NPE). The write<read short-circuit exists
+   * in code but is unreachable for a required-resource SA over this REST path.
+   *
+   * <p>264 contrast: the short-circuit is intended; 264's reworked reschedule availability (effective-set
+   * merge over the real surviving crew) is what would let a genuine no-op resolve cleanly rather than 500.
+   */
+  @Test
+  void testNoOpRescheduleShortCircuitE2E() {
+    ReVomanConfigForWfs.assumeExternalOrgCreds();
+    final var rundown =
+        ReVoman.revUp(
+            (r, ignore) -> assertThat(r.firstUnIgnoredUnsuccessfulStepReport()).isNull(),
+            AUTH_CONFIG,
+            AVAILABILITY_OP_HOURS_POLICY_CONFIG,
+            REQUIRED_NON_REQUIRED_FIXTURE_CONFIG,
+            SCHEDULE_NOOP_RESCHED_SETUP_CONFIG,
+            RESCHEDULE_NOOP_CONFIG);
+    final var env = CollectionsKt.last(rundown).mutableEnv;
+    // Setup schedules resourceA into the available window and persists an SA → Success + a captured id.
+    assertThat(env.getAsString("noopSetupStatus")).isEqualTo("Success");
+    assertThat(env.getAsString("noopSetupSaId")).isNotNull();
+    // No-op reschedule of a required-resource SA does NOT hit the short-circuit (resourcesHaveChanged==true,
+    // jdwp-confirmed) → it recomputes, and 262's reschedule recompute 500-crashes with the
+    // ServiceTerritory.getServiceResourceIds NPE. schedulingStatus is null (NOT Success). This REFUTES the
+    // "no-op returns Success via the short-circuit" premise: the branch is unreachable over REST here.
+    assertThat(env.getAsString("noopReschedStatus")).isNotEqualTo("Success");
+    assertThat(env.getAsString("noopReschedHttpCode")).isEqualTo("500");
+    assertThat(env.getAsString("noopReschedErrorCode")).isEqualTo("INTERNAL_SERVER_ERROR");
+    assertThat(env.getAsString("noopReschedErrorMessage")).contains("getServiceResourceIds");
   }
 }

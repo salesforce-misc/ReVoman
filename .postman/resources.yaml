@@ -34,12 +34,14 @@ localResources:
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-workloc-violating
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/reschedule-delete-primary-no-flag
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/reschedule-delete-primary-with-flag
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/reschedule-noop
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-double-book-non-required-violating
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-double-book-required-conflict
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-excluded-control
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-excluded-non-required-violating
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-excluded-violating
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-missing-required-flag
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-noop-resched-setup
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-parity-available
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-parity-unavailable
     - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-primary-not-required

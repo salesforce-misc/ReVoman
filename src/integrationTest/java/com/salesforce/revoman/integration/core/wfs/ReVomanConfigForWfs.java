@@ -427,6 +427,23 @@ public final class ReVomanConfigForWfs {
   static final Kick GET_AVAILABLE_RESOURCES_SKILLS_VIOLATING_CONFIG =
       kickFor(V3_WFS_PATH + "booking/get-available-resources-skills-violating");
 
+  // Task 8 — no-op reschedule short-circuit (write<read: SlotAvailabilityChecker:174-176
+  // if (!timesAreChanging && !resourcesHaveChanged) return true is the ONE place the write skips
+  // getSlots/loadSchedulableSlots). Setup schedules resourceA (required+primary) into an available window
+  // (Success, captures noopSetupSaId over the availability-op-hours policy + required-non-required fixture).
+  // The no-op reschedule then reschedules that SA with NO time change + an UpdateOperation re-stating
+  // resourceA. LIVE + jdwp-VERIFIED 2026-07-01 that the short-circuit does NOT fire for a required-resource
+  // SA: haveResourcesChanged compares the existing SOQL required-id set (18-char) vs the request's, and the
+  // request-side id (stored RAW then truncated to 15-char by the ESO request DTO) never equals the 18-char
+  // existing id → resourcesHaveChanged==true (empty assignedResources is equally unequal); the two size-1
+  // sets sat in different hash buckets at the debugger. So the short-circuit is UNREACHABLE over REST for a
+  // required-resource SA — the reschedule recomputes and 262 500-CRASHES (ServiceTerritory.getServiceResourceIds
+  // NPE, cf. Decision 1.4). This REFUTES the "no-op returns Success via the short-circuit" premise;
+  // characterized faithfully. See WfsRulesParityE2ETest.testNoOpRescheduleShortCircuitE2E.
+  static final Kick SCHEDULE_NOOP_RESCHED_SETUP_CONFIG =
+      kickFor(V3_WFS_PATH + "booking/schedule-noop-resched-setup");
+  static final Kick RESCHEDULE_NOOP_CONFIG = kickFor(V3_WFS_PATH + "booking/reschedule-noop");
+
   /**
    * One Kick per V3 collection folder, all sharing the same shape as the {@code bt2bs} sibling:
    * composite/graph + composite response unmarshalling/asserting, IDAdapter, the JS node-modules
