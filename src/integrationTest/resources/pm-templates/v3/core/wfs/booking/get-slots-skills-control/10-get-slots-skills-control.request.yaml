@@ -1,0 +1,54 @@
+$kind: http-request
+description: >-
+  CONTROL — GetAppointmentSlots for resourceA (skillsNonReqResourceAId) assigned as the required+primary
+  resource, same window tomorrow 11:00-12:00 UTC under the match-skills policy. resourceA HAS the
+  ServiceResourceSkill the WorkType requires, so MatchSkills passes → read offers >0 slots. Proves the
+  fixture is valid, so the violating 0 is the MatchSkills rule (not a dead fixture). Counts
+  data.result[].slots[].
+url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/get-appointment-slots"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "appointments": [
+        {
+          "schedulingMethod": "OnSite",
+          "schedulingPolicyId": "{{matchSkillsNonReqPolicyId}}",
+          "coreDetails": {
+            "startTime": "{{skillsParityStart}}",
+            "endTime": "{{skillsParityEnd}}",
+            "appointmentMode": "Regular",
+            "workConfiguration": { "workTypeId": "{{skillsNonReqWorkTypeId}}" },
+            "locationConstraints": { "addressIds": ["{{skillsNonReqTerritoryId}}"] }
+          },
+          "serviceAppointmentParent": { "id": "{{skillsNonReqAccountId}}" },
+          "assignedResources": [ { "isPrimaryResource": true, "isRequiredResource": true, "serviceResourceId": "{{skillsNonReqResourceAId}}" } ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      // Same tomorrow 11:00-12:00 UTC window as the violating read; resourceA HAS the required skill, so
+      // MatchSkills passes and the read offers slots.
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(11, 0, 0, 0);
+      const e = new Date(s.getTime() + 60 * 60 * 1000);
+      pm.environment.set("skillsParityStart", s.toISOString());
+      pm.environment.set("skillsParityEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      // resourceA has the skill → MatchSkills passes → read offers >0 slots.
+      const data = pm.response.json() || {};
+      const results = data.result || [];
+      let n = 0; results.forEach(r => { n += (r.slots || []).length; });
+      pm.environment.set("skillsReadControlSlotCount", String(n));
+      console.log("RULESPARITY skills read-control slots=" + n);
+    language: text/javascript
+order: 1000

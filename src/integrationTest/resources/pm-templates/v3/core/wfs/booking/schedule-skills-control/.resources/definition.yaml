@@ -1,0 +1,12 @@
+$kind: collection
+description: >-
+  Rules parity (MatchSkills) WRITE control — Schedule the required+primary resource that HAS the skill
+  into the window the read offered slots for → Success. MatchSkills passes on both read and write
+  (loadSchedulableSlots shared), so the write keeps the read's promise. This is the positive half of the
+  MatchSkills read==write matrix. Runs LAST (it persists an SA).
+auth:
+  - id: 2b1c0d00-0004-4aaa-9bbb-000000000004
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"
