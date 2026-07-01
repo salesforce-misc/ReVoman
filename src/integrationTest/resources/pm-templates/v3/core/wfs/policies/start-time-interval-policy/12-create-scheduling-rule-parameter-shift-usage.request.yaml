@@ -1,0 +1,27 @@
+$kind: http-request
+description: >-
+  CRITICAL — set ShiftUsage=ConsiderOpHoursAndShiftsUnion on the Availability rule (SchedulingRuleType
+  C). There is NO default ShiftUsage: without this SchedulingRuleParameter the Availability rule yields
+  ZERO slots (all four shouldConsider* predicates return false), so the resource is never slot-available
+  and the read/write would fail for the wrong reason. Union makes availability the union of the member
+  OH (08-16) and the Confirmed Shift, matching the fixture's wide windows, so the start-time-interval
+  stepping is the ONLY thing that governs which starts survive.
+url: "{{baseUrl}}{{versionPath}}/sobjects/SchedulingRuleParameter"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+body:
+  type: json
+  content: |-
+    {
+      "SchedulingRuleId": "{{startTimeIntervalAvailabilityRuleId}}",
+      "SchedulingParameterKey": "ShiftUsage",
+      "Value": "ConsiderOpHoursAndShiftsUnion"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.environment.set("startTimeIntervalShiftUsageParamId", pm.response.json().id);
+    language: text/javascript
+order: 12000
