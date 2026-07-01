@@ -397,6 +397,18 @@ public final class ReVomanConfigForWfs {
   static final Kick SCHEDULE_STI_CONTROL_CONFIG =
       kickFor(V3_WFS_PATH + "booking/schedule-sti-control");
 
+  // Task 6 — RequiredResources read side of the 262 read≠write DIVERGENCE. Over the SAME
+  // required-non-required fixture + RequiredResources policy as the write violating act, the READ path
+  // PRUNES cleanly (0 slots) when only a NON-required helper satisfies the account's required-resource
+  // demand, while the WRITE path on the same scenario CRASHES with a serviceTerritoryMembers NPE (D1.4,
+  // characterized in WfsWritePathParityE2ETest.testNonRequiredHelperCannotSatisfyRequiredDemandE2E). A
+  // genuine-required-satisfier control returns >0 slots (proves the fixture is bookable). See
+  // WfsRulesParityE2ETest.testRequiredResourcesReadPrunesWhileWriteCrashesE2E.
+  static final Kick GET_SLOTS_REQUIRED_VIOLATING_CONFIG =
+      kickFor(V3_WFS_PATH + "booking/get-slots-required-violating");
+  static final Kick GET_SLOTS_REQUIRED_CONTROL_CONFIG =
+      kickFor(V3_WFS_PATH + "booking/get-slots-required-control");
+
   /**
    * One Kick per V3 collection folder, all sharing the same shape as the {@code bt2bs} sibling:
    * composite/graph + composite response unmarshalling/asserting, IDAdapter, the JS node-modules

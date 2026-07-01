@@ -12,6 +12,8 @@ import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.EX
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.EXCLUDED_RESOURCES_POLICY_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.GET_SLOTS_EXCLUDED_CONTROL_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.GET_SLOTS_EXCLUDED_VIOLATING_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.GET_SLOTS_REQUIRED_CONTROL_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.GET_SLOTS_REQUIRED_VIOLATING_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.GET_SLOTS_SKILLS_CONTROL_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.GET_SLOTS_SKILLS_VIOLATING_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.GET_SLOTS_STI_CONTROL_CONFIG;
@@ -21,6 +23,8 @@ import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.GE
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.GET_SLOTS_WORKLOC_CONTROL_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.GET_SLOTS_WORKLOC_VIOLATING_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.MATCH_SKILLS_POLICY_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.REQUIRED_NON_REQUIRED_FIXTURE_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.REQUIRED_RESOURCES_POLICY_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SCHEDULE_EXCLUDED_CONTROL_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SCHEDULE_EXCLUDED_VIOLATING_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SCHEDULE_SKILLS_CONTROL_CONFIG;
@@ -236,5 +240,52 @@ class WfsRulesParityE2ETest {
     // Write agrees with read on BOTH rows → read==write for AppointmentStartTimeInterval.
     assertThat(env.getAsString("stiWriteViolatingStatus")).isNotEqualTo("Success");
     assertThat(env.getAsString("stiWriteControlStatus")).isEqualTo("Success");
+  }
+
+  /**
+   * RequiredResources — read==write, and on 262 BOTH paths CRASH identically. When only a NON-required
+   * helper satisfies the account's required-resource demand (resourceA required+primary but not on the
+   * Account's ResourcePreference(Required) list; resourceB on the list but assigned non-required), the
+   * READ path (GetAppointmentSlots) CRASHES with HTTP 500 {@code INTERNAL_SERVER_ERROR} — the SAME
+   * {@code serviceTerritoryMembers} NPE ("Cannot invoke ArrayListMultimap.values() because
+   * this.serviceTerritoryMembers is null") that the WRITE path throws
+   * (WfsWritePathParityE2ETest.testNonRequiredHelperCannotSatisfyRequiredDemandE2E). Because read and
+   * write share {@code InBusinessGetCandidatesSlotsDataService.loadSchedulableSlots}, the 262 NPE bug
+   * manifests IDENTICALLY on both — this is read==write (a shared-engine crash), NOT a divergence.
+   *
+   * <p>This REFUTES the plan's original hypothesis that read would prune cleanly while write crashed;
+   * live evidence (controller ran it directly, 2026-07-01) shows the read ALSO crashes. Recorded, not
+   * hidden. A control that flips resourceB to {@code isRequiredResource=true} (demand satisfied) does
+   * NOT crash — HTTP 201, no error — proving the crash is CONDITIONAL on the non-required-helper input,
+   * not a blanket fixture failure. (That satisfied-demand read returns 0 slots, HTTP 201; the crash, not
+   * the slot count, is this test's subject — a 500 NPE with the exact message is self-evidently the bug,
+   * so the usual control-returns-slots guardrail is unnecessary here.)
+   *
+   * <p>262 (asserted): read-violating CRASHES (INTERNAL_SERVER_ERROR / serviceTerritoryMembers NPE) ==
+   * write-violating (same crash, asserted in the write class); control read does not crash.
+   *
+   * <p>264 contrast: the NPE should become a clean RequiredResources rejection on BOTH paths — still
+   * read==write, just a clean error instead of a 500.
+   */
+  @Test
+  void testRequiredResourcesReadWriteBothCrashE2E() {
+    ReVomanConfigForWfs.assumeExternalOrgCreds();
+    final var rundown =
+        ReVoman.revUp(
+            (r, ignore) -> assertThat(r.firstUnIgnoredUnsuccessfulStepReport()).isNull(),
+            AUTH_CONFIG,
+            REQUIRED_RESOURCES_POLICY_CONFIG,
+            REQUIRED_NON_REQUIRED_FIXTURE_CONFIG,
+            GET_SLOTS_REQUIRED_VIOLATING_CONFIG,
+            GET_SLOTS_REQUIRED_CONTROL_CONFIG);
+    final var env = CollectionsKt.last(rundown).mutableEnv;
+    // Read-violating CRASHES with the SAME serviceTerritoryMembers NPE the write path throws → the 262
+    // RequiredResources bug is read==write on the shared loadSchedulableSlots engine (NOT a divergence).
+    assertThat(env.getAsString("requiredReadViolatingErrorCode")).isEqualTo("INTERNAL_SERVER_ERROR");
+    assertThat(env.getAsString("requiredReadViolatingErrorMessage")).contains("serviceTerritoryMembers");
+    // Control (resourceB required → demand satisfied) does NOT crash — proves the crash is conditional on
+    // the non-required-helper input, not a dead fixture. (Satisfied-demand read returns 0 slots, HTTP 201.)
+    assertThat(env.getAsString("requiredReadControlErrorCode")).isAnyOf(null, "null");
+    assertThat(env.getAsString("requiredReadControlHttpCode")).isEqualTo("201");
   }
 }

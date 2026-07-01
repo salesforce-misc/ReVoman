@@ -1,0 +1,79 @@
+$kind: http-request
+description: >-
+  GetAppointmentSlots, window tomorrow 11:00-12:00 UTC under the RequiredResources policy over the
+  required-non-required fixture. Mirrors the write violating act's fixture wiring: resourceA
+  (isRequiredResource=true, isPrimaryResource=true) is clean but NOT on the Account's
+  ResourcePreference(Required) list; resourceB (isRequiredResource=false) IS the sole resource on the
+  required list but is assigned NON-required. The window is inside member OH 08-16 and the Confirmed Shift
+  (08-16), so Availability/WorkingTerritories pass — the ONLY rule that can fire is RequiredResources.
+  Since resourceA is not on the required list and the non-required resourceB must NOT satisfy the demand
+  (D1.4), RequiredResources fires. LIVE-OBSERVED on 262 (jdwp-confirmed): the READ path does NOT prune —
+  it CRASHES with the SAME serviceTerritoryMembers NPE (HTTP 500 INTERNAL_SERVER_ERROR) as the write path,
+  inside the shared loadSchedulableSlots (GetAppointmentSlotsResource.post ->
+  InBusinessGetCandidatesSlotsDataService.loadSchedulableSlots -> SkillMatchingService.processTerritoryMembers
+  -> ServiceTerritory.getAllServiceTerritoryMembers, serviceTerritoryMembers null). So the 262 bug crashes
+  BOTH paths identically (a both-crash read==write on the shared slot-gen), NOT read-prunes/write-crashes.
+  Captures the 500 slot count (0) and the crash errorCode/message. See
+  WfsWritePathParityE2ETest.testNonRequiredHelperCannotSatisfyRequiredDemandE2E for the write side.
+url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/get-appointment-slots"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "appointments": [
+        {
+          "schedulingMethod": "OnSite",
+          "schedulingPolicyId": "{{requiredResourcesPolicyId}}",
+          "coreDetails": {
+            "startTime": "{{requiredReadViolatingStart}}",
+            "endTime": "{{requiredReadViolatingEnd}}",
+            "appointmentMode": "Regular",
+            "workConfiguration": { "workTypeId": "{{requiredNonReqWorkTypeId}}" },
+            "locationConstraints": { "addressIds": ["{{requiredNonReqTerritoryId}}"] }
+          },
+          "serviceAppointmentParent": { "id": "{{requiredNonReqAccountId}}" },
+          "assignedResources": [
+            { "isPrimaryResource": true, "isRequiredResource": true, "serviceResourceId": "{{requiredNonReqResourceAId}}" },
+            { "isPrimaryResource": false, "isRequiredResource": false, "serviceResourceId": "{{requiredNonReqResourceBId}}" }
+          ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      // Tomorrow 11:00-12:00 UTC: fully inside member OH (08-16) + Confirmed Shift (08-16), so the only
+      // rule that can fire is RequiredResources — resourceA is not on the Account's required list and the
+      // non-required resourceB on the list must NOT satisfy the demand (D1.4).
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(11, 0, 0, 0);
+      const e = new Date(s.getTime() + 60 * 60 * 1000);
+      pm.environment.set("requiredReadViolatingStart", s.toISOString());
+      pm.environment.set("requiredReadViolatingEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      // LIVE-OBSERVED on 262 (jdwp-confirmed): the READ path does NOT prune here — it CRASHES with the
+      // SAME serviceTerritoryMembers NPE as the write path, inside the shared loadSchedulableSlots
+      // (GetAppointmentSlotsResource.post -> InBusinessGetCandidatesSlotsDataService.loadSchedulableSlots
+      // -> SkillMatchingService.processTerritoryMembers -> ServiceTerritory.getAllServiceTerritoryMembers,
+      // where serviceTerritoryMembers is null). So this is a both-crash reality, NOT read-prunes /
+      // write-crashes. Capture both the slot count (0 on a 500 crash body) and the crash errorCode/message
+      // (top-level-array shape) so the Java test asserts the observed crash faithfully.
+      const data = pm.response.json() || {};
+      const results = data.result || [];
+      let n = 0; results.forEach(r => { n += (r.slots || []).length; });
+      pm.environment.set("requiredReadViolatingSlotCount", String(n));
+      const arr = Array.isArray(data) ? data : null;
+      let ec = null, msg = null;
+      if (arr && arr.length) { ec = arr[0].errorCode; msg = arr[0].message; }
+      pm.environment.set("requiredReadViolatingErrorCode", ec);
+      pm.environment.set("requiredReadViolatingErrorMessage", msg);
+      console.log("RULESPARITY required read-violating http=" + pm.response.code + " slots=" + n + " ec=" + ec);
+    language: text/javascript
+order: 1000
