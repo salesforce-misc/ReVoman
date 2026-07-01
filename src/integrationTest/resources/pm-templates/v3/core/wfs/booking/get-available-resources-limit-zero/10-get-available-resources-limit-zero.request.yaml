@@ -30,7 +30,7 @@ scripts:
       const data = pm.response.json() || {};
       const outer = data.availableResources || [];
       const list = outer.flat ? outer.flat() : [].concat.apply([], outer);
-      pm.environment.set("limitZeroResourceCount", Array.isArray(list) ? list.length : 0);
+      pm.environment.set("limitZeroResourceCount", String(Array.isArray(list) ? list.length : 0));
       let ec = null;
       if (Array.isArray(data) && data.length) { ec = data[0].errorCode; }
       pm.environment.set("limitZeroErrorCode", ec);
