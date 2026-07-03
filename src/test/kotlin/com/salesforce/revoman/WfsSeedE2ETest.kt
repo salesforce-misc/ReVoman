@@ -10,6 +10,7 @@ package com.salesforce.revoman
 import com.google.common.truth.Truth.assertThat
 import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.input.readExternalOrgConfig
+import com.salesforce.revoman.internal.postman.template.v3.V3EnvLoader
 import java.net.URLEncoder
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
@@ -22,13 +23,14 @@ import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Test
 
 /**
- * Seeds Workforce Scheduling base data onto the external org configured in `~/.revoman/config.yaml`,
- * then asserts the seed landed. A faithful HTTP port of the org-manager post-processor
- * `WorkforceSchedulingPostProcessor.runBaseSeed()` (git.soma:orgfarm/org-manager).
+ * Seeds Workforce Scheduling base data onto an external org, then asserts the seed landed. A faithful
+ * HTTP port of the org-manager post-processor `WorkforceSchedulingPostProcessor.runBaseSeed()`
+ * (git.soma:orgfarm/org-manager).
  *
  * Flow:
- * 1. Read `~/.revoman/config.yaml` (baseUrl/username/password); SKIP the test if absent (this test
- *    needs a real org — it does not spin up a mock server like the other E2E tests).
+ * 1. Resolve org creds: `ws.environment.yaml` (alongside the collection) FIRST, else fall back to
+ *    `~/.revoman/config.yaml`. SKIP the test if neither yields creds (this test needs a real org — it
+ *    does not spin up a mock server like the other E2E tests).
  * 2. SOAP-login as admin in-test to mint {{adminToken}} and read the 15-char org id (the OSS ReVoman
  *    library has no in-JVM minting — SOAP login is the token source; it is enabled on the org).
  * 3. Pre-hook: idempotently seed the Shift.Status dyn-enum in local SDB ([WfsShiftStatusSeeder]).
@@ -47,14 +49,16 @@ class WfsSeedE2ETest {
 
   @Test
   fun `seeds Workforce Scheduling base data and verifies record counts`() {
-    val cfg = readExternalOrgConfig()
+    // Creds precedence: ws.environment.yaml (alongside this collection) FIRST, then fall back to
+    // ~/.revoman/config.yaml. The env file wins only when its baseUrl/username/password are all
+    // non-blank; otherwise the dotfile supplies them.
+    val cfg = resolveOrgCreds()
     assumeTrue(
-      cfg["baseUrl"] != null && cfg["username"] != null && cfg["password"] != null,
-      "No external-org creds in ~/.revoman/config.yaml — skipping WFS seed (needs a real org).",
+      cfg != null,
+      "No org creds — set baseUrl/username/password in $collection/ws.environment.yaml OR " +
+        "~/.revoman/config.yaml — skipping WFS seed (needs a real org).",
     )
-    val baseUrl = (cfg["baseUrl"] as String).trimEnd('/')
-    val username = cfg["username"] as String
-    val password = cfg["password"] as String
+    val (baseUrl, username, password) = cfg!!
 
     // 1. Admin SOAP login → adminToken + org15.
     val (adminToken, org15) = soapLogin(baseUrl, username, password)
@@ -101,6 +105,26 @@ class WfsSeedE2ETest {
     // owns one resource — see the service-resources folder for the (user, type) uniqueness note).
     assertThat(count("wfsSeedServiceResourceCount")).isAtLeast(1)
     assertThat(count("wfsSeedTerritoryMemberCount")).isAtLeast(1)
+  }
+
+  /** (baseUrl, username, password). */
+  private data class OrgCreds(val baseUrl: String, val username: String, val password: String)
+
+  /**
+   * Resolve org creds: try `ws.environment.yaml` (a `values:` env file on the classpath, alongside
+   * the collection) FIRST, then fall back to `~/.revoman/config.yaml` (flat `key: value`). Returns
+   * null when neither yields all three non-blank fields (→ the test is assumeTrue-skipped).
+   */
+  private fun resolveOrgCreds(): OrgCreds? {
+    fun fromMap(m: Map<String, Any?>): OrgCreds? {
+      val b = (m["baseUrl"] as? String)?.trim().orEmpty().trimEnd('/')
+      val u = (m["username"] as? String)?.trim().orEmpty()
+      val p = (m["password"] as? String)?.trim().orEmpty()
+      return if (b.isNotEmpty() && u.isNotEmpty() && p.isNotEmpty()) OrgCreds(b, u, p) else null
+    }
+    val fromEnvFile =
+      runCatching { fromMap(V3EnvLoader.loadFromPath("$collection/ws.environment.yaml")) }.getOrNull()
+    return fromEnvFile ?: fromMap(readExternalOrgConfig())
   }
 
   /** SOAP-login; returns (sessionId, org15). Pinned to an API version the org allows for SOAP login. */

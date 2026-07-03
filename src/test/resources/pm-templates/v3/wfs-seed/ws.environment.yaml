@@ -1,0 +1,11 @@
+name: ws
+# Primary creds source for WfsSeedE2ETest. Fill baseUrl / username / password to point the seed at
+# your org. If these are left blank, the test FALLS BACK to ~/.revoman/config.yaml. Not read by
+# ReVoman at runtime for anything else — the auth/ folder produces versionPath / tokens / ids live.
+values:
+  - key: baseUrl
+    value: ''
+  - key: username
+    value: ''
+  - key: password
+    value: ''

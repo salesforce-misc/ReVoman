@@ -36,17 +36,20 @@ Tokens are minted via **SOAP login** — the OSS ReVoman library has no in-JVM m
 1. **The org.** A Core org reachable over HTTPS (workspace/orgfarm), WFS-provisioned
    (`WorkforceSchedulingManager` / `WorkforceSchedulingResource` permission sets exist).
 
-2. **`~/.revoman/config.yaml`** — external-org creds the test reads:
-   ```yaml
-   externalOrg:
-     enabled: true
-   baseUrl: https://<org-host>:6101
-   username: <admin-username>
-   password: <admin-password>
-   cleanup:
-     skip: true
-   ```
-   Without it the test is `assumeTrue`-skipped (never fails CI on a machine with no org).
+2. **Org creds** — resolved in this precedence:
+   1. **`ws.environment.yaml`** (in this collection dir) — fill `baseUrl` / `username` / `password`.
+      Used when all three are non-blank.
+   2. **`~/.revoman/config.yaml`** — fallback when the env file's creds are blank:
+      ```yaml
+      externalOrg:
+        enabled: true
+      baseUrl: https://<org-host>:6101
+      username: <admin-username>
+      password: <admin-password>
+      cleanup:
+        skip: true
+      ```
+   Without creds in either, the test is `assumeTrue`-skipped (never fails CI on a machine with no org).
 
 3. **SOAP login ENABLED on the org.** The token source for every persona. If disabled, minting
    fails; enable it (or provision an org that allows it). SOAP login is pinned to API `v64`
@@ -101,7 +104,8 @@ Gradle plugin portal). This is a machine-local file, never committed.
 | `LICENSE_LIMIT_EXCEEDED` on create-manager | `WorkforceSchedulingPsl` seats exhausted. In local SDB: `UPDATE core.permission_set_license SET total_licenses=500 WHERE organization_id='<org15>' AND developer_name='WorkforceSchedulingPsl';` — or deactivate stale users. |
 | `INVALID_FIELD: No such column 'Latitude' on Location` | FLS on Location/Address geo. Already handled — the collection omits Location/Address geolocation (manager lacks the `WS_Location_Field_Access` grant). |
 | `DUPLICATE_VALUE: A service resource of this type already exists for this user` | Org enforces unique ServiceResource per `(user, ResourceType)`. The collection seeds exactly one resource for the case-worker persona. |
-| `Shift.Status` hook skipped | No local postgres found. Fine for the base seed; only needed if you later create a CONFIRMED Shift for booking. |
+| `Shift.Status` hook skipped | No local postgres found, OR the seed function isn't in this release's SDB. Fine for the base seed; only needed if you later create a CONFIRMED Shift for booking. |
+| `ERROR: schema "cpicklist" does not exist` (or similar) during the SDB hook | Old hardcoded-schema bug — fixed: the hook now resolves the `insert_default_dyn_enums_nc` schema at runtime from `pg_proc` and is non-fatal (logs + continues). Pull the latest. |
 | `gradle` "plugin not found" / wrapper SSL error | Use system `gradle`, add the mirror init script (see above). |
 
 ## Prompt for a new machine
