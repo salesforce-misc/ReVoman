@@ -42,15 +42,19 @@ object WfsShiftStatusSeeder {
 
   /**
    * Idempotently seed Shift.Status for [org15]. No-op if already seeded (Confirmed->'2' active).
-   * Skips (logged) when no local SDB is discoverable. Never throws for the "remote org" case; only a
-   * genuine SQL error on an available SDB propagates.
+   * BEST-EFFORT / NON-FATAL: any failure (no local SDB, function/schema absent for the release, SQL
+   * error) is logged and swallowed — Shift.Status is only needed for later booking, not the base
+   * seed, so it must never fail the seed run. The seed-function's schema is NOT hardcoded: it is
+   * resolved at runtime from pg_proc, because it differs across releases (e.g. `cpicklist` on one
+   * release, absent-at-that-version on another — the source of the "schema cpicklist does not exist"
+   * error).
    */
   fun seed(org15: String) {
     val coords = discoverLocalSdb()
     if (coords == null) {
       logger.warn {
-        "No local SDB postgres process found — SKIPPING Shift.Status seed. If the org is remote, seed " +
-          "Shift.Status out-of-band; if it's local, ensure the SDB postgres is running."
+        "No local SDB postgres process found — SKIPPING Shift.Status seed (non-fatal). If the org is " +
+          "remote, seed Shift.Status out-of-band; if it's local, ensure the SDB postgres is running."
       }
       return
     }
@@ -59,30 +63,60 @@ object WfsShiftStatusSeeder {
         "127.0.0.1:${coords.port}/${coords.db} (release ${coords.release}, user ${coords.user})"
     }
     val url = "jdbc:postgresql://127.0.0.1:${coords.port}/${coords.db}"
-    DriverManager.getConnection(url, coords.user, "").use { conn ->
-      if (isAlreadySeeded(conn, org15)) {
-        logger.info { "Shift.Status already seeded for $org15 (Confirmed->'2' active) — no-op" }
-        return
-      }
-      conn.autoCommit = false
-      // Platform seeder: inserts every value active, sort-ordered, with its category mapping, in one
-      // txn — the same path CPicklist.insertDefaultDynEnumsNc uses. A bare UPDATE would miss on a
-      // fresh org where the values don't exist yet.
-      conn.prepareStatement(
-          "SELECT cpicklist.insert_default_dyn_enums_nc(?, ?, ?::saydb.string_array, ?, ?::saydb.string_array)"
-        )
-        .use { ps ->
-          ps.setString(1, org15)
-          ps.setString(2, SHIFT_STATUS_ENUM_ID)
-          ps.setArray(3, conn.createArrayOf("varchar", VALUES.toTypedArray()))
-          ps.setInt(4, DEFAULT_IDX)
-          ps.setArray(5, conn.createArrayOf("varchar", GROUPINGS.toTypedArray()))
-          ps.execute()
+    try {
+      DriverManager.getConnection(url, coords.user, "").use { conn ->
+        if (isAlreadySeeded(conn, org15)) {
+          logger.info { "Shift.Status already seeded for $org15 (Confirmed->'2' active) — no-op" }
+          return
         }
-      conn.commit()
+        val schema = resolveSeedFnSchema(conn)
+        if (schema == null) {
+          logger.warn {
+            "Seed function `insert_default_dyn_enums_nc` not found in this SDB (release " +
+              "${coords.release}) — SKIPPING Shift.Status seed (non-fatal). Seed it out-of-band if a " +
+              "booking flow needs a CONFIRMED Shift."
+          }
+          return
+        }
+        conn.autoCommit = false
+        // Platform seeder: inserts every value active, sort-ordered, with its category mapping, in one
+        // txn — the same path CPicklist.insertDefaultDynEnumsNc uses. A bare UPDATE would miss on a
+        // fresh org where the values don't exist yet. Schema is resolved (not hardcoded); the array
+        // domains live in the stable `saydb` schema.
+        conn.prepareStatement(
+            "SELECT \"$schema\".insert_default_dyn_enums_nc(?, ?, ?::saydb.string_array, ?, ?::saydb.string_array)"
+          )
+          .use { ps ->
+            ps.setString(1, org15)
+            ps.setString(2, SHIFT_STATUS_ENUM_ID)
+            ps.setArray(3, conn.createArrayOf("varchar", VALUES.toTypedArray()))
+            ps.setInt(4, DEFAULT_IDX)
+            ps.setArray(5, conn.createArrayOf("varchar", GROUPINGS.toTypedArray()))
+            ps.execute()
+          }
+        conn.commit()
+        logger.info { "Shift.Status seeded for $org15 via schema `$schema`: ${VALUES.zip(GROUPINGS)}" }
+      }
+    } catch (e: Exception) {
+      logger.warn(e) {
+        "Shift.Status seed FAILED (non-fatal) — continuing the base seed without it. Seed it " +
+          "out-of-band if a booking flow needs a CONFIRMED Shift. Cause: ${e.message}"
+      }
     }
-    logger.info { "Shift.Status seeded for $org15: ${VALUES.zip(GROUPINGS)}" }
   }
+
+  /**
+   * Resolve the schema that hosts `insert_default_dyn_enums_nc` in THIS SDB, or null if absent. The
+   * schema is release-specific (do not hardcode it) — this queries pg_proc so it works on any release
+   * that ships the function, and returns null (→ graceful skip) on one that doesn't.
+   */
+  private fun resolveSeedFnSchema(conn: java.sql.Connection): String? =
+    conn
+      .prepareStatement(
+        "SELECT n.nspname FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace " +
+          "WHERE p.proname = 'insert_default_dyn_enums_nc' LIMIT 1"
+      )
+      .use { ps -> ps.executeQuery().use { if (it.next()) it.getString(1) else null } }
 
   private fun isAlreadySeeded(conn: java.sql.Connection, org15: String): Boolean =
     conn
