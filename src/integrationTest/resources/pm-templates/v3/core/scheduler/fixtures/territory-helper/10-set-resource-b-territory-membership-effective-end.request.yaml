@@ -1,0 +1,35 @@
+$kind: http-request
+description: >-
+  Narrows resourceB's ServiceTerritoryMember (created open-ended in the graph) to END at noon (12:00 UTC) of
+  the search day (tomorrow), making resourceB's membership PARTIAL over the 11:30-12:30 booking window.
+  resourceA's membership is left open-ended (clean). Done as a SEPARATE PATCH after the Shift exists because
+  the Shift insert validator requires the Shift to be fully contained in the membership interval — a partial
+  membership at graph time would reject the full-day (08-16) Shift. An STM update does not re-run that shift
+  validation, so the partial membership lands while resourceB's full-day Shift survives. After this,
+  resourceB is still fully AVAILABLE (Shift + member OH cover the window) but its membership [month-ago,
+  noon] OVERLAPS but does NOT CONTAIN the straddle-noon booking window (noon < 12:30) — so only the classic
+  engine's territory/STM membership filter can exclude it. Runs under {{adminToken}} (created it in the
+  graph). Sequenced after the graph (order 500) within this fixture Kick by order 1000.
+url: "{{baseUrl}}{{versionPath}}/sobjects/ServiceTerritoryMember/{{schedResourceBStmId}}"
+method: PATCH
+headers:
+  Content-Type: application/json
+  Accept: application/json
+body:
+  type: json
+  content: |-
+    {
+      "EffectiveEndDate": "{{schedResourceBStmEffectiveEnd}}"
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      // EffectiveEndDate = noon (12:00 UTC) of the search day (tomorrow). resourceB's membership now covers
+      // the morning of the 08-16 day but not the afternoon, so it OVERLAPS but does not CONTAIN the
+      // 11:30-12:30 straddle-noon booking window.
+      const effectiveEnd = new Date();
+      effectiveEnd.setUTCDate(effectiveEnd.getUTCDate() + 1);
+      effectiveEnd.setUTCHours(12, 0, 0, 0);
+      pm.environment.set("schedResourceBStmEffectiveEnd", effectiveEnd.toISOString());
+    language: text/javascript
+order: 1000

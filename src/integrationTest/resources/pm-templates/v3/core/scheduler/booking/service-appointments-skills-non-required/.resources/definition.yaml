@@ -1,0 +1,12 @@
+$kind: collection
+description: |-
+  OLD Scheduler book of the skills-helper fixture: A (required+primary, skilled) + B (non-required helper,
+  skill-less). The non-required + non-primary helper escapes the old engine's skill fitness check (the
+  multi path skill-checks the primary only), so the SA books Success — parity with 264's non-required
+  helper-escapes. Runs under {{adminToken}}. See the request file.
+auth:
+  - id: 7e1f0c00-1005-4aaa-9bbb-000000000060
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{adminToken}}"

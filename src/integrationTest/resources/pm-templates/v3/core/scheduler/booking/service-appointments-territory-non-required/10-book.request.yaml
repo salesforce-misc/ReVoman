@@ -1,0 +1,53 @@
+$kind: http-request
+description: >-
+  OLD Salesforce Scheduler book: POST /connect/scheduling/service-appointments, tomorrow 11:30-12:30 UTC (a
+  window that STRADDLES the resourceB membership end at noon), with TWO assignedResources — resourceA
+  (isRequiredResource=true, isPrimaryResource=true, clean, membership covers the whole window) and resourceB
+  (isRequiredResource=false, membership ends at noon → out of territory over the afternoon). Per the object
+  reference, a non-required resource is "considered available for other appointments" — so the old engine
+  should NOT territory/membership-check B → the SA books (HTTP 2xx, serviceAppointmentId returned). Captures
+  oldWriteHelperHttp + oldWriteHelperSaId.
+url: "{{baseUrl}}{{versionPath}}/connect/scheduling/service-appointments"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "serviceAppointment": {
+        "serviceTerritoryId": "{{schedTerritoryId}}",
+        "parentRecordId": "{{schedAccountId}}",
+        "workTypeId": "{{schedWorkTypeId}}",
+        "schedStartTime": "{{schedBookStart}}",
+        "schedEndTime": "{{schedBookEnd}}",
+        "extendedFields": [ { "name": "Status", "value": "Scheduled" } ]
+      },
+      "assignedResources": [
+        { "serviceResourceId": "{{schedResourceAId}}", "isRequiredResource": true, "isPrimaryResource": true },
+        { "serviceResourceId": "{{schedResourceBId}}", "isRequiredResource": false, "isPrimaryResource": false }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(11, 30, 0, 0);
+      const e = new Date(s.getTime() + 60 * 60 * 1000);
+      pm.environment.set("schedBookStart", s.toISOString());
+      pm.environment.set("schedBookEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      // The Connect book API wraps its payload in a "result" node on success:
+      // { "result": { "serviceAppointmentId": "08p...", "assignedResourceIds": [...] } }. On refusal it
+      // returns a top-level error array. Dig the SA id out of result first, then the flatter shapes.
+      const data = pm.response.json() || {};
+      const result = data.result || data;
+      pm.environment.set("oldWriteHelperHttp", String(pm.response.code));
+      pm.environment.set("oldWriteHelperSaId", result.serviceAppointmentId || (result.serviceAppointment && result.serviceAppointment.id) || "");
+      console.log("OLD book helper (territory) http=" + pm.response.code + " body=" + JSON.stringify(data).slice(0,300));
+    language: text/javascript
+order: 1000

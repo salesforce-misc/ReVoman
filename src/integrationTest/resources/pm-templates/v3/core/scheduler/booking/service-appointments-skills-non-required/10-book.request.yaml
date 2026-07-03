@@ -1,0 +1,54 @@
+$kind: http-request
+description: >-
+  OLD Salesforce Scheduler book: POST /connect/scheduling/service-appointments, tomorrow 11:00-11:30 UTC,
+  with TWO assignedResources — resourceA (isRequiredResource=true, isPrimaryResource=true, skilled) and
+  resourceB (isRequiredResource=false, isPrimaryResource=false, skill-less). resourceB LACKS the
+  WorkType's required ServiceResourceSkill, but as a NON-required + NON-primary helper it is not
+  skill-fitness-checked by the old engine (per the object reference a non-required resource is
+  "considered available for other appointments"; and the old multi path skill-checks the primary only) →
+  the SA books (HTTP 2xx, serviceAppointmentId returned). This is the OLD-side write analogue of 264's
+  non-required helper-escapes. Captures oldWriteHelperHttp + oldWriteHelperSaId.
+url: "{{baseUrl}}{{versionPath}}/connect/scheduling/service-appointments"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "serviceAppointment": {
+        "serviceTerritoryId": "{{schedTerritoryId}}",
+        "parentRecordId": "{{schedAccountId}}",
+        "workTypeId": "{{schedWorkTypeId}}",
+        "schedStartTime": "{{schedBookStart}}",
+        "schedEndTime": "{{schedBookEnd}}",
+        "extendedFields": [ { "name": "Status", "value": "Scheduled" } ]
+      },
+      "assignedResources": [
+        { "serviceResourceId": "{{schedResourceAId}}", "isRequiredResource": true, "isPrimaryResource": true },
+        { "serviceResourceId": "{{schedResourceBId}}", "isRequiredResource": false, "isPrimaryResource": false }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(11, 0, 0, 0);
+      const e = new Date(s.getTime() + 30 * 60 * 1000);
+      pm.environment.set("schedBookStart", s.toISOString());
+      pm.environment.set("schedBookEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      // The Connect book API wraps its payload in a "result" node on success:
+      // { "result": { "serviceAppointmentId": "08p...", "assignedResourceIds": [...] } }. On refusal it
+      // returns a top-level error array. Dig the SA id out of result first, then the flatter shapes.
+      const data = pm.response.json() || {};
+      const result = data.result || data;
+      pm.environment.set("oldWriteHelperHttp", String(pm.response.code));
+      pm.environment.set("oldWriteHelperSaId", result.serviceAppointmentId || (result.serviceAppointment && result.serviceAppointment.id) || "");
+      console.log("OLD book skills-helper http=" + pm.response.code + " body=" + JSON.stringify(data).slice(0,300));
+    language: text/javascript
+order: 1000

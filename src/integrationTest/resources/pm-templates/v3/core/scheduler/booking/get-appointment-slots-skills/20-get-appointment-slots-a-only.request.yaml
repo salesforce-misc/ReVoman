@@ -1,0 +1,35 @@
+$kind: http-request
+description: >-
+  Non-vacuity control: OLD getAppointmentSlots naming ONLY skilled resourceA as required, same window
+  (tomorrow 11:00-11:30 UTC). SINGLE-resource shape: primaryResourceId OMITTED,
+  requiredResourceIds=[A]. resourceA HOLDS the WorkType's required ServiceResourceSkill and is fully
+  available, so the Skills rule passes and the read offers slots (> 0). Proves the fixture (and the
+  Lightning-Scheduler user-access grant) is LIVE, so the B-only 0-slot result reflects B's missing skill,
+  not a dead fixture. Captures oldReadAOnlySlotCount. Response field is "timeSlots". PREREQUISITE:
+  resourceA's user must hold the Lightning Scheduler PSL + lightningSchedulerUserAccess (granted by the
+  shared grant-ls-user-access Kick) or this control also reads 0 (dead).
+url: "{{baseUrl}}{{versionPath}}/scheduling/getAppointmentSlots"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "workType": { "id": "{{schedWorkTypeId}}" },
+      "territoryIds": ["{{schedTerritoryId}}"],
+      "requiredResourceIds": ["{{schedResourceAId}}"],
+      "startTime": "{{schedReadStart}}",
+      "endTime": "{{schedReadEnd}}"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      const data = pm.response.json() || {};
+      const slots = (data.timeSlots || data.slots || []);
+      pm.environment.set("oldReadAOnlySlotCount", String(slots.length));
+      console.log("OLD read A-only (single, skilled) http=" + pm.response.code + " slots=" + slots.length);
+    language: text/javascript
+order: 2000

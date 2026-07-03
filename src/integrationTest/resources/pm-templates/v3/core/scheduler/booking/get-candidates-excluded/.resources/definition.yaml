@@ -1,0 +1,12 @@
+$kind: collection
+description: |-
+  OLD Scheduler getAppointmentCandidates over the excluded-helper fixture: WITH accountId (resourceB on the
+  account's Excluded list → should be pruned, absent from candidates) vs NO accountId (resourceB present →
+  non-vacuity: fixture live, exclusion is the accountId+pref). Captures oldCandidatesWithAcct* +
+  oldCandidatesNoAcct* for the 1a read-decision diff. Runs under {{adminToken}}.
+auth:
+  - id: 7e1f0c00-1005-4aaa-9bbb-000000000041
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{adminToken}}"

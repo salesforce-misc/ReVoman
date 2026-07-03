@@ -1,0 +1,42 @@
+$kind: http-request
+description: >-
+  OLD Salesforce Scheduler MULTI-RESOURCE read: POST /scheduling/getAppointmentSlots over the
+  skills-helper fixture, tomorrow 11:00-11:30 UTC, with primaryResourceId=A (skilled) +
+  requiredResourceIds=[B] (skill-less). This is the MULTI path (a primary plus an additional required id;
+  A in BOTH lists is a BAD_REQUEST, so "A primary + B required" is the multi shape). The old engine's
+  multi path skill-checks the PRIMARY resource ONLY — MultiResourceTimeSlotProcessor48.shouldMatchSkills
+  returns true iff serviceResourceId==primaryResourceId (v48/224+; the SchedulingServiceImpl comment at
+  line ~541 says the same: "skill matching with primaryResource in case of MultiResource"). So skilled A
+  passes the Skills rule AND skill-less B (a NON-primary required resource) is NEVER skill-checked → B
+  ESCAPES the Skills rule and the A∩B intersection still has slots (> 0). This is the OLD-side analogue of
+  264's non-required-helper-escapes: the same "the extra resource is not skill-fitness-checked" outcome,
+  reached via the old engine's primary-only rule rather than 264's required-only rule. Captures
+  oldReadMultiHelperSlotCount. PREREQUISITE: both resource users hold the Lightning Scheduler PSL +
+  lightningSchedulerUserAccess (shared grant-ls-user-access Kick) or the classic engine prunes them first
+  (removeResourcesWithoutPerm) → an all-0 dead read. Response field is "timeSlots".
+url: "{{baseUrl}}{{versionPath}}/scheduling/getAppointmentSlots"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "workType": { "id": "{{schedWorkTypeId}}" },
+      "territoryIds": ["{{schedTerritoryId}}"],
+      "requiredResourceIds": ["{{schedResourceBId}}"],
+      "primaryResourceId": "{{schedResourceAId}}",
+      "startTime": "{{schedReadStart}}",
+      "endTime": "{{schedReadEnd}}"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      const data = pm.response.json() || {};
+      const slots = (data.timeSlots || data.slots || []);
+      pm.environment.set("oldReadMultiHelperSlotCount", String(slots.length));
+      console.log("OLD read multi (A primary + B required helper) http=" + pm.response.code + " slots=" + slots.length);
+    language: text/javascript
+order: 3000

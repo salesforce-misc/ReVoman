@@ -1,0 +1,58 @@
+$kind: http-request
+description: >-
+  OLD Salesforce Scheduler WRITE probe: POST /connect/scheduling/service-appointments, tomorrow 11:00-11:30
+  UTC, parentRecordId = the excluded Account, with TWO assignedResources — resourceA
+  (isRequiredResource=true, isPrimaryResource=true, clean) and resourceB (isRequiredResource=false, on the
+  Account's Excluded ResourcePreference list). The classic book path (ServiceAppointmentServiceImpl.create →
+  ServiceAppointmentHelper.areResourcesAvailable → schedulingService.getAppointmentSlots) validates only
+  the REQUIRED/primary resources for time-slot availability and passes accountResourcePreferences=null, so
+  the account ResourcePreference(Excluded) is NEVER evaluated on the write path — and a NON-required helper
+  is not availability-checked either. So the OBSERVED outcome should be: the SA BOOKS (HTTP 2xx,
+  serviceAppointmentId returned) even though resourceB is excluded on the account — matching the 264 finding
+  that a non-required excluded helper escapes the fitness rule. Captures oldWriteHelperHttp +
+  oldWriteHelperSaId. (The book API wraps the SA id in a "result" node on success; a refusal returns a
+  top-level error array.)
+url: "{{baseUrl}}{{versionPath}}/connect/scheduling/service-appointments"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "serviceAppointment": {
+        "serviceTerritoryId": "{{schedTerritoryId}}",
+        "parentRecordId": "{{schedAccountId}}",
+        "workTypeId": "{{schedWorkTypeId}}",
+        "schedStartTime": "{{schedBookStart}}",
+        "schedEndTime": "{{schedBookEnd}}",
+        "extendedFields": [ { "name": "Status", "value": "Scheduled" } ]
+      },
+      "assignedResources": [
+        { "serviceResourceId": "{{schedResourceAId}}", "isRequiredResource": true, "isPrimaryResource": true },
+        { "serviceResourceId": "{{schedResourceBId}}", "isRequiredResource": false, "isPrimaryResource": false }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(11, 0, 0, 0);
+      const e = new Date(s.getTime() + 30 * 60 * 1000);
+      pm.environment.set("schedBookStart", s.toISOString());
+      pm.environment.set("schedBookEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      // The Connect book API wraps its payload in a "result" node on success:
+      // { "result": { "serviceAppointmentId": "08p...", "assignedResourceIds": [...] } }. On refusal it
+      // returns a top-level error array. Dig the SA id out of result first, then the flatter shapes.
+      const data = pm.response.json() || {};
+      const result = data.result || data;
+      pm.environment.set("oldWriteHelperHttp", String(pm.response.code));
+      pm.environment.set("oldWriteHelperSaId", result.serviceAppointmentId || (result.serviceAppointment && result.serviceAppointment.id) || "");
+      console.log("OLD book excluded-helper http=" + pm.response.code + " body=" + JSON.stringify(data).slice(0,300));
+    language: text/javascript
+order: 1000

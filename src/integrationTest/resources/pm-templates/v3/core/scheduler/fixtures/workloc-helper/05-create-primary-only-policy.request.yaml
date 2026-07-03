@@ -1,0 +1,40 @@
+$kind: http-request
+description: >-
+  Seeds the PRIMARY-ONLY AppointmentSchedulingPolicy for the 1d WorkingLocations slice as a STANDALONE
+  /sobjects POST (its own transaction). AppointmentSchedulingPolicy is a SETUP object, so inserting it in
+  the SAME composite/graph as the non-setup fixture rows (Account / ServiceTerritory / ServiceResource /
+  Shift) trips MIXED_DML_OPERATION ("DML operation on setup object is not permitted after you have updated
+  a non-setup object") and rolls the whole graph back — LIVE-OBSERVED on this org. Splitting it into its
+  own request dodges that. Fields: ShouldUsePrimaryMembers=true + ShouldUseSecondaryMembers=false is the
+  ONLY behavioral difference from the org-default policy that matters — it makes the classic STM SOQL
+  filter emit `TerritoryType IN ('P','R')`, dropping any SECONDARY-only member. ShouldEnforceRequiredResource
+  =true matches the org default (and gives the required-control its refusal). AppointmentStartTimeInterval
+  ="15" is a required restrictedPicklist field. Both shift flags are OMITTED (default false → OH-mode), so
+  the wide member OH 08-16 keeps resourceA available and availability is never the blocker. IsOrgDefault is
+  not createable, so this policy applies only via an explicit schedulingPolicyId on the read/book acts; the
+  org default is untouched. Runs order 400 (before the data graph at 500). Captures schedWlPrimaryOnlyPolicyId.
+url: "{{baseUrl}}{{versionPath}}/sobjects/AppointmentSchedulingPolicy"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+body:
+  type: json
+  content: |-
+    {
+      "DeveloperName": "WlPrimaryOnly{{$timestamp}}",
+      "MasterLabel": "WL Primary-Only {{$timestamp}}",
+      "ShouldUsePrimaryMembers": true,
+      "ShouldUseSecondaryMembers": false,
+      "ShouldEnforceRequiredResource": true,
+      "AppointmentStartTimeInterval": "15"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      const data = pm.response.json() || {};
+      pm.environment.set("schedWlPrimaryOnlyPolicyId", data.id);
+      console.log("OLD workloc primary-only policy http=" + pm.response.code + " id=" + data.id +
+                  " body=" + JSON.stringify(data).slice(0,300));
+    language: text/javascript
+order: 400

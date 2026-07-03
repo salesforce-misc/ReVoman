@@ -1,0 +1,11 @@
+$kind: collection
+description: |-
+  OLD Scheduler getAppointmentSlots over the territory-helper fixture: A+B (B's membership ends at noon, so
+  the A∩B intersection is empty over the 11:30-12:30 straddle-noon window → 0 slots) vs A-only (> 0 slots).
+  Captures oldReadWithBSlotCount + oldReadAOnlySlotCount for the 1b territory read-decision diff.
+auth:
+  - id: 7e1f0c00-1005-4aaa-9bbb-000000000120
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{adminToken}}"

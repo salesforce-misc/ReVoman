@@ -1,0 +1,54 @@
+$kind: http-request
+description: >-
+  Control: OLD book with resourceB isRequiredResource=true (still the Secondary member under the
+  PRIMARY-ONLY policy), same window (tomorrow 11:00-12:00 UTC). A REQUIRED resource IS eligibility/
+  availability-checked → the primary-only STM filter has already removed the Secondary resourceB from the
+  candidate pool → no A∩B slot at 11:00 → the book is refused (non-2xx, no serviceAppointmentId). Isolates
+  the helper Success to the non-required flag: same Secondary resource, only the isRequiredResource flag
+  flips. Captures oldWriteRequiredControlHttp + oldWriteRequiredControlSaId.
+url: "{{baseUrl}}{{versionPath}}/connect/scheduling/service-appointments"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "serviceAppointment": {
+        "serviceTerritoryId": "{{schedWlTerritoryId}}",
+        "parentRecordId": "{{schedWlAccountId}}",
+        "workTypeId": "{{schedWlWorkTypeId}}",
+        "schedStartTime": "{{schedWlBookStart}}",
+        "schedEndTime": "{{schedWlBookEnd}}",
+        "extendedFields": [ { "name": "Status", "value": "Scheduled" } ]
+      },
+      "schedulingPolicyId": "{{schedWlPrimaryOnlyPolicyId}}",
+      "assignedResources": [
+        { "serviceResourceId": "{{schedWlResourceAId}}", "isRequiredResource": true, "isPrimaryResource": true },
+        { "serviceResourceId": "{{schedWlResourceBId}}", "isRequiredResource": true, "isPrimaryResource": false }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(11, 0, 0, 0);
+      const e = new Date(s.getTime() + 30 * 60 * 1000);
+      pm.environment.set("schedWlBookStart", s.toISOString());
+      pm.environment.set("schedWlBookEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      // The Connect book API wraps its payload in a "result" node on success:
+      // { "result": { "serviceAppointmentId": "08p...", "assignedResourceIds": [...] } }. On refusal it
+      // returns a top-level error array (here: the Secondary resource is not an eligible candidate under
+      // the primary-only policy). Dig the SA id out of result first; a refusal leaves it empty.
+      const data = pm.response.json() || {};
+      const result = data.result || data;
+      pm.environment.set("oldWriteRequiredControlHttp", String(pm.response.code));
+      pm.environment.set("oldWriteRequiredControlSaId", result.serviceAppointmentId || (result.serviceAppointment && result.serviceAppointment.id) || "");
+      console.log("OLD workloc book required-control http=" + pm.response.code + " body=" + JSON.stringify(data).slice(0,300));
+    language: text/javascript
+order: 1000

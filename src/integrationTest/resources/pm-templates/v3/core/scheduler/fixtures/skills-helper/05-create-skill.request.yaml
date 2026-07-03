@@ -1,0 +1,34 @@
+$kind: http-request
+description: >-
+  Creates the master Skill in its OWN transaction, BEFORE the main data graph. Skill (keyPrefix 0C5, the
+  LiveAgent setupEntity the scheduling FKs point at) is a SETUP object; the rest of the fixture (Account,
+  ServiceResource, ServiceTerritory, TimeSlots, Shifts, SkillRequirement, ServiceResourceSkill) are
+  NON-setup objects. Salesforce forbids setup + non-setup DML in the SAME transaction
+  (MIXED_DML_OPERATION), so the Skill cannot live inside the composite/graph that builds everything else —
+  it would roll the whole graph back. Runs under {{adminToken}} (the scheduler-org admin session), which
+  satisfies Skill.createAccess (CustomizeApplication || isDoingSysAdmin). Sets schedSkillId, which
+  create-skills-helper-graph then FK-references from SkillRequirement (RelatedRecordId=WorkType) and
+  resourceA's ServiceResourceSkill (both non-setup platform entities — FK-referencing a setup object is
+  not setup DML, so they stay inside the graph). Clone of the WFS create-skill step, retargeted to the
+  scheduler admin session.
+url: "{{baseUrl}}{{versionPath}}/sobjects/Skill"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "MasterLabel": "SchedSkill {{$timestamp}}",
+      "DeveloperName": "SchedSkill_{{$timestamp}}"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      const jsonData = pm.response.json();
+      if (!jsonData.success) {
+        throw new Error("Skill create failed: " + JSON.stringify(jsonData.errors || jsonData));
+      }
+      pm.environment.set("schedSkillId", jsonData.id);
+    language: text/javascript
+order: 250

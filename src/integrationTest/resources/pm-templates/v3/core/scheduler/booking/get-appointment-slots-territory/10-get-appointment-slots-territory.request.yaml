@@ -1,0 +1,54 @@
+$kind: http-request
+description: >-
+  OLD Salesforce Scheduler MULTI-RESOURCE read: POST /scheduling/getAppointmentSlots over the
+  territory-helper fixture, tomorrow 11:30-12:30 UTC (a window that STRADDLES the resourceB membership end at
+  noon), naming BOTH resourceA (clean, membership covers the whole window) and resourceB (membership ends at
+  noon → does NOT cover the afternoon) as required. The classic engine's multi-resource contract treats
+  primaryResourceId and requiredResourceIds as DISJOINT sets (the primary is its own required resource, added
+  to the intersection separately — SchedulingServiceImpl adds primaryResourceId to requiredResourceIds15Char)
+  and REJECTS an id that appears in both lists as a BAD_REQUEST ("Remove the primaryResourceId from the
+  requiredResourceIds list"). So "both A and B required" is expressed as primaryResourceId=A +
+  requiredResourceIds=[B]. The engine AND-intersects every required resource's availability over the
+  territory/STM-committed window (getOverlappingTimeSlotsBetweenMultipleResources → extractCommonSlots,
+  empty-set early-exit), so resourceB's membership NOT covering the afternoon of the straddle-noon window
+  zeroes the A∩B slots. The old read has NO non-required "helper" input — every named id is required — so the
+  read-side probe is "required-and-out-of-territory zeroes vs A-only offers". Multi-resource requires the
+  org's MultiResourceScheduling perm. Captures oldReadWithBSlotCount. Response field is "timeSlots"
+  (data.timeSlots). PREREQUISITE: the two resource users must hold the Lightning Scheduler PSL +
+  lightningSchedulerUserAccess user-perm (granted by the shared grant-ls-user-access Kick, revUp'd just
+  before this read) or the classic engine prunes both resources → an all-0 dead read
+  (removeResourcesWithoutPerm).
+url: "{{baseUrl}}{{versionPath}}/scheduling/getAppointmentSlots"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "workType": { "id": "{{schedWorkTypeId}}" },
+      "territoryIds": ["{{schedTerritoryId}}"],
+      "requiredResourceIds": ["{{schedResourceBId}}"],
+      "primaryResourceId": "{{schedResourceAId}}",
+      "startTime": "{{schedReadStart}}",
+      "endTime": "{{schedReadEnd}}"
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      // Tomorrow 11:30-12:30 UTC: a window that STRADDLES the resourceB membership effective end (noon).
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(11, 30, 0, 0);
+      const e = new Date(s.getTime() + 60 * 60 * 1000);
+      pm.environment.set("schedReadStart", s.toISOString());
+      pm.environment.set("schedReadEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      const data = pm.response.json() || {};
+      const slots = (data.timeSlots || data.slots || []);
+      pm.environment.set("oldReadWithBSlotCount", String(slots.length));
+      console.log("OLD read A+B (territory) http=" + pm.response.code + " slots=" + slots.length);
+    language: text/javascript
+order: 1000

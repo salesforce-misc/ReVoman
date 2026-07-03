@@ -1,0 +1,14 @@
+$kind: collection
+description: |-
+  OLD Scheduler-org REQUIRED-RESOURCES (Decision 1.4) data graph (clone of the WFS Unified
+  required-non-required fixture, retargeted to the scheduler org + admin session). Territory OH 08-16;
+  BOTH resourceA and resourceB member OH + Shift 08-16 (both available at 11:00-11:30). An Account
+  ResourcePreference(Required) names resourceB ONLY, and an AppointmentSchedulingPolicy with
+  ShouldEnforceRequiredResource=true makes the classic engine honor it. Sets
+  schedReq{Territory,WorkType,Account,ResourceA,ResourceB,Policy}Id.
+auth:
+  - id: 7e1f0c00-1005-4aaa-9bbb-000000000110
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{adminToken}}"

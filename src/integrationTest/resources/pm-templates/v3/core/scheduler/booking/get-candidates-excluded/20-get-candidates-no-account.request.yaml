@@ -1,0 +1,40 @@
+$kind: http-request
+description: >-
+  NON-VACUITY CONTROL: the SAME getAppointmentCandidates read over the SAME excluded-helper fixture, same
+  window (tomorrow 11:00-11:30 UTC), but with NO accountId. Without an accountId the classic engine loads
+  NO account ResourcePreferences (accountResourcePreferences stays null → checkResourcePrefs short-circuits
+  true), so resourceB is NOT pruned and SHOULD appear as a candidate — proving (a) the fixture is live and
+  resourceB is a real, available candidate at 11:00, and (b) resourceB's absence in the WITH-account read
+  (step 10) is caused specifically by the account ResourcePreference(Excluded), not by a dead fixture or a
+  silently-failed grant. Captures oldCandidatesNoAcctResourceBPresent (1/0) + oldCandidatesNoAcctCount.
+  PREREQUISITE: same Lightning-Scheduler grant as step 10.
+url: "{{baseUrl}}{{versionPath}}/scheduling/getAppointmentCandidates"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "workType": { "id": "{{schedWorkTypeId}}" },
+      "territoryIds": ["{{schedTerritoryId}}"],
+      "startTime": "{{schedReadStart}}",
+      "endTime": "{{schedReadEnd}}"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      const data = pm.response.json() || {};
+      const candidates = data.candidates || [];
+      const key = (id) => String(id || "").substring(0, 15);
+      const bKey = key(pm.environment.get("schedResourceBId"));
+      let bPresent = 0;
+      candidates.forEach(c => (c.resources || []).forEach(r => { if (key(r) === bKey) bPresent = 1; }));
+      pm.environment.set("oldCandidatesNoAcctResourceBPresent", String(bPresent));
+      pm.environment.set("oldCandidatesNoAcctCount", String(candidates.length));
+      console.log("OLD candidates NO acct http=" + pm.response.code + " count=" + candidates.length +
+                  " Bpresent=" + bPresent);
+    language: text/javascript
+order: 2000

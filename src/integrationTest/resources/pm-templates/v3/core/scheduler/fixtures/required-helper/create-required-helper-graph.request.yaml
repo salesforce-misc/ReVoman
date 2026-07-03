@@ -1,0 +1,289 @@
+$kind: http-request
+description: >-
+  OLD scheduler-org REQUIRED-RESOURCES (Decision 1.4) data graph — the account demands a SPECIFIC worker.
+  Clone of the WFS Unified required-non-required fixture, retargeted to the scheduler org + adminToken.
+  Territory OH 08-16 (Mon-Sun), a WorkType (OnSite, 60m) + STWT, an Account. TWO User-backed
+  ServiceResources on DISTINCT FRESH timestamped users (ServiceResource is DB-unique on
+  (RelatedRecordId, ResourceType) → mint fresh users per run, the proven WFS create-case-worker pattern;
+  fixed pre-existing users already own a ResourceType='T' SR and roll the whole graph back with
+  DUPLICATE_VALUE):
+    - resourceA (required+primary in the write, clean): member OH 08-16 + Confirmed Shift 08-16 → COVERS
+      the 11:00-11:30 window → A is available. A is NOT the account-required worker.
+    - resourceB (the NON-required helper): member OH 08-16 + Confirmed Shift 08-16 → ALSO available at the
+      window. B being available is deliberate — availability must NOT be the confound; the ONLY rule in
+      play is RequiredResources (the account demands B), so B is present and bookable but is offered/assigned
+      only as a helper.
+  An Account ResourcePreference(PreferenceType=Required) links the Account to resourceB ONLY, putting
+  resourceB (and NOT resourceA) on the Account's REQUIRED-resource preference list. Finally an
+  AppointmentSchedulingPolicy with ShouldEnforceRequiredResource=true (NON org-default) so the classic
+  engine (SchedulingDbUtil.buildSchedulingPolicyConstraint reads ShouldEnforceRequiredResource → true →
+  loadAccountResourcePreferences populates requiredServiceResourceIds={resourceB} → SchedulingDbUtil
+  .checkResourcePrefs filters the candidate pool to the account's required set). ShouldUsePrimaryMembers +
+  the two Shift flags true so availability = member OH ∪ Shift (same mechanism as the double-book fixture).
+  Sets schedReqTerritoryId / schedReqWorkTypeId / schedReqAccountId / schedReqResourceAId /
+  schedReqResourceBId / schedReqPolicyId.
+url: "{{baseUrl}}{{versionPath}}/composite/graph"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "graphs": [
+        {
+          "graphId": "requiredHelper",
+          "compositeRequest": [
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/User",
+              "referenceId": "refUserA",
+              "body": {
+                "Username": "{{schedReqUserAName}}",
+                "ProfileId": "00exx000000n0KyAAI",
+                "Alias": "rres-a",
+                "Email": "{{schedReqUserAName}}",
+                "EmailEncodingKey": "ISO-8859-1",
+                "LastName": "ResourceA",
+                "FirstName": "ReqHelper",
+                "LanguageLocaleKey": "en_US",
+                "LocaleSidKey": "en_US",
+                "TimeZoneSidKey": "Asia/Kolkata"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/User",
+              "referenceId": "refUserB",
+              "body": {
+                "Username": "{{schedReqUserBName}}",
+                "ProfileId": "00exx000000n0KyAAI",
+                "Alias": "rres-b",
+                "Email": "{{schedReqUserBName}}",
+                "EmailEncodingKey": "ISO-8859-1",
+                "LastName": "ResourceB",
+                "FirstName": "ReqHelper",
+                "LanguageLocaleKey": "en_US",
+                "LocaleSidKey": "en_US",
+                "TimeZoneSidKey": "Asia/Kolkata"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/OperatingHours",
+              "referenceId": "refTerritoryOh",
+              "body": { "Name": "ReqHelper Territory OH {{$timestamp}}", "TimeZone": "GMT" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/OperatingHours",
+              "referenceId": "refMemberOh",
+              "body": { "Name": "ReqHelper Member OH {{$timestamp}}", "TimeZone": "GMT" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refTerritoryTsMon",
+              "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Monday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refTerritoryTsTue",
+              "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Tuesday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refTerritoryTsWed",
+              "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Wednesday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refTerritoryTsThu",
+              "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Thursday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refTerritoryTsFri",
+              "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Friday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refTerritoryTsSat",
+              "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Saturday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refTerritoryTsSun",
+              "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Sunday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberTsMon",
+              "body": { "OperatingHoursId": "@{refMemberOh.id}", "DayOfWeek": "Monday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberTsTue",
+              "body": { "OperatingHoursId": "@{refMemberOh.id}", "DayOfWeek": "Tuesday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberTsWed",
+              "body": { "OperatingHoursId": "@{refMemberOh.id}", "DayOfWeek": "Wednesday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberTsThu",
+              "body": { "OperatingHoursId": "@{refMemberOh.id}", "DayOfWeek": "Thursday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberTsFri",
+              "body": { "OperatingHoursId": "@{refMemberOh.id}", "DayOfWeek": "Friday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberTsSat",
+              "body": { "OperatingHoursId": "@{refMemberOh.id}", "DayOfWeek": "Saturday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberTsSun",
+              "body": { "OperatingHoursId": "@{refMemberOh.id}", "DayOfWeek": "Sunday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceTerritory",
+              "referenceId": "refTerritory",
+              "body": { "Name": "ReqHelper Territory {{$timestamp}}", "OperatingHoursId": "@{refTerritoryOh.id}", "IsActive": true }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/WorkType",
+              "referenceId": "refWorkType",
+              "body": { "Name": "ReqHelper WorkType {{$timestamp}}", "DurationType": "Minutes", "EstimatedDuration": 60 }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceTerritoryWorkType",
+              "referenceId": "refStwt",
+              "body": { "ServiceTerritoryId": "@{refTerritory.id}", "WorkTypeId": "@{refWorkType.id}" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceResource",
+              "referenceId": "refResourceA",
+              "body": { "Name": "ReqHelper Resource A {{$timestamp}}", "RelatedRecordId": "@{refUserA.id}", "ResourceType": "T", "IsActive": true, "IsPrimary": true }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceResource",
+              "referenceId": "refResourceB",
+              "body": { "Name": "ReqHelper Resource B {{$timestamp}}", "RelatedRecordId": "@{refUserB.id}", "ResourceType": "T", "IsActive": true, "IsPrimary": true }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceTerritoryMember",
+              "referenceId": "refStmA",
+              "body": { "ServiceTerritoryId": "@{refTerritory.id}", "ServiceResourceId": "@{refResourceA.id}", "TerritoryType": "P", "OperatingHoursId": "@{refMemberOh.id}", "EffectiveStartDate": "{{requiredHelperStmEffectiveStart}}" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceTerritoryMember",
+              "referenceId": "refStmB",
+              "body": { "ServiceTerritoryId": "@{refTerritory.id}", "ServiceResourceId": "@{refResourceB.id}", "TerritoryType": "P", "OperatingHoursId": "@{refMemberOh.id}", "EffectiveStartDate": "{{requiredHelperStmEffectiveStart}}" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/Shift",
+              "referenceId": "refShiftA",
+              "body": { "ServiceResourceId": "@{refResourceA.id}", "ServiceTerritoryId": "@{refTerritory.id}", "StartTime": "{{requiredHelperShiftStart}}", "EndTime": "{{requiredHelperShiftEnd}}", "TimeSlotType": "Normal", "Status": "Confirmed" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/Shift",
+              "referenceId": "refShiftB",
+              "body": { "ServiceResourceId": "@{refResourceB.id}", "ServiceTerritoryId": "@{refTerritory.id}", "StartTime": "{{requiredHelperShiftStart}}", "EndTime": "{{requiredHelperShiftEnd}}", "TimeSlotType": "Normal", "Status": "Confirmed" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/Account",
+              "referenceId": "refAccount",
+              "body": { "Name": "ReqHelper Account {{$timestamp}}" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ResourcePreference",
+              "referenceId": "refResourcePref",
+              "body": { "RelatedRecordId": "@{refAccount.id}", "ServiceResourceId": "@{refResourceB.id}", "PreferenceType": "Required" }
+            }
+          ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      // Mint FRESH timestamped users per run so the two ServiceResource rows never collide on the
+      // (RelatedRecordId, ResourceType) DB-unique key (the proven WFS create-case-worker pattern).
+      pm.environment.set("schedReqUserAName", pm.variables.replaceIn("sched-req-a-{{$timestamp}}@revoman.org"));
+      pm.environment.set("schedReqUserBName", pm.variables.replaceIn("sched-req-b-{{$timestamp}}@revoman.org"));
+      // STM effective from a month ago (open-ended) so the Shifts validate (Shift must fit the membership).
+      const monthAgo = new Date();
+      monthAgo.setUTCMonth(monthAgo.getUTCMonth() - 1);
+      pm.environment.set("requiredHelperStmEffectiveStart", monthAgo.toISOString());
+      // Confirmed Shift covering tomorrow 08:00-16:00 UTC for BOTH resources so BOTH are available at the
+      // 11:00-11:30 booking/read window (availability = member OH 08-16 ∪ Shift 08-16). Availability is
+      // deliberately NOT the blocker here — the ONLY rule in play is RequiredResources (the account demands
+      // resourceB), so a candidate/booking failure isolates the required-resource pool filter, not a shift gap.
+      const shiftStart = new Date();
+      shiftStart.setUTCDate(shiftStart.getUTCDate() + 1);
+      shiftStart.setUTCHours(8, 0, 0, 0);
+      const shiftEnd = new Date(shiftStart.getTime());
+      shiftEnd.setUTCHours(16, 0, 0, 0);
+      pm.environment.set("requiredHelperShiftStart", shiftStart.toISOString());
+      pm.environment.set("requiredHelperShiftEnd", shiftEnd.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      const jsonData = pm.response.json();
+      const responses = jsonData.graphs[0].graphResponse.compositeResponse;
+      // A rolled-back graph turns EVERY step's httpStatusCode to 400 (PROCESSING_HALTED for the bystanders,
+      // the real errorCode on the offending step), so this per-step check reliably fails the step on any
+      // rollback (e.g. a ServiceResource (RelatedRecordId, ResourceType) DUPLICATE_VALUE) instead of the
+      // graph passing vacuously. (This scheduler org's composite/graph response carries NO graph-level
+      // isSuccessful flag, so the per-step status IS the signal.)
+      responses.forEach((r) => {
+        if (r.httpStatusCode < 200 || r.httpStatusCode >= 300) {
+          throw new Error("Composite step " + r.referenceId + " failed: " + JSON.stringify(r.body));
+        }
+      });
+      const byRef = {};
+      responses.forEach(r => { byRef[r.referenceId] = r.body && r.body.id; });
+      pm.environment.set("schedReqTerritoryId", byRef["refTerritory"]);
+      pm.environment.set("schedReqWorkTypeId", byRef["refWorkType"]);
+      pm.environment.set("schedReqAccountId", byRef["refAccount"]);
+      pm.environment.set("schedReqResourceAId", byRef["refResourceA"]);
+      pm.environment.set("schedReqResourceBId", byRef["refResourceB"]);
+      // Also publish under the shared grant Kick's expected names (schedResourceAId/schedResourceBId) so the
+      // reused OLD_GRANT_LS_ACCESS_CONFIG (which queries ServiceResource.RelatedRecordId by those ids) grants
+      // the Lightning-Scheduler user-access to BOTH required-helper resource users unchanged.
+      pm.environment.set("schedResourceAId", byRef["refResourceA"]);
+      pm.environment.set("schedResourceBId", byRef["refResourceB"]);
+      pm.environment.set("schedReqResourcePrefId", byRef["refResourcePref"]);
+      pm.environment.set("schedReqStwtId", byRef["refStwt"]);
+    language: text/javascript
+order: 500

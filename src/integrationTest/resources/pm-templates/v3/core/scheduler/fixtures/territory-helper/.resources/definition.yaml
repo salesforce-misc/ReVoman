@@ -1,0 +1,19 @@
+$kind: collection
+description: |-
+  OLD Scheduler-org TERRITORY-helper data graph (clone of the WFS Unified territory-non-required fixture,
+  retargeted to the scheduler org and admin session, and to the classic OH∪Shift availability model). ONE
+  Territory OH 08-16; ONE member OH 08-16 shared by both resources; resourceA + resourceB each get a
+  Confirmed Shift 08-16 tomorrow, so BOTH are fully AVAILABLE across the 11:30-12:30 straddle-noon window
+  (availability is NOT the discriminator — only territory coverage is). Both are PRIMARY
+  ServiceTerritoryMembers effective a month ago, created OPEN-ENDED so the full-day Shift inserts validate;
+  a SEPARATE follow-up PATCH then narrows resourceB's membership to END at noon → PARTIAL over the
+  straddle-noon window (covers the morning, not the afternoon), so only the territory/STM-coverage filter
+  can exclude resourceB. Standard objects, so the same graph books on the scheduler org. Mints two FRESH
+  timestamped users per run (SR is DB-unique on (RelatedRecordId, ResourceType)). Sets
+  sched{Territory,WorkType,Account,ResourceA,ResourceB}Id + schedResourceBStmId.
+auth:
+  - id: 7e1f0c00-1005-4aaa-9bbb-000000000110
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{adminToken}}"

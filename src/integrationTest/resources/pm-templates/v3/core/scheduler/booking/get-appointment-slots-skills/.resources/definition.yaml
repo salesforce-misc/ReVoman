@@ -1,0 +1,17 @@
+$kind: collection
+description: |-
+  OLD Scheduler getAppointmentSlots over the skills-helper fixture, THREE read shapes that together
+  characterize the old engine's primary-only skill matching:
+    10 — single-resource, skill-less B as SOLE required (no primary) → old engine skill-checks a single
+         resource → B EXCLUDED (0 slots). Proves the old engine HAS the Skills rule.
+    20 — single-resource, skilled A as SOLE required (no primary) → A INCLUDED (>0). Non-vacuity control.
+    30 — multi-resource, primaryResourceId=A + requiredResourceIds=[B] → B is a NON-primary helper, and
+         the old multi path skill-checks the PRIMARY only, so skill-less B ESCAPES → slots offered (>0).
+         This is parity with 264's helper-escapes, via the primary-only mechanism.
+  Captures oldReadBOnlySlotCount / oldReadAOnlySlotCount / oldReadMultiHelperSlotCount.
+auth:
+  - id: 7e1f0c00-1005-4aaa-9bbb-000000000050
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{adminToken}}"
