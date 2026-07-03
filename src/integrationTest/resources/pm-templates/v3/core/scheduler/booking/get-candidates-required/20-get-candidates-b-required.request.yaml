@@ -1,0 +1,39 @@
+$kind: http-request
+description: >-
+  Control: OLD getAppointmentCandidates offering resourceB (the account-required worker) via
+  filterByResources, same account + required-resources policy + window (tomorrow 11:00-11:30 UTC).
+  resourceB IS on the Account's ResourcePreference(Required) list, so SchedulingDbUtil.checkResourcePrefs
+  KEEPS it in the pool; resourceB is available at the window (member OH + Shift 08-16) → candidates > 0.
+  Proves the fixture, the required-resources policy AND the Lightning-Scheduler grant are all LIVE — so the
+  A-only result in step 10 (0 candidates) reflects the account's required-resource pool FILTER excluding
+  resourceA, not a dead fixture / silently-failed grant / mis-set policy. Captures oldCandidatesBReqCount.
+  Response top-level field is "candidates". PREREQUISITE: resourceB's user must hold the Lightning Scheduler
+  PSL + lightningSchedulerUserAccess (shared grant-ls-user-access Kick) or this control also reads 0 (dead).
+url: "{{baseUrl}}{{versionPath}}/scheduling/getAppointmentCandidates"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "workType": { "id": "{{schedReqWorkTypeId}}" },
+      "territoryIds": ["{{schedReqTerritoryId}}"],
+      "accountId": "{{schedReqAccountId}}",
+      "schedulingPolicyId": "{{schedReqPolicyId}}",
+      "filterByResources": ["{{schedReqResourceBId}}"],
+      "startTime": "{{schedReqReadStart}}",
+      "endTime": "{{schedReqReadEnd}}"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      const data = pm.response.json() || {};
+      const candidates = (data.candidates || []);
+      pm.environment.set("oldCandidatesBReqCount", String(candidates.length));
+      console.log("OLD candidates B-required(control) http=" + pm.response.code +
+                  " candidates=" + candidates.length);
+    language: text/javascript
+order: 2000

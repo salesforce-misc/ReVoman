@@ -1,0 +1,68 @@
+$kind: http-request
+description: >-
+  OLD Salesforce Scheduler READ probe: POST /scheduling/getAppointmentCandidates over the excluded-helper
+  fixture, tomorrow 11:00-11:30 UTC, WITH accountId = the excluded Account. NOTE the endpoint choice: the
+  classic engine enforces account ResourcePreference(Excluded) ONLY on the candidates/all-slots path
+  (SchedulingServiceImpl.getAppointmentCandidates → loadAccountResourcePreferences(accountId) →
+  populateTerritoryResourceAndResourcesSkillDateRange(... accountResourcePreferences) → SchedulingDbUtil
+  .loadServiceResourcesInTerritory → checkResourcePrefs, which drops any SR on the account's excluded list),
+  NOT on plain getAppointmentSlots (that path passes accountResourcePreferences=null → checkResourcePrefs
+  short-circuits true → SchedulingDbUtil.java ~L706-708). So 1a MUST read via getAppointmentCandidates with
+  accountId to exercise the Excluded rule at all.
+  getAppointmentCandidates request shape (GetAppointmentCandidatesRequest): territoryIds (mandatory),
+  workType OR workTypeGroupId, startTime/endTime, accountId (the tie to the Account whose Excluded prefs
+  apply). It has NO requiredResourceIds/primaryResourceId inputs — it enumerates ALL eligible resources per
+  territory and returns candidates[], each { startTime, endTime, resources:[serviceResourceId...], territoryId }
+  (GetAppointmentCandidatesResponse → Candidate). The probe question: does resourceB appear in ANY
+  candidate's resources[]? With the Excluded pref + accountId it should be PRUNED (absent) → EXCLUDED.
+  Captures oldCandidatesWithAcctResourceBPresent (1/0) + oldCandidatesWithAcctCount (total candidates) +
+  oldCandidatesWithAcctResourceAPresent (1/0). PREREQUISITE: both resource users hold the Lightning
+  Scheduler PSL + lightningSchedulerUserAccess (granted by the shared grant-ls-user-access Kick revUp'd just
+  before) or the classic engine prunes both → an all-empty dead read.
+url: "{{baseUrl}}{{versionPath}}/scheduling/getAppointmentCandidates"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "workType": { "id": "{{schedWorkTypeId}}" },
+      "territoryIds": ["{{schedTerritoryId}}"],
+      "accountId": "{{schedAccountId}}",
+      "startTime": "{{schedReadStart}}",
+      "endTime": "{{schedReadEnd}}"
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(11, 0, 0, 0);
+      const e = new Date(s.getTime() + 30 * 60 * 1000);
+      pm.environment.set("schedReadStart", s.toISOString());
+      pm.environment.set("schedReadEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      // Response: { "candidates": [ { startTime, endTime, resources:[srId...], territoryId }, ... ] }.
+      // resourceB is EXCLUDED iff it appears in NO candidate's resources[]. Ids may come back 15- or
+      // 18-char, so compare on the 15-char prefix. Also capture whether resourceA is present (non-vacuity:
+      // A must still be a candidate) and the total candidate count.
+      const data = pm.response.json() || {};
+      const candidates = data.candidates || [];
+      const key = (id) => String(id || "").substring(0, 15);
+      const bKey = key(pm.environment.get("schedResourceBId"));
+      const aKey = key(pm.environment.get("schedResourceAId"));
+      let bPresent = 0, aPresent = 0;
+      candidates.forEach(c => (c.resources || []).forEach(r => {
+        if (key(r) === bKey) bPresent = 1;
+        if (key(r) === aKey) aPresent = 1;
+      }));
+      pm.environment.set("oldCandidatesWithAcctResourceBPresent", String(bPresent));
+      pm.environment.set("oldCandidatesWithAcctResourceAPresent", String(aPresent));
+      pm.environment.set("oldCandidatesWithAcctCount", String(candidates.length));
+      console.log("OLD candidates WITH acct http=" + pm.response.code + " count=" + candidates.length +
+                  " Apresent=" + aPresent + " Bpresent=" + bPresent);
+    language: text/javascript
+order: 1000

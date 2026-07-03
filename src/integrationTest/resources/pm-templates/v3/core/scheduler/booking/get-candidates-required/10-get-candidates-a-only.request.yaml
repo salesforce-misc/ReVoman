@@ -1,0 +1,65 @@
+$kind: http-request
+description: >-
+  OLD Salesforce Scheduler REQUIRED-RESOURCES read (Decision 1.4): POST /scheduling/getAppointmentCandidates
+  over the required-helper fixture, tomorrow 11:00-11:30 UTC, with accountId set (so the classic engine
+  loads the Account's ResourcePreference) and the required-resources policy (schedReqPolicyId,
+  ShouldEnforceRequiredResource=true). filterByResources offers ONLY resourceA — but the Account's
+  ResourcePreference(Required) names resourceB, NOT resourceA. Per the classic engine (SchedulingServiceImpl
+  .getAppointmentCandidatesForTerritoryWorkTypes → loadAccountResourcePreferences populates
+  requiredServiceResourceIds={resourceB}; SchedulingDbUtil.checkResourcePrefs then FILTERS the candidate
+  pool to that required set), resourceA — not in {resourceB} — is dropped, so the pool goes EMPTY.
+  IMPORTANT SEMANTIC NOTE: on the OLD engine the account Required pref is a candidate-POOL FILTER (keep only
+  the account's required resources), NOT a "helper must satisfy a demand" satisfier — so this probe measures
+  what the OLD engine actually does with an account demand for a worker that is not the one offered.
+  KEY: the classic ServiceTerritory ALWAYS initializes serviceTerritoryMembers = ArrayListMultimap.create()
+  (scheduling-api ServiceTerritory ctor), so the pool-empty case cannot NPE the way the Unified engine does
+  (unified ServiceTerritory leaves serviceTerritoryMembers null → getAllServiceTerritoryMembers().values() NPE
+  → HTTP 500). So the expected OLD outcome is a CLEAN 0-candidate refuse (HTTP 200, empty candidates), which
+  DIVERGES from the 264 write-path CRASH. Response top-level field is "candidates". Captures
+  oldCandidatesWithBReqCount + oldCandidatesWithBReqHttp + oldCandidatesWithBReqErrorCode/Message.
+  PREREQUISITE: both resource users must hold the Lightning Scheduler PSL + lightningSchedulerUserAccess
+  (granted by the shared grant-ls-user-access Kick, revUp'd just before) or the classic engine prunes the
+  resources (removeResourcesWithoutPerm) → an all-0 dead read that would make the divergence read vacuously.
+url: "{{baseUrl}}{{versionPath}}/scheduling/getAppointmentCandidates"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "workType": { "id": "{{schedReqWorkTypeId}}" },
+      "territoryIds": ["{{schedReqTerritoryId}}"],
+      "accountId": "{{schedReqAccountId}}",
+      "schedulingPolicyId": "{{schedReqPolicyId}}",
+      "filterByResources": ["{{schedReqResourceAId}}"],
+      "startTime": "{{schedReqReadStart}}",
+      "endTime": "{{schedReqReadEnd}}"
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(11, 0, 0, 0);
+      const e = new Date(s.getTime() + 60 * 60 * 1000);
+      pm.environment.set("schedReqReadStart", s.toISOString());
+      pm.environment.set("schedReqReadEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      // Success shape: { candidates: [ { startTime, endTime, resources:[...], territoryId }, ... ] }.
+      // Refuse/crash shape: { errorCode, message } (ErrorRepresentation). Capture the count without
+      // prejudging: a clean 0-candidate refuse is candidates=[] http=200; a crash would be http=500 +
+      // errorCode=INTERNAL_SERVER_ERROR. Do NOT force either — characterize what the OLD engine returns.
+      const data = pm.response.json() || {};
+      const candidates = (data.candidates || []);
+      pm.environment.set("oldCandidatesWithBReqCount", String(candidates.length));
+      pm.environment.set("oldCandidatesWithBReqHttp", String(pm.response.code));
+      pm.environment.set("oldCandidatesWithBReqErrorCode", data.errorCode || "");
+      pm.environment.set("oldCandidatesWithBReqErrorMessage", data.message || "");
+      console.log("OLD candidates A-only(acct-requires-B) http=" + pm.response.code +
+                  " candidates=" + candidates.length + " errorCode=" + (data.errorCode || "") +
+                  " body=" + JSON.stringify(data).slice(0,300));
+    language: text/javascript
+order: 1000

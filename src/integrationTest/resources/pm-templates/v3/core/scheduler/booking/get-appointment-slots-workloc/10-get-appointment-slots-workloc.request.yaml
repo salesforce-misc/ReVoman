@@ -1,0 +1,52 @@
+$kind: http-request
+description: >-
+  OLD Salesforce Scheduler MULTI-RESOURCE read: POST /scheduling/getAppointmentSlots over the workloc
+  fixture, tomorrow 11:00-12:00 UTC (60m window matching the WorkType), naming BOTH resourceA (Primary
+  member, free) and resourceB (Secondary member, free) as required, UNDER THE PRIMARY-ONLY policy
+  (schedulingPolicyId=schedWlPrimaryOnlyPolicyId). The classic multi-resource contract treats
+  primaryResourceId and requiredResourceIds as DISJOINT sets (the primary is its own required resource,
+  added separately), and sending A in BOTH lists is a BAD_REQUEST — so "both A and B required" is
+  primaryResourceId=A + requiredResourceIds=[B]. The engine loads STMs via the primary-only policy filter
+  (SchedulingDbUtil.createPrimarySecondarySTMWhereCondition → TerritoryType IN ('P','R')), so the SECONDARY
+  resourceB is dropped from the candidate pool BY ITS ROLE before the A∩B intersection. resourceB is fully
+  AVAILABLE (wide member OH 08-16 covers 11:00-12:00 in OH-mode) — it is excluded purely as a Secondary
+  member under a primary-only policy, not for busyness and not as a non-member. Expected: 0 slots (the
+  WorkingLocations ROLE exclusion). NOTE: the old read has no non-required "helper" input — every named id
+  is required — so the read-side probe is "required Secondary-member zeroes vs A-only offers". Response
+  field is "timeSlots". PREREQUISITE: both resource users hold the Lightning Scheduler PSL +
+  lightningSchedulerUserAccess (granted by the shared grant-ls-user-access Kick revUp'd just before this
+  read) or the classic engine prunes both → an all-0 dead read. Captures oldReadWithBSlotCount.
+url: "{{baseUrl}}{{versionPath}}/scheduling/getAppointmentSlots"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "workType": { "id": "{{schedWlWorkTypeId}}" },
+      "territoryIds": ["{{schedWlTerritoryId}}"],
+      "requiredResourceIds": ["{{schedWlResourceBId}}"],
+      "primaryResourceId": "{{schedWlResourceAId}}",
+      "schedulingPolicyId": "{{schedWlPrimaryOnlyPolicyId}}",
+      "startTime": "{{schedWlReadStart}}",
+      "endTime": "{{schedWlReadEnd}}"
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(11, 0, 0, 0);
+      const e = new Date(s.getTime() + 30 * 60 * 1000);
+      pm.environment.set("schedWlReadStart", s.toISOString());
+      pm.environment.set("schedWlReadEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      const data = pm.response.json() || {};
+      const slots = (data.timeSlots || data.slots || []);
+      pm.environment.set("oldReadWithBSlotCount", String(slots.length));
+      console.log("OLD workloc read A+B http=" + pm.response.code + " slots=" + slots.length);
+    language: text/javascript
+order: 1000

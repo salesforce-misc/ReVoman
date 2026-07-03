@@ -186,11 +186,14 @@ public final class ReVomanConfigForWfs {
   // ## Policies (each carries an Availability(C)+ShiftUsage(Union) rule plus the rule under test).
   public static final Kick AVAILABILITY_OP_HOURS_POLICY_CONFIG =
       kickFor(V3_WFS_PATH + "policies/availability-op-hours-policy");
-  static final Kick EXCLUDED_RESOURCES_POLICY_CONFIG =
+  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified parity reuse; visibility only.
+  public static final Kick EXCLUDED_RESOURCES_POLICY_CONFIG =
       kickFor(V3_WFS_PATH + "policies/excluded-resources-availability-policy");
-  static final Kick TERRITORY_PARTIAL_POLICY_CONFIG =
+  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified parity reuse; visibility only.
+  public static final Kick TERRITORY_PARTIAL_POLICY_CONFIG =
       kickFor(V3_WFS_PATH + "policies/territory-membership-partial-policy");
-  static final Kick MATCH_SKILLS_POLICY_CONFIG =
+  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified parity reuse; visibility only.
+  public static final Kick MATCH_SKILLS_POLICY_CONFIG =
       kickFor(V3_WFS_PATH + "policies/match-skills-non-required-policy");
   static final Kick VISITING_HOURS_POLICY_CONFIG =
       kickFor(V3_WFS_PATH + "policies/visiting-hours-op-hours-policy");
@@ -198,22 +201,30 @@ public final class ReVomanConfigForWfs {
   // ## Decision 1.4 — required-resource demand (account ResourcePreference) cannot be satisfied by
   // a
   // NON-required helper.
-  static final Kick REQUIRED_RESOURCES_POLICY_CONFIG =
+  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified parity reuse; visibility only.
+  public static final Kick REQUIRED_RESOURCES_POLICY_CONFIG =
       kickFor(V3_WFS_PATH + "policies/required-resources-availability-policy");
 
   // ## Fixtures (composite/graph data graphs: territory/OH/WorkType/resources/account/shifts).
   public static final Kick DOUBLE_BOOK_FIXTURE_CONFIG =
       kickFor(V3_WFS_PATH + "fixtures/double-book-non-required");
-  static final Kick EXCLUDED_FIXTURE_CONFIG =
+  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified parity reuse; visibility only.
+  public static final Kick EXCLUDED_FIXTURE_CONFIG =
       kickFor(V3_WFS_PATH + "fixtures/excluded-non-required");
-  static final Kick TERRITORY_FIXTURE_CONFIG =
+  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified parity reuse; visibility only.
+  public static final Kick TERRITORY_FIXTURE_CONFIG =
       kickFor(V3_WFS_PATH + "fixtures/territory-non-required");
-  static final Kick SKILLS_FIXTURE_CONFIG = kickFor(V3_WFS_PATH + "fixtures/skills-non-required");
-  static final Kick SKILLS_SKILL_FIXTURE_CONFIG =
+  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified parity reuse; visibility only.
+  public static final Kick SKILLS_FIXTURE_CONFIG =
+      kickFor(V3_WFS_PATH + "fixtures/skills-non-required");
+  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified parity reuse; visibility only.
+  public static final Kick SKILLS_SKILL_FIXTURE_CONFIG =
       kickFor(V3_WFS_PATH + "fixtures/skills-non-required-skill");
-  static final Kick WORKING_LOCATIONS_FIXTURE_CONFIG =
+  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified parity reuse; visibility only.
+  public static final Kick WORKING_LOCATIONS_FIXTURE_CONFIG =
       kickFor(V3_WFS_PATH + "fixtures/working-locations-secondary-non-required");
-  static final Kick REQUIRED_NON_REQUIRED_FIXTURE_CONFIG =
+  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified parity reuse; visibility only.
+  public static final Kick REQUIRED_NON_REQUIRED_FIXTURE_CONFIG =
       kickFor(V3_WFS_PATH + "fixtures/required-non-required");
   static final Kick VISITING_HOURS_FIXTURE_CONFIG =
       kickFor(V3_WFS_PATH + "fixtures/visiting-hours-account-oh");
@@ -225,17 +236,23 @@ public final class ReVomanConfigForWfs {
       kickFor(V3_WFS_PATH + "booking/schedule-double-book-non-required-violating");
   public static final Kick DOUBLE_BOOK_REQUIRED_CONFLICT_SCHEDULE_CONFIG =
       kickFor(V3_WFS_PATH + "booking/schedule-double-book-required-conflict");
-  static final Kick EXCLUDED_SCHEDULE_CONFIG =
+  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified parity reuse; visibility only.
+  public static final Kick EXCLUDED_SCHEDULE_CONFIG =
       kickFor(V3_WFS_PATH + "booking/schedule-excluded-non-required-violating");
-  static final Kick TERRITORY_SCHEDULE_CONFIG =
+  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified parity reuse; visibility only.
+  public static final Kick TERRITORY_SCHEDULE_CONFIG =
       kickFor(V3_WFS_PATH + "booking/schedule-territory-membership-non-required-violating");
-  static final Kick SKILLS_SCHEDULE_CONFIG =
+  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified parity reuse; visibility only.
+  public static final Kick SKILLS_SCHEDULE_CONFIG =
       kickFor(V3_WFS_PATH + "booking/schedule-skills-non-required-violating");
-  static final Kick WORKING_LOCATIONS_SCHEDULE_CONFIG =
+  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified parity reuse; visibility only.
+  public static final Kick WORKING_LOCATIONS_SCHEDULE_CONFIG =
       kickFor(V3_WFS_PATH + "booking/schedule-working-locations-secondary-non-required-violating");
-  static final Kick REQUIRED_NON_REQUIRED_SATISFIER_VIOLATING_SCHEDULE_CONFIG =
+  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified parity reuse; visibility only.
+  public static final Kick REQUIRED_NON_REQUIRED_SATISFIER_VIOLATING_SCHEDULE_CONFIG =
       kickFor(V3_WFS_PATH + "booking/schedule-required-non-required-satisfier-violating");
-  static final Kick REQUIRED_SATISFIER_BOOKABLE_SCHEDULE_CONFIG =
+  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified parity reuse; visibility only.
+  public static final Kick REQUIRED_SATISFIER_BOOKABLE_SCHEDULE_CONFIG =
       kickFor(V3_WFS_PATH + "booking/schedule-required-satisfier-bookable");
 
   // ## Decision 3 — missing isRequiredResource flag (crash characterization) + the L142 control.

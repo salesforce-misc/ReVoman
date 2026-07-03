@@ -1,0 +1,45 @@
+$kind: http-request
+description: >-
+  Creates the required-resources AppointmentSchedulingPolicy in ITS OWN transaction, SEPARATE from the data
+  graph (create-required-helper-graph, order 500). AppointmentSchedulingPolicy is a SETUP object, so
+  inserting it in the same composite/graph transaction as the non-setup data (Account / ServiceResource /
+  TimeSlot / ResourcePreference / Shift) throws MIXED_DML_OPERATION and rolls the whole graph back — hence
+  this standalone insert (mirrors how the WFS side creates its SchedulingPolicy in a separate Kick). The
+  policy sets ShouldEnforceRequiredResource=true (NON org-default) so the classic engine
+  (SchedulingDbUtil.buildSchedulingPolicyConstraint → shouldEnforceRequiredResource=true →
+  loadAccountResourcePreferences populates the account's requiredServiceResourceIds → checkResourcePrefs
+  filters the candidate pool to the account's required set). ShouldUsePrimaryMembers + the two Shift flags
+  true so availability = member OH ∪ Shift (same mechanism as the double-book fixture). Captures schedReqPolicyId.
+url: "{{baseUrl}}{{versionPath}}/sobjects/AppointmentSchedulingPolicy"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "DeveloperName": "ReqHelperPolicy{{$timestamp}}",
+      "MasterLabel": "ReqHelper Policy {{$timestamp}}",
+      "AppointmentStartTimeInterval": "15",
+      "ShouldEnforceRequiredResource": true,
+      "ShouldUsePrimaryMembers": true,
+      "IsSvcTerritoryMemberShiftUsed": true,
+      "IsSvcTerrOpHoursWithShiftsUsed": true
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      // /sobjects insert returns { id, success, errors:[...] }. Fail loudly if the policy did not persist
+      // (a null schedReqPolicyId → loadSchedulingPolicy falls back to the org-default policy, which likely
+      // has ShouldEnforceRequiredResource=false → the account pref would NOT be enforced → the whole 1.4
+      // probe would silently characterize the wrong thing).
+      const data = pm.response.json() || {};
+      if (!data.id) {
+        throw new Error("AppointmentSchedulingPolicy insert failed: " + JSON.stringify(data));
+      }
+      pm.environment.set("schedReqPolicyId", data.id);
+      console.log("OLD required-resources policy created id=" + data.id);
+    language: text/javascript
+order: 400

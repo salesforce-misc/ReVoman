@@ -1,0 +1,12 @@
+$kind: collection
+description: |-
+  OLD Scheduler book of the excluded-helper fixture: resourceA (required+primary, clean) + resourceB
+  (non-required helper, on the Account's Excluded ResourcePreference list). The classic book path does not
+  enforce account ResourcePreference(Excluded) and does not availability-check a non-required helper, so the
+  SA is expected to BOOK. Captures oldWriteHelperHttp + oldWriteHelperSaId. Runs under {{adminToken}}.
+auth:
+  - id: 7e1f0c00-1005-4aaa-9bbb-000000000042
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{adminToken}}"

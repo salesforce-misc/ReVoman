@@ -1,0 +1,14 @@
+$kind: collection
+description: |-
+  OLD Scheduler-org EXCLUDED-helper data graph (clone of the WFS Unified excluded-non-required fixture,
+  retargeted to the scheduler org + admin session + scheduler-org schema without SchedulingMethod).
+  Territory OH 08-16; BOTH resourceA and resourceB member OH + Shift 08-16 (both fully available at
+  11:00-11:30). resourceB's ONLY defect is an account ResourcePreference(Excluded) linking refAccount to
+  resourceB. Sets sched{Territory,WorkType,Account,ResourceA,ResourceB,ResourcePref}Id. Runs under
+  {{adminToken}}.
+auth:
+  - id: 7e1f0c00-1005-4aaa-9bbb-000000000040
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{adminToken}}"

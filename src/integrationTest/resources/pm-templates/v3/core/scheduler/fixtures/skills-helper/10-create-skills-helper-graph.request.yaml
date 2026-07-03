@@ -1,0 +1,307 @@
+$kind: http-request
+description: >-
+  OLD scheduler-org SKILLS-helper data graph (skills analogue of create-double-book-graph, retargeted to
+  the scheduler org + adminToken). Builds the graph in one composite/graph call as {{adminToken}}.
+  Territory OH 08-16 (Mon-Sun), a WorkType (OnSite, 30m) + STWT, an Account, and ONE SkillRequirement
+  linking the WorkType to the master Skill created in the preceding 05-create-skill step
+  ({{schedSkillId}}) — so the WorkType REQUIRES that skill. TWO User-backed ServiceResources on DISTINCT
+  users (ServiceResource is DB-unique on (RelatedRecordId, ResourceType)): the graph MINTS two FRESH
+  timestamped users per run up front (refUserA/refUserB, on the org's Standard User profile
+  00exx000000n0KyAAI) and points resourceA/resourceB RelatedRecordId at @{refUserA.id}/@{refUserB.id} — so
+  the SR uniqueness key never collides (the proven WFS create-case-worker pattern). BOTH are PRIMARY
+  ServiceTerritoryMembers (TerritoryType=P) effective a month ago, and — UNLIKE the double-book fixture —
+  BOTH carry the SAME wide member OH 08-16 and the SAME Confirmed Shift 08-16 covering tomorrow, so
+  Availability is CLEAN for BOTH resources at the 11:00-11:30 window. The ONLY dimension on which
+  resourceB differs is its MISSING skill:
+    - resourceA: gets a ServiceResourceSkill for {{schedSkillId}} (open-ended, month-ago effective) → it
+      HOLDS the WorkType's required skill → skilled + clean.
+    - resourceB: gets NO ServiceResourceSkill → it LACKS the required skill → the Skills rule is the ONLY
+      rule that can exclude it.
+  Because the old engine's MULTI-resource path skill-checks the PRIMARY resource ONLY
+  (MultiResourceTimeSlotProcessor48.shouldMatchSkills returns true iff serviceResourceId==primaryResourceId),
+  B-as-NON-primary-helper is never skill-checked on the multi path → it ESCAPES the Skills rule (parity
+  with 264's helper-escapes, via a different mechanism). The SINGLE-resource path skill-checks the lone
+  resource (SingleResourceTimeSlotProcessor inherits the default shouldMatchSkills), so naming skill-less
+  resourceB as the SOLE required resource EXCLUDES it → 0 slots (proving the old engine HAS the Skills
+  rule), while naming skilled resourceA alone offers slots. NO SchedulingMethod field (this org's
+  TimeSlot/Shift schema lacks it → INVALID_FIELD). Sets schedTerritoryId / schedWorkTypeId /
+  schedAccountId / schedResourceAId / schedResourceBId (schedSkillId comes from 05-create-skill).
+url: "{{baseUrl}}{{versionPath}}/composite/graph"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "graphs": [
+        {
+          "graphId": "skillsHelper",
+          "compositeRequest": [
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/User",
+              "referenceId": "refUserA",
+              "body": {
+                "Username": "{{schedUserAName}}",
+                "ProfileId": "00exx000000n0KyAAI",
+                "Alias": "sres-a",
+                "Email": "{{schedUserAName}}",
+                "EmailEncodingKey": "ISO-8859-1",
+                "LastName": "ResourceA",
+                "FirstName": "Skills",
+                "LanguageLocaleKey": "en_US",
+                "LocaleSidKey": "en_US",
+                "TimeZoneSidKey": "Asia/Kolkata"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/User",
+              "referenceId": "refUserB",
+              "body": {
+                "Username": "{{schedUserBName}}",
+                "ProfileId": "00exx000000n0KyAAI",
+                "Alias": "sres-b",
+                "Email": "{{schedUserBName}}",
+                "EmailEncodingKey": "ISO-8859-1",
+                "LastName": "ResourceB",
+                "FirstName": "Skills",
+                "LanguageLocaleKey": "en_US",
+                "LocaleSidKey": "en_US",
+                "TimeZoneSidKey": "Asia/Kolkata"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/OperatingHours",
+              "referenceId": "refTerritoryOh",
+              "body": { "Name": "Skills Territory OH {{$timestamp}}", "TimeZone": "GMT" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/OperatingHours",
+              "referenceId": "refMemberOh",
+              "body": { "Name": "Skills Member OH {{$timestamp}}", "TimeZone": "GMT" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refTerritoryTsMon",
+              "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Monday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refTerritoryTsTue",
+              "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Tuesday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refTerritoryTsWed",
+              "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Wednesday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refTerritoryTsThu",
+              "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Thursday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refTerritoryTsFri",
+              "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Friday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refTerritoryTsSat",
+              "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Saturday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refTerritoryTsSun",
+              "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Sunday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberTsMon",
+              "body": { "OperatingHoursId": "@{refMemberOh.id}", "DayOfWeek": "Monday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberTsTue",
+              "body": { "OperatingHoursId": "@{refMemberOh.id}", "DayOfWeek": "Tuesday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberTsWed",
+              "body": { "OperatingHoursId": "@{refMemberOh.id}", "DayOfWeek": "Wednesday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberTsThu",
+              "body": { "OperatingHoursId": "@{refMemberOh.id}", "DayOfWeek": "Thursday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberTsFri",
+              "body": { "OperatingHoursId": "@{refMemberOh.id}", "DayOfWeek": "Friday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberTsSat",
+              "body": { "OperatingHoursId": "@{refMemberOh.id}", "DayOfWeek": "Saturday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberTsSun",
+              "body": { "OperatingHoursId": "@{refMemberOh.id}", "DayOfWeek": "Sunday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceTerritory",
+              "referenceId": "refTerritory",
+              "body": { "Name": "Skills Territory {{$timestamp}}", "OperatingHoursId": "@{refTerritoryOh.id}", "IsActive": true }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/WorkType",
+              "referenceId": "refWorkType",
+              "body": { "Name": "Skills WorkType {{$timestamp}}", "DurationType": "Minutes", "EstimatedDuration": 30 }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceTerritoryWorkType",
+              "referenceId": "refStwt",
+              "body": { "ServiceTerritoryId": "@{refTerritory.id}", "WorkTypeId": "@{refWorkType.id}" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/SkillRequirement",
+              "referenceId": "refSkillRequirement",
+              "body": { "RelatedRecordId": "@{refWorkType.id}", "SkillId": "{{schedSkillId}}" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceResource",
+              "referenceId": "refResourceA",
+              "body": { "Name": "Skills Resource A {{$timestamp}}", "RelatedRecordId": "@{refUserA.id}", "ResourceType": "T", "IsActive": true, "IsPrimary": true }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceResource",
+              "referenceId": "refResourceB",
+              "body": { "Name": "Skills Resource B {{$timestamp}}", "RelatedRecordId": "@{refUserB.id}", "ResourceType": "T", "IsActive": true, "IsPrimary": true }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceResourceSkill",
+              "referenceId": "refResourceASkill",
+              "body": { "ServiceResourceId": "@{refResourceA.id}", "SkillId": "{{schedSkillId}}", "EffectiveStartDate": "{{skillsStmEffectiveStart}}" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceTerritoryMember",
+              "referenceId": "refStmA",
+              "body": { "ServiceTerritoryId": "@{refTerritory.id}", "ServiceResourceId": "@{refResourceA.id}", "TerritoryType": "P", "OperatingHoursId": "@{refMemberOh.id}", "EffectiveStartDate": "{{skillsStmEffectiveStart}}" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceTerritoryMember",
+              "referenceId": "refStmB",
+              "body": { "ServiceTerritoryId": "@{refTerritory.id}", "ServiceResourceId": "@{refResourceB.id}", "TerritoryType": "P", "OperatingHoursId": "@{refMemberOh.id}", "EffectiveStartDate": "{{skillsStmEffectiveStart}}" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/Shift",
+              "referenceId": "refShiftA",
+              "body": { "ServiceResourceId": "@{refResourceA.id}", "ServiceTerritoryId": "@{refTerritory.id}", "StartTime": "{{skillsShiftStart}}", "EndTime": "{{skillsShiftEnd}}", "TimeSlotType": "Normal", "Status": "Confirmed" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/Shift",
+              "referenceId": "refShiftB",
+              "body": { "ServiceResourceId": "@{refResourceB.id}", "ServiceTerritoryId": "@{refTerritory.id}", "StartTime": "{{skillsShiftStart}}", "EndTime": "{{skillsShiftEnd}}", "TimeSlotType": "Normal", "Status": "Confirmed" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/Account",
+              "referenceId": "refAccount",
+              "body": { "Name": "Skills Account {{$timestamp}}" }
+            }
+          ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      // Mint FRESH timestamped users per run so the two ServiceResource rows never collide on the
+      // (RelatedRecordId, ResourceType) DB-unique key (the proven WFS create-case-worker pattern —
+      // fixed pre-existing users already own a ResourceType='T' SR → both inserts DUPLICATE_VALUE and the
+      // whole graph rolls back). The graph creates these users up front (refUserA/refUserB) and the
+      // ServiceResources point RelatedRecordId at @{refUserA.id}/@{refUserB.id}.
+      pm.environment.set("schedUserAName", pm.variables.replaceIn("sched-skills-a-{{$timestamp}}@revoman.org"));
+      pm.environment.set("schedUserBName", pm.variables.replaceIn("sched-skills-b-{{$timestamp}}@revoman.org"));
+      // STM + ServiceResourceSkill effective from a month ago (open-ended) so both validate over the window.
+      const monthAgo = new Date();
+      monthAgo.setUTCMonth(monthAgo.getUTCMonth() - 1);
+      pm.environment.set("skillsStmEffectiveStart", monthAgo.toISOString());
+      // BOTH resources carry the SAME wide member OH (08-16) and the SAME Confirmed Shift (08-16) covering
+      // tomorrow, so Availability (the UNION of member OH and Shift) is clean for BOTH at the 11:00-11:30
+      // window — UNLIKE the double-book fixture there is NO availability difference. The ONLY dimension on
+      // which resourceB differs is its MISSING ServiceResourceSkill. Since W-22901809 a Shift is
+      // unconditionally required for a resource to be admitted as a candidate, so resourceB ALSO gets a
+      // Shift → it is admitted, and the Skills rule (single-resource path) actually gets to evaluate and
+      // veto it; on the multi-resource path it is a non-primary helper and is NOT skill-checked at all.
+      const shiftStart = new Date();
+      shiftStart.setUTCDate(shiftStart.getUTCDate() + 1);
+      shiftStart.setUTCHours(8, 0, 0, 0);
+      const shiftEnd = new Date(shiftStart.getTime());
+      shiftEnd.setUTCHours(16, 0, 0, 0);
+      pm.environment.set("skillsShiftStart", shiftStart.toISOString());
+      pm.environment.set("skillsShiftEnd", shiftEnd.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      const jsonData = pm.response.json();
+      const responses = jsonData.graphs[0].graphResponse.compositeResponse;
+      // A rolled-back graph turns EVERY step's httpStatusCode to 400 (PROCESSING_HALTED for the bystanders,
+      // the real errorCode on the offending step), so this per-step check reliably fails the step on any
+      // rollback instead of the graph passing vacuously. (v67 composite/graph carries NO graph-level
+      // isSuccessful flag, so the per-step status IS the signal.)
+      responses.forEach((r) => {
+        if (r.httpStatusCode < 200 || r.httpStatusCode >= 300) {
+          throw new Error("Composite step " + r.referenceId + " failed: " + JSON.stringify(r.body));
+        }
+      });
+      const byRef = {};
+      responses.forEach(r => { byRef[r.referenceId] = r.body && r.body.id; });
+      pm.environment.set("schedTerritoryId", byRef["refTerritory"]);
+      pm.environment.set("schedWorkTypeId", byRef["refWorkType"]);
+      pm.environment.set("schedAccountId", byRef["refAccount"]);
+      pm.environment.set("schedResourceAId", byRef["refResourceA"]);
+      pm.environment.set("schedResourceBId", byRef["refResourceB"]);
+      // schedSkillId is set by the preceding 05-create-skill step (Skill is a SETUP object and cannot share
+      // this non-setup graph's transaction — MIXED_DML_OPERATION), so it is NOT in this graph response; do
+      // not overwrite it here.
+      pm.environment.set("schedSkillRequirementId", byRef["refSkillRequirement"]);
+      pm.environment.set("schedResourceASkillId", byRef["refResourceASkill"]);
+      pm.environment.set("schedMemberOhId", byRef["refMemberOh"]);
+      pm.environment.set("schedTerritoryOhId", byRef["refTerritoryOh"]);
+      pm.environment.set("schedShiftAId", byRef["refShiftA"]);
+      pm.environment.set("schedShiftBId", byRef["refShiftB"]);
+      pm.environment.set("schedStwtId", byRef["refStwt"]);
+    language: text/javascript
+order: 500

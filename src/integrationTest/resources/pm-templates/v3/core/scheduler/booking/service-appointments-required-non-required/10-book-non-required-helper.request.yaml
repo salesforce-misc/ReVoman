@@ -1,0 +1,66 @@
+$kind: http-request
+description: >-
+  OLD Salesforce Scheduler book (Decision 1.4 write arm): POST /connect/scheduling/service-appointments,
+  tomorrow 11:00-11:30 UTC, over the required-helper fixture. TWO assignedResources — resourceA
+  (isRequiredResource=true, isPrimaryResource=true, clean+free, but NOT the account-required worker) and
+  resourceB (isRequiredResource=false — the NON-required helper — even though the Account's
+  ResourcePreference(Required) demands resourceB). This is the OLD-engine analogue of the 264 write that
+  CRASHES (serviceTerritoryMembers NPE, HTTP 500). LIVE-OBSERVED on the scheduler org (v67): the OLD classic
+  book path REFUSES cleanly — HTTP 400 errorCode=INTERNAL_ERROR, message "We couldn't find any resources for
+  your request. Specify a different schedStartTime and schedEndTime and try again." (the same clean-refusal
+  shape as the 1.5 required-control) — NOT a 500 crash and NOT a booking. So the OLD write consults the
+  account-required-resource enforcement during its internal slot-gen and cannot satisfy the account's demand
+  for resourceB when resourceB is only a non-required helper → no resources found → refuse. This DIVERGES
+  from the 264 write CRASH. Characterized faithfully, no verdict forced. Captures oldWriteReqHelperHttp +
+  oldWriteReqHelperSaId + oldWriteReqHelperErrorCode + oldWriteReqHelperErrorMessage.
+url: "{{baseUrl}}{{versionPath}}/connect/scheduling/service-appointments"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "serviceAppointment": {
+        "serviceTerritoryId": "{{schedReqTerritoryId}}",
+        "parentRecordId": "{{schedReqAccountId}}",
+        "workTypeId": "{{schedReqWorkTypeId}}",
+        "schedStartTime": "{{schedReqBookStart}}",
+        "schedEndTime": "{{schedReqBookEnd}}",
+        "extendedFields": [ { "name": "Status", "value": "Scheduled" } ]
+      },
+      "assignedResources": [
+        { "serviceResourceId": "{{schedReqResourceAId}}", "isRequiredResource": true, "isPrimaryResource": true },
+        { "serviceResourceId": "{{schedReqResourceBId}}", "isRequiredResource": false, "isPrimaryResource": false }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(11, 0, 0, 0);
+      const e = new Date(s.getTime() + 30 * 60 * 1000);
+      pm.environment.set("schedReqBookStart", s.toISOString());
+      pm.environment.set("schedReqBookEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      // The Connect book API wraps its payload in a "result" node on success:
+      // { "result": { "serviceAppointmentId": "08p...", ... } }. On refusal/crash it returns a top-level
+      // error array [{errorCode,message}] or an ErrorRepresentation {errorCode,message}. Dig the SA id out
+      // of result first; capture http + errorCode so the normalizer can classify BOOKED/REFUSED/CRASHED.
+      const data = pm.response.json() || {};
+      const result = data.result || data;
+      const arr = Array.isArray(data) ? data : null;
+      pm.environment.set("oldWriteReqHelperHttp", String(pm.response.code));
+      pm.environment.set("oldWriteReqHelperSaId", result.serviceAppointmentId || (result.serviceAppointment && result.serviceAppointment.id) || "");
+      let ec = data.errorCode || null;
+      let msg = data.message || null;
+      if (arr && arr.length) { ec = arr[0].errorCode; msg = arr[0].message; }
+      pm.environment.set("oldWriteReqHelperErrorCode", ec || "");
+      pm.environment.set("oldWriteReqHelperErrorMessage", msg || "");
+      console.log("OLD book req-helper http=" + pm.response.code + " body=" + JSON.stringify(data).slice(0,300));
+    language: text/javascript
+order: 1000

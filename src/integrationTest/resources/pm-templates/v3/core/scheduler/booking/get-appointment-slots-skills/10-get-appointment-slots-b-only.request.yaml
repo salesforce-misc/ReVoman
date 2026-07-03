@@ -1,0 +1,47 @@
+$kind: http-request
+description: >-
+  OLD Salesforce Scheduler SINGLE-RESOURCE read: POST /scheduling/getAppointmentSlots over the
+  skills-helper fixture, tomorrow 11:00-11:30 UTC, naming ONLY skill-less resourceB as required
+  (requiredResourceIds=[B], NO primaryResourceId — the classic engine's single-resource path via
+  GetAppointmentRequestValidator48 requires primaryResourceId to be null when requiredResourceIds has ≤1
+  id). On the SINGLE-resource path the engine skill-checks the lone resource
+  (SingleResourceTimeSlotProcessor inherits the default shouldMatchSkills → constraints.shouldMatchSkills()),
+  so resourceB — which LACKS the WorkType's required ServiceResourceSkill — is pruned by the Skills rule →
+  the read offers ZERO slots. This is the proof that the OLD engine HAS the Skills rule at all (the
+  multi-resource path below intentionally lets B escape as a non-primary helper). Response field is
+  "timeSlots" (data.timeSlots). PREREQUISITE: resourceB's user must hold the Lightning Scheduler PSL +
+  lightningSchedulerUserAccess (granted by the shared grant-ls-user-access Kick, revUp'd just before this
+  read) or the classic engine prunes it first → an all-0 dead read (removeResourcesWithoutPerm).
+  Captures oldReadBOnlySlotCount.
+url: "{{baseUrl}}{{versionPath}}/scheduling/getAppointmentSlots"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "workType": { "id": "{{schedWorkTypeId}}" },
+      "territoryIds": ["{{schedTerritoryId}}"],
+      "requiredResourceIds": ["{{schedResourceBId}}"],
+      "startTime": "{{schedReadStart}}",
+      "endTime": "{{schedReadEnd}}"
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(11, 0, 0, 0);
+      const e = new Date(s.getTime() + 30 * 60 * 1000);
+      pm.environment.set("schedReadStart", s.toISOString());
+      pm.environment.set("schedReadEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      const data = pm.response.json() || {};
+      const slots = (data.timeSlots || data.slots || []);
+      pm.environment.set("oldReadBOnlySlotCount", String(slots.length));
+      console.log("OLD read B-only (single, skill-less) http=" + pm.response.code + " slots=" + slots.length);
+    language: text/javascript
+order: 1000

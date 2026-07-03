@@ -66,6 +66,75 @@ public final class SchedulerParityConfig {
   static final Kick OLD_BOOK_REQUIRED_CONTROL_CONFIG =
       oldKickFor(V3_SCHEDULER_PATH + "booking/service-appointments-double-book-required-control");
 
+  // ## Scenario 1b (Territory) — old-side Kicks. resourceB is a non-required helper whose
+  // ServiceTerritoryMember coverage does NOT include the booking window (membership narrowed to end at
+  // noon while the window straddles noon), so only the classic engine's territory/STM-membership filter
+  // could exclude it. resourceA is a clean primary member covering the whole window. The fixture Kick
+  // runs the composite/graph then a follow-up STM-narrowing PATCH; the read/book Kicks reuse the shared
+  // grant-ls-user-access prerequisite exactly as the 1.5 double-book slice does.
+  static final Kick OLD_TERRITORY_FIXTURE_CONFIG =
+      oldKickFor(V3_SCHEDULER_PATH + "fixtures/territory-helper");
+  static final Kick OLD_GET_SLOTS_TERRITORY_CONFIG =
+      oldKickFor(V3_SCHEDULER_PATH + "booking/get-appointment-slots-territory");
+  static final Kick OLD_BOOK_TERRITORY_NON_REQUIRED_CONFIG =
+      oldKickFor(V3_SCHEDULER_PATH + "booking/service-appointments-territory-non-required");
+  static final Kick OLD_BOOK_TERRITORY_REQUIRED_CONTROL_CONFIG =
+      oldKickFor(V3_SCHEDULER_PATH + "booking/service-appointments-territory-required-control");
+
+  // ## 1d WorkingLocations (territory-member ROLE) — a Secondary ('S') member helper under a PRIMARY-ONLY
+  // AppointmentSchedulingPolicy. The fixture seeds the primary-only policy AND the P/S member graph; the
+  // read/book acts pass its id via schedulingPolicyId so the classic STM filter drops the Secondary
+  // resourceB by its ROLE (SchedulingDbUtil.createPrimarySecondarySTMWhereCondition → TerritoryType IN
+  // ('P','R')) — not by availability, and not as a non-member.
+  static final Kick OLD_WORKLOC_FIXTURE_CONFIG =
+      oldKickFor(V3_SCHEDULER_PATH + "fixtures/workloc-helper");
+  static final Kick OLD_GET_SLOTS_WORKLOC_CONFIG =
+      oldKickFor(V3_SCHEDULER_PATH + "booking/get-appointment-slots-workloc");
+  static final Kick OLD_BOOK_WORKLOC_NON_REQUIRED_CONFIG =
+      oldKickFor(V3_SCHEDULER_PATH + "booking/service-appointments-workloc-non-required");
+  static final Kick OLD_BOOK_WORKLOC_REQUIRED_CONTROL_CONFIG =
+      oldKickFor(V3_SCHEDULER_PATH + "booking/service-appointments-workloc-required-control");
+
+  // * NOTE 2026-07-03 gopal.akshintala: 1a (Excluded / account block-list) Kicks. The Excluded rule is
+  // * account-scoped (ResourcePreference PreferenceType='Excluded'), enforced on the OLD side ONLY on the
+  // * getAppointmentCandidates read path (checkResourcePrefs prunes the excluded SR); plain
+  // * getAppointmentSlots and the classic service-appointments book path pass accountResourcePreferences=null
+  // * → the rule short-circuits true. Hence the read probe is getAppointmentCandidates (with accountId), and
+  // * the write probe characterizes the (unenforced) book outcome.
+  static final Kick OLD_EXCLUDED_FIXTURE_CONFIG =
+      oldKickFor(V3_SCHEDULER_PATH + "fixtures/excluded-helper");
+  static final Kick OLD_GET_CANDIDATES_EXCLUDED_CONFIG =
+      oldKickFor(V3_SCHEDULER_PATH + "booking/get-candidates-excluded");
+  static final Kick OLD_BOOK_EXCLUDED_NON_REQUIRED_CONFIG =
+      oldKickFor(V3_SCHEDULER_PATH + "booking/service-appointments-excluded-non-required");
+
+  // ## 1c (Skills) — the WorkType requires a Skill; skilled resourceA holds a ServiceResourceSkill,
+  // skill-less resourceB has none. skills-helper is a TWO-Kick-shaped fixture (05-create-skill runs the
+  // SETUP-object Skill in its own transaction under adminToken — MIXED_DML forbids it inside the
+  // non-setup graph — then 10-create-skills-helper-graph builds the rest and FK-references the Skill).
+  static final Kick OLD_SKILLS_FIXTURE_CONFIG =
+      oldKickFor(V3_SCHEDULER_PATH + "fixtures/skills-helper");
+  // Three read shapes: 10 single skill-less B → EXCLUDED (old single path skill-checks it → proves the
+  // rule exists), 20 single skilled A → INCLUDED (non-vacuity), 30 multi A-primary + B-required-helper →
+  // B ESCAPES (old multi path skill-checks the primary ONLY → parity with 264 helper-escapes).
+  static final Kick OLD_GET_SLOTS_SKILLS_CONFIG =
+      oldKickFor(V3_SCHEDULER_PATH + "booking/get-appointment-slots-skills");
+  static final Kick OLD_BOOK_SKILLS_NON_REQUIRED_CONFIG =
+      oldKickFor(V3_SCHEDULER_PATH + "booking/service-appointments-skills-non-required");
+
+  // ## Decision 1.4 — Required-resources: the account (ResourcePreference Required) demands a SPECIFIC
+  // worker (resourceB), which is present ONLY as a NON-required helper. resourceA (required+primary) is
+  // clean but is NOT the account-required worker. On the OLD classic engine the account Required pref is a
+  // candidate-POOL FILTER (SchedulingDbUtil.checkResourcePrefs keeps only the account's required set), read
+  // via getAppointmentCandidates — semantically distinct from the 264 "helper must SATISFY a demand"
+  // satisfier rule. See {@link SchedulerVsUnifiedParityE2ETest#testHelperRequiredResourceParity_1_4_E2E}.
+  static final Kick OLD_REQUIRED_HELPER_FIXTURE_CONFIG =
+      oldKickFor(V3_SCHEDULER_PATH + "fixtures/required-helper");
+  static final Kick OLD_GET_CANDIDATES_REQUIRED_CONFIG =
+      oldKickFor(V3_SCHEDULER_PATH + "booking/get-candidates-required");
+  static final Kick OLD_BOOK_REQUIRED_NON_REQUIRED_CONFIG =
+      oldKickFor(V3_SCHEDULER_PATH + "booking/service-appointments-required-non-required");
+
   /**
    * Skip (JUnit assumption) unless BOTH orgs' creds are present: the Unified side reads {@code
    * ~/.revoman/config.yaml} and the old side reads {@code ~/.revoman/scheduler-config.yaml} (here).
@@ -127,6 +196,45 @@ public final class SchedulerParityConfig {
       return WriteOutcome.BOOKED;
     }
     return "500".equals(http) ? WriteOutcome.CRASHED : WriteOutcome.REFUSED;
+  }
+
+  /**
+   * Old side (candidates path): a resource is INCLUDED iff it appears in at least one candidate's {@code
+   * resources[]}. The getAppointmentCandidates read prunes an account-Excluded ServiceResource, so an
+   * excluded resource comes back {@code "0"} (present-flag) → EXCLUDED. Used by 1a where the rule is
+   * account ResourcePreference(Excluded), enforced only on the candidates read path.
+   */
+  static ReadDecision oldCandidatesReadDecision(final String resourcePresentFlag) {
+    return "1".equals(resourcePresentFlag) ? ReadDecision.INCLUDED : ReadDecision.EXCLUDED;
+  }
+
+  /**
+   * Unified side (Decision 1.4), normalizing from the error ENVELOPE rather than HTTP: the 264 violating
+   * write returns a top-level {@code [{errorCode:"INTERNAL_SERVER_ERROR", ...}]} (a serviceTerritoryMembers
+   * NPE) → CRASHED; a schedulingStatus=="Success" → BOOKED; anything else → REFUSED.
+   */
+  static WriteOutcome unifiedWriteOutcomeFromErrorCode(
+      final String schedulingStatus, final String errorCode) {
+    if ("Success".equals(schedulingStatus)) {
+      return WriteOutcome.BOOKED;
+    }
+    return "INTERNAL_SERVER_ERROR".equals(errorCode) ? WriteOutcome.CRASHED : WriteOutcome.REFUSED;
+  }
+
+  /**
+   * Old-side read decision for the Required-resources (1.4) candidates path, normalizing to the write
+   * vocabulary so the read↔write divergence is directly comparable: an HTTP 500 / errorCode
+   * INTERNAL_SERVER_ERROR is CRASHED (would match the 264 write); a clean 0-candidate response is REFUSED;
+   * a non-empty candidate list is BOOKED (offered).
+   */
+  static WriteOutcome oldCandidatesOutcome(
+      final String candidateCount, final String http, final String errorCode) {
+    if ("500".equals(http) || "INTERNAL_SERVER_ERROR".equals(errorCode)) {
+      return WriteOutcome.CRASHED;
+    }
+    return (candidateCount != null && !"0".equals(candidateCount) && !candidateCount.isBlank())
+        ? WriteOutcome.BOOKED
+        : WriteOutcome.REFUSED;
   }
 
   /** Old-side Kick: same wiring as {@link ReVomanConfigForWfs} but overlaying the SCHEDULER creds. */
