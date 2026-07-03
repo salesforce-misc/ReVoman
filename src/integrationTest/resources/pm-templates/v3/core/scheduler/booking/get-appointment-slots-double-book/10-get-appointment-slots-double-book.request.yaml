@@ -1,0 +1,58 @@
+$kind: http-request
+description: >-
+  OLD Salesforce Scheduler MULTI-RESOURCE read: POST /scheduling/getAppointmentSlots over the double-book
+  fixture, tomorrow 11:00-11:30 UTC, naming BOTH resourceA (free) and resourceB (busy at 11:00) as
+  required. The classic engine's multi-resource contract (GetAppointmentSlotsRequest +
+  GetAppointmentRequestValidator48) treats primaryResourceId and requiredResourceIds as DISJOINT sets —
+  the primary is ITS OWN required resource, added to the intersection separately (SchedulingServiceImpl
+  line ~519 adds primaryResourceId to requiredResourceIds15Char). Sending A in BOTH lists is a
+  BAD_REQUEST ("Remove the primaryResourceId from the requiredResourceIds list"), LIVE-OBSERVED on this
+  org. So "both A and B required" is expressed as primaryResourceId=A + requiredResourceIds=[B]. The
+  engine AND-intersects every required resource's availability
+  (getOverlappingTimeSlotsBetweenMultipleResources → extractCommonSlots, empty-set early-exit), so B
+  being busy at 11:00 zeroes the A∩B slots. NOTE: the old read has NO non-required "helper" input — every
+  named id is required — so the read-side probe is "required-and-busy zeroes vs A-only offers", per
+  research. Multi-resource requires the org's MultiResourceScheduling perm; absent it the engine throws
+  multiResourceNotEnabled. Captures oldReadWithBSlotCount.
+  OBSERVED LIVE on the scheduler org (v67): the AND hypothesis HOLDS — this A+B call returns 0 slots
+  (empty timeSlots) while the A-only control (20-…) returns 1 (window 11:00-11:30). The internal spike's
+  "union" concern did NOT materialise here: the old multi-resource engine AND-INTERSECTS required
+  resources (getOverlappingTimeSlotsBetweenMultipleResources → extractCommonSlots, empty-set early-exit),
+  so busy B empties the A∩B intersection. Response field is "timeSlots" (data.timeSlots), the brief's
+  first choice; "slots" is never present. PREREQUISITE: the two resource users must hold the Lightning
+  Scheduler PSL + lightningSchedulerUserAccess user-perm (granted by the shared grant-ls-user-access Kick,
+  revUp'd just before this read) or the classic engine prunes both resources → an all-0 dead read
+  (JDWP-confirmed removeResourcesWithoutPerm).
+url: "{{baseUrl}}{{versionPath}}/scheduling/getAppointmentSlots"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "workType": { "id": "{{schedWorkTypeId}}" },
+      "territoryIds": ["{{schedTerritoryId}}"],
+      "requiredResourceIds": ["{{schedResourceBId}}"],
+      "primaryResourceId": "{{schedResourceAId}}",
+      "startTime": "{{schedReadStart}}",
+      "endTime": "{{schedReadEnd}}"
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(11, 0, 0, 0);
+      const e = new Date(s.getTime() + 30 * 60 * 1000);
+      pm.environment.set("schedReadStart", s.toISOString());
+      pm.environment.set("schedReadEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      const data = pm.response.json() || {};
+      const slots = (data.timeSlots || data.slots || []);
+      pm.environment.set("oldReadWithBSlotCount", String(slots.length));
+      console.log("OLD read A+B http=" + pm.response.code + " slots=" + slots.length);
+    language: text/javascript
+order: 1000

@@ -1,0 +1,12 @@
+$kind: collection
+description: |-
+  OLD Scheduler-org double-book data graph (clone of the WFS Unified fixture, retargeted to the scheduler
+  org and admin session). Territory OH 08-16; resourceA member OH + Shift 10-14 (covers 11:00-11:30);
+  resourceB member OH + Shift 12-14 (does NOT cover 11:00 → busy at the window). Standard objects, so the
+  same graph books on the scheduler org. Sets sched{Territory,WorkType,Account,ResourceA,ResourceB}Id.
+auth:
+  - id: 7e1f0c00-1005-4aaa-9bbb-000000000010
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{adminToken}}"

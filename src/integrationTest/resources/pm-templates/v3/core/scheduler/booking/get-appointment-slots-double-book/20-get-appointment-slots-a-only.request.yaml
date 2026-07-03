@@ -1,0 +1,36 @@
+$kind: http-request
+description: >-
+  Control: OLD getAppointmentSlots naming ONLY resourceA (free) as required, same window (tomorrow
+  11:00-11:30 UTC). SINGLE-resource shape: primaryResourceId is OMITTED (the classic engine's
+  single-resource path — GetAppointmentRequestValidator48 requires primaryResourceId to be null when
+  requiredResourceIds has ≤1 id) and requiredResourceIds=[A]. Proves the fixture is bookable on the old
+  side (slots > 0), so the A+B result in step 10 reflects resourceB's busyness, not a dead fixture.
+  Captures oldReadAOnlySlotCount. OBSERVED LIVE (v67): 1 slot (11:00-11:30), while the A+B multi-resource
+  call (10-…) returns 0 → the AND hypothesis HOLDS (A-only=1, A+B=0), NOT union. Response field is
+  "timeSlots". PREREQUISITE: resourceA's user must hold the Lightning Scheduler PSL +
+  lightningSchedulerUserAccess (granted by the shared grant-ls-user-access Kick) or this control also reads 0 (dead).
+url: "{{baseUrl}}{{versionPath}}/scheduling/getAppointmentSlots"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "workType": { "id": "{{schedWorkTypeId}}" },
+      "territoryIds": ["{{schedTerritoryId}}"],
+      "requiredResourceIds": ["{{schedResourceAId}}"],
+      "startTime": "{{schedReadStart}}",
+      "endTime": "{{schedReadEnd}}"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      const data = pm.response.json() || {};
+      const slots = (data.timeSlots || data.slots || []);
+      pm.environment.set("oldReadAOnlySlotCount", String(slots.length));
+      console.log("OLD read A-only http=" + pm.response.code + " slots=" + slots.length);
+    language: text/javascript
+order: 2000
