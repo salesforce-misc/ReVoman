@@ -1,0 +1,13 @@
+$kind: collection
+description: |-
+  OLD Scheduler book (Decision 3 Act B, doc L142 control) over the double-book fixture: a SINGLE
+  assignedResource (resourceA) with isRequiredResource=true and NO isPrimaryResource — MUST be a valid
+  Schedule (isPrimaryResource is multi-resource-only plumbing, NOT the Decision-1 variable). Runs under
+  {{adminToken}}. Reuses schedResourceAId / schedTerritoryId / schedWorkTypeId / schedAccountId from the
+  double-book fixture.
+auth:
+  - id: 7e1f0c00-1005-4aaa-9bbb-000000000320
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{adminToken}}"

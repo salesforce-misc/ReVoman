@@ -1,0 +1,27 @@
+$kind: collection
+description: |-
+  OLD Decision-9 fixture. On the scheduler org a non-admin persona CANNOT insert ServiceTerritory / STM
+  (CANNOT_INSERT_UPDATE_ACTIVATE_ENTITY — LIVE-OBSERVED), so ownership is split to still put the SHARING
+  GATE on a manager-owned row. The collection binds {{adminToken}}; the ONE manager-owned step overrides to
+  {{oldD9ManagerToken}} per-request:
+    - 10 (admin) composite/graph: territory OperatingHours + 08-16 TimeSlots (Mon-Sun), a ServiceTerritory,
+      a 30m WorkType (NO SchedulingMethod — the scheduler org schema lacks it) + STWT, a member OH + 08-16
+      TimeSlots, an Account. Sets oldD9TerritoryId / oldD9WorkTypeId / oldD9AccountId / oldD9MemberOhId.
+    - 15 (MANAGER, per-request auth) a single ServiceResource (ResourceType=T, IsPrimary) on the
+      admin-created resource-owner user ({{oldD9ResourceUserId}}) → the manager OWNS it (OwnerId=manager),
+      making it the Private sharing-gate parent (ServiceResource OWD=Private; STM is ControlledByParent).
+      Sets oldD9ResourceId.
+    - 20 (admin) the STM (TerritoryType=P, effective ~30 days ago) on the manager-owned resource + a
+      Confirmed Shift (08:00-16:00 tomorrow, NO SchedulingMethod). Admin creates these because a non-admin
+      can't insert STM and can't reference the admin-owned Private ServiceTerritory on the Shift
+      (INSUFFICIENT_ACCESS_ON_CROSS_REFERENCE — LIVE-OBSERVED). The Shift read is full-access on the classic
+      engine so its owner is immaterial; the gate is the manager-owned ServiceResource/STM user-mode read.
+      Sets oldD9ShiftId.
+  Drives both get-appointment-slots-sharing acts: the case-worker (no sharing on the manager-owned Private
+  resource/STM) reads zero slots (the classic user-mode STM gate); ADMIN reads > 0 (fixture live).
+auth:
+  - id: b9020202-0000-4000-8000-0000000000b2
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{adminToken}}"

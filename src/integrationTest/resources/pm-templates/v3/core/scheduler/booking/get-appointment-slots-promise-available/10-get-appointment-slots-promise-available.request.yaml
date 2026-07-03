@@ -1,0 +1,44 @@
+$kind: http-request
+description: >-
+  OLD Salesforce Scheduler SINGLE-resource read (Decision 2, AVAILABLE window): POST
+  /scheduling/getAppointmentSlots over the promise-helper fixture, naming ONLY resourceA (available 08-16)
+  as required, for the AVAILABLE window tomorrow 11:00-11:30 UTC. SINGLE-resource shape: primaryResourceId
+  is OMITTED (GetAppointmentRequestValidator48 requires primaryResourceId null when requiredResourceIds has
+  ≤1 id) and requiredResourceIds=[A]. The window (11:00-11:30) fits inside resourceA's availability union
+  (member OH ∪ Shift = 08-16) → the shared cheap availability check passes → the read OFFERS slots (>0).
+  This is the READ half of the Decision 2 read↔write promise on the available window. Response field is
+  "timeSlots" (data.timeSlots). Captures oldPromiseReadAvailCount. PREREQUISITE: resourceA's user holds the
+  Lightning Scheduler PSL + lightningSchedulerUserAccess (granted by the shared grant-ls-user-access Kick,
+  revUp'd just before this read) or the classic engine prunes the resource → a dead 0-slot read.
+url: "{{baseUrl}}{{versionPath}}/scheduling/getAppointmentSlots"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "workType": { "id": "{{schedWorkTypeId}}" },
+      "territoryIds": ["{{schedTerritoryId}}"],
+      "requiredResourceIds": ["{{schedResourceAId}}"],
+      "startTime": "{{schedPromiseAvailStart}}",
+      "endTime": "{{schedPromiseAvailEnd}}"
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(11, 0, 0, 0);
+      const e = new Date(s.getTime() + 30 * 60 * 1000);
+      pm.environment.set("schedPromiseAvailStart", s.toISOString());
+      pm.environment.set("schedPromiseAvailEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      const data = pm.response.json() || {};
+      const slots = (data.timeSlots || data.slots || []);
+      pm.environment.set("oldPromiseReadAvailCount", String(slots.length));
+      console.log("OLD promise read-avail http=" + pm.response.code + " slots=" + slots.length);
+    language: text/javascript
+order: 1000

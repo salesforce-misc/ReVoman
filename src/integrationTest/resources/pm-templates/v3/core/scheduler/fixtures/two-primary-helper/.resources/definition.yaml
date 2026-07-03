@@ -1,0 +1,16 @@
+$kind: collection
+description: |-
+  OLD Scheduler-org two-primary (Decision 4) data graph. A clone of the double-book fixture retargeted so
+  BOTH resources are FULLY AVAILABLE at the 11:00-11:30 booking window (member OH + Confirmed Shift 10-14
+  for A AND B) — unlike double-book (where B is busy at 11:00). Both are PRIMARY-eligible
+  ServiceTerritoryMembers (TerritoryType=P). The clean availability is deliberate: Decision 4 is about the
+  "at most one primary AssignedResource per ServiceAppointment" rule, NOT availability — so with two clean,
+  free resources the ONLY thing that can refuse the two-primary book is the primary-count/save constraint,
+  and the one-primary control (A primary + B non-primary, both free) BOOKS to prove the fixture is live.
+  Sets sched{Territory,WorkType,Account,ResourceA,ResourceB}Id (shared with the double-book book acts).
+auth:
+  - id: 7e1f0c00-1005-4aaa-9bbb-000000000040
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{adminToken}}"

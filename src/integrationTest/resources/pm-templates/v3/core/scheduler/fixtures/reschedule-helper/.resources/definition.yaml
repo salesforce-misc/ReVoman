@@ -1,0 +1,14 @@
+$kind: collection
+description: |-
+  OLD Scheduler-org CLEAN two-resource data graph for Decision 4z (reschedule leaves no primary). A clone
+  of the double-book fixture retargeted so BOTH resourceA and resourceB are FULLY AVAILABLE over the
+  11:00-11:30 window (member OH + Confirmed Shift 08-16 for both), so the clean two-resource booking
+  succeeds and yields two AssignedResource rows to probe. resourceA is the primary+required worker;
+  resourceB is a required secondary. Standard objects, books on the scheduler org under {{adminToken}}.
+  Sets sched{Territory,WorkType,Account,ResourceA,ResourceB}Id.
+auth:
+  - id: 7e1f0c00-1005-4aaa-9bbb-0000004z0010
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{adminToken}}"

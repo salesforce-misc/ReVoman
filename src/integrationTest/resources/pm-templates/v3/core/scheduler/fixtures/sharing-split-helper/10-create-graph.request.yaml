@@ -1,0 +1,90 @@
+$kind: http-request
+description: >-
+  OLD Decision-9 fixture skeleton, created by ADMIN (a non-admin persona cannot insert ServiceTerritory on
+  this org). Territory OH 08-16 (Mon-Sun TimeSlots), a ServiceTerritory, a 30m WorkType (NO SchedulingMethod
+  — the scheduler org schema lacks it) + STWT, a member OH 08-16 (Mon-Sun), and an Account. The
+  sharing-sensitive ServiceResource is created by the MANAGER in step 15; the STM + Shift on it by admin in
+  step 20. Availability is member OH ∪ Shift; both span 08-16 so the tomorrow 11:00-11:30 window is bookable.
+url: "{{baseUrl}}{{versionPath}}/composite/graph"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "graphs": [
+        {
+          "graphId": "oldD9skeleton",
+          "compositeRequest": [
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/OperatingHours",
+              "referenceId": "refTerritoryOh",
+              "body": { "Name": "OldD9 Territory OH {{$timestamp}}", "TimeZone": "GMT" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/OperatingHours",
+              "referenceId": "refMemberOh",
+              "body": { "Name": "OldD9 Member OH {{$timestamp}}", "TimeZone": "GMT" }
+            },
+            { "method": "POST", "url": "{{versionPath}}/sobjects/TimeSlot", "referenceId": "refTerrTsMon", "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Monday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" } },
+            { "method": "POST", "url": "{{versionPath}}/sobjects/TimeSlot", "referenceId": "refTerrTsTue", "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Tuesday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" } },
+            { "method": "POST", "url": "{{versionPath}}/sobjects/TimeSlot", "referenceId": "refTerrTsWed", "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Wednesday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" } },
+            { "method": "POST", "url": "{{versionPath}}/sobjects/TimeSlot", "referenceId": "refTerrTsThu", "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Thursday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" } },
+            { "method": "POST", "url": "{{versionPath}}/sobjects/TimeSlot", "referenceId": "refTerrTsFri", "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Friday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" } },
+            { "method": "POST", "url": "{{versionPath}}/sobjects/TimeSlot", "referenceId": "refTerrTsSat", "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Saturday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" } },
+            { "method": "POST", "url": "{{versionPath}}/sobjects/TimeSlot", "referenceId": "refTerrTsSun", "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Sunday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" } },
+            { "method": "POST", "url": "{{versionPath}}/sobjects/TimeSlot", "referenceId": "refMemTsMon", "body": { "OperatingHoursId": "@{refMemberOh.id}", "DayOfWeek": "Monday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" } },
+            { "method": "POST", "url": "{{versionPath}}/sobjects/TimeSlot", "referenceId": "refMemTsTue", "body": { "OperatingHoursId": "@{refMemberOh.id}", "DayOfWeek": "Tuesday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" } },
+            { "method": "POST", "url": "{{versionPath}}/sobjects/TimeSlot", "referenceId": "refMemTsWed", "body": { "OperatingHoursId": "@{refMemberOh.id}", "DayOfWeek": "Wednesday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" } },
+            { "method": "POST", "url": "{{versionPath}}/sobjects/TimeSlot", "referenceId": "refMemTsThu", "body": { "OperatingHoursId": "@{refMemberOh.id}", "DayOfWeek": "Thursday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" } },
+            { "method": "POST", "url": "{{versionPath}}/sobjects/TimeSlot", "referenceId": "refMemTsFri", "body": { "OperatingHoursId": "@{refMemberOh.id}", "DayOfWeek": "Friday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" } },
+            { "method": "POST", "url": "{{versionPath}}/sobjects/TimeSlot", "referenceId": "refMemTsSat", "body": { "OperatingHoursId": "@{refMemberOh.id}", "DayOfWeek": "Saturday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" } },
+            { "method": "POST", "url": "{{versionPath}}/sobjects/TimeSlot", "referenceId": "refMemTsSun", "body": { "OperatingHoursId": "@{refMemberOh.id}", "DayOfWeek": "Sunday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" } },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceTerritory",
+              "referenceId": "refTerritory",
+              "body": { "Name": "OldD9 Territory {{$timestamp}}", "OperatingHoursId": "@{refTerritoryOh.id}", "IsActive": true }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/WorkType",
+              "referenceId": "refWorkType",
+              "body": { "Name": "OldD9 WorkType {{$timestamp}}", "DurationType": "Minutes", "EstimatedDuration": 30 }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceTerritoryWorkType",
+              "referenceId": "refStwt",
+              "body": { "ServiceTerritoryId": "@{refTerritory.id}", "WorkTypeId": "@{refWorkType.id}" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/Account",
+              "referenceId": "refAccount",
+              "body": { "Name": "OldD9 Account {{$timestamp}}" }
+            }
+          ]
+        }
+      ]
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      const responses = pm.response.json().graphs[0].graphResponse.compositeResponse;
+      responses.forEach((r) => {
+        if (r.httpStatusCode < 200 || r.httpStatusCode >= 300) {
+          throw new Error("OldD9 skeleton step " + r.referenceId + " failed: " + JSON.stringify(r.body));
+        }
+      });
+      const byRef = {};
+      responses.forEach(r => { byRef[r.referenceId] = r.body && r.body.id; });
+      pm.environment.set("oldD9TerritoryId", byRef["refTerritory"]);
+      pm.environment.set("oldD9WorkTypeId", byRef["refWorkType"]);
+      pm.environment.set("oldD9AccountId", byRef["refAccount"]);
+      pm.environment.set("oldD9MemberOhId", byRef["refMemberOh"]);
+    language: text/javascript
+order: 10000

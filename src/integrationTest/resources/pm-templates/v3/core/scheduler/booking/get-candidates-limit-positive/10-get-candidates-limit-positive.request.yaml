@@ -1,0 +1,55 @@
+$kind: http-request
+description: >-
+  Decision 8 old-side probe N (control) — OLD getAppointmentCandidates over the SAME limit-helper fixture +
+  window + load-balancing policy, with an explicit resourceLimitApptDistribution=50 (well above the seeded
+  2-resource pool). The cap is a deliberate no-op (filteredResourceIds.size() <= 50 → the pool is returned
+  whole), so the post-rule candidate set comes back NON-empty — proving 0 is a LITERAL cap-of-0, not "no
+  limit". Same NO-filterByResources requirement so the load-balancing path engages. Read-only contract: HTTP
+  200, no exception. Captures the distinct resource-id count as limitPositiveResourceCount (+ ...Http /
+  ...ErrorCode). This is ALSO the non-vacuity control: it MUST be > 0, proving the fixture + the
+  load-balancing policy + the Lightning-Scheduler grant are all LIVE — so the limit=0 empty result is the
+  cap, not a dead read. Runs order 2000 (after the limit-zero probe, order 1000) in the same read-only revUp.
+url: "{{baseUrl}}{{versionPath}}/scheduling/getAppointmentCandidates"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "workType": { "id": "{{schedLimitWorkTypeId}}" },
+      "territoryIds": ["{{schedLimitTerritoryId}}"],
+      "schedulingPolicyId": "{{schedLimitPolicyId}}",
+      "resourceLimitApptDistribution": 50,
+      "startTime": "{{schedLimitReadStart}}",
+      "endTime": "{{schedLimitReadEnd}}"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      // Same distinct-resource measure across candidates, with the candidate-count fallback (see the
+      // limit-zero probe). limit=50 (> the 2 seeded resources) → no trim → the full pool survives.
+      const data = pm.response.json() || {};
+      const candidates = (data.candidates || []);
+      const resourceIds = new Set();
+      candidates.forEach(c => {
+        const rs = c.resources || c.serviceResources || [];
+        rs.forEach(r => {
+          const id = (typeof r === "string") ? r
+                   : (r && (r.resourceId || r.id || r.serviceResourceId || r.serviceResource)) || null;
+          if (id) resourceIds.add(id);
+        });
+      });
+      const resourceCount = resourceIds.size > 0 ? resourceIds.size : candidates.length;
+      pm.environment.set("limitPositiveResourceCount", String(resourceCount));
+      pm.environment.set("limitPositiveCandidateCount", String(candidates.length));
+      pm.environment.set("limitPositiveHttp", String(pm.response.code));
+      pm.environment.set("limitPositiveErrorCode", data.errorCode || "");
+      console.log("OLD candidates limit=50 http=" + pm.response.code +
+                  " candidates=" + candidates.length + " distinctResources=" + resourceIds.size +
+                  " resourceCount=" + resourceCount + " errorCode=" + (data.errorCode || "") +
+                  " body=" + JSON.stringify(data).slice(0,400));
+    language: text/javascript
+order: 2000

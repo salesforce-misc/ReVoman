@@ -1,0 +1,61 @@
+$kind: http-request
+description: >-
+  OLD Salesforce Scheduler book (Decision 3 Act B, doc L142 control): POST
+  /connect/scheduling/service-appointments, tomorrow 11:00-11:30 UTC, over the double-book fixture's FREE
+  resourceA. ONE assignedResource with isRequiredResource=true and NO isPrimaryResource field — this MUST
+  be a valid Schedule (isPrimaryResource is multi-resource-only plumbing, NOT the Decision-1 variable), so
+  it proves the fixture + grant are live and isolates the Act-A missing-flag outcome to the OMITTED
+  isRequiredResource, not to a dead/unavailable resourceA. Same policy/fixture/window as Act A; only the
+  assignedResource differs (adds isRequiredResource=true). Expected: BOOKED (08p SA id). Captures
+  oldSingleRequiredNoPrimaryHttp + oldSingleRequiredNoPrimarySaId + oldSingleRequiredNoPrimaryErrorCode +
+  oldSingleRequiredNoPrimaryErrorMessage. Carries ignoreHTTPStatusUnsuccessful.
+url: "{{baseUrl}}{{versionPath}}/connect/scheduling/service-appointments"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "serviceAppointment": {
+        "serviceTerritoryId": "{{schedTerritoryId}}",
+        "parentRecordId": "{{schedAccountId}}",
+        "workTypeId": "{{schedWorkTypeId}}",
+        "schedStartTime": "{{schedBookStart}}",
+        "schedEndTime": "{{schedBookEnd}}",
+        "extendedFields": [ { "name": "Status", "value": "Scheduled" } ]
+      },
+      "assignedResources": [
+        { "serviceResourceId": "{{schedResourceAId}}", "isRequiredResource": true }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(11, 0, 0, 0);
+      const e = new Date(s.getTime() + 30 * 60 * 1000);
+      pm.environment.set("schedBookStart", s.toISOString());
+      pm.environment.set("schedBookEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      // The Connect book API wraps its payload in a "result" node on success:
+      // { "result": { "serviceAppointmentId": "08p...", ... } }. On refusal it returns a top-level error
+      // array [{errorCode,message}] or an ErrorRepresentation {errorCode,message}. Capture SA id + http +
+      // errorCode so the normalizer classifies BOOKED (expected).
+      const data = pm.response.json() || {};
+      const result = data.result || data;
+      const arr = Array.isArray(data) ? data : null;
+      pm.environment.set("oldSingleRequiredNoPrimaryHttp", String(pm.response.code));
+      pm.environment.set("oldSingleRequiredNoPrimarySaId", result.serviceAppointmentId || (result.serviceAppointment && result.serviceAppointment.id) || "");
+      let ec = data.errorCode || null;
+      let msg = data.message || null;
+      if (arr && arr.length) { ec = arr[0].errorCode; msg = arr[0].message; }
+      pm.environment.set("oldSingleRequiredNoPrimaryErrorCode", ec || "");
+      pm.environment.set("oldSingleRequiredNoPrimaryErrorMessage", msg || "");
+      console.log("OLD book single-required-no-primary http=" + pm.response.code + " body=" + JSON.stringify(data).slice(0,400));
+    language: text/javascript
+order: 1000

@@ -1,0 +1,12 @@
+$kind: collection
+description: |-
+  OLD Scheduler getAppointmentCandidates with resourceLimitApptDistribution=0 over the limit-helper fixture
+  (Decision 8). NO filterByResources so the load-balancing (smart-scheduling) path engages; limit=0 caps the
+  resource pool to zero → empty candidates. Captures limitZeroResourceCount / limitZeroCandidateCount /
+  limitZeroHttp / limitZeroErrorCode. Runs under {{adminToken}}.
+auth:
+  - id: 7e1f0c00-1005-4aaa-9bbb-000000000131
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{adminToken}}"

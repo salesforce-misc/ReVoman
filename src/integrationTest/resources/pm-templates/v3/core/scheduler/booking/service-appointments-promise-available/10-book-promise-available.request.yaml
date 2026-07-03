@@ -1,0 +1,51 @@
+$kind: http-request
+description: >-
+  OLD Salesforce Scheduler book (Decision 2, AVAILABLE window): POST /connect/scheduling/service-appointments
+  booking resourceA (single assignedResource, isRequiredResource=true + isPrimaryResource=true) into the
+  AVAILABLE window tomorrow 11:00-11:30 UTC. resourceA is available there (window inside member OH ∪ Shift =
+  08-16), so the write's re-check of the shared cheap availability check passes → the SA books (HTTP 2xx,
+  18-char 08p serviceAppointmentId). This is the WRITE half of the read↔write promise on the available
+  window: read-offers-slot ⟺ write-succeeds. Captures oldPromiseWriteAvailHttp + oldPromiseWriteAvailSaId.
+url: "{{baseUrl}}{{versionPath}}/connect/scheduling/service-appointments"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "serviceAppointment": {
+        "serviceTerritoryId": "{{schedTerritoryId}}",
+        "parentRecordId": "{{schedAccountId}}",
+        "workTypeId": "{{schedWorkTypeId}}",
+        "schedStartTime": "{{schedPromiseBookAvailStart}}",
+        "schedEndTime": "{{schedPromiseBookAvailEnd}}",
+        "extendedFields": [ { "name": "Status", "value": "Scheduled" } ]
+      },
+      "assignedResources": [
+        { "serviceResourceId": "{{schedResourceAId}}", "isRequiredResource": true, "isPrimaryResource": true }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(11, 0, 0, 0);
+      const e = new Date(s.getTime() + 30 * 60 * 1000);
+      pm.environment.set("schedPromiseBookAvailStart", s.toISOString());
+      pm.environment.set("schedPromiseBookAvailEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      // The Connect book API wraps its payload in a "result" node on success:
+      // { "result": { "serviceAppointmentId": "08p...", ... } }. On refusal it returns a top-level error
+      // array. Dig the SA id out of result first, then the flatter shapes.
+      const data = pm.response.json() || {};
+      const result = data.result || data;
+      pm.environment.set("oldPromiseWriteAvailHttp", String(pm.response.code));
+      pm.environment.set("oldPromiseWriteAvailSaId", result.serviceAppointmentId || (result.serviceAppointment && result.serviceAppointment.id) || "");
+      console.log("OLD promise book-avail http=" + pm.response.code + " body=" + JSON.stringify(data).slice(0,300));
+    language: text/javascript
+order: 1000

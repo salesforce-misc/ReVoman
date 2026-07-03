@@ -1,0 +1,62 @@
+$kind: http-request
+description: >-
+  OLD Decision-9 — admin creates the MANAGER persona (the owner identity) in one composite/graph: a fresh
+  timestamped User on the Standard User profile + the Salesforce_Scheduler_Resource PermissionSet (carries
+  the lightningSchedulerUserAccess user-perm the classic slot-gen requires). The LightningSchedulerPsl PSL
+  is AUTO-granted with that permset on this org, so it is NOT assigned here (a second explicit assign
+  DUPLICATE_VALUEs and rolls back the whole graph — LIVE-OBSERVED). A password is set next so the manager can
+  SOAP-login to its own session; it then OWNS the Decision-9 ServiceResource (the sharing-gate parent).
+url: "{{baseUrl}}{{versionPath}}/composite/graph"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "graphs": [
+        {
+          "graphId": "oldD9mgr",
+          "compositeRequest": [
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/User",
+              "referenceId": "refUser",
+              "body": {
+                "Username": "{{oldD9ManagerUserName}}",
+                "ProfileId": "{{oldD9StandardUserProfileId}}",
+                "Alias": "od9mgr",
+                "Email": "{{oldD9ManagerUserName}}",
+                "EmailEncodingKey": "ISO-8859-1",
+                "LastName": "OldD9Manager",
+                "FirstName": "Morgan",
+                "LanguageLocaleKey": "en_US",
+                "LocaleSidKey": "en_US",
+                "TimeZoneSidKey": "GMT"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/PermissionSetAssignment",
+              "referenceId": "refPsAssign",
+              "body": { "AssigneeId": "@{refUser.id}", "PermissionSetId": "{{oldD9SchedulerPsId}}" }
+            }
+          ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: pm.environment.set("oldD9ManagerUserName", pm.variables.replaceIn("old-d9-manager-{{$timestamp}}@revoman.org"));
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      const responses = pm.response.json().graphs[0].graphResponse.compositeResponse;
+      responses.forEach((r) => {
+        if (r.httpStatusCode < 200 || r.httpStatusCode >= 300) {
+          throw new Error("Manager persona step " + r.referenceId + " failed: " + JSON.stringify(r.body));
+        }
+      });
+      pm.environment.set("oldD9ManagerUserId", responses[0].body.id);
+    language: text/javascript
+order: 20000

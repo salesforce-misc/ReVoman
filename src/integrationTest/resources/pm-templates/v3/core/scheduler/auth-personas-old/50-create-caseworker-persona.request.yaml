@@ -1,0 +1,63 @@
+$kind: http-request
+description: >-
+  OLD Decision-9 — admin creates the CASE-WORKER persona: the sharing-deprived READER. Fresh timestamped
+  User on the Standard User profile + Salesforce_Scheduler_Resource PS (carries lightningSchedulerUserAccess
+  so it is NOT pruned by removeResourcesWithoutPerm — its zero-slot result is the sharing gate, not a perm
+  prune). The LightningSchedulerPsl PSL is auto-granted with the permset (NOT assigned here — a second
+  assign DUPLICATE_VALUEs). It is NOT shared the manager's Private resource/STM/Shift rows, so its user-mode
+  STM read (ShiftsDbUtil, SystemMode.NONE) sees none → empty availability, HTTP 200, no error (LIVE-OBSERVED
+  on this org — the classic engine DOES honor that user-mode STM gate here).
+url: "{{baseUrl}}{{versionPath}}/composite/graph"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "graphs": [
+        {
+          "graphId": "oldD9cw",
+          "compositeRequest": [
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/User",
+              "referenceId": "refUser",
+              "body": {
+                "Username": "{{oldD9CaseWorkerUserName}}",
+                "ProfileId": "{{oldD9StandardUserProfileId}}",
+                "Alias": "od9cw",
+                "Email": "{{oldD9CaseWorkerUserName}}",
+                "EmailEncodingKey": "ISO-8859-1",
+                "LastName": "OldD9CaseWorker",
+                "FirstName": "Casey",
+                "LanguageLocaleKey": "en_US",
+                "LocaleSidKey": "en_US",
+                "TimeZoneSidKey": "GMT"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/PermissionSetAssignment",
+              "referenceId": "refPsAssign",
+              "body": { "AssigneeId": "@{refUser.id}", "PermissionSetId": "{{oldD9SchedulerPsId}}" }
+            }
+          ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: pm.environment.set("oldD9CaseWorkerUserName", pm.variables.replaceIn("old-d9-caseworker-{{$timestamp}}@revoman.org"));
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      const responses = pm.response.json().graphs[0].graphResponse.compositeResponse;
+      responses.forEach((r) => {
+        if (r.httpStatusCode < 200 || r.httpStatusCode >= 300) {
+          throw new Error("Case-worker persona step " + r.referenceId + " failed: " + JSON.stringify(r.body));
+        }
+      });
+      pm.environment.set("oldD9CaseWorkerUserId", responses[0].body.id);
+    language: text/javascript
+order: 50000

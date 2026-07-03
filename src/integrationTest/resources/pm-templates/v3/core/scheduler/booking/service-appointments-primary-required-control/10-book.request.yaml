@@ -1,0 +1,50 @@
+$kind: http-request
+description: >-
+  Control: OLD Salesforce Scheduler book with the SAME single resourceA over the SAME free window, but now
+  isPrimaryResource=true + isRequiredResource=true (a valid required-primary). This satisfies the
+  LightningSchedulerAssignedResourceValidator (a primary IS required) → the AssignedResource insert
+  succeeds and the SA BOOKS (HTTP 2xx, serviceAppointmentId returned). Isolates the probe's refusal to the
+  isRequiredResource=false flag alone. Captures oldWriteRequiredControlHttp + oldWriteRequiredControlSaId.
+url: "{{baseUrl}}{{versionPath}}/connect/scheduling/service-appointments"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "serviceAppointment": {
+        "serviceTerritoryId": "{{schedTerritoryId}}",
+        "parentRecordId": "{{schedAccountId}}",
+        "workTypeId": "{{schedWorkTypeId}}",
+        "schedStartTime": "{{schedBookStart}}",
+        "schedEndTime": "{{schedBookEnd}}",
+        "extendedFields": [ { "name": "Status", "value": "Scheduled" } ]
+      },
+      "assignedResources": [
+        { "serviceResourceId": "{{schedResourceAId}}", "isRequiredResource": true, "isPrimaryResource": true }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(11, 0, 0, 0);
+      const e = new Date(s.getTime() + 30 * 60 * 1000);
+      pm.environment.set("schedBookStart", s.toISOString());
+      pm.environment.set("schedBookEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      // The Connect book API wraps its payload in a "result" node on success:
+      // { "result": { "serviceAppointmentId": "08p...", ... } }. Dig the SA id out of result first, then
+      // the flatter shapes. A valid required-primary books → non-empty SA id.
+      const data = pm.response.json() || {};
+      const result = data.result || data;
+      pm.environment.set("oldWriteRequiredControlHttp", String(pm.response.code));
+      pm.environment.set("oldWriteRequiredControlSaId", result.serviceAppointmentId || (result.serviceAppointment && result.serviceAppointment.id) || "");
+      console.log("OLD Decision-5 control http=" + pm.response.code + " body=" + JSON.stringify(data).slice(0,300));
+    language: text/javascript
+order: 1000

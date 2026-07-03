@@ -1,0 +1,32 @@
+$kind: http-request
+description: >-
+  OLD Decision-9 — the MANAGER persona creates the ServiceResource (per-request auth override to
+  {{oldD9ManagerToken}}, so the manager OWNS it — OwnerId=manager, LIVE-VERIFIED). This manager-owned
+  ServiceResource (OWD=Private) is the sharing-gate PARENT: the classic engine's user-mode STM read
+  (ShiftsDbUtil SystemMode.NONE) only returns the STM whose ServiceResource is shared to the running user,
+  so a case-worker without sharing on this resource reads zero slots. ResourceType=T, IsPrimary, on the
+  admin-created resource-owner user ({{oldD9ResourceUserId}}, which holds lightningSchedulerUserAccess).
+  Sets oldD9ResourceId.
+url: "{{baseUrl}}{{versionPath}}/sobjects/ServiceResource"
+method: POST
+headers:
+  Content-Type: application/json
+auth:
+  type: bearer
+  credentials:
+    token: "{{oldD9ManagerToken}}"
+body:
+  type: json
+  content: |-
+    {
+      "Name": "OldD9 Resource {{$timestamp}}",
+      "RelatedRecordId": "{{oldD9ResourceUserId}}",
+      "ResourceType": "T",
+      "IsActive": true,
+      "IsPrimary": true
+    }
+scripts:
+  - type: afterResponse
+    code: pm.environment.set("oldD9ResourceId", pm.response.json().id);
+    language: text/javascript
+order: 15000

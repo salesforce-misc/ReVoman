@@ -1,0 +1,41 @@
+$kind: http-request
+description: >-
+  OLD Scheduler reschedule-analog Arm 2: PATCH the primary AssignedResource (reschedPrimaryArId) to
+  IsPrimaryResource=false, leaving the SA with TWO required resources and ZERO primaries — the closest
+  old-side stand-in for 264's "reschedule leaves no primary" (the classic engine has no reschedule connect
+  API). The old-side save validator validateAssignedResourceOnSave guards only primary-must-be-required and
+  at-most-one-primary; it has NO "must keep a primary" rule, so this demote is NOT blocked by a no-primary
+  check. Characterizes whether the org allows it (HTTP 204) or blocks it via some other rule. Captures
+  reschedDemotePrimaryHttp / reschedDemotePrimaryErrorCode / reschedDemotePrimaryErrorMessage.
+url: "{{baseUrl}}{{versionPath}}/sobjects/AssignedResource/{{reschedPrimaryArId}}"
+method: PATCH
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "IsPrimaryResource": false
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      // A REST sObject PATCH returns 204 (empty body) on success or a non-2xx with a top-level error array
+      // [{ errorCode, message, fields }]. Capture the HTTP code + errorCode/message either way.
+      pm.environment.set("reschedDemotePrimaryHttp", String(pm.response.code));
+      let errorCode = "";
+      let errorMessage = "";
+      try {
+        const data = pm.response.json();
+        if (Array.isArray(data) && data.length > 0) {
+          errorCode = data[0].errorCode || "";
+          errorMessage = data[0].message || "";
+        }
+      } catch (e) { /* 204 no-body success → leave error fields empty */ }
+      pm.environment.set("reschedDemotePrimaryErrorCode", errorCode);
+      pm.environment.set("reschedDemotePrimaryErrorMessage", errorMessage);
+      console.log("OLD demote-primary AR http=" + pm.response.code + " errorCode=" + errorCode + " msg=" + errorMessage);
+    language: text/javascript
+order: 1200

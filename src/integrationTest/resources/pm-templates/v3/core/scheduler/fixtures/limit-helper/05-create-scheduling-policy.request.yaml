@@ -1,0 +1,37 @@
+$kind: http-request
+description: >-
+  Decision 8 old-side fixture, part 2 of 3. Creates the AppointmentSchedulingPolicy (a SETUP object) in ITS
+  OWN transaction, SEPARATE from the non-setup data graph (MIXED_DML). The AppointmentAssignmentPolicy FK —
+  the trigger for the classic load-balancing path — is NOT set here (it is attempted in a follow-up PATCH,
+  step 06, so a schema that lacks the column, i.e. an org WITHOUT smart scheduling, does not roll back this
+  create). ShouldUsePrimaryMembers + the two Shift flags true so availability = member OH ∪ Shift (same
+  mechanism as the double-book / required-helper fixtures). Captures schedLimitPolicyId. Whether the
+  load-balancing FK actually attaches is recorded by step 06 as schedLimitCapConstructible.
+url: "{{baseUrl}}{{versionPath}}/sobjects/AppointmentSchedulingPolicy"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "DeveloperName": "LimitPolicy{{$timestamp}}",
+      "MasterLabel": "Limit Policy {{$timestamp}}",
+      "AppointmentStartTimeInterval": "15",
+      "ShouldUsePrimaryMembers": true,
+      "IsSvcTerritoryMemberShiftUsed": true,
+      "IsSvcTerrOpHoursWithShiftsUsed": true
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      const data = pm.response.json() || {};
+      if (!data.id) {
+        throw new Error("AppointmentSchedulingPolicy insert failed: " + JSON.stringify(data));
+      }
+      pm.environment.set("schedLimitPolicyId", data.id);
+      console.log("OLD limit scheduling policy created id=" + data.id);
+    language: text/javascript
+order: 400

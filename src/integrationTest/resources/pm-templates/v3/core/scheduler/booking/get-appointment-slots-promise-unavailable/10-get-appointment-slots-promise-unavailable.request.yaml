@@ -1,0 +1,43 @@
+$kind: http-request
+description: >-
+  OLD Salesforce Scheduler SINGLE-resource read (Decision 2, UNAVAILABLE window): POST
+  /scheduling/getAppointmentSlots over the promise-helper fixture, naming ONLY resourceA as required, for
+  the UNAVAILABLE window tomorrow 17:00-17:30 UTC. Same single-resource shape as the available read
+  (requiredResourceIds=[A], NO primaryResourceId) and the SAME resource — only the window differs. The
+  window (17:00-17:30) lies OUTSIDE resourceA's availability union (member OH ∪ Shift = 08-16) → the shared
+  cheap availability check fails → the read offers 0 slots. This is the READ half of the Decision 2
+  read↔write promise on the unavailable window (read-hides-slot). Response field is "timeSlots". Captures
+  oldPromiseReadUnavailCount. PREREQUISITE: the shared grant-ls-user-access Kick (else a dead 0-slot read
+  would make read-hides pass for the WRONG reason — the available control read guards non-vacuity).
+url: "{{baseUrl}}{{versionPath}}/scheduling/getAppointmentSlots"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "workType": { "id": "{{schedWorkTypeId}}" },
+      "territoryIds": ["{{schedTerritoryId}}"],
+      "requiredResourceIds": ["{{schedResourceAId}}"],
+      "startTime": "{{schedPromiseUnavailStart}}",
+      "endTime": "{{schedPromiseUnavailEnd}}"
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(17, 0, 0, 0);
+      const e = new Date(s.getTime() + 30 * 60 * 1000);
+      pm.environment.set("schedPromiseUnavailStart", s.toISOString());
+      pm.environment.set("schedPromiseUnavailEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      const data = pm.response.json() || {};
+      const slots = (data.timeSlots || data.slots || []);
+      pm.environment.set("oldPromiseReadUnavailCount", String(slots.length));
+      console.log("OLD promise read-unavail http=" + pm.response.code + " slots=" + slots.length);
+    language: text/javascript
+order: 1000

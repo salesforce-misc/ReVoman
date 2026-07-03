@@ -1,0 +1,13 @@
+$kind: collection
+description: |-
+  OLD Decision-9 CONTROL — classic getAppointmentSlots (POST /scheduling/getAppointmentSlots, read-only) on
+  the Decision-9 fixture, tomorrow 11:00-11:30, as the MANAGER persona ({{oldD9ManagerToken}}) who OWNS the
+  Private ServiceResource / STM / Shift. Its user-mode STM read sees its own rows and its full-access Shift
+  read sees the shift → availability present → slots returned. Proves the case-worker probe's result is the
+  sharing gate, not an empty fixture. Stashes oldD9ManagerSlotCount; assertions live in the Java test.
+auth:
+  - id: c9030303-0000-4000-8000-0000000000c3
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{oldD9ManagerToken}}"

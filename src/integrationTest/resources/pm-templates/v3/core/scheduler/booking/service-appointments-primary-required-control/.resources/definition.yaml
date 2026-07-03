@@ -1,0 +1,11 @@
+$kind: collection
+description: |-
+  OLD Scheduler Decision-5 control book (see the request file): the SAME single resourceA over the SAME
+  free window as a valid required-primary (isPrimaryResource=true + isRequiredResource=true) → BOOKED.
+  Runs under {{adminToken}}.
+auth:
+  - id: 7e1f0c00-1005-4aaa-9bbb-000000000052
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{adminToken}}"

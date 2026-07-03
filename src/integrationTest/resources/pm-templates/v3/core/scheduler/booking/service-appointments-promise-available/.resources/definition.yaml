@@ -1,0 +1,12 @@
+$kind: collection
+description: |-
+  OLD Scheduler-org Decision 2 WRITE (AVAILABLE window): POST /connect/scheduling/service-appointments
+  booking resourceA (single required+primary) into the AVAILABLE window tomorrow 11:00-11:30. The read
+  offered slots here; the write keeps the promise → Success (18-char 08p serviceAppointmentId). Captures
+  oldPromiseWriteAvailSaId / oldPromiseWriteAvailHttp. RevUps after the shared grant-ls-user-access Kick.
+auth:
+  - id: 7e1f0c00-1005-4aaa-9bbb-000000000213
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{adminToken}}"

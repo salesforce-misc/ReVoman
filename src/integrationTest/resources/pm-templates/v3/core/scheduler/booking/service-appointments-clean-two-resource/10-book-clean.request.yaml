@@ -1,0 +1,54 @@
+$kind: http-request
+description: >-
+  OLD Salesforce Scheduler CLEAN two-resource book: POST /connect/scheduling/service-appointments, tomorrow
+  11:00-11:30 UTC, with TWO assignedResources — resourceA (isRequiredResource=true, isPrimaryResource=true)
+  and resourceB (isRequiredResource=true, isPrimaryResource=false). BOTH are available at the window (member
+  OH + Shift 08-16), so the SA books (HTTP 2xx, serviceAppointmentId + assignedResourceIds returned). This
+  is the parity analog of the 264 SCHEDULE_TWO_RESOURCE_CLEAN act — a clean two-resource SA with exactly one
+  primary. Captures reschedCleanHttp + reschedCleanSaId (for the follow-up AssignedResource query, which
+  identifies the primary AR to delete/demote in the reschedule-analog probes).
+url: "{{baseUrl}}{{versionPath}}/connect/scheduling/service-appointments"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "serviceAppointment": {
+        "serviceTerritoryId": "{{schedTerritoryId}}",
+        "parentRecordId": "{{schedAccountId}}",
+        "workTypeId": "{{schedWorkTypeId}}",
+        "schedStartTime": "{{schedBookStart}}",
+        "schedEndTime": "{{schedBookEnd}}",
+        "extendedFields": [ { "name": "Status", "value": "Scheduled" } ]
+      },
+      "assignedResources": [
+        { "serviceResourceId": "{{schedResourceAId}}", "isRequiredResource": true, "isPrimaryResource": true },
+        { "serviceResourceId": "{{schedResourceBId}}", "isRequiredResource": true, "isPrimaryResource": false }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(11, 0, 0, 0);
+      const e = new Date(s.getTime() + 30 * 60 * 1000);
+      pm.environment.set("schedBookStart", s.toISOString());
+      pm.environment.set("schedBookEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      // The Connect book API wraps its payload in a "result" node on success:
+      // { "result": { "serviceAppointmentId": "08p...", "assignedResourceIds": [...] } }. Dig the SA id
+      // out of result first, then the flatter shapes. (The assignedResourceIds order does NOT reliably
+      // map to primary/secondary, so the primary AR is resolved by the follow-up SOQL query in 20-…)
+      const data = pm.response.json() || {};
+      const result = data.result || data;
+      pm.environment.set("reschedCleanHttp", String(pm.response.code));
+      pm.environment.set("reschedCleanSaId", result.serviceAppointmentId || (result.serviceAppointment && result.serviceAppointment.id) || "");
+      console.log("OLD clean book http=" + pm.response.code + " body=" + JSON.stringify(data).slice(0,400));
+    language: text/javascript
+order: 1000
