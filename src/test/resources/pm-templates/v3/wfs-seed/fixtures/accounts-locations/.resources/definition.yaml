@@ -1,0 +1,10 @@
+$kind: collection
+description: >-
+  Customer + location graph, run as the `manager` persona ({{managerToken}}). One composite/graph builds the 20 WS Customer Accounts, one Location + child Address per territory (3 each), and 20 AssociatedLocations linking each Account round-robin to a territory Location (Type=Primary). Location/Address geolocation (Latitude/Longitude) and Location.VisitorAddressId are intentionally NOT set: they are FLS-gated on Location/Address and the manager persona lacks the WS_Location_Field_Access grant (org-manager assigns it to admin). Address stays linked via ParentId; the ServiceTerritory carries the scheduling geo. Depends on nothing; safe to run after the foundation folder.
+order: 200
+auth:
+  - id: 3f2c9b8a-0d4e-4a1b-9c6f-7e2d1a5b3c8d
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"

@@ -1,0 +1,34 @@
+$kind: http-request
+description: >-
+  SOAP-login as the `manager` persona to mint {{managerToken}} (the OSS ReVoman lib has no in-JVM
+  minting; SOAP login is enabled on this org). Uses {{managerUserName}} / {{seedPersonaPassword}} set
+  by the create-manager + set-manager-password steps. Parses <sessionId> from the SOAP XML response
+  into managerToken, consumed by every fixtures/ folder. Pinned to Soap/u/64 (v68 rejects SOAP login).
+url: "{{baseUrl}}/services/Soap/u/64"
+method: POST
+headers:
+  Content-Type: text/xml; charset=UTF-8
+  SOAPAction: login
+body:
+  type: text
+  content: |-
+    <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:urn="urn:partner.soap.sforce.com">
+      <soapenv:Body>
+        <urn:login>
+          <urn:username>{{managerUserName}}</urn:username>
+          <urn:password>{{seedPersonaPassword}}</urn:password>
+        </urn:login>
+      </soapenv:Body>
+    </soapenv:Envelope>
+scripts:
+  - type: afterResponse
+    code: |-
+      var xml = pm.response.text();
+      var m = xml.match(/<sessionId>([^<]*)<\/sessionId>/);
+      if (!m) {
+        var fault = xml.match(/<faultstring>([^<]*)<\/faultstring>/);
+        throw new Error("Manager SOAP login failed: " + (fault ? fault[1] : xml.substring(0, 300)));
+      }
+      pm.environment.set("managerToken", m[1]);
+    language: text/javascript
+order: 19000

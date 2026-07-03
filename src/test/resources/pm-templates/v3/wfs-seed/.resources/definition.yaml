@@ -1,0 +1,8 @@
+$kind: collection
+description: >-
+  Root of the Workforce Scheduling base-seed collection (V3). Walked as ONE ReVoman run via
+  templatePath("pm-templates/v3/wfs-seed"); child folders execute in ascending definition `order:`
+  (auth=100 first, then the fixtures/ subtree). Auth is declared per-folder and does NOT inherit
+  down here (auth/ = adminToken, every fixtures/ folder = managerToken). No auth on the root so a
+  missing child auth fails loud rather than silently borrowing admin.
+order: 0

@@ -1,0 +1,18 @@
+$kind: collection
+description: >-
+  Persona bootstrap for the WFS base-seed set (OSS ReVoman - tokens minted via SOAP login, since the
+  library has no in-JVM minting). SOAP-logs-in as System Admin ({{adminToken}} - the ONLY folder that
+  runs as admin, and ONLY to CREATE the persona users), resolves the API version path, looks up the
+  Standard User profile + WorkforceScheduling Manager/Resource permission-set ids, creates the
+  `manager` (WorkforceSchedulingManager) and `case-worker` (WorkforceSchedulingResource) Users with a
+  known password, then SOAP-logs-in as the manager to mint {{managerToken}}. Produces versionPath /
+  apiVersion / standardUserProfileId / unifiedPSManagerId / unifiedPSResourceId / managerUserName /
+  caseWorkerUserName / caseManagerUserId / caseWorkerUserId / managerToken. Every fixtures/ folder runs
+  as {{managerToken}}, never admin. caseWorker does NOT authenticate - it only owns the ServiceResources.
+order: 100
+auth:
+  - id: 1d4f7a92-3b6c-4e80-9a15-2c7e9f0b8d31
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{adminToken}}"

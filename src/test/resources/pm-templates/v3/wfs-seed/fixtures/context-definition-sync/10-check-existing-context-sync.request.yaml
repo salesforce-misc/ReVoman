@@ -1,0 +1,21 @@
+$kind: http-request
+description: >-
+  Check whether a ContextDefinitionSync for UnifiedSchedule__stdctx already exists (any status). Sets
+  wfsSeedContextSyncExists so the create step can skip - re-triggering a failed/in-progress sync does
+  not help; an admin must manually retry.
+url: "{{baseUrl}}{{versionPath}}/query/?q=SELECT Id, Status FROM ContextDefinitionSync WHERE ContextDefinitionName = 'UnifiedSchedule__stdctx' ORDER BY CreatedDate DESC LIMIT 1"
+method: GET
+headers:
+  Content-Type: application/json
+queryParams:
+  q: SELECT Id, Status FROM ContextDefinitionSync WHERE ContextDefinitionName = 'UnifiedSchedule__stdctx' ORDER BY CreatedDate DESC LIMIT 1
+body:
+  type: text
+  content: ""
+scripts:
+  - type: afterResponse
+    code: |-
+      var jsonData = pm.response.json();
+      pm.environment.set("wfsSeedContextSyncExists", (jsonData.records && jsonData.records.length > 0) ? "true" : "false");
+    language: text/javascript
+order: 1000

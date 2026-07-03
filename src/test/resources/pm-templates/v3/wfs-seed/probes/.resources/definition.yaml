@@ -1,0 +1,13 @@
+$kind: collection
+description: >-
+  Read-only verification probes. Runs LAST (order 9000, after auth=100 and fixtures=1000) as
+  {{adminToken}} - reads use admin's org-wide visibility so the count reflects the true seeded total
+  (only *seeding* honors the manager/case-worker persona; verification does not). Each step runs a
+  SOQL COUNT() and captures the total into an env var (wfsSeed*Count) that the Java test asserts on.
+order: 9000
+auth:
+  - id: 6c3d5e0f-9a4b-4b8c-8e7d-2f6a0b3c5d9f
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{adminToken}}"

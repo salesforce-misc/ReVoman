@@ -1,0 +1,10 @@
+$kind: collection
+description: >-
+  Base-seed foundation graph, run as the `manager` persona ({{managerToken}} - NOT admin). One composite/graph builds the 3 OperatingHours (SF/NY/Chicago) each with Mon-Sun 09:00-17:00 TimeSlots, the 3 ServiceTerritories (geocoded, active), the 5 WorkTypes, and the 10 ServiceTerritoryWorkType links. Produces wfsSeedTerritorySf / wfsSeedTerritoryNy / wfsSeedTerritoryChi (consumed by the service-resources folder's ServiceTerritoryMembers). Idempotent-safe names carry a {{$timestamp}} suffix. Run this folder FIRST.
+order: 100
+auth:
+  - id: 2e8b5c14-9d3f-4a72-b6e1-0f4a7c9d2b85
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"

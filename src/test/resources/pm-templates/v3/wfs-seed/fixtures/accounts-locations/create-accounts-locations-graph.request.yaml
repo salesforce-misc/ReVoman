@@ -1,0 +1,503 @@
+$kind: http-request
+description: >-
+  Build 20 Accounts, 3 Locations + child Addresses, and 20 round-robin AssociatedLocations (Type=Primary) in one composite/graph as {{managerToken}}. Location/Address geolocation (Latitude/Longitude) and Location.VisitorAddressId are omitted: all FLS-gated on Location/Address and the manager persona lacks the WS_Location_Field_Access grant (the org-manager script assigns it to admin). The Address stays linked via ParentId; the ServiceTerritory (created in the operating-hours-territories folder, geocoded there) is the real scheduling geo anchor, so the Location/Address geo is not needed for slot-gen.
+url: "{{baseUrl}}{{versionPath}}/composite/graph"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "graphs": [
+        {
+          "graphId": "wfsSeedAccountsLocations",
+          "compositeRequest": [
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/Account",
+              "referenceId": "refAcct0",
+              "body": {
+                "Name": "WS Customer Acme Corp",
+                "Industry": "Technology",
+                "Phone": "+1-415-555-0000"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/Account",
+              "referenceId": "refAcct1",
+              "body": {
+                "Name": "WS Customer Globex",
+                "Industry": "Manufacturing",
+                "Phone": "+1-416-555-0001"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/Account",
+              "referenceId": "refAcct2",
+              "body": {
+                "Name": "WS Customer Initech",
+                "Industry": "Healthcare",
+                "Phone": "+1-417-555-0002"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/Account",
+              "referenceId": "refAcct3",
+              "body": {
+                "Name": "WS Customer Hooli",
+                "Industry": "Retail",
+                "Phone": "+1-418-555-0003"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/Account",
+              "referenceId": "refAcct4",
+              "body": {
+                "Name": "WS Customer Massive Dynamic",
+                "Industry": "Finance",
+                "Phone": "+1-419-555-0004"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/Account",
+              "referenceId": "refAcct5",
+              "body": {
+                "Name": "WS Customer Stark Industries",
+                "Industry": "Construction",
+                "Phone": "+1-420-555-0005"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/Account",
+              "referenceId": "refAcct6",
+              "body": {
+                "Name": "WS Customer Wayne Enterprises",
+                "Industry": "Transportation",
+                "Phone": "+1-421-555-0006"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/Account",
+              "referenceId": "refAcct7",
+              "body": {
+                "Name": "WS Customer Umbrella Corp",
+                "Industry": "Hospitality",
+                "Phone": "+1-422-555-0007"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/Account",
+              "referenceId": "refAcct8",
+              "body": {
+                "Name": "WS Customer Cyberdyne",
+                "Industry": "Education",
+                "Phone": "+1-423-555-0008"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/Account",
+              "referenceId": "refAcct9",
+              "body": {
+                "Name": "WS Customer Soylent",
+                "Industry": "Energy",
+                "Phone": "+1-424-555-0009"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/Account",
+              "referenceId": "refAcct10",
+              "body": {
+                "Name": "WS Customer Wonka Industries",
+                "Industry": "Technology",
+                "Phone": "+1-425-555-0010"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/Account",
+              "referenceId": "refAcct11",
+              "body": {
+                "Name": "WS Customer Tyrell Corp",
+                "Industry": "Manufacturing",
+                "Phone": "+1-426-555-0011"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/Account",
+              "referenceId": "refAcct12",
+              "body": {
+                "Name": "WS Customer Oscorp",
+                "Industry": "Healthcare",
+                "Phone": "+1-427-555-0012"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/Account",
+              "referenceId": "refAcct13",
+              "body": {
+                "Name": "WS Customer LexCorp",
+                "Industry": "Retail",
+                "Phone": "+1-428-555-0013"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/Account",
+              "referenceId": "refAcct14",
+              "body": {
+                "Name": "WS Customer Aperture",
+                "Industry": "Finance",
+                "Phone": "+1-429-555-0014"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/Account",
+              "referenceId": "refAcct15",
+              "body": {
+                "Name": "WS Customer Weyland-Yutani",
+                "Industry": "Construction",
+                "Phone": "+1-430-555-0015"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/Account",
+              "referenceId": "refAcct16",
+              "body": {
+                "Name": "WS Customer Bluth Company",
+                "Industry": "Transportation",
+                "Phone": "+1-431-555-0016"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/Account",
+              "referenceId": "refAcct17",
+              "body": {
+                "Name": "WS Customer Dunder Mifflin",
+                "Industry": "Hospitality",
+                "Phone": "+1-432-555-0017"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/Account",
+              "referenceId": "refAcct18",
+              "body": {
+                "Name": "WS Customer Sterling Cooper",
+                "Industry": "Education",
+                "Phone": "+1-433-555-0018"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/Account",
+              "referenceId": "refAcct19",
+              "body": {
+                "Name": "WS Customer Pied Piper",
+                "Industry": "Energy",
+                "Phone": "+1-434-555-0019"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/Location",
+              "referenceId": "refLocSf",
+              "body": {
+                "Name": "WS San Francisco Territory Location {{$timestamp}}",
+                "LocationType": "Building"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/Address",
+              "referenceId": "refAddrSf",
+              "body": {
+                "ParentId": "@{refLocSf.id}",
+                "LocationType": "Building",
+                "AddressType": "Shipping",
+                "Street": "415 Mission St",
+                "City": "San Francisco",
+                "State": "CA",
+                "PostalCode": "94105",
+                "Country": "US"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/Location",
+              "referenceId": "refLocNy",
+              "body": {
+                "Name": "WS New York Territory Location {{$timestamp}}",
+                "LocationType": "Building"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/Address",
+              "referenceId": "refAddrNy",
+              "body": {
+                "ParentId": "@{refLocNy.id}",
+                "LocationType": "Building",
+                "AddressType": "Shipping",
+                "Street": "200 Park Ave",
+                "City": "New York",
+                "State": "NY",
+                "PostalCode": "10166",
+                "Country": "US"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/Location",
+              "referenceId": "refLocChi",
+              "body": {
+                "Name": "WS Chicago Territory Location {{$timestamp}}",
+                "LocationType": "Building"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/Address",
+              "referenceId": "refAddrChi",
+              "body": {
+                "ParentId": "@{refLocChi.id}",
+                "LocationType": "Building",
+                "AddressType": "Shipping",
+                "Street": "233 S Wacker Dr",
+                "City": "Chicago",
+                "State": "IL",
+                "PostalCode": "60606",
+                "Country": "US"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/AssociatedLocation",
+              "referenceId": "refAssoc0",
+              "body": {
+                "ParentRecordId": "@{refAcct0.id}",
+                "LocationId": "@{refLocSf.id}",
+                "Type": "Primary"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/AssociatedLocation",
+              "referenceId": "refAssoc1",
+              "body": {
+                "ParentRecordId": "@{refAcct1.id}",
+                "LocationId": "@{refLocNy.id}",
+                "Type": "Primary"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/AssociatedLocation",
+              "referenceId": "refAssoc2",
+              "body": {
+                "ParentRecordId": "@{refAcct2.id}",
+                "LocationId": "@{refLocChi.id}",
+                "Type": "Primary"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/AssociatedLocation",
+              "referenceId": "refAssoc3",
+              "body": {
+                "ParentRecordId": "@{refAcct3.id}",
+                "LocationId": "@{refLocSf.id}",
+                "Type": "Primary"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/AssociatedLocation",
+              "referenceId": "refAssoc4",
+              "body": {
+                "ParentRecordId": "@{refAcct4.id}",
+                "LocationId": "@{refLocNy.id}",
+                "Type": "Primary"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/AssociatedLocation",
+              "referenceId": "refAssoc5",
+              "body": {
+                "ParentRecordId": "@{refAcct5.id}",
+                "LocationId": "@{refLocChi.id}",
+                "Type": "Primary"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/AssociatedLocation",
+              "referenceId": "refAssoc6",
+              "body": {
+                "ParentRecordId": "@{refAcct6.id}",
+                "LocationId": "@{refLocSf.id}",
+                "Type": "Primary"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/AssociatedLocation",
+              "referenceId": "refAssoc7",
+              "body": {
+                "ParentRecordId": "@{refAcct7.id}",
+                "LocationId": "@{refLocNy.id}",
+                "Type": "Primary"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/AssociatedLocation",
+              "referenceId": "refAssoc8",
+              "body": {
+                "ParentRecordId": "@{refAcct8.id}",
+                "LocationId": "@{refLocChi.id}",
+                "Type": "Primary"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/AssociatedLocation",
+              "referenceId": "refAssoc9",
+              "body": {
+                "ParentRecordId": "@{refAcct9.id}",
+                "LocationId": "@{refLocSf.id}",
+                "Type": "Primary"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/AssociatedLocation",
+              "referenceId": "refAssoc10",
+              "body": {
+                "ParentRecordId": "@{refAcct10.id}",
+                "LocationId": "@{refLocNy.id}",
+                "Type": "Primary"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/AssociatedLocation",
+              "referenceId": "refAssoc11",
+              "body": {
+                "ParentRecordId": "@{refAcct11.id}",
+                "LocationId": "@{refLocChi.id}",
+                "Type": "Primary"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/AssociatedLocation",
+              "referenceId": "refAssoc12",
+              "body": {
+                "ParentRecordId": "@{refAcct12.id}",
+                "LocationId": "@{refLocSf.id}",
+                "Type": "Primary"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/AssociatedLocation",
+              "referenceId": "refAssoc13",
+              "body": {
+                "ParentRecordId": "@{refAcct13.id}",
+                "LocationId": "@{refLocNy.id}",
+                "Type": "Primary"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/AssociatedLocation",
+              "referenceId": "refAssoc14",
+              "body": {
+                "ParentRecordId": "@{refAcct14.id}",
+                "LocationId": "@{refLocChi.id}",
+                "Type": "Primary"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/AssociatedLocation",
+              "referenceId": "refAssoc15",
+              "body": {
+                "ParentRecordId": "@{refAcct15.id}",
+                "LocationId": "@{refLocSf.id}",
+                "Type": "Primary"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/AssociatedLocation",
+              "referenceId": "refAssoc16",
+              "body": {
+                "ParentRecordId": "@{refAcct16.id}",
+                "LocationId": "@{refLocNy.id}",
+                "Type": "Primary"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/AssociatedLocation",
+              "referenceId": "refAssoc17",
+              "body": {
+                "ParentRecordId": "@{refAcct17.id}",
+                "LocationId": "@{refLocChi.id}",
+                "Type": "Primary"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/AssociatedLocation",
+              "referenceId": "refAssoc18",
+              "body": {
+                "ParentRecordId": "@{refAcct18.id}",
+                "LocationId": "@{refLocSf.id}",
+                "Type": "Primary"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/AssociatedLocation",
+              "referenceId": "refAssoc19",
+              "body": {
+                "ParentRecordId": "@{refAcct19.id}",
+                "LocationId": "@{refLocNy.id}",
+                "Type": "Primary"
+              }
+            }
+          ]
+        }
+      ]
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      const jsonData = pm.response.json();
+      const responses = jsonData.graphs[0].graphResponse.compositeResponse;
+      responses.forEach((r) => {
+        if (r.httpStatusCode < 200 || r.httpStatusCode >= 300) {
+          throw new Error("Composite step " + r.referenceId + " failed: " + JSON.stringify(r.body));
+        }
+      });
+    language: text/javascript
+order: 500

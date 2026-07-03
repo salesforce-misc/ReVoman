@@ -1,0 +1,19 @@
+$kind: http-request
+description: Resolve the org's latest API version -> versionPath / apiVersion env vars used by every downstream step.
+url: "{{baseUrl}}/services/data/"
+method: GET
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: ""
+scripts:
+  - type: afterResponse
+    code: |-
+      var jsonData = pm.response.json();
+      var lastNode = jsonData.pop();
+      pm.environment.set("version", lastNode.version);
+      pm.environment.set("apiVersion", "v" + lastNode.version);
+      pm.environment.set("versionPath", lastNode.url);
+    language: text/javascript
+order: 1000

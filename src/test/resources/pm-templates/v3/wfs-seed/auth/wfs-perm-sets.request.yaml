@@ -1,0 +1,27 @@
+$kind: http-request
+description: >-
+  Look up the WorkforceSchedulingManager and WorkforceSchedulingResource permission-set ids by NAME
+  (not array index - SOQL WHERE Name IN (...) does not guarantee row order) -> unifiedPSManagerId /
+  unifiedPSResourceId, consumed by the create-manager / create-case-worker persona steps.
+url: "{{baseUrl}}{{versionPath}}/query/?q=SELECT Id, Name FROM PermissionSet WHERE Name IN ({{unifiedPermSets}})"
+method: GET
+headers:
+  Content-Type: application/json
+queryParams:
+  q: SELECT Id, Name FROM PermissionSet WHERE Name IN ({{unifiedPermSets}})
+body:
+  type: text
+  content: ""
+scripts:
+  - type: afterResponse
+    code: |-
+      var jsonData = pm.response.json();
+      var byName = {};
+      jsonData.records.forEach(function (r) { byName[r.Name] = r.Id; });
+      pm.environment.set("unifiedPSManagerId", byName["WorkforceSchedulingManager"]);
+      pm.environment.set("unifiedPSResourceId", byName["WorkforceSchedulingResource"]);
+    language: text/javascript
+  - type: beforeRequest
+    code: pm.environment.set("unifiedPermSets", "'WorkforceSchedulingManager', 'WorkforceSchedulingResource'")
+    language: text/javascript
+order: 4000

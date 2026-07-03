@@ -1,0 +1,68 @@
+$kind: http-request
+description: >-
+  Build ONE ServiceResource owned by the {{caseWorkerUserId}} persona + one Primary
+  ServiceTerritoryMember (TerritoryType=P, effective today UTC) in the SF territory, in one
+  composite/graph as {{managerToken}}. Persona-model: the case-worker persona owns their own
+  ServiceResource. NOTE: the org enforces uniqueness on (RelatedRecordId, ResourceType), so a single
+  persona user can own only one ServiceResource of a given type — hence one resource here, not the
+  org-manager script's 30 (which uses 30 distinct users). The resource is timestamped-named and the
+  case-worker user is fresh per run, so re-runs don't collide. Territory id from wfsSeedTerritorySf.
+url: "{{baseUrl}}{{versionPath}}/composite/graph"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "graphs": [
+        {
+          "graphId": "wfsSeedResources",
+          "compositeRequest": [
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceResource",
+              "referenceId": "refRes",
+              "body": {
+                "Name": "WS Resource - CaseWorker {{$timestamp}}",
+                "ResourceType": "T",
+                "IsActive": true,
+                "RelatedRecordId": "{{caseWorkerUserId}}"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceTerritoryMember",
+              "referenceId": "refStm",
+              "body": {
+                "ServiceResourceId": "@{refRes.id}",
+                "ServiceTerritoryId": "{{wfsSeedTerritorySf}}",
+                "TerritoryType": "P",
+                "EffectiveStartDate": "{{wfsSeedStmEffectiveStart}}"
+              }
+            }
+          ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      const today = new Date();
+      today.setUTCHours(0, 0, 0, 0);
+      pm.environment.set("wfsSeedStmEffectiveStart", today.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      const jsonData = pm.response.json();
+      const responses = jsonData.graphs[0].graphResponse.compositeResponse;
+      responses.forEach((r) => {
+        if (r.httpStatusCode < 200 || r.httpStatusCode >= 300) {
+          throw new Error("Composite step " + r.referenceId + " failed: " + JSON.stringify(r.body));
+        }
+      });
+      const byRef = {};
+      responses.forEach(r => { byRef[r.referenceId] = r.body && r.body.id; });
+      pm.environment.set("wfsSeedServiceResourceId", byRef["refRes"]);
+    language: text/javascript
+order: 500
