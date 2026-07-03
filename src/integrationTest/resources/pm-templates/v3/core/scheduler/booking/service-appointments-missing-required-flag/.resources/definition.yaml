@@ -1,0 +1,13 @@
+$kind: collection
+description: |-
+  OLD Scheduler book (Decision 3 Act A) over the double-book fixture: a SINGLE assignedResource
+  (resourceA) that OMITS isRequiredResource (and isPrimaryResource) entirely. Characterizes the OLD
+  classic-engine outcome for the missing-flag payload (crash? clean refuse? books treating missing-as-
+  not-required?). Runs under {{adminToken}}. Reuses schedResourceAId / schedTerritoryId /
+  schedWorkTypeId / schedAccountId from the double-book fixture.
+auth:
+  - id: 7e1f0c00-1005-4aaa-9bbb-000000000310
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{adminToken}}"

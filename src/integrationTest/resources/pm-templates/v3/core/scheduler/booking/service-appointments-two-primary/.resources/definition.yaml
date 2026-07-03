@@ -1,0 +1,12 @@
+$kind: collection
+description: |-
+  OLD Scheduler book of the two-primary fixture (Decision 4 probe): POST /connect/scheduling/service-appointments
+  with TWO assignedResources BOTH isPrimaryResource=true (+ both required, both free). Expect a REFUSAL (no
+  serviceAppointmentId) — the old save-time LightningSchedulerAssignedResourceValidator enforces "at most one
+  primary AssignedResource per ServiceAppointment" (AssignedResourceSaveOnlyOnePrimary). Runs under {{adminToken}}.
+auth:
+  - id: 7e1f0c00-1005-4aaa-9bbb-000000000041
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{adminToken}}"

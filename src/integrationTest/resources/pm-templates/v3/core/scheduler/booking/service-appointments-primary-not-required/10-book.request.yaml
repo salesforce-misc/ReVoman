@@ -1,0 +1,72 @@
+$kind: http-request
+description: >-
+  OLD Salesforce Scheduler Decision-5 PROBE: POST /connect/scheduling/service-appointments, tomorrow
+  11:00-11:30 UTC, with a SINGLE assignedResource — resourceA marked isPrimaryResource=true BUT
+  isRequiredResource=false. This is the exact Decision-5 contradiction. The window is FREE for resourceA
+  (member OH + Shift 10-14 cover it), so availability passes; the classic book path inserts the
+  AssignedResource row, which fires the SAVE-TIME LightningSchedulerAssignedResourceValidator (the SAME
+  fieldservice-impl validator 264 hits) → the insert is REJECTED ("Only an required service resource can
+  be set as a primary service resource.") → the whole book is refused (non-2xx, no serviceAppointmentId).
+  Captures oldWriteHelperHttp + oldWriteHelperSaId + oldWriteHelperErrorCode + oldWriteHelperErrorMessage.
+url: "{{baseUrl}}{{versionPath}}/connect/scheduling/service-appointments"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "serviceAppointment": {
+        "serviceTerritoryId": "{{schedTerritoryId}}",
+        "parentRecordId": "{{schedAccountId}}",
+        "workTypeId": "{{schedWorkTypeId}}",
+        "schedStartTime": "{{schedBookStart}}",
+        "schedEndTime": "{{schedBookEnd}}",
+        "extendedFields": [ { "name": "Status", "value": "Scheduled" } ]
+      },
+      "assignedResources": [
+        { "serviceResourceId": "{{schedResourceAId}}", "isRequiredResource": false, "isPrimaryResource": true }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(11, 0, 0, 0);
+      const e = new Date(s.getTime() + 30 * 60 * 1000);
+      pm.environment.set("schedBookStart", s.toISOString());
+      pm.environment.set("schedBookEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      // The Connect book API wraps its payload in a "result" node on success:
+      // { "result": { "serviceAppointmentId": "08p...", ... } }. On the Decision-5 reject it returns a
+      // top-level error array (the LightningSchedulerAssignedResourceValidator INVALID_FIELD). Dig the SA
+      // id out of result first (a refusal leaves it empty), and characterize the observed error envelope
+      // (errorCode + message) faithfully — the PARITY is on the OUTCOME (both REFUSE), and the OLD
+      // validator message is captured as-observed (it may differ from the 264 schedulingStatus envelope).
+      const data = pm.response.json() || {};
+      const result = data.result || data;
+      pm.environment.set("oldWriteHelperHttp", String(pm.response.code));
+      pm.environment.set("oldWriteHelperSaId", result.serviceAppointmentId || (result.serviceAppointment && result.serviceAppointment.id) || "");
+      // Top-level error array shape: [{ errorCode, message }]. Also probe the appointments[].errors shape.
+      let errCode = "";
+      let errMsg = "";
+      if (Array.isArray(data) && data.length > 0) {
+        errCode = data[0].errorCode || "";
+        errMsg = data[0].message || "";
+      } else if (data.appointments && data.appointments[0] && Array.isArray(data.appointments[0].errors) && data.appointments[0].errors.length > 0) {
+        errCode = data.appointments[0].errors[0].errorCode || data.appointments[0].errors[0].statusCode || "";
+        errMsg = data.appointments[0].errors[0].message || "";
+      } else if (data.errors && data.errors[0]) {
+        errCode = data.errors[0].errorCode || data.errors[0].statusCode || "";
+        errMsg = data.errors[0].message || "";
+      }
+      pm.environment.set("oldWriteHelperErrorCode", errCode);
+      pm.environment.set("oldWriteHelperErrorMessage", errMsg);
+      pm.environment.set("oldWriteHelperSchedulingStatus", (result && result.schedulingStatus) || "");
+      console.log("OLD Decision-5 probe http=" + pm.response.code + " errCode=" + errCode + " body=" + JSON.stringify(data).slice(0,400));
+    language: text/javascript
+order: 1000

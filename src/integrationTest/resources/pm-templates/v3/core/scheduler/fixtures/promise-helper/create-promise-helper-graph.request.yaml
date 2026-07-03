@@ -1,0 +1,239 @@
+$kind: http-request
+description: >-
+  OLD scheduler-org SINGLE-resource "slot promise" data graph (Decision 2), built in one composite/graph
+  call as {{adminToken}}. Reduced clone of the double-book fixture: ONE User-backed ServiceResource
+  (resourceA) fully AVAILABLE across the business day so the AVAILABLE window is inside its hours and the
+  UNAVAILABLE window is outside — the two windows are the read↔write promise probe. Territory OH 08-16
+  (Mon-Sun); member OH A 08-16 (Mon-Sun); Confirmed Shift 08-16 tomorrow. Availability is the UNION of
+  member OH and Shift (AvailabilityRuleCheck: bookable iff the window fits OH ∪ Shift), so resourceA's
+  union 08-16:
+    - CONTAINS the AVAILABLE window tomorrow 11:00-11:30 → read offers slots, book Succeeds.
+    - EXCLUDES the UNAVAILABLE window tomorrow 17:00-17:30 → read offers 0 slots, book Refused.
+  Mints ONE FRESH timestamped user per run (refUserA on the org's Standard User profile 00exx000000n0KyAAI)
+  so the ServiceResource (RelatedRecordId, ResourceType) DB-unique key never collides. resourceA is a
+  PRIMARY ServiceTerritoryMember (TerritoryType=P) effective a month ago. Sets schedTerritoryId /
+  schedWorkTypeId / schedAccountId / schedResourceAId, AND schedResourceBId = schedResourceAId so the shared
+  grant-ls-user-access Kick runs unchanged (it grants BOTH resource users; here both point at resourceA's
+  user → idempotent). No SchedulingMethod field on TimeSlot/Shift (this org's schema lacks it → INVALID_FIELD).
+url: "{{baseUrl}}{{versionPath}}/composite/graph"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "graphs": [
+        {
+          "graphId": "promiseHelper",
+          "compositeRequest": [
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/User",
+              "referenceId": "refUserA",
+              "body": {
+                "Username": "{{schedUserAName}}",
+                "ProfileId": "00exx000000n0KyAAI",
+                "Alias": "sres-a",
+                "Email": "{{schedUserAName}}",
+                "EmailEncodingKey": "ISO-8859-1",
+                "LastName": "ResourceA",
+                "FirstName": "Promise",
+                "LanguageLocaleKey": "en_US",
+                "LocaleSidKey": "en_US",
+                "TimeZoneSidKey": "Asia/Kolkata"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/OperatingHours",
+              "referenceId": "refTerritoryOh",
+              "body": { "Name": "Promise Territory OH {{$timestamp}}", "TimeZone": "GMT" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/OperatingHours",
+              "referenceId": "refMemberOhA",
+              "body": { "Name": "Promise Member OH A {{$timestamp}}", "TimeZone": "GMT" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refTerritoryTsMon",
+              "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Monday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refTerritoryTsTue",
+              "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Tuesday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refTerritoryTsWed",
+              "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Wednesday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refTerritoryTsThu",
+              "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Thursday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refTerritoryTsFri",
+              "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Friday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refTerritoryTsSat",
+              "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Saturday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refTerritoryTsSun",
+              "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Sunday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberAtsMon",
+              "body": { "OperatingHoursId": "@{refMemberOhA.id}", "DayOfWeek": "Monday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberAtsTue",
+              "body": { "OperatingHoursId": "@{refMemberOhA.id}", "DayOfWeek": "Tuesday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberAtsWed",
+              "body": { "OperatingHoursId": "@{refMemberOhA.id}", "DayOfWeek": "Wednesday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberAtsThu",
+              "body": { "OperatingHoursId": "@{refMemberOhA.id}", "DayOfWeek": "Thursday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberAtsFri",
+              "body": { "OperatingHoursId": "@{refMemberOhA.id}", "DayOfWeek": "Friday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberAtsSat",
+              "body": { "OperatingHoursId": "@{refMemberOhA.id}", "DayOfWeek": "Saturday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberAtsSun",
+              "body": { "OperatingHoursId": "@{refMemberOhA.id}", "DayOfWeek": "Sunday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceTerritory",
+              "referenceId": "refTerritory",
+              "body": { "Name": "Promise Territory {{$timestamp}}", "OperatingHoursId": "@{refTerritoryOh.id}", "IsActive": true }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/WorkType",
+              "referenceId": "refWorkType",
+              "body": { "Name": "Promise WorkType {{$timestamp}}", "DurationType": "Minutes", "EstimatedDuration": 30 }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceTerritoryWorkType",
+              "referenceId": "refStwt",
+              "body": { "ServiceTerritoryId": "@{refTerritory.id}", "WorkTypeId": "@{refWorkType.id}" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceResource",
+              "referenceId": "refResourceA",
+              "body": { "Name": "Promise Resource A {{$timestamp}}", "RelatedRecordId": "@{refUserA.id}", "ResourceType": "T", "IsActive": true, "IsPrimary": true }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceTerritoryMember",
+              "referenceId": "refStmA",
+              "body": { "ServiceTerritoryId": "@{refTerritory.id}", "ServiceResourceId": "@{refResourceA.id}", "TerritoryType": "P", "OperatingHoursId": "@{refMemberOhA.id}", "EffectiveStartDate": "{{promiseStmEffectiveStart}}" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/Shift",
+              "referenceId": "refShiftA",
+              "body": { "ServiceResourceId": "@{refResourceA.id}", "ServiceTerritoryId": "@{refTerritory.id}", "StartTime": "{{promiseShiftAStart}}", "EndTime": "{{promiseShiftAEnd}}", "TimeSlotType": "Normal", "Status": "Confirmed" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/Account",
+              "referenceId": "refAccount",
+              "body": { "Name": "Promise Account {{$timestamp}}" }
+            }
+          ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      // Mint a FRESH timestamped user per run so the single ServiceResource row never collides on the
+      // (RelatedRecordId, ResourceType) DB-unique key (the proven WFS create-case-worker pattern).
+      pm.environment.set("schedUserAName", pm.variables.replaceIn("sched-promise-a-{{$timestamp}}@revoman.org"));
+      // STM effective from a month ago (open-ended) so the Shift validates.
+      const monthAgo = new Date();
+      monthAgo.setUTCMonth(monthAgo.getUTCMonth() - 1);
+      pm.environment.set("promiseStmEffectiveStart", monthAgo.toISOString());
+      // resourceA: member OH A 08:00-16:00 + Confirmed Shift 08:00-16:00 tomorrow → the availability UNION
+      // (08-16) CONTAINS the AVAILABLE window tomorrow 11:00-11:30 and EXCLUDES the UNAVAILABLE window
+      // tomorrow 17:00-17:30. The single resource being available/unavailable at each window is the whole
+      // Decision 2 probe: read offers slots ⟺ write Succeeds only where the shared cheap availability check
+      // passes.
+      const shiftAStart = new Date();
+      shiftAStart.setUTCDate(shiftAStart.getUTCDate() + 1);
+      shiftAStart.setUTCHours(8, 0, 0, 0);
+      const shiftAEnd = new Date(shiftAStart.getTime());
+      shiftAEnd.setUTCHours(16, 0, 0, 0);
+      pm.environment.set("promiseShiftAStart", shiftAStart.toISOString());
+      pm.environment.set("promiseShiftAEnd", shiftAEnd.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      const jsonData = pm.response.json();
+      const responses = jsonData.graphs[0].graphResponse.compositeResponse;
+      // A rolled-back graph turns EVERY step's httpStatusCode to 400 (PROCESSING_HALTED for bystanders,
+      // the real errorCode on the offender), so this per-step check reliably fails on any rollback instead
+      // of passing vacuously (this org's v67 composite/graph response carries no graph-level isSuccessful).
+      responses.forEach((r) => {
+        if (r.httpStatusCode < 200 || r.httpStatusCode >= 300) {
+          throw new Error("Composite step " + r.referenceId + " failed: " + JSON.stringify(r.body));
+        }
+      });
+      const byRef = {};
+      responses.forEach(r => { byRef[r.referenceId] = r.body && r.body.id; });
+      pm.environment.set("schedTerritoryId", byRef["refTerritory"]);
+      pm.environment.set("schedWorkTypeId", byRef["refWorkType"]);
+      pm.environment.set("schedAccountId", byRef["refAccount"]);
+      pm.environment.set("schedResourceAId", byRef["refResourceA"]);
+      // Point resourceB at resourceA so the shared grant-ls-user-access Kick (which queries + grants BOTH
+      // resource users) runs unchanged over this single-resource fixture — a harmless, idempotent double
+      // grant of resourceA's user.
+      pm.environment.set("schedResourceBId", byRef["refResourceA"]);
+      pm.environment.set("schedMemberOhAId", byRef["refMemberOhA"]);
+      pm.environment.set("schedTerritoryOhId", byRef["refTerritoryOh"]);
+      pm.environment.set("schedShiftAId", byRef["refShiftA"]);
+      pm.environment.set("schedStwtId", byRef["refStwt"]);
+    language: text/javascript
+order: 500

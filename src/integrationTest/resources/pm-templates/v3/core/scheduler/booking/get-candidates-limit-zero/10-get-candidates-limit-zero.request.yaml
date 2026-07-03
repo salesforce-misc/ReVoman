@@ -1,0 +1,71 @@
+$kind: http-request
+description: >-
+  Decision 8 old-side probe A — OLD Salesforce Scheduler POST /scheduling/getAppointmentCandidates over the
+  limit-helper fixture (tomorrow 11:00-11:30 UTC) with resourceLimitApptDistribution=0 and the load-balancing
+  scheduling policy (schedLimitPolicyId, whose AppointmentAssignmentPolicy FK is the load-balancing record).
+  CRITICAL: NO filterByResources is passed — SmartSchedulerServiceImpl.getSmartPolicy returns LOAD_BALANCING
+  only when filterByResources is EMPTY (and the org has smart scheduling + the policy carries the assignment
+  FK). On that path SmartSchedulerServiceImpl.getLeastUtilizedResources caps the ordered resource pool via
+  subList(0, N); calculateResourceLimitAppointmentDistribution treats 0 as a LITERAL cap-of-zero (0 >= 0 →
+  limit=0), NOT "no limit" (null → default 10). So limit=0 → empty resource pool → empty candidates.
+  Read-only contract: HTTP 200, no exception. Captures the DISTINCT resource-id count across candidates as
+  limitZeroResourceCount (+ ...Http / ...ErrorCode). accountId is omitted (Decision 8 is a presentation cap,
+  not an account rule; an account would only add ResourcePreference noise). PREREQUISITE: both resource users
+  hold the Lightning Scheduler PSL + lightningSchedulerUserAccess (shared grant-ls-user-access Kick) or the
+  classic engine prunes the resources (removeResourcesWithoutPerm) → an all-0 dead read.
+url: "{{baseUrl}}{{versionPath}}/scheduling/getAppointmentCandidates"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "workType": { "id": "{{schedLimitWorkTypeId}}" },
+      "territoryIds": ["{{schedLimitTerritoryId}}"],
+      "schedulingPolicyId": "{{schedLimitPolicyId}}",
+      "resourceLimitApptDistribution": 0,
+      "startTime": "{{schedLimitReadStart}}",
+      "endTime": "{{schedLimitReadEnd}}"
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(11, 0, 0, 0);
+      const e = new Date(s.getTime() + 60 * 60 * 1000);
+      pm.environment.set("schedLimitReadStart", s.toISOString());
+      pm.environment.set("schedLimitReadEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      // Success shape: { candidates: [ { startTime, endTime, resources:[...], ... }, ... ] }. The
+      // load-balancing cap trims the RESOURCE POOL before slot generation, so the observable size is the
+      // set of DISTINCT resources represented across candidates. Old candidates carry the resource under a
+      // few possible shapes/keys, so probe several; if none match, fall back to the candidate COUNT (with a
+      // 60m WorkType over the 11:00-11:30 window each resource yields exactly one candidate row, so the
+      // candidate count == the surviving-resource count). limit=0 → empty pool → 0; no-op → the full pool.
+      // Do NOT prejudge a crash: a 500 would show http=500 + errorCode. Characterize what the engine returns.
+      const data = pm.response.json() || {};
+      const candidates = (data.candidates || []);
+      const resourceIds = new Set();
+      candidates.forEach(c => {
+        const rs = c.resources || c.serviceResources || [];
+        rs.forEach(r => {
+          const id = (typeof r === "string") ? r
+                   : (r && (r.resourceId || r.id || r.serviceResourceId || r.serviceResource)) || null;
+          if (id) resourceIds.add(id);
+        });
+      });
+      const resourceCount = resourceIds.size > 0 ? resourceIds.size : candidates.length;
+      pm.environment.set("limitZeroResourceCount", String(resourceCount));
+      pm.environment.set("limitZeroCandidateCount", String(candidates.length));
+      pm.environment.set("limitZeroHttp", String(pm.response.code));
+      pm.environment.set("limitZeroErrorCode", data.errorCode || "");
+      console.log("OLD candidates limit=0 http=" + pm.response.code +
+                  " candidates=" + candidates.length + " distinctResources=" + resourceIds.size +
+                  " resourceCount=" + resourceCount + " errorCode=" + (data.errorCode || "") +
+                  " body=" + JSON.stringify(data).slice(0,400));
+    language: text/javascript
+order: 1000

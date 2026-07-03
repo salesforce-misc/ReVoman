@@ -1,0 +1,43 @@
+$kind: http-request
+description: >-
+  Decision 8 old-side fixture, part 2b of 3 — the load-balancing ATTACH probe. Attempts to PATCH the
+  AppointmentAssignmentPolicy(loadBalancing) FK (from step 300) onto the AppointmentSchedulingPolicy (from
+  step 400). This FK is the ENTIRE trigger for the classic load-balancing candidates path
+  (SchedulingServiceImpl.getAppointmentCandidatesForTerritoryWorkTypes → getSmartPolicy returns
+  LOAD_BALANCING iff the constraint carries a non-empty appointmentAssignmentPolicy), and the FK COLUMN is
+  exposed on AppointmentSchedulingPolicy ONLY when the org has smart scheduling enabled
+  (SchedulingDbUtil reads it only under orgHasSmartSchedulingEnabled() = SsAppointmentDistribution pref +
+  AppointmentDistribution perm). So this PATCH is the live probe of that org gate:
+    - 2xx → the FK attached → the org HAS smart scheduling → the OLD cap is CONSTRUCTIBLE (schedLimitCapConstructible=true).
+    - 400 INVALID_FIELD "No such column 'AppointmentAssignmentPolicy'" → the column is absent → the org LACKS
+      smart scheduling → the classic engine never takes the load-balancing branch → the cap is a NO-OP on
+      this org (schedLimitCapConstructible=false). This is a faithful OLD-vs-264 configuration nuance, NOT a
+      test defect. Ignore-HTTP-status so the 400 does not fail the step.
+url: "{{baseUrl}}{{versionPath}}/sobjects/AppointmentSchedulingPolicy/{{schedLimitPolicyId}}"
+method: PATCH
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "AppointmentAssignmentPolicy": "{{schedLimitAssignmentPolicyId}}"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      // A successful sobjects PATCH returns 204 No Content (empty body). A rejected one returns 400 with
+      // [{"errorCode":"INVALID_FIELD", ...}]. Record whether the load-balancing FK attached.
+      const code = pm.response.code;
+      const constructible = (code >= 200 && code < 300);
+      pm.environment.set("schedLimitCapConstructible", constructible ? "true" : "false");
+      let ec = "";
+      try { const d = pm.response.json(); if (Array.isArray(d) && d.length) ec = d[0].errorCode || ""; } catch (e) {}
+      pm.environment.set("schedLimitAttachHttp", String(code));
+      pm.environment.set("schedLimitAttachErrorCode", ec);
+      console.log("OLD attach load-balancing FK http=" + code + " constructible=" + constructible +
+                  " errorCode=" + ec);
+    language: text/javascript
+order: 450

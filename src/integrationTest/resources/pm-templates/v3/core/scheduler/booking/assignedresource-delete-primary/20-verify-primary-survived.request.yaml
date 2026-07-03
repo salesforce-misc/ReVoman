@@ -1,0 +1,32 @@
+$kind: http-request
+description: >-
+  Verify the DELETE attempt's effect: re-query the AssignedResource rows for the SA (reschedCleanSaId). If
+  the delete guard BLOCKED the delete, the primary AR still exists (count still includes it) → the SA was
+  NOT left with no primary. If the delete were allowed, the primary AR would be gone. Captures
+  reschedPrimaryArStillExists ("1" if the primary AR id is still present) + reschedArCountAfterDelete.
+url: "{{baseUrl}}{{versionPath}}/composite/batch"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "batchRequests": [
+        { "method": "GET", "url": "{{versionPath}}/query/?q=SELECT+Id,IsPrimaryResource+FROM+AssignedResource+WHERE+ServiceAppointmentId='{{reschedCleanSaId}}'" }
+      ]
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      const data = pm.response.json() || {};
+      const results = data.results || [];
+      const records = (((results[0] || {}).result || {}).records || []);
+      const primaryStillThere = records.some(r => r.Id === pm.environment.get("reschedPrimaryArId"));
+      pm.environment.set("reschedArCountAfterDelete", String(records.length));
+      pm.environment.set("reschedPrimaryArStillExists", primaryStillThere ? "1" : "0");
+      console.log("OLD after delete-primary: AR count=" + records.length + " primaryStillExists=" + primaryStillThere);
+    language: text/javascript
+order: 1110

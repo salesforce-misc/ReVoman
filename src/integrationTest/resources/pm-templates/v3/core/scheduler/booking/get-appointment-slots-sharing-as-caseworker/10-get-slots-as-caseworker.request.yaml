@@ -1,0 +1,42 @@
+$kind: http-request
+description: >-
+  OLD Decision-9 PROBE read — classic getAppointmentSlots as the CASE-WORKER (no sharing on the
+  manager-owned Private resource/STM/Shift). SINGLE resource shape (requiredResourceIds=[the resource], no
+  primaryResourceId), IDENTICAL window/fixture to the manager control (tomorrow 11:00-11:30). On old, the
+  Shift read is always full-access; the user-mode gate (if the org honors it) is on the STM/ServiceResource
+  read → zero slots for the case-worker. Response field is "timeSlots". Captures oldD9CaseWorkerSlotCount +
+  oldD9CaseWorkerHttp. The window vars are set by the manager control step; re-set defensively here so this
+  act is order-independent.
+url: "{{baseUrl}}{{versionPath}}/scheduling/getAppointmentSlots"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "workType": { "id": "{{oldD9WorkTypeId}}" },
+      "territoryIds": ["{{oldD9TerritoryId}}"],
+      "requiredResourceIds": ["{{oldD9ResourceId}}"],
+      "startTime": "{{oldD9ReadStart}}",
+      "endTime": "{{oldD9ReadEnd}}"
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(11, 0, 0, 0);
+      const e = new Date(s.getTime() + 30 * 60 * 1000);
+      pm.environment.set("oldD9ReadStart", s.toISOString());
+      pm.environment.set("oldD9ReadEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      const data = pm.response.json() || {};
+      const slots = (data.timeSlots || data.slots || []);
+      pm.environment.set("oldD9CaseWorkerSlotCount", String(slots.length));
+      pm.environment.set("oldD9CaseWorkerHttp", String(pm.response.code));
+      console.log("OLD D9 read as-caseworker http=" + pm.response.code + " slots=" + slots.length);
+    language: text/javascript
+order: 10000

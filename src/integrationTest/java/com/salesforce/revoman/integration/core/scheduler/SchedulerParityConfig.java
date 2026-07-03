@@ -135,6 +135,135 @@ public final class SchedulerParityConfig {
   static final Kick OLD_BOOK_REQUIRED_NON_REQUIRED_CONFIG =
       oldKickFor(V3_SCHEDULER_PATH + "booking/service-appointments-required-non-required");
 
+  // ======================================================================================
+  // Fan-out Decisions 2 / 3 / 4 / 4z / 5 / 8 / 9 — old-side Kick declarations.
+  // ======================================================================================
+
+  // ## Decision 2 (slot promise) — is a SHOWN time-slot a real promise? An intra-product read↔write
+  // consistency check over a SINGLE resource: an AVAILABLE window (inside member OH ∪ Shift 08-16 →
+  // read offers slots ⟺ book Succeeds) vs an UNAVAILABLE window (outside those hours → read 0 slots ⟺
+  // book Refused). The fixture is single-resource; the read is single-resource getAppointmentSlots
+  // (requiredResourceIds=[A], NO primaryResourceId — the classic engine rejects a primary that also
+  // appears required); the two book acts book resourceA (required+primary) into each window. The
+  // fixture sets schedResourceBId = schedResourceAId so the shared grant-ls-user-access Kick (grants
+  // BOTH resource users) runs unchanged. See {@link
+  // SchedulerVsUnifiedParityE2ETest#testSlotPromiseParity_2_E2E}.
+  static final Kick OLD_PROMISE_FIXTURE_CONFIG =
+      oldKickFor(V3_SCHEDULER_PATH + "fixtures/promise-helper");
+  static final Kick OLD_GET_SLOTS_PROMISE_AVAILABLE_CONFIG =
+      oldKickFor(V3_SCHEDULER_PATH + "booking/get-appointment-slots-promise-available");
+  static final Kick OLD_GET_SLOTS_PROMISE_UNAVAILABLE_CONFIG =
+      oldKickFor(V3_SCHEDULER_PATH + "booking/get-appointment-slots-promise-unavailable");
+  static final Kick OLD_BOOK_PROMISE_AVAILABLE_CONFIG =
+      oldKickFor(V3_SCHEDULER_PATH + "booking/service-appointments-promise-available");
+  static final Kick OLD_BOOK_PROMISE_UNAVAILABLE_CONFIG =
+      oldKickFor(V3_SCHEDULER_PATH + "booking/service-appointments-promise-unavailable");
+
+  // ## Decision 3 — a single AssignedResource sent OMITTING isRequiredResource entirely. On 264 the
+  // missing-flag payload CRASHES (Boolean.booleanValue() NPE, HTTP 500 INTERNAL_SERVER_ERROR). The OLD
+  // probe reuses the double-book fixture (fresh users + grant chain, resourceA FREE at the 11:00 window
+  // so availability does not confound) and books a SINGLE resourceA: Act A OMITS isRequiredResource (the
+  // parity question — does OLD also crash, or degrade gracefully?), and Act B (doc L142 control) sends a
+  // single isRequiredResource=true with NO isPrimaryResource → must BOOK (proves the fixture is live).
+  static final Kick OLD_BOOK_MISSING_REQUIRED_FLAG_CONFIG =
+      oldKickFor(V3_SCHEDULER_PATH + "booking/service-appointments-missing-required-flag");
+  static final Kick OLD_BOOK_SINGLE_REQUIRED_NO_PRIMARY_CONFIG =
+      oldKickFor(V3_SCHEDULER_PATH + "booking/service-appointments-single-required-no-primary");
+
+  // ## Decision 4 — two "primary" workers on ONE appointment are rejected. Multi-resource scheduling
+  // requires EXACTLY one primary. The fixture seeds TWO clean, fully-available PRIMARY-eligible resources
+  // (both member OH + Confirmed Shift 10-14, covering the 11:00-11:30 window) so availability is NOT the
+  // discriminator — only the primary-count rule is. The two-primary book act sends both AssignedResources
+  // isPrimaryResource=true → REFUSED. LIVE-OBSERVED: the OLD connect API rejects at INPUT validation with
+  // errorCode INVALID_API_INPUT / HTTP 400, "Only one assignedResource can have isPrimaryResource set to
+  // true…" (no booking). The one-primary control (A primary + B non-primary, both free) BOOKS (non-vacuity).
+  // Both engines reject at connect-API INPUT validation (pre-persist) at HTTP 400 — 264 with INVALID_INPUT,
+  // OLD with INVALID_API_INPUT — so the WHERE coincides and only the errorCode + message text differ; the
+  // OUTCOME is parity: both refuse two primaries, no booking. See {@link
+  // SchedulerVsUnifiedParityE2ETest#testTwoPrimaryParity_4_E2E}.
+  static final Kick OLD_TWO_PRIMARY_FIXTURE_CONFIG =
+      oldKickFor(V3_SCHEDULER_PATH + "fixtures/two-primary-helper");
+  static final Kick OLD_BOOK_TWO_PRIMARY_CONFIG =
+      oldKickFor(V3_SCHEDULER_PATH + "booking/service-appointments-two-primary");
+  static final Kick OLD_BOOK_ONE_PRIMARY_CONTROL_CONFIG =
+      oldKickFor(V3_SCHEDULER_PATH + "booking/service-appointments-one-primary-control");
+
+  // ## Decision 4z — a reschedule can leave an appointment with NO primary worker. The classic
+  // Scheduler exposes NO reschedule connect API; "rescheduling" on the old side is direct DML/REST on
+  // the SA's AssignedResource rows. So the OLD analog is: (fixture) a CLEAN two-resource SA where BOTH
+  // resources are available at the window, (book) create it with resourceA primary+required + resourceB
+  // required and capture the AR ids, then (delete-primary) DELETE the primary AssignedResource and
+  // (demote-primary) PATCH it to IsPrimaryResource=false — each attempting to leave the SA with no
+  // primary. The old-side enforcement is the SAVE-TIME LightningSchedulerAssignedResourceValidator:
+  // validatePrimaryAssignedResourceOnDelete BLOCKS deleting a primary AR (FIELD_INTEGRITY_EXCEPTION
+  // "AssignedResourceDelete"), while validateAssignedResourceOnSave guards only primary-must-be-required
+  // and at-most-one-primary (no "must keep a primary" rule). The 264 side reuses the proven WFS
+  // reschedule-no-primary acts (validation ALLOWS zero primaries; validatePrimaryResourceCount throws
+  // only when primaryCount > 1). See {@link
+  // SchedulerVsUnifiedParityE2ETest#testRescheduleNoPrimaryParity_4z_E2E}.
+  static final Kick OLD_RESCHEDULE_HELPER_FIXTURE_CONFIG =
+      oldKickFor(V3_SCHEDULER_PATH + "fixtures/reschedule-helper");
+  static final Kick OLD_BOOK_CLEAN_TWO_RESOURCE_CONFIG =
+      oldKickFor(V3_SCHEDULER_PATH + "booking/service-appointments-clean-two-resource");
+  static final Kick OLD_AR_DELETE_PRIMARY_CONFIG =
+      oldKickFor(V3_SCHEDULER_PATH + "booking/assignedresource-delete-primary");
+  static final Kick OLD_AR_DEMOTE_PRIMARY_CONFIG =
+      oldKickFor(V3_SCHEDULER_PATH + "booking/assignedresource-demote-primary");
+
+  // * NOTE 2026-07-03 gopal.akshintala: Decision 5 (primary-not-required) — a single AssignedResource
+  // * marked isPrimaryResource=true BUT isRequiredResource=false is a contradiction. The window is FREE
+  // * (availability passes), so the classic book path inserts the AssignedResource row and the SAVE-TIME
+  // * LightningSchedulerAssignedResourceValidator (fieldservice-impl — the SAME validator 264 hits on
+  // * this API/Apex/DML) rejects it ("Only an required service resource can be set as a primary service
+  // * resource."). Probe: single primary + NOT required → REFUSED. Control: flip isRequiredResource=true
+  // * → BOOKED (isolates the reject to the not-required flag). Single-resource fixture, so only resourceA
+  // * is needed and it is fully available over the 11:00-11:30 window.
+  static final Kick OLD_PRIMARY_NOT_REQUIRED_FIXTURE_CONFIG =
+      oldKickFor(V3_SCHEDULER_PATH + "fixtures/primary-not-required-helper");
+  static final Kick OLD_BOOK_PRIMARY_NOT_REQUIRED_CONFIG =
+      oldKickFor(V3_SCHEDULER_PATH + "booking/service-appointments-primary-not-required");
+  static final Kick OLD_BOOK_PRIMARY_REQUIRED_CONTROL_CONFIG =
+      oldKickFor(V3_SCHEDULER_PATH + "booking/service-appointments-primary-required-control");
+
+  // ## Decision 8 — resourceLimitApptDistribution cap on the load-balancing candidates read path
+  // (read-only). The OLD classic engine has NO SchedulingObjective/SchedulingPolicyObjective (those are
+  // Unified-only); its load-balancing cap instead lives behind an AppointmentAssignmentPolicy(loadBalancing)
+  // SETUP record whose FK on the AppointmentSchedulingPolicy flips
+  // SchedulingServiceImpl.getAppointmentCandidatesForTerritoryWorkTypes onto the smart-scheduling path
+  // (SmartSchedulerServiceImpl.getServiceResourceByResourceLimitApptDistribution → getLeastUtilizedResources
+  // → subList(0, N)). The cap engages ONLY when filterByResources is EMPTY, the policy carries that FK, AND
+  // the org has smart scheduling enabled (SsAppointmentDistribution pref + AppointmentDistribution perm) — so
+  // the fixture seeds the assignment policy + policy FK, and the reads omit filterByResources. limit=0 →
+  // subList(0,0) → empty (a literal cap-of-0, matching 264's Stream.limit(0)); limit=50 (> 2 seeded
+  // resources) → no trim → pool returned. See
+  // {@link SchedulerVsUnifiedParityE2ETest#testResourceLimitCapParity_8_E2E}.
+  static final Kick OLD_LIMIT_FIXTURE_CONFIG =
+      oldKickFor(V3_SCHEDULER_PATH + "fixtures/limit-helper");
+  static final Kick OLD_GET_CANDIDATES_LIMIT_ZERO_CONFIG =
+      oldKickFor(V3_SCHEDULER_PATH + "booking/get-candidates-limit-zero");
+  static final Kick OLD_GET_CANDIDATES_LIMIT_POSITIVE_CONFIG =
+      oldKickFor(V3_SCHEDULER_PATH + "booking/get-candidates-limit-positive");
+
+  // * NOTE 2026-07-03 gopal.akshintala: Decision 9 (Shift sharing-mode split) — the classic-engine
+  // * mirror of the WFS auth-personas-dec9 machinery. Unlike the 1.* helper-fitness scenarios (single
+  // * admin session), Decision 9 is a CROSS-PERSONA sharing question, so the old side mints TWO real
+  // * personas with their OWN SOAP sessions (a MANAGER who OWNS the Private fixture rows + a sharing-
+  // * deprived CASE-WORKER) plus an admin-created resource-owner User, then runs the SAME classic
+  // * getAppointmentSlots read as each persona over the manager-owned fixture. The parity crux (source-
+  // * confirmed, scheduling-impl): the classic engine reads SHIFTS in FULL-access mode
+  // * (SoqlUtil.runSoqlWithoutMruUpdate single-arg → SFDC_FULL, ShiftsDbUtil.getShiftEntities) while its
+  // * STM/ServiceResource read is the user-mode gate (SystemMode.NONE, gated by orgHasDepriveSoqlAccess)
+  // * — the INVERSE of 264, whose SHIFT read is the user-mode gate. So old never gates on the shift; the
+  // * observable slot-count split (if any) comes from the STM/ServiceResource sharing gate instead.
+  static final Kick OLD_AUTH_PERSONAS_DEC9_CONFIG =
+      oldKickFor(V3_SCHEDULER_PATH + "auth-personas-old");
+  static final Kick OLD_SHARING_SPLIT_FIXTURE_CONFIG =
+      oldKickFor(V3_SCHEDULER_PATH + "fixtures/sharing-split-helper");
+  static final Kick OLD_GET_SLOTS_SHARING_AS_MANAGER_CONFIG =
+      oldKickFor(V3_SCHEDULER_PATH + "booking/get-appointment-slots-sharing-as-manager");
+  static final Kick OLD_GET_SLOTS_SHARING_AS_CASEWORKER_CONFIG =
+      oldKickFor(V3_SCHEDULER_PATH + "booking/get-appointment-slots-sharing-as-caseworker");
+
   /**
    * Skip (JUnit assumption) unless BOTH orgs' creds are present: the Unified side reads {@code
    * ~/.revoman/config.yaml} and the old side reads {@code ~/.revoman/scheduler-config.yaml} (here).
@@ -177,9 +306,93 @@ public final class SchedulerParityConfig {
     CRASHED
   }
 
+  /**
+   * Decision 4z normalized outcome for a "leave the appointment with no primary" attempt, comparable
+   * across the OLD sObject DELETE/PATCH probes and the 264 reschedule API: LEFT_NO_PRIMARY means the
+   * appointment ended with zero primary workers (the state the doc says should be impossible), BLOCKED
+   * means a rule refused the change (2xx never happened, or the primary survived), CRASHED means an
+   * HTTP 500 / INTERNAL_SERVER_ERROR.
+   */
+  enum NoPrimaryOutcome {
+    LEFT_NO_PRIMARY,
+    BLOCKED,
+    CRASHED
+  }
+
+  /**
+   * Decision-9 sharing-gate verdict, shared by both engines: does a sharing-DEPRIVED reader (the
+   * case-worker, no sharing on the private fixture rows) get GATED (zero slots, HTTP 200, no error) or
+   * does it read the SAME availability as the privileged reader (OPEN)? On 264 this gate is the SHIFT
+   * user-mode read; on OLD classic it is the STM/ServiceResource user-mode read (the shift read is
+   * full-access) — same observable (zero slots) via an INVERTED axis.
+   */
+  enum SharingGate {
+    GATED,
+    OPEN
+  }
+
   /** Old side: a busy resource is INCLUDED iff naming it required did NOT zero the slot count. */
   static ReadDecision oldReadDecision(final String withBusyCount) {
     return "0".equals(withBusyCount) ? ReadDecision.EXCLUDED : ReadDecision.INCLUDED;
+  }
+
+  /**
+   * Old side (Decision 8): did the load-balancing {@code resourceLimitApptDistribution} cap actually
+   * engage? It engaged iff the limit=0 probe returned an EMPTY resource pool ({@code "0"}) WHILE the
+   * positive-limit control still returned resources (&gt; 0). If the org lacks smart scheduling the
+   * classic engine never takes the load-balancing branch, so limit=0 does NOT empty the pool (both counts
+   * &gt; 0) → cap did not engage (a configuration nuance, not a divergence in the cap semantics).
+   */
+  static boolean oldLimitCapEngaged(final String limitZeroCount, final String limitPositiveCount) {
+    final var positiveOffered =
+        limitPositiveCount != null
+            && !limitPositiveCount.isBlank()
+            && !"0".equals(limitPositiveCount);
+    return "0".equals(limitZeroCount) && positiveOffered;
+  }
+
+  /**
+   * A sharing-deprived reader is GATED iff its slot count is "0" on an HTTP-200 (no-error) read — the
+   * silent empty-availability contract. A non-zero count is OPEN (sees availability despite lacking
+   * sharing). A non-200 is neither (it is an access/perm error, not the silent sharing gate) →
+   * reported as OPEN=false via GATED only on the clean-empty case.
+   */
+  static SharingGate sharingGate(final String slotCount, final String http) {
+    return "0".equals(slotCount) && "200".equals(http) ? SharingGate.GATED : SharingGate.OPEN;
+  }
+
+  /**
+   * Old side (sObject DELETE/PATCH probe): LEFT_NO_PRIMARY iff the mutation succeeded (HTTP 2xx, no
+   * errorCode) AND the post-mutation state confirms no surviving primary ({@code primaryGone} is "1");
+   * CRASHED on HTTP 500; otherwise BLOCKED (a save-validator rejection kept a primary).
+   */
+  static NoPrimaryOutcome oldNoPrimaryOutcome(
+      final String http, final String errorCode, final String primaryGone) {
+    if ("500".equals(http)) {
+      return NoPrimaryOutcome.CRASHED;
+    }
+    final var httpOk = http != null && http.startsWith("2");
+    final var noError = errorCode == null || errorCode.isBlank();
+    return (httpOk && noError && "1".equals(primaryGone))
+        ? NoPrimaryOutcome.LEFT_NO_PRIMARY
+        : NoPrimaryOutcome.BLOCKED;
+  }
+
+  /**
+   * 264 side (reschedule API): LEFT_NO_PRIMARY iff the reschedule returned Success (persisting a
+   * no-primary crew); CRASHED on HTTP 500 / INTERNAL_SERVER_ERROR; otherwise BLOCKED (validation or the
+   * downstream availability re-check refused it). Note: on 262 (the proxy) the delete-primary arms are
+   * BLOCKED by the availability re-check, NOT by any no-primary rule — validation itself ALLOWS zero
+   * primaries; that validation-layer permissiveness is the 264 fact the parity diff turns on.
+   */
+  static NoPrimaryOutcome unifiedNoPrimaryOutcome(
+      final String schedulingStatus, final String errorCode, final String http) {
+    if ("Success".equals(schedulingStatus)) {
+      return NoPrimaryOutcome.LEFT_NO_PRIMARY;
+    }
+    return ("500".equals(http) || "INTERNAL_SERVER_ERROR".equals(errorCode))
+        ? NoPrimaryOutcome.CRASHED
+        : NoPrimaryOutcome.BLOCKED;
   }
 
   /** Old side: BOOKED iff an SA id came back; CRASHED on HTTP 500; else REFUSED. */

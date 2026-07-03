@@ -1,0 +1,24 @@
+$kind: collection
+description: |-
+  OLD Scheduler (Decision-9) persona setup — the classic-engine mirror of the WFS auth-personas-dec9. All
+  User/password/permset steps run under {{adminToken}} (creating a User + setting ProfileId needs Manage
+  Users, which the manager persona lacks). Provisions the three identities the classic sharing-gate read
+  proof needs on the scheduler org:
+    - MANAGER persona (oldD9ManagerUserId): OWNS the whole Decision-9 fixture graph — critically the
+      ServiceResource + ServiceTerritoryMember (OWD ServiceResource=Private, STM=ControlledByParent) and
+      the Confirmed Shift (OWD=Private). It SOAP-logs in to mint {{oldD9ManagerToken}} (its OWN session).
+      It is the positive-control reader (owner sees its own rows → slots).
+    - CASE-WORKER persona (oldD9CaseWorkerUserId): the sharing-DEPRIVED reader. NOT shared the
+      manager-owned Private ServiceResource/STM/Shift rows. SOAP-logs in to mint {{oldD9CaseWorkerToken}}.
+    - RESOURCE-OWNER user (oldD9ResourceUserId): the User the fixture's ServiceResource points at via
+      RelatedRecordId (so the classic slot-gen's removeResourcesWithoutPerm admits the resource).
+  All three get the Salesforce_Scheduler_Resource permission set (carries the lightningSchedulerUserAccess
+  user-perm the classic REST slot-gen requires) + the LightningSchedulerPsl PSL seat, resolved by
+  10-resolve-scheduler-perm-ids. Sets oldD9ManagerToken, oldD9CaseWorkerToken, oldD9*UserId,
+  oldD9StandardUserProfileId, oldD9SchedulerPsId, oldD9SchedulerPslId.
+auth:
+  - id: a9010101-0000-4000-8000-0000000000a1
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{adminToken}}"

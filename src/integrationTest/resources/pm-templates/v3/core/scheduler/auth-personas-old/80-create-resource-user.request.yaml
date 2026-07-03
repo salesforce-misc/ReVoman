@@ -1,0 +1,62 @@
+$kind: http-request
+description: >-
+  OLD Decision-9 — admin creates the RESOURCE-OWNER user (the ServiceResource's RelatedRecordId). Created
+  by admin because creating a User (setting ProfileId) needs Manage Users, which the manager persona lacks.
+  Fresh timestamped User + Salesforce_Scheduler_Resource PS (LightningSchedulerPsl PSL auto-granted with it,
+  NOT assigned here) so the classic slot-gen's removeResourcesWithoutPerm
+  (SchedulerCommonUtil.checkForUserPermission for lightningSchedulerUserAccess) admits the resource. Sets
+  oldD9ResourceUserId.
+url: "{{baseUrl}}{{versionPath}}/composite/graph"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "graphs": [
+        {
+          "graphId": "oldD9res",
+          "compositeRequest": [
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/User",
+              "referenceId": "refUser",
+              "body": {
+                "Username": "{{oldD9ResourceUserName}}",
+                "ProfileId": "{{oldD9StandardUserProfileId}}",
+                "Alias": "od9res",
+                "Email": "{{oldD9ResourceUserName}}",
+                "EmailEncodingKey": "ISO-8859-1",
+                "LastName": "OldD9Resource",
+                "FirstName": "Riley",
+                "LanguageLocaleKey": "en_US",
+                "LocaleSidKey": "en_US",
+                "TimeZoneSidKey": "GMT"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/PermissionSetAssignment",
+              "referenceId": "refPsAssign",
+              "body": { "AssigneeId": "@{refUser.id}", "PermissionSetId": "{{oldD9SchedulerPsId}}" }
+            }
+          ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: pm.environment.set("oldD9ResourceUserName", pm.variables.replaceIn("old-d9-resource-{{$timestamp}}@revoman.org"));
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      const responses = pm.response.json().graphs[0].graphResponse.compositeResponse;
+      responses.forEach((r) => {
+        if (r.httpStatusCode < 200 || r.httpStatusCode >= 300) {
+          throw new Error("Resource user step " + r.referenceId + " failed: " + JSON.stringify(r.body));
+        }
+      });
+      pm.environment.set("oldD9ResourceUserId", responses[0].body.id);
+    language: text/javascript
+order: 80000

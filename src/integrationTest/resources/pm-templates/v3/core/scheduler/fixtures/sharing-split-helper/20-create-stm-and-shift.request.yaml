@@ -1,0 +1,48 @@
+$kind: http-request
+description: >-
+  OLD Decision-9 — ADMIN creates the STM + Confirmed Shift on the manager-owned ServiceResource, via
+  /composite/batch (independent subrequests; dodges the composite-graph unmarshallers). Admin creates them
+  because a non-admin persona cannot insert ServiceTerritoryMember and cannot reference the admin-owned
+  Private ServiceTerritory on a Shift (INSUFFICIENT_ACCESS_ON_CROSS_REFERENCE — both LIVE-OBSERVED). The STM
+  (TerritoryType=P, effective ~30 days ago) is ControlledByParent, so it inherits the manager-owned
+  ServiceResource's Private sharing — the actual user-mode gate. The Shift (08:00-16:00 tomorrow, NO
+  SchedulingMethod: the scheduler org schema lacks it) is read full-access by the classic engine, so its
+  owner is immaterial to the gate. Sets oldD9StmId / oldD9ShiftId.
+url: "{{baseUrl}}{{versionPath}}/composite/batch"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+body:
+  type: json
+  content: |-
+    {
+      "batchRequests": [
+        { "method": "POST", "url": "{{versionPath}}/sobjects/ServiceTerritoryMember", "richInput": { "ServiceTerritoryId": "{{oldD9TerritoryId}}", "ServiceResourceId": "{{oldD9ResourceId}}", "TerritoryType": "P", "OperatingHoursId": "{{oldD9MemberOhId}}", "EffectiveStartDate": "{{oldD9StmEffectiveStart}}" } },
+        { "method": "POST", "url": "{{versionPath}}/sobjects/Shift", "richInput": { "ServiceResourceId": "{{oldD9ResourceId}}", "ServiceTerritoryId": "{{oldD9TerritoryId}}", "StartTime": "{{oldD9ShiftStart}}", "EndTime": "{{oldD9ShiftEnd}}", "Status": "Confirmed", "TimeSlotType": "Normal" } }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      const monthAgo = new Date();
+      monthAgo.setUTCMonth(monthAgo.getUTCMonth() - 1);
+      pm.environment.set("oldD9StmEffectiveStart", monthAgo.toISOString());
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(8,0,0,0);
+      const e = new Date(s.getTime()); e.setUTCHours(16,0,0,0);
+      pm.environment.set("oldD9ShiftStart", s.toISOString());
+      pm.environment.set("oldD9ShiftEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      const data = pm.response.json() || {};
+      const results = data.results || [];
+      results.forEach((r, i) => {
+        if (r.statusCode < 200 || r.statusCode >= 300) {
+          throw new Error("OldD9 STM/Shift subrequest " + i + " failed: " + JSON.stringify(r.result));
+        }
+      });
+      pm.environment.set("oldD9StmId", (results[0].result || {}).id);
+      pm.environment.set("oldD9ShiftId", (results[1].result || {}).id);
+    language: text/javascript
+order: 20000

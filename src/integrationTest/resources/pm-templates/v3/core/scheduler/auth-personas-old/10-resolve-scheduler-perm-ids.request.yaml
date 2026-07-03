@@ -1,0 +1,36 @@
+$kind: http-request
+description: >-
+  OLD Decision-9 — resolve the ids the persona provisioning needs, under {{adminToken}}. Batch API
+  (/composite/batch, dodges the shared Kick's composite unmarshallers): Standard User ProfileId, the
+  Salesforce_Scheduler_Resource PermissionSet id (carries lightningSchedulerUserAccess — the user-perm the
+  classic slot-gen's removeResourcesWithoutPerm requires, JDWP-confirmed in the double-book slice), and the
+  LightningSchedulerPsl PermissionSetLicense id. Captures oldD9StandardUserProfileId / oldD9SchedulerPsId /
+  oldD9SchedulerPslId for the three persona-mint steps.
+url: "{{baseUrl}}{{versionPath}}/composite/batch"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "batchRequests": [
+        { "method": "GET", "url": "{{versionPath}}/query/?q=SELECT+Id+FROM+Profile+WHERE+Name='Standard User'" },
+        { "method": "GET", "url": "{{versionPath}}/query/?q=SELECT+Id+FROM+PermissionSet+WHERE+Name='Salesforce_Scheduler_Resource'" },
+        { "method": "GET", "url": "{{versionPath}}/query/?q=SELECT+Id+FROM+PermissionSetLicense+WHERE+DeveloperName='LightningSchedulerPsl'" }
+      ]
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      const data = pm.response.json() || {};
+      const results = data.results || [];
+      const first = (i) => (((results[i] || {}).result || {}).records || [])[0] || {};
+      pm.environment.set("oldD9StandardUserProfileId", first(0).Id);
+      pm.environment.set("oldD9SchedulerPsId", first(1).Id);
+      pm.environment.set("oldD9SchedulerPslId", first(2).Id);
+      console.log("OLD D9 ids profile=" + first(0).Id + " ps=" + first(1).Id + " psl=" + first(2).Id);
+    language: text/javascript
+order: 10000

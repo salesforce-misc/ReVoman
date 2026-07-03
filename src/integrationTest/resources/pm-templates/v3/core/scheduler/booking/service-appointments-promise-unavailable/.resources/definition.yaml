@@ -1,0 +1,14 @@
+$kind: collection
+description: |-
+  OLD Scheduler-org Decision 2 WRITE (UNAVAILABLE window): POST /connect/scheduling/service-appointments
+  booking resourceA (single required+primary) into the UNAVAILABLE window tomorrow 17:00-17:30 (outside its
+  hours). The read hid this window; the write keeps the promise → refused (non-2xx, no serviceAppointmentId),
+  the only blocker being the shared cheap availability check. Captures oldPromiseWriteUnavailSaId /
+  oldPromiseWriteUnavailHttp / oldPromiseWriteUnavailErrorCode / oldPromiseWriteUnavailErrorMessage. RevUps
+  after the shared grant-ls-user-access Kick.
+auth:
+  - id: 7e1f0c00-1005-4aaa-9bbb-000000000214
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{adminToken}}"

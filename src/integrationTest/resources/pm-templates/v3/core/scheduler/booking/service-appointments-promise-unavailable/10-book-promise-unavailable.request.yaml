@@ -1,0 +1,60 @@
+$kind: http-request
+description: >-
+  OLD Salesforce Scheduler book (Decision 2, UNAVAILABLE window): POST
+  /connect/scheduling/service-appointments booking resourceA (single assignedResource,
+  isRequiredResource=true + isPrimaryResource=true) into the UNAVAILABLE window tomorrow 17:00-17:30 UTC.
+  Same single required+primary resource as the available book — only the window differs. resourceA is NOT
+  available there (window outside member OH ∪ Shift = 08-16), so the write's re-check of the shared cheap
+  availability check FAILS → the book is refused (non-2xx, no serviceAppointmentId). This is the WRITE
+  half of the read↔write promise on the unavailable window: read-hides-slot ⟺ write-refused. Uses a UNIQUE
+  step name (10-book-promise-unavailable) so it never collides with the available book's step across the
+  run. Captures oldPromiseWriteUnavailHttp + oldPromiseWriteUnavailSaId (empty on refusal) +
+  oldPromiseWriteUnavailErrorCode + oldPromiseWriteUnavailErrorMessage.
+url: "{{baseUrl}}{{versionPath}}/connect/scheduling/service-appointments"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "serviceAppointment": {
+        "serviceTerritoryId": "{{schedTerritoryId}}",
+        "parentRecordId": "{{schedAccountId}}",
+        "workTypeId": "{{schedWorkTypeId}}",
+        "schedStartTime": "{{schedPromiseBookUnavailStart}}",
+        "schedEndTime": "{{schedPromiseBookUnavailEnd}}",
+        "extendedFields": [ { "name": "Status", "value": "Scheduled" } ]
+      },
+      "assignedResources": [
+        { "serviceResourceId": "{{schedResourceAId}}", "isRequiredResource": true, "isPrimaryResource": true }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(17, 0, 0, 0);
+      const e = new Date(s.getTime() + 30 * 60 * 1000);
+      pm.environment.set("schedPromiseBookUnavailStart", s.toISOString());
+      pm.environment.set("schedPromiseBookUnavailEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      // The Connect book API wraps its payload in a "result" node on success:
+      // { "result": { "serviceAppointmentId": "08p...", ... } }. On refusal it returns a top-level error
+      // array. Dig the SA id out of result first (empty here — a refusal), and pull the error envelope.
+      const data = pm.response.json() || {};
+      const result = data.result || data;
+      pm.environment.set("oldPromiseWriteUnavailHttp", String(pm.response.code));
+      pm.environment.set("oldPromiseWriteUnavailSaId", result.serviceAppointmentId || (result.serviceAppointment && result.serviceAppointment.id) || "");
+      let ec = null, msg = null;
+      if (Array.isArray(data) && data.length) { ec = data[0].errorCode; msg = data[0].message; }
+      else if (data.errorCode) { ec = data.errorCode; msg = data.message; }
+      pm.environment.set("oldPromiseWriteUnavailErrorCode", ec);
+      pm.environment.set("oldPromiseWriteUnavailErrorMessage", msg);
+      console.log("OLD promise book-unavail http=" + pm.response.code + " body=" + JSON.stringify(data).slice(0,300));
+    language: text/javascript
+order: 1000

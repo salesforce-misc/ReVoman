@@ -1,0 +1,13 @@
+$kind: collection
+description: |-
+  OLD Scheduler book of the two-primary fixture (Decision 4 CONTROL): POST /connect/scheduling/service-appointments
+  with TWO assignedResources but EXACTLY ONE primary — resourceA isPrimaryResource=true, resourceB
+  isPrimaryResource=false (both required, both free). Expect a BOOKING (18-char 08p serviceAppointmentId).
+  Isolates the two-primary REFUSAL to the second primary flag (the fixture and both resources are live and
+  bookable). Runs under {{adminToken}}.
+auth:
+  - id: 7e1f0c00-1005-4aaa-9bbb-000000000042
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{adminToken}}"

@@ -1,0 +1,12 @@
+$kind: collection
+description: |-
+  OLD Scheduler-org Decision-5 (primary-not-required) data graph (clone of the double-book fixture shape,
+  simplified to a SINGLE fully-available resource). Runs under {{adminToken}}. Territory OH 08-16;
+  resourceA member OH + Confirmed Shift 10-14 (covers the 11:00-11:30 window → FREE). Standard objects, so
+  the same graph books on the scheduler org. Sets sched{Territory,WorkType,Account,ResourceA}Id.
+auth:
+  - id: 7e1f0c00-1005-4aaa-9bbb-000000000050
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{adminToken}}"

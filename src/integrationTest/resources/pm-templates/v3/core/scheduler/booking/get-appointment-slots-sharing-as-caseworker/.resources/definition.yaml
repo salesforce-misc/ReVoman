@@ -1,0 +1,17 @@
+$kind: collection
+description: |-
+  OLD Decision-9 PROBE — classic getAppointmentSlots (POST /scheduling/getAppointmentSlots, read-only) on
+  the SAME Decision-9 fixture + window, as the CASE-WORKER persona ({{oldD9CaseWorkerToken}}) which has NO
+  sharing on the manager-owned Private ServiceResource / STM / Shift. On the classic engine the SHIFT read
+  is full-access (SFDC_FULL, ignores sharing — the INVERSE of the 264 gate), while the STM/ServiceResource
+  read is user-mode (SystemMode.NONE) but only when orgHasDepriveSoqlAccess is set; STM OWD is
+  ControlledByParent(ServiceResource=Private). So IF the org honors that gate, the case-worker's STM read
+  returns none → zero slots; otherwise it reads full-access like the shift and sees the same slots as the
+  manager. Either way the SHIFT read is never the gate on old. Stashes oldD9CaseWorkerSlotCount +
+  oldD9CaseWorkerHttp; assertions live in the Java test.
+auth:
+  - id: d9040404-0000-4000-8000-0000000000d4
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{oldD9CaseWorkerToken}}"

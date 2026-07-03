@@ -1,0 +1,17 @@
+$kind: collection
+description: |-
+  OLD Scheduler reschedule-analog DEMOTE probe for Decision 4z. Approximates "a reschedule that leaves no
+  primary" WITHOUT deleting: directly PATCH the primary AssignedResource (reschedPrimaryArId) to
+  IsPrimaryResource=false, leaving the SA with two required resources and ZERO primaries. The old-side save
+  validator LightningSchedulerAssignedResourceValidator.validateAssignedResourceOnSave guards only (a)
+  primary-must-be-required and (b) at-most-one-primary — it has NO "must keep a primary" rule, so demoting
+  the sole primary is the closest old-side analog to 264's validatePrimaryResourceCount (which throws only
+  when primaryCount > 1). Characterizes allowed vs blocked and re-queries the resulting primary count.
+  Captures reschedDemotePrimaryHttp / reschedDemotePrimaryErrorCode / reschedDemotePrimaryErrorMessage /
+  reschedPrimaryCountAfterDemote. Runs under {{adminToken}}.
+auth:
+  - id: 7e1f0c00-1005-4aaa-9bbb-0000004z0060
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{adminToken}}"

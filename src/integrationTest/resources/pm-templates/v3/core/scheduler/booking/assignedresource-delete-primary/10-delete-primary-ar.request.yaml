@@ -1,0 +1,33 @@
+$kind: http-request
+description: >-
+  OLD Scheduler reschedule-analog Arm 1: directly DELETE the PRIMARY AssignedResource (reschedPrimaryArId)
+  via REST sObject — the classic-Scheduler stand-in for "a reschedule that removes the primary worker",
+  since the classic engine has NO reschedule connect API. Expected: BLOCKED by the save-time delete guard
+  LightningSchedulerAssignedResourceValidator.validatePrimaryAssignedResourceOnDelete → non-2xx (HTTP 400 /
+  FIELD_INTEGRITY_EXCEPTION "AssignedResourceDelete"), so the SA cannot be left with no primary this way.
+  Captures reschedDeletePrimaryHttp / reschedDeletePrimaryErrorCode / reschedDeletePrimaryErrorMessage.
+url: "{{baseUrl}}{{versionPath}}/sobjects/AssignedResource/{{reschedPrimaryArId}}"
+method: DELETE
+headers:
+  Accept: application/json
+  ignoreHTTPStatusUnsuccessful: "true"
+scripts:
+  - type: afterResponse
+    code: |-
+      // A REST sObject DELETE returns 204 (empty body) on success or a non-2xx with a top-level error
+      // array [{ errorCode, message, fields }]. Capture the HTTP code + errorCode/message either way.
+      pm.environment.set("reschedDeletePrimaryHttp", String(pm.response.code));
+      let errorCode = "";
+      let errorMessage = "";
+      try {
+        const data = pm.response.json();
+        if (Array.isArray(data) && data.length > 0) {
+          errorCode = data[0].errorCode || "";
+          errorMessage = data[0].message || "";
+        }
+      } catch (e) { /* 204 no-body success → leave error fields empty */ }
+      pm.environment.set("reschedDeletePrimaryErrorCode", errorCode);
+      pm.environment.set("reschedDeletePrimaryErrorMessage", errorMessage);
+      console.log("OLD delete-primary AR http=" + pm.response.code + " errorCode=" + errorCode + " msg=" + errorMessage);
+    language: text/javascript
+order: 1100

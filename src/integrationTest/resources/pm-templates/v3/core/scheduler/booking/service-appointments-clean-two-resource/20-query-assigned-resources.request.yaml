@@ -1,0 +1,41 @@
+$kind: http-request
+description: >-
+  Follow-up read (Batch API, so it dodges the shared Kick's composite unmarshallers): SELECT the
+  AssignedResource rows for the clean SA just booked (reschedCleanSaId), with their IsPrimaryResource flag.
+  Identifies the PRIMARY AssignedResource id — the target the reschedule-analog delete/demote probes will
+  attempt to remove to leave the SA with NO primary. Captures reschedPrimaryArId (the AR where
+  IsPrimaryResource=true), reschedSecondaryArId (the other), and reschedCleanArCount (should be 2).
+url: "{{baseUrl}}{{versionPath}}/composite/batch"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "batchRequests": [
+        { "method": "GET", "url": "{{versionPath}}/query/?q=SELECT+Id,ServiceResourceId,IsPrimaryResource,IsRequiredResource+FROM+AssignedResource+WHERE+ServiceAppointmentId='{{reschedCleanSaId}}'+ORDER+BY+IsPrimaryResource+DESC" }
+      ]
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      // Batch response: { results: [ { statusCode, result: { records: [...] } } ] }. Pull the AR rows and
+      // split by IsPrimaryResource so the delete/demote probes target the PRIMARY AR deterministically
+      // (the assignedResourceIds save-order from the book response does NOT map to primary/secondary).
+      const data = pm.response.json() || {};
+      const results = data.results || [];
+      const records = (((results[0] || {}).result || {}).records || []);
+      const primary = records.filter(r => r.IsPrimaryResource === true);
+      const secondary = records.filter(r => r.IsPrimaryResource !== true);
+      pm.environment.set("reschedCleanArCount", String(records.length));
+      pm.environment.set("reschedPrimaryArId", (primary[0] || {}).Id || "");
+      pm.environment.set("reschedSecondaryArId", (secondary[0] || {}).Id || "");
+      console.log("OLD clean AR rows count=" + records.length +
+                  " primaryArId=" + ((primary[0] || {}).Id || "") +
+                  " secondaryArId=" + ((secondary[0] || {}).Id || "") +
+                  " body=" + JSON.stringify(records).slice(0,400));
+    language: text/javascript
+order: 1010

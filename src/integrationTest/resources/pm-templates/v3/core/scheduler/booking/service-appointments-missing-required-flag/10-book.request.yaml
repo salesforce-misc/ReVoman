@@ -1,0 +1,64 @@
+$kind: http-request
+description: >-
+  OLD Salesforce Scheduler book (Decision 3 Act A): POST /connect/scheduling/service-appointments,
+  tomorrow 11:00-11:30 UTC, over the double-book fixture's FREE resourceA (member OH + Confirmed Shift
+  10:00-14:00 cover the window, so availability does NOT confound the probe). ONE assignedResource that
+  OMITS isRequiredResource ENTIRELY (and isPrimaryResource) — the same missing-flag payload the 264
+  Unified schedule sends, where 264 CRASHES with a Boolean.booleanValue() NPE (INTERNAL_SERVER_ERROR,
+  HTTP 500) because common.api.soap.Entity.getField("IsRequiredResource") returns null. This act asks
+  the parity question WITHOUT prejudging it: does the OLD classic engine ALSO crash when the flag is
+  omitted, or does it degrade gracefully (clean refusal / treats missing-as-false and books)? Captures
+  oldMissingFlagHttp + oldMissingFlagSaId + oldMissingFlagErrorCode + oldMissingFlagErrorMessage so the
+  normalizer can classify BOOKED/REFUSED/CRASHED. Carries ignoreHTTPStatusUnsuccessful so a legit non-2xx
+  (a refusal or a 500) is not a step failure — the outcome is characterized, not forced.
+url: "{{baseUrl}}{{versionPath}}/connect/scheduling/service-appointments"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "serviceAppointment": {
+        "serviceTerritoryId": "{{schedTerritoryId}}",
+        "parentRecordId": "{{schedAccountId}}",
+        "workTypeId": "{{schedWorkTypeId}}",
+        "schedStartTime": "{{schedBookStart}}",
+        "schedEndTime": "{{schedBookEnd}}",
+        "extendedFields": [ { "name": "Status", "value": "Scheduled" } ]
+      },
+      "assignedResources": [
+        { "serviceResourceId": "{{schedResourceAId}}" }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(11, 0, 0, 0);
+      const e = new Date(s.getTime() + 30 * 60 * 1000);
+      pm.environment.set("schedBookStart", s.toISOString());
+      pm.environment.set("schedBookEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      // The Connect book API wraps its payload in a "result" node on success:
+      // { "result": { "serviceAppointmentId": "08p...", ... } }. On refusal/crash it returns a top-level
+      // error array [{errorCode,message}] or an ErrorRepresentation {errorCode,message}. Dig the SA id out
+      // of result first; capture http + errorCode + message so the normalizer can classify
+      // BOOKED/REFUSED/CRASHED and the divergence-vs-264-crash can be asserted verbatim.
+      const data = pm.response.json() || {};
+      const result = data.result || data;
+      const arr = Array.isArray(data) ? data : null;
+      pm.environment.set("oldMissingFlagHttp", String(pm.response.code));
+      pm.environment.set("oldMissingFlagSaId", result.serviceAppointmentId || (result.serviceAppointment && result.serviceAppointment.id) || "");
+      let ec = data.errorCode || null;
+      let msg = data.message || null;
+      if (arr && arr.length) { ec = arr[0].errorCode; msg = arr[0].message; }
+      pm.environment.set("oldMissingFlagErrorCode", ec || "");
+      pm.environment.set("oldMissingFlagErrorMessage", msg || "");
+      console.log("OLD book missing-flag http=" + pm.response.code + " body=" + JSON.stringify(data).slice(0,400));
+    language: text/javascript
+order: 1000

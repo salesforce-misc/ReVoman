@@ -1,0 +1,41 @@
+$kind: http-request
+description: >-
+  OLD Decision-9 CONTROL read — classic getAppointmentSlots as the MANAGER (the fixture owner). SINGLE
+  resource shape: requiredResourceIds=[the resource], primaryResourceId OMITTED (the classic
+  GetAppointmentRequestValidator48 rejects a single resource appearing as both). Window tomorrow
+  11:00-11:30 UTC (inside the 08-16 member-OH ∪ Shift). The user-mode STM read sees the manager's own STM;
+  the full-access Shift read sees the shift → slots > 0. Response field is "timeSlots". Captures
+  oldD9ManagerSlotCount. PREREQUISITE: the resource user holds Salesforce_Scheduler_Resource
+  (lightningSchedulerUserAccess) via the persona setup or the classic engine prunes it → dead read.
+url: "{{baseUrl}}{{versionPath}}/scheduling/getAppointmentSlots"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "workType": { "id": "{{oldD9WorkTypeId}}" },
+      "territoryIds": ["{{oldD9TerritoryId}}"],
+      "requiredResourceIds": ["{{oldD9ResourceId}}"],
+      "startTime": "{{oldD9ReadStart}}",
+      "endTime": "{{oldD9ReadEnd}}"
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(11, 0, 0, 0);
+      const e = new Date(s.getTime() + 30 * 60 * 1000);
+      pm.environment.set("oldD9ReadStart", s.toISOString());
+      pm.environment.set("oldD9ReadEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      const data = pm.response.json() || {};
+      const slots = (data.timeSlots || data.slots || []);
+      pm.environment.set("oldD9ManagerSlotCount", String(slots.length));
+      console.log("OLD D9 read as-manager http=" + pm.response.code + " slots=" + slots.length);
+    language: text/javascript
+order: 10000

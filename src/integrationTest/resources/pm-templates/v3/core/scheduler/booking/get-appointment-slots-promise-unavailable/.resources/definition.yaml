@@ -1,0 +1,13 @@
+$kind: collection
+description: |-
+  OLD Scheduler-org Decision 2 READ (UNAVAILABLE window): single-resource POST /scheduling/getAppointmentSlots
+  over the promise-helper fixture, naming resourceA (available only 08-16) as the sole required resource for
+  the UNAVAILABLE window tomorrow 17:00-17:30 (outside its hours). Offers 0 slots (the shared cheap
+  availability check fails). Captures oldPromiseReadUnavailCount. RevUps after the shared
+  grant-ls-user-access Kick.
+auth:
+  - id: 7e1f0c00-1005-4aaa-9bbb-000000000212
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{adminToken}}"

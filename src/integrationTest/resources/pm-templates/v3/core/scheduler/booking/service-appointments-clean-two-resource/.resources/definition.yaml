@@ -1,0 +1,13 @@
+$kind: collection
+description: |-
+  OLD Scheduler CLEAN two-resource book for Decision 4z: POST /connect/scheduling/service-appointments with
+  resourceA (primary+required) + resourceB (required), both available at 11:00-11:30 → the SA books. A
+  follow-up query then reads the AssignedResource rows for that SA and identifies the PRIMARY AR id (the
+  target for the reschedule-analog delete/demote probes). Captures reschedCleanSaId / reschedCleanHttp /
+  reschedPrimaryArId / reschedSecondaryArId / reschedCleanArCount. Runs under {{adminToken}}.
+auth:
+  - id: 7e1f0c00-1005-4aaa-9bbb-0000004z0040
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{adminToken}}"

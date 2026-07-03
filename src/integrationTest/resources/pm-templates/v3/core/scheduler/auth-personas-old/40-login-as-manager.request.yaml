@@ -1,0 +1,41 @@
+$kind: http-request
+description: >-
+  OLD Decision-9 — SOAP login (v64) as the MANAGER persona, minting oldD9ManagerToken (its OWN session, NOT
+  the admin session). This persona OWNS the fixture (resource / STM / Shift) and is the positive-control
+  reader.
+url: "{{baseUrl}}/services/Soap/u/64.0"
+method: POST
+headers:
+  Content-Type: text/xml
+  SOAPAction: login
+  charset: UTF-8
+  Accept: text/xml
+body:
+  type: text
+  content: |-
+    <?xml version="1.0" encoding="utf-8" ?>
+    <env:Envelope xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns:env="http://schemas.xmlsoap.org/soap/envelope/">
+      <env:Body>
+        <n1:login xmlns:n1="urn:partner.soap.sforce.com">
+          <n1:username><![CDATA[{{oldD9ManagerUserName}}]]></n1:username>
+          <n1:password><![CDATA[{{oldD9PersonaPassword}}]]></n1:password>
+        </n1:login>
+      </env:Body>
+    </env:Envelope>
+scripts:
+  - type: afterResponse
+    code: |-
+      var xml2js = require('xml2js')
+      xml2js.parseString(pm.response.text(), { explicitArray: false }, (_, j) => {
+        let r = j['soapenv:Envelope']['soapenv:Body'].loginResponse.result
+        pm.environment.set("oldD9ManagerToken", r.sessionId)
+      })
+    language: text/javascript
+settings:
+  disabledSystemHeaders:
+    - accept
+    - content-type
+    - user-agent
+order: 40000
