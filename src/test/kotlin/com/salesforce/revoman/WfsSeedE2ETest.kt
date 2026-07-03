@@ -11,6 +11,7 @@ import com.google.common.truth.Truth.assertThat
 import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.input.readExternalOrgConfig
 import com.salesforce.revoman.internal.postman.template.v3.V3EnvLoader
+import io.github.oshai.kotlinlogging.KotlinLogging
 import java.net.URLEncoder
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
@@ -44,6 +45,7 @@ import org.junit.jupiter.api.Test
  */
 class WfsSeedE2ETest {
 
+  private val logger = KotlinLogging.logger {}
   private val collection = "pm-templates/v3/wfs-seed"
   private val soapLoginApiVersion = "64" // v68 rejects SOAP login on this org
 
@@ -105,6 +107,30 @@ class WfsSeedE2ETest {
     // owns one resource — see the service-resources folder for the (user, type) uniqueness note).
     assertThat(count("wfsSeedServiceResourceCount")).isAtLeast(1)
     assertThat(count("wfsSeedTerritoryMemberCount")).isAtLeast(1)
+
+    // 5. Summary of what now exists on the org (counts are org-wide totals matching the WS name
+    // filters, so on a re-seeded org they include prior runs — see the `>=` note above).
+    fun env(key: String) = rundown.mutableEnv.getAsString(key) ?: "?"
+    logger.info {
+      """
+      |
+      |========== Workforce Scheduling seed summary ==========
+      |  Org:            $org15  @ $baseUrl
+      |  Personas created this run:
+      |    manager     : ${env("managerUserName")}  (userId ${env("caseManagerUserId")})
+      |    case-worker : ${env("caseWorkerUserName")}  (userId ${env("caseWorkerUserId")})
+      |  Data on org (WS-* totals):
+      |    Accounts               : ${count("wfsSeedAccountCount")}
+      |    OperatingHours         : ${count("wfsSeedOperatingHoursCount")}
+      |    ServiceTerritories     : ${count("wfsSeedTerritoryCount")}
+      |    WorkTypes              : ${count("wfsSeedWorkTypeCount")}
+      |    Locations              : ${count("wfsSeedLocationCount")}
+      |    ServiceResources       : ${count("wfsSeedServiceResourceCount")}
+      |    ServiceTerritoryMembers: ${count("wfsSeedTerritoryMemberCount")}
+      |=======================================================
+      """
+        .trimMargin()
+    }
   }
 
   /** (baseUrl, username, password). */
