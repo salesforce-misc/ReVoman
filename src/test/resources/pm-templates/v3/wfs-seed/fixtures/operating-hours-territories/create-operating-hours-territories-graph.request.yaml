@@ -1,0 +1,542 @@
+$kind: http-request
+description: >-
+  Build the WFS seed foundation (3 OperatingHours + Mon-Sun 09:00-17:00 TimeSlots, 3 ServiceTerritories, 5 WorkTypes, 10 ServiceTerritoryWorkTypes) in one composite/graph as {{managerToken}}. Stores the 3 territory ids as wfsSeedTerritory{Sf,Ny,Chi} for the service-resources folder's ServiceTerritoryMembers. WorkType.IsWalkin omitted (field absent on this org); TimeSlot.SchedulingMethod=OnSite (only accepted value here).
+url: "{{baseUrl}}{{versionPath}}/composite/graph"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "graphs": [
+        {
+          "graphId": "wfsSeedFoundation",
+          "compositeRequest": [
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/OperatingHours",
+              "referenceId": "refOhSanFrancisco",
+              "body": {
+                "Name": "WS Hours - San Francisco {{$timestamp}}",
+                "TimeZone": "America/Los_Angeles"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/OperatingHours",
+              "referenceId": "refOhNewYork",
+              "body": {
+                "Name": "WS Hours - New York {{$timestamp}}",
+                "TimeZone": "America/New_York"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/OperatingHours",
+              "referenceId": "refOhChicago",
+              "body": {
+                "Name": "WS Hours - Chicago {{$timestamp}}",
+                "TimeZone": "America/Chicago"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refOhSanFranciscoTsMon",
+              "body": {
+                "OperatingHoursId": "@{refOhSanFrancisco.id}",
+                "DayOfWeek": "Monday",
+                "Type": "Normal",
+                "SchedulingMethod": "OnSite",
+                "StartTime": "09:00:00.000Z",
+                "EndTime": "17:00:00.000Z"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refOhSanFranciscoTsTue",
+              "body": {
+                "OperatingHoursId": "@{refOhSanFrancisco.id}",
+                "DayOfWeek": "Tuesday",
+                "Type": "Normal",
+                "SchedulingMethod": "OnSite",
+                "StartTime": "09:00:00.000Z",
+                "EndTime": "17:00:00.000Z"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refOhSanFranciscoTsWed",
+              "body": {
+                "OperatingHoursId": "@{refOhSanFrancisco.id}",
+                "DayOfWeek": "Wednesday",
+                "Type": "Normal",
+                "SchedulingMethod": "OnSite",
+                "StartTime": "09:00:00.000Z",
+                "EndTime": "17:00:00.000Z"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refOhSanFranciscoTsThu",
+              "body": {
+                "OperatingHoursId": "@{refOhSanFrancisco.id}",
+                "DayOfWeek": "Thursday",
+                "Type": "Normal",
+                "SchedulingMethod": "OnSite",
+                "StartTime": "09:00:00.000Z",
+                "EndTime": "17:00:00.000Z"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refOhSanFranciscoTsFri",
+              "body": {
+                "OperatingHoursId": "@{refOhSanFrancisco.id}",
+                "DayOfWeek": "Friday",
+                "Type": "Normal",
+                "SchedulingMethod": "OnSite",
+                "StartTime": "09:00:00.000Z",
+                "EndTime": "17:00:00.000Z"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refOhSanFranciscoTsSat",
+              "body": {
+                "OperatingHoursId": "@{refOhSanFrancisco.id}",
+                "DayOfWeek": "Saturday",
+                "Type": "Normal",
+                "SchedulingMethod": "OnSite",
+                "StartTime": "09:00:00.000Z",
+                "EndTime": "17:00:00.000Z"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refOhSanFranciscoTsSun",
+              "body": {
+                "OperatingHoursId": "@{refOhSanFrancisco.id}",
+                "DayOfWeek": "Sunday",
+                "Type": "Normal",
+                "SchedulingMethod": "OnSite",
+                "StartTime": "09:00:00.000Z",
+                "EndTime": "17:00:00.000Z"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refOhNewYorkTsMon",
+              "body": {
+                "OperatingHoursId": "@{refOhNewYork.id}",
+                "DayOfWeek": "Monday",
+                "Type": "Normal",
+                "SchedulingMethod": "OnSite",
+                "StartTime": "09:00:00.000Z",
+                "EndTime": "17:00:00.000Z"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refOhNewYorkTsTue",
+              "body": {
+                "OperatingHoursId": "@{refOhNewYork.id}",
+                "DayOfWeek": "Tuesday",
+                "Type": "Normal",
+                "SchedulingMethod": "OnSite",
+                "StartTime": "09:00:00.000Z",
+                "EndTime": "17:00:00.000Z"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refOhNewYorkTsWed",
+              "body": {
+                "OperatingHoursId": "@{refOhNewYork.id}",
+                "DayOfWeek": "Wednesday",
+                "Type": "Normal",
+                "SchedulingMethod": "OnSite",
+                "StartTime": "09:00:00.000Z",
+                "EndTime": "17:00:00.000Z"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refOhNewYorkTsThu",
+              "body": {
+                "OperatingHoursId": "@{refOhNewYork.id}",
+                "DayOfWeek": "Thursday",
+                "Type": "Normal",
+                "SchedulingMethod": "OnSite",
+                "StartTime": "09:00:00.000Z",
+                "EndTime": "17:00:00.000Z"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refOhNewYorkTsFri",
+              "body": {
+                "OperatingHoursId": "@{refOhNewYork.id}",
+                "DayOfWeek": "Friday",
+                "Type": "Normal",
+                "SchedulingMethod": "OnSite",
+                "StartTime": "09:00:00.000Z",
+                "EndTime": "17:00:00.000Z"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refOhNewYorkTsSat",
+              "body": {
+                "OperatingHoursId": "@{refOhNewYork.id}",
+                "DayOfWeek": "Saturday",
+                "Type": "Normal",
+                "SchedulingMethod": "OnSite",
+                "StartTime": "09:00:00.000Z",
+                "EndTime": "17:00:00.000Z"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refOhNewYorkTsSun",
+              "body": {
+                "OperatingHoursId": "@{refOhNewYork.id}",
+                "DayOfWeek": "Sunday",
+                "Type": "Normal",
+                "SchedulingMethod": "OnSite",
+                "StartTime": "09:00:00.000Z",
+                "EndTime": "17:00:00.000Z"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refOhChicagoTsMon",
+              "body": {
+                "OperatingHoursId": "@{refOhChicago.id}",
+                "DayOfWeek": "Monday",
+                "Type": "Normal",
+                "SchedulingMethod": "OnSite",
+                "StartTime": "09:00:00.000Z",
+                "EndTime": "17:00:00.000Z"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refOhChicagoTsTue",
+              "body": {
+                "OperatingHoursId": "@{refOhChicago.id}",
+                "DayOfWeek": "Tuesday",
+                "Type": "Normal",
+                "SchedulingMethod": "OnSite",
+                "StartTime": "09:00:00.000Z",
+                "EndTime": "17:00:00.000Z"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refOhChicagoTsWed",
+              "body": {
+                "OperatingHoursId": "@{refOhChicago.id}",
+                "DayOfWeek": "Wednesday",
+                "Type": "Normal",
+                "SchedulingMethod": "OnSite",
+                "StartTime": "09:00:00.000Z",
+                "EndTime": "17:00:00.000Z"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refOhChicagoTsThu",
+              "body": {
+                "OperatingHoursId": "@{refOhChicago.id}",
+                "DayOfWeek": "Thursday",
+                "Type": "Normal",
+                "SchedulingMethod": "OnSite",
+                "StartTime": "09:00:00.000Z",
+                "EndTime": "17:00:00.000Z"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refOhChicagoTsFri",
+              "body": {
+                "OperatingHoursId": "@{refOhChicago.id}",
+                "DayOfWeek": "Friday",
+                "Type": "Normal",
+                "SchedulingMethod": "OnSite",
+                "StartTime": "09:00:00.000Z",
+                "EndTime": "17:00:00.000Z"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refOhChicagoTsSat",
+              "body": {
+                "OperatingHoursId": "@{refOhChicago.id}",
+                "DayOfWeek": "Saturday",
+                "Type": "Normal",
+                "SchedulingMethod": "OnSite",
+                "StartTime": "09:00:00.000Z",
+                "EndTime": "17:00:00.000Z"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refOhChicagoTsSun",
+              "body": {
+                "OperatingHoursId": "@{refOhChicago.id}",
+                "DayOfWeek": "Sunday",
+                "Type": "Normal",
+                "SchedulingMethod": "OnSite",
+                "StartTime": "09:00:00.000Z",
+                "EndTime": "17:00:00.000Z"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceTerritory",
+              "referenceId": "refTerrSf",
+              "body": {
+                "Name": "WS San Francisco Territory {{$timestamp}}",
+                "OperatingHoursId": "@{refOhSanFrancisco.id}",
+                "IsActive": true,
+                "Latitude": 37.789853,
+                "Longitude": -122.396806,
+                "Street": "415 Mission St",
+                "City": "San Francisco",
+                "State": "CA",
+                "PostalCode": "94105",
+                "Country": "US"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceTerritory",
+              "referenceId": "refTerrNy",
+              "body": {
+                "Name": "WS New York Territory {{$timestamp}}",
+                "OperatingHoursId": "@{refOhNewYork.id}",
+                "IsActive": true,
+                "Latitude": 40.75378,
+                "Longitude": -73.976624,
+                "Street": "200 Park Ave",
+                "City": "New York",
+                "State": "NY",
+                "PostalCode": "10166",
+                "Country": "US"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceTerritory",
+              "referenceId": "refTerrChi",
+              "body": {
+                "Name": "WS Chicago Territory {{$timestamp}}",
+                "OperatingHoursId": "@{refOhChicago.id}",
+                "IsActive": true,
+                "Latitude": 41.878908,
+                "Longitude": -87.635489,
+                "Street": "233 S Wacker Dr",
+                "City": "Chicago",
+                "State": "IL",
+                "PostalCode": "60606",
+                "Country": "US"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/WorkType",
+              "referenceId": "refWt0",
+              "body": {
+                "Name": "WS Installation {{$timestamp}}",
+                "EstimatedDuration": 2,
+                "DurationType": "Hours",
+                "Description": "Install new equipment at customer site",
+                "IsRegular": true,
+                "IsGroup": false
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/WorkType",
+              "referenceId": "refWt1",
+              "body": {
+                "Name": "WS Repair {{$timestamp}}",
+                "EstimatedDuration": 1,
+                "DurationType": "Hours",
+                "Description": "Repair existing equipment",
+                "IsRegular": true,
+                "IsGroup": false
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/WorkType",
+              "referenceId": "refWt2",
+              "body": {
+                "Name": "WS Maintenance {{$timestamp}}",
+                "EstimatedDuration": 3,
+                "DurationType": "Hours",
+                "Description": "Scheduled preventive maintenance",
+                "IsRegular": true,
+                "IsGroup": false
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/WorkType",
+              "referenceId": "refWt3",
+              "body": {
+                "Name": "WS Inspection {{$timestamp}}",
+                "EstimatedDuration": 1,
+                "DurationType": "Hours",
+                "Description": "Compliance and safety inspection",
+                "IsRegular": true,
+                "IsGroup": false
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/WorkType",
+              "referenceId": "refWt4",
+              "body": {
+                "Name": "WS Consultation {{$timestamp}}",
+                "EstimatedDuration": 1,
+                "DurationType": "Hours",
+                "Description": "Customer onsite consultation",
+                "IsRegular": true,
+                "IsGroup": false
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceTerritoryWorkType",
+              "referenceId": "refStwt0",
+              "body": {
+                "ServiceTerritoryId": "@{refTerrSf.id}",
+                "WorkTypeId": "@{refWt0.id}"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceTerritoryWorkType",
+              "referenceId": "refStwt1",
+              "body": {
+                "ServiceTerritoryId": "@{refTerrSf.id}",
+                "WorkTypeId": "@{refWt1.id}"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceTerritoryWorkType",
+              "referenceId": "refStwt2",
+              "body": {
+                "ServiceTerritoryId": "@{refTerrSf.id}",
+                "WorkTypeId": "@{refWt4.id}"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceTerritoryWorkType",
+              "referenceId": "refStwt3",
+              "body": {
+                "ServiceTerritoryId": "@{refTerrNy.id}",
+                "WorkTypeId": "@{refWt0.id}"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceTerritoryWorkType",
+              "referenceId": "refStwt4",
+              "body": {
+                "ServiceTerritoryId": "@{refTerrNy.id}",
+                "WorkTypeId": "@{refWt2.id}"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceTerritoryWorkType",
+              "referenceId": "refStwt5",
+              "body": {
+                "ServiceTerritoryId": "@{refTerrNy.id}",
+                "WorkTypeId": "@{refWt3.id}"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceTerritoryWorkType",
+              "referenceId": "refStwt6",
+              "body": {
+                "ServiceTerritoryId": "@{refTerrNy.id}",
+                "WorkTypeId": "@{refWt4.id}"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceTerritoryWorkType",
+              "referenceId": "refStwt7",
+              "body": {
+                "ServiceTerritoryId": "@{refTerrChi.id}",
+                "WorkTypeId": "@{refWt1.id}"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceTerritoryWorkType",
+              "referenceId": "refStwt8",
+              "body": {
+                "ServiceTerritoryId": "@{refTerrChi.id}",
+                "WorkTypeId": "@{refWt2.id}"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceTerritoryWorkType",
+              "referenceId": "refStwt9",
+              "body": {
+                "ServiceTerritoryId": "@{refTerrChi.id}",
+                "WorkTypeId": "@{refWt4.id}"
+              }
+            }
+          ]
+        }
+      ]
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      const jsonData = pm.response.json();
+      const responses = jsonData.graphs[0].graphResponse.compositeResponse;
+      responses.forEach((r) => {
+        if (r.httpStatusCode < 200 || r.httpStatusCode >= 300) {
+          throw new Error("Composite step " + r.referenceId + " failed: " + JSON.stringify(r.body));
+        }
+      });
+      const byRef = {};
+      responses.forEach(r => { byRef[r.referenceId] = r.body && r.body.id; });
+      pm.environment.set("wfsSeedTerritorySf", byRef["refTerrSf"]);
+      pm.environment.set("wfsSeedTerritoryNy", byRef["refTerrNy"]);
+      pm.environment.set("wfsSeedTerritoryChi", byRef["refTerrChi"]);
+    language: text/javascript
+order: 500

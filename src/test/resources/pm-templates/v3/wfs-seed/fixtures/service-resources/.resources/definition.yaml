@@ -1,0 +1,16 @@
+$kind: collection
+description: >-
+  Workforce graph, run as the `manager` persona ({{managerToken}}). One composite/graph builds ONE
+  ServiceResource owned by the {{caseWorkerUserId}} persona + one Primary ServiceTerritoryMember
+  (TerritoryType=P, effective today UTC) in the SF territory. Persona-model: the case-worker persona
+  owns their own resource. The org enforces uniqueness on (RelatedRecordId, ResourceType), so one
+  persona user maps to one ServiceResource of a type (the org-manager script's 30 resources use 30
+  distinct users). Consumes wfsSeedTerritorySf from the operating-hours-territories folder, so run that
+  FIRST. Requires {{caseWorkerUserId}} from auth/create-case-worker.
+order: 300
+auth:
+  - id: 4a1b3c8d-7e2d-4f6a-9c5b-0d4e8a1b3c8d
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"

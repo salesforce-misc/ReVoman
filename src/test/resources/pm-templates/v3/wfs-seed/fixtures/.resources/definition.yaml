@@ -1,0 +1,7 @@
+$kind: collection
+description: >-
+  Container for the manager-persona seed graphs. Has NO auth of its own; each child folder declares
+  its own `auth: bearer {{managerToken}}`. Ordered after auth/ (order 1000 > auth's 100). Children run
+  in ascending order: operating-hours-territories (100) -> accounts-locations (200) ->
+  service-resources (300) -> context-definition-sync (400).
+order: 1000

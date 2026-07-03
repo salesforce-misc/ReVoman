@@ -1,0 +1,30 @@
+$kind: http-request
+description: >-
+  Trigger the UnifiedSchedule__stdctx context-definition sync by inserting a ContextDefinitionSync
+  (Status=in_progress). Guarded by wfsSeedContextSyncExists from the check step - if a sync already
+  exists this request is skipped via pm.execution.skipRequest() (a successful no-op, NOT a failure)
+  rather than creating a duplicate; re-triggering an existing sync does not help.
+url: "{{baseUrl}}{{versionPath}}/sobjects/ContextDefinitionSync"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "ContextDefinitionName": "UnifiedSchedule__stdctx",
+      "Status": "in_progress",
+      "StartDateTime": "{{wfsSeedContextSyncStart}}",
+      "SynchronizationInformation": "Triggered by Workforce Scheduling seed collection"
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      if (pm.environment.get("wfsSeedContextSyncExists") === "true") {
+        // Already synced — skip the insert as a successful no-op (not a failure).
+        pm.execution.skipRequest();
+      } else {
+        pm.environment.set("wfsSeedContextSyncStart", new Date().toISOString());
+      }
+    language: text/javascript
+order: 2000

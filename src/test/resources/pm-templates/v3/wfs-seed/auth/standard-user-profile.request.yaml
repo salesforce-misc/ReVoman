@@ -1,0 +1,18 @@
+$kind: http-request
+description: Look up the Standard User profile id -> standardUserProfileId, used to create both persona users.
+url: "{{baseUrl}}{{versionPath}}/query/?q=SELECT Id FROM Profile WHERE Name = 'Standard User'"
+method: GET
+headers:
+  Content-Type: application/json
+queryParams:
+  q: SELECT Id FROM Profile WHERE Name = 'Standard User'
+body:
+  type: text
+  content: ""
+scripts:
+  - type: afterResponse
+    code: |-
+      var jsonData = pm.response.json();
+      pm.environment.set("standardUserProfileId", jsonData.records[0].Id);
+    language: text/javascript
+order: 3000

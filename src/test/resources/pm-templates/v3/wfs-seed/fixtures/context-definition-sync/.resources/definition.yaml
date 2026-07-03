@@ -1,0 +1,18 @@
+$kind: collection
+description: >-
+  Trigger the standard UnifiedSchedule__stdctx context-definition sync (the 'Map Object Data with
+  Service Appointments' Salesforce Go step). Skips if a sync record already exists (succeeded,
+  in-progress, or failed - re-triggering does not help). Mirrors
+  WorkforceSchedulingPostProcessor.configureUnifiedSchedulingContext.
+  AUTH EXCEPTION: runs as {{adminToken}}, NOT the manager persona. This is an org-level configuration
+  trigger (not persona-scoped data seeding), and the ContextDefinitionSync SObject is not accessible
+  under the WorkforceSchedulingManager permission set (query returns INVALID_TYPE as the manager) - it
+  requires admin. Like the org-manager post-processor, this is an admin-only setup action, so admin is
+  the correct persona here (the only fixtures/ folder that is not manager).
+order: 400
+auth:
+  - id: 5b2c4d9e-8f3a-4a7b-9d6c-1e5f9a2b4c8e
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{adminToken}}"
