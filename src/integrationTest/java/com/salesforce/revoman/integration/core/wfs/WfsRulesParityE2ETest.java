@@ -55,7 +55,7 @@ import kotlin.collections.CollectionsKt;
 import org.junit.jupiter.api.Test;
 
 /**
- * WFS rules read==write parity (live 262; 264 contrast in each method's javadoc). Proves each of
+ * WFS rules read==write parity (live 262). Proves each of
  * the 7 Common+InBusiness scheduling rules (RuleObjectiveMapper:108-125) evaluates identically on
  * the read APIs (get-appointment-slots/candidates/available-slots/available-resources →
  * InBusinessGetCandidatesSlotsDataService.loadSchedulableSlots) and the write APIs
@@ -84,8 +84,6 @@ class WfsRulesParityE2ETest {
    *
    * <p>262 (asserted): read-violating 0 slots ⟺ write-violating rejected; read-control >0 ⟺
    * write-control Success.
-   *
-   * <p>264 contrast: unchanged — MatchSkills is a shared cheap check on both paths.
    */
   @Test
   void testMatchSkillsReadWriteParityE2E() {
@@ -117,8 +115,6 @@ class WfsRulesParityE2ETest {
    *
    * <p>262 (asserted): read-violating 0 ⟺ write-violating rejected; read-control >0 ⟺ write-control
    * Success.
-   *
-   * <p>264 contrast: unchanged — ExcludedResources is a shared cheap check.
    */
   @Test
   void testExcludedResourcesReadWriteParityE2E() {
@@ -152,8 +148,6 @@ class WfsRulesParityE2ETest {
    *
    * <p>262 (asserted): read-violating 0 ⟺ write-violating rejected; read-control >0 ⟺ write-control
    * Success.
-   *
-   * <p>264 contrast: unchanged — WorkingLocations is a shared cheap check on both paths.
    */
   @Test
   void testWorkingLocationsReadWriteParityE2E() {
@@ -189,9 +183,6 @@ class WfsRulesParityE2ETest {
    *
    * <p>262 (asserted): read-violating 0 ⟺ write-violating rejected; read-control >0 ⟺ write-control
    * Success.
-   *
-   * <p>264 contrast: unchanged — ServiceAppointmentVisitingHours is a shared per-slot check on both
-   * paths.
    */
   @Test
   void testVisitingHoursReadWriteParityE2E() {
@@ -231,9 +222,6 @@ class WfsRulesParityE2ETest {
    * <p>262 (asserted): read-violating 0 (11:30-12:30 rounds to 12:00 whose 60-min slot overruns the
    * window) ⟺ write-violating rejected; read-control >0 (11:00-12:00 on-boundary) ⟺ write-control
    * Success.
-   *
-   * <p>264 contrast: unchanged — AppointmentStartTimeInterval is a shared slot-stepping check on
-   * both paths.
    */
   @Test
   void testStartTimeIntervalReadWriteParityE2E() {
@@ -280,9 +268,6 @@ class WfsRulesParityE2ETest {
    *
    * <p>262 (asserted): read-violating CRASHES (INTERNAL_SERVER_ERROR / serviceTerritoryMembers NPE)
    * == write-violating (same crash, asserted in the write class); control read does not crash.
-   *
-   * <p>264 contrast: the NPE should become a clean RequiredResources rejection on BOTH paths —
-   * still read==write, just a clean error instead of a 500.
    */
   @Test
   void testRequiredResourcesReadWriteBothCrashE2E() {
@@ -336,8 +321,6 @@ class WfsRulesParityE2ETest {
    *
    * <p>262 (asserted): the three appointment reads return 0 for the skill-lacking resource;
    * get-available-resources prunes it (resourceB absent); schedule rejects.
-   *
-   * <p>264 contrast: unchanged — MatchSkills is a shared cheap check on every path.
    */
   @Test
   void testCrossApiRuleAgreementE2E() {
@@ -416,10 +399,6 @@ class WfsRulesParityE2ETest {
    * NOT reached on this required-resource-SA REST path (jdwp-confirmed 15/18-char id mismatch,
    * above). The crash — not the mechanism — is what the assertions verify (the mechanism is
    * confirmed by jdwp, recorded in the decision log).
-   *
-   * <p>264 contrast: the short-circuit is intended; 264's reworked reschedule availability
-   * (effective-set merge over the real surviving crew) is what would let a genuine no-op resolve
-   * cleanly rather than 500.
    */
   @Test
   void testNoOpRescheduleShortCircuitE2E() {

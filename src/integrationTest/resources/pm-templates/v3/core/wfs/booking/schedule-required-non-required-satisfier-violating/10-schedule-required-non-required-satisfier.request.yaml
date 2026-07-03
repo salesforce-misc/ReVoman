@@ -11,8 +11,7 @@ description: >-
   manager persona. Observed on live 262: instead of the doc-predicted clean ScheduleError
   errorCode=RequiredResources, this CRASHES with errorCode=INTERNAL_SERVER_ERROR — a server NPE ("Cannot
   invoke ArrayListMultimap.values() because this.serviceTerritoryMembers is null"), a 262 crash bug the
-  test characterizes verbatim. 264 contrast: the clean RequiredResources rejection (no crash). The Java
-  assertion + javadoc encode the observed NPE; this description records the 264-expected verdict for context.
+  test characterizes verbatim. The Java assertion + javadoc encode the observed 262 NPE.
 url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/schedule"
 method: POST
 headers:

@@ -27,8 +27,7 @@ import kotlin.collections.CollectionsKt;
 import org.junit.jupiter.api.Test;
 
 /**
- * WFS read↔write parity read-path characterization (live 262; 264 contrast in each method's
- * javadoc).
+ * WFS read↔write parity read-path characterization (live 262).
  *
  * <p>Decisions covered: 8 (resourceLimitApptDistribution cap — load-balancing read), 9 (Shift
  * sharing-mode split — user-mode SystemMode.NONE shift read vs SFDC_FULL sibling reads), and 2 (a
@@ -52,9 +51,6 @@ class WfsReadPathParityE2ETest {
    * empty); an explicit positive limit (50) above the seeded count → resources returned. Proves 0
    * is a literal cap-of-0, not "no limit" (the default {@code resourceLimitApptDistribution} is 10
    * when omitted — see the "260 Unified Scheduling Appointment Distribution" design doc).
-   *
-   * <p>264 contrast: if product picks option A ("no cap"), 0/negative → all eligible resources (the
-   * surprising empty list on the default policy goes away).
    *
    * <p>One revUp (both read acts share the {@code required-non-required} fixture — read-only, so no
    * ServiceResource collision). Reference {@code
@@ -99,9 +95,7 @@ class WfsReadPathParityE2ETest {
    * still admitted (the SFDC_FULL STM/resource reads see it), so the empty result is purely the
    * shift sharing-gate.
    *
-   * <p>264 contrast: option A documents the gate as a contract (optionally surface a reason instead
-   * of a silent empty); option B aligns the modes so the case-worker would also see slots.
-   * Reference {@code UnavailabilityService.loadFullShiftsBulk}/{@code loadShiftIntervalsBulk}
+   * <p>Reference {@code UnavailabilityService.loadFullShiftsBulk}/{@code loadShiftIntervalsBulk}
    * ({@code SystemMode.NONE}) vs {@code loadResourceUnavailabilitySourcesBulk} ({@code
    * SystemMode.SFDC_FULL}).
    *
@@ -144,10 +138,6 @@ class WfsReadPathParityE2ETest {
    * "InField defers only the heavy one" is a reasonable assumption, not a verified fact. So this
    * test pins the verified cheap-check promise; the field-match defer remains the doc's open
    * question (see the decision log for citations).
-   *
-   * <p>264 contrast: unchanged for the cheap checks (they stay a shared promise). If field-match
-   * deferral is ever implemented in Core (not ESO), a shown slot could be turned down on a
-   * field-match rule — a separate, future characterization.
    */
   @Test
   void testCheapCheckReadWritePromiseE2E() {

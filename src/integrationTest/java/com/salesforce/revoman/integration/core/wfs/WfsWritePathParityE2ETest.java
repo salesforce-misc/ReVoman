@@ -22,6 +22,7 @@ import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.RE
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.REQUIRED_RESOURCES_POLICY_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.REQUIRED_SATISFIER_BOOKABLE_SCHEDULE_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.RESCHEDULE_DELETE_ALL_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.RESCHEDULE_DELETE_ALL_WITH_POLICY_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.RESCHEDULE_DELETE_PRIMARY_NO_FLAG_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.RESCHEDULE_DELETE_PRIMARY_WITH_FLAG_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.RESCHEDULE_DEMOTE_PRIMARY_TWO_CREW_CONFIG;
@@ -45,9 +46,8 @@ import kotlin.collections.CollectionsKt;
 import org.junit.jupiter.api.Test;
 
 /**
- * WFS read↔write parity write-path characterization (live 262; 264 contrast in each method's
- * javadoc). Supersedes WfsHelperFitnessE2ETest (Decision 1) and WfsDoubleBookHelperE2ETest
- * (Decision 1.5).
+ * WFS read↔write parity write-path characterization (live 262). Supersedes WfsHelperFitnessE2ETest
+ * (Decision 1) and WfsDoubleBookHelperE2ETest (Decision 1.5).
  *
  * <p>Decisions covered: 1 (helper fitness), 1.4 (helper can't satisfy a required-resource demand),
  * 1.5 (helper double-books), 3 (missing isRequiredResource flag + the L142
@@ -64,10 +64,6 @@ class WfsWritePathParityE2ETest {
    * one rule.
    *
    * <p>262 (asserted): the helper escapes every fitness rule → each dimension books Success.
-   *
-   * <p>264 contrast: the helper WOULD be rejected with the matching rule code (ExcludedResources /
-   * MatchTerritory / MatchSkills / WorkingLocations) → flip each expected verdict to
-   * "ScheduleError".
    *
    * <p>Approach A: each dimension is its own revUp starting with AUTH_CONFIG → fresh env + fresh
    * timestamped users, so the four dimensions' ServiceResource(RelatedRecordId, ResourceType) rows
@@ -111,9 +107,6 @@ class WfsWritePathParityE2ETest {
    *
    * <p>262 (asserted): the busy NON-required helper books Success (no availability check). The
    * REQUIRED control (isRequiredResource=true) is availability-checked → not-Success.
-   *
-   * <p>264 contrast: the doc flags helper double-book as a gap InField blocks; under 264 the
-   * non-required act would also be rejected (not-available) rather than Success.
    */
   @Test
   void testNonRequiredHelperDoubleBooksE2E() {
@@ -143,10 +136,6 @@ class WfsWritePathParityE2ETest {
    * The control (resourceB flipped to isRequiredResource=true) is rejected with NO
    * RequiredResources error and no crash (availability may still block it — INVALID_INPUT
    * not-available).
-   *
-   * <p>264 contrast: the violating booking gives a clean ScheduleError errorCode=RequiredResources
-   * (no crash) since the satisfaction rule evaluates over REQUIRED resources only and the
-   * non-required resourceB does not count; control unchanged.
    *
    * <p>Approach A: two SEPARATE revUps, each starting with AUTH_CONFIG → fresh env + fresh
    * timestamped users, so the violating and control fixtures' ServiceResource(RelatedRecordId,
@@ -198,9 +187,6 @@ class WfsWritePathParityE2ETest {
    * \"common.api.soap.Entity.getField(String)\" is null"), the 262 missing-flag NPE the doc
    * predicts. Act B → schedulingStatus=Success.
    *
-   * <p>264 contrast: Act A → a missing isRequiredResource is treated as not-required and handled
-   * cleanly (no crash); Act B unchanged.
-   *
    * <p>Approach A: two SEPARATE revUps, each starting with AUTH_CONFIG → fresh env + fresh
    * timestamped users, so the two acts' ServiceResource(RelatedRecordId, ResourceType) rows never
    * collide. Both acts carry {@code ignoreHTTPStatusUnsuccessful: "true"} so {@code
@@ -240,15 +226,12 @@ class WfsWritePathParityE2ETest {
    * at input validation ({@code ScheduleCommonValidator.validatePrimaryResourceConstraints}),
    * before any availability/persist. Multi-resource scheduling requires EXACTLY one primary.
    *
-   * <p>Characterization-only (NOT a 262-broken→264-fixed contrast): the asserted output is the SAME
-   * on 262 and 264 — the clean message already ships on 262, so the two releases COINCIDE here and
-   * there is no behavior delta to flip. The live org returns a clean top-level {@code
-   * ConnectErrorCode INVALID_INPUT} / HTTP 400 with message "Only one of the provided assigned
-   * resource can be a primary resource." No booking occurs (the throw is in {@code
-   * validatePayload}, so {@code appointments[0]} is absent → status null). Per the product doc the
-   * 262 ERA was thought to produce a "confusing database error", but the CURRENT 262 code already
-   * returns this clean message, which is also the 264 target — so 262 == 264 (error-message polish
-   * already shipped).
+   * <p>262 (asserted): the live org returns a clean top-level {@code ConnectErrorCode
+   * INVALID_INPUT} / HTTP 400 with message "Only one of the provided assigned resource can be a
+   * primary resource." No booking occurs (the throw is in {@code validatePayload}, so {@code
+   * appointments[0]} is absent → status null). Per the product doc the 262 ERA was thought to
+   * produce a "confusing database error", but the CURRENT 262 code already returns this clean
+   * message.
    */
   @Test
   void testTwoPrimaryResourcesRejectedE2E() {
@@ -287,11 +270,6 @@ class WfsWritePathParityE2ETest {
    * auto-correct expectation AND the 262 "could be double-booked" claim: the request is rejected AT
    * PERSIST, so no ServiceAppointment is created, hence no double-book — INFERRED from the persist
    * reject (no SA exists to query), not independently observed via an SA-count read.
-   *
-   * <p>264 contrast: unchanged — reject (not auto-correct) is the intended persist behavior; the
-   * doc's open question (auto-correct vs reject) resolves to reject. (A fast-fail at input
-   * validation, as the notes recommend, would only change WHERE it's rejected, not THAT it's
-   * rejected.)
    *
    * <p>Approach A: two SEPARATE revUps so the probe's (rejected, non-persisting) attempt and the
    * control's (persisting) booking never share ServiceResource rows.
@@ -349,26 +327,15 @@ class WfsWritePathParityE2ETest {
    * see Step 10 decision log): Arm B is NOT Success; it is rejected with {@code INVALID_INPUT} /
    * HTTP 400 "The service resources are not available for the requested slot." — a DOWNSTREAM
    * AVAILABILITY re-check ({@code SlotNotAvailable}), never a primary-count / required-primary
-   * error. On 262 the reschedule slot-gen yields no slot for the surviving non-primary crew because
-   * 264 reworked reschedule availability (an EFFECTIVE-SET MERGE that re-evaluates the REAL
-   * surviving crew = existing − deleted ∪ created ∪ updated) so the surviving-crew slot is found —
-   * and that rework is 264-only (verified by branch diff against 262: the effective-set merge +
-   * rule-enforcer files are absent on 262). 262 lacks it. (A separate empty-effective-set
-   * short-circuit also exists on 264, but it fires only when the crew is EMPTY, i.e. delete-ALL —
-   * NOT for this delete-primary-leaving-one case, where resourceB survives.) The doc is still
-   * refuted at the validation layer (zero primaries is allowed); the test asserts the OBSERVED
-   * rejection faithfully (availability, NOT no-primary) rather than forcing a Success this org
-   * cannot produce. Adding {@code startTime}/{@code endTime} (Step 10 option 2) and switching to
-   * delete-ALL (Step 10 option 3) were both tried live and both still returned the same {@code
+   * error. On 262 the reschedule slot-gen yields no slot for the surviving non-primary crew. The
+   * doc is still refuted at the validation layer (zero primaries is allowed); the test asserts the
+   * OBSERVED rejection faithfully (availability, NOT no-primary) rather than forcing a Success this
+   * org cannot produce. Adding {@code startTime}/{@code endTime} (Step 10 option 2) and switching
+   * to delete-ALL (Step 10 option 3) were both tried live and both still returned the same {@code
    * SlotNotAvailable}, confirming the 262 availability-path gap.
    *
-   * <p>264 contrast: 264 reworked reschedule availability (effective-set merge over the real
-   * surviving crew = existing − deleted ∪ created ∪ updated), so the surviving-crew slot is found
-   * and the same delete-primary call would book {@code Success} on 264 — i.e. the doc's blanket
-   * claim is refuted even more directly there. (264 also adds an empty-effective-set short-circuit,
-   * but that fires only for delete-ALL, not for this delete-primary-leaving-one case.) The product
-   * OPEN QUESTION (should a reschedule be allowed to leave no primary?) is a DECISION, not a code
-   * bug: the primary-count validator already allows it.
+   * <p>The product OPEN QUESTION (should a reschedule be allowed to leave no primary?) is a
+   * DECISION, not a code bug: the primary-count validator already allows it.
    */
   @Test
   void testRescheduleNoPrimaryE2E() {
@@ -391,9 +358,8 @@ class WfsWritePathParityE2ETest {
     assertThat(env.getAsString("reschedWithFlagErrorCode")).isEqualTo("INVALID_INPUT");
     assertThat(env.getAsString("reschedWithFlagHttpCode")).isEqualTo("400");
     // Arm B: delete the primary, no flag → rejected ONLY by the downstream availability re-check
-    // (SlotNotAvailable), NEVER by a no-primary rule (262 lacks 264's reworked reschedule
-    // availability — the effective-set merge over the real surviving crew that would find the
-    // surviving-crew slot).
+    // (SlotNotAvailable), NEVER by a no-primary rule (on 262 the reschedule slot-gen yields no slot
+    // for the surviving non-primary crew).
     // This is what refutes the doc: there is no "must keep a primary" validation. Characterized
     // faithfully.
     assertThat(env.getAsString("reschedNoFlagStatus")).isNotEqualTo("Success");
@@ -404,45 +370,53 @@ class WfsWritePathParityE2ETest {
   }
 
   /**
-   * Decision 4z — delete-ALL reschedule, the end-to-end probe of "can a reschedule leave an
-   * appointment with no primary and get around the availability check?" This deletes BOTH assigned
-   * resources (resourceA + resourceB) with {@code DeleteOperation} and NO {@code isPrimaryResource}
-   * flag on either delete entry — the empty-crew case that the sibling {@link
-   * #testRescheduleNoPrimaryE2E} Arm B (delete the primary, keep a REQUIRED secondary) could not
-   * reach.
+   * Decision 4z — delete-ALL reschedule with NO {@code schedulingPolicyId} (falls back to the org
+   * DEFAULT OnSite policy). Deletes BOTH assigned resources (resourceA + resourceB) with {@code
+   * DeleteOperation} and NO {@code isPrimaryResource} flag — the empty-crew case that the sibling
+   * {@link #testRescheduleNoPrimaryE2E} Arm B (delete the primary, keep a REQUIRED secondary) could
+   * not reach. This is the POLICY-LESS half of the reconciling pair; see {@link
+   * #testRescheduleDeleteAllWithPolicySucceedsE2E} for the twin that supplies a good policy and
+   * SUCCEEDS.
    *
    * <p>The brief's HYPOTHESIS (from a static code read + the Core func test {@code
    * OnSiteRescheduleAppointmentsConnectApiTest.testRescheduleAppointmentDeleteAllAssignedResources},
    * which asserts Success): the availability re-check ({@code
    * SlotAvailabilityChecker.isSlotAvailable}) computes its required-resource set via {@code
-   * extractServiceResourceIds}, which SKIPS {@code DeleteOperation} entries → deleting ALL
-   * resources yields an EMPTY required set → the availability check runs against no resources and
-   * PASSES → the reschedule SUCCEEDS with an empty crew (no primary), proving Decision 4z
-   * end-to-end.
+   * extractServiceResourceIds}, which SKIPS {@code DeleteOperation} entries → deleting ALL resources
+   * yields an EMPTY required set → the availability check runs against no resources and PASSES → the
+   * reschedule SUCCEEDS with an empty crew (no primary), proving Decision 4z end-to-end.
    *
-   * <p>262 (LIVE-OBSERVED — REFUTES the hypothesis on this org): the clean two-resource Schedule
-   * books Success (captures {@code reschedCleanSaId}), but the delete-ALL reschedule is NOT Success
-   * — it is rejected with {@code INVALID_INPUT} / HTTP 400 / top-level "The service resources are
-   * not available for the requested slot." ({@code SlotNotAvailable}), {@code schedulingStatus ==
-   * null}, i.e. the SAME downstream availability re-check that blocks Arm B. On 262 the empty-crew
-   * delete-all does NOT get around the availability check — so it does NOT complete and does NOT
-   * leave a no-primary SA. The extractServiceResourceIds "skips deletes → empty set → passes" path
-   * does not hold on this org's reschedule availability. This is a genuine finding: the empty-crew
-   * short-circuit that the Core func test relies on is 264-only (verified elsewhere by branch diff
-   * — the effective-set merge + rule-enforcer files, incl. the empty-effective-set short-circuit,
-   * are absent on 262), so 262 still routes the empty-crew reschedule through slot-gen and blocks
-   * it. Per the characterization-honesty contract this asserts the OBSERVED rejection faithfully
-   * rather than forcing a Success this 262 org does not produce.
+   * <p>262 (LIVE-OBSERVED): the clean two-resource Schedule books Success (captures {@code
+   * reschedCleanSaId}), but this POLICY-LESS delete-ALL reschedule is NOT Success — it is rejected
+   * with {@code INVALID_INPUT} / HTTP 400 / top-level "The service resources are not available for
+   * the requested slot." ({@code SlotNotAvailable}), {@code schedulingStatus == null}, the SAME
+   * downstream availability re-check that blocks Arm B.
+   *
+   * <p>ROOT CAUSE (live-isolated, one-variable runs + live tooling query — NOT a release gate): the
+   * rejection is caused by the resolved SCHEDULING POLICY's RULE SET, not by the release and not by the
+   * request times. With no {@code schedulingPolicyId} on the reschedule, {@code
+   * SlotAvailabilityChecker.buildGetSlotsRequest} carries a null policy and {@code
+   * InBusinessGetSlotsHandler.getSchedulingPolicyConfiguration} falls back to {@code
+   * getDefaultOnSiteSchedulingPolicy} ({@code DefaultOnSiteSchdPlcy}). That default policy has 7 rules —
+   * including a {@code RequiredResources} rule — whereas the good policy
+   * ({@code availabilityOpHoursPolicyId}) has only Availability + WorkingTerritories. The
+   * {@code required-non-required} fixture attaches a {@code ResourcePreference(Required)=resourceB} to
+   * the account, so once the crew is EMPTY the account-required resourceB is absent → the
+   * RequiredResources rule fails → zero slots. (NOTE: {@code ShiftUsage} is NOT the difference — a live
+   * tooling query confirmed BOTH policies' Availability rule carry the identical
+   * {@code ShiftUsage=ConsiderOpHoursAndShiftsUnion}.) Confirmed by a diagnostic run: delete-all under a
+   * policy = Availability+WorkingTerritories+RequiredResources reproduces the exact 400; the good 2-rule
+   * policy Succeeds ({@link #testRescheduleDeleteAllWithPolicySucceedsE2E}). Adding a new-time move alone
+   * did NOT change the outcome (still 400). The Core func test books Success because its local org's
+   * DEFAULT OnSite policy admits the empty crew — same 262 code, different default-policy rule set. So
+   * the empty-crew delete-all CAN complete on 262 (leaving a no-primary SA); it is gated only by whether
+   * the resolved policy's rules admit an empty crew. This test faithfully pins the policy-less/org-default
+   * rejection; the twin pins the good-policy Success.
    *
    * <p>Doc-refutation status: Decision 4z (there is NO "reschedule must keep a primary" rule) is
-   * still refuted at the VALIDATION layer by {@link #testRescheduleNoPrimaryE2E} Arm B (zero
-   * primaries is allowed by {@code validatePrimaryResourceCount}); the END-TO-END empty-crew
-   * completion is 264-only and NOT reproducible on this 262 org.
-   *
-   * <p>264 contrast: 264 adds an empty-effective-set short-circuit that fires precisely for the
-   * delete-ALL (empty surviving crew) case, so on 264 the same call would return {@code Success}
-   * and leave a no-primary SA — the end-to-end proof the brief expected. That is a 262→264 behavior
-   * delta, not something 262 produces.
+   * refuted at the VALIDATION layer by {@link #testRescheduleNoPrimaryE2E} Arm B (zero primaries is
+   * allowed by {@code validatePrimaryResourceCount}); the END-TO-END empty-crew completion is
+   * demonstrated on 262 by the good-policy twin.
    *
    * <p>Own {@code revUp} starting with AUTH_CONFIG → fresh env + fresh timestamped users, so the SA
    * created for this probe does not collide with the sibling reschedule test's fixtures.
@@ -462,19 +436,82 @@ class WfsWritePathParityE2ETest {
     // Setup booked, and the SA id was captured for the delete-all reschedule.
     assertThat(env.getAsString("reschedCleanStatus")).isEqualTo("Success");
     assertThat(env.getAsString("reschedCleanSaId")).isNotNull();
-    // Delete-ALL reschedule on 262 is NOT Success: it is rejected by the SAME downstream
-    // availability
-    // re-check (SlotNotAvailable) that blocks the delete-primary Arm B — INVALID_INPUT / HTTP 400 /
-    // "not available for the requested slot", schedulingStatus null. On 262 the empty-crew
-    // delete-all
-    // does NOT get around the availability check (the empty-effective-set short-circuit the Core
-    // func
-    // test relies on is 264-only). Asserted as OBSERVED, not the brief's hypothesized Success.
+    // POLICY-LESS delete-ALL reschedule on 262 is NOT Success: with no schedulingPolicyId it runs the
+    // empty-crew slot-gen under the org DEFAULT OnSite policy, which carries a RequiredResources rule.
+    // The account has a ResourcePreference(Required)=resourceB, so an EMPTY crew fails RequiredResources
+    // → zero slots → INVALID_INPUT / HTTP 400 / "not available for the requested slot",
+    // schedulingStatus null. This is NOT a release gate: the good policy
+    // (Availability+WorkingTerritories, NO RequiredResources) flips it to Success — see
+    // testRescheduleDeleteAllWithPolicySucceedsE2E. Asserted as OBSERVED for the org-default policy.
     assertThat(env.getAsString("reschedDeleteAllStatus")).isAnyOf(null, "null");
     assertThat(env.getAsString("reschedDeleteAllErrorCode")).isEqualTo("INVALID_INPUT");
     assertThat(env.getAsString("reschedDeleteAllHttpCode")).isEqualTo("400");
     assertThat(env.getAsString("reschedDeleteAllErrorMessage"))
         .contains("not available for the requested slot");
+  }
+
+  /**
+   * Decision 4z delete-ALL WITH an explicit scheduling policy — the reconciling twin of {@link
+   * #testRescheduleDeleteAllLeavesNoPrimaryE2E}, and the resolution of why that sibling could not
+   * reproduce the Core func test's Success. It deletes the SAME two resources (resourceA + resourceB,
+   * no {@code isPrimaryResource} flag, NO {@code startTime}/{@code endTime}) — byte-for-byte identical
+   * to the sibling EXCEPT it adds {@code schedulingPolicyId=availabilityOpHoursPolicyId} (a 2-rule
+   * policy: Availability + WorkingTerritories, with NO RequiredResources rule).
+   *
+   * <p>Root cause (live-isolated on this 262 org + a live tooling query): the delete-all reschedule is
+   * rejected by empty-crew slot-gen ONLY when it runs under a policy that carries a {@code
+   * RequiredResources} rule. The sibling omits {@code schedulingPolicyId}, so {@code
+   * SlotAvailabilityChecker.buildGetSlotsRequest} carries a null policy and {@code
+   * InBusinessGetSlotsHandler.getSchedulingPolicyConfiguration} falls back to {@code
+   * getDefaultOnSiteSchedulingPolicy} ({@code DefaultOnSiteSchdPlcy}) — a 7-rule policy that INCLUDES
+   * {@code RequiredResources}. The {@code required-non-required} fixture attaches a {@code
+   * ResourcePreference(Required)=resourceB} to the account, so an EMPTY crew fails RequiredResources →
+   * zero slots → {@code SlotNotAvailable}/400. (Both policies' Availability rule carry the identical
+   * {@code ShiftUsage=ConsiderOpHoursAndShiftsUnion} — verified by tooling query — so ShiftUsage is NOT
+   * the difference; the RULE SET is.) Adding a new-time move alone did NOT fix it (still 400) — proving
+   * time was never the variable. Supplying the good policy here (no RequiredResources rule) DOES: the
+   * empty-crew re-check (deletes skipped by {@code extractServiceResourceIds}; the SA-under-reschedule
+   * excluded via {@code withAppointmentIdsExcludedForAvailability}) finds a slot and the delete-all
+   * SUCCEEDS.
+   *
+   * <p>Why this reconciles the two tests: the Core func test {@code
+   * OnSiteRescheduleAppointmentsConnectApiTest.testRescheduleAppointmentDeleteAllAssignedResources}
+   * runs against a local org whose DEFAULT OnSite policy admits the empty crew (its rule set / account
+   * data does not reject it), so its policy-less empty-crew delete-all finds slots and books Success.
+   * Same 262 code; the ONLY difference is the resolved scheduling policy's rule set relative to the
+   * account's required-resource preferences — NOT the release. With a policy that has no
+   * RequiredResources rule supplied, both the ReVoman probe and the func test agree: an empty-crew
+   * delete-all reschedule SUCCEEDS on 262, leaving an appointment with no resources and no primary.
+   *
+   * <p>262 (LIVE-OBSERVED): {@code reschedDeleteAllWithPolicyStatus == "Success"} — the write-path
+   * counterpart of the passing Core func test.
+   *
+   * <p>Own {@code revUp} starting with AUTH_CONFIG → fresh env + fresh timestamped users, so this
+   * probe's SA does not collide with the sibling reschedule tests' fixtures.
+   */
+  @Test
+  void testRescheduleDeleteAllWithPolicySucceedsE2E() {
+    ReVomanConfigForWfs.assumeExternalOrgCreds();
+    final var rundown =
+        ReVoman.revUp(
+            (r, ignore) -> assertThat(r.firstUnIgnoredUnsuccessfulStepReport()).isNull(),
+            AUTH_CONFIG,
+            AVAILABILITY_OP_HOURS_POLICY_CONFIG,
+            REQUIRED_NON_REQUIRED_FIXTURE_CONFIG,
+            SCHEDULE_TWO_RESOURCE_CLEAN_CONFIG,
+            RESCHEDULE_DELETE_ALL_WITH_POLICY_CONFIG);
+    final var env = CollectionsKt.last(rundown).mutableEnv;
+    // Setup booked, and the SA id was captured for the delete-all reschedule.
+    assertThat(env.getAsString("reschedCleanStatus")).isEqualTo("Success");
+    assertThat(env.getAsString("reschedCleanSaId")).isNotNull();
+    // Delete-ALL WITH the well-formed policy SUCCEEDS on 262: the empty-crew availability re-check runs
+    // under a policy whose Availability rule has a usable ShiftUsage param, finds a slot, and books
+    // (the SA-under-reschedule is excluded from the unavailability query). This is the same outcome the
+    // Core func test testRescheduleAppointmentDeleteAllAssignedResources asserts — reconciling the two
+    // tests and pinning the sibling's rejection to the under-configured org-DEFAULT policy, NOT a
+    // release gate and NOT the request times.
+    assertThat(env.getAsString("reschedDeleteAllWithPolicyStatus")).isEqualTo("Success");
+    assertThat(env.getAsString("reschedDeleteAllWithPolicySaId")).isNotNull();
   }
 
   /**
@@ -505,12 +542,6 @@ class WfsWritePathParityE2ETest {
    * doc is still refuted at the VALIDATION layer (zero primaries is allowed); the availability
    * rejection is a separate downstream gap. Asserted as OBSERVED, not the brief's hypothesized
    * crash/success.
-   *
-   * <p>264 contrast: 264 reworked reschedule availability (an effective-set merge over the REAL
-   * surviving crew = existing − deleted ∪ created ∪ updated), so the surviving 2-worker crew's slot
-   * is found and this demote would either book {@code Success} (leaving a no-primary crew — a
-   * product DECISION, not a code bug, since the primary-count validator already allows it) — a
-   * 262→264 behavior delta, not something 262 produces.
    *
    * <p>Own {@code revUp} starting with AUTH_CONFIG → fresh env + fresh timestamped users, so this
    * probe's SA does not collide with the sibling reschedule tests' fixtures.
