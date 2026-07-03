@@ -1,0 +1,20 @@
+$kind: http-request
+description: Resolve the scheduler org's latest API version → version / apiVersion / versionPath.
+url: "{{baseUrl}}/services/data/"
+method: GET
+headers:
+  Accept: application/json
+scripts:
+  - type: afterResponse
+    code: |-
+      var jsonData = pm.response.json();
+      var lastNode = jsonData.pop();
+      pm.environment.set("version", lastNode.version);
+      pm.environment.set("apiVersion", "v" + lastNode.version);
+      pm.environment.set("versionPath", lastNode.url);
+    language: text/javascript
+settings:
+  disabledSystemHeaders:
+    - accept
+    - content-type
+order: 1000

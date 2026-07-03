@@ -1,0 +1,12 @@
+name: scheduler
+values:
+  - key: baseUrl
+    value: ''
+  - key: username
+    value: ''
+  - key: password
+    value: ''
+  - key: adminToken
+    value: ''
+  - key: accessToken
+    value: ''

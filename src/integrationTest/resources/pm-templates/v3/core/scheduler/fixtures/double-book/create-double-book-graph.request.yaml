@@ -1,0 +1,347 @@
+$kind: http-request
+description: >-
+  OLD scheduler-org double-book data graph (clone of WFS Unified fixture, retargeted to scheduler org
+  and adminToken). Builds the double-book data graph in one composite/graph call as {{adminToken}}.
+  Territory OH 08-16, member OH 10-14 (Mon-Sun), a WorkType (OnSite, 30m) + STWT, an Account. TWO
+  User-backed ServiceResources on DISTINCT users (ServiceResource is DB-unique on (RelatedRecordId,
+  ResourceType)): the graph MINTS two FRESH timestamped users per run up front (refUserA/refUserB, on
+  the org's Standard User profile 00exx000000n0KyAAI) and points resourceA/resourceB RelatedRecordId at
+  @{refUserA.id}/@{refUserB.id} — so the SR uniqueness key never collides (the proven WFS
+  create-case-worker pattern; fixed pre-existing users already owned a ResourceType='T' SR, which rolled
+  the whole graph back with DUPLICATE_VALUE). BOTH are PRIMARY
+  ServiceTerritoryMembers (TerritoryType=P) effective a month ago. Availability is the UNION of member OH
+  and Shift (AvailabilityRuleCheck: bookable iff the window fits OH ∪ Shift), so the two resources differ
+  in BOTH their member-OH and Shift windows:
+    - resourceA: member OH A 10:00-14:00 + Confirmed Shift 10:00-14:00 — COVERS the 11:00-11:30 booking
+      window → A is available.
+    - resourceB: member OH B 12:00-14:00 + Confirmed Shift 12:00-14:00 — the union (12:00-14:00) does NOT
+      contain 11:00-11:30 → B is UNAVAILABLE at the booked hour ("busy elsewhere"). Both its OH and Shift
+      start at noon, so 11:00 is outside its availability.
+  Because availability is checked ONLY for required resources, B-as-helper (non-required) is never
+  availability-checked → the SA books Success even though B has no shift at 11:00 (the Decision-1
+  double-book-allowed claim); B-as-required puts B in the slot-gen intersection → no A∩B slot at 11:00 →
+  SlotNotAvailable (the busy-proof control). Sets schedTerritoryId / schedWorkTypeId /
+  schedAccountId / schedResourceAId / schedResourceBId. No competing SA / SA-status seed
+  needed — the Shift-coverage gap is the proven availability mechanism (mirrors UnifiedBookingEnforce).
+url: "{{baseUrl}}{{versionPath}}/composite/graph"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "graphs": [
+        {
+          "graphId": "doubleBookNonRequired",
+          "compositeRequest": [
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/User",
+              "referenceId": "refUserA",
+              "body": {
+                "Username": "{{schedUserAName}}",
+                "ProfileId": "00exx000000n0KyAAI",
+                "Alias": "sres-a",
+                "Email": "{{schedUserAName}}",
+                "EmailEncodingKey": "ISO-8859-1",
+                "LastName": "ResourceA",
+                "FirstName": "DblBook",
+                "LanguageLocaleKey": "en_US",
+                "LocaleSidKey": "en_US",
+                "TimeZoneSidKey": "Asia/Kolkata"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/User",
+              "referenceId": "refUserB",
+              "body": {
+                "Username": "{{schedUserBName}}",
+                "ProfileId": "00exx000000n0KyAAI",
+                "Alias": "sres-b",
+                "Email": "{{schedUserBName}}",
+                "EmailEncodingKey": "ISO-8859-1",
+                "LastName": "ResourceB",
+                "FirstName": "DblBook",
+                "LanguageLocaleKey": "en_US",
+                "LocaleSidKey": "en_US",
+                "TimeZoneSidKey": "Asia/Kolkata"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/OperatingHours",
+              "referenceId": "refTerritoryOh",
+              "body": { "Name": "DblBook Territory OH {{$timestamp}}", "TimeZone": "GMT" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/OperatingHours",
+              "referenceId": "refMemberOhA",
+              "body": { "Name": "DblBook Member OH A {{$timestamp}}", "TimeZone": "GMT" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/OperatingHours",
+              "referenceId": "refMemberOhB",
+              "body": { "Name": "DblBook Member OH B {{$timestamp}}", "TimeZone": "GMT" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refTerritoryTsMon",
+              "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Monday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refTerritoryTsTue",
+              "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Tuesday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refTerritoryTsWed",
+              "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Wednesday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refTerritoryTsThu",
+              "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Thursday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refTerritoryTsFri",
+              "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Friday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refTerritoryTsSat",
+              "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Saturday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refTerritoryTsSun",
+              "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Sunday", "Type": "Normal", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberAtsMon",
+              "body": { "OperatingHoursId": "@{refMemberOhA.id}", "DayOfWeek": "Monday", "Type": "Normal", "StartTime": "10:00:00.000Z", "EndTime": "14:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberAtsTue",
+              "body": { "OperatingHoursId": "@{refMemberOhA.id}", "DayOfWeek": "Tuesday", "Type": "Normal", "StartTime": "10:00:00.000Z", "EndTime": "14:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberAtsWed",
+              "body": { "OperatingHoursId": "@{refMemberOhA.id}", "DayOfWeek": "Wednesday", "Type": "Normal", "StartTime": "10:00:00.000Z", "EndTime": "14:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberAtsThu",
+              "body": { "OperatingHoursId": "@{refMemberOhA.id}", "DayOfWeek": "Thursday", "Type": "Normal", "StartTime": "10:00:00.000Z", "EndTime": "14:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberAtsFri",
+              "body": { "OperatingHoursId": "@{refMemberOhA.id}", "DayOfWeek": "Friday", "Type": "Normal", "StartTime": "10:00:00.000Z", "EndTime": "14:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberAtsSat",
+              "body": { "OperatingHoursId": "@{refMemberOhA.id}", "DayOfWeek": "Saturday", "Type": "Normal", "StartTime": "10:00:00.000Z", "EndTime": "14:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberAtsSun",
+              "body": { "OperatingHoursId": "@{refMemberOhA.id}", "DayOfWeek": "Sunday", "Type": "Normal", "StartTime": "10:00:00.000Z", "EndTime": "14:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberBtsMon",
+              "body": { "OperatingHoursId": "@{refMemberOhB.id}", "DayOfWeek": "Monday", "Type": "Normal", "StartTime": "12:00:00.000Z", "EndTime": "14:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberBtsTue",
+              "body": { "OperatingHoursId": "@{refMemberOhB.id}", "DayOfWeek": "Tuesday", "Type": "Normal", "StartTime": "12:00:00.000Z", "EndTime": "14:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberBtsWed",
+              "body": { "OperatingHoursId": "@{refMemberOhB.id}", "DayOfWeek": "Wednesday", "Type": "Normal", "StartTime": "12:00:00.000Z", "EndTime": "14:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberBtsThu",
+              "body": { "OperatingHoursId": "@{refMemberOhB.id}", "DayOfWeek": "Thursday", "Type": "Normal", "StartTime": "12:00:00.000Z", "EndTime": "14:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberBtsFri",
+              "body": { "OperatingHoursId": "@{refMemberOhB.id}", "DayOfWeek": "Friday", "Type": "Normal", "StartTime": "12:00:00.000Z", "EndTime": "14:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberBtsSat",
+              "body": { "OperatingHoursId": "@{refMemberOhB.id}", "DayOfWeek": "Saturday", "Type": "Normal", "StartTime": "12:00:00.000Z", "EndTime": "14:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberBtsSun",
+              "body": { "OperatingHoursId": "@{refMemberOhB.id}", "DayOfWeek": "Sunday", "Type": "Normal", "StartTime": "12:00:00.000Z", "EndTime": "14:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceTerritory",
+              "referenceId": "refTerritory",
+              "body": { "Name": "DblBook Territory {{$timestamp}}", "OperatingHoursId": "@{refTerritoryOh.id}", "IsActive": true }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/WorkType",
+              "referenceId": "refWorkType",
+              "body": { "Name": "DblBook WorkType {{$timestamp}}", "DurationType": "Minutes", "EstimatedDuration": 30 }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceTerritoryWorkType",
+              "referenceId": "refStwt",
+              "body": { "ServiceTerritoryId": "@{refTerritory.id}", "WorkTypeId": "@{refWorkType.id}" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceResource",
+              "referenceId": "refResourceA",
+              "body": { "Name": "DblBook Resource A {{$timestamp}}", "RelatedRecordId": "@{refUserA.id}", "ResourceType": "T", "IsActive": true, "IsPrimary": true }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceResource",
+              "referenceId": "refResourceB",
+              "body": { "Name": "DblBook Resource B {{$timestamp}}", "RelatedRecordId": "@{refUserB.id}", "ResourceType": "T", "IsActive": true, "IsPrimary": true }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceTerritoryMember",
+              "referenceId": "refStmA",
+              "body": { "ServiceTerritoryId": "@{refTerritory.id}", "ServiceResourceId": "@{refResourceA.id}", "TerritoryType": "P", "OperatingHoursId": "@{refMemberOhA.id}", "EffectiveStartDate": "{{doubleBookStmEffectiveStart}}" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceTerritoryMember",
+              "referenceId": "refStmB",
+              "body": { "ServiceTerritoryId": "@{refTerritory.id}", "ServiceResourceId": "@{refResourceB.id}", "TerritoryType": "P", "OperatingHoursId": "@{refMemberOhB.id}", "EffectiveStartDate": "{{doubleBookStmEffectiveStart}}" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/Shift",
+              "referenceId": "refShiftA",
+              "body": { "ServiceResourceId": "@{refResourceA.id}", "ServiceTerritoryId": "@{refTerritory.id}", "StartTime": "{{doubleBookShiftAStart}}", "EndTime": "{{doubleBookShiftAEnd}}", "TimeSlotType": "Normal", "Status": "Confirmed" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/Shift",
+              "referenceId": "refShiftB",
+              "body": { "ServiceResourceId": "@{refResourceB.id}", "ServiceTerritoryId": "@{refTerritory.id}", "StartTime": "{{doubleBookShiftBStart}}", "EndTime": "{{doubleBookShiftBEnd}}", "TimeSlotType": "Normal", "Status": "Confirmed" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/Account",
+              "referenceId": "refAccount",
+              "body": { "Name": "DblBook Account {{$timestamp}}" }
+            }
+          ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      // Mint FRESH timestamped users per run so the two ServiceResource rows never collide on the
+      // (RelatedRecordId, ResourceType) DB-unique key (the proven WFS create-case-worker pattern —
+      // fixed pre-existing users already own a ResourceType='T' SR → both inserts DUPLICATE_VALUE and
+      // the whole graph rolls back). The graph creates these users up front (refUserA/refUserB) and the
+      // ServiceResources point RelatedRecordId at @{refUserA.id}/@{refUserB.id}.
+      pm.environment.set("schedUserAName", pm.variables.replaceIn("sched-res-a-{{$timestamp}}@revoman.org"));
+      pm.environment.set("schedUserBName", pm.variables.replaceIn("sched-res-b-{{$timestamp}}@revoman.org"));
+      // STM effective from a month ago (open-ended) so the Shifts validate.
+      const monthAgo = new Date();
+      monthAgo.setUTCMonth(monthAgo.getUTCMonth() - 1);
+      pm.environment.set("doubleBookStmEffectiveStart", monthAgo.toISOString());
+      // Availability is the UNION of member OH and Shift (AvailabilityRuleCheck: bookable iff the window
+      // fits OH ∪ Shift). So to make resourceB unavailable at 11:00 BOTH its member OH and its Shift must
+      // exclude 11:00 — covering only the Shift gap is not enough when member OH still spans the window.
+      // resourceA: member OH A 10:00-14:00 + Shift 10:00-14:00 → COVERS 11:00-11:30, A is available there.
+      const shiftAStart = new Date();
+      shiftAStart.setUTCDate(shiftAStart.getUTCDate() + 1);
+      shiftAStart.setUTCHours(10, 0, 0, 0);
+      const shiftAEnd = new Date(shiftAStart.getTime());
+      shiftAEnd.setUTCHours(14, 0, 0, 0);
+      pm.environment.set("doubleBookShiftAStart", shiftAStart.toISOString());
+      pm.environment.set("doubleBookShiftAEnd", shiftAEnd.toISOString());
+      // resourceB: member OH B 12:00-14:00 + Shift 12:00-14:00 → the union is 12:00-14:00, which does NOT
+      // contain the 11:00-11:30 window, so resourceB is UNAVAILABLE at the booked hour ("busy elsewhere").
+      // Because availability is checked ONLY for required resources, B-as-helper (non-required) is never
+      // availability-checked and the SA books Success; B-as-required makes the A∩B slot intersection empty
+      // at 11:00 → SlotNotAvailable. Same proven OH/Shift availability mechanism as UnifiedBookingEnforce
+      // (which books outside member OH to force the Availability rejection).
+      const shiftBStart = new Date();
+      shiftBStart.setUTCDate(shiftBStart.getUTCDate() + 1);
+      shiftBStart.setUTCHours(12, 0, 0, 0);
+      const shiftBEnd = new Date(shiftBStart.getTime());
+      shiftBEnd.setUTCHours(14, 0, 0, 0);
+      pm.environment.set("doubleBookShiftBStart", shiftBStart.toISOString());
+      pm.environment.set("doubleBookShiftBEnd", shiftBEnd.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      const jsonData = pm.response.json();
+      const responses = jsonData.graphs[0].graphResponse.compositeResponse;
+      // A rolled-back graph turns EVERY step's httpStatusCode to 400 (PROCESSING_HALTED for the
+      // bystanders, the real errorCode on the offending step), so this per-step check reliably fails
+      // the step on any rollback — e.g. a ServiceResource (RelatedRecordId, ResourceType)
+      // DUPLICATE_VALUE — instead of the graph passing vacuously. (This scheduler org's composite/graph
+      // response at v67 carries NO graph-level isSuccessful flag, so the per-step status IS the signal.)
+      responses.forEach((r) => {
+        if (r.httpStatusCode < 200 || r.httpStatusCode >= 300) {
+          throw new Error("Composite step " + r.referenceId + " failed: " + JSON.stringify(r.body));
+        }
+      });
+      const byRef = {};
+      responses.forEach(r => { byRef[r.referenceId] = r.body && r.body.id; });
+      pm.environment.set("schedTerritoryId", byRef["refTerritory"]);
+      pm.environment.set("schedWorkTypeId", byRef["refWorkType"]);
+      pm.environment.set("schedAccountId", byRef["refAccount"]);
+      pm.environment.set("schedResourceAId", byRef["refResourceA"]);
+      pm.environment.set("schedResourceBId", byRef["refResourceB"]);
+      pm.environment.set("schedMemberOhAId", byRef["refMemberOhA"]);
+      pm.environment.set("schedMemberOhBId", byRef["refMemberOhB"]);
+      pm.environment.set("schedTerritoryOhId", byRef["refTerritoryOh"]);
+      pm.environment.set("schedShiftAId", byRef["refShiftA"]);
+      pm.environment.set("schedShiftBId", byRef["refShiftB"]);
+      pm.environment.set("schedStwtId", byRef["refStwt"]);
+    language: text/javascript
+order: 500

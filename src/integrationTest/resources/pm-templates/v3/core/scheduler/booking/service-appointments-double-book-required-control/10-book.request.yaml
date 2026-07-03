@@ -1,0 +1,50 @@
+$kind: http-request
+description: >-
+  Control: OLD book with resourceB isRequiredResource=true (still busy at 11:00). A REQUIRED busy resource
+  IS availability-checked → the book is refused (non-2xx, no serviceAppointmentId). Isolates the helper
+  Success to the non-required flag. Captures oldWriteRequiredControlHttp + oldWriteRequiredControlSaId.
+url: "{{baseUrl}}{{versionPath}}/connect/scheduling/service-appointments"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "serviceAppointment": {
+        "serviceTerritoryId": "{{schedTerritoryId}}",
+        "parentRecordId": "{{schedAccountId}}",
+        "workTypeId": "{{schedWorkTypeId}}",
+        "schedStartTime": "{{schedBookStart}}",
+        "schedEndTime": "{{schedBookEnd}}",
+        "extendedFields": [ { "name": "Status", "value": "Scheduled" } ]
+      },
+      "assignedResources": [
+        { "serviceResourceId": "{{schedResourceAId}}", "isRequiredResource": true, "isPrimaryResource": true },
+        { "serviceResourceId": "{{schedResourceBId}}", "isRequiredResource": true, "isPrimaryResource": false }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(11, 0, 0, 0);
+      const e = new Date(s.getTime() + 30 * 60 * 1000);
+      pm.environment.set("schedBookStart", s.toISOString());
+      pm.environment.set("schedBookEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      // The Connect book API wraps its payload in a "result" node on success:
+      // { "result": { "serviceAppointmentId": "08p...", "assignedResourceIds": [...] } }. On refusal it
+      // returns a top-level error array (here: 400 INTERNAL_ERROR "We couldn't find any resources...").
+      // Dig the SA id out of result first, then the flatter shapes; a refusal leaves it empty.
+      const data = pm.response.json() || {};
+      const result = data.result || data;
+      pm.environment.set("oldWriteRequiredControlHttp", String(pm.response.code));
+      pm.environment.set("oldWriteRequiredControlSaId", result.serviceAppointmentId || (result.serviceAppointment && result.serviceAppointment.id) || "");
+      console.log("OLD book required-control http=" + pm.response.code + " body=" + JSON.stringify(data).slice(0,300));
+    language: text/javascript
+order: 1000

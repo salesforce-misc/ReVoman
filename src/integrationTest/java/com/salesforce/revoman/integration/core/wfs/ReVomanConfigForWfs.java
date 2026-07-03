@@ -179,10 +179,13 @@ public final class ReVomanConfigForWfs {
   // later books/reads against (no admin-token alias; the API-under-test runs as the manager,
   // matching
   // Decision 9). V3 `auth` folder.
-  static final Kick AUTH_CONFIG = kickFor(V3_WFS_PATH + "auth");
+  // * NOTE 2026-07-03 gopal.akshintala: widened to public so the cross-package Scheduler-vs-Unified
+  // * parity slice (…core.scheduler.SchedulerVsUnifiedParityE2ETest) can reuse the 264 double-book
+  // * Kicks unchanged; wiring/behavior untouched.
+  public static final Kick AUTH_CONFIG = kickFor(V3_WFS_PATH + "auth");
 
   // ## Policies (each carries an Availability(C)+ShiftUsage(Union) rule plus the rule under test).
-  static final Kick AVAILABILITY_OP_HOURS_POLICY_CONFIG =
+  public static final Kick AVAILABILITY_OP_HOURS_POLICY_CONFIG =
       kickFor(V3_WFS_PATH + "policies/availability-op-hours-policy");
   static final Kick EXCLUDED_RESOURCES_POLICY_CONFIG =
       kickFor(V3_WFS_PATH + "policies/excluded-resources-availability-policy");
@@ -200,7 +203,7 @@ public final class ReVomanConfigForWfs {
       kickFor(V3_WFS_PATH + "policies/required-resources-availability-policy");
 
   // ## Fixtures (composite/graph data graphs: territory/OH/WorkType/resources/account/shifts).
-  static final Kick DOUBLE_BOOK_FIXTURE_CONFIG =
+  public static final Kick DOUBLE_BOOK_FIXTURE_CONFIG =
       kickFor(V3_WFS_PATH + "fixtures/double-book-non-required");
   static final Kick EXCLUDED_FIXTURE_CONFIG =
       kickFor(V3_WFS_PATH + "fixtures/excluded-non-required");
@@ -219,9 +222,9 @@ public final class ReVomanConfigForWfs {
   // ## Schedule act-steps (the Schedule write call whose response carries the verdict; each
   // captures
   // its schedulingStatus into the env for the JUnit Truth assertion).
-  static final Kick DOUBLE_BOOK_NON_REQUIRED_SCHEDULE_CONFIG =
+  public static final Kick DOUBLE_BOOK_NON_REQUIRED_SCHEDULE_CONFIG =
       kickFor(V3_WFS_PATH + "booking/schedule-double-book-non-required-violating");
-  static final Kick DOUBLE_BOOK_REQUIRED_CONFLICT_SCHEDULE_CONFIG =
+  public static final Kick DOUBLE_BOOK_REQUIRED_CONFLICT_SCHEDULE_CONFIG =
       kickFor(V3_WFS_PATH + "booking/schedule-double-book-required-conflict");
   static final Kick EXCLUDED_SCHEDULE_CONFIG =
       kickFor(V3_WFS_PATH + "booking/schedule-excluded-non-required-violating");

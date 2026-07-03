@@ -1,0 +1,52 @@
+$kind: http-request
+description: >-
+  SHARED PREREQUISITE part 1 of 2 for BOTH the OLD classic getAppointmentSlots read AND the classic
+  service-appointments book: resolve the ids needed to grant each double-book ServiceResource's backing
+  User the Lightning Scheduler access. Consolidated into its own Kick (grant-ls-user-access) so the read
+  and write collections share ONE copy — each revUps it right after the double-book fixture. Uses the Batch API
+  (/composite/batch — last path segment "batch", so it dodges the shared Kick's composite / composite-graph
+  response unmarshallers + success hooks, which expect query-shaped substep bodies and would choke on the
+  mixed grant response). Four independent GET queries → PSL id (LightningSchedulerPsl, by DeveloperName),
+  PS id (Salesforce_Scheduler_Resource, by Name — the standard perm set carrying the
+  lightningSchedulerUserAccess user-perm), and each resource's RelatedRecordId (the backing User). Captures
+  lsPslId / lsPsId / schedUserAId / schedUserBId for the assign batch (07). WHY THIS EXISTS: JDWP-confirmed
+  on the scheduler org, the classic slot-gen (SchedulingServiceImpl.getAppointmentSlotsForTerritories ->
+  removeResourcesWithoutPerm -> SchedulerCommonUtil.checkForUserPermission(users, lightningSchedulerUserAccess))
+  PRUNES every ServiceResource whose user lacks that user-perm — so without the grant BOTH reads return an
+  empty timeSlots (resourceA, though free 10-14, is dropped → dead read) and the book sees NO resources
+  (dead fixture). The check is skipped only under TestContext.isRunningTests(), which is why in-JVM
+  scheduling func tests never grant it; a REAL REST call (ReVoman) enforces it.
+url: "{{baseUrl}}{{versionPath}}/composite/batch"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "batchRequests": [
+        { "method": "GET", "url": "{{versionPath}}/query/?q=SELECT+Id+FROM+PermissionSetLicense+WHERE+DeveloperName='LightningSchedulerPsl'" },
+        { "method": "GET", "url": "{{versionPath}}/query/?q=SELECT+Id+FROM+PermissionSet+WHERE+Name='Salesforce_Scheduler_Resource'" },
+        { "method": "GET", "url": "{{versionPath}}/query/?q=SELECT+RelatedRecordId+FROM+ServiceResource+WHERE+Id='{{schedResourceAId}}'" },
+        { "method": "GET", "url": "{{versionPath}}/query/?q=SELECT+RelatedRecordId+FROM+ServiceResource+WHERE+Id='{{schedResourceBId}}'" }
+      ]
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      // Batch response: { results: [ { statusCode, result: { records: [...] } }, ... ] }. Pull the four
+      // ids the assign batch (07) needs. If any query came back empty the grant can't proceed — surface it
+      // via the log (the reads would then read 0 and the control assertion would catch a dead fixture).
+      const data = pm.response.json() || {};
+      const results = data.results || [];
+      const first = (i) => (((results[i] || {}).result || {}).records || [])[0] || {};
+      pm.environment.set("lsPslId", first(0).Id);
+      pm.environment.set("lsPsId", first(1).Id);
+      pm.environment.set("schedUserAId", first(2).RelatedRecordId);
+      pm.environment.set("schedUserBId", first(3).RelatedRecordId);
+      console.log("OLD grant part1 psl=" + first(0).Id + " ps=" + first(1).Id +
+                  " userA=" + first(2).RelatedRecordId + " userB=" + first(3).RelatedRecordId);
+    language: text/javascript
+order: 500

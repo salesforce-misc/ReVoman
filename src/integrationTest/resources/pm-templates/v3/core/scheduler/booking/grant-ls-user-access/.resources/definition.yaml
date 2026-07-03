@@ -1,0 +1,13 @@
+$kind: collection
+description: |-
+  SHARED prerequisite grant for the OLD classic Scheduler read AND write paths: assign the Lightning
+  Scheduler PSL + Salesforce_Scheduler_Resource permission set (carrying the lightningSchedulerUserAccess
+  user-perm) to both double-book resource users. Consolidated here (DRY) so the read (getAppointmentSlots)
+  and write (service-appointments book) collections share ONE copy — they both revUp this Kick after the
+  fixture. Runs under {{adminToken}}.
+auth:
+  - id: 7e1f0c00-1005-4aaa-9bbb-000000000029
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{adminToken}}"

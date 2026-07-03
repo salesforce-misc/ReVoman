@@ -1,0 +1,39 @@
+$kind: http-request
+description: >-
+  PREREQUISITE part 2 of 2: assign the Lightning Scheduler PSL + Salesforce_Scheduler_Resource permission
+  set (which carries the lightningSchedulerUserAccess user-perm) to BOTH double-book resource users, using
+  the ids captured by 05. Batch API again (/composite/batch, dodges the composite unmarshallers) with four
+  INDEPENDENT assign POSTs (batch subrequests don't roll each other back). Idempotent: on a re-run against
+  a warm user each assign returns DUPLICATE_VALUE — harmless, and ignoreHTTPStatusUnsuccessful keeps the
+  step green; the invariant is only that both users END holding PSL + PS. After this the classic engine
+  stops pruning the resources, so the downstream read (getAppointmentSlots) or write (book) collection sees
+  real availability. Runs after the id-query (05, order 500) within this shared grant Kick (order 700 > 500);
+  the whole Kick is sequenced between the double-book fixture Kick and the read/write Kick by revUp order.
+url: "{{baseUrl}}{{versionPath}}/composite/batch"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "batchRequests": [
+        { "method": "POST", "url": "{{versionPath}}/sobjects/PermissionSetLicenseAssign", "richInput": { "AssigneeId": "{{schedUserAId}}", "PermissionSetLicenseId": "{{lsPslId}}" } },
+        { "method": "POST", "url": "{{versionPath}}/sobjects/PermissionSetLicenseAssign", "richInput": { "AssigneeId": "{{schedUserBId}}", "PermissionSetLicenseId": "{{lsPslId}}" } },
+        { "method": "POST", "url": "{{versionPath}}/sobjects/PermissionSetAssignment", "richInput": { "AssigneeId": "{{schedUserAId}}", "PermissionSetId": "{{lsPsId}}" } },
+        { "method": "POST", "url": "{{versionPath}}/sobjects/PermissionSetAssignment", "richInput": { "AssigneeId": "{{schedUserBId}}", "PermissionSetId": "{{lsPsId}}" } }
+      ]
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      // Log substep statuses. A 201 = freshly granted; a 400 DUPLICATE_VALUE = already granted (a warm
+      // re-run) — both leave the user holding the perm, so neither fails this step.
+      const data = pm.response.json() || {};
+      const results = data.results || [];
+      const statuses = results.map(r => r.statusCode).join(",");
+      console.log("OLD grant part2 assign statusCodes=" + statuses);
+    language: text/javascript
+order: 700
