@@ -4,9 +4,9 @@ description: |-
   (resourceA + resourceB, both also isRequiredResource=true) under the availability-op-hours policy over
   the required-non-required fixture, tomorrow 11:00-12:00 UTC. Multi-resource scheduling requires EXACTLY
   one primary, so two primaries is an invalid input combination caught UP FRONT at input validation
-  (ScheduleCommonValidator.validatePrimaryResourceConstraints) — before any availability/persist. 264:
-  clean ConnectErrorCode INVALID_INPUT / HTTP 400 / message "Only one of the provided assigned resource
-  can be a primary resource." 262 (historical): a confusing DB error; current code returns the clean one.
+  (ScheduleCommonValidator.validatePrimaryResourceConstraints) — before any availability/persist. 262
+  returns a clean ConnectErrorCode INVALID_INPUT / HTTP 400 / message "Only one of the provided assigned
+  resource can be a primary resource."
 auth:
   - id: 1a2b3c4d-0004-4aaa-9bbb-000000000004
     type: bearer

@@ -34,8 +34,7 @@ import org.junit.jupiter.api.Assumptions;
  * shared env is the V3 {@code ws.environment.yaml} (creds blanked — the reader fills baseUrl/tokens
  * for their own workspace).
  *
- * <p>Decisions under test (each characterizes live 262; the 264 contrast is in each test's
- * javadoc):
+ * <p>Decisions under test (each characterizes live 262):
  *
  * <ul>
  *   <li><b>1</b> — a NON-required "helper" resource is NOT fitness-checked on the Schedule write
@@ -272,11 +271,7 @@ public final class ReVomanConfigForWfs {
   // rejection fires. LIVE-OBSERVED on the 262 org: Arm B is rejected ONLY by the downstream
   // availability
   // re-check (INVALID_INPUT "The service resources are not available for the requested slot." /
-  // SlotNotAvailable) — 262 lacks 264's reworked reschedule availability (the effective-set merge
-  // over the real surviving crew = existing − deleted ∪ created ∪ updated, which would find the
-  // surviving-crew slot; 264-only, verified by branch diff against 262 — the effective-set merge +
-  // rule-enforcer files are absent on 262). NOTE: 264's empty-effective-set short-circuit applies
-  // only to delete-ALL, not to this delete-primary-leaving-one case. Characterized faithfully
+  // SlotNotAvailable) — never by a no-primary rule. Characterized faithfully
   // (availability, not no-primary). Clean two-resource schedule sets up reschedCleanSaId for both
   // arms.
   static final Kick SCHEDULE_TWO_RESOURCE_CLEAN_CONFIG =
@@ -294,12 +289,24 @@ public final class ReVomanConfigForWfs {
   // LIVE-OBSERVED on this 262 org the probe is REJECTED with INVALID_INPUT / "The service resources
   // are not available for the requested slot." (SlotNotAvailable) — the SAME downstream
   // availability
-  // re-check that blocks the delete-primary Arm B; the empty-effective-set short-circuit the func
-  // test relies on is 264-only, so 262 does NOT get around the availability check even for
-  // delete-ALL.
+  // re-check that blocks the delete-primary Arm B; on 262 the availability check is not bypassed
+  // even for delete-ALL.
   // Characterized faithfully as the OBSERVED rejection, not the hypothesized Success.
   static final Kick RESCHEDULE_DELETE_ALL_CONFIG =
       kickFor(V3_WFS_PATH + "booking/reschedule-delete-all");
+
+  // ## Decision 4z delete-ALL WITH an explicit schedulingPolicyId — the reconciling twin of
+  // RESCHEDULE_DELETE_ALL. IDENTICAL delete-BOTH body (no times), differing in ONE field: it passes
+  // schedulingPolicyId={{availabilityOpHoursPolicyId}} (the well-formed Availability+ShiftUsage policy the
+  // clean Schedule used). The sibling RESCHEDULE_DELETE_ALL omits the policy, so the availability re-check
+  // falls back to the org DEFAULT OnSite policy (SlotAvailabilityChecker.buildGetSlotsRequest passes the
+  // request policyId through; a null policyId resolves via getDefaultOnSiteSchedulingPolicy). On this org
+  // the default policy's Availability rule lacks a usable ShiftUsage parameter → zero slots →
+  // SlotNotAvailable. Supplying the good policy makes the empty-crew delete-all SUCCEED on 262, matching the
+  // Core func test testRescheduleAppointmentDeleteAllAssignedResources — isolating the resolved scheduling
+  // policy (explicit vs org-default) as the single variable that reconciles the two tests.
+  static final Kick RESCHEDULE_DELETE_ALL_WITH_POLICY_CONFIG =
+      kickFor(V3_WFS_PATH + "booking/reschedule-delete-all-with-policy");
 
   // ## Decision 4z DEMOTE probe — the under-guarded "leave TWO-or-more workers with NO primary"
   // shape (the sibling delete arms only shrink the crew to 1 or 0). Reschedules the SAME clean

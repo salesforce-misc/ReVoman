@@ -1,0 +1,70 @@
+$kind: http-request
+description: >-
+  Reschedule reschedCleanSaId with a DeleteOperation on BOTH assigned resources (resourceA AND resourceB), no
+  isPrimaryResource flag on either delete entry, NO startTime/endTime — IDENTICAL to the sibling
+  reschedule-delete-all EXCEPT it adds schedulingPolicyId={{availabilityOpHoursPolicyId}}. This isolates the
+  single variable that reconciles the ReVoman probe with the Core func test
+  testRescheduleAppointmentDeleteAllAssignedResources: the reschedule slot-gen
+  (SlotAvailabilityChecker.isSlotAvailable → buildGetSlotsRequest → getSlots) runs under whatever policy the
+  request carries; when omitted it falls back to the org DEFAULT OnSite policy (DefaultOnSiteSchdPlcy), a
+  7-rule policy that INCLUDES a RequiredResources rule. The required-non-required fixture attaches a
+  ResourcePreference(Required)=resourceB to the account, so an EMPTY crew fails RequiredResources → zero slots
+  → SlotNotAvailable/400 (why the sibling is rejected). (ShiftUsage is NOT the difference — both policies'
+  Availability rule carry the identical ShiftUsage=ConsiderOpHoursAndShiftsUnion, confirmed by tooling query.)
+  With the good 2-rule policy supplied here (Availability + WorkingTerritories, no RequiredResources), the
+  empty-crew re-check (deletes skipped by extractServiceResourceIds; SA-under-reschedule excluded via
+  withAppointmentIdsExcludedForAvailability) finds a slot and the delete-all SUCCEEDS on 262 — leaving an
+  appointment with no resources and no primary, the same outcome the func test asserts. Captures
+  schedulingStatus / httpCode / errorCode / errorMessage. Runs after the clean two-resource schedule set
+  reschedCleanSaId (own revUp, SA still has both resources).
+url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/reschedule"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "rescheduleAppointments": [
+        {
+          "schedulingMethod": "OnSite",
+          "appointmentId": "{{reschedCleanSaId}}",
+          "schedulingPolicyId": "{{availabilityOpHoursPolicyId}}",
+          "assignedResources": [
+            {
+              "operation": "DeleteOperation",
+              "assignedResource": {
+                "serviceResourceId": "{{requiredNonReqResourceAId}}"
+              }
+            },
+            {
+              "operation": "DeleteOperation",
+              "assignedResource": {
+                "serviceResourceId": "{{requiredNonReqResourceBId}}"
+              }
+            }
+          ]
+        }
+      ]
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.environment.set("reschedDeleteAllWithPolicyHttpCode", String(pm.response.code));
+      const data = pm.response.json();
+      const appts = (data && data.appointments) || [];
+      const a0 = appts.length ? appts[0] : null;
+      pm.environment.set("reschedDeleteAllWithPolicyStatus", a0 ? a0.schedulingStatus : null);
+      const saId = a0 && a0.serviceAppointment ? a0.serviceAppointment.serviceAppointmentId : null;
+      pm.environment.set("reschedDeleteAllWithPolicySaId", saId);
+      let ec = null, msg = null;
+      if (Array.isArray(data) && data.length) { ec = data[0].errorCode; msg = data[0].message; }
+      else if (a0 && a0.errors && a0.errors[0]) { ec = a0.errors[0].errorCode; msg = a0.errors[0].message; }
+      pm.environment.set("reschedDeleteAllWithPolicyErrorCode", ec);
+      pm.environment.set("reschedDeleteAllWithPolicyErrorMessage", msg);
+      console.log("DEC4z deleteAll+policy http=" + pm.response.code + " status=" + (a0 && a0.schedulingStatus) + " saId=" + saId + " ec=" + ec + " msg=" + msg);
+    language: text/javascript
+order: 4000

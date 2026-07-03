@@ -1,16 +1,23 @@
 $kind: collection
 description: |-
-  Decision 4z delete-ALL probe — reschedules reschedCleanSaId with DeleteOperation entries for BOTH assigned
-  resources (resourceA + resourceB), no isPrimaryResource flag on either delete entry (only operation +
-  serviceResourceId). The brief HYPOTHESIZED this would get around the availability check on 262
+  Decision 4z delete-ALL probe — POLICY-LESS half of the reconciling pair. Reschedules reschedCleanSaId with
+  DeleteOperation entries for BOTH assigned resources (resourceA + resourceB), no isPrimaryResource flag and
+  NO schedulingPolicyId. The brief HYPOTHESIZED this would get around the availability check on 262
   (SlotAvailabilityChecker.isSlotAvailable computes its required-resource set via extractServiceResourceIds,
   which SKIPS DeleteOperation entries → deleting ALL resources leaves an EMPTY required set → availability
   passes → empty-crew Success), mirroring the Core func test
   OnSiteRescheduleAppointmentsConnectApiTest.testRescheduleAppointmentDeleteAllAssignedResources (asserts
-  Success). LIVE-OBSERVED on this 262 org the probe is instead REJECTED with INVALID_INPUT / "The service
-  resources are not available for the requested slot." (SlotNotAvailable) — the same downstream availability
-  re-check that blocks the delete-primary Arm B; the empty-effective-set short-circuit the func test relies on
-  is 264-only. Runs under managerToken; ledger-off so it never replays a stale response.
+  Success). LIVE-OBSERVED on this 262 org this policy-less probe is REJECTED with INVALID_INPUT / "The service
+  resources are not available for the requested slot." (SlotNotAvailable). ROOT CAUSE (live-isolated + tooling
+  query): with no schedulingPolicyId the reschedule slot-gen falls back to the org DEFAULT OnSite policy
+  (getDefaultOnSiteSchedulingPolicy = DefaultOnSiteSchdPlcy), a 7-rule policy that INCLUDES a RequiredResources
+  rule; the good policy (availabilityOpHoursPolicyId) has only Availability + WorkingTerritories. The
+  required-non-required fixture attaches a ResourcePreference(Required)=resourceB to the account, so an EMPTY
+  crew fails the RequiredResources rule → zero slots. (ShiftUsage is NOT the difference — both policies'
+  Availability rule carry the identical ShiftUsage=ConsiderOpHoursAndShiftsUnion, confirmed by tooling query.)
+  This is NOT a release gate: supplying the good 2-rule policy (no RequiredResources) flips it to Success (see
+  reschedule-delete-all-with-policy). The func test books Success because its local org's default OnSite policy
+  admits the empty crew. Runs under managerToken; ledger-off so it never replays a stale response.
 auth:
   - id: 1a2b3c4d-004f-4aaa-9bbb-00000000004d
     type: bearer
