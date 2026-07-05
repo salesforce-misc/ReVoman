@@ -130,7 +130,7 @@
       <text class="edge-label" x="344" y="141" text-anchor="middle" font-size="12.5">executes</text>
       <rect class="box-engine" x="404" y="62" width="312" height="176" rx="14" stroke-width="2"/>
       <text class="engine-title" x="560" y="108" text-anchor="middle" font-size="30">ReṼoman</text>
-      <text class="sub" x="560" y="134" text-anchor="middle" font-size="14.5" font-weight="600">API Orchestration Engine</text>
+      <text class="sub" x="560" y="134" text-anchor="middle" font-size="14.5" font-weight="600">Middleware · executes the graph</text>
       <text class="faint" x="560" y="166" text-anchor="middle" font-size="12.5">resolves data dependencies, auth,</text>
       <text class="faint" x="560" y="186" text-anchor="middle" font-size="12.5">polling &amp; type-safe payloads —</text>
       <text class="faint" x="560" y="206" text-anchor="middle" font-size="12.5">deterministically, on the JVM</text>
@@ -189,7 +189,7 @@
         <li>MCP tool-definition autogen from OAS + API-Graph metadata</li>
         <li>Dynamic coupling of agentic workflows to API-Graphs at runtime</li>
       </ul>
-      <p class="rv-honest__foot">The substrate ships today; the AI-agent glue above is direction, not present-tense. ReṼoman is honest about the line.</p>
+      <p class="rv-honest__foot">The substrate ships today; everything under Roadmap above — including the AI-agent glue — is direction, not present-tense. ReṼoman is honest about the line.</p>
     </div>
   </div>
 </section>
