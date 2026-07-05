@@ -84,7 +84,7 @@ The patent draws a clean line:
 * *Orchestration* (the agentic layer) chooses and couples API-Graphs to workflow Nodes — deciding _which_ graph runs and _how_ its output feeds the next decision.
 * *Execution* (ReṼoman) runs a _given_ API-Graph and returns Context Information.
 
-ReṼoman is strictly the *execution engine*. "API Orchestration Engine" is the product headline, and it is held precise by the verb "executes the graph" — the engine is the deterministic execution layer beneath an agentic orchestration system, not the agentic layer itself.
+ReṼoman is strictly the *execution engine*. The product headline — *middleware between an agent and your API-Graphs* — is held precise by the verb "executes the graph": ReṼoman is the deterministic execution layer beneath an agentic orchestration system, not the agentic layer itself.
 
 == Roadmap
 
