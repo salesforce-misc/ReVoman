@@ -19,11 +19,11 @@ Contrary to these custom frameworks, almost every team already uses https://www.
 ____
 
 * How _productive_ would it be if you could plug in the executable API metadata you already authored for manual testing and execute it through your JVM tests?
-* How about an API Orchestration Engine that promotes low code and low cognitive complexity, and strikes a balance between flexibility and ease of use?
+* How about a middleware layer that executes that graph for you — promoting low code and low cognitive complexity, and striking a balance between flexibility and ease of use?
 
 ____
 
-ReṼoman is that engine. It reads the executable API metadata you already have — today serialized in the Postman V2/V3 schema — and executes the graph on the JVM. See xref:executable-api-metadata.adoc[] for the data format, xref:type-safety.adoc[] for how it bridges JVM types and JSON, and xref:hooks.adoc[] for plugging custom JVM code into the run.
+ReṼoman is that middleware. It reads the executable API metadata you already have — today serialized in the Postman V2/V3 schema — and executes the graph on the JVM. See xref:executable-api-metadata.adoc[] for the data format, xref:type-safety.adoc[] for how it bridges JVM types and JSON, and xref:hooks.adoc[] for plugging custom JVM code into the run.
 
 == A runner is not middleware
 
