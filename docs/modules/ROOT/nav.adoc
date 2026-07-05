@@ -1,5 +1,6 @@
 .xref:index.adoc[Overview]
 * xref:why-revoman.adoc[Why ReṼoman?]
+* xref:agentic-orchestration.adoc[Middleware: Agent ↔ API-Graph]
 
 .Get Started
 * xref:getting-started.adoc[Getting Started]
@@ -22,7 +23,6 @@
 
 .Applications
 * xref:applications.adoc[Overview]
-* xref:agentic-orchestration.adoc[Agentic API Orchestration]
 * xref:application-test-automation.adoc[API Test Automation]
 * xref:application-orchestrated-workflows.adoc[Orchestrated Workflows & Test-Data Setup]
 * xref:performance.adoc[Performance]
