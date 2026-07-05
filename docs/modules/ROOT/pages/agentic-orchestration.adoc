@@ -4,7 +4,7 @@
 [.lead]
 ReṼoman is the *middleware between an agent and your API-Graphs*. Hand it an API-Graph; it executes that graph deterministically on the JVM and hands back the `Rundown` — the Context Information the agent reasons over.
 
-ReṼoman is an *API Orchestration Engine*: you hand it a workflow of interdependent API calls as *executable API metadata* — an API-Graph — and it *executes that graph*. That precise verb is what keeps the headline honest: the engine runs a given graph; it does not decide which graph to run. The agent does the orchestrating — choosing and coupling graphs; ReṼoman is the execution step it delegates to.
+Under the hood, the mechanism is an *API-orchestration engine*: you hand it a workflow of interdependent API calls as *executable API metadata* — an API-Graph — and it *executes that graph*. That precise verb is what keeps the middleware headline honest: the engine runs a given graph; it does not decide which graph to run. The agent does the orchestrating — choosing and coupling graphs; ReṼoman is the execution step it delegates to.
 
 == Who the agent is
 
