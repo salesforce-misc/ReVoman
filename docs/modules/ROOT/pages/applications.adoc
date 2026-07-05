@@ -1,8 +1,8 @@
 = Applications
 
-ReṼoman is an xref:index.adoc[API Orchestration Engine]. Executing a graph of API metadata and returning a structured xref:rundown.adoc[Rundown] enables several applications — each gets its own page:
+ReṼoman is the xref:agentic-orchestration.adoc[middleware between an agent and your API-Graphs]. Executing a graph of API metadata and returning a structured xref:rundown.adoc[Rundown] enables several applications — each gets its own page:
 
-* xref:agentic-orchestration.adoc[Agentic API Orchestration] — *the headline*. The engine executes the API-Graph deterministically on the JVM and returns the Context Information (`Rundown`/`toJson`) an agentic-workflow Node consumes.
+* xref:agentic-orchestration.adoc[Agentic API Orchestration] — *this is the identity*, documented at the top level: the middleware executes the API-Graph deterministically on the JVM and returns the Context Information (`Rundown`/`toJson`) an agentic-workflow Node consumes.
 * xref:application-test-automation.adoc[API Test Automation] — driving an API-Graph deterministically and asserting on the returned Rundown makes ReṼoman a capable, low-code API test-automation tool. This is *one application of the engine, not the tool's identity*.
 * xref:application-orchestrated-workflows.adoc[Orchestrated Workflows & Test-Data Setup] — beyond testing, the engine drives any sequence of interdependent API calls: standing up test data, seeding an environment, or running an operational workflow.
 
