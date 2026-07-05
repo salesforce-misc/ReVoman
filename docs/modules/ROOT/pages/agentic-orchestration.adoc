@@ -1,9 +1,14 @@
 = Agentic API Orchestration
+:page-description: ReṼoman is the middleware between an agent — an AI agent, or your own JVM code acting as one — and your API-Graphs: it executes a given API-Graph deterministically on the JVM and returns the Rundown (Context Information) the caller reasons over.
 
 [.lead]
-The middleware an AI agent calls to execute an API-Graph — and get back the Context Information it reasons over.
+ReṼoman is the *middleware between an agent and your API-Graphs*. Hand it an API-Graph; it executes that graph deterministically on the JVM and hands back the `Rundown` — the Context Information the agent reasons over.
 
 ReṼoman is an *API Orchestration Engine*: you hand it a workflow of interdependent API calls as *executable API metadata* — an API-Graph — and it *executes that graph*. That precise verb is what keeps the headline honest: the engine runs a given graph; it does not decide which graph to run. The agent does the orchestrating — choosing and coupling graphs; ReṼoman is the execution step it delegates to.
+
+== Who the agent is
+
+"Agent" here is *any caller that reasons over the Rundown to decide what runs next* — an AI-agent Node, or your own JVM/test code acting as one. When your JVM code feeds ReṼoman an API-Graph and asserts on the returned Rundown, you *are* the agent; the same substrate serves an AI-agent Node. This is why the middleware role is real today, not aspirational: the caller port ships now, and the AI-agent conveniences (see Roadmap) are glue on top of it.
 
 == The loop
 
