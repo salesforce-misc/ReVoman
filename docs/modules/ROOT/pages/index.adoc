@@ -1,6 +1,6 @@
 = ReṼoman
 :page-layout: home
-:page-description: ReṼoman is an API Orchestration Engine for the JVM — execute a graph of interdependent API calls described as executable API metadata, and get back a structured Rundown. The execution layer beneath Agentic API Orchestration.
+:page-description: ReṼoman is the middleware between an agent and your API-Graphs — hand it an API-Graph, it executes deterministically on the JVM and returns a structured Rundown the agent reasons over. Orchestration is the mechanism; JVM API test automation is one application.
 :!page-toc:
 
 // =============================================================================
@@ -25,13 +25,13 @@
 ++++
 <section class="rv-hero">
   <div class="rv-hero__copy">
-    <p class="rv-eyebrow"><span class="rv-eyebrow__dot"></span>API Orchestration Engine · JVM</p>
+    <p class="rv-eyebrow"><span class="rv-eyebrow__dot"></span>Middleware · Agent ↔ API-Graph · JVM</p>
     <h1 class="rv-hero__title">Execute your API&nbsp;graph.<br><span class="rv-hero__title-accent">Get back a Rundown.</span></h1>
     <p class="rv-hero__lede">
-      Describe a workflow of interdependent API calls as <strong>executable API metadata</strong>.
-      ReṼoman executes that graph on the JVM — resolving data dependencies, auth, and polling —
-      and returns a structured <strong>Rundown</strong> of everything that happened.
-      The deterministic execution layer beneath <a href="agentic-orchestration.html">Agentic API Orchestration</a>.
+      The <strong>middleware between an agent and your API-Graphs</strong> — an AI agent, or your own JVM code acting as one.
+      Describe a workflow of interdependent API calls as <strong>executable API metadata</strong>; ReṼoman executes that graph
+      on the JVM — resolving data dependencies, auth, and polling — and hands back a structured <a href="agentic-orchestration.html">Rundown</a>
+      the agent reasons over.
     </p>
     <div class="rv-hero__cta">
       <a class="rv-btn rv-btn--primary" href="getting-started.html">Get started <span aria-hidden="true">→</span></a>
@@ -89,7 +89,7 @@
 
 <section class="rv-band rv-how">
   <header class="rv-band__head">
-    <p class="rv-section-marker">// how the engine works</p>
+    <p class="rv-section-marker">// how the middleware executes</p>
     <h2 class="rv-band__title">A graph in. A Rundown out.</h2>
     <p class="rv-band__sub">
       Think of the <a href="https://learning.postman.com/docs/collections/running-collections/intro-to-collection-runs/">Postman Collection Runner</a> walking a collection step by step — but inside a Java/Kotlin program, resolving the dependencies between calls. Today that metadata is serialized in the Postman&nbsp;V2/V3 schema; reading Postman-schema metadata no more makes this "a Postman tool" than emitting JSON makes a service "a JSON tool."
@@ -151,13 +151,13 @@
   </header>
   <div class="rv-appgrid">
     <a class="rv-appcard" href="agentic-orchestration.html">
-      <span class="rv-appcard__tag">execution layer</span>
+      <span class="rv-appcard__tag">the caller port</span>
       <h3 class="rv-appcard__title">Agentic API Orchestration</h3>
       <p class="rv-appcard__body">The deterministic step beneath an agentic workflow: metadata in, the <code>Rundown</code> as Context Information out.</p>
       <span class="rv-appcard__go">Read more →</span>
     </a>
     <a class="rv-appcard" href="application-test-automation.html">
-      <span class="rv-appcard__tag">most-used today</span>
+      <span class="rv-appcard__tag">proof it ships today</span>
       <h3 class="rv-appcard__title">API Test Automation</h3>
       <p class="rv-appcard__body">Replace bespoke REST-Assured harnesses with the executable metadata your team already authored in Postman.</p>
       <span class="rv-appcard__go">Read more →</span>
@@ -176,7 +176,7 @@
     <div class="rv-honest__col rv-honest__col--today">
       <p class="rv-honest__label rv-honest__label--today">Ships today</p>
       <ul class="rv-honest__list">
-        <li>Deterministic execution of executable API metadata (Postman&nbsp;V2/V3 schema) on the JVM</li>
+        <li>The middleware substrate: an API-Graph in → deterministic execution on the JVM → a <code>Rundown</code> out</li>
         <li>Resolves data dependencies, auth, and polling between steps</li>
         <li>A <code>Rundown</code> whose <code>toJson(VERBOSITY)</code> is structured Context Information</li>
         <li><a href="type-safety.html">Type safety</a>, dynamic <a href="hooks.html">hooks</a>, <a href="timing-metrics.html">timing metrics</a>, and the Postman <code>pm.*</code> script APIs — written ground-up for the JVM</li>
@@ -189,7 +189,7 @@
         <li>MCP tool-definition autogen from OAS + API-Graph metadata</li>
         <li>Dynamic coupling of agentic workflows to API-Graphs at runtime</li>
       </ul>
-      <p class="rv-honest__foot">Never read these as present-tense capabilities. ReṼoman is honest about the line.</p>
+      <p class="rv-honest__foot">The substrate ships today; the AI-agent glue above is direction, not present-tense. ReṼoman is honest about the line.</p>
     </div>
   </div>
 </section>
