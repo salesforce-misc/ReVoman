@@ -1,5 +1,8 @@
 = Why ReṼoman?
 
+[.lead]
+An agent — an AI agent, or your own JVM code acting as one — needs two things to act on APIs: something that *executes* a workflow of interdependent calls deterministically, and *structured context* about what happened. ReṼoman is the middleware that provides both. The pain below is *why* that middleware layer is needed.
+
 == The Problem
 
 * The majority of JVM SaaS applications are REST-based. But the API automation is done through a Mul-*T*-verse of Integration/Functional tests, E2E tests and Manual tests, each with its own frameworks, tools, and internal utilities, testing almost the same code flow.
@@ -22,7 +25,7 @@ ____
 
 ReṼoman is that engine. It reads the executable API metadata you already have — today serialized in the Postman V2/V3 schema — and executes the graph on the JVM. See xref:executable-api-metadata.adoc[] for the data format, xref:type-safety.adoc[] for how it bridges JVM types and JSON, and xref:hooks.adoc[] for plugging custom JVM code into the run.
 
-== A runner is not an orchestration engine
+== A runner is not middleware
 
 You might reach for https://learning.postman.com/docs/collections/using-newman-cli/command-line-integration-with-newman[Newman] or the https://learning.postman.com/docs/postman-cli/postman-cli-overview/[Postman CLI] to run a collection from the command line. They overlap with ReṼoman only at the narrow point of "execute a collection" — the _similarities end there_. A runner cannot be an orchestration engine inside your JVM or agentic stack:
 
@@ -31,7 +34,7 @@ You might reach for https://learning.postman.com/docs/collections/using-newman-c
 * *Type safety.* Its xref:type-safety.adoc[] bridges the gap between strongly-typed JVM code and flexible JSON, so payloads come back as POJOs you can assert on directly.
 * *Richer execution model.* It has more features, like dynamic xref:hooks.adoc[pre/post-step hooks] that let you plug custom JVM code in between execution steps. The xref:rundown.adoc[Rundown] is far richer in execution information than the newman/postman-cli reports — and that Rundown is the structured Context Information described in xref:agentic-orchestration.adoc[].
 
-In short, a runner emits a pass/fail report; an orchestration engine executes an API-Graph, resolves the dependencies between steps, and returns structured Context Information your JVM code — or an agentic Node — can build on. See xref:applications.adoc[] for what that unlocks.
+In short, a runner emits a pass/fail report; middleware executes an API-Graph, resolves the dependencies between steps, and returns structured Context Information the caller — your JVM code, or an agentic Node — builds on. See xref:agentic-orchestration.adoc[] for the identity in full, and xref:applications.adoc[] for what it unlocks.
 
 [NOTE]
 ====
