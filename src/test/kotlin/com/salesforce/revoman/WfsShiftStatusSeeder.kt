@@ -31,7 +31,21 @@ object WfsShiftStatusSeeder {
   private val logger = KotlinLogging.logger {}
 
   /** SDB connection coordinates derived from the running postgres process. */
-  data class SdbCoords(val port: Int, val db: String, val release: String, val user: String)
+  data class SdbCoords(
+    val port: Int,
+    val db: String,
+    val release: String,
+    val user: String,
+    val password: String,
+  )
+
+  // SDB is version-scoped: a trust-auth connection as the OS process owner is pinned to a schema
+  // VERSION (e.g. "26400") at which the app-managed `cpicklist` schema — the seed function's home — is
+  // NOT visible, so the call fails `schema "cpicklist" does not exist at version "26400"`. The SDB
+  // build superuser `saydb` runs UNVERSIONED and sees `cpicklist`, so we connect as that role (the
+  // same one the reference `seed-dynenum.sh` uses). Overridable per box via env for release drift.
+  private val SDB_USER = System.getenv("REVOMAN_SDB_USER") ?: "saydb"
+  private val SDB_PASSWORD = System.getenv("REVOMAN_SDB_PASSWORD") ?: "sdb"
 
   private const val SHIFT_STATUS_ENUM_ID = "284"
   // Tentative->'0', Published->'1', Confirmed->'2' — ShiftStatusCategory dbValues; Confirmed is the
@@ -44,10 +58,11 @@ object WfsShiftStatusSeeder {
    * Idempotently seed Shift.Status for [org15]. No-op if already seeded (Confirmed->'2' active).
    * BEST-EFFORT / NON-FATAL: any failure (no local SDB, function/schema absent for the release, SQL
    * error) is logged and swallowed — Shift.Status is only needed for later booking, not the base
-   * seed, so it must never fail the seed run. The seed-function's schema is NOT hardcoded: it is
-   * resolved at runtime from pg_proc, because it differs across releases (e.g. `cpicklist` on one
-   * release, absent-at-that-version on another — the source of the "schema cpicklist does not exist"
-   * error).
+   * seed, so it must never fail the seed run. Two release/box-drift guards: the seed-function's schema
+   * is resolved at runtime from pg_proc (not hardcoded — it differs across releases, e.g. `cpicklist`),
+   * and the connection is made as the UNVERSIONED SDB superuser [SDB_USER] rather than the trust-auth
+   * OS owner, whose version-pinned connection can't see `cpicklist` (the `schema "cpicklist" does not
+   * exist at version "…"` error).
    */
   fun seed(org15: String) {
     val coords = discoverLocalSdb()
@@ -64,7 +79,7 @@ object WfsShiftStatusSeeder {
     }
     val url = "jdbc:postgresql://127.0.0.1:${coords.port}/${coords.db}"
     try {
-      DriverManager.getConnection(url, coords.user, "").use { conn ->
+      DriverManager.getConnection(url, coords.user, coords.password).use { conn ->
         if (isAlreadySeeded(conn, org15)) {
           logger.info { "Shift.Status already seeded for $org15 (Confirmed->'2' active) — no-op" }
           return
@@ -141,10 +156,9 @@ object WfsShiftStatusSeeder {
     val dataDir = Regex("""-D\s+(\S+)""").find(line)?.groupValues?.get(1) ?: return null
     val db = File(dataDir).name
     val release = Regex("""sdbbuild/([^/]+)/bin/postgres""").find(line)?.groupValues?.get(1) ?: "unknown"
-    // SDB uses trust auth for the OS user locally; default to the process owner ($USER), which is the
-    // account the workspace runs as.
-    val user = System.getProperty("user.name") ?: System.getenv("USER") ?: "sfwork"
-    return SdbCoords(port, db, release, user)
+    // Connect as the UNVERSIONED SDB superuser (`saydb`), NOT the trust-auth OS process owner: the
+    // latter is version-pinned and can't see the `cpicklist` schema the seed function lives in.
+    return SdbCoords(port, db, release, SDB_USER, SDB_PASSWORD)
   }
 
   private fun readSdbPostgresCmdLine(): String? {
