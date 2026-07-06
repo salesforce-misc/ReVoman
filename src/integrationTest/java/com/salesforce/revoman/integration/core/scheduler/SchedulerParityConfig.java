@@ -66,6 +66,21 @@ public final class SchedulerParityConfig {
   static final Kick OLD_BOOK_REQUIRED_CONTROL_CONFIG =
       oldKickFor(V3_SCHEDULER_PATH + "booking/service-appointments-double-book-required-control");
 
+  // ## Prior-assignment occupancy (does an existing assignment block a later required booking, even
+  // when B first joined as an OPTIONAL helper?). 3-resource fixture: A/B/C all AVAILABLE at 11:00 (no
+  // shift gap — unlike double-book); B is the only shared worker (A on appt #1, C the dedicated free
+  // primary on appt #2), so a refused appt #2 can only be B's prior assignment.
+  static final Kick OLD_PRIOR_ASSIGNMENT_FIXTURE_CONFIG =
+      oldKickFor(V3_SCHEDULER_PATH + "fixtures/prior-assignment");
+  static final Kick OLD_PRIOR_APPT1_B_REQUIRED_CONFIG =
+      oldKickFor(V3_SCHEDULER_PATH + "booking/service-appointments-prior-appt1-b-required");
+  static final Kick OLD_PRIOR_APPT1_B_OPTIONAL_CONFIG =
+      oldKickFor(V3_SCHEDULER_PATH + "booking/service-appointments-prior-appt1-b-optional");
+  static final Kick OLD_PRIOR_APPT2_B_REQUIRED_CONFIG =
+      oldKickFor(V3_SCHEDULER_PATH + "booking/service-appointments-prior-appt2-b-required");
+  static final Kick OLD_PRIOR_APPT2_B_OPTIONAL_CONFIG =
+      oldKickFor(V3_SCHEDULER_PATH + "booking/service-appointments-prior-appt2-b-optional");
+
   // ## Scenario 1b (Territory) — old-side Kicks. resourceB is a non-required helper whose
   // ServiceTerritoryMember coverage does NOT include the booking window (membership narrowed to end at
   // noon while the window straddles noon), so only the classic engine's territory/STM-membership filter

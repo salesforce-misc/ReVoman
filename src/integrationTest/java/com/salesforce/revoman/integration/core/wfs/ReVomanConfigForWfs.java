@@ -237,6 +237,22 @@ public final class ReVomanConfigForWfs {
       kickFor(V3_WFS_PATH + "booking/schedule-double-book-non-required-violating");
   public static final Kick DOUBLE_BOOK_REQUIRED_CONFLICT_SCHEDULE_CONFIG =
       kickFor(V3_WFS_PATH + "booking/schedule-double-book-required-conflict");
+
+  // ## Prior-assignment occupancy parity (Unified side). 3-resource graph, B available, 2 accounts;
+  // appt #1 seeds B's assignment, appt #2 re-books B on an overlapping window with C as a free primary.
+  // The fixture folder holds TWO requests under ONE Kick: 05-create-resource-c-user (per-request
+  // auth override to {{adminToken}} — manager persona lacks Manage Users) then the manager-token graph.
+  public static final Kick PRIOR_ASSIGNMENT_FIXTURE_CONFIG =
+      kickFor(V3_WFS_PATH + "fixtures/prior-assignment");
+  public static final Kick PRIOR_APPT1_B_REQUIRED_CONFIG =
+      kickFor(V3_WFS_PATH + "booking/schedule-prior-appt1-b-required");
+  public static final Kick PRIOR_APPT1_B_OPTIONAL_CONFIG =
+      kickFor(V3_WFS_PATH + "booking/schedule-prior-appt1-b-optional");
+  public static final Kick PRIOR_APPT2_B_REQUIRED_CONFIG =
+      kickFor(V3_WFS_PATH + "booking/schedule-prior-appt2-b-required");
+  public static final Kick PRIOR_APPT2_B_OPTIONAL_CONFIG =
+      kickFor(V3_WFS_PATH + "booking/schedule-prior-appt2-b-optional");
+
   // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified parity reuse; visibility only.
   public static final Kick EXCLUDED_SCHEDULE_CONFIG =
       kickFor(V3_WFS_PATH + "booking/schedule-excluded-non-required-violating");
