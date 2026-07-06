@@ -1,0 +1,47 @@
+$kind: http-request
+description: >-
+  PRIOR-ASSIGNMENT appt #1 (B OPTIONAL): POST /connect/scheduling/service-appointments on account #1,
+  tomorrow 11:00-11:30 UTC, assignedResources = resourceA (required+primary) and resourceB (non-required,
+  non-primary). All available, so it books (HTTP 2xx, SA id). Seeds an OPTIONAL prior assignment for B.
+  Captures priorAppt1Http + priorAppt1SaId.
+url: "{{baseUrl}}{{versionPath}}/connect/scheduling/service-appointments"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "serviceAppointment": {
+        "serviceTerritoryId": "{{schedTerritoryId}}",
+        "parentRecordId": "{{schedAccountId}}",
+        "workTypeId": "{{schedWorkTypeId}}",
+        "schedStartTime": "{{schedBookStart}}",
+        "schedEndTime": "{{schedBookEnd}}",
+        "extendedFields": [ { "name": "Status", "value": "Scheduled" } ]
+      },
+      "assignedResources": [
+        { "serviceResourceId": "{{schedResourceAId}}", "isRequiredResource": true, "isPrimaryResource": true },
+        { "serviceResourceId": "{{schedResourceBId}}", "isRequiredResource": false, "isPrimaryResource": false }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(11, 0, 0, 0);
+      const e = new Date(s.getTime() + 30 * 60 * 1000);
+      pm.environment.set("schedBookStart", s.toISOString());
+      pm.environment.set("schedBookEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      const data = pm.response.json() || {};
+      const result = data.result || data;
+      pm.environment.set("priorAppt1Http", String(pm.response.code));
+      pm.environment.set("priorAppt1SaId", result.serviceAppointmentId || (result.serviceAppointment && result.serviceAppointment.id) || "");
+      console.log("OLD prior appt1 (B opt) http=" + pm.response.code + " body=" + JSON.stringify(data).slice(0,300));
+    language: text/javascript
+order: 1000

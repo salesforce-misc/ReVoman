@@ -1,0 +1,47 @@
+$kind: http-request
+description: >-
+  PRIOR-ASSIGNMENT appt #2 (B OPTIONAL): POST /connect/scheduling/service-appointments on account #2, SAME
+  tomorrow 11:00-11:30 UTC window, assignedResources = resourceC (required+primary) and resourceB
+  (non-required, non-primary). Because B is non-required here it is NOT occupancy-checked → this BOOKS
+  regardless of B's appt #1 assignment. Captures priorAppt2Http + priorAppt2SaId.
+url: "{{baseUrl}}{{versionPath}}/connect/scheduling/service-appointments"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "serviceAppointment": {
+        "serviceTerritoryId": "{{schedTerritoryId}}",
+        "parentRecordId": "{{schedAccountId2}}",
+        "workTypeId": "{{schedWorkTypeId}}",
+        "schedStartTime": "{{schedBookStart}}",
+        "schedEndTime": "{{schedBookEnd}}",
+        "extendedFields": [ { "name": "Status", "value": "Scheduled" } ]
+      },
+      "assignedResources": [
+        { "serviceResourceId": "{{schedResourceCId}}", "isRequiredResource": true, "isPrimaryResource": true },
+        { "serviceResourceId": "{{schedResourceBId}}", "isRequiredResource": false, "isPrimaryResource": false }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(11, 0, 0, 0);
+      const e = new Date(s.getTime() + 30 * 60 * 1000);
+      pm.environment.set("schedBookStart", s.toISOString());
+      pm.environment.set("schedBookEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      const data = pm.response.json() || {};
+      const result = data.result || data;
+      pm.environment.set("priorAppt2Http", String(pm.response.code));
+      pm.environment.set("priorAppt2SaId", result.serviceAppointmentId || (result.serviceAppointment && result.serviceAppointment.id) || "");
+      console.log("OLD prior appt2 (B opt) http=" + pm.response.code + " body=" + JSON.stringify(data).slice(0,300));
+    language: text/javascript
+order: 1000
