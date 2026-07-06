@@ -1,0 +1,9 @@
+$kind: collection
+description: |-
+  OLD Metadata-API flip: disable OrgPreferences.Overbooking (enableOverbookingOrgPref=false) to revert to default OFF so sibling OLD scenarios keep default-OFF behavior.
+auth:
+  - id: 9b3f2e22-3207-5ccc-9ddd-222222222062
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{adminToken}}"

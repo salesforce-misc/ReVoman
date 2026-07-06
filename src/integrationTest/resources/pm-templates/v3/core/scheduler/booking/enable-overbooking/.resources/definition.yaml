@@ -1,0 +1,9 @@
+$kind: collection
+description: |-
+  OLD Metadata-API flip: enable OrgPreferences.Overbooking (enableOverbookingOrgPref=true) so the OLD booking API allows double-booking an occupied resource. Reads live, no restart.
+auth:
+  - id: 8a2f1d11-2106-4bbb-8ccc-111111111051
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{adminToken}}"

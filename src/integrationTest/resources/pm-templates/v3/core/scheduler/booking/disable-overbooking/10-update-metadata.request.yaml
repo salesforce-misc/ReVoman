@@ -1,0 +1,43 @@
+$kind: http-request
+description: >-
+  OLD Overbooking flip OFF via Metadata API updateMetadata(IndustriesSettings). enableOverbookingOrgPref=false
+  reverts to default OFF so sibling OLD scenarios maintain default overbooking-disabled behavior.
+url: "{{baseUrl}}/services/Soap/m/{{version}}"
+method: POST
+headers:
+  Content-Type: text/xml
+  SOAPAction: updateMetadata
+  charset: UTF-8
+  Accept: text/xml
+body:
+  type: text
+  content: |-
+    <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+        xmlns:met="http://soap.sforce.com/2006/04/metadata">
+      <soapenv:Header><met:SessionHeader><met:sessionId>{{adminToken}}</met:sessionId></met:SessionHeader></soapenv:Header>
+      <soapenv:Body>
+        <met:updateMetadata>
+          <met:metadata xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="met:IndustriesSettings">
+            <met:fullName>IndustriesSettings</met:fullName>
+            <met:enableOverbookingOrgPref>false</met:enableOverbookingOrgPref>
+          </met:metadata>
+        </met:updateMetadata>
+      </soapenv:Body>
+    </soapenv:Envelope>
+scripts:
+  - type: afterResponse
+    code: |-
+      var xml2js = require('xml2js');
+      xml2js.parseString(pm.response.text(), { explicitArray: false }, (_, j) => {
+        try {
+          const r = j['soapenv:Envelope']['soapenv:Body'].updateMetadataResponse.result;
+          pm.environment.set("overbookingFlipSuccess", String(r.success));
+        } catch (e) { pm.environment.set("overbookingFlipSuccess", "false"); }
+      });
+      console.log("OVERBOOKING disable http=" + pm.response.code + " ok=" + pm.environment.get("overbookingFlipSuccess") + " body=" + pm.response.text().slice(0,400));
+    language: text/javascript
+settings:
+  disabledSystemHeaders:
+    - accept
+    - content-type
+order: 1000
