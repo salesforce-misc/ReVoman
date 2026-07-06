@@ -1,0 +1,52 @@
+$kind: http-request
+description: >-
+  Unified PRIOR-ASSIGNMENT appt #1 (B OPTIONAL): POST /connect/unified-scheduling/actions/schedule on
+  account #1, tomorrow 11:00-11:30 UTC, assignedResources = resourceA (primary+required) and resourceB
+  (non-required, non-primary). All available → schedulingStatus Success. Seeds an OPTIONAL prior
+  assignment for B. Captures priorAppt1SchedulingStatus.
+url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/schedule"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "appointments": [
+        {
+          "schedulingMethod": "OnSite",
+          "schedulingPolicyId": "{{availabilityOpHoursPolicyId}}",
+          "coreDetails": {
+            "startTime": "{{priorApptStart}}",
+            "endTime": "{{priorApptEnd}}",
+            "status": "Scheduled",
+            "subject": "Prior-assignment appt #1 (B optional)",
+            "workConfiguration": { "workTypeId": "{{priorWorkTypeId}}" },
+            "locationConstraints": { "id": "{{priorTerritoryId}}" }
+          },
+          "serviceAppointmentParent": { "id": "{{priorAccountId}}" },
+          "assignedResources": [
+            { "isPrimaryResource": true,  "isRequiredResource": true,  "serviceResourceId": "{{priorResourceAId}}" },
+            { "isPrimaryResource": false, "isRequiredResource": false, "serviceResourceId": "{{priorResourceBId}}" }
+          ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      const start = new Date(); start.setUTCDate(start.getUTCDate() + 1); start.setUTCHours(11, 0, 0, 0);
+      const end = new Date(start.getTime() + 30 * 60 * 1000);
+      pm.environment.set("priorApptStart", start.toISOString());
+      pm.environment.set("priorApptEnd", end.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      const appointments = (pm.response.json() || {}).appointments || [];
+      pm.environment.set("priorAppt1SchedulingStatus", appointments.length ? appointments[0].schedulingStatus : null);
+      console.log("WFS prior appt1 (B opt) status=" + (appointments.length ? appointments[0].schedulingStatus : "none"));
+    language: text/javascript
+order: 1000
