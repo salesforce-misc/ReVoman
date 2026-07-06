@@ -409,7 +409,21 @@ scripts:
 order: 1000
 ```
 
-- [ ] **Step 5: Verify compile still clean**
+- [ ] **Step 5: Add the `.resources/definition.yaml` collection marker to EACH of the four dirs.** REQUIRED — without it ReVoman cannot load the folder and throws `FileNotFoundException: <dir> (Is a directory)` at revUp time (the `10-book.request.yaml` alone is not a loadable V3 collection). Every working booking dir has this marker; it also carries the folder's auth token. Old-side booking runs under `{{adminToken}}`. Create `.resources/definition.yaml` in all four appt dirs with (vary only the `id` UUID and the description per dir):
+
+```yaml
+$kind: collection
+description: |-
+  OLD Scheduler prior-assignment booking (see the request file). Runs under {{adminToken}}.
+auth:
+  - id: 7e1f0c00-1005-4aaa-9bbb-000000000041
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{adminToken}}"
+```
+
+- [ ] **Step 5b: Verify compile still clean**
 
 Run: `gradle compileIntegrationTestJava`
 Expected: `BUILD SUCCESSFUL`.
@@ -811,7 +825,21 @@ scripts:
 order: 1000
 ```
 
-- [ ] **Step 5: Verify compile clean**
+- [ ] **Step 5: Add the `.resources/definition.yaml` collection marker to EACH of the four dirs.** REQUIRED — without it ReVoman throws `FileNotFoundException: <dir> (Is a directory)` at revUp (the `10-schedule.request.yaml` alone is not a loadable V3 collection). WFS booking acts run under `{{managerToken}}`. Create `.resources/definition.yaml` in all four dirs (vary only the `id` UUID and the description):
+
+```yaml
+$kind: collection
+description: |-
+  Unified prior-assignment schedule (see the request file). Runs under {{managerToken}}.
+auth:
+  - id: 9c3d4e5f-6071-4283-9a9c-4d5e6f708341
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"
+```
+
+- [ ] **Step 5b: Verify compile clean**
 
 Run: `gradle compileIntegrationTestJava`
 Expected: `BUILD SUCCESSFUL`.

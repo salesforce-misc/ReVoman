@@ -1,0 +1,9 @@
+$kind: collection
+description: |-
+  Unified prior-assignment schedule (schedule-prior-appt2-b-optional — see the request file). Runs under {{managerToken}}.
+auth:
+  - id: 9c3d4e5f-6071-4283-9a9c-4d5e6f708344
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"
