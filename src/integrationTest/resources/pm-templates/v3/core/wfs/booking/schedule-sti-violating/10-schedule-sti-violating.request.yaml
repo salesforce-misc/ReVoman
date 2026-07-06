@@ -1,0 +1,64 @@
+$kind: http-request
+description: >-
+  Schedule the STI fixture's required+primary resource into tomorrow 11:30-12:30 UTC — OFF the policy's
+  60-min interval boundary, the same window the read pruned — under the
+  Availability+WorkingTerritories+AppointmentStartTimeInterval policy. The write re-runs the SAME
+  start-time-interval stepping (loadSchedulableSlots shared by read and write), so the booking is REJECTED
+  (schedulingStatus != Success). The pruned candidate yields a generic INVALID_INPUT "not available for
+  the requested slot" (status often null), so the assertion is status != Success; the dual-shape errorCode
+  is captured for diagnostics. Runs before the control write so this rejected attempt cannot affect
+  availability.
+url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/schedule"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "appointments": [
+        {
+          "schedulingMethod": "OnSite",
+          "schedulingPolicyId": "{{startTimeIntervalPolicyId}}",
+          "coreDetails": {
+            "startTime": "{{stiViolatingStart}}",
+            "endTime": "{{stiViolatingEnd}}",
+            "status": "Scheduled",
+            "subject": "Rules parity STI violating write",
+            "workConfiguration": { "workTypeId": "{{stiWorkTypeId}}" },
+            "locationConstraints": { "id": "{{stiTerritoryId}}" }
+          },
+          "serviceAppointmentParent": { "id": "{{stiAccountId}}" },
+          "assignedResources": [ { "isPrimaryResource": true, "isRequiredResource": true, "serviceResourceId": "{{stiResourceId}}" } ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      // Same tomorrow 11:30-12:30 UTC window as the violating read; OFF the 60-min interval boundary, so
+      // the interval stepping leaves no surviving hour-aligned slot inside the window → rejected.
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(11, 30, 0, 0);
+      const e = new Date(s.getTime() + 60 * 60 * 1000);
+      pm.environment.set("stiViolatingStart", s.toISOString());
+      pm.environment.set("stiViolatingEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      // Dual-shape verdict capture: schedulingStatus from appointments[0]; errorCode from either the
+      // top-level ScheduleError array shape OR appointments[0].errors[0].
+      pm.environment.set("stiWriteViolatingHttpCode", String(pm.response.code));
+      const data = pm.response.json();
+      const appts = (data && data.appointments) || [];
+      pm.environment.set("stiWriteViolatingStatus", appts.length ? appts[0].schedulingStatus : null);
+      let ec = null, msg = null;
+      if (Array.isArray(data) && data.length) { ec = data[0].errorCode; msg = data[0].message; }
+      else if (appts.length && appts[0].errors && appts[0].errors[0]) { ec = appts[0].errors[0].errorCode; msg = appts[0].errors[0].message; }
+      pm.environment.set("stiWriteViolatingErrorCode", ec);
+      pm.environment.set("stiWriteViolatingErrorMessage", msg);
+      console.log("RULESPARITY sti write-violating http=" + pm.response.code + " status=" + pm.environment.get("stiWriteViolatingStatus") + " ec=" + ec + " msg=" + msg);
+    language: text/javascript
+order: 1200

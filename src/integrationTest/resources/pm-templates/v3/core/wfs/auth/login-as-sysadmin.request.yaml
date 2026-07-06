@@ -1,0 +1,53 @@
+$kind: http-request
+description: >-
+  SOAP login-as-sysadmin: mints the workspace org admin session and seeds it as adminToken / accessToken
+  ONLY — used for admin-only setup that the manager persona cannot do (create Users / set ProfileId,
+  create the setup-object Skill). It DOES NOT seed managerToken: the manager is a REAL persona minted
+  downstream (create-manager → set-manager-password → login-as-manager → its OWN SOAP session), so the
+  API-under-test calls (schedule / GetAvailableResources) run as a least-privilege WorkforceScheduling
+  manager, not admin (matching the Decision-9 personas). Modeled on the sibling persona-creation-and-setup
+  "Login as SysAdmin" V3 step. Runs FIRST (order 500) so every downstream composite/graph resolves a live
+  {{adminToken}} and the manager-login step can set {{managerToken}} from the persona it creates.
+url: "{{baseUrl}}/services/Soap/u/64.0"
+method: POST
+headers:
+  Content-Type: text/xml
+  SOAPAction: login
+  charset: UTF-8
+  Accept: text/xml
+body:
+  type: text
+  content: |-
+    <?xml version="1.0" encoding="utf-8" ?>
+    <env:Envelope xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns:env="http://schemas.xmlsoap.org/soap/envelope/">
+      <env:Body>
+        <n1:login xmlns:n1="urn:partner.soap.sforce.com">
+          <n1:username><![CDATA[{{username}}]]></n1:username>
+          <n1:password><![CDATA[{{password}}]]></n1:password>
+        </n1:login>
+      </env:Body>
+    </env:Envelope>
+scripts:
+  - type: afterResponse
+    code: |-
+      var xml2js = require('xml2js')
+      xml2js.parseString(pm.response.text(), { explicitArray: false }, (_, jsonResponse) => {
+        let result = jsonResponse['soapenv:Envelope']['soapenv:Body'].loginResponse.result
+        pm.environment.set("accessToken", result.sessionId)
+        pm.environment.set("adminToken", result.sessionId)
+        // NOTE: managerToken is intentionally NOT set here — it is minted as a real persona session by
+        // login-as-manager (order 18000). Clear any stale value so a broken manager-login fails loud
+        // (a 401/empty bearer) instead of silently falling back to the admin session.
+        pm.environment.unset("managerToken")
+        pm.environment.set("adminUserId", result.userId)
+        pm.environment.set("orgId", result.userInfo.organizationId)
+      })
+    language: text/javascript
+settings:
+  disabledSystemHeaders:
+    - accept
+    - content-type
+    - user-agent
+order: 500

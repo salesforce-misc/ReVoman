@@ -1,0 +1,13 @@
+$kind: collection
+description: |-
+  Decision 4z Arm A — reschedules the SA created above, DeleteOperation on the primary resourceA WITH
+  isPrimaryResource:true on the delete entry. This is the ONLY shape that produces the doc's quoted error:
+  RescheduleCommonValidator.validateDeleteOperationFields rejects isPrimaryResource on a Delete entry
+  (INVALID_INPUT, "isPrimaryResource cannot be set for Delete" / InvalidPropertyForDelete). It is a
+  PAYLOAD-FIELD rule (the flag is present on a delete), NOT a "the delete leaves no primary" rule.
+auth:
+  - id: 1a2b3c4d-004f-4aaa-9bbb-00000000004b
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"

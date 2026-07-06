@@ -1,0 +1,19 @@
+$kind: collection
+description: >-
+  Rules parity (RequiredResources) READ control — GetAppointmentSlots over the SAME required-non-required
+  fixture and RequiredResources policy as the violating read act, IDENTICAL in every way EXCEPT ONE field:
+  resourceB (the sole resource on the Account's ResourcePreference(Required) list) is flagged
+  isRequiredResource=true here instead of false. With resourceB now in the REQUIRED assigned set, the
+  RequiredResources demand is satisfied, so the read does NOT hit the serviceTerritoryMembers NPE the
+  violating read (non-required helper) triggers — it returns cleanly (HTTP 201, errorCode null). LIVE-OBSERVED
+  on 262: this satisfied-demand read returns 0 slots (HTTP 201, no error) — clean, NOT a crash. That proves
+  the violating read's HTTP 500 crash is CONDITIONAL on the non-required-helper input, not a blanket fixture
+  failure. Captures requiredReadControlSlotCount + requiredReadControlHttpCode/ErrorCode. (Separate open
+  observation for the decision log: why a satisfied-demand RequiredResources read yields 0 slots.) See
+  WfsWritePathParityE2ETest.testNonRequiredHelperCannotSatisfyRequiredDemandE2E.
+auth:
+  - id: 7a6b5c00-0002-4aaa-9bbb-000000000002
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"

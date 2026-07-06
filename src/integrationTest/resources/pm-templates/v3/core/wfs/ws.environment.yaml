@@ -10,8 +10,6 @@ values:
     value: ''
   - key: accessToken
     value: ''
-  - key: managerToken
-    value: ''
   - key: secretToken
     value: ''
   - key: adminUsername

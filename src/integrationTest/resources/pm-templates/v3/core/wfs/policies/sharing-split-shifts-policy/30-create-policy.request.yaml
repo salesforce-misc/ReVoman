@@ -1,0 +1,15 @@
+$kind: http-request
+description: Decision 9 — the SchedulingPolicy (tooling sobject). Created by the manager persona (WorkforceSchedulingManager permset confers manage access).
+url: "{{baseUrl}}{{versionPath}}/tooling/sobjects/SchedulingPolicy"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    { "MasterLabel": "D9 Shifts Policy", "DeveloperName": "D9_Shifts_Policy_{{$timestamp}}", "SchedulingCategory": "A" }
+scripts:
+  - type: afterResponse
+    code: pm.environment.set("dec9PolicyId", pm.response.json().id);
+    language: text/javascript
+order: 30000

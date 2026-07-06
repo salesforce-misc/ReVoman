@@ -1,0 +1,25 @@
+$kind: http-request
+description: >-
+  IsPrimaryLocationEnabled=true on the WorkingTerritories rule — flips shouldIncludePrimaryResources()
+  so slot-gen admits the fixture's Primary ServiceTerritoryMember (TerritoryType=P). Without it the
+  Primary STM is filtered out and slot-gen yields ZERO slots (both violating AND control), masking the
+  interval rule. REQUIRED for slot-gen alongside Availability.
+url: "{{baseUrl}}{{versionPath}}/sobjects/SchedulingRuleParameter"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+body:
+  type: json
+  content: |-
+    {
+      "SchedulingRuleId": "{{startTimeIntervalWorkingTerritoriesRuleId}}",
+      "SchedulingParameterKey": "IsPrimaryLocationEnabled",
+      "Value": "true"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.environment.set("startTimeIntervalWorkingTerritoriesPrimaryParamId", pm.response.json().id);
+    language: text/javascript
+order: 25000

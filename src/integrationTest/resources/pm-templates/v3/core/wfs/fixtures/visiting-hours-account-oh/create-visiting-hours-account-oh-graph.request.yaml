@@ -1,0 +1,246 @@
+$kind: http-request
+description: >-
+  Builds the per-slot VisitingHours data graph in one composite/graph call. Resource is available all
+  day (member OH 08-16 == territory OH 08-16) so Availability(ConsiderOnlyOpHours) keeps every 08-16
+  slot; the Account is linked to a NARROW visiting-hours OperatingHours (10-14) so the
+  ServiceAppointmentVisitingHours rule must prune the carved slots outside 10-14. Sets
+  visitingHoursTerritoryId / visitingHoursResourceId / visitingHoursAccountId / visitingHoursWorkTypeId.
+url: "{{baseUrl}}{{versionPath}}/composite/graph"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "graphs": [
+        {
+          "graphId": "visitingHoursAccountOh",
+          "compositeRequest": [
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/OperatingHours",
+              "referenceId": "refTerritoryOh",
+              "body": { "Name": "VH Territory OH {{$timestamp}}", "TimeZone": "GMT" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/OperatingHours",
+              "referenceId": "refMemberOh",
+              "body": { "Name": "VH Member OH {{$timestamp}}", "TimeZone": "GMT" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/OperatingHours",
+              "referenceId": "refAccountOh",
+              "body": { "Name": "VH Account VisitingHours OH {{$timestamp}}", "TimeZone": "GMT" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refTerritoryTsMon",
+              "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Monday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refTerritoryTsTue",
+              "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Tuesday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refTerritoryTsWed",
+              "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Wednesday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refTerritoryTsThu",
+              "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Thursday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refTerritoryTsFri",
+              "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Friday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refTerritoryTsSat",
+              "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Saturday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refTerritoryTsSun",
+              "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Sunday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberTsMon",
+              "body": { "OperatingHoursId": "@{refMemberOh.id}", "DayOfWeek": "Monday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberTsTue",
+              "body": { "OperatingHoursId": "@{refMemberOh.id}", "DayOfWeek": "Tuesday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberTsWed",
+              "body": { "OperatingHoursId": "@{refMemberOh.id}", "DayOfWeek": "Wednesday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberTsThu",
+              "body": { "OperatingHoursId": "@{refMemberOh.id}", "DayOfWeek": "Thursday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberTsFri",
+              "body": { "OperatingHoursId": "@{refMemberOh.id}", "DayOfWeek": "Friday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberTsSat",
+              "body": { "OperatingHoursId": "@{refMemberOh.id}", "DayOfWeek": "Saturday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberTsSun",
+              "body": { "OperatingHoursId": "@{refMemberOh.id}", "DayOfWeek": "Sunday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refAccountTsMon",
+              "body": { "OperatingHoursId": "@{refAccountOh.id}", "DayOfWeek": "Monday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "10:00:00.000Z", "EndTime": "14:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refAccountTsTue",
+              "body": { "OperatingHoursId": "@{refAccountOh.id}", "DayOfWeek": "Tuesday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "10:00:00.000Z", "EndTime": "14:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refAccountTsWed",
+              "body": { "OperatingHoursId": "@{refAccountOh.id}", "DayOfWeek": "Wednesday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "10:00:00.000Z", "EndTime": "14:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refAccountTsThu",
+              "body": { "OperatingHoursId": "@{refAccountOh.id}", "DayOfWeek": "Thursday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "10:00:00.000Z", "EndTime": "14:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refAccountTsFri",
+              "body": { "OperatingHoursId": "@{refAccountOh.id}", "DayOfWeek": "Friday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "10:00:00.000Z", "EndTime": "14:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refAccountTsSat",
+              "body": { "OperatingHoursId": "@{refAccountOh.id}", "DayOfWeek": "Saturday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "10:00:00.000Z", "EndTime": "14:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refAccountTsSun",
+              "body": { "OperatingHoursId": "@{refAccountOh.id}", "DayOfWeek": "Sunday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "10:00:00.000Z", "EndTime": "14:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceTerritory",
+              "referenceId": "refTerritory",
+              "body": { "Name": "VH Territory {{$timestamp}}", "OperatingHoursId": "@{refTerritoryOh.id}", "IsActive": true }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/WorkType",
+              "referenceId": "refWorkType",
+              "body": { "Name": "VH WorkType {{$timestamp}}", "DurationType": "Minutes", "EstimatedDuration": 60 }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceTerritoryWorkType",
+              "referenceId": "refStwt",
+              "body": { "ServiceTerritoryId": "@{refTerritory.id}", "WorkTypeId": "@{refWorkType.id}" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceResource",
+              "referenceId": "refResource",
+              "body": { "Name": "VH Resource {{$timestamp}}", "RelatedRecordId": "{{caseWorkerUserId}}", "ResourceType": "T", "IsActive": true, "IsPrimary": true }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceTerritoryMember",
+              "referenceId": "refStm",
+              "body": { "ServiceTerritoryId": "@{refTerritory.id}", "ServiceResourceId": "@{refResource.id}", "TerritoryType": "P", "OperatingHoursId": "@{refMemberOh.id}", "EffectiveStartDate": "{{visitingHoursStmEffectiveStart}}" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/Shift",
+              "referenceId": "refShift",
+              "body": { "ServiceResourceId": "@{refResource.id}", "ServiceTerritoryId": "@{refTerritory.id}", "StartTime": "{{visitingHoursShiftStart}}", "EndTime": "{{visitingHoursShiftEnd}}", "TimeSlotType": "Normal", "SchedulingMethod": "OnSite", "Status": "Confirmed" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/Account",
+              "referenceId": "refAccount",
+              "body": { "Name": "VH Account {{$timestamp}}" }
+            }
+          ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      // STM effective from a month ago.
+      const monthAgo = new Date();
+      monthAgo.setUTCMonth(monthAgo.getUTCMonth() - 1);
+      pm.environment.set("visitingHoursStmEffectiveStart", monthAgo.toISOString());
+      // Confirmed Shift covering tomorrow 08:00-16:00 UTC. Since W-22901809 slot generation
+      // unconditionally requires a Shift (the OperatingHours-only ShiftUsage gate is gone), so the
+      // resource needs a Shift spanning the whole 08-16 search window for any slot to generate; the
+      // Account visiting hours (10-14) are what PerSlotRuleFilter then prunes the slots down to.
+      const shiftStart = new Date();
+      shiftStart.setUTCDate(shiftStart.getUTCDate() + 1);
+      shiftStart.setUTCHours(8, 0, 0, 0);
+      const shiftEnd = new Date(shiftStart.getTime());
+      shiftEnd.setUTCHours(16, 0, 0, 0);
+      pm.environment.set("visitingHoursShiftStart", shiftStart.toISOString());
+      pm.environment.set("visitingHoursShiftEnd", shiftEnd.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      const jsonData = pm.response.json();
+      const responses = jsonData.graphs[0].graphResponse.compositeResponse;
+      responses.forEach((r) => {
+        if (r.httpStatusCode < 200 || r.httpStatusCode >= 300) {
+          throw new Error("Composite step " + r.referenceId + " failed: " + JSON.stringify(r.body));
+        }
+      });
+      const byRef = {};
+      responses.forEach(r => { byRef[r.referenceId] = r.body && r.body.id; });
+      pm.environment.set("visitingHoursTerritoryId", byRef["refTerritory"]);
+      pm.environment.set("visitingHoursResourceId", byRef["refResource"]);
+      pm.environment.set("visitingHoursAccountId", byRef["refAccount"]);
+      pm.environment.set("visitingHoursWorkTypeId", byRef["refWorkType"]);
+      pm.environment.set("visitingHoursAccountOhId", byRef["refAccountOh"]);
+    language: text/javascript
+order: 500

@@ -1,0 +1,17 @@
+$kind: collection
+description: |-
+  Decision-9 PROBE (the sharing-gated read under test). Calls GetSlots (get-appointment-slots, read-only)
+  for tomorrow 10:00-14:00 on the Decision-9 fixture + policy ({{dec9PolicyId}}), as the CASE-WORKER persona
+  ({{dec9CaseWorkerToken}}) which has NO sharing on the manager-owned Private Shift rows. Because the
+  Availability rule is ShiftUsage=ConsiderOnlyShifts, availability comes purely from those Shifts; the
+  case-worker's user-mode (SystemMode.NONE) shift read returns an empty shift list → empty availability →
+  ZERO slots, HTTP 200, NO error (the silent sharing-gate this decision records). Sibling reads
+  (resource/STM via SFDC_FULL) still see the resource, so it is admitted but contributes no slots. Paired
+  with the as-manager control (sees its own shift → slots). Stashes dec9CaseWorkerSlotCount; assertions live
+  in the Java test.
+auth:
+  - id: e5050505-0000-4000-8000-000000000005
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{dec9CaseWorkerToken}}"

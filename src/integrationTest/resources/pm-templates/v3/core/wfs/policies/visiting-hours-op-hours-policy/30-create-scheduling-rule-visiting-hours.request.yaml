@@ -1,0 +1,25 @@
+$kind: http-request
+description: >-
+  ServiceAppointmentVisitingHours rule (category A). This is the per-slot pruner: it reads the parent
+  Account's OperatingHours (visiting hours) and rejects any committed slot not fully contained in
+  them. On a search range it no-ops (committed window empty); per carved slot it fires.
+url: "{{baseUrl}}{{versionPath}}/sobjects/SchedulingRule"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+body:
+  type: json
+  content: |-
+    {
+      "MasterLabel": "VisitingHours Rule Test",
+      "DeveloperName": "VisitingHours_Rule_Test_{{$timestamp}}",
+      "SchedulingRuleType": "ServiceAppointmentVisitingHours",
+      "SchedulingCategory": "A"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.environment.set("visitingHoursRuleId", pm.response.json().id);
+    language: text/javascript
+order: 30000

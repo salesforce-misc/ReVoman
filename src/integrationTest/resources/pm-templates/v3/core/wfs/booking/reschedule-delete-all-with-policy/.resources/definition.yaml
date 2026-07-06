@@ -1,0 +1,22 @@
+$kind: collection
+description: |-
+  Decision 4z delete-ALL WITH an explicit schedulingPolicyId — the reconciling twin of
+  reschedule-delete-all. Identical delete-BOTH-resources body (DeleteOperation on resourceA + resourceB, no
+  isPrimaryResource flag, NO startTime/endTime), differing in ONE field: it passes
+  schedulingPolicyId={{availabilityOpHoursPolicyId}} (a 2-rule policy: Availability + WorkingTerritories, with
+  NO RequiredResources rule). The sibling reschedule-delete-all omits the policy, so slot-gen falls back to the
+  org's DEFAULT OnSite policy (SlotAvailabilityChecker.buildGetSlotsRequest passes the request policyId
+  straight through; InBusinessGetSlotsHandler.getSchedulingPolicyConfiguration resolves a null policyId via
+  getDefaultOnSiteSchedulingPolicy = DefaultOnSiteSchdPlcy). That default is a 7-rule policy that INCLUDES a
+  RequiredResources rule; the required-non-required fixture attaches a ResourcePreference(Required)=resourceB
+  to the account, so an EMPTY crew fails RequiredResources → zero slots → SlotNotAvailable. (ShiftUsage is NOT
+  the difference — both policies' Availability rule carry the identical ShiftUsage=ConsiderOpHoursAndShiftsUnion,
+  confirmed by tooling query.) Supplying the good 2-rule policy makes the empty-crew delete-all SUCCEED on 262,
+  matching the Core func test testRescheduleAppointmentDeleteAllAssignedResources. Runs under managerToken;
+  ledger-off.
+auth:
+  - id: 1a2b3c4d-004f-4aaa-9bbb-00000000004f
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"

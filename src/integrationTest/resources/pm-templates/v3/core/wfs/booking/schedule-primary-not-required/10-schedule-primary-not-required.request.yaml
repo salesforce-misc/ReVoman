@@ -1,0 +1,71 @@
+$kind: http-request
+description: >-
+  Single resourceA, isPrimaryResource=true, isRequiredResource=false, into a FREE window tomorrow
+  11:00-12:00 UTC (60m == WorkType EstimatedDuration, inside member OH 08-16 + Shift). Availability
+  passes (free) → the PERSIST-layer reject surfaces. Capture the verdict in both shapes without
+  prejudging which (top-level array vs appointments[0].errors[0]); the live run pins the shape.
+url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/schedule"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "appointments": [
+        {
+          "schedulingMethod": "OnSite",
+          "schedulingPolicyId": "{{availabilityOpHoursPolicyId}}",
+          "coreDetails": {
+            "startTime": "{{primaryNotReqStart}}",
+            "endTime": "{{primaryNotReqEnd}}",
+            "status": "Scheduled",
+            "subject": "Decision 5 primary-not-required probe",
+            "workConfiguration": {
+              "workTypeId": "{{requiredNonReqWorkTypeId}}"
+            },
+            "locationConstraints": {
+              "id": "{{requiredNonReqTerritoryId}}"
+            }
+          },
+          "serviceAppointmentParent": {
+            "id": "{{requiredNonReqAccountId}}"
+          },
+          "assignedResources": [
+            {
+              "isPrimaryResource": true,
+              "isRequiredResource": false,
+              "serviceResourceId": "{{requiredNonReqResourceAId}}"
+            }
+          ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      const start = new Date();
+      start.setUTCDate(start.getUTCDate() + 1);
+      start.setUTCHours(11, 0, 0, 0);
+      const end = new Date(start.getTime() + 60 * 60 * 1000);
+      pm.environment.set("primaryNotReqStart", start.toISOString());
+      pm.environment.set("primaryNotReqEnd", end.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      pm.environment.set("primaryNotReqHttpCode", String(pm.response.code));
+      const data = pm.response.json();
+      const arr = Array.isArray(data) ? data : null;
+      const appts = (data && data.appointments) || [];
+      pm.environment.set("primaryNotReqStatus", appts.length ? appts[0].schedulingStatus : null);
+      let ec = null, msg = null;
+      if (arr && arr.length) { ec = arr[0].errorCode; msg = arr[0].message; }
+      else if (appts.length && appts[0].errors && appts[0].errors[0]) { ec = appts[0].errors[0].errorCode; msg = appts[0].errors[0].message; }
+      pm.environment.set("primaryNotReqErrorCode", ec);
+      pm.environment.set("primaryNotReqErrorMessage", msg);
+      console.log("DEC5 probe http=" + pm.response.code + " status=" + pm.environment.get("primaryNotReqStatus") + " ec=" + ec + " msg=" + msg);
+    language: text/javascript
+order: 1000

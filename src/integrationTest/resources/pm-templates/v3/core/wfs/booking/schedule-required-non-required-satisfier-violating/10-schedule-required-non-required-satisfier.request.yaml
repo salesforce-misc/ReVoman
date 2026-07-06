@@ -1,0 +1,89 @@
+$kind: http-request
+description: >-
+  Schedules a brand-new InBusiness SA into tomorrow 11:00-11:30 UTC with TWO assigned resources under the
+  Availability(default ShiftUsage) + WorkingTerritories(IsPrimaryLocationEnabled=true) + RequiredResources
+  policy. resourceA (isRequiredResource=true, isPrimaryResource=true) is clean but NOT on the Account's
+  required list. resourceB (isRequiredResource=false, isPrimaryResource=false) IS the sole resource on the
+  Account's required list, but is assigned as NON-required. The window is inside member OH 08-16 and the
+  Confirmed Shift, so Availability/WorkingTerritories are not the blocker. The RequiredResources
+  satisfaction rule evaluates over the REQUIRED resources only ({resourceA}); since resourceA is not on
+  the required list and the non-required resourceB must NOT count (D1.4), the rule fires. Runs as the
+  manager persona. Observed on live 262: instead of the doc-predicted clean ScheduleError
+  errorCode=RequiredResources, this CRASHES with errorCode=INTERNAL_SERVER_ERROR — a server NPE ("Cannot
+  invoke ArrayListMultimap.values() because this.serviceTerritoryMembers is null"), a 262 crash bug the
+  test characterizes verbatim. The Java assertion + javadoc encode the observed 262 NPE.
+url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/schedule"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  # Act-step under assertion: its response IS the test's verdict, so it must always dispatch fresh.
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "appointments": [
+        {
+          "schedulingMethod": "OnSite",
+          "schedulingPolicyId": "{{requiredResourcesPolicyId}}",
+          "coreDetails": {
+            "startTime": "{{requiredNonReqBookingStart}}",
+            "endTime": "{{requiredNonReqBookingEnd}}",
+            "status": "Scheduled",
+            "subject": "Non-required satisfier RequiredResources probe",
+            "workConfiguration": {
+              "workTypeId": "{{requiredNonReqWorkTypeId}}"
+            },
+            "locationConstraints": {
+              "id": "{{requiredNonReqTerritoryId}}"
+            }
+          },
+          "serviceAppointmentParent": {
+            "id": "{{requiredNonReqAccountId}}"
+          },
+          "assignedResources": [
+            {
+              "isPrimaryResource": true,
+              "isRequiredResource": true,
+              "serviceResourceId": "{{requiredNonReqResourceAId}}"
+            },
+            {
+              "isPrimaryResource": false,
+              "isRequiredResource": false,
+              "serviceResourceId": "{{requiredNonReqResourceBId}}"
+            }
+          ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      // Tomorrow 11:00-11:30 UTC: inside member OH (08-16) AND the Confirmed Shift (08-16), so
+      // Availability + WorkingTerritories pass for the REQUIRED resourceA. The only rule that can fire is
+      // RequiredResources — resourceA is not on the Account's required list and the non-required resourceB
+      // on the list must NOT satisfy it (D1.4).
+      const start = new Date();
+      start.setUTCDate(start.getUTCDate() + 1);
+      start.setUTCHours(11, 0, 0, 0);
+      const end = new Date(start.getTime() + 60 * 60 * 1000);
+      pm.environment.set("requiredNonReqBookingStart", start.toISOString());
+      pm.environment.set("requiredNonReqBookingEnd", end.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      // Capture the live 262 verdict shape without prejudging it. On 262 the violating act crashes with
+      // a top-level-array error [{errorCode,message}]; capture both that and the appointments-shape.
+      const data = pm.response.json();
+      const arr = Array.isArray(data) ? data : null;
+      const appts = (data && data.appointments) || [];
+      pm.environment.set("requiredNonReqSatisfierStatus", appts.length ? appts[0].schedulingStatus : null);
+      let ec = null, msg = null;
+      if (arr && arr.length) { ec = arr[0].errorCode; msg = arr[0].message; }
+      else if (appts.length && appts[0].errors && appts[0].errors[0]) { ec = appts[0].errors[0].errorCode; msg = appts[0].errors[0].message; }
+      pm.environment.set("requiredNonReqSatisfierErrorCode", ec);
+      pm.environment.set("requiredNonReqSatisfierErrorMessage", msg);
+    language: text/javascript
+order: 1000

@@ -14,6 +14,13 @@
     </Console>
   </Appenders>
   <Loggers>
+    <!-- Verbose ReVoman execution trace (step-by-step request/response/env). Override at runtime with
+         -Dlog.revoman.level=INFO to quieten. Noisy transports stay at WARN so the ReVoman trace is readable. -->
+    <Logger name="com.salesforce.revoman" level="${sys:log.revoman.level:-DEBUG}" additivity="false">
+      <AppenderRef ref="Console"/>
+    </Logger>
+    <Logger name="okhttp3" level="WARN"/>
+    <Logger name="org.graalvm" level="WARN"/>
     <Root level="INFO">
       <AppenderRef ref="Console"/>
     </Root>

@@ -1,0 +1,50 @@
+$kind: http-request
+description: >-
+  Decision 9 PROBE — GetSlots as the CASE-WORKER persona, which has NO sharing on the manager-owned Private
+  Shift rows. The user-mode (SystemMode.NONE) shift read returns an empty shift list → empty availability →
+  ZERO slots, HTTP 200, NO error (the silent sharing-gate this decision records). Sibling reads
+  (resource/STM via SFDC_FULL) still see the resource, so it is admitted but contributes no slots.
+url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/get-appointment-slots"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "appointments": [
+        {
+          "schedulingMethod": "OnSite",
+          "schedulingPolicyId": "{{dec9PolicyId}}",
+          "coreDetails": {
+            "startTime": "{{dec9SlotsWindowStart}}",
+            "endTime": "{{dec9SlotsWindowEnd}}",
+            "appointmentMode": "Regular",
+            "workConfiguration": { "workTypeId": "{{dec9WorkTypeId}}" },
+            "locationConstraints": { "addressIds": ["{{dec9TerritoryId}}"] }
+          },
+          "serviceAppointmentParent": { "id": "{{dec9AccountId}}" },
+          "assignedResources": [ { "isRequiredResource": true, "serviceResourceId": "{{dec9ResourceId}}" } ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(10,0,0,0);
+      const e = new Date(s.getTime()); e.setUTCHours(14,0,0,0);
+      pm.environment.set("dec9SlotsWindowStart", s.toISOString());
+      pm.environment.set("dec9SlotsWindowEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      // result is [{slots:[...]}]; count the slots across all appointment results.
+      const data = pm.response.json() || {};
+      const results = data.result || [];
+      let n = 0; results.forEach(r => { n += (r.slots || []).length; });
+      pm.environment.set("dec9CaseWorkerSlotCount", String(n));
+    language: text/javascript
+order: 10000

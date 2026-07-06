@@ -1,0 +1,57 @@
+$kind: http-request
+description: >-
+  CONTROL — Schedule resourceA (excludedNonReqResourceAId) as the required+primary resource into the same
+  window tomorrow 11:00-12:00 UTC the read offered slots for → Success. resourceA is NOT on the Account's
+  excluded list, so ExcludedResources passes and the write books Success — keeping the read's promise.
+  Captures schedulingStatus + a single-shape errorCode for diagnosability. Runs LAST (it persists an SA).
+url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/schedule"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "appointments": [
+        {
+          "schedulingMethod": "OnSite",
+          "schedulingPolicyId": "{{excludedResourcesPolicyId}}",
+          "coreDetails": {
+            "startTime": "{{excludedParityStart}}",
+            "endTime": "{{excludedParityEnd}}",
+            "status": "Scheduled",
+            "subject": "Rules parity ExcludedResources control write",
+            "workConfiguration": { "workTypeId": "{{excludedNonReqWorkTypeId}}" },
+            "locationConstraints": { "id": "{{excludedNonReqTerritoryId}}" }
+          },
+          "serviceAppointmentParent": { "id": "{{excludedNonReqAccountId}}" },
+          "assignedResources": [ { "isPrimaryResource": true, "isRequiredResource": true, "serviceResourceId": "{{excludedNonReqResourceAId}}" } ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      // Same tomorrow 11:00-12:00 UTC window as the reads; resourceA is not excluded so ExcludedResources
+      // passes → Success.
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(11, 0, 0, 0);
+      const e = new Date(s.getTime() + 60 * 60 * 1000);
+      pm.environment.set("excludedParityStart", s.toISOString());
+      pm.environment.set("excludedParityEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      // Capture the single appointment's schedulingStatus for the JUnit Truth assertion (expected Success),
+      // plus a single-shape errorCode for diagnosability if it unexpectedly does not Succeed.
+      const data = pm.response.json();
+      const appts = (data && data.appointments) || [];
+      pm.environment.set("excludedWriteControlStatus", appts.length ? appts[0].schedulingStatus : null);
+      let ec = null;
+      if (appts.length && appts[0].errors && appts[0].errors[0]) { ec = appts[0].errors[0].errorCode; }
+      pm.environment.set("excludedWriteControlErrorCode", ec);
+      console.log("RULESPARITY excluded write-control http=" + pm.response.code + " status=" + pm.environment.get("excludedWriteControlStatus") + " ec=" + ec);
+    language: text/javascript
+order: 1300

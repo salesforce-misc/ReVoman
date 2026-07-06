@@ -1,0 +1,70 @@
+$kind: http-request
+description: >-
+  Decision 3 Act B (doc L142 control) — a SINGLE assigned resource with isRequiredResource=true and NO
+  isPrimaryResource field MUST be a valid Schedule (isPrimaryResource is multi-resource-only plumbing, NOT
+  the Decision-1 variable). FRESH resources per Approach A so prior bookings don't pollute availability.
+  Same policy/fixture/window as Act A; only the assignedResource differs (adds isRequiredResource=true).
+url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/schedule"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "appointments": [
+        {
+          "schedulingMethod": "OnSite",
+          "schedulingPolicyId": "{{availabilityOpHoursPolicyId}}",
+          "coreDetails": {
+            "startTime": "{{singleRequiredBookingStart}}",
+            "endTime": "{{singleRequiredBookingEnd}}",
+            "status": "Scheduled",
+            "subject": "Decision 3 single-required-no-primary L142 control",
+            "workConfiguration": {
+              "workTypeId": "{{requiredNonReqWorkTypeId}}"
+            },
+            "locationConstraints": {
+              "id": "{{requiredNonReqTerritoryId}}"
+            }
+          },
+          "serviceAppointmentParent": {
+            "id": "{{requiredNonReqAccountId}}"
+          },
+          "assignedResources": [
+            {
+              "isRequiredResource": true,
+              "serviceResourceId": "{{requiredNonReqResourceAId}}"
+            }
+          ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      // Tomorrow 11:00-12:00 UTC: 60m window == WorkType EstimatedDuration, inside member OH 08-16 + Shift.
+      const start = new Date();
+      start.setUTCDate(start.getUTCDate() + 1);
+      start.setUTCHours(11, 0, 0, 0);
+      const end = new Date(start.getTime() + 60 * 60 * 1000);
+      pm.environment.set("singleRequiredBookingStart", start.toISOString());
+      pm.environment.set("singleRequiredBookingEnd", end.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      const data = pm.response.json();
+      const arr = Array.isArray(data) ? data : null;
+      const appts = (data && data.appointments) || [];
+      pm.environment.set("singleRequiredNoPrimaryStatus", appts.length ? appts[0].schedulingStatus : null);
+      let ec = null, msg = null;
+      if (arr && arr.length) { ec = arr[0].errorCode; msg = arr[0].message; }
+      else if (appts.length && appts[0].errors && appts[0].errors[0]) { ec = appts[0].errors[0].errorCode; msg = appts[0].errors[0].message; }
+      pm.environment.set("singleRequiredNoPrimaryErrorCode", ec);
+      pm.environment.set("singleRequiredNoPrimaryErrorMessage", msg);
+      console.log("CHAR3B status=" + pm.environment.get("singleRequiredNoPrimaryStatus") + " ec=" + ec + " msg=" + msg);
+    language: text/javascript
+order: 1000

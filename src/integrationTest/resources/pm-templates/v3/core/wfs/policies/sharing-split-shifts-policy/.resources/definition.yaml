@@ -1,0 +1,19 @@
+$kind: collection
+description: |-
+  Scheduling policy for the Decision-9 sharing-split read proof, created by the MANAGER persona
+  ({{dec9ManagerToken}} — WorkforceSchedulingManager confers manage access on SchedulingRule/Policy).
+  Carries two rules so availability comes PURELY from the (sharing-gated) Shift object:
+    - Availability (SchedulingRuleType C) with ShiftUsage=ConsiderOnlyShifts — slot availability derives
+      only from Shift rows, which are the object whose Private OWD sharing the proof exercises.
+    - WorkingTerritories with IsPrimaryLocationEnabled=true — without it
+      SchedulingPolicyInfo.shouldIncludePrimaryResources() is false, primary (TerritoryType=P) STMs are
+      filtered out of slot-gen, and the resource is never a candidate (zero STM → zero slots).
+  Creates both SchedulingRules + their SchedulingRuleParameters, the SchedulingPolicy (tooling sobject),
+  and links each rule via SchedulingPolicyRule. Sets dec9PolicyId, used by both get-slots-sharing-split
+  acts (manager control = sees own shift → slots; case-worker probe = no sharing → zero slots).
+auth:
+  - id: b2020202-0000-4000-8000-000000000002
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{dec9ManagerToken}}"

@@ -1,6 +1,3 @@
-# Use this workspace to collaborate
-
-
 localResources:
   collections:
     - ../src/integrationTest/resources/pm-templates/v3/pokemon
@@ -12,14 +9,85 @@ localResources:
     - ../src/integrationTest/resources/pm-templates/v3/core/bmp-create-runtime
     - ../src/integrationTest/resources/pm-templates/v3/core/persona-creation-and-setup
     - ../src/integrationTest/resources/pm-templates/v3/core/milestone-setup
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/auth
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/auth-personas-dec9
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-available-resources-limit-positive
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-available-resources-limit-zero
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-available-resources-skills-violating
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-available-slots-skills-violating
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-candidates-skills-violating
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-excluded-control
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-excluded-violating
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-parity-available
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-parity-unavailable
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-required-control
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-required-violating
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-skills-control
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-skills-violating
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-sharing-split-as-caseworker
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-sharing-split-as-manager
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-sti-control
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-sti-violating
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-visiting-hours-control
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-visiting-hours-violating
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-workloc-control
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-workloc-violating
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/reschedule-delete-all
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/reschedule-delete-primary-no-flag
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/reschedule-delete-primary-with-flag
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/reschedule-demote-primary-two-crew
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/reschedule-noop
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-double-book-non-required-violating
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-double-book-required-conflict
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-excluded-control
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-excluded-non-required-violating
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-excluded-violating
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-missing-required-flag
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-noop-resched-setup
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-parity-available
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-parity-unavailable
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-primary-not-required
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-primary-required-control
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-required-non-required-satisfier-violating
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-required-satisfier-bookable
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-single-required-no-primary
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-skills-control
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-skills-non-required-violating
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-skills-violating
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-sti-control
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-sti-violating
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-territory-membership-non-required-violating
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-two-primary
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-two-resource-clean
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-visiting-hours-control
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-visiting-hours-violating
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-working-locations-secondary-non-required-violating
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-workloc-control
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-workloc-violating
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/fixtures/double-book-non-required
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/fixtures/excluded-non-required
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/fixtures/required-non-required
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/fixtures/sharing-split-overlapping-shifts
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/fixtures/start-time-interval
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/fixtures/skills-non-required
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/fixtures/skills-non-required-skill
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/fixtures/territory-non-required
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/fixtures/visiting-hours-account-oh
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/fixtures/working-locations-secondary-non-required
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/policies/availability-op-hours-policy
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/policies/excluded-resources-availability-policy
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/policies/match-skills-non-required-policy
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/policies/required-resources-availability-policy
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/policies/sharing-split-shifts-policy
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/policies/start-time-interval-policy
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/policies/territory-membership-partial-policy
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/policies/visiting-hours-op-hours-policy
   environments:
     - ../src/integrationTest/resources/pm-templates/v3/pokemon/Pokemon.environment.yaml
     - ../src/integrationTest/resources/pm-templates/v3/restful-api.dev/restful-api.dev.environment.yaml
     - ../src/integrationTest/resources/pm-templates/v3/core/milestone-setup/bt2bs.environment.yaml
     - ../src/integrationTest/resources/pm-templates/v3/core/[sm] pq/pq.environment.yaml
-
-# Each entry here maps a local resource to one or more corresponding objects in Postman Cloud
-
+    - ../src/integrationTest/resources/pm-templates/v3/core/wfs/ws.environment.yaml
 cloudResources:
   collections:
     ../postman/collections/Apigee: 17accf1e-ebfb-48d9-b71b-983d5759a67d
@@ -30,3 +98,58 @@ cloudResources:
     ../postman/collections/bmp-create-runtime: f22009b7-e4de-4ac6-918d-7581dd79de6e
     ../postman/collections/persona-creation-and-setup: a747ef82-6fbe-4ce3-8b4b-cfd131e33db3
     ../postman/collections/milestone-setup: 0daa0356-10bd-47b0-83e1-239747ee442c
+    ../src/integrationTest/resources/pm-templates/v3/pokemon: 23827434-a6565669-2709-40e4-ae43-b6a3b1cb18bb
+    ../src/integrationTest/resources/pm-templates/v3/Apigee: 23827434-f3a4fd2b-0f0d-4dad-a2a2-884383ca9983
+    ../src/integrationTest/resources/pm-templates/v3/restful-api.dev: 23827434-b5155852-1814-4e2c-a072-7497e9348f41
+    ../src/integrationTest/resources/pm-templates/v3/core/[sm] pq: 23827434-cad76526-469e-49c6-8780-d78ca26c04f5
+    ../src/integrationTest/resources/pm-templates/v3/core/[sm] user-creation-with-ps-and-setup-pq: 23827434-70748310-8f82-4fe4-8d43-82248bb23540
+    ../src/integrationTest/resources/pm-templates/v3/core/pre-salesRep: 23827434-b69f73fe-d4c1-48c7-9894-f1eaaad9d373
+    ../src/integrationTest/resources/pm-templates/v3/core/bmp-create-runtime: 23827434-dbbddaca-c010-43b4-bb55-76f735663b00
+    ../src/integrationTest/resources/pm-templates/v3/core/persona-creation-and-setup: 23827434-098568b3-3fc9-4c6d-b560-232f70625803
+    ../src/integrationTest/resources/pm-templates/v3/core/milestone-setup: 23827434-02c32b34-bd5b-4422-86e9-6faf56f8ae2e
+    ../src/integrationTest/resources/pm-templates/v3/core/wfs/auth: 23827434-5111c058-9ed9-40b0-8aa4-bfd6f24f1351
+    ../src/integrationTest/resources/pm-templates/v3/core/wfs/auth-personas-dec9: 23827434-36f9a15f-4c32-4ef2-aa59-27e29be288a0
+    ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-available-resources-limit-positive: 23827434-51e1b848-987c-462d-98c8-d9e369eeec8a
+    ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-available-resources-limit-zero: 23827434-5d4a4831-395d-4599-86a6-25cd14c18cd2
+    ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-parity-available: 23827434-02bb4696-1d2d-4611-bf6e-961a3692945c
+    ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-parity-unavailable: 23827434-40ca33ae-85d1-4a41-8065-ec0b765e235e
+    ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-sharing-split-as-caseworker: 23827434-de2947e9-7994-4dda-bdc8-44873f14ed64
+    ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-slots-sharing-split-as-manager: 23827434-8b40533f-96d3-4d8e-80c9-52dcd97eed7a
+    ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/reschedule-delete-primary-no-flag: 23827434-0a7e23c2-6b0b-4b7d-934f-9f7d168bfe1c
+    ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/reschedule-delete-primary-with-flag: 23827434-88094b94-5d17-4a2f-bb1b-fc78056bd3a9
+    ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-double-book-non-required-violating: 23827434-1c6aa6cf-94a3-4791-9481-f398e6126084
+    ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-double-book-required-conflict: 23827434-b68c67ce-8bd8-4bcb-a163-a588a259dc8f
+    ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-excluded-non-required-violating: 23827434-223df9a2-8a72-4c9a-a50d-f7ba39ba63cb
+    ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-missing-required-flag: 23827434-6e891db4-3573-4eea-b7e1-b21510b9e734
+    ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-parity-available: 23827434-6b55aa6e-8253-4f59-85a5-ee55ea92ac15
+    ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-parity-unavailable: 23827434-2b55fa60-aa2e-43b9-8067-4607a1766b00
+    ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-primary-not-required: 23827434-a6aa8dec-a1a6-49b0-9483-d538d682078c
+    ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-primary-required-control: 23827434-ff253175-06df-4dad-9e42-b088e8733782
+    ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-required-non-required-satisfier-violating: 23827434-63e5d421-f33e-4472-bf74-d3d6601b8063
+    ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-required-satisfier-bookable: 23827434-9213f511-753c-41b6-bb01-5803e7364d11
+    ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-single-required-no-primary: 23827434-c03cd12f-05e1-42e1-9f32-8d46d7a3cf4b
+    ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-skills-non-required-violating: 23827434-00d25069-3617-406f-b5f5-c39090b684cd
+    ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-territory-membership-non-required-violating: 23827434-fd6e9ed5-2e6f-4444-abff-e7a72426ddb6
+    ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-two-primary: 23827434-b4b4a079-d1c2-4cb3-b7f3-753973a2a9e3
+    ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-two-resource-clean: 23827434-d92b10e1-c29c-44e5-96c9-6c9d1463b307
+    ../src/integrationTest/resources/pm-templates/v3/core/wfs/booking/schedule-working-locations-secondary-non-required-violating: 23827434-ed3eea91-58c4-4c1f-b82a-ce7287358d93
+    ../src/integrationTest/resources/pm-templates/v3/core/wfs/fixtures/double-book-non-required: 23827434-93981708-fd09-425e-8191-5b7390476292
+    ../src/integrationTest/resources/pm-templates/v3/core/wfs/fixtures/excluded-non-required: 23827434-53d271d4-7bef-4fbf-90cb-83032535b9f7
+    ../src/integrationTest/resources/pm-templates/v3/core/wfs/fixtures/required-non-required: 23827434-e7ee2bda-0958-4c73-8e30-d1c535f826fd
+    ../src/integrationTest/resources/pm-templates/v3/core/wfs/fixtures/sharing-split-overlapping-shifts: 23827434-baee9aac-c684-4b51-927b-d581cdaca5f5
+    ../src/integrationTest/resources/pm-templates/v3/core/wfs/fixtures/skills-non-required: 23827434-0310f66e-ac77-4666-af95-70310ac61fdc
+    ../src/integrationTest/resources/pm-templates/v3/core/wfs/fixtures/skills-non-required-skill: 23827434-00a25a0d-9037-44ed-8e31-e444c6d05fcb
+    ../src/integrationTest/resources/pm-templates/v3/core/wfs/fixtures/territory-non-required: 23827434-e224ddab-3995-4c8b-9ce7-dfbca07c45fa
+    ../src/integrationTest/resources/pm-templates/v3/core/wfs/fixtures/working-locations-secondary-non-required: 23827434-fa14831d-2a44-4180-969b-0b55a17bcde4
+    ../src/integrationTest/resources/pm-templates/v3/core/wfs/policies/availability-op-hours-policy: 23827434-6d9d0e5f-66f2-4b1b-addb-c1873979fe76
+    ../src/integrationTest/resources/pm-templates/v3/core/wfs/policies/excluded-resources-availability-policy: 23827434-c45f617a-31c0-4947-b861-9ec3fe1abf70
+    ../src/integrationTest/resources/pm-templates/v3/core/wfs/policies/match-skills-non-required-policy: 23827434-b4921b7e-6bfc-4478-9ec6-decf77d45bfb
+    ../src/integrationTest/resources/pm-templates/v3/core/wfs/policies/required-resources-availability-policy: 23827434-8acd78b7-0131-468c-b1fd-e1d0c42efb97
+    ../src/integrationTest/resources/pm-templates/v3/core/wfs/policies/sharing-split-shifts-policy: 23827434-fb68db91-0404-471d-972e-1bcd7aebefce
+    ../src/integrationTest/resources/pm-templates/v3/core/wfs/policies/territory-membership-partial-policy: 23827434-d20a709f-aacc-4237-809a-d4656dfd86cd
+  environments:
+    ../src/integrationTest/resources/pm-templates/v3/pokemon/Pokemon.environment.yaml: 23827434-710ac199-aa6b-4a20-9751-385e1f8eacf6
+    ../src/integrationTest/resources/pm-templates/v3/restful-api.dev/restful-api.dev.environment.yaml: 23827434-41bebc13-e550-4ebd-88e3-c6cc9195b464
+    ../src/integrationTest/resources/pm-templates/v3/core/milestone-setup/bt2bs.environment.yaml: 23827434-fb50b5d3-9593-46e0-9b23-98f90815907e
+    ../src/integrationTest/resources/pm-templates/v3/core/[sm] pq/pq.environment.yaml: 23827434-b1f546de-5391-4e87-a7f5-3d91115ef48a
+    ../src/integrationTest/resources/pm-templates/v3/core/wfs/ws.environment.yaml: 23827434-49e03d16-cbf6-43de-a580-603c3c19fa90

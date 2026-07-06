@@ -1,0 +1,26 @@
+$kind: http-request
+description: >-
+  RequiredResources rule (the rule under test). It is an appointment-level SATISFACTION rule: it passes
+  as soon as one assigned resource that the request flags isRequiredResource=true is on the Account's
+  ResourcePreference(Required) list, and otherwise lists the mandated resource ids. D1.4: a NON-required
+  helper that happens to be on that list must NOT satisfy it — only a REQUIRED-flagged assignment does.
+url: "{{baseUrl}}{{versionPath}}/sobjects/SchedulingRule"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+body:
+  type: json
+  content: |-
+    {
+      "MasterLabel": "RequiredNonReq RequiredResources",
+      "DeveloperName": "RequiredNonReq_RequiredResources_{{$timestamp}}",
+      "SchedulingRuleType": "RequiredResources",
+      "SchedulingCategory": "A"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.environment.set("requiredResourcesRequiredRuleId", pm.response.json().id);
+    language: text/javascript
+order: 18000

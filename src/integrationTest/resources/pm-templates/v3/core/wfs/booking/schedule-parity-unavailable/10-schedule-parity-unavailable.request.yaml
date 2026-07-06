@@ -1,0 +1,54 @@
+$kind: http-request
+description: >-
+  Schedule resourceA into the UNAVAILABLE window tomorrow 17:00-18:00 UTC → rejected (availability). Single
+  required+primary resource so the only thing that can block it is the shared cheap availability check.
+url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/schedule"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "appointments": [
+        {
+          "schedulingMethod": "OnSite",
+          "schedulingPolicyId": "{{availabilityOpHoursPolicyId}}",
+          "coreDetails": {
+            "startTime": "{{parityUnavailStart}}",
+            "endTime": "{{parityUnavailEnd}}",
+            "status": "Scheduled",
+            "subject": "Decision 2 parity unavailable write",
+            "workConfiguration": { "workTypeId": "{{requiredNonReqWorkTypeId}}" },
+            "locationConstraints": { "id": "{{requiredNonReqTerritoryId}}" }
+          },
+          "serviceAppointmentParent": { "id": "{{requiredNonReqAccountId}}" },
+          "assignedResources": [ { "isPrimaryResource": true, "isRequiredResource": true, "serviceResourceId": "{{requiredNonReqResourceAId}}" } ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(17, 0, 0, 0);
+      const e = new Date(s.getTime() + 60 * 60 * 1000);
+      pm.environment.set("parityUnavailStart", s.toISOString());
+      pm.environment.set("parityUnavailEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      pm.environment.set("parityWriteUnavailHttpCode", String(pm.response.code));
+      const data = pm.response.json();
+      const appts = (data && data.appointments) || [];
+      pm.environment.set("parityWriteUnavailStatus", appts.length ? appts[0].schedulingStatus : null);
+      let ec = null, msg = null;
+      if (Array.isArray(data) && data.length) { ec = data[0].errorCode; msg = data[0].message; }
+      else if (appts.length && appts[0].errors && appts[0].errors[0]) { ec = appts[0].errors[0].errorCode; msg = appts[0].errors[0].message; }
+      pm.environment.set("parityWriteUnavailErrorCode", ec);
+      pm.environment.set("parityWriteUnavailErrorMessage", msg);
+      console.log("DEC2 write-unavail http=" + pm.response.code + " status=" + pm.environment.get("parityWriteUnavailStatus") + " ec=" + ec + " msg=" + msg);
+    language: text/javascript
+order: 1200

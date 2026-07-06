@@ -1,0 +1,36 @@
+$kind: http-request
+description: >-
+  Link the fixture Account to its NARROW visiting-hours OperatingHours (10-14) by PATCHing
+  Account.OperatingHoursId — the field the ServiceAppointmentVisitingHours rule reads off the booking's
+  parent Account. Runs UNDER {{adminToken}} (not the manager) on purpose: the WorkforceSchedulingManager
+  permission set has read=True but edit=False FLS on Account.OperatingHoursId (verified against the org),
+  so the manager-owned composite/graph gets INVALID_FIELD_FOR_INSERT_UPDATE if it tries to set it inline.
+  The admin token (isDoingSysAdmin) has edit FLS. The manager still OWNS the Account row (created in the
+  graph) and has read FLS on the field, so the user-mode enforce/read of the account visiting hours sees
+  the link. Idempotent single-field update; no new env keys.
+url: "{{baseUrl}}{{versionPath}}/sobjects/Account/{{visitingHoursAccountId}}"
+method: PATCH
+headers:
+  Content-Type: application/json
+auth:
+  - id: 5e4f3a00-0005-4aaa-9bbb-000000000005
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{adminToken}}"
+body:
+  type: json
+  content: |-
+    {
+      "OperatingHoursId": "{{visitingHoursAccountOhId}}"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      // PATCH returns 204 No Content on success; anything else is a hard fixture failure.
+      if (pm.response.code !== 204) {
+        throw new Error("Account visiting-hours OH link failed: " + pm.response.code + " " + pm.response.text());
+      }
+      console.log("RULESPARITY visitingHours account-OH link OK (Account=" + pm.environment.get("visitingHoursAccountId") + " OH=" + pm.environment.get("visitingHoursAccountOhId") + ")");
+    language: text/javascript
+order: 600

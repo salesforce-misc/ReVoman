@@ -1,0 +1,12 @@
+$kind: collection
+description: |-
+  Decision 2 — GetAppointmentSlots for resourceA in the AVAILABLE window (tomorrow 11:00-12:00 UTC, inside
+  the resource's member OH 08-16 + Confirmed Shift). The cheap availability check passes, so the read path
+  OFFERS slots (count > 0). Paired with the AVAILABLE write act, this proves a shown slot is a PROMISE on
+  the cheap checks the read and write paths SHARE.
+auth:
+  - id: 1a2b3c4d-0002-4aaa-9bbb-000000000021
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"

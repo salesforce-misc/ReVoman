@@ -1,0 +1,11 @@
+$kind: collection
+description: >-
+  Rules parity (ExcludedResources) READ control — the required+primary resource is NOT on the Account's
+  excluded list → ExcludedResources passes → read offers >0 slots (proves the fixture is valid, so the
+  violating 0 is the rule). Paired with the write control act to prove read==write on ExcludedResources.
+auth:
+  - id: 3c2d1e00-0002-4aaa-9bbb-000000000002
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"

@@ -3,8 +3,8 @@ description: >-
   Schedule into tomorrow 11:00-11:30 UTC with TWO assigned resources under availabilityOpHoursPolicyId.
   resourceA (isRequiredResource=true, isPrimaryResource=true) is clean and free (member OH + Shift both
   10:00-14:00 cover the window). resourceB (isRequiredResource=false) is a Primary member but UNAVAILABLE
-  at 11:00-11:30 (member OH + Shift both 12:00-14:00). 264: a NON-required helper is not
-  availability-checked → Success. 262 hypothesis: Success (no helper validation at all).
+  at 11:00-11:30 (member OH + Shift both 12:00-14:00). On 262 a NON-required helper is not
+  availability-checked → Success (no helper validation at all).
 url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/schedule"
 method: POST
 headers:

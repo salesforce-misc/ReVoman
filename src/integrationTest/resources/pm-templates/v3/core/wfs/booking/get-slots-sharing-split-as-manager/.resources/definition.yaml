@@ -1,0 +1,14 @@
+$kind: collection
+description: |-
+  Decision-9 CONTROL for the sharing-split read proof. Calls GetSlots (get-appointment-slots, read-only) for
+  tomorrow 10:00-14:00 (≥ the 60m WorkType, inside the 08-16 shift) on the same Decision-9 fixture + policy
+  ({{dec9PolicyId}}), but as the MANAGER persona ({{dec9ManagerToken}}) who OWNS the Confirmed Shift. Its
+  user-mode (SystemMode.NONE) shift read sees the manager's own shift → availability present → slots
+  returned. This proves the empty case-worker probe result is the Private-Shift sharing gate, not an empty
+  fixture. Stashes dec9ManagerSlotCount; assertions live in the Java test.
+auth:
+  - id: d4040404-0000-4000-8000-000000000004
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{dec9ManagerToken}}"

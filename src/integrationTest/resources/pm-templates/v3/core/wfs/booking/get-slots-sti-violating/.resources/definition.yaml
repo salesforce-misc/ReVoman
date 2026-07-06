@@ -1,0 +1,16 @@
+$kind: collection
+description: >-
+  Rules parity (AppointmentStartTimeInterval) READ violating — GetAppointmentSlots for the fixture's
+  required+primary resource over a window (tomorrow 11:30-12:30 UTC) that is OFF the policy's interval
+  boundary. The policy interval is 60 min, so slots anchor on the hour: getStartAdjustedForStartTimeFrequency
+  rounds the window start 11:30 UP to 12:00, and the only hour-aligned start (12:00) needs a 60-min slot
+  ending 13:00 which overruns the window end 12:30, so it is pruned. Availability and WorkingLocations
+  pass (resource available all day, Primary member), so the ONLY thing that prunes is the interval
+  stepping → the read offers ZERO slots. Counts data.result[].slots[] into stiReadViolatingSlotCount.
+  Paired with the write violating act to prove read==write on AppointmentStartTimeInterval.
+auth:
+  - id: 6f5a4b00-0001-4aaa-9bbb-000000000001
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"

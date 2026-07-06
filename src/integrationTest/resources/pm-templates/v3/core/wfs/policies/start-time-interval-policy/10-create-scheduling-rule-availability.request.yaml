@@ -1,0 +1,21 @@
+$kind: http-request
+url: "{{baseUrl}}{{versionPath}}/sobjects/SchedulingRule"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+body:
+  type: json
+  content: |-
+    {
+      "MasterLabel": "STI Availability STM-OH",
+      "DeveloperName": "STI_Availability_StmOh_{{$timestamp}}",
+      "SchedulingRuleType": "C",
+      "SchedulingCategory": "A"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.environment.set("startTimeIntervalAvailabilityRuleId", pm.response.json().id);
+    language: text/javascript
+order: 10000

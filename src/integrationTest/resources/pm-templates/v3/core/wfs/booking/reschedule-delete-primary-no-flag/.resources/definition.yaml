@@ -1,0 +1,20 @@
+$kind: collection
+description: |-
+  Decision 4z Arm B — reschedules the SAME SA, DeleteOperation on the primary resourceA WITHOUT
+  isPrimaryResource on the delete entry (only operation + serviceResourceId). The payload-field guard does
+  not fire (no flag sent), and RescheduleCommonValidator.validatePrimaryResourceCount explicitly ALLOWS
+  zero primaries for reschedule (it only throws MultiplePrimary when primaryCount > 1). There is therefore
+  NO "must keep a primary" rule — which REFUTES the product doc's blanket "not possible to reschedule
+  without a primary." LIVE-OBSERVED on the 262 org under test: the request is NOT Success; it is rejected
+  with INVALID_INPUT / "The service resources are not available for the requested slot." (SlotNotAvailable),
+  a DOWNSTREAM AVAILABILITY re-check, NOT a no-primary rejection. On 262 the reschedule path lacks an
+  effective-set merge over the REAL surviving crew (existing − deleted ∪ created ∪ updated), so this org's
+  reschedule slot-gen returns no slot for the surviving non-primary crew. The test characterizes the
+  OBSERVED verdict faithfully (rejected by availability, never by a primary-count/required-primary error)
+  rather than forcing a Success the 262 org cannot produce.
+auth:
+  - id: 1a2b3c4d-004f-4aaa-9bbb-00000000004c
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"

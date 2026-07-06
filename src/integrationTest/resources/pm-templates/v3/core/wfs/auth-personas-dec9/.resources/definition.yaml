@@ -1,0 +1,20 @@
+$kind: collection
+description: |-
+  Decision-9 (sharing-split) persona setup. Provisions the three identities the sharing-gate read proof
+  needs, all User/password/permset steps under {{adminToken}} (creating a User and setting ProfileId needs
+  Manage Users, which the manager persona lacks):
+    - MANAGER persona (dec9ManagerUserId, WorkforceSchedulingManager permset + auto-granted PSL seat): does
+      the Decision-9 data setup and OWNS the Private Shift rows; it is the positive-control reader. Password
+      is set and it SOAP-logs in to mint {{dec9ManagerToken}} (its OWN session, not the admin session).
+    - CASE-WORKER persona (dec9CaseWorkerUserId, WorkforceSchedulingResource permset + seat): the
+      sharing-DEPRIVED reader. NOT shared the manager's Private Shifts, so its user-mode (SystemMode.NONE)
+      shift read sees none → empty availability. SOAP-logs in to mint {{dec9CaseWorkerToken}}.
+    - RESOURCE-OWNER user (dec9ResourceUserId, Resource permset): the User the fixture's ServiceResource
+      points at via RelatedRecordId (so slot-gen's filterResourcesWithPerm admits the resource).
+  Sets dec9ManagerToken, dec9CaseWorkerToken, dec9ManagerUserId, dec9CaseWorkerUserId, dec9ResourceUserId.
+auth:
+  - id: a1010101-0000-4000-8000-000000000001
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{adminToken}}"

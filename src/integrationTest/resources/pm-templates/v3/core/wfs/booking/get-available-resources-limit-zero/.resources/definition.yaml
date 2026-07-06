@@ -1,0 +1,16 @@
+$kind: collection
+description: |-
+  Decision-8 Act 0 (the resource-limit cap under test). Calls GetAvailableResources (read-only) on the
+  required-non-required fixture (Account/WorkType/Territory) under the default OnSite load-balancing policy
+  (schedulingPolicyName omitted → default) with resourceLimitApptDistribution=0. The cap is applied AFTER
+  the per-resource rules filter candidates; the value flows via Optional.ofNullable so 0 is present →
+  AppointmentDistributionService.findLeastUtilizedResources does Stream.limit(0) → EMPTY availableResources
+  list. Paired with the limit-positive control (cap=50, no-op) this isolates 0 as a literal cap, not
+  "unlimited". Read-only contract: HTTP 200, no exception. Runs as {{managerToken}} (the least-privilege
+  manager persona that owns the fixture). Stashes limitZeroResourceCount; assertions live in the Java test.
+auth:
+  - id: 8b2c3d4e-5f60-4172-9b3c-4d5e6f7a8b2c
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"

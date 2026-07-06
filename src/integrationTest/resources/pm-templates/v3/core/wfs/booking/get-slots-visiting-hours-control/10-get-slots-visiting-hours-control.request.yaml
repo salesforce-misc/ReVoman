@@ -1,0 +1,55 @@
+$kind: http-request
+description: >-
+  CONTROL — GetAppointmentSlots for the VisitingHours fixture's resource over tomorrow 11:00-12:00 UTC,
+  a window fully INSIDE the Account's visiting hours (10-14), under the same
+  Availability+WorkingTerritories+VisitingHours policy. Availability, WorkingLocations AND
+  ServiceAppointmentVisitingHours all pass (the window is contained in the visiting hours), so the read
+  offers >0 slots — proving the fixture is valid and the violating 0 is the VisitingHours rule. Counts
+  data.result[].slots[] into visitingHoursReadControlSlotCount.
+url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/get-appointment-slots"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "appointments": [
+        {
+          "schedulingMethod": "OnSite",
+          "schedulingPolicyId": "{{visitingHoursPolicyId}}",
+          "coreDetails": {
+            "startTime": "{{visitingHoursControlStart}}",
+            "endTime": "{{visitingHoursControlEnd}}",
+            "appointmentMode": "Regular",
+            "workConfiguration": { "workTypeId": "{{visitingHoursWorkTypeId}}" },
+            "locationConstraints": { "addressIds": ["{{visitingHoursTerritoryId}}"] }
+          },
+          "serviceAppointmentParent": { "id": "{{visitingHoursAccountId}}" },
+          "assignedResources": [ { "isPrimaryResource": true, "isRequiredResource": true, "serviceResourceId": "{{visitingHoursResourceId}}" } ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      // Tomorrow 11:00-12:00 UTC: fully INSIDE the Account visiting hours (10-14), so
+      // ServiceAppointmentVisitingHours passes and the read offers slots.
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(11, 0, 0, 0);
+      const e = new Date(s.getTime() + 60 * 60 * 1000);
+      pm.environment.set("visitingHoursControlStart", s.toISOString());
+      pm.environment.set("visitingHoursControlEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      // Window inside visiting hours → VisitingHours passes → read offers >0 slots.
+      const data = pm.response.json() || {};
+      const results = data.result || [];
+      let n = 0; results.forEach(r => { n += (r.slots || []).length; });
+      pm.environment.set("visitingHoursReadControlSlotCount", String(n));
+      console.log("RULESPARITY visitingHours read-control slots=" + n);
+    language: text/javascript
+order: 1000

@@ -1,0 +1,35 @@
+$kind: collection
+description: |-
+  Fixture for the NON-required-resource RequiredResources-satisfaction proof (Fix A, D1.4). Builds, in
+  one composite/graph call, a data graph for a Schedule of ONE brand-new InBusiness SA carrying TWO
+  assigned resources, isolated so RequiredResources (appointment-level satisfaction) is the ONLY rule
+  that can fire:
+    - territory OperatingHours (08:00-16:00) + weekly InBusiness TimeSlots
+    - ServiceTerritory -> territory OH; WorkType (InBusiness, 60m); ServiceTerritoryWorkType
+    - resourceA: User-backed (caseWorkerUserId) ServiceResource (Technician, active, primary). Primary
+      ServiceTerritoryMember (TerritoryType=P) effective a month ago + Confirmed Shift 08:00-16:00
+      tomorrow, so resourceA is fully clean under Availability + WorkingTerritories. resourceA is NOT on
+      the Account's required list.
+    - resourceB: User-backed (caseManagerUserId — a DISTINCT user, since ServiceResource is DB-unique on
+      (RelatedRecordId, ResourceType)) ServiceResource (Technician, active). ALSO a Primary
+      ServiceTerritoryMember + a Confirmed Shift 08:00-16:00 tomorrow (so it is a real, slot-available
+      candidate, and WorkingTerritories/Availability pass for it too — isolating RequiredResources).
+    - Account (the SA parent context).
+    - ResourcePreference(PreferenceType=Required, RelatedRecordId=Account, ServiceResourceId=resourceB) —
+      puts resourceB (and ONLY resourceB) on the Account's REQUIRED list.
+  Sets requiredNonReqTerritoryId / requiredNonReqWorkTypeId / requiredNonReqAccountId /
+  requiredNonReqResourceAId / requiredNonReqResourceBId (+ shift start/end beforeRequest like the
+  excluded-non-required fixture). Drives two acts off the same graph:
+    - schedule-required-non-required-satisfier-violating: resourceA required (NOT on list) + resourceB
+      NON-required (ON list). The satisfaction rule evaluates over REQUIRED resources only ({resourceA}),
+      which is not on the list, so it must fire RequiredResources (D1.4: the non-required helper on the
+      list must NOT silently satisfy the customer mandate).
+    - schedule-required-satisfier-bookable (control): resourceB flagged REQUIRED, so the required set
+      includes the listed resource and the rule is satisfied -> books Success. The only delta between the
+      two acts is resourceB's isRequiredResource flag, isolating it as the cause.
+auth:
+  - id: 7f8091a2-b3c4-45d6-9e7f-8091a2b3c4d6
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"

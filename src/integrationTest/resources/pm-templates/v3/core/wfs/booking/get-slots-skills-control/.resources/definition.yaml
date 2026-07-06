@@ -1,0 +1,11 @@
+$kind: collection
+description: >-
+  Rules parity (MatchSkills) READ control — the required+primary resource HAS the skill → MatchSkills
+  passes → read offers >0 slots (proves the fixture is valid, so the violating 0 is the rule). Paired
+  with the write control act to prove read==write on MatchSkills.
+auth:
+  - id: 2b1c0d00-0002-4aaa-9bbb-000000000002
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"

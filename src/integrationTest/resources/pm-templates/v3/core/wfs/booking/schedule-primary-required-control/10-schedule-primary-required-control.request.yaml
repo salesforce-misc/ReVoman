@@ -1,0 +1,63 @@
+$kind: http-request
+description: >-
+  CONTROL — single resourceA, isPrimaryResource=true AND isRequiredResource=true, same FREE window
+  tomorrow 11:00-12:00 UTC. A required primary is valid → Success. Busy-proof half: isolates the
+  Decision-5 reject to the not-required flag, not the resource/window.
+url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/schedule"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "appointments": [
+        {
+          "schedulingMethod": "OnSite",
+          "schedulingPolicyId": "{{availabilityOpHoursPolicyId}}",
+          "coreDetails": {
+            "startTime": "{{primaryReqControlStart}}",
+            "endTime": "{{primaryReqControlEnd}}",
+            "status": "Scheduled",
+            "subject": "Decision 5 primary-required control",
+            "workConfiguration": {
+              "workTypeId": "{{requiredNonReqWorkTypeId}}"
+            },
+            "locationConstraints": {
+              "id": "{{requiredNonReqTerritoryId}}"
+            }
+          },
+          "serviceAppointmentParent": {
+            "id": "{{requiredNonReqAccountId}}"
+          },
+          "assignedResources": [
+            {
+              "isPrimaryResource": true,
+              "isRequiredResource": true,
+              "serviceResourceId": "{{requiredNonReqResourceAId}}"
+            }
+          ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      const start = new Date();
+      start.setUTCDate(start.getUTCDate() + 1);
+      start.setUTCHours(11, 0, 0, 0);
+      const end = new Date(start.getTime() + 60 * 60 * 1000);
+      pm.environment.set("primaryReqControlStart", start.toISOString());
+      pm.environment.set("primaryReqControlEnd", end.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      const data = pm.response.json();
+      const appts = (data && data.appointments) || [];
+      pm.environment.set("primaryReqControlStatus", appts.length ? appts[0].schedulingStatus : null);
+      console.log("DEC5 control http=" + pm.response.code + " status=" + pm.environment.get("primaryReqControlStatus"));
+    language: text/javascript
+order: 1000

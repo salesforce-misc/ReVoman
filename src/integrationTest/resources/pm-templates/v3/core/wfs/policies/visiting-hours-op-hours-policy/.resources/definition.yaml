@@ -1,0 +1,24 @@
+$kind: collection
+description: |-
+  Scheduling policy for the ServiceAppointmentVisitingHours read==write parity proof. Carries three
+  rules (each SchedulingPolicyRule active):
+    - Availability (SchedulingRuleType C) with an explicit ShiftUsage=ConsiderOpHoursAndShiftsUnion
+      parameter (step 12) — mandatory 262 conformance: with no ShiftUsage the Availability rule
+      yields ZERO slots. Union makes availability the union of the resource's wide member OH (08-16)
+      and its Confirmed Shift, so every window slot is resource-available — Availability is the
+      BASELINE here, not the pruner.
+    - WorkingTerritories with IsPrimaryLocationEnabled=true (step 25) — flips
+      shouldIncludePrimaryResources() so slot-gen admits the fixture's Primary ServiceTerritoryMember
+      and surfaces raw slots (without it the Primary STM is filtered out and slot-gen yields ZERO).
+      The resource IS a Primary member so WorkingLocations also passes; the ONLY per-slot pruner left
+      is VisitingHours.
+    - ServiceAppointmentVisitingHours — the rule under test: it reads the booking's parent Account's
+      OperatingHours (visiting hours 10-14) and prunes any window not fully inside them. A booking
+      window OUTSIDE 10-14 → read 0 slots / write rejected; a window INSIDE → read >0 / write Success.
+  Sets visitingHoursPolicyId.
+auth:
+  - id: 2f1a4c6e-8b0d-4e2f-9a1c-3d5e7f9b1c3d
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"

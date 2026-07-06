@@ -1,0 +1,12 @@
+$kind: collection
+description: |-
+  Decision 4z setup — schedules ONE OnSite SA with TWO assigned resources: resourceA primary+required and
+  resourceB non-primary+required, both free in the window. Books Success and captures the created
+  serviceAppointmentId into reschedCleanSaId, which the two reschedule acts below consume. Exactly one
+  primary, so the schedule path is satisfied.
+auth:
+  - id: 1a2b3c4d-004f-4aaa-9bbb-00000000004a
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"

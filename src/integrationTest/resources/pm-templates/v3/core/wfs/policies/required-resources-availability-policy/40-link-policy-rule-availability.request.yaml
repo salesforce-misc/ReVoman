@@ -1,0 +1,20 @@
+$kind: http-request
+url: "{{baseUrl}}{{versionPath}}/tooling/sobjects/SchedulingPolicyRule"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+body:
+  type: json
+  content: |-
+    {
+      "SchedulingPolicyId": "{{requiredResourcesPolicyId}}",
+      "SchedulingRuleId": "{{requiredResourcesAvailabilityRuleId}}",
+      "IsActive": true
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.environment.set("requiredResourcesAvailabilityPolicyRuleId", pm.response.json().id);
+    language: text/javascript
+order: 40000

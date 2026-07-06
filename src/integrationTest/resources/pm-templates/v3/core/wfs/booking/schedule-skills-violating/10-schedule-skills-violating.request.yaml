@@ -1,0 +1,61 @@
+$kind: http-request
+description: >-
+  Schedule resourceB (skillsNonReqResourceBId) as the required+primary resource into the same window
+  tomorrow 11:00-12:00 UTC the read pruned. resourceB LACKS the required ServiceResourceSkill, so
+  MatchSkills vetoes it and the booking is REJECTED (schedulingStatus != Success). Captures
+  schedulingStatus + the dual-shape errorCode. Runs before the control write so this rejected attempt
+  cannot affect availability.
+url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/schedule"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "appointments": [
+        {
+          "schedulingMethod": "OnSite",
+          "schedulingPolicyId": "{{matchSkillsNonReqPolicyId}}",
+          "coreDetails": {
+            "startTime": "{{skillsParityStart}}",
+            "endTime": "{{skillsParityEnd}}",
+            "status": "Scheduled",
+            "subject": "Rules parity MatchSkills violating write",
+            "workConfiguration": { "workTypeId": "{{skillsNonReqWorkTypeId}}" },
+            "locationConstraints": { "id": "{{skillsNonReqTerritoryId}}" }
+          },
+          "serviceAppointmentParent": { "id": "{{skillsNonReqAccountId}}" },
+          "assignedResources": [ { "isPrimaryResource": true, "isRequiredResource": true, "serviceResourceId": "{{skillsNonReqResourceBId}}" } ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      // Same tomorrow 11:00-12:00 UTC window as the reads; resourceB lacks the required skill so
+      // MatchSkills vetoes → rejected.
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(11, 0, 0, 0);
+      const e = new Date(s.getTime() + 60 * 60 * 1000);
+      pm.environment.set("skillsParityStart", s.toISOString());
+      pm.environment.set("skillsParityEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      // Dual-shape verdict capture: schedulingStatus from appointments[0]; errorCode from either the
+      // top-level ScheduleError array shape OR appointments[0].errors[0].
+      pm.environment.set("skillsWriteViolatingHttpCode", String(pm.response.code));
+      const data = pm.response.json();
+      const appts = (data && data.appointments) || [];
+      pm.environment.set("skillsWriteViolatingStatus", appts.length ? appts[0].schedulingStatus : null);
+      let ec = null, msg = null;
+      if (Array.isArray(data) && data.length) { ec = data[0].errorCode; msg = data[0].message; }
+      else if (appts.length && appts[0].errors && appts[0].errors[0]) { ec = appts[0].errors[0].errorCode; msg = appts[0].errors[0].message; }
+      pm.environment.set("skillsWriteViolatingErrorCode", ec);
+      pm.environment.set("skillsWriteViolatingErrorMessage", msg);
+      console.log("RULESPARITY skills write-violating http=" + pm.response.code + " status=" + pm.environment.get("skillsWriteViolatingStatus") + " ec=" + ec + " msg=" + msg);
+    language: text/javascript
+order: 1200

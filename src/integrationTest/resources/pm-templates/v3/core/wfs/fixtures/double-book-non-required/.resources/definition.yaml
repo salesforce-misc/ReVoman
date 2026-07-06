@@ -11,7 +11,7 @@ description: |-
       elsewhere"). No competing SA / SA-status seed needed — the Shift-coverage gap is the availability
       mechanism. (262-contract: OnSite SchedulingMethod enum; WorkType has no SchedulingMethod/IsRegular column.)
   Sets doubleBook{Territory,WorkType,Account,ResourceA,ResourceB}Id (+ OH/shift ids). Drives both
-  double-book acts (non-required → Success on 264; required-conflict control → SlotNotAvailable).
+  double-book acts (non-required → Success on 262; required-conflict control → SlotNotAvailable).
 auth:
   - id: 7a1b2c3d-4e5f-4061-9a7b-2c3d4e5f6071
     type: bearer
