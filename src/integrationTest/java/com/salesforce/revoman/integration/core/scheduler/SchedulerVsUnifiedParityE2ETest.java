@@ -7,6 +7,7 @@
 package com.salesforce.revoman.integration.core.scheduler;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static com.salesforce.revoman.integration.core.scheduler.SchedulerParityConfig.OLD_AUTH_CONFIG;
 
 import com.salesforce.revoman.ReVoman;
@@ -1866,8 +1867,13 @@ class SchedulerVsUnifiedParityE2ETest {
 
     // (a) #1 required -> #2 required. OLD REFUSES the 2nd overlapping booking (enforces occupancy);
     // Unified BOOKS it (no prior-appointment occupancy check — double-books even a REQUIRED
-    // resource).
-    assertThat(oldOccupancyCell(oldReqA1, oldReqA2))
+    // resource). The old-side (a) verdict is the occupancy-is-enforced-at-all anchor: if it BOOKS,
+    // the org allows overbooking and every old-side refusal below is meaningless — so name that
+    // failure explicitly rather than surfacing a bare REFUSED != BOOKED.
+    assertWithMessage(
+            "(a) old required->required must REFUSE (occupancy enforced); if BOOKED, the org allows"
+                + " overbooking and the old-side occupancy findings are vacuous")
+        .that(oldOccupancyCell(oldReqA1, oldReqA2))
         .isEqualTo(SchedulerParityConfig.WriteOutcome.REFUSED);
     assertThat(unifiedOccupancyCell(uniReqA1, uniReqA2))
         .isEqualTo(SchedulerParityConfig.WriteOutcome.BOOKED);
