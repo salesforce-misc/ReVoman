@@ -26,7 +26,7 @@ body:
             "endTime": "{{priorApptEnd}}",
             "appointmentMode": "Regular",
             "workConfiguration": { "workTypeId": "{{priorWorkTypeId}}" },
-            "locationConstraints": { "id": "{{priorTerritoryId}}" }
+            "locationConstraints": { "addressIds": ["{{priorTerritoryId}}"] }
           },
           "serviceAppointmentParent": { "id": "{{priorAccountId2}}" },
           "assignedResources": [
