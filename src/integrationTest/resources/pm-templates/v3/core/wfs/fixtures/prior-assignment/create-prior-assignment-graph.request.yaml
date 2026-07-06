@@ -1,0 +1,363 @@
+$kind: http-request
+description: >-
+  PRIOR-ASSIGNMENT fixture for the 1.* parity vertical-slice — builds the data graph in one
+  composite/graph call as {{managerToken}}. Territory OH 08-16, THREE User-backed ServiceResources on
+  DISTINCT users (ServiceResource is DB-unique on (RelatedRecordId, ResourceType)): resourceA on
+  caseWorkerUserId, resourceB on caseManagerUserId, resourceC on priorResourceCUserId (admin-minted by the
+  05-create-resource-c-user.request in the same folder, order 400, because creating a User needs Manage
+  Users which the manager lacks). ALL THREE are PRIMARY ServiceTerritoryMembers effective a month ago.
+  Availability is the UNION of member OH and Shift (AvailabilityRuleCheck: bookable iff the window fits
+  OH ∪ Shift). All three resources have member OH 10:00-14:00 + Confirmed Shift 10:00-14:00 → all are
+  AVAILABLE at 11:00. B is the shared worker between the two bookings (parity scenario 1.* fan-out:
+  Decision 2's appt#1 books A+B; appt#2 books B+C; both at 11:00). TWO Accounts (Account + Account2). One
+  OnSite WorkType (30m) + STWT. Emits priorTerritoryId / priorWorkTypeId / priorAccountId /
+  priorAccountId2 / priorResourceAId / priorResourceBId / priorResourceCId. No competing SA seed needed;
+  the prior-assignment conflict is triggered by the second booking reusing resourceB.
+url: "{{baseUrl}}{{versionPath}}/composite/graph"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "graphs": [
+        {
+          "graphId": "priorAssignment",
+          "compositeRequest": [
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/OperatingHours",
+              "referenceId": "refTerritoryOh",
+              "body": { "Name": "PriorAssign Territory OH {{$timestamp}}", "TimeZone": "GMT" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/OperatingHours",
+              "referenceId": "refMemberOhA",
+              "body": { "Name": "PriorAssign Member OH A {{$timestamp}}", "TimeZone": "GMT" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/OperatingHours",
+              "referenceId": "refMemberOhB",
+              "body": { "Name": "PriorAssign Member OH B {{$timestamp}}", "TimeZone": "GMT" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/OperatingHours",
+              "referenceId": "refMemberOhC",
+              "body": { "Name": "PriorAssign Member OH C {{$timestamp}}", "TimeZone": "GMT" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refTerritoryTsMon",
+              "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Monday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refTerritoryTsTue",
+              "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Tuesday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refTerritoryTsWed",
+              "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Wednesday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refTerritoryTsThu",
+              "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Thursday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refTerritoryTsFri",
+              "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Friday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refTerritoryTsSat",
+              "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Saturday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refTerritoryTsSun",
+              "body": { "OperatingHoursId": "@{refTerritoryOh.id}", "DayOfWeek": "Sunday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "08:00:00.000Z", "EndTime": "16:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberAtsMon",
+              "body": { "OperatingHoursId": "@{refMemberOhA.id}", "DayOfWeek": "Monday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "10:00:00.000Z", "EndTime": "14:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberAtsTue",
+              "body": { "OperatingHoursId": "@{refMemberOhA.id}", "DayOfWeek": "Tuesday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "10:00:00.000Z", "EndTime": "14:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberAtsWed",
+              "body": { "OperatingHoursId": "@{refMemberOhA.id}", "DayOfWeek": "Wednesday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "10:00:00.000Z", "EndTime": "14:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberAtsThu",
+              "body": { "OperatingHoursId": "@{refMemberOhA.id}", "DayOfWeek": "Thursday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "10:00:00.000Z", "EndTime": "14:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberAtsFri",
+              "body": { "OperatingHoursId": "@{refMemberOhA.id}", "DayOfWeek": "Friday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "10:00:00.000Z", "EndTime": "14:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberAtsSat",
+              "body": { "OperatingHoursId": "@{refMemberOhA.id}", "DayOfWeek": "Saturday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "10:00:00.000Z", "EndTime": "14:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberAtsSun",
+              "body": { "OperatingHoursId": "@{refMemberOhA.id}", "DayOfWeek": "Sunday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "10:00:00.000Z", "EndTime": "14:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberBtsMon",
+              "body": { "OperatingHoursId": "@{refMemberOhB.id}", "DayOfWeek": "Monday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "10:00:00.000Z", "EndTime": "14:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberBtsTue",
+              "body": { "OperatingHoursId": "@{refMemberOhB.id}", "DayOfWeek": "Tuesday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "10:00:00.000Z", "EndTime": "14:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberBtsWed",
+              "body": { "OperatingHoursId": "@{refMemberOhB.id}", "DayOfWeek": "Wednesday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "10:00:00.000Z", "EndTime": "14:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberBtsThu",
+              "body": { "OperatingHoursId": "@{refMemberOhB.id}", "DayOfWeek": "Thursday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "10:00:00.000Z", "EndTime": "14:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberBtsFri",
+              "body": { "OperatingHoursId": "@{refMemberOhB.id}", "DayOfWeek": "Friday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "10:00:00.000Z", "EndTime": "14:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberBtsSat",
+              "body": { "OperatingHoursId": "@{refMemberOhB.id}", "DayOfWeek": "Saturday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "10:00:00.000Z", "EndTime": "14:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberBtsSun",
+              "body": { "OperatingHoursId": "@{refMemberOhB.id}", "DayOfWeek": "Sunday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "10:00:00.000Z", "EndTime": "14:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberCtsMon",
+              "body": { "OperatingHoursId": "@{refMemberOhC.id}", "DayOfWeek": "Monday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "10:00:00.000Z", "EndTime": "14:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberCtsTue",
+              "body": { "OperatingHoursId": "@{refMemberOhC.id}", "DayOfWeek": "Tuesday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "10:00:00.000Z", "EndTime": "14:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberCtsWed",
+              "body": { "OperatingHoursId": "@{refMemberOhC.id}", "DayOfWeek": "Wednesday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "10:00:00.000Z", "EndTime": "14:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberCtsThu",
+              "body": { "OperatingHoursId": "@{refMemberOhC.id}", "DayOfWeek": "Thursday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "10:00:00.000Z", "EndTime": "14:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberCtsFri",
+              "body": { "OperatingHoursId": "@{refMemberOhC.id}", "DayOfWeek": "Friday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "10:00:00.000Z", "EndTime": "14:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberCtsSat",
+              "body": { "OperatingHoursId": "@{refMemberOhC.id}", "DayOfWeek": "Saturday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "10:00:00.000Z", "EndTime": "14:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/TimeSlot",
+              "referenceId": "refMemberCtsSun",
+              "body": { "OperatingHoursId": "@{refMemberOhC.id}", "DayOfWeek": "Sunday", "Type": "Normal", "SchedulingMethod": "OnSite", "StartTime": "10:00:00.000Z", "EndTime": "14:00:00.000Z" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceTerritory",
+              "referenceId": "refTerritory",
+              "body": { "Name": "PriorAssign Territory {{$timestamp}}", "OperatingHoursId": "@{refTerritoryOh.id}", "IsActive": true }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/WorkType",
+              "referenceId": "refWorkType",
+              "body": { "Name": "PriorAssign WorkType {{$timestamp}}", "DurationType": "Minutes", "EstimatedDuration": 30 }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceTerritoryWorkType",
+              "referenceId": "refStwt",
+              "body": { "ServiceTerritoryId": "@{refTerritory.id}", "WorkTypeId": "@{refWorkType.id}" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceResource",
+              "referenceId": "refResourceA",
+              "body": { "Name": "PriorAssign Resource A {{$timestamp}}", "RelatedRecordId": "{{caseWorkerUserId}}", "ResourceType": "T", "IsActive": true, "IsPrimary": true }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceResource",
+              "referenceId": "refResourceB",
+              "body": { "Name": "PriorAssign Resource B {{$timestamp}}", "RelatedRecordId": "{{caseManagerUserId}}", "ResourceType": "T", "IsActive": true, "IsPrimary": true }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceResource",
+              "referenceId": "refResourceC",
+              "body": { "Name": "PriorAssign Resource C {{$timestamp}}", "RelatedRecordId": "{{priorResourceCUserId}}", "ResourceType": "T", "IsActive": true, "IsPrimary": true }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceTerritoryMember",
+              "referenceId": "refStmA",
+              "body": { "ServiceTerritoryId": "@{refTerritory.id}", "ServiceResourceId": "@{refResourceA.id}", "TerritoryType": "P", "OperatingHoursId": "@{refMemberOhA.id}", "EffectiveStartDate": "{{doubleBookStmEffectiveStart}}" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceTerritoryMember",
+              "referenceId": "refStmB",
+              "body": { "ServiceTerritoryId": "@{refTerritory.id}", "ServiceResourceId": "@{refResourceB.id}", "TerritoryType": "P", "OperatingHoursId": "@{refMemberOhB.id}", "EffectiveStartDate": "{{doubleBookStmEffectiveStart}}" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/ServiceTerritoryMember",
+              "referenceId": "refStmC",
+              "body": { "ServiceTerritoryId": "@{refTerritory.id}", "ServiceResourceId": "@{refResourceC.id}", "TerritoryType": "P", "OperatingHoursId": "@{refMemberOhC.id}", "EffectiveStartDate": "{{doubleBookStmEffectiveStart}}" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/Shift",
+              "referenceId": "refShiftA",
+              "body": { "ServiceResourceId": "@{refResourceA.id}", "ServiceTerritoryId": "@{refTerritory.id}", "StartTime": "{{doubleBookShiftAStart}}", "EndTime": "{{doubleBookShiftAEnd}}", "TimeSlotType": "Normal", "SchedulingMethod": "OnSite", "Status": "Confirmed" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/Shift",
+              "referenceId": "refShiftB",
+              "body": { "ServiceResourceId": "@{refResourceB.id}", "ServiceTerritoryId": "@{refTerritory.id}", "StartTime": "{{doubleBookShiftBStart}}", "EndTime": "{{doubleBookShiftBEnd}}", "TimeSlotType": "Normal", "SchedulingMethod": "OnSite", "Status": "Confirmed" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/Shift",
+              "referenceId": "refShiftC",
+              "body": { "ServiceResourceId": "@{refResourceC.id}", "ServiceTerritoryId": "@{refTerritory.id}", "StartTime": "{{doubleBookShiftCStart}}", "EndTime": "{{doubleBookShiftCEnd}}", "TimeSlotType": "Normal", "SchedulingMethod": "OnSite", "Status": "Confirmed" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/Account",
+              "referenceId": "refAccount",
+              "body": { "Name": "PriorAssign Account {{$timestamp}}" }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/Account",
+              "referenceId": "refAccount2",
+              "body": { "Name": "PriorAssign Account 2 {{$timestamp}}" }
+            }
+          ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      // STM effective from a month ago (open-ended) so the Shifts validate.
+      const monthAgo = new Date();
+      monthAgo.setUTCMonth(monthAgo.getUTCMonth() - 1);
+      pm.environment.set("doubleBookStmEffectiveStart", monthAgo.toISOString());
+      // Availability is the UNION of member OH and Shift (AvailabilityRuleCheck: bookable iff the window
+      // fits OH ∪ Shift). All three resources have member OH 10:00-14:00 + Shift 10:00-14:00 → all are
+      // AVAILABLE at 11:00. B is the shared worker between the two bookings (parity scenario 1.* fan-out:
+      // appt#1 books A+B at 11:00; appt#2 books B+C at 11:00; both at 11:00 → prior-assignment conflict).
+      // resourceA: member OH A 10:00-14:00 + Shift 10:00-14:00 → available at 11:00.
+      const shiftAStart = new Date();
+      shiftAStart.setUTCDate(shiftAStart.getUTCDate() + 1);
+      shiftAStart.setUTCHours(10, 0, 0, 0);
+      const shiftAEnd = new Date(shiftAStart.getTime());
+      shiftAEnd.setUTCHours(14, 0, 0, 0);
+      pm.environment.set("doubleBookShiftAStart", shiftAStart.toISOString());
+      pm.environment.set("doubleBookShiftAEnd", shiftAEnd.toISOString());
+      // resourceB: member OH B 10:00-14:00 + Shift 10:00-14:00 → available at 11:00 (the shared worker).
+      const shiftBStart = new Date();
+      shiftBStart.setUTCDate(shiftBStart.getUTCDate() + 1);
+      shiftBStart.setUTCHours(10, 0, 0, 0);
+      const shiftBEnd = new Date(shiftBStart.getTime());
+      shiftBEnd.setUTCHours(14, 0, 0, 0);
+      pm.environment.set("doubleBookShiftBStart", shiftBStart.toISOString());
+      pm.environment.set("doubleBookShiftBEnd", shiftBEnd.toISOString());
+      // resourceC: member OH C 10:00-14:00 + Shift 10:00-14:00 → available at 11:00.
+      const shiftCStart = new Date();
+      shiftCStart.setUTCDate(shiftCStart.getUTCDate() + 1);
+      shiftCStart.setUTCHours(10, 0, 0, 0);
+      const shiftCEnd = new Date(shiftCStart.getTime());
+      shiftCEnd.setUTCHours(14, 0, 0, 0);
+      pm.environment.set("doubleBookShiftCStart", shiftCStart.toISOString());
+      pm.environment.set("doubleBookShiftCEnd", shiftCEnd.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      const jsonData = pm.response.json();
+      const responses = jsonData.graphs[0].graphResponse.compositeResponse;
+      responses.forEach((r) => {
+        if (r.httpStatusCode < 200 || r.httpStatusCode >= 300) {
+          throw new Error("Composite step " + r.referenceId + " failed: " + JSON.stringify(r.body));
+        }
+      });
+      const byRef = {};
+      responses.forEach(r => { byRef[r.referenceId] = r.body && r.body.id; });
+      pm.environment.set("priorTerritoryId", byRef["refTerritory"]);
+      pm.environment.set("priorWorkTypeId", byRef["refWorkType"]);
+      pm.environment.set("priorAccountId", byRef["refAccount"]);
+      pm.environment.set("priorAccountId2", byRef["refAccount2"]);
+      pm.environment.set("priorResourceAId", byRef["refResourceA"]);
+      pm.environment.set("priorResourceBId", byRef["refResourceB"]);
+      pm.environment.set("priorResourceCId", byRef["refResourceC"]);
+    language: text/javascript
+order: 500

@@ -1,0 +1,23 @@
+$kind: collection
+description: |-
+  PRIOR-ASSIGNMENT fixture for the 1.* parity vertical-slice on 262 Unified. Builds, in one
+  composite/graph call as {{managerToken}}, a data graph for a Schedule with THREE User-backed
+  ServiceResources on DISTINCT users (ServiceResource is DB-unique on (RelatedRecordId, ResourceType)):
+    - resourceA (caseWorkerUserId, pre-provisioned): Primary member, member OH A 10:00-14:00 + Confirmed
+      Shift 10:00-14:00 → available at 11:00.
+    - resourceB (caseManagerUserId, pre-provisioned): Primary member, member OH B 10:00-14:00 + Confirmed
+      Shift 10:00-14:00 → available at 11:00. B is the SHARED WORKER between the two bookings.
+    - resourceC (priorResourceCUserId, admin-minted by 05-create-resource-c-user.request in this folder,
+      order 400, because creating a User needs Manage Users which the manager lacks): Primary member,
+      member OH C 10:00-14:00 + Confirmed Shift 10:00-14:00 → available at 11:00.
+  Availability is the UNION of member OH and Shift. All three resources are available at 11:00. TWO
+  Accounts (Account + Account2). One OnSite WorkType (30m) + STWT. Emits priorTerritoryId,
+  priorWorkTypeId, priorAccountId, priorAccountId2, priorResourceAId, priorResourceBId, priorResourceCId.
+  The prior-assignment conflict is triggered by the second booking reusing resourceB (parity scenario 1.*
+  fan-out: appt#1 books A+B at 11:00; appt#2 books B+C at 11:00).
+auth:
+  - id: 7a1b2c3d-4e5f-4061-9a7b-2c3d4e5f6071
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"

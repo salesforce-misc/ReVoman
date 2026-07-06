@@ -1,0 +1,65 @@
+$kind: http-request
+description: >-
+  PRIOR-ASSIGNMENT — admin mints resourceC's owner User (the third ServiceResource's RelatedRecordId) and
+  assigns the WFS resource permset so slot-gen's filterResourcesWithPerm admits C. Created by admin
+  because creating a User (setting ProfileId) needs Manage Users, which the manager persona lacks (same
+  reason as Decision 9's resource-owner mint). resourceA/B reuse the pre-provisioned caseWorker/caseManager
+  users; only C needs a fresh one. Emits priorResourceCUserId.
+url: "{{baseUrl}}{{versionPath}}/composite/graph"
+method: POST
+headers:
+  Content-Type: application/json
+auth:
+  - id: 9c3d5e70-0400-4aaa-9bbb-000000000400
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{adminToken}}"
+body:
+  type: json
+  content: |-
+    {
+      "graphs": [
+        {
+          "graphId": "priorResUserC",
+          "compositeRequest": [
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/User",
+              "referenceId": "refUserC",
+              "body": {
+                "Username": "{{priorResourceCUserName}}",
+                "ProfileId": "{{standardUserProfileId}}",
+                "Alias": "pares-c",
+                "Email": "{{priorResourceCUserName}}",
+                "EmailEncodingKey": "ISO-8859-1",
+                "LastName": "PriorResourceC",
+                "FirstName": "Casey",
+                "LanguageLocaleKey": "en_US",
+                "LocaleSidKey": "en_US",
+                "TimeZoneSidKey": "GMT"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/PermissionSetAssignment",
+              "referenceId": "refPsAssignC",
+              "body": {
+                "AssigneeId": "@{refUserC.id}",
+                "PermissionSetId": "{{unifiedPSResourceId}}"
+              }
+            }
+          ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: pm.environment.set("priorResourceCUserName", pm.variables.replaceIn("prior-resource-c-{{$timestamp}}@revoman.org"));
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      var d = pm.response.json();
+      pm.environment.set("priorResourceCUserId", d.graphs[0].graphResponse.compositeResponse[0].body.id);
+    language: text/javascript
+order: 400
