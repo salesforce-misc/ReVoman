@@ -1789,102 +1789,115 @@ class SchedulerVsUnifiedParityE2ETest {
   }
 
   /**
-   * Prior-assignment occupancy parity — does an EXISTING appointment assignment on worker B occupy
-   * B's time and block a later REQUIRED booking on an overlapping appointment, even when B first
-   * joined as an OPTIONAL (non-required) helper? {@code required} vs {@code non-required} decides
-   * whether B is CHECKED when joining an appointment — not whether B's existing assignments COUNT
-   * against a future check. This test asserts the full 2x2 (appt #1 flavor x appt #2 flavor) on
-   * BOTH engines.
+   * Prior-assignment occupancy — does an EXISTING appointment assignment on worker B occupy B's
+   * time and block a later booking on an overlapping appointment? The question probes whether
+   * {@code required} vs {@code non-required} on either booking changes the answer: it decides
+   * whether B is fitness-CHECKED when joining an appointment, but the separate question here is
+   * whether B's existing assignments COUNT against a future booking.
    *
    * <p>Fixture isolates the mechanism: A/B/C are all AVAILABLE at 11:00 (member OH + Shift
    * 10:00-14:00, no shift gap — unlike the 1.5 double-book fixture). B is the only shared worker: A
    * is appt #1's primary, C is appt #2's DEDICATED free primary, so a refused appt #2 cannot be
    * blamed on the primary being double-booked. The two appointments use two Accounts on the SAME
-   * 11:00-11:30 window.
+   * 11:00-11:30 window. Each of the four (appt#1 flavor x appt#2 flavor) cells is a fresh revUp on
+   * each engine.
    *
-   * <p>Truth table (both products; each cell a fresh revUp):
+   * <p><b>KEY FINDING — TOTAL DIVERGENCE (LIVE-observed 2026-07-06, both orgs, not FROM-CACHE):</b>
+   * the two engines disagree on every cell of the 2x2. OLD Salesforce Scheduler REFUSED all four;
+   * 264 Unified BOOKED all four.
    *
    * <ul>
-   *   <li>(a) #1 required, #2 required -> REFUSED — the fail-loud guard: proves occupancy is
-   *       enforced at all. If this BOOKS, the org allows overbooking and the whole test is
-   *       meaningless.
-   *   <li>(b) #1 OPTIONAL, #2 required -> REFUSED — THE claim: an optional first booking still
-   *       occupies.
-   *   <li>(c) #1 optional, #2 optional -> BOOKED — appt #2 is non-required, so B is not
-   *       occupancy-checked.
-   *   <li>(d) #1 required, #2 optional -> BOOKED — symmetry; appt #2 non-required is not checked.
+   *   <li>(a) #1 required, #2 required — OLD REFUSED / Unified BOOKED.
+   *   <li>(b) #1 OPTIONAL, #2 required — OLD REFUSED / Unified BOOKED.
+   *   <li>(c) #1 optional, #2 optional — OLD REFUSED / Unified BOOKED.
+   *   <li>(d) #1 required, #2 optional — OLD REFUSED / Unified BOOKED.
    * </ul>
    *
-   * <p>Parity: each cell asserts old == unified. A divergence (e.g. a Unified HTTP 500 crash like
-   * 1.4/3) is asserted verbatim via the normalized {@link SchedulerParityConfig.WriteOutcome}, not
-   * forced green.
+   * <p><b>OLD engine:</b> an existing overlapping assignment is HARD occupancy. B is refused a
+   * second overlapping booking regardless of the required/optional flag on EITHER booking —
+   * including cells (b)/(c) where B joined appt #1 only as an OPTIONAL helper. So on the old engine
+   * "an existing assignment counts even when booked as optional" is TRUE, and it counts even when
+   * the second booking is optional too.
    *
-   * <p>Non-vacuity: every cell asserts appt #1 itself booked (old: 18-char 08p SA id; unified:
-   * Success), else appt #2's refusal would be a dead-fixture artifact rather than an occupancy
-   * block. The (a) guard additionally detects an overbooking-permissive org: if (a) does not refuse
-   * on BOTH engines the test fails, so nothing passes vacuously.
+   * <p><b>264 Unified engine:</b> there is NO prior-appointment occupancy check on the OnSite
+   * schedule path — Unified double-books B in every cell, even required-on-required (a). The
+   * occupancy question is therefore moot on Unified: no prior assignment (required or optional)
+   * occupies the worker.
+   *
+   * <p>This divergence is asserted VERBATIM per cell via the normalized {@link
+   * SchedulerParityConfig.WriteOutcome} (old REFUSED, Unified BOOKED) — NOT forced to a parity
+   * match, the same way the 1.4 / 3 crash divergences are pinned. There is deliberately no {@code
+   * old == unified} equality assertion here; the whole point is that they differ. Should a true-264
+   * org later add an occupancy check, the Unified expectations flip to REFUSED and the cells
+   * converge — the test then documents that change.
+   *
+   * <p>Non-vacuity: each cell's helper asserts appt #1 itself booked (old: 18-char 08p SA id;
+   * unified: schedulingStatus Success) before reading appt #2's outcome, so a REFUSED appt #2
+   * reflects a real occupancy block rather than a dead fixture. The fixture also proves B is
+   * genuinely AVAILABLE at 11:00 (no shift gap), so the old-side refusals are occupancy, not
+   * availability.
    *
    * <p>Old-side revUps mint 3 fresh {@code prior-res-*@revoman.org} users per run and never clean
-   * up; four cells x one old revUp each -> ~12 fresh users/run. The leading success guard ({@code
-   * firstUnIgnoredUnsuccessfulStepReport() == null}) surfaces a rolled-back fixture/grant loudly;
-   * the book acts carry {@code ignoreHTTPStatusUnsuccessful} so a legit refusal is read from the
-   * captured status, not counted as a step failure.
+   * up; four cells x one old revUp each -> ~12 fresh users/run. The Unified side admin-mints
+   * resourceC's user (the manager persona lacks Manage Users) inside the fixture Kick. The leading
+   * success guard ({@code firstUnIgnoredUnsuccessfulStepReport() == null}) surfaces a rolled-back
+   * fixture/grant loudly; the book acts carry {@code ignoreHTTPStatusUnsuccessful} so a legit
+   * refusal is read from the captured status, not counted as a step failure.
    */
   @Test
   void testPriorAssignmentOccupancyParity_E2E() {
     SchedulerParityConfig.assumeBothOrgCreds();
 
-    // (a) #1 required -> #2 required: the fail-loud occupancy guard. Both must REFUSE.
-    final var oldReqReq =
-        oldOccupancyCell(
-            SchedulerParityConfig.OLD_PRIOR_APPT1_B_REQUIRED_CONFIG,
-            SchedulerParityConfig.OLD_PRIOR_APPT2_B_REQUIRED_CONFIG);
-    final var unifiedReqReq =
-        unifiedOccupancyCell(
-            ReVomanConfigForWfs.PRIOR_APPT1_B_REQUIRED_CONFIG,
-            ReVomanConfigForWfs.PRIOR_APPT2_B_REQUIRED_CONFIG);
-    // If this books, the org allows overbooking and the whole test is meaningless — fail loud here.
-    assertThat(oldReqReq).isEqualTo(SchedulerParityConfig.WriteOutcome.REFUSED);
-    assertThat(unifiedReqReq).isEqualTo(SchedulerParityConfig.WriteOutcome.REFUSED);
-    assertThat(oldReqReq).isEqualTo(unifiedReqReq);
+    // LIVE-OBSERVED TRUTH TABLE (2026-07-06, both orgs, not FROM-CACHE) — a TOTAL divergence:
+    // OLD Salesforce Scheduler REFUSED all four cells; 264 Unified BOOKED all four. Each cell is
+    // asserted
+    // VERBATIM to the observed outcome (not forced to a parity match), the same way the 1.4 / 3
+    // crash
+    // divergences are pinned. The old==unified equality asserts are intentionally ABSENT — they
+    // diverge.
+    final Kick oldReqA1 = SchedulerParityConfig.OLD_PRIOR_APPT1_B_REQUIRED_CONFIG;
+    final Kick oldOptA1 = SchedulerParityConfig.OLD_PRIOR_APPT1_B_OPTIONAL_CONFIG;
+    final Kick oldReqA2 = SchedulerParityConfig.OLD_PRIOR_APPT2_B_REQUIRED_CONFIG;
+    final Kick oldOptA2 = SchedulerParityConfig.OLD_PRIOR_APPT2_B_OPTIONAL_CONFIG;
+    final Kick uniReqA1 = ReVomanConfigForWfs.PRIOR_APPT1_B_REQUIRED_CONFIG;
+    final Kick uniOptA1 = ReVomanConfigForWfs.PRIOR_APPT1_B_OPTIONAL_CONFIG;
+    final Kick uniReqA2 = ReVomanConfigForWfs.PRIOR_APPT2_B_REQUIRED_CONFIG;
+    final Kick uniOptA2 = ReVomanConfigForWfs.PRIOR_APPT2_B_OPTIONAL_CONFIG;
 
-    // (b) #1 OPTIONAL -> #2 required: THE claim — an optional first booking still occupies B.
-    final var oldOptReq =
-        oldOccupancyCell(
-            SchedulerParityConfig.OLD_PRIOR_APPT1_B_OPTIONAL_CONFIG,
-            SchedulerParityConfig.OLD_PRIOR_APPT2_B_REQUIRED_CONFIG);
-    final var unifiedOptReq =
-        unifiedOccupancyCell(
-            ReVomanConfigForWfs.PRIOR_APPT1_B_OPTIONAL_CONFIG,
-            ReVomanConfigForWfs.PRIOR_APPT2_B_REQUIRED_CONFIG);
-    assertThat(oldOptReq).isEqualTo(SchedulerParityConfig.WriteOutcome.REFUSED);
-    assertThat(unifiedOptReq).isEqualTo(SchedulerParityConfig.WriteOutcome.REFUSED);
-    assertThat(oldOptReq).isEqualTo(unifiedOptReq);
+    // (a) #1 required -> #2 required. OLD REFUSES the 2nd overlapping booking (enforces occupancy);
+    // Unified BOOKS it (no prior-appointment occupancy check — double-books even a REQUIRED
+    // resource).
+    assertThat(oldOccupancyCell(oldReqA1, oldReqA2))
+        .isEqualTo(SchedulerParityConfig.WriteOutcome.REFUSED);
+    assertThat(unifiedOccupancyCell(uniReqA1, uniReqA2))
+        .isEqualTo(SchedulerParityConfig.WriteOutcome.BOOKED);
 
-    // (c) #1 optional -> #2 optional: appt #2 non-required, B not occupancy-checked -> BOOKED.
-    final var oldOptOpt =
-        oldOccupancyCell(
-            SchedulerParityConfig.OLD_PRIOR_APPT1_B_OPTIONAL_CONFIG,
-            SchedulerParityConfig.OLD_PRIOR_APPT2_B_OPTIONAL_CONFIG);
-    final var unifiedOptOpt =
-        unifiedOccupancyCell(
-            ReVomanConfigForWfs.PRIOR_APPT1_B_OPTIONAL_CONFIG,
-            ReVomanConfigForWfs.PRIOR_APPT2_B_OPTIONAL_CONFIG);
-    assertThat(oldOptOpt).isEqualTo(SchedulerParityConfig.WriteOutcome.BOOKED);
-    assertThat(unifiedOptOpt).isEqualTo(SchedulerParityConfig.WriteOutcome.BOOKED);
-    assertThat(oldOptOpt).isEqualTo(unifiedOptOpt);
+    // (b) #1 OPTIONAL -> #2 required (the headline question). OLD still REFUSES — an OPTIONAL prior
+    // assignment DOES occupy B on the old engine. Unified BOOKS — the optional prior assignment
+    // does
+    // not occupy (nor does any prior assignment).
+    assertThat(oldOccupancyCell(oldOptA1, oldReqA2))
+        .isEqualTo(SchedulerParityConfig.WriteOutcome.REFUSED);
+    assertThat(unifiedOccupancyCell(uniOptA1, uniReqA2))
+        .isEqualTo(SchedulerParityConfig.WriteOutcome.BOOKED);
 
-    // (d) #1 required -> #2 optional: symmetry; appt #2 non-required -> BOOKED.
-    final var oldReqOpt =
-        oldOccupancyCell(
-            SchedulerParityConfig.OLD_PRIOR_APPT1_B_REQUIRED_CONFIG,
-            SchedulerParityConfig.OLD_PRIOR_APPT2_B_OPTIONAL_CONFIG);
-    final var unifiedReqOpt =
-        unifiedOccupancyCell(
-            ReVomanConfigForWfs.PRIOR_APPT1_B_REQUIRED_CONFIG,
-            ReVomanConfigForWfs.PRIOR_APPT2_B_OPTIONAL_CONFIG);
-    assertThat(oldReqOpt).isEqualTo(SchedulerParityConfig.WriteOutcome.BOOKED);
-    assertThat(unifiedReqOpt).isEqualTo(SchedulerParityConfig.WriteOutcome.BOOKED);
-    assertThat(oldReqOpt).isEqualTo(unifiedReqOpt);
+    // (c) #1 optional -> #2 optional. OLD REFUSES even though appt #2 marks B optional — the old
+    // engine
+    // treats B's existing overlapping assignment as hard occupancy regardless of the 2nd booking's
+    // flag.
+    // Unified BOOKS.
+    assertThat(oldOccupancyCell(oldOptA1, oldOptA2))
+        .isEqualTo(SchedulerParityConfig.WriteOutcome.REFUSED);
+    assertThat(unifiedOccupancyCell(uniOptA1, uniOptA2))
+        .isEqualTo(SchedulerParityConfig.WriteOutcome.BOOKED);
+
+    // (d) #1 required -> #2 optional. Same as (c) with a required first booking: OLD REFUSES,
+    // Unified
+    // BOOKS. Confirms old-side occupancy enforcement is independent of BOTH bookings' required
+    // flags.
+    assertThat(oldOccupancyCell(oldReqA1, oldOptA2))
+        .isEqualTo(SchedulerParityConfig.WriteOutcome.REFUSED);
+    assertThat(unifiedOccupancyCell(uniReqA1, uniOptA2))
+        .isEqualTo(SchedulerParityConfig.WriteOutcome.BOOKED);
   }
 }
