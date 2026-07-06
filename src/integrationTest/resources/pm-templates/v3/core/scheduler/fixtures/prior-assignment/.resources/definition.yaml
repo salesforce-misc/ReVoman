@@ -1,9 +1,13 @@
 $kind: collection
 description: |-
-  OLD Scheduler-org double-book data graph (clone of the WFS Unified fixture, retargeted to the scheduler
-  org and admin session). Territory OH 08-16; resourceA member OH + Shift 10-14 (covers 11:00-11:30);
-  resourceB member OH + Shift 12-14 (does NOT cover 11:00 → busy at the window). Standard objects, so the
-  same graph books on the scheduler org. Sets sched{Territory,WorkType,Account,ResourceA,ResourceB}Id.
+  OLD Scheduler-org PRIOR-ASSIGNMENT data graph (clone of the double-book graph, retargeted for the
+  occupancy test). Territory OH 08-16; THREE User-backed ServiceResources (resourceA/B/C), all PRIMARY
+  ServiceTerritoryMembers, ALL AVAILABLE over 11:00-11:30 (member OH + Confirmed Shift 10:00-14:00 each,
+  no shift gap). Unlike the double-book graph, resourceB is AVAILABLE at 11:00 — B is the shared worker,
+  so the only thing that can block a second overlapping booking of B is B's assignment on the first
+  appointment. resourceA is appt #1's primary; resourceC is appt #2's dedicated free primary. TWO
+  Accounts so the two appointments are independent parents. Standard objects, so the same graph books on
+  the scheduler org. Sets sched{Territory,WorkType,Account,Account2,ResourceA,ResourceB,ResourceC}Id.
 auth:
   - id: 7e1f0c00-1005-4aaa-9bbb-000000000010
     type: bearer
