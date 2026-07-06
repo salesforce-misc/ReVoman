@@ -17,9 +17,9 @@ import kotlin.collections.CollectionsKt;
 import org.junit.jupiter.api.Test;
 
 /**
- * Scheduler ↔ Unified(264) {@code 1.*} helper-fitness parity — differential tests. Each scenario
- * diffs the OLD Salesforce Scheduler decision against the 264-Unified(262-proxy) decision on BOTH
- * the read (INCLUDED/EXCLUDED) and write (BOOKED/REFUSED/CRASHED) axes.
+ * Scheduler ↔ Unified(264) {@code 1.*} non-required resource-fitness parity — differential tests.
+ * Each scenario diffs the OLD Salesforce Scheduler decision against the 264-Unified(262-proxy)
+ * decision on BOTH the read (INCLUDED/EXCLUDED) and write (BOOKED/REFUSED/CRASHED) axes.
  */
 class SchedulerVsUnifiedParityE2ETest {
 
@@ -43,14 +43,15 @@ class SchedulerVsUnifiedParityE2ETest {
   }
 
   /**
-   * Decision 1.5 parity — a busy NON-required helper. OLD Salesforce Scheduler vs 264 Unified
-   * OnSite (262 proxy) must agree on both axes: the busy helper BOOKS (not availability-checked)
-   * while a required busy control is REFUSED; and the read offers the fixture's slots only when the
-   * busy resource is NOT a hard required constraint. Old side: public Scheduler REST ({@code POST
-   * /scheduling/getAppointmentSlots} + {@code POST /connect/scheduling/service-appointments}).
-   * Unified side: the existing WFS double-book Connect acts.
+   * Decision 1.5 parity — a busy NON-required resource. OLD Salesforce Scheduler vs 264 Unified
+   * OnSite (262 proxy) must agree on both axes: the busy non-required resource BOOKS (not
+   * availability-checked) while a required busy control is REFUSED; and the read offers the
+   * fixture's slots only when the busy resource is NOT a hard required constraint. Old side: public
+   * Scheduler REST ({@code POST /scheduling/getAppointmentSlots} + {@code POST
+   * /connect/scheduling/service-appointments}). Unified side: the existing WFS double-book Connect
+   * acts.
    *
-   * <p>KEY PARITY FINDING (both products agree): a non-required helper BOOKS (it is not
+   * <p>KEY PARITY FINDING (both products agree): a non-required resource BOOKS (it is not
    * availability-checked, so it may double-book) and is read-EXCLUDED when that same busy resource
    * is named a hard required constraint; the required-control write is REFUSED
    * (availability-checked). All four normalized verdicts align → 1.5 parity CONFIRMED.
@@ -73,7 +74,8 @@ class SchedulerVsUnifiedParityE2ETest {
   void testHelperDoubleBookParity_1_5_E2E() {
     SchedulerParityConfig.assumeBothOrgCreds();
 
-    // --- OLD side: read decision + write (helper) + write (required control), fresh revUps ---
+    // --- OLD side: read decision + write (non-required resource) + write (required control), fresh
+    // revUps ---
     // Each old-side revUp mirrors the probe sequence: AUTH → FIXTURE → GRANT (Lightning-Scheduler
     // user-access, else the classic engine prunes the fixture resources → dead read/write) →
     // READ/BOOK.
@@ -140,9 +142,10 @@ class SchedulerVsUnifiedParityE2ETest {
         SchedulerParityConfig.unifiedWriteOutcome(
             unifiedEnv.getAsString("doubleBookRequiredControlSchedulingStatus"), "201");
 
-    // --- PARITY: both products book the non-required busy helper (helper is NOT
+    // --- PARITY: both products book the busy non-required resource (a non-required resource is NOT
     // availability-checked) ---
-    // Shape guard (restored from the removed write probe): the old-side helper booking must return
+    // Shape guard (restored from the removed write probe): the old-side non-required resource
+    // booking must return
     // a real
     // ServiceAppointment id (18-char, 08p prefix), so BOOKED reflects a genuine persist, not an
     // empty pass.
@@ -165,9 +168,9 @@ class SchedulerVsUnifiedParityE2ETest {
   }
 
   /**
-   * Scenario 1b (Territory) parity — a NON-required helper whose ServiceTerritoryMember coverage
+   * Scenario 1b (Territory) parity — a NON-required resource whose ServiceTerritoryMember coverage
    * does NOT include the booking window. OLD Salesforce Scheduler vs 264 Unified OnSite (262 proxy)
-   * must agree on both axes: the out-of-territory helper BOOKS (its territory is NOT
+   * must agree on both axes: the out-of-territory non-required resource BOOKS (its territory is NOT
    * fitness-checked because it is non-required) while the SAME resourceB named a hard REQUIRED
    * constraint is REFUSED (the classic engine's territory/STM-membership filter runs only for
    * required resources); and the read offers the fixture's slots only when the out-of-territory
@@ -175,7 +178,7 @@ class SchedulerVsUnifiedParityE2ETest {
    * /scheduling/getAppointmentSlots} + {@code POST /connect/scheduling/service-appointments}).
    * Unified side: the existing WFS territory Kicks ({@code TERRITORY_PARTIAL_POLICY_CONFIG} /
    * {@code TERRITORY_FIXTURE_CONFIG} / {@code TERRITORY_SCHEDULE_CONFIG}), which book the
-   * non-required helper Success (the escape under test).
+   * non-required resource Success (the escape under test).
    *
    * <p>Constructibility: CLEANLY CONSTRUCTIBLE on the old read path. Both resources are fully
    * AVAILABLE over the 11:30-12:30 straddle-noon window (shared member OH 08-16 + Confirmed Shift
@@ -186,11 +189,12 @@ class SchedulerVsUnifiedParityE2ETest {
    * over the STM-committed window → A+B (B required) = 0 slots, A-only > 0. This mirrors the WFS
    * territory fixture's partial-membership isolation shape.
    *
-   * <p>KEY PARITY FINDING (both products agree): a non-required out-of-territory helper BOOKS (it
-   * is not territory/membership-checked, so it may violate territory coverage) and is read-EXCLUDED
-   * when that same resource is named a hard required constraint; the required-control write is
-   * REFUSED (territory-checked). Old read EXCLUDED + old helper BOOKED + old required-control
-   * REFUSED + 264 helper BOOKED → 1b territory parity CONFIRMED.
+   * <p>KEY PARITY FINDING (both products agree): an out-of-territory non-required resource BOOKS
+   * (it is not territory/membership-checked, so it may violate territory coverage) and is
+   * read-EXCLUDED when that same resource is named a hard required constraint; the required-control
+   * write is REFUSED (territory-checked). Old read EXCLUDED + old non-required resource BOOKED +
+   * old required-control REFUSED + 264 non-required resource BOOKED → 1b territory parity
+   * CONFIRMED.
    *
    * <p>262-proxy caveat: the 264 verdict is 262-observed and stands in for 264 (endpoints identical
    * 262↔264 per the parity effort). 1b is crash-free (MatchTerritory is a clean fitness rule), so
@@ -207,7 +211,8 @@ class SchedulerVsUnifiedParityE2ETest {
   void testHelperTerritoryParity_1b_E2E() {
     SchedulerParityConfig.assumeBothOrgCreds();
 
-    // --- OLD side: read decision + write (helper) + write (required control), fresh revUps ---
+    // --- OLD side: read decision + write (non-required resource) + write (required control), fresh
+    // revUps ---
     // Each old-side revUp mirrors the probe sequence: AUTH → FIXTURE (graph + STM-narrowing PATCH)
     // →
     // GRANT (Lightning-Scheduler user-access, else the classic engine prunes the fixture resources
@@ -262,7 +267,7 @@ class SchedulerVsUnifiedParityE2ETest {
 
     // --- 264 side (262 proxy): reuse the proven WFS territory acts, one revUp. The territory
     // scenario
-    // has ONE act (the non-required helper booking Success is the escape under test); there is no
+    // has ONE act (the non-required resource booking Success is the escape under test); there is no
     // 264
     // required-control act for territory, so the required→REFUSED axis is proven on the OLD side
     // only. ---
@@ -279,10 +284,12 @@ class SchedulerVsUnifiedParityE2ETest {
         SchedulerParityConfig.unifiedWriteOutcome(
             unifiedEnv.getAsString("territoryNonReqSchedulingStatus"), "201");
 
-    // --- PARITY: both products book the non-required out-of-territory helper (helper is NOT
+    // --- PARITY: both products book the out-of-territory non-required resource (a non-required
+    // resource is NOT
     // territory-
     // checked) ---
-    // Shape guard: the old-side helper booking must return a real ServiceAppointment id (18-char,
+    // Shape guard: the old-side non-required resource booking must return a real ServiceAppointment
+    // id (18-char,
     // 08p
     // prefix), so BOOKED reflects a genuine persist, not an empty pass.
     assertThat(oldHelperEnv.getAsString("oldWriteHelperSaId")).hasLength(18);
@@ -294,26 +301,28 @@ class SchedulerVsUnifiedParityE2ETest {
     // territory proof).
     assertThat(oldReadDecision).isEqualTo(SchedulerParityConfig.ReadDecision.EXCLUDED);
     // Old required control (the out-of-territory resource named required) is REFUSED → the old-side
-    // territory-checked proof (isolates the helper Success to the non-required flag).
+    // territory-checked proof (isolates the non-required resource Success to the non-required
+    // flag).
     assertThat(oldControlOutcome).isEqualTo(SchedulerParityConfig.WriteOutcome.REFUSED);
-    // 264 helper (out-of-territory resource as non-required) books Success → the Unified escape it
+    // 264 non-required resource (out-of-territory resource as non-required) books Success → the
+    // Unified escape it
     // shares
     // with old.
     assertThat(unifiedEnv.getAsString("territoryNonReqSchedulingStatus")).isEqualTo("Success");
   }
 
   /**
-   * Decision 1d parity — a NON-required helper whose ONLY disqualifier is its territory-member
+   * Decision 1d parity — a NON-required resource whose ONLY disqualifier is its territory-member
    * ROLE: resourceB is a SECONDARY ({@code TerritoryType='S'}) member under a PRIMARY-ONLY
    * SchedulingPolicy ({@code ShouldUsePrimaryMembers=true, ShouldUseSecondaryMembers=false}). This
    * is the cleanest WorkingLocations isolation — resourceB IS a member (not a non-member exclusion)
    * and is fully AVAILABLE at the window (member OH 10-14 + Confirmed Shift 10-14 both cover the
    * 11:00-11:30 booking, the proven 1.5 double-book resourceA window), so its Secondary ROLE alone
    * excludes it. OLD Salesforce Scheduler vs 264 Unified OnSite (262 proxy) must agree: the
-   * Secondary helper BOOKS (a non-required resource is not eligibility-checked, so its Secondary
-   * role escapes the WorkingLocations rule); the OLD read EXCLUDES that same Secondary resource
-   * when it is a hard required constraint (the primary-only STM filter drops it), and the OLD
-   * required-control write is REFUSED.
+   * Secondary non-required resource BOOKS (a non-required resource is not eligibility-checked, so
+   * its Secondary role escapes the WorkingLocations rule); the OLD read EXCLUDES that same
+   * Secondary resource when it is a hard required constraint (the primary-only STM filter drops
+   * it), and the OLD required-control write is REFUSED.
    *
    * <p>Old side: public Scheduler REST ({@code POST /scheduling/getAppointmentSlots} + {@code POST
    * /connect/scheduling/service-appointments}), each carrying {@code schedulingPolicyId} = the
@@ -325,9 +334,9 @@ class SchedulerVsUnifiedParityE2ETest {
    * is dropped by ROLE (JDWP/source-confirmed: {@code scheduling-impl/.../SchedulingDbUtil.java}).
    * Unified side: the existing WFS working-locations Connect act under the primary-only
    * WorkingTerritories(IsPrimaryLocationEnabled) policy, which books the non-required Secondary
-   * helper Success (the 264 helper-escape finding).
+   * non-required resource Success (the 264 non-required resource-escape finding).
    *
-   * <p>KEY PARITY FINDING (both products agree): a non-required Secondary-member helper BOOKS (it
+   * <p>KEY PARITY FINDING (both products agree): a Secondary-member non-required resource BOOKS (it
    * is not eligibility-checked, so its WorkingLocations role is never evaluated) and is
    * read-EXCLUDED / write- REFUSED when that same Secondary resource is named a hard required
    * constraint → 1d parity CONFIRMED.
@@ -346,7 +355,8 @@ class SchedulerVsUnifiedParityE2ETest {
   void testHelperWorkingLocationsParity_1d_E2E() {
     SchedulerParityConfig.assumeBothOrgCreds();
 
-    // --- OLD side: read decision + write (helper) + write (required control), fresh revUps ---
+    // --- OLD side: read decision + write (non-required resource) + write (required control), fresh
+    // revUps ---
     // Each old-side revUp mirrors the probe sequence: AUTH → FIXTURE (seeds the primary-only policy
     // + P/S
     // member graph) → GRANT (Lightning-Scheduler user-access, else the classic engine prunes the
@@ -416,9 +426,11 @@ class SchedulerVsUnifiedParityE2ETest {
         SchedulerParityConfig.unifiedWriteOutcome(
             unifiedEnv.getAsString("workingLocationsSecondaryNonReqSchedulingStatus"), "201");
 
-    // --- PARITY: both products book the non-required Secondary-member helper (helper is NOT
+    // --- PARITY: both products book the Secondary-member non-required resource (a non-required
+    // resource is NOT
     // eligibility-checked) ---
-    // Shape guard: the old-side helper booking must return a real ServiceAppointment id (18-char,
+    // Shape guard: the old-side non-required resource booking must return a real ServiceAppointment
+    // id (18-char,
     // 08p
     // prefix), so BOOKED reflects a genuine persist, not an empty pass.
     assertThat(oldHelperEnv.getAsString("oldWriteHelperSaId")).hasLength(18);
@@ -432,22 +444,23 @@ class SchedulerVsUnifiedParityE2ETest {
     // Old required control (Secondary resource named required) is REFUSED → the old-side
     // ROLE-enforcement proof.
     assertThat(oldControlOutcome).isEqualTo(SchedulerParityConfig.WriteOutcome.REFUSED);
-    // Unified helper (non-required Secondary member) books Success → the 264 WorkingLocations
-    // helper-escape finding.
+    // Unified non-required resource (non-required Secondary member) books Success → the 264
+    // WorkingLocations
+    // non-required resource-escape finding.
     assertThat(unifiedEnv.getAsString("workingLocationsSecondaryNonReqSchedulingStatus"))
         .isEqualTo("Success");
   }
 
   /**
-   * Decision 1a parity — a NON-required helper on the ACCOUNT's block-list (an account
+   * Decision 1a parity — a NON-required resource on the ACCOUNT's block-list (an account
    * ResourcePreference of PreferenceType=Excluded naming resourceB). resourceA is clean; only the
-   * Excluded rule is in play. Does the scheduling engine fitness-check the non-required helper
+   * Excluded rule is in play. Does the scheduling engine fitness-check the non-required resource
    * against the account block-list on the WRITE (book) path?
    *
-   * <p>KEY PARITY FINDING (both products agree on the write axis): the non-required Excluded helper
-   * is NOT fitness-checked on the book path, so the SA BOOKS on both engines. 264 Unified: the WFS
-   * schedule-excluded-non-required act returns schedulingStatus=Success (the helper escapes
-   * ExcludedResources). OLD Salesforce Scheduler: {@code POST
+   * <p>KEY PARITY FINDING (both products agree on the write axis): the non-required Excluded
+   * non-required resource is NOT fitness-checked on the book path, so the SA BOOKS on both engines.
+   * 264 Unified: the WFS schedule-excluded-non-required act returns schedulingStatus=Success (the
+   * non-required resource escapes ExcludedResources). OLD Salesforce Scheduler: {@code POST
    * /connect/scheduling/service-appointments} validates only the required/primary resources and
    * passes {@code accountResourcePreferences=null} (ServiceAppointmentHelper.areResourcesAvailable
    * → SchedulingServiceImpl.getAppointmentSlots), so the account ResourcePreference(Excluded) is
@@ -464,11 +477,11 @@ class SchedulerVsUnifiedParityE2ETest {
    * {@code resources[]}) → EXCLUDED; the NO-account control keeps resourceB present (non-vacuity:
    * the fixture is live and resourceB is a real, available candidate — its WITH-account absence is
    * caused by the Excluded pref, not a dead read). NOTE the read axis is thus a candidate- pruning
-   * decision (a DIFFERENT surface from the book-time "helper fitness" the write asks); it is
-   * constructible on the candidates path but does not have a clean non-required-vs-required control
-   * there (getAppointmentCandidates has no per-resource required/non-required input). The write
-   * axis carries the true 1a parity verdict; the read is captured faithfully as supporting
-   * evidence, not forced to mirror the write.
+   * decision (a DIFFERENT surface from the book-time "non-required resource fitness" the write
+   * asks); it is constructible on the candidates path but does not have a clean
+   * non-required-vs-required control there (getAppointmentCandidates has no per-resource
+   * required/non-required input). The write axis carries the true 1a parity verdict; the read is
+   * captured faithfully as supporting evidence, not forced to mirror the write.
    *
    * <p>262-proxy caveat: the 264 verdict is 262-observed (endpoints identical 262↔264 per the
    * parity effort); 1a is crash-free so it is unaffected by the 262-specific INTERNAL_SERVER_ERROR
@@ -508,7 +521,7 @@ class SchedulerVsUnifiedParityE2ETest {
     assertThat(oldReadEnv.getAsString("oldCandidatesNoAcctResourceBPresent")).isEqualTo("1");
     assertThat(oldReadEnv.getAsString("oldCandidatesWithAcctResourceAPresent")).isEqualTo("1");
 
-    // --- OLD side: write (book) the non-required Excluded helper, fresh revUp ---
+    // --- OLD side: write (book) the non-required Excluded non-required resource, fresh revUp ---
     final var oldHelperEnv =
         CollectionsKt.last(
                 ReVoman.revUp(
@@ -537,9 +550,11 @@ class SchedulerVsUnifiedParityE2ETest {
         SchedulerParityConfig.unifiedWriteOutcome(
             unifiedEnv.getAsString("excludedNonReqSchedulingStatus"), "201");
 
-    // --- PARITY (write axis — the 1a verdict): both products book the non-required Excluded helper
+    // --- PARITY (write axis — the 1a verdict): both products book the non-required Excluded
+    // non-required resource
     // ---
-    // Shape guard: the old-side helper booking returns a real 18-char ServiceAppointment id (08p
+    // Shape guard: the old-side non-required resource booking returns a real 18-char
+    // ServiceAppointment id (08p
     // prefix),
     // so BOOKED reflects a genuine persist, not an empty pass.
     assertThat(oldHelperEnv.getAsString("oldWriteHelperSaId")).hasLength(18);
@@ -557,7 +572,8 @@ class SchedulerVsUnifiedParityE2ETest {
   void testHelperSkillsParity_1c_E2E() {
     SchedulerParityConfig.assumeBothOrgCreds();
 
-    // --- OLD side: read decisions (single B, single A, multi helper), one revUp; then the helper
+    // --- OLD side: read decisions (single B, single A, multi non-required resource), one revUp;
+    // then the non-required resource
     // write.
     // Each old-side revUp mirrors AUTH → FIXTURE (skills-helper: create-skill + graph) → GRANT
     // (Lightning-Scheduler user-access, else the classic engine prunes the resources → dead
@@ -576,7 +592,8 @@ class SchedulerVsUnifiedParityE2ETest {
     // INCLUDED.
     final var oldReadBOnlyDecision =
         SchedulerParityConfig.oldReadDecision(oldReadEnv.getAsString("oldReadBOnlySlotCount"));
-    // Multi-resource path: B is a non-primary helper, skill-checked on the PRIMARY only → B
+    // Multi-resource path: B is a non-primary non-required resource, skill-checked on the PRIMARY
+    // only → B
     // ESCAPES.
     final var oldReadMultiHelperDecision =
         SchedulerParityConfig.oldReadDecision(
@@ -604,7 +621,7 @@ class SchedulerVsUnifiedParityE2ETest {
 
     // --- 264 side (262 proxy): reuse the proven WFS skills acts, one revUp. The non-required
     // skill-less
-    // helper escapes MatchSkills on the required-only write path → Success
+    // non-required resource escapes MatchSkills on the required-only write path → Success
     // (skillsNonReqSchedulingStatus).
     final var unifiedEnv =
         CollectionsKt.last(
@@ -624,23 +641,28 @@ class SchedulerVsUnifiedParityE2ETest {
     // Skill-less B named the SOLE required resource is skill-checked → EXCLUDED (0 slots).
     assertThat(oldReadBOnlyDecision).isEqualTo(SchedulerParityConfig.ReadDecision.EXCLUDED);
 
-    // --- PARITY (helper escapes; PARTIAL — different mechanism) ---
-    // Shape guard: the old-side helper booking returns a real 18-char, 08p ServiceAppointment id,
+    // --- PARITY (non-required resource escapes; PARTIAL — different mechanism) ---
+    // Shape guard: the old-side non-required resource booking returns a real 18-char, 08p
+    // ServiceAppointment id,
     // so
     // BOOKED reflects a genuine persist, not an empty pass.
     assertThat(oldHelperEnv.getAsString("oldWriteHelperSaId")).hasLength(18);
     assertThat(oldHelperEnv.getAsString("oldWriteHelperSaId")).startsWith("08p");
-    // OLD non-required skill-less helper BOOKS (not skill-fitness-checked as a non-primary helper)
+    // OLD non-required skill-less non-required resource BOOKS (not skill-fitness-checked as a
+    // non-primary non-required resource)
     // …
     assertThat(oldHelperOutcome).isEqualTo(SchedulerParityConfig.WriteOutcome.BOOKED);
-    // … and on the read the multi helper (A primary + B required) is INCLUDED (B escapes → slots >
+    // … and on the read the multi non-required resource (A primary + B required) is INCLUDED (B
+    // escapes → slots >
     // 0),
     // the primary-only-skill-matching mechanism made observable on the read axis too.
     assertThat(oldReadMultiHelperDecision).isEqualTo(SchedulerParityConfig.ReadDecision.INCLUDED);
-    // 264 non-required skill-less helper also BOOKS (escapes MatchSkills on the required-only path)
+    // 264 non-required skill-less non-required resource also BOOKS (escapes MatchSkills on the
+    // required-only path)
     // …
     assertThat(unifiedHelperOutcome).isEqualTo(SchedulerParityConfig.WriteOutcome.BOOKED);
-    // … so OLD and 264 AGREE on the observable helper-escape write outcome (mechanism differs →
+    // … so OLD and 264 AGREE on the observable non-required resource-escape write outcome
+    // (mechanism differs →
     // PARTIAL).
     assertThat(oldHelperOutcome).isEqualTo(unifiedHelperOutcome);
   }
@@ -677,7 +699,7 @@ class SchedulerVsUnifiedParityE2ETest {
     // reason.
     assertThat(oldReadEnv.getAsString("oldCandidatesBReqCount")).isNotEqualTo("0");
 
-    // --- OLD side: write (resourceA required+primary + resourceB non-required helper) ---
+    // --- OLD side: write (resourceA required+primary + resourceB non-required resource) ---
     final var oldWriteEnv =
         CollectionsKt.last(
                 ReVoman.revUp(
@@ -734,7 +756,7 @@ class SchedulerVsUnifiedParityE2ETest {
     // classic
     // book path's internal slot-gen consults the account-required-resource enforcement and cannot
     // satisfy
-    // the account's demand for resourceB (present only as a non-required helper) → no resources
+    // the account's demand for resourceB (present only as a non-required resource) → no resources
     // found →
     // refuse. (The initial hypothesis that the write would BOOK resourceA outright was refuted by
     // the org.)
@@ -1816,9 +1838,9 @@ class SchedulerVsUnifiedParityE2ETest {
    *
    * <p><b>OLD engine:</b> an existing overlapping assignment is HARD occupancy. B is refused a
    * second overlapping booking regardless of the required/optional flag on EITHER booking —
-   * including cells (b)/(c) where B joined appt #1 only as an OPTIONAL helper. So on the old engine
-   * "an existing assignment counts even when booked as optional" is TRUE, and it counts even when
-   * the second booking is optional too.
+   * including cells (b)/(c) where B joined appt #1 only as an OPTIONAL non-required resource. So on
+   * the old engine "an existing assignment counts even when booked as optional" is TRUE, and it
+   * counts even when the second booking is optional too.
    *
    * <p><b>264 Unified engine:</b> there is NO prior-appointment occupancy check on the OnSite
    * schedule path — Unified double-books B in every cell, even required-on-required (a). The
@@ -1832,8 +1854,8 @@ class SchedulerVsUnifiedParityE2ETest {
    * org later add an occupancy check, the Unified expectations flip to REFUSED and the cells
    * converge — the test then documents that change.
    *
-   * <p>Non-vacuity: each cell's helper asserts appt #1 itself booked (old: 18-char 08p SA id;
-   * unified: schedulingStatus Success) before reading appt #2's outcome, so a REFUSED appt #2
+   * <p>Non-vacuity: each cell's helper method asserts appt #1 itself booked (old: 18-char 08p SA
+   * id; unified: schedulingStatus Success) before reading appt #2's outcome, so a REFUSED appt #2
    * reflects a real occupancy block rather than a dead fixture. The fixture also proves B is
    * genuinely AVAILABLE at 11:00 (no shift gap), so the old-side refusals are occupancy, not
    * availability.

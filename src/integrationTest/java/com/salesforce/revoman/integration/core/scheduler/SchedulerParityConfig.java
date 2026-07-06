@@ -21,16 +21,18 @@ import java.util.Map;
 import org.junit.jupiter.api.Assumptions;
 
 /**
- * Two-org config seam for the Salesforce Scheduler ↔ Unified(264) {@code 1.*} helper-fitness parity
- * tests. The OLD side (scheduler org) is driven over public Scheduler REST; the 264 side reuses the
- * existing {@link ReVomanConfigForWfs} Unified Kicks against the 262 org (endpoints identical 262↔264 per the parity effort).
- * The two OnSite engines are SEPARATE re-implementations (old {@code
- * scheduling-impl.SchedulingServiceImpl} vs {@code unified-scheduling-impl.InBusinessAppointmentSlotCalculator}),
- * so parity is not guaranteed by construction — these tests assert it.
+ * Two-org config seam for the Salesforce Scheduler ↔ Unified(264) {@code 1.*} non-required
+ * resource-fitness parity tests. The OLD side (scheduler org) is driven over public Scheduler REST;
+ * the 264 side reuses the existing {@link ReVomanConfigForWfs} Unified Kicks against the 262 org
+ * (endpoints identical 262↔264 per the parity effort). The two OnSite engines are SEPARATE
+ * re-implementations (old {@code scheduling-impl.SchedulingServiceImpl} vs {@code
+ * unified-scheduling-impl.InBusinessAppointmentSlotCalculator}), so parity is not guaranteed by
+ * construction — these tests assert it.
  *
- * <p>The old side reads its creds from {@code ~/.revoman/scheduler-config.yaml} (a SECOND external-org
- * file, distinct from the {@code ~/.revoman/config.yaml} the Unified side uses). Both files live in
- * {@code $HOME}, never committed; absent creds → the tests JUnit-skip via {@link #assumeBothOrgCreds}.
+ * <p>The old side reads its creds from {@code ~/.revoman/scheduler-config.yaml} (a SECOND
+ * external-org file, distinct from the {@code ~/.revoman/config.yaml} the Unified side uses). Both
+ * files live in {@code $HOME}, never committed; absent creds → the tests JUnit-skip via {@link
+ * #assumeBothOrgCreds}.
  */
 public final class SchedulerParityConfig {
 
@@ -51,14 +53,16 @@ public final class SchedulerParityConfig {
       oldKickFor(V3_SCHEDULER_PATH + "fixtures/double-book");
 
   /**
-   * Shared Lightning-Scheduler user-access grant, DRY-consolidated out of the read and write booking
-   * collections into its own Kick. The classic engine ({@code SchedulingServiceImpl
+   * Shared Lightning-Scheduler user-access grant, DRY-consolidated out of the read and write
+   * booking collections into its own Kick. The classic engine ({@code SchedulingServiceImpl
    * .removeResourcesWithoutPerm}) prunes every ServiceResource whose backing User lacks the {@code
-   * lightningSchedulerUserAccess} user-perm on the REST path, so BOTH the read and the write revUp this
-   * Kick right after {@link #OLD_DOUBLE_BOOK_FIXTURE_CONFIG} to keep the fixture resources alive.
+   * lightningSchedulerUserAccess} user-perm on the REST path, so BOTH the read and the write revUp
+   * this Kick right after {@link #OLD_DOUBLE_BOOK_FIXTURE_CONFIG} to keep the fixture resources
+   * alive.
    */
   static final Kick OLD_GRANT_LS_ACCESS_CONFIG =
       oldKickFor(V3_SCHEDULER_PATH + "booking/grant-ls-user-access");
+
   static final Kick OLD_GET_SLOTS_DOUBLE_BOOK_CONFIG =
       oldKickFor(V3_SCHEDULER_PATH + "booking/get-appointment-slots-double-book");
   static final Kick OLD_BOOK_NON_REQUIRED_CONFIG =
@@ -67,8 +71,10 @@ public final class SchedulerParityConfig {
       oldKickFor(V3_SCHEDULER_PATH + "booking/service-appointments-double-book-required-control");
 
   // ## Prior-assignment occupancy (does an existing assignment block a later required booking, even
-  // when B first joined as an OPTIONAL helper?). 3-resource fixture: A/B/C all AVAILABLE at 11:00 (no
-  // shift gap — unlike double-book); B is the only shared worker (A on appt #1, C the dedicated free
+  // when B first joined as an OPTIONAL non-required resource?). 3-resource fixture: A/B/C all
+  // AVAILABLE at 11:00 (no
+  // shift gap — unlike double-book); B is the only shared worker (A on appt #1, C the dedicated
+  // free
   // primary on appt #2), so a refused appt #2 can only be B's prior assignment.
   static final Kick OLD_PRIOR_ASSIGNMENT_FIXTURE_CONFIG =
       oldKickFor(V3_SCHEDULER_PATH + "fixtures/prior-assignment");
@@ -81,11 +87,15 @@ public final class SchedulerParityConfig {
   static final Kick OLD_PRIOR_APPT2_B_OPTIONAL_CONFIG =
       oldKickFor(V3_SCHEDULER_PATH + "booking/service-appointments-prior-appt2-b-optional");
 
-  // ## Scenario 1b (Territory) — old-side Kicks. resourceB is a non-required helper whose
-  // ServiceTerritoryMember coverage does NOT include the booking window (membership narrowed to end at
-  // noon while the window straddles noon), so only the classic engine's territory/STM-membership filter
-  // could exclude it. resourceA is a clean primary member covering the whole window. The fixture Kick
-  // runs the composite/graph then a follow-up STM-narrowing PATCH; the read/book Kicks reuse the shared
+  // ## Scenario 1b (Territory) — old-side Kicks. resourceB is a non-required resource whose
+  // ServiceTerritoryMember coverage does NOT include the booking window (membership narrowed to end
+  // at
+  // noon while the window straddles noon), so only the classic engine's territory/STM-membership
+  // filter
+  // could exclude it. resourceA is a clean primary member covering the whole window. The fixture
+  // Kick
+  // runs the composite/graph then a follow-up STM-narrowing PATCH; the read/book Kicks reuse the
+  // shared
   // grant-ls-user-access prerequisite exactly as the 1.5 double-book slice does.
   static final Kick OLD_TERRITORY_FIXTURE_CONFIG =
       oldKickFor(V3_SCHEDULER_PATH + "fixtures/territory-helper");
@@ -96,10 +106,13 @@ public final class SchedulerParityConfig {
   static final Kick OLD_BOOK_TERRITORY_REQUIRED_CONTROL_CONFIG =
       oldKickFor(V3_SCHEDULER_PATH + "booking/service-appointments-territory-required-control");
 
-  // ## 1d WorkingLocations (territory-member ROLE) — a Secondary ('S') member helper under a PRIMARY-ONLY
-  // AppointmentSchedulingPolicy. The fixture seeds the primary-only policy AND the P/S member graph; the
+  // ## 1d WorkingLocations (territory-member ROLE) — a Secondary ('S') member non-required resource
+  // under a PRIMARY-ONLY
+  // AppointmentSchedulingPolicy. The fixture seeds the primary-only policy AND the P/S member
+  // graph; the
   // read/book acts pass its id via schedulingPolicyId so the classic STM filter drops the Secondary
-  // resourceB by its ROLE (SchedulingDbUtil.createPrimarySecondarySTMWhereCondition → TerritoryType IN
+  // resourceB by its ROLE (SchedulingDbUtil.createPrimarySecondarySTMWhereCondition → TerritoryType
+  // IN
   // ('P','R')) — not by availability, and not as a non-member.
   static final Kick OLD_WORKLOC_FIXTURE_CONFIG =
       oldKickFor(V3_SCHEDULER_PATH + "fixtures/workloc-helper");
@@ -110,11 +123,15 @@ public final class SchedulerParityConfig {
   static final Kick OLD_BOOK_WORKLOC_REQUIRED_CONTROL_CONFIG =
       oldKickFor(V3_SCHEDULER_PATH + "booking/service-appointments-workloc-required-control");
 
-  // * NOTE 2026-07-03 gopal.akshintala: 1a (Excluded / account block-list) Kicks. The Excluded rule is
-  // * account-scoped (ResourcePreference PreferenceType='Excluded'), enforced on the OLD side ONLY on the
+  // * NOTE 2026-07-03 gopal.akshintala: 1a (Excluded / account block-list) Kicks. The Excluded rule
+  // is
+  // * account-scoped (ResourcePreference PreferenceType='Excluded'), enforced on the OLD side ONLY
+  // on the
   // * getAppointmentCandidates read path (checkResourcePrefs prunes the excluded SR); plain
-  // * getAppointmentSlots and the classic service-appointments book path pass accountResourcePreferences=null
-  // * → the rule short-circuits true. Hence the read probe is getAppointmentCandidates (with accountId), and
+  // * getAppointmentSlots and the classic service-appointments book path pass
+  // accountResourcePreferences=null
+  // * → the rule short-circuits true. Hence the read probe is getAppointmentCandidates (with
+  // accountId), and
   // * the write probe characterizes the (unenforced) book outcome.
   static final Kick OLD_EXCLUDED_FIXTURE_CONFIG =
       oldKickFor(V3_SCHEDULER_PATH + "fixtures/excluded-helper");
@@ -124,25 +141,36 @@ public final class SchedulerParityConfig {
       oldKickFor(V3_SCHEDULER_PATH + "booking/service-appointments-excluded-non-required");
 
   // ## 1c (Skills) — the WorkType requires a Skill; skilled resourceA holds a ServiceResourceSkill,
-  // skill-less resourceB has none. skills-helper is a TWO-Kick-shaped fixture (05-create-skill runs the
+  // skill-less resourceB has none. skills-helper is a TWO-Kick-shaped fixture (05-create-skill runs
+  // the
   // SETUP-object Skill in its own transaction under adminToken — MIXED_DML forbids it inside the
-  // non-setup graph — then 10-create-skills-helper-graph builds the rest and FK-references the Skill).
+  // non-setup graph — then 10-create-skills-helper-graph builds the rest and FK-references the
+  // Skill).
   static final Kick OLD_SKILLS_FIXTURE_CONFIG =
       oldKickFor(V3_SCHEDULER_PATH + "fixtures/skills-helper");
-  // Three read shapes: 10 single skill-less B → EXCLUDED (old single path skill-checks it → proves the
-  // rule exists), 20 single skilled A → INCLUDED (non-vacuity), 30 multi A-primary + B-required-helper →
-  // B ESCAPES (old multi path skill-checks the primary ONLY → parity with 264 helper-escapes).
+  // Three read shapes: 10 single skill-less B → EXCLUDED (old single path skill-checks it → proves
+  // the
+  // rule exists), 20 single skilled A → INCLUDED (non-vacuity), 30 multi A-primary +
+  // B-required-helper →
+  // B ESCAPES (old multi path skill-checks the primary ONLY → parity with 264 non-required
+  // resource-escapes).
   static final Kick OLD_GET_SLOTS_SKILLS_CONFIG =
       oldKickFor(V3_SCHEDULER_PATH + "booking/get-appointment-slots-skills");
   static final Kick OLD_BOOK_SKILLS_NON_REQUIRED_CONFIG =
       oldKickFor(V3_SCHEDULER_PATH + "booking/service-appointments-skills-non-required");
 
-  // ## Decision 1.4 — Required-resources: the account (ResourcePreference Required) demands a SPECIFIC
-  // worker (resourceB), which is present ONLY as a NON-required helper. resourceA (required+primary) is
-  // clean but is NOT the account-required worker. On the OLD classic engine the account Required pref is a
-  // candidate-POOL FILTER (SchedulingDbUtil.checkResourcePrefs keeps only the account's required set), read
-  // via getAppointmentCandidates — semantically distinct from the 264 "helper must SATISFY a demand"
-  // satisfier rule. See {@link SchedulerVsUnifiedParityE2ETest#testHelperRequiredResourceParity_1_4_E2E}.
+  // ## Decision 1.4 — Required-resources: the account (ResourcePreference Required) demands a
+  // SPECIFIC
+  // worker (resourceB), which is present ONLY as a NON-required resource. resourceA
+  // (required+primary) is
+  // clean but is NOT the account-required worker. On the OLD classic engine the account Required
+  // pref is a
+  // candidate-POOL FILTER (SchedulingDbUtil.checkResourcePrefs keeps only the account's required
+  // set), read
+  // via getAppointmentCandidates — semantically distinct from the 264 "non-required resource must
+  // SATISFY a demand"
+  // satisfier rule. See {@link
+  // SchedulerVsUnifiedParityE2ETest#testHelperRequiredResourceParity_1_4_E2E}.
   static final Kick OLD_REQUIRED_HELPER_FIXTURE_CONFIG =
       oldKickFor(V3_SCHEDULER_PATH + "fixtures/required-helper");
   static final Kick OLD_GET_CANDIDATES_REQUIRED_CONFIG =
@@ -156,11 +184,13 @@ public final class SchedulerParityConfig {
 
   // ## Decision 2 (slot promise) — is a SHOWN time-slot a real promise? An intra-product read↔write
   // consistency check over a SINGLE resource: an AVAILABLE window (inside member OH ∪ Shift 08-16 →
-  // read offers slots ⟺ book Succeeds) vs an UNAVAILABLE window (outside those hours → read 0 slots ⟺
+  // read offers slots ⟺ book Succeeds) vs an UNAVAILABLE window (outside those hours → read 0 slots
+  // ⟺
   // book Refused). The fixture is single-resource; the read is single-resource getAppointmentSlots
   // (requiredResourceIds=[A], NO primaryResourceId — the classic engine rejects a primary that also
   // appears required); the two book acts book resourceA (required+primary) into each window. The
-  // fixture sets schedResourceBId = schedResourceAId so the shared grant-ls-user-access Kick (grants
+  // fixture sets schedResourceBId = schedResourceAId so the shared grant-ls-user-access Kick
+  // (grants
   // BOTH resource users) runs unchanged. See {@link
   // SchedulerVsUnifiedParityE2ETest#testSlotPromiseParity_2_E2E}.
   static final Kick OLD_PROMISE_FIXTURE_CONFIG =
@@ -175,25 +205,39 @@ public final class SchedulerParityConfig {
       oldKickFor(V3_SCHEDULER_PATH + "booking/service-appointments-promise-unavailable");
 
   // ## Decision 3 — a single AssignedResource sent OMITTING isRequiredResource entirely. On 264 the
-  // missing-flag payload CRASHES (Boolean.booleanValue() NPE, HTTP 500 INTERNAL_SERVER_ERROR). The OLD
-  // probe reuses the double-book fixture (fresh users + grant chain, resourceA FREE at the 11:00 window
-  // so availability does not confound) and books a SINGLE resourceA: Act A OMITS isRequiredResource (the
-  // parity question — does OLD also crash, or degrade gracefully?), and Act B (doc L142 control) sends a
-  // single isRequiredResource=true with NO isPrimaryResource → must BOOK (proves the fixture is live).
+  // missing-flag payload CRASHES (Boolean.booleanValue() NPE, HTTP 500 INTERNAL_SERVER_ERROR). The
+  // OLD
+  // probe reuses the double-book fixture (fresh users + grant chain, resourceA FREE at the 11:00
+  // window
+  // so availability does not confound) and books a SINGLE resourceA: Act A OMITS isRequiredResource
+  // (the
+  // parity question — does OLD also crash, or degrade gracefully?), and Act B (doc L142 control)
+  // sends a
+  // single isRequiredResource=true with NO isPrimaryResource → must BOOK (proves the fixture is
+  // live).
   static final Kick OLD_BOOK_MISSING_REQUIRED_FLAG_CONFIG =
       oldKickFor(V3_SCHEDULER_PATH + "booking/service-appointments-missing-required-flag");
   static final Kick OLD_BOOK_SINGLE_REQUIRED_NO_PRIMARY_CONFIG =
       oldKickFor(V3_SCHEDULER_PATH + "booking/service-appointments-single-required-no-primary");
 
-  // ## Decision 4 — two "primary" workers on ONE appointment are rejected. Multi-resource scheduling
-  // requires EXACTLY one primary. The fixture seeds TWO clean, fully-available PRIMARY-eligible resources
-  // (both member OH + Confirmed Shift 10-14, covering the 11:00-11:30 window) so availability is NOT the
-  // discriminator — only the primary-count rule is. The two-primary book act sends both AssignedResources
-  // isPrimaryResource=true → REFUSED. LIVE-OBSERVED: the OLD connect API rejects at INPUT validation with
-  // errorCode INVALID_API_INPUT / HTTP 400, "Only one assignedResource can have isPrimaryResource set to
-  // true…" (no booking). The one-primary control (A primary + B non-primary, both free) BOOKS (non-vacuity).
-  // Both engines reject at connect-API INPUT validation (pre-persist) at HTTP 400 — 264 with INVALID_INPUT,
-  // OLD with INVALID_API_INPUT — so the WHERE coincides and only the errorCode + message text differ; the
+  // ## Decision 4 — two "primary" workers on ONE appointment are rejected. Multi-resource
+  // scheduling
+  // requires EXACTLY one primary. The fixture seeds TWO clean, fully-available PRIMARY-eligible
+  // resources
+  // (both member OH + Confirmed Shift 10-14, covering the 11:00-11:30 window) so availability is
+  // NOT the
+  // discriminator — only the primary-count rule is. The two-primary book act sends both
+  // AssignedResources
+  // isPrimaryResource=true → REFUSED. LIVE-OBSERVED: the OLD connect API rejects at INPUT
+  // validation with
+  // errorCode INVALID_API_INPUT / HTTP 400, "Only one assignedResource can have isPrimaryResource
+  // set to
+  // true…" (no booking). The one-primary control (A primary + B non-primary, both free) BOOKS
+  // (non-vacuity).
+  // Both engines reject at connect-API INPUT validation (pre-persist) at HTTP 400 — 264 with
+  // INVALID_INPUT,
+  // OLD with INVALID_API_INPUT — so the WHERE coincides and only the errorCode + message text
+  // differ; the
   // OUTCOME is parity: both refuse two primaries, no booking. See {@link
   // SchedulerVsUnifiedParityE2ETest#testTwoPrimaryParity_4_E2E}.
   static final Kick OLD_TWO_PRIMARY_FIXTURE_CONFIG =
@@ -204,16 +248,21 @@ public final class SchedulerParityConfig {
       oldKickFor(V3_SCHEDULER_PATH + "booking/service-appointments-one-primary-control");
 
   // ## Decision 4z — a reschedule can leave an appointment with NO primary worker. The classic
-  // Scheduler exposes NO reschedule connect API; "rescheduling" on the old side is direct DML/REST on
-  // the SA's AssignedResource rows. So the OLD analog is: (fixture) a CLEAN two-resource SA where BOTH
-  // resources are available at the window, (book) create it with resourceA primary+required + resourceB
+  // Scheduler exposes NO reschedule connect API; "rescheduling" on the old side is direct DML/REST
+  // on
+  // the SA's AssignedResource rows. So the OLD analog is: (fixture) a CLEAN two-resource SA where
+  // BOTH
+  // resources are available at the window, (book) create it with resourceA primary+required +
+  // resourceB
   // required and capture the AR ids, then (delete-primary) DELETE the primary AssignedResource and
   // (demote-primary) PATCH it to IsPrimaryResource=false — each attempting to leave the SA with no
   // primary. The old-side enforcement is the SAVE-TIME LightningSchedulerAssignedResourceValidator:
   // validatePrimaryAssignedResourceOnDelete BLOCKS deleting a primary AR (FIELD_INTEGRITY_EXCEPTION
-  // "AssignedResourceDelete"), while validateAssignedResourceOnSave guards only primary-must-be-required
+  // "AssignedResourceDelete"), while validateAssignedResourceOnSave guards only
+  // primary-must-be-required
   // and at-most-one-primary (no "must keep a primary" rule). The 264 side reuses the proven WFS
-  // reschedule-no-primary acts (validation ALLOWS zero primaries; validatePrimaryResourceCount throws
+  // reschedule-no-primary acts (validation ALLOWS zero primaries; validatePrimaryResourceCount
+  // throws
   // only when primaryCount > 1). See {@link
   // SchedulerVsUnifiedParityE2ETest#testRescheduleNoPrimaryParity_4z_E2E}.
   static final Kick OLD_RESCHEDULE_HELPER_FIXTURE_CONFIG =
@@ -225,13 +274,20 @@ public final class SchedulerParityConfig {
   static final Kick OLD_AR_DEMOTE_PRIMARY_CONFIG =
       oldKickFor(V3_SCHEDULER_PATH + "booking/assignedresource-demote-primary");
 
-  // * NOTE 2026-07-03 gopal.akshintala: Decision 5 (primary-not-required) — a single AssignedResource
-  // * marked isPrimaryResource=true BUT isRequiredResource=false is a contradiction. The window is FREE
-  // * (availability passes), so the classic book path inserts the AssignedResource row and the SAVE-TIME
-  // * LightningSchedulerAssignedResourceValidator (fieldservice-impl — the SAME validator 264 hits on
-  // * this API/Apex/DML) rejects it ("Only an required service resource can be set as a primary service
-  // * resource."). Probe: single primary + NOT required → REFUSED. Control: flip isRequiredResource=true
-  // * → BOOKED (isolates the reject to the not-required flag). Single-resource fixture, so only resourceA
+  // * NOTE 2026-07-03 gopal.akshintala: Decision 5 (primary-not-required) — a single
+  // AssignedResource
+  // * marked isPrimaryResource=true BUT isRequiredResource=false is a contradiction. The window is
+  // FREE
+  // * (availability passes), so the classic book path inserts the AssignedResource row and the
+  // SAVE-TIME
+  // * LightningSchedulerAssignedResourceValidator (fieldservice-impl — the SAME validator 264 hits
+  // on
+  // * this API/Apex/DML) rejects it ("Only an required service resource can be set as a primary
+  // service
+  // * resource."). Probe: single primary + NOT required → REFUSED. Control: flip
+  // isRequiredResource=true
+  // * → BOOKED (isolates the reject to the not-required flag). Single-resource fixture, so only
+  // resourceA
   // * is needed and it is fully available over the 11:00-11:30 window.
   static final Kick OLD_PRIMARY_NOT_REQUIRED_FIXTURE_CONFIG =
       oldKickFor(V3_SCHEDULER_PATH + "fixtures/primary-not-required-helper");
@@ -241,14 +297,21 @@ public final class SchedulerParityConfig {
       oldKickFor(V3_SCHEDULER_PATH + "booking/service-appointments-primary-required-control");
 
   // ## Decision 8 — resourceLimitApptDistribution cap on the load-balancing candidates read path
-  // (read-only). The OLD classic engine has NO SchedulingObjective/SchedulingPolicyObjective (those are
-  // Unified-only); its load-balancing cap instead lives behind an AppointmentAssignmentPolicy(loadBalancing)
+  // (read-only). The OLD classic engine has NO SchedulingObjective/SchedulingPolicyObjective (those
+  // are
+  // Unified-only); its load-balancing cap instead lives behind an
+  // AppointmentAssignmentPolicy(loadBalancing)
   // SETUP record whose FK on the AppointmentSchedulingPolicy flips
-  // SchedulingServiceImpl.getAppointmentCandidatesForTerritoryWorkTypes onto the smart-scheduling path
-  // (SmartSchedulerServiceImpl.getServiceResourceByResourceLimitApptDistribution → getLeastUtilizedResources
-  // → subList(0, N)). The cap engages ONLY when filterByResources is EMPTY, the policy carries that FK, AND
-  // the org has smart scheduling enabled (SsAppointmentDistribution pref + AppointmentDistribution perm) — so
-  // the fixture seeds the assignment policy + policy FK, and the reads omit filterByResources. limit=0 →
+  // SchedulingServiceImpl.getAppointmentCandidatesForTerritoryWorkTypes onto the smart-scheduling
+  // path
+  // (SmartSchedulerServiceImpl.getServiceResourceByResourceLimitApptDistribution →
+  // getLeastUtilizedResources
+  // → subList(0, N)). The cap engages ONLY when filterByResources is EMPTY, the policy carries that
+  // FK, AND
+  // the org has smart scheduling enabled (SsAppointmentDistribution pref + AppointmentDistribution
+  // perm) — so
+  // the fixture seeds the assignment policy + policy FK, and the reads omit filterByResources.
+  // limit=0 →
   // subList(0,0) → empty (a literal cap-of-0, matching 264's Stream.limit(0)); limit=50 (> 2 seeded
   // resources) → no trim → pool returned. See
   // {@link SchedulerVsUnifiedParityE2ETest#testResourceLimitCapParity_8_E2E}.
@@ -260,15 +323,22 @@ public final class SchedulerParityConfig {
       oldKickFor(V3_SCHEDULER_PATH + "booking/get-candidates-limit-positive");
 
   // * NOTE 2026-07-03 gopal.akshintala: Decision 9 (Shift sharing-mode split) — the classic-engine
-  // * mirror of the WFS auth-personas-dec9 machinery. Unlike the 1.* helper-fitness scenarios (single
-  // * admin session), Decision 9 is a CROSS-PERSONA sharing question, so the old side mints TWO real
-  // * personas with their OWN SOAP sessions (a MANAGER who OWNS the Private fixture rows + a sharing-
+  // * mirror of the WFS auth-personas-dec9 machinery. Unlike the 1.* non-required resource-fitness
+  // scenarios (single
+  // * admin session), Decision 9 is a CROSS-PERSONA sharing question, so the old side mints TWO
+  // real
+  // * personas with their OWN SOAP sessions (a MANAGER who OWNS the Private fixture rows + a
+  // sharing-
   // * deprived CASE-WORKER) plus an admin-created resource-owner User, then runs the SAME classic
-  // * getAppointmentSlots read as each persona over the manager-owned fixture. The parity crux (source-
+  // * getAppointmentSlots read as each persona over the manager-owned fixture. The parity crux
+  // (source-
   // * confirmed, scheduling-impl): the classic engine reads SHIFTS in FULL-access mode
-  // * (SoqlUtil.runSoqlWithoutMruUpdate single-arg → SFDC_FULL, ShiftsDbUtil.getShiftEntities) while its
-  // * STM/ServiceResource read is the user-mode gate (SystemMode.NONE, gated by orgHasDepriveSoqlAccess)
-  // * — the INVERSE of 264, whose SHIFT read is the user-mode gate. So old never gates on the shift; the
+  // * (SoqlUtil.runSoqlWithoutMruUpdate single-arg → SFDC_FULL, ShiftsDbUtil.getShiftEntities)
+  // while its
+  // * STM/ServiceResource read is the user-mode gate (SystemMode.NONE, gated by
+  // orgHasDepriveSoqlAccess)
+  // * — the INVERSE of 264, whose SHIFT read is the user-mode gate. So old never gates on the
+  // shift; the
   // * observable slot-count split (if any) comes from the STM/ServiceResource sharing gate instead.
   static final Kick OLD_AUTH_PERSONAS_DEC9_CONFIG =
       oldKickFor(V3_SCHEDULER_PATH + "auth-personas-old");
@@ -289,7 +359,9 @@ public final class SchedulerParityConfig {
     // ReVomanConfigForWfs (cross-package not visible).
     final var wfsConfig = ExternalOrgConfig.readExternalOrgConfig();
     Assumptions.assumeTrue(
-        hasText(wfsConfig, "baseUrl") && hasText(wfsConfig, "username") && hasText(wfsConfig, "password"),
+        hasText(wfsConfig, "baseUrl")
+            && hasText(wfsConfig, "username")
+            && hasText(wfsConfig, "password"),
         "WFS external-org creds absent — set ~/.revoman/config.yaml (baseUrl/username/password)."
             + " Skipping.");
     // Check scheduler creds
@@ -314,7 +386,9 @@ public final class SchedulerParityConfig {
     EXCLUDED
   }
 
-  /** Normalized write outcome, comparable across old-REST and Unified error envelopes (guide R3). */
+  /**
+   * Normalized write outcome, comparable across old-REST and Unified error envelopes (guide R3).
+   */
   enum WriteOutcome {
     BOOKED,
     REFUSED,
@@ -322,11 +396,11 @@ public final class SchedulerParityConfig {
   }
 
   /**
-   * Decision 4z normalized outcome for a "leave the appointment with no primary" attempt, comparable
-   * across the OLD sObject DELETE/PATCH probes and the 264 reschedule API: LEFT_NO_PRIMARY means the
-   * appointment ended with zero primary workers (the state the doc says should be impossible), BLOCKED
-   * means a rule refused the change (2xx never happened, or the primary survived), CRASHED means an
-   * HTTP 500 / INTERNAL_SERVER_ERROR.
+   * Decision 4z normalized outcome for a "leave the appointment with no primary" attempt,
+   * comparable across the OLD sObject DELETE/PATCH probes and the 264 reschedule API:
+   * LEFT_NO_PRIMARY means the appointment ended with zero primary workers (the state the doc says
+   * should be impossible), BLOCKED means a rule refused the change (2xx never happened, or the
+   * primary survived), CRASHED means an HTTP 500 / INTERNAL_SERVER_ERROR.
    */
   enum NoPrimaryOutcome {
     LEFT_NO_PRIMARY,
@@ -336,10 +410,10 @@ public final class SchedulerParityConfig {
 
   /**
    * Decision-9 sharing-gate verdict, shared by both engines: does a sharing-DEPRIVED reader (the
-   * case-worker, no sharing on the private fixture rows) get GATED (zero slots, HTTP 200, no error) or
-   * does it read the SAME availability as the privileged reader (OPEN)? On 264 this gate is the SHIFT
-   * user-mode read; on OLD classic it is the STM/ServiceResource user-mode read (the shift read is
-   * full-access) — same observable (zero slots) via an INVERTED axis.
+   * case-worker, no sharing on the private fixture rows) get GATED (zero slots, HTTP 200, no error)
+   * or does it read the SAME availability as the privileged reader (OPEN)? On 264 this gate is the
+   * SHIFT user-mode read; on OLD classic it is the STM/ServiceResource user-mode read (the shift
+   * read is full-access) — same observable (zero slots) via an INVERTED axis.
    */
   enum SharingGate {
     GATED,
@@ -352,11 +426,12 @@ public final class SchedulerParityConfig {
   }
 
   /**
-   * Old side (Decision 8): did the load-balancing {@code resourceLimitApptDistribution} cap actually
-   * engage? It engaged iff the limit=0 probe returned an EMPTY resource pool ({@code "0"}) WHILE the
-   * positive-limit control still returned resources (&gt; 0). If the org lacks smart scheduling the
-   * classic engine never takes the load-balancing branch, so limit=0 does NOT empty the pool (both counts
-   * &gt; 0) → cap did not engage (a configuration nuance, not a divergence in the cap semantics).
+   * Old side (Decision 8): did the load-balancing {@code resourceLimitApptDistribution} cap
+   * actually engage? It engaged iff the limit=0 probe returned an EMPTY resource pool ({@code "0"})
+   * WHILE the positive-limit control still returned resources (&gt; 0). If the org lacks smart
+   * scheduling the classic engine never takes the load-balancing branch, so limit=0 does NOT empty
+   * the pool (both counts &gt; 0) → cap did not engage (a configuration nuance, not a divergence in
+   * the cap semantics).
    */
   static boolean oldLimitCapEngaged(final String limitZeroCount, final String limitPositiveCount) {
     final var positiveOffered =
@@ -367,10 +442,10 @@ public final class SchedulerParityConfig {
   }
 
   /**
-   * A sharing-deprived reader is GATED iff its slot count is "0" on an HTTP-200 (no-error) read — the
-   * silent empty-availability contract. A non-zero count is OPEN (sees availability despite lacking
-   * sharing). A non-200 is neither (it is an access/perm error, not the silent sharing gate) →
-   * reported as OPEN=false via GATED only on the clean-empty case.
+   * A sharing-deprived reader is GATED iff its slot count is "0" on an HTTP-200 (no-error) read —
+   * the silent empty-availability contract. A non-zero count is OPEN (sees availability despite
+   * lacking sharing). A non-200 is neither (it is an access/perm error, not the silent sharing
+   * gate) → reported as OPEN=false via GATED only on the clean-empty case.
    */
   static SharingGate sharingGate(final String slotCount, final String http) {
     return "0".equals(slotCount) && "200".equals(http) ? SharingGate.GATED : SharingGate.OPEN;
@@ -378,8 +453,8 @@ public final class SchedulerParityConfig {
 
   /**
    * Old side (sObject DELETE/PATCH probe): LEFT_NO_PRIMARY iff the mutation succeeded (HTTP 2xx, no
-   * errorCode) AND the post-mutation state confirms no surviving primary ({@code primaryGone} is "1");
-   * CRASHED on HTTP 500; otherwise BLOCKED (a save-validator rejection kept a primary).
+   * errorCode) AND the post-mutation state confirms no surviving primary ({@code primaryGone} is
+   * "1"); CRASHED on HTTP 500; otherwise BLOCKED (a save-validator rejection kept a primary).
    */
   static NoPrimaryOutcome oldNoPrimaryOutcome(
       final String http, final String errorCode, final String primaryGone) {
@@ -395,10 +470,11 @@ public final class SchedulerParityConfig {
 
   /**
    * 264 side (reschedule API): LEFT_NO_PRIMARY iff the reschedule returned Success (persisting a
-   * no-primary crew); CRASHED on HTTP 500 / INTERNAL_SERVER_ERROR; otherwise BLOCKED (validation or the
-   * downstream availability re-check refused it). Note: on 262 (the proxy) the delete-primary arms are
-   * BLOCKED by the availability re-check, NOT by any no-primary rule — validation itself ALLOWS zero
-   * primaries; that validation-layer permissiveness is the 264 fact the parity diff turns on.
+   * no-primary crew); CRASHED on HTTP 500 / INTERNAL_SERVER_ERROR; otherwise BLOCKED (validation or
+   * the downstream availability re-check refused it). Note: on 262 (the proxy) the delete-primary
+   * arms are BLOCKED by the availability re-check, NOT by any no-primary rule — validation itself
+   * ALLOWS zero primaries; that validation-layer permissiveness is the 264 fact the parity diff
+   * turns on.
    */
   static NoPrimaryOutcome unifiedNoPrimaryOutcome(
       final String schedulingStatus, final String errorCode, final String http) {
@@ -418,7 +494,10 @@ public final class SchedulerParityConfig {
     return "500".equals(http) ? WriteOutcome.CRASHED : WriteOutcome.REFUSED;
   }
 
-  /** Unified side: schedulingStatus=="Success" → BOOKED; ScheduleError/PersistError → REFUSED; 500 → CRASHED. */
+  /**
+   * Unified side: schedulingStatus=="Success" → BOOKED; ScheduleError/PersistError → REFUSED; 500 →
+   * CRASHED.
+   */
   static WriteOutcome unifiedWriteOutcome(final String schedulingStatus, final String http) {
     if ("Success".equals(schedulingStatus)) {
       return WriteOutcome.BOOKED;
@@ -427,19 +506,21 @@ public final class SchedulerParityConfig {
   }
 
   /**
-   * Old side (candidates path): a resource is INCLUDED iff it appears in at least one candidate's {@code
-   * resources[]}. The getAppointmentCandidates read prunes an account-Excluded ServiceResource, so an
-   * excluded resource comes back {@code "0"} (present-flag) → EXCLUDED. Used by 1a where the rule is
-   * account ResourcePreference(Excluded), enforced only on the candidates read path.
+   * Old side (candidates path): a resource is INCLUDED iff it appears in at least one candidate's
+   * {@code resources[]}. The getAppointmentCandidates read prunes an account-Excluded
+   * ServiceResource, so an excluded resource comes back {@code "0"} (present-flag) → EXCLUDED. Used
+   * by 1a where the rule is account ResourcePreference(Excluded), enforced only on the candidates
+   * read path.
    */
   static ReadDecision oldCandidatesReadDecision(final String resourcePresentFlag) {
     return "1".equals(resourcePresentFlag) ? ReadDecision.INCLUDED : ReadDecision.EXCLUDED;
   }
 
   /**
-   * Unified side (Decision 1.4), normalizing from the error ENVELOPE rather than HTTP: the 264 violating
-   * write returns a top-level {@code [{errorCode:"INTERNAL_SERVER_ERROR", ...}]} (a serviceTerritoryMembers
-   * NPE) → CRASHED; a schedulingStatus=="Success" → BOOKED; anything else → REFUSED.
+   * Unified side (Decision 1.4), normalizing from the error ENVELOPE rather than HTTP: the 264
+   * violating write returns a top-level {@code [{errorCode:"INTERNAL_SERVER_ERROR", ...}]} (a
+   * serviceTerritoryMembers NPE) → CRASHED; a schedulingStatus=="Success" → BOOKED; anything else →
+   * REFUSED.
    */
   static WriteOutcome unifiedWriteOutcomeFromErrorCode(
       final String schedulingStatus, final String errorCode) {
@@ -450,10 +531,10 @@ public final class SchedulerParityConfig {
   }
 
   /**
-   * Old-side read decision for the Required-resources (1.4) candidates path, normalizing to the write
-   * vocabulary so the read↔write divergence is directly comparable: an HTTP 500 / errorCode
-   * INTERNAL_SERVER_ERROR is CRASHED (would match the 264 write); a clean 0-candidate response is REFUSED;
-   * a non-empty candidate list is BOOKED (offered).
+   * Old-side read decision for the Required-resources (1.4) candidates path, normalizing to the
+   * write vocabulary so the read↔write divergence is directly comparable: an HTTP 500 / errorCode
+   * INTERNAL_SERVER_ERROR is CRASHED (would match the 264 write); a clean 0-candidate response is
+   * REFUSED; a non-empty candidate list is BOOKED (offered).
    */
   static WriteOutcome oldCandidatesOutcome(
       final String candidateCount, final String http, final String errorCode) {
@@ -465,7 +546,9 @@ public final class SchedulerParityConfig {
         : WriteOutcome.REFUSED;
   }
 
-  /** Old-side Kick: same wiring as {@link ReVomanConfigForWfs} but overlaying the SCHEDULER creds. */
+  /**
+   * Old-side Kick: same wiring as {@link ReVomanConfigForWfs} but overlaying the SCHEDULER creds.
+   */
   private static Kick oldKickFor(final String templatePath) {
     return Kick.configure()
         .templatePath(templatePath)

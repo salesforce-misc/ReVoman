@@ -37,13 +37,13 @@ import org.junit.jupiter.api.Assumptions;
  * <p>Decisions under test (each characterizes live 262):
  *
  * <ul>
- *   <li><b>1</b> — a NON-required "helper" resource is NOT fitness-checked on the Schedule write
- *       path (4 dims: excluded / territory / skills / working-locations). {@code
+ *   <li><b>1</b> — a non-required resource is NOT fitness-checked on the Schedule write path (4
+ *       dims: excluded / territory / skills / working-locations). {@code
  *       WfsWritePathParityE2ETest}.
- *   <li><b>1.4</b> — a NON-required helper cannot satisfy an account's required-resource demand
+ *   <li><b>1.4</b> — a NON-required resource cannot satisfy an account's required-resource demand
  *       (262 CRASHES with a serviceTerritoryMembers NPE rather than a clean RequiredResources
  *       error).
- *   <li><b>1.5</b> — a NON-required helper is not availability-checked, so it may double-book.
+ *   <li><b>1.5</b> — a NON-required resource is not availability-checked, so it may double-book.
  *   <li><b>3</b> — a missing {@code isRequiredResource} flag (262 CRASHES) + the doc-L142 control
  *       (single {@code isRequiredResource=true}, no {@code isPrimaryResource}, must be a valid
  *       Schedule).
@@ -72,7 +72,7 @@ import org.junit.jupiter.api.Assumptions;
  *
  * <ul>
  *   <li>Org pref {@code WorkforceSchdMulResSchdPref} + InBusinessScheduling enabled (multi-resource
- *       scheduling: a helper = 2 AssignedResources, exactly one with {@code
+ *       scheduling: a non-required resource = 2 AssignedResources, exactly one with {@code
  *       isPrimaryResource=true}).
  *   <li>{@code Shift.Status} DynEnum pre-seeded so {@code Status:"Confirmed"} shifts validate
  *       (W-22901809).
@@ -187,13 +187,16 @@ public final class ReVomanConfigForWfs {
   // ## Policies (each carries an Availability(C)+ShiftUsage(Union) rule plus the rule under test).
   public static final Kick AVAILABILITY_OP_HOURS_POLICY_CONFIG =
       kickFor(V3_WFS_PATH + "policies/availability-op-hours-policy");
-  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified parity reuse; visibility only.
+  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified
+  // parity reuse; visibility only.
   public static final Kick EXCLUDED_RESOURCES_POLICY_CONFIG =
       kickFor(V3_WFS_PATH + "policies/excluded-resources-availability-policy");
-  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified parity reuse; visibility only.
+  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified
+  // parity reuse; visibility only.
   public static final Kick TERRITORY_PARTIAL_POLICY_CONFIG =
       kickFor(V3_WFS_PATH + "policies/territory-membership-partial-policy");
-  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified parity reuse; visibility only.
+  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified
+  // parity reuse; visibility only.
   public static final Kick MATCH_SKILLS_POLICY_CONFIG =
       kickFor(V3_WFS_PATH + "policies/match-skills-non-required-policy");
   static final Kick VISITING_HOURS_POLICY_CONFIG =
@@ -201,30 +204,37 @@ public final class ReVomanConfigForWfs {
 
   // ## Decision 1.4 — required-resource demand (account ResourcePreference) cannot be satisfied by
   // a
-  // NON-required helper.
-  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified parity reuse; visibility only.
+  // NON-required resource.
+  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified
+  // parity reuse; visibility only.
   public static final Kick REQUIRED_RESOURCES_POLICY_CONFIG =
       kickFor(V3_WFS_PATH + "policies/required-resources-availability-policy");
 
   // ## Fixtures (composite/graph data graphs: territory/OH/WorkType/resources/account/shifts).
   public static final Kick DOUBLE_BOOK_FIXTURE_CONFIG =
       kickFor(V3_WFS_PATH + "fixtures/double-book-non-required");
-  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified parity reuse; visibility only.
+  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified
+  // parity reuse; visibility only.
   public static final Kick EXCLUDED_FIXTURE_CONFIG =
       kickFor(V3_WFS_PATH + "fixtures/excluded-non-required");
-  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified parity reuse; visibility only.
+  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified
+  // parity reuse; visibility only.
   public static final Kick TERRITORY_FIXTURE_CONFIG =
       kickFor(V3_WFS_PATH + "fixtures/territory-non-required");
-  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified parity reuse; visibility only.
+  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified
+  // parity reuse; visibility only.
   public static final Kick SKILLS_FIXTURE_CONFIG =
       kickFor(V3_WFS_PATH + "fixtures/skills-non-required");
-  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified parity reuse; visibility only.
+  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified
+  // parity reuse; visibility only.
   public static final Kick SKILLS_SKILL_FIXTURE_CONFIG =
       kickFor(V3_WFS_PATH + "fixtures/skills-non-required-skill");
-  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified parity reuse; visibility only.
+  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified
+  // parity reuse; visibility only.
   public static final Kick WORKING_LOCATIONS_FIXTURE_CONFIG =
       kickFor(V3_WFS_PATH + "fixtures/working-locations-secondary-non-required");
-  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified parity reuse; visibility only.
+  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified
+  // parity reuse; visibility only.
   public static final Kick REQUIRED_NON_REQUIRED_FIXTURE_CONFIG =
       kickFor(V3_WFS_PATH + "fixtures/required-non-required");
   static final Kick VISITING_HOURS_FIXTURE_CONFIG =
@@ -239,9 +249,11 @@ public final class ReVomanConfigForWfs {
       kickFor(V3_WFS_PATH + "booking/schedule-double-book-required-conflict");
 
   // ## Prior-assignment occupancy parity (Unified side). 3-resource graph, B available, 2 accounts;
-  // appt #1 seeds B's assignment, appt #2 re-books B on an overlapping window with C as a free primary.
+  // appt #1 seeds B's assignment, appt #2 re-books B on an overlapping window with C as a free
+  // primary.
   // The fixture folder holds TWO requests under ONE Kick: 05-create-resource-c-user (per-request
-  // auth override to {{adminToken}} — manager persona lacks Manage Users) then the manager-token graph.
+  // auth override to {{adminToken}} — manager persona lacks Manage Users) then the manager-token
+  // graph.
   public static final Kick PRIOR_ASSIGNMENT_FIXTURE_CONFIG =
       kickFor(V3_WFS_PATH + "fixtures/prior-assignment");
   public static final Kick PRIOR_APPT1_B_REQUIRED_CONFIG =
@@ -253,30 +265,38 @@ public final class ReVomanConfigForWfs {
   public static final Kick PRIOR_APPT2_B_OPTIONAL_CONFIG =
       kickFor(V3_WFS_PATH + "booking/schedule-prior-appt2-b-optional");
 
-  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified parity reuse; visibility only.
+  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified
+  // parity reuse; visibility only.
   public static final Kick EXCLUDED_SCHEDULE_CONFIG =
       kickFor(V3_WFS_PATH + "booking/schedule-excluded-non-required-violating");
-  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified parity reuse; visibility only.
+  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified
+  // parity reuse; visibility only.
   public static final Kick TERRITORY_SCHEDULE_CONFIG =
       kickFor(V3_WFS_PATH + "booking/schedule-territory-membership-non-required-violating");
-  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified parity reuse; visibility only.
+  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified
+  // parity reuse; visibility only.
   public static final Kick SKILLS_SCHEDULE_CONFIG =
       kickFor(V3_WFS_PATH + "booking/schedule-skills-non-required-violating");
-  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified parity reuse; visibility only.
+  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified
+  // parity reuse; visibility only.
   public static final Kick WORKING_LOCATIONS_SCHEDULE_CONFIG =
       kickFor(V3_WFS_PATH + "booking/schedule-working-locations-secondary-non-required-violating");
-  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified parity reuse; visibility only.
+  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified
+  // parity reuse; visibility only.
   public static final Kick REQUIRED_NON_REQUIRED_SATISFIER_VIOLATING_SCHEDULE_CONFIG =
       kickFor(V3_WFS_PATH + "booking/schedule-required-non-required-satisfier-violating");
-  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified parity reuse; visibility only.
+  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified
+  // parity reuse; visibility only.
   public static final Kick REQUIRED_SATISFIER_BOOKABLE_SCHEDULE_CONFIG =
       kickFor(V3_WFS_PATH + "booking/schedule-required-satisfier-bookable");
 
   // ## Decision 3 — missing isRequiredResource flag (crash characterization) + the L142 control.
-  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified parity reuse; visibility only.
+  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified
+  // parity reuse; visibility only.
   public static final Kick MISSING_REQUIRED_FLAG_SCHEDULE_CONFIG =
       kickFor(V3_WFS_PATH + "booking/schedule-missing-required-flag");
-  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified parity reuse; visibility only.
+  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified
+  // parity reuse; visibility only.
   public static final Kick SINGLE_REQUIRED_NO_PRIMARY_SCHEDULE_CONFIG =
       kickFor(V3_WFS_PATH + "booking/schedule-single-required-no-primary");
 
@@ -284,7 +304,8 @@ public final class ReVomanConfigForWfs {
   // 400,
   // "Only one of the provided assigned resource can be a primary resource"). Caught up front in
   // ScheduleCommonValidator.validatePrimaryResourceConstraints, before availability/persist.
-  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified parity reuse; visibility only.
+  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified
+  // parity reuse; visibility only.
   public static final Kick SCHEDULE_TWO_PRIMARY_CONFIG =
       kickFor(V3_WFS_PATH + "booking/schedule-two-primary");
 
@@ -293,10 +314,12 @@ public final class ReVomanConfigForWfs {
   // double-book). Probe: single isPrimaryResource=true, isRequiredResource=false → persist
   // INVALID_FIELD.
   // Control: flip isRequiredResource=true → Success (isolates the reject to the not-required flag).
-  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified parity reuse; visibility only.
+  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified
+  // parity reuse; visibility only.
   public static final Kick SCHEDULE_PRIMARY_NOT_REQUIRED_CONFIG =
       kickFor(V3_WFS_PATH + "booking/schedule-primary-not-required");
-  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified parity reuse; visibility only.
+  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified
+  // parity reuse; visibility only.
   public static final Kick SCHEDULE_PRIMARY_REQUIRED_CONTROL_CONFIG =
       kickFor(V3_WFS_PATH + "booking/schedule-primary-required-control");
 
@@ -315,15 +338,18 @@ public final class ReVomanConfigForWfs {
   // SlotNotAvailable) — never by a no-primary rule. Characterized faithfully
   // (availability, not no-primary). Clean two-resource schedule sets up reschedCleanSaId for both
   // arms.
-  // * NOTE 2026-07-03 gopal.akshintala: widened to public (visibility only, no wiring change) so the
+  // * NOTE 2026-07-03 gopal.akshintala: widened to public (visibility only, no wiring change) so
+  // the
   // * Scheduler↔Unified Decision-4z parity test (SchedulerVsUnifiedParityE2ETest
   // * .testRescheduleNoPrimaryParity_4z_E2E) can reuse the proven 264 reschedule-no-primary acts.
   public static final Kick SCHEDULE_TWO_RESOURCE_CLEAN_CONFIG =
       kickFor(V3_WFS_PATH + "booking/schedule-two-resource-clean");
-  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified parity reuse; visibility only.
+  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified
+  // parity reuse; visibility only.
   public static final Kick RESCHEDULE_DELETE_PRIMARY_WITH_FLAG_CONFIG =
       kickFor(V3_WFS_PATH + "booking/reschedule-delete-primary-with-flag");
-  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified parity reuse; visibility only.
+  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified
+  // parity reuse; visibility only.
   public static final Kick RESCHEDULE_DELETE_PRIMARY_NO_FLAG_CONFIG =
       kickFor(V3_WFS_PATH + "booking/reschedule-delete-primary-no-flag");
 
@@ -343,13 +369,19 @@ public final class ReVomanConfigForWfs {
 
   // ## Decision 4z delete-ALL WITH an explicit schedulingPolicyId — the reconciling twin of
   // RESCHEDULE_DELETE_ALL. IDENTICAL delete-BOTH body (no times), differing in ONE field: it passes
-  // schedulingPolicyId={{availabilityOpHoursPolicyId}} (the well-formed Availability+ShiftUsage policy the
-  // clean Schedule used). The sibling RESCHEDULE_DELETE_ALL omits the policy, so the availability re-check
-  // falls back to the org DEFAULT OnSite policy (SlotAvailabilityChecker.buildGetSlotsRequest passes the
-  // request policyId through; a null policyId resolves via getDefaultOnSiteSchedulingPolicy). On this org
+  // schedulingPolicyId={{availabilityOpHoursPolicyId}} (the well-formed Availability+ShiftUsage
+  // policy the
+  // clean Schedule used). The sibling RESCHEDULE_DELETE_ALL omits the policy, so the availability
+  // re-check
+  // falls back to the org DEFAULT OnSite policy (SlotAvailabilityChecker.buildGetSlotsRequest
+  // passes the
+  // request policyId through; a null policyId resolves via getDefaultOnSiteSchedulingPolicy). On
+  // this org
   // the default policy's Availability rule lacks a usable ShiftUsage parameter → zero slots →
-  // SlotNotAvailable. Supplying the good policy makes the empty-crew delete-all SUCCEED on 262, matching the
-  // Core func test testRescheduleAppointmentDeleteAllAssignedResources — isolating the resolved scheduling
+  // SlotNotAvailable. Supplying the good policy makes the empty-crew delete-all SUCCEED on 262,
+  // matching the
+  // Core func test testRescheduleAppointmentDeleteAllAssignedResources — isolating the resolved
+  // scheduling
   // policy (explicit vs org-default) as the single variable that reconciles the two tests.
   static final Kick RESCHEDULE_DELETE_ALL_WITH_POLICY_CONFIG =
       kickFor(V3_WFS_PATH + "booking/reschedule-delete-all-with-policy");
@@ -374,10 +406,12 @@ public final class ReVomanConfigForWfs {
   // workspace default OnSite policy carries the seeded DefaultOnSiteSchdPlcy_LoadBalancing
   // objective, so
   // the read acts omit schedulingPolicyName and rely on the default policy.
-  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified parity reuse; visibility only.
+  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified
+  // parity reuse; visibility only.
   public static final Kick GET_RESOURCES_LIMIT_ZERO_CONFIG =
       kickFor(V3_WFS_PATH + "booking/get-available-resources-limit-zero");
-  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified parity reuse; visibility only.
+  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified
+  // parity reuse; visibility only.
   public static final Kick GET_RESOURCES_LIMIT_POSITIVE_CONFIG =
       kickFor(V3_WFS_PATH + "booking/get-available-resources-limit-positive");
 
@@ -392,19 +426,24 @@ public final class ReVomanConfigForWfs {
   // WorkforceSchedulingPsl seat. The resource-owner User is admin-created (the manager cannot set
   // ProfileId).
   // * NOTE 2026-07-03 gopal.akshintala: visibility widened package-private → public so the
-  // * Scheduler↔Unified Decision-9 parity test (SchedulerVsUnifiedParityE2ETest) can reuse the 264 side
+  // * Scheduler↔Unified Decision-9 parity test (SchedulerVsUnifiedParityE2ETest) can reuse the 264
+  // side
   // * of the sharing-mode-split scenario. Visibility-only change; wiring unchanged.
   public static final Kick AUTH_PERSONAS_DEC9_CONFIG = kickFor(V3_WFS_PATH + "auth-personas-dec9");
-  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified parity reuse; visibility only.
+  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified
+  // parity reuse; visibility only.
   public static final Kick SHARING_SPLIT_POLICY_CONFIG =
       kickFor(V3_WFS_PATH + "policies/sharing-split-shifts-policy");
-  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified parity reuse; visibility only.
+  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified
+  // parity reuse; visibility only.
   public static final Kick SHARING_SPLIT_FIXTURE_CONFIG =
       kickFor(V3_WFS_PATH + "fixtures/sharing-split-overlapping-shifts");
-  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified parity reuse; visibility only.
+  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified
+  // parity reuse; visibility only.
   public static final Kick GET_SLOTS_SHARING_SPLIT_AS_MANAGER_CONFIG =
       kickFor(V3_WFS_PATH + "booking/get-slots-sharing-split-as-manager");
-  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified parity reuse; visibility only.
+  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified
+  // parity reuse; visibility only.
   public static final Kick GET_SLOTS_SHARING_SPLIT_AS_CASEWORKER_CONFIG =
       kickFor(V3_WFS_PATH + "booking/get-slots-sharing-split-as-caseworker");
 
@@ -418,16 +457,20 @@ public final class ReVomanConfigForWfs {
   // characterizable on 262 (the three field-match rules are OnField/ESO-internal; the live OnSite
   // path
   // shares read==write) — see the test javadoc + decision log.
-  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified parity reuse; visibility only.
+  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified
+  // parity reuse; visibility only.
   public static final Kick GET_SLOTS_PARITY_AVAILABLE_CONFIG =
       kickFor(V3_WFS_PATH + "booking/get-slots-parity-available");
-  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified parity reuse; visibility only.
+  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified
+  // parity reuse; visibility only.
   public static final Kick GET_SLOTS_PARITY_UNAVAILABLE_CONFIG =
       kickFor(V3_WFS_PATH + "booking/get-slots-parity-unavailable");
-  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified parity reuse; visibility only.
+  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified
+  // parity reuse; visibility only.
   public static final Kick SCHEDULE_PARITY_UNAVAILABLE_CONFIG =
       kickFor(V3_WFS_PATH + "booking/schedule-parity-unavailable");
-  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified parity reuse; visibility only.
+  // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified
+  // parity reuse; visibility only.
   public static final Kick SCHEDULE_PARITY_AVAILABLE_CONFIG =
       kickFor(V3_WFS_PATH + "booking/schedule-parity-available");
 
@@ -497,7 +540,7 @@ public final class ReVomanConfigForWfs {
   // Task 6 — RequiredResources read side of the 262 read≠write DIVERGENCE. Over the SAME
   // required-non-required fixture + RequiredResources policy as the write violating act, the READ
   // path
-  // PRUNES cleanly (0 slots) when only a NON-required helper satisfies the account's
+  // PRUNES cleanly (0 slots) when only a NON-required resource satisfies the account's
   // required-resource
   // demand, while the WRITE path on the same scenario CRASHES with a serviceTerritoryMembers NPE
   // (D1.4,

@@ -55,9 +55,9 @@ import kotlin.collections.CollectionsKt;
 import org.junit.jupiter.api.Test;
 
 /**
- * WFS rules read==write parity (live 262). Proves each of
- * the 7 Common+InBusiness scheduling rules (RuleObjectiveMapper:108-125) evaluates identically on
- * the read APIs (get-appointment-slots/candidates/available-slots/available-resources →
+ * WFS rules read==write parity (live 262). Proves each of the 7 Common+InBusiness scheduling rules
+ * (RuleObjectiveMapper:108-125) evaluates identically on the read APIs
+ * (get-appointment-slots/candidates/available-slots/available-resources →
  * InBusinessGetCandidatesSlotsDataService.loadSchedulableSlots) and the write APIs
  * (schedule/reschedule → SlotAvailabilityChecker → the same loadSchedulableSlots on recompute). Per
  * rule a differential matrix asserts read decision == write decision for a violating AND a control
@@ -247,7 +247,7 @@ class WfsRulesParityE2ETest {
 
   /**
    * RequiredResources — read==write, and on 262 BOTH paths CRASH identically. When only a
-   * NON-required helper satisfies the account's required-resource demand (resourceA
+   * NON-required resource satisfies the account's required-resource demand (resourceA
    * required+primary but not on the Account's ResourcePreference(Required) list; resourceB on the
    * list but assigned non-required), the READ path (GetAppointmentSlots) CRASHES with HTTP 500
    * {@code INTERNAL_SERVER_ERROR} — the SAME {@code serviceTerritoryMembers} NPE ("Cannot invoke
@@ -261,8 +261,8 @@ class WfsRulesParityE2ETest {
    * crashed; live evidence (controller ran it directly, 2026-07-01) shows the read ALSO crashes.
    * Recorded, not hidden. A control that flips resourceB to {@code isRequiredResource=true} (demand
    * satisfied) does NOT crash — HTTP 201, no error — proving the crash is CONDITIONAL on the
-   * non-required-helper input, not a blanket fixture failure. (That satisfied-demand read returns 0
-   * slots, HTTP 201; the crash, not the slot count, is this test's subject — a 500 NPE with the
+   * non-required resource input, not a blanket fixture failure. (That satisfied-demand read returns
+   * 0 slots, HTTP 201; the crash, not the slot count, is this test's subject — a 500 NPE with the
    * exact message is self-evidently the bug, so the usual control-returns-slots guardrail is
    * unnecessary here.)
    *
@@ -291,7 +291,7 @@ class WfsRulesParityE2ETest {
         .contains("serviceTerritoryMembers");
     // Control (resourceB required → demand satisfied) does NOT crash — proves the crash is
     // conditional on
-    // the non-required-helper input, not a dead fixture. (Satisfied-demand read returns 0 slots,
+    // the non-required resource input, not a dead fixture. (Satisfied-demand read returns 0 slots,
     // HTTP 201.)
     assertThat(env.getAsString("requiredReadControlErrorCode")).isAnyOf(null, "null");
     assertThat(env.getAsString("requiredReadControlHttpCode")).isEqualTo("201");

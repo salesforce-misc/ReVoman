@@ -49,21 +49,21 @@ import org.junit.jupiter.api.Test;
  * WFS read↔write parity write-path characterization (live 262). Supersedes WfsHelperFitnessE2ETest
  * (Decision 1) and WfsDoubleBookHelperE2ETest (Decision 1.5).
  *
- * <p>Decisions covered: 1 (helper fitness), 1.4 (helper can't satisfy a required-resource demand),
- * 1.5 (helper double-books), 3 (missing isRequiredResource flag + the L142
- * single-required-no-primary control). Each scenario is its own {@code ReVoman.revUp(...)} starting
- * with {@code AUTH_CONFIG} (fresh env + fresh timestamped users → no ServiceResource
- * (RelatedRecordId, ResourceType) collision).
+ * <p>Decisions covered: 1 (non-required resource fitness), 1.4 (non-required resource can't satisfy
+ * a required-resource demand), 1.5 (non-required resource double-books), 3 (missing
+ * isRequiredResource flag + the L142 single-required-no-primary control). Each scenario is its own
+ * {@code ReVoman.revUp(...)} starting with {@code AUTH_CONFIG} (fresh env + fresh timestamped users
+ * → no ServiceResource (RelatedRecordId, ResourceType) collision).
  */
 class WfsWritePathParityE2ETest {
 
   /**
-   * Decision 1 — a NON-required "helper" resource is NOT fitness-checked on the Schedule write
-   * path, across four dimensions (EXCLUDED / TERRITORY / SKILLS / WORKING-LOCATIONS). Each
-   * dimension is a clean required+primary resourceA plus a NON-required resourceB violating exactly
-   * one rule.
+   * Decision 1 — a non-required resource is NOT fitness-checked on the Schedule write path, across
+   * four dimensions (EXCLUDED / TERRITORY / SKILLS / WORKING-LOCATIONS). Each dimension is a clean
+   * required+primary resourceA plus a NON-required resourceB violating exactly one rule.
    *
-   * <p>262 (asserted): the helper escapes every fitness rule → each dimension books Success.
+   * <p>262 (asserted): the non-required resource escapes every fitness rule → each dimension books
+   * Success.
    *
    * <p>Approach A: each dimension is its own revUp starting with AUTH_CONFIG → fresh env + fresh
    * timestamped users, so the four dimensions' ServiceResource(RelatedRecordId, ResourceType) rows
@@ -101,11 +101,11 @@ class WfsWritePathParityE2ETest {
   }
 
   /**
-   * Decision 1.5 — a NON-required helper is NOT availability-checked, so it may double-book. The
+   * Decision 1.5 — a NON-required resource is NOT availability-checked, so it may double-book. The
    * A/B flips ONLY isRequiredResource on resourceB over the SAME fixture (resourceB is BUSY at the
    * window).
    *
-   * <p>262 (asserted): the busy NON-required helper books Success (no availability check). The
+   * <p>262 (asserted): the busy NON-required resource books Success (no availability check). The
    * REQUIRED control (isRequiredResource=true) is availability-checked → not-Success.
    */
   @Test
@@ -126,7 +126,7 @@ class WfsWritePathParityE2ETest {
   }
 
   /**
-   * Decision 1.4 — a NON-required helper CANNOT satisfy an account's required-resource demand
+   * Decision 1.4 — a NON-required resource CANNOT satisfy an account's required-resource demand
    * (ResourcePreference Required). resourceA (required+primary) is clean but NOT on the account's
    * required list; resourceB IS on the required list but is assigned NON-required.
    *
@@ -144,7 +144,8 @@ class WfsWritePathParityE2ETest {
   @Test
   void testNonRequiredHelperCannotSatisfyRequiredDemandE2E() {
     ReVomanConfigForWfs.assumeExternalOrgCreds();
-    // Violating: only a NON-required helper present for the account's required demand → 262 server
+    // Violating: only a NON-required resource present for the account's required demand → 262
+    // server
     // NPE.
     final var violatingRundown =
         ReVoman.revUp(
@@ -382,9 +383,10 @@ class WfsWritePathParityE2ETest {
    * OnSiteRescheduleAppointmentsConnectApiTest.testRescheduleAppointmentDeleteAllAssignedResources},
    * which asserts Success): the availability re-check ({@code
    * SlotAvailabilityChecker.isSlotAvailable}) computes its required-resource set via {@code
-   * extractServiceResourceIds}, which SKIPS {@code DeleteOperation} entries → deleting ALL resources
-   * yields an EMPTY required set → the availability check runs against no resources and PASSES → the
-   * reschedule SUCCEEDS with an empty crew (no primary), proving Decision 4z end-to-end.
+   * extractServiceResourceIds}, which SKIPS {@code DeleteOperation} entries → deleting ALL
+   * resources yields an EMPTY required set → the availability check runs against no resources and
+   * PASSES → the reschedule SUCCEEDS with an empty crew (no primary), proving Decision 4z
+   * end-to-end.
    *
    * <p>262 (LIVE-OBSERVED): the clean two-resource Schedule books Success (captures {@code
    * reschedCleanSaId}), but this POLICY-LESS delete-ALL reschedule is NOT Success — it is rejected
@@ -393,25 +395,25 @@ class WfsWritePathParityE2ETest {
    * downstream availability re-check that blocks Arm B.
    *
    * <p>ROOT CAUSE (live-isolated, one-variable runs + live tooling query — NOT a release gate): the
-   * rejection is caused by the resolved SCHEDULING POLICY's RULE SET, not by the release and not by the
-   * request times. With no {@code schedulingPolicyId} on the reschedule, {@code
+   * rejection is caused by the resolved SCHEDULING POLICY's RULE SET, not by the release and not by
+   * the request times. With no {@code schedulingPolicyId} on the reschedule, {@code
    * SlotAvailabilityChecker.buildGetSlotsRequest} carries a null policy and {@code
    * InBusinessGetSlotsHandler.getSchedulingPolicyConfiguration} falls back to {@code
-   * getDefaultOnSiteSchedulingPolicy} ({@code DefaultOnSiteSchdPlcy}). That default policy has 7 rules —
-   * including a {@code RequiredResources} rule — whereas the good policy
-   * ({@code availabilityOpHoursPolicyId}) has only Availability + WorkingTerritories. The
-   * {@code required-non-required} fixture attaches a {@code ResourcePreference(Required)=resourceB} to
-   * the account, so once the crew is EMPTY the account-required resourceB is absent → the
-   * RequiredResources rule fails → zero slots. (NOTE: {@code ShiftUsage} is NOT the difference — a live
-   * tooling query confirmed BOTH policies' Availability rule carry the identical
-   * {@code ShiftUsage=ConsiderOpHoursAndShiftsUnion}.) Confirmed by a diagnostic run: delete-all under a
-   * policy = Availability+WorkingTerritories+RequiredResources reproduces the exact 400; the good 2-rule
-   * policy Succeeds ({@link #testRescheduleDeleteAllWithPolicySucceedsE2E}). Adding a new-time move alone
-   * did NOT change the outcome (still 400). The Core func test books Success because its local org's
-   * DEFAULT OnSite policy admits the empty crew — same 262 code, different default-policy rule set. So
-   * the empty-crew delete-all CAN complete on 262 (leaving a no-primary SA); it is gated only by whether
-   * the resolved policy's rules admit an empty crew. This test faithfully pins the policy-less/org-default
-   * rejection; the twin pins the good-policy Success.
+   * getDefaultOnSiteSchedulingPolicy} ({@code DefaultOnSiteSchdPlcy}). That default policy has 7
+   * rules — including a {@code RequiredResources} rule — whereas the good policy ({@code
+   * availabilityOpHoursPolicyId}) has only Availability + WorkingTerritories. The {@code
+   * required-non-required} fixture attaches a {@code ResourcePreference(Required)=resourceB} to the
+   * account, so once the crew is EMPTY the account-required resourceB is absent → the
+   * RequiredResources rule fails → zero slots. (NOTE: {@code ShiftUsage} is NOT the difference — a
+   * live tooling query confirmed BOTH policies' Availability rule carry the identical {@code
+   * ShiftUsage=ConsiderOpHoursAndShiftsUnion}.) Confirmed by a diagnostic run: delete-all under a
+   * policy = Availability+WorkingTerritories+RequiredResources reproduces the exact 400; the good
+   * 2-rule policy Succeeds ({@link #testRescheduleDeleteAllWithPolicySucceedsE2E}). Adding a
+   * new-time move alone did NOT change the outcome (still 400). The Core func test books Success
+   * because its local org's DEFAULT OnSite policy admits the empty crew — same 262 code, different
+   * default-policy rule set. So the empty-crew delete-all CAN complete on 262 (leaving a no-primary
+   * SA); it is gated only by whether the resolved policy's rules admit an empty crew. This test
+   * faithfully pins the policy-less/org-default rejection; the twin pins the good-policy Success.
    *
    * <p>Doc-refutation status: Decision 4z (there is NO "reschedule must keep a primary" rule) is
    * refuted at the VALIDATION layer by {@link #testRescheduleNoPrimaryE2E} Arm B (zero primaries is
@@ -436,13 +438,17 @@ class WfsWritePathParityE2ETest {
     // Setup booked, and the SA id was captured for the delete-all reschedule.
     assertThat(env.getAsString("reschedCleanStatus")).isEqualTo("Success");
     assertThat(env.getAsString("reschedCleanSaId")).isNotNull();
-    // POLICY-LESS delete-ALL reschedule on 262 is NOT Success: with no schedulingPolicyId it runs the
-    // empty-crew slot-gen under the org DEFAULT OnSite policy, which carries a RequiredResources rule.
-    // The account has a ResourcePreference(Required)=resourceB, so an EMPTY crew fails RequiredResources
+    // POLICY-LESS delete-ALL reschedule on 262 is NOT Success: with no schedulingPolicyId it runs
+    // the
+    // empty-crew slot-gen under the org DEFAULT OnSite policy, which carries a RequiredResources
+    // rule.
+    // The account has a ResourcePreference(Required)=resourceB, so an EMPTY crew fails
+    // RequiredResources
     // → zero slots → INVALID_INPUT / HTTP 400 / "not available for the requested slot",
     // schedulingStatus null. This is NOT a release gate: the good policy
     // (Availability+WorkingTerritories, NO RequiredResources) flips it to Success — see
-    // testRescheduleDeleteAllWithPolicySucceedsE2E. Asserted as OBSERVED for the org-default policy.
+    // testRescheduleDeleteAllWithPolicySucceedsE2E. Asserted as OBSERVED for the org-default
+    // policy.
     assertThat(env.getAsString("reschedDeleteAllStatus")).isAnyOf(null, "null");
     assertThat(env.getAsString("reschedDeleteAllErrorCode")).isEqualTo("INVALID_INPUT");
     assertThat(env.getAsString("reschedDeleteAllHttpCode")).isEqualTo("400");
@@ -453,35 +459,37 @@ class WfsWritePathParityE2ETest {
   /**
    * Decision 4z delete-ALL WITH an explicit scheduling policy — the reconciling twin of {@link
    * #testRescheduleDeleteAllLeavesNoPrimaryE2E}, and the resolution of why that sibling could not
-   * reproduce the Core func test's Success. It deletes the SAME two resources (resourceA + resourceB,
-   * no {@code isPrimaryResource} flag, NO {@code startTime}/{@code endTime}) — byte-for-byte identical
-   * to the sibling EXCEPT it adds {@code schedulingPolicyId=availabilityOpHoursPolicyId} (a 2-rule
-   * policy: Availability + WorkingTerritories, with NO RequiredResources rule).
+   * reproduce the Core func test's Success. It deletes the SAME two resources (resourceA +
+   * resourceB, no {@code isPrimaryResource} flag, NO {@code startTime}/{@code endTime}) —
+   * byte-for-byte identical to the sibling EXCEPT it adds {@code
+   * schedulingPolicyId=availabilityOpHoursPolicyId} (a 2-rule policy: Availability +
+   * WorkingTerritories, with NO RequiredResources rule).
    *
-   * <p>Root cause (live-isolated on this 262 org + a live tooling query): the delete-all reschedule is
-   * rejected by empty-crew slot-gen ONLY when it runs under a policy that carries a {@code
+   * <p>Root cause (live-isolated on this 262 org + a live tooling query): the delete-all reschedule
+   * is rejected by empty-crew slot-gen ONLY when it runs under a policy that carries a {@code
    * RequiredResources} rule. The sibling omits {@code schedulingPolicyId}, so {@code
    * SlotAvailabilityChecker.buildGetSlotsRequest} carries a null policy and {@code
    * InBusinessGetSlotsHandler.getSchedulingPolicyConfiguration} falls back to {@code
-   * getDefaultOnSiteSchedulingPolicy} ({@code DefaultOnSiteSchdPlcy}) — a 7-rule policy that INCLUDES
-   * {@code RequiredResources}. The {@code required-non-required} fixture attaches a {@code
-   * ResourcePreference(Required)=resourceB} to the account, so an EMPTY crew fails RequiredResources →
-   * zero slots → {@code SlotNotAvailable}/400. (Both policies' Availability rule carry the identical
-   * {@code ShiftUsage=ConsiderOpHoursAndShiftsUnion} — verified by tooling query — so ShiftUsage is NOT
-   * the difference; the RULE SET is.) Adding a new-time move alone did NOT fix it (still 400) — proving
-   * time was never the variable. Supplying the good policy here (no RequiredResources rule) DOES: the
-   * empty-crew re-check (deletes skipped by {@code extractServiceResourceIds}; the SA-under-reschedule
-   * excluded via {@code withAppointmentIdsExcludedForAvailability}) finds a slot and the delete-all
-   * SUCCEEDS.
+   * getDefaultOnSiteSchedulingPolicy} ({@code DefaultOnSiteSchdPlcy}) — a 7-rule policy that
+   * INCLUDES {@code RequiredResources}. The {@code required-non-required} fixture attaches a {@code
+   * ResourcePreference(Required)=resourceB} to the account, so an EMPTY crew fails
+   * RequiredResources → zero slots → {@code SlotNotAvailable}/400. (Both policies' Availability
+   * rule carry the identical {@code ShiftUsage=ConsiderOpHoursAndShiftsUnion} — verified by tooling
+   * query — so ShiftUsage is NOT the difference; the RULE SET is.) Adding a new-time move alone did
+   * NOT fix it (still 400) — proving time was never the variable. Supplying the good policy here
+   * (no RequiredResources rule) DOES: the empty-crew re-check (deletes skipped by {@code
+   * extractServiceResourceIds}; the SA-under-reschedule excluded via {@code
+   * withAppointmentIdsExcludedForAvailability}) finds a slot and the delete-all SUCCEEDS.
    *
    * <p>Why this reconciles the two tests: the Core func test {@code
    * OnSiteRescheduleAppointmentsConnectApiTest.testRescheduleAppointmentDeleteAllAssignedResources}
-   * runs against a local org whose DEFAULT OnSite policy admits the empty crew (its rule set / account
-   * data does not reject it), so its policy-less empty-crew delete-all finds slots and books Success.
-   * Same 262 code; the ONLY difference is the resolved scheduling policy's rule set relative to the
-   * account's required-resource preferences — NOT the release. With a policy that has no
-   * RequiredResources rule supplied, both the ReVoman probe and the func test agree: an empty-crew
-   * delete-all reschedule SUCCEEDS on 262, leaving an appointment with no resources and no primary.
+   * runs against a local org whose DEFAULT OnSite policy admits the empty crew (its rule set /
+   * account data does not reject it), so its policy-less empty-crew delete-all finds slots and
+   * books Success. Same 262 code; the ONLY difference is the resolved scheduling policy's rule set
+   * relative to the account's required-resource preferences — NOT the release. With a policy that
+   * has no RequiredResources rule supplied, both the ReVoman probe and the func test agree: an
+   * empty-crew delete-all reschedule SUCCEEDS on 262, leaving an appointment with no resources and
+   * no primary.
    *
    * <p>262 (LIVE-OBSERVED): {@code reschedDeleteAllWithPolicyStatus == "Success"} — the write-path
    * counterpart of the passing Core func test.
@@ -504,10 +512,13 @@ class WfsWritePathParityE2ETest {
     // Setup booked, and the SA id was captured for the delete-all reschedule.
     assertThat(env.getAsString("reschedCleanStatus")).isEqualTo("Success");
     assertThat(env.getAsString("reschedCleanSaId")).isNotNull();
-    // Delete-ALL WITH the well-formed policy SUCCEEDS on 262: the empty-crew availability re-check runs
+    // Delete-ALL WITH the well-formed policy SUCCEEDS on 262: the empty-crew availability re-check
+    // runs
     // under a policy whose Availability rule has a usable ShiftUsage param, finds a slot, and books
-    // (the SA-under-reschedule is excluded from the unavailability query). This is the same outcome the
-    // Core func test testRescheduleAppointmentDeleteAllAssignedResources asserts — reconciling the two
+    // (the SA-under-reschedule is excluded from the unavailability query). This is the same outcome
+    // the
+    // Core func test testRescheduleAppointmentDeleteAllAssignedResources asserts — reconciling the
+    // two
     // tests and pinning the sibling's rejection to the under-configured org-DEFAULT policy, NOT a
     // release gate and NOT the request times.
     assertThat(env.getAsString("reschedDeleteAllWithPolicyStatus")).isEqualTo("Success");
