@@ -34,16 +34,22 @@ versus the second time.
 
 Setup that isolates the mechanism:
 
-- Worker B is **genuinely available** at 11:00 (member OH + Shift both 10:00–14:00, same
-  as A). This is the key difference from the double-book fixture — no shift gap.
-- Worker A is a clean primary member, always available, covers the whole window.
+- Worker B is **genuinely available** at 11:00 (member OH + Shift both 10:00–14:00). This
+  is the key difference from the double-book fixture — no shift gap.
+- **Three** clean primary-eligible workers, all available and covering the window:
+  **A** (primary of appt #1), **B** (the shared worker), **C** (primary of appt #2).
 - Both appointments target the **same overlapping window**, 11:00–11:30.
-- Therefore the **only** thing that can block appointment #2 is B's assignment on
-  appointment #1. No shift gap, territory, or skill trick is in play.
+- B is the **only** worker shared across the two appointments: A appears only on appt #1,
+  C only on appt #2. This is why three workers, not two — if appt #2 reused A as its
+  primary, A would also be double-booked from appt #1, and a refusal could come from A's
+  occupancy instead of B's. With a dedicated free primary C, the **only** thing that can
+  block appointment #2 is B's assignment on appointment #1. No shift gap, territory, or
+  skill trick is in play.
 
 ### The 2×2 truth table
 
-B is the shared worker; appointment #2 overlaps appointment #1 (both 11:00–11:30).
+B is the shared worker; appt #1 = A(primary) + B, appt #2 = C(primary) + B; both
+appointments overlap the same window (11:00–11:30).
 
 | # | Appt #1 (B as) | Appt #2 (B as) | Expected | Proves |
 |---|----------------|----------------|----------|--------|
@@ -75,12 +81,16 @@ verbatim (not forced to green), the same way the 1.4 / 3 crash cells are handled
 `testRescheduleNoPrimaryParity_4z_E2E`. Keeps the 2×2 together as one truth table and
 matches the suite idiom.
 
-**New fixture `fixtures/prior-assignment`:** a clone of the double-book graph with one
-change — B is fully available at 11:00 (member OH B and Shift B set to 10:00–14:00, same
-as A). Both A and B are primary `ServiceTerritoryMember`s covering the window. Fresh
+**New fixture `fixtures/prior-assignment`:** a clone of the double-book graph with two
+changes — (1) B is fully available at 11:00 (member OH B and Shift B set to 10:00–14:00,
+same as A); (2) a **third** worker C is added, also a primary member fully available
+10:00–14:00, to serve as appt #2's dedicated primary. A, B, C are all primary
+`ServiceTerritoryMember`s covering the window. Two accounts (`schedAccountId`,
+`schedAccountId2`) so the two appointments are independent parent records. Fresh
 timestamped users minted per run (the proven double-book pattern; avoids the
 `(RelatedRecordId, ResourceType)` `DUPLICATE_VALUE` rollback). Emits `schedResourceAId`,
-`schedResourceBId`, `schedWorkTypeId`, `schedTerritoryId`, `schedAccountId`.
+`schedResourceBId`, `schedResourceCId`, `schedWorkTypeId`, `schedTerritoryId`,
+`schedAccountId`, `schedAccountId2`.
 
 **Per-cell flow (each a fresh revUp):**
 
@@ -88,10 +98,11 @@ timestamped users minted per run (the proven double-book pattern; avoids the
 AUTH → FIXTURE → GRANT-LS-ACCESS → book appt #1 (capture SA id) → book appt #2 → capture outcome
 ```
 
-- Appt #1 seeds the prior assignment. Two seed variants by B's flag on appt #1:
-  B-required-first, B-optional-first (A is primary+required in both).
-- Appt #2 is a second `service-appointments` call on the same 11:00–11:30 window. Two
-  variants by B's flag on appt #2: B-required, B-optional.
+- Appt #1 seeds the prior assignment on account #1: A is primary+required in both
+  variants; B's flag varies. Two seed variants: B-required-first, B-optional-first.
+- Appt #2 is a second `service-appointments` call on the same 11:00–11:30 window, on
+  account #2, with C as primary+required and B added. Two variants by B's flag on appt
+  #2: B-required, B-optional.
 - The four cells wire {seed variant} × {appt-#2 variant}.
 
 **New booking collections:** appt-#1 seed variants may reuse / adapt
