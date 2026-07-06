@@ -1946,4 +1946,138 @@ class SchedulerVsUnifiedParityE2ETest {
     assertThat(unifiedOccupancyCell(uniReqA1, uniOptA2))
         .isEqualTo(SchedulerParityConfig.WriteOutcome.BOOKED);
   }
+
+  /**
+   * Unified read-vs-write occupancy contract (verified against Core p4/260-patch). Unified's READ
+   * surface DOES compute occupancy: after appt #1 commits an overlapping ServiceAppointment on B,
+   * {@code get-appointment-candidates} for appt #2's window EXCLUDES busy B while still offering
+   * the free primary C ({@code UnavailabilityService.getResourceUnavailability} subtracts existing
+   * SAs, invoked only on the get-candidates/get-slots path). Yet the WRITE surface ({@code
+   * /actions/schedule}) BOOKS B over that same appointment, because {@code ScheduleProcessor}
+   * persists the caller-supplied {@code assignedResources} with no occupancy re-check. This pins
+   * the OLD↔Unified divergence at the read/write boundary — a write-path API-contract difference,
+   * NOT a missing policy rule (the handoff's CalendarEvents hypothesis is false: that rule was
+   * removed in 264 and even on 262 gated only Salesforce Event records, never ServiceAppointments).
+   *
+   * <p>Non-vacuity: appt #1's {@code priorAppt1SchedulingStatus == Success} proves B's overlapping
+   * assignment actually committed, and the read-side control ({@code priorAppt2CandidatesCIncluded
+   * == 1}, fail-loud) proves the get-candidates read ran and the candidate-id extraction works — so
+   * the {@code priorAppt2CandidatesBIncluded == 0} finding is a real occupancy exclusion, not a
+   * dead read. The write cell reuses {@link #unifiedOccupancyCell} (its own fresh-fixture revUp
+   * that re-seeds appt #1), so the read-probe env and the write cell are independent revUps,
+   * matching the existing occupancy test's per-cell pattern.
+   */
+  @Test
+  void testPriorAssignmentUnifiedReadVsWriteE2E() {
+    SchedulerParityConfig.assumeBothOrgCreds();
+    final var env =
+        CollectionsKt.last(
+                ReVoman.revUp(
+                    (r, ignore) -> assertThat(r.firstUnIgnoredUnsuccessfulStepReport()).isNull(),
+                    ReVomanConfigForWfs.AUTH_CONFIG,
+                    ReVomanConfigForWfs.AVAILABILITY_OP_HOURS_POLICY_CONFIG,
+                    ReVomanConfigForWfs.PRIOR_ASSIGNMENT_FIXTURE_CONFIG,
+                    ReVomanConfigForWfs.PRIOR_APPT1_B_REQUIRED_CONFIG,
+                    ReVomanConfigForWfs.PRIOR_CANDIDATES_APPT2_CONFIG))
+            .mutableEnv;
+    // Non-vacuity: appt #1 actually committed B's overlapping assignment.
+    assertThat(env.getAsString("priorAppt1SchedulingStatus")).isEqualTo("Success");
+    // Control: the read surface offers the free primary C (proves the read ran and the extraction
+    // works).
+    assertWithMessage(
+            "read-probe must offer free primary C; if not, the candidate extraction keys are wrong,"
+                + " not an occupancy signal")
+        .that(env.getAsString("priorAppt2CandidatesCIncluded"))
+        .isEqualTo("1");
+    // THE read-side finding: Unified's read path EXCLUDES busy B.
+    assertThat(env.getAsString("priorAppt2CandidatesBIncluded")).isEqualTo("0");
+    // THE write-side finding: the schedule action BOOKS B over the same appointment anyway.
+    assertThat(
+            unifiedOccupancyCell(
+                ReVomanConfigForWfs.PRIOR_APPT1_B_REQUIRED_CONFIG,
+                ReVomanConfigForWfs.PRIOR_APPT2_B_REQUIRED_CONFIG))
+        .isEqualTo(SchedulerParityConfig.WriteOutcome.BOOKED);
+  }
+
+  /**
+   * OLD Overbooking flip confirmation. The existing {@link #testPriorAssignmentOccupancyParity_E2E}
+   * pins OLD REFUSING all four cells at the default {@code OrgPreferences.Overbooking=OFF} ({@code
+   * AppointmentBookingAccessChecks.orgHasOverbooking()} gates the concurrency branch in {@code
+   * SchedulingServiceImpl.findAvailableTimeSlots}, reached from the write path via {@code
+   * ServiceAppointmentServiceImpl.create → areResourcesAvailable → getAppointmentSlots}). With the
+   * pref flipped ON, OLD treats the overlapping existing appointment as concurrent-allowed and
+   * BOOKS all four — converging with Unified's write behavior. Confirms the OLD refusal is
+   * pref-gated config, not a hard product invariant. Reverts the pref to OFF afterward so sibling
+   * OLD scenarios keep their default-OFF assumption.
+   *
+   * <p>Overbooking is ORG-level committed state (not a session flag), so flipping it ON once before
+   * the cells persists across each {@link #oldOccupancyCell}'s own fresh-AUTH revUp — the
+   * intervening cells re-authenticate but observe the committed pref. Cell (a) req→req carries a
+   * fail-loud {@code assertWithMessage} anchor: if it stays REFUSED the flip never took, so the
+   * remaining BOOKED assertions would be false positives. The revert runs in a {@code finally}
+   * (best-effort, no assert) so a mid-run failure still restores the default-OFF org state.
+   */
+  @Test
+  void testPriorAssignmentOldOverbookingFlipE2E() {
+    SchedulerParityConfig.assumeBothOrgCreds();
+    try {
+      flipOldOverbooking();
+      // (a) req->req, (b) opt->req, (c) opt->opt, (d) req->opt — all BOOK with Overbooking ON.
+      assertWithMessage("Overbooking ON: (a) req->req must now BOOK")
+          .that(
+              oldOccupancyCell(
+                  SchedulerParityConfig.OLD_PRIOR_APPT1_B_REQUIRED_CONFIG,
+                  SchedulerParityConfig.OLD_PRIOR_APPT2_B_REQUIRED_CONFIG))
+          .isEqualTo(SchedulerParityConfig.WriteOutcome.BOOKED);
+      assertThat(
+              oldOccupancyCell(
+                  SchedulerParityConfig.OLD_PRIOR_APPT1_B_OPTIONAL_CONFIG,
+                  SchedulerParityConfig.OLD_PRIOR_APPT2_B_REQUIRED_CONFIG))
+          .isEqualTo(SchedulerParityConfig.WriteOutcome.BOOKED);
+      assertThat(
+              oldOccupancyCell(
+                  SchedulerParityConfig.OLD_PRIOR_APPT1_B_OPTIONAL_CONFIG,
+                  SchedulerParityConfig.OLD_PRIOR_APPT2_B_OPTIONAL_CONFIG))
+          .isEqualTo(SchedulerParityConfig.WriteOutcome.BOOKED);
+      assertThat(
+              oldOccupancyCell(
+                  SchedulerParityConfig.OLD_PRIOR_APPT1_B_REQUIRED_CONFIG,
+                  SchedulerParityConfig.OLD_PRIOR_APPT2_B_OPTIONAL_CONFIG))
+          .isEqualTo(SchedulerParityConfig.WriteOutcome.BOOKED);
+    } finally {
+      revertOldOverbooking();
+    }
+  }
+
+  /**
+   * Flips the OLD org's {@code OrgPreferences.Overbooking} pref ON (AUTH → enable-overbooking) and
+   * fails loud if the metadata update did not report success — else a subsequent BOOKED cell would
+   * be a false positive against a still-OFF org.
+   */
+  private static void flipOldOverbooking() {
+    final var env =
+        CollectionsKt.last(
+                ReVoman.revUp(
+                    (r, ignore) -> assertThat(r.firstUnIgnoredUnsuccessfulStepReport()).isNull(),
+                    SchedulerParityConfig.OLD_AUTH_CONFIG,
+                    SchedulerParityConfig.OLD_ENABLE_OVERBOOKING_CONFIG))
+            .mutableEnv;
+    assertWithMessage(
+            "Overbooking flip ON must report success; if not, the pref never took and every BOOKED"
+                + " cell below is a false positive against a still-OFF org")
+        .that(env.getAsString("overbookingFlipSuccess"))
+        .isEqualTo("true");
+  }
+
+  /**
+   * Reverts the OLD org's {@code OrgPreferences.Overbooking} pref back to OFF (AUTH →
+   * disable-overbooking). Best-effort cleanup run in a {@code finally}: no assert, so a revert
+   * hiccup does not mask the test's real verdict.
+   */
+  private static void revertOldOverbooking() {
+    ReVoman.revUp(
+        (r, ignore) -> {},
+        SchedulerParityConfig.OLD_AUTH_CONFIG,
+        SchedulerParityConfig.OLD_DISABLE_OVERBOOKING_CONFIG);
+  }
 }
