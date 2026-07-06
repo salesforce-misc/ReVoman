@@ -433,16 +433,93 @@ git commit -m "test(scheduler-parity): old-side prior-assignment appt#1/appt#2 b
 - Create: `.../wfs/fixtures/prior-assignment/.resources/definition.yaml` (mirror the WFS double-book marker)
 
 **Interfaces:**
-- Produces (env vars): `priorTerritoryId`, `priorWorkTypeId`, `priorAccountId`, `priorAccountId2`, `priorResourceAId`, `priorResourceBId`, `priorResourceCId` (WFS-side names, distinct from old-side `sched*`).
+- Consumes (already set by `AUTH_CONFIG` / `ws.environment.yaml`): `managerToken`, `adminToken`, `caseWorkerUserId`, `caseManagerUserId`, `standardUserProfileId`, `unifiedPSResourceId`, `versionPath`, `baseUrl`.
+- Produces (env vars): `priorResourceCUserId` (from the admin pre-mint); `priorTerritoryId`, `priorWorkTypeId`, `priorAccountId`, `priorAccountId2`, `priorResourceAId`, `priorResourceBId`, `priorResourceCId` (from the fixture graph).
 
-**Clone source:** `.../wfs/fixtures/double-book-non-required/create-double-book-non-required-graph.request.yaml`. Apply the SAME structural changes as Task 1 (third resource C, B available 10:00–14:00, second account), but keep the WFS env-var naming and `{{adminToken}}` auth the double-book WFS graph already uses.
+> **CRITICAL — why this differs from Task 1 (old side).** The old scheduler graph runs as **admin**, so it mints all three Users inline. The WFS fixture graph runs as **`managerToken`**, and the manager persona **lacks Manage Users** — it cannot create a User at all. That is why the WFS double-book graph does NOT mint users; it reuses two pre-provisioned ones: `{{caseWorkerUserId}}`→resourceA, `{{caseManagerUserId}}`→resourceB (see its ServiceResource `RelatedRecordId` lines). ResourceC needs a THIRD distinct user (a ServiceResource is DB-unique on `(RelatedRecordId, ResourceType)`, and C must carry the WFS resource permset or slot-gen prunes it). So C's user is minted by a separate **admin-token** collection first (the proven Decision-9 `auth-personas-dec9/70-create-resource-user` pattern), and the fixture graph references its id for C.
 
-- [ ] **Step 1: Read the WFS double-book graph in full** so the clone matches its exact variable names and auth:
+**Clone sources:**
+- Fixture graph: `.../wfs/fixtures/double-book-non-required/create-double-book-non-required-graph.request.yaml` (runs as `{{managerToken}}`; reuses `caseWorkerUserId`/`caseManagerUserId`; note it does NOT mint users and its TimeSlot/Shift bodies carry `"SchedulingMethod": "OnSite"` — keep that field).
+- Admin resource-user mint: `.../wfs/auth-personas-dec9/70-create-resource-user.request.yaml` (runs as admin; mints a User on `{{standardUserProfileId}}` + assigns `{{unifiedPSResourceId}}`; emits a user id).
 
-Run: `sed -n '1,60p' src/integrationTest/resources/pm-templates/v3/core/wfs/fixtures/double-book-non-required/create-double-book-non-required-graph.request.yaml`
-Expected: shows the graph's `description`, its env-var names (e.g. `doubleBookResourceAId`, `doubleBookAccountId`, `doubleBookTerritoryId`, `doubleBookWorkTypeId`) and the beforeRequest/afterResponse scripts.
+- [ ] **Step 1: Read both clone sources in full** so the clone matches exact variable names, auth, and body fields:
 
-- [ ] **Step 2: Copy the WFS graph and its marker**
+Run: `sed -n '1,60p' src/integrationTest/resources/pm-templates/v3/core/wfs/fixtures/double-book-non-required/create-double-book-non-required-graph.request.yaml` and `cat src/integrationTest/resources/pm-templates/v3/core/wfs/auth-personas-dec9/70-create-resource-user.request.yaml`
+Expected: the fixture graph shows `doubleBook*` env-var names, `caseWorkerUserId`/`caseManagerUserId` as resource RelatedRecordIds, and `"SchedulingMethod": "OnSite"` on TimeSlot/Shift bodies; the mint file shows the admin User POST + PermissionSetAssignment shape.
+
+- [ ] **Step 2: Create the admin pre-mint request for resourceC's user.** Write `src/integrationTest/resources/pm-templates/v3/core/wfs/fixtures/prior-assignment/05-create-resource-c-user.request.yaml` — a clone of `auth-personas-dec9/70-create-resource-user.request.yaml` retargeted for C. Use `order: 400` so it runs BEFORE the graph (`order: 500`). **It carries its OWN `auth:` block overriding to `{{adminToken}}`** (the folder's `definition.yaml` base token is `{{managerToken}}`, and the manager cannot create Users — this per-request override is the proven pattern from `fixtures/visiting-hours-account-oh/20-link-account-visiting-hours-oh.request.yaml`). Full body:
+
+```yaml
+$kind: http-request
+description: >-
+  PRIOR-ASSIGNMENT — admin mints resourceC's owner User (the third ServiceResource's RelatedRecordId) and
+  assigns the WFS resource permset so slot-gen's filterResourcesWithPerm admits C. Created by admin
+  because creating a User (setting ProfileId) needs Manage Users, which the manager persona lacks (same
+  reason as Decision 9's resource-owner mint). resourceA/B reuse the pre-provisioned caseWorker/caseManager
+  users; only C needs a fresh one. Emits priorResourceCUserId.
+url: "{{baseUrl}}{{versionPath}}/composite/graph"
+method: POST
+headers:
+  Content-Type: application/json
+auth:
+  - id: 9c3d5e70-0400-4aaa-9bbb-000000000400
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{adminToken}}"
+body:
+  type: json
+  content: |-
+    {
+      "graphs": [
+        {
+          "graphId": "priorResUserC",
+          "compositeRequest": [
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/User",
+              "referenceId": "refUserC",
+              "body": {
+                "Username": "{{priorResourceCUserName}}",
+                "ProfileId": "{{standardUserProfileId}}",
+                "Alias": "pares-c",
+                "Email": "{{priorResourceCUserName}}",
+                "EmailEncodingKey": "ISO-8859-1",
+                "LastName": "PriorResourceC",
+                "FirstName": "Casey",
+                "LanguageLocaleKey": "en_US",
+                "LocaleSidKey": "en_US",
+                "TimeZoneSidKey": "GMT"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "{{versionPath}}/sobjects/PermissionSetAssignment",
+              "referenceId": "refPsAssignC",
+              "body": {
+                "AssigneeId": "@{refUserC.id}",
+                "PermissionSetId": "{{unifiedPSResourceId}}"
+              }
+            }
+          ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: pm.environment.set("priorResourceCUserName", pm.variables.replaceIn("prior-resource-c-{{$timestamp}}@revoman.org"));
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      var d = pm.response.json();
+      pm.environment.set("priorResourceCUserId", d.graphs[0].graphResponse.compositeResponse[0].body.id);
+    language: text/javascript
+order: 400
+```
+
+> Token model: a folder's base token lives in its `.resources/definition.yaml` `auth:` block (here `{{managerToken}}`, copied from the double-book fixture), and any single request overrides it with its own `auth:` block. So the admin-mint request and the manager-token graph live in the SAME folder = ONE Kick (`PRIOR_ASSIGNMENT_FIXTURE_CONFIG`); the mint just carries `auth: {{adminToken}}`. `order: 400` (mint) runs before `order: 500` (graph). Confirm `AUTH_CONFIG` establishes BOTH `adminToken` and `managerToken` before this Kick runs (it does — its `definition.yaml` mints the manager and SOAP-logs-in; `adminToken` comes from the external-org creds overlay). Task 7 chains: `AUTH_CONFIG` → `AVAILABILITY_OP_HOURS_POLICY_CONFIG` → `PRIOR_ASSIGNMENT_FIXTURE_CONFIG` (mint+graph) → appt#1 → appt#2.
+
+- [ ] **Step 3: Copy the WFS graph and its marker**
 
 ```bash
 cd /home/sfwork/code-clones/work/revoman-root
@@ -453,20 +530,31 @@ cp src/integrationTest/resources/pm-templates/v3/core/wfs/fixtures/double-book-n
    src/integrationTest/resources/pm-templates/v3/core/wfs/fixtures/prior-assignment/.resources/definition.yaml 2>/dev/null || true
 ```
 
-- [ ] **Step 3: Apply the Task-1 structural changes using the WFS graph's own variable names.** Mirror Task 1 Steps 3–9 exactly, but substitute the double-book WFS graph's variable names (whatever Step 1 revealed — expected `doubleBook*`). Concretely: add `refUserC` + `refResourceC`; add member OH C + 7 TimeSlots 10:00–14:00; **change resourceB's member-OH TimeSlots and Shift to 10:00–14:00**; add STM C + Shift C; add `refAccount2`; mint a third user in beforeRequest with all shifts 10:00–14:00; capture the new ids in afterResponse under the WFS-side names `priorResourceCId` and `priorAccountId2`. Rename the emitted ids to the WFS `prior*` interface names above (either re-alias in afterResponse or keep the graph's own names and reference those from the collections in Task 4 — pick one and be consistent; the interface list above is the contract Task 4 relies on).
+- [ ] **Step 4: Edit the copied graph.** Apply these edits (KEEP the `"SchedulingMethod": "OnSite"` field on every TimeSlot and Shift body — it is present in the WFS source and absent in the old-side source; do not drop it):
+  1. **resourceA/B users unchanged** — leave `refResourceA` `RelatedRecordId` as `{{caseWorkerUserId}}` and `refResourceB` as `{{caseManagerUserId}}`.
+  2. **Add `refResourceC`** ServiceResource after `refResourceB`, `RelatedRecordId": "{{priorResourceCUserId}}"` (the id the Step-2 mint emits), `ResourceType": "T"`, `IsActive": true`, `IsPrimary": true`, Name `"PriorAssign Resource C {{$timestamp}}"`.
+  3. **Add member OH C** (`refMemberOhC`, after `refMemberOhB`) + 7 daily TimeSlots (`refMemberCtsMon`…`refMemberCtsSun`) on `@{refMemberOhC.id}`, `10:00:00.000Z`–`14:00:00.000Z`, `Type": "Normal"`, `SchedulingMethod": "OnSite"`.
+  4. **Change resourceB's member-OH TimeSlots to 10:00** — every `refMemberBts*` body `StartTime` from `12:00:00.000Z` to `10:00:00.000Z` (EndTime stays `14:00:00.000Z`). This makes B available at 11:00.
+  5. **Add STM C** (`refStmC`, after `refStmB`): `ServiceTerritoryId": "@{refTerritory.id}"`, `ServiceResourceId": "@{refResourceC.id}"`, `TerritoryType": "P"`, `OperatingHoursId": "@{refMemberOhC.id}"`, `EffectiveStartDate": "{{doubleBookStmEffectiveStart}}"`.
+  6. **Add Shift C** (`refShiftC`, after `refShiftB`): `ServiceResourceId": "@{refResourceC.id}"`, `ServiceTerritoryId": "@{refTerritory.id}"`, `StartTime": "{{doubleBookShiftCStart}}"`, `EndTime": "{{doubleBookShiftCEnd}}"`, `TimeSlotType": "Normal"`, `SchedulingMethod": "OnSite"`, `Status": "Confirmed"`.
+  7. **Add `refAccount2`** Account after `refAccount`, Name `"PriorAssign Account 2 {{$timestamp}}"`.
+  8. **beforeRequest:** change resourceB's shift window to 10:00–14:00 (set `doubleBookShiftBStart` to 10:00, matching A), and add resourceC's shift window `doubleBookShiftCStart`=10:00 / `doubleBookShiftCEnd`=14:00 (copy the shiftA block, rename to C). Do NOT mint any user here (the manager token cannot).
+  9. **afterResponse:** the source throws on any non-2xx step, then captures ids. Emit the `prior*`-prefixed names: `priorTerritoryId`=byRef["refTerritory"], `priorWorkTypeId`=byRef["refWorkType"], `priorAccountId`=byRef["refAccount"], `priorAccountId2`=byRef["refAccount2"], `priorResourceAId`=byRef["refResourceA"], `priorResourceBId`=byRef["refResourceB"], `priorResourceCId`=byRef["refResourceC"]. (Keep or drop the inherited `doubleBook*` captures — harmless either way; the `prior*` set is the Task-4 contract.)
 
-> Decision to lock here: **emit the `prior*`-prefixed names** (`priorTerritoryId`, `priorResourceAId`, `priorResourceBId`, `priorResourceCId`, `priorWorkTypeId`, `priorAccountId`, `priorAccountId2`) from this fixture's afterResponse, so Task 4's collections reference a clean, purpose-named set rather than the inherited `doubleBook*` names.
+> Decision locked: **emit the `prior*`-prefixed names** so Task 4's collections reference a clean, purpose-named set.
 
-- [ ] **Step 4: Verify compile clean**
+- [ ] **Step 5: Rewrite `.resources/definition.yaml` description** to the prior-assignment intent (3 resources A/B/C all available 10:00–14:00, B the shared worker, C's user admin-minted, 2 accounts, emits the `prior*` vars). No `#` comments.
+
+- [ ] **Step 6: Verify compile clean**
 
 Run: `gradle compileIntegrationTestJava`
 Expected: `BUILD SUCCESSFUL`.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add src/integrationTest/resources/pm-templates/v3/core/wfs/fixtures/prior-assignment
-git commit -m "test(scheduler-parity): WFS-side prior-assignment fixture (3 resources, B available, 2 accounts)"
+git commit -m "test(scheduler-parity): WFS-side prior-assignment fixture (admin-mint C user, 3 resources, B available, 2 accounts)"
 ```
 
 ---
@@ -753,7 +841,7 @@ git commit -m "test(scheduler-parity): WFS-side prior-assignment appt#1/appt#2 s
   - `SchedulerParityConfig.OLD_PRIOR_APPT1_B_OPTIONAL_CONFIG`
   - `SchedulerParityConfig.OLD_PRIOR_APPT2_B_REQUIRED_CONFIG`
   - `SchedulerParityConfig.OLD_PRIOR_APPT2_B_OPTIONAL_CONFIG`
-  - `ReVomanConfigForWfs.PRIOR_ASSIGNMENT_FIXTURE_CONFIG`
+  - `ReVomanConfigForWfs.PRIOR_ASSIGNMENT_FIXTURE_CONFIG` (one Kick over the whole `fixtures/prior-assignment` folder: the admin-token C-user mint request runs first, then the manager-token graph)
   - `ReVomanConfigForWfs.PRIOR_APPT1_B_REQUIRED_CONFIG`
   - `ReVomanConfigForWfs.PRIOR_APPT1_B_OPTIONAL_CONFIG`
   - `ReVomanConfigForWfs.PRIOR_APPT2_B_REQUIRED_CONFIG`
@@ -786,6 +874,8 @@ git commit -m "test(scheduler-parity): WFS-side prior-assignment appt#1/appt#2 s
 ```java
   // ## Prior-assignment occupancy parity (Unified side). 3-resource graph, B available, 2 accounts;
   // appt #1 seeds B's assignment, appt #2 re-books B on an overlapping window with C as a free primary.
+  // The fixture folder holds TWO requests under ONE Kick: 05-create-resource-c-user (per-request
+  // auth override to {{adminToken}} — manager persona lacks Manage Users) then the manager-token graph.
   public static final Kick PRIOR_ASSIGNMENT_FIXTURE_CONFIG =
       kickFor(V3_WFS_PATH + "fixtures/prior-assignment");
   public static final Kick PRIOR_APPT1_B_REQUIRED_CONFIG =
