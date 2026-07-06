@@ -1,0 +1,13 @@
+$kind: collection
+description: |-
+  Unified READ-PROBE: get-appointment-candidates for prior-assignment appt #2's window (same
+  11:00-11:30 as appt #1) naming resourceB as required. After appt #1 has committed B's overlapping
+  ServiceAppointment, this proves Unified's READ path DOES compute occupancy — B is excluded from the
+  candidate list while the free primary C is offered. Runs under {{managerToken}}. Contrast with the
+  schedule action (write path), which books B anyway.
+auth:
+  - id: 8b2c3d4e-5f60-4172-9b8b-3c4d5e6f7182
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"

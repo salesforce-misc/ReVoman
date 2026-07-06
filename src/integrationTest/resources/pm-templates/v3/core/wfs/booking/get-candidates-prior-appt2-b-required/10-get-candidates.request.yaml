@@ -1,0 +1,68 @@
+$kind: http-request
+description: >-
+  Unified READ-PROBE (prior-assignment appt #2 window): get-appointment-candidates on account #2,
+  tomorrow 11:00-11:30 UTC (SAME window as appt #1), assignedResources = resourceC (required) and
+  resourceB (required). isPrimaryResource is OMITTED (the candidates action rejects it — LIVE-OBSERVED
+  input-validation quirk). Run AFTER appt #1 books B, so B holds an overlapping committed
+  ServiceAppointment. Expectation: Unified's read path computes occupancy (UnavailabilityService),
+  so the candidate list EXCLUDES busy B but INCLUDES free C. Captures per-resource inclusion.
+url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/get-appointment-candidates"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "appointments": [
+        {
+          "schedulingMethod": "OnSite",
+          "schedulingPolicyId": "{{availabilityOpHoursPolicyId}}",
+          "coreDetails": {
+            "startTime": "{{priorApptStart}}",
+            "endTime": "{{priorApptEnd}}",
+            "appointmentMode": "Regular",
+            "workConfiguration": { "workTypeId": "{{priorWorkTypeId}}" },
+            "locationConstraints": { "id": "{{priorTerritoryId}}" }
+          },
+          "serviceAppointmentParent": { "id": "{{priorAccountId2}}" },
+          "assignedResources": [
+            { "isRequiredResource": true, "serviceResourceId": "{{priorResourceCId}}" },
+            { "isRequiredResource": true, "serviceResourceId": "{{priorResourceBId}}" }
+          ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(11, 0, 0, 0);
+      const e = new Date(s.getTime() + 30 * 60 * 1000);
+      pm.environment.set("priorApptStart", s.toISOString());
+      pm.environment.set("priorApptEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      // candidates action's list key is result[].candidates[] (verified in get-candidates-skills-violating).
+      // Each candidate carries the offered serviceResourceId(s). Determine per-resource inclusion.
+      const data = pm.response.json() || {};
+      const results = data.result || [];
+      const ids = new Set();
+      results.forEach(r => (r.candidates || []).forEach(c => {
+        // a candidate may expose resources under different keys across releases; collect any id-ish field
+        const rid = c.serviceResourceId || c.resourceId || (c.serviceResource && c.serviceResource.id);
+        if (rid) ids.add(String(rid).substring(0,15));
+        (c.assignedResources || c.resources || []).forEach(ar => {
+          const arId = ar.serviceResourceId || ar.id; if (arId) ids.add(String(arId).substring(0,15));
+        });
+      }));
+      const b15 = String(pm.environment.get("priorResourceBId")||"").substring(0,15);
+      const c15 = String(pm.environment.get("priorResourceCId")||"").substring(0,15);
+      pm.environment.set("priorAppt2CandidatesBIncluded", ids.has(b15) ? "1" : "0");
+      pm.environment.set("priorAppt2CandidatesCIncluded", ids.has(c15) ? "1" : "0");
+      console.log("READPROBE candidates http=" + pm.response.code + " Bincl=" + (ids.has(b15)?1:0) + " Cincl=" + (ids.has(c15)?1:0) + " body=" + JSON.stringify(data).slice(0,400));
+    language: text/javascript
+order: 1000
