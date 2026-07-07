@@ -16,9 +16,7 @@ import static com.salesforce.revoman.output.ExeType.HTTP_STATUS;
 import com.salesforce.revoman.input.ExternalOrgConfig;
 import com.salesforce.revoman.input.config.Kick;
 import com.salesforce.revoman.integration.core.adapters.IDAdapter;
-import com.salesforce.revoman.output.log.LogLevel;
-import com.salesforce.revoman.output.log.RunLogSink;
-import com.salesforce.revoman.output.log.StepEvent;
+import com.salesforce.revoman.output.log.ConsoleRunLogSink;
 import java.util.Map;
 import org.junit.jupiter.api.Assumptions;
 
@@ -129,43 +127,6 @@ public final class ReVomanConfigForWfs {
   static final String ENV_PATH = V3_WFS_PATH + "ws.environment.yaml";
   static final String NODE_MODULE_RELATIVE_PATH = "js";
   static final String IGNORE_HTTP_STATUS_UNSUCCESSFUL = "ignoreHTTPStatusUnsuccessful";
-
-  // ## Print sink — tees each step's full HTTP request/response (wire text, JSON body
-  // pretty-printed)
-  // to stdout so the exchange shows up in the JUnit/Gradle log (showStandardStreams = true). Only a
-  // non-NoOp sink makes ReVoman render the bodies (ReVoman.emitStepFinished skips rendering when no
-  // sink is installed), so wiring this into every kickFor Kick is what surfaces req/resp per step.
-  static final RunLogSink PRINT_SINK =
-      new RunLogSink() {
-        @Override
-        public void line(final LogLevel level, final String message) {
-          // The step trace is already emitted via KotlinLogging; nothing extra to print here.
-        }
-
-        @Override
-        public void event(final StepEvent event) {
-          if (event instanceof final StepEvent.StepFinished finished) {
-            System.out.println(
-                "── STEP "
-                    + finished.getPath()
-                    + " ["
-                    + finished.getHttpStatus()
-                    + "] "
-                    + finished.getOutcome());
-            if (finished.getRequestMsg() != null) {
-              System.out.println("REQ:\n" + finished.getRequestMsg());
-            }
-            if (finished.getResponseMsg() != null) {
-              System.out.println("RESP:\n" + finished.getResponseMsg());
-            }
-          }
-        }
-
-        @Override
-        public void close() {
-          // ReVoman never calls this — the caller owns the sink's lifecycle across revUp runs.
-        }
-      };
 
   // ## Persona creation and setup. Admin SOAP-logs-in (adminToken/accessToken) ONLY for admin-only
   // setup
@@ -633,7 +594,7 @@ public final class ReVomanConfigForWfs {
         .haltOnFailureOfTypeExcept(
             HTTP_STATUS, afterStepContainingHeader(IGNORE_HTTP_STATUS_UNSUCCESSFUL))
         .insecureHttp(true)
-        .runLogSink(PRINT_SINK)
+        .runLogSink(new ConsoleRunLogSink())
         .off();
   }
 }
