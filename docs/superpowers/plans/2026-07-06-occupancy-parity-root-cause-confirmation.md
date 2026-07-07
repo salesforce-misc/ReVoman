@@ -85,7 +85,7 @@ Append to the decision-log file: which mechanism works (Metadata API vs PLSQL+re
 **Files:**
 - Create: `src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-candidates-prior-appt2-b-required/10-get-candidates.request.yaml`
 - Create: `src/integrationTest/resources/pm-templates/v3/core/wfs/booking/get-candidates-prior-appt2-b-required/.resources/definition.yaml`
-- Modify: `src/integrationTest/java/com/salesforce/revoman/integration/core/wfs/ReVomanConfigForWfs.java` (add Kick constant near line 264, after `PRIOR_APPT2_B_OPTIONAL_CONFIG`)
+- Modify: `src/integrationTest/java/com/salesforce/revoman/integration/core/wfs/ReVomanConfigForWfs.java` (add Kick constant after the `PRIOR_APPT2_B_OPTIONAL_CONFIG` block)
 
 **Interfaces:**
 - Consumes: env vars emitted by `PRIOR_ASSIGNMENT_FIXTURE_CONFIG` (`priorAccountId2`, `priorWorkTypeId`, `priorTerritoryId`, `priorResourceBId`, `priorResourceCId`, `availabilityOpHoursPolicyId`) and `priorApptStart`/`priorApptEnd` set by the appt-schedule steps.
@@ -187,7 +187,7 @@ NOTE: the candidate-response resource-id shape is release-specific. Task 5's liv
 
 - [ ] **Step 3: Add the Kick constant**
 
-In `ReVomanConfigForWfs.java`, after the `PRIOR_APPT2_B_OPTIONAL_CONFIG` block (~line 264):
+In `ReVomanConfigForWfs.java`, after the `PRIOR_APPT2_B_OPTIONAL_CONFIG` block:
 ```java
   public static final Kick PRIOR_CANDIDATES_APPT2_CONFIG =
       kickFor(V3_WFS_PATH + "booking/get-candidates-prior-appt2-b-required");
@@ -325,8 +325,8 @@ Add after `testPriorAssignmentOccupancyParity_E2E`. Single revUp: AUTH → polic
    * ({@code /actions/schedule}) BOOKS B over that same appointment, because {@code ScheduleProcessor}
    * persists the caller-supplied {@code assignedResources} with no occupancy re-check. This pins the
    * OLD↔Unified divergence at the read/write boundary — a write-path API-contract difference, NOT a
-   * missing policy rule (the handoff's CalendarEvents hypothesis is false: that rule was removed in 264
-   * and even on 262 gated only Salesforce Event records, never ServiceAppointments).
+   * missing policy rule (the handoff's CalendarEvents hypothesis is false: that rule has since been
+   * removed and even on the live org gated only Salesforce Event records, never ServiceAppointments).
    */
   @Test
   void testPriorAssignmentUnifiedReadVsWriteE2E() {
@@ -450,16 +450,16 @@ git commit -m "test(scheduler-parity): fix read-probe extraction / overbooking f
 
 **Files:** Modify `SchedulerVsUnifiedParityE2ETest.java` — the `testPriorAssignmentOccupancyParity_E2E` javadoc (~lines 1814–1887) and inline comments still say the drift is CalendarEvents-config-gated with a TODO to add the rule. Replace with the verified root cause.
 
-- [ ] **Step 1: Rewrite the "264 Unified engine" + "Root cause" + TODO paragraphs**
+- [ ] **Step 1: Rewrite the "Unified engine" + "Root cause" + TODO paragraphs**
 
-Replace the CalendarEvents-config-gated explanation with: Unified's `schedule` action persists caller-supplied resources without an occupancy check (`ScheduleProcessor`); occupancy is computed only on the get-candidates/get-slots read path (`UnavailabilityService`, sole caller `InBusinessGetCandidatesSlotsDataService`); the CalendarEvents rule was removed in 264 and never gated ServiceAppointment occupancy. Replace the TODO ("add CalendarEvents rule and re-run") with cross-references to the two new tests (`testPriorAssignmentUnifiedReadVsWriteE2E`, `testPriorAssignmentOldOverbookingFlipE2E`) that confirm the true root cause. Keep the verbatim-pin framing (no `old==unified` assert).
+Replace the CalendarEvents-config-gated explanation with: Unified's `schedule` action persists caller-supplied resources without an occupancy check (`ScheduleProcessor`); occupancy is computed only on the get-candidates/get-slots read path (`UnavailabilityService`, sole caller `InBusinessGetCandidatesSlotsDataService`); the CalendarEvents rule has since been removed and never gated ServiceAppointment occupancy. Replace the TODO ("add CalendarEvents rule and re-run") with cross-references to the two new tests (`testPriorAssignmentUnifiedReadVsWriteE2E`, `testPriorAssignmentOldOverbookingFlipE2E`) that confirm the true root cause. Keep the verbatim-pin framing (no `old==unified` assert).
 
 - [ ] **Step 2: Compile + spot-run** — `gradle testClasses`. Expected: BUILD SUCCESSFUL.
 
 - [ ] **Step 3: Commit**
 ```bash
 git add src/integrationTest/java/com/salesforce/revoman/integration/core/scheduler/SchedulerVsUnifiedParityE2ETest.java
-git commit -m "docs(scheduler-parity): correct occupancy javadoc — write-path contract diff, not CalendarEvents config (CalendarEvents removed in 264)" \
+git commit -m "docs(scheduler-parity): correct occupancy javadoc — write-path contract diff, not CalendarEvents config (CalendarEvents since removed)" \
   -- src/integrationTest/java/com/salesforce/revoman/integration/core/scheduler/SchedulerVsUnifiedParityE2ETest.java
 ```
 
@@ -469,7 +469,7 @@ git commit -m "docs(scheduler-parity): correct occupancy javadoc — write-path 
 
 **Files:** none (external). Sheet `147N4ZEteXjxgKx34f9ZWoPJ5T_42l2li83x9Ejq03FQ`.
 
-- [ ] **Step 1: Update `multi-resource!12`** — verdict from "unconfirmed/likely config" to the CONFIRMED result: "Verified (Core p4/260-patch): write-path contract difference — Unified schedule action trusts caller resources (no occupancy check); OLD refusal is OrgPreferences.Overbooking-gated (flip ON → OLD books). NOT config-gated; CalendarEvents removed in 264." ONE cell write.
+- [ ] **Step 1: Update `multi-resource!12`** — verdict from "unconfirmed/likely config" to the CONFIRMED result: "Verified (Core p4/260-patch): write-path contract difference — Unified schedule action trusts caller resources (no occupancy check); OLD refusal is OrgPreferences.Overbooking-gated (flip ON → OLD books). NOT config-gated; CalendarEvents since removed." ONE cell write.
 
 - [ ] **Step 2: Update `[WIP] How each test works!C20`** — reflect the two new tests + the read-vs-write finding. ONE cell write. If either write times out, READ BACK before retrying (writes usually don't land on timeout).
 

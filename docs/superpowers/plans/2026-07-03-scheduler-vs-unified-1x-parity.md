@@ -1,8 +1,8 @@
-# Scheduler ↔ Unified(264) `1.*` Parity — Vertical Slice (1.5) Implementation Plan
+# Scheduler ↔ Unified `1.*` Parity — Vertical Slice (1.5) Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build a two-org differential ReVoman harness and prove the `1.5` (Availability / double-book helper) parity slice: does OLD Salesforce Scheduler and 264-Unified-OnSite (262 proxy) make the SAME include/exclude read decision and book/refuse write outcome for a busy non-required helper?
+**Goal:** Build a two-org differential ReVoman harness and prove the `1.5` (Availability / double-book helper) parity slice: does OLD Salesforce Scheduler and Unified OnSite make the SAME include/exclude read decision and book/refuse write outcome for a busy non-required helper?
 
 **Architecture:** A new `com.salesforce.revoman.integration.core.scheduler` package. `SchedulerParityConfig` adds a SECOND external-org creds overlay (`~/.revoman/scheduler-config.yaml`) for the scheduler org, alongside the existing `~/.revoman/config.yaml` (262/Unified side, reused via `ReVomanConfigForWfs`). Each `1.*` test runs the same logical fixture against BOTH orgs — old side over public Scheduler REST (`/scheduling/getAppointmentSlots`, `/connect/scheduling/service-appointments`), Unified side over the existing WFS Connect acts — then diffs normalized verdicts.
 
@@ -10,10 +10,9 @@
 
 ## Global Constraints
 
-- **Old side = scheduler org** `orgfarm-0c6bcb96c0…crm.dev:6101`; **264 side = 262 org** `orgfarm-4dbef90d6c…crm.dev:6101`. Both local-bound → ReVoman external-org mode.
+- **Old side = scheduler org** `orgfarm-0c6bcb96c0…crm.dev:6101`; **Unified side = the live Unified org** `orgfarm-4dbef90d6c…crm.dev:6101` (version 262 / local HEAD). Both local-bound → ReVoman external-org mode.
 - **Never commit creds.** `~/.revoman/config.yaml` and `~/.revoman/scheduler-config.yaml` live in `$HOME`, outside the repo. Committed env yamls stay blank.
 - **Old-side SOAP login uses v64** (`/services/Soap/u/64.0`); v67 rejects SOAP login. REST version comes from `latest-api-version` (`versionPath`).
-- **262-as-264-proxy caveat** stamped in every javadoc: verdicts are 262-observed; a true-264 org may differ on locked-in crashes (1.4/3). The 1.5 slice is crash-free → unaffected.
 - **SchedulingMethod="OnSite"** on TimeSlot/Shift + any Unified schedule body; WorkType carries NO SchedulingMethod. (Old scheduler org value validity is probed in Task 2.)
 - **Verdict equality compares NORMALIZED verdicts only** (`BOOKED/REFUSED/CRASHED`, `INCLUDED/EXCLUDED`) — never raw errorCodes (old REST `isError`/HTTP vs Unified `schedulingStatus`; guide R3).
 - **Control-first discipline:** confirm each control RED for the intended reason before trusting the positive GREEN.
@@ -201,10 +200,10 @@ import java.util.Map;
 import org.junit.jupiter.api.Assumptions;
 
 /**
- * Two-org config seam for the Salesforce Scheduler ↔ Unified(264) {@code 1.*} helper-fitness parity
- * tests. The OLD side (scheduler org) is driven over public Scheduler REST; the 264 side reuses the
- * existing {@link ReVomanConfigForWfs} Unified Kicks against the 262 org (endpoints identical
- * 262↔264 per the parity effort). The two OnSite engines are SEPARATE re-implementations (old {@code
+ * Two-org config seam for the Salesforce Scheduler ↔ Unified {@code 1.*} helper-fitness parity
+ * tests. The OLD side (scheduler org) is driven over public Scheduler REST; the Unified side reuses
+ * the existing {@link ReVomanConfigForWfs} Unified Kicks against the live Unified org (version 262 /
+ * local HEAD). The two OnSite engines are SEPARATE re-implementations (old {@code
  * scheduling-impl.SchedulingServiceImpl} vs {@code unified-scheduling-impl.InBusinessAppointmentSlotCalculator}),
  * so parity is not guaranteed by construction — these tests assert it.
  *
@@ -283,8 +282,8 @@ import kotlin.collections.CollectionsKt;
 import org.junit.jupiter.api.Test;
 
 /**
- * Scheduler ↔ Unified(264) {@code 1.*} helper-fitness parity — differential tests. Each scenario diffs
- * the OLD Salesforce Scheduler decision against the 264-Unified(262-proxy) decision on BOTH the read
+ * Scheduler ↔ Unified {@code 1.*} helper-fitness parity — differential tests. Each scenario diffs
+ * the OLD Salesforce Scheduler decision against the Unified decision on BOTH the read
  * (INCLUDED/EXCLUDED) and write (BOOKED/REFUSED/CRASHED) axes.
  */
 class SchedulerVsUnifiedParityE2ETest {
@@ -734,9 +733,9 @@ git commit -m "test(scheduler-parity): old-side service-appointments book + cont
 
 ---
 
-### Task 5: The differential parity test — diff old vs 264, normalized verdicts
+### Task 5: The differential parity test — diff old vs Unified, normalized verdicts
 
-Combine both orgs into one method: run the 264 double-book (reusing WFS Kicks), run the old-side read+write, normalize each side to `{readIncluded, writeOutcome}`, assert equal (or characterize divergence). Delete the temporary probe methods. Register in the ftest inventory if run via ftest-console.
+Combine both orgs into one method: run the Unified double-book (reusing WFS Kicks), run the old-side read+write, normalize each side to `{readIncluded, writeOutcome}`, assert equal (or characterize divergence). Delete the temporary probe methods. Register in the ftest inventory if run via ftest-console.
 
 **Files:**
 - Modify: `SchedulerVsUnifiedParityE2ETest.java` (add the slice method; remove the 4 probe methods from Tasks 1-4, keeping `schedulerOrgAuthBindsE2E` optional as a smoke test)
@@ -789,13 +788,12 @@ Combine both orgs into one method: run the 264 double-book (reusing WFS Kicks), 
 
 ```java
   /**
-   * Decision 1.5 parity — a busy NON-required helper. OLD Salesforce Scheduler vs 264 Unified OnSite
-   * (262 proxy) must agree on both axes: the busy helper BOOKS (not availability-checked) while a
+   * Decision 1.5 parity — a busy NON-required helper. OLD Salesforce Scheduler vs Unified OnSite
+   * must agree on both axes: the busy helper BOOKS (not availability-checked) while a
    * required busy control is REFUSED; and the read offers the fixture's slots only when the busy
    * resource is not a hard required constraint. Old side: public Scheduler REST
    * (/scheduling/getAppointmentSlots + /connect/scheduling/service-appointments). Unified side: the
-   * existing WFS double-book Connect acts. 262-proxy caveat: verdicts are 262-observed; a true-264 org
-   * may differ on locked-in crashes (1.4/3) — 1.5 is crash-free so unaffected. Divergence is a finding,
+   * existing WFS double-book Connect acts. Divergence is a finding,
    * asserted faithfully rather than forced.
    */
   @Test
@@ -825,7 +823,7 @@ Combine both orgs into one method: run the 264 double-book (reusing WFS Kicks), 
             oldHelperEnv.getAsString("oldWriteHelperSaId"),
             oldHelperEnv.getAsString("oldWriteHelperHttp"));
 
-    // --- 264 side (262 proxy): reuse the proven WFS double-book acts, one revUp ---
+    // --- Unified side: reuse the proven WFS double-book acts, one revUp ---
     final var unifiedEnv =
         CollectionsKt.last(
                 ReVoman.revUp(
@@ -879,7 +877,7 @@ If this suite is discovered via a module `ftest-inventory.xml` (as the WFS suite
 ```bash
 cd ~/code-clones/work/revoman-root
 git add src/integrationTest
-git commit -m "test(scheduler-parity): 1.5 double-book helper parity slice (old vs 264)"
+git commit -m "test(scheduler-parity): 1.5 double-book helper parity slice (old vs Unified)"
 ```
 
 ---
@@ -889,13 +887,12 @@ git commit -m "test(scheduler-parity): 1.5 double-book helper parity slice (old 
 **Spec coverage:**
 - Two-org differential harness → Task 1 (`SchedulerParityConfig`, second creds overlay, `assumeBothOrgCreds`). ✓
 - Old side = public Scheduler REST (reads `/scheduling/getAppointmentSlots`, write `/connect/scheduling/service-appointments`) → Tasks 3, 4. ✓
-- 264 side = 262 proxy, reuse WFS Kicks → Task 5. ✓
+- Unified side = the live Unified org, reuse WFS Kicks → Task 5. ✓
 - Verdict contract (INCLUDED/EXCLUDED, BOOKED/REFUSED/CRASHED), normalized-not-raw (R3) → Task 5 Step 1. ✓
 - Control per scenario (non-vacuous) → Tasks 3 (A-only), 4 (required control), 5. ✓
 - Vertical slice = 1.5 → Tasks 2-5. ✓
 - Divergence handled as first-class characterization → Task 5 Steps 3-4. ✓
 - Creds-absent skip, license/collision hygiene (fresh revUp per write arm) → Tasks 1, 4, 5. ✓
-- 262-proxy caveat stamped in javadoc → Task 5 Step 2. ✓
 - Spec §7 open items surfaced as run-time decision points → Task 2 Step 2 (SchedulingMethod/second user), Task 3 Step 6 (AND-vs-union), Task 4 Step 6 (MultiResourceScheduling pref). ✓
 
 **Placeholder scan:** No TBD/TODO. Each code step carries complete file content or an exact clone+edit recipe (Task 2 clones an in-repo 300-line graph — the edits are enumerated exactly rather than re-pasting, since the engineer copies a real file). Endpoint bodies grounded in the authoritative dev-guide shapes from research.

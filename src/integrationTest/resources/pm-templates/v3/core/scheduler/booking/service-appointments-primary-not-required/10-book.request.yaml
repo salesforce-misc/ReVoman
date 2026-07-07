@@ -5,7 +5,7 @@ description: >-
   isRequiredResource=false. This is the exact Decision-5 contradiction. The window is FREE for resourceA
   (member OH + Shift 10-14 cover it), so availability passes; the classic book path inserts the
   AssignedResource row, which fires the SAVE-TIME LightningSchedulerAssignedResourceValidator (the SAME
-  fieldservice-impl validator 264 hits) → the insert is REJECTED ("Only an required service resource can
+  fieldservice-impl validator Unified hits) → the insert is REJECTED ("Only an required service resource can
   be set as a primary service resource.") → the whole book is refused (non-2xx, no serviceAppointmentId).
   Captures oldWriteHelperHttp + oldWriteHelperSaId + oldWriteHelperErrorCode + oldWriteHelperErrorMessage.
 url: "{{baseUrl}}{{versionPath}}/connect/scheduling/service-appointments"
@@ -46,7 +46,7 @@ scripts:
       // top-level error array (the LightningSchedulerAssignedResourceValidator INVALID_FIELD). Dig the SA
       // id out of result first (a refusal leaves it empty), and characterize the observed error envelope
       // (errorCode + message) faithfully — the PARITY is on the OUTCOME (both REFUSE), and the OLD
-      // validator message is captured as-observed (it may differ from the 264 schedulingStatus envelope).
+      // validator message is captured as-observed (it may differ from the Unified schedulingStatus envelope).
       const data = pm.response.json() || {};
       const result = data.result || data;
       pm.environment.set("oldWriteHelperHttp", String(pm.response.code));

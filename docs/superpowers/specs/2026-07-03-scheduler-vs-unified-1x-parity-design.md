@@ -1,4 +1,4 @@
-# Salesforce Scheduler ↔ Unified (264) — `1.*` Helper-Fitness Parity: Design
+# Salesforce Scheduler ↔ Unified — `1.*` Helper-Fitness Parity: Design
 
 **Date:** 2026-07-03
 **Author:** Gopal S Akshintala (with Claude, brainstorming session)
@@ -6,15 +6,15 @@
 **Status:** DESIGN — approved through Sections 1–3; vertical slice (1.5) to be built first.
 
 **Relates to:**
-- `docs/superpowers/2026-06-30-wfs-parity-test-report.md` — the 262↔264 Unified read/write parity report; source of the `1.*` scenario catalogue.
+- `docs/superpowers/2026-06-30-wfs-parity-test-report.md` — the Unified read/write parity report; source of the `1.*` scenario catalogue.
 - `~/work/docs/scheduler-to-unified-parity-guide.md` — the plain-language Scheduler→Unified mapping guide (risks R1–R8, §6 recipe).
-- `src/integrationTest/java/com/salesforce/revoman/integration/core/wfs/WfsWritePathParityE2ETest.java` — existing single-org WFS suite whose fixtures/personas the 264 side reuses.
+- `src/integrationTest/java/com/salesforce/revoman/integration/core/wfs/WfsWritePathParityE2ETest.java` — existing single-org WFS suite whose fixtures/personas the Unified side reuses.
 
 ---
 
 ## 0. Problem & scope
 
-The 262↔264 report characterized the `1.*` "helper-fitness" family **on the Unified write path only** (single org, one shared engine). The new goal: compare the **older Salesforce Scheduler** (a.k.a. Lightning Scheduler) product against **264 Unified OnSite** for the same `1.*` scenarios — the first cut of a broader Scheduler↔Unified parity effort.
+The Unified parity report characterized the `1.*` "helper-fitness" family **on the Unified write path only** (single org, one shared engine). The new goal: compare the **older Salesforce Scheduler** (a.k.a. Lightning Scheduler) product against **Unified OnSite** for the same `1.*` scenarios — the first cut of a broader Scheduler↔Unified parity effort.
 
 `1.*` scenarios (from the report):
 - **1a** Excluded — helper on the account's block-list.
@@ -48,13 +48,13 @@ Three code-grounded + docs-grounded research passes established:
 
 ## 2. Architecture
 
-**Thesis.** Because the two OnSite engines are independent re-implementations, `1.*` parity is a real, un-guaranteed surface. Each test diffs the **old-Scheduler** decision against the **264-Unified** decision on BOTH the read (include/exclude) and write (book/refuse) axes, per scenario.
+**Thesis.** Because the two OnSite engines are independent re-implementations, `1.*` parity is a real, un-guaranteed surface. Each test diffs the **old-Scheduler** decision against the **Unified** decision on BOTH the read (include/exclude) and write (book/refuse) axes, per scenario.
 
-**Parity hypothesis (H0).** Both products treat a non-required helper as non-reserved and non-fitness-checked (helper books regardless of the rule; a required resource is checked). Each test asserts old-decision == 264-decision; a mismatch is the finding.
+**Parity hypothesis (H0).** Both products treat a non-required helper as non-reserved and non-fitness-checked (helper books regardless of the rule; a required resource is checked). Each test asserts old-decision == Unified-decision; a mismatch is the finding.
 
 **Sides:**
 - **Old side = scheduler org** (`orgfarm-0c6bcb96c0…crm.dev:6101`), driven via **public Scheduler REST**.
-- **264 side = 262 org** (`orgfarm-4dbef90d6c…crm.dev:6101`) as the Unified proxy — endpoints identical 262↔264, reusing the proven `WfsWritePathParityE2ETest` harness.
+- **Unified side = the live Unified org** (`orgfarm-4dbef90d6c…crm.dev:6101`, version 262 / local HEAD), reusing the proven `WfsWritePathParityE2ETest` harness.
 
 **Both orgs are local-bound** (verified: both 200 from the same workspace frontdoor host; localhost:6101 up), so ReVoman external-org mode (in-JVM SDB bind) works for both — same harness family as the existing WFS suite. (psql client not currently on PATH — a resolve-at-impl detail, not a blocker.)
 
@@ -68,7 +68,7 @@ Three code-grounded + docs-grounded research passes established:
                  │    service-appointments       │                       │
                  └──────┬───────────────────────┴──────────┬────────────┘
                         ▼                                    ▼
-              old {readDecision, writeOutcome}    264 {readDecision, writeOutcome}
+              old {readDecision, writeOutcome}    Unified {readDecision, writeOutcome}
                         └──────── assert equal / record divergence ───────┘
 ```
 
@@ -82,9 +82,9 @@ New package `com.salesforce.revoman.integration.core.scheduler` (sibling to `…
 
 2. **Old-Scheduler fixtures + acts** (Postman V3 dirs) — the genuinely new content. Per scenario: policy fixture, resource/territory/skill fixture, read act (`getAppointmentSlots`/`getAppointmentCandidates`), write act (`service-appointments`). Modeled on the existing `wfs/booking/*` + `wfs/policies/*` layout.
 
-3. **264-side fixtures + acts** — REUSE existing `WfsWritePathParityE2ETest` fixtures unchanged (for the slice: `DOUBLE_BOOK_*` configs). No new 264 content for the slice.
+3. **Unified-side fixtures + acts** — REUSE existing `WfsWritePathParityE2ETest` fixtures unchanged (for the slice: `DOUBLE_BOOK_*` configs). No new Unified content for the slice.
 
-4. **`SchedulerVsUnifiedParityE2ETest`** — the differential test class. Per scenario: `revUp` old-side + `revUp` 264-side, capture normalized verdicts, assert equal (or characterize divergence).
+4. **`SchedulerVsUnifiedParityE2ETest`** — the differential test class. Per scenario: `revUp` old-side + `revUp` Unified-side, capture normalized verdicts, assert equal (or characterize divergence).
 
 **Verdict contract (uniform across scenarios):**
 - **readDecision** = is resourceB present in returned slots/candidates? `INCLUDED` / `EXCLUDED` (absence-among-a-live-set, stronger than empty).
@@ -95,12 +95,12 @@ New package `com.salesforce.revoman.integration.core.scheduler` (sibling to `…
 
 ## 4. Vertical slice — `1.5` (Availability / double-book)
 
-**Why 1.5 first:** cleanly constructible on the old read path (per-resource unavailability applies to every pooled resource — research-confirmed) AND the 264 half already has a proven fixture (`DOUBLE_BOOK_*` in `testNonRequiredHelperDoubleBooksE2E`). Only the old-Scheduler half + the two-org diff mechanics are new. Its A/B (flip only `isRequiredResource` on a busy resourceB) is the report's clearest helper-vs-required demonstration — highest-signal slice.
+**Why 1.5 first:** cleanly constructible on the old read path (per-resource unavailability applies to every pooled resource — research-confirmed) AND the Unified half already has a proven fixture (`DOUBLE_BOOK_*` in `testNonRequiredHelperDoubleBooksE2E`). Only the old-Scheduler half + the two-org diff mechanics are new. Its A/B (flip only `isRequiredResource` on a busy resourceB) is the report's clearest helper-vs-required demonstration — highest-signal slice.
 
 **Method:** `testHelperDoubleBookParity_1_5_E2E`.
 
 ```
-OLD-SCHEDULER revUp (scheduler org)              264 revUp (262 org)
+OLD-SCHEDULER revUp (scheduler org)              Unified revUp (262 org)
 1. OLD_SCHEDULER_AUTH (SOAP v64 login)           1. UNIFIED_AUTH (AUTH_CONFIG)
 2. seed policy + territory/OH/shift              2. AVAILABILITY_OP_HOURS_POLICY_CONFIG
 3. resourceA required+primary (free);            3. DOUBLE_BOOK_FIXTURE_CONFIG (reuse)
@@ -130,7 +130,6 @@ OLD-SCHEDULER revUp (scheduler org)              264 revUp (262 org)
 **Error / edge handling:**
 - Creds absent → `assumeExternalOrgCreds()` JUnit-skips (both orgs).
 - License churn (timestamped users → `LICENSE_LIMIT_EXCEEDED`) → fresh-per-scenario personas + documented deactivate-stale-`@revoman.org` recovery; now applies to BOTH orgs.
-- 262-as-264-proxy caveat → stamped in every javadoc: verdicts are 262-observed; a true-264 org may differ on the locked-in crashes (1.4/3). Slice (1.5) is crash-free → unaffected.
 - Old-side crash (if old engine NPEs) → captured as `CRASHED`, itself a parity data point.
 
 ## 6. Testing

@@ -15,7 +15,7 @@ description: >-
   (scheduling-api ServiceTerritory ctor), so the pool-empty case cannot NPE the way the Unified engine does
   (unified ServiceTerritory leaves serviceTerritoryMembers null → getAllServiceTerritoryMembers().values() NPE
   → HTTP 500). So the expected OLD outcome is a CLEAN 0-candidate refuse (HTTP 200, empty candidates), which
-  DIVERGES from the 264 write-path CRASH. Response top-level field is "candidates". Captures
+  DIVERGES from the Unified write-path CRASH. Response top-level field is "candidates". Captures
   oldCandidatesWithBReqCount + oldCandidatesWithBReqHttp + oldCandidatesWithBReqErrorCode/Message.
   PREREQUISITE: both resource users must hold the Lightning Scheduler PSL + lightningSchedulerUserAccess
   (granted by the shared grant-ls-user-access Kick, revUp'd just before) or the classic engine prunes the

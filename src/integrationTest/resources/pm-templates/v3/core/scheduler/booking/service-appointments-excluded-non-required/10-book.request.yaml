@@ -8,7 +8,7 @@ description: >-
   the REQUIRED/primary resources for time-slot availability and passes accountResourcePreferences=null, so
   the account ResourcePreference(Excluded) is NEVER evaluated on the write path — and a NON-required helper
   is not availability-checked either. So the OBSERVED outcome should be: the SA BOOKS (HTTP 2xx,
-  serviceAppointmentId returned) even though resourceB is excluded on the account — matching the 264 finding
+  serviceAppointmentId returned) even though resourceB is excluded on the account — matching the Unified finding
   that a non-required excluded helper escapes the fitness rule. Captures oldWriteHelperHttp +
   oldWriteHelperSaId. (The book API wraps the SA id in a "result" node on success; a refusal returns a
   top-level error array.)

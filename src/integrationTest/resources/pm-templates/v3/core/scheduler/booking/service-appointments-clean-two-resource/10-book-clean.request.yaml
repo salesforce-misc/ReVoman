@@ -4,7 +4,7 @@ description: >-
   11:00-11:30 UTC, with TWO assignedResources — resourceA (isRequiredResource=true, isPrimaryResource=true)
   and resourceB (isRequiredResource=true, isPrimaryResource=false). BOTH are available at the window (member
   OH + Shift 08-16), so the SA books (HTTP 2xx, serviceAppointmentId + assignedResourceIds returned). This
-  is the parity analog of the 264 SCHEDULE_TWO_RESOURCE_CLEAN act — a clean two-resource SA with exactly one
+  is the parity analog of the Unified SCHEDULE_TWO_RESOURCE_CLEAN act — a clean two-resource SA with exactly one
   primary. Captures reschedCleanHttp + reschedCleanSaId (for the follow-up AssignedResource query, which
   identifies the primary AR to delete/demote in the reschedule-analog probes).
 url: "{{baseUrl}}{{versionPath}}/connect/scheduling/service-appointments"

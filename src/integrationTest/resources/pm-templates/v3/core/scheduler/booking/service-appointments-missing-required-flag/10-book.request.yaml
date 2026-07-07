@@ -3,8 +3,8 @@ description: >-
   OLD Salesforce Scheduler book (Decision 3 Act A): POST /connect/scheduling/service-appointments,
   tomorrow 11:00-11:30 UTC, over the double-book fixture's FREE resourceA (member OH + Confirmed Shift
   10:00-14:00 cover the window, so availability does NOT confound the probe). ONE assignedResource that
-  OMITS isRequiredResource ENTIRELY (and isPrimaryResource) — the same missing-flag payload the 264
-  Unified schedule sends, where 264 CRASHES with a Boolean.booleanValue() NPE (INTERNAL_SERVER_ERROR,
+  OMITS isRequiredResource ENTIRELY (and isPrimaryResource) — the same missing-flag payload the
+  Unified schedule sends, where Unified CRASHES with a Boolean.booleanValue() NPE (INTERNAL_SERVER_ERROR,
   HTTP 500) because common.api.soap.Entity.getField("IsRequiredResource") returns null. This act asks
   the parity question WITHOUT prejudging it: does the OLD classic engine ALSO crash when the flag is
   omitted, or does it degrade gracefully (clean refusal / treats missing-as-false and books)? Captures
@@ -48,7 +48,7 @@ scripts:
       // { "result": { "serviceAppointmentId": "08p...", ... } }. On refusal/crash it returns a top-level
       // error array [{errorCode,message}] or an ErrorRepresentation {errorCode,message}. Dig the SA id out
       // of result first; capture http + errorCode + message so the normalizer can classify
-      // BOOKED/REFUSED/CRASHED and the divergence-vs-264-crash can be asserted verbatim.
+      // BOOKED/REFUSED/CRASHED and the divergence-vs-Unified-crash can be asserted verbatim.
       const data = pm.response.json() || {};
       const result = data.result || data;
       const arr = Array.isArray(data) ? data : null;

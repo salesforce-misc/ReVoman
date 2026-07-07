@@ -2,7 +2,7 @@ $kind: http-request
 description: >-
   Decision 8 (resourceLimitApptDistribution cap) old-side fixture, part 1 of 3. Creates the
   AppointmentAssignmentPolicy (a SETUP object, keyPrefix 0mT) in ITS OWN transaction — this is the OLD
-  classic-engine ANALOGUE of the 264 SchedulingObjective(LoadBalancing): it is the record whose FK on the
+  classic-engine ANALOGUE of the Unified SchedulingObjective(LoadBalancing): it is the record whose FK on the
   AppointmentSchedulingPolicy flips the classic engine onto the load-balancing (smart-scheduling) path where
   the resourceLimitApptDistribution cap lives (SmartSchedulerServiceImpl.getServiceResourceByResourceLimitApptDistribution
   → getLeastUtilizedResources → subList(0, N); JDWP/source-confirmed scheduling-impl). PolicyType=loadBalancing
@@ -12,7 +12,7 @@ description: >-
   ServiceResource / TimeSlot / Shift), so this stands alone, BEFORE the scheduling policy (which
   FK-references it) and the data graph. Captures schedLimitAssignmentPolicyId. If the org lacks smart
   scheduling (SsAppointmentDistribution pref + AppointmentDistribution perm) the create still succeeds but
-  the FK is ignored on read — the test characterizes that as an OLD-vs-264 config nuance.
+  the FK is ignored on read — the test characterizes that as an OLD-vs-Unified config nuance.
 url: "{{baseUrl}}{{versionPath}}/sobjects/AppointmentAssignmentPolicy"
 method: POST
 headers:

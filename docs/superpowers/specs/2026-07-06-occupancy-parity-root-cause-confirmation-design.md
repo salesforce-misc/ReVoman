@@ -26,7 +26,7 @@ Three independent reasons, each verified by direct reads of
 `/opt/workspace/core-public/core` (not by research agents — see the decision log's
 research-integrity note; two agents hallucinated after their MCP dropped):
 
-1. **`CalendarEvents` was removed in 264.** No such rule to add on the target release.
+1. **`CalendarEvents` has since been removed.** No such rule to add on the target release.
 2. **Even on 262 it never gated ServiceAppointment occupancy.**
    `UnavailabilityService.getResourceUnavailability` calls `loadResourceUnavailability`
    (existing ServiceAppointments + ResourceAbsences) **unconditionally**; the
@@ -73,7 +73,7 @@ by the read surface already computing occupancy.* Not a config gap.
 
 ## Non-goals
 
-- Not adding a `CalendarEvents` policy variant (removed in 264; irrelevant to SA occupancy).
+- Not adding a `CalendarEvents` policy variant (since removed; irrelevant to SA occupancy).
 - Not asserting `old == unified` on the write path (they genuinely differ by contract).
 - Not changing any product code. These are characterization tests over live orgs.
 - Not fixing the Unified write-path-no-occupancy behavior — that's a product question logged

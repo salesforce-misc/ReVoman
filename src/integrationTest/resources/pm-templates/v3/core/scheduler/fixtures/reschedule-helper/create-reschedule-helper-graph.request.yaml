@@ -9,7 +9,7 @@ description: >-
   (RelatedRecordId, ResourceType) never collides. BOTH are PRIMARY ServiceTerritoryMembers
   (TerritoryType=P) effective a month ago, and BOTH get member OH 08-16 + a Confirmed Shift 08-16 — so both
   fully COVER the 11:00-11:30 window (availability = member OH ∪ Shift). This is the parity analog of the
-  264 SCHEDULE_TWO_RESOURCE_CLEAN act: a clean two-resource booking where A is primary+required and B is a
+  Unified SCHEDULE_TWO_RESOURCE_CLEAN act: a clean two-resource booking where A is primary+required and B is a
   required secondary. Sets schedTerritoryId / schedWorkTypeId / schedAccountId / schedResourceAId /
   schedResourceBId.
 url: "{{baseUrl}}{{versionPath}}/composite/graph"

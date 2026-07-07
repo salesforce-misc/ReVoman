@@ -9,8 +9,8 @@ description: >-
   line ~541 says the same: "skill matching with primaryResource in case of MultiResource"). So skilled A
   passes the Skills rule AND skill-less B (a NON-primary required resource) is NEVER skill-checked → B
   ESCAPES the Skills rule and the A∩B intersection still has slots (> 0). This is the OLD-side analogue of
-  264's non-required-helper-escapes: the same "the extra resource is not skill-fitness-checked" outcome,
-  reached via the old engine's primary-only rule rather than 264's required-only rule. Captures
+  Unified's non-required-helper-escapes: the same "the extra resource is not skill-fitness-checked" outcome,
+  reached via the old engine's primary-only rule rather than Unified's required-only rule. Captures
   oldReadMultiHelperSlotCount. PREREQUISITE: both resource users hold the Lightning Scheduler PSL +
   lightningSchedulerUserAccess (shared grant-ls-user-access Kick) or the classic engine prunes them first
   (removeResourcesWithoutPerm) → an all-0 dead read. Response field is "timeSlots".

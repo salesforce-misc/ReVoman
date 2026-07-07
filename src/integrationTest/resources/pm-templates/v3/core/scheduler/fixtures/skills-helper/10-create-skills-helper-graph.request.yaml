@@ -20,7 +20,7 @@ description: >-
   Because the old engine's MULTI-resource path skill-checks the PRIMARY resource ONLY
   (MultiResourceTimeSlotProcessor48.shouldMatchSkills returns true iff serviceResourceId==primaryResourceId),
   B-as-NON-primary-helper is never skill-checked on the multi path → it ESCAPES the Skills rule (parity
-  with 264's helper-escapes, via a different mechanism). The SINGLE-resource path skill-checks the lone
+  with Unified's helper-escapes, via a different mechanism). The SINGLE-resource path skill-checks the lone
   resource (SingleResourceTimeSlotProcessor inherits the default shouldMatchSkills), so naming skill-less
   resourceB as the SOLE required resource EXCLUDES it → 0 slots (proving the old engine HAS the Skills
   rule), while naming skilled resourceA alone offers slots. NO SchedulingMethod field (this org's

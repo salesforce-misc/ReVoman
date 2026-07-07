@@ -11,7 +11,7 @@ description: >-
     - 2xx → the FK attached → the org HAS smart scheduling → the OLD cap is CONSTRUCTIBLE (schedLimitCapConstructible=true).
     - 400 INVALID_FIELD "No such column 'AppointmentAssignmentPolicy'" → the column is absent → the org LACKS
       smart scheduling → the classic engine never takes the load-balancing branch → the cap is a NO-OP on
-      this org (schedLimitCapConstructible=false). This is a faithful OLD-vs-264 configuration nuance, NOT a
+      this org (schedLimitCapConstructible=false). This is a faithful OLD-vs-Unified configuration nuance, NOT a
       test defect. Ignore-HTTP-status so the 400 does not fail the step.
 url: "{{baseUrl}}{{versionPath}}/sobjects/AppointmentSchedulingPolicy/{{schedLimitPolicyId}}"
 method: PATCH

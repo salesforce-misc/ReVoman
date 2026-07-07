@@ -2,7 +2,7 @@ $kind: http-request
 description: >-
   Verify the DEMOTE attempt's effect: re-query the AssignedResource rows for the SA (reschedCleanSaId) and
   count how many are still IsPrimaryResource=true. If the demote was ALLOWED the primary count is 0 → the SA
-  now has NO primary (the 264-parity outcome). If some rule blocked it, the count stays 1. Captures
+  now has NO primary (the Unified-parity outcome). If some rule blocked it, the count stays 1. Captures
   reschedPrimaryCountAfterDemote + reschedArCountAfterDemote.
 url: "{{baseUrl}}{{versionPath}}/composite/batch"
 method: POST

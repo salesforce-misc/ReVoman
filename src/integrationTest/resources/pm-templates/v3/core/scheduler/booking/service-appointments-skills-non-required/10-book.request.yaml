@@ -6,7 +6,7 @@ description: >-
   WorkType's required ServiceResourceSkill, but as a NON-required + NON-primary helper it is not
   skill-fitness-checked by the old engine (per the object reference a non-required resource is
   "considered available for other appointments"; and the old multi path skill-checks the primary only) →
-  the SA books (HTTP 2xx, serviceAppointmentId returned). This is the OLD-side write analogue of 264's
+  the SA books (HTTP 2xx, serviceAppointmentId returned). This is the OLD-side write analogue of Unified's
   non-required helper-escapes. Captures oldWriteHelperHttp + oldWriteHelperSaId.
 url: "{{baseUrl}}{{versionPath}}/connect/scheduling/service-appointments"
 method: POST

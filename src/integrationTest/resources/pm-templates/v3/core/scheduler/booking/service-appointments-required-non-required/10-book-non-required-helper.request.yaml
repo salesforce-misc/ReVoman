@@ -4,14 +4,14 @@ description: >-
   tomorrow 11:00-11:30 UTC, over the required-helper fixture. TWO assignedResources — resourceA
   (isRequiredResource=true, isPrimaryResource=true, clean+free, but NOT the account-required worker) and
   resourceB (isRequiredResource=false — the NON-required helper — even though the Account's
-  ResourcePreference(Required) demands resourceB). This is the OLD-engine analogue of the 264 write that
+  ResourcePreference(Required) demands resourceB). This is the OLD-engine analogue of the Unified write that
   CRASHES (serviceTerritoryMembers NPE, HTTP 500). LIVE-OBSERVED on the scheduler org (v67): the OLD classic
   book path REFUSES cleanly — HTTP 400 errorCode=INTERNAL_ERROR, message "We couldn't find any resources for
   your request. Specify a different schedStartTime and schedEndTime and try again." (the same clean-refusal
   shape as the 1.5 required-control) — NOT a 500 crash and NOT a booking. So the OLD write consults the
   account-required-resource enforcement during its internal slot-gen and cannot satisfy the account's demand
   for resourceB when resourceB is only a non-required helper → no resources found → refuse. This DIVERGES
-  from the 264 write CRASH. Characterized faithfully, no verdict forced. Captures oldWriteReqHelperHttp +
+  from the Unified write CRASH. Characterized faithfully, no verdict forced. Captures oldWriteReqHelperHttp +
   oldWriteReqHelperSaId + oldWriteReqHelperErrorCode + oldWriteReqHelperErrorMessage.
 url: "{{baseUrl}}{{versionPath}}/connect/scheduling/service-appointments"
 method: POST

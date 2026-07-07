@@ -5,7 +5,7 @@ description: >-
   both fully AVAILABLE at the window). Multi-resource scheduling requires EXACTLY one primary. On the OLD
   side the save-time LightningSchedulerAssignedResourceValidator enforces "at most one primary
   AssignedResource per ServiceAppointment" (rule AssignedResourceSaveOnlyOnePrimary) on the AssignedResource
-  save → expect a REFUSAL (no serviceAppointmentId, non-2xx). NOTE the WHERE differs from 264: 264 rejects at
+  save → expect a REFUSAL (no serviceAppointmentId, non-2xx). NOTE the WHERE differs from Unified: Unified rejects at
   INPUT validation (ScheduleCommonValidator.validatePrimaryResourceConstraints, pre-persist, INVALID_INPUT /
   HTTP 400); the OLD engine rejects at SAVE/persist time (a field-integrity/persist error), which is a
   documented WHERE difference — the PARITY is on the OUTCOME (both refuse two primaries, no booking). Captures
