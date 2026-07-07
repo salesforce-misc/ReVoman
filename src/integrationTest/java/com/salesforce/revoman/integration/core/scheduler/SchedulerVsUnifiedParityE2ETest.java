@@ -1825,12 +1825,15 @@ class SchedulerVsUnifiedParityE2ETest {
    * 11:00-11:30 window. Each of the four (appt#1 flavor x appt#2 flavor) cells is a fresh revUp on
    * each engine.
    *
-   * <p><b>KEY FINDING — CONFIG-GATED DRIFT (LIVE-observed 2026-07-06, both orgs, not
-   * FROM-CACHE):</b> on every cell of the 2x2 OLD Salesforce Scheduler REFUSED all four while 264
-   * Unified BOOKED all four. This looked like a total product divergence but is a
-   * POLICY-CONFIGURATION difference between the two orgs (see the "264 Unified engine" and "Root
-   * cause" paragraphs below), NOT a difference in the engines' code — both engines have an
-   * occupancy check, each gated by a setting.
+   * <p><b>KEY FINDING — WRITE-PATH CONTRACT DIFFERENCE (LIVE-observed 2026-07-06, both orgs, not
+   * FROM-CACHE; root cause verified in Core p4/260-patch and confirmed by two companion tests):</b>
+   * on every cell of the 2x2 OLD Salesforce Scheduler REFUSED all four while Unified BOOKED all
+   * four. This is a genuine product-behavior difference on the booking (write) path: OLD's write
+   * API re-checks resource availability before persisting, so an overlapping prior appointment
+   * blocks it; Unified's schedule action persists the caller-supplied resources without an
+   * occupancy re-check (occupancy lives only on Unified's get-candidates/get-slots READ path). It
+   * is NOT the policy-config artifact first suspected — see the "Unified engine" and "OLD engine"
+   * paragraphs below for the verified mechanism on each side.
    *
    * <ul>
    *   <li>(a) #1 required, #2 required — OLD REFUSED / Unified BOOKED.
@@ -1845,32 +1848,45 @@ class SchedulerVsUnifiedParityE2ETest {
    * the old engine "an existing assignment counts even when booked as optional" is TRUE, and it
    * counts even when the second booking is optional too.
    *
-   * <p><b>264 Unified engine (in THIS test's policy):</b> Unified double-books B in every cell,
-   * even required-on-required (a). This is a POLICY-CONFIG artifact, NOT a missing check in Unified
-   * code. Unified DOES subtract existing appointments — in {@code
-   * unified.scheduling.service.UnavailabilityService}, gated by {@code
-   * SchedulingPolicyInfo.shouldConsiderCalendarEvents()} (the policy's {@code CalendarEvents}
-   * scheduling rule / {@code ShouldConsiderCalendarEvents} parameter). The policy this test builds
-   * ({@link ReVomanConfigForWfs#AVAILABILITY_OP_HOURS_POLICY_CONFIG}) does NOT create a {@code
-   * CalendarEvents} rule, so the occupancy check is off and Unified books over the existing
-   * appointment. Core's STANDARD default Unified policy enables {@code CalendarEvents}, so a real
-   * org would very likely REFUSE too.
+   * <p><b>Unified engine — WRITE-PATH CONTRACT, not a config gap (verified in Core p4/260-patch,
+   * confirmed live by {@link #testPriorAssignmentUnifiedReadVsWriteE2E}):</b> Unified double-books
+   * B in every cell because its WRITE surface does not check occupancy at all. The {@code
+   * /connect/unified-scheduling/actions/schedule} action ({@code
+   * unified.scheduling.connect.api.execution.processors.ScheduleProcessor}) persists the
+   * caller-supplied {@code assignedResources} directly — {@code persistRecords()==true}, no
+   * availability re-check. Occupancy IS computed, but only on the READ surface: {@code
+   * UnavailabilityService.getResourceUnavailability} (which always subtracts existing
+   * ServiceAppointments) has a single production caller, {@code
+   * InBusinessGetCandidatesSlotsDataService}, i.e. get-candidates / get-slots. The companion test
+   * proves this split live: after appt #1 books B, get-appointment-candidates for the same window
+   * EXCLUDES busy B yet still offers free C, while the schedule action books B anyway. The
+   * handoff's earlier "{@code CalendarEvents} rule gates it" hypothesis was WRONG on two counts —
+   * the {@code CalendarEvents} rule was REMOVED in 264, and even on 262 {@code
+   * SchedulingPolicyInfo.shouldConsiderCalendarEvents()} gated only Salesforce {@code Event}
+   * sObjects (its unavailability SOQL excludes appointment-linked events), never ServiceAppointment
+   * occupancy.
    *
-   * <p><b>Root cause of the drift (config, not code):</b> both engines gate occupancy behind a
-   * setting. OLD is gated by the org-wide {@code OrgPreferences.Overbooking} preference ({@code
-   * enableOverbookingOrgPref}, default OFF → refuses, read via {@code
-   * AppointmentBookingAccessChecks.orgHasOverbooking()} in {@code
-   * scheduling.SchedulingServiceImpl}). NEW is gated per-policy by the {@code CalendarEvents} rule.
-   * The two sides ran on different orgs/policies, so the observed REFUSED-vs-BOOKED split reflects
-   * that config difference, not a product-code divergence.
+   * <p><b>OLD engine — occupancy is TWO-knob (verified in {@code scheduling.SchedulingServiceImpl},
+   * confirmed live by {@link #testPriorAssignmentOldOverbookingPrefInsufficientE2E}):</b> OLD's
+   * WRITE path DOES re-check availability ({@code ServiceAppointmentServiceImpl.create →
+   * areResourcesAvailable → getAppointmentSlots}), so an overlapping prior appointment blocks the
+   * booking by default. Two settings must BOTH change to allow the double-book: (1) the org-wide
+   * {@code OrgPreferences.Overbooking} pref ({@code enableOverbookingOrgPref}, default OFF, read
+   * via {@code AppointmentBookingAccessChecks.orgHasOverbooking()}), AND (2) the member
+   * operating-hours {@code TimeSlot.MaxAppointments > 1} (default 1) — because concurrency is gated
+   * by {@code isConcurrentSchedulingInterval(slot) = slot.getMaxAppointments() > 1} (line ~1924),
+   * and the pref only refines capacity accounting WITHIN an already-concurrent slot. The companion
+   * test confirms the pref alone is necessary-but-not-sufficient: with Overbooking flipped ON but
+   * MaxAppointments=1, OLD still REFUSES.
    *
-   * <p>This test PINS each cell's observed outcome VERBATIM via the normalized {@link
-   * SchedulerParityConfig.WriteOutcome} (old REFUSED, Unified BOOKED) — the same way the 1.4 / 3
-   * divergences are pinned — WITHOUT claiming the engines' code differs. There is deliberately no
-   * {@code old == unified} equality assertion. TODO: add a Unified policy variant with the {@code
-   * CalendarEvents} rule and re-run; the Unified expectations should flip to REFUSED and the cells
-   * converge, confirming parity-once-configured. Until then this row is a config artifact, not a
-   * confirmed product difference.
+   * <p><b>So the OLD-REFUSES / Unified-BOOKS split is a genuine product-behavior difference on the
+   * write path</b> (OLD write validates availability; Unified write trusts the caller), NOT the
+   * config artifact the handoff first suspected. This test PINS each cell's observed outcome
+   * VERBATIM via the normalized {@link SchedulerParityConfig.WriteOutcome} (old REFUSED, Unified
+   * BOOKED) — the same way the 1.4 / 3 divergences are pinned. There is deliberately no {@code old
+   * == unified} equality assertion. The two companion tests ({@link
+   * #testPriorAssignmentUnifiedReadVsWriteE2E}, {@link
+   * #testPriorAssignmentOldOverbookingPrefInsufficientE2E}) confirm the root cause on each engine.
    *
    * <p>Non-vacuity: each cell's helper method asserts appt #1 itself booked (old: 18-char 08p SA
    * id; unified: schedulingStatus Success) before reading appt #2's outcome, so a REFUSED appt #2
@@ -2000,8 +2016,8 @@ class SchedulerVsUnifiedParityE2ETest {
   }
 
   /**
-   * OLD overbooking gate characterization — the {@code OrgPreferences.Overbooking} pref is NECESSARY
-   * BUT NOT SUFFICIENT to double-book an occupied worker. The existing {@link
+   * OLD overbooking gate characterization — the {@code OrgPreferences.Overbooking} pref is
+   * NECESSARY BUT NOT SUFFICIENT to double-book an occupied worker. The existing {@link
    * #testPriorAssignmentOccupancyParity_E2E} pins OLD REFUSING all four cells at the default {@code
    * Overbooking=OFF}. The handoff hypothesis was "flip the pref ON → OLD books". This test flips it
    * ON (verified live: {@code updateMetadata(IndustriesSettings.enableOverbookingOrgPref=true)}
@@ -2011,9 +2027,9 @@ class SchedulerVsUnifiedParityE2ETest {
    * an overlapping prior appointment is dropped from unavailability only when {@code
    * isOverlappingIntervalAndNotConcurrent(...)} sees a CONCURRENT slot, where {@code
    * isConcurrentSchedulingInterval(slot) = slot.getMaxAppointments() > 1} (line ~1924). The {@code
-   * Overbooking} pref only gates {@code isaValidConcurrentAndConcurrentUnavailability} (line ~1892),
-   * which merely refines remaining-capacity accounting WITHIN an already-concurrent slot. With the
-   * member operating-hours {@code TimeSlot.MaxAppointments} at its default of 1 ({@code
+   * Overbooking} pref only gates {@code isaValidConcurrentAndConcurrentUnavailability} (line
+   * ~1892), which merely refines remaining-capacity accounting WITHIN an already-concurrent slot.
+   * With the member operating-hours {@code TimeSlot.MaxAppointments} at its default of 1 ({@code
    * TimeSlot.entity.xml defaultFormula="1"}; the prior-assignment fixture sets no MaxAppointments),
    * every slot is non-concurrent, so an overlapping appointment is a hard block regardless of the
    * pref. The dominant gate is {@code TimeSlot.MaxAppointments > 1} on the member OH; the pref is
@@ -2023,19 +2039,22 @@ class SchedulerVsUnifiedParityE2ETest {
    *
    * <p>Overbooking is ORG-level committed state (not a session flag), so flipping it ON once before
    * the cells persists across each {@link #oldOccupancyCell}'s own fresh-AUTH revUp — the
-   * intervening cells re-authenticate but observe the committed pref. The flip itself is asserted to
-   * report success in {@link #flipOldOverbooking()} (fail-loud), so a REFUSED cell below reflects
-   * the MaxAppointments gate, not a no-op flip. The revert runs in a {@code finally} (best-effort,
-   * no assert) so a mid-run failure still restores the default-OFF org state.
+   * intervening cells re-authenticate but observe the committed pref. The flip itself is asserted
+   * to report success in {@link #flipOldOverbooking()} (fail-loud), so a REFUSED cell below
+   * reflects the MaxAppointments gate, not a no-op flip. The revert runs in a {@code finally}
+   * (best-effort, no assert) so a mid-run failure still restores the default-OFF org state.
    */
   @Test
   void testPriorAssignmentOldOverbookingPrefInsufficientE2E() {
     SchedulerParityConfig.assumeBothOrgCreds();
     try {
       flipOldOverbooking();
-      // Even with Overbooking ON, all four cells still REFUSE: the member-OH TimeSlot MaxAppointments
-      // defaults to 1, so slots are non-concurrent and the overlapping prior appointment stays a hard
-      // block. Cell (a) req->req carries the fail-loud anchor — if it BOOKS, the pref DID suffice and
+      // Even with Overbooking ON, all four cells still REFUSE: the member-OH TimeSlot
+      // MaxAppointments
+      // defaults to 1, so slots are non-concurrent and the overlapping prior appointment stays a
+      // hard
+      // block. Cell (a) req->req carries the fail-loud anchor — if it BOOKS, the pref DID suffice
+      // and
       // this characterization (pref necessary-but-not-sufficient) is wrong; name that explicitly.
       assertWithMessage(
               "Overbooking ON but MaxAppointments=1: (a) req->req must still REFUSE (pref alone is"
