@@ -29,6 +29,8 @@ import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.RE
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SCHEDULE_PRIMARY_NOT_REQUIRED_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SCHEDULE_PRIMARY_REQUIRED_CONTROL_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SCHEDULE_TWO_PRIMARY_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SCHEDULE_MULTI_NO_PRIMARY_CONFIG;
+import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SCHEDULE_MULTI_OPTIONAL_PRIMARY_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SCHEDULE_TWO_RESOURCE_CLEAN_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SINGLE_REQUIRED_NO_PRIMARY_SCHEDULE_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.SKILLS_FIXTURE_CONFIG;
@@ -252,6 +254,76 @@ class WfsWritePathParityE2ETest {
     assertThat(env.getAsString("twoPrimaryErrorMessage")).contains("can be a primary resource");
     assertThat(env.getAsString("twoPrimaryHttpCode")).isEqualTo("400");
     assertThat(env.getAsString("twoPrimaryStatus")).isAnyOf(null, "null");
+  }
+
+  /**
+   * Multi zero-primary — a schedule request that carries MORE THAN ONE assignedResource with NONE
+   * marked primary is rejected UP FRONT at input validation. The org has the multi-resource scheduling
+   * preference ({@code WorkforceSchdMulResSchdPref}) enabled — that preference is what lets a request
+   * carry more than one assignedResource at all; the input-validation rule then keys off the REQUEST
+   * COUNT: {@code ScheduleCommonValidator.validatePrimaryResourceConstraints} throws {@code NoPrimary}
+   * when {@code assignedResources.size() > 1 && primaryCount == 0} (line 177-178), before any
+   * availability or persist. Pairs with {@link #testTwoPrimaryResourcesRejectedE2E} ({@code
+   * primaryCount > 1} → {@code MultiplePrimary}): together they show the multi path (a request with
+   * more than one assignedResource) enforces exactly-one-primary at input validation. Contrast the
+   * single-resource no-primary request, which books (the {@code size() > 1} guard skips it) — the
+   * genuine single-vs-multi asymmetry.
+   *
+   * <p>262 (asserted): {@code INVALID_INPUT} / HTTP 400 / a "primary resource" message, no booking.
+   */
+  @Test
+  void testMultiNoPrimaryRejectedE2E() {
+    ReVomanConfigForWfs.assumeExternalOrgCreds();
+    final var rundown =
+        ReVoman.revUp(
+            (r, ignore) -> assertThat(r.firstUnIgnoredUnsuccessfulStepReport()).isNull(),
+            AUTH_CONFIG,
+            AVAILABILITY_OP_HOURS_POLICY_CONFIG,
+            REQUIRED_NON_REQUIRED_FIXTURE_CONFIG,
+            SCHEDULE_MULTI_NO_PRIMARY_CONFIG);
+    final var env = CollectionsKt.last(rundown).mutableEnv;
+    // Up-front input-validation reject: INVALID_INPUT, "primary resource" message, HTTP 400, no booking.
+    assertThat(env.getAsString("multiNoPrimaryErrorCode")).isEqualTo("INVALID_INPUT");
+    assertThat(env.getAsString("multiNoPrimaryErrorMessage")).contains("primary resource");
+    assertThat(env.getAsString("multiNoPrimaryHttpCode")).isEqualTo("400");
+    assertThat(env.getAsString("multiNoPrimaryStatus")).isAnyOf(null, "null");
+  }
+
+  /**
+   * Multi optional-primary — a request that carries MORE THAN ONE assignedResource, with exactly one
+   * marked primary but that primary is NOT required, passes input validation ({@code primaryCount == 1},
+   * so neither {@code NoPrimary} nor {@code MultiplePrimary} fires) and is rejected only at PERSIST by
+   * the shared save hook {@code LightningSchedulerAssignedResourceValidator} ("Only a required service
+   * resource can be set as a primary service resource."). This proves the optional-primary reject is
+   * REQUEST-COUNT-AGNOSTIC: a request with more than one assignedResource takes the SAME late
+   * persist-layer path as the single-resource case ({@link #testPrimaryNotRequiredRejectedE2E}) — it is
+   * NOT a single-vs-multi asymmetry. (The org has {@code WorkforceSchdMulResSchdPref} enabled, which
+   * activates that persist validator; with the preference off it would be skipped — out of scope.) The
+   * window is free, so availability passes and the persist reject is what surfaces.
+   *
+   * <p>262 (asserted): schedulingStatus=PersistError, errorCode={@code INVALID_FIELD}, message contains
+   * "primary service resource" — the SAME shape as the single-resource optional-primary reject, not the
+   * up-front {@code INVALID_INPUT}/{@code NoPrimary}.
+   */
+  @Test
+  void testMultiOptionalPrimaryRejectedAtPersistE2E() {
+    ReVomanConfigForWfs.assumeExternalOrgCreds();
+    final var rundown =
+        ReVoman.revUp(
+            (r, ignore) -> assertThat(r.firstUnIgnoredUnsuccessfulStepReport()).isNull(),
+            AUTH_CONFIG,
+            AVAILABILITY_OP_HOURS_POLICY_CONFIG,
+            REQUIRED_NON_REQUIRED_FIXTURE_CONFIG,
+            SCHEDULE_MULTI_OPTIONAL_PRIMARY_CONFIG);
+    final var env = CollectionsKt.last(rundown).mutableEnv;
+    // Passed input validation (primaryCount==1), rejected at PERSIST — the count-agnostic proof: the
+    // error is the save-hook primary-must-be-required message, NOT the up-front INVALID_INPUT/NoPrimary.
+    assertThat(env.getAsString("multiOptionalPrimaryStatus")).isEqualTo("PersistError");
+    assertThat(env.getAsString("multiOptionalPrimaryErrorCode")).isEqualTo("INVALID_FIELD");
+    assertThat(env.getAsString("multiOptionalPrimaryErrorMessage"))
+        .contains("primary service resource");
+    // Not the up-front reject: distinguishes late-persist from input-validation.
+    assertThat(env.getAsString("multiOptionalPrimaryErrorCode")).isNotEqualTo("INVALID_INPUT");
   }
 
   /**

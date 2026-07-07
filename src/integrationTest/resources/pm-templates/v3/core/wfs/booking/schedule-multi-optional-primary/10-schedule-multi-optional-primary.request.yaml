@@ -1,0 +1,88 @@
+$kind: http-request
+description: >-
+  Request carries MORE THAN ONE assignedResource, exactly ONE marked isPrimaryResource=true but that primary
+  is isRequiredResource=false (an "optional primary"), the other is isRequiredResource=true. primaryCount==1,
+  so the input-validation primary-count rule passes (neither NoPrimary size>1&&count==0 nor MultiplePrimary
+  count>1 fires — ScheduleCommonValidator.java:177-181). The optional-primary contradiction (only a required
+  resource may be primary) has NO input-level correlation check, so it is NOT rejected up front. It is
+  rejected only at PERSIST by the shared save hook LightningSchedulerAssignedResourceValidator (fieldservice-
+  impl:82-88), label "Only a required service resource can be set as a primary service resource". This proves
+  the optional-primary reject is REQUEST-COUNT-AGNOSTIC: a request with more than one assignedResource hits
+  the SAME late persist-layer check as the single-resource case (schedule-primary-not-required, sheet row 11)
+  — it is NOT a single-vs-multi asymmetry. (The org has WorkforceSchdMulResSchdPref enabled, which activates
+  that persist-layer validator; with the preference off the check would be skipped — out of scope here.)
+  Window tomorrow 11:00-12:00 UTC (inside member OH 08-16 + Shift) so availability passes and the verdict is
+  unambiguously the persist-layer primary rule, not an availability artefact.
+url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/schedule"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "appointments": [
+        {
+          "schedulingMethod": "OnSite",
+          "schedulingPolicyId": "{{availabilityOpHoursPolicyId}}",
+          "coreDetails": {
+            "startTime": "{{multiOptionalPrimaryStart}}",
+            "endTime": "{{multiOptionalPrimaryEnd}}",
+            "status": "Scheduled",
+            "subject": "Multi-resource optional-primary probe",
+            "workConfiguration": {
+              "workTypeId": "{{requiredNonReqWorkTypeId}}"
+            },
+            "locationConstraints": {
+              "id": "{{requiredNonReqTerritoryId}}"
+            }
+          },
+          "serviceAppointmentParent": {
+            "id": "{{requiredNonReqAccountId}}"
+          },
+          "assignedResources": [
+            {
+              "isPrimaryResource": true,
+              "isRequiredResource": false,
+              "serviceResourceId": "{{requiredNonReqResourceAId}}"
+            },
+            {
+              "isPrimaryResource": false,
+              "isRequiredResource": true,
+              "serviceResourceId": "{{requiredNonReqResourceBId}}"
+            }
+          ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      const start = new Date();
+      start.setUTCDate(start.getUTCDate() + 1);
+      start.setUTCHours(11, 0, 0, 0);
+      const end = new Date(start.getTime() + 60 * 60 * 1000);
+      pm.environment.set("multiOptionalPrimaryStart", start.toISOString());
+      pm.environment.set("multiOptionalPrimaryEnd", end.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      // Optional-primary passes input validation (primaryCount==1) and is rejected at PERSIST. Expect a
+      // per-appointment error carrying the save-hook primary message, NOT a top-level INVALID_INPUT/NoPrimary.
+      // Capture http + both error shapes + status so the assertion distinguishes late-persist from up-front.
+      pm.environment.set("multiOptionalPrimaryHttpCode", String(pm.response.code));
+      const data = pm.response.json();
+      const arr = Array.isArray(data) ? data : null;
+      const appts = (data && data.appointments) || [];
+      pm.environment.set("multiOptionalPrimaryStatus", appts.length ? appts[0].schedulingStatus : null);
+      let ec = null, msg = null;
+      if (arr && arr.length) { ec = arr[0].errorCode; msg = arr[0].message; }
+      else if (appts.length && appts[0].errors && appts[0].errors[0]) { ec = appts[0].errors[0].errorCode; msg = appts[0].errors[0].message; }
+      pm.environment.set("multiOptionalPrimaryErrorCode", ec);
+      pm.environment.set("multiOptionalPrimaryErrorMessage", msg);
+      console.log("MULTI-OPT-PRIMARY http=" + pm.response.code + " status=" + pm.environment.get("multiOptionalPrimaryStatus") + " ec=" + ec + " msg=" + msg);
+    language: text/javascript
+order: 1000

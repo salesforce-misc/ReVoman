@@ -1,0 +1,18 @@
+$kind: collection
+description: |-
+  Multi zero-primary act — schedules ONE OnSite SA whose request carries MORE THAN ONE assignedResource
+  (resourceA + resourceB, both isRequiredResource=true) with NEITHER marked isPrimaryResource=true, under
+  the availability-op-hours policy over the required-non-required fixture, tomorrow 11:00-12:00 UTC. The org
+  has the multi-resource scheduling preference (WorkforceSchdMulResSchdPref) enabled — that preference is
+  what allows a request to carry more than one assignedResource at all; the input-validation rule then keys
+  off the request count: ScheduleCommonValidator.validatePrimaryResourceConstraints throws NoPrimary when
+  assignedResources.size() > 1 && primaryCount == 0 (ScheduleCommonValidator.java:177-178), UP FRONT at
+  validatePayload, before any availability/persist. 262 returns ConnectErrorCode INVALID_INPUT / HTTP 400 /
+  a "primary resource" (NoPrimary) message, no booking. Pairs with schedule-two-primary (primaryCount > 1 →
+  MultiplePrimary): together they show the multi path enforces exactly-one-primary at input validation.
+auth:
+  - id: 1a2b3c4d-0005-4aaa-9bbb-000000000005
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"

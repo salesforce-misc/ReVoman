@@ -1,0 +1,88 @@
+$kind: http-request
+description: >-
+  Two assigned resources, NEITHER isPrimaryResource=true (both isRequiredResource=true) → input-validation
+  reject (top-level ConnectErrorCode INVALID_INPUT, HTTP 400, "primary resource" / NoPrimary message). With
+  the multi-resource scheduling preference (WorkforceSchdMulResSchdPref) enabled — which this test org has,
+  and which is what lets a request carry more than one assignedResource at all — the schedule action
+  requires EXACTLY one primary: ScheduleCommonValidator.validatePrimaryResourceConstraints throws NoPrimary
+  when assignedResources.size() > 1 && primaryCount == 0 (ScheduleCommonValidator.java:177-178), before any
+  availability/persist. No booking occurs (throw is in validatePayload, before per-appointment processing)
+  → appointments[0] is absent. Pairs with schedule-two-primary (primaryCount > 1 → MultiplePrimary): together
+  they show the multi-resource path enforces exactly-one-primary at input validation. Contrast the
+  single-resource request (schedule-single-required-no-primary): size() == 1, so the NoPrimary guard is
+  skipped and it books — the single-vs-multi asymmetry. Window tomorrow 11:00-12:00 UTC (inside member OH
+  08-16 + Shift); window is irrelevant since validation fails first, kept clean so the verdict is
+  unambiguously the primary-count rule, not an availability artefact.
+url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/schedule"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "appointments": [
+        {
+          "schedulingMethod": "OnSite",
+          "schedulingPolicyId": "{{availabilityOpHoursPolicyId}}",
+          "coreDetails": {
+            "startTime": "{{multiNoPrimaryStart}}",
+            "endTime": "{{multiNoPrimaryEnd}}",
+            "status": "Scheduled",
+            "subject": "Multi-resource no-primary probe",
+            "workConfiguration": {
+              "workTypeId": "{{requiredNonReqWorkTypeId}}"
+            },
+            "locationConstraints": {
+              "id": "{{requiredNonReqTerritoryId}}"
+            }
+          },
+          "serviceAppointmentParent": {
+            "id": "{{requiredNonReqAccountId}}"
+          },
+          "assignedResources": [
+            {
+              "isPrimaryResource": false,
+              "isRequiredResource": true,
+              "serviceResourceId": "{{requiredNonReqResourceAId}}"
+            },
+            {
+              "isPrimaryResource": false,
+              "isRequiredResource": true,
+              "serviceResourceId": "{{requiredNonReqResourceBId}}"
+            }
+          ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      const start = new Date();
+      start.setUTCDate(start.getUTCDate() + 1);
+      start.setUTCHours(11, 0, 0, 0);
+      const end = new Date(start.getTime() + 60 * 60 * 1000);
+      pm.environment.set("multiNoPrimaryStart", start.toISOString());
+      pm.environment.set("multiNoPrimaryEnd", end.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      // Zero-primary (multi) is an input-validation reject → top-level ConnectErrorCode array
+      // [{errorCode,message}] + HTTP 400. Capture http code + both error shapes so the assertion can't be
+      // a false positive, and schedulingStatus (should be absent → null) to confirm no booking.
+      pm.environment.set("multiNoPrimaryHttpCode", String(pm.response.code));
+      const data = pm.response.json();
+      const arr = Array.isArray(data) ? data : null;
+      const appts = (data && data.appointments) || [];
+      pm.environment.set("multiNoPrimaryStatus", appts.length ? appts[0].schedulingStatus : null);
+      let ec = null, msg = null;
+      if (arr && arr.length) { ec = arr[0].errorCode; msg = arr[0].message; }
+      else if (appts.length && appts[0].errors && appts[0].errors[0]) { ec = appts[0].errors[0].errorCode; msg = appts[0].errors[0].message; }
+      pm.environment.set("multiNoPrimaryErrorCode", ec);
+      pm.environment.set("multiNoPrimaryErrorMessage", msg);
+      console.log("MULTI-NO-PRIMARY http=" + pm.response.code + " ec=" + ec + " msg=" + msg);
+    language: text/javascript
+order: 1000

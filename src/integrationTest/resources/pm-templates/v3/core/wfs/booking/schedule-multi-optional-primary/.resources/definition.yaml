@@ -1,0 +1,17 @@
+$kind: collection
+description: |-
+  Multi optional-primary act — schedules ONE OnSite SA whose request carries MORE THAN ONE assignedResource,
+  exactly one marked isPrimaryResource=true but isRequiredResource=false (optional primary), the other
+  isRequiredResource=true, under the availability-op-hours policy over the required-non-required fixture,
+  tomorrow 11:00-12:00 UTC. primaryCount==1 so input validation passes; the optional-primary contradiction is
+  rejected only at PERSIST (shared save hook LightningSchedulerAssignedResourceValidator, "Only a required
+  service resource can be set as a primary service resource"). Proves the optional-primary reject is
+  request-count-agnostic — identical late path to the single-resource case (schedule-primary-not-required),
+  not a single-vs-multi asymmetry. Org has WorkforceSchdMulResSchdPref enabled (activates the persist
+  validator). Captures multiOptionalPrimaryStatus / ...ErrorCode / ...ErrorMessage / ...HttpCode.
+auth:
+  - id: 1a2b3c4d-0006-4aaa-9bbb-000000000006
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{managerToken}}"
