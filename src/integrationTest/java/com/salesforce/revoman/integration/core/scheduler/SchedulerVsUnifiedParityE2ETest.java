@@ -2000,50 +2000,67 @@ class SchedulerVsUnifiedParityE2ETest {
   }
 
   /**
-   * OLD Overbooking flip confirmation. The existing {@link #testPriorAssignmentOccupancyParity_E2E}
-   * pins OLD REFUSING all four cells at the default {@code OrgPreferences.Overbooking=OFF} ({@code
-   * AppointmentBookingAccessChecks.orgHasOverbooking()} gates the concurrency branch in {@code
-   * SchedulingServiceImpl.findAvailableTimeSlots}, reached from the write path via {@code
-   * ServiceAppointmentServiceImpl.create → areResourcesAvailable → getAppointmentSlots}). With the
-   * pref flipped ON, OLD treats the overlapping existing appointment as concurrent-allowed and
-   * BOOKS all four — converging with Unified's write behavior. Confirms the OLD refusal is
-   * pref-gated config, not a hard product invariant. Reverts the pref to OFF afterward so sibling
-   * OLD scenarios keep their default-OFF assumption.
+   * OLD overbooking gate characterization — the {@code OrgPreferences.Overbooking} pref is NECESSARY
+   * BUT NOT SUFFICIENT to double-book an occupied worker. The existing {@link
+   * #testPriorAssignmentOccupancyParity_E2E} pins OLD REFUSING all four cells at the default {@code
+   * Overbooking=OFF}. The handoff hypothesis was "flip the pref ON → OLD books". This test flips it
+   * ON (verified live: {@code updateMetadata(IndustriesSettings.enableOverbookingOrgPref=true)}
+   * returns success) and shows OLD STILL REFUSES — because the pref is only HALF the gate.
+   *
+   * <p><b>Verified in {@code SchedulingServiceImpl.findAvailableTimeSlots} (Core p4/260-patch):</b>
+   * an overlapping prior appointment is dropped from unavailability only when {@code
+   * isOverlappingIntervalAndNotConcurrent(...)} sees a CONCURRENT slot, where {@code
+   * isConcurrentSchedulingInterval(slot) = slot.getMaxAppointments() > 1} (line ~1924). The {@code
+   * Overbooking} pref only gates {@code isaValidConcurrentAndConcurrentUnavailability} (line ~1892),
+   * which merely refines remaining-capacity accounting WITHIN an already-concurrent slot. With the
+   * member operating-hours {@code TimeSlot.MaxAppointments} at its default of 1 ({@code
+   * TimeSlot.entity.xml defaultFormula="1"}; the prior-assignment fixture sets no MaxAppointments),
+   * every slot is non-concurrent, so an overlapping appointment is a hard block regardless of the
+   * pref. The dominant gate is {@code TimeSlot.MaxAppointments > 1} on the member OH; the pref is
+   * necessary-but-not-sufficient. Full two-knob confirmation (pref ON + MaxAppointments≥2 → OLD
+   * books) needs a fixture variant with concurrent-capacity TimeSlots and is tracked as follow-up
+   * (see {@code ~/work/handoff}).
    *
    * <p>Overbooking is ORG-level committed state (not a session flag), so flipping it ON once before
    * the cells persists across each {@link #oldOccupancyCell}'s own fresh-AUTH revUp — the
-   * intervening cells re-authenticate but observe the committed pref. Cell (a) req→req carries a
-   * fail-loud {@code assertWithMessage} anchor: if it stays REFUSED the flip never took, so the
-   * remaining BOOKED assertions would be false positives. The revert runs in a {@code finally}
-   * (best-effort, no assert) so a mid-run failure still restores the default-OFF org state.
+   * intervening cells re-authenticate but observe the committed pref. The flip itself is asserted to
+   * report success in {@link #flipOldOverbooking()} (fail-loud), so a REFUSED cell below reflects
+   * the MaxAppointments gate, not a no-op flip. The revert runs in a {@code finally} (best-effort,
+   * no assert) so a mid-run failure still restores the default-OFF org state.
    */
   @Test
-  void testPriorAssignmentOldOverbookingFlipE2E() {
+  void testPriorAssignmentOldOverbookingPrefInsufficientE2E() {
     SchedulerParityConfig.assumeBothOrgCreds();
     try {
       flipOldOverbooking();
-      // (a) req->req, (b) opt->req, (c) opt->opt, (d) req->opt — all BOOK with Overbooking ON.
-      assertWithMessage("Overbooking ON: (a) req->req must now BOOK")
+      // Even with Overbooking ON, all four cells still REFUSE: the member-OH TimeSlot MaxAppointments
+      // defaults to 1, so slots are non-concurrent and the overlapping prior appointment stays a hard
+      // block. Cell (a) req->req carries the fail-loud anchor — if it BOOKS, the pref DID suffice and
+      // this characterization (pref necessary-but-not-sufficient) is wrong; name that explicitly.
+      assertWithMessage(
+              "Overbooking ON but MaxAppointments=1: (a) req->req must still REFUSE (pref alone is"
+                  + " insufficient; MaxAppointments>1 is the dominant gate). If BOOKED, the pref DID"
+                  + " suffice and this characterization is wrong.")
           .that(
               oldOccupancyCell(
                   SchedulerParityConfig.OLD_PRIOR_APPT1_B_REQUIRED_CONFIG,
                   SchedulerParityConfig.OLD_PRIOR_APPT2_B_REQUIRED_CONFIG))
-          .isEqualTo(SchedulerParityConfig.WriteOutcome.BOOKED);
+          .isEqualTo(SchedulerParityConfig.WriteOutcome.REFUSED);
       assertThat(
               oldOccupancyCell(
                   SchedulerParityConfig.OLD_PRIOR_APPT1_B_OPTIONAL_CONFIG,
                   SchedulerParityConfig.OLD_PRIOR_APPT2_B_REQUIRED_CONFIG))
-          .isEqualTo(SchedulerParityConfig.WriteOutcome.BOOKED);
+          .isEqualTo(SchedulerParityConfig.WriteOutcome.REFUSED);
       assertThat(
               oldOccupancyCell(
                   SchedulerParityConfig.OLD_PRIOR_APPT1_B_OPTIONAL_CONFIG,
                   SchedulerParityConfig.OLD_PRIOR_APPT2_B_OPTIONAL_CONFIG))
-          .isEqualTo(SchedulerParityConfig.WriteOutcome.BOOKED);
+          .isEqualTo(SchedulerParityConfig.WriteOutcome.REFUSED);
       assertThat(
               oldOccupancyCell(
                   SchedulerParityConfig.OLD_PRIOR_APPT1_B_REQUIRED_CONFIG,
                   SchedulerParityConfig.OLD_PRIOR_APPT2_B_OPTIONAL_CONFIG))
-          .isEqualTo(SchedulerParityConfig.WriteOutcome.BOOKED);
+          .isEqualTo(SchedulerParityConfig.WriteOutcome.REFUSED);
     } finally {
       revertOldOverbooking();
     }
