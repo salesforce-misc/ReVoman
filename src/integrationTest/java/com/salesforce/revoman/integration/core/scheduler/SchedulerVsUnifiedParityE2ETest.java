@@ -2217,21 +2217,30 @@ class SchedulerVsUnifiedParityE2ETest {
    * as a primary or otherwise. Cell carries the fail-loud anchor: if it BOOKS, the org is
    * overbooking-enabled and the whole occupancy family is vacuous.
    *
-   * <p><b>Unified engine — BOOKED (LIVE-pinned 2026-07-07, both orgs; REFUTES the primary-guard
-   * prediction).</b> The prior expectation was that making the busy B the PRIMARY would trip the
+   * <p><b>Unified engine — BOOKED in BOTH cells (LIVE-pinned 2026-07-07, both orgs; REFUTES "a busy
+   * primary is spared").</b> The prediction was that making the busy B the PRIMARY would trip the
    * primary guard in {@code InBusinessGetSlotsHandler.processSlotsRequest} ({@code
    * containsKey(primaryResourceId)}) and REFUSE — the opposite of the b-required cell where a busy
    * NON-primary B is silently dropped from the {@code schedulableSlots.keySet()} intersection and
-   * BOOKS. The live run DISPROVED that: Unified BOOKED the appointment even with the occupied B as
-   * primary+required. So the double-book is NOT gated by the assigned-resource role — a busy PRIMARY
-   * is double-booked here just like a busy non-primary helper. (Candidate reasons, not yet
-   * debugger-confirmed: the primary passed on the schedule request is not the same "primaryResourceId"
-   * key the containsKey guard checks, or the guard fires only in a get-slots path this schedule action
-   * does not exercise; the {@code testPriorAssignmentUnifiedReadVsWriteE2E} multi-resource collapse is
-   * the mechanism to re-examine.) The outcome is pinned to the LIVE observation via {@link
-   * SchedulerParityConfig.WriteOutcome} (no forced old==unified equality), the same way every other
-   * cell in this suite is pinned; the earlier prediction is retained above only as the refuted
-   * hypothesis.
+   * BOOKS. Both live cells DISPROVE that. Two cells are needed because the first has a confound:
+   *
+   * <ul>
+   *   <li>appt #1 B OPTIONAL → appt #2 B PRIMARY: BOOKED — but on its own this is ambiguous, since a
+   *       BOOKED could mean "a busy primary is not spared" OR "an optional prior simply never occupies
+   *       B", leaving the primary guard untested.
+   *   <li>appt #1 B REQUIRED → appt #2 B PRIMARY: BOOKED — the discriminating cell. A required prior
+   *       DOES occupy B (proven live by {@link #testPriorAssignmentUnifiedReadVsWriteE2E}), so this
+   *       removes the confound and shows the busy PRIMARY is double-booked outright.
+   * </ul>
+   *
+   * <p>So the double-book is NOT gated by the assigned-resource role: a busy primary is double-booked
+   * just like a busy non-primary helper. This directly contradicts the earlier "only the primary is
+   * guarded / a busy primary is refused" reading (the debugger observation that only a busy primary was
+   * refused must have been narrower than a general guard — a follow-up should re-examine whether the
+   * request's primary maps to the {@code primaryResourceId} key the guard checks, via {@link
+   * #testPriorAssignmentUnifiedReadVsWriteE2E}'s multi-resource collapse). Both outcomes are pinned to
+   * the LIVE observation via {@link SchedulerParityConfig.WriteOutcome} (no forced old==unified
+   * equality), the same way every other cell in this suite is pinned.
    */
   @Test
   void testPriorAssignmentBAsPrimaryE2E() {
@@ -2257,6 +2266,21 @@ class SchedulerVsUnifiedParityE2ETest {
     assertThat(
             unifiedOccupancyCell(
                 ReVomanConfigForWfs.PRIOR_APPT1_B_OPTIONAL_CONFIG,
+                ReVomanConfigForWfs.PRIOR_APPT2_B_PRIMARY_CONFIG))
+        .isEqualTo(SchedulerParityConfig.WriteOutcome.BOOKED);
+
+    // DISCRIMINATING CELL — appt #1 B REQUIRED (unambiguously occupies B, exactly as the read-vs-write
+    // test's committed prior), then appt #2 makes that busy B the PRIMARY. This strips the confound
+    // from the optional-prior cell above (where a BOOKED could mean either "busy primary not spared" OR
+    // "an optional prior simply doesn't occupy"). A required prior DOES occupy (proven live by {@link
+    // #testPriorAssignmentUnifiedReadVsWriteE2E}), so this isolates the primary-guard question.
+    // LIVE-OBSERVED BOOKED (2026-07-07): a busy PRIMARY is double-booked too. This is the decisive
+    // refutation of "only the primary is guarded / a busy primary is spared" — with B's prior
+    // assignment unambiguously occupying the window, Unified still books B on top of it as the primary.
+    // So the double-book is NOT role-gated: busy helper AND busy primary both slip through.
+    assertThat(
+            unifiedOccupancyCell(
+                ReVomanConfigForWfs.PRIOR_APPT1_B_REQUIRED_CONFIG,
                 ReVomanConfigForWfs.PRIOR_APPT2_B_PRIMARY_CONFIG))
         .isEqualTo(SchedulerParityConfig.WriteOutcome.BOOKED);
   }
