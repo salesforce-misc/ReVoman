@@ -1,0 +1,16 @@
+$kind: collection
+description: |-
+  OLD Scheduler-org PRIOR-ASSIGNMENT data graph, CONCURRENT variant. Identical to fixtures/prior-assignment
+  except every member-OperatingHours TimeSlot carries MaxAppointments=2 (the concurrency knob;
+  isConcurrentSchedulingInterval = MaxAppointments > 1). Paired with the Overbooking org preference ON,
+  this is the both-knobs-ON state under which OLD Scheduler ALLOWS a second overlapping booking of an
+  already-assigned worker. IMPORTANT ordering: the app-layer refuses inserting a TimeSlot with
+  MaxAppointments>1 unless the Overbooking preference is already enabled, so the enable-overbooking Kick
+  MUST run before this fixture. Territory OH TimeSlots are left single-capacity — resource concurrency
+  keys off the member-OH TimeSlot. Sets sched{Territory,WorkType,Account,Account2,ResourceA,ResourceB,ResourceC}Id.
+auth:
+  - id: 7e1f0c00-1005-4aaa-9bbb-000000000049
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{adminToken}}"

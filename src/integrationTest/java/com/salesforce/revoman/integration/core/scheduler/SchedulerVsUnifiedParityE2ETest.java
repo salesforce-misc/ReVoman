@@ -1880,6 +1880,34 @@ class SchedulerVsUnifiedParityE2ETest {
   }
 
   /**
+   * Runs one old-side occupancy cell with BOTH overbooking knobs ON: AUTH → enable Overbooking pref →
+   * CONCURRENT prior-assignment FIXTURE (member TimeSlots MaxAppointments=2) → GRANT → book appt #1
+   * (seeds B's assignment) → book appt #2 (re-books B on the overlapping window). The enable step runs
+   * before the fixture because the app-layer rejects a MaxAppointments>1 TimeSlot insert unless the
+   * Overbooking pref is already on. Same non-vacuity guard as {@link #oldOccupancyCell}: appt #1 booked
+   * a real 18-char 08p SA, so appt #2's outcome reflects the concurrency rule, not a dead fixture. The
+   * caller reverts the pref in a {@code finally}.
+   */
+  private static SchedulerParityConfig.WriteOutcome oldConcurrentOccupancyCell(
+      final Kick appt1Config, final Kick appt2Config) {
+    final var env =
+        CollectionsKt.last(
+                ReVoman.revUp(
+                    (r, ignore) -> assertThat(r.firstUnIgnoredUnsuccessfulStepReport()).isNull(),
+                    SchedulerParityConfig.OLD_AUTH_CONFIG,
+                    SchedulerParityConfig.OLD_ENABLE_OVERBOOKING_CONFIG,
+                    SchedulerParityConfig.OLD_PRIOR_ASSIGNMENT_CONCURRENT_FIXTURE_CONFIG,
+                    SchedulerParityConfig.OLD_GRANT_LS_ACCESS_CONFIG,
+                    appt1Config,
+                    appt2Config))
+            .mutableEnv;
+    assertThat(env.getAsString("priorAppt1SaId")).hasLength(18);
+    assertThat(env.getAsString("priorAppt1SaId")).startsWith("08p");
+    return SchedulerParityConfig.oldWriteOutcome(
+        env.getAsString("priorAppt2SaId"), env.getAsString("priorAppt2Http"));
+  }
+
+  /**
    * Runs one Unified occupancy cell: AUTH → op-hours policy → prior-assignment FIXTURE → book appt
    * #1 → book appt #2. Returns the appt-#2 write outcome. Non-vacuity: appt #1 scheduled Success.
    */
@@ -2283,6 +2311,65 @@ class SchedulerVsUnifiedParityE2ETest {
                 ReVomanConfigForWfs.PRIOR_APPT1_B_REQUIRED_CONFIG,
                 ReVomanConfigForWfs.PRIOR_APPT2_B_PRIMARY_CONFIG))
         .isEqualTo(SchedulerParityConfig.WriteOutcome.BOOKED);
+  }
+
+  /**
+   * OLD Scheduler occupancy with BOTH overbooking knobs ON — and the LIVE-observed result that OLD
+   * STILL REFUSES this prior-assignment scenario even so. Two prior tests bracket the pref knob:
+   * default-state {@link #testPriorAssignmentOccupancyParity_E2E} pins OLD REFUSING every cell, and
+   * {@link #testPriorAssignmentOldOverbookingPrefInsufficientE2E} shows flipping only the Overbooking
+   * pref (MaxAppointments still 1) still refuses. This test flips BOTH knobs: the Overbooking pref ON
+   * AND the member-OperatingHours {@code TimeSlot.MaxAppointments}=2 (via the concurrent fixture,
+   * seeded AFTER the pref flip so the concurrent-TimeSlot insert is accepted; MaxAppointments=2
+   * persistence confirmed live by SOQL).
+   *
+   * <p><b>LIVE-OBSERVED: REFUSED in both cells (2026-07-07) — the predicted "allow" did NOT
+   * reproduce.</b> Reading {@code SchedulingServiceImpl.findAvailableTimeSlots} →
+   * {@code isOverlappingIntervalAndNotConcurrent} (a concurrent slot should drop an overlapping prior
+   * APPOINTMENT from unavailability), both knobs on looked sufficient to let the second booking
+   * through. It did not: with the pref ON and B's member TimeSlots at MaxAppointments=2 (both verified
+   * to have taken — pref update returned success, TimeSlot rows read back MaxAppointments=2), OLD still
+   * refused the second overlapping booking of B. So the two knobs are necessary but NOT sufficient for
+   * THIS prior-assignment shape; some further condition in the concurrency path is unmet by this
+   * fixture (candidates, not yet debugger-confirmed: the prior appointment must land in the SAME
+   * concurrent TimeSlot interval and be counted in {@code unavailableInterval.getSecond()} capacity
+   * accounting; the booking window / member-vs-territory OH slot that actually carries the concurrency
+   * flag; or the concurrent double-book path applies to a DIFFERENT surface — e.g. two fresh bookings
+   * into one concurrent slot — than re-booking over an already-committed appointment). Pending that,
+   * the observed REFUSED is pinned; when the mechanism is nailed down this should be revisited (a
+   * MaxAppointments>1 double-book via get-appointment-slots on a single appointment, not a prior
+   * assignment, is the likely reproduction — see {@code ConcurrentTimeSlotTest} in core).
+   *
+   * <p><b>Role symmetry still holds — at REFUSED.</b> Both cells reuse the appt-#1-B-REQUIRED prior
+   * (unambiguous occupancy) and differ only in appt #2's role for B (b-required = busy helper,
+   * b-primary = busy primary); both REFUSE. So on OLD the outcome is role-agnostic in this state too,
+   * matching the knobs-OFF role symmetry — the contrast with Unified (which BOOKS both roles, see
+   * {@link #testPriorAssignmentBAsPrimaryE2E}) is unchanged. Outcomes pinned to the LIVE observation
+   * via {@link SchedulerParityConfig.WriteOutcome}. The pref is reverted in a {@code finally} so a
+   * mid-run failure still restores the default-OFF org.
+   */
+  @Test
+  void testPriorAssignmentOldBothKnobsStillRefuseBothRolesE2E() {
+    SchedulerParityConfig.assumeBothOrgCreds();
+    try {
+      // Busy HELPER (appt #2 B required, non-primary), both knobs ON. LIVE-OBSERVED REFUSED — the
+      // two-knob concurrency path does not admit this prior-assignment re-book (see class-level notes).
+      assertThat(
+              oldConcurrentOccupancyCell(
+                  SchedulerParityConfig.OLD_PRIOR_APPT1_B_REQUIRED_CONFIG,
+                  SchedulerParityConfig.OLD_PRIOR_APPT2_B_REQUIRED_CONFIG))
+          .isEqualTo(SchedulerParityConfig.WriteOutcome.REFUSED);
+
+      // Busy PRIMARY (appt #2 B primary+required), both knobs ON. Also REFUSED — role-agnostic, mirroring
+      // the knobs-OFF symmetry. Confirms the refusal is not a role effect.
+      assertThat(
+              oldConcurrentOccupancyCell(
+                  SchedulerParityConfig.OLD_PRIOR_APPT1_B_REQUIRED_CONFIG,
+                  SchedulerParityConfig.OLD_PRIOR_APPT2_B_PRIMARY_CONFIG))
+          .isEqualTo(SchedulerParityConfig.WriteOutcome.REFUSED);
+    } finally {
+      revertOldOverbooking();
+    }
   }
 
   /**

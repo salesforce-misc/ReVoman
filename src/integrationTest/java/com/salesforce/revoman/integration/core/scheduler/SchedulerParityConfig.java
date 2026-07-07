@@ -79,6 +79,11 @@ public final class SchedulerParityConfig {
   // primary on appt #2), so a refused appt #2 can only be B's prior assignment.
   static final Kick OLD_PRIOR_ASSIGNMENT_FIXTURE_CONFIG =
       oldKickFor(V3_SCHEDULER_PATH + "fixtures/prior-assignment");
+  // CONCURRENT variant of the prior-assignment fixture: member TimeSlots carry MaxAppointments=2 (the
+  // concurrency knob). Must be seeded AFTER OLD_ENABLE_OVERBOOKING_CONFIG — the app-layer rejects a
+  // MaxAppointments>1 TimeSlot insert unless the Overbooking pref is already on.
+  static final Kick OLD_PRIOR_ASSIGNMENT_CONCURRENT_FIXTURE_CONFIG =
+      oldKickFor(V3_SCHEDULER_PATH + "fixtures/prior-assignment-concurrent");
   static final Kick OLD_PRIOR_APPT1_B_REQUIRED_CONFIG =
       oldKickFor(V3_SCHEDULER_PATH + "booking/service-appointments-prior-appt1-b-required");
   static final Kick OLD_PRIOR_APPT1_B_OPTIONAL_CONFIG =
