@@ -180,7 +180,8 @@ public final class ReVomanConfigForWfs {
   // matching
   // Decision 9). V3 `auth` folder.
   // * NOTE 2026-07-03 gopal.akshintala: widened to public so the cross-package Scheduler-vs-Unified
-  // * parity slice (…core.scheduler.SchedulerVsUnifiedParityE2ETest) can reuse the 264 double-book
+  // * parity slice (…core.scheduler.SchedulerVsUnifiedParityE2ETest) can reuse the Unified
+  // double-book
   // * Kicks unchanged; wiring/behavior untouched.
   public static final Kick AUTH_CONFIG = kickFor(V3_WFS_PATH + "auth");
 
@@ -343,7 +344,8 @@ public final class ReVomanConfigForWfs {
   // * NOTE 2026-07-03 gopal.akshintala: widened to public (visibility only, no wiring change) so
   // the
   // * Scheduler↔Unified Decision-4z parity test (SchedulerVsUnifiedParityE2ETest
-  // * .testRescheduleNoPrimaryParity_4z_E2E) can reuse the proven 264 reschedule-no-primary acts.
+  // * .testRescheduleNoPrimaryParity_4z_E2E) can reuse the proven Unified reschedule-no-primary
+  // acts.
   public static final Kick SCHEDULE_TWO_RESOURCE_CLEAN_CONFIG =
       kickFor(V3_WFS_PATH + "booking/schedule-two-resource-clean");
   // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified
@@ -428,9 +430,9 @@ public final class ReVomanConfigForWfs {
   // WorkforceSchedulingPsl seat. The resource-owner User is admin-created (the manager cannot set
   // ProfileId).
   // * NOTE 2026-07-03 gopal.akshintala: visibility widened package-private → public so the
-  // * Scheduler↔Unified Decision-9 parity test (SchedulerVsUnifiedParityE2ETest) can reuse the 264
-  // side
-  // * of the sharing-mode-split scenario. Visibility-only change; wiring unchanged.
+  // * Scheduler↔Unified Decision-9 parity test (SchedulerVsUnifiedParityE2ETest) can reuse the
+  // Unified
+  // * side of the sharing-mode-split scenario. Visibility-only change; wiring unchanged.
   public static final Kick AUTH_PERSONAS_DEC9_CONFIG = kickFor(V3_WFS_PATH + "auth-personas-dec9");
   // * NOTE 2026-07-03 gopal.akshintala: widened to public for cross-package Scheduler-vs-Unified
   // parity reuse; visibility only.
@@ -492,7 +494,11 @@ public final class ReVomanConfigForWfs {
       kickFor(V3_WFS_PATH + "booking/get-slots-excluded-violating");
   static final Kick GET_SLOTS_EXCLUDED_CONTROL_CONFIG =
       kickFor(V3_WFS_PATH + "booking/get-slots-excluded-control");
-  static final Kick SCHEDULE_EXCLUDED_VIOLATING_CONFIG =
+  // * NOTE 2026-07-07 gopal.akshintala: promoted to public for cross-package reuse by
+  // * SchedulerVsUnifiedParityE2ETest#testRequiredExcludedWriteDivergence_1a_req_E2E (the Unified
+  // half
+  // * of the required-excluded write divergence).
+  public static final Kick SCHEDULE_EXCLUDED_VIOLATING_CONFIG =
       kickFor(V3_WFS_PATH + "booking/schedule-excluded-violating");
   static final Kick SCHEDULE_EXCLUDED_CONTROL_CONFIG =
       kickFor(V3_WFS_PATH + "booking/schedule-excluded-control");

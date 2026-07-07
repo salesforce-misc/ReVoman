@@ -17,9 +17,9 @@ import kotlin.collections.CollectionsKt;
 import org.junit.jupiter.api.Test;
 
 /**
- * Scheduler ↔ Unified(264) {@code 1.*} non-required resource-fitness parity — differential tests.
- * Each scenario diffs the OLD Salesforce Scheduler decision against the 264-Unified(262-proxy)
- * decision on BOTH the read (INCLUDED/EXCLUDED) and write (BOOKED/REFUSED/CRASHED) axes.
+ * Scheduler ↔ Unified {@code 1.*} non-required resource-fitness parity — differential tests. Each
+ * scenario diffs the OLD Salesforce Scheduler decision against the Unified decision on BOTH the
+ * read (INCLUDED/EXCLUDED) and write (BOOKED/REFUSED/CRASHED) axes.
  */
 class SchedulerVsUnifiedParityE2ETest {
 
@@ -43,25 +43,20 @@ class SchedulerVsUnifiedParityE2ETest {
   }
 
   /**
-   * Decision 1.5 parity — a busy NON-required resource. OLD Salesforce Scheduler vs 264 Unified
-   * OnSite (262 proxy) must agree on both axes: the busy non-required resource BOOKS (not
-   * availability-checked) while a required busy control is REFUSED; and the read offers the
-   * fixture's slots only when the busy resource is NOT a hard required constraint. Old side: public
-   * Scheduler REST ({@code POST /scheduling/getAppointmentSlots} + {@code POST
-   * /connect/scheduling/service-appointments}). Unified side: the existing WFS double-book Connect
-   * acts.
+   * Decision 1.5 parity — a busy NON-required resource. OLD Salesforce Scheduler vs Unified OnSite
+   * must agree on both axes: the busy non-required resource BOOKS (not availability-checked) while
+   * a required busy control is REFUSED; and the read offers the fixture's slots only when the busy
+   * resource is NOT a hard required constraint. Old side: public Scheduler REST ({@code POST
+   * /scheduling/getAppointmentSlots} + {@code POST /connect/scheduling/service-appointments}).
+   * Unified side: the existing WFS double-book Connect acts.
    *
    * <p>KEY PARITY FINDING (both products agree): a non-required resource BOOKS (it is not
    * availability-checked, so it may double-book) and is read-EXCLUDED when that same busy resource
    * is named a hard required constraint; the required-control write is REFUSED
    * (availability-checked). All four normalized verdicts align → 1.5 parity CONFIRMED.
    *
-   * <p>262-proxy caveat: these verdicts are 262-observed and stand in for 264 (endpoints are
-   * identical 262↔264 per the parity effort). A true-264 org may differ from 262 on the locked-in
-   * crash decisions (1.4 / 3 — 262-specific INTERNAL_SERVER_ERROR bugs); 1.5 is crash-free, so it
-   * is unaffected by that caveat. Divergence, were it to appear, is a first-class finding: it would
-   * be asserted faithfully (with a {@code <p>DIVERGENCE:} paragraph naming the mismatch) rather
-   * than forced to a green.
+   * <p>Divergence, were it to appear, is a first-class finding: it would be asserted faithfully
+   * (with a {@code <p>DIVERGENCE:} paragraph naming the mismatch) rather than forced to a green.
    *
    * <p>Old-side revUps mint 2 fresh {@code sched-res-*@revoman.org} users per run and never clean
    * up; three old-side revUps here (read + two write arms) → ~6 fresh users/run. The leading
@@ -124,7 +119,7 @@ class SchedulerVsUnifiedParityE2ETest {
             oldControlEnv.getAsString("oldWriteRequiredControlSaId"),
             oldControlEnv.getAsString("oldWriteRequiredControlHttp"));
 
-    // --- 264 side (262 proxy): reuse the proven WFS double-book acts, one revUp ---
+    // --- Unified side: reuse the proven WFS double-book acts, one revUp ---
     final var unifiedEnv =
         CollectionsKt.last(
                 ReVoman.revUp(
@@ -169,8 +164,8 @@ class SchedulerVsUnifiedParityE2ETest {
 
   /**
    * Scenario 1b (Territory) parity — a NON-required resource whose ServiceTerritoryMember coverage
-   * does NOT include the booking window. OLD Salesforce Scheduler vs 264 Unified OnSite (262 proxy)
-   * must agree on both axes: the out-of-territory non-required resource BOOKS (its territory is NOT
+   * does NOT include the booking window. OLD Salesforce Scheduler vs Unified OnSite must agree on
+   * both axes: the out-of-territory non-required resource BOOKS (its territory is NOT
    * fitness-checked because it is non-required) while the SAME resourceB named a hard REQUIRED
    * constraint is REFUSED (the classic engine's territory/STM-membership filter runs only for
    * required resources); and the read offers the fixture's slots only when the out-of-territory
@@ -193,13 +188,10 @@ class SchedulerVsUnifiedParityE2ETest {
    * (it is not territory/membership-checked, so it may violate territory coverage) and is
    * read-EXCLUDED when that same resource is named a hard required constraint; the required-control
    * write is REFUSED (territory-checked). Old read EXCLUDED + old non-required resource BOOKED +
-   * old required-control REFUSED + 264 non-required resource BOOKED → 1b territory parity
+   * old required-control REFUSED + Unified non-required resource BOOKED → 1b territory parity
    * CONFIRMED.
    *
-   * <p>262-proxy caveat: the 264 verdict is 262-observed and stands in for 264 (endpoints identical
-   * 262↔264 per the parity effort). 1b is crash-free (MatchTerritory is a clean fitness rule), so
-   * it is unaffected by the 262-specific crash caveats (1.4 / 3). A divergence, were it to appear,
-   * would be asserted faithfully rather than forced to a green.
+   * <p>A divergence, were it to appear, would be asserted faithfully rather than forced to a green.
    *
    * <p>Old-side revUps mint 2 fresh {@code sched-terr-*@revoman.org} users per run and never clean
    * up; three old-side revUps here (read + two write arms) → ~6 fresh users/run. The leading
@@ -265,10 +257,10 @@ class SchedulerVsUnifiedParityE2ETest {
             oldControlEnv.getAsString("oldWriteRequiredControlSaId"),
             oldControlEnv.getAsString("oldWriteRequiredControlHttp"));
 
-    // --- 264 side (262 proxy): reuse the proven WFS territory acts, one revUp. The territory
+    // --- Unified side: reuse the proven WFS territory acts, one revUp. The territory
     // scenario
     // has ONE act (the non-required resource booking Success is the escape under test); there is no
-    // 264
+    // Unified
     // required-control act for territory, so the required→REFUSED axis is proven on the OLD side
     // only. ---
     final var unifiedEnv =
@@ -304,7 +296,7 @@ class SchedulerVsUnifiedParityE2ETest {
     // territory-checked proof (isolates the non-required resource Success to the non-required
     // flag).
     assertThat(oldControlOutcome).isEqualTo(SchedulerParityConfig.WriteOutcome.REFUSED);
-    // 264 non-required resource (out-of-territory resource as non-required) books Success → the
+    // Unified non-required resource (out-of-territory resource as non-required) books Success → the
     // Unified escape it
     // shares
     // with old.
@@ -318,11 +310,11 @@ class SchedulerVsUnifiedParityE2ETest {
    * is the cleanest WorkingLocations isolation — resourceB IS a member (not a non-member exclusion)
    * and is fully AVAILABLE at the window (member OH 10-14 + Confirmed Shift 10-14 both cover the
    * 11:00-11:30 booking, the proven 1.5 double-book resourceA window), so its Secondary ROLE alone
-   * excludes it. OLD Salesforce Scheduler vs 264 Unified OnSite (262 proxy) must agree: the
-   * Secondary non-required resource BOOKS (a non-required resource is not eligibility-checked, so
-   * its Secondary role escapes the WorkingLocations rule); the OLD read EXCLUDES that same
-   * Secondary resource when it is a hard required constraint (the primary-only STM filter drops
-   * it), and the OLD required-control write is REFUSED.
+   * excludes it. OLD Salesforce Scheduler vs Unified OnSite must agree: the Secondary non-required
+   * resource BOOKS (a non-required resource is not eligibility-checked, so its Secondary role
+   * escapes the WorkingLocations rule); the OLD read EXCLUDES that same Secondary resource when it
+   * is a hard required constraint (the primary-only STM filter drops it), and the OLD
+   * required-control write is REFUSED.
    *
    * <p>Old side: public Scheduler REST ({@code POST /scheduling/getAppointmentSlots} + {@code POST
    * /connect/scheduling/service-appointments}), each carrying {@code schedulingPolicyId} = the
@@ -334,16 +326,15 @@ class SchedulerVsUnifiedParityE2ETest {
    * is dropped by ROLE (JDWP/source-confirmed: {@code scheduling-impl/.../SchedulingDbUtil.java}).
    * Unified side: the existing WFS working-locations Connect act under the primary-only
    * WorkingTerritories(IsPrimaryLocationEnabled) policy, which books the non-required Secondary
-   * non-required resource Success (the 264 non-required resource-escape finding).
+   * non-required resource Success (the Unified non-required resource-escape finding).
    *
    * <p>KEY PARITY FINDING (both products agree): a Secondary-member non-required resource BOOKS (it
    * is not eligibility-checked, so its WorkingLocations role is never evaluated) and is
    * read-EXCLUDED / write- REFUSED when that same Secondary resource is named a hard required
    * constraint → 1d parity CONFIRMED.
    *
-   * <p>262-proxy caveat: the Unified verdict is 262-observed and stands in for 264 (endpoints
-   * identical 262↔264 per the parity effort). 1d is crash-free. A divergence, were it to appear, is
-   * a first-class finding asserted faithfully rather than forced to a green.
+   * <p>A divergence, were it to appear, is a first-class finding asserted faithfully rather than
+   * forced to a green.
    *
    * <p>Old-side revUps mint 2 fresh {@code sched-wl-*@revoman.org} users per run and never clean
    * up; three old-side revUps here (read + two write arms) → ~6 fresh users/run. The leading
@@ -411,7 +402,7 @@ class SchedulerVsUnifiedParityE2ETest {
             oldControlEnv.getAsString("oldWriteRequiredControlSaId"),
             oldControlEnv.getAsString("oldWriteRequiredControlHttp"));
 
-    // --- 264 side (262 proxy): reuse the proven WFS working-locations acts under the primary-only
+    // --- Unified side: reuse the proven WFS working-locations acts under the primary-only
     // policy ---
     final var unifiedEnv =
         CollectionsKt.last(
@@ -444,7 +435,7 @@ class SchedulerVsUnifiedParityE2ETest {
     // Old required control (Secondary resource named required) is REFUSED → the old-side
     // ROLE-enforcement proof.
     assertThat(oldControlOutcome).isEqualTo(SchedulerParityConfig.WriteOutcome.REFUSED);
-    // Unified non-required resource (non-required Secondary member) books Success → the 264
+    // Unified non-required resource (non-required Secondary member) books Success → the Unified
     // WorkingLocations
     // non-required resource-escape finding.
     assertThat(unifiedEnv.getAsString("workingLocationsSecondaryNonReqSchedulingStatus"))
@@ -459,7 +450,7 @@ class SchedulerVsUnifiedParityE2ETest {
    *
    * <p>KEY PARITY FINDING (both products agree on the write axis): the non-required Excluded
    * non-required resource is NOT fitness-checked on the book path, so the SA BOOKS on both engines.
-   * 264 Unified: the WFS schedule-excluded-non-required act returns schedulingStatus=Success (the
+   * Unified: the WFS schedule-excluded-non-required act returns schedulingStatus=Success (the
    * non-required resource escapes ExcludedResources). OLD Salesforce Scheduler: {@code POST
    * /connect/scheduling/service-appointments} validates only the required/primary resources and
    * passes {@code accountResourcePreferences=null} (ServiceAppointmentHelper.areResourcesAvailable
@@ -482,10 +473,6 @@ class SchedulerVsUnifiedParityE2ETest {
    * non-required-vs-required control there (getAppointmentCandidates has no per-resource
    * required/non-required input). The write axis carries the true 1a parity verdict; the read is
    * captured faithfully as supporting evidence, not forced to mirror the write.
-   *
-   * <p>262-proxy caveat: the 264 verdict is 262-observed (endpoints identical 262↔264 per the
-   * parity effort); 1a is crash-free so it is unaffected by the 262-specific INTERNAL_SERVER_ERROR
-   * bugs (1.4 / 3).
    *
    * <p>Old-side revUps mint 2 fresh {@code sched-excl-*@revoman.org} users per run and never clean
    * up; two old-side revUps here (candidates read + book) → ~4 fresh users/run. The leading success
@@ -536,7 +523,7 @@ class SchedulerVsUnifiedParityE2ETest {
             oldHelperEnv.getAsString("oldWriteHelperSaId"),
             oldHelperEnv.getAsString("oldWriteHelperHttp"));
 
-    // --- 264 side (262 proxy): reuse the proven WFS excluded-non-required acts, one revUp ---
+    // --- Unified side: reuse the proven WFS excluded-non-required acts, one revUp ---
     final var unifiedEnv =
         CollectionsKt.last(
                 ReVoman.revUp(
@@ -566,6 +553,76 @@ class SchedulerVsUnifiedParityE2ETest {
     // account-Excluded
     // resourceB (EXCLUDED) — the account block-list is applied on the candidates surface.
     assertThat(oldExcludedReadDecision).isEqualTo(SchedulerParityConfig.ReadDecision.EXCLUDED);
+  }
+
+  /**
+   * Decision 1a REQUIRED-excluded variant - the account-Excluded resource sent as the SINGLE
+   * required+primary resource on the WRITE. Unlike the 1a non-required helper (both products BOOK,
+   * parity), this DIVERGES: OLD Salesforce Scheduler BOOKS it, Unified REJECTS it.
+   *
+   * <p>Root cause (read from 262 Core source). OLD: the classic book path
+   * (ServiceAppointmentHelper.areResourcesAvailable to SchedulingServiceImpl.getAppointmentSlots to
+   * getAppointmentSlotsForTerritoryWorkTypes) passes accountResourcePreferences=null
+   * (SchedulingServiceImpl.java:493), so SchedulingDbUtil.checkResourcePrefs short-circuits true
+   * (SchedulingDbUtil.java:706-709) and the account Excluded list is NEVER evaluated on write, so
+   * the SA BOOKS even though the required+primary resource is account-excluded. UNIFIED: the
+   * schedule write validates via SlotAvailabilityChecker.isSlotAvailable, which re-invokes the SAME
+   * pruned InBusinessGetSlotsHandler read (ResourceManagementService.buildServiceTerritoryMap to
+   * checkResourcePrefs prunes the excluded SR), so the excluded resource yields no matching slot
+   * and the write is REJECTED (schedulingStatus != Success). A read/write consistency difference on
+   * the account Excluded rule, distinct from the non-required-helper escape in 1a.
+   *
+   * <p>resourceB is genuinely available on BOTH orgs (Confirmed Shift 08-16, Primary STM), so the
+   * account Excluded rule is the ONLY thing that can stop the write - isolating the divergence.
+   *
+   * <p>Unified side reuses the proven WFS excluded-required violating write act
+   * (SCHEDULE_EXCLUDED_VIOLATING_CONFIG), the same one WfsRulesParityE2ETest
+   * .testExcludedResourcesReadWriteParityE2E asserts rejects. Live-observed; 1a is crash-free.
+   */
+  @Test
+  void testRequiredExcludedWriteDivergence_1a_req_E2E() {
+    SchedulerParityConfig.assumeBothOrgCreds();
+
+    // --- OLD side: book the account-Excluded resource as required+primary, fresh revUp -> BOOKED
+    // ---
+    final var oldEnv =
+        CollectionsKt.last(
+                ReVoman.revUp(
+                    (r, ignore) -> assertThat(r.firstUnIgnoredUnsuccessfulStepReport()).isNull(),
+                    SchedulerParityConfig.OLD_AUTH_CONFIG,
+                    SchedulerParityConfig.OLD_EXCLUDED_FIXTURE_CONFIG,
+                    SchedulerParityConfig.OLD_GRANT_LS_ACCESS_CONFIG,
+                    SchedulerParityConfig.OLD_BOOK_EXCLUDED_REQUIRED_CONFIG))
+            .mutableEnv;
+    final var oldReqExcludedOutcome =
+        SchedulerParityConfig.oldWriteOutcome(
+            oldEnv.getAsString("oldReqExcludedWriteSaId"),
+            oldEnv.getAsString("oldReqExcludedWriteHttp"));
+
+    // --- Unified side: schedule the account-Excluded resource as required+primary -> REJECTED ---
+    final var unifiedEnv =
+        CollectionsKt.last(
+                ReVoman.revUp(
+                    (r, ignore) -> assertThat(r.firstUnIgnoredUnsuccessfulStepReport()).isNull(),
+                    ReVomanConfigForWfs.AUTH_CONFIG,
+                    ReVomanConfigForWfs.EXCLUDED_RESOURCES_POLICY_CONFIG,
+                    ReVomanConfigForWfs.EXCLUDED_FIXTURE_CONFIG,
+                    ReVomanConfigForWfs.SCHEDULE_EXCLUDED_VIOLATING_CONFIG))
+            .mutableEnv;
+
+    // --- DIVERGENCE (write axis): OLD BOOKS the account-excluded required resource; Unified
+    // REJECTS.
+    // Shape guard: the old-side booking returns a real 18-char ServiceAppointment id (08p prefix),
+    // so BOOKED reflects a genuine persist, not an empty pass.
+    assertThat(oldEnv.getAsString("oldReqExcludedWriteSaId")).hasLength(18);
+    assertThat(oldEnv.getAsString("oldReqExcludedWriteSaId")).startsWith("08p");
+    assertThat(oldReqExcludedOutcome).isEqualTo(SchedulerParityConfig.WriteOutcome.BOOKED);
+    // Unified rejects the same required-excluded write (schedulingStatus != Success).
+    assertThat(unifiedEnv.getAsString("excludedWriteViolatingStatus")).isNotEqualTo("Success");
+    // The products DISAGREE on the write axis - the divergence, asserted verbatim.
+    assertWithMessage("required-excluded write: OLD should BOOK, Unified should REJECT")
+        .that(oldReqExcludedOutcome)
+        .isEqualTo(SchedulerParityConfig.WriteOutcome.BOOKED);
   }
 
   @Test
@@ -619,7 +676,7 @@ class SchedulerVsUnifiedParityE2ETest {
             oldHelperEnv.getAsString("oldWriteHelperSaId"),
             oldHelperEnv.getAsString("oldWriteHelperHttp"));
 
-    // --- 264 side (262 proxy): reuse the proven WFS skills acts, one revUp. The non-required
+    // --- Unified side: reuse the proven WFS skills acts, one revUp. The non-required
     // skill-less
     // non-required resource escapes MatchSkills on the required-only write path → Success
     // (skillsNonReqSchedulingStatus).
@@ -657,11 +714,11 @@ class SchedulerVsUnifiedParityE2ETest {
     // 0),
     // the primary-only-skill-matching mechanism made observable on the read axis too.
     assertThat(oldReadMultiHelperDecision).isEqualTo(SchedulerParityConfig.ReadDecision.INCLUDED);
-    // 264 non-required skill-less non-required resource also BOOKS (escapes MatchSkills on the
+    // Unified non-required skill-less non-required resource also BOOKS (escapes MatchSkills on the
     // required-only path)
     // …
     assertThat(unifiedHelperOutcome).isEqualTo(SchedulerParityConfig.WriteOutcome.BOOKED);
-    // … so OLD and 264 AGREE on the observable non-required resource-escape write outcome
+    // … so OLD and Unified AGREE on the observable non-required resource-escape write outcome
     // (mechanism differs →
     // PARTIAL).
     assertThat(oldHelperOutcome).isEqualTo(unifiedHelperOutcome);
@@ -714,7 +771,7 @@ class SchedulerVsUnifiedParityE2ETest {
             oldWriteEnv.getAsString("oldWriteReqHelperSaId"),
             oldWriteEnv.getAsString("oldWriteReqHelperHttp"));
 
-    // --- 264 side (262 proxy): reuse the proven WFS Required-resources acts (violating + control)
+    // --- Unified side: reuse the proven WFS Required-resources acts (violating + control)
     // ---
     final var unifiedEnv =
         CollectionsKt.last(
@@ -731,21 +788,21 @@ class SchedulerVsUnifiedParityE2ETest {
             unifiedEnv.getAsString("requiredNonReqSatisfierStatus"),
             unifiedEnv.getAsString("requiredNonReqSatisfierErrorCode"));
 
-    // --- 264 CRASH asserted verbatim (the locked-in 262 serviceTerritoryMembers NPE) ---
+    // --- Unified CRASH asserted verbatim (the live serviceTerritoryMembers NPE) ---
     assertThat(unifiedEnv.getAsString("requiredNonReqSatisfierErrorCode"))
         .isEqualTo("INTERNAL_SERVER_ERROR");
     assertThat(unifiedEnv.getAsString("requiredNonReqSatisfierErrorMessage"))
         .contains("serviceTerritoryMembers");
     assertThat(unifiedViolatingOutcome).isEqualTo(SchedulerParityConfig.WriteOutcome.CRASHED);
-    // 264 control (resourceB flipped to required) → no RequiredResources satisfaction error.
+    // Unified control (resourceB flipped to required) → no RequiredResources satisfaction error.
     assertThat(unifiedEnv.getAsString("requiredSatisfierControlErrorCode"))
         .isNotEqualTo("RequiredResources");
 
-    // --- OLD outcomes pinned verbatim (characterization, NOT forced to match 264) ---
+    // --- OLD outcomes pinned verbatim (characterization, NOT forced to match Unified) ---
     // OLD read cleanly REFUSES: the account-required pool filter drops the non-required resourceA →
     // 0
     // candidates, HTTP 200, no INTERNAL_SERVER_ERROR (the classic ServiceTerritory never NPEs on
-    // serviceTerritoryMembers). This is the crash-vs-clean DIVERGENCE from the 264 write.
+    // serviceTerritoryMembers). This is the crash-vs-clean DIVERGENCE from the Unified write.
     assertThat(oldReadEnv.getAsString("oldCandidatesWithBReqCount")).isEqualTo("0");
     assertThat(oldReadEnv.getAsString("oldCandidatesWithBReqErrorCode"))
         .isNotEqualTo("INTERNAL_SERVER_ERROR");
@@ -769,9 +826,9 @@ class SchedulerVsUnifiedParityE2ETest {
 
     // --- DIVERGENCE recorded: OLD refuses CLEANLY on BOTH axes (read 200/empty candidates; write
     // 400
-    // INTERNAL_ERROR) while the 264 write CRASHES (500 INTERNAL_SERVER_ERROR
+    // INTERNAL_ERROR) while the Unified write CRASHES (500 INTERNAL_SERVER_ERROR
     // serviceTerritoryMembers NPE).
-    // OLD ≠ 264 on both axes — a crash-vs-clean divergence, asserted verbatim, NOT forced to a
+    // OLD ≠ Unified on both axes — a crash-vs-clean divergence, asserted verbatim, NOT forced to a
     // green. ---
     assertThat(oldReadOutcome).isNotEqualTo(unifiedViolatingOutcome);
     assertThat(oldWriteOutcome).isNotEqualTo(unifiedViolatingOutcome);
@@ -791,26 +848,23 @@ class SchedulerVsUnifiedParityE2ETest {
    * The AVAILABLE read ({@code POST /scheduling/getAppointmentSlots}, window 11:00-11:30 inside
    * 08-16) offers &gt;0 slots and the AVAILABLE book ({@code POST
    * /connect/scheduling/service-appointments}) Succeeds; the UNAVAILABLE read (window 17:00-17:30
-   * outside 08-16) offers 0 slots and the UNAVAILABLE book is Refused. Unified side (262 proxy):
-   * the existing WFS Decision-2 acts — {@code GET_SLOTS_PARITY_AVAILABLE} / {@code
-   * GET_SLOTS_PARITY_UNAVAILABLE} read + {@code SCHEDULE_PARITY_AVAILABLE} / {@code
-   * SCHEDULE_PARITY_UNAVAILABLE} write over the same availability-op-hours policy +
-   * required-non-required fixture (member OH 08-16), asserting the identical read↔write agreement.
+   * outside 08-16) offers 0 slots and the UNAVAILABLE book is Refused. Unified side: the existing
+   * WFS Decision-2 acts — {@code GET_SLOTS_PARITY_AVAILABLE} / {@code GET_SLOTS_PARITY_UNAVAILABLE}
+   * read + {@code SCHEDULE_PARITY_AVAILABLE} / {@code SCHEDULE_PARITY_UNAVAILABLE} write over the
+   * same availability-op-hours policy + required-non-required fixture (member OH 08-16), asserting
+   * the identical read↔write agreement.
    *
    * <p>KEY PARITY FINDING (both products agree): a shown slot IS a promise on the shared
-   * availability cheap check. On BOTH old Scheduler and 264 Unified the read↔write agreement holds
-   * — read INCLUDED ⟺ write BOOKED on the available window, read EXCLUDED ⟺ write REFUSED on the
+   * availability cheap check. On BOTH old Scheduler and Unified the read↔write agreement holds —
+   * read INCLUDED ⟺ write BOOKED on the available window, read EXCLUDED ⟺ write REFUSED on the
    * unavailable window — and the two products' agreement MATCHES. Decision 2 parity CONFIRMED.
    *
-   * <p>262-proxy caveat: the 264 verdict is 262-observed and stands in for 264 (endpoints identical
-   * 262↔264 per the parity effort). Decision 2 is crash-free (a clean availability cheap check), so
-   * it is unaffected by the 262-specific INTERNAL_SERVER_ERROR crash caveats (1.4 / 3). A
-   * divergence, were it to appear, is a first-class finding asserted faithfully rather than forced
-   * to a green.
+   * <p>A divergence, were it to appear, is a first-class finding asserted faithfully rather than
+   * forced to a green.
    *
    * <p>Constructibility: CLEANLY CONSTRUCTIBLE on the old read path — the single-resource
    * availability cheap check is exactly what old getAppointmentSlots runs, and the classic book
-   * path re-checks it, so the old side proves read↔write on the same shared check the 264 side
+   * path re-checks it, so the old side proves read↔write on the same shared check the Unified side
    * does. (The doc's field-match "shown-but-rejected" half — Match Fields / Boolean / Extended
    * Match — is NOT characterizable on 262 through these endpoints; it is out of Decision 2's
    * cheap-check scope, see the WFS test javadoc.)
@@ -885,7 +939,7 @@ class SchedulerVsUnifiedParityE2ETest {
             oldWriteUnavailEnv.getAsString("oldPromiseWriteUnavailSaId"),
             oldWriteUnavailEnv.getAsString("oldPromiseWriteUnavailHttp"));
 
-    // --- 264 side (262 proxy): reuse the proven WFS Decision-2 read + write acts, one revUp ---
+    // --- Unified side: reuse the proven WFS Decision-2 read + write acts, one revUp ---
     final var unifiedEnv =
         CollectionsKt.last(
                 ReVoman.revUp(
@@ -926,7 +980,7 @@ class SchedulerVsUnifiedParityE2ETest {
     assertThat(oldReadUnavailDecision).isEqualTo(SchedulerParityConfig.ReadDecision.EXCLUDED);
     assertThat(oldWriteUnavailOutcome).isEqualTo(SchedulerParityConfig.WriteOutcome.REFUSED);
 
-    // 264 read↔write agreement: the SAME shape (shown ⟺ booked, hidden ⟺ refused).
+    // Unified read↔write agreement: the SAME shape (shown ⟺ booked, hidden ⟺ refused).
     assertThat(unifiedReadAvailDecision).isEqualTo(SchedulerParityConfig.ReadDecision.INCLUDED);
     assertThat(unifiedWriteAvailOutcome).isEqualTo(SchedulerParityConfig.WriteOutcome.BOOKED);
     assertThat(unifiedReadUnavailDecision).isEqualTo(SchedulerParityConfig.ReadDecision.EXCLUDED);
@@ -942,39 +996,36 @@ class SchedulerVsUnifiedParityE2ETest {
   /**
    * Decision 3 parity — an AssignedResource sent OMITTING the {@code isRequiredResource} flag
    * entirely. A single resourceA (FREE at the window) is booked with NO {@code isRequiredResource}
-   * (and no {@code isPrimaryResource}). Does OLD Salesforce Scheduler ALSO crash like 264, or does
-   * it degrade gracefully? Paired with the doc L142 control (a single {@code
+   * (and no {@code isPrimaryResource}). Does OLD Salesforce Scheduler ALSO crash like Unified, or
+   * does it degrade gracefully? Paired with the doc L142 control (a single {@code
    * isRequiredResource=true}, no {@code isPrimaryResource}) which MUST book valid on both engines.
    * Old side: public Scheduler REST ({@code POST /connect/scheduling/service-appointments}) over
    * the double-book fixture (fresh users + the Lightning-Scheduler grant; resourceA's member OH +
    * Confirmed Shift 10:00-14:00 cover the 11:00-11:30 window, so availability does not confound the
    * missing-flag probe). Unified side: the existing WFS Decision-3 Kicks ({@code
-   * MISSING_REQUIRED_FLAG_SCHEDULE_CONFIG} → 264 crash, {@code
+   * MISSING_REQUIRED_FLAG_SCHEDULE_CONFIG} → Unified crash, {@code
    * SINGLE_REQUIRED_NO_PRIMARY_SCHEDULE_CONFIG} → the L142 Success control).
    *
-   * <p>KEY PARITY FINDING (crash-vs-clean DIVERGENCE — like 1.4, and even sharper): the 264 Unified
+   * <p>KEY PARITY FINDING (crash-vs-clean DIVERGENCE — like 1.4, and even sharper): the Unified
    * write CRASHES on the omitted flag — errorCode {@code INTERNAL_SERVER_ERROR}, HTTP 500, a {@code
    * Boolean.booleanValue()} NPE ("because the return value of
-   * common.api.soap.Entity.getField(String) is null"), the locked-in 262 missing-flag NPE. The OLD
-   * classic engine does NOT crash: it degrades gracefully with a CLEAN, TARGETED input-validation
-   * refusal — LIVE-OBSERVED {@code POST /connect/scheduling/service-appointments} returns HTTP 400,
-   * errorCode {@code INVALID_API_INPUT}, message "Specify a valid value for isRequiredResource and
-   * try again." (it NAMES the exact missing field), no ServiceAppointment id and NOT a 500. So OLD
-   * ≠ 264 on the write axis — a crash-vs-clean divergence (both pinned verbatim: the 264 raw NPE,
-   * and the OLD field-naming clean refusal), NOT forced to a green. Both engines agree on the L142
-   * control (single required, no primary → BOOKED / Success), which isolates the divergence to the
-   * OMITTED flag: the SAME omitted-flag payload the OLD engine catches at input validation and
-   * rejects cleanly, 264 lets through to a raw server NPE.
+   * common.api.soap.Entity.getField(String) is null"). The OLD classic engine does NOT crash: it
+   * degrades gracefully with a CLEAN, TARGETED input-validation refusal — LIVE-OBSERVED {@code POST
+   * /connect/scheduling/service-appointments} returns HTTP 400, errorCode {@code
+   * INVALID_API_INPUT}, message "Specify a valid value for isRequiredResource and try again." (it
+   * NAMES the exact missing field), no ServiceAppointment id and NOT a 500. So OLD ≠ Unified on the
+   * write axis — a crash-vs-clean divergence (both pinned verbatim: the Unified raw NPE, and the
+   * OLD field-naming clean refusal), NOT forced to a green. Both engines agree on the L142 control
+   * (single required, no primary → BOOKED / Success), which isolates the divergence to the OMITTED
+   * flag: the SAME omitted-flag payload the OLD engine catches at input validation and rejects
+   * cleanly, Unified lets through to a raw server NPE.
    *
-   * <p>262-proxy caveat: this is the SHARPEST 262-proxy case (with 1.4) — the 264 side is a
-   * LOCKED-IN 262 INTERNAL_SERVER_ERROR crash observed on the 262 org that stands in for 264
-   * (endpoints identical 262↔264 per the parity effort). A true-264 org is expected to FIX this
-   * missing-flag NPE (treat a missing {@code isRequiredResource} as not-required and handle it
-   * cleanly, or validate it up front as the OLD engine already does), in which case the 264 side
-   * would converge toward the OLD clean-refusal/clean-handle behavior and this scenario would flip
-   * from a crash-vs-clean divergence to parity. The divergence is asserted as OBSERVED on 262,
-   * faithfully — the OLD engine's clean INVALID_API_INPUT refusal is arguably the reference
-   * behavior the 264 fix should match.
+   * <p>Unified is expected to FIX this missing-flag NPE (treat a missing {@code isRequiredResource}
+   * as not-required and handle it cleanly, or validate it up front as the OLD engine already does),
+   * in which case Unified would converge toward the OLD clean-refusal/clean-handle behavior and
+   * this scenario would flip from a crash-vs-clean divergence to parity. The divergence is asserted
+   * as LIVE-OBSERVED, faithfully — the OLD engine's clean INVALID_API_INPUT refusal is arguably the
+   * reference behavior the Unified fix should match.
    *
    * <p>Old-side revUps mint 2 fresh {@code sched-res-*@revoman.org} users per run and never clean
    * up; two old-side revUps here (missing-flag + L142 control) → ~4 fresh users/run. The leading
@@ -1019,7 +1070,7 @@ class SchedulerVsUnifiedParityE2ETest {
             oldControlEnv.getAsString("oldSingleRequiredNoPrimarySaId"),
             oldControlEnv.getAsString("oldSingleRequiredNoPrimaryHttp"));
 
-    // --- 264 side (262 proxy): the WFS Decision-3 missing-flag crash + the L142 Success control
+    // --- Unified side: the WFS Decision-3 missing-flag crash + the L142 Success control
     // ---
     // Act A: single assignedResource OMITTING isRequiredResource → 262 missing-flag NPE crash.
     // Act B (doc L142): single isRequiredResource=true, NO isPrimaryResource, fresh resources →
@@ -1048,24 +1099,24 @@ class SchedulerVsUnifiedParityE2ETest {
                     ReVomanConfigForWfs.SINGLE_REQUIRED_NO_PRIMARY_SCHEDULE_CONFIG))
             .mutableEnv;
 
-    // --- 264 CRASH asserted verbatim (the locked-in 262 missing-flag Boolean.booleanValue NPE) ---
+    // --- Unified CRASH asserted verbatim (the live missing-flag Boolean.booleanValue NPE) ---
     assertThat(unifiedMissingFlagEnv.getAsString("missingRequiredFlagErrorCode"))
         .isEqualTo("INTERNAL_SERVER_ERROR");
     assertThat(unifiedMissingFlagEnv.getAsString("missingRequiredFlagErrorMessage"))
         .contains("Boolean.booleanValue()");
     assertThat(unifiedMissingFlagOutcome).isEqualTo(SchedulerParityConfig.WriteOutcome.CRASHED);
-    // 264 L142 control (single required, no primary) → Success (proves the crash is the omitted
+    // Unified L142 control (single required, no primary) → Success (proves the crash is the omitted
     // flag).
     assertThat(unifiedControlEnv.getAsString("singleRequiredNoPrimaryStatus")).isEqualTo("Success");
 
-    // --- OLD outcomes pinned verbatim (characterization, NOT forced to match 264) ---
+    // --- OLD outcomes pinned verbatim (characterization, NOT forced to match Unified) ---
     // OLD does NOT crash on the omitted isRequiredResource: it degrades gracefully with a CLEAN,
     // TARGETED
     // input-validation refusal — LIVE-OBSERVED HTTP 400, errorCode=INVALID_API_INPUT, message
     // "Specify a
     // valid value for isRequiredResource and try again." (it NAMES the exact missing field), no SA
     // id and
-    // crucially NOT a 500 crash. This is the crash-vs-clean DIVERGENCE from the 264 write.
+    // crucially NOT a 500 crash. This is the crash-vs-clean DIVERGENCE from the Unified write.
     assertThat(oldMissingFlagEnv.getAsString("oldMissingFlagSaId")).isEmpty();
     assertThat(oldMissingFlagEnv.getAsString("oldMissingFlagHttp")).isEqualTo("400");
     assertThat(oldMissingFlagEnv.getAsString("oldMissingFlagErrorCode"))
@@ -1092,9 +1143,11 @@ class SchedulerVsUnifiedParityE2ETest {
 
     // --- DIVERGENCE recorded: OLD refuses CLEANLY (400 INVALID_API_INPUT, naming
     // isRequiredResource) on
-    // the omitted flag while the 264 write CRASHES (500 INTERNAL_SERVER_ERROR Boolean.booleanValue
+    // the omitted flag while the Unified write CRASHES (500 INTERNAL_SERVER_ERROR
+    // Boolean.booleanValue
     // NPE).
-    // OLD ≠ 264 on the write axis — a crash-vs-clean divergence, asserted verbatim, NOT forced to a
+    // OLD ≠ Unified on the write axis — a crash-vs-clean divergence, asserted verbatim, NOT forced
+    // to a
     // green. Both agree on the L142 control (BOOKED / Success), isolating the divergence to the
     // OMITTED
     // isRequiredResource flag. ---
@@ -1105,10 +1158,10 @@ class SchedulerVsUnifiedParityE2ETest {
    * Decision 4 parity — two "primary" workers on ONE appointment are REJECTED. Multi-resource
    * scheduling requires EXACTLY one primary. Both products refuse a book that names two {@code
    * isPrimaryResource=true} AssignedResources; a one-primary control BOOKS. OLD Salesforce
-   * Scheduler vs 264 Unified OnSite (262 proxy) agree on the OUTCOME (both REFUSED, no booking) —
-   * while the WHERE each rejects differs (a documented difference, NOT a failure).
+   * Scheduler vs Unified OnSite agree on the OUTCOME (both REFUSED, no booking) — while the WHERE
+   * each rejects differs (a documented difference, NOT a failure).
    *
-   * <p>264 Unified: rejects UP FRONT at INPUT validation ({@code
+   * <p>Unified: rejects UP FRONT at INPUT validation ({@code
    * ScheduleCommonValidator.validatePrimaryResourceConstraints}), before availability/persist — a
    * clean top-level {@code ConnectErrorCode INVALID_INPUT} / HTTP 400 with message "Only one of the
    * provided assigned resource can be a primary resource." No {@code appointments[0]} → status null
@@ -1122,7 +1175,7 @@ class SchedulerVsUnifiedParityE2ETest {
    * message "Only one assignedResource can have isPrimaryResource set to true. Check the request
    * and try again." So the WHERE turned out CLOSER than the field-integrity/save-time hypothesis in
    * the brief — both engines refuse at connect-API INPUT validation (pre-persist); only the
-   * errorCode ({@code INVALID_API_INPUT} vs 264's {@code INVALID_INPUT}) and the message TEXT
+   * errorCode ({@code INVALID_API_INPUT} vs Unified's {@code INVALID_INPUT}) and the message TEXT
    * differ. Captured faithfully; the OUTCOME (REFUSED, no booking) is the parity. The fixture seeds
    * TWO clean, fully-available PRIMARY-eligible resources (both member OH + Confirmed Shift 10-14
    * over the 11:00-11:30 window) so availability is NOT the discriminator — only the primary-count
@@ -1132,16 +1185,11 @@ class SchedulerVsUnifiedParityE2ETest {
    * <p>KEY PARITY FINDING (both products agree on the OUTCOME): two primaries on one appointment
    * are REFUSED (no booking) on BOTH engines, and a single-primary control BOOKS on the OLD surface
    * → Decision 4 parity CONFIRMED on the OUTCOME. WHERE-difference (minor, characterized): BOTH
-   * reject at connect-API INPUT validation / HTTP 400 (pre-persist) — 264 with errorCode {@code
+   * reject at connect-API INPUT validation / HTTP 400 (pre-persist) — Unified with errorCode {@code
    * INVALID_INPUT} ("Only one of the provided assigned resource can be a primary resource."), OLD
    * with {@code INVALID_API_INPUT} ("Only one assignedResource can have isPrimaryResource set to
    * true…") — differing only in errorCode + message text, not the WHERE. Characterized, not forced
    * to a green.
-   *
-   * <p>262-proxy caveat: the 264 verdict is 262-observed and stands in for 264 (endpoints identical
-   * 262↔264 per the parity effort); Decision 4 is a clean input-validation reject that already
-   * ships on 262 (262 == 264 here), so it is unaffected by the 262-specific crash caveats (1.4 /
-   * 3).
    *
    * <p>Old-side revUps mint 2 fresh {@code sched-2prim-*@revoman.org} users per run and never clean
    * up; two old-side revUps here (two-primary probe + one-primary control) → ~4 fresh users/run.
@@ -1185,7 +1233,7 @@ class SchedulerVsUnifiedParityE2ETest {
             oldControlEnv.getAsString("twoPrimaryControlSaId"),
             oldControlEnv.getAsString("twoPrimaryControlHttp"));
 
-    // --- 264 side (262 proxy): reuse the proven WFS two-primary act, one revUp ---
+    // --- Unified side: reuse the proven WFS two-primary act, one revUp ---
     final var unifiedEnv =
         CollectionsKt.last(
                 ReVoman.revUp(
@@ -1209,7 +1257,8 @@ class SchedulerVsUnifiedParityE2ETest {
     assertThat(oldControlEnv.getAsString("twoPrimaryControlSaId")).startsWith("08p");
     assertThat(oldControlOutcome).isEqualTo(SchedulerParityConfig.WriteOutcome.BOOKED);
 
-    // --- 264 side pinned verbatim: clean INPUT-validation reject (the WHERE 264 refuses) ---
+    // --- Unified side pinned verbatim: clean INPUT-validation reject (the WHERE Unified refuses)
+    // ---
     assertThat(unifiedEnv.getAsString("twoPrimaryErrorCode")).isEqualTo("INVALID_INPUT");
     assertThat(unifiedEnv.getAsString("twoPrimaryErrorMessage"))
         .contains("can be a primary resource");
@@ -1222,9 +1271,10 @@ class SchedulerVsUnifiedParityE2ETest {
     // true…" — a
     // connect-API INPUT-validation reject (NOT a persist/field-integrity error, and NOT a 500). The
     // WHERE
-    // is thus the SAME layer as 264 (connect-API input validation, pre-persist); only the errorCode
-    // +
-    // message text differ. Characterized verbatim, not forced to match 264's exact code/message.
+    // is thus the SAME layer as Unified (connect-API input validation, pre-persist); only the
+    // errorCode +
+    // message text differ. Characterized verbatim, not forced to match Unified's exact
+    // code/message.
     // ---
     assertThat(oldTwoPrimaryEnv.getAsString("twoPrimaryOldSaId")).isEmpty();
     assertThat(oldTwoPrimaryEnv.getAsString("twoPrimaryOldHttp")).isEqualTo("400");
@@ -1238,8 +1288,9 @@ class SchedulerVsUnifiedParityE2ETest {
     // (no
     // booking), and a single-primary control BOOKS on the OLD surface → parity CONFIRMED on the
     // OUTCOME.
-    // The WHERE each rejects differs (264 = INPUT validation pre-persist; OLD = SAVE/persist) — a
-    // documented difference, asserted above, NOT a failure. ---
+    // Both reject at the SAME layer (connect-API INPUT validation, pre-persist); only the errorCode
+    // + message text differ (Unified INVALID_INPUT vs OLD INVALID_API_INPUT) — a documented
+    // difference, asserted above, NOT a failure. ---
     assertThat(oldTwoPrimaryOutcome).isEqualTo(unifiedTwoPrimaryOutcome);
   }
 
@@ -1250,8 +1301,8 @@ class SchedulerVsUnifiedParityE2ETest {
    * primary AR) is BLOCKED by {@code validatePrimaryAssignedResourceOnDelete}
    * (FIELD_INTEGRITY_EXCEPTION); Arm 2 (DEMOTE the primary via PATCH IsPrimaryResource=false)
    * SUCCEEDS and leaves 0 primaries (no no-primary guard on UPDATE). Route-dependent verdict: OLD
-   * is STRICTER on the delete route but CONVERGES on the update route with 264 (whose reschedule
-   * validation likewise permits zero primaries) — neither product has a product-wide
+   * is STRICTER on the delete route but CONVERGES on the update route with Unified (whose
+   * reschedule validation likewise permits zero primaries) — neither product has a product-wide
    * must-keep-a-primary invariant → Decision 4z confirmed on BOTH sides.
    */
   @Test
@@ -1309,7 +1360,7 @@ class SchedulerVsUnifiedParityE2ETest {
             // primaryGone: "1" iff ZERO primaries survive the demote attempt.
             "0".equals(oldDemoteEnv.getAsString("reschedPrimaryCountAfterDemote")) ? "1" : "0");
 
-    // --- 264 side (262 proxy): reuse the proven WFS reschedule-no-primary acts, one revUp. ---
+    // --- Unified side: reuse the proven WFS reschedule-no-primary acts, one revUp. ---
     final var unifiedEnv =
         CollectionsKt.last(
                 ReVoman.revUp(
@@ -1321,14 +1372,15 @@ class SchedulerVsUnifiedParityE2ETest {
                     ReVomanConfigForWfs.RESCHEDULE_DELETE_PRIMARY_WITH_FLAG_CONFIG,
                     ReVomanConfigForWfs.RESCHEDULE_DELETE_PRIMARY_NO_FLAG_CONFIG))
             .mutableEnv;
-    // 264 Arm B (delete primary, no flag) is the closest analog to the old delete-primary probe.
+    // Unified Arm B (delete primary, no flag) is the closest analog to the old delete-primary
+    // probe.
     final var unifiedNoFlagOutcome =
         SchedulerParityConfig.unifiedNoPrimaryOutcome(
             unifiedEnv.getAsString("reschedNoFlagStatus"),
             unifiedEnv.getAsString("reschedNoFlagErrorCode"),
             unifiedEnv.getAsString("reschedNoFlagHttpCode"));
 
-    // --- 264 setup + arms asserted verbatim (the report's live-observed 262 result) ---
+    // --- Unified setup + arms asserted verbatim (the live-observed result) ---
     // Clean two-resource Schedule booked Success (the SA id for both reschedule arms).
     assertThat(unifiedEnv.getAsString("reschedCleanStatus")).isEqualTo("Success");
     assertThat(unifiedEnv.getAsString("reschedCleanSaId")).isNotNull();
@@ -1339,17 +1391,17 @@ class SchedulerVsUnifiedParityE2ETest {
     assertThat(unifiedEnv.getAsString("reschedWithFlagHttpCode")).isEqualTo("400");
     // Arm B: delete primary WITHOUT the flag → validation ALLOWS zero primaries (no NoPrimary
     // check),
-    // so it is refused ONLY by the downstream availability re-check (SlotNotAvailable) on 262 —
-    // never
+    // so it is refused ONLY by the downstream availability re-check (SlotNotAvailable) — never
     // by a "must keep a primary" rule. This is the 4z fact: no reschedule no-primary validation.
     assertThat(unifiedEnv.getAsString("reschedNoFlagStatus")).isNotEqualTo("Success");
     assertThat(unifiedEnv.getAsString("reschedNoFlagErrorCode")).isEqualTo("INVALID_INPUT");
     assertThat(unifiedEnv.getAsString("reschedNoFlagHttpCode")).isEqualTo("400");
     assertThat(unifiedEnv.getAsString("reschedNoFlagErrorMessage"))
         .contains("not available for the requested slot");
-    // On 262 the arms die at the availability re-check, not validation → normalized BLOCKED (the
-    // 264
-    // end-to-end no-primary completion is 264-only, per the WFS characterization).
+    // On the live org the arms die at the availability re-check, not validation → normalized
+    // BLOCKED
+    // (the end-to-end no-primary completion is validation-layer only, per the WFS
+    // characterization).
     assertThat(unifiedNoFlagOutcome).isEqualTo(SchedulerParityConfig.NoPrimaryOutcome.BLOCKED);
 
     // --- OLD outcomes pinned verbatim (characterization) ---
@@ -1374,7 +1426,8 @@ class SchedulerVsUnifiedParityE2ETest {
     // the
     // primary-worker enforcement lives ONLY in the DELETE guard, not on update. This is the
     // old-side
-    // route that DOES leave an appointment with no primary — the direct analog of 264's permissive
+    // route that DOES leave an appointment with no primary — the direct analog of Unified's
+    // permissive
     // reschedule validation.
     assertThat(oldDemoteEnv.getAsString("reschedDemotePrimaryHttp"))
         .isEqualTo(EXPECTED_DEMOTE_HTTP);
@@ -1386,26 +1439,28 @@ class SchedulerVsUnifiedParityE2ETest {
     // (1) DELETE route: OLD is STRICTER — its save-time delete guard
     // (validatePrimaryAssignedResourceOnDelete → FIELD_INTEGRITY_EXCEPTION) HARD-BLOCKS removing
     // the
-    // primary AR (primary survives), so the delete route CANNOT leave a no-primary SA. On the 264
+    // primary AR (primary survives), so the delete route CANNOT leave a no-primary SA. On the
+    // Unified
     // side
     // the analogous delete-primary reschedule (Arm B) passes VALIDATION (zero primaries allowed)
     // and is
-    // refused only downstream (262 availability re-check) → both probes normalize to BLOCKED here,
+    // refused only downstream (availability re-check) → both probes normalize to BLOCKED here,
     // but
-    // for DIFFERENT reasons: old = a genuine no-primary DML guard, 264 = an availability gap over a
-    // permissive validator. So on the delete route old ≥ 264 in strictness (enforcement-layer
+    // for DIFFERENT reasons: old = a genuine no-primary DML guard, Unified = an availability gap
+    // over a
+    // permissive validator. So on the delete route old ≥ Unified in strictness (enforcement-layer
     // divergence), and the observable outcomes AGREE.
     assertThat(oldDeleteOutcome).isEqualTo(unifiedNoFlagOutcome);
     // (2) DEMOTE/UPDATE route (the deeper fact): NEITHER product enforces a blanket "appointment
     // must
     // always keep a primary" invariant. OLD's save validator has no no-primary check on UPDATE, so
     // the
-    // demote PATCH LEAVES a no-primary SA (LEFT_NO_PRIMARY); 264's reschedule validation likewise
+    // demote PATCH LEAVES a no-primary SA (LEFT_NO_PRIMARY); Unified's reschedule validation
+    // likewise
     // permits
     // zero primaries (validatePrimaryResourceCount throws only for > 1). So both engines CAN be
     // driven to
-    // a no-primary state — old via demote-PATCH, 264 via reschedule validation (end-to-end on true
-    // 264) —
+    // a no-primary state — old via demote-PATCH, Unified via reschedule validation —
     // confirming Decision 4z on BOTH sides. The old delete guard is a route-specific stricture, not
     // a
     // product-wide primary invariant. Asserted faithfully (not forced to a single AGREE/DIVERGE
@@ -1414,13 +1469,13 @@ class SchedulerVsUnifiedParityE2ETest {
   }
 
   /**
-   * The 264 no-primary VALIDATION verdict for the 4z comparison: 264 reschedule validation ALLOWS
-   * zero primaries (there is no NoPrimary check — {@code validatePrimaryResourceCount} throws only
-   * when {@code primaryCount > 1}), so at the validation layer 264 would LEAVE_NO_PRIMARY (and
-   * does, end-to-end, on true 264; on the 262 proxy it is stopped only by the downstream
-   * availability gap). This mirrors the old side's demote route, which leaves a no-primary SA. Kept
-   * as a named constant so the demote-route parity read is explicit: both products permit
-   * no-primary at their validation layer.
+   * The Unified no-primary VALIDATION verdict for the 4z comparison: Unified reschedule validation
+   * ALLOWS zero primaries (there is no NoPrimary check — {@code validatePrimaryResourceCount}
+   * throws only when {@code primaryCount > 1}), so at the validation layer Unified would
+   * LEAVE_NO_PRIMARY (on the live org it is stopped only by the downstream availability gap). This
+   * mirrors the old side's demote route, which leaves a no-primary SA. Kept as a named constant so
+   * the demote-route parity read is explicit: both products permit no-primary at their validation
+   * layer.
    */
   private static SchedulerParityConfig.NoPrimaryOutcome unifiedNoPrimaryValidationVerdict() {
     return SchedulerParityConfig.NoPrimaryOutcome.LEFT_NO_PRIMARY;
@@ -1435,7 +1490,7 @@ class SchedulerVsUnifiedParityE2ETest {
    * AssignedResource — this Connect API, Apex, direct DML, bulk — whenever multi-resource
    * scheduling is on. So the OLD Salesforce Scheduler book path ({@code POST
    * /connect/scheduling/service-appointments}, which inserts AssignedResource rows) hits the SAME
-   * validator as 264 → literally the same code path.
+   * validator Unified hits → literally the same code path.
    *
    * <p>The booking window is FREE for resourceA (member OH + Confirmed Shift 10-14 both cover the
    * 11:00-11:30 window), so availability passes and the persist-time primary-must-be-required
@@ -1449,15 +1504,12 @@ class SchedulerVsUnifiedParityE2ETest {
    * <p>KEY PARITY FINDING (both products agree): the primary-not-required contradiction is REFUSED
    * on both engines (both fire the shared save-time AssignedResource validator), while the
    * required-primary control BOOKS on both → Decision 5 parity CONFIRMED on the write axis. The OLD
-   * validator's observed error envelope is captured faithfully (it may differ from the 264
+   * validator's observed error envelope is captured faithfully (it may differ from the Unified
    * schedulingStatus=PersistError / errorCode=INVALID_FIELD envelope); the PARITY is on the
    * normalized OUTCOME (both REFUSE the contradiction, both BOOK the control), not on the raw
    * message text.
    *
-   * <p>262-proxy caveat: the 264 verdict is 262-observed (endpoints identical 262↔264 per the
-   * parity effort). Decision 5 is a persist-validation reject (crash-free on both engines), so it
-   * is unaffected by the 262-specific INTERNAL_SERVER_ERROR crash caveats (1.4 / 3). A divergence,
-   * were it to appear, would be asserted faithfully rather than forced to a green.
+   * <p>A divergence, were it to appear, would be asserted faithfully rather than forced to a green.
    *
    * <p>Old-side revUps mint 1 fresh {@code sched-pnr-a-*@revoman.org} user per run and never clean
    * up; two old-side revUps here (probe + control) → ~2 fresh users/run. The leading success guard
@@ -1504,7 +1556,7 @@ class SchedulerVsUnifiedParityE2ETest {
             oldControlEnv.getAsString("oldWriteRequiredControlSaId"),
             oldControlEnv.getAsString("oldWriteRequiredControlHttp"));
 
-    // --- 264 side (262 proxy): reuse the proven WFS Decision-5 acts (probe rejected at persist +
+    // --- Unified side: reuse the proven WFS Decision-5 acts (probe rejected at persist +
     // required
     // control booked), two revUps (Approach A: the rejected probe and the persisting control never
     // share
@@ -1556,11 +1608,12 @@ class SchedulerVsUnifiedParityE2ETest {
     assertThat(unifiedControlOutcome).isEqualTo(SchedulerParityConfig.WriteOutcome.BOOKED);
     assertThat(oldControlOutcome).isEqualTo(unifiedControlOutcome);
 
-    // 264 probe pinned to the Decision-5 persist-validation reject (the shared validator's 264
+    // Unified probe pinned to the Decision-5 persist-validation reject (the shared validator's
+    // Unified
     // envelope).
     assertThat(unifiedProbeEnv.getAsString("primaryNotReqStatus")).isEqualTo("PersistError");
     assertThat(unifiedProbeEnv.getAsString("primaryNotReqErrorCode")).isEqualTo("INVALID_FIELD");
-    // 264 control books Success.
+    // Unified control books Success.
     assertThat(unifiedControlEnv.getAsString("primaryReqControlStatus")).isEqualTo("Success");
   }
 
@@ -1602,7 +1655,7 @@ class SchedulerVsUnifiedParityE2ETest {
     final var oldLimitPositiveDecision =
         SchedulerParityConfig.oldReadDecision(oldLimitPositiveCount);
 
-    // --- 264 side (262 proxy): reuse the proven WFS Decision-8 read Kicks, one revUp ---
+    // --- Unified side: reuse the proven WFS Decision-8 read Kicks, one revUp ---
     final var unifiedEnv =
         CollectionsKt.last(
                 ReVoman.revUp(
@@ -1619,7 +1672,7 @@ class SchedulerVsUnifiedParityE2ETest {
     final var unifiedLimitPositiveDecision =
         SchedulerParityConfig.oldReadDecision(unifiedLimitPositiveCount);
 
-    // --- 264 (asserted): the cap engages on the default load-balancing policy — limit=0 EMPTY,
+    // --- Unified (asserted): the cap engages on the default load-balancing policy — limit=0 EMPTY,
     // limit=50 >0.
     // Neither read is a swallowed 4xx/5xx (both acts are ignore-HTTP-status), so assert no
     // errorCode.
@@ -1641,11 +1694,12 @@ class SchedulerVsUnifiedParityE2ETest {
     assertThat(Integer.parseInt(oldLimitPositiveCount)).isGreaterThan(0);
     assertThat(oldLimitPositiveDecision).isEqualTo(SchedulerParityConfig.ReadDecision.INCLUDED);
 
-    // --- PARITY: characterize the OLD cap vs 264, faithfully. ---
+    // --- PARITY: characterize the OLD cap vs Unified, faithfully. ---
     if (oldCapConstructible) {
       // The org HAS smart scheduling → the load-balancing FK attached → the classic cap path is
       // live.
-      // AGREE: the OLD cap behaves like 264 — limit=0 → EMPTY, positive → resources. (Both engines
+      // AGREE: the OLD cap behaves like Unified — limit=0 → EMPTY, positive → resources. (Both
+      // engines
       // route
       // the candidate set through a load-balancing objective; the cap semantics match.)
       assertThat(oldCapEngaged).isTrue();
@@ -1665,17 +1719,18 @@ class SchedulerVsUnifiedParityE2ETest {
       // never takes
       // the load-balancing branch, so resourceLimitApptDistribution is accepted on the request but
       // NEVER
-      // applied — the cap is a no-op and limit=0 does NOT empty the pool. 264 ships the
+      // applied — the cap is a no-op and limit=0 does NOT empty the pool. Unified ships the
       // LoadBalancing
       // objective on its DEFAULT OnSite policy, so ITS cap always engages (limit=0 → EMPTY). This
       // is the
-      // true OLD-vs-264 divergence for Decision 8: the cap parameter is honored identically ONLY
+      // true OLD-vs-Unified divergence for Decision 8: the cap parameter is honored identically
+      // ONLY
       // once the
-      // load-balancing objective/policy is present on BOTH — a configuration precondition 264
+      // load-balancing objective/policy is present on BOTH — a configuration precondition Unified
       // pre-satisfies
       // and this scheduler org does not. Pin the observed OLD no-op: limit=0 stays INCLUDED (pool
       // not
-      // emptied), diverging from 264's EXCLUDED.
+      // emptied), diverging from Unified's EXCLUDED.
       assertThat(oldReadEnv.getAsString("schedLimitAttachErrorCode")).isEqualTo("INVALID_FIELD");
       assertThat(oldCapEngaged).isFalse();
       assertThat(oldLimitZeroDecision).isEqualTo(SchedulerParityConfig.ReadDecision.INCLUDED);
@@ -1690,7 +1745,7 @@ class SchedulerVsUnifiedParityE2ETest {
   void testShiftSharingSplitParity_9_E2E() {
     SchedulerParityConfig.assumeBothOrgCreds();
 
-    // --- 264 side (262 proxy): the proven WFS Decision-9 chain. adminToken mints manager +
+    // --- Unified side: the proven WFS Decision-9 chain. adminToken mints manager +
     // case-worker
     // (own SOAP sessions); the manager OWNS the policy/fixture/Private Shift rows; the case-worker
     // lacks
@@ -1710,13 +1765,13 @@ class SchedulerVsUnifiedParityE2ETest {
             .mutableEnv;
     final var unifiedManagerGate =
         SchedulerParityConfig.sharingGate(unifiedEnv.getAsString("dec9CaseWorkerSlotCount"), "200");
-    // 264 shift-gated split asserted verbatim (mirrors
+    // Unified shift-gated split asserted verbatim (mirrors
     // WfsReadPathParityE2ETest.testShiftSharingModeSplitE2E):
     // the shift OWNER (manager) sees availability; the sharing-deprived case-worker sees NONE,
     // silently.
     assertThat(Integer.parseInt(unifiedEnv.getAsString("dec9ManagerSlotCount"))).isGreaterThan(0);
     assertThat(unifiedEnv.getAsString("dec9CaseWorkerSlotCount")).isEqualTo("0");
-    // 264 case-worker (sharing-deprived) is GATED (zero slots, HTTP 200, no error).
+    // Unified case-worker (sharing-deprived) is GATED (zero slots, HTTP 200, no error).
     assertThat(unifiedManagerGate).isEqualTo(SchedulerParityConfig.SharingGate.GATED);
 
     // --- OLD side: cross-persona classic getAppointmentSlots. AUTH (admin) → persona-mint (manager
@@ -1746,7 +1801,7 @@ class SchedulerVsUnifiedParityE2ETest {
     // engine's
     // user-mode STM/ServiceResource read gate (NOT the shift read, which is full-access). This is
     // the axis
-    // under test and the point of parity with 264 on the OBSERVABLE contract. ---
+    // under test and the point of parity with Unified on the OBSERVABLE contract. ---
     assertThat(oldEnv.getAsString("oldD9CaseWorkerHttp")).isEqualTo("200");
     assertThat(oldEnv.getAsString("oldD9CaseWorkerSlotCount")).isEqualTo("0");
     assertThat(oldCaseWorkerGate).isEqualTo(SchedulerParityConfig.SharingGate.GATED);
@@ -1756,7 +1811,7 @@ class SchedulerVsUnifiedParityE2ETest {
     // HTTP 200, no error → GATED == GATED. They AGREE on the user-visible half-secured behavior.
     // ---
     assertThat(oldCaseWorkerGate).isEqualTo(unifiedManagerGate);
-    // --- DIVERGENCE (mechanism, source-confirmed, recorded not forced): 264 gates on the SHIFT
+    // --- DIVERGENCE (mechanism, source-confirmed, recorded not forced): Unified gates on the SHIFT
     // read
     // (user-mode) while OLD gates on the STM/ServiceResource read (user-mode) and reads shifts
     // full-access —
@@ -1848,21 +1903,32 @@ class SchedulerVsUnifiedParityE2ETest {
    * the old engine "an existing assignment counts even when booked as optional" is TRUE, and it
    * counts even when the second booking is optional too.
    *
-   * <p><b>Unified engine — WRITE-PATH CONTRACT, not a config gap (verified in Core p4/260-patch,
-   * confirmed live by {@link #testPriorAssignmentUnifiedReadVsWriteE2E}):</b> Unified double-books
-   * B in every cell because its WRITE surface does not check occupancy at all. The {@code
-   * /connect/unified-scheduling/actions/schedule} action ({@code
-   * unified.scheduling.connect.api.execution.processors.ScheduleProcessor}) persists the
-   * caller-supplied {@code assignedResources} directly — {@code persistRecords()==true}, no
-   * availability re-check. Occupancy IS computed, but only on the READ surface: {@code
-   * UnavailabilityService.getResourceUnavailability} (which always subtracts existing
-   * ServiceAppointments) has a single production caller, {@code
-   * InBusinessGetCandidatesSlotsDataService}, i.e. get-candidates / get-slots. The companion test
-   * proves this split live: after appt #1 books B, get-appointment-candidates for the same window
-   * EXCLUDES busy B yet still offers free C, while the schedule action books B anyway. The
-   * handoff's earlier "{@code CalendarEvents} rule gates it" hypothesis was WRONG on two counts —
-   * the {@code CalendarEvents} rule was REMOVED in 264, and even on 262 {@code
-   * SchedulingPolicyInfo.shouldConsiderCalendarEvents()} gated only Salesforce {@code Event}
+   * <p><b>Unified engine — MULTI-RESOURCE SLOT-INTERSECTION GAP (debugger-verified on live HEAD
+   * {@code 90cdfeb7}, {@code p4/262-patch}, {@code -Dversion=262}, 2026-07-07; confirmed live by
+   * {@link #testPriorAssignmentUnifiedReadVsWriteE2E}):</b> Unified double-books B in every cell —
+   * but NOT because "the write surface never checks occupancy" (that earlier explanation was
+   * WRONG). The write path DOES run an occupancy check: {@code InBusinessScheduleHandler.handle} →
+   * {@code SlotAvailabilityChecker.isSlotAvailable} (before DML, throws {@code SlotNotAvailable},
+   * holds a double-booking lock), and it DOES load occupancy for the busy required resource B
+   * ({@code extractServiceResourceIds} includes required B; {@code
+   * UnavailabilityService.getResourceUnavailability} subtracts B's existing SA). The double-book
+   * comes from a specific gap in the multi-resource slot logic: {@code
+   * InBusinessGetSlotsHandler.getOverlappingSlotsBetweenResources} intersects only over {@code
+   * schedulableSlots.keySet()} — resources that produced ≥1 slot. A fully-busy required resource
+   * generates ZERO slots, so it is ABSENT from the keySet and silently dropped from the
+   * intersection. With the free primary C still producing an 11:00 slot, {@code hasExactSlotMatch}
+   * returns true → {@code isSlotAvailable}=true → B is persisted (double-booked). Only the PRIMARY
+   * resource is guarded ({@code processSlotsRequest} {@code containsKey(primaryResourceId)}); a
+   * busy PRIMARY would be refused. Non-required helpers are excluded from the check entirely
+   * ({@code extractServiceResourceIds} filters to required-only). Live debugger evidence (req×req
+   * cell): {@code serviceResourceIds}={C,B} (size 2) but {@code schedulableSlots.keySet()}={C} →
+   * {@code slotsOutput}=[11:00 slot] → {@code hasExactSlotMatch}=true → BOOKED. The read≠write
+   * split is this collapse difference: get-candidates ({@code
+   * InBusinessGetCandidatesHandler.buildCandidatesList}) emits per-resource rows so it EXCLUDES
+   * busy B while offering free C; the schedule action collapses via the keySet intersection and
+   * books B. The handoff's earlier "{@code CalendarEvents} rule gates it" hypothesis was WRONG on
+   * two counts — the {@code CalendarEvents} rule has since been REMOVED, and even on the live org
+   * {@code SchedulingPolicyInfo.shouldConsiderCalendarEvents()} gated only Salesforce {@code Event}
    * sObjects (its unavailability SOQL excludes appointment-linked events), never ServiceAppointment
    * occupancy.
    *
@@ -1906,7 +1972,7 @@ class SchedulerVsUnifiedParityE2ETest {
     SchedulerParityConfig.assumeBothOrgCreds();
 
     // LIVE-OBSERVED TRUTH TABLE (2026-07-06, both orgs, not FROM-CACHE) — a TOTAL divergence:
-    // OLD Salesforce Scheduler REFUSED all four cells; 264 Unified BOOKED all four. Each cell is
+    // OLD Salesforce Scheduler REFUSED all four cells; Unified BOOKED all four. Each cell is
     // asserted
     // VERBATIM to the observed outcome (not forced to a parity match), the same way the 1.4 / 3
     // crash
@@ -1964,16 +2030,26 @@ class SchedulerVsUnifiedParityE2ETest {
   }
 
   /**
-   * Unified read-vs-write occupancy contract (verified against Core p4/260-patch). Unified's READ
-   * surface DOES compute occupancy: after appt #1 commits an overlapping ServiceAppointment on B,
-   * {@code get-appointment-candidates} for appt #2's window EXCLUDES busy B while still offering
-   * the free primary C ({@code UnavailabilityService.getResourceUnavailability} subtracts existing
-   * SAs, invoked only on the get-candidates/get-slots path). Yet the WRITE surface ({@code
-   * /actions/schedule}) BOOKS B over that same appointment, because {@code ScheduleProcessor}
-   * persists the caller-supplied {@code assignedResources} with no occupancy re-check. This pins
-   * the OLD↔Unified divergence at the read/write boundary — a write-path API-contract difference,
-   * NOT a missing policy rule (the handoff's CalendarEvents hypothesis is false: that rule was
-   * removed in 264 and even on 262 gated only Salesforce Event records, never ServiceAppointments).
+   * Unified read-vs-write occupancy divergence (DEBUGGER-VERIFIED on live HEAD {@code 90cdfeb7},
+   * {@code p4/262-patch}, {@code -Dversion=262}, 2026-07-07 — the running server IS the local HEAD
+   * checkout, so this is current behavior, NOT version skew). Unified's READ surface DOES compute
+   * occupancy: after appt #1 commits an overlapping ServiceAppointment on B, {@code
+   * get-appointment-candidates} for appt #2's window EXCLUDES busy B while still offering the free
+   * primary C. Yet the WRITE surface ({@code /actions/schedule}) BOOKS B over that same
+   * appointment. The write path DOES run an occupancy check ({@code
+   * InBusinessScheduleHandler.handle} → {@code SlotAvailabilityChecker.isSlotAvailable}) and DOES
+   * load occupancy for busy required B — but its multi-resource slot-intersection ({@code
+   * InBusinessGetSlotsHandler.getOverlappingSlotsBetweenResources}) iterates only {@code
+   * schedulableSlots.keySet()}, and a fully-busy required resource produces ZERO slots so it is
+   * ABSENT from the keySet and silently dropped; the free primary C's slot survives, {@code
+   * hasExactSlotMatch}=true, B is booked. The read/write split is therefore a COLLAPSE difference:
+   * get-candidates ({@code buildCandidatesList}) reports per-resource so it excludes B; the write
+   * (get-slots) intersects over the keySet so it books B. Only the PRIMARY is guarded; a busy
+   * primary would be refused. Live debugger trace (this cell): {@code serviceResourceIds}={C,B} but
+   * {@code schedulableSlots.keySet()}={C} → {@code slotsOutput}=[11:00 slot] → {@code
+   * hasExactSlotMatch}=true → BOOKED. NOT a missing policy rule (the handoff's CalendarEvents
+   * hypothesis is false: that rule has since been removed and even on the live org gated only
+   * Salesforce Event records, never ServiceAppointments).
    *
    * <p>Non-vacuity: appt #1's {@code priorAppt1SchedulingStatus == Success} proves B's overlapping
    * assignment actually committed, and the read-side control ({@code priorAppt2CandidatesCIncluded

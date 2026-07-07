@@ -1,0 +1,58 @@
+$kind: http-request
+description: >-
+  OLD Salesforce Scheduler WRITE probe (required-excluded variant of the 1a helper): POST
+  /connect/scheduling/service-appointments, tomorrow 11:00-11:30 UTC, parentRecordId = the excluded
+  Account, with a SINGLE assignedResource — resourceB (isRequiredResource=true, isPrimaryResource=true),
+  the resource on the Account's Excluded ResourcePreference list. resourceB is genuinely available
+  (Confirmed Shift 08-16, Primary ServiceTerritoryMember), so the ONLY thing that could stop the booking is
+  the account Excluded rule. The classic book path (ServiceAppointmentServiceImpl.create →
+  ServiceAppointmentHelper.areResourcesAvailable → schedulingService.getAppointmentSlots) passes
+  accountResourcePreferences=null (SchedulingServiceImpl.getAppointmentSlotsForTerritoryWorkTypes never
+  loads them), so checkResourcePrefs short-circuits true and the account Excluded list is NEVER evaluated
+  on the write path. OBSERVED outcome should therefore be: the SA BOOKS (HTTP 2xx, serviceAppointmentId
+  returned) even though the required+primary resource is account-excluded — the DIVERGENCE from Unified,
+  which rejects this same write. Captures oldReqExcludedWriteHttp + oldReqExcludedWriteSaId.
+url: "{{baseUrl}}{{versionPath}}/connect/scheduling/service-appointments"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "serviceAppointment": {
+        "serviceTerritoryId": "{{schedTerritoryId}}",
+        "parentRecordId": "{{schedAccountId}}",
+        "workTypeId": "{{schedWorkTypeId}}",
+        "schedStartTime": "{{schedBookStart}}",
+        "schedEndTime": "{{schedBookEnd}}",
+        "extendedFields": [ { "name": "Status", "value": "Scheduled" } ]
+      },
+      "assignedResources": [
+        { "serviceResourceId": "{{schedResourceBId}}", "isRequiredResource": true, "isPrimaryResource": true }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(11, 0, 0, 0);
+      const e = new Date(s.getTime() + 30 * 60 * 1000);
+      pm.environment.set("schedBookStart", s.toISOString());
+      pm.environment.set("schedBookEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      // Connect book API wraps the payload in a "result" node on success:
+      // { "result": { "serviceAppointmentId": "08p...", ... } }. On refusal it returns a top-level error
+      // array (no serviceAppointmentId). oldWriteOutcome() maps: saId present → BOOKED; http 500 → CRASHED;
+      // else → REFUSED.
+      const data = pm.response.json() || {};
+      const result = data.result || data;
+      pm.environment.set("oldReqExcludedWriteHttp", String(pm.response.code));
+      pm.environment.set("oldReqExcludedWriteSaId", result.serviceAppointmentId || (result.serviceAppointment && result.serviceAppointment.id) || "");
+      console.log("OLD book required-excluded http=" + pm.response.code + " body=" + JSON.stringify(data).slice(0,300));
+    language: text/javascript
+order: 1000

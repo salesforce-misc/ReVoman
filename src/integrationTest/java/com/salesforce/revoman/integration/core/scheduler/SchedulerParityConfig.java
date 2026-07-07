@@ -21,11 +21,11 @@ import java.util.Map;
 import org.junit.jupiter.api.Assumptions;
 
 /**
- * Two-org config seam for the Salesforce Scheduler ↔ Unified(264) {@code 1.*} non-required
+ * Two-org config seam for the Salesforce Scheduler ↔ Unified {@code 1.*} non-required
  * resource-fitness parity tests. The OLD side (scheduler org) is driven over public Scheduler REST;
- * the 264 side reuses the existing {@link ReVomanConfigForWfs} Unified Kicks against the 262 org
- * (endpoints identical 262↔264 per the parity effort). The two OnSite engines are SEPARATE
- * re-implementations (old {@code scheduling-impl.SchedulingServiceImpl} vs {@code
+ * the Unified side reuses the existing {@link ReVomanConfigForWfs} Unified Kicks against the live
+ * Unified org. The two OnSite engines are SEPARATE re-implementations (old {@code
+ * scheduling-impl.SchedulingServiceImpl} vs {@code
  * unified-scheduling-impl.InBusinessAppointmentSlotCalculator}), so parity is not guaranteed by
  * construction — these tests assert it.
  *
@@ -143,6 +143,18 @@ public final class SchedulerParityConfig {
       oldKickFor(V3_SCHEDULER_PATH + "booking/get-candidates-excluded");
   static final Kick OLD_BOOK_EXCLUDED_NON_REQUIRED_CONFIG =
       oldKickFor(V3_SCHEDULER_PATH + "booking/service-appointments-excluded-non-required");
+  // * NOTE 2026-07-07 gopal.akshintala: required-excluded variant — books resourceB (the
+  // account-Excluded
+  // * resource) as the SINGLE required+primary assignedResource. Classic write passes
+  // * accountResourcePreferences=null, so the Excluded list is not enforced on write → expected
+  // BOOKED.
+  // * This is the DIVERGENCE from Unified
+  // (WfsRulesParityE2ETest#testExcludedResourcesReadWriteParityE2E
+  // * asserts Unified REJECTS the same required-excluded write via SlotAvailabilityChecker reusing
+  // the
+  // * pruned get-slots read). Verifies the code-derived divergence live on 262.
+  static final Kick OLD_BOOK_EXCLUDED_REQUIRED_CONFIG =
+      oldKickFor(V3_SCHEDULER_PATH + "booking/service-appointments-excluded-required");
 
   // ## 1c (Skills) — the WorkType requires a Skill; skilled resourceA holds a ServiceResourceSkill,
   // skill-less resourceB has none. skills-helper is a TWO-Kick-shaped fixture (05-create-skill runs
@@ -156,7 +168,7 @@ public final class SchedulerParityConfig {
   // the
   // rule exists), 20 single skilled A → INCLUDED (non-vacuity), 30 multi A-primary +
   // B-required-helper →
-  // B ESCAPES (old multi path skill-checks the primary ONLY → parity with 264 non-required
+  // B ESCAPES (old multi path skill-checks the primary ONLY → parity with Unified non-required
   // resource-escapes).
   static final Kick OLD_GET_SLOTS_SKILLS_CONFIG =
       oldKickFor(V3_SCHEDULER_PATH + "booking/get-appointment-slots-skills");
@@ -171,8 +183,8 @@ public final class SchedulerParityConfig {
   // pref is a
   // candidate-POOL FILTER (SchedulingDbUtil.checkResourcePrefs keeps only the account's required
   // set), read
-  // via getAppointmentCandidates — semantically distinct from the 264 "non-required resource must
-  // SATISFY a demand"
+  // via getAppointmentCandidates — semantically distinct from the Unified "non-required resource
+  // must SATISFY a demand"
   // satisfier rule. See {@link
   // SchedulerVsUnifiedParityE2ETest#testHelperRequiredResourceParity_1_4_E2E}.
   static final Kick OLD_REQUIRED_HELPER_FIXTURE_CONFIG =
@@ -208,7 +220,8 @@ public final class SchedulerParityConfig {
   static final Kick OLD_BOOK_PROMISE_UNAVAILABLE_CONFIG =
       oldKickFor(V3_SCHEDULER_PATH + "booking/service-appointments-promise-unavailable");
 
-  // ## Decision 3 — a single AssignedResource sent OMITTING isRequiredResource entirely. On 264 the
+  // ## Decision 3 — a single AssignedResource sent OMITTING isRequiredResource entirely. On Unified
+  // the
   // missing-flag payload CRASHES (Boolean.booleanValue() NPE, HTTP 500 INTERNAL_SERVER_ERROR). The
   // OLD
   // probe reuses the double-book fixture (fresh users + grant chain, resourceA FREE at the 11:00
@@ -238,7 +251,7 @@ public final class SchedulerParityConfig {
   // set to
   // true…" (no booking). The one-primary control (A primary + B non-primary, both free) BOOKS
   // (non-vacuity).
-  // Both engines reject at connect-API INPUT validation (pre-persist) at HTTP 400 — 264 with
+  // Both engines reject at connect-API INPUT validation (pre-persist) at HTTP 400 — Unified with
   // INVALID_INPUT,
   // OLD with INVALID_API_INPUT — so the WHERE coincides and only the errorCode + message text
   // differ; the
@@ -264,7 +277,7 @@ public final class SchedulerParityConfig {
   // validatePrimaryAssignedResourceOnDelete BLOCKS deleting a primary AR (FIELD_INTEGRITY_EXCEPTION
   // "AssignedResourceDelete"), while validateAssignedResourceOnSave guards only
   // primary-must-be-required
-  // and at-most-one-primary (no "must keep a primary" rule). The 264 side reuses the proven WFS
+  // and at-most-one-primary (no "must keep a primary" rule). The Unified side reuses the proven WFS
   // reschedule-no-primary acts (validation ALLOWS zero primaries; validatePrimaryResourceCount
   // throws
   // only when primaryCount > 1). See {@link
@@ -284,9 +297,9 @@ public final class SchedulerParityConfig {
   // FREE
   // * (availability passes), so the classic book path inserts the AssignedResource row and the
   // SAVE-TIME
-  // * LightningSchedulerAssignedResourceValidator (fieldservice-impl — the SAME validator 264 hits
-  // on
-  // * this API/Apex/DML) rejects it ("Only an required service resource can be set as a primary
+  // * LightningSchedulerAssignedResourceValidator (fieldservice-impl — the SAME validator Unified
+  // hits
+  // * on this API/Apex/DML) rejects it ("Only an required service resource can be set as a primary
   // service
   // * resource."). Probe: single primary + NOT required → REFUSED. Control: flip
   // isRequiredResource=true
@@ -316,7 +329,8 @@ public final class SchedulerParityConfig {
   // perm) — so
   // the fixture seeds the assignment policy + policy FK, and the reads omit filterByResources.
   // limit=0 →
-  // subList(0,0) → empty (a literal cap-of-0, matching 264's Stream.limit(0)); limit=50 (> 2 seeded
+  // subList(0,0) → empty (a literal cap-of-0, matching Unified's Stream.limit(0)); limit=50 (> 2
+  // seeded
   // resources) → no trim → pool returned. See
   // {@link SchedulerVsUnifiedParityE2ETest#testResourceLimitCapParity_8_E2E}.
   static final Kick OLD_LIMIT_FIXTURE_CONFIG =
@@ -341,7 +355,7 @@ public final class SchedulerParityConfig {
   // while its
   // * STM/ServiceResource read is the user-mode gate (SystemMode.NONE, gated by
   // orgHasDepriveSoqlAccess)
-  // * — the INVERSE of 264, whose SHIFT read is the user-mode gate. So old never gates on the
+  // * — the INVERSE of Unified, whose SHIFT read is the user-mode gate. So old never gates on the
   // shift; the
   // * observable slot-count split (if any) comes from the STM/ServiceResource sharing gate instead.
   static final Kick OLD_AUTH_PERSONAS_DEC9_CONFIG =
@@ -401,7 +415,7 @@ public final class SchedulerParityConfig {
 
   /**
    * Decision 4z normalized outcome for a "leave the appointment with no primary" attempt,
-   * comparable across the OLD sObject DELETE/PATCH probes and the 264 reschedule API:
+   * comparable across the OLD sObject DELETE/PATCH probes and the Unified reschedule API:
    * LEFT_NO_PRIMARY means the appointment ended with zero primary workers (the state the doc says
    * should be impossible), BLOCKED means a rule refused the change (2xx never happened, or the
    * primary survived), CRASHED means an HTTP 500 / INTERNAL_SERVER_ERROR.
@@ -415,9 +429,9 @@ public final class SchedulerParityConfig {
   /**
    * Decision-9 sharing-gate verdict, shared by both engines: does a sharing-DEPRIVED reader (the
    * case-worker, no sharing on the private fixture rows) get GATED (zero slots, HTTP 200, no error)
-   * or does it read the SAME availability as the privileged reader (OPEN)? On 264 this gate is the
-   * SHIFT user-mode read; on OLD classic it is the STM/ServiceResource user-mode read (the shift
-   * read is full-access) — same observable (zero slots) via an INVERTED axis.
+   * or does it read the SAME availability as the privileged reader (OPEN)? On Unified this gate is
+   * the SHIFT user-mode read; on OLD classic it is the STM/ServiceResource user-mode read (the
+   * shift read is full-access) — same observable (zero slots) via an INVERTED axis.
    */
   enum SharingGate {
     GATED,
@@ -473,12 +487,12 @@ public final class SchedulerParityConfig {
   }
 
   /**
-   * 264 side (reschedule API): LEFT_NO_PRIMARY iff the reschedule returned Success (persisting a
-   * no-primary crew); CRASHED on HTTP 500 / INTERNAL_SERVER_ERROR; otherwise BLOCKED (validation or
-   * the downstream availability re-check refused it). Note: on 262 (the proxy) the delete-primary
-   * arms are BLOCKED by the availability re-check, NOT by any no-primary rule — validation itself
-   * ALLOWS zero primaries; that validation-layer permissiveness is the 264 fact the parity diff
-   * turns on.
+   * Unified side (reschedule API): LEFT_NO_PRIMARY iff the reschedule returned Success (persisting
+   * a no-primary crew); CRASHED on HTTP 500 / INTERNAL_SERVER_ERROR; otherwise BLOCKED (validation
+   * or the downstream availability re-check refused it). Note: on the live Unified org the
+   * delete-primary arms are BLOCKED by the availability re-check, NOT by any no-primary rule —
+   * validation itself ALLOWS zero primaries; that validation-layer permissiveness is the Unified
+   * fact the parity diff turns on.
    */
   static NoPrimaryOutcome unifiedNoPrimaryOutcome(
       final String schedulingStatus, final String errorCode, final String http) {
@@ -521,7 +535,7 @@ public final class SchedulerParityConfig {
   }
 
   /**
-   * Unified side (Decision 1.4), normalizing from the error ENVELOPE rather than HTTP: the 264
+   * Unified side (Decision 1.4), normalizing from the error ENVELOPE rather than HTTP: the Unified
    * violating write returns a top-level {@code [{errorCode:"INTERNAL_SERVER_ERROR", ...}]} (a
    * serviceTerritoryMembers NPE) → CRASHED; a schedulingStatus=="Success" → BOOKED; anything else →
    * REFUSED.
@@ -537,8 +551,8 @@ public final class SchedulerParityConfig {
   /**
    * Old-side read decision for the Required-resources (1.4) candidates path, normalizing to the
    * write vocabulary so the read↔write divergence is directly comparable: an HTTP 500 / errorCode
-   * INTERNAL_SERVER_ERROR is CRASHED (would match the 264 write); a clean 0-candidate response is
-   * REFUSED; a non-empty candidate list is BOOKED (offered).
+   * INTERNAL_SERVER_ERROR is CRASHED (would match the Unified write); a clean 0-candidate response
+   * is REFUSED; a non-empty candidate list is BOOKED (offered).
    */
   static WriteOutcome oldCandidatesOutcome(
       final String candidateCount, final String http, final String errorCode) {
