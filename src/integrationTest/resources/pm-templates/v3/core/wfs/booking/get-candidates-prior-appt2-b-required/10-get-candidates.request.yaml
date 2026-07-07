@@ -48,6 +48,10 @@ scripts:
     code: |-
       // candidates action's list key is result[].candidates[] (verified in get-candidates-skills-violating).
       // Each candidate carries the offered serviceResourceId(s). Determine per-resource inclusion.
+      // The key-guessing below is release-forward-tolerant on purpose: if a future release renames the
+      // per-resource id field, resourceC (a guaranteed-free candidate) will read as EXCLUDED and the
+      // test's fail-loud C-control assertion trips — so a shape change surfaces as a loud failure, never
+      // a silent false pass on B's exclusion. Do NOT "simplify" to a single key without keeping that guard.
       const data = pm.response.json() || {};
       const results = data.result || [];
       const ids = new Set();
