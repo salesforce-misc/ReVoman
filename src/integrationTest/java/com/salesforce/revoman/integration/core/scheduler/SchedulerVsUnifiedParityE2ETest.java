@@ -2324,21 +2324,40 @@ class SchedulerVsUnifiedParityE2ETest {
    * persistence confirmed live by SOQL).
    *
    * <p><b>LIVE-OBSERVED: REFUSED in both cells (2026-07-07) — the predicted "allow" did NOT
-   * reproduce.</b> Reading {@code SchedulingServiceImpl.findAvailableTimeSlots} →
-   * {@code isOverlappingIntervalAndNotConcurrent} (a concurrent slot should drop an overlapping prior
-   * APPOINTMENT from unavailability), both knobs on looked sufficient to let the second booking
-   * through. It did not: with the pref ON and B's member TimeSlots at MaxAppointments=2 (both verified
-   * to have taken — pref update returned success, TimeSlot rows read back MaxAppointments=2), OLD still
-   * refused the second overlapping booking of B. So the two knobs are necessary but NOT sufficient for
-   * THIS prior-assignment shape; some further condition in the concurrency path is unmet by this
-   * fixture (candidates, not yet debugger-confirmed: the prior appointment must land in the SAME
-   * concurrent TimeSlot interval and be counted in {@code unavailableInterval.getSecond()} capacity
-   * accounting; the booking window / member-vs-territory OH slot that actually carries the concurrency
-   * flag; or the concurrent double-book path applies to a DIFFERENT surface — e.g. two fresh bookings
-   * into one concurrent slot — than re-booking over an already-committed appointment). Pending that,
-   * the observed REFUSED is pinned; when the mechanism is nailed down this should be revisited (a
-   * MaxAppointments>1 double-book via get-appointment-slots on a single appointment, not a prior
-   * assignment, is the likely reproduction — see {@code ConcurrentTimeSlotTest} in core).
+   * reproduce; root cause is the MULTI-RESOURCE INTERSECTION, not the concurrency gate
+   * (DEBUGGER-VERIFIED on the live core JVM, JDWP :6103, -Dversion=262, 2026-07-07).</b> Attaching to
+   * the running server and driving this cell proved, step by step:
+   *
+   * <ul>
+   *   <li>Both knobs took: at {@code SchedulingServiceImpl.findAvailableTimeSlots} the frame showed
+   *       {@code orgHasOverbooking=true} and the potential slot's {@code MaxAppointments=2}
+   *       ({@code remainingAvailability} initialized to 2). B's prior appointment WAS present in
+   *       {@code unavailability} as {@code Pair(Interval, count=1)}.
+   *   <li>The concurrency gate WORKED per-resource: {@code isaValidConcurrentAndConcurrentUnavailability}
+   *       returned true, the 11:00-11:30 slot's {@code isEqual(unavailableInterval)} was true, so
+   *       {@code MaxAppointments(2) <= count(1)} was false → {@code remainingAvailability=1},
+   *       {@code overlaps=false}, and at line ~1848 the slot WAS added to B's available list. So for B
+   *       in isolation the concurrent double-book slot is generated — the two knobs do their job.
+   *   <li>Yet the WRITE-path verdict was empty: at {@code ServiceAppointmentHelper.areResourcesAvailable}
+   *       (~line 248) the aggregated {@code getAppointmentSlots(...).getResponse()} returned
+   *       {@code timeSlots.size()==0} → {@code !isEmpty()}=false → REFUSE. The request carried TWO
+   *       resources (B primary + C required, demoted).
+   * </ul>
+   *
+   * <p>So the two knobs are necessary but NOT sufficient <b>for a multi-resource appointment</b>: the
+   * final list is the cross-resource intersection
+   * {@code SchedulingServiceImpl.getOverlappingTimeSlotsBetweenMultipleResources} (~line 2514), which
+   * intersects EVERY resource's slots via {@code extractCommonSlots} and early-exits empty if any pair
+   * shares no slot. B's concurrent slot survived per-STM but the combined B+C intersection came back
+   * empty, so a third condition beyond the two knobs is required: the concurrent slot must survive that
+   * intersection. {@code TimeSlot.equals} keys on territory+start+end+engagementChannel (NOT capacity),
+   * so a remaining-appointments mismatch is NOT the cause; the not-yet-pinned drop is either B
+   * contributing zero slots in the COMBINED 2-resource {@code getSlotsForResources} call (vs the
+   * isolated per-STM path traced here) or {@code filterByTerritoriesAndSkillMatch} (~line 523) removing
+   * it. The observed REFUSED is pinned; the follow-up (see {@code ~/.remember} handoff) is a focused
+   * debugger pass on {@code getSlotsForResources} for the 2-resource call, plus a single-resource
+   * MaxAppointments>1 double-book (mirroring core {@code ConcurrentTimeSlotTest}) to confirm the
+   * two-knob "allow" path fires when only ONE resource is involved.
    *
    * <p><b>Role symmetry still holds — at REFUSED.</b> Both cells reuse the appt-#1-B-REQUIRED prior
    * (unambiguous occupancy) and differ only in appt #2's role for B (b-required = busy helper,
