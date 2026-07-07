@@ -1,0 +1,41 @@
+$kind: http-request
+description: >-
+  SUPPLEMENTAL grant part 1 of 2 for the 3-resource prior-assignment(-concurrent) fixtures: resolve
+  resourceC's backing User id. The shared grant Kick (booking/grant-ls-user-access, orders 500/700)
+  only grants resourceA + resourceB — it was cloned from the 2-resource double-book fixture and never
+  extended to the concurrent fixture's THIRD resource C (appt #2's dedicated primary). JDWP-confirmed:
+  the classic engine (SchedulingServiceImpl.removeResourcesWithoutPerm -> checkForUserPermission,
+  lightningSchedulerUserAccess) PRUNES resourceC's ServiceResource because its fresh User lacks the
+  perm, so a multi-resource appt #2 carrying C can never satisfy the getSlotsForResources containsAll
+  gate -> refuse — masking whatever the occupancy/overbooking rule would actually do. This supplemental
+  Kick (orders 800/900 > the shared grant's 700, same revUp) reuses lsPslId / lsPsId already captured by
+  the shared grant's step 05, and grants C the same PSL + Salesforce_Scheduler_Resource perm set.
+  Batch API (/composite/batch — dodges the composite unmarshallers). Idempotent on warm re-runs.
+url: "{{baseUrl}}{{versionPath}}/composite/batch"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "batchRequests": [
+        { "method": "GET", "url": "{{versionPath}}/query/?q=SELECT+RelatedRecordId+FROM+ServiceResource+WHERE+Id='{{schedResourceCId}}'" }
+      ]
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      // Batch response: { results: [ { statusCode, result: { records: [...] } } ] }. Capture C's
+      // backing User id for the assign batch (07). If empty, the assign no-ops and C stays pruned —
+      // the cell's non-vacuity guard (appt #1 books a real 08p SA) still holds, and appt #2's outcome
+      // would then be the pre-fix (masked) refusal, surfaced via this log.
+      const data = pm.response.json() || {};
+      const results = data.results || [];
+      const first = (i) => (((results[i] || {}).result || {}).records || [])[0] || {};
+      pm.environment.set("schedUserCId", first(0).RelatedRecordId);
+      console.log("OLD grant-c part1 userC=" + first(0).RelatedRecordId);
+    language: text/javascript
+order: 800

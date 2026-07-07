@@ -64,6 +64,18 @@ public final class SchedulerParityConfig {
   static final Kick OLD_GRANT_LS_ACCESS_CONFIG =
       oldKickFor(V3_SCHEDULER_PATH + "booking/grant-ls-user-access");
 
+  /**
+   * Supplemental LS-access grant for the THIRD resource (C) of the 3-resource prior-assignment
+   * fixtures. The shared {@link #OLD_GRANT_LS_ACCESS_CONFIG} only grants resources A + B (it was
+   * cloned from the 2-resource double-book fixture), so on the REST path {@code SchedulingServiceImpl
+   * .removeResourcesWithoutPerm} prunes resourceC for lacking {@code lightningSchedulerUserAccess} —
+   * making a multi-resource appt #2 carrying C refuse for a provisioning reason rather than the
+   * occupancy/overbooking rule under test (JDWP-confirmed). Revved right after the shared grant Kick
+   * (orders 800/900 > 700); reuses the lsPslId / lsPsId it captured.
+   */
+  static final Kick OLD_GRANT_LS_ACCESS_C_CONFIG =
+      oldKickFor(V3_SCHEDULER_PATH + "booking/grant-ls-user-access-c");
+
   static final Kick OLD_GET_SLOTS_DOUBLE_BOOK_CONFIG =
       oldKickFor(V3_SCHEDULER_PATH + "booking/get-appointment-slots-double-book");
   static final Kick OLD_BOOK_NON_REQUIRED_CONFIG =

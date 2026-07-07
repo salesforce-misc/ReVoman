@@ -1898,6 +1898,7 @@ class SchedulerVsUnifiedParityE2ETest {
                     SchedulerParityConfig.OLD_ENABLE_OVERBOOKING_CONFIG,
                     SchedulerParityConfig.OLD_PRIOR_ASSIGNMENT_CONCURRENT_FIXTURE_CONFIG,
                     SchedulerParityConfig.OLD_GRANT_LS_ACCESS_CONFIG,
+                    SchedulerParityConfig.OLD_GRANT_LS_ACCESS_C_CONFIG,
                     appt1Config,
                     appt2Config))
             .mutableEnv;
@@ -2314,78 +2315,76 @@ class SchedulerVsUnifiedParityE2ETest {
   }
 
   /**
-   * OLD Scheduler occupancy with BOTH overbooking knobs ON — and the LIVE-observed result that OLD
-   * STILL REFUSES this prior-assignment scenario even so. Two prior tests bracket the pref knob:
-   * default-state {@link #testPriorAssignmentOccupancyParity_E2E} pins OLD REFUSING every cell, and
-   * {@link #testPriorAssignmentOldOverbookingPrefInsufficientE2E} shows flipping only the Overbooking
-   * pref (MaxAppointments still 1) still refuses. This test flips BOTH knobs: the Overbooking pref ON
-   * AND the member-OperatingHours {@code TimeSlot.MaxAppointments}=2 (via the concurrent fixture,
-   * seeded AFTER the pref flip so the concurrent-TimeSlot insert is accepted; MaxAppointments=2
-   * persistence confirmed live by SOQL).
+   * OLD Scheduler concurrent double-book of an already-assigned worker on a MULTI-RESOURCE appointment
+   * — LIVE-OBSERVED BOOKED in both roles (2026-07-07, HTTP 201 on appt #2). This cell has BOTH
+   * overbooking knobs ON (Overbooking pref + member-OH {@code TimeSlot.MaxAppointments}=2 via the
+   * concurrent fixture, seeded after the pref flip; MaxAppointments=2 confirmed by SOQL) AND grants
+   * every requested resource the Lightning Scheduler permset.
    *
-   * <p><b>LIVE-OBSERVED: REFUSED in both cells (2026-07-07) — the predicted "allow" did NOT
-   * reproduce; root cause is the MULTI-RESOURCE INTERSECTION, not the concurrency gate
-   * (DEBUGGER-VERIFIED on the live core JVM, JDWP :6103, -Dversion=262, 2026-07-07).</b> Attaching to
-   * the running server and driving this cell proved, step by step:
+   * <p><b>What is PROVEN vs what is OPEN — do not overclaim.</b> The decisive, live-pinned fact is a
+   * FIXTURE PROVISIONING GAP, not a knobs effect. An earlier version asserted REFUSED and a debugger
+   * pass mis-attributed the refusal to the cross-resource intersection ({@code
+   * getOverlappingTimeSlotsBetweenMultipleResources}); a deeper JDWP pass (live core JVM :6103,
+   * -Dversion=262) DISPROVED that — execution never reached the intersection. The real cause: appt
+   * #2's dedicated co-resource (C) was never granted the Lightning Scheduler user-access permset, so
+   * {@code SchedulingServiceImpl.removeResourcesWithoutPerm} (~line 1072, via {@code
+   * checkForUserPermission(users, lightningSchedulerUserAccess)}) PRUNED C before slot generation;
+   * with C gone the {@code getSlotsForResources} {@code containsAll} gate (~line 522) returned empty →
+   * HTTP 400. The shared grant Kick ({@code booking/grant-ls-user-access}) only permed resources A and
+   * B (cloned from the 2-resource double-book fixture); {@link
+   * SchedulerParityConfig#OLD_GRANT_LS_ACCESS_C_CONFIG} now perms C, and appt #2 BOOKS.
+   *
+   * <p><b>The two knobs ARE the discriminator (controlled JDWP comparison, C granted on both sides).</b>
+   * With C permed and appt #2 carrying B as a REQUIRED resource, the outcome depends only on the
+   * overbooking knobs:
    *
    * <ul>
-   *   <li>Both knobs took: at {@code SchedulingServiceImpl.findAvailableTimeSlots} the frame showed
-   *       {@code orgHasOverbooking=true} and the potential slot's {@code MaxAppointments=2}
-   *       ({@code remainingAvailability} initialized to 2). B's prior appointment WAS present in
-   *       {@code unavailability} as {@code Pair(Interval, count=1)}.
-   *   <li>The concurrency gate WORKED per-resource: {@code isaValidConcurrentAndConcurrentUnavailability}
-   *       returned true, the 11:00-11:30 slot's {@code isEqual(unavailableInterval)} was true, so
-   *       {@code MaxAppointments(2) <= count(1)} was false → {@code remainingAvailability=1},
-   *       {@code overlaps=false}, and at line ~1848 the slot WAS added to B's available list. So for B
-   *       in isolation the concurrent double-book slot is generated — the two knobs do their job.
-   *   <li>Yet the WRITE-path verdict was empty: at {@code ServiceAppointmentHelper.areResourcesAvailable}
-   *       (~line 248) the aggregated {@code getAppointmentSlots(...).getResponse()} returned
-   *       {@code timeSlots.size()==0} → {@code !isEmpty()}=false → REFUSE. The request carried TWO
-   *       resources (B primary + C required, demoted).
+   *   <li>KNOBS OFF (the {@link #testPriorAssignmentOccupancyParity_E2E} req to req cell,
+   *       non-concurrent fixture, MaxAppointments=1, pref off) — traced live at {@code
+   *       SchedulingServiceImpl:522}: busy B produced ZERO slots (single-capacity, its prior appt
+   *       consumes it), so B was absent from {@code slotsKeys}, {@code containsAll([B,C])} failed and
+   *       the request REFUSED. Real occupancy enforcement for a required busy worker.
+   *   <li>KNOBS ON (this test) — appt #2 BOOKS (HTTP 201). The concurrency gate admits B's slot
+   *       ({@code MaxAppointments(2) <= count(1)} is false, so {@code remainingAvailability=1}), B is
+   *       present at the gate alongside C, and the booking succeeds.
    * </ul>
    *
-   * <p>So the two knobs are necessary but NOT sufficient <b>for a multi-resource appointment</b>: the
-   * final list is the cross-resource intersection
-   * {@code SchedulingServiceImpl.getOverlappingTimeSlotsBetweenMultipleResources} (~line 2514), which
-   * intersects EVERY resource's slots via {@code extractCommonSlots} and early-exits empty if any pair
-   * shares no slot. B's concurrent slot survived per-STM but the combined B+C intersection came back
-   * empty, so a third condition beyond the two knobs is required: the concurrent slot must survive that
-   * intersection. {@code TimeSlot.equals} keys on territory+start+end+engagementChannel (NOT capacity),
-   * so a remaining-appointments mismatch is NOT the cause; the not-yet-pinned drop is either B
-   * contributing zero slots in the COMBINED 2-resource {@code getSlotsForResources} call (vs the
-   * isolated per-STM path traced here) or {@code filterByTerritoriesAndSkillMatch} (~line 523) removing
-   * it. The observed REFUSED is pinned; the follow-up (see {@code ~/.remember} handoff) is a focused
-   * debugger pass on {@code getSlotsForResources} for the 2-resource call, plus a single-resource
-   * MaxAppointments>1 double-book (mirroring core {@code ConcurrentTimeSlotTest}) to confirm the
-   * two-knob "allow" path fires when only ONE resource is involved.
+   * Same fixture family, same C-granted, same B-required-on-#2 — the ONLY difference is the two knobs,
+   * so they are what flips REFUSE to BOOK. Granting C is a fixture PREREQUISITE to even reach the gate
+   * (without it C is pruned by {@code removeResourcesWithoutPerm} and the request 400s regardless of
+   * the knobs); it is not the cause of the book.
    *
-   * <p><b>Role symmetry still holds — at REFUSED.</b> Both cells reuse the appt-#1-B-REQUIRED prior
-   * (unambiguous occupancy) and differ only in appt #2's role for B (b-required = busy helper,
-   * b-primary = busy primary); both REFUSE. So on OLD the outcome is role-agnostic in this state too,
-   * matching the knobs-OFF role symmetry — the contrast with Unified (which BOOKS both roles, see
-   * {@link #testPriorAssignmentBAsPrimaryE2E}) is unchanged. Outcomes pinned to the LIVE observation
-   * via {@link SchedulerParityConfig.WriteOutcome}. The pref is reverted in a {@code finally} so a
-   * mid-run failure still restores the default-OFF org.
+   * <p><b>Caveat on the sibling occupancy test.</b> Its B-OPTIONAL-on-appt-#2 cells are different:
+   * with B optional the gate only requires C, so once C is permed those cells BOOK (optional B rides
+   * along unchecked) — their C-not-granted REFUSE was the prune artifact, not occupancy. Only the
+   * B-REQUIRED cells of that test refuse for genuine occupancy. Tracked in the {@code ~/.remember}
+   * handoff; it does not affect THIS test.
+   *
+   * <p>Role-symmetric at BOOKED: both cells reuse the appt-#1-B-REQUIRED prior and differ only in
+   * appt #2's role for B (b-required = busy helper, b-primary = busy primary); both BOOK. Outcomes
+   * pinned to the LIVE observation via {@link SchedulerParityConfig.WriteOutcome}. The pref is
+   * reverted in a {@code finally}.
    */
   @Test
-  void testPriorAssignmentOldBothKnobsStillRefuseBothRolesE2E() {
+  void testPriorAssignmentOldBothKnobsBookBothRolesE2E() {
     SchedulerParityConfig.assumeBothOrgCreds();
     try {
-      // Busy HELPER (appt #2 B required, non-primary), both knobs ON. LIVE-OBSERVED REFUSED — the
-      // two-knob concurrency path does not admit this prior-assignment re-book (see class-level notes).
+      // Busy HELPER (appt #2 B required, non-primary), both knobs ON. LIVE-PROVEN BOOKED — the
+      // two-knob concurrency path admits this prior-assignment re-book once every requested resource
+      // holds the Lightning Scheduler permset (see class-level notes).
       assertThat(
               oldConcurrentOccupancyCell(
                   SchedulerParityConfig.OLD_PRIOR_APPT1_B_REQUIRED_CONFIG,
                   SchedulerParityConfig.OLD_PRIOR_APPT2_B_REQUIRED_CONFIG))
-          .isEqualTo(SchedulerParityConfig.WriteOutcome.REFUSED);
+          .isEqualTo(SchedulerParityConfig.WriteOutcome.BOOKED);
 
-      // Busy PRIMARY (appt #2 B primary+required), both knobs ON. Also REFUSED — role-agnostic, mirroring
-      // the knobs-OFF symmetry. Confirms the refusal is not a role effect.
+      // Busy PRIMARY (appt #2 B primary+required), both knobs ON. Also BOOKED — role-agnostic, mirroring
+      // the concurrency rule. Confirms the outcome is not a role effect.
       assertThat(
               oldConcurrentOccupancyCell(
                   SchedulerParityConfig.OLD_PRIOR_APPT1_B_REQUIRED_CONFIG,
                   SchedulerParityConfig.OLD_PRIOR_APPT2_B_PRIMARY_CONFIG))
-          .isEqualTo(SchedulerParityConfig.WriteOutcome.REFUSED);
+          .isEqualTo(SchedulerParityConfig.WriteOutcome.BOOKED);
     } finally {
       revertOldOverbooking();
     }

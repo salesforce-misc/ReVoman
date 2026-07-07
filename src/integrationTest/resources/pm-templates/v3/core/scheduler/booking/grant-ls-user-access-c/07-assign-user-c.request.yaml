@@ -1,0 +1,37 @@
+$kind: http-request
+description: >-
+  SUPPLEMENTAL grant part 2 of 2: assign the Lightning Scheduler PSL + Salesforce_Scheduler_Resource
+  permission set (carrying lightningSchedulerUserAccess) to resourceC's backing User, using lsPslId /
+  lsPsId captured by the shared grant's step 05 and schedUserCId captured by 05-query-user-c (order 800).
+  Two INDEPENDENT assign POSTs via /composite/batch (subrequests don't roll each other back). Idempotent:
+  a warm re-run returns DUPLICATE_VALUE (harmless; ignoreHTTPStatusUnsuccessful keeps the step green) —
+  the invariant is only that C's user ENDS holding PSL + PS. After this the classic engine stops pruning
+  resourceC, so a multi-resource appt #2 carrying C sees C's real availability and the occupancy /
+  overbooking rule — not a perm-pruning artifact — decides the outcome. Runs at order 900 (> 800), after
+  its own id query, within this supplemental Kick sequenced right after the shared grant Kick.
+url: "{{baseUrl}}{{versionPath}}/composite/batch"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "batchRequests": [
+        { "method": "POST", "url": "{{versionPath}}/sobjects/PermissionSetLicenseAssign", "richInput": { "AssigneeId": "{{schedUserCId}}", "PermissionSetLicenseId": "{{lsPslId}}" } },
+        { "method": "POST", "url": "{{versionPath}}/sobjects/PermissionSetAssignment", "richInput": { "AssigneeId": "{{schedUserCId}}", "PermissionSetId": "{{lsPsId}}" } }
+      ]
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      // Log substep statuses. 201 = freshly granted; 400 DUPLICATE_VALUE = already granted (warm re-run)
+      // — both leave C's user holding the perm, so neither fails this step.
+      const data = pm.response.json() || {};
+      const results = data.results || [];
+      const statuses = results.map(r => r.statusCode).join(",");
+      console.log("OLD grant-c part2 assign statusCodes=" + statuses);
+    language: text/javascript
+order: 900
