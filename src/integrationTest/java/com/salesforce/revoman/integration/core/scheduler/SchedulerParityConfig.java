@@ -17,6 +17,7 @@ import com.salesforce.revoman.input.ExternalOrgConfig;
 import com.salesforce.revoman.input.config.Kick;
 import com.salesforce.revoman.integration.core.adapters.IDAdapter;
 import com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs;
+import com.salesforce.revoman.output.log.ConsoleRunLogSink;
 import java.util.Map;
 import org.junit.jupiter.api.Assumptions;
 
@@ -585,6 +586,7 @@ public final class SchedulerParityConfig {
         .haltOnFailureOfTypeExcept(
             HTTP_STATUS, afterStepContainingHeader(IGNORE_HTTP_STATUS_UNSUCCESSFUL))
         .insecureHttp(true)
+        .runLogSink(new ConsoleRunLogSink())
         .off();
   }
 }
