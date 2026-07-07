@@ -1,0 +1,50 @@
+$kind: http-request
+description: >-
+  PRIOR-ASSIGNMENT appt #2 (B as PRIMARY): POST /connect/scheduling/service-appointments on account #2, SAME
+  tomorrow 11:00-11:30 UTC window. Unlike the b-required variant, here the busy worker B is the
+  PRIMARY+required resource and the dedicated free worker C is demoted to required, non-primary. This
+  probes the teammate claim "if 1 SA has B as an optional resource, B can be booked as PRIMARY in a second
+  appointment" — pairs with the appt#1-b-OPTIONAL config. Because B carries a prior overlapping assignment
+  and is the primary here, OLD's write-path availability re-check should REFUSE it. Captures priorAppt2Http
+  + priorAppt2SaId.
+url: "{{baseUrl}}{{versionPath}}/connect/scheduling/service-appointments"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "serviceAppointment": {
+        "serviceTerritoryId": "{{schedTerritoryId}}",
+        "parentRecordId": "{{schedAccountId2}}",
+        "workTypeId": "{{schedWorkTypeId}}",
+        "schedStartTime": "{{schedBookStart}}",
+        "schedEndTime": "{{schedBookEnd}}",
+        "extendedFields": [ { "name": "Status", "value": "Scheduled" } ]
+      },
+      "assignedResources": [
+        { "serviceResourceId": "{{schedResourceBId}}", "isRequiredResource": true, "isPrimaryResource": true },
+        { "serviceResourceId": "{{schedResourceCId}}", "isRequiredResource": true, "isPrimaryResource": false }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(11, 0, 0, 0);
+      const e = new Date(s.getTime() + 30 * 60 * 1000);
+      pm.environment.set("schedBookStart", s.toISOString());
+      pm.environment.set("schedBookEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      const data = pm.response.json() || {};
+      const result = data.result || data;
+      pm.environment.set("priorAppt2Http", String(pm.response.code));
+      pm.environment.set("priorAppt2SaId", result.serviceAppointmentId || (result.serviceAppointment && result.serviceAppointment.id) || "");
+      console.log("OLD prior appt2 (B primary) http=" + pm.response.code + " body=" + JSON.stringify(data).slice(0,300));
+    language: text/javascript
+order: 1000

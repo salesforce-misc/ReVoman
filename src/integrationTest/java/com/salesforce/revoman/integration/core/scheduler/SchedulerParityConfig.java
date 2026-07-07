@@ -87,6 +87,8 @@ public final class SchedulerParityConfig {
       oldKickFor(V3_SCHEDULER_PATH + "booking/service-appointments-prior-appt2-b-required");
   static final Kick OLD_PRIOR_APPT2_B_OPTIONAL_CONFIG =
       oldKickFor(V3_SCHEDULER_PATH + "booking/service-appointments-prior-appt2-b-optional");
+  static final Kick OLD_PRIOR_APPT2_B_PRIMARY_CONFIG =
+      oldKickFor(V3_SCHEDULER_PATH + "booking/service-appointments-prior-appt2-b-primary");
   static final Kick OLD_ENABLE_OVERBOOKING_CONFIG =
       oldKickFor(V3_SCHEDULER_PATH + "booking/enable-overbooking");
   static final Kick OLD_DISABLE_OVERBOOKING_CONFIG =

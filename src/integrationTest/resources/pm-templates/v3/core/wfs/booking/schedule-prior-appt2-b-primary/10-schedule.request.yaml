@@ -1,0 +1,61 @@
+$kind: http-request
+description: >-
+  Unified PRIOR-ASSIGNMENT appt #2 (B as PRIMARY): POST /connect/unified-scheduling/actions/schedule on
+  account #2, SAME tomorrow 11:00-11:30 UTC window. Here the busy worker B is PRIMARY+required and the
+  dedicated free worker C is demoted to required, non-primary — the mirror of schedule-prior-appt2-b-required
+  (where C was primary and B non-primary). This probes the teammate claim "an optionally-assigned B can be
+  booked as PRIMARY on a second appointment", and directly exercises the debugger-verified guard in
+  InBusinessGetSlotsHandler.processSlotsRequest: only the PRIMARY resource is checked via
+  containsKey(primaryResourceId), so a busy PRIMARY B (zero slots) should DROP the exact-match and REFUSE —
+  unlike the b-required cell where non-primary busy B is silently dropped from the keySet and BOOKS.
+  Captures priorAppt2SchedulingStatus + priorAppt2ErrorCode + priorAppt2Http.
+url: "{{baseUrl}}{{versionPath}}/connect/unified-scheduling/actions/schedule"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "appointments": [
+        {
+          "schedulingMethod": "OnSite",
+          "schedulingPolicyId": "{{availabilityOpHoursPolicyId}}",
+          "coreDetails": {
+            "startTime": "{{priorApptStart}}",
+            "endTime": "{{priorApptEnd}}",
+            "status": "Scheduled",
+            "subject": "Prior-assignment appt #2 (B primary)",
+            "workConfiguration": { "workTypeId": "{{priorWorkTypeId}}" },
+            "locationConstraints": { "id": "{{priorTerritoryId}}" }
+          },
+          "serviceAppointmentParent": { "id": "{{priorAccountId2}}" },
+          "assignedResources": [
+            { "isPrimaryResource": true,  "isRequiredResource": true, "serviceResourceId": "{{priorResourceBId}}" },
+            { "isPrimaryResource": false, "isRequiredResource": true, "serviceResourceId": "{{priorResourceCId}}" }
+          ]
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      const start = new Date(); start.setUTCDate(start.getUTCDate() + 1); start.setUTCHours(11, 0, 0, 0);
+      const end = new Date(start.getTime() + 30 * 60 * 1000);
+      pm.environment.set("priorApptStart", start.toISOString());
+      pm.environment.set("priorApptEnd", end.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      const data = pm.response.json() || {};
+      const appointments = data.appointments || [];
+      pm.environment.set("priorAppt2SchedulingStatus", appointments.length ? appointments[0].schedulingStatus : null);
+      const err = (data.error && data.error.errorCode) || (Array.isArray(data) && data[0] && data[0].errorCode) || "";
+      pm.environment.set("priorAppt2ErrorCode", err);
+      pm.environment.set("priorAppt2Http", String(pm.response.code));
+      console.log("WFS prior appt2 (B primary) http=" + pm.response.code + " status=" + (appointments.length ? appointments[0].schedulingStatus : "none") + " body=" + JSON.stringify(data).slice(0,300));
+    language: text/javascript
+order: 1000

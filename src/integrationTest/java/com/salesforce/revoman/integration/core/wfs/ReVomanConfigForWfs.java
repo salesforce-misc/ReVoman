@@ -226,6 +226,8 @@ public final class ReVomanConfigForWfs {
       kickFor(V3_WFS_PATH + "booking/schedule-prior-appt2-b-required");
   public static final Kick PRIOR_APPT2_B_OPTIONAL_CONFIG =
       kickFor(V3_WFS_PATH + "booking/schedule-prior-appt2-b-optional");
+  public static final Kick PRIOR_APPT2_B_PRIMARY_CONFIG =
+      kickFor(V3_WFS_PATH + "booking/schedule-prior-appt2-b-primary");
   public static final Kick PRIOR_CANDIDATES_APPT2_CONFIG =
       kickFor(V3_WFS_PATH + "booking/get-candidates-prior-appt2-b-required");
 

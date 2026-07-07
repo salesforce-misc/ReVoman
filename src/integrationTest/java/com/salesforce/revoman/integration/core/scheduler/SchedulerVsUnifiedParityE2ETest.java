@@ -2196,6 +2196,72 @@ class SchedulerVsUnifiedParityE2ETest {
   }
 
   /**
+   * Prior-assignment occupancy — the "busy worker booked as PRIMARY on a second appointment" case.
+   * This adjudicates a teammate claim ("in Scheduler, if one SA has B as an OPTIONAL resource, B can
+   * then be booked as PRIMARY in a second overlapping appointment") that the existing 2x2 {@link
+   * #testPriorAssignmentOccupancyParity_E2E} does NOT cover: every cell of that matrix books B as a
+   * required/optional NON-primary helper (C is always the primary), so B-as-primary was untested.
+   *
+   * <p>Fixture is the same 3-resource prior-assignment graph (A/B/C all AVAILABLE at 11:00, B the only
+   * shared worker). Appt #1 assigns B as an OPTIONAL non-required helper (reusing {@code
+   * *_PRIOR_APPT1_B_OPTIONAL_CONFIG} — the weakest possible prior hold, matching the teammate's
+   * premise). Appt #2 then makes the busy B the PRIMARY+required resource and demotes the dedicated
+   * free worker C to required, non-primary — the mirror of the b-required cell (which had C primary,
+   * B non-primary).
+   *
+   * <p><b>OLD engine — REFUSED (LIVE-pinned).</b> OLD's write-path availability re-check ({@code
+   * ServiceAppointmentServiceImpl.create → areResourcesAvailable}) treats B's existing overlapping
+   * assignment as hard occupancy regardless of B's role on either booking (the 2x2 already showed OLD
+   * refuses all four required/optional combinations). So the teammate's claim is FALSE on OLD: an
+   * optional prior assignment still occupies B, and B cannot be re-booked into an overlapping slot —
+   * as a primary or otherwise. Cell carries the fail-loud anchor: if it BOOKS, the org is
+   * overbooking-enabled and the whole occupancy family is vacuous.
+   *
+   * <p><b>Unified engine — BOOKED (LIVE-pinned 2026-07-07, both orgs; REFUTES the primary-guard
+   * prediction).</b> The prior expectation was that making the busy B the PRIMARY would trip the
+   * primary guard in {@code InBusinessGetSlotsHandler.processSlotsRequest} ({@code
+   * containsKey(primaryResourceId)}) and REFUSE — the opposite of the b-required cell where a busy
+   * NON-primary B is silently dropped from the {@code schedulableSlots.keySet()} intersection and
+   * BOOKS. The live run DISPROVED that: Unified BOOKED the appointment even with the occupied B as
+   * primary+required. So the double-book is NOT gated by the assigned-resource role — a busy PRIMARY
+   * is double-booked here just like a busy non-primary helper. (Candidate reasons, not yet
+   * debugger-confirmed: the primary passed on the schedule request is not the same "primaryResourceId"
+   * key the containsKey guard checks, or the guard fires only in a get-slots path this schedule action
+   * does not exercise; the {@code testPriorAssignmentUnifiedReadVsWriteE2E} multi-resource collapse is
+   * the mechanism to re-examine.) The outcome is pinned to the LIVE observation via {@link
+   * SchedulerParityConfig.WriteOutcome} (no forced old==unified equality), the same way every other
+   * cell in this suite is pinned; the earlier prediction is retained above only as the refuted
+   * hypothesis.
+   */
+  @Test
+  void testPriorAssignmentBAsPrimaryE2E() {
+    SchedulerParityConfig.assumeBothOrgCreds();
+
+    // OLD: an OPTIONAL prior assignment on B still occupies B — re-booking B (now as PRIMARY) over the
+    // same window is REFUSED. Directly refutes "optional prior ⇒ B free to be primary later" on OLD.
+    // Fail-loud anchor: a BOOKED here means the org allows overbooking and the occupancy family is vacuous.
+    assertWithMessage(
+            "OLD: optional prior assignment on B must still block re-booking B as PRIMARY (occupancy is"
+                + " role-agnostic). If BOOKED, the org allows overbooking and the occupancy findings are"
+                + " vacuous — not a confirmation of the teammate's claim.")
+        .that(
+            oldOccupancyCell(
+                SchedulerParityConfig.OLD_PRIOR_APPT1_B_OPTIONAL_CONFIG,
+                SchedulerParityConfig.OLD_PRIOR_APPT2_B_PRIMARY_CONFIG))
+        .isEqualTo(SchedulerParityConfig.WriteOutcome.REFUSED);
+
+    // Unified: LIVE-OBSERVED BOOKED — the busy B is double-booked even as PRIMARY+required. This
+    // REFUTES the "only the primary is guarded ⇒ busy primary refuses" prediction: the Unified write
+    // path double-books B regardless of its assigned-resource role. Pinned to the observed outcome (as
+    // every cell in this suite is), NOT forced to match OLD.
+    assertThat(
+            unifiedOccupancyCell(
+                ReVomanConfigForWfs.PRIOR_APPT1_B_OPTIONAL_CONFIG,
+                ReVomanConfigForWfs.PRIOR_APPT2_B_PRIMARY_CONFIG))
+        .isEqualTo(SchedulerParityConfig.WriteOutcome.BOOKED);
+  }
+
+  /**
    * Flips the OLD org's {@code OrgPreferences.Overbooking} pref ON (AUTH → enable-overbooking) and
    * fails loud if the metadata update did not report success — else a subsequent BOOKED cell would
    * be a false positive against a still-OFF org.
