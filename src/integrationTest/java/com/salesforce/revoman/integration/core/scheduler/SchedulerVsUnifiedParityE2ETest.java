@@ -494,7 +494,8 @@ class SchedulerVsUnifiedParityE2ETest {
                     SchedulerParityConfig.OLD_AUTH_CONFIG,
                     SchedulerParityConfig.OLD_EXCLUDED_FIXTURE_CONFIG,
                     SchedulerParityConfig.OLD_GRANT_LS_ACCESS_CONFIG,
-                    SchedulerParityConfig.OLD_GET_CANDIDATES_EXCLUDED_CONFIG))
+                    SchedulerParityConfig.OLD_GET_CANDIDATES_EXCLUDED_CONFIG,
+                    SchedulerParityConfig.OLD_GET_SLOTS_EXCLUDED_CONFIG))
             .mutableEnv;
     final var oldExcludedReadDecision =
         SchedulerParityConfig.oldCandidatesReadDecision(
@@ -553,6 +554,32 @@ class SchedulerVsUnifiedParityE2ETest {
     // account-Excluded
     // resourceB (EXCLUDED) — the account block-list is applied on the candidates surface.
     assertThat(oldExcludedReadDecision).isEqualTo(SchedulerParityConfig.ReadDecision.EXCLUDED);
+    // Slots-path COMPLEMENT (proves the Excluded list is candidates-only, not enforced on
+    // getAppointmentSlots): the SAME account-excluded resourceB, read via getAppointmentSlots WITH
+    // accountId, still returns > 0 slots - the slots path passes accountResourcePreferences=null
+    // (SchedulingServiceImpl:493) so checkResourcePrefs never prunes it. Contrast the candidates read
+    // above, which hides it. resourceB is genuinely available, so > 0 here is the un-pruned resource,
+    // not a coincidence.
+    assertThat(Integer.parseInt(oldReadEnv.getAsString("oldSlotsExcludedBWithAcctCount")))
+        .isGreaterThan(0);
+
+    // --- Unified slots-read (262): the SAME account-excluded resource, read via get-appointment-slots.
+    // Unlike Scheduler (candidates-only enforcement), Unified applies Excluded UNIFORMLY - all reads and
+    // the write share ResourceManagementService.buildServiceTerritoryMap -> checkResourcePrefs - so the
+    // Unified slots read PRUNES the excluded resource (0 slots). This is the read-axis DIVERGENCE from
+    // Scheduler's >0 above. Reuses the proven WFS get-slots-excluded-violating act (the same one
+    // WfsRulesParityE2ETest.testExcludedResourcesReadWriteParityE2E asserts reads 0).
+    final var unifiedReadEnv =
+        CollectionsKt.last(
+                ReVoman.revUp(
+                    (r, ignore) -> assertThat(r.firstUnIgnoredUnsuccessfulStepReport()).isNull(),
+                    ReVomanConfigForWfs.AUTH_CONFIG,
+                    ReVomanConfigForWfs.EXCLUDED_RESOURCES_POLICY_CONFIG,
+                    ReVomanConfigForWfs.EXCLUDED_FIXTURE_CONFIG,
+                    ReVomanConfigForWfs.GET_SLOTS_EXCLUDED_VIOLATING_CONFIG))
+            .mutableEnv;
+    // Unified PRUNES on the slots read (0 slots) where Scheduler does not (>0) - the read-axis divergence.
+    assertThat(unifiedReadEnv.getAsString("excludedReadViolatingSlotCount")).isEqualTo("0");
   }
 
   /**

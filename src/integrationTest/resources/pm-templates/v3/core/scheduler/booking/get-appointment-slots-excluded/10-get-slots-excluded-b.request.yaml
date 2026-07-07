@@ -1,0 +1,55 @@
+$kind: http-request
+description: >-
+  OLD Salesforce Scheduler SLOTS-read probe proving the account Excluded list is NOT applied on the
+  getAppointmentSlots path (the complement of the getAppointmentCandidates read that DOES prune). POST
+  /scheduling/getAppointmentSlots over the excluded-helper fixture, tomorrow 11:00-11:30 UTC, WITH
+  accountId = the excluded Account, naming ONLY resourceB (the resource on the Account's Excluded
+  ResourcePreference list) as the single required resource. resourceB is genuinely available (Confirmed
+  Shift 08-16, Primary STM), so the ONLY thing that could zero its slots is the Excluded rule. Because
+  getAppointmentSlots passes accountResourcePreferences=null
+  (SchedulingServiceImpl.getAppointmentSlotsForTerritoryWorkTypes line 493), SchedulingDbUtil
+  .checkResourcePrefs short-circuits true (SchedulingDbUtil.java:706-709) and the Excluded list is NEVER
+  consulted on this path. EXPECTED: slots > 0 for the excluded resourceB — i.e. the slots read does NOT
+  hide it (contrast the candidates read, which prunes it). Single-resource shape: primaryResourceId
+  OMITTED, requiredResourceIds=[B]. Captures oldSlotsExcludedBWithAcctCount. PREREQUISITE: resourceB's
+  user holds the Lightning Scheduler PSL + lightningSchedulerUserAccess (shared grant-ls-user-access Kick
+  revUp'd just before) or the classic engine prunes it (removeResourcesWithoutPerm) into a dead 0-slot
+  read that would falsely look like Excluded pruning.
+url: "{{baseUrl}}{{versionPath}}/scheduling/getAppointmentSlots"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "workType": { "id": "{{schedWorkTypeId}}" },
+      "territoryIds": ["{{schedTerritoryId}}"],
+      "requiredResourceIds": ["{{schedResourceBId}}"],
+      "accountId": "{{schedAccountId}}",
+      "startTime": "{{schedReadStart}}",
+      "endTime": "{{schedReadEnd}}"
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(11, 0, 0, 0);
+      const e = new Date(s.getTime() + 30 * 60 * 1000);
+      pm.environment.set("schedReadStart", s.toISOString());
+      pm.environment.set("schedReadEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      // getAppointmentSlots returns { "timeSlots": [ ... ] }. If the slots path ignored the Excluded list
+      // (as the code says), the excluded-but-available resourceB yields >0 slots. A 0 here would instead
+      // mean slots DOES prune (refuting the claim) — so the assertion side is count > 0.
+      const data = pm.response.json() || {};
+      const slots = (data.timeSlots || data.slots || []);
+      pm.environment.set("oldSlotsExcludedBWithAcctCount", String(slots.length));
+      pm.environment.set("oldSlotsExcludedBWithAcctHttp", String(pm.response.code));
+      console.log("OLD getAppointmentSlots excluded-B WITH acct http=" + pm.response.code +
+                  " slots=" + slots.length);
+    language: text/javascript
+order: 1000

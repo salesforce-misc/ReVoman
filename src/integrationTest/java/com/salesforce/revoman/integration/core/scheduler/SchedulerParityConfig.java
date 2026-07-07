@@ -141,6 +141,11 @@ public final class SchedulerParityConfig {
       oldKickFor(V3_SCHEDULER_PATH + "fixtures/excluded-helper");
   static final Kick OLD_GET_CANDIDATES_EXCLUDED_CONFIG =
       oldKickFor(V3_SCHEDULER_PATH + "booking/get-candidates-excluded");
+  // * NOTE 2026-07-07 gopal.akshintala: slots-path complement of the candidates read - proves the
+  // * account Excluded list is NOT applied on getAppointmentSlots (only on getAppointmentCandidates).
+  // * Reads getAppointmentSlots WITH accountId naming the excluded resourceB; expects slots > 0.
+  static final Kick OLD_GET_SLOTS_EXCLUDED_CONFIG =
+      oldKickFor(V3_SCHEDULER_PATH + "booking/get-appointment-slots-excluded");
   static final Kick OLD_BOOK_EXCLUDED_NON_REQUIRED_CONFIG =
       oldKickFor(V3_SCHEDULER_PATH + "booking/service-appointments-excluded-non-required");
   // * NOTE 2026-07-07 gopal.akshintala: required-excluded variant — books resourceB (the

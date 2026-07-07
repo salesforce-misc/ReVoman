@@ -490,7 +490,10 @@ public final class ReVomanConfigForWfs {
       kickFor(V3_WFS_PATH + "booking/schedule-skills-violating");
   static final Kick SCHEDULE_SKILLS_CONTROL_CONFIG =
       kickFor(V3_WFS_PATH + "booking/schedule-skills-control");
-  static final Kick GET_SLOTS_EXCLUDED_VIOLATING_CONFIG =
+  // * NOTE 2026-07-07 gopal.akshintala: promoted public for cross-package reuse by
+  // * SchedulerVsUnifiedParityE2ETest 1a slots-read divergence (Unified prunes excluded on the
+  // * slots read; Scheduler does not).
+  public static final Kick GET_SLOTS_EXCLUDED_VIOLATING_CONFIG =
       kickFor(V3_WFS_PATH + "booking/get-slots-excluded-violating");
   static final Kick GET_SLOTS_EXCLUDED_CONTROL_CONFIG =
       kickFor(V3_WFS_PATH + "booking/get-slots-excluded-control");
