@@ -594,7 +594,7 @@ public final class ReVomanConfigForWfs {
         .haltOnFailureOfTypeExcept(
             HTTP_STATUS, afterStepContainingHeader(IGNORE_HTTP_STATUS_UNSUCCESSFUL))
         .insecureHttp(true)
-        .runLogSink(new ConsoleRunLogSink())
+        .runLogSink(ConsoleRunLogSink.DEFAULT)
         .off();
   }
 }
