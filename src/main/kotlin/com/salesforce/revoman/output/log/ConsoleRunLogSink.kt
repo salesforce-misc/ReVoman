@@ -12,9 +12,10 @@ import java.io.PrintStream
 /**
  * A built-in [RunLogSink] that renders the structured [StepEvent] stream to a [PrintStream]
  * (default [System.out]) — the console companion to [RunLogSink.NoOp]. Wire it into any
- * [com.salesforce.revoman.input.config.Kick] via `runLogSink(ConsoleRunLogSink())` to tee each
- * step's boundary event (and, for a finished step, its full HTTP request/response) to stdout so the
- * exchange shows up in a JUnit/Gradle log.
+ * [com.salesforce.revoman.input.config.Kick] via `runLogSink(ConsoleRunLogSink.DEFAULT)` (the
+ * shared [System.out] instance) or `runLogSink(ConsoleRunLogSink(myStream))` for a custom stream,
+ * to tee each step's boundary event (and, for a finished step, its full HTTP request/response) to
+ * stdout so the exchange shows up in a JUnit/Gradle log.
  *
  * [line] is intentionally a no-op: ReVoman already emits every teed narration line via
  * KotlinLogging, so re-printing it here would only duplicate that output. [close] is a no-op too —
@@ -30,6 +31,16 @@ class ConsoleRunLogSink(private val out: PrintStream = System.out) : RunLogSink 
    * No-op: KotlinLogging already emits teed narration lines; printing them here would duplicate.
    */
   override fun line(level: LogLevel, message: String) {}
+
+  companion object {
+    /**
+     * Shared, reusable instance writing to [System.out]. Reference this from a
+     * [com.salesforce.revoman.input.config.Kick]'s `runLogSink` instead of allocating a new
+     * [ConsoleRunLogSink] per Kick — the sink is stateless (its [out] is `final`, [line]/[close]
+     * are no-ops), so a single instance is safe to share across every Kick and revUp run.
+     */
+    @JvmField val DEFAULT: ConsoleRunLogSink = ConsoleRunLogSink()
+  }
 
   override fun event(event: StepEvent) {
     runCatching { out.print(render(event)) }

@@ -10,6 +10,7 @@ package com.salesforce.revoman.output.log
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
+import io.kotest.matchers.types.shouldBeSameInstanceAs
 import java.io.ByteArrayOutputStream
 import java.io.PrintStream
 import org.junit.jupiter.api.Test
@@ -159,5 +160,13 @@ class ConsoleRunLogSinkTest {
     // stream still writable after close(): a subsequent event still renders.
     sink.event(StepEvent.RequestSkipped(path = "20-after-close"))
     output() shouldContain "20-after-close"
+  }
+
+  @Test
+  fun `DEFAULT is a shared reusable instance`() {
+    // Same singleton on every access — callers reuse it instead of allocating per Kick.
+    ConsoleRunLogSink.DEFAULT shouldBeSameInstanceAs ConsoleRunLogSink.DEFAULT
+    // Renders to System.out without throwing (honors the never-throw contract).
+    ConsoleRunLogSink.DEFAULT.event(StepEvent.RequestSkipped(path = "30-default"))
   }
 }
