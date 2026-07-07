@@ -211,7 +211,7 @@ git commit -m "test(scheduler-parity): add Unified get-candidates read-probe fix
 
 ## Task 3: OLD Overbooking flip + revert fixtures
 
-**Depends on Task 1's DECISION.** The steps below assume Task 1 found the Metadata API works. If Task 1 chose PLSQL, replace the request files with a `HookConfig` (see Task 4 note) — the fixture folders then only hold a no-op marker, and the flip runs as a `PreStepHook` in the test.
+**Task 1 SPIKE RESULT (live-confirmed):** Metadata API works — `updateMetadata(IndustriesSettings{enableOverbookingOrgPref})` returns `<success>true</success>` and reads back live (no restart). Use it. Corrections from the spike vs the draft below: **`SOAPAction: updateMetadata`** (NOT empty `''`), `Content-Type: text/xml; charset=UTF-8`, endpoint `/services/Soap/m/{{version}}` (v67.0), token var `{{adminToken}}`. The `AppointmentBooking` perm prereq is satisfied (multi-resource pref already ON). No PLSQL fallback needed.
 
 **Files:**
 - Create: `pm-templates/v3/core/scheduler/booking/enable-overbooking/10-update-metadata.request.yaml`
@@ -241,7 +241,7 @@ url: "{{baseUrl}}/services/Soap/m/{{version}}"
 method: POST
 headers:
   Content-Type: text/xml
-  SOAPAction: "''"
+  SOAPAction: updateMetadata
   charset: UTF-8
   Accept: text/xml
 body:
