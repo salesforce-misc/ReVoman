@@ -2279,13 +2279,25 @@ class SchedulerVsUnifiedParityE2ETest {
    * free worker C to required, non-primary — the mirror of the b-required cell (which had C primary,
    * B non-primary).
    *
-   * <p><b>OLD engine — REFUSED (LIVE-pinned).</b> OLD's write-path availability re-check ({@code
-   * ServiceAppointmentServiceImpl.create → areResourcesAvailable}) treats B's existing overlapping
-   * assignment as hard occupancy regardless of B's role on either booking (the 2x2 already showed OLD
-   * refuses all four required/optional combinations). So the teammate's claim is FALSE on OLD: an
-   * optional prior assignment still occupies B, and B cannot be re-booked into an overlapping slot —
-   * as a primary or otherwise. Cell carries the fail-loud anchor: if it BOOKS, the org is
-   * overbooking-enabled and the whole occupancy family is vacuous.
+   * <p><b>OLD engine — outcome keys off the REQUIRED flag on both appointments (LIVE-pinned, C
+   * granted).</b> OLD's write-path availability re-check ({@code ServiceAppointmentServiceImpl.create
+   * → areResourcesAvailable → getAppointmentSlots}) blocks the re-book only when B is required on BOTH
+   * appointments (see {@link #testPriorAssignmentOccupancyParity_E2E}: required→required refuses, the
+   * other three combinations book). So the two cells here:
+   *
+   * <ul>
+   *   <li>optional prior → B PRIMARY on appt #2: BOOKS. An optional assignment on appt #1 does not
+   *       occupy B, so B is free to be re-booked as the primary. This CONFIRMS the teammate's claim on
+   *       OLD.
+   *   <li>required prior → B PRIMARY on appt #2: REFUSES (the discriminating cell + fail-loud anchor).
+   *       A required prior occupies B, and the primary role is availability-checked, so busy B yields
+   *       no slot and the gate fails.
+   * </ul>
+   *
+   * The block is therefore NOT about the primary role; it is the required-on-both rule. (An earlier
+   * all-four-refuse reading of the occupancy matrix was a fixture artifact — appt #2's primary
+   * resource C lacked the Lightning Scheduler permset and was pruned before slot generation. These
+   * cells grant C via {@link #oldOccupancyCellGrantAllResources} so the outcome reflects B's occupancy.)
    *
    * <p><b>Unified engine — BOOKED in BOTH cells (LIVE-pinned 2026-07-07, both orgs; REFUTES "a busy
    * primary is spared").</b> The prediction was that making the busy B the PRIMARY would trip the
@@ -2316,16 +2328,29 @@ class SchedulerVsUnifiedParityE2ETest {
   void testPriorAssignmentBAsPrimaryE2E() {
     SchedulerParityConfig.assumeBothOrgCreds();
 
-    // OLD: an OPTIONAL prior assignment on B still occupies B — re-booking B (now as PRIMARY) over the
-    // same window is REFUSED. Directly refutes "optional prior ⇒ B free to be primary later" on OLD.
-    // Fail-loud anchor: a BOOKED here means the org allows overbooking and the occupancy family is vacuous.
-    assertWithMessage(
-            "OLD: optional prior assignment on B must still block re-booking B as PRIMARY (occupancy is"
-                + " role-agnostic). If BOOKED, the org allows overbooking and the occupancy findings are"
-                + " vacuous — not a confirmation of the teammate's claim.")
-        .that(
-            oldOccupancyCell(
+    // OLD, optional prior -> B PRIMARY on appt #2: BOOKS. An optional assignment on appt #1 does not
+    // occupy B, so when B is re-booked as the primary (a required role) on the overlapping window it
+    // still has an open slot and the booking succeeds. This confirms the teammate's claim on OLD: an
+    // optional prior does leave B free to be booked as primary later.
+    assertThat(
+            oldOccupancyCellGrantAllResources(
                 SchedulerParityConfig.OLD_PRIOR_APPT1_B_OPTIONAL_CONFIG,
+                SchedulerParityConfig.OLD_PRIOR_APPT2_B_PRIMARY_CONFIG))
+        .isEqualTo(SchedulerParityConfig.WriteOutcome.BOOKED);
+
+    // OLD discriminating cell — REQUIRED prior -> B PRIMARY on appt #2: REFUSES. A required assignment
+    // on appt #1 does occupy B, and the primary role on appt #2 is availability-checked, so busy B
+    // produces no slot and the gate fails. Fail-loud anchor: if this BOOKS, the org allows overbooking
+    // and the old-side occupancy findings are vacuous. Together the two cells show OLD blocks the
+    // re-book only when B is required on BOTH appointments — the block keys off the required flag, not
+    // the primary role.
+    assertWithMessage(
+            "OLD: required prior + B-as-primary appt #2 must REFUSE (B required on both -> real"
+                + " occupancy). If BOOKED, the org allows overbooking and the old-side occupancy"
+                + " findings are vacuous.")
+        .that(
+            oldOccupancyCellGrantAllResources(
+                SchedulerParityConfig.OLD_PRIOR_APPT1_B_REQUIRED_CONFIG,
                 SchedulerParityConfig.OLD_PRIOR_APPT2_B_PRIMARY_CONFIG))
         .isEqualTo(SchedulerParityConfig.WriteOutcome.REFUSED);
 
