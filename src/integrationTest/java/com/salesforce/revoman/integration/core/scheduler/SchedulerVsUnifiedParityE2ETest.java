@@ -1880,6 +1880,37 @@ class SchedulerVsUnifiedParityE2ETest {
   }
 
   /**
+   * Same as {@link #oldOccupancyCell} but ALSO grants resourceC the Lightning Scheduler permset
+   * ({@link SchedulerParityConfig#OLD_GRANT_LS_ACCESS_C_CONFIG}). The shared grant only perms A + B;
+   * appt #2 makes C the primary, so without this C is pruned by {@code
+   * SchedulingServiceImpl.removeResourcesWithoutPerm} before slot-gen and the request 400s for a
+   * PROVISIONING reason (JDWP-confirmed), masking the real occupancy behavior. Granting C removes that
+   * confound: a REFUSE can then only come from busy B genuinely producing no slot (occupancy), and a
+   * BOOK means the second overlapping assignment was actually admitted. Used by {@link
+   * #testPriorAssignmentOccupancyParity_E2E} so each cell's outcome reflects occupancy, not the
+   * permset gap. The other {@link #oldOccupancyCell} callers keep the A/B-only grant deliberately (a
+   * separate cleanup — see the {@code ~/.remember} handoff).
+   */
+  private static SchedulerParityConfig.WriteOutcome oldOccupancyCellGrantAllResources(
+      final Kick appt1Config, final Kick appt2Config) {
+    final var env =
+        CollectionsKt.last(
+                ReVoman.revUp(
+                    (r, ignore) -> assertThat(r.firstUnIgnoredUnsuccessfulStepReport()).isNull(),
+                    SchedulerParityConfig.OLD_AUTH_CONFIG,
+                    SchedulerParityConfig.OLD_PRIOR_ASSIGNMENT_FIXTURE_CONFIG,
+                    SchedulerParityConfig.OLD_GRANT_LS_ACCESS_CONFIG,
+                    SchedulerParityConfig.OLD_GRANT_LS_ACCESS_C_CONFIG,
+                    appt1Config,
+                    appt2Config))
+            .mutableEnv;
+    assertThat(env.getAsString("priorAppt1SaId")).hasLength(18);
+    assertThat(env.getAsString("priorAppt1SaId")).startsWith("08p");
+    return SchedulerParityConfig.oldWriteOutcome(
+        env.getAsString("priorAppt2SaId"), env.getAsString("priorAppt2Http"));
+  }
+
+  /**
    * Runs one old-side occupancy cell with BOTH overbooking knobs ON: AUTH → enable Overbooking pref →
    * CONCURRENT prior-assignment FIXTURE (member TimeSlots MaxAppointments=2) → GRANT → book appt #1
    * (seeds B's assignment) → book appt #2 (re-books B on the overlapping window). The enable step runs
@@ -2008,19 +2039,29 @@ class SchedulerVsUnifiedParityE2ETest {
    * test confirms the pref alone is necessary-but-not-sufficient: with Overbooking flipped ON but
    * MaxAppointments=1, OLD still REFUSES.
    *
-   * <p><b>So the OLD-REFUSES / Unified-BOOKS split is a genuine product-behavior difference on the
-   * write path</b> (OLD write validates availability; Unified write trusts the caller), NOT the
-   * config artifact the handoff first suspected. This test PINS each cell's observed outcome
-   * VERBATIM via the normalized {@link SchedulerParityConfig.WriteOutcome} (old REFUSED, Unified
-   * BOOKED) — the same way the 1.4 / 3 divergences are pinned. There is deliberately no {@code old
-   * == unified} equality assertion. The two companion tests ({@link
-   * #testPriorAssignmentUnifiedReadVsWriteE2E}, {@link
+   * <p><b>So where OLD refuses and Unified books, it is a genuine write-path product-behavior
+   * difference</b> (OLD write validates availability; Unified write trusts the caller), NOT the
+   * config artifact the handoff first suspected. This test PINS each cell's observed outcome VERBATIM
+   * via the normalized {@link SchedulerParityConfig.WriteOutcome}. On OLD the outcome keys off appt
+   * #2's REQUIRED flag for busy B: REFUSED when B is required (cells a, b — B yields no slot, the
+   * containsAll gate fails: real occupancy), BOOKED when B is optional (cells c, d — a non-required
+   * resource is not availability-checked, so the free primary C carries the booking). Unified BOOKS
+   * all four. There is deliberately no {@code old == unified} equality assertion. The two companion
+   * tests ({@link #testPriorAssignmentUnifiedReadVsWriteE2E}, {@link
    * #testPriorAssignmentOldOverbookingPrefInsufficientE2E}) confirm the root cause on each engine.
+   *
+   * <p><b>resourceC is granted the Lightning Scheduler permset on every old-side cell</b> (via {@link
+   * #oldOccupancyCellGrantAllResources}). appt #2 makes C the primary; the shared grant only perms
+   * A + B, so without this C would be pruned by {@code SchedulingServiceImpl.removeResourcesWithoutPerm}
+   * before slot-gen and EVERY cell would 400 for a provisioning reason — masking the real behaviour
+   * (JDWP-verified at {@code SchedulingServiceImpl:522}, 2026-07-08). An earlier version of this test
+   * used the A/B-only grant and asserted all four cells REFUSED; cells c and d refused only because C
+   * was pruned, not from occupancy — corrected here.
    *
    * <p>Non-vacuity: each cell's helper method asserts appt #1 itself booked (old: 18-char 08p SA
    * id; unified: schedulingStatus Success) before reading appt #2's outcome, so a REFUSED appt #2
    * reflects a real occupancy block rather than a dead fixture. The fixture also proves B is
-   * genuinely AVAILABLE at 11:00 (no shift gap), so the old-side refusals are occupancy, not
+   * genuinely AVAILABLE at 11:00 (no shift gap), so the old-side refusals (a, b) are occupancy, not
    * availability.
    *
    * <p>Old-side revUps mint 3 fresh {@code prior-res-*@revoman.org} users per run and never clean
@@ -2034,13 +2075,12 @@ class SchedulerVsUnifiedParityE2ETest {
   void testPriorAssignmentOccupancyParity_E2E() {
     SchedulerParityConfig.assumeBothOrgCreds();
 
-    // LIVE-OBSERVED TRUTH TABLE (2026-07-06, both orgs, not FROM-CACHE) — a TOTAL divergence:
-    // OLD Salesforce Scheduler REFUSED all four cells; Unified BOOKED all four. Each cell is
-    // asserted
-    // VERBATIM to the observed outcome (not forced to a parity match), the same way the 1.4 / 3
-    // crash
-    // divergences are pinned. The old==unified equality asserts are intentionally ABSENT — they
-    // diverge.
+    // LIVE-OBSERVED TRUTH TABLE (old side re-pinned 2026-07-08 with resourceC granted, removing the
+    // permset-prune confound): OLD REFUSES only when busy B is REQUIRED on appt #2 (cells a, b) and
+    // BOOKS when B is OPTIONAL on appt #2 (cells c, d) — occupancy keys off appt #2's required flag
+    // for B. Unified BOOKS all four. Each cell is asserted VERBATIM to the observed outcome (not
+    // forced to a parity match), the same way the 1.4 / 3 crash divergences are pinned. The
+    // old==unified equality asserts are intentionally ABSENT — they diverge on a/b, agree on c/d.
     final Kick oldReqA1 = SchedulerParityConfig.OLD_PRIOR_APPT1_B_REQUIRED_CONFIG;
     final Kick oldOptA1 = SchedulerParityConfig.OLD_PRIOR_APPT1_B_OPTIONAL_CONFIG;
     final Kick oldReqA2 = SchedulerParityConfig.OLD_PRIOR_APPT2_B_REQUIRED_CONFIG;
@@ -2050,46 +2090,47 @@ class SchedulerVsUnifiedParityE2ETest {
     final Kick uniReqA2 = ReVomanConfigForWfs.PRIOR_APPT2_B_REQUIRED_CONFIG;
     final Kick uniOptA2 = ReVomanConfigForWfs.PRIOR_APPT2_B_OPTIONAL_CONFIG;
 
-    // (a) #1 required -> #2 required. OLD REFUSES the 2nd overlapping booking (enforces occupancy);
-    // Unified BOOKS it (no prior-appointment occupancy check — double-books even a REQUIRED
-    // resource). The old-side (a) verdict is the occupancy-is-enforced-at-all anchor: if it BOOKS,
-    // the org allows overbooking and every old-side refusal below is meaningless — so name that
-    // failure explicitly rather than surfacing a bare REFUSED != BOOKED.
+    // The old-side cells grant EVERY requested resource the Lightning Scheduler permset (via
+    // oldOccupancyCellGrantAllResources) so the outcome reflects B's occupancy, not the fixture
+    // perm-gap: appt #2 makes resourceC the primary, and without granting C it is pruned by
+    // removeResourcesWithoutPerm before slot-gen (containsAll gate fails -> a provisioning refusal,
+    // NOT occupancy). With C permed, the re-book outcome turns purely on appt #2's flag for busy B
+    // (JDWP-verified at SchedulingServiceImpl:522).
+    //
+    // LIVE-PINNED old-side outcomes (2026-07-08, C granted): only (a) required->required REFUSES;
+    // (b) optional->required BOOKS, (c) optional->optional BOOKS, (d) required->optional BOOKS. So on
+    // OLD the re-book is blocked ONLY when BOTH the prior assignment AND appt #2 mark B required: an
+    // optional prior does NOT occupy B (b), and an optional appt #2 is not availability-checked (c, d).
+    // This corrects the pre-fix reading ("an optional prior occupies B", "hard occupancy regardless of
+    // the 2nd flag") — that all-four-REFUSE table was an artifact of resourceC being pruned for the
+    // missing permset, not occupancy. Compute all four before asserting so a single run reveals the
+    // whole table (the tuple is logged), rather than halting at the first cell.
+    final var oldReqReq = oldOccupancyCellGrantAllResources(oldReqA1, oldReqA2);
+    final var oldOptReq = oldOccupancyCellGrantAllResources(oldOptA1, oldReqA2);
+    final var oldOptOpt = oldOccupancyCellGrantAllResources(oldOptA1, oldOptA2);
+    final var oldReqOpt = oldOccupancyCellGrantAllResources(oldReqA1, oldOptA2);
+    final var R = SchedulerParityConfig.WriteOutcome.REFUSED;
+    final var B = SchedulerParityConfig.WriteOutcome.BOOKED;
+
+    // Fail-loud anchor: (a) req->req is the occupancy-is-enforced-at-all check. If it BOOKS, the org
+    // allows overbooking and every old-side finding here is vacuous.
     assertWithMessage(
-            "(a) old required->required must REFUSE (occupancy enforced); if BOOKED, the org allows"
-                + " overbooking and the old-side occupancy findings are vacuous")
-        .that(oldOccupancyCell(oldReqA1, oldReqA2))
-        .isEqualTo(SchedulerParityConfig.WriteOutcome.REFUSED);
-    assertThat(unifiedOccupancyCell(uniReqA1, uniReqA2))
-        .isEqualTo(SchedulerParityConfig.WriteOutcome.BOOKED);
+            "(a) old required->required must REFUSE (busy B required on appt #2 -> real occupancy); if"
+                + " BOOKED the org allows overbooking and the old-side occupancy findings are vacuous."
+                + " Observed old table [reqReq, optReq, optOpt, reqOpt] = ["
+                + oldReqReq + ", " + oldOptReq + ", " + oldOptOpt + ", " + oldReqOpt + "]")
+        .that(oldReqReq)
+        .isEqualTo(R);
+    // OLD blocks the re-book ONLY when B is required on BOTH appointments.
+    assertThat(oldOptReq).isEqualTo(B);
+    assertThat(oldOptOpt).isEqualTo(B);
+    assertThat(oldReqOpt).isEqualTo(B);
 
-    // (b) #1 OPTIONAL -> #2 required (the headline question). OLD still REFUSES — an OPTIONAL prior
-    // assignment DOES occupy B on the old engine. Unified BOOKS — the optional prior assignment
-    // does
-    // not occupy (nor does any prior assignment).
-    assertThat(oldOccupancyCell(oldOptA1, oldReqA2))
-        .isEqualTo(SchedulerParityConfig.WriteOutcome.REFUSED);
-    assertThat(unifiedOccupancyCell(uniOptA1, uniReqA2))
-        .isEqualTo(SchedulerParityConfig.WriteOutcome.BOOKED);
-
-    // (c) #1 optional -> #2 optional. OLD REFUSES even though appt #2 marks B optional — the old
-    // engine
-    // treats B's existing overlapping assignment as hard occupancy regardless of the 2nd booking's
-    // flag.
-    // Unified BOOKS.
-    assertThat(oldOccupancyCell(oldOptA1, oldOptA2))
-        .isEqualTo(SchedulerParityConfig.WriteOutcome.REFUSED);
-    assertThat(unifiedOccupancyCell(uniOptA1, uniOptA2))
-        .isEqualTo(SchedulerParityConfig.WriteOutcome.BOOKED);
-
-    // (d) #1 required -> #2 optional. Same as (c) with a required first booking: OLD REFUSES,
-    // Unified
-    // BOOKS. Confirms old-side occupancy enforcement is independent of BOTH bookings' required
-    // flags.
-    assertThat(oldOccupancyCell(oldReqA1, oldOptA2))
-        .isEqualTo(SchedulerParityConfig.WriteOutcome.REFUSED);
-    assertThat(unifiedOccupancyCell(uniReqA1, uniOptA2))
-        .isEqualTo(SchedulerParityConfig.WriteOutcome.BOOKED);
+    // Unified BOOKS all four (no prior-appointment occupancy on the write path).
+    assertThat(unifiedOccupancyCell(uniReqA1, uniReqA2)).isEqualTo(B);
+    assertThat(unifiedOccupancyCell(uniOptA1, uniReqA2)).isEqualTo(B);
+    assertThat(unifiedOccupancyCell(uniOptA1, uniOptA2)).isEqualTo(B);
+    assertThat(unifiedOccupancyCell(uniReqA1, uniOptA2)).isEqualTo(B);
   }
 
   /**
