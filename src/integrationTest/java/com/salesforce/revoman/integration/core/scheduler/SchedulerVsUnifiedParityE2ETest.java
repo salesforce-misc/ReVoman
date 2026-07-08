@@ -2381,6 +2381,38 @@ class SchedulerVsUnifiedParityE2ETest {
   }
 
   /**
+   * Prior-assignment occupancy — SINGLE-RESOURCE double-book. Appt #2 requests ONLY the busy worker B
+   * (required, no primary, no co-resource), over the same 11:00-11:30 window B already holds from appt
+   * #1. This isolates the single-resource path: with no free co-resource to carry the booking, B's own
+   * availability decides the outcome.
+   *
+   * <p><b>OLD engine — REFUSED (live).</b> B is the sole requested resource and is required, so it is
+   * availability-checked. B's appt #1 assignment occupies the window, B produces no slot, and the
+   * booking is refused. Default org (both overbooking knobs off). This is the contrast to the
+   * multi-resource double-book, where a free primary C carries the booking while busy B is dropped from
+   * the slot intersection: remove the co-resource and the double-book does not happen.
+   *
+   * <p>appt #1 books B as a required resource (unambiguous occupancy); the cell asserts appt #1 itself
+   * booked (18-char 08p id) before reading appt #2, so a refusal reflects occupancy, not a dead
+   * fixture. Pinned to the live outcome via {@link SchedulerParityConfig.WriteOutcome}.
+   */
+  @Test
+  void testPriorAssignmentSingleResourceRefusesE2E() {
+    SchedulerParityConfig.assumeBothOrgCreds();
+    // OLD, single-resource appt #2 (only busy B, required): REFUSES. No co-resource can carry the
+    // booking, so B's occupied window blocks it. Fail-loud anchor: a BOOKED here means the org allows
+    // overbooking and the single-resource occupancy finding is vacuous.
+    assertWithMessage(
+            "OLD single-resource double-book (only busy B, required) must REFUSE; if BOOKED the org"
+                + " allows overbooking and the finding is vacuous")
+        .that(
+            oldOccupancyCell(
+                SchedulerParityConfig.OLD_PRIOR_APPT1_B_REQUIRED_CONFIG,
+                SchedulerParityConfig.OLD_PRIOR_APPT2_B_SINGLE_CONFIG))
+        .isEqualTo(SchedulerParityConfig.WriteOutcome.REFUSED);
+  }
+
+  /**
    * OLD Scheduler concurrent double-book of an already-assigned worker on a MULTI-RESOURCE appointment
    * — LIVE-OBSERVED BOOKED in both roles (2026-07-07, HTTP 201 on appt #2). This cell has BOTH
    * overbooking knobs ON (Overbooking pref + member-OH {@code TimeSlot.MaxAppointments}=2 via the

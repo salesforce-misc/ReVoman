@@ -106,6 +106,10 @@ public final class SchedulerParityConfig {
       oldKickFor(V3_SCHEDULER_PATH + "booking/service-appointments-prior-appt2-b-optional");
   static final Kick OLD_PRIOR_APPT2_B_PRIMARY_CONFIG =
       oldKickFor(V3_SCHEDULER_PATH + "booking/service-appointments-prior-appt2-b-primary");
+  // SINGLE-RESOURCE appt #2: only busy B (required, no primary, no co-resource). The single-resource
+  // double-book — with no free co-resource to carry the booking, B's own occupancy decides it.
+  static final Kick OLD_PRIOR_APPT2_B_SINGLE_CONFIG =
+      oldKickFor(V3_SCHEDULER_PATH + "booking/service-appointments-prior-appt2-b-single");
   static final Kick OLD_ENABLE_OVERBOOKING_CONFIG =
       oldKickFor(V3_SCHEDULER_PATH + "booking/enable-overbooking");
   static final Kick OLD_DISABLE_OVERBOOKING_CONFIG =

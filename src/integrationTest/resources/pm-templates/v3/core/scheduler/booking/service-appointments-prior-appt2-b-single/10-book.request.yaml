@@ -1,0 +1,49 @@
+$kind: http-request
+description: >-
+  PRIOR-ASSIGNMENT appt #2, SINGLE-RESOURCE variant: POST /connect/scheduling/service-appointments on
+  account #2, SAME tomorrow 11:00-11:30 UTC window, assignedResources = ONLY resourceB (required, no
+  primary, no second resource). This is the single-resource double-book: B is the sole requested worker
+  and B already holds the overlapping appt #1 assignment. With no free co-resource to carry the booking,
+  B's own zero-slot availability decides the outcome, so this REFUSES (unless overbooking is enabled).
+  Contrast the multi-resource appt #2 (C primary + B required), where a free primary C can carry the
+  booking while busy B is dropped from the slot intersection. Captures priorAppt2Http + priorAppt2SaId.
+url: "{{baseUrl}}{{versionPath}}/connect/scheduling/service-appointments"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+  x-revoman-ledger: "off"
+  ignoreHTTPStatusUnsuccessful: "true"
+body:
+  type: json
+  content: |-
+    {
+      "serviceAppointment": {
+        "serviceTerritoryId": "{{schedTerritoryId}}",
+        "parentRecordId": "{{schedAccountId2}}",
+        "workTypeId": "{{schedWorkTypeId}}",
+        "schedStartTime": "{{schedBookStart}}",
+        "schedEndTime": "{{schedBookEnd}}",
+        "extendedFields": [ { "name": "Status", "value": "Scheduled" } ]
+      },
+      "assignedResources": [
+        { "serviceResourceId": "{{schedResourceBId}}", "isRequiredResource": true }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      const s = new Date(); s.setUTCDate(s.getUTCDate() + 1); s.setUTCHours(11, 0, 0, 0);
+      const e = new Date(s.getTime() + 30 * 60 * 1000);
+      pm.environment.set("schedBookStart", s.toISOString());
+      pm.environment.set("schedBookEnd", e.toISOString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      const data = pm.response.json() || {};
+      const result = data.result || data;
+      pm.environment.set("priorAppt2Http", String(pm.response.code));
+      pm.environment.set("priorAppt2SaId", result.serviceAppointmentId || (result.serviceAppointment && result.serviceAppointment.id) || "");
+      console.log("OLD prior appt2 (B single) http=" + pm.response.code + " body=" + JSON.stringify(data).slice(0,300));
+    language: text/javascript
+order: 1000
