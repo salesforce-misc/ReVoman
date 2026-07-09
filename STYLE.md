@@ -21,7 +21,7 @@
 
 - Follow [Kotlin Coding Conventions](https://kotlinlang.org/docs/coding-conventions.html)
 - Use four spaces for indentation (consistent across all files)
-- Name test functions as `testXxx` (no backticks for readability)
+- Name test functions with backticks and natural-language descriptions, e.g. ``fun `custom dynamic variables`()`` — the prevalent convention in this codebase
 - Use descriptive variable and function names
 - Prefer functional programming patterns where appropriate
 - Use type-safe builders and DSLs for configuration

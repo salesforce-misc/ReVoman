@@ -1,4 +1,4 @@
-# ReVoman – An API Orchestration tool for JVM
+# ReVoman – An API Orchestration Engine for the JVM
 
 Kotlin/Gradle project for executing Postman collections on JVM. Requires JDK 21+.
 
