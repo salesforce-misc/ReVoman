@@ -55,8 +55,30 @@ internal object V3ToV2Converter {
   internal fun mergeQueryParams(url: String, queryParams: Map<String, String>): String {
     if (queryParams.isEmpty()) return url
     val separator = if (url.contains("?")) "&" else "?"
-    val extra = queryParams.entries.joinToString("&") { (k, v) -> "$k=$v" }
+    val extra =
+      queryParams.entries.joinToString("&") { (k, v) ->
+        "${encodeQueryComponent(k)}=${encodeQueryComponent(v)}"
+      }
     return "$url$separator$extra"
+  }
+
+  /**
+   * Encodes a query parameter key or value per RFC-3986, preserving Postman `{{variable}}`
+   * placeholders. Encodes unsafe/reserved chars (space→%20, &→%26, =→%3D, +→%2B, '→%27, etc.) but
+   * leaves unreserved chars (A-Za-z0-9-._~) and braces ({, }) unchanged so that `{{var}}`
+   * placeholders survive to later RegexReplacer substitution.
+   */
+  private fun encodeQueryComponent(component: String): String {
+    val result = StringBuilder()
+    for (char in component) {
+      when {
+        char in 'A'..'Z' || char in 'a'..'z' || char in '0'..'9' -> result.append(char)
+        char == '-' || char == '.' || char == '_' || char == '~' -> result.append(char)
+        char == '{' || char == '}' -> result.append(char)
+        else -> result.append("%${char.code.toString(16).uppercase().padStart(2, '0')}")
+      }
+    }
+    return result.toString()
   }
 
   private fun toBody(v3body: V3Body?): Body? {

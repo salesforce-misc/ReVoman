@@ -62,7 +62,7 @@ private val dynamicVariableGenerators: Map<String, () -> String> =
       },
   )
 
-fun getRandomHex() = nextInt(255).toString(16).uppercase()
+fun getRandomHex(): String = "%02X".format(nextInt(256))
 
 private val charPool = ('a'..'z') + ('A'..'Z') + ('0'..'9')
 
