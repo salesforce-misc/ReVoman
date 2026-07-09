@@ -7,7 +7,9 @@
  */
 package com.salesforce.revoman.internal.postman.sandbox
 
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
 import org.junit.jupiter.api.Test
 
 class FlattedTest {
@@ -41,5 +43,36 @@ class FlattedTest {
     val decoded = Flatted.parse("""[["1"],{"self":"1"}]""") as List<*>
     val obj = decoded[0] as Map<*, *>
     (obj["self"] === obj) shouldBe true
+  }
+
+  @Test
+  fun `valid nested Flatted still decodes correctly`() {
+    // Slot 0: array with refs to slots 1,2; Slot 1: obj with nested->slot3; Slot 2: obj with
+    // value->slot4; Slot 3,4: strings
+    val json = """[["1","2"],{"nested":"3"},{"value":"4"},"a","b"]"""
+    val decoded = Flatted.parse(json) as List<*>
+    decoded.size shouldBe 2
+    val obj1 = decoded[0] as Map<*, *>
+    val obj2 = decoded[1] as Map<*, *>
+    obj1["nested"] shouldBe "a"
+    obj2["value"] shouldBe "b"
+  }
+
+  @Test
+  fun `non-numeric string reference throws clear error`() {
+    // Array at slot 0 contains "not-a-number" which is not a valid index
+    val json = """[["not-a-number"],"value"]"""
+    val exception = shouldThrow<IllegalStateException> { Flatted.parse(json) }
+    exception.message shouldContain "Flatted"
+    exception.message shouldContain "not-a-number"
+  }
+
+  @Test
+  fun `out-of-range index throws clear error`() {
+    // Array at slot 0 contains "99" which is out of range (only 2 slots)
+    val json = """[["99"],"value"]"""
+    val exception = shouldThrow<IllegalStateException> { Flatted.parse(json) }
+    exception.message shouldContain "Flatted"
+    exception.message shouldContain "99"
   }
 }

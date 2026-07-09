@@ -48,11 +48,25 @@ class PollingConfigBuilder internal constructor(private val pick: PostTxnStepPic
     this.requestBuilder = requestBuilder
   }
 
-  fun every(interval: Duration): PollingConfigBuilder = apply { this.interval = interval }
+  fun every(interval: Duration): PollingConfigBuilder = apply {
+    require(!interval.isNegative && !interval.isZero) {
+      "Polling interval must be strictly positive, got: $interval"
+    }
+    this.interval = interval
+  }
 
-  fun timeout(timeout: Duration): PollingConfigBuilder = apply { this.timeout = timeout }
+  fun timeout(timeout: Duration): PollingConfigBuilder = apply {
+    require(!timeout.isNegative && !timeout.isZero) {
+      "Polling timeout must be strictly positive, got: $timeout"
+    }
+    this.timeout = timeout
+  }
 
   /** Terminal operation — builds the [PollingConfig] */
-  fun until(completionPredicate: PollingCompletionPredicate): PollingConfig =
-    PollingConfig(pick, requestBuilder, completionPredicate, interval, timeout)
+  fun until(completionPredicate: PollingCompletionPredicate): PollingConfig {
+    check(::requestBuilder.isInitialized) {
+      "PollingConfig requires request(...) to be called before until(...)"
+    }
+    return PollingConfig(pick, requestBuilder, completionPredicate, interval, timeout)
+  }
 }
