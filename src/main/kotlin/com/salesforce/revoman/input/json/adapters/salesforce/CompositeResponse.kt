@@ -83,7 +83,10 @@ data class CompositeResponse(val compositeResponse: List<Response>) {
               }
             }
             reader.endObject()
-            return Record(attributes!!, recordBody)
+            return Record(
+              attributes ?: throw JsonDataException("Record missing required 'attributes' field"),
+              recordBody,
+            )
           }
 
           override fun toJson(writer: JsonWriter, record: Record?) =

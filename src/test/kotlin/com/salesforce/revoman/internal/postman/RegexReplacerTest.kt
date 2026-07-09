@@ -15,6 +15,7 @@ import com.squareup.moshi.adapter
 import io.kotest.matchers.equals.shouldNotBeEqual
 import io.kotest.matchers.maps.shouldContain
 import io.kotest.matchers.maps.shouldContainAll
+import io.kotest.matchers.shouldBe
 import io.mockk.mockk
 import org.junit.jupiter.api.Test
 
@@ -104,5 +105,45 @@ class RegexReplacerTest {
     val resultStr = pm.regexReplacer.replaceVariablesRecursively(jsonStr, pm)!!
     val result = Moshi.Builder().build().adapter<Map<String, String>>().fromJson(resultStr)!!
     result["key1"]!! shouldNotBeEqual result["key2"]!!
+  }
+
+  @Test
+  fun `self-referencing variable does not cause StackOverflowError`() {
+    val regexReplacer = RegexReplacer()
+    val pm = PostmanSDK(moshiReVoman, null, regexReplacer)
+    pm.environment["self"] = "{{self}}"
+    val result = regexReplacer.replaceVariablesRecursively("{{self}}", pm)
+    result shouldBe "{{self}}"
+  }
+
+  @Test
+  fun `mutually cyclic variables do not cause StackOverflowError`() {
+    val regexReplacer = RegexReplacer()
+
+    // Test resolving {{a}} where a -> b -> a
+    val pm1 = PostmanSDK(moshiReVoman, null, regexReplacer)
+    pm1.environment["a"] = "{{b}}"
+    pm1.environment["b"] = "{{a}}"
+    val resultA = regexReplacer.replaceVariablesRecursively("{{a}}", pm1)
+    // When resolving {{a}}, we visit a, expand to {{b}}, visit b, expand to {{a}}, but a is already
+    // visited so we break the cycle and return {{a}}
+    resultA shouldBe "{{a}}"
+
+    // Test resolving {{b}} where b -> a -> b (fresh environment)
+    val pm2 = PostmanSDK(moshiReVoman, null, regexReplacer)
+    pm2.environment["a"] = "{{b}}"
+    pm2.environment["b"] = "{{a}}"
+    val resultB = regexReplacer.replaceVariablesRecursively("{{b}}", pm2)
+    resultB shouldBe "{{b}}"
+  }
+
+  @Test
+  fun `two-level indirection still resolves correctly`() {
+    val regexReplacer = RegexReplacer()
+    val pm = PostmanSDK(moshiReVoman, null, regexReplacer)
+    pm.environment["a"] = "{{b}}"
+    pm.environment["b"] = "value"
+    val result = regexReplacer.replaceVariablesRecursively("{{a}}", pm)
+    result shouldBe "value"
   }
 }

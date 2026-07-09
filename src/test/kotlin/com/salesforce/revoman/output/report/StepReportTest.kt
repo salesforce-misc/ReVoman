@@ -13,10 +13,15 @@ import com.salesforce.revoman.internal.json.MoshiReVoman.Companion.initMoshi
 import com.salesforce.revoman.internal.postman.template.Item
 import com.salesforce.revoman.internal.postman.template.Request
 import com.salesforce.revoman.internal.postman.template.Url
+import com.salesforce.revoman.output.ExeType
 import com.salesforce.revoman.output.postman.PostmanEnvironment
 import com.salesforce.revoman.output.report.failure.HookFailure.PostStepHookFailure
+import com.salesforce.revoman.output.report.failure.HookFailure.PreStepHookFailure
+import com.salesforce.revoman.output.report.failure.PollingFailure
 import com.salesforce.revoman.output.report.failure.RequestFailure.HttpRequestFailure
+import com.salesforce.revoman.output.report.failure.ResponseFailure.PostResJSFailure
 import io.kotest.matchers.shouldBe
+import java.time.Duration
 import org.http4k.core.Method.POST
 import org.http4k.core.Response
 import org.http4k.core.Status.Companion.BAD_REQUEST
@@ -170,5 +175,226 @@ class StepReportTest {
       )
     executed.isLedgerSkipped shouldBe false
     StepReport.assertNotLedgerSkipped(executed) // no-op, must not throw
+  }
+
+  @Test
+  fun `http status successful when pm-test fails after 200 response`() {
+    val rawRequest =
+      Request(method = POST.toString(), url = Url("https://overfullstack.github.io/"))
+    val requestInfo =
+      TxnInfo(
+        txnObjType = String::class.java,
+        txnObj = "fakeRequest",
+        httpMsg = rawRequest.toHttpRequest(moshiReVoman),
+        moshiReVoman = moshiReVoman,
+      )
+    val responseInfo: TxnInfo<Response> =
+      TxnInfo(
+        txnObjType = String::class.java,
+        txnObj = "fakeResponse",
+        httpMsg = Response(OK),
+        moshiReVoman = moshiReVoman,
+      )
+    val stepReportPmTestFailure =
+      StepReport(
+          Step("", Item(request = rawRequest)),
+          Right(requestInfo),
+          null,
+          Right(responseInfo),
+          pmEnvSnapshot = PostmanEnvironment(),
+        )
+        .copy(
+          pmTestAssertions =
+            listOf(PmTestAssertion("test1", false, false, "test failed", ExeType.POST_RES_JS))
+        )
+    println(stepReportPmTestFailure)
+    stepReportPmTestFailure.isHttpStatusSuccessful shouldBe true
+  }
+
+  @Test
+  fun `http status successful when polling fails after 200 response`() {
+    val rawRequest =
+      Request(method = POST.toString(), url = Url("https://overfullstack.github.io/"))
+    val requestInfo =
+      TxnInfo(
+        txnObjType = String::class.java,
+        txnObj = "fakeRequest",
+        httpMsg = rawRequest.toHttpRequest(moshiReVoman),
+        moshiReVoman = moshiReVoman,
+      )
+    val responseInfo: TxnInfo<Response> =
+      TxnInfo(
+        txnObjType = String::class.java,
+        txnObj = "fakeResponse",
+        httpMsg = Response(OK),
+        moshiReVoman = moshiReVoman,
+      )
+    val pollingFailure =
+      PollingFailure.PollingTimeoutFailure(
+        failure = RuntimeException("polling timeout"),
+        pollAttempts = 5,
+        timeout = Duration.ofSeconds(10),
+        lastPollResponse = Response(OK),
+      )
+    val stepReportPollingFailure =
+      StepReport(
+        Step("", Item(request = rawRequest)),
+        Right(requestInfo),
+        null,
+        Right(responseInfo),
+        null,
+        pollingFailure,
+        null,
+        pmEnvSnapshot = PostmanEnvironment(),
+      )
+    println(stepReportPollingFailure)
+    stepReportPollingFailure.isHttpStatusSuccessful shouldBe true
+  }
+
+  @Test
+  fun `http status unsuccessful when genuine non-2xx response`() {
+    val rawRequest =
+      Request(method = POST.toString(), url = Url("https://overfullstack.github.io/"))
+    val requestInfo =
+      TxnInfo(
+        txnObjType = String::class.java,
+        txnObj = "fakeRequest",
+        httpMsg = rawRequest.toHttpRequest(moshiReVoman),
+        moshiReVoman = moshiReVoman,
+      )
+    val badResponseInfo: TxnInfo<Response> =
+      TxnInfo(
+        txnObjType = String::class.java,
+        txnObj = "fakeBadResponse",
+        httpMsg = Response(BAD_REQUEST),
+        moshiReVoman = moshiReVoman,
+      )
+    val stepReportBadResponse =
+      StepReport(
+        Step("", Item(request = rawRequest)),
+        Right(requestInfo),
+        null,
+        Right(badResponseInfo),
+        pmEnvSnapshot = PostmanEnvironment(),
+      )
+    println(stepReportBadResponse)
+    stepReportBadResponse.isHttpStatusSuccessful shouldBe false
+  }
+
+  @Test
+  fun `http status unsuccessful when request fails`() {
+    val rawRequest =
+      Request(method = POST.toString(), url = Url("https://overfullstack.github.io/"))
+    val requestInfo =
+      TxnInfo(
+        txnObjType = String::class.java,
+        txnObj = "fakeRequest",
+        httpMsg = rawRequest.toHttpRequest(moshiReVoman),
+        moshiReVoman = moshiReVoman,
+      )
+    val stepReportRequestFailure =
+      StepReport(
+        Step("", Item(request = rawRequest)),
+        Left(HttpRequestFailure(RuntimeException("connection error"), requestInfo)),
+        pmEnvSnapshot = PostmanEnvironment(),
+      )
+    println(stepReportRequestFailure)
+    stepReportRequestFailure.isHttpStatusSuccessful shouldBe false
+  }
+
+  @Test
+  fun `http status unsuccessful when response fails`() {
+    val rawRequest =
+      Request(method = POST.toString(), url = Url("https://overfullstack.github.io/"))
+    val requestInfo =
+      TxnInfo(
+        txnObjType = String::class.java,
+        txnObj = "fakeRequest",
+        httpMsg = rawRequest.toHttpRequest(moshiReVoman),
+        moshiReVoman = moshiReVoman,
+      )
+    val responseInfo: TxnInfo<Response> =
+      TxnInfo(
+        txnObjType = String::class.java,
+        txnObj = "fakeResponse",
+        httpMsg = Response(OK),
+        moshiReVoman = moshiReVoman,
+      )
+    val stepReportResponseFailure =
+      StepReport(
+        Step("", Item(request = rawRequest)),
+        Right(requestInfo),
+        null,
+        Left(
+          PostResJSFailure(RuntimeException("response script error"), requestInfo, responseInfo)
+        ),
+        pmEnvSnapshot = PostmanEnvironment(),
+      )
+    println(stepReportResponseFailure)
+    stepReportResponseFailure.isHttpStatusSuccessful shouldBe false
+  }
+
+  @Test
+  fun `http status unsuccessful when pre-step hook fails`() {
+    val rawRequest =
+      Request(method = POST.toString(), url = Url("https://overfullstack.github.io/"))
+    val requestInfo =
+      TxnInfo(
+        txnObjType = String::class.java,
+        txnObj = "fakeRequest",
+        httpMsg = rawRequest.toHttpRequest(moshiReVoman),
+        moshiReVoman = moshiReVoman,
+      )
+    val preStepHookFailure = PreStepHookFailure(RuntimeException("pre-hook error"), requestInfo)
+    val stepReportPreHookFailure =
+      StepReport(
+        Step("", Item(request = rawRequest)),
+        Right(requestInfo),
+        preStepHookFailure,
+        pmEnvSnapshot = PostmanEnvironment(),
+      )
+    println(stepReportPreHookFailure)
+    stepReportPreHookFailure.isHttpStatusSuccessful shouldBe false
+  }
+
+  @Test
+  fun `http status successful for fully successful step`() {
+    val rawRequest =
+      Request(method = POST.toString(), url = Url("https://overfullstack.github.io/"))
+    val requestInfo =
+      TxnInfo(
+        txnObjType = String::class.java,
+        txnObj = "fakeRequest",
+        httpMsg = rawRequest.toHttpRequest(moshiReVoman),
+        moshiReVoman = moshiReVoman,
+      )
+    val responseInfo: TxnInfo<Response> =
+      TxnInfo(
+        txnObjType = String::class.java,
+        txnObj = "fakeResponse",
+        httpMsg = Response(OK),
+        moshiReVoman = moshiReVoman,
+      )
+    val stepReportSuccess =
+      StepReport(
+        Step("", Item(request = rawRequest)),
+        Right(requestInfo),
+        null,
+        Right(responseInfo),
+        pmEnvSnapshot = PostmanEnvironment(),
+      )
+    println(stepReportSuccess)
+    stepReportSuccess.isHttpStatusSuccessful shouldBe true
+  }
+
+  @Test
+  fun `http status successful for skipped step`() {
+    val skipped =
+      StepReport.ledgerSkipped(
+        Step("1", Item(name = "skipped-step", request = Request())),
+        setOf("someKey"),
+        PostmanEnvironment(),
+      )
+    skipped.isHttpStatusSuccessful shouldBe true
   }
 }

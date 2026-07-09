@@ -62,7 +62,7 @@ data class Rundown(
 
   @get:JvmName("areAllStepsExceptIgnoredSuccessful")
   val areAllStepsExceptIgnoredSuccessful: Boolean by lazy {
-    stepReports.all { it.isSuccessful || !isStepIgnoredForFailure(it, this) }
+    stepReports.all { it.isSuccessful || isStepIgnoredForFailure(it, this) }
   }
 
   fun reportsForStepsInFolder(folderName: String): List<StepReport?> = stepReports.filter {
@@ -108,4 +108,4 @@ data class Rundown(
 }
 
 fun <T> List<T>.endsWith(list: List<T>): Boolean =
-  list.isNotEmpty() && list.size < size && subList(lastIndex - list.lastIndex, size) == list
+  list.isNotEmpty() && list.size <= size && subList(lastIndex - list.lastIndex, size) == list
