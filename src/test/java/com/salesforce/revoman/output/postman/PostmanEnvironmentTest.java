@@ -11,6 +11,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.squareup.moshi.Types;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -95,5 +96,37 @@ class PostmanEnvironmentTest {
         .isInstanceOf(Map.class);
     assertThat(pm.<String>getTypedObj("key7", String.class)).isEqualTo(env.get("key7").get());
     assertThat(pm.<Object>getTypedObj("key8", Object.class)).isNull();
+  }
+
+  @Test
+  @DisplayName("getInt returns null for Long value without throwing")
+  void getIntReturnsNullForLongValue() {
+    final var pm = new PostmanEnvironment<>(Map.of("longKey", 123L, "intKey", 456));
+    assertThat(pm.getInt("longKey")).isNull();
+    assertThat(pm.getInt("intKey")).isEqualTo(456);
+  }
+
+  @Test
+  @DisplayName("getInt returns null for String value without throwing")
+  void getIntReturnsNullForStringValue() {
+    final var pm = new PostmanEnvironment<>(Map.of("stringKey", "123", "intKey", 456));
+    assertThat(pm.getInt("stringKey")).isNull();
+    assertThat(pm.getInt("intKey")).isEqualTo(456);
+  }
+
+  @Test
+  @DisplayName("getInt returns null for non-existent key")
+  void getIntReturnsNullForNonExistentKey() {
+    final var pm = new PostmanEnvironment<>(Map.of("intKey", 456));
+    assertThat(pm.getInt("nonExistentKey")).isNull();
+  }
+
+  @Test
+  @DisplayName("getInt returns null when value is null")
+  void getIntReturnsNullWhenValueIsNull() {
+    final var map = new HashMap<String, Object>();
+    map.put("nullKey", null);
+    final var pm = new PostmanEnvironment<>(map);
+    assertThat(pm.getInt("nullKey")).isNull();
   }
 }

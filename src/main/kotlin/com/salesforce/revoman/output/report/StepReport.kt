@@ -105,7 +105,10 @@ internal constructor(
 
   @JvmField
   val isHttpStatusSuccessful: Boolean =
-    failure?.fold({ it !is PostStepHookFailure }, { true }) != true
+    failure?.fold(
+      { it is PostStepHookFailure || it is PollingFailure || it is PmTestFailure },
+      { false },
+    ) ?: true
 
   /**
    * True when this step's HTTP dispatch was SKIPPED on a warm run by the ledger (its produced keys

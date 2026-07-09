@@ -137,7 +137,7 @@ constructor(
 
   fun getAsString(key: String?) = moshiReVoman.anyToString(mutableEnv[key])
 
-  fun getInt(key: String?) = mutableEnv[key] as Int?
+  fun getInt(key: String?) = mutableEnv[key] as? Int
 
   @JvmOverloads
   fun <PojoT : Any> getTypedObj(
