@@ -32,25 +32,41 @@ class RegexReplacer(
    *   from `collectionVariables` or `globals` is resolved but left untouched in its own store.
    */
   internal fun replaceVariablesRecursively(stringWithRegex: String?, pm: PostmanSDK): String? =
-    stringWithRegex?.let {
-      postManVariableRegex.replace(it) { variable ->
-        val variableKey = variable.groups[VARIABLE_KEY]?.value!!
-        customDynamicVariableGenerators[variableKey]
-          ?.let { cdvg ->
-            replaceVariablesRecursively(
-              cdvg.generate(variableKey, pm.currentStepReport, pm.rundown),
-              pm,
-            )
-          }
-          ?.also { value -> setItBackInEnvironment(variableKey, value, pm) }
-          ?: replaceVariablesRecursively(dynamicVariableGenerator(variableKey, pm), pm)?.also {
-            value ->
-            setItBackInEnvironment(variableKey, value, pm)
-          }
-          ?: resolveFromScopes(variableKey, pm)
-          ?: variable.value
+    replaceVariablesRecursively(stringWithRegex, pm, emptySet())
+
+  private fun replaceVariablesRecursively(
+    stringWithRegex: String?,
+    pm: PostmanSDK,
+    visitedKeys: Set<String>,
+  ): String? = stringWithRegex?.let {
+    postManVariableRegex.replace(it) { variable ->
+      val variableKey = variable.groups[VARIABLE_KEY]?.value!!
+      if (variableKey in visitedKeys) {
+        RevomanLog.warn {
+          "Cyclic variable reference detected: $variableKey is part of a resolution chain. Leaving placeholder {{$variableKey}} unresolved."
+        }
+        return@replace variable.value
       }
+      val newVisitedKeys = visitedKeys + variableKey
+      customDynamicVariableGenerators[variableKey]
+        ?.let { cdvg ->
+          replaceVariablesRecursively(
+            cdvg.generate(variableKey, pm.currentStepReport, pm.rundown),
+            pm,
+            newVisitedKeys,
+          )
+        }
+        ?.also { value -> setItBackInEnvironment(variableKey, value, pm) }
+        ?: replaceVariablesRecursively(
+            dynamicVariableGenerator(variableKey, pm),
+            pm,
+            newVisitedKeys,
+          )
+          ?.also { value -> setItBackInEnvironment(variableKey, value, pm) }
+        ?: resolveFromScopes(variableKey, pm, newVisitedKeys)
+        ?: variable.value
     }
+  }
 
   /**
    * Resolves [variableKey] across the three persistent Postman scopes by precedence (`environment`
@@ -60,20 +76,30 @@ class RegexReplacer(
    * `globals` hits are read-only — no ledger involvement, no write-back into their stores. Returns
    * `null` when no scope contains the key (caller falls back to the literal `{{key}}`).
    */
-  private fun resolveFromScopes(variableKey: String, pm: PostmanSDK): String? =
+  private fun resolveFromScopes(
+    variableKey: String,
+    pm: PostmanSDK,
+    visitedKeys: Set<String>,
+  ): String? =
     when {
       pm.environment.containsKey(variableKey) ->
-        replaceVariablesRecursively(pm.environment.getAsString(variableKey), pm)?.also { value ->
-          pm.environment.recordConsumed(variableKey)
-          setItBackInEnvironment(variableKey, value, pm)
-          RevomanLog.debug { "{{$variableKey}} resolved from scope 'environment'" }
-        }
+        replaceVariablesRecursively(pm.environment.getAsString(variableKey), pm, visitedKeys)
+          ?.also { value ->
+            pm.environment.recordConsumed(variableKey)
+            setItBackInEnvironment(variableKey, value, pm)
+            RevomanLog.debug { "{{$variableKey}} resolved from scope 'environment'" }
+          }
       pm.collectionVariables.containsKey(variableKey) ->
-        replaceVariablesRecursively(pm.collectionVariables.getAsString(variableKey), pm)?.also {
-          RevomanLog.debug { "{{$variableKey}} resolved from scope 'collectionVariables'" }
-        }
+        replaceVariablesRecursively(
+            pm.collectionVariables.getAsString(variableKey),
+            pm,
+            visitedKeys,
+          )
+          ?.also {
+            RevomanLog.debug { "{{$variableKey}} resolved from scope 'collectionVariables'" }
+          }
       pm.globals.containsKey(variableKey) ->
-        replaceVariablesRecursively(pm.globals.getAsString(variableKey), pm)?.also {
+        replaceVariablesRecursively(pm.globals.getAsString(variableKey), pm, visitedKeys)?.also {
           RevomanLog.debug { "{{$variableKey}} resolved from scope 'globals'" }
         }
       else -> null

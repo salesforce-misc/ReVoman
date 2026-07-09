@@ -71,7 +71,19 @@ internal object Flatted {
 
   private fun deref(value: Any?, slots: List<Any?>, built: Array<Any?>, done: BooleanArray): Any? =
     when (value) {
-      is String -> resolve(value.toInt(), slots, built, done)
+      is String -> {
+        val index: Int =
+          value.toIntOrNull()
+            ?: throw IllegalStateException(
+              "Flatted: invalid slot reference '$value' (not a number)"
+            )
+        if (index !in slots.indices) {
+          throw IllegalStateException(
+            "Flatted: invalid slot reference '$value' (index out of range, valid: 0-${slots.size - 1})"
+          )
+        }
+        resolve(index, slots, built, done)
+      }
       else -> value
     }
 }

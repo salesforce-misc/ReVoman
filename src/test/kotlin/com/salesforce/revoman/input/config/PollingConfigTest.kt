@@ -8,7 +8,9 @@
 package com.salesforce.revoman.input.config
 
 import com.salesforce.revoman.input.config.StepPick.PostTxnStepPick
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.types.shouldBeInstanceOf
 import java.time.Duration
 import org.http4k.core.Method
@@ -68,5 +70,85 @@ class PollingConfigTest {
     val builder = PollingRequestBuilder { _, _ -> customRequest }
     val config = PollingConfig.poll(alwaysPick).request(builder).until(alwaysComplete)
     config.requestBuilder shouldBe builder
+  }
+
+  @Test
+  fun `until without request throws IllegalStateException with helpful message`() {
+    val exception =
+      shouldThrow<IllegalStateException> { PollingConfig.poll(alwaysPick).until(alwaysComplete) }
+    exception.message shouldContain "request(...)"
+    exception.message shouldContain "until(...)"
+  }
+
+  @Test
+  fun `every with zero duration throws IllegalArgumentException`() {
+    val exception =
+      shouldThrow<IllegalArgumentException> {
+        PollingConfig.poll(alwaysPick)
+          .request(noOpRequest)
+          .every(Duration.ZERO)
+          .until(alwaysComplete)
+      }
+    exception.message shouldContain "interval"
+    exception.message shouldContain "positive"
+  }
+
+  @Test
+  fun `every with negative duration throws IllegalArgumentException`() {
+    val exception =
+      shouldThrow<IllegalArgumentException> {
+        PollingConfig.poll(alwaysPick)
+          .request(noOpRequest)
+          .every(Duration.ofSeconds(-1))
+          .until(alwaysComplete)
+      }
+    exception.message shouldContain "interval"
+    exception.message shouldContain "positive"
+  }
+
+  @Test
+  fun `timeout with zero duration throws IllegalArgumentException`() {
+    val exception =
+      shouldThrow<IllegalArgumentException> {
+        PollingConfig.poll(alwaysPick)
+          .request(noOpRequest)
+          .timeout(Duration.ZERO)
+          .until(alwaysComplete)
+      }
+    exception.message shouldContain "timeout"
+    exception.message shouldContain "positive"
+  }
+
+  @Test
+  fun `timeout with negative duration throws IllegalArgumentException`() {
+    val exception =
+      shouldThrow<IllegalArgumentException> {
+        PollingConfig.poll(alwaysPick)
+          .request(noOpRequest)
+          .timeout(Duration.ofSeconds(-1))
+          .until(alwaysComplete)
+      }
+    exception.message shouldContain "timeout"
+    exception.message shouldContain "positive"
+  }
+
+  @Test
+  fun `every with positive duration succeeds`() {
+    val config =
+      PollingConfig.poll(alwaysPick)
+        .request(noOpRequest)
+        .every(Duration.ofMillis(100))
+        .until(alwaysComplete)
+    config.interval shouldBe Duration.ofMillis(100)
+  }
+
+  @Test
+  fun `timeout with positive duration succeeds`() {
+    val config =
+      PollingConfig.poll(alwaysPick)
+        .request(noOpRequest)
+        .timeout(Duration.ofSeconds(5))
+        .until(alwaysComplete)
+    config.timeout shouldBe Duration.ofSeconds(5)
   }
 }
