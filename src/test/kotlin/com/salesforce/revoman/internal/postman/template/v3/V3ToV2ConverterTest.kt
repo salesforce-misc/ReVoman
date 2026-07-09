@@ -202,4 +202,61 @@ class V3ToV2ConverterTest {
     val item = V3ToV2Converter.toItem(v3, fallbackName = "x", inheritedAuth = inherited)
     assertThat(item.request.auth!!.bearer.single().value).isEqualTo("INHERITED")
   }
+
+  @Test
+  fun `query param value with space is percent-encoded`() {
+    val merged = V3ToV2Converter.mergeQueryParams("{{baseUrl}}/x", mapOf("q" to "hello world"))
+    assertThat(merged).isEqualTo("{{baseUrl}}/x?q=hello%20world")
+  }
+
+  @Test
+  fun `query param value with ampersand and equals is percent-encoded`() {
+    val merged = V3ToV2Converter.mergeQueryParams("{{baseUrl}}/x", mapOf("q" to "A&B=C"))
+    assertThat(merged).isEqualTo("{{baseUrl}}/x?q=A%26B%3DC")
+  }
+
+  @Test
+  fun `query param value with plus sign is percent-encoded`() {
+    val merged = V3ToV2Converter.mergeQueryParams("{{baseUrl}}/x", mapOf("q" to "A+B"))
+    assertThat(merged).isEqualTo("{{baseUrl}}/x?q=A%2BB")
+  }
+
+  @Test
+  fun `query param value with single quote is percent-encoded`() {
+    val merged = V3ToV2Converter.mergeQueryParams("{{baseUrl}}/x", mapOf("q" to "A'B"))
+    assertThat(merged).isEqualTo("{{baseUrl}}/x?q=A%27B")
+  }
+
+  @Test
+  fun `query param value containing Postman variable placeholder survives unencoded`() {
+    val merged = V3ToV2Converter.mergeQueryParams("{{baseUrl}}/x", mapOf("q" to "{{var}}"))
+    assertThat(merged).isEqualTo("{{baseUrl}}/x?q={{var}}")
+  }
+
+  @Test
+  fun `query param value with placeholder and special chars encodes only the special chars`() {
+    val merged =
+      V3ToV2Converter.mergeQueryParams(
+        "{{baseUrl}}/x",
+        mapOf("q" to "SELECT Id FROM Account WHERE Name='{{name}}'"),
+      )
+    assertThat(merged)
+      .isEqualTo("{{baseUrl}}/x?q=SELECT%20Id%20FROM%20Account%20WHERE%20Name%3D%27{{name}}%27")
+  }
+
+  @Test
+  fun `query param key is also percent-encoded`() {
+    val merged = V3ToV2Converter.mergeQueryParams("{{baseUrl}}/x", mapOf("key with space" to "val"))
+    assertThat(merged).isEqualTo("{{baseUrl}}/x?key%20with%20space=val")
+  }
+
+  @Test
+  fun `unreserved chars in query params are not encoded`() {
+    val merged =
+      V3ToV2Converter.mergeQueryParams(
+        "{{baseUrl}}/x",
+        mapOf("k" to "azAZ09-._~"),
+      )
+    assertThat(merged).isEqualTo("{{baseUrl}}/x?k=azAZ09-._~")
+  }
 }
