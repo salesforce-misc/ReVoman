@@ -37,6 +37,7 @@ fun interface StepAssertion {
  * convention used by [Kick] because [assertAfter] is a lambda and one spec must serve both language
  * front doors.
  */
+@RunbookDsl
 class StepSpec {
   var intent: String = ""
   var phase: Phase = Phase.SETUP
