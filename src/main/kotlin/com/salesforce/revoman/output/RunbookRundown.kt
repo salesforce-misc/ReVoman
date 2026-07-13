@@ -17,33 +17,13 @@ import com.salesforce.revoman.input.config.RunbookStep
 class RunbookRundown(
   val name: String?,
   val stepRundowns: List<Pair<RunbookStep, Rundown>>,
-) : List<Rundown> {
+) : List<Rundown> by (stepRundowns.map { it.second }) {
 
-  val rundowns: List<Rundown> = stepRundowns.map { it.second }
-
-  override val size: Int
-    get() = rundowns.size
-
-  override fun contains(element: Rundown): Boolean = rundowns.contains(element)
-
-  override fun containsAll(elements: Collection<Rundown>): Boolean = rundowns.containsAll(elements)
-
-  override fun get(index: Int): Rundown = rundowns[index]
-
-  override fun indexOf(element: Rundown): Int = rundowns.indexOf(element)
-
-  override fun isEmpty(): Boolean = rundowns.isEmpty()
-
-  override fun iterator(): Iterator<Rundown> = rundowns.iterator()
-
-  override fun lastIndexOf(element: Rundown): Int = rundowns.lastIndexOf(element)
-
-  override fun listIterator(): ListIterator<Rundown> = rundowns.listIterator()
-
-  override fun listIterator(index: Int): ListIterator<Rundown> = rundowns.listIterator(index)
-
-  override fun subList(fromIndex: Int, toIndex: Int): List<Rundown> =
-    rundowns.subList(fromIndex, toIndex)
+  /**
+   * Explicit accessor for the per-step [Rundown]s (this object also IS that list via delegation).
+   */
+  val rundowns: List<Rundown>
+    get() = this
 
   fun stepFor(intent: String): Pair<RunbookStep, Rundown>? = stepRundowns.firstOrNull {
     it.first.intent == intent
