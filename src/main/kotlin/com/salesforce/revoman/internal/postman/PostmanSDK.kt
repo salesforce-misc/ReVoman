@@ -117,7 +117,10 @@ class PostmanSDK(
 
   inner class JSEvaluator(nodeModulesPath: String? = null) {
     private val jsContext: Context
-    private var imports = ""
+    // Constant per-instance prefix, computed once. Non-empty only when a nodeModulesPath enabled
+    // commonjs-require (so lodash `_` is importable). Hoisted to a val — never mutated after init.
+    private val imports: String =
+      if (!nodeModulesPath.isNullOrBlank()) "var _ = require('lodash')\n" else ""
 
     init {
       val options = buildMap {
@@ -125,7 +128,6 @@ class PostmanSDK(
           logger.info { "nodeModulesPath: $nodeModulesPath" }
           put("js.commonjs-require", "true")
           put("js.commonjs-require-cwd", nodeModulesPath)
-          imports = "var _ = require('lodash')\n"
         }
         put("js.esm-eval-returns-exports", "true")
       }
@@ -143,6 +145,13 @@ class PostmanSDK(
       contextBindings.putMember("xml2Json", this@PostmanSDK.xml2Json)
     }
 
+    // * NOTE: A `Map<String, Value>` result-memo for repeated identical scripts is INTENTIONALLY
+    // NOT added here — it is unsafe. This fn injects per-call [bindings] into the shared Context,
+    // and pm scripts routinely have side effects (`pm.environment.set(...)`) and run identical
+    // text with different bindings (e.g. `xml2Json` over a different `responseBody`). A
+    // script->Value cache would skip both binding injection and re-execution, corrupting behavior.
+    // The safe repeated-script win is the closure memo (see [jsonParseFn]); A4 is limited to
+    // making the [imports] prefix immutable.
     internal fun evaluateJS(js: String, bindings: Map<String, Any> = emptyMap()): Value {
       val contextBindings = jsContext.getBindings("js")
       bindings.forEach { (key, value) -> contextBindings.putMember(key, value) }
