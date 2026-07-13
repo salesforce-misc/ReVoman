@@ -5,6 +5,10 @@
   "ignoreUnstable": false,
   "automerge": true,
   "commitBodyTable": true,
+  "github-actions": {
+    "comment": "Actions are pinned to @main (float on upstream default branch, no version pinning) — so disable Renovate's github-actions manager; it would otherwise pin @main to a commit SHA.",
+    "enabled": false
+  },
   "packageRules": [
     {
       "matchUpdateTypes": [
