@@ -141,6 +141,10 @@ inline fun <reified PojoT : Any> pojoToJson(
 ): String? =
   pojoToJson(PojoT::class.java, pojo, customAdapters, customAdaptersWithType, skipTypes, indent)
 
+// * NOTE: the empty-config MoshiReVoman never has adapters added (addAdapters is the only mutator),
+//   so a single memoized instance is safely shared across all default-config marshalling calls.
+private val defaultMoshiReVoman by lazy { initMoshi() }
+
 @SuppressWarnings("kotlin:S3923")
 private fun <PojoT : Any> initMoshi(
   customAdapters: List<Any> = emptyList(),
@@ -148,7 +152,10 @@ private fun <PojoT : Any> initMoshi(
   skipTypes: Set<Class<out Any>> = emptySet(),
   pojoType: Type,
 ): JsonAdapter<PojoT> =
-  initMoshi(customAdapters, customAdaptersWithType, skipTypes).adapter(pojoType)
+  (if (customAdapters.isEmpty() && customAdaptersWithType.isEmpty() && skipTypes.isEmpty())
+      defaultMoshiReVoman
+    else initMoshi(customAdapters, customAdaptersWithType, skipTypes))
+    .adapter(pojoType)
 
 @PojoConfig
 @Value.Immutable
