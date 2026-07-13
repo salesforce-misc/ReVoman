@@ -145,4 +145,42 @@ class V3YamlReaderTest {
     assertThat(env.values[0].value).isEqualTo("https://pokeapi.co/api/v2")
     assertThat(env.values[1].value).isEqualTo("true")
   }
+
+  @Test
+  fun sequentialReadsThroughSharedYamlAreIndependent() {
+    val first =
+      V3YamlReader.readRequest(
+        """
+        ${'$'}kind: http-request
+        url: "{{baseUrl}}/one"
+        method: GET
+        """
+          .trimIndent()
+      )
+    val second =
+      V3YamlReader.readRequest(
+        """
+        ${'$'}kind: http-request
+        url: "{{baseUrl}}/two"
+        method: POST
+        """
+          .trimIndent()
+      )
+    // Re-read the first shape after the second to prove no cross-call carryover.
+    val firstAgain =
+      V3YamlReader.readRequest(
+        """
+        ${'$'}kind: http-request
+        url: "{{baseUrl}}/one"
+        method: GET
+        """
+          .trimIndent()
+      )
+    assertThat(first.url).isEqualTo("{{baseUrl}}/one")
+    assertThat(first.method).isEqualTo("GET")
+    assertThat(second.url).isEqualTo("{{baseUrl}}/two")
+    assertThat(second.method).isEqualTo("POST")
+    assertThat(firstAgain.url).isEqualTo("{{baseUrl}}/one")
+    assertThat(firstAgain.method).isEqualTo("GET")
+  }
 }
