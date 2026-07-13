@@ -7,6 +7,7 @@
 package com.salesforce.revoman.integration.core.wfs;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.salesforce.revoman.integration.core.CoreUtils.assumeOrgCredsPresent;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.AUTH_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.AVAILABILITY_OP_HOURS_POLICY_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.DOUBLE_BOOK_FIXTURE_CONFIG;
@@ -15,7 +16,6 @@ import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.DO
 
 import com.salesforce.revoman.ReVoman;
 import kotlin.collections.CollectionsKt;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -38,13 +38,16 @@ import org.junit.jupiter.api.Test;
  * doubleBookRequiredControlSchedulingStatus} into the env); this test additionally asserts no
  * un-ignored step failed and that the env carries the two expected verdicts.
  */
-@Disabled(
-    "needs a WFS workspace org: multi-resource pref (WorkforceSchdMulResSchdPref) + InBusinessScheduling enabled"
-        + " + Shift.Status DynEnum seeded + the Availability rule's ShiftUsage param. See ReVomanConfigForWfs.")
+// Needs a WFS workspace org: multi-resource pref (WorkforceSchdMulResSchdPref) +
+// InBusinessScheduling
+// enabled + Shift.Status DynEnum seeded + the Availability rule's ShiftUsage param. See
+// ReVomanConfigForWfs. Excluded from aggregate runs (`gradle clean build`) by the
+// `integration.core.*` test filter; invoke on-demand with `-PincludeCoreIT`.
 class WfsDoubleBookHelperE2ETest {
 
   @Test
   void testDoubleBookNonRequiredHelperE2E() {
+    assumeOrgCredsPresent(ReVomanConfigForWfs.ENV_PATH);
     final var doubleBookRundown =
         ReVoman.revUp(
             (rundown, ignore) ->

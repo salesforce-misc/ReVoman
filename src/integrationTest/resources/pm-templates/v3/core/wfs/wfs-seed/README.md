@@ -1,7 +1,7 @@
 # wfs-seed — Workforce Scheduling base-seed runbook
 
 Seeds Workforce Scheduling base data onto a Salesforce Core org over HTTPS, and verifies it.
-Driven by `WfsSeedE2ETest` (`src/test/kotlin/com/salesforce/revoman/WfsSeedE2ETest.kt`), which
+Driven by `WfsSeedE2ETest` (`../../../../../../kotlin/com/salesforce/revoman/integration/core/wfs/WfsSeedE2ETest.kt`), which
 runs this V3 collection via `ReVoman.revUp`. A faithful HTTP port of the org-manager
 post-processor `WorkforceSchedulingPostProcessor.runBaseSeed()`.
 

@@ -7,6 +7,7 @@
 package com.salesforce.revoman.integration.core.wfs;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.salesforce.revoman.integration.core.CoreUtils.assumeOrgCredsPresent;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.AUTH_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.AVAILABILITY_OP_HOURS_POLICY_CONFIG;
 import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.EXCLUDED_FIXTURE_CONFIG;
@@ -25,7 +26,6 @@ import static com.salesforce.revoman.integration.core.wfs.ReVomanConfigForWfs.WO
 import com.salesforce.revoman.ReVoman;
 import java.util.Map;
 import kotlin.collections.CollectionsKt;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -55,13 +55,16 @@ import org.junit.jupiter.api.Test;
  *       `test` scripts in helper-fitness.postman_collection.json document the same contrast).
  * </ul>
  */
-@Disabled(
-    "needs a WFS workspace org: multi-resource pref (WorkforceSchdMulResSchdPref) + InBusinessScheduling enabled"
-        + " + Shift.Status DynEnum seeded + each Availability rule's ShiftUsage param. See ReVomanConfigForWfs.")
+// Needs a WFS workspace org: multi-resource pref (WorkforceSchdMulResSchdPref) +
+// InBusinessScheduling
+// enabled + Shift.Status DynEnum seeded + each Availability rule's ShiftUsage param. See
+// ReVomanConfigForWfs. Excluded from aggregate runs (`gradle clean build`) by the
+// `integration.core.*` test filter; invoke on-demand with `-PincludeCoreIT`.
 class WfsHelperFitnessE2ETest {
 
   @Test
   void testNonRequiredHelperFitnessE2E() {
+    assumeOrgCredsPresent(ReVomanConfigForWfs.ENV_PATH);
     final var fitnessRundown =
         ReVoman.revUp(
             (rundown, ignore) ->

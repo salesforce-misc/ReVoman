@@ -18,6 +18,7 @@ import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.after
 import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.afterStepName;
 import static com.salesforce.revoman.input.config.StepPick.PreTxnStepPick.beforeStepContainingURIPathOfAny;
 import static com.salesforce.revoman.integration.core.CoreUtils.assertCompositeGraphResponseSuccess;
+import static com.salesforce.revoman.integration.core.CoreUtils.assumeOrgCredsPresent;
 import static com.salesforce.revoman.integration.core.adapters.ConnectInputRepWithGraphAdapter.adapter;
 import static com.salesforce.revoman.output.ExeType.HTTP_STATUS;
 import static com.salesforce.revoman.output.report.StepReport.containsHeader;
@@ -38,7 +39,6 @@ import java.util.Map;
 import kotlin.random.Random;
 import org.http4k.core.Method;
 import org.http4k.core.Request;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,8 +54,10 @@ import org.slf4j.LoggerFactory;
  * href="///resources/pm-templates/v2/core/pq/pq-env.postman_environment.json">pq-env.postman_environment.json</a>
  *
  * <p>- TODO: Add a mock server setup for this test.
+ *
+ * <p>Needs a local core server. Excluded from aggregate runs (`gradle clean build`) by the {@code
+ * integration.core.*} test filter; invoke on-demand with {@code -PincludeCoreIT}.
  */
-@Disabled("This needs local core server")
 class PQE2EWithSMTest {
   private static final Logger LOGGER = LoggerFactory.getLogger(PQE2EWithSMTest.class);
   private static final String PQ_COLLECTION_PATH = "pm-templates/v2/core/pq";
@@ -72,6 +74,7 @@ class PQE2EWithSMTest {
 
   @Test
   void revUpPQ() {
+    assumeOrgCredsPresent(PQ_ENV_PATH);
     // tag::pq-e2e-with-revoman-config-demo[]
     final var pqRundown =
         ReVoman.revUp( // <1>

@@ -1,17 +1,49 @@
 name: 'Build and Scan'
-on: push
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+# One in-flight run per branch/PR; a newer push cancels the older run.
+concurrency:
+  group: build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Least privilege: the build only needs to read the repo.
+permissions:
+  contents: read
+
 jobs:
   gradle:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
+
       - uses: actions/setup-java@v5
         with:
           distribution: jetbrains
           java-version: 21
 
+      # Replaces the deprecated gradle/gradle-build-action; adds dependency caching + a build report.
       - name: 'Setup Gradle'
-        uses: gradle/gradle-build-action@v3
+        uses: gradle/actions/setup-gradle@v4
 
-      - name: 'Gradle test'
-        run: ./gradlew test integrationTest --tests com.salesforce.revoman.integration.pokemon.PokemonTest
+      # Full coverage: unit (`test`) + integration (`integrationTest`) + spotlessCheck + kover, all
+      # via `build`. The `integration.core.*` org tests skip-loud (no creds on CI); the live
+      # external-API tests are retried (see the test-retry config in build.gradle.kts). CI=true is
+      # set by GitHub Actions, which is what flips retries on.
+      - name: 'Gradle build'
+        run: ./gradlew build
+
+      # Surface JUnit HTML reports even when the build fails, so a red run is diagnosable.
+      - name: 'Upload test reports'
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: build/reports/tests/
+          retention-days: 7
+          if-no-files-found: ignore

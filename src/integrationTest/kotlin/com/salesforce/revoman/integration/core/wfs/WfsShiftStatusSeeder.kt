@@ -5,17 +5,18 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  * ************************************************************************************************
  */
-package com.salesforce.revoman
+package com.salesforce.revoman.integration.core.wfs
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.io.File
+import java.sql.Connection
 import java.sql.DriverManager
 
 /**
  * Seeds the `Shift.Status` dynamic-enum picklist (enum id 284) in the local SDB, so a fresh
- * Workforce Scheduling org can create the CONFIRMED Shift that slot-gen requires. WFS slot-gen needs
- * `Shift.Status` mapped to StatusCategory CONFIRMED (grouping_string '2'); on a fresh org the picklist
- * is empty and a Shift insert fails `FIELD_INTEGRITY_EXCEPTION`.
+ * Workforce Scheduling org can create the CONFIRMED Shift that slot-gen requires. WFS slot-gen
+ * needs `Shift.Status` mapped to StatusCategory CONFIRMED (grouping_string '2'); on a fresh org the
+ * picklist is empty and a Shift insert fails `FIELD_INTEGRITY_EXCEPTION`.
  *
  * This is the ONE piece the HTTP collection cannot do — dynamic-enum values live in SDB, not behind
  * any REST/Metadata API — so [WfsSeedE2ETest] runs it as a pre-hook via plain JDBC before the
@@ -40,7 +41,8 @@ object WfsShiftStatusSeeder {
   )
 
   // SDB is version-scoped: a trust-auth connection as the OS process owner is pinned to a schema
-  // VERSION (e.g. "26400") at which the app-managed `cpicklist` schema — the seed function's home — is
+  // VERSION (e.g. "26400") at which the app-managed `cpicklist` schema — the seed function's home —
+  // is
   // NOT visible, so the call fails `schema "cpicklist" does not exist at version "26400"`. The SDB
   // build superuser `saydb` runs UNVERSIONED and sees `cpicklist`, so we connect as that role (the
   // same one the reference `seed-dynenum.sh` uses). Overridable per box via env for release drift.
@@ -58,11 +60,11 @@ object WfsShiftStatusSeeder {
    * Idempotently seed Shift.Status for [org15]. No-op if already seeded (Confirmed->'2' active).
    * BEST-EFFORT / NON-FATAL: any failure (no local SDB, function/schema absent for the release, SQL
    * error) is logged and swallowed — Shift.Status is only needed for later booking, not the base
-   * seed, so it must never fail the seed run. Two release/box-drift guards: the seed-function's schema
-   * is resolved at runtime from pg_proc (not hardcoded — it differs across releases, e.g. `cpicklist`),
-   * and the connection is made as the UNVERSIONED SDB superuser [SDB_USER] rather than the trust-auth
-   * OS owner, whose version-pinned connection can't see `cpicklist` (the `schema "cpicklist" does not
-   * exist at version "…"` error).
+   * seed, so it must never fail the seed run. Two release/box-drift guards: the seed-function's
+   * schema is resolved at runtime from pg_proc (not hardcoded — it differs across releases, e.g.
+   * `cpicklist`), and the connection is made as the UNVERSIONED SDB superuser [SDB_USER] rather
+   * than the trust-auth OS owner, whose version-pinned connection can't see `cpicklist` (the
+   * `schema "cpicklist" does not exist at version "…"` error).
    */
   fun seed(org15: String) {
     val coords = discoverLocalSdb()
@@ -94,11 +96,13 @@ object WfsShiftStatusSeeder {
           return
         }
         conn.autoCommit = false
-        // Platform seeder: inserts every value active, sort-ordered, with its category mapping, in one
+        // Platform seeder: inserts every value active, sort-ordered, with its category mapping, in
+        // one
         // txn — the same path CPicklist.insertDefaultDynEnumsNc uses. A bare UPDATE would miss on a
         // fresh org where the values don't exist yet. Schema is resolved (not hardcoded); the array
         // domains live in the stable `saydb` schema.
-        conn.prepareStatement(
+        conn
+          .prepareStatement(
             "SELECT \"$schema\".insert_default_dyn_enums_nc(?, ?, ?::saydb.string_array, ?, ?::saydb.string_array)"
           )
           .use { ps ->
@@ -110,7 +114,9 @@ object WfsShiftStatusSeeder {
             ps.execute()
           }
         conn.commit()
-        logger.info { "Shift.Status seeded for $org15 via schema `$schema`: ${VALUES.zip(GROUPINGS)}" }
+        logger.info {
+          "Shift.Status seeded for $org15 via schema `$schema`: ${VALUES.zip(GROUPINGS)}"
+        }
       }
     } catch (e: Exception) {
       logger.warn(e) {
@@ -122,10 +128,10 @@ object WfsShiftStatusSeeder {
 
   /**
    * Resolve the schema that hosts `insert_default_dyn_enums_nc` in THIS SDB, or null if absent. The
-   * schema is release-specific (do not hardcode it) — this queries pg_proc so it works on any release
-   * that ships the function, and returns null (→ graceful skip) on one that doesn't.
+   * schema is release-specific (do not hardcode it) — this queries pg_proc so it works on any
+   * release that ships the function, and returns null (→ graceful skip) on one that doesn't.
    */
-  private fun resolveSeedFnSchema(conn: java.sql.Connection): String? =
+  private fun resolveSeedFnSchema(conn: Connection): String? =
     conn
       .prepareStatement(
         "SELECT n.nspname FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace " +
@@ -133,7 +139,7 @@ object WfsShiftStatusSeeder {
       )
       .use { ps -> ps.executeQuery().use { if (it.next()) it.getString(1) else null } }
 
-  private fun isAlreadySeeded(conn: java.sql.Connection, org15: String): Boolean =
+  private fun isAlreadySeeded(conn: Connection, org15: String): Boolean =
     conn
       .prepareStatement(
         "SELECT 1 FROM core.picklist_master WHERE organization_id = ? AND picklist_enum_or_id = ? " +
@@ -155,7 +161,8 @@ object WfsShiftStatusSeeder {
     val port = Regex("""-p\s+(\d+)""").find(line)?.groupValues?.get(1)?.toIntOrNull() ?: return null
     val dataDir = Regex("""-D\s+(\S+)""").find(line)?.groupValues?.get(1) ?: return null
     val db = File(dataDir).name
-    val release = Regex("""sdbbuild/([^/]+)/bin/postgres""").find(line)?.groupValues?.get(1) ?: "unknown"
+    val release =
+      Regex("""sdbbuild/([^/]+)/bin/postgres""").find(line)?.groupValues?.get(1) ?: "unknown"
     // Connect as the UNVERSIONED SDB superuser (`saydb`), NOT the trust-auth OS process owner: the
     // latter is version-pinned and can't see the `cpicklist` schema the seed function lives in.
     return SdbCoords(port, db, release, SDB_USER, SDB_PASSWORD)

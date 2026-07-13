@@ -52,7 +52,9 @@ import com.salesforce.revoman.integration.core.adapters.IDAdapter;
  *       policy folders — without it slot-gen returns ZERO slots (there is no default).
  * </ul>
  *
- * Because those settings are pre-provisioned on the workspace, the E2E tests are {@code @Disabled}.
+ * Because those settings are pre-provisioned on the workspace, the E2E tests are excluded from
+ * aggregate runs (`gradle clean build`) by the {@code integration.core.*} test filter; invoke them
+ * on-demand with {@code -PincludeCoreIT}.
  */
 public final class ReVomanConfigForWfs {
 

@@ -13,6 +13,7 @@ import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.after
 import static com.salesforce.revoman.input.config.StepPick.PostTxnStepPick.afterStepEndingWithURIPathOfAny;
 import static com.salesforce.revoman.output.report.StepReport.containsHeader;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import com.salesforce.revoman.input.config.HookConfig;
 import com.salesforce.revoman.input.config.ResponseConfig;
@@ -20,10 +21,78 @@ import com.salesforce.revoman.input.json.adapters.salesforce.CompositeGraphRespo
 import com.salesforce.revoman.input.json.adapters.salesforce.CompositeGraphResponse.Graph.ErrorGraph;
 import com.salesforce.revoman.input.json.adapters.salesforce.CompositeResponse;
 import com.salesforce.revoman.output.report.StepReport;
+import java.io.InputStream;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import org.yaml.snakeyaml.Yaml;
 
 public class CoreUtils {
   private CoreUtils() {}
+
+  /** The three creds a `core.*` E2E needs before it can hit a real org. */
+  private static final List<String> ORG_CRED_KEYS = List.of("baseUrl", "username", "password");
+
+  /**
+   * Skip-loud guard for the `integration.core.*` E2Es. These need a real Salesforce/core org, so
+   * (unlike a mock-server test) they must NOT hard-fail on a machine without one — e.g. CI, where
+   * they're already excluded from aggregate runs, or a dev box running them explicitly via {@code
+   * -PincludeCoreIT} before filling creds.
+   *
+   * <p>Reads the test's OWN Postman env file ([envResourcePath], JSON or YAML — both share the
+   * {@code values: [{key, value}]} shape) off the classpath and JUnit-skips (via {@code
+   * assumeTrue}) unless {@code baseUrl}, {@code username}, and {@code password} are ALL present and
+   * non-blank. The env files ship blank and a developer fills them locally (see each test's setup
+   * note). The skip message names the exact file to populate, so a skipped run reads as actionable,
+   * not silent.
+   */
+  public static void assumeOrgCredsPresent(String envResourcePath) {
+    final var env = readClasspathEnv(envResourcePath);
+    final var missing = ORG_CRED_KEYS.stream().filter(key -> isBlank(env.get(key))).toList();
+    assumeTrue(
+        missing.isEmpty(),
+        () ->
+            "SKIPPING core E2E: missing org creds "
+                + missing
+                + " in classpath env `"
+                + envResourcePath
+                + "`. This test needs a real Salesforce/core org — fill baseUrl/username/password"
+                + " there (or run without -PincludeCoreIT to exclude it from aggregate builds).");
+  }
+
+  /**
+   * Flatten a Postman-shape env resource ({@code {values: [{key, value}, ...]}}) into a plain
+   * key→value map. JSON is a subset of YAML, so one snakeyaml parse covers both the v2 `.json` and
+   * v3 `.yaml` env files. A missing/malformed resource yields an empty map (→ the guard skips).
+   */
+  private static Map<String, String> readClasspathEnv(String envResourcePath) {
+    try (final InputStream in =
+        CoreUtils.class.getClassLoader().getResourceAsStream(envResourcePath)) {
+      if (in == null) {
+        return Map.of();
+      }
+      final Map<String, Object> root = new Yaml().load(in);
+      final var values = root == null ? null : root.get("values");
+      if (!(values instanceof List<?> entries)) {
+        return Map.of();
+      }
+      return entries.stream()
+          .filter(Map.class::isInstance)
+          .map(Map.class::cast)
+          .filter(entry -> entry.get("key") != null && entry.get("value") != null)
+          .collect(
+              java.util.stream.Collectors.toMap(
+                  entry -> String.valueOf(entry.get("key")),
+                  entry -> String.valueOf(entry.get("value")),
+                  (first, second) -> second));
+    } catch (Exception e) {
+      return Map.of();
+    }
+  }
+
+  private static boolean isBlank(String value) {
+    return Objects.requireNonNullElse(value, "").isBlank();
+  }
 
   public static final String COMPOSITE_GRAPH_URI_PATH = "composite/graph";
 
