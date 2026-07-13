@@ -201,6 +201,15 @@ kover { reports { total { html { onCheck = true } } } }
 
 moshi { enableSealed = true }
 
+jmh {
+  // Pin JMH core so every worktree benchmarks against a known JMH release.
+  jmhVersion = libs.versions.jmh.get()
+  // Select benchmarks from the CLI, e.g. ./gradlew jmh -Pjmh.includes=SmokeBenchmark
+  if (project.hasProperty("jmh.includes")) {
+    includes.add(project.property("jmh.includes").toString())
+  }
+}
+
 nexusPublishing {
   this.repositories {
     sonatype {
