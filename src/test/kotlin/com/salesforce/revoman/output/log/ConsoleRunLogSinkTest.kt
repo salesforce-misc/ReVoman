@@ -7,9 +7,11 @@
  */
 package com.salesforce.revoman.output.log
 
+import com.salesforce.revoman.input.config.Phase
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
+import io.kotest.matchers.string.shouldStartWith
 import io.kotest.matchers.types.shouldBeSameInstanceAs
 import java.io.ByteArrayOutputStream
 import java.io.PrintStream
@@ -22,14 +24,142 @@ class ConsoleRunLogSinkTest {
   private fun output(): String = buffer.toString(Charsets.UTF_8)
 
   @Test
-  fun `StepStarted renders path and name`() {
+  fun `PhaseEntered renders phase rule`() {
+    sink.event(StepEvent.PhaseEntered(Phase.SEED))
+    output() shouldStartWith "━━ SEED "
+    output() shouldContain "━━━━"
+  }
+
+  @Test
+  fun `RunbookStepStarted renders with regular marker when not under test`() {
+    sink.event(
+      StepEvent.RunbookStepStarted(
+        path = "schedule",
+        intent = "schedule appointment",
+        phase = Phase.ACT,
+        consumes = setOf("accountId"),
+        underTest = false,
+      )
+    )
+    output() shouldContain "┌ ▶ schedule appointment"
+    output() shouldContain "⟵ accountId"
+    output() shouldNotContain "★ UNDER TEST"
+  }
+
+  @Test
+  fun `RunbookStepStarted renders with diamond marker and under test flag when underTest`() {
+    sink.event(
+      StepEvent.RunbookStepStarted(
+        path = "schedule",
+        intent = "schedule appointment",
+        phase = Phase.ACT,
+        consumes = setOf("accountId", "slotId"),
+        underTest = true,
+      )
+    )
+    output() shouldContain "┌ ◆ schedule appointment"
+    output() shouldContain "⟵ accountId, slotId"
+    output() shouldContain "★ UNDER TEST"
+  }
+
+  @Test
+  fun `RunbookStepStarted with empty consumes shows dash`() {
+    sink.event(
+      StepEvent.RunbookStepStarted(
+        path = "schedule",
+        intent = "schedule appointment",
+        phase = Phase.ACT,
+        consumes = emptySet(),
+        underTest = false,
+      )
+    )
+    output() shouldContain "⟵ —"
+  }
+
+  @Test
+  fun `RunbookStepFinished renders success with checkmark and produced values`() {
+    sink.event(
+      StepEvent.RunbookStepFinished(
+        path = "schedule",
+        intent = "schedule appointment",
+        outcome = Outcome.SUCCESS,
+        produced = mapOf("schedulingStatus" to "Success", "saId" to "SA123"),
+        tookMs = 5,
+      )
+    )
+    output() shouldContain "└ ✔ schedule appointment"
+    output() shouldContain "⟶ schedulingStatus=Success, saId=SA123"
+  }
+
+  @Test
+  fun `RunbookStepFinished renders failure with cross mark`() {
+    sink.event(
+      StepEvent.RunbookStepFinished(
+        path = "schedule",
+        intent = "schedule appointment",
+        outcome = Outcome.FAILED,
+        produced = emptyMap(),
+        tookMs = 10,
+      )
+    )
+    output() shouldContain "└ ✘ schedule appointment"
+    output() shouldContain "⟶ —"
+  }
+
+  @Test
+  fun `RunbookStepFinished with null produced value shows key only`() {
+    sink.event(
+      StepEvent.RunbookStepFinished(
+        path = "schedule",
+        intent = "schedule appointment",
+        outcome = Outcome.SUCCESS,
+        produced = mapOf("schedulingStatus" to null, "saId" to "SA123"),
+        tookMs = 5,
+      )
+    )
+    output() shouldContain "⟶ schedulingStatus, saId=SA123"
+  }
+
+  @Test
+  fun `RunbookContractFailed renders with warning marker and details`() {
+    sink.event(
+      StepEvent.RunbookContractFailed(
+        path = "schedule",
+        intent = "schedule appointment",
+        missingConsumed = setOf("accountId"),
+        missingProduced = setOf("schedulingStatus"),
+        valueMismatches = emptyMap(),
+      )
+    )
+    output() shouldContain "│ ⚠ CONTRACT"
+    output() shouldContain "missing consumed: [accountId]"
+    output() shouldContain "missing produced: [schedulingStatus]"
+  }
+
+  @Test
+  fun `RunbookContractFailed with value mismatches`() {
+    sink.event(
+      StepEvent.RunbookContractFailed(
+        path = "schedule",
+        intent = "schedule appointment",
+        missingConsumed = emptySet(),
+        missingProduced = emptySet(),
+        valueMismatches = mapOf("status" to Pair("expected", "actual")),
+      )
+    )
+    output() shouldContain "│ ⚠ CONTRACT"
+    output() shouldContain "value mismatch (expected→actual): {status=(expected, actual)}"
+  }
+
+  @Test
+  fun `StepStarted renders as nested child request with gutter`() {
     sink.event(StepEvent.StepStarted(path = "10-book", name = "Book Appointment"))
-    output() shouldContain "STEP 10-book"
+    output() shouldStartWith "│ · "
     output() shouldContain "Book Appointment"
   }
 
   @Test
-  fun `StepFinished renders header with status outcome and tookMs`() {
+  fun `StepFinished renders with gutter and outcome word`() {
     sink.event(
       StepEvent.StepFinished(
         path = "10-book",
@@ -40,10 +170,38 @@ class ConsoleRunLogSinkTest {
         outcome = Outcome.SUCCESS,
       )
     )
-    output() shouldContain "STEP 10-book"
-    output() shouldContain "[200]"
-    output() shouldContain "SUCCESS"
-    output() shouldContain "42ms"
+    output() shouldStartWith "│   "
+    output() shouldContain "200 OK 42ms"
+  }
+
+  @Test
+  fun `StepFinished with FAILED outcome shows FAIL word`() {
+    sink.event(
+      StepEvent.StepFinished(
+        path = "10-book",
+        httpStatus = 400,
+        produced = emptySet(),
+        consumed = emptySet(),
+        tookMs = 5,
+        outcome = Outcome.FAILED,
+      )
+    )
+    output() shouldContain "400 FAIL 5ms"
+  }
+
+  @Test
+  fun `StepFinished with SKIPPED outcome shows SKIP word`() {
+    sink.event(
+      StepEvent.StepFinished(
+        path = "10-book",
+        httpStatus = null,
+        produced = emptySet(),
+        consumed = emptySet(),
+        tookMs = 0,
+        outcome = Outcome.SKIPPED,
+      )
+    )
+    output() shouldContain "null SKIP 0ms"
   }
 
   @Test
@@ -65,7 +223,7 @@ class ConsoleRunLogSinkTest {
   }
 
   @Test
-  fun `StepFinished emits REQ and RESP blocks when messages present`() {
+  fun `StepFinished emits REQ and RESP blocks with gutter when messages present`() {
     sink.event(
       StepEvent.StepFinished(
         path = "10-book",
@@ -78,8 +236,8 @@ class ConsoleRunLogSinkTest {
         responseMsg = "{\"error\":\"bad\"}",
       )
     )
-    output() shouldContain "REQ:\nPOST /book"
-    output() shouldContain "RESP:\n{\"error\":\"bad\"}"
+    output() shouldContain "│ REQ:\nPOST /book"
+    output() shouldContain "│ RESP:\n{\"error\":\"bad\"}"
   }
 
   @Test
@@ -94,12 +252,12 @@ class ConsoleRunLogSinkTest {
         outcome = Outcome.SUCCESS,
       )
     )
-    output() shouldNotContain "produced="
-    output() shouldNotContain "consumed="
+    output() shouldNotContain "⟵"
+    output() shouldNotContain "⟶"
   }
 
   @Test
-  fun `StepFinished emits keys line when produced or consumed present`() {
+  fun `StepFinished emits keys line with arrows when produced or consumed present`() {
     sink.event(
       StepEvent.StepFinished(
         path = "10-book",
@@ -110,42 +268,37 @@ class ConsoleRunLogSinkTest {
         outcome = Outcome.SUCCESS,
       )
     )
-    output() shouldContain "produced=[saId]"
-    output() shouldContain "consumed=[token]"
+    output() shouldContain "│   ⟵ [token]  ⟶ [saId]"
   }
 
   @Test
-  fun `LedgerSkipped renders path and reused keys`() {
+  fun `LedgerSkipped renders with gutter and circular arrow`() {
     sink.event(StepEvent.LedgerSkipped(path = "10-book", reused = setOf("saId")))
-    output() shouldContain "LEDGER-SKIP 10-book"
-    output() shouldContain "reused=[saId]"
+    output() shouldContain "│ ↺ reused [saId]"
   }
 
   @Test
-  fun `RequestSkipped renders path`() {
+  fun `RequestSkipped renders with gutter and skip symbol`() {
     sink.event(StepEvent.RequestSkipped(path = "10-book"))
-    output() shouldContain "REQ-SKIP 10-book"
+    output() shouldContain "│ ⊘ skipped 10-book"
   }
 
   @Test
-  fun `Jumped renders from and to path`() {
+  fun `Jumped renders with gutter and jump arrow`() {
     sink.event(StepEvent.Jumped(path = "10-book", toPath = "30-verify"))
-    output() shouldContain "JUMP 10-book"
-    output() shouldContain "30-verify"
+    output() shouldContain "│ ↪ 10-book → 30-verify"
   }
 
   @Test
-  fun `RunStopped renders path and reason`() {
+  fun `RunStopped renders with stop square`() {
     sink.event(StepEvent.RunStopped(path = "10-book", reason = "setNextRequest(null)"))
-    output() shouldContain "STOP 10-book"
-    output() shouldContain "setNextRequest(null)"
+    output() shouldContain "■ STOP 10-book: setNextRequest(null)"
   }
 
   @Test
-  fun `LoopBudgetExceeded renders path and budget`() {
+  fun `LoopBudgetExceeded renders with cross mark`() {
     sink.event(StepEvent.LoopBudgetExceeded(path = "10-book", budget = 100))
-    output() shouldContain "LOOP-BUDGET 10-book"
-    output() shouldContain "budget=100"
+    output() shouldContain "✖ LOOP-BUDGET 10-book budget=100"
   }
 
   @Test
@@ -159,7 +312,7 @@ class ConsoleRunLogSinkTest {
     sink.close()
     // stream still writable after close(): a subsequent event still renders.
     sink.event(StepEvent.RequestSkipped(path = "20-after-close"))
-    output() shouldContain "20-after-close"
+    output() shouldContain "│ ⊘ skipped 20-after-close"
   }
 
   @Test
