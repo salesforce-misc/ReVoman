@@ -98,13 +98,22 @@ open class MoshiReVoman(builder: Moshi.Builder) {
     indent: String = "  ",
   ): String = lenientAdapter<PojoT>(serializeNulls).indent(indent).toJson(input)
 
+  // * NOTE: bridge source->target through a Moshi value-tree instead of a JSON-string round-trip;
+  //   avoids one full serialize+parse pass. Verified behaviour-equivalent to the old string path
+  //   (see ObjToJsonStrToObjTest): for concrete target types both paths are identical, and for
+  //   UNTYPED (Any/raw Map) targets both coerce numbers to Double alike (Moshi's untyped adapter
+  //   reads every number token via nextDouble() on both the string reader and the value-tree
+  //   reader), so there is NO behaviour delta. See PostmanEnvironment.getObj/getTypedObj consumers.
   fun <PojoT : Any> objToJsonStrToObj(
     input: Any?,
     targetType: Type = input?.javaClass ?: Any::class.java,
-  ): PojoT? = lenientAdapter<PojoT>(targetType).fromJson(toJson(input))
+  ): PojoT? =
+    lenientAdapter<PojoT>(targetType)
+      .fromJsonValue(lenientAdapter<Any>(input?.javaClass ?: Any::class.java).toJsonValue(input))
 
   inline fun <reified PojoT : Any> objToJsonStrToObj(input: Any?): PojoT? =
-    lenientAdapter<PojoT>().fromJson(toJson(input))
+    lenientAdapter<PojoT>()
+      .fromJsonValue(lenientAdapter<Any>(input?.javaClass ?: Any::class.java).toJsonValue(input))
 
   fun jsonToObjToPrettyJson(input: String?, serializeNulls: Boolean = false): String? = input?.let {
     toPrettyJson(fromJson(it), serializeNulls)
