@@ -161,9 +161,21 @@ class PostmanSDK(
     }
   }
 
+  /**
+   * Publishes the current step's evolving [StepReport] into [rundown] for mid-run readers (hooks,
+   * the halt predicate). ReVoman seeds [rundown] with this step's pre-step report as the LAST
+   * entry, then calls this 3x per step as the report gains request/response/hook detail. REPLACES
+   * the current step's entry (matched as the last report for the same [Step]) rather than
+   * appending, so a step appears exactly ONCE mid-run — earlier steps and prior loop iterations
+   * (which sit before it) are untouched. Keeps [Rundown] immutable via [Rundown.copy].
+   */
   internal fun syncProgress(stepReport: StepReport) {
     currentStepReport = stepReport
-    rundown = rundown.copy(stepReports = rundown.stepReports + stepReport)
+    val reports = rundown.stepReports
+    val updated =
+      if (reports.lastOrNull()?.step == stepReport.step) reports.dropLast(1) + stepReport
+      else reports + stepReport
+    rundown = rundown.copy(stepReports = updated)
   }
 
   /** Accumulates assertions across a step's pre-req + post-res scripts. */
