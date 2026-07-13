@@ -60,6 +60,12 @@ class ConsoleRunLogSink(private val out: PrintStream = System.out) : RunLogSink 
       is StepEvent.Jumped -> "↪  JUMP ${event.path} → ${event.toPath}\n"
       is StepEvent.RunStopped -> "■  STOP ${event.path}: ${event.reason}\n"
       is StepEvent.LoopBudgetExceeded -> "✖  LOOP-BUDGET ${event.path} budget=${event.budget}\n"
+      // Minimal stub arms for new coarse runbook events — Task 7 will implement proper rendering
+      is StepEvent.PhaseEntered -> "═══ PHASE ${event.phase.name}\n"
+      is StepEvent.RunbookStepStarted -> "┌─ RUNBOOK-STEP ${event.intent} [${event.phase.name}]\n"
+      is StepEvent.RunbookStepFinished ->
+        "└─ RUNBOOK-STEP ${event.intent} ${event.outcome} (${event.tookMs}ms)\n"
+      is StepEvent.RunbookContractFailed -> "✖  CONTRACT-FAILED ${event.intent}\n"
     }
 
   private fun renderFinished(event: StepEvent.StepFinished): String {
