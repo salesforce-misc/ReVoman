@@ -45,7 +45,7 @@ dependencies {
   mockitoAgent(libs.mockito.core) { isTransitive = false }
   testImplementation(libs.mockk)
   // WfsSeedE2ETest seeds the Shift.Status dyn-enum directly in local SDB (postgres) via JDBC.
-  testImplementation("org.postgresql:postgresql:42.7.4")
+  testImplementation("org.postgresql:postgresql:42.7.13")
 }
 
 testing {
