@@ -22,6 +22,9 @@ private constructor(
   private val successAdapter: Triple<(JsonReader) -> Boolean, Type, JsonAdapter<Any>>,
   private val errorAdapter: Pair<Type, JsonAdapter<Any>>,
 ) : JsonAdapter<Any>() {
+  // * NOTE: Okio Options are immutable; build the single-name lookup once, not per element.
+  private val labelOptions: Options = Options.of(labelKey)
+
   override fun fromJson(reader: JsonReader): Any? {
     val readerAtLabelKey = findLabelValue(reader.peekJson())
     val jsonAdapter =
@@ -32,7 +35,7 @@ private constructor(
   private fun findLabelValue(reader: JsonReader): JsonReader {
     reader.beginObject()
     while (reader.hasNext()) {
-      if (reader.selectName(Options.of(labelKey)) == -1) {
+      if (reader.selectName(labelOptions) == -1) {
         reader.skipName()
         reader.skipValue()
       } else {

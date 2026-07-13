@@ -8,6 +8,7 @@
 package com.salesforce.revoman.internal.postman.template
 
 import com.salesforce.revoman.internal.json.MoshiReVoman
+import com.salesforce.revoman.output.json.JsonPretty
 import com.squareup.moshi.JsonClass
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.util.regex.Pattern
@@ -65,16 +66,31 @@ data class Request(
     var contentTypeHeader =
       header.firstOrNull { CONTENT_TYPE.meta.name.equals(it.key, true) }?.value?.let { Text(it) }
     val cleansedRawBody =
-      body?.raw?.trim()?.let {
+      body?.raw?.trim()?.let { rawBody ->
         when {
-          it.isBlank() -> it
-          else ->
+          rawBody.isBlank() -> rawBody
+          else -> {
             // ! TODO 15 Mar 2025 gopala.akshintala: Detect the right content type if absent
+            val hasComments = containsComments(rawBody)
             when {
               contentTypeHeader?.value == null ||
-                (APPLICATION_JSON.value.equals(contentTypeHeader.value, true) &&
-                  containsComments(it)) -> {
-                runCatching { moshiReVoman?.jsonToObjToPrettyJson(it, true) ?: it }
+                (APPLICATION_JSON.value.equals(contentTypeHeader.value, true) && hasComments) ->
+                runCatching {
+                    when {
+                      // JSON5 comment stripping needs the Moshi round-trip.
+                      hasComments -> moshiReVoman?.jsonToObjToPrettyJson(rawBody, true) ?: rawBody
+                      // Comment-free: validate as JSON (drives detection), render precision-safe.
+                      else ->
+                        moshiReVoman?.let { m ->
+                          // JsonPretty is byte-for-byte precision-safe but only understands STRICT
+                          // JSON; take the precision-safe fast path only for already-strict JSON,
+                          // and normalize a lenient-but-valid JSON5 body via the round-trip so its
+                          // string literals aren't mangled.
+                          if (m.isStrictJson(rawBody)) JsonPretty.pretty(rawBody)
+                          else m.jsonToObjToPrettyJson(rawBody, true) ?: rawBody
+                        } ?: rawBody
+                    }
+                  }
                   .onSuccess {
                     if (contentTypeHeader == null) {
                       logger.info {
@@ -83,10 +99,10 @@ data class Request(
                       contentTypeHeader = APPLICATION_JSON
                     }
                   }
-                  .getOrDefault(it)
-              }
-              else -> it
+                  .getOrDefault(rawBody)
+              else -> rawBody
             }
+          }
         }
       } ?: ""
     val request =
