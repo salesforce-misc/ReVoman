@@ -106,8 +106,9 @@ internal object V3Loader {
 }
 
 internal fun sha256Hex(s: String): String =
-  java.security.MessageDigest.getInstance("SHA-256")
-    .digest(s.toByteArray(Charsets.UTF_8))
-    .joinToString("") { "%02x".format(it) }
+  java.util.HexFormat.of()
+    .formatHex(
+      java.security.MessageDigest.getInstance("SHA-256").digest(s.toByteArray(Charsets.UTF_8))
+    )
 
 private val logger = KotlinLogging.logger {}

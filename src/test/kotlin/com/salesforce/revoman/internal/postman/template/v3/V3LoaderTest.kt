@@ -95,4 +95,13 @@ class V3LoaderTest {
     assertThat(items).hasSize(1)
     assertThat(items[0].request.auth!!.bearer.single().value).isEqualTo("GRANDPARENT")
   }
+
+  @Test
+  fun sha256HexMatchesKnownVectors() {
+    // FIPS-180-2 vectors; also locks lowercase, zero-padded, 64-char output.
+    assertThat(sha256Hex("abc"))
+      .isEqualTo("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad")
+    assertThat(sha256Hex(""))
+      .isEqualTo("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+  }
 }
