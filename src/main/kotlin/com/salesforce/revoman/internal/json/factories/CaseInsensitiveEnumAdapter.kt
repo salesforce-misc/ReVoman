@@ -32,19 +32,20 @@ import java.lang.reflect.Type
  */
 internal class CaseInsensitiveEnumAdapter<T : Enum<T>>(private val enumType: Class<T>) :
   JsonAdapter<T>() {
-  private val nameStrings =
-    enumType.getEnumConstants().map { Util.jsonName(it.name, enumType.getField(it.name)) }
+  // * NOTE: getEnumConstants() clones its backing array on every call; cache it once.
+  private val enumConstants: Array<T> = enumType.enumConstants
+  private val nameStrings = enumConstants.map { Util.jsonName(it.name, enumType.getField(it.name)) }
   private val options = JsonReader.Options.of(*nameStrings.toTypedArray())
 
   override fun fromJson(reader: JsonReader): T {
     val index = reader.selectString(options)
     return if (index != -1) {
-      enumType.getEnumConstants()[index]
+      enumConstants[index]
     } else if (reader.peek() != JsonReader.Token.STRING) {
       throw JsonDataException("Expected a string but was ${reader.peek()} at path ${reader.path}")
     } else {
       val value = reader.nextString()
-      enumType.enumConstants.firstOrNull { it.name.compareTo(value, ignoreCase = true) == 0 }
+      enumConstants.firstOrNull { it.name.compareTo(value, ignoreCase = true) == 0 }
         ?: throw JsonDataException(
           "Expected one of $nameStrings but was $value at path ${reader.path}"
         )
