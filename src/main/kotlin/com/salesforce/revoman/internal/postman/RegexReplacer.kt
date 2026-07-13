@@ -134,16 +134,15 @@ class RegexReplacer(
     )
 
   internal fun replaceVariablesInEnv(pm: PostmanSDK): Map<String, Any?> =
-    pm.environment
-      .toMap()
-      .entries
-      .associateBy(
-        { replaceVariablesRecursively(it.key, pm)!! },
-        {
-          if (it.value is String?) replaceVariablesRecursively(it.value as String?, pm)
-          else it.value
-        },
-      )
+    pm.environment.toMap().entries.associate { (key, value) ->
+      val valueHasPlaceholder = value is String && value.contains("{{")
+      if (!key.contains("{{") && !valueHasPlaceholder) {
+        key to value
+      } else {
+        replaceVariablesRecursively(key, pm)!! to
+          (if (value is String?) replaceVariablesRecursively(value, pm) else value)
+      }
+    }
 
   companion object {
     private fun setItBackInEnvironment(variableKey: String, value: String, pm: PostmanSDK) {
