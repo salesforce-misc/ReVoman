@@ -10,12 +10,35 @@ package com.salesforce.revoman.internal.postman.sandbox
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.util.Base64
 import org.graalvm.polyglot.Context
+import org.graalvm.polyglot.Engine
 import org.graalvm.polyglot.HostAccess
 import org.graalvm.polyglot.Source
 import org.graalvm.polyglot.Value
 import org.graalvm.polyglot.proxy.ProxyArray
 import org.graalvm.polyglot.proxy.ProxyExecutable
 import org.graalvm.polyglot.proxy.ProxyObject
+
+/**
+ * ONE process-wide immutable GraalVM [Engine], shared by every per-run [Context] (the sandbox
+ * Context here AND the PostmanSDK JSEvaluator Context). The Engine caches the parsed 2.2 MB
+ * bootcode [Source] and JIT-compiled code across runs and across both Context kinds, so the
+ * interpreter->JIT warm-up and the bootcode parse are paid once per JVM, not per ReVoman run.
+ *
+ * Engines are thread-safe and long-lived by design; Contexts are single-threaded and per-run.
+ * Sharing the Engine does NOT weaken the single-threaded Context contract, and — critically — guest
+ * state (globals/env) lives in the Context, so sharing the Engine cannot bleed state between runs.
+ * Never construct a Context WITHOUT this Engine. Left unclosed for the JVM lifetime (standard for a
+ * shared library Engine).
+ */
+internal val sharedGraalEngine: Engine by lazy {
+  Engine.newBuilder("js")
+    .allowExperimentalOptions(true)
+    // Engine-level option: silence the "interpreter only / fallback runtime" warning. With WT-0's
+    // truffle-runtime on the classpath this warning should no longer fire — Task 14 verifies and
+    // removes this line if so. Kept here (single home) until then.
+    .option("engine.WarnInterpreterOnly", "false")
+    .build()
+}
 
 /**
  * Owns a single GraalJS [Context] running Postman's real sandbox bootcode, driven via the uvm
@@ -44,16 +67,10 @@ internal class SandboxBridge {
     booted = true
     ctx =
       Context.newBuilder("js")
+        .engine(sharedGraalEngine)
         .allowExperimentalOptions(true)
         .option("js.esm-eval-returns-exports", "true")
         .option("js.ecmascript-version", "2024")
-        // Silence GraalVM's "fallback runtime / interpreter only" warning. It fires whenever the
-        // host JVM lacks the Graal compiler (JVMCI) — the common case for consumers running on a
-        // stock JDK. As a library we can't add -XX:+EnableJVMCI to the consumer's JVM, and the
-        // sandbox is not on a hot path, so the interpreter fallback is acceptable. Suppressing it
-        // also removes the accompanying Truffle log-redirect notice (that warning was its only
-        // log).
-        .option("engine.WarnInterpreterOnly", "false")
         .allowHostAccess(HostAccess.ALL)
         .allowHostClassLookup { true }
         .build()

@@ -9,6 +9,7 @@ package com.salesforce.revoman.internal.postman
 
 import com.github.underscore.U
 import com.salesforce.revoman.internal.json.MoshiReVoman
+import com.salesforce.revoman.internal.postman.sandbox.sharedGraalEngine
 import com.salesforce.revoman.internal.postman.template.Body
 import com.salesforce.revoman.internal.postman.template.Event
 import com.salesforce.revoman.internal.postman.template.Header
@@ -127,13 +128,12 @@ class PostmanSDK(
           imports = "var _ = require('lodash')\n"
         }
         put("js.esm-eval-returns-exports", "true")
-        put("engine.WarnInterpreterOnly", "false")
       }
       jsContext =
         Context.newBuilder("js")
+          .engine(sharedGraalEngine)
           .allowExperimentalOptions(true)
           .allowIO(IOAccess.ALL)
-          .allowExperimentalOptions(true)
           .options(options)
           .allowHostAccess(HostAccess.ALL)
           .allowHostClassLookup { true }
