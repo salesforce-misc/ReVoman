@@ -62,7 +62,7 @@ private val dynamicVariableGenerators: Map<String, () -> String> =
       },
   )
 
-private val upperHexFormat = java.util.HexFormat.of().withUpperCase()
+private val upperHexFormat = HexFormat.of().withUpperCase()
 
 fun getRandomHex(): String = upperHexFormat.toHexDigits(nextInt(256).toByte())
 
