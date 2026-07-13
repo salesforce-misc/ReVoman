@@ -5,6 +5,8 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  * ************************************************************************************************
  */
+// detekt MatchingDeclarationName: this file intentionally groups ContractViolation + its check
+// functions (checkConsumes/checkProduces/isEmpty); the file name describes the group, not one decl.
 @file:Suppress("MatchingDeclarationName")
 
 package com.salesforce.revoman.internal.exe
