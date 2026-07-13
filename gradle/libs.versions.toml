@@ -30,6 +30,9 @@ mockk = "1.14.11"
 postgresql = "42.7.13"
 test-retry = "1.6.5"
 gradle-taskinfo = "3.0.2"
+kotlinx-collections-immutable = "0.4.0"
+jmh = "1.37"
+champeau-jmh = "0.7.3"
 
 # Common dependencies
 
@@ -75,6 +78,8 @@ spring-beans = { module = "org.springframework:spring-beans", version.ref = "spr
 json-assert = { module = "org.skyscreamer:jsonassert", version.ref = "json-assert" }
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime-jvm", version.ref = "kotlinx-datetime" }
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
+truffle-runtime = { module = "org.graalvm.truffle:truffle-runtime", version.ref = "graal" }
+kotlinx-collections-immutable = { module = "org.jetbrains.kotlinx:kotlinx-collections-immutable", version.ref = "kotlinx-collections-immutable" }
 postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
 
 # Gradle plugins
@@ -103,4 +108,5 @@ kapt = { id = "org.jetbrains.kotlin.kapt", version.ref = "kotlin" }
 node-gradle = { id = "com.github.node-gradle.node", version.ref = "node-gradle" }
 nexus-publish = { id = "io.github.gradle-nexus.publish-plugin", version.ref = "nexus-publish" }
 gradle-taskinfo = {id = "org.barfuin.gradle.taskinfo", version.ref = "gradle-taskinfo"}
+jmh = { id = "me.champeau.jmh", version.ref = "champeau-jmh" }
 test-retry = { id = "org.gradle.test-retry", version.ref = "test-retry" }

@@ -16,6 +16,7 @@ plugins {
   alias(libs.plugins.node.gradle)
   alias(libs.plugins.kover)
   alias(libs.plugins.nexus.publish)
+  alias(libs.plugins.jmh)
   alias(libs.plugins.test.retry)
 }
 
@@ -38,6 +39,11 @@ dependencies {
   implementation(libs.bundles.kotlin.logging)
   implementation(libs.pprint)
   implementation(libs.graal.js)
+  // truffle-runtime is a pure runtime substitution: it swaps Truffle's interpreter-only runtime for
+  // its optimizing Graal-compiler one. Nothing compiles against it, so `runtimeOnly` activates the
+  // optimizing runtime everywhere at run time without leaking it onto anyone's compile classpath.
+  runtimeOnly(libs.truffle.runtime)
+  implementation(libs.kotlinx.collections.immutable)
   implementation(libs.datafaker)
   implementation(libs.underscore)
   implementation(libs.okio.jvm)
@@ -81,6 +87,13 @@ testing {
 // automatically). Without it, integration tests can't see `internal` main members — e.g.
 // WfsSeedE2ETest reads org creds via the internal V3EnvLoader.
 kotlin.target.compilations.named("integrationTest") {
+  associateWith(kotlin.target.compilations.getByName("main"))
+}
+
+// Give the jmh compilation the same friend-path to main, so component benchmarks (WT-1..WT-4) can
+// reference `internal` main members (e.g. PmSandbox, PmScope, PmExecutionContext, ScriptTarget)
+// rather than only the public API.
+kotlin.target.compilations.named("jmh") {
   associateWith(kotlin.target.compilations.getByName("main"))
 }
 
@@ -197,6 +210,15 @@ tasks {
 kover { reports { total { html { onCheck = true } } } }
 
 moshi { enableSealed = true }
+
+jmh {
+  // Pin JMH core so every worktree benchmarks against a known JMH release.
+  jmhVersion = libs.versions.jmh.get()
+  // Select benchmarks from the CLI, e.g. ./gradlew jmh -Pjmh.includes=SmokeBenchmark
+  if (project.hasProperty("jmh.includes")) {
+    includes.add(project.property("jmh.includes").toString())
+  }
+}
 
 nexusPublishing {
   this.repositories {
