@@ -87,6 +87,13 @@ kotlin.target.compilations.named("integrationTest") {
   associateWith(kotlin.target.compilations.getByName("main"))
 }
 
+// Give the jmh compilation the same friend-path to main, so component benchmarks (WT-1..WT-4) can
+// reference `internal` main members (e.g. PmSandbox, PmScope, PmExecutionContext, ScriptTarget)
+// rather than only the public API.
+kotlin.target.compilations.named("jmh") {
+  associateWith(kotlin.target.compilations.getByName("main"))
+}
+
 node {
   nodeProjectDir = file("${project.projectDir}/js")
   download = true
