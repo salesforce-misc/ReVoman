@@ -18,14 +18,14 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v7
+      uses: actions/checkout@main
       with:
         # Antora needs full history for url: . content sources
         fetch-depth: 0
     - name: Configure Pages
-      uses: actions/configure-pages@v6
+      uses: actions/configure-pages@main
     - name: Install Node.js
-      uses: actions/setup-node@v6
+      uses: actions/setup-node@main
       with:
         node-version: '26'
     - name: Install Antora + Lunr extension
@@ -33,9 +33,9 @@ jobs:
     - name: Generate Site
       run: npx antora antora-playbook.yml
     - name: Upload Artifacts
-      uses: actions/upload-pages-artifact@v5
+      uses: actions/upload-pages-artifact@main
       with:
         path: build/site
     - name: Deploy to GitHub Pages
       id: deployment
-      uses: actions/deploy-pages@v5
+      uses: actions/deploy-pages@main
