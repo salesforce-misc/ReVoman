@@ -20,6 +20,10 @@ class PostmanSDKEvalIsolationTest {
   fun `two PostmanSDK instances sharing the Engine do not leak JS globals`() {
     val pm1 = PostmanSDK(initMoshi())
     pm1.evaluateJS("globalThis.__leak = 'from-pm1'; 1")
+    // POSITIVE CONTROL: the global genuinely persists across evaluateJS calls WITHIN one instance
+    // (its jsContext is reused). This pins the leak vector inside the test, so the cross-instance
+    // negative below cannot silently pass on a dead channel and give the shared-Engine a false net.
+    pm1.evaluateJS("typeof globalThis.__leak").asString() shouldBe "string"
     val pm2 = PostmanSDK(initMoshi())
     pm2.evaluateJS("typeof globalThis.__leak").asString() shouldBe "undefined"
   }
