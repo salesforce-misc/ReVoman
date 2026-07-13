@@ -39,7 +39,10 @@ dependencies {
   implementation(libs.bundles.kotlin.logging)
   implementation(libs.pprint)
   implementation(libs.graal.js)
-  api(libs.truffle.runtime)
+  // truffle-runtime is a pure runtime substitution: it swaps Truffle's interpreter-only runtime for
+  // its optimizing Graal-compiler one. Nothing compiles against it, so `runtimeOnly` activates the
+  // optimizing runtime everywhere at run time without leaking it onto anyone's compile classpath.
+  runtimeOnly(libs.truffle.runtime)
   implementation(libs.kotlinx.collections.immutable)
   implementation(libs.datafaker)
   implementation(libs.underscore)
