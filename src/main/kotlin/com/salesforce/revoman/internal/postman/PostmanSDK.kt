@@ -166,8 +166,9 @@ class PostmanSDK(
    * the halt predicate). ReVoman seeds [rundown] with this step's pre-step report as the LAST
    * entry, then calls this 3x per step as the report gains request/response/hook detail. REPLACES
    * the current step's entry (matched as the last report for the same [Step]) rather than
-   * appending, so a step appears exactly ONCE mid-run — earlier steps and prior loop iterations
-   * (which sit before it) are untouched. Keeps [Rundown] immutable via [Rundown.copy].
+   * appending, so the current execution appears ONCE mid-run (not the old 3-4x) — earlier steps and
+   * prior loop iterations (which sit before it, and for a looped step legitimately repeat the same
+   * [Step]) are untouched. Keeps [Rundown] immutable via [Rundown.copy].
    */
   internal fun syncProgress(stepReport: StepReport) {
     currentStepReport = stepReport

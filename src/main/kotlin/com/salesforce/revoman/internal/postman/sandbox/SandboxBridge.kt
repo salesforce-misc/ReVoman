@@ -20,9 +20,13 @@ import org.graalvm.polyglot.proxy.ProxyObject
 
 /**
  * ONE process-wide immutable GraalVM [Engine], shared by every per-run [Context] (the sandbox
- * Context here AND the PostmanSDK JSEvaluator Context). The Engine caches the parsed 2.2 MB
- * bootcode [Source] and JIT-compiled code across runs and across both Context kinds, so the
- * interpreter->JIT warm-up and the bootcode parse are paid once per JVM, not per ReVoman run.
+ * Context here AND the PostmanSDK JSEvaluator Context). The Engine shares the interpreter->JIT /
+ * optimizing-runtime warm-up across runs and across both Context kinds — the reliable, measured A2
+ * win, so that convergence is paid once per JVM rather than per ReVoman run. It ALSO caches parsed
+ * code for the 2.2 MB bootcode [Source], but that reuse is best-effort: the engine source cache
+ * holds the [Source] weakly and the bootcode Source is a local not retained past [boot], so its
+ * parsed code may be GC'd between runs. Either way this is a strict improvement — pre-A2 there was
+ * zero cross-run sharing.
  *
  * Engines are thread-safe and long-lived by design; Contexts are single-threaded and per-run.
  * Sharing the Engine does NOT weaken the single-threaded Context contract, and — critically — guest
