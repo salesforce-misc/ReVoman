@@ -67,7 +67,6 @@ fun Runbook(name: String? = null, block: RunbookBuilder.() -> Unit): Runbook =
   RunbookBuilder().apply { name?.let { name(it) } }.apply(block).build()
 
 /** Kotlin `step { }` receiver — accumulates a [StepSpec] into the builder. */
-@RunbookDsl
 fun RunbookBuilder.step(block: StepSpec.() -> Unit) {
   addSpec(StepSpec().apply(block))
 }
