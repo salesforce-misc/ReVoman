@@ -28,7 +28,7 @@ kotlinx-datetime = "0.8.0-0.6.x-compat"
 node-gradle = "7.1.0"
 mockk = "1.14.11"
 postgresql = "42.7.13"
-test-retry = "1.6.2"
+test-retry = "1.6.5"
 gradle-taskinfo = "3.0.2"
 
 # Common dependencies
