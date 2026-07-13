@@ -33,8 +33,8 @@ import org.openjdk.jmh.infra.Blackhole
 open class MarshallingBenchmark {
 
   // Representative composite query response: polymorphic elements (SuccessResponse/ErrorResponse),
-  // records with attributes, nested bodies -> exercises DiMorphicAdapter (B3) + the default adapter
-  // stack (B1 enum factory, B2 epoch adapter) via the memoized MoshiReVoman (B5).
+  // records with attributes, nested bodies -> exercises DiMorphicAdapter (B3) for polymorphic
+  // discrimination and the composite fromJson/toJson hot path through JsonPojoUtils entry points.
   private val compositeJson =
     """
     {
