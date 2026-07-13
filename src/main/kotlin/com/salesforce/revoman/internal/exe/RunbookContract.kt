@@ -5,6 +5,8 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  * ************************************************************************************************
  */
+@file:Suppress("MatchingDeclarationName")
+
 package com.salesforce.revoman.internal.exe
 
 import com.salesforce.revoman.input.config.RunbookStep
