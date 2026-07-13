@@ -61,11 +61,13 @@ internal object V3Loader {
     val effectiveAuth =
       if (def != null && def.auth.isNotEmpty()) V3ToV2Converter.toAuth(def.auth) else parentAuth
 
-    val children = fs.list(dir)
+    val childrenWithMeta = fs.list(dir).map { it to fs.metadataOrNull(it) }
     val requestEntries: List<Pair<Item, Int>> =
-      children
-        .filter { fs.metadataOrNull(it)?.isRegularFile == true && it.name.endsWith(REQUEST_SUFFIX) }
-        .map { file ->
+      childrenWithMeta
+        .filter { (path, meta) ->
+          meta?.isRegularFile == true && path.name.endsWith(REQUEST_SUFFIX)
+        }
+        .map { (file, _) ->
           val rawYaml = fs.source(file).buffer().readUtf8()
           val v3req = V3YamlReader.readRequest(rawYaml)
           val fallbackName = file.name.removeSuffix(REQUEST_SUFFIX)
@@ -80,9 +82,9 @@ internal object V3Loader {
         }
 
     val folderEntries: List<Pair<Item, Int>> =
-      children
-        .filter { fs.metadataOrNull(it)?.isDirectory == true && hasDef(it, fs) }
-        .map { sub ->
+      childrenWithMeta
+        .filter { (path, meta) -> meta?.isDirectory == true && hasDef(path, fs) }
+        .map { (sub, _) ->
           val subDef = readDefOrThrow(sub, fs)
           val nestedItems = walk(sub, fs, parentAuth = effectiveAuth)
           val folderItem = Item(name = sub.name, item = nestedItems, request = Request())
