@@ -82,8 +82,12 @@ data class Request(
                       // Comment-free: validate as JSON (drives detection), render precision-safe.
                       else ->
                         moshiReVoman?.let { m ->
-                          m.fromJson<Any>(rawBody)
-                          JsonPretty.pretty(rawBody)
+                          // JsonPretty is byte-for-byte precision-safe but only understands STRICT
+                          // JSON; take the precision-safe fast path only for already-strict JSON,
+                          // and normalize a lenient-but-valid JSON5 body via the round-trip so its
+                          // string literals aren't mangled.
+                          if (m.isStrictJson(rawBody)) JsonPretty.pretty(rawBody)
+                          else m.jsonToObjToPrettyJson(rawBody, true) ?: rawBody
                         } ?: rawBody
                     }
                   }

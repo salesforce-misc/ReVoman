@@ -76,6 +76,13 @@ open class MoshiReVoman(builder: Moshi.Builder) {
     lenientAdapter<PojoT>().fromJson(it)
   }
 
+  // * NOTE: strict (non-lenient) parse probe. Gates the byte-for-byte JsonPretty render, which
+  //   only understands STRICT JSON; a JSON5-lenient body (single-quoted strings / unquoted names)
+  //   must instead go through the normalizing round-trip, else JsonPretty mangles structural chars
+  //   inside a lenient string literal. `adapter<Any>()` (no `.lenient()`) rejects JSON5 and any
+  //   unconsumed trailing content.
+  fun isStrictJson(json: String): Boolean = runCatching { adapter<Any>().fromJson(json) }.isSuccess
+
   fun <PojoT : Any> toJson(
     input: PojoT?,
     serializeNulls: Boolean = false,

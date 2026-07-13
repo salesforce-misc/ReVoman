@@ -61,6 +61,20 @@ class RequestToHttpRequestTest {
   }
 
   @Test
+  fun `JSON5-lenient body with a single-quoted value is normalized not mangled`() {
+    // Regression: JsonPretty only understands strict JSON; a single-quoted value with an interior
+    // comma must NOT be split into structural pieces. The lenient body normalizes via round-trip.
+    val raw = "{'k':'a,b'}"
+    val http = request(contentType = null, rawBody = raw).toHttpRequest(moshi)
+    // The value "a,b" must survive intact as a single JSON string value.
+    assertThat(http.bodyString()).contains("\"k\"")
+    assertThat(http.bodyString()).contains("a,b")
+    // And it must be VALID strict JSON now (re-parseable), unlike the mangled single-quote output.
+    assertThat(moshi.fromJson<Any>(http.bodyString())).isEqualTo(mapOf("k" to "a,b"))
+    assertThat(http.header("Content-Type")).isEqualTo("application/json; charset=utf-8")
+  }
+
+  @Test
   fun `null moshiReVoman with a JSON body and no content-type still adds the content-type header`() {
     // Mirrors ReVoman.kt:394 toHttpRequest(null). Body passes through unchanged (no moshi to
     // render).
