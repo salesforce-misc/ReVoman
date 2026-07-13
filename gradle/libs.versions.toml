@@ -75,6 +75,7 @@ spring-beans = { module = "org.springframework:spring-beans", version.ref = "spr
 json-assert = { module = "org.skyscreamer:jsonassert", version.ref = "json-assert" }
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime-jvm", version.ref = "kotlinx-datetime" }
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
+truffle-runtime = { module = "org.graalvm.truffle:truffle-runtime", version.ref = "graal" }
 postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
 
 # Gradle plugins

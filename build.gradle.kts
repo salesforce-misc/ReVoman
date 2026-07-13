@@ -38,6 +38,7 @@ dependencies {
   implementation(libs.bundles.kotlin.logging)
   implementation(libs.pprint)
   implementation(libs.graal.js)
+  api(libs.truffle.runtime)
   implementation(libs.datafaker)
   implementation(libs.underscore)
   implementation(libs.okio.jvm)
