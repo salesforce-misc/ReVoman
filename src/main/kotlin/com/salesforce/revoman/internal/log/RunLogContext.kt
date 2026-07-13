@@ -14,12 +14,15 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 
 /**
  * Holds the [RunLogSink] active for the current [com.salesforce.revoman.ReVoman.revUp] run. A
- * ThreadLocal because a run executes its steps serially on one thread; [install] at the start of a
- * run, [remove] in its `finally`. [current] is `null` outside a run (the default, NoOp-equivalent
- * path), so non-instrumented callers pay nothing.
+ * ThreadLocal because a run executes its steps serially on one thread. [install] the sink at the
+ * start of a run and [restore] the returned previous sink in its `finally`; this install/restore
+ * pair STACKS, so a nested `revUp` (e.g. a runbook driving per-step kicks) does not wipe the outer
+ * run's sink. [current] is `null` outside any run (the default, NoOp-equivalent path), so
+ * non-instrumented callers pay nothing. [remove] remains for callers that unconditionally clear.
  *
- * **Callers MUST guarantee [remove] runs (e.g. in a `finally`)** — a skipped remove leaks the sink
- * across thread-pool reuse, mis-routing a later unrelated run's logs into a stale sink.
+ * **Callers MUST guarantee [restore] (or [remove]) runs (e.g. in a `finally`)** — a skipped restore
+ * leaks the sink across thread-pool reuse, mis-routing a later unrelated run's logs into a stale
+ * sink.
  */
 internal object RunLogContext {
   private val holder = ThreadLocal<RunLogSink?>()

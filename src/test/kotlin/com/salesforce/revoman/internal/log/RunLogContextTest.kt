@@ -65,4 +65,31 @@ class RunLogContextTest {
     RevomanLog.info { "no sink" }
     RunLogContext.current() shouldBe null
   }
+
+  @Test
+  fun `install returns previous sink and restore stacks across nesting`() {
+    val outer = RecordingSink()
+    val inner = RecordingSink()
+    // Outer run installs on an empty context — previous is null.
+    val beforeOuter = RunLogContext.install(outer)
+    try {
+      beforeOuter shouldBe null
+      RunLogContext.current() shouldBe outer
+      // Nested run (e.g. a runbook step's kick) installs its own sink, capturing the outer.
+      val beforeInner = RunLogContext.install(inner)
+      try {
+        beforeInner shouldBe outer
+        RunLogContext.current() shouldBe inner
+      } finally {
+        // Restoring the captured sink brings the OUTER sink back — the old bare `remove()` would
+        // instead have wiped it, leaving `current()` null for the rest of the outer run.
+        RunLogContext.restore(beforeInner)
+      }
+      RunLogContext.current() shouldBe outer
+    } finally {
+      RunLogContext.restore(beforeOuter)
+    }
+    // restore(null) clears the context, matching the standalone (no outer sink) path.
+    RunLogContext.current() shouldBe null
+  }
 }

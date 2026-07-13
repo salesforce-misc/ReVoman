@@ -30,7 +30,11 @@ internal fun executeRunbook(
   dynamicEnvironment: Map<String, Any?>,
 ): RunbookRundown {
   val runbookSink = runbook.runLogSink
-  val previousSink = RunLogContext.install(runbookSink)
+  // Install the runbook-scope sink ONLY when it is a real sink. For the NoOp default there is
+  // nothing to route to, and skipping the install keeps `current()` null so the zero-config path
+  // stays bit-identical to before this layer existed (e.g. the summary line below renders lazily).
+  val installed = runbookSink !== RunLogSink.NoOp
+  val previousSink = if (installed) RunLogContext.install(runbookSink) else null
   try {
     var accumulatedEnv: Map<String, Any?> = dynamicEnvironment
     var lastPhase: Phase? = null
@@ -78,7 +82,7 @@ internal fun executeRunbook(
     RevomanLog.info { "\n" + renderRunbookMarkdown(result) }
     return result
   } finally {
-    RunLogContext.restore(previousSink)
+    if (installed) RunLogContext.restore(previousSink)
   }
 }
 
