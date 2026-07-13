@@ -33,9 +33,8 @@ import org.graalvm.polyglot.proxy.ProxyObject
 internal val sharedGraalEngine: Engine by lazy {
   Engine.newBuilder("js")
     .allowExperimentalOptions(true)
-    // Engine-level option: silence the "interpreter only / fallback runtime" warning. With WT-0's
-    // truffle-runtime on the classpath this warning should no longer fire — Task 14 verifies and
-    // removes this line if so. Kept here (single home) until then.
+    // truffle-runtime present but the interpreter warning still fires on this JVM config —
+    // suppression retained (A1).
     .option("engine.WarnInterpreterOnly", "false")
     .build()
 }
