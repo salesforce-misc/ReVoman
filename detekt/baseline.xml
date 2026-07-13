@@ -1,10 +1,10 @@
-<?xml version='1.0' encoding='UTF-8'?>
+<?xml version="1.0" ?>
 <SmellBaseline>
   <ManuallySuppressedIssues>
     <ID>TooManyFunctions:ResponseConfig.kt$ResponseConfig$Companion</ID>
-    <ID>TooManyFunctions:PostmanEnvironment.kt$PostmanEnvironment&lt;ValueT : Any?> : MutableMap</ID>
+    <ID>TooManyFunctions:PostmanEnvironment.kt$PostmanEnvironment&lt;ValueT : Any?&gt; : MutableMap</ID>
     <ID>TooManyFunctions:ExeUtils.kt$com.salesforce.revoman.internal.exe.ExeUtils.kt</ID>
-    <ID>LongMethod:ReVoman.kt$ReVoman$private fun executeStepsSerially( pmStepsFlattened: List&lt;Pair&lt;Step, Item>>, kick: Kick, moshiReVoman: MoshiReVoman, ): List&lt;StepReport></ID>
+    <ID>LongMethod:ReVoman.kt$ReVoman$private fun executeStepsSerially( pmStepsFlattened: List&lt;Pair&lt;Step, Item&gt;&gt;, kick: Kick, moshiReVoman: MoshiReVoman, ): List&lt;StepReport&gt;</ID>
     <ID>SpreadOperator:Step.kt$Step$(*FOLDER_DELIMITER.toCharArray())</ID>
     <ID>SpreadOperator:CaseInsensitiveEnumAdapter.kt$CaseInsensitiveEnumAdapter$(*nameStrings.toTypedArray())</ID>
     <ID>TooManyFunctions:JsonWriterUtils.kt$com.salesforce.revoman.input.json.JsonWriterUtils.kt</ID>
@@ -16,5 +16,59 @@
     <ID>MagicNumber:Constants.kt$299</ID>
     <ID>FunctionNaming:RestfulAPIDevKtTest.kt$RestfulAPIDevKtTest$@Test fun `execute restful-api dev pm collection`()</ID>
   </ManuallySuppressedIssues>
-  <CurrentIssues/>
+  <CurrentIssues>
+    <ID>ComplexCondition:JsonPretty.kt:JsonPretty$next &lt; n &amp;&amp; ((c == '{' &amp;&amp; json[next] == '}') || (c == '[' &amp;&amp; json[next] == ']'))</ID>
+    <ID>ComplexCondition:ReVoman.kt:ReVoman$!bypassLedger &amp;&amp; entry != null &amp;&amp; entry.produces.isNotEmpty() &amp;&amp; entry.hash.isNotEmpty() &amp;&amp; step.sourceHash.isNotEmpty() &amp;&amp; entry.hash != step.sourceHash &amp;&amp; envKeys.containsAll(entry.produces)</ID>
+    <ID>CyclomaticComplexMethod:JsonPretty.kt:JsonPretty$private fun reindent: String</ID>
+    <ID>CyclomaticComplexMethod:ReVoman.kt:ReVoman$@OptIn(ExperimentalStdlibApi::class) private fun runStep: StepReport</ID>
+    <ID>CyclomaticComplexMethod:SandboxBridge.kt:SandboxBridge$private fun decodeResult: PmExecutionResult</ID>
+    <ID>CyclomaticComplexMethod:StepReport.kt:StepReport.Companion$private fun failure: Either&lt;ExeFailure, HttpStatusUnsuccessful&gt;?</ID>
+    <ID>CyclomaticComplexMethod:Template.kt:Request$internal fun toHttpRequest: org.http4k.core.Request</ID>
+    <ID>EmptyFunctionBlock:ConsoleRunLogSink.kt:ConsoleRunLogSink${}</ID>
+    <ID>EmptyFunctionBlock:KickTest.kt:KickTest.&lt;no name provided&gt;${}</ID>
+    <ID>EmptyFunctionBlock:RegexReplacerScopesTest.kt:RegexReplacerScopesTest.RecordingSink${}</ID>
+    <ID>EmptyFunctionBlock:RunLogContextActiveSinkTest.kt:RunLogContextActiveSinkTest.&lt;no name provided&gt;${}</ID>
+    <ID>FunctionOnlyReturningConstant:TypeAdapter.kt:TypeAdapter$@FromJson fun fromJson: Type?</ID>
+    <ID>LongMethod:Polling.kt:@JvmSynthetic internal fun executePolling: Either&lt;PollingFailure, PollingReport?&gt;</ID>
+    <ID>LongMethod:ReVoman.kt:ReVoman$@OptIn(ExperimentalStdlibApi::class) private fun revUpInternal: Rundown</ID>
+    <ID>LongMethod:ReVoman.kt:ReVoman$@OptIn(ExperimentalStdlibApi::class) private fun runStep: StepReport</ID>
+    <ID>LongMethod:ReVoman.kt:ReVoman$private fun executeStepsSerially: SequenceResult</ID>
+    <ID>LongMethod:SandboxBridge.kt:SandboxBridge$fun boot</ID>
+    <ID>LoopWithTooManyJumpStatements:JsonPretty.kt:JsonPretty$while</ID>
+    <ID>LoopWithTooManyJumpStatements:ReVoman.kt:ReVoman$while</ID>
+    <ID>LoopWithTooManyJumpStatements:SandboxBridge.kt:SandboxBridge$for</ID>
+    <ID>LoopWithTooManyJumpStatements:SandboxEventLoop.kt:SandboxEventLoop$while</ID>
+    <ID>MagicNumber:ClasspathResolver.kt:3</ID>
+    <ID>MagicNumber:ClasspathResolver.kt:4</ID>
+    <ID>MagicNumber:DynamicVariableGenerator.kt:256</ID>
+    <ID>MagicNumber:V3ToV2Converter.kt:V3ToV2Converter$16</ID>
+    <ID>NestedBlockDepth:StepReport.kt:StepReport.Companion$private fun failure: Either&lt;ExeFailure, HttpStatusUnsuccessful&gt;?</ID>
+    <ID>ReturnCount:ClasspathResolver.kt:fun resolveClasspath: Pair&lt;Path, FileSystem&gt;?</ID>
+    <ID>ReturnCount:ClasspathResolver.kt:fun resolveClasspathDir: Pair&lt;Path, FileSystem&gt;?</ID>
+    <ID>ReturnCount:ExeUtils.kt:internal fun ledgerSkipDecision: Boolean</ID>
+    <ID>ReturnCount:ExeUtils.kt:internal fun shouldStepBePicked: Boolean</ID>
+    <ID>ReturnCount:Flatted.kt:Flatted$fun parse: Any?</ID>
+    <ID>ReturnCount:Polling.kt:@JvmSynthetic internal fun executePolling: Either&lt;PollingFailure, PollingReport?&gt;</ID>
+    <ID>ReturnCount:ReVoman.kt:ReVoman$@OptIn(ExperimentalStdlibApi::class) private fun runStep: StepReport</ID>
+    <ID>ReturnCount:V3ToV2Converter.kt:V3ToV2Converter$fun toAuth: Auth?</ID>
+    <ID>ReturnCount:V3YamlReader.kt:V3YamlReader$private fun mapToBody: V3Body?</ID>
+    <ID>SwallowedException:JsonPretty.kt:JsonPretty$e: RuntimeException</ID>
+    <ID>SwallowedException:SandboxEventLoopTest.kt:SandboxEventLoopTest$e: IllegalStateException</ID>
+    <ID>ThrowsCount:CompositeResponse.kt:CompositeResponse.Response.SuccessResponse.RecordFactory.RecordAdapter$override fun fromJson: Record?</ID>
+    <ID>TooGenericExceptionCaught:JsonPretty.kt:JsonPretty$e: RuntimeException</ID>
+    <ID>TooGenericExceptionThrown:PollingTest.kt:PollingTest$throw RuntimeException("http call failed")</ID>
+    <ID>TooGenericExceptionThrown:PollingTest.kt:PollingTest$throw RuntimeException("predicate failed")</ID>
+    <ID>TooGenericExceptionThrown:PollingTest.kt:PollingTest$throw RuntimeException("request build failed")</ID>
+    <ID>TooManyFunctions:FileUtils.kt:com.salesforce.revoman.input.FileUtils.kt</ID>
+    <ID>TooManyFunctions:JsonReaderUtils.kt:com.salesforce.revoman.input.json.JsonReaderUtils.kt</ID>
+    <ID>TooManyFunctions:JsonWriterUtils.kt:com.salesforce.revoman.input.json.JsonWriterUtils.kt</ID>
+    <ID>TooManyFunctions:KickDef.kt:KickDef</ID>
+    <ID>TooManyFunctions:MoshiReVoman.kt:MoshiReVoman</ID>
+    <ID>TooManyFunctions:PostmanEnvironment.kt:PostmanEnvironment&lt;ValueT : Any?&gt; : MutableMap</ID>
+    <ID>TooManyFunctions:PostmanSDK.kt:PostmanSDK</ID>
+    <ID>TooManyFunctions:RundownJsonWriter.kt:com.salesforce.revoman.output.RundownJsonWriter.kt</ID>
+    <ID>TooManyFunctions:V3YamlReader.kt:V3YamlReader</ID>
+    <ID>UnusedParameter:StepDirective.kt:fromCursor: Int</ID>
+    <ID>UnusedParameter:TypeAdapter.kt:TypeAdapter$ignore: String</ID>
+  </CurrentIssues>
 </SmellBaseline>

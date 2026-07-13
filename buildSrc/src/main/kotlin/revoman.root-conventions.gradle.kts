@@ -8,11 +8,11 @@
 import com.adarshr.gradle.testlogger.theme.ThemeType.MOCHA
 import com.diffplug.spotless.LineEnding.PLATFORM_NATIVE
 import com.diffplug.spotless.extra.wtp.EclipseWtpFormatterStep.XML
-import io.gitlab.arturbosch.detekt.Detekt
+import dev.detekt.gradle.Detekt
 
 plugins {
   id("com.diffplug.spotless")
-  id("io.gitlab.arturbosch.detekt")
+  id("dev.detekt")
   id("com.adarshr.test-logger")
 }
 
@@ -71,4 +71,5 @@ detekt {
 
 testlogger.theme = MOCHA
 
-tasks.withType<Detekt>().configureEach { reports { xml.required.set(true) } }
+// detekt 2.0 renamed the XML report to `checkstyle` (the XML output is Checkstyle-format).
+tasks.withType<Detekt>().configureEach { reports { checkstyle.required.set(true) } }
