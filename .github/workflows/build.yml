@@ -29,7 +29,7 @@ jobs:
 
       # Replaces the deprecated gradle/gradle-build-action; adds dependency caching + a build report.
       - name: 'Setup Gradle'
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
 
       # Full coverage: unit (`test`) + integration (`integrationTest`) + spotlessCheck + kover, all
       # via `build`. The `integration.core.*` org tests skip-loud (no creds on CI); the live
@@ -41,7 +41,7 @@ jobs:
       # Surface JUnit HTML reports even when the build fails, so a red run is diagnosable.
       - name: 'Upload test reports'
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-reports
           path: build/reports/tests/
