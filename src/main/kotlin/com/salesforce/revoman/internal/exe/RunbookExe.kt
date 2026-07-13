@@ -64,7 +64,9 @@ internal fun executeRunbook(
       accumulatedEnv = rundown.mutableEnv.immutableEnv
       step to rundown
     }
-  return RunbookRundown(runbook.name, pairs)
+  val result = RunbookRundown(runbook.name, pairs)
+  RevomanLog.info { "\n" + com.salesforce.revoman.output.renderRunbookMarkdown(result) }
+  return result
 }
 
 private fun producedValues(step: RunbookStep, rundown: Rundown): Map<String, String?> =

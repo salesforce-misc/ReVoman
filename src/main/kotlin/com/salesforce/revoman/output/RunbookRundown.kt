@@ -28,4 +28,8 @@ class RunbookRundown(
   fun stepFor(intent: String): Pair<RunbookStep, Rundown>? = stepRundowns.firstOrNull {
     it.first.intent == intent
   }
+
+  fun toMarkdown(): String = renderRunbookMarkdown(this)
+
+  fun toMermaid(): String = renderRunbookMermaid(this)
 }
