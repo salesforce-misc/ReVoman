@@ -16,6 +16,7 @@ plugins {
   alias(libs.plugins.node.gradle)
   alias(libs.plugins.kover)
   alias(libs.plugins.nexus.publish)
+  alias(libs.plugins.jmh)
   alias(libs.plugins.test.retry)
 }
 
