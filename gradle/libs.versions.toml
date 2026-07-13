@@ -30,6 +30,7 @@ mockk = "1.14.11"
 postgresql = "42.7.13"
 test-retry = "1.6.5"
 gradle-taskinfo = "3.0.2"
+kotlinx-collections-immutable = "0.4.0"
 
 # Common dependencies
 
@@ -76,6 +77,7 @@ json-assert = { module = "org.skyscreamer:jsonassert", version.ref = "json-asser
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime-jvm", version.ref = "kotlinx-datetime" }
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 truffle-runtime = { module = "org.graalvm.truffle:truffle-runtime", version.ref = "graal" }
+kotlinx-collections-immutable = { module = "org.jetbrains.kotlinx:kotlinx-collections-immutable", version.ref = "kotlinx-collections-immutable" }
 postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
 
 # Gradle plugins

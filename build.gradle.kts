@@ -39,6 +39,7 @@ dependencies {
   implementation(libs.pprint)
   implementation(libs.graal.js)
   api(libs.truffle.runtime)
+  implementation(libs.kotlinx.collections.immutable)
   implementation(libs.datafaker)
   implementation(libs.underscore)
   implementation(libs.okio.jvm)
