@@ -40,6 +40,9 @@ class ConsoleRunLogSink(private val out: PrintStream = System.out) : RunLogSink 
      * are no-ops), so a single instance is safe to share across every Kick and revUp run.
      */
     @JvmField val DEFAULT: ConsoleRunLogSink = ConsoleRunLogSink()
+
+    /** Fixed width for phase-rule horizontal lines. */
+    private const val RULE_WIDTH = 52
   }
 
   override fun event(event: StepEvent) {
@@ -133,10 +136,5 @@ class ConsoleRunLogSink(private val out: PrintStream = System.out) : RunLogSink 
     val req = event.requestMsg?.let { "│ REQ:\n$it\n" } ?: ""
     val resp = event.responseMsg?.let { "│ RESP:\n$it\n" } ?: ""
     return header + keys + req + resp
-  }
-
-  private companion object {
-    /** Fixed width for phase-rule horizontal lines. */
-    const val RULE_WIDTH = 52
   }
 }
