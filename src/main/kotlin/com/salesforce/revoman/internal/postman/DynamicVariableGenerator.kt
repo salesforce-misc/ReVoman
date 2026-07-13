@@ -62,12 +62,14 @@ private val dynamicVariableGenerators: Map<String, () -> String> =
       },
   )
 
-fun getRandomHex(): String = "%02X".format(nextInt(256))
+private val upperHexFormat = HexFormat.of().withUpperCase()
+
+fun getRandomHex(): String = upperHexFormat.toHexDigits(nextInt(256).toByte())
 
 private val charPool = ('a'..'z') + ('A'..'Z') + ('0'..'9')
 
-fun randomAlphanumeric(length: Int) =
-  (1..length).map { charPool[nextInt(0, charPool.size)] }.joinToString("")
+fun randomAlphanumeric(length: Int): String =
+  CharArray(length) { charPool[nextInt(0, charPool.size)] }.concatToString()
 
 private val dynamicVariableGeneratorsWithPM: Map<String, (PostmanSDK) -> String> =
   mapOf($$"$currentRequestName" to { it.info.requestName })

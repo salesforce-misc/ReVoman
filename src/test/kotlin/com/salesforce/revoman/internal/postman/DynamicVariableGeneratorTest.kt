@@ -41,4 +41,23 @@ class DynamicVariableGeneratorTest {
       assertThat(value).isAtMost(255)
     }
   }
+
+  @Test
+  fun `getRandomHex output equals the legacy percent-02X formatting for all byte values`() {
+    // Locks the exact rendering the old `"%02X".format(v)` produced across the full range.
+    (0..255).forEach { v ->
+      val legacy = "%02X".format(v)
+      val formatted = java.util.HexFormat.of().withUpperCase().toHexDigits(v.toByte())
+      assertThat(formatted).isEqualTo(legacy)
+    }
+  }
+
+  @Test
+  fun `randomAlphanumeric returns the requested length using only a-zA-Z0-9`() {
+    listOf(0, 1, 15, 64).forEach { len ->
+      val out = randomAlphanumeric(len)
+      assertThat(out).hasLength(len)
+      assertThat(out).matches("[a-zA-Z0-9]*")
+    }
+  }
 }

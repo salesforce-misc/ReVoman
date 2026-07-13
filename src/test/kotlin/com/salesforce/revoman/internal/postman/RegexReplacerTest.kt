@@ -146,4 +146,58 @@ class RegexReplacerTest {
     val result = regexReplacer.replaceVariablesRecursively("{{a}}", pm)
     result shouldBe "value"
   }
+
+  @Test
+  fun `string without double-brace is returned unchanged`() {
+    val regexReplacer = RegexReplacer()
+    val pm = PostmanSDK(moshiReVoman, null, regexReplacer)
+    val plain = """{ "a": 1, "b": "no placeholders here", "c": "{ single brace }" }"""
+    regexReplacer.replaceVariablesRecursively(plain, pm) shouldBe plain
+  }
+
+  @Test
+  fun `null input stays null`() {
+    val regexReplacer = RegexReplacer()
+    val pm = PostmanSDK(moshiReVoman, null, regexReplacer)
+    regexReplacer.replaceVariablesRecursively(null, pm) shouldBe null
+  }
+
+  @Test
+  fun `single unmatched brace pair is not treated as a placeholder`() {
+    val regexReplacer = RegexReplacer()
+    val pm = PostmanSDK(moshiReVoman, null, regexReplacer)
+    // Contains "{{" so it enters the regex path, but "{{ }" has no closing "}}" -> left literal.
+    regexReplacer.replaceVariablesRecursively("prefix {{ } suffix", pm) shouldBe
+      "prefix {{ } suffix"
+  }
+
+  @Test
+  fun `replaceVariablesInEnv resolves placeholder entries and passes static + typed entries through`() {
+    val regexReplacer = RegexReplacer()
+    val pm = PostmanSDK(moshiReVoman, null, regexReplacer)
+    pm.environment["base"] = "example.com"
+    pm.environment["url"] = "https://{{base}}/api" // value placeholder
+    pm.environment["staticStr"] = "no placeholders" // static string -> unchanged
+    pm.environment["count"] = 42 // non-string -> passed through as-is
+    pm.environment["flag"] = true // non-string -> passed through as-is
+    val result = regexReplacer.replaceVariablesInEnv(pm)
+    result shouldContainAll
+      mapOf(
+        "base" to "example.com",
+        "url" to "https://example.com/api",
+        "staticStr" to "no placeholders",
+        "count" to 42,
+        "flag" to true,
+      )
+  }
+
+  @Test
+  fun `replaceVariablesInEnv resolves a placeholder in the key`() {
+    val regexReplacer = RegexReplacer()
+    val pm = PostmanSDK(moshiReVoman, null, regexReplacer)
+    pm.environment["name"] = "userName"
+    pm.environment["{{name}}"] = "value" // key placeholder -> remapped to resolved key
+    val result = regexReplacer.replaceVariablesInEnv(pm)
+    result shouldContain ("userName" to "value")
+  }
 }

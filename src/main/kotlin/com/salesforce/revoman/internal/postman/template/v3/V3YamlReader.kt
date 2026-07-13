@@ -117,9 +117,18 @@ internal object V3YamlReader {
     return V3Settings(disabledSystemHeaders = disabled)
   }
 
+  // * NOTE 14 Jul 2026 gopala.akshintala: Yaml is NOT thread-safe; a ThreadLocal reuses one
+  // instance
+  //   per thread (avoiding a fresh Yaml() per parse) while staying safe if reads are ever
+  //   parallelized — do NOT "simplify" to a bare shared val. Zero cost for the sequential walk
+  // today;
+  //   each load() is independent, with no anchor/state carryover across documents (pinned by the
+  //   sequentialReadsThroughSharedYamlAreIndependent test).
+  private val yamlReader: ThreadLocal<Yaml> = ThreadLocal.withInitial { Yaml() }
+
   private fun parseYaml(yaml: String): Map<String, Any?> {
     @Suppress("UNCHECKED_CAST")
-    return (Yaml().load<Any?>(yaml) as? Map<String, Any?>) ?: emptyMap()
+    return (yamlReader.get().load<Any?>(yaml) as? Map<String, Any?>) ?: emptyMap()
   }
 
   private fun mapToCollectionDef(map: Map<String, Any?>): V3CollectionDef =
