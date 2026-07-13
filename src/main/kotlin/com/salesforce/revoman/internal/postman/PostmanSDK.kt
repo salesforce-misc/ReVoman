@@ -222,9 +222,17 @@ class PostmanSDK(
   fun evaluateJS(js: String, bindings: Map<String, Any> = emptyMap()): Value =
     jsEvaluator.evaluateJS(js, bindings)
 
-  @Language("JavaScript")
-  fun jsonStrToObj(jsonStr: String): Value =
-    evaluateJS("jsonStr => JSON.parse(jsonStr, {allowComments: true})").execute(jsonStr)
+  // Memoized JSON.parse closure: a stateless guest function bound to this instance's jsContext.
+  // Parsing the function literal once (not per call) skips a Source parse + compile on every
+  // json()/jsonStrToObj call. Reuse is safe — the closure holds no per-call state; only its
+  // argument varies. `by lazy` defers forcing until the first parse (jsEvaluator is init'd last).
+  private val jsonParseFn: Value by lazy {
+    @Language("JavaScript")
+    val jsonParseArrow = "jsonStr => JSON.parse(jsonStr, {allowComments: true})"
+    evaluateJS(jsonParseArrow)
+  }
+
+  fun jsonStrToObj(jsonStr: String): Value = jsonParseFn.execute(jsonStr)
 
   /**
    * `pm.variables` — the aggregate READ view across all scopes, honoring Postman precedence
