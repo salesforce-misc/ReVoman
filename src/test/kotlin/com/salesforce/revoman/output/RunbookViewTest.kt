@@ -20,6 +20,7 @@ class RunbookViewTest {
     phase: Phase,
     consumes: Set<String> = emptySet(),
     produces: Map<String, String?> = emptyMap(),
+    underTest: Boolean = false,
   ) =
     RunbookStep(
       intent,
@@ -27,7 +28,7 @@ class RunbookViewTest {
       Kick.configure().templatePath("pm-templates/v3/cf-stop").off(),
       consumes,
       produces,
-      false,
+      underTest,
       null,
     )
 
@@ -68,5 +69,28 @@ class RunbookViewTest {
     assertThat(mmd).startsWith("sequenceDiagram")
     assertThat(mmd).contains("login")
     assertThat(mmd).contains("schedule")
+  }
+
+  @Test
+  fun `mermaid shows consumes annotation and diamond marker for under-test steps`() {
+    val rrWithUnderTest =
+      RunbookRundown(
+        "mermaid test",
+        listOf(
+          step("seed data", Phase.SETUP, produces = mapOf("authToken" to null)) to rundown(),
+          step(
+            "act",
+            Phase.ACT,
+            consumes = setOf("authToken"),
+            produces = mapOf("result" to "ok"),
+            underTest = true,
+          ) to rundown(),
+        ),
+      )
+    val mmd = rrWithUnderTest.toMermaid()
+    // Assert consumes annotation (⟵ authToken) and under-test marker (◆) appear for the under-test
+    // step.
+    assertThat(mmd).contains("⟵ authToken")
+    assertThat(mmd).contains("◆")
   }
 }

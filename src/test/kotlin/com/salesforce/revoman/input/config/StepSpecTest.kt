@@ -66,4 +66,19 @@ class StepSpecTest {
       }
     assertThat(ex).hasMessageThat().contains("kick")
   }
+
+  @Test
+  fun `build with blank intent fails fast`() {
+    val ex =
+      assertThrows<IllegalArgumentException> {
+        StepSpec()
+          .apply {
+            intent = "  "
+            phase = Phase.SETUP
+            kick = anyKick()
+          }
+          .build()
+      }
+    assertThat(ex).hasMessageThat().contains("non-blank intent")
+  }
 }

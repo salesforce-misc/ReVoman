@@ -7,6 +7,7 @@
  */
 package com.salesforce.revoman.input.config
 
+import com.salesforce.revoman.output.log.RunLogSink
 import java.util.function.Consumer
 
 /**
@@ -20,7 +21,12 @@ import java.util.function.Consumer
  * via the Kotlin `Runbook { step { } }` DSL or the Java `Runbook.configure()...off()` builder;
  * drive with `ReVoman.revUp(runbook)`.
  */
-class Runbook internal constructor(val name: String?, val steps: List<RunbookStep>) {
+class Runbook
+internal constructor(
+  val name: String?,
+  val steps: List<RunbookStep>,
+  val runLogSink: RunLogSink,
+) {
   companion object {
     @JvmStatic fun configure(): RunbookBuilder = RunbookBuilder()
   }
@@ -31,8 +37,11 @@ class Runbook internal constructor(val name: String?, val steps: List<RunbookSte
 class RunbookBuilder internal constructor() {
   private var name: String? = null
   private val steps: MutableList<RunbookStep> = mutableListOf()
+  var runLogSink: RunLogSink = RunLogSink.NoOp
 
   fun name(name: String): RunbookBuilder = apply { this.name = name }
+
+  fun runLogSink(sink: RunLogSink): RunbookBuilder = apply { this.runLogSink = sink }
 
   /** Java: pure-narration step (no contract/assertion). */
   fun step(intent: String, phase: Phase, kick: Kick): RunbookBuilder =
@@ -57,7 +66,7 @@ class RunbookBuilder internal constructor() {
 
   internal fun addSpec(spec: StepSpec) = apply { steps += spec.build() }
 
-  internal fun build(): Runbook = Runbook(name, steps.toList())
+  internal fun build(): Runbook = Runbook(name, steps.toList(), runLogSink)
 
   fun off(): Runbook = build()
 }

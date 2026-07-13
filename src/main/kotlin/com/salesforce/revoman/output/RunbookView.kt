@@ -32,14 +32,18 @@ internal fun renderRunbookMarkdown(rr: RunbookRundown): String {
 
 /**
  * A mermaid sequence diagram: a `Runbook` participant issuing one message per step, annotated with
- * produced keys. Theme is applied by whoever writes it into docs.
+ * consumed and produced keys, and under-test marker. Theme is applied by whoever writes it into
+ * docs.
  */
 internal fun renderRunbookMermaid(rr: RunbookRundown): String {
   val lines =
     rr.stepRundowns.flatMap { (step, _) ->
+      val marker = if (step.underTest) "◆ " else ""
+      val consumes = "⟵ ${consumedText(step)}"
+      val produces = "⟶ ${producedText(step)}"
       listOf(
         "    Runbook->>${step.phase}: ${step.intent}",
-        "    Note right of ${step.phase}: ⟶ ${producedText(step)}",
+        "    Note right of ${step.phase}: $marker$consumes  $produces",
       )
     }
   return (listOf("sequenceDiagram", "    participant Runbook") + lines).joinToString("\n") + "\n"

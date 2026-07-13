@@ -60,8 +60,9 @@ class StepSpec {
 
   fun assertAfter(assertion: StepAssertion): StepSpec = apply { assertAfter = assertion }
 
-  fun build(): RunbookStep =
-    RunbookStep(
+  fun build(): RunbookStep {
+    require(intent.isNotBlank()) { "A runbook step requires a non-blank intent" }
+    return RunbookStep(
       intent = intent,
       phase = phase,
       kick =
@@ -71,6 +72,7 @@ class StepSpec {
       underTest = underTest,
       assertAfter = assertAfter,
     )
+  }
 }
 
 /** Immutable snapshot of one runbook step: a [Kick] wrapped with narration. */

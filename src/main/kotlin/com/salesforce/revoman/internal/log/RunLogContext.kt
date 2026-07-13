@@ -24,7 +24,15 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 internal object RunLogContext {
   private val holder = ThreadLocal<RunLogSink?>()
 
-  fun install(sink: RunLogSink) = holder.set(sink)
+  /**
+   * Installs [sink] as current, returning the previously-installed sink (or null) so a nested
+   * caller can restore it — makes install/restore stack correctly across nested revUp calls.
+   */
+  fun install(sink: RunLogSink): RunLogSink? {
+    val previous = holder.get()
+    holder.set(sink)
+    return previous
+  }
 
   fun current(): RunLogSink? = holder.get()
 
@@ -37,6 +45,11 @@ internal object RunLogContext {
   fun hasActiveSink(): Boolean {
     val sink = holder.get()
     return sink != null && sink !== RunLogSink.NoOp
+  }
+
+  /** Restores a sink captured from [install]; null means "no sink was active", i.e. remove. */
+  fun restore(previous: RunLogSink?) {
+    if (previous == null) holder.remove() else holder.set(previous)
   }
 
   fun remove() = holder.remove()

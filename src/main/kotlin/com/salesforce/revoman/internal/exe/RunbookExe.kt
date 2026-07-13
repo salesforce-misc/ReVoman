@@ -12,10 +12,13 @@ import com.salesforce.revoman.input.config.Phase
 import com.salesforce.revoman.input.config.Runbook
 import com.salesforce.revoman.input.config.RunbookStep
 import com.salesforce.revoman.internal.log.RevomanLog
+import com.salesforce.revoman.internal.log.RunLogContext
 import com.salesforce.revoman.output.RunbookRundown
 import com.salesforce.revoman.output.Rundown
 import com.salesforce.revoman.output.log.Outcome
+import com.salesforce.revoman.output.log.RunLogSink
 import com.salesforce.revoman.output.log.StepEvent
+import com.salesforce.revoman.output.renderRunbookMarkdown
 
 /**
  * Drives a [Runbook] over the existing single-kick [ReVoman.revUp], threading env exactly as the
@@ -26,47 +29,57 @@ internal fun executeRunbook(
   runbook: Runbook,
   dynamicEnvironment: Map<String, Any?>,
 ): RunbookRundown {
-  var accumulatedEnv: Map<String, Any?> = dynamicEnvironment
-  var lastPhase: Phase? = null
-  val pairs =
-    runbook.steps.map { step ->
-      if (step.phase != lastPhase) {
-        RevomanLog.event(StepEvent.PhaseEntered(step.phase))
-        lastPhase = step.phase
+  val runbookSink = runbook.runLogSink
+  val previousSink = RunLogContext.install(runbookSink)
+  try {
+    var accumulatedEnv: Map<String, Any?> = dynamicEnvironment
+    var lastPhase: Phase? = null
+    val pairs =
+      runbook.steps.map { step ->
+        if (step.phase != lastPhase) {
+          RevomanLog.event(StepEvent.PhaseEntered(step.phase))
+          lastPhase = step.phase
+        }
+        RevomanLog.event(
+          StepEvent.RunbookStepStarted(
+            step.intent,
+            step.intent,
+            step.phase,
+            step.consumes,
+            step.underTest,
+          )
+        )
+        checkConsumesOrHalt(step, accumulatedEnv.keys)
+        val startNs = System.nanoTime()
+        // Thread the runbook sink into the kick so its child per-request events nest under
+        // this runbook's brackets (same sink instance = coherent tree). Only when the runbook
+        // has a real sink — otherwise leave the kick's own sink untouched (backward compat).
+        val kickToRun =
+          step.kick
+            .overrideDynamicEnvironment(step.kick.dynamicEnvironment() + accumulatedEnv)
+            .let { if (runbookSink !== RunLogSink.NoOp) it.overrideRunLogSink(runbookSink) else it }
+        val rundown = ReVoman.revUp(kickToRun)
+        val tookMs = (System.nanoTime() - startNs) / 1_000_000
+        checkProducesOrHalt(step, rundown, tookMs)
+        step.assertAfter?.assertStep(rundown, rundown.mutableEnv)
+        RevomanLog.event(
+          StepEvent.RunbookStepFinished(
+            step.intent,
+            step.intent,
+            Outcome.SUCCESS,
+            producedValues(step, rundown),
+            tookMs,
+          )
+        )
+        accumulatedEnv = rundown.mutableEnv.immutableEnv
+        step to rundown
       }
-      RevomanLog.event(
-        StepEvent.RunbookStepStarted(
-          step.intent,
-          step.intent,
-          step.phase,
-          step.consumes,
-          step.underTest,
-        )
-      )
-      checkConsumesOrHalt(step, accumulatedEnv.keys)
-      val startNs = System.nanoTime()
-      val rundown =
-        ReVoman.revUp(
-          step.kick.overrideDynamicEnvironment(step.kick.dynamicEnvironment() + accumulatedEnv)
-        )
-      val tookMs = (System.nanoTime() - startNs) / 1_000_000
-      checkProducesOrHalt(step, rundown, tookMs)
-      step.assertAfter?.assertStep(rundown, rundown.mutableEnv)
-      RevomanLog.event(
-        StepEvent.RunbookStepFinished(
-          step.intent,
-          step.intent,
-          Outcome.SUCCESS,
-          producedValues(step, rundown),
-          tookMs,
-        )
-      )
-      accumulatedEnv = rundown.mutableEnv.immutableEnv
-      step to rundown
-    }
-  val result = RunbookRundown(runbook.name, pairs)
-  RevomanLog.info { "\n" + com.salesforce.revoman.output.renderRunbookMarkdown(result) }
-  return result
+    val result = RunbookRundown(runbook.name, pairs)
+    RevomanLog.info { "\n" + renderRunbookMarkdown(result) }
+    return result
+  } finally {
+    RunLogContext.restore(previousSink)
+  }
 }
 
 private fun producedValues(step: RunbookStep, rundown: Rundown): Map<String, String?> =
