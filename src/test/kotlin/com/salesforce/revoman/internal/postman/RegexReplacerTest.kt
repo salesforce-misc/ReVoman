@@ -146,4 +146,28 @@ class RegexReplacerTest {
     val result = regexReplacer.replaceVariablesRecursively("{{a}}", pm)
     result shouldBe "value"
   }
+
+  @Test
+  fun `string without double-brace is returned unchanged`() {
+    val regexReplacer = RegexReplacer()
+    val pm = PostmanSDK(moshiReVoman, null, regexReplacer)
+    val plain = """{ "a": 1, "b": "no placeholders here", "c": "{ single brace }" }"""
+    regexReplacer.replaceVariablesRecursively(plain, pm) shouldBe plain
+  }
+
+  @Test
+  fun `null input stays null`() {
+    val regexReplacer = RegexReplacer()
+    val pm = PostmanSDK(moshiReVoman, null, regexReplacer)
+    regexReplacer.replaceVariablesRecursively(null, pm) shouldBe null
+  }
+
+  @Test
+  fun `single unmatched brace pair is not treated as a placeholder`() {
+    val regexReplacer = RegexReplacer()
+    val pm = PostmanSDK(moshiReVoman, null, regexReplacer)
+    // Contains "{{" so it enters the regex path, but "{{ }" has no closing "}}" -> left literal.
+    regexReplacer.replaceVariablesRecursively("prefix {{ } suffix", pm) shouldBe
+      "prefix {{ } suffix"
+  }
 }

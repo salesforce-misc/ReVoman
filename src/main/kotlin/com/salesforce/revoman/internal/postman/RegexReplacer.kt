@@ -39,6 +39,7 @@ class RegexReplacer(
     pm: PostmanSDK,
     visitedKeys: Set<String>,
   ): String? = stringWithRegex?.let {
+    if (!it.contains("{{")) return@let it
     postManVariableRegex.replace(it) { variable ->
       val variableKey = variable.groups[VARIABLE_KEY]?.value!!
       if (variableKey in visitedKeys) {
