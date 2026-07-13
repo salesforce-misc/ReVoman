@@ -50,10 +50,11 @@ class RequestToHttpRequestTest {
 
   @Test
   fun `malformed non-JSON body with no content-type is left unchanged and no content-type is added`() {
-    // A '{'-leading but malformed body: JsonPretty's first-char heuristic would ACCEPT it, but the
-    // gate is the strict lenient Moshi parse (m.fromJson<Any>) which throws, so the body lands in
-    // getOrDefault(rawBody) unchanged and the application/json detection side effect does NOT fire.
-    // This proves the JSON gate is the Moshi parse, not JsonPretty's heuristic (brief 6.3 note).
+    // A '{'-leading but malformed body: JsonPretty's first-char heuristic would ACCEPT it, but it
+    // fails isStrictJson (not strict JSON) AND the fallback round-trip's lenient Moshi parse
+    // throws,
+    // so the body lands in getOrDefault(rawBody) unchanged and the application/json detection side
+    // effect does NOT fire. This proves the JSON gate is a Moshi parse, not JsonPretty's heuristic.
     val raw = """{"a":}"""
     val http = request(contentType = null, rawBody = raw).toHttpRequest(moshi)
     assertThat(http.bodyString()).isEqualTo(raw)
