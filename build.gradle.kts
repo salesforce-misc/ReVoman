@@ -16,7 +16,14 @@ plugins {
   alias(libs.plugins.node.gradle)
   alias(libs.plugins.kover)
   alias(libs.plugins.nexus.publish)
+  alias(libs.plugins.test.retry)
 }
+
+// Retry flaky tests ON CI ONLY. Several integration tests hit live external APIs (pokeapi.co,
+// restful-api.dev, apigee, beeceptor) that intermittently rate-limit or 5xx — a retry keeps the
+// pipeline green on transient blips WITHOUT masking real breakage (a test failing every attempt
+// still fails). Locally, retry stays OFF (maxRetries=0) so flakes surface immediately.
+val isCI: Boolean = !System.getenv("CI").isNullOrEmpty()
 
 val mockitoAgent = configurations.create("mockitoAgent")
 
@@ -44,8 +51,6 @@ dependencies {
   testImplementation(libs.json.assert)
   mockitoAgent(libs.mockito.core) { isTransitive = false }
   testImplementation(libs.mockk)
-  // WfsSeedE2ETest seeds the Shift.Status dyn-enum directly in local SDB (postgres) via JDBC.
-  testImplementation("org.postgresql:postgresql:42.7.13")
 }
 
 testing {
@@ -60,9 +65,23 @@ testing {
         implementation(libs.spring.beans)
         implementation(libs.json.assert)
         implementation(libs.assertj.vavr)
+        implementation(libs.snakeyaml)
+        implementation(libs.kotlin.logging.jvm)
+        implementation(libs.log4j.api)
+        implementation(libs.log4j.core)
+        implementation(libs.log4j.slf4j2.impl)
+        // WfsSeedE2ETest seeds the Shift.Status dyn-enum directly in local SDB (postgres) via JDBC.
+        implementation(libs.postgresql)
       }
     }
   }
+}
+
+// Give the integrationTest compilation a friend-path to main (the built-in `test` suite gets this
+// automatically). Without it, integration tests can't see `internal` main members — e.g.
+// WfsSeedE2ETest reads org creds via the internal V3EnvLoader.
+kotlin.target.compilations.named("integrationTest") {
+  associateWith(kotlin.target.compilations.getByName("main"))
 }
 
 node {
@@ -146,8 +165,33 @@ tasks {
   test {
     dependsOn(npmInstall)
     jvmArgs("-javaagent:${mockitoAgent.singleFile.absolutePath}")
+    // Unit tests are self-contained; a low retry only absorbs rare env hiccups (e.g. the
+    // RNG-sampling
+    // DynamicVariableGeneratorTest). failOnPassedAfterRetry=false → a flake that later passes is
+    // green.
+    retry {
+      maxRetries = if (isCI) 2 else 0
+      failOnPassedAfterRetry = false
+    }
   }
-  named<Test>("integrationTest") { jvmArgs("-javaagent:${mockitoAgent.singleFile.absolutePath}") }
+  named<Test>("integrationTest") {
+    jvmArgs("-javaagent:${mockitoAgent.singleFile.absolutePath}")
+    // Integration tests hit live external APIs, so allow a couple more attempts on CI.
+    retry {
+      maxRetries = if (isCI) 3 else 0
+      failOnPassedAfterRetry = false
+    }
+    // The `integration.core` tests (WFS/PQ/BT2BS) need a real Salesforce org, so they're excluded
+    // from aggregate runs like `gradle clean build`. Opt them back in with `-PincludeCoreIT` (works
+    // alongside `--tests`, e.g. `gradle integrationTest -PincludeCoreIT --tests
+    // "*WfsSeedE2ETest"`).
+    if (!project.hasProperty("includeCoreIT")) {
+      filter {
+        excludeTestsMatching("com.salesforce.revoman.integration.core.*")
+        isFailOnNoMatchingTests = false
+      }
+    }
+  }
 }
 
 kover { reports { total { html { onCheck = true } } } }

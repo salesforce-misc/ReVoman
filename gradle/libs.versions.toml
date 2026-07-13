@@ -27,6 +27,8 @@ nexus-publish = "2.0.0"
 kotlinx-datetime = "0.8.0-0.6.x-compat"
 node-gradle = "7.1.0"
 mockk = "1.14.11"
+postgresql = "42.7.13"
+test-retry = "1.6.2"
 gradle-taskinfo = "3.0.2"
 
 # Common dependencies
@@ -73,6 +75,7 @@ spring-beans = { module = "org.springframework:spring-beans", version.ref = "spr
 json-assert = { module = "org.skyscreamer:jsonassert", version.ref = "json-assert" }
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime-jvm", version.ref = "kotlinx-datetime" }
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
+postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
 
 # Gradle plugins
 kotlin-gradle = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
@@ -100,3 +103,4 @@ kapt = { id = "org.jetbrains.kotlin.kapt", version.ref = "kotlin" }
 node-gradle = { id = "com.github.node-gradle.node", version.ref = "node-gradle" }
 nexus-publish = { id = "io.github.gradle-nexus.publish-plugin", version.ref = "nexus-publish" }
 gradle-taskinfo = {id = "org.barfuin.gradle.taskinfo", version.ref = "gradle-taskinfo"}
+test-retry = { id = "org.gradle.test-retry", version.ref = "test-retry" }
