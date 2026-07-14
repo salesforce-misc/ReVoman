@@ -51,4 +51,23 @@ class RunbookRundownTest {
     assertThat(rr.stepFor("login")?.second).isSameInstanceAs(a)
     assertThat(rr.stepFor("missing")).isNull()
   }
+
+  @Test
+  fun `equals and hashCode delegate to the backing rundown list, matching List semantics`() {
+    val a = rundown()
+    val b = rundown()
+    val rr = RunbookRundown("rb", listOf(step("login") to a, step("act") to b))
+    val plainList = listOf(a, b)
+    // Symmetric structural equality with a plain List<Rundown> (both directions).
+    assertThat(rr).isEqualTo(plainList)
+    assertThat(plainList).isEqualTo(rr)
+    // hashCode matches the backing list (required by the equals/hashCode contract).
+    assertThat(rr.hashCode()).isEqualTo(plainList.hashCode())
+    // Two RunbookRundowns with the SAME rundowns are equal even if name/pairing differ.
+    val rrSameRundownsDifferentName =
+      RunbookRundown("other-name", listOf(step("x") to a, step("y") to b))
+    assertThat(rr).isEqualTo(rrSameRundownsDifferentName)
+    // A different rundown list is not equal.
+    assertThat(rr).isNotEqualTo(listOf(a))
+  }
 }
