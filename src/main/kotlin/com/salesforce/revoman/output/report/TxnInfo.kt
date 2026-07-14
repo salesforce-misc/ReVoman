@@ -68,7 +68,7 @@ constructor(
     }
       as PojoT?
 
-  fun containsHeader(key: String): Boolean = httpMsg.headers.toMap().containsKey(key)
+  fun containsHeader(key: String): Boolean = httpMsg.headers.any { it.first == key }
 
   fun containsHeader(key: String, value: String): Boolean = httpMsg.headers.contains(key to value)
 
