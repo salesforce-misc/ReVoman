@@ -48,11 +48,17 @@
 
 ## Gradle Wrapper & Offline Builds
 
-- Always prefer `./gradlew` — the wrapper pins Gradle `9.7.0-milestone-2`.
+- Always prefer `./gradlew` — the Gradle version is whatever `gradle/wrapper/gradle-wrapper.properties` declares (do not hardcode it here).
 - The repo bundles only the wrapper bootstrap (`gradle/wrapper/*`), NOT the
   ~150MB distribution. A fresh machine downloads the distribution once to
   `~/.gradle/wrapper/dists/`, then reuses it — the download is expected, not a bug.
-- **Fallback:** if `./gradlew` can't fetch the distribution (offline, or the
-  milestone was removed from services.gradle.org), use the machine's installed
-  `gradle` instead. Note the local version may differ from the pinned one, so
-  build behavior can vary — use only as a last resort.
+- **Fallback:** if `./gradlew` can't fetch the distribution (offline, or
+  services.gradle.org is unreachable — e.g. behind the SFDC workspace proxy),
+  use the machine's installed `gradle` instead. Note the local version may
+  differ from the wrapper's, so build behavior can vary — use only as a last resort.
+- **Blocked plugin portal (SFDC workspace):** `plugins.gradle.org` is unreachable
+  behind the proxy, so `settings.gradle.kts` and `buildSrc` add an internal Nexus
+  plugin mirror as a fallback. It is driven entirely by three Gradle properties in
+  `~/.gradle/gradle.properties` — `nexusGradlePluginsUrl`, `nexusUsername`,
+  `nexusPassword` — and is a no-op when they are unset (CI / public machines resolve
+  from the public repos as before). Nothing SFDC-internal is checked in.
