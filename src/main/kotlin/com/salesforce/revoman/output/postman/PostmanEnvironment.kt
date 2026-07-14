@@ -17,6 +17,9 @@ import io.exoquery.pprint
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.vavr.control.Either
 import java.lang.reflect.Type
+import kotlinx.collections.immutable.PersistentMap
+import kotlinx.collections.immutable.persistentMapOf
+import kotlinx.collections.immutable.toPersistentMap
 
 /** This is a Wrapper on `mutableEnv` map, providing some useful utilities */
 data class PostmanEnvironment<ValueT : Any?>
@@ -259,3 +262,135 @@ constructor(
 }
 
 private val logger = KotlinLogging.logger {}
+
+/**
+ * A [MutableMap] backed by an immutable [PersistentMap] that is SWAPPED on every write. Because the
+ * backing is immutable, [snapshotView] captures the current reference in O(1) and later writes to
+ * this instance (which install a NEW persistent map) never mutate that captured view — the
+ * point-in-time invariant [com.salesforce.revoman.output.report.StepReport] relies on.
+ * Reads/keys/entries/values are non-copying read-through views over the current backing (mutators
+ * on those views throw; nothing in ReVoman mutates through them), so the per-step
+ * `pm.environment.keys` access stays O(1).
+ */
+internal class PersistentBackedMutableMap<V>
+private constructor(private var current: PersistentMap<String, V>) : MutableMap<String, V> {
+
+  constructor() : this(persistentMapOf())
+
+  constructor(seed: Map<String, V>) : this(seed.toPersistentMap())
+
+  /** O(1): a NEW instance sharing this instance's current immutable backing. */
+  fun snapshotView(): PersistentBackedMutableMap<V> = PersistentBackedMutableMap(current)
+
+  override val size: Int
+    get() = current.size
+
+  override fun isEmpty(): Boolean = current.isEmpty()
+
+  override fun containsKey(key: String): Boolean = current.containsKey(key)
+
+  override fun containsValue(value: V): Boolean = current.containsValue(value)
+
+  override fun get(key: String): V? = current[key]
+
+  override fun put(key: String, value: V): V? {
+    val prev = current[key]
+    current = current.put(key, value)
+    return prev
+  }
+
+  override fun remove(key: String): V? {
+    val prev = current[key]
+    current = current.remove(key)
+    return prev
+  }
+
+  override fun putAll(from: Map<out String, V>) {
+    current = current.putAll(from)
+  }
+
+  override fun clear() {
+    current = persistentMapOf()
+  }
+
+  // Read-through views over the current backing. kotlinx immutable views are Set/Collection; wrap
+  // them so the MutableMap type is satisfied. Mutators throw — no ReVoman code path mutates
+  // through env.keys/entries/values (grep-verified); the swap-on-write API above is the only
+  // supported mutation surface.
+  override val keys: MutableSet<String>
+    get() =
+      object : AbstractMutableSet<String>() {
+        override val size: Int
+          get() = current.size
+
+        override fun iterator(): MutableIterator<String> =
+          current.keys.iterator().asReadOnlyMutable()
+
+        override fun add(element: String): Boolean = throw UnsupportedOperationException()
+      }
+
+  override val values: MutableCollection<V>
+    get() =
+      object : AbstractMutableCollection<V>() {
+        override val size: Int
+          get() = current.size
+
+        override fun iterator(): MutableIterator<V> = current.values.iterator().asReadOnlyMutable()
+
+        override fun add(element: V): Boolean = throw UnsupportedOperationException()
+      }
+
+  override val entries: MutableSet<MutableMap.MutableEntry<String, V>>
+    get() =
+      object : AbstractMutableSet<MutableMap.MutableEntry<String, V>>() {
+        override val size: Int
+          get() = current.size
+
+        // Non-copying: lazily wrap each read-only kotlinx `Map.Entry` in a read-only
+        // `MutableEntry` (setValue throws) as iteration advances — kotlinx `MapEntry` does
+        // NOT implement `MutableMap.MutableEntry`, so an unchecked cast would throw
+        // ClassCastException at runtime. No eager collection is materialized.
+        override fun iterator(): MutableIterator<MutableMap.MutableEntry<String, V>> =
+          current.entries
+            .asSequence()
+            .map { it.asReadOnlyMutableEntry() }
+            .iterator()
+            .asReadOnlyMutable()
+
+        override fun add(element: MutableMap.MutableEntry<String, V>): Boolean =
+          throw UnsupportedOperationException()
+      }
+
+  override fun equals(other: Any?): Boolean = current == other
+
+  override fun hashCode(): Int = current.hashCode()
+
+  override fun toString(): String = current.toString()
+}
+
+private fun <T> Iterator<T>.asReadOnlyMutable(): MutableIterator<T> =
+  object : MutableIterator<T> {
+    override fun hasNext(): Boolean = this@asReadOnlyMutable.hasNext()
+
+    override fun next(): T = this@asReadOnlyMutable.next()
+
+    override fun remove(): Unit = throw UnsupportedOperationException()
+  }
+
+private fun <K, V> Map.Entry<K, V>.asReadOnlyMutableEntry(): MutableMap.MutableEntry<K, V> =
+  object : MutableMap.MutableEntry<K, V> {
+    override val key: K
+      get() = this@asReadOnlyMutableEntry.key
+
+    override val value: V
+      get() = this@asReadOnlyMutableEntry.value
+
+    override fun setValue(newValue: V): V = throw UnsupportedOperationException()
+
+    override fun equals(other: Any?): Boolean =
+      other is Map.Entry<*, *> && other.key == key && other.value == value
+
+    override fun hashCode(): Int = (key?.hashCode() ?: 0) xor (value?.hashCode() ?: 0)
+
+    override fun toString(): String = "$key=$value"
+  }
