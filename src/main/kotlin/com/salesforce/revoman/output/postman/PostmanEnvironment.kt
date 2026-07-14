@@ -212,7 +212,7 @@ constructor(
     )
 
   fun <T> valuesForKeysStartingWith(type: Class<T>, prefix: String): Set<T> =
-    mutableEnvCopyWithKeysStartingWith(type, prefix).mutableEnv.values.toSet()
+    valuesForKeysStartingWith(type, *arrayOf(prefix))
 
   fun <T> valuesForKeysStartingWith(type: Class<T>, vararg prefixes: String): Set<T> =
     mutableEnv.entries
