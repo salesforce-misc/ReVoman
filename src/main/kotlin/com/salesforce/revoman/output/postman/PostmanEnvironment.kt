@@ -28,22 +28,30 @@ constructor(
 
   internal lateinit var currentStep: Step
 
-  // --- Ledger capture: per-step produced/consumed env keys. Keyed by Step identity so a
+  // --- Ledger capture: per-step produced/consumed env keys. Keyed by `step.path` (String) so a
   //     reused-thread env can carry multiple steps' deltas; read out when StepReport is built.
+  //     NOTE: keyed by `step.path`, NOT the whole Step — Step's data-class hashCode/equals recurse
+  //     through rawPMStep (the full request body + every JS script), so a Step-keyed map hashes the
+  //     entire step on every op. `path` is the step's unique identity already used everywhere else
+  //     by the ledger (learnedLedger keying, `ledger.steps` lookup, iterationByPath). The same Step
+  //     instance (stable `path`) is reused across iterations, so path-keying yields the IDENTICAL
+  //     union accumulation as the prior Step-keying.
   //     NOTE: NOT reset between iterations — a step executing twice (control-flow loop) accumulates
   //     the UNION of all iterations' keys. Benign for ledger learning and invisible when iterations
   //     produce the same keys. ---
-  private val producedKeysByStep: MutableMap<Step, MutableSet<String>> = mutableMapOf()
-  private val consumedKeysByStep: MutableMap<Step, MutableSet<String>> = mutableMapOf()
+  private val producedKeysByStepPath: MutableMap<String, MutableSet<String>> = mutableMapOf()
+  private val consumedKeysByStepPath: MutableMap<String, MutableSet<String>> = mutableMapOf()
 
-  fun producedKeysFor(step: Step): Set<String> = producedKeysByStep[step]?.toSet() ?: emptySet()
+  fun producedKeysFor(step: Step): Set<String> =
+    producedKeysByStepPath[step.path]?.toSet() ?: emptySet()
 
-  fun consumedKeysFor(step: Step): Set<String> = consumedKeysByStep[step]?.toSet() ?: emptySet()
+  fun consumedKeysFor(step: Step): Set<String> =
+    consumedKeysByStepPath[step.path]?.toSet() ?: emptySet()
 
   /** Record a READ of [key] during the current step (regex `{{key}}` resolved against env). */
   fun recordConsumed(key: String) {
     if (::currentStep.isInitialized) {
-      consumedKeysByStep.getOrPut(currentStep) { mutableSetOf() }.add(key)
+      consumedKeysByStepPath.getOrPut(currentStep.path) { mutableSetOf() }.add(key)
     }
   }
 
@@ -61,7 +69,7 @@ constructor(
     // line
     // both no-op on an unstepped instance — interpolating an uninitialized lateinit would throw.
     val step: Step? = if (::currentStep.isInitialized) currentStep else null
-    if (step != null) producedKeysByStep.getOrPut(step) { mutableSetOf() }.add(key)
+    if (step != null) producedKeysByStepPath.getOrPut(step.path) { mutableSetOf() }.add(key)
     logger.info {
       "pm environment variable set in Step: $step - key: $key, value: ${pprint(value)}"
     }
@@ -71,7 +79,7 @@ constructor(
   fun unset(key: String) {
     mutableEnv.remove(key)
     val step: Step? = if (::currentStep.isInitialized) currentStep else null
-    if (step != null) producedKeysByStep[step]?.remove(key)
+    if (step != null) producedKeysByStepPath[step.path]?.remove(key)
     logger.info { "pm environment variable unset through JS in Step: $step - key: $key" }
   }
 
