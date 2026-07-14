@@ -287,6 +287,10 @@ private val logger = KotlinLogging.logger {}
  * on those views throw; nothing in ReVoman mutates through them), so the per-step
  * `pm.environment.keys` access stays O(1).
  */
+// The function count comes from implementing the full MutableMap surface (get/put/remove/putAll/
+// clear/containsKey/containsValue/isEmpty) plus snapshotView + the equals/hashCode/toString Map
+// contract — an interface obligation, not decomposable, so TooManyFunctions is suppressed here.
+@Suppress("TooManyFunctions")
 internal class PersistentBackedMutableMap<V>
 private constructor(private var current: PersistentMap<String, V>) : MutableMap<String, V> {
 
