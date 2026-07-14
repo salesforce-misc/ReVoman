@@ -40,7 +40,7 @@ fun interface StepAssertion {
 @RunbookDsl
 class StepSpec {
   var intent: String = ""
-  var phase: Phase = Phase.SETUP
+  var phase: Phase? = null
   var kick: Kick? = null
 
   private val consumes: MutableSet<String> = linkedSetOf()
@@ -64,7 +64,7 @@ class StepSpec {
     require(intent.isNotBlank()) { "A runbook step requires a non-blank intent" }
     return RunbookStep(
       intent = intent,
-      phase = phase,
+      phase = checkNotNull(phase) { "A runbook step requires a `phase`" },
       kick =
         checkNotNull(kick) { "A runbook `step` requires a `kick` (was null for intent='$intent')" },
       consumes = consumes.toSet(),
@@ -75,8 +75,14 @@ class StepSpec {
   }
 }
 
-/** Immutable snapshot of one runbook step: a [Kick] wrapped with narration. */
-data class RunbookStep(
+/**
+ * Immutable snapshot of one runbook step: a [Kick] wrapped with narration. Its constructor is
+ * `internal` so all construction routes through [StepSpec.build], which enforces the invariants
+ * (non-blank [intent], non-null [phase]/[kick]); the public `data class` `copy()` stays visible to
+ * the same Gradle module (tests) but not to library consumers.
+ */
+data class RunbookStep
+internal constructor(
   val intent: String,
   val phase: Phase,
   val kick: Kick,

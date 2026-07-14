@@ -81,4 +81,18 @@ class StepSpecTest {
       }
     assertThat(ex).hasMessageThat().contains("non-blank intent")
   }
+
+  @Test
+  fun `build without a phase fails fast`() {
+    val ex =
+      assertThrows<IllegalStateException> {
+        StepSpec()
+          .apply {
+            intent = "no phase"
+            kick = anyKick()
+          }
+          .build()
+      }
+    assertThat(ex).hasMessageThat().contains("phase")
+  }
 }

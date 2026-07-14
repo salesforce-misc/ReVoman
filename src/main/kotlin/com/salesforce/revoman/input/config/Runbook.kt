@@ -93,8 +93,17 @@ class RunbookBuilder internal constructor() {
 
   internal fun addSpec(spec: StepSpec) = apply { steps += spec.build() }
 
-  internal fun build(): Runbook =
-    Runbook(name, steps.toList(), runLogSinkValue, haltOnStepFailureValue)
+  internal fun build(): Runbook {
+    // `intent` is the event `path` and the `stepFor(intent)` lookup key, so duplicates would
+    // mis-pair start/finish events and silently shadow in `stepFor` (firstOrNull). Enforce distinct
+    // intents at build so the ambiguity fails loud instead of corrupting the log/views.
+    require(steps.map { it.intent }.toSet().size == steps.size) {
+      val duplicates =
+        steps.map { it.intent }.groupingBy { it }.eachCount().filterValues { it > 1 }.keys
+      "Runbook step intents must be distinct; duplicates: $duplicates"
+    }
+    return Runbook(name, steps.toList(), runLogSinkValue, haltOnStepFailureValue)
+  }
 
   fun off(): Runbook = build()
 }

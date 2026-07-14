@@ -9,6 +9,7 @@ package com.salesforce.revoman.input.config
 
 import com.google.common.truth.Truth.assertThat
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 
 class RunbookDslTest {
   private fun anyKick(name: String): Kick =
@@ -40,5 +41,26 @@ class RunbookDslTest {
     assertThat(runbook.steps[1].underTest).isTrue()
     assertThat(runbook.steps[1].consumes).containsExactly("authToken")
     assertThat(runbook.steps[1].produces).containsEntry("schedulingStatus", "Success")
+  }
+
+  @Test
+  fun `building a runbook with duplicate step intents fails fast`() {
+    val ex =
+      assertThrows<IllegalArgumentException> {
+        Runbook {
+          step {
+            intent = "login"
+            phase = Phase.SETUP
+            kick = anyKick("cf-stop")
+          }
+          step {
+            intent = "login"
+            phase = Phase.ACT
+            kick = anyKick("cf-loop")
+          }
+        }
+      }
+    assertThat(ex).hasMessageThat().contains("distinct")
+    assertThat(ex).hasMessageThat().contains("login")
   }
 }
