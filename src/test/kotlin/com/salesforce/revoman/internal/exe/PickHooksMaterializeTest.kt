@@ -153,4 +153,41 @@ class PickHooksMaterializeTest {
     // ...and the second hook's accept() NEVER ran (lazy short-circuit preserved).
     secondHookRan.get() shouldBe 0
   }
+
+  @Test
+  fun `post-step hook execution short-circuits - a hook after a failing one does not run`() {
+    // Same guard as the pre path but for postStepHookExe (independently edited, identical
+    // structure):
+    // a picked post-hook after a failing one must NOT run its accept() side effects.
+    val alwaysPick = PostTxnStepPick { _, _ -> true }
+    val secondHookRan = AtomicInteger(0)
+    val failingHook =
+      HookConfig.StepHook.PostStepHook { _, _ -> error("boom from first post hook") }
+    val secondHook = HookConfig.StepHook.PostStepHook { _, _ -> secondHookRan.incrementAndGet() }
+    val kick =
+      Kick.configure()
+        .templatePath("unused")
+        .hooks(HookConfig.post(alwaysPick, failingHook), HookConfig.post(alwaysPick, secondHook))
+        .off()
+    val responseInfo: TxnInfo<Response> =
+      TxnInfo(
+        txnObjType = String::class.java,
+        txnObj = "fakeResponse",
+        httpMsg = Response(OK),
+        moshiReVoman = moshiReVoman,
+      )
+    val currentStepReport =
+      StepReport(
+        Step(index = "1", rawPMStep = Item(name = "post-short-circuit-step")),
+        Right(requestInfo()),
+        null,
+        Right(responseInfo),
+        pmEnvSnapshot = PostmanEnvironment(),
+      )
+
+    val failure = postStepHookExe(kick, currentStepReport, rundown())
+
+    (failure != null) shouldBe true
+    secondHookRan.get() shouldBe 0
+  }
 }
