@@ -149,7 +149,7 @@ internal constructor(
     ): StepReport =
       StepReport(
         step = step,
-        pmEnvSnapshot = env.copy(mutableEnv = env.mutableEnv.toMutableMap()),
+        pmEnvSnapshot = env.o1Snapshot(),
         envVars = StepEnvVars(produced = produced, consumed = consumed),
       )
 
@@ -168,7 +168,7 @@ internal constructor(
     ): StepReport =
       StepReport(
         step = step,
-        pmEnvSnapshot = env.copy(mutableEnv = env.mutableEnv.toMutableMap()),
+        pmEnvSnapshot = env.o1Snapshot(),
         iteration = iteration,
         requestSkippedFlag = true,
       )

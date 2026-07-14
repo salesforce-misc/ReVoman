@@ -8,6 +8,7 @@
 package com.salesforce.revoman.benchmark
 
 import com.salesforce.revoman.internal.postman.template.Item
+import com.salesforce.revoman.output.postman.PersistentBackedMutableMap
 import com.salesforce.revoman.output.postman.PostmanEnvironment
 import com.salesforce.revoman.output.report.Step
 import java.util.concurrent.TimeUnit
@@ -47,12 +48,12 @@ open class EnvAccumBenchmark {
 
   @Benchmark
   open fun accumulateAndSnapshot(bh: Blackhole) {
-    val env = PostmanEnvironment<Any?>()
+    val env = PostmanEnvironment<Any?>(PersistentBackedMutableMap<Any?>())
     stepList.forEach { step ->
       env.currentStep = step
       env.set("key_${step.name}", step.name)
-      // Mirror ReVoman.runStep's per-step snapshot capture:
-      bh.consume(env.copy(mutableEnv = env.mutableEnv.toMutableMap()))
+      // Mirror ReVoman.runStep's per-step snapshot capture (now the persistent O(1) path):
+      bh.consume(env.o1Snapshot())
     }
     bh.consume(env)
   }

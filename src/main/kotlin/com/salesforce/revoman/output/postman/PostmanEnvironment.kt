@@ -65,6 +65,21 @@ constructor(
     moshiReVoman.toPrettyJson(fromMap(mutableEnv, moshiReVoman))
   }
 
+  /**
+   * A point-in-time snapshot of this environment. When the backing is a
+   * [PersistentBackedMutableMap] this is O(1) — the snapshot shares the current immutable
+   * persistent map and later writes to this (live) env install a new map, leaving the snapshot
+   * untouched. Falls back to a defensive copy for a plain map backing (e.g.
+   * collectionVariables/globals or test-constructed envs), preserving the historical
+   * `copy(mutableEnv = mutableEnv.toMutableMap())` semantics.
+   */
+  fun o1Snapshot(): PostmanEnvironment<ValueT> =
+    copy(
+      mutableEnv =
+        (mutableEnv as? PersistentBackedMutableMap<ValueT>)?.snapshotView()
+          ?: mutableEnv.toMutableMap()
+    )
+
   fun set(key: String, value: ValueT) {
     mutableEnv[key] = value
     // `currentStep` is a lateinit set only on the step-bound `environment` instance; stores like
