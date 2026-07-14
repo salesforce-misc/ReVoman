@@ -23,7 +23,9 @@ import com.salesforce.revoman.output.renderRunbookMarkdown
 /**
  * Drives a [Runbook] over the existing single-kick [ReVoman.revUp], threading env exactly as the
  * multi-kick fold (ReVoman.kt) does, and interleaving coarse log events + data-flow contract
- * checks + per-step assertions. First breach throws [AssertionError] (halt).
+ * checks + per-step assertions. A contract/assert breach always throws [AssertionError] (halt); an
+ * underlying-collection step failure halts or is recorded-and-continued per
+ * [Runbook.haltOnStepFailure].
  */
 internal fun executeRunbook(
   runbook: Runbook,
@@ -36,35 +38,100 @@ internal fun executeRunbook(
   val installed = runbookSink !== RunLogSink.NoOp
   val previousSink = if (installed) RunLogContext.install(runbookSink) else null
   try {
-    var accumulatedEnv: Map<String, Any?> = dynamicEnvironment
-    var lastPhase: Phase? = null
-    val pairs =
-      runbook.steps.map { step ->
-        if (step.phase != lastPhase) {
-          RevomanLog.event(StepEvent.PhaseEntered(step.phase))
-          lastPhase = step.phase
-        }
+    // Immutable state transformation via fold (mirrors the multi-kick fold in ReVoman.kt): each
+    // step yields a NEW accumulator (threaded env, last phase, accumulated (step, rundown) pairs).
+    // A halt propagates as a thrown exception, aborting the fold just like the former `.map`.
+    val finalAcc =
+      runbook.steps.fold(RunbookAcc(dynamicEnvironment, null, emptyList())) { acc, step ->
+        executeStep(runbook, runbookSink, step, acc)
+      }
+    val result = RunbookRundown(runbook.name, finalAcc.pairs)
+    RevomanLog.info { "\n" + renderRunbookMarkdown(result) }
+    return result
+  } finally {
+    if (installed) RunLogContext.restore(previousSink)
+  }
+}
+
+/**
+ * The fold accumulator threaded across runbook steps: the env carried forward (all value types),
+ * the [Phase] of the previous step (to emit a [StepEvent.PhaseEntered] only on change), and the
+ * ordered (step, rundown) pairs produced so far.
+ */
+private data class RunbookAcc(
+  val env: Map<String, Any?>,
+  val lastPhase: Phase?,
+  val pairs: List<Pair<RunbookStep, Rundown>>,
+)
+
+/**
+ * Executes ONE runbook step and returns the next [RunbookAcc]. Emits exactly one
+ * [StepEvent.RunbookStepFinished] per step, always, carrying the correct [Outcome]: any throw
+ * between the open bracket and the normal close routes through the `catch` which emits a FAILED
+ * close before rethrowing (so no halt path leaves a dangling `┌` open with no `└` close).
+ *
+ * Outcome is derived, never hardcoded. The underlying-collection failure is checked FIRST — before
+ * produces/assertAfter — because a failed collection makes those downstream checks meaningless and
+ * their messages misleading.
+ */
+private fun executeStep(
+  runbook: Runbook,
+  runbookSink: RunLogSink,
+  step: RunbookStep,
+  acc: RunbookAcc,
+): RunbookAcc {
+  if (step.phase != acc.lastPhase) {
+    RevomanLog.event(StepEvent.PhaseEntered(step.phase))
+  }
+  RevomanLog.event(
+    StepEvent.RunbookStepStarted(
+      step.intent,
+      step.intent,
+      step.phase,
+      step.consumes,
+      step.underTest,
+    )
+  )
+  val startNs = System.nanoTime()
+  var closeEmitted = false
+  try {
+    checkConsumesOrHalt(step, acc.env.keys)
+    // Thread the runbook sink into the kick so its child per-request events nest under this
+    // runbook's brackets (same sink instance = coherent tree). Only when the runbook has a real
+    // sink — otherwise leave the kick's own sink untouched (backward compat).
+    val kickToRun =
+      step.kick.overrideDynamicEnvironment(step.kick.dynamicEnvironment() + acc.env).let {
+        if (runbookSink !== RunLogSink.NoOp) it.overrideRunLogSink(runbookSink) else it
+      }
+    val rundown = ReVoman.revUp(kickToRun)
+    val tookMs = (System.nanoTime() - startNs) / 1_000_000
+    val nextAcc =
+      RunbookAcc(rundown.mutableEnv.immutableEnv, step.phase, acc.pairs + (step to rundown))
+    val failedReport = rundown.firstUnIgnoredUnsuccessfulStepReport
+    return when {
+      failedReport != null -> {
         RevomanLog.event(
-          StepEvent.RunbookStepStarted(
+          StepEvent.RunbookStepFinished(
             step.intent,
             step.intent,
-            step.phase,
-            step.consumes,
-            step.underTest,
+            Outcome.FAILED,
+            producedValues(step, rundown),
+            tookMs,
           )
         )
-        checkConsumesOrHalt(step, accumulatedEnv.keys)
-        val startNs = System.nanoTime()
-        // Thread the runbook sink into the kick so its child per-request events nest under
-        // this runbook's brackets (same sink instance = coherent tree). Only when the runbook
-        // has a real sink — otherwise leave the kick's own sink untouched (backward compat).
-        val kickToRun =
-          step.kick
-            .overrideDynamicEnvironment(step.kick.dynamicEnvironment() + accumulatedEnv)
-            .let { if (runbookSink !== RunLogSink.NoOp) it.overrideRunLogSink(runbookSink) else it }
-        val rundown = ReVoman.revUp(kickToRun)
-        val tookMs = (System.nanoTime() - startNs) / 1_000_000
-        checkProducesOrHalt(step, rundown, tookMs)
+        closeEmitted = true
+        if (runbook.haltOnStepFailure) {
+          throw AssertionError(
+            "Runbook step '${step.intent}' failed: underlying collection step " +
+              "'${failedReport.step.path}' was unsuccessful (stopReason=${rundown.stopReason})"
+          )
+        }
+        // Continue: keep the (step, rundown) pair and thread env forward; do NOT emit a SUCCESS
+        // close. The caller inspects the returned RunbookRundown (mirrors base revUp(List<Kick>)).
+        nextAcc
+      }
+      else -> {
+        checkProducesOrHalt(step, rundown)
         step.assertAfter?.assertStep(rundown, rundown.mutableEnv)
         RevomanLog.event(
           StepEvent.RunbookStepFinished(
@@ -75,14 +142,21 @@ internal fun executeRunbook(
             tookMs,
           )
         )
-        accumulatedEnv = rundown.mutableEnv.immutableEnv
-        step to rundown
+        closeEmitted = true
+        nextAcc
       }
-    val result = RunbookRundown(runbook.name, pairs)
-    RevomanLog.info { "\n" + renderRunbookMarkdown(result) }
-    return result
-  } finally {
-    if (installed) RunLogContext.restore(previousSink)
+    }
+  } catch (t: Throwable) {
+    // FIX 2: close the bracket on EVERY halt path (consumes breach, produces breach, assertAfter
+    // throw, or a step-failure halt whose close was not already emitted above). Exactly one close
+    // per step. The RunbookContractFailed detail line is emitted separately by the check helpers.
+    if (!closeEmitted) {
+      val tookMs = (System.nanoTime() - startNs) / 1_000_000
+      RevomanLog.event(
+        StepEvent.RunbookStepFinished(step.intent, step.intent, Outcome.FAILED, emptyMap(), tookMs)
+      )
+    }
+    throw t
   }
 }
 
@@ -99,9 +173,11 @@ private fun checkConsumesOrHalt(step: RunbookStep, envKeys: Set<String>) {
   }
 }
 
-private fun checkProducesOrHalt(step: RunbookStep, rundown: Rundown, tookMs: Long) {
+private fun checkProducesOrHalt(step: RunbookStep, rundown: Rundown) {
   val violation = checkProduces(step, rundown.mutableEnv)
   if (!violation.isEmpty()) {
+    // Emit the CONTRACT detail line only; the FAILED close bracket is emitted by executeStep's
+    // catch, so there is exactly one RunbookStepFinished per step.
     RevomanLog.event(
       StepEvent.RunbookContractFailed(
         step.intent,
@@ -110,9 +186,6 @@ private fun checkProducesOrHalt(step: RunbookStep, rundown: Rundown, tookMs: Lon
         violation.missingProduced,
         violation.valueMismatches,
       )
-    )
-    RevomanLog.event(
-      StepEvent.RunbookStepFinished(step.intent, step.intent, Outcome.FAILED, emptyMap(), tookMs)
     )
     throw AssertionError(
       "Runbook step '${step.intent}' contract breach — missing produced: ${violation.missingProduced}, " +

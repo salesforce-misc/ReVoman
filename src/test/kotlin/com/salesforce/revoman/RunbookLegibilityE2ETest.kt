@@ -11,6 +11,7 @@ import com.google.common.truth.Truth.assertThat
 import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.input.config.Phase
 import com.salesforce.revoman.input.config.Runbook
+import com.salesforce.revoman.input.config.runLogSink
 import com.salesforce.revoman.input.config.step
 import com.salesforce.revoman.output.log.ConsoleRunLogSink
 import com.sun.net.httpserver.HttpServer

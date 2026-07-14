@@ -26,22 +26,49 @@ internal constructor(
   val name: String?,
   val steps: List<RunbookStep>,
   val runLogSink: RunLogSink,
+  /**
+   * When true (default), a step whose underlying collection has an un-ignored failure halts the
+   * runbook (throws [AssertionError]) like a contract breach. When false, the step is marked FAILED
+   * in the log/views and the runbook continues — the caller inspects the returned
+   * [com.salesforce.revoman.output.RunbookRundown] (mirrors base `revUp(List<Kick>)`).
+   */
+  val haltOnStepFailure: Boolean,
 ) {
   companion object {
     @JvmStatic fun configure(): RunbookBuilder = RunbookBuilder()
   }
 }
 
-/** Fluent builder backing both language front doors. */
+/**
+ * Fluent builder backing both language front doors. Each configurable field has exactly ONE storage
+ * slot funneled through a fluent method (Java) and a receiver `var` extension (the Kotlin DSL, e.g.
+ * [RunbookBuilder.runLogSink]/[RunbookBuilder.haltOnStepFailure] below) — never a public raw field.
+ */
 @RunbookDsl
 class RunbookBuilder internal constructor() {
   private var name: String? = null
   private val steps: MutableList<RunbookStep> = mutableListOf()
-  var runLogSink: RunLogSink = RunLogSink.NoOp
+  internal var runLogSinkValue: RunLogSink = RunLogSink.NoOp
+  internal var haltOnStepFailureValue: Boolean = true
 
+  /** Sets the runbook's human-readable [Runbook.name]. */
   fun name(name: String): RunbookBuilder = apply { this.name = name }
 
-  fun runLogSink(sink: RunLogSink): RunbookBuilder = apply { this.runLogSink = sink }
+  /**
+   * Sets the runbook-scope [RunLogSink]. Its child per-request events nest under this runbook's
+   * brackets so the whole run renders as one coherent tree.
+   */
+  fun runLogSink(sink: RunLogSink): RunbookBuilder = apply { this.runLogSinkValue = sink }
+
+  /**
+   * When true (default), a step whose underlying collection has an un-ignored failure halts the
+   * runbook (throws [AssertionError]) like a contract breach. When false, the step is marked FAILED
+   * in the log/views and the runbook continues — the caller inspects the returned
+   * [com.salesforce.revoman.output.RunbookRundown] (mirrors base `revUp(List<Kick>)`).
+   */
+  fun haltOnStepFailure(halt: Boolean): RunbookBuilder = apply {
+    this.haltOnStepFailureValue = halt
+  }
 
   /** Java: pure-narration step (no contract/assertion). */
   fun step(intent: String, phase: Phase, kick: Kick): RunbookBuilder =
@@ -66,10 +93,31 @@ class RunbookBuilder internal constructor() {
 
   internal fun addSpec(spec: StepSpec) = apply { steps += spec.build() }
 
-  internal fun build(): Runbook = Runbook(name, steps.toList(), runLogSink)
+  internal fun build(): Runbook =
+    Runbook(name, steps.toList(), runLogSinkValue, haltOnStepFailureValue)
 
   fun off(): Runbook = build()
 }
+
+/**
+ * Kotlin DSL alias for [RunbookBuilder.runLogSink]: `Runbook { runLogSink = mySink }`. Funnels to
+ * the same single storage the fluent method writes.
+ */
+var RunbookBuilder.runLogSink: RunLogSink
+  get() = runLogSinkValue
+  set(value) {
+    runLogSinkValue = value
+  }
+
+/**
+ * Kotlin DSL alias for [RunbookBuilder.haltOnStepFailure]: `Runbook { haltOnStepFailure = false }`.
+ * Funnels to the same single storage the fluent method writes. Defaults to true (halt).
+ */
+var RunbookBuilder.haltOnStepFailure: Boolean
+  get() = haltOnStepFailureValue
+  set(value) {
+    haltOnStepFailureValue = value
+  }
 
 /** Kotlin top-level receiver DSL entry point. */
 fun Runbook(name: String? = null, block: RunbookBuilder.() -> Unit): Runbook =
