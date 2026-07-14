@@ -11,9 +11,15 @@ import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
 
 /**
- * A2 guard: the shared immutable GraalVM Engine reuses parsed bootcode across runs, but each run
- * gets its OWN Context. These tests pin that (a) repeated evals in one sandbox are deterministic
- * and (b) two sandboxes NEVER see each other's guest globals or env — the #1 state-bleed risk.
+ * A2 guard: the shared immutable GraalVM Engine reuses warm-up across runs, but each run gets its
+ * OWN Context. These tests pin that (a) repeated evals in one sandbox are deterministic and (b) two
+ * sandboxes NEVER see each other's guest globals — the #1 state-bleed risk. (Env is not tested as a
+ * bleed vector: it is host-injected fresh per [PmSandbox.execute] from the passed
+ * [PmExecutionContext], so it structurally cannot cross Contexts regardless of Engine sharing.)
+ *
+ * These tests prove Context ISOLATION, which only gets stronger if the Engine were NOT shared — so
+ * they cannot detect a silent revert of the Engine sharing itself. That perf invariant (one Engine,
+ * reused JIT warm-up) is guarded by `SandboxBenchmark` (jmh), not here.
  */
 class SandboxEngineSharingTest {
   private fun testCtx(env: Map<String, Any?> = emptyMap()) =
