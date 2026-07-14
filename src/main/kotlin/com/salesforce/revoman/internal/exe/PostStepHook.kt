@@ -43,15 +43,14 @@ private fun pickPostStepHooks(
   postStepHooks: List<HookConfig>,
   currentStepReport: StepReport,
   rundown: Rundown,
-): Sequence<PostStepHook> =
+): List<PostStepHook> =
   postStepHooks
-    .asSequence()
     .filter { (it.pick as PostTxnStepPick).pick(currentStepReport, rundown) }
     .map { it.stepHook as PostStepHook }
     .also {
-      if (it.iterator().hasNext()) {
-        logger.info { "${currentStepReport.step} Picked Post hook count : ${it.count()}" }
-        currentStepReport.step.postStepHookCount = it.count()
+      if (it.isNotEmpty()) {
+        logger.info { "${currentStepReport.step} Picked Post hook count : ${it.size}" }
+        currentStepReport.step.postStepHookCount = it.size
       }
     }
 

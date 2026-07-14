@@ -42,15 +42,14 @@ private fun pickPreStepHooks(
   currentStep: Step,
   requestInfo: TxnInfo<Request>,
   rundown: Rundown,
-): Sequence<PreStepHook> =
+): List<PreStepHook> =
   preStepHooks
-    .asSequence()
     .filter { (it.pick as PreTxnStepPick).pick(currentStep, requestInfo, rundown) }
     .map { it.stepHook as PreStepHook }
     .also {
-      if (it.iterator().hasNext()) {
-        logger.info { "$currentStep Picked Pre hook count : ${it.count()}" }
-        currentStep.preStepHookCount = it.count()
+      if (it.isNotEmpty()) {
+        logger.info { "$currentStep Picked Pre hook count : ${it.size}" }
+        currentStep.preStepHookCount = it.size
       }
     }
 
