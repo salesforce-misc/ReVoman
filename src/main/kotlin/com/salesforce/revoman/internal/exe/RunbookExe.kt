@@ -74,13 +74,30 @@ private data class RunbookAcc(
  * produces/assertAfter — because a failed collection makes those downstream checks meaningless and
  * their messages misleading.
  */
+@Suppress("TooGenericExceptionCaught")
 private fun executeStep(
   runbook: Runbook,
   runbookSink: RunLogSink,
   step: RunbookStep,
   acc: RunbookAcc,
 ): RunbookAcc {
-  if (step.phase != acc.lastPhase) {
+  emitStepOpen(step, acc.lastPhase)
+  val startNs = System.nanoTime()
+  val close = StepCloseGuard(step, startNs)
+  // A catch-all is intentional here: the bracket MUST be closed on EVERY throw between the open
+  // and the normal close — an AssertionError from a contract/assertAfter breach, a step-failure
+  // halt, or any error out of `revUp` — after which we rethrow verbatim (see [StepCloseGuard]).
+  try {
+    return runStepBody(runbook, runbookSink, step, acc, startNs, close)
+  } catch (t: Throwable) {
+    close.emitFailedIfOpen()
+    throw t
+  }
+}
+
+/** Emits the phase rule (only on a phase change) and the step-open bracket for [step]. */
+private fun emitStepOpen(step: RunbookStep, lastPhase: Phase?) {
+  if (step.phase != lastPhase) {
     RevomanLog.event(StepEvent.PhaseEntered(step.phase))
   }
   RevomanLog.event(
@@ -92,71 +109,78 @@ private fun executeStep(
       step.underTest,
     )
   )
-  val startNs = System.nanoTime()
-  var closeEmitted = false
-  try {
-    checkConsumesOrHalt(step, acc.env.keys)
-    // Thread the runbook sink into the kick so its child per-request events nest under this
-    // runbook's brackets (same sink instance = coherent tree). Only when the runbook has a real
-    // sink — otherwise leave the kick's own sink untouched (backward compat).
-    val kickToRun =
-      step.kick.overrideDynamicEnvironment(step.kick.dynamicEnvironment() + acc.env).let {
-        if (runbookSink !== RunLogSink.NoOp) it.overrideRunLogSink(runbookSink) else it
-      }
-    val rundown = ReVoman.revUp(kickToRun)
-    val tookMs = (System.nanoTime() - startNs) / 1_000_000
-    val nextAcc =
-      RunbookAcc(rundown.mutableEnv.immutableEnv, step.phase, acc.pairs + (step to rundown))
-    val failedReport = rundown.firstUnIgnoredUnsuccessfulStepReport
-    return when {
-      failedReport != null -> {
-        RevomanLog.event(
-          StepEvent.RunbookStepFinished(
-            step.intent,
-            step.intent,
-            Outcome.FAILED,
-            producedValues(step, rundown),
-            tookMs,
-          )
-        )
-        closeEmitted = true
-        if (runbook.haltOnStepFailure) {
-          throw AssertionError(
-            "Runbook step '${step.intent}' failed: underlying collection step " +
-              "'${failedReport.step.path}' was unsuccessful (stopReason=${rundown.stopReason})"
-          )
-        }
-        // Continue: keep the (step, rundown) pair and thread env forward; do NOT emit a SUCCESS
-        // close. The caller inspects the returned RunbookRundown (mirrors base revUp(List<Kick>)).
-        nextAcc
-      }
-      else -> {
-        checkProducesOrHalt(step, rundown)
-        step.assertAfter?.assertStep(rundown, rundown.mutableEnv)
-        RevomanLog.event(
-          StepEvent.RunbookStepFinished(
-            step.intent,
-            step.intent,
-            Outcome.SUCCESS,
-            producedValues(step, rundown),
-            tookMs,
-          )
-        )
-        closeEmitted = true
-        nextAcc
-      }
+}
+
+/**
+ * Runs [step]'s kick and resolves its outcome into the next [RunbookAcc]. Underlying-collection
+ * failure is checked FIRST — before produces/assertAfter — because a failed collection makes those
+ * downstream checks meaningless and their messages misleading. Outcome is derived, never hardcoded.
+ */
+private fun runStepBody(
+  runbook: Runbook,
+  runbookSink: RunLogSink,
+  step: RunbookStep,
+  acc: RunbookAcc,
+  startNs: Long,
+  close: StepCloseGuard,
+): RunbookAcc {
+  checkConsumesOrHalt(step, acc.env.keys)
+  // Thread the runbook sink into the kick so its child per-request events nest under this runbook's
+  // brackets (same sink instance = coherent tree). Only when the runbook has a real sink —
+  // otherwise leave the kick's own sink untouched (backward compat).
+  val kickToRun =
+    step.kick.overrideDynamicEnvironment(step.kick.dynamicEnvironment() + acc.env).let {
+      if (runbookSink !== RunLogSink.NoOp) it.overrideRunLogSink(runbookSink) else it
     }
-  } catch (t: Throwable) {
-    // FIX 2: close the bracket on EVERY halt path (consumes breach, produces breach, assertAfter
-    // throw, or a step-failure halt whose close was not already emitted above). Exactly one close
-    // per step. The RunbookContractFailed detail line is emitted separately by the check helpers.
-    if (!closeEmitted) {
+  val rundown = ReVoman.revUp(kickToRun)
+  val tookMs = (System.nanoTime() - startNs) / 1_000_000
+  val nextAcc =
+    RunbookAcc(rundown.mutableEnv.immutableEnv, step.phase, acc.pairs + (step to rundown))
+  val failedReport = rundown.firstUnIgnoredUnsuccessfulStepReport
+  return when {
+    failedReport != null -> {
+      close.emit(Outcome.FAILED, producedValues(step, rundown), tookMs)
+      if (runbook.haltOnStepFailure) {
+        throw AssertionError(
+          "Runbook step '${step.intent}' failed: underlying collection step " +
+            "'${failedReport.step.path}' was unsuccessful (stopReason=${rundown.stopReason})"
+        )
+      }
+      // Continue: keep the (step, rundown) pair and thread env forward; do NOT emit a SUCCESS
+      // close. The caller inspects the returned RunbookRundown (mirrors base revUp(List<Kick>)).
+      nextAcc
+    }
+    else -> {
+      checkProducesOrHalt(step, rundown)
+      step.assertAfter?.assertStep(rundown, rundown.mutableEnv)
+      close.emit(Outcome.SUCCESS, producedValues(step, rundown), tookMs)
+      nextAcc
+    }
+  }
+}
+
+/**
+ * Guarantees EXACTLY ONE [StepEvent.RunbookStepFinished] close per step. The normal paths call
+ * [emit] with the derived outcome; any throw before that routes through [emitStepOpen]'s caller
+ * catch, which calls [emitFailedIfOpen] to close a still-open bracket with [Outcome.FAILED] (so no
+ * halt path leaves a dangling `┌` with no `└`). The [StepEvent.RunbookContractFailed] detail line
+ * is emitted separately by the check helpers.
+ */
+private class StepCloseGuard(private val step: RunbookStep, private val startNs: Long) {
+  private var emitted = false
+
+  fun emit(outcome: Outcome, produced: Map<String, String?>, tookMs: Long) {
+    RevomanLog.event(
+      StepEvent.RunbookStepFinished(step.intent, step.intent, outcome, produced, tookMs)
+    )
+    emitted = true
+  }
+
+  fun emitFailedIfOpen() {
+    if (!emitted) {
       val tookMs = (System.nanoTime() - startNs) / 1_000_000
-      RevomanLog.event(
-        StepEvent.RunbookStepFinished(step.intent, step.intent, Outcome.FAILED, emptyMap(), tookMs)
-      )
+      emit(Outcome.FAILED, emptyMap(), tookMs)
     }
-    throw t
   }
 }
 
