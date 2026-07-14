@@ -124,8 +124,33 @@ class PickHooksMaterializeTest {
     failure shouldBe null
     // Both hooks were picked and the count was recorded on the step.
     currentStepReport.step.postStepHookCount shouldBe 2
-    // The pick predicate ran EXACTLY once per configured hook (2), not 3-4x from a re-scanned
-    // Sequence.
+    // The pick predicate ran EXACTLY once per configured hook (2), not the ~7x a re-scanned
+    // Sequence
+    // produced before D2.
     predicateInvocations.get() shouldBe 2
+  }
+
+  @Test
+  fun `pre-step hook execution short-circuits - a hook after a failing one does not run`() {
+    // Guards that D2's Sequence->List of the PICK did NOT make hook EXECUTION eager: the consumer
+    // still runs picked hooks lazily and stops at the first failure, so a later hook's accept()
+    // (with its side effects) must NOT fire once an earlier hook has failed. Pre-D2 behavior.
+    val alwaysPick = PreTxnStepPick { _, _, _ -> true }
+    val secondHookRan = AtomicInteger(0)
+    val failingHook = HookConfig.StepHook.PreStepHook { _, _, _ -> error("boom from first hook") }
+    val secondHook = HookConfig.StepHook.PreStepHook { _, _, _ -> secondHookRan.incrementAndGet() }
+    val kick =
+      Kick.configure()
+        .templatePath("unused")
+        .hooks(HookConfig.pre(alwaysPick, failingHook), HookConfig.pre(alwaysPick, secondHook))
+        .off()
+    val currentStep = Step(index = "1", rawPMStep = Item(name = "short-circuit-step"))
+
+    val failure = preStepHookExe(currentStep, kick, requestInfo(), rundown())
+
+    // The first hook failed -> a failure is returned...
+    (failure != null) shouldBe true
+    // ...and the second hook's accept() NEVER ran (lazy short-circuit preserved).
+    secondHookRan.get() shouldBe 0
   }
 }

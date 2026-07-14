@@ -26,7 +26,11 @@ internal fun preStepHookExe(
   requestInfo: TxnInfo<Request>,
   rundown: Rundown,
 ): PreStepHookFailure? =
+  // asSequence keeps hook execution LAZY + short-circuiting: if a picked hook fails, later hooks'
+  // accept() (with their side effects) do NOT run — the pre-D2 Sequence behavior. D2 materialized
+  // only the PICK (so the pick predicate runs once); execution order/short-circuit is preserved.
   pickPreStepHooks(kick.preStepHooks(), currentStep, requestInfo, rundown)
+    .asSequence()
     .map { preStepHook ->
       runCatching(currentStep, PRE_STEP_HOOK) {
           preStepHook.accept(currentStep, requestInfo, rundown)

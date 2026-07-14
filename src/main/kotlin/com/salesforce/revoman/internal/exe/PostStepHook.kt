@@ -23,7 +23,11 @@ internal fun postStepHookExe(
   currentStepReport: StepReport,
   rundown: Rundown,
 ): PostStepHookFailure? =
+  // asSequence keeps hook execution LAZY + short-circuiting: if a picked hook fails, later hooks'
+  // accept() (with their side effects) do NOT run — the pre-D2 Sequence behavior. D2 materialized
+  // only the PICK (so the pick predicate runs once); execution order/short-circuit is preserved.
   pickPostStepHooks(kick.postStepHooks(), currentStepReport, rundown)
+    .asSequence()
     .map { postStepHook ->
       runCatching(currentStepReport.step, POST_STEP_HOOK) {
           postStepHook.accept(currentStepReport, rundown)
