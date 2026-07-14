@@ -342,6 +342,13 @@ private constructor(private var current: PersistentMap<String, V>) : MutableMap<
         override val size: Int
           get() = current.size
 
+        // Delegate membership to the backing's O(1) containsKey. Without this, AbstractCollection's
+        // default contains/containsAll do a linear iterator scan — and the ledger warm path calls
+        // `pm.environment.keys.containsAll(produces)` per step (ReVoman.kt), which would be O(E)
+        // per
+        // key (the O(M*E) the LinkedHashMap keySet avoided and E2 must preserve).
+        override fun contains(element: String): Boolean = current.containsKey(element)
+
         override fun iterator(): MutableIterator<String> =
           current.keys.iterator().asReadOnlyMutable()
 
@@ -353,6 +360,8 @@ private constructor(private var current: PersistentMap<String, V>) : MutableMap<
       object : AbstractMutableCollection<V>() {
         override val size: Int
           get() = current.size
+
+        override fun contains(element: V): Boolean = current.containsValue(element)
 
         override fun iterator(): MutableIterator<V> = current.values.iterator().asReadOnlyMutable()
 

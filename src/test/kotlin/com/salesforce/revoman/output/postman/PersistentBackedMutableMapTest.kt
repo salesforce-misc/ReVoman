@@ -57,4 +57,20 @@ class PersistentBackedMutableMapTest {
     // read-through view: sees the new key
     assertThat(keys).containsExactly("a", "b")
   }
+
+  @Test
+  fun `keys and values view membership delegates to the backing (not a scan)`() {
+    // The ledger warm path calls pm.environment.keys.containsAll(produces) per step; the keys view
+    // must answer contains via the backing's O(1) containsKey, not AbstractCollection's linear
+    // scan.
+    val m = PersistentBackedMutableMap<Any?>()
+    m["a"] = 1
+    m["b"] = 2
+    assertThat(m.keys.contains("a")).isTrue()
+    assertThat(m.keys.contains("missing")).isFalse()
+    assertThat(m.keys.containsAll(listOf("a", "b"))).isTrue()
+    assertThat(m.keys.containsAll(listOf("a", "missing"))).isFalse()
+    assertThat(m.values.contains(1)).isTrue()
+    assertThat(m.values.contains(999)).isFalse()
+  }
 }
