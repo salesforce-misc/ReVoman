@@ -23,7 +23,11 @@ internal fun postStepHookExe(
   currentStepReport: StepReport,
   rundown: Rundown,
 ): PostStepHookFailure? =
+  // asSequence keeps hook execution LAZY + short-circuiting: if a picked hook fails, later hooks'
+  // accept() (with their side effects) do NOT run — the pre-D2 Sequence behavior. D2 materialized
+  // only the PICK (so the pick predicate runs once); execution order/short-circuit is preserved.
   pickPostStepHooks(kick.postStepHooks(), currentStepReport, rundown)
+    .asSequence()
     .map { postStepHook ->
       runCatching(currentStepReport.step, POST_STEP_HOOK) {
           postStepHook.accept(currentStepReport, rundown)
@@ -43,15 +47,14 @@ private fun pickPostStepHooks(
   postStepHooks: List<HookConfig>,
   currentStepReport: StepReport,
   rundown: Rundown,
-): Sequence<PostStepHook> =
+): List<PostStepHook> =
   postStepHooks
-    .asSequence()
     .filter { (it.pick as PostTxnStepPick).pick(currentStepReport, rundown) }
     .map { it.stepHook as PostStepHook }
     .also {
-      if (it.iterator().hasNext()) {
-        logger.info { "${currentStepReport.step} Picked Post hook count : ${it.count()}" }
-        currentStepReport.step.postStepHookCount = it.count()
+      if (it.isNotEmpty()) {
+        logger.info { "${currentStepReport.step} Picked Post hook count : ${it.size}" }
+        currentStepReport.step.postStepHookCount = it.size
       }
     }
 

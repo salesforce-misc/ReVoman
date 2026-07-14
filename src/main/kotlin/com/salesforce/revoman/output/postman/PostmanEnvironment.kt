@@ -17,6 +17,9 @@ import io.exoquery.pprint
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.vavr.control.Either
 import java.lang.reflect.Type
+import kotlinx.collections.immutable.PersistentMap
+import kotlinx.collections.immutable.persistentMapOf
+import kotlinx.collections.immutable.toPersistentMap
 
 /** This is a Wrapper on `mutableEnv` map, providing some useful utilities */
 data class PostmanEnvironment<ValueT : Any?>
@@ -28,22 +31,30 @@ constructor(
 
   internal lateinit var currentStep: Step
 
-  // --- Ledger capture: per-step produced/consumed env keys. Keyed by Step identity so a
+  // --- Ledger capture: per-step produced/consumed env keys. Keyed by `step.path` (String) so a
   //     reused-thread env can carry multiple steps' deltas; read out when StepReport is built.
+  //     NOTE: keyed by `step.path`, NOT the whole Step — Step's data-class hashCode/equals recurse
+  //     through rawPMStep (the full request body + every JS script), so a Step-keyed map hashes the
+  //     entire step on every op. `path` is the step's unique identity already used everywhere else
+  //     by the ledger (learnedLedger keying, `ledger.steps` lookup, iterationByPath). The same Step
+  //     instance (stable `path`) is reused across iterations, so path-keying yields the IDENTICAL
+  //     union accumulation as the prior Step-keying.
   //     NOTE: NOT reset between iterations — a step executing twice (control-flow loop) accumulates
   //     the UNION of all iterations' keys. Benign for ledger learning and invisible when iterations
   //     produce the same keys. ---
-  private val producedKeysByStep: MutableMap<Step, MutableSet<String>> = mutableMapOf()
-  private val consumedKeysByStep: MutableMap<Step, MutableSet<String>> = mutableMapOf()
+  private val producedKeysByStepPath: MutableMap<String, MutableSet<String>> = mutableMapOf()
+  private val consumedKeysByStepPath: MutableMap<String, MutableSet<String>> = mutableMapOf()
 
-  fun producedKeysFor(step: Step): Set<String> = producedKeysByStep[step]?.toSet() ?: emptySet()
+  fun producedKeysFor(step: Step): Set<String> =
+    producedKeysByStepPath[step.path]?.toSet() ?: emptySet()
 
-  fun consumedKeysFor(step: Step): Set<String> = consumedKeysByStep[step]?.toSet() ?: emptySet()
+  fun consumedKeysFor(step: Step): Set<String> =
+    consumedKeysByStepPath[step.path]?.toSet() ?: emptySet()
 
   /** Record a READ of [key] during the current step (regex `{{key}}` resolved against env). */
   fun recordConsumed(key: String) {
     if (::currentStep.isInitialized) {
-      consumedKeysByStep.getOrPut(currentStep) { mutableSetOf() }.add(key)
+      consumedKeysByStepPath.getOrPut(currentStep.path) { mutableSetOf() }.add(key)
     }
   }
 
@@ -54,6 +65,21 @@ constructor(
     moshiReVoman.toPrettyJson(fromMap(mutableEnv, moshiReVoman))
   }
 
+  /**
+   * A point-in-time snapshot of this environment. When the backing is a
+   * [PersistentBackedMutableMap] this is O(1) — the snapshot shares the current immutable
+   * persistent map and later writes to this (live) env install a new map, leaving the snapshot
+   * untouched. Falls back to a defensive copy for a plain map backing (e.g.
+   * collectionVariables/globals or test-constructed envs), preserving the historical
+   * `copy(mutableEnv = mutableEnv.toMutableMap())` semantics.
+   */
+  fun o1Snapshot(): PostmanEnvironment<ValueT> =
+    copy(
+      mutableEnv =
+        (mutableEnv as? PersistentBackedMutableMap<ValueT>)?.snapshotView()
+          ?: mutableEnv.toMutableMap()
+    )
+
   fun set(key: String, value: ValueT) {
     mutableEnv[key] = value
     // `currentStep` is a lateinit set only on the step-bound `environment` instance; stores like
@@ -61,7 +87,7 @@ constructor(
     // line
     // both no-op on an unstepped instance — interpolating an uninitialized lateinit would throw.
     val step: Step? = if (::currentStep.isInitialized) currentStep else null
-    if (step != null) producedKeysByStep.getOrPut(step) { mutableSetOf() }.add(key)
+    if (step != null) producedKeysByStepPath.getOrPut(step.path) { mutableSetOf() }.add(key)
     logger.info {
       "pm environment variable set in Step: $step - key: $key, value: ${pprint(value)}"
     }
@@ -71,7 +97,7 @@ constructor(
   fun unset(key: String) {
     mutableEnv.remove(key)
     val step: Step? = if (::currentStep.isInitialized) currentStep else null
-    if (step != null) producedKeysByStep[step]?.remove(key)
+    if (step != null) producedKeysByStepPath[step.path]?.remove(key)
     logger.info { "pm environment variable unset through JS in Step: $step - key: $key" }
   }
 
@@ -212,7 +238,7 @@ constructor(
     )
 
   fun <T> valuesForKeysStartingWith(type: Class<T>, prefix: String): Set<T> =
-    mutableEnvCopyWithKeysStartingWith(type, prefix).mutableEnv.values.toSet()
+    valuesForKeysStartingWith(type, *arrayOf(prefix))
 
   fun <T> valuesForKeysStartingWith(type: Class<T>, vararg prefixes: String): Set<T> =
     mutableEnv.entries
@@ -251,3 +277,148 @@ constructor(
 }
 
 private val logger = KotlinLogging.logger {}
+
+/**
+ * A [MutableMap] backed by an immutable [PersistentMap] that is SWAPPED on every write. Because the
+ * backing is immutable, [snapshotView] captures the current reference in O(1) and later writes to
+ * this instance (which install a NEW persistent map) never mutate that captured view — the
+ * point-in-time invariant [com.salesforce.revoman.output.report.StepReport] relies on.
+ * Reads/keys/entries/values are non-copying read-through views over the current backing (mutators
+ * on those views throw; nothing in ReVoman mutates through them), so the per-step
+ * `pm.environment.keys` access stays O(1).
+ */
+// The function count comes from implementing the full MutableMap surface (get/put/remove/putAll/
+// clear/containsKey/containsValue/isEmpty) plus snapshotView + the equals/hashCode/toString Map
+// contract — an interface obligation, not decomposable, so TooManyFunctions is suppressed here.
+@Suppress("TooManyFunctions")
+internal class PersistentBackedMutableMap<V>
+private constructor(private var current: PersistentMap<String, V>) : MutableMap<String, V> {
+
+  constructor() : this(persistentMapOf())
+
+  constructor(seed: Map<String, V>) : this(seed.toPersistentMap())
+
+  /** O(1): a NEW instance sharing this instance's current immutable backing. */
+  fun snapshotView(): PersistentBackedMutableMap<V> = PersistentBackedMutableMap(current)
+
+  override val size: Int
+    get() = current.size
+
+  override fun isEmpty(): Boolean = current.isEmpty()
+
+  override fun containsKey(key: String): Boolean = current.containsKey(key)
+
+  override fun containsValue(value: V): Boolean = current.containsValue(value)
+
+  override fun get(key: String): V? = current[key]
+
+  override fun put(key: String, value: V): V? {
+    val prev = current[key]
+    current = current.put(key, value)
+    return prev
+  }
+
+  override fun remove(key: String): V? {
+    val prev = current[key]
+    current = current.remove(key)
+    return prev
+  }
+
+  override fun putAll(from: Map<out String, V>) {
+    current = current.putAll(from)
+  }
+
+  override fun clear() {
+    current = persistentMapOf()
+  }
+
+  // Read-through views over the current backing. kotlinx immutable views are Set/Collection; wrap
+  // them so the MutableMap type is satisfied. Mutators throw — no ReVoman code path mutates
+  // through env.keys/entries/values (grep-verified); the swap-on-write API above is the only
+  // supported mutation surface.
+  override val keys: MutableSet<String>
+    get() =
+      object : AbstractMutableSet<String>() {
+        override val size: Int
+          get() = current.size
+
+        // Delegate membership to the backing's O(1) containsKey. Without this, AbstractCollection's
+        // default contains/containsAll do a linear iterator scan — and the ledger warm path calls
+        // `pm.environment.keys.containsAll(produces)` per step (ReVoman.kt), which would be O(E)
+        // per
+        // key (the O(M*E) the LinkedHashMap keySet avoided and E2 must preserve).
+        override fun contains(element: String): Boolean = current.containsKey(element)
+
+        override fun iterator(): MutableIterator<String> =
+          current.keys.iterator().asReadOnlyMutable()
+
+        override fun add(element: String): Boolean = throw UnsupportedOperationException()
+      }
+
+  override val values: MutableCollection<V>
+    get() =
+      object : AbstractMutableCollection<V>() {
+        override val size: Int
+          get() = current.size
+
+        override fun contains(element: V): Boolean = current.containsValue(element)
+
+        override fun iterator(): MutableIterator<V> = current.values.iterator().asReadOnlyMutable()
+
+        override fun add(element: V): Boolean = throw UnsupportedOperationException()
+      }
+
+  override val entries: MutableSet<MutableMap.MutableEntry<String, V>>
+    get() =
+      object : AbstractMutableSet<MutableMap.MutableEntry<String, V>>() {
+        override val size: Int
+          get() = current.size
+
+        // Non-copying: lazily wrap each read-only kotlinx `Map.Entry` in a read-only
+        // `MutableEntry` (setValue throws) as iteration advances — kotlinx `MapEntry` does
+        // NOT implement `MutableMap.MutableEntry`, so an unchecked cast would throw
+        // ClassCastException at runtime. No eager collection is materialized.
+        override fun iterator(): MutableIterator<MutableMap.MutableEntry<String, V>> =
+          current.entries
+            .asSequence()
+            .map { it.asReadOnlyMutableEntry() }
+            .iterator()
+            .asReadOnlyMutable()
+
+        override fun add(element: MutableMap.MutableEntry<String, V>): Boolean =
+          throw UnsupportedOperationException()
+      }
+
+  override fun equals(other: Any?): Boolean = current == other
+
+  override fun hashCode(): Int = current.hashCode()
+
+  override fun toString(): String = current.toString()
+}
+
+private fun <T> Iterator<T>.asReadOnlyMutable(): MutableIterator<T> =
+  object : MutableIterator<T> {
+    override fun hasNext(): Boolean = this@asReadOnlyMutable.hasNext()
+
+    override fun next(): T = this@asReadOnlyMutable.next()
+
+    override fun remove(): Unit = throw UnsupportedOperationException()
+  }
+
+private fun <K, V> Map.Entry<K, V>.asReadOnlyMutableEntry(): MutableMap.MutableEntry<K, V> =
+  object : MutableMap.MutableEntry<K, V> {
+    override val key: K
+      get() = this@asReadOnlyMutableEntry.key
+
+    override val value: V
+      get() = this@asReadOnlyMutableEntry.value
+
+    override fun setValue(newValue: V): V = throw UnsupportedOperationException()
+
+    override fun equals(other: Any?): Boolean =
+      other is Map.Entry<*, *> && other.key == key && other.value == value
+
+    override fun hashCode(): Int = (key?.hashCode() ?: 0) xor (value?.hashCode() ?: 0)
+
+    override fun toString(): String = "$key=$value"
+  }

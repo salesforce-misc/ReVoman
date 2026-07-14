@@ -60,6 +60,7 @@ import com.salesforce.revoman.output.StopReason
 import com.salesforce.revoman.output.ledger.LedgerEntry
 import com.salesforce.revoman.output.log.Outcome
 import com.salesforce.revoman.output.log.StepEvent
+import com.salesforce.revoman.output.postman.PersistentBackedMutableMap
 import com.salesforce.revoman.output.report.Step
 import com.salesforce.revoman.output.report.StepEnvVars
 import com.salesforce.revoman.output.report.StepReport
@@ -164,8 +165,15 @@ object ReVoman {
     val mergedEnv =
       mergeEnvs(kick.environmentPaths(), kick.environmentInputStreams(), kick.dynamicEnvironment())
     val environment = ledgerValues + mergedEnv.values
+    // Persistent-backed so every per-step pmEnvSnapshot is an O(1) structural share (see E2). The
+    // MutableMap contract is preserved, so PostmanSDK/RegexReplacer writes are unaffected.
     val pm =
-      PostmanSDK(moshiReVoman, kick.nodeModulesPath(), regexReplacer, environment.toMutableMap())
+      PostmanSDK(
+        moshiReVoman,
+        kick.nodeModulesPath(),
+        regexReplacer,
+        PersistentBackedMutableMap(environment),
+      )
     pm.environmentName = mergedEnv.name
     val sequenceResult =
       PmSandbox().use { sandbox ->
@@ -495,7 +503,7 @@ object ReVoman {
       .merge()
       .copy(
         exeTimings = exeTimings,
-        pmEnvSnapshot = pm.environment.copy(mutableEnv = pm.environment.mutableEnv.toMutableMap()),
+        pmEnvSnapshot = pm.environment.o1Snapshot(),
         envVars =
           StepEnvVars(
             produced = pm.environment.producedKeysFor(step),

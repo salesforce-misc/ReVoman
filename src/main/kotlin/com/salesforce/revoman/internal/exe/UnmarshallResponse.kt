@@ -31,9 +31,10 @@ internal fun unmarshallResponse(
   rundown: Rundown,
 ): Either<UnmarshallResponseFailure, TxnInfo<Response>> {
   val httpResponse = currentStepReport.responseInfo!!.get().httpMsg
+  val body: String = httpResponse.bodyString()
+  val contentType: String? = httpResponse.contentType()?.value
   return when {
-    httpResponse.bodyString().isNotBlank() &&
-      APPLICATION_JSON.value.equals(httpResponse.contentType()?.value, true) -> {
+    body.isNotBlank() && APPLICATION_JSON.value.equals(contentType, true) -> {
       val httpStatus = httpResponse.status.successful
       val responseConfig =
         (kick.pickToResponseConfig()[httpStatus].orEmpty() +
@@ -46,7 +47,7 @@ internal fun unmarshallResponse(
           ?.responseType ?: Any::class.java
       val requestInfo = currentStepReport.requestInfo!!.get()
       runCatching(currentStep, UNMARSHALL_RESPONSE) {
-          moshiReVoman.fromJson<Any>(httpResponse.bodyString(), responseType)
+          moshiReVoman.fromJson<Any>(body, responseType)
         }
         .mapLeft {
           UnmarshallResponseFailure(
@@ -66,7 +67,7 @@ internal fun unmarshallResponse(
     }
     else -> {
       logger.info {
-        "${currentStepReport.step} Blank Response body or ${httpResponse.contentType()?.value} didn't match ${APPLICATION_JSON.value}"
+        "${currentStepReport.step} Blank Response body or $contentType didn't match ${APPLICATION_JSON.value}"
       }
       Right(TxnInfo(isJson = false, httpMsg = httpResponse, moshiReVoman = moshiReVoman))
     }

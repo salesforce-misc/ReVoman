@@ -34,9 +34,8 @@ internal fun fireHttpRequest(
   moshiReVoman: MoshiReVoman,
 ): Either<HttpRequestFailure, TxnInfo<Response>> =
   runCatching(currentStep, HTTP_REQUEST) {
-      // * NOTE gopala.akshintala 06/08/22: Preparing httpClient for each step,
-      // * as there can be intermediate auths
-      // ! TODO 29/01/24 gopala.akshintala: When would bearer token size be > 1?
+      // * NOTE gopala.akshintala 06/08/22: Shared client per TLS variant; auth is carried
+      // per-Request
       prepareHttpClient(insecureHttp)(httpRequest)
     }
     .mapLeft { HttpRequestFailure(it, TxnInfo(httpMsg = httpRequest, moshiReVoman = moshiReVoman)) }
@@ -59,8 +58,18 @@ internal fun renderHttpMsg(httpMsg: HttpMessage): String {
   return head + JsonPretty.pretty(body)
 }
 
+// One http4k/Apache client per TLS variant, memoized for the life of the JVM. Auth is carried
+// per-Request (each Request builds its own Authorization header), so a single shared, pooled
+// client is safe across steps/runs — and avoids building + discarding a pooled client (and its
+// connection manager) on every request, which also fixes the per-run client leak.
+private val secureHttpClient: HttpHandler by lazy { ApacheClient() }
+
+private val insecureHttpClient: HttpHandler by lazy {
+  ApacheClient(client = insecureApacheHttpClient())
+}
+
 internal fun prepareHttpClient(insecureHttp: Boolean): HttpHandler =
-  if (insecureHttp) ApacheClient(client = insecureApacheHttpClient()) else ApacheClient()
+  if (insecureHttp) insecureHttpClient else secureHttpClient
 
 /** WARNING: Only for Testing. DO NOT USE IN PROD */
 private fun insecureApacheHttpClient(): CloseableHttpClient =
