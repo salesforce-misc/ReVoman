@@ -9,6 +9,7 @@ package com.salesforce.revoman.internal.postman
 
 import com.github.underscore.U
 import com.salesforce.revoman.internal.json.MoshiReVoman
+import com.salesforce.revoman.internal.postman.sandbox.sharedGraalEngine
 import com.salesforce.revoman.internal.postman.template.Body
 import com.salesforce.revoman.internal.postman.template.Event
 import com.salesforce.revoman.internal.postman.template.Header
@@ -116,7 +117,10 @@ class PostmanSDK(
 
   inner class JSEvaluator(nodeModulesPath: String? = null) {
     private val jsContext: Context
-    private var imports = ""
+    // Constant per-instance prefix, computed once. Non-empty only when a nodeModulesPath enabled
+    // commonjs-require (so lodash `_` is importable). Hoisted to a val — never mutated after init.
+    private val imports: String =
+      if (!nodeModulesPath.isNullOrBlank()) "var _ = require('lodash')\n" else ""
 
     init {
       val options = buildMap {
@@ -124,16 +128,14 @@ class PostmanSDK(
           logger.info { "nodeModulesPath: $nodeModulesPath" }
           put("js.commonjs-require", "true")
           put("js.commonjs-require-cwd", nodeModulesPath)
-          imports = "var _ = require('lodash')\n"
         }
         put("js.esm-eval-returns-exports", "true")
-        put("engine.WarnInterpreterOnly", "false")
       }
       jsContext =
         Context.newBuilder("js")
+          .engine(sharedGraalEngine)
           .allowExperimentalOptions(true)
           .allowIO(IOAccess.ALL)
-          .allowExperimentalOptions(true)
           .options(options)
           .allowHostAccess(HostAccess.ALL)
           .allowHostClassLookup { true }
@@ -143,6 +145,13 @@ class PostmanSDK(
       contextBindings.putMember("xml2Json", this@PostmanSDK.xml2Json)
     }
 
+    // * NOTE: A `Map<String, Value>` result-memo for repeated identical scripts is INTENTIONALLY
+    // NOT added here — it is unsafe. This fn injects per-call [bindings] into the shared Context,
+    // and pm scripts routinely have side effects (`pm.environment.set(...)`) and run identical
+    // text with different bindings (e.g. `xml2Json` over a different `responseBody`). A
+    // script->Value cache would skip both binding injection and re-execution, corrupting behavior.
+    // The safe repeated-script win is the closure memo (see [jsonParseFn]); A4 is limited to
+    // making the [imports] prefix immutable.
     internal fun evaluateJS(js: String, bindings: Map<String, Any> = emptyMap()): Value {
       val contextBindings = jsContext.getBindings("js")
       bindings.forEach { (key, value) -> contextBindings.putMember(key, value) }
@@ -152,9 +161,22 @@ class PostmanSDK(
     }
   }
 
+  /**
+   * Publishes the current step's evolving [StepReport] into [rundown] for mid-run readers (hooks,
+   * the halt predicate). ReVoman seeds [rundown] with this step's pre-step report as the LAST
+   * entry, then calls this 3x per step as the report gains request/response/hook detail. REPLACES
+   * the current step's entry (matched as the last report for the same [Step]) rather than
+   * appending, so the current execution appears ONCE mid-run (not the old 3-4x) — earlier steps and
+   * prior loop iterations (which sit before it, and for a looped step legitimately repeat the same
+   * [Step]) are untouched. Keeps [Rundown] immutable via [Rundown.copy].
+   */
   internal fun syncProgress(stepReport: StepReport) {
     currentStepReport = stepReport
-    rundown = rundown.copy(stepReports = rundown.stepReports + stepReport)
+    val reports = rundown.stepReports
+    val updated =
+      if (reports.lastOrNull()?.step == stepReport.step) reports.dropLast(1) + stepReport
+      else reports + stepReport
+    rundown = rundown.copy(stepReports = updated)
   }
 
   /** Accumulates assertions across a step's pre-req + post-res scripts. */
@@ -222,9 +244,17 @@ class PostmanSDK(
   fun evaluateJS(js: String, bindings: Map<String, Any> = emptyMap()): Value =
     jsEvaluator.evaluateJS(js, bindings)
 
-  @Language("JavaScript")
-  fun jsonStrToObj(jsonStr: String): Value =
-    evaluateJS("jsonStr => JSON.parse(jsonStr, {allowComments: true})").execute(jsonStr)
+  // Memoized JSON.parse closure: a stateless guest function bound to this instance's jsContext.
+  // Parsing the function literal once (not per call) skips a Source parse + compile on every
+  // json()/jsonStrToObj call. Reuse is safe — the closure holds no per-call state; only its
+  // argument varies. `by lazy` defers forcing until the first parse (jsEvaluator is init'd last).
+  private val jsonParseFn: Value by lazy {
+    @Language("JavaScript")
+    val jsonParseArrow = "jsonStr => JSON.parse(jsonStr, {allowComments: true})"
+    evaluateJS(jsonParseArrow)
+  }
+
+  fun jsonStrToObj(jsonStr: String): Value = jsonParseFn.execute(jsonStr)
 
   /**
    * `pm.variables` — the aggregate READ view across all scopes, honoring Postman precedence
