@@ -75,7 +75,12 @@ internal object RevomanLog {
   inline fun error(crossinline msg: () -> String) = tee(LogLevel.ERROR, msg)
 
   fun event(event: StepEvent) {
-    RunLogContext.current()?.let { runCatching { it.event(event) } }
+    RunLogContext.current()?.let {
+      // Keep the no-throw contract (a sink MUST NOT fail the hot execution path), but leave a
+      // breadcrumb so a rendering bug in the sink isn't completely invisible.
+      runCatching { it.event(event) }
+        .onFailure { t -> logger.debug { "run-log sink event failed (ignored): $t" } }
+    }
   }
 
   inline fun tee(level: LogLevel, crossinline msg: () -> String) {
@@ -99,6 +104,8 @@ internal object RevomanLog {
       LogLevel.WARN -> logger.warn { rendered }
       LogLevel.ERROR -> logger.error { rendered }
     }
+    // No-throw contract with a breadcrumb (see [event]).
     runCatching { sink.line(level, rendered) }
+      .onFailure { t -> logger.debug { "run-log sink line failed (ignored): $t" } }
   }
 }

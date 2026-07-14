@@ -12,7 +12,7 @@ import com.salesforce.revoman.input.config.RunbookStep
 /**
  * The executed runbook: each [RunbookStep] paired with its [Rundown], in order. Implements
  * `List<Rundown>` so it drops in wherever today's `revUp(List<Kick>)` return is consumed, while
- * adding step pairing and (Task 8) `toMermaid()`/`toMarkdown()` views.
+ * adding step pairing and the [toMermaid]/[toMarkdown] views.
  */
 class RunbookRundown
 private constructor(

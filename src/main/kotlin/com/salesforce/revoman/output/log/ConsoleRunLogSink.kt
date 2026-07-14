@@ -7,7 +7,10 @@
  */
 package com.salesforce.revoman.output.log
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import java.io.PrintStream
+
+private val logger = KotlinLogging.logger {}
 
 /**
  * A built-in [RunLogSink] that renders the structured [StepEvent] stream to a [PrintStream]
@@ -46,7 +49,10 @@ class ConsoleRunLogSink(private val out: PrintStream = System.out) : RunLogSink 
   }
 
   override fun event(event: StepEvent) {
+    // Honor the "MUST NOT throw" contract, but leave a breadcrumb so a render/IO bug isn't
+    // invisible.
     runCatching { out.print(render(event)) }
+      .onFailure { logger.debug { "run-log sink render failed (ignored): $it" } }
   }
 
   /**

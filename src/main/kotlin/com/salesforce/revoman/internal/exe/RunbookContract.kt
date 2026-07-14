@@ -29,6 +29,10 @@ internal fun ContractViolation.isEmpty(): Boolean =
 
 /**
  * Subset/at-least: the declared consume keys absent from [envKeys]. Extras in the env are ignored.
+ *
+ * Presence-only semantics: a declared key that is PRESENT in [envKeys] satisfies the consume even
+ * if its env value is null — this checks key presence, not value non-nullness, so authors are not
+ * lulled into thinking a null-valued key would be reported missing.
  */
 internal fun checkConsumes(step: RunbookStep, envKeys: Set<String>): Set<String> =
   step.consumes - envKeys

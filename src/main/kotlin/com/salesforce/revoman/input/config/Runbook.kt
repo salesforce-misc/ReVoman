@@ -105,6 +105,9 @@ class RunbookBuilder internal constructor() {
     return Runbook(name, steps.toList(), runLogSinkValue, haltOnStepFailureValue)
   }
 
+  /**
+   * Java terminal builder call: validates and snapshots this builder into an immutable [Runbook].
+   */
   fun off(): Runbook = build()
 }
 
