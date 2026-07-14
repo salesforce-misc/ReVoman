@@ -1,0 +1,5 @@
+$kind: http-request
+name: c
+url: "{{baseUrl}}/count"
+method: GET
+order: 1000

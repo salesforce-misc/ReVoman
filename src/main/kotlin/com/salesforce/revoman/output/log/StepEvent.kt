@@ -7,6 +7,8 @@
  */
 package com.salesforce.revoman.output.log
 
+import com.salesforce.revoman.input.config.Phase
+
 /**
  * Per-step outcome surfaced to a [RunLogSink]; mirrors a
  * [com.salesforce.revoman.output.report.StepReport].
@@ -58,4 +60,36 @@ sealed interface StepEvent {
 
   /** A jump loop exceeded the per-run execution [budget] at [path]. */
   data class LoopBudgetExceeded(override val path: String, val budget: Int) : StepEvent
+
+  /** A runbook phase boundary opened. Coarse event bracketing the per-request events below it. */
+  data class PhaseEntered(val phase: Phase) : StepEvent {
+    override val path: String = phase.name
+  }
+
+  /** A runbook step (one whole collection/[com.salesforce.revoman.input.config.Kick]) opened. */
+  data class RunbookStepStarted(
+    override val path: String,
+    val intent: String,
+    val phase: Phase,
+    val consumes: Set<String>,
+    val underTest: Boolean,
+  ) : StepEvent
+
+  /** A runbook step finished with [outcome]; [produced] maps declared produced keys to values. */
+  data class RunbookStepFinished(
+    override val path: String,
+    val intent: String,
+    val outcome: Outcome,
+    val produced: Map<String, String?>,
+    val tookMs: Long,
+  ) : StepEvent
+
+  /** A runbook step breached its data-flow contract. */
+  data class RunbookContractFailed(
+    override val path: String,
+    val intent: String,
+    val missingConsumed: Set<String>,
+    val missingProduced: Set<String>,
+    val valueMismatches: Map<String, Pair<String?, String?>>,
+  ) : StepEvent
 }

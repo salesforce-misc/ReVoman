@@ -15,6 +15,7 @@ import com.salesforce.revoman.input.PostExeHook
 import com.salesforce.revoman.input.bufferFile
 import com.salesforce.revoman.input.bufferInputStream
 import com.salesforce.revoman.input.config.Kick
+import com.salesforce.revoman.input.config.Runbook
 import com.salesforce.revoman.input.isV3Collection
 import com.salesforce.revoman.internal.exe.StepDirective
 import com.salesforce.revoman.internal.exe.deepFlattenItems
@@ -22,6 +23,7 @@ import com.salesforce.revoman.internal.exe.directiveOf
 import com.salesforce.revoman.internal.exe.executePolling
 import com.salesforce.revoman.internal.exe.executePostResJS
 import com.salesforce.revoman.internal.exe.executePreReqJS
+import com.salesforce.revoman.internal.exe.executeRunbook
 import com.salesforce.revoman.internal.exe.fireHttpRequest
 import com.salesforce.revoman.internal.exe.ledgerSkipDecision
 import com.salesforce.revoman.internal.exe.postStepHookExe
@@ -55,6 +57,7 @@ import com.salesforce.revoman.output.ExeType.PRE_REQ_JS
 import com.salesforce.revoman.output.ExeType.PRE_STEP_HOOK
 import com.salesforce.revoman.output.ExeType.UNMARSHALL_REQUEST
 import com.salesforce.revoman.output.ExeType.UNMARSHALL_RESPONSE
+import com.salesforce.revoman.output.RunbookRundown
 import com.salesforce.revoman.output.Rundown
 import com.salesforce.revoman.output.StopReason
 import com.salesforce.revoman.output.ledger.LedgerEntry
@@ -103,18 +106,28 @@ object ReVoman {
       }
       .second
 
+  /**
+   * Execute a [Runbook] — the legible, narrated form of a multi-collection chain. Threads env
+   * exactly like [revUp] over `List<Kick>`, adding per-step data-flow contract checks, per-step
+   * assertions, and coarse grouped log events. Halts (throws [AssertionError]) at the first breach.
+   */
+  @JvmStatic
+  @JvmOverloads
+  fun revUp(runbook: Runbook, dynamicEnvironment: Map<String, Any?> = emptyMap()): RunbookRundown =
+    executeRunbook(runbook, dynamicEnvironment)
+
   @JvmStatic
   @OptIn(ExperimentalStdlibApi::class)
   fun revUp(kick: Kick): Rundown {
-    // BORROW the sink for this run only: install on the ThreadLocal, remove in finally. Do NOT
+    // BORROW the sink for this run only: install on the ThreadLocal, restore in finally. Do NOT
     // close() it — the caller OWNS the sink's lifecycle. A single caller-supplied sink commonly
     // spans MANY revUp calls (persona-creation, general-setup, the test body, cleanup); closing it
     // here would shut the writer after the first revUp and silently drop every later run's output.
-    RunLogContext.install(kick.runLogSink())
+    val previousSink = RunLogContext.install(kick.runLogSink())
     try {
       return revUpInternal(kick)
     } finally {
-      RunLogContext.remove()
+      RunLogContext.restore(previousSink)
     }
   }
 

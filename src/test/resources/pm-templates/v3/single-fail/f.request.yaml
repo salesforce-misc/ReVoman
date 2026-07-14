@@ -1,0 +1,5 @@
+$kind: http-request
+name: f
+url: "{{baseUrl}}/fail"
+method: GET
+order: 1000

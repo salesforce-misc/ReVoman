@@ -14,17 +14,28 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 
 /**
  * Holds the [RunLogSink] active for the current [com.salesforce.revoman.ReVoman.revUp] run. A
- * ThreadLocal because a run executes its steps serially on one thread; [install] at the start of a
- * run, [remove] in its `finally`. [current] is `null` outside a run (the default, NoOp-equivalent
- * path), so non-instrumented callers pay nothing.
+ * ThreadLocal because a run executes its steps serially on one thread. [install] the sink at the
+ * start of a run and [restore] the returned previous sink in its `finally`; this install/restore
+ * pair STACKS, so a nested `revUp` (e.g. a runbook driving per-step kicks) does not wipe the outer
+ * run's sink. [current] is `null` outside any run (the default, NoOp-equivalent path), so
+ * non-instrumented callers pay nothing. [remove] remains for callers that unconditionally clear.
  *
- * **Callers MUST guarantee [remove] runs (e.g. in a `finally`)** — a skipped remove leaks the sink
- * across thread-pool reuse, mis-routing a later unrelated run's logs into a stale sink.
+ * **Callers MUST guarantee [restore] (or [remove]) runs (e.g. in a `finally`)** — a skipped restore
+ * leaks the sink across thread-pool reuse, mis-routing a later unrelated run's logs into a stale
+ * sink.
  */
 internal object RunLogContext {
   private val holder = ThreadLocal<RunLogSink?>()
 
-  fun install(sink: RunLogSink) = holder.set(sink)
+  /**
+   * Installs [sink] as current, returning the previously-installed sink (or null) so a nested
+   * caller can restore it — makes install/restore stack correctly across nested revUp calls.
+   */
+  fun install(sink: RunLogSink): RunLogSink? {
+    val previous = holder.get()
+    holder.set(sink)
+    return previous
+  }
 
   fun current(): RunLogSink? = holder.get()
 
@@ -37,6 +48,11 @@ internal object RunLogContext {
   fun hasActiveSink(): Boolean {
     val sink = holder.get()
     return sink != null && sink !== RunLogSink.NoOp
+  }
+
+  /** Restores a sink captured from [install]; null means "no sink was active", i.e. remove. */
+  fun restore(previous: RunLogSink?) {
+    if (previous == null) holder.remove() else holder.set(previous)
   }
 
   fun remove() = holder.remove()
@@ -59,7 +75,12 @@ internal object RevomanLog {
   inline fun error(crossinline msg: () -> String) = tee(LogLevel.ERROR, msg)
 
   fun event(event: StepEvent) {
-    RunLogContext.current()?.let { runCatching { it.event(event) } }
+    RunLogContext.current()?.let {
+      // Keep the no-throw contract (a sink MUST NOT fail the hot execution path), but leave a
+      // breadcrumb so a rendering bug in the sink isn't completely invisible.
+      runCatching { it.event(event) }
+        .onFailure { t -> logger.debug { "run-log sink event failed (ignored): $t" } }
+    }
   }
 
   inline fun tee(level: LogLevel, crossinline msg: () -> String) {
@@ -83,6 +104,8 @@ internal object RevomanLog {
       LogLevel.WARN -> logger.warn { rendered }
       LogLevel.ERROR -> logger.error { rendered }
     }
+    // No-throw contract with a breadcrumb (see [event]).
     runCatching { sink.line(level, rendered) }
+      .onFailure { t -> logger.debug { "run-log sink line failed (ignored): $t" } }
   }
 }
