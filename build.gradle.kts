@@ -59,6 +59,29 @@ dependencies {
   testImplementation(libs.mockk)
 }
 
+// --- Bundle kotlinx-collections-immutable INTO the jar (Core consumption fix) --------------------
+// Core consumes revoman via a bazel `java_import` that provides NO transitive deps, and
+// `kotlinx-collections-immutable` is NOT in Core's maven graph. Since PersistentBackedMutableMap
+// (perf PR #401) uses it, a plain jar throws `NoClassDefFoundError:
+// kotlinx/collections/immutable/*`
+// on every `revUp` inside the Core server. Bundle JUST that one artifact's classes into the jar
+// (isTransitive=false so kotlin-stdlib — which Core already has natively — is NOT duplicated, and
+// no
+// classpath conflict with the deps Core re-declares). Every other `implementation` dep (graal/okio/
+// snakeyaml/spring) is already on Core's classpath, which is why pre-#401 jars worked unbundled.
+val bundledRuntime: Configuration = configurations.create("bundledRuntime")
+
+dependencies { "bundledRuntime"(libs.kotlinx.collections.immutable) { isTransitive = false } }
+
+tasks.named<Jar>("jar") {
+  from({ bundledRuntime.map { zipTree(it) } }) {
+    // Drop the bundled artifact's own MANIFEST/module metadata — keep only its classes so the
+    // revoman jar's manifest and any module-info stay authoritative.
+    exclude("META-INF/MANIFEST.MF", "META-INF/*.kotlin_module", "module-info.class")
+  }
+  duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
 testing {
   suites {
     getByName<JvmTestSuite>("test") { useJUnitJupiter(libs.versions.junit.get()) }
