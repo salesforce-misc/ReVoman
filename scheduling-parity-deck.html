@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Three Scheduling Engines · 262 Behavior Parity</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ============ TOKENS ============ */
+:root{
+  --disp:"Space Grotesk",system-ui,sans-serif;
+  --body:"Inter",system-ui,sans-serif;
+  --mono:"Space Mono",ui-monospace,monospace;
+
+  /* products (validated CVD-safe) */
+  --sched:#3987e5;   --sched-dim:#1c3a5c;
+  --unified:#199e70; --unified-dim:#12463a;
+  --infield:#d95926; --infield-dim:#5a2f1c;
+
+  /* status (reserved, never a series) */
+  --ok:#0ca30c;
+  --warn:#fab219;
+  --serious:#ec835a;
+  --crit:#d03b3b;
+
+  /* dark surface (default) */
+  --bg:#0d0d0d;
+  --surface:#161615;
+  --surface-2:#1f1f1d;
+  --ink:#ffffff;
+  --ink-2:#c3c2b7;
+  --muted:#898781;
+  --line:#2c2c2a;
+  --line-2:#383835;
+  --ring:rgba(255,255,255,.10);
+  --accent:#eda100;
+}
+html[data-theme="light"]{
+  --sched:#2a78d6;   --sched-dim:#cfe0f7;
+  --unified:#12855e; --unified-dim:#cceee1;
+  --infield:#c4491c; --infield-dim:#f8ddce;
+  --ok:#0a7a0a; --warn:#b47d00; --serious:#c0603a; --crit:#b52d2d;
+  --bg:#f4f2ec;
+  --surface:#fcfcfb;
+  --surface-2:#f0eee7;
+  --ink:#111110;
+  --ink-2:#3d3c39;
+  --muted:#6f6d67;
+  --line:#e1ded4;
+  --line-2:#cfccc0;
+  --ring:rgba(11,11,11,.12);
+  --accent:#a56a00;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  font-family:var(--body);
+  background:var(--bg);
+  color:var(--ink);
+  line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *{animation:none!important;transition:none!important}
+}
+
+/* ============ CHROME: rail + progress + toggle ============ */
+.railwrap{position:fixed;top:0;left:0;height:100%;z-index:60;display:flex;align-items:center;pointer-events:none}
+.rail{pointer-events:auto;display:flex;flex-direction:column;gap:2px;padding:14px 12px;margin-left:8px;
+  background:color-mix(in srgb,var(--surface) 82%,transparent);backdrop-filter:blur(10px);
+  border:1px solid var(--line);border-radius:14px}
+.rail button{all:unset;cursor:pointer;font-family:var(--mono);font-size:10px;letter-spacing:.08em;
+  color:var(--muted);padding:6px 9px;border-radius:8px;display:flex;align-items:center;gap:8px;transition:.2s;white-space:nowrap}
+.rail button .dot{width:6px;height:6px;border-radius:50%;background:var(--line-2);flex:none;transition:.2s}
+.rail button:hover{color:var(--ink);background:var(--surface-2)}
+.rail button.on{color:var(--ink)}
+.rail button.on .dot{background:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 25%,transparent)}
+.rail .lbl{max-width:0;overflow:hidden;opacity:0;transition:.25s}
+.rail:hover .lbl{max-width:180px;opacity:1}
+
+.topbar{position:fixed;top:0;left:0;right:0;height:3px;z-index:70;background:transparent}
+.topbar .fill{height:100%;width:0;background:linear-gradient(90deg,var(--sched),var(--unified),var(--infield))}
+
+.toggle{position:fixed;top:16px;right:18px;z-index:70;display:flex;gap:6px;
+  background:color-mix(in srgb,var(--surface) 82%,transparent);backdrop-filter:blur(10px);
+  border:1px solid var(--line);border-radius:999px;padding:5px}
+.toggle button{all:unset;cursor:pointer;font-family:var(--mono);font-size:11px;color:var(--muted);
+  padding:5px 11px;border-radius:999px;transition:.2s}
+.toggle button.on{background:var(--ink);color:var(--bg)}
+
+.hint{position:fixed;bottom:16px;right:18px;z-index:60;font-family:var(--mono);font-size:11px;color:var(--muted);
+  display:flex;gap:10px;align-items:center;background:color-mix(in srgb,var(--surface) 82%,transparent);
+  backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:999px;padding:7px 13px}
+kbd{font-family:var(--mono);font-size:10px;background:var(--surface-2);border:1px solid var(--line-2);
+  border-bottom-width:2px;border-radius:5px;padding:1px 6px;color:var(--ink-2)}
+
+/* ============ SLIDES ============ */
+.deck{scroll-snap-type:y mandatory;height:100vh;overflow-y:scroll;scroll-behavior:smooth}
+.slide{min-height:100vh;scroll-snap-align:start;display:flex;flex-direction:column;justify-content:center;
+  padding:72px 40px 72px 118px;position:relative}
+.inner{width:100%;max-width:1120px;margin:0 auto}
+@media(max-width:820px){.slide{padding:80px 20px 90px}.railwrap{display:none}}
+
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.22em;text-transform:uppercase;color:var(--muted);
+  display:flex;align-items:center;gap:12px;margin-bottom:20px}
+.eyebrow::before{content:"";width:26px;height:1px;background:var(--accent)}
+.eyebrow .act{color:var(--accent);font-weight:700}
+h1{font-family:var(--disp);font-weight:700;line-height:1.02;letter-spacing:-.02em}
+h2{font-family:var(--disp);font-weight:600;line-height:1.06;letter-spacing:-.015em;font-size:clamp(26px,3.6vw,44px)}
+h3{font-family:var(--disp);font-weight:600;font-size:19px;letter-spacing:-.01em}
+p{color:var(--ink-2);font-size:16px}
+.lede{font-size:clamp(17px,1.7vw,21px);color:var(--ink-2);max-width:70ch;line-height:1.5}
+.mono{font-family:var(--mono)}
+.reveal{opacity:0;transform:translateY(20px);transition:opacity .6s cubic-bezier(.2,.7,.3,1),transform .6s cubic-bezier(.2,.7,.3,1)}
+.reveal.in{opacity:1;transform:none}
+.reveal.d1{transition-delay:.08s}.reveal.d2{transition-delay:.16s}.reveal.d3{transition-delay:.24s}
+.reveal.d4{transition-delay:.32s}.reveal.d5{transition-delay:.40s}.reveal.d6{transition-delay:.48s}
+
+/* ============ TITLE ============ */
+#s-title{background:
+   radial-gradient(1200px 600px at 15% -10%,color-mix(in srgb,var(--sched) 16%,transparent),transparent 60%),
+   radial-gradient(1100px 620px at 85% 110%,color-mix(in srgb,var(--infield) 15%,transparent),transparent 60%);}
+.title-huge{font-size:clamp(40px,7.4vw,104px)}
+.title-sub{display:flex;flex-wrap:wrap;gap:10px 14px;margin-top:26px}
+.chip{font-family:var(--mono);font-size:13px;padding:8px 15px;border-radius:999px;border:1px solid var(--line-2);
+  display:inline-flex;align-items:center;gap:9px;background:var(--surface)}
+.chip .sw{width:10px;height:10px;border-radius:3px}
+.metaline{margin-top:34px;font-family:var(--mono);font-size:12.5px;color:var(--muted);display:flex;flex-wrap:wrap;gap:8px 22px}
+
+/* ============ KPI STRIP ============ */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:14px}
+@media(max-width:820px){.kpis{grid-template-columns:repeat(2,1fr)}}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:22px 20px;position:relative;overflow:hidden}
+.kpi::after{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent)}
+.kpi.k-ok::after{background:var(--ok)}.kpi.k-crit::after{background:var(--crit)}.kpi.k-serious::after{background:var(--serious)}
+.kpi .v{font-family:var(--disp);font-weight:700;font-size:clamp(34px,4vw,52px);line-height:1;letter-spacing:-.02em}
+.kpi .u{font-family:var(--mono);font-size:12px;color:var(--muted);margin-top:9px;text-transform:uppercase;letter-spacing:.08em}
+.kpi .d{font-size:13.5px;color:var(--ink-2);margin-top:10px;line-height:1.4}
+
+/* ============ STATUS TAGS ============ */
+.tag{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.04em;padding:3px 9px;border-radius:6px;
+  display:inline-flex;align-items:center;gap:6px;white-space:nowrap;text-transform:uppercase}
+.tag svg{width:12px;height:12px;flex:none}
+.t-ok{color:var(--ok);background:color-mix(in srgb,var(--ok) 15%,transparent)}
+.t-crit{color:var(--crit);background:color-mix(in srgb,var(--crit) 16%,transparent)}
+.t-serious{color:var(--serious);background:color-mix(in srgb,var(--serious) 18%,transparent)}
+.t-warn{color:var(--warn);background:color-mix(in srgb,var(--warn) 18%,transparent)}
+.t-na{color:var(--muted);background:color-mix(in srgb,var(--muted) 15%,transparent)}
+
+/* ============ PRODUCT PANELS ============ */
+.duo{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:8px}
+.trio{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:8px}
+@media(max-width:820px){.duo,.trio{grid-template-columns:1fr}}
+.pcard{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:20px;position:relative}
+.pcard.sched{border-top:3px solid var(--sched)}
+.pcard.unified{border-top:3px solid var(--unified)}
+.pcard.infield{border-top:3px solid var(--infield)}
+.pcard .ph{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.pcard .ph .sw{width:11px;height:11px;border-radius:3px}
+.pcard .ph .nm{font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.pcard .body{font-size:14.5px;color:var(--ink-2);line-height:1.5}
+.pcard .verdict{font-family:var(--disp);font-weight:600;font-size:17px;margin:2px 0 10px;color:var(--ink)}
+
+/* ============ TIMELINE (signature) ============ */
+.tl{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:22px 24px 16px;margin-top:8px}
+.tl .axis{position:relative;height:20px;margin:0 0 4px 88px;border-bottom:1px solid var(--line-2)}
+.tl .tick{position:absolute;top:0;font-family:var(--mono);font-size:10.5px;color:var(--muted);transform:translateX(-50%)}
+.tl .tick::after{content:"";position:absolute;left:50%;top:16px;width:1px;height:5px;background:var(--line-2)}
+.tl .row{display:flex;align-items:center;gap:0;height:38px}
+.tl .rlab{width:88px;flex:none;font-family:var(--mono);font-size:12px;color:var(--ink-2);display:flex;align-items:center;gap:7px}
+.tl .rlab .sw{width:9px;height:9px;border-radius:2px}
+.tl .track{position:relative;flex:1;height:100%}
+.tl .bar{position:absolute;top:9px;height:20px;border-radius:5px;display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:10px;color:#fff;overflow:hidden}
+.tl .bar.shift{background:color-mix(in srgb,var(--ink) 12%,transparent);color:var(--ink-2);border:1px dashed var(--line-2)}
+.tl .want{position:absolute;top:2px;bottom:2px;border-radius:6px;border:2px solid var(--accent);
+  background:color-mix(in srgb,var(--accent) 12%,transparent)}
+.tl .want .wl{position:absolute;top:-19px;left:50%;transform:translateX(-50%);white-space:nowrap;
+  font-family:var(--mono);font-size:10px;color:var(--accent);font-weight:700}
+.tl .cap{margin:10px 0 0 88px;font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+
+/* ============ FLOW / MODEL DIAGRAM ============ */
+.flow{display:flex;align-items:stretch;gap:0;margin-top:10px;flex-wrap:wrap}
+.node{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:13px 15px;flex:1;min-width:140px;position:relative}
+.node .nt{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
+.node .nb{font-size:13.5px;color:var(--ink);font-weight:500;line-height:1.35}
+.arrow{display:flex;align-items:center;justify-content:center;padding:0 10px;color:var(--muted);font-family:var(--mono);font-size:20px}
+@media(max-width:820px){.arrow{transform:rotate(90deg);padding:6px 0}}
+
+/* ============ SCORECARD TABLE ============ */
+.tablewrap{margin-top:8px;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:var(--surface)}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th,td{text-align:left;padding:12px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);
+  background:var(--surface-2);position:sticky;top:0}
+tr:last-child td{border-bottom:none}
+tbody tr:hover{background:var(--surface-2)}
+td .sc{font-size:13px;color:var(--ink-2);line-height:1.4}
+td.scn{font-weight:600;color:var(--ink);font-family:var(--disp)}
+.legend{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:16px;font-size:12.5px;color:var(--muted);align-items:center}
+
+/* ============ DECISION BOX ============ */
+.decision{margin-top:20px;border-radius:16px;padding:20px 22px;background:
+  linear-gradient(180deg,color-mix(in srgb,var(--accent) 10%,transparent),transparent),var(--surface);
+  border:1px solid color-mix(in srgb,var(--accent) 40%,var(--line))}
+.decision .dh{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);
+  display:flex;align-items:center;gap:8px;margin-bottom:10px;font-weight:700}
+.decision .q{font-family:var(--disp);font-weight:600;font-size:18px;color:var(--ink);margin-bottom:8px;line-height:1.3}
+.decision ul{list-style:none;margin-top:8px}
+.decision li{font-size:14px;color:var(--ink-2);padding-left:20px;position:relative;margin-bottom:6px;line-height:1.45}
+.decision li::before{content:"→";position:absolute;left:0;color:var(--accent);font-family:var(--mono)}
+.say{margin-top:14px;border-left:3px solid var(--accent);padding:10px 14px;background:var(--surface-2);border-radius:0 8px 8px 0}
+.say .sl{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.say .st{font-size:15px;color:var(--ink);font-style:italic;line-height:1.45}
+
+/* ============ EVIDENCE PILL ============ */
+.evid{margin-top:12px;display:flex;flex-wrap:wrap;gap:8px}
+.epill{font-family:var(--mono);font-size:11px;color:var(--muted);background:var(--surface-2);border:1px solid var(--line);
+  border-radius:7px;padding:4px 9px;display:inline-flex;gap:6px;align-items:center}
+.epill b{color:var(--ink-2);font-weight:700}
+.epill.live{border-color:color-mix(in srgb,var(--ok) 40%,var(--line));color:var(--ok)}
+.epill.code{border-color:color-mix(in srgb,var(--infield) 40%,var(--line));color:var(--infield)}
+
+/* generic bits */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:8px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:8px}
+@media(max-width:820px){.grid2,.grid3{grid-template-columns:1fr}}
+.callout{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px 20px}
+.callout h3{margin-bottom:8px}
+.callout p{font-size:14.5px}
+.big-fact{font-family:var(--disp);font-weight:600;font-size:clamp(20px,2.5vw,30px);line-height:1.25;letter-spacing:-.01em;color:var(--ink)}
+.big-fact em{font-style:normal;color:var(--accent)}
+.hl-sched{color:var(--sched);font-weight:600}
+.hl-unified{color:var(--unified);font-weight:600}
+.hl-infield{color:var(--infield);font-weight:600}
+.sectdiv{font-family:var(--disp);font-weight:700;font-size:clamp(44px,9vw,120px);line-height:.92;letter-spacing:-.03em}
+.act-num{font-family:var(--mono);font-size:14px;letter-spacing:.3em;color:var(--accent);text-transform:uppercase}
+.footnote{font-family:var(--mono);font-size:11.5px;color:var(--muted);margin-top:18px;line-height:1.5}
+.pill-row{display:flex;flex-wrap:wrap;gap:9px;margin-top:14px}
+.pill-row .pr{font-family:var(--mono);font-size:12px;padding:6px 12px;border-radius:999px;border:1px solid var(--line-2);color:var(--ink-2)}
+</style>
+</head>
+<body>
+
+<div class="topbar"><div class="fill" id="pf"></div></div>
+
+<div class="toggle" role="group" aria-label="Theme">
+  <button id="tg-dark" class="on" onclick="setTheme('dark')">Dark</button>
+  <button id="tg-light" onclick="setTheme('light')">Light</button>
+</div>
+
+<div class="railwrap"><nav class="rail" id="rail" aria-label="Slides"></nav></div>
+
+<div class="hint"><kbd>↑</kbd><kbd>↓</kbd> navigate · <kbd>T</kbd> theme</div>
+
+<main class="deck" id="deck">
+
+<!-- ========================= 0 · TITLE ========================= -->
+<section class="slide" id="s-title" data-title="Cover">
+  <div class="inner">
+    <div class="eyebrow reveal"><span>Salesforce · Core 262</span></div>
+    <h1 class="title-huge reveal d1">Three ways to<br>book a worker.</h1>
+    <p class="lede reveal d2" style="margin-top:22px">A behavior comparison of three scheduling engines — where they agree, where they diverge, and the handful of calls each team needs to make.</p>
+    <div class="title-sub reveal d3">
+      <span class="chip"><span class="sw" style="background:var(--infield)"></span>InField <span style="color:var(--muted)">· Field Service / O2 engine</span></span>
+      <span class="chip"><span class="sw" style="background:var(--sched)"></span>Scheduler <span style="color:var(--muted)">· the old onSite product</span></span>
+      <span class="chip"><span class="sw" style="background:var(--unified)"></span>Unified <span style="color:var(--muted)">· the new onSite product</span></span>
+    </div>
+    <div class="metaline reveal d4">
+      <span>◆ Combined review</span>
+      <span>◆ onSite proof: live on a 262 org</span>
+      <span>◆ InField: read from the O2 source</span>
+      <span>◆ Every claim → a test or a file:line</span>
+    </div>
+  </div>
+</section>
+
+<!-- ========================= 1 · HOW TO PILOT ========================= -->
+<section class="slide" data-title="The path">
+  <div class="inner">
+    <div class="eyebrow reveal">How we'll run this</div>
+    <h2 class="reveal d1">One question, three engines — then the decisions.</h2>
+    <p class="lede reveal d2" style="margin-top:16px">The spreadsheet is overwhelming because it answers everything at once. This walks it in the order a room can follow: understand the shapes first, then only the places they part ways.</p>
+
+    <div class="flow reveal d3" style="margin-top:26px">
+      <div class="node"><div class="nt">Start here</div><div class="nb"><span class="hl-infield">InField</span> vs <span class="hl-sched">Scheduler</span><br><span style="color:var(--muted);font-size:12px">Two engines built on opposite ideas — sets the mental model</span></div></div>
+      <div class="arrow">→</div>
+      <div class="node"><div class="nt">Then</div><div class="nb"><span class="hl-sched">Scheduler</span> vs <span class="hl-unified">Unified</span><br><span style="color:var(--muted);font-size:12px">Same job, two rewrites — 13 booking behaviors, side by side</span></div></div>
+      <div class="arrow">→</div>
+      <div class="node"><div class="nt">End here</div><div class="nb"><span style="color:var(--accent)">The decisions board</span><br><span style="color:var(--muted);font-size:12px">Four calls to make, owner named on each</span></div></div>
+    </div>
+
+    <div class="grid3 reveal d4" style="margin-top:22px">
+      <div class="callout"><h3>The one idea that unlocks it</h3><p>onSite lets an <b>optional worker ride along</b> on an appointment and skip the rule checks. Almost every finding is a consequence of that one design choice — or its absence.</p></div>
+      <div class="callout"><h3>Refuse ≠ crash</h3><p>Both products often <b>stop</b> a bad booking. The question is <em>how</em>: a clean <span class="mono">400</span> you can act on, or a <span class="mono">500</span> server crash. Two of the divergences are exactly this.</p></div>
+      <div class="callout"><h3>Read path ≠ write path</h3><p>Showing a slot and booking it run <b>different code</b>. Several gaps are one path enforcing a rule the other skips — the write-path double-book is the big one.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ========================= 2 · THREE MENTAL MODELS ========================= -->
+<section class="slide" data-title="Models">
+  <div class="inner">
+    <div class="eyebrow reveal">The three engines, in one picture each</div>
+    <h2 class="reveal d1">Same request. Three fundamentally different machines.</h2>
+    <div class="trio reveal d2" style="margin-top:24px">
+      <div class="pcard infield">
+        <div class="ph"><span class="sw" style="background:var(--infield)"></span><span class="nm">InField</span></div>
+        <div class="verdict">Optimize the route</div>
+        <div class="body">Sends a technician <b>to</b> the customer. A job lists three ID lists — required / preferred / avoid — and the O2 engine assigns <b>exactly one</b> resource per route. No lead worker, no per-worker flags, no seat to ride along in.</div>
+      </div>
+      <div class="pcard sched">
+        <div class="ph"><span class="sw" style="background:var(--sched)"></span><span class="nm">Scheduler (old)</span></div>
+        <div class="verdict">Attach & check the lead</div>
+        <div class="body">Customer comes <b>to</b> a branch. Attaches workers to an appointment, marks one <b>primary</b>, flags each required or not. A not-required worker rides along and <b>skips</b> the rule checks.</div>
+      </div>
+      <div class="pcard unified">
+        <div class="ph"><span class="sw" style="background:var(--unified)"></span><span class="nm">Unified (new)</span></div>
+        <div class="verdict">Same idea, rewritten</div>
+        <div class="body">Meant to <b>replace</b> Scheduler. Same attach-and-flag model, separate codebase. Agrees with Scheduler almost everywhere — the divergences are where the rewrite drifted.</div>
+      </div>
+    </div>
+    <p class="big-fact reveal d3" style="margin-top:26px">The whole comparison turns on one line: <em>InField has no optional-resource seat.</em> Scheduler and Unified both do — so their bugs live in that seat, and InField is immune to them by construction.</p>
+  </div>
+</section>
+
+<!-- ========================= 3 · ACT A DIVIDER ========================= -->
+<section class="slide" data-title="ACT A" style="background:radial-gradient(1000px 600px at 80% 20%,color-mix(in srgb,var(--infield) 16%,transparent),transparent 60%)">
+  <div class="inner">
+    <div class="act-num reveal">Act A</div>
+    <h1 class="sectdiv reveal d1" style="margin-top:10px"><span class="hl-infield">InField</span><br>vs<br><span class="hl-sched">Scheduler</span></h1>
+    <p class="lede reveal d2" style="margin-top:24px">Two engines built on opposite ideas. Read from the O2 source (five repos), compared against Scheduler's live 262 behavior. The point isn't a scorecard — it's <b>why so many onSite behaviors have no InField equivalent</b>, and where InField is quietly stricter.</p>
+    <div class="pill-row reveal d3">
+      <span class="pr">Route optimization vs branch booking</span>
+      <span class="pr">Code-read · High/Medium confidence</span>
+      <span class="pr">Every row cites repo file:line</span>
+    </div>
+  </div>
+</section>
+
+<!-- ========================= 4 · THE CREW-MEMBER TRAP ========================= -->
+<section class="slide" data-title="Crew ≠ optional">
+  <div class="inner">
+    <div class="eyebrow reveal">The trap everyone falls into</div>
+    <h2 class="reveal d1">InField's "crew member" looks like onSite's optional worker.<br>It is the exact opposite.</h2>
+    <div class="duo reveal d2" style="margin-top:22px">
+      <div class="pcard sched">
+        <div class="ph"><span class="sw" style="background:var(--sched)"></span><span class="nm">onSite · optional resource</span></div>
+        <div class="verdict">An exception to the rules</div>
+        <div class="body">Attached to the appointment as a second bookable seat. It <b>skips</b> skill, territory, location-role, and availability checks. This one seat is the source of behaviors 1a–1.5.</div>
+      </div>
+      <div class="pcard infield">
+        <div class="ph"><span class="sw" style="background:var(--infield)"></span><span class="nm">InField · crew member</span></div>
+        <div class="verdict">More input to the rules</div>
+        <div class="body">Folded <b>into</b> one crew resource: its skills add to the crew, its unavailability clamps the crew, crew-size is a hard constraint. It <b>tightens</b> the checks — it never escapes them.</div>
+      </div>
+    </div>
+    <p class="big-fact reveal d3" style="margin-top:24px">onSite's optional worker is <em>an exception</em> to the rules. InField's crew member is <em>more input</em> to the same rules. That single inversion is why behaviors 1a, 1b, 1c, 1.4 and 1.5 have <b>nothing to test</b> in InField.</p>
+    <div class="evid reveal d4">
+      <span class="epill code"><b>dts</b> ResourcesTranslator.java:2194–2231</span>
+      <span class="epill code"><b>engine</b> O2Constraint.cpp:3758–3862 (Num_Elements)</span>
+      <span class="epill code"><b>engine</b> O2Route.h:37 (one resource per route)</span>
+    </div>
+  </div>
+</section>
+
+<!-- ========================= 5 · INFIELD SCORECARD ========================= -->
+<section class="slide" data-title="A · Scorecard">
+  <div class="inner">
+    <div class="eyebrow reveal">Act A · the whole table on one screen</div>
+    <h2 class="reveal d1">Where onSite behaviors land in InField</h2>
+    <div class="tablewrap reveal d2" style="margin-top:18px;max-height:56vh;overflow:auto">
+      <table>
+        <thead><tr><th style="width:24%">onSite behavior</th><th style="width:11%">Applies?</th><th>What InField does — and why it differs</th></tr></thead>
+        <tbody>
+          <tr><td class="scn">1a · Excluded (do-not-use) worker</td><td><span class="tag t-warn">◐ Partial</span></td><td class="sc">InField honors Excluded as a <b>hard filter on read and write</b>. onSite only hides the worker on one read and still books them. <span class="hl-infield">InField is stricter — excluded means excluded.</span></td></tr>
+          <tr><td class="scn">1b · Out-of-coverage territory</td><td><span class="tag t-warn">◐ Partial</span></td><td class="sc">Territory is a hard, time-phased filter over the job window. Same intent as onSite, reached <b>without</b> the optional-worker leak.</td></tr>
+          <tr><td class="scn">1c · Missing skill</td><td><span class="tag t-warn">◐ Partial</span></td><td class="sc">Skill match is a <b>uniform</b> hard filter on every candidate. onSite checks only the lead; InField has no "extra" to skip it.</td></tr>
+          <tr><td class="scn">1d · Wrong location role</td><td><span class="tag t-na">○ N/A</span></td><td class="sc">No primary-members-only policy exists. All member roles are schedulable; role only shapes availability windows. The one primary-only flag is <b>display-only</b> (Gantt).</td></tr>
+          <tr><td class="scn">1.5 · Off-shift double-book</td><td><span class="tag t-na">○ N/A</span></td><td class="sc">No seat to attach an off-shift rider. Off-shift = infeasible unless a covering shift is minted. Shift boundary is hard.</td></tr>
+          <tr><td class="scn">1.4 · Demand an optional-only worker</td><td><span class="tag t-warn">◐ Part/No</span></td><td class="sc">No optional tier to demand from. "Demand" = add to required list; infeasibility is reported cleanly. <b>The Unified 500 crash has no InField analog.</b></td></tr>
+          <tr><td class="scn">3 · Worker sent without required flag</td><td><span class="tag t-na">○ N/A</span></td><td class="sc">There is no flag to omit. "Not required" = simply absent from the required list — the harmless default. No Boolean to unbox, no crash.</td></tr>
+          <tr><td class="scn">4 · Two primary resources</td><td><span class="tag t-na">○ N/A</span></td><td class="sc">No primary concept, so nothing to have two of. A job may list several required IDs without contradiction; the optimizer picks one.</td></tr>
+          <tr><td class="scn">4z · Reschedule to no-primary</td><td><span class="tag t-na">○ N/A</span></td><td class="sc">"No one pinned" is the <b>normal starting state</b>, not an edge case. Empty required list → solver picks any eligible resource.</td></tr>
+          <tr><td class="scn">5 · Primary marked not-required</td><td><span class="tag t-na">○ N/A</span></td><td class="sc">Neither a primary flag nor a per-resource required flag exists to contradict. No LightningScheduler validator in the O2 stack.</td></tr>
+          <tr><td class="scn">2 · Shown slot is a real promise</td><td><span class="tag t-ok">✓ Yes</span></td><td class="sc">One translation pipeline + one solver feed both read and write; the engine intersects the slot grid with real shifts. Read feasibility = write feasibility.</td></tr>
+          <tr><td class="scn">8 · "Return at most N" cap</td><td><span class="tag t-na">○ N/A</span></td><td class="sc">No caller cap and no engine cap; get-candidates returns the full set. The only count concept is crew size — a different question.</td></tr>
+          <tr><td class="scn">9 · Who can see whose shifts</td><td><span class="tag t-ok">✓ Yes</span></td><td class="sc">Same silent zero-slots result, enforced <b>one layer earlier</b>: the org applies record sharing at fetch; O2 never sees rows the org withheld.</td></tr>
+          <tr><td class="scn">11 · Double-booking a busy worker</td><td><span class="tag t-ok">✓ Yes</span></td><td class="sc"><b>Structurally impossible.</b> One resource = one route; two overlapping jobs can't even be represented. Stronger than any rule check.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="legend reveal d3">
+      <span class="tag t-ok">✓ Yes</span> behavior maps
+      <span class="tag t-warn">◐ Partial</span> maps, stricter or different path
+      <span class="tag t-na">○ N/A</span> concept doesn't exist in InField
+      <span style="margin-left:auto;color:var(--muted)">Confidence High except 1.4 &amp; 1.5 (Medium — final step in a compiled lib)</span>
+    </div>
+  </div>
+</section>
+
+<!-- ========================= 6 · INFIELD IMMUNE (timeline) ========================= -->
+<section class="slide" data-title="Immune by design">
+  <div class="inner">
+    <div class="eyebrow reveal">The headline finding of Act A</div>
+    <h2 class="reveal d1">InField can't double-book. Not by a check — by its shape.</h2>
+    <p class="lede reveal d2" style="margin-top:14px;max-width:74ch">One resource is one route: an ordered list of stops, each starting after the previous stop's departure plus travel. Two jobs sharing wall-clock time on one resource <b>cannot be expressed</b>. There's no flag to turn it off.</p>
+
+    <div class="tl reveal d3">
+      <div class="axis"><span class="tick" style="left:0%">08</span><span class="tick" style="left:25%">10</span><span class="tick" style="left:50%">12</span><span class="tick" style="left:75%">14</span><span class="tick" style="left:100%">16</span></div>
+      <div class="row"><div class="rlab"><span class="sw" style="background:var(--infield)"></span>Route</div>
+        <div class="track">
+          <div class="bar" style="left:6%;width:20%;background:var(--infield)">Job&nbsp;1</div>
+          <div class="bar" style="left:30%;width:8%;background:color-mix(in srgb,var(--infield) 55%,var(--ink))">↦travel</div>
+          <div class="bar" style="left:42%;width:22%;background:var(--infield)">Job&nbsp;2</div>
+          <div class="bar" style="left:68%;width:26%;background:color-mix(in srgb,var(--infield) 30%,transparent);color:var(--ink-2);border:1px dashed var(--infield)">open</div>
+        </div></div>
+      <div class="cap">Stops chain in time. There is no vertical axis to stack a second overlapping job on — overlap is unrepresentable, not merely rejected.</div>
+    </div>
+
+    <div class="grid2 reveal d4" style="margin-top:18px">
+      <div class="callout"><h3>The one caveat we owe you</h3><p>The invariant is <b>per-route</b>. Genuinely concurrent overlapping shifts for the same resource are chained by separate machinery we didn't fully exhaust. Flagged honestly, not swept.</p></div>
+      <div class="callout" style="border-color:color-mix(in srgb,var(--serious) 40%,var(--line))"><h3><span class="tag t-serious" style="margin-right:6px">▲</span>Two paths bypass the optimizer</h3><p>Drag-and-drop has an <b>engineless fallback</b> (writes drop coordinates, no checks); apply-preview replays a stale saved plan with no re-check. The one place InField can force-place. <b>Strongest 264 candidate.</b></p></div>
+    </div>
+    <div class="evid reveal d5">
+      <span class="epill code"><b>engine</b> O2Route.cpp:959–964, 1102–1124</span>
+      <span class="epill code"><b>engine</b> O2AppointmentBooking.cpp:500–644 (locked seeding)</span>
+      <span class="epill code"><b>svc</b> DragAndDropEnginelessProcessor.java:60–110</span>
+    </div>
+  </div>
+</section>
+
+<!-- ========================= 7 · ACT A TAKEAWAY / DECISION ========================= -->
+<section class="slide" data-title="A · Takeaway">
+  <div class="inner">
+    <div class="eyebrow reveal">Act A · what the InField team should walk away with</div>
+    <h2 class="reveal d1">InField isn't a looser onSite. It's a stricter, differently-shaped one.</h2>
+    <div class="grid3 reveal d2" style="margin-top:20px">
+      <div class="callout"><h3 class="hl-infield">Don't expect the loophole</h3><p>The onSite "hidden but still bookable" excluded-worker gap does <b>not</b> exist here. Excluded genuinely blocks. Plan around stricter, not laxer.</p></div>
+      <div class="callout"><h3 class="hl-infield">Half the onSite bugs are N/A</h3><p>The primary/required-flag family (3, 4, 4z, 5) probes inputs InField can't express. No fix carries over — but no equivalent risk exists either.</p></div>
+      <div class="callout"><h3 class="hl-infield">Immunity has a footnote</h3><p>Double-book is impossible on optimizer-backed paths. The two engineless write paths are the exception worth a decision.</p></div>
+    </div>
+    <div class="decision reveal d3">
+      <div class="dh"><span class="tag t-serious">▲</span> Decision for the InField team · 264</div>
+      <div class="q">Is the engineless drag-and-drop fallback intended — and if so, should it still enforce a basic overlap/shift guard before writing?</div>
+      <div class="say"><div class="sl">Say this to open it</div><div class="st">"Everywhere the optimizer runs, you literally cannot double-book. But two paths skip the optimizer and write raw coordinates. That's the one place InField behaves like Unified's write-path bug — worth a conscious call, not an accident."</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ========================= 8 · ACT B DIVIDER ========================= -->
+<section class="slide" data-title="ACT B" style="background:radial-gradient(1000px 620px at 20% 80%,color-mix(in srgb,var(--unified) 15%,transparent),transparent 60%),radial-gradient(900px 500px at 85% 15%,color-mix(in srgb,var(--sched) 14%,transparent),transparent 60%)">
+  <div class="inner">
+    <div class="act-num reveal">Act B</div>
+    <h1 class="sectdiv reveal d1" style="margin-top:10px"><span class="hl-sched">Scheduler</span><br>vs<br><span class="hl-unified">Unified</span></h1>
+    <p class="lede reveal d2" style="margin-top:24px">Same job, two rewrites, meant to be interchangeable before migration. We ran the same 13 booking scenarios against both, <b>live on a 262 org</b>. Here's exactly where they agree and where they don't.</p>
+    <div class="pill-row reveal d3">
+      <span class="pr">13 behaviors · live-verified</span>
+      <span class="pr">ReVoman drives a Postman collection step-by-step</span>
+      <span class="pr">Root causes confirmed in the debugger</span>
+    </div>
+  </div>
+</section>
+
+<!-- ========================= 9 · ACT B SCORECARD (KPIs) ========================= -->
+<section class="slide" data-title="B · Scorecard">
+  <div class="inner">
+    <div class="eyebrow reveal">Act B · the verdict in four numbers</div>
+    <h2 class="reveal d1">Mostly interchangeable. Three things aren't.</h2>
+    <div class="kpis reveal d2" style="margin-top:20px">
+      <div class="kpi k-ok"><div class="v">11<span style="font-size:22px;color:var(--muted)">/13</span></div><div class="u">Behaviors agree</div><div class="d">Same result, often the same code path. Migration-safe.</div></div>
+      <div class="kpi k-crit"><div class="v">2</div><div class="u">Crashes to fix</div><div class="d">Both refuse the bad booking — Unified refuses by throwing a <span class="mono">500</span> where Scheduler returns a clean <span class="mono">400</span>.</div></div>
+      <div class="kpi k-serious"><div class="v">1</div><div class="u">Real write-path bug</div><div class="d">The double-book. Old refuses, Unified books over a busy worker. Not a config gap.</div></div>
+      <div class="kpi"><div class="v">1</div><div class="u">Shared-code match</div><div class="d">"Primary must be required" — both call the <em>same</em> validator. Highest-confidence parity.</div></div>
+    </div>
+    <p class="big-fact reveal d3" style="margin-top:24px">The good news is the headline: <em>11 of 13 agree.</em> The work is three specific items — two crashes and one write-path contract — each with a named owner and a clean repro.</p>
+    <div class="footnote reveal d4">Proof status · 7 re-run live this session (1a, 1b, 1c, 1d, 1.5, 2, 11) · 7 test-backed from the prior effort (3, 4, 4z, 5, 1.4, 8, 9) · 1 new divergence found live this session (required+primary excluded → Scheduler books, Unified crashes).</div>
+  </div>
+</section>
+
+<!-- ========================= 10 · ACT B FULL TABLE ========================= -->
+<section class="slide" data-title="B · All 13">
+  <div class="inner">
+    <div class="eyebrow reveal">Act B · all thirteen, one screen</div>
+    <h2 class="reveal d1">Scheduler vs Unified — the full board</h2>
+    <div class="tablewrap reveal d2" style="margin-top:16px;max-height:60vh;overflow:auto">
+      <table>
+        <thead><tr><th style="width:26%">Scenario</th><th style="width:14%">Agree?</th><th>The finding</th></tr></thead>
+        <tbody>
+          <tr><td class="scn">Busy optional worker (double-book)</td><td><span class="tag t-ok">✓ Yes</span></td><td class="sc">Both let an off-shift optional worker ride along, unchecked. Same root cause as the real double-book row.</td></tr>
+          <tr><td class="scn">Out-of-coverage optional worker</td><td><span class="tag t-ok">✓ Yes</span></td><td class="sc">Both skip the territory check for a non-required worker. Marked required, both refuse.</td></tr>
+          <tr><td class="scn">Wrong location role (optional)</td><td><span class="tag t-ok">✓ Yes</span></td><td class="sc">Both skip the Primary-only role check for a non-required worker.</td></tr>
+          <tr><td class="scn">Blocked / Excluded (optional)</td><td><span class="tag t-ok">✓ Yes</span></td><td class="sc">Both book anyway — the do-not-use list is enforced only on read, never on the booking path.</td></tr>
+          <tr><td class="scn">Missing-skill optional worker</td><td><span class="tag t-ok">✓ Yes</span></td><td class="sc">Both book. Only the primary/required worker is skill-checked; the extra rides along.</td></tr>
+          <tr><td class="scn">Shown slot is a real promise</td><td><span class="tag t-ok">✓ Yes</span></td><td class="sc">On both, what the read shows the write books; what it hides, it refuses.</td></tr>
+          <tr><td class="scn">Two primary resources</td><td><span class="tag t-ok">✓ Yes</span></td><td class="sc">Both refuse at input validation. Only the error wording differs.</td></tr>
+          <tr><td class="scn">Reschedule to no-primary</td><td><span class="tag t-ok">✓ Yes</span></td><td class="sc">Neither enforces "must keep a primary." Guard is route-specific (delete blocked, demote allowed).</td></tr>
+          <tr><td class="scn">Primary marked not-required</td><td><span class="tag t-ok">✓ Yes</span></td><td class="sc"><b>Strongest match</b> — both run the <em>same</em> shared save-time validator. Refuse identically.</td></tr>
+          <tr><td class="scn">"Return at most N" cap</td><td><span class="tag t-ok">✓ Yes</span></td><td class="sc">Same intent. Old side's cap only engages under smart scheduling (a setup difference, not a code one).</td></tr>
+          <tr><td class="scn">Who can see whose shifts</td><td><span class="tag t-ok">✓ Yes</span></td><td class="sc">Both silently return zero slots to a sharing-deprived reader. Gate sits in different reads internally.</td></tr>
+          <tr style="background:color-mix(in srgb,var(--crit) 8%,transparent)"><td class="scn">Demand an optional-only worker</td><td><span class="tag t-crit">✕ Crash</span></td><td class="sc">Both stop the booking — but Unified <b>crashes (500, serviceTerritoryMembers NPE)</b> where Scheduler refuses cleanly (400).</td></tr>
+          <tr style="background:color-mix(in srgb,var(--crit) 8%,transparent)"><td class="scn">Worker sent without required flag</td><td><span class="tag t-crit">✕ Crash</span></td><td class="sc">Scheduler names the missing field (400). Unified <b>unboxes a null Boolean → 500</b>. Same NPE family.</td></tr>
+          <tr style="background:color-mix(in srgb,var(--serious) 9%,transparent)"><td class="scn">Worker already booked (double-book)</td><td><span class="tag t-serious">▲ Diverge</span></td><td class="sc">Old refuses; Unified <b>books over a busy worker</b> in every role. A real write-path contract difference.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="legend reveal d3">
+      <span class="tag t-ok">✓ Yes</span> agree · <span class="tag t-crit">✕ Crash</span> both stop it, Unified via 500 · <span class="tag t-serious">▲ Diverge</span> genuine behavior gap
+      <span style="margin-left:auto;color:var(--muted)">Next three slides: the two crashes, then the double-book deep-dive.</span>
+    </div>
+  </div>
+</section>
+
+<!-- ========================= 11 · THE TWO CRASHES ========================= -->
+<section class="slide" data-title="B · The 2 crashes">
+  <div class="inner">
+    <div class="eyebrow reveal">Divergence 1 &amp; 2 · the easy ones</div>
+    <h2 class="reveal d1">Both refuse the bad booking. Only the manner differs.</h2>
+    <p class="lede reveal d2" style="margin-top:12px;max-width:76ch">Neither of these is a wrong outcome — both products correctly stop the booking. Scheduler stops it with a message a client can act on; Unified stops it by falling over. Same underlying NPE family both times.</p>
+
+    <div class="duo reveal d3" style="margin-top:18px">
+      <div class="pcard sched">
+        <div class="ph"><span class="sw" style="background:var(--sched)"></span><span class="nm">Scheduler · the clean answer</span></div>
+        <div class="body" style="margin-bottom:10px"><span class="tag t-ok">✓ HTTP 400</span> — a deliberate refusal, named cause.</div>
+        <div class="body mono" style="font-size:12.5px;background:var(--surface-2);border-radius:8px;padding:10px 12px">"Specify a valid value for isRequiredResource."<br>"We couldn't find any resources for your request."</div>
+      </div>
+      <div class="pcard unified">
+        <div class="ph"><span class="sw" style="background:var(--unified)"></span><span class="nm">Unified · the crash</span></div>
+        <div class="body" style="margin-bottom:10px"><span class="tag t-crit">✕ HTTP 500</span> — unhandled, no useful message.</div>
+        <div class="body mono" style="font-size:12.5px;background:var(--surface-2);border-radius:8px;padding:10px 12px">Cannot invoke ArrayListMultimap.values()<br>because this.serviceTerritoryMembers is null</div>
+      </div>
+    </div>
+
+    <div class="grid2 reveal d4" style="margin-top:16px">
+      <div class="callout"><h3>Case A · demand an optional-only worker</h3><p>Customer demands worker B, but B is present only as an optional resource — the demand can't be met. <span class="mono">serviceTerritoryMembers</span> null-pointer.</p></div>
+      <div class="callout"><h3>Case B · omit the required flag</h3><p>Send a worker without <span class="mono">isRequiredResource</span>. Unified reads the missing flag and unboxes a null Boolean. Same crash family.</p></div>
+    </div>
+
+    <div class="decision reveal d5">
+      <div class="dh"><span class="tag t-crit">✕</span> Decision · Unified engineering · agreed action, not an open question</div>
+      <div class="q">Null-guard both inputs and return a clean 400, matching Scheduler.</div>
+      <ul>
+        <li>Guard <span class="mono">serviceTerritoryMembers</span> before <span class="mono">.values()</span> (the demand-a-non-required-worker path <em>and</em> the required-excluded write both hit this).</li>
+        <li>Null-guard <span class="mono">isRequiredResource</span> unboxing; return the same "specify a valid value" 400.</li>
+      </ul>
+      <div class="say"><div class="sl">Say this</div><div class="st">"These two aren't behavior disagreements — you already refuse correctly. You just refuse by crashing. Turn the 500 into the 400 Scheduler already returns and both are closed."</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ========================= 12 · DOUBLE-BOOK: the mechanism ========================= -->
+<section class="slide" data-title="B · Double-book">
+  <div class="inner">
+    <div class="eyebrow reveal">Divergence 3 · the one that matters</div>
+    <h2 class="reveal d1">The double-book: Unified checks the right workers, then books the wrong one anyway.</h2>
+    <p class="lede reveal d2" style="margin-top:12px;max-width:80ch">Book a free primary <span class="hl-sched" style="color:var(--accent)">C</span> plus a busy required helper <span style="color:var(--crit);font-weight:600">B</span> at 11:00–11:30. This is <b>not</b> a skipped check — B <em>is</em> in the availability check. The bug is how Unified <b>combines</b> workers.</p>
+
+    <div class="tl reveal d3">
+      <div class="axis"><span class="tick" style="left:0%">10:30</span><span class="tick" style="left:33%">11:00</span><span class="tick" style="left:66%">11:30</span><span class="tick" style="left:100%">12:00</span></div>
+      <div class="row"><div class="rlab"><span class="sw" style="background:var(--accent)"></span>C free</div>
+        <div class="track">
+          <div class="bar shift" style="left:0%;width:100%">on shift · all windows open</div>
+          <div class="want" style="left:33%;width:33%"><span class="wl">books here ✓</span></div>
+        </div></div>
+      <div class="row"><div class="rlab"><span class="sw" style="background:var(--crit)"></span>B busy</div>
+        <div class="track">
+          <div class="bar" style="left:33%;width:33%;background:var(--crit)">already booked 11:00–11:30</div>
+          <div class="want" style="left:33%;width:33%"></div>
+        </div></div>
+      <div class="cap">B produces <b>zero</b> free slots → drops out of the slot intersection → but the write still assigns every requested resource, B included. The check found C's open slot and called the time "available."</div>
+    </div>
+
+    <div class="flow reveal d4" style="margin-top:16px">
+      <div class="node"><div class="nt">Requested</div><div class="nb">{ C, B }<br><span style="color:var(--muted);font-size:12px">both in the check — B not skipped</span></div></div>
+      <div class="arrow">→</div>
+      <div class="node"><div class="nt">Slots produced</div><div class="nb">{ C } only<br><span style="color:var(--muted);font-size:12px">busy B produced none, so B isn't a key</span></div></div>
+      <div class="arrow">→</div>
+      <div class="node"><div class="nt">Intersection loops keys</div><div class="nb">C's 11:00 slot survives<br><span style="color:var(--muted);font-size:12px">a worker with 0 slots silently left out</span></div></div>
+      <div class="arrow">→</div>
+      <div class="node" style="border-color:color-mix(in srgb,var(--crit) 50%,var(--line))"><div class="nt" style="color:var(--crit)">Write persists</div><div class="nb">C <em>and</em> B booked<br><span style="color:var(--crit);font-size:12px">B double-booked</span></div></div>
+    </div>
+    <div class="evid reveal d5">
+      <span class="epill live"><b>debugger</b> SlotAvailabilityChecker.isSlotAvailable → true</span>
+      <span class="epill code"><b>root</b> InBusinessGetSlotsHandler.getOverlappingSlotsBetweenResources (loops keySet)</span>
+      <span class="epill live"><b>only guard</b> primary checked via containsKey — helper isn't</span>
+    </div>
+  </div>
+</section>
+
+<!-- ========================= 13 · DOUBLE-BOOK: read vs write + knobs ========================= -->
+<section class="slide" data-title="B · Read vs write">
+  <div class="inner">
+    <div class="eyebrow reveal">Divergence 3 · why it's a contract difference, not a config gap</div>
+    <h2 class="reveal d1">Unified computes occupancy correctly — on the read. The write just doesn't ask.</h2>
+
+    <div class="duo reveal d2" style="margin-top:18px">
+      <div class="pcard unified">
+        <div class="ph"><span class="sw" style="background:var(--unified)"></span><span class="nm">Unified · read path</span></div>
+        <div class="verdict"><span class="tag t-ok">✓ Correct</span></div>
+        <div class="body">get-candidates for the same window <b>excludes busy B</b> and offers free C. Occupancy IS computed — <span class="mono">UnavailabilityService</span> runs here.</div>
+      </div>
+      <div class="pcard unified" style="border-top-color:var(--crit)">
+        <div class="ph"><span class="sw" style="background:var(--crit)"></span><span class="nm">Unified · write path</span></div>
+        <div class="verdict"><span class="tag t-crit">✕ Double-books</span></div>
+        <div class="body">The schedule action persists caller-supplied resources <b>with no occupancy check at all</b>. Same window, same data — opposite result.</div>
+      </div>
+    </div>
+
+    <div class="reveal d3" style="margin-top:20px">
+      <h3 style="margin-bottom:12px">Scheduler's answer is deliberate — gated behind two knobs, both off by default</h3>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Org Overbooking preference</th><th>Member slot MaxAppointments</th><th>Scheduler result</th><th>Why</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">Off</td><td class="mono">1</td><td><span class="tag t-ok">Refuses</span></td><td class="sc">Default. B's single-capacity slot is full.</td></tr>
+            <tr><td class="mono">On</td><td class="mono">1</td><td><span class="tag t-ok">Refuses</span></td><td class="sc">MaxAppointments of 1 dominates — the preference alone isn't enough.</td></tr>
+            <tr><td class="mono">Off</td><td class="mono">&gt; 1</td><td><span class="tag t-ok">Refuses</span></td><td class="sc">The concurrency gate needs the org preference on too.</td></tr>
+            <tr style="background:color-mix(in srgb,var(--warn) 10%,transparent)"><td class="mono">On</td><td class="mono">&gt; 1</td><td><span class="tag t-warn">Books</span></td><td class="sc"><b>Both knobs on</b> — the double-book becomes a deliberate, admitted choice. Either role.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <p class="big-fact reveal d4" style="margin-top:20px">Scheduler double-books only when an admin <em>opts in</em> with two knobs. Unified double-books <em>automatically</em>, with no knob to prevent it.</p>
+  </div>
+</section>
+
+<!-- ========================= 14 · DOUBLE-BOOK: the decision ========================= -->
+<section class="slide" data-title="B · Double-book call">
+  <div class="inner">
+    <div class="eyebrow reveal">Divergence 3 · the two calls to make</div>
+    <h2 class="reveal d1">Two open questions for Unified</h2>
+
+    <div class="grid2 reveal d2" style="margin-top:20px">
+      <div class="decision" style="margin-top:0">
+        <div class="dh"><span class="tag t-serious">▲</span> Question A · correctness</div>
+        <div class="q">Should the write check every required worker's availability — not just the primary?</div>
+        <ul>
+          <li>Today only the primary is guarded (<span class="mono">containsKey</span>); a required helper with zero slots silently drops out and gets booked over.</li>
+          <li>Fix the intersection to fail when <em>any</em> required worker has no slot, mirroring the read path that already gets this right.</li>
+        </ul>
+      </div>
+      <div class="decision" style="margin-top:0">
+        <div class="dh"><span class="tag t-warn">◐</span> Question B · product</div>
+        <div class="q">Should Unified expose an overbooking control like Scheduler's two knobs?</div>
+        <ul>
+          <li>So double-booking is a deliberate opt-in, not automatic behavior.</li>
+          <li>Keep the multi-resource enable-gate (<span class="mono">WorkforceSchdMulResSchdPref</span>) separate — that's a different lever, not an overbooking control.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="callout reveal d3" style="margin-top:16px;border-color:color-mix(in srgb,var(--ok) 35%,var(--line))">
+      <h3><span class="tag t-ok">✓</span> One myth to kill in the room</h3>
+      <p>The earlier "CalendarEvents rule" theory was <b>wrong</b> — that rule was removed in 264 and even on 262 gated only Salesforce Event records, never ServiceAppointment occupancy. No re-test needed. The root cause is the write-path contract, verified in the debugger on the live build (commit 90cdfeb7, both org URLs resolve to the same box).</p>
+    </div>
+
+    <div class="say reveal d4" style="margin-top:16px">
+      <div class="sl">Say this to close Act B</div>
+      <div class="st">"Unified already knows B is busy — its read path says so. The write path just never asks. That's one bug and one product question, not a migration blocker across the board."</div>
+    </div>
+  </div>
+</section>
+
+<!-- ========================= 15 · DECISIONS BOARD ========================= -->
+<section class="slide" data-title="Decisions">
+  <div class="inner">
+    <div class="eyebrow reveal">Where we land · the whole meeting on one board</div>
+    <h2 class="reveal d1">Four decisions. Named owners. Clean repros.</h2>
+    <div class="tablewrap reveal d2" style="margin-top:18px">
+      <table>
+        <thead><tr><th style="width:5%">#</th><th style="width:30%">Decision</th><th style="width:13%">Owner</th><th style="width:12%">Type</th><th>The ask</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="mono">1</td>
+            <td class="scn">Fix the two Unified crashes</td>
+            <td><span class="tag" style="color:var(--unified);background:color-mix(in srgb,var(--unified) 15%,transparent)">Unified eng</span></td>
+            <td><span class="tag t-crit">✕ Agreed fix</span></td>
+            <td class="sc">Null-guard <span class="mono">serviceTerritoryMembers</span> and <span class="mono">isRequiredResource</span>; return 400 like Scheduler. Not an open question.</td>
+          </tr>
+          <tr>
+            <td class="mono">2</td>
+            <td class="scn">Unified write-path double-book</td>
+            <td><span class="tag" style="color:var(--unified);background:color-mix(in srgb,var(--unified) 15%,transparent)">Unified eng</span></td>
+            <td><span class="tag t-serious">▲ Decide</span></td>
+            <td class="sc">(a) Check every required worker on write, not just the primary. (b) Should there be an overbooking opt-in like Scheduler's knobs?</td>
+          </tr>
+          <tr>
+            <td class="mono">3</td>
+            <td class="scn">"Optional worker skips all checks" — intended?</td>
+            <td><span class="tag" style="color:var(--sched);background:color-mix(in srgb,var(--sched) 15%,transparent)">onSite · both</span></td>
+            <td><span class="tag t-warn">◐ Confirm</span></td>
+            <td class="sc">Shared design across Scheduler + Unified: an optional resource bypasses territory, role, skill, excluded, availability. Blocking it is a <b>shared</b> change, not Unified-only.</td>
+          </tr>
+          <tr>
+            <td class="mono">4</td>
+            <td class="scn">InField engineless drag-and-drop fallback</td>
+            <td><span class="tag" style="color:var(--infield);background:color-mix(in srgb,var(--infield) 15%,transparent)">InField eng</span></td>
+            <td><span class="tag t-serious">▲ Decide</span></td>
+            <td class="sc">Intended? If so, should it enforce a basic overlap/shift guard before writing drop coordinates? The one place InField can force-place.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="grid2 reveal d3" style="margin-top:18px">
+      <div class="callout" style="border-color:color-mix(in srgb,var(--ok) 35%,var(--line))"><h3><span class="tag t-ok">✓</span> Safe to say out loud</h3><p>Scheduler ↔ Unified agree on 11 of 13 behaviors, one via literally shared code. The migration surface is small and specific.</p></div>
+      <div class="callout"><h3>The through-line</h3><p>Decisions 2, 3 and 4 are all the same question in three costumes: <b>which path enforces which rule, and on purpose?</b> Read vs write, required vs optional, engine vs engineless.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ========================= 16 · CLOSE ========================= -->
+<section class="slide" data-title="Close" style="background:radial-gradient(1100px 600px at 50% 120%,color-mix(in srgb,var(--accent) 12%,transparent),transparent 60%)">
+  <div class="inner" style="text-align:center">
+    <div class="eyebrow reveal" style="justify-content:center">One line to leave the room on</div>
+    <h1 class="reveal d1" style="font-size:clamp(30px,4.6vw,60px);max-width:20ch;margin:14px auto 0">These engines mostly agree. The disagreements are a short, owned list.</h1>
+    <p class="lede reveal d2" style="margin:22px auto 0;max-width:64ch">InField is stricter by construction. Scheduler and Unified are interchangeable on 11 of 13 behaviors. What's left is four decisions — two are already agreed fixes, two are genuine product calls. Nothing here is a mystery; every claim traces to a live test or a file and line.</p>
+    <div class="pill-row reveal d3" style="justify-content:center;margin-top:26px">
+      <span class="pr"><span class="hl-infield">InField</span> · immune to double-book, watch the engineless paths</span>
+      <span class="pr"><span class="hl-sched">Scheduler</span> · the reference behavior</span>
+      <span class="pr"><span class="hl-unified">Unified</span> · 2 crashes + 1 write-path call</span>
+    </div>
+    <div class="footnote reveal d4" style="text-align:center">Built from the "Scheduler vs Unified · InField (near-core)" comparison workbook · Core 262 · live-verified + O2 source-read</div>
+  </div>
+</section>
+
+</main>
+
+<script>
+/* ---------- theme ---------- */
+function setTheme(t){
+  document.documentElement.setAttribute('data-theme',t);
+  document.getElementById('tg-dark').classList.toggle('on',t==='dark');
+  document.getElementById('tg-light').classList.toggle('on',t==='light');
+  try{localStorage.setItem('deckTheme',t)}catch(e){}
+}
+(function(){try{var s=localStorage.getItem('deckTheme');if(s)setTheme(s)}catch(e){}})();
+
+/* ---------- build rail ---------- */
+const deck=document.getElementById('deck');
+const slides=[...document.querySelectorAll('.slide')];
+const rail=document.getElementById('rail');
+slides.forEach((s,i)=>{
+  const b=document.createElement('button');
+  b.innerHTML='<span class="dot"></span><span class="lbl">'+(s.dataset.title||('Slide '+(i+1)))+'</span>';
+  b.setAttribute('aria-label',s.dataset.title||('Slide '+(i+1)));
+  b.onclick=()=>slides[i].scrollIntoView({behavior:'smooth'});
+  rail.appendChild(b);
+});
+const dots=[...rail.querySelectorAll('button')];
+
+/* ---------- reveal on view + active rail + progress ---------- */
+const io=new IntersectionObserver((es)=>{
+  es.forEach(e=>{
+    if(e.isIntersecting){
+      e.target.querySelectorAll('.reveal').forEach(r=>r.classList.add('in'));
+      const i=slides.indexOf(e.target);
+      dots.forEach((d,di)=>d.classList.toggle('on',di===i));
+    }
+  });
+},{threshold:.5});
+slides.forEach(s=>io.observe(s));
+
+deck.addEventListener('scroll',()=>{
+  const p=deck.scrollTop/(deck.scrollHeight-deck.clientHeight);
+  document.getElementById('pf').style.width=(p*100)+'%';
+},{passive:true});
+
+/* ---------- keyboard ---------- */
+function current(){
+  const c=deck.scrollTop+deck.clientHeight/2;
+  let idx=0,best=1e9;
+  slides.forEach((s,i)=>{const d=Math.abs(s.offsetTop+s.clientHeight/2-c);if(d<best){best=d;idx=i}});
+  return idx;
+}
+addEventListener('keydown',(e)=>{
+  if(e.key==='ArrowDown'||e.key==='PageDown'||e.key===' '){e.preventDefault();const n=Math.min(current()+1,slides.length-1);slides[n].scrollIntoView({behavior:'smooth'})}
+  else if(e.key==='ArrowUp'||e.key==='PageUp'){e.preventDefault();const n=Math.max(current()-1,0);slides[n].scrollIntoView({behavior:'smooth'})}
+  else if(e.key==='Home'){e.preventDefault();slides[0].scrollIntoView({behavior:'smooth'})}
+  else if(e.key==='End'){e.preventDefault();slides[slides.length-1].scrollIntoView({behavior:'smooth'})}
+  else if(e.key==='t'||e.key==='T'){setTheme(document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark')}
+});
+/* first slide reveals immediately */
+document.querySelector('.slide').querySelectorAll('.reveal').forEach(r=>r.classList.add('in'));
+</script>
+</body>
+</html>

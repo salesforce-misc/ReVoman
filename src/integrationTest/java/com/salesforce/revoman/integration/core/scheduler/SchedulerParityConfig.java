@@ -67,11 +67,12 @@ public final class SchedulerParityConfig {
   /**
    * Supplemental LS-access grant for the THIRD resource (C) of the 3-resource prior-assignment
    * fixtures. The shared {@link #OLD_GRANT_LS_ACCESS_CONFIG} only grants resources A + B (it was
-   * cloned from the 2-resource double-book fixture), so on the REST path {@code SchedulingServiceImpl
-   * .removeResourcesWithoutPerm} prunes resourceC for lacking {@code lightningSchedulerUserAccess} —
-   * making a multi-resource appt #2 carrying C refuse for a provisioning reason rather than the
-   * occupancy/overbooking rule under test (JDWP-confirmed). Revved right after the shared grant Kick
-   * (orders 800/900 > 700); reuses the lsPslId / lsPsId it captured.
+   * cloned from the 2-resource double-book fixture), so on the REST path {@code
+   * SchedulingServiceImpl .removeResourcesWithoutPerm} prunes resourceC for lacking {@code
+   * lightningSchedulerUserAccess} — making a multi-resource appt #2 carrying C refuse for a
+   * provisioning reason rather than the occupancy/overbooking rule under test (JDWP-confirmed).
+   * Revved right after the shared grant Kick (orders 800/900 > 700); reuses the lsPslId / lsPsId it
+   * captured.
    */
   static final Kick OLD_GRANT_LS_ACCESS_C_CONFIG =
       oldKickFor(V3_SCHEDULER_PATH + "booking/grant-ls-user-access-c");
@@ -91,7 +92,8 @@ public final class SchedulerParityConfig {
   // primary on appt #2), so a refused appt #2 can only be B's prior assignment.
   static final Kick OLD_PRIOR_ASSIGNMENT_FIXTURE_CONFIG =
       oldKickFor(V3_SCHEDULER_PATH + "fixtures/prior-assignment");
-  // CONCURRENT variant of the prior-assignment fixture: member TimeSlots carry MaxAppointments=2 (the
+  // CONCURRENT variant of the prior-assignment fixture: member TimeSlots carry MaxAppointments=2
+  // (the
   // concurrency knob). Must be seeded AFTER OLD_ENABLE_OVERBOOKING_CONFIG — the app-layer rejects a
   // MaxAppointments>1 TimeSlot insert unless the Overbooking pref is already on.
   static final Kick OLD_PRIOR_ASSIGNMENT_CONCURRENT_FIXTURE_CONFIG =
@@ -106,7 +108,8 @@ public final class SchedulerParityConfig {
       oldKickFor(V3_SCHEDULER_PATH + "booking/service-appointments-prior-appt2-b-optional");
   static final Kick OLD_PRIOR_APPT2_B_PRIMARY_CONFIG =
       oldKickFor(V3_SCHEDULER_PATH + "booking/service-appointments-prior-appt2-b-primary");
-  // SINGLE-RESOURCE appt #2: only busy B (required, no primary, no co-resource). The single-resource
+  // SINGLE-RESOURCE appt #2: only busy B (required, no primary, no co-resource). The
+  // single-resource
   // double-book — with no free co-resource to carry the booking, B's own occupancy decides it.
   static final Kick OLD_PRIOR_APPT2_B_SINGLE_CONFIG =
       oldKickFor(V3_SCHEDULER_PATH + "booking/service-appointments-prior-appt2-b-single");

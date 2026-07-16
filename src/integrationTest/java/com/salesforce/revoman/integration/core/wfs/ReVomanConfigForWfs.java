@@ -279,9 +279,12 @@ public final class ReVomanConfigForWfs {
   // * (ScheduleCommonValidator.java:177). Pairs with SCHEDULE_TWO_PRIMARY_CONFIG.
   public static final Kick SCHEDULE_MULTI_NO_PRIMARY_CONFIG =
       kickFor(V3_WFS_PATH + "booking/schedule-multi-no-primary");
-  // * NOTE 2026-07-07 gopal.akshintala: multi optional-primary (>1 assignedResource, one primary that
-  // * is NOT required) -> passes input validation (primaryCount==1), rejected at PERSIST by the shared
-  // * save hook. Proves the optional-primary reject is request-count-agnostic (same as single row 11).
+  // * NOTE 2026-07-07 gopal.akshintala: multi optional-primary (>1 assignedResource, one primary
+  // that
+  // * is NOT required) -> passes input validation (primaryCount==1), rejected at PERSIST by the
+  // shared
+  // * save hook. Proves the optional-primary reject is request-count-agnostic (same as single row
+  // 11).
   public static final Kick SCHEDULE_MULTI_OPTIONAL_PRIMARY_CONFIG =
       kickFor(V3_WFS_PATH + "booking/schedule-multi-optional-primary");
 
