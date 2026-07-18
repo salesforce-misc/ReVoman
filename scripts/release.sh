@@ -32,7 +32,13 @@ NEW_VERSION="${1:?Usage: release.sh <new-version> [poll-interval-seconds]   e.g.
 INTERVAL="${2:-60}"
 
 REVOMAN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-CORE_DIR="/Users/gopala.akshintala/core-public/core"
+# Core checkout: override with CORE_DIR=<path>; else the first of the common locations that exists.
+CORE_DIR="${CORE_DIR:-}"
+if [[ -z "${CORE_DIR}" ]]; then
+  for c in "${HOME}/core-public/core" "/opt/workspace/core-public/core" "/Users/${USER}/core-public/core"; do
+    [[ -d "${c}" ]] && CORE_DIR="${c}" && break
+  done
+fi
 
 GROUP_PATH="com/salesforce/revoman/revoman"
 JAR_URL="https://repo1.maven.org/maven2/${GROUP_PATH}/${NEW_VERSION}/revoman-${NEW_VERSION}.jar"
@@ -63,8 +69,9 @@ echo "Releasing ${CURRENT} -> ${NEW_VERSION}"
 
 # --- 2. bump version (Config.kt + README.adoc) ------------------------------
 step "Bump version files"
-sed -i '' -E "s/(const val VERSION = \")[^\"]+(\")/\1${NEW_VERSION}\2/" buildSrc/src/main/kotlin/Config.kt
-sed -i '' -E "s/(:revoman-version: ).*/\1${NEW_VERSION}/" README.adoc
+# perl -i is byte-for-byte identical on macOS and Linux (GNU vs BSD `sed -i` differ on the backup-suffix arg).
+perl -i -pe "s/(const val VERSION = \")[^\"]+(\")/\${1}${NEW_VERSION}\${2}/" buildSrc/src/main/kotlin/Config.kt
+perl -i -pe "s/(:revoman-version: ).*/\${1}${NEW_VERSION}/" README.adoc
 git --no-pager diff -- buildSrc/src/main/kotlin/Config.kt README.adoc
 
 # --- 3. commit + push master ------------------------------------------------
@@ -83,10 +90,14 @@ step "Wait for jar to appear on Maven Central"
 
 # --- 6. propagate into Core -------------------------------------------------
 step "Bump revoman dependency in Core"
+[[ -n "${CORE_DIR}" && -d "${CORE_DIR}" ]] || die "Core checkout not found. Set CORE_DIR=<path> to your Core repo."
 cd "${CORE_DIR}"
 core_branch="$(git branch --show-current)"
 echo "Core branch: ${core_branch}"
-bazel run //:graph-tool -- set-dependency-version com.salesforce.revoman:revoman --new-version="${NEW_VERSION}"
+# _REVOMAN_VERSION (in third_party/dependencies/com_salesforce_revoman.bzl) drives BOTH the source dep
+# and the pinned catalog; update it, then regenerate the pinned catalog. CORE_HOME is the checkout path.
+bazel run //:graph-tool -- update-version-variable --variable-name=_REVOMAN_VERSION --new-version="${NEW_VERSION}" --scm=git "${CORE_DIR}"
+bazel run //:graph-tool -- pin-dependencies "${CORE_DIR}"
 
 if [[ -z "$(git status --porcelain)" ]]; then
   die "graph-tool made no changes — is Core already on ${NEW_VERSION}?"

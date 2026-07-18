@@ -69,18 +69,9 @@ TIP: If you're on Intellij, replace your kbd:[Cmd+Shift+L] habit with kbd:[Ctrl]
 and run `./gradlew spotlessApply` (Or the respective action if you're on VS Code/Eclipse).
 It may be slow for the first run, but subsequent runs should be faster.
 
-== Manual publishing
+== Releasing
 
-=== Gradle Nexus Publish Plugin
-
-We use https://github.com/gradle-nexus/publish-plugin#publishing-to-maven-central-via-sonatype-central[Gradle Nexus Publish Plugin]
-to publish to Maven Central. Follow the usage instructions to set up Sonatype credentials and add them to your `~/.gradle/gradle.properties`.
-
-[source,bash]
-----
-sonatypeUsername=<your-username>
-sonatypePassword=<your-password>
-----
+We publish to Maven Central via the https://github.com/gradle-nexus/publish-plugin#publishing-to-maven-central-via-sonatype-central[Gradle Nexus Publish Plugin].
 
 === Versioning Strategy
 
@@ -92,19 +83,76 @@ sonatypePassword=<your-password>
 * B = Profit (Feature / Improvement)
 * C = Broke something by accident (Bug)
 
-Follow the Versioning Strategy to increment version link:buildSrc/{sourcedir}/Config.kt[here].
-For SNAPSHOT releases, add a `-SNAPSHOT` at the end of version number
+The version lives in exactly ONE place — `VERSION` in link:buildSrc/{sourcedir}/Config.kt[Config.kt] — with the `:revoman-version:` attribute in link:README.adoc[README.adoc] mirroring it for the consumer-facing coordinate snippets. For SNAPSHOT releases, add a `-SNAPSHOT` suffix.
 
-=== Publish
+=== One-command release (preferred): `scripts/release.sh`
 
-Run this command to publish it to Nexus:
+link:scripts/release.sh[`scripts/release.sh`] runs the ENTIRE pipeline end-to-end, so a normal release is a single command:
 
+[source,bash]
+----
+scripts/release.sh <new-version> [poll-interval-seconds]
+# e.g. scripts/release.sh 0.9.16
+# detached (survives closing the terminal):
+nohup scripts/release.sh 0.9.16 > /tmp/revoman-release-0.9.16.log 2>&1 &
+----
+
+It performs, in order: bump both version files → commit `Release <version>` → push `master` → publish to Maven Central → *wait* until the jar is live on repo1.maven.org → bump the dependency version in Core via `graph-tool` → commit + push Core. It guards up front (clean tree, on `master`, version not already on Central) so it never releases from a messy state.
+
+NOTE: The script commits with GPG signing (`commit.gpgsign=true`). For a detached (`nohup`) run, cache the GPG passphrase in `gpg-agent` first (make any signed commit interactively earlier in the session), else the commit step blocks on a pinentry prompt `nohup` can't answer.
+
+=== Prerequisites (one-time, in `~/.gradle/gradle.properties`)
+
+Sonatype credentials:
+
+[source,bash]
+----
+sonatypeUsername=<your-username>
+sonatypePassword=<your-password>
+----
+
+Every artifact is *GPG-signed* — Sonatype rejects the `closeAndRelease` step otherwise — so signing keys are ALSO required, else the publish fails at the `signRevomanPublication` task:
+
+[source,bash]
+----
+signing.keyId=<last-8-chars-of-your-gpg-key-id>
+signing.password=<your-gpg-key-password>
+signing.secretKeyRingFile=<absolute-path-to-your-secring.gpg>
+----
+
+TIP: Modern GnuPG (2.1+) stores keys in `~/.gnupg/pubring.kbx`, not the legacy `secring.gpg` the plugin expects. Export one with `gpg --export-secret-keys --output <path>/secring.gpg`.
+
+=== Manual steps (fallback / what the script automates)
+
+If you cannot use the script (e.g. it targets a hard-coded `CORE_DIR` and uses BSD `sed`, so it is tuned for one machine — adjust or run the steps by hand elsewhere), the equivalent manual release is:
+
+. Bump `VERSION` in link:buildSrc/{sourcedir}/Config.kt[Config.kt] and the `:revoman-version:` in link:README.adoc[README.adoc] to the SAME value (the README one drifts silently — nothing fails the build if it lags).
+. `./gradlew clean build` — unit tests + `spotlessCheck` + `detekt` gate the release.
+. Commit `Release <version>`, push `master`.
+. Publish:
++
 [source,bash]
 ----
 ./gradlew publishToSonatype closeAndReleaseSonatypeStagingRepository -Dorg.gradle.parallel=false --no-configuration-cache
 ----
++
+CAUTION: `--no-configuration-cache` is *required*, not optional. The publish tasks are not configuration-cache-serializable; with the cache on, the build fails late with `No staging repository with name sonatype created` and *nothing is published* — while a wrapping shell's exit code can still look like success. Keep the flag.
+. Watch for the jar on https://repo1.maven.org/maven2/com/salesforce/revoman/revoman/[Maven Central] (usually < 30 min; link:scripts/watch-maven-central.sh[`scripts/watch-maven-central.sh <version>`] polls for you).
 
-* You can monitor for the new version jar to reflect in https://repo1.maven.org/maven2/com/salesforce/revoman/revoman/[Maven Central]. It usually takes less than 30 minutes.
+IMPORTANT: Maven Central releases are *immutable* — a version can never be re-published or overwritten. If a publish ships a bad artifact, the only remedy is to bump to the next version and release again. Get the build green BEFORE publishing.
+
+=== Consuming the new version in Salesforce Core
+
+Salesforce Core pins ReVoman as a Maven-graph dependency; a single version variable (`_REVOMAN_VERSION` in `third_party/dependencies/com_salesforce_revoman.bzl`) drives both the source dep and the pinned catalog. After the jar is live on Maven Central, bump it on Core:
+
+[source,bash]
+----
+# in the Core repo (CORE_HOME = path to the Core checkout):
+bazel run //:graph-tool -- update-version-variable --variable-name=_REVOMAN_VERSION --new-version=<version> --scm=git "${CORE_HOME}"
+bazel run //:graph-tool -- pin-dependencies "${CORE_HOME}"   # regenerates third_party/dependencies/pinned_catalog
+----
+
+NOTE: Core CI has no `.bazelrc-local` source override, so it compiles against this *pinned* Maven artifact — a library change Core code depends on is invisible to Core CI until the version is published AND this pin is bumped. That is the failure mode where `com.salesforce.revoman.*` classes "cannot be resolved" in a Core FTest build even though the `com.salesforce.revoman:revoman` dep line is present: the pinned version is simply too old.
 
 == Code of Conduct
 Please follow our link:CODE_OF_CONDUCT.md[Code of Conduct]
