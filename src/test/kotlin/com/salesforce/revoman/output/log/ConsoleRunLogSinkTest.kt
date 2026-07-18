@@ -154,7 +154,7 @@ class ConsoleRunLogSinkTest {
   @Test
   fun `StepStarted renders as nested child request with gutter`() {
     sink.event(StepEvent.StepStarted(path = "10-book", name = "Book Appointment"))
-    output() shouldStartWith "│ · "
+    output() shouldStartWith "│ ▸ "
     output() shouldContain "Book Appointment"
   }
 
@@ -171,7 +171,7 @@ class ConsoleRunLogSinkTest {
       )
     )
     output() shouldStartWith "│   "
-    output() shouldContain "200 OK 42ms"
+    output() shouldContain "200 OK · 42ms  ✔"
   }
 
   @Test
@@ -186,7 +186,7 @@ class ConsoleRunLogSinkTest {
         outcome = Outcome.FAILED,
       )
     )
-    output() shouldContain "400 FAIL 5ms"
+    output() shouldContain "400 FAIL · 5ms  ✘"
   }
 
   @Test
@@ -201,7 +201,7 @@ class ConsoleRunLogSinkTest {
         outcome = Outcome.SKIPPED,
       )
     )
-    output() shouldContain "null SKIP 0ms"
+    output() shouldContain "null SKIP · 0ms  ⊘"
   }
 
   @Test
@@ -218,8 +218,8 @@ class ConsoleRunLogSinkTest {
         responseMsg = null,
       )
     )
-    output() shouldNotContain "REQ:"
-    output() shouldNotContain "RESP:"
+    output() shouldNotContain "── REQ ─"
+    output() shouldNotContain "── RESP ─"
   }
 
   @Test
@@ -236,8 +236,10 @@ class ConsoleRunLogSinkTest {
         responseMsg = "{\"error\":\"bad\"}",
       )
     )
-    output() shouldContain "│ REQ:\nPOST /book"
-    output() shouldContain "│ RESP:\n{\"error\":\"bad\"}"
+    output() shouldContain "│ ── REQ ─"
+    output() shouldContain "│ POST /book"
+    output() shouldContain "│ ── RESP ─"
+    output() shouldContain "│ {\"error\":\"bad\"}"
   }
 
   @Test
@@ -268,7 +270,7 @@ class ConsoleRunLogSinkTest {
         outcome = Outcome.SUCCESS,
       )
     )
-    output() shouldContain "│   ⟵ [token]  ⟶ [saId]"
+    output() shouldContain "│   ⟵ token   ⟶ saId"
   }
 
   @Test

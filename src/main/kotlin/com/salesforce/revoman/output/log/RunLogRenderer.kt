@@ -29,7 +29,7 @@ object RunLogRenderer {
       is StepEvent.RunbookStepStarted -> renderStepOpen(event)
       is StepEvent.RunbookStepFinished -> renderStepClose(event)
       is StepEvent.RunbookContractFailed -> renderContractFailed(event)
-      is StepEvent.StepStarted -> "│ · ${event.name}\n"
+      is StepEvent.StepStarted -> "│ ▸ ${event.name}\n"
       is StepEvent.StepFinished -> renderFinished(event)
       is StepEvent.LedgerSkipped -> "│ ↺ reused ${event.reused}\n"
       is StepEvent.RequestSkipped -> "│ ⊘ skipped ${event.path}\n"
@@ -78,12 +78,54 @@ object RunLogRenderer {
         Outcome.FAILED -> "FAIL"
         Outcome.SKIPPED -> "SKIP"
       }
-    val header = "│   ${event.httpStatus} $word ${event.tookMs}ms\n"
+    val glyph =
+      when (event.outcome) {
+        Outcome.SUCCESS -> "✔"
+        Outcome.FAILED -> "✘"
+        Outcome.SKIPPED -> "⊘"
+      }
+    val header = "│   ${event.httpStatus} $word · ${event.tookMs}ms  $glyph\n"
+    val consumedStr = valuesOrKeys(event.consumedValues, event.consumed)
+    val producedStr = valuesOrKeys(event.producedValues, event.produced)
     val keys =
-      if (event.produced.isEmpty() && event.consumed.isEmpty()) ""
-      else "│   ⟵ ${event.consumed}  ⟶ ${event.produced}\n"
-    val req = event.requestMsg?.let { "│ REQ:\n$it\n" } ?: ""
-    val resp = event.responseMsg?.let { "│ RESP:\n$it\n" } ?: ""
+      if (consumedStr == EMPTY && producedStr == EMPTY) ""
+      else "│   ⟵ $consumedStr   ⟶ $producedStr\n"
+    val req = event.requestMsg?.let { subRule("REQ") + gutter(it) } ?: ""
+    val resp = event.responseMsg?.let { subRule("RESP") + gutter(it) } ?: ""
     return header + keys + req + resp
   }
+
+  /** Empty-side marker for the consumed/produced values line. */
+  private const val EMPTY = "∅"
+
+  /**
+   * Render a consumed/produced side as `k=v` VALUES when available, falling back to the bare key
+   * set when no post-step values were captured, and to [EMPTY] when the side is empty.
+   */
+  private fun valuesOrKeys(values: Map<String, String?>, keys: Set<String>): String =
+    when {
+      values.isNotEmpty() ->
+        values.entries.joinToString(", ") { (k, v) -> if (v == null) k else "$k=$v" }
+      keys.isNotEmpty() -> keys.joinToString(", ")
+      else -> EMPTY
+    }
+
+  /**
+   * A light sub-rule under a step's `│` spine, e.g. `│ ── REQ ──────`. Fills to [RULE_WIDTH] so it
+   * lines up with the phase rules above it.
+   */
+  private fun subRule(label: String): String {
+    val prefix = "│ ── $label "
+    val fill = (RULE_WIDTH - prefix.length).coerceAtLeast(3)
+    return prefix + "─".repeat(fill) + "\n"
+  }
+
+  /**
+   * Prefix EVERY line of [block] with the `│` spine so a multi-line HTTP body reads as nested under
+   * its step. A blank line becomes a bare `│` (unbroken spine, no trailing space).
+   * Newline-terminated.
+   */
+  @JvmStatic
+  fun gutter(block: String): String =
+    block.lineSequence().joinToString("\n") { if (it.isEmpty()) "│" else "│ $it" } + "\n"
 }
