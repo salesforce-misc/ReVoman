@@ -9,6 +9,7 @@ package com.salesforce.revoman.output.log
 
 import com.salesforce.revoman.input.config.Phase
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldEndWith
 import io.kotest.matchers.string.shouldNotContain
 import io.kotest.matchers.string.shouldStartWith
 import org.junit.jupiter.api.Test
@@ -21,6 +22,14 @@ class RunLogRendererTest {
     out shouldContain "│ POST /s\n"
     out shouldContain "\n│\n" // the blank separator line becomes a bare "│"
     out shouldContain "│ {}\n"
+  }
+
+  @Test
+  fun `gutter trims a trailing newline so the spine stops at the last content line`() {
+    // A body that ends with a newline must NOT emit a spurious bare "│" past its last content line.
+    val out = RunLogRenderer.gutter("HTTP/1.1 200 OK\n{}\n")
+    out shouldEndWith "│ {}\n"
+    out shouldNotContain "│ {}\n│\n" // no trailing bare-spine line after the body
   }
 
   @Test

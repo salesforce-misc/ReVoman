@@ -122,10 +122,12 @@ object RunLogRenderer {
 
   /**
    * Prefix EVERY line of [block] with the `│` spine so a multi-line HTTP body reads as nested under
-   * its step. A blank line becomes a bare `│` (unbroken spine, no trailing space).
-   * Newline-terminated.
+   * its step. A blank line becomes a bare `│` (unbroken spine, no trailing space). A trailing
+   * newline on [block] is trimmed first, so the spine stops at the last content line rather than
+   * emitting a spurious bare `│` past the body. Always newline-terminated.
    */
   @JvmStatic
   fun gutter(block: String): String =
-    block.lineSequence().joinToString("\n") { if (it.isEmpty()) "│" else "│ $it" } + "\n"
+    block.trimEnd('\n').lineSequence().joinToString("\n") { if (it.isEmpty()) "│" else "│ $it" } +
+      "\n"
 }
