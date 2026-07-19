@@ -10,6 +10,8 @@ package com.salesforce.revoman.output.log
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.io.BufferedWriter
 import java.io.IOException
+import java.io.PrintWriter
+import java.io.StringWriter
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Path
@@ -91,6 +93,58 @@ private constructor(
       logger.warn { "FileRunLogSink close/flush failed (ignored): $e" }
     }
     repointLatest()
+  }
+
+  /**
+   * Append a run-level fact as a tagged `[run] key=value` line — grep-able as `[run] key=`
+   * regardless of where in the file it lands. Generic: a consumer records whatever it learns
+   * mid-run (e.g. a bound org id, once setUp binds it — it cannot be in the line-1 banner). A
+   * `null` [value] renders `(unset)`.
+   */
+  fun recordRunFact(key: String, value: String?) {
+    write("[run] $key=${value ?: "(unset)"}\n")
+  }
+
+  /**
+   * Write the outcome footer (the final block). Gated by the `outcome` content toggle. On a
+   * failure, surfaces a one-line `error` summary for a quick scan PLUS the FULL stack trace of
+   * [failure] — including its `Caused by:` / `Suppressed:` chain — so a reader can diagnose the
+   * break from the log alone without rerunning. Rendered via [Throwable.printStackTrace] (not a
+   * hand-rolled walk) so the cause chain and the JDK's circular-reference guard are handled
+   * correctly. The trace is intentionally NOT trimmed — a truncated trace can hide the very
+   * root-cause frame that explains the failure.
+   */
+  fun footer(passed: Boolean, failingStep: String?, failure: Throwable?) {
+    if (!config.outcome) {
+      return
+    }
+    val sb = StringBuilder()
+    sb
+      .append("=== OUTCOME: ")
+      .append(if (passed) "PASSED" else "FAILED")
+      .append(" =================================\n")
+    if (!passed) {
+      if (failingStep != null) {
+        sb.append("failingStep  ").append(failingStep).append('\n')
+      }
+      if (failure != null) {
+        sb.append("error        ").append(failure).append('\n')
+        sb.append("--- stacktrace --------------------------------------\n")
+        sb.append(stackTraceOf(failure))
+      }
+    }
+    sb.append("=====================================================\n")
+    write(sb.toString())
+  }
+
+  /** Full stack trace + cause/suppressed chain of [t], as the JVM would print it. */
+  private fun stackTraceOf(t: Throwable): String {
+    val sw = StringWriter()
+    PrintWriter(sw).use { t.printStackTrace(it) }
+    val trace = sw.toString()
+    // printStackTrace already ends each line with a newline; guarantee a trailing one so the
+    // closing banner sits on its own line even for an exotic Throwable override.
+    return if (trace.endsWith("\n")) trace else trace + "\n"
   }
 
   /**

@@ -204,4 +204,58 @@ class FileRunLogSinkTest {
     body shouldContain "⚠ CONTRACT"
     body shouldContain "missing consumed: [saId1]"
   }
+
+  @Test
+  fun `recordRunFact appends a tagged run-level line`(@TempDir logsDir: Path) {
+    val sink = FileRunLogSink.open(logsDir, "T.m", "External", ts, FileRunLogConfig.DEFAULT_ALL)
+    sink.recordRunFact("org", "00Dxx0000001gPq")
+    sink.close()
+    Files.readString(runFile(logsDir, "T.m")) shouldContain "[run] org=00Dxx0000001gPq"
+  }
+
+  @Test
+  fun `recordRunFact renders null value as unset`(@TempDir logsDir: Path) {
+    val sink = FileRunLogSink.open(logsDir, "T.m", "External", ts, FileRunLogConfig.DEFAULT_ALL)
+    sink.recordRunFact("org", null)
+    sink.close()
+    Files.readString(runFile(logsDir, "T.m")) shouldContain "[run] org=(unset)"
+  }
+
+  @Test
+  fun `footer captures failing step and full stacktrace with cause`(@TempDir logsDir: Path) {
+    val sink = FileRunLogSink.open(logsDir, "T.m", "External", ts, FileRunLogConfig.DEFAULT_ALL)
+    val root = IllegalStateException("DB partition specifier not cleared")
+    val failure = AssertionError("expected status 200 but was 400", root)
+    sink.footer(false, "pq | POST /services/data/v62.0/...  HTTP 400", failure)
+    sink.close()
+    val body = Files.readString(runFile(logsDir, "T.m"))
+    body shouldContain "=== OUTCOME: FAILED"
+    body shouldContain "failingStep"
+    body shouldContain "HTTP 400"
+    body shouldContain "error        java.lang.AssertionError: expected status 200 but was 400"
+    body shouldContain
+      "Caused by: java.lang.IllegalStateException: DB partition specifier not cleared"
+    body shouldContain "at "
+  }
+
+  @Test
+  fun `footer with null failure still writes verdict without trace`(@TempDir logsDir: Path) {
+    val sink = FileRunLogSink.open(logsDir, "T.m", "External", ts, FileRunLogConfig.DEFAULT_ALL)
+    sink.footer(false, null, null)
+    sink.close()
+    val body = Files.readString(runFile(logsDir, "T.m"))
+    body shouldContain "=== OUTCOME: FAILED"
+    body shouldNotContain "Caused by:"
+  }
+
+  @Test
+  fun `outcome off omits the footer`(@TempDir logsDir: Path) {
+    val noOutcome = FileRunLogConfig(true, true, true, false, true, 10)
+    val sink = FileRunLogSink.open(logsDir, "T.m", "External", ts, noOutcome)
+    sink.footer(true, null, null)
+    sink.close()
+    val body = Files.readString(runFile(logsDir, "T.m"))
+    body shouldNotContain "=== OUTCOME: PASSED"
+    body shouldNotContain "=== OUTCOME: FAILED"
+  }
 }
