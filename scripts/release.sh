@@ -95,9 +95,12 @@ cd "${CORE_DIR}"
 core_branch="$(git branch --show-current)"
 echo "Core branch: ${core_branch}"
 # _REVOMAN_VERSION (in third_party/dependencies/com_salesforce_revoman.bzl) drives BOTH the source dep
-# and the pinned catalog; update it, then regenerate the pinned catalog. CORE_HOME is the checkout path.
-bazel run //:graph-tool -- update-version-variable --variable-name=_REVOMAN_VERSION --new-version="${NEW_VERSION}" --scm=git "${CORE_DIR}"
-bazel run //:graph-tool -- pin-dependencies "${CORE_DIR}"
+# and the pinned catalog; `set-version-variable --pin-dependencies` updates the variable AND
+# regenerates the pinned catalog in one step. The final positional arg is the Core checkout path.
+# (The subcommand was once `update-version-variable` + a separate `pin-dependencies` call; graph-tool
+# renamed it to `set-version-variable` and folded pinning into the `--pin-dependencies` flag.)
+bazel run //:graph-tool -- set-version-variable \
+  --variable-name=_REVOMAN_VERSION --new-version="${NEW_VERSION}" --scm=git --pin-dependencies --batch-mode "${CORE_DIR}"
 
 if [[ -z "$(git status --porcelain)" ]]; then
   die "graph-tool made no changes — is Core already on ${NEW_VERSION}?"
@@ -107,7 +110,10 @@ step "Commit + push Core"
 git --no-pager diff --stat
 git add -u
 git commit -s -m "Bump com.salesforce.revoman:revoman to ${NEW_VERSION}"
-git push origin HEAD
+# Core checkouts don't use a remote named `origin` (they are versioned, e.g. `264`); push to the
+# current branch's configured upstream remote instead of a hardcoded name.
+core_push_remote="$(git rev-parse --abbrev-ref --symbolic-full-name '@{push}' 2>/dev/null | cut -d/ -f1)"
+git push "${core_push_remote:-origin}" HEAD
 
 step "DONE"
 echo "✅ revoman ${NEW_VERSION} published to Maven Central and propagated into Core (${core_branch})."

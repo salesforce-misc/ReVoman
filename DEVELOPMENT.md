@@ -93,6 +93,36 @@ is picked up by Core on its next **server restart** (a `java_import` jar is not 
 running server holds the old bytecode until it restarts). ReVoman-library change → rebuild the jar
 here → restart the Core server.
 
+### Core Maven-graph exclusions on the `revoman` dependency (why they exist)
+
+When ReVoman is consumed through Core's Maven graph (`third_party/dependencies/com_salesforce_revoman.bzl`),
+the `com.salesforce.revoman:revoman` artifact carries these `exclusions`, which **graph-tool strips
+the explaining comments from on every version bump** (the file header says "Formatting and comments
+will not be preserved"), so the rationale is recorded HERE instead:
+
+- `org.apache.logging.log4j:*` — Core supplies its own logging stack.
+- `org.hamcrest:*` — Core supplies its own test matchers.
+- `org.graalvm.truffle:truffle-runtime` and `org.graalvm.truffle:truffle-compiler` — Core already
+  provides a coherent GraalVM 25.0.3 stack (truffle-api, js-language, polyglot, …). ReVoman
+  transitively drags `truffle-runtime`/`truffle-compiler` **25.1.3** (a `runtimeOnly` optimizing-
+  compiler substitution on ReVoman's side); pulling those into Core would skew Truffle against Core's
+  25.0.3 `truffle-api`. Excluding them makes ReVoman fall back to Core's coherent stack — GraalJS
+  still runs on the interpreter runtime, exactly as every other Core GraalJS consumer.
+
+If a future ReVoman release changes its GraalVM/Truffle floor, revisit these two truffle exclusions.
+
+### Propagating a release into Core
+
+`scripts/release.sh <version>` bumps the version, publishes to Maven Central, waits for the jar to
+go live, then runs `graph-tool` in the Core checkout to bump `_REVOMAN_VERSION` and re-pin. Note the
+graph-tool subcommand is **`set-version-variable`** (older docs/scripts may say
+`update-version-variable`, which no longer exists):
+
+```bash
+bazel run //:graph-tool -- set-version-variable \
+  --variable-name=_REVOMAN_VERSION --new-version=<version> --scm=git --pin-dependencies "$CORE_DIR"
+```
+
 ## Development Environment
 
 - **JDK**: 21+ required for JVM target
