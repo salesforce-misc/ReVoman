@@ -24,7 +24,9 @@
     <ID>CyclomaticComplexMethod:SandboxBridge.kt:SandboxBridge$private fun decodeResult: PmExecutionResult</ID>
     <ID>CyclomaticComplexMethod:StepReport.kt:StepReport.Companion$private fun failure: Either&lt;ExeFailure, HttpStatusUnsuccessful&gt;?</ID>
     <ID>CyclomaticComplexMethod:Template.kt:Request$internal fun toHttpRequest: org.http4k.core.Request</ID>
+    <ID>EmptyFunctionBlock:CompositeRunLogSinkTest.kt:CompositeRunLogSinkTest.Recording${}</ID>
     <ID>EmptyFunctionBlock:ConsoleRunLogSink.kt:ConsoleRunLogSink${}</ID>
+    <ID>EmptyFunctionBlock:DiagramRunLogSink.kt:DiagramRunLogSink${}</ID>
     <ID>EmptyFunctionBlock:KickTest.kt:KickTest.&lt;no name provided&gt;${}</ID>
     <ID>EmptyFunctionBlock:RegexReplacerScopesTest.kt:RegexReplacerScopesTest.RecordingSink${}</ID>
     <ID>EmptyFunctionBlock:RunLogContextActiveSinkTest.kt:RunLogContextActiveSinkTest.&lt;no name provided&gt;${}</ID>
