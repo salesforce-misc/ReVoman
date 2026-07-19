@@ -94,11 +94,12 @@ step "Bump revoman dependency in Core"
 cd "${CORE_DIR}"
 core_branch="$(git branch --show-current)"
 echo "Core branch: ${core_branch}"
-# _REVOMAN_VERSION (in third_party/dependencies/com_salesforce_revoman.bzl) drives BOTH the source dep
-# and the pinned catalog: set the variable, then regenerate the pinned catalog. Run from CORE_DIR
-# (cd'd above). Convenience zsh wrappers: `graph-set-version-variable` / `graph-set-dep-version`.
-# (The subcommand was once `update-version-variable`; graph-tool renamed it to `set-version-variable`.)
-bazel run //:graph-tool -- set-version-variable --variable-name=_REVOMAN_VERSION --new-version="${NEW_VERSION}"
+# Bump the revoman dependency by its Maven coordinate, then regenerate the pinned catalog. Run from
+# CORE_DIR (cd'd above). `set-dependency-version <group:artifact>` is the right subcommand for a
+# Maven-coord dep like revoman; `set-version-variable --variable-name=<VAR>` is for named version
+# variables (e.g. _HTTP4K_VERSION). Convenience zsh wrappers: `graph-set-dep-version <coord> <v>` /
+# `graph-set-version-variable <VAR> <v>`.
+bazel run //:graph-tool -- set-dependency-version com.salesforce.revoman:revoman --new-version="${NEW_VERSION}"
 bazel run //:graph-tool -- pin-dependencies
 
 if [[ -z "$(git status --porcelain)" ]]; then

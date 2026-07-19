@@ -114,19 +114,18 @@ If a future ReVoman release changes its GraalVM/Truffle floor, revisit these two
 ### Propagating a release into Core
 
 `scripts/release.sh <version>` bumps the version, publishes to Maven Central, waits for the jar to
-go live, then runs `graph-tool` **from the Core checkout** to bump `_REVOMAN_VERSION` and re-pin. Set
-the version variable, then re-pin (the subcommand was once `update-version-variable`; graph-tool
-renamed it to **`set-version-variable`**):
+go live, then runs `graph-tool` **from the Core checkout** to bump the revoman dep and re-pin. revoman
+is a Maven-coord dep, so bump it with **`set-dependency-version <group:artifact>`**, then re-pin:
 
 ```bash
 # from the Core checkout root
-bazel run //:graph-tool -- set-version-variable --variable-name=_REVOMAN_VERSION --new-version=<version>
+bazel run //:graph-tool -- set-dependency-version com.salesforce.revoman:revoman --new-version=<version>
 bazel run //:graph-tool -- pin-dependencies
 ```
 
-Handy zsh wrappers exist: `graph-set-version-variable _REVOMAN_VERSION <version>` and, for a plain
-Maven-coord dep, `graph-set-dep-version <group:artifact> <version>` (→
-`graph-tool set-dependency-version <group:artifact> --new-version=<version>`).
+`set-dependency-version <group:artifact>` bumps a Maven-coord dep; `set-version-variable
+--variable-name=<VAR>` is for named version variables (e.g. `_HTTP4K_VERSION`). Handy zsh wrappers:
+`graph-set-dep-version <group:artifact> <version>` and `graph-set-version-variable <VAR> <version>`.
 
 ## Development Environment
 
