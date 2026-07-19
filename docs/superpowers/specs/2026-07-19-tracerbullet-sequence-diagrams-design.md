@@ -74,10 +74,18 @@ Key decisions:
   exactly as `RunLogRenderer` generates the text spine.
 - **Accumulate, render on `close()`** — unlike the per-event live line/spine sinks, the diagram
   sink buffers structured interactions during the run and renders the whole diagram at the end.
-- **CompositeRunLogSink for coexistence** — a run has one `RunLogSink` slot. A small
-  `CompositeRunLogSink` fans each event to N delegates (e.g. file + diagram), keeping each sink
-  single-purpose and independently testable (chosen over folding into `FileRunLogSink`, which
-  is already `TooManyFunctions`-suppressed).
+- **CompositeRunLogSink for coexistence — the CONSUMER composes.** A run has one `RunLogSink`
+  slot. A small `CompositeRunLogSink` fans each event to N delegates (e.g. file + diagram),
+  keeping each sink single-purpose and independently testable (chosen over folding into
+  `FileRunLogSink`, which is already `TooManyFunctions`-suppressed). The composer is the
+  **consumer**, not a library factory — forced by how Core consumes the library: Core's
+  `ReVomanFTest` holds its sink as a **concrete `FileRunLogSink`** (not the `RunLogSink`
+  interface) because it calls FileRunLogSink-only methods on it — `recordRunFact`,
+  `renderHeaviestSteps`, `recordPerfSummary`, `footer`. A library factory that returned a
+  `CompositeRunLogSink` (a `RunLogSink`) would both break Core's compile and strip the concrete
+  handle Core drives. So the library ships the *pieces* (`DiagramRunLogSink`,
+  `CompositeRunLogSink`); the consumer keeps its concrete file handle, additionally builds the
+  diagram sink, and installs `CompositeRunLogSink.of(file, diagram)` as the active sink.
 
 ### Data flow
 
@@ -183,25 +191,31 @@ others, and never fails the run. `hasActiveSink()` stays true (a Composite of re
 
 ## Configuration
 
-Add `diagram: Boolean = false` to the existing `FileRunLogConfig` — the established
-content-toggle home (`steps` / `runbook` / `perf` / `libLogs` / `outcome`). Default `false` →
-zero behavior change for every existing consumer.
+Add `diagram: Boolean` to the existing `FileRunLogConfig` — the established content-toggle home
+(`steps` / `runbook` / `perf` / `libLogs` / `outcome`). Default `false` → zero behavior change
+for every existing consumer.
 
-The `RunLogSink` is **caller-supplied** via `Kick.runLogSink` — the consumer (e.g. Core's
-per-test sink) constructs it, today by calling the library factory `FileRunLogSink.openOrNoOp`.
-So composition lives behind that factory boundary, not at a hidden internal site: the library
-exposes a factory (either extending `FileRunLogSink.openOrNoOp` or a sibling
-`RunLogSinks.openOrNoOp`) that, given `logsDir` / `runLabel` / `mode` / `startedAt` / `config`,
-returns:
+**Binary/source compatibility (Core constructs `FileRunLogConfig` positionally).** Core's
+`RunLogConfig.read()` calls `new FileRunLogConfig(libLogs, steps, perf, outcome, runbook,
+heaviestSteps)` positionally in Java (`RunLogConfig.java:53`). Adding a Kotlin field would break
+that call unless the new field is last and the constructor carries **`@JvmOverloads`** with a
+`= false` default — which regenerates the prior 6-arg overload so Core's existing call keeps
+compiling untouched. Core then opts in only when ready by switching to the 7-arg form. (Kotlin
+call sites are unaffected regardless, via the default.)
 
-- the `FileRunLogSink` alone when `config.diagram == false` (exactly as today), or
-- `CompositeRunLogSink(listOf(fileSink, DiagramRunLogSink.open(...)))` when `config.diagram ==
-  true`.
+**The consumer composes** (see Architecture). The library does *not* add a compose-in-factory
+path — that would break Core, which holds a concrete `FileRunLogSink`. Instead:
 
-The consumer flips one toggle (`FileRunLogConfig(diagram = true)`) and passes the factory result
-to `Kick.runLogSink`; the library owns the composition, keeping it a single source. Because a
-`CompositeRunLogSink` of real sinks is not `NoOp`, `RunLogContext.hasActiveSink()` stays true and
-the `emitStepFinished` capture path runs unchanged.
+- Library: `FileRunLogSink.openOrNoOp(...)` is unchanged (still returns a concrete
+  `FileRunLogSink`); `DiagramRunLogSink.openOrNoOp(...)` is a new sibling factory;
+  `CompositeRunLogSink.of(RunLogSink...)` composes.
+- Consumer (Core `ReVomanFTest`): keep the concrete `FileRunLogSink` handle for its
+  file-specific calls; when `config.diagram` is on, also open a `DiagramRunLogSink` and install
+  `CompositeRunLogSink.of(fileSink, diagramSink)` via `runner().setRunLogSink(...)`; close both
+  in `closeRunLog()`.
+
+Because a `CompositeRunLogSink` of real sinks is not `NoOp`, `RunLogContext.hasActiveSink()`
+stays true and the `emitStepFinished` capture path runs unchanged.
 
 ## Error handling
 
@@ -223,9 +237,31 @@ cannot fail on I/O; a rendering bug surfaces only at the sink boundary, mirrorin
 - **`CompositeRunLogSinkTest`** — assert fan-out to both delegates, and that one throwing
   delegate does not stop the other or fail the call.
 - **Regression** — existing `RunLogRendererTest` / `FileRunLogSinkTest` /
-  `ConsoleRunLogSinkTest` unaffected (new fields nullable, `diagram` default off).
-- **Integration** — one existing pokemon FTest opts in `diagram=true`, asserts a non-empty,
-  well-formed `.mmd` is produced.
+  `ConsoleRunLogSinkTest` unaffected (new `StepFinished` fields nullable + default null;
+  `diagram` defaults off). Add one
+  `FileRunLogConfigTest` case asserting the 6-arg `@JvmOverloads` constructor still yields
+  `diagram == false` (the Core positional-call contract).
+- **ReVoman integration** — one existing pokemon `integrationTest` opts in `diagram=true`,
+  asserts a non-empty, well-formed `.mmd` is produced next to the run output.
+
+### Core integration (the real consumer — "test the feature")
+
+Core consumes ReVoman as a prebuilt jar via `.bazelrc-local` pointing at these sources (no jar
+publish needed for Core compilation; the E2E server needs a `gradle clean build` jar rebuild +
+server restart — see `DEVELOPMENT.md`). To prove the feature end-to-end through the consumer:
+
+1. **Compile-compat gate** — after adding the `@JvmOverloads` field, confirm Core's unchanged
+   `RunLogConfig.java` positional `new FileRunLogConfig(6 args)` still compiles (bazel build of
+   the loki-core wrapper module). This is the guard that the field addition is source-compatible.
+2. **Wire the consumer** — apply the `ReVomanFTest.java` / `RunLogConfig.java` edits above so
+   `logs.content.diagram: true` in `~/.revoman/config.yaml` installs the composite sink.
+3. **Core FTest assertion** — extend an existing loki-core ReVoman FTest (or add a focused one)
+   that, with `diagram` on, asserts a `.mmd` file is written beside the per-test `.log` in
+   `RevomanHome.logsDir()/<TestClass>.<method>/` and that its content starts with
+   `sequenceDiagram`. Run ONLY that FTest per Core testing policy (`ftest-console`); leave the
+   full suite to CI. If the E2E server path is exercised, rebuild the ReVoman jar
+   (`gradle clean build`, clearing stale `build/libs/revoman-*.jar` first) and restart the Core
+   server so the new bytecode is loaded.
 
 ## Files
 
@@ -243,9 +279,18 @@ Modified:
 - `src/main/kotlin/com/salesforce/revoman/ReVoman.kt` — populate method/host/path in
   `emitStepFinished`
 - `src/main/kotlin/com/salesforce/revoman/output/log/FileRunLogConfig.kt` — +`diagram` toggle
-- the library sink factory (`FileRunLogSink.openOrNoOp` or a sibling `RunLogSinks` factory) —
-  return a `CompositeRunLogSink(file + diagram)` when `config.diagram == true`, the file sink
-  alone otherwise
+  as the LAST field, constructor gets `@JvmOverloads` + `= false` default so Core's positional
+  6-arg `new FileRunLogConfig(...)` keeps compiling
+
+Consumer-side (Core wrapper — verified against
+`~/core-public/core/loki-core/test/utils/func/java/src/org/revcloud/loki/core/testutils/revoman/`,
+part of THIS change so the feature is exercised by the real consumer):
+- `runtime/ReVomanFTest.java` — `buildRunLogSink` keeps building the concrete `FileRunLogSink`;
+  when `runLogConfig.content().getDiagram()` is on, also open a `DiagramRunLogSink` and install
+  `CompositeRunLogSink.of(fileSink, diagramSink)` on the runner; `closeRunLog()` closes both.
+- `runtime/RunLogConfig.java` — read `logs.content.diagram` (default `false`) and pass it to the
+  7-arg `FileRunLogConfig`.
+- A Core FTest asserts the `.mmd` is produced (see Testing → Core integration).
 
 ## Core-jar impact
 
