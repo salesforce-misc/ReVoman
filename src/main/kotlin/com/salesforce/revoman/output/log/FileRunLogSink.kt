@@ -36,6 +36,12 @@ private val logger = KotlinLogging.logger {}
  * can never fail a run; the run is the product, the log is a convenience. Single-threaded for its
  * lifetime per the [RunLogSink] contract.
  */
+// TooManyFunctions: the surface is a cohesive file-sink policy (the RunLogSink contract +
+// recordRunFact/footer + the three perf hooks + open/openOrNoOp), not decomposable without
+// scattering one run's lifecycle across types. TooGenericExceptionCaught: the never-throw contract
+// (see class doc) requires every I/O path to swallow broadly — okio also surfaces an undeclared
+// checked IOException through Kotlin, which a specific catch would miss. Both suppressed here.
+@Suppress("TooManyFunctions", "TooGenericExceptionCaught")
 class FileRunLogSink
 private constructor(
   private val runFile: Path,
@@ -120,16 +126,19 @@ private constructor(
     stepTimings.entries
       .sortedByDescending { it.value }
       .take(topN.coerceAtLeast(0))
-      .forEach { sb.append(String.format("  %-44s%8dms\n", truncatePath(it.key), it.value)) }
+      .forEach {
+        sb.append(String.format("  %-${PATH_COL_WIDTH}s%8dms\n", truncatePath(it.key), it.value))
+      }
     return sb.toString()
   }
 
   /**
    * Keep the heaviest-steps table aligned: cap an over-long step path so the ms column doesn't
-   * shift.
+   * shift. An over-long path is truncated to [PATH_COL_WIDTH] chars with a trailing ellipsis.
    */
   private fun truncatePath(path: String): String =
-    if (path.length <= 44) path else path.substring(0, 41) + "..."
+    if (path.length <= PATH_COL_WIDTH) path
+    else path.substring(0, PATH_COL_WIDTH - ELLIPSIS.length) + ELLIPSIS
 
   /**
    * Write the consolidated perf summary [block] at the footer (live, so a tailing reader sees it as
@@ -319,6 +328,11 @@ private constructor(
     private val HEADER_TIME: DateTimeFormatter =
       DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss").withZone(ZoneOffset.UTC)
     private const val LATEST = "latest.log"
+
+    /** Width of the step-path column in the heaviest-steps table; longer paths are truncated. */
+    private const val PATH_COL_WIDTH = 44
+    /** Ellipsis appended to a truncated step path so the total still fits [PATH_COL_WIDTH]. */
+    private const val ELLIPSIS = "..."
 
     /**
      * Open a live writer for one run, creating `<logsDir>/<runLabel>/` and the timestamped file,
