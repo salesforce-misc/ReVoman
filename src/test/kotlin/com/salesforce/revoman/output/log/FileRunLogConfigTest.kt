@@ -22,4 +22,18 @@ class FileRunLogConfigTest {
     cfg.heaviestSteps shouldBe FileRunLogConfig.DEFAULT_HEAVIEST_STEPS
     FileRunLogConfig.DEFAULT_HEAVIEST_STEPS shouldBe 10
   }
+
+  @Test
+  fun `six-arg constructor stays source-compatible and defaults diagram off`() {
+    // Mirrors Core's positional Java call: new FileRunLogConfig(libLogs, steps, perf, outcome,
+    // runbook, heaviestSteps). @JvmOverloads must regenerate this arity.
+    val config = FileRunLogConfig(true, true, true, true, true, 10)
+    config.diagram shouldBe false
+  }
+
+  @Test
+  fun `diagram can be turned on via the seven-arg form`() {
+    val config = FileRunLogConfig(true, true, true, true, true, 10, true)
+    config.diagram shouldBe true
+  }
 }

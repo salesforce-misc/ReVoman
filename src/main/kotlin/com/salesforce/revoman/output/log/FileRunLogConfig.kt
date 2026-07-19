@@ -20,14 +20,19 @@ package com.salesforce.revoman.output.log
  * @param outcome the pass/fail + failing-step + stacktrace footer
  * @param runbook the coarse runbook glyph brackets (phase rules, step open/close, contract lines)
  * @param heaviestSteps size of the heaviest-steps table
+ * @param diagram also render a Mermaid `sequenceDiagram` `.mmd` for the run (via a
+ *   DiagramRunLogSink)
  */
-data class FileRunLogConfig(
+data class FileRunLogConfig
+@JvmOverloads
+constructor(
   val libLogs: Boolean,
   val steps: Boolean,
   val perf: Boolean,
   val outcome: Boolean,
   val runbook: Boolean,
   val heaviestSteps: Int,
+  val diagram: Boolean = false,
 ) {
   companion object {
     /** Default size of the heaviest-steps table when a consumer supplies no explicit value. */
