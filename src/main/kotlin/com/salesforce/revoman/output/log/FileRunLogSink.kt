@@ -75,14 +75,14 @@ private constructor(
     // from RunLogRenderer — one source shared with ConsoleRunLogSink.
     if (isCoarseRunbookEvent(event)) {
       if (config.runbook) {
-        write(RunLogRenderer.render(event))
+        renderAndWrite(event)
       }
       return
     }
     if (!config.steps) {
       return
     }
-    write(RunLogRenderer.render(event))
+    renderAndWrite(event)
   }
 
   private fun isCoarseRunbookEvent(event: StepEvent): Boolean =
@@ -90,6 +90,16 @@ private constructor(
       event is StepEvent.RunbookStepStarted ||
       event is StepEvent.RunbookStepFinished ||
       event is StepEvent.RunbookContractFailed
+
+  /**
+   * Render [event] via [RunLogRenderer] and write it, swallowing any render/IO error so a render
+   * bug can never propagate onto ReVoman's hot path (honors the never-throw contract), mirroring
+   * [ConsoleRunLogSink].
+   */
+  private fun renderAndWrite(event: StepEvent) {
+    runCatching { write(RunLogRenderer.render(event)) }
+      .onFailure { logger.debug { "FileRunLogSink event render failed (ignored): $it" } }
+  }
 
   /** Tee one raw perf line; gated by the `perf` content toggle. */
   fun perfLine(line: String) {
@@ -215,10 +225,9 @@ private constructor(
         "[run] mode=$mode\n" +
         "[run] started=${HEADER_TIME.format(startedAt)}\n" +
         "--- legend ------------------------------------------\n" +
-        "[run] ...      run-level facts (test, mode, org, started)\n" +
-        "[INFO|WARN|ERROR] ...   ReVoman library narration (tee of 3prvm)\n" +
-        "[ReVomanPerf] mode=.. stage=.. tookMs=..   per-stage timing\n" +
-        "[ReVomanPerf] SUMMARY ...   end-of-run timing roll-up\n" +
+        "[run] ...      run-level facts (test, mode, started, + consumer recordRunFact keys)\n" +
+        "[INFO|WARN|ERROR] ...   ReVoman library narration\n" +
+        "[...] ...   consumer-fed lines (e.g. perf timings via perfLine), when perf is on\n" +
         "┌ ◆|▶ <intent>  ⟵ consumes   ★ UNDER TEST   runbook step opens (heavy corner)\n" +
         "│ ▸ <name>  then  │   <status> OK|FAIL|SKIP · <ms>ms  ✔|✘|⊘   nested child request\n" +
         "│ ── REQ ── / │ ── RESP ──   HTTP exchange, every line under the │ spine\n" +

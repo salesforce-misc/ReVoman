@@ -343,4 +343,19 @@ class FileRunLogSinkTest {
     body shouldStartWith "=== ReVoman run"
     body shouldContain "hello"
   }
+
+  @Test
+  fun `step timings accumulate even when steps toggle is off`(@TempDir logsDir: Path) {
+    // The heaviest-steps table must reflect every finished step even when per-step bodies are
+    // suppressed — timings merge BEFORE the content gate.
+    val noSteps = FileRunLogConfig(true, false, true, true, true, 10)
+    val sink = FileRunLogSink.open(logsDir, "T.m", "External", ts, noSteps)
+    sink.event(finished("only", 42L))
+    val table = sink.renderHeaviestSteps(10)
+    sink.close()
+    table shouldContain "only"
+    table shouldContain "42ms"
+    // And the per-step block itself was suppressed (steps off).
+    Files.readString(runFile(logsDir, "T.m")) shouldNotContain "│   200 OK"
+  }
 }
