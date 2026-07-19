@@ -13,10 +13,11 @@ package com.salesforce.revoman.output.log
  * [RunLogRenderer]: the diagram grammar lives ONCE here so no consumer can drift it. Chosen over
  * PlantUML because Mermaid renders natively in GitHub/IDEs and needs no external tool.
  *
- * The diagram carries three things beyond "who called whom":
+ * The diagram carries four things beyond "who called whom":
  * - one `participant` per distinct host (first-seen order, stable id `h<n>`),
  * - a phase note whenever the enclosing runbook phase changes,
- * - a data-flow note where a step consumes an env key an earlier step produced,
+ * - a data-flow note where a step consumes an env key an earlier step produced (when several hosts
+ *   produced the same key, the most recent producer is linked),
  * - and a trailing inefficiency summary flagging duplicate `(method, host, path)` calls.
  */
 object DiagramRenderer {
@@ -57,6 +58,7 @@ object DiagramRenderer {
       val statusText = i.status?.toString() ?: "ERR"
       sb.append("    $id-->>User: $statusText (${i.tookMs}ms)\n")
       i.consumed
+        .sorted()
         .mapNotNull { key -> producedBy[key]?.let { producerId -> key to producerId } }
         .filter { (_, producerId) -> producerId != id }
         .forEach { (key, producerId) ->

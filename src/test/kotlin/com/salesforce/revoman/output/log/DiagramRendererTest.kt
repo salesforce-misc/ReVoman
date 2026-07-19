@@ -127,4 +127,22 @@ class DiagramRendererTest {
     // the non-duplicate is NOT flagged
     (out.contains("⚠ 1×")) shouldBe false
   }
+
+  @Test
+  fun `data-flow notes for multiple consumed keys are emitted in sorted order`() {
+    val out =
+      DiagramRenderer.render(
+        listOf(
+          interaction(0, "auth.host", produced = setOf("zebra")),
+          interaction(1, "cfg.host", produced = setOf("alpha")),
+          interaction(2, "api.host", consumed = setOf("zebra", "alpha")),
+        )
+      )
+    // Both notes point at the consumer (h2); sorted -> "alpha" note precedes "zebra" note.
+    val alphaIdx = out.indexOf("Note right of h2: ⟵ alpha from h1")
+    val zebraIdx = out.indexOf("Note right of h2: ⟵ zebra from h0")
+    (alphaIdx > -1) shouldBe true
+    (zebraIdx > -1) shouldBe true
+    (alphaIdx < zebraIdx) shouldBe true
+  }
 }
