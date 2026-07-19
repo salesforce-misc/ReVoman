@@ -58,6 +58,16 @@ internal fun renderHttpMsg(httpMsg: HttpMessage): String {
   return head + JsonPretty.pretty(body)
 }
 
+/**
+ * The diagram/topology coordinates of an http4k [Request]: its HTTP method name, the URI authority
+ * (host[:port] — the sequence-diagram actor), and the URI path. Single source of the request-shape
+ * a [com.salesforce.revoman.output.log.DiagramRunLogSink] plots, so extraction is defined once here
+ * rather than re-parsed from rendered wire text.
+ */
+@JvmSynthetic
+internal fun requestCoordinates(request: Request): Triple<String, String, String> =
+  Triple(request.method.name, request.uri.authority, request.uri.path)
+
 // One http4k/Apache client per TLS variant, memoized for the life of the JVM. Auth is carried
 // per-Request (each Request builds its own Authorization header), so a single shared, pooled
 // client is safe across steps/runs — and avoids building + discarding a pooled client (and its

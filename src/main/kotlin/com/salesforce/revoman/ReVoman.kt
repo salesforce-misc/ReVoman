@@ -29,6 +29,7 @@ import com.salesforce.revoman.internal.exe.ledgerSkipDecision
 import com.salesforce.revoman.internal.exe.postStepHookExe
 import com.salesforce.revoman.internal.exe.preStepHookExe
 import com.salesforce.revoman.internal.exe.renderHttpMsg
+import com.salesforce.revoman.internal.exe.requestCoordinates
 import com.salesforce.revoman.internal.exe.resolveTarget
 import com.salesforce.revoman.internal.exe.shadowedProducerPaths
 import com.salesforce.revoman.internal.exe.shouldHaltExecution
@@ -532,6 +533,10 @@ object ReVoman {
   /** Emits the [StepEvent.StepFinished] boundary event for a finished step's [report]. */
   private fun emitStepFinished(step: Step, report: StepReport) {
     val captureForSink = RunLogContext.hasActiveSink()
+    val request: Request? =
+      if (report.requestInfo != null && report.requestInfo.isRight) report.requestInfo.get().httpMsg
+      else null
+    val coordinates = request?.let { requestCoordinates(it) }
     RevomanLog.event(
       StepEvent.StepFinished(
         path = step.path,
@@ -543,10 +548,7 @@ object ReVoman {
         consumed = report.envVars.consumed,
         tookMs = report.exeTimings.values.sumOf { it.toMillis() },
         outcome = if (report.isSuccessful) Outcome.SUCCESS else Outcome.FAILED,
-        requestMsg =
-          if (captureForSink && report.requestInfo != null && report.requestInfo.isRight)
-            renderHttpMsg(report.requestInfo.get().httpMsg)
-          else null,
+        requestMsg = if (captureForSink && request != null) renderHttpMsg(request) else null,
         responseMsg =
           if (captureForSink && report.responseInfo != null && report.responseInfo.isRight)
             renderHttpMsg(report.responseInfo.get().httpMsg)
@@ -559,6 +561,9 @@ object ReVoman {
           if (captureForSink)
             report.envVars.consumed.associateWith { report.pmEnvSnapshot[it]?.toString() }
           else emptyMap(),
+        method = coordinates?.first,
+        host = coordinates?.second,
+        requestPath = coordinates?.third,
       )
     )
   }
