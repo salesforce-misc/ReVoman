@@ -45,6 +45,9 @@ private constructor(
   private val out: BufferedWriter,
 ) : RunLogSink {
 
+  /** Per-run step timings (path -> summed tookMs) for the heaviest-steps table (Task 5). */
+  private val stepTimings = LinkedHashMap<String, Long>()
+
   override fun line(level: LogLevel, message: String) {
     // libLogs gates library narration: OFF drops INFO *and* DEBUG (e.g. the "{{x}} resolved from
     // scope" flood). WARN/ERROR always pass — they are diagnostics, not narration.
@@ -55,8 +58,30 @@ private constructor(
   }
 
   override fun event(event: StepEvent) {
-    // Filled in Task 3.
+    // Accumulate step timings for the heaviest-steps table BEFORE any content gate.
+    if (event is StepEvent.StepFinished) {
+      stepTimings.merge(event.path, event.tookMs) { existing, new -> existing + new }
+    }
+    // Coarse runbook events render under their OWN toggle (independent of `steps`), so a reader can
+    // keep the runbook tree while dropping per-request bodies (or the reverse). All grammar comes
+    // from RunLogRenderer — one source shared with ConsoleRunLogSink.
+    if (isCoarseRunbookEvent(event)) {
+      if (config.runbook) {
+        write(RunLogRenderer.render(event))
+      }
+      return
+    }
+    if (!config.steps) {
+      return
+    }
+    write(RunLogRenderer.render(event))
   }
+
+  private fun isCoarseRunbookEvent(event: StepEvent): Boolean =
+    event is StepEvent.PhaseEntered ||
+      event is StepEvent.RunbookStepStarted ||
+      event is StepEvent.RunbookStepFinished ||
+      event is StepEvent.RunbookContractFailed
 
   override fun close() {
     try {
