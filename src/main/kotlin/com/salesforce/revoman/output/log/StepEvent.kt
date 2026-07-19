@@ -45,6 +45,14 @@ sealed interface StepEvent {
     val producedValues: Map<String, String?> = emptyMap(),
     /** Consumed env keys mapped to their post-step values (`toString()`); empty if none. */
     val consumedValues: Map<String, String?> = emptyMap(),
+    /** HTTP method of this step's request (e.g. "GET"); null when the step made no request. */
+    val method: String? = null,
+    /**
+     * Request host[:port] — the diagram actor for this step; null when the step made no request.
+     */
+    val host: String? = null,
+    /** Request URI path; null when the step made no request. */
+    val requestPath: String? = null,
   ) : StepEvent
 
   data class LedgerSkipped(override val path: String, val reused: Set<String>) : StepEvent
