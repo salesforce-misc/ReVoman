@@ -26,7 +26,7 @@ where you can filter out these legacy types from Marshalling/Unmarshalling.
 * You may use the bundled static factory methods named `RequestConfig.unmarshallRequest()` for expressiveness.
 * You can pass a `PreTxnStepPick` which is a `Predicate` used
 to qualify a step whose Request JSON payload needs to be unmarshalled/deserialized.
-* If you have set up `requestConfig()` once in the config, wherever you wish to read or assert the request, you can call `stepReport.requestInfo.get().<TypeT>getTypedTxnObj()` which returns your request JSON as a Strong type.
+* If you have set up `requestConfig()` once in the config, wherever you wish to read or assert the request, you can call `stepReport.requestInfo.get().<TypeT>getTypedTxnObj()` which returns your request JSON as a Strong type (see <<getTypedTxnObj>>).
 
 == `responseConfig()`
 
@@ -35,7 +35,7 @@ to qualify a step whose Request JSON payload needs to be unmarshalled/deserializ
 * Use bundled static factory methods like `ResponseConfig.unmarshallSuccessResponse()` and `ResponseConfig.unmarshallErrorResponse()` for expressiveness.
 * You can pass a `PostTxnStepPick` which is a `Predicate` used
 to qualify a step whose Response JSON payload needs to be unmarshalled/deserialized.
-* If you have set up `responseConfig()` once, wherever you wish to read or assert the response, you can call `stepReport.responseInfo.get().<TypeT>getTypedTxnObj()` which returns your response JSON as a Strong type.
+* If you have set up `responseConfig()` once, wherever you wish to read or assert the response, you can call `stepReport.responseInfo.get().<TypeT>getTypedTxnObj()` which returns your response JSON as a Strong type (see <<getTypedTxnObj>>).
 
 [TIP]
 ====
@@ -52,9 +52,61 @@ See `DiMorphicAdapter` in action from the test `compositeGraphResponseDiMorphicM
 
 * These come handy when the same POJO/Data structure (e.g. `ID`) is present across multiple Request or Response POJOs. These adapters compliment the custom adapters setup in `requestConfig()` or `responseConfig()` wherever these types are present.
 
-NOTE: If you don't configure any adapters, you can either pass the adapter at runtime using the overload `stepReport.requestInfo.get().<TypeT>getTypedTxnObj(type, customAdapters, customAdaptersForType)` or Moshi by default unmarshalls the step's request/response JSON into a generic data structures like `LinkedHashMap`.
+NOTE: If you don't configure any adapters, you can either pass them at read time using the full `stepReport.requestInfo.get().<TypeT>getTypedTxnObj(targetType, customAdapters, customAdaptersWithType, typesToIgnore)` overload (see <<getTypedTxnObj>>), or Moshi by default unmarshalls the step's request/response JSON into a generic data structure like `LinkedHashMap`.
 
 CAUTION: All these adapters supplied from various config methods per a `revUp()` execution are appended to the same Moshi instance created in that thread. Read more about link:https://github.com/square/moshi#composing-adapters[Moshi adapter composition]. This means you don't have to supply the adapters repeatedly for the same type. This also means your adapters may get overridden unexpectedly. Keep this in mind while troubleshooting any serialize/deserialize issues. If you wish to manage Moshi yourself, you can get a copy of internal Moshi via `pokeRundown.mutableEnv.moshiReVoman().internalMoshiCopy()`.
+
+[#getTypedTxnObj]
+== `getTypedTxnObj()`: reading a step's payload as a Strong type
+
+Every executed step exposes its Request and Response as a `TxnInfo` — `stepReport.requestInfo.get()` and `stepReport.responseInfo.get()`.
+`TxnInfo` is the bridge between the raw HTTP message and your POJO: it carries the untyped `txnObj` (already unmarshalled if you configured `requestConfig()`/`responseConfig()` for that step), the original `httpMsg`, and the thread's Moshi instance.
+`getTypedTxnObj()` is how you pull that payload out as a compile-time type:
+
+[source,java]
+----
+CreateRecordResponse response =
+    stepReport.responseInfo.get().<CreateRecordResponse>getTypedTxnObj();
+----
+
+Because the type is a Java _witness_ (`<CreateRecordResponse>`) / Kotlin _reified_ parameter, you get a strongly-typed handle back — no cast, ready to assert on directly inside xref:hooks.adoc[hooks].
+
+=== How the target type is resolved
+
+The zero-arg call infers the target from the step's configured type, so you rarely pass one explicitly:
+
+* With no argument, `targetType` defaults to the `txnObjType` recorded on the `TxnInfo` — i.e. the type you wired up via `responseConfig()`/`requestConfig()` for that step (falling back to `Any`/`Object` when nothing was configured).
+* Pass `targetType` explicitly when you want a type _different_ from the configured one, or when no adapter was configured at all (see the overload below).
+
+=== Short-circuits (no Moshi round-trip)
+
+`getTypedTxnObj()` avoids re-deserializing when it doesn't have to. It returns early — without touching Moshi or re-reading the body — in these cases:
+
+* The payload is absent (`txnObj == null`) → returns `null`.
+* The already-unmarshalled `txnObj` is _assignable_ to `targetType` → returns it as-is. So a step configured through `responseConfig()` is essentially a free lookup, not a second parse.
+* `targetType` is `String` → returns the object without conversion.
+
+Only when none of those hold does it register your adapters and unmarshall `httpMsg.bodyString()` fresh.
+
+CAUTION: Non-JSON payloads (e.g. XML) cannot be marshalled to a POJO yet — asking for a non-`String`, non-assignable type on a non-JSON `TxnInfo` throws `IllegalCallerException`. Guard with `TxnInfo.isJson` if a step may return XML.
+
+=== The runtime-adapter overload
+
+When you did _not_ pre-configure adapters (or want to override them for one read), use the full overload to supply them at read time:
+
+[source,java]
+----
+stepReport.responseInfo.get().<CreateRecordResponse>getTypedTxnObj(
+    CreateRecordResponse.class,   // targetType
+    customAdapters,               // List<Object> of Moshi adapters
+    customAdaptersWithType,       // Map<Type, Either<JsonAdapter<?>, JsonAdapter.Factory>>
+    typesToIgnore);               // Set<Type> to skip (à la globalSkipTypes)
+----
+
+All four parameters are optional (`@JvmOverloads`), so Java callers see overloads for every prefix — from the zero-arg form up to the full four-arg one.
+The adapters you pass are appended to the same thread-local Moshi instance described in the CAUTION above, so they persist for subsequent reads on that `revUp()`.
+
+TIP: In Kotlin, prefer the sibling `getTxnObj<CreateRecordResponse>()` — a `reified` inline variant that infers `targetType` from the type parameter, so you don't repeat the class literal. `getTypedTxnObj(targetType, ...)` exists for Java callers (and for cases where the type is only known as a `java.lang.reflect.Type` at runtime).
 
 == JSON Reader/Writer Utils to build Moshi adapters
 
