@@ -258,4 +258,89 @@ class FileRunLogSinkTest {
     body shouldNotContain "=== OUTCOME: PASSED"
     body shouldNotContain "=== OUTCOME: FAILED"
   }
+
+  private fun finished(path: String, tookMs: Long): StepEvent.StepFinished =
+    StepEvent.StepFinished(
+      path = path,
+      httpStatus = 200,
+      produced = emptySet(),
+      consumed = emptySet(),
+      tookMs = tookMs,
+      outcome = Outcome.SUCCESS,
+      requestMsg = "POST /$path\n\n{}",
+      responseMsg = "HTTP/1.1 200 OK\n\n{}",
+    )
+
+  @Test
+  fun `heaviest steps sorts by tookMs desc and caps at topN`(@TempDir logsDir: Path) {
+    val sink = FileRunLogSink.open(logsDir, "T.m", "External", ts, FileRunLogConfig.DEFAULT_ALL)
+    sink.event(finished("fast", 5L))
+    sink.event(finished("slow", 900L))
+    sink.event(finished("mid", 100L))
+    val table = sink.renderHeaviestSteps(2)
+    sink.close()
+    val slow = table.indexOf("slow")
+    val mid = table.indexOf("mid")
+    (slow > -1) shouldBe true
+    (mid > -1) shouldBe true
+    (slow < mid) shouldBe true
+    table shouldNotContain "fast"
+    table shouldContain "--- perf: heaviest steps"
+  }
+
+  @Test
+  fun `heaviest steps topN larger than count shows all`(@TempDir logsDir: Path) {
+    val sink = FileRunLogSink.open(logsDir, "T.m", "External", ts, FileRunLogConfig.DEFAULT_ALL)
+    sink.event(finished("only", 42L))
+    val table = sink.renderHeaviestSteps(10)
+    sink.close()
+    table shouldContain "only"
+    table shouldContain "42ms"
+  }
+
+  @Test
+  fun `recordPerfSummary writes at footer and splices below banner`(@TempDir logsDir: Path) {
+    val sink = FileRunLogSink.open(logsDir, "T.m", "External", ts, FileRunLogConfig.DEFAULT_ALL)
+    sink.line(LogLevel.INFO, "***** Executing Step: only *****")
+    val block = "--- perf: where the time went ---\n[ReVomanPerf] mode=External total=42ms\n"
+    sink.recordPerfSummary(block)
+    sink.footer(true, null, null)
+    sink.close()
+    val body = Files.readString(runFile(logsDir, "T.m"))
+    val first = body.indexOf("[ReVomanPerf] mode=External total=42ms")
+    val second = body.indexOf("[ReVomanPerf] mode=External total=42ms", first + 1)
+    val stream = body.indexOf("Executing Step: only")
+    (first > -1) shouldBe true
+    (second > first) shouldBe true
+    (first < stream) shouldBe true // header copy ABOVE the live stream
+    (second > stream) shouldBe true // footer copy BELOW it
+  }
+
+  @Test
+  fun `recordPerfSummary with perf off writes nothing`(@TempDir logsDir: Path) {
+    val noPerf = FileRunLogConfig(true, true, false, true, true, 10)
+    val sink = FileRunLogSink.open(logsDir, "T.m", "External", ts, noPerf)
+    sink.recordPerfSummary("--- perf: where the time went ---\nSHOULD_NOT_APPEAR\n")
+    sink.close()
+    Files.readString(runFile(logsDir, "T.m")) shouldNotContain "SHOULD_NOT_APPEAR"
+  }
+
+  @Test
+  fun `perfLine with perf off writes nothing`(@TempDir logsDir: Path) {
+    val noPerf = FileRunLogConfig(true, true, false, true, true, 10)
+    val sink = FileRunLogSink.open(logsDir, "T.m", "External", ts, noPerf)
+    sink.perfLine("[ReVomanPerf] mode=External stage=x tookMs=1")
+    sink.close()
+    Files.readString(runFile(logsDir, "T.m")) shouldNotContain "ReVomanPerf] mode=External stage=x"
+  }
+
+  @Test
+  fun `close without recordPerfSummary leaves file intact`(@TempDir logsDir: Path) {
+    val sink = FileRunLogSink.open(logsDir, "T.m", "External", ts, FileRunLogConfig.DEFAULT_ALL)
+    sink.line(LogLevel.INFO, "hello")
+    sink.close()
+    val body = Files.readString(runFile(logsDir, "T.m"))
+    body shouldStartWith "=== ReVoman run"
+    body shouldContain "hello"
+  }
 }

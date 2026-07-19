@@ -50,6 +50,12 @@ private constructor(
   /** Per-run step timings (path -> summed tookMs) for the heaviest-steps table (Task 5). */
   private val stepTimings = LinkedHashMap<String, Long>()
 
+  /**
+   * The rendered perf summary block, stored at footer-write time so close() can splice it below the
+   * banner.
+   */
+  private var perfBlock: String? = null
+
   override fun line(level: LogLevel, message: String) {
     // libLogs gates library narration: OFF drops INFO *and* DEBUG (e.g. the "{{x}} resolved from
     // scope" flood). WARN/ERROR always pass — they are diagnostics, not narration.
@@ -85,6 +91,52 @@ private constructor(
       event is StepEvent.RunbookStepFinished ||
       event is StepEvent.RunbookContractFailed
 
+  /** Tee one raw perf line; gated by the `perf` content toggle. */
+  fun perfLine(line: String) {
+    if (config.perf) {
+      write(line + "\n")
+    }
+  }
+
+  /**
+   * Render the `--- perf: heaviest steps ---` table: the [topN] steps by accumulated `tookMs`,
+   * slowest first. Reflects every step this sink saw — including chained body collections and
+   * cleanup steps — so it is the "where did the time go" view at step granularity. Newline-
+   * terminated; header-only when no steps ran. When a step path repeats in a run (retries/chained
+   * collections), its times are summed — this is total time under that path, not one execution.
+   */
+  fun renderHeaviestSteps(topN: Int): String {
+    val sb = StringBuilder("--- perf: heaviest steps ----------------------------\n")
+    stepTimings.entries
+      .sortedByDescending { it.value }
+      .take(topN.coerceAtLeast(0))
+      .forEach { sb.append(String.format("  %-44s%8dms\n", truncatePath(it.key), it.value)) }
+    return sb.toString()
+  }
+
+  /**
+   * Keep the heaviest-steps table aligned: cap an over-long step path so the ms column doesn't
+   * shift.
+   */
+  private fun truncatePath(path: String): String =
+    if (path.length <= 44) path else path.substring(0, 41) + "..."
+
+  /**
+   * Write the consolidated perf summary [block] at the footer (live, so a tailing reader sees it as
+   * the run ends) AND store it so [close] can splice the IDENTICAL block in below the header
+   * banner. The block therefore appears TWICE in the final file: once below the banner (spliced at
+   * close) for an at-a-glance read, once at the footer (written live) for streaming visibility.
+   * Gated by the `perf` content toggle. Call once, just before [footer]. Content-agnostic: the
+   * block text is the consumer's (e.g. Core's perf breakdown + this sink's heaviest-steps table).
+   */
+  fun recordPerfSummary(block: String) {
+    if (!config.perf) {
+      return
+    }
+    this.perfBlock = block
+    write(block)
+  }
+
   override fun close() {
     try {
       out.flush()
@@ -92,6 +144,7 @@ private constructor(
     } catch (e: IOException) {
       logger.warn { "FileRunLogSink close/flush failed (ignored): $e" }
     }
+    splicePerfBlockBelowBanner()
     repointLatest()
   }
 
@@ -174,6 +227,52 @@ private constructor(
         "  failing step, a one-line error summary, and the full stacktrace + cause chain\n" +
         "=====================================================\n"
     )
+  }
+
+  /**
+   * One-shot whole-file rewrite that inserts the stored [perfBlock] right after the header banner's
+   * closing rule (the first line consisting solely of `=`). No-op when no block was recorded or the
+   * anchor is not found. Best-effort: any I/O error leaves the footer copy intact and is logged —
+   * the splice is a convenience, never a run-failing operation. The writer is already closed at
+   * this point, so this reads + rewrites the finished file.
+   */
+  private fun splicePerfBlockBelowBanner() {
+    val block = perfBlock ?: return
+    try {
+      val content = Files.readString(runFile, StandardCharsets.UTF_8)
+      val anchorEnd = bannerCloseLineEnd(content)
+      if (anchorEnd < 0) {
+        logger.warn { "FileRunLogSink perf splice: banner anchor not found (ignored)" }
+        return
+      }
+      val spliced = content.substring(0, anchorEnd) + block + content.substring(anchorEnd)
+      Files.writeString(runFile, spliced, StandardCharsets.UTF_8)
+    } catch (e: Exception) {
+      logger.warn { "FileRunLogSink perf splice failed (ignored): $e" }
+    }
+  }
+
+  /**
+   * Index just PAST the newline that ends the banner's closing rule — the first line made up only
+   * of `=` characters (the banner opens with `=== ReVoman run ...`, which has trailing text, so the
+   * first all-`=` line is the closing rule). Returns `-1` if absent.
+   */
+  private fun bannerCloseLineEnd(content: String): Int {
+    var pos = 0
+    while (pos < content.length) {
+      val nl = content.indexOf('\n', pos)
+      val lineEnd = if (nl < 0) content.length else nl
+      val line = content.substring(pos, lineEnd)
+      if (line.isNotEmpty() && line.all { it == '=' }) {
+        return if (nl < 0) -1
+        else nl + 1 // just past the newline; -1 if no trailing newline (malformed)
+      }
+      if (nl < 0) {
+        break
+      }
+      pos = nl + 1
+    }
+    return -1
   }
 
   // --- internals ---
