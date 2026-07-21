@@ -159,8 +159,6 @@ constructor(
       moshiReVoman,
     )
 
-  // ! TODO 24/06/23 gopala.akshintala: Support for Regex while querying environment
-
   fun getAsString(key: String) = moshiReVoman.anyToString(mutableEnv[key])
 
   fun getInt(key: String) = mutableEnv[key] as? Int
@@ -237,6 +235,49 @@ constructor(
       moshiReVoman,
     )
 
+  /**
+   * Copy of [mutableEnv] retaining entries whose (typed) value is a [type] instance AND whose key
+   * matches ANY of [keyPatterns]. Patterns are compiled ONCE per call and matched via
+   * [Regex.containsMatchIn] (partial): a bare `"saId"` matches anywhere in the key, so anchor with
+   * `^`/`$` for prefix/suffix/exact matching. An empty [keyPatterns] retains nothing.
+   */
+  fun <T> mutableEnvCopyWithKeysMatching(
+    type: Class<T>,
+    vararg keyPatterns: String,
+  ): PostmanEnvironment<T> {
+    val regexes: List<Regex> = keyPatterns.map(::Regex)
+    return PostmanEnvironment(
+      mutableEnv
+        .filter {
+          type.isInstance(it.value) && regexes.any { regex -> regex.containsMatchIn(it.key) }
+        }
+        .mapValues { type.cast(it.value) }
+        .toMutableMap(),
+      moshiReVoman,
+    )
+  }
+
+  /**
+   * Copy of [mutableEnv] retaining entries whose (typed) value is a [type] instance AND whose key
+   * matches NONE of [keyPatterns]. Patterns are compiled ONCE per call and matched via
+   * [Regex.containsMatchIn] (partial). An empty [keyPatterns] retains all [type]-typed entries.
+   */
+  fun <T> mutableEnvCopyWithKeysNotMatching(
+    type: Class<T>,
+    vararg keyPatterns: String,
+  ): PostmanEnvironment<T> {
+    val regexes: List<Regex> = keyPatterns.map(::Regex)
+    return PostmanEnvironment(
+      mutableEnv
+        .filter {
+          type.isInstance(it.value) && regexes.none { regex -> regex.containsMatchIn(it.key) }
+        }
+        .mapValues { type.cast(it.value) }
+        .toMutableMap(),
+      moshiReVoman,
+    )
+  }
+
   fun <T> valuesForKeysStartingWith(type: Class<T>, prefix: String): Set<T> =
     valuesForKeysStartingWith(type, *arrayOf(prefix))
 
@@ -274,6 +315,39 @@ constructor(
       .filter { type.isInstance(it.value) && suffixes.all { suffix -> !it.key.endsWith(suffix) } }
       .mapNotNull { type.cast(it.value) }
       .toSet()
+
+  /**
+   * Values of entries whose (typed) value is a [type] instance AND whose key matches ANY of
+   * [keyPatterns]. Patterns are compiled ONCE per call and matched via [Regex.containsMatchIn]
+   * (partial): anchor with `^`/`$` for prefix/suffix/exact matching. An empty [keyPatterns] yields
+   * an empty set.
+   */
+  fun <T> valuesForKeysMatching(type: Class<T>, vararg keyPatterns: String): Set<T> {
+    val regexes: List<Regex> = keyPatterns.map(::Regex)
+    return mutableEnv.entries
+      .asSequence()
+      .filter {
+        type.isInstance(it.value) && regexes.any { regex -> regex.containsMatchIn(it.key) }
+      }
+      .mapNotNull { type.cast(it.value) }
+      .toSet()
+  }
+
+  /**
+   * Values of entries whose (typed) value is a [type] instance AND whose key matches NONE of
+   * [keyPatterns]. Patterns are compiled ONCE per call and matched via [Regex.containsMatchIn]
+   * (partial). An empty [keyPatterns] yields all [type]-typed values.
+   */
+  fun <T> valuesForKeysNotMatching(type: Class<T>, vararg keyPatterns: String): Set<T> {
+    val regexes: List<Regex> = keyPatterns.map(::Regex)
+    return mutableEnv.entries
+      .asSequence()
+      .filter {
+        type.isInstance(it.value) && regexes.none { regex -> regex.containsMatchIn(it.key) }
+      }
+      .mapNotNull { type.cast(it.value) }
+      .toSet()
+  }
 }
 
 private val logger = KotlinLogging.logger {}
