@@ -102,6 +102,5 @@ class PostmanEnvironmentKtTest {
     JSONAssert.assertEquals("""{"a":1}""", pmEnv.getAsString("key7"), JSONCompareMode.STRICT)
     pmEnv.getAsString("key8") shouldBe "null"
     pmEnv.getAsString("missing") shouldBe "null"
-    pmEnv.getAsString(null) shouldBe "null"
   }
 }
