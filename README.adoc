@@ -11,7 +11,7 @@ endif::[]
 :hide-uri-scheme:
 :figure-caption!:
 :prewrap!:
-:revoman-version: 0.9.17
+:revoman-version: 0.9.18
 
 '''
 
