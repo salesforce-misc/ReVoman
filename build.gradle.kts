@@ -18,6 +18,7 @@ plugins {
   alias(libs.plugins.nexus.publish)
   alias(libs.plugins.jmh)
   alias(libs.plugins.test.retry)
+  alias(libs.plugins.qodana)
 }
 
 // Retry flaky tests ON CI ONLY. Several integration tests hit live external APIs (pokeapi.co,
@@ -231,6 +232,15 @@ tasks {
 }
 
 kover { reports { total { html { onCheck = true } } } }
+
+// Qodana static analysis. Opt-in like the Core-IT tests — NOT wired into `check`/`build`, since
+// `qodanaScan` needs Docker (the CLI runs the free `jetbrains/qodana-jvm-community` linter in a
+// container). Run locally before pushing with `colima start && ./gradlew qodanaScan`; results
+// (incl. qodana.sarif.json) land in `build/qodana/results`. See DEVELOPMENT.md > Static Analysis.
+qodana {
+  // Persist the linter image/cache outside `build/` so `clean` doesn't force a re-pull every run.
+  cachePath.set(layout.projectDirectory.dir(".qodana/cache").asFile.absolutePath)
+}
 
 moshi { enableSealed = true }
 
