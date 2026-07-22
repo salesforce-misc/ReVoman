@@ -2,12 +2,16 @@
 #               Qodana analysis is configured by qodana.yaml file               #
 #             https://www.jetbrains.com/help/qodana/qodana-yaml.html            #
 #-------------------------------------------------------------------------------#
-version: "1.0.0"
+# Schema version is a fixed literal — the CLI requires exactly "1.0" (NOT semver "1.0.0").
+version: "1.0"
 
 # Free Community linter (analysis runs in Docker; Qodana Cloud only stores reports/baselines).
 # The paid Ultimate/Ultimate-Plus linters add Spring/SQL/taint/SCA — NOT used here (no license,
 # and there is no free Ultimate for OSS). See docs/superpowers/specs/2026-07-22-qodana-setup-design.md.
-linter: jetbrains/qodana-jvm-community:latest
+# Pinned to the 2026.1 tag (matches the qodana-action pin in .github/workflows/qodana.yml) for
+# reproducibility. The CLI emits a non-fatal deprecation note preferring a short linter name /
+# --image; the full image ref is unambiguous and works, so we keep it.
+linter: jetbrains/qodana-jvm-community:2026.1
 
 # ReVoman requires JDK 21 (was wrongly '11').
 projectJDK: "21"
@@ -15,9 +19,11 @@ projectJDK: "21"
 profile:
   name: qodana.recommended
 
-# Generate kapt/Immutables sources before analysis so Qodana doesn't flag false "unresolved
-# reference" errors against generated code.
-bootstrap: ./gradlew kaptKotlin classes
+# NOTE: kapt/Immutables sources are pre-generated on the HOST (`./gradlew kaptKotlin classes`,
+# JDK 21) before invoking qodanaScan — see DEVELOPMENT.md. We deliberately do NOT run that as an
+# in-container `bootstrap`: the community linter image bundles JBR 25, but the build pins
+# `jvmToolchain(21)`, so an in-container Gradle compile fails to resolve a JDK 21 toolchain
+# (no download repo configured). Pre-generating on the host sidesteps that entirely.
 
 # Disabled inspections (kept from the prior config).
 exclude:
