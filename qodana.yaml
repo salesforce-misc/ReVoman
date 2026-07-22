@@ -29,6 +29,13 @@ profile:
 exclude:
   - name: DataClassPrivateConstructor
   - name: UnusedSymbol
+  # UnstableApiUsage fires only on the Gradle build scripts, which intentionally use Gradle's
+  # @Incubating test-suite / dependency DSL (JvmTestSuite, useJUnitJupiter, repositories(Action)).
+  # That is a deliberate API choice with no behavior-preserving rewrite, so scope the inspection
+  # away from *.gradle.kts rather than suppress it in product code.
+  - name: UnstableApiUsage
+    paths:
+      - "**/*.gradle.kts"
   - name: All
     paths:
       - build
