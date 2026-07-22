@@ -54,7 +54,7 @@
     <ID>ReturnCount:V3YamlReader.kt:V3YamlReader$private fun mapToBody: V3Body?</ID>
     <ID>SwallowedException:JsonPretty.kt:JsonPretty$e: RuntimeException</ID>
     <ID>SwallowedException:SandboxEventLoopTest.kt:SandboxEventLoopTest$e: IllegalStateException</ID>
-    <ID>ThrowsCount:CompositeResponse.kt:CompositeResponse.Response.SuccessResponse.RecordFactory.RecordAdapter$override fun fromJson: Record?</ID>
+    <ID>ThrowsCount:CompositeResponse.kt:CompositeResponse.Response.SuccessResponse.RecordFactory.RecordAdapter$override fun fromJson: Record</ID>
     <ID>TooGenericExceptionCaught:JsonPretty.kt:JsonPretty$e: RuntimeException</ID>
     <ID>TooGenericExceptionThrown:PollingTest.kt:PollingTest$throw RuntimeException("http call failed")</ID>
     <ID>TooGenericExceptionThrown:PollingTest.kt:PollingTest$throw RuntimeException("predicate failed")</ID>
@@ -64,7 +64,7 @@
     <ID>TooManyFunctions:JsonWriterUtils.kt:com.salesforce.revoman.input.json.JsonWriterUtils.kt</ID>
     <ID>TooManyFunctions:KickDef.kt:KickDef</ID>
     <ID>TooManyFunctions:MoshiReVoman.kt:MoshiReVoman</ID>
-    <ID>TooManyFunctions:PostmanEnvironment.kt:PostmanEnvironment&lt;ValueT : Any?&gt; : MutableMap</ID>
+    <ID>TooManyFunctions:PostmanEnvironment.kt:PostmanEnvironment&lt;ValueT&gt; : MutableMap</ID>
     <ID>TooManyFunctions:PostmanSDK.kt:PostmanSDK</ID>
     <ID>TooManyFunctions:RundownJsonWriter.kt:com.salesforce.revoman.output.RundownJsonWriter.kt</ID>
     <ID>TooManyFunctions:V3YamlReader.kt:V3YamlReader</ID>
