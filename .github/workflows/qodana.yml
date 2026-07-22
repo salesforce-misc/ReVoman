@@ -1,0 +1,55 @@
+name: 'Qodana'
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+# One in-flight run per branch/PR; a newer push cancels the older run.
+concurrency:
+  group: qodana-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  # Required to upload SARIF to GitHub code scanning (free for public repos).
+  security-events: write
+  # Required by qodana-action to post PR annotations.
+  pull-requests: write
+  checks: write
+
+jobs:
+  qodana:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      # qodana-action needs full history for baseline/diff; fetch-depth: 0.
+      - uses: actions/checkout@main
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - uses: actions/setup-java@main
+        with:
+          distribution: jetbrains
+          java-version: 21
+
+      # Community linter runs in the runner's preinstalled Docker — no colima needed on CI.
+      # QODANA_TOKEN (repo secret) reports to the free Qodana Cloud tier. args pins the linter
+      # so it matches the local qodana.yaml / plugin version.
+      - name: 'Qodana Scan'
+        uses: JetBrains/qodana-action@v2026.1
+        env:
+          QODANA_TOKEN: ${{ secrets.QODANA_TOKEN }}
+        with:
+          args: --linter,jetbrains/qodana-jvm-community:latest
+          upload-result: true
+
+      # Upload SARIF to GitHub code scanning (Security tab + inline PR annotations, free for
+      # public repos). Runs even if the scan reports problems.
+      - name: 'Upload SARIF to code scanning'
+        uses: github/codeql-action/upload-sarif@main
+        if: ${{ !cancelled() }}
+        with:
+          sarif_file: ${{ runner.temp }}/qodana/results/qodana.sarif.json
