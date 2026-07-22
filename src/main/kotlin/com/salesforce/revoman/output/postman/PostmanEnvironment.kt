@@ -22,7 +22,7 @@ import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toPersistentMap
 
 /** This is a Wrapper on `mutableEnv` map, providing some useful utilities */
-data class PostmanEnvironment<ValueT : Any?>
+data class PostmanEnvironment<ValueT>
 @JvmOverloads
 constructor(
   val mutableEnv: MutableMap<String, ValueT> = mutableMapOf(),

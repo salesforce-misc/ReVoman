@@ -71,8 +71,7 @@ class RunbookBuilder internal constructor() {
   }
 
   /** Java: pure-narration step (no contract/assertion). */
-  fun step(intent: String, phase: Phase, kick: Kick): RunbookBuilder =
-    step(intent, phase, kick, Consumer {})
+  fun step(intent: String, phase: Phase, kick: Kick): RunbookBuilder = step(intent, phase, kick, {})
 
   /** Java: configured step. */
   fun step(

@@ -66,7 +66,7 @@ data class CompositeResponse(val compositeResponse: List<Response>) {
           private val attributesJsonAdapter = moshi.adapter<Attributes>()
           @OptIn(ExperimentalStdlibApi::class) private val dynamicJsonAdapter = moshi.adapter<Any>()
 
-          override fun fromJson(reader: JsonReader): Record? {
+          override fun fromJson(reader: JsonReader): Record {
             reader.beginObject()
             var attributes: Attributes? = null
             val recordBody = mutableMapOf<String, Any?>()
