@@ -22,6 +22,7 @@ See @STYLE.md for the style guide
 
 - Make sure all new code is covered with appropriate tests
 - Make sure all the existing tests pass after new code changes
+- Run `./gradlew qodanaScan` (Qodana static analysis) before pushing — see @DEVELOPMENT.md > Static Analysis
 
 ## Logging
 

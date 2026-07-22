@@ -32,6 +32,27 @@
 ./gradlew spotlessApply
 ```
 
+## Static Analysis (Qodana)
+
+ReVoman uses the [JetBrains Qodana](https://www.jetbrains.com/qodana/) Gradle plugin
+(`org.jetbrains.qodana`) for static analysis. Run it **locally before pushing** — it's the
+primary quality gate; CI (`.github/workflows/qodana.yml`) is only a backstop.
+
+```bash
+colima start                 # Qodana runs its linter in Docker; start the daemon first
+./gradlew qodanaScan         # downloads the Qodana CLI + free community linter image, then scans
+```
+
+- Results (including `qodana.sarif.json`) land in `build/qodana/results`; the linter
+  image/cache is kept in `.qodana/cache` so `clean` doesn't force a re-pull.
+- The **free** `jetbrains/qodana-jvm-community` linter is used (configured in `qodana.yaml`).
+  The paid Ultimate/Ultimate-Plus linters add Spring/SQL/taint/dependency-vulnerability
+  inspections — not used here (no license; there is no free Ultimate for open source).
+- `qodanaScan` is **opt-in** — it is NOT part of `./gradlew build` (which stays Docker-free),
+  the same way the `integration.core.*` org tests are opt-in via `-PincludeCoreIT`.
+- Docker needs ≥4 GB memory for the linter. If colima's VM is smaller, recreate it larger
+  (e.g. `colima start --memory 6`).
+
 ## Continuous Integration
 
 - `.github/workflows/build.yml` runs `./gradlew build` on every push/PR to `master` —
