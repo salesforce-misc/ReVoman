@@ -39,8 +39,10 @@ ReVoman uses the [JetBrains Qodana](https://www.jetbrains.com/qodana/) Gradle pl
 primary quality gate; CI (`.github/workflows/qodana.yml`) is only a backstop.
 
 ```bash
-colima start                 # Qodana runs its linter in Docker; start the daemon first
-./gradlew qodanaScan         # downloads the Qodana CLI + free community linter image, then scans
+colima start                        # Qodana runs its linter in Docker; start the daemon first
+./gradlew kaptKotlin classes        # pre-generate kapt/Immutables/Moshi sources (JDK 21) so the
+                                     # linter resolves references — NOT run in-container (see qodana.yaml)
+./gradlew qodanaScan                # downloads the Qodana CLI + free community linter image, then scans
 ```
 
 - Results (including `qodana.sarif.json`) land in `build/qodana/results`; the linter

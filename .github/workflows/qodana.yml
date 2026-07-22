@@ -35,6 +35,14 @@ jobs:
           distribution: jetbrains
           java-version: 21
 
+      # Qodana's linter resolves references against generated sources (kapt/Immutables/Moshi).
+      # The in-container bootstrap was dropped (the community image bundles JBR 25 but the build
+      # pins jvmToolchain(21), so an in-container Gradle compile can't resolve a JDK 21 toolchain).
+      # Instead generate the sources here on the runner (JDK 21 from setup-java above) — qodana-action
+      # mounts the project dir, so build/generated is visible to the linter. Mirrors the local flow.
+      - name: 'Generate sources for analysis'
+        run: ./gradlew kaptKotlin classes
+
       # Community linter runs in the runner's preinstalled Docker — no colima needed on CI.
       # QODANA_TOKEN (repo secret) reports to the free Qodana Cloud tier. Linter is set in qodana.yaml.
       - name: 'Qodana Scan'
