@@ -36,14 +36,12 @@ jobs:
           java-version: 21
 
       # Community linter runs in the runner's preinstalled Docker — no colima needed on CI.
-      # QODANA_TOKEN (repo secret) reports to the free Qodana Cloud tier. args pins the linter
-      # so it matches the local qodana.yaml / plugin version.
+      # QODANA_TOKEN (repo secret) reports to the free Qodana Cloud tier. Linter is set in qodana.yaml.
       - name: 'Qodana Scan'
         uses: JetBrains/qodana-action@v2026.1
         env:
           QODANA_TOKEN: ${{ secrets.QODANA_TOKEN }}
         with:
-          args: --linter,jetbrains/qodana-jvm-community:latest
           upload-result: true
 
       # Upload SARIF to GitHub code scanning (Security tab + inline PR annotations, free for
