@@ -2,35 +2,35 @@
 #               Qodana analysis is configured by qodana.yaml file               #
 #             https://www.jetbrains.com/help/qodana/qodana-yaml.html            #
 #-------------------------------------------------------------------------------#
-version: "1.0"
+version: "1.0.0"
 
-#Specify inspection profile for code analysis
+# Free Community linter (analysis runs in Docker; Qodana Cloud only stores reports/baselines).
+# The paid Ultimate/Ultimate-Plus linters add Spring/SQL/taint/SCA — NOT used here (no license,
+# and there is no free Ultimate for OSS). See docs/superpowers/specs/2026-07-22-qodana-setup-design.md.
+linter: jetbrains/qodana-jvm-community:latest
+
+# ReVoman requires JDK 21 (was wrongly '11').
+projectJDK: "21"
+
 profile:
   name: qodana.recommended
 
-#Enable inspections
-#include:
-#  - name: <SomeEnabledInspectionId>
+# Generate kapt/Immutables sources before analysis so Qodana doesn't flag false "unresolved
+# reference" errors against generated code.
+bootstrap: ./gradlew kaptKotlin classes
 
-#Disable inspections
+# Disabled inspections (kept from the prior config).
 exclude:
   - name: DataClassPrivateConstructor
   - name: UnusedSymbol
-#    paths:
-#      - <path/where/not/run/inspection>
+  - name: All
+    paths:
+      - build
+      - js
+      - "**/generated/**"
 
-projectJDK: '11' #(Applied in CI/CD pipeline)
-
-#Execute shell command before Qodana execution (Applied in CI/CD pipeline)
-#bootstrap: |+
-#  update-alternatives --list java
-#  java --version
-#  ./gradlew kaptKotlin
-
-#Install IDE plugins before Qodana execution (Applied in CI/CD pipeline)
-#plugins:
-#  - id: <plugin.id> #(plugin id can be found at https://plugins.jetbrains.com)
-
-#Specify Qodana linter for analysis (Applied in CI/CD pipeline)
-linter: jetbrains/qodana-jvm:latest
-
+# Report findings without failing the run initially (high threshold). Tighten later once the
+# Critical+High backlog is cleared.
+failureConditions:
+  severityThresholds:
+    any: 100000
