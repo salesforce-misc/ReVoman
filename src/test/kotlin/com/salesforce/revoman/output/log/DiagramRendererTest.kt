@@ -25,8 +25,6 @@ class DiagramRendererTest {
     produced: Set<String> = emptySet(),
     consumed: Set<String> = emptySet(),
     phase: String? = null,
-    intent: String? = null,
-    underTest: Boolean = false,
   ): RunInteraction =
     RunInteraction(
       seq,
@@ -40,8 +38,6 @@ class DiagramRendererTest {
       produced,
       consumed,
       phase,
-      intent,
-      underTest,
     )
 
   @Test
@@ -82,7 +78,14 @@ class DiagramRendererTest {
   fun `failed step renders ERR status`() {
     val out =
       DiagramRenderer.render(listOf(interaction(0, "h", status = null, outcome = Outcome.FAILED)))
-    out shouldContain "h0-->>User: ERR (10ms)\n"
+    out shouldContain "h0-->>User: ERR (10ms) ✘\n"
+  }
+
+  @Test
+  fun `failed step with HTTP 200 renders the honest failure marker`() {
+    val out =
+      DiagramRenderer.render(listOf(interaction(0, "h", status = 200, outcome = Outcome.FAILED)))
+    out shouldContain "h0-->>User: 200 (10ms) ✘\n"
   }
 
   @Test
@@ -144,5 +147,21 @@ class DiagramRendererTest {
     (alphaIdx > -1) shouldBe true
     (zebraIdx > -1) shouldBe true
     (alphaIdx < zebraIdx) shouldBe true
+  }
+
+  @Test
+  fun `same key produced by two hosts points at the most recent producer`() {
+    val out =
+      DiagramRenderer.render(
+        listOf(
+          interaction(0, "auth1.host", produced = setOf("token")),
+          interaction(1, "auth2.host", produced = setOf("token")),
+          interaction(2, "api.host", consumed = setOf("token")),
+        )
+      )
+    // The data-flow note should point at h1 (auth2, the later producer), not h0.
+    out shouldContain "Note right of h2: ⟵ token from h1\n"
+    // Ensure it does NOT point at the first producer (h0).
+    (out.contains("⟵ token from h0")) shouldBe false
   }
 }

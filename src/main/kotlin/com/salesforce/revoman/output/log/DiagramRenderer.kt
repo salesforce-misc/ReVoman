@@ -43,7 +43,8 @@ object DiagramRenderer {
     interactions: List<RunInteraction>,
     hostIds: Map<String, String>,
   ): String {
-    // Where each produced key first appeared, so a later consumer can point back to its host id.
+    // Which host most recently produced each key (toMap keeps the last write for a duplicate key),
+    // so a later consumer's data-flow note points back to that producer's host id.
     val producedBy: Map<String, String> =
       interactions.flatMap { i -> i.produced.map { key -> key to hostIds.getValue(i.to) } }.toMap()
     val sb = StringBuilder()
@@ -56,7 +57,8 @@ object DiagramRenderer {
       val id = hostIds.getValue(i.to)
       sb.append("    User->>$id: ${i.method} ${i.requestPath}\n")
       val statusText = i.status?.toString() ?: "ERR"
-      sb.append("    $id-->>User: $statusText (${i.tookMs}ms)\n")
+      val outcomeMark = if (i.outcome == Outcome.SUCCESS) "" else " ✘"
+      sb.append("    $id-->>User: $statusText (${i.tookMs}ms)$outcomeMark\n")
       i.consumed
         .sorted()
         .mapNotNull { key -> producedBy[key]?.let { producerId -> key to producerId } }

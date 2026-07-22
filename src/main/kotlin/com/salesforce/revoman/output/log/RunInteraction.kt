@@ -10,8 +10,8 @@ package com.salesforce.revoman.output.log
 /**
  * One HTTP interaction in a run, the unit a [DiagramRunLogSink] accumulates and [DiagramRenderer]
  * plots. [from] is always `"User"` — ReVoman is the black-box client, so the honest topology is
- * `User -> each distinct host`. [phase]/[intent]/[underTest] carry the enclosing runbook context
- * the sink tracks as it streams events; they are null for a plain (non-runbook) run.
+ * `User -> each distinct host`. [phase] carries the enclosing runbook phase the sink tracks as it
+ * streams events; it is null for a plain (non-runbook) run.
  *
  * @param seq zero-based order of this interaction within the run
  * @param to request host[:port] — the diagram actor for this call
@@ -32,6 +32,4 @@ data class RunInteraction(
   val produced: Set<String>,
   val consumed: Set<String>,
   val phase: String?,
-  val intent: String?,
-  val underTest: Boolean,
 )

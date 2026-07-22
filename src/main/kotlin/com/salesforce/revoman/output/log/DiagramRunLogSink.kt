@@ -37,8 +37,6 @@ private constructor(
   private val interactions = mutableListOf<RunInteraction>()
   private var seq = 0
   private var currentPhase: String? = null
-  private var currentIntent: String? = null
-  private var currentUnderTest = false
 
   /** No-op: the diagram is built from structured events, not narration lines. */
   override fun line(level: LogLevel, message: String) {}
@@ -51,14 +49,6 @@ private constructor(
   private fun accumulate(event: StepEvent) {
     when (event) {
       is StepEvent.PhaseEntered -> currentPhase = event.phase.name
-      is StepEvent.RunbookStepStarted -> {
-        currentIntent = event.intent
-        currentUnderTest = event.underTest
-      }
-      is StepEvent.RunbookStepFinished -> {
-        currentIntent = null
-        currentUnderTest = false
-      }
       is StepEvent.StepFinished ->
         event.host?.let { host ->
           interactions.add(
@@ -74,8 +64,6 @@ private constructor(
               produced = event.produced,
               consumed = event.consumed,
               phase = currentPhase,
-              intent = currentIntent,
-              underTest = currentUnderTest,
             )
           )
         }
