@@ -20,6 +20,7 @@
 * xref:timing-metrics.adoc[Timing Metrics]
 * xref:mutable-environment.adoc[Mutable Environment]
 * xref:execution-control.adoc[Execution Control]
+* xref:runbook.adoc[Runbook]
 
 .Applications
 * xref:applications.adoc[Overview]

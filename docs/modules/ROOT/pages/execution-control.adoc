@@ -17,3 +17,5 @@ TIP: Before writing a custom predicate, check the OOTB `ExeStepPick` predicates 
 * But you don't have to execute all these templates in one go. You can make multiple `ReVoman.revUp()` calls for different collections.
 * If you wish to compose these executions in a specific order, use the `revUp()` overload which accepts a vararg of `Kick` configs.
 ** You can also achieve the same by adding the previous execution's `mutableEnv` to the current execution via the `dynamicEnvironment` parameter. This also comes in handy when you execute a common step (e.g. `UserSetup`) inside a Test setup method and use that environment for all the tests.
+
+TIP: To compose an ordered, named chain of collections that reads like the story it executes — with per-step data-flow contracts and a grouped run log — use a xref:runbook.adoc[Runbook].

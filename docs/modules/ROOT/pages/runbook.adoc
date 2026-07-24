@@ -1,0 +1,218 @@
+[#runbook]
+= Runbook
+
+A *Runbook* is an ordered, named chain of steps — the legible form of a multi-collection run. Each step wraps one xref:executable-api-metadata.adoc[`Kick`] with narration (what the step means, what data it hands forward), and the whole chain reads like the story it executes: _log in → apply policy → seed fixture → act → clean up_.
+
+Under the hood a Runbook drives the same multi-`Kick` fold as `revUp(List<Kick>)`. Env threads across steps identically — every value type, not just strings. The Runbook layer adds three things on top: a declaration that reads like the runbook, per-step data-flow contracts, and a grouped, glyph-rich run log. `Kick` stays the per-collection unit (_how a collection runs_); a step adds the story layer (_what this step means_).
+
+== The problem it solves
+
+Without a Runbook, the story of a multi-collection run is implicit — scattered across a config file of `Kick` constants, the order those constants appear in a `revUp(...)` vararg call, and hand-written comment blocks. Nothing surfaces what each step means, what data it hands to the next step, or which step is the one under test. A Runbook makes that story explicit from a single declaration.
+
+== Kotlin DSL
+
+Build a Runbook with the receiver DSL and drive it with `ReVoman.revUp(runbook)`:
+
+[source,kotlin,indent=0,tabsize=2,options="nowrap"]
+----
+val runbook =
+    Runbook("wfs double book") {
+        step {
+            intent = "login as admin"
+            phase = Phase.SETUP
+            kick = AUTH_CONFIG
+            produces("authToken", "userId")
+        }
+        step {
+            intent = "seed double-book fixture"
+            phase = Phase.SEED
+            kick = DOUBLE_BOOK_FIXTURE_CONFIG
+            consumes("authToken")
+            produces("accountId", "shiftIds")
+        }
+        step {
+            intent = "schedule appointment"
+            phase = Phase.ACT
+            kick = DOUBLE_BOOK_SCHEDULE_CONFIG
+            underTest()                                       // <1>
+            consumes("accountId", "shiftIds")
+            produces("schedulingStatus" to "Success")         // <2>
+            assertAfter { rundown, env ->                     // <3>
+                assertThat(env["schedulingStatus"]).isEqualTo("Success")
+            }
+        }
+    }
+
+val rundown: RunbookRundown = ReVoman.revUp(runbook)
+----
+<1> `underTest()` marks the act-step — it renders with a `◆ ★ UNDER TEST` marker in the log.
+<2> `produces(key to value)` additionally asserts the produced value equals `"Success"`; `produces("k")` checks only that the key is present.
+<3> `assertAfter` runs after the step, receiving that step's xref:rundown.adoc[`Rundown`] and the accumulated env — the same objects you already assert on, relocated next to the step.
+
+== Java builder
+
+Java has no lambda-with-receiver, so a step takes a `Consumer<StepSpec>` configurator through the fluent `configure()`...`off()` builder:
+
+[source,java,indent=0,tabsize=2,options="nowrap"]
+----
+final var runbook =
+    Runbook.configure()
+        .name("wfs double book")
+        .step("login as admin", SETUP, AUTH_CONFIG,
+            s -> s.produces("authToken", "userId"))
+        .step("seed double-book fixture", SEED, DOUBLE_BOOK_FIXTURE_CONFIG,
+            s -> s.consumes("authToken").produces("accountId", "shiftIds"))
+        .step("schedule appointment", ACT, DOUBLE_BOOK_SCHEDULE_CONFIG,
+            s -> s.underTest()
+                  .consumes("accountId", "shiftIds")
+                  .produces(Map.of("schedulingStatus", "Success"))
+                  .assertAfter((rundown, env) ->
+                      assertThat(env.get("schedulingStatus")).isEqualTo("Success")))
+        .off();
+
+final var rundown = ReVoman.revUp(runbook);
+----
+
+Both front doors build the *same* immutable model. `revUp(Runbook)` is an opt-in overload — `revUp(vararg Kick)` and `revUp(List<Kick>)` are untouched, so no existing test is forced to migrate.
+
+== Step anatomy
+
+Each step carries:
+
+* `intent` — the human-readable name of the step. Must be *non-blank and distinct* within a Runbook; duplicates fail at build time (`intent` is the log pairing key and the `stepFor(intent)` lookup key).
+* `phase` — the story phase the step belongs to; drives log grouping. Required.
+* `kick` — the `Kick` this step executes. Required.
+* `consumes(keys…)` — handoff keys this step needs from the accumulated env.
+* `produces(keys…)` / `produces(key to value)` — handoff keys this step contributes, optionally with an expected value.
+* `underTest()` — flags the act-step under test.
+* `assertAfter { rundown, env -> }` — a per-step assertion run after the step's `Rundown` is produced.
+
+=== Phases
+
+`Phase` mirrors the comment blocks that separate setup and act config today:
+
+[source,kotlin,indent=0,tabsize=2,options="nowrap"]
+----
+enum class Phase { SETUP, SEED, ACT, ASSERT, CLEANUP }
+----
+
+The log emits one phase rule per _change_ in phase, so consecutive same-phase steps share a single header.
+
+== Data-flow contract
+
+Full env enumeration would be brittle — Postman scripts write many keys — so a step declares *only the handoff keys that matter*. Enforcement is opt-in per key, by what you list:
+
+* `consumes(keys…)` — before the step runs, the accumulated env must contain _at least_ these keys. A missing key emits a `RunbookContractFailed` event and halts, naming the step and the missing key.
+* `produces(keys…)` — after the step's `Rundown`, the env must contain _at least_ these keys.
+* `produces(key to value)` — additionally asserts the produced value equals the given value.
+* *No declarations* → pure narration, no check.
+
+Extra env churn never fails a step. These checks are *complementary* to your own assertions, not a replacement.
+
+== Execution order and failure mode
+
+Per step, in order: *`consumes` check → execute the `Kick` → `produces` check → `assertAfter`*. The underlying-collection failure is checked first — before `produces`/`assertAfter` — because a failed collection makes those downstream checks meaningless.
+
+The *first* contract or `assertAfter` breach *halts* the Runbook at that step by throwing an `AssertionError`; downstream steps depend on it, so continuing only adds noise. The log marks `✘` at the exact broken handoff.
+
+=== `haltOnStepFailure`
+
+An underlying-collection failure (an un-ignored unsuccessful step) is governed by `haltOnStepFailure`:
+
+* `true` _(default)_ — the step halts the Runbook like a contract breach.
+* `false` — the step is marked `FAILED` in the log and views, and the Runbook *continues*. Inspect the returned `RunbookRundown` for outcomes, mirroring base `revUp(List<Kick>)` semantics.
+
+[source,kotlin,indent=0,tabsize=2,options="nowrap"]
+----
+Runbook("resilient") {
+    haltOnStepFailure = false
+    step { /* … */ }
+}
+----
+
+NOTE: `haltOnStepFailure` governs only the underlying-collection outcome. A `consumes`/`produces` contract breach or an `assertAfter` throw *always* halts, regardless of this flag.
+
+== `RunbookRundown`
+
+`revUp(Runbook)` returns a `RunbookRundown` — each step paired with its `Rundown`, in order. It *implements `List<Rundown>`*, so it drops in wherever a `revUp(List<Kick>)` return is consumed, while adding:
+
+* `stepFor(intent)` — the `(step, rundown)` pair for a given intent, or `null`.
+* `toMarkdown()` — a markdown table, one row per step (phase, step, consumes, produces, outcome).
+* `toMermaid()` — a Mermaid sequence diagram, one message per step, annotated with consumed and produced keys and the under-test marker.
+
+[source,kotlin,indent=0,tabsize=2,options="nowrap"]
+----
+val rundown = ReVoman.revUp(runbook)
+rundown[1].mutableEnv["authToken"]          // List<Rundown> access
+rundown.stepFor("schedule appointment")     // pair lookup by intent
+println(rundown.toMarkdown())               // table view
+println(rundown.toMermaid())                // sequence-diagram view
+----
+
+Both views are pure functions of the executed Runbook. After a run, the enhanced log also auto-prints the compact markdown summary.
+
+== The narrated log
+
+A Runbook run tees a grouped, glyph-rich narration to a `RunLogSink`, so a Gradle/JUnit log reads like the runbook rather than a flat wall of HTTP. Wire a sink on the Runbook:
+
+[source,kotlin,indent=0,tabsize=2,options="nowrap"]
+----
+Runbook("wfs double book") {
+    runLogSink = ConsoleRunLogSink.DEFAULT   // tee to stdout; default is RunLogSink.NoOp
+    step { /* … */ }
+}
+----
+
+The runbook-scope sink brackets the run; each child per-request event nests under the step's brackets, so the whole run renders as one coherent tree. Terminal logs are monospace with no guaranteed color, so the grammar rides on glyphs and indentation alone:
+
+[source,text,indent=0,options="nowrap"]
+----
+━━ SETUP ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┌ ▶ login as admin          ⟵ —
+│ ▸ auth/login
+│   200 OK · 243ms  ✔
+└ ✔ login as admin          ⟶ authToken, userId
+━━ ACT ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┌ ◆ schedule appointment          ⟵ accountId, shiftIds   ★ UNDER TEST
+│ ▸ actions/schedule
+│   200 OK · 876ms  ✔
+└ ✔ schedule appointment          ⟶ schedulingStatus=Success
+----
+
+A broken handoff makes the failure jump out:
+
+[source,text,indent=0,options="nowrap"]
+----
+┌ ◆ schedule required control          ⟵ accountId, shiftIds   ★ UNDER TEST
+│ ▸ actions/schedule
+│   200 OK · 654ms  ✔
+│ ⚠ CONTRACT  missing produced: [schedulingStatus]
+└ ✘ schedule required control          ⟶ —
+----
+
+The glyph vocabulary:
+
+[cols="1,3",options="header"]
+|===
+| Glyph | Meaning
+| `━━ PHASE ━━` | phase boundary
+| `┌ ▶` | runbook step open
+| `┌ ◆` … `★ UNDER TEST` | act-step open (under test)
+| `│ ▸` | child request start
+| `│   <status> OK · <ms>ms  ✔` | child request done
+| `└ ✔` / `└ ✘` | runbook step OK / FAILED
+| `⟵` / `⟶` | consumed (in) / produced (out) keys
+| `│ ⚠ CONTRACT` | data-flow contract breach
+|===
+
+`RunLogSink` is a reusable seam. Built-in sinks:
+
+* `RunLogSink.NoOp` — the default; zero overhead, the library behaves exactly as before.
+* `ConsoleRunLogSink` — renders the event stream to a `PrintStream` (`ConsoleRunLogSink.DEFAULT` writes to `System.out`).
+* `FileRunLogSink` — streams one run's log to `<logsDir>/<runLabel>/<timestamp>.log`; `FileRunLogConfig` toggles which sections are written.
+* `DiagramRunLogSink` — accumulates the run's HTTP interactions and renders a Mermaid `sequenceDiagram` `.mmd` on close.
+* `CompositeRunLogSink` — fans one run out to several sinks at once (e.g. a text log *and* a diagram).
+
+A sink MUST NOT throw in a way that fails the run — every built-in sink swallows its own I/O errors. The *caller* owns a sink's lifecycle: ReVoman borrows it per run and never closes it, because one sink commonly spans many `revUp` calls (setup + body + cleanup).
+
+TIP: See the DSL and log in action: {gh-blob}/src/test/kotlin/com/salesforce/revoman/RunbookLegibilityE2ETest.kt[`RunbookLegibilityE2ETest.kt`] and the type source {gh-blob}/{sourcedir}/com/salesforce/revoman/input/config/Runbook.kt[`Runbook.kt`].

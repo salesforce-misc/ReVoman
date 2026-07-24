@@ -1,3 +1,5 @@
 = Orchestrated Workflows & Test-Data Setup
 
 Beyond testing, the engine drives any sequence of interdependent API calls: standing up test data, seeding an environment, or running an operational workflow. Because each xref:hooks.adoc#plug-in-custom-jvm-code[step can interleave custom JVM code] and pass values forward through the xref:mutable-environment.adoc[mutable environment], ReṼoman can orchestrate setup that would otherwise need bespoke per-team utilities.
+
+When a workflow spans several collections, a xref:runbook.adoc[Runbook] makes the sequence legible: an ordered, named chain of steps with per-step data-flow contracts and a grouped, narrated run log.
