@@ -19,6 +19,7 @@ import static com.salesforce.revoman.input.config.StepPick.PreTxnStepPick.before
 import static com.salesforce.revoman.input.config.StepPick.PreTxnStepPick.beforeStepName;
 import static org.assertj.vavr.api.VavrAssertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 
 import com.salesforce.revoman.ReVoman;
@@ -64,7 +65,7 @@ class PokemonTest {
         MapsKt.mapOf(new Pair<>("limit", LIMIT), new Pair<>("null", null));
     @SuppressWarnings("Convert2Lambda")
     final var preLogHook =
-        Mockito.spy(
+        spy(
             new PreStepHook() {
               @Override
               public void accept(
@@ -76,7 +77,7 @@ class PokemonTest {
             });
     @SuppressWarnings("Convert2Lambda")
     final var postLogHook =
-        Mockito.spy(
+        spy(
             new PostStepHook() {
               @Override
               public void accept(@NotNull StepReport stepReport, @NotNull Rundown ignore) {
@@ -86,7 +87,7 @@ class PokemonTest {
             });
     @SuppressWarnings("Convert2Lambda")
     final var preStepHookBeforeStepName =
-        Mockito.spy(
+        spy(
             new PreStepHook() {
               @Override
               public void accept(
@@ -98,7 +99,7 @@ class PokemonTest {
             });
     @SuppressWarnings("Convert2Lambda")
     final var postStepHookAfterStepName =
-        Mockito.spy(
+        spy(
             new PostStepHook() {
               @Override
               public void accept(@NotNull StepReport stepReport, @NotNull Rundown rundown) {
@@ -110,7 +111,7 @@ class PokemonTest {
             });
     @SuppressWarnings("Convert2Lambda")
     final var postStepHookAfterURIPath =
-        Mockito.spy(
+        spy(
             new PostStepHook() {
               @Override
               public void accept(@NotNull StepReport stepReport, @NotNull Rundown rundown) {
