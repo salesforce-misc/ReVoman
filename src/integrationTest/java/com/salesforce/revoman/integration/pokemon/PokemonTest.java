@@ -21,6 +21,7 @@ import static org.assertj.vavr.api.VavrAssertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import com.salesforce.revoman.ReVoman;
 import com.salesforce.revoman.input.config.HookConfig.StepHook.PostStepHook;
@@ -163,11 +164,11 @@ class PokemonTest {
                 new Pair<>("ability", "stench"),
                 new Pair<>("nature", "hardy"),
                 new Pair<>("null", null)));
-    Mockito.verify(preStepHookBeforeStepName, times(1)).accept(any(), any(), any());
-    Mockito.verify(postStepHookAfterStepName, times(1)).accept(any(), any());
-    Mockito.verify(postStepHookAfterURIPath, times(1)).accept(any(), any());
-    Mockito.verify(preLogHook, times(1)).accept(any(), any(), any());
-    Mockito.verify(postLogHook, times(1)).accept(any(), any());
+    verify(preStepHookBeforeStepName, times(1)).accept(any(), any(), any());
+    verify(postStepHookAfterStepName, times(1)).accept(any(), any());
+    verify(postStepHookAfterURIPath, times(1)).accept(any(), any());
+    verify(preLogHook, times(1)).accept(any(), any(), any());
+    verify(postLogHook, times(1)).accept(any(), any());
   }
 
   public record AllPokemon(int count, String next, String previous, List<Result> results) {
