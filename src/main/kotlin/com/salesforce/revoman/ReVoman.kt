@@ -115,12 +115,8 @@ object ReVoman {
    */
   @JvmStatic
   @JvmOverloads
-  fun revUp(runbook: Runbook, dynamicEnvironment: Map<String, Any?> = emptyMap()): RunbookRundown {
-    Banner.onRunStart()
-    val runbookRundown = executeRunbook(runbook, dynamicEnvironment)
-    Banner.recordSteps(runbookRundown.sumOf { it.stepReports.size })
-    return runbookRundown
-  }
+  fun revUp(runbook: Runbook, dynamicEnvironment: Map<String, Any?> = emptyMap()): RunbookRundown =
+    executeRunbook(runbook, dynamicEnvironment)
 
   @JvmStatic
   @OptIn(ExperimentalStdlibApi::class)
