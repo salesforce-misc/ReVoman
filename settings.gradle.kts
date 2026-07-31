@@ -51,3 +51,5 @@ develocity {
 }
 
 rootProject.name = "revoman-root"
+
+include("agentic-harness")
