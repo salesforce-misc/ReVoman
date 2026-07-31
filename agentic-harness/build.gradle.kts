@@ -58,6 +58,13 @@ tasks.register<JavaExec>("runContractDemo") {
   classpath = sourceSets["main"].runtimeClasspath
 }
 
+tasks.register<JavaExec>("runContractEvalDemo") {
+  group = "harness"
+  description = "Blue-box evals: contract fidelity (drift catch) + ablation accuracy delta"
+  mainClass.set("com.salesforce.revoman.harness.ContractEvalDemoKt")
+  classpath = sourceSets["main"].runtimeClasspath
+}
+
 // --- Isolated `claude` source set: the ONLY place koog lives -------------------------------------
 // Quarantines koog (a large Kotlin-multiplatform dependency built against a different Kotlin
 // version) so a resolution/compat problem can never break the default `test`/`build`/`check`
