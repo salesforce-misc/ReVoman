@@ -1,0 +1,13 @@
+graph: configure
+slots:
+  productCode: { type: enum, values: [SKU-1, SKU-2, SKU-3] }
+  quantity: { type: int }
+exampleQueries:
+  - "configure 2 units of SKU-1"
+  - "set up a new product configuration"
+  - "add SKU-2 to a fresh config"
+inputExamples:
+  - { productCode: "SKU-1", quantity: "2" }
+  - { productCode: "SKU-2", quantity: "10" }
+whenNotToUse:
+  - "Do not use to compute a price or total — that is the price graph."

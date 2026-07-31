@@ -11,6 +11,8 @@ dependencies {
   // The deterministic execution engine. `project(":")` is the ReVoman library module.
   implementation(project(":"))
 
+  implementation(libs.snakeyaml)
+
   // Truth for assertions, matching ReVoman's own revUp tests (RestfulAPIDevKtTest).
   testImplementation(libs.truth)
 }
