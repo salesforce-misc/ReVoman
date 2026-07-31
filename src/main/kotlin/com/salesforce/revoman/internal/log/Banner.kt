@@ -32,6 +32,11 @@ internal object Banner {
   /** Test seam: where a rendered block is emitted. Defaults to the real logger. */
   internal var emitForTest: (String) -> Unit = { RevomanLog.info { it } }
 
+  /** Test seam: how the shutdown-hook thread is registered. Defaults to the real Runtime. */
+  internal var registerShutdownHookForTest: (Thread) -> Unit = {
+    Runtime.getRuntime().addShutdownHook(it)
+  }
+
   private val enabled: Boolean by lazy {
     bannerEnabled(System::getProperty, System::getenv)
   }
@@ -45,8 +50,8 @@ internal object Banner {
    * bump the run counter. Entirely a no-op when suppressed. Never throws.
    */
   fun onRunStart() {
-    if (!enabled) return
     runCatching {
+        if (!enabled) return
         runCount.incrementAndGet()
         if (printed.compareAndSet(false, true)) {
           emitForTest(bannerText())
@@ -64,18 +69,19 @@ internal object Banner {
     stepCount.addAndGet(steps.toLong())
   }
 
-  /** Registers the shutdown hook that prints the CTA if ≥1 run happened. Isolated for override. */
+  /**
+   * Registers the shutdown hook that prints the CTA if ≥1 run happened. Uses
+   * [registerShutdownHookForTest] to allow tests to observe registration without leaking hooks.
+   */
   private fun registerShutdownHook() {
-    Runtime.getRuntime()
-      .addShutdownHook(
-        Thread {
-          runCatching {
-              val runs = runCount.get()
-              if (runs > 0) emitForTest(ctaText(runs, stepCount.get()))
-            }
-            .onFailure { RevomanLog.logger.debug { "banner shutdown CTA failed (ignored): $it" } }
+    val thread = Thread {
+      runCatching {
+          val runs = runCount.get()
+          if (runs > 0) emitForTest(ctaText(runs, stepCount.get()))
         }
-      )
+        .onFailure { RevomanLog.logger.debug { "banner shutdown CTA failed (ignored): $it" } }
+    }
+    registerShutdownHookForTest(thread)
   }
 
   /** Pure: resolve the on/off decision from the two sources with property-wins precedence. */
@@ -120,6 +126,7 @@ internal object Banner {
     runCount.set(0)
     stepCount.set(0)
     emitForTest = { RevomanLog.info { it } }
+    registerShutdownHookForTest = { Runtime.getRuntime().addShutdownHook(it) }
   }
 
   internal fun runCountForTest(): Long = runCount.get()

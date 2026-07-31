@@ -60,6 +60,9 @@ class BannerTest {
     Banner.bannerEnabled(getProp = { null }, getEnv = { "false" }) shouldBe false
     Banner.bannerEnabled(getProp = { null }, getEnv = { "0" }) shouldBe false
     Banner.bannerEnabled(getProp = { null }, getEnv = { "NO" }) shouldBe false
+    // whitespace-padded values are trimmed and recognized
+    Banner.bannerEnabled(getProp = { " off " }, getEnv = { null }) shouldBe false
+    Banner.bannerEnabled(getProp = { null }, getEnv = { "  FALSE  " }) shouldBe false
     // default + non-off values enable
     Banner.bannerEnabled(getProp = { null }, getEnv = { null }) shouldBe true
     Banner.bannerEnabled(getProp = { null }, getEnv = { "anything" }) shouldBe true
