@@ -1,0 +1,8 @@
+$kind: collection
+description: "Quote a priced configuration: create a draft quote from a priceId."
+auth:
+  - id: qot-auth
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{accessToken}}"
