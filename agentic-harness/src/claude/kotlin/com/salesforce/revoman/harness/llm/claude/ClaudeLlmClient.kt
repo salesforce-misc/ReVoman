@@ -60,7 +60,10 @@ class ClaudeLlmClient(apiKey: String) : LlmClient {
       tool.slots.entries.joinToString("\n") { (name, s) ->
         "- $name: type=${s.type}${if (s.values.isNotEmpty()) ", allowed=${s.values}" else ""}"
       }
-    val examples = tool.inputExamples.joinToString("\n") { it.toString() }
+    val examples =
+      tool.inputExamples.joinToString("\n") { ex ->
+        ex.entries.joinToString(", ", "{", "}") { (k, v) -> "\"$k\":\"$v\"" }
+      }
     val text =
       runBlocking {
         executor

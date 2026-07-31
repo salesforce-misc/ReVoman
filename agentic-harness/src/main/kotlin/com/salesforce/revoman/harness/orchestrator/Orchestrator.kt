@@ -44,7 +44,9 @@ class Orchestrator(
   fun orchestrate(utterance: String): OrchestrationResult {
     val graphName =
       router.route(utterance).graphName ?: return OrchestrationResult.NoGraphMatched(utterance)
-    val tool = tools.first { it.graphName == graphName }
+    val tool =
+      tools.firstOrNull { it.graphName == graphName }
+        ?: return OrchestrationResult.NoGraphMatched(utterance)
     val slots =
       when (val fill = slotFiller.fill(utterance, tool)) {
         is FillResult.Valid -> fill.slots
