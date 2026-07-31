@@ -26,6 +26,7 @@ object GraphRunner {
     graphs: List<String> = DEFAULT_CHAIN,
     seedEnv: Map<String, Any?> = emptyMap(),
   ): List<Rundown> {
+    logger.log(System.Logger.Level.INFO, "Starting graph chain: baseUrl={0}, graphs={1}", baseUrl, graphs.joinToString(","))
     val runtimeEnv: Map<String, Any?> = mapOf("baseUrl" to baseUrl) + seedEnv
     val kicks =
       graphs.map { graph ->
@@ -35,7 +36,10 @@ object GraphRunner {
           .dynamicEnvironment(runtimeEnv)
           .off()
       }
-    return ReVoman.revUp(kicks)
+    val rundowns = ReVoman.revUp(kicks)
+    val summary = rundowns.joinToString(", ") { "${it.stopReason}" }
+    logger.log(System.Logger.Level.INFO, "Graph chain completed: {0}", summary)
+    return rundowns
   }
 
   fun runChainAndSummarize(
@@ -45,3 +49,5 @@ object GraphRunner {
   ): String =
     runChain(baseUrl, graphs, seedEnv).joinToString("\n") { it.toJson(Verbosity.SUMMARY) }
 }
+
+private val logger: System.Logger = System.getLogger("com.salesforce.revoman.harness.GraphRunner")

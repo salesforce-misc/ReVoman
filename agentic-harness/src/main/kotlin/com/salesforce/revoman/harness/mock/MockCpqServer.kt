@@ -29,7 +29,9 @@ class MockCpqServer {
     server.createContext("/price") { ex -> handlePrice(ex) }
     server.createContext("/quote") { ex -> handleQuote(ex) }
     server.start()
-    return server.address.port
+    val port = server.address.port
+    logger.log(System.Logger.Level.INFO, "MockCpqServer started on port {0}", port)
+    return port
   }
 
   fun stop() = server.stop(0)
@@ -39,10 +41,15 @@ class MockCpqServer {
 
   private fun handleConfigure(ex: HttpExchange) {
     val body = ex.readBody()
-    val productCode = body.field("productCode") ?: return ex.respond(400, """{"error":"missing productCode"}""")
+    val productCode = body.field("productCode")
+    if (productCode == null) {
+      logger.log(System.Logger.Level.DEBUG, "/configure rejected: missing productCode")
+      return ex.respond(400, """{"error":"missing productCode"}""")
+    }
     val quantity = body.field("quantity") ?: "1"
     val configId = "cfg-${seq.incrementAndGet()}"
     db["config:$configId"] = "$productCode x$quantity"
+    logger.log(System.Logger.Level.DEBUG, "/configure → {0} (product={1}, qty={2})", configId, productCode, quantity)
     ex.respond(200, """{"configId":"$configId"}""")
   }
 
@@ -50,11 +57,13 @@ class MockCpqServer {
     val body = ex.readBody()
     val configId = body.field("configId")
     if (configId == null || !db.containsKey("config:$configId")) {
+      logger.log(System.Logger.Level.DEBUG, "/price rejected: unknown configId={0}", configId)
       return ex.respond(400, """{"error":"unknown configId"}""")
     }
     val priceId = "prc-${seq.incrementAndGet()}"
     val total = 100.0 // deterministic stub price
     db["price:$priceId"] = total
+    logger.log(System.Logger.Level.DEBUG, "/price → {0} (config={1}, total={2})", priceId, configId, total)
     ex.respond(200, """{"priceId":"$priceId","total":$total}""")
   }
 
@@ -62,10 +71,12 @@ class MockCpqServer {
     val body = ex.readBody()
     val priceId = body.field("priceId")
     if (priceId == null || !db.containsKey("price:$priceId")) {
+      logger.log(System.Logger.Level.DEBUG, "/quote rejected: unknown priceId={0}", priceId)
       return ex.respond(400, """{"error":"unknown priceId"}""")
     }
     val quoteId = "qot-${seq.incrementAndGet()}"
     db["quote:$quoteId"] = "DRAFT"
+    logger.log(System.Logger.Level.DEBUG, "/quote → {0} (price={1}, status=DRAFT)", quoteId, priceId)
     ex.respond(200, """{"quoteId":"$quoteId","status":"DRAFT"}""")
   }
 
@@ -86,3 +97,5 @@ class MockCpqServer {
     responseBody.use { it.write(bytes) }
   }
 }
+
+private val logger: System.Logger = System.getLogger("com.salesforce.revoman.harness.mock.MockCpqServer")
