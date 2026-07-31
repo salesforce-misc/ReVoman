@@ -47,7 +47,8 @@ class ScoringLlmClient(private val slotDelegate: LlmClient = StubLlmClient()) : 
     val penalty =
       tool.whenNotToUse.count { clause ->
         val triggers = tokenize(clause).filter { it.length >= 4 }
-        triggers.any { trigger -> trigger in utteranceTokens }
+        val matchCount = triggers.count { trigger -> trigger in utteranceTokens }
+        matchCount >= 2  // Require at least 2 matching triggers to apply the penalty
       } * penaltyPerClause
     return positive - penalty
   }

@@ -44,6 +44,13 @@ tasks.register<JavaExec>("runStage3Demo") {
   classpath = sourceSets["main"].runtimeClasspath
 }
 
+tasks.register<JavaExec>("runStage4Demo") {
+  group = "harness"
+  description = "Run the observability + feedback-flywheel demo (spans, confirm gate, nightly batch)"
+  mainClass.set("com.salesforce.revoman.harness.Stage4DemoKt")
+  classpath = sourceSets["main"].runtimeClasspath
+}
+
 // --- Isolated `claude` source set: the ONLY place koog lives -------------------------------------
 // Quarantines koog (a large Kotlin-multiplatform dependency built against a different Kotlin
 // version) so a resolution/compat problem can never break the default `test`/`build`/`check`
