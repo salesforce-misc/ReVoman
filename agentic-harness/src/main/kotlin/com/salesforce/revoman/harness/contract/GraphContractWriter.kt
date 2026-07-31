@@ -50,7 +50,23 @@ private fun GraphContract.dataFlowJson(): String =
       "\"consumedBySteps\":${strList(edge.consumedBySteps)}}"
   }
 
-private fun str(s: String): String = "\"" + s.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+private fun str(s: String): String {
+  val sb = StringBuilder("\"")
+  for (c in s) {
+    when (c) {
+      '\\' -> sb.append("\\\\")
+      '"' -> sb.append("\\\"")
+      '\n' -> sb.append("\\n")
+      '\r' -> sb.append("\\r")
+      '\t' -> sb.append("\\t")
+      '\b' -> sb.append("\\b")
+      '' -> sb.append("\\f")
+      else -> if (c < ' ') sb.append("\\u%04x".format(c.code)) else sb.append(c)
+    }
+  }
+  sb.append("\"")
+  return sb.toString()
+}
 
 private fun strList(xs: List<String>): String = xs.joinToString(",", "[", "]") { str(it) }
 

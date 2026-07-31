@@ -65,4 +65,14 @@ class GraphContractWriterTest {
     assertThat(json).contains("\"rundown\"")
     assertThat(json).contains("\"exampleQueries\"")
   }
+
+  @Test
+  fun `verbose output is syntactically valid parseable JSON`() {
+    val json = contract().toJson(Verbosity.VERBOSE)
+    // JSON is a subset of YAML; snakeyaml parses it and throws on malformed input.
+    val parsed = org.yaml.snakeyaml.Yaml().load<Map<String, Any?>>(json)
+    assertThat(parsed).isNotNull()
+    assertThat(parsed["graph"]).isEqualTo("configure")
+    assertThat(parsed["contractVersion"]).isEqualTo("1.0")
+  }
 }
