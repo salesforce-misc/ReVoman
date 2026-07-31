@@ -16,33 +16,34 @@ import com.salesforce.revoman.harness.telemetry.GenAiTracer
 
 /**
  * Stage 5 runnable demo: the complete reasoning layer with all six scaffolds, deterministic (no
- * key). Shows the four outcomes — proceed (read), confirm-then-execute (write), ask (ambiguous),
- * no-match — each traced with OTel GenAI-convention spans printed to console.
+ * key). Shows the five outcomes — proceed (read), confirm-then-execute (write), ask (slot-missing),
+ * ask (low-margin), no-match — each traced with OTel GenAI-convention spans printed to console.
  */
 fun main() {
   val tools = GraphRegistry.loadToolDefs()
+  val stripped = tools.map { it.copy(whenNotToUse = emptyList()) }
   val server = MockCpqServer()
   val baseUrl = "http://127.0.0.1:${server.start()}"
-  // A high 'configure' threshold forces the ambiguous case to ask.
-  val policy = ConfidencePolicy(perGraphThreshold = mapOf("configure" to 0.99))
-  val layer = ReasoningLayer(tools, policy = policy, tracer = GenAiTracer())
+  // Seed the database with the required price for the quote graph to succeed
+  server.db["price:prc-2"] = 100.0
+  val layer = ReasoningLayer(tools, tracer = GenAiTracer())
+  val strippedLayer = ReasoningLayer(stripped, tracer = GenAiTracer())
 
   try {
     listOf(
-      "price configuration cfg-1", // confident read -> Proceed
-      "create a draft quote for prc-2", // confident write -> ConfirmRequired -> confirm
-      "configure or price this", // ambiguous -> Clarify (ask, don't guess)
-      "what is the weather", // no match
+      Triple("price configuration cfg-1", layer, false), // confident read -> Proceed
+      Triple("create a draft quote for prc-2", layer, false), // confident write -> ConfirmRequired -> confirm
+      Triple("configure or price this", layer, false), // slot-missing -> Clarify (ask, don't guess)
+      Triple("price configuration or draft quote", strippedLayer, false), // low-margin -> Clarify (ambiguous between two graphs)
+      Triple("what is the weather", layer, false), // no match
     )
-      .forEach { intent ->
+      .forEach { (intent, reasoningLayer, _) ->
         println("\n>>> $intent")
-        when (val outcome = layer.handle(intent)) {
+        when (val outcome = reasoningLayer.handle(intent)) {
           is ReasoningOutcome.Proceed -> println("  PROCEED: ${outcome.graph} slots=${outcome.slots}")
           is ReasoningOutcome.ConfirmRequired -> {
             println("  CONFIRM REQUIRED (write): ${outcome.preview}")
-            // Seed the database with the required price for the quote graph to succeed
-            if (intent.contains("prc-2")) server.db["price:prc-2"] = 100.0
-            val rundowns = layer.confirm(outcome.preview, baseUrl)
+            val rundowns = reasoningLayer.confirm(outcome.preview, baseUrl)
             println("  confirmed -> executed ${rundowns.size} graph(s); DB=${server.db}")
           }
           is ReasoningOutcome.Clarify -> println("  ASK: ${outcome.question} candidates=${outcome.candidates}")

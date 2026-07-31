@@ -50,11 +50,22 @@ class ReasoningLayerTest {
   }
 
   @Test
-  fun `an ambiguous intent asks instead of guessing and never executes`() {
-    // A high write-threshold (0.90) means a low-margin quote intent must ask.
-    val policy = ConfidencePolicy(perGraphThreshold = mapOf("configure" to 0.99))
-    val outcome = ReasoningLayer(tools, policy = policy).handle("configure or price this")
+  fun `a slot-missing intent asks instead of guessing and never executes`() {
+    val outcome = ReasoningLayer(tools).handle("configure or price this")
     assertThat(outcome).isInstanceOf(ReasoningOutcome.Clarify::class.java)
+    assertThat(server.db).isEmpty()
+  }
+
+  @Test
+  fun `a low-margin intent asks which graph, never guessing or executing`() {
+    // Un-calibrated (when_not_to_use stripped) tools score price=2, quote=4 on this intent
+    // -> margin 0.5, below quote's 0.90 write-graph threshold -> the gate asks, never guesses.
+    val stripped = tools.map { it.copy(whenNotToUse = emptyList()) }
+    val outcome = ReasoningLayer(stripped).handle("price configuration or draft quote")
+    assertThat(outcome).isInstanceOf(ReasoningOutcome.Clarify::class.java)
+    val clarify = outcome as ReasoningOutcome.Clarify
+    assertThat(clarify.candidates.size).isAtLeast(2)
+    assertThat(clarify.question).contains("Did you mean")
     assertThat(server.db).isEmpty()
   }
 
