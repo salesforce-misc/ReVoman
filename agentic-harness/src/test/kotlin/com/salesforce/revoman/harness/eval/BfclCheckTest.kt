@@ -40,4 +40,28 @@ class BfclCheckTest {
     val results = SlotFillGoldSet.load().map { bfcl.check(it) }
     assertThat(results.all { it.pass }).isTrue()
   }
+
+  @Test
+  fun `a gold with a wrong slot value does not pass`() {
+    // Gold claims quantity=99, but the stub extracts 2 from the utterance -> slotsMatch false.
+    val gold =
+      SlotFillGold(
+        "configure 2 units of SKU-1",
+        "configure",
+        mapOf("productCode" to "SKU-1", "quantity" to "99"),
+      )
+    val result = bfcl.check(gold)
+    assertThat(result.graphMatch).isTrue()
+    assertThat(result.slotsMatch).isFalse()
+    assertThat(result.pass).isFalse()
+  }
+
+  @Test
+  fun `a gold with a wrong graph does not pass`() {
+    // "configure ..." routes to configure, but gold claims price -> graphMatch false.
+    val gold = SlotFillGold("configure 2 units of SKU-1", "price", mapOf("configId" to "cfg-1"))
+    val result = bfcl.check(gold)
+    assertThat(result.graphMatch).isFalse()
+    assertThat(result.pass).isFalse()
+  }
 }
