@@ -47,13 +47,13 @@ internal object Banner {
   fun onRunStart() {
     if (!enabled) return
     runCatching {
+        runCount.incrementAndGet()
         if (printed.compareAndSet(false, true)) {
           emitForTest(bannerText())
         }
         if (hookRegistered.compareAndSet(false, true)) {
           registerShutdownHook()
         }
-        runCount.incrementAndGet()
       }
       .onFailure { RevomanLog.logger.debug { "banner onRunStart failed (ignored): $it" } }
   }
