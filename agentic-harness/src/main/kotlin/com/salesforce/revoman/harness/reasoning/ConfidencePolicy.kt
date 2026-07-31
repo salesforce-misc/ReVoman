@@ -8,10 +8,12 @@
 package com.salesforce.revoman.harness.reasoning
 
 /**
- * The tunable policy for the disambiguation gate: below a graph's [threshold] the layer asks
- * instead of guessing. Write graphs default to the financial-services band (0.90) per the industry
- * research; reads use [defaultThreshold]. Per-graph overrides win. The margin/threshold trade is
- * deliberately tunable — that is the whole point of the gate.
+ * The tunable policy for the disambiguation gate: the gate compares the MARGIN (gap between the
+ * top-two scored graphs) against a [threshold]; if margin is below threshold, the layer asks
+ * instead of guessing. Absolute confidence is informational only (emitted as telemetry, not gating).
+ * Write graphs default to the financial-services band (0.90) per industry research; reads use
+ * [defaultThreshold]. Per-graph overrides win. The margin/threshold trade is deliberately tunable —
+ * that is the whole point of the gate.
  */
 data class ConfidencePolicy(
   val defaultThreshold: Double = 0.60,

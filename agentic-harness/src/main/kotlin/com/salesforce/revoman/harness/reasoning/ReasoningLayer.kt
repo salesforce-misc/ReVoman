@@ -28,6 +28,9 @@ import com.salesforce.revoman.output.Rundown
  */
 class ReasoningLayer(
   private val tools: List<ToolDef>,
+  // Must be ScoringLlmClient (not LlmClient) because the gate depends on margin, which only
+  // ScoringLlmClient populates. A bare LlmClient leaves margin=0.0, causing all decisions to fall
+  // below threshold and always route to Clarify.
   private val llm: ScoringLlmClient = ScoringLlmClient(),
   private val policy: ConfidencePolicy = ConfidencePolicy(),
   private val topK: Int = tools.size,
