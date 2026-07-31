@@ -77,8 +77,12 @@ tasks.register<JavaExec>("runContractEvalDemo") {
 // version) so a resolution/compat problem can never break the default `test`/`build`/`check`
 // tasks, which never compile this source set. `compileClaudeKotlin` / `claudeDemo` are opt-in.
 val claude: SourceSet by sourceSets.creating {
-  compileClasspath += sourceSets["main"].output
-  runtimeClasspath += sourceSets["main"].output
+  // Inherit main's OWN dependencies (snakeyaml, the :revoman project, etc.) — not just its compiled
+  // output — so the live ClaudeDemo can load OAS/graphs at runtime. koog is layered on top via
+  // `claudeImplementation` below. This keeps the quarantine intact: the default build still never
+  // compiles this set.
+  compileClasspath += sourceSets["main"].compileClasspath + sourceSets["main"].output
+  runtimeClasspath += sourceSets["main"].runtimeClasspath + sourceSets["main"].output
 }
 
 dependencies {
