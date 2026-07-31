@@ -25,8 +25,8 @@ interface LlmJudge {
 class StubJudge : LlmJudge {
   override fun judge(utterance: String, responseContext: String): Judgment {
     val clean =
-      responseContext.contains("\"unsuccessfulStepCount\":0") &&
-        responseContext.contains("\"succeeded\":true")
+      responseContext.contains("\"unsuccessfulStepCount\": 0") &&
+        responseContext.contains("\"areAllStepsSuccessful\": true")
     return if (clean) Judgment(true, "context reports all steps successful")
     else Judgment(false, "context does not report a clean, successful run")
   }

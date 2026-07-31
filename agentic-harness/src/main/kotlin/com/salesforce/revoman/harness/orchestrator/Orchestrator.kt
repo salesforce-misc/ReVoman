@@ -9,7 +9,6 @@ package com.salesforce.revoman.harness.orchestrator
 
 import com.salesforce.revoman.harness.GraphRunner
 import com.salesforce.revoman.harness.contract.GraphContract
-import com.salesforce.revoman.harness.contract.toJson
 import com.salesforce.revoman.harness.llm.LlmClient
 import com.salesforce.revoman.harness.telemetry.NoopTracer
 import com.salesforce.revoman.harness.telemetry.Tracer
@@ -104,7 +103,7 @@ class Orchestrator(
         exec.setAttribute("unsuccessful_steps", rundowns.sumOf { it.unsuccessfulStepCount })
         agent.setAttribute("turn.outcome", "executed")
         val contract = GraphContract.of(tool, slots, rundowns.last())
-        val context = contract.toJson(Verbosity.STANDARD)
+        val context = rundowns.joinToString("\n") { it.toJson(Verbosity.SUMMARY) }
         OrchestrationResult.Executed(graphName, slots, rundowns, context, contract)
       }
     }
