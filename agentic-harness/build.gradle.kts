@@ -51,6 +51,13 @@ tasks.register<JavaExec>("runStage4Demo") {
   classpath = sourceSets["main"].runtimeClasspath
 }
 
+tasks.register<JavaExec>("runStage5Demo") {
+  group = "harness"
+  description = "Run the complete reasoning layer (retrieve -> route -> fill -> gate: ask|confirm|proceed)"
+  mainClass.set("com.salesforce.revoman.harness.Stage5DemoKt")
+  classpath = sourceSets["main"].runtimeClasspath
+}
+
 tasks.register<JavaExec>("runContractDemo") {
   group = "harness"
   description = "Print the unified GraphContract (descriptor + runtime + dataFlow) at all verbosity tiers"
