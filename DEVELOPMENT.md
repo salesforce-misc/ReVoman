@@ -134,6 +134,15 @@ will not be preserved"), so the rationale is recorded HERE instead:
 
 If a future ReVoman release changes its GraalVM/Truffle floor, revisit these two truffle exclusions.
 
+### Silencing the startup banner (embedded/server use)
+
+ReṼoman prints a one-per-JVM ASCII banner on the first `revUp` and a one-per-JVM "star us" line on JVM shutdown. Delightful in a test run, noise in the Core server — so it is **on by default, suppressible**. Silence both with either lever (system property wins):
+
+- `-Drevoman.banner=off` (JVM arg), or
+- `REVOMAN_BANNER=off` (env var).
+
+`off` / `false` / `0` / `no` all silence it. Core sets one of these once in server bootstrap. Since the banner is emitted as a `com.salesforce.revoman` INFO log event, raising that logger's level also hides it.
+
 ### Propagating a release into Core
 
 `scripts/release.sh <version>` bumps the version, publishes to Maven Central, waits for the jar to
