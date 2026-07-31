@@ -29,3 +29,10 @@ tasks.register<JavaExec>("runStage1Demo") {
   mainClass.set("com.salesforce.revoman.harness.Stage1DemoKt")
   classpath = sourceSets["main"].runtimeClasspath
 }
+
+tasks.register<JavaExec>("runStage2Demo") {
+  group = "harness"
+  description = "Run the orchestrator-workers loop (route -> slot-fill -> revUp) with the stub LLM"
+  mainClass.set("com.salesforce.revoman.harness.Stage2DemoKt")
+  classpath = sourceSets["main"].runtimeClasspath
+}
