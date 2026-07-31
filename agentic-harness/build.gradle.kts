@@ -46,7 +46,10 @@ val claude: SourceSet by sourceSets.creating {
   runtimeClasspath += sourceSets["main"].output
 }
 
-dependencies { "claudeImplementation"("ai.koog:koog-agents:1.1.1") }
+dependencies {
+  "claudeImplementation"("ai.koog:koog-agents:1.1.1")
+  "claudeImplementation"("ai.koog:koog-agents-additions:1.1.1-beta")
+}
 
 tasks.register<JavaExec>("claudeDemo") {
   group = "harness"

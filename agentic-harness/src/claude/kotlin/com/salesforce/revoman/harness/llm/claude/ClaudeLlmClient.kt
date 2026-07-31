@@ -48,7 +48,7 @@ class ClaudeLlmClient(apiKey: String) : LlmClient {
             },
             model,
           )
-          .content
+          .textContent()
           .trim()
       }
     val chosen = tools.firstOrNull { it.graphName.equals(text, ignoreCase = true) }?.graphName
@@ -75,7 +75,7 @@ class ClaudeLlmClient(apiKey: String) : LlmClient {
             },
             model,
           )
-          .content
+          .textContent()
           .trim()
       }
     return parseFlatJson(text)
