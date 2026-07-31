@@ -43,10 +43,11 @@ class ScoringLlmClient(private val slotDelegate: LlmClient = StubLlmClient()) : 
       (tool.graphName + " " + tool.whenToUse + " " + tool.exampleQueries.joinToString(" "))
         .lowercase()
     val positive = tokens.count { token -> haystack.contains(token) }
+    val utteranceTokens = tokens.toSet()
     val penalty =
       tool.whenNotToUse.count { clause ->
         val triggers = tokenize(clause).filter { it.length >= 4 }
-        triggers.any { trigger -> tokens.any { it.contains(trigger) } }
+        triggers.any { trigger -> trigger in utteranceTokens }
       } * penaltyPerClause
     return positive - penalty
   }
