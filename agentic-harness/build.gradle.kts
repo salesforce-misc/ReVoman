@@ -20,3 +20,10 @@ testing {
     getByName<JvmTestSuite>("test") { useJUnitJupiter(libs.versions.junit.get()) }
   }
 }
+
+tasks.register<JavaExec>("runStage1Demo") {
+  group = "harness"
+  description = "Boot the mock CPQ server and run the configure->price->quote graph chain"
+  mainClass.set("com.salesforce.revoman.harness.Stage1DemoKt")
+  classpath = sourceSets["main"].runtimeClasspath
+}
