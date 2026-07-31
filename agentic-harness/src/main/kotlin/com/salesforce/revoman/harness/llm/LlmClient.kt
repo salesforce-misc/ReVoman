@@ -9,8 +9,19 @@ package com.salesforce.revoman.harness.llm
 
 import com.salesforce.revoman.harness.tooldef.ToolDef
 
-/** The router's output: the chosen graph (or null when nothing matched) and a short rationale. */
-data class RouteDecision(val graphName: String?, val rationale: String)
+/**
+ * The router's output: the chosen graph (or null when nothing matched), a short rationale, and the
+ * router's confidence signals. [confidence] is the normalized top score in [0,1]; [margin] is the
+ * normalized gap to the second-best graph in [0,1]. The disambiguation gate reads [margin] to
+ * decide whether to ask instead of guess. Both default so callers that don't produce them (the
+ * keyword stub, the Claude client) are unaffected.
+ */
+data class RouteDecision(
+  val graphName: String?,
+  val rationale: String,
+  val confidence: Double = 0.0,
+  val margin: Double = 0.0,
+)
 
 /**
  * The only probabilistic surface in the harness. Two jobs, exactly as the design specifies: pick a

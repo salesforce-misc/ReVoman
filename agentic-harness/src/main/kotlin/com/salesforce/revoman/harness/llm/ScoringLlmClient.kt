@@ -26,13 +26,23 @@ class ScoringLlmClient(private val slotDelegate: LlmClient = StubLlmClient()) : 
   private val penaltyPerClause = 5
 
   override fun route(utterance: String, tools: List<ToolDef>): RouteDecision {
-    val tokens = tokenize(utterance)
-    val best = tools.map { it to score(tokens, it) }.maxByOrNull { it.second }
-    return if (best == null || best.second <= 0) {
-      RouteDecision(null, "no graph scored above zero for: $utterance")
-    } else {
-      RouteDecision(best.first.graphName, "score=${best.second} for '${best.first.graphName}'")
+    val scored = scores(utterance, tools)
+    val ranked = scored.entries.sortedByDescending { it.value }
+    val top = ranked.firstOrNull()
+    if (top == null || top.value <= 0) {
+      return RouteDecision(null, "no graph scored above zero for: $utterance", 0.0, 0.0)
     }
+    val positiveSum = ranked.sumOf { maxOf(it.value, 0) }
+    val second = ranked.getOrNull(1)?.value?.coerceAtLeast(0) ?: 0
+    val confidence = if (positiveSum > 0) top.value.toDouble() / positiveSum else 0.0
+    val margin = (top.value - second).toDouble() / top.value
+    return RouteDecision(top.key, "score=${top.value} for '${top.key}'", confidence, margin)
+  }
+
+  /** The raw per-graph score for each tool — the basis for confidence, margin, and the gate. */
+  fun scores(utterance: String, tools: List<ToolDef>): Map<String, Int> {
+    val tokens = tokenize(utterance)
+    return tools.associate { it.graphName to score(tokens, it) }
   }
 
   override fun fillSlots(utterance: String, tool: ToolDef): Map<String, String> =
