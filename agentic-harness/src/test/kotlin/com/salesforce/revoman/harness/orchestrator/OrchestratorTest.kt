@@ -42,8 +42,9 @@ class OrchestratorTest {
     assertThat(executed.slots).containsEntry("quantity", "2")
     // The filled quantity (2) overrides the env-file default (1) — proof slots reach ReVoman.
     assertThat(server.db.values).contains("SKU-1 x2")
-    // Rundown context flows back for the LLM.
-    assertThat(executed.context).contains("areAllStepsSuccessful")
+    // Unified GraphContract context flows back for the LLM.
+    assertThat(executed.context).contains("succeeded")
+    assertThat(executed.context).contains("executedStepCount")
   }
 
   @Test

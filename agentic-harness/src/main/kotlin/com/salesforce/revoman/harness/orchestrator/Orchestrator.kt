@@ -8,6 +8,8 @@
 package com.salesforce.revoman.harness.orchestrator
 
 import com.salesforce.revoman.harness.GraphRunner
+import com.salesforce.revoman.harness.contract.GraphContract
+import com.salesforce.revoman.harness.contract.toJson
 import com.salesforce.revoman.harness.llm.LlmClient
 import com.salesforce.revoman.harness.telemetry.NoopTracer
 import com.salesforce.revoman.harness.telemetry.Tracer
@@ -30,6 +32,7 @@ sealed interface OrchestrationResult {
     val slots: Map<String, String>,
     val rundowns: List<Rundown>,
     val context: String,
+    val contract: GraphContract? = null,
   ) : OrchestrationResult
 }
 
@@ -100,8 +103,9 @@ class Orchestrator(
         exec.setAttribute("stop_reason", last?.stopReason?.toString() ?: "NONE")
         exec.setAttribute("unsuccessful_steps", rundowns.sumOf { it.unsuccessfulStepCount })
         agent.setAttribute("turn.outcome", "executed")
-        val context = rundowns.joinToString("\n") { it.toJson(Verbosity.SUMMARY) }
-        OrchestrationResult.Executed(graphName, slots, rundowns, context)
+        val contract = GraphContract.of(tool, slots, rundowns.last())
+        val context = contract.toJson(Verbosity.STANDARD)
+        OrchestrationResult.Executed(graphName, slots, rundowns, context, contract)
       }
     }
 }
