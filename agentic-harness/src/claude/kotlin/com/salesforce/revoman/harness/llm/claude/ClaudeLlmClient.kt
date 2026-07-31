@@ -9,7 +9,12 @@ package com.salesforce.revoman.harness.llm.claude
 
 import ai.koog.prompt.dsl.prompt
 import ai.koog.prompt.executor.clients.anthropic.AnthropicModels
+import ai.koog.prompt.executor.clients.bedrock.BedrockClientSettings
+import ai.koog.prompt.executor.clients.bedrock.BedrockModels
 import ai.koog.prompt.executor.llms.all.simpleAnthropicExecutor
+import ai.koog.prompt.executor.llms.all.simpleBedrockExecutorWithBearerToken
+import ai.koog.prompt.executor.model.PromptExecutor
+import ai.koog.prompt.llm.LLModel
 import com.salesforce.revoman.harness.llm.LlmClient
 import com.salesforce.revoman.harness.llm.RouteDecision
 import com.salesforce.revoman.harness.tooldef.ToolDef
@@ -20,9 +25,9 @@ import kotlinx.coroutines.runBlocking
  * koog never touches the CI-tested core. Bridges koog's suspend API with [runBlocking] to satisfy
  * the synchronous [LlmClient] contract. Never required to run tests — gated on [fromEnv].
  */
-class ClaudeLlmClient(apiKey: String) : LlmClient {
-  private val executor = simpleAnthropicExecutor(apiKey)
-  private val model = AnthropicModels.Sonnet_4_5
+class ClaudeLlmClient(private val executor: PromptExecutor, private val model: LLModel) : LlmClient {
+  /** Secondary constructor for the direct Anthropic API (sk-ant-... key). */
+  constructor(apiKey: String) : this(simpleAnthropicExecutor(apiKey), AnthropicModels.Sonnet_4_5)
 
   override fun route(utterance: String, tools: List<ToolDef>): RouteDecision {
     val toolBlock =
@@ -91,6 +96,20 @@ class ClaudeLlmClient(apiKey: String) : LlmClient {
       .associate { it.groupValues[1] to it.groupValues[2].trim() }
 
   companion object {
+    /** Direct public Anthropic API (sk-ant-... key). Null when unset. */
     fun fromEnv(): LlmClient? = System.getenv("ANTHROPIC_API_KEY")?.let(::ClaudeLlmClient)
+
+    /**
+     * This environment's path: an AWS Bedrock proxy (bearer token + custom gateway URL) rather
+     * than the public Anthropic API. Best-effort — koog's Bedrock client may or may not accept a
+     * non-AWS gateway; if it doesn't, the caller falls back to skip.
+     */
+    fun fromBedrockEnv(): LlmClient? {
+      val token = System.getenv("ANTHROPIC_AUTH_TOKEN") ?: return null
+      val baseUrl = System.getenv("ANTHROPIC_BEDROCK_BASE_URL") ?: return null
+      val executor =
+        simpleBedrockExecutorWithBearerToken(token, BedrockClientSettings(endpointUrl = baseUrl))
+      return ClaudeLlmClient(executor, BedrockModels.AnthropicClaude45Opus)
+    }
   }
 }

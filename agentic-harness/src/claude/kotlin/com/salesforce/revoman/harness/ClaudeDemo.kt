@@ -15,9 +15,9 @@ import com.salesforce.revoman.harness.orchestrator.OrchestrationResult
 
 /** Live demo of the orchestrator with the REAL Claude LLM. No-ops (skips) when the key is absent. */
 fun main() {
-  val llm = ClaudeLlmClient.fromEnv()
+  val llm = ClaudeLlmClient.fromBedrockEnv() ?: ClaudeLlmClient.fromEnv()
   if (llm == null) {
-    println("ANTHROPIC_API_KEY not set — skipping the live Claude demo.")
+    println("Neither ANTHROPIC_BEDROCK_BASE_URL+ANTHROPIC_AUTH_TOKEN nor ANTHROPIC_API_KEY set — skipping the live Claude demo.")
     return
   }
   val server = MockCpqServer()
