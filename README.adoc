@@ -13,22 +13,72 @@ endif::[]
 :prewrap!:
 :revoman-version: 0.9.18
 
+image:https://img.shields.io/maven-central/v/com.salesforce.revoman/revoman?style=flat-square&labelColor=1c1917&color=D97757&label=Maven%20Central[Maven Central,link=https://central.sonatype.com/artifact/com.salesforce.revoman/revoman]
+image:https://img.shields.io/github/actions/workflow/status/salesforce-misc/ReVoman/build.yml?branch=master&style=flat-square&labelColor=1c1917&label=build[Build,link=https://github.com/salesforce-misc/ReVoman/actions/workflows/build.yml]
+image:https://img.shields.io/github/stars/salesforce-misc/ReVoman?style=flat-square&labelColor=1c1917&color=D97757&logo=github&label=Star[GitHub stars,link=https://github.com/salesforce-misc/ReVoman]
+image:https://img.shields.io/badge/JVM-21%2B-1c1917?style=flat-square&labelColor=1c1917[JVM 21+]
+image:https://img.shields.io/github/license/salesforce-misc/ReVoman?style=flat-square&labelColor=1c1917&color=1c1917[License]
+
+[.lead]
+*ReṼoman* is an *API Orchestration Engine* for the JVM — the middleware between an agent and your API-Graphs.
+
+Describe a workflow of interdependent API calls as *executable API metadata*. ReṼoman executes that graph on the JVM — resolving data dependencies between calls, handling auth, polling, and type-safe payloads — and hands back a structured *Rundown* of everything that happened. That makes it a building block for *Agentic API Orchestration*, with JVM API test automation as one powerful application.
+
+📖 https://sfdc.co/revoman-docs[*Docs*] · https://salesforce-misc.github.io/ReVoman/revoman/getting-started.html[Get started] · https://salesforce-misc.github.io/ReVoman/revoman/why-revoman.html[Why ReṼoman?] · https://sfdc.co/revoman-slack[Slack]
+
+NOTE: NO licensed Postman SDKs are used inside this project. This is written ground up natively in JVM. ReṼoman comes from the API-first SaaS company, *Salesforce*.
+
 '''
 
-*ReṼoman* is an *API Orchestration Engine* for the JVM. You describe a workflow of interdependent API calls as *executable API metadata*; ReṼoman executes that graph — resolving data dependencies between calls, handling auth, polling, and type-safe payloads — and returns a structured *Rundown* of everything that happened. This makes it a building block for *Agentic API Orchestration*, with API test automation as one powerful application.
+== See it run
 
-ReṼoman comes from the API-first SaaS company, *Salesforce*.
+Hand the engine the executable API metadata you already author for manual testing. It runs the graph in order, threads each step's output into the next, and returns a Rundown you assert on — right inside your JVM stack.
 
-NOTE: NO licensed Postman SDKs are used inside this project. This is written ground up natively in JVM.
+....
+  ReṼoman ▸ executing API-Graph ······································
+   01   POST    /objects           201    142 ms   ✓   → {id}
+   02   GET     /objects           200     88 ms   ✓
+   03   GET     /objects/{id}      200     76 ms   ✓   ← {id}
+   04   PATCH   /objects/{id}      200    110 ms   ✓   ← {id}
+  ················································· 4 steps · 4 passed
+   › rundown.toJson(VERBOSE)
+   { "stepReports": [ 4 — all passed ], "mutableEnv": {…}, "stats": {…} }
+....
 
-[TIP]
-====
-*📖 Full documentation: https://sfdc.co/revoman-docs*
+The four steps above are a real, passing run against the free public https://restful-api.dev[restful-api.dev] — `POST` creates an object, later steps reuse its `{id}`. Here is the test that produces it:
 
-The sections below are a quick start. Every feature has a focused page on the site.
-====
+[source,java,tabsize=2]
+----
+final var rundown =
+    ReVoman.revUp(                          // <1>
+        Kick.configure()
+            .templatePath(PM_COLLECTION_PATH)     // <2>
+            .environmentPath(PM_ENVIRONMENT_PATH) // <3>
+            .nodeModulesPath("js")
+            .off());
+assertThat(rundown.firstUnIgnoredUnsuccessfulStepReport()).isNull(); // <4>
+assertThat(rundown.stepReports).hasSize(4);                          // <5>
+----
+<1> `revUp` runs the graph, taking a configuration built with `Kick.configure()`
+<2> An exported Postman collection JSON — your *executable API metadata*
+<3> An exported Postman environment JSON
+<4> Assert the run had no failures
+<5> Assert on the structured https://salesforce-misc.github.io/ReVoman/revoman/rundown.html[Rundown]
 
-== Artifact
+'''
+
+== Why not just a collection runner?
+
+https://learning.postman.com/docs/collections/using-newman-cli/command-line-integration-with-newman[Newman] and the Postman CLI overlap with ReṼoman only at "execute a collection." A runner emits a pass/fail report; ReṼoman is *middleware* that executes an API-Graph and returns structured context your JVM code — or an agent — builds on.
+
+* *JVM-native.* Runs inside your JVM stack — coverage, assertions, and all. Newman/Postman CLI run on Node and can't.
+* *Type-safe.* Its https://salesforce-misc.github.io/ReVoman/revoman/type-safety.html[Moshi bridge] hands responses back as POJOs you assert on directly, not raw JSON.
+* *Richer execution model.* Dynamic https://salesforce-misc.github.io/ReVoman/revoman/hooks.html[pre/post-step hooks] plug custom JVM code between steps; polling, execution control, and a mutable environment are first-class.
+* *A Rundown, not a report.* The https://salesforce-misc.github.io/ReVoman/revoman/rundown.html[Rundown] is far richer than a newman report — it is the structured Context Information an https://salesforce-misc.github.io/ReVoman/revoman/agentic-orchestration.html[agentic orchestration] loop reasons over.
+
+== Install
+
+Minimum Java version required = *21*
 
 [.lead]
 Maven
@@ -41,20 +91,17 @@ Maven
 </dependency>
 ----
 [.lead]
+Gradle Kotlin
+[source,kts,subs=attributes+]
+----
+implementation("com.salesforce.revoman:revoman:{revoman-version}")
+----
+[.lead]
 Bazel
 [source,bzl,subs=attributes+]
 ----
 "com.salesforce.revoman:revoman"
 ----
-[.lead]
-Gradle Kts
-[source,kts,subs=attributes+]
-----
-implementation("com.salesforce.revoman:revoman:{revoman-version}")
-----
-
-[.lead]
-Minimum Java Version required = 21
 
 .Tech-Talk given at https://www.opensourceindia.in/osi-speakers-2023/gopala-sarma-akshintala/[Open Source Conf—2023], https://speakerdeck.com/gopalakshintala/revoman-a-template-driven-api-automation-tool-for-jvm[🎴Slide deck]
 image::docs/modules/ROOT/images/revoman-demo-thumbnail.png[link="https://www.youtube.com/watch?v=YxeRddSFkxc&list=PLrJbJ9wDl9EC0bG6y9fyDylcfmB_lT_Or&index=2", align="center"]
@@ -98,8 +145,16 @@ Each topic links to its published page. The source for every page lives in `docs
 |
 |===
 
-== 🙌🏼 Consume-Collaborate-Contribute
+'''
 
-* The link:CONTRIBUTING.adoc[CONTRIBUTING] doc has all the information to set up this library locally and get hands-on.
+== ⭐ Star ReṼoman
+
+If ReṼoman saved you from writing yet another bespoke API-automation framework, a star helps other JVM teams find it — and tells us to keep investing in the open.
+
+*https://github.com/salesforce-misc/ReVoman[⭐ Star the repo →]*
+
+== 🙌🏼 Consume · Collaborate · Contribute
+
+* The link:CONTRIBUTING.adoc[CONTRIBUTING] doc has everything to set up this library locally and get hands-on.
 * Any issues or PRs are welcome! ♥️
 * Join the https://sfdc.co/revoman-slack[Slack Community] to discuss issues or PRs.
