@@ -9,6 +9,7 @@ package com.salesforce.revoman.internal.postman
 
 import java.time.LocalDate
 import java.util.*
+import kotlin.random.Random
 import kotlin.random.Random.Default.nextBoolean
 import kotlin.random.Random.Default.nextInt
 import kotlin.random.Random.Default.nextLong
@@ -64,7 +65,10 @@ private val dynamicVariableGenerators: Map<String, () -> String> =
 
 private val upperHexFormat = HexFormat.of().withUpperCase()
 
-fun getRandomHex(): String = upperHexFormat.toHexDigits(nextInt(256).toByte())
+// `random` defaults to the global source (production behaviour unchanged); tests inject a seeded
+// Random to make coverage of the full 00..FF byte range deterministic instead of probabilistic.
+fun getRandomHex(random: Random = Random.Default): String =
+  upperHexFormat.toHexDigits(random.nextInt(256).toByte())
 
 private val charPool = ('a'..'z') + ('A'..'Z') + ('0'..'9')
 

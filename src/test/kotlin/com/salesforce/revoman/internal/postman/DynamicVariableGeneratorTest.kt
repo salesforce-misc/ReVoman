@@ -8,6 +8,7 @@
 package com.salesforce.revoman.internal.postman
 
 import com.google.common.truth.Truth.assertThat
+import kotlin.random.Random
 import org.junit.jupiter.api.Test
 
 class DynamicVariableGeneratorTest {
@@ -21,15 +22,17 @@ class DynamicVariableGeneratorTest {
   }
 
   @Test
-  fun `getRandomHex can produce FF`() {
-    val hexValues = (1..1000).map { getRandomHex() }.toSet()
-    assertThat(hexValues).contains("FF")
-  }
-
-  @Test
-  fun `getRandomHex can produce 00`() {
-    val hexValues = (1..1000).map { getRandomHex() }.toSet()
-    assertThat(hexValues).contains("00")
+  fun `getRandomHex covers the full 00 to FF range including the boundaries`() {
+    // Deterministic: a seeded Random makes this prove — not gamble — that every byte value
+    // 00..FF is reachable (the old 1000-draw `.contains("00")`/`.contains("FF")` tests were
+    // flaky: P(a value never appears in N draws) = (255/256)^N, ~2% even at N=1000).
+    val seededRandom = Random(42)
+    val produced = (1..100_000).map { getRandomHex(seededRandom) }.toSet()
+    val upperHex = java.util.HexFormat.of().withUpperCase()
+    val allBytes = (0..255).map { upperHex.toHexDigits(it.toByte()) }.toSet()
+    assertThat(produced).isEqualTo(allBytes)
+    assertThat(produced).contains("00")
+    assertThat(produced).contains("FF")
   }
 
   @Test
