@@ -36,3 +36,21 @@ tasks.register<JavaExec>("runStage2Demo") {
   mainClass.set("com.salesforce.revoman.harness.Stage2DemoKt")
   classpath = sourceSets["main"].runtimeClasspath
 }
+
+// --- Isolated `claude` source set: the ONLY place koog lives -------------------------------------
+// Quarantines koog (a large Kotlin-multiplatform dependency built against a different Kotlin
+// version) so a resolution/compat problem can never break the default `test`/`build`/`check`
+// tasks, which never compile this source set. `compileClaudeKotlin` / `claudeDemo` are opt-in.
+val claude: SourceSet by sourceSets.creating {
+  compileClasspath += sourceSets["main"].output
+  runtimeClasspath += sourceSets["main"].output
+}
+
+dependencies { "claudeImplementation"("ai.koog:koog-agents:1.1.1") }
+
+tasks.register<JavaExec>("claudeDemo") {
+  group = "harness"
+  description = "Run the orchestrator with the REAL Claude LLM (requires ANTHROPIC_API_KEY)"
+  mainClass.set("com.salesforce.revoman.harness.ClaudeDemoKt")
+  classpath = claude.runtimeClasspath
+}
