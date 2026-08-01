@@ -269,13 +269,14 @@ kover {
     }
     total {
       html { onCheck = true }
-      // Coverage regression ratchet. Floor calibrated (2026-08-01) against the honest post-exclude
-      // unit-test-only total (90.1% LINE). `build` actually enforces the higher combined
-      // test+integrationTest total (the two suites' union), so this 89% floor (unit-only − 1-point
-      // margin) stays a safe non-false-failing gate. Raise toward 90% as more tests are added.
+      // Coverage regression ratchet. Floor calibrated 2026-08-01 to floor(unit-only LINE %) − 1.
+      // The honest unit-only LINE total is 86.2% (post-exclude, `./gradlew test` only), so the
+      // floor is 85. For reference, the combined test+integrationTest total (~90.1%) is higher,
+      // so 85 is a safe floor below both — it will not false-fail, including on unit-only runs.
+      // Raise as unit coverage grows.
       verify {
         rule {
-          minBound(89) // unit-test-only LINE coverage floor (90.1% measured, floor(90.1) - 1 = 89)
+          minBound(85) // unit-only LINE coverage floor (86.2% measured, floor(86.2) - 1 = 85)
         }
       }
     }
