@@ -75,10 +75,24 @@ val bundledRuntime: Configuration = configurations.create("bundledRuntime")
 dependencies { "bundledRuntime"(libs.kotlinx.collections.immutable) { isTransitive = false } }
 
 tasks.named<Jar>("jar") {
+  // Stable JPMS module name for module-path consumers. Deliberately NOT a full module-info: the
+  // primary consumer (Salesforce Core) uses a classpath java_import where module-info is ignored,
+  // and moshi/spring/kapt reflect into revoman's own types (would force opening `internal`). See
+  // docs/superpowers/specs/2026-08-01-jpms-automatic-module-name-design.md.
+  manifest { attributes("Automatic-Module-Name" to "com.salesforce.revoman") }
   from({ bundledRuntime.map { zipTree(it) } }) {
     // Drop the bundled artifact's own MANIFEST/module metadata — keep only its classes so the
-    // revoman jar's manifest and any module-info stay authoritative.
-    exclude("META-INF/MANIFEST.MF", "META-INF/*.kotlin_module", "module-info.class")
+    // revoman jar's manifest and any module-info stay authoritative. kotlinx-collections-immutable
+    // is a MULTI-RELEASE jar, so its module descriptor lives at `META-INF/versions/<N>/
+    // module-info.class`, NOT just top-level — that versioned copy MUST also be dropped, else
+    // revoman resolves as the explicit module `kotlinx.collections.immutable` on the module path
+    // and the Automatic-Module-Name above is ignored. Do not remove it as "redundant".
+    exclude(
+      "META-INF/MANIFEST.MF",
+      "META-INF/*.kotlin_module",
+      "module-info.class",
+      "META-INF/versions/*/module-info.class",
+    )
   }
   duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
