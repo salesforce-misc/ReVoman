@@ -71,10 +71,16 @@ internal object V3ToV2Converter {
   private fun encodeQueryComponent(component: String): String {
     val result = StringBuilder()
     for (char in component) {
-      when {
-        char in 'A'..'Z' || char in 'a'..'z' || char in '0'..'9' -> result.append(char)
-        char == '-' || char == '.' || char == '_' || char == '~' -> result.append(char)
-        char == '{' || char == '}' -> result.append(char)
+      when (char) {
+        in 'A'..'Z',
+        in 'a'..'z',
+        in '0'..'9' -> result.append(char)
+        '-',
+        '.',
+        '_',
+        '~' -> result.append(char)
+        '{',
+        '}' -> result.append(char)
         else -> result.append("%${char.code.toString(16).uppercase().padStart(2, '0')}")
       }
     }

@@ -48,7 +48,7 @@ open class EnvAccumBenchmark {
 
   @Benchmark
   open fun accumulateAndSnapshot(bh: Blackhole) {
-    val env = PostmanEnvironment<Any?>(PersistentBackedMutableMap<Any?>())
+    val env = PostmanEnvironment(PersistentBackedMutableMap<Any?>())
     stepList.forEach { step ->
       env.currentStep = step
       env.set("key_${step.name}", step.name)

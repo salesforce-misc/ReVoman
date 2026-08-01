@@ -14,6 +14,12 @@ import com.salesforce.revoman.input.config.RunbookStep
  * `List<Rundown>` so it drops in wherever today's `revUp(List<Kick>)` return is consumed, while
  * adding step pairing and the [toMermaid]/[toMarkdown] views.
  */
+// Java `default` members of `List` (stream/spliterator/forEach) aren't forwarded by Kotlin
+// `by`-delegation, but they operate correctly over the delegated `iterator()`/`size()`/`get()`
+// (only micro-perf differs vs delegating straight to `rundownsView`); the mutator defaults
+// (removeIf/replaceAll/sort) don't apply to this read-only list. Overriding them would be pure
+// forwarding noise, so the delegation is deliberate.
+@Suppress("JavaDefaultMethodsNotOverriddenByDelegation")
 class RunbookRundown
 private constructor(
   val name: String?,

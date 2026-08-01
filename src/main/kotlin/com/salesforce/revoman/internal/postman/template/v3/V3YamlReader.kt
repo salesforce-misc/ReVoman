@@ -73,7 +73,7 @@ internal object V3YamlReader {
 
   private fun mapToRequest(map: Map<String, Any?>): V3Request =
     V3Request(
-      kind = strOrDefault(map["\$kind"], "http-request"),
+      kind = strOrDefault(map[$$"$kind"], "http-request"),
       name = map["name"]?.toString(),
       description = map["description"]?.toString(),
       url = map["url"]?.toString() ?: error("v3 request missing required field: url"),
@@ -133,7 +133,7 @@ internal object V3YamlReader {
 
   private fun mapToCollectionDef(map: Map<String, Any?>): V3CollectionDef =
     V3CollectionDef(
-      kind = strOrDefault(map["\$kind"], "collection"),
+      kind = strOrDefault(map[$$"$kind"], "collection"),
       order = (map["order"] as? Number)?.toInt(),
       auth = mapToAuthList(map["auth"]),
     )

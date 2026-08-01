@@ -38,7 +38,7 @@ open class RegexVarBenchmark {
   // -> C1's fast-path guard should dominate the win here.
   private val mixedStrings: List<String> =
     (0 until 100).map { i ->
-      if (i % 10 == 0) """{ "id": "{{policyId}}", "when": "{{${'$'}isoTimestamp}}" }"""
+      if (i % 10 == 0) $$"""{ "id": "{{policyId}}", "when": "{{$isoTimestamp}}" }"""
       else """{ "field$i": "static-value-$i", "note": "no placeholders in this line" }"""
     }
 

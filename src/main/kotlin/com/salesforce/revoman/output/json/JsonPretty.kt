@@ -41,8 +41,7 @@ object JsonPretty {
     var i = 0
     val n = json.length
     while (i < n) {
-      val c = json[i]
-      when (c) {
+      when (val c = json[i]) {
         '"' -> {
           val end = endOfString(json, i)
           sb.append(json, i, end + 1)

@@ -118,15 +118,13 @@ data class CompositeResponse(val compositeResponse: List<Response>) {
   @Json(ignore = true)
   @get:JvmName("errorResponses")
   val errorResponses: List<ErrorResponse> by lazy {
-    compositeResponse
-      .mapNotNull { it as? ErrorResponse }
-      .filter {
-        it.httpStatusCode !in SUCCESSFUL_HTTP_STATUSES &&
-          it.body.firstOrNull()?.let { error ->
-            error.errorCode == PROCESSING_HALTED &&
-              error.message == OPERATION_IN_TRANSACTION_FAILED_ERROR
-          } != true
-      }
+    compositeResponse.filterIsInstance<ErrorResponse>().filter {
+      it.httpStatusCode !in SUCCESSFUL_HTTP_STATUSES &&
+        it.body.firstOrNull()?.let { error ->
+          error.errorCode == PROCESSING_HALTED &&
+            error.message == OPERATION_IN_TRANSACTION_FAILED_ERROR
+        } != true
+    }
   }
 
   @Json(ignore = true)

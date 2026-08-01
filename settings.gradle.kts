@@ -5,6 +5,10 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  * ************************************************************************************************
  */
+@file:Suppress(
+  "UnstableApiUsage"
+) // dependencyResolutionManagement {} is incubating but stable in practice
+
 pluginManagement {
   repositories {
     mavenCentral()
