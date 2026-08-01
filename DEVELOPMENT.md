@@ -108,6 +108,32 @@ already bundling the classes, that would double-supply them (duplicate classes o
 The graph dep stays available for a future switch to a pure Core-native path (drop the fat-jar
 bundle, then add the `runtime_deps`), but today the fat jar is the live supply.
 
+### JPMS module name (`Automatic-Module-Name`)
+
+The `jar` task stamps `Automatic-Module-Name: com.salesforce.revoman` into the manifest (see
+`build.gradle.kts`). This is a **stable JPMS module name** for consumers on the Java module path —
+nothing more. It is deliberately **NOT** a full `module-info.java`, and it should stay that way:
+
+- **Core doesn't see it anyway.** Core consumes revoman via a bazel `java_import` → the
+  **classpath** → the *unnamed module*, where a `module-info.class` is ignored entirely. Full
+  JPMS would encapsulate against a module path Core never uses.
+- **Reflection would force opening `internal`.** Moshi (moshix codegen), kapt/Immutables, and
+  Spring `BeanUtils` reflect into revoman's own types across `input`, `output`, **and**
+  `internal`. A real `module-info` would need broad `opens` — including `opens ...internal` —
+  defeating the encapsulation that would be the only reason to add it.
+- **Deps aren't module-ready.** Several runtime deps (http4k, moshi, snakeyaml, underscore,
+  pprint, kotlinx-collections-immutable, kotlin-logging) are plain jars with no
+  `Automatic-Module-Name`, so `requires` clauses would bind to fragile filename-derived names.
+
+Rationale and rejected alternatives (full `module-info`, multi-release modular jar) are recorded
+in `docs/superpowers/specs/2026-08-01-jpms-automatic-module-name-design.md`. Verify the attribute
+after building:
+
+```bash
+unzip -p build/libs/revoman-*.jar META-INF/MANIFEST.MF | grep 'Automatic-Module-Name'
+# → Automatic-Module-Name: com.salesforce.revoman
+```
+
 ### How Core picks up a locally-built jar
 
 Core's `.bazelrc-local` overrides the `com_salesforce_revoman_revoman` repository to a local
