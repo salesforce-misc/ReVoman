@@ -245,7 +245,22 @@ tasks {
   }
 }
 
-kover { reports { total { html { onCheck = true } } } }
+kover {
+  reports {
+    total {
+      html { onCheck = true }
+      // Coverage regression ratchet. Baseline line coverage is ~69.8% (measured); this floor
+      // sits just below it so normal churn/branch noise doesn't false-fail the build. Raise
+      // `minBound` over time toward the 80% goal as tests are added. Wired into `check`, so
+      // `./gradlew build` (local + CI) enforces it.
+      verify {
+        rule {
+          minBound(69) // total LINE coverage %
+        }
+      }
+    }
+  }
+}
 
 // Qodana static analysis. Opt-in like the Core-IT tests — NOT wired into `check`/`build`, since
 // `qodanaScan` needs Docker (the CLI runs the free `jetbrains/qodana-jvm-community` linter in a
