@@ -1,14 +1,18 @@
 #!/usr/bin/env bash
 # One-shot release pipeline for ReVoman, with automatic propagation into Core.
 #
-#   bump version (Config.kt + README.adoc) -> commit "Release X" -> push master
-#     -> publish to Maven Central -> WAIT until the jar is live on repo1.maven.org
-#     -> bump the dependency version in Core via graph-tool -> commit -> push
+#   bump version (Config.kt + README.adoc + docs/antora.yml) -> commit "Release X"
+#     -> push master -> publish to Maven Central -> WAIT until the jar is live on
+#     repo1.maven.org -> bump the dependency version in Core via graph-tool -> commit -> push
 #
 # Usage:
 #   scripts/release.sh <new-version> [poll-interval-seconds]
 #   scripts/release.sh 0.9.12
 #   scripts/release.sh 0.9.12 30
+#
+#   Set SKIP_CORE=1 to publish to Maven Central only and stop BEFORE touching Core
+#   (bump + commit the version files, publish, wait for the jar — no Core push):
+#     SKIP_CORE=1 scripts/release.sh 0.90.0
 #
 # Run it detached so it survives closing the terminal:
 #   nohup scripts/release.sh 0.9.12 > /tmp/revoman-release-0.9.12.log 2>&1 &
@@ -30,6 +34,9 @@ set -euo pipefail
 # --- inputs -----------------------------------------------------------------
 NEW_VERSION="${1:?Usage: release.sh <new-version> [poll-interval-seconds]   e.g. release.sh 0.9.12}"
 INTERVAL="${2:-60}"
+# SKIP_CORE=1 stops the pipeline after the Maven Central publish + jar-live wait,
+# before the Core dependency bump/commit/push. Default 0 (full propagation).
+SKIP_CORE="${SKIP_CORE:-0}"
 
 REVOMAN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # Core checkout: override with CORE_DIR=<path>; else the first of the common locations that exists.
@@ -67,16 +74,20 @@ code="$(curl -s -o /dev/null -w '%{http_code}' "${JAR_URL}" || echo 000)"
 CURRENT="$(grep -E 'const val VERSION' buildSrc/src/main/kotlin/Config.kt | sed -E 's/.*"([^"]+)".*/\1/')"
 echo "Releasing ${CURRENT} -> ${NEW_VERSION}"
 
-# --- 2. bump version (Config.kt + README.adoc) ------------------------------
+# --- 2. bump version (Config.kt + README.adoc + docs/antora.yml) ------------
 step "Bump version files"
 # perl -i is byte-for-byte identical on macOS and Linux (GNU vs BSD `sed -i` differ on the backup-suffix arg).
 perl -i -pe "s/(const val VERSION = \")[^\"]+(\")/\${1}${NEW_VERSION}\${2}/" buildSrc/src/main/kotlin/Config.kt
 perl -i -pe "s/(:revoman-version: ).*/\${1}${NEW_VERSION}/" README.adoc
-git --no-pager diff -- buildSrc/src/main/kotlin/Config.kt README.adoc
+# Antora asciidoc attribute (docs site). It uses the SOFT-SET form `revoman-version: <v>@` —
+# the trailing `@` lets a page override the attribute; preserve it. Matches only the value between
+# the colon-space and the trailing `@`, so the `@` survives the bump.
+perl -i -pe "s/(revoman-version: )[^\@\s]+(\@)/\${1}${NEW_VERSION}\${2}/" docs/antora.yml
+git --no-pager diff -- buildSrc/src/main/kotlin/Config.kt README.adoc docs/antora.yml
 
 # --- 3. commit + push master ------------------------------------------------
 step "Commit + push master"
-git add buildSrc/src/main/kotlin/Config.kt README.adoc
+git add buildSrc/src/main/kotlin/Config.kt README.adoc docs/antora.yml
 git commit -s -m "Release ${NEW_VERSION}"
 git push origin master
 
@@ -89,6 +100,15 @@ step "Wait for jar to appear on Maven Central"
 "${REVOMAN_DIR}/scripts/watch-maven-central.sh" "${NEW_VERSION}" "${INTERVAL}"
 
 # --- 6. propagate into Core -------------------------------------------------
+if [[ "${SKIP_CORE}" == "1" ]]; then
+  step "DONE (SKIP_CORE=1)"
+  echo "✅ revoman ${NEW_VERSION} published to Maven Central. Core propagation SKIPPED."
+  echo "   To propagate later, run from your Core checkout:"
+  echo "     bazel run //:graph-tool -- set-dependency-version com.salesforce.revoman:revoman --new-version=${NEW_VERSION}"
+  echo "     bazel run //:graph-tool -- pin-dependencies"
+  exit 0
+fi
+
 step "Bump revoman dependency in Core"
 [[ -n "${CORE_DIR}" && -d "${CORE_DIR}" ]] || die "Core checkout not found. Set CORE_DIR=<path> to your Core repo."
 cd "${CORE_DIR}"
