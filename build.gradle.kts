@@ -246,17 +246,37 @@ tasks {
 }
 
 kover {
+  currentProject {
+    sources {
+      // The JMH benchmark source set is a perf harness, never unit-tested by design (like the
+      // opt-in core-IT tests). Keep it out of the coverage denominator.
+      excludedSourceSets.addAll("jmh")
+    }
+  }
   reports {
+    filters {
+      excludes {
+        // Generated Immutables (Kick, Pojo, JsonFile, JsonString + their builders) carry
+        // @org.immutables.value.Generated — codegen, not hand-written, so not our coverage debt.
+        annotatedBy("org.immutables.value.Generated")
+        // Test source sets leak into the denominator as if they were production code:
+        // integration.pokemon inflates it to 100%, while org-gated integration.core.wfs/pq/bt2bs
+        // deflate it to 0% (they only run under -PincludeCoreIT). Neither is production code.
+        classes("com.salesforce.revoman.integration.**")
+        // Moshi-generated JSON adapters (…JsonAdapter) — codegen, not hand-written.
+        classes("*JsonAdapter")
+      }
+    }
     total {
       html { onCheck = true }
-      // Coverage regression ratchet. Floor calibrated to unit-test-only baseline (~69.8% via
-      // `./gradlew test`). During `build`, Kover enforces the HIGHER combined test+integrationTest
-      // total, so 69 is a deliberately loose catastrophe/regression floor that also keeps partial
-      // `test koverVerify` runs from false-failing. Raise `minBound` over time toward the 80% goal
-      // as tests are added. Wired into `check`, so `./gradlew build` (local + CI) enforces it.
+      // Coverage regression ratchet. Floor calibrated 2026-08-01 to floor(unit-only LINE %) − 1.
+      // The honest unit-only LINE total is 86.2% (post-exclude, `./gradlew test` only), so the
+      // floor is 85. For reference, the combined test+integrationTest total (~90.1%) is higher,
+      // so 85 is a safe floor below both — it will not false-fail, including on unit-only runs.
+      // Raise as unit coverage grows.
       verify {
         rule {
-          minBound(69) // total LINE coverage %
+          minBound(85) // unit-only LINE coverage floor (86.2% measured, floor(86.2) - 1 = 85)
         }
       }
     }
