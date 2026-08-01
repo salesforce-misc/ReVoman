@@ -10,6 +10,7 @@ package com.salesforce.revoman.input.config
 import com.google.common.truth.Truth.assertThat
 import com.salesforce.revoman.input.config.StepPick.PreTxnStepPick
 import com.squareup.moshi.JsonAdapter
+import com.squareup.moshi.Moshi
 import org.junit.jupiter.api.Test
 
 class RequestConfigTest {
@@ -25,12 +26,7 @@ class RequestConfigTest {
 
   @Test
   fun `unmarshallRequest with a JsonAdapter stores it on the left`() {
-    val adapter =
-      object : JsonAdapter<String>() {
-        override fun fromJson(reader: com.squareup.moshi.JsonReader): String? = null
-
-        override fun toJson(writer: com.squareup.moshi.JsonWriter, value: String?) {}
-      }
+    val adapter: JsonAdapter<String> = Moshi.Builder().build().adapter(String::class.java)
     val config = RequestConfig.unmarshallRequest(pick, String::class.java, adapter)
     assertThat(config.customTypeAdapter?.isLeft).isTrue()
     assertThat(config.customTypeAdapter?.left).isSameInstanceAs(adapter)
