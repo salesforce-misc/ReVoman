@@ -269,12 +269,13 @@ kover {
     }
     total {
       html { onCheck = true }
-      // Coverage regression ratchet. Floor recalibrated (Task 8) against the honest baseline that
-      // remains AFTER the excludes above strip generated/JMH/test-only code. Raise toward 90% as
-      // tests are added. Wired into `check`, so `./gradlew build` (local + CI) enforces it.
+      // Coverage regression ratchet. Floor calibrated (2026-08-01) against the honest post-exclude
+      // unit-test-only total (90.1% LINE). `build` actually enforces the higher combined
+      // test+integrationTest total (the two suites' union), so this 89% floor (unit-only − 1-point
+      // margin) stays a safe non-false-failing gate. Raise toward 90% as more tests are added.
       verify {
         rule {
-          minBound(69) // total LINE coverage %; recalibrated below
+          minBound(89) // unit-test-only LINE coverage floor (90.1% measured, floor(90.1) - 1 = 89)
         }
       }
     }
