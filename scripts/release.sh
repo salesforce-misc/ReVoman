@@ -71,8 +71,27 @@ branch="$(git branch --show-current)"
 code="$(curl -s -o /dev/null -w '%{http_code}' "${JAR_URL}" || echo 000)"
 [[ "${code}" != "200" ]] || die "revoman ${NEW_VERSION} is already on Maven Central. Pick a new version."
 
+# Monotonic-version guard: the new version MUST sort strictly ABOVE the version Maven Central
+# currently advertises as <release> in maven-metadata.xml — the field the version badge and every
+# `latest`/range resolver reads. Maven orders per-segment numerically, so e.g. 0.9.18 sorts BELOW a
+# pre-existing 0.82.0 (segment 9 < 82); publishing it would leave the badge/resolvers pinned to the
+# older release. `sort -V` reproduces that per-segment numeric order without extra deps. A transient
+# metadata-fetch failure only WARNS (a network blip must not wedge a legit release); the compare
+# runs only when we actually have a live <release>.
+METADATA_URL="https://repo1.maven.org/maven2/${GROUP_PATH}/maven-metadata.xml"
+LIVE_RELEASE="$(curl -s "${METADATA_URL}" | perl -ne 'print $1 if m{<release>(.*?)</release>}')"
+if [[ -z "${LIVE_RELEASE}" ]]; then
+  echo "WARN: could not read <release> from ${METADATA_URL} — skipping the monotonic-version guard." >&2
+elif [[ "${NEW_VERSION}" == "${LIVE_RELEASE}" ]]; then
+  die "revoman ${NEW_VERSION} equals the current Maven Central <release>. Pick a higher version."
+else
+  highest="$(printf '%s\n%s\n' "${LIVE_RELEASE}" "${NEW_VERSION}" | sort -V | tail -1)"
+  [[ "${highest}" == "${NEW_VERSION}" ]] || die \
+    "revoman ${NEW_VERSION} sorts BELOW the current Maven Central <release> ${LIVE_RELEASE} (Maven orders per-segment numerically). Publishing it would leave the badge/resolvers pinned to ${LIVE_RELEASE}. Pick a version above ${LIVE_RELEASE}."
+fi
+
 CURRENT="$(grep -E 'const val VERSION' buildSrc/src/main/kotlin/Config.kt | sed -E 's/.*"([^"]+)".*/\1/')"
-echo "Releasing ${CURRENT} -> ${NEW_VERSION}"
+echo "Releasing ${CURRENT} -> ${NEW_VERSION} (current Maven Central <release>: ${LIVE_RELEASE:-unknown})"
 
 # --- 2. bump version (Config.kt + README.adoc + docs/antora.yml) ------------
 step "Bump version files"
