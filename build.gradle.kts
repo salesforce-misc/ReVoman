@@ -5,6 +5,10 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  * ************************************************************************************************
  */
+@file:Suppress(
+  "UnstableApiUsage"
+) // Gradle JVM Test Suite DSL (testing {}) is incubating but stable in practice
+
 import java.util.zip.Deflater
 import java.util.zip.GZIPOutputStream
 
@@ -168,11 +172,11 @@ tasks.register<Exec>("generatePmSandbox") {
   commandLine(
     "bash",
     "-c",
-    """
+    $$"""
         set -e
         npm init -y >/dev/null 2>&1 || true
-        npm install postman-sandbox@$pmSandboxVersion postman-collection >/dev/null 2>&1
-        mkdir -p "${'$'}{OUT}"
+        npm install postman-sandbox@$$pmSandboxVersion postman-collection >/dev/null 2>&1
+        mkdir -p "${OUT}"
         node -e "require('./node_modules/postman-sandbox/.cache/bootcode.browser.js')((e,c)=>{if(e)throw e;require('fs').writeFileSync(process.env.OUT+'/bootcode.js',c)})"
         node -e "require('fs').writeFileSync(process.env.OUT+'/bridge-client.js', require('./node_modules/uvm/lib/bridge-client')())"
         node -e "require('fs').writeFileSync(process.env.OUT+'/pm-sandbox-version.txt', require('./node_modules/postman-sandbox/package.json').version)"

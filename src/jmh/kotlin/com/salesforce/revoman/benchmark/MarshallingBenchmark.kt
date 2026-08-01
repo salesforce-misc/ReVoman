@@ -55,7 +55,7 @@ open class MarshallingBenchmark {
   @Setup
   fun setup() {
     composite =
-      jsonToPojo<CompositeResponse>(
+      jsonToPojo(
         CompositeResponse::class.java,
         compositeJson,
         customAdaptersWithType =
@@ -78,7 +78,7 @@ open class MarshallingBenchmark {
   @Benchmark
   fun compositeToJson(bh: Blackhole) {
     bh.consume(
-      pojoToJson<CompositeResponse>(
+      pojoToJson(
         CompositeResponse::class.java,
         composite,
         customAdaptersWithType =
