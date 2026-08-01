@@ -1,0 +1,8 @@
+$kind: collection
+description: "Price a saved configuration: compute the total for a configId."
+auth:
+  - id: prc-auth
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{accessToken}}"
