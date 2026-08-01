@@ -72,8 +72,14 @@ tasks.named<Jar>("jar") {
   }
   from({ bundledRuntime.map { zipTree(it) } }) {
     // Drop the bundled artifact's own MANIFEST/module metadata — keep only its classes so the
-    // revoman jar's manifest and any module-info stay authoritative.
-    exclude("META-INF/MANIFEST.MF", "META-INF/*.kotlin_module", "module-info.class")
+    // revoman jar's manifest and any module-info stay authoritative. The versioned module-info
+    // exclude is REQUIRED: kotlinx-collections-immutable is a multi-release jar (see below).
+    exclude(
+      "META-INF/MANIFEST.MF",
+      "META-INF/*.kotlin_module",
+      "module-info.class",
+      "META-INF/versions/*/module-info.class",
+    )
   }
   duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
@@ -82,10 +88,18 @@ tasks.named<Jar>("jar") {
 ### Interaction with the fat-jar bundling
 
 The attribute is set on **revoman's own** manifest object. The `from({ bundledRuntime... })` copy
-already **excludes** the bundled artifact's `META-INF/MANIFEST.MF` and `module-info.class`
-(line 81), so revoman's manifest stays authoritative — the two changes compose without
-interference, order-independent. The bundled `kotlinx-collections-immutable` artifact carries no
-`Automatic-Module-Name` of its own, so there is nothing to leak or conflict.
+**excludes** the bundled artifact's `META-INF/MANIFEST.MF` and its module descriptor, so revoman's
+manifest stays authoritative — the changes compose without interference, order-independent. The
+bundled `kotlinx-collections-immutable` artifact carries no `Automatic-Module-Name` of its own, so
+there is nothing to leak or conflict.
+
+**Multi-release-jar caveat (discovered during implementation).** `kotlinx-collections-immutable`
+is a **multi-release jar**: its module descriptor lives at `META-INF/versions/<N>/module-info.class`,
+not (only) at the top level. Excluding just `module-info.class` leaves that versioned descriptor in
+the fat jar, which makes revoman resolve as the **explicit** module `kotlinx.collections.immutable`
+on the module path — the `Automatic-Module-Name` is then ignored. So the exclude list **must** also
+drop `META-INF/versions/*/module-info.class` (as shown above). Verified: `jar --describe-module`
+then reports `com.salesforce.revoman automatic` with `0` `module-info.class` entries.
 
 ## What this does and does not do
 
@@ -107,7 +121,7 @@ interference, order-independent. The bundled `kotlinx-collections-immutable` art
    ```
 2. Fat-jar bundle still intact (regression guard on the DEVELOPMENT.md invariant):
    ```bash
-   unzip -l build/libs/revoman-*.jar | grep -c 'kotlinx/collections/immutable'   # expect ~130
+   unzip -l build/libs/revoman-*.jar | grep -c 'kotlinx/collections/immutable'   # expect ~117
    unzip -l build/libs/revoman-*.jar | grep -c 'module-info.class'               # expect 0
    ```
 3. Module resolution smoke check:

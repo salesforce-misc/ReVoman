@@ -125,6 +125,12 @@ nothing more. It is deliberately **NOT** a full `module-info.java`, and it shoul
   pprint, kotlinx-collections-immutable, kotlin-logging) are plain jars with no
   `Automatic-Module-Name`, so `requires` clauses would bind to fragile filename-derived names.
 
+Because the bundled `kotlinx-collections-immutable` is a **multi-release jar**, the `jar` task
+must exclude its *versioned* descriptor (`META-INF/versions/*/module-info.class`) on top of the
+top-level `module-info.class` — otherwise that surviving descriptor makes revoman resolve as the
+explicit module `kotlinx.collections.immutable` on the module path and the `Automatic-Module-Name`
+is ignored. Keep both excludes (see the `jar` block in `build.gradle.kts`).
+
 Rationale and rejected alternatives (full `module-info`, multi-release modular jar) are recorded
 in `docs/superpowers/specs/2026-08-01-jpms-automatic-module-name-design.md`. Verify the attribute
 after building:

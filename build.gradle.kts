@@ -82,7 +82,11 @@ tasks.named<Jar>("jar") {
   manifest { attributes("Automatic-Module-Name" to "com.salesforce.revoman") }
   from({ bundledRuntime.map { zipTree(it) } }) {
     // Drop the bundled artifact's own MANIFEST/module metadata — keep only its classes so the
-    // revoman jar's manifest and any module-info stay authoritative.
+    // revoman jar's manifest and any module-info stay authoritative. kotlinx-collections-immutable
+    // is a MULTI-RELEASE jar, so its module descriptor lives at `META-INF/versions/<N>/
+    // module-info.class`, NOT just top-level — that versioned copy MUST also be dropped, else
+    // revoman resolves as the explicit module `kotlinx.collections.immutable` on the module path
+    // and the Automatic-Module-Name above is ignored. Do not remove it as "redundant".
     exclude(
       "META-INF/MANIFEST.MF",
       "META-INF/*.kotlin_module",

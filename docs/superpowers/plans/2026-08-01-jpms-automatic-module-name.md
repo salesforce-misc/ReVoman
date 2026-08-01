@@ -68,8 +68,16 @@ tasks.named<Jar>("jar") {
   manifest { attributes("Automatic-Module-Name" to "com.salesforce.revoman") }
   from({ bundledRuntime.map { zipTree(it) } }) {
     // Drop the bundled artifact's own MANIFEST/module metadata — keep only its classes so the
-    // revoman jar's manifest and any module-info stay authoritative.
-    exclude("META-INF/MANIFEST.MF", "META-INF/*.kotlin_module", "module-info.class")
+    // revoman jar's manifest and any module-info stay authoritative. The versioned module-info
+    // exclude is REQUIRED: kotlinx-collections-immutable is a multi-release jar, so its module
+    // descriptor lives at META-INF/versions/<N>/module-info.class too — leaving it would make
+    // revoman resolve as the explicit module `kotlinx.collections.immutable`, ignoring the AMN.
+    exclude(
+      "META-INF/MANIFEST.MF",
+      "META-INF/*.kotlin_module",
+      "module-info.class",
+      "META-INF/versions/*/module-info.class",
+    )
   }
   duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
@@ -100,7 +108,7 @@ echo "immutable classes: $(unzip -l build/libs/revoman-*.jar | grep -c 'kotlinx/
 echo "module-info.class: $(unzip -l build/libs/revoman-*.jar | grep -c 'module-info.class')"
 ```
 
-Expected: `immutable classes:` is a non-zero count (~130); `module-info.class:` is `0`.
+Expected: `immutable classes:` is a non-zero count (~117); `module-info.class:` is `0`.
 
 - [ ] **Step 6: Verify module resolution reports the stable automatic name**
 
