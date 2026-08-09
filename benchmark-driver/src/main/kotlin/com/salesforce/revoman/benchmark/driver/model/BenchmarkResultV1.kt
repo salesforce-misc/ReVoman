@@ -402,8 +402,12 @@ data class MetricSeries(
             val blockPath = "$path.blocks[$blockIndex]"
             require(block.blockId >= 0) { "$blockPath.blockId must not be negative" }
             targetIds?.let { configuredIds ->
-                require(block.targetOrder == configuredIds) {
-                    "$blockPath.targetOrder must match configured target order"
+                require(
+                    block.targetOrder.size == configuredIds.size &&
+                        block.targetOrder.toSet() == configuredIds.toSet(),
+                ) {
+                    "$blockPath.targetOrder must contain every configured target exactly once: " +
+                        "expected=${configuredIds.toSet()}, actual=${block.targetOrder}"
                 }
             }
             require(block.targetOrder.distinct().size == block.targetOrder.size) {
@@ -431,16 +435,21 @@ data class MetricSeries(
         targetIds: List<String>?,
     ) {
         configuration?.let { configured ->
-            val configuredTargetCount = requireNotNull(targetIds).size
-            val expected = when (configured.mode) {
-                RunMode.RETAINED -> configuredTargetCount * configured.forksPerBlock
-                RunMode.COLD,
-                RunMode.WARM,
-                -> configuredTargetCount * configured.forksPerBlock * configured.measurementIterations
-            }
-            require(observations.size == expected) {
+            val expectedCoordinates =
+                expectedObservationCoordinates(configured, requireNotNull(targetIds))
+            val actualCoordinates = observations.map(MetricObservation::coordinate)
+            require(observations.size == expectedCoordinates.size) {
                 "$blockPath observations must match declared sample count: " +
-                    "expected=$expected, actual=${observations.size}"
+                    "expected=${expectedCoordinates.size}, actual=${observations.size}"
+            }
+            require(actualCoordinates.distinct().size == actualCoordinates.size) {
+                "$blockPath observation coordinates must be unique: " +
+                    "actual=$actualCoordinates"
+            }
+            require(actualCoordinates.toSet() == expectedCoordinates) {
+                "$blockPath observation coordinates must exactly cover the configured hierarchy: " +
+                    "missing=${expectedCoordinates - actualCoordinates.toSet()}, " +
+                    "unexpected=${actualCoordinates.toSet() - expectedCoordinates}"
             }
         }
         observations.forEachIndexed { observationIndex, observation ->
@@ -504,6 +513,35 @@ data class MetricSeries(
         }
     }
 }
+
+private fun expectedObservationCoordinates(
+    configuration: CampaignConfiguration,
+    targetIds: List<String>,
+): Set<ObservationCoordinate> {
+    val iterations =
+        when (configuration.mode) {
+            RunMode.COLD,
+            RunMode.WARM,
+            -> 0 until configuration.measurementIterations
+            RunMode.RETAINED -> 0..0
+        }
+    return targetIds
+        .flatMap { targetId ->
+            (0 until configuration.forksPerBlock).flatMap { fork ->
+                iterations.map { iteration -> ObservationCoordinate(targetId, fork, iteration) }
+            }
+        }
+        .toSet()
+}
+
+private fun MetricObservation.coordinate(): ObservationCoordinate =
+    ObservationCoordinate(targetId, fork, iteration)
+
+private data class ObservationCoordinate(
+    val targetId: String,
+    val fork: Int,
+    val iteration: Int,
+)
 
 /** Stores an exact histogram for one configured target. */
 @JsonClass(generateAdapter = true)

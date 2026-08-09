@@ -106,6 +106,132 @@ class BenchmarkResultSchemaTest {
         assertThat(failure).hasMessageThat().contains("baseline")
     }
 
+    @Test
+    fun `alternating block preserves reversed paired execution order`() {
+        val campaign = validCampaign()
+        val reversedOrder = campaign.withBlock {
+            copy(targetOrder = targetOrder.reversed())
+        }
+
+        assertThat(reversedOrder.validate()).isSameInstanceAs(reversedOrder)
+    }
+
+    @Test
+    fun `alternating block rejects duplicate target IDs`() {
+        val campaign = validCampaign().withBlock {
+            copy(targetOrder = listOf("baseline", "baseline"))
+        }
+
+        val failure = assertThrows<IllegalArgumentException> { campaign.validate() }
+
+        assertThat(failure).hasMessageThat().contains("targetOrder")
+    }
+
+    @Test
+    fun `alternating block rejects a missing target ID`() {
+        val campaign = validCampaign().withBlock {
+            copy(targetOrder = listOf("baseline"))
+        }
+
+        val failure = assertThrows<IllegalArgumentException> { campaign.validate() }
+
+        assertThat(failure).hasMessageThat().contains("targetOrder")
+    }
+
+    @Test
+    fun `duplicate observation coordinate cannot replace a required coordinate`() {
+        val campaign = coordinateGridCampaign()
+        val observations = campaign.onlyBlock().observations
+        val replaced = observations.dropLast(1) + observations.first().copy(processId = 9001)
+
+        val failure = assertThrows<IllegalArgumentException> {
+            campaign.withBlock { copy(observations = replaced) }.validate()
+        }
+
+        assertThat(failure).hasMessageThat().contains("coordinates")
+    }
+
+    @Test
+    fun `missing observation coordinate is rejected`() {
+        val campaign = coordinateGridCampaign()
+        val incomplete = campaign.onlyBlock().observations.dropLast(1)
+
+        val failure = assertThrows<IllegalArgumentException> {
+            campaign.withBlock { copy(observations = incomplete) }.validate()
+        }
+
+        assertThat(failure).hasMessageThat().contains("expected=8")
+        assertThat(failure).hasMessageThat().contains("actual=7")
+    }
+
+    @Test
+    fun `observation iteration outside the configured range is rejected`() {
+        val campaign = coordinateGridCampaign()
+        val observations = campaign.onlyBlock().observations
+        val outOfRange = observations.dropLast(1) + observations.last().copy(iteration = 2)
+
+        val failure = assertThrows<IllegalArgumentException> {
+            campaign.withBlock { copy(observations = outOfRange) }.validate()
+        }
+
+        assertThat(failure).hasMessageThat().contains("coordinates")
+    }
+
+    @Test
+    fun `observation fork outside the configured range is rejected`() {
+        val campaign = coordinateGridCampaign()
+        val observations = campaign.onlyBlock().observations
+        val outOfRange = observations.dropLast(1) + observations.last().copy(fork = 2)
+
+        val failure = assertThrows<IllegalArgumentException> {
+            campaign.withBlock { copy(observations = outOfRange) }.validate()
+        }
+
+        assertThat(failure).hasMessageThat().contains("fork")
+    }
+
+    private fun validCampaign(): BenchmarkResultV1 =
+        BenchmarkJson.read(resultFixture("minimal-valid.json"))
+
+    private fun coordinateGridCampaign(): BenchmarkResultV1 {
+        val campaign = validCampaign()
+        val templatesByTarget = campaign.onlyBlock().observations.associateBy(MetricObservation::targetId)
+        val observations =
+            campaign.targets.flatMap { target ->
+                (0 until 2).flatMap { fork ->
+                    (0 until 2).map { iteration ->
+                        requireNotNull(templatesByTarget[target.id]).copy(
+                            fork = fork,
+                            iteration = iteration,
+                            processId = 1_000L + fork * 10 + iteration,
+                        )
+                    }
+                }
+            }
+        return campaign
+            .copy(
+                configuration = campaign.configuration.copy(
+                    forksPerBlock = 2,
+                    measurementIterations = 2,
+                ),
+            )
+            .withBlock { copy(observations = observations) }
+    }
+
+    private fun BenchmarkResultV1.onlyBlock(): AlternatingBlock =
+        requireNotNull(workloads.single().metricSeries.single().blocks).single()
+
+    private fun BenchmarkResultV1.withBlock(
+        transform: AlternatingBlock.() -> AlternatingBlock,
+    ): BenchmarkResultV1 {
+        val workload = workloads.single()
+        val series = workload.metricSeries.single()
+        val updatedSeries = series.copy(blocks = listOf(onlyBlock().transform()))
+        return copy(
+            workloads = listOf(workload.copy(metricSeries = listOf(updatedSeries))),
+        )
+    }
+
     private fun resultFixture(name: String): Path =
         Path.of(
             requireNotNull(javaClass.getResource("/results/v1/$name")) {
