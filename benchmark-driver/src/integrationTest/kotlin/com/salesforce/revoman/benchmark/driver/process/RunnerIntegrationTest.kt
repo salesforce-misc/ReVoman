@@ -27,6 +27,7 @@ import com.salesforce.revoman.benchmark.driver.run.VerifiedLoggingConfiguration
 import com.salesforce.revoman.benchmark.driver.run.WarmPlan
 import com.salesforce.revoman.benchmark.driver.run.WarmRunner
 import com.salesforce.revoman.benchmark.driver.target.VerifiedTargetManifest
+import java.nio.charset.StandardCharsets.UTF_8
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption.ATOMIC_MOVE
@@ -173,6 +174,30 @@ class RunnerIntegrationTest {
                 }
                 assertThat(failure).hasMessageThat().contains(expectedMessage)
             }
+    }
+
+    @Test
+    fun `pid reader waits for complete atomic publication`() {
+        val pidFile = Files.createFile(temporaryDirectory.resolve("delayed-process.pid"))
+        val publisherFailure = AtomicReference<Throwable?>()
+        val publisher =
+            Thread.ofVirtual().name("revoman-benchmark-pid-publisher").start {
+                try {
+                    Thread.sleep(100)
+                    writeFixtureTextAtomically(pidFile, "4242")
+                } catch (caught: Throwable) {
+                    publisherFailure.set(caught)
+                }
+            }
+        try {
+            assertThat(awaitProcessId(pidFile)).isEqualTo(4242)
+            publisherFailure.get()?.let { throw AssertionError("PID publication failed", it) }
+        } finally {
+            publisher.join(Duration.ofSeconds(2))
+            if (publisher.isAlive) publisher.interrupt()
+            publisher.join(Duration.ofSeconds(2))
+            check(!publisher.isAlive) { "PID publisher did not stop" }
+        }
     }
 
     @Test
@@ -965,7 +990,7 @@ class ProcessLauncherFixtureMain {
                                 SleepingDescendantMain::class.java.name,
                             )
                             .start()
-                    Files.writeString(
+                    writeFixtureTextAtomically(
                         Path.of(command.workload.parameters.getValue("childPidFile")),
                         descendant.pid().toString(),
                     )
@@ -989,7 +1014,7 @@ class ProcessLauncherFixtureMain {
                     writeFixtureResult(command)
                 }
                 "long-lived" -> {
-                    Files.writeString(
+                    writeFixtureTextAtomically(
                         Path.of(command.workload.parameters.getValue("rootPidFile")),
                         ProcessHandle.current().pid().toString(),
                     )
@@ -1021,7 +1046,7 @@ class LateGrandchildChildMain {
             val childPidFile = Path.of(arguments[1])
             val grandchildPidFile = Path.of(arguments[2])
             val grandchildTrackedFile = Path.of(arguments[3])
-            Files.writeString(childPidFile, ProcessHandle.current().pid().toString())
+            writeFixtureTextAtomically(childPidFile, ProcessHandle.current().pid().toString())
             awaitFixtureCondition("root process $rootPid to exit") { !processIsAlive(rootPid) }
             val grandchild =
                 ProcessBuilder(
@@ -1033,7 +1058,7 @@ class LateGrandchildChildMain {
                     .redirectOutput(ProcessBuilder.Redirect.DISCARD)
                     .redirectError(ProcessBuilder.Redirect.DISCARD)
                     .start()
-            Files.writeString(grandchildPidFile, grandchild.pid().toString())
+            writeFixtureTextAtomically(grandchildPidFile, grandchild.pid().toString())
             awaitFixtureCondition("grandchild tracker acknowledgement") {
                 Files.isRegularFile(grandchildTrackedFile)
             }
@@ -1060,7 +1085,7 @@ private fun spawnLongLivedDescendant(command: TargetForkCommand, inheritPipes: B
         builder.redirectError(ProcessBuilder.Redirect.DISCARD)
     }
     val descendant = builder.start()
-    Files.writeString(
+    writeFixtureTextAtomically(
         Path.of(command.workload.parameters.getValue("childPidFile")),
         descendant.pid().toString(),
     )
@@ -1094,7 +1119,7 @@ private fun spawnLateGrandchildChild(command: TargetForkCommand) {
 
 private fun spawnOverflowDescendants(command: TargetForkCommand) {
     val parameters = command.workload.parameters
-    Files.writeString(
+    writeFixtureTextAtomically(
         Path.of(parameters.getValue("rootPidFile")),
         ProcessHandle.current().pid().toString(),
     )
@@ -1110,7 +1135,7 @@ private fun spawnOverflowDescendants(command: TargetForkCommand) {
                 .redirectError(ProcessBuilder.Redirect.DISCARD)
                 .start()
         }
-    Files.writeString(
+    writeFixtureTextAtomically(
         Path.of(parameters.getValue("childPidFile")),
         descendants.joinToString(separator = "\n") { process -> process.pid().toString() },
     )
@@ -1128,6 +1153,10 @@ private fun writeRawAtomically(result: Path, bytes: ByteArray) {
     val temporary = result.resolveSibling(".${result.fileName}.fixture.tmp")
     Files.write(temporary, bytes)
     Files.move(temporary, result, ATOMIC_MOVE, REPLACE_EXISTING)
+}
+
+private fun writeFixtureTextAtomically(path: Path, value: String) {
+    writeRawAtomically(path, value.toByteArray(UTF_8))
 }
 
 private fun fixtureResult(command: TargetForkCommand): TargetForkResult =
@@ -1272,23 +1301,44 @@ private fun awaitTracker(reference: AtomicReference<ProcessTreeTracking>): Proce
 }
 
 private fun awaitProcessId(path: Path): Long {
-    awaitFixtureCondition("process ID file $path") { Files.isRegularFile(path) }
-    return Files.readString(path).toLong()
+    var processId: Long? = null
+    awaitFixtureCondition("parseable process ID file $path") {
+        readProcessIdIfPresent(path)?.let { parsed ->
+            processId = parsed
+            true
+        } ?: false
+    }
+    return requireNotNull(processId)
 }
 
 private fun readProcessIdIfPresent(path: Path): Long? =
-    if (Files.isRegularFile(path)) Files.readString(path).toLongOrNull() else null
+    if (Files.isRegularFile(path)) {
+        runCatching { Files.readString(path).trim().takeIf(String::isNotEmpty)?.toLongOrNull() }
+            .getOrNull()
+    } else {
+        null
+    }
 
 private fun awaitProcessIds(path: Path, expectedCount: Int): List<Long> {
+    var processIds = emptyList<Long>()
     awaitFixtureCondition("$expectedCount process IDs in $path") {
-        readProcessIdsIfPresent(path).size == expectedCount
+        processIds = readProcessIdsIfPresent(path)
+        processIds.size == expectedCount
     }
-    return readProcessIdsIfPresent(path)
+    return processIds
 }
 
 private fun readProcessIdsIfPresent(path: Path): List<Long> =
     if (Files.isRegularFile(path)) {
-        Files.readAllLines(path).mapNotNull(String::toLongOrNull)
+        runCatching {
+                val parsed = Files.readAllLines(path).map { line -> line.trim().toLongOrNull() }
+                if (parsed.any { processId -> processId == null }) {
+                    emptyList()
+                } else {
+                    parsed.filterNotNull()
+                }
+            }
+            .getOrDefault(emptyList())
     } else {
         emptyList()
     }

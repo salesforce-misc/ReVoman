@@ -513,6 +513,37 @@ internal interface LauncherCleanup {
 
 internal data class OwnedProcessTreeFinalization(val hadLiveDescendants: Boolean)
 
+/**
+ * Raw identity slots for the one possible abandoned observation at each bounded settle phase:
+ * graceful, pre-freeze forcible, and post-freeze forcible. No handle hash or equality is invoked.
+ */
+internal class DeferredObservedProcessHandles(
+    capacity: Int = MAX_DEFERRED_OBSERVED_HANDLES,
+) {
+    private val slots = arrayOfNulls<ProcessHandle>(capacity)
+    private var retained = 0
+
+    init {
+        require(capacity > 0) { "Deferred-observed process-handle capacity must be positive" }
+    }
+
+    fun retain(handle: ProcessHandle, onOverflow: (ProcessHandle) -> Unit) {
+        if (retained < slots.size) {
+            slots[retained] = handle
+            retained += 1
+        } else {
+            onOverflow(handle)
+        }
+    }
+
+    fun drain(): List<ProcessHandle> {
+        val drained = List(retained) { index -> requireNotNull(slots[index]) }
+        repeat(retained) { index -> slots[index] = null }
+        retained = 0
+        return drained
+    }
+}
+
 internal object DefaultLauncherCleanup : LauncherCleanup {
     override fun finalizeOwnedProcessTree(
         process: Process,
@@ -568,6 +599,7 @@ private class OwnedProcessTreeState(
     val knownDescendants = linkedSetOf<ProcessHandle>()
     private var hadLiveDescendants = false
     private var finalizationOverflowReported = false
+    private val deferredObservedHandles = DeferredObservedProcessHandles()
 
     init {
         attempt { root = process.toHandle() }
@@ -637,17 +669,28 @@ private class OwnedProcessTreeState(
         return alive
     }
 
-    private fun remember(handle: ProcessHandle, phase: ProcessTreeTraversalPhase?) {
+    private fun remember(handle: ProcessHandle, phase: ProcessTreeTraversalPhase?): Boolean {
         fun allowsAnotherOperation(): Boolean = phase?.allowsAnotherOperation() != false
 
         hadLiveDescendants = true
-        if (!allowsAnotherOperation()) return
+        if (!allowsAnotherOperation()) {
+            deferObserved(handle)
+            return false
+        }
         val alreadyKnown = handle in knownDescendants
-        if (!allowsAnotherOperation() || alreadyKnown) return
+        if (alreadyKnown) return true
+        if (!allowsAnotherOperation()) {
+            deferObserved(handle)
+            return false
+        }
         val hasCapacity = knownDescendants.size < MAX_TRACKED_DESCENDANTS
         if (hasCapacity) {
-            if (!allowsAnotherOperation()) return
+            if (!allowsAnotherOperation()) {
+                deferObserved(handle)
+                return false
+            }
             knownDescendants += handle
+            return true
         } else {
             if (!finalizationOverflowReported) {
                 finalizationOverflowReported = true
@@ -658,14 +701,38 @@ private class OwnedProcessTreeState(
                     )
                 )
             }
-            if (!allowsAnotherOperation()) return
+            if (!allowsAnotherOperation()) {
+                deferObserved(handle)
+                return false
+            }
             attempt { handle.destroyForcibly() }
+            return false
+        }
+    }
+
+    private fun deferObserved(handle: ProcessHandle) {
+        deferredObservedHandles.retain(handle) { overflow ->
+            failures.add(
+                IllegalStateException(
+                    "Target process tree finalization exceeded " +
+                        "$MAX_DEFERRED_OBSERVED_HANDLES deferred observed handles"
+                )
+            )
+            attempt { overflow.destroyForcibly() }
         }
     }
 
     private fun captureLiveDescendants(phase: ProcessTreeTraversalPhase?): List<ProcessHandle> {
         fun allowsAnotherOperation(): Boolean = phase?.allowsAnotherOperation() != false
 
+        val deferredNotRetained =
+            if (phase == null) {
+                deferredObservedHandles.drain().filterNot { handle ->
+                    remember(handle, phase = null)
+                }
+            } else {
+                emptyList()
+            }
         var retained = emptyList<ProcessHandle>()
         if (allowsAnotherOperation()) attempt { retained = retainedDescendants() }
         retained
@@ -710,12 +777,14 @@ private class OwnedProcessTreeState(
                     }
                 }
             }
-        return knownDescendants
-            .asSequence()
-            .takeWhile { allowsAnotherOperation() }
-            .filter(::isAlive)
-            .takeWhile { allowsAnotherOperation() }
-            .toList()
+        val liveKnownDescendants =
+            knownDescendants
+                .asSequence()
+                .takeWhile { allowsAnotherOperation() }
+                .filter(::isAlive)
+                .takeWhile { allowsAnotherOperation() }
+                .toList()
+        return deferredNotRetained.asSequence().filter(::isAlive).toList() + liveKnownDescendants
     }
 
     private fun destroy(
@@ -977,4 +1046,5 @@ private val DEFAULT_PROCESS_TREE_FINALIZATION_BUDGET =
     )
 private const val REQUIRED_STABLE_PROCESS_TREE_SCANS: Int = 2
 private const val MAX_TRACKED_DESCENDANTS: Int = 4_096
+private const val MAX_DEFERRED_OBSERVED_HANDLES: Int = 3
 private const val MAX_SUPPRESSED_FAILURES: Int = 128
