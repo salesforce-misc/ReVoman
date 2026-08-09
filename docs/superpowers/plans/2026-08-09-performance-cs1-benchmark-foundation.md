@@ -1222,16 +1222,19 @@ Change Set 1 ships the harness, the versioned `lifecycle.no-script-one-step.v1` 
   data class ColdPlan(
     val intent: RunIntent,
     val target: TargetManifest,
+    val targetManifestPath: Path,
     val adapterId: String,
     val workload: WorkloadRequest,
     val sampleCount: Int,
     val metricPass: MetricPass,
     val timeout: Duration,
+    val loggingConfiguration: Path,
   )
 
   data class WarmPlan(
     val intent: RunIntent,
     val target: TargetManifest,
+    val targetManifestPath: Path,
     val adapterId: String,
     val workload: WorkloadRequest,
     val forksPerBlock: Int,
@@ -1239,6 +1242,7 @@ Change Set 1 ships the harness, the versioned `lifecycle.no-script-one-step.v1` 
     val measurementIterations: Int,
     val metricPass: MetricPass,
     val timeout: Duration,
+    val loggingConfiguration: Path,
   )
 
   fun interface ProcessLauncher {
@@ -1297,7 +1301,7 @@ Change Set 1 ships the harness, the versioned `lifecycle.no-script-one-step.v1` 
 
 - [ ] **Step 5: Implement cold and warm structure.**
 
-  The campaign/controller performs one full target preflight before scheduling. Cold launches one child with one measured execution per observation and uses parent process duration as the primary end-to-end latency. Warm launches one child per fork, uses target-reported per-execution samples after warmup, and records PID/fork/iteration. After all processes—even on failure—the controller runs postflight hashing in `finally`; an integrity mismatch invalidates all observations. Controlled constructors reject cold accepted-block counts below 50 and total warm forks below 5; smoke plans may use smaller counts but carry `RunIntent.SMOKE`.
+  The campaign/controller performs one full target preflight before scheduling. Each plan carries its canonical `targetManifestPath` and `loggingConfiguration`; the core runner validates those explicit files and never consults ambient benchmark target/logging properties. Cold launches one child with one measured execution per observation and uses parent process duration as the primary end-to-end latency. Warm launches one child per fork, uses target-reported per-execution samples after warmup, and records PID/fork/iteration. After all processes—even on failure—the controller runs postflight hashing in `finally`; an integrity mismatch invalidates all observations. A `CONTROLLED` cold plan requires `sampleCount >= 50`; every `WarmPlan` requires only `forksPerBlock > 0` because it models one block. Task 11 owns the aggregate controlled-warm minimum of five independent forks and the CS1 shape of five blocks times one fork per block. Smoke cold plans may use smaller counts but carry `RunIntent.SMOKE`.
 
 - [ ] **Step 6: Run fake and real-process integration tests.**
 
