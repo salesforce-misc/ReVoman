@@ -56,6 +56,19 @@ class JmhDriverMainTest {
     }
 
     @Test
+    fun `postflight failure is suppressed behind primary JMH failure`() {
+        val primary = DeliberateJmhFailure("runner failed")
+        val postflight = IllegalStateException("postflight failed")
+
+        val failure = assertThrows<DeliberateJmhFailure> {
+            withJmhPostflight(postflight = { throw postflight }) { throw primary }
+        }
+
+        assertThat(failure).isSameInstanceAs(primary)
+        assertThat(failure.suppressed.asList()).containsExactly(postflight)
+    }
+
+    @Test
     fun `normalized JMH result is schema valid after atomic write`() {
         val source =
             Path.of(
@@ -108,3 +121,5 @@ class JmhDriverMainTest {
         assertThat(configuration.revomanBanner).isEqualTo("off")
     }
 }
+
+private class DeliberateJmhFailure(message: String) : RuntimeException(message)

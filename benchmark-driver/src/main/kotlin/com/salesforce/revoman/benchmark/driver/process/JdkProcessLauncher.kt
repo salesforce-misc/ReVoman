@@ -222,6 +222,20 @@ internal constructor(
                 }
             }
             captureProcessTreeTrackingFailure()
+            if (
+                observation != null &&
+                    command.invocationPrefix.isNotEmpty() &&
+                    trackingFrozen &&
+                    processTree?.failureOrNull() == null
+            ) {
+                failures.attempt {
+                    val observed = processTree?.snapshot()?.observedDescendantPids.orEmpty()
+                    check(observation.processId in observed) {
+                        "Target result PID ${observation.processId} was not an observed descendant " +
+                            "of launcher process ${observation.launcherProcessId}"
+                    }
+                }
+            }
             var descendantIsolationReported = false
             val reportDescendantIsolation = {
                 if (
@@ -308,8 +322,10 @@ internal constructor(
                     failure,
                 )
             }
-        check(!requireRootProcessId || result.processId == processId) {
-            "Target result PID ${result.processId} differs from launched process PID $processId"
+        if (requireRootProcessId) {
+            check(result.processId == processId) {
+                "Target result PID ${result.processId} differs from launched process PID $processId"
+            }
         }
         return ProcessObservation(
             exitCode = exitCode,
@@ -318,6 +334,7 @@ internal constructor(
             stdoutTail = stdoutTail,
             stderrTail = stderrTail,
             result = result,
+            launcherProcessId = processId,
         )
     }
 
@@ -868,6 +885,7 @@ internal class ProcessTreeTracker(
     private val failureSignal = CompletableFuture<Throwable>()
     private val runner = AtomicReference<Thread?>()
     private val descendants = ConcurrentHashMap<ProcessIdentity, ProcessHandle>()
+    private val observedDescendantPids = ConcurrentHashMap<Long, Unit>()
 
     override fun run() {
         runner.set(Thread.currentThread())
@@ -893,6 +911,7 @@ internal class ProcessTreeTracker(
     override fun snapshot(): ProcessTreeSnapshot =
         ProcessTreeSnapshot(
             descendants = descendants.values.toList(),
+            observedDescendantPids = observedDescendantPids.keys.toSet(),
         )
 
     private fun captureSafely(): Boolean =
@@ -902,9 +921,7 @@ internal class ProcessTreeTracker(
             (sequenceOf(root) + retainedLiveHandles.asSequence()).distinct().forEach { anchor ->
                 if (anchor == root || anchor.isAlive) {
                     anchor.descendants().use { handles ->
-                        handles.forEach { handle ->
-                            if (handle.isAlive) retain(handle)
-                        }
+                        handles.forEach(::retain)
                     }
                 }
             }
@@ -916,9 +933,17 @@ internal class ProcessTreeTracker(
         }
 
     private fun retain(handle: ProcessHandle) {
+        val processId = handle.pid()
+        if (
+            !observedDescendantPids.containsKey(processId) &&
+                observedDescendantPids.size >= maxTrackedDescendants
+        ) {
+            error("Target process tree exceeded $maxTrackedDescendants observed descendants")
+        }
+        observedDescendantPids[processId] = Unit
         val identity =
             ProcessIdentity(
-                processId = handle.pid(),
+                processId = processId,
                 startInstant = handle.info().startInstant().orElse(null),
             )
         if (!descendants.containsKey(identity) && descendants.size >= maxTrackedDescendants) {
@@ -930,7 +955,10 @@ internal class ProcessTreeTracker(
 
 private data class ProcessIdentity(val processId: Long, val startInstant: Instant?)
 
-internal data class ProcessTreeSnapshot(val descendants: List<ProcessHandle>)
+internal data class ProcessTreeSnapshot(
+    val descendants: List<ProcessHandle>,
+    val observedDescendantPids: Set<Long> = emptySet(),
+)
 
 private sealed interface ProcessWaitOutcome {
     data object RootExited : ProcessWaitOutcome

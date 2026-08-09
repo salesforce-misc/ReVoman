@@ -11,6 +11,7 @@ import com.salesforce.revoman.benchmark.driver.integrity.ContentHasher
 import java.nio.charset.StandardCharsets.UTF_8
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.StandardOpenOption.CREATE_NEW
 import jdk.jfr.consumer.RecordingFile
 
 /** Immutable allocation evidence read from one cold JDK 21 flight recording. */
@@ -20,6 +21,63 @@ data class JfrAllocationMeasurement(
     val recordingConfigurationSha256: String,
     val allocatedBytes: Long,
 )
+
+/** Captures one JFC byte snapshot and verifies both its source and materialized copy postflight. */
+class VerifiedJfrConfiguration private constructor(
+    val sourcePath: Path,
+    val sha256: String,
+    private val capturedBytes: ByteArray,
+) {
+    fun materialize(directory: Path): Path {
+        require(ContentHasher.sha256(sourcePath) == sha256) {
+            "JFR configuration changed before pass setup"
+        }
+        val snapshot = directory.resolve("revoman-allocation-v1.jfc")
+        Files.write(snapshot, capturedBytes, CREATE_NEW)
+        check(ContentHasher.sha256(snapshot) == sha256) {
+            "JFR configuration snapshot differs from verified bytes"
+        }
+        return snapshot.toRealPath()
+    }
+
+    fun postflight(snapshot: Path) {
+        val failures = mutableListOf<String>()
+        val sourceHash = runCatching { ContentHasher.sha256(sourcePath) }.getOrNull()
+        val snapshotHash = runCatching { ContentHasher.sha256(snapshot) }.getOrNull()
+        if (runCatching(sourcePath::toRealPath).getOrNull() != sourcePath) {
+            failures += "source path is no longer canonical"
+        }
+        if (runCatching(snapshot::toRealPath).getOrNull() != snapshot) {
+            failures += "snapshot path is no longer canonical"
+        }
+        when {
+            sourceHash == null -> failures += "source is unreadable"
+            sourceHash != sha256 -> failures += "source SHA-256 changed"
+        }
+        when {
+            snapshotHash == null -> failures += "snapshot is unreadable"
+            snapshotHash != sha256 -> failures += "snapshot SHA-256 changed"
+        }
+        check(failures.isEmpty()) {
+            "JFR configuration invalid after postflight: ${failures.joinToString()}"
+        }
+    }
+
+    companion object {
+        fun preflight(sourcePath: Path): VerifiedJfrConfiguration {
+            val canonical = sourcePath.toRealPath()
+            require(canonical == sourcePath && Files.isRegularFile(canonical)) {
+                "JFR configuration must be a canonical regular file: $sourcePath"
+            }
+            val bytes = Files.readAllBytes(canonical)
+            return VerifiedJfrConfiguration(
+                sourcePath = canonical,
+                sha256 = ContentHasher.sha256(bytes),
+                capturedBytes = bytes.copyOf(),
+            )
+        }
+    }
+}
 
 internal data class JfrAllocationEvent(
     val name: String,

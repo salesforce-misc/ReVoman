@@ -88,12 +88,18 @@ object JmhGcResultImporter {
 private fun providerConfigurationSha256(record: ImportedJmhBenchmark, provider: String): String =
     ContentHasher.sha256(
         buildList {
-                add("revoman-warm-allocation-provider/v1")
+                add("revoman-warm-allocation-provider/v2")
                 add(record.jmhVersion)
                 add(record.benchmark)
                 add(record.mode)
                 add(record.threads.toString())
                 add(record.forks.toString())
+                add(record.jvm.substringAfterLast('/').substringAfterLast('\\'))
+                add(record.jdkVersion)
+                add(record.vmName)
+                add(record.vmVersion)
+                add(record.jvmArgs.size.toString())
+                addAll(record.jvmArgs.map(::normalizedForkJvmArgument))
                 add(record.parameters.size.toString())
                 record.parameters.toSortedMap().forEach { (name, value) ->
                     add(name)
@@ -115,3 +121,39 @@ private fun providerConfigurationSha256(record: ImportedJmhBenchmark, provider: 
 
 internal const val WARM_LIFECYCLE_ALLOCATION_INCLUDE: String =
     "WarmLifecycleAllocationBenchmark"
+
+private fun normalizedForkJvmArgument(argument: String): String =
+    when {
+        argument.startsWith("-javaagent:") -> {
+            val options = argument.substringAfter('=', missingDelimiterValue = "")
+            "-javaagent:<host-path>" + options.takeIf(String::isNotEmpty)?.let { "=$it" }.orEmpty()
+        }
+        argument.startsWith("-D") && '=' in argument -> {
+            val name = argument.substring(2, argument.indexOf('='))
+            val value = argument.substringAfter('=')
+            when {
+                name in TARGET_SPECIFIC_JVM_PROPERTIES -> "-D$name=<target-input>"
+                name in OUTPUT_PATH_JVM_PROPERTIES -> "-D$name=<output-path>"
+                name in FIXTURE_PATH_JVM_PROPERTIES -> "-D$name=<fixture-input>"
+                name in LOGGING_PATH_JVM_PROPERTIES -> "-D$name=<logging-input>"
+                name == "revoman.benchmark.lifecycleBaseUrl" -> "-D$name=<fixture-url>"
+                value.startsWith('/') || value.startsWith("file:/") -> "-D$name=<host-path>"
+                else -> argument
+            }
+        }
+        else -> argument
+    }
+
+private val TARGET_SPECIFIC_JVM_PROPERTIES =
+    setOf(
+        "revoman.benchmark.targetManifest",
+        "revoman.benchmark.targetToken",
+        "revoman.benchmark.targetTokenSha256",
+        "revoman.benchmark.adapter",
+    )
+private val OUTPUT_PATH_JVM_PROPERTIES =
+    setOf("revoman.benchmark.rawJmhOutput", "revoman.benchmark.resultOutput")
+private val FIXTURE_PATH_JVM_PROPERTIES =
+    setOf("revoman.benchmark.fixtureRoot", "revoman.benchmark.installationRoot")
+private val LOGGING_PATH_JVM_PROPERTIES =
+    setOf("log4j2.configurationFile", "log4j2.*.Configuration.file")

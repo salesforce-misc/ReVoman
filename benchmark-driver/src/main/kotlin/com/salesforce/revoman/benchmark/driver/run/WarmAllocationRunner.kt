@@ -8,12 +8,17 @@
 package com.salesforce.revoman.benchmark.driver.run
 
 import com.salesforce.revoman.benchmark.driver.integrity.ContentHasher
+import com.salesforce.revoman.benchmark.driver.fixture.DeterministicHttpFixture
+import com.salesforce.revoman.benchmark.driver.json.BenchmarkJson
 import com.salesforce.revoman.benchmark.driver.metrics.JmhGcResultImporter
 import com.salesforce.revoman.benchmark.driver.metrics.WARM_LIFECYCLE_ALLOCATION_INCLUDE
 import com.salesforce.revoman.benchmark.driver.model.MetricObservation
+import com.salesforce.revoman.benchmark.driver.model.ExecutionDigest
 import com.salesforce.revoman.benchmark.driver.model.RunIntent
 import com.salesforce.revoman.benchmark.driver.model.TargetManifest
 import com.salesforce.revoman.benchmark.driver.model.TargetRole
+import com.salesforce.revoman.benchmark.driver.model.WorkloadManifest
+import com.salesforce.revoman.benchmark.driver.model.requireExpectedExecutionDigest
 import com.salesforce.revoman.benchmark.driver.process.JavaCommand
 import com.salesforce.revoman.benchmark.driver.process.JmhControllerObservation
 import com.salesforce.revoman.benchmark.driver.target.PreparedWorkload
@@ -252,8 +257,32 @@ class WarmAllocationRunner(private val launcher: WarmAllocationLauncher) {
     }
 }
 
-internal fun executeWarmLifecycleAllocation(prepared: PreparedWorkload): Long =
-    prepared.execute().checksum
+internal fun executeWarmLifecycleAllocation(
+    prepared: PreparedWorkload,
+    expectedDigest: ExecutionDigest,
+): Long =
+    requireExpectedExecutionDigest(
+            actual = prepared.execute(),
+            expected = expectedDigest,
+            location = "warm lifecycle allocation",
+        )
+        .checksum
+
+internal fun loadWarmLifecycleExpectedDigest(fixtureRoot: Path): ExecutionDigest {
+    requireCanonicalDirectory("warm lifecycle fixtureRoot", fixtureRoot)
+    val manifest = BenchmarkJson.read<WorkloadManifest>(fixtureRoot.resolve("manifest.json"))
+    require(manifest.id == WARM_LIFECYCLE_WORKLOAD_ID) {
+        "Warm lifecycle allocation requires workload $WARM_LIFECYCLE_WORKLOAD_ID, actual=${manifest.id}"
+    }
+    require(manifest.contractVersion == WARM_LIFECYCLE_CONTRACT_VERSION) {
+        "Warm lifecycle allocation requires contract version $WARM_LIFECYCLE_CONTRACT_VERSION, " +
+            "actual=${manifest.contractVersion}"
+    }
+    DeterministicHttpFixture.verifyFixture(manifest, fixtureRoot)
+    return requireNotNull(manifest.expectedDigest) {
+        "Warm lifecycle allocation requires a non-null expectedDigest oracle"
+    }
+}
 
 private fun validateController(
     process: JmhControllerObservation,
@@ -280,6 +309,7 @@ private fun providerConfigurationSha256(
                 plan.warmupIterations.toString(),
                 plan.measurementIterations.toString(),
                 plan.iterationDuration.toNanos().toString(),
+                plan.timeout.toNanos().toString(),
                 "forks=1",
                 "profiler=gc",
             )
@@ -310,3 +340,5 @@ private fun deleteWarmAllocationDirectory(root: Path) {
 
 private const val JMH_DRIVER_MAIN: String =
     "com.salesforce.revoman.benchmark.driver.jmh.JmhDriverMainKt"
+private const val WARM_LIFECYCLE_WORKLOAD_ID: String = "lifecycle.no-script-one-step.v1"
+private const val WARM_LIFECYCLE_CONTRACT_VERSION: Int = 1

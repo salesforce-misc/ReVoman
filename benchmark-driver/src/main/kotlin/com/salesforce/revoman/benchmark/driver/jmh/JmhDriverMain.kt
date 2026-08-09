@@ -62,7 +62,7 @@ fun main(args: Array<String>) {
     val verified = VerifiedTargetManifest.preflight(manifestPath)
     val normalizedResult =
         withLifecycleFixture(requestedIncludes) {
-            try {
+            withJmhPostflight(verified::postflight) {
                 val tokenPath = rawResult.resolveSibling("${rawResult.fileName}.target-token.json")
                 writeReadOnlyToken(tokenPath, verified)
                 System.setProperty(TARGET_TOKEN_PROPERTY, tokenPath.toRealPath().toString())
@@ -77,11 +77,27 @@ fun main(args: Array<String>) {
                         requestedIncludes = requestedIncludes,
                     )
                 attachRuntimeIdentities(imported, verified, requestedIncludes)
-            } finally {
-                verified.postflight()
             }
         }
     writeJmhResult(resultOutput, normalizedResult)
+}
+
+internal fun <T> withJmhPostflight(postflight: () -> Unit, block: () -> T): T {
+    var primary: Throwable? = null
+    return try {
+        block()
+    } catch (failure: Throwable) {
+        primary = failure
+        throw failure
+    } finally {
+        try {
+            postflight()
+        } catch (postflightFailure: Throwable) {
+            primary?.let { failure ->
+                if (failure !== postflightFailure) failure.addSuppressed(postflightFailure)
+            } ?: throw postflightFailure
+        }
+    }
 }
 
 private fun <T> withLifecycleFixture(requestedIncludes: List<String>, block: () -> T): T {

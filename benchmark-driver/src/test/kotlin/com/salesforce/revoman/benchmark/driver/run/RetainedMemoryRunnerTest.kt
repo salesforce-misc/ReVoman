@@ -18,6 +18,7 @@ import com.salesforce.revoman.benchmark.driver.model.TargetRole
 import com.salesforce.revoman.benchmark.driver.model.WeakReferenceOutcome
 import com.salesforce.revoman.benchmark.driver.process.ProcessLauncher
 import com.salesforce.revoman.benchmark.driver.process.ProcessObservation
+import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Duration
 import org.junit.jupiter.api.Test
@@ -102,5 +103,29 @@ class RetainedMemoryRunnerTest {
             .inOrder()
         assertThat(result.observations.flatMap { it.retainedEvidence!!.weakReferences }.map { it.type }.distinct())
             .containsExactly("Cs1FakeExecutionToken")
+
+        val secondTarget = runnerTarget(temporaryDirectory.resolve("different-logging"))
+        Files.writeString(
+            loggingConfigurationPath(secondTarget),
+            "<Configuration status=\"OFF\"><Loggers><Root level=\"ERROR\"/></Loggers></Configuration>",
+        )
+        val differentLogging =
+            runner.run(
+                RetainedMemoryPlan(
+                    target = secondTarget,
+                    targetManifestPath = targetManifestPath(secondTarget),
+                    adapterId = "baseline-83f3cd70",
+                    workload = workload(),
+                    expectedDigest = EXPECTED_DIGEST,
+                    blockId = 12,
+                    targetRole = TargetRole.CANDIDATE,
+                    fork = 0,
+                    replicateGroup = 48,
+                    timeout = Duration.ofSeconds(5),
+                    loggingConfiguration = loggingConfiguration(secondTarget),
+                )
+            )
+        assertThat(differentLogging.providerConfigurationSha256)
+            .isNotEqualTo(result.providerConfigurationSha256)
     }
 }

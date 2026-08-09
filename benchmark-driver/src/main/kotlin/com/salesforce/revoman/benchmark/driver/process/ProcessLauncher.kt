@@ -31,6 +31,7 @@ data class ProcessObservation(
     val stdoutTail: String,
     val stderrTail: String,
     val result: TargetForkResult,
+    val launcherProcessId: Long = processId,
 )
 
 /** Bounded output and process identity returned by one strict JMH controller launch. */

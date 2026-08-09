@@ -20,13 +20,19 @@ import com.salesforce.revoman.benchmark.driver.model.RunMode
 import com.salesforce.revoman.benchmark.driver.model.TargetForkCommand
 import com.salesforce.revoman.benchmark.driver.model.TargetForkResult
 import com.salesforce.revoman.benchmark.driver.model.TargetManifest
+import com.salesforce.revoman.benchmark.driver.model.TargetRole
 import com.salesforce.revoman.benchmark.driver.model.TargetSample
 import com.salesforce.revoman.benchmark.driver.model.TargetVerificationToken
 import com.salesforce.revoman.benchmark.driver.model.WorkloadManifest
 import com.salesforce.revoman.benchmark.driver.model.WorkloadRequest
 import com.salesforce.revoman.benchmark.driver.run.ColdPlan
+import com.salesforce.revoman.benchmark.driver.run.ColdPosition
 import com.salesforce.revoman.benchmark.driver.run.ColdRunner
 import com.salesforce.revoman.benchmark.driver.run.VerifiedLoggingConfiguration
+import com.salesforce.revoman.benchmark.driver.run.WarmAllocationLaunch
+import com.salesforce.revoman.benchmark.driver.run.WarmAllocationLauncher
+import com.salesforce.revoman.benchmark.driver.run.WarmAllocationPlan
+import com.salesforce.revoman.benchmark.driver.run.WarmAllocationRunner
 import com.salesforce.revoman.benchmark.driver.run.WarmPlan
 import com.salesforce.revoman.benchmark.driver.run.WarmRunner
 import com.salesforce.revoman.benchmark.driver.target.VerifiedTargetManifest
@@ -40,6 +46,7 @@ import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.TimeoutException
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
@@ -140,6 +147,7 @@ class RunnerIntegrationTest {
                         loggingConfiguration = benchmarkLoggingConfiguration(),
                         artifactDirectory = allocationArtifacts,
                         jfrConfigurationFile = jfrConfiguration.toRealPath(),
+                        position = ColdPosition(0, TargetRole.BASELINE, 0),
                     )
                 )
             assertThat(allocation.observations.single().value).isAtLeast(0.0)
@@ -163,12 +171,143 @@ class RunnerIntegrationTest {
                         loggingConfiguration = benchmarkLoggingConfiguration(),
                         artifactDirectory = rssArtifacts,
                         peakRssProvider = hostPeakRssProvider(),
+                        position = ColdPosition(1, TargetRole.CANDIDATE, 0),
                     )
                 )
             assertThat(peakRss.observations.single().value).isGreaterThan(0.0)
             assertThat(Files.list(rssArtifacts).use { paths -> paths.toList() }).isEmpty()
             fixture.requestCount("peak-rss") shouldEqual 1
         }
+    }
+
+    @Test
+    fun `real retained workers acknowledge GC preserve weak evidence and use independent processes`() {
+        val target = integrationTarget()
+        val verified = VerifiedTargetManifest.preflight(target.manifestPath, target.target)
+        val fixtureRoot = materializeLifecycleFixture(temporaryDirectory.resolve("retained-fixture"))
+        val manifest = BenchmarkJson.read<WorkloadManifest>(fixtureRoot.resolve("manifest.json"))
+        val logging = benchmarkLoggingConfigurationPath().toUri()
+
+        DeterministicHttpFixture.open(manifest).use { fixture ->
+            fixture.resetExecution("retained-real")
+            val observations =
+                listOf(1, 2, 4).map { executionCount ->
+                    JdkProcessLauncher().launch(
+                        retainedWorkerCommand(
+                            root = temporaryDirectory.resolve("retained-$executionCount"),
+                            verified = verified,
+                            workload = lifecycleRequest(fixtureRoot, fixture.baseUrl),
+                            expectedDigest = requireNotNull(manifest.expectedDigest),
+                            executionCount = executionCount,
+                            logging = logging,
+                        )
+                    )
+                }
+
+            assertThat(observations.map { it.processId }.distinct()).hasSize(3)
+            assertThat(observations.map { it.result.retainedCheckpoint!!.executionCount })
+                .containsExactly(1, 2, 4)
+                .inOrder()
+            observations.forEach { observation ->
+                assertThat(observation.stdoutTail).isEmpty()
+                assertThat(observation.stderrTail).isEmpty()
+                assertThat(observation.result.samples).isEmpty()
+                val checkpoint = requireNotNull(observation.result.retainedCheckpoint)
+                assertThat(checkpoint.usedHeapBytes).isAtLeast(0)
+                assertThat(checkpoint.completedGcCycles).isAtLeast(2)
+                assertThat(checkpoint.weakReferences.map { it.type })
+                    .containsExactly("Cs1FakeExecutionToken")
+                assertThat(checkpoint.weakReferences.single().cleared)
+                    .isEqualTo(checkpoint.weakReferences.single().created)
+                assertThat(processIsAlive(observation.processId)).isFalse()
+            }
+
+            val rootHandle = AtomicReference<ProcessHandle>()
+            val failingLauncher =
+                JdkProcessLauncher(
+                    DefaultLauncherCleanup,
+                    ProcessTreeTrackerFactory { root ->
+                        rootHandle.set(root)
+                        ProcessTreeTracker(root)
+                    },
+                )
+            val failure = assertThrows<IllegalStateException> {
+                failingLauncher.launch(
+                    retainedWorkerCommand(
+                        root = temporaryDirectory.resolve("retained-oracle-failure"),
+                        verified = verified,
+                        workload = lifecycleRequest(fixtureRoot, fixture.baseUrl),
+                        expectedDigest =
+                            requireNotNull(manifest.expectedDigest).copy(checksum = 999),
+                        executionCount = 1,
+                        logging = logging,
+                    )
+                )
+            }
+            assertThat(failure).hasMessageThat().contains("exit code 1")
+            assertThat(requireNotNull(rootHandle.get()).isAlive).isFalse()
+        }
+    }
+
+    @Test
+    fun `real warm allocation runner validates oracle and leaves no controller or fork alive`() {
+        val target = integrationTarget()
+        val installation = benchmarkDriverInstallationRoot()
+        val observedForks = linkedSetOf<Long>()
+        val controller = AtomicReference<ProcessHandle>()
+        val launcher =
+            WarmAllocationLauncher { request ->
+                launchRealJmhController(request, controller, observedForks)
+            }
+        val result =
+            WarmAllocationRunner(launcher).run(
+                warmAllocationIntegrationPlan(
+                    target = target,
+                    installation = installation,
+                    output = temporaryDirectory.resolve("warm-allocation-real"),
+                )
+            )
+
+        assertThat(result.observations).isNotEmpty()
+        assertThat(result.observations.all { it.value >= 0.0 }).isTrue()
+        assertThat(result.observations.map { it.processId }.distinct()).hasSize(1)
+        assertThat(requireNotNull(controller.get()).isAlive).isFalse()
+        assertThat(observedForks).contains(result.observations.single().processId)
+        observedForks.forEach { processId -> assertThat(processIsAlive(processId)).isFalse() }
+
+        val failingInstallation =
+            copyInstallation(
+                installation,
+                temporaryDirectory.resolve("warm-allocation-bad-install"),
+            )
+        val workloadManifest =
+            failingInstallation.resolve("workloads/v1/lifecycle.no-script-one-step.v1/manifest.json")
+        val manifest = BenchmarkJson.read<WorkloadManifest>(workloadManifest)
+        BenchmarkJson.write(
+            workloadManifest,
+            manifest.copy(
+                expectedDigest = requireNotNull(manifest.expectedDigest).copy(checksum = 999)
+            ),
+        )
+        val failingController = AtomicReference<ProcessHandle>()
+        val failingForks = linkedSetOf<Long>()
+        val failure = assertThrows<IllegalStateException> {
+            WarmAllocationRunner(
+                WarmAllocationLauncher { request ->
+                    launchRealJmhController(request, failingController, failingForks)
+                }
+            ).run(
+                warmAllocationIntegrationPlan(
+                    target = target,
+                    installation = failingInstallation,
+                    output = temporaryDirectory.resolve("warm-allocation-oracle-failure"),
+                )
+            )
+        }
+        assertThat(failure).hasMessageThat().contains("JMH controller exited with code")
+        assertThat(requireNotNull(failingController.get()).isAlive).isFalse()
+        assertThat(failingForks).isNotEmpty()
+        failingForks.forEach { processId -> assertThat(processIsAlive(processId)).isFalse() }
     }
 
     @Test
@@ -215,6 +354,34 @@ class RunnerIntegrationTest {
         assertThat(observation.stderrTail.toByteArray()).hasLength(64 * 1024)
         assertThat(observation.stdoutTail.toSet()).containsExactly('O')
         assertThat(observation.stderrTail.toSet()).containsExactly('E')
+    }
+
+    @Test
+    fun `time wrapper authenticates worker PID as observed descendant`() {
+        val providerOutput = temporaryDirectory.resolve("time-positive.txt").toAbsolutePath().normalize()
+        val provider = hostPeakRssProvider()
+        val command =
+            launcherFixtureCommand("valid", Duration.ofSeconds(10)).copy(
+                invocationPrefix = provider.invocationPrefix(providerOutput)
+            )
+
+        val observation = JdkProcessLauncher().launch(command)
+
+        assertThat(observation.launcherProcessId).isNotEqualTo(observation.processId)
+        assertThat(provider.parse(providerOutput)).isGreaterThan(0)
+    }
+
+    @Test
+    fun `time wrapper rejects result PID that was never an observed descendant`() {
+        val providerOutput = temporaryDirectory.resolve("time-foreign.txt").toAbsolutePath().normalize()
+        val command =
+            launcherFixtureCommand("foreign-pid", Duration.ofSeconds(10)).copy(
+                invocationPrefix = hostPeakRssProvider().invocationPrefix(providerOutput)
+            )
+
+        val failure = assertThrows<IllegalStateException> { JdkProcessLauncher().launch(command) }
+
+        assertThat(failure).hasMessageThat().contains("observed descendant")
     }
 
     @Test
@@ -974,7 +1141,7 @@ class RunnerIntegrationTest {
             rootPid = awaitProcessId(rootPidFile)
             childPids = awaitProcessIds(childPidFile, expectedCount = 2)
             assertThat(failure).hasMessageThat().contains("Could not track target process descendants")
-            assertThat(failure).hasCauseThat().hasMessageThat().contains("exceeded 1 live descendants")
+            assertThat(failure).hasCauseThat().hasMessageThat().contains("exceeded 1 observed descendants")
             assertThat(elapsed).isLessThan(Duration.ofSeconds(5).toNanos())
             assertThat(cleanup.calls).containsExactly("termination", "shutdown", "guard").inOrder()
             assertThat(cleanup.terminationCalls).isEqualTo(1)
@@ -1035,6 +1202,80 @@ class RunnerIntegrationTest {
             timeout = timeout,
         )
     }
+
+    private fun retainedWorkerCommand(
+        root: Path,
+        verified: VerifiedTargetManifest,
+        workload: WorkloadRequest,
+        expectedDigest: ExecutionDigest,
+        executionCount: Int,
+        logging: java.net.URI,
+    ): JavaCommand {
+        val directory = Files.createDirectories(root).toRealPath()
+        val commandPath = directory.resolve("command.json")
+        val resultPath = directory.resolve("result.json")
+        BenchmarkJson.write(
+            commandPath,
+            TargetForkCommand(
+                verification = verified.verificationToken(),
+                adapterId = integrationAdapter(),
+                mode = RunMode.RETAINED,
+                metricPass = MetricPass.RETAINED,
+                workload = workload,
+                expectedDigest = expectedDigest,
+                warmupIterations = 0,
+                measurementIterations = 0,
+                resultFile = resultPath.toString(),
+                retainedExecutionCount = executionCount,
+            ),
+        )
+        return JavaCommand(
+            executable = javaExecutable(),
+            jvmArgs =
+                listOf(
+                    "-Dlog4j2.configurationFile=$logging",
+                    "-Dlog4j2.*.Configuration.file=$logging",
+                    "-Dkotlin-logging.logStartupMessage=false",
+                    "-Drevoman.banner=off",
+                ),
+            classpath = currentClasspath(),
+            mainClass = "com.salesforce.revoman.benchmark.driver.process.TargetForkMainKt",
+            programArgs = listOf(commandPath.toString()),
+            workingDirectory = Path.of(System.getProperty("user.dir")).toRealPath(),
+            timeout = Duration.ofSeconds(30),
+        )
+    }
+
+    private fun warmAllocationIntegrationPlan(
+        target: IntegrationTarget,
+        installation: Path,
+        output: Path,
+    ): WarmAllocationPlan {
+        val lib = installation.resolve("lib")
+        val controllerClasspath =
+            Files.list(lib).use { paths ->
+                paths.filter { path -> path.fileName.toString().endsWith(".jar") }.sorted().toList()
+            }
+        return WarmAllocationPlan(
+            intent = RunIntent.SMOKE,
+            blockId = 0,
+            targetRole = TargetRole.BASELINE,
+            fork = 0,
+            target = target.target,
+            targetManifestPath = target.manifestPath,
+            adapterId = integrationAdapter(),
+            benchmarkClassesJar = lib.resolve("benchmark-driver-jmh-classes.jar").toRealPath(),
+            controllerClasspath = controllerClasspath,
+            targetClasspath = target.target.classpath.map { Path.of(it.executionPath) },
+            installationRoot = installation,
+            outputDirectory = Files.createDirectories(output).toRealPath(),
+            warmupIterations = 0,
+            measurementIterations = 1,
+            timeout = Duration.ofSeconds(60),
+            loggingConfiguration = benchmarkLoggingConfiguration(),
+            iterationDuration = Duration.ofMillis(100),
+        )
+    }
 }
 
 private fun hostPeakRssProvider(): PeakRssProvider =
@@ -1043,6 +1284,78 @@ private fun hostPeakRssProvider(): PeakRssProvider =
     } else {
         GnuTimePeakRssProvider
     }
+
+private fun benchmarkDriverInstallationRoot(): Path {
+    val workingDirectory = Path.of(System.getProperty("user.dir")).toRealPath()
+    return listOf(
+            workingDirectory.resolve("build/install/benchmark-driver"),
+            workingDirectory.resolve("benchmark-driver/build/install/benchmark-driver"),
+        )
+        .first(Files::isDirectory)
+        .toRealPath()
+}
+
+private fun launchRealJmhController(
+    request: WarmAllocationLaunch,
+    controller: AtomicReference<ProcessHandle>,
+    observedForks: MutableSet<Long>,
+): JmhControllerObservation {
+    val command = request.command
+    val arguments =
+        buildList {
+            addAll(command.invocationPrefix)
+            add(command.executable.toString())
+            addAll(command.jvmArgs)
+            add("-cp")
+            add(command.classpath.joinToString(System.getProperty("path.separator")))
+            add(command.mainClass)
+            addAll(command.programArgs)
+        }
+    val stdout = request.rawResult.resolveSibling("controller-stdout.txt")
+    val stderr = request.rawResult.resolveSibling("controller-stderr.txt")
+    val process =
+        ProcessBuilder(arguments)
+            .directory(command.workingDirectory.toFile())
+            .redirectOutput(stdout.toFile())
+            .redirectError(stderr.toFile())
+            .start()
+    controller.set(process.toHandle())
+    val tracker = ProcessTreeTracker(process.toHandle())
+    val trackerThread =
+        Thread.ofPlatform().daemon().name("warm-allocation-integration-tracker").start(tracker)
+    val exited = process.waitFor(command.timeout.toMillis(), TimeUnit.MILLISECONDS)
+    if (!exited) {
+        tracker.snapshot().descendants.asReversed().forEach(ProcessHandle::destroyForcibly)
+        process.destroyForcibly()
+        check(process.waitFor(5, TimeUnit.SECONDS)) { "JMH controller did not stop after timeout" }
+    }
+    tracker.stopSampling()
+    trackerThread.join(5_000)
+    check(!trackerThread.isAlive) { "JMH controller tracker did not stop" }
+    tracker.failureOrNull()?.let { throw IllegalStateException("JMH controller tracking failed", it) }
+    observedForks += tracker.snapshot().observedDescendantPids
+    return JmhControllerObservation(
+        exitCode = process.exitValue(),
+        processId = process.pid(),
+        stdoutTail = Files.readString(stdout).takeLast(64 * 1024),
+        stderrTail = Files.readString(stderr).takeLast(64 * 1024),
+    )
+}
+
+private fun copyInstallation(source: Path, destination: Path): Path {
+    Files.createDirectories(destination)
+    Files.walk(source).use { paths ->
+        paths.forEach { sourcePath ->
+            val targetPath = destination.resolve(source.relativize(sourcePath).toString())
+            if (Files.isDirectory(sourcePath)) {
+                Files.createDirectories(targetPath)
+            } else {
+                Files.copy(sourcePath, targetPath)
+            }
+        }
+    }
+    return destination.toRealPath()
+}
 
 class ProcessLauncherFixtureMain {
     companion object {
@@ -1056,6 +1369,11 @@ class ProcessLauncherFixtureMain {
                     writeFixtureResult(command)
                 }
                 "valid" -> writeFixtureResult(command)
+                "foreign-pid" ->
+                    writeFixtureResult(
+                        command,
+                        processId = ProcessHandle.current().pid() + 1_000_000,
+                    )
                 "in-place" -> writeFixtureResultInPlace(command)
                 "nonzero" -> exitProcess(17)
                 "malformed" -> writeRawAtomically(Path.of(command.resultFile), "{malformed".toByteArray())
@@ -1146,8 +1464,11 @@ class LateGrandchildChildMain {
     }
 }
 
-private fun writeFixtureResult(command: TargetForkCommand) {
-    BenchmarkJson.write(Path.of(command.resultFile), fixtureResult(command))
+private fun writeFixtureResult(
+    command: TargetForkCommand,
+    processId: Long = ProcessHandle.current().pid(),
+) {
+    BenchmarkJson.write(Path.of(command.resultFile), fixtureResult(command, processId))
 }
 
 private fun spawnLongLivedDescendant(command: TargetForkCommand, inheritPipes: Boolean) {
@@ -1244,9 +1565,12 @@ private fun writeFixtureTextAtomically(path: Path, value: String) {
     writeRawAtomically(path, value.toByteArray(UTF_8))
 }
 
-private fun fixtureResult(command: TargetForkCommand): TargetForkResult =
+private fun fixtureResult(
+    command: TargetForkCommand,
+    processId: Long = ProcessHandle.current().pid(),
+): TargetForkResult =
     TargetForkResult(
-        processId = ProcessHandle.current().pid(),
+        processId = processId,
         warmupIterations = command.warmupIterations,
         measurementIterations = command.measurementIterations,
         samples =

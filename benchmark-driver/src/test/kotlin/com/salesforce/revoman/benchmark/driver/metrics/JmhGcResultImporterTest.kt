@@ -73,9 +73,28 @@ class JmhGcResultImporterTest {
         assertThat(failure).hasMessageThat().contains("rawData")
     }
 
+    @Test
+    fun `warm provider identity includes fork VM and JVM args but excludes executable path`() {
+        val original = Files.readString(resourcePath("/metrics/jmh-gc.txt"))
+        val baseline = import(resourcePath("/metrics/jmh-gc.txt"))
+        val changedJdk = materialize("changed-jdk.json", original.replace("\"jdkVersion\": \"21\"", "\"jdkVersion\": \"22\""))
+        val changedArgument = materialize("changed-argument.json", original.replace("-Drevoman.banner=off", "-Drevoman.banner=on"))
+        val changedPath = materialize("changed-path.json", original.replace("/jdk/bin/java", "/different-host/jdk/bin/java"))
+
+        assertThat(import(changedJdk).providerConfigurationSha256)
+            .isNotEqualTo(baseline.providerConfigurationSha256)
+        assertThat(import(changedArgument).providerConfigurationSha256)
+            .isNotEqualTo(baseline.providerConfigurationSha256)
+        assertThat(import(changedPath).providerConfigurationSha256)
+            .isEqualTo(baseline.providerConfigurationSha256)
+    }
+
     private fun import(path: Path): JmhGcAllocationImport =
         JmhGcResultImporter.import(path, "baseline", 1, TargetRole.BASELINE, 0)
 
     private fun resourcePath(name: String): Path =
         Path.of(requireNotNull(javaClass.getResource(name)) { "Missing test resource: $name" }.toURI())
+
+    private fun materialize(name: String, json: String): Path =
+        temporaryDirectory.resolve(name).also { Files.writeString(it, json) }
 }

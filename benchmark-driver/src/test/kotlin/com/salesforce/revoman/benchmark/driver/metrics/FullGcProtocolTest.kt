@@ -47,10 +47,11 @@ class FullGcProtocolTest {
                     },
                     nanoTime = { 0L },
                     awaitPoll = {},
-                )
+                ),
+                Duration.ofMillis(10),
             )
 
-        val sample = protocol.sample(Duration.ofMillis(10))
+        val sample = protocol.sample()
 
         assertThat(requests.get()).isEqualTo(2)
         assertThat(sample.completedGcCycles).isEqualTo(2)
@@ -72,11 +73,12 @@ class FullGcProtocolTest {
                     usedHeapBytes = { error("heap must not be sampled") },
                     nanoTime = clock::get,
                     awaitPoll = { clock.addAndGet(5) },
-                )
+                ),
+                Duration.ofNanos(10),
             )
 
         val failure = assertThrows<IllegalStateException> {
-            protocol.sample(Duration.ofNanos(10))
+            protocol.sample()
         }
 
         assertThat(failure).hasMessageThat().contains("second")
@@ -93,15 +95,34 @@ class FullGcProtocolTest {
                     usedHeapBytes = { error("heap must not be sampled") },
                     nanoTime = { 0 },
                     awaitPoll = {},
-                )
+                ),
+                Duration.ofMillis(1),
             )
 
         val failure = assertThrows<IllegalStateException> {
-            protocol.sample(Duration.ofMillis(1))
+            protocol.sample()
         }
 
         assertThat(failure).hasMessageThat().contains("unsupported")
         assertThat(requests.get()).isEqualTo(0)
+    }
+
+    @Test
+    fun `full GC timeout is immutable provider configuration identity`() {
+        val runtime =
+            FullGcRuntime(
+                collectionCount = { 0 },
+                requestGc = {},
+                usedHeapBytes = { 0 },
+                nanoTime = { 0 },
+                awaitPoll = {},
+            )
+
+        val short = FullGcProtocol(runtime, Duration.ofSeconds(1))
+        val long = FullGcProtocol(runtime, Duration.ofSeconds(2))
+
+        assertThat(short.configurationSha256).isNotEqualTo(long.configurationSha256)
+        assertThat(short.timeoutPerCycle).isEqualTo(Duration.ofSeconds(1))
     }
 
     @Test

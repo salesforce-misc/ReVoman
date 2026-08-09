@@ -16,7 +16,7 @@ import java.nio.file.Path
 interface PeakRssProvider {
     val id: String
     val configurationSha256: String
-    fun wrap(javaCommand: List<String>, providerOutput: Path): List<String>
+    fun invocationPrefix(providerOutput: Path): List<String>
     fun parse(providerOutput: Path): Long
 }
 
@@ -25,8 +25,8 @@ object GnuTimePeakRssProvider : PeakRssProvider {
     override val id: String = "gnu-time-v-maximum-resident-set-kib/v1"
     override val configurationSha256: String = providerHash(id, listOf("/usr/bin/time", "-v", "-o"))
 
-    override fun wrap(javaCommand: List<String>, providerOutput: Path): List<String> =
-        listOf("/usr/bin/time", "-v", "-o", normalizedOutput(providerOutput).toString()) + javaCommand
+    override fun invocationPrefix(providerOutput: Path): List<String> =
+        listOf("/usr/bin/time", "-v", "-o", normalizedOutput(providerOutput).toString())
 
     override fun parse(providerOutput: Path): Long {
         val kib = parseSingleLong(providerOutput, GNU_PATTERN, "GNU maximum resident set size")
@@ -43,8 +43,8 @@ object MacOsTimePeakRssProvider : PeakRssProvider {
     override val id: String = "macos-time-l-maximum-resident-set-bytes/v1"
     override val configurationSha256: String = providerHash(id, listOf("/usr/bin/time", "-l", "-o"))
 
-    override fun wrap(javaCommand: List<String>, providerOutput: Path): List<String> =
-        listOf("/usr/bin/time", "-l", "-o", normalizedOutput(providerOutput).toString()) + javaCommand
+    override fun invocationPrefix(providerOutput: Path): List<String> =
+        listOf("/usr/bin/time", "-l", "-o", normalizedOutput(providerOutput).toString())
 
     override fun parse(providerOutput: Path): Long =
         parseSingleLong(providerOutput, MACOS_PATTERN, "macOS maximum resident set size")

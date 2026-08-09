@@ -19,8 +19,10 @@ import com.salesforce.revoman.benchmark.driver.model.RunMode
 import com.salesforce.revoman.benchmark.driver.model.TargetForkCommand
 import com.salesforce.revoman.benchmark.driver.model.TargetForkResult
 import com.salesforce.revoman.benchmark.driver.model.TargetManifest
+import com.salesforce.revoman.benchmark.driver.model.TargetRole
 import com.salesforce.revoman.benchmark.driver.model.TargetSample
 import com.salesforce.revoman.benchmark.driver.model.WorkloadRequest
+import com.salesforce.revoman.benchmark.driver.metrics.PeakRssProvider
 import com.salesforce.revoman.benchmark.driver.process.JavaCommand
 import com.salesforce.revoman.benchmark.driver.process.ProcessLauncher
 import com.salesforce.revoman.benchmark.driver.process.ProcessObservation
@@ -36,7 +38,7 @@ class ColdRunnerTest {
     @TempDir lateinit var temporaryDirectory: Path
 
     @Test
-    fun `fifty controlled cold samples request fifty distinct processes`() {
+    fun `standalone smoke cold samples request distinct processes`() {
         val target = runnerTarget(temporaryDirectory)
         val commands = mutableListOf<JavaCommand>()
         val workerCommands = mutableListOf<TargetForkCommand>()
@@ -51,7 +53,7 @@ class ColdRunnerTest {
                 val processId = 10_000L + commands.size
                 processObservation(command, processId, elapsedNanos = processId * 10)
             }
-        val plan = coldPlan(target, sampleCount = 50)
+        val plan = coldPlan(target, sampleCount = 50, intent = RunIntent.SMOKE)
 
         val observations = ColdRunner(launcher).run(plan)
 
@@ -85,16 +87,41 @@ class ColdRunnerTest {
     }
 
     @Test
-    fun `controlled cold plans reject fewer than fifty samples before launch`() {
+    fun `controlled cold position launches exactly one process and preserves coordinates`() {
+        val target = runnerTarget(temporaryDirectory)
+        val commands = mutableListOf<JavaCommand>()
+        val runner =
+            ColdRunner(
+                ProcessLauncher { command ->
+                    commands += command
+                    val worker = BenchmarkJson.read<TargetForkCommand>(Path.of(command.programArgs.single()))
+                    processObservation(worker, processId = 77)
+                }
+            )
+
+        val result =
+            runner.runWithEvidence(
+                coldPlan(target, sampleCount = 1, intent = RunIntent.CONTROLLED).copy(
+                    position = ColdPosition(9, TargetRole.CANDIDATE, 4)
+                )
+            )
+
+        assertThat(commands).hasSize(1)
+        assertThat(result.position).isEqualTo(ColdPosition(9, TargetRole.CANDIDATE, 4))
+        assertThat(result.observations.single().fork).isEqualTo(4)
+    }
+
+    @Test
+    fun `controlled cold plan rejects absent scheduler position before launch`() {
         val target = runnerTarget(temporaryDirectory)
         var launches = 0
         val runner = ColdRunner(ProcessLauncher { error("unexpected launch ${++launches}") })
 
         val failure = assertThrows<IllegalArgumentException> {
-            runner.run(coldPlan(target, sampleCount = 49))
+            runner.run(coldPlan(target, sampleCount = 1, intent = RunIntent.CONTROLLED))
         }
 
-        assertThat(failure).hasMessageThat().contains("at least 50")
+        assertThat(failure).hasMessageThat().contains("position")
         assertThat(launches).isEqualTo(0)
     }
 
@@ -256,8 +283,17 @@ class ColdRunnerTest {
 
         RunIntent.entries.forEach { intent ->
             val failure = assertThrows<IllegalArgumentException> {
-                val samples = if (intent == RunIntent.CONTROLLED) 50 else 1
-                runner.run(coldPlan(target, samples, intent).copy(expectedDigest = null))
+                runner.run(
+                    coldPlan(target, 1, intent).copy(
+                        expectedDigest = null,
+                        position =
+                            if (intent == RunIntent.CONTROLLED) {
+                                ColdPosition(0, TargetRole.BASELINE, 0)
+                            } else {
+                                null
+                            },
+                    )
+                )
             }
 
             assertThat(failure).hasMessageThat().contains("expectedDigest")
@@ -307,6 +343,74 @@ class ColdRunnerTest {
 
         assertThat(failure).isSameInstanceAs(primary)
         assertThat(Files.exists(requireNotNull(invocationDirectory))).isFalse()
+    }
+
+    @Test
+    fun `peak RSS identity changes with verified logging configuration`() {
+        val firstTarget = runnerTarget(temporaryDirectory.resolve("rss-first"))
+        val secondTarget = runnerTarget(temporaryDirectory.resolve("rss-second"))
+        Files.writeString(
+            loggingConfigurationPath(secondTarget),
+            "<Configuration status=\"OFF\"><Loggers><Root level=\"ERROR\"/></Loggers></Configuration>",
+        )
+        val provider = fixedPeakRssProvider()
+        var processId = 900L
+        val runner =
+            ColdRunner(
+                ProcessLauncher { command ->
+                    val worker = BenchmarkJson.read<TargetForkCommand>(Path.of(command.programArgs.single()))
+                    processObservation(worker, ++processId)
+                }
+            )
+
+        val first =
+            runner.runWithEvidence(peakRssPlan(firstTarget, provider, blockId = 1))
+        val second =
+            runner.runWithEvidence(peakRssPlan(secondTarget, provider, blockId = 2))
+
+        assertThat(first.providerConfigurationSha256)
+            .isNotEqualTo(second.providerConfigurationSha256)
+    }
+
+    @Test
+    fun `peak RSS provider deletion failure is suppressed behind parse failure`() {
+        val target = runnerTarget(temporaryDirectory.resolve("rss-delete"))
+        val primary = DeliberateLaunchFailure("parse failed")
+        var capturedProviderOutput: Path? = null
+        val provider =
+            object : PeakRssProvider {
+                override val id: String = "test-peak-rss/v1"
+                override val configurationSha256: String = "c".repeat(64)
+
+                override fun invocationPrefix(providerOutput: Path): List<String> {
+                    capturedProviderOutput = providerOutput
+                    return emptyList()
+                }
+
+                override fun parse(providerOutput: Path): Long {
+                    Files.createDirectory(providerOutput)
+                    Files.writeString(providerOutput.resolve("retained-child"), "diagnostic")
+                    throw primary
+                }
+            }
+        val runner =
+            ColdRunner(
+                ProcessLauncher { command ->
+                    val worker = BenchmarkJson.read<TargetForkCommand>(Path.of(command.programArgs.single()))
+                    processObservation(worker, 991)
+                }
+            )
+
+        val failure = assertThrows<DeliberateLaunchFailure> {
+            runner.runWithEvidence(peakRssPlan(target, provider, blockId = 3))
+        }
+
+        assertThat(failure).isSameInstanceAs(primary)
+        assertThat(failure.suppressed).hasLength(1)
+        requireNotNull(capturedProviderOutput).let { output ->
+            Files.delete(output.resolve("retained-child"))
+            Files.delete(output)
+        }
     }
 }
 
@@ -362,7 +466,7 @@ internal fun loggingConfiguration(target: TargetManifest): VerifiedLoggingConfig
 internal fun coldPlan(
     target: TargetManifest,
     sampleCount: Int,
-    intent: RunIntent = RunIntent.CONTROLLED,
+    intent: RunIntent = RunIntent.SMOKE,
 ): ColdPlan =
     ColdPlan(
         intent = intent,
@@ -418,6 +522,27 @@ internal fun processObservation(
 
 internal val EXPECTED_DIGEST: ExecutionDigest =
     ExecutionDigest(checksum = 31, executedSteps = 1, failureCount = 0)
+
+private fun ColdRunnerTest.fixedPeakRssProvider(): PeakRssProvider =
+    object : PeakRssProvider {
+        override val id: String = "test-peak-rss/v1"
+        override val configurationSha256: String = "d".repeat(64)
+        override fun invocationPrefix(providerOutput: Path): List<String> = emptyList()
+        override fun parse(providerOutput: Path): Long = 1_024
+    }
+
+private fun ColdRunnerTest.peakRssPlan(
+    target: TargetManifest,
+    provider: PeakRssProvider,
+    blockId: Int,
+): ColdPlan =
+    coldPlan(target, 1).copy(
+        metricPass = MetricPass.PEAK_RSS,
+        artifactDirectory =
+            Files.createDirectories(temporaryDirectory.resolve("rss-artifacts-$blockId")).toRealPath(),
+        peakRssProvider = provider,
+        position = ColdPosition(blockId, TargetRole.BASELINE, 0),
+    )
 
 private fun loggingSnapshot(command: JavaCommand): Path {
     val value =

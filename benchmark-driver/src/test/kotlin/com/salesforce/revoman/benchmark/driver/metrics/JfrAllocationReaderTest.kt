@@ -13,8 +13,10 @@ import com.salesforce.revoman.benchmark.driver.json.BenchmarkJson
 import com.salesforce.revoman.benchmark.driver.model.MetricPass
 import com.salesforce.revoman.benchmark.driver.model.RunIntent
 import com.salesforce.revoman.benchmark.driver.model.TargetForkCommand
+import com.salesforce.revoman.benchmark.driver.model.TargetRole
 import com.salesforce.revoman.benchmark.driver.process.ProcessLauncher
 import com.salesforce.revoman.benchmark.driver.run.ColdRunner
+import com.salesforce.revoman.benchmark.driver.run.ColdPosition
 import com.salesforce.revoman.benchmark.driver.run.coldPlan
 import com.salesforce.revoman.benchmark.driver.run.processObservation
 import com.salesforce.revoman.benchmark.driver.run.runnerTarget
@@ -148,21 +150,85 @@ class JfrAllocationReaderTest {
 
         val latency = runner.run(coldPlan(target, 1, RunIntent.SMOKE))
         val allocation =
-            runner.run(
+            runner.runWithEvidence(
                 coldPlan(target, 1, RunIntent.SMOKE).copy(
                     metricPass = MetricPass.ALLOCATION,
                     artifactDirectory = artifacts,
                     jfrConfigurationFile = configuration.toRealPath(),
+                    position = ColdPosition(3, TargetRole.BASELINE, 0),
+                )
+            )
+        val secondAllocation =
+            runner.runWithEvidence(
+                coldPlan(target, 1, RunIntent.SMOKE).copy(
+                    metricPass = MetricPass.ALLOCATION,
+                    artifactDirectory = artifacts,
+                    jfrConfigurationFile = configuration.toRealPath(),
+                    position = ColdPosition(4, TargetRole.CANDIDATE, 0),
                 )
             )
 
-        assertThat(commands).hasSize(2)
+        assertThat(commands).hasSize(3)
         assertThat(commands[0].jfrConfigurationFile).isNull()
         assertThat(commands[0].jfrRecordingFile).isNull()
-        assertThat(commands[1].jfrConfigurationFile).isEqualTo(configuration.toRealPath().toString())
+        assertThat(commands[1].jfrConfigurationFile).isNotEqualTo(configuration.toRealPath().toString())
         assertThat(commands[1].jfrRecordingFile).isNotNull()
-        assertThat(latency.single().processId).isNotEqualTo(allocation.single().processId)
-        assertThat(allocation.single().value).isEqualTo(128.0)
+        assertThat(latency.single().processId)
+            .isNotEqualTo(allocation.observations.single().processId)
+        assertThat(allocation.observations.single().value).isEqualTo(128.0)
+        assertThat(secondAllocation.providerConfigurationSha256)
+            .isEqualTo(allocation.providerConfigurationSha256)
+        assertThat(secondAllocation.artifacts.single().logicalId)
+            .isEqualTo("cold-allocation-block-4-role-candidate-fork-0.jfr")
+        assertThat(Files.list(artifacts).use { paths -> paths.count() }).isEqualTo(2)
+    }
+
+    @Test
+    fun `cold allocation uses one JFR snapshot and source mutation fails postflight`() {
+        val target = runnerTarget(temporaryDirectory.resolve("snapshot-target"))
+        val source = temporaryDirectory.resolve("mutable-allocation.jfc")
+        val artifacts = Files.createDirectories(temporaryDirectory.resolve("snapshot-artifacts")).toRealPath()
+        Files.writeString(source, "stable allocation configuration")
+        var snapshot: Path? = null
+        val launcher =
+            ProcessLauncher { javaCommand ->
+                val command = BenchmarkJson.read<TargetForkCommand>(Path.of(javaCommand.programArgs.single()))
+                val configuration = Path.of(requireNotNull(command.jfrConfigurationFile))
+                snapshot = configuration
+                val configurationHash = ContentHasher.sha256(configuration)
+                Files.writeString(Path.of(requireNotNull(command.jfrRecordingFile)), "recording")
+                Files.writeString(source, "mutated allocation configuration")
+                processObservation(command, 6_001).let { observation ->
+                    observation.copy(
+                        result = observation.result.copy(jfrConfigurationSha256 = configurationHash)
+                    )
+                }
+            }
+        val runner =
+            ColdRunner(
+                launcher,
+                reader(
+                    JfrAllocationEvent(
+                        "jdk.ObjectAllocationInNewTLAB",
+                        mapOf("tlabSize" to 64L),
+                    )
+                ),
+            )
+
+        val failure = assertThrows<IllegalStateException> {
+            runner.runWithEvidence(
+                coldPlan(target, 1).copy(
+                    metricPass = MetricPass.ALLOCATION,
+                    artifactDirectory = artifacts,
+                    jfrConfigurationFile = source.toRealPath(),
+                    position = ColdPosition(8, TargetRole.BASELINE, 0),
+                )
+            )
+        }
+
+        assertThat(requireNotNull(snapshot)).isNotEqualTo(source)
+        assertThat(failure).hasMessageThat().contains("JFR configuration invalid after postflight")
+        assertThat(Files.exists(requireNotNull(snapshot))).isFalse()
     }
 
     private fun reader(vararg events: JfrAllocationEvent): JfrAllocationReader =

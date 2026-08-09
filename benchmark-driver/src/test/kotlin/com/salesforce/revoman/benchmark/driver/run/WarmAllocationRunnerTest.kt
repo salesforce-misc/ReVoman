@@ -19,6 +19,7 @@ import java.nio.file.Path
 import java.time.Duration
 import java.util.concurrent.atomic.AtomicInteger
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
 
 class WarmAllocationRunnerTest {
@@ -82,9 +83,47 @@ class WarmAllocationRunnerTest {
                 override fun close() = Unit
             }
 
-        assertThat(executeWarmLifecycleAllocation(prepared)).isEqualTo(31L)
+        assertThat(executeWarmLifecycleAllocation(prepared, ExecutionDigest(31, 1, 0)))
+            .isEqualTo(31L)
         assertThat(executions.get()).isEqualTo(1)
     }
+
+    @Test
+    fun `warm lifecycle benchmark rejects every digest mismatch after one execute`() {
+        val mismatches =
+            listOf(
+                "checksum" to ExecutionDigest(99, 1, 0),
+                "executedSteps" to ExecutionDigest(31, 2, 0),
+                "failureCount" to ExecutionDigest(31, 1, 1),
+            )
+
+        mismatches.forEach { (field, actual) ->
+            val executions = AtomicInteger()
+            val prepared = preparedWorkload(executions, actual)
+
+            val failure = assertThrows<IllegalStateException> {
+                executeWarmLifecycleAllocation(prepared, ExecutionDigest(31, 1, 0))
+            }
+
+            assertThat(failure).hasMessageThat().contains(field)
+            assertThat(executions.get()).isEqualTo(1)
+        }
+    }
+
+    private fun preparedWorkload(
+        executions: AtomicInteger,
+        digest: ExecutionDigest,
+    ): PreparedWorkload =
+        object : PreparedWorkload {
+            override fun execute(): ExecutionDigest {
+                executions.incrementAndGet()
+                return digest
+            }
+
+            override fun operation(id: String): TargetOperation = error("not used")
+
+            override fun close() = Unit
+        }
 
     private fun warmAllocationPlan(
         root: Path,

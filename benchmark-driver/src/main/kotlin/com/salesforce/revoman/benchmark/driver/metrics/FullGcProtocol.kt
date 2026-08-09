@@ -29,17 +29,24 @@ internal data class FullGcRuntime(
 
 /** Requests and acknowledges two explicit collections before reading live heap usage. */
 class FullGcProtocol
-internal constructor(private val runtime: FullGcRuntime) {
-    constructor() : this(systemRuntime())
+internal constructor(
+    private val runtime: FullGcRuntime,
+    val timeoutPerCycle: Duration,
+) {
+    constructor(timeoutPerCycle: Duration = DEFAULT_TIMEOUT_PER_CYCLE) :
+        this(systemRuntime(), timeoutPerCycle)
 
     val id: String = PROVIDER_ID
-    val configurationSha256: String = PROVIDER_CONFIGURATION_SHA256
+    val configurationSha256: String = configurationSha256(timeoutPerCycle)
 
-    /** Returns one valid heap sample or fails when explicit collection cannot be acknowledged. */
-    fun sample(timeoutPerCycle: Duration = DEFAULT_TIMEOUT_PER_CYCLE): FullGcSample {
+    init {
         require(!timeoutPerCycle.isZero && !timeoutPerCycle.isNegative) {
             "Full GC acknowledgement timeout must be positive"
         }
+    }
+
+    /** Returns one valid heap sample or fails when explicit collection cannot be acknowledged. */
+    fun sample(): FullGcSample {
         val timeoutNanos =
             try {
                 timeoutPerCycle.toNanos()
@@ -80,9 +87,13 @@ internal constructor(private val runtime: FullGcRuntime) {
     companion object {
         const val PROVIDER_ID: String = "jdk-memorymxbean-two-acknowledged-full-gc/v1"
         val DEFAULT_TIMEOUT_PER_CYCLE: Duration = Duration.ofSeconds(10)
-        val PROVIDER_CONFIGURATION_SHA256: String =
+        val DEFAULT_CONFIGURATION_SHA256: String =
+            configurationSha256(DEFAULT_TIMEOUT_PER_CYCLE)
+
+        private fun configurationSha256(timeoutPerCycle: Duration): String =
             ContentHasher.sha256(
-                "$PROVIDER_ID\u0000${DEFAULT_TIMEOUT_PER_CYCLE.toNanos()}".toByteArray(UTF_8)
+                "$PROVIDER_ID\u0000${timeoutPerCycle.toNanos()}\u0000$GC_POLL_NANOS"
+                    .toByteArray(UTF_8)
             )
 
         private fun systemRuntime(): FullGcRuntime {

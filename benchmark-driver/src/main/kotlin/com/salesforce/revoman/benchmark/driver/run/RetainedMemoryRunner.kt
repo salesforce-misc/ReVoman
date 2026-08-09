@@ -104,7 +104,7 @@ class RetainedMemoryRunner(private val launcher: ProcessLauncher) {
                 fork = plan.fork,
                 replicateGroup = plan.replicateGroup,
                 provider = FullGcProtocol.PROVIDER_ID,
-                providerConfigurationSha256 = RETAINED_PROVIDER_CONFIGURATION_SHA256,
+                providerConfigurationSha256 = retainedProviderConfigurationSha256(plan),
                 observations = observations,
             )
         }
@@ -166,10 +166,22 @@ internal val RETAINED_PROVIDER_CONFIGURATION_SHA256: String =
     ContentHasher.sha256(
         buildList {
                 add("revoman-retained-memory-provider/v1")
-                add(FullGcProtocol.PROVIDER_CONFIGURATION_SHA256)
+                add(FullGcProtocol.DEFAULT_CONFIGURATION_SHA256)
                 addAll(RETAINED_EXECUTION_COUNTS.map(Int::toString))
                 add("cs1-fixed-weak-reference-token/v1")
             }
+            .joinToString("\u0000")
+            .toByteArray(UTF_8)
+    )
+
+private fun retainedProviderConfigurationSha256(plan: RetainedMemoryPlan): String =
+    ContentHasher.sha256(
+        listOf(
+                "revoman-retained-provider-run/v2",
+                RETAINED_PROVIDER_CONFIGURATION_SHA256,
+                plan.loggingConfiguration.sha256,
+                plan.timeout.toNanos().toString(),
+            )
             .joinToString("\u0000")
             .toByteArray(UTF_8)
     )

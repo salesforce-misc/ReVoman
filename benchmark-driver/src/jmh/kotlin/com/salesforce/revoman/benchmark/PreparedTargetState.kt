@@ -15,12 +15,14 @@ import com.salesforce.revoman.benchmark.driver.jmh.TARGET_MANIFEST_PROPERTY
 import com.salesforce.revoman.benchmark.driver.jmh.TARGET_TOKEN_PROPERTY
 import com.salesforce.revoman.benchmark.driver.jmh.TARGET_TOKEN_SHA256_PROPERTY
 import com.salesforce.revoman.benchmark.driver.json.BenchmarkJson
+import com.salesforce.revoman.benchmark.driver.model.ExecutionDigest
 import com.salesforce.revoman.benchmark.driver.model.MetricPass
 import com.salesforce.revoman.benchmark.driver.model.RunMode
 import com.salesforce.revoman.benchmark.driver.model.TargetForkCommand
 import com.salesforce.revoman.benchmark.driver.model.TargetVerificationToken
 import com.salesforce.revoman.benchmark.driver.model.WorkloadRequest
 import com.salesforce.revoman.benchmark.driver.run.executeWarmLifecycleAllocation
+import com.salesforce.revoman.benchmark.driver.run.loadWarmLifecycleExpectedDigest
 import com.salesforce.revoman.benchmark.driver.target.PreparedWorkload
 import com.salesforce.revoman.benchmark.driver.target.TargetAdapterRegistry
 import com.salesforce.revoman.benchmark.driver.target.TargetOperation
@@ -33,6 +35,7 @@ internal class PreparedTargetState : AutoCloseable {
     private lateinit var runtime: TargetRuntime
     private lateinit var workload: PreparedWorkload
     private lateinit var operations: Map<String, TargetOperation>
+    private lateinit var lifecycleExpectedDigest: ExecutionDigest
 
     fun prepare(operationIds: List<String>, parameters: Map<String, String> = emptyMap()) {
         check(!this::runtime.isInitialized) { "JMH target state is already prepared" }
@@ -51,23 +54,32 @@ internal class PreparedTargetState : AutoCloseable {
 
     fun prepareLifecycle() {
         check(!this::runtime.isInitialized) { "JMH target state is already prepared" }
+        val fixtureRoot = requiredCanonicalDirectory(FIXTURE_ROOT_PROPERTY)
+        lifecycleExpectedDigest = loadWarmLifecycleExpectedDigest(fixtureRoot)
         prepare(
             WorkloadRequest(
                 id = "lifecycle.no-script-one-step.v1",
                 contractVersion = 1,
-                fixtureRoot = requiredCanonicalDirectory(FIXTURE_ROOT_PROPERTY).toString(),
+                fixtureRoot = fixtureRoot.toString(),
                 baseUrl = requiredProperty(LIFECYCLE_BASE_URL_PROPERTY),
-            )
+            ),
+            lifecycleExpectedDigest,
         )
         operations = emptyMap()
     }
 
     fun executeLifecycle(): Long {
         check(this::workload.isInitialized) { "JMH target state is not prepared" }
-        return executeWarmLifecycleAllocation(workload)
+        check(this::lifecycleExpectedDigest.isInitialized) {
+            "JMH lifecycle oracle is not prepared"
+        }
+        return executeWarmLifecycleAllocation(workload, lifecycleExpectedDigest)
     }
 
-    private fun prepare(request: WorkloadRequest) {
+    private fun prepare(
+        request: WorkloadRequest,
+        expectedDigest: ExecutionDigest? = null,
+    ) {
         val tokenPath = requiredCanonicalFile(TARGET_TOKEN_PROPERTY)
         val expectedTokenHash = requiredProperty(TARGET_TOKEN_SHA256_PROPERTY)
         val actualTokenHash = ContentHasher.sha256(tokenPath)
@@ -86,7 +98,7 @@ internal class PreparedTargetState : AutoCloseable {
                 mode = RunMode.WARM,
                 metricPass = MetricPass.LATENCY,
                 workload = request,
-                expectedDigest = null,
+                expectedDigest = expectedDigest,
                 warmupIterations = 0,
                 measurementIterations = 1,
                 resultFile = tokenPath.resolveSibling("unused-target-result.json").toString(),
@@ -96,7 +108,11 @@ internal class PreparedTargetState : AutoCloseable {
         try {
             workload = TargetAdapterRegistry.require(command.adapterId).prepare(runtime, request)
         } catch (failure: Throwable) {
-            runtime.close()
+            try {
+                runtime.close()
+            } catch (closeFailure: Throwable) {
+                if (failure !== closeFailure) failure.addSuppressed(closeFailure)
+            }
             throw failure
         }
     }

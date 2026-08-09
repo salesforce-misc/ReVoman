@@ -618,6 +618,8 @@ tasks.named("installDist") {
   dependsOn(benchmarkJmhClassesJar, generateBenchmarkHarnessSource)
 }
 
+tasks.named("integrationTest") { dependsOn("installDist") }
+
 tasks.named("jmh") {
   onlyIf {
     logger.lifecycle(":benchmark-driver:jmh is disabled; use :benchmark-driver:benchmarkJmh")

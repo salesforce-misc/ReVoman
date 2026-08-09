@@ -1252,7 +1252,7 @@ class JdkProcessLauncherTest {
     }
 
     @Test
-    fun `process tree tracker records hard bound overflow as a failure`() {
+    fun `process tree tracker bounds historical observed descendants`() {
         val root = mockk<ProcessHandle>()
         val firstDescendant = mockTrackedProcessHandle(processId = 101)
         val secondDescendant = mockTrackedProcessHandle(processId = 102)
@@ -1264,9 +1264,36 @@ class JdkProcessLauncherTest {
 
         assertThat(tracker.failureOrNull())
             .hasMessageThat()
-            .contains("exceeded 1 live descendants")
+            .contains("exceeded 1 observed descendants")
         assertThat(tracker.failureSignal().get()).isSameInstanceAs(tracker.failureOrNull())
         assertThat(tracker.snapshot().descendants).containsExactly(firstDescendant)
+        assertThat(tracker.snapshot().observedDescendantPids).containsExactly(101L)
+    }
+
+    @Test
+    fun `process tree tracker remembers descendant that exits before liveness filtering`() {
+        val root = mockk<ProcessHandle>()
+        val exited = mockk<ProcessHandle>()
+        every { root.descendants() } answers { Stream.of(exited) }
+        every { root.isAlive } returns false
+        every { exited.pid() } returns 303L
+        every { exited.info().startInstant() } returns Optional.of(Instant.EPOCH)
+        every { exited.isAlive } returns false
+        every { exited.descendants() } answers { Stream.empty() }
+        val tracker = ProcessTreeTracker(root)
+        val trackingThread = Thread.ofVirtual().start(tracker)
+        try {
+            val deadline = System.nanoTime() + Duration.ofSeconds(2).toNanos()
+            while (303L !in tracker.snapshot().observedDescendantPids) {
+                check(System.nanoTime() < deadline) { "Exited descendant was not observed" }
+                Thread.sleep(1)
+            }
+
+            assertThat(tracker.snapshot().descendants).isEmpty()
+        } finally {
+            tracker.stopSampling()
+            trackingThread.join(Duration.ofSeconds(2))
+        }
     }
 
     @Test
