@@ -139,6 +139,76 @@ class BenchmarkResultSchemaTest {
     }
 
     @Test
+    fun `rejected block keeps health reasons while excluding the whole observation pair`() {
+        val campaign = validCampaign()
+        val accepted = campaign.onlyBlock()
+        val rejected =
+            accepted.copy(
+                blockId = 1,
+                accepted = false,
+                rejectionReasons = listOf("load-average-exceeds-maximum"),
+                observations = emptyList(),
+            )
+        val blocks = listOf(accepted, rejected)
+        val withRejected =
+            campaign.copy(
+                workloads =
+                    campaign.workloads.map { workload ->
+                        workload.copy(
+                            metricSeries = workload.metricSeries.map { series -> series.copy(blocks = blocks) }
+                        )
+                    }
+            )
+        val written = temporaryDirectory.resolve("accepted-and-rejected.json")
+
+        assertThat(withRejected.validate()).isSameInstanceAs(withRejected)
+        BenchmarkJson.write(written, withRejected)
+        assertThat(
+                BenchmarkJson.read<BenchmarkResultV1>(written)
+                    .workloads.single()
+                    .metricSeries.single()
+                    .blocks!!
+                    .single { it.blockId == 0 }
+                    .accepted
+            )
+            .isTrue()
+        assertThat(
+                BenchmarkJson.read<BenchmarkResultV1>(written)
+                    .workloads.single()
+                    .metricSeries.single()
+                    .blocks!!
+                    .single { it.blockId == 1 }
+                    .observations
+            )
+            .isEmpty()
+
+        val contaminated =
+            withRejected.copy(
+                workloads =
+                    withRejected.workloads.map { workload ->
+                        workload.copy(
+                            metricSeries =
+                                workload.metricSeries.map { series ->
+                                    series.copy(
+                                        blocks =
+                                            requireNotNull(series.blocks).map { block ->
+                                                if (block.blockId == 1) {
+                                                    block.copy(observations = accepted.observations)
+                                                } else {
+                                                    block
+                                                }
+                                            }
+                                    )
+                                }
+                        )
+                    }
+            )
+
+        val failure = assertThrows<IllegalArgumentException> { contaminated.validate() }
+        assertThat(failure).hasMessageThat().contains("rejected block observations must be empty")
+    }
+
+    @Test
     fun `duplicate observation coordinate cannot replace a required coordinate`() {
         val campaign = coordinateGridCampaign()
         val observations = campaign.onlyBlock().observations

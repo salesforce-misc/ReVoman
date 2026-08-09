@@ -10,8 +10,10 @@ package com.salesforce.revoman.benchmark.driver.json
 import com.networknt.schema.InputFormat
 import com.networknt.schema.SchemaRegistry
 import com.networknt.schema.SpecificationVersion
+import com.salesforce.revoman.benchmark.driver.host.ControlledHostPolicy
 import com.salesforce.revoman.benchmark.driver.model.BenchmarkResultV1
 import com.salesforce.revoman.benchmark.driver.model.ExecutionDigest
+import com.salesforce.revoman.benchmark.driver.model.HostHealthSnapshot
 import com.salesforce.revoman.benchmark.driver.model.JmhBenchmarkResultV1
 import com.salesforce.revoman.benchmark.driver.model.MetricPass
 import com.salesforce.revoman.benchmark.driver.model.RetainedCheckpoint
@@ -44,10 +46,16 @@ internal object BenchmarkJson {
     inline fun <reified T : Any> decode(bytes: ByteArray, source: String): T =
         decode(bytes, source, T::class.java)
 
+    inline fun <reified T : Any> encode(value: T): ByteArray = encode(value, T::class.java)
+
     inline fun <reified T : Any> write(path: Path, value: T): Unit =
         write(path, value, T::class.java)
 
     fun validateSchema(path: Path, schemaResource: String) {
+        validateSchema(Files.readAllBytes(path), path.toString(), schemaResource)
+    }
+
+    fun validateSchema(bytes: ByteArray, source: String, schemaResource: String) {
         val schemaStream =
             requireNotNull(BenchmarkJson::class.java.getResourceAsStream(schemaResource)) {
                 "Schema resource does not exist: $schemaResource"
@@ -56,11 +64,11 @@ internal object BenchmarkJson {
             schemaStream.use {
                 SchemaRegistry.withDefaultDialect(SpecificationVersion.DRAFT_2020_12)
                     .getSchema(it)
-                    .validate(Files.readString(path, UTF_8), InputFormat.JSON)
+                    .validate(bytes.toString(UTF_8), InputFormat.JSON)
             }
 
         require(messages.isEmpty()) {
-            "JSON at $path does not satisfy $schemaResource: $messages"
+            "JSON at $source does not satisfy $schemaResource: $messages"
         }
     }
 
@@ -74,16 +82,23 @@ internal object BenchmarkJson {
             .also(::validate)
 
     @PublishedApi
-    internal fun <T : Any> write(path: Path, value: T, type: Class<T>) {
+    internal fun <T : Any> encode(value: T, type: Class<T>): ByteArray {
         val normalized = type.cast(normalize(value))
         validate(normalized)
-        val encoded = dynamicJsonAdapter.toJson(canonicalize(adapter(type).toJsonValue(normalized)))
+        return dynamicJsonAdapter
+            .toJson(canonicalize(adapter(type).toJsonValue(normalized)))
+            .toByteArray(UTF_8)
+    }
+
+    @PublishedApi
+    internal fun <T : Any> write(path: Path, value: T, type: Class<T>) {
+        val encoded = encode(value, type)
         val parent = requireNotNull(path.parent) { "Output path must have a parent: $path" }
         Files.createDirectories(parent)
         val temporaryFile = Files.createTempFile(parent, ".${path.fileName}.", ".tmp")
 
         try {
-            Files.writeString(temporaryFile, encoded, UTF_8)
+            Files.write(temporaryFile, encoded)
             moveAtomically(temporaryFile, path)
         } finally {
             Files.deleteIfExists(temporaryFile)
@@ -112,7 +127,9 @@ internal object BenchmarkJson {
 
     private fun validate(value: Any) {
         when (value) {
+            is ControlledHostPolicy -> value.validate()
             is BenchmarkResultV1 -> value.validate()
+            is HostHealthSnapshot -> value.validate("hostHealthSnapshot")
             is JmhBenchmarkResultV1 -> value.validate()
             is TargetManifest -> value.validate()
             is TargetForkCommand -> validateCommand(value)
@@ -123,6 +140,7 @@ internal object BenchmarkJson {
 
     private fun normalize(value: Any): Any =
         when (value) {
+            is ControlledHostPolicy -> value.canonicalized()
             is BenchmarkResultV1 -> value.canonicalized()
             is JmhBenchmarkResultV1 -> value.canonicalized()
             is WorkloadManifest -> value.canonicalized()

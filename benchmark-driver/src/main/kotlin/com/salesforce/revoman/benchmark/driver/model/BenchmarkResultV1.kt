@@ -424,7 +424,16 @@ data class MetricSeries(
             require(!block.accepted || block.rejectionReasons.isEmpty()) {
                 "$blockPath accepted block must not contain rejection reasons"
             }
-            validateObservations(blockPath, block.observations, configuration, targetIds)
+            require(block.accepted || block.rejectionReasons.isNotEmpty()) {
+                "$blockPath rejected block must contain rejection reasons"
+            }
+            if (block.accepted) {
+                validateObservations(blockPath, block.observations, configuration, targetIds)
+            } else {
+                require(block.observations.isEmpty()) {
+                    "$blockPath rejected block observations must be empty"
+                }
+            }
         }
     }
 
