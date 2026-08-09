@@ -1066,7 +1066,7 @@ Change Set 1 ships the harness, the versioned `lifecycle.no-script-one-step.v1` 
 
 **Files:**
 - Create: `benchmark-driver/src/main/kotlin/com/salesforce/revoman/benchmark/driver/fixture/DeterministicHttpFixture.kt`
-- Create: `benchmark-driver/src/main/resources/workloads/v1/manifest.json`
+- Create: `benchmark-driver/src/main/resources/workloads/v1/lifecycle.no-script-one-step.v1/manifest.json`
 - Create: `benchmark-driver/src/main/resources/workloads/v1/lifecycle.no-script-one-step.v1/collection.postman_collection.json`
 - Create: `benchmark-driver/src/main/resources/workloads/v1/lifecycle.no-script-one-step.v1/handler.json`
 - Test: `benchmark-driver/src/test/kotlin/com/salesforce/revoman/benchmark/driver/fixture/DeterministicHttpFixtureTest.kt`

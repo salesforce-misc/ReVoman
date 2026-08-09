@@ -1,0 +1,16 @@
+{
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/small",
+      "status": 200,
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "encoding": "UTF-8",
+        "text": "{\"ok\":true}"
+      }
+    }
+  ]
+}
