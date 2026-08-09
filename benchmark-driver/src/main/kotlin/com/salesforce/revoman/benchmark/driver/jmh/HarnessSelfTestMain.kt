@@ -90,6 +90,7 @@ private fun verifyChildProcesses(
             include = "HarnessSanityBenchmark",
             outputRoot = outputRoot,
             label = "sanity",
+            forks = 2,
         )
     check(sanity.exitCode == 0) {
         "HarnessSanityBenchmark child failed (${sanity.exitCode}): ${Files.readString(sanity.log)}"
@@ -99,10 +100,22 @@ private fun verifyChildProcesses(
             rawResult = sanity.rawResult,
             targetId = targetId,
             requestedIncludes = listOf("HarnessSanityBenchmark"),
-            processId = ProcessHandle.current().pid(),
         )
     check(imported.benchmarks.isNotEmpty() && imported.observations.isNotEmpty()) {
         "HarnessSanityBenchmark produced no imported rows"
+    }
+    val forkProcessIds =
+        imported.observations
+            .groupBy { it.fork }
+            .mapValues { (fork, observations) ->
+                observations.map { it.processId }.distinct().singleOrNull()
+                    ?: error("Harness sanity fork $fork did not have one stable PID")
+            }
+    check(forkProcessIds.size == 2 && forkProcessIds.values.distinct().size == 2) {
+        "Harness sanity forks did not have distinct PIDs: $forkProcessIds"
+    }
+    check(sanity.processId !in forkProcessIds.values) {
+        "Harness sanity observations used controller PID ${sanity.processId}: $forkProcessIds"
     }
     requireQuietOutput("Harness sanity", sanity)
 
@@ -164,6 +177,7 @@ private fun runChild(
     include: String,
     outputRoot: Path,
     label: String,
+    forks: Int = 1,
 ): ChildResult {
     val rawResult = outputRoot.resolve("$label.json")
     val normalizedResult = outputRoot.resolve("$label-normalized.json")
@@ -182,7 +196,7 @@ private fun runChild(
             "-D$FIXTURE_ROOT_PROPERTY=$fixtureRoot",
             "-D$INCLUDES_PROPERTY=$include",
             "-D$INSTALLATION_ROOT_PROPERTY=$installationRoot",
-            "-D$REQUESTED_FORKS_PROPERTY=1",
+            "-D$REQUESTED_FORKS_PROPERTY=$forks",
             "-D$PROFILERS_PROPERTY=",
             "-D$QUICK_PROPERTY=true",
             "-D$LOG_CONFIG_PROPERTY=${logging.toUri()}",
@@ -200,7 +214,7 @@ private fun runChild(
             "-r",
             "50ms",
             "-f",
-            "1",
+            forks.toString(),
             "-rf",
             "json",
             "-rff",
@@ -213,8 +227,10 @@ private fun runChild(
             .redirectErrorStream(true)
             .redirectOutput(log.toFile())
             .start()
+    val processId = process.pid()
     return ChildResult(
         exitCode = process.waitFor(),
+        processId = processId,
         rawResult = rawResult,
         humanOutput = humanOutput,
         log = log,
@@ -223,6 +239,7 @@ private fun runChild(
 
 private data class ChildResult(
     val exitCode: Int,
+    val processId: Long,
     val rawResult: Path,
     val humanOutput: Path,
     val log: Path,

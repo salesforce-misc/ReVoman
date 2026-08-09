@@ -73,15 +73,34 @@
     "requestedIncludes": ["HarnessSanityBenchmark"],
     "requestedForks": 1,
     "profilers": [],
-    "quick": true
+    "internalProfilers": ["com.salesforce.revoman.benchmark.driver.jmh.ForkPidProfiler"],
+    "quick": true,
+    "logging": {
+      "log4j2ConfigurationFileSha256": "9999999999999999999999999999999999999999999999999999999999999999",
+      "log4j2GlobalConfigurationFileSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "kotlinLoggingStartupMessage": "false",
+      "revomanBanner": "off"
+    }
   },
   "benchmarks": [
     {
       "name": "com.salesforce.revoman.benchmark.HarnessSanityBenchmark.scalar",
       "parameters": {},
+      "jmhVersion": "1.37",
+      "mode": "avgt",
+      "threads": 1,
       "forks": 1,
+      "jvm": "/jdk/bin/java",
+      "jvmArgs": ["-Xms256m", "-Xmx256m"],
+      "jdkVersion": "21",
+      "vmName": "OpenJDK 64-Bit Server VM",
+      "vmVersion": "21.0.8+9-LTS",
       "warmupIterations": 0,
+      "warmupTime": "1 s",
+      "warmupBatchSize": 1,
       "measurementIterations": 2,
+      "measurementTime": "1 s",
+      "measurementBatchSize": 1,
       "metricSeries": [
         {
           "metric": "LATENCY",

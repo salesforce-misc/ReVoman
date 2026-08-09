@@ -2,14 +2,31 @@
   {
     "jmhVersion": "1.37",
     "benchmark": "com.salesforce.revoman.benchmark.HarnessSanityBenchmark.scalar",
+    "mode": "avgt",
+    "threads": 1,
     "forks": 1,
+    "jvm": "/jdk/bin/java",
+    "jvmArgs": [],
+    "jdkVersion": "21",
+    "vmName": "OpenJDK 64-Bit Server VM",
+    "vmVersion": "21",
     "warmupIterations": 0,
+    "warmupTime": "1 s",
+    "warmupBatchSize": 1,
     "measurementIterations": 1,
+    "measurementTime": "1 s",
+    "measurementBatchSize": 1,
     "params": {},
     "primaryMetric": {
       "score": 10.5,
       "scoreUnit": "ns/op"
     },
-    "secondaryMetrics": {}
+    "secondaryMetrics": {
+      "revoman.fork.pid": {
+        "score": 4101.0,
+        "scoreUnit": "pid",
+        "rawData": [[4101.0]]
+      }
+    }
   }
 ]

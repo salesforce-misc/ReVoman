@@ -15,6 +15,7 @@ import com.salesforce.revoman.benchmark.driver.model.EnvironmentIdentity
 import com.salesforce.revoman.benchmark.driver.model.HarnessIdentity
 import com.salesforce.revoman.benchmark.driver.model.JdkIdentity
 import com.salesforce.revoman.benchmark.driver.model.JmhBenchmarkResultV1
+import com.salesforce.revoman.benchmark.driver.model.JmhLoggingConfiguration
 import com.salesforce.revoman.benchmark.driver.model.JmhRunConfiguration
 import com.salesforce.revoman.benchmark.driver.model.JmhWorkloadIdentity
 import com.salesforce.revoman.benchmark.driver.model.TargetIdentity
@@ -22,6 +23,7 @@ import com.salesforce.revoman.benchmark.driver.model.TargetVerificationToken
 import com.salesforce.revoman.benchmark.driver.model.WorkloadManifest
 import com.salesforce.revoman.benchmark.driver.target.VerifiedTargetManifest
 import java.lang.management.ManagementFactory
+import java.net.URI
 import java.nio.charset.StandardCharsets.UTF_8
 import java.nio.file.Files
 import java.nio.file.Path
@@ -43,6 +45,7 @@ internal fun runJmh(
         OptionsBuilder()
             .parent(commandLine)
             .shouldFailOnError(true)
+            .addProfiler(ForkPidProfiler::class.java)
             .jvmArgsAppend(*forkJvmArguments().toTypedArray())
             .build()
     return execute(options).also { check(it.isNotEmpty()) { "JMH produced no result rows" } }
@@ -68,7 +71,6 @@ fun main(args: Array<String>) {
             rawResult = rawResult,
             targetId = verified.manifest.targetId,
             requestedIncludes = requestedIncludes,
-            processId = ProcessHandle.current().pid(),
         )
         attachRuntimeIdentities(imported, verified, requestedIncludes)
     } finally {
@@ -149,7 +151,16 @@ private fun attachRuntimeIdentities(
                     .orEmpty()
                     .split(',')
                     .filter(String::isNotBlank),
+            internalProfilers = listOf(ForkPidProfiler::class.java.name),
             quick = requiredProperty(QUICK_PROPERTY).toBooleanStrict(),
+            logging =
+                jmhLoggingConfiguration(
+                    log4j2Configuration = requiredFileUri(LOG_CONFIG_PROPERTY),
+                    log4j3Configuration = requiredFileUri(LOG4J3_CONFIG_PROPERTY),
+                    kotlinLoggingStartupMessage =
+                        requiredProperty(KOTLIN_LOGGING_STARTUP_PROPERTY),
+                    revomanBanner = requiredProperty(REVOMAN_BANNER_PROPERTY),
+                ),
         )
     val createdAt = Instant.now().toString()
     return JmhResultImporter.attachIdentities(
@@ -163,6 +174,20 @@ private fun attachRuntimeIdentities(
         configuration = configuration,
     )
 }
+
+internal fun jmhLoggingConfiguration(
+    log4j2Configuration: Path,
+    log4j3Configuration: Path,
+    kotlinLoggingStartupMessage: String,
+    revomanBanner: String,
+): JmhLoggingConfiguration =
+    JmhLoggingConfiguration(
+            log4j2ConfigurationFileSha256 = ContentHasher.sha256(log4j2Configuration),
+            log4j2GlobalConfigurationFileSha256 = ContentHasher.sha256(log4j3Configuration),
+            kotlinLoggingStartupMessage = kotlinLoggingStartupMessage,
+            revomanBanner = revomanBanner,
+        )
+        .also(JmhLoggingConfiguration::validate)
 
 private fun runtimeArtifacts(installationRoot: Path) =
     BuildIdentity.runtimeArtifacts(
@@ -267,11 +292,17 @@ private fun forkJvmArguments(): List<String> =
             LOG_CONFIG_PROPERTY,
             LOG4J3_CONFIG_PROPERTY,
             KOTLIN_LOGGING_STARTUP_PROPERTY,
+            REVOMAN_BANNER_PROPERTY,
         )
         .mapNotNull { name -> System.getProperty(name)?.let { value -> "-D$name=$value" } }
-        .plus("-Drevoman.banner=off")
 
 private fun requiredPath(name: String): Path = Path.of(requiredProperty(name)).toAbsolutePath().normalize()
+
+private fun requiredFileUri(name: String): Path {
+    val uri = URI.create(requiredProperty(name))
+    require(uri.scheme == "file") { "System property $name must be an absolute file URI: $uri" }
+    return Path.of(uri).toRealPath()
+}
 
 private fun requiredProperty(name: String): String =
     requireNotNull(System.getProperty(name)) { "Missing required system property: $name" }
@@ -285,6 +316,7 @@ internal const val FIXTURE_ROOT_PROPERTY: String = "revoman.benchmark.fixtureRoo
 internal const val LOG_CONFIG_PROPERTY: String = "log4j2.configurationFile"
 internal const val LOG4J3_CONFIG_PROPERTY: String = "log4j2.*.Configuration.file"
 internal const val KOTLIN_LOGGING_STARTUP_PROPERTY: String = "kotlin-logging.logStartupMessage"
+internal const val REVOMAN_BANNER_PROPERTY: String = "revoman.banner"
 internal const val TARGET_TOKEN_PROPERTY: String = "revoman.benchmark.targetToken"
 internal const val TARGET_TOKEN_SHA256_PROPERTY: String = "revoman.benchmark.targetTokenSha256"
 internal const val INCLUDES_PROPERTY: String = "revoman.benchmark.includes"

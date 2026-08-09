@@ -102,6 +102,46 @@ class JmhBenchmarkResultSchemaTest {
     }
 
     @Test
+    fun `JMH benchmark requires one stable process ID per fork`() {
+        val result = BenchmarkJson.read<JmhBenchmarkResultV1>(fixture("minimal-valid.json"))
+        val benchmark = result.benchmarks.single()
+        val series = benchmark.metricSeries.single()
+        val inconsistent =
+            result.copy(
+                benchmarks =
+                    listOf(
+                        benchmark.copy(
+                            metricSeries =
+                                listOf(
+                                    series.copy(
+                                        rawObservations =
+                                            series.rawObservations!!.mapIndexed { index, observation ->
+                                                if (index == 0) observation
+                                                else observation.copy(processId = observation.processId + 1)
+                                            }
+                                    )
+                                )
+                        )
+                    )
+            )
+
+        val failure = assertThrows<IllegalArgumentException> { inconsistent.validate() }
+
+        assertThat(failure).hasMessageThat().contains("stable process ID")
+    }
+
+    @Test
+    fun `requested fork count must match effective raw JMH configuration`() {
+        val result = BenchmarkJson.read<JmhBenchmarkResultV1>(fixture("minimal-valid.json"))
+        val mismatched =
+            result.copy(configuration = result.configuration.copy(requestedForks = 2))
+
+        val failure = assertThrows<IllegalArgumentException> { mismatched.validate() }
+
+        assertThat(failure).hasMessageThat().contains("requestedForks")
+    }
+
+    @Test
     fun `JMH canonical write orders unordered provider and observation evidence`() {
         val result = BenchmarkJson.read<JmhBenchmarkResultV1>(fixture("minimal-valid.json"))
         val benchmark = result.benchmarks.single()
@@ -136,6 +176,11 @@ class JmhBenchmarkResultSchemaTest {
         val canonical = BenchmarkJson.read<JmhBenchmarkResultV1>(output)
 
         assertThat(canonical.configuration.profilers).containsExactly("gc", "stack").inOrder()
+        assertThat(canonical.configuration.logging)
+            .isEqualTo(result.configuration.logging)
+        assertThat(canonical.benchmarks.single().jvmArgs)
+            .containsExactly("-Xms256m", "-Xmx256m")
+            .inOrder()
         assertThat(canonical.benchmarks.single().metricSeries.map(JmhMetricSeries::metric))
             .containsExactly(MetricId.LATENCY, MetricId.ALLOCATED_BYTES)
             .inOrder()

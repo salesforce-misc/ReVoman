@@ -39,9 +39,20 @@ data class ImportedJmhBenchmark(
     val jmhVersion: String,
     val benchmark: String,
     val parameters: Map<String, String>,
+    val mode: String,
+    val threads: Int,
     val forks: Int,
+    val jvm: String,
+    val jvmArgs: List<String>,
+    val jdkVersion: String,
+    val vmName: String,
+    val vmVersion: String,
     val warmupIterations: Int,
+    val warmupTime: String,
+    val warmupBatchSize: Int,
     val measurementIterations: Int,
+    val measurementTime: String,
+    val measurementBatchSize: Int,
     val observations: List<MetricObservation>,
 )
 
@@ -66,10 +77,8 @@ object JmhResultImporter {
         rawResult: Path,
         targetId: String,
         requestedIncludes: List<String>,
-        processId: Long,
     ): ImportedJmhResult {
         require(targetId.isNotBlank()) { "targetId must not be blank" }
-        require(processId >= 0) { "processId must not be negative" }
         val rows =
             requireNotNull(dynamicAdapter.fromJson(Files.readString(rawResult))) {
                 "JMH result at $rawResult is null"
@@ -86,17 +95,58 @@ object JmhResultImporter {
             rows.mapIndexed { index, row ->
                 val benchmark = benchmarkNames[index]
                 val jmhVersion = row.requiredString(index, "jmhVersion")
+                val mode = row.requiredString(index, "mode")
+                val threads = row.requiredInt(index, "threads")
                 val forks = row.requiredInt(index, "forks")
+                val jvm = row.requiredString(index, "jvm")
+                val jvmArgs = row.requiredStringList(index, "jvmArgs")
+                val jdkVersion = row.requiredString(index, "jdkVersion")
+                val vmName = row.requiredString(index, "vmName")
+                val vmVersion = row.requiredString(index, "vmVersion")
                 val warmupIterations = row.requiredInt(index, "warmupIterations")
+                val warmupTime = row.requiredString(index, "warmupTime")
+                val warmupBatchSize = row.requiredInt(index, "warmupBatchSize")
                 val measurementIterations = row.requiredInt(index, "measurementIterations")
+                val measurementTime = row.requiredString(index, "measurementTime")
+                val measurementBatchSize = row.requiredInt(index, "measurementBatchSize")
+                require(threads > 0) { "JMH row[$index].threads must be positive" }
                 require(forks > 0) { "JMH row[$index].forks must be positive" }
                 require(warmupIterations >= 0) {
                     "JMH row[$index].warmupIterations must not be negative"
                 }
+                require(warmupBatchSize > 0) {
+                    "JMH row[$index].warmupBatchSize must be positive"
+                }
                 require(measurementIterations > 0) {
                     "JMH row[$index].measurementIterations must be positive"
                 }
+                require(measurementBatchSize > 0) {
+                    "JMH row[$index].measurementBatchSize must be positive"
+                }
                 val parameters = row.optionalStringMap(index, "params")
+                val secondary = row.requiredObject(index, "secondaryMetrics")
+                val forkProcessIds =
+                    requireNotNull(secondary[FORK_PID_METRIC]) {
+                            "JMH row[$index].secondaryMetrics.$FORK_PID_METRIC must be present"
+                        }
+                        .requireObject(index, "secondaryMetrics.$FORK_PID_METRIC")
+                        .also { metric ->
+                            require(
+                                metric.requiredString(
+                                    index,
+                                    "scoreUnit",
+                                    "secondaryMetrics.$FORK_PID_METRIC",
+                                ) == FORK_PID_UNIT
+                            ) {
+                                "JMH row[$index].secondaryMetrics.$FORK_PID_METRIC.scoreUnit " +
+                                    "must be $FORK_PID_UNIT"
+                            }
+                        }
+                        .forkProcessIds(
+                            rowIndex = index,
+                            forks = forks,
+                            measurementIterations = measurementIterations,
+                        )
                 val primary = row.requiredObject(index, "primaryMetric")
                 val latency =
                     primary.rawObservations(
@@ -106,15 +156,14 @@ object JmhResultImporter {
                         metric = MetricId.LATENCY,
                         provider = "jmh:$benchmark",
                         unit = MetricUnit.NANOSECONDS_PER_OPERATION,
-                        processId = processId,
+                        processIds = forkProcessIds,
                         multiplier = primary.nanosecondsMultiplier(index, "primaryMetric"),
                         forks = forks,
                         measurementIterations = measurementIterations,
                     )
-                val secondary = row.optionalObject(index, "secondaryMetrics")
                 val allocation =
                     secondary
-                        ?.get("gc.alloc.rate.norm")
+                        .get("gc.alloc.rate.norm")
                         ?.let { value ->
                             value.requireObject(index, "secondaryMetrics.gc.alloc.rate.norm")
                                 .also { metric ->
@@ -136,7 +185,7 @@ object JmhResultImporter {
                                     metric = MetricId.ALLOCATED_BYTES,
                                     provider = "jmh:gc.alloc.rate.norm:$benchmark",
                                     unit = MetricUnit.BYTES_PER_OPERATION,
-                                    processId = processId,
+                                    processIds = forkProcessIds,
                                     multiplier = 1.0,
                                     forks = forks,
                                     measurementIterations = measurementIterations,
@@ -147,9 +196,20 @@ object JmhResultImporter {
                     jmhVersion = jmhVersion,
                     benchmark = benchmark,
                     parameters = parameters,
+                    mode = mode,
+                    threads = threads,
                     forks = forks,
+                    jvm = jvm,
+                    jvmArgs = jvmArgs,
+                    jdkVersion = jdkVersion,
+                    vmName = vmName,
+                    vmVersion = vmVersion,
                     warmupIterations = warmupIterations,
+                    warmupTime = warmupTime,
+                    warmupBatchSize = warmupBatchSize,
                     measurementIterations = measurementIterations,
+                    measurementTime = measurementTime,
+                    measurementBatchSize = measurementBatchSize,
                     observations = latency + allocation,
                 )
             }
@@ -180,9 +240,21 @@ object JmhResultImporter {
                         JmhBenchmarkEvidence(
                             name = record.benchmark,
                             parameters = record.parameters,
+                            jmhVersion = record.jmhVersion,
+                            mode = record.mode,
+                            threads = record.threads,
                             forks = record.forks,
+                            jvm = record.jvm,
+                            jvmArgs = record.jvmArgs,
+                            jdkVersion = record.jdkVersion,
+                            vmName = record.vmName,
+                            vmVersion = record.vmVersion,
                             warmupIterations = record.warmupIterations,
+                            warmupTime = record.warmupTime,
+                            warmupBatchSize = record.warmupBatchSize,
                             measurementIterations = record.measurementIterations,
+                            measurementTime = record.measurementTime,
+                            measurementBatchSize = record.measurementBatchSize,
                             metricSeries =
                                 record.observations
                                     .groupBy { observation ->
@@ -198,7 +270,8 @@ object JmhResultImporter {
                                             provider = identity.second,
                                             providerConfigurationSha256 =
                                                 providerConfigurationSha256(
-                                                    record.jmhVersion,
+                                                    record,
+                                                    configuration.canonicalized(),
                                                     identity.first,
                                                     identity.second,
                                                     identity.third,
@@ -216,13 +289,53 @@ object JmhResultImporter {
 }
 
 private fun providerConfigurationSha256(
-    jmhVersion: String,
+    record: ImportedJmhBenchmark,
+    configuration: JmhRunConfiguration,
     metric: MetricId,
     provider: String,
     unit: MetricUnit,
 ): String =
     ContentHasher.sha256(
-        "revoman-jmh-provider/v1\u0000$jmhVersion\u0000${metric.name}\u0000$provider\u0000${unit.name}"
+        buildList {
+                add("revoman-jmh-provider/v2")
+                add(record.jmhVersion)
+                add(record.mode)
+                add(record.parameters.size.toString())
+                record.parameters.toSortedMap().forEach { (name, value) ->
+                    add(name)
+                    add(value)
+                }
+                add(record.threads.toString())
+                add(record.forks.toString())
+                add(record.jvm)
+                add(record.jvmArgs.size.toString())
+                addAll(record.jvmArgs)
+                add(record.jdkVersion)
+                add(record.vmName)
+                add(record.vmVersion)
+                add(record.warmupIterations.toString())
+                add(record.warmupTime)
+                add(record.warmupBatchSize.toString())
+                add(record.measurementIterations.toString())
+                add(record.measurementTime)
+                add(record.measurementBatchSize.toString())
+                add(configuration.requestedIncludes.size.toString())
+                addAll(configuration.requestedIncludes)
+                add(configuration.requestedForks.toString())
+                add(configuration.profilers.size.toString())
+                addAll(configuration.profilers)
+                add(configuration.internalProfilers.size.toString())
+                addAll(configuration.internalProfilers)
+                add(configuration.quick.toString())
+                add(configuration.logging.log4j2ConfigurationFileSha256)
+                add(configuration.logging.log4j2GlobalConfigurationFileSha256)
+                add(configuration.logging.kotlinLoggingStartupMessage)
+                add(configuration.logging.revomanBanner)
+                add(metric.name)
+                add(provider)
+                add(unit.name)
+            }
+            .joinToString("\u0000")
             .toByteArray()
     )
 
@@ -233,7 +346,7 @@ private fun Map<String, Any?>.rawObservations(
     metric: MetricId,
     provider: String,
     unit: MetricUnit,
-    processId: Long,
+    processIds: List<Long>,
     multiplier: Double,
     forks: Int,
     measurementIterations: Int,
@@ -272,11 +385,62 @@ private fun Map<String, Any?>.rawObservations(
                 unit = unit,
                 fork = fork,
                 iteration = iteration,
-                processId = processId,
+                processId = processIds[fork],
                 value = value,
             )
         }
     }
+}
+
+private fun Map<String, Any?>.forkProcessIds(
+    rowIndex: Int,
+    forks: Int,
+    measurementIterations: Int,
+): List<Long> {
+    val path = "secondaryMetrics.$FORK_PID_METRIC"
+    val rawData = this["rawData"] as? List<*>
+    requireNotNull(rawData) { "JMH row[$rowIndex].$path.rawData must be an array" }
+    require(rawData.size == forks) {
+        "JMH row[$rowIndex].$path.rawData fork count must match forks: " +
+            "expected=$forks, actual=${rawData.size}"
+    }
+    val processIds =
+        rawData.mapIndexed { fork, rawFork ->
+            val iterations = rawFork as? List<*>
+            requireNotNull(iterations) {
+                "JMH row[$rowIndex].$path.rawData[$fork] must be an array"
+            }
+            require(iterations.size == measurementIterations) {
+                "JMH row[$rowIndex].$path.rawData[$fork] iteration count must match " +
+                    "measurementIterations: expected=$measurementIterations, actual=${iterations.size}"
+            }
+            val forkIds =
+                iterations.mapIndexed { iteration, rawValue ->
+                    val number = rawValue as? Number
+                    requireNotNull(number) {
+                        "JMH row[$rowIndex].$path.rawData[$fork][$iteration] must be numeric"
+                    }
+                    val value = number.toDouble()
+                    val processId = number.toLong()
+                    require(
+                        value.isFinite() &&
+                            value > 0.0 &&
+                            value == processId.toDouble()
+                    ) {
+                        "JMH row[$rowIndex].$path.rawData[$fork][$iteration] " +
+                            "must be a positive integer PID"
+                    }
+                    processId
+                }
+            require(forkIds.distinct().size == 1) {
+                "JMH row[$rowIndex].$path.rawData[$fork] must contain one stable PID"
+            }
+            forkIds.first()
+        }
+    require(processIds.distinct().size == forks) {
+        "JMH row[$rowIndex].$path must contain a distinct PID for every fork"
+    }
+    return processIds
 }
 
 private fun Map<String, Any?>.nanosecondsMultiplier(rowIndex: Int, path: String): Double =
@@ -306,6 +470,17 @@ private fun Map<String, Any?>.requiredInt(rowIndex: Int, key: String): Int {
         "JMH row[$rowIndex].$key must be an integer"
     }
     return long.toInt()
+}
+
+private fun Map<String, Any?>.requiredStringList(rowIndex: Int, key: String): List<String> {
+    val values = this[key] as? List<*>
+    requireNotNull(values) { "JMH row[$rowIndex].$key must be an array" }
+    return values.mapIndexed { valueIndex, value ->
+        value as? String
+            ?: throw IllegalArgumentException(
+                "JMH row[$rowIndex].$key[$valueIndex] must be a string"
+            )
+    }
 }
 
 private fun Map<String, Any?>.optionalStringMap(

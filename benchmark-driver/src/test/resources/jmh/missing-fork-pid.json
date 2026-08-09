@@ -26,22 +26,14 @@
       "rawData": [[10.0, 11.0], [12.0, 13.0]]
     },
     "secondaryMetrics": {
-    "gc.alloc.rate.norm": {
+      "gc.alloc.rate.norm": {
         "score": 101.5,
         "scoreError": "NaN",
         "scoreConfidence": ["NaN", "NaN"],
         "scorePercentiles": {"0.0": 100.0, "100.0": 103.0},
-      "scoreUnit": "B/op",
-      "rawData": [[100.25, 101.5], [102.75, 103.125]]
-    },
-    "revoman.fork.pid": {
-      "score": 4101.5,
-      "scoreError": "NaN",
-      "scoreConfidence": ["NaN", "NaN"],
-      "scorePercentiles": {"0.0": 4101.0, "100.0": 4102.0},
-      "scoreUnit": "pid",
-      "rawData": [[4101.0, 4101.0], [4102.0, 4102.0]]
+        "scoreUnit": "B/op",
+        "rawData": [[100.25, 101.5], [102.75, 103.125]]
+      }
     }
   }
-}
 ]

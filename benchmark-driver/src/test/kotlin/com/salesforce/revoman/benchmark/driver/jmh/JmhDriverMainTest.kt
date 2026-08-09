@@ -33,6 +33,8 @@ class JmhDriverMainTest {
         }
 
         assertThat(requireNotNull(captured).shouldFailOnError().orElse(false)).isTrue()
+        assertThat(requireNotNull(captured).profilers.map { it.klass })
+            .contains("com.salesforce.revoman.benchmark.driver.jmh.ForkPidProfiler")
     }
 
     @Test
@@ -81,5 +83,28 @@ class JmhDriverMainTest {
         assertThrows<IllegalArgumentException> { writeJmhResult(output, invalid) }
 
         assertThat(Files.readString(output)).isEqualTo("prior")
+    }
+
+    @Test
+    fun `logging identity hashes the actual effective configuration bytes`() {
+        val log4j2 = temporaryDirectory.resolve("log4j2.xml")
+        val log4j3 = temporaryDirectory.resolve("log4j3.xml")
+        Files.writeString(log4j2, "root=OFF\n")
+        Files.writeString(log4j3, "status=OFF\n")
+
+        val configuration =
+            jmhLoggingConfiguration(
+                log4j2Configuration = log4j2,
+                log4j3Configuration = log4j3,
+                kotlinLoggingStartupMessage = "false",
+                revomanBanner = "off",
+            )
+
+        assertThat(configuration.log4j2ConfigurationFileSha256)
+            .isEqualTo("fe2e7b63a122b319ab70600859839378afbb1bca5087652a84b6b542af490a48")
+        assertThat(configuration.log4j2GlobalConfigurationFileSha256)
+            .isEqualTo("f21ec6bacc847eee8bb36f4b89654e6d79c4cf41262a3b2df3f7b68b76262d11")
+        assertThat(configuration.kotlinLoggingStartupMessage).isEqualTo("false")
+        assertThat(configuration.revomanBanner).isEqualTo("off")
     }
 }

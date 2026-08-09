@@ -36,6 +36,9 @@ data class JmhBenchmarkResultV1(
             "target adapter identity must match exactly one harness adapter"
         }
         require(benchmarks.isNotEmpty()) { "benchmarks must not be empty" }
+        require(benchmarks.all { it.forks == configuration.requestedForks }) {
+            "configuration.requestedForks must match every effective benchmark fork count"
+        }
         val benchmarkKeys = benchmarks.map(JmhBenchmarkEvidence::identityKey)
         require(benchmarkKeys.distinct().size == benchmarkKeys.size) {
             "benchmark name and parameter identities must be unique"
@@ -76,7 +79,9 @@ data class JmhRunConfiguration(
     val requestedIncludes: List<String>,
     val requestedForks: Int,
     val profilers: List<String>,
+    val internalProfilers: List<String>,
     val quick: Boolean,
+    val logging: JmhLoggingConfiguration,
 ) {
     internal fun validate() {
         require(requestedIncludes.isNotEmpty()) { "requestedIncludes must not be empty" }
@@ -91,13 +96,44 @@ data class JmhRunConfiguration(
         require(profilers == profilers.distinct().sorted()) {
             "profilers must be unique and sorted"
         }
+        require(internalProfilers.isNotEmpty()) { "internalProfilers must not be empty" }
+        require(internalProfilers.none(String::isBlank)) {
+            "internalProfilers must not contain blanks"
+        }
+        require(internalProfilers == internalProfilers.distinct().sorted()) {
+            "internalProfilers must be unique and sorted"
+        }
+        logging.validate()
     }
 
     internal fun canonicalized(): JmhRunConfiguration =
         copy(
             requestedIncludes = requestedIncludes.distinct().sorted(),
             profilers = profilers.distinct().sorted(),
+            internalProfilers = internalProfilers.distinct().sorted(),
         )
+}
+
+/** Content identity of effective external logging configuration and output-suppression settings. */
+@JsonClass(generateAdapter = true)
+data class JmhLoggingConfiguration(
+    val log4j2ConfigurationFileSha256: String,
+    val log4j2GlobalConfigurationFileSha256: String,
+    val kotlinLoggingStartupMessage: String,
+    val revomanBanner: String,
+) {
+    internal fun validate() {
+        requireSha256(
+            "logging.log4j2ConfigurationFileSha256",
+            log4j2ConfigurationFileSha256,
+        )
+        requireSha256(
+            "logging.log4j2GlobalConfigurationFileSha256",
+            log4j2GlobalConfigurationFileSha256,
+        )
+        requireNonBlank("logging.kotlinLoggingStartupMessage", kotlinLoggingStartupMessage)
+        requireNonBlank("logging.revomanBanner", revomanBanner)
+    }
 }
 
 /** One JMH benchmark/parameter row and all of its independently identified metric evidence. */
@@ -105,17 +141,41 @@ data class JmhRunConfiguration(
 data class JmhBenchmarkEvidence(
     val name: String,
     val parameters: Map<String, String>,
+    val jmhVersion: String,
+    val mode: String,
+    val threads: Int,
     val forks: Int,
+    val jvm: String,
+    val jvmArgs: List<String>,
+    val jdkVersion: String,
+    val vmName: String,
+    val vmVersion: String,
     val warmupIterations: Int,
+    val warmupTime: String,
+    val warmupBatchSize: Int,
     val measurementIterations: Int,
+    val measurementTime: String,
+    val measurementBatchSize: Int,
     val metricSeries: List<JmhMetricSeries>,
 ) {
     internal fun validate(path: String, targetId: String) {
         requireNonBlank("$path.name", name)
         require(parameters.keys.none(String::isBlank)) { "$path parameter names must not be blank" }
+        requireNonBlank("$path.jmhVersion", jmhVersion)
+        requireNonBlank("$path.mode", mode)
+        require(threads > 0) { "$path.threads must be positive" }
         require(forks > 0) { "$path.forks must be positive" }
+        requireNonBlank("$path.jvm", jvm)
+        require(jvmArgs.none(String::isBlank)) { "$path.jvmArgs must not contain blanks" }
+        requireNonBlank("$path.jdkVersion", jdkVersion)
+        requireNonBlank("$path.vmName", vmName)
+        requireNonBlank("$path.vmVersion", vmVersion)
         require(warmupIterations >= 0) { "$path.warmupIterations must not be negative" }
+        requireNonBlank("$path.warmupTime", warmupTime)
+        require(warmupBatchSize > 0) { "$path.warmupBatchSize must be positive" }
         require(measurementIterations > 0) { "$path.measurementIterations must be positive" }
+        requireNonBlank("$path.measurementTime", measurementTime)
+        require(measurementBatchSize > 0) { "$path.measurementBatchSize must be positive" }
         require(metricSeries.isNotEmpty()) { "$path.metricSeries must not be empty" }
         val seriesKeys = metricSeries.map { it.metric.ordinal to it.provider }
         require(seriesKeys.distinct().size == seriesKeys.size) {
@@ -131,6 +191,26 @@ data class JmhBenchmarkEvidence(
                 forks = forks,
                 measurementIterations = measurementIterations,
             )
+        }
+        val rawObservations = metricSeries.mapNotNull(JmhMetricSeries::rawObservations).flatten()
+        if (rawObservations.isNotEmpty()) {
+            val processIds =
+                (0 until forks).map { fork ->
+                    val forkProcessIds =
+                        rawObservations
+                            .asSequence()
+                            .filter { it.fork == fork }
+                            .map(MetricObservation::processId)
+                            .distinct()
+                            .toList()
+                    require(forkProcessIds.size == 1) {
+                        "$path fork $fork must have one stable process ID across metric series"
+                    }
+                    forkProcessIds.single()
+                }
+            require(processIds.distinct().size == forks) {
+                "$path must have a distinct process ID for every fork"
+            }
         }
     }
 

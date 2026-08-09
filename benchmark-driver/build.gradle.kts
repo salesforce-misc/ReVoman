@@ -1,7 +1,9 @@
+import java.io.ByteArrayOutputStream
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption.ATOMIC_MOVE
 import java.nio.file.StandardCopyOption.REPLACE_EXISTING
+import java.util.Locale
 import javax.inject.Inject
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.DirectoryProperty
@@ -70,6 +72,15 @@ abstract class StrictJmhJavaExec : JavaExec() {
     val human = humanOutput.get().asFile.toPath().toAbsolutePath().normalize()
     val rawTemporary = raw.resolveSibling(".${raw.fileName}.tmp")
     val token = rawTemporary.resolveSibling("${rawTemporary.fileName}.target-token.json")
+    requirePairwiseDistinctOutputs(
+      listOf(
+        "raw" to raw,
+        "normalized" to normalized,
+        "human" to human,
+        "raw temporary" to rawTemporary,
+        "target token" to token,
+      )
+    )
     listOf(raw, rawTemporary, normalized, human).forEach { output ->
       Files.createDirectories(requireNotNull(output.parent))
       Files.deleteIfExists(output)
@@ -121,6 +132,59 @@ abstract class StrictJmhJavaExec : JavaExec() {
     }
     Files.move(rawTemporary, raw, ATOMIC_MOVE, REPLACE_EXISTING)
   }
+
+  private fun requirePairwiseDistinctOutputs(outputs: List<Pair<String, Path>>) {
+    val comparable = outputs.map { (label, path) -> Triple(label, path, canonicalOutputPath(path)) }
+    comparable.forEachIndexed { index, first ->
+      comparable.drop(index + 1).forEach { second ->
+        val aliases =
+          first.third == second.third ||
+            (Files.exists(first.second) &&
+              Files.exists(second.second) &&
+              Files.isSameFile(first.second, second.second))
+        require(!aliases) {
+          "JMH output paths must be pairwise distinct: " +
+            "${first.first}=${first.second} aliases ${second.first}=${second.second}"
+        }
+      }
+    }
+  }
+
+  private fun canonicalOutputPath(path: Path): String {
+    var existing = path
+    val nonexistentSuffix = mutableListOf<Path>()
+    while (!Files.exists(existing)) {
+      nonexistentSuffix.add(
+        requireNotNull(existing.fileName) { "JMH output path has no existing ancestor: $path" }
+      )
+      existing = requireNotNull(existing.parent) {
+        "JMH output path has no existing ancestor: $path"
+      }
+    }
+    val canonical =
+      nonexistentSuffix
+        .asReversed()
+        .fold(existing.toRealPath()) { resolved, segment -> resolved.resolve(segment) }
+        .normalize()
+        .toString()
+    return if (isCaseInsensitive(existing)) canonical.lowercase(Locale.ROOT) else canonical
+  }
+
+  private fun isCaseInsensitive(path: Path): Boolean {
+    var existing: Path? = path.toRealPath()
+    while (existing?.fileName != null) {
+      val name = existing.fileName.toString()
+      val alternateName =
+        if (name.any(Char::isLowerCase)) name.uppercase(Locale.ROOT)
+        else name.lowercase(Locale.ROOT)
+      if (alternateName != name) {
+        val alternate = existing.resolveSibling(alternateName)
+        if (Files.exists(alternate) && Files.isSameFile(existing, alternate)) return true
+      }
+      existing = existing.parent
+    }
+    return false
+  }
 }
 
 abstract class BenchmarkHarnessSelfTest @Inject constructor(
@@ -171,6 +235,261 @@ abstract class BenchmarkHarnessSelfTest @Inject constructor(
       }
       .assertNormalExitValue()
   }
+}
+
+abstract class BenchmarkJmhFreshnessTest @Inject constructor(
+  private val execOperations: ExecOperations
+) : DefaultTask() {
+  @get:Internal abstract val repositoryRoot: DirectoryProperty
+
+  @get:InputFile abstract val wrapper: RegularFileProperty
+
+  @get:InputFile abstract val targetManifest: RegularFileProperty
+
+  @get:Input abstract val adapterId: Property<String>
+
+  @get:Internal abstract val outputRoot: DirectoryProperty
+
+  @TaskAction
+  fun verifyFreshExecution() {
+    val output = outputRoot.get().asFile.toPath().toAbsolutePath().normalize()
+    val raw = output.resolve("jmh-raw.json")
+    val normalized = output.resolve("revoman-benchmark-jmh-v1.json")
+    val human = output.resolve("jmh-output.txt")
+    Files.createDirectories(output)
+    listOf(raw, normalized, human).forEach(Files::deleteIfExists)
+    val arguments =
+      benchmarkArguments(
+        raw = raw,
+        normalized = normalized,
+        targetManifest = targetManifest.get().asFile.toPath(),
+        adapterId = adapterId.get(),
+      )
+
+    val first = runGradle(arguments)
+    check(first.exitCode == 0) { "First identical JMH command failed: ${first.output}" }
+    val firstRaw = Files.readAllBytes(raw)
+    val firstNormalized = Files.readAllBytes(normalized)
+    val second = runGradle(arguments)
+    check(second.exitCode == 0) { "Second identical JMH command failed: ${second.output}" }
+    check(!second.output.lineSequence().any { it.contains(":benchmark-driver:benchmarkJmh UP-TO-DATE") }) {
+      "Second identical JMH command reused stale evidence:\n${second.output}"
+    }
+    check(!second.output.lineSequence().any { it.contains(":benchmark-driver:benchmarkJmh FROM-CACHE") }) {
+      "Second identical JMH command restored cached evidence:\n${second.output}"
+    }
+    check(!Files.readAllBytes(raw).contentEquals(firstRaw)) {
+      "Second identical JMH command did not replace raw evidence"
+    }
+    check(!Files.readAllBytes(normalized).contentEquals(firstNormalized)) {
+      "Second identical JMH command did not replace normalized evidence"
+    }
+  }
+
+  private fun runGradle(arguments: List<String>): GradleInvocation {
+    val output = ByteArrayOutputStream()
+    val result =
+      execOperations.exec {
+        workingDir(repositoryRoot.get().asFile)
+        commandLine(wrapper.get().asFile.absolutePath, *arguments.toTypedArray())
+        standardOutput = output
+        errorOutput = output
+        isIgnoreExitValue = true
+      }
+    return GradleInvocation(result.exitValue, output.toString(Charsets.UTF_8))
+  }
+
+  private fun benchmarkArguments(
+    raw: Path,
+    normalized: Path,
+    targetManifest: Path,
+    adapterId: String,
+  ): List<String> =
+    listOf(
+      ":benchmark-driver:benchmarkJmh",
+      "-Pbenchmark.includes=HarnessSanityBenchmark",
+      "-Pbenchmark.targetManifest=${targetManifest.toAbsolutePath().normalize()}",
+      "-Pbenchmark.adapter=$adapterId",
+      "-Pbenchmark.quick=true",
+      "-Pbenchmark.rawJmhOutput=$raw",
+      "-Pbenchmark.resultOutput=$normalized",
+      "--console=plain",
+    )
+
+  private data class GradleInvocation(val exitCode: Int, val output: String)
+}
+
+abstract class BenchmarkJmhOutputCollisionTest @Inject constructor(
+  private val execOperations: ExecOperations
+) : DefaultTask() {
+  @get:Internal abstract val repositoryRoot: DirectoryProperty
+
+  @get:InputFile abstract val wrapper: RegularFileProperty
+
+  @get:InputFile abstract val targetManifest: RegularFileProperty
+
+  @get:Input abstract val adapterId: Property<String>
+
+  @get:Internal abstract val outputRoot: DirectoryProperty
+
+  @TaskAction
+  fun verifyCollisionPreservesPriorEvidence() {
+    val output = outputRoot.get().asFile.toPath().toAbsolutePath().normalize()
+    val raw = output.resolve("jmh-raw.json")
+    val normalizedAlias = output.resolve("revoman-benchmark-jmh-v1.json")
+    val human = output.resolve("jmh-output.txt")
+    Files.createDirectories(output)
+    listOf(raw, normalizedAlias, human).forEach(Files::deleteIfExists)
+    Files.writeString(raw, PRIOR_EVIDENCE)
+    Files.createLink(normalizedAlias, raw)
+
+    val captured = ByteArrayOutputStream()
+    val result =
+      execOperations.exec {
+        workingDir(repositoryRoot.get().asFile)
+        commandLine(
+          wrapper.get().asFile.absolutePath,
+          *benchmarkArguments(
+              raw = raw,
+              normalized = normalizedAlias,
+              targetManifest = targetManifest.get().asFile.toPath(),
+              adapterId = adapterId.get(),
+            )
+            .toTypedArray(),
+        )
+        standardOutput = captured
+        errorOutput = captured
+        isIgnoreExitValue = true
+      }
+    val processOutput = captured.toString(Charsets.UTF_8)
+    check(result.exitValue != 0) { "Aliased JMH outputs unexpectedly succeeded:\n$processOutput" }
+    check(processOutput.contains("JMH output paths must be pairwise distinct")) {
+      "Aliased JMH outputs failed for the wrong reason:\n$processOutput"
+    }
+    check(processOutput.contains("raw=") && processOutput.contains("normalized=")) {
+      "Aliased JMH output diagnostic did not identify both paths:\n$processOutput"
+    }
+    check(Files.isSameFile(raw, normalizedAlias)) {
+      "Aliased JMH output failure replaced one of the prior files"
+    }
+    check(Files.readString(raw) == PRIOR_EVIDENCE) {
+      "Aliased JMH output failure changed prior evidence"
+    }
+    check(!Files.exists(human) && !Files.exists(raw.resolveSibling(".${raw.fileName}.tmp"))) {
+      "Aliased JMH output failure reached execution outputs"
+    }
+
+    Files.delete(normalizedAlias)
+    Files.delete(raw)
+    val realParent = output.resolve("real-parent")
+    val aliasParent = output.resolve("alias-parent")
+    Files.createDirectories(realParent)
+    Files.deleteIfExists(aliasParent)
+    Files.createSymbolicLink(aliasParent, realParent)
+    val nonexistentRaw = realParent.resolve("shared.json")
+    val nonexistentNormalizedAlias = aliasParent.resolve("shared.json")
+    Files.deleteIfExists(nonexistentRaw)
+    val nonexistentCaptured = ByteArrayOutputStream()
+    val nonexistentResult =
+      execOperations.exec {
+        workingDir(repositoryRoot.get().asFile)
+        commandLine(
+          wrapper.get().asFile.absolutePath,
+          *benchmarkArguments(
+              raw = nonexistentRaw,
+              normalized = nonexistentNormalizedAlias,
+              targetManifest = targetManifest.get().asFile.toPath(),
+              adapterId = adapterId.get(),
+            )
+            .toTypedArray(),
+        )
+        standardOutput = nonexistentCaptured
+        errorOutput = nonexistentCaptured
+        isIgnoreExitValue = true
+      }
+    val nonexistentOutput = nonexistentCaptured.toString(Charsets.UTF_8)
+    check(nonexistentResult.exitValue != 0) {
+      "Nonexistent outputs below aliased parents unexpectedly succeeded:\n$nonexistentOutput"
+    }
+    check(nonexistentOutput.contains("JMH output paths must be pairwise distinct")) {
+      "Nonexistent outputs below aliased parents failed for the wrong reason:\n$nonexistentOutput"
+    }
+    check(!Files.exists(nonexistentRaw)) {
+      "Nonexistent aliased JMH output reached execution"
+    }
+
+    val caseParent = output.resolve("case-parent")
+    Files.createDirectories(caseParent)
+    if (isCaseInsensitive(caseParent)) {
+      val caseRaw = caseParent.resolve("evidence.json")
+      val caseNormalized = caseParent.resolve("JMH-OUTPUT.TXT")
+      val caseHuman = caseParent.resolve("jmh-output.txt")
+      listOf(caseRaw, caseNormalized, caseHuman).forEach(Files::deleteIfExists)
+      val caseCaptured = ByteArrayOutputStream()
+      val caseResult =
+        execOperations.exec {
+          workingDir(repositoryRoot.get().asFile)
+          commandLine(
+            wrapper.get().asFile.absolutePath,
+            *benchmarkArguments(
+                raw = caseRaw,
+                normalized = caseNormalized,
+                targetManifest = targetManifest.get().asFile.toPath(),
+                adapterId = adapterId.get(),
+              )
+              .toTypedArray(),
+          )
+          standardOutput = caseCaptured
+          errorOutput = caseCaptured
+          isIgnoreExitValue = true
+        }
+      val caseOutput = caseCaptured.toString(Charsets.UTF_8)
+      check(caseResult.exitValue != 0) {
+        "Case-variant aliased outputs unexpectedly succeeded:\n$caseOutput"
+      }
+      check(caseOutput.contains("JMH output paths must be pairwise distinct")) {
+        "Case-variant aliased outputs failed for the wrong reason:\n$caseOutput"
+      }
+      check(!Files.exists(caseRaw) && !Files.exists(caseNormalized) && !Files.exists(caseHuman)) {
+        "Case-variant aliased JMH output reached execution"
+      }
+    }
+  }
+
+  private companion object {
+    const val PRIOR_EVIDENCE: String = "prior-evidence"
+  }
+
+  private fun isCaseInsensitive(directory: Path): Boolean {
+    val lower = directory.resolve("case-sensitivity-probe")
+    val upper = directory.resolve("CASE-SENSITIVITY-PROBE")
+    Files.deleteIfExists(lower)
+    Files.deleteIfExists(upper)
+    Files.writeString(lower, "probe")
+    return try {
+      Files.exists(upper) && Files.isSameFile(lower, upper)
+    } finally {
+      Files.deleteIfExists(lower)
+      Files.deleteIfExists(upper)
+    }
+  }
+
+  private fun benchmarkArguments(
+    raw: Path,
+    normalized: Path,
+    targetManifest: Path,
+    adapterId: String,
+  ): List<String> =
+    listOf(
+      ":benchmark-driver:benchmarkJmh",
+      "-Pbenchmark.includes=HarnessSanityBenchmark",
+      "-Pbenchmark.targetManifest=${targetManifest.toAbsolutePath().normalize()}",
+      "-Pbenchmark.adapter=$adapterId",
+      "-Pbenchmark.quick=true",
+      "-Pbenchmark.rawJmhOutput=$raw",
+      "-Pbenchmark.resultOutput=$normalized",
+      "--console=plain",
+    )
 }
 
 plugins {
@@ -348,6 +667,7 @@ val benchmarkJmh = tasks.register<StrictJmhJavaExec>("benchmarkJmh") {
   rawOutput.set(rawJmhOutput)
   normalizedOutput.set(normalizedJmhOutput)
   humanOutput.set(humanJmhOutput)
+  outputs.upToDateWhen { false }
 }
 
 tasks.register<BenchmarkHarnessSelfTest>("benchmarkHarnessSelfTest") {
@@ -368,5 +688,27 @@ tasks.register<BenchmarkHarnessSelfTest>("benchmarkHarnessSelfTest") {
   )
   adapterId.set(benchmarkAdapter)
   exportedManifest.set(layout.buildDirectory.file("self-test/benchmark-target-current.json"))
+  outputs.upToDateWhen { false }
+}
+
+tasks.register<BenchmarkJmhFreshnessTest>("benchmarkJmhFreshnessTest") {
+  group = "verification"
+  description = "Runs an identical JMH command twice and requires fresh evidence"
+  repositoryRoot.set(rootProject.layout.projectDirectory)
+  wrapper.set(rootProject.layout.projectDirectory.file("gradlew"))
+  targetManifest.set(benchmarkTargetManifest.map(rootProject.layout.projectDirectory::file))
+  adapterId.set(benchmarkAdapter)
+  outputRoot.set(layout.buildDirectory.dir("self-test/freshness"))
+  outputs.upToDateWhen { false }
+}
+
+tasks.register<BenchmarkJmhOutputCollisionTest>("benchmarkJmhOutputCollisionTest") {
+  group = "verification"
+  description = "Rejects aliased JMH outputs without changing prior evidence"
+  repositoryRoot.set(rootProject.layout.projectDirectory)
+  wrapper.set(rootProject.layout.projectDirectory.file("gradlew"))
+  targetManifest.set(benchmarkTargetManifest.map(rootProject.layout.projectDirectory::file))
+  adapterId.set(benchmarkAdapter)
+  outputRoot.set(layout.buildDirectory.dir("self-test/output-collision"))
   outputs.upToDateWhen { false }
 }
