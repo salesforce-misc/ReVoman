@@ -32,7 +32,10 @@ import java.nio.file.Path
 import java.nio.file.StandardCopyOption.ATOMIC_MOVE
 import java.nio.file.StandardCopyOption.REPLACE_EXISTING
 import java.time.Duration
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.ExecutorService
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.system.exitProcess
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -178,15 +181,117 @@ class RunnerIntegrationTest {
                 timeout = Duration.ofSeconds(2),
                 additionalParameters = mapOf("childPidFile" to childPidFile.toString()),
             )
+        var childPid: Long? = null
+        try {
+            val failure = assertThrows<IllegalStateException> { JdkProcessLauncher().launch(command) }
 
-        val failure = assertThrows<IllegalStateException> { JdkProcessLauncher().launch(command) }
-
-        assertThat(failure).hasMessageThat().contains("timed out")
-        val childPid = Files.readString(childPidFile).toLong()
-        repeat(20) {
-            if (ProcessHandle.of(childPid).map(ProcessHandle::isAlive).orElse(false)) Thread.sleep(50)
+            assertThat(failure).hasMessageThat().contains("timed out")
+            childPid = awaitProcessId(childPidFile)
+            awaitProcessExit(childPid)
+            assertThat(processIsAlive(childPid)).isFalse()
+        } finally {
+            childPid?.let(::forceStopFixtureProcess)
         }
-        assertThat(ProcessHandle.of(childPid).map(ProcessHandle::isAlive).orElse(false)).isFalse()
+    }
+
+    @Test
+    fun `successful child with redirected live descendant is invalid and cleaned`() {
+        val childPidFile = temporaryDirectory.resolve("valid-orphan-descendant.pid")
+        val rootReleaseFile = temporaryDirectory.resolve("valid-orphan-root.release")
+        val shutdownFailure = DeliberateCleanupFailure("launcher task shutdown failed")
+        val guardFailure = DeliberateCleanupFailure("guard delete failed")
+        val cleanup =
+            InjectedLauncherCleanup(
+                shutdownFailure = shutdownFailure,
+                guardFailure = guardFailure,
+            )
+        val tracker = AtomicReference<ProcessTreeTracking>()
+        val coordinator = releaseRootAfterDescendantIsTracked(childPidFile, rootReleaseFile, tracker)
+        var childPid: Long? = null
+        try {
+            val failure = assertThrows<IllegalStateException> {
+                JdkProcessLauncher(cleanup, retainingTrackerFactory(tracker))
+                    .launch(
+                        launcherFixtureCommand(
+                            mode = "valid-orphan",
+                            timeout = Duration.ofSeconds(10),
+                            additionalParameters =
+                                mapOf(
+                                    "childPidFile" to childPidFile.toString(),
+                                    "rootReleaseFile" to rootReleaseFile.toString(),
+                                ),
+                        )
+                    )
+            }
+
+            childPid = awaitProcessId(childPidFile)
+            assertThat(failure).hasMessageThat().contains("live descendant")
+            assertThat(failure.suppressed)
+                .asList()
+                .containsExactly(shutdownFailure, guardFailure)
+                .inOrder()
+            assertThat(cleanup.calls).containsExactly("termination", "shutdown", "guard").inOrder()
+            assertThat(cleanup.terminationCalls).isEqualTo(1)
+            assertThat(processIsAlive(childPid)).isFalse()
+        } finally {
+            Files.writeString(rootReleaseFile, "release")
+            val coordinationFailure = runCatching(coordinator::await).exceptionOrNull()
+            childPid = childPid ?: readProcessIdIfPresent(childPidFile)
+            childPid?.let(::forceStopFixtureProcess)
+            coordinationFailure?.let { throw it }
+        }
+    }
+
+    @Test
+    fun `tracker retains a child that spawns a grandchild after root exit`() {
+        val childPidFile = temporaryDirectory.resolve("late-grandchild-child.pid")
+        val grandchildPidFile = temporaryDirectory.resolve("late-grandchild.pid")
+        val rootReleaseFile = temporaryDirectory.resolve("late-grandchild-root.release")
+        val grandchildTrackedFile = temporaryDirectory.resolve("late-grandchild-tracked.release")
+        val tracker = AtomicReference<ProcessTreeTracking>()
+        val coordinator =
+            coordinateLateGrandchild(
+                childPidFile = childPidFile,
+                grandchildPidFile = grandchildPidFile,
+                rootReleaseFile = rootReleaseFile,
+                grandchildTrackedFile = grandchildTrackedFile,
+                trackerReference = tracker,
+            )
+        var childPid: Long? = null
+        var grandchildPid: Long? = null
+        try {
+            val failure = assertThrows<IllegalStateException> {
+                JdkProcessLauncher(DefaultLauncherCleanup, retainingTrackerFactory(tracker))
+                    .launch(
+                        launcherFixtureCommand(
+                            mode = "late-grandchild",
+                            timeout = Duration.ofSeconds(10),
+                            additionalParameters =
+                                mapOf(
+                                    "childPidFile" to childPidFile.toString(),
+                                    "grandchildPidFile" to grandchildPidFile.toString(),
+                                    "rootReleaseFile" to rootReleaseFile.toString(),
+                                    "grandchildTrackedFile" to grandchildTrackedFile.toString(),
+                                ),
+                        )
+                    )
+            }
+
+            childPid = awaitProcessId(childPidFile)
+            grandchildPid = awaitProcessId(grandchildPidFile)
+            assertThat(failure).hasMessageThat().contains("live descendant")
+            assertThat(processIsAlive(childPid)).isFalse()
+            assertThat(processIsAlive(grandchildPid)).isFalse()
+        } finally {
+            Files.writeString(rootReleaseFile, "release")
+            Files.writeString(grandchildTrackedFile, "release")
+            val coordinationFailure = runCatching(coordinator::await).exceptionOrNull()
+            childPid = childPid ?: readProcessIdIfPresent(childPidFile)
+            grandchildPid = grandchildPid ?: readProcessIdIfPresent(grandchildPidFile)
+            childPid?.let(::forceStopFixtureProcess)
+            grandchildPid?.let(::forceStopFixtureProcess)
+            coordinationFailure?.let { throw it }
+        }
     }
 
     @Test
@@ -201,15 +306,22 @@ class RunnerIntegrationTest {
                 guardFailure = guardFailure,
             )
         val childPidFile = temporaryDirectory.resolve("post-root-pipes-descendant.pid")
+        val rootReleaseFile = temporaryDirectory.resolve("post-root-pipes-root.release")
+        val tracker = AtomicReference<ProcessTreeTracking>()
+        val coordinator = releaseRootAfterDescendantIsTracked(childPidFile, rootReleaseFile, tracker)
         var childPid: Long? = null
         try {
             val failure = assertThrows<IllegalStateException> {
-                JdkProcessLauncher(cleanup)
+                JdkProcessLauncher(cleanup, retainingTrackerFactory(tracker))
                     .launch(
                         launcherFixtureCommand(
                             mode = "orphan-pipes",
                             timeout = Duration.ofSeconds(10),
-                            additionalParameters = mapOf("childPidFile" to childPidFile.toString()),
+                            additionalParameters =
+                                mapOf(
+                                    "childPidFile" to childPidFile.toString(),
+                                    "rootReleaseFile" to rootReleaseFile.toString(),
+                                ),
                         )
                     )
             }
@@ -224,7 +336,11 @@ class RunnerIntegrationTest {
             assertThat(cleanup.terminationCalls).isEqualTo(1)
             assertThat(processIsAlive(childPid)).isFalse()
         } finally {
+            Files.writeString(rootReleaseFile, "release")
+            val coordinationFailure = runCatching(coordinator::await).exceptionOrNull()
+            childPid = childPid ?: readProcessIdIfPresent(childPidFile)
             childPid?.let(::forceStopFixtureProcess)
+            coordinationFailure?.let { throw it }
         }
     }
 
@@ -236,16 +352,23 @@ class RunnerIntegrationTest {
             )
             .forEach { (mode, expectedMessage) ->
                 val childPidFile = temporaryDirectory.resolve("$mode-descendant.pid")
+                val rootReleaseFile = temporaryDirectory.resolve("$mode-root.release")
+                val tracker = AtomicReference<ProcessTreeTracking>()
+                val coordinator =
+                    releaseRootAfterDescendantIsTracked(childPidFile, rootReleaseFile, tracker)
                 var childPid: Long? = null
                 try {
                     val failure = assertThrows<IllegalStateException> {
-                        JdkProcessLauncher()
+                        JdkProcessLauncher(DefaultLauncherCleanup, retainingTrackerFactory(tracker))
                             .launch(
                                 launcherFixtureCommand(
                                     mode = mode,
                                     timeout = Duration.ofSeconds(10),
                                     additionalParameters =
-                                        mapOf("childPidFile" to childPidFile.toString()),
+                                        mapOf(
+                                            "childPidFile" to childPidFile.toString(),
+                                            "rootReleaseFile" to rootReleaseFile.toString(),
+                                        ),
                                 )
                             )
                     }
@@ -254,7 +377,11 @@ class RunnerIntegrationTest {
                     assertThat(failure).hasMessageThat().contains(expectedMessage)
                     assertThat(processIsAlive(childPid)).isFalse()
                 } finally {
+                    Files.writeString(rootReleaseFile, "release")
+                    val coordinationFailure = runCatching(coordinator::await).exceptionOrNull()
+                    childPid = childPid ?: readProcessIdIfPresent(childPidFile)
                     childPid?.let(::forceStopFixtureProcess)
+                    coordinationFailure?.let { throw it }
                 }
             }
     }
@@ -276,6 +403,8 @@ class RunnerIntegrationTest {
 
         assertThat(failure).hasMessageThat().contains("exit code 17")
         assertThat(failure.suppressed).asList().containsExactly(shutdownFailure, guardFailure).inOrder()
+        assertThat(cleanup.calls).containsExactly("termination", "shutdown", "guard").inOrder()
+        assertThat(cleanup.terminationCalls).isEqualTo(1)
     }
 
     @Test
@@ -341,28 +470,38 @@ class RunnerIntegrationTest {
                 additionalParameters = mapOf("childPidFile" to childPidFile.toString()),
             )
 
-        val failure = assertThrows<IllegalStateException> {
-            JdkProcessLauncher(cleanup).launch(command)
-        }
+        var childPid: Long? = null
+        try {
+            val failure = assertThrows<IllegalStateException> {
+                JdkProcessLauncher(cleanup).launch(command)
+            }
 
-        assertThat(failure).hasMessageThat().contains("timed out")
-        assertThat(failure.suppressed)
-            .asList()
-            .containsExactly(terminationFailure, shutdownFailure, guardFailure)
-            .inOrder()
-        assertThat(terminationFailure.suppressed).asList().containsExactly(nestedTerminationFailure)
-        assertThat(cleanup.calls).containsExactly("termination", "shutdown", "guard").inOrder()
-        assertThat(cleanup.terminationCalls).isEqualTo(1)
-        val childPid = Files.readString(childPidFile).toLong()
-        assertThat(ProcessHandle.of(childPid).map(ProcessHandle::isAlive).orElse(false)).isFalse()
+            assertThat(failure).hasMessageThat().contains("timed out")
+            assertThat(failure.suppressed)
+                .asList()
+                .containsExactly(terminationFailure, shutdownFailure, guardFailure)
+                .inOrder()
+            assertThat(terminationFailure.suppressed)
+                .asList()
+                .containsExactly(nestedTerminationFailure)
+            assertThat(cleanup.calls).containsExactly("termination", "shutdown", "guard").inOrder()
+            assertThat(cleanup.terminationCalls).isEqualTo(1)
+            childPid = awaitProcessId(childPidFile)
+            assertThat(processIsAlive(childPid)).isFalse()
+        } finally {
+            childPid = childPid ?: readProcessIdIfPresent(childPidFile)
+            childPid?.let(::forceStopFixtureProcess)
+        }
     }
 
     @Test
     fun `successful body promotes first cleanup failure and suppresses later failures`() {
+        val terminationFailure = DeliberateCleanupFailure("process tree finalization failed")
         val shutdownFailure = DeliberateCleanupFailure("drain shutdown failed")
         val guardFailure = DeliberateCleanupFailure("guard delete failed")
         val cleanup =
             InjectedLauncherCleanup(
+                terminationFailure = terminationFailure,
                 shutdownFailure = shutdownFailure,
                 guardFailure = guardFailure,
             )
@@ -372,8 +511,23 @@ class RunnerIntegrationTest {
                 .launch(launcherFixtureCommand("valid", Duration.ofSeconds(10)))
         }
 
-        assertThat(failure).isSameInstanceAs(shutdownFailure)
-        assertThat(failure.suppressed).asList().containsExactly(guardFailure)
+        assertThat(failure).isSameInstanceAs(terminationFailure)
+        assertThat(failure.suppressed).asList().containsExactly(shutdownFailure, guardFailure).inOrder()
+        assertThat(cleanup.calls).containsExactly("termination", "shutdown", "guard").inOrder()
+        assertThat(cleanup.terminationCalls).isEqualTo(1)
+    }
+
+    @Test
+    fun `successful body finalizes its owned process tree exactly once`() {
+        val cleanup = InjectedLauncherCleanup()
+
+        val observation =
+            JdkProcessLauncher(cleanup)
+                .launch(launcherFixtureCommand("valid", Duration.ofSeconds(10)))
+
+        assertThat(observation.exitCode).isEqualTo(0)
+        assertThat(cleanup.calls).containsExactly("termination", "shutdown", "guard").inOrder()
+        assertThat(cleanup.terminationCalls).isEqualTo(1)
     }
 
     @Test
@@ -397,23 +551,97 @@ class RunnerIntegrationTest {
     }
 
     @Test
-    fun `unexpected tracker failure invalidates evidence and triggers ordered cleanup`() {
+    fun `unexpected tracker failure promptly finalizes a long-lived root`() {
         val trackingFailure = DeliberateCleanupFailure("descendant tracking failed")
         val cleanup = InjectedLauncherCleanup()
+        val rootPidFile = temporaryDirectory.resolve("tracker-failure-root.pid")
         val trackerFactory =
             ProcessTreeTrackerFactory {
-                FailingProcessTreeTracking(trackingFailure)
+                FailingProcessTreeTracking(trackingFailure) {
+                    awaitFixtureCondition("long-lived root process to start") {
+                        Files.isRegularFile(rootPidFile)
+                    }
+                }
+            }
+        val startedAt = System.nanoTime()
+        var rootPid: Long? = null
+        try {
+            val failure = assertThrows<IllegalStateException> {
+                JdkProcessLauncher(cleanup, trackerFactory)
+                    .launch(
+                        launcherFixtureCommand(
+                            mode = "long-lived",
+                            timeout = Duration.ofSeconds(30),
+                            additionalParameters = mapOf("rootPidFile" to rootPidFile.toString()),
+                        )
+                    )
             }
 
-        val failure = assertThrows<IllegalStateException> {
-            JdkProcessLauncher(cleanup, trackerFactory)
-                .launch(launcherFixtureCommand("valid", Duration.ofSeconds(10)))
+            val elapsed = System.nanoTime() - startedAt
+            rootPid = awaitProcessId(rootPidFile)
+            assertThat(failure).hasMessageThat().contains("Could not track target process descendants")
+            assertThat(failure).hasCauseThat().isSameInstanceAs(trackingFailure)
+            assertThat(elapsed).isLessThan(Duration.ofSeconds(5).toNanos())
+            assertThat(cleanup.calls).containsExactly("termination", "shutdown", "guard").inOrder()
+            assertThat(cleanup.terminationCalls).isEqualTo(1)
+            assertThat(processIsAlive(rootPid)).isFalse()
+        } finally {
+            rootPid = rootPid ?: readProcessIdIfPresent(rootPidFile)
+            rootPid?.let(::forceStopFixtureTree)
         }
+    }
 
-        assertThat(failure).hasMessageThat().contains("Could not track target process descendants")
-        assertThat(failure).hasCauseThat().isSameInstanceAs(trackingFailure)
-        assertThat(cleanup.calls).containsExactly("termination", "shutdown", "guard").inOrder()
-        assertThat(cleanup.terminationCalls).isEqualTo(1)
+    @Test
+    fun `tracker overflow promptly finalizes a long-lived process tree`() {
+        val cleanup = InjectedLauncherCleanup()
+        val rootPidFile = temporaryDirectory.resolve("tracker-overflow-root.pid")
+        val childPidFile = temporaryDirectory.resolve("tracker-overflow-children.pid")
+        val trackerFactory =
+            ProcessTreeTrackerFactory { root ->
+                DeferredProcessTreeTracking(
+                    delegate = ProcessTreeTracker(root, maxTrackedDescendants = 1),
+                    beforeRun = {
+                        awaitFixtureCondition("overflow fixture children to start") {
+                            readProcessIdsIfPresent(childPidFile).size == 2
+                        }
+                    },
+                )
+            }
+        val startedAt = System.nanoTime()
+        var rootPid: Long? = null
+        var childPids = emptyList<Long>()
+        try {
+            val failure = assertThrows<IllegalStateException> {
+                JdkProcessLauncher(cleanup, trackerFactory)
+                    .launch(
+                        launcherFixtureCommand(
+                            mode = "tracker-overflow",
+                            timeout = Duration.ofSeconds(30),
+                            additionalParameters =
+                                mapOf(
+                                    "rootPidFile" to rootPidFile.toString(),
+                                    "childPidFile" to childPidFile.toString(),
+                                ),
+                        )
+                    )
+            }
+
+            val elapsed = System.nanoTime() - startedAt
+            rootPid = awaitProcessId(rootPidFile)
+            childPids = awaitProcessIds(childPidFile, expectedCount = 2)
+            assertThat(failure).hasMessageThat().contains("Could not track target process descendants")
+            assertThat(failure).hasCauseThat().hasMessageThat().contains("exceeded 1 live descendants")
+            assertThat(elapsed).isLessThan(Duration.ofSeconds(5).toNanos())
+            assertThat(cleanup.calls).containsExactly("termination", "shutdown", "guard").inOrder()
+            assertThat(cleanup.terminationCalls).isEqualTo(1)
+            assertThat(processIsAlive(rootPid)).isFalse()
+            childPids.forEach { childPid -> assertThat(processIsAlive(childPid)).isFalse() }
+        } finally {
+            rootPid = rootPid ?: readProcessIdIfPresent(rootPidFile)
+            childPids = if (childPids.isEmpty()) readProcessIdsIfPresent(childPidFile) else childPids
+            rootPid?.let(::forceStopFixtureTree)
+            childPids.forEach(::forceStopFixtureProcess)
+        }
     }
 
     private fun launcherFixtureCommand(
@@ -495,7 +723,7 @@ class ProcessLauncherFixtureMain {
                         Path.of(command.workload.parameters.getValue("childPidFile")),
                         descendant.pid().toString(),
                     )
-                    Thread.sleep(Duration.ofMinutes(5))
+                    CountDownLatch(1).await()
                 }
                 "orphan-pipes" -> spawnLongLivedDescendant(command, inheritPipes = true)
                 "orphan-nonzero" -> {
@@ -506,6 +734,22 @@ class ProcessLauncherFixtureMain {
                     spawnLongLivedDescendant(command, inheritPipes = false)
                     writeRawAtomically(Path.of(command.resultFile), "{malformed".toByteArray())
                 }
+                "valid-orphan" -> {
+                    spawnControlledDescendant(command, inheritPipes = false)
+                    writeFixtureResult(command)
+                }
+                "late-grandchild" -> {
+                    spawnLateGrandchildChild(command)
+                    writeFixtureResult(command)
+                }
+                "long-lived" -> {
+                    Files.writeString(
+                        Path.of(command.workload.parameters.getValue("rootPidFile")),
+                        ProcessHandle.current().pid().toString(),
+                    )
+                    CountDownLatch(1).await()
+                }
+                "tracker-overflow" -> spawnOverflowDescendants(command)
                 else -> error("Unknown launcher fixture mode")
             }
         }
@@ -517,7 +761,36 @@ class SleepingDescendantMain {
         @JvmStatic
         fun main(arguments: Array<String>) {
             require(arguments.isEmpty())
-            Thread.sleep(Duration.ofMinutes(5))
+            CountDownLatch(1).await()
+        }
+    }
+}
+
+class LateGrandchildChildMain {
+    companion object {
+        @JvmStatic
+        fun main(arguments: Array<String>) {
+            require(arguments.size == 4)
+            val rootPid = arguments[0].toLong()
+            val childPidFile = Path.of(arguments[1])
+            val grandchildPidFile = Path.of(arguments[2])
+            val grandchildTrackedFile = Path.of(arguments[3])
+            Files.writeString(childPidFile, ProcessHandle.current().pid().toString())
+            awaitFixtureCondition("root process $rootPid to exit") { !processIsAlive(rootPid) }
+            val grandchild =
+                ProcessBuilder(
+                        javaExecutable().toString(),
+                        "-cp",
+                        System.getProperty("java.class.path"),
+                        SleepingDescendantMain::class.java.name,
+                    )
+                    .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                    .redirectError(ProcessBuilder.Redirect.DISCARD)
+                    .start()
+            Files.writeString(grandchildPidFile, grandchild.pid().toString())
+            awaitFixtureCondition("grandchild tracker acknowledgement") {
+                Files.isRegularFile(grandchildTrackedFile)
+            }
         }
     }
 }
@@ -545,7 +818,81 @@ private fun spawnLongLivedDescendant(command: TargetForkCommand, inheritPipes: B
         Path.of(command.workload.parameters.getValue("childPidFile")),
         descendant.pid().toString(),
     )
-    Thread.sleep(Duration.ofMillis(500))
+    awaitFixtureCondition("root release") {
+        Files.isRegularFile(Path.of(command.workload.parameters.getValue("rootReleaseFile")))
+    }
+}
+
+private fun spawnControlledDescendant(command: TargetForkCommand, inheritPipes: Boolean) {
+    val builder =
+        ProcessBuilder(
+            javaExecutable().toString(),
+            "-cp",
+            System.getProperty("java.class.path"),
+            SleepingDescendantMain::class.java.name,
+        )
+    if (inheritPipes) {
+        builder.inheritIO()
+    } else {
+        builder.redirectOutput(ProcessBuilder.Redirect.DISCARD)
+        builder.redirectError(ProcessBuilder.Redirect.DISCARD)
+    }
+    val descendant = builder.start()
+    Files.writeString(
+        Path.of(command.workload.parameters.getValue("childPidFile")),
+        descendant.pid().toString(),
+    )
+    awaitFixtureCondition("root release") {
+        Files.isRegularFile(Path.of(command.workload.parameters.getValue("rootReleaseFile")))
+    }
+}
+
+private fun spawnLateGrandchildChild(command: TargetForkCommand) {
+    val parameters = command.workload.parameters
+    val child =
+        ProcessBuilder(
+                javaExecutable().toString(),
+                "-cp",
+                System.getProperty("java.class.path"),
+                LateGrandchildChildMain::class.java.name,
+                ProcessHandle.current().pid().toString(),
+                parameters.getValue("childPidFile"),
+                parameters.getValue("grandchildPidFile"),
+                parameters.getValue("grandchildTrackedFile"),
+            )
+            .inheritIO()
+            .start()
+    awaitFixtureCondition("late-grandchild child ${child.pid()} to become ready") {
+        Files.isRegularFile(Path.of(parameters.getValue("childPidFile")))
+    }
+    awaitFixtureCondition("root release") {
+        Files.isRegularFile(Path.of(parameters.getValue("rootReleaseFile")))
+    }
+}
+
+private fun spawnOverflowDescendants(command: TargetForkCommand) {
+    val parameters = command.workload.parameters
+    Files.writeString(
+        Path.of(parameters.getValue("rootPidFile")),
+        ProcessHandle.current().pid().toString(),
+    )
+    val descendants =
+        List(2) {
+            ProcessBuilder(
+                    javaExecutable().toString(),
+                    "-cp",
+                    System.getProperty("java.class.path"),
+                    SleepingDescendantMain::class.java.name,
+                )
+                .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                .redirectError(ProcessBuilder.Redirect.DISCARD)
+                .start()
+        }
+    Files.writeString(
+        Path.of(parameters.getValue("childPidFile")),
+        descendants.joinToString(separator = "\n") { process -> process.pid().toString() },
+    )
+    CountDownLatch(1).await()
 }
 
 private fun writeFixtureResultInPlace(command: TargetForkCommand) {
@@ -648,24 +995,171 @@ private infix fun Int.shouldEqual(expected: Int) {
 private fun processIsAlive(processId: Long): Boolean =
     ProcessHandle.of(processId).map(ProcessHandle::isAlive).orElse(false)
 
+private fun retainingTrackerFactory(
+    reference: AtomicReference<ProcessTreeTracking>
+): ProcessTreeTrackerFactory =
+    ProcessTreeTrackerFactory { root ->
+        ProcessTreeTracker(root).also(reference::set)
+    }
+
+private fun releaseRootAfterDescendantIsTracked(
+    childPidFile: Path,
+    rootReleaseFile: Path,
+    trackerReference: AtomicReference<ProcessTreeTracking>,
+): FixtureCoordinator =
+    fixtureCoordinator {
+        try {
+            val childPid = awaitProcessId(childPidFile)
+            val tracker = awaitTracker(trackerReference)
+            awaitFixtureCondition("descendant $childPid to be retained") {
+                tracker.snapshot().descendants.any { handle -> handle.pid() == childPid }
+            }
+        } finally {
+            Files.writeString(rootReleaseFile, "release")
+        }
+    }
+
+private fun coordinateLateGrandchild(
+    childPidFile: Path,
+    grandchildPidFile: Path,
+    rootReleaseFile: Path,
+    grandchildTrackedFile: Path,
+    trackerReference: AtomicReference<ProcessTreeTracking>,
+): FixtureCoordinator =
+    fixtureCoordinator {
+        try {
+            val childPid = awaitProcessId(childPidFile)
+            val tracker = awaitTracker(trackerReference)
+            awaitFixtureCondition("child $childPid to be retained") {
+                tracker.snapshot().descendants.any { handle -> handle.pid() == childPid }
+            }
+            Files.writeString(rootReleaseFile, "release")
+            val grandchildPid = awaitProcessId(grandchildPidFile)
+            awaitFixtureCondition("late grandchild $grandchildPid to be retained") {
+                tracker.snapshot().descendants.any { handle -> handle.pid() == grandchildPid }
+            }
+        } finally {
+            Files.writeString(rootReleaseFile, "release")
+            Files.writeString(grandchildTrackedFile, "release")
+        }
+    }
+
+private fun awaitTracker(reference: AtomicReference<ProcessTreeTracking>): ProcessTreeTracking {
+    awaitFixtureCondition("process tree tracker") { reference.get() != null }
+    return requireNotNull(reference.get())
+}
+
+private fun awaitProcessId(path: Path): Long {
+    awaitFixtureCondition("process ID file $path") { Files.isRegularFile(path) }
+    return Files.readString(path).toLong()
+}
+
+private fun readProcessIdIfPresent(path: Path): Long? =
+    if (Files.isRegularFile(path)) Files.readString(path).toLongOrNull() else null
+
+private fun awaitProcessIds(path: Path, expectedCount: Int): List<Long> {
+    awaitFixtureCondition("$expectedCount process IDs in $path") {
+        readProcessIdsIfPresent(path).size == expectedCount
+    }
+    return readProcessIdsIfPresent(path)
+}
+
+private fun readProcessIdsIfPresent(path: Path): List<Long> =
+    if (Files.isRegularFile(path)) {
+        Files.readAllLines(path).mapNotNull(String::toLongOrNull)
+    } else {
+        emptyList()
+    }
+
+private fun awaitProcessExit(processId: Long) {
+    awaitFixtureCondition("process $processId to exit") { !processIsAlive(processId) }
+}
+
+private fun awaitFixtureCondition(description: String, condition: () -> Boolean) {
+    val deadline = System.nanoTime() + Duration.ofSeconds(5).toNanos()
+    while (!condition()) {
+        check(System.nanoTime() < deadline) { "Timed out waiting for $description" }
+        Thread.sleep(10)
+    }
+}
+
+private fun fixtureCoordinator(action: () -> Unit): FixtureCoordinator {
+    val failure = AtomicReference<Throwable?>()
+    val thread =
+        Thread.ofVirtual().name("revoman-benchmark-fixture-coordinator").start {
+            try {
+                action()
+            } catch (caught: Throwable) {
+                failure.set(caught)
+            }
+        }
+    return FixtureCoordinator(thread, failure)
+}
+
+private class FixtureCoordinator(
+    private val thread: Thread,
+    private val failure: AtomicReference<Throwable?>,
+) {
+    fun await() {
+        thread.join(Duration.ofSeconds(5))
+        check(!thread.isAlive) { "Fixture coordinator did not stop" }
+        failure.get()?.let { throw AssertionError("Fixture coordination failed", it) }
+    }
+}
+
 private fun forceStopFixtureProcess(processId: Long) {
     ProcessHandle.of(processId).ifPresent(ProcessHandle::destroyForcibly)
-    repeat(100) {
-        if (!processIsAlive(processId)) return
-        Thread.sleep(20)
+    runCatching { awaitProcessExit(processId) }
+}
+
+private fun forceStopFixtureTree(processId: Long) {
+    ProcessHandle.of(processId).ifPresent { root ->
+        root.descendants().use { descendants ->
+            descendants.toList().asReversed().forEach(ProcessHandle::destroyForcibly)
+        }
+        root.destroyForcibly()
     }
+    forceStopFixtureProcess(processId)
 }
 
 private class DeliberateCleanupFailure(message: String) : RuntimeException(message)
 
-private class FailingProcessTreeTracking(private val failure: Throwable) : ProcessTreeTracking {
-    override fun run() = Unit
+private class FailingProcessTreeTracking(
+    private val failure: Throwable,
+    private val beforeFailure: () -> Unit = {},
+) : ProcessTreeTracking {
+    private val signal = CompletableFuture<Throwable>()
+
+    override fun run() {
+        beforeFailure()
+        signal.complete(failure)
+    }
 
     override fun stopSampling() = Unit
 
     override fun failureOrNull(): Throwable = failure
 
+    override fun failureSignal(): CompletableFuture<Throwable> = signal
+
     override fun snapshot(): ProcessTreeSnapshot = ProcessTreeSnapshot(emptyList())
+}
+
+private class DeferredProcessTreeTracking(
+    private val delegate: ProcessTreeTracking,
+    private val beforeRun: () -> Unit,
+) : ProcessTreeTracking {
+    override fun run() {
+        beforeRun()
+        delegate.run()
+    }
+
+    override fun stopSampling() = delegate.stopSampling()
+
+    override fun failureOrNull(): Throwable? = delegate.failureOrNull()
+
+    override fun failureSignal(): CompletableFuture<Throwable> = delegate.failureSignal()
+
+    override fun snapshot(): ProcessTreeSnapshot = delegate.snapshot()
 }
 
 private class InjectedLauncherCleanup(
@@ -679,23 +1173,29 @@ private class InjectedLauncherCleanup(
     var terminationCalls = 0
         private set
 
-    override fun terminateProcessTree(
+    override fun finalizeOwnedProcessTree(
         process: Process,
         retainedDescendants: () -> List<ProcessHandle>,
-        freezeTracking: () -> Unit,
-    ) {
+        freezeTracking: (Long) -> Unit,
+    ): OwnedProcessTreeFinalization {
         calls += "termination"
         interruptedDuringCleanup += Thread.currentThread().isInterrupted
         terminationCalls += 1
-        DefaultLauncherCleanup.terminateProcessTree(process, retainedDescendants, freezeTracking)
+        val result =
+            DefaultLauncherCleanup.finalizeOwnedProcessTree(
+                process,
+                retainedDescendants,
+                freezeTracking,
+            )
         terminationFailure?.let { throw it }
+        return result
     }
 
-    override fun shutdownOutputDrains(executor: ExecutorService) {
+    override fun shutdownLauncherTasks(executor: ExecutorService) {
         calls += "shutdown"
         interruptedDuringCleanup += Thread.currentThread().isInterrupted
         if (!shutdownDelay.isZero) Thread.sleep(shutdownDelay)
-        DefaultLauncherCleanup.shutdownOutputDrains(executor)
+        DefaultLauncherCleanup.shutdownLauncherTasks(executor)
         shutdownFailure?.let { throw it }
     }
 

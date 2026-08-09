@@ -14,6 +14,7 @@ import io.mockk.just
 import io.mockk.mockk
 import io.mockk.verify
 import io.mockk.verifyOrder
+import java.time.Duration
 import java.time.Instant
 import java.util.Optional
 import java.util.concurrent.ExecutorService
@@ -30,43 +31,46 @@ class JdkProcessLauncherTest {
         val firstDescendant = mockk<ProcessHandle>()
         val secondDescendant = mockk<ProcessHandle>()
         val destroyFailure = DeliberateTerminationFailure("graceful destroy failed")
-        val waitFailure = InterruptedException("graceful wait interrupted")
+        var rootAlive = true
+        var firstDescendantAlive = true
+        var secondDescendantAlive = true
         every { process.toHandle() } returns root
         every { root.descendants() } answers { Stream.of(firstDescendant, secondDescendant) }
-        every { secondDescendant.destroy() } returns true
+        every { secondDescendant.destroy() } answers {
+            secondDescendantAlive = false
+            true
+        }
         every { firstDescendant.destroy() } throws destroyFailure
         every { root.destroy() } returns true
-        every { process.waitFor(1, TimeUnit.SECONDS) } answers {
-            Thread.interrupted()
-            throw waitFailure
+        every { secondDescendant.destroyForcibly() } answers {
+            secondDescendantAlive = false
+            true
         }
-        every { secondDescendant.destroyForcibly() } returns true
-        every { firstDescendant.destroyForcibly() } returns true
-        every { root.destroyForcibly() } returns true
-        every { process.waitFor(5, TimeUnit.SECONDS) } returns true
-        every { secondDescendant.isAlive } returns false
-        every { firstDescendant.isAlive } returns false
-        every { root.isAlive } returns false
+        every { firstDescendant.destroyForcibly() } answers {
+            firstDescendantAlive = false
+            true
+        }
+        every { root.destroyForcibly() } answers {
+            rootAlive = false
+            true
+        }
+        every { secondDescendant.isAlive } answers { secondDescendantAlive }
+        every { firstDescendant.isAlive } answers { firstDescendantAlive }
+        every { root.isAlive } answers { rootAlive }
 
         Thread.currentThread().interrupt()
         try {
             val failure = assertThrows<DeliberateTerminationFailure> {
-                DefaultLauncherCleanup.terminateProcessTree(process)
+                DefaultLauncherCleanup.finalizeOwnedProcessTree(process)
             }
 
             assertThat(failure).isSameInstanceAs(destroyFailure)
-            assertThat(failure.suppressed).asList().containsExactly(waitFailure)
             assertThat(Thread.currentThread().isInterrupted).isTrue()
-            verifyOrder {
-                secondDescendant.destroy()
-                firstDescendant.destroy()
-                root.destroy()
-                process.waitFor(1, TimeUnit.SECONDS)
-                root.destroyForcibly()
-                process.waitFor(5, TimeUnit.SECONDS)
-                secondDescendant.destroyForcibly()
-                firstDescendant.destroyForcibly()
-            }
+            verify(atLeast = 1) { secondDescendant.destroy() }
+            verify(atLeast = 1) { firstDescendant.destroy() }
+            verify(atLeast = 1) { root.destroy() }
+            verify(exactly = 1) { firstDescendant.destroyForcibly() }
+            verify(exactly = 1) { root.destroyForcibly() }
         } finally {
             Thread.interrupted()
         }
@@ -76,26 +80,24 @@ class JdkProcessLauncherTest {
     fun `process handle lookup failure still attempts root process cleanup`() {
         val process = mockk<Process>()
         val lookupFailure = DeliberateTerminationFailure("process handle lookup failed")
+        var processAlive = true
         every { process.toHandle() } throws lookupFailure
         every { process.destroy() } just Runs
-        every { process.waitFor(1, TimeUnit.SECONDS) } returns true
-        every { process.destroyForcibly() } returns process
-        every { process.waitFor(5, TimeUnit.SECONDS) } returns true
-        every { process.isAlive } returns false
+        every { process.destroyForcibly() } answers {
+            processAlive = false
+            process
+        }
+        every { process.isAlive } answers { processAlive }
 
         val failure = assertThrows<DeliberateTerminationFailure> {
-            DefaultLauncherCleanup.terminateProcessTree(process)
+            DefaultLauncherCleanup.finalizeOwnedProcessTree(process)
         }
 
         assertThat(failure).isSameInstanceAs(lookupFailure)
-        verifyOrder {
-            process.toHandle()
-            process.destroy()
-            process.waitFor(1, TimeUnit.SECONDS)
-            process.destroyForcibly()
-            process.waitFor(5, TimeUnit.SECONDS)
-            process.isAlive
-        }
+        verify(exactly = 1) { process.toHandle() }
+        verify(atLeast = 1) { process.destroy() }
+        verify(exactly = 1) { process.destroyForcibly() }
+        verify(atLeast = 1) { process.isAlive }
     }
 
     @Test
@@ -105,71 +107,77 @@ class JdkProcessLauncherTest {
         val initialDescendant = mockk<ProcessHandle>()
         val lateDescendant = mockk<ProcessHandle>()
         var snapshots = 0
+        var initialAlive = true
+        var lateAlive = true
         every { process.toHandle() } returns root
         every { root.descendants() } answers { Stream.empty() }
-        every { initialDescendant.destroy() } returns true
+        every { initialDescendant.destroy() } answers {
+            initialAlive = false
+            true
+        }
+        every { initialDescendant.descendants() } answers { Stream.empty() }
         every { lateDescendant.destroy() } returns true
-        every { root.destroy() } returns true
-        every { process.waitFor(1, TimeUnit.SECONDS) } returns true
-        every { initialDescendant.isAlive } returns false
-        every { lateDescendant.isAlive } returns false
-        every { initialDescendant.destroyForcibly() } returns true
-        every { lateDescendant.destroyForcibly() } returns true
-        every { root.destroyForcibly() } returns true
-        every { process.waitFor(5, TimeUnit.SECONDS) } returns true
+        every { lateDescendant.descendants() } answers { Stream.empty() }
+        every { initialDescendant.isAlive } answers { initialAlive }
+        every { lateDescendant.isAlive } answers { lateAlive }
+        every { initialDescendant.destroyForcibly() } answers {
+            initialAlive = false
+            true
+        }
+        every { lateDescendant.destroyForcibly() } answers {
+            lateAlive = false
+            true
+        }
         every { root.isAlive } returns false
         var trackingFrozen = false
 
-        DefaultLauncherCleanup.terminateProcessTree(
-            process = process,
-            retainedDescendants = {
-                snapshots += 1
-                if (snapshots == 1) {
-                    listOf(initialDescendant)
-                } else {
-                    listOf(initialDescendant, lateDescendant)
-                }
-            },
-            freezeTracking = { trackingFrozen = true },
-        )
+        val result =
+            DefaultLauncherCleanup.finalizeOwnedProcessTree(
+                process = process,
+                retainedDescendants = {
+                    snapshots += 1
+                    if (snapshots == 1) {
+                        listOf(initialDescendant)
+                    } else {
+                        listOf(initialDescendant, lateDescendant)
+                    }
+                },
+                freezeTracking = { trackingFrozen = true },
+            )
 
         assertThat(snapshots).isAtLeast(2)
         assertThat(trackingFrozen).isTrue()
-        verifyOrder {
-            initialDescendant.destroy()
-            root.destroy()
-            process.waitFor(1, TimeUnit.SECONDS)
-            root.destroyForcibly()
-            process.waitFor(5, TimeUnit.SECONDS)
-            lateDescendant.destroyForcibly()
-            initialDescendant.destroyForcibly()
-        }
+        assertThat(result.hadLiveDescendants).isTrue()
+        verify(atLeast = 1) { initialDescendant.destroy() }
+        verify(exactly = 1) { lateDescendant.destroyForcibly() }
     }
 
     @Test
-    fun `process tree cleanup keeps tracking active when root survives forcible wait`() {
+    fun `process tree cleanup keeps tracking active and reports root that survives its deadline`() {
         val process = mockk<Process>()
         val root = mockk<ProcessHandle>()
         val descendant = mockk<ProcessHandle>()
         val events = mutableListOf<String>()
         var trackingFrozen = false
+        var descendantAlive = true
         every { process.toHandle() } returns root
         every { root.descendants() } answers { Stream.empty() }
         every { descendant.destroy() } returns true
+        every { descendant.descendants() } answers { Stream.empty() }
         every { root.destroy() } returns true
-        every { process.waitFor(1, TimeUnit.SECONDS) } returns false
-        every { descendant.isAlive } returns false
+        every { descendant.isAlive } answers { descendantAlive }
         every { root.destroyForcibly() } returns true
-        every { process.waitFor(5, TimeUnit.SECONDS) } returns false
         every { root.isAlive } returns true
         every { root.pid() } returns 999
         every { descendant.destroyForcibly() } answers {
             events += "descendant-force:$trackingFrozen"
+            descendantAlive = false
             true
         }
 
-        assertThrows<IllegalStateException> {
-            DefaultLauncherCleanup.terminateProcessTree(
+        val startedAt = System.nanoTime()
+        val failure = assertThrows<IllegalStateException> {
+            DefaultLauncherCleanup.finalizeOwnedProcessTree(
                 process = process,
                 retainedDescendants = { listOf(descendant) },
                 freezeTracking = {
@@ -178,7 +186,11 @@ class JdkProcessLauncherTest {
                 },
             )
         }
+        val elapsed = System.nanoTime() - startedAt
 
+        assertThat(failure).hasMessageThat().contains("Could not terminate process 999")
+        assertThat(elapsed).isAtLeast(Duration.ofSeconds(4).toNanos())
+        assertThat(elapsed).isLessThan(Duration.ofSeconds(7).toNanos())
         assertThat(events).containsAtLeast("descendant-force:false", "freeze").inOrder()
     }
 
@@ -196,6 +208,7 @@ class JdkProcessLauncherTest {
         assertThat(tracker.failureOrNull())
             .hasMessageThat()
             .contains("exceeded 1 live descendants")
+        assertThat(tracker.failureSignal().get()).isSameInstanceAs(tracker.failureOrNull())
         assertThat(tracker.snapshot().descendants).containsExactly(firstDescendant)
     }
 
@@ -209,6 +222,32 @@ class JdkProcessLauncherTest {
         tracker.run()
 
         assertThat(tracker.failureOrNull()).isSameInstanceAs(scanFailure)
+        assertThat(tracker.failureSignal().get()).isSameInstanceAs(scanFailure)
+    }
+
+    @Test
+    fun `process tree tracker scans retained live handles after root death`() {
+        val root = mockk<ProcessHandle>()
+        val child = mockTrackedProcessHandle(processId = 201)
+        val grandchild = mockTrackedProcessHandle(processId = 202)
+        every { root.descendants() } answers { Stream.of(child) }
+        every { root.isAlive } returns false
+        every { child.descendants() } answers { Stream.of(grandchild) }
+        every { grandchild.descendants() } answers { Stream.empty() }
+        val tracker = ProcessTreeTracker(root)
+        val trackingThread = Thread.ofVirtual().start(tracker)
+        try {
+            val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2)
+            while (tracker.snapshot().descendants.none { handle -> handle.pid() == 202L }) {
+                check(System.nanoTime() < deadline) { "Grandchild was not retained" }
+                Thread.sleep(10)
+            }
+
+            assertThat(tracker.snapshot().descendants).containsAtLeast(child, grandchild)
+        } finally {
+            tracker.stopSampling()
+            trackingThread.join(Duration.ofSeconds(2))
+        }
     }
 
     @Test
@@ -226,13 +265,34 @@ class JdkProcessLauncherTest {
         every { executor.shutdownNow() } returns emptyList()
         every { executor.awaitTermination(5, TimeUnit.SECONDS) } returns true
 
-        DefaultLauncherCleanup.shutdownOutputDrains(executor)
+        DefaultLauncherCleanup.shutdownLauncherTasks(executor)
 
         verifyOrder {
             executor.shutdownNow()
             executor.awaitTermination(5, TimeUnit.SECONDS)
         }
         verify(exactly = 1) { executor.awaitTermination(5, TimeUnit.SECONDS) }
+    }
+
+    @Test
+    fun `launcher failure aggregation bounds retained cleanup diagnostics`() {
+        val primary = DeliberateTerminationFailure("primary")
+        val cleanupFailures =
+            List(200) { index -> DeliberateTerminationFailure("cleanup failure $index") }
+        val failures = FailureAccumulator()
+        failures.add(primary)
+        cleanupFailures.forEach(failures::add)
+
+        val thrown = assertThrows<DeliberateTerminationFailure>(failures::throwIfAny)
+
+        assertThat(thrown).isSameInstanceAs(primary)
+        assertThat(thrown.suppressed.asList().take(128))
+            .containsExactlyElementsIn(cleanupFailures.take(128))
+            .inOrder()
+        assertThat(thrown.suppressed).hasLength(129)
+        assertThat(thrown.suppressed.last())
+            .hasMessageThat()
+            .contains("Additional launcher failures omitted")
     }
 }
 
