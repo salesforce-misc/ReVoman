@@ -1,0 +1,190 @@
+{
+  "schema": "revoman-benchmark/v1",
+  "campaignId": "campaign-1",
+  "intent": "CONTROLLED",
+  "createdAt": "2026-08-09T00:00:00Z",
+  "configuration": {
+    "mode": "WARM",
+    "targets": [
+      {
+        "role": "BASELINE",
+        "targetId": "baseline",
+        "adapterId": "postman-v1"
+      },
+      {
+        "role": "CANDIDATE",
+        "targetId": "candidate",
+        "adapterId": "postman-v1"
+      }
+    ],
+    "metricPasses": [
+      "LATENCY"
+    ],
+    "seed": 42,
+    "requestedAcceptedBlocks": 1,
+    "forksPerBlock": 1,
+    "warmupIterations": 1,
+    "measurementIterations": 1
+  },
+  "harness": {
+    "commit": "harness-commit",
+    "tree": "harness-tree",
+    "dirty": false,
+    "distributionSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "artifacts": [],
+    "workloadContractSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "fixtureSetSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "adapters": [
+      {
+        "id": "postman-v1",
+        "sourceSha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      }
+    ]
+  },
+  "environment": {
+    "jdk": {
+      "distribution": "Temurin",
+      "vendor": "Eclipse Adoptium",
+      "fullVersion": "21.0.8+9-LTS",
+      "javaHome": "/jdk/21",
+      "jvmFlags": [
+        "-Xms1g",
+        "-Xmx1g"
+      ]
+    },
+    "osName": "Linux",
+    "osVersion": "6",
+    "kernel": "6.8.0",
+    "cpuModel": "Benchmark CPU",
+    "cpuCount": 8,
+    "governor": "performance",
+    "physicalMemoryBytes": 17179869184,
+    "hostFingerprintSha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "policySha256": null
+  },
+  "targets": [
+    {
+      "id": "baseline",
+      "gitCommit": "baseline-commit",
+      "gitTree": "baseline-tree",
+      "dirty": false,
+      "gradleVersion": "9.0.0",
+      "wrapperSha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "buildJdk": {
+        "distribution": "Temurin",
+        "vendor": "Eclipse Adoptium",
+        "fullVersion": "21.0.8+9-LTS",
+        "javaHome": "/jdk/21",
+        "jvmFlags": []
+      },
+      "manifestSha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "classpathSha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "adapter": {
+        "id": "postman-v1",
+        "sourceSha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      }
+    },
+    {
+      "id": "candidate",
+      "gitCommit": "candidate-commit",
+      "gitTree": "candidate-tree",
+      "dirty": false,
+      "gradleVersion": "9.0.0",
+      "wrapperSha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "buildJdk": {
+        "distribution": "Temurin",
+        "vendor": "Eclipse Adoptium",
+        "fullVersion": "21.0.8+9-LTS",
+        "javaHome": "/jdk/21",
+        "jvmFlags": []
+      },
+      "manifestSha256": "3333333333333333333333333333333333333333333333333333333333333333",
+      "classpathSha256": "4444444444444444444444444444444444444444444444444444444444444444",
+      "adapter": {
+        "id": "postman-v1",
+        "sourceSha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      }
+    }
+  ],
+  "workloads": [
+    {
+      "id": "simple-get",
+      "contractSha256": "5555555555555555555555555555555555555555555555555555555555555555",
+      "fixtureSha256": "6666666666666666666666666666666666666666666666666666666666666666",
+      "mode": "WARM",
+      "metricSeries": [
+        {
+          "metric": "LATENCY",
+          "provider": "wall-clock",
+          "providerConfigurationSha256": "7777777777777777777777777777777777777777777777777777777777777777",
+          "unit": "NANOSECONDS",
+          "artifacts": [],
+          "blocks": [
+            {
+              "blockId": 0,
+              "targetOrder": [
+                "baseline",
+                "candidate"
+              ],
+              "healthBefore": {
+                "capturedAtNanos": 1,
+                "loadAverage": 0.1,
+                "cpuBusyFraction": 0.2,
+                "availableMemoryBytes": 8589934592,
+                "swapUsedBytes": 0,
+                "thermalValue": 0.0,
+                "onAcPower": true,
+                "governors": [
+                  "performance"
+                ]
+              },
+              "healthDuring": [],
+              "healthAfter": {
+                "capturedAtNanos": 2,
+                "loadAverage": 0.1,
+                "cpuBusyFraction": 0.2,
+                "availableMemoryBytes": 8589934592,
+                "swapUsedBytes": 0,
+                "thermalValue": 0.0,
+                "onAcPower": true,
+                "governors": [
+                  "performance"
+                ]
+              },
+              "accepted": true,
+              "rejectionReasons": [],
+              "observations": [
+                {
+                  "targetId": "baseline",
+                  "metric": "LATENCY",
+                  "provider": "wall-clock",
+                  "unit": "NANOSECONDS",
+                  "fork": 0,
+                  "iteration": 0,
+                  "replicateGroup": null,
+                  "processId": 1001,
+                  "value": 100.5,
+                  "retainedEvidence": null
+                },
+                {
+                  "targetId": "candidate",
+                  "metric": "LATENCY",
+                  "provider": "wall-clock",
+                  "unit": "NANOSECONDS",
+                  "fork": 0,
+                  "iteration": 0,
+                  "replicateGroup": null,
+                  "processId": 1002,
+                  "value": 90.25,
+                  "retainedEvidence": null
+                }
+              ]
+            }
+          ],
+          "histograms": null
+        }
+      ]
+    }
+  ],
+  "unexpected": true
+}

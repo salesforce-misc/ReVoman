@@ -10,12 +10,15 @@ package com.salesforce.revoman.benchmark.driver.json
 import com.networknt.schema.InputFormat
 import com.networknt.schema.SchemaRegistry
 import com.networknt.schema.SpecificationVersion
+import com.salesforce.revoman.benchmark.driver.model.BenchmarkResultV1
 import com.salesforce.revoman.benchmark.driver.model.ExecutionDigest
 import com.salesforce.revoman.benchmark.driver.model.TargetForkCommand
 import com.salesforce.revoman.benchmark.driver.model.TargetForkResult
+import com.salesforce.revoman.benchmark.driver.model.TargetManifest
 import com.salesforce.revoman.benchmark.driver.model.TargetSample
 import com.salesforce.revoman.benchmark.driver.model.TargetVerificationToken
 import com.salesforce.revoman.benchmark.driver.model.VerifiedArtifactStamp
+import com.salesforce.revoman.benchmark.driver.model.WorkloadManifest
 import com.salesforce.revoman.benchmark.driver.model.WorkloadRequest
 import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.Moshi
@@ -63,8 +66,9 @@ internal object BenchmarkJson {
 
     @PublishedApi
     internal fun <T : Any> write(path: Path, value: T, type: Class<T>) {
-        validate(value)
-        val encoded = dynamicJsonAdapter.toJson(canonicalize(adapter(type).toJsonValue(value)))
+        val normalized = type.cast(normalize(value))
+        validate(normalized)
+        val encoded = dynamicJsonAdapter.toJson(canonicalize(adapter(type).toJsonValue(normalized)))
         val parent = requireNotNull(path.parent) { "Output path must have a parent: $path" }
         Files.createDirectories(parent)
         val temporaryFile = Files.createTempFile(parent, ".${path.fileName}.", ".tmp")
@@ -99,10 +103,20 @@ internal object BenchmarkJson {
 
     private fun validate(value: Any) {
         when (value) {
+            is BenchmarkResultV1 -> value.validate()
+            is TargetManifest -> value.validate()
             is TargetForkCommand -> validateCommand(value)
             is TargetForkResult -> validateResult(value)
+            is WorkloadManifest -> value.validate()
         }
     }
+
+    private fun normalize(value: Any): Any =
+        when (value) {
+            is BenchmarkResultV1 -> value.canonicalized()
+            is WorkloadManifest -> value.canonicalized()
+            else -> value
+        }
 
     private fun validateCommand(command: TargetForkCommand) {
         require(command.protocolVersion == PROTOCOL_VERSION) {
