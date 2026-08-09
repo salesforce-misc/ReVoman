@@ -107,8 +107,38 @@ class DeterministicHttpFixture private constructor(
         /** Starts one loopback server using the exact route contract bundled for [manifest]. */
         fun open(manifest: WorkloadManifest): DeterministicHttpFixture {
             manifest.validate()
+            return open(manifest, readBundledHandler(manifest), "bundled handler resource")
+        }
+
+        /** Starts one loopback server from the captured handler bytes below [fixtureRoot]. */
+        internal fun open(
+            manifest: WorkloadManifest,
+            fixtureRoot: Path,
+        ): DeterministicHttpFixture {
+            manifest.validate()
+            val artifact = requiredHandlerArtifact(manifest)
+            val root = fixtureRoot.toRealPath()
+            require(root == fixtureRoot && Files.isDirectory(root)) {
+                "Deterministic fixture root must be a canonical directory: $fixtureRoot"
+            }
+            val handler = root.resolve(HANDLER_FILE)
+            require(handler.toRealPath() == handler && Files.isRegularFile(handler)) {
+                "Deterministic handler must be a canonical regular file: $handler"
+            }
+            val bytes = Files.readAllBytes(handler)
+            require(bytes.size.toLong() == artifact.sizeBytes && ContentHasher.sha256(bytes) == artifact.sha256) {
+                "Captured deterministic handler differs from workload manifest: $handler"
+            }
+            return open(manifest, bytes, handler.toString())
+        }
+
+        private fun open(
+            manifest: WorkloadManifest,
+            handlerBytes: ByteArray,
+            source: String,
+        ): DeterministicHttpFixture {
             val routes =
-                readHandlerContract(manifest).validatedRoutes().mapValues { (_, route) ->
+                readHandlerContract(handlerBytes, source).validatedRoutes().mapValues { (_, route) ->
                     route.prepare()
                 }
             val executor = fixtureExecutor()
@@ -168,11 +198,8 @@ class DeterministicHttpFixture private constructor(
             }
         }
 
-        private fun readHandlerContract(manifest: WorkloadManifest): HandlerContract {
-            val artifact =
-                requireNotNull(manifest.files.singleOrNull { it.executionPath == HANDLER_FILE }) {
-                    "Workload ${manifest.id} must declare exactly one $HANDLER_FILE"
-                }
+        private fun readBundledHandler(manifest: WorkloadManifest): ByteArray {
+            val artifact = requiredHandlerArtifact(manifest)
             val resource = "/workloads/v1/${manifest.id}/$HANDLER_FILE"
             val bytes =
                 requireNotNull(DeterministicHttpFixture::class.java.getResourceAsStream(resource)) {
@@ -182,10 +209,18 @@ class DeterministicHttpFixture private constructor(
             require(bytes.size.toLong() == artifact.sizeBytes && ContentHasher.sha256(bytes) == artifact.sha256) {
                 "Bundled deterministic handler differs from workload manifest: $resource"
             }
-            return requireNotNull(handlerAdapter.fromJson(bytes.toString(UTF_8))) {
-                "Deterministic handler resource is JSON null: $resource"
-            }
+            return bytes
         }
+
+        private fun requiredHandlerArtifact(manifest: WorkloadManifest) =
+            requireNotNull(manifest.files.singleOrNull { it.executionPath == HANDLER_FILE }) {
+                "Workload ${manifest.id} must declare exactly one $HANDLER_FILE"
+            }
+
+        private fun readHandlerContract(bytes: ByteArray, source: String): HandlerContract =
+            requireNotNull(handlerAdapter.fromJson(bytes.toString(UTF_8))) {
+                "Deterministic handler JSON is null: $source"
+            }
 
         private fun fixtureExecutor(): ThreadPoolExecutor {
             val executor =

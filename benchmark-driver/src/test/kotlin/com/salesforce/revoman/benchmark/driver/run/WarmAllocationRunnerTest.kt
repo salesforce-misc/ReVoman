@@ -8,9 +8,11 @@
 package com.salesforce.revoman.benchmark.driver.run
 
 import com.google.common.truth.Truth.assertThat
+import com.salesforce.revoman.benchmark.driver.json.BenchmarkJson
 import com.salesforce.revoman.benchmark.driver.model.ExecutionDigest
 import com.salesforce.revoman.benchmark.driver.model.RunIntent
 import com.salesforce.revoman.benchmark.driver.model.TargetRole
+import com.salesforce.revoman.benchmark.driver.model.WorkloadManifest
 import com.salesforce.revoman.benchmark.driver.process.JmhControllerObservation
 import com.salesforce.revoman.benchmark.driver.target.PreparedWorkload
 import com.salesforce.revoman.benchmark.driver.target.TargetOperation
@@ -110,6 +112,30 @@ class WarmAllocationRunnerTest {
         }
     }
 
+    @Test
+    fun `warm lifecycle oracle hashes and parses one manifest read bound by controller identity`() {
+        val fixtureRoot = materializeLifecycleFixture(temporaryDirectory.resolve("lifecycle"))
+        val manifestPath = fixtureRoot.resolve("manifest.json")
+        val manifestBytes = Files.readAllBytes(manifestPath)
+        val manifestSha256 =
+            com.salesforce.revoman.benchmark.driver.integrity.ContentHasher.sha256(manifestBytes)
+
+        val expected = loadWarmLifecycleExpectedDigest(fixtureRoot, manifestSha256)
+
+        assertThat(expected).isEqualTo(ExecutionDigest(31, 1, 0))
+        val manifest = BenchmarkJson.read<WorkloadManifest>(manifestPath)
+        BenchmarkJson.write(
+            manifestPath,
+            manifest.copy(
+                expectedDigest = requireNotNull(manifest.expectedDigest).copy(checksum = 999)
+            ),
+        )
+        val failure = assertThrows<IllegalArgumentException> {
+            loadWarmLifecycleExpectedDigest(fixtureRoot, manifestSha256)
+        }
+        assertThat(failure).hasMessageThat().contains("lifecycle manifest SHA-256 mismatch")
+    }
+
     private fun preparedWorkload(
         executions: AtomicInteger,
         digest: ExecutionDigest,
@@ -155,4 +181,14 @@ class WarmAllocationRunnerTest {
 
     private fun resourcePath(name: String): Path =
         Path.of(requireNotNull(javaClass.getResource(name)) { "Missing test resource: $name" }.toURI())
+
+    private fun materializeLifecycleFixture(destination: Path): Path {
+        Files.createDirectories(destination)
+        listOf("manifest.json", "collection.postman_collection.json", "handler.json").forEach { name ->
+            val resource = "/workloads/v1/lifecycle.no-script-one-step.v1/$name"
+            requireNotNull(javaClass.getResourceAsStream(resource)) { "Missing resource: $resource" }
+                .use { input -> Files.copy(input, destination.resolve(name)) }
+        }
+        return destination.toRealPath()
+    }
 }

@@ -11,6 +11,7 @@ import com.salesforce.revoman.benchmark.driver.integrity.ContentHasher
 import com.salesforce.revoman.benchmark.driver.jmh.ADAPTER_PROPERTY
 import com.salesforce.revoman.benchmark.driver.jmh.FIXTURE_ROOT_PROPERTY
 import com.salesforce.revoman.benchmark.driver.jmh.LIFECYCLE_BASE_URL_PROPERTY
+import com.salesforce.revoman.benchmark.driver.jmh.LIFECYCLE_MANIFEST_SHA256_PROPERTY
 import com.salesforce.revoman.benchmark.driver.jmh.TARGET_MANIFEST_PROPERTY
 import com.salesforce.revoman.benchmark.driver.jmh.TARGET_TOKEN_PROPERTY
 import com.salesforce.revoman.benchmark.driver.jmh.TARGET_TOKEN_SHA256_PROPERTY
@@ -55,7 +56,11 @@ internal class PreparedTargetState : AutoCloseable {
     fun prepareLifecycle() {
         check(!this::runtime.isInitialized) { "JMH target state is already prepared" }
         val fixtureRoot = requiredCanonicalDirectory(FIXTURE_ROOT_PROPERTY)
-        lifecycleExpectedDigest = loadWarmLifecycleExpectedDigest(fixtureRoot)
+        lifecycleExpectedDigest =
+            loadWarmLifecycleExpectedDigest(
+                fixtureRoot = fixtureRoot,
+                expectedManifestSha256 = requiredProperty(LIFECYCLE_MANIFEST_SHA256_PROPERTY),
+            )
         prepare(
             WorkloadRequest(
                 id = "lifecycle.no-script-one-step.v1",

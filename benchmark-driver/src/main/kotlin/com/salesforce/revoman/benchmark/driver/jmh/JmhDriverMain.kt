@@ -59,9 +59,10 @@ fun main(args: Array<String>) {
     val manifestPath = requiredPath(TARGET_MANIFEST_PROPERTY).toRealPath()
     val requestedIncludes =
         requiredProperty(INCLUDES_PROPERTY).split(INCLUDE_SEPARATOR).filter(String::isNotBlank)
+    val installationRoot = requiredPath(INSTALLATION_ROOT_PROPERTY).toRealPath()
     val verified = VerifiedTargetManifest.preflight(manifestPath)
     val normalizedResult =
-        withLifecycleFixture(requestedIncludes) {
+        withLifecycleFixture(requestedIncludes, installationRoot) { lifecycleWorkloadIdentity ->
             withJmhPostflight(verified::postflight) {
                 val tokenPath = rawResult.resolveSibling("${rawResult.fileName}.target-token.json")
                 writeReadOnlyToken(tokenPath, verified)
@@ -76,7 +77,13 @@ fun main(args: Array<String>) {
                         targetId = verified.manifest.targetId,
                         requestedIncludes = requestedIncludes,
                     )
-                attachRuntimeIdentities(imported, verified, requestedIncludes)
+                attachRuntimeIdentities(
+                    imported = imported,
+                    verified = verified,
+                    requestedIncludes = requestedIncludes,
+                    installationRoot = installationRoot,
+                    lifecycleWorkloadIdentity = lifecycleWorkloadIdentity,
+                )
             }
         }
     writeJmhResult(resultOutput, normalizedResult)
@@ -100,27 +107,61 @@ internal fun <T> withJmhPostflight(postflight: () -> Unit, block: () -> T): T {
     }
 }
 
-private fun <T> withLifecycleFixture(requestedIncludes: List<String>, block: () -> T): T {
+internal fun <T> withLifecycleFixture(
+    requestedIncludes: List<String>,
+    installationRoot: Path,
+    hooks: LifecycleFixtureHooks = LifecycleFixtureHooks.NONE,
+    block: (JmhWorkloadIdentity?) -> T,
+): T {
     val lifecycleSelected =
         requestedIncludes.any { include -> include.contains(WARM_LIFECYCLE_ALLOCATION_INCLUDE) }
-    if (!lifecycleSelected) return block()
+    if (!lifecycleSelected) return block(null)
     require(
         requestedIncludes.all { include -> include.contains(WARM_LIFECYCLE_ALLOCATION_INCLUDE) }
     ) {
         "Warm lifecycle allocation must run in a dedicated JMH controller launch"
     }
-    val fixtureRoot =
-        requiredPath(INSTALLATION_ROOT_PROPERTY)
-            .toRealPath()
+    val sourceRoot =
+        installationRoot
             .resolve("workloads/v1/lifecycle.no-script-one-step.v1")
             .toRealPath()
-    val manifest = BenchmarkJson.read<WorkloadManifest>(fixtureRoot.resolve("manifest.json"))
-    DeterministicHttpFixture.verifyFixture(manifest, fixtureRoot)
-    return DeterministicHttpFixture.open(manifest).use { fixture ->
-        fixture.resetExecution("warm-lifecycle-allocation")
-        System.setProperty(FIXTURE_ROOT_PROPERTY, fixtureRoot.toString())
-        System.setProperty(LIFECYCLE_BASE_URL_PROPERTY, fixture.baseUrl)
-        block()
+    val snapshot = VerifiedLifecycleWorkloadSnapshot.open(sourceRoot)
+    val outcome =
+        runCatching {
+            DeterministicHttpFixture.open(snapshot.manifest, snapshot.snapshotRoot).use { fixture ->
+                fixture.resetExecution("warm-lifecycle-allocation")
+                System.setProperty(FIXTURE_ROOT_PROPERTY, snapshot.snapshotRoot.toString())
+                System.setProperty(LIFECYCLE_BASE_URL_PROPERTY, fixture.baseUrl)
+                System.setProperty(
+                    LIFECYCLE_MANIFEST_SHA256_PROPERTY,
+                    snapshot.manifestSha256,
+                )
+                hooks.afterFixtureStarted(snapshot)
+                block(snapshot.workloadIdentity)
+            }
+        }
+    var failure = outcome.exceptionOrNull()
+    listOf<() -> Unit>(
+            snapshot::postflightSource,
+            snapshot::postflightSnapshot,
+            snapshot::close,
+        )
+        .forEach { finalizer ->
+            try {
+                finalizer()
+            } catch (finalizerFailure: Throwable) {
+                failure = mergeLifecycleFailures(failure, finalizerFailure)
+            }
+        }
+    failure?.let { throw it }
+    return outcome.getOrThrow()
+}
+
+internal fun interface LifecycleFixtureHooks {
+    fun afterFixtureStarted(snapshot: VerifiedLifecycleWorkloadSnapshot)
+
+    companion object {
+        val NONE: LifecycleFixtureHooks = LifecycleFixtureHooks {}
     }
 }
 
@@ -142,8 +183,9 @@ private fun attachRuntimeIdentities(
     imported: ImportedJmhResult,
     verified: VerifiedTargetManifest,
     requestedIncludes: List<String>,
+    installationRoot: Path,
+    lifecycleWorkloadIdentity: JmhWorkloadIdentity?,
 ): JmhBenchmarkResultV1 {
-    val installationRoot = requiredPath(INSTALLATION_ROOT_PROPERTY).toRealPath()
     val sourceManifest =
         BenchmarkJson.read<HarnessSourceManifest>(
             installationRoot.resolve("conf/benchmark-harness-source-v1.json")
@@ -178,15 +220,7 @@ private fun attachRuntimeIdentities(
             classpathSha256 = verified.classpathSha256,
             adapter = adapter,
         )
-    val fixtureRoot = requiredPath(FIXTURE_ROOT_PROPERTY).toRealPath()
-    val workloadManifestPath = fixtureRoot.resolve("manifest.json")
-    val workloadManifest = BenchmarkJson.read<WorkloadManifest>(workloadManifestPath)
-    verifyWorkloadFiles(fixtureRoot, workloadManifest)
-    val workload =
-        JmhWorkloadIdentity(
-            manifestSha256 = ContentHasher.sha256(workloadManifestPath),
-            manifest = workloadManifest,
-        )
+    val workload = resolveJmhWorkloadIdentity(lifecycleWorkloadIdentity)
     val configuration =
         JmhRunConfiguration(
             requestedIncludes = requestedIncludes,
@@ -217,6 +251,23 @@ private fun attachRuntimeIdentities(
         target = target,
         workload = workload,
         configuration = configuration,
+    )
+}
+
+internal fun resolveJmhWorkloadIdentity(
+    lifecycleWorkloadIdentity: JmhWorkloadIdentity?
+): JmhWorkloadIdentity = lifecycleWorkloadIdentity ?: loadJmhWorkloadIdentity()
+
+private fun loadJmhWorkloadIdentity(): JmhWorkloadIdentity {
+    val fixtureRoot = requiredPath(FIXTURE_ROOT_PROPERTY).toRealPath()
+    val workloadManifestPath = fixtureRoot.resolve("manifest.json")
+    val manifestBytes = Files.readAllBytes(workloadManifestPath)
+    val workloadManifest =
+        BenchmarkJson.decode<WorkloadManifest>(manifestBytes, workloadManifestPath.toString())
+    verifyWorkloadFiles(fixtureRoot, workloadManifest)
+    return JmhWorkloadIdentity(
+        manifestSha256 = ContentHasher.sha256(manifestBytes),
+        manifest = workloadManifest,
     )
 }
 
@@ -333,6 +384,7 @@ private fun forkJvmArguments(): List<String> =
             KOTLIN_LOGGING_STARTUP_PROPERTY,
             REVOMAN_BANNER_PROPERTY,
             LIFECYCLE_BASE_URL_PROPERTY,
+            LIFECYCLE_MANIFEST_SHA256_PROPERTY,
         )
         .mapNotNull { name -> System.getProperty(name)?.let { value -> "-D$name=$value" } }
 
@@ -366,4 +418,11 @@ internal const val PROFILERS_PROPERTY: String = "revoman.benchmark.profilers"
 internal const val QUICK_PROPERTY: String = "revoman.benchmark.quick"
 internal const val LIFECYCLE_BASE_URL_PROPERTY: String =
     "revoman.benchmark.lifecycleBaseUrl"
+internal const val LIFECYCLE_MANIFEST_SHA256_PROPERTY: String =
+    "revoman.benchmark.lifecycleManifestSha256"
 internal const val INCLUDE_SEPARATOR: String = "\u001f"
+
+private fun mergeLifecycleFailures(primary: Throwable?, next: Throwable): Throwable =
+    primary?.also { existing ->
+        if (existing !== next) existing.addSuppressed(next)
+    } ?: next

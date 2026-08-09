@@ -28,7 +28,7 @@ class VerifiedJfrConfiguration private constructor(
     val sha256: String,
     private val capturedBytes: ByteArray,
 ) {
-    fun materialize(directory: Path): Path {
+    internal fun materialize(directory: Path): Path {
         require(ContentHasher.sha256(sourcePath) == sha256) {
             "JFR configuration changed before pass setup"
         }
@@ -40,7 +40,7 @@ class VerifiedJfrConfiguration private constructor(
         return snapshot.toRealPath()
     }
 
-    fun postflight(snapshot: Path) {
+    internal fun postflight(snapshot: Path) {
         val failures = mutableListOf<String>()
         val sourceHash = runCatching { ContentHasher.sha256(sourcePath) }.getOrNull()
         val snapshotHash = runCatching { ContentHasher.sha256(snapshot) }.getOrNull()
@@ -64,7 +64,7 @@ class VerifiedJfrConfiguration private constructor(
     }
 
     companion object {
-        fun preflight(sourcePath: Path): VerifiedJfrConfiguration {
+        internal fun preflight(sourcePath: Path): VerifiedJfrConfiguration {
             val canonical = sourcePath.toRealPath()
             require(canonical == sourcePath && Files.isRegularFile(canonical)) {
                 "JFR configuration must be a canonical regular file: $sourcePath"

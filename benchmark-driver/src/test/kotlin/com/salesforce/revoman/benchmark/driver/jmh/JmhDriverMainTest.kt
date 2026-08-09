@@ -38,6 +38,28 @@ class JmhDriverMainTest {
     }
 
     @Test
+    fun `runner forwards captured lifecycle manifest hash to every fork`() {
+        var captured: Options? = null
+        val prior = System.getProperty(LIFECYCLE_MANIFEST_SHA256_PROPERTY)
+        System.setProperty(LIFECYCLE_MANIFEST_SHA256_PROPERTY, "a".repeat(64))
+        try {
+            runJmh(arrayOf("WarmLifecycleAllocationBenchmark")) { options ->
+                captured = options
+                listOf(mockk<RunResult>())
+            }
+        } finally {
+            if (prior == null) {
+                System.clearProperty(LIFECYCLE_MANIFEST_SHA256_PROPERTY)
+            } else {
+                System.setProperty(LIFECYCLE_MANIFEST_SHA256_PROPERTY, prior)
+            }
+        }
+
+        assertThat(requireNotNull(captured).jvmArgsAppend.orElse(emptyList()))
+            .contains("-D$LIFECYCLE_MANIFEST_SHA256_PROPERTY=${"a".repeat(64)}")
+    }
+
+    @Test
     fun `empty result collection fails`() {
         val failure = assertThrows<IllegalStateException> {
             runJmh(emptyArray()) { emptyList() }

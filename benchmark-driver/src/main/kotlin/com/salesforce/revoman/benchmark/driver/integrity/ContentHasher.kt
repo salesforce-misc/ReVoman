@@ -55,14 +55,20 @@ object ContentHasher {
             "Tree hash inputs must not contain duplicate relative paths"
         }
 
+        return treeSha256(records.associate { record -> record.relativePath to record.bytes })
+    }
+
+    /** Hashes already captured bytes using the same portable tree contract as filesystem inputs. */
+    internal fun treeSha256(files: Map<String, ByteArray>): String {
+        require(files.keys.none(String::isBlank)) { "Tree hash paths must not be blank" }
         return digestHex {
             update(treePrefix)
-            records.forEach { record ->
-                val relativePathBytes = record.relativePath.toByteArray(UTF_8)
+            files.toSortedMap().forEach { (relativePath, bytes) ->
+                val relativePathBytes = relativePath.toByteArray(UTF_8)
                 updateInt(relativePathBytes.size)
                 update(relativePathBytes)
-                updateLong(record.bytes.size.toLong())
-                update(record.bytes)
+                updateLong(bytes.size.toLong())
+                update(bytes)
             }
         }
     }

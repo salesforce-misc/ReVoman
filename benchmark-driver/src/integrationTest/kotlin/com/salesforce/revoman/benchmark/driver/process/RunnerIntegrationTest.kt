@@ -311,6 +311,68 @@ class RunnerIntegrationTest {
     }
 
     @Test
+    fun `real warm allocation invalidates source mutation and removes controller snapshot`() {
+        val target = integrationTarget()
+        val installation =
+            copyInstallation(
+                benchmarkDriverInstallationRoot(),
+                temporaryDirectory.resolve("warm-allocation-mutated-install"),
+            )
+        val sourceManifest =
+            installation.resolve("workloads/v1/lifecycle.no-script-one-step.v1/manifest.json")
+        val controller = AtomicReference<ProcessHandle>()
+        val observedForks = linkedSetOf<Long>()
+        val snapshotRoot = AtomicReference<Path>()
+        val priorSnapshots = lifecycleSnapshotDirectories()
+        val output = temporaryDirectory.resolve("warm-allocation-source-mutation")
+
+        val failure = assertThrows<IllegalStateException> {
+            WarmAllocationRunner(
+                WarmAllocationLauncher { request ->
+                    val coordinator =
+                        fixtureCoordinator {
+                            awaitFixtureCondition("warm allocation JMH fork to start") {
+                                controller.get()?.descendants()?.findAny()?.isPresent == true
+                            }
+                            val createdSnapshots = lifecycleSnapshotDirectories() - priorSnapshots
+                            assertThat(createdSnapshots).hasSize(1)
+                            snapshotRoot.set(createdSnapshots.single())
+                            val manifest = BenchmarkJson.read<WorkloadManifest>(sourceManifest)
+                            BenchmarkJson.write(
+                                sourceManifest,
+                                manifest.copy(
+                                    expectedDigest =
+                                        requireNotNull(manifest.expectedDigest).copy(checksum = 999)
+                                ),
+                            )
+                        }
+                    try {
+                        launchRealJmhController(request, controller, observedForks)
+                    } finally {
+                        coordinator.await()
+                    }
+                }
+            ).run(
+                warmAllocationIntegrationPlan(
+                        target = target,
+                        installation = installation,
+                        output = output,
+                    )
+                    .copy(iterationDuration = Duration.ofSeconds(1))
+            )
+        }
+
+        assertThat(failure).hasMessageThat().contains("JMH controller exited with code")
+        assertThat(BenchmarkJson.read<WorkloadManifest>(sourceManifest).expectedDigest?.checksum)
+            .isEqualTo(999)
+        assertThat(Files.exists(requireNotNull(snapshotRoot.get()))).isFalse()
+        assertThat(lifecycleSnapshotDirectories()).containsExactlyElementsIn(priorSnapshots)
+        assertThat(requireNotNull(controller.get()).isAlive).isFalse()
+        assertThat(observedForks).isNotEmpty()
+        observedForks.forEach { processId -> assertThat(processIsAlive(processId)).isFalse() }
+    }
+
+    @Test
     fun `target fork rejects a failing warmup before measuring or publishing a result`() {
         val target = integrationTarget()
         val fixtureRoot = materializeLifecycleFixture(temporaryDirectory.resolve("warmup-fixture"))
@@ -1355,6 +1417,18 @@ private fun copyInstallation(source: Path, destination: Path): Path {
         }
     }
     return destination.toRealPath()
+}
+
+private fun lifecycleSnapshotDirectories(): Set<Path> {
+    val temporaryRoot = Path.of(System.getProperty("java.io.tmpdir")).toRealPath()
+    return Files.list(temporaryRoot).use { paths ->
+        paths
+            .filter(Files::isDirectory)
+            .filter { path -> path.fileName.toString().startsWith("revoman-lifecycle-workload-") }
+            .map(Path::toRealPath)
+            .toList()
+            .toSet()
+    }
 }
 
 class ProcessLauncherFixtureMain {

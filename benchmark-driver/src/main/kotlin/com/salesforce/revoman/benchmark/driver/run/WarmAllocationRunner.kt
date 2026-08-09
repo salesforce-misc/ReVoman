@@ -268,9 +268,19 @@ internal fun executeWarmLifecycleAllocation(
         )
         .checksum
 
-internal fun loadWarmLifecycleExpectedDigest(fixtureRoot: Path): ExecutionDigest {
+internal fun loadWarmLifecycleExpectedDigest(
+    fixtureRoot: Path,
+    expectedManifestSha256: String,
+): ExecutionDigest {
     requireCanonicalDirectory("warm lifecycle fixtureRoot", fixtureRoot)
-    val manifest = BenchmarkJson.read<WorkloadManifest>(fixtureRoot.resolve("manifest.json"))
+    val manifestPath = fixtureRoot.resolve("manifest.json")
+    val manifestBytes = Files.readAllBytes(manifestPath)
+    val actualManifestSha256 = ContentHasher.sha256(manifestBytes)
+    require(actualManifestSha256 == expectedManifestSha256) {
+        "Warm lifecycle manifest SHA-256 mismatch: " +
+            "expected=$expectedManifestSha256, actual=$actualManifestSha256"
+    }
+    val manifest = BenchmarkJson.decode<WorkloadManifest>(manifestBytes, manifestPath.toString())
     require(manifest.id == WARM_LIFECYCLE_WORKLOAD_ID) {
         "Warm lifecycle allocation requires workload $WARM_LIFECYCLE_WORKLOAD_ID, actual=${manifest.id}"
     }
