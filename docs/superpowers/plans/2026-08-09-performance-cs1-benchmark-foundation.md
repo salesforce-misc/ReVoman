@@ -810,6 +810,7 @@ Change Set 1 ships the harness, the versioned `lifecycle.no-script-one-step.v1` 
 - Move: `src/jmh/kotlin/com/salesforce/revoman/benchmark/EnvAccumBenchmark.kt`
 - Create: `benchmark-driver/src/main/kotlin/com/salesforce/revoman/benchmark/driver/jmh/JmhDriverMain.kt`
 - Create: `benchmark-driver/src/main/kotlin/com/salesforce/revoman/benchmark/driver/jmh/JmhResultImporter.kt`
+- Create: `benchmark-driver/src/main/kotlin/com/salesforce/revoman/benchmark/driver/model/JmhBenchmarkResultV1.kt`
 - Create: `benchmark-driver/src/main/kotlin/com/salesforce/revoman/benchmark/driver/integrity/BuildIdentity.kt`
 - Create: `benchmark-driver/src/main/dist/libexec/benchmark-target.init.gradle.kts`
 - Create: `benchmark-driver/src/jmh/kotlin/com/salesforce/revoman/benchmark/HarnessSanityBenchmark.kt`
@@ -819,16 +820,21 @@ Change Set 1 ships the harness, the versioned `lifecycle.no-script-one-step.v1` 
 - Create: `benchmark-driver/src/main/resources/workloads/v1/jmh.component-operations.v1/composite-response.json`
 - Create: `benchmark-driver/src/main/resources/workloads/v1/jmh.component-operations.v1/postman-test-script.js`
 - Create: `benchmark-driver/src/main/resources/workloads/v1/jmh.component-operations.v1/regex-inputs.json`
+- Create: `benchmark-driver/src/main/resources/schema/revoman-benchmark-jmh-v1.schema.json`
 - Test: `benchmark-driver/src/test/kotlin/com/salesforce/revoman/benchmark/driver/jmh/JmhDriverMainTest.kt`
 - Test: `benchmark-driver/src/test/kotlin/com/salesforce/revoman/benchmark/driver/jmh/JmhResultImporterTest.kt`
 - Test: `benchmark-driver/src/test/kotlin/com/salesforce/revoman/benchmark/driver/integrity/BuildIdentityTest.kt`
+- Test: `benchmark-driver/src/test/kotlin/com/salesforce/revoman/benchmark/driver/model/JmhBenchmarkResultSchemaTest.kt`
 - Test fixture: `benchmark-driver/src/test/resources/jmh/valid.json`
 - Test fixture: `benchmark-driver/src/test/resources/jmh/empty.json`
 - Test fixture: `benchmark-driver/src/test/resources/jmh/missing-raw-data.json`
+- Test fixture: `benchmark-driver/src/test/resources/jmh-result/v1/minimal-valid.json`
 
 **Interfaces:**
 - Consumes: `TargetAdapter.operation(id)` from Task 3 and campaign models from Task 2.
-- Produces: `runJmh(args, execute)`, `JmhResultImporter.import`, `:benchmark-driver:benchmarkJmh`, `:benchmark-driver:benchmarkHarnessSelfTest`, and the root `jmh` alias.
+- Produces: `runJmh(args, execute)`, `JmhResultImporter.import`, strict single-target
+  `JmhBenchmarkResultV1` (`revoman-benchmark-jmh/v1`), `:benchmark-driver:benchmarkJmh`,
+  `:benchmark-driver:benchmarkHarnessSelfTest`, and the root `jmh` alias.
 
 - [ ] **Step 1: Write failing strict-runner and result-import tests.**
 
@@ -854,6 +860,11 @@ Change Set 1 ships the harness, the versioned `lifecycle.no-script-one-step.v1` 
   ```
 
   Import tests must reject `[]`, reject records without `primaryMetric.rawData`, and map raw fork arrays plus `gc.alloc.rate.norm` into `MetricObservation` without averaging away fork/iteration identity.
+
+  `JmhBenchmarkResultSchemaTest` requires full harness/environment/single-target/workload identity,
+  requested include/fork configuration, provider/unit metadata, and either exact raw
+  fork/iteration observations or an exact histogram. Every object rejects unknown properties;
+  canonical writes order unordered evidence deterministically.
 
   `BuildIdentityTest` proves source-file enumeration is path-sorted, one adapter/workload byte changes its hash, dirty Git state is recorded, runtime artifact-set hashing ignores installation paths, and the embedded source manifest never contains its own distribution hash.
 
@@ -888,7 +899,12 @@ Change Set 1 ships the harness, the versioned `lifecycle.no-script-one-step.v1` 
 
   `main` lets `RunnerException`, malformed options, and empty results escape so JavaExec exits nonzero. `JmhResultImporter` validates requested include regexes against returned benchmark names and preserves `rawData[fork][iteration]`; it never treats a human-readable header as a result row.
 
-  After `Runner.run()` succeeds, invoke `JmhResultImporter` with harness/target/workload metadata and write `build/results/jmh/revoman-benchmark-v1.json`; the raw JMH JSON remains alongside it.
+  After `Runner.run()` succeeds, invoke `JmhResultImporter` with harness/target/workload metadata
+  and atomically write `build/results/jmh/revoman-benchmark-jmh-v1.json`; the raw JMH JSON remains
+  alongside it. This document uses the strict single-target `revoman-benchmark-jmh/v1` schema.
+  It must never masquerade as, weaken, or duplicate evidence into paired
+  `revoman-benchmark/v1`. Task 11 alone imports these observations when assembling a real paired
+  campaign.
 
 - [ ] **Step 4: Move benchmarks and replace direct target imports with prepared operations.**
 
@@ -960,7 +976,7 @@ Change Set 1 ships the harness, the versioned `lifecycle.no-script-one-step.v1` 
 
   Before execution, delete prior JSON/human output, require the fixed thin JAR, reject any classpath filename ending `-jmh.jar`, and pass JMH JSON/result paths plus include/quick properties. This makes Gradle JMH and installed macro/JMH runners share the same runtime artifact-set identity. Disable the plugin's default `:benchmark-driver:jmh` and `jmhJar` tasks with a message directing callers to `benchmarkJmh`; neither may be in `benchmarkJmh --dry-run`.
 
-  Map Gradle properties `benchmark.includes`, `benchmark.quick`, `benchmark.forks`, and `benchmark.profilers` to JMH options. `benchmark.rawJmhOutput` and `benchmark.resultOutput` select the raw JMH JSON and normalized `revoman-benchmark/v1` paths; default both under `benchmark-driver/build/results/jmh/`, delete prior files, and require atomic successful replacements. Map `benchmark.targetManifest` and `benchmark.adapter` to controller system properties; `JmhDriverMain` appends these same values to every JMH fork:
+  Map Gradle properties `benchmark.includes`, `benchmark.quick`, `benchmark.forks`, and `benchmark.profilers` to JMH options. `benchmark.rawJmhOutput` and `benchmark.resultOutput` select the raw JMH JSON and normalized single-target `revoman-benchmark-jmh/v1` paths; the normalized default is `benchmark-driver/build/results/jmh/revoman-benchmark-jmh-v1.json`. Delete prior files and require atomic successful replacements. Map `benchmark.targetManifest` and `benchmark.adapter` to controller system properties; `JmhDriverMain` appends these same values to every JMH fork:
 
   ```text
   revoman.benchmark.targetManifest = canonical absolute supplied manifest path
@@ -988,6 +1004,11 @@ Change Set 1 ships the harness, the versioned `lifecycle.no-script-one-step.v1` 
   -Dlog4j2.configurationFile=file:/opt/revoman-benchmark/checkouts/harness-cs1/benchmark-driver/build/install/benchmark-driver/conf/log4j2-benchmark.xml
   -Drevoman.banner=off
   ```
+
+  The pinned Log4j 3 beta also receives its global-context equivalent
+  `-Dlog4j2.*.Configuration.file=<same URI>`, and
+  `-Dkotlin-logging.logStartupMessage=false` suppresses its unconditional startup line. The
+  required compatibility property above remains present for both controller and forks.
 
   Do not alter target `RunLogSink.NoOp` installation or target production logging files.
 
@@ -1785,6 +1806,7 @@ Change Set 1 ships the harness, the versioned `lifecycle.no-script-one-step.v1` 
 - Create: `benchmark-driver/src/main/kotlin/com/salesforce/revoman/benchmark/driver/integrity/TargetManifestLoader.kt`
 - Modify: `benchmark-driver/src/main/kotlin/com/salesforce/revoman/benchmark/driver/integrity/BuildIdentity.kt`
 - Create: `benchmark-driver/src/main/resources/schema/revoman-target-manifest-v1.schema.json`
+- Modify: `benchmark-driver/src/main/resources/schema/revoman-benchmark-jmh-v1.schema.json`
 - Modify: `benchmark-driver/src/main/dist/libexec/benchmark-target.init.gradle.kts`
 - Modify: `benchmark-driver/build.gradle.kts`
 - Test: `benchmark-driver/src/test/kotlin/com/salesforce/revoman/benchmark/driver/cli/BenchmarkCliTest.kt`
@@ -1876,7 +1898,7 @@ Change Set 1 ships the harness, the versioned `lifecycle.no-script-one-step.v1` 
 
 - [ ] **Step 4: Implement CLI commands and campaign orchestration.**
 
-  `run-paired` requires the parent of `--artifacts-dir` to exist/be writable, requires the requested child not to exist, and creates that child atomically before launching anything; an existing directory is rejected so stale files can never satisfy a run. It starts the deterministic server, verifies both manifests/hashes, schedules paired blocks, runs separate metric passes, and writes one atomic `BenchmarkResultV1`. Cold ALLOCATION routes to the separate JFR pass; warm ALLOCATION routes to `WarmAllocationRunner`/the distributed lifecycle JMH benchmark; PEAK_RSS is cold-only; RETAINED routes to independent checkpoint processes. For the CS1 protocol, `--forks-per-block 1` means one independent fork per role inside every accepted paired block; five warm blocks therefore produce five total forks per role. It merges only compatible provider results without discarding fork/block identity. `compare` validates compatibility and writes JSON plus Markdown. `verify` performs schema/hash/count validation only. `capture-baseline` requires both roles to be clean commit `83f3cd70f78ad733412d10cbc8287aaabafe7aac` using adapter `baseline-83f3cd70`.
+  `run-paired` requires the parent of `--artifacts-dir` to exist/be writable, requires the requested child not to exist, and creates that child atomically before launching anything; an existing directory is rejected so stale files can never satisfy a run. It starts the deterministic server, verifies both manifests/hashes, schedules paired blocks, runs separate metric passes, and writes one atomic `BenchmarkResultV1`. Cold ALLOCATION routes to the separate JFR pass; warm ALLOCATION routes to `WarmAllocationRunner`/the distributed lifecycle JMH benchmark; PEAK_RSS is cold-only; RETAINED routes to independent checkpoint processes. For the CS1 protocol, `--forks-per-block 1` means one independent fork per role inside every accepted paired block; five warm blocks therefore produce five total forks per role. Task 11 is the sole owner of importing strict single-target `revoman-benchmark-jmh/v1` observations and attaching them to their actual alternating block/role before paired `revoman-benchmark/v1` assembly; it never duplicates one JMH target as both roles. It merges only compatible provider results without discarding fork/block identity. `compare` accepts only paired campaign evidence and rejects a single-target JMH document; `verify` dispatches strict schema/hash/count validation for both schemas. `capture-baseline` requires both roles to be clean commit `83f3cd70f78ad733412d10cbc8287aaabafe7aac` using adapter `baseline-83f3cd70`.
 
   Supported syntax:
 
@@ -2119,7 +2141,7 @@ Change Set 1 ships the harness, the versioned `lifecycle.no-script-one-step.v1` 
 **Files:**
 - Create: `docs/superpowers/benchmarks/results/v1/baseline-83f3cd70/cold-aa.json`
 - Create: `docs/superpowers/benchmarks/results/v1/baseline-83f3cd70/warm-aa.json`
-- Create: `docs/superpowers/benchmarks/results/v1/baseline-83f3cd70/jmh.json`
+- Create: `docs/superpowers/benchmarks/results/v1/baseline-83f3cd70/revoman-benchmark-jmh-v1.json`
 - Create: `docs/superpowers/benchmarks/results/v1/baseline-83f3cd70/jmh-raw.json`
 - Create: `docs/superpowers/benchmarks/results/v1/baseline-83f3cd70/comparison.json`
 - Create: `docs/superpowers/benchmarks/results/v1/baseline-83f3cd70/comparison.md`
@@ -2229,10 +2251,14 @@ Change Set 1 ships the harness, the versioned `lifecycle.no-script-one-step.v1` 
     -Pbenchmark.forks=5 \
     -Pbenchmark.profilers=gc \
     -Pbenchmark.rawJmhOutput="$REVOMAN_BENCH_RUN_ROOT/results/jmh-raw.json" \
-    -Pbenchmark.resultOutput="$REVOMAN_BENCH_RUN_ROOT/results/jmh.json"
+    -Pbenchmark.resultOutput="$REVOMAN_BENCH_RUN_ROOT/results/revoman-benchmark-jmh-v1.json"
   ```
 
-  Run SampleTime only for a percentile claim. Normalize the JMH JSON through `JmhResultImporter`, save it as `jmh.json`, and verify no logging or multi-release warning appears.
+  Run SampleTime only for a percentile claim. Normalize the JMH JSON through
+  `JmhResultImporter`, save it as `revoman-benchmark-jmh-v1.json`, require schema
+  `revoman-benchmark-jmh/v1`, and verify no logging or multi-release warning appears. This is
+  single-target archival/component evidence, not a paired campaign and not input to release gates
+  without Task 11's explicit block/role assembly.
 
 - [ ] **Step 6: Compare A/A and reject a noisy harness.**
 
@@ -2261,14 +2287,14 @@ Change Set 1 ships the harness, the versioned `lifecycle.no-script-one-step.v1` 
   /opt/revoman-benchmark/checkouts/harness-cs1/benchmark-driver/build/install/benchmark-driver/bin/benchmark-driver verify \
     --input "$REVOMAN_BENCH_RUN_ROOT/results/warm-aa.json"
   /opt/revoman-benchmark/checkouts/harness-cs1/benchmark-driver/build/install/benchmark-driver/bin/benchmark-driver verify \
-    --input "$REVOMAN_BENCH_RUN_ROOT/results/jmh.json"
+    --input "$REVOMAN_BENCH_RUN_ROOT/results/revoman-benchmark-jmh-v1.json"
   mkdir -p docs/superpowers/benchmarks/results/v1/baseline-83f3cd70
   cp "$REVOMAN_BENCH_RUN_ROOT/results/cold-aa.json" \
     docs/superpowers/benchmarks/results/v1/baseline-83f3cd70/cold-aa.json
   cp "$REVOMAN_BENCH_RUN_ROOT/results/warm-aa.json" \
     docs/superpowers/benchmarks/results/v1/baseline-83f3cd70/warm-aa.json
-  cp "$REVOMAN_BENCH_RUN_ROOT/results/jmh.json" \
-    docs/superpowers/benchmarks/results/v1/baseline-83f3cd70/jmh.json
+  cp "$REVOMAN_BENCH_RUN_ROOT/results/revoman-benchmark-jmh-v1.json" \
+    docs/superpowers/benchmarks/results/v1/baseline-83f3cd70/revoman-benchmark-jmh-v1.json
   cp "$REVOMAN_BENCH_RUN_ROOT/results/jmh-raw.json" \
     docs/superpowers/benchmarks/results/v1/baseline-83f3cd70/jmh-raw.json
   cp "$REVOMAN_BENCH_RUN_ROOT/results/comparison.json" \

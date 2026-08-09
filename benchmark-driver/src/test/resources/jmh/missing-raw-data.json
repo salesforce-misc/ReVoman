@@ -1,0 +1,15 @@
+[
+  {
+    "jmhVersion": "1.37",
+    "benchmark": "com.salesforce.revoman.benchmark.HarnessSanityBenchmark.scalar",
+    "forks": 1,
+    "warmupIterations": 0,
+    "measurementIterations": 1,
+    "params": {},
+    "primaryMetric": {
+      "score": 10.5,
+      "scoreUnit": "ns/op"
+    },
+    "secondaryMetrics": {}
+  }
+]

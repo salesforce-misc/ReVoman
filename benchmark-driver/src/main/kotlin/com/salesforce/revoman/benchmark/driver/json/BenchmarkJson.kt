@@ -12,6 +12,7 @@ import com.networknt.schema.SchemaRegistry
 import com.networknt.schema.SpecificationVersion
 import com.salesforce.revoman.benchmark.driver.model.BenchmarkResultV1
 import com.salesforce.revoman.benchmark.driver.model.ExecutionDigest
+import com.salesforce.revoman.benchmark.driver.model.JmhBenchmarkResultV1
 import com.salesforce.revoman.benchmark.driver.model.TargetForkCommand
 import com.salesforce.revoman.benchmark.driver.model.TargetForkResult
 import com.salesforce.revoman.benchmark.driver.model.TargetManifest
@@ -104,6 +105,7 @@ internal object BenchmarkJson {
     private fun validate(value: Any) {
         when (value) {
             is BenchmarkResultV1 -> value.validate()
+            is JmhBenchmarkResultV1 -> value.validate()
             is TargetManifest -> value.validate()
             is TargetForkCommand -> validateCommand(value)
             is TargetForkResult -> validateResult(value)
@@ -114,6 +116,7 @@ internal object BenchmarkJson {
     private fun normalize(value: Any): Any =
         when (value) {
             is BenchmarkResultV1 -> value.canonicalized()
+            is JmhBenchmarkResultV1 -> value.canonicalized()
             is WorkloadManifest -> value.canonicalized()
             else -> value
         }

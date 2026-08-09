@@ -414,11 +414,11 @@ class FakeTargetJarBuilder(private val root: Path) {
             import java.util.Map;
 
             public final class PostmanSDK {
-                public final PostmanEnvironment<Object> environment = new PostmanEnvironment<>(new java.util.LinkedHashMap<>());
+                public final PostmanEnvironment<Object> environment;
                 private final JSEvaluator jsEvaluator = new JSEvaluator();
 
                 public PostmanSDK(MoshiReVoman moshi, String modules, RegexReplacer regex, Map<String, Object> env) {
-                    environment.putAll(env);
+                    environment = new PostmanEnvironment<>(env);
                 }
 
                 public static final class JSEvaluator {
@@ -625,12 +625,18 @@ class FakeTargetJarBuilder(private val root: Path) {
             package com.salesforce.revoman.output.postman;
 
             import com.salesforce.revoman.output.report.Step;
-            import java.util.LinkedHashMap;
+            import java.util.AbstractMap;
             import java.util.Map;
+            import java.util.Set;
 
-            public final class PostmanEnvironment<V> extends LinkedHashMap<String, V> {
+            public final class PostmanEnvironment<V> extends AbstractMap<String, V> {
+                private final Map<String, V> values;
                 private Step currentStep;
-                public PostmanEnvironment(Map<String, V> values) { super(values); }
+                public PostmanEnvironment(Map<String, V> values) { this.values = values; }
+                @Override public Set<Entry<String, V>> entrySet() { return values.entrySet(); }
+                @Override public V put(String key, V value) { return values.put(key, value); }
+                @Override public V remove(Object key) { return values.remove(key); }
+                @Override public int size() { return values.size(); }
                 public void setCurrentStep${'$'}com_salesforce_revoman_revoman(Step step) { currentStep = step; }
                 public void set(String key, V value) {
                     if (currentStep != null && !key.equals("key_" + currentStep.name)) {
@@ -638,7 +644,9 @@ class FakeTargetJarBuilder(private val root: Path) {
                     }
                     put(key, value);
                 }
-                public PostmanEnvironment<V> o1Snapshot() { return new PostmanEnvironment<>(this); }
+                public PostmanEnvironment<V> o1Snapshot() {
+                    return new PostmanEnvironment<>(new java.util.LinkedHashMap<>(values));
+                }
             }
             """
                 .trimIndent()

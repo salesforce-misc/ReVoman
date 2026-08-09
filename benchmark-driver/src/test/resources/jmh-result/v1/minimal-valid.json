@@ -1,0 +1,122 @@
+{
+  "schema": "revoman-benchmark-jmh/v1",
+  "resultId": "jmh-current-1",
+  "createdAt": "2026-08-09T00:00:00Z",
+  "harness": {
+    "commit": "harness-commit",
+    "tree": "harness-tree",
+    "dirty": false,
+    "distributionSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "artifacts": [],
+    "workloadContractSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "fixtureSetSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "adapters": [
+      { "id": "baseline-83f3cd70", "sourceSha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd" }
+    ]
+  },
+  "environment": {
+    "jdk": {
+      "distribution": "Temurin",
+      "vendor": "Eclipse Adoptium",
+      "fullVersion": "21.0.8+9-LTS",
+      "javaHome": "/jdk/21",
+      "jvmFlags": []
+    },
+    "osName": "Linux",
+    "osVersion": "6",
+    "kernel": "6.8.0",
+    "cpuModel": "Benchmark CPU",
+    "cpuCount": 8,
+    "governor": "performance",
+    "physicalMemoryBytes": 17179869184,
+    "hostFingerprintSha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "policySha256": null
+  },
+  "target": {
+    "id": "current",
+    "gitCommit": "target-commit",
+    "gitTree": "target-tree",
+    "dirty": true,
+    "gradleVersion": "9.7.0-rc-2",
+    "wrapperSha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "buildJdk": {
+      "distribution": "Temurin",
+      "vendor": "Eclipse Adoptium",
+      "fullVersion": "21.0.8+9-LTS",
+      "javaHome": "/jdk/21",
+      "jvmFlags": []
+    },
+    "manifestSha256": "1111111111111111111111111111111111111111111111111111111111111111",
+    "classpathSha256": "2222222222222222222222222222222222222222222222222222222222222222",
+    "adapter": { "id": "baseline-83f3cd70", "sourceSha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd" }
+  },
+  "workload": {
+    "manifestSha256": "5555555555555555555555555555555555555555555555555555555555555555",
+    "manifest": {
+      "id": "jmh.component-operations.v1",
+      "contractVersion": 1,
+      "files": [
+        {
+          "logicalId": "fixture.json",
+          "executionPath": "fixture.json",
+          "sizeBytes": 2,
+          "sha256": "6666666666666666666666666666666666666666666666666666666666666666"
+        }
+      ],
+      "fixtureTreeSha256": "7777777777777777777777777777777777777777777777777777777777777777",
+      "operationIds": ["smoke.sum-range"],
+      "requiredGatesByMode": { "COLD": [], "WARM": [], "RETAINED": [] },
+      "expectedDigest": null
+    }
+  },
+  "configuration": {
+    "requestedIncludes": ["HarnessSanityBenchmark"],
+    "requestedForks": 1,
+    "profilers": [],
+    "quick": true
+  },
+  "benchmarks": [
+    {
+      "name": "com.salesforce.revoman.benchmark.HarnessSanityBenchmark.scalar",
+      "parameters": {},
+      "forks": 1,
+      "warmupIterations": 0,
+      "measurementIterations": 2,
+      "metricSeries": [
+        {
+          "metric": "LATENCY",
+          "provider": "jmh:HarnessSanityBenchmark.scalar",
+          "providerConfigurationSha256": "8888888888888888888888888888888888888888888888888888888888888888",
+          "unit": "NANOSECONDS_PER_OPERATION",
+          "rawObservations": [
+            {
+              "targetId": "current",
+              "metric": "LATENCY",
+              "provider": "jmh:HarnessSanityBenchmark.scalar",
+              "unit": "NANOSECONDS_PER_OPERATION",
+              "fork": 0,
+              "iteration": 0,
+              "replicateGroup": null,
+              "processId": 1001,
+              "value": 10.0,
+              "retainedEvidence": null
+            },
+            {
+              "targetId": "current",
+              "metric": "LATENCY",
+              "provider": "jmh:HarnessSanityBenchmark.scalar",
+              "unit": "NANOSECONDS_PER_OPERATION",
+              "fork": 0,
+              "iteration": 1,
+              "replicateGroup": null,
+              "processId": 1001,
+              "value": 11.0,
+              "retainedEvidence": null
+            }
+          ],
+          "exactHistogram": null
+        }
+      ]
+    }
+  ]
+}

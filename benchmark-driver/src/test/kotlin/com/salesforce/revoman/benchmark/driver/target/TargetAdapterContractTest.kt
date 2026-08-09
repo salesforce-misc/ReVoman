@@ -222,6 +222,21 @@ class TargetAdapterContractTest {
     }
 
     @Test
+    fun `baseline component preparation supplies the mutable environment required by target`() {
+        val builder = FakeTargetJarBuilder(temporaryDirectory)
+        val verified = VerifiedTargetManifest.preflight(builder.manifestFor(builder.componentJar()))
+        val componentRoot = componentFixtureRoot("mutable-environment-components")
+
+        TargetRuntime.open(verified).use { runtime ->
+            TargetAdapterRegistry.require("baseline-83f3cd70")
+                .prepare(runtime, componentRequest(componentRoot))
+                .use { prepared ->
+                    assertThat(prepared.operation("regex.large-environment").invoke()).isEqualTo(1)
+                }
+        }
+    }
+
+    @Test
     fun `component close attempts every resource and suppresses later failures`() {
         val builder = FakeTargetJarBuilder(temporaryDirectory)
         val verified = VerifiedTargetManifest.preflight(builder.manifestFor(builder.componentJar()))

@@ -7,30 +7,44 @@
  */
 package com.salesforce.revoman.benchmark
 
+import com.salesforce.revoman.benchmark.driver.target.TargetOperation
 import java.util.concurrent.TimeUnit
 import org.openjdk.jmh.annotations.Benchmark
 import org.openjdk.jmh.annotations.BenchmarkMode
 import org.openjdk.jmh.annotations.Fork
+import org.openjdk.jmh.annotations.Level
 import org.openjdk.jmh.annotations.Measurement
 import org.openjdk.jmh.annotations.Mode
 import org.openjdk.jmh.annotations.OutputTimeUnit
 import org.openjdk.jmh.annotations.Scope
+import org.openjdk.jmh.annotations.Setup
 import org.openjdk.jmh.annotations.State
+import org.openjdk.jmh.annotations.TearDown
 import org.openjdk.jmh.annotations.Warmup
 
-private const val UPPER_BOUND = 100
-
-/**
- * Smoke benchmark proving the `jmh` source set compiles and the `me.champeau.jmh` toolchain runs
- * end-to-end on this project. The domain worktrees (WT-1..WT-4) drop their own `*Benchmark.kt` into
- * this same package; this file only validates the harness.
- */
-@State(Scope.Benchmark)
 @BenchmarkMode(Mode.AverageTime)
-@OutputTimeUnit(TimeUnit.NANOSECONDS)
+@OutputTimeUnit(TimeUnit.MICROSECONDS)
+@State(Scope.Benchmark)
 @Fork(1)
-@Warmup(iterations = 1, time = 1)
-@Measurement(iterations = 1, time = 1)
-open class SmokeBenchmark {
-  @Benchmark open fun sumOfRange(): Int = (1..UPPER_BOUND).sum()
+@Warmup(iterations = 5, time = 1)
+@Measurement(iterations = 8, time = 1)
+open class SandboxBenchmark {
+    private val target = PreparedTargetState()
+    private lateinit var operation: TargetOperation
+
+    @Setup(Level.Trial)
+    fun setup() {
+        target.prepare(listOf(OPERATION_ID))
+        operation = target.operation(OPERATION_ID)
+    }
+
+    @TearDown(Level.Trial)
+    fun tearDown() = target.close()
+
+    @Benchmark
+    fun evalPostmanTestScript(): Long = operation.invoke()
+
+    private companion object {
+        const val OPERATION_ID: String = "sandbox.postman-test-script"
+    }
 }

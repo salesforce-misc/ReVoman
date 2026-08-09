@@ -441,7 +441,7 @@ private constructor(
                         initMoshi.invoke(companion),
                         null,
                         regexReplacer,
-                        emptyMap<String, Any>(),
+                        mutableMapOf<String, Any?>(),
                     )
                 val sdkEnvironment = target.fieldGetter(sdk, "environment", environment).call1()
                 val environmentSet =

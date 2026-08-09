@@ -1,0 +1,41 @@
+{
+  "id": "jmh.component-operations.v1",
+  "contractVersion": 1,
+  "files": [
+    {
+      "logicalId": "composite-response.json",
+      "executionPath": "composite-response.json",
+      "sizeBytes": 481,
+      "sha256": "0adcedc2c613cc5dd44d66617306854a9c974769a3bdde94f33bff9b8682ba32"
+    },
+    {
+      "logicalId": "postman-test-script.js",
+      "executionPath": "postman-test-script.js",
+      "sizeBytes": 196,
+      "sha256": "73afd0382841b5966bc1b2781dd348072d01cbdd5b1a725ba2455d80d90d76c5"
+    },
+    {
+      "logicalId": "regex-inputs.json",
+      "executionPath": "regex-inputs.json",
+      "sizeBytes": 24663,
+      "sha256": "00a1fefa225a673bef6589fb6d9c956f86ebb77731ae537202314e0be433c2f5"
+    }
+  ],
+  "fixtureTreeSha256": "ea895019a64971a6af69131566535c611052807c0afc533a8264df4e016bea15",
+  "operationIds": [
+    "smoke.sum-range",
+    "regex.mixed-strings",
+    "regex.large-environment",
+    "marshalling.composite-from-json",
+    "marshalling.composite-to-json",
+    "sandbox.postman-test-script",
+    "environment.accumulate-and-snapshot",
+    "graal.open-engine"
+  ],
+  "requiredGatesByMode": {
+    "COLD": [],
+    "WARM": [],
+    "RETAINED": []
+  },
+  "expectedDigest": null
+}
