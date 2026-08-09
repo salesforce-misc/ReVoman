@@ -14,15 +14,21 @@ import com.salesforce.revoman.benchmark.driver.target.LIFECYCLE_WORKLOAD_ID
 import com.salesforce.revoman.benchmark.driver.target.PreparedWorkload
 import com.salesforce.revoman.benchmark.driver.target.ReflectiveTarget
 import com.salesforce.revoman.benchmark.driver.target.TargetAdapter
+import com.salesforce.revoman.benchmark.driver.target.TargetCall0
+import com.salesforce.revoman.benchmark.driver.target.TargetCall1
+import com.salesforce.revoman.benchmark.driver.target.TargetCall2
+import com.salesforce.revoman.benchmark.driver.target.TargetCall3
 import com.salesforce.revoman.benchmark.driver.target.TargetOperation
 import com.salesforce.revoman.benchmark.driver.target.TargetRuntime
 import com.salesforce.revoman.benchmark.driver.target.executionDigest
-import java.lang.invoke.MethodHandle
 import java.nio.file.Path
 
-/** Adapter for the pinned major-v1 lifecycle contract; component operations are not yet supported. */
+/**
+ * Adapter for the pinned major-v1 lifecycle contract; component operations are not yet supported.
+ */
 object MajorV1Adapter : TargetAdapter {
-    override val descriptor: AdapterDescriptor = AdapterDescriptor(id = "major-v1", surfaceVersion = 1)
+    override val descriptor: AdapterDescriptor =
+        AdapterDescriptor(id = "major-v1", surfaceVersion = 1)
 
     override fun prepare(runtime: TargetRuntime, request: WorkloadRequest): PreparedWorkload {
         require(request.id == LIFECYCLE_WORKLOAD_ID) {
@@ -35,57 +41,19 @@ object MajorV1Adapter : TargetAdapter {
             Path.of(request.fixtureRoot).resolve("collection.postman_collection.json").toString()
         return runtime.withTargetContext {
             val target = ReflectiveTarget(runtime)
-            val kick = target.type(MajorV1BindingContract.KICK_OWNER.className())
-            val builder = target.type(MajorV1BindingContract.BUILDER_OWNER.className())
-            val revoman = target.type(MajorV1BindingContract.REVOMAN_OWNER.className())
-            val rundown = target.type(MajorV1BindingContract.RUNDOWN_OWNER.className())
             MajorPreparedWorkload(
                 runtime = runtime,
-                target = target,
                 collectionPath = collectionPath,
                 baseUrl = request.baseUrl,
-                configure =
-                    target.staticMethod(
-                        kick,
-                        MajorV1BindingContract.configure.name,
-                        builder,
-                    ),
-                templatePath =
-                    target.virtualMethod(
-                        builder,
-                        MajorV1BindingContract.templatePath.name,
-                        builder,
-                        String::class.java,
-                    ),
-                dynamicEnvironment =
-                    target.virtualMethod(
-                        builder,
-                        MajorV1BindingContract.dynamicEnvironment.name,
-                        builder,
-                        String::class.java,
-                        Any::class.java,
-                    ),
-                insecureHttp =
-                    target.virtualMethod(
-                        builder,
-                        MajorV1BindingContract.insecureHttp.name,
-                        builder,
-                        Boolean::class.javaPrimitiveType!!,
-                    ),
-                off = target.virtualMethod(builder, MajorV1BindingContract.off.name, kick),
-                revUp = target.staticMethod(revoman, MajorV1BindingContract.revUp.name, rundown, kick),
-                executedStepCount =
-                    target.virtualMethod(
-                        rundown,
-                        MajorV1BindingContract.executedStepCount.name,
-                        Int::class.javaPrimitiveType!!,
-                    ),
+                configure = MajorV1BindingContract.configure.bind(target).call0(),
+                templatePath = MajorV1BindingContract.templatePath.bind(target).call2(),
+                dynamicEnvironment = MajorV1BindingContract.dynamicEnvironment.bind(target).call3(),
+                insecureHttp = MajorV1BindingContract.insecureHttp.bind(target).call2(),
+                off = MajorV1BindingContract.off.bind(target).call1(),
+                revUp = MajorV1BindingContract.revUp.bind(target).call1(),
+                executedStepCount = MajorV1BindingContract.executedStepCount.bind(target).call1(),
                 unsuccessfulStepCount =
-                    target.virtualMethod(
-                        rundown,
-                        MajorV1BindingContract.unsuccessfulStepCount.name,
-                        Int::class.javaPrimitiveType!!,
-                    ),
+                    MajorV1BindingContract.unsuccessfulStepCount.bind(target).call1(),
             )
         }
     }
@@ -93,17 +61,16 @@ object MajorV1Adapter : TargetAdapter {
 
 private class MajorPreparedWorkload(
     private val runtime: TargetRuntime,
-    private val target: ReflectiveTarget,
     private val collectionPath: String,
     private val baseUrl: String,
-    private val configure: MethodHandle,
-    private val templatePath: MethodHandle,
-    private val dynamicEnvironment: MethodHandle,
-    private val insecureHttp: MethodHandle,
-    private val off: MethodHandle,
-    private val revUp: MethodHandle,
-    private val executedStepCount: MethodHandle,
-    private val unsuccessfulStepCount: MethodHandle,
+    private val configure: TargetCall0,
+    private val templatePath: TargetCall2,
+    private val dynamicEnvironment: TargetCall3,
+    private val insecureHttp: TargetCall2,
+    private val off: TargetCall1,
+    private val revUp: TargetCall1,
+    private val executedStepCount: TargetCall1,
+    private val unsuccessfulStepCount: TargetCall1,
 ) : PreparedWorkload {
     private var closed: Boolean = false
     private val lifecycleOperation = TargetOperation { execute().checksum }
@@ -111,16 +78,16 @@ private class MajorPreparedWorkload(
     override fun execute(): ExecutionDigest {
         check(!closed) { "major-v1 prepared workload is closed" }
         return runtime.withTargetContext {
-            var builder: Any? = target.invoke(configure)
-            target.invoke(templatePath, builder, collectionPath)
-            target.invoke(dynamicEnvironment, builder, "baseUrl", baseUrl)
-            target.invoke(insecureHttp, builder, true)
-            var kick: Any? = target.invoke(off, builder)
+            var builder: Any? = configure.invoke()
+            templatePath.invoke(builder, collectionPath)
+            dynamicEnvironment.invoke(builder, "baseUrl", baseUrl)
+            insecureHttp.invoke(builder, true)
+            var kick: Any? = off.invoke(builder)
             builder = null
-            var rundown: Any? = target.invoke(revUp, kick)
+            var rundown: Any? = revUp.invoke(kick)
             kick = null
-            val executed = target.invoke(executedStepCount, rundown) as Int
-            val unsuccessful = target.invoke(unsuccessfulStepCount, rundown) as Int
+            val executed = executedStepCount.invoke(rundown) as Int
+            val unsuccessful = unsuccessfulStepCount.invoke(rundown) as Int
             rundown = null
             executionDigest(executed, unsuccessful)
         }
@@ -141,5 +108,3 @@ private class MajorPreparedWorkload(
         closed = true
     }
 }
-
-private fun String.className(): String = replace('/', '.')

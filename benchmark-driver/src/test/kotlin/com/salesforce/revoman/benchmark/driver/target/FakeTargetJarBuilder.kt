@@ -18,7 +18,6 @@ import java.util.jar.JarEntry
 import java.util.jar.JarOutputStream
 import javax.tools.DiagnosticCollector
 import javax.tools.JavaFileObject
-import javax.tools.StandardJavaFileManager
 import javax.tools.ToolProvider
 
 /** Compiles deterministic Java-only target surfaces for real classloader/reflection tests. */
@@ -56,7 +55,7 @@ class FakeTargetJarBuilder(private val root: Path) {
             ),
         )
 
-    fun componentJar(): Path =
+    fun componentJar(failPreparationAfterResources: Boolean = false): Path =
         buildJar(
             "components",
             mapOf(
@@ -83,7 +82,11 @@ class FakeTargetJarBuilder(private val root: Path) {
                 "com.salesforce.revoman.output.postman.PersistentBackedMutableMap" to
                     COMPONENT_PERSISTENT_MAP,
                 "com.salesforce.revoman.output.postman.PostmanEnvironment" to COMPONENT_ENVIRONMENT,
-                "org.graalvm.polyglot.Engine" to COMPONENT_ENGINE,
+                "org.graalvm.polyglot.Engine" to
+                    when {
+                        failPreparationAfterResources -> COMPONENT_ENGINE_WITHOUT_CREATE
+                        else -> COMPONENT_ENGINE
+                    },
                 "org.graalvm.polyglot.Context" to COMPONENT_CONTEXT,
             ),
         )
@@ -125,15 +128,15 @@ class FakeTargetJarBuilder(private val root: Path) {
         val buildRoot = Files.createDirectory(root.resolve("$name-${buildNumber++}"))
         val sourceRoot = Files.createDirectory(buildRoot.resolve("src"))
         val classesRoot = Files.createDirectory(buildRoot.resolve("classes"))
-        val sourcePaths =
-            sources.map { (className, source) ->
-                sourceRoot.resolve(className.replace('.', '/') + ".java").also {
-                    Files.createDirectories(requireNotNull(it.parent))
-                    Files.writeString(it, source)
-                }
+        val sourcePaths = sources.map { (className, source) ->
+            sourceRoot.resolve(className.replace('.', '/') + ".java").also {
+                Files.createDirectories(requireNotNull(it.parent))
+                Files.writeString(it, source)
             }
+        }
 
-        val compiler = requireNotNull(ToolProvider.getSystemJavaCompiler()) { "Tests require a JDK" }
+        val compiler =
+            requireNotNull(ToolProvider.getSystemJavaCompiler()) { "Tests require a JDK" }
         val diagnostics = DiagnosticCollector<JavaFileObject>()
         compiler.getStandardFileManager(diagnostics, null, Charsets.UTF_8).use { fileManager ->
             val compilationUnits = fileManager.getJavaFileObjectsFromPaths(sourcePaths)
@@ -146,7 +149,8 @@ class FakeTargetJarBuilder(private val root: Path) {
                         listOf("--release", "21", "-d", classesRoot.toString()),
                         null,
                         compilationUnits,
-                    ).call()
+                    )
+                    .call()
             check(compiled) {
                 diagnostics.diagnostics.joinToString(System.lineSeparator()) { it.toString() }
             }
@@ -155,15 +159,12 @@ class FakeTargetJarBuilder(private val root: Path) {
         val jar = buildRoot.resolve("$name.jar")
         JarOutputStream(Files.newOutputStream(jar)).use { output ->
             Files.walk(classesRoot).use { paths ->
-                paths
-                    .filter(Files::isRegularFile)
-                    .sorted()
-                    .forEach { classFile ->
-                        val entryName = classesRoot.relativize(classFile).joinToString("/")
-                        output.putNextEntry(JarEntry(entryName).apply { time = 0 })
-                        Files.copy(classFile, output)
-                        output.closeEntry()
-                    }
+                paths.filter(Files::isRegularFile).sorted().forEach { classFile ->
+                    val entryName = classesRoot.relativize(classFile).joinToString("/")
+                    output.putNextEntry(JarEntry(entryName).apply { time = 0 })
+                    Files.copy(classFile, output)
+                    output.closeEntry()
+                }
             }
         }
         return jar.toRealPath()
@@ -546,12 +547,16 @@ class FakeTargetJarBuilder(private val root: Path) {
 
             public final class PmSandbox implements AutoCloseable {
                 public static int closedCount;
+                public static boolean failClose;
                 public PmSandbox() {}
                 public PmExecutionResult execute(
                         String script, ScriptTarget target, PmExecutionContext context, long timeout) {
                     return new PmExecutionResult(Map.of("id", 42));
                 }
-                @Override public void close() { closedCount++; }
+                @Override public void close() {
+                    closedCount++;
+                    if (failClose) throw new IllegalStateException("sandbox close failed");
+                }
             }
             """
                 .trimIndent()
@@ -643,7 +648,23 @@ class FakeTargetJarBuilder(private val root: Path) {
             package org.graalvm.polyglot;
 
             public final class Engine implements AutoCloseable {
-                public static Engine create() { return new Engine(); }
+                public static int opened;
+                public static int closed;
+                public static boolean failClose;
+                public static Engine create() { opened++; return new Engine(); }
+                @Override public void close() {
+                    closed++;
+                    if (failClose) throw new IllegalStateException("engine close failed");
+                }
+            }
+            """
+                .trimIndent()
+
+        val COMPONENT_ENGINE_WITHOUT_CREATE =
+            """
+            package org.graalvm.polyglot;
+
+            public final class Engine implements AutoCloseable {
                 @Override public void close() {}
             }
             """
@@ -655,7 +676,11 @@ class FakeTargetJarBuilder(private val root: Path) {
 
             public final class Context implements AutoCloseable {
                 public static int closed;
-                @Override public void close() { closed++; }
+                public static boolean failClose;
+                @Override public void close() {
+                    closed++;
+                    if (failClose) throw new IllegalStateException("context close failed");
+                }
             }
             """
                 .trimIndent()

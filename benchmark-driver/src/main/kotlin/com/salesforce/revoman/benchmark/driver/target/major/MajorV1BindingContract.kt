@@ -7,6 +7,9 @@
  */
 package com.salesforce.revoman.benchmark.driver.target.major
 
+import com.salesforce.revoman.benchmark.driver.target.PreparedTargetMethod
+import com.salesforce.revoman.benchmark.driver.target.ReflectiveTarget
+
 /** Exact owner, member, and JVM-descriptor contract for the first major lifecycle surface. */
 object MajorV1BindingContract {
     const val KICK_OWNER: String = "com/salesforce/revoman/input/config/Kick"
@@ -14,24 +17,54 @@ object MajorV1BindingContract {
     const val REVOMAN_OWNER: String = "com/salesforce/revoman/ReVoman"
     const val RUNDOWN_OWNER: String = "com/salesforce/revoman/output/Rundown"
 
-    val configure = Member(KICK_OWNER, "configure", "()L$BUILDER_OWNER;")
-    val templatePath = Member(BUILDER_OWNER, "templatePath", "(Ljava/lang/String;)L$BUILDER_OWNER;")
+    val configure = Member(KICK_OWNER, "configure", "()L$BUILDER_OWNER;", Invocation.STATIC)
+    val templatePath =
+        Member(
+            BUILDER_OWNER,
+            "templatePath",
+            "(Ljava/lang/String;)L$BUILDER_OWNER;",
+            Invocation.VIRTUAL,
+        )
     val dynamicEnvironment =
         Member(
             BUILDER_OWNER,
             "dynamicEnvironment",
             "(Ljava/lang/String;Ljava/lang/Object;)L$BUILDER_OWNER;",
+            Invocation.VIRTUAL,
         )
-    val insecureHttp = Member(BUILDER_OWNER, "insecureHttp", "(Z)L$BUILDER_OWNER;")
-    val off = Member(BUILDER_OWNER, "off", "()L$KICK_OWNER;")
-    val revUp = Member(REVOMAN_OWNER, "revUp", "(L$KICK_OWNER;)L$RUNDOWN_OWNER;")
-    val executedStepCount = Member(RUNDOWN_OWNER, "executedStepCount", "()I")
-    val unsuccessfulStepCount = Member(RUNDOWN_OWNER, "unsuccessfulStepCount", "()I")
+    val insecureHttp =
+        Member(BUILDER_OWNER, "insecureHttp", "(Z)L$BUILDER_OWNER;", Invocation.VIRTUAL)
+    val off = Member(BUILDER_OWNER, "off", "()L$KICK_OWNER;", Invocation.VIRTUAL)
+    val revUp =
+        Member(
+            REVOMAN_OWNER,
+            "revUp",
+            "(L$KICK_OWNER;)L$RUNDOWN_OWNER;",
+            Invocation.STATIC,
+        )
+    val executedStepCount = Member(RUNDOWN_OWNER, "executedStepCount", "()I", Invocation.VIRTUAL)
+    val unsuccessfulStepCount =
+        Member(RUNDOWN_OWNER, "unsuccessfulStepCount", "()I", Invocation.VIRTUAL)
+
+    /** Distinguishes JVM static invocation from receiver-bearing virtual invocation. */
+    enum class Invocation {
+        STATIC,
+        VIRTUAL,
+    }
 
     /** One exact reflective member binding expressed in JVM internal-name form. */
     data class Member(
         val owner: String,
         val name: String,
         val descriptor: String,
-    )
+        val invocation: Invocation,
+    ) {
+        internal fun bind(target: ReflectiveTarget): PreparedTargetMethod =
+            target.method(
+                ownerInternalName = owner,
+                name = name,
+                descriptor = descriptor,
+                isStatic = invocation == Invocation.STATIC,
+            )
+    }
 }
