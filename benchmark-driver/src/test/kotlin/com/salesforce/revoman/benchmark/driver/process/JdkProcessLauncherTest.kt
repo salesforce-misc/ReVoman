@@ -153,6 +153,78 @@ class JdkProcessLauncherTest {
     }
 
     @Test
+    fun `final snapshot force kills a handle published after the pre-freeze budget expires`() {
+        val process = mockk<Process>()
+        val root = mockk<ProcessHandle>()
+        val lateDescendant = mockk<ProcessHandle>()
+        val clock = MutableMonotonicClock()
+        val budget =
+            ProcessTreeFinalizationBudget(
+                totalNanos = 100,
+                trackerJoinNanos = 20,
+                postFreezeNanos = 10,
+            )
+        val deadline = ProcessTreeFinalizationDeadline.start(clock, budget)
+        var lateDescendantPublished = false
+        var lateDescendantAlive = true
+        var freezeTimeoutNanos = -1L
+        every { process.toHandle() } returns root
+        every { root.descendants() } answers { Stream.empty() }
+        every { root.isAlive } returns false
+        every { lateDescendant.descendants() } answers { Stream.empty() }
+        every { lateDescendant.isAlive } answers { lateDescendantAlive }
+        every { lateDescendant.pid() } returns 303
+        every { lateDescendant.destroyForcibly() } answers {
+            lateDescendantAlive = false
+            true
+        }
+        clock.advanceTo(70)
+
+        val result =
+            DefaultLauncherCleanup.finalizeOwnedProcessTree(
+                process = process,
+                retainedDescendants = {
+                    if (lateDescendantPublished) listOf(lateDescendant) else emptyList()
+                },
+                freezeTracking = { timeoutNanos ->
+                    freezeTimeoutNanos = timeoutNanos
+                    lateDescendantPublished = true
+                    clock.advanceTo(100)
+                },
+                deadline = deadline,
+            )
+
+        assertThat(freezeTimeoutNanos).isEqualTo(20)
+        assertThat(result.hadLiveDescendants).isTrue()
+        assertThat(lateDescendantAlive).isFalse()
+        verify(exactly = 1) { lateDescendant.destroyForcibly() }
+    }
+
+    @Test
+    fun `graceful phase cap preserves reserved budgets across nano time rollover`() {
+        val clock = MutableMonotonicClock(Long.MAX_VALUE - 300_000_000)
+        val deadline =
+            ProcessTreeFinalizationDeadline.start(
+                clock = clock,
+                budget =
+                    ProcessTreeFinalizationBudget(
+                        totalNanos = 1_000_000_000,
+                        trackerJoinNanos = 200_000_000,
+                        postFreezeNanos = 100_000_000,
+                    ),
+            )
+
+        val gracefulDeadline =
+            deadline.cappedDeadlineNanos(
+                maxDurationNanos = 250_000_000,
+                capNanos = deadline.preFreezeDeadlineNanos,
+            )
+
+        assertThat(deadline.remainingUntil(gracefulDeadline)).isEqualTo(250_000_000)
+        assertThat(deadline.remainingUntil(deadline.preFreezeDeadlineNanos)).isEqualTo(700_000_000)
+    }
+
+    @Test
     fun `process tree cleanup keeps tracking active and reports root that survives its deadline`() {
         val process = mockk<Process>()
         val root = mockk<ProcessHandle>()
@@ -304,6 +376,17 @@ private fun mockTrackedProcessHandle(processId: Long): ProcessHandle {
     every { handle.info() } returns info
     every { info.startInstant() } returns Optional.of(Instant.ofEpochMilli(processId))
     return handle
+}
+
+private class MutableMonotonicClock(initialNanos: Long = 0) : MonotonicClock {
+    private var currentNanos = initialNanos
+
+    override fun nanoTime(): Long = currentNanos
+
+    fun advanceTo(nanos: Long) {
+        require(nanos >= currentNanos)
+        currentNanos = nanos
+    }
 }
 
 private class DeliberateTerminationFailure(message: String) : RuntimeException(message)

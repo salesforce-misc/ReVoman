@@ -35,6 +35,9 @@ import java.time.Duration
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.ExecutorService
+import java.util.concurrent.TimeoutException
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.system.exitProcess
 import org.junit.jupiter.api.Test
@@ -190,6 +193,7 @@ class RunnerIntegrationTest {
             awaitProcessExit(childPid)
             assertThat(processIsAlive(childPid)).isFalse()
         } finally {
+            childPid = childPid ?: readProcessIdIfPresent(childPidFile)
             childPid?.let(::forceStopFixtureProcess)
         }
     }
@@ -531,6 +535,106 @@ class RunnerIntegrationTest {
     }
 
     @Test
+    fun `outer tracker join continues one finalization and force kills its late retained handle`() {
+        val lateProcess =
+            ProcessBuilder(
+                    javaExecutable().toString(),
+                    "-cp",
+                    System.getProperty("java.class.path"),
+                    SleepingDescendantMain::class.java.name,
+                )
+                .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                .redirectError(ProcessBuilder.Redirect.DISCARD)
+                .start()
+        val lateHandle = lateProcess.toHandle()
+        val tracker = LatePublishingProcessTreeTracking(lateHandle)
+        val cleanup = InjectedLauncherCleanup()
+        val clock = MutableIntegrationMonotonicClock()
+        val deadline =
+            ProcessTreeFinalizationDeadline.start(
+                clock = clock,
+                budget =
+                    ProcessTreeFinalizationBudget(
+                        totalNanos = Duration.ofSeconds(2).toNanos(),
+                        trackerJoinNanos = Duration.ofMillis(500).toNanos(),
+                        postFreezeNanos = Duration.ofSeconds(1).toNanos(),
+                    ),
+            )
+        clock.advanceTo(Duration.ofSeconds(1).toNanos())
+        try {
+            assertThrows<TimeoutException> {
+                JdkProcessLauncher(
+                        cleanup = cleanup,
+                        trackerFactory = ProcessTreeTrackerFactory { tracker },
+                        finalizationDeadlineFactory =
+                            ProcessTreeFinalizationDeadlineFactory { deadline },
+                    )
+                    .launch(launcherFixtureCommand("valid", Duration.ofSeconds(10)))
+            }
+
+            awaitProcessExit(lateProcess.pid())
+            assertThat(processIsAlive(lateProcess.pid())).isFalse()
+            assertThat(tracker.stopCalls.get()).isEqualTo(3)
+            assertThat(cleanup.calls)
+                .containsExactly("termination", "continuation", "shutdown", "guard")
+                .inOrder()
+            assertThat(cleanup.terminationCalls).isEqualTo(1)
+            assertThat(cleanup.continuationCalls).isEqualTo(1)
+        } finally {
+            forceStopFixtureProcess(lateProcess.pid())
+        }
+    }
+
+    @Test
+    fun `launcher shutdown continues one finalization after both tracker joins time out`() {
+        val lateProcess =
+            ProcessBuilder(
+                    javaExecutable().toString(),
+                    "-cp",
+                    System.getProperty("java.class.path"),
+                    SleepingDescendantMain::class.java.name,
+                )
+                .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                .redirectError(ProcessBuilder.Redirect.DISCARD)
+                .start()
+        val tracker = ShutdownPublishingProcessTreeTracking(lateProcess.toHandle())
+        val cleanup = InjectedLauncherCleanup()
+        val clock = MutableIntegrationMonotonicClock()
+        val deadline =
+            ProcessTreeFinalizationDeadline.start(
+                clock = clock,
+                budget =
+                    ProcessTreeFinalizationBudget(
+                        totalNanos = 100,
+                        trackerJoinNanos = 20,
+                        postFreezeNanos = 10,
+                    ),
+            )
+        clock.advanceTo(90)
+        try {
+            assertThrows<TimeoutException> {
+                JdkProcessLauncher(
+                        cleanup = cleanup,
+                        trackerFactory = ProcessTreeTrackerFactory { tracker },
+                        finalizationDeadlineFactory =
+                            ProcessTreeFinalizationDeadlineFactory { deadline },
+                    )
+                    .launch(launcherFixtureCommand("valid", Duration.ofSeconds(10)))
+            }
+
+            awaitProcessExit(lateProcess.pid())
+            assertThat(processIsAlive(lateProcess.pid())).isFalse()
+            assertThat(cleanup.calls)
+                .containsExactly("termination", "shutdown", "continuation", "guard")
+                .inOrder()
+            assertThat(cleanup.terminationCalls).isEqualTo(1)
+            assertThat(cleanup.continuationCalls).isEqualTo(1)
+        } finally {
+            forceStopFixtureProcess(lateProcess.pid())
+        }
+    }
+
+    @Test
     fun `launcher excludes bounded task shutdown from elapsed time and leaves no tracker thread`() {
         val shutdownDelay = Duration.ofMillis(300)
         val cleanup = InjectedLauncherCleanup(shutdownDelay = shutdownDelay)
@@ -735,7 +839,7 @@ class ProcessLauncherFixtureMain {
                     writeRawAtomically(Path.of(command.resultFile), "{malformed".toByteArray())
                 }
                 "valid-orphan" -> {
-                    spawnControlledDescendant(command, inheritPipes = false)
+                    spawnLongLivedDescendant(command, inheritPipes = false)
                     writeFixtureResult(command)
                 }
                 "late-grandchild" -> {
@@ -800,30 +904,6 @@ private fun writeFixtureResult(command: TargetForkCommand) {
 }
 
 private fun spawnLongLivedDescendant(command: TargetForkCommand, inheritPipes: Boolean) {
-    val builder =
-        ProcessBuilder(
-            javaExecutable().toString(),
-            "-cp",
-            System.getProperty("java.class.path"),
-            SleepingDescendantMain::class.java.name,
-        )
-    if (inheritPipes) {
-        builder.inheritIO()
-    } else {
-        builder.redirectOutput(ProcessBuilder.Redirect.DISCARD)
-        builder.redirectError(ProcessBuilder.Redirect.DISCARD)
-    }
-    val descendant = builder.start()
-    Files.writeString(
-        Path.of(command.workload.parameters.getValue("childPidFile")),
-        descendant.pid().toString(),
-    )
-    awaitFixtureCondition("root release") {
-        Files.isRegularFile(Path.of(command.workload.parameters.getValue("rootReleaseFile")))
-    }
-}
-
-private fun spawnControlledDescendant(command: TargetForkCommand, inheritPipes: Boolean) {
     val builder =
         ProcessBuilder(
             javaExecutable().toString(),
@@ -1162,6 +1242,66 @@ private class DeferredProcessTreeTracking(
     override fun snapshot(): ProcessTreeSnapshot = delegate.snapshot()
 }
 
+private class LatePublishingProcessTreeTracking(
+    private val lateHandle: ProcessHandle
+) : ProcessTreeTracking {
+    private val completed = CountDownLatch(1)
+    private val published = AtomicBoolean(false)
+    val stopCalls = AtomicInteger()
+
+    override fun run() {
+        completed.await()
+    }
+
+    override fun stopSampling() {
+        if (stopCalls.incrementAndGet() >= 3) {
+            published.set(true)
+            completed.countDown()
+        }
+    }
+
+    override fun failureOrNull(): Throwable? = null
+
+    override fun failureSignal(): CompletableFuture<Throwable> = CompletableFuture()
+
+    override fun snapshot(): ProcessTreeSnapshot =
+        ProcessTreeSnapshot(if (published.get()) listOf(lateHandle) else emptyList())
+}
+
+private class ShutdownPublishingProcessTreeTracking(
+    private val lateHandle: ProcessHandle
+) : ProcessTreeTracking {
+    private val published = AtomicBoolean(false)
+
+    override fun run() {
+        try {
+            CountDownLatch(1).await()
+        } catch (_: InterruptedException) {
+            published.set(true)
+        }
+    }
+
+    override fun stopSampling() = Unit
+
+    override fun failureOrNull(): Throwable? = null
+
+    override fun failureSignal(): CompletableFuture<Throwable> = CompletableFuture()
+
+    override fun snapshot(): ProcessTreeSnapshot =
+        ProcessTreeSnapshot(if (published.get()) listOf(lateHandle) else emptyList())
+}
+
+private class MutableIntegrationMonotonicClock : MonotonicClock {
+    private var currentNanos = 0L
+
+    override fun nanoTime(): Long = currentNanos
+
+    fun advanceTo(nanos: Long) {
+        require(nanos >= currentNanos)
+        currentNanos = nanos
+    }
+}
+
 private class InjectedLauncherCleanup(
     private val terminationFailure: Throwable? = null,
     private val shutdownFailure: Throwable? = null,
@@ -1172,11 +1312,14 @@ private class InjectedLauncherCleanup(
     val interruptedDuringCleanup = mutableListOf<Boolean>()
     var terminationCalls = 0
         private set
+    var continuationCalls = 0
+        private set
 
     override fun finalizeOwnedProcessTree(
         process: Process,
         retainedDescendants: () -> List<ProcessHandle>,
         freezeTracking: (Long) -> Unit,
+        deadline: ProcessTreeFinalizationDeadline,
     ): OwnedProcessTreeFinalization {
         calls += "termination"
         interruptedDuringCleanup += Thread.currentThread().isInterrupted
@@ -1186,9 +1329,23 @@ private class InjectedLauncherCleanup(
                 process,
                 retainedDescendants,
                 freezeTracking,
+                deadline,
             )
         terminationFailure?.let { throw it }
         return result
+    }
+
+    override fun continueOwnedProcessTreeFinalization(
+        process: Process,
+        retainedDescendants: () -> List<ProcessHandle>,
+    ): OwnedProcessTreeFinalization {
+        calls += "continuation"
+        interruptedDuringCleanup += Thread.currentThread().isInterrupted
+        continuationCalls += 1
+        return DefaultLauncherCleanup.continueOwnedProcessTreeFinalization(
+            process,
+            retainedDescendants,
+        )
     }
 
     override fun shutdownLauncherTasks(executor: ExecutorService) {

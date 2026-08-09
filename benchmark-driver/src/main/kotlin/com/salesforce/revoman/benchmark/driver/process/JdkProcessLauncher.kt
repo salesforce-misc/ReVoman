@@ -42,18 +42,45 @@ internal constructor(
     private val cleanup: LauncherCleanup,
     private val drainAwaiter: OutputDrainAwaiter,
     private val trackerFactory: ProcessTreeTrackerFactory,
+    private val finalizationDeadlineFactory: ProcessTreeFinalizationDeadlineFactory,
 ) : ProcessLauncher {
     internal constructor(cleanup: LauncherCleanup) :
-        this(cleanup, DefaultOutputDrainAwaiter, DefaultProcessTreeTrackerFactory)
+        this(
+            cleanup,
+            DefaultOutputDrainAwaiter,
+            DefaultProcessTreeTrackerFactory,
+            DefaultProcessTreeFinalizationDeadlineFactory,
+        )
 
     internal constructor(cleanup: LauncherCleanup, drainAwaiter: OutputDrainAwaiter) :
-        this(cleanup, drainAwaiter, DefaultProcessTreeTrackerFactory)
+        this(
+            cleanup,
+            drainAwaiter,
+            DefaultProcessTreeTrackerFactory,
+            DefaultProcessTreeFinalizationDeadlineFactory,
+        )
 
     internal constructor(cleanup: LauncherCleanup, trackerFactory: ProcessTreeTrackerFactory) :
-        this(cleanup, DefaultOutputDrainAwaiter, trackerFactory)
+        this(
+            cleanup,
+            DefaultOutputDrainAwaiter,
+            trackerFactory,
+            DefaultProcessTreeFinalizationDeadlineFactory,
+        )
+
+    internal constructor(
+        cleanup: LauncherCleanup,
+        trackerFactory: ProcessTreeTrackerFactory,
+        finalizationDeadlineFactory: ProcessTreeFinalizationDeadlineFactory,
+    ) : this(cleanup, DefaultOutputDrainAwaiter, trackerFactory, finalizationDeadlineFactory)
 
     constructor() :
-        this(DefaultLauncherCleanup, DefaultOutputDrainAwaiter, DefaultProcessTreeTrackerFactory)
+        this(
+            DefaultLauncherCleanup,
+            DefaultOutputDrainAwaiter,
+            DefaultProcessTreeTrackerFactory,
+            DefaultProcessTreeFinalizationDeadlineFactory,
+        )
 
     override fun launch(command: JavaCommand): ProcessObservation {
         validate(command)
@@ -77,6 +104,7 @@ internal constructor(
         var trackingFrozen = false
         var observation: ProcessObservation? = null
         var finalization: OwnedProcessTreeFinalization? = null
+        var finalizationDeadline: ProcessTreeFinalizationDeadline? = null
         val finalizationStarted = AtomicBoolean(false)
         val freezeProcessTree = { timeoutNanos: Long ->
             if (!trackingFrozen) {
@@ -107,6 +135,10 @@ internal constructor(
             val finalizeAction = {
                 if (finalizationStarted.compareAndSet(false, true)) {
                     try {
+                        val deadline =
+                            finalizationDeadlineFactory.create().also { created ->
+                                finalizationDeadline = created
+                            }
                         finalization =
                             cleanup.finalizeOwnedProcessTree(
                                 process = launchedProcess,
@@ -114,6 +146,7 @@ internal constructor(
                                     processTree?.snapshot()?.descendants.orEmpty()
                                 },
                                 freezeTracking = freezeProcessTree,
+                                deadline = deadline,
                             )
                     } finally {
                         processTree?.stopSampling()
@@ -153,23 +186,64 @@ internal constructor(
                         .invoke()
                 }
             }
-            val finalizationDeadline = System.nanoTime() + PROCESS_TREE_FINALIZATION_NANOS
-            failures.attempt { freezeProcessTree(remainingNanos(finalizationDeadline)) }
+            val continuationRequired = process != null && finalizationStarted.get() && !trackingFrozen
+            var continuationCompleted = false
+            val continueFinalizationSweep = {
+                if (!continuationCompleted) {
+                    val continued =
+                        cleanup.continueOwnedProcessTreeFinalization(
+                            process = requireNotNull(process),
+                            retainedDescendants = {
+                                processTree?.snapshot()?.descendants.orEmpty()
+                            },
+                        )
+                    finalization =
+                        OwnedProcessTreeFinalization(
+                            hadLiveDescendants =
+                                finalization?.hadLiveDescendants == true ||
+                                    continued.hadLiveDescendants
+                        )
+                    continuationCompleted = true
+                }
+            }
+            failures.attempt {
+                freezeProcessTree(finalizationDeadline?.remainingNanos() ?: 0L)
+            }
+            if (continuationRequired && trackingFrozen) {
+                failures.attempt(continueFinalizationSweep)
+            }
             processTree?.failureOrNull()?.let { failure ->
                 if (!failures.contains(failure)) {
                     failures.add(processTreeTrackingFailure(failure))
                 }
             }
-            if (observation != null && finalization?.hadLiveDescendants == true) {
-                failures.add(
-                    IllegalStateException(
-                        "Target process ${observation.processId} left a live descendant; " +
-                            "the owned process tree was finalized and the sample is invalid"
+            var descendantIsolationReported = false
+            val reportDescendantIsolation = {
+                if (
+                    !descendantIsolationReported &&
+                        observation != null &&
+                        finalization?.hadLiveDescendants == true
+                ) {
+                    failures.add(
+                        IllegalStateException(
+                            "Target process ${observation.processId} left a live descendant; " +
+                                "the owned process tree was finalized and the sample is invalid"
+                        )
                     )
-                )
+                    descendantIsolationReported = true
+                }
             }
+            reportDescendantIsolation()
+            var launcherTasksStopped = false
             launcherTasks?.let { executor ->
-                failures.attempt { cleanup.shutdownLauncherTasks(executor) }
+                failures.attempt {
+                    cleanup.shutdownLauncherTasks(executor)
+                    launcherTasksStopped = true
+                }
+            }
+            if (continuationRequired && !trackingFrozen && launcherTasksStopped) {
+                failures.attempt(continueFinalizationSweep)
+                reportDescendantIsolation()
             }
             failures.attempt { cleanup.deleteGuard(atomicGuard) }
         }
@@ -351,11 +425,83 @@ private object DefaultProcessTreeTrackerFactory : ProcessTreeTrackerFactory {
     override fun create(root: ProcessHandle): ProcessTreeTracking = ProcessTreeTracker(root)
 }
 
+internal fun interface MonotonicClock {
+    fun nanoTime(): Long
+}
+
+private object SystemMonotonicClock : MonotonicClock {
+    override fun nanoTime(): Long = System.nanoTime()
+}
+
+internal data class ProcessTreeFinalizationBudget(
+    val totalNanos: Long,
+    val trackerJoinNanos: Long,
+    val postFreezeNanos: Long,
+) {
+    init {
+        require(totalNanos > 0) { "Process-tree finalization total budget must be positive" }
+        require(trackerJoinNanos >= 0) { "Process-tree tracker-join budget must not be negative" }
+        require(postFreezeNanos >= 0) { "Process-tree post-freeze budget must not be negative" }
+        require(trackerJoinNanos <= totalNanos - postFreezeNanos) {
+            "Process-tree tracker-join and post-freeze budgets exceed the total budget"
+        }
+    }
+}
+
+internal class ProcessTreeFinalizationDeadline private constructor(
+    private val clock: MonotonicClock,
+    private val budget: ProcessTreeFinalizationBudget,
+    startedAtNanos: Long,
+) {
+    internal val deadlineNanos = startedAtNanos + budget.totalNanos
+    internal val preFreezeDeadlineNanos =
+        deadlineNanos - budget.trackerJoinNanos - budget.postFreezeNanos
+    private val trackerJoinDeadlineNanos = deadlineNanos - budget.postFreezeNanos
+
+    fun nanoTime(): Long = clock.nanoTime()
+
+    fun remainingUntil(targetNanos: Long): Long = maxOf(0L, targetNanos - nanoTime())
+
+    fun remainingForTrackerJoin(): Long =
+        minOf(budget.trackerJoinNanos, remainingUntil(trackerJoinDeadlineNanos))
+
+    fun remainingNanos(): Long = remainingUntil(deadlineNanos)
+
+    fun cappedDeadlineNanos(maxDurationNanos: Long, capNanos: Long): Long {
+        require(maxDurationNanos >= 0) { "Capped deadline duration must not be negative" }
+        val now = nanoTime()
+        return now + minOf(maxDurationNanos, maxOf(0L, capNanos - now))
+    }
+
+    companion object {
+        fun start(
+            clock: MonotonicClock = SystemMonotonicClock,
+            budget: ProcessTreeFinalizationBudget = DEFAULT_PROCESS_TREE_FINALIZATION_BUDGET,
+        ): ProcessTreeFinalizationDeadline =
+            ProcessTreeFinalizationDeadline(clock, budget, clock.nanoTime())
+    }
+}
+
+internal fun interface ProcessTreeFinalizationDeadlineFactory {
+    fun create(): ProcessTreeFinalizationDeadline
+}
+
+private object DefaultProcessTreeFinalizationDeadlineFactory :
+    ProcessTreeFinalizationDeadlineFactory {
+    override fun create(): ProcessTreeFinalizationDeadline = ProcessTreeFinalizationDeadline.start()
+}
+
 internal interface LauncherCleanup {
     fun finalizeOwnedProcessTree(
         process: Process,
         retainedDescendants: () -> List<ProcessHandle> = { emptyList() },
         freezeTracking: (Long) -> Unit = {},
+        deadline: ProcessTreeFinalizationDeadline = ProcessTreeFinalizationDeadline.start(),
+    ): OwnedProcessTreeFinalization
+
+    fun continueOwnedProcessTreeFinalization(
+        process: Process,
+        retainedDescendants: () -> List<ProcessHandle>,
     ): OwnedProcessTreeFinalization
 
     fun shutdownLauncherTasks(executor: ExecutorService)
@@ -370,133 +516,33 @@ internal object DefaultLauncherCleanup : LauncherCleanup {
         process: Process,
         retainedDescendants: () -> List<ProcessHandle>,
         freezeTracking: (Long) -> Unit,
+        deadline: ProcessTreeFinalizationDeadline,
     ): OwnedProcessTreeFinalization {
         val failures = FailureAccumulator()
-        val deadline = System.nanoTime() + PROCESS_TREE_FINALIZATION_NANOS
-        fun attempt(action: () -> Unit) = failures.attempt(action)
+        val ownedTree = OwnedProcessTreeState(process, retainedDescendants, failures)
 
-        var root: ProcessHandle? = null
-        attempt { root = process.toHandle() }
-        val knownDescendants = linkedSetOf<ProcessHandle>()
-        var hadLiveDescendants = false
-        var finalizationOverflowReported = false
-
-        fun isAlive(handle: ProcessHandle): Boolean {
-            var alive = true
-            attempt { alive = handle.isAlive }
-            return alive
+        val gracefulDeadline =
+            deadline.cappedDeadlineNanos(
+                maxDurationNanos = PROCESS_TREE_GRACE_NANOS,
+                capNanos = deadline.preFreezeDeadlineNanos,
+            )
+        val settledGracefully = ownedTree.settle(deadline, gracefulDeadline, forcibly = false)
+        if (!settledGracefully) {
+            ownedTree.settle(deadline, deadline.preFreezeDeadlineNanos, forcibly = true)
         }
+        failures.attempt { freezeTracking(deadline.remainingForTrackerJoin()) }
+        ownedTree.settle(deadline, deadline.deadlineNanos, forcibly = true)
+        ownedTree.forceAndReportFinalSnapshot()
+        return ownedTree.result()
+    }
 
-        fun rootIsAlive(): Boolean {
-            val rootHandle = root
-            if (rootHandle != null) return isAlive(rootHandle)
-            var alive = true
-            attempt { alive = process.isAlive }
-            return alive
-        }
-
-        fun remember(handle: ProcessHandle) {
-            hadLiveDescendants = true
-            if (handle in knownDescendants) return
-            if (knownDescendants.size < MAX_TRACKED_DESCENDANTS) {
-                knownDescendants += handle
-            } else {
-                if (!finalizationOverflowReported) {
-                    finalizationOverflowReported = true
-                    failures.add(
-                        IllegalStateException(
-                            "Target process tree finalization exceeded " +
-                                "$MAX_TRACKED_DESCENDANTS live descendants"
-                        )
-                    )
-                }
-                attempt { handle.destroyForcibly() }
-            }
-        }
-
-        fun captureLiveDescendants(): List<ProcessHandle> {
-            var retained = emptyList<ProcessHandle>()
-            attempt { retained = retainedDescendants() }
-            retained.filter(::isAlive).forEach { handle ->
-                remember(handle)
-            }
-            val liveRetained = knownDescendants.filter(::isAlive)
-            val anchors = buildList {
-                root?.let(::add)
-                addAll(liveRetained)
-            }
-            anchors.distinct().forEach { anchor ->
-                if (anchor == root || isAlive(anchor)) {
-                    attempt {
-                        anchor.descendants().use { handles ->
-                            handles
-                                .takeWhile { remainingNanos(deadline) > 0 }
-                                .filter(::isAlive)
-                                .forEach(::remember)
-                        }
-                    }
-                }
-            }
-            return knownDescendants.filter(::isAlive)
-        }
-
-        fun destroy(liveDescendants: List<ProcessHandle>, forcibly: Boolean) {
-            liveDescendants.asReversed().forEach { descendant ->
-                attempt {
-                    if (forcibly) descendant.destroyForcibly() else descendant.destroy()
-                }
-            }
-            if (rootIsAlive()) {
-                root?.let { rootHandle ->
-                    attempt {
-                        if (forcibly) rootHandle.destroyForcibly() else rootHandle.destroy()
-                    }
-                } ?: attempt {
-                    if (forcibly) process.destroyForcibly() else process.destroy()
-                }
-            }
-        }
-
-        fun settle(phaseDeadline: Long, forcibly: Boolean): Boolean {
-            var stableScans = 0
-            while (remainingNanos(phaseDeadline) > 0) {
-                val liveDescendants = captureLiveDescendants()
-                val rootAlive = rootIsAlive()
-                if (liveDescendants.isEmpty() && !rootAlive) {
-                    stableScans += 1
-                    if (stableScans >= REQUIRED_STABLE_PROCESS_TREE_SCANS) return true
-                } else {
-                    stableScans = 0
-                    destroy(liveDescendants, forcibly)
-                }
-                LockSupport.parkNanos(
-                    minOf(PROCESS_TREE_SAMPLE_NANOS, remainingNanos(phaseDeadline))
-                )
-            }
-            return false
-        }
-
-        val gracefulDeadline = minOf(deadline, System.nanoTime() + PROCESS_TREE_GRACE_NANOS)
-        val settledGracefully = settle(gracefulDeadline, forcibly = false)
-        if (!settledGracefully) settle(deadline, forcibly = true)
-        attempt { freezeTracking(remainingNanos(deadline)) }
-        settle(deadline, forcibly = true)
-
-        val remainingDescendants = captureLiveDescendants()
-        remainingDescendants.forEach { handle ->
-            attempt {
-                check(!handle.isAlive) { "Could not terminate process ${handle.pid()}" }
-            }
-        }
-        root?.let { rootHandle ->
-            attempt {
-                check(!rootHandle.isAlive) { "Could not terminate process ${rootHandle.pid()}" }
-            }
-        } ?: attempt {
-            check(!process.isAlive) { "Could not terminate root process" }
-        }
-        failures.throwIfAny()
-        return OwnedProcessTreeFinalization(hadLiveDescendants)
+    override fun continueOwnedProcessTreeFinalization(
+        process: Process,
+        retainedDescendants: () -> List<ProcessHandle>,
+    ): OwnedProcessTreeFinalization {
+        val ownedTree = OwnedProcessTreeState(process, retainedDescendants, FailureAccumulator())
+        ownedTree.forceAndReportFinalSnapshot()
+        return ownedTree.result()
     }
 
     override fun shutdownLauncherTasks(executor: ExecutorService) {
@@ -511,13 +557,153 @@ internal object DefaultLauncherCleanup : LauncherCleanup {
     }
 }
 
+private class OwnedProcessTreeState(
+    private val process: Process,
+    private val retainedDescendants: () -> List<ProcessHandle>,
+    private val failures: FailureAccumulator,
+) {
+    private var root: ProcessHandle? = null
+    val knownDescendants = linkedSetOf<ProcessHandle>()
+    private var hadLiveDescendants = false
+    private var finalizationOverflowReported = false
+
+    init {
+        attempt { root = process.toHandle() }
+    }
+
+    fun settle(
+        deadline: ProcessTreeFinalizationDeadline,
+        phaseDeadline: Long,
+        forcibly: Boolean,
+    ): Boolean {
+        var stableScans = 0
+        while (deadline.remainingUntil(phaseDeadline) > 0) {
+            val liveDescendants = captureLiveDescendants(deadline)
+            val rootAlive = rootIsAlive()
+            if (liveDescendants.isEmpty() && !rootAlive) {
+                stableScans += 1
+                if (stableScans >= REQUIRED_STABLE_PROCESS_TREE_SCANS) return true
+            } else {
+                stableScans = 0
+                destroy(liveDescendants, forcibly)
+            }
+            LockSupport.parkNanos(
+                minOf(PROCESS_TREE_SAMPLE_NANOS, deadline.remainingUntil(phaseDeadline))
+            )
+        }
+        return false
+    }
+
+    fun forceAndReportFinalSnapshot() {
+        val finalDescendants = captureLiveDescendants(deadline = null)
+        destroy(finalDescendants, forcibly = true)
+        finalDescendants.forEach { handle ->
+            attempt {
+                check(!handle.isAlive) { "Could not terminate process ${handle.pid()}" }
+            }
+        }
+        root?.let { rootHandle ->
+            attempt {
+                check(!rootHandle.isAlive) { "Could not terminate process ${rootHandle.pid()}" }
+            }
+        } ?: attempt {
+            check(!process.isAlive) { "Could not terminate root process" }
+        }
+    }
+
+    fun result(): OwnedProcessTreeFinalization {
+        failures.throwIfAny()
+        return OwnedProcessTreeFinalization(hadLiveDescendants)
+    }
+
+    private fun attempt(action: () -> Unit) = failures.attempt(action)
+
+    private fun isAlive(handle: ProcessHandle): Boolean {
+        var alive = true
+        attempt { alive = handle.isAlive }
+        return alive
+    }
+
+    private fun rootIsAlive(): Boolean {
+        val rootHandle = root
+        if (rootHandle != null) return isAlive(rootHandle)
+        var alive = true
+        attempt { alive = process.isAlive }
+        return alive
+    }
+
+    private fun remember(handle: ProcessHandle) {
+        hadLiveDescendants = true
+        if (handle in knownDescendants) return
+        if (knownDescendants.size < MAX_TRACKED_DESCENDANTS) {
+            knownDescendants += handle
+        } else {
+            if (!finalizationOverflowReported) {
+                finalizationOverflowReported = true
+                failures.add(
+                    IllegalStateException(
+                        "Target process tree finalization exceeded " +
+                            "$MAX_TRACKED_DESCENDANTS live descendants"
+                    )
+                )
+            }
+            attempt { handle.destroyForcibly() }
+        }
+    }
+
+    private fun captureLiveDescendants(
+        deadline: ProcessTreeFinalizationDeadline?
+    ): List<ProcessHandle> {
+        var retained = emptyList<ProcessHandle>()
+        attempt { retained = retainedDescendants() }
+        retained.asSequence().filter(::isAlive).forEach(::remember)
+        val liveRetained = knownDescendants.asSequence().filter(::isAlive).toList()
+        buildList {
+                root?.let(::add)
+                addAll(liveRetained)
+            }
+            .asSequence()
+            .distinct()
+            .forEach { anchor ->
+                if (anchor == root || isAlive(anchor)) {
+                    attempt {
+                        anchor.descendants().use { handles ->
+                            handles
+                                .takeWhile { deadline == null || deadline.remainingNanos() > 0 }
+                                .filter(::isAlive)
+                                .forEach(::remember)
+                        }
+                    }
+                }
+            }
+        return knownDescendants.asSequence().filter(::isAlive).toList()
+    }
+
+    private fun destroy(liveDescendants: List<ProcessHandle>, forcibly: Boolean) {
+        liveDescendants.asReversed().forEach { descendant ->
+            attempt {
+                if (forcibly) descendant.destroyForcibly() else descendant.destroy()
+            }
+        }
+        if (rootIsAlive()) {
+            root?.let { rootHandle ->
+                attempt {
+                    if (forcibly) rootHandle.destroyForcibly() else rootHandle.destroy()
+                }
+            } ?: attempt {
+                if (forcibly) process.destroyForcibly() else process.destroy()
+            }
+        }
+    }
+}
+
 /**
  * Portable best-effort descendant retention for a single launch.
  *
  * One bounded daemon task recursively samples the root and retained live handles until explicit
- * freeze, without delaying the launch thread. A descendant that spawns and reparents entirely
- * within the 10 ms interval between samples cannot be discovered without platform-specific
- * process-group, job-object, or cgroup containment.
+ * freeze, without delaying the launch thread. The nominal cadence is 10 ms, but scheduler delays
+ * can make the interval longer. A descendant that spawns and reparents entirely between samples
+ * cannot be discovered without platform-specific process-group, job-object, or cgroup containment.
  */
 internal interface ProcessTreeTracking : Runnable {
     fun stopSampling()
@@ -567,8 +753,9 @@ internal class ProcessTreeTracker(
 
     private fun captureSafely(): Boolean =
         try {
-            val retainedLiveHandles = descendants.values.filter(ProcessHandle::isAlive)
-            (listOf(root) + retainedLiveHandles).distinct().forEach { anchor ->
+            val retainedLiveHandles =
+                descendants.values.asSequence().filter(ProcessHandle::isAlive).toList()
+            (sequenceOf(root) + retainedLiveHandles.asSequence()).distinct().forEach { anchor ->
                 if (anchor == root || anchor.isAlive) {
                     anchor.descendants().use { handles ->
                         handles.forEach { handle ->
@@ -609,8 +796,6 @@ private sealed interface ProcessWaitOutcome {
 
 private fun processTreeTrackingFailure(failure: Throwable): IllegalStateException =
     IllegalStateException("Could not track target process descendants", failure)
-
-private fun remainingNanos(deadline: Long): Long = maxOf(0L, deadline - System.nanoTime())
 
 internal class FailureAccumulator {
     private var primary: Throwable? = null
@@ -720,7 +905,12 @@ private const val LAUNCHER_TASK_COUNT: Int = 3
 private const val LAUNCHER_TASK_SHUTDOWN_SECONDS: Long = 5
 private const val PROCESS_TREE_SAMPLE_NANOS: Long = 10_000_000
 private const val PROCESS_TREE_GRACE_NANOS: Long = 250_000_000
-private const val PROCESS_TREE_FINALIZATION_NANOS: Long = 5_000_000_000
+private val DEFAULT_PROCESS_TREE_FINALIZATION_BUDGET =
+    ProcessTreeFinalizationBudget(
+        totalNanos = 5_000_000_000,
+        trackerJoinNanos = 500_000_000,
+        postFreezeNanos = 500_000_000,
+    )
 private const val REQUIRED_STABLE_PROCESS_TREE_SCANS: Int = 2
 private const val MAX_TRACKED_DESCENDANTS: Int = 4_096
 private const val MAX_SUPPRESSED_FAILURES: Int = 128
