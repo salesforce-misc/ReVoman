@@ -637,10 +637,16 @@ private class OwnedProcessTreeState(
         return alive
     }
 
-    private fun remember(handle: ProcessHandle) {
+    private fun remember(handle: ProcessHandle, phase: ProcessTreeTraversalPhase?) {
+        fun allowsAnotherOperation(): Boolean = phase?.allowsAnotherOperation() != false
+
         hadLiveDescendants = true
-        if (handle in knownDescendants) return
-        if (knownDescendants.size < MAX_TRACKED_DESCENDANTS) {
+        if (!allowsAnotherOperation()) return
+        val alreadyKnown = handle in knownDescendants
+        if (!allowsAnotherOperation() || alreadyKnown) return
+        val hasCapacity = knownDescendants.size < MAX_TRACKED_DESCENDANTS
+        if (hasCapacity) {
+            if (!allowsAnotherOperation()) return
             knownDescendants += handle
         } else {
             if (!finalizationOverflowReported) {
@@ -652,6 +658,7 @@ private class OwnedProcessTreeState(
                     )
                 )
             }
+            if (!allowsAnotherOperation()) return
             attempt { handle.destroyForcibly() }
         }
     }
@@ -666,7 +673,7 @@ private class OwnedProcessTreeState(
             .takeWhile { allowsAnotherOperation() }
             .filter(::isAlive)
             .takeWhile { allowsAnotherOperation() }
-            .forEach(::remember)
+            .forEach { handle -> remember(handle, phase) }
         val liveRetained =
             knownDescendants
                 .asSequence()
@@ -681,16 +688,24 @@ private class OwnedProcessTreeState(
             .asSequence()
             .takeWhile { allowsAnotherOperation() }
             .distinct()
-            .takeWhile { allowsAnotherOperation() }
             .forEach { anchor ->
-                if ((anchor == root || isAlive(anchor)) && allowsAnotherOperation()) {
+                if (!allowsAnotherOperation()) return@forEach
+                val rootAnchor = anchor == root
+                if (!allowsAnotherOperation()) return@forEach
+                val liveAnchor =
+                    when {
+                        rootAnchor -> true
+                        !allowsAnotherOperation() -> return@forEach
+                        else -> isAlive(anchor)
+                    }
+                if (liveAnchor && allowsAnotherOperation()) {
                     attempt {
                         anchor.descendants().use { handles ->
                             handles
                                 .takeWhile { allowsAnotherOperation() }
                                 .filter(::isAlive)
                                 .takeWhile { allowsAnotherOperation() }
-                                .forEach(::remember)
+                                .forEach { handle -> remember(handle, phase) }
                         }
                     }
                 }

@@ -17,6 +17,7 @@ import io.mockk.verifyOrder
 import java.time.Duration
 import java.time.Instant
 import java.util.Optional
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.TimeUnit
 import java.util.stream.Stream
@@ -332,6 +333,12 @@ class JdkProcessLauncherTest {
             }
             202
         }
+        every { descendant.equals(root) } answers {
+            if (!trackingFrozen && clock.nanoTime() >= deadline.preFreezeDeadlineNanos) {
+                preFreezeEvents += "descendant-equality"
+            }
+            false
+        }
         every { descendant.isAlive } answers {
             if (!trackingFrozen && clock.nanoTime() >= deadline.preFreezeDeadlineNanos) {
                 preFreezeEvents += "descendant-alive"
@@ -364,6 +371,594 @@ class JdkProcessLauncherTest {
         assertThat(freezeTimeoutNanos).isEqualTo(20)
         assertThat(preFreezeEvents).containsExactly("descendant-deduplication")
         assertThat(result.hadLiveDescendants).isTrue()
+    }
+
+    @Test
+    fun `membership equality that reaches the phase boundary cannot start insertion`() {
+        val process = mockk<Process>()
+        val root = mockk<ProcessHandle>()
+        val seedDescendant = mockk<ProcessHandle>()
+        val descendant = mockk<ProcessHandle>()
+        val clock = MutableMonotonicClock()
+        val deadline =
+            ProcessTreeFinalizationDeadline.start(
+                clock = clock,
+                budget =
+                    ProcessTreeFinalizationBudget(
+                        totalNanos = 100,
+                        trackerJoinNanos = 20,
+                        postFreezeNanos = 10,
+                    ),
+            )
+        val preFreezeEvents = mutableListOf<String>()
+        var trackingFrozen = false
+        var seedDescendantAlive = true
+        var descendantAlive = true
+        var membershipEqualityCalls = 0
+        var freezeTimeoutNanos = -1L
+        every { process.toHandle() } returns root
+        every { root.isAlive } returns false
+        every { root.descendants() } answers { Stream.empty() }
+        every { seedDescendant.hashCode() } returns 301
+        every { seedDescendant.isAlive } answers { seedDescendantAlive }
+        every { seedDescendant.descendants() } answers { Stream.empty() }
+        every { seedDescendant.destroyForcibly() } answers {
+            seedDescendantAlive = false
+            true
+        }
+        every { descendant.hashCode() } answers {
+            if (!trackingFrozen && membershipEqualityCalls > 0) {
+                preFreezeEvents += "insertion"
+                clock.advanceBy(10)
+            }
+            301
+        }
+        every { descendant.equals(seedDescendant) } answers {
+            if (!trackingFrozen && membershipEqualityCalls == 0) {
+                membershipEqualityCalls += 1
+                preFreezeEvents += "membership-equality"
+                clock.advanceTo(deadline.preFreezeDeadlineNanos)
+            }
+            false
+        }
+        every { descendant.isAlive } answers { descendantAlive }
+        every { descendant.descendants() } answers { Stream.empty() }
+        every { descendant.destroyForcibly() } answers {
+            descendantAlive = false
+            true
+        }
+        clock.advanceTo(60)
+
+        val result =
+            DefaultLauncherCleanup.finalizeOwnedProcessTree(
+                process = process,
+                retainedDescendants = { listOf(seedDescendant, descendant) },
+                freezeTracking = { timeoutNanos ->
+                    freezeTimeoutNanos = timeoutNanos
+                    trackingFrozen = true
+                },
+                deadline = deadline,
+            )
+
+        assertThat(freezeTimeoutNanos).isEqualTo(20)
+        assertThat(preFreezeEvents).containsExactly("membership-equality")
+        assertThat(result.hadLiveDescendants).isTrue()
+        assertThat(descendantAlive).isFalse()
+    }
+
+    @Test
+    fun `expired phase on remember entry cannot start membership`() {
+        val process = mockk<Process>()
+        val root = mockk<ProcessHandle>()
+        val seedDescendant = mockk<ProcessHandle>()
+        val descendant = mockk<ProcessHandle>()
+        val clock = MutableMonotonicClock()
+        val deadline =
+            ProcessTreeFinalizationDeadline.start(
+                clock = clock,
+                budget =
+                    ProcessTreeFinalizationBudget(
+                        totalNanos = 100,
+                        trackerJoinNanos = 20,
+                        postFreezeNanos = 10,
+                    ),
+            )
+        val preFreezeEvents = mutableListOf<String>()
+        var trackingFrozen = false
+        var seedDescendantAlive = true
+        var descendantAlive = true
+        var phaseExpiryArmed = false
+        var freezeTimeoutNanos = -1L
+        every { process.toHandle() } returns root
+        every { root.isAlive } returns false
+        every { root.descendants() } answers { Stream.empty() }
+        every { seedDescendant.hashCode() } returns 310
+        every { seedDescendant.isAlive } answers { seedDescendantAlive }
+        every { seedDescendant.descendants() } answers { Stream.empty() }
+        every { seedDescendant.destroyForcibly() } answers {
+            seedDescendantAlive = false
+            true
+        }
+        every { descendant.hashCode() } answers {
+            if (!trackingFrozen) preFreezeEvents += "membership"
+            311
+        }
+        every { descendant.isAlive } answers {
+            if (!trackingFrozen && !phaseExpiryArmed) {
+                phaseExpiryArmed = true
+                clock.advanceAfterNextRead(deadline.preFreezeDeadlineNanos)
+            }
+            descendantAlive
+        }
+        every { descendant.descendants() } answers { Stream.empty() }
+        every { descendant.destroyForcibly() } answers {
+            descendantAlive = false
+            true
+        }
+        clock.advanceTo(60)
+
+        val result =
+            DefaultLauncherCleanup.finalizeOwnedProcessTree(
+                process = process,
+                retainedDescendants = { listOf(seedDescendant, descendant) },
+                freezeTracking = { timeoutNanos ->
+                    freezeTimeoutNanos = timeoutNanos
+                    trackingFrozen = true
+                },
+                deadline = deadline,
+            )
+
+        assertThat(freezeTimeoutNanos).isEqualTo(20)
+        assertThat(preFreezeEvents).isEmpty()
+        assertThat(result.hadLiveDescendants).isTrue()
+        assertThat(descendantAlive).isFalse()
+    }
+
+    @Test
+    fun `phase expiry after membership cannot start insertion`() {
+        val process = mockk<Process>()
+        val root = mockk<ProcessHandle>()
+        val seedDescendant = mockk<ProcessHandle>()
+        val descendant = mockk<ProcessHandle>()
+        val clock = MutableMonotonicClock()
+        val deadline =
+            ProcessTreeFinalizationDeadline.start(
+                clock = clock,
+                budget =
+                    ProcessTreeFinalizationBudget(
+                        totalNanos = 100,
+                        trackerJoinNanos = 20,
+                        postFreezeNanos = 10,
+                    ),
+            )
+        val preFreezeEvents = mutableListOf<String>()
+        var trackingFrozen = false
+        var seedDescendantAlive = true
+        var descendantAlive = true
+        var preFreezeHashCalls = 0
+        var freezeTimeoutNanos = -1L
+        every { process.toHandle() } returns root
+        every { root.isAlive } returns false
+        every { root.descendants() } answers { Stream.empty() }
+        every { seedDescendant.hashCode() } returns 320
+        every { seedDescendant.isAlive } answers { seedDescendantAlive }
+        every { seedDescendant.descendants() } answers { Stream.empty() }
+        every { seedDescendant.destroyForcibly() } answers {
+            seedDescendantAlive = false
+            true
+        }
+        every { descendant.hashCode() } answers {
+            if (!trackingFrozen) {
+                preFreezeHashCalls += 1
+                preFreezeEvents +=
+                    if (preFreezeHashCalls == 1) "membership" else "insertion"
+                if (preFreezeHashCalls == 1) {
+                    clock.advanceAfterNextRead(deadline.preFreezeDeadlineNanos)
+                }
+            }
+            321
+        }
+        every { descendant.isAlive } answers { descendantAlive }
+        every { descendant.descendants() } answers { Stream.empty() }
+        every { descendant.destroyForcibly() } answers {
+            descendantAlive = false
+            true
+        }
+        clock.advanceTo(60)
+
+        val result =
+            DefaultLauncherCleanup.finalizeOwnedProcessTree(
+                process = process,
+                retainedDescendants = { listOf(seedDescendant, descendant) },
+                freezeTracking = { timeoutNanos ->
+                    freezeTimeoutNanos = timeoutNanos
+                    trackingFrozen = true
+                },
+                deadline = deadline,
+            )
+
+        assertThat(freezeTimeoutNanos).isEqualTo(20)
+        assertThat(preFreezeEvents).containsExactly("membership")
+        assertThat(result.hadLiveDescendants).isTrue()
+        assertThat(descendantAlive).isFalse()
+    }
+
+    @Test
+    fun `overflow membership at the phase boundary cannot start forcible destruction`() {
+        val process = mockk<Process>()
+        val root = mockk<ProcessHandle>()
+        val clock = MutableMonotonicClock()
+        val deadline =
+            ProcessTreeFinalizationDeadline.start(
+                clock = clock,
+                budget =
+                    ProcessTreeFinalizationBudget(
+                        totalNanos = 100,
+                        trackerJoinNanos = 20,
+                        postFreezeNanos = 10,
+                    ),
+            )
+        val preFreezeEvents = mutableListOf<String>()
+        var trackingFrozen = false
+        var overflowAlive = true
+        var freezeTimeoutNanos = -1L
+        val retainedCapacity =
+            List(4_096) { index ->
+                TestProcessHandle(
+                    processId = 1_000L + index,
+                    alive = { !trackingFrozen },
+                    hash = { index },
+                )
+            }
+        val overflow =
+            TestProcessHandle(
+                processId = 9_999,
+                alive = { overflowAlive },
+                hash = {
+                    if (!trackingFrozen) {
+                        preFreezeEvents += "overflow-membership"
+                        clock.advanceTo(deadline.preFreezeDeadlineNanos)
+                    }
+                    9_999
+                },
+                force = {
+                    if (!trackingFrozen) preFreezeEvents += "overflow-force"
+                    overflowAlive = false
+                    true
+                },
+            )
+        every { process.toHandle() } returns root
+        every { root.isAlive } returns false
+        every { root.descendants() } answers { Stream.empty() }
+        clock.advanceTo(60)
+
+        val result =
+            DefaultLauncherCleanup.finalizeOwnedProcessTree(
+                process = process,
+                retainedDescendants = {
+                    if (trackingFrozen) retainedCapacity else retainedCapacity + overflow
+                },
+                freezeTracking = { timeoutNanos ->
+                    freezeTimeoutNanos = timeoutNanos
+                    trackingFrozen = true
+                },
+                deadline = deadline,
+            )
+
+        assertThat(freezeTimeoutNanos).isEqualTo(20)
+        assertThat(preFreezeEvents).containsExactly("overflow-membership")
+        assertThat(result.hadLiveDescendants).isTrue()
+        assertThat(overflowAlive).isTrue()
+    }
+
+    @Test
+    fun `phase expiry after overflow evidence cannot start forcible destruction`() {
+        val process = mockk<Process>()
+        val root = mockk<ProcessHandle>()
+        val clock = MutableMonotonicClock()
+        val deadline =
+            ProcessTreeFinalizationDeadline.start(
+                clock = clock,
+                budget =
+                    ProcessTreeFinalizationBudget(
+                        totalNanos = 100,
+                        trackerJoinNanos = 20,
+                        postFreezeNanos = 10,
+                    ),
+            )
+        val preFreezeEvents = mutableListOf<String>()
+        var trackingFrozen = false
+        var overflowAlive = true
+        var freezeTimeoutNanos = -1L
+        val retainedCapacity =
+            List(4_096) { index ->
+                TestProcessHandle(
+                    processId = 20_000L + index,
+                    alive = { !trackingFrozen },
+                    hash = { index },
+                )
+            }
+        val overflow =
+            TestProcessHandle(
+                processId = 29_999,
+                alive = { overflowAlive },
+                hash = {
+                    if (!trackingFrozen) {
+                        preFreezeEvents += "overflow-membership"
+                        clock.advanceAfterNextRead(deadline.preFreezeDeadlineNanos)
+                    }
+                    29_999
+                },
+                force = {
+                    if (!trackingFrozen) preFreezeEvents += "overflow-force"
+                    overflowAlive = false
+                    true
+                },
+            )
+        every { process.toHandle() } returns root
+        every { root.isAlive } returns false
+        every { root.descendants() } answers { Stream.empty() }
+        clock.advanceTo(60)
+
+        val failure =
+            assertThrows<IllegalStateException> {
+                DefaultLauncherCleanup.finalizeOwnedProcessTree(
+                    process = process,
+                    retainedDescendants = {
+                        if (trackingFrozen) retainedCapacity else retainedCapacity + overflow
+                    },
+                    freezeTracking = { timeoutNanos ->
+                        freezeTimeoutNanos = timeoutNanos
+                        trackingFrozen = true
+                    },
+                    deadline = deadline,
+                )
+            }
+
+        assertThat(failure).hasMessageThat().contains("exceeded 4096 live descendants")
+        assertThat(freezeTimeoutNanos).isEqualTo(20)
+        assertThat(preFreezeEvents).containsExactly("overflow-membership")
+        assertThat(overflowAlive).isTrue()
+    }
+
+    @Test
+    fun `non-root anchor equality at the phase boundary cannot start liveness check`() {
+        val process = mockk<Process>()
+        val root = mockk<ProcessHandle>()
+        val clock = MutableMonotonicClock()
+        val deadline =
+            ProcessTreeFinalizationDeadline.start(
+                clock = clock,
+                budget =
+                    ProcessTreeFinalizationBudget(
+                        totalNanos = 100,
+                        trackerJoinNanos = 20,
+                        postFreezeNanos = 10,
+                    ),
+            )
+        val preFreezeEvents = mutableListOf<String>()
+        var trackingFrozen = false
+        var comparingAnchorToRoot = false
+        var descendantAlive = true
+        var freezeTimeoutNanos = -1L
+        val descendant =
+            TestProcessHandle(
+                processId = 402,
+                alive = {
+                    if (
+                        !trackingFrozen &&
+                            comparingAnchorToRoot &&
+                            clock.nanoTime() >= deadline.preFreezeDeadlineNanos
+                    ) {
+                        preFreezeEvents += "anchor-alive"
+                        clock.advanceBy(10)
+                    }
+                    descendantAlive
+                },
+                hash = { 402 },
+                force = {
+                    descendantAlive = false
+                    true
+                },
+                equality = { other ->
+                    if (
+                        !trackingFrozen &&
+                            comparingAnchorToRoot &&
+                            other is ProcessHandle &&
+                            other.pid() == 401L
+                    ) {
+                        preFreezeEvents += "anchor-equality"
+                        clock.advanceTo(deadline.preFreezeDeadlineNanos)
+                    }
+                    false
+                },
+            )
+        every { process.toHandle() } returns root
+        every { root.pid() } returns 401
+        every { root.hashCode() } returns 401
+        every { root.isAlive } returns false
+        every { root.descendants() } answers {
+            if (!trackingFrozen) comparingAnchorToRoot = true
+            Stream.empty()
+        }
+        clock.advanceTo(60)
+
+        val result =
+            DefaultLauncherCleanup.finalizeOwnedProcessTree(
+                process = process,
+                retainedDescendants = { listOf(descendant) },
+                freezeTracking = { timeoutNanos ->
+                    freezeTimeoutNanos = timeoutNanos
+                    trackingFrozen = true
+                },
+                deadline = deadline,
+            )
+
+        assertThat(freezeTimeoutNanos).isEqualTo(20)
+        assertThat(preFreezeEvents).containsExactly("anchor-equality")
+        assertThat(result.hadLiveDescendants).isTrue()
+        assertThat(descendantAlive).isFalse()
+    }
+
+    @Test
+    fun `phase expiry after anchor equality cannot start liveness check`() {
+        val process = mockk<Process>()
+        val root = mockk<ProcessHandle>()
+        val clock = MutableMonotonicClock()
+        val deadline =
+            ProcessTreeFinalizationDeadline.start(
+                clock = clock,
+                budget =
+                    ProcessTreeFinalizationBudget(
+                        totalNanos = 100,
+                        trackerJoinNanos = 20,
+                        postFreezeNanos = 10,
+                    ),
+            )
+        val preFreezeEvents = mutableListOf<String>()
+        var trackingFrozen = false
+        var comparingAnchorToRoot = false
+        var descendantAlive = true
+        var freezeTimeoutNanos = -1L
+        val descendant =
+            TestProcessHandle(
+                processId = 412,
+                alive = {
+                    if (
+                        !trackingFrozen &&
+                            comparingAnchorToRoot &&
+                            clock.nanoTime() >= deadline.preFreezeDeadlineNanos
+                    ) {
+                        preFreezeEvents += "anchor-alive"
+                        clock.advanceBy(10)
+                    }
+                    descendantAlive
+                },
+                hash = { 412 },
+                force = {
+                    descendantAlive = false
+                    true
+                },
+                equality = { other ->
+                    if (
+                        !trackingFrozen &&
+                            comparingAnchorToRoot &&
+                            other is ProcessHandle &&
+                            other.pid() == 411L
+                    ) {
+                        preFreezeEvents += "anchor-equality"
+                        clock.advanceAfterNextRead(deadline.preFreezeDeadlineNanos)
+                    }
+                    false
+                },
+            )
+        every { process.toHandle() } returns root
+        every { root.pid() } returns 411
+        every { root.hashCode() } returns 411
+        every { root.isAlive } returns false
+        every { root.descendants() } answers {
+            if (!trackingFrozen) comparingAnchorToRoot = true
+            Stream.empty()
+        }
+        clock.advanceTo(60)
+
+        val result =
+            DefaultLauncherCleanup.finalizeOwnedProcessTree(
+                process = process,
+                retainedDescendants = { listOf(descendant) },
+                freezeTracking = { timeoutNanos ->
+                    freezeTimeoutNanos = timeoutNanos
+                    trackingFrozen = true
+                },
+                deadline = deadline,
+            )
+
+        assertThat(freezeTimeoutNanos).isEqualTo(20)
+        assertThat(preFreezeEvents).containsExactly("anchor-equality")
+        assertThat(result.hadLiveDescendants).isTrue()
+        assertThat(descendantAlive).isFalse()
+    }
+
+    @Test
+    fun `anchor descendant remember honors phase and terminal snapshot stays unconditional`() {
+        val process = mockk<Process>()
+        val root = mockk<ProcessHandle>()
+        val clock = MutableMonotonicClock()
+        val deadline =
+            ProcessTreeFinalizationDeadline.start(
+                clock = clock,
+                budget =
+                    ProcessTreeFinalizationBudget(
+                        totalNanos = 100,
+                        trackerJoinNanos = 20,
+                        postFreezeNanos = 10,
+                    ),
+            )
+        val preFreezeEvents = mutableListOf<String>()
+        var trackingFrozen = false
+        var seedAlive = true
+        var descendantAlive = true
+        var phaseExpiryArmed = false
+        var descendantHashCalls = 0
+        var descendantForceCalls = 0
+        var freezeTimeoutNanos = -1L
+        val seed =
+            TestProcessHandle(
+                processId = 420,
+                alive = { seedAlive },
+                hash = { 420 },
+                force = {
+                    seedAlive = false
+                    true
+                },
+            )
+        val descendant =
+            TestProcessHandle(
+                processId = 421,
+                alive = {
+                    if (!trackingFrozen && !phaseExpiryArmed) {
+                        phaseExpiryArmed = true
+                        clock.advanceAfterNextRead(deadline.preFreezeDeadlineNanos)
+                    }
+                    descendantAlive
+                },
+                hash = {
+                    if (!trackingFrozen) {
+                        descendantHashCalls += 1
+                        preFreezeEvents +=
+                            if (descendantHashCalls == 1) "membership" else "insertion"
+                    }
+                    421
+                },
+                force = {
+                    descendantForceCalls += 1
+                    descendantAlive = false
+                    true
+                },
+            )
+        every { process.toHandle() } returns root
+        every { root.hashCode() } returns 419
+        every { root.isAlive } returns false
+        every { root.descendants() } answers { Stream.of(descendant) }
+        clock.advanceTo(60)
+
+        val result =
+            DefaultLauncherCleanup.finalizeOwnedProcessTree(
+                process = process,
+                retainedDescendants = { listOf(seed) },
+                freezeTracking = { timeoutNanos ->
+                    freezeTimeoutNanos = timeoutNanos
+                    trackingFrozen = true
+                    clock.advanceTo(deadline.deadlineNanos)
+                },
+                deadline = deadline,
+            )
+
+        assertThat(freezeTimeoutNanos).isEqualTo(20)
+        assertThat(preFreezeEvents).isEmpty()
+        assertThat(result.hadLiveDescendants).isTrue()
+        assertThat(descendantAlive).isFalse()
+        assertThat(descendantForceCalls).isEqualTo(1)
     }
 
     @Test
@@ -544,10 +1139,52 @@ private fun mockTrackedProcessHandle(processId: Long): ProcessHandle {
     return handle
 }
 
+private class TestProcessHandle(
+    private val processId: Long,
+    private val alive: () -> Boolean,
+    private val hash: () -> Int,
+    private val force: () -> Boolean = { true },
+    private val equality: ((Any?) -> Boolean)? = null,
+) : ProcessHandle {
+    override fun pid(): Long = processId
+
+    override fun parent(): Optional<ProcessHandle> = Optional.empty()
+
+    override fun children(): Stream<ProcessHandle> = Stream.empty()
+
+    override fun descendants(): Stream<ProcessHandle> = Stream.empty()
+
+    override fun info(): ProcessHandle.Info = ProcessHandle.current().info()
+
+    override fun onExit(): CompletableFuture<ProcessHandle> = CompletableFuture.completedFuture(this)
+
+    override fun supportsNormalTermination(): Boolean = true
+
+    override fun destroy(): Boolean = true
+
+    override fun destroyForcibly(): Boolean = force()
+
+    override fun isAlive(): Boolean = alive()
+
+    override fun compareTo(other: ProcessHandle): Int = processId.compareTo(other.pid())
+
+    override fun hashCode(): Int = hash()
+
+    override fun equals(other: Any?): Boolean = equality?.invoke(other) ?: (this === other)
+}
+
 private class MutableMonotonicClock(initialNanos: Long = 0) : MonotonicClock {
     private var currentNanos = initialNanos
+    private var advanceAfterReadTo: Long? = null
 
-    override fun nanoTime(): Long = currentNanos
+    override fun nanoTime(): Long {
+        val result = currentNanos
+        advanceAfterReadTo?.let { target ->
+            currentNanos = target
+            advanceAfterReadTo = null
+        }
+        return result
+    }
 
     fun advanceTo(nanos: Long) {
         require(nanos >= currentNanos)
@@ -557,6 +1194,12 @@ private class MutableMonotonicClock(initialNanos: Long = 0) : MonotonicClock {
     fun advanceBy(nanos: Long) {
         require(nanos >= 0)
         currentNanos += nanos
+    }
+
+    fun advanceAfterNextRead(nanos: Long) {
+        require(nanos >= currentNanos)
+        check(advanceAfterReadTo == null)
+        advanceAfterReadTo = nanos
     }
 }
 
