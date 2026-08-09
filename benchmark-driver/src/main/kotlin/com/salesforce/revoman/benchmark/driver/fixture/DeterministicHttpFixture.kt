@@ -17,6 +17,7 @@ import java.net.InetSocketAddress
 import java.nio.charset.StandardCharsets.UTF_8
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.LinkedBlockingQueue
@@ -246,6 +247,13 @@ internal data class HandlerRoute(
         require(headers.isNotEmpty() && headers.all { it.key.isNotBlank() && it.value.isNotBlank() }) {
             "$location.headers must contain nonblank names and values"
         }
+        val normalizedHeaderNames = headers.keys.map { it.lowercase(Locale.ROOT) }
+        require(normalizedHeaderNames.distinct().size == normalizedHeaderNames.size) {
+            "$location.headers must be case-insensitively unique"
+        }
+        require(normalizedHeaderNames.none(TRANSPORT_OWNED_HEADERS::contains)) {
+            "$location.headers must not declare transport-owned headers: $TRANSPORT_OWNED_HEADERS"
+        }
         body.validate("$location.body")
     }
 
@@ -267,3 +275,6 @@ internal class PreparedRoute(
     val headers: Map<String, String>,
     val body: ByteArray,
 )
+
+private val TRANSPORT_OWNED_HEADERS =
+    setOf("connection", "content-length", "date", "transfer-encoding")

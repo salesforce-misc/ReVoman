@@ -21,6 +21,8 @@ import java.net.http.HttpResponse.BodyHandlers
 import java.nio.charset.StandardCharsets.UTF_8
 import java.nio.file.Files
 import java.nio.file.Path
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
@@ -162,14 +164,61 @@ class DeterministicHttpFixtureTest {
 
         DeterministicHttpFixture.open(manifest).use { fixture ->
             fixture.resetExecution("response")
-            val response = request(fixture.baseUrl, "/small")
+            val responses = List(10) { request(fixture.baseUrl, "/small") }
 
             assertThat(URI(fixture.baseUrl).host).isEqualTo("127.0.0.1")
             assertThat(fixture.localAddress.address.hostAddress).isEqualTo("127.0.0.1")
-            assertThat(response.statusCode()).isEqualTo(200)
-            assertThat(response.headers().allValues("Content-Type"))
-                .containsExactly("application/json")
-            assertThat(response.body()).isEqualTo("{\"ok\":true}".toByteArray(UTF_8))
+            responses.forEach { response ->
+                assertThat(response.statusCode()).isEqualTo(200)
+                assertThat(observableHeaders(response.headers().map()))
+                    .containsExactlyEntriesIn(
+                        mapOf(
+                            "content-length" to listOf("11"),
+                            "content-type" to listOf("application/json"),
+                            "date" to listOf(TRANSPORT_DATE_SENTINEL),
+                        )
+                    )
+                assertThat(response.body()).isEqualTo("{\"ok\":true}".toByteArray(UTF_8))
+            }
+            assertThat(fixture.requestCount("response")).isEqualTo(10)
+        }
+    }
+
+    @Test
+    fun `handler rejects duplicate or transport owned response headers`() {
+        val body = HandlerBody(encoding = "UTF-8", text = "{\"ok\":true}")
+        val duplicate =
+            HandlerRoute(
+                method = "GET",
+                path = "/small",
+                status = 200,
+                headers =
+                    linkedMapOf(
+                        "Content-Type" to "application/json",
+                        "content-type" to "application/problem+json",
+                    ),
+                body = body,
+            )
+        val duplicateFailure = assertThrows<IllegalArgumentException> {
+            duplicate.validate("route")
+        }
+        val transportFailures =
+            listOf("Connection", "Content-Length", "Date", "Transfer-Encoding").map { header ->
+                assertThrows<IllegalArgumentException> {
+                    HandlerRoute(
+                            method = "GET",
+                            path = "/small",
+                            status = 200,
+                            headers = mapOf(header to "reserved"),
+                            body = body,
+                        )
+                        .validate("route")
+                }
+            }
+
+        assertThat(duplicateFailure).hasMessageThat().contains("case-insensitively unique")
+        transportFailures.forEach { failure ->
+            assertThat(failure).hasMessageThat().contains("transport-owned")
         }
     }
 
@@ -239,6 +288,18 @@ class DeterministicHttpFixtureTest {
             BodyHandlers.ofByteArray(),
         )
 
+    private fun observableHeaders(headers: Map<String, List<String>>): Map<String, List<String>> =
+        headers.mapValues { (name, values) ->
+            when (name) {
+                "date" ->
+                    values.map { value ->
+                        ZonedDateTime.parse(value, DateTimeFormatter.RFC_1123_DATE_TIME)
+                        TRANSPORT_DATE_SENTINEL
+                    }
+                else -> values
+            }
+        }
+
     private fun materializeFixture(destination: Path): Path {
         Files.createDirectories(destination)
         listOf(MANIFEST, COLLECTION, HANDLER).forEach { fileName ->
@@ -255,5 +316,6 @@ class DeterministicHttpFixtureTest {
         const val MANIFEST = "manifest.json"
         const val COLLECTION = "collection.postman_collection.json"
         const val HANDLER = "handler.json"
+        const val TRANSPORT_DATE_SENTINEL = "<jdk-httpserver-rfc1123-date>"
     }
 }

@@ -7,9 +7,14 @@
  */
 package com.salesforce.revoman.benchmark.driver.target
 
+import com.google.common.truth.Truth.assertThat
 import com.salesforce.revoman.benchmark.driver.fixture.DeterministicHttpFixture
+import com.salesforce.revoman.benchmark.driver.integrity.ContentHasher
 import com.salesforce.revoman.benchmark.driver.json.BenchmarkJson
 import com.salesforce.revoman.benchmark.driver.model.ExecutionDigest
+import com.salesforce.revoman.benchmark.driver.model.HashedArtifact
+import com.salesforce.revoman.benchmark.driver.model.JdkIdentity
+import com.salesforce.revoman.benchmark.driver.model.TargetManifest
 import com.salesforce.revoman.benchmark.driver.model.WorkloadManifest
 import com.salesforce.revoman.benchmark.driver.model.WorkloadRequest
 import com.salesforce.revoman.benchmark.driver.target.baseline.Baseline083f3cd70Adapter
@@ -19,6 +24,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
 
 class BaselineAdapterIntegrationTest {
@@ -32,24 +38,25 @@ class BaselineAdapterIntegrationTest {
         DeterministicHttpFixture.verifyFixture(manifest, materializedFixture)
 
         val verified = verifiedTarget()
-        DeterministicHttpFixture.open(manifest).use { server ->
-            server.resetExecution("single")
-            TargetRuntime.open(verified).use { runtime ->
-                val request =
-                    WorkloadRequest(
-                        id = "lifecycle.no-script-one-step.v1",
-                        contractVersion = 1,
-                        fixtureRoot = materializedFixture.toString(),
-                        baseUrl = server.baseUrl,
-                    )
-                val digest =
-                    Baseline083f3cd70Adapter.prepare(runtime, request).use { it.execute() }
-                digest.executedSteps shouldBe 1
-                digest.failureCount shouldBe 0
+        verified.withPostflight {
+            DeterministicHttpFixture.open(manifest).use { server ->
+                server.resetExecution("single")
+                TargetRuntime.open(verified).use { runtime ->
+                    val request =
+                        WorkloadRequest(
+                            id = "lifecycle.no-script-one-step.v1",
+                            contractVersion = 1,
+                            fixtureRoot = materializedFixture.toString(),
+                            baseUrl = server.baseUrl,
+                        )
+                    val digest =
+                        Baseline083f3cd70Adapter.prepare(runtime, request).use { it.execute() }
+                    digest.executedSteps shouldBe 1
+                    digest.failureCount shouldBe 0
+                }
+                server.requestCount("single") shouldBe 1
             }
-            server.requestCount("single") shouldBe 1
         }
-        verified.postflight()
     }
 
     @Test
@@ -60,34 +67,56 @@ class BaselineAdapterIntegrationTest {
         DeterministicHttpFixture.verifyFixture(manifest, materializedFixture)
         val verified = verifiedTarget()
 
-        DeterministicHttpFixture.open(manifest).use { server ->
-            TargetRuntime.open(verified).use { runtime ->
-                val request =
-                    WorkloadRequest(
-                        id = "lifecycle.no-script-one-step.v1",
-                        contractVersion = 1,
-                        fixtureRoot = materializedFixture.toString(),
-                        baseUrl = server.baseUrl,
-                    )
-                Baseline083f3cd70Adapter.prepare(runtime, request).use { prepared ->
-                    val digests =
-                        (1..10).map { execution ->
-                            val executionId = "execution-$execution"
-                            server.resetExecution(executionId)
-                            prepared.execute().also {
-                                server.requestCount(executionId) shouldBe 1
+        verified.withPostflight {
+            DeterministicHttpFixture.open(manifest).use { server ->
+                TargetRuntime.open(verified).use { runtime ->
+                    val request =
+                        WorkloadRequest(
+                            id = "lifecycle.no-script-one-step.v1",
+                            contractVersion = 1,
+                            fixtureRoot = materializedFixture.toString(),
+                            baseUrl = server.baseUrl,
+                        )
+                    Baseline083f3cd70Adapter.prepare(runtime, request).use { prepared ->
+                        val digests =
+                            (1..10).map { execution ->
+                                val executionId = "execution-$execution"
+                                server.resetExecution(executionId)
+                                prepared.execute().also {
+                                    server.requestCount(executionId) shouldBe 1
+                                }
                             }
-                        }
 
-                    digests.shouldContainExactly(
-                        List(10) {
-                            ExecutionDigest(checksum = 31, executedSteps = 1, failureCount = 0)
-                        }
-                    )
+                        digests.shouldContainExactly(
+                            List(10) {
+                                ExecutionDigest(checksum = 31, executedSteps = 1, failureCount = 0)
+                            }
+                        )
+                    }
                 }
             }
         }
-        verified.postflight()
+    }
+
+    @Test
+    fun `campaign body failure remains primary when postflight detects a changed target`() {
+        val artifact = temporaryDirectory.resolve("mutable-target.jar")
+        Files.writeString(artifact, "original target bytes")
+        val verified = verifiedTarget(artifact)
+        val primaryFailure = DeliberateCampaignFailure("campaign body failed")
+
+        val failure = assertThrows<DeliberateCampaignFailure> {
+            verified.withPostflight {
+                Files.writeString(artifact, "changed target bytes")
+                throw primaryFailure
+            }
+        }
+
+        assertThat(failure).isSameInstanceAs(primaryFailure)
+        assertThat(failure.suppressed).hasLength(1)
+        assertThat(failure.suppressed.single())
+            .hasMessageThat()
+            .contains("Target campaign invalid after postflight")
     }
 
     private fun verifiedTarget(): VerifiedTargetManifest {
@@ -97,6 +126,40 @@ class BaselineAdapterIntegrationTest {
                 "revoman.benchmark.targetManifest is required"
             }
         return VerifiedTargetManifest.preflight(Path.of(manifestPath))
+    }
+
+    private fun verifiedTarget(artifact: Path): VerifiedTargetManifest {
+        val canonicalArtifact = artifact.toRealPath()
+        val manifestPath = temporaryDirectory.resolve("mutable-target-manifest.json")
+        BenchmarkJson.write(
+            manifestPath,
+            TargetManifest(
+                targetId = "mutable-target",
+                gitCommit = "integration-test-commit",
+                gitTree = "integration-test-tree",
+                dirty = false,
+                gradleVersion = "integration-test-gradle",
+                wrapperSha256 = "0".repeat(64),
+                jdk =
+                    JdkIdentity(
+                        distribution = "integration-test-jdk",
+                        vendor = "integration-test-vendor",
+                        fullVersion = "21",
+                        javaHome = "/integration-test-java-home",
+                        jvmFlags = emptyList(),
+                    ),
+                classpath =
+                    listOf(
+                        HashedArtifact(
+                            logicalId = "mutable-target.jar",
+                            executionPath = canonicalArtifact.toString(),
+                            sizeBytes = Files.size(canonicalArtifact),
+                            sha256 = ContentHasher.sha256(canonicalArtifact),
+                        )
+                    ),
+            ),
+        )
+        return VerifiedTargetManifest.preflight(manifestPath)
     }
 
     private fun materializeFixture(destination: Path): Path {
@@ -116,6 +179,26 @@ class BaselineAdapterIntegrationTest {
         fun silenceTargetLogging() {
             System.setProperty("kotlin-logging.logStartupMessage", "false")
             System.setProperty("revoman.banner", "off")
+        }
+    }
+}
+
+private class DeliberateCampaignFailure(message: String) : RuntimeException(message)
+
+private fun <T> VerifiedTargetManifest.withPostflight(block: () -> T): T {
+    var primaryFailure: Throwable? = null
+    return try {
+        block()
+    } catch (failure: Throwable) {
+        primaryFailure = failure
+        throw failure
+    } finally {
+        try {
+            postflight()
+        } catch (postflightFailure: Throwable) {
+            primaryFailure?.let { primary ->
+                if (primary !== postflightFailure) primary.addSuppressed(postflightFailure)
+            } ?: throw postflightFailure
         }
     }
 }
