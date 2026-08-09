@@ -8,6 +8,6 @@
 package com.salesforce.revoman.benchmark.driver
 
 fun main(args: Array<String>) {
-  require(args.contentEquals(arrayOf("version"))) { "Usage: benchmark-driver version" }
-  println("revoman-benchmark/v1")
+    require(args.contentEquals(arrayOf("version"))) { "Usage: benchmark-driver version" }
+    println("revoman-benchmark/v1")
 }

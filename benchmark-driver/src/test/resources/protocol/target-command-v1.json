@@ -1,7 +1,7 @@
 {
   "protocolVersion": 1,
   "verification": {
-    "targetManifest": "/bench/target-manifest-v1.json",
+    "targetManifest": "__TARGET_MANIFEST__",
     "targetManifestSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     "targetClasspathSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
     "artifactStamps": [
