@@ -10,6 +10,7 @@ package com.salesforce.revoman.benchmark.driver.jmh
 import com.salesforce.revoman.benchmark.driver.integrity.BuildIdentity
 import com.salesforce.revoman.benchmark.driver.integrity.ContentHasher
 import com.salesforce.revoman.benchmark.driver.integrity.HarnessSourceManifest
+import com.salesforce.revoman.benchmark.driver.fixture.DeterministicHttpFixture
 import com.salesforce.revoman.benchmark.driver.json.BenchmarkJson
 import com.salesforce.revoman.benchmark.driver.model.EnvironmentIdentity
 import com.salesforce.revoman.benchmark.driver.model.HarnessIdentity
@@ -20,6 +21,7 @@ import com.salesforce.revoman.benchmark.driver.model.JmhRunConfiguration
 import com.salesforce.revoman.benchmark.driver.model.JmhWorkloadIdentity
 import com.salesforce.revoman.benchmark.driver.model.TargetIdentity
 import com.salesforce.revoman.benchmark.driver.model.WorkloadManifest
+import com.salesforce.revoman.benchmark.driver.metrics.WARM_LIFECYCLE_ALLOCATION_INCLUDE
 import com.salesforce.revoman.benchmark.driver.target.VerifiedTargetManifest
 import java.lang.management.ManagementFactory
 import java.net.URI
@@ -58,24 +60,52 @@ fun main(args: Array<String>) {
     val requestedIncludes =
         requiredProperty(INCLUDES_PROPERTY).split(INCLUDE_SEPARATOR).filter(String::isNotBlank)
     val verified = VerifiedTargetManifest.preflight(manifestPath)
-    val normalizedResult = try {
-        val tokenPath = rawResult.resolveSibling("${rawResult.fileName}.target-token.json")
-        writeReadOnlyToken(tokenPath, verified)
-        System.setProperty(TARGET_TOKEN_PROPERTY, tokenPath.toRealPath().toString())
-        System.setProperty(TARGET_TOKEN_SHA256_PROPERTY, ContentHasher.sha256(tokenPath))
-        System.setProperty(TARGET_MANIFEST_PROPERTY, manifestPath.toString())
+    val normalizedResult =
+        withLifecycleFixture(requestedIncludes) {
+            try {
+                val tokenPath = rawResult.resolveSibling("${rawResult.fileName}.target-token.json")
+                writeReadOnlyToken(tokenPath, verified)
+                System.setProperty(TARGET_TOKEN_PROPERTY, tokenPath.toRealPath().toString())
+                System.setProperty(TARGET_TOKEN_SHA256_PROPERTY, ContentHasher.sha256(tokenPath))
+                System.setProperty(TARGET_MANIFEST_PROPERTY, manifestPath.toString())
 
-        runJmh(args)
-        val imported = JmhResultImporter.`import`(
-            rawResult = rawResult,
-            targetId = verified.manifest.targetId,
-            requestedIncludes = requestedIncludes,
-        )
-        attachRuntimeIdentities(imported, verified, requestedIncludes)
-    } finally {
-        verified.postflight()
-    }
+                runJmh(args)
+                val imported =
+                    JmhResultImporter.`import`(
+                        rawResult = rawResult,
+                        targetId = verified.manifest.targetId,
+                        requestedIncludes = requestedIncludes,
+                    )
+                attachRuntimeIdentities(imported, verified, requestedIncludes)
+            } finally {
+                verified.postflight()
+            }
+        }
     writeJmhResult(resultOutput, normalizedResult)
+}
+
+private fun <T> withLifecycleFixture(requestedIncludes: List<String>, block: () -> T): T {
+    val lifecycleSelected =
+        requestedIncludes.any { include -> include.contains(WARM_LIFECYCLE_ALLOCATION_INCLUDE) }
+    if (!lifecycleSelected) return block()
+    require(
+        requestedIncludes.all { include -> include.contains(WARM_LIFECYCLE_ALLOCATION_INCLUDE) }
+    ) {
+        "Warm lifecycle allocation must run in a dedicated JMH controller launch"
+    }
+    val fixtureRoot =
+        requiredPath(INSTALLATION_ROOT_PROPERTY)
+            .toRealPath()
+            .resolve("workloads/v1/lifecycle.no-script-one-step.v1")
+            .toRealPath()
+    val manifest = BenchmarkJson.read<WorkloadManifest>(fixtureRoot.resolve("manifest.json"))
+    DeterministicHttpFixture.verifyFixture(manifest, fixtureRoot)
+    return DeterministicHttpFixture.open(manifest).use { fixture ->
+        fixture.resetExecution("warm-lifecycle-allocation")
+        System.setProperty(FIXTURE_ROOT_PROPERTY, fixtureRoot.toString())
+        System.setProperty(LIFECYCLE_BASE_URL_PROPERTY, fixture.baseUrl)
+        block()
+    }
 }
 
 internal fun writeJmhResult(output: Path, result: JmhBenchmarkResultV1) {
@@ -286,6 +316,7 @@ private fun forkJvmArguments(): List<String> =
             LOG4J3_CONFIG_PROPERTY,
             KOTLIN_LOGGING_STARTUP_PROPERTY,
             REVOMAN_BANNER_PROPERTY,
+            LIFECYCLE_BASE_URL_PROPERTY,
         )
         .mapNotNull { name -> System.getProperty(name)?.let { value -> "-D$name=$value" } }
 
@@ -317,4 +348,6 @@ internal const val INSTALLATION_ROOT_PROPERTY: String = "revoman.benchmark.insta
 internal const val REQUESTED_FORKS_PROPERTY: String = "revoman.benchmark.requestedForks"
 internal const val PROFILERS_PROPERTY: String = "revoman.benchmark.profilers"
 internal const val QUICK_PROPERTY: String = "revoman.benchmark.quick"
+internal const val LIFECYCLE_BASE_URL_PROPERTY: String =
+    "revoman.benchmark.lifecycleBaseUrl"
 internal const val INCLUDE_SEPARATOR: String = "\u001f"

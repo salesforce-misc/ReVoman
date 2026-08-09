@@ -10,6 +10,9 @@ package com.salesforce.revoman.benchmark.driver.process
 import com.google.common.truth.Truth.assertThat
 import com.salesforce.revoman.benchmark.driver.fixture.DeterministicHttpFixture
 import com.salesforce.revoman.benchmark.driver.json.BenchmarkJson
+import com.salesforce.revoman.benchmark.driver.metrics.GnuTimePeakRssProvider
+import com.salesforce.revoman.benchmark.driver.metrics.MacOsTimePeakRssProvider
+import com.salesforce.revoman.benchmark.driver.metrics.PeakRssProvider
 import com.salesforce.revoman.benchmark.driver.model.ExecutionDigest
 import com.salesforce.revoman.benchmark.driver.model.MetricPass
 import com.salesforce.revoman.benchmark.driver.model.RunIntent
@@ -102,6 +105,69 @@ class RunnerIntegrationTest {
                 assertThat(fork.map { it.iteration }).containsExactly(0, 1, 2).inOrder()
             }
             fixture.requestCount("warm") shouldEqual 10
+        }
+    }
+
+    @Test
+    fun `real cold allocation and peak RSS providers emit structural nonnegative evidence`() {
+        val targetSource = integrationTarget()
+        val fixtureRoot = materializeLifecycleFixture(temporaryDirectory.resolve("metric-fixture"))
+        val workloadManifest = BenchmarkJson.read<WorkloadManifest>(fixtureRoot.resolve("manifest.json"))
+        val jfrConfiguration = temporaryDirectory.resolve("revoman-allocation-v1.jfc")
+        requireNotNull(javaClass.getResourceAsStream("/jfr/revoman-allocation-v1.jfc")) {
+                "Missing JFR allocation configuration"
+            }
+            .use { input -> Files.copy(input, jfrConfiguration) }
+        val allocationArtifacts =
+            Files.createDirectories(temporaryDirectory.resolve("allocation-artifacts")).toRealPath()
+        val rssArtifacts =
+            Files.createDirectories(temporaryDirectory.resolve("rss-artifacts")).toRealPath()
+
+        DeterministicHttpFixture.open(workloadManifest).use { fixture ->
+            fixture.resetExecution("allocation")
+            val allocation =
+                ColdRunner(JdkProcessLauncher()).runWithEvidence(
+                    ColdPlan(
+                        intent = RunIntent.SMOKE,
+                        target = targetSource.target,
+                        targetManifestPath = targetSource.manifestPath,
+                        adapterId = integrationAdapter(),
+                        workload = lifecycleRequest(fixtureRoot, fixture.baseUrl),
+                        expectedDigest = requireNotNull(workloadManifest.expectedDigest),
+                        sampleCount = 1,
+                        metricPass = MetricPass.ALLOCATION,
+                        timeout = Duration.ofSeconds(30),
+                        loggingConfiguration = benchmarkLoggingConfiguration(),
+                        artifactDirectory = allocationArtifacts,
+                        jfrConfigurationFile = jfrConfiguration.toRealPath(),
+                    )
+                )
+            assertThat(allocation.observations.single().value).isAtLeast(0.0)
+            assertThat(allocation.artifacts).hasSize(1)
+            assertThat(Files.size(Path.of(allocation.artifacts.single().executionPath))).isGreaterThan(0)
+            fixture.requestCount("allocation") shouldEqual 1
+
+            fixture.resetExecution("peak-rss")
+            val peakRss =
+                ColdRunner(JdkProcessLauncher()).runWithEvidence(
+                    ColdPlan(
+                        intent = RunIntent.SMOKE,
+                        target = targetSource.target,
+                        targetManifestPath = targetSource.manifestPath,
+                        adapterId = integrationAdapter(),
+                        workload = lifecycleRequest(fixtureRoot, fixture.baseUrl),
+                        expectedDigest = requireNotNull(workloadManifest.expectedDigest),
+                        sampleCount = 1,
+                        metricPass = MetricPass.PEAK_RSS,
+                        timeout = Duration.ofSeconds(30),
+                        loggingConfiguration = benchmarkLoggingConfiguration(),
+                        artifactDirectory = rssArtifacts,
+                        peakRssProvider = hostPeakRssProvider(),
+                    )
+                )
+            assertThat(peakRss.observations.single().value).isGreaterThan(0.0)
+            assertThat(Files.list(rssArtifacts).use { paths -> paths.toList() }).isEmpty()
+            fixture.requestCount("peak-rss") shouldEqual 1
         }
     }
 
@@ -970,6 +1036,13 @@ class RunnerIntegrationTest {
         )
     }
 }
+
+private fun hostPeakRssProvider(): PeakRssProvider =
+    if (System.getProperty("os.name").startsWith("Mac")) {
+        MacOsTimePeakRssProvider
+    } else {
+        GnuTimePeakRssProvider
+    }
 
 class ProcessLauncherFixtureMain {
     companion object {

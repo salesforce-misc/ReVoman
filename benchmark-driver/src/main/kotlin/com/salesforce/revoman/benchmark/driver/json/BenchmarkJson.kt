@@ -13,6 +13,9 @@ import com.networknt.schema.SpecificationVersion
 import com.salesforce.revoman.benchmark.driver.model.BenchmarkResultV1
 import com.salesforce.revoman.benchmark.driver.model.ExecutionDigest
 import com.salesforce.revoman.benchmark.driver.model.JmhBenchmarkResultV1
+import com.salesforce.revoman.benchmark.driver.model.MetricPass
+import com.salesforce.revoman.benchmark.driver.model.RetainedCheckpoint
+import com.salesforce.revoman.benchmark.driver.model.RunMode
 import com.salesforce.revoman.benchmark.driver.model.TargetForkCommand
 import com.salesforce.revoman.benchmark.driver.model.TargetForkResult
 import com.salesforce.revoman.benchmark.driver.model.TargetManifest
@@ -139,6 +142,7 @@ internal object BenchmarkJson {
             "measurementIterations must not be negative"
         }
         requireNonBlank("resultFile", command.resultFile)
+        validateCommandMode(command)
     }
 
     private fun validateVerification(verification: TargetVerificationToken) {
@@ -183,10 +187,100 @@ internal object BenchmarkJson {
         require(result.measurementIterations >= 0) {
             "measurementIterations must not be negative"
         }
-        require(result.measurementIterations == result.samples.size) {
-            "measurementIterations must match samples.size"
+        require(result.processId > 0) { "processId must be positive" }
+        result.jfrConfigurationSha256?.let { hash ->
+            require(hash.matches(sha256Pattern)) {
+                "jfrConfigurationSha256 must be a 64-character SHA-256 hash"
+            }
+        }
+        result.retainedCheckpoint?.let(::validateRetainedCheckpoint)
+        when (result.retainedCheckpoint) {
+            null -> require(result.measurementIterations == result.samples.size) {
+                "measurementIterations must match samples.size"
+            }
+            else -> {
+                require(result.warmupIterations == 0) {
+                    "retained result warmupIterations must be zero"
+                }
+                require(result.measurementIterations == 0) {
+                    "retained result measurementIterations must be zero"
+                }
+                require(result.samples.isEmpty()) { "retained result samples must be empty" }
+                require(result.jfrConfigurationSha256 == null) {
+                    "retained result cannot carry JFR configuration metadata"
+                }
+            }
         }
         result.samples.forEach(::validateSample)
+    }
+
+    private fun validateCommandMode(command: TargetForkCommand) {
+        val hasJfrConfiguration = command.jfrConfigurationFile != null
+        val hasJfrRecording = command.jfrRecordingFile != null
+        require(hasJfrConfiguration == hasJfrRecording) {
+            "jfrConfigurationFile and jfrRecordingFile must be supplied together"
+        }
+        command.jfrConfigurationFile?.let { requireNonBlank("jfrConfigurationFile", it) }
+        command.jfrRecordingFile?.let { requireNonBlank("jfrRecordingFile", it) }
+        when (command.metricPass) {
+            MetricPass.RETAINED -> {
+                require(command.mode == RunMode.RETAINED) {
+                    "RETAINED metric pass requires RETAINED mode"
+                }
+                require(command.warmupIterations == 0 && command.measurementIterations == 0) {
+                    "RETAINED metric pass requires zero warmup and measurement iterations"
+                }
+                require((command.retainedExecutionCount ?: 0) > 0) {
+                    "RETAINED metric pass requires a positive retainedExecutionCount"
+                }
+                require(!hasJfrConfiguration) { "RETAINED metric pass cannot configure JFR" }
+            }
+            MetricPass.ALLOCATION -> {
+                require(command.mode == RunMode.COLD) {
+                    "worker ALLOCATION metric pass requires COLD mode"
+                }
+                require(hasJfrConfiguration) {
+                    "cold ALLOCATION metric pass requires JFR configuration and recording files"
+                }
+                require(command.retainedExecutionCount == null) {
+                    "ALLOCATION metric pass cannot set retainedExecutionCount"
+                }
+            }
+            MetricPass.LATENCY,
+            MetricPass.PEAK_RSS,
+            -> {
+                require(command.mode != RunMode.RETAINED) {
+                    "${command.metricPass} metric pass cannot use RETAINED mode"
+                }
+                require(!hasJfrConfiguration) {
+                    "${command.metricPass} metric pass cannot configure JFR"
+                }
+                require(command.retainedExecutionCount == null) {
+                    "${command.metricPass} metric pass cannot set retainedExecutionCount"
+                }
+            }
+        }
+    }
+
+    private fun validateRetainedCheckpoint(checkpoint: RetainedCheckpoint) {
+        require(checkpoint.executionCount > 0) {
+            "retained checkpoint executionCount must be positive"
+        }
+        require(checkpoint.usedHeapBytes >= 0) {
+            "retained checkpoint usedHeapBytes must not be negative"
+        }
+        require(checkpoint.completedGcCycles >= 2) {
+            "retained checkpoint completedGcCycles must be at least two"
+        }
+        checkpoint.weakReferences.forEachIndexed { index, outcome ->
+            requireNonBlank("retained checkpoint weakReferences[$index].type", outcome.type)
+            require(outcome.created >= 0) {
+                "retained checkpoint weakReferences[$index].created must not be negative"
+            }
+            require(outcome.cleared in 0..outcome.created) {
+                "retained checkpoint weakReferences[$index].cleared must be between zero and created"
+            }
+        }
     }
 
     private fun validateSample(sample: TargetSample) {

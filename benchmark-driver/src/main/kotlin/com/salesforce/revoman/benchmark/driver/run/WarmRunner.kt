@@ -98,7 +98,10 @@ class WarmRunner(private val launcher: ProcessLauncher) {
         require(plan.measurementIterations > 0) {
             "Warm measurementIterations must be positive"
         }
-        validateCommon(plan.adapterId, plan.metricPass, plan.timeout)
+        validateCommon(plan.adapterId, plan.timeout)
+        require(plan.metricPass == MetricPass.LATENCY) {
+            "WarmRunner executes only the LATENCY metric pass"
+        }
         return requireMacroOracle(plan.expectedDigest)
     }
 }

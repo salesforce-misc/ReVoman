@@ -476,14 +476,52 @@ data class MetricSeries(
             require(retainedMetric || observation.replicateGroup == null) {
                 "$observationPath.replicateGroup is allowed only for RETAINED_BYTES"
             }
+            require(!retainedMetric || observation.replicateGroup != null) {
+                "$observationPath.replicateGroup is required for RETAINED_BYTES"
+            }
             observation.replicateGroup?.let {
                 require(it >= 0) { "$observationPath.replicateGroup must not be negative" }
             }
             require(retainedMetric || observation.retainedEvidence == null) {
                 "$observationPath.retainedEvidence is allowed only for RETAINED_BYTES"
             }
+            require(!retainedMetric || observation.retainedEvidence != null) {
+                "$observationPath.retainedEvidence is required for RETAINED_BYTES"
+            }
             observation.retainedEvidence?.validate("$observationPath.retainedEvidence")
         }
+        if (metric == MetricId.RETAINED_BYTES) validateRetainedGroups(blockPath, observations)
+    }
+
+    private fun validateRetainedGroups(
+        blockPath: String,
+        observations: List<MetricObservation>,
+    ) {
+        observations
+            .groupBy { observation ->
+                Triple(
+                    observation.targetId,
+                    observation.fork,
+                    requireNotNull(observation.replicateGroup),
+                )
+            }
+            .forEach { (group, points) ->
+                require(points.map(MetricObservation::iteration).sorted() == RETAINED_POINT_INDICES) {
+                    "$blockPath retained replicate $group must contain iterations $RETAINED_POINT_INDICES"
+                }
+                require(
+                    points
+                        .sortedBy(MetricObservation::iteration)
+                        .map { point -> requireNotNull(point.retainedEvidence).executionCount } ==
+                        RETAINED_EXECUTION_COUNTS
+                ) {
+                    "$blockPath retained replicate $group must contain execution counts " +
+                        "$RETAINED_EXECUTION_COUNTS"
+                }
+                require(points.map(MetricObservation::processId).distinct().size == points.size) {
+                    "$blockPath retained replicate $group requires one fresh process per point"
+                }
+            }
     }
 
     private fun validateHistograms(
@@ -523,7 +561,7 @@ private fun expectedObservationCoordinates(
             RunMode.COLD,
             RunMode.WARM,
             -> 0 until configuration.measurementIterations
-            RunMode.RETAINED -> 0..0
+            RunMode.RETAINED -> RETAINED_POINT_INDICES
         }
     return targetIds
         .flatMap { targetId ->
@@ -619,3 +657,5 @@ internal const val RESULT_SCHEMA_V1: String = "revoman-benchmark/v1"
 internal val SHA256_PATTERN: Regex = Regex("[0-9a-f]{64}")
 private val BYTE_UNITS =
     setOf(MetricUnit.BYTES, MetricUnit.BYTES_PER_EXECUTION, MetricUnit.BYTES_PER_OPERATION)
+private val RETAINED_EXECUTION_COUNTS = listOf(1_000, 2_000, 4_000)
+private val RETAINED_POINT_INDICES = RETAINED_EXECUTION_COUNTS.indices.toList()

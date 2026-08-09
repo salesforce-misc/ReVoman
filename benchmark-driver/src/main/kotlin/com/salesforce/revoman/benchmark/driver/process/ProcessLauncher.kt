@@ -20,6 +20,7 @@ data class JavaCommand(
     val programArgs: List<String>,
     val workingDirectory: Path,
     val timeout: Duration,
+    val invocationPrefix: List<String> = emptyList(),
 )
 
 /** Complete parent-side evidence retained from one isolated target process. */
@@ -30,6 +31,14 @@ data class ProcessObservation(
     val stdoutTail: String,
     val stderrTail: String,
     val result: TargetForkResult,
+)
+
+/** Bounded output and process identity returned by one strict JMH controller launch. */
+data class JmhControllerObservation(
+    val exitCode: Int,
+    val processId: Long,
+    val stdoutTail: String,
+    val stderrTail: String,
 )
 
 /** Launches exactly one process for [command]. */

@@ -7,8 +7,13 @@
  */
 package com.salesforce.revoman.benchmark.driver.run
 
+import com.salesforce.revoman.benchmark.driver.integrity.ContentHasher
 import com.salesforce.revoman.benchmark.driver.json.BenchmarkJson
+import com.salesforce.revoman.benchmark.driver.metrics.GnuTimePeakRssProvider
+import com.salesforce.revoman.benchmark.driver.metrics.JfrAllocationReader
+import com.salesforce.revoman.benchmark.driver.metrics.PeakRssProvider
 import com.salesforce.revoman.benchmark.driver.model.ExecutionDigest
+import com.salesforce.revoman.benchmark.driver.model.HashedArtifact
 import com.salesforce.revoman.benchmark.driver.model.MetricId
 import com.salesforce.revoman.benchmark.driver.model.MetricObservation
 import com.salesforce.revoman.benchmark.driver.model.MetricPass
@@ -39,12 +44,29 @@ data class ColdPlan(
     val metricPass: MetricPass,
     val timeout: Duration,
     val loggingConfiguration: VerifiedLoggingConfiguration,
+    val artifactDirectory: Path? = null,
+    val jfrConfigurationFile: Path? = null,
+    val peakRssProvider: PeakRssProvider? = null,
+)
+
+/** Provider identity, immutable configuration, artifacts, and raw cold observations. */
+data class ColdRunResult(
+    val provider: String,
+    val providerConfigurationSha256: String,
+    val artifacts: List<HashedArtifact>,
+    val observations: List<MetricObservation>,
 )
 
 /** Runs each cold observation in a distinct target process. */
-class ColdRunner(private val launcher: ProcessLauncher) {
+class ColdRunner(
+    private val launcher: ProcessLauncher,
+    private val jfrAllocationReader: JfrAllocationReader = JfrAllocationReader(),
+) {
     /** Executes [plan] with one measured child process per returned observation. */
-    fun run(plan: ColdPlan): List<MetricObservation> {
+    fun run(plan: ColdPlan): List<MetricObservation> = runWithEvidence(plan).observations
+
+    /** Executes one uncontaminated metric pass and retains its provider identity and artifacts. */
+    fun runWithEvidence(plan: ColdPlan): ColdRunResult {
         val expectedDigest = validate(plan)
         val campaign =
             RunnerCampaign.open(
@@ -53,49 +75,243 @@ class ColdRunner(private val launcher: ProcessLauncher) {
                 loggingConfiguration = plan.loggingConfiguration,
             )
         return campaign.withPostflight {
-            val observations =
-                List(plan.sampleCount) { sample ->
-                    val process =
-                        campaign.launch(
-                            launcher = launcher,
-                            adapterId = plan.adapterId,
-                            workload = plan.workload,
-                            mode = RunMode.COLD,
-                            metricPass = plan.metricPass,
-                            expectedDigest = expectedDigest,
-                            warmupIterations = 0,
-                            measurementIterations = 1,
-                            timeout = plan.timeout,
-                        )
-                    validateProcess(
-                        process,
-                        warmupIterations = 0,
-                        measurementIterations = 1,
+            when (plan.metricPass) {
+                MetricPass.LATENCY -> runLatency(plan, campaign, expectedDigest)
+                MetricPass.ALLOCATION -> runAllocation(plan, campaign, expectedDigest)
+                MetricPass.PEAK_RSS -> runPeakRss(plan, campaign, expectedDigest)
+                MetricPass.RETAINED -> error("ColdRunner does not execute retained-memory passes")
+            }.also { result -> requireDistinctProcessIds(result.observations, "cold samples") }
+        }
+    }
+
+    private fun runLatency(
+        plan: ColdPlan,
+        campaign: RunnerCampaign,
+        expectedDigest: ExecutionDigest,
+    ): ColdRunResult {
+        val observations =
+            List(plan.sampleCount) { sample ->
+                val process = launchCold(campaign, plan, expectedDigest)
+                latencyObservation(plan, process, sample)
+            }
+        return ColdRunResult(
+            provider = COLD_LATENCY_PROVIDER,
+            providerConfigurationSha256 =
+                ContentHasher.sha256(
+                    "$COLD_LATENCY_PROVIDER\u0000${plan.loggingConfiguration.sha256}".toByteArray()
+                ),
+            artifacts = emptyList(),
+            observations = observations,
+        )
+    }
+
+    private fun runAllocation(
+        plan: ColdPlan,
+        campaign: RunnerCampaign,
+        expectedDigest: ExecutionDigest,
+    ): ColdRunResult {
+        val artifactDirectory = requireNotNull(plan.artifactDirectory)
+        val configuration = requireNotNull(plan.jfrConfigurationFile)
+        var providerConfigurationSha256: String? = null
+        val artifacts = mutableListOf<HashedArtifact>()
+        val observations =
+            List(plan.sampleCount) { sample ->
+                val recording = artifactDirectory.resolve("cold-allocation-$sample.jfr")
+                require(!Files.exists(recording)) { "JFR artifact already exists: $recording" }
+                val process =
+                    launchCold(
+                        campaign = campaign,
+                        plan = plan,
                         expectedDigest = expectedDigest,
+                        jfrConfigurationFile = configuration,
+                        jfrRecordingFile = recording,
                     )
+                val resultHash =
+                    requireNotNull(process.result.jfrConfigurationSha256) {
+                        "Cold allocation worker omitted JFR configuration metadata"
+                    }
+                val measurement =
+                    jfrAllocationReader.read(recording, configuration, resultHash)
+                providerConfigurationSha256?.let { prior ->
+                    check(prior == measurement.providerConfigurationSha256) {
+                        "Cold allocation provider configuration changed within a pass"
+                    }
+                } ?: run { providerConfigurationSha256 = measurement.providerConfigurationSha256 }
+                artifacts +=
+                    HashedArtifact(
+                        logicalId = "cold-allocation-$sample.jfr",
+                        executionPath = recording.toString(),
+                        sizeBytes = Files.size(recording),
+                        sha256 = ContentHasher.sha256(recording),
+                    )
+                MetricObservation(
+                    targetId = plan.target.targetId,
+                    metric = MetricId.ALLOCATED_BYTES,
+                    provider = measurement.provider,
+                    unit = MetricUnit.BYTES,
+                    fork = sample,
+                    iteration = 0,
+                    processId = process.processId,
+                    value = measurement.allocatedBytes.toDouble(),
+                )
+            }
+        return ColdRunResult(
+            provider = JfrAllocationReader.PROVIDER_ID,
+            providerConfigurationSha256 = requireNotNull(providerConfigurationSha256),
+            artifacts = artifacts.toList(),
+            observations = observations,
+        )
+    }
+
+    private fun runPeakRss(
+        plan: ColdPlan,
+        campaign: RunnerCampaign,
+        expectedDigest: ExecutionDigest,
+    ): ColdRunResult {
+        val artifactDirectory = requireNotNull(plan.artifactDirectory)
+        val provider = requireNotNull(plan.peakRssProvider)
+        val observations =
+            List(plan.sampleCount) { sample ->
+                val providerOutput = artifactDirectory.resolve("peak-rss-$sample.txt")
+                require(!Files.exists(providerOutput)) {
+                    "Peak RSS provider output already exists: $providerOutput"
+                }
+                try {
+                    val process =
+                        launchCold(
+                            campaign = campaign,
+                            plan = plan,
+                            expectedDigest = expectedDigest,
+                            invocationPrefix = provider.wrap(emptyList(), providerOutput),
+                        )
                     MetricObservation(
                         targetId = plan.target.targetId,
-                        metric = MetricId.LATENCY,
-                        provider = COLD_LATENCY_PROVIDER,
-                        unit = MetricUnit.NANOSECONDS,
+                        metric = MetricId.PEAK_RSS,
+                        provider = provider.id,
+                        unit = MetricUnit.BYTES,
                         fork = sample,
                         iteration = 0,
                         processId = process.processId,
-                        value = process.elapsedNanos.toDouble(),
+                        value = provider.parse(providerOutput).toDouble(),
                     )
+                } finally {
+                    Files.deleteIfExists(providerOutput)
                 }
-            requireDistinctProcessIds(observations, "cold samples")
-            observations
-        }
+            }
+        return ColdRunResult(
+            provider = provider.id,
+            providerConfigurationSha256 = provider.configurationSha256,
+            artifacts = emptyList(),
+            observations = observations,
+        )
     }
+
+    private fun launchCold(
+        campaign: RunnerCampaign,
+        plan: ColdPlan,
+        expectedDigest: ExecutionDigest,
+        jfrConfigurationFile: Path? = null,
+        jfrRecordingFile: Path? = null,
+        invocationPrefix: List<String> = emptyList(),
+    ): ProcessObservation =
+        campaign
+            .launch(
+                launcher = launcher,
+                adapterId = plan.adapterId,
+                workload = plan.workload,
+                mode = RunMode.COLD,
+                metricPass = plan.metricPass,
+                expectedDigest = expectedDigest,
+                warmupIterations = 0,
+                measurementIterations = 1,
+                timeout = plan.timeout,
+                jfrConfigurationFile = jfrConfigurationFile,
+                jfrRecordingFile = jfrRecordingFile,
+                invocationPrefix = invocationPrefix,
+            )
+            .also { process ->
+                validateProcess(process, 0, 1, expectedDigest)
+            }
+
+    private fun latencyObservation(
+        plan: ColdPlan,
+        process: ProcessObservation,
+        sample: Int,
+    ): MetricObservation =
+        MetricObservation(
+            targetId = plan.target.targetId,
+            metric = MetricId.LATENCY,
+            provider = COLD_LATENCY_PROVIDER,
+            unit = MetricUnit.NANOSECONDS,
+            fork = sample,
+            iteration = 0,
+            processId = process.processId,
+            value = process.elapsedNanos.toDouble(),
+        )
 
     private fun validate(plan: ColdPlan): ExecutionDigest {
         require(plan.sampleCount > 0) { "Cold sampleCount must be positive" }
         require(plan.intent != RunIntent.CONTROLLED || plan.sampleCount >= MIN_CONTROLLED_COLD_SAMPLES) {
             "Controlled cold plans require at least $MIN_CONTROLLED_COLD_SAMPLES samples"
         }
-        validateCommon(plan.adapterId, plan.metricPass, plan.timeout)
+        validateCommon(plan.adapterId, plan.timeout)
+        validateProviderConfiguration(plan)
         return requireMacroOracle(plan.expectedDigest)
+    }
+
+    private fun validateProviderConfiguration(plan: ColdPlan) {
+        when (plan.metricPass) {
+            MetricPass.LATENCY -> {
+                require(plan.artifactDirectory == null) {
+                    "Cold LATENCY pass must not configure an artifact directory"
+                }
+                require(plan.jfrConfigurationFile == null && plan.peakRssProvider == null) {
+                    "Cold LATENCY pass must not configure resource providers"
+                }
+            }
+            MetricPass.ALLOCATION -> {
+                requireArtifactDirectory(plan.artifactDirectory)
+                requireCanonicalFile("jfrConfigurationFile", plan.jfrConfigurationFile)
+                require(plan.peakRssProvider == null) {
+                    "Cold ALLOCATION pass cannot configure a peak RSS provider"
+                }
+            }
+            MetricPass.PEAK_RSS -> {
+                requireArtifactDirectory(plan.artifactDirectory)
+                require(plan.peakRssProvider != null) {
+                    "Cold PEAK_RSS pass requires a provider"
+                }
+                require(
+                    plan.intent != RunIntent.CONTROLLED ||
+                        plan.peakRssProvider.id == GnuTimePeakRssProvider.id
+                ) {
+                    "Controlled cold PEAK_RSS requires the Linux GNU time provider"
+                }
+                require(plan.jfrConfigurationFile == null) {
+                    "Cold PEAK_RSS pass cannot configure JFR"
+                }
+            }
+            MetricPass.RETAINED -> error("ColdRunner does not execute retained-memory passes")
+        }
+    }
+
+    private fun requireArtifactDirectory(path: Path?): Path {
+        val required = requireNotNull(path) { "Resource metric pass requires artifactDirectory" }
+        require(required.isAbsolute && required.normalize() == required && Files.isDirectory(required)) {
+            "artifactDirectory must be an existing absolute normalized directory: $required"
+        }
+        return required
+    }
+
+    private fun requireCanonicalFile(name: String, path: Path?): Path {
+        val required = requireNotNull(path) { "Cold ALLOCATION pass requires $name" }
+        require(required.isAbsolute && required.normalize() == required) {
+            "$name must be absolute and normalized: $required"
+        }
+        require(Files.isRegularFile(required) && required.toRealPath() == required) {
+            "$name must be a canonical regular file: $required"
+        }
+        return required
     }
 }
 
@@ -118,6 +334,10 @@ internal class RunnerCampaign private constructor(
         warmupIterations: Int,
         measurementIterations: Int,
         timeout: Duration,
+        jfrConfigurationFile: Path? = null,
+        jfrRecordingFile: Path? = null,
+        retainedExecutionCount: Int? = null,
+        invocationPrefix: List<String> = emptyList(),
     ): ProcessObservation {
         val invocationDirectory =
             Files.createTempDirectory(campaignDirectory, "target-fork-").toRealPath()
@@ -135,6 +355,9 @@ internal class RunnerCampaign private constructor(
                     warmupIterations = warmupIterations,
                     measurementIterations = measurementIterations,
                     resultFile = resultPath.toString(),
+                    jfrConfigurationFile = jfrConfigurationFile?.toString(),
+                    jfrRecordingFile = jfrRecordingFile?.toString(),
+                    retainedExecutionCount = retainedExecutionCount,
                 )
             BenchmarkJson.write(commandPath, workerCommand)
             launcher.launch(
@@ -152,6 +375,7 @@ internal class RunnerCampaign private constructor(
                     programArgs = listOf(commandPath.toString()),
                     workingDirectory = workingDirectory,
                     timeout = timeout,
+                    invocationPrefix = invocationPrefix,
                 )
             )
         }
@@ -267,9 +491,8 @@ private fun deleteRecursively(root: Path) {
     }
 }
 
-internal fun validateCommon(adapterId: String, metricPass: MetricPass, timeout: Duration) {
+internal fun validateCommon(adapterId: String, timeout: Duration) {
     require(adapterId.isNotBlank()) { "adapterId must not be blank" }
-    require(metricPass == MetricPass.LATENCY) { "Task 6 runners support only LATENCY" }
     require(!timeout.isZero && !timeout.isNegative) { "Runner timeout must be positive" }
 }
 

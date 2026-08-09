@@ -66,6 +66,9 @@ data class TargetForkCommand(
     val warmupIterations: Int,
     val measurementIterations: Int,
     val resultFile: String,
+    val jfrConfigurationFile: String? = null,
+    val jfrRecordingFile: String? = null,
+    val retainedExecutionCount: Int? = null,
 )
 
 /** Summarizes execution correctness without exposing target-runtime objects across the seam. */
@@ -84,6 +87,15 @@ data class TargetSample(
     val digest: ExecutionDigest,
 )
 
+/** Captures the heap and reachability evidence sampled after two acknowledged full GC cycles. */
+@JsonClass(generateAdapter = true)
+data class RetainedCheckpoint(
+    val executionCount: Int,
+    val usedHeapBytes: Long,
+    val completedGcCycles: Int,
+    val weakReferences: List<WeakReferenceOutcome>,
+)
+
 /** Carries all completed samples emitted by one isolated target worker. */
 @JsonClass(generateAdapter = true)
 data class TargetForkResult(
@@ -92,6 +104,8 @@ data class TargetForkResult(
     val warmupIterations: Int,
     val measurementIterations: Int,
     val samples: List<TargetSample>,
+    val jfrConfigurationSha256: String? = null,
+    val retainedCheckpoint: RetainedCheckpoint? = null,
 )
 
 /** Rejects any failed or oracle-divergent execution before its timing can become evidence. */

@@ -10,6 +10,7 @@ package com.salesforce.revoman.benchmark
 import com.salesforce.revoman.benchmark.driver.integrity.ContentHasher
 import com.salesforce.revoman.benchmark.driver.jmh.ADAPTER_PROPERTY
 import com.salesforce.revoman.benchmark.driver.jmh.FIXTURE_ROOT_PROPERTY
+import com.salesforce.revoman.benchmark.driver.jmh.LIFECYCLE_BASE_URL_PROPERTY
 import com.salesforce.revoman.benchmark.driver.jmh.TARGET_MANIFEST_PROPERTY
 import com.salesforce.revoman.benchmark.driver.jmh.TARGET_TOKEN_PROPERTY
 import com.salesforce.revoman.benchmark.driver.jmh.TARGET_TOKEN_SHA256_PROPERTY
@@ -19,6 +20,7 @@ import com.salesforce.revoman.benchmark.driver.model.RunMode
 import com.salesforce.revoman.benchmark.driver.model.TargetForkCommand
 import com.salesforce.revoman.benchmark.driver.model.TargetVerificationToken
 import com.salesforce.revoman.benchmark.driver.model.WorkloadRequest
+import com.salesforce.revoman.benchmark.driver.run.executeWarmLifecycleAllocation
 import com.salesforce.revoman.benchmark.driver.target.PreparedWorkload
 import com.salesforce.revoman.benchmark.driver.target.TargetAdapterRegistry
 import com.salesforce.revoman.benchmark.driver.target.TargetOperation
@@ -35,6 +37,37 @@ internal class PreparedTargetState : AutoCloseable {
     fun prepare(operationIds: List<String>, parameters: Map<String, String> = emptyMap()) {
         check(!this::runtime.isInitialized) { "JMH target state is already prepared" }
         require(operationIds.isNotEmpty()) { "operationIds must not be empty" }
+        val request =
+            WorkloadRequest(
+                id = "jmh.component-operations.v1",
+                contractVersion = 1,
+                fixtureRoot = requiredCanonicalDirectory(FIXTURE_ROOT_PROPERTY).toString(),
+                baseUrl = "http://127.0.0.1",
+                parameters = parameters,
+            )
+        prepare(request)
+        operations = operationIds.associateWith(workload::operation)
+    }
+
+    fun prepareLifecycle() {
+        check(!this::runtime.isInitialized) { "JMH target state is already prepared" }
+        prepare(
+            WorkloadRequest(
+                id = "lifecycle.no-script-one-step.v1",
+                contractVersion = 1,
+                fixtureRoot = requiredCanonicalDirectory(FIXTURE_ROOT_PROPERTY).toString(),
+                baseUrl = requiredProperty(LIFECYCLE_BASE_URL_PROPERTY),
+            )
+        )
+        operations = emptyMap()
+    }
+
+    fun executeLifecycle(): Long {
+        check(this::workload.isInitialized) { "JMH target state is not prepared" }
+        return executeWarmLifecycleAllocation(workload)
+    }
+
+    private fun prepare(request: WorkloadRequest) {
         val tokenPath = requiredCanonicalFile(TARGET_TOKEN_PROPERTY)
         val expectedTokenHash = requiredProperty(TARGET_TOKEN_SHA256_PROPERTY)
         val actualTokenHash = ContentHasher.sha256(tokenPath)
@@ -46,14 +79,6 @@ internal class PreparedTargetState : AutoCloseable {
         require(verification.targetManifest == suppliedManifest.toString()) {
             "JMH target manifest differs from verified token"
         }
-        val request =
-            WorkloadRequest(
-                id = "jmh.component-operations.v1",
-                contractVersion = 1,
-                fixtureRoot = requiredCanonicalDirectory(FIXTURE_ROOT_PROPERTY).toString(),
-                baseUrl = "http://127.0.0.1",
-                parameters = parameters,
-            )
         val command =
             TargetForkCommand(
                 verification = verification,
@@ -70,7 +95,6 @@ internal class PreparedTargetState : AutoCloseable {
         runtime = TargetRuntime.open(verified)
         try {
             workload = TargetAdapterRegistry.require(command.adapterId).prepare(runtime, request)
-            operations = operationIds.associateWith(workload::operation)
         } catch (failure: Throwable) {
             runtime.close()
             throw failure

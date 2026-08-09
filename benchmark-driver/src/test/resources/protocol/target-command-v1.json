@@ -41,5 +41,8 @@
   },
   "warmupIterations": 2,
   "measurementIterations": 3,
-  "resultFile": "/bench/result.json"
+  "resultFile": "/bench/result.json",
+  "jfrConfigurationFile": null,
+  "jfrRecordingFile": null,
+  "retainedExecutionCount": null
 }

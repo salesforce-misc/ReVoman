@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration version="2.0" label="ReVoman allocation v1" description="JDK 21 TLAB reservation and outside-TLAB allocation events" provider="ReVoman">
+  <event name="jdk.ObjectAllocationInNewTLAB">
+    <setting name="enabled">true</setting>
+    <setting name="stackTrace">false</setting>
+  </event>
+  <event name="jdk.ObjectAllocationOutsideTLAB">
+    <setting name="enabled">true</setting>
+    <setting name="stackTrace">false</setting>
+  </event>
+</configuration>

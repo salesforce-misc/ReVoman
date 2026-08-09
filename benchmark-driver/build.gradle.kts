@@ -66,7 +66,17 @@ abstract class StrictJmhJavaExec : JavaExec() {
     }
     val logging = logConfig.get().asFile.toPath().toRealPath()
     val manifest = targetManifest.get().asFile.toPath().toRealPath()
-    val fixtureRoot = root.resolve("workloads/v1/jmh.component-operations.v1").toRealPath()
+    val selectedIncludes = includes.get()
+    val lifecycleAllocation =
+      selectedIncludes.isNotEmpty() &&
+        selectedIncludes.all { it.contains("WarmLifecycleAllocationBenchmark") }
+    val fixtureRoot =
+      root
+        .resolve(
+          if (lifecycleAllocation) "workloads/v1/lifecycle.no-script-one-step.v1"
+          else "workloads/v1/jmh.component-operations.v1"
+        )
+        .toRealPath()
     val raw = rawOutput.get().asFile.toPath().toAbsolutePath().normalize()
     val normalized = normalizedOutput.get().asFile.toPath().toAbsolutePath().normalize()
     val human = humanOutput.get().asFile.toPath().toAbsolutePath().normalize()
@@ -90,10 +100,12 @@ abstract class StrictJmhJavaExec : JavaExec() {
       Files.delete(token)
     }
 
-    val selectedIncludes = includes.get()
     val jmhArguments = selectedIncludes.toMutableList()
     if (selectedIncludes.none { it.contains("HarnessFailureFixtureBenchmark") }) {
       jmhArguments += listOf("-e", "HarnessFailureFixtureBenchmark")
+    }
+    if (selectedIncludes.none { it.contains("WarmLifecycleAllocationBenchmark") }) {
+      jmhArguments += listOf("-e", "WarmLifecycleAllocationBenchmark")
     }
     jmhArguments +=
       listOf("-rf", "json", "-rff", rawTemporary.toString(), "-o", human.toString())

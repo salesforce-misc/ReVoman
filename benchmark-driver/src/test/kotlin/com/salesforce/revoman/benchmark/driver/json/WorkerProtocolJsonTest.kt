@@ -57,6 +57,9 @@ class WorkerProtocolJsonTest {
         assertThat(command.warmupIterations).isEqualTo(2)
         assertThat(command.measurementIterations).isEqualTo(3)
         assertThat(command.resultFile).isEqualTo("/bench/result.json")
+        assertThat(command.jfrConfigurationFile).isNull()
+        assertThat(command.jfrRecordingFile).isNull()
+        assertThat(command.retainedExecutionCount).isNull()
 
         val firstWrite = temporaryDirectory.resolve("first.json")
         val secondWrite = temporaryDirectory.resolve("second.json")

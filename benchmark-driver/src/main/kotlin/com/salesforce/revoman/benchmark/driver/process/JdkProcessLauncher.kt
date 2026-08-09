@@ -118,6 +118,7 @@ internal constructor(
             Files.createLink(resultFile, atomicGuard)
             val arguments =
                 buildList {
+                    addAll(command.invocationPrefix)
                     add(command.executable.toString())
                     addAll(command.jvmArgs)
                     add("-cp")
@@ -174,6 +175,7 @@ internal constructor(
                     guardBytes = guardBytes,
                     processTree = trackedTree,
                     finalizeOwnedProcessTree = finalizeAction,
+                    requireRootProcessId = command.invocationPrefix.isEmpty(),
                 )
         } catch (failure: Throwable) {
             failures.add(failure)
@@ -265,6 +267,7 @@ internal constructor(
         guardBytes: ByteArray,
         processTree: ProcessTreeTracking,
         finalizeOwnedProcessTree: () -> Unit,
+        requireRootProcessId: Boolean,
     ): ProcessObservation {
         val waitOutcome =
             try {
@@ -305,12 +308,12 @@ internal constructor(
                     failure,
                 )
             }
-        check(result.processId == processId) {
+        check(!requireRootProcessId || result.processId == processId) {
             "Target result PID ${result.processId} differs from launched process PID $processId"
         }
         return ProcessObservation(
             exitCode = exitCode,
-            processId = processId,
+            processId = result.processId,
             elapsedNanos = elapsedNanos,
             stdoutTail = stdoutTail,
             stderrTail = stderrTail,
@@ -343,6 +346,14 @@ internal constructor(
 
     private fun validate(command: JavaCommand) {
         require(command.executable.isAbsolute) { "Java executable must be absolute" }
+        require(command.invocationPrefix.none(String::isBlank)) {
+            "Java invocation prefix must not contain blank arguments"
+        }
+        command.invocationPrefix.firstOrNull()?.let { executable ->
+            require(Path.of(executable).isAbsolute) {
+                "Java invocation-prefix executable must be absolute: $executable"
+            }
+        }
         require(command.classpath.isNotEmpty()) { "Java classpath must not be empty" }
         require(command.classpath.all(Path::isAbsolute)) { "Java classpath entries must be absolute" }
         require(command.mainClass.isNotBlank()) { "Java mainClass must not be blank" }

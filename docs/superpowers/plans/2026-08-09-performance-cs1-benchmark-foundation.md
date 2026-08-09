@@ -1368,6 +1368,11 @@ Change Set 1 ships the harness, the versioned `lifecycle.no-script-one-step.v1` 
 - Consumes: `ProcessLauncher`/observations from Task 6, worker protocol from Task 1, and metric/retained-evidence models from Task 2.
 - Produces: runnable cold JFR/peak-RSS, warm JMH-allocation, and retained-memory passes with immutable provider identity/configuration hashes.
 
+Task 7 provider requests carry block, target-role, fork, and retained replicate coordinates supplied
+by their caller. Tasks 8 and 11 exclusively own alternating accepted-block scheduling, host-health
+whole-pair rejection, and paired campaign/JMH assembly; Task 7 does not introduce a competing
+scheduler or accept/reject policy.
+
 - [ ] **Step 1: Write failing metric parser and pass-separation tests.**
 
   Cover exact units and contamination rules:
