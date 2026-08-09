@@ -635,6 +635,148 @@ class RunnerIntegrationTest {
     }
 
     @Test
+    fun `launcher shutdown failure still continues one finalization and kills its published handle`() {
+        val lateProcess =
+            ProcessBuilder(
+                    javaExecutable().toString(),
+                    "-cp",
+                    System.getProperty("java.class.path"),
+                    SleepingDescendantMain::class.java.name,
+                )
+                .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                .redirectError(ProcessBuilder.Redirect.DISCARD)
+                .start()
+        val shutdownFailure = DeliberateCleanupFailure("launcher task shutdown failed")
+        val tracker = ShutdownPublishingProcessTreeTracking(lateProcess.toHandle())
+        val cleanup = InjectedLauncherCleanup(shutdownFailure = shutdownFailure)
+        val clock = MutableIntegrationMonotonicClock()
+        val deadline =
+            ProcessTreeFinalizationDeadline.start(
+                clock = clock,
+                budget =
+                    ProcessTreeFinalizationBudget(
+                        totalNanos = 100,
+                        trackerJoinNanos = 20,
+                        postFreezeNanos = 10,
+                    ),
+            )
+        clock.advanceTo(90)
+        var launchFailure: TimeoutException? = null
+        try {
+            launchFailure =
+                assertThrows<TimeoutException> {
+                    JdkProcessLauncher(
+                            cleanup = cleanup,
+                            trackerFactory = ProcessTreeTrackerFactory { tracker },
+                            finalizationDeadlineFactory =
+                                ProcessTreeFinalizationDeadlineFactory { deadline },
+                        )
+                        .launch(launcherFixtureCommand("valid", Duration.ofSeconds(10)))
+                }
+        } finally {
+            try {
+                awaitProcessExit(lateProcess.pid())
+                assertThat(processIsAlive(lateProcess.pid())).isFalse()
+                assertThat(cleanup.calls)
+                    .containsExactly("termination", "shutdown", "continuation", "guard")
+                    .inOrder()
+                assertThat(cleanup.terminationCalls).isEqualTo(1)
+                assertThat(cleanup.continuationCalls).isEqualTo(1)
+            } finally {
+                forceStopFixtureProcess(lateProcess.pid())
+            }
+        }
+        val failure = requireNotNull(launchFailure)
+        assertThat(failure.suppressed).hasLength(3)
+        assertThat(failure.suppressed[0]).isInstanceOf(TimeoutException::class.java)
+        assertThat(failure.suppressed[1]).isSameInstanceAs(shutdownFailure)
+    }
+
+    @Test
+    fun `tracker failure published during shutdown is retained after join timeout evidence`() {
+        val trackingFailure = DeliberateCleanupFailure("late descendant tracking failure")
+        val tracker = ShutdownFailingProcessTreeTracking(trackingFailure)
+        val cleanup = InjectedLauncherCleanup()
+        val clock = MutableIntegrationMonotonicClock()
+        val deadline =
+            ProcessTreeFinalizationDeadline.start(
+                clock = clock,
+                budget =
+                    ProcessTreeFinalizationBudget(
+                        totalNanos = 100,
+                        trackerJoinNanos = 20,
+                        postFreezeNanos = 10,
+                    ),
+            )
+        clock.advanceTo(90)
+
+        val failure =
+            assertThrows<TimeoutException> {
+                JdkProcessLauncher(
+                        cleanup = cleanup,
+                        trackerFactory = ProcessTreeTrackerFactory { tracker },
+                        finalizationDeadlineFactory =
+                            ProcessTreeFinalizationDeadlineFactory { deadline },
+                    )
+                    .launch(launcherFixtureCommand("valid", Duration.ofSeconds(10)))
+            }
+
+        assertThat(cleanup.calls)
+            .containsExactly("termination", "shutdown", "continuation", "guard")
+            .inOrder()
+        assertThat(cleanup.terminationCalls).isEqualTo(1)
+        assertThat(cleanup.continuationCalls).isEqualTo(1)
+        assertThat(failure.suppressed).hasLength(2)
+        assertThat(failure.suppressed[0]).isInstanceOf(TimeoutException::class.java)
+        assertThat(failure.suppressed[1])
+            .hasMessageThat()
+            .contains("Could not track target process descendants")
+        assertThat(failure.suppressed[1]).hasCauseThat().isSameInstanceAs(trackingFailure)
+    }
+
+    @Test
+    fun `same tracker failure before and after shutdown is added once by identity`() {
+        val trackingFailure = DeliberateCleanupFailure("persistent descendant tracking failure")
+        val tracker = PersistentFailingProcessTreeTracking(trackingFailure)
+        val cleanup = InjectedLauncherCleanup()
+        val clock = MutableIntegrationMonotonicClock()
+        val deadline =
+            ProcessTreeFinalizationDeadline.start(
+                clock = clock,
+                budget =
+                    ProcessTreeFinalizationBudget(
+                        totalNanos = 100,
+                        trackerJoinNanos = 20,
+                        postFreezeNanos = 10,
+                    ),
+            )
+        clock.advanceTo(90)
+
+        val failure =
+            assertThrows<TimeoutException> {
+                JdkProcessLauncher(
+                        cleanup = cleanup,
+                        trackerFactory = ProcessTreeTrackerFactory { tracker },
+                        finalizationDeadlineFactory =
+                            ProcessTreeFinalizationDeadlineFactory { deadline },
+                    )
+                    .launch(launcherFixtureCommand("valid", Duration.ofSeconds(10)))
+            }
+
+        assertThat(cleanup.calls)
+            .containsExactly("termination", "shutdown", "continuation", "guard")
+            .inOrder()
+        assertThat(cleanup.terminationCalls).isEqualTo(1)
+        assertThat(cleanup.continuationCalls).isEqualTo(1)
+        assertThat(failure.suppressed).hasLength(2)
+        assertThat(failure.suppressed[0]).isInstanceOf(TimeoutException::class.java)
+        assertThat(failure.suppressed[1])
+            .hasMessageThat()
+            .contains("Could not track target process descendants")
+        assertThat(failure.suppressed[1]).hasCauseThat().isSameInstanceAs(trackingFailure)
+    }
+
+    @Test
     fun `launcher excludes bounded task shutdown from elapsed time and leaves no tracker thread`() {
         val shutdownDelay = Duration.ofMillis(300)
         val cleanup = InjectedLauncherCleanup(shutdownDelay = shutdownDelay)
@@ -1289,6 +1431,51 @@ private class ShutdownPublishingProcessTreeTracking(
 
     override fun snapshot(): ProcessTreeSnapshot =
         ProcessTreeSnapshot(if (published.get()) listOf(lateHandle) else emptyList())
+}
+
+private class ShutdownFailingProcessTreeTracking(
+    private val failure: Throwable
+) : ProcessTreeTracking {
+    private val publishedFailure = AtomicReference<Throwable?>()
+    private val signal = CompletableFuture<Throwable>()
+
+    override fun run() {
+        try {
+            CountDownLatch(1).await()
+        } catch (_: InterruptedException) {
+            publishedFailure.set(failure)
+        }
+    }
+
+    override fun stopSampling() = Unit
+
+    override fun failureOrNull(): Throwable? = publishedFailure.get()
+
+    override fun failureSignal(): CompletableFuture<Throwable> = signal
+
+    override fun snapshot(): ProcessTreeSnapshot = ProcessTreeSnapshot(emptyList())
+}
+
+private class PersistentFailingProcessTreeTracking(
+    private val failure: Throwable
+) : ProcessTreeTracking {
+    private val signal = CompletableFuture<Throwable>()
+
+    override fun run() {
+        try {
+            CountDownLatch(1).await()
+        } catch (_: InterruptedException) {
+            // Shutdown releases the deterministic tracker task.
+        }
+    }
+
+    override fun stopSampling() = Unit
+
+    override fun failureOrNull(): Throwable = failure
+
+    override fun failureSignal(): CompletableFuture<Throwable> = signal
+
+    override fun snapshot(): ProcessTreeSnapshot = ProcessTreeSnapshot(emptyList())
 }
 
 private class MutableIntegrationMonotonicClock : MonotonicClock {

@@ -212,11 +212,14 @@ internal constructor(
             if (continuationRequired && trackingFrozen) {
                 failures.attempt(continueFinalizationSweep)
             }
-            processTree?.failureOrNull()?.let { failure ->
-                if (!failures.contains(failure)) {
-                    failures.add(processTreeTrackingFailure(failure))
+            val captureProcessTreeTrackingFailure = {
+                processTree?.failureOrNull()?.let { failure ->
+                    if (!failures.contains(failure)) {
+                        failures.add(processTreeTrackingFailure(failure))
+                    }
                 }
             }
+            captureProcessTreeTrackingFailure()
             var descendantIsolationReported = false
             val reportDescendantIsolation = {
                 if (
@@ -234,17 +237,16 @@ internal constructor(
                 }
             }
             reportDescendantIsolation()
-            var launcherTasksStopped = false
             launcherTasks?.let { executor ->
                 failures.attempt {
                     cleanup.shutdownLauncherTasks(executor)
-                    launcherTasksStopped = true
                 }
             }
-            if (continuationRequired && !trackingFrozen && launcherTasksStopped) {
+            if (continuationRequired && !trackingFrozen) {
                 failures.attempt(continueFinalizationSweep)
                 reportDescendantIsolation()
             }
+            captureProcessTreeTrackingFailure()
             failures.attempt { cleanup.deleteGuard(atomicGuard) }
         }
         failures.throwIfAny()
@@ -576,16 +578,19 @@ private class OwnedProcessTreeState(
         phaseDeadline: Long,
         forcibly: Boolean,
     ): Boolean {
+        val phase = ProcessTreeTraversalPhase(deadline, phaseDeadline)
         var stableScans = 0
-        while (deadline.remainingUntil(phaseDeadline) > 0) {
-            val liveDescendants = captureLiveDescendants(deadline)
+        while (phase.allowsAnotherOperation()) {
+            val liveDescendants = captureLiveDescendants(phase)
+            if (!phase.allowsAnotherOperation()) return false
             val rootAlive = rootIsAlive()
+            if (!phase.allowsAnotherOperation()) return false
             if (liveDescendants.isEmpty() && !rootAlive) {
                 stableScans += 1
                 if (stableScans >= REQUIRED_STABLE_PROCESS_TREE_SCANS) return true
             } else {
                 stableScans = 0
-                destroy(liveDescendants, forcibly)
+                destroy(liveDescendants, forcibly, phase)
             }
             LockSupport.parkNanos(
                 minOf(PROCESS_TREE_SAMPLE_NANOS, deadline.remainingUntil(phaseDeadline))
@@ -595,8 +600,8 @@ private class OwnedProcessTreeState(
     }
 
     fun forceAndReportFinalSnapshot() {
-        val finalDescendants = captureLiveDescendants(deadline = null)
-        destroy(finalDescendants, forcibly = true)
+        val finalDescendants = captureLiveDescendants(phase = null)
+        destroy(finalDescendants, forcibly = true, phase = null)
         finalDescendants.forEach { handle ->
             attempt {
                 check(!handle.isAlive) { "Could not terminate process ${handle.pid()}" }
@@ -651,41 +656,71 @@ private class OwnedProcessTreeState(
         }
     }
 
-    private fun captureLiveDescendants(
-        deadline: ProcessTreeFinalizationDeadline?
-    ): List<ProcessHandle> {
+    private fun captureLiveDescendants(phase: ProcessTreeTraversalPhase?): List<ProcessHandle> {
+        fun allowsAnotherOperation(): Boolean = phase?.allowsAnotherOperation() != false
+
         var retained = emptyList<ProcessHandle>()
-        attempt { retained = retainedDescendants() }
-        retained.asSequence().filter(::isAlive).forEach(::remember)
-        val liveRetained = knownDescendants.asSequence().filter(::isAlive).toList()
+        if (allowsAnotherOperation()) attempt { retained = retainedDescendants() }
+        retained
+            .asSequence()
+            .takeWhile { allowsAnotherOperation() }
+            .filter(::isAlive)
+            .takeWhile { allowsAnotherOperation() }
+            .forEach(::remember)
+        val liveRetained =
+            knownDescendants
+                .asSequence()
+                .takeWhile { allowsAnotherOperation() }
+                .filter(::isAlive)
+                .takeWhile { allowsAnotherOperation() }
+                .toList()
         buildList {
                 root?.let(::add)
                 addAll(liveRetained)
             }
             .asSequence()
+            .takeWhile { allowsAnotherOperation() }
             .distinct()
+            .takeWhile { allowsAnotherOperation() }
             .forEach { anchor ->
-                if (anchor == root || isAlive(anchor)) {
+                if ((anchor == root || isAlive(anchor)) && allowsAnotherOperation()) {
                     attempt {
                         anchor.descendants().use { handles ->
                             handles
-                                .takeWhile { deadline == null || deadline.remainingNanos() > 0 }
+                                .takeWhile { allowsAnotherOperation() }
                                 .filter(::isAlive)
+                                .takeWhile { allowsAnotherOperation() }
                                 .forEach(::remember)
                         }
                     }
                 }
             }
-        return knownDescendants.asSequence().filter(::isAlive).toList()
+        return knownDescendants
+            .asSequence()
+            .takeWhile { allowsAnotherOperation() }
+            .filter(::isAlive)
+            .takeWhile { allowsAnotherOperation() }
+            .toList()
     }
 
-    private fun destroy(liveDescendants: List<ProcessHandle>, forcibly: Boolean) {
-        liveDescendants.asReversed().forEach { descendant ->
-            attempt {
-                if (forcibly) descendant.destroyForcibly() else descendant.destroy()
+    private fun destroy(
+        liveDescendants: List<ProcessHandle>,
+        forcibly: Boolean,
+        phase: ProcessTreeTraversalPhase?,
+    ) {
+        fun allowsAnotherOperation(): Boolean = phase?.allowsAnotherOperation() != false
+
+        liveDescendants
+            .asReversed()
+            .asSequence()
+            .takeWhile { allowsAnotherOperation() }
+            .forEach { descendant ->
+                attempt {
+                    if (forcibly) descendant.destroyForcibly() else descendant.destroy()
+                }
             }
-        }
-        if (rootIsAlive()) {
+        val rootAlive = allowsAnotherOperation() && rootIsAlive()
+        if (rootAlive && allowsAnotherOperation()) {
             root?.let { rootHandle ->
                 attempt {
                     if (forcibly) rootHandle.destroyForcibly() else rootHandle.destroy()
@@ -695,6 +730,20 @@ private class OwnedProcessTreeState(
             }
         }
     }
+}
+
+/**
+ * Stops repeated traversal work at one finalization phase boundary.
+ *
+ * A retained snapshot or JDK [ProcessHandle] call already in progress cannot be preempted. Once it
+ * returns, the next retained-handle, known-handle, anchor, descendant, or destruction operation is
+ * not started when that call consumed the phase's remaining time.
+ */
+private class ProcessTreeTraversalPhase(
+    private val deadline: ProcessTreeFinalizationDeadline,
+    private val phaseDeadlineNanos: Long,
+) {
+    fun allowsAnotherOperation(): Boolean = deadline.remainingUntil(phaseDeadlineNanos) > 0
 }
 
 /**

@@ -201,6 +201,172 @@ class JdkProcessLauncherTest {
     }
 
     @Test
+    fun `pre-freeze traversal stops at its phase boundary and preserves tracker join reserve`() {
+        val process = mockk<Process>()
+        val root = mockk<ProcessHandle>()
+        val firstDescendant = mockk<ProcessHandle>()
+        val secondDescendant = mockk<ProcessHandle>()
+        val clock = MutableMonotonicClock()
+        val deadline =
+            ProcessTreeFinalizationDeadline.start(
+                clock = clock,
+                budget =
+                    ProcessTreeFinalizationBudget(
+                        totalNanos = 100,
+                        trackerJoinNanos = 20,
+                        postFreezeNanos = 10,
+                    ),
+            )
+        val preFreezeEvents = mutableListOf<String>()
+        var trackingFrozen = false
+        var firstDescendantAlive = true
+        var secondDescendantAlive = true
+        var freezeTimeoutNanos = -1L
+        every { process.toHandle() } returns root
+        every { root.hashCode() } answers {
+            if (!trackingFrozen && clock.nanoTime() >= deadline.preFreezeDeadlineNanos) {
+                preFreezeEvents += "root-anchor"
+            }
+            101
+        }
+        every { root.isAlive } returns false
+        every { root.descendants() } answers {
+            if (!trackingFrozen) {
+                preFreezeEvents += "root-descendants"
+                clock.advanceBy(10)
+            }
+            Stream.empty()
+        }
+        every { firstDescendant.isAlive } answers {
+            if (!trackingFrozen && clock.nanoTime() < deadline.preFreezeDeadlineNanos) {
+                preFreezeEvents += "first-alive"
+                clock.advanceTo(deadline.preFreezeDeadlineNanos)
+            }
+            firstDescendantAlive
+        }
+        every { secondDescendant.isAlive } answers {
+            if (!trackingFrozen) {
+                preFreezeEvents += "second-alive"
+                clock.advanceBy(10)
+            }
+            secondDescendantAlive
+        }
+        every { firstDescendant.descendants() } answers {
+            if (!trackingFrozen) {
+                preFreezeEvents += "first-descendants"
+                clock.advanceBy(10)
+            }
+            Stream.empty()
+        }
+        every { secondDescendant.descendants() } answers {
+            if (!trackingFrozen) {
+                preFreezeEvents += "second-descendants"
+                clock.advanceBy(10)
+            }
+            Stream.empty()
+        }
+        every { firstDescendant.destroy() } answers {
+            firstDescendantAlive = false
+            true
+        }
+        every { secondDescendant.destroy() } answers {
+            secondDescendantAlive = false
+            true
+        }
+        every { firstDescendant.destroyForcibly() } answers {
+            firstDescendantAlive = false
+            true
+        }
+        every { secondDescendant.destroyForcibly() } answers {
+            secondDescendantAlive = false
+            true
+        }
+
+        val result =
+            DefaultLauncherCleanup.finalizeOwnedProcessTree(
+                process = process,
+                retainedDescendants = { listOf(firstDescendant, secondDescendant) },
+                freezeTracking = { timeoutNanos ->
+                    freezeTimeoutNanos = timeoutNanos
+                    trackingFrozen = true
+                },
+                deadline = deadline,
+            )
+
+        assertThat(freezeTimeoutNanos).isEqualTo(20)
+        assertThat(preFreezeEvents).containsExactly("first-alive")
+        assertThat(result.hadLiveDescendants).isTrue()
+    }
+
+    @Test
+    fun `anchor deduplication cannot start a handle check beyond the phase boundary`() {
+        val process = mockk<Process>()
+        val root = mockk<ProcessHandle>()
+        val descendant = mockk<ProcessHandle>()
+        val clock = MutableMonotonicClock()
+        val deadline =
+            ProcessTreeFinalizationDeadline.start(
+                clock = clock,
+                budget =
+                    ProcessTreeFinalizationBudget(
+                        totalNanos = 100,
+                        trackerJoinNanos = 20,
+                        postFreezeNanos = 10,
+                    ),
+            )
+        val preFreezeEvents = mutableListOf<String>()
+        var trackingFrozen = false
+        var deduplicatingDescendantAnchor = false
+        var descendantAlive = true
+        var freezeTimeoutNanos = -1L
+        every { process.toHandle() } returns root
+        every { root.isAlive } returns false
+        every { root.descendants() } answers {
+            if (!trackingFrozen) deduplicatingDescendantAnchor = true
+            Stream.empty()
+        }
+        every { descendant.hashCode() } answers {
+            if (!trackingFrozen && deduplicatingDescendantAnchor) {
+                preFreezeEvents += "descendant-deduplication"
+                clock.advanceTo(deadline.preFreezeDeadlineNanos)
+            }
+            202
+        }
+        every { descendant.isAlive } answers {
+            if (!trackingFrozen && clock.nanoTime() >= deadline.preFreezeDeadlineNanos) {
+                preFreezeEvents += "descendant-alive"
+                clock.advanceBy(10)
+            }
+            descendantAlive
+        }
+        every { descendant.descendants() } answers { Stream.empty() }
+        every { descendant.destroy() } answers {
+            descendantAlive = false
+            true
+        }
+        every { descendant.destroyForcibly() } answers {
+            descendantAlive = false
+            true
+        }
+        clock.advanceTo(60)
+
+        val result =
+            DefaultLauncherCleanup.finalizeOwnedProcessTree(
+                process = process,
+                retainedDescendants = { listOf(descendant) },
+                freezeTracking = { timeoutNanos ->
+                    freezeTimeoutNanos = timeoutNanos
+                    trackingFrozen = true
+                },
+                deadline = deadline,
+            )
+
+        assertThat(freezeTimeoutNanos).isEqualTo(20)
+        assertThat(preFreezeEvents).containsExactly("descendant-deduplication")
+        assertThat(result.hadLiveDescendants).isTrue()
+    }
+
+    @Test
     fun `graceful phase cap preserves reserved budgets across nano time rollover`() {
         val clock = MutableMonotonicClock(Long.MAX_VALUE - 300_000_000)
         val deadline =
@@ -386,6 +552,11 @@ private class MutableMonotonicClock(initialNanos: Long = 0) : MonotonicClock {
     fun advanceTo(nanos: Long) {
         require(nanos >= currentNanos)
         currentNanos = nanos
+    }
+
+    fun advanceBy(nanos: Long) {
+        require(nanos >= 0)
+        currentNanos += nanos
     }
 }
 
