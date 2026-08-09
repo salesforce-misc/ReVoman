@@ -226,7 +226,7 @@
         "blockId": { "type": "integer", "minimum": 0 },
         "targetOrder": { "type": "array", "minItems": 1, "maxItems": 2, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
         "healthBefore": { "$ref": "#/$defs/hostHealth" },
-        "healthDuring": { "type": "array", "items": { "$ref": "#/$defs/hostHealth" } },
+        "healthDuring": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/hostHealth" } },
         "healthAfter": { "$ref": "#/$defs/hostHealth" },
         "accepted": { "type": "boolean" },
         "rejectionReasons": { "type": "array", "items": { "type": "string", "minLength": 1 } },

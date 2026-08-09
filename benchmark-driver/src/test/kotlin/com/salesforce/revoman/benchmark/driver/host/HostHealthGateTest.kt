@@ -116,6 +116,24 @@ class HostHealthGateTest {
     }
 
     @Test
+    fun `health timeline requires nonempty nondecreasing during samples`() {
+        val gate = HostHealthGate(policy())
+        val before = validSnapshot().copy(capturedAtNanos = 10)
+        val during = validSnapshot().copy(capturedAtNanos = 9)
+        val after = validSnapshot().copy(capturedAtNanos = 11)
+
+        val emptyFailure = assertThrows<IllegalArgumentException> {
+            gate.assess(before, emptyList(), after)
+        }
+        val chronologyFailure = assertThrows<IllegalArgumentException> {
+            gate.assess(before, listOf(during), after)
+        }
+
+        assertThat(emptyFailure).hasMessageThat().contains("healthDuring")
+        assertThat(chronologyFailure).hasMessageThat().contains("non-decreasing")
+    }
+
+    @Test
     fun `linux probe reads proc and sysfs with exact units through injected seams`() {
         val root = temporaryDirectory.resolve("linux-root")
         writeLinuxHost(root)
@@ -153,6 +171,58 @@ class HostHealthGateTest {
         assertThat(snapshot.thermalValue).isEqualTo(48.0)
         assertThat(snapshot.onAcPower).isTrue()
         assertThat(snapshot.governors).containsExactly("performance", "schedutil").inOrder()
+    }
+
+    @Test
+    fun `linux during sample brackets the callback CPU interval`() {
+        val root = temporaryDirectory.resolve("linux-during-bracket")
+        writeLinuxHost(root)
+        val events = mutableListOf<String>()
+        val probe =
+            LinuxHostProbe(
+                policy = linuxPolicy(),
+                root = root,
+                osName = { "Linux" },
+                nanoTime = { 123_456L },
+                sleepMillis = {
+                    events += "sleep"
+                    write(root, "proc/stat", "cpu 150 0 150 900 0 0 0 0 0 0\n")
+                },
+            )
+
+        val sampled =
+            probe.sampleDuring {
+                events += "callback"
+                Files.delete(root.resolve("proc/stat"))
+                "completed"
+            }
+
+        assertThat(sampled.value).isEqualTo("completed")
+        assertThat(sampled.snapshot.cpuBusyFraction).isWithin(0.000_001).of(0.5)
+        assertThat(events).containsExactly("callback", "sleep").inOrder()
+    }
+
+    @Test
+    fun `linux during sampling failure is suppressed on target failure`() {
+        val root = temporaryDirectory.resolve("linux-during-failures")
+        writeLinuxHost(root)
+        val primary = IllegalArgumentException("target failed")
+        val probe =
+            LinuxHostProbe(
+                policy = linuxPolicy(),
+                root = root,
+                osName = { "Linux" },
+                nanoTime = { 123_456L },
+                sleepMillis = { error("during sampling failed") },
+            )
+
+        val failure = assertThrows<IllegalArgumentException> {
+            probe.sampleDuring<Unit> { throw primary }
+        }
+
+        assertThat(failure).isSameInstanceAs(primary)
+        assertThat(failure.suppressed.map(Throwable::message))
+            .containsExactly("during sampling failed")
     }
 
     @Test
@@ -200,6 +270,173 @@ class HostHealthGateTest {
         assertThat(failure).hasMessageThat().contains("Unknown")
     }
 
+    @Test
+    fun `linux probe reads governors from non contiguous processor IDs`() {
+        val root = temporaryDirectory.resolve("non-contiguous-processors")
+        writeLinuxHost(root)
+        write(
+            root,
+            "proc/cpuinfo",
+            "processor : 2\nmodel name : Benchmark CPU\n" +
+                "processor : 7\nmodel name : Benchmark CPU\n",
+        )
+        Files.delete(root.resolve("sys/devices/system/cpu/cpu0/cpufreq/scaling_governor"))
+        Files.delete(root.resolve("sys/devices/system/cpu/cpu1/cpufreq/scaling_governor"))
+        write(root, "sys/devices/system/cpu/cpu2/cpufreq/scaling_governor", "performance\n")
+        write(root, "sys/devices/system/cpu/cpu7/cpufreq/scaling_governor", "schedutil\n")
+
+        val snapshot = linuxProbe(root).sample()
+
+        assertThat(snapshot.governors).containsExactly("performance", "schedutil").inOrder()
+    }
+
+    @Test
+    fun `linux probe rejects duplicate missing and malformed processor identity fields`() {
+        val cases =
+            listOf(
+                Triple(
+                    "count-mismatch",
+                    "processor : 0\nmodel name : Benchmark CPU\n",
+                    "count",
+                ),
+                Triple(
+                    "duplicate-id",
+                    "processor : 0\nmodel name : Benchmark CPU\n" +
+                        "processor : 0\nmodel name : Benchmark CPU\n",
+                    "duplicate",
+                ),
+                Triple(
+                    "missing-model",
+                    "processor : 0\nmodel name : Benchmark CPU\n" +
+                        "processor : 1\n",
+                    "model",
+                ),
+                Triple(
+                    "duplicate-model",
+                    "processor : 0\nmodel name : Benchmark CPU\nmodel name : Benchmark CPU\n" +
+                        "processor : 1\nmodel name : Benchmark CPU\n",
+                    "model",
+                ),
+                Triple(
+                    "model-mismatch",
+                    "processor : 0\nmodel name : Benchmark CPU\n" +
+                        "processor : 1\nmodel name : Different CPU\n",
+                    "model mismatch",
+                ),
+                Triple(
+                    "malformed-id",
+                    "processor : zero\nmodel name : Benchmark CPU\n" +
+                        "processor : 1\nmodel name : Benchmark CPU\n",
+                    "processor",
+                ),
+            )
+
+        cases.forEach { (name, cpuInfo, expectedMessage) ->
+            val root = temporaryDirectory.resolve(name)
+            writeLinuxHost(root)
+            write(root, "proc/cpuinfo", cpuInfo)
+
+            val failure = assertThrows<IllegalStateException>(name) { linuxProbe(root).sample() }
+
+            assertThat(failure).hasMessageThat().contains(expectedMessage)
+        }
+    }
+
+    @Test
+    fun `linux probe rejects malformed nonmonotonic and overflowing CPU counters`() {
+        val malformedRoot = temporaryDirectory.resolve("malformed-cpu-counters")
+        writeLinuxHost(malformedRoot)
+        write(malformedRoot, "proc/stat", "cpu invalid 0 100 800\n")
+        val malformed = assertThrows<IllegalStateException> { linuxProbe(malformedRoot).sample() }
+        assertThat(malformed).hasMessageThat().contains("cpu field")
+
+        val nonmonotonicRoot = temporaryDirectory.resolve("nonmonotonic-cpu-counters")
+        writeLinuxHost(nonmonotonicRoot)
+        val nonmonotonic = assertThrows<IllegalStateException> {
+            linuxProbe(
+                    nonmonotonicRoot,
+                    afterCpuStat = "cpu 90 0 90 700 0 0 0 0 0 0\n",
+                )
+                .sample()
+        }
+        assertThat(nonmonotonic).hasMessageThat().contains("monotonically")
+
+        val overflowRoot = temporaryDirectory.resolve("overflow-cpu-counters")
+        writeLinuxHost(overflowRoot)
+        write(
+            overflowRoot,
+            "proc/stat",
+            "cpu ${Long.MAX_VALUE} 1 0 0 0 0 0 0 0 0\n",
+        )
+        assertThrows<ArithmeticException> { linuxProbe(overflowRoot).sample() }
+    }
+
+    @Test
+    fun `linux probe rejects missing duplicate malformed and overflowing memory fields`() {
+        val missingRoot = temporaryDirectory.resolve("missing-memory")
+        writeLinuxHost(missingRoot)
+        write(missingRoot, "proc/meminfo", "SwapTotal: 2048 kB\nSwapFree: 1024 kB\n")
+        val missing = assertThrows<IllegalArgumentException> { linuxProbe(missingRoot).sample() }
+        assertThat(missing).hasMessageThat().contains("MemAvailable")
+
+        val duplicateRoot = temporaryDirectory.resolve("duplicate-memory")
+        writeLinuxHost(duplicateRoot)
+        write(
+            duplicateRoot,
+            "proc/meminfo",
+            "MemAvailable: 2048 kB\nMemAvailable: 1024 kB\n" +
+                "SwapTotal: 2048 kB\nSwapFree: 1024 kB\n",
+        )
+        val duplicate = assertThrows<IllegalStateException> { linuxProbe(duplicateRoot).sample() }
+        assertThat(duplicate).hasMessageThat().contains("duplicate")
+
+        val malformedRoot = temporaryDirectory.resolve("malformed-memory")
+        writeLinuxHost(malformedRoot)
+        write(
+            malformedRoot,
+            "proc/meminfo",
+            "MemAvailable: 2048 bytes\nSwapTotal: 2048 kB\nSwapFree: 1024 kB\n",
+        )
+        val malformed = assertThrows<IllegalStateException> { linuxProbe(malformedRoot).sample() }
+        assertThat(malformed).hasMessageThat().contains("unit")
+
+        val overflowRoot = temporaryDirectory.resolve("overflow-memory")
+        writeLinuxHost(overflowRoot)
+        write(
+            overflowRoot,
+            "proc/meminfo",
+            "MemAvailable: ${Long.MAX_VALUE} kB\nSwapTotal: 2048 kB\nSwapFree: 1024 kB\n",
+        )
+        assertThrows<ArithmeticException> { linuxProbe(overflowRoot).sample() }
+    }
+
+    @Test
+    fun `linux probe rejects missing governors thermal and invalid power evidence`() {
+        val governorRoot = temporaryDirectory.resolve("missing-governor")
+        writeLinuxHost(governorRoot)
+        Files.delete(governorRoot.resolve("sys/devices/system/cpu/cpu1/cpufreq/scaling_governor"))
+        val governor = assertThrows<IllegalStateException> { linuxProbe(governorRoot).sample() }
+        assertThat(governor).hasMessageThat().contains("scaling_governor")
+
+        val thermalRoot = temporaryDirectory.resolve("missing-thermal")
+        writeLinuxHost(thermalRoot)
+        Files.delete(thermalRoot.resolve("sys/class/thermal/thermal_zone0/temp"))
+        val thermal = assertThrows<IllegalStateException> { linuxProbe(thermalRoot).sample() }
+        assertThat(thermal).hasMessageThat().contains("thermal_zone0")
+
+        val onlineRoot = temporaryDirectory.resolve("invalid-online")
+        writeLinuxHost(onlineRoot)
+        write(onlineRoot, "sys/class/power_supply/AC/online", "2\n")
+        val online = assertThrows<IllegalStateException> { linuxProbe(onlineRoot).sample() }
+        assertThat(online).hasMessageThat().contains("online value")
+
+        val batteryOnlyRoot = temporaryDirectory.resolve("battery-only")
+        writeLinuxHost(batteryOnlyRoot)
+        write(batteryOnlyRoot, "sys/class/power_supply/AC/type", "Battery\n")
+        val batteryOnly = assertThrows<IllegalStateException> { linuxProbe(batteryOnlyRoot).sample() }
+        assertThat(batteryOnly).hasMessageThat().contains("no external power")
+    }
+
     private fun policy(): ControlledHostPolicy =
         BenchmarkJson.read(resourcePath("/host/valid.json"))
 
@@ -209,6 +446,20 @@ class HostHealthGateTest {
             cpuModel = "Benchmark CPU",
             cpuCount = 2,
             probeIntervalMillis = 10,
+        )
+
+    private fun linuxProbe(
+        root: Path,
+        afterCpuStat: String = "cpu 150 0 150 900 0 0 0 0 0 0\n",
+    ): LinuxHostProbe =
+        LinuxHostProbe(
+            policy = linuxPolicy(),
+            root = root,
+            osName = { "Linux" },
+            nanoTime = { 123_456L },
+            sleepMillis = {
+                write(root, "proc/stat", afterCpuStat)
+            },
         )
 
     private fun snapshotFixture(name: String): HostHealthSnapshot =

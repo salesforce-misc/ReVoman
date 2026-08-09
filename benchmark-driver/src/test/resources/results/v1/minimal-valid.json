@@ -111,7 +111,18 @@
                 "onAcPower": true,
                 "governors": ["performance"]
               },
-              "healthDuring": [],
+              "healthDuring": [
+                {
+                  "capturedAtNanos": 1,
+                  "loadAverage": 0.1,
+                  "cpuBusyFraction": 0.2,
+                  "availableMemoryBytes": 8589934592,
+                  "swapUsedBytes": 0,
+                  "thermalValue": 0.0,
+                  "onAcPower": true,
+                  "governors": ["performance"]
+                }
+              ],
               "healthAfter": {
                 "capturedAtNanos": 2,
                 "loadAverage": 0.1,

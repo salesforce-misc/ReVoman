@@ -49,13 +49,43 @@ class LinuxHostProbe(
 
     /** Samples every required controlled Linux signal and validates the pinned host identity. */
     override fun sample(): HostHealthSnapshot {
-        check(osName().equals("Linux", ignoreCase = true)) {
-            "Controlled host probing requires Linux"
-        }
-        verifyIdentity()
+        requireLinux()
+        val identity = verifyIdentity()
         val cpuBefore = readCpuTicks()
         sleepMillis(policy.probeIntervalMillis)
         val cpuAfter = readCpuTicks()
+        return snapshot(identity, cpuBefore, cpuAfter)
+    }
+
+    /** Brackets target execution with Linux CPU counters and samples all other health afterward. */
+    override fun <T> sampleDuring(execution: () -> T): SampledHostExecution<T> {
+        requireLinux()
+        val identity = verifyIdentity()
+        val cpuBefore = readCpuTicks()
+        val outcome = runCatching(execution)
+        var failure = outcome.exceptionOrNull()
+        var sampled: HostHealthSnapshot? = null
+        try {
+            sleepMillis(policy.probeIntervalMillis)
+            sampled = snapshot(identity, cpuBefore, readCpuTicks())
+        } catch (samplingFailure: Throwable) {
+            failure = mergeProbeFailures(failure, samplingFailure)
+        }
+        failure?.let { throw it }
+        return SampledHostExecution(outcome.getOrThrow(), requireNotNull(sampled))
+    }
+
+    private fun requireLinux() {
+        check(osName().equals("Linux", ignoreCase = true)) {
+            "Controlled host probing requires Linux"
+        }
+    }
+
+    private fun snapshot(
+        identity: CpuIdentity,
+        cpuBefore: CpuTicks,
+        cpuAfter: CpuTicks,
+    ): HostHealthSnapshot {
         val memory = readMemory()
         return HostHealthSnapshot(
                 capturedAtNanos = nanoTime(),
@@ -65,7 +95,7 @@ class LinuxHostProbe(
                 swapUsedBytes = memory.swapUsedBytes,
                 thermalValue = readThermalCelsius(),
                 onAcPower = readOnAcPower(),
-                governors = readGovernors(),
+                governors = readGovernors(identity.processorIds),
             )
             .also { it.validate("linuxHostProbe") }
     }
@@ -86,23 +116,22 @@ class LinuxHostProbe(
             )
         }
 
-    private fun verifyIdentity() {
+    private fun verifyIdentity(): CpuIdentity {
         val cpuInfo = readRequired("proc/cpuinfo")
-        val processors =
-            cpuInfo.lineSequence().count { line -> line.substringBefore(':').trim() == "processor" }
-        val models =
-            cpuInfo
-                .lineSequence()
-                .filter { line -> line.substringBefore(':').trim() == "model name" }
-                .map { line -> line.substringAfter(':', missingDelimiterValue = "").trim() }
-                .filter(String::isNotEmpty)
-                .distinct()
-                .toList()
-        check(processors == policy.cpuCount) {
-            "Controlled host CPU count mismatch: expected=${policy.cpuCount}, actual=$processors"
+        val processors = parseProcessors(cpuInfo)
+        check(processors.size == policy.cpuCount) {
+            "Controlled host processor count mismatch: expected=${policy.cpuCount}, actual=${processors.size}"
         }
-        check(models == listOf(policy.cpuModel)) {
-            "Controlled host CPU model mismatch: expected=${policy.cpuModel}, actual=$models"
+        val duplicateIds = processors.groupingBy(Processor::id).eachCount().filterValues { it > 1 }.keys
+        check(duplicateIds.isEmpty()) { "Controlled host has duplicate processor IDs: $duplicateIds" }
+        processors.forEach { processor ->
+            check(processor.models.size == 1) {
+                "Controlled host processor ${processor.id} must have exactly one model entry"
+            }
+            check(processor.models.single() == policy.cpuModel) {
+                "Controlled host processor ${processor.id} model mismatch: " +
+                    "expected=${policy.cpuModel}, actual=${processor.models.single()}"
+            }
         }
         val machineId = readRequired("etc/machine-id").trim()
         check(machineId.isNotEmpty()) { "Controlled host machine-id must not be empty" }
@@ -110,6 +139,42 @@ class LinuxHostProbe(
         check(fingerprint == policy.hostFingerprintSha256) {
             "Controlled host fingerprint mismatch: expected=${policy.hostFingerprintSha256}, actual=$fingerprint"
         }
+        return CpuIdentity(processors.map(Processor::id).sorted())
+    }
+
+    private fun parseProcessors(cpuInfo: String): List<Processor> {
+        val processors = mutableListOf<Processor>()
+        var processorId: Int? = null
+        var models = mutableListOf<String>()
+
+        fun finishProcessor() {
+            processorId?.let { id -> processors += Processor(id, models.toList()) }
+            processorId = null
+            models = mutableListOf()
+        }
+
+        cpuInfo.lineSequence().forEach { line ->
+            when (line.substringBefore(':').trim()) {
+                "processor" -> {
+                    finishProcessor()
+                    val rawId = line.substringAfter(':', missingDelimiterValue = "").trim()
+                    val id = rawId.toIntOrNull()
+                    check(id != null && id >= 0) { "Invalid Linux processor ID: $rawId" }
+                    processorId = id
+                }
+                "model name" -> {
+                    val id = checkNotNull(processorId) {
+                        "Linux processor model appeared before a processor ID"
+                    }
+                    val model = line.substringAfter(':', missingDelimiterValue = "").trim()
+                    check(model.isNotEmpty()) { "Linux processor $id model must not be blank" }
+                    models += model
+                }
+            }
+        }
+        finishProcessor()
+        check(processors.isNotEmpty()) { "Linux /proc/cpuinfo contains no processor entries" }
+        return processors
     }
 
     private fun readLoadAverage(): Double {
@@ -178,8 +243,8 @@ class LinuxHostProbe(
         return MemorySample(available, Math.subtractExact(swapTotal, swapFree))
     }
 
-    private fun readGovernors(): List<String> =
-        (0 until policy.cpuCount).map { cpu ->
+    private fun readGovernors(processorIds: List<Int>): List<String> =
+        processorIds.map { cpu ->
             readRequired("sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor")
                 .trim()
                 .also { governor -> check(governor.isNotEmpty()) { "CPU $cpu governor is empty" } }
@@ -242,6 +307,10 @@ class LinuxHostProbe(
 
     private data class CpuTicks(val total: Long, val idle: Long)
 
+    private data class CpuIdentity(val processorIds: List<Int>)
+
+    private data class Processor(val id: Int, val models: List<String>)
+
     private data class MemorySample(val availableBytes: Long, val swapUsedBytes: Long)
 
     private companion object {
@@ -264,3 +333,8 @@ class LinuxHostProbe(
         val MEMINFO_LINE: Regex = Regex("([A-Za-z_()]+):\\s+([0-9]+) kB")
     }
 }
+
+private fun mergeProbeFailures(primary: Throwable?, secondary: Throwable): Throwable =
+    primary?.also { failure ->
+        if (failure !== secondary) failure.addSuppressed(secondary)
+    } ?: secondary

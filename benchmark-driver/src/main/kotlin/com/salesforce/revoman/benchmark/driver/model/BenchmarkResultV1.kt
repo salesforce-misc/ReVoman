@@ -196,6 +196,46 @@ data class MetricObservation(
     val retainedEvidence: RetainedEvidence? = null,
 )
 
+internal data class IntrinsicObservationCoordinate(
+    val metric: MetricId,
+    val provider: String,
+    val unit: MetricUnit,
+    val fork: Int,
+    val iteration: Int,
+    val replicateGroup: Int?,
+)
+
+internal fun MetricObservation.intrinsicCoordinate(): IntrinsicObservationCoordinate =
+    IntrinsicObservationCoordinate(metric, provider, unit, fork, iteration, replicateGroup)
+
+/** Validates fields that do not require a parent metric series or campaign configuration. */
+internal fun MetricObservation.validateIntrinsic(path: String) {
+    requireNonBlank("$path.targetId", targetId)
+    requireNonBlank("$path.provider", provider)
+    require(fork >= 0) { "$path.fork must not be negative" }
+    require(iteration >= 0) { "$path.iteration must not be negative" }
+    require(processId > 0) { "$path.processId must be positive" }
+    requireFiniteNonNegative("$path.value", value)
+    if (unit in BYTE_UNITS) {
+        require(value % 1.0 == 0.0) { "$path.value must be mathematically integral for $unit" }
+    }
+    replicateGroup?.let { require(it >= 0) { "$path.replicateGroup must not be negative" } }
+    val retainedMetric = metric == MetricId.RETAINED_BYTES
+    require(retainedMetric || replicateGroup == null) {
+        "$path.replicateGroup is allowed only for RETAINED_BYTES"
+    }
+    require(!retainedMetric || replicateGroup != null) {
+        "$path.replicateGroup is required for RETAINED_BYTES"
+    }
+    require(retainedMetric || retainedEvidence == null) {
+        "$path.retainedEvidence is allowed only for RETAINED_BYTES"
+    }
+    require(!retainedMetric || retainedEvidence != null) {
+        "$path.retainedEvidence is required for RETAINED_BYTES"
+    }
+    retainedEvidence?.validate("$path.retainedEvidence")
+}
+
 /** Captures retained-mode execution and garbage-collection evidence. */
 @JsonClass(generateAdapter = true)
 data class RetainedEvidence(
@@ -318,6 +358,28 @@ data class HostHealthSnapshot(
     }
 }
 
+/**
+ * Validates one serialized block health timeline. Timestamps are nondecreasing because multiple
+ * samples may come from a deterministic or coarse monotonic clock tick.
+ */
+internal fun validateHostHealthTimeline(
+    before: HostHealthSnapshot,
+    during: List<HostHealthSnapshot>,
+    after: HostHealthSnapshot,
+    path: String,
+) {
+    require(during.isNotEmpty()) { "$path.healthDuring must not be empty" }
+    val samples = listOf(before) + during + after
+    samples.forEachIndexed { index, sample -> sample.validate("$path.health[$index]") }
+    require(
+        samples.zipWithNext().all { (left, right) ->
+            left.capturedAtNanos <= right.capturedAtNanos
+        }
+    ) {
+        "$path health capturedAtNanos values must be non-decreasing"
+    }
+}
+
 /** Holds all metric evidence for one workload and run mode. */
 @JsonClass(generateAdapter = true)
 data class WorkloadResult(
@@ -413,11 +475,12 @@ data class MetricSeries(
             require(block.targetOrder.distinct().size == block.targetOrder.size) {
                 "$blockPath.targetOrder must contain unique target IDs"
             }
-            block.healthBefore.validate("$blockPath.healthBefore")
-            block.healthDuring.forEachIndexed { healthIndex, health ->
-                health.validate("$blockPath.healthDuring[$healthIndex]")
-            }
-            block.healthAfter.validate("$blockPath.healthAfter")
+            validateHostHealthTimeline(
+                before = block.healthBefore,
+                during = block.healthDuring,
+                after = block.healthAfter,
+                path = blockPath,
+            )
             require(block.rejectionReasons.none(String::isBlank)) {
                 "$blockPath.rejectionReasons must not contain blanks"
             }
@@ -463,41 +526,16 @@ data class MetricSeries(
         }
         observations.forEachIndexed { observationIndex, observation ->
             val observationPath = "$blockPath.observations[$observationIndex]"
+            observation.validateIntrinsic(observationPath)
             targetIds?.let { require(observation.targetId in it) { "$observationPath.targetId is unknown" } }
             require(observation.metric == metric) { "$observationPath.metric must match parent series" }
             require(observation.provider == provider) { "$observationPath.provider must match parent series" }
             require(observation.unit == unit) { "$observationPath.unit must match parent series" }
-            require(observation.fork >= 0) { "$observationPath.fork must not be negative" }
             configuration?.let { configured ->
                 require(observation.fork < configured.forksPerBlock) {
                     "$observationPath.fork exceeds forksPerBlock"
                 }
             }
-            require(observation.iteration >= 0) { "$observationPath.iteration must not be negative" }
-            require(observation.processId > 0) { "$observationPath.processId must be positive" }
-            requireFiniteNonNegative("$observationPath.value", observation.value)
-            if (unit in BYTE_UNITS) {
-                require(observation.value % 1.0 == 0.0) {
-                    "$observationPath.value must be mathematically integral for $unit"
-                }
-            }
-            val retainedMetric = metric == MetricId.RETAINED_BYTES
-            require(retainedMetric || observation.replicateGroup == null) {
-                "$observationPath.replicateGroup is allowed only for RETAINED_BYTES"
-            }
-            require(!retainedMetric || observation.replicateGroup != null) {
-                "$observationPath.replicateGroup is required for RETAINED_BYTES"
-            }
-            observation.replicateGroup?.let {
-                require(it >= 0) { "$observationPath.replicateGroup must not be negative" }
-            }
-            require(retainedMetric || observation.retainedEvidence == null) {
-                "$observationPath.retainedEvidence is allowed only for RETAINED_BYTES"
-            }
-            require(!retainedMetric || observation.retainedEvidence != null) {
-                "$observationPath.retainedEvidence is required for RETAINED_BYTES"
-            }
-            observation.retainedEvidence?.validate("$observationPath.retainedEvidence")
         }
         if (metric == MetricId.RETAINED_BYTES) validateRetainedGroups(blockPath, observations)
     }

@@ -8,12 +8,18 @@
 package com.salesforce.revoman.benchmark.driver.run
 
 import com.salesforce.revoman.benchmark.driver.host.ControlledHostPolicy
+import com.salesforce.revoman.benchmark.driver.host.HostGateEvent
+import com.salesforce.revoman.benchmark.driver.host.HostGateEventSink
 import com.salesforce.revoman.benchmark.driver.host.HostHealthGate
 import com.salesforce.revoman.benchmark.driver.host.HostHealthProbe
+import com.salesforce.revoman.benchmark.driver.host.HostIncompleteReason
+import com.salesforce.revoman.benchmark.driver.host.HostProbePhase
 import com.salesforce.revoman.benchmark.driver.model.AlternatingBlock
 import com.salesforce.revoman.benchmark.driver.model.HostHealthSnapshot
 import com.salesforce.revoman.benchmark.driver.model.MetricObservation
 import com.salesforce.revoman.benchmark.driver.model.TargetRole
+import com.salesforce.revoman.benchmark.driver.model.intrinsicCoordinate
+import com.salesforce.revoman.benchmark.driver.model.validateIntrinsic
 import com.squareup.moshi.JsonClass
 import org.apache.commons.math3.random.Well19937c
 
@@ -30,21 +36,22 @@ class AlternatingBlockScheduler(private val seed: Long) {
         require(candidateId.isNotBlank()) { "candidateId must not be blank" }
         require(baselineId != candidateId) { "baselineId and candidateId must be distinct" }
         val random = Well19937c(seed)
-        val baselineFirstCount =
-            blocks / 2 + if (blocks % 2 == 1 && random.nextBoolean()) 1 else 0
-        val orders =
-            MutableList(blocks) { index ->
-                if (index < baselineFirstCount) {
+        val orders = mutableListOf<List<String>>()
+        repeat(blocks / 2) {
+            val baselineFirst = random.nextBoolean()
+            val first =
+                if (baselineFirst) listOf(baselineId, candidateId)
+                else listOf(candidateId, baselineId)
+            orders += first
+            orders += first.reversed()
+        }
+        if (blocks % 2 == 1) {
+            orders +=
+                if (random.nextBoolean()) {
                     listOf(baselineId, candidateId)
                 } else {
                     listOf(candidateId, baselineId)
                 }
-            }
-        for (index in orders.lastIndex downTo 1) {
-            val replacement = random.nextInt(index + 1)
-            val current = orders[index]
-            orders[index] = orders[replacement]
-            orders[replacement] = current
         }
         return orders.mapIndexed { blockId, targetIds -> TargetOrder(blockId, targetIds) }
     }
@@ -88,6 +95,7 @@ class PairedBlockOrchestrator(
     private val scheduler: AlternatingBlockScheduler,
     private val probe: HostHealthProbe,
     private val gate: HostHealthGate,
+    private val eventSink: HostGateEventSink = HostGateEventSink.NoOp,
 ) {
     init {
         policy.validate()
@@ -110,16 +118,51 @@ class PairedBlockOrchestrator(
         var acceptedCount = 0
         for (order in orders) {
             if (acceptedCount == requestedAcceptedBlocks) break
+            if (order.blockId >= requestedAcceptedBlocks) {
+                emit {
+                    HostGateEvent.ReplacementScheduled(
+                        blockId = order.blockId,
+                        replacementNumber = order.blockId - requestedAcceptedBlocks + 1,
+                    )
+                }
+            }
             val block = runBlock(order, roles, executor)
             completed += block
-            if (block.accepted) acceptedCount += 1
+            if (block.accepted) {
+                acceptedCount += 1
+            } else {
+                emit { HostGateEvent.BlockRejected(block.blockId, block.rejectionReasons) }
+            }
         }
+        val acceptedFirstPositions =
+            completed.filter(AlternatingBlock::accepted).map { block -> block.targetOrder.first() }
+        val baselineFirst = acceptedFirstPositions.count { targetId -> targetId == baselineId }
+        val candidateFirst = acceptedFirstPositions.size - baselineFirst
+        val balanced = kotlin.math.abs(baselineFirst - candidateFirst) <= 1
         val outcome =
-            if (acceptedCount == requestedAcceptedBlocks) {
+            if (acceptedCount == requestedAcceptedBlocks && balanced) {
                 PairedBlockOutcome.COMPLETE
             } else {
                 PairedBlockOutcome.INCONCLUSIVE
             }
+        if (outcome == PairedBlockOutcome.INCONCLUSIVE) {
+            val reason =
+                if (acceptedCount < requestedAcceptedBlocks) {
+                    HostIncompleteReason.INSUFFICIENT_ACCEPTED_BLOCKS
+                } else {
+                    HostIncompleteReason.IMBALANCED_ACCEPTED_ORDER
+                }
+            emit {
+                HostGateEvent.CampaignIncomplete(
+                    requestedAcceptedBlocks = requestedAcceptedBlocks,
+                    acceptedBlocks = acceptedCount,
+                    attemptedBlocks = completed.size,
+                    reason = reason,
+                    baselineFirstBlocks = baselineFirst,
+                    candidateFirstBlocks = candidateFirst,
+                )
+            }
+        }
         return PairedBlockCampaign(outcome, requestedAcceptedBlocks, completed.toList())
     }
 
@@ -128,7 +171,7 @@ class PairedBlockOrchestrator(
         roles: Map<String, TargetRole>,
         executor: PairedTargetExecutor,
     ): AlternatingBlock {
-        val before = probe.sample()
+        val before = samplePoint(order.blockId, HostProbePhase.BEFORE)
         val during = mutableListOf<HostHealthSnapshot>()
         val observationsByTarget = mutableListOf<Pair<ScheduledTarget, List<MetricObservation>>>()
         var primary: Throwable? = null
@@ -142,14 +185,27 @@ class PairedBlockOrchestrator(
                         targetRole = requireNotNull(roles[targetId]),
                         orderIndex = orderIndex,
                     )
-                observationsByTarget += scheduled to executor.execute(scheduled)
-                during += probe.sample()
+                val sampled =
+                    try {
+                        probe.sampleDuring {
+                            try {
+                                executor.execute(scheduled)
+                            } catch (failure: Throwable) {
+                                throw TargetCallbackFailure(failure)
+                            }
+                        }
+                    } catch (failure: Throwable) {
+                        throw unwrapDuringFailure(order.blockId, failure)
+                    }
+                validateCallbackEvidence(scheduled, sampled.value)
+                observationsByTarget += scheduled to sampled.value
+                during += sampled.snapshot
             }
         } catch (failure: Throwable) {
             primary = failure
         } finally {
             try {
-                after = probe.sample()
+                after = samplePoint(order.blockId, HostProbePhase.AFTER)
             } catch (afterFailure: Throwable) {
                 primary = mergeFailures(primary, afterFailure)
             }
@@ -158,12 +214,7 @@ class PairedBlockOrchestrator(
         val decision = gate.assess(before, during.toList(), requireNotNull(after))
         val acceptedObservations =
             if (decision.accepted) {
-                observationsByTarget.flatMap { (target, observations) ->
-                    require(observations.all { observation -> observation.targetId == target.targetId }) {
-                        "Accepted block ${order.blockId} callback returned an observation for the wrong target"
-                    }
-                    observations
-                }
+                observationsByTarget.flatMap { (_, observations) -> observations }
             } else {
                 emptyList()
             }
@@ -178,7 +229,73 @@ class PairedBlockOrchestrator(
             observations = acceptedObservations,
         )
     }
+
+    private fun samplePoint(blockId: Int, phase: HostProbePhase): HostHealthSnapshot =
+        try {
+            probe.sample()
+        } catch (failure: Throwable) {
+            emitProbeFailure(blockId, phase, failure)
+            throw failure
+        }
+
+    private fun unwrapDuringFailure(blockId: Int, failure: Throwable): Throwable =
+        if (failure is TargetCallbackFailure) {
+            failure.suppressed.forEach { samplingFailure ->
+                emitProbeFailure(blockId, HostProbePhase.DURING, samplingFailure)
+                if (failure.targetFailure !== samplingFailure) {
+                    failure.targetFailure.addSuppressed(samplingFailure)
+                }
+            }
+            failure.targetFailure
+        } else {
+            emitProbeFailure(blockId, HostProbePhase.DURING, failure)
+            failure
+        }
+
+    private fun emitProbeFailure(
+        blockId: Int,
+        phase: HostProbePhase,
+        failure: Throwable,
+    ) {
+        emit {
+            HostGateEvent.ProbeFailed(
+                blockId = blockId,
+                phase = phase,
+                detail = failure.message ?: failure.javaClass.name,
+            )
+        }
+    }
+
+    private fun emit(event: () -> HostGateEvent) {
+        runCatching { eventSink.emit(event) }
+    }
+
+    private fun validateCallbackEvidence(
+        target: ScheduledTarget,
+        observations: List<MetricObservation>,
+    ) {
+        require(observations.isNotEmpty()) {
+            "Block ${target.blockId} callback evidence for ${target.targetId} must not be empty"
+        }
+        observations.forEachIndexed { index, observation ->
+            require(observation.targetId == target.targetId) {
+                "Block ${target.blockId} callback returned evidence for the wrong target: " +
+                    "expected=${target.targetId}, actual=${observation.targetId}"
+            }
+            observation.validateIntrinsic(
+                "block[${target.blockId}].target[${target.targetId}].observations[$index]"
+            )
+        }
+        val coordinates = observations.map(MetricObservation::intrinsicCoordinate)
+        require(coordinates.distinct().size == coordinates.size) {
+            "Block ${target.blockId} callback evidence for ${target.targetId} has duplicate coordinates"
+        }
+    }
 }
+
+private class TargetCallbackFailure(
+    val targetFailure: Throwable,
+) : RuntimeException(null, null, true, false)
 
 private fun mergeFailures(primary: Throwable?, secondary: Throwable): Throwable =
     primary?.also { failure ->

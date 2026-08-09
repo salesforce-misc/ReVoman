@@ -8,10 +8,17 @@
 package com.salesforce.revoman.benchmark.driver.host
 
 import com.salesforce.revoman.benchmark.driver.model.HostHealthSnapshot
+import com.salesforce.revoman.benchmark.driver.model.validateHostHealthTimeline
 
-/** Produces one host-health snapshot or fails when controlled evidence is unavailable. */
-fun interface HostHealthProbe {
+/** The result of one target callback whose CPU interval was bracketed by host sampling. */
+data class SampledHostExecution<T>(val value: T, val snapshot: HostHealthSnapshot)
+
+/** Produces point samples and callback-overlapping samples or fails closed. */
+interface HostHealthProbe {
     fun sample(): HostHealthSnapshot
+
+    /** Brackets the supplied callback so the returned health interval overlaps its execution. */
+    fun <T> sampleDuring(execution: () -> T): SampledHostExecution<T>
 }
 
 /** A health-only decision for one complete paired block. */
@@ -41,16 +48,8 @@ class HostHealthGate(internal val policy: ControlledHostPolicy) {
         during: List<HostHealthSnapshot>,
         after: HostHealthSnapshot,
     ): HealthDecision {
-        require(during.isNotEmpty()) { "Host health assessment requires during samples" }
+        validateHostHealthTimeline(before, during, after, "hostHealthGate")
         val samples = listOf(before) + during + after
-        samples.forEachIndexed { index, sample -> sample.validate("health[$index]") }
-        require(
-            samples.zipWithNext().all { (left, right) ->
-                left.capturedAtNanos <= right.capturedAtNanos
-            }
-        ) {
-            "Host health capturedAtNanos values must be non-decreasing"
-        }
         val maximumSwapUsed = requireNotNull(samples.maxOfOrNull(HostHealthSnapshot::swapUsedBytes))
         val swapGrowth = Math.subtractExact(maximumSwapUsed, before.swapUsedBytes)
         val reasons =

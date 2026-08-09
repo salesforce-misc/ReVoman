@@ -139,6 +139,47 @@ class BenchmarkResultSchemaTest {
     }
 
     @Test
+    fun `alternating block requires a nonempty health timeline in model and schema`() {
+        val campaign = validCampaign().withBlock { copy(healthDuring = emptyList()) }
+        val source = resultFixture("minimal-valid.json")
+        val emptyDuring = temporaryDirectory.resolve("empty-health-during.json")
+        Files.writeString(
+            emptyDuring,
+            Files.readString(source).replace(
+                Regex(
+                    "\"healthDuring\"\\s*:\\s*\\[.*?]\\s*,\\s*\"healthAfter\"",
+                    RegexOption.DOT_MATCHES_ALL,
+                ),
+                "\"healthDuring\": [], \"healthAfter\"",
+            ),
+        )
+
+        val modelFailure = assertThrows<IllegalArgumentException> { campaign.validate() }
+        val schemaFailure = assertThrows<IllegalArgumentException> {
+            BenchmarkJson.validateSchema(emptyDuring, RESULT_SCHEMA)
+        }
+
+        assertThat(modelFailure).hasMessageThat().contains("healthDuring")
+        assertThat(schemaFailure).hasMessageThat().contains("healthDuring")
+    }
+
+    @Test
+    fun `alternating block health timeline is nondecreasing`() {
+        val campaign =
+            validCampaign().withBlock {
+                copy(
+                    healthBefore = healthBefore.copy(capturedAtNanos = 10),
+                    healthDuring = listOf(healthBefore.copy(capturedAtNanos = 9)),
+                    healthAfter = healthAfter.copy(capturedAtNanos = 11),
+                )
+            }
+
+        val failure = assertThrows<IllegalArgumentException> { campaign.validate() }
+
+        assertThat(failure).hasMessageThat().contains("non-decreasing")
+    }
+
+    @Test
     fun `rejected block keeps health reasons while excluding the whole observation pair`() {
         val campaign = validCampaign()
         val accepted = campaign.onlyBlock()
