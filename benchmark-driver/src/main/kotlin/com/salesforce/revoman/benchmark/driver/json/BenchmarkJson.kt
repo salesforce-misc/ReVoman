@@ -38,6 +38,9 @@ internal object BenchmarkJson {
 
     inline fun <reified T : Any> read(path: Path): T = read(path, T::class.java)
 
+    inline fun <reified T : Any> decode(bytes: ByteArray, source: String): T =
+        decode(bytes, source, T::class.java)
+
     inline fun <reified T : Any> write(path: Path, value: T): Unit =
         write(path, value, T::class.java)
 
@@ -60,9 +63,11 @@ internal object BenchmarkJson {
 
     @PublishedApi
     internal fun <T : Any> read(path: Path, type: Class<T>): T =
-        requireNotNull(adapter(type).fromJson(Files.readString(path, UTF_8))) {
-                "JSON at $path is null"
-            }
+        decode(Files.readAllBytes(path), path.toString(), type)
+
+    @PublishedApi
+    internal fun <T : Any> decode(bytes: ByteArray, source: String, type: Class<T>): T =
+        requireNotNull(adapter(type).fromJson(bytes.toString(UTF_8))) { "JSON at $source is null" }
             .also(::validate)
 
     @PublishedApi
@@ -128,6 +133,7 @@ internal object BenchmarkJson {
         validateVerification(command.verification)
         requireNonBlank("adapterId", command.adapterId)
         validateWorkload(command.workload)
+        command.expectedDigest?.let(::validateDigest)
         require(command.warmupIterations >= 0) { "warmupIterations must not be negative" }
         require(command.measurementIterations >= 0) {
             "measurementIterations must not be negative"
@@ -144,38 +150,9 @@ internal object BenchmarkJson {
             "targetClasspathSha256 must be a 64-character SHA-256 hash"
         }
         verification.artifactStamps.forEach(::validateArtifactStamp)
-
-        val manifestLogicalIds = targetManifestLogicalIds(verification.targetManifest)
         val stampLogicalIds = verification.artifactStamps.map(VerifiedArtifactStamp::logicalId)
-        require(stampLogicalIds == manifestLogicalIds) {
-            "artifactStamps logical IDs/order must match target manifest: " +
-                "expected=$manifestLogicalIds, actual=$stampLogicalIds"
-        }
-    }
-
-    private fun targetManifestLogicalIds(targetManifest: String): List<String> {
-        val manifestPath = Path.of(targetManifest)
-        val manifest =
-            requireNotNull(dynamicJsonAdapter.fromJson(Files.readString(manifestPath, UTF_8))) {
-                "Target manifest at $manifestPath is null"
-            }
-        val manifestObject = manifest as? Map<*, *>
-        requireNotNull(manifestObject) { "Target manifest at $manifestPath must be a JSON object" }
-        val classpath = manifestObject["classpath"] as? List<*>
-        requireNotNull(classpath) {
-            "Target manifest at $manifestPath must contain a classpath array"
-        }
-        return classpath.mapIndexed { index, artifact ->
-            val artifactObject = artifact as? Map<*, *>
-            requireNotNull(artifactObject) {
-                "Target manifest classpath[$index] must be a JSON object"
-            }
-            val logicalId = artifactObject["logicalId"] as? String
-            requireNotNull(logicalId) {
-                "Target manifest classpath[$index] must contain a string logicalId"
-            }
-            requireNonBlank("target manifest classpath[$index].logicalId", logicalId)
-            logicalId
+        require(stampLogicalIds.distinct().size == stampLogicalIds.size) {
+            "artifactStamps logical IDs must be unique"
         }
     }
 

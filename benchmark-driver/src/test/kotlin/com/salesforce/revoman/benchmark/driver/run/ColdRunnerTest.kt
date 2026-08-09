@@ -24,6 +24,7 @@ import com.salesforce.revoman.benchmark.driver.model.WorkloadRequest
 import com.salesforce.revoman.benchmark.driver.process.JavaCommand
 import com.salesforce.revoman.benchmark.driver.process.ProcessLauncher
 import com.salesforce.revoman.benchmark.driver.process.ProcessObservation
+import java.net.URI
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Duration
@@ -39,16 +40,20 @@ class ColdRunnerTest {
         val target = runnerTarget(temporaryDirectory)
         val commands = mutableListOf<JavaCommand>()
         val workerCommands = mutableListOf<TargetForkCommand>()
+        val loggingSnapshots = mutableListOf<Pair<Path, ByteArray>>()
         val launcher =
             ProcessLauncher { javaCommand ->
                 commands += javaCommand
                 val command = BenchmarkJson.read<TargetForkCommand>(Path.of(javaCommand.programArgs.single()))
                 workerCommands += command
+                val loggingSnapshot = loggingSnapshot(javaCommand)
+                loggingSnapshots += loggingSnapshot to Files.readAllBytes(loggingSnapshot)
                 val processId = 10_000L + commands.size
                 processObservation(command, processId, elapsedNanos = processId * 10)
             }
+        val plan = coldPlan(target, sampleCount = 50)
 
-        val observations = ColdRunner(launcher).run(coldPlan(target, sampleCount = 50))
+        val observations = ColdRunner(launcher).run(plan)
 
         assertThat(observations).hasSize(50)
         assertThat(observations.map { it.processId }.distinct()).hasSize(50)
@@ -60,19 +65,22 @@ class ColdRunnerTest {
             assertThat(command.mode).isEqualTo(RunMode.COLD)
             assertThat(command.adapterId).isEqualTo("baseline-83f3cd70")
             assertThat(command.workload).isEqualTo(workload())
+            assertThat(command.expectedDigest).isEqualTo(EXPECTED_DIGEST)
             assertThat(command.warmupIterations).isEqualTo(0)
             assertThat(command.measurementIterations).isEqualTo(1)
             assertThat(command.verification.targetManifest).isEqualTo(targetManifestPath(target).toString())
             assertThat(javaCommand.jvmArgs).contains("-Drevoman.banner=off")
             assertThat(javaCommand.jvmArgs).contains("-Dkotlin-logging.logStartupMessage=false")
-            assertThat(javaCommand.jvmArgs)
-                .contains(
-                    "-Dlog4j2.configurationFile=${loggingConfigurationPath(target).toUri()}"
-                )
-            assertThat(javaCommand.jvmArgs)
-                .contains(
-                    "-Dlog4j2.*.Configuration.file=${loggingConfigurationPath(target).toUri()}"
-                )
+            val snapshotUri = loggingSnapshot(javaCommand).toUri()
+            assertThat(javaCommand.jvmArgs).contains("-Dlog4j2.configurationFile=$snapshotUri")
+            assertThat(javaCommand.jvmArgs).contains("-Dlog4j2.*.Configuration.file=$snapshotUri")
+        }
+        assertThat(loggingSnapshots.map { it.first }.distinct()).hasSize(1)
+        assertThat(loggingSnapshots.first().first).isNotEqualTo(loggingConfigurationPath(target))
+        assertThat(plan.loggingConfiguration.sha256)
+            .isEqualTo(ContentHasher.sha256(loggingConfigurationPath(target)))
+        loggingSnapshots.forEach { (_, bytes) ->
+            assertThat(bytes).isEqualTo(Files.readAllBytes(loggingConfigurationPath(target)))
         }
     }
 
@@ -135,6 +143,29 @@ class ColdRunnerTest {
     }
 
     @Test
+    fun `successful observations are discarded after same-classpath manifest replacement`() {
+        val target = runnerTarget(temporaryDirectory)
+        val manifestPath = targetManifestPath(target)
+        val runner =
+            ColdRunner(
+                ProcessLauncher { command ->
+                    val worker = BenchmarkJson.read<TargetForkCommand>(Path.of(command.programArgs.single()))
+                    BenchmarkJson.write(
+                        manifestPath,
+                        target.copy(targetId = "same-classpath-replacement"),
+                    )
+                    processObservation(worker, processId = 74)
+                }
+            )
+
+        val failure = assertThrows<IllegalStateException> {
+            runner.run(coldPlan(target, sampleCount = 1, intent = RunIntent.SMOKE))
+        }
+
+        assertThat(failure).hasMessageThat().contains("target manifest SHA-256 changed")
+    }
+
+    @Test
     fun `plan target must exactly match its explicit manifest before any launch`() {
         val target = runnerTarget(temporaryDirectory)
         var launches = 0
@@ -144,12 +175,12 @@ class ColdRunnerTest {
             runner.run(
                 coldPlan(target.copy(targetId = "different-target"), 1, RunIntent.SMOKE).copy(
                     targetManifestPath = targetManifestPath(target),
-                    loggingConfiguration = loggingConfigurationPath(target),
+                    loggingConfiguration = loggingConfiguration(target),
                 )
             )
         }
 
-        assertThat(failure).hasMessageThat().contains("does not match targetManifestPath")
+        assertThat(failure).hasMessageThat().contains("expected target")
         assertThat(launches).isEqualTo(0)
     }
 
@@ -187,7 +218,99 @@ class ColdRunnerTest {
             assertThat(failure).hasMessageThat().contains(reason)
         }
     }
+
+    @Test
+    fun `cold parent rejects every measured digest field mismatch`() {
+        val mismatches =
+            listOf(
+                "checksum" to EXPECTED_DIGEST.copy(checksum = 32),
+                "executedSteps" to EXPECTED_DIGEST.copy(executedSteps = 2),
+                "failureCount" to EXPECTED_DIGEST.copy(failureCount = 1),
+            )
+
+        mismatches.forEachIndexed { index, (field, digest) ->
+            val target = runnerTarget(temporaryDirectory.resolve("cold-digest-$index"))
+            val runner =
+                ColdRunner(
+                    ProcessLauncher { command ->
+                        val worker =
+                            BenchmarkJson.read<TargetForkCommand>(Path.of(command.programArgs.single()))
+                        processObservation(worker, processId = 500L + index, digest = digest)
+                    }
+                )
+
+            val failure = assertThrows<IllegalStateException> {
+                runner.run(coldPlan(target, 1, RunIntent.SMOKE))
+            }
+
+            assertThat(failure).hasMessageThat().contains("digest")
+            assertThat(failure).hasMessageThat().contains(field)
+        }
+    }
+
+    @Test
+    fun `macro run rejects an absent digest oracle for every intent before launch`() {
+        val target = runnerTarget(temporaryDirectory)
+        var launches = 0
+        val runner = ColdRunner(ProcessLauncher { error("unexpected launch ${++launches}") })
+
+        RunIntent.entries.forEach { intent ->
+            val failure = assertThrows<IllegalArgumentException> {
+                val samples = if (intent == RunIntent.CONTROLLED) 50 else 1
+                runner.run(coldPlan(target, samples, intent).copy(expectedDigest = null))
+            }
+
+            assertThat(failure).hasMessageThat().contains("expectedDigest")
+        }
+        assertThat(launches).isEqualTo(0)
+    }
+
+    @Test
+    fun `macro plan rejects an oracle that permits execution failures before launch`() {
+        val target = runnerTarget(temporaryDirectory)
+        var launches = 0
+        val runner =
+            ColdRunner(
+                ProcessLauncher { error("unexpected launch ${++launches}") }
+            )
+
+        val failure = assertThrows<IllegalArgumentException> {
+            runner.run(
+                coldPlan(target, 1, RunIntent.SMOKE).copy(
+                    expectedDigest = EXPECTED_DIGEST.copy(failureCount = 1)
+                )
+            )
+        }
+
+        assertThat(failure).hasMessageThat().contains("failureCount")
+        assertThat(launches).isEqualTo(0)
+    }
+
+    @Test
+    fun `recursive fork cleanup preserves the primary launcher failure`() {
+        val target = runnerTarget(temporaryDirectory)
+        val primary = DeliberateLaunchFailure("launch failed")
+        var invocationDirectory: Path? = null
+        val runner =
+            ColdRunner(
+                ProcessLauncher { command ->
+                    val directory = Path.of(command.programArgs.single()).parent
+                    invocationDirectory = directory
+                    Files.writeString(directory.resolve(".result.json.worker.tmp"), "partial")
+                    throw primary
+                }
+            )
+
+        val failure = assertThrows<DeliberateLaunchFailure> {
+            runner.run(coldPlan(target, 1, RunIntent.SMOKE))
+        }
+
+        assertThat(failure).isSameInstanceAs(primary)
+        assertThat(Files.exists(requireNotNull(invocationDirectory))).isFalse()
+    }
 }
+
+private class DeliberateLaunchFailure(message: String) : RuntimeException(message)
 
 internal fun runnerTarget(root: Path): TargetManifest {
     Files.createDirectories(root)
@@ -233,6 +356,9 @@ internal fun targetManifestPath(target: TargetManifest): Path =
 internal fun loggingConfigurationPath(target: TargetManifest): Path =
     Path.of(target.classpath.single().executionPath).parent.resolve("log4j2-benchmark.xml").toRealPath()
 
+internal fun loggingConfiguration(target: TargetManifest): VerifiedLoggingConfiguration =
+    VerifiedLoggingConfiguration.preflight(loggingConfigurationPath(target))
+
 internal fun coldPlan(
     target: TargetManifest,
     sampleCount: Int,
@@ -244,10 +370,11 @@ internal fun coldPlan(
         targetManifestPath = targetManifestPath(target),
         adapterId = "baseline-83f3cd70",
         workload = workload(),
+        expectedDigest = EXPECTED_DIGEST,
         sampleCount = sampleCount,
         metricPass = MetricPass.LATENCY,
         timeout = Duration.ofSeconds(5),
-        loggingConfiguration = loggingConfigurationPath(target),
+        loggingConfiguration = loggingConfiguration(target),
     )
 
 internal fun workload(): WorkloadRequest =
@@ -265,6 +392,7 @@ internal fun processObservation(
     exitCode: Int = 0,
     stdout: String = "",
     stderr: String = "",
+    digest: ExecutionDigest = command.expectedDigest ?: EXPECTED_DIGEST,
 ): ProcessObservation =
     ProcessObservation(
         exitCode = exitCode,
@@ -282,8 +410,17 @@ internal fun processObservation(
                         TargetSample(
                             iteration = iteration,
                             latencyNanos = 200L + iteration,
-                            digest = ExecutionDigest(checksum = 31, executedSteps = 1, failureCount = 0),
+                            digest = digest,
                         )
                     },
             ),
     )
+
+internal val EXPECTED_DIGEST: ExecutionDigest =
+    ExecutionDigest(checksum = 31, executedSteps = 1, failureCount = 0)
+
+private fun loggingSnapshot(command: JavaCommand): Path {
+    val value =
+        command.jvmArgs.single { it.startsWith("-Dlog4j2.configurationFile=") }.substringAfter('=')
+    return Path.of(URI(value))
+}

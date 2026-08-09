@@ -12,6 +12,7 @@ import com.salesforce.revoman.benchmark.driver.json.BenchmarkJson
 import com.salesforce.revoman.benchmark.driver.model.HashedArtifact
 import com.salesforce.revoman.benchmark.driver.model.TargetForkCommand
 import com.salesforce.revoman.benchmark.driver.model.TargetManifest
+import com.salesforce.revoman.benchmark.driver.model.TargetVerificationToken
 import com.salesforce.revoman.benchmark.driver.model.VerifiedArtifactStamp
 import java.nio.file.Files
 import java.nio.file.Path
@@ -19,17 +20,34 @@ import java.nio.file.attribute.BasicFileAttributes
 
 /** Content-verified controller identity plus cheap worker reconstruction stamps. */
 data class VerifiedTargetManifest internal constructor(
+    val manifestPath: Path,
     val manifest: TargetManifest,
     val manifestSha256: String,
     val classpathSha256: String,
     val artifactStamps: List<VerifiedArtifactStamp>,
 ) {
+    /** Recreates the exact worker token bound to this verified manifest snapshot. */
+    fun verificationToken(): TargetVerificationToken =
+        TargetVerificationToken(
+            targetManifest = manifestPath.toString(),
+            targetManifestSha256 = manifestSha256,
+            targetClasspathSha256 = classpathSha256,
+            artifactStamps = artifactStamps,
+        )
+
     /**
-     * Rehashes the complete ordered classpath after a campaign and rejects any intervening change.
+     * Rehashes the manifest and complete ordered classpath after a campaign.
      */
     fun postflight() {
         val postflightArtifacts = mutableListOf<HashedArtifact>()
         val failures = mutableListOf<String>()
+        val postflightManifest =
+            runCatching { captureManifest(manifestPath) }
+                .onFailure { failures += "target manifest is unreadable or invalid" }
+                .getOrNull()
+        if (postflightManifest != null && postflightManifest.sha256 != manifestSha256) {
+            failures += "target manifest SHA-256 changed"
+        }
         manifest.classpath.forEachIndexed { index, artifact ->
             val expectedStamp = artifactStamps[index]
             val path = Path.of(artifact.executionPath)
@@ -84,11 +102,22 @@ data class VerifiedTargetManifest internal constructor(
 
     companion object {
         /** Performs full controller-side manifest and artifact verification before timed work. */
-        fun preflight(manifestPath: Path): VerifiedTargetManifest {
-            val canonicalManifest = manifestPath.toRealPath()
-            val manifest = BenchmarkJson.read<TargetManifest>(canonicalManifest)
+        fun preflight(manifestPath: Path): VerifiedTargetManifest =
+            preflight(manifestPath, expectedManifest = null)
+
+        /** Verifies one byte snapshot and optionally binds it to [expectedManifest]. */
+        fun preflight(
+            manifestPath: Path,
+            expectedManifest: TargetManifest?,
+        ): VerifiedTargetManifest {
+            val snapshot = captureManifest(manifestPath)
+            expectedManifest?.let { expected ->
+                require(snapshot.manifest == expected) {
+                    "Verified manifest does not match the expected target"
+                }
+            }
             val artifactStamps =
-                manifest.classpath.mapIndexed { index, artifact ->
+                snapshot.manifest.classpath.mapIndexed { index, artifact ->
                     val path = requireCanonicalArtifactPath("classpath[$index]", artifact.executionPath)
                     val attributes = Files.readAttributes(path, BasicFileAttributes::class.java)
                     require(attributes.isRegularFile) { "classpath[$index] must be a regular file: $path" }
@@ -104,9 +133,10 @@ data class VerifiedTargetManifest internal constructor(
                     artifactStamp(artifact.logicalId, path, attributes)
                 }
             return VerifiedTargetManifest(
-                manifest = manifest,
-                manifestSha256 = ContentHasher.sha256(canonicalManifest),
-                classpathSha256 = ContentHasher.artifactSetSha256(manifest.classpath),
+                manifestPath = snapshot.path,
+                manifest = snapshot.manifest,
+                manifestSha256 = snapshot.sha256,
+                classpathSha256 = ContentHasher.artifactSetSha256(snapshot.manifest.classpath),
                 artifactStamps = artifactStamps,
             )
         }
@@ -117,26 +147,27 @@ data class VerifiedTargetManifest internal constructor(
         fun fromWorkerCommand(command: TargetForkCommand): VerifiedTargetManifest {
             val verification = command.verification
             val manifestPath = Path.of(verification.targetManifest)
-            val canonicalManifest = manifestPath.toRealPath()
-            require(canonicalManifest == manifestPath) {
+            require(manifestPath.toRealPath() == manifestPath) {
                 "Worker target manifest path must be canonical: $manifestPath"
             }
-            val manifest = BenchmarkJson.read<TargetManifest>(canonicalManifest)
-            val actualManifestHash = ContentHasher.sha256(canonicalManifest)
-            require(actualManifestHash == verification.targetManifestSha256) {
+            val snapshot = captureManifest(manifestPath)
+            require(snapshot.sha256 == verification.targetManifestSha256) {
                 "Worker manifest SHA-256 differs from controller verification: " +
-                    "expected=${verification.targetManifestSha256}, actual=$actualManifestHash"
+                    "expected=${verification.targetManifestSha256}, actual=${snapshot.sha256}"
             }
-            val actualClasspathHash = ContentHasher.artifactSetSha256(manifest.classpath)
+            val actualClasspathHash = ContentHasher.artifactSetSha256(snapshot.manifest.classpath)
             require(actualClasspathHash == verification.targetClasspathSha256) {
                 "Worker classpath SHA-256 differs from controller verification: " +
                     "expected=${verification.targetClasspathSha256}, actual=$actualClasspathHash"
             }
-            require(verification.artifactStamps.size == manifest.classpath.size) {
-                "Worker artifact stamp count differs from target classpath"
+            val manifestLogicalIds = snapshot.manifest.classpath.map(HashedArtifact::logicalId)
+            val stampLogicalIds = verification.artifactStamps.map(VerifiedArtifactStamp::logicalId)
+            require(stampLogicalIds == manifestLogicalIds) {
+                "Worker artifact stamp IDs/order differ from target manifest: " +
+                    "expected=$manifestLogicalIds, actual=$stampLogicalIds"
             }
             val workerStamps =
-                manifest.classpath.mapIndexed { index, artifact ->
+                snapshot.manifest.classpath.mapIndexed { index, artifact ->
                     val path = requireCanonicalArtifactPath("classpath[$index]", artifact.executionPath)
                     val attributes = Files.readAttributes(path, BasicFileAttributes::class.java)
                     require(attributes.isRegularFile) { "classpath[$index] must be a regular file: $path" }
@@ -146,13 +177,30 @@ data class VerifiedTargetManifest internal constructor(
                 "Worker artifact cheap stamps differ from controller verification"
             }
             return VerifiedTargetManifest(
-                manifest = manifest,
-                manifestSha256 = actualManifestHash,
+                manifestPath = snapshot.path,
+                manifest = snapshot.manifest,
+                manifestSha256 = snapshot.sha256,
                 classpathSha256 = actualClasspathHash,
                 artifactStamps = workerStamps,
             )
         }
     }
+}
+
+private data class ManifestSnapshot(
+    val path: Path,
+    val manifest: TargetManifest,
+    val sha256: String,
+)
+
+private fun captureManifest(manifestPath: Path): ManifestSnapshot {
+    val canonical = manifestPath.toRealPath()
+    val bytes = Files.readAllBytes(canonical)
+    return ManifestSnapshot(
+        path = canonical,
+        manifest = BenchmarkJson.decode(bytes, canonical.toString()),
+        sha256 = ContentHasher.sha256(bytes),
+    )
 }
 
 private fun requireCanonicalArtifactPath(name: String, executionPath: String): Path {

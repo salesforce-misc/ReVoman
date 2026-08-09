@@ -52,6 +52,8 @@ class WorkerProtocolJsonTest {
         assertThat(command.workload.fixtureRoot).isEqualTo("/bench/fixtures")
         assertThat(command.workload.baseUrl).isEqualTo("http://127.0.0.1:8080")
         assertThat(command.workload.parameters).containsExactly("region", "us-east-1", "tenant", "acme")
+        assertThat(command.expectedDigest)
+            .isEqualTo(ExecutionDigest(checksum = 31, executedSteps = 1, failureCount = 0))
         assertThat(command.warmupIterations).isEqualTo(2)
         assertThat(command.measurementIterations).isEqualTo(3)
         assertThat(command.resultFile).isEqualTo("/bench/result.json")
@@ -99,36 +101,24 @@ class WorkerProtocolJsonTest {
     }
 
     @Test
-    fun `protocol rejects artifact logical IDs that differ from the target manifest`() {
-        val command = readCommandFixture()
-        val substituted = command.verification.artifactStamps.last().copy(logicalId = "substituted.jar")
+    fun `command serialization never rereads its mutable target manifest path`() {
+        val mutableManifest = temporaryDirectory.resolve("mutable-target-manifest.json")
+        Files.copy(targetManifestFixture(), mutableManifest)
+        val command =
+            readCommandFixture().let { original ->
+                original.copy(
+                    verification =
+                        original.verification.copy(targetManifest = mutableManifest.toString())
+                )
+            }
+        val beforeMutation = temporaryDirectory.resolve("before-mutation.json")
+        val afterMutation = temporaryDirectory.resolve("after-mutation.json")
+        BenchmarkJson.write(beforeMutation, command)
+        Files.delete(mutableManifest)
 
-        assertThrows<IllegalArgumentException> {
-            BenchmarkJson.write(
-                temporaryDirectory.resolve("substituted-artifact.json"),
-                command.copy(
-                    verification = command.verification.copy(
-                        artifactStamps = listOf(command.verification.artifactStamps.first(), substituted),
-                    ),
-                ),
-            )
-        }
-    }
+        BenchmarkJson.write(afterMutation, command)
 
-    @Test
-    fun `protocol rejects artifact logical IDs in a different order than the target manifest`() {
-        val command = readCommandFixture()
-
-        assertThrows<IllegalArgumentException> {
-            BenchmarkJson.write(
-                temporaryDirectory.resolve("reordered-artifacts.json"),
-                command.copy(
-                    verification = command.verification.copy(
-                        artifactStamps = command.verification.artifactStamps.reversed(),
-                    ),
-                ),
-            )
-        }
+        assertThat(Files.readAllBytes(afterMutation)).isEqualTo(Files.readAllBytes(beforeMutation))
     }
 
     @Test

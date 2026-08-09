@@ -15,6 +15,8 @@ import com.salesforce.revoman.benchmark.driver.model.RunMode
 import com.salesforce.revoman.benchmark.driver.model.TargetForkCommand
 import com.salesforce.revoman.benchmark.driver.process.JavaCommand
 import com.salesforce.revoman.benchmark.driver.process.ProcessLauncher
+import java.net.URI
+import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Duration
 import org.junit.jupiter.api.Test
@@ -76,6 +78,20 @@ class WarmRunnerTest {
     }
 
     @Test
+    fun `warm macro run rejects an absent digest oracle before launch`() {
+        val target = runnerTarget(temporaryDirectory)
+        var launches = 0
+        val runner = WarmRunner(ProcessLauncher { error("unexpected launch ${++launches}") })
+
+        val failure = assertThrows<IllegalArgumentException> {
+            runner.run(warmPlan(target, 1, 0, 1, RunIntent.SMOKE).copy(expectedDigest = null))
+        }
+
+        assertThat(failure).hasMessageThat().contains("expectedDigest")
+        assertThat(launches).isEqualTo(0)
+    }
+
+    @Test
     fun `warm fork output and duplicate process IDs invalidate the run`() {
         val outputTarget = runnerTarget(temporaryDirectory.resolve("output"))
         val outputFailure = assertThrows<IllegalStateException> {
@@ -101,6 +117,79 @@ class WarmRunnerTest {
         }
         assertThat(duplicateFailure).hasMessageThat().contains("distinct process")
     }
+
+    @Test
+    fun `warm parent rejects every measured digest field mismatch`() {
+        val mismatches =
+            listOf(
+                "checksum" to EXPECTED_DIGEST.copy(checksum = 32),
+                "executedSteps" to EXPECTED_DIGEST.copy(executedSteps = 2),
+                "failureCount" to EXPECTED_DIGEST.copy(failureCount = 1),
+            )
+
+        mismatches.forEachIndexed { index, (field, digest) ->
+            val target = runnerTarget(temporaryDirectory.resolve("warm-digest-$index"))
+            val runner =
+                WarmRunner(
+                    ProcessLauncher { command ->
+                        val worker =
+                            BenchmarkJson.read<TargetForkCommand>(Path.of(command.programArgs.single()))
+                        processObservation(worker, processId = 700L + index, digest = digest)
+                    }
+                )
+
+            val failure = assertThrows<IllegalStateException> {
+                runner.run(warmPlan(target, 1, 0, 1, RunIntent.SMOKE))
+            }
+
+            assertThat(failure).hasMessageThat().contains("digest")
+            assertThat(failure).hasMessageThat().contains(field)
+        }
+    }
+
+    @Test
+    fun `quiet logging source mutation between warm forks invalidates all observations`() {
+        val target = runnerTarget(temporaryDirectory)
+        val source = loggingConfigurationPath(target)
+        val snapshotPaths = mutableListOf<Path>()
+        val snapshotBytes = mutableListOf<ByteArray>()
+        var launches = 0
+        val runner =
+            WarmRunner(
+                ProcessLauncher { javaCommand ->
+                    launches++
+                    val snapshot =
+                        Path.of(
+                            URI(
+                                javaCommand.jvmArgs
+                                    .single { it.startsWith("-Dlog4j2.configurationFile=") }
+                                    .substringAfter('=')
+                            )
+                        )
+                    snapshotPaths.add(snapshot)
+                    snapshotBytes.add(Files.readAllBytes(snapshot))
+                    if (launches == 1) {
+                        Files.writeString(
+                            source,
+                            "<Configuration status=\"OFF\"><Appenders/><Loggers><Root level=\"OFF\"/></Loggers></Configuration>",
+                        )
+                    }
+                    val command =
+                        BenchmarkJson.read<TargetForkCommand>(Path.of(javaCommand.programArgs.single()))
+                    processObservation(command, processId = 800L + launches)
+                }
+            )
+
+        val failure = assertThrows<IllegalStateException> {
+            runner.run(warmPlan(target, 2, 0, 1, RunIntent.SMOKE))
+        }
+
+        assertThat(launches).isEqualTo(2)
+        assertThat(snapshotPaths.distinct()).hasSize(1)
+        assertThat(snapshotPaths.first()).isNotEqualTo(source)
+        assertThat(snapshotBytes[1]).isEqualTo(snapshotBytes[0])
+        assertThat(failure).hasMessageThat().contains("Logging configuration")
+    }
 }
 
 private fun warmPlan(
@@ -116,10 +205,11 @@ private fun warmPlan(
         targetManifestPath = targetManifestPath(target),
         adapterId = "baseline-83f3cd70",
         workload = workload(),
+        expectedDigest = EXPECTED_DIGEST,
         forksPerBlock = forks,
         warmupIterations = warmups,
         measurementIterations = measurements,
         metricPass = MetricPass.LATENCY,
         timeout = Duration.ofSeconds(5),
-        loggingConfiguration = loggingConfigurationPath(target),
+        loggingConfiguration = loggingConfiguration(target),
     )

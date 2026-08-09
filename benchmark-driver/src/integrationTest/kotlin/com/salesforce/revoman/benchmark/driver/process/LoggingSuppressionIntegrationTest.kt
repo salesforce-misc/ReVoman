@@ -42,6 +42,7 @@ class LoggingSuppressionIntegrationTest {
                     targetManifestPath = target.manifestPath,
                     adapterId = integrationAdapter(),
                     workload = lifecycleRequest(fixtureRoot, fixture.baseUrl),
+                    expectedDigest = requireNotNull(manifest.expectedDigest),
                     sampleCount = 1,
                     metricPass = MetricPass.LATENCY,
                     timeout = Duration.ofSeconds(30),

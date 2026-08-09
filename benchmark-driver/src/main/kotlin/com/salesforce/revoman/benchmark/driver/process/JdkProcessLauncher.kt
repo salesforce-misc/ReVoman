@@ -22,7 +22,11 @@ import java.util.concurrent.Future
 import java.util.concurrent.TimeUnit
 import kotlin.io.path.isRegularFile
 
-/** Launches child JVMs without a shell and enforces the atomic file-only result protocol. */
+/**
+ * Launches child JVMs without a shell and rejects stale or in-place result writes.
+ *
+ * The trusted target worker separately publishes with a same-directory atomic move.
+ */
 class JdkProcessLauncher : ProcessLauncher {
     override fun launch(command: JavaCommand): ProcessObservation {
         validate(command)
@@ -75,7 +79,7 @@ class JdkProcessLauncher : ProcessLauncher {
                     "Target process $processId exited with exit code $exitCode: " +
                         diagnostics(stdoutTail, stderrTail)
                 }
-                requireAtomicResult(resultFile, atomicGuard, guardBytes, processId)
+                requireReplacedResult(resultFile, atomicGuard, guardBytes, processId)
                 val result =
                     try {
                         BenchmarkJson.read<TargetForkResult>(resultFile)
@@ -111,7 +115,7 @@ class JdkProcessLauncher : ProcessLauncher {
         }
     }
 
-    private fun requireAtomicResult(
+    private fun requireReplacedResult(
         resultFile: Path,
         atomicGuard: Path,
         guardBytes: ByteArray,
@@ -124,13 +128,13 @@ class JdkProcessLauncher : ProcessLauncher {
         when {
             !replaced && guardUnchanged ->
                 error(
-                    "Target process $processId produced an empty or missing atomic result file: " +
+                    "Target process $processId produced an empty or missing result file: " +
                         resultFile
                 )
             !replaced || !guardUnchanged ->
-                error("Target process $processId did not atomically replace result file: $resultFile")
+                error("Target process $processId did not replace the guarded result file: $resultFile")
             Files.size(resultFile) == 0L ->
-                error("Target process $processId produced an empty or missing atomic result file: $resultFile")
+                error("Target process $processId produced an empty or missing result file: $resultFile")
         }
     }
 

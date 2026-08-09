@@ -7,7 +7,6 @@
  */
 package com.salesforce.revoman.benchmark.driver.jmh
 
-import com.salesforce.revoman.benchmark.driver.json.BenchmarkJson
 import com.salesforce.revoman.benchmark.driver.model.TargetManifest
 import com.salesforce.revoman.benchmark.driver.target.VerifiedTargetManifest
 import java.nio.file.Files
@@ -23,8 +22,8 @@ fun main(arguments: Array<String>) {
     val installationRoot = Path.of(arguments[0]).toRealPath()
     val targetManifestPath = Path.of(arguments[1]).toRealPath()
     val adapterId = arguments[2].also { require(it.isNotBlank()) { "adapter-id must not be blank" } }
-    val manifest = BenchmarkJson.read<TargetManifest>(targetManifestPath)
     val verified = VerifiedTargetManifest.preflight(targetManifestPath)
+    val manifest = verified.manifest
     try {
         verifyThinJar(installationRoot.resolve("lib/benchmark-driver-jmh-classes.jar"))
         verifyTruffleMultiRelease(manifest)

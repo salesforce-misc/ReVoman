@@ -14,6 +14,7 @@ import com.salesforce.revoman.benchmark.driver.model.RunMode
 import com.salesforce.revoman.benchmark.driver.model.TargetForkCommand
 import com.salesforce.revoman.benchmark.driver.model.TargetForkResult
 import com.salesforce.revoman.benchmark.driver.model.TargetSample
+import com.salesforce.revoman.benchmark.driver.model.requireExpectedExecutionDigest
 import com.salesforce.revoman.benchmark.driver.target.TargetAdapterRegistry
 import com.salesforce.revoman.benchmark.driver.target.TargetRuntime
 import com.salesforce.revoman.benchmark.driver.target.VerifiedTargetManifest
@@ -38,15 +39,31 @@ private fun runTargetFork(arguments: Array<String>) {
     }
     val command = BenchmarkJson.read<TargetForkCommand>(commandPath)
     validateMode(command)
+    val expectedDigest =
+        requireNotNull(command.expectedDigest) {
+            "Target macro fork requires a non-null expectedDigest oracle"
+        }
     val verified = VerifiedTargetManifest.fromWorkerCommand(command)
     TargetRuntime.open(verified).use { runtime ->
         TargetAdapterRegistry.require(command.adapterId).prepare(runtime, command.workload).use { prepared ->
-            repeat(command.warmupIterations) { prepared.execute() }
+            repeat(command.warmupIterations) { iteration ->
+                requireExpectedExecutionDigest(
+                    actual = prepared.execute(),
+                    expected = expectedDigest,
+                    location = "warmup[$iteration]",
+                )
+            }
             val samples =
                 List(command.measurementIterations) { iteration ->
                     var digest: ExecutionDigest? = null
                     val nanos = measureNanoTime { digest = prepared.execute() }
-                    TargetSample(iteration, nanos, requireNotNull(digest))
+                    val validated =
+                        requireExpectedExecutionDigest(
+                            actual = requireNotNull(digest),
+                            expected = expectedDigest,
+                            location = "measurement[$iteration]",
+                        )
+                    TargetSample(iteration, nanos, validated)
                 }
             BenchmarkJson.write(
                 Path.of(command.resultFile),

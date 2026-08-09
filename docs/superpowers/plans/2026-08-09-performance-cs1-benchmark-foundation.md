@@ -262,6 +262,7 @@ Change Set 1 ships the harness, the versioned `lifecycle.no-script-one-step.v1` 
     val mode: RunMode,
     val metricPass: MetricPass,
     val workload: WorkloadRequest,
+    val expectedDigest: ExecutionDigest?,
     val warmupIterations: Int,
     val measurementIterations: Int,
     val resultFile: String,
@@ -301,7 +302,7 @@ Change Set 1 ships the harness, the versioned `lifecycle.no-script-one-step.v1` 
   }
   ```
 
-  Reject protocol versions other than `1`, malformed 64-character verification hashes, artifact stamps that do not match manifest logical IDs/order, negative iteration counts/latencies, blank IDs/paths, and a declared measurement count that differs from `samples.size`.
+  Reject protocol versions other than `1`, malformed 64-character verification hashes, duplicate artifact-stamp logical IDs, negative iteration counts/latencies, blank IDs/paths, and a declared measurement count that differs from `samples.size`. JSON encoding/decoding remains structural and never rereads a mutable manifest path; worker reconstruction compares artifact stamps with the logical IDs/order from its one coherently parsed-and-hashed manifest byte snapshot.
 
   Until Task 11 replaces CLI dispatch, `BenchmarkDriverMain.kt` implements one real command so the distribution is executable:
 
@@ -1190,6 +1191,7 @@ Change Set 1 ships the harness, the versioned `lifecycle.no-script-one-step.v1` 
 - Create: `benchmark-driver/src/main/kotlin/com/salesforce/revoman/benchmark/driver/process/TargetForkMain.kt`
 - Create: `benchmark-driver/src/main/kotlin/com/salesforce/revoman/benchmark/driver/run/ColdRunner.kt`
 - Create: `benchmark-driver/src/main/kotlin/com/salesforce/revoman/benchmark/driver/run/WarmRunner.kt`
+- Create: `benchmark-driver/src/main/kotlin/com/salesforce/revoman/benchmark/driver/run/VerifiedLoggingConfiguration.kt`
 - Test: `benchmark-driver/src/test/kotlin/com/salesforce/revoman/benchmark/driver/run/ColdRunnerTest.kt`
 - Test: `benchmark-driver/src/test/kotlin/com/salesforce/revoman/benchmark/driver/run/WarmRunnerTest.kt`
 - Integration test: `benchmark-driver/src/integrationTest/kotlin/com/salesforce/revoman/benchmark/driver/process/RunnerIntegrationTest.kt`
@@ -1225,10 +1227,11 @@ Change Set 1 ships the harness, the versioned `lifecycle.no-script-one-step.v1` 
     val targetManifestPath: Path,
     val adapterId: String,
     val workload: WorkloadRequest,
+    val expectedDigest: ExecutionDigest?,
     val sampleCount: Int,
     val metricPass: MetricPass,
     val timeout: Duration,
-    val loggingConfiguration: Path,
+    val loggingConfiguration: VerifiedLoggingConfiguration,
   )
 
   data class WarmPlan(
@@ -1237,12 +1240,13 @@ Change Set 1 ships the harness, the versioned `lifecycle.no-script-one-step.v1` 
     val targetManifestPath: Path,
     val adapterId: String,
     val workload: WorkloadRequest,
+    val expectedDigest: ExecutionDigest?,
     val forksPerBlock: Int,
     val warmupIterations: Int,
     val measurementIterations: Int,
     val metricPass: MetricPass,
     val timeout: Duration,
-    val loggingConfiguration: Path,
+    val loggingConfiguration: VerifiedLoggingConfiguration,
   )
 
   fun interface ProcessLauncher {
@@ -1268,6 +1272,10 @@ Change Set 1 ships the harness, the versioned `lifecycle.no-script-one-step.v1` 
   - `nonzero exit timeout malformed output and empty output fail the run`
   - `stdout and stderr tails are bounded and unexpected output invalidates the sample`
   - `benchmark log configuration leaves target stdout and stderr empty`
+  - `wrong checksum executedSteps or failureCount invalidates cold and warm observations`
+  - `warmup digest failure exits before any measurement or result publication`
+  - `same-classpath manifest and quiet logging changes invalidate all observations`
+  - `recursive cleanup preserves the primary launch or timeout failure`
 
 - [ ] **Step 2: Run runner tests and verify failure.**
 
@@ -1281,19 +1289,24 @@ Change Set 1 ships the harness, the versioned `lifecycle.no-script-one-step.v1` 
 
 - [ ] **Step 3: Implement argument-list-only child JVM launching.**
 
-  `JavaCommand` holds executable, JVM args, classpath entries, main class, program args, timeout, and working directory as lists/paths—never a shell string. `JdkProcessLauncher` drains stdout/stderr concurrently, caps retained diagnostic tails at 64 KiB each, measures parent wall time with `System.nanoTime`, kills the process tree on timeout, and requires an atomically renamed result file.
+  `JavaCommand` holds executable, JVM args, classpath entries, main class, program args, timeout, and working directory as lists/paths—never a shell string. `JdkProcessLauncher` drains stdout/stderr concurrently, caps retained diagnostic tails at 64 KiB each, measures parent wall time with `System.nanoTime`, kills the process tree on timeout, and rejects stale or in-place writes with a guarded-inode replacement check. The trusted `TargetForkMain` publisher uses `BenchmarkJson.write`'s same-directory `ATOMIC_MOVE`; the guard is deliberately not presented as proof of the underlying filesystem event.
 
 - [ ] **Step 4: Implement TargetForkMain.**
 
-  It reads `TargetForkCommand`, reconstructs the preflight token and checks manifest hashes plus cheap artifact stamps without content hashing, opens `TargetRuntime`, prepares one workload, runs unrecorded warmups, then records every execution separately:
+  It reads `TargetForkCommand`, reconstructs the preflight token from one coherently parsed-and-hashed manifest byte snapshot, checks cheap artifact stamps without target-JAR content hashing, opens `TargetRuntime`, prepares one workload, validates every unrecorded warmup against `expectedDigest`, then records and validates every execution separately:
 
   ```kotlin
-  repeat(command.warmupIterations) { prepared.execute() }
+  val expected = requireNotNull(command.expectedDigest)
+  repeat(command.warmupIterations) { iteration ->
+    requireExpectedExecutionDigest(prepared.execute(), expected, "warmup[$iteration]")
+  }
   val samples =
     List(command.measurementIterations) { iteration ->
       var digest: ExecutionDigest? = null
       val nanos = measureNanoTime { digest = prepared.execute() }
-      TargetSample(iteration, nanos, requireNotNull(digest))
+      val validated =
+        requireExpectedExecutionDigest(requireNotNull(digest), expected, "measurement[$iteration]")
+      TargetSample(iteration, nanos, validated)
     }
   ```
 
@@ -1301,7 +1314,7 @@ Change Set 1 ships the harness, the versioned `lifecycle.no-script-one-step.v1` 
 
 - [ ] **Step 5: Implement cold and warm structure.**
 
-  The campaign/controller performs one full target preflight before scheduling. Each plan carries its canonical `targetManifestPath` and `loggingConfiguration`; the core runner validates those explicit files and never consults ambient benchmark target/logging properties. Cold launches one child with one measured execution per observation and uses parent process duration as the primary end-to-end latency. Warm launches one child per fork, uses target-reported per-execution samples after warmup, and records PID/fork/iteration. After all processes—even on failure—the controller runs postflight hashing in `finally`; an integrity mismatch invalidates all observations. A `CONTROLLED` cold plan requires `sampleCount >= 50`; every `WarmPlan` requires only `forksPerBlock > 0` because it models one block. Task 11 owns the aggregate controlled-warm minimum of five independent forks and the CS1 shape of five blocks times one fork per block. Smoke cold plans may use smaller counts but carry `RunIntent.SMOKE`.
+  The campaign/controller performs one full target preflight before scheduling. Manifest parsing and hashing use the same captured bytes in controller, worker, and postflight; postflight also rehashes the manifest source itself. Each plan carries its canonical `targetManifestPath` and a `VerifiedLoggingConfiguration` containing the canonical source plus its exact byte hash; the core runner never consults ambient benchmark target/logging properties. It materializes one private immutable logging snapshot for every fork, exposes the verified hash for Task 11 provider/result identity, and postflights both source and snapshot. Cold launches one child with one measured execution per observation and uses parent process duration as the primary end-to-end latency. Warm launches one child per fork, uses target-reported per-execution samples after warmup, and records PID/fork/iteration. The parent independently validates every returned digest before reducing it to a `MetricObservation`; no execution with `failureCount > 0` is accepted. Cold/warm macro plans reject a null oracle for every intent; nullable worker commands remain only for component/JMH preparation, which does not call macro `execute()`. After all processes—even on failure—the controller runs target/logging postflight hashing and recursive campaign cleanup with primary-failure preservation; an integrity mismatch invalidates all observations. A `CONTROLLED` cold plan requires `sampleCount >= 50`; every `WarmPlan` requires only `forksPerBlock > 0` because it models one block. Task 11 owns the aggregate controlled-warm minimum of five independent forks and the CS1 shape of five blocks times one fork per block. Smoke cold plans may use smaller counts but carry `RunIntent.SMOKE`.
 
 - [ ] **Step 6: Run fake and real-process integration tests.**
 

@@ -19,7 +19,6 @@ import com.salesforce.revoman.benchmark.driver.model.JmhLoggingConfiguration
 import com.salesforce.revoman.benchmark.driver.model.JmhRunConfiguration
 import com.salesforce.revoman.benchmark.driver.model.JmhWorkloadIdentity
 import com.salesforce.revoman.benchmark.driver.model.TargetIdentity
-import com.salesforce.revoman.benchmark.driver.model.TargetVerificationToken
 import com.salesforce.revoman.benchmark.driver.model.WorkloadManifest
 import com.salesforce.revoman.benchmark.driver.target.VerifiedTargetManifest
 import java.lang.management.ManagementFactory
@@ -61,7 +60,7 @@ fun main(args: Array<String>) {
     val verified = VerifiedTargetManifest.preflight(manifestPath)
     val normalizedResult = try {
         val tokenPath = rawResult.resolveSibling("${rawResult.fileName}.target-token.json")
-        writeReadOnlyToken(tokenPath, verified, manifestPath)
+        writeReadOnlyToken(tokenPath, verified)
         System.setProperty(TARGET_TOKEN_PROPERTY, tokenPath.toRealPath().toString())
         System.setProperty(TARGET_TOKEN_SHA256_PROPERTY, ContentHasher.sha256(tokenPath))
         System.setProperty(TARGET_MANIFEST_PROPERTY, manifestPath.toString())
@@ -263,7 +262,6 @@ private fun currentEnvironment(): EnvironmentIdentity {
 private fun writeReadOnlyToken(
     tokenPath: Path,
     verified: VerifiedTargetManifest,
-    manifestPath: Path,
 ) {
     Files.createDirectories(requireNotNull(tokenPath.parent))
     if (Files.exists(tokenPath)) {
@@ -272,12 +270,7 @@ private fun writeReadOnlyToken(
     }
     BenchmarkJson.write(
         tokenPath,
-        TargetVerificationToken(
-            targetManifest = manifestPath.toString(),
-            targetManifestSha256 = verified.manifestSha256,
-            targetClasspathSha256 = verified.classpathSha256,
-            artifactStamps = verified.artifactStamps,
-        ),
+        verified.verificationToken(),
     )
     check(tokenPath.toFile().setReadOnly()) { "Cannot make JMH target token read-only: $tokenPath" }
 }

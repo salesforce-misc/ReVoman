@@ -23,6 +23,7 @@ import com.salesforce.revoman.benchmark.driver.model.WorkloadManifest
 import com.salesforce.revoman.benchmark.driver.model.WorkloadRequest
 import com.salesforce.revoman.benchmark.driver.run.ColdPlan
 import com.salesforce.revoman.benchmark.driver.run.ColdRunner
+import com.salesforce.revoman.benchmark.driver.run.VerifiedLoggingConfiguration
 import com.salesforce.revoman.benchmark.driver.run.WarmPlan
 import com.salesforce.revoman.benchmark.driver.run.WarmRunner
 import com.salesforce.revoman.benchmark.driver.target.VerifiedTargetManifest
@@ -56,6 +57,7 @@ class RunnerIntegrationTest {
                         targetManifestPath = targetSource.manifestPath,
                         adapterId = integrationAdapter(),
                         workload = lifecycleRequest(fixtureRoot, fixture.baseUrl),
+                        expectedDigest = requireNotNull(workloadManifest.expectedDigest),
                         sampleCount = 3,
                         metricPass = MetricPass.LATENCY,
                         timeout = Duration.ofSeconds(30),
@@ -76,6 +78,7 @@ class RunnerIntegrationTest {
                         targetManifestPath = targetSource.manifestPath,
                         adapterId = integrationAdapter(),
                         workload = lifecycleRequest(fixtureRoot, fixture.baseUrl),
+                        expectedDigest = requireNotNull(workloadManifest.expectedDigest),
                         forksPerBlock = 2,
                         warmupIterations = 2,
                         measurementIterations = 3,
@@ -95,6 +98,40 @@ class RunnerIntegrationTest {
     }
 
     @Test
+    fun `target fork rejects a failing warmup before measuring or publishing a result`() {
+        val target = integrationTarget()
+        val fixtureRoot = materializeLifecycleFixture(temporaryDirectory.resolve("warmup-fixture"))
+        val workloadManifest = BenchmarkJson.read<WorkloadManifest>(fixtureRoot.resolve("manifest.json"))
+        val wrongOracle = requireNotNull(workloadManifest.expectedDigest).copy(checksum = 999)
+
+        DeterministicHttpFixture.open(workloadManifest).use { fixture ->
+            fixture.resetExecution("warmup-failure")
+
+            val failure = assertThrows<IllegalStateException> {
+                WarmRunner(JdkProcessLauncher()).run(
+                    WarmPlan(
+                        intent = RunIntent.SMOKE,
+                        target = target.target,
+                        targetManifestPath = target.manifestPath,
+                        adapterId = integrationAdapter(),
+                        workload = lifecycleRequest(fixtureRoot, fixture.baseUrl),
+                        expectedDigest = wrongOracle,
+                        forksPerBlock = 1,
+                        warmupIterations = 1,
+                        measurementIterations = 1,
+                        metricPass = MetricPass.LATENCY,
+                        timeout = Duration.ofSeconds(30),
+                        loggingConfiguration = benchmarkLoggingConfiguration(),
+                    )
+                )
+            }
+
+            assertThat(failure).hasMessageThat().contains("exit code 1")
+            fixture.requestCount("warmup-failure") shouldEqual 1
+        }
+    }
+
+    @Test
     fun `launcher concurrently drains and retains only 64 KiB output tails`() {
         val command = launcherFixtureCommand("output", Duration.ofSeconds(10))
 
@@ -107,12 +144,12 @@ class RunnerIntegrationTest {
     }
 
     @Test
-    fun `launcher rejects an in-place result write instead of an atomic replacement`() {
+    fun `launcher rejects an in-place result write instead of guarded replacement`() {
         val command = launcherFixtureCommand("in-place", Duration.ofSeconds(10))
 
         val failure = assertThrows<IllegalStateException> { JdkProcessLauncher().launch(command) }
 
-        assertThat(failure).hasMessageThat().contains("atomic")
+        assertThat(failure).hasMessageThat().contains("guarded result")
     }
 
     @Test
@@ -120,8 +157,8 @@ class RunnerIntegrationTest {
         listOf(
                 "nonzero" to "exit code 17",
                 "malformed" to "malformed result",
-                "empty" to "empty or missing atomic result",
-                "missing" to "empty or missing atomic result",
+                "empty" to "empty or missing result",
+                "missing" to "empty or missing result",
             )
             .forEach { (mode, expectedMessage) ->
                 val failure = assertThrows<IllegalStateException> {
@@ -182,6 +219,7 @@ class RunnerIntegrationTest {
                         baseUrl = "http://127.0.0.1:1",
                         parameters = additionalParameters + ("mode" to mode),
                     ),
+                expectedDigest = null,
                 warmupIterations = 0,
                 measurementIterations = 1,
                 resultFile = resultPath.toString(),
@@ -296,7 +334,7 @@ internal fun integrationAdapter(): String =
         "revoman.benchmark.adapter is required"
     }
 
-internal fun benchmarkLoggingConfiguration(): Path {
+internal fun benchmarkLoggingConfigurationPath(): Path {
     val workingDirectory = Path.of(System.getProperty("user.dir")).toRealPath()
     return listOf(
             workingDirectory.resolve("benchmark-driver/src/main/dist/conf/log4j2-benchmark.xml"),
@@ -305,6 +343,9 @@ internal fun benchmarkLoggingConfiguration(): Path {
         .first(Files::isRegularFile)
         .toRealPath()
 }
+
+internal fun benchmarkLoggingConfiguration(): VerifiedLoggingConfiguration =
+    VerifiedLoggingConfiguration.preflight(benchmarkLoggingConfigurationPath())
 
 internal fun materializeLifecycleFixture(destination: Path): Path {
     Files.createDirectories(destination)

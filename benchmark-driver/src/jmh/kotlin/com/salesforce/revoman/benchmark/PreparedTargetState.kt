@@ -61,6 +61,7 @@ internal class PreparedTargetState : AutoCloseable {
                 mode = RunMode.WARM,
                 metricPass = MetricPass.LATENCY,
                 workload = request,
+                expectedDigest = null,
                 warmupIterations = 0,
                 measurementIterations = 1,
                 resultFile = tokenPath.resolveSibling("unused-target-result.json").toString(),

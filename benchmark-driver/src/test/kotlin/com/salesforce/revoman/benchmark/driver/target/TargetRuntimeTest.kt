@@ -10,6 +10,7 @@ package com.salesforce.revoman.benchmark.driver.target
 import com.google.common.truth.Truth.assertThat
 import com.salesforce.revoman.benchmark.driver.model.MetricPass
 import com.salesforce.revoman.benchmark.driver.model.RunMode
+import com.salesforce.revoman.benchmark.driver.model.TargetManifest
 import com.salesforce.revoman.benchmark.driver.model.TargetForkCommand
 import com.salesforce.revoman.benchmark.driver.model.TargetVerificationToken
 import com.salesforce.revoman.benchmark.driver.model.WorkloadRequest
@@ -133,6 +134,84 @@ class TargetRuntimeTest {
     }
 
     @Test
+    fun `worker reconstruction requires artifact stamp IDs in manifest order`() {
+        val builder = FakeTargetJarBuilder(temporaryDirectory)
+        val manifest = builder.manifestFor(builder.runtimeJar())
+        val verified = VerifiedTargetManifest.preflight(manifest)
+        val command = commandFor(manifest, verified)
+        val stamp = command.verification.artifactStamps.single()
+
+        val substituted = assertThrows<IllegalArgumentException> {
+            VerifiedTargetManifest.fromWorkerCommand(
+                command.copy(
+                    verification =
+                        command.verification.copy(
+                            artifactStamps = listOf(stamp.copy(logicalId = "substituted.jar"))
+                        )
+                )
+            )
+        }
+        val duplicated = assertThrows<IllegalArgumentException> {
+            VerifiedTargetManifest.fromWorkerCommand(
+                command.copy(
+                    verification = command.verification.copy(artifactStamps = listOf(stamp, stamp))
+                )
+            )
+        }
+
+        assertThat(substituted).hasMessageThat().contains("artifact stamp IDs/order")
+        assertThat(duplicated).hasMessageThat().contains("artifact stamp IDs/order")
+    }
+
+    @Test
+    fun `preflight compares the expected target with its one verified manifest snapshot`() {
+        val builder = FakeTargetJarBuilder(temporaryDirectory)
+        val manifestPath = builder.manifestFor(builder.runtimeJar())
+        val expected = com.salesforce.revoman.benchmark.driver.json.BenchmarkJson.read<TargetManifest>(manifestPath)
+        com.salesforce.revoman.benchmark.driver.json.BenchmarkJson.write(
+            manifestPath,
+            expected.copy(targetId = "same-classpath-replacement"),
+        )
+
+        val failure = assertThrows<IllegalArgumentException> {
+            VerifiedTargetManifest.preflight(manifestPath, expected)
+        }
+
+        assertThat(failure).hasMessageThat().contains("expected target")
+    }
+
+    @Test
+    fun `postflight rejects a same-classpath manifest replacement`() {
+        val builder = FakeTargetJarBuilder(temporaryDirectory)
+        val manifestPath = builder.manifestFor(builder.runtimeJar())
+        val verified = VerifiedTargetManifest.preflight(manifestPath)
+        val replacement = verified.manifest.copy(targetId = "same-classpath-replacement")
+        com.salesforce.revoman.benchmark.driver.json.BenchmarkJson.write(manifestPath, replacement)
+
+        val failure = assertThrows<IllegalStateException> { verified.postflight() }
+
+        assertThat(failure).hasMessageThat().contains("manifest SHA-256 changed")
+    }
+
+    @Test
+    fun `worker rejects a same-classpath manifest replacement after controller preflight`() {
+        val builder = FakeTargetJarBuilder(temporaryDirectory)
+        val manifestPath = builder.manifestFor(builder.runtimeJar())
+        val verified = VerifiedTargetManifest.preflight(manifestPath)
+        val command = commandFor(manifestPath, verified)
+        com.salesforce.revoman.benchmark.driver.json.BenchmarkJson.write(
+            manifestPath,
+            verified.manifest.copy(targetId = "same-classpath-replacement"),
+        )
+
+        val failure = assertThrows<IllegalArgumentException> {
+            VerifiedTargetManifest.fromWorkerCommand(command)
+        }
+
+        assertThat(failure).hasMessageThat().contains("manifest SHA-256")
+    }
+
+    @Test
     fun `postflight byte change invalidates the whole campaign`() {
         val builder = FakeTargetJarBuilder(temporaryDirectory)
         val jar = builder.runtimeJar()
@@ -167,6 +246,7 @@ class TargetRuntimeTest {
                     fixtureRoot = temporaryDirectory.toString(),
                     baseUrl = "http://127.0.0.1:1",
                 ),
+            expectedDigest = null,
             warmupIterations = 0,
             measurementIterations = 1,
             resultFile = temporaryDirectory.resolve("result.json").toString(),

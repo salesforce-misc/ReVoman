@@ -62,6 +62,7 @@ data class TargetForkCommand(
     val mode: RunMode,
     val metricPass: MetricPass,
     val workload: WorkloadRequest,
+    val expectedDigest: ExecutionDigest?,
     val warmupIterations: Int,
     val measurementIterations: Int,
     val resultFile: String,
@@ -92,3 +93,26 @@ data class TargetForkResult(
     val measurementIterations: Int,
     val samples: List<TargetSample>,
 )
+
+/** Rejects any failed or oracle-divergent execution before its timing can become evidence. */
+internal fun requireExpectedExecutionDigest(
+    actual: ExecutionDigest,
+    expected: ExecutionDigest,
+    location: String,
+): ExecutionDigest =
+    actual.apply {
+        check(failureCount == 0) {
+            "$location digest failureCount must be zero, actual=$failureCount"
+        }
+        check(checksum == expected.checksum) {
+            "$location digest checksum mismatch: expected=${expected.checksum}, actual=$checksum"
+        }
+        check(executedSteps == expected.executedSteps) {
+            "$location digest executedSteps mismatch: " +
+                "expected=${expected.executedSteps}, actual=$executedSteps"
+        }
+        check(failureCount == expected.failureCount) {
+            "$location digest failureCount mismatch: " +
+                "expected=${expected.failureCount}, actual=$failureCount"
+        }
+    }
