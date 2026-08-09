@@ -190,6 +190,76 @@ class RunnerIntegrationTest {
     }
 
     @Test
+    fun `post-root drain failure terminates a tracked descendant before cleanup finalizers`() {
+        val terminationFailure = DeliberateCleanupFailure("process tree termination failed")
+        val shutdownFailure = DeliberateCleanupFailure("drain shutdown failed")
+        val guardFailure = DeliberateCleanupFailure("guard delete failed")
+        val cleanup =
+            InjectedLauncherCleanup(
+                terminationFailure = terminationFailure,
+                shutdownFailure = shutdownFailure,
+                guardFailure = guardFailure,
+            )
+        val childPidFile = temporaryDirectory.resolve("post-root-pipes-descendant.pid")
+        var childPid: Long? = null
+        try {
+            val failure = assertThrows<IllegalStateException> {
+                JdkProcessLauncher(cleanup)
+                    .launch(
+                        launcherFixtureCommand(
+                            mode = "orphan-pipes",
+                            timeout = Duration.ofSeconds(10),
+                            additionalParameters = mapOf("childPidFile" to childPidFile.toString()),
+                        )
+                    )
+            }
+
+            childPid = Files.readString(childPidFile).toLong()
+            assertThat(failure).hasMessageThat().contains("Could not drain child process output")
+            assertThat(failure.suppressed)
+                .asList()
+                .containsExactly(terminationFailure, shutdownFailure, guardFailure)
+                .inOrder()
+            assertThat(cleanup.calls).containsExactly("termination", "shutdown", "guard").inOrder()
+            assertThat(cleanup.terminationCalls).isEqualTo(1)
+            assertThat(processIsAlive(childPid)).isFalse()
+        } finally {
+            childPid?.let(::forceStopFixtureProcess)
+        }
+    }
+
+    @Test
+    fun `post-root nonzero and malformed failures terminate tracked descendants`() {
+        listOf(
+                "orphan-nonzero" to "exit code 17",
+                "orphan-malformed" to "malformed result",
+            )
+            .forEach { (mode, expectedMessage) ->
+                val childPidFile = temporaryDirectory.resolve("$mode-descendant.pid")
+                var childPid: Long? = null
+                try {
+                    val failure = assertThrows<IllegalStateException> {
+                        JdkProcessLauncher()
+                            .launch(
+                                launcherFixtureCommand(
+                                    mode = mode,
+                                    timeout = Duration.ofSeconds(10),
+                                    additionalParameters =
+                                        mapOf("childPidFile" to childPidFile.toString()),
+                                )
+                            )
+                    }
+
+                    childPid = Files.readString(childPidFile).toLong()
+                    assertThat(failure).hasMessageThat().contains(expectedMessage)
+                    assertThat(processIsAlive(childPid)).isFalse()
+                } finally {
+                    childPid?.let(::forceStopFixtureProcess)
+                }
+            }
+    }
+
+    @Test
     fun `body failure remains primary when drain shutdown and guard cleanup fail`() {
         val shutdownFailure = DeliberateCleanupFailure("drain shutdown failed")
         val guardFailure = DeliberateCleanupFailure("guard delete failed")
@@ -206,6 +276,46 @@ class RunnerIntegrationTest {
 
         assertThat(failure).hasMessageThat().contains("exit code 17")
         assertThat(failure.suppressed).asList().containsExactly(shutdownFailure, guardFailure).inOrder()
+    }
+
+    @Test
+    fun `drain interruption restores caller status only after ordered cleanup`() {
+        val interruption = InterruptedException("drain wait interrupted")
+        val terminationFailure = DeliberateCleanupFailure("process tree termination failed")
+        val shutdownFailure = DeliberateCleanupFailure("drain shutdown failed")
+        val guardFailure = DeliberateCleanupFailure("guard delete failed")
+        val cleanup =
+            InjectedLauncherCleanup(
+                terminationFailure = terminationFailure,
+                shutdownFailure = shutdownFailure,
+                guardFailure = guardFailure,
+            )
+        val interruptedAwaiter =
+            OutputDrainAwaiter {
+                Thread.currentThread().interrupt()
+                check(Thread.interrupted())
+                throw interruption
+            }
+
+        try {
+            val failure = assertThrows<IllegalStateException> {
+                JdkProcessLauncher(cleanup, interruptedAwaiter)
+                    .launch(launcherFixtureCommand("valid", Duration.ofSeconds(10)))
+            }
+
+            assertThat(failure).hasMessageThat().contains("Could not drain child process output")
+            assertThat(failure).hasCauseThat().isSameInstanceAs(interruption)
+            assertThat(failure.suppressed)
+                .asList()
+                .containsExactly(terminationFailure, shutdownFailure, guardFailure)
+                .inOrder()
+            assertThat(cleanup.calls).containsExactly("termination", "shutdown", "guard").inOrder()
+            assertThat(cleanup.terminationCalls).isEqualTo(1)
+            assertThat(cleanup.interruptedDuringCleanup).containsExactly(false, false, false).inOrder()
+            assertThat(Thread.currentThread().isInterrupted).isTrue()
+        } finally {
+            Thread.interrupted()
+        }
     }
 
     @Test
@@ -241,6 +351,8 @@ class RunnerIntegrationTest {
             .containsExactly(terminationFailure, shutdownFailure, guardFailure)
             .inOrder()
         assertThat(terminationFailure.suppressed).asList().containsExactly(nestedTerminationFailure)
+        assertThat(cleanup.calls).containsExactly("termination", "shutdown", "guard").inOrder()
+        assertThat(cleanup.terminationCalls).isEqualTo(1)
         val childPid = Files.readString(childPidFile).toLong()
         assertThat(ProcessHandle.of(childPid).map(ProcessHandle::isAlive).orElse(false)).isFalse()
     }
@@ -262,6 +374,46 @@ class RunnerIntegrationTest {
 
         assertThat(failure).isSameInstanceAs(shutdownFailure)
         assertThat(failure.suppressed).asList().containsExactly(guardFailure)
+    }
+
+    @Test
+    fun `launcher excludes bounded task shutdown from elapsed time and leaves no tracker thread`() {
+        val shutdownDelay = Duration.ofMillis(300)
+        val cleanup = InjectedLauncherCleanup(shutdownDelay = shutdownDelay)
+        val startedAt = System.nanoTime()
+
+        val observation =
+            JdkProcessLauncher(cleanup)
+                .launch(launcherFixtureCommand("valid", Duration.ofSeconds(10)))
+        val wallNanos = System.nanoTime() - startedAt
+
+        assertThat(wallNanos - observation.elapsedNanos).isAtLeast(shutdownDelay.toNanos())
+        assertThat(
+                Thread.getAllStackTraces()
+                    .keys
+                    .filter { thread -> thread.isAlive && thread.name.startsWith(LAUNCHER_THREAD_PREFIX) }
+            )
+            .isEmpty()
+    }
+
+    @Test
+    fun `unexpected tracker failure invalidates evidence and triggers ordered cleanup`() {
+        val trackingFailure = DeliberateCleanupFailure("descendant tracking failed")
+        val cleanup = InjectedLauncherCleanup()
+        val trackerFactory =
+            ProcessTreeTrackerFactory {
+                FailingProcessTreeTracking(trackingFailure)
+            }
+
+        val failure = assertThrows<IllegalStateException> {
+            JdkProcessLauncher(cleanup, trackerFactory)
+                .launch(launcherFixtureCommand("valid", Duration.ofSeconds(10)))
+        }
+
+        assertThat(failure).hasMessageThat().contains("Could not track target process descendants")
+        assertThat(failure).hasCauseThat().isSameInstanceAs(trackingFailure)
+        assertThat(cleanup.calls).containsExactly("termination", "shutdown", "guard").inOrder()
+        assertThat(cleanup.terminationCalls).isEqualTo(1)
     }
 
     private fun launcherFixtureCommand(
@@ -345,6 +497,15 @@ class ProcessLauncherFixtureMain {
                     )
                     Thread.sleep(Duration.ofMinutes(5))
                 }
+                "orphan-pipes" -> spawnLongLivedDescendant(command, inheritPipes = true)
+                "orphan-nonzero" -> {
+                    spawnLongLivedDescendant(command, inheritPipes = false)
+                    exitProcess(17)
+                }
+                "orphan-malformed" -> {
+                    spawnLongLivedDescendant(command, inheritPipes = false)
+                    writeRawAtomically(Path.of(command.resultFile), "{malformed".toByteArray())
+                }
                 else -> error("Unknown launcher fixture mode")
             }
         }
@@ -363,6 +524,28 @@ class SleepingDescendantMain {
 
 private fun writeFixtureResult(command: TargetForkCommand) {
     BenchmarkJson.write(Path.of(command.resultFile), fixtureResult(command))
+}
+
+private fun spawnLongLivedDescendant(command: TargetForkCommand, inheritPipes: Boolean) {
+    val builder =
+        ProcessBuilder(
+            javaExecutable().toString(),
+            "-cp",
+            System.getProperty("java.class.path"),
+            SleepingDescendantMain::class.java.name,
+        )
+    if (inheritPipes) {
+        builder.inheritIO()
+    } else {
+        builder.redirectOutput(ProcessBuilder.Redirect.DISCARD)
+        builder.redirectError(ProcessBuilder.Redirect.DISCARD)
+    }
+    val descendant = builder.start()
+    Files.writeString(
+        Path.of(command.workload.parameters.getValue("childPidFile")),
+        descendant.pid().toString(),
+    )
+    Thread.sleep(Duration.ofMillis(500))
 }
 
 private fun writeFixtureResultInPlace(command: TargetForkCommand) {
@@ -462,24 +645,63 @@ private infix fun Int.shouldEqual(expected: Int) {
     assertThat(this).isEqualTo(expected)
 }
 
+private fun processIsAlive(processId: Long): Boolean =
+    ProcessHandle.of(processId).map(ProcessHandle::isAlive).orElse(false)
+
+private fun forceStopFixtureProcess(processId: Long) {
+    ProcessHandle.of(processId).ifPresent(ProcessHandle::destroyForcibly)
+    repeat(100) {
+        if (!processIsAlive(processId)) return
+        Thread.sleep(20)
+    }
+}
+
 private class DeliberateCleanupFailure(message: String) : RuntimeException(message)
+
+private class FailingProcessTreeTracking(private val failure: Throwable) : ProcessTreeTracking {
+    override fun run() = Unit
+
+    override fun stopSampling() = Unit
+
+    override fun failureOrNull(): Throwable = failure
+
+    override fun snapshot(): ProcessTreeSnapshot = ProcessTreeSnapshot(emptyList())
+}
 
 private class InjectedLauncherCleanup(
     private val terminationFailure: Throwable? = null,
     private val shutdownFailure: Throwable? = null,
     private val guardFailure: Throwable? = null,
+    private val shutdownDelay: Duration = Duration.ZERO,
 ) : LauncherCleanup {
-    override fun terminateProcessTree(process: Process) {
-        DefaultLauncherCleanup.terminateProcessTree(process)
+    val calls = mutableListOf<String>()
+    val interruptedDuringCleanup = mutableListOf<Boolean>()
+    var terminationCalls = 0
+        private set
+
+    override fun terminateProcessTree(
+        process: Process,
+        retainedDescendants: () -> List<ProcessHandle>,
+        freezeTracking: () -> Unit,
+    ) {
+        calls += "termination"
+        interruptedDuringCleanup += Thread.currentThread().isInterrupted
+        terminationCalls += 1
+        DefaultLauncherCleanup.terminateProcessTree(process, retainedDescendants, freezeTracking)
         terminationFailure?.let { throw it }
     }
 
     override fun shutdownOutputDrains(executor: ExecutorService) {
+        calls += "shutdown"
+        interruptedDuringCleanup += Thread.currentThread().isInterrupted
+        if (!shutdownDelay.isZero) Thread.sleep(shutdownDelay)
         DefaultLauncherCleanup.shutdownOutputDrains(executor)
         shutdownFailure?.let { throw it }
     }
 
     override fun deleteGuard(path: Path) {
+        calls += "guard"
+        interruptedDuringCleanup += Thread.currentThread().isInterrupted
         DefaultLauncherCleanup.deleteGuard(path)
         guardFailure?.let { throw it }
     }

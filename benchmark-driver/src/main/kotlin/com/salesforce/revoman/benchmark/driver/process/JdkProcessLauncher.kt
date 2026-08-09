@@ -15,12 +15,19 @@ import java.nio.charset.StandardCharsets.UTF_8
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Duration
+import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.Callable
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.Future
+import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.locks.LockSupport
 import kotlin.io.path.isRegularFile
 
 /**
@@ -28,8 +35,23 @@ import kotlin.io.path.isRegularFile
  *
  * The trusted target worker separately publishes with a same-directory atomic move.
  */
-class JdkProcessLauncher internal constructor(private val cleanup: LauncherCleanup) : ProcessLauncher {
-    constructor() : this(DefaultLauncherCleanup)
+class JdkProcessLauncher
+internal constructor(
+    private val cleanup: LauncherCleanup,
+    private val drainAwaiter: OutputDrainAwaiter,
+    private val trackerFactory: ProcessTreeTrackerFactory,
+) : ProcessLauncher {
+    internal constructor(cleanup: LauncherCleanup) :
+        this(cleanup, DefaultOutputDrainAwaiter, DefaultProcessTreeTrackerFactory)
+
+    internal constructor(cleanup: LauncherCleanup, drainAwaiter: OutputDrainAwaiter) :
+        this(cleanup, drainAwaiter, DefaultProcessTreeTrackerFactory)
+
+    internal constructor(cleanup: LauncherCleanup, trackerFactory: ProcessTreeTrackerFactory) :
+        this(cleanup, DefaultOutputDrainAwaiter, trackerFactory)
+
+    constructor() :
+        this(DefaultLauncherCleanup, DefaultOutputDrainAwaiter, DefaultProcessTreeTrackerFactory)
 
     override fun launch(command: JavaCommand): ProcessObservation {
         validate(command)
@@ -47,8 +69,19 @@ class JdkProcessLauncher internal constructor(private val cleanup: LauncherClean
         val failures = FailureAccumulator()
         var process: Process? = null
         var drains: ExecutorService? = null
+        var processTree: ProcessTreeTracking? = null
+        var trackerTask: Future<*>? = null
+        var terminateProcessTree: (() -> Unit)? = null
+        var trackingFrozen = false
         var observation: ProcessObservation? = null
         var terminationAttempted = false
+        val freezeProcessTree = {
+            if (!trackingFrozen) {
+                processTree?.stopSampling()
+                trackerTask?.get(LAUNCHER_TASK_SHUTDOWN_SECONDS, TimeUnit.SECONDS)
+                trackingFrozen = true
+            }
+        }
         try {
             Files.write(atomicGuard, guardBytes)
             Files.createLink(resultFile, atomicGuard)
@@ -61,16 +94,35 @@ class JdkProcessLauncher internal constructor(private val cleanup: LauncherClean
                     add(command.mainClass)
                     addAll(command.programArgs)
                 }
+            drains = launcherTaskExecutor()
             val startedAt = System.nanoTime()
             process =
                 ProcessBuilder(arguments)
                     .directory(command.workingDirectory.toFile())
                     .start()
             val launchedProcess = process
+            val terminate = {
+                terminationAttempted = true
+                try {
+                    cleanup.terminateProcessTree(
+                        process = launchedProcess,
+                        retainedDescendants = {
+                            processTree?.snapshot()?.descendants.orEmpty()
+                        },
+                        freezeTracking = freezeProcessTree,
+                    )
+                } finally {
+                    processTree?.stopSampling()
+                }
+            }
+            terminateProcessTree = terminate
             val processId = launchedProcess.pid()
-            drains = Executors.newFixedThreadPool(2, Thread.ofPlatform().daemon().factory())
-            val stdout = drains.submit(TailDrain(launchedProcess.inputStream))
-            val stderr = drains.submit(TailDrain(launchedProcess.errorStream))
+            val executor = requireNotNull(drains)
+            val trackedTree = trackerFactory.create(launchedProcess.toHandle())
+            processTree = trackedTree
+            trackerTask = executor.submit(trackedTree)
+            val stdout = executor.submit(TailDrain(launchedProcess.inputStream))
+            val stderr = executor.submit(TailDrain(launchedProcess.errorStream))
             observation =
                 observeProcess(
                     process = launchedProcess,
@@ -82,19 +134,27 @@ class JdkProcessLauncher internal constructor(private val cleanup: LauncherClean
                     resultFile = resultFile,
                     atomicGuard = atomicGuard,
                     guardBytes = guardBytes,
-                    terminate = {
-                        terminationAttempted = true
-                        cleanup.terminateProcessTree(launchedProcess)
-                    },
+                    stopTracking = trackedTree::stopSampling,
+                    terminate = terminate,
                 )
         } catch (failure: Throwable) {
             failures.add(failure)
         } finally {
-            process?.let { launchedProcess ->
-                val alive = runCatching(launchedProcess::isAlive)
-                alive.exceptionOrNull()?.let(failures::add)
-                if (!terminationAttempted && alive.getOrDefault(true)) {
-                    failures.attempt { cleanup.terminateProcessTree(launchedProcess) }
+            val bodyFailed = observation == null
+            if (bodyFailed && !terminationAttempted && process != null) {
+                failures.attempt {
+                    requireNotNull(terminateProcessTree) { "Target process has no termination action" }
+                        .invoke()
+                }
+            }
+            failures.attempt(freezeProcessTree)
+            processTree?.failureOrNull()?.let { failure ->
+                failures.add(IllegalStateException("Could not track target process descendants", failure))
+            }
+            if (!bodyFailed && !terminationAttempted && process != null && failures.hasFailure()) {
+                failures.attempt {
+                    requireNotNull(terminateProcessTree) { "Target process has no termination action" }
+                        .invoke()
                 }
             }
             drains?.let { executor ->
@@ -116,6 +176,7 @@ class JdkProcessLauncher internal constructor(private val cleanup: LauncherClean
         resultFile: Path,
         atomicGuard: Path,
         guardBytes: ByteArray,
+        stopTracking: () -> Unit,
         terminate: () -> Unit,
     ): ProcessObservation {
         val finished =
@@ -123,9 +184,11 @@ class JdkProcessLauncher internal constructor(private val cleanup: LauncherClean
                 waitFor(process, timeout)
             } catch (failure: InterruptedException) {
                 val interrupted =
-                    IllegalStateException("Interrupted while waiting for target process $processId", failure)
+                    InterruptedLauncherFailure(
+                        "Interrupted while waiting for target process $processId",
+                        failure,
+                    )
                 attachCleanupFailure(interrupted, terminate)
-                Thread.currentThread().interrupt()
                 throw interrupted
             }
         if (!finished) {
@@ -135,6 +198,7 @@ class JdkProcessLauncher internal constructor(private val cleanup: LauncherClean
             throw timeoutFailure
         }
         val elapsedNanos = System.nanoTime() - startedAt
+        stopTracking()
         val stdoutTail = finishDrain(stdout, process.inputStream)
         val stderrTail = finishDrain(stderr, process.errorStream)
         val exitCode = process.exitValue()
@@ -219,9 +283,14 @@ class JdkProcessLauncher internal constructor(private val cleanup: LauncherClean
 
     private fun finishDrain(future: Future<String>, stream: InputStream): String =
         try {
-            future.get(5, TimeUnit.SECONDS)
+            drainAwaiter.await(future)
         } catch (failure: Throwable) {
-            val drainFailure = IllegalStateException("Could not drain child process output", failure)
+            val drainFailure =
+                if (failure is InterruptedException) {
+                    InterruptedLauncherFailure("Could not drain child process output", failure)
+                } else {
+                    IllegalStateException("Could not drain child process output", failure)
+                }
             attachCleanupFailure(drainFailure, stream::close)
             attachCleanupFailure(drainFailure) { future.cancel(true) }
             throw drainFailure
@@ -229,10 +298,37 @@ class JdkProcessLauncher internal constructor(private val cleanup: LauncherClean
 
     private fun diagnostics(stdout: String, stderr: String): String =
         "stdoutTail=${stdout.ifEmpty { "<empty>" }}, stderrTail=${stderr.ifEmpty { "<empty>" }}"
+
+    private fun launcherTaskExecutor(): ExecutorService =
+        (Executors.newFixedThreadPool(
+                LAUNCHER_TASK_COUNT,
+                Thread.ofPlatform().daemon().name(LAUNCHER_THREAD_PREFIX, 0).factory(),
+            ) as ThreadPoolExecutor)
+            .also(ThreadPoolExecutor::prestartAllCoreThreads)
+}
+
+internal fun interface OutputDrainAwaiter {
+    fun await(future: Future<String>): String
+}
+
+private object DefaultOutputDrainAwaiter : OutputDrainAwaiter {
+    override fun await(future: Future<String>): String = future.get(5, TimeUnit.SECONDS)
+}
+
+internal fun interface ProcessTreeTrackerFactory {
+    fun create(root: ProcessHandle): ProcessTreeTracking
+}
+
+private object DefaultProcessTreeTrackerFactory : ProcessTreeTrackerFactory {
+    override fun create(root: ProcessHandle): ProcessTreeTracking = ProcessTreeTracker(root)
 }
 
 internal interface LauncherCleanup {
-    fun terminateProcessTree(process: Process)
+    fun terminateProcessTree(
+        process: Process,
+        retainedDescendants: () -> List<ProcessHandle> = { emptyList() },
+        freezeTracking: () -> Unit = {},
+    )
 
     fun shutdownOutputDrains(executor: ExecutorService)
 
@@ -240,38 +336,89 @@ internal interface LauncherCleanup {
 }
 
 internal object DefaultLauncherCleanup : LauncherCleanup {
-    override fun terminateProcessTree(process: Process) {
+    override fun terminateProcessTree(
+        process: Process,
+        retainedDescendants: () -> List<ProcessHandle>,
+        freezeTracking: () -> Unit,
+    ) {
         val failures = FailureAccumulator()
-        var interrupted = false
-        fun attempt(action: () -> Unit) {
-            try {
-                action()
-            } catch (failure: Throwable) {
-                if (failure is InterruptedException) interrupted = true
-                failures.add(failure)
+        fun attempt(action: () -> Unit) = failures.attempt(action)
+
+        var root: ProcessHandle? = null
+        attempt { root = process.toHandle() }
+        fun knownDescendants(): List<ProcessHandle> {
+            var retained = emptyList<ProcessHandle>()
+            attempt { retained = retainedDescendants() }
+            var current = emptyList<ProcessHandle>()
+            root?.let { rootHandle ->
+                attempt { current = rootHandle.descendants().use { it.toList() } }
             }
+            return (retained + current).distinct()
         }
 
-        val root = process.toHandle()
-        var descendants = emptyList<ProcessHandle>()
-        attempt { descendants = root.descendants().use { it.toList() } }
+        var descendants = knownDescendants()
+        fun awaitDescendants(timeout: Long, unit: TimeUnit) {
+            val deadline = System.nanoTime() + unit.toNanos(timeout)
+            descendants.forEach { descendant ->
+                var alive = false
+                attempt { alive = descendant.isAlive }
+                if (!alive) return@forEach
+                val remaining = deadline - System.nanoTime()
+                if (remaining <= 0) return
+                try {
+                    descendant.onExit().get(remaining, TimeUnit.NANOSECONDS)
+                } catch (_: TimeoutException) {
+                    return
+                } catch (failure: Throwable) {
+                    failures.add(failure, interrupted = failure is InterruptedException)
+                }
+            }
+        }
         descendants.asReversed().forEach { descendant -> attempt { descendant.destroy() } }
-        attempt { root.destroy() }
+        root?.let { rootHandle -> attempt { rootHandle.destroy() } }
+            ?: attempt(process::destroy)
         attempt { process.waitFor(1, TimeUnit.SECONDS) }
+        awaitDescendants(1, TimeUnit.SECONDS)
+        root?.let { rootHandle -> attempt { rootHandle.destroyForcibly() } }
+            ?: attempt { process.destroyForcibly() }
+        var rootStopped = false
+        attempt { rootStopped = process.waitFor(5, TimeUnit.SECONDS) }
+        root?.let { rootHandle -> attempt { rootStopped = rootStopped || !rootHandle.isAlive } }
+            ?: attempt { rootStopped = rootStopped || !process.isAlive }
+        if (!rootStopped) {
+            failures.add(IllegalStateException("Root process remained alive after forcible termination"))
+        } else {
+            attempt(freezeTracking)
+        }
+        descendants = (descendants + knownDescendants()).distinct()
         descendants.asReversed().forEach { descendant -> attempt { descendant.destroyForcibly() } }
-        attempt { root.destroyForcibly() }
-        attempt { process.waitFor(5, TimeUnit.SECONDS) }
-        (descendants + root).forEach { handle ->
+        awaitDescendants(5, TimeUnit.SECONDS)
+        if (!rootStopped) {
+            attempt(freezeTracking)
+            descendants = (descendants + knownDescendants()).distinct()
+            descendants.asReversed().forEach { descendant -> attempt { descendant.destroyForcibly() } }
+            awaitDescendants(5, TimeUnit.SECONDS)
+        }
+        descendants.forEach { handle ->
             attempt {
                 check(!handle.isAlive) { "Could not terminate process ${handle.pid()}" }
             }
         }
-        if (interrupted) Thread.currentThread().interrupt()
+        root?.let { rootHandle ->
+            attempt {
+                check(!rootHandle.isAlive) { "Could not terminate process ${rootHandle.pid()}" }
+            }
+        } ?: attempt {
+            check(!process.isAlive) { "Could not terminate root process" }
+        }
         failures.throwIfAny()
     }
 
     override fun shutdownOutputDrains(executor: ExecutorService) {
         executor.shutdownNow()
+        check(executor.awaitTermination(LAUNCHER_TASK_SHUTDOWN_SECONDS, TimeUnit.SECONDS)) {
+            "Could not stop launcher background tasks"
+        }
     }
 
     override fun deleteGuard(path: Path) {
@@ -279,10 +426,99 @@ internal object DefaultLauncherCleanup : LauncherCleanup {
     }
 }
 
+/**
+ * Portable best-effort descendant retention for a single launch.
+ *
+ * One bounded daemon task samples only while the root is alive and never delays the launch thread.
+ * A process that spawns and reparents entirely between samples cannot be discovered without
+ * platform-specific process-group, job-object, or cgroup containment.
+ */
+internal interface ProcessTreeTracking : Runnable {
+    fun stopSampling()
+
+    fun failureOrNull(): Throwable?
+
+    fun snapshot(): ProcessTreeSnapshot
+}
+
+internal class ProcessTreeTracker(
+    private val root: ProcessHandle,
+    private val maxTrackedDescendants: Int = MAX_TRACKED_DESCENDANTS,
+) : ProcessTreeTracking {
+    private val sampling = AtomicBoolean(true)
+    private val failure = AtomicReference<Throwable?>()
+    private val runner = AtomicReference<Thread?>()
+    private val descendants = ConcurrentHashMap<ProcessIdentity, ProcessHandle>()
+
+    override fun run() {
+        runner.set(Thread.currentThread())
+        try {
+            while (sampling.get() && !Thread.currentThread().isInterrupted && failure.get() == null) {
+                if (!captureSafely()) return
+                val rootAlive =
+                    try {
+                        root.isAlive
+                    } catch (caught: Throwable) {
+                        failure.compareAndSet(null, caught)
+                        false
+                    }
+                if (!rootAlive) return
+                LockSupport.parkNanos(PROCESS_TREE_SAMPLE_NANOS)
+            }
+        } finally {
+            runner.compareAndSet(Thread.currentThread(), null)
+        }
+    }
+
+    override fun stopSampling() {
+        sampling.set(false)
+        runner.get()?.interrupt()
+    }
+
+    override fun failureOrNull(): Throwable? = failure.get()
+
+    override fun snapshot(): ProcessTreeSnapshot =
+        ProcessTreeSnapshot(
+            descendants = descendants.values.toList(),
+        )
+
+    private fun captureSafely(): Boolean =
+        try {
+            descendants.entries.removeIf { (_, handle) -> !handle.isAlive }
+            root.descendants().use { handles ->
+                handles.forEach { handle ->
+                    if (handle.isAlive) retain(handle)
+                }
+            }
+            true
+        } catch (caught: Throwable) {
+            failure.compareAndSet(null, caught)
+            false
+        }
+
+    private fun retain(handle: ProcessHandle) {
+        val identity =
+            ProcessIdentity(
+                processId = handle.pid(),
+                startInstant = handle.info().startInstant().orElse(null),
+            )
+        if (!descendants.containsKey(identity) && descendants.size >= maxTrackedDescendants) {
+            error("Target process tree exceeded $maxTrackedDescendants live descendants")
+        }
+        descendants[identity] = handle
+    }
+}
+
+private data class ProcessIdentity(val processId: Long, val startInstant: Instant?)
+
+internal data class ProcessTreeSnapshot(val descendants: List<ProcessHandle>)
+
 private class FailureAccumulator {
     private var primary: Throwable? = null
+    private var interrupted = false
 
-    fun add(failure: Throwable) {
+    fun add(failure: Throwable, interrupted: Boolean = failure is InterruptedLauncherFailure) {
+        captureInterruption(interrupted)
         val existing = primary
         if (existing == null) {
             primary = failure
@@ -292,17 +528,36 @@ private class FailureAccumulator {
     }
 
     fun attempt(action: () -> Unit) {
+        captureInterruption()
         try {
             action()
         } catch (failure: Throwable) {
-            add(failure)
+            add(
+                failure,
+                interrupted =
+                    failure is InterruptedException || failure is InterruptedLauncherFailure,
+            )
+        } finally {
+            captureInterruption()
         }
     }
 
     fun throwIfAny() {
+        captureInterruption()
+        if (interrupted) Thread.currentThread().interrupt()
         primary?.let { throw it }
     }
+
+    fun hasFailure(): Boolean = primary != null
+
+    private fun captureInterruption(explicit: Boolean = false) {
+        val threadInterrupted = Thread.interrupted()
+        if (explicit || threadInterrupted) interrupted = true
+    }
 }
+
+private class InterruptedLauncherFailure(message: String, cause: InterruptedException) :
+    IllegalStateException(message, cause)
 
 private fun attachCleanupFailure(primary: Throwable, cleanup: () -> Unit) {
     try {
@@ -346,3 +601,8 @@ private class TailDrain(private val input: InputStream) : Callable<String> {
 }
 
 internal const val OUTPUT_TAIL_BYTES: Int = 64 * 1024
+internal const val LAUNCHER_THREAD_PREFIX: String = "revoman-benchmark-launch-"
+private const val LAUNCHER_TASK_COUNT: Int = 3
+private const val LAUNCHER_TASK_SHUTDOWN_SECONDS: Long = 5
+private const val PROCESS_TREE_SAMPLE_NANOS: Long = 10_000_000
+private const val MAX_TRACKED_DESCENDANTS: Int = 4_096
