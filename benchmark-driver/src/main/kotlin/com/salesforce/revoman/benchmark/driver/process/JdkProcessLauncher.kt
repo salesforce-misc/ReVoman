@@ -516,18 +516,16 @@ internal data class OwnedProcessTreeFinalization(val hadLiveDescendants: Boolean
 /**
  * Raw identity slots for the one possible abandoned observation at each bounded settle phase:
  * graceful, pre-freeze forcible, and post-freeze forcible. No handle hash or equality is invoked.
+ * Repeated observations of the same raw reference share a slot.
  */
-internal class DeferredObservedProcessHandles(
-    capacity: Int = MAX_DEFERRED_OBSERVED_HANDLES,
-) {
-    private val slots = arrayOfNulls<ProcessHandle>(capacity)
+internal class DeferredObservedProcessHandles {
+    private val slots = arrayOfNulls<ProcessHandle>(MAX_DEFERRED_OBSERVED_HANDLES)
     private var retained = 0
 
-    init {
-        require(capacity > 0) { "Deferred-observed process-handle capacity must be positive" }
-    }
-
     fun retain(handle: ProcessHandle, onOverflow: (ProcessHandle) -> Unit) {
+        repeat(retained) { index ->
+            if (sameRawReference(slots[index], handle)) return
+        }
         if (retained < slots.size) {
             slots[retained] = handle
             retained += 1
@@ -543,6 +541,8 @@ internal class DeferredObservedProcessHandles(
         return drained
     }
 }
+
+private fun sameRawReference(first: Any?, second: Any?): Boolean = first === second
 
 internal object DefaultLauncherCleanup : LauncherCleanup {
     override fun finalizeOwnedProcessTree(
@@ -738,9 +738,9 @@ private class OwnedProcessTreeState(
         retained
             .asSequence()
             .takeWhile { allowsAnotherOperation() }
-            .filter(::isAlive)
-            .takeWhile { allowsAnotherOperation() }
-            .forEach { handle -> remember(handle, phase) }
+            .forEach { handle ->
+                if (isAlive(handle)) remember(handle, phase)
+            }
         val liveRetained =
             knownDescendants
                 .asSequence()
@@ -770,9 +770,9 @@ private class OwnedProcessTreeState(
                         anchor.descendants().use { handles ->
                             handles
                                 .takeWhile { allowsAnotherOperation() }
-                                .filter(::isAlive)
-                                .takeWhile { allowsAnotherOperation() }
-                                .forEach { handle -> remember(handle, phase) }
+                                .forEach { handle ->
+                                    if (isAlive(handle)) remember(handle, phase)
+                                }
                         }
                     }
                 }

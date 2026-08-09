@@ -179,25 +179,32 @@ class RunnerIntegrationTest {
     @Test
     fun `pid reader waits for complete atomic publication`() {
         val pidFile = Files.createFile(temporaryDirectory.resolve("delayed-process.pid"))
+        val emptyContentObserved = CountDownLatch(1)
         val publisherFailure = AtomicReference<Throwable?>()
         val publisher =
             Thread.ofVirtual().name("revoman-benchmark-pid-publisher").start {
                 try {
-                    Thread.sleep(100)
+                    emptyContentObserved.await()
                     writeFixtureTextAtomically(pidFile, "4242")
                 } catch (caught: Throwable) {
                     publisherFailure.set(caught)
                 }
             }
         try {
-            assertThat(awaitProcessId(pidFile)).isEqualTo(4242)
-            publisherFailure.get()?.let { throw AssertionError("PID publication failed", it) }
+            assertThat(
+                    awaitProcessId(pidFile) { content ->
+                        assertThat(content).isEmpty()
+                        emptyContentObserved.countDown()
+                    }
+                )
+                .isEqualTo(4242)
+            assertThat(emptyContentObserved.count).isEqualTo(0)
         } finally {
-            publisher.join(Duration.ofSeconds(2))
             if (publisher.isAlive) publisher.interrupt()
             publisher.join(Duration.ofSeconds(2))
             check(!publisher.isAlive) { "PID publisher did not stop" }
         }
+        publisherFailure.get()?.let { throw AssertionError("PID publication failed", it) }
     }
 
     @Test
@@ -1150,9 +1157,14 @@ private fun writeFixtureResultInPlace(command: TargetForkCommand) {
 }
 
 private fun writeRawAtomically(result: Path, bytes: ByteArray) {
-    val temporary = result.resolveSibling(".${result.fileName}.fixture.tmp")
-    Files.write(temporary, bytes)
-    Files.move(temporary, result, ATOMIC_MOVE, REPLACE_EXISTING)
+    val parent = requireNotNull(result.parent) { "Fixture publication requires a parent directory" }
+    val temporary = Files.createTempFile(parent, ".${result.fileName}.fixture-", ".tmp")
+    try {
+        Files.write(temporary, bytes)
+        Files.move(temporary, result, ATOMIC_MOVE, REPLACE_EXISTING)
+    } finally {
+        Files.deleteIfExists(temporary)
+    }
 }
 
 private fun writeFixtureTextAtomically(path: Path, value: String) {
@@ -1300,10 +1312,13 @@ private fun awaitTracker(reference: AtomicReference<ProcessTreeTracking>): Proce
     return requireNotNull(reference.get())
 }
 
-private fun awaitProcessId(path: Path): Long {
+private fun awaitProcessId(
+    path: Path,
+    onUnparseableContent: (String) -> Unit = {},
+): Long {
     var processId: Long? = null
     awaitFixtureCondition("parseable process ID file $path") {
-        readProcessIdIfPresent(path)?.let { parsed ->
+        readProcessIdIfPresent(path, onUnparseableContent)?.let { parsed ->
             processId = parsed
             true
         } ?: false
@@ -1311,13 +1326,16 @@ private fun awaitProcessId(path: Path): Long {
     return requireNotNull(processId)
 }
 
-private fun readProcessIdIfPresent(path: Path): Long? =
-    if (Files.isRegularFile(path)) {
-        runCatching { Files.readString(path).trim().takeIf(String::isNotEmpty)?.toLongOrNull() }
-            .getOrNull()
-    } else {
-        null
-    }
+private fun readProcessIdIfPresent(
+    path: Path,
+    onUnparseableContent: (String) -> Unit = {},
+): Long? {
+    if (!Files.isRegularFile(path)) return null
+    val content = runCatching { Files.readString(path) }.getOrNull() ?: return null
+    val processId = content.trim().takeIf(String::isNotEmpty)?.toLongOrNull()
+    if (processId == null) onUnparseableContent(content)
+    return processId
+}
 
 private fun awaitProcessIds(path: Path, expectedCount: Int): List<Long> {
     var processIds = emptyList<Long>()

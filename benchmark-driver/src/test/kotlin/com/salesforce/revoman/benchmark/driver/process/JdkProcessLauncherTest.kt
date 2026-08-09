@@ -486,7 +486,7 @@ class JdkProcessLauncherTest {
         every { descendant.isAlive } answers {
             if (!trackingFrozen && !phaseExpiryArmed) {
                 phaseExpiryArmed = true
-                clock.advanceAfterNextRead(deadline.preFreezeDeadlineNanos)
+                clock.advanceTo(deadline.preFreezeDeadlineNanos)
             }
             descendantAlive
         }
@@ -512,6 +512,67 @@ class JdkProcessLauncherTest {
         assertThat(preFreezeEvents).isEmpty()
         assertThat(result.hadLiveDescendants).isTrue()
         assertThat(descendantAlive).isFalse()
+    }
+
+    @Test
+    fun `retained live handle whose liveness consumes the phase is terminally forced`() {
+        val process = mockk<Process>()
+        val root = mockk<ProcessHandle>()
+        val clock = MutableMonotonicClock()
+        val deadline =
+            ProcessTreeFinalizationDeadline.start(
+                clock = clock,
+                budget =
+                    ProcessTreeFinalizationBudget(
+                        totalNanos = 100,
+                        trackerJoinNanos = 20,
+                        postFreezeNanos = 10,
+                    ),
+            )
+        var trackingFrozen = false
+        var descendantAlive = true
+        var descendantLivenessCalls = 0
+        var descendantForceCalls = 0
+        var freezeTimeoutNanos = -1L
+        val descendant =
+            TestProcessHandle(
+                processId = 312,
+                alive = {
+                    descendantLivenessCalls += 1
+                    if (!trackingFrozen && descendantLivenessCalls == 1) {
+                        clock.advanceTo(deadline.preFreezeDeadlineNanos)
+                    }
+                    descendantAlive
+                },
+                hash = { 312 },
+                force = {
+                    descendantForceCalls += 1
+                    descendantAlive = false
+                    true
+                },
+            )
+        every { process.toHandle() } returns root
+        every { root.isAlive } returns false
+        every { root.descendants() } answers { Stream.empty() }
+        clock.advanceTo(60)
+
+        val result =
+            DefaultLauncherCleanup.finalizeOwnedProcessTree(
+                process = process,
+                retainedDescendants = {
+                    if (trackingFrozen) emptyList() else listOf(descendant)
+                },
+                freezeTracking = { timeoutNanos ->
+                    freezeTimeoutNanos = timeoutNanos
+                    trackingFrozen = true
+                },
+                deadline = deadline,
+            )
+
+        assertThat(freezeTimeoutNanos).isEqualTo(20)
+        assertThat(result.hadLiveDescendants).isTrue()
+        assertThat(descendantAlive).isFalse()
+        assertThat(descendantForceCalls).isEqualTo(1)
     }
 
     @Test
@@ -726,6 +787,87 @@ class JdkProcessLauncherTest {
         assertThat(failure).hasMessageThat().contains("exceeded 4096 live descendants")
         assertThat(freezeTimeoutNanos).isEqualTo(20)
         assertThat(preFreezeEvents).containsExactly("overflow-membership")
+        assertThat(overflowAlive).isFalse()
+        assertThat(overflowForceCalls).isEqualTo(1)
+    }
+
+    @Test
+    fun `hidden anchor live descendant whose liveness consumes the phase retains overflow evidence`() {
+        val process = mockk<Process>()
+        val root = mockk<ProcessHandle>()
+        val clock = MutableMonotonicClock()
+        val deadline =
+            ProcessTreeFinalizationDeadline.start(
+                clock = clock,
+                budget =
+                    ProcessTreeFinalizationBudget(
+                        totalNanos = 100,
+                        trackerJoinNanos = 20,
+                        postFreezeNanos = 10,
+                    ),
+            )
+        val preFreezeEvents = mutableListOf<String>()
+        var trackingFrozen = false
+        var overflowAlive = true
+        var overflowLivenessCalls = 0
+        var overflowForceCalls = 0
+        var freezeTimeoutNanos = -1L
+        val retainedCapacity =
+            List(4_096) { index ->
+                TestProcessHandle(
+                    processId = 40_000L + index,
+                    alive = { !trackingFrozen },
+                    hash = { index },
+                )
+            }
+        val overflow =
+            TestProcessHandle(
+                processId = 49_999,
+                alive = {
+                    overflowLivenessCalls += 1
+                    if (!trackingFrozen && overflowLivenessCalls == 1) {
+                        preFreezeEvents += "overflow-alive"
+                        clock.advanceTo(deadline.preFreezeDeadlineNanos)
+                    }
+                    overflowAlive
+                },
+                hash = {
+                    if (!trackingFrozen) preFreezeEvents += "overflow-membership"
+                    49_999
+                },
+                force = {
+                    overflowForceCalls += 1
+                    if (!trackingFrozen) preFreezeEvents += "overflow-force"
+                    overflowAlive = false
+                    true
+                },
+            )
+        every { process.toHandle() } returns root
+        every { root.hashCode() } returns 50_000
+        every { root.isAlive } returns false
+        every { root.descendants() } answers {
+            if (trackingFrozen) Stream.empty() else Stream.of(overflow)
+        }
+        clock.advanceTo(60)
+
+        val failure =
+            assertThrows<IllegalStateException> {
+                DefaultLauncherCleanup.finalizeOwnedProcessTree(
+                    process = process,
+                    retainedDescendants = {
+                        if (trackingFrozen) emptyList() else retainedCapacity
+                    },
+                    freezeTracking = { timeoutNanos ->
+                        freezeTimeoutNanos = timeoutNanos
+                        trackingFrozen = true
+                    },
+                    deadline = deadline,
+                )
+            }
+
+        assertThat(failure).hasMessageThat().contains("exceeded 4096 live descendants")
+        assertThat(freezeTimeoutNanos).isEqualTo(20)
+        assertThat(preFreezeEvents).containsExactly("overflow-alive")
         assertThat(overflowAlive).isFalse()
         assertThat(overflowForceCalls).isEqualTo(1)
     }
@@ -1000,7 +1142,7 @@ class JdkProcessLauncherTest {
                 alive = {
                     if (!trackingFrozen && !phaseExpiryArmed) {
                         phaseExpiryArmed = true
-                        clock.advanceAfterNextRead(deadline.preFreezeDeadlineNanos)
+                        clock.advanceTo(deadline.preFreezeDeadlineNanos)
                     }
                     descendantAlive
                 },
@@ -1128,18 +1270,20 @@ class JdkProcessLauncherTest {
     }
 
     @Test
-    fun `deferred observed handle slots stay identity-only and hard bounded`() {
+    fun `deferred observed handle slots identity dedupe and force the fourth unique handle`() {
         var overflowAlive = true
         val retained =
-            TestProcessHandle(
-                processId = 501,
-                alive = { true },
-                hash = { error("Deferred retention must not hash handles") },
-                equality = { error("Deferred retention must not compare handles") },
-            )
+            List(3) { index ->
+                TestProcessHandle(
+                    processId = 501L + index,
+                    alive = { true },
+                    hash = { error("Deferred retention must not hash handles") },
+                    equality = { error("Deferred retention must not compare handles") },
+                )
+            }
         val overflow =
             TestProcessHandle(
-                processId = 502,
+                processId = 504,
                 alive = { overflowAlive },
                 hash = { error("Deferred overflow must not hash handles") },
                 force = {
@@ -1149,8 +1293,11 @@ class JdkProcessLauncherTest {
                 equality = { error("Deferred overflow must not compare handles") },
             )
         val failures = FailureAccumulator()
-        val deferred = DeferredObservedProcessHandles(capacity = 1)
-        deferred.retain(retained) { error("First identity slot unexpectedly overflowed") }
+        val deferred = DeferredObservedProcessHandles()
+        retained.forEach { handle ->
+            deferred.retain(handle) { error("Identity slot unexpectedly overflowed") }
+        }
+        deferred.retain(retained[1]) { error("Duplicate identity unexpectedly overflowed") }
         deferred.retain(overflow) { handle ->
             failures.add(IllegalStateException("deferred observed capacity exceeded"))
             failures.attempt { handle.destroyForcibly() }
@@ -1161,8 +1308,10 @@ class JdkProcessLauncherTest {
 
         assertThat(failure).hasMessageThat().contains("deferred observed capacity exceeded")
         assertThat(overflowAlive).isFalse()
-        assertThat(drained).hasSize(1)
-        assertThat(drained.single().pid()).isEqualTo(501)
+        assertThat(drained).hasSize(3)
+        assertThat((drained[0] as Any) === (retained[0] as Any)).isTrue()
+        assertThat((drained[1] as Any) === (retained[1] as Any)).isTrue()
+        assertThat((drained[2] as Any) === (retained[2] as Any)).isTrue()
         assertThat(deferred.drain()).isEmpty()
     }
 
