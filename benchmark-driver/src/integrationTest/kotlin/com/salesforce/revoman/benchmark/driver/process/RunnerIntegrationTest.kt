@@ -32,6 +32,7 @@ import java.nio.file.Path
 import java.nio.file.StandardCopyOption.ATOMIC_MOVE
 import java.nio.file.StandardCopyOption.REPLACE_EXISTING
 import java.time.Duration
+import java.util.concurrent.ExecutorService
 import kotlin.system.exitProcess
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -188,6 +189,81 @@ class RunnerIntegrationTest {
         assertThat(ProcessHandle.of(childPid).map(ProcessHandle::isAlive).orElse(false)).isFalse()
     }
 
+    @Test
+    fun `body failure remains primary when drain shutdown and guard cleanup fail`() {
+        val shutdownFailure = DeliberateCleanupFailure("drain shutdown failed")
+        val guardFailure = DeliberateCleanupFailure("guard delete failed")
+        val cleanup =
+            InjectedLauncherCleanup(
+                shutdownFailure = shutdownFailure,
+                guardFailure = guardFailure,
+            )
+
+        val failure = assertThrows<IllegalStateException> {
+            JdkProcessLauncher(cleanup)
+                .launch(launcherFixtureCommand("nonzero", Duration.ofSeconds(10)))
+        }
+
+        assertThat(failure).hasMessageThat().contains("exit code 17")
+        assertThat(failure.suppressed).asList().containsExactly(shutdownFailure, guardFailure).inOrder()
+    }
+
+    @Test
+    fun `timeout remains primary when process tree termination reports multiple failures`() {
+        val nestedTerminationFailure = DeliberateCleanupFailure("forcible descendant cleanup failed")
+        val terminationFailure =
+            DeliberateCleanupFailure("process tree termination failed").also {
+                it.addSuppressed(nestedTerminationFailure)
+            }
+        val shutdownFailure = DeliberateCleanupFailure("drain shutdown failed")
+        val guardFailure = DeliberateCleanupFailure("guard delete failed")
+        val cleanup =
+            InjectedLauncherCleanup(
+                terminationFailure = terminationFailure,
+                shutdownFailure = shutdownFailure,
+                guardFailure = guardFailure,
+            )
+        val childPidFile = temporaryDirectory.resolve("failing-termination-descendant.pid")
+        val command =
+            launcherFixtureCommand(
+                mode = "timeout",
+                timeout = Duration.ofSeconds(2),
+                additionalParameters = mapOf("childPidFile" to childPidFile.toString()),
+            )
+
+        val failure = assertThrows<IllegalStateException> {
+            JdkProcessLauncher(cleanup).launch(command)
+        }
+
+        assertThat(failure).hasMessageThat().contains("timed out")
+        assertThat(failure.suppressed)
+            .asList()
+            .containsExactly(terminationFailure, shutdownFailure, guardFailure)
+            .inOrder()
+        assertThat(terminationFailure.suppressed).asList().containsExactly(nestedTerminationFailure)
+        val childPid = Files.readString(childPidFile).toLong()
+        assertThat(ProcessHandle.of(childPid).map(ProcessHandle::isAlive).orElse(false)).isFalse()
+    }
+
+    @Test
+    fun `successful body promotes first cleanup failure and suppresses later failures`() {
+        val shutdownFailure = DeliberateCleanupFailure("drain shutdown failed")
+        val guardFailure = DeliberateCleanupFailure("guard delete failed")
+        val cleanup =
+            InjectedLauncherCleanup(
+                shutdownFailure = shutdownFailure,
+                guardFailure = guardFailure,
+            )
+
+        val failure = assertThrows<DeliberateCleanupFailure> {
+            JdkProcessLauncher(cleanup)
+                .launch(launcherFixtureCommand("valid", Duration.ofSeconds(10)))
+        }
+
+        assertThat(failure).isSameInstanceAs(shutdownFailure)
+        assertThat(failure.suppressed).asList().containsExactly(guardFailure)
+    }
+
     private fun launcherFixtureCommand(
         mode: String,
         timeout: Duration,
@@ -248,6 +324,7 @@ class ProcessLauncherFixtureMain {
                     System.err.print("E".repeat(80 * 1024))
                     writeFixtureResult(command)
                 }
+                "valid" -> writeFixtureResult(command)
                 "in-place" -> writeFixtureResultInPlace(command)
                 "nonzero" -> exitProcess(17)
                 "malformed" -> writeRawAtomically(Path.of(command.resultFile), "{malformed".toByteArray())
@@ -383,4 +460,27 @@ internal fun currentClasspath(): List<Path> {
 
 private infix fun Int.shouldEqual(expected: Int) {
     assertThat(this).isEqualTo(expected)
+}
+
+private class DeliberateCleanupFailure(message: String) : RuntimeException(message)
+
+private class InjectedLauncherCleanup(
+    private val terminationFailure: Throwable? = null,
+    private val shutdownFailure: Throwable? = null,
+    private val guardFailure: Throwable? = null,
+) : LauncherCleanup {
+    override fun terminateProcessTree(process: Process) {
+        DefaultLauncherCleanup.terminateProcessTree(process)
+        terminationFailure?.let { throw it }
+    }
+
+    override fun shutdownOutputDrains(executor: ExecutorService) {
+        DefaultLauncherCleanup.shutdownOutputDrains(executor)
+        shutdownFailure?.let { throw it }
+    }
+
+    override fun deleteGuard(path: Path) {
+        DefaultLauncherCleanup.deleteGuard(path)
+        guardFailure?.let { throw it }
+    }
 }
