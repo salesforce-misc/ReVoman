@@ -157,7 +157,7 @@
     "environment": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["jdk", "osName", "osVersion", "kernel", "cpuModel", "cpuCount", "governor", "physicalMemoryBytes", "hostFingerprintSha256", "policySha256"],
+      "required": ["jdk", "osName", "osVersion", "kernel", "cpuModel", "cpuCount", "governor", "physicalMemoryBytes", "hostFingerprintSha256"],
       "properties": {
         "jdk": { "$ref": "#/$defs/jdk" },
         "osName": { "type": "string", "minLength": 1 },
@@ -204,7 +204,7 @@
     "metricSeries": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["metric", "provider", "providerConfigurationSha256", "unit", "artifacts", "blocks", "histograms"],
+      "required": ["metric", "provider", "providerConfigurationSha256", "unit", "artifacts"],
       "properties": {
         "metric": { "$ref": "#/$defs/metricId" },
         "provider": { "type": "string", "minLength": 1 },
@@ -216,12 +216,14 @@
       },
       "oneOf": [
         {
+          "required": ["blocks"],
           "properties": {
             "blocks": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/alternatingBlock" } },
             "histograms": { "type": "null" }
           }
         },
         {
+          "required": ["histograms"],
           "properties": {
             "blocks": { "type": "null" },
             "histograms": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/exactHistogram" } }
@@ -279,7 +281,7 @@
     "observation": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["targetId", "metric", "provider", "unit", "fork", "iteration", "replicateGroup", "processId", "value", "retainedEvidence"],
+      "required": ["targetId", "metric", "provider", "unit", "fork", "iteration", "processId", "value"],
       "properties": {
         "targetId": { "type": "string", "minLength": 1 },
         "metric": { "$ref": "#/$defs/metricId" },

@@ -62,7 +62,20 @@ class RetainedMemoryRunner(private val launcher: ProcessLauncher) {
                 targetManifestPath = plan.targetManifestPath,
                 loggingConfiguration = plan.loggingConfiguration,
             )
-        return campaign.withPostflight {
+        return campaign.withPostflight { run(plan, campaign, expectedDigest) }
+    }
+
+    /** Executes against one campaign-owned target verification and logging snapshot. */
+    internal fun run(
+        plan: RetainedMemoryPlan,
+        campaign: RunnerCampaign,
+    ): RetainedMemoryResult = run(plan, campaign, validate(plan))
+
+    private fun run(
+        plan: RetainedMemoryPlan,
+        campaign: RunnerCampaign,
+        expectedDigest: ExecutionDigest,
+    ): RetainedMemoryResult {
             val observations =
                 RETAINED_EXECUTION_COUNTS.mapIndexed { iteration, executionCount ->
                     val process =
@@ -98,7 +111,7 @@ class RetainedMemoryRunner(private val launcher: ProcessLauncher) {
                     )
                 }
             requireDistinctProcessIds(observations, "retained 1k/2k/4k checkpoints")
-            RetainedMemoryResult(
+            return RetainedMemoryResult(
                 blockId = plan.blockId,
                 targetRole = plan.targetRole,
                 fork = plan.fork,
@@ -107,7 +120,6 @@ class RetainedMemoryRunner(private val launcher: ProcessLauncher) {
                 providerConfigurationSha256 = retainedProviderConfigurationSha256(plan),
                 observations = observations,
             )
-        }
     }
 
     private fun validate(plan: RetainedMemoryPlan): ExecutionDigest {

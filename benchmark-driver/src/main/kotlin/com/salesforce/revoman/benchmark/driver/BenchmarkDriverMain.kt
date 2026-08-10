@@ -7,7 +7,9 @@
  */
 package com.salesforce.revoman.benchmark.driver
 
+import com.salesforce.revoman.benchmark.driver.cli.BenchmarkDriverApplication
+import kotlin.system.exitProcess
+
 fun main(args: Array<String>) {
-    require(args.contentEquals(arrayOf("version"))) { "Usage: benchmark-driver version" }
-    println("revoman-benchmark/v1")
+    exitProcess(BenchmarkDriverApplication.execute(args))
 }

@@ -8,7 +8,7 @@
 package com.salesforce.revoman.benchmark.driver.jmh
 
 import com.salesforce.revoman.benchmark.driver.model.TargetManifest
-import com.salesforce.revoman.benchmark.driver.target.VerifiedTargetManifest
+import com.salesforce.revoman.benchmark.driver.integrity.TargetManifestLoader
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.jar.Attributes
@@ -22,15 +22,30 @@ fun main(arguments: Array<String>) {
     val installationRoot = Path.of(arguments[0]).toRealPath()
     val targetManifestPath = Path.of(arguments[1]).toRealPath()
     val adapterId = arguments[2].also { require(it.isNotBlank()) { "adapter-id must not be blank" } }
-    val verified = VerifiedTargetManifest.preflight(targetManifestPath)
+    val verified = TargetManifestLoader.load(targetManifestPath).verified
     val manifest = verified.manifest
     try {
+        verifyTargetLogicalIds(manifest)
+        verifyDistributionLayout(installationRoot)
         verifyThinJar(installationRoot.resolve("lib/benchmark-driver-jmh-classes.jar"))
         verifyTruffleMultiRelease(manifest)
         verifySourceManifest(installationRoot.resolve("conf/benchmark-harness-source-v1.json"))
         verifyChildProcesses(installationRoot, targetManifestPath, manifest.targetId, adapterId)
     } finally {
         verified.postflight()
+    }
+}
+
+private fun verifyTargetLogicalIds(manifest: TargetManifest) {
+    val logicalIds = manifest.classpath.map { it.logicalId }
+    require(logicalIds.first().startsWith("project:") && logicalIds.first().endsWith(":jar")) {
+        "Target JAR must be first with a stable project logical ID: ${logicalIds.first()}"
+    }
+    require(logicalIds.drop(1).all { it.startsWith("maven:") || it.startsWith("project:") }) {
+        "Target dependencies require stable Maven/project logical IDs: $logicalIds"
+    }
+    require(logicalIds.distinct().size == logicalIds.size) {
+        "Target manifest logical IDs must be unique"
     }
 }
 
@@ -46,7 +61,34 @@ private fun verifyThinJar(thinJar: Path) {
         require(names.any { it.endsWith("HarnessSanityBenchmark.class") }) {
             "Thin JMH classes JAR lacks HarnessSanityBenchmark"
         }
+        require(names.any { it.endsWith("WarmLifecycleAllocationBenchmark.class") }) {
+            "Thin JMH classes JAR lacks WarmLifecycleAllocationBenchmark"
+        }
+        require(names.none { it.startsWith("com/salesforce/revoman/internal/") }) {
+            "Thin JMH classes JAR contains flattened target classes"
+        }
     }
+}
+
+private fun verifyDistributionLayout(installationRoot: Path) {
+    listOf(
+            "bin/benchmark-driver",
+            "lib/benchmark-driver-jmh-classes.jar",
+            "conf/log4j2-benchmark.xml",
+            "conf/benchmark-harness-source-v1.json",
+            "libexec/benchmark-target.init.gradle.kts",
+            "schema/revoman-target-manifest-v1.schema.json",
+            "schema/revoman-benchmark-v1.schema.json",
+            "schema/revoman-benchmark-jmh-v1.schema.json",
+            "schema/revoman-benchmark-comparison-v1.schema.json",
+            "schema/revoman-controlled-host-v1.schema.json",
+            "workloads/v1/lifecycle.no-script-one-step.v1/manifest.json",
+            "jfr/revoman-allocation-v1.jfc",
+        )
+        .forEach { relative ->
+            val path = installationRoot.resolve(relative)
+            require(Files.isRegularFile(path)) { "Installed distribution is missing $relative" }
+        }
 }
 
 private fun verifyTruffleMultiRelease(manifest: TargetManifest) {

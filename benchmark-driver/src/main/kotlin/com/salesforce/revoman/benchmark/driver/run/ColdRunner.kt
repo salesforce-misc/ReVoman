@@ -80,42 +80,54 @@ class ColdRunner(
     /** Executes one uncontaminated metric pass and retains its provider identity and artifacts. */
     fun runWithEvidence(plan: ColdPlan): ColdRunResult {
         val expectedDigest = validate(plan)
-        val source = plan.jfrConfigurationFile
-        return if (plan.metricPass == MetricPass.ALLOCATION && source != null) {
-            withJfrSnapshot(VerifiedJfrConfiguration.preflight(source)) { snapshot ->
-                runCampaign(plan, expectedDigest, snapshot)
-            }
-        } else {
-            runCampaign(plan, expectedDigest, jfrConfigurationFile = null)
-        }
-    }
-
-    private fun runCampaign(
-        plan: ColdPlan,
-        expectedDigest: ExecutionDigest,
-        jfrConfigurationFile: Path?,
-    ): ColdRunResult {
         val campaign =
             RunnerCampaign.open(
                 expectedTarget = plan.target,
                 targetManifestPath = plan.targetManifestPath,
                 loggingConfiguration = plan.loggingConfiguration,
             )
-        return campaign.withPostflight {
-            when (plan.metricPass) {
-                MetricPass.LATENCY -> runLatency(plan, campaign, expectedDigest)
-                MetricPass.ALLOCATION ->
-                    runAllocation(
-                        plan,
-                        campaign,
-                        expectedDigest,
-                        requireNotNull(jfrConfigurationFile),
-                    )
-                MetricPass.PEAK_RSS -> runPeakRss(plan, campaign, expectedDigest)
-                MetricPass.RETAINED -> error("ColdRunner does not execute retained-memory passes")
-            }.also { result -> requireDistinctProcessIds(result.observations, "cold samples") }
+        return campaign.withPostflight { runWithEvidence(plan, campaign, expectedDigest) }
+    }
+
+    /** Executes against a campaign-owned verified target/logging session without rereading identities. */
+    internal fun runWithEvidence(plan: ColdPlan, campaign: RunnerCampaign): ColdRunResult {
+        val expectedDigest = validate(plan)
+        return runWithEvidence(plan, campaign, expectedDigest)
+    }
+
+    private fun runWithEvidence(
+        plan: ColdPlan,
+        campaign: RunnerCampaign,
+        expectedDigest: ExecutionDigest,
+    ): ColdRunResult {
+        val source = plan.jfrConfigurationFile
+        return if (plan.metricPass == MetricPass.ALLOCATION && source != null) {
+            withJfrSnapshot(VerifiedJfrConfiguration.preflight(source)) { snapshot ->
+                runCampaign(plan, campaign, expectedDigest, snapshot)
+            }
+        } else {
+            runCampaign(plan, campaign, expectedDigest, jfrConfigurationFile = null)
         }
     }
+
+    private fun runCampaign(
+        plan: ColdPlan,
+        campaign: RunnerCampaign,
+        expectedDigest: ExecutionDigest,
+        jfrConfigurationFile: Path?,
+    ): ColdRunResult =
+        when (plan.metricPass) {
+            MetricPass.LATENCY -> runLatency(plan, campaign, expectedDigest)
+            MetricPass.ALLOCATION ->
+                runAllocation(
+                    plan,
+                    campaign,
+                    expectedDigest,
+                    requireNotNull(jfrConfigurationFile),
+                )
+            MetricPass.PEAK_RSS -> runPeakRss(plan, campaign, expectedDigest)
+            MetricPass.RETAINED -> error("ColdRunner does not execute retained-memory passes")
+        }.also { result -> requireDistinctProcessIds(result.observations, "cold samples") }
 
     private fun runLatency(
         plan: ColdPlan,
@@ -421,6 +433,7 @@ internal class RunnerCampaign private constructor(
     private val javaExecutable: Path,
     private val classpath: List<Path>,
     private val workingDirectory: Path,
+    private val ownsResources: Boolean,
 ) {
     fun launch(
         launcher: ProcessLauncher,
@@ -480,6 +493,7 @@ internal class RunnerCampaign private constructor(
     }
 
     fun <T> withPostflight(block: () -> T): T {
+        if (!ownsResources) return block()
         val outcome = runCatching(block)
         var failure = outcome.exceptionOrNull()
         listOf<() -> Unit>(
@@ -549,6 +563,7 @@ internal class RunnerCampaign private constructor(
                     javaExecutable = executable,
                     classpath = classpath,
                     workingDirectory = workingDirectory,
+                    ownsResources = true,
                 )
             } catch (setupFailure: Throwable) {
                 failure = setupFailure
@@ -563,6 +578,45 @@ internal class RunnerCampaign private constructor(
                 }
             }
         }
+
+        /** Uses one campaign-owned verified identity and logging snapshot across every metric pass. */
+        fun openVerified(
+            verified: VerifiedTargetManifest,
+            loggingConfiguration: VerifiedLoggingConfiguration,
+            loggingSnapshot: Path,
+            campaignDirectory: Path,
+            workingDirectory: Path,
+        ): RunnerCampaign {
+            require(campaignDirectory.toRealPath() == campaignDirectory) {
+                "Campaign directory must be canonical: $campaignDirectory"
+            }
+            require(loggingSnapshot.toRealPath() == loggingSnapshot) {
+                "Logging snapshot must be canonical: $loggingSnapshot"
+            }
+            val javaHome = Path.of(System.getProperty("java.home")).toRealPath()
+            val executable = javaHome.resolve("bin/java")
+            require(Files.isRegularFile(executable)) { "Java executable is missing: $executable" }
+            return RunnerCampaign(
+                verified = verified,
+                loggingConfiguration = loggingConfiguration,
+                loggingSnapshot = loggingSnapshot,
+                campaignDirectory = campaignDirectory,
+                javaExecutable = executable,
+                classpath = currentDriverClasspath(workingDirectory),
+                workingDirectory = workingDirectory,
+                ownsResources = false,
+            )
+        }
+
+        private fun currentDriverClasspath(workingDirectory: Path): List<Path> =
+            System.getProperty("java.class.path")
+                .split(System.getProperty("path.separator"))
+                .filter(String::isNotBlank)
+                .map { entry ->
+                    val path = Path.of(entry)
+                    (if (path.isAbsolute) path else workingDirectory.resolve(path)).normalize()
+                }
+                .also { classpath -> require(classpath.isNotEmpty()) { "Current Java classpath must not be empty" } }
 
         private fun requiredCanonicalFile(name: String, path: Path): Path {
             require(path.isAbsolute && path.normalize() == path) {

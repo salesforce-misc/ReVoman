@@ -73,6 +73,14 @@ internal object BenchmarkJson {
         }
     }
 
+    /** Reads only the top-level schema discriminator from one captured JSON byte snapshot. */
+    fun schemaId(bytes: ByteArray, source: String): String {
+        val value = dynamicJsonAdapter.fromJson(bytes.toString(UTF_8)) as? Map<*, *>
+        requireNotNull(value) { "JSON at $source must be an object" }
+        return value["schema"] as? String
+            ?: throw IllegalArgumentException("JSON at $source has no string schema discriminator")
+    }
+
     @PublishedApi
     internal fun <T : Any> read(path: Path, type: Class<T>): T =
         decode(Files.readAllBytes(path), path.toString(), type)

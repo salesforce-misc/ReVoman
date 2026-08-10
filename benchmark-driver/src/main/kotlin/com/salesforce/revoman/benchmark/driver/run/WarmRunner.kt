@@ -16,7 +16,9 @@ import com.salesforce.revoman.benchmark.driver.model.RunIntent
 import com.salesforce.revoman.benchmark.driver.model.RunMode
 import com.salesforce.revoman.benchmark.driver.model.TargetManifest
 import com.salesforce.revoman.benchmark.driver.model.WorkloadRequest
+import com.salesforce.revoman.benchmark.driver.integrity.ContentHasher
 import com.salesforce.revoman.benchmark.driver.process.ProcessLauncher
+import java.nio.charset.StandardCharsets.UTF_8
 import java.nio.file.Path
 import java.time.Duration
 
@@ -36,10 +38,20 @@ data class WarmPlan(
     val loggingConfiguration: VerifiedLoggingConfiguration,
 )
 
+/** Immutable warm provider identity and its raw observations. */
+data class WarmRunResult(
+    val provider: String,
+    val providerConfigurationSha256: String,
+    val observations: List<MetricObservation>,
+)
+
 /** Runs one target process per warm fork and retains only measured target-reported iterations. */
 class WarmRunner(private val launcher: ProcessLauncher) {
     /** Executes [plan] and returns only post-warmup per-execution measurements. */
-    fun run(plan: WarmPlan): List<MetricObservation> {
+    fun run(plan: WarmPlan): List<MetricObservation> = runWithEvidence(plan).observations
+
+    /** Executes [plan] and preserves the provider identity used by campaign assembly. */
+    fun runWithEvidence(plan: WarmPlan): WarmRunResult {
         val expectedDigest = validate(plan)
         val campaign =
             RunnerCampaign.open(
@@ -47,7 +59,23 @@ class WarmRunner(private val launcher: ProcessLauncher) {
                 targetManifestPath = plan.targetManifestPath,
                 loggingConfiguration = plan.loggingConfiguration,
             )
-        return campaign.withPostflight {
+        return campaign.withPostflight { runWithEvidence(plan, campaign, expectedDigest) }
+    }
+
+    /** Executes against one campaign-owned target verification and logging snapshot. */
+    internal fun run(plan: WarmPlan, campaign: RunnerCampaign): List<MetricObservation> =
+        runWithEvidence(plan, campaign).observations
+
+    /** Executes against one campaign-owned session while retaining provider identity. */
+    internal fun runWithEvidence(plan: WarmPlan, campaign: RunnerCampaign): WarmRunResult =
+        runWithEvidence(plan, campaign, validate(plan))
+
+    private fun runWithEvidence(
+        plan: WarmPlan,
+        campaign: RunnerCampaign,
+        expectedDigest: ExecutionDigest,
+    ): WarmRunResult =
+        run {
             val observations =
                 (0 until plan.forksPerBlock).flatMap { fork ->
                     val process =
@@ -88,9 +116,12 @@ class WarmRunner(private val launcher: ProcessLauncher) {
             check(forkPids.distinct().size == forkPids.size) {
                 "Warm forks require one distinct process per fork"
             }
-            observations
+            WarmRunResult(
+                provider = WARM_LATENCY_PROVIDER,
+                providerConfigurationSha256 = warmProviderConfigurationSha256(plan),
+                observations = observations,
+            )
         }
-    }
 
     private fun validate(plan: WarmPlan): ExecutionDigest {
         require(plan.forksPerBlock > 0) { "Warm forksPerBlock must be positive" }
@@ -107,3 +138,17 @@ class WarmRunner(private val launcher: ProcessLauncher) {
 }
 
 internal const val WARM_LATENCY_PROVIDER: String = "target-nano-time/v1"
+
+private fun warmProviderConfigurationSha256(plan: WarmPlan): String =
+    ContentHasher.sha256(
+        listOf(
+                "revoman-warm-provider-run/v1",
+                WARM_LATENCY_PROVIDER,
+                plan.warmupIterations.toString(),
+                plan.measurementIterations.toString(),
+                plan.timeout.toNanos().toString(),
+                plan.loggingConfiguration.sha256,
+            )
+            .joinToString("\u0000")
+            .toByteArray(UTF_8)
+    )

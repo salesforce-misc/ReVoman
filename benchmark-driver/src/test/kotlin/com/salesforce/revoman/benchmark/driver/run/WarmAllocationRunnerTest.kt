@@ -16,6 +16,7 @@ import com.salesforce.revoman.benchmark.driver.model.WorkloadManifest
 import com.salesforce.revoman.benchmark.driver.process.JmhControllerObservation
 import com.salesforce.revoman.benchmark.driver.target.PreparedWorkload
 import com.salesforce.revoman.benchmark.driver.target.TargetOperation
+import com.salesforce.revoman.benchmark.driver.target.VerifiedTargetManifest
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Duration
@@ -134,6 +135,38 @@ class WarmAllocationRunnerTest {
             loadWarmLifecycleExpectedDigest(fixtureRoot, manifestSha256)
         }
         assertThat(failure).hasMessageThat().contains("lifecycle manifest SHA-256 mismatch")
+    }
+
+    @Test
+    fun `campaign owned warm allocation defers target and logging postflight to composition root`() {
+        val target = runnerTarget(temporaryDirectory.resolve("shared-target"))
+        val verified = VerifiedTargetManifest.preflight(targetManifestPath(target), target)
+        val thinJar = Files.writeString(temporaryDirectory.resolve("benchmark-driver-jmh-classes.jar"), "thin")
+        val controllerJar = Files.writeString(temporaryDirectory.resolve("benchmark-driver.jar"), "controller")
+        val session = Files.createDirectories(temporaryDirectory.resolve("session")).toRealPath()
+        val logging = loggingConfiguration(target)
+        val loggingSnapshot = logging.materialize(session)
+        val rawFixture = resourcePath("/metrics/jmh-gc.txt")
+        val runner =
+            WarmAllocationRunner { launch ->
+                Files.writeString(launch.rawResult, Files.readString(rawFixture))
+                Files.writeString(targetManifestPath(target), "changed")
+                JmhControllerObservation(0, 9_001, "", "")
+            }
+        val plan =
+            warmAllocationPlan(
+                    root = temporaryDirectory.resolve("shared-output"),
+                    target = target,
+                    thinJar = thinJar,
+                    controllerJar = controllerJar,
+                    blockId = 0,
+                )
+                .copy(verifiedTarget = verified, loggingSnapshot = loggingSnapshot)
+
+        val result = runner.run(plan)
+
+        assertThat(result.observations).isNotEmpty()
+        assertThrows<IllegalStateException> { verified.postflight() }
     }
 
     private fun preparedWorkload(

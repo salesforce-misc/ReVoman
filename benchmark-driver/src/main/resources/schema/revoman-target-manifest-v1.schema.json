@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://revoman.dev/schema/revoman-target-manifest-v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "targetId", "gitCommit", "gitTree", "dirty", "gradleVersion", "wrapperSha256", "jdk", "classpath"],
+  "properties": {
+    "schema": { "const": "revoman-target-manifest/v1" },
+    "targetId": { "type": "string", "minLength": 1 },
+    "gitCommit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "gitTree": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "dirty": { "type": "boolean" },
+    "gradleVersion": { "type": "string", "minLength": 1 },
+    "wrapperSha256": { "$ref": "#/$defs/sha256" },
+    "jdk": { "$ref": "#/$defs/jdk" },
+    "classpath": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/artifact" }
+    }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "jdk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["distribution", "vendor", "fullVersion", "javaHome", "jvmFlags"],
+      "properties": {
+        "distribution": { "type": "string", "minLength": 1 },
+        "vendor": { "type": "string", "minLength": 1 },
+        "fullVersion": { "type": "string", "minLength": 1 },
+        "javaHome": { "type": "string", "minLength": 1 },
+        "jvmFlags": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["logicalId", "executionPath", "sizeBytes", "sha256"],
+      "properties": {
+        "logicalId": { "type": "string", "minLength": 1 },
+        "executionPath": { "type": "string", "minLength": 1 },
+        "sizeBytes": { "type": "integer", "minimum": 0 },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    }
+  }
+}

@@ -14,6 +14,7 @@ import com.salesforce.revoman.benchmark.driver.metrics.JmhGcResultImporter
 import com.salesforce.revoman.benchmark.driver.metrics.WARM_LIFECYCLE_ALLOCATION_INCLUDE
 import com.salesforce.revoman.benchmark.driver.model.MetricObservation
 import com.salesforce.revoman.benchmark.driver.model.ExecutionDigest
+import com.salesforce.revoman.benchmark.driver.model.HashedArtifact
 import com.salesforce.revoman.benchmark.driver.model.RunIntent
 import com.salesforce.revoman.benchmark.driver.model.TargetManifest
 import com.salesforce.revoman.benchmark.driver.model.TargetRole
@@ -47,6 +48,10 @@ data class WarmAllocationPlan(
     val timeout: Duration,
     val loggingConfiguration: VerifiedLoggingConfiguration,
     val iterationDuration: Duration = Duration.ofSeconds(1),
+    val fixtureRoot: Path? = null,
+    val expectedJmhEvidence: JmhEvidenceExpectation? = null,
+    val verifiedTarget: VerifiedTargetManifest? = null,
+    val loggingSnapshot: Path? = null,
 )
 
 /** Immutable strict-JMH command plus coordinates supplied by Task 8/11. */
@@ -76,6 +81,7 @@ data class WarmAllocationResult(
     val fork: Int,
     val provider: String,
     val providerConfigurationSha256: String,
+    val artifacts: List<HashedArtifact>,
     val observations: List<MetricObservation>,
 )
 
@@ -84,18 +90,22 @@ class WarmAllocationRunner(private val launcher: WarmAllocationLauncher) {
     /** Executes one supplied target position with exactly one raw JMH fork and the GC profiler. */
     fun run(plan: WarmAllocationPlan): WarmAllocationResult {
         validate(plan)
-        val verified = VerifiedTargetManifest.preflight(plan.targetManifestPath, plan.target)
+        val ownsSession = plan.verifiedTarget == null
+        val verified =
+            plan.verifiedTarget
+                ?: VerifiedTargetManifest.preflight(plan.targetManifestPath, plan.target)
         var campaignDirectory: Path? = null
         var primary: Throwable? = null
         try {
-            val directory =
-                Files.createTempDirectory("revoman-warm-allocation-").toRealPath().also {
-                    campaignDirectory = it
-                }
-            val loggingSnapshot = plan.loggingConfiguration.materialize(directory)
+            val loggingSnapshot =
+                plan.loggingSnapshot
+                    ?: Files.createTempDirectory("revoman-warm-allocation-")
+                        .toRealPath()
+                        .also { campaignDirectory = it }
+                        .let(plan.loggingConfiguration::materialize)
             val launch = launchRequest(plan, loggingSnapshot)
             val process = launcher.launch(launch)
-            validateController(process, launch)
+            validateController(process, launch, plan.expectedJmhEvidence != null)
             val imported =
                 JmhGcResultImporter.import(
                     rawResult = launch.rawResult,
@@ -104,28 +114,51 @@ class WarmAllocationRunner(private val launcher: WarmAllocationLauncher) {
                     targetRole = plan.targetRole,
                     fork = plan.fork,
                 )
+            val observations =
+                plan.expectedJmhEvidence?.let { expectation ->
+                    normalizedAllocationObservations(
+                        result =
+                            NormalizedJmhEvidenceVerifier.verify(
+                                launch.normalizedResult.toRealPath(),
+                                expectation,
+                            ),
+                        plan = plan,
+                        imported = imported.observations,
+                    )
+                } ?: imported.observations
             return WarmAllocationResult(
                 blockId = plan.blockId,
                 targetRole = plan.targetRole,
                 fork = plan.fork,
                 provider = imported.provider,
                 providerConfigurationSha256 = providerConfigurationSha256(plan, imported.providerConfigurationSha256),
-                observations = imported.observations,
+                artifacts =
+                    if (plan.expectedJmhEvidence == null) emptyList()
+                    else warmAllocationArtifacts(plan, launch),
+                observations = observations,
             )
         } catch (failure: Throwable) {
             primary = failure
             throw failure
         } finally {
             var finalizationFailure = primary
-            listOf<() -> Unit>(
-                    verified::postflight,
-                    {
-                        campaignDirectory?.let { directory ->
-                            plan.loggingConfiguration.postflight(directory.resolve("log4j2-benchmark.xml"))
-                        }
-                    },
-                    { campaignDirectory?.let(::deleteWarmAllocationDirectory) },
-                )
+            val finalizers =
+                if (ownsSession) {
+                    listOf<() -> Unit>(
+                        verified::postflight,
+                        {
+                            campaignDirectory?.let { directory ->
+                                plan.loggingConfiguration.postflight(
+                                    directory.resolve("log4j2-benchmark.xml")
+                                )
+                            }
+                        },
+                        { campaignDirectory?.let(::deleteWarmAllocationDirectory) },
+                    )
+                } else {
+                    emptyList()
+                }
+            finalizers
                 .forEach { finalizer ->
                     try {
                         finalizer()
@@ -198,7 +231,41 @@ class WarmAllocationRunner(private val launcher: WarmAllocationLauncher) {
                 workingDirectory = plan.outputDirectory,
                 timeout = plan.timeout,
             )
-        return WarmAllocationLaunch(
+        plan.fixtureRoot?.let { fixture ->
+            val insertion = command.jvmArgs.indexOfFirst { it.startsWith("-Dlog4j2.configurationFile=") }
+            val withFixture =
+                command.copy(
+                    jvmArgs =
+                        command.jvmArgs.toMutableList().apply {
+                            add(
+                                if (insertion >= 0) insertion else size,
+                                "-Drevoman.benchmark.lifecycleSourceRoot=$fixture",
+                            )
+                        }
+                )
+            return launch(
+                plan = plan,
+                command = withFixture,
+                rawResult = rawResult,
+                normalizedResult = normalizedResult,
+                humanOutput = humanOutput,
+                profilers = profilers,
+                includes = includes,
+            )
+        }
+        return launch(plan, command, rawResult, normalizedResult, humanOutput, profilers, includes)
+    }
+
+    private fun launch(
+        plan: WarmAllocationPlan,
+        command: JavaCommand,
+        rawResult: Path,
+        normalizedResult: Path,
+        humanOutput: Path,
+        profilers: List<String>,
+        includes: List<String>,
+    ): WarmAllocationLaunch =
+        WarmAllocationLaunch(
             blockId = plan.blockId,
             targetRole = plan.targetRole,
             fork = plan.fork,
@@ -211,7 +278,6 @@ class WarmAllocationRunner(private val launcher: WarmAllocationLauncher) {
             normalizedResult = normalizedResult,
             humanOutput = humanOutput,
         )
-    }
 
     private fun validate(plan: WarmAllocationPlan) {
         require(plan.blockId >= 0) { "Warm allocation blockId must not be negative" }
@@ -254,6 +320,16 @@ class WarmAllocationRunner(private val launcher: WarmAllocationLauncher) {
         }
         requireCanonicalDirectory("installationRoot", plan.installationRoot)
         requireCanonicalDirectory("outputDirectory", plan.outputDirectory)
+        plan.fixtureRoot?.let { requireCanonicalDirectory("fixtureRoot", it) }
+        require((plan.verifiedTarget == null) == (plan.loggingSnapshot == null)) {
+            "Campaign-owned warm allocation requires both verifiedTarget and loggingSnapshot"
+        }
+        plan.verifiedTarget?.let { verified ->
+            require(verified.manifest == plan.target && verified.manifestPath == plan.targetManifestPath) {
+                "Campaign-owned target verification must match the warm allocation plan"
+            }
+        }
+        plan.loggingSnapshot?.let { snapshot -> requireCanonicalFile("loggingSnapshot", snapshot) }
     }
 }
 
@@ -297,6 +373,7 @@ internal fun loadWarmLifecycleExpectedDigest(
 private fun validateController(
     process: JmhControllerObservation,
     launch: WarmAllocationLaunch,
+    requireNormalizedResult: Boolean,
 ) {
     check(process.exitCode == 0) { "JMH controller exited with code ${process.exitCode}" }
     check(process.processId > 0) { "JMH controller process ID must be positive" }
@@ -305,6 +382,68 @@ private fun validateController(
     check(Files.isRegularFile(launch.rawResult) && Files.size(launch.rawResult) > 2) {
         "JMH controller omitted raw allocation evidence: ${launch.rawResult}"
     }
+    if (requireNormalizedResult) {
+        check(Files.isRegularFile(launch.normalizedResult) && Files.size(launch.normalizedResult) > 2) {
+            "JMH controller omitted normalized allocation evidence: ${launch.normalizedResult}"
+        }
+    }
+}
+
+private fun normalizedAllocationObservations(
+    result: com.salesforce.revoman.benchmark.driver.model.JmhBenchmarkResultV1,
+    plan: WarmAllocationPlan,
+    imported: List<MetricObservation>,
+): List<MetricObservation> {
+    val benchmark =
+        result.benchmarks.singleOrNull()
+            ?: throw IllegalArgumentException("Warm allocation normalized JMH evidence must contain one row")
+    require(benchmark.name.contains(WARM_LIFECYCLE_ALLOCATION_INCLUDE)) {
+        "Warm allocation normalized JMH evidence contains the wrong benchmark: ${benchmark.name}"
+    }
+    require(benchmark.forks == 1) { "Warm allocation normalized JMH evidence must contain one fork" }
+    require(benchmark.warmupIterations == plan.warmupIterations) {
+        "Warm allocation normalized JMH warmup count differs from the scheduled plan"
+    }
+    require(benchmark.measurementIterations == plan.measurementIterations) {
+        "Warm allocation normalized JMH measurement count differs from the scheduled plan"
+    }
+    val observations =
+        benchmark.metricSeries
+            .singleOrNull { series ->
+                series.metric == com.salesforce.revoman.benchmark.driver.model.MetricId.ALLOCATED_BYTES &&
+                    series.unit == com.salesforce.revoman.benchmark.driver.model.MetricUnit.BYTES_PER_OPERATION
+            }
+            ?.rawObservations
+            ?: throw IllegalArgumentException(
+                "Warm allocation normalized JMH evidence requires raw allocation observations"
+            )
+    require(observations == imported.map { observation -> observation.copy(fork = 0) }) {
+        "Normalized and raw warm allocation observations differ"
+    }
+    return observations.map { observation -> observation.copy(fork = plan.fork) }
+}
+
+private fun warmAllocationArtifacts(
+    plan: WarmAllocationPlan,
+    launch: WarmAllocationLaunch,
+): List<HashedArtifact> {
+    val prefix =
+        "warm-allocation-block-${plan.blockId}-role-${plan.targetRole.name.lowercase()}-" +
+            "fork-${plan.fork}"
+    return listOf(
+            "$prefix-raw.json" to launch.rawResult,
+            "$prefix-normalized.json" to launch.normalizedResult,
+            "$prefix-output.txt" to launch.humanOutput,
+        )
+        .map { (logicalId, path) ->
+            require(Files.isRegularFile(path)) { "Warm allocation artifact is missing: $path" }
+            HashedArtifact(
+                logicalId = logicalId,
+                executionPath = path.toRealPath().toString(),
+                sizeBytes = Files.size(path),
+                sha256 = ContentHasher.sha256(path),
+            )
+        }
 }
 
 private fun providerConfigurationSha256(

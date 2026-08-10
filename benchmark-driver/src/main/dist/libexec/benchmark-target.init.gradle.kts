@@ -13,6 +13,7 @@ import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.provider.Property
+import org.gradle.api.provider.ListProperty
 import org.gradle.api.tasks.Classpath
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputFile
@@ -20,6 +21,9 @@ import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.TaskAction
 import org.gradle.jvm.tasks.Jar
+import org.gradle.api.artifacts.component.ModuleComponentIdentifier
+import org.gradle.api.artifacts.component.ProjectComponentIdentifier
+import org.gradle.api.artifacts.result.ResolvedArtifactResult
 
 abstract class WriteBenchmarkTargetManifest : DefaultTask() {
     @get:Input abstract val targetId: Property<String>
@@ -30,7 +34,11 @@ abstract class WriteBenchmarkTargetManifest : DefaultTask() {
 
     @get:InputFile abstract val targetJar: RegularFileProperty
 
+    @get:Input abstract val targetLogicalId: Property<String>
+
     @get:Classpath abstract val runtimeClasspath: ConfigurableFileCollection
+
+    @get:Input abstract val runtimeLogicalIds: ListProperty<String>
 
     @get:InputFile abstract val wrapperProperties: RegularFileProperty
 
@@ -49,6 +57,13 @@ abstract class WriteBenchmarkTargetManifest : DefaultTask() {
 
         val target = targetJar.get().asFile.toPath().toRealPath()
         val dependencies = runtimeClasspath.files.map { file -> file.toPath().toRealPath() }
+        val dependencyLogicalIds = runtimeLogicalIds.get()
+        if (dependencies.size != dependencyLogicalIds.size) {
+            throw GradleException(
+                "Resolved runtime artifact files and logical IDs differ in count: " +
+                    "files=${dependencies.size}, ids=${dependencyLogicalIds.size}"
+            )
+        }
         val classpath = listOf(target) + dependencies
         if (classpath.distinct().size != classpath.size) {
             throw GradleException("Target runtime classpath contains duplicate files")
@@ -63,14 +78,14 @@ abstract class WriteBenchmarkTargetManifest : DefaultTask() {
         }
 
         val wrapper = wrapperProperties.get().asFile.toPath().toRealPath()
+        val logicalIds = listOf(targetLogicalId.get()) + dependencyLogicalIds
+        if (logicalIds.any(String::isBlank) || logicalIds.distinct().size != logicalIds.size) {
+            throw GradleException("Target runtime classpath contains duplicate or blank logical IDs: $logicalIds")
+        }
         val artifacts =
-            classpath.mapIndexed { index, path ->
+            classpath.zip(logicalIds).map { (path, logicalId) ->
                 linkedMapOf(
-                    "logicalId" to
-                        when (index) {
-                            0 -> "target/revoman.jar"
-                            else -> "dependency/${index - 1}/${path.fileName}"
-                        },
+                    "logicalId" to logicalId,
                     "executionPath" to path.toString(),
                     "sizeBytes" to Files.size(path),
                     "sha256" to sha256(path),
@@ -147,6 +162,11 @@ gradle.projectsEvaluated {
             root.providers.gradleProperty("benchmark.targetManifest").orNull
                 ?: throw GradleException("benchmark.targetManifest is required")
         val jarTask = root.tasks.named("jar", Jar::class.java)
+        val runtimeConfiguration = root.configurations.named("runtimeClasspath")
+        val resolvedArtifacts =
+            root.providers.provider {
+                runtimeConfiguration.get().incoming.artifacts.artifacts.toList()
+            }
         root.tasks.register<WriteBenchmarkTargetManifest>("writeBenchmarkTargetManifest") {
             group = "benchmark"
             description = "Exports the normal target JAR and ordered original runtime JARs"
@@ -155,7 +175,11 @@ gradle.projectsEvaluated {
             gradleVersion.set(gradle.gradleVersion)
             repositoryRoot.set(root.layout.projectDirectory)
             targetJar.set(jarTask.flatMap(Jar::getArchiveFile))
-            runtimeClasspath.from(root.configurations.named("runtimeClasspath"))
+            targetLogicalId.set("project:${root.name}:jar")
+            runtimeClasspath.from(resolvedArtifacts.map { artifacts -> artifacts.map { it.file } })
+            runtimeLogicalIds.set(
+                resolvedArtifacts.map { artifacts -> artifacts.map(::stableLogicalId) }
+            )
             wrapperProperties.set(
                 root.layout.projectDirectory.file("gradle/wrapper/gradle-wrapper.properties")
             )
@@ -164,3 +188,16 @@ gradle.projectsEvaluated {
         }
     }
 }
+
+fun stableLogicalId(artifact: ResolvedArtifactResult): String =
+    when (val component = artifact.id.componentIdentifier) {
+        is ModuleComponentIdentifier ->
+            "maven:${component.group}:${component.module}:${component.version}"
+        is ProjectComponentIdentifier ->
+            "project:${component.build.buildPath}:${component.projectPath}"
+        else ->
+            throw GradleException(
+                "Target runtime classpath artifact has no stable Maven/project component identity: " +
+                    "${artifact.id.displayName} (${component.javaClass.name})"
+            )
+    }

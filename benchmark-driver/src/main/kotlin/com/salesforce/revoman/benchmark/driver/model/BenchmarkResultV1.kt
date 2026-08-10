@@ -735,6 +735,6 @@ internal fun <E : Enum<E>> requireCanonicalEnumOrder(path: String, values: List<
 internal const val RESULT_SCHEMA_V1: String = "revoman-benchmark/v1"
 internal val SHA256_PATTERN: Regex = Regex("[0-9a-f]{64}")
 private val BYTE_UNITS =
-    setOf(MetricUnit.BYTES, MetricUnit.BYTES_PER_EXECUTION, MetricUnit.BYTES_PER_OPERATION)
+    setOf(MetricUnit.BYTES, MetricUnit.BYTES_PER_EXECUTION)
 private val RETAINED_EXECUTION_COUNTS = listOf(1_000, 2_000, 4_000)
 private val RETAINED_POINT_INDICES = RETAINED_EXECUTION_COUNTS.indices.toList()

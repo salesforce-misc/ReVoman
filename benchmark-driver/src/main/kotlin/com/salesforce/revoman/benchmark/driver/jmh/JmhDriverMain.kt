@@ -7,26 +7,18 @@
  */
 package com.salesforce.revoman.benchmark.driver.jmh
 
-import com.salesforce.revoman.benchmark.driver.integrity.BuildIdentity
 import com.salesforce.revoman.benchmark.driver.integrity.ContentHasher
-import com.salesforce.revoman.benchmark.driver.integrity.HarnessSourceManifest
+import com.salesforce.revoman.benchmark.driver.integrity.RuntimeIdentityFactory
 import com.salesforce.revoman.benchmark.driver.fixture.DeterministicHttpFixture
 import com.salesforce.revoman.benchmark.driver.json.BenchmarkJson
-import com.salesforce.revoman.benchmark.driver.model.ArtifactSnapshot
-import com.salesforce.revoman.benchmark.driver.model.EnvironmentIdentity
-import com.salesforce.revoman.benchmark.driver.model.HarnessIdentity
-import com.salesforce.revoman.benchmark.driver.model.JdkIdentity
 import com.salesforce.revoman.benchmark.driver.model.JmhBenchmarkResultV1
 import com.salesforce.revoman.benchmark.driver.model.JmhLoggingConfiguration
 import com.salesforce.revoman.benchmark.driver.model.JmhRunConfiguration
 import com.salesforce.revoman.benchmark.driver.model.JmhWorkloadIdentity
-import com.salesforce.revoman.benchmark.driver.model.TargetIdentity
 import com.salesforce.revoman.benchmark.driver.model.WorkloadManifest
 import com.salesforce.revoman.benchmark.driver.metrics.WARM_LIFECYCLE_ALLOCATION_INCLUDE
 import com.salesforce.revoman.benchmark.driver.target.VerifiedTargetManifest
-import java.lang.management.ManagementFactory
 import java.net.URI
-import java.nio.charset.StandardCharsets.UTF_8
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption.ATOMIC_MOVE
@@ -123,9 +115,12 @@ internal fun <T> withLifecycleFixture(
         "Warm lifecycle allocation must run in a dedicated JMH controller launch"
     }
     val sourceRoot =
-        installationRoot
-            .resolve("workloads/v1/lifecycle.no-script-one-step.v1")
-            .toRealPath()
+        System.getProperty(LIFECYCLE_SOURCE_ROOT_PROPERTY)
+            ?.takeIf(String::isNotBlank)
+            ?.let { Path.of(it).toRealPath() }
+            ?: installationRoot
+                .resolve("workloads/v1/lifecycle.no-script-one-step.v1")
+                .toRealPath()
     val snapshot = VerifiedLifecycleWorkloadSnapshot.open(sourceRoot)
     val outcome =
         runCatching {
@@ -187,48 +182,10 @@ private fun attachRuntimeIdentities(
     installationRoot: Path,
     lifecycleWorkloadIdentity: JmhWorkloadIdentity?,
 ): JmhBenchmarkResultV1 {
-    val sourceManifest =
-        BenchmarkJson.read<HarnessSourceManifest>(
-            installationRoot.resolve("conf/benchmark-harness-source-v1.json")
-        )
-    val runtimeArtifacts = runtimeArtifacts(installationRoot)
-    val harness =
-        HarnessIdentity(
-            commit = sourceManifest.commit,
-            tree = sourceManifest.tree,
-            dirty = sourceManifest.dirty,
-            distributionSha256 = ContentHasher.artifactSetSha256(runtimeArtifacts),
-            artifacts = runtimeArtifacts,
-            workloadContractSha256 = sourceManifest.workloadContractSha256,
-            fixtureSetSha256 = sourceManifest.fixtureSetSha256,
-            adapters = sourceManifest.adapters,
-        )
+    val identityFactory = RuntimeIdentityFactory(installationRoot)
+    val harness = identityFactory.harnessIdentity()
     val adapterId = requiredProperty(ADAPTER_PROPERTY)
-    val adapter =
-        requireNotNull(sourceManifest.adapters.singleOrNull { it.id == adapterId }) {
-            "Installed harness source identity has no exact adapter: $adapterId"
-        }
-    val target =
-        TargetIdentity(
-            id = verified.manifest.targetId,
-            gitCommit = verified.manifest.gitCommit,
-            gitTree = verified.manifest.gitTree,
-            dirty = verified.manifest.dirty,
-            gradleVersion = verified.manifest.gradleVersion,
-            wrapperSha256 = verified.manifest.wrapperSha256,
-            buildJdk = verified.manifest.jdk,
-            manifestSha256 = verified.manifestSha256,
-            classpathSha256 = verified.classpathSha256,
-            classpath =
-                verified.manifest.classpath.map { artifact ->
-                    ArtifactSnapshot(
-                        logicalId = artifact.logicalId,
-                        sizeBytes = artifact.sizeBytes,
-                        sha256 = artifact.sha256,
-                    )
-                },
-            adapter = adapter,
-        )
+    val target = identityFactory.targetIdentity(verified, adapterId, harness)
     val workload = resolveJmhWorkloadIdentity(lifecycleWorkloadIdentity)
     val configuration =
         JmhRunConfiguration(
@@ -256,7 +213,7 @@ private fun attachRuntimeIdentities(
         resultId = "jmh-${target.id}-${Instant.parse(createdAt).toEpochMilli()}",
         createdAt = createdAt,
         harness = harness,
-        environment = currentEnvironment(),
+        environment = identityFactory.environmentIdentity(),
         target = target,
         workload = workload,
         configuration = configuration,
@@ -294,17 +251,6 @@ internal fun jmhLoggingConfiguration(
         )
         .also(JmhLoggingConfiguration::validate)
 
-private fun runtimeArtifacts(installationRoot: Path) =
-    BuildIdentity.runtimeArtifacts(
-        installationRoot,
-        listOf("lib", "schema", "workloads", "jfr", "conf", "libexec")
-            .map(installationRoot::resolve)
-            .filter(Files::exists)
-            .flatMap { root ->
-                Files.walk(root).use { paths -> paths.filter(Files::isRegularFile).toList() }
-            },
-    )
-
 private fun verifyWorkloadFiles(fixtureRoot: Path, manifest: WorkloadManifest) {
     val files =
         manifest.files.mapIndexed { index, artifact ->
@@ -327,42 +273,6 @@ private fun verifyWorkloadFiles(fixtureRoot: Path, manifest: WorkloadManifest) {
     require(ContentHasher.treeSha256(fixtureRoot, files) == manifest.fixtureTreeSha256) {
         "workload fixture tree SHA-256 differs from manifest"
     }
-}
-
-private fun currentEnvironment(): EnvironmentIdentity {
-    val osName = System.getProperty("os.name")
-    val osVersion = System.getProperty("os.version")
-    val cpuModel = System.getProperty("os.arch")
-    val cpuCount = Runtime.getRuntime().availableProcessors()
-    val physicalMemory =
-        (ManagementFactory.getOperatingSystemMXBean() as? com.sun.management.OperatingSystemMXBean)
-            ?.totalMemorySize
-            ?.takeIf { it > 0 }
-            ?: Runtime.getRuntime().maxMemory()
-    val fingerprint =
-        ContentHasher.sha256(
-            "$osName\u0000$osVersion\u0000$cpuModel\u0000$cpuCount\u0000$physicalMemory"
-                .toByteArray(UTF_8)
-        )
-    return EnvironmentIdentity(
-        jdk =
-            JdkIdentity(
-                distribution = System.getProperty("java.runtime.name"),
-                vendor = System.getProperty("java.vendor"),
-                fullVersion = System.getProperty("java.runtime.version"),
-                javaHome = Path.of(System.getProperty("java.home")).toAbsolutePath().normalize().toString(),
-                jvmFlags = ManagementFactory.getRuntimeMXBean().inputArguments.toList(),
-            ),
-        osName = osName,
-        osVersion = osVersion,
-        kernel = osVersion,
-        cpuModel = cpuModel,
-        cpuCount = cpuCount,
-        governor = "unknown",
-        physicalMemoryBytes = physicalMemory,
-        hostFingerprintSha256 = fingerprint,
-        policySha256 = null,
-    )
 }
 
 private fun writeReadOnlyToken(
@@ -429,6 +339,8 @@ internal const val LIFECYCLE_BASE_URL_PROPERTY: String =
     "revoman.benchmark.lifecycleBaseUrl"
 internal const val LIFECYCLE_MANIFEST_SHA256_PROPERTY: String =
     "revoman.benchmark.lifecycleManifestSha256"
+internal const val LIFECYCLE_SOURCE_ROOT_PROPERTY: String =
+    "revoman.benchmark.lifecycleSourceRoot"
 internal const val INCLUDE_SEPARATOR: String = "\u001f"
 
 private fun mergeLifecycleFailures(primary: Throwable?, next: Throwable): Throwable =
