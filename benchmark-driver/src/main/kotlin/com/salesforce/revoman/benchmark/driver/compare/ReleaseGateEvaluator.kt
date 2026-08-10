@@ -34,10 +34,11 @@ data class TargetedClaim(
 
 /** Evaluates controlled evidence under exact release boundaries. */
 class ReleaseGateEvaluator(
-    private val policy: RegressionPolicy = RegressionPolicy(),
+    policy: RegressionPolicy = CanonicalReleasePolicy.regressionPolicy,
     private val resamples: Int = 10_000,
 ) {
     init {
+        CanonicalReleasePolicy.requireCanonical(policy)
         require(resamples > 0) { "resamples must be positive" }
     }
 
@@ -123,14 +124,15 @@ class ReleaseGateEvaluator(
     ): MetricDecision {
         val limit =
             when (claim.mode) {
-                RunMode.COLD -> policy.coldImprovementUpper
-                RunMode.WARM -> policy.warmImprovementUpper
+                RunMode.COLD,
+                RunMode.WARM,
+                -> CanonicalReleasePolicy.targetedLimit(claim.mode)
                 RunMode.RETAINED ->
                     return GateDescriptor(
                             claim.mode,
                             claim.metric,
                             claim.statistic,
-                            policy.warmImprovementUpper,
+                            CanonicalReleasePolicy.regressionPolicy.warmImprovementUpper,
                             ClaimKind.TARGETED_IMPROVEMENT,
                         )
                         .unavailable(null, "targeted ratio claims do not support RETAINED mode")
@@ -354,24 +356,15 @@ class ReleaseGateEvaluator(
     }
 
     private fun gateDescriptor(gate: GateId): GateDescriptor =
-        when (gate) {
-            GateId.COLD_MEDIAN -> ratioDescriptor(RunMode.COLD, MetricId.LATENCY, Statistic.MEDIAN, policy.coldMedianUpper)
-            GateId.COLD_P95 -> ratioDescriptor(RunMode.COLD, MetricId.LATENCY, Statistic.P95, policy.coldP95Upper)
-            GateId.COLD_ALLOCATION -> ratioDescriptor(RunMode.COLD, MetricId.ALLOCATED_BYTES, Statistic.MEAN, policy.coldAllocationUpper)
-            GateId.COLD_PEAK_RSS -> ratioDescriptor(RunMode.COLD, MetricId.PEAK_RSS, Statistic.MEAN, policy.coldPeakRssUpper)
-            GateId.WARM_MEDIAN -> ratioDescriptor(RunMode.WARM, MetricId.LATENCY, Statistic.MEDIAN, policy.warmMedianUpper)
-            GateId.WARM_P95 -> ratioDescriptor(RunMode.WARM, MetricId.LATENCY, Statistic.P95, policy.warmP95Upper)
-            GateId.WARM_ALLOCATION -> ratioDescriptor(RunMode.WARM, MetricId.ALLOCATED_BYTES, Statistic.MEAN, policy.warmAllocationUpper)
-            GateId.RETAINED_SLOPE -> GateDescriptor(RunMode.RETAINED, MetricId.RETAINED_BYTES, null, policy.retainedSlopeUpperBytes, ClaimKind.STRUCTURAL)
-            GateId.PER_STEP_ALLOCATION_SPREAD -> GateDescriptor(RunMode.RETAINED, MetricId.BYTES_PER_STEP, null, policy.perStepAllocationSpreadUpper, ClaimKind.STRUCTURAL)
+        CanonicalReleasePolicy.gate(gate).let { gatePolicy ->
+            GateDescriptor(
+                mode = gatePolicy.decisionKey.mode,
+                metric = gatePolicy.decisionKey.metric,
+                statistic = gatePolicy.decisionKey.statistic,
+                limit = gatePolicy.limit,
+                claimKind = gatePolicy.decisionKey.claimKind,
+            )
         }
-
-    private fun ratioDescriptor(
-        mode: RunMode,
-        metric: MetricId,
-        statistic: Statistic,
-        limit: Double,
-    ): GateDescriptor = GateDescriptor(mode, metric, statistic, limit, ClaimKind.NON_REGRESSION)
 
     private fun rejectedEvidence(result: BenchmarkResultV1): List<RejectedBlockEvidence> =
         result.workloads.flatMap { workload ->

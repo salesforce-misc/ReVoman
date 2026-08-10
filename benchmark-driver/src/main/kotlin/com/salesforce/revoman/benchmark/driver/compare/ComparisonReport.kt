@@ -92,7 +92,7 @@ data class MetricDecision(
             "$path targeted claims alone omit gate"
         }
         gate?.let { normativeGate ->
-            require(NORMATIVE_GATE_IDENTITIES.getValue(normativeGate) == decisionKey()) {
+            require(CanonicalReleasePolicy.gate(normativeGate).decisionKey == decisionKey()) {
                 "$path gate $normativeGate does not match claimKind, mode, metric, and statistic"
             }
         }
@@ -100,6 +100,12 @@ data class MetricDecision(
             require(mode != RunMode.RETAINED) {
                 "$path targeted improvement must use COLD or WARM mode"
             }
+        }
+        val canonicalLimit =
+            gate?.let { CanonicalReleasePolicy.gate(it).limit }
+                ?: CanonicalReleasePolicy.targetedLimit(mode)
+        require(limit == canonicalLimit) {
+            "$path.limit must equal the exact canonical release threshold $canonicalLimit"
         }
         val endpoint = interval?.upper95 ?: slopeInterval?.upper95BytesPerExecution ?: observedValue
         when (decision) {
@@ -281,45 +287,4 @@ private val METRIC_ORDER =
 private val REJECTED_ORDER =
     compareBy<RejectedBlockEvidence>({ it.workloadId }, { it.metric.ordinal }, { it.blockId })
 private val STRUCTURAL_METRICS = setOf(MetricId.RETAINED_BYTES, MetricId.BYTES_PER_STEP)
-private val NORMATIVE_GATE_IDENTITIES =
-    mapOf(
-        GateId.COLD_MEDIAN to
-            DecisionKey(ClaimKind.NON_REGRESSION, RunMode.COLD, MetricId.LATENCY, Statistic.MEDIAN),
-        GateId.COLD_P95 to
-            DecisionKey(ClaimKind.NON_REGRESSION, RunMode.COLD, MetricId.LATENCY, Statistic.P95),
-        GateId.COLD_ALLOCATION to
-            DecisionKey(
-                ClaimKind.NON_REGRESSION,
-                RunMode.COLD,
-                MetricId.ALLOCATED_BYTES,
-                Statistic.MEAN,
-            ),
-        GateId.COLD_PEAK_RSS to
-            DecisionKey(ClaimKind.NON_REGRESSION, RunMode.COLD, MetricId.PEAK_RSS, Statistic.MEAN),
-        GateId.WARM_MEDIAN to
-            DecisionKey(ClaimKind.NON_REGRESSION, RunMode.WARM, MetricId.LATENCY, Statistic.MEDIAN),
-        GateId.WARM_P95 to
-            DecisionKey(ClaimKind.NON_REGRESSION, RunMode.WARM, MetricId.LATENCY, Statistic.P95),
-        GateId.WARM_ALLOCATION to
-            DecisionKey(
-                ClaimKind.NON_REGRESSION,
-                RunMode.WARM,
-                MetricId.ALLOCATED_BYTES,
-                Statistic.MEAN,
-            ),
-        GateId.RETAINED_SLOPE to
-            DecisionKey(
-                ClaimKind.STRUCTURAL,
-                RunMode.RETAINED,
-                MetricId.RETAINED_BYTES,
-                null,
-            ),
-        GateId.PER_STEP_ALLOCATION_SPREAD to
-            DecisionKey(
-                ClaimKind.STRUCTURAL,
-                RunMode.RETAINED,
-                MetricId.BYTES_PER_STEP,
-                null,
-            ),
-    )
 internal const val COMPARISON_SCHEMA_V1: String = "revoman-benchmark-comparison/v1"

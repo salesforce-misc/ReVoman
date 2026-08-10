@@ -194,7 +194,8 @@
                   "claimKind": { "const": "NON_REGRESSION" },
                   "mode": { "const": "COLD" },
                   "metric": { "const": "LATENCY" },
-                  "statistic": { "const": "MEDIAN" }
+                  "statistic": { "const": "MEDIAN" },
+                  "limit": { "const": 1.05 }
                 },
                 "required": ["gate", "claimKind", "mode", "metric", "statistic"]
               },
@@ -204,7 +205,8 @@
                   "claimKind": { "const": "NON_REGRESSION" },
                   "mode": { "const": "COLD" },
                   "metric": { "const": "LATENCY" },
-                  "statistic": { "const": "P95" }
+                  "statistic": { "const": "P95" },
+                  "limit": { "const": 1.10 }
                 },
                 "required": ["gate", "claimKind", "mode", "metric", "statistic"]
               },
@@ -214,7 +216,8 @@
                   "claimKind": { "const": "NON_REGRESSION" },
                   "mode": { "const": "COLD" },
                   "metric": { "const": "ALLOCATED_BYTES" },
-                  "statistic": { "const": "MEAN" }
+                  "statistic": { "const": "MEAN" },
+                  "limit": { "const": 1.05 }
                 },
                 "required": ["gate", "claimKind", "mode", "metric", "statistic"]
               },
@@ -224,7 +227,8 @@
                   "claimKind": { "const": "NON_REGRESSION" },
                   "mode": { "const": "COLD" },
                   "metric": { "const": "PEAK_RSS" },
-                  "statistic": { "const": "MEAN" }
+                  "statistic": { "const": "MEAN" },
+                  "limit": { "const": 1.05 }
                 },
                 "required": ["gate", "claimKind", "mode", "metric", "statistic"]
               },
@@ -234,7 +238,8 @@
                   "claimKind": { "const": "NON_REGRESSION" },
                   "mode": { "const": "WARM" },
                   "metric": { "const": "LATENCY" },
-                  "statistic": { "const": "MEDIAN" }
+                  "statistic": { "const": "MEDIAN" },
+                  "limit": { "const": 1.03 }
                 },
                 "required": ["gate", "claimKind", "mode", "metric", "statistic"]
               },
@@ -244,7 +249,8 @@
                   "claimKind": { "const": "NON_REGRESSION" },
                   "mode": { "const": "WARM" },
                   "metric": { "const": "LATENCY" },
-                  "statistic": { "const": "P95" }
+                  "statistic": { "const": "P95" },
+                  "limit": { "const": 1.05 }
                 },
                 "required": ["gate", "claimKind", "mode", "metric", "statistic"]
               },
@@ -254,7 +260,8 @@
                   "claimKind": { "const": "NON_REGRESSION" },
                   "mode": { "const": "WARM" },
                   "metric": { "const": "ALLOCATED_BYTES" },
-                  "statistic": { "const": "MEAN" }
+                  "statistic": { "const": "MEAN" },
+                  "limit": { "const": 1.03 }
                 },
                 "required": ["gate", "claimKind", "mode", "metric", "statistic"]
               },
@@ -263,7 +270,8 @@
                   "gate": { "const": "RETAINED_SLOPE" },
                   "claimKind": { "const": "STRUCTURAL" },
                   "mode": { "const": "RETAINED" },
-                  "metric": { "const": "RETAINED_BYTES" }
+                  "metric": { "const": "RETAINED_BYTES" },
+                  "limit": { "const": 1024.0 }
                 },
                 "required": ["gate", "claimKind", "mode", "metric"],
                 "not": { "required": ["statistic"] }
@@ -273,7 +281,8 @@
                   "gate": { "const": "PER_STEP_ALLOCATION_SPREAD" },
                   "claimKind": { "const": "STRUCTURAL" },
                   "mode": { "const": "RETAINED" },
-                  "metric": { "const": "BYTES_PER_STEP" }
+                  "metric": { "const": "BYTES_PER_STEP" },
+                  "limit": { "const": 1.10 }
                 },
                 "required": ["gate", "claimKind", "mode", "metric"],
                 "not": { "required": ["statistic"] }
@@ -281,10 +290,24 @@
             ]
           },
           "else": {
-            "properties": {
-              "claimKind": { "const": "TARGETED_IMPROVEMENT" },
-              "mode": { "enum": ["COLD", "WARM"] }
-            }
+            "oneOf": [
+              {
+                "properties": {
+                  "claimKind": { "const": "TARGETED_IMPROVEMENT" },
+                  "mode": { "const": "COLD" },
+                  "limit": { "const": 0.85 }
+                },
+                "required": ["claimKind", "mode", "limit"]
+              },
+              {
+                "properties": {
+                  "claimKind": { "const": "TARGETED_IMPROVEMENT" },
+                  "mode": { "const": "WARM" },
+                  "limit": { "const": 0.80 }
+                },
+                "required": ["claimKind", "mode", "limit"]
+              }
+            ]
           }
         },
         {

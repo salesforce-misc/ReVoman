@@ -15,6 +15,7 @@ import com.salesforce.revoman.benchmark.driver.model.RunMode
 import com.salesforce.revoman.benchmark.driver.stats.RatioInterval
 import com.salesforce.revoman.benchmark.driver.stats.SlopeInterval
 import com.salesforce.revoman.benchmark.driver.stats.Statistic
+import java.nio.charset.StandardCharsets.UTF_8
 import java.nio.file.Files
 import java.nio.file.Path
 import org.junit.jupiter.api.Test
@@ -23,6 +24,97 @@ import org.junit.jupiter.api.io.TempDir
 
 class ComparisonReportIntegrityTest {
     @TempDir lateinit var temporaryDirectory: Path
+
+    @Test
+    fun `forged cold median cannot inflate its limit through model schema encode or decode`() {
+        val forgedDecision =
+            coldMedianDecision().copy(
+                interval = RatioInterval(2.0, 2.0, 2.0),
+                limit = 100.0,
+            )
+        val forgedReport = report(listOf(forgedDecision), GateDecision.PASS)
+        val forgedJson =
+            """{"campaignId":"forged-limit","compatibilityErrors":[],"metrics":[{"claimKind":"NON_REGRESSION","decision":"PASS","gate":"COLD_MEDIAN","interval":{"lower95":2.0,"pointEstimate":2.0,"upper95":2.0},"limit":100.0,"metric":"LATENCY","mode":"COLD","reason":"forged","statistic":"MEDIAN"}],"overall":"PASS","rejectedBlocks":[],"schema":"revoman-benchmark-comparison/v1"}"""
+        val source =
+            temporaryDirectory.resolve("forged-cold-median.json").also {
+                Files.writeString(it, forgedJson)
+            }
+
+        assertThrows<IllegalArgumentException> { forgedDecision.validate("metric") }
+        assertThrows<IllegalArgumentException> { forgedReport.validate() }
+        assertThrows<IllegalArgumentException> { BenchmarkJson.encode(forgedReport) }
+        assertThrows<IllegalArgumentException> {
+            BenchmarkJson.validateSchema(source, COMPARISON_SCHEMA)
+        }
+        assertThrows<IllegalArgumentException> { BenchmarkJson.read<ComparisonReport>(source) }
+    }
+
+    @Test
+    fun `every normative gate binds its exact canonical limit in model schema and decoder`() {
+        gateCases().forEach { gateCase ->
+            val valid = gateCase.decision()
+            val wrongLimit = Math.nextUp(gateCase.limit)
+            val forged = valid.copy(limit = wrongLimit)
+            val validJson = BenchmarkJson.encode(report(listOf(valid), GateDecision.PASS)).toString(UTF_8)
+            val forgedJson =
+                validJson.replace(
+                    "\"limit\":${gateCase.limit}",
+                    "\"limit\":$wrongLimit",
+                )
+            val source =
+                temporaryDirectory.resolve("forged-${gateCase.gate}.json").also {
+                    Files.writeString(it, forgedJson)
+                }
+
+            valid.validate("metric")
+            assertThrows<IllegalArgumentException> { forged.validate("metric") }
+            assertThrows<IllegalArgumentException> {
+                BenchmarkJson.validateSchema(source, COMPARISON_SCHEMA)
+            }
+            assertThrows<IllegalArgumentException> { BenchmarkJson.read<ComparisonReport>(source) }
+
+            val inconclusive = valid.copy(
+                interval = null,
+                slopeInterval = null,
+                observedValue = null,
+                decision = GateDecision.INCONCLUSIVE,
+            )
+            inconclusive.validate("metric")
+        }
+    }
+
+    @Test
+    fun `targeted cold and warm claims bind exact canonical improvement limits`() {
+        val cases =
+            listOf(
+                targetedDecision(RunMode.COLD, 0.85),
+                targetedDecision(RunMode.WARM, 0.80),
+            )
+
+        cases.forEach { valid ->
+            val forged = valid.copy(limit = 100.0)
+            val validJson = BenchmarkJson.encode(report(listOf(valid), GateDecision.PASS)).toString(UTF_8)
+            val source =
+                temporaryDirectory.resolve("forged-targeted-${valid.mode}.json").also {
+                    Files.writeString(it, validJson.replace("\"limit\":${valid.limit}", "\"limit\":100.0"))
+                }
+
+            assertThrows<IllegalArgumentException> { forged.validate("metric") }
+            assertThrows<IllegalArgumentException> {
+                BenchmarkJson.validateSchema(source, COMPARISON_SCHEMA)
+            }
+            assertThrows<IllegalArgumentException> { BenchmarkJson.read<ComparisonReport>(source) }
+        }
+    }
+
+    @Test
+    fun `evaluator rejects noncanonical regression policy`() {
+        val forgedPolicy = RegressionPolicy(coldMedianUpper = 100.0)
+
+        assertThrows<IllegalArgumentException> {
+            ReleaseGateEvaluator(policy = forgedPolicy, resamples = 10)
+        }
+    }
 
     @Test
     fun `metric decisions bind gate identity and exact threshold result`() {
@@ -57,6 +149,7 @@ class ComparisonReportIntegrityTest {
             pass.copy(
                 gate = GateId.COLD_P95,
                 statistic = Statistic.P95,
+                limit = 1.10,
                 decision = GateDecision.INCONCLUSIVE,
             )
         val incompatible =
@@ -181,6 +274,41 @@ class ComparisonReportIntegrityTest {
             reason = "ratio passes",
         )
 
+    private fun targetedDecision(mode: RunMode, limit: Double): MetricDecision =
+        MetricDecision(
+            gate = null,
+            claimKind = ClaimKind.TARGETED_IMPROVEMENT,
+            mode = mode,
+            metric = MetricId.LATENCY,
+            statistic = Statistic.MEDIAN,
+            interval = RatioInterval(0.5, 0.5, 0.5),
+            slopeInterval = null,
+            observedValue = null,
+            limit = limit,
+            decision = GateDecision.PASS,
+            reason = "targeted passes",
+        )
+
+    private fun gateCases(): List<GateCase> =
+        listOf(
+            GateCase(GateId.COLD_MEDIAN, ClaimKind.NON_REGRESSION, RunMode.COLD, MetricId.LATENCY, Statistic.MEDIAN, 1.05),
+            GateCase(GateId.COLD_P95, ClaimKind.NON_REGRESSION, RunMode.COLD, MetricId.LATENCY, Statistic.P95, 1.10),
+            GateCase(GateId.COLD_ALLOCATION, ClaimKind.NON_REGRESSION, RunMode.COLD, MetricId.ALLOCATED_BYTES, Statistic.MEAN, 1.05),
+            GateCase(GateId.COLD_PEAK_RSS, ClaimKind.NON_REGRESSION, RunMode.COLD, MetricId.PEAK_RSS, Statistic.MEAN, 1.05),
+            GateCase(GateId.WARM_MEDIAN, ClaimKind.NON_REGRESSION, RunMode.WARM, MetricId.LATENCY, Statistic.MEDIAN, 1.03),
+            GateCase(GateId.WARM_P95, ClaimKind.NON_REGRESSION, RunMode.WARM, MetricId.LATENCY, Statistic.P95, 1.05),
+            GateCase(GateId.WARM_ALLOCATION, ClaimKind.NON_REGRESSION, RunMode.WARM, MetricId.ALLOCATED_BYTES, Statistic.MEAN, 1.03),
+            GateCase(GateId.RETAINED_SLOPE, ClaimKind.STRUCTURAL, RunMode.RETAINED, MetricId.RETAINED_BYTES, null, 1_024.0),
+            GateCase(
+                GateId.PER_STEP_ALLOCATION_SPREAD,
+                ClaimKind.STRUCTURAL,
+                RunMode.RETAINED,
+                MetricId.BYTES_PER_STEP,
+                null,
+                1.10,
+            ),
+        )
+
     private fun report(
         metrics: List<MetricDecision>,
         overall: GateDecision,
@@ -200,5 +328,39 @@ class ComparisonReportIntegrityTest {
 
     private companion object {
         const val COMPARISON_SCHEMA: String = "/schema/revoman-benchmark-comparison-v1.schema.json"
+    }
+
+    private data class GateCase(
+        val gate: GateId,
+        val claimKind: ClaimKind,
+        val mode: RunMode,
+        val metric: MetricId,
+        val statistic: Statistic?,
+        val limit: Double,
+    ) {
+        fun decision(): MetricDecision =
+            MetricDecision(
+                gate = gate,
+                claimKind = claimKind,
+                mode = mode,
+                metric = metric,
+                statistic = statistic,
+                interval =
+                    if (claimKind == ClaimKind.NON_REGRESSION) {
+                        RatioInterval(0.5, 0.5, 0.5)
+                    } else {
+                        null
+                    },
+                slopeInterval =
+                    if (metric == MetricId.RETAINED_BYTES) {
+                        SlopeInterval(100.0, 100.0, 100.0)
+                    } else {
+                        null
+                    },
+                observedValue = if (metric == MetricId.BYTES_PER_STEP) 1.0 else null,
+                limit = limit,
+                decision = GateDecision.PASS,
+                reason = "canonical passes",
+            )
     }
 }
