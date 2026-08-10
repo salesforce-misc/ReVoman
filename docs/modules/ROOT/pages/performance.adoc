@@ -1,7 +1,18 @@
 = Performance
 
-This entire execution of *~75 steps*, including *10 async steps*, took a mere *122 sec* on localhost. This can be much better in auto-build environments.
+ReṼoman treats both deployment shapes as release-critical performance targets:
 
-image::pq-revoman-test-time.png[Localhost Test time on FTest console for ~75 steps]
+* *Cold standalone*: one execution in a fresh process, including startup and peak-resource costs.
+* *Warm embedded*: repeated execution in a long-lived JVM, including steady-state latency and
+  allocation costs across independent forks.
 
-WARNING: ReṼoman internally is very light-weight; execution times are proportional to how your server responds or your network speed.
+Performance depends on the workload, target classpath, JDK, host, and metric provider. Release
+comparisons therefore rerun a fixed baseline and the candidate in randomized paired blocks on a
+controlled host. Cold and warm baseline-versus-baseline checks must both pass before candidate
+results are eligible for a claim. Ordinary CI validates harness structure and deterministic math;
+it does not enforce timing or memory thresholds.
+
+This page intentionally makes no numeric performance claim. A release claim may cite only verified
+`revoman-benchmark/v1` or `revoman-benchmark-jmh/v1` artifacts captured under the
+link:{gh-blob}/docs/superpowers/benchmarks/baseline.md[v1 reproducible evidence protocol]. Legacy
+human JMH output is not comparable evidence.

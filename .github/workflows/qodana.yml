@@ -41,7 +41,7 @@ jobs:
       # Instead generate the sources here on the runner (JDK 21 from setup-java above) — qodana-action
       # mounts the project dir, so build/generated is visible to the linter. Mirrors the local flow.
       - name: 'Generate sources for analysis'
-        run: ./gradlew kaptKotlin classes
+        run: ./gradlew kaptKotlin classes :benchmark-driver:kaptKotlin :benchmark-driver:classes
 
       # Community linter runs in the runner's preinstalled Docker — no colima needed on CI.
       # QODANA_TOKEN (repo secret) reports to the free Qodana Cloud tier. Linter is set in qodana.yaml.

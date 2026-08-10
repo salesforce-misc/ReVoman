@@ -202,46 +202,24 @@ abstract class StrictJmhJavaExec : JavaExec() {
 abstract class BenchmarkHarnessSelfTest @Inject constructor(
   private val execOperations: ExecOperations
 ) : DefaultTask() {
-  @get:Internal abstract val repositoryRoot: DirectoryProperty
-
-  @get:InputFile abstract val wrapper: RegularFileProperty
-
-  @get:InputFile abstract val sourceInitScript: RegularFileProperty
-
   @get:InputDirectory abstract val installationRoot: DirectoryProperty
 
   @get:Classpath abstract val installedClasspath: ConfigurableFileCollection
 
-  @get:Input abstract val adapterId: Property<String>
+  @get:InputFile abstract val targetManifest: RegularFileProperty
 
-  @get:OutputFile abstract val exportedManifest: RegularFileProperty
+  @get:Input abstract val adapterId: Property<String>
 
   @TaskAction
   fun verifyHarness() {
-    val repository = repositoryRoot.get().asFile
-    val manifest = exportedManifest.get().asFile
-    Files.createDirectories(requireNotNull(manifest.toPath().parent))
-    Files.deleteIfExists(manifest.toPath())
-    execOperations
-      .exec {
-        workingDir(repository)
-        commandLine(
-          wrapper.get().asFile.absolutePath,
-          "-I",
-          sourceInitScript.get().asFile.absolutePath,
-          "writeBenchmarkTargetManifest",
-          "-Pbenchmark.targetManifest=${manifest.absolutePath}",
-          "-Pbenchmark.targetId=self-test-current",
-        )
-      }
-      .assertNormalExitValue()
+    val manifest = targetManifest.get().asFile.toPath().toRealPath()
     execOperations
       .javaexec {
         classpath(installedClasspath)
         mainClass.set("com.salesforce.revoman.benchmark.driver.jmh.HarnessSelfTestMainKt")
         args(
           installationRoot.get().asFile.absolutePath,
-          manifest.absolutePath,
+          manifest.toString(),
           adapterId.get(),
         )
       }
@@ -554,11 +532,13 @@ kotlin.target.compilations.named("jmh") {
 }
 
 val benchmarkTargetManifest = providers.gradleProperty("benchmark.targetManifest")
+val benchmarkTargetManifestFile =
+  benchmarkTargetManifest.map(rootProject.layout.projectDirectory::file)
 val benchmarkAdapter = providers.gradleProperty("benchmark.adapter")
 
 tasks.withType<Test>().configureEach {
-  benchmarkTargetManifest.orNull?.let {
-    systemProperty("revoman.benchmark.targetManifest", it)
+  benchmarkTargetManifestFile.orNull?.let {
+    systemProperty("revoman.benchmark.targetManifest", it.asFile.absolutePath)
   }
   benchmarkAdapter.orNull?.let {
     systemProperty("revoman.benchmark.adapter", it)
@@ -690,7 +670,7 @@ val benchmarkJmh = tasks.register<StrictJmhJavaExec>("benchmarkJmh") {
     }
   )
   installationRoot.set(installedRoot)
-  targetManifest.set(benchmarkTargetManifest.map(rootProject.layout.projectDirectory::file))
+  targetManifest.set(benchmarkTargetManifestFile)
   logConfig.set(resolvedLogConfig)
   logConfigOverride.set(benchmarkLogConfig)
   adapterId.set(benchmarkAdapter)
@@ -706,13 +686,8 @@ val benchmarkJmh = tasks.register<StrictJmhJavaExec>("benchmarkJmh") {
 
 tasks.register<BenchmarkHarnessSelfTest>("benchmarkHarnessSelfTest") {
   group = "verification"
-  description = "Verifies the original-JAR JMH classpath and fatal failure behavior"
+  description = "Validates an explicit target manifest and the installed harness structure"
   dependsOn("installDist")
-  repositoryRoot.set(rootProject.layout.projectDirectory)
-  wrapper.set(rootProject.layout.projectDirectory.file("gradlew"))
-  sourceInitScript.set(
-    layout.projectDirectory.file("src/main/dist/libexec/benchmark-target.init.gradle.kts")
-  )
   installationRoot.set(installedRoot)
   installedClasspath.from(
     providers.provider {
@@ -720,8 +695,8 @@ tasks.register<BenchmarkHarnessSelfTest>("benchmarkHarnessSelfTest") {
         .sortedBy { it.name }
     }
   )
+  targetManifest.set(benchmarkTargetManifestFile)
   adapterId.set(benchmarkAdapter)
-  exportedManifest.set(layout.buildDirectory.file("self-test/benchmark-target-current.json"))
   outputs.upToDateWhen { false }
 }
 
@@ -730,7 +705,7 @@ tasks.register<BenchmarkJmhFreshnessTest>("benchmarkJmhFreshnessTest") {
   description = "Runs an identical JMH command twice and requires fresh evidence"
   repositoryRoot.set(rootProject.layout.projectDirectory)
   wrapper.set(rootProject.layout.projectDirectory.file("gradlew"))
-  targetManifest.set(benchmarkTargetManifest.map(rootProject.layout.projectDirectory::file))
+  targetManifest.set(benchmarkTargetManifestFile)
   adapterId.set(benchmarkAdapter)
   outputRoot.set(layout.buildDirectory.dir("self-test/freshness"))
   outputs.upToDateWhen { false }
@@ -741,7 +716,7 @@ tasks.register<BenchmarkJmhOutputCollisionTest>("benchmarkJmhOutputCollisionTest
   description = "Rejects aliased JMH outputs without changing prior evidence"
   repositoryRoot.set(rootProject.layout.projectDirectory)
   wrapper.set(rootProject.layout.projectDirectory.file("gradlew"))
-  targetManifest.set(benchmarkTargetManifest.map(rootProject.layout.projectDirectory::file))
+  targetManifest.set(benchmarkTargetManifestFile)
   adapterId.set(benchmarkAdapter)
   outputRoot.set(layout.buildDirectory.dir("self-test/output-collision"))
   outputs.upToDateWhen { false }
