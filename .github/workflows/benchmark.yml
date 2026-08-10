@@ -39,7 +39,7 @@ jobs:
       CANDIDATE_ADAPTER: ${{ inputs.candidate_adapter }}
       HOST_POLICY_PATH: ${{ inputs.host_policy_path }}
       # Safe absent fallback for always() uploads before this job owns the controlled run root.
-      RUN_ROOT: ${{ runner.temp }}/revoman-benchmark-unavailable-${{ github.run_id }}-${{ github.run_attempt }}
+      RUN_ROOT: /tmp/revoman-benchmark-unavailable-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - name: 'Validate requested refs'
         shell: bash

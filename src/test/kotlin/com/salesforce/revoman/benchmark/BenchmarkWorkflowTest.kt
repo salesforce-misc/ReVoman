@@ -46,7 +46,7 @@ class BenchmarkWorkflowTest {
     assertThat(job.asMap("env")["HOST_POLICY_PATH"]).isEqualTo(HOST_POLICY_PATH)
     assertThat(job.asMap("env")["RUN_ROOT"])
       .isEqualTo(
-        "${'$'}{{ runner.temp }}/revoman-benchmark-unavailable-" +
+        "/tmp/revoman-benchmark-unavailable-" +
           "${'$'}{{ github.run_id }}-${'$'}{{ github.run_attempt }}"
       )
 
