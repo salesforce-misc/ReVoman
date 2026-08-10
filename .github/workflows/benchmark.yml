@@ -107,7 +107,7 @@ jobs:
           java-version: 21
 
       - name: 'Setup Gradle'
-        uses: gradle/actions/setup-gradle@48b5f213c81028ace310571dc5ec0fbbca0b2947 # v4.4.3
+        uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4.4.3
 
       - name: 'Prepare unique run root'
         shell: bash
@@ -211,20 +211,22 @@ jobs:
       - name: 'Require cold and warm A-A gates'
         shell: bash
         run: |
-          set -uo pipefail
+          set -euo pipefail
           DRIVER="$GITHUB_WORKSPACE/harness/benchmark-driver/build/install/benchmark-driver/bin/benchmark-driver"
-          cold_status=0
-          warm_status=0
+          set +e
           "$DRIVER" compare \
             --input "$RUN_ROOT/results/cold-aa.json" \
             --output-json "$RUN_ROOT/results/comparison-aa-cold.json" \
             --output-md "$RUN_ROOT/results/comparison-aa-cold.md" \
-            --enforce-release-gates || cold_status=$?
+            --enforce-release-gates
+          cold_status=$?
           "$DRIVER" compare \
             --input "$RUN_ROOT/results/warm-aa.json" \
             --output-json "$RUN_ROOT/results/comparison-aa-warm.json" \
             --output-md "$RUN_ROOT/results/comparison-aa-warm.md" \
-            --enforce-release-gates || warm_status=$?
+            --enforce-release-gates
+          warm_status=$?
+          set -e
           if (( cold_status != 0 || warm_status != 0 )); then
             printf '%s\n' \
               '# INCONCLUSIVE' \
@@ -267,20 +269,22 @@ jobs:
       - name: 'Compare cold and warm candidate results'
         shell: bash
         run: |
-          set -uo pipefail
+          set -euo pipefail
           DRIVER="$GITHUB_WORKSPACE/harness/benchmark-driver/build/install/benchmark-driver/bin/benchmark-driver"
-          cold_status=0
-          warm_status=0
+          set +e
           "$DRIVER" compare \
             --input "$RUN_ROOT/results/cold-candidate.json" \
             --output-json "$RUN_ROOT/results/comparison-candidate-cold.json" \
             --output-md "$RUN_ROOT/results/comparison-candidate-cold.md" \
-            --enforce-release-gates || cold_status=$?
+            --enforce-release-gates
+          cold_status=$?
           "$DRIVER" compare \
             --input "$RUN_ROOT/results/warm-candidate.json" \
             --output-json "$RUN_ROOT/results/comparison-candidate-warm.json" \
             --output-md "$RUN_ROOT/results/comparison-candidate-warm.md" \
-            --enforce-release-gates || warm_status=$?
+            --enforce-release-gates
+          warm_status=$?
+          set -e
           if (( cold_status != 0 || warm_status != 0 )); then
             exit 3
           fi

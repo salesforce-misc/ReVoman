@@ -184,20 +184,56 @@ class BenchmarkWorkflowTest {
   }
 
   @Test
-  fun `workflow shell parser ignores comments and rejects duplicate executable options`() {
-    val withCommentDecoy =
+  fun `workflow shell parser rejects comment decoys and duplicate executable options`() {
+    val commentDecoy =
       """
       # "${'$'}DRIVER" run-paired --mode cold --blocks 50
       "${'$'}DRIVER" run-paired --mode cold \
         --blocks 49 # --blocks 50
       """
         .trimIndent()
-    val parsed = WorkflowShellParser.benchmarkInvocations(withCommentDecoy).single()
-    assertThat(parsed.options["--blocks"]).isEqualTo("49")
+    assertThrows<IllegalArgumentException> {
+      WorkflowShellParser.benchmarkInvocations(commentDecoy)
+    }
 
     val duplicate = "\"${'$'}DRIVER\" run-paired --blocks 49 --blocks 50"
     assertThrows<IllegalArgumentException> {
       WorkflowShellParser.benchmarkInvocations(duplicate)
+    }
+  }
+
+  @Test
+  fun `workflow shell parser rejects appended or conditional extra commands`() {
+    val expected = "\"${'$'}DRIVER\" run-paired --blocks 50"
+    listOf(";", "&&", "||").forEach { operator ->
+      val adversarial = "$expected $operator \"${'$'}DRIVER\" run-paired --blocks 1"
+      assertThrows<IllegalArgumentException> {
+        WorkflowShellParser.benchmarkInvocations(adversarial)
+      }
+    }
+  }
+
+  @Test
+  fun `workflow shell parser rejects driver overrides`() {
+    val adversarial = "DRIVER=/bin/true\n\"${'$'}DRIVER\" run-paired --blocks 50"
+
+    assertThrows<IllegalArgumentException> {
+      WorkflowShellParser.benchmarkInvocations(adversarial)
+    }
+  }
+
+  @Test
+  fun `workflow shell parser preserves physical continuation semantics`() {
+    val trailingSpaceContinuation = "\"${'$'}DRIVER\" run-paired --mode cold \\   \n  --blocks 50"
+    val commentContinuation =
+      "\"${'$'}DRIVER\" run-paired --mode cold \\\n" +
+        "# comment changes the continued Bash command\n" +
+        "  --blocks 50"
+
+    listOf(trailingSpaceContinuation, commentContinuation).forEach { adversarial ->
+      assertThrows<IllegalArgumentException> {
+        WorkflowShellParser.benchmarkInvocations(adversarial)
+      }
     }
   }
 
@@ -279,14 +315,14 @@ class BenchmarkWorkflowTest {
     command: String,
     expectedOptions: Map<String, String>,
   ) {
-    val invocation =
-      WorkflowShellParser.benchmarkInvocations(
-          stepByName(steps, stepName).getValue("run") as String
-        )
-        .single()
-    assertThat(invocation.command).isEqualTo(command)
-    assertThat(invocation.options).containsExactlyEntriesIn(expectedOptions)
-    assertThat(invocation.flags).isEmpty()
+    val parsed = WorkflowShellParser.parse(stepByName(steps, stepName).getValue("run") as String)
+    assertThat(parsed.statements)
+      .containsExactly(
+        ShellLiteral(STRICT_MODE_LINE),
+        ShellLiteral(DRIVER_ASSIGNMENT),
+        BenchmarkInvocation(command, expectedOptions, emptySet()),
+      )
+      .inOrder()
   }
 
   private fun assertComparisonStep(
@@ -294,18 +330,44 @@ class BenchmarkWorkflowTest {
     expectedByMode: Map<String, Map<String, String>>,
   ) {
     val script = stepByName(controlledSteps(), stepName).getValue("run") as String
-    val invocations = WorkflowShellParser.benchmarkInvocations(script)
-    assertThat(invocations).hasSize(2)
-    val actualByMode = invocations.associateBy { invocation ->
-      if (invocation.options.getValue("--input").contains("/cold-")) "cold" else "warm"
-    }
-    assertThat(actualByMode.keys).containsExactly("cold", "warm")
-    expectedByMode.forEach { (mode, expectedOptions) ->
-      val invocation = actualByMode.getValue(mode)
-      assertThat(invocation.command).isEqualTo("compare")
-      assertThat(invocation.options).containsExactlyEntriesIn(expectedOptions)
-      assertThat(invocation.flags).containsExactly("--enforce-release-gates")
-    }
+    val failureBody =
+      when (stepName) {
+        "Require cold and warm A-A gates" ->
+          listOf(
+            ShellLiteral(
+              "printf '%s\\n' '# INCONCLUSIVE' '' " +
+                "'Candidate measurement was not started because cold or warm A/A did not pass.' " +
+                "> \"${'$'}RUN_ROOT/results/INCONCLUSIVE.md\""
+            ),
+            ShellLiteral("exit 3"),
+          )
+        "Compare cold and warm candidate results" -> listOf(ShellLiteral("exit 3"))
+        else -> error("Unknown comparison step: $stepName")
+      }
+    val expectedStatements =
+      listOf<WorkflowStatement>(
+        ShellLiteral(STRICT_MODE_LINE),
+        ShellLiteral(DRIVER_ASSIGNMENT),
+        ShellLiteral("set +e"),
+        BenchmarkInvocation(
+          "compare",
+          expectedByMode.getValue("cold"),
+          setOf("--enforce-release-gates"),
+        ),
+        ShellLiteral("cold_status=${'$'}?"),
+        BenchmarkInvocation(
+          "compare",
+          expectedByMode.getValue("warm"),
+          setOf("--enforce-release-gates"),
+        ),
+        ShellLiteral("warm_status=${'$'}?"),
+        ShellLiteral("set -e"),
+        ShellLiteral("if (( cold_status != 0 || warm_status != 0 )); then"),
+      ) + failureBody + ShellLiteral("fi")
+
+    assertThat(WorkflowShellParser.parse(script).statements)
+      .containsExactlyElementsIn(expectedStatements)
+      .inOrder()
   }
 
   private fun coldCampaignOptions(
@@ -447,9 +509,13 @@ class BenchmarkWorkflowTest {
     const val SETUP_JAVA_ACTION: String =
       "actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9"
     const val SETUP_GRADLE_ACTION: String =
-      "gradle/actions/setup-gradle@48b5f213c81028ace310571dc5ec0fbbca0b2947"
+      "gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a"
     const val UPLOAD_ARTIFACT_ACTION: String =
       "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02"
+    const val STRICT_MODE_LINE: String = "set -euo pipefail"
+    const val DRIVER_ASSIGNMENT: String =
+      "DRIVER=\"${'$'}GITHUB_WORKSPACE/harness/benchmark-driver/build/install/" +
+        "benchmark-driver/bin/benchmark-driver\""
     val CANDIDATE_MEASUREMENT_STEPS: List<String> =
       listOf(
         "Capture cold candidate comparison",
@@ -460,26 +526,37 @@ class BenchmarkWorkflowTest {
   }
 }
 
+private sealed interface WorkflowStatement
+
+private data class ShellLiteral(val line: String) : WorkflowStatement
+
 private data class BenchmarkInvocation(
   val command: String,
   val options: Map<String, String>,
   val flags: Set<String>,
-)
+) : WorkflowStatement
+
+private data class ParsedWorkflowScript(val statements: List<WorkflowStatement>)
 
 private object WorkflowShellParser {
+  fun parse(script: String): ParsedWorkflowScript =
+    ParsedWorkflowScript(logicalLines(script).map(::parseStatement))
+
   fun benchmarkInvocations(script: String): List<BenchmarkInvocation> =
-    logicalLines(script)
-      .map(::tokenize)
-      .filter { tokens -> tokens.firstOrNull() == "${'$'}DRIVER" }
-      .map(::parseBenchmarkInvocation)
+    parse(script).statements.filterIsInstance<BenchmarkInvocation>()
 
   private fun logicalLines(script: String): List<String> {
     val lines = mutableListOf<String>()
     val current = StringBuilder()
-    script.lineSequence().forEach { rawLine ->
-      val line = rawLine.trim()
-      if (line.isBlank() || line.startsWith('#')) return@forEach
-      val continued = line.endsWith('\\')
+    physicalLines(script).forEach { physicalLine ->
+      require(physicalLine == physicalLine.trimEnd()) {
+        "Shell physical line has trailing whitespace: <$physicalLine>"
+      }
+      val line = physicalLine.trimStart()
+      require(line.isNotBlank() && !line.startsWith('#')) {
+        "Shell command scripts cannot contain blank or comment-only lines: <$physicalLine>"
+      }
+      val continued = physicalLine.endsWith('\\')
       val segment = if (continued) line.dropLast(1).trimEnd() else line
       if (current.isNotEmpty()) current.append(' ')
       current.append(segment)
@@ -492,50 +569,75 @@ private object WorkflowShellParser {
     return lines
   }
 
-  private fun tokenize(line: String): List<String> = ShellTokenizer(line).tokenize()
+  private fun physicalLines(script: String): List<String> =
+    script.split('\n').let { lines ->
+      if (lines.lastOrNull().isNullOrEmpty()) lines.dropLast(1) else lines
+    }
+
+  private fun parseStatement(line: String): WorkflowStatement {
+    val tokenization = ShellTokenizer(line).tokenize()
+    require(!tokenization.commentSeen) { "Shell command scripts cannot contain comments: $line" }
+    val tokens = tokenization.tokens
+    if (line.startsWith("DRIVER=")) {
+      require(line == DRIVER_ASSIGNMENT) { "Unexpected DRIVER assignment: $line" }
+    }
+    return if (tokens.firstOrNull() == "${'$'}DRIVER") {
+      parseBenchmarkInvocation(tokens)
+    } else {
+      ShellLiteral(line)
+    }
+  }
 
   private fun parseBenchmarkInvocation(tokens: List<String>): BenchmarkInvocation {
-    val argv = tokens.takeWhile { it !in SHELL_CONTROL_OPERATORS }
-    require(argv.size >= 2) { "Benchmark invocation has no command: $argv" }
+    require(tokens.none { it in SHELL_CONTROL_OPERATORS }) {
+      "Benchmark invocation cannot contain shell control operators: $tokens"
+    }
+    require(tokens.size >= 2) { "Benchmark invocation has no command: $tokens" }
     val options = linkedMapOf<String, String>()
     val flags = linkedSetOf<String>()
     var index = 2
-    while (index < argv.size) {
-      val option = argv[index]
+    while (index < tokens.size) {
+      val option = tokens[index]
       require(option.startsWith("--")) { "Unexpected benchmark argv token: $option" }
       if (option in VALUELESS_FLAGS) {
         require(flags.add(option)) { "Duplicate benchmark flag: $option" }
         index += 1
       } else {
-        require(index + 1 < argv.size && !argv[index + 1].startsWith("--")) {
+        require(index + 1 < tokens.size && !tokens[index + 1].startsWith("--")) {
           "Benchmark option needs a value: $option"
         }
-        require(options.put(option, argv[index + 1]) == null) {
+        require(options.put(option, tokens[index + 1]) == null) {
           "Duplicate benchmark option: $option"
         }
         index += 2
       }
     }
-    return BenchmarkInvocation(command = argv[1], options = options, flags = flags)
+    return BenchmarkInvocation(command = tokens[1], options = options, flags = flags)
   }
 
-  private val SHELL_CONTROL_OPERATORS: Set<String> = setOf("||", "&&", ";")
+  private const val DRIVER_ASSIGNMENT: String =
+    "DRIVER=\"${'$'}GITHUB_WORKSPACE/harness/benchmark-driver/build/install/" +
+      "benchmark-driver/bin/benchmark-driver\""
+  private val SHELL_CONTROL_OPERATORS: Set<String> = setOf(";", "&", "|")
   private val VALUELESS_FLAGS: Set<String> = setOf("--enforce-release-gates")
 }
+
+private data class ShellTokenization(val tokens: List<String>, val commentSeen: Boolean)
 
 private class ShellTokenizer(private val line: String) {
   private val tokens = mutableListOf<String>()
   private val token = StringBuilder()
   private var quote: Char? = null
   private var escaped = false
+  private var commentSeen = false
 
-  fun tokenize(): List<String> {
+  fun tokenize(): ShellTokenization {
     for (character in line) {
       if (consume(character)) break
     }
     require(quote == null && !escaped) { "Unterminated shell token in: $line" }
     flushToken()
-    return tokens
+    return ShellTokenization(tokens = tokens, commentSeen = commentSeen)
   }
 
   private fun consume(character: Char): Boolean =
@@ -562,17 +664,39 @@ private class ShellTokenizer(private val line: String) {
 
   private fun consumeUnquoted(character: Char): Boolean =
     when {
-      character == '\\' -> false.also { escaped = true }
-      character == '\'' || character == '"' -> false.also { quote = character }
-      character.isWhitespace() -> false.also { flushToken() }
-      character == '#' && token.isEmpty() -> true
-      else -> false.also { token.append(character) }
+      character == '\\' -> beginEscape()
+      character in QUOTE_CHARACTERS -> beginQuote(character)
+      character.isWhitespace() -> consumeWhitespace()
+      character == '#' && token.isEmpty() -> beginComment()
+      character in CONTROL_CHARACTERS -> consumeControl(character)
+      else -> consumeLiteral(character)
     }
+
+  private fun beginEscape(): Boolean = false.also { escaped = true }
+
+  private fun beginQuote(character: Char): Boolean = false.also { quote = character }
+
+  private fun consumeWhitespace(): Boolean = false.also { flushToken() }
+
+  private fun beginComment(): Boolean = true.also { commentSeen = true }
+
+  private fun consumeControl(character: Char): Boolean =
+    false.also {
+      flushToken()
+      tokens += character.toString()
+    }
+
+  private fun consumeLiteral(character: Char): Boolean = false.also { token.append(character) }
 
   private fun flushToken() {
     if (token.isNotEmpty()) {
       tokens += token.toString()
       token.clear()
     }
+  }
+
+  private companion object {
+    val QUOTE_CHARACTERS: Set<Char> = setOf('\'', '"')
+    val CONTROL_CHARACTERS: Set<Char> = setOf(';', '&', '|')
   }
 }
