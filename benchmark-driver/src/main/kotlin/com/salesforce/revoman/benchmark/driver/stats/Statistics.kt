@@ -86,6 +86,7 @@ internal fun r7Quantile(values: List<Double>, probability: Double): Double {
     if (probability == 1.0) return sorted.last()
     val h = 1.0 + (sorted.size - 1) * probability
     val oneBasedLower = floor(h).toInt()
+    if (oneBasedLower == sorted.size) return sorted.last()
     val fraction = h - oneBasedLower
     val lower = sorted[oneBasedLower - 1]
     val upper = sorted[oneBasedLower]
@@ -185,10 +186,19 @@ internal fun validatePairedHierarchy(samples: PairedHierarchy) {
     require(samples.blocks.map(PairedBlockSamples::blockId).distinct().size == samples.blocks.size) {
         "Paired hierarchy block IDs must be unique"
     }
-    samples.blocks.forEach { block ->
-        require(block.blockId >= 0) { "Paired hierarchy block ID must not be negative" }
-        validateForks(block.baselineForks, "block ${block.blockId} baseline")
-        validateForks(block.candidateForks, "block ${block.blockId} candidate")
+    val blockShapes =
+        samples.blocks.map { block ->
+            require(block.blockId >= 0) { "Paired hierarchy block ID must not be negative" }
+            validateForks(block.baselineForks, "block ${block.blockId} baseline")
+            validateForks(block.candidateForks, "block ${block.blockId} candidate")
+            val baselineShape = forkShape(block.baselineForks)
+            require(baselineShape == forkShape(block.candidateForks)) {
+                "Block ${block.blockId} fork IDs and leaf counts must match across roles"
+            }
+            baselineShape
+        }
+    require(blockShapes.distinct().size == 1) {
+        "Paired hierarchy fork IDs and leaf counts must remain consistent across blocks"
     }
 }
 
@@ -370,11 +380,14 @@ private fun validateForks(forks: List<ForkSeries>, label: String) {
     forks.forEach { fork ->
         require(fork.fork >= 0) { "$label fork ID must not be negative" }
         require(fork.values.isNotEmpty()) { "$label fork ${fork.fork} values must not be empty" }
-        require(fork.values.all(Double::isFinite)) {
-            "$label fork ${fork.fork} values must be finite"
+        require(fork.values.all { it.isFinite() && it >= 0.0 }) {
+            "$label fork ${fork.fork} values must be finite and non-negative"
         }
     }
 }
+
+private fun forkShape(forks: List<ForkSeries>): Map<Int, Int> =
+    forks.associate { fork -> fork.fork to fork.values.size }
 
 private fun validateReplicates(
     blockId: Int,

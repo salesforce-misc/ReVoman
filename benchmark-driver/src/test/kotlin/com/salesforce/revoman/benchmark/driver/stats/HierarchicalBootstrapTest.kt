@@ -115,6 +115,98 @@ class HierarchicalBootstrapTest {
     }
 
     @Test
+    fun `paired hierarchy rejects unequal role fork counts`() {
+        assertInvalidHierarchy(
+            PairedHierarchy(
+                listOf(
+                    PairedBlockSamples(
+                        blockId = 0,
+                        baselineForks =
+                            listOf(
+                                ForkSeries(0, listOf(1.0)),
+                                ForkSeries(1, listOf(2.0)),
+                            ),
+                        candidateForks = listOf(ForkSeries(0, listOf(1.0))),
+                    )
+                )
+            )
+        )
+    }
+
+    @Test
+    fun `paired hierarchy rejects mismatched role fork IDs`() {
+        assertInvalidHierarchy(
+            PairedHierarchy(
+                listOf(
+                    PairedBlockSamples(
+                        blockId = 0,
+                        baselineForks =
+                            listOf(
+                                ForkSeries(0, listOf(1.0)),
+                                ForkSeries(1, listOf(2.0)),
+                            ),
+                        candidateForks =
+                            listOf(
+                                ForkSeries(0, listOf(1.0)),
+                                ForkSeries(2, listOf(2.0)),
+                            ),
+                    )
+                )
+            )
+        )
+    }
+
+    @Test
+    fun `paired hierarchy rejects unequal per fork iteration cardinality`() {
+        assertInvalidHierarchy(
+            PairedHierarchy(
+                listOf(
+                    PairedBlockSamples(
+                        blockId = 0,
+                        baselineForks = listOf(ForkSeries(0, listOf(1.0, 2.0))),
+                        candidateForks = listOf(ForkSeries(0, listOf(1.0))),
+                    )
+                )
+            )
+        )
+    }
+
+    @Test
+    fun `paired hierarchy rejects cross block shape drift`() {
+        assertInvalidHierarchy(
+            PairedHierarchy(
+                listOf(
+                    PairedBlockSamples(
+                        blockId = 0,
+                        baselineForks = listOf(ForkSeries(0, listOf(1.0))),
+                        candidateForks = listOf(ForkSeries(0, listOf(1.0))),
+                    ),
+                    PairedBlockSamples(
+                        blockId = 1,
+                        baselineForks = listOf(ForkSeries(0, listOf(1.0, 2.0))),
+                        candidateForks = listOf(ForkSeries(0, listOf(1.0, 2.0))),
+                    ),
+                )
+            )
+        )
+    }
+
+    @Test
+    fun `paired hierarchy rejects negative leaves`() {
+        assertInvalidHierarchy(
+            PairedHierarchy(
+                listOf(
+                    PairedBlockSamples(
+                        blockId = 0,
+                        baselineForks = listOf(ForkSeries(0, listOf(-1.0))),
+                        candidateForks = listOf(ForkSeries(0, listOf(1.0))),
+                    )
+                )
+            )
+        )
+    }
+
+    @Test
     fun `hierarchy rejects invalid IDs empty leaves nonfinite values and nonpositive resamples`() {
         val valid = goldenHierarchy()
         val duplicateBlock = PairedHierarchy(valid.blocks + valid.blocks.first().copy())
@@ -237,4 +329,10 @@ class HierarchicalBootstrapTest {
                     ),
                 )
         )
+
+    private fun assertInvalidHierarchy(samples: PairedHierarchy) {
+        assertThrows<IllegalArgumentException> {
+            hierarchicalRatioInterval(samples, Statistic.MEDIAN, resamples = 1, seed = 1)
+        }
+    }
 }

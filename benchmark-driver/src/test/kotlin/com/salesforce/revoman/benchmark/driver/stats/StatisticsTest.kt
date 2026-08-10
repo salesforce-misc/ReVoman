@@ -43,6 +43,11 @@ class StatisticsTest {
     }
 
     @Test
+    fun `R7 probability just below one returns the last sample safely`() {
+        assertThat(r7Quantile(listOf(1.0, 2.0), Math.nextDown(1.0))).isEqualTo(2.0)
+    }
+
+    @Test
     fun `cold hierarchy treats every fresh process as one fork observation`() {
         val hierarchy =
             pairedHierarchyFromAcceptedBlocks(
@@ -68,6 +73,45 @@ class StatisticsTest {
             .inOrder()
         assertThat(hierarchy.blocks.single().candidateForks)
             .containsExactly(ForkSeries(0, listOf(11.0)), ForkSeries(1, listOf(22.0)))
+            .inOrder()
+    }
+
+    @Test
+    fun `raw hierarchy adapter preserves valid warm fork and iteration shape`() {
+        val hierarchy =
+            pairedHierarchyFromAcceptedBlocks(
+                blocks =
+                    listOf(
+                        block(
+                            observations =
+                                listOf(
+                                    observation("baseline", 0, 101, 10.0, iteration = 0),
+                                    observation("baseline", 0, 101, 20.0, iteration = 1),
+                                    observation("baseline", 1, 102, 30.0, iteration = 0),
+                                    observation("baseline", 1, 102, 40.0, iteration = 1),
+                                    observation("candidate", 0, 201, 11.0, iteration = 0),
+                                    observation("candidate", 0, 201, 22.0, iteration = 1),
+                                    observation("candidate", 1, 202, 33.0, iteration = 0),
+                                    observation("candidate", 1, 202, 44.0, iteration = 1),
+                                )
+                        )
+                    ),
+                baselineTargetId = "baseline",
+                candidateTargetId = "candidate",
+                mode = RunMode.WARM,
+            )
+
+        assertThat(hierarchy.blocks.single().baselineForks)
+            .containsExactly(
+                ForkSeries(0, listOf(10.0, 20.0)),
+                ForkSeries(1, listOf(30.0, 40.0)),
+            )
+            .inOrder()
+        assertThat(hierarchy.blocks.single().candidateForks)
+            .containsExactly(
+                ForkSeries(0, listOf(11.0, 22.0)),
+                ForkSeries(1, listOf(33.0, 44.0)),
+            )
             .inOrder()
     }
 
