@@ -12,6 +12,7 @@ import com.salesforce.revoman.benchmark.driver.json.BenchmarkJson
 import com.salesforce.revoman.benchmark.driver.model.HashedArtifact
 import com.salesforce.revoman.benchmark.driver.model.JdkIdentity
 import com.salesforce.revoman.benchmark.driver.model.TargetManifest
+import com.salesforce.revoman.benchmark.driver.target.VerifiedTargetManifest
 import java.nio.file.Files
 import java.nio.file.Path
 import org.junit.jupiter.api.Test
@@ -30,7 +31,7 @@ class TargetManifestLoaderTest {
         assertThat(loaded.manifest.targetId).isEqualTo("candidate")
         assertThat(loaded.verified.manifest).isEqualTo(loaded.manifest)
         assertThat(loaded.verified.manifestPath).isEqualTo(manifestPath)
-        assertThat(loaded.canonicalBytes).isEqualTo(BenchmarkJson.encode(loaded.manifest))
+        assertThat(loaded.snapshotBytes).isEqualTo(Files.readAllBytes(manifestPath))
     }
 
     @Test
@@ -61,6 +62,25 @@ class TargetManifestLoaderTest {
         assertThat(loaded.manifest.dirty).isTrue()
         val failure = assertThrows<IllegalArgumentException> { loaded.requireClean("verification") }
         assertThat(failure).hasMessageThat().contains("clean target")
+    }
+
+    @Test
+    fun `preflight from one captured snapshot defers later manifest mutation to postflight`() {
+        val manifestPath = writeManifest("candidate", dirty = false)
+        val bytes = Files.readAllBytes(manifestPath)
+        val manifest = BenchmarkJson.decode<TargetManifest>(bytes, manifestPath.toString())
+        BenchmarkJson.write(manifestPath, manifest.copy(targetId = "later-mutation"))
+
+        val verified =
+            VerifiedTargetManifest.preflightFromSnapshot(
+                manifestPath = manifestPath,
+                bytes = bytes,
+                expectedManifest = manifest,
+            )
+
+        assertThat(verified.manifest).isEqualTo(manifest)
+        val failure = assertThrows<IllegalStateException> { verified.postflight() }
+        assertThat(failure).hasMessageThat().contains("target manifest SHA-256 changed")
     }
 
     private fun writeManifest(targetId: String, dirty: Boolean): Path {

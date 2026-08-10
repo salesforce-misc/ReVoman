@@ -9,6 +9,13 @@ package com.salesforce.revoman.benchmark.driver.run
 
 import com.salesforce.revoman.benchmark.driver.integrity.ContentHasher
 import com.salesforce.revoman.benchmark.driver.fixture.DeterministicHttpFixture
+import com.salesforce.revoman.benchmark.driver.jmh.FIXTURE_ROOT_PROPERTY
+import com.salesforce.revoman.benchmark.driver.jmh.JMH_CAMPAIGN_CONTEXT_PROPERTY
+import com.salesforce.revoman.benchmark.driver.jmh.LIFECYCLE_BASE_URL_PROPERTY
+import com.salesforce.revoman.benchmark.driver.jmh.LIFECYCLE_MANIFEST_SHA256_PROPERTY
+import com.salesforce.revoman.benchmark.driver.jmh.LIFECYCLE_SOURCE_ROOT_PROPERTY
+import com.salesforce.revoman.benchmark.driver.jmh.TARGET_TOKEN_PROPERTY
+import com.salesforce.revoman.benchmark.driver.jmh.TARGET_TOKEN_SHA256_PROPERTY
 import com.salesforce.revoman.benchmark.driver.json.BenchmarkJson
 import com.salesforce.revoman.benchmark.driver.metrics.JmhGcResultImporter
 import com.salesforce.revoman.benchmark.driver.metrics.WARM_LIFECYCLE_ALLOCATION_INCLUDE
@@ -49,6 +56,7 @@ data class WarmAllocationPlan(
     val loggingConfiguration: VerifiedLoggingConfiguration,
     val iterationDuration: Duration = Duration.ofSeconds(1),
     val fixtureRoot: Path? = null,
+    val fixtureBaseUrl: String? = null,
     val expectedJmhEvidence: JmhEvidenceExpectation? = null,
     val verifiedTarget: VerifiedTargetManifest? = null,
     val loggingSnapshot: Path? = null,
@@ -185,6 +193,7 @@ class WarmAllocationRunner(private val launcher: WarmAllocationLauncher) {
         val iterationTime = "${plan.iterationDuration.toMillis()}ms"
         val includes = listOf(WARM_LIFECYCLE_ALLOCATION_INCLUDE)
         val profilers = listOf("gc")
+        val campaignJvmArguments = campaignJvmArguments(plan)
         val command =
             JavaCommand(
                 executable = javaExecutable,
@@ -203,7 +212,7 @@ class WarmAllocationRunner(private val launcher: WarmAllocationLauncher) {
                         "-Dlog4j2.*.Configuration.file=$loggingUri",
                         "-Dkotlin-logging.logStartupMessage=false",
                         "-Drevoman.banner=off",
-                    ),
+                    ) + campaignJvmArguments,
                 classpath = plan.controllerClasspath,
                 mainClass = JMH_DRIVER_MAIN,
                 programArgs =
@@ -231,7 +240,7 @@ class WarmAllocationRunner(private val launcher: WarmAllocationLauncher) {
                 workingDirectory = plan.outputDirectory,
                 timeout = plan.timeout,
             )
-        plan.fixtureRoot?.let { fixture ->
+        plan.fixtureRoot?.takeIf { plan.verifiedTarget == null }?.let { fixture ->
             val insertion = command.jvmArgs.indexOfFirst { it.startsWith("-Dlog4j2.configurationFile=") }
             val withFixture =
                 command.copy(
@@ -239,7 +248,7 @@ class WarmAllocationRunner(private val launcher: WarmAllocationLauncher) {
                         command.jvmArgs.toMutableList().apply {
                             add(
                                 if (insertion >= 0) insertion else size,
-                                "-Drevoman.benchmark.lifecycleSourceRoot=$fixture",
+                                "-D$LIFECYCLE_SOURCE_ROOT_PROPERTY=$fixture",
                             )
                         }
                 )
@@ -254,6 +263,34 @@ class WarmAllocationRunner(private val launcher: WarmAllocationLauncher) {
             )
         }
         return launch(plan, command, rawResult, normalizedResult, humanOutput, profilers, includes)
+    }
+
+    private fun campaignJvmArguments(plan: WarmAllocationPlan): List<String> {
+        val verified = plan.verifiedTarget ?: return emptyList()
+        val fixtureRoot = requireNotNull(plan.fixtureRoot)
+        val fixtureBaseUrl = requireNotNull(plan.fixtureBaseUrl)
+        val tokenPath = plan.outputDirectory.resolve("target-verification-token.json")
+        val contextPath = plan.outputDirectory.resolve("campaign-jmh-context.json")
+        require(!Files.exists(tokenPath) && !Files.exists(contextPath)) {
+            "Campaign JMH identity files must be absent"
+        }
+        BenchmarkJson.write(tokenPath, verified.verificationToken())
+        check(tokenPath.toFile().setReadOnly()) { "Cannot make campaign JMH target token read-only" }
+        val contextArgument =
+            plan.expectedJmhEvidence?.let { expectation ->
+                BenchmarkJson.write(contextPath, expectation)
+                listOf("-D$JMH_CAMPAIGN_CONTEXT_PROPERTY=${contextPath.toRealPath()}")
+            }.orEmpty()
+        val manifestSha256 =
+            plan.expectedJmhEvidence?.workload?.manifestSha256
+                ?: ContentHasher.sha256(fixtureRoot.resolve("manifest.json"))
+        return listOf(
+            "-D$TARGET_TOKEN_PROPERTY=${tokenPath.toRealPath()}",
+            "-D$TARGET_TOKEN_SHA256_PROPERTY=${ContentHasher.sha256(tokenPath)}",
+            "-D$FIXTURE_ROOT_PROPERTY=$fixtureRoot",
+            "-D$LIFECYCLE_BASE_URL_PROPERTY=$fixtureBaseUrl",
+            "-D$LIFECYCLE_MANIFEST_SHA256_PROPERTY=$manifestSha256",
+        ) + contextArgument
     }
 
     private fun launch(
@@ -327,6 +364,9 @@ class WarmAllocationRunner(private val launcher: WarmAllocationLauncher) {
         plan.verifiedTarget?.let { verified ->
             require(verified.manifest == plan.target && verified.manifestPath == plan.targetManifestPath) {
                 "Campaign-owned target verification must match the warm allocation plan"
+            }
+            require(plan.fixtureRoot != null && !plan.fixtureBaseUrl.isNullOrBlank()) {
+                "Campaign-owned warm allocation requires the parent fixture root and base URL"
             }
         }
         plan.loggingSnapshot?.let { snapshot -> requireCanonicalFile("loggingSnapshot", snapshot) }

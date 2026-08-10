@@ -40,7 +40,12 @@ sealed interface BenchmarkCommand {
 
     data class CaptureBaseline internal constructor(val options: RunOptions) : BenchmarkCommand
 
-    data class Compare(val input: Path, val outputJson: Path, val outputMarkdown: Path) : BenchmarkCommand
+    data class Compare(
+        val input: Path,
+        val outputJson: Path,
+        val outputMarkdown: Path,
+        val enforceReleaseGates: Boolean,
+    ) : BenchmarkCommand
 
     data class Verify(val input: Path) : BenchmarkCommand
 }
@@ -79,7 +84,7 @@ object BenchmarkCli {
             }
             "run-paired" -> BenchmarkCommand.RunPaired(parseRun(arguments.drop(1)))
             "capture-baseline" -> BenchmarkCommand.CaptureBaseline(parseRun(arguments.drop(1)))
-            "compare" -> parseCompare(parseOptions(command, arguments.drop(1)))
+            "compare" -> parseCompare(arguments.drop(1))
             "verify" -> parseVerify(parseOptions(command, arguments.drop(1)))
             else -> throw CliUsageException("Unknown command '$command'. $USAGE")
         }
@@ -148,13 +153,19 @@ object BenchmarkCli {
         )
     }
 
-    private fun parseCompare(values: Map<String, String>): BenchmarkCommand.Compare {
+    private fun parseCompare(arguments: List<String>): BenchmarkCommand.Compare {
+        val gateFlagCount = arguments.count { it == ENFORCE_RELEASE_GATES }
+        if (gateFlagCount > 1) {
+            throw CliUsageException("$ENFORCE_RELEASE_GATES must not be repeated")
+        }
+        val values = parseOptions("compare", arguments.filterNot { it == ENFORCE_RELEASE_GATES })
         requireOptions(values, COMPARE_OPTIONS)
         requireOnlyOptions(values, COMPARE_OPTIONS)
         return BenchmarkCommand.Compare(
             input = Path.of(values.getValue("--input")),
             outputJson = Path.of(values.getValue("--output-json")),
             outputMarkdown = Path.of(values.getValue("--output-md")),
+            enforceReleaseGates = gateFlagCount == 1,
         )
     }
 
@@ -275,6 +286,7 @@ private val RUN_REQUIRED =
         "--output",
     )
 private val COMPARE_OPTIONS = setOf("--input", "--output-json", "--output-md")
+private const val ENFORCE_RELEASE_GATES: String = "--enforce-release-gates"
 private const val USAGE: String =
     "Usage: benchmark-driver <list-workloads|run-paired|compare|verify|capture-baseline>"
 private val WORKLOAD_ID_PATTERN = Regex("[A-Za-z0-9][A-Za-z0-9._-]*")

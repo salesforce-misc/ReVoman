@@ -8,7 +8,6 @@
 package com.salesforce.revoman.benchmark.driver.run
 
 import com.salesforce.revoman.benchmark.driver.cli.ArtifactDirectory
-import com.salesforce.revoman.benchmark.driver.fixture.DeterministicHttpFixture
 import com.salesforce.revoman.benchmark.driver.host.ControlledHostPolicy
 import com.salesforce.revoman.benchmark.driver.host.HostHealthGate
 import com.salesforce.revoman.benchmark.driver.host.HostHealthProbe
@@ -19,7 +18,6 @@ import com.salesforce.revoman.benchmark.driver.integrity.LoadedTargetManifest
 import com.salesforce.revoman.benchmark.driver.integrity.RuntimeIdentityFactory
 import com.salesforce.revoman.benchmark.driver.integrity.TargetManifestLoader
 import com.salesforce.revoman.benchmark.driver.jmh.ForkPidProfiler
-import com.salesforce.revoman.benchmark.driver.jmh.VerifiedLifecycleWorkloadSnapshot
 import com.salesforce.revoman.benchmark.driver.metrics.GnuTimePeakRssProvider
 import com.salesforce.revoman.benchmark.driver.metrics.MacOsTimePeakRssProvider
 import com.salesforce.revoman.benchmark.driver.metrics.PeakRssProvider
@@ -43,16 +41,12 @@ import com.salesforce.revoman.benchmark.driver.model.WorkloadRequest
 import com.salesforce.revoman.benchmark.driver.model.WorkloadResult
 import com.salesforce.revoman.benchmark.driver.process.JdkProcessLauncher
 import com.salesforce.revoman.benchmark.driver.process.ProcessLauncher
-import com.salesforce.revoman.benchmark.driver.process.ProcessTreeTracker
-import com.salesforce.revoman.benchmark.driver.target.VerifiedTargetManifest
 import java.nio.file.Files
 import java.nio.file.LinkOption.NOFOLLOW_LINKS
 import java.nio.file.Path
 import java.time.Duration
 import java.time.Instant
 import java.util.UUID
-import java.util.concurrent.TimeUnit
-import java.util.concurrent.FutureTask
 import java.util.concurrent.atomic.AtomicLong
 
 /** Provider identity captured beside one scheduler callback without changing block evidence. */
@@ -323,9 +317,6 @@ class BenchmarkCampaign(
                     )
                 results.flatMap(ProviderResult::observations)
             }
-        check(campaign.outcome == PairedBlockOutcome.COMPLETE) {
-            "Paired metric pass $metricPass did not produce the requested balanced accepted blocks"
-        }
         return CampaignEvidenceAssembler.assemble(campaign.blocks, evidence)
     }
 
@@ -348,35 +339,42 @@ class BenchmarkCampaign(
             )
         val expectedDigest = requireNotNull(session.workload.manifest.expectedDigest)
         return when (request.mode) {
-            RunMode.COLD ->
-                ColdRunner(processLauncher)
-                    .runWithEvidence(
-                        ColdPlan(
-                            intent = request.intent,
-                            target = target.loaded.manifest,
-                            targetManifestPath = target.loaded.verified.manifestPath,
-                            adapterId = adapterId,
-                            workload = workload,
-                            expectedDigest = expectedDigest,
-                            sampleCount = 1,
-                            metricPass = metricPass,
-                            timeout = timeout,
-                            loggingConfiguration = session.logging,
-                            artifactDirectory =
-                                coordinate.takeIf {
-                                    metricPass == MetricPass.ALLOCATION || metricPass == MetricPass.PEAK_RSS
-                                },
-                            jfrConfigurationFile =
-                                session.jfrConfiguration.takeIf { metricPass == MetricPass.ALLOCATION },
-                            peakRssProvider =
-                                peakRssProvider(request.intent).takeIf {
-                                    metricPass == MetricPass.PEAK_RSS
-                                },
-                            position = ColdPosition(scheduled.blockId, scheduled.targetRole, fork),
-                        ),
-                        target.runner,
+            RunMode.COLD -> {
+                val plan =
+                    ColdPlan(
+                        intent = request.intent,
+                        target = target.loaded.manifest,
+                        targetManifestPath = target.loaded.verified.manifestPath,
+                        adapterId = adapterId,
+                        workload = workload,
+                        expectedDigest = expectedDigest,
+                        sampleCount = 1,
+                        metricPass = metricPass,
+                        timeout = timeout,
+                        loggingConfiguration = session.logging,
+                        artifactDirectory =
+                            coordinate.takeIf {
+                                metricPass == MetricPass.ALLOCATION || metricPass == MetricPass.PEAK_RSS
+                            },
+                        jfrConfigurationFile =
+                            session.jfrConfiguration.sourcePath.takeIf {
+                                metricPass == MetricPass.ALLOCATION
+                            },
+                        peakRssProvider =
+                            peakRssProvider(request.intent).takeIf {
+                                metricPass == MetricPass.PEAK_RSS
+                            },
+                        position = ColdPosition(scheduled.blockId, scheduled.targetRole, fork),
                     )
-                    .toProviderResult()
+                val runner = ColdRunner(processLauncher)
+                val result =
+                    if (metricPass == MetricPass.ALLOCATION) {
+                        runner.runWithEvidence(plan, target.runner, session.jfrSnapshot)
+                    } else {
+                        runner.runWithEvidence(plan, target.runner)
+                    }
+                result.toProviderResult()
+            }
             RunMode.WARM ->
                 when (metricPass) {
                     MetricPass.LATENCY ->
@@ -477,12 +475,14 @@ class BenchmarkCampaign(
                     expectedJmhEvidence =
                         JmhEvidenceExpectation(
                             harness = session.harness,
+                            environment = session.environment,
                             target = target.identity,
                             workload = session.workload.workloadIdentity,
                             configuration = configuration,
                         ),
                     verifiedTarget = target.loaded.verified,
                     loggingSnapshot = session.loggingSnapshot,
+                    fixtureBaseUrl = session.fixture.baseUrl,
                 )
             )
             .toProviderResult()
@@ -568,218 +568,6 @@ private fun RetainedMemoryResult.toProviderResult(): ProviderResult =
         observations,
     )
 
-private data class SessionTarget(
-    val loaded: LoadedTargetManifest,
-    val identity: com.salesforce.revoman.benchmark.driver.model.TargetIdentity,
-    val runner: RunnerCampaign,
-)
-
-private class VerifiedCampaignSession private constructor(
-    val baseline: LoadedTargetManifest,
-    val candidate: LoadedTargetManifest,
-    val baselineIdentity: com.salesforce.revoman.benchmark.driver.model.TargetIdentity,
-    val candidateIdentity: com.salesforce.revoman.benchmark.driver.model.TargetIdentity,
-    val harness: com.salesforce.revoman.benchmark.driver.model.HarnessIdentity,
-    val environment: com.salesforce.revoman.benchmark.driver.model.EnvironmentIdentity,
-    val workload: VerifiedLifecycleWorkloadSnapshot,
-    val fixture: DeterministicHttpFixture,
-    val logging: VerifiedLoggingConfiguration,
-    val hostPolicy: VerifiedControlledHostPolicy?,
-    val controllerClasspath: List<Path>,
-    val benchmarkClassesJar: Path,
-    val jfrConfiguration: Path,
-    val loggingSnapshot: Path,
-    private val sessionRoot: Path,
-    private val baselineRunner: RunnerCampaign,
-    private val candidateRunner: RunnerCampaign,
-) : AutoCloseable {
-    fun target(role: TargetRole): SessionTarget =
-        when (role) {
-            TargetRole.BASELINE -> SessionTarget(baseline, baselineIdentity, baselineRunner)
-            TargetRole.CANDIDATE -> SessionTarget(candidate, candidateIdentity, candidateRunner)
-        }
-
-    override fun close() {
-        var failure: Throwable? = null
-        listOf<() -> Unit>(
-                fixture::close,
-                baseline.verified::postflight,
-                candidate.verified::postflight,
-                { logging.postflight(loggingSnapshot) },
-                workload::postflightSource,
-                workload::postflightSnapshot,
-                workload::close,
-                { deleteRecursively(sessionRoot) },
-            )
-            .forEach { finalizer ->
-                try {
-                    finalizer()
-                } catch (next: Throwable) {
-                    failure = mergeCampaignFailures(failure, next)
-                }
-            }
-        failure?.let { throw it }
-    }
-
-    companion object {
-        fun open(
-            identityFactory: RuntimeIdentityFactory,
-            artifactRoot: Path,
-            workloadSource: Path,
-            logging: VerifiedLoggingConfiguration,
-            baseline: LoadedTargetManifest,
-            baselineAdapterId: String,
-            candidate: LoadedTargetManifest,
-            candidateAdapterId: String,
-            hostPolicy: VerifiedControlledHostPolicy?,
-        ): VerifiedCampaignSession {
-            val sessionRoot = Files.createDirectory(artifactRoot.resolve("session")).toRealPath()
-            var workload: VerifiedLifecycleWorkloadSnapshot? = null
-            var fixture: DeterministicHttpFixture? = null
-            var loggingSnapshot: Path? = null
-            try {
-                val materializedLogging = logging.materialize(sessionRoot).also { loggingSnapshot = it }
-                val snapshot =
-                    VerifiedLifecycleWorkloadSnapshot.open(workloadSource, sessionRoot).also {
-                        workload = it
-                    }
-                val server =
-                    DeterministicHttpFixture.open(snapshot.manifest, snapshot.snapshotRoot).also {
-                        fixture = it
-                    }
-                val harness = identityFactory.harnessIdentity()
-                if (hostPolicy != null) {
-                    require(!harness.dirty) {
-                        "Controlled execution requires a clean harness source identity"
-                    }
-                }
-                val baselineIdentity =
-                    identityFactory.targetIdentity(baseline.verified, baselineAdapterId, harness)
-                val candidateIdentity =
-                    identityFactory.targetIdentity(candidate.verified, candidateAdapterId, harness)
-                val workingDirectory = identityFactory.installationRoot
-                val baselineRunner =
-                    RunnerCampaign.openVerified(
-                        baseline.verified,
-                        logging,
-                        materializedLogging,
-                        sessionRoot,
-                        workingDirectory,
-                    )
-                val candidateRunner =
-                    RunnerCampaign.openVerified(
-                        candidate.verified,
-                        logging,
-                        materializedLogging,
-                        sessionRoot,
-                        workingDirectory,
-                    )
-                val lib = identityFactory.installationRoot.resolve("lib")
-                val controllerClasspath =
-                    Files.list(lib).use { paths ->
-                        paths
-                            .filter { path -> path.fileName.toString().endsWith(".jar") }
-                            .sorted()
-                            .map(Path::toRealPath)
-                            .toList()
-                    }
-                val thin = lib.resolve("benchmark-driver-jmh-classes.jar").toRealPath()
-                require(thin in controllerClasspath) { "Installed controller classpath omits thin JMH JAR" }
-                return VerifiedCampaignSession(
-                    baseline,
-                    candidate,
-                    baselineIdentity,
-                    candidateIdentity,
-                    harness,
-                    identityFactory.environmentIdentity(hostPolicy),
-                    snapshot,
-                    server,
-                    logging,
-                    hostPolicy,
-                    controllerClasspath,
-                    thin,
-                    identityFactory.installationRoot.resolve("jfr/revoman-allocation-v1.jfc").toRealPath(),
-                    materializedLogging,
-                    sessionRoot,
-                    baselineRunner,
-                    candidateRunner,
-                )
-            } catch (failure: Throwable) {
-                listOf<() -> Unit>(
-                        { fixture?.close() },
-                        baseline.verified::postflight,
-                        candidate.verified::postflight,
-                        { loggingSnapshot?.let(logging::postflight) },
-                        { workload?.postflightSource() },
-                        { workload?.postflightSnapshot() },
-                        { workload?.close() },
-                        { deleteRecursively(sessionRoot) },
-                    )
-                    .forEach { finalizer ->
-                        try {
-                            finalizer()
-                        } catch (next: Throwable) {
-                            if (failure !== next) failure.addSuppressed(next)
-                        }
-                    }
-                throw failure
-            }
-        }
-    }
-}
-
-/** Shell-free lifecycle-safe launcher for one strict JMH controller process. */
-class JmhControllerProcessLauncher : WarmAllocationLauncher {
-    override fun launch(request: WarmAllocationLaunch): com.salesforce.revoman.benchmark.driver.process.JmhControllerObservation {
-        val command = request.command
-        val arguments =
-            buildList {
-                addAll(command.invocationPrefix)
-                add(command.executable.toString())
-                addAll(command.jvmArgs)
-                add("-cp")
-                add(command.classpath.joinToString(System.getProperty("path.separator")))
-                add(command.mainClass)
-                addAll(command.programArgs)
-            }
-        val process = ProcessBuilder(arguments).directory(command.workingDirectory.toFile()).start()
-        val tracker = ProcessTreeTracker(process.toHandle())
-        val trackerThread = Thread.ofPlatform().daemon().name("revoman-jmh-controller-tracker").start(tracker)
-        val stdout = FutureTask { process.inputStream.readAllBytes() }
-        val stderr = FutureTask { process.errorStream.readAllBytes() }
-        Thread.ofVirtual().start(stdout)
-        Thread.ofVirtual().start(stderr)
-        val exited = process.waitFor(command.timeout.toMillis(), TimeUnit.MILLISECONDS)
-        if (!exited) {
-            tracker.snapshot().descendants.asReversed().forEach(ProcessHandle::destroyForcibly)
-            process.destroyForcibly()
-            check(process.waitFor(5, TimeUnit.SECONDS)) { "JMH controller did not stop after timeout" }
-        }
-        tracker.stopSampling()
-        trackerThread.join(5_000)
-        check(!trackerThread.isAlive) { "JMH controller process tracker did not terminate" }
-        tracker.failureOrNull()?.let { failure ->
-            throw IllegalStateException("JMH controller process tracking failed", failure)
-        }
-        val liveDescendants = tracker.snapshot().descendants.filter(ProcessHandle::isAlive)
-        liveDescendants.asReversed().forEach(ProcessHandle::destroyForcibly)
-        if (liveDescendants.isNotEmpty()) {
-            throw IllegalStateException(
-                "JMH controller ${process.pid()} left live descendants: " +
-                    liveDescendants.map(ProcessHandle::pid)
-            )
-        }
-        val stdoutBytes = stdout.get(5, TimeUnit.SECONDS)
-        val stderrBytes = stderr.get(5, TimeUnit.SECONDS)
-        return com.salesforce.revoman.benchmark.driver.process.JmhControllerObservation(
-            exitCode = process.exitValue(),
-            processId = process.pid(),
-            stdoutTail = String(stdoutBytes).takeLast(64 * 1024),
-            stderrTail = String(stderrBytes).takeLast(64 * 1024),
-        )
-    }
-}
-
 private class SyntheticHostProbe : HostHealthProbe {
     private val clock = AtomicLong()
 
@@ -836,16 +624,6 @@ private fun peakRssProvider(intent: RunIntent): PeakRssProvider =
         System.getProperty("os.name").startsWith("Mac") -> MacOsTimePeakRssProvider
         else -> GnuTimePeakRssProvider
     }
-
-private fun mergeCampaignFailures(primary: Throwable?, next: Throwable): Throwable =
-    primary?.also { existing ->
-        if (existing !== next) existing.addSuppressed(next)
-    } ?: next
-
-private fun deleteRecursively(root: Path) {
-    if (!Files.exists(root)) return
-    Files.walk(root).use { paths -> paths.sorted(Comparator.reverseOrder()).forEach(Files::delete) }
-}
 
 private val COLD_PASSES = setOf(MetricPass.LATENCY, MetricPass.ALLOCATION, MetricPass.PEAK_RSS)
 private val WARM_PASSES = setOf(MetricPass.LATENCY, MetricPass.ALLOCATION)

@@ -16,7 +16,7 @@ import java.nio.file.Path
 /** One schema-valid model and the exact controller-side artifact verification bound to its source. */
 data class LoadedTargetManifest(
     val manifest: TargetManifest,
-    val canonicalBytes: ByteArray,
+    val snapshotBytes: ByteArray,
     val verified: VerifiedTargetManifest,
 ) {
     /** Applies release cleanliness without making smoke/JMH structure invalid. */
@@ -27,10 +27,10 @@ data class LoadedTargetManifest(
     override fun equals(other: Any?): Boolean =
         other is LoadedTargetManifest &&
             manifest == other.manifest &&
-            canonicalBytes.contentEquals(other.canonicalBytes) &&
+            snapshotBytes.contentEquals(other.snapshotBytes) &&
             verified == other.verified
 
-    override fun hashCode(): Int = 31 * (31 * manifest.hashCode() + canonicalBytes.contentHashCode()) + verified.hashCode()
+    override fun hashCode(): Int = 31 * (31 * manifest.hashCode() + snapshotBytes.contentHashCode()) + verified.hashCode()
 }
 
 /** Loads one coherent target-manifest snapshot before running the existing full artifact preflight. */
@@ -43,9 +43,8 @@ object TargetManifestLoader {
         val bytes = Files.readAllBytes(canonical)
         BenchmarkJson.validateSchema(bytes, canonical.toString(), TARGET_MANIFEST_SCHEMA_RESOURCE)
         val manifest = BenchmarkJson.decode<TargetManifest>(bytes, canonical.toString())
-        val canonicalBytes = BenchmarkJson.encode(manifest)
-        val verified = VerifiedTargetManifest.preflight(canonical, manifest)
-        return LoadedTargetManifest(manifest, canonicalBytes, verified)
+        val verified = VerifiedTargetManifest.preflightFromSnapshot(canonical, bytes, manifest)
+        return LoadedTargetManifest(manifest, bytes.copyOf(), verified)
     }
 }
 

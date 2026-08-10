@@ -9,6 +9,10 @@ package com.salesforce.revoman.benchmark.driver.run
 
 import com.google.common.truth.Truth.assertThat
 import com.salesforce.revoman.benchmark.driver.json.BenchmarkJson
+import com.salesforce.revoman.benchmark.driver.jmh.FIXTURE_ROOT_PROPERTY
+import com.salesforce.revoman.benchmark.driver.jmh.LIFECYCLE_BASE_URL_PROPERTY
+import com.salesforce.revoman.benchmark.driver.jmh.LIFECYCLE_SOURCE_ROOT_PROPERTY
+import com.salesforce.revoman.benchmark.driver.jmh.TARGET_TOKEN_PROPERTY
 import com.salesforce.revoman.benchmark.driver.model.ExecutionDigest
 import com.salesforce.revoman.benchmark.driver.model.RunIntent
 import com.salesforce.revoman.benchmark.driver.model.TargetRole
@@ -147,8 +151,11 @@ class WarmAllocationRunnerTest {
         val logging = loggingConfiguration(target)
         val loggingSnapshot = logging.materialize(session)
         val rawFixture = resourcePath("/metrics/jmh-gc.txt")
+        val fixtureRoot = materializeLifecycleFixture(temporaryDirectory.resolve("shared-fixture"))
+        var capturedLaunch: WarmAllocationLaunch? = null
         val runner =
             WarmAllocationRunner { launch ->
+                capturedLaunch = launch
                 Files.writeString(launch.rawResult, Files.readString(rawFixture))
                 Files.writeString(targetManifestPath(target), "changed")
                 JmhControllerObservation(0, 9_001, "", "")
@@ -161,11 +168,21 @@ class WarmAllocationRunnerTest {
                     controllerJar = controllerJar,
                     blockId = 0,
                 )
-                .copy(verifiedTarget = verified, loggingSnapshot = loggingSnapshot)
+                .copy(
+                    verifiedTarget = verified,
+                    loggingSnapshot = loggingSnapshot,
+                    fixtureRoot = fixtureRoot,
+                    fixtureBaseUrl = "http://127.0.0.1:54321",
+                )
 
         val result = runner.run(plan)
 
         assertThat(result.observations).isNotEmpty()
+        val jvmArgs = requireNotNull(capturedLaunch).command.jvmArgs
+        assertThat(jvmArgs).contains("-D$FIXTURE_ROOT_PROPERTY=$fixtureRoot")
+        assertThat(jvmArgs).contains("-D$LIFECYCLE_BASE_URL_PROPERTY=http://127.0.0.1:54321")
+        assertThat(jvmArgs.any { it.startsWith("-D$TARGET_TOKEN_PROPERTY=") }).isTrue()
+        assertThat(jvmArgs.any { it.startsWith("-D$LIFECYCLE_SOURCE_ROOT_PROPERTY=") }).isFalse()
         assertThrows<IllegalStateException> { verified.postflight() }
     }
 

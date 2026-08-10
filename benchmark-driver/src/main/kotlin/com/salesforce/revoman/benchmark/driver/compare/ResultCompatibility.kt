@@ -129,18 +129,19 @@ object ResultCompatibility {
         }
 
     private fun compareRuntimeJdk(runtime: JdkIdentity, build: JdkIdentity): List<String> =
-        compareJdkKeys(runtime, build, "runtime and target build JDK")
+        compareJdkKeys(runtime, build, "runtime and target build JDK", compareFlags = false)
 
     private fun compareJdkKeys(
         left: JdkIdentity,
         right: JdkIdentity,
         label: String,
+        compareFlags: Boolean = true,
     ): List<String> =
         buildList {
             if (left.distribution != right.distribution) add("$label distributions must match")
             if (left.vendor != right.vendor) add("$label vendors must match")
             if (left.fullVersion != right.fullVersion) add("$label full versions must match")
-            if (left.jvmFlags != right.jvmFlags) add("$label JVM flags must match")
+            if (compareFlags && left.jvmFlags != right.jvmFlags) add("$label JVM flags must match")
         }
 
     private fun compareMetricSeries(

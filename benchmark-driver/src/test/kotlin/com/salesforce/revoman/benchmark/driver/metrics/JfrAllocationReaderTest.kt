@@ -17,9 +17,13 @@ import com.salesforce.revoman.benchmark.driver.model.TargetRole
 import com.salesforce.revoman.benchmark.driver.process.ProcessLauncher
 import com.salesforce.revoman.benchmark.driver.run.ColdRunner
 import com.salesforce.revoman.benchmark.driver.run.ColdPosition
+import com.salesforce.revoman.benchmark.driver.run.RunnerCampaign
 import com.salesforce.revoman.benchmark.driver.run.coldPlan
+import com.salesforce.revoman.benchmark.driver.run.loggingConfiguration
 import com.salesforce.revoman.benchmark.driver.run.processObservation
 import com.salesforce.revoman.benchmark.driver.run.runnerTarget
+import com.salesforce.revoman.benchmark.driver.run.targetManifestPath
+import com.salesforce.revoman.benchmark.driver.target.VerifiedTargetManifest
 import java.nio.file.Files
 import java.nio.file.Path
 import org.junit.jupiter.api.Test
@@ -229,6 +233,72 @@ class JfrAllocationReaderTest {
         assertThat(requireNotNull(snapshot)).isNotEqualTo(source)
         assertThat(failure).hasMessageThat().contains("JFR configuration invalid after postflight")
         assertThat(Files.exists(requireNotNull(snapshot))).isFalse()
+    }
+
+    @Test
+    fun `campaign owned cold allocations reuse one outer JFR snapshot`() {
+        val target = runnerTarget(temporaryDirectory.resolve("campaign-target"))
+        val source = Files.writeString(temporaryDirectory.resolve("campaign.jfc"), "stable").toRealPath()
+        val artifacts = Files.createDirectories(temporaryDirectory.resolve("campaign-artifacts")).toRealPath()
+        val session = Files.createDirectories(temporaryDirectory.resolve("campaign-session")).toRealPath()
+        val logging = loggingConfiguration(target)
+        val loggingSnapshot = logging.materialize(session)
+        val verifiedTarget = VerifiedTargetManifest.preflight(targetManifestPath(target), target)
+        val campaign =
+            RunnerCampaign.openVerified(
+                verified = verifiedTarget,
+                loggingConfiguration = logging,
+                loggingSnapshot = loggingSnapshot,
+                campaignDirectory = session,
+                workingDirectory = Path.of(System.getProperty("user.dir")).toRealPath(),
+            )
+        val verifiedJfr = VerifiedJfrConfiguration.preflight(source)
+        val jfrSnapshot = verifiedJfr.materialize(session)
+        var launchedConfiguration: Path? = null
+        val runner =
+            ColdRunner(
+                launcher =
+                    ProcessLauncher { javaCommand ->
+                        val command =
+                            BenchmarkJson.read<TargetForkCommand>(Path.of(javaCommand.programArgs.single()))
+                        launchedConfiguration = Path.of(requireNotNull(command.jfrConfigurationFile))
+                        Files.writeString(Path.of(requireNotNull(command.jfrRecordingFile)), "recording")
+                        processObservation(command, 7_001).let { observation ->
+                            observation.copy(
+                                result =
+                                    observation.result.copy(
+                                        jfrConfigurationSha256 =
+                                            ContentHasher.sha256(requireNotNull(launchedConfiguration))
+                                    )
+                            )
+                        }
+                    },
+                jfrAllocationReader =
+                    reader(
+                        JfrAllocationEvent(
+                            "jdk.ObjectAllocationInNewTLAB",
+                            mapOf("tlabSize" to 32L),
+                        )
+                    ),
+            )
+        Files.writeString(source, "mutated after outer preflight")
+
+        val result =
+            runner.runWithEvidence(
+                plan =
+                    coldPlan(target, 1, RunIntent.SMOKE).copy(
+                        metricPass = MetricPass.ALLOCATION,
+                        artifactDirectory = artifacts,
+                        jfrConfigurationFile = source,
+                        position = ColdPosition(11, TargetRole.BASELINE, 0),
+                    ),
+                campaign = campaign,
+                jfrConfigurationSnapshot = jfrSnapshot,
+            )
+
+        assertThat(result.observations.single().value).isEqualTo(32.0)
+        assertThat(launchedConfiguration).isEqualTo(jfrSnapshot)
+        assertThrows<IllegalStateException> { verifiedJfr.postflight(jfrSnapshot) }
     }
 
     private fun reader(vararg events: JfrAllocationEvent): JfrAllocationReader =

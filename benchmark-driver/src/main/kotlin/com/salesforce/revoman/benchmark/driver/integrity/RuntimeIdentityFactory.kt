@@ -49,6 +49,14 @@ class RuntimeIdentityFactory(installationRoot: Path) {
         )
     }
 
+    /** Recomputes the installed distribution after a campaign and rejects any identity mutation. */
+    fun postflight(expected: HarnessIdentity) {
+        val actual = harnessIdentity()
+        check(actual == expected) {
+            "The installed harness changed during the campaign"
+        }
+    }
+
     /** Produces a path-free target snapshot bound to one installed adapter source identity. */
     fun targetIdentity(
         verified: VerifiedTargetManifest,

@@ -406,6 +406,47 @@ class ReleaseGateEvaluatorTest {
     }
 
     @Test
+    fun `replacement exhaustion with zero or short accepted evidence is inconclusive`() {
+        listOf(0, 1).forEach { acceptedCount ->
+            val complete = ComparisonFixtures.lifecycleResult(RunMode.COLD)
+            val exhausted =
+                complete.copy(
+                    workloads =
+                        complete.workloads.map { workload ->
+                            workload.copy(
+                                metricSeries =
+                                    workload.metricSeries.map { series ->
+                                        series.copy(
+                                            blocks =
+                                                requireNotNull(series.blocks).mapIndexed { index, block ->
+                                                    if (index < acceptedCount) block
+                                                    else
+                                                        block.copy(
+                                                            accepted = false,
+                                                            rejectionReasons =
+                                                                listOf("replacement-budget-exhausted"),
+                                                            observations = emptyList(),
+                                                        )
+                                                }
+                                        )
+                                    }
+                            )
+                        }
+                )
+            val manifest =
+                ComparisonFixtures.manifest(
+                    RunMode.COLD,
+                    ComparisonFixtures.requiredLifecycleGates(RunMode.COLD),
+                )
+
+            assertThat(exhausted.validate()).isSameInstanceAs(exhausted)
+            val report = evaluator.evaluate(exhausted, listOf(manifest))
+            assertThat(report.overall).isEqualTo(GateDecision.INCONCLUSIVE)
+            assertThat(report.rejectedBlocks).isNotEmpty()
+        }
+    }
+
+    @Test
     fun `overall precedence is incompatible then inconclusive then fail then pass`() {
         val regression =
             ComparisonFixtures.lifecycleResult(

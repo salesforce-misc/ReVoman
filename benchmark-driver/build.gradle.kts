@@ -581,6 +581,24 @@ val benchmarkJmhClassesJar = tasks.register<Jar>("benchmarkJmhClassesJar") {
 val harnessSourceManifest =
   layout.buildDirectory.file("generated/benchmark-identity/benchmark-harness-source-v1.json")
 
+val harnessGitState = providers.provider {
+  fun git(vararg arguments: String): String {
+    val process =
+      ProcessBuilder(listOf("git", "-C", rootProject.projectDir.canonicalPath) + arguments)
+        .redirectErrorStream(true)
+        .start()
+    val output = process.inputStream.bufferedReader().use { it.readText() }
+    check(process.waitFor() == 0) { "Git identity command failed: $output" }
+    return output.trimEnd()
+  }
+  listOf(
+      git("rev-parse", "HEAD"),
+      git("rev-parse", "HEAD^{tree}"),
+      git("status", "--porcelain", "--untracked-files=normal"),
+    )
+    .joinToString("\u0000")
+}
+
 val generateBenchmarkHarnessSource = tasks.register<JavaExec>("generateBenchmarkHarnessSource") {
   group = "benchmark"
   description = "Generates the non-self-referential benchmark harness source identity"
@@ -593,7 +611,9 @@ val generateBenchmarkHarnessSource = tasks.register<JavaExec>("generateBenchmark
     fileTree("src/main/resources"),
     fileTree("src/main/dist"),
   )
+  inputs.property("gitState", harnessGitState)
   outputs.file(harnessSourceManifest)
+  outputs.doNotCacheIf("Harness source identity records checkout-local Git state") { true }
   args(rootProject.projectDir.canonicalPath, harnessSourceManifest.get().asFile.absolutePath)
 }
 

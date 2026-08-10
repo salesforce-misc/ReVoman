@@ -6,7 +6,7 @@
     "commit": "harness-commit",
     "tree": "harness-tree",
     "dirty": false,
-    "distributionSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "distributionSha256": "f1503aabfaea39746d0950fac44a21aa8a97b3946dcbb2ecc98631cb28f10902",
     "artifacts": [],
     "workloadContractSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
     "fixtureSetSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",

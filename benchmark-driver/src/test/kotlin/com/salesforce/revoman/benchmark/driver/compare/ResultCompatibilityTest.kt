@@ -43,6 +43,21 @@ class ResultCompatibilityTest {
     }
 
     @Test
+    fun `runtime process flags are not compared with Gradle daemon flags`() {
+        val result = ComparisonFixtures.lifecycleResult(RunMode.COLD)
+        val runtimeWithDifferentFlags =
+            result.copy(
+                environment =
+                    result.environment.copy(
+                        jdk = result.environment.jdk.copy(jvmFlags = listOf("-Ddriver=true"))
+                    )
+            )
+
+        assertThat(ResultCompatibility.errors(runtimeWithDifferentFlags, manifestsFor(result)))
+            .isEmpty()
+    }
+
+    @Test
     fun `manifest hashes are validated structurally without pretending to recompute absent bytes`() {
         val result = ComparisonFixtures.lifecycleResult(RunMode.COLD)
         val candidate = result.targets.last()

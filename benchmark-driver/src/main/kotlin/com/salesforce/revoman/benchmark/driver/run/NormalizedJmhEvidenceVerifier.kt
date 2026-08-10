@@ -8,17 +8,21 @@
 package com.salesforce.revoman.benchmark.driver.run
 
 import com.salesforce.revoman.benchmark.driver.json.BenchmarkJson
+import com.salesforce.revoman.benchmark.driver.model.EnvironmentIdentity
 import com.salesforce.revoman.benchmark.driver.model.HarnessIdentity
 import com.salesforce.revoman.benchmark.driver.model.JmhBenchmarkResultV1
 import com.salesforce.revoman.benchmark.driver.model.JmhRunConfiguration
 import com.salesforce.revoman.benchmark.driver.model.JmhWorkloadIdentity
 import com.salesforce.revoman.benchmark.driver.model.TargetIdentity
+import com.squareup.moshi.JsonClass
 import java.nio.file.Files
 import java.nio.file.Path
 
 /** Identities a strict single-target JMH controller must bind before its raw rows can be paired. */
+@JsonClass(generateAdapter = true)
 data class JmhEvidenceExpectation(
     val harness: HarnessIdentity,
+    val environment: EnvironmentIdentity,
     val target: TargetIdentity,
     val workload: JmhWorkloadIdentity,
     val configuration: JmhRunConfiguration,
@@ -27,6 +31,7 @@ data class JmhEvidenceExpectation(
         fun from(result: JmhBenchmarkResultV1): JmhEvidenceExpectation =
             JmhEvidenceExpectation(
                 harness = result.harness,
+                environment = result.environment,
                 target = result.target,
                 workload = result.workload,
                 configuration = result.configuration,
@@ -50,6 +55,9 @@ object NormalizedJmhEvidenceVerifier {
         val result = BenchmarkJson.decode<JmhBenchmarkResultV1>(bytes, canonical.toString())
         require(result.harness == expectation.harness) {
             "Normalized JMH evidence does not match the scheduled harness identity"
+        }
+        require(result.environment == expectation.environment) {
+            "Normalized JMH evidence does not match the scheduled environment identity"
         }
         require(result.target == expectation.target) {
             "Normalized JMH evidence does not match the scheduled target identity"

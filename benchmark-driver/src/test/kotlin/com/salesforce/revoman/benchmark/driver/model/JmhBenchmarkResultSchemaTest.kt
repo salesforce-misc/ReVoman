@@ -52,6 +52,16 @@ class JmhBenchmarkResultSchemaTest {
     }
 
     @Test
+    fun `single target JMH result rejects a forged harness distribution hash`() {
+        val result = BenchmarkJson.read<JmhBenchmarkResultV1>(fixture("minimal-valid.json"))
+        val forged = result.copy(harness = result.harness.copy(distributionSha256 = "0".repeat(64)))
+
+        val failure = assertThrows<IllegalArgumentException> { forged.validate() }
+
+        assertThat(failure).hasMessageThat().contains("ordered artifact snapshot")
+    }
+
+    @Test
     fun `raw JMH observations must cover every fork and iteration`() {
         val result = BenchmarkJson.read<JmhBenchmarkResultV1>(fixture("minimal-valid.json"))
         val benchmark = result.benchmarks.single()

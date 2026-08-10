@@ -27,7 +27,14 @@ class BenchmarkDriverIntegrationTest {
     fun `smoke campaign runs two exported targets verifies structurally and cannot pass release gates`() {
         val source = Path.of(requiredProperty("revoman.benchmark.targetManifest")).toRealPath()
         val exported = BenchmarkJson.read<TargetManifest>(source)
-        val baseline = writeTarget("baseline.json", exported.copy(targetId = "baseline"))
+        val baseline =
+            writeTarget(
+                "baseline.json",
+                exported.copy(
+                    targetId = "baseline",
+                    gitCommit = "83f3cd70f78ad733412d10cbc8287aaabafe7aac",
+                ),
+            )
         val candidate = writeTarget("candidate.json", exported.copy(targetId = "candidate"))
         val artifacts = temporaryRoot().resolve("artifacts")
         val result = temporaryRoot().resolve("smoke.json")
@@ -53,6 +60,17 @@ class BenchmarkDriverIntegrationTest {
             .containsExactly(4, 4)
         assertThat(execute(arrayOf("verify", "--input", result.toString())))
             .isEqualTo(CliExitCode.SUCCESS)
+        val forgedPaired = temporaryRoot().resolve("forged-paired.json")
+        Files.writeString(
+            forgedPaired,
+            Files.readString(result).replace(
+                paired.harness.distributionSha256,
+                "0".repeat(64),
+            ),
+        )
+        assertThat(execute(arrayOf("verify", "--input", forgedPaired.toString())))
+            .isEqualTo(CliExitCode.INVALID_INPUT)
+        assertThat(lastError).contains("ordered artifact snapshot")
         assertThat(
                 execute(
                     arrayOf(
@@ -66,8 +84,26 @@ class BenchmarkDriverIntegrationTest {
                     )
                 )
             )
+            .isEqualTo(CliExitCode.SUCCESS)
+        assertThat(Files.readString(markdown)).contains("Overall: INCONCLUSIVE")
+
+        val enforcedComparison = temporaryRoot().resolve("comparison-enforced.json")
+        val enforcedMarkdown = temporaryRoot().resolve("comparison-enforced.md")
+        assertThat(
+                execute(
+                    arrayOf(
+                        "compare",
+                        "--input",
+                        result.toString(),
+                        "--output-json",
+                        enforcedComparison.toString(),
+                        "--output-md",
+                        enforcedMarkdown.toString(),
+                        "--enforce-release-gates",
+                    )
+                )
+            )
             .isEqualTo(CliExitCode.GATE_NOT_PASSED)
-        assertThat(Files.readString(markdown)).contains("Overall: INCOMPATIBLE")
     }
 
     @Test
@@ -120,6 +156,17 @@ class BenchmarkDriverIntegrationTest {
 
         assertThat(execute(arrayOf("verify", "--input", jmh.toString())))
             .isEqualTo(CliExitCode.SUCCESS)
+        val forgedJmh = temporaryRoot().resolve("forged-jmh.json")
+        Files.writeString(
+            forgedJmh,
+            Files.readString(jmh).replace(
+                "f1503aabfaea39746d0950fac44a21aa8a97b3946dcbb2ecc98631cb28f10902",
+                "0".repeat(64),
+            ),
+        )
+        assertThat(execute(arrayOf("verify", "--input", forgedJmh.toString())))
+            .isEqualTo(CliExitCode.INVALID_INPUT)
+        assertThat(lastError).contains("ordered artifact snapshot")
         assertThat(
                 execute(
                     arrayOf(

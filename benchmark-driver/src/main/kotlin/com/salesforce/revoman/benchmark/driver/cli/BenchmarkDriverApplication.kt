@@ -10,6 +10,7 @@ package com.salesforce.revoman.benchmark.driver.cli
 import com.salesforce.revoman.benchmark.driver.compare.GateDecision
 import com.salesforce.revoman.benchmark.driver.compare.ReleaseGateEvaluator
 import com.salesforce.revoman.benchmark.driver.integrity.LoadedTargetManifest
+import com.salesforce.revoman.benchmark.driver.integrity.RuntimeIdentityFactory
 import com.salesforce.revoman.benchmark.driver.integrity.TargetManifestLoader
 import com.salesforce.revoman.benchmark.driver.json.BenchmarkJson
 import com.salesforce.revoman.benchmark.driver.model.BenchmarkResultV1
@@ -19,11 +20,8 @@ import com.salesforce.revoman.benchmark.driver.model.WorkloadManifest
 import com.salesforce.revoman.benchmark.driver.run.BenchmarkCampaign
 import com.salesforce.revoman.benchmark.driver.run.CampaignRequest
 import java.io.PrintStream
-import java.nio.charset.StandardCharsets.UTF_8
 import java.nio.file.Files
-import java.nio.file.LinkOption.NOFOLLOW_LINKS
 import java.nio.file.Path
-import java.nio.file.StandardCopyOption.ATOMIC_MOVE
 
 /** Process-level exit values used by all stable commands. */
 object CliExitCode {
@@ -81,72 +79,99 @@ object BenchmarkDriverApplication {
         installationRoot: Path,
         capture: Boolean,
     ): Int {
-        val baseline = TargetManifestLoader.load(canonicalFile(options.baseline, "--baseline"))
-        val candidate = TargetManifestLoader.load(canonicalFile(options.candidate, "--candidate"))
+        val baselinePath = canonicalFile(options.baseline, "--baseline")
+        val candidatePath = canonicalFile(options.candidate, "--candidate")
+        val baseline = TargetManifestLoader.load(baselinePath)
+        val candidate = TargetManifestLoader.load(candidatePath)
         if (capture) requireBaselineCapturePins(options, baseline, candidate)
+        val hostPolicyPath = options.hostPolicy?.let { canonicalFile(it, "--host-policy") }
         val hostPolicy =
-            options.hostPolicy?.let { source ->
+            hostPolicyPath?.let { source ->
                 com.salesforce.revoman.benchmark.driver.host.ControlledHostPolicy.load(
-                    canonicalFile(source, "--host-policy")
+                    source
                 )
             }
-        val output = requireAbsentOutputs(listOf("--output" to options.output)).single()
         val artifactDirectory = options.artifactDirectory.toAbsolutePath().normalize()
-        require(output != artifactDirectory) { "--output and --artifacts-dir must be distinct" }
-        val request =
-            CampaignRequest(
-                intent = options.intent,
-                mode = options.mode,
-                baseline = baseline.manifest,
-                baselineManifestPath = baseline.verified.manifestPath,
-                baselineAdapterId = options.baselineAdapter,
-                candidate = candidate.manifest,
-                candidateManifestPath = candidate.verified.manifestPath,
-                candidateAdapterId = options.candidateAdapter,
-                workloadId = options.workloadId,
-                blocks = options.blocks,
-                forksPerBlock = options.forksPerBlock,
-                warmups = options.warmups,
-                iterations = options.iterations,
-                seed = options.seed,
-                metricPasses = options.metricPasses.toSet(),
-                artifactDirectory = artifactDirectory,
-                hostPolicy = hostPolicy?.policy,
-                hostPolicyPath = hostPolicy?.source,
+        AtomicOutputSet.reserve(
+                inputs =
+                    listOf("--baseline" to baselinePath, "--candidate" to candidatePath) +
+                        listOfNotNull(hostPolicyPath?.let { "--host-policy" to it }),
+                outputs = listOf("--output" to options.output),
             )
-        val result =
-            BenchmarkCampaign(installationRoot)
-                .runVerified(request, baseline, candidate, hostPolicy)
-        writeSchemaValidated(
-            output,
-            result,
-            "/schema/revoman-benchmark-v1.schema.json",
-        )
+            .use { outputSet ->
+                val output = outputSet.paths.single()
+                require(output != artifactDirectory) {
+                    "--output and --artifacts-dir must be distinct"
+                }
+                val request =
+                    CampaignRequest(
+                        intent = options.intent,
+                        mode = options.mode,
+                        baseline = baseline.manifest,
+                        baselineManifestPath = baseline.verified.manifestPath,
+                        baselineAdapterId = options.baselineAdapter,
+                        candidate = candidate.manifest,
+                        candidateManifestPath = candidate.verified.manifestPath,
+                        candidateAdapterId = options.candidateAdapter,
+                        workloadId = options.workloadId,
+                        blocks = options.blocks,
+                        forksPerBlock = options.forksPerBlock,
+                        warmups = options.warmups,
+                        iterations = options.iterations,
+                        seed = options.seed,
+                        metricPasses = options.metricPasses.toSet(),
+                        artifactDirectory = artifactDirectory,
+                        hostPolicy = hostPolicy?.policy,
+                        hostPolicyPath = hostPolicy?.source,
+                    )
+                val result =
+                    BenchmarkCampaign(installationRoot)
+                        .runVerified(request, baseline, candidate, hostPolicy)
+                prepareSchemaValidated(
+                    outputSet,
+                    0,
+                    result,
+                    "/schema/revoman-benchmark-v1.schema.json",
+                )
+                outputSet.publish()
+            }
         return CliExitCode.SUCCESS
     }
 
     private fun compare(command: BenchmarkCommand.Compare, installationRoot: Path): Int {
-        val result = readPairedResult(command.input)
+        val input = canonicalFile(command.input, "--input")
+        val result = readPairedResult(input)
+        val installedHarness = RuntimeIdentityFactory(installationRoot).harnessIdentity()
+        require(result.harness == installedHarness) {
+            "compare input harness does not match the current installed benchmark-driver distribution"
+        }
         val manifests =
             result.workloads.map { workload ->
                 val root = packagedWorkloadRoot(installationRoot, workload.id)
                 loadWorkloadManifest(root.resolve("manifest.json"))
             }
         val report = ReleaseGateEvaluator().evaluate(result, manifests)
-        val outputs =
-            requireAbsentOutputs(
-                listOf(
-                    "--output-json" to command.outputJson,
-                    "--output-md" to command.outputMarkdown,
-                )
+        AtomicOutputSet.reserve(
+                inputs = listOf("--input" to input),
+                outputs =
+                    listOf(
+                        "--output-json" to command.outputJson,
+                        "--output-md" to command.outputMarkdown,
+                    ),
             )
-        writeSchemaValidated(
-            outputs[0],
-            report,
-            "/schema/revoman-benchmark-comparison-v1.schema.json",
-        )
-        writeTextAtomically(outputs[1], report.toMarkdown())
-        return if (report.overall == GateDecision.PASS) {
+            .use { outputSet ->
+                prepareSchemaValidated(
+                    outputSet,
+                    0,
+                    report,
+                    "/schema/revoman-benchmark-comparison-v1.schema.json",
+                )
+                outputSet.prepare(1) { temporary ->
+                    Files.writeString(temporary, report.toMarkdown())
+                }
+                outputSet.publish()
+            }
+        return if (!command.enforceReleaseGates || report.overall == GateDecision.PASS) {
             CliExitCode.SUCCESS
         } else {
             CliExitCode.GATE_NOT_PASSED
@@ -232,50 +257,26 @@ object BenchmarkDriverApplication {
         return canonical
     }
 
-    private fun requireAbsentOutputs(outputs: List<Pair<String, Path>>): List<Path> {
-        val normalized =
-            outputs.map { (name, requested) ->
-                val path = requested.toAbsolutePath().normalize()
-                val parent = requireNotNull(path.parent) { "$name requires a parent" }
-                require(Files.isDirectory(parent) && parent.toRealPath() == parent) {
-                    "$name parent must be an existing canonical directory: $parent"
-                }
-                require(Files.isWritable(parent)) { "$name parent must be writable: $parent" }
-                require(!Files.exists(path, NOFOLLOW_LINKS)) { "$name must be absent: $path" }
-                name to path
-            }
-        require(normalized.map(Pair<String, Path>::second).distinct().size == normalized.size) {
-            "Output paths must be pairwise distinct: $normalized"
-        }
-        return normalized.map(Pair<String, Path>::second)
-    }
-
-    private inline fun <reified T : Any> writeSchemaValidated(
-        output: Path,
+    private inline fun <reified T : Any> prepareSchemaValidated(
+        outputSet: AtomicOutputSet,
+        index: Int,
         value: T,
         schemaResource: String,
     ) {
-        val temporary = Files.createTempFile(output.parent, ".${output.fileName}.", ".tmp")
-        try {
+        outputSet.prepare(index) { temporary ->
             BenchmarkJson.write(temporary, value)
             BenchmarkJson.validateSchema(temporary, schemaResource)
-            Files.move(temporary, output, ATOMIC_MOVE)
-        } finally {
-            Files.deleteIfExists(temporary)
-        }
-    }
-
-    private fun writeTextAtomically(output: Path, text: String) {
-        val temporary = Files.createTempFile(output.parent, ".${output.fileName}.", ".tmp")
-        try {
-            Files.writeString(temporary, text, UTF_8)
-            Files.move(temporary, output, ATOMIC_MOVE)
-        } finally {
-            Files.deleteIfExists(temporary)
         }
     }
 }
 
+/**
+ * Resolves the canonical installed application root from either its launcher JAR or exploded test
+ * classes.
+ *
+ * @return a directory containing the distribution's `lib` and `workloads` children
+ * @throws IllegalArgumentException when the code source is not an installed driver layout
+ */
 fun discoverInstallationRoot(): Path {
     val location =
         Path.of(

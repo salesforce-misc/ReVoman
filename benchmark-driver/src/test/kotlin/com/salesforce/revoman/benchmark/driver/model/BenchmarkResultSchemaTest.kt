@@ -63,6 +63,16 @@ class BenchmarkResultSchemaTest {
     }
 
     @Test
+    fun `paired result rejects a forged harness distribution hash`() {
+        val campaign = validCampaign()
+        val forged = campaign.copy(harness = campaign.harness.copy(distributionSha256 = "0".repeat(64)))
+
+        val failure = assertThrows<IllegalArgumentException> { forged.validate() }
+
+        assertThat(failure).hasMessageThat().contains("ordered artifact snapshot")
+    }
+
+    @Test
     fun `declared sample count must equal observations`() {
         val source = resultFixture("invalid-count.json")
         BenchmarkJson.validateSchema(source, RESULT_SCHEMA)
@@ -247,6 +257,41 @@ class BenchmarkResultSchemaTest {
 
         val failure = assertThrows<IllegalArgumentException> { contaminated.validate() }
         assertThat(failure).hasMessageThat().contains("rejected block observations must be empty")
+    }
+
+    @Test
+    fun `replacement exhaustion serializes zero or fewer accepted blocks than requested`() {
+        val campaign = validCampaign()
+        val accepted = campaign.onlyBlock()
+        val rejected =
+            accepted.copy(
+                blockId = 1,
+                accepted = false,
+                rejectionReasons = listOf("replacement-budget-exhausted"),
+                observations = emptyList(),
+            )
+        listOf(
+                listOf(rejected),
+                listOf(accepted, rejected),
+            )
+            .forEach { blocks ->
+                val exhausted =
+                    campaign.copy(
+                        configuration = campaign.configuration.copy(requestedAcceptedBlocks = 2),
+                        workloads =
+                            campaign.workloads.map { workload ->
+                                workload.copy(
+                                    metricSeries =
+                                        workload.metricSeries.map { series -> series.copy(blocks = blocks) }
+                                )
+                            },
+                    )
+
+                assertThat(exhausted.validate()).isSameInstanceAs(exhausted)
+                val output = temporaryDirectory.resolve("exhausted-${blocks.size}.json")
+                BenchmarkJson.write(output, exhausted)
+                assertThat(BenchmarkJson.read<BenchmarkResultV1>(output)).isEqualTo(exhausted)
+            }
     }
 
     @Test

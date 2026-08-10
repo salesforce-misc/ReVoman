@@ -11,12 +11,16 @@ import com.salesforce.revoman.benchmark.driver.integrity.ContentHasher
 import com.salesforce.revoman.benchmark.driver.integrity.RuntimeIdentityFactory
 import com.salesforce.revoman.benchmark.driver.fixture.DeterministicHttpFixture
 import com.salesforce.revoman.benchmark.driver.json.BenchmarkJson
+import com.salesforce.revoman.benchmark.driver.model.ArtifactSnapshot
 import com.salesforce.revoman.benchmark.driver.model.JmhBenchmarkResultV1
 import com.salesforce.revoman.benchmark.driver.model.JmhLoggingConfiguration
 import com.salesforce.revoman.benchmark.driver.model.JmhRunConfiguration
 import com.salesforce.revoman.benchmark.driver.model.JmhWorkloadIdentity
+import com.salesforce.revoman.benchmark.driver.model.TargetIdentity
+import com.salesforce.revoman.benchmark.driver.model.TargetVerificationToken
 import com.salesforce.revoman.benchmark.driver.model.WorkloadManifest
 import com.salesforce.revoman.benchmark.driver.metrics.WARM_LIFECYCLE_ALLOCATION_INCLUDE
+import com.salesforce.revoman.benchmark.driver.run.JmhEvidenceExpectation
 import com.salesforce.revoman.benchmark.driver.target.VerifiedTargetManifest
 import java.net.URI
 import java.nio.file.Files
@@ -53,6 +57,19 @@ fun main(args: Array<String>) {
     val requestedIncludes =
         requiredProperty(INCLUDES_PROPERTY).split(INCLUDE_SEPARATOR).filter(String::isNotBlank)
     val installationRoot = requiredPath(INSTALLATION_ROOT_PROPERTY).toRealPath()
+    val campaignContext = System.getProperty(JMH_CAMPAIGN_CONTEXT_PROPERTY)?.takeIf(String::isNotBlank)
+    if (campaignContext != null) {
+        val normalized =
+            runCampaignOwnedJmh(
+                args = args,
+                rawResult = rawResult,
+                manifestPath = manifestPath,
+                requestedIncludes = requestedIncludes,
+                contextPath = Path.of(campaignContext).toRealPath(),
+            )
+        writeJmhResult(resultOutput, normalized)
+        return
+    }
     val verified = VerifiedTargetManifest.preflight(manifestPath)
     val normalizedResult =
         withLifecycleFixture(requestedIncludes, installationRoot) { lifecycleWorkloadIdentity ->
@@ -80,6 +97,96 @@ fun main(args: Array<String>) {
             }
         }
     writeJmhResult(resultOutput, normalizedResult)
+}
+
+private fun runCampaignOwnedJmh(
+    args: Array<String>,
+    rawResult: Path,
+    manifestPath: Path,
+    requestedIncludes: List<String>,
+    contextPath: Path,
+): JmhBenchmarkResultV1 {
+    require(Files.isRegularFile(contextPath)) { "Campaign JMH context must be a regular file" }
+    val expectation = BenchmarkJson.read<JmhEvidenceExpectation>(contextPath)
+    val tokenPath = requiredPath(TARGET_TOKEN_PROPERTY).toRealPath()
+    val expectedTokenSha256 = requiredProperty(TARGET_TOKEN_SHA256_PROPERTY)
+    require(ContentHasher.sha256(tokenPath) == expectedTokenSha256) {
+        "Campaign JMH target token SHA-256 mismatch"
+    }
+    val verification = BenchmarkJson.read<TargetVerificationToken>(tokenPath)
+    require(verification.targetManifest == manifestPath.toString()) {
+        "Campaign JMH target token does not match the scheduled manifest"
+    }
+    val verified = VerifiedTargetManifest.fromVerificationToken(verification)
+    requireCampaignExpectation(expectation, verified, requestedIncludes)
+
+    runJmh(args)
+    val imported =
+        JmhResultImporter.`import`(
+            rawResult = rawResult,
+            targetId = expectation.target.id,
+            requestedIncludes = requestedIncludes,
+        )
+    val createdAt = Instant.now().toString()
+    return JmhResultImporter.attachIdentities(
+        imported = imported,
+        resultId = "jmh-${expectation.target.id}-${Instant.parse(createdAt).toEpochMilli()}",
+        createdAt = createdAt,
+        harness = expectation.harness,
+        environment = expectation.environment,
+        target = expectation.target,
+        workload = expectation.workload,
+        configuration = expectation.configuration,
+    )
+}
+
+private fun requireCampaignExpectation(
+    expectation: JmhEvidenceExpectation,
+    verified: VerifiedTargetManifest,
+    requestedIncludes: List<String>,
+) {
+    val adapterId = requiredProperty(ADAPTER_PROPERTY)
+    val manifest = verified.manifest
+    val actualTarget =
+        TargetIdentity(
+            id = manifest.targetId,
+            gitCommit = manifest.gitCommit,
+            gitTree = manifest.gitTree,
+            dirty = manifest.dirty,
+            gradleVersion = manifest.gradleVersion,
+            wrapperSha256 = manifest.wrapperSha256,
+            buildJdk = manifest.jdk,
+            manifestSha256 = verified.manifestSha256,
+            classpathSha256 = verified.classpathSha256,
+            classpath =
+                manifest.classpath.map { artifact ->
+                    ArtifactSnapshot(artifact.logicalId, artifact.sizeBytes, artifact.sha256)
+                },
+            adapter = expectation.target.adapter,
+        )
+    require(actualTarget == expectation.target) {
+        "Campaign JMH target identity does not match the parent verification"
+    }
+    require(adapterId == expectation.target.adapter.id) {
+        "Campaign JMH adapter does not match the scheduled target role"
+    }
+    require(expectation.harness.adapters.singleOrNull { it.id == adapterId } == expectation.target.adapter) {
+        "Campaign JMH harness does not contain the scheduled role adapter"
+    }
+    require(expectation.configuration.requestedIncludes == requestedIncludes) {
+        "Campaign JMH includes do not match the parent configuration"
+    }
+    require(expectation.configuration.requestedForks == requiredProperty(REQUESTED_FORKS_PROPERTY).toInt()) {
+        "Campaign JMH fork count does not match the parent configuration"
+    }
+    require(expectation.configuration.quick == requiredProperty(QUICK_PROPERTY).toBooleanStrict()) {
+        "Campaign JMH quick mode does not match the parent configuration"
+    }
+    require(expectation.workload.manifestSha256 == requiredProperty(LIFECYCLE_MANIFEST_SHA256_PROPERTY)) {
+        "Campaign JMH workload identity does not match the parent snapshot"
+    }
+    requiredPath(FIXTURE_ROOT_PROPERTY).toRealPath()
+    requiredProperty(LIFECYCLE_BASE_URL_PROPERTY)
 }
 
 internal fun <T> withJmhPostflight(postflight: () -> Unit, block: () -> T): T {
@@ -341,6 +448,8 @@ internal const val LIFECYCLE_MANIFEST_SHA256_PROPERTY: String =
     "revoman.benchmark.lifecycleManifestSha256"
 internal const val LIFECYCLE_SOURCE_ROOT_PROPERTY: String =
     "revoman.benchmark.lifecycleSourceRoot"
+internal const val JMH_CAMPAIGN_CONTEXT_PROPERTY: String =
+    "revoman.benchmark.campaignContext"
 internal const val INCLUDE_SEPARATOR: String = "\u001f"
 
 private fun mergeLifecycleFailures(primary: Throwable?, next: Throwable): Throwable =

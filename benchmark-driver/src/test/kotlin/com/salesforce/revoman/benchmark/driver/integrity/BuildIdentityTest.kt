@@ -170,6 +170,13 @@ class BuildIdentityTest {
         assertThat(identity.toString()).doesNotContain(targetRoot.toString())
         assertThat(harness.distributionSha256)
             .isEqualTo(ContentHasher.artifactSetSha256(harness.artifacts))
+
+        factory.postflight(harness)
+        Files.writeString(installation.resolve("lib/driver.jar"), "changed")
+        val failure = org.junit.jupiter.api.assertThrows<IllegalStateException> {
+            factory.postflight(harness)
+        }
+        assertThat(failure).hasMessageThat().contains("installed harness changed")
     }
 
     private fun sourceManifest(root: Path, dirty: Boolean): HarnessSourceManifest =

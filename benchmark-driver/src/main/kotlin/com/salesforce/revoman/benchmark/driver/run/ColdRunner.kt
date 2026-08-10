@@ -95,6 +95,20 @@ class ColdRunner(
         return runWithEvidence(plan, campaign, expectedDigest)
     }
 
+    /** Executes allocation against a campaign-owned immutable JFR snapshot. */
+    internal fun runWithEvidence(
+        plan: ColdPlan,
+        campaign: RunnerCampaign,
+        jfrConfigurationSnapshot: Path,
+    ): ColdRunResult {
+        val expectedDigest = validate(plan)
+        require(plan.metricPass == MetricPass.ALLOCATION && plan.jfrConfigurationFile != null) {
+            "A campaign-owned JFR snapshot applies only to a configured allocation pass"
+        }
+        requireCanonicalFile("jfrConfigurationSnapshot", jfrConfigurationSnapshot)
+        return runCampaign(plan, campaign, expectedDigest, jfrConfigurationSnapshot)
+    }
+
     private fun runWithEvidence(
         plan: ColdPlan,
         campaign: RunnerCampaign,

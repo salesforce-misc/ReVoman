@@ -285,6 +285,9 @@ data class HarnessIdentity(
         requireSha256("harness.workloadContractSha256", workloadContractSha256)
         requireSha256("harness.fixtureSetSha256", fixtureSetSha256)
         validateArtifacts("harness.artifacts", artifacts)
+        require(ContentHasher.artifactSetSha256(artifacts) == distributionSha256) {
+            "harness.distributionSha256 must match its ordered artifact snapshot"
+        }
         require(adapters.isNotEmpty()) { "harness.adapters must not be empty" }
         require(adapters.map(AdapterIdentity::id).distinct().size == adapters.size) {
             "harness adapter IDs must be unique"
@@ -475,9 +478,9 @@ data class MetricSeries(
         }
         configuration?.let { configured ->
             val acceptedCount = rawBlocks.count(AlternatingBlock::accepted)
-            require(acceptedCount == configured.requestedAcceptedBlocks) {
-                "$path accepted block count must match requestedAcceptedBlocks: " +
-                    "expected=${configured.requestedAcceptedBlocks}, actual=$acceptedCount"
+            require(acceptedCount <= configured.requestedAcceptedBlocks) {
+                "$path accepted block count must not exceed requestedAcceptedBlocks: " +
+                    "maximum=${configured.requestedAcceptedBlocks}, actual=$acceptedCount"
             }
         }
         rawBlocks.forEachIndexed { blockIndex, block ->

@@ -111,6 +111,33 @@ data class VerifiedTargetManifest internal constructor(
             expectedManifest: TargetManifest?,
         ): VerifiedTargetManifest {
             val snapshot = captureManifest(manifestPath)
+            return preflightSnapshot(snapshot, expectedManifest)
+        }
+
+        /** Verifies exact caller-captured manifest bytes without rereading the source. */
+        fun preflightFromSnapshot(
+            manifestPath: Path,
+            bytes: ByteArray,
+            expectedManifest: TargetManifest? = null,
+        ): VerifiedTargetManifest {
+            val canonical = manifestPath.toRealPath()
+            require(canonical == manifestPath.toAbsolutePath().normalize()) {
+                "Target manifest must be a canonical path: $manifestPath"
+            }
+            return preflightSnapshot(
+                ManifestSnapshot(
+                    path = canonical,
+                    manifest = BenchmarkJson.decode(bytes, canonical.toString()),
+                    sha256 = ContentHasher.sha256(bytes),
+                ),
+                expectedManifest,
+            )
+        }
+
+        private fun preflightSnapshot(
+            snapshot: ManifestSnapshot,
+            expectedManifest: TargetManifest?,
+        ): VerifiedTargetManifest {
             expectedManifest?.let { expected ->
                 require(snapshot.manifest == expected) {
                     "Verified manifest does not match the expected target"
@@ -144,8 +171,11 @@ data class VerifiedTargetManifest internal constructor(
         /**
          * Reconstructs a verified worker view from identities and cheap stamps without hashing JARs.
          */
-        fun fromWorkerCommand(command: TargetForkCommand): VerifiedTargetManifest {
-            val verification = command.verification
+        fun fromWorkerCommand(command: TargetForkCommand): VerifiedTargetManifest =
+            fromVerificationToken(command.verification)
+
+        /** Reconstructs a cheap immutable view from a controller-supplied verification token. */
+        fun fromVerificationToken(verification: TargetVerificationToken): VerifiedTargetManifest {
             val manifestPath = Path.of(verification.targetManifest)
             require(manifestPath.toRealPath() == manifestPath) {
                 "Worker target manifest path must be canonical: $manifestPath"
