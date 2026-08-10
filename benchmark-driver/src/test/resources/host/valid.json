@@ -1,0 +1,15 @@
+{
+  "schema": "revoman-controlled-host/v1",
+  "hostFingerprintSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "cpuModel": "Benchmark CPU",
+  "cpuCount": 2,
+  "allowedGovernors": ["schedutil", "performance"],
+  "requireAcPower": true,
+  "maximumLoadAverage": 1.5,
+  "maximumCpuBusyFraction": 0.75,
+  "minimumAvailableMemoryBytes": 1073741824,
+  "maximumSwapDeltaBytes": 1048576,
+  "maximumThermalValue": 80.0,
+  "probeIntervalMillis": 10,
+  "maximumReplacementBlocks": 2
+}

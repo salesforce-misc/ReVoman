@@ -38,6 +38,25 @@ jobs:
       - name: 'Gradle build'
         run: ./gradlew build
 
+      # Structural harness checks only: this exports the current checkout explicitly and validates
+      # the installed driver against it. No timing or memory threshold is evaluated in ordinary CI.
+      - name: 'Export current benchmark target'
+        run: >-
+          ./gradlew
+          -I benchmark-driver/src/main/dist/libexec/benchmark-target.init.gradle.kts
+          writeBenchmarkTargetManifest
+          -Pbenchmark.targetManifest=build/benchmark-target-current.json
+          -Pbenchmark.targetId=current
+
+      - name: 'Benchmark harness self-test'
+        run: >-
+          ./gradlew
+          :benchmark-driver:check
+          :benchmark-driver:integrationTest
+          :benchmark-driver:benchmarkHarnessSelfTest
+          -Pbenchmark.targetManifest=build/benchmark-target-current.json
+          -Pbenchmark.adapter=baseline-83f3cd70
+
       # Surface JUnit HTML reports even when the build fails, so a red run is diagnosable.
       - name: 'Upload test reports'
         if: ${{ !cancelled() }}

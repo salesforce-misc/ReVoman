@@ -1,0 +1,41 @@
+{
+  "id": "lifecycle.no-script-one-step.v1",
+  "contractVersion": 1,
+  "files": [
+    {
+      "logicalId": "collection.postman_collection.json",
+      "executionPath": "collection.postman_collection.json",
+      "sizeBytes": 431,
+      "sha256": "baacf0d7e9067c41848edf172aad8508b612528133d6576707f47da534c0ea86"
+    },
+    {
+      "logicalId": "handler.json",
+      "executionPath": "handler.json",
+      "sizeBytes": 258,
+      "sha256": "12c15383ba5a0aa6aef1e32f409a86dc5168223ad18ccb17270506e625b105ef"
+    }
+  ],
+  "fixtureTreeSha256": "31af0229163ef1ed544189f9b1f1dbd9a80607ffd024a2e5bd09cddfae919c92",
+  "operationIds": [
+    "lifecycle.no-script-one-step.v1"
+  ],
+  "requiredGatesByMode": {
+    "COLD": [
+      "COLD_MEDIAN",
+      "COLD_P95",
+      "COLD_ALLOCATION",
+      "COLD_PEAK_RSS"
+    ],
+    "WARM": [
+      "WARM_MEDIAN",
+      "WARM_P95",
+      "WARM_ALLOCATION"
+    ],
+    "RETAINED": []
+  },
+  "expectedDigest": {
+    "checksum": 31,
+    "executedSteps": 1,
+    "failureCount": 0
+  }
+}

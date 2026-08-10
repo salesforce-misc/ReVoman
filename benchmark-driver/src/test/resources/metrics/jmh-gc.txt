@@ -1,0 +1,47 @@
+[
+  {
+    "jmhVersion": "1.37",
+    "benchmark": "com.salesforce.revoman.benchmark.WarmLifecycleAllocationBenchmark.execute",
+    "mode": "avgt",
+    "threads": 1,
+    "forks": 1,
+    "jvm": "/jdk/bin/java",
+    "jvmArgs": ["-Drevoman.banner=off"],
+    "jdkVersion": "21",
+    "vmName": "OpenJDK 64-Bit Server VM",
+    "vmVersion": "21",
+    "warmupIterations": 1,
+    "warmupTime": "100 ms",
+    "warmupBatchSize": 1,
+    "measurementIterations": 2,
+    "measurementTime": "100 ms",
+    "measurementBatchSize": 1,
+    "params": {},
+    "primaryMetric": {
+      "score": 1000.0,
+      "scoreError": "NaN",
+      "scoreConfidence": ["NaN", "NaN"],
+      "scorePercentiles": {"0.0": 900.0, "100.0": 1100.0},
+      "scoreUnit": "ns/op",
+      "rawData": [[900.0, 1100.0]]
+    },
+    "secondaryMetrics": {
+      "gc.alloc.rate.norm": {
+        "score": 9999.0,
+        "scoreError": "NaN",
+        "scoreConfidence": ["NaN", "NaN"],
+        "scorePercentiles": {"0.0": 100.25, "100.0": 101.5},
+        "scoreUnit": "B/op",
+        "rawData": [[100.25, 101.5]]
+      },
+      "revoman.fork.pid": {
+        "score": 4201.0,
+        "scoreError": "NaN",
+        "scoreConfidence": ["NaN", "NaN"],
+        "scorePercentiles": {"0.0": 4201.0, "100.0": 4201.0},
+        "scoreUnit": "pid",
+        "rawData": [[4201.0, 4201.0]]
+      }
+    }
+  }
+]

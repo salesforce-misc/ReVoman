@@ -55,3 +55,5 @@ develocity {
 }
 
 rootProject.name = "revoman-root"
+
+include(":benchmark-driver")

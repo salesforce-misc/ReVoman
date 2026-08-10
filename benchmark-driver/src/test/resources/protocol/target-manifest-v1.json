@@ -1,0 +1,30 @@
+{
+  "schema": "revoman-target-manifest/v1",
+  "targetId": "fixture-target",
+  "gitCommit": "1111111111111111111111111111111111111111",
+  "gitTree": "2222222222222222222222222222222222222222",
+  "dirty": false,
+  "gradleVersion": "9.7.0-rc-2",
+  "wrapperSha256": "3333333333333333333333333333333333333333333333333333333333333333",
+  "jdk": {
+    "distribution": "fixture-jdk",
+    "vendor": "fixture-vendor",
+    "fullVersion": "21.0.1",
+    "javaHome": "/fixture/jdk",
+    "jvmFlags": []
+  },
+  "classpath": [
+    {
+      "logicalId": "adapter.jar",
+      "executionPath": "/bench/adapter.jar",
+      "sizeBytes": 128,
+      "sha256": "4444444444444444444444444444444444444444444444444444444444444444"
+    },
+    {
+      "logicalId": "target.jar",
+      "executionPath": "/bench/target.jar",
+      "sizeBytes": 4096,
+      "sha256": "5555555555555555555555555555555555555555555555555555555555555555"
+    }
+  ]
+}

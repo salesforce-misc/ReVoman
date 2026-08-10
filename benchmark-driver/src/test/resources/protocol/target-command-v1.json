@@ -1,0 +1,48 @@
+{
+  "protocolVersion": 1,
+  "verification": {
+    "targetManifest": "__TARGET_MANIFEST__",
+    "targetManifestSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "targetClasspathSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "artifactStamps": [
+      {
+        "logicalId": "adapter.jar",
+        "executionPath": "/bench/adapter.jar",
+        "sizeBytes": 128,
+        "lastModifiedMillis": 1700000000000,
+        "fileKey": "adapter-key"
+      },
+      {
+        "logicalId": "target.jar",
+        "executionPath": "/bench/target.jar",
+        "sizeBytes": 4096,
+        "lastModifiedMillis": 1700000000010,
+        "fileKey": null
+      }
+    ]
+  },
+  "adapterId": "postman-v1",
+  "mode": "WARM",
+  "metricPass": "LATENCY",
+  "workload": {
+    "id": "simple-get",
+    "contractVersion": 1,
+    "fixtureRoot": "/bench/fixtures",
+    "baseUrl": "http://127.0.0.1:8080",
+    "parameters": {
+      "region": "us-east-1",
+      "tenant": "acme"
+    }
+  },
+  "expectedDigest": {
+    "checksum": 31,
+    "executedSteps": 1,
+    "failureCount": 0
+  },
+  "warmupIterations": 2,
+  "measurementIterations": 3,
+  "resultFile": "/bench/result.json",
+  "jfrConfigurationFile": null,
+  "jfrRecordingFile": null,
+  "retainedExecutionCount": null
+}

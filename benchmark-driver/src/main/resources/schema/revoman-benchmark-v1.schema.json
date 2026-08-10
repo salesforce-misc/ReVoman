@@ -1,0 +1,348 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://revoman.dev/schema/revoman-benchmark-v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "campaignId", "intent", "createdAt", "configuration", "harness", "environment", "targets", "workloads"],
+  "properties": {
+    "schema": { "const": "revoman-benchmark/v1" },
+    "campaignId": { "type": "string", "minLength": 1 },
+    "intent": { "enum": ["CONTROLLED", "SMOKE", "CI_SELF_TEST"] },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "configuration": { "$ref": "#/$defs/configuration" },
+    "harness": { "$ref": "#/$defs/harness" },
+    "environment": { "$ref": "#/$defs/environment" },
+    "targets": { "type": "array", "minItems": 1, "maxItems": 2, "items": { "$ref": "#/$defs/target" } },
+    "workloads": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/workload" } }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "runMode": {
+      "enum": ["COLD", "WARM", "RETAINED"]
+    },
+    "metricPass": {
+      "enum": ["LATENCY", "ALLOCATION", "PEAK_RSS", "RETAINED"]
+    },
+    "metricId": {
+      "enum": ["LATENCY", "ALLOCATED_BYTES", "PEAK_RSS", "RETAINED_BYTES", "BYTES_PER_STEP"]
+    },
+    "metricUnit": {
+      "enum": ["NANOSECONDS", "NANOSECONDS_PER_OPERATION", "BYTES", "BYTES_PER_EXECUTION", "BYTES_PER_OPERATION"]
+    },
+    "configuration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "targets", "metricPasses", "seed", "requestedAcceptedBlocks", "forksPerBlock", "warmupIterations", "measurementIterations"],
+      "properties": {
+        "mode": { "$ref": "#/$defs/runMode" },
+        "targets": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": { "$ref": "#/$defs/targetAssignment" },
+          "allOf": [
+            {
+              "contains": {
+                "type": "object",
+                "required": ["role"],
+                "properties": { "role": { "const": "BASELINE" } }
+              },
+              "minContains": 1,
+              "maxContains": 1
+            },
+            {
+              "contains": {
+                "type": "object",
+                "required": ["role"],
+                "properties": { "role": { "const": "CANDIDATE" } }
+              },
+              "minContains": 1,
+              "maxContains": 1
+            }
+          ]
+        },
+        "metricPasses": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/metricPass" }
+        },
+        "seed": { "type": "integer" },
+        "requestedAcceptedBlocks": { "type": "integer", "minimum": 1 },
+        "forksPerBlock": { "type": "integer", "minimum": 1 },
+        "warmupIterations": { "type": "integer", "minimum": 0 },
+        "measurementIterations": { "type": "integer", "minimum": 0 }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "mode": { "enum": ["COLD", "WARM"] } }, "required": ["mode"] },
+          "then": { "properties": { "measurementIterations": { "minimum": 1 } } }
+        },
+        {
+          "if": { "properties": { "mode": { "const": "RETAINED" } }, "required": ["mode"] },
+          "then": { "properties": { "measurementIterations": { "const": 0 } } }
+        }
+      ]
+    },
+    "targetAssignment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "targetId", "adapterId"],
+      "properties": {
+        "role": { "enum": ["BASELINE", "CANDIDATE"] },
+        "targetId": { "type": "string", "minLength": 1 },
+        "adapterId": { "type": "string", "minLength": 1 }
+      }
+    },
+    "hashedArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["logicalId", "executionPath", "sizeBytes", "sha256"],
+      "properties": {
+        "logicalId": { "type": "string", "minLength": 1 },
+        "executionPath": { "type": "string", "minLength": 1 },
+        "sizeBytes": { "type": "integer", "minimum": 0 },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "artifactSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["logicalId", "sizeBytes", "sha256"],
+      "properties": {
+        "logicalId": { "type": "string", "minLength": 1 },
+        "sizeBytes": { "type": "integer", "minimum": 0 },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "adapter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "sourceSha256"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "sourceSha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "jdk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["distribution", "vendor", "fullVersion", "javaHome", "jvmFlags"],
+      "properties": {
+        "distribution": { "type": "string", "minLength": 1 },
+        "vendor": { "type": "string", "minLength": 1 },
+        "fullVersion": { "type": "string", "minLength": 1 },
+        "javaHome": { "type": "string", "minLength": 1 },
+        "jvmFlags": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "harness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commit", "tree", "dirty", "distributionSha256", "artifacts", "workloadContractSha256", "fixtureSetSha256", "adapters"],
+      "properties": {
+        "commit": { "type": "string", "minLength": 1 },
+        "tree": { "type": "string", "minLength": 1 },
+        "dirty": { "type": "boolean" },
+        "distributionSha256": { "$ref": "#/$defs/sha256" },
+        "artifacts": { "type": "array", "items": { "$ref": "#/$defs/hashedArtifact" } },
+        "workloadContractSha256": { "$ref": "#/$defs/sha256" },
+        "fixtureSetSha256": { "$ref": "#/$defs/sha256" },
+        "adapters": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/adapter" } }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["jdk", "osName", "osVersion", "kernel", "cpuModel", "cpuCount", "governor", "physicalMemoryBytes", "hostFingerprintSha256"],
+      "properties": {
+        "jdk": { "$ref": "#/$defs/jdk" },
+        "osName": { "type": "string", "minLength": 1 },
+        "osVersion": { "type": "string", "minLength": 1 },
+        "kernel": { "type": "string", "minLength": 1 },
+        "cpuModel": { "type": "string", "minLength": 1 },
+        "cpuCount": { "type": "integer", "minimum": 1 },
+        "governor": { "type": "string", "minLength": 1 },
+        "physicalMemoryBytes": { "type": "integer", "minimum": 1 },
+        "hostFingerprintSha256": { "$ref": "#/$defs/sha256" },
+        "policySha256": { "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] }
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "gitCommit", "gitTree", "dirty", "gradleVersion", "wrapperSha256", "buildJdk", "manifestSha256", "classpathSha256", "classpath", "adapter"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "gitCommit": { "type": "string", "minLength": 1 },
+        "gitTree": { "type": "string", "minLength": 1 },
+        "dirty": { "type": "boolean" },
+        "gradleVersion": { "type": "string", "minLength": 1 },
+        "wrapperSha256": { "$ref": "#/$defs/sha256" },
+        "buildJdk": { "$ref": "#/$defs/jdk" },
+        "manifestSha256": { "$ref": "#/$defs/sha256" },
+        "classpathSha256": { "$ref": "#/$defs/sha256" },
+        "classpath": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/artifactSnapshot" } },
+        "adapter": { "$ref": "#/$defs/adapter" }
+      }
+    },
+    "workload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "contractSha256", "fixtureSha256", "mode", "metricSeries"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "contractSha256": { "$ref": "#/$defs/sha256" },
+        "fixtureSha256": { "$ref": "#/$defs/sha256" },
+        "mode": { "$ref": "#/$defs/runMode" },
+        "metricSeries": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/metricSeries" } }
+      }
+    },
+    "metricSeries": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["metric", "provider", "providerConfigurationSha256", "unit", "artifacts"],
+      "properties": {
+        "metric": { "$ref": "#/$defs/metricId" },
+        "provider": { "type": "string", "minLength": 1 },
+        "providerConfigurationSha256": { "$ref": "#/$defs/sha256" },
+        "unit": { "$ref": "#/$defs/metricUnit" },
+        "artifacts": { "type": "array", "items": { "$ref": "#/$defs/hashedArtifact" } },
+        "blocks": {},
+        "histograms": {}
+      },
+      "oneOf": [
+        {
+          "required": ["blocks"],
+          "properties": {
+            "blocks": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/alternatingBlock" } },
+            "histograms": { "type": "null" }
+          }
+        },
+        {
+          "required": ["histograms"],
+          "properties": {
+            "blocks": { "type": "null" },
+            "histograms": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/exactHistogram" } }
+          }
+        }
+      ]
+    },
+    "alternatingBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["blockId", "targetOrder", "healthBefore", "healthDuring", "healthAfter", "accepted", "rejectionReasons", "observations"],
+      "properties": {
+        "blockId": { "type": "integer", "minimum": 0 },
+        "targetOrder": { "type": "array", "minItems": 1, "maxItems": 2, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "healthBefore": { "$ref": "#/$defs/hostHealth" },
+        "healthDuring": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/hostHealth" } },
+        "healthAfter": { "$ref": "#/$defs/hostHealth" },
+        "accepted": { "type": "boolean" },
+        "rejectionReasons": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "observations": { "type": "array", "items": { "$ref": "#/$defs/observation" } }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "accepted": { "const": true } }, "required": ["accepted"] },
+          "then": {
+            "properties": {
+              "rejectionReasons": { "maxItems": 0 },
+              "observations": { "minItems": 1 }
+            }
+          },
+          "else": {
+            "properties": {
+              "rejectionReasons": { "minItems": 1 },
+              "observations": { "maxItems": 0 }
+            }
+          }
+        }
+      ]
+    },
+    "hostHealth": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["capturedAtNanos", "loadAverage", "cpuBusyFraction", "availableMemoryBytes", "swapUsedBytes", "thermalValue", "onAcPower", "governors"],
+      "properties": {
+        "capturedAtNanos": { "type": "integer", "minimum": 0 },
+        "loadAverage": { "type": "number", "minimum": 0 },
+        "cpuBusyFraction": { "type": "number", "minimum": 0, "maximum": 1 },
+        "availableMemoryBytes": { "type": "integer", "minimum": 0 },
+        "swapUsedBytes": { "type": "integer", "minimum": 0 },
+        "thermalValue": { "type": "number", "minimum": 0 },
+        "onAcPower": { "type": "boolean" },
+        "governors": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["targetId", "metric", "provider", "unit", "fork", "iteration", "processId", "value"],
+      "properties": {
+        "targetId": { "type": "string", "minLength": 1 },
+        "metric": { "$ref": "#/$defs/metricId" },
+        "provider": { "type": "string", "minLength": 1 },
+        "unit": { "$ref": "#/$defs/metricUnit" },
+        "fork": { "type": "integer", "minimum": 0 },
+        "iteration": { "type": "integer", "minimum": 0 },
+        "replicateGroup": { "type": ["integer", "null"], "minimum": 0 },
+        "processId": { "type": "integer", "minimum": 1 },
+        "value": { "type": "number", "minimum": 0 },
+        "executionCount": { "type": ["integer", "null"], "minimum": 1 },
+        "retainedEvidence": { "oneOf": [{ "$ref": "#/$defs/retainedEvidence" }, { "type": "null" }] }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "metric": { "const": "BYTES_PER_STEP" } }, "required": ["metric"] },
+          "then": {
+            "required": ["executionCount"],
+            "properties": { "executionCount": { "type": "integer", "minimum": 1 } }
+          },
+          "else": { "properties": { "executionCount": { "type": "null" } } }
+        }
+      ]
+    },
+    "retainedEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["executionCount", "completedGcCycles", "weakReferences"],
+      "properties": {
+        "executionCount": { "type": "integer", "minimum": 1 },
+        "completedGcCycles": { "type": "integer", "minimum": 2 },
+        "weakReferences": { "type": "array", "items": { "$ref": "#/$defs/weakReferenceOutcome" } }
+      }
+    },
+    "weakReferenceOutcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "created", "cleared"],
+      "properties": {
+        "type": { "type": "string", "minLength": 1 },
+        "created": { "type": "integer", "minimum": 0 },
+        "cleared": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "exactHistogram": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["targetId", "buckets"],
+      "properties": {
+        "targetId": { "type": "string", "minLength": 1 },
+        "buckets": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/histogramBucket" } }
+      }
+    },
+    "histogramBucket": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "count"],
+      "properties": {
+        "value": { "type": "number", "minimum": 0 },
+        "count": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}
