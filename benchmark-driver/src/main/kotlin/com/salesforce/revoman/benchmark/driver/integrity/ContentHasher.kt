@@ -7,6 +7,7 @@
  */
 package com.salesforce.revoman.benchmark.driver.integrity
 
+import com.salesforce.revoman.benchmark.driver.model.ArtifactSnapshot
 import com.salesforce.revoman.benchmark.driver.model.HashedArtifact
 import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets.UTF_8
@@ -77,6 +78,13 @@ object ContentHasher {
      * Hashes ordered logical ID, size, and content-hash records while excluding execution paths.
      */
     fun artifactSetSha256(artifacts: List<HashedArtifact>): String =
+        hashArtifactRecords(artifacts.map { ArtifactRecord(it.logicalId, it.sizeBytes, it.sha256) })
+
+    /** Hashes an ordered, path-free classpath snapshot with the artifact-set contract. */
+    fun artifactSnapshotSetSha256(artifacts: List<ArtifactSnapshot>): String =
+        hashArtifactRecords(artifacts.map { ArtifactRecord(it.logicalId, it.sizeBytes, it.sha256) })
+
+    private fun hashArtifactRecords(artifacts: List<ArtifactRecord>): String =
         digestHex {
             update(artifactSetPrefix)
             artifacts.forEachIndexed { index, artifact ->
@@ -112,4 +120,10 @@ object ContentHasher {
     }
 
     private data class TreeRecord(val relativePath: String, val bytes: ByteArray)
+
+    private data class ArtifactRecord(
+        val logicalId: String,
+        val sizeBytes: Long,
+        val sha256: String,
+    )
 }

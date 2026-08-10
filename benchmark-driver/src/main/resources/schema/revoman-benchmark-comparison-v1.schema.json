@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://revoman.dev/schema/revoman-benchmark-comparison-v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "campaignId", "compatibilityErrors", "metrics", "rejectedBlocks", "overall"],
+  "properties": {
+    "schema": { "const": "revoman-benchmark-comparison/v1" },
+    "campaignId": { "type": "string", "minLength": 1 },
+    "compatibilityErrors": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "metrics": { "type": "array", "items": { "$ref": "#/$defs/metricDecision" } },
+    "rejectedBlocks": { "type": "array", "items": { "$ref": "#/$defs/rejectedBlock" } },
+    "overall": { "$ref": "#/$defs/decision" }
+  },
+  "$defs": {
+    "decision": { "enum": ["PASS", "FAIL", "INCONCLUSIVE", "INCOMPATIBLE"] },
+    "claimKind": { "enum": ["NON_REGRESSION", "TARGETED_IMPROVEMENT", "STRUCTURAL"] },
+    "runMode": { "enum": ["COLD", "WARM", "RETAINED"] },
+    "metricId": {
+      "enum": ["LATENCY", "ALLOCATED_BYTES", "PEAK_RSS", "RETAINED_BYTES", "BYTES_PER_STEP"]
+    },
+    "gateId": {
+      "enum": [
+        "COLD_MEDIAN",
+        "COLD_P95",
+        "COLD_ALLOCATION",
+        "COLD_PEAK_RSS",
+        "WARM_MEDIAN",
+        "WARM_P95",
+        "WARM_ALLOCATION",
+        "RETAINED_SLOPE",
+        "PER_STEP_ALLOCATION_SPREAD"
+      ]
+    },
+    "statistic": { "enum": ["MEDIAN", "P95", "MEAN"] },
+    "ratioInterval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pointEstimate", "lower95", "upper95"],
+      "properties": {
+        "pointEstimate": { "type": "number", "minimum": 0 },
+        "lower95": { "type": "number", "minimum": 0 },
+        "upper95": { "type": "number", "minimum": 0 }
+      }
+    },
+    "slopeInterval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pointEstimateBytesPerExecution", "lower95BytesPerExecution", "upper95BytesPerExecution"],
+      "properties": {
+        "pointEstimateBytesPerExecution": { "type": "number" },
+        "lower95BytesPerExecution": { "type": "number" },
+        "upper95BytesPerExecution": { "type": "number" }
+      }
+    },
+    "metricDecision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["claimKind", "mode", "metric", "limit", "decision", "reason"],
+      "properties": {
+        "gate": { "oneOf": [{ "$ref": "#/$defs/gateId" }, { "type": "null" }] },
+        "claimKind": { "$ref": "#/$defs/claimKind" },
+        "mode": { "$ref": "#/$defs/runMode" },
+        "metric": { "$ref": "#/$defs/metricId" },
+        "statistic": { "oneOf": [{ "$ref": "#/$defs/statistic" }, { "type": "null" }] },
+        "interval": { "oneOf": [{ "$ref": "#/$defs/ratioInterval" }, { "type": "null" }] },
+        "slopeInterval": { "oneOf": [{ "$ref": "#/$defs/slopeInterval" }, { "type": "null" }] },
+        "observedValue": { "type": ["number", "null"], "minimum": 0 },
+        "limit": { "type": "number", "minimum": 0 },
+        "decision": { "$ref": "#/$defs/decision" },
+        "reason": { "type": "string", "minLength": 1 }
+      },
+      "oneOf": [
+        {
+          "required": ["statistic", "interval"],
+          "properties": {
+            "statistic": { "$ref": "#/$defs/statistic" },
+            "interval": { "$ref": "#/$defs/ratioInterval" }
+          },
+          "not": { "anyOf": [{ "required": ["slopeInterval"] }, { "required": ["observedValue"] }] }
+        },
+        {
+          "required": ["slopeInterval"],
+          "properties": {
+            "slopeInterval": { "$ref": "#/$defs/slopeInterval" }
+          },
+          "not": { "anyOf": [{ "required": ["statistic"] }, { "required": ["interval"] }, { "required": ["observedValue"] }] }
+        },
+        {
+          "required": ["observedValue"],
+          "properties": {
+            "observedValue": { "type": "number", "minimum": 0 }
+          },
+          "not": { "anyOf": [{ "required": ["statistic"] }, { "required": ["interval"] }, { "required": ["slopeInterval"] }] }
+        },
+        {
+          "properties": {
+            "decision": { "enum": ["INCONCLUSIVE", "INCOMPATIBLE"] }
+          },
+          "not": { "anyOf": [{ "required": ["interval"] }, { "required": ["slopeInterval"] }, { "required": ["observedValue"] }] }
+        }
+      ],
+      "allOf": [
+        {
+          "if": { "properties": { "claimKind": { "const": "STRUCTURAL" } }, "required": ["claimKind"] },
+          "then": { "properties": { "metric": { "enum": ["RETAINED_BYTES", "BYTES_PER_STEP"] } } },
+          "else": { "properties": { "metric": { "not": { "enum": ["RETAINED_BYTES", "BYTES_PER_STEP"] } } } }
+        },
+        {
+          "if": { "properties": { "metric": { "const": "RETAINED_BYTES" } }, "required": ["metric"] },
+          "then": {
+            "anyOf": [
+              { "required": ["slopeInterval"] },
+              {
+                "properties": { "decision": { "enum": ["INCONCLUSIVE", "INCOMPATIBLE"] } },
+                "not": { "anyOf": [{ "required": ["interval"] }, { "required": ["slopeInterval"] }, { "required": ["observedValue"] }] }
+              }
+            ]
+          }
+        },
+        {
+          "if": { "properties": { "metric": { "const": "BYTES_PER_STEP" } }, "required": ["metric"] },
+          "then": {
+            "anyOf": [
+              { "required": ["observedValue"] },
+              {
+                "properties": { "decision": { "enum": ["INCONCLUSIVE", "INCOMPATIBLE"] } },
+                "not": { "anyOf": [{ "required": ["interval"] }, { "required": ["slopeInterval"] }, { "required": ["observedValue"] }] }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "rejectedBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["workloadId", "metric", "blockId", "reasons"],
+      "properties": {
+        "workloadId": { "type": "string", "minLength": 1 },
+        "metric": { "$ref": "#/$defs/metricId" },
+        "blockId": { "type": "integer", "minimum": 0 },
+        "reasons": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }
+      }
+    }
+  }
+}

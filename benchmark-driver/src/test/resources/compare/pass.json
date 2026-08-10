@@ -1,0 +1,1 @@
+{"campaignId":"pass","compatibilityErrors":[],"metrics":[{"claimKind":"NON_REGRESSION","decision":"PASS","gate":"WARM_MEDIAN","interval":{"lower95":0.9,"pointEstimate":0.95,"upper95":1.0},"limit":1.03,"metric":"LATENCY","mode":"WARM","reason":"upper bound passes","statistic":"MEDIAN"}],"overall":"PASS","rejectedBlocks":[],"schema":"revoman-benchmark-comparison/v1"}

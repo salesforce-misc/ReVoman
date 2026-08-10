@@ -12,6 +12,7 @@ import com.salesforce.revoman.benchmark.driver.integrity.ContentHasher
 import com.salesforce.revoman.benchmark.driver.integrity.HarnessSourceManifest
 import com.salesforce.revoman.benchmark.driver.fixture.DeterministicHttpFixture
 import com.salesforce.revoman.benchmark.driver.json.BenchmarkJson
+import com.salesforce.revoman.benchmark.driver.model.ArtifactSnapshot
 import com.salesforce.revoman.benchmark.driver.model.EnvironmentIdentity
 import com.salesforce.revoman.benchmark.driver.model.HarnessIdentity
 import com.salesforce.revoman.benchmark.driver.model.JdkIdentity
@@ -218,6 +219,14 @@ private fun attachRuntimeIdentities(
             buildJdk = verified.manifest.jdk,
             manifestSha256 = verified.manifestSha256,
             classpathSha256 = verified.classpathSha256,
+            classpath =
+                verified.manifest.classpath.map { artifact ->
+                    ArtifactSnapshot(
+                        logicalId = artifact.logicalId,
+                        sizeBytes = artifact.sizeBytes,
+                        sha256 = artifact.sha256,
+                    )
+                },
             adapter = adapter,
         )
     val workload = resolveJmhWorkloadIdentity(lifecycleWorkloadIdentity)

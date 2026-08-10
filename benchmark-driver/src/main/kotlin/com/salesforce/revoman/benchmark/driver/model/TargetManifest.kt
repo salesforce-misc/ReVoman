@@ -45,6 +45,14 @@ data class HashedArtifact(
     val sha256: String,
 )
 
+/** Path-free content identity for one artifact in an ordered target runtime classpath. */
+@JsonClass(generateAdapter = true)
+data class ArtifactSnapshot(
+    val logicalId: String,
+    val sizeBytes: Long,
+    val sha256: String,
+)
+
 /** Captures a complete JDK identity, including flags that affect benchmark behavior. */
 @JsonClass(generateAdapter = true)
 data class JdkIdentity(

@@ -1,0 +1,1 @@
+{"campaignId":"improvement","compatibilityErrors":[],"metrics":[{"claimKind":"TARGETED_IMPROVEMENT","decision":"PASS","interval":{"lower95":0.75,"pointEstimate":0.78,"upper95":0.8},"limit":0.8,"metric":"ALLOCATED_BYTES","mode":"WARM","reason":"targeted upper bound passes","statistic":"MEAN"}],"overall":"PASS","rejectedBlocks":[],"schema":"revoman-benchmark-comparison/v1"}

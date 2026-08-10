@@ -7,6 +7,7 @@
  */
 package com.salesforce.revoman.benchmark.driver.model
 
+import com.salesforce.revoman.benchmark.driver.integrity.ContentHasher
 import com.squareup.moshi.JsonClass
 
 /** Declares why a benchmark campaign was run. */
@@ -193,6 +194,7 @@ data class MetricObservation(
     val replicateGroup: Int? = null,
     val processId: Long,
     val value: Double,
+    val executionCount: Int? = null,
     val retainedEvidence: RetainedEvidence? = null,
 )
 
@@ -220,6 +222,13 @@ internal fun MetricObservation.validateIntrinsic(path: String) {
         require(value % 1.0 == 0.0) { "$path.value must be mathematically integral for $unit" }
     }
     replicateGroup?.let { require(it >= 0) { "$path.replicateGroup must not be negative" } }
+    val perStepMetric = metric == MetricId.BYTES_PER_STEP
+    require(perStepMetric || executionCount == null) {
+        "$path.executionCount is allowed only for BYTES_PER_STEP"
+    }
+    require(!perStepMetric || (executionCount ?: 0) > 0) {
+        "$path.executionCount is required and must be positive for BYTES_PER_STEP"
+    }
     val retainedMetric = metric == MetricId.RETAINED_BYTES
     require(retainedMetric || replicateGroup == null) {
         "$path.replicateGroup is allowed only for RETAINED_BYTES"
@@ -319,6 +328,7 @@ data class TargetIdentity(
     val buildJdk: JdkIdentity,
     val manifestSha256: String,
     val classpathSha256: String,
+    val classpath: List<ArtifactSnapshot>,
     val adapter: AdapterIdentity,
 ) {
     internal fun validate(path: String) {
@@ -330,6 +340,11 @@ data class TargetIdentity(
         buildJdk.validate("$path.buildJdk")
         requireSha256("$path.manifestSha256", manifestSha256)
         requireSha256("$path.classpathSha256", classpathSha256)
+        require(classpath.isNotEmpty()) { "$path.classpath must not be empty" }
+        validateArtifactSnapshots("$path.classpath", classpath)
+        require(ContentHasher.artifactSnapshotSetSha256(classpath) == classpathSha256) {
+            "$path.classpathSha256 must match the ordered path-free classpath snapshot"
+        }
         adapter.validate("$path.adapter")
     }
 }
@@ -680,6 +695,18 @@ internal fun HashedArtifact.validate(path: String) {
     requireNonBlank("$path.executionPath", executionPath)
     require(sizeBytes >= 0) { "$path.sizeBytes must not be negative" }
     requireSha256("$path.sha256", sha256)
+}
+
+internal fun validateArtifactSnapshots(path: String, artifacts: List<ArtifactSnapshot>) {
+    require(artifacts.map(ArtifactSnapshot::logicalId).distinct().size == artifacts.size) {
+        "$path logical IDs must be unique"
+    }
+    artifacts.forEachIndexed { index, artifact ->
+        val artifactPath = "$path[$index]"
+        requireNonBlank("$artifactPath.logicalId", artifact.logicalId)
+        require(artifact.sizeBytes >= 0) { "$artifactPath.sizeBytes must not be negative" }
+        requireSha256("$artifactPath.sha256", artifact.sha256)
+    }
 }
 
 internal fun requireSha256(path: String, value: String) {

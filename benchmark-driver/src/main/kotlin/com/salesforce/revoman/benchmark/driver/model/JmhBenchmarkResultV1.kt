@@ -274,6 +274,13 @@ data class JmhMetricSeries(
                 }
                 require(observation.processId > 0) { "$observationPath.processId must be positive" }
                 requireFiniteNonNegative("$observationPath.value", observation.value)
+                val perStepMetric = metric == MetricId.BYTES_PER_STEP
+                require(perStepMetric || observation.executionCount == null) {
+                    "$observationPath.executionCount is allowed only for BYTES_PER_STEP"
+                }
+                require(!perStepMetric || (observation.executionCount ?: 0) > 0) {
+                    "$observationPath.executionCount is required and must be positive for BYTES_PER_STEP"
+                }
                 require(observation.replicateGroup == null) {
                     "$observationPath.replicateGroup is not JMH evidence"
                 }

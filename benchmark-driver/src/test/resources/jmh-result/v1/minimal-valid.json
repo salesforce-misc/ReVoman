@@ -47,7 +47,8 @@
       "jvmFlags": []
     },
     "manifestSha256": "1111111111111111111111111111111111111111111111111111111111111111",
-    "classpathSha256": "2222222222222222222222222222222222222222222222222222222222222222",
+    "classpathSha256": "42c097ce7c5e388006584b50c17b90d73f2fb63138831d7ea2dd68ac8ea0803e",
+    "classpath": [{"logicalId": "target.jar", "sizeBytes": 4096, "sha256": "5555555555555555555555555555555555555555555555555555555555555555"}],
     "adapter": { "id": "baseline-83f3cd70", "sourceSha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd" }
   },
   "workload": {
@@ -118,6 +119,7 @@
               "replicateGroup": null,
               "processId": 1001,
               "value": 10.0,
+              "executionCount": null,
               "retainedEvidence": null
             },
             {
@@ -130,6 +132,7 @@
               "replicateGroup": null,
               "processId": 1001,
               "value": 11.0,
+              "executionCount": null,
               "retainedEvidence": null
             }
           ],

@@ -10,6 +10,7 @@ package com.salesforce.revoman.benchmark.driver.json
 import com.networknt.schema.InputFormat
 import com.networknt.schema.SchemaRegistry
 import com.networknt.schema.SpecificationVersion
+import com.salesforce.revoman.benchmark.driver.compare.ComparisonReport
 import com.salesforce.revoman.benchmark.driver.host.ControlledHostPolicy
 import com.salesforce.revoman.benchmark.driver.model.BenchmarkResultV1
 import com.salesforce.revoman.benchmark.driver.model.ExecutionDigest
@@ -127,6 +128,7 @@ internal object BenchmarkJson {
 
     private fun validate(value: Any) {
         when (value) {
+            is ComparisonReport -> value.validate()
             is ControlledHostPolicy -> value.validate()
             is BenchmarkResultV1 -> value.validate()
             is HostHealthSnapshot -> value.validate("hostHealthSnapshot")
@@ -140,6 +142,7 @@ internal object BenchmarkJson {
 
     private fun normalize(value: Any): Any =
         when (value) {
+            is ComparisonReport -> value.canonicalized()
             is ControlledHostPolicy -> value.canonicalized()
             is BenchmarkResultV1 -> value.canonicalized()
             is JmhBenchmarkResultV1 -> value.canonicalized()

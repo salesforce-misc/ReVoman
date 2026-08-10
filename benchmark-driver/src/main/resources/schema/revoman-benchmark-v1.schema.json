@@ -108,6 +108,16 @@
         "sha256": { "$ref": "#/$defs/sha256" }
       }
     },
+    "artifactSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["logicalId", "sizeBytes", "sha256"],
+      "properties": {
+        "logicalId": { "type": "string", "minLength": 1 },
+        "sizeBytes": { "type": "integer", "minimum": 0 },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
     "adapter": {
       "type": "object",
       "additionalProperties": false,
@@ -164,7 +174,7 @@
     "target": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "gitCommit", "gitTree", "dirty", "gradleVersion", "wrapperSha256", "buildJdk", "manifestSha256", "classpathSha256", "adapter"],
+      "required": ["id", "gitCommit", "gitTree", "dirty", "gradleVersion", "wrapperSha256", "buildJdk", "manifestSha256", "classpathSha256", "classpath", "adapter"],
       "properties": {
         "id": { "type": "string", "minLength": 1 },
         "gitCommit": { "type": "string", "minLength": 1 },
@@ -175,6 +185,7 @@
         "buildJdk": { "$ref": "#/$defs/jdk" },
         "manifestSha256": { "$ref": "#/$defs/sha256" },
         "classpathSha256": { "$ref": "#/$defs/sha256" },
+        "classpath": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/artifactSnapshot" } },
         "adapter": { "$ref": "#/$defs/adapter" }
       }
     },
@@ -279,8 +290,19 @@
         "replicateGroup": { "type": ["integer", "null"], "minimum": 0 },
         "processId": { "type": "integer", "minimum": 1 },
         "value": { "type": "number", "minimum": 0 },
+        "executionCount": { "type": ["integer", "null"], "minimum": 1 },
         "retainedEvidence": { "oneOf": [{ "$ref": "#/$defs/retainedEvidence" }, { "type": "null" }] }
-      }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "metric": { "const": "BYTES_PER_STEP" } }, "required": ["metric"] },
+          "then": {
+            "required": ["executionCount"],
+            "properties": { "executionCount": { "type": "integer", "minimum": 1 } }
+          },
+          "else": { "properties": { "executionCount": { "type": "null" } } }
+        }
+      ]
     },
     "retainedEvidence": {
       "type": "object",
