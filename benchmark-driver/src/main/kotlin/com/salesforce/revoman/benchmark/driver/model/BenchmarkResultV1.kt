@@ -667,7 +667,7 @@ data class HistogramBucket(
 
 private fun RetainedEvidence.validate(path: String) {
     require(executionCount > 0) { "$path.executionCount must be positive" }
-    require(completedGcCycles >= 0) { "$path.completedGcCycles must not be negative" }
+    require(completedGcCycles >= 2) { "$path.completedGcCycles must be at least two" }
     weakReferences.forEachIndexed { index, outcome ->
         val outcomePath = "$path.weakReferences[$index]"
         requireNonBlank("$outcomePath.type", outcome.type)

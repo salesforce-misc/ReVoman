@@ -187,6 +187,7 @@ data class ComparisonReport(
                 metrics.any { it.decision == GateDecision.INCONCLUSIVE } ->
                     GateDecision.INCONCLUSIVE
                 metrics.any { it.decision == GateDecision.FAIL } -> GateDecision.FAIL
+                metrics.isEmpty() -> GateDecision.INCONCLUSIVE
                 else -> GateDecision.PASS
             }
         require(overall == expectedOverall) {

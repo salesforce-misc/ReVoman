@@ -14,6 +14,7 @@ import com.salesforce.revoman.benchmark.driver.integrity.RuntimeIdentityFactory
 import com.salesforce.revoman.benchmark.driver.integrity.TargetManifestLoader
 import com.salesforce.revoman.benchmark.driver.json.BenchmarkJson
 import com.salesforce.revoman.benchmark.driver.model.BenchmarkResultV1
+import com.salesforce.revoman.benchmark.driver.model.ArtifactSnapshot
 import com.salesforce.revoman.benchmark.driver.model.JmhBenchmarkResultV1
 import com.salesforce.revoman.benchmark.driver.model.RunIntent
 import com.salesforce.revoman.benchmark.driver.model.WorkloadManifest
@@ -92,7 +93,7 @@ object BenchmarkDriverApplication {
                 )
             }
         val artifactDirectory = options.artifactDirectory.toAbsolutePath().normalize()
-        AtomicOutputSet.reserve(
+        return AtomicOutputSet.reserve(
                 inputs =
                     listOf("--baseline" to baselinePath, "--candidate" to candidatePath) +
                         listOfNotNull(hostPolicyPath?.let { "--host-policy" to it }),
@@ -134,8 +135,8 @@ object BenchmarkDriverApplication {
                     "/schema/revoman-benchmark-v1.schema.json",
                 )
                 outputSet.publish()
+                publishedCampaignExitCode(result)
             }
-        return CliExitCode.SUCCESS
     }
 
     private fun compare(command: BenchmarkCommand.Compare, installationRoot: Path): Int {
@@ -246,6 +247,14 @@ object BenchmarkDriverApplication {
                 "capture-baseline requires full commit $FIXED_BASELINE_COMMIT for both roles"
             }
         }
+        val baselineClasspath = baseline.manifest.pathFreeClasspath()
+        val candidateClasspath = candidate.manifest.pathFreeClasspath()
+        require(
+            baseline.verified.classpathSha256 == candidate.verified.classpathSha256 &&
+                baselineClasspath == candidateClasspath
+        ) {
+            "capture-baseline requires identical path-free classpath hashes and artifact snapshots"
+        }
     }
 
     private fun canonicalFile(path: Path, option: String): Path {
@@ -268,6 +277,31 @@ object BenchmarkDriverApplication {
             BenchmarkJson.validateSchema(temporary, schemaResource)
         }
     }
+}
+
+private fun com.salesforce.revoman.benchmark.driver.model.TargetManifest.pathFreeClasspath():
+    List<ArtifactSnapshot> =
+    classpath.map { artifact ->
+        ArtifactSnapshot(artifact.logicalId, artifact.sizeBytes, artifact.sha256)
+    }
+
+internal fun publishedCampaignExitCode(result: BenchmarkResultV1): Int {
+    if (result.intent != RunIntent.CONTROLLED) return CliExitCode.SUCCESS
+    val requested = result.configuration.requestedAcceptedBlocks
+    val baselineId =
+        result.configuration.targets.single {
+            it.role == com.salesforce.revoman.benchmark.driver.model.TargetRole.BASELINE
+        }.targetId
+    val incomplete =
+        result.workloads.any { workload ->
+            workload.metricSeries.any { series ->
+                val accepted = series.blocks.orEmpty().filter { it.accepted }
+                val baselineFirst = accepted.count { block -> block.targetOrder.first() == baselineId }
+                accepted.size != requested ||
+                    kotlin.math.abs(baselineFirst - (accepted.size - baselineFirst)) > 1
+            }
+        }
+    return if (incomplete) CliExitCode.EXECUTION_FAILED else CliExitCode.SUCCESS
 }
 
 /**

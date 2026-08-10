@@ -185,7 +185,15 @@ class BenchmarkDriverIntegrationTest {
 
     @Test
     fun `verify rejects a dirty target manifest without making dirty smoke or JMH structurally invalid`() {
-        val dirtyTarget = Path.of(requiredProperty("revoman.benchmark.targetManifest")).toRealPath()
+        val source = Path.of(requiredProperty("revoman.benchmark.targetManifest")).toRealPath()
+        val dirtyTarget =
+            writeTarget(
+                "dirty-target.json",
+                BenchmarkJson.read<TargetManifest>(source).copy(
+                    targetId = "dirty-target",
+                    dirty = true,
+                ),
+            )
 
         assertThat(execute(arrayOf("verify", "--input", dirtyTarget.toString())))
             .isEqualTo(CliExitCode.INVALID_INPUT)
@@ -246,6 +254,73 @@ class BenchmarkDriverIntegrationTest {
         assertThat(Files.exists(wrongAdapterArtifacts)).isFalse()
     }
 
+    @Test
+    fun `capture baseline requires identical path-free classpaths while ignoring execution paths`() {
+        val source = Path.of(requiredProperty("revoman.benchmark.targetManifest")).toRealPath()
+        val exported = BenchmarkJson.read<TargetManifest>(source)
+        val fixedCommit = "83f3cd70f78ad733412d10cbc8287aaabafe7aac"
+        val baselineModel =
+            exported.copy(targetId = "capture-baseline-a", gitCommit = fixedCommit, dirty = false)
+        val baseline = writeTarget("capture-classpath-baseline.json", baselineModel)
+        val mismatchedCandidate =
+            writeTarget(
+                "capture-classpath-mismatch.json",
+                baselineModel.copy(
+                    targetId = "capture-baseline-b-mismatch",
+                    classpath =
+                        baselineModel.classpath.mapIndexed { index, artifact ->
+                            if (index == 0) artifact.copy(logicalId = "${artifact.logicalId}-other")
+                            else artifact
+                        },
+                ),
+            )
+        val mismatchArtifacts = temporaryRoot().resolve("capture-classpath-mismatch-artifacts")
+
+        assertThat(
+                execute(
+                    captureArguments(
+                        baseline,
+                        mismatchedCandidate,
+                        mismatchArtifacts,
+                        temporaryRoot().resolve("capture-classpath-mismatch.json.out"),
+                    )
+                )
+            )
+            .isEqualTo(CliExitCode.INVALID_INPUT)
+        assertThat(lastError).contains("identical path-free classpath")
+        assertThat(Files.exists(mismatchArtifacts)).isFalse()
+
+        val relocatedArtifact =
+            baselineModel.classpath.first().let { artifact ->
+                val relocated = temporaryRoot().resolve("relocated-${Path.of(artifact.executionPath).fileName}")
+                Files.copy(Path.of(artifact.executionPath), relocated)
+                artifact.copy(executionPath = relocated.toRealPath().toString())
+            }
+        val relocatedCandidate =
+            writeTarget(
+                "capture-classpath-relocated.json",
+                baselineModel.copy(
+                    targetId = "capture-baseline-b-relocated",
+                    classpath = listOf(relocatedArtifact) + baselineModel.classpath.drop(1),
+                ),
+            )
+        val relocatedArtifacts = temporaryRoot().resolve("capture-classpath-relocated-artifacts")
+
+        assertThat(
+                execute(
+                    captureArguments(
+                        baseline,
+                        relocatedCandidate,
+                        relocatedArtifacts,
+                        temporaryRoot().resolve("capture-classpath-relocated.json.out"),
+                    )
+                )
+            )
+            .isEqualTo(CliExitCode.INVALID_INPUT)
+        assertThat(lastError).contains("requires at least 50 accepted blocks")
+        assertThat(Files.exists(relocatedArtifacts)).isFalse()
+    }
+
     private fun execute(arguments: Array<String>): Int {
         val stdout = ByteArrayOutputStream()
         val stderr = ByteArrayOutputStream()
@@ -298,6 +373,21 @@ class BenchmarkDriverIntegrationTest {
             "--output",
             result.toString(),
         )
+
+    private fun captureArguments(
+        baseline: Path,
+        candidate: Path,
+        artifacts: Path,
+        result: Path,
+    ): Array<String> =
+        runArguments(baseline, candidate, artifacts, result)
+            .toMutableList()
+            .apply {
+                this[0] = "capture-baseline"
+                set(indexOf("--intent") + 1, "controlled")
+                addAll(listOf("--host-policy", resourcePath("/host/valid.json").toString()))
+            }
+            .toTypedArray()
 
     private fun writeTarget(name: String, manifest: TargetManifest): Path =
         temporaryRoot().resolve(name).also { BenchmarkJson.write(it, manifest) }.toRealPath()

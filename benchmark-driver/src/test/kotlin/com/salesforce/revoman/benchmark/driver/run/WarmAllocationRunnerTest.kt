@@ -186,6 +186,45 @@ class WarmAllocationRunnerTest {
         assertThrows<IllegalStateException> { verified.postflight() }
     }
 
+    @Test
+    fun `controller timeout must strictly exceed its configured iteration budget`() {
+        val target = runnerTarget(temporaryDirectory.resolve("timeout-target"))
+        val expectedThinJar =
+            Files.writeString(
+                Files.createDirectories(temporaryDirectory.resolve("timeout-root"))
+                    .resolve("benchmark-driver-jmh-classes.jar"),
+                "thin",
+            )
+        val controllerJar =
+            Files.writeString(temporaryDirectory.resolve("timeout-benchmark-driver.jar"), "controller")
+        val runner = WarmAllocationRunner { error("insufficient timeout must fail before launch") }
+
+        listOf(
+                Triple(RunIntent.SMOKE, 0, 1),
+                Triple(RunIntent.CONTROLLED, 20, 100),
+            )
+            .forEachIndexed { index, (intent, warmups, measurements) ->
+                val budget = Duration.ofSeconds((warmups + measurements).toLong())
+                val plan =
+                    warmAllocationPlan(
+                            root = temporaryDirectory.resolve("timeout-output-$index"),
+                            target = target,
+                            thinJar = expectedThinJar,
+                            controllerJar = controllerJar,
+                            blockId = index,
+                        )
+                        .copy(
+                            intent = intent,
+                            warmupIterations = warmups,
+                            measurementIterations = measurements,
+                            timeout = budget,
+                        )
+
+                val failure = assertThrows<IllegalArgumentException> { runner.run(plan) }
+                assertThat(failure).hasMessageThat().contains("strictly exceed")
+            }
+    }
+
     private fun preparedWorkload(
         executions: AtomicInteger,
         digest: ExecutionDigest,

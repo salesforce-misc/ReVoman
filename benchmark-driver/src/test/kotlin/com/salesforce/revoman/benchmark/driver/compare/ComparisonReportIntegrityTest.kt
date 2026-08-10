@@ -184,6 +184,29 @@ class ComparisonReportIntegrityTest {
     }
 
     @Test
+    fun `empty decision report is inconclusive and can never persist as pass`() {
+        val inconclusive = report(emptyList(), GateDecision.INCONCLUSIVE)
+        val persisted = temporaryDirectory.resolve("empty-inconclusive.json")
+
+        assertThat(inconclusive.validate()).isSameInstanceAs(inconclusive)
+        BenchmarkJson.write(persisted, inconclusive)
+        BenchmarkJson.validateSchema(persisted, COMPARISON_SCHEMA)
+        assertThat(BenchmarkJson.read<ComparisonReport>(persisted).overall)
+            .isEqualTo(GateDecision.INCONCLUSIVE)
+
+        val forgedPass = Files.readString(persisted).replace("INCONCLUSIVE", "PASS")
+        val forged =
+            temporaryDirectory.resolve("empty-pass.json").also { Files.writeString(it, forgedPass) }
+        assertThrows<IllegalArgumentException> {
+            report(emptyList(), GateDecision.PASS).validate()
+        }
+        assertThrows<IllegalArgumentException> {
+            BenchmarkJson.validateSchema(forged, COMPARISON_SCHEMA)
+        }
+        assertThrows<IllegalArgumentException> { BenchmarkJson.read<ComparisonReport>(forged) }
+    }
+
+    @Test
     fun `schema and decoder reject expressible report forgeries`() {
         val valid = Files.readString(resource("pass.json"))
         val wrongGate = valid.replace("WARM_MEDIAN", "COLD_MEDIAN")

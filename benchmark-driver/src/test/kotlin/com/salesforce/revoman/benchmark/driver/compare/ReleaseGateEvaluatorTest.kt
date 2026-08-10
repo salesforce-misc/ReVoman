@@ -8,6 +8,9 @@
 package com.salesforce.revoman.benchmark.driver.compare
 
 import com.google.common.truth.Truth.assertThat
+import com.google.common.truth.Truth.assertWithMessage
+import com.salesforce.revoman.benchmark.driver.cli.BenchmarkDriverApplication
+import com.salesforce.revoman.benchmark.driver.cli.CliExitCode
 import com.salesforce.revoman.benchmark.driver.json.BenchmarkJson
 import com.salesforce.revoman.benchmark.driver.model.ArtifactSnapshot
 import com.salesforce.revoman.benchmark.driver.model.BenchmarkResultV1
@@ -19,6 +22,8 @@ import com.salesforce.revoman.benchmark.driver.model.RunMode
 import com.salesforce.revoman.benchmark.driver.stats.RatioInterval
 import com.salesforce.revoman.benchmark.driver.stats.Statistic
 import com.squareup.moshi.JsonDataException
+import java.io.ByteArrayOutputStream
+import java.io.PrintStream
 import java.nio.charset.StandardCharsets.UTF_8
 import java.nio.file.Files
 import java.nio.file.Path
@@ -565,6 +570,87 @@ class ReleaseGateEvaluatorTest {
     }
 
     @Test
+    fun `controlled evidence with no requested decisions is inconclusive`() {
+        val gateFreeCold = ComparisonFixtures.lifecycleResult(RunMode.COLD)
+        val retainedArchive = ComparisonFixtures.retainedResult(candidateSlope = 0.0)
+
+        listOf(gateFreeCold to RunMode.COLD, retainedArchive to RunMode.RETAINED)
+            .forEach { (result, mode) ->
+                val report =
+                    evaluator.evaluate(
+                        result,
+                        listOf(ComparisonFixtures.manifest(mode, requiredGates = emptyList())),
+                    )
+
+                assertThat(report.metrics).isEmpty()
+                assertThat(report.overall).isEqualTo(GateDecision.INCONCLUSIVE)
+            }
+    }
+
+    @Test
+    fun `retained evidence requires two acknowledged GC cycles at every trust boundary`() {
+        val valid = ComparisonFixtures.retainedResult(candidateSlope = 0.0)
+        val invalid =
+            valid.copy(
+                workloads =
+                    valid.workloads.map { workload ->
+                        workload.copy(
+                            metricSeries =
+                                workload.metricSeries.map { series ->
+                                    series.copy(
+                                        blocks =
+                                            requireNotNull(series.blocks).map { block ->
+                                                block.copy(
+                                                    observations =
+                                                        block.observations.map { observation ->
+                                                            observation.copy(
+                                                                retainedEvidence =
+                                                                    observation.retainedEvidence?.copy(
+                                                                        completedGcCycles = 0
+                                                                    )
+                                                            )
+                                                        }
+                                                )
+                                            }
+                                    )
+                                }
+                        )
+                    }
+            )
+        val invalidJson = temporaryDirectory.resolve("retained-zero-gc.json")
+        val validJson = temporaryDirectory.resolve("retained-two-gc.json")
+        BenchmarkJson.write(validJson, valid)
+        Files.writeString(
+            invalidJson,
+            BenchmarkJson.encode(valid).toString(UTF_8).replace(
+                "\"completedGcCycles\":2",
+                "\"completedGcCycles\":0",
+            ),
+        )
+        val manifest =
+            ComparisonFixtures.manifest(
+                RunMode.RETAINED,
+                requiredGates = emptyList(),
+            )
+
+        assertThat(valid.validate()).isSameInstanceAs(valid)
+        BenchmarkJson.validateSchema(validJson, PAIRED_SCHEMA)
+        assertThrows<IllegalArgumentException>("model") { invalid.validate() }
+        assertThrows<IllegalArgumentException>("schema") {
+            BenchmarkJson.validateSchema(invalidJson, PAIRED_SCHEMA)
+        }
+        assertThrows<IllegalArgumentException>("decode") {
+            BenchmarkJson.read<BenchmarkResultV1>(invalidJson)
+        }
+        assertThrows<IllegalArgumentException>("evaluation") {
+            evaluator.evaluate(invalid, listOf(manifest))
+        }
+        val validVerify = verify(validJson)
+        assertWithMessage(validVerify.error).that(validVerify.exit).isEqualTo(CliExitCode.SUCCESS)
+        assertThat(verify(invalidJson).exit).isEqualTo(CliExitCode.INVALID_INPUT)
+    }
+
+    @Test
     fun `overall precedence is incompatible then inconclusive then fail then pass`() {
         val regression =
             ComparisonFixtures.lifecycleResult(
@@ -768,8 +854,20 @@ class ReleaseGateEvaluatorTest {
                 .toURI()
         )
 
+    private fun verify(path: Path): VerifyResult {
+        val error = ByteArrayOutputStream()
+        val exit = BenchmarkDriverApplication.execute(
+            arguments = arrayOf("verify", "--input", path.toRealPath().toString()),
+            output = PrintStream(ByteArrayOutputStream()),
+            error = PrintStream(error),
+            installationRoot = temporaryDirectory.toRealPath(),
+        )
+        return VerifyResult(exit, error.toString())
+    }
+
     private companion object {
         const val COMPARISON_SCHEMA: String = "/schema/revoman-benchmark-comparison-v1.schema.json"
+        const val PAIRED_SCHEMA: String = "/schema/revoman-benchmark-v1.schema.json"
         val GOLDENS =
             listOf(
                 "pass.json",
@@ -790,4 +888,6 @@ class ReleaseGateEvaluatorTest {
         val exact: Double,
         val breach: Double,
     )
+
+    private data class VerifyResult(val exit: Int, val error: String)
 }

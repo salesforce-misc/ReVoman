@@ -13,10 +13,19 @@ import com.salesforce.revoman.benchmark.driver.model.HostHealthSnapshot
 import com.salesforce.revoman.benchmark.driver.model.MetricId
 import com.salesforce.revoman.benchmark.driver.model.MetricObservation
 import com.salesforce.revoman.benchmark.driver.model.MetricUnit
+import java.time.Duration
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 
 class BenchmarkCampaignTest {
+    @Test
+    fun `warm allocation timeout adds fixed bounded headroom to smoke and controlled budgets`() {
+        assertThat(warmAllocationControllerTimeout(0, 1, Duration.ofSeconds(1)))
+            .isEqualTo(Duration.ofSeconds(31))
+        assertThat(warmAllocationControllerTimeout(20, 100, Duration.ofSeconds(1)))
+            .isEqualTo(Duration.ofSeconds(150))
+    }
+
     @Test
     fun `assembler keeps provider identity and actual alternating block role observations`() {
         val blocks =

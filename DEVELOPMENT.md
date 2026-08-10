@@ -63,9 +63,9 @@ colima start                              # Qodana runs its linter in Docker; st
 - `.github/workflows/build.yml` runs `./gradlew build` on every push/PR to `master` —
   full coverage: unit (`test`) + integration (`integrationTest`) + `spotlessCheck` + `kover`.
 - The same workflow exports the current checkout as an explicit benchmark target and runs
-  `:benchmark-driver:check :benchmark-driver:benchmarkHarnessSelfTest`. This is a structural
-  harness check; ordinary CI never evaluates timing, allocation, RSS, retained-memory, or release
-  thresholds.
+  `:benchmark-driver:check :benchmark-driver:integrationTest
+  :benchmark-driver:benchmarkHarnessSelfTest`. These are structural harness checks; ordinary CI
+  never evaluates timing, allocation, RSS, retained-memory, or release thresholds.
 - **Org tests** (`integration.core.*`) skip-loud on CI (no org creds); see `-PincludeCoreIT` above.
 - **Flaky external-API tests** (pokeapi.co, restful-api.dev, apigee, beeceptor) are retried via the
   `org.gradle.test-retry` plugin — but ONLY on CI (`CI` env var set). Locally `maxRetries=0`, so
@@ -77,15 +77,20 @@ The benchmark driver is a standalone installed application. It measures the norm
 and original runtime dependency JARs described by an explicit target manifest; it does not flatten
 the target into a benchmark uber-JAR.
 
-### Build, install, and export a target
+### Build, install, and export targets
 
 ```bash
 ./gradlew :benchmark-driver:installDist
 ./gradlew \
   -I benchmark-driver/src/main/dist/libexec/benchmark-target.init.gradle.kts \
   writeBenchmarkTargetManifest \
-  -Pbenchmark.targetManifest=build/benchmark-target-current.json \
-  -Pbenchmark.targetId=current
+  -Pbenchmark.targetManifest=build/benchmark-target-smoke-baseline.json \
+  -Pbenchmark.targetId=smoke-baseline
+./gradlew \
+  -I benchmark-driver/src/main/dist/libexec/benchmark-target.init.gradle.kts \
+  writeBenchmarkTargetManifest \
+  -Pbenchmark.targetManifest=build/benchmark-target-smoke-candidate.json \
+  -Pbenchmark.targetId=smoke-candidate
 ```
 
 The installed CLI is
@@ -95,7 +100,7 @@ replaces it:
 
 ```bash
 ./gradlew :benchmark-driver:check :benchmark-driver:benchmarkHarnessSelfTest \
-  -Pbenchmark.targetManifest=build/benchmark-target-current.json \
+  -Pbenchmark.targetManifest=build/benchmark-target-smoke-baseline.json \
   -Pbenchmark.adapter=baseline-83f3cd70
 ```
 
@@ -107,7 +112,7 @@ numeric threshold:
 ```bash
 ./gradlew :benchmark-driver:benchmarkJmh \
   -Pbenchmark.includes=HarnessSanityBenchmark \
-  -Pbenchmark.targetManifest=build/benchmark-target-current.json \
+  -Pbenchmark.targetManifest=build/benchmark-target-smoke-baseline.json \
   -Pbenchmark.adapter=baseline-83f3cd70 \
   -Pbenchmark.quick=true
 ```
@@ -119,8 +124,8 @@ Every run uses a fresh parent so the driver can reserve absent output and artifa
 SMOKE_ROOT=$(mktemp -d build/benchmark-smoke.XXXXXXXX)
 DRIVER=benchmark-driver/build/install/benchmark-driver/bin/benchmark-driver
 "$DRIVER" run-paired --mode cold --intent smoke \
-  --baseline build/benchmark-target-current.json --baseline-adapter baseline-83f3cd70 \
-  --candidate build/benchmark-target-current.json --candidate-adapter baseline-83f3cd70 \
+  --baseline build/benchmark-target-smoke-baseline.json --baseline-adapter baseline-83f3cd70 \
+  --candidate build/benchmark-target-smoke-candidate.json --candidate-adapter baseline-83f3cd70 \
   --workload lifecycle.no-script-one-step.v1 --blocks 2 --forks-per-block 1 \
   --warmups 0 --iterations 1 --seed 5928239383101656625 \
   --metrics latency \

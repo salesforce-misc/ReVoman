@@ -51,6 +51,16 @@ class ReleaseGateEvaluator(
         require(targetedClaims.map { it.key() }.distinct().size == targetedClaims.size) {
             "Targeted claims must be unique by mode, metric, and statistic"
         }
+        require(
+            result.workloads
+                .flatMap(WorkloadResult::metricSeries)
+                .flatMap { series -> series.blocks.orEmpty() }
+                .flatMap { block -> block.observations }
+                .mapNotNull(MetricObservation::retainedEvidence)
+                .all { evidence -> evidence.completedGcCycles >= 2 }
+        ) {
+            "retained evidence completedGcCycles must be at least two"
+        }
         val compatibilityErrors = ResultCompatibility.errors(result, workloadManifests)
         val rejectedBlocks = rejectedEvidence(result)
         if (compatibilityErrors.isNotEmpty()) {
@@ -64,7 +74,6 @@ class ReleaseGateEvaluator(
                 .canonicalized()
                 .validate()
         }
-
         val manifestsById = workloadManifests.associateBy(WorkloadManifest::id)
         val normative =
             result.workloads.flatMap { workload ->
@@ -396,6 +405,7 @@ class ReleaseGateEvaluator(
     ): GateDecision =
         when {
             intent != RunIntent.CONTROLLED -> GateDecision.INCONCLUSIVE
+            decisions.isEmpty() -> GateDecision.INCONCLUSIVE
             decisions.any { it.decision == GateDecision.INCONCLUSIVE } -> GateDecision.INCONCLUSIVE
             decisions.any { it.decision == GateDecision.FAIL } -> GateDecision.FAIL
             else -> GateDecision.PASS

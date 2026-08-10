@@ -8,6 +8,8 @@
 package com.salesforce.revoman.benchmark.driver.model
 
 import com.google.common.truth.Truth.assertThat
+import com.salesforce.revoman.benchmark.driver.cli.CliExitCode
+import com.salesforce.revoman.benchmark.driver.cli.publishedCampaignExitCode
 import com.salesforce.revoman.benchmark.driver.json.BenchmarkJson
 import com.squareup.moshi.JsonDataException
 import java.nio.file.Files
@@ -288,6 +290,10 @@ class BenchmarkResultSchemaTest {
                     )
 
                 assertThat(exhausted.validate()).isSameInstanceAs(exhausted)
+                assertThat(publishedCampaignExitCode(exhausted))
+                    .isEqualTo(CliExitCode.EXECUTION_FAILED)
+                assertThat(publishedCampaignExitCode(exhausted.copy(intent = RunIntent.SMOKE)))
+                    .isEqualTo(CliExitCode.SUCCESS)
                 val output = temporaryDirectory.resolve("exhausted-${blocks.size}.json")
                 BenchmarkJson.write(output, exhausted)
                 assertThat(BenchmarkJson.read<BenchmarkResultV1>(output)).isEqualTo(exhausted)

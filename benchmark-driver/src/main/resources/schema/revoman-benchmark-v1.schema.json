@@ -312,7 +312,7 @@
       "required": ["executionCount", "completedGcCycles", "weakReferences"],
       "properties": {
         "executionCount": { "type": "integer", "minimum": 1 },
-        "completedGcCycles": { "type": "integer", "minimum": 0 },
+        "completedGcCycles": { "type": "integer", "minimum": 2 },
         "weakReferences": { "type": "array", "items": { "$ref": "#/$defs/weakReferenceOutcome" } }
       }
     },

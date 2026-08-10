@@ -335,6 +335,12 @@ class WarmAllocationRunner(private val launcher: WarmAllocationLauncher) {
         require(plan.iterationDuration.toMillis() > 0) {
             "Warm allocation iterationDuration must be at least one millisecond"
         }
+        val iterationCount = Math.addExact(plan.warmupIterations, plan.measurementIterations)
+        val iterationBudget = plan.iterationDuration.multipliedBy(iterationCount.toLong())
+        require(plan.timeout > iterationBudget) {
+            "Warm allocation timeout must strictly exceed the configured iteration budget " +
+                "$iterationBudget"
+        }
         requireCanonicalFile("benchmarkClassesJar", plan.benchmarkClassesJar)
         require(plan.benchmarkClassesJar.fileName.toString() == "benchmark-driver-jmh-classes.jar") {
             "Warm allocation requires the fixed thin benchmark classes JAR"

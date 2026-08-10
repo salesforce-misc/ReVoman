@@ -50,7 +50,10 @@ jobs:
 
       - name: 'Benchmark harness self-test'
         run: >-
-          ./gradlew :benchmark-driver:check :benchmark-driver:benchmarkHarnessSelfTest
+          ./gradlew
+          :benchmark-driver:check
+          :benchmark-driver:integrationTest
+          :benchmark-driver:benchmarkHarnessSelfTest
           -Pbenchmark.targetManifest=build/benchmark-target-current.json
           -Pbenchmark.adapter=baseline-83f3cd70
 

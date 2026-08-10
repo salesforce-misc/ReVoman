@@ -336,6 +336,7 @@ class BenchmarkWorkflowTest {
       .contains("-Pbenchmark.targetManifest=build/benchmark-target-current.json")
     val selfTest = runByName.getValue("Benchmark harness self-test")
     assertThat(selfTest).contains(":benchmark-driver:check")
+    assertThat(selfTest).contains(":benchmark-driver:integrationTest")
     assertThat(selfTest).contains(":benchmark-driver:benchmarkHarnessSelfTest")
     assertThat(selfTest).contains("-Pbenchmark.targetManifest=build/benchmark-target-current.json")
     assertThat(selfTest).contains("-Pbenchmark.adapter=baseline-83f3cd70")

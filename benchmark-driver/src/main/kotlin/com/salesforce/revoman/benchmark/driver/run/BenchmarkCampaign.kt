@@ -469,8 +469,14 @@ class BenchmarkCampaign(
                     outputDirectory = coordinate,
                     warmupIterations = request.warmups,
                     measurementIterations = request.iterations,
-                    timeout = timeout,
+                    timeout =
+                        warmAllocationControllerTimeout(
+                            request.warmups,
+                            request.iterations,
+                            WARM_ALLOCATION_ITERATION_DURATION,
+                        ),
                     loggingConfiguration = session.logging,
+                    iterationDuration = WARM_ALLOCATION_ITERATION_DURATION,
                     fixtureRoot = session.workload.snapshotRoot,
                     expectedJmhEvidence =
                         JmhEvidenceExpectation(
@@ -532,6 +538,21 @@ class BenchmarkCampaign(
             }
         }
     }
+}
+
+internal fun warmAllocationControllerTimeout(
+    warmupIterations: Int,
+    measurementIterations: Int,
+    iterationDuration: Duration,
+): Duration {
+    require(warmupIterations >= 0) { "warmupIterations must not be negative" }
+    require(measurementIterations > 0) { "measurementIterations must be positive" }
+    require(!iterationDuration.isZero && !iterationDuration.isNegative) {
+        "iterationDuration must be positive"
+    }
+    val iterationCount = Math.addExact(warmupIterations, measurementIterations)
+    val iterationBudget = iterationDuration.multipliedBy(iterationCount.toLong())
+    return iterationBudget.plus(WARM_ALLOCATION_TIMEOUT_HEADROOM)
 }
 
 private data class ProviderResult(
@@ -627,3 +648,5 @@ private fun peakRssProvider(intent: RunIntent): PeakRssProvider =
 
 private val COLD_PASSES = setOf(MetricPass.LATENCY, MetricPass.ALLOCATION, MetricPass.PEAK_RSS)
 private val WARM_PASSES = setOf(MetricPass.LATENCY, MetricPass.ALLOCATION)
+private val WARM_ALLOCATION_ITERATION_DURATION = Duration.ofSeconds(1)
+private val WARM_ALLOCATION_TIMEOUT_HEADROOM = Duration.ofSeconds(30)

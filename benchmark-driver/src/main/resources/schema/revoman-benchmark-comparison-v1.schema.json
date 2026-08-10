@@ -48,7 +48,18 @@
       "if": {
         "properties": {
           "compatibilityErrors": { "maxItems": 0 },
+          "metrics": { "maxItems": 0 }
+        },
+        "required": ["compatibilityErrors", "metrics"]
+      },
+      "then": { "properties": { "overall": { "const": "INCONCLUSIVE" } } }
+    },
+    {
+      "if": {
+        "properties": {
+          "compatibilityErrors": { "maxItems": 0 },
           "metrics": {
+            "minItems": 1,
             "not": {
               "contains": {
                 "properties": { "decision": { "enum": ["INCOMPATIBLE", "INCONCLUSIVE"] } },
@@ -67,6 +78,7 @@
         "properties": {
           "compatibilityErrors": { "maxItems": 0 },
           "metrics": {
+            "minItems": 1,
             "not": {
               "contains": {
                 "properties": { "decision": { "enum": ["INCOMPATIBLE", "INCONCLUSIVE", "FAIL"] } },
