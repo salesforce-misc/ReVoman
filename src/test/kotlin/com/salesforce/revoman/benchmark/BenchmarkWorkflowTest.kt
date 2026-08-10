@@ -11,6 +11,7 @@ import com.google.common.truth.Truth.assertThat
 import java.nio.file.Files
 import java.nio.file.Path
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.yaml.snakeyaml.LoaderOptions
 import org.yaml.snakeyaml.Yaml
 import org.yaml.snakeyaml.constructor.SafeConstructor
@@ -26,6 +27,8 @@ class BenchmarkWorkflowTest {
     assertThat(dispatchInputs.asMap("candidate_adapter").asList("options"))
       .containsExactly("major-v1", "baseline-83f3cd70")
       .inOrder()
+    assertThat(dispatchInputs.asMap("candidate_ref")["required"]).isEqualTo(true)
+    assertThat(dispatchInputs.asMap("candidate_ref")).doesNotContainKey("default")
 
     assertThat(workflow.asMap("permissions")).containsExactly("contents", "read")
     assertThat(workflow.asMap("concurrency")["cancel-in-progress"]).isEqualTo(false)
@@ -37,6 +40,7 @@ class BenchmarkWorkflowTest {
       .inOrder()
     assertThat(job["timeout-minutes"]).isEqualTo(180)
     assertThat(job.asMap("env")["CANDIDATE_ADAPTER"]).isEqualTo(CANDIDATE_ADAPTER)
+    assertThat(job.asMap("env")["CANDIDATE_REF"]).isEqualTo(CANDIDATE_REF)
     assertThat(job.asMap("env")["HOST_POLICY_PATH"]).isEqualTo(HOST_POLICY_PATH)
     assertThat(job.asMap("env")["RUN_ROOT"])
       .isEqualTo(
@@ -47,11 +51,11 @@ class BenchmarkWorkflowTest {
     val steps = job.asList("steps").map { it.asMap() }
     val stepNames = steps.mapNotNull { it["name"] as? String }
     val validationIndex = stepNames.indexOf("Validate requested refs")
-    val checkoutIndex = steps.indexOfFirst { it["uses"] == "actions/checkout@main" }
+    val checkoutIndex = steps.indexOfFirst { it["uses"] == CHECKOUT_ACTION }
     assertThat(validationIndex).isAtLeast(0)
     assertThat(validationIndex).isLessThan(checkoutIndex)
 
-    val checkouts = steps.filter { it["uses"] == "actions/checkout@main" }.map { it.asMap("with") }
+    val checkouts = steps.filter { it["uses"] == CHECKOUT_ACTION }.map { it.asMap("with") }
     assertThat(checkouts.map { it["path"] })
       .containsExactly("harness", "baseline-a", "baseline-b", "candidate")
       .inOrder()
@@ -64,46 +68,137 @@ class BenchmarkWorkflowTest {
       )
       .inOrder()
     assertThat(checkouts.map { it["clean"] }.toSet()).containsExactly(true)
-    assertThat(steps.single { it["uses"] == "actions/setup-java@main" }.asMap("with"))
+    assertThat(steps.single { it["uses"] == SETUP_JAVA_ACTION }.asMap("with"))
       .containsAtLeast("distribution", "jetbrains", "java-version", 21)
-    assertThat(steps.count { it["uses"] == "gradle/actions/setup-gradle@main" }).isEqualTo(1)
+    assertThat(steps.count { it["uses"] == SETUP_GRADLE_ACTION }).isEqualTo(1)
   }
 
   @Test
-  fun `controlled workflow gates A-A before candidate claims`() {
+  fun `controlled workflow pins every external action by reviewed commit`() {
+    val uses = controlledSteps().mapNotNull { it["uses"] as? String }
+
+    assertThat(uses.count { it == CHECKOUT_ACTION }).isEqualTo(4)
+    assertThat(uses.count { it == SETUP_JAVA_ACTION }).isEqualTo(1)
+    assertThat(uses.count { it == SETUP_GRADLE_ACTION }).isEqualTo(1)
+    assertThat(uses.count { it == UPLOAD_ARTIFACT_ACTION }).isEqualTo(2)
+    assertThat(uses.toSet())
+      .containsExactly(
+        CHECKOUT_ACTION,
+        SETUP_JAVA_ACTION,
+        SETUP_GRADLE_ACTION,
+        UPLOAD_ARTIFACT_ACTION,
+      )
+  }
+
+  @Test
+  fun `controlled workflow validates immutable harness and candidate identities`() {
     val steps = controlledSteps()
-    val stepNames = steps.mapNotNull { it["name"] as? String }
     val runByName = runScriptsByName(steps)
-    assertThat(runByName.getValue("Validate requested refs"))
-      .contains("\"${'$'}HARNESS_REF\" =~ ^[0-9a-fA-F]{40}${'$'}")
-    assertThat(runByName.getValue("Validate clean checkout identities"))
-      .contains(FIXED_BASELINE_COMMIT)
+    val refValidation = runByName.getValue("Validate requested refs")
+    assertThat(refValidation).contains("\"${'$'}HARNESS_REF\" =~ ^[0-9a-fA-F]{40}${'$'}")
+    assertThat(refValidation).contains("\"${'$'}CANDIDATE_REF\" =~ ^[0-9a-fA-F]{40}${'$'}")
+    val identityValidation = runByName.getValue("Validate clean checkout identities")
+    assertThat(identityValidation).contains(FIXED_BASELINE_COMMIT)
+    assertThat(identityValidation)
+      .contains(
+        "git -C \"${'$'}GITHUB_WORKSPACE/candidate\" rev-parse HEAD)\" == " +
+          "\"${'$'}CANDIDATE_REF\""
+      )
     assertThat(runByName.getValue("Prepare unique run root"))
       .contains("/opt/revoman-benchmark/runs/${'$'}{GITHUB_RUN_ID}-${'$'}{GITHUB_RUN_ATTEMPT}")
 
     assertManifestExport(runByName.getValue("Export baseline-a target"), "baseline-a")
     assertManifestExport(runByName.getValue("Export baseline-b target"), "baseline-b")
     assertManifestExport(runByName.getValue("Export candidate target"), "candidate")
+  }
 
-    val coldAa = runByName.getValue("Capture cold A-A")
-    val warmAa = runByName.getValue("Capture warm A-A")
-    val aaGate = runByName.getValue("Require cold and warm A-A gates")
-    val coldCandidate = runByName.getValue("Capture cold candidate comparison")
-    val warmCandidate = runByName.getValue("Capture warm candidate comparison")
-    val candidateGate = runByName.getValue("Compare cold and warm candidate results")
+  @Test
+  fun `controlled workflow uses exact executable campaign argv`() {
+    val steps = controlledSteps()
+    assertSingleInvocation(
+      steps,
+      "Capture cold A-A",
+      "capture-baseline",
+      coldCampaignOptions(
+        candidate = "baseline-b",
+        candidateAdapter = "baseline-83f3cd70",
+        suffix = "aa",
+      ),
+    )
+    assertSingleInvocation(
+      steps,
+      "Capture warm A-A",
+      "capture-baseline",
+      warmCampaignOptions(
+        candidate = "baseline-b",
+        candidateAdapter = "baseline-83f3cd70",
+        suffix = "aa",
+      ),
+    )
+    assertSingleInvocation(
+      steps,
+      "Capture cold candidate comparison",
+      "run-paired",
+      coldCampaignOptions(
+        candidate = "candidate",
+        candidateAdapter = "${'$'}CANDIDATE_ADAPTER",
+        suffix = "candidate",
+      ),
+    )
+    assertSingleInvocation(
+      steps,
+      "Capture warm candidate comparison",
+      "run-paired",
+      warmCampaignOptions(
+        candidate = "candidate",
+        candidateAdapter = "${'$'}CANDIDATE_ADAPTER",
+        suffix = "candidate",
+      ),
+    )
+  }
 
-    assertControlledRun(coldAa, command = "capture-baseline", blocks = 50, mode = "cold")
-    assertControlledRun(warmAa, command = "capture-baseline", blocks = 5, mode = "warm")
-    assertControlledRun(coldCandidate, command = "run-paired", blocks = 50, mode = "cold")
-    assertControlledRun(warmCandidate, command = "run-paired", blocks = 5, mode = "warm")
-    assertThat(coldCandidate).contains("--candidate \"${'$'}RUN_ROOT/manifests/candidate.json\"")
-    assertThat(warmCandidate).contains("--candidate-adapter \"${'$'}CANDIDATE_ADAPTER\"")
-    assertThat(aaGate.split("--enforce-release-gates")).hasSize(3)
-    assertThat(candidateGate.split("--enforce-release-gates")).hasSize(3)
+  @Test
+  fun `controlled workflow gates A-A before default-success candidate steps`() {
+    val steps = controlledSteps()
+    val stepNames = steps.mapNotNull { it["name"] as? String }
+    val candidateSteps = steps.filter { it["name"] in CANDIDATE_MEASUREMENT_STEPS }
+    assertThat(candidateSteps.map { it["name"] })
+      .containsExactlyElementsIn(CANDIDATE_MEASUREMENT_STEPS)
+    candidateSteps.forEach { step -> assertThat(step).doesNotContainKey("if") }
 
     val aaGateIndex = stepNames.indexOf("Require cold and warm A-A gates")
     val firstCandidateIndex = stepNames.indexOf("Capture cold candidate comparison")
     assertThat(aaGateIndex).isLessThan(firstCandidateIndex)
+  }
+
+  @Test
+  fun `controlled workflow uses exact enforced comparison argv`() {
+    assertComparisonStep(
+      "Require cold and warm A-A gates",
+      expectedComparisonOptions(prefix = "aa", inputSuffix = "aa"),
+    )
+    assertComparisonStep(
+      "Compare cold and warm candidate results",
+      expectedComparisonOptions(prefix = "candidate", inputSuffix = "candidate"),
+    )
+  }
+
+  @Test
+  fun `workflow shell parser ignores comments and rejects duplicate executable options`() {
+    val withCommentDecoy =
+      """
+      # "${'$'}DRIVER" run-paired --mode cold --blocks 50
+      "${'$'}DRIVER" run-paired --mode cold \
+        --blocks 49 # --blocks 50
+      """
+        .trimIndent()
+    val parsed = WorkflowShellParser.benchmarkInvocations(withCommentDecoy).single()
+    assertThat(parsed.options["--blocks"]).isEqualTo("49")
+
+    val duplicate = "\"${'$'}DRIVER\" run-paired --blocks 49 --blocks 50"
+    assertThrows<IllegalArgumentException> {
+      WorkflowShellParser.benchmarkInvocations(duplicate)
+    }
   }
 
   @Test
@@ -121,7 +216,7 @@ class BenchmarkWorkflowTest {
     assertThat(allRunScripts).contains("comparison-candidate-cold.json")
     assertThat(allRunScripts).contains("comparison-candidate-warm.json")
 
-    val uploads = steps.filter { it["uses"] == "actions/upload-artifact@main" }
+    val uploads = steps.filter { it["uses"] == UPLOAD_ARTIFACT_ACTION }
     assertThat(uploads).hasSize(2)
     assertThat(uploads.map { it["if"] }.toSet()).containsExactly("${'$'}{{ always() }}")
     assertThat(uploads.map { it.asMap("with")["path"] })
@@ -178,13 +273,118 @@ class BenchmarkWorkflowTest {
     assertThat(script).contains("-Pbenchmark.targetManifest=\"${'$'}TARGET_MANIFEST\"")
   }
 
-  private fun assertControlledRun(script: String, command: String, blocks: Int, mode: String) {
-    assertThat(script).contains("\"${'$'}DRIVER\" $command")
-    assertThat(script).contains("--mode $mode")
-    assertThat(script).contains("--blocks $blocks")
-    assertThat(script).contains("--forks-per-block 1")
-    assertThat(script).contains("--host-policy \"${'$'}HOST_POLICY_PATH\"")
+  private fun assertSingleInvocation(
+    steps: List<Map<String, Any?>>,
+    stepName: String,
+    command: String,
+    expectedOptions: Map<String, String>,
+  ) {
+    val invocation =
+      WorkflowShellParser.benchmarkInvocations(
+          stepByName(steps, stepName).getValue("run") as String
+        )
+        .single()
+    assertThat(invocation.command).isEqualTo(command)
+    assertThat(invocation.options).containsExactlyEntriesIn(expectedOptions)
+    assertThat(invocation.flags).isEmpty()
   }
+
+  private fun assertComparisonStep(
+    stepName: String,
+    expectedByMode: Map<String, Map<String, String>>,
+  ) {
+    val script = stepByName(controlledSteps(), stepName).getValue("run") as String
+    val invocations = WorkflowShellParser.benchmarkInvocations(script)
+    assertThat(invocations).hasSize(2)
+    val actualByMode = invocations.associateBy { invocation ->
+      if (invocation.options.getValue("--input").contains("/cold-")) "cold" else "warm"
+    }
+    assertThat(actualByMode.keys).containsExactly("cold", "warm")
+    expectedByMode.forEach { (mode, expectedOptions) ->
+      val invocation = actualByMode.getValue(mode)
+      assertThat(invocation.command).isEqualTo("compare")
+      assertThat(invocation.options).containsExactlyEntriesIn(expectedOptions)
+      assertThat(invocation.flags).containsExactly("--enforce-release-gates")
+    }
+  }
+
+  private fun coldCampaignOptions(
+    candidate: String,
+    candidateAdapter: String,
+    suffix: String,
+  ): Map<String, String> =
+    campaignOptions(
+      mode = "cold",
+      candidate = candidate,
+      candidateAdapter = candidateAdapter,
+      blocks = "50",
+      warmups = "0",
+      iterations = "1",
+      metrics = "latency,peak-rss,allocation",
+      suffix = suffix,
+    )
+
+  private fun warmCampaignOptions(
+    candidate: String,
+    candidateAdapter: String,
+    suffix: String,
+  ): Map<String, String> =
+    campaignOptions(
+      mode = "warm",
+      candidate = candidate,
+      candidateAdapter = candidateAdapter,
+      blocks = "5",
+      warmups = "20",
+      iterations = "100",
+      metrics = "latency,allocation",
+      suffix = suffix,
+    )
+
+  private fun campaignOptions(
+    mode: String,
+    candidate: String,
+    candidateAdapter: String,
+    blocks: String,
+    warmups: String,
+    iterations: String,
+    metrics: String,
+    suffix: String,
+  ): Map<String, String> =
+    linkedMapOf(
+      "--mode" to mode,
+      "--intent" to "controlled",
+      "--baseline" to "${'$'}RUN_ROOT/manifests/baseline-a.json",
+      "--baseline-adapter" to "baseline-83f3cd70",
+      "--candidate" to "${'$'}RUN_ROOT/manifests/$candidate.json",
+      "--candidate-adapter" to candidateAdapter,
+      "--workload" to "lifecycle.no-script-one-step.v1",
+      "--blocks" to blocks,
+      "--forks-per-block" to "1",
+      "--warmups" to warmups,
+      "--iterations" to iterations,
+      "--seed" to "5928239383101656625",
+      "--metrics" to metrics,
+      "--host-policy" to "${'$'}HOST_POLICY_PATH",
+      "--artifacts-dir" to "${'$'}RUN_ROOT/jfr/$mode-$suffix",
+      "--output" to "${'$'}RUN_ROOT/results/$mode-$suffix.json",
+    )
+
+  private fun expectedComparisonOptions(
+    prefix: String,
+    inputSuffix: String,
+  ): Map<String, Map<String, String>> =
+    listOf("cold", "warm").associateWith { mode ->
+      linkedMapOf(
+        "--input" to "${'$'}RUN_ROOT/results/$mode-$inputSuffix.json",
+        "--output-json" to "${'$'}RUN_ROOT/results/comparison-$prefix-$mode.json",
+        "--output-md" to "${'$'}RUN_ROOT/results/comparison-$prefix-$mode.md",
+      )
+    }
+
+  private fun stepByName(
+    steps: List<Map<String, Any?>>,
+    name: String,
+  ): Map<String, Any?> = steps.single { it["name"] == name }
 
   private fun renderedControlledWorkflow(): Map<String, Any?> =
     renderInputs(
@@ -239,10 +439,140 @@ class BenchmarkWorkflowTest {
 
   private companion object {
     val HARNESS_REF: String = "a".repeat(40)
-    const val CANDIDATE_REF: String = "candidate/topic"
+    val CANDIDATE_REF: String = "b".repeat(40)
     const val CANDIDATE_ADAPTER: String = "major-v1"
     const val HOST_POLICY_PATH: String = "/opt/revoman-benchmark/policies/policy with spaces.json"
     const val FIXED_BASELINE_COMMIT: String = "83f3cd70f78ad733412d10cbc8287aaabafe7aac"
+    const val CHECKOUT_ACTION: String = "actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5"
+    const val SETUP_JAVA_ACTION: String =
+      "actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9"
+    const val SETUP_GRADLE_ACTION: String =
+      "gradle/actions/setup-gradle@48b5f213c81028ace310571dc5ec0fbbca0b2947"
+    const val UPLOAD_ARTIFACT_ACTION: String =
+      "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02"
+    val CANDIDATE_MEASUREMENT_STEPS: List<String> =
+      listOf(
+        "Capture cold candidate comparison",
+        "Capture warm candidate comparison",
+        "Compare cold and warm candidate results",
+      )
     val INPUT_EXPRESSION: Regex = Regex("\\$\\{\\{\\s*inputs\\.([a-z_]+)\\s*}}")
+  }
+}
+
+private data class BenchmarkInvocation(
+  val command: String,
+  val options: Map<String, String>,
+  val flags: Set<String>,
+)
+
+private object WorkflowShellParser {
+  fun benchmarkInvocations(script: String): List<BenchmarkInvocation> =
+    logicalLines(script)
+      .map(::tokenize)
+      .filter { tokens -> tokens.firstOrNull() == "${'$'}DRIVER" }
+      .map(::parseBenchmarkInvocation)
+
+  private fun logicalLines(script: String): List<String> {
+    val lines = mutableListOf<String>()
+    val current = StringBuilder()
+    script.lineSequence().forEach { rawLine ->
+      val line = rawLine.trim()
+      if (line.isBlank() || line.startsWith('#')) return@forEach
+      val continued = line.endsWith('\\')
+      val segment = if (continued) line.dropLast(1).trimEnd() else line
+      if (current.isNotEmpty()) current.append(' ')
+      current.append(segment)
+      if (!continued) {
+        lines += current.toString()
+        current.clear()
+      }
+    }
+    require(current.isEmpty()) { "Dangling shell continuation: $current" }
+    return lines
+  }
+
+  private fun tokenize(line: String): List<String> = ShellTokenizer(line).tokenize()
+
+  private fun parseBenchmarkInvocation(tokens: List<String>): BenchmarkInvocation {
+    val argv = tokens.takeWhile { it !in SHELL_CONTROL_OPERATORS }
+    require(argv.size >= 2) { "Benchmark invocation has no command: $argv" }
+    val options = linkedMapOf<String, String>()
+    val flags = linkedSetOf<String>()
+    var index = 2
+    while (index < argv.size) {
+      val option = argv[index]
+      require(option.startsWith("--")) { "Unexpected benchmark argv token: $option" }
+      if (option in VALUELESS_FLAGS) {
+        require(flags.add(option)) { "Duplicate benchmark flag: $option" }
+        index += 1
+      } else {
+        require(index + 1 < argv.size && !argv[index + 1].startsWith("--")) {
+          "Benchmark option needs a value: $option"
+        }
+        require(options.put(option, argv[index + 1]) == null) {
+          "Duplicate benchmark option: $option"
+        }
+        index += 2
+      }
+    }
+    return BenchmarkInvocation(command = argv[1], options = options, flags = flags)
+  }
+
+  private val SHELL_CONTROL_OPERATORS: Set<String> = setOf("||", "&&", ";")
+  private val VALUELESS_FLAGS: Set<String> = setOf("--enforce-release-gates")
+}
+
+private class ShellTokenizer(private val line: String) {
+  private val tokens = mutableListOf<String>()
+  private val token = StringBuilder()
+  private var quote: Char? = null
+  private var escaped = false
+
+  fun tokenize(): List<String> {
+    for (character in line) {
+      if (consume(character)) break
+    }
+    require(quote == null && !escaped) { "Unterminated shell token in: $line" }
+    flushToken()
+    return tokens
+  }
+
+  private fun consume(character: Char): Boolean =
+    when {
+      escaped -> consumeEscaped(character)
+      quote != null -> consumeQuoted(character)
+      else -> consumeUnquoted(character)
+    }
+
+  private fun consumeEscaped(character: Char): Boolean {
+    token.append(character)
+    escaped = false
+    return false
+  }
+
+  private fun consumeQuoted(character: Char): Boolean {
+    when {
+      character == quote -> quote = null
+      character == '\\' && quote != '\'' -> escaped = true
+      else -> token.append(character)
+    }
+    return false
+  }
+
+  private fun consumeUnquoted(character: Char): Boolean =
+    when {
+      character == '\\' -> false.also { escaped = true }
+      character == '\'' || character == '"' -> false.also { quote = character }
+      character.isWhitespace() -> false.also { flushToken() }
+      character == '#' && token.isEmpty() -> true
+      else -> false.also { token.append(character) }
+    }
+
+  private fun flushToken() {
+    if (token.isNotEmpty()) {
+      tokens += token.toString()
+      token.clear()
+    }
   }
 }

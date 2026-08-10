@@ -7,9 +7,8 @@ name: Controlled performance benchmark
         description: Full clean CS1 harness commit SHA
         required: true
       candidate_ref:
-        description: Candidate commit to benchmark
+        description: Full clean candidate commit SHA
         required: true
-        default: master
       candidate_adapter:
         description: Exact versioned adapter for the candidate
         required: true
@@ -36,6 +35,7 @@ jobs:
     timeout-minutes: 180
     env:
       HARNESS_REF: ${{ inputs.harness_ref }}
+      CANDIDATE_REF: ${{ inputs.candidate_ref }}
       CANDIDATE_ADAPTER: ${{ inputs.candidate_adapter }}
       HOST_POLICY_PATH: ${{ inputs.host_policy_path }}
       # Safe absent fallback for always() uploads before this job owns the controlled run root.
@@ -49,9 +49,13 @@ jobs:
             echo "harness_ref must be a full 40-character commit SHA" >&2
             exit 2
           fi
+          if [[ ! "$CANDIDATE_REF" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "candidate_ref must be a full 40-character commit SHA" >&2
+            exit 2
+          fi
 
       - name: 'Checkout benchmark harness'
-        uses: actions/checkout@main
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           ref: ${{ inputs.harness_ref }}
           path: harness
@@ -59,7 +63,7 @@ jobs:
           persist-credentials: false
 
       - name: 'Checkout baseline A'
-        uses: actions/checkout@main
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           ref: 83f3cd70f78ad733412d10cbc8287aaabafe7aac
           path: baseline-a
@@ -67,7 +71,7 @@ jobs:
           persist-credentials: false
 
       - name: 'Checkout baseline B'
-        uses: actions/checkout@main
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           ref: 83f3cd70f78ad733412d10cbc8287aaabafe7aac
           path: baseline-b
@@ -75,7 +79,7 @@ jobs:
           persist-credentials: false
 
       - name: 'Checkout candidate'
-        uses: actions/checkout@main
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           ref: ${{ inputs.candidate_ref }}
           path: candidate
@@ -89,6 +93,7 @@ jobs:
           [[ "$(git -C "$GITHUB_WORKSPACE/harness" rev-parse HEAD)" == "$HARNESS_REF" ]]
           [[ "$(git -C "$GITHUB_WORKSPACE/baseline-a" rev-parse HEAD)" == "83f3cd70f78ad733412d10cbc8287aaabafe7aac" ]]
           [[ "$(git -C "$GITHUB_WORKSPACE/baseline-b" rev-parse HEAD)" == "83f3cd70f78ad733412d10cbc8287aaabafe7aac" ]]
+          [[ "$(git -C "$GITHUB_WORKSPACE/candidate" rev-parse HEAD)" == "$CANDIDATE_REF" ]]
           for checkout in harness baseline-a baseline-b candidate; do
             if [[ -n "$(git -C "$GITHUB_WORKSPACE/$checkout" status --porcelain --untracked-files=all)" ]]; then
               echo "$checkout checkout is not clean" >&2
@@ -96,13 +101,13 @@ jobs:
             fi
           done
 
-      - uses: actions/setup-java@main
+      - uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4.8.0
         with:
           distribution: jetbrains
           java-version: 21
 
       - name: 'Setup Gradle'
-        uses: gradle/actions/setup-gradle@main
+        uses: gradle/actions/setup-gradle@48b5f213c81028ace310571dc5ec0fbbca0b2947 # v4.4.3
 
       - name: 'Prepare unique run root'
         shell: bash
@@ -282,7 +287,7 @@ jobs:
 
       - name: 'Upload benchmark results'
         if: ${{ always() }}
-        uses: actions/upload-artifact@main
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: benchmark-results-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ env.RUN_ROOT }}/results/**
@@ -291,7 +296,7 @@ jobs:
 
       - name: 'Upload benchmark JFR evidence'
         if: ${{ always() }}
-        uses: actions/upload-artifact@main
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: benchmark-jfr-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ env.RUN_ROOT }}/jfr/**
