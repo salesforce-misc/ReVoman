@@ -238,6 +238,39 @@ class BenchmarkWorkflowTest {
   }
 
   @Test
+  fun `workflow shell parser requires double quoted driver command`() {
+    val suffix = " run-paired --blocks 50"
+    val exact = "\"${'$'}DRIVER\"$suffix"
+    assertThat(WorkflowShellParser.benchmarkInvocations(exact)).hasSize(1)
+
+    listOf("'${'$'}DRIVER'", "${'$'}DRIVER", "\\${'$'}DRIVER").forEach { unsafeCommand ->
+      assertThrows<IllegalArgumentException> {
+        WorkflowShellParser.benchmarkInvocations("$unsafeCommand$suffix")
+      }
+    }
+  }
+
+  @Test
+  fun `workflow shell parser requires double quoted expansion arguments`() {
+    val cases =
+      listOf(
+        quotingCase("${'$'}RUN_ROOT/manifests/baseline-a.json"),
+        quotingCase("${'$'}HOST_POLICY_PATH"),
+        quotingCase("${'$'}CANDIDATE_ADAPTER"),
+      )
+
+    cases.forEach { (safeWord, unsafeWords) ->
+      val prefix = "\"${'$'}DRIVER\" run-paired --value "
+      assertThat(WorkflowShellParser.benchmarkInvocations(prefix + safeWord)).hasSize(1)
+      unsafeWords.forEach { unsafeWord ->
+        assertThrows<IllegalArgumentException> {
+          WorkflowShellParser.benchmarkInvocations(prefix + unsafeWord)
+        }
+      }
+    }
+  }
+
+  @Test
   fun `controlled workflow keeps every output in the unique run root`() {
     val steps = controlledSteps()
     val runByName = runScriptsByName(steps)
@@ -308,6 +341,14 @@ class BenchmarkWorkflowTest {
     assertThat(script).contains("-Pbenchmark.targetId=\"${'$'}TARGET_ID\"")
     assertThat(script).contains("-Pbenchmark.targetManifest=\"${'$'}TARGET_MANIFEST\"")
   }
+
+  private fun quotingCase(expansion: String): Pair<String, List<String>> =
+    "\"$expansion\"" to
+      listOf(
+        "'$expansion'",
+        expansion,
+        "\"\\$expansion\"",
+      )
 
   private fun assertSingleInvocation(
     steps: List<Map<String, Any?>>,
@@ -577,42 +618,54 @@ private object WorkflowShellParser {
   private fun parseStatement(line: String): WorkflowStatement {
     val tokenization = ShellTokenizer(line).tokenize()
     require(!tokenization.commentSeen) { "Shell command scripts cannot contain comments: $line" }
-    val tokens = tokenization.tokens
+    val words = tokenization.words
     if (line.startsWith("DRIVER=")) {
       require(line == DRIVER_ASSIGNMENT) { "Unexpected DRIVER assignment: $line" }
     }
-    return if (tokens.firstOrNull() == "${'$'}DRIVER") {
-      parseBenchmarkInvocation(tokens)
+    return if (words.firstOrNull()?.value == "${'$'}DRIVER") {
+      parseBenchmarkInvocation(words)
     } else {
       ShellLiteral(line)
     }
   }
 
-  private fun parseBenchmarkInvocation(tokens: List<String>): BenchmarkInvocation {
-    require(tokens.none { it in SHELL_CONTROL_OPERATORS }) {
-      "Benchmark invocation cannot contain shell control operators: $tokens"
+  private fun parseBenchmarkInvocation(words: List<ShellWord>): BenchmarkInvocation {
+    require(words.none { it.value in SHELL_CONTROL_OPERATORS }) {
+      "Benchmark invocation cannot contain shell control operators: $words"
     }
-    require(tokens.size >= 2) { "Benchmark invocation has no command: $tokens" }
+    require(words.size >= 2) { "Benchmark invocation has no command: $words" }
+    require(words.first().raw == "\"${'$'}DRIVER\"") {
+      "Benchmark command must be exactly double quoted: ${words.first().raw}"
+    }
+    words.forEach(::requireSafeExpansionQuoting)
     val options = linkedMapOf<String, String>()
     val flags = linkedSetOf<String>()
     var index = 2
-    while (index < tokens.size) {
-      val option = tokens[index]
+    while (index < words.size) {
+      val option = words[index].value
       require(option.startsWith("--")) { "Unexpected benchmark argv token: $option" }
       if (option in VALUELESS_FLAGS) {
         require(flags.add(option)) { "Duplicate benchmark flag: $option" }
         index += 1
       } else {
-        require(index + 1 < tokens.size && !tokens[index + 1].startsWith("--")) {
+        require(index + 1 < words.size && !words[index + 1].value.startsWith("--")) {
           "Benchmark option needs a value: $option"
         }
-        require(options.put(option, tokens[index + 1]) == null) {
+        require(options.put(option, words[index + 1].value) == null) {
           "Duplicate benchmark option: $option"
         }
         index += 2
       }
     }
-    return BenchmarkInvocation(command = tokens[1], options = options, flags = flags)
+    return BenchmarkInvocation(command = words[1].value, options = options, flags = flags)
+  }
+
+  private fun requireSafeExpansionQuoting(word: ShellWord) {
+    SAFE_EXPANSIONS.filter(word.value::contains).forEach { expansion ->
+      require(word.raw == "\"${word.value}\"") {
+        "$expansion argument must be one exact double-quoted shell word: ${word.raw}"
+      }
+    }
   }
 
   private const val DRIVER_ASSIGNMENT: String =
@@ -620,13 +673,36 @@ private object WorkflowShellParser {
       "benchmark-driver/bin/benchmark-driver\""
   private val SHELL_CONTROL_OPERATORS: Set<String> = setOf(";", "&", "|")
   private val VALUELESS_FLAGS: Set<String> = setOf("--enforce-release-gates")
+  private val SAFE_EXPANSIONS: Set<String> =
+    setOf("${'$'}DRIVER", "${'$'}RUN_ROOT", "${'$'}HOST_POLICY_PATH", "${'$'}CANDIDATE_ADAPTER")
 }
 
-private data class ShellTokenization(val tokens: List<String>, val commentSeen: Boolean)
+private data class ShellTokenization(val words: List<ShellWord>, val commentSeen: Boolean)
+
+private data class ShellWord(
+  val value: String,
+  val raw: String,
+  val segments: List<ShellSegment>,
+)
+
+private data class ShellSegment(
+  val value: String,
+  val raw: String,
+  val quote: ShellQuote,
+  val escaped: Boolean,
+)
+
+private enum class ShellQuote {
+  UNQUOTED,
+  SINGLE,
+  DOUBLE,
+}
 
 private class ShellTokenizer(private val line: String) {
-  private val tokens = mutableListOf<String>()
-  private val token = StringBuilder()
+  private val words = mutableListOf<ShellWord>()
+  private val value = StringBuilder()
+  private val raw = StringBuilder()
+  private val segments = mutableListOf<ShellSegment>()
   private var quote: Char? = null
   private var escaped = false
   private var commentSeen = false
@@ -636,8 +712,8 @@ private class ShellTokenizer(private val line: String) {
       if (consume(character)) break
     }
     require(quote == null && !escaped) { "Unterminated shell token in: $line" }
-    flushToken()
-    return ShellTokenization(tokens = tokens, commentSeen = commentSeen)
+    flushWord()
+    return ShellTokenization(words = words, commentSeen = commentSeen)
   }
 
   private fun consume(character: Char): Boolean =
@@ -648,16 +724,25 @@ private class ShellTokenizer(private val line: String) {
     }
 
   private fun consumeEscaped(character: Char): Boolean {
-    token.append(character)
+    raw.append(character)
+    appendSegment(
+      valuePart = character.toString(),
+      rawPart = "\\$character",
+      quoteMode = currentQuote(),
+      wasEscaped = true,
+    )
     escaped = false
     return false
   }
 
   private fun consumeQuoted(character: Char): Boolean {
     when {
-      character == quote -> quote = null
-      character == '\\' && quote != '\'' -> escaped = true
-      else -> token.append(character)
+      character == quote -> {
+        raw.append(character)
+        quote = null
+      }
+      character == '\\' && quote != '\'' -> beginEscape()
+      else -> appendLiteral(character)
     }
     return false
   }
@@ -667,31 +752,87 @@ private class ShellTokenizer(private val line: String) {
       character == '\\' -> beginEscape()
       character in QUOTE_CHARACTERS -> beginQuote(character)
       character.isWhitespace() -> consumeWhitespace()
-      character == '#' && token.isEmpty() -> beginComment()
+      character == '#' && raw.isEmpty() -> beginComment()
       character in CONTROL_CHARACTERS -> consumeControl(character)
       else -> consumeLiteral(character)
     }
 
-  private fun beginEscape(): Boolean = false.also { escaped = true }
+  private fun beginEscape(): Boolean =
+    false.also {
+      raw.append('\\')
+      escaped = true
+    }
 
-  private fun beginQuote(character: Char): Boolean = false.also { quote = character }
+  private fun beginQuote(character: Char): Boolean =
+    false.also {
+      raw.append(character)
+      quote = character
+    }
 
-  private fun consumeWhitespace(): Boolean = false.also { flushToken() }
+  private fun consumeWhitespace(): Boolean = false.also { flushWord() }
 
   private fun beginComment(): Boolean = true.also { commentSeen = true }
 
   private fun consumeControl(character: Char): Boolean =
     false.also {
-      flushToken()
-      tokens += character.toString()
+      flushWord()
+      words +=
+        ShellWord(
+          value = character.toString(),
+          raw = character.toString(),
+          segments =
+            listOf(
+              ShellSegment(
+                value = character.toString(),
+                raw = character.toString(),
+                quote = ShellQuote.UNQUOTED,
+                escaped = false,
+              )
+            ),
+        )
     }
 
-  private fun consumeLiteral(character: Char): Boolean = false.also { token.append(character) }
+  private fun consumeLiteral(character: Char): Boolean = false.also { appendLiteral(character) }
 
-  private fun flushToken() {
-    if (token.isNotEmpty()) {
-      tokens += token.toString()
-      token.clear()
+  private fun appendLiteral(character: Char) {
+    raw.append(character)
+    appendSegment(
+      valuePart = character.toString(),
+      rawPart = character.toString(),
+      quoteMode = currentQuote(),
+      wasEscaped = false,
+    )
+  }
+
+  private fun appendSegment(
+    valuePart: String,
+    rawPart: String,
+    quoteMode: ShellQuote,
+    wasEscaped: Boolean,
+  ) {
+    value.append(valuePart)
+    val previous = segments.lastOrNull()
+    if (previous?.quote == quoteMode && previous.escaped == wasEscaped) {
+      segments[segments.lastIndex] =
+        previous.copy(value = previous.value + valuePart, raw = previous.raw + rawPart)
+    } else {
+      segments += ShellSegment(valuePart, rawPart, quoteMode, wasEscaped)
+    }
+  }
+
+  private fun currentQuote(): ShellQuote =
+    when (quote) {
+      '\'' -> ShellQuote.SINGLE
+      '"' -> ShellQuote.DOUBLE
+      else -> ShellQuote.UNQUOTED
+    }
+
+  private fun flushWord() {
+    if (raw.isNotEmpty()) {
+      words += ShellWord(value.toString(), raw.toString(), segments.toList())
+      value.clear()
+      raw.clear()
+      segments.clear()
     }
   }
 
