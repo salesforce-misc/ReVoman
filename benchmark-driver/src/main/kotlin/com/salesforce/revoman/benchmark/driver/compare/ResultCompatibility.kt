@@ -74,13 +74,14 @@ object ResultCompatibility {
                 compareRuntimeJdk(result.environment.jdk, baseline.buildJdk).forEach(::add)
                 compareRuntimeJdk(result.environment.jdk, candidate.buildJdk).forEach(::add)
 
-                if (workloadManifests.isNotEmpty()) {
-                    if (manifestsById.size != workloadManifests.size) {
-                        add("workload manifest IDs must be unique")
-                    }
-                    if (manifestsById.keys != result.workloads.map { it.id }.toSet()) {
-                        add("workload manifests must identify every result workload exactly once")
-                    }
+                if (manifestsById.size != workloadManifests.size) {
+                    add("workload manifest IDs must be unique")
+                }
+                if (
+                    manifestsById.keys != result.workloads.map { it.id }.toSet() ||
+                        workloadManifests.size != result.workloads.size
+                ) {
+                    add("workload manifests must identify every result workload exactly once")
                 }
                 result.workloads.forEach { workload ->
                     if (workload.contractSha256 != result.harness.workloadContractSha256) {
@@ -137,6 +138,7 @@ object ResultCompatibility {
     ): List<String> =
         buildList {
             if (left.distribution != right.distribution) add("$label distributions must match")
+            if (left.vendor != right.vendor) add("$label vendors must match")
             if (left.fullVersion != right.fullVersion) add("$label full versions must match")
             if (left.jvmFlags != right.jvmFlags) add("$label JVM flags must match")
         }

@@ -81,6 +81,11 @@ data class BenchmarkResultV1(
         require(workloads.isNotEmpty()) { "workloads must not be empty" }
         targets.forEachIndexed { index, target -> target.validate("targets[$index]") }
 
+        val workloadIds = workloads.map(WorkloadResult::id)
+        require(workloadIds.distinct().size == workloadIds.size) {
+            "workload IDs must be unique"
+        }
+
         val targetIds = targets.map(TargetIdentity::id)
         require(targetIds.distinct().size == targetIds.size) { "target identity IDs must be unique" }
         val assignmentsByTarget = configuration.targets.associateBy(TargetAssignment::targetId)

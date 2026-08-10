@@ -91,6 +91,29 @@ data class MetricDecision(
         require((gate == null) == (claimKind == ClaimKind.TARGETED_IMPROVEMENT)) {
             "$path targeted claims alone omit gate"
         }
+        gate?.let { normativeGate ->
+            require(NORMATIVE_GATE_IDENTITIES.getValue(normativeGate) == decisionKey()) {
+                "$path gate $normativeGate does not match claimKind, mode, metric, and statistic"
+            }
+        }
+        if (claimKind == ClaimKind.TARGETED_IMPROVEMENT) {
+            require(mode != RunMode.RETAINED) {
+                "$path targeted improvement must use COLD or WARM mode"
+            }
+        }
+        val endpoint = interval?.upper95 ?: slopeInterval?.upper95BytesPerExecution ?: observedValue
+        when (decision) {
+            GateDecision.PASS -> require(requireNotNull(endpoint) <= limit) {
+                "$path PASS evidence endpoint must be at most limit"
+            }
+            GateDecision.FAIL ->
+                require(metric == MetricId.RETAINED_BYTES || requireNotNull(endpoint) > limit) {
+                    "$path FAIL evidence endpoint must exceed limit"
+                }
+            GateDecision.INCONCLUSIVE,
+            GateDecision.INCOMPATIBLE,
+            -> Unit
+        }
     }
 }
 
@@ -150,11 +173,19 @@ data class ComparisonReport(
         require(rejectedBlocks == rejectedBlocks.sortedWith(REJECTED_ORDER)) {
             "rejectedBlocks must be in canonical workload, metric, and block order"
         }
-        require(overall != GateDecision.INCOMPATIBLE || compatibilityErrors.isNotEmpty()) {
-            "INCOMPATIBLE overall requires compatibility errors"
-        }
-        require(compatibilityErrors.isEmpty() || overall == GateDecision.INCOMPATIBLE) {
-            "compatibility errors require INCOMPATIBLE overall"
+        val expectedOverall =
+            when {
+                compatibilityErrors.isNotEmpty() ||
+                    metrics.any { it.decision == GateDecision.INCOMPATIBLE } ->
+                    GateDecision.INCOMPATIBLE
+                metrics.any { it.decision == GateDecision.INCONCLUSIVE } ->
+                    GateDecision.INCONCLUSIVE
+                metrics.any { it.decision == GateDecision.FAIL } -> GateDecision.FAIL
+                else -> GateDecision.PASS
+            }
+        require(overall == expectedOverall) {
+            "overall must follow INCOMPATIBLE > INCONCLUSIVE > FAIL > PASS: " +
+                "expected=$expectedOverall, actual=$overall"
         }
     }
 
@@ -182,12 +213,26 @@ data class ComparisonReport(
                 appendLine()
                 appendLine("## Decisions")
                 appendLine()
-                appendLine("| Claim | Mode | Metric | Statistic | Limit | Decision | Reason |")
-                appendLine("|---|---|---|---|---:|---|---|")
+                appendLine(
+                    "| Claim | Mode | Metric | Statistic | Point | Lower 95% | Upper 95% | " +
+                        "Observed | Limit | Decision | Reason |"
+                )
+                appendLine("|---|---|---|---|---:|---:|---:|---:|---:|---|---|")
                 metrics.forEach { metric ->
+                    val point =
+                        metric.interval?.pointEstimate
+                            ?: metric.slopeInterval?.pointEstimateBytesPerExecution
+                    val lower =
+                        metric.interval?.lower95
+                            ?: metric.slopeInterval?.lower95BytesPerExecution
+                    val upper =
+                        metric.interval?.upper95
+                            ?: metric.slopeInterval?.upper95BytesPerExecution
                     appendLine(
                         "| ${metric.claimKind} | ${metric.mode} | ${metric.metric} | " +
-                            "${metric.statistic ?: "-"} | ${metric.limit} | ${metric.decision} | " +
+                            "${metric.statistic ?: "-"} | ${point ?: "-"} | ${lower ?: "-"} | " +
+                            "${upper ?: "-"} | ${metric.observedValue ?: "-"} | ${metric.limit} | " +
+                            "${metric.decision} | " +
                             "${metric.reason.replace("|", "\\|")} |"
                     )
                 }
@@ -236,4 +281,45 @@ private val METRIC_ORDER =
 private val REJECTED_ORDER =
     compareBy<RejectedBlockEvidence>({ it.workloadId }, { it.metric.ordinal }, { it.blockId })
 private val STRUCTURAL_METRICS = setOf(MetricId.RETAINED_BYTES, MetricId.BYTES_PER_STEP)
+private val NORMATIVE_GATE_IDENTITIES =
+    mapOf(
+        GateId.COLD_MEDIAN to
+            DecisionKey(ClaimKind.NON_REGRESSION, RunMode.COLD, MetricId.LATENCY, Statistic.MEDIAN),
+        GateId.COLD_P95 to
+            DecisionKey(ClaimKind.NON_REGRESSION, RunMode.COLD, MetricId.LATENCY, Statistic.P95),
+        GateId.COLD_ALLOCATION to
+            DecisionKey(
+                ClaimKind.NON_REGRESSION,
+                RunMode.COLD,
+                MetricId.ALLOCATED_BYTES,
+                Statistic.MEAN,
+            ),
+        GateId.COLD_PEAK_RSS to
+            DecisionKey(ClaimKind.NON_REGRESSION, RunMode.COLD, MetricId.PEAK_RSS, Statistic.MEAN),
+        GateId.WARM_MEDIAN to
+            DecisionKey(ClaimKind.NON_REGRESSION, RunMode.WARM, MetricId.LATENCY, Statistic.MEDIAN),
+        GateId.WARM_P95 to
+            DecisionKey(ClaimKind.NON_REGRESSION, RunMode.WARM, MetricId.LATENCY, Statistic.P95),
+        GateId.WARM_ALLOCATION to
+            DecisionKey(
+                ClaimKind.NON_REGRESSION,
+                RunMode.WARM,
+                MetricId.ALLOCATED_BYTES,
+                Statistic.MEAN,
+            ),
+        GateId.RETAINED_SLOPE to
+            DecisionKey(
+                ClaimKind.STRUCTURAL,
+                RunMode.RETAINED,
+                MetricId.RETAINED_BYTES,
+                null,
+            ),
+        GateId.PER_STEP_ALLOCATION_SPREAD to
+            DecisionKey(
+                ClaimKind.STRUCTURAL,
+                RunMode.RETAINED,
+                MetricId.BYTES_PER_STEP,
+                null,
+            ),
+    )
 internal const val COMPARISON_SCHEMA_V1: String = "revoman-benchmark-comparison/v1"

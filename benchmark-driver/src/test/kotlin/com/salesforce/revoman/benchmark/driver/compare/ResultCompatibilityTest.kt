@@ -96,11 +96,23 @@ class ResultCompatibilityTest {
                 "JDK distribution" to {
                     result -> result.withTarget(1) { copy(buildJdk = buildJdk.copy(distribution = "Corretto")) }
                 },
+                "build JDK vendor" to {
+                    result -> result.withTarget(1) { copy(buildJdk = buildJdk.copy(vendor = "Amazon")) }
+                },
                 "JDK full version" to {
                     result -> result.withTarget(1) { copy(buildJdk = buildJdk.copy(fullVersion = "21.0.9")) }
                 },
                 "JVM flags" to {
                     result -> result.withTarget(1) { copy(buildJdk = buildJdk.copy(jvmFlags = listOf("-Xmx2g"))) }
+                },
+                "runtime JDK vendor" to {
+                    result ->
+                        result.copy(
+                            environment =
+                                result.environment.copy(
+                                    jdk = result.environment.jdk.copy(vendor = "Amazon")
+                                )
+                        )
                 },
                 "host fingerprint" to {
                     result -> result.copy(environment = result.environment.copy(hostFingerprintSha256 = "bad"))
@@ -161,6 +173,39 @@ class ResultCompatibilityTest {
         }
 
         assertThat(failure).hasMessageThat().contains("baseline commit")
+    }
+
+    @Test
+    fun `every result workload requires exactly one manifest`() {
+        val result = ComparisonFixtures.lifecycleResult(RunMode.COLD)
+
+        assertThat(ResultCompatibility.errors(result)).containsExactly(
+            "workload manifests must identify every result workload exactly once"
+        )
+        val failure = assertThrows<IllegalArgumentException> {
+            ResultCompatibility.requireComparable(result)
+        }
+        val report = ReleaseGateEvaluator(resamples = 10).evaluate(result, emptyList())
+
+        assertThat(failure).hasMessageThat().contains("exactly once")
+        assertThat(report.overall).isEqualTo(GateDecision.INCOMPATIBLE)
+        assertThat(report.compatibilityErrors).containsExactly(
+            "workload manifests must identify every result workload exactly once"
+        )
+    }
+
+    @Test
+    fun `duplicate result workload IDs are incompatible before decisions`() {
+        val result = ComparisonFixtures.lifecycleResult(RunMode.COLD)
+        val duplicate = result.copy(workloads = result.workloads + result.workloads.single())
+
+        val validationFailure = assertThrows<IllegalArgumentException> { duplicate.validate() }
+        val report =
+            ReleaseGateEvaluator(resamples = 10).evaluate(duplicate, manifestsFor(duplicate))
+
+        assertThat(validationFailure).hasMessageThat().contains("workload IDs must be unique")
+        assertThat(report.overall).isEqualTo(GateDecision.INCOMPATIBLE)
+        assertThat(report.metrics).isEmpty()
     }
 
     private fun manifestsFor(result: BenchmarkResultV1) =

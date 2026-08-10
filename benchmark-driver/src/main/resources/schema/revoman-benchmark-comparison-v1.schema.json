@@ -16,6 +16,70 @@
     "rejectedBlocks": { "type": "array", "items": { "$ref": "#/$defs/rejectedBlock" } },
     "overall": { "$ref": "#/$defs/decision" }
   },
+  "allOf": [
+    {
+      "if": { "properties": { "compatibilityErrors": { "minItems": 1 } }, "required": ["compatibilityErrors"] },
+      "then": { "properties": { "overall": { "const": "INCOMPATIBLE" } } }
+    },
+    {
+      "if": {
+        "properties": {
+          "compatibilityErrors": { "maxItems": 0 },
+          "metrics": { "contains": { "$ref": "#/$defs/incompatibleDecision" } }
+        },
+        "required": ["compatibilityErrors", "metrics"]
+      },
+      "then": { "properties": { "overall": { "const": "INCOMPATIBLE" } } }
+    },
+    {
+      "if": {
+        "properties": {
+          "compatibilityErrors": { "maxItems": 0 },
+          "metrics": {
+            "not": { "contains": { "$ref": "#/$defs/incompatibleDecision" } },
+            "contains": { "$ref": "#/$defs/inconclusiveDecision" }
+          }
+        },
+        "required": ["compatibilityErrors", "metrics"]
+      },
+      "then": { "properties": { "overall": { "const": "INCONCLUSIVE" } } }
+    },
+    {
+      "if": {
+        "properties": {
+          "compatibilityErrors": { "maxItems": 0 },
+          "metrics": {
+            "not": {
+              "contains": {
+                "properties": { "decision": { "enum": ["INCOMPATIBLE", "INCONCLUSIVE"] } },
+                "required": ["decision"]
+              }
+            },
+            "contains": { "$ref": "#/$defs/failDecision" }
+          }
+        },
+        "required": ["compatibilityErrors", "metrics"]
+      },
+      "then": { "properties": { "overall": { "const": "FAIL" } } }
+    },
+    {
+      "if": {
+        "properties": {
+          "compatibilityErrors": { "maxItems": 0 },
+          "metrics": {
+            "not": {
+              "contains": {
+                "properties": { "decision": { "enum": ["INCOMPATIBLE", "INCONCLUSIVE", "FAIL"] } },
+                "required": ["decision"]
+              }
+            }
+          }
+        },
+        "required": ["compatibilityErrors", "metrics"]
+      },
+      "then": { "properties": { "overall": { "const": "PASS" } } }
+    }
+  ],
   "$defs": {
     "decision": { "enum": ["PASS", "FAIL", "INCONCLUSIVE", "INCOMPATIBLE"] },
     "claimKind": { "enum": ["NON_REGRESSION", "TARGETED_IMPROVEMENT", "STRUCTURAL"] },
@@ -37,6 +101,21 @@
       ]
     },
     "statistic": { "enum": ["MEDIAN", "P95", "MEAN"] },
+    "incompatibleDecision": {
+      "type": "object",
+      "properties": { "decision": { "const": "INCOMPATIBLE" } },
+      "required": ["decision"]
+    },
+    "inconclusiveDecision": {
+      "type": "object",
+      "properties": { "decision": { "const": "INCONCLUSIVE" } },
+      "required": ["decision"]
+    },
+    "failDecision": {
+      "type": "object",
+      "properties": { "decision": { "const": "FAIL" } },
+      "required": ["decision"]
+    },
     "ratioInterval": {
       "type": "object",
       "additionalProperties": false,
@@ -105,6 +184,109 @@
         }
       ],
       "allOf": [
+        {
+          "if": { "required": ["gate"] },
+          "then": {
+            "oneOf": [
+              {
+                "properties": {
+                  "gate": { "const": "COLD_MEDIAN" },
+                  "claimKind": { "const": "NON_REGRESSION" },
+                  "mode": { "const": "COLD" },
+                  "metric": { "const": "LATENCY" },
+                  "statistic": { "const": "MEDIAN" }
+                },
+                "required": ["gate", "claimKind", "mode", "metric", "statistic"]
+              },
+              {
+                "properties": {
+                  "gate": { "const": "COLD_P95" },
+                  "claimKind": { "const": "NON_REGRESSION" },
+                  "mode": { "const": "COLD" },
+                  "metric": { "const": "LATENCY" },
+                  "statistic": { "const": "P95" }
+                },
+                "required": ["gate", "claimKind", "mode", "metric", "statistic"]
+              },
+              {
+                "properties": {
+                  "gate": { "const": "COLD_ALLOCATION" },
+                  "claimKind": { "const": "NON_REGRESSION" },
+                  "mode": { "const": "COLD" },
+                  "metric": { "const": "ALLOCATED_BYTES" },
+                  "statistic": { "const": "MEAN" }
+                },
+                "required": ["gate", "claimKind", "mode", "metric", "statistic"]
+              },
+              {
+                "properties": {
+                  "gate": { "const": "COLD_PEAK_RSS" },
+                  "claimKind": { "const": "NON_REGRESSION" },
+                  "mode": { "const": "COLD" },
+                  "metric": { "const": "PEAK_RSS" },
+                  "statistic": { "const": "MEAN" }
+                },
+                "required": ["gate", "claimKind", "mode", "metric", "statistic"]
+              },
+              {
+                "properties": {
+                  "gate": { "const": "WARM_MEDIAN" },
+                  "claimKind": { "const": "NON_REGRESSION" },
+                  "mode": { "const": "WARM" },
+                  "metric": { "const": "LATENCY" },
+                  "statistic": { "const": "MEDIAN" }
+                },
+                "required": ["gate", "claimKind", "mode", "metric", "statistic"]
+              },
+              {
+                "properties": {
+                  "gate": { "const": "WARM_P95" },
+                  "claimKind": { "const": "NON_REGRESSION" },
+                  "mode": { "const": "WARM" },
+                  "metric": { "const": "LATENCY" },
+                  "statistic": { "const": "P95" }
+                },
+                "required": ["gate", "claimKind", "mode", "metric", "statistic"]
+              },
+              {
+                "properties": {
+                  "gate": { "const": "WARM_ALLOCATION" },
+                  "claimKind": { "const": "NON_REGRESSION" },
+                  "mode": { "const": "WARM" },
+                  "metric": { "const": "ALLOCATED_BYTES" },
+                  "statistic": { "const": "MEAN" }
+                },
+                "required": ["gate", "claimKind", "mode", "metric", "statistic"]
+              },
+              {
+                "properties": {
+                  "gate": { "const": "RETAINED_SLOPE" },
+                  "claimKind": { "const": "STRUCTURAL" },
+                  "mode": { "const": "RETAINED" },
+                  "metric": { "const": "RETAINED_BYTES" }
+                },
+                "required": ["gate", "claimKind", "mode", "metric"],
+                "not": { "required": ["statistic"] }
+              },
+              {
+                "properties": {
+                  "gate": { "const": "PER_STEP_ALLOCATION_SPREAD" },
+                  "claimKind": { "const": "STRUCTURAL" },
+                  "mode": { "const": "RETAINED" },
+                  "metric": { "const": "BYTES_PER_STEP" }
+                },
+                "required": ["gate", "claimKind", "mode", "metric"],
+                "not": { "required": ["statistic"] }
+              }
+            ]
+          },
+          "else": {
+            "properties": {
+              "claimKind": { "const": "TARGETED_IMPROVEMENT" },
+              "mode": { "enum": ["COLD", "WARM"] }
+            }
+          }
+        },
         {
           "if": { "properties": { "claimKind": { "const": "STRUCTURAL" } }, "required": ["claimKind"] },
           "then": { "properties": { "metric": { "enum": ["RETAINED_BYTES", "BYTES_PER_STEP"] } } },
