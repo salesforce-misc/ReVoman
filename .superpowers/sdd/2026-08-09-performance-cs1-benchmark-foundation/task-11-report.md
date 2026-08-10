@@ -229,3 +229,69 @@ scope.
 ```text
 fix: harden benchmark application integrity
 ```
+
+## Review fix round 2 — campaign isolation
+
+### Status
+
+The two confirmed isolation gaps were fixed test-first. The fix is committed locally as
+`fix: preserve inconclusive campaign isolation`; it is not pushed or merged.
+
+### Completeness and process-lifecycle fixes
+
+- Added one release-gate completeness rule shared by normative ratios, targeted ratios, retained
+  slope, and per-step spread. Controlled evidence is statistically usable only when every requested
+  accepted block is present and the configured baseline/candidate first-position counts differ by
+  at most one. Incomplete evidence produces an `INCONCLUSIVE` decision without a fabricated ratio,
+  slope, or observed value; rejected block evidence remains serialized and auditable.
+- Replaced the JMH controller launcher's ad hoc tracker/virtual-thread cleanup with the proven
+  process-package ownership primitives: `ProcessTreeTracker`, bounded
+  `DefaultLauncherCleanup.finalizeOwnedProcessTree`, conditional late-handle continuation, and
+  `FailureAccumulator`.
+- The JMH launcher now owns one named three-task executor for tracker/stdout/stderr, retains only
+  64 KiB per output tail, detects tracker failure while the root is running, and finalizes the root
+  plus retained descendants exactly once on success, timeout, interruption, tracker failure, drain
+  failure, or post-exit observation failure. Tracker stop/join, task shutdown, interruption restore,
+  and primary/ordered-suppressed failure semantics match `JdkProcessLauncher`.
+- Added deterministic process-start, tracker, drain, cleanup, and deadline seams. A real inherited-
+  pipe descendant integration test proves drain failure kills the descendant and leaves no named
+  launcher task alive.
+
+### RED/GREEN evidence
+
+- The release-gate RED produced three expected failures: short accepted evidence still exposed
+  intervals, biased accepted order still passed normative/targeted ratios, and biased structural
+  evidence still exposed retained/per-step values. GREEN passed all 28 evaluator tests, including
+  accepted-short, biased equal-count, balanced odd-count, targeted, retained, per-step, and rejected-
+  evidence cases.
+- The launcher RED failed test compilation on the absent lifecycle-safe constructor and process-
+  start/thread seams. GREEN passed five deterministic cases: post-start interruption, tracker
+  failure, drain failure, post-exit observation failure with ordered suppressed cleanup failures,
+  and successful exactly-once finalization with no leaked launcher threads.
+- The real descendant containment test first failed at the integration precondition because the
+  required target-manifest property was omitted. With the prescribed manifest/adapter properties,
+  the inherited-pipe drain failure completed in eight seconds, terminated the descendant, and left
+  no launcher tasks.
+
+### Final verification evidence
+
+- Complete launcher/containment rerun passed in 50 seconds: 27 `JdkProcessLauncherTest`, five
+  `JmhControllerProcessLauncherTest`, and 31 `RunnerIntegrationTest` cases, with zero failures or
+  errors.
+- The installed two-role warm allocation campaign passed separately in nine seconds and attached
+  each normalized JMH target only to its scheduled role.
+- Full `:benchmark-driver:test :benchmark-driver:integrationTest` passed in 1m05s: 311 unit tests and
+  40 integration tests, with zero failures or errors.
+- `benchmarkHarnessSelfTest benchmarkJmh jmhClasses installDist spotlessCheck` passed all 29 tasks
+  in 13 seconds, including the nested installed target-manifest export and strict JMH execution.
+- The final process scan found no live benchmark controller, JMH, target-worker, or fixture
+  descendant. The benchmark temporary-directory scan was empty. The installed distribution contains
+  all fixed bin/conf/libexec/schema/workload/JFR/thin-JAR paths; the thin JAR contains the lifecycle
+  benchmark, `BenchmarkList`, and `CompilerHints`, and no Graal or target-internal packages.
+- `git diff --check`, the scope/package scan, and final `spotlessCheck` pass.
+
+### Commit
+
+```text
+fix: preserve inconclusive campaign isolation
+```

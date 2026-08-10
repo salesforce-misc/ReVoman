@@ -28,6 +28,9 @@ import com.salesforce.revoman.benchmark.driver.model.WorkloadRequest
 import com.salesforce.revoman.benchmark.driver.run.ColdPlan
 import com.salesforce.revoman.benchmark.driver.run.ColdPosition
 import com.salesforce.revoman.benchmark.driver.run.ColdRunner
+import com.salesforce.revoman.benchmark.driver.run.JMH_CONTROLLER_LAUNCHER_THREAD_PREFIX
+import com.salesforce.revoman.benchmark.driver.run.JmhControllerProcessLauncher
+import com.salesforce.revoman.benchmark.driver.run.JmhControllerProcessStarter
 import com.salesforce.revoman.benchmark.driver.run.VerifiedLoggingConfiguration
 import com.salesforce.revoman.benchmark.driver.run.WarmAllocationLaunch
 import com.salesforce.revoman.benchmark.driver.run.WarmAllocationLauncher
@@ -666,6 +669,68 @@ class RunnerIntegrationTest {
             assertThat(cleanup.calls).containsExactly("termination", "shutdown", "guard").inOrder()
             assertThat(cleanup.terminationCalls).isEqualTo(1)
             assertThat(processIsAlive(childPid)).isFalse()
+        } finally {
+            Files.writeString(rootReleaseFile, "release")
+            val coordinationFailure = runCatching(coordinator::await).exceptionOrNull()
+            childPid = childPid ?: readProcessIdIfPresent(childPidFile)
+            childPid?.let(::forceStopFixtureProcess)
+            coordinationFailure?.let { throw it }
+        }
+    }
+
+    @Test
+    fun `JMH controller drain failure terminates its real descendant and launcher tasks`() {
+        val childPidFile = temporaryDirectory.resolve("jmh-controller-descendant.pid")
+        val rootReleaseFile = temporaryDirectory.resolve("jmh-controller-root.release")
+        val tracker = AtomicReference<ProcessTreeTracking>()
+        val coordinator = releaseRootAfterDescendantIsTracked(childPidFile, rootReleaseFile, tracker)
+        val command =
+            launcherFixtureCommand(
+                mode = "orphan-pipes",
+                timeout = Duration.ofSeconds(10),
+                additionalParameters =
+                    mapOf(
+                        "childPidFile" to childPidFile.toString(),
+                        "rootReleaseFile" to rootReleaseFile.toString(),
+                    ),
+            )
+        val launcher =
+            JmhControllerProcessLauncher(
+                cleanup = DefaultLauncherCleanup,
+                drainAwaiter = OutputDrainAwaiter { future -> future.get(2, TimeUnit.SECONDS) },
+                trackerFactory = retainingTrackerFactory(tracker),
+                processStarter =
+                    JmhControllerProcessStarter { arguments, workingDirectory ->
+                        ProcessBuilder(arguments).directory(workingDirectory.toFile()).start()
+                    },
+            )
+        val launch =
+            WarmAllocationLaunch(
+                blockId = 0,
+                targetRole = TargetRole.BASELINE,
+                fork = 0,
+                forkCount = 1,
+                profilers = listOf("gc"),
+                benchmarkIncludes = listOf("fixture"),
+                targetClasspath = command.classpath,
+                command = command,
+                rawResult = temporaryDirectory.resolve("unused-raw.json"),
+                normalizedResult = temporaryDirectory.resolve("unused-normalized.json"),
+                humanOutput = temporaryDirectory.resolve("unused-human.txt"),
+            )
+        var childPid: Long? = null
+        try {
+            val failure = assertThrows<IllegalStateException> { launcher.launch(launch) }
+
+            childPid = awaitProcessId(childPidFile)
+            assertThat(failure).hasMessageThat().contains("Could not drain JMH controller output")
+            assertThat(processIsAlive(childPid)).isFalse()
+            awaitFixtureCondition("JMH controller launcher tasks to stop") {
+                Thread.getAllStackTraces().keys.none { thread ->
+                    thread.isAlive &&
+                        thread.name.startsWith(JMH_CONTROLLER_LAUNCHER_THREAD_PREFIX)
+                }
+            }
         } finally {
             Files.writeString(rootReleaseFile, "release")
             val coordinationFailure = runCatching(coordinator::await).exceptionOrNull()

@@ -168,6 +168,9 @@ class ReleaseGateEvaluator(
         val accepted = rawBlocks.filter { it.accepted }
         val baselineId = result.targetId(TargetRole.BASELINE)
         val candidateId = result.targetId(TargetRole.CANDIDATE)
+        campaignCompletenessFailure(result, accepted, baselineId, candidateId)?.let { reason ->
+            return descriptor.unavailable(gate, reason)
+        }
         val interval =
             runCatching {
                     hierarchicalRatioInterval(
@@ -229,6 +232,9 @@ class ReleaseGateEvaluator(
             ?: return descriptor.unavailable(GateId.RETAINED_SLOPE, "retained raw blocks are missing")
         val baselineId = result.targetId(TargetRole.BASELINE)
         val candidateId = result.targetId(TargetRole.CANDIDATE)
+        campaignCompletenessFailure(result, accepted, baselineId, candidateId)?.let { reason ->
+            return descriptor.unavailable(GateId.RETAINED_SLOPE, reason)
+        }
         if (!hasFreshRetainedReplicates(accepted, setOf(baselineId, candidateId))) {
             return descriptor.unavailable(
                 GateId.RETAINED_SLOPE,
@@ -303,6 +309,11 @@ class ReleaseGateEvaluator(
                 "per-step allocation raw blocks are missing",
             )
         val targetIds = TargetRole.entries.map { role -> result.targetId(role) }.toSet()
+        val baselineId = result.targetId(TargetRole.BASELINE)
+        val candidateId = result.targetId(TargetRole.CANDIDATE)
+        campaignCompletenessFailure(result, accepted, baselineId, candidateId)?.let { reason ->
+            return descriptor.unavailable(GateId.PER_STEP_ALLOCATION_SPREAD, reason)
+        }
         val groups =
             accepted.flatMap { block ->
                 block.observations.groupBy { observation -> observation.targetId to observation.fork }
@@ -317,7 +328,6 @@ class ReleaseGateEvaluator(
                         group.observations.map { it.executionCount }.sortedBy { it } ==
                             PER_STEP_COUNTS.map(Int::toInt)
                 }
-        val candidateId = result.targetId(TargetRole.CANDIDATE)
         val candidateGroups = groups.filter { it.targetId == candidateId }
         if (!exactShape || candidateGroups.size < MINIMUM_INDEPENDENT_PROCESSES) {
             return descriptor.unavailable(
@@ -410,6 +420,26 @@ class ReleaseGateEvaluator(
                 .distinct()
                 .size >= minimum
         }
+    }
+
+    private fun campaignCompletenessFailure(
+        result: BenchmarkResultV1,
+        accepted: List<com.salesforce.revoman.benchmark.driver.model.AlternatingBlock>,
+        baselineId: String,
+        candidateId: String,
+    ): String? {
+        val requested = result.configuration.requestedAcceptedBlocks
+        if (accepted.size != requested) {
+            return "release gates require all $requested requested accepted blocks; " +
+                "actual=${accepted.size}"
+        }
+        val baselineFirst = accepted.count { block -> block.targetOrder.first() == baselineId }
+        val candidateFirst = accepted.count { block -> block.targetOrder.first() == candidateId }
+        if (kotlin.math.abs(baselineFirst - candidateFirst) > 1) {
+            return "release gates require balanced accepted first positions; " +
+                "baseline=$baselineFirst, candidate=$candidateFirst"
+        }
+        return null
     }
 
     private fun independentProcessReason(mode: RunMode): String =

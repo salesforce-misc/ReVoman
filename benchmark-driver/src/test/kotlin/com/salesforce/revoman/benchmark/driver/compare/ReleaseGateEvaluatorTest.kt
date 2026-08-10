@@ -10,6 +10,7 @@ package com.salesforce.revoman.benchmark.driver.compare
 import com.google.common.truth.Truth.assertThat
 import com.salesforce.revoman.benchmark.driver.json.BenchmarkJson
 import com.salesforce.revoman.benchmark.driver.model.ArtifactSnapshot
+import com.salesforce.revoman.benchmark.driver.model.BenchmarkResultV1
 import com.salesforce.revoman.benchmark.driver.model.GateId
 import com.salesforce.revoman.benchmark.driver.model.MetricId
 import com.salesforce.revoman.benchmark.driver.model.MetricUnit
@@ -351,6 +352,123 @@ class ReleaseGateEvaluatorTest {
     }
 
     @Test
+    fun `accepted evidence shorter than the requested campaign is unavailable before statistics`() {
+        val complete = ComparisonFixtures.lifecycleResult(RunMode.WARM)
+        val short =
+            complete
+                .copy(
+                    configuration =
+                        complete.configuration.copy(
+                            requestedAcceptedBlocks =
+                                complete.configuration.requestedAcceptedBlocks + 1
+                        )
+                )
+                .withRejectedBlock()
+        val manifest =
+            ComparisonFixtures.manifest(
+                RunMode.WARM,
+                ComparisonFixtures.requiredLifecycleGates(RunMode.WARM),
+            )
+
+        val report = evaluator.evaluate(short, listOf(manifest))
+
+        assertThat(report.metrics.map(MetricDecision::decision).distinct())
+            .containsExactly(GateDecision.INCONCLUSIVE)
+        assertThat(report.metrics.map(MetricDecision::interval).distinct()).containsExactly(null)
+        assertThat(report.rejectedBlocks).hasSize(short.workloads.single().metricSeries.size)
+    }
+
+    @Test
+    fun `biased accepted first positions invalidate normative and targeted ratio evidence`() {
+        val biased = ComparisonFixtures.lifecycleResult(RunMode.WARM).withBaselineAlwaysFirst()
+        val manifest =
+            ComparisonFixtures.manifest(
+                RunMode.WARM,
+                ComparisonFixtures.requiredLifecycleGates(RunMode.WARM),
+            )
+
+        val report =
+            evaluator.evaluate(
+                biased,
+                listOf(manifest),
+                listOf(TargetedClaim(RunMode.WARM, MetricId.LATENCY, Statistic.MEDIAN)),
+            )
+
+        assertThat(report.metrics.map(MetricDecision::decision).distinct())
+            .containsExactly(GateDecision.INCONCLUSIVE)
+        assertThat(report.metrics.map(MetricDecision::interval).distinct()).containsExactly(null)
+    }
+
+    @Test
+    fun `biased accepted first positions invalidate retained and per step structural evidence`() {
+        val retainedManifest =
+            ComparisonFixtures.manifest(RunMode.RETAINED, listOf(GateId.RETAINED_SLOPE))
+        val perStepManifest =
+            ComparisonFixtures.manifest(
+                RunMode.RETAINED,
+                listOf(GateId.PER_STEP_ALLOCATION_SPREAD),
+            )
+
+        val retained =
+            evaluator.evaluate(
+                ComparisonFixtures.retainedResult(candidateSlope = 0.0).withBaselineAlwaysFirst(),
+                listOf(retainedManifest),
+            )
+        val perStep =
+            evaluator.evaluate(
+                ComparisonFixtures.perStepResult(listOf(100.0, 105.0, 110.0))
+                    .withBaselineAlwaysFirst(),
+                listOf(perStepManifest),
+            )
+
+        assertThat(retained.decision(GateId.RETAINED_SLOPE).decision)
+            .isEqualTo(GateDecision.INCONCLUSIVE)
+        assertThat(retained.decision(GateId.RETAINED_SLOPE).slopeInterval).isNull()
+        assertThat(perStep.decision(GateId.PER_STEP_ALLOCATION_SPREAD).decision)
+            .isEqualTo(GateDecision.INCONCLUSIVE)
+        assertThat(perStep.decision(GateId.PER_STEP_ALLOCATION_SPREAD).observedValue).isNull()
+    }
+
+    @Test
+    fun `balanced odd accepted order remains complete for ratio and structural gates`() {
+        val warm =
+            evaluateLifecycle(
+                mode = RunMode.WARM,
+                ratios = emptyMap(),
+                targetedClaims =
+                    listOf(TargetedClaim(RunMode.WARM, MetricId.LATENCY, Statistic.MEDIAN)),
+            )
+        val retained =
+            evaluator.evaluate(
+                ComparisonFixtures.retainedResult(candidateSlope = 0.0),
+                listOf(
+                    ComparisonFixtures.manifest(
+                        RunMode.RETAINED,
+                        listOf(GateId.RETAINED_SLOPE),
+                    )
+                ),
+            )
+        val perStep =
+            evaluator.evaluate(
+                ComparisonFixtures.perStepResult(listOf(100.0, 105.0, 110.0)),
+                listOf(
+                    ComparisonFixtures.manifest(
+                        RunMode.RETAINED,
+                        listOf(GateId.PER_STEP_ALLOCATION_SPREAD),
+                    )
+                ),
+            )
+
+        assertThat(warm.targeted(MetricId.LATENCY, Statistic.MEDIAN).decision)
+            .isEqualTo(GateDecision.FAIL)
+        assertThat(warm.targeted(MetricId.LATENCY, Statistic.MEDIAN).interval).isNotNull()
+        assertThat(retained.decision(GateId.RETAINED_SLOPE).decision)
+            .isEqualTo(GateDecision.PASS)
+        assertThat(perStep.decision(GateId.PER_STEP_ALLOCATION_SPREAD).decision)
+            .isEqualTo(GateDecision.PASS)
+    }
+
+    @Test
     fun `missing declared gate is inconclusive`() {
         val result =
             ComparisonFixtures.lifecycleResult(RunMode.COLD).copy(
@@ -597,6 +715,50 @@ class ReleaseGateEvaluatorTest {
                 it.metric == metric &&
                 it.statistic == statistic
         }
+
+    private fun BenchmarkResultV1.withBaselineAlwaysFirst(): BenchmarkResultV1 =
+        copy(
+            workloads =
+                workloads.map { workload ->
+                    workload.copy(
+                        metricSeries =
+                            workload.metricSeries.map { series ->
+                                series.copy(
+                                    blocks =
+                                        requireNotNull(series.blocks).map { block ->
+                                            block.copy(
+                                                targetOrder =
+                                                    listOf(
+                                                        ComparisonFixtures.BASELINE_ID,
+                                                        ComparisonFixtures.CANDIDATE_ID,
+                                                    )
+                                            )
+                                        }
+                                )
+                            }
+                    )
+                }
+        )
+
+    private fun BenchmarkResultV1.withRejectedBlock(): BenchmarkResultV1 =
+        copy(
+            workloads =
+                workloads.map { workload ->
+                    workload.copy(
+                        metricSeries =
+                            workload.metricSeries.map { series ->
+                                val rejected =
+                                    requireNotNull(series.blocks).first().copy(
+                                        blockId = 999,
+                                        accepted = false,
+                                        rejectionReasons = listOf("replacement-budget-exhausted"),
+                                        observations = emptyList(),
+                                    )
+                                series.copy(blocks = requireNotNull(series.blocks) + rejected)
+                            }
+                    )
+                }
+        )
 
     private fun golden(name: String): Path =
         Path.of(
