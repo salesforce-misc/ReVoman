@@ -349,11 +349,22 @@ From a clean worktree, export a current target manifest if absent, then run seri
 
 ./gradlew :benchmark-driver:benchmarkHarnessSelfTest \
   :benchmark-driver:jmhClasses :benchmark-driver:installDist \
-  spotlessCheck detekt qodanaScan \
+  spotlessCheck detekt \
+  -Pbenchmark.targetManifest="$PWD/build/benchmark-target-current.json" \
+  -Pbenchmark.adapter=baseline-83f3cd70 \
+  --rerun-tasks --no-build-cache --console=plain
+
+./gradlew qodanaScan \
   -Pbenchmark.targetManifest="$PWD/build/benchmark-target-current.json" \
   -Pbenchmark.adapter=baseline-83f3cd70 \
   --rerun-tasks --no-build-cache --console=plain
 ```
+
+Keep Qodana in the separate serial invocation. Under Gradle 9.7, `qodanaScan` declares the
+repository root as an input while Detekt and Spotless write outputs beneath that root, so
+co-scheduling those tasks fails Gradle's implicit-dependency validation before analysis. The
+spec owner approved serial execution of the same constituent gates; changing global build wiring
+is unrelated scope.
 
 Also run:
 

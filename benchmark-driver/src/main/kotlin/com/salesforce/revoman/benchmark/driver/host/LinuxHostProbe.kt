@@ -285,14 +285,15 @@ class LinuxHostProbe(
         val external =
             typedSupplies.filter { (_, type) -> type != "Battery" }.map(Pair<Path, String>::first)
         check(external.isNotEmpty()) { "Linux power-supply sysfs has no external power source" }
-        return if (external.any { supply ->
-            when (val online = readRequired(relative(supply.resolve("online"))).trim()) {
-                "0" -> false
-                "1" -> true
-                else -> error("Invalid Linux power-supply online value: $online")
+        val onlineStates =
+            external.map { supply ->
+                when (val online = readRequired(relative(supply.resolve("online"))).trim()) {
+                    "0" -> false
+                    "1" -> true
+                    else -> error("Invalid Linux power-supply online value: $online")
+                }
             }
-        }
-        ) {
+        return if (onlineStates.any { it }) {
             PowerEvidence.EXTERNAL_POWER_ONLINE
         } else {
             PowerEvidence.EXTERNAL_POWER_OFFLINE

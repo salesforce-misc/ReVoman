@@ -413,6 +413,35 @@ class HostHealthGateTest {
     }
 
     @Test
+    fun `observed power validates later external sources after an earlier source is online`() {
+        val malformedRoot = temporaryDirectory.resolve("observed-later-malformed-power")
+        writeLinuxHost(malformedRoot)
+        write(malformedRoot, "sys/class/power_supply/ZZ_MALFORMED/type", "Mains\n")
+        write(malformedRoot, "sys/class/power_supply/ZZ_MALFORMED/online", "2\n")
+        val malformed = assertThrows<IllegalStateException> {
+            linuxProbe(
+                    malformedRoot,
+                    requirement = PowerEvidenceRequirement.OBSERVE_EXTERNAL_POWER,
+                )
+                .sample()
+        }
+
+        val missingRoot = temporaryDirectory.resolve("observed-later-missing-power")
+        writeLinuxHost(missingRoot)
+        write(missingRoot, "sys/class/power_supply/ZZ_MISSING/type", "USB\n")
+        val missing = assertThrows<IllegalStateException> {
+            linuxProbe(
+                    missingRoot,
+                    requirement = PowerEvidenceRequirement.OBSERVE_EXTERNAL_POWER,
+                )
+                .sample()
+        }
+
+        assertThat(malformed).hasMessageThat().contains("online value")
+        assertThat(missing).hasMessageThat().contains("ZZ_MISSING/online")
+    }
+
+    @Test
     fun `fixed mains rejects observed and unavailable evidence`() {
         val fixedMainsPolicy =
             policy().copy(powerEvidenceRequirement = PowerEvidenceRequirement.FIXED_MAINS)
