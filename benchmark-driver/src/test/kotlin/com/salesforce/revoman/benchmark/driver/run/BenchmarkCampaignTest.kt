@@ -162,14 +162,14 @@ class BenchmarkCampaignTest {
 
     private fun health(time: Long): HostHealthSnapshot =
         HostHealthSnapshot(
-            time,
-            0.0,
-            0.0,
-            1,
-            0,
-            0.0,
-            PowerEvidence.EXTERNAL_POWER_ONLINE,
-            listOf("performance"),
+            capturedAtNanos = time,
+            loadAverage = 0.0,
+            cpuBusyFraction = 0.0,
+            availableMemoryBytes = 1,
+            swapUsedBytes = 0,
+            thermalValue = 0.0,
+            powerEvidence = PowerEvidence.EXTERNAL_POWER_ONLINE,
+            governors = listOf("performance"),
         )
 
     private fun syntheticHostProbe(): HostHealthProbe {

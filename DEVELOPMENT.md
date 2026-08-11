@@ -146,8 +146,9 @@ runs on the protected `performance` environment with the
 readable absolute host-policy file and writable `/opt/revoman-benchmark/runs`; workflow code does
 not create or relax policy.
 
-Observed external power is runtime Linux power-supply sysfs evidence: the policy records whether
-an external source is online or offline, and `REQUIRE_EXTERNAL_POWER` rejects an offline sample.
+Observed external power is runtime Linux power-supply sysfs evidence: each host-health snapshot
+records whether an external source is online or offline, while the policy selects whether
+observation alone is accepted or `REQUIRE_EXTERNAL_POWER` rejects an offline sample.
 `FIXED_MAINS` is instead an administrator-owned, host-specific attestation that runtime power
 telemetry is not applicable. It requires an existing empty `/sys/class/power_supply` directory;
 any entry makes the controlled probe fail rather than fabricating an online observation.

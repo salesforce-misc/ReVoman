@@ -74,6 +74,8 @@ Exact build, export, smoke, controlled-campaign, comparison, and verification co
 `BenchmarkWorkflowTest`, including independent refs, fixed SHA, three target IDs, A/A ordering,
 distinct paths, supplied adapter/policy, release enforcement, and unconditional evidence upload.
 
+Smoke captures record `UNAVAILABLE` power evidence and cannot support controlled release claims.
+
 ## Evidence locations and legacy output
 
 Validated captures belong under:

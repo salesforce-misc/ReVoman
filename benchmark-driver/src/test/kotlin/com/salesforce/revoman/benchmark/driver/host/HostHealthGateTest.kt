@@ -327,6 +327,55 @@ class HostHealthGateTest {
     }
 
     @Test
+    fun `fixed mains rejects a missing power supply directory`() {
+        val root = temporaryDirectory.resolve("fixed-mains-missing-directory")
+        writeLinuxHost(root)
+        root.resolve("sys/class/power_supply").toFile().deleteRecursively()
+
+        val failure = assertThrows<IllegalStateException> {
+            linuxProbe(root, requirement = PowerEvidenceRequirement.FIXED_MAINS).sample()
+        }
+
+        assertThat(failure).hasMessageThat().contains("FIXED_MAINS")
+        assertThat(failure).hasMessageThat().contains("power-supply directory")
+    }
+
+    @Test
+    fun `fixed mains rejects a regular file power supply entry`() {
+        val root = temporaryDirectory.resolve("fixed-mains-file-entry")
+        writeLinuxHost(root)
+        val supplyRoot = root.resolve("sys/class/power_supply")
+        supplyRoot.toFile().deleteRecursively()
+        Files.createDirectories(supplyRoot)
+        Files.writeString(supplyRoot.resolve("unexpected"), "not sysfs telemetry\n")
+
+        val failure = assertThrows<IllegalStateException> {
+            linuxProbe(root, requirement = PowerEvidenceRequirement.FIXED_MAINS).sample()
+        }
+
+        assertThat(failure).hasMessageThat().contains("FIXED_MAINS")
+        assertThat(failure).hasMessageThat().contains("empty")
+    }
+
+    @Test
+    fun `fixed mains rejects a symbolic link power supply entry`() {
+        val root = temporaryDirectory.resolve("fixed-mains-symbolic-link-entry")
+        writeLinuxHost(root)
+        val supplyRoot = root.resolve("sys/class/power_supply")
+        supplyRoot.toFile().deleteRecursively()
+        Files.createDirectories(supplyRoot)
+        val target = Files.createDirectory(root.resolve("linked-power-supply"))
+        Files.createSymbolicLink(supplyRoot.resolve("linked"), target)
+
+        val failure = assertThrows<IllegalStateException> {
+            linuxProbe(root, requirement = PowerEvidenceRequirement.FIXED_MAINS).sample()
+        }
+
+        assertThat(failure).hasMessageThat().contains("FIXED_MAINS")
+        assertThat(failure).hasMessageThat().contains("empty")
+    }
+
+    @Test
     fun `observed external power records online and offline while required power rejects offline`() {
         val root = temporaryDirectory.resolve("observed-power")
         writeLinuxHost(root)
