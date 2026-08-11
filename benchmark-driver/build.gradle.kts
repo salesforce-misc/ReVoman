@@ -8,6 +8,7 @@ import javax.inject.Inject
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.RegularFileProperty
+import org.gradle.api.model.ObjectFactory
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Classpath
@@ -20,7 +21,7 @@ import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.TaskAction
 import org.gradle.process.ExecOperations
 
-abstract class StrictJmhJavaExec : JavaExec() {
+abstract class StrictJmhJavaExec @Inject constructor(private val objects: ObjectFactory) : JavaExec() {
   @get:InputDirectory abstract val installationRoot: DirectoryProperty
 
   @get:InputFile abstract val targetManifest: RegularFileProperty
@@ -53,11 +54,15 @@ abstract class StrictJmhJavaExec : JavaExec() {
     check(Files.isRegularFile(thinJar)) { "Missing fixed thin JMH classes JAR: $thinJar" }
     val installedJars =
       Files.list(lib).use { paths ->
-        paths.filter { it.fileName.toString().endsWith(".jar") }.sorted().toList()
+        paths
+          .filter { it.fileName.toString().endsWith(".jar") }
+          .toList()
+          .sortedBy { it.fileName.toString() }
       }
     check(installedJars.none { it.fileName.toString().endsWith("-jmh.jar") }) {
       "Installed benchmark classpath contains a forbidden JMH uber-JAR: $installedJars"
     }
+    classpath = objects.fileCollection().from(installedJars.map { it.toFile() })
 
     logConfigOverride.orNull?.let { supplied ->
       require(Path.of(supplied).isAbsolute) {
@@ -215,7 +220,7 @@ abstract class BenchmarkHarnessSelfTest @Inject constructor(
     val manifest = targetManifest.get().asFile.toPath().toRealPath()
     execOperations
       .javaexec {
-        classpath(installedClasspath)
+        classpath(installedClasspath.files.sortedBy { it.name })
         mainClass.set("com.salesforce.revoman.benchmark.driver.jmh.HarnessSelfTestMainKt")
         args(
           installationRoot.get().asFile.absolutePath,
@@ -224,6 +229,55 @@ abstract class BenchmarkHarnessSelfTest @Inject constructor(
         )
       }
       .assertNormalExitValue()
+  }
+}
+
+abstract class BenchmarkCleanInstallTaskGraphTest @Inject constructor(
+  private val execOperations: ExecOperations
+) : DefaultTask() {
+  @get:Internal abstract val repositoryRoot: DirectoryProperty
+
+  @get:InputFile abstract val wrapper: RegularFileProperty
+
+  @TaskAction
+  fun verifyCleanInstallTaskGraphs() {
+    val testRoot = Files.createTempDirectory(temporaryDir.toPath(), "clean-install-")
+    val cleanDriverBuild = testRoot.resolve("benchmark-driver")
+    val initScript = testRoot.resolve("clean-driver-build.init.gradle.kts")
+    Files.writeString(
+      initScript,
+      """
+      gradle.beforeProject {
+        if (path == ":benchmark-driver") {
+          layout.buildDirectory.set(file(java.net.URI("${cleanDriverBuild.toUri()}")))
+        }
+      }
+      """
+        .trimIndent(),
+    )
+
+    val output = ByteArrayOutputStream()
+    val result =
+      execOperations.exec {
+        workingDir(repositoryRoot.get().asFile)
+        commandLine(
+          wrapper.get().asFile.absolutePath,
+          ":benchmark-driver:benchmarkHarnessSelfTest",
+          ":benchmark-driver:benchmarkJmh",
+          "-I${initScript.toAbsolutePath()}",
+          "-Pbenchmark.targetManifest=build/unused-clean-install-manifest.json",
+          "-Pbenchmark.adapter=baseline-83f3cd70",
+          "--dry-run",
+          "--no-configuration-cache",
+          "--console=plain",
+        )
+        standardOutput = output
+        errorOutput = output
+        isIgnoreExitValue = true
+      }
+    check(result.exitValue == 0) {
+      "Clean-install task graph failed:\n${output.toString(Charsets.UTF_8)}"
+    }
   }
 }
 
@@ -644,6 +698,8 @@ val benchmarkLogConfig = providers.gradleProperty("benchmark.logConfig")
 
 val installedRoot = layout.buildDirectory.dir("install/benchmark-driver")
 val installedLib = installedRoot.map { it.dir("lib") }
+val installedJars =
+  installedLib.map { directory -> directory.asFileTree.matching { include("*.jar") } }
 val rawJmhOutput =
   benchmarkRawJmhOutput
     .map(rootProject.layout.projectDirectory::file)
@@ -663,12 +719,7 @@ val benchmarkJmh = tasks.register<StrictJmhJavaExec>("benchmarkJmh") {
   description = "Runs strict JMH from the installed original-JAR classpath"
   dependsOn("installDist")
   mainClass.set("com.salesforce.revoman.benchmark.driver.jmh.JmhDriverMainKt")
-  classpath(
-    providers.provider {
-      installedLib.get().asFile.listFiles { file -> file.extension == "jar" }!!
-        .sortedBy { it.name }
-    }
-  )
+  classpath(installedJars)
   installationRoot.set(installedRoot)
   targetManifest.set(benchmarkTargetManifestFile)
   logConfig.set(resolvedLogConfig)
@@ -689,16 +740,20 @@ tasks.register<BenchmarkHarnessSelfTest>("benchmarkHarnessSelfTest") {
   description = "Validates an explicit target manifest and the installed harness structure"
   dependsOn("installDist")
   installationRoot.set(installedRoot)
-  installedClasspath.from(
-    providers.provider {
-      installedLib.get().asFile.listFiles { file -> file.extension == "jar" }!!
-        .sortedBy { it.name }
-    }
-  )
+  installedClasspath.from(installedJars)
   targetManifest.set(benchmarkTargetManifestFile)
   adapterId.set(benchmarkAdapter)
   outputs.upToDateWhen { false }
 }
+
+val benchmarkCleanInstallTaskGraphTest =
+  tasks.register<BenchmarkCleanInstallTaskGraphTest>("benchmarkCleanInstallTaskGraphTest") {
+    group = "verification"
+    description = "Verifies benchmark tasks can be scheduled before installDist creates their classpath"
+    repositoryRoot.set(rootProject.layout.projectDirectory)
+    wrapper.set(rootProject.layout.projectDirectory.file("gradlew"))
+    outputs.upToDateWhen { false }
+  }
 
 tasks.register<BenchmarkJmhFreshnessTest>("benchmarkJmhFreshnessTest") {
   group = "verification"

@@ -53,6 +53,7 @@ jobs:
           ./gradlew
           :benchmark-driver:check
           :benchmark-driver:integrationTest
+          :benchmark-driver:benchmarkCleanInstallTaskGraphTest
           :benchmark-driver:benchmarkHarnessSelfTest
           -Pbenchmark.targetManifest=build/benchmark-target-current.json
           -Pbenchmark.adapter=baseline-83f3cd70
