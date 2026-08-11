@@ -1288,12 +1288,15 @@ class JdkProcessLauncherTest {
                 check(System.nanoTime() < deadline) { "Exited descendant was not observed" }
                 Thread.sleep(1)
             }
-
-            assertThat(tracker.snapshot().descendants).isEmpty()
         } finally {
             tracker.stopSampling()
             trackingThread.join(Duration.ofSeconds(2))
         }
+
+        assertThat(trackingThread.isAlive).isFalse()
+        assertThat(tracker.failureOrNull()).isNull()
+        assertThat(tracker.snapshot().observedDescendantPids).contains(303L)
+        assertThat(tracker.snapshot().descendants).isEmpty()
     }
 
     @Test
