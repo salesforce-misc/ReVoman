@@ -338,9 +338,16 @@ class BenchmarkWorkflowTest {
     assertThat(selfTest).contains(":benchmark-driver:check")
     assertThat(selfTest).contains(":benchmark-driver:integrationTest")
     assertThat(selfTest).contains(":benchmark-driver:benchmarkCleanInstallTaskGraphTest")
+    assertThat(selfTest).contains(":benchmark-driver:benchmarkJmhTaskSerializationTest")
     assertThat(selfTest).contains(":benchmark-driver:benchmarkHarnessSelfTest")
     assertThat(selfTest).contains("-Pbenchmark.targetManifest=build/benchmark-target-current.json")
     assertThat(selfTest).contains("-Pbenchmark.adapter=baseline-83f3cd70")
+
+    val uploadedReports =
+      steps.single { it["name"] == "Upload test reports" }.asMap("with")["path"].toString()
+    assertThat(uploadedReports.lineSequence().filter(String::isNotBlank).toList())
+      .containsExactly("build/reports/tests/", "benchmark-driver/build/reports/tests/")
+      .inOrder()
 
     val ordinaryRuns = runByName.values.joinToString("\n")
     assertThat(ordinaryRuns).doesNotContain("--enforce-release-gates")

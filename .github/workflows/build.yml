@@ -54,6 +54,7 @@ jobs:
           :benchmark-driver:check
           :benchmark-driver:integrationTest
           :benchmark-driver:benchmarkCleanInstallTaskGraphTest
+          :benchmark-driver:benchmarkJmhTaskSerializationTest
           :benchmark-driver:benchmarkHarnessSelfTest
           -Pbenchmark.targetManifest=build/benchmark-target-current.json
           -Pbenchmark.adapter=baseline-83f3cd70
@@ -64,6 +65,8 @@ jobs:
         uses: actions/upload-artifact@main
         with:
           name: test-reports
-          path: build/reports/tests/
+          path: |
+            build/reports/tests/
+            benchmark-driver/build/reports/tests/
           retention-days: 7
           if-no-files-found: ignore

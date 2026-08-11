@@ -11,6 +11,8 @@ import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.model.ObjectFactory
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
+import org.gradle.api.services.BuildService
+import org.gradle.api.services.BuildServiceParameters
 import org.gradle.api.tasks.Classpath
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputDirectory
@@ -20,6 +22,9 @@ import org.gradle.api.tasks.Optional
 import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.TaskAction
 import org.gradle.process.ExecOperations
+
+/** Gradle scheduling lease for tasks that start a real JMH controller in this build. */
+abstract class JmhProcessLock : BuildService<BuildServiceParameters.None>
 
 abstract class StrictJmhJavaExec @Inject constructor(private val objects: ObjectFactory) : JavaExec() {
   @get:InputDirectory abstract val installationRoot: DirectoryProperty
@@ -277,6 +282,123 @@ abstract class BenchmarkCleanInstallTaskGraphTest @Inject constructor(
       }
     check(result.exitValue == 0) {
       "Clean-install task graph failed:\n${output.toString(Charsets.UTF_8)}"
+    }
+  }
+}
+
+abstract class BenchmarkJmhTaskSerializationTest @Inject constructor(
+  private val execOperations: ExecOperations
+) : DefaultTask() {
+  @get:Internal abstract val repositoryRoot: DirectoryProperty
+
+  @get:InputFile abstract val wrapper: RegularFileProperty
+
+  @TaskAction
+  fun verifyJmhTaskSerialization() {
+    val testRoot = Files.createTempDirectory(temporaryDir.toPath(), "jmh-task-serialization-")
+    val fixtureRoot = testRoot.resolve("fixture")
+    val installationRoot = fixtureRoot.resolve("install")
+    val testClasses = fixtureRoot.resolve("test-classes")
+    val manifest = fixtureRoot.resolve("manifest.json")
+    val initScript = testRoot.resolve("jmh-task-serialization.init.gradle")
+    val isolatedDriverBuild = testRoot.resolve("benchmark-driver-build")
+    Files.createDirectories(installationRoot)
+    Files.createDirectories(testClasses)
+    Files.writeString(testClasses.resolve("dummy.class"), "not-a-real-class")
+    Files.writeString(manifest, "{}")
+    Files.writeString(
+      initScript,
+      $$"""
+      import java.nio.channels.FileChannel
+      import java.nio.channels.OverlappingFileLockException
+      import java.net.URI
+      import java.nio.file.Path
+      import java.nio.file.StandardOpenOption
+
+      gradle.beforeProject { project ->
+          if (project.path == ':benchmark-driver') {
+              project.layout.buildDirectory.set(
+                  project.file(URI.create('$${isolatedDriverBuild.toUri()}'))
+              )
+          }
+      }
+
+      gradle.projectsEvaluated {
+          def driver = gradle.rootProject.findProject(':benchmark-driver')
+          if (driver == null) {
+              return
+          }
+          def fixtureRoot = Path.of(java.net.URI.create('$${fixtureRoot.toUri()}'))
+          def lockPath = fixtureRoot.resolve('jmh.lock')
+
+          ['integrationTest', 'benchmarkHarnessSelfTest'].each { taskName ->
+              def task = driver.tasks.named(taskName).get()
+              task.setDependsOn([])
+              task.actions.clear()
+              task.outputs.upToDateWhen { false }
+              if (taskName == 'integrationTest') {
+                  task.testClassesDirs = driver.files(fixtureRoot.resolve('test-classes').toFile())
+                  task.classpath = driver.files()
+              } else {
+                  task.installationRoot.set(fixtureRoot.resolve('install').toFile())
+                  task.installedClasspath.setFrom([])
+                  task.targetManifest.set(fixtureRoot.resolve('manifest.json').toFile())
+                  task.adapterId.set('serialization-probe')
+              }
+              task.doLast {
+                  def channel = FileChannel.open(
+                      lockPath,
+                      StandardOpenOption.CREATE,
+                      StandardOpenOption.WRITE,
+                  )
+                  def lock = null
+                  try {
+                      try {
+                          lock = channel.tryLock()
+                      } catch (OverlappingFileLockException ignored) {
+                          // The competing task owns the process-global test lock.
+                      }
+                      if (lock == null) {
+                          throw new GradleException(
+                              "JMH-owning tasks overlapped: ${task.path}"
+                          )
+                      }
+                      Thread.sleep(2_000)
+                  } finally {
+                      lock?.release()
+                      channel.close()
+                  }
+              }
+          }
+      }
+      """
+        .trimIndent(),
+    )
+
+    val output = ByteArrayOutputStream()
+    val result =
+      execOperations.exec {
+        workingDir(repositoryRoot.get().asFile)
+        commandLine(
+          wrapper.get().asFile.absolutePath,
+          ":benchmark-driver:integrationTest",
+          ":benchmark-driver:benchmarkHarnessSelfTest",
+          "-I${initScript.toAbsolutePath()}",
+          "-Pbenchmark.targetManifest=${manifest.toAbsolutePath()}",
+          "-Pbenchmark.adapter=serialization-probe",
+          "-Dorg.gradle.configuration-cache.parallel=true",
+          "--parallel",
+          "--max-workers=2",
+          "--configuration-cache",
+          "--project-cache-dir=${testRoot.resolve("project-cache").toAbsolutePath()}",
+          "--console=plain",
+        )
+        standardOutput = output
+        errorOutput = output
+        isIgnoreExitValue = true
+      }
+    check(result.exitValue == 0) {
+      "JMH-owning Gradle tasks were not serialized:\n${output.toString(Charsets.UTF_8)}"
     }
   }
 }
@@ -601,6 +723,10 @@ tasks.withType<Test>().configureEach {
 
 val generatedClasses = layout.buildDirectory.dir("jmh-generated-classes")
 val generatedResources = layout.buildDirectory.dir("jmh-generated-resources")
+val jmhProcessLock =
+  gradle.sharedServices.registerIfAbsent("revomanJmhProcessLock", JmhProcessLock::class) {
+    maxParallelUsages.set(1)
+  }
 
 val benchmarkJmhClassesJar = tasks.register<Jar>("benchmarkJmhClassesJar") {
   group = "benchmark"
@@ -672,7 +798,10 @@ tasks.named("installDist") {
   dependsOn(benchmarkJmhClassesJar, generateBenchmarkHarnessSource)
 }
 
-tasks.named("integrationTest") { dependsOn("installDist") }
+tasks.named("integrationTest") {
+  dependsOn("installDist")
+  usesService(jmhProcessLock)
+}
 
 tasks.named("jmh") {
   onlyIf {
@@ -732,6 +861,7 @@ val benchmarkJmh = tasks.register<StrictJmhJavaExec>("benchmarkJmh") {
   rawOutput.set(rawJmhOutput)
   normalizedOutput.set(normalizedJmhOutput)
   humanOutput.set(humanJmhOutput)
+  usesService(jmhProcessLock)
   outputs.upToDateWhen { false }
 }
 
@@ -743,6 +873,7 @@ tasks.register<BenchmarkHarnessSelfTest>("benchmarkHarnessSelfTest") {
   installedClasspath.from(installedJars)
   targetManifest.set(benchmarkTargetManifestFile)
   adapterId.set(benchmarkAdapter)
+  usesService(jmhProcessLock)
   outputs.upToDateWhen { false }
 }
 
@@ -755,6 +886,15 @@ val benchmarkCleanInstallTaskGraphTest =
     outputs.upToDateWhen { false }
   }
 
+tasks.register<BenchmarkJmhTaskSerializationTest>("benchmarkJmhTaskSerializationTest") {
+  group = "verification"
+  description = "Verifies real-JMH Gradle tasks cannot execute concurrently"
+  repositoryRoot.set(rootProject.layout.projectDirectory)
+  wrapper.set(rootProject.layout.projectDirectory.file("gradlew"))
+  usesService(jmhProcessLock)
+  outputs.upToDateWhen { false }
+}
+
 tasks.register<BenchmarkJmhFreshnessTest>("benchmarkJmhFreshnessTest") {
   group = "verification"
   description = "Runs an identical JMH command twice and requires fresh evidence"
@@ -763,6 +903,7 @@ tasks.register<BenchmarkJmhFreshnessTest>("benchmarkJmhFreshnessTest") {
   targetManifest.set(benchmarkTargetManifestFile)
   adapterId.set(benchmarkAdapter)
   outputRoot.set(layout.buildDirectory.dir("self-test/freshness"))
+  usesService(jmhProcessLock)
   outputs.upToDateWhen { false }
 }
 
@@ -774,5 +915,6 @@ tasks.register<BenchmarkJmhOutputCollisionTest>("benchmarkJmhOutputCollisionTest
   targetManifest.set(benchmarkTargetManifestFile)
   adapterId.set(benchmarkAdapter)
   outputRoot.set(layout.buildDirectory.dir("self-test/output-collision"))
+  usesService(jmhProcessLock)
   outputs.upToDateWhen { false }
 }
