@@ -16,3 +16,9 @@ This page intentionally makes no numeric performance claim. A release claim may 
 `revoman-benchmark/v1` or `revoman-benchmark-jmh/v1` artifacts captured under the
 link:{gh-blob}/docs/superpowers/benchmarks/baseline.md[v1 reproducible evidence protocol]. Legacy
 human JMH output is not comparable evidence.
+
+Controlled Linux samples record observed external-power sysfs evidence separately from an
+administrator-owned fixed-mains attestation. Fixed mains is valid only when the host's
+`/sys/class/power_supply` directory exists and is empty, meaning runtime power telemetry is not
+applicable; it is not an inferred healthy power state. Smoke samples record unavailable power
+evidence and cannot support release claims.

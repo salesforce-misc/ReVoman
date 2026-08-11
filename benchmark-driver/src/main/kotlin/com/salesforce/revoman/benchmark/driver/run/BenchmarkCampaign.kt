@@ -12,6 +12,7 @@ import com.salesforce.revoman.benchmark.driver.host.ControlledHostPolicy
 import com.salesforce.revoman.benchmark.driver.host.HostHealthGate
 import com.salesforce.revoman.benchmark.driver.host.HostHealthProbe
 import com.salesforce.revoman.benchmark.driver.host.LinuxHostProbe
+import com.salesforce.revoman.benchmark.driver.host.PowerEvidenceRequirement
 import com.salesforce.revoman.benchmark.driver.host.SampledHostExecution
 import com.salesforce.revoman.benchmark.driver.host.VerifiedControlledHostPolicy
 import com.salesforce.revoman.benchmark.driver.integrity.LoadedTargetManifest
@@ -32,6 +33,7 @@ import com.salesforce.revoman.benchmark.driver.model.MetricId
 import com.salesforce.revoman.benchmark.driver.model.MetricPass
 import com.salesforce.revoman.benchmark.driver.model.MetricSeries
 import com.salesforce.revoman.benchmark.driver.model.MetricUnit
+import com.salesforce.revoman.benchmark.driver.model.PowerEvidence
 import com.salesforce.revoman.benchmark.driver.model.RunIntent
 import com.salesforce.revoman.benchmark.driver.model.RunMode
 import com.salesforce.revoman.benchmark.driver.model.TargetAssignment
@@ -605,7 +607,7 @@ private class SyntheticHostProbe : HostHealthProbe {
             availableMemoryBytes = Long.MAX_VALUE,
             swapUsedBytes = 0,
             thermalValue = 0.0,
-            onAcPower = true,
+            powerEvidence = PowerEvidence.UNAVAILABLE,
             governors = listOf("unknown"),
         )
 }
@@ -616,7 +618,7 @@ private fun smokePolicy(): ControlledHostPolicy =
         cpuModel = "smoke",
         cpuCount = 1,
         allowedGovernors = setOf("unknown"),
-        requireAcPower = false,
+        powerEvidenceRequirement = PowerEvidenceRequirement.OBSERVE_EXTERNAL_POWER,
         maximumLoadAverage = Double.MAX_VALUE,
         maximumCpuBusyFraction = 1.0,
         minimumAvailableMemoryBytes = 1,

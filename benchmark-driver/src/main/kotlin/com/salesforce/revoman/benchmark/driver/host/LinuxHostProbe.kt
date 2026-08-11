@@ -9,6 +9,7 @@ package com.salesforce.revoman.benchmark.driver.host
 
 import com.salesforce.revoman.benchmark.driver.integrity.ContentHasher
 import com.salesforce.revoman.benchmark.driver.model.HostHealthSnapshot
+import com.salesforce.revoman.benchmark.driver.model.PowerEvidence
 import java.nio.charset.StandardCharsets.UTF_8
 import java.nio.file.Files
 import java.nio.file.Path
@@ -94,7 +95,7 @@ class LinuxHostProbe(
                 availableMemoryBytes = memory.availableBytes,
                 swapUsedBytes = memory.swapUsedBytes,
                 thermalValue = readThermalCelsius(),
-                onAcPower = readOnAcPower(),
+                powerEvidence = readPowerEvidence(),
                 governors = readGovernors(identity.processorIds),
             )
             .also { it.validate("linuxHostProbe") }
@@ -250,7 +251,27 @@ class LinuxHostProbe(
                 .also { governor -> check(governor.isNotEmpty()) { "CPU $cpu governor is empty" } }
         }
 
-    private fun readOnAcPower(): Boolean {
+    private fun readPowerEvidence(): PowerEvidence =
+        when (policy.powerEvidenceRequirement) {
+            PowerEvidenceRequirement.FIXED_MAINS -> readFixedMainsEvidence()
+            PowerEvidenceRequirement.OBSERVE_EXTERNAL_POWER,
+            PowerEvidenceRequirement.REQUIRE_EXTERNAL_POWER -> readExternalPowerEvidence()
+        }
+
+    private fun readFixedMainsEvidence(): PowerEvidence {
+        val supplyRoot = resolve("sys/class/power_supply")
+        check(Files.isDirectory(supplyRoot)) {
+            "FIXED_MAINS requires the Linux power-supply directory: $supplyRoot"
+        }
+        Files.newDirectoryStream(supplyRoot).use { entries ->
+            check(!entries.iterator().hasNext()) {
+                "FIXED_MAINS requires an empty Linux power-supply directory: $supplyRoot"
+            }
+        }
+        return PowerEvidence.FIXED_MAINS
+    }
+
+    private fun readExternalPowerEvidence(): PowerEvidence {
         val supplyRoot = resolve("sys/class/power_supply")
         val supplies = listDirectories(supplyRoot)
         val typedSupplies =
@@ -264,12 +285,17 @@ class LinuxHostProbe(
         val external =
             typedSupplies.filter { (_, type) -> type != "Battery" }.map(Pair<Path, String>::first)
         check(external.isNotEmpty()) { "Linux power-supply sysfs has no external power source" }
-        return external.any { supply ->
+        return if (external.any { supply ->
             when (val online = readRequired(relative(supply.resolve("online"))).trim()) {
                 "0" -> false
                 "1" -> true
                 else -> error("Invalid Linux power-supply online value: $online")
             }
+        }
+        ) {
+            PowerEvidence.EXTERNAL_POWER_ONLINE
+        } else {
+            PowerEvidence.EXTERNAL_POWER_OFFLINE
         }
     }
 

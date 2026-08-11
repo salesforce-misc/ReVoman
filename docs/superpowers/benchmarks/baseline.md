@@ -45,6 +45,10 @@ relaxed and unfavorable observations are not deleted.
   documented in `DEVELOPMENT.md` and encoded by the workflow semantic test.
 - Pass the supplied policy path, quoted, to every controlled command. Workflow code never creates,
   substitutes, or weakens controlled-host policy.
+- For observed external power, retain the Linux power-supply sysfs result as runtime evidence. For
+  a permanently mains-powered host, `FIXED_MAINS` is an administrator-owned, host-specific
+  attestation that runtime telemetry is not applicable; it is valid only when
+  `/sys/class/power_supply` exists and is empty. Any entry fails the probe.
 - Preserve result and JFR files on every exit, including failed and inconclusive campaigns.
 
 ## Identity, provider, and hash requirements

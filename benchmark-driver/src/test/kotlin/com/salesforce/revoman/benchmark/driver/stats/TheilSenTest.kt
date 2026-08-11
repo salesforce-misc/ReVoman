@@ -13,6 +13,7 @@ import com.salesforce.revoman.benchmark.driver.model.HostHealthSnapshot
 import com.salesforce.revoman.benchmark.driver.model.MetricId
 import com.salesforce.revoman.benchmark.driver.model.MetricObservation
 import com.salesforce.revoman.benchmark.driver.model.MetricUnit
+import com.salesforce.revoman.benchmark.driver.model.PowerEvidence
 import com.salesforce.revoman.benchmark.driver.model.RetainedEvidence
 import com.salesforce.revoman.benchmark.driver.model.TargetRole
 import com.salesforce.revoman.benchmark.driver.model.WeakReferenceOutcome
@@ -380,7 +381,7 @@ class TheilSenTest {
             availableMemoryBytes = 1,
             swapUsedBytes = 0,
             thermalValue = 0.0,
-            onAcPower = true,
+            powerEvidence = PowerEvidence.EXTERNAL_POWER_ONLINE,
             governors = listOf("performance"),
         )
 }

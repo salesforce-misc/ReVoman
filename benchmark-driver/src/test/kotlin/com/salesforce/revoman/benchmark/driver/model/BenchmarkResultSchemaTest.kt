@@ -35,6 +35,38 @@ class BenchmarkResultSchemaTest {
     }
 
     @Test
+    fun `host health requires power evidence and rejects the removed Boolean`() {
+        val canonical = Files.readString(resultFixture("minimal-valid.json"))
+        val removedField = "on" + "AcPower"
+        val legacy = temporaryDirectory.resolve("legacy-power-result.json")
+        val missing = temporaryDirectory.resolve("missing-power-result.json")
+        Files.writeString(
+            legacy,
+            canonical.replace(
+                "\"powerEvidence\": \"EXTERNAL_POWER_ONLINE\"",
+                "\"$removedField\": true",
+            ),
+        )
+        Files.writeString(
+            missing,
+            canonical.replace(
+                Regex("\\s*\"powerEvidence\"[^\\n]+\\n"),
+                "\n",
+            ),
+        )
+
+        val legacyFailure = assertThrows<IllegalArgumentException> {
+            BenchmarkJson.validateSchema(legacy, RESULT_SCHEMA)
+        }
+        val missingFailure = assertThrows<IllegalArgumentException> {
+            BenchmarkJson.validateSchema(missing, RESULT_SCHEMA)
+        }
+
+        assertThat(legacyFailure).hasMessageThat().contains(removedField)
+        assertThat(missingFailure).hasMessageThat().contains("powerEvidence")
+    }
+
+    @Test
     fun `unknown result property is rejected`() {
         val source = resultFixture("invalid-unknown-field.json")
         val schemaFailure = assertThrows<IllegalArgumentException> {

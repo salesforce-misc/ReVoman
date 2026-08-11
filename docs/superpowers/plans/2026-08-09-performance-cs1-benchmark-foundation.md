@@ -555,7 +555,7 @@ Change Set 1 ships the harness, the versioned `lifecycle.no-script-one-step.v1` 
     val availableMemoryBytes: Long,
     val swapUsedBytes: Long,
     val thermalValue: Double,
-    val onAcPower: Boolean,
+    val powerEvidence: PowerEvidence,
     val governors: List<String>,
   )
 
@@ -1494,7 +1494,7 @@ scheduler or accept/reject policy.
     val cpuModel: String,
     val cpuCount: Int,
     val allowedGovernors: Set<String>,
-    val requireAcPower: Boolean,
+    val powerEvidenceRequirement: PowerEvidenceRequirement,
     val maximumLoadAverage: Double,
     val maximumCpuBusyFraction: Double,
     val minimumAvailableMemoryBytes: Long,
@@ -1540,7 +1540,15 @@ scheduler or accept/reject policy.
 
 - [ ] **Step 3: Implement a fail-closed Linux controlled policy.**
 
-  The v1 policy requires explicit expected host fingerprint, CPU model/count, allowed governors, AC-power requirement, load and CPU-busy limits, minimum available memory, maximum swap delta, maximum thermal value, probe interval, and maximum replacement blocks. `LinuxHostProbe` reads `/proc`, `/sys/devices/system/cpu/**/scaling_governor`, power-supply sysfs, and thermal zones. Missing/unsupported controlled probes reject the campaign; smoke mode records `unknown` without claiming release eligibility.
+  The v1 policy requires explicit expected host fingerprint, CPU model/count, allowed governors,
+  power-evidence requirement, load and CPU-busy limits, minimum available memory, maximum swap
+  delta, maximum thermal value, probe interval, and maximum replacement blocks. Observed external
+  power is Linux power-supply sysfs evidence. `FIXED_MAINS` is an administrator-owned host-specific
+  attestation that telemetry is not applicable and requires an existing empty
+  `/sys/class/power_supply` directory. `LinuxHostProbe` reads `/proc`,
+  `/sys/devices/system/cpu/**/scaling_governor`, power-supply sysfs, and thermal zones.
+  Missing/unsupported controlled probes reject the campaign; smoke records unavailable power
+  evidence without claiming release eligibility.
 
 - [ ] **Step 4: Implement paired block scheduling and rejection.**
 
@@ -2174,6 +2182,16 @@ scheduler or accept/reject policy.
 **Interfaces:**
 - Consumes: final clean CS1 driver distribution and controlled self-hosted Linux host.
 - Produces: first auditable v1 baseline evidence; historical values are audit evidence, not a reusable denominator for future candidates.
+
+For `gopalaaksh-wsl3`, the administrator-owned controlled-host policy records the fixed-mains
+attestation with:
+
+```json
+"powerEvidenceRequirement": "FIXED_MAINS"
+```
+
+This requires an existing empty `/sys/class/power_supply` directory; it does not infer external
+power from a missing directory or fabricate runtime telemetry.
 
 - [ ] **Step 1: Create two independent clean detached baseline checkouts.**
 

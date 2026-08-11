@@ -134,8 +134,9 @@ DRIVER=benchmark-driver/build/install/benchmark-driver/bin/benchmark-driver
 "$DRIVER" verify --input "$SMOKE_ROOT/smoke.json"
 ```
 
-Smoke output is structural evidence only. It cannot pass release gates because it has no verified
-controlled-host policy and does not meet the release sample counts.
+Smoke output is structural evidence only. Its synthetic host samples record `UNAVAILABLE` power
+evidence, and it cannot pass release gates because it has no verified controlled-host policy and
+does not meet the release sample counts.
 
 ### Controlled cold and warm campaigns
 
@@ -144,6 +145,12 @@ runs on the protected `performance` environment with the
 `[self-hosted, linux, revoman-controlled-benchmark]` labels. An administrator must provision a
 readable absolute host-policy file and writable `/opt/revoman-benchmark/runs`; workflow code does
 not create or relax policy.
+
+Observed external power is runtime Linux power-supply sysfs evidence: the policy records whether
+an external source is online or offline, and `REQUIRE_EXTERNAL_POWER` rejects an offline sample.
+`FIXED_MAINS` is instead an administrator-owned, host-specific attestation that runtime power
+telemetry is not applicable. It requires an existing empty `/sys/class/power_supply` directory;
+any entry makes the controlled probe fail rather than fabricating an online observation.
 
 The workflow builds the driver from a separately pinned full harness SHA, exports three independent
 clean manifests (`baseline-a`, `baseline-b`, and `candidate`), then runs these campaign shapes:

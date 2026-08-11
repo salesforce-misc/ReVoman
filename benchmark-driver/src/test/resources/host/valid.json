@@ -4,7 +4,7 @@
   "cpuModel": "Benchmark CPU",
   "cpuCount": 2,
   "allowedGovernors": ["schedutil", "performance"],
-  "requireAcPower": true,
+  "powerEvidenceRequirement": "REQUIRE_EXTERNAL_POWER",
   "maximumLoadAverage": 1.5,
   "maximumCpuBusyFraction": 0.75,
   "minimumAvailableMemoryBytes": 1073741824,

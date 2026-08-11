@@ -11,6 +11,7 @@ import com.google.common.truth.Truth.assertThat
 import com.salesforce.revoman.benchmark.driver.integrity.ContentHasher
 import com.salesforce.revoman.benchmark.driver.json.BenchmarkJson
 import com.salesforce.revoman.benchmark.driver.model.HostHealthSnapshot
+import com.salesforce.revoman.benchmark.driver.model.PowerEvidence
 import com.squareup.moshi.JsonDataException
 import java.nio.file.Files
 import java.nio.file.Path
@@ -60,6 +61,35 @@ class HostHealthGateTest {
     }
 
     @Test
+    fun `controlled policy requires power evidence requirement and rejects the removed Boolean`() {
+        val canonical = Files.readString(resourcePath("/host/valid.json"))
+        val removedField = "require" + "AcPower"
+        val legacy = temporaryDirectory.resolve("legacy-power-policy.json")
+        val missing = temporaryDirectory.resolve("missing-power-policy.json")
+        Files.writeString(
+            legacy,
+            canonical.replace(
+                "\"powerEvidenceRequirement\": \"REQUIRE_EXTERNAL_POWER\"",
+                "\"$removedField\": true",
+            ),
+        )
+        Files.writeString(
+            missing,
+            canonical.replace(Regex("\\s*\"powerEvidenceRequirement\"[^\\n]+\\n"), "\n"),
+        )
+
+        val legacyFailure = assertThrows<IllegalArgumentException> {
+            BenchmarkJson.validateSchema(legacy, CONTROLLED_HOST_SCHEMA_RESOURCE)
+        }
+        val missingFailure = assertThrows<IllegalArgumentException> {
+            BenchmarkJson.validateSchema(missing, CONTROLLED_HOST_SCHEMA_RESOURCE)
+        }
+
+        assertThat(legacyFailure).hasMessageThat().contains(removedField)
+        assertThat(missingFailure).hasMessageThat().contains("powerEvidenceRequirement")
+    }
+
+    @Test
     fun `high load thermal pressure swap growth battery and wrong governor reject whole pair`() {
         val policy = policy()
         val gate = HostHealthGate(policy)
@@ -69,7 +99,7 @@ class HostHealthGateTest {
                 "high-load.json" to HostHealthReason.LOAD_AVERAGE_EXCEEDS_MAXIMUM,
                 "thermal.json" to HostHealthReason.THERMAL_VALUE_EXCEEDS_MAXIMUM,
                 "swap-growth.json" to HostHealthReason.SWAP_GROWTH_EXCEEDS_MAXIMUM,
-                "on-battery.json" to HostHealthReason.AC_POWER_REQUIRED,
+                "on-battery.json" to HostHealthReason.EXTERNAL_POWER_REQUIRED,
                 "wrong-governor.json" to HostHealthReason.GOVERNOR_NOT_ALLOWED,
             )
 
@@ -96,7 +126,7 @@ class HostHealthGateTest {
                 availableMemoryBytes = 512,
                 swapUsedBytes = 4_000_000,
                 thermalValue = 90.0,
-                onAcPower = false,
+                powerEvidence = PowerEvidence.EXTERNAL_POWER_OFFLINE,
                 governors = listOf("powersave"),
             )
 
@@ -109,7 +139,7 @@ class HostHealthGateTest {
                 HostHealthReason.AVAILABLE_MEMORY_BELOW_MINIMUM,
                 HostHealthReason.SWAP_GROWTH_EXCEEDS_MAXIMUM,
                 HostHealthReason.THERMAL_VALUE_EXCEEDS_MAXIMUM,
-                HostHealthReason.AC_POWER_REQUIRED,
+                HostHealthReason.EXTERNAL_POWER_REQUIRED,
                 HostHealthReason.GOVERNOR_NOT_ALLOWED,
             )
             .inOrder()
@@ -169,7 +199,7 @@ class HostHealthGateTest {
         assertThat(snapshot.availableMemoryBytes).isEqualTo(2_097_152_000L)
         assertThat(snapshot.swapUsedBytes).isEqualTo(1_048_576L)
         assertThat(snapshot.thermalValue).isEqualTo(48.0)
-        assertThat(snapshot.onAcPower).isTrue()
+        assertThat(snapshot.powerEvidence).isEqualTo(PowerEvidence.EXTERNAL_POWER_ONLINE)
         assertThat(snapshot.governors).containsExactly("performance", "schedutil").inOrder()
     }
 
@@ -268,6 +298,133 @@ class HostHealthGateTest {
 
         assertThat(failure).hasMessageThat().contains("power-supply type")
         assertThat(failure).hasMessageThat().contains("Unknown")
+    }
+
+    @Test
+    fun `fixed mains records explicit evidence only for an empty power supply directory`() {
+        val root = temporaryDirectory.resolve("fixed-mains")
+        writeLinuxHost(root)
+        root.resolve("sys/class/power_supply").toFile().deleteRecursively()
+        Files.createDirectories(root.resolve("sys/class/power_supply"))
+
+        val snapshot =
+            linuxProbe(root, requirement = PowerEvidenceRequirement.FIXED_MAINS).sample()
+
+        assertThat(snapshot.powerEvidence).isEqualTo(PowerEvidence.FIXED_MAINS)
+    }
+
+    @Test
+    fun `fixed mains rejects every power supply entry instead of bypassing telemetry`() {
+        val root = temporaryDirectory.resolve("fixed-mains-with-entry")
+        writeLinuxHost(root)
+
+        val failure = assertThrows<IllegalStateException> {
+            linuxProbe(root, requirement = PowerEvidenceRequirement.FIXED_MAINS).sample()
+        }
+
+        assertThat(failure).hasMessageThat().contains("FIXED_MAINS")
+        assertThat(failure).hasMessageThat().contains("empty")
+    }
+
+    @Test
+    fun `observed external power records online and offline while required power rejects offline`() {
+        val root = temporaryDirectory.resolve("observed-power")
+        writeLinuxHost(root)
+        val online =
+            linuxProbe(
+                    root,
+                    requirement = PowerEvidenceRequirement.OBSERVE_EXTERNAL_POWER,
+                )
+                .sample()
+        write(root, "sys/class/power_supply/AC/online", "0\n")
+        write(root, "proc/stat", "cpu 100 0 100 800 0 0 0 0 0 0\n")
+        val offline =
+            linuxProbe(
+                    root,
+                    requirement = PowerEvidenceRequirement.OBSERVE_EXTERNAL_POWER,
+                )
+                .sample()
+
+        assertThat(online.powerEvidence).isEqualTo(PowerEvidence.EXTERNAL_POWER_ONLINE)
+        assertThat(offline.powerEvidence).isEqualTo(PowerEvidence.EXTERNAL_POWER_OFFLINE)
+        assertThat(
+                HostHealthGate(
+                        linuxPolicy().copy(
+                            powerEvidenceRequirement =
+                                PowerEvidenceRequirement.REQUIRE_EXTERNAL_POWER,
+                        )
+                    )
+                    .assess(offline, listOf(offline), offline)
+                    .reasons
+            )
+            .containsExactly(HostHealthReason.EXTERNAL_POWER_REQUIRED)
+    }
+
+    @Test
+    fun `observed power retains missing unknown malformed and source-free sysfs failures`() {
+        val missingRoot = temporaryDirectory.resolve("observed-missing-power")
+        writeLinuxHost(missingRoot)
+        missingRoot.resolve("sys/class/power_supply").toFile().deleteRecursively()
+        val missing = assertThrows<IllegalStateException> {
+            linuxProbe(
+                    missingRoot,
+                    requirement = PowerEvidenceRequirement.OBSERVE_EXTERNAL_POWER,
+                )
+                .sample()
+        }
+
+        val unknownRoot = temporaryDirectory.resolve("observed-unknown-power")
+        writeLinuxHost(unknownRoot)
+        write(unknownRoot, "sys/class/power_supply/AC/type", "Unknown\n")
+        val unknown = assertThrows<IllegalStateException> {
+            linuxProbe(
+                    unknownRoot,
+                    requirement = PowerEvidenceRequirement.OBSERVE_EXTERNAL_POWER,
+                )
+                .sample()
+        }
+
+        val malformedRoot = temporaryDirectory.resolve("observed-malformed-power")
+        writeLinuxHost(malformedRoot)
+        write(malformedRoot, "sys/class/power_supply/AC/online", "2\n")
+        val malformed = assertThrows<IllegalStateException> {
+            linuxProbe(
+                    malformedRoot,
+                    requirement = PowerEvidenceRequirement.OBSERVE_EXTERNAL_POWER,
+                )
+                .sample()
+        }
+
+        val sourceFreeRoot = temporaryDirectory.resolve("observed-source-free-power")
+        writeLinuxHost(sourceFreeRoot)
+        write(sourceFreeRoot, "sys/class/power_supply/AC/type", "Battery\n")
+        val sourceFree = assertThrows<IllegalStateException> {
+            linuxProbe(
+                    sourceFreeRoot,
+                    requirement = PowerEvidenceRequirement.OBSERVE_EXTERNAL_POWER,
+                )
+                .sample()
+        }
+
+        assertThat(missing).hasMessageThat().contains("power_supply")
+        assertThat(unknown).hasMessageThat().contains("Unknown")
+        assertThat(malformed).hasMessageThat().contains("online value")
+        assertThat(sourceFree).hasMessageThat().contains("no external power")
+    }
+
+    @Test
+    fun `fixed mains rejects observed and unavailable evidence`() {
+        val fixedMainsPolicy =
+            policy().copy(powerEvidenceRequirement = PowerEvidenceRequirement.FIXED_MAINS)
+        val observed = validSnapshot().copy(powerEvidence = PowerEvidence.EXTERNAL_POWER_ONLINE)
+        val unavailable = validSnapshot().copy(powerEvidence = PowerEvidence.UNAVAILABLE)
+
+        assertThat(HostHealthGate(fixedMainsPolicy).assess(observed, listOf(observed), observed).reasons)
+            .containsExactly(HostHealthReason.POWER_EVIDENCE_MISMATCH)
+        assertThat(
+                HostHealthGate(fixedMainsPolicy).assess(unavailable, listOf(unavailable), unavailable).reasons
+            )
+            .containsExactly(HostHealthReason.POWER_EVIDENCE_MISMATCH)
     }
 
     @Test
@@ -450,10 +607,11 @@ class HostHealthGateTest {
 
     private fun linuxProbe(
         root: Path,
+        requirement: PowerEvidenceRequirement = PowerEvidenceRequirement.REQUIRE_EXTERNAL_POWER,
         afterCpuStat: String = "cpu 150 0 150 900 0 0 0 0 0 0\n",
     ): LinuxHostProbe =
         LinuxHostProbe(
-            policy = linuxPolicy(),
+            policy = linuxPolicy().copy(powerEvidenceRequirement = requirement),
             root = root,
             osName = { "Linux" },
             nanoTime = { 123_456L },
@@ -473,7 +631,7 @@ class HostHealthGateTest {
             availableMemoryBytes = 2_147_483_648,
             swapUsedBytes = 0,
             thermalValue = 50.0,
-            onAcPower = true,
+            powerEvidence = PowerEvidence.EXTERNAL_POWER_ONLINE,
             governors = listOf("performance", "performance"),
         )
 

@@ -8,11 +8,16 @@
 package com.salesforce.revoman.benchmark.driver.run
 
 import com.google.common.truth.Truth.assertThat
+import com.salesforce.revoman.benchmark.driver.host.ControlledHostPolicy
+import com.salesforce.revoman.benchmark.driver.host.HostHealthGate
+import com.salesforce.revoman.benchmark.driver.host.HostHealthProbe
+import com.salesforce.revoman.benchmark.driver.host.PowerEvidenceRequirement
 import com.salesforce.revoman.benchmark.driver.model.AlternatingBlock
 import com.salesforce.revoman.benchmark.driver.model.HostHealthSnapshot
 import com.salesforce.revoman.benchmark.driver.model.MetricId
 import com.salesforce.revoman.benchmark.driver.model.MetricObservation
 import com.salesforce.revoman.benchmark.driver.model.MetricUnit
+import com.salesforce.revoman.benchmark.driver.model.PowerEvidence
 import java.time.Duration
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -96,6 +101,30 @@ class BenchmarkCampaignTest {
         assertThat(requireNotNull(series.blocks).first().observations).isEmpty()
     }
 
+    @Test
+    fun `synthetic smoke health records unavailable power evidence and cannot satisfy fixed mains`() {
+        val probe = syntheticHostProbe()
+        val samples = listOf(probe.sample(), probe.sample(), probe.sample())
+
+        assertThat(samples.map { it.powerEvidence })
+            .containsExactly(
+                PowerEvidence.UNAVAILABLE,
+                PowerEvidence.UNAVAILABLE,
+                PowerEvidence.UNAVAILABLE,
+            )
+            .inOrder()
+        assertThat(
+                HostHealthGate(
+                        smokePolicy(
+                            powerEvidenceRequirement = PowerEvidenceRequirement.FIXED_MAINS,
+                        )
+                    )
+                    .assess(samples[0], samples.drop(1).take(1), samples[2])
+                    .accepted
+            )
+            .isFalse()
+    }
+
     private fun providerEvidence(blockId: Int, targetId: String, hashDigit: String): ProviderEvidence =
         ProviderEvidence(
             blockId = blockId,
@@ -132,5 +161,39 @@ class BenchmarkCampaignTest {
         )
 
     private fun health(time: Long): HostHealthSnapshot =
-        HostHealthSnapshot(time, 0.0, 0.0, 1, 0, 0.0, true, listOf("performance"))
+        HostHealthSnapshot(
+            time,
+            0.0,
+            0.0,
+            1,
+            0,
+            0.0,
+            PowerEvidence.EXTERNAL_POWER_ONLINE,
+            listOf("performance"),
+        )
+
+    private fun syntheticHostProbe(): HostHealthProbe {
+        val type =
+            Class.forName("com.salesforce.revoman.benchmark.driver.run.SyntheticHostProbe")
+        val constructor = type.getDeclaredConstructor().also { it.isAccessible = true }
+        return constructor.newInstance() as HostHealthProbe
+    }
+
+    private fun smokePolicy(
+        powerEvidenceRequirement: PowerEvidenceRequirement,
+    ): ControlledHostPolicy =
+        ControlledHostPolicy(
+            hostFingerprintSha256 = "0".repeat(64),
+            cpuModel = "smoke",
+            cpuCount = 1,
+            allowedGovernors = setOf("unknown"),
+            powerEvidenceRequirement = powerEvidenceRequirement,
+            maximumLoadAverage = Double.MAX_VALUE,
+            maximumCpuBusyFraction = 1.0,
+            minimumAvailableMemoryBytes = 1,
+            maximumSwapDeltaBytes = Long.MAX_VALUE,
+            maximumThermalValue = Double.MAX_VALUE,
+            probeIntervalMillis = 1,
+            maximumReplacementBlocks = 0,
+        )
 }

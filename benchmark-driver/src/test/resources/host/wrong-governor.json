@@ -5,6 +5,6 @@
   "availableMemoryBytes": 2147483648,
   "swapUsedBytes": 0,
   "thermalValue": 50.0,
-  "onAcPower": true,
+  "powerEvidence": "EXTERNAL_POWER_ONLINE",
   "governors": ["performance", "powersave"]
 }

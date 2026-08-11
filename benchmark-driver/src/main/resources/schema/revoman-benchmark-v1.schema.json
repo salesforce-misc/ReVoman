@@ -266,7 +266,7 @@
     "hostHealth": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["capturedAtNanos", "loadAverage", "cpuBusyFraction", "availableMemoryBytes", "swapUsedBytes", "thermalValue", "onAcPower", "governors"],
+      "required": ["capturedAtNanos", "loadAverage", "cpuBusyFraction", "availableMemoryBytes", "swapUsedBytes", "thermalValue", "powerEvidence", "governors"],
       "properties": {
         "capturedAtNanos": { "type": "integer", "minimum": 0 },
         "loadAverage": { "type": "number", "minimum": 0 },
@@ -274,7 +274,14 @@
         "availableMemoryBytes": { "type": "integer", "minimum": 0 },
         "swapUsedBytes": { "type": "integer", "minimum": 0 },
         "thermalValue": { "type": "number", "minimum": 0 },
-        "onAcPower": { "type": "boolean" },
+        "powerEvidence": {
+          "enum": [
+            "EXTERNAL_POWER_ONLINE",
+            "EXTERNAL_POWER_OFFLINE",
+            "FIXED_MAINS",
+            "UNAVAILABLE"
+          ]
+        },
         "governors": { "type": "array", "items": { "type": "string", "minLength": 1 } }
       }
     },

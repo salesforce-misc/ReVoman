@@ -8,6 +8,7 @@
 package com.salesforce.revoman.benchmark.driver.host
 
 import com.salesforce.revoman.benchmark.driver.model.HostHealthSnapshot
+import com.salesforce.revoman.benchmark.driver.model.PowerEvidence
 import com.salesforce.revoman.benchmark.driver.model.validateHostHealthTimeline
 
 /** The result of one target callback whose CPU interval was bracketed by host sampling. */
@@ -32,7 +33,8 @@ object HostHealthReason {
     const val AVAILABLE_MEMORY_BELOW_MINIMUM: String = "available-memory-below-minimum"
     const val SWAP_GROWTH_EXCEEDS_MAXIMUM: String = "swap-growth-exceeds-maximum"
     const val THERMAL_VALUE_EXCEEDS_MAXIMUM: String = "thermal-value-exceeds-maximum"
-    const val AC_POWER_REQUIRED: String = "ac-power-required"
+    const val EXTERNAL_POWER_REQUIRED: String = "external-power-required"
+    const val POWER_EVIDENCE_MISMATCH: String = "power-evidence-mismatch"
     const val GOVERNOR_NOT_ALLOWED: String = "governor-not-allowed"
 }
 
@@ -69,8 +71,16 @@ class HostHealthGate(internal val policy: ControlledHostPolicy) {
                 if (samples.any { it.thermalValue > policy.maximumThermalValue }) {
                     add(HostHealthReason.THERMAL_VALUE_EXCEEDS_MAXIMUM)
                 }
-                if (policy.requireAcPower && samples.any { !it.onAcPower }) {
-                    add(HostHealthReason.AC_POWER_REQUIRED)
+                when (policy.powerEvidenceRequirement) {
+                    PowerEvidenceRequirement.OBSERVE_EXTERNAL_POWER -> Unit
+                    PowerEvidenceRequirement.REQUIRE_EXTERNAL_POWER ->
+                        if (samples.any { it.powerEvidence != PowerEvidence.EXTERNAL_POWER_ONLINE }) {
+                            add(HostHealthReason.EXTERNAL_POWER_REQUIRED)
+                        }
+                    PowerEvidenceRequirement.FIXED_MAINS ->
+                        if (samples.any { it.powerEvidence != PowerEvidence.FIXED_MAINS }) {
+                            add(HostHealthReason.POWER_EVIDENCE_MISMATCH)
+                        }
                 }
                 if (
                     samples.any { sample ->

@@ -24,6 +24,7 @@ import com.salesforce.revoman.benchmark.driver.model.MetricObservation
 import com.salesforce.revoman.benchmark.driver.model.MetricPass
 import com.salesforce.revoman.benchmark.driver.model.MetricSeries
 import com.salesforce.revoman.benchmark.driver.model.MetricUnit
+import com.salesforce.revoman.benchmark.driver.model.PowerEvidence
 import com.salesforce.revoman.benchmark.driver.model.RetainedEvidence
 import com.salesforce.revoman.benchmark.driver.model.RunIntent
 import com.salesforce.revoman.benchmark.driver.model.RunMode
@@ -468,7 +469,7 @@ internal object ComparisonFixtures {
             availableMemoryBytes = 8_000_000_000,
             swapUsedBytes = 0,
             thermalValue = 30.0,
-            onAcPower = true,
+            powerEvidence = PowerEvidence.EXTERNAL_POWER_ONLINE,
             governors = listOf("performance"),
         )
 

@@ -357,6 +357,14 @@ data class TargetIdentity(
     }
 }
 
+/** Records the observed or attested power evidence that backed one host-health sample. */
+enum class PowerEvidence {
+    EXTERNAL_POWER_ONLINE,
+    EXTERNAL_POWER_OFFLINE,
+    FIXED_MAINS,
+    UNAVAILABLE,
+}
+
 /** Captures one host-health sample around or during a measurement block. */
 @JsonClass(generateAdapter = true)
 data class HostHealthSnapshot(
@@ -366,7 +374,7 @@ data class HostHealthSnapshot(
     val availableMemoryBytes: Long,
     val swapUsedBytes: Long,
     val thermalValue: Double,
-    val onAcPower: Boolean,
+    val powerEvidence: PowerEvidence,
     val governors: List<String>,
 ) {
     internal fun validate(path: String) {

@@ -110,7 +110,7 @@
                 "availableMemoryBytes": 8589934592,
                 "swapUsedBytes": 0,
                 "thermalValue": 0.0,
-                "onAcPower": true,
+                "powerEvidence": "EXTERNAL_POWER_ONLINE",
                 "governors": ["performance"]
               },
               "healthDuring": [
@@ -121,7 +121,7 @@
                   "availableMemoryBytes": 8589934592,
                   "swapUsedBytes": 0,
                   "thermalValue": 0.0,
-                  "onAcPower": true,
+                  "powerEvidence": "EXTERNAL_POWER_ONLINE",
                   "governors": ["performance"]
                 }
               ],
@@ -132,7 +132,7 @@
                 "availableMemoryBytes": 8589934592,
                 "swapUsedBytes": 0,
                 "thermalValue": 0.0,
-                "onAcPower": true,
+                "powerEvidence": "EXTERNAL_POWER_ONLINE",
                 "governors": ["performance"]
               },
               "accepted": true,

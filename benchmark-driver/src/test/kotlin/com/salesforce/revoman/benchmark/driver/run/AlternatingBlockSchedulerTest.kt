@@ -23,6 +23,7 @@ import com.salesforce.revoman.benchmark.driver.model.HostHealthSnapshot
 import com.salesforce.revoman.benchmark.driver.model.MetricId
 import com.salesforce.revoman.benchmark.driver.model.MetricObservation
 import com.salesforce.revoman.benchmark.driver.model.MetricUnit
+import com.salesforce.revoman.benchmark.driver.model.PowerEvidence
 import com.salesforce.revoman.benchmark.driver.model.TargetRole
 import java.nio.charset.StandardCharsets.UTF_8
 import java.nio.file.Path
@@ -579,7 +580,7 @@ class AlternatingBlockSchedulerTest {
             availableMemoryBytes = 2_147_483_648,
             swapUsedBytes = 0,
             thermalValue = 50.0,
-            onAcPower = true,
+            powerEvidence = PowerEvidence.EXTERNAL_POWER_ONLINE,
             governors = listOf("performance", "performance"),
         )
 

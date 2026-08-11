@@ -9,7 +9,7 @@
     "cpuModel",
     "cpuCount",
     "allowedGovernors",
-    "requireAcPower",
+    "powerEvidenceRequirement",
     "maximumLoadAverage",
     "maximumCpuBusyFraction",
     "minimumAvailableMemoryBytes",
@@ -41,7 +41,9 @@
       "uniqueItems": true,
       "items": { "type": "string", "minLength": 1 }
     },
-    "requireAcPower": { "type": "boolean" },
+    "powerEvidenceRequirement": {
+      "enum": ["OBSERVE_EXTERNAL_POWER", "REQUIRE_EXTERNAL_POWER", "FIXED_MAINS"]
+    },
     "maximumLoadAverage": {
       "type": "number",
       "minimum": 0,

@@ -18,6 +18,13 @@ internal const val CONTROLLED_HOST_SCHEMA_RESOURCE: String =
 private const val CONTROLLED_HOST_SCHEMA_V1: String = "revoman-controlled-host/v1"
 private val SHA256_PATTERN = Regex("[0-9a-f]{64}")
 
+/** Specifies the source and acceptance criteria required for controlled power evidence. */
+enum class PowerEvidenceRequirement {
+    OBSERVE_EXTERNAL_POWER,
+    REQUIRE_EXTERNAL_POWER,
+    FIXED_MAINS,
+}
+
 /** Explicit, versioned limits and expected identity for one controlled Linux benchmark host. */
 @JsonClass(generateAdapter = true)
 data class ControlledHostPolicy(
@@ -26,7 +33,7 @@ data class ControlledHostPolicy(
     val cpuModel: String,
     val cpuCount: Int,
     val allowedGovernors: Set<String>,
-    val requireAcPower: Boolean,
+    val powerEvidenceRequirement: PowerEvidenceRequirement,
     val maximumLoadAverage: Double,
     val maximumCpuBusyFraction: Double,
     val minimumAvailableMemoryBytes: Long,
