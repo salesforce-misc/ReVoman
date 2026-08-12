@@ -544,6 +544,7 @@ git commit -m "perf: retain sandbox boot source per process"
 ### Task 4: Split Postman execution state and remove the legacy evaluator
 
 **Files:**
+- Modify: `docs/superpowers/plans/2026-08-11-performance-cs2a-runtime-lifecycle.md`
 - Add: `src/main/kotlin/com/salesforce/revoman/internal/postman/PostmanVariableScopes.kt`
 - Add: `src/main/kotlin/com/salesforce/revoman/internal/postman/StepScriptCapture.kt`
 - Add: `src/main/kotlin/com/salesforce/revoman/internal/runtime/LegacyRundownProgress.kt`
@@ -554,6 +555,7 @@ git commit -m "perf: retain sandbox boot source per process"
 - Modify: `src/main/kotlin/com/salesforce/revoman/internal/exe/PmJsEval.kt`
 - Modify: `src/main/kotlin/com/salesforce/revoman/internal/exe/Polling.kt`
 - Modify: `src/main/kotlin/com/salesforce/revoman/internal/runtime/KickExecution.kt`
+- Modify: `src/main/kotlin/com/salesforce/revoman/internal/postman/sandbox/SandboxBridge.kt` (remove stale two-context KDoc)
 - Modify: `src/main/kotlin/com/salesforce/revoman/input/config/KickDef.kt` (deprecation/documentation only)
 - Modify: `build.gradle.kts`
 - Modify: `gradle/libs.versions.toml`
@@ -564,11 +566,15 @@ git commit -m "perf: retain sandbox boot source per process"
 - Modify: `src/test/kotlin/com/salesforce/revoman/internal/postman/RegexReplacerTest.kt`
 - Modify: `src/test/kotlin/com/salesforce/revoman/internal/postman/RegexReplacerConsumedTest.kt`
 - Modify: `src/test/kotlin/com/salesforce/revoman/internal/postman/RegexReplacerScopesTest.kt`
+- Modify: `src/test/kotlin/com/salesforce/revoman/internal/postman/DynamicVariableGeneratorTest.kt`
 - Modify: `src/test/kotlin/com/salesforce/revoman/internal/exe/PollingTest.kt`
 - Modify: `src/test/kotlin/com/salesforce/revoman/internal/exe/PmJsEvalScopesDiffTest.kt`
 - Add: `src/test/kotlin/com/salesforce/revoman/ScriptHookPhaseBarrierE2ETest.kt`
 - Add: `src/test/resources/postman/phase-barrier/collection.postman_collection.json`
 - Modify: `src/test/kotlin/com/salesforce/revoman/internal/postman/sandbox/PmSandboxApiCoverageTest.kt`
+- Modify: `src/test/kotlin/com/salesforce/revoman/compat/Cs2JvmSurfaceAdditions.kt`
+- Modify: `src/test/kotlin/com/salesforce/revoman/compat/ApiBaselineInventoryTest.kt`
+- Modify: `src/test/kotlin/com/salesforce/revoman/compat/JvmSurfaceInventory.kt` (expose exact constant-pool class/member references)
 - Modify: `src/test/kotlin/com/salesforce/revoman/compat/JvmSurfaceVisibilityTest.kt`
 - Delete: `src/test/kotlin/com/salesforce/revoman/input/EvalJsTest.kt`
 - Delete: `src/test/kotlin/com/salesforce/revoman/internal/postman/PostmanSDKEvalIsolationTest.kt`
@@ -581,8 +587,8 @@ git commit -m "perf: retain sandbox boot source per process"
 - Modify: `api/revoman-root.api`
 
 **Interfaces:**
-- Consumes: current `PostmanEnvironment`, `Step`, mutable interim `Rundown`, real sandbox context/result DTOs, and existing script phase barriers.
-- Produces: focused scope/capture/legacy-progress modules; an internal transitional `PostmanSDK` wiring facade; complete removal of the legacy evaluator; and removal of the ignored node-module path's runtime consumption while retaining its deprecated source surface.
+- Consumes: current `PostmanEnvironment`, `Step`, mutable interim `Rundown`, real sandbox context/result DTOs, borrowed non-owning `ScriptExecutor`, and existing script phase barriers.
+- Produces: focused scope/capture/legacy-progress modules; a bound `RegexReplacer` with no `PostmanSDK` operation/callback parameters; an internal transitional `PostmanSDK` wiring facade; complete removal of the legacy evaluator; and removal of the ignored node-module path's runtime consumption while retaining its deprecated source surface.
 
 - [ ] **Step 1: Move existing behavior assertions onto focused contracts before deleting anything**
 
@@ -607,8 +613,6 @@ internal fun postmanVariableScopes(
   environmentName: String?,
 ): PostmanVariableScopes
 
-private class DefaultPostmanVariableScopes(/* same state */) : PostmanVariableScopes
-
 internal interface StepScriptCapture {
   @JvmSynthetic fun reset(step: Step)
   @JvmSynthetic fun recordAssertions(step: Step, assertions: List<PmTestAssertion>)
@@ -621,7 +625,6 @@ internal interface StepScriptCapture {
 }
 
 @JvmSynthetic internal fun stepScriptCapture(): StepScriptCapture
-private class DefaultStepScriptCapture : StepScriptCapture
 
 internal interface LegacyRundownProgress {
   @get:JvmSynthetic @set:JvmSynthetic var currentReport: StepReport
@@ -631,29 +634,73 @@ internal interface LegacyRundownProgress {
 }
 
 @JvmSynthetic internal fun legacyRundownProgress(): LegacyRundownProgress
-private class DefaultLegacyRundownProgress : LegacyRundownProgress
+
+internal interface RegexReplacer {
+  @JvmSynthetic fun replaceVariablesRecursively(stringWithRegex: String?): String?
+  @JvmSynthetic fun replaceVariablesInPmItem(item: Item): Item
+  @JvmSynthetic fun replaceVariablesInRequestRecursively(request: Request): Request
+  @JvmSynthetic fun replaceVariablesInEnv(): Map<String, Any?>
+}
+
+@JvmSynthetic
+internal fun regexReplacer(
+  scopes: PostmanVariableScopes,
+  progress: LegacyRundownProgress,
+  customDynamicVariableGenerators: Map<String, CustomDynamicVariableGenerator>,
+  dynamicVariableGenerator: (String, LegacyRundownProgress) -> String? =
+    ::dynamicVariableGenerator,
+): RegexReplacer
+
+internal interface PostmanSDK {
+  @get:JvmSynthetic val scopes: PostmanVariableScopes
+  @get:JvmSynthetic val capture: StepScriptCapture
+  @get:JvmSynthetic val progress: LegacyRundownProgress
+  @get:JvmSynthetic val regexReplacer: RegexReplacer
+}
+
+@JvmSynthetic
+internal fun postmanSDK(
+  scopes: PostmanVariableScopes,
+  capture: StepScriptCapture,
+  progress: LegacyRundownProgress,
+  regexReplacer: RegexReplacer,
+): PostmanSDK
 ```
 
 These are authoritative Kotlin-only bytecode shapes, not merely Kotlin-`internal` declarations.
-Back each internal interface with the named file-private implementation and expose only its
-`@JvmSynthetic` top-level factory; annotate every callable and property accessor `@JvmSynthetic`
-and keep them off Java interfaces with inherited operational methods. Apply the same
-internal-interface/file-private-implementation shape to the transitional `PostmanSDK` and newly
-internal `RegexReplacer`. Do not use companion/named-object factories. `JvmSurfaceVisibilityTest` enumerates
+Each exact `@JvmSynthetic` top-level factory must return a function-local anonymous `object :
+Interface { ... }`; do not declare a named top-level `Default*` implementation. Tasks 2 and 3
+proved that a top-level Kotlin `private class` emits a package-private JVM owner with a callable
+constructor, so it does not satisfy the same-package Java adversary. Annotate every callable and
+property accessor `@JvmSynthetic` and keep them off Java interfaces with inherited operational
+methods. Apply the anonymous-factory shape to `PostmanVariableScopes`, `StepScriptCapture`,
+`LegacyRundownProgress`, transitional `PostmanSDK`, and `RegexReplacer`. Do not use companion or
+named-object factories, and emit no `Companion` class/field or `INSTANCE` field.
+`JvmSurfaceVisibilityTest` enumerates
 `PostmanVariableScopes`, `StepScriptCapture`, `LegacyRundownProgress`, `PostmanSDK`, and
-`RegexReplacer`; negative javac snippets cannot construct, read, write, or invoke any of them.
+`RegexReplacer`; external and same-package negative javac snippets cannot construct an
+implementation or read, write, or invoke an operation. Target the extractor-proven anonymous
+binary names as Tasks 2 and 3 do; do not assert that a named `Default*` class is absent as a
+substitute for testing the emitted implementations.
 
 Preserve scope precedence, present-null behavior, loop/reset behavior, assertion accumulation, explicit `setNextRequest(null)` distinction, skip state, and the current one-entry progress replacement behavior. Keep `Step` keys until CS2b and the copied interim `Rundown` until CS4; label both classes transitional in KDoc.
 
 Before removing evaluator tests, extend real-sandbox coverage for supported bundled `require(...)` modules (lodash, moment, and XML parsing) plus `pm.request.json()`/`pm.response.json()`. Add a counting/throwing `ScriptExecutor` control to `PmJsEvalScopesDiffTest` proving both pre-request and test phases return for absent/blank scripts without calling `execute`. These tests are the replacement behavior, not a host evaluator.
 
-Add `ScriptHookPhaseBarrierE2ETest` around a deterministic JDK loopback HTTP fixture. Across the
-real pre-request JS -> pre-step hook -> HTTP -> post-response JS -> post-step hook order, prove both
-set and unset mutations are visible at the immediately following phase, hook mutations are applied
-before the following JS snapshot, environment/collection-variable/global scopes remain isolated,
-numeric values retain the existing normalization, unsets propagate in both directions, and the
-existing produced/consumed ledger tracking remains unchanged. This is the explicit phase-boundary regression
-suite; it must fail if the extraction batches synchronization or skips an apply-back barrier.
+Add `ScriptHookPhaseBarrierE2ETest` around a deterministic JDK loopback HTTP fixture with at least
+two collection steps. Step 1 must prove the complete ordered barrier: pre-request JS set/unset ->
+pre-step hook observation and set/unset -> HTTP/post-response JS observation and set/unset ->
+post-step hook observation and set/unset -> Step 2 pre-request JS observation of the final Step 1
+state. Exercise environment, collection-variable, and global keys independently so no mutation can
+pass through the wrong scope: carry environment set/unset mutations through every JS/hook barrier,
+and mutate distinct collection/global sentinels in the scripts while asserting hooks and the next
+script never observe them through the environment. Assert existing numeric normalization at a
+JS/hook boundary. Use
+separate ledger-control keys—one produced through the supported environment mutation path and one
+consumed through regex resolution—and assert their exact produced/consumed sets independently from
+the phase-visibility keys. This is the explicit phase-boundary regression suite; it must fail if the
+extraction batches synchronization, skips an apply-back barrier, cross-contaminates scopes, changes
+numeric normalization, or couples the produced and consumed controls.
 
 - [ ] **Step 2: Capture separate REDs for removal and the missing focused modules**
 
@@ -681,39 +728,48 @@ Then add the direct focused-module tests from Step 1 and run their separate miss
 
 Expected: the first command executes and fails because it finds `PostmanSDK$JSEvaluator`,
 `evaluateJS`, and `jsonStrToObj`; the second fails during test compilation because the focused
-types are absent. `nodeModulesPath` remains as a positive source-compatibility control.
+types are absent. Keep these as two distinct RED observations: do not let the compile failure mask
+the executable JAR/reflection assertion failure. `nodeModulesPath` remains as a positive
+source-compatibility control.
 
 - [ ] **Step 3: Extract state without changing executor behavior**
 
 Move the three variable stores/name into `PostmanVariableScopes`, the four Step-keyed maps into `StepScriptCapture`, and request-name/current-report/interim-rundown synchronization into `LegacyRundownProgress`. Update `RegexReplacer`, dynamic-variable generation, and polling to request only the focused module they need. Make `RegexReplacer` Kotlin-`internal` in the same intentional ABI change; its public constructor currently exposes `PostmanSDK`, so leaving it public would either fail visibility checks or preserve the aggregate through an accidental unsupported API.
 
-Keep `PostmanSDK` temporarily as this authoritative shape:
+Construct and bind the graph in this order, with no cycle and no late `PostmanSDK` injection:
 
 ```kotlin
-internal interface PostmanSDK {
-  @get:JvmSynthetic val scopes: PostmanVariableScopes
-  @get:JvmSynthetic val capture: StepScriptCapture
-  @get:JvmSynthetic val progress: LegacyRundownProgress
-  @get:JvmSynthetic val regexReplacer: RegexReplacer
-}
-
-@JvmSynthetic
-internal fun postmanSDK(
-  scopes: PostmanVariableScopes,
-  capture: StepScriptCapture,
-  progress: LegacyRundownProgress,
-  regexReplacer: RegexReplacer,
-): PostmanSDK
-
-private class DefaultPostmanSDK(/* same collaborators */) : PostmanSDK
+val scopes = postmanVariableScopes(environment, collectionVariables, globals, mergedEnv.name)
+val progress = legacyRundownProgress()
+val replacer =
+  regexReplacer(
+    scopes,
+    progress,
+    kick.customDynamicVariableGenerators(),
+    ::dynamicVariableGenerator,
+  )
+val capture = stepScriptCapture()
+val pm = postmanSDK(scopes, capture, progress, replacer)
 ```
 
-Delegating properties may remain only where needed to keep the large step executor migration reviewable. Its KDoc must name it as a transitional wiring facade deleted by CS4; it must not create or close resources.
+The bound `RegexReplacer` operations take no `PostmanSDK`; recursive calls use its captured
+`scopes`, custom generators receive `progress.currentReport` and `progress.rundown`, and the
+`$currentRequestName` dynamic value reads `progress.currentRequestName`. Change
+`dynamicVariableGenerator` accordingly and extend `DynamicVariableGeneratorTest` with an exact
+current-request-name control. Polling receives `PostmanVariableScopes` (plus its existing rundown
+and polling inputs) and reads `scopes.environment`; it does not receive `PostmanSDK` or unrelated
+capture/progress state.
+
+Keep `PostmanSDK` at the exact four-property interface above; migrate temporary Task-4 call sites
+through `pm.scopes`, `pm.capture`, `pm.progress`, and `pm.regexReplacer` rather than restoring flat
+aggregate delegates. Its KDoc must name it as a transitional wiring facade deleted by CS4; it must
+not create or close resources.
 
 Designate `ReVoman` as the only temporary Task-4 operational consumer allowed to mention
 `PostmanSDK`; `KickRunner` does not exist until Task 5. The exact declaration infrastructure—
-`PostmanSDK`, `DefaultPostmanSDK`, its synthetic top-level factory facade, and any extractor-proven
-synthetic compiler helper owned by those declarations—is separately allowlisted because those
+`PostmanSDK`, its function-local anonymous implementation, its synthetic top-level factory facade,
+and any extractor-proven synthetic compiler helper owned by those declarations—is separately
+allowlisted because those
 classfiles necessarily name the type but do not consume it. Task 5 moves the final operational
 reference to `KickRunner`, removes it from `ReVoman`, and tightens the operational allowlist to that
 one class while retaining only the exact declaration-infrastructure set. Extend the built-JAR structural test to reject constant-pool/type-descriptor references
@@ -724,7 +780,34 @@ it.
 
 - [ ] **Step 4: Route all script behavior through the real sandbox**
 
-Change `PmJsEval` to receive scopes, capture, and the non-owning `ScriptExecutor`. It must inspect the selected script and return before invoking `ScriptExecutor.execute` when the script is absent/blank; merely constructing `PmJsEval` or passing the executor cannot initialize a sandbox. Build request/response context maps directly from the template request and `http4k.Response`; remove the host `PostmanSDK.Request`/`Response` objects. Preserve the immediate apply-back barrier after every script and all set/unset/assertion/control-flow semantics.
+Change `PmJsEval` to receive scopes, capture, and a borrowed, non-owning `ScriptExecutor`. It must
+never close that executor. It must inspect the selected script and return before invoking
+`ScriptExecutor.execute` when the script is absent/blank; merely entering either phase or passing
+the executor cannot initialize a sandbox. Build request/response context maps directly from the
+template request and `http4k.Response`; remove the host `PostmanSDK.Request`/`Response` objects.
+Preserve the immediate apply-back barrier after every script and all
+set/unset/assertion/control-flow semantics.
+
+Do not move lifecycle ownership early. In Task 4, `ReVoman` remains the temporary `PostmanSDK`
+wiring owner and may continue to lexically scope a direct `PmSandbox`; `PmSandbox` satisfies
+`ScriptExecutor` and is passed to `PmJsEval` only as a borrowed executor. Task 5 routes the full
+single-kick body through `KickExecution` and owns the public no-script lifecycle proof. Task 4's
+blank/absent controls prove only that neither script phase invokes its supplied executor.
+
+Before deleting any evaluator test or production declaration, run the real-sandbox replacement
+suite after the focused implementation compiles:
+
+```bash
+./gradlew :test \
+  --tests '*PmSandboxApiCoverageTest' \
+  --tests '*PmJsEvalScopesDiffTest' \
+  --tests '*ScriptHookPhaseBarrierE2ETest' \
+  --rerun-tasks --no-build-cache --no-configuration-cache --console=plain
+```
+
+Expected: supported bundled lodash, moment, XML parsing, request/response JSON, both blank/absent
+executor controls, and the two-step phase barrier all pass against the real sandbox. This GREEN is
+required before Step 5 deletions.
 
 - [ ] **Step 5: Delete the legacy evaluator and its orphaned API/dependency**
 
@@ -739,15 +822,54 @@ Remove `com.github.underscore` from the root dependencies/version catalog after 
 
 Remove every runtime read/constructor handoff of `nodeModulesPath` from `ReVoman`, `KickExecution`, and `PostmanSDK`, but retain the generated getter/builder/override surface. Deprecate it in `KickDef` and state in the migration guide that collection scripts execute in the bundled Postman sandbox; the path is ignored because arbitrary filesystem CommonJS loading existed only in the removed evaluator. Do not remove Node/npm sandbox-generation build tasks; vendored resource generation remains separately owned.
 
+Update `SandboxBridge` KDoc in the same change: it owns the sole per-run Graal `Context`, backed by
+the one process-wide engine and retained boot `Source`; remove every claim that a second
+`PostmanSDK` evaluator context exists or shares warm-up.
+
 - [ ] **Step 6: Prove structural removal and update the live ABI**
 
-Reuse Task 1's root-`test`/exact-`jar` provider wiring. `LegacyEvaluatorRemovalTest` opens that archive and asserts:
+Reuse Task 1's root-`test`/exact-`jar` provider wiring. Extend `JvmSurfaceInventory` once to expose
+canonical per-class constant-pool references for `CONSTANT_Class`, `CONSTANT_Fieldref`,
+`CONSTANT_Methodref`, and `CONSTANT_InterfaceMethodref`, resolving owner, member name, and JVM
+descriptor, plus exact `CONSTANT_String` values needed for the CommonJS-option absence check,
+without loading production classes. Both structural tests must inspect only
+`configuredRootJar()` and these parsed references; do not use `Class.forName`, project class
+directories, a JAR glob, or raw byte/string substring searches. `LegacyEvaluatorRemovalTest`
+opens that archive and asserts:
 
 - no `PostmanSDK$JSEvaluator.class` entry;
 - `PostmanSDK` declares neither `evaluateJS` nor `jsonStrToObj`;
-- no remaining production class outside `SandboxBridge` has constant-pool references to both `org/graalvm/polyglot/Context` and `newBuilder` (or use an equally exact classfile parser); and
-- generated `Kick`/builder methods still contain `nodeModulesPath` for source compatibility, while no production executor/evaluator reads it or configures filesystem CommonJS loading.
+- the exact `Context.newBuilder([Ljava/lang/String;)Lorg/graalvm/polyglot/Context$Builder;`
+  method reference occurs only in `SandboxBridge`;
+- generated `Kick`/builder declarations still contain `nodeModulesPath` for source compatibility,
+  while `ReVoman` and every production execution owner under `internal/runtime`, `internal/exe`,
+  and `internal/postman` has no constant-pool method reference that invokes it and no CommonJS
+  filesystem option `CONSTANT_String`; and
 - `PostmanSDK` and `RegexReplacer` expose no Java-source-callable constructor, factory, property, or method from the built JAR, while the exact designated internal wiring bridge remains synthetic or package-private.
+
+Make the temporary `PostmanSDK` reference gate exact. Its reviewed declaration-infrastructure set
+contains only the `PostmanSDK` interface, its extractor-named anonymous implementation, its
+synthetic top-level factory facade, and extractor-proven synthetic helpers; its operational set is
+exactly `ReVoman`. Assert that every constant-pool class/member/descriptor reference to
+`PostmanSDK` belongs to one of those literal owners and that no additional owner is present. Do not
+use package prefixes as an allowlist. Task 5 deliberately replaces the operational owner.
+
+Task 4 changes the raw inventory in both directions. In `Cs2JvmSurfaceAdditions.kt`, add literal
+cumulative `CS2_TASK4_RAW_JVM_ADDITIONS` and `CS2_TASK4_RAW_JVM_REMOVALS` sets shared by
+`ApiBaselineInventoryTest` and `JvmSurfaceVisibilityTest`. Review and paste every rendered diff row:
+all focused interfaces, synthetic factories, anonymous implementations, accessors, lambdas, and
+compiler helpers are additions; every frozen legacy `PostmanSDK`, nested evaluator/bridge type,
+`Info`, `RegexReplacer`, companion, constructor, field, and method row is a removal, alongside the
+prior Task 3 bridge removal and any other exact row changed by the extraction. No owner-prefix,
+row-count, `removals.single()`, or "all removals are synthetic" shortcut is allowed. Both tests
+require `active - frozen == CS2_TASK4_RAW_JVM_ADDITIONS` and `frozen - active ==
+CS2_TASK4_RAW_JVM_REMOVALS`, and reject `Companion`/`INSTANCE` additions.
+
+Keep supported-surface accounting separate. `ApiBaselineInventoryTest` continues to require the
+supported Kotlin and Java removals to equal the CS2a migration-map projections exactly, requires
+supported additions to be empty, and then applies the shared literal raw allowlists independently.
+The migration map—not the raw allowlist—governs supported public removals; the raw allowlists govern
+all classfile rows, including non-source-callable compiler output.
 
 Regenerate only the live dump:
 
@@ -772,8 +894,11 @@ Run:
   --tests '*PmJsEvalScopesDiffTest' \
   --tests '*ScriptHookPhaseBarrierE2ETest' \
   --tests '*PostmanSDK*Test' \
+  --tests '*RegexReplacer*Test' \
+  --tests '*DynamicVariableGeneratorTest' \
   --tests '*PmSandbox*Test' \
   --tests '*Polling*Test' \
+  --tests '*ApiBaselineInventoryTest' \
   --tests '*JvmSurfaceVisibilityTest' \
   compileApiCompatibilityTestKotlin compileApiCompatibilityTestJava checkKotlinAbi \
   spotlessCheck --rerun-tasks --no-build-cache --no-configuration-cache --console=plain
@@ -783,7 +908,14 @@ git diff --check
 Expected: real sandbox replacement coverage, focused state tests, structural removal, consumer compilation, ABI check, and formatting all pass. Commit:
 
 ```bash
-git add build.gradle.kts gradle/libs.versions.toml api/revoman-root.api \
+git add docs/superpowers/plans/2026-08-11-performance-cs2a-runtime-lifecycle.md \
+  src/test/kotlin/com/salesforce/revoman/compat/Cs2JvmSurfaceAdditions.kt \
+  src/test/kotlin/com/salesforce/revoman/compat/ApiBaselineInventoryTest.kt \
+  src/test/kotlin/com/salesforce/revoman/compat/JvmSurfaceInventory.kt \
+  src/test/kotlin/com/salesforce/revoman/compat/JvmSurfaceVisibilityTest.kt \
+  src/test/kotlin/com/salesforce/revoman/internal/postman/DynamicVariableGeneratorTest.kt \
+  src/main/kotlin/com/salesforce/revoman/internal/postman/sandbox/SandboxBridge.kt \
+  build.gradle.kts gradle/libs.versions.toml api/revoman-root.api \
   src/main src/test src/integrationTest docs/modules/ROOT/pages
 git commit -m "perf: remove legacy JavaScript evaluator"
 ```
