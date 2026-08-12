@@ -962,6 +962,7 @@ git commit -m "perf: remove legacy JavaScript evaluator"
 - Add: `src/test/kotlin/com/salesforce/revoman/internal/runtime/ExecutionSessionTest.kt`
 - Add: `src/test/kotlin/com/salesforce/revoman/internal/runtime/ReVomanRuntimeTest.kt`
 - Extend: `src/test/kotlin/com/salesforce/revoman/internal/runtime/KickExecutionTest.kt`
+- Extend: `src/test/kotlin/com/salesforce/revoman/internal/runtime/ResourceScopeTest.kt`
 - Modify: `src/test/kotlin/com/salesforce/revoman/compat/Cs2JvmSurfaceAdditions.kt`
 - Modify: `src/test/kotlin/com/salesforce/revoman/compat/ApiBaselineInventoryTest.kt`
 - Modify: `src/test/kotlin/com/salesforce/revoman/compat/JvmSurfaceVisibilityTest.kt`
@@ -1042,7 +1043,10 @@ Add a full no-script lifecycle test through `ReVomanRuntime.execute(kick)` with 
 runtime and close it once. These controls must call `reVomanRuntime(countingSandboxFactory)` and
 cross the real runtime, real session, real child, function-local production runner, and real
 `PmJsEval` path. Recording decorators may count session/child creation, but these two tests must not
-replace `KickBody` with a fake.
+replace `KickBody` with a fake. Decorate the real production session and child factories and assert
+exactly one session open/close and one child create/execute/close for both controls. For the single
+runtime path, return a traversal-failing live environment from a decorating child and prove
+`carryForward = false` returns and closes normally without materializing `mutableEnv.toMap()`.
 
 - [x] **Step 2: Capture the missing-boundary RED**
 
@@ -1172,12 +1176,17 @@ For each returned child, create a short-lived `ResourceScope`, register the chil
 `activeChild`, invoke the body, and call that scope's `closeAfter(bodyFailure)` in `finally` before
 clearing `activeChild`. Put `activeChild = null` in an inner `finally` around `closeAfter` so it runs
 even when that method rethrows the body throwable or promotes a close failure. Catch `Throwable`,
-not only `Exception`. Rethrow the body throwable by exact identity with distinct close failures
-directly suppressed in reverse order; on a successful body, a close failure becomes primary and
-the rundown is not appended. If the factory throws before returning a child, the session owns
-nothing and propagates that failure. Append/callback/carry occur only after successful child
-closure. A callback or fresh-snapshot failure therefore observes an already closed child; session
-close remains idempotent and must not retry it.
+not only `Exception`. The session owns exactly one child: rethrow the body throwable by exact
+identity and directly suppress that child's one propagated close `Throwable` without flattening or
+reordering any suppression already attached inside it. Prove that identity/nesting and that session
+close never retries the child. The underlying `ResourceScope` owns the general multi-resource
+contract: with two distinct failing resources it directly suppresses both close failures onto the
+body in reverse registration order, preserves exact identities, leaves each close failure's own
+suppressed list empty, closes each once, and does not retry on a later close. On a successful body,
+a child close failure becomes primary and the rundown is not appended. If the factory throws before
+returning a child, the session owns nothing and propagates that failure. Append/callback/carry occur
+only after successful child closure. A callback or fresh-snapshot failure therefore observes an
+already closed child; session close remains idempotent and must not retry it.
 
 Before session close, `ReVomanRuntime` materializes the returned single result. Close then clears the
 session's carried-environment reference and mutable rundown builder so retaining a closed session
@@ -1241,6 +1250,7 @@ Run:
   --tests '*ExecutionSessionTest' \
   --tests '*ReVomanRuntimeTest' \
   --tests '*KickExecutionTest' \
+  --tests '*ResourceScopeTest' \
   --tests '*LegacyEvaluatorRemovalTest' \
   --tests '*ApiBaselineInventoryTest' \
   --tests '*Ledger*Test' \
@@ -1269,6 +1279,7 @@ git add src/main/kotlin/com/salesforce/revoman/ReVoman.kt \
   src/test/kotlin/com/salesforce/revoman/compat/ApiBaselineInventoryTest.kt \
   src/test/kotlin/com/salesforce/revoman/compat/JvmSurfaceVisibilityTest.kt \
   src/test/kotlin/com/salesforce/revoman/internal/runtime/LegacyEvaluatorRemovalTest.kt \
+  src/test/kotlin/com/salesforce/revoman/internal/runtime/ResourceScopeTest.kt \
   docs/superpowers/plans/2026-08-11-performance-cs2a-runtime-lifecycle.md
 git commit -m "refactor: introduce execution session lifecycle"
 ```

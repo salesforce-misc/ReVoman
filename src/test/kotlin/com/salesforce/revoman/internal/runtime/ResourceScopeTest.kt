@@ -91,15 +91,25 @@ class ResourceScopeTest {
     val bodyFailure = BodyFailure()
     val firstFailure = CloseFailure("first")
     val secondFailure = CloseFailure("second")
+    val first = RecordingCloseable("first", closed, firstFailure)
+    val second = RecordingCloseable("second", closed, secondFailure)
     val scope = resourceScope()
-    scope.own(RecordingCloseable("first", closed, firstFailure))
-    scope.own(RecordingCloseable("second", closed, secondFailure))
+    scope.own(first)
+    scope.own(second)
 
     val thrown = assertThrows<BodyFailure> { scope.useInternal { throw bodyFailure } }
 
     assertSame(bodyFailure, thrown)
     assertThat(thrown.suppressed.asList()).containsExactly(secondFailure, firstFailure).inOrder()
+    assertThat(secondFailure.suppressed).isEmpty()
+    assertThat(firstFailure.suppressed).isEmpty()
     assertThat(closed).containsExactly("second", "first").inOrder()
+    assertThat(second.closeCount).isEqualTo(1)
+    assertThat(first.closeCount).isEqualTo(1)
+
+    assertDoesNotThrow { scope.close() }
+    assertThat(second.closeCount).isEqualTo(1)
+    assertThat(first.closeCount).isEqualTo(1)
   }
 
   @Test

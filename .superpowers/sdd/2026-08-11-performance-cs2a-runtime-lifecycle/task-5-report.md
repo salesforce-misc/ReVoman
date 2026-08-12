@@ -224,3 +224,130 @@ handoff because a commit cannot contain its own SHA.
 
 None. Task 6 still must route list/runbook execution through one shared session; that behavior was
 deliberately not implemented here.
+
+## Formal review fix round 1
+
+Review was resumed from clean `b5ade4ab12973b5501ab46592710dc553d03e93e`; the two intervening
+commits modify only the Task 6 plan. This round changed only Task 5 tests/report and the Task 5
+section of the shared plan. No Task 6 wording or production implementation was changed.
+
+### Old-test escapes and new RED evidence
+
+1. The original session event test observed only `create, execute, close`; the bytecode test proved
+   only `record < restore`. Neither could fail for banner-after-install or callback-before-restore.
+   After adding one exact observable sequence, deliberately removing the `Banner` interception
+   produced RED: expected `banner-start, install, create, execute, close, record, restore,
+   callback`, but actual lacked `banner-start` and `record` (exit 1). Separately removing the install
+   event produced RED with actual `banner-start, create, execute, close, record, restore, callback`
+   (exit 1). The restored test also installs an ambient previous sink and asserts the callback sees
+   that exact sink after restore.
+2. The original real no-script/script controls counted only sandbox create/execute/close; exact
+   session/child counts came from a fake child path. Test-only decorators were added around the real
+   `kickExecutionFactory` and `executionSessionFactory`, without replacing the production
+   `KickBody`. Deliberately removing the child-execute/child-close/session-close increments made all
+   three real controls RED (exit 1); representative failure: expected `childExecutes=1`, actual 0.
+3. The original single-kick test returned a normal map, so an accidental unconditional carry copy
+   escaped. A decorating real child now returns a traversal-failing live environment. Mutating
+   `ExecutionSession` from `if (carryForward) mutableEnv.toMap()` to unconditional copying made the
+   focused test RED (exit 1) with exact `IllegalStateException: carry snapshot traversed` thrown by
+   `ReVomanRuntime.execute`. The production branch was restored.
+4. The original session test asserted one close throwable but did not prove that a child's existing
+   suppression tree stays intact, and the ResourceScope test did not retain resources to prove
+   exact-once/idempotent closure. The session now asserts exact body identity, the exact propagated
+   child throwable as its sole direct suppression, unchanged nested identities/order, and no retry.
+   The compile-correct multi-resource proof retains two real `ResourceScope` resources and asserts
+   direct `[secondFailure, firstFailure]` suppression, empty inner suppression lists, reverse close
+   order, one close each, and unchanged counts after a second scope close. Removing the new count,
+   inner-suppression, and idempotent-reclose assertions recreated the old-test escape; restoration
+   followed the focused GREEN below.
+
+### Adjudicated suppression contract
+
+`ExecutionSession` owns exactly one `KickExecution`, so it can honestly receive only one propagated
+child close throwable. Pre-populating that throwable to pretend the session produced multiple
+siblings would manufacture a false nested shape. The Task 5 plan now says exactly:
+
+- the one-child session directly suppresses the child's one propagated throwable onto a body
+  failure, preserving any existing nested suppression without flattening/reordering and without
+  retry; and
+- `ResourceScope`, which can own multiple resources, guarantees direct reverse-registration-order
+  suppression for multiple distinct close failures, exact identity, exact-once close, and
+  idempotent re-close.
+
+This closes the formal finding without widening production interfaces or changing the raw JVM ABI.
+
+### GREEN and lifecycle evidence
+
+The covering focused command before formatting/ABI gates was:
+
+```bash
+./gradlew :test \
+  --tests '*ExecutionSessionTest' \
+  --tests '*ReVomanRuntimeTest' \
+  --tests '*ResourceScopeTest' \
+  --rerun-tasks --no-build-cache --no-configuration-cache --console=plain
+```
+
+Result: `SUCCESS: Executed 27 tests in 3.8s`; `BUILD SUCCESSFUL in 13s`; 24 actionable tasks
+executed. The exact envelope is now observed as:
+
+```text
+banner-start -> install -> create -> execute -> close -> record -> restore -> callback
+```
+
+The successful envelope uses one non-empty step report, and the close-failure case returns the same
+non-empty rundown from the body yet proves banner step count remains zero, callback count remains
+zero, and child close is not retried. The callback observes the exact ambient previous sink.
+
+Both real controls now assert exactly one session open/close and one child create/execute/close. The
+no-script control still asserts zero sandbox creates/closes. The one-script control still crosses
+the production anonymous runner and real `PmJsEval` port, asserting one sandbox create, script
+execute, and close. The no-carry-copy control crosses that same real script path, returns despite a
+map whose entry traversal throws, proves the returned map remains live/readable by key, then
+explicitly traverses it to demonstrate the sentinel failure was armed.
+
+### Proportional final verification
+
+Immediately before the fix commit:
+
+```bash
+./gradlew :test \
+  --tests '*ExecutionSessionTest' \
+  --tests '*ReVomanRuntimeTest' \
+  --tests '*KickExecutionTest' \
+  --tests '*ResourceScopeTest' \
+  --tests '*LegacyEvaluatorRemovalTest' \
+  --tests '*ApiBaselineInventoryTest' \
+  --tests '*JvmSurfaceVisibilityTest' \
+  compileApiCompatibilityTestKotlin \
+  compileApiCompatibilityTestJava \
+  checkKotlinAbi spotlessCheck \
+  --rerun-tasks --no-build-cache --no-configuration-cache --console=plain
+git diff --check
+git diff --exit-code -- src/main/kotlin \
+  api/cs2-baseline-revoman-root.jvm.tsv api/revoman-root.api
+```
+
+Result:
+
+```text
+SUCCESS: Executed 56 tests in 6.8s
+BUILD SUCCESSFUL in 19s
+38 actionable tasks: 38 executed
+git diff --check: exit 0, no output
+production and frozen ABI diff: exit 0, no output
+```
+
+The same run passed both compatibility compilers, `checkKotlinAbi`, exact raw-JVM inventory and
+visibility tests, legacy evaluator ownership, and `spotlessCheck`. Review-fix files are exactly:
+
+- `src/test/kotlin/com/salesforce/revoman/internal/runtime/ExecutionSessionTest.kt`
+- `src/test/kotlin/com/salesforce/revoman/internal/runtime/ReVomanRuntimeTest.kt`
+- `src/test/kotlin/com/salesforce/revoman/internal/runtime/ResourceScopeTest.kt`
+- the Task 5 section of
+  `docs/superpowers/plans/2026-08-11-performance-cs2a-runtime-lifecycle.md`
+- this report
+
+No production or frozen ABI file differs. Task 6 plan changes from commits `4b982557` and
+`b5ade4ab` were preserved byte-for-byte. The fix is committed with message
+`test: close Task 5 lifecycle proof gaps`; its SHA is reported in the handoff.

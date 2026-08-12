@@ -12,11 +12,17 @@ import com.salesforce.revoman.compat.configuredRootJar
 import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.internal.log.Banner
 import com.salesforce.revoman.internal.log.RunLogContext
+import com.salesforce.revoman.internal.postman.template.Item
 import com.salesforce.revoman.output.Rundown
 import com.salesforce.revoman.output.log.LogLevel
 import com.salesforce.revoman.output.log.RunLogSink
 import com.salesforce.revoman.output.log.StepEvent
 import com.salesforce.revoman.output.postman.PostmanEnvironment
+import com.salesforce.revoman.output.report.Step
+import com.salesforce.revoman.output.report.StepReport
+import io.mockk.every
+import io.mockk.mockkObject
+import io.mockk.unmockkObject
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -27,12 +33,87 @@ class ExecutionSessionTest {
   fun resetBanner() {
     Banner.resetForTest()
     Banner.emitForTest = {}
+    Banner.registerShutdownHookForTest = {}
   }
 
   @AfterEach
   fun cleanup() {
     RunLogContext.remove()
     Banner.resetForTest()
+  }
+
+  @Test
+  fun `session preserves the exact observable kick envelope`() {
+    val events = mutableListOf<String>()
+    val previousSink = RecordingSink()
+    val kickSink = RecordingSink()
+    val kick = Kick.configure().runLogSink(kickSink).off()
+    RunLogContext.install(previousSink)
+    mockkObject(Banner)
+    mockkObject(RunLogContext)
+    try {
+      every { Banner.onRunStart() } answers
+        {
+          events += "banner-start"
+          callOriginal()
+        }
+      every { RunLogContext.install(any()) } answers
+        {
+          events += "install"
+          callOriginal()
+        }
+      every { Banner.recordSteps(any()) } answers
+        {
+          events += "record"
+          callOriginal()
+        }
+      every { RunLogContext.restore(any()) } answers
+        {
+          events += "restore"
+          callOriginal()
+        }
+      val session =
+        executionSession(
+          emptyMap(),
+          KickExecutionFactory { configuredKick, effectiveEnvironment ->
+            events += "create"
+            fakeExecution(
+              configuredKick,
+              effectiveEnvironment,
+              events = events,
+              execute = { oneStepRundown(mutableMapOf("result" to "ok")) },
+            )
+          },
+        )
+
+      val result =
+        session.executeKick(kick, carryForward = false) { _, _ ->
+          events += "callback"
+          assertThat(RunLogContext.current()).isSameInstanceAs(previousSink)
+        }
+
+      assertThat(result.stepReports).hasSize(1)
+      assertThat(events)
+        .containsExactly(
+          "banner-start",
+          "install",
+          "create",
+          "execute",
+          "close",
+          "record",
+          "restore",
+          "callback",
+        )
+        .inOrder()
+      assertThat(RunLogContext.current()).isSameInstanceAs(previousSink)
+      assertThat(Banner.runCountForTest()).isEqualTo(1L)
+      assertThat(Banner.stepCountForTest()).isEqualTo(1L)
+      assertThat(kickSink.closed).isFalse()
+      session.close()
+    } finally {
+      unmockkObject(RunLogContext)
+      unmockkObject(Banner)
+    }
   }
 
   @Test
@@ -149,9 +230,13 @@ class ExecutionSessionTest {
   }
 
   @Test
-  fun `body failure remains primary and close failures are suppressed once`() {
+  fun `body failure preserves propagated child close throwable without flattening or retry`() {
     val bodyFailure = IllegalStateException("body")
     val closeFailure = IllegalArgumentException("close")
+    val nestedFirst = IllegalStateException("nested-first")
+    val nestedSecond = IllegalStateException("nested-second")
+    closeFailure.addSuppressed(nestedFirst)
+    closeFailure.addSuppressed(nestedSecond)
     var closeCount = 0
     val session =
       executionSession(
@@ -176,7 +261,13 @@ class ExecutionSessionTest {
     session.close()
 
     assertThat(thrown).isSameInstanceAs(bodyFailure)
-    assertThat(thrown.suppressed.toList()).containsExactly(closeFailure)
+    assertThat(thrown.suppressed).hasLength(1)
+    assertThat(thrown.suppressed.single()).isSameInstanceAs(closeFailure)
+    assertThat(closeFailure.suppressed).hasLength(2)
+    assertThat(closeFailure.suppressed[0]).isSameInstanceAs(nestedFirst)
+    assertThat(closeFailure.suppressed[1]).isSameInstanceAs(nestedSecond)
+    assertThat(nestedFirst.suppressed).isEmpty()
+    assertThat(nestedSecond.suppressed).isEmpty()
     assertThat(closeCount).isEqualTo(1)
     assertThat(Banner.stepCountForTest()).isEqualTo(0L)
   }
@@ -193,6 +284,7 @@ class ExecutionSessionTest {
           fakeExecution(
             kick,
             effective,
+            execute = { oneStepRundown(mutableMapOf("result" to "complete")) },
             close = {
               closeCount++
               throw closeFailure
@@ -210,6 +302,8 @@ class ExecutionSessionTest {
     assertThat(thrown).isSameInstanceAs(closeFailure)
     assertThat(closeCount).isEqualTo(1)
     assertThat(callbackCount).isEqualTo(0)
+    assertThat(Banner.runCountForTest()).isEqualTo(1L)
+    assertThat(Banner.stepCountForTest()).isEqualTo(0L)
   }
 
   @Test
@@ -332,12 +426,26 @@ class ExecutionSessionTest {
       }
     }
 
-  private fun rundown(environment: MutableMap<String, Any?>): Rundown =
+  private fun rundown(
+    environment: MutableMap<String, Any?>,
+    stepReports: List<StepReport> = emptyList(),
+  ): Rundown =
     Rundown(
+      stepReports = stepReports,
       mutableEnv = PostmanEnvironment(environment),
       haltOnFailureOfTypeExcept = emptyMap(),
-      providedStepsToExecuteCount = 0,
+      providedStepsToExecuteCount = stepReports.size,
     )
+
+  private fun oneStepRundown(environment: MutableMap<String, Any?>): Rundown {
+    val snapshot = PostmanEnvironment(environment.toMutableMap())
+    val report =
+      StepReport(
+        step = Step(index = "1", rawPMStep = Item(name = "one")),
+        pmEnvSnapshot = snapshot,
+      )
+    return rundown(environment, listOf(report))
+  }
 
   private class RecordingSink : RunLogSink {
     var closed = false

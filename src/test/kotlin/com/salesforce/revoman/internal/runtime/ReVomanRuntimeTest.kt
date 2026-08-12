@@ -85,10 +85,12 @@ class ReVomanRuntimeTest {
   @Test
   fun `real no-script path never creates sandbox runtime`() {
     val sandboxes = CountingSandboxFactory()
+    val lifecycle = recordingRealRuntime(sandboxes)
 
-    val rundown = reVomanRuntime(sandboxes).execute(Kick.configure().off())
+    val rundown = lifecycle.runtime.execute(Kick.configure().off())
 
     assertThat(rundown.stepReports).isEmpty()
+    assertCompleteSingleKickLifecycle(lifecycle.counts)
     assertThat(sandboxes.createCount).isEqualTo(0)
     assertThat(sandboxes.closeCount).isEqualTo(0)
   }
@@ -96,17 +98,37 @@ class ReVomanRuntimeTest {
   @Test
   fun `real script path creates and closes exactly one sandbox runtime`() {
     val sandboxes = CountingSandboxFactory()
-    val kick =
-      Kick.configure()
-        .templatePath("pm-templates/v3/cf-skip")
-        .dynamicEnvironment("baseUrl", "http://127.0.0.1:1")
-        .off()
+    val lifecycle = recordingRealRuntime(sandboxes)
 
-    reVomanRuntime(sandboxes).execute(kick)
+    lifecycle.runtime.execute(scriptKick())
 
+    assertCompleteSingleKickLifecycle(lifecycle.counts)
     assertThat(sandboxes.createCount).isEqualTo(1)
     assertThat(sandboxes.closeCount).isEqualTo(1)
     assertThat(sandboxes.executeCount).isEqualTo(1)
+  }
+
+  @Test
+  fun `single kick real lifecycle never materializes carry snapshot`() {
+    val snapshotFailure = IllegalStateException("carry snapshot traversed")
+    val sandboxes = CountingSandboxFactory()
+    val lifecycle =
+      recordingRealRuntime(sandboxes) { rundown ->
+        val safeValues = rundown.mutableEnv.toMap()
+        rundown.copy(
+          mutableEnv = PostmanEnvironment(TraversalFailingMap(safeValues, snapshotFailure))
+        )
+      }
+
+    val returned = lifecycle.runtime.execute(scriptKick())
+
+    assertThat(returned.mutableEnv["baseUrl"]).isEqualTo("http://127.0.0.1:1")
+    val thrown = assertThrows<IllegalStateException> { returned.mutableEnv.toMap() }
+    assertThat(thrown).isSameInstanceAs(snapshotFailure)
+    assertCompleteSingleKickLifecycle(lifecycle.counts)
+    assertThat(sandboxes.createCount).isEqualTo(1)
+    assertThat(sandboxes.executeCount).isEqualTo(1)
+    assertThat(sandboxes.closeCount).isEqualTo(1)
   }
 
   private fun fakeExecution(
@@ -137,6 +159,76 @@ class ReVomanRuntimeTest {
       haltOnFailureOfTypeExcept = emptyMap(),
       providedStepsToExecuteCount = 0,
     )
+
+  private fun scriptKick(): Kick =
+    Kick.configure()
+      .templatePath("pm-templates/v3/cf-skip")
+      .dynamicEnvironment("baseUrl", "http://127.0.0.1:1")
+      .off()
+
+  private fun recordingRealRuntime(
+    sandboxFactory: SandboxFactory,
+    transformResult: (Rundown) -> Rundown = { it },
+  ): RecordingRealRuntime {
+    val counts = LifecycleCounts()
+    val productionChildren = kickExecutionFactory(sandboxFactory)
+    val recordingChildren = KickExecutionFactory { kick, environment ->
+      counts.childCreates++
+      val delegate = productionChildren.create(kick, environment)
+      object : KickExecution by delegate {
+        override fun execute(): Rundown {
+          counts.childExecutes++
+          return transformResult(delegate.execute())
+        }
+
+        override fun close() {
+          counts.childCloses++
+          delegate.close()
+        }
+      }
+    }
+    val productionSessions = executionSessionFactory(recordingChildren)
+    val recordingSessions = ExecutionSessionFactory { initialEnvironment ->
+      counts.sessionOpens++
+      val delegate = productionSessions.open(initialEnvironment)
+      object : ExecutionSession by delegate {
+        override fun close() {
+          counts.sessionCloses++
+          delegate.close()
+        }
+      }
+    }
+    return RecordingRealRuntime(reVomanRuntime(recordingSessions), counts)
+  }
+
+  private fun assertCompleteSingleKickLifecycle(counts: LifecycleCounts) {
+    assertThat(counts.sessionOpens).isEqualTo(1)
+    assertThat(counts.childCreates).isEqualTo(1)
+    assertThat(counts.childExecutes).isEqualTo(1)
+    assertThat(counts.childCloses).isEqualTo(1)
+    assertThat(counts.sessionCloses).isEqualTo(1)
+  }
+
+  private data class RecordingRealRuntime(
+    val runtime: ReVomanRuntime,
+    val counts: LifecycleCounts,
+  )
+
+  private class LifecycleCounts {
+    var sessionOpens = 0
+    var childCreates = 0
+    var childExecutes = 0
+    var childCloses = 0
+    var sessionCloses = 0
+  }
+
+  private class TraversalFailingMap(
+    values: Map<String, Any?>,
+    private val failure: Throwable,
+  ) : LinkedHashMap<String, Any?>(values) {
+    override val entries: MutableSet<MutableMap.MutableEntry<String, Any?>>
+      get() = throw failure
+  }
 
   private class CountingSandboxFactory : SandboxFactory {
     var createCount = 0
