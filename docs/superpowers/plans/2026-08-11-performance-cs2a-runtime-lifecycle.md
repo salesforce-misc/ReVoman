@@ -2115,6 +2115,9 @@ must leave no unstaged or uncommitted changes.
 - Add: `docs/superpowers/benchmarks/operators/cs2a-controlled-run.sh`
 - Add: `docs/superpowers/benchmarks/operators/cs2a-governor-supervisor.sh`
 - Add: `docs/superpowers/benchmarks/operators/cs2a-operator.sh`
+- Add: `docs/superpowers/benchmarks/operators/cs2a-validate-manifest.jq`
+- Add: `src/test/kotlin/com/salesforce/revoman/benchmark/Cs2aOperatorScriptTest.kt`
+- Add: `src/test/kotlin/com/salesforce/revoman/benchmark/Cs2aManifestValidatorTest.kt`
 - Add: `src/test/kotlin/com/salesforce/revoman/compat/Cs2aStructuralInvariantTest.kt`
 - Add: `docs/superpowers/reports/2026-08-11-performance-cs2a-runtime-lifecycle.md`
 - Add after capture: `docs/superpowers/benchmarks/results/v1/cs2a-<implementation-sha>/`
@@ -2183,10 +2186,13 @@ and `major-v1`. `BenchmarkWorkflowTest` must parse and prove the two manifest pa
 adapter assignments, fixed SHA, and absence of a current-manifest/baseline-adapter mismatch. Capture
 RED by applying the test to the old workflow, then GREEN after the workflow split.
 
-- [ ] **Step 3: Run the complete correctness and packaging gates**
+- [ ] **Step 3: Define the complete final-commit correctness and packaging gates**
 
-Export a fresh current-target manifest and a separate clean pinned baseline manifest for the JMH
-harness self-test, then run serially. The self-test intentionally uses
+The exact command block below is the indivisible final-implementation gate that Step 4 runs only
+after all review fixes, production/tests/build/docs changes, operator scripts, and the path-free
+manifest validator have been committed. Run it from the clean implementation commit, export a fresh
+current-target manifest and a separate clean pinned baseline manifest for the JMH harness self-test,
+then run serially. The self-test intentionally uses
 `jmh.component-operations.v1`, which `major-v1` does not accept; never point it at the current
 manifest.
 
@@ -2246,18 +2252,68 @@ test "$(git -C "$SELFTEST_ROOT/baseline" rev-parse HEAD)" = \
 
 If a gate fails or behavior is unexpected, use `superpowers:systematic-debugging` and the JetBrains debugger skill first; use JDWP only if the IDE debugger cannot attach. Do not weaken, skip, or silently reclassify a gate. Record exact test counts, task outcomes, Qodana findings, and any environmental limitation in the report.
 
-- [ ] **Step 4: Review and freeze the implementation SHA before measurement**
+- [ ] **Step 4: Review, commit, gate, and freeze the exact implementation SHA**
 
-Run an independent fixed-range Standards + Spec review over the Task 1 compatibility commit through
-the current worktree. Resolve every Critical/Important finding with focused RED/GREEN evidence and
-rerun the proportional correctness gates. Add versioned operator scripts under
+Add the final versioned operator files under
 `docs/superpowers/benchmarks/operators`: the runner reads the exact candidate SHA only from a
 root-owned `0444` `/opt/revoman-benchmark/cs2a-implementation-sha`, and the supervisor verifies the
 checked-in runner SHA before installing/executing it. Preserve the independently audited Task 13
-lock, lease, process-group containment, stale-state recovery, and governor restoration logic; add
-`bash -n`, ShellCheck, signal/timeout/restoration tests, and a fixed-range security review for all
-three scripts. Then stage the active ABI, structural tests, source,
-ordinary documentation, and spec status and create the pre-evidence implementation commit:
+lock, lease, process-group containment, stale-state recovery, and governor restoration logic.
+Add `Cs2aOperatorScriptTest`, `Cs2aManifestValidatorTest`, and the checked-in executable
+`cs2a-validate-manifest.jq` with the Git executable bit. The validator's exact content is:
+
+```jq
+#!/usr/bin/env -S jq -ef
+def exact_keys($expected):
+  type == "object" and ((keys | sort) == ($expected | sort));
+def nonblank_string:
+  type == "string" and test("\\S");
+def lowercase_hex($length):
+  type == "string" and length == $length and test("^[0-9a-f]+$");
+def nonnegative_integer:
+  type == "number" and . >= 0 and floor == .;
+
+exact_keys([
+  "schema", "targetId", "gitCommit", "gitTree", "dirty", "gradleVersion",
+  "wrapperSha256", "jdk", "classpath"
+]) and
+.schema == "revoman-target-manifest/v1" and
+(.targetId | nonblank_string) and
+(.gitCommit | lowercase_hex(40)) and
+(.gitTree | lowercase_hex(40)) and
+(.dirty | type == "boolean") and
+(.gradleVersion | nonblank_string) and
+(.wrapperSha256 | lowercase_hex(64)) and
+(.jdk | exact_keys(["distribution", "vendor", "fullVersion", "javaHome", "jvmFlags"])) and
+(.jdk.distribution | nonblank_string) and
+(.jdk.vendor | nonblank_string) and
+(.jdk.fullVersion | nonblank_string) and
+(.jdk.javaHome | nonblank_string) and
+(.jdk.jvmFlags | type == "array") and
+all(.jdk.jvmFlags[]; nonblank_string) and
+(.classpath | type == "array" and length > 0) and
+all(.classpath[];
+  exact_keys(["logicalId", "executionPath", "sizeBytes", "sha256"]) and
+  (.logicalId | nonblank_string) and
+  (.executionPath | nonblank_string) and
+  (.sizeBytes | nonnegative_integer) and
+  (.sha256 | lowercase_hex(64))
+) and
+([.classpath[].logicalId] | length == (unique | length))
+```
+
+`Cs2aManifestValidatorTest` runs this exact checked-in filter both through its shebang and through
+`jq -e -f`. Its valid fixture contains nonexistent remote absolute `javaHome`/`executionPath`
+values and must pass without filesystem access. Table-driven negative cases delete every required
+top-level/JDK/artifact key; add an unknown key at every object level; change every field to each
+wrong JSON type; use empty/whitespace strings; use short, uppercase, and nonhex 40/64 hashes; use
+negative and fractional sizes; use empty/wrong-element-type `jvmFlags`; use an empty classpath; and
+duplicate a logical ID. Every mutation must exit nonzero. `Cs2aOperatorScriptTest` covers Bash 3.2
+syntax, ShellCheck, signal/timeout/restoration behavior, exact validator invocation, and a negative
+assertion that no local installed-driver `verify` receives a manifest path.
+
+Stage the active ABI, structural/operator tests, source, ordinary documentation, spec status, and
+all four operator files and create the pre-evidence implementation commit:
 
 ```bash
 git add api src benchmark-driver .github/workflows/build.yml \
@@ -2266,20 +2322,52 @@ git add api src benchmark-driver .github/workflows/build.yml \
   docs/superpowers/specs/2026-08-09-performance-redesign-design.md \
   docs/superpowers/benchmarks/operators
 git commit -m "refactor: complete CS2a execution lifecycle"
-export CS2A_IMPLEMENTATION_SHA=$(git rev-parse HEAD)
+test -z "$(git status --porcelain)"
+```
+
+Run independent fixed-range Standards + Spec and security reviews over the Task 1 compatibility
+commit through this exact committed `HEAD`, explicitly reviewing all four operator files. Resolve
+every Critical/Important finding with focused RED/GREEN evidence in a new implementation commit,
+then repeat both reviews on that new exact commit until clean. Only after all review fixes are
+committed, and before push, SHA export, or any smoke/controlled measurement, record the clean
+reviewed SHA, run the entire Step 3 command block verbatim, and run these exact operator gates in the
+same shell:
+
+```bash
+GATED_IMPLEMENTATION_SHA=$(git rev-parse HEAD)
+[[ "$GATED_IMPLEMENTATION_SHA" =~ ^[0-9a-f]{40}$ ]]
+test -z "$(git status --porcelain)"
+
+for script in \
+  docs/superpowers/benchmarks/operators/cs2a-controlled-run.sh \
+  docs/superpowers/benchmarks/operators/cs2a-governor-supervisor.sh \
+  docs/superpowers/benchmarks/operators/cs2a-operator.sh; do
+  /bin/bash -n "$script"
+  shellcheck "$script"
+done
+test -x docs/superpowers/benchmarks/operators/cs2a-validate-manifest.jq
+./gradlew :test \
+  --tests '*Cs2aOperatorScriptTest*' \
+  --tests '*Cs2aManifestValidatorTest*' \
+  --rerun-tasks --no-build-cache --no-configuration-cache --console=plain
+
+test "$(git rev-parse HEAD)" = "$GATED_IMPLEMENTATION_SHA"
+test -z "$(git status --porcelain)"
+export CS2A_IMPLEMENTATION_SHA=$GATED_IMPLEMENTATION_SHA
 readonly CS2A_IMPLEMENTATION_SHA
 printf '%s\n' "$CS2A_IMPLEMENTATION_SHA" >"$PWD/build/cs2a-implementation-sha"
-test -z "$(git status --porcelain)"
 git push origin HEAD:refs/heads/codex/performance-cs2a-lifecycle
 ```
 
-The detached harness and candidate measured below must both be this exact reviewed SHA. If any
-production, test, ABI, build, workload, or ordinary-documentation change is needed afterward, make
-a new implementation commit, repeat review/gates, and replace `CS2A_IMPLEMENTATION_SHA`; never
-silently benchmark an earlier tree. Before every smoke/controlled/archive-only invocation, export
-the value from `build/cs2a-implementation-sha`; never recompute it from `HEAD` after an attempt
-evidence commit. A host-state-only rerun therefore measures the same reviewed implementation SHA,
-while a code/harness correction first produces and exports a new reviewed implementation SHA.
+Any gate failure or any production, test, ABI, build, workload, ordinary-documentation, operator,
+or validator correction requires a new commit, another fixed-range review of the change, and a
+complete rerun of the exact Step 3 and operator/script/security gates on that new clean `HEAD`.
+Only then replace `CS2A_IMPLEMENTATION_SHA`, push, or measure; never export or benchmark an earlier
+tree. The detached harness and candidate measured below must both be this exact reviewed and gated
+SHA. Before every smoke/controlled/archive-only invocation, export the value from
+`build/cs2a-implementation-sha`; never recompute it from `HEAD` after an attempt evidence commit. A
+host-state-only rerun therefore measures the same reviewed implementation SHA, while a code/harness
+correction first produces, reviews, fully gates, and exports a new implementation SHA.
 
 - [ ] **Step 5: Run proportional benchmark evidence**
 
@@ -2399,6 +2487,7 @@ printf '%s\n' "$CS2A_IMPLEMENTATION_SHA" >"$PWD/build/cs2a-implementation-sha"
 RUNNER_SHA=$(sha256sum "$OPERATOR_DIR/cs2a-controlled-run.sh" | cut -d' ' -f1)
 SUPERVISOR_SHA=$(sha256sum "$OPERATOR_DIR/cs2a-governor-supervisor.sh" | cut -d' ' -f1)
 OPERATOR_SHA=$(sha256sum "$OPERATOR_DIR/cs2a-operator.sh" | cut -d' ' -f1)
+MANIFEST_VALIDATOR_SHA=$(sha256sum "$OPERATOR_DIR/cs2a-validate-manifest.jq" | cut -d' ' -f1)
 test "$(sha256sum "$0" | cut -d' ' -f1)" = "$OPERATOR_SHA"
 
 persist_attempt() {
@@ -2481,12 +2570,14 @@ if test "$OPERATOR_MODE" = run; then
 scp "$OPERATOR_DIR/cs2a-controlled-run.sh" \
   "$OPERATOR_DIR/cs2a-governor-supervisor.sh" \
   "$OPERATOR_DIR/cs2a-operator.sh" \
+  "$OPERATOR_DIR/cs2a-validate-manifest.jq" \
   "$PWD/build/cs2a-implementation-sha" \
   "$REMOTE_HOST:/opt/revoman-benchmark/runs/"
 ssh "$REMOTE_HOST" \
   "test \"\$(sha256sum /opt/revoman-benchmark/runs/cs2a-controlled-run.sh | cut -d' ' -f1)\" = '$RUNNER_SHA' &&
    test \"\$(sha256sum /opt/revoman-benchmark/runs/cs2a-governor-supervisor.sh | cut -d' ' -f1)\" = '$SUPERVISOR_SHA' &&
    test \"\$(sha256sum /opt/revoman-benchmark/runs/cs2a-operator.sh | cut -d' ' -f1)\" = '$OPERATOR_SHA' &&
+   test \"\$(sha256sum /opt/revoman-benchmark/runs/cs2a-validate-manifest.jq | cut -d' ' -f1)\" = '$MANIFEST_VALIDATOR_SHA' &&
    test \"\$(tr -d '\\r\\n' </opt/revoman-benchmark/runs/cs2a-implementation-sha)\" = '$CS2A_IMPLEMENTATION_SHA'"
 ssh -tt "$REMOTE_HOST" \
   "dzdo install -o root -g root -m 0555 \
@@ -2793,10 +2884,13 @@ cp "$HARNESS/docs/superpowers/benchmarks/operators/cs2a-governor-supervisor.sh" 
   "$RUN_ROOT/meta/"
 cp "$HARNESS/docs/superpowers/benchmarks/operators/cs2a-operator.sh" \
   "$RUN_ROOT/meta/"
+cp "$HARNESS/docs/superpowers/benchmarks/operators/cs2a-validate-manifest.jq" \
+  "$RUN_ROOT/meta/"
 cp "$POLICY" "$RUN_ROOT/meta/controlled-host.json"
 printf '%s\n' "$CS2A_IMPLEMENTATION_SHA" >"$RUN_ROOT/meta/implementation-sha.txt"
 (cd "$RUN_ROOT/meta" && sha256sum \
   cs2a-controlled-run.sh cs2a-governor-supervisor.sh cs2a-operator.sh \
+  cs2a-validate-manifest.jq \
   >operator-script-sha256sums.txt)
 test "$(stat -c '%U:%G:%a' "$POLICY")" = root:root:444
 test "$(sha256sum "$POLICY" | cut -d' ' -f1)" = "$EXPECTED_POLICY_SHA256"
@@ -2987,8 +3081,18 @@ inconclusive. It shares the already authenticated implementation/source/script i
 first operator section. Use the unique remote directory basename as the attempt key; never
 overwrite or omit an earlier non-PASS attempt. Copied target manifests retain remote absolute
 `executionPath` values, so local validation must never pass them to `benchmark-driver verify`;
-validate only their path-free schema, hashes, roles, target IDs, adapters, and commit identity.
-Local `verify` remains restricted to copied campaign/result JSON:
+validate their complete schema/model without dereferencing `executionPath`, then validate path-free
+hashes, roles, target IDs, adapters, and commit identity. Local `verify` remains restricted to copied
+campaign/result JSON. The checked-in executable `cs2a-validate-manifest.jq` used below is part of the
+reviewed implementation commit and must accept exactly `revoman-target-manifest/v1`: the top-level,
+`jdk`, and classpath-item key sets are exact (equivalent to `additionalProperties: false`); every
+required field has its schema type; `gitCommit`/`gitTree` are lowercase 40-hex and
+`wrapperSha256`/artifact hashes lowercase 64-hex; `targetId`, `gradleVersion`, all JDK strings,
+`logicalId`, and `executionPath` are nonempty; `dirty` is boolean; `jdk.jvmFlags` is an array of
+nonempty strings; classpath is nonempty; every `sizeBytes` is a nonnegative integer; and logical IDs
+are unique. Its fixture tests must reject every missing/extra/wrong-type/bad-pattern/fractional-size/
+duplicate-ID variant and prove that nonexistent remote absolute `executionPath` values are never
+opened:
 
 ```bash
 if test "$RUN_ROOT_VALID" = true; then
@@ -3056,6 +3160,8 @@ else
 fi
 VALIDATION_LOG="$EVIDENCE_DIR/meta/local-validation.txt"
 : >"$VALIDATION_LOG" || TRANSFER_STATUS=70
+MANIFEST_VALIDATOR="$OPERATOR_DIR/cs2a-validate-manifest.jq"
+test -x "$MANIFEST_VALIDATOR" || TRANSFER_STATUS=70
 
 shopt -s nullglob
 inputs=("$EVIDENCE_DIR"/results/*-aa.json "$EVIDENCE_DIR"/results/*-candidate.json)
@@ -3070,28 +3176,47 @@ for input in "${inputs[@]}"; do
 done
 shopt -u nullglob
 
-validate_manifest_copy() {
+validate_manifest_schema() {
+  local path=$1
+  if ! jq -e -f "$MANIFEST_VALIDATOR" "$path" >>"$VALIDATION_LOG" 2>&1; then
+    printf 'invalid-manifest-schema-model\t%s\n' "${path#"$EVIDENCE_DIR/"}" \
+      >>"$VALIDATION_LOG"
+    ARCHIVE_VALID=false
+  fi
+}
+
+shopt -s nullglob
+manifest_copies=("$EVIDENCE_DIR"/manifests/*.json)
+for manifest_copy in "${manifest_copies[@]}"; do
+  validate_manifest_schema "$manifest_copy"
+  case "$(basename "$manifest_copy")" in
+    baseline-a.json | baseline-b.json | candidate.json) ;;
+    *)
+      printf 'unexpected-manifest\t%s\n' "${manifest_copy#"$EVIDENCE_DIR/"}" \
+        >>"$VALIDATION_LOG"
+      ARCHIVE_VALID=false
+      ;;
+  esac
+done
+shopt -u nullglob
+
+validate_manifest_identity() {
   local path=$1 expected_id=$2 expected_commit=$3
   if test ! -f "$path"; then return; fi
   if ! jq -e --arg id "$expected_id" --arg commit "$expected_commit" '
-    .schema == "revoman-target-manifest/v1" and
-    .targetId == $id and .gitCommit == $commit and .dirty == false and
-    (.gitTree | type == "string" and length > 0) and
-    (.classpath | type == "array" and length > 0) and
-    ([.classpath[].logicalId] | length == (unique | length)) and
-    all(.classpath[]; (.logicalId | type == "string" and length > 0) and
-      (.sizeBytes | type == "number") and
-      (.sha256 | type == "string" and length == 64))
-  ' "$path" >>"$VALIDATION_LOG" 2>&1; then
-    printf 'invalid-manifest-metadata\t%s\n' "${path#"$EVIDENCE_DIR/"}" >>"$VALIDATION_LOG"
+      .targetId == $id and .gitCommit == $commit and .dirty == false
+    ' "$path" >>"$VALIDATION_LOG" 2>&1; then
+    printf 'invalid-manifest-identity\t%s\n' "${path#"$EVIDENCE_DIR/"}" >>"$VALIDATION_LOG"
     ARCHIVE_VALID=false
   fi
 }
 
 BASELINE_COMMIT=83f3cd70f78ad733412d10cbc8287aaabafe7aac
-validate_manifest_copy "$EVIDENCE_DIR/manifests/baseline-a.json" baseline-a-cs2a "$BASELINE_COMMIT"
-validate_manifest_copy "$EVIDENCE_DIR/manifests/baseline-b.json" baseline-b-cs2a "$BASELINE_COMMIT"
-validate_manifest_copy "$EVIDENCE_DIR/manifests/candidate.json" candidate-cs2a \
+validate_manifest_identity "$EVIDENCE_DIR/manifests/baseline-a.json" \
+  baseline-a-cs2a "$BASELINE_COMMIT"
+validate_manifest_identity "$EVIDENCE_DIR/manifests/baseline-b.json" \
+  baseline-b-cs2a "$BASELINE_COMMIT"
+validate_manifest_identity "$EVIDENCE_DIR/manifests/candidate.json" candidate-cs2a \
   "$CS2A_IMPLEMENTATION_SHA"
 
 validate_campaign_identity() {
@@ -3247,6 +3372,7 @@ for required in \
   meta/cs2a-controlled-run.sh \
   meta/cs2a-governor-supervisor.sh \
   meta/cs2a-operator.sh \
+  meta/cs2a-validate-manifest.jq \
   meta/operator-script-sha256sums.txt \
   meta/operator-post-supervisor-exit.txt \
   meta/operator-resume-validation-exit.txt \
@@ -3478,9 +3604,10 @@ exit "$FINAL_OPERATOR_STATUS"
 ```
 
 Invoke that checked-in operator from the clean implementation worktree with fail-fast disabled only
-long enough to capture its status. When it publishes a canonical local archive, request the
-Standards + Spec archive review immediately and commit that one attempt before any rerun or source
-correction, regardless of PASS/FAIL/INCONCLUSIVE/invalid status:
+long enough to capture its status. Immediately after it publishes a canonical local archive and the
+status is captured, run `--persist-only` to create the append-only evidence commit before requesting
+independent review, any rerun, or any source correction, regardless of
+PASS/FAIL/INCONCLUSIVE/invalid status:
 
 ```bash
 : "${CS2A_IMPLEMENTATION_SHA:?export the exact measured implementation SHA}"
@@ -3493,15 +3620,6 @@ set -e
 printf '%s\n' "$OPERATOR_STATUS" >"$PWD/build/cs2a-operator-status.txt"
 
 test -s "$PWD/build/cs2a-local-evidence-dir.txt"
-```
-
-Pause for the required independent archive review. In the same or a fresh Bash shell, invoke the
-operator's self-contained persistence mode; it rehydrates the measured SHA, verifies the final
-checksum and exact Git scope, and commits only the canonical attempt. Persistence returns `0` only
-after the commit/hash/clean-tree checks and `70` for any persistence failure; the original operator
-status remains a separate recorded value and is propagated only afterward:
-
-```bash
 CS2A_IMPLEMENTATION_SHA=${CS2A_IMPLEMENTATION_SHA:-$(cat "$PWD/build/cs2a-implementation-sha")}
 export CS2A_IMPLEMENTATION_SHA
 [[ "$CS2A_IMPLEMENTATION_SHA" =~ ^[0-9a-f]{40}$ ]]
@@ -3513,10 +3631,21 @@ PERSIST_STATUS=$?
 set -e
 test "$PERSIST_STATUS" -eq 0
 
+EVIDENCE_DIR=$(cat "$PWD/build/cs2a-local-evidence-dir.txt")
+test -z "$(git status --porcelain --untracked-files=all -- "$EVIDENCE_DIR")"
+test -n "$(git ls-files -- "$EVIDENCE_DIR")"
+CS2A_EVIDENCE_SHA=$(git log -1 --format=%H -- "$EVIDENCE_DIR")
+[[ "$CS2A_EVIDENCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+
 if test "$OPERATOR_STATUS" -ne 0; then
   exit "$OPERATOR_STATUS"
 fi
 ```
+
+Only after this persistence block succeeds, request the independent Standards + Spec archive review
+against immutable commit `$CS2A_EVIDENCE_SHA`. Review never precedes persistence. Any defect remains
+preserved in that attempt commit and is corrected only by a later implementation commit plus a
+never-reused remote root and new append-only attempt; never amend or rewrite evidence.
 
 If transfer/checksum infrastructure fails before the atomic rename, the operator prints only a
 safe staging path and deliberately does not populate `cs2a-local-evidence-dir.txt`; repair/retry the
@@ -3554,8 +3683,9 @@ recomputed or reset by recovery; archive-only records its own validation status 
 selection requires both values to be zero. If both original persistence attempts failed, recovery
 uses a root `noclobber` create to record the only safe value, `70`; it never overwrites an existing
 root value, and that recovered attempt can be archived but cannot be selected as PASS.
-After a canonical publish and independent review, execute the exact self-contained
-`--persist-only` block above; otherwise retain the staging path and retry this same command. Never commit a staging directory as an attempt and
+After archive-only reaches a canonical publish, immediately execute the exact self-contained
+`--persist-only` tail above before independent review; otherwise retain the staging path and retry
+this same command. Never commit a staging directory as an attempt and
 never rerun measurements merely because archival transport failed. If review finds a code/harness
 defect, the failed attempt commit is the clean parent of the corrective implementation commit; the
 new implementation SHA must use a new remote root. The attempt commit itself is the append-only
@@ -3636,7 +3766,8 @@ test "$(cat "$SELECTED/meta/supervisor/operator-post-supervisor-exit.txt")" = \
   "$(cat "$SELECTED/meta/operator-post-supervisor-exit.txt")"
 test "$(cat "$SELECTED/meta/operator-final-exit.txt")" = 0
 test -s "$SELECTED/meta/commands.tsv"
-for script in cs2a-controlled-run.sh cs2a-governor-supervisor.sh cs2a-operator.sh; do
+for script in cs2a-controlled-run.sh cs2a-governor-supervisor.sh cs2a-operator.sh \
+  cs2a-validate-manifest.jq; do
   test -s "$SELECTED/meta/$script"
 done
 (cd "$SELECTED/meta" && sha256sum -c operator-script-sha256sums.txt)
