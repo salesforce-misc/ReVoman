@@ -92,16 +92,18 @@ class PmSandboxBootTest {
     val failure = IllegalStateException("after-context")
     val closeFailure = IllegalStateException("close-context")
     var closeCount = 0
-    val sandbox = pmSandboxForTest {
-      SandboxBridge()
-        .withBootHooks(
-          afterContextCreated = { throw failure },
-          closeContext = {
-            closeCount++
-            throw closeFailure
-          },
+    val sandbox =
+      PmSandbox()
+        .withBridgeForTest(
+          SandboxBridge()
+            .withBootHooks(
+              afterContextCreated = { throw failure },
+              closeContext = {
+                closeCount++
+                throw closeFailure
+              },
+            )
         )
-    }
 
     val thrown =
       assertThrows<IllegalStateException> {
@@ -117,5 +119,29 @@ class PmSandboxBootTest {
     thrown shouldBe failure
     thrown.suppressed.toList() shouldBe listOf(closeFailure)
     closeCount shouldBe 1
+  }
+
+  @Test
+  fun `PmSandbox rejects bridge replacement after close`() {
+    val sandbox = PmSandbox()
+    sandbox.close()
+
+    assertThrows<IllegalStateException> { sandbox.withBridgeForTest(SandboxBridge()) }
+  }
+
+  @Test
+  fun `PmSandbox rejects bridge replacement after boot`() {
+    val sandbox = PmSandbox()
+    sandbox.execute(
+      "pm.test('booted', () => pm.expect(true).to.eql(true));",
+      ScriptTarget.TEST,
+      PmExecutionContext(environment = PmScope("e", emptyMap())),
+      5000,
+    )
+    try {
+      assertThrows<IllegalStateException> { sandbox.withBridgeForTest(SandboxBridge()) }
+    } finally {
+      sandbox.close()
+    }
   }
 }

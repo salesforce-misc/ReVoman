@@ -16,17 +16,20 @@ import com.salesforce.revoman.internal.runtime.SandboxRuntime
  * All GraalJS/bridge/Flatted detail lives behind [execute].
  */
 internal class PmSandbox : SandboxRuntime {
-  private val bridge: SandboxBridge = TEST_BRIDGE_FACTORY.get()?.invoke() ?: SandboxBridge()
+  private val bridge = SandboxBridge()
+  private var bridgeForTest: SandboxBridge? = null
   private var booted = false
   private var closed = false
   private var idSeq = 0L
 
   private fun ensureBooted() {
     if (!booted) {
-      bridge.boot()
+      activeBridge().boot()
       booted = true
     }
   }
+
+  private fun activeBridge(): SandboxBridge = bridgeForTest ?: bridge
 
   final override fun execute(
     script: String,
@@ -36,30 +39,25 @@ internal class PmSandbox : SandboxRuntime {
   ): PmExecutionResult {
     check(!closed) { "sandbox: execute() after close()" }
     ensureBooted()
-    return bridge.dispatchExecute("step${idSeq++}", script, target, context, timeoutMs)
+    return activeBridge().dispatchExecute("step${idSeq++}", script, target, context, timeoutMs)
   }
 
   override fun close() {
     closed = true
-    bridge.close()
+    activeBridge().close()
+  }
+
+  @JvmSynthetic
+  internal fun withBridgeForTest(bridge: SandboxBridge): PmSandbox {
+    check(!booted && !closed) { "sandbox: bridge replacement after use" }
+    bridgeForTest = bridge
+    return this
   }
 
   private companion object {
     const val DEFAULT_TIMEOUT_MS = 60_000L
   }
 }
-
-@JvmSynthetic
-internal fun pmSandboxForTest(bridgeFactory: () -> SandboxBridge): PmSandbox {
-  TEST_BRIDGE_FACTORY.set(bridgeFactory)
-  return try {
-    PmSandbox()
-  } finally {
-    TEST_BRIDGE_FACTORY.remove()
-  }
-}
-
-private val TEST_BRIDGE_FACTORY = ThreadLocal<() -> SandboxBridge>()
 
 /** Keys produced (added or value-changed) and unset (removed) between two scope snapshots. */
 internal data class ScopeDiff(val produced: Set<String>, val unset: Set<String>)

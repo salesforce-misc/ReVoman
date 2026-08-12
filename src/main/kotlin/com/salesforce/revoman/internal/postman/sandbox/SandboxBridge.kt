@@ -55,8 +55,7 @@ internal val sharedGraalEngine: Engine by lazy {
 internal class SandboxBridge() {
   private var afterContextCreated: () -> Unit = {}
   private var closeContext: (Context) -> Unit = { it.close(true) }
-  private var contextFactory: ((Engine) -> Context)? = null
-  private var bootSourceProvider: (() -> Source)? = null
+  private var runtimeObserver: ((Context, Source) -> Unit)? = null
 
   @JvmSynthetic
   internal fun withBootHooks(
@@ -69,12 +68,8 @@ internal class SandboxBridge() {
   }
 
   @JvmSynthetic
-  internal fun withRuntimeHooks(
-    contextFactory: (Engine) -> Context,
-    bootSource: () -> Source,
-  ): SandboxBridge {
-    this.contextFactory = contextFactory
-    bootSourceProvider = bootSource
+  internal fun observeRuntime(observer: (Context, Source) -> Unit): SandboxBridge {
+    runtimeObserver = observer
     return this
   }
 
@@ -94,15 +89,14 @@ internal class SandboxBridge() {
     booted = true
     try {
       ctx =
-        contextFactory?.invoke(sharedGraalEngine)
-          ?: Context.newBuilder("js")
-            .engine(sharedGraalEngine)
-            .allowExperimentalOptions(true)
-            .option("js.esm-eval-returns-exports", "true")
-            .option("js.ecmascript-version", "2024")
-            .allowHostAccess(HostAccess.ALL)
-            .allowHostClassLookup { true }
-            .build()
+        Context.newBuilder("js")
+          .engine(sharedGraalEngine)
+          .allowExperimentalOptions(true)
+          .option("js.esm-eval-returns-exports", "true")
+          .option("js.ecmascript-version", "2024")
+          .allowHostAccess(HostAccess.ALL)
+          .allowHostClassLookup { true }
+          .build()
       afterContextCreated()
       val bindings = ctx.getBindings("js")
 
@@ -170,11 +164,13 @@ internal class SandboxBridge() {
       guestBridge = bindings.getMember("bridge")
       check(!guestBridge.isNull) { "sandbox: no global bridge after bridge-client" }
 
-      ctx.eval(bootSourceProvider?.invoke() ?: SandboxResources.bootSource)
+      val bootSource = SandboxResources.bootSource
+      ctx.eval(bootSource)
       loop.run()
 
       guestBridge.invokeMember("emit", "initialize", ProxyObject.fromMap(HashMap<String, Any?>()))
       loop.run()
+      runtimeObserver?.invoke(ctx, bootSource)
       logger.info { "Postman sandbox booted (postman-sandbox ${SandboxResources.version})" }
     } catch (failure: Throwable) {
       closed = true

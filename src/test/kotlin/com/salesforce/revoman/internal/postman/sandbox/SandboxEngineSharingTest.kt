@@ -8,7 +8,6 @@
 package com.salesforce.revoman.internal.postman.sandbox
 
 import io.kotest.matchers.shouldBe
-import org.graalvm.polyglot.Context
 import org.graalvm.polyglot.Engine
 import org.graalvm.polyglot.Source
 import org.junit.jupiter.api.Test
@@ -90,20 +89,16 @@ class SandboxEngineSharingTest {
   fun `two real bridges build contexts with the shared engine and evaluate the shared source`() {
     val engines = mutableListOf<Engine>()
     val sources = mutableListOf<Source>()
-    val contextFactory: (Engine) -> Context = { engine ->
-      engines += engine
-      Context.newBuilder("js")
-        .engine(engine)
-        .allowExperimentalOptions(true)
-        .option("js.esm-eval-returns-exports", "true")
-        .option("js.ecmascript-version", "2024")
-        .allowHostAccess(org.graalvm.polyglot.HostAccess.ALL)
-        .allowHostClassLookup { true }
-        .build()
-    }
-    val sourceProvider: () -> Source = { SandboxResources.bootSource.also { sources += it } }
-    val first = SandboxBridge().withRuntimeHooks(contextFactory, sourceProvider)
-    val second = SandboxBridge().withRuntimeHooks(contextFactory, sourceProvider)
+    val first =
+      SandboxBridge().observeRuntime { context, source ->
+        engines += context.engine
+        sources += source
+      }
+    val second =
+      SandboxBridge().observeRuntime { context, source ->
+        engines += context.engine
+        sources += source
+      }
 
     first.boot()
     first.dispatchExecute("one", "__bridgeLeak = 'first';", ScriptTarget.TEST, testCtx(), 5000)
