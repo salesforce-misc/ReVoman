@@ -1584,12 +1584,13 @@ frozen baseline files byte-identical and require `checkKotlinAbi` to stay green.
 In `RunbookExeStructureTest`, add a narrow test-local classfile parser for method `Code` attributes;
 do not change `JvmSurfaceInventory.kt`. Walk bytecode instructions (including variable-length
 instructions) and resolve every `invokevirtual`, `invokespecial`, `invokestatic`, and
-`invokeinterface` constant-pool index to exact owner/name/descriptor data. Key results by the
-enclosing method's exact name and descriptor, reject malformed/truncated code, and make every
-routing assertion against that method-scoped invocation list. Class-wide constant-pool references
-alone are insufficient because overloads share the same owner and referenced descriptors. Combine
-those method-scoped invokes with the configured root JAR's exact surface rows—not source `rg`,
-class loading, `javap` text, or substring scans—to prove:
+`invokeinterface` constant-pool index to exact owner/name/descriptor data. Resolve each
+`invokedynamic` call site's exact name and descriptor as well. Key results by the enclosing
+method's exact name and descriptor, reject malformed/truncated code, and make every routing
+assertion against that method-scoped invocation list. Class-wide constant-pool references alone
+are insufficient because overloads share the same owner and referenced descriptors. Combine those
+method-scoped invokes with the configured root JAR's exact surface rows—not source `rg`, class
+loading, `javap` text, or substring scans—to prove:
 
 - the two-argument `RunbookExeKt.executeRunbook(Runbook, Map)` row is exactly the pre-task
   Java-callable row quoted above;
@@ -1600,8 +1601,12 @@ class loading, `javap` text, or substring scans—to prove:
   primaries have exactly the method-scoped invocation edges in Step 3: no overload bypasses its
   matching `$default`, no dispatcher targets the wrong primary, and no hand-written primary calls
   any `ReVoman.revUp` descriptor; and
-- the runtime runbook implementation references the session-taking helper, not the compatibility
-  adapter.
+- all three runtime implementation bodies have exact complete invocation sequences: single opens
+  one session, executes one child, and closes with the inlined `useInternal` mechanics; list opens
+  one session, executes each child with its callback, routes that callback only to
+  `PostExeHook.accept`, and closes with the same mechanics; runbook opens one session, invokes only
+  the session-taking helper, and closes with the same mechanics. No body may call a `ReVoman`
+  public facade or another runtime `execute` overload.
 
 Compile an external Java positive consumer that directly calls the preserved
 `RunbookExeKt.executeRunbook(Runbook, Map)` method. Compile adversarial external and same-package

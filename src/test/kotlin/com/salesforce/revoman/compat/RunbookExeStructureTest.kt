@@ -202,23 +202,102 @@ class RunbookExeStructureTest {
   }
 
   @Test
-  fun `runtime runbook implementation invokes only the session helper`() {
-    val methods =
-      readMethodInvocations(REVOMAN_RUNTIME_IMPLEMENTATION).associateBy(MethodInvocations::method)
-    val runbookMethod = methods.getValue(MethodKey("execute", RUNTIME_RUNBOOK_DESCRIPTOR))
+  fun `runtime single implementation pins one session child and close route`() {
+    val method =
+      readMethodInvocations(REVOMAN_RUNTIME_IMPLEMENTATION).single {
+        it.method == MethodKey("execute", RUNTIME_KICK_DESCRIPTOR)
+      }
 
-    assertThat(runbookMethod.routing())
+    assertWithMessage("routing for ${method.method}: ${method.invocations}")
+      .that(method.invocations)
       .containsExactly(
-        invokeInterface(
-          EXECUTION_SESSION_FACTORY,
-          "open",
-          "(Ljava/util/Map;)L$EXECUTION_SESSION;",
+        invokeStatic(INTRINSICS, "checkNotNullParameter", CHECK_NOT_NULL_PARAMETER_DESCRIPTOR),
+        invokeStatic(MAPS_KT, "emptyMap", EMPTY_MAP_DESCRIPTOR),
+        invokeInterface(EXECUTION_SESSION_FACTORY, "open", EXECUTION_SESSION_OPEN_DESCRIPTOR),
+        invokeStatic(EXECUTION_SESSION, "executeKick\$default", EXECUTE_KICK_DEFAULT_DESCRIPTOR),
+        invokeInterface(RESOURCE_SCOPE, "closeAfter", RESOURCE_SCOPE_CLOSE_DESCRIPTOR),
+        invokeInterface(INTERNAL_CLOSEABLE, "close", INTERNAL_CLOSE_DESCRIPTOR),
+        invokeInterface(RESOURCE_SCOPE, "closeAfter", RESOURCE_SCOPE_CLOSE_DESCRIPTOR),
+        invokeInterface(INTERNAL_CLOSEABLE, "close", INTERNAL_CLOSE_DESCRIPTOR),
+        invokeInterface(INTERNAL_CLOSEABLE, "close", INTERNAL_CLOSE_DESCRIPTOR),
+        invokeStatic(KOTLIN_EXCEPTIONS, "addSuppressed", ADD_SUPPRESSED_DESCRIPTOR),
+      )
+      .inOrder()
+  }
+
+  @Test
+  fun `runtime list implementation pins one session child callback and close route`() {
+    val methods = readMethodInvocations(REVOMAN_RUNTIME_IMPLEMENTATION)
+    val method = methods.single { it.method == MethodKey("execute", RUNTIME_LIST_DESCRIPTOR) }
+    val callback = methods.single {
+      it.method == MethodKey(LIST_CALLBACK_NAME, LIST_CALLBACK_DESCRIPTOR)
+    }
+
+    assertWithMessage("routing for ${method.method}: ${method.invocations}")
+      .that(method.invocations)
+      .containsExactly(
+        invokeStatic(INTRINSICS, "checkNotNullParameter", CHECK_NOT_NULL_PARAMETER_DESCRIPTOR),
+        invokeStatic(INTRINSICS, "checkNotNullParameter", CHECK_NOT_NULL_PARAMETER_DESCRIPTOR),
+        invokeStatic(INTRINSICS, "checkNotNullParameter", CHECK_NOT_NULL_PARAMETER_DESCRIPTOR),
+        invokeInterface(EXECUTION_SESSION_FACTORY, "open", EXECUTION_SESSION_OPEN_DESCRIPTOR),
+        invokeStatic(
+          COLLECTIONS_KT,
+          "collectionSizeOrDefault",
+          COLLECTION_SIZE_OR_DEFAULT_DESCRIPTOR,
         ),
+        invokeSpecial(ARRAY_LIST, "<init>", "(I)V"),
+        invokeInterface(ITERABLE, "iterator", "()Ljava/util/Iterator;"),
+        invokeInterface(ITERATOR, "hasNext", "()Z"),
+        invokeInterface(ITERATOR, "next", "()Ljava/lang/Object;"),
+        invokeDynamic(
+          "invoke",
+          "(L$POST_EXE_HOOK;)Lkotlin/jvm/functions/Function2;",
+        ),
+        invokeInterface(EXECUTION_SESSION, "executeKick", EXECUTE_KICK_DESCRIPTOR),
+        invokeInterface(COLLECTION, "add", "(Ljava/lang/Object;)Z"),
+        invokeInterface(RESOURCE_SCOPE, "closeAfter", RESOURCE_SCOPE_CLOSE_DESCRIPTOR),
+        invokeInterface(INTERNAL_CLOSEABLE, "close", INTERNAL_CLOSE_DESCRIPTOR),
+        invokeInterface(RESOURCE_SCOPE, "closeAfter", RESOURCE_SCOPE_CLOSE_DESCRIPTOR),
+        invokeInterface(INTERNAL_CLOSEABLE, "close", INTERNAL_CLOSE_DESCRIPTOR),
+        invokeInterface(INTERNAL_CLOSEABLE, "close", INTERNAL_CLOSE_DESCRIPTOR),
+        invokeStatic(KOTLIN_EXCEPTIONS, "addSuppressed", ADD_SUPPRESSED_DESCRIPTOR),
+      )
+      .inOrder()
+    assertWithMessage("routing for ${callback.method}: ${callback.invocations}")
+      .that(callback.invocations)
+      .containsExactly(
+        invokeStatic(INTRINSICS, "checkNotNullParameter", CHECK_NOT_NULL_PARAMETER_DESCRIPTOR),
+        invokeStatic(INTRINSICS, "checkNotNullParameter", CHECK_NOT_NULL_PARAMETER_DESCRIPTOR),
+        invokeInterface(POST_EXE_HOOK, "accept", POST_EXE_HOOK_ACCEPT_DESCRIPTOR),
+      )
+      .inOrder()
+  }
+
+  @Test
+  fun `runtime runbook implementation pins one session helper and close route`() {
+    val runbookMethod =
+      readMethodInvocations(REVOMAN_RUNTIME_IMPLEMENTATION).single {
+        it.method == MethodKey("execute", RUNTIME_RUNBOOK_DESCRIPTOR)
+      }
+
+    assertWithMessage("routing for ${runbookMethod.method}: ${runbookMethod.invocations}")
+      .that(runbookMethod.invocations)
+      .containsExactly(
+        invokeStatic(INTRINSICS, "checkNotNullParameter", CHECK_NOT_NULL_PARAMETER_DESCRIPTOR),
+        invokeStatic(INTRINSICS, "checkNotNullParameter", CHECK_NOT_NULL_PARAMETER_DESCRIPTOR),
+        invokeStatic(MAPS_KT, "emptyMap", EMPTY_MAP_DESCRIPTOR),
+        invokeInterface(EXECUTION_SESSION_FACTORY, "open", EXECUTION_SESSION_OPEN_DESCRIPTOR),
         invokeStatic(
           RUNBOOK_EXE,
           RUNBOOK_SESSION_HELPER_NAME,
           RUNBOOK_SESSION_HELPER_DESCRIPTOR,
         ),
+        invokeInterface(RESOURCE_SCOPE, "closeAfter", RESOURCE_SCOPE_CLOSE_DESCRIPTOR),
+        invokeInterface(INTERNAL_CLOSEABLE, "close", INTERNAL_CLOSE_DESCRIPTOR),
+        invokeInterface(RESOURCE_SCOPE, "closeAfter", RESOURCE_SCOPE_CLOSE_DESCRIPTOR),
+        invokeInterface(INTERNAL_CLOSEABLE, "close", INTERNAL_CLOSE_DESCRIPTOR),
+        invokeInterface(INTERNAL_CLOSEABLE, "close", INTERNAL_CLOSE_DESCRIPTOR),
+        invokeStatic(KOTLIN_EXCEPTIONS, "addSuppressed", ADD_SUPPRESSED_DESCRIPTOR),
       )
       .inOrder()
   }
@@ -391,6 +470,13 @@ class RunbookExeStructureTest {
               }
               5
             }
+            INVOKEDYNAMIC -> {
+              invocations += resolveDynamicInvocation(code.u2(offset + 1), method)
+              require(code.u1(offset + 3) == 0 && code.u1(offset + 4) == 0) {
+                "Malformed invokedynamic at $offset in $method"
+              }
+              5
+            }
             TABLESWITCH -> tableSwitchLength(code, offset, method)
             LOOKUPSWITCH -> lookupSwitchLength(code, offset, method)
             WIDE -> wideLength(code, offset, method)
@@ -428,6 +514,26 @@ class RunbookExeStructureTest {
       )
     }
 
+    private fun resolveDynamicInvocation(
+      constantPoolIndex: Int,
+      method: MethodKey,
+    ): MethodInvocation {
+      val actualTag = tags.getOrElse(constantPoolIndex) { -1 }
+      require(actualTag == CONSTANT_INVOKE_DYNAMIC) {
+        "invokedynamic at $method references CP tag $actualTag"
+      }
+      val nameAndTypeIndex = secondIndices[constantPoolIndex]
+      require(tags[nameAndTypeIndex] == CONSTANT_NAME_AND_TYPE) {
+        "Expected NameAndType at CP index $nameAndTypeIndex"
+      }
+      return MethodInvocation(
+        opcode = INVOKEDYNAMIC,
+        owner = DYNAMIC_CALL_SITE,
+        name = utf8(firstIndices[nameAndTypeIndex]),
+        descriptor = utf8(secondIndices[nameAndTypeIndex]),
+      )
+    }
+
     private fun className(index: Int): String {
       require(tags.getOrElse(index) { -1 } == CONSTANT_CLASS) {
         "Expected Class at CP index $index"
@@ -449,6 +555,17 @@ class RunbookExeStructureTest {
     const val EXECUTION_SESSION = "com/salesforce/revoman/internal/runtime/ExecutionSession"
     const val EXECUTION_SESSION_FACTORY =
       "com/salesforce/revoman/internal/runtime/ExecutionSessionFactory"
+    const val RESOURCE_SCOPE = "com/salesforce/revoman/internal/runtime/ResourceScope"
+    const val INTERNAL_CLOSEABLE = "com/salesforce/revoman/internal/runtime/InternalCloseable"
+    const val KOTLIN_EXCEPTIONS = "kotlin/ExceptionsKt"
+    const val INTRINSICS = "kotlin/jvm/internal/Intrinsics"
+    const val MAPS_KT = "kotlin/collections/MapsKt"
+    const val COLLECTIONS_KT = "kotlin/collections/CollectionsKt"
+    const val ARRAY_LIST = "java/util/ArrayList"
+    const val ITERABLE = "java/lang/Iterable"
+    const val ITERATOR = "java/util/Iterator"
+    const val COLLECTION = "java/util/Collection"
+    const val DYNAMIC_CALL_SITE = "<invokedynamic>"
     const val POST_EXE_HOOK = "com/salesforce/revoman/input/PostExeHook"
     const val KICK = "com/salesforce/revoman/input/config/Kick"
     const val RUNBOOK = "com/salesforce/revoman/input/config/Runbook"
@@ -465,6 +582,17 @@ class RunbookExeStructureTest {
         "Lcom/salesforce/revoman/internal/exe/RunbookAcc;"
     const val EXECUTE_KICK_DEFAULT_DESCRIPTOR =
       "(L$EXECUTION_SESSION;L$KICK;ZLkotlin/jvm/functions/Function2;ILjava/lang/Object;)L$RUNDOWN;"
+    const val EXECUTE_KICK_DESCRIPTOR = "(L$KICK;ZLkotlin/jvm/functions/Function2;)L$RUNDOWN;"
+    const val EXECUTION_SESSION_OPEN_DESCRIPTOR = "(Ljava/util/Map;)L$EXECUTION_SESSION;"
+    const val RESOURCE_SCOPE_CLOSE_DESCRIPTOR = "(Ljava/lang/Throwable;)Ljava/lang/Throwable;"
+    const val INTERNAL_CLOSE_DESCRIPTOR = "()V"
+    const val ADD_SUPPRESSED_DESCRIPTOR = "(Ljava/lang/Throwable;Ljava/lang/Throwable;)V"
+    const val LIST_CALLBACK_NAME = "execute\$lambda\$1\$0\$0"
+    const val LIST_CALLBACK_DESCRIPTOR = "(L$POST_EXE_HOOK;L$RUNDOWN;Ljava/util/List;)Lkotlin/Unit;"
+    const val POST_EXE_HOOK_ACCEPT_DESCRIPTOR = "(L$RUNDOWN;Ljava/util/List;)V"
+    const val CHECK_NOT_NULL_PARAMETER_DESCRIPTOR = "(Ljava/lang/Object;Ljava/lang/String;)V"
+    const val EMPTY_MAP_DESCRIPTOR = "()Ljava/util/Map;"
+    const val COLLECTION_SIZE_OR_DEFAULT_DESCRIPTOR = "(Ljava/lang/Iterable;I)I"
     const val CHECK_CONSUMES_DESCRIPTOR =
       "(Lcom/salesforce/revoman/input/config/RunbookStep;Ljava/util/Set;)V"
     const val PRODUCED_VALUES_DESCRIPTOR =
@@ -490,6 +618,12 @@ class RunbookExeStructureTest {
 
     fun invokeInterface(owner: String, name: String, descriptor: String) =
       MethodInvocation(INVOKEINTERFACE, owner, name, descriptor)
+
+    fun invokeSpecial(owner: String, name: String, descriptor: String) =
+      MethodInvocation(INVOKESPECIAL, owner, name, descriptor)
+
+    fun invokeDynamic(name: String, descriptor: String) =
+      MethodInvocation(INVOKEDYNAMIC, DYNAMIC_CALL_SITE, name, descriptor)
   }
 }
 

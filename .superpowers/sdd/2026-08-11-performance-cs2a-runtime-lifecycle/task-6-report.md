@@ -193,9 +193,11 @@ Task commit: this report is committed with message
 
 ## Formal-review fix round 1
 
-### Findings closed
+### Findings addressed
 
-The round closes all four Important proof gaps from the formal review:
+The round closed three of the four Important proof gaps from the formal review. It strengthened the
+routing checks but did not cover the runtime single and list bodies, which remained open after the
+scoped re-review:
 
 1. Two real-sandbox public controls now overlap concurrent list calls with latches and nest a
    public list call inside a public runbook assertion. Behaviorally distinct environment,
@@ -204,9 +206,9 @@ The round closes all four Important proof gaps from the formal review:
 2. The Kotlin-only session helper is uniquely named `executeRunbookInSession`. External-package and
    same-package Java attempts fail with exact member-resolution diagnostics; both reject
    `compiler.err.cant.apply.symbol`, while the two-argument compatibility adapter still compiles.
-3. Every routing assertion now compares the complete method-scoped routing sequence. The checks
-   reject extra edges as well as missing or misdirected edges for the runbook body, adapter, helper,
-   runtime, generated overloads, default dispatchers, and all four public primaries.
+3. The routing assertions compare complete method-scoped routing sequences for the runbook body,
+   adapter, helper, runbook runtime body, generated overloads, default dispatchers, and all four
+   public primaries. The runtime single and list bodies were not asserted and remained open.
 4. The three-step runbook lifecycle test gives its third configured kick a non-carried template
    identity. The expected child-create, execute, and close sequence must end in `third`, so carry
    cannot overwrite the marker and make a duplicate second occurrence masquerade as the third.
@@ -277,13 +279,113 @@ Only the existing Kotlin compiler and deprecation warnings were emitted.
 - IntelliJ semantic navigation resolves the runtime call directly to
   `executeRunbookInSession`, with only its runtime import and invocation as code references;
   closed-batch diagnostics report no errors in `ReVomanRuntime.kt`.
-- Exact compiled bytecode proves the helper, adapter, runtime, and public facade routing and rejects
-  all extra routing edges. The two independent raw inventories prove the 16 renamed-owner rows on
-  each side are compiler-derived literal rows.
+- Exact compiled bytecode proves the helper, adapter, runbook runtime body, and public facade
+  routing. The two independent raw inventories prove the 16 renamed-owner rows on each side are
+  compiler-derived literal rows.
 - The latch controls prove concurrent and reentrant public isolation with real sandboxes and
   independent sinks. The corrected lifecycle sequence proves all three configured runbook
   identities survive carry.
 - `ExecutionSession.kt`, frozen ABI files, the migration map, and the Task 7/8 plan sections have no
-  diff. Concern: none.
+  diff. Scoped re-review left one open concern: the runtime single and list body sequences were not
+  pinned.
 
 Fix-round commit message: `test: close Task 6 isolation proof gaps`.
+
+## Formal-review fix round 2
+
+### Remaining finding closed
+
+The scoped re-review of `26ac4dad9da6b2d7922cf9deab756fb6a36bbe82` found that
+`RunbookExeStructureTest` selected only the runtime `execute(Runbook, Map)` body. Extra edges in
+`execute(Kick)` and `execute(List, PostExeHook, Map)` could pass undetected.
+
+The test now selects all three overloads by exact method name and descriptor and compares every
+method-scoped invocation in order. The exact sequences include parameter checks, session creation,
+child execution, and the close/suppression mechanics emitted by inline `useInternal`. The list
+sequence also includes collection traversal, its `invokedynamic` callback site, result insertion,
+and a separately pinned callback body that invokes only `PostExeHook.accept`. The runbook assertion
+was expanded to the same complete standard. Any public `ReVoman` edge, runtime self-edge, missing
+edge, or extra invocation fails exact equality.
+
+The classfile parser now resolves each `invokedynamic` call site's exact name and descriptor and
+rejects malformed nonzero reserved bytes. Production code, raw JVM sets, and Kotlin ABI files are
+unchanged.
+
+### Targeted RED and mutation evidence
+
+Both mutations changed compiled method edges only; the focused test inspected the generated root
+JAR and did not execute the recursive runtime path.
+
+1. The runtime single body temporarily called `ReVoman.revUp(kick)` before
+   `session.executeKick`. `runtime single implementation pins one session child and close route`
+   failed on the exact unexpected static edge:
+
+   ```text
+   com/salesforce/revoman/ReVoman.revUp
+   (Lcom/salesforce/revoman/input/config/Kick;)Lcom/salesforce/revoman/output/Rundown;
+
+   FAILURE: Executed 6 tests in 1.5s (1 failed)
+   BUILD FAILED in 12s
+   ```
+
+2. After restoring the single body, the runtime list body temporarily called `execute(kick)`
+   inside its map. `runtime list implementation pins one session child callback and close route`
+   failed on the exact unexpected virtual self-edge:
+
+   ```text
+   com/salesforce/revoman/internal/runtime/ReVomanRuntimeKt$reVomanRuntime$1.execute
+   (Lcom/salesforce/revoman/input/config/Kick;)Lcom/salesforce/revoman/output/Rundown;
+
+   FAILURE: Executed 6 tests in 1.6s (1 failed)
+   BUILD FAILED in 11s
+   ```
+
+Both production mutations were restored before GREEN verification; `git diff` contains no
+production file.
+
+### Restored GREEN
+
+```text
+./gradlew spotlessApply :test \
+  --tests '*RunbookExeStructureTest' \
+  --rerun-tasks --no-build-cache --no-configuration-cache --console=plain
+
+BUILD SUCCESSFUL in 13s
+SUCCESS: Executed 6 tests in 1.4s
+```
+
+The affected Task 6 gate then ran both raw inventories, JVM visibility, all six structure tests,
+both external compatibility compilers, Kotlin ABI, and formatting:
+
+```text
+./gradlew :test \
+  --tests '*ApiBaselineInventoryTest' \
+  --tests '*JvmSurfaceVisibilityTest' \
+  --tests '*RunbookExeStructureTest' \
+  checkKotlinAbi \
+  compileApiCompatibilityTestKotlin \
+  compileApiCompatibilityTestJava \
+  spotlessCheck \
+  --rerun-tasks --no-build-cache --no-configuration-cache --console=plain
+
+BUILD SUCCESSFUL in 16s
+SUCCESS: Executed 28 tests in 4.1s
+38 actionable tasks: 38 executed
+```
+
+Only the existing Kotlin compiler and deprecation warnings were emitted. The real-sandbox suites
+were not rerun because the fix changes only the structure test, Task 6 plan, report, and local
+ledger.
+
+### Fix-round self-review
+
+- The exact single sequence permits one session open, one `executeKick$default`, and only the
+  emitted close/suppression calls after standard parameter and empty-map setup.
+- The exact list sequence permits one session open, the emitted collection mechanics, one callback
+  call site, one `executeKick`, result insertion, and close/suppression calls. Its callback body
+  permits only parameter checks and `PostExeHook.accept`.
+- The exact runbook sequence permits one session open, `executeRunbookInSession`, and the emitted
+  close/suppression calls. No runtime body can add a public facade or runtime self-edge.
+- Production, raw JVM sets, Kotlin ABI files, and Task 7/8 sections are unchanged. Concern: none.
+
+Fix-round commit message: `test: pin every Task 6 runtime route`.
