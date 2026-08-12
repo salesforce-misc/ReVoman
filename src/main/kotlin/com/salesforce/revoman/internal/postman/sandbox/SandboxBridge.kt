@@ -19,18 +19,17 @@ import org.graalvm.polyglot.proxy.ProxyExecutable
 import org.graalvm.polyglot.proxy.ProxyObject
 
 /**
- * ONE process-wide immutable GraalVM [Engine], shared by every per-run [Context] (the sandbox
- * Context here AND the PostmanSDK JSEvaluator Context). The Engine shares the interpreter->JIT /
- * optimizing-runtime warm-up across runs and across both Context kinds — the reliable, measured A2
- * win, so that convergence is paid once per JVM rather than per ReVoman run. It ALSO caches parsed
- * code for the 2.2 MB bootcode [Source]. The immutable boot [Source] is retained by
- * [SandboxResources] for the JVM lifetime, so the engine can reuse its parsed code between runs.
+ * ONE process-wide immutable GraalVM [Engine], shared by every kick-local sandbox [Context]. The
+ * Engine shares interpreter-to-optimized-runtime warm-up across runs, so convergence is paid once
+ * per JVM rather than per ReVoman run. It also caches parsed code for the 2.2 MB bootcode [Source].
+ * The immutable boot [Source] is retained by [SandboxResources] for the JVM lifetime, so the engine
+ * can reuse its parsed code between runs.
  *
  * Engines are thread-safe and long-lived by design; Contexts are single-threaded and per-run.
  * Sharing the Engine does NOT weaken the single-threaded Context contract, and — critically — guest
- * state (globals/env) lives in the Context, so sharing the Engine cannot bleed state between runs.
- * Never construct a Context WITHOUT this Engine. Left unclosed for the JVM lifetime (standard for a
- * shared library Engine).
+ * state (globals/env) lives in the sole per-kick Context, so sharing the Engine cannot bleed state
+ * between runs. Never construct a Context WITHOUT this Engine. Left unclosed for the JVM lifetime
+ * (standard for a shared library Engine).
  */
 internal val sharedGraalEngine: Engine by lazy {
   Engine.newBuilder("js")
@@ -170,6 +169,7 @@ internal class SandboxBridge() {
 
       guestBridge.invokeMember("emit", "initialize", ProxyObject.fromMap(HashMap<String, Any?>()))
       loop.run()
+      installRequestJsonCompatibility()
       runtimeObserver?.invoke(ctx, bootSource)
       logger.info { "Postman sandbox booted (postman-sandbox ${SandboxResources.version})" }
     } catch (failure: Throwable) {
@@ -236,6 +236,44 @@ internal class SandboxBridge() {
     loop.run()
 
     return decodeResult(id)
+  }
+
+  /**
+   * Postman's Request model exposes the raw body but does not provide ReVoman's historical
+   * `pm.request.json()` convenience. Install it once on the real request prototype so collection
+   * source remains byte-for-byte untouched, including directive prologues and source line numbers.
+   */
+  private fun installRequestJsonCompatibility() {
+    val result =
+      dispatchExecute(
+        id = "revoman-request-json-compatibility",
+        script =
+          """
+          if (typeof pm.request.json !== 'function') {
+            Object.getPrototypeOf(pm.request).json = function () {
+              return this.body && typeof this.body.raw === 'string'
+                ? JSON.parse(this.body.raw)
+                : undefined;
+            };
+          }
+          """
+            .trimIndent(),
+        target = ScriptTarget.TEST,
+        context =
+          PmExecutionContext(
+            environment = PmScope("revoman-request-json-compatibility", emptyMap()),
+            request =
+              linkedMapOf(
+                "method" to "GET",
+                "url" to "https://revoman.invalid/request-json-compatibility",
+                "body" to linkedMapOf("mode" to "raw", "raw" to "{}"),
+              ),
+          ),
+        timeoutMs = 60_000,
+      )
+    result.error?.let {
+      throw IllegalStateException("sandbox: request JSON compatibility failed", it)
+    }
   }
 
   fun close() {

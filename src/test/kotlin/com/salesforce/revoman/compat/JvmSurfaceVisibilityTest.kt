@@ -72,43 +72,88 @@ class JvmSurfaceVisibilityTest {
   }
 
   @Test
-  fun `built jar records the complete intentionally reachable legacy sandbox surface`() {
+  fun `classfile reader resolves exact constant-pool references including forward descriptors`() {
+    val references = readJvmClassReferences(referenceClassFile())
+
+    assertThat(references.owner).isEqualTo("example/Fixture")
+    assertThat(references.classes)
+      .containsExactly(
+        "example/Fixture",
+        "java/lang/Object",
+        "target/Owner",
+        "target/Interface",
+        "[Ltarget/ArrayOnly;",
+      )
+    assertThat(references.members)
+      .containsExactly(
+        JvmMemberReference(
+          JvmReferenceKind.FIELD,
+          "target/Owner",
+          "field",
+          "Ltarget/DescriptorOnly;",
+        ),
+        JvmMemberReference(JvmReferenceKind.METHOD, "target/Owner", "method", "()V"),
+        JvmMemberReference(
+          JvmReferenceKind.INTERFACE_METHOD,
+          "target/Interface",
+          "invoke",
+          "(Ltarget/DescriptorOnly;)V",
+        ),
+      )
+    assertThat(references.strings).containsExactly("exact-option-string")
+    assertThat(references.descriptors)
+      .containsAtLeast(
+        "Ltarget/DescriptorOnly;",
+        "()V",
+        "(Ltarget/DescriptorOnly;)V",
+        "(Ltarget/OnlyInNameAndType;)V",
+        "(Ltarget/OnlyInMethodType;)V",
+      )
+  }
+
+  @Test
+  fun `built jar exposes focused types but no Java-source-callable operations`() {
     val entries = JvmSurfaceInventory.readJar(configuredRootJar())
     val classRows =
       entries.asSequence().filter { it.kind == JvmSurfaceKind.CLASS }.associateBy { it.owner }
 
-    LEGACY_SANDBOX_OWNERS.forEach { owner ->
-      assertWithMessage("missing legacy class row for $owner").that(classRows[owner]).isNotNull()
-      assertWithMessage("legacy class must remain Java-source-callable in Task 1: $owner")
+    TASK4_FOCUSED_INTERFACE_OWNERS.forEach { owner ->
+      assertWithMessage("missing focused class row for $owner").that(classRows[owner]).isNotNull()
+      assertWithMessage("focused interface remains nameable: $owner")
         .that(classRows.getValue(owner).sourceCallable)
+        .isTrue()
+      assertThat(
+          entries.filter {
+            it.owner == owner && it.kind == JvmSurfaceKind.METHOD
+          }
+        )
+        .isNotEmpty()
+      assertThat(
+          entries
+            .filter { it.owner == owner && it.kind == JvmSurfaceKind.METHOD }
+            .all { it.memberSynthetic && !it.sourceCallable }
+        )
         .isTrue()
     }
 
-    assertThat(
-        entries.any {
-          it.owner == POSTMAN_SDK && it.kind == JvmSurfaceKind.CONSTRUCTOR && it.sourceCallable
-        }
-      )
-      .isTrue()
-    assertThat(
-        entries.any {
-          it.owner == POSTMAN_SDK &&
-            it.kind == JvmSurfaceKind.METHOD &&
-            it.name == "evaluateJS" &&
-            it.sourceCallable
-        }
-      )
-      .isTrue()
-    assertThat(
-        entries.any {
-          it.owner == REGEX_REPLACER && it.kind == JvmSurfaceKind.CONSTRUCTOR && it.sourceCallable
-        }
-      )
-      .isTrue()
+    TASK4_FOCUSED_FACTORY_OWNERS.forEach { (owner, factory) ->
+      val row = entries.single {
+        it.owner == owner && it.kind == JvmSurfaceKind.METHOD && it.name == factory
+      }
+      assertThat(row.memberSynthetic).isTrue()
+      assertThat(row.sourceCallable).isFalse()
+    }
+    TASK4_FOCUSED_IMPLEMENTATION_OWNERS.forEach { owner ->
+      val rows = entries.filter { it.owner == owner }
+      assertThat(rows).isNotEmpty()
+      assertThat(rows.single { it.kind == JvmSurfaceKind.CLASS }.sourceCallable).isFalse()
+      assertThat(rows.single { it.kind == JvmSurfaceKind.CONSTRUCTOR }.memberAccess and 0x0005)
+        .isEqualTo(0)
+    }
   }
 
   @Test
-  fun `Task 3 runtime additions and approved bridge removal have the exact raw surface`() {
+  fun `Task 4 cumulative additions and removals have the exact raw surface`() {
     val entries = JvmSurfaceInventory.readJar(configuredRootJar())
     val frozen = JvmSurfaceInventory.parse(Files.readString(FROZEN_JVM_ABI))
     val frozenRows = frozen.asSequence().map(JvmSurfaceEntry::render).toSet()
@@ -117,11 +162,9 @@ class JvmSurfaceVisibilityTest {
     val removals = frozen.filter { it.render() !in activeRows }
 
     assertThat(additions.map(JvmSurfaceEntry::render))
-      .containsExactlyElementsIn(CS2_TASK3_RAW_JVM_ADDITIONS)
+      .containsExactlyElementsIn(CS2_TASK4_RAW_JVM_ADDITIONS)
     assertThat(removals.map(JvmSurfaceEntry::render))
-      .containsExactlyElementsIn(CS2_TASK3_RAW_JVM_REMOVALS)
-    assertThat(removals.single().memberSynthetic).isTrue()
-    assertThat(removals.single().sourceCallable).isFalse()
+      .containsExactlyElementsIn(CS2_TASK4_RAW_JVM_REMOVALS)
     val pmSandboxRows = entries.filter {
       it.owner == "com/salesforce/revoman/internal/postman/sandbox/PmSandbox"
     }
@@ -152,11 +195,15 @@ class JvmSurfaceVisibilityTest {
         }
       )
       .isFalse()
-    val addedClasses = additions.filter { it.kind == JvmSurfaceKind.CLASS }
-    assertThat(addedClasses.map(JvmSurfaceEntry::owner))
+    val addedTask3Classes = additions.filter {
+      it.kind == JvmSurfaceKind.CLASS && it.owner in TASK3_RUNTIME_OWNERS
+    }
+    assertThat(addedTask3Classes.map(JvmSurfaceEntry::owner))
       .containsExactlyElementsIn(TASK3_RUNTIME_OWNERS)
-    assertThat(addedClasses.filter(JvmSurfaceEntry::sourceCallable)).hasSize(11)
-    assertThat(addedClasses.filterNot(JvmSurfaceEntry::sourceCallable).map(JvmSurfaceEntry::owner))
+    assertThat(addedTask3Classes.filter(JvmSurfaceEntry::sourceCallable)).hasSize(11)
+    assertThat(
+        addedTask3Classes.filterNot(JvmSurfaceEntry::sourceCallable).map(JvmSurfaceEntry::owner)
+      )
       .containsExactlyElementsIn(
         setOf(
           RESOURCE_SCOPE_IMPLEMENTATION,
@@ -164,7 +211,12 @@ class JvmSurfaceVisibilityTest {
           KICK_EXECUTOR_IMPLEMENTATION,
         )
       )
-    assertThat(additions.map(JvmSurfaceEntry::owner)).doesNotContain("${RUNTIME_PACKAGE}Companion")
+    assertThat(
+        additions
+          .filter { it.kind == JvmSurfaceKind.CLASS && it.owner.endsWith("\$Companion") }
+          .map(JvmSurfaceEntry::owner)
+      )
+      .isEmpty()
     assertThat(additions.filter { it.kind == JvmSurfaceKind.FIELD }.map(JvmSurfaceEntry::name))
       .doesNotContain("INSTANCE")
     assertThat(additions.filter { it.owner in KOTLIN_ONLY_INTERFACE_OWNERS }).isNotEmpty()
@@ -419,55 +471,115 @@ class JvmSurfaceVisibilityTest {
   }
 
   @Test
-  fun `external Java source can compile against the intentional legacy sandbox surface`() {
-    val result =
+  fun `external Java can name focused types but cannot operate or construct them`() {
+    val nameable =
       compileJava(
-        "LegacySandboxConsumer",
+        "FocusedTypeReferenceConsumer",
         """
         import com.salesforce.revoman.internal.postman.PostmanSDK;
+        import com.salesforce.revoman.internal.postman.PostmanVariableScopes;
         import com.salesforce.revoman.internal.postman.RegexReplacer;
-        import java.util.Collections;
-        import java.util.LinkedHashMap;
+        import com.salesforce.revoman.internal.postman.StepScriptCapture;
+        import com.salesforce.revoman.internal.runtime.LegacyRundownProgress;
 
-        final class LegacySandboxConsumer {
-          static Object access() {
-            RegexReplacer replacer = new RegexReplacer(Collections.emptyMap(), null);
-            PostmanSDK sdk = new PostmanSDK(null, null, replacer, new LinkedHashMap<>());
-            sdk.setEnvironmentVariable("token", "value");
-            return sdk.evaluateJS("1 + 1", Collections.emptyMap());
-          }
+        final class FocusedTypeReferenceConsumer {
+          PostmanSDK sdk;
+          PostmanVariableScopes scopes;
+          RegexReplacer replacer;
+          StepScriptCapture capture;
+          LegacyRundownProgress progress;
         }
         """
           .trimIndent(),
       )
+    assertWithMessage("javac diagnostics: ${nameable.diagnostics}").that(nameable.compiled).isTrue()
 
-    assertWithMessage("javac diagnostics: ${result.diagnostics}").that(result.compiled).isTrue()
+    val attempts =
+      listOf(
+        "static Object access(PostmanSDK v) { return v.getScopes(); }",
+        "static Object access(PostmanVariableScopes v) { return v.resolve(\"key\"); }",
+        "static Object access(RegexReplacer v) { return v.replaceVariablesRecursively(\"x\"); }",
+        "static Object access(StepScriptCapture v) { return v.assertionsFor(null); }",
+        "static Object access(LegacyRundownProgress v) { return v.getCurrentRequestName(); }",
+        "static void write(PostmanVariableScopes v) { v.setEnvironmentName(\"name\"); }",
+        "static Object access() { return PostmanSDKKt.postmanSDK(null, null, null, null); }",
+        "static Object access() { return PostmanVariableScopesKt.postmanVariableScopes(null, null, null, null); }",
+        "static Object access() { return RegexReplacerKt.regexReplacer(null, null, null); }",
+        "static Object access() { return StepScriptCaptureKt.stepScriptCapture(); }",
+        "static Object access() { return LegacyRundownProgressKt.legacyRundownProgress(); }",
+        "static Object access() { return new PostmanSDK(null, null, null); }",
+        "static Object access() { return new RegexReplacer(null, null); }",
+      )
+    attempts.forEachIndexed { index, access ->
+      val result =
+        compileJava(
+          "FocusedOperationConsumer$index",
+          """
+          import com.salesforce.revoman.internal.postman.*;
+          import com.salesforce.revoman.internal.runtime.*;
+
+          final class FocusedOperationConsumer$index {
+            $access
+          }
+          """
+            .trimIndent(),
+        )
+      assertWithMessage("focused operation must be rejected: $access; ${result.diagnostics}")
+        .that(result.compiled)
+        .isFalse()
+    }
   }
 
   @Test
-  fun `external Java source cannot read a non-source-callable built-jar member`() {
-    val result =
-      compileJava(
-        "LegacySandboxPrivateMemberConsumer",
-        """
-        import com.salesforce.revoman.internal.postman.PostmanSDK;
-
-        final class LegacySandboxPrivateMemberConsumer {
-          static Object access(PostmanSDK sdk) {
-            return sdk.jsEvaluator;
-          }
-        }
-        """
-          .trimIndent(),
+  fun `same-package Java cannot construct focused anonymous implementations`() {
+    val attempts =
+      listOf(
+        Triple(
+          POSTMAN_SDK_IMPLEMENTATION.substringAfterLast('/'),
+          "com.salesforce.revoman.internal.postman",
+          "null, null, null, null",
+        ),
+        Triple(
+          POSTMAN_VARIABLE_SCOPES_IMPLEMENTATION.substringAfterLast('/'),
+          "com.salesforce.revoman.internal.postman",
+          "null, null, null, null",
+        ),
+        Triple(
+          STEP_SCRIPT_CAPTURE_IMPLEMENTATION.substringAfterLast('/'),
+          "com.salesforce.revoman.internal.postman",
+          "",
+        ),
+        Triple(
+          REGEX_REPLACER_IMPLEMENTATION.substringAfterLast('/'),
+          "com.salesforce.revoman.internal.postman",
+          "null, null, null",
+        ),
+        Triple(
+          LEGACY_PROGRESS_IMPLEMENTATION.substringAfterLast('/'),
+          "com.salesforce.revoman.internal.runtime",
+          "",
+        ),
       )
+    attempts.forEachIndexed { index, (implementation, packageName, arguments) ->
+      val result =
+        compileJava(
+          "FocusedImplementationConsumer$index",
+          """
+          package $packageName;
 
-    assertWithMessage("mutation must be rejected by javac: ${result.diagnostics}")
-      .that(result.compiled)
-      .isFalse()
-    assertThat(result.diagnostics.map(JavaDiagnostic::kind)).contains(Diagnostic.Kind.ERROR)
-    assertWithMessage("javac diagnostics: ${result.diagnostics}")
-      .that(result.diagnostics.map(JavaDiagnostic::code))
-      .contains("compiler.err.report.access")
+          final class FocusedImplementationConsumer$index {
+            static Object access() { return new $implementation($arguments); }
+          }
+          """
+            .trimIndent(),
+        )
+      assertWithMessage(
+          "same-package anonymous implementation must be rejected: $implementation; " +
+            result.diagnostics
+        )
+        .that(result.compiled)
+        .isFalse()
+    }
   }
 
   private fun compileJava(className: String, sourceText: String): JavaCompilationResult {
@@ -540,10 +652,47 @@ class JvmSurfaceVisibilityTest {
     val CANNOT_ACCESS_CODES = setOf("compiler.err.cant.access")
     const val POSTMAN_SDK = "com/salesforce/revoman/internal/postman/PostmanSDK"
     const val REGEX_REPLACER = "com/salesforce/revoman/internal/postman/RegexReplacer"
+    const val POSTMAN_PACKAGE = "com/salesforce/revoman/internal/postman/"
     const val RUNTIME_PACKAGE = "com/salesforce/revoman/internal/runtime/"
     const val RESOURCE_SCOPE_IMPLEMENTATION = "${RUNTIME_PACKAGE}ResourceScopeKt\$resourceScope\$1"
     const val KICK_EXECUTION_IMPLEMENTATION = "${RUNTIME_PACKAGE}KickExecutionKt\$kickExecution\$1"
     const val KICK_EXECUTOR_IMPLEMENTATION = "${KICK_EXECUTION_IMPLEMENTATION}\$executor\$1"
+    const val POSTMAN_VARIABLE_SCOPES = "${POSTMAN_PACKAGE}PostmanVariableScopes"
+    const val STEP_SCRIPT_CAPTURE = "${POSTMAN_PACKAGE}StepScriptCapture"
+    const val LEGACY_RUNDOWN_PROGRESS = "${RUNTIME_PACKAGE}LegacyRundownProgress"
+    const val POSTMAN_SDK_IMPLEMENTATION = "${POSTMAN_PACKAGE}PostmanSDKKt\$postmanSDK\$1"
+    const val POSTMAN_VARIABLE_SCOPES_IMPLEMENTATION =
+      "${POSTMAN_PACKAGE}PostmanVariableScopesKt\$postmanVariableScopes\$1"
+    const val STEP_SCRIPT_CAPTURE_IMPLEMENTATION =
+      "${POSTMAN_PACKAGE}StepScriptCaptureKt\$stepScriptCapture\$1"
+    const val REGEX_REPLACER_IMPLEMENTATION = "${POSTMAN_PACKAGE}RegexReplacerKt\$regexReplacer\$1"
+    const val LEGACY_PROGRESS_IMPLEMENTATION =
+      "${RUNTIME_PACKAGE}LegacyRundownProgressKt\$legacyRundownProgress\$1"
+    val TASK4_POSTMAN_IMPLEMENTATION_OWNERS =
+      setOf(
+        POSTMAN_SDK_IMPLEMENTATION,
+        POSTMAN_VARIABLE_SCOPES_IMPLEMENTATION,
+        STEP_SCRIPT_CAPTURE_IMPLEMENTATION,
+        REGEX_REPLACER_IMPLEMENTATION,
+      )
+    val TASK4_FOCUSED_IMPLEMENTATION_OWNERS =
+      TASK4_POSTMAN_IMPLEMENTATION_OWNERS + LEGACY_PROGRESS_IMPLEMENTATION
+    val TASK4_FOCUSED_INTERFACE_OWNERS =
+      setOf(
+        POSTMAN_SDK,
+        POSTMAN_VARIABLE_SCOPES,
+        STEP_SCRIPT_CAPTURE,
+        REGEX_REPLACER,
+        LEGACY_RUNDOWN_PROGRESS,
+      )
+    val TASK4_FOCUSED_FACTORY_OWNERS =
+      mapOf(
+        "${POSTMAN_PACKAGE}PostmanSDKKt" to "postmanSDK",
+        "${POSTMAN_PACKAGE}PostmanVariableScopesKt" to "postmanVariableScopes",
+        "${POSTMAN_PACKAGE}StepScriptCaptureKt" to "stepScriptCapture",
+        "${POSTMAN_PACKAGE}RegexReplacerKt" to "regexReplacer",
+        "${RUNTIME_PACKAGE}LegacyRundownProgressKt" to "legacyRundownProgress",
+      )
     val KOTLIN_ONLY_INTERFACE_OWNERS =
       setOf(
         "${RUNTIME_PACKAGE}InternalCloseable",
@@ -569,17 +718,6 @@ class JvmSurfaceVisibilityTest {
           "${RUNTIME_PACKAGE}SandboxRuntimeKt",
           "${RUNTIME_PACKAGE}ScriptExecutor\$DefaultImpls",
         )
-    val LEGACY_SANDBOX_OWNERS =
-      setOf(
-        POSTMAN_SDK,
-        "$POSTMAN_SDK\$JSEvaluator",
-        "$POSTMAN_SDK\$Variables",
-        "$POSTMAN_SDK\$Request",
-        "$POSTMAN_SDK\$Response",
-        "$POSTMAN_SDK\$Xml2Json",
-        "com/salesforce/revoman/internal/postman/Info",
-        REGEX_REPLACER,
-      )
 
     fun minimalClassFile(
       majorVersion: Int,
@@ -618,11 +756,74 @@ class JvmSurfaceVisibilityTest {
         bytes.toByteArray()
       }
 
+    fun referenceClassFile(): ByteArray =
+      ByteArrayOutputStream().use { bytes ->
+        DataOutputStream(bytes).use { output ->
+          output.writeInt(0xCAFEBABE.toInt())
+          output.writeShort(0)
+          output.writeShort(65)
+          output.writeShort(32)
+          output.writeUtf8Constant("example/Fixture") // #1
+          output.writeByte(7)
+          output.writeShort(1) // #2 Class example/Fixture
+          output.writeUtf8Constant("java/lang/Object") // #3
+          output.writeByte(7)
+          output.writeShort(3) // #4 Class java/lang/Object
+          output.writeReferenceConstant(9, 10, 13) // #5 Fieldref (forward)
+          output.writeReferenceConstant(10, 10, 14) // #6 Methodref (forward)
+          output.writeReferenceConstant(11, 11, 15) // #7 InterfaceMethodref (forward)
+          output.writeByte(8)
+          output.writeShort(20) // #8 String (forward)
+          output.writeByte(16)
+          output.writeShort(28) // #9 MethodType (forward)
+          output.writeByte(7)
+          output.writeShort(16) // #10 Class target/Owner (forward)
+          output.writeByte(7)
+          output.writeShort(17) // #11 Class target/Interface (forward)
+          output.writeUtf8Constant("unused") // #12
+          output.writeReferenceConstant(12, 18, 19) // #13 NameAndType field
+          output.writeReferenceConstant(12, 21, 22) // #14 NameAndType method
+          output.writeReferenceConstant(12, 23, 24) // #15 NameAndType interface method
+          output.writeUtf8Constant("target/Owner") // #16
+          output.writeUtf8Constant("target/Interface") // #17
+          output.writeUtf8Constant("field") // #18
+          output.writeUtf8Constant("Ltarget/DescriptorOnly;") // #19
+          output.writeUtf8Constant("exact-option-string") // #20
+          output.writeUtf8Constant("method") // #21
+          output.writeUtf8Constant("()V") // #22
+          output.writeUtf8Constant("invoke") // #23
+          output.writeUtf8Constant("(Ltarget/DescriptorOnly;)V") // #24
+          output.writeUtf8Constant("descriptorOnly") // #25
+          output.writeUtf8Constant("(Ltarget/OnlyInNameAndType;)V") // #26
+          output.writeReferenceConstant(12, 25, 26) // #27 unreferenced NameAndType
+          output.writeUtf8Constant("(Ltarget/OnlyInMethodType;)V") // #28
+          output.writeByte(16)
+          output.writeShort(28) // #29 MethodType
+          output.writeUtf8Constant("[Ltarget/ArrayOnly;") // #30
+          output.writeByte(7)
+          output.writeShort(30) // #31 Class array target/ArrayOnly
+          output.writeShort(0x0021)
+          output.writeShort(2)
+          output.writeShort(4)
+          output.writeShort(0)
+          output.writeShort(0)
+          output.writeShort(0)
+          output.writeShort(0)
+        }
+        bytes.toByteArray()
+      }
+
     fun DataOutputStream.writeUtf8Constant(value: String) {
       val encoded = value.toByteArray(Charsets.UTF_8)
       writeByte(1)
       writeShort(encoded.size)
       write(encoded)
+    }
+
+    fun DataOutputStream.writeReferenceConstant(tag: Int, first: Int, second: Int) {
+      writeByte(tag)
+      writeShort(first)
+      writeShort(second)
     }
   }
 }

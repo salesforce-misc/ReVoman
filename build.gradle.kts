@@ -80,7 +80,6 @@ dependencies {
   runtimeOnly(libs.truffle.runtime)
   implementation(libs.kotlinx.collections.immutable)
   implementation(libs.datafaker)
-  implementation(libs.underscore)
   implementation(libs.okio.jvm)
   implementation(libs.spring.beans)
   implementation(libs.snakeyaml)

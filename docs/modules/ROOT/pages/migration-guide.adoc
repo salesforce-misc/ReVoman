@@ -30,7 +30,7 @@ sets land.
 
 |`Kick.nodeModulesPath`
 |deprecated and ignored
-|Vendored Postman sandbox modules
+|Vendored Postman sandbox modules (`lodash`, `moment`, and `xml2js`)
 |===
 
 `PostmanSDK`, `Info`, `RegexReplacer`, and the nested evaluator, variables, request, response, and
@@ -39,6 +39,9 @@ Kotlin ABI. They are not a supported extension point in the major release. Do no
 reflect into them.
 
 Collection pre-request and post-response scripts continue to use Postman-compatible `pm` APIs.
+Arbitrary modules from a filesystem `node_modules` directory are no longer loaded; use the bundled
+modules exposed by the sandbox. Existing `nodeModulesPath(...)` builder calls still compile but do
+nothing.
 Host code that only needs JSON conversion should use the public host JSON utilities during CS2a;
 CS2c replaces mutable adapter registration with an immutable codec.
 

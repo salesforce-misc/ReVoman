@@ -42,14 +42,18 @@ import com.salesforce.revoman.internal.json.MoshiReVoman.Companion.initMoshi
 import com.salesforce.revoman.internal.log.Banner
 import com.salesforce.revoman.internal.log.RevomanLog
 import com.salesforce.revoman.internal.log.RunLogContext
-import com.salesforce.revoman.internal.postman.Info
 import com.salesforce.revoman.internal.postman.PostmanSDK
 import com.salesforce.revoman.internal.postman.RegexReplacer
-import com.salesforce.revoman.internal.postman.dynamicVariableGenerator
+import com.salesforce.revoman.internal.postman.postmanSDK
+import com.salesforce.revoman.internal.postman.postmanVariableScopes
+import com.salesforce.revoman.internal.postman.regexReplacer
 import com.salesforce.revoman.internal.postman.sandbox.PmSandbox
+import com.salesforce.revoman.internal.postman.stepScriptCapture
 import com.salesforce.revoman.internal.postman.template.Environment.Companion.mergeEnvs
 import com.salesforce.revoman.internal.postman.template.Template
 import com.salesforce.revoman.internal.postman.template.v3.V3Loader.load
+import com.salesforce.revoman.internal.runtime.ScriptExecutor
+import com.salesforce.revoman.internal.runtime.legacyRundownProgress
 import com.salesforce.revoman.internal.runtime.useInternal
 import com.salesforce.revoman.output.ExeType
 import com.salesforce.revoman.output.ExeType.HTTP_REQUEST
@@ -67,6 +71,7 @@ import com.salesforce.revoman.output.ledger.LedgerEntry
 import com.salesforce.revoman.output.log.Outcome
 import com.salesforce.revoman.output.log.StepEvent
 import com.salesforce.revoman.output.postman.PersistentBackedMutableMap
+import com.salesforce.revoman.output.postman.PostmanEnvironment
 import com.salesforce.revoman.output.report.Step
 import com.salesforce.revoman.output.report.StepEnvVars
 import com.salesforce.revoman.output.report.StepReport
@@ -165,8 +170,6 @@ object ReVoman {
       val templateCount = kick.templatePaths().size
       "Total Steps from ${if (templateCount > 1) "$templateCount Collections" else "the Collection"} provided: ${pmStepsDeepFlattened.size}"
     }
-    val regexReplacer =
-      RegexReplacer(kick.customDynamicVariableGenerators(), ::dynamicVariableGenerator)
     val moshiReVoman =
       initMoshi(
         kick.globalCustomTypeAdapters(),
@@ -183,17 +186,37 @@ object ReVoman {
     val ledgerValues: Map<String, Any?> = kick.ledger().values
     val mergedEnv =
       mergeEnvs(kick.environmentPaths(), kick.environmentInputStreams(), kick.dynamicEnvironment())
-    val environment = ledgerValues + mergedEnv.values
-    // Persistent-backed so every per-step pmEnvSnapshot is an O(1) structural share (see E2). The
-    // MutableMap contract is preserved, so PostmanSDK/RegexReplacer writes are unaffected.
-    val pm =
-      PostmanSDK(
-        moshiReVoman,
-        kick.nodeModulesPath(),
-        regexReplacer,
-        PersistentBackedMutableMap(environment),
+    val environment: PostmanEnvironment<Any?> =
+      PostmanEnvironment(
+        mutableEnv = PersistentBackedMutableMap(ledgerValues + mergedEnv.values),
+        moshiReVoman = moshiReVoman,
       )
-    pm.environmentName = mergedEnv.name
+    val collectionVariables: PostmanEnvironment<Any?> =
+      PostmanEnvironment(mutableEnv = mutableMapOf(), moshiReVoman = moshiReVoman)
+    val globals: PostmanEnvironment<Any?> =
+      PostmanEnvironment(mutableEnv = mutableMapOf(), moshiReVoman = moshiReVoman)
+    val scopes =
+      postmanVariableScopes(
+        environment = environment,
+        collectionVariables = collectionVariables,
+        globals = globals,
+        environmentName = mergedEnv.name,
+      )
+    val progress = legacyRundownProgress()
+    val regexReplacer =
+      regexReplacer(
+        scopes = scopes,
+        progress = progress,
+        customDynamicVariableGenerators = kick.customDynamicVariableGenerators(),
+      )
+    val capture = stepScriptCapture()
+    val pm =
+      postmanSDK(
+        scopes = scopes,
+        capture = capture,
+        progress = progress,
+        regexReplacer = regexReplacer,
+      )
     val sequenceResult =
       PmSandbox().useInternal { sandbox ->
         executeStepsSerially(pmStepsDeepFlattened, kick, moshiReVoman, regexReplacer, pm, sandbox)
@@ -217,12 +240,12 @@ object ReVoman {
         }
     return Rundown(
       stepNameToReport,
-      pm.environment,
+      pm.scopes.environment,
       kick.haltOnFailureOfTypeExcept(),
       pmStepsDeepFlattened.size,
       learnedLedger,
-      pm.collectionVariables,
-      pm.globals,
+      pm.scopes.collectionVariables,
+      pm.scopes.globals,
       sequenceResult.stopReason,
     )
   }
@@ -236,7 +259,7 @@ object ReVoman {
     moshiReVoman: MoshiReVoman,
     regexReplacer: RegexReplacer,
     pm: PostmanSDK,
-    sandbox: PmSandbox,
+    scripts: ScriptExecutor,
   ): SequenceResult {
     val pickedSteps = pmStepsFlattened.filter {
       shouldStepBePicked(it, kick.runOnlySteps(), kick.skipSteps())
@@ -262,7 +285,7 @@ object ReVoman {
 
     while (cursor in pickedSteps.indices) {
       val step = pickedSteps[cursor]
-      pm.environment.currentStep = step
+      pm.scopes.environment.currentStep = step
       val iteration = iterationByPath.getOrDefault(step.path, 0)
 
       val report =
@@ -277,7 +300,7 @@ object ReVoman {
           moshiReVoman,
           regexReplacer,
           pm,
-          sandbox,
+          scripts,
         )
       reports += report
       iterationByPath[step.path] = iteration + 1
@@ -302,7 +325,7 @@ object ReVoman {
       // Failure halt: a ledger-skip can't fail (skip the check, matching the legacy early-return
       // that also avoided reading the possibly-uninitialized `pm.rundown`). For every other report
       // the halt predicate consults `pm.rundown` exactly as the legacy fold did.
-      if (!report.isLedgerSkipped && shouldHaltExecution(report, kick, pm.rundown)) {
+      if (!report.isLedgerSkipped && shouldHaltExecution(report, kick, pm.progress.rundown)) {
         stopReason = StopReason.HALTED_ON_FAILURE
         break
       }
@@ -358,17 +381,17 @@ object ReVoman {
     moshiReVoman: MoshiReVoman,
     regexReplacer: RegexReplacer,
     pm: PostmanSDK,
-    sandbox: PmSandbox,
+    scripts: ScriptExecutor,
   ): StepReport {
     // Reset per-step capture each execution so a looped step doesn't inherit prior iteration's
     // state.
     // No-op on first run (the maps hold no entry for this step yet).
-    pm.resetCaptureForStep(step)
+    pm.capture.reset(step)
 
     // --------### LEDGER WARM-PATH: skip+inject / warn-and-run ###--------
     val ledger = kick.ledger()
     val entry = ledger.steps[step.path]
-    val envKeys = pm.environment.keys
+    val envKeys = pm.scopes.environment.keys
     if (
       !bypassLedger &&
         step.path !in shadowedPaths &&
@@ -384,7 +407,7 @@ object ReVoman {
       // env value, which the env-superset precondition guarantees is present.
       skipEntry.produces.forEach { key ->
         if (ledger.values.containsKey(key)) {
-          pm.environment[key] = ledger.values[key]
+          pm.scopes.environment[key] = ledger.values[key]
         } else {
           RevomanLog.warn {
             "[ledger] ${step.path} reuses produced key '$key' but it is missing from " +
@@ -392,7 +415,12 @@ object ReVoman {
           }
         }
       }
-      return StepReport.ledgerSkipped(step, skipEntry.produces, pm.environment, skipEntry.consumed)
+      return StepReport.ledgerSkipped(
+        step,
+        skipEntry.produces,
+        pm.scopes.environment,
+        skipEntry.consumed,
+      )
     }
     if (
       !bypassLedger &&
@@ -422,20 +450,20 @@ object ReVoman {
               moshiReVoman = moshiReVoman,
             )
           ),
-        pmEnvSnapshot = pm.environment,
+        pmEnvSnapshot = pm.scopes.environment,
       )
-    pm.info = Info(step.name)
-    pm.currentStepReport = preStepReport
-    pm.rundown =
+    pm.progress.currentRequestName = step.name
+    pm.progress.currentReport = preStepReport
+    pm.progress.rundown =
       Rundown(
         stepReportsSoFar + preStepReport,
-        pm.environment,
+        pm.scopes.environment,
         kick.haltOnFailureOfTypeExcept(),
         pmStepsCount,
-        collectionVariables = pm.collectionVariables,
-        globals = pm.globals,
+        collectionVariables = pm.scopes.collectionVariables,
+        globals = pm.scopes.globals,
       )
-    pm.environment.putAll(regexReplacer.replaceVariablesInEnv(pm))
+    pm.scopes.environment.putAll(regexReplacer.replaceVariablesInEnv())
     // --------### PRE-REQ-JS ###--------
     // Run pre-req JS first, OUTSIDE the chain: it records `pm.execution.skipRequest()` onto the
     // SDK.
@@ -444,26 +472,33 @@ object ReVoman {
     // post-res/polling — emit a successful `requestSkipped` report (no request/response, no env).
     val preReqResult =
       timed(step, exeTimings, PRE_REQ_JS) {
-        executePreReqJS(step, itemWithRegex, preStepReport, pm, sandbox)
+        executePreReqJS(
+          step,
+          itemWithRegex,
+          preStepReport,
+          pm.scopes,
+          pm.capture,
+          scripts,
+        )
       }
-    if (preReqResult.isRight() && pm.skipRequestFor(step)) {
+    if (preReqResult.isRight() && pm.capture.skipRequestFor(step)) {
       RevomanLog.event(StepEvent.RequestSkipped(step.path))
       RevomanLog.info { "⏭️ skipRequest() at ${step.path} — skipping HTTP dispatch." }
-      return StepReport.requestSkipped(step, pm.environment, iteration)
+      return StepReport.requestSkipped(step, pm.scopes.environment, iteration)
     }
     return preReqResult
       .mapLeft { preStepReport.copy(requestInfo = left(it)) }
       .flatMap { // --------### UNMARSHALL-REQUEST ###--------
         timed(step, exeTimings, UNMARSHALL_REQUEST) {
             val pmRequest =
-              regexReplacer.replaceVariablesInRequestRecursively(itemWithRegex.request, pm)
-            unmarshallRequest(step, pmRequest, kick, moshiReVoman, pm.rundown)
+              regexReplacer.replaceVariablesInRequestRecursively(itemWithRegex.request)
+            unmarshallRequest(step, pmRequest, kick, moshiReVoman, pm.progress.rundown)
           }
           .mapLeft { preStepReport.copy(requestInfo = left(it)) }
       }
       .flatMap { requestInfo: TxnInfo<Request> -> // --------### PRE-HOOKS ###--------
         timed(step, exeTimings, PRE_STEP_HOOK) {
-            preStepHookExe(step, kick, requestInfo, pm.rundown)
+            preStepHookExe(step, kick, requestInfo, pm.progress.rundown)
           }
           ?.let {
             Left(
@@ -475,10 +510,10 @@ object ReVoman {
           } ?: Right(preStepReport.copy(requestInfo = Right(requestInfo).toVavr()))
       }
       .flatMap { sr: StepReport -> // --------### HTTP-REQUEST ###--------
-        pm.syncProgress(sr)
+        pm.progress.sync(sr)
         // * NOTE 15 Mar 2025 gopala.akshintala: Replace again to accommodate variables set by
         // PRE-REQ-JS
-        val item = regexReplacer.replaceVariablesInPmItem(itemWithRegex, pm)
+        val item = regexReplacer.replaceVariablesInPmItem(itemWithRegex)
         val httpRequest = item.request.toHttpRequest(moshiReVoman)
         timed(step, exeTimings, HTTP_REQUEST) {
             fireHttpRequest(step, httpRequest, kick.insecureHttp(), moshiReVoman)
@@ -492,29 +527,37 @@ object ReVoman {
           }
       }
       .flatMap { sr: StepReport -> // --------### POST-RES-JS ###--------
-        pm.syncProgress(sr)
+        pm.progress.sync(sr)
         timed(step, exeTimings, POST_RES_JS) {
-            executePostResJS(step, itemWithRegex, sr, pm, sandbox)
+            executePostResJS(step, itemWithRegex, sr, pm.scopes, pm.capture, scripts)
           }
           .mapLeft { sr.copy(responseInfo = left(it)) }
           .map { sr }
       }
       .flatMap { sr: StepReport -> // ---### UNMARSHALL RESPONSE ###---
         timed(step, exeTimings, UNMARSHALL_RESPONSE) {
-            unmarshallResponse(kick, moshiReVoman, sr, pm.rundown)
+            unmarshallResponse(kick, moshiReVoman, sr, pm.progress.rundown)
           }
           .mapLeft { sr.copy(responseInfo = Left(it).toVavr()) }
           .map { sr.copy(responseInfo = Right(it).toVavr()) }
       }
       .map { sr: StepReport -> // --------### POST-HOOKS ###--------
-        pm.syncProgress(sr)
+        pm.progress.sync(sr)
         val postHookFailure =
-          timed(step, exeTimings, POST_STEP_HOOK) { postStepHookExe(kick, sr, pm.rundown) }
+          timed(step, exeTimings, POST_STEP_HOOK) {
+            postStepHookExe(kick, sr, pm.progress.rundown)
+          }
         sr.copy(postStepHookFailure = postHookFailure)
       }
       .flatMap { sr: StepReport -> // --------### POLLING ###--------
         timed(step, exeTimings, POLLING) {
-            executePolling(kick.pollingConfig(), sr, pm.rundown, pm, kick.insecureHttp())
+            executePolling(
+              kick.pollingConfig(),
+              sr,
+              pm.progress.rundown,
+              pm.scopes,
+              kick.insecureHttp(),
+            )
           }
           .mapLeft { sr.copy(pollingFailure = it) }
           .map { pollingReport -> pollingReport?.let { sr.copy(pollingReport = it) } ?: sr }
@@ -522,15 +565,15 @@ object ReVoman {
       .merge()
       .copy(
         exeTimings = exeTimings,
-        pmEnvSnapshot = pm.environment.o1Snapshot(),
+        pmEnvSnapshot = pm.scopes.environment.o1Snapshot(),
         envVars =
           StepEnvVars(
-            produced = pm.environment.producedKeysFor(step),
-            consumed = pm.environment.consumedKeysFor(step),
+            produced = pm.scopes.environment.producedKeysFor(step),
+            consumed = pm.scopes.environment.consumedKeysFor(step),
           ),
-        pmTestAssertions = pm.pmTestAssertionsFor(step),
-        nextRequest = pm.nextRequestFor(step),
-        nextRequestSet = pm.nextRequestSetFor(step),
+        pmTestAssertions = pm.capture.assertionsFor(step),
+        nextRequest = pm.capture.nextRequestFor(step),
+        nextRequestSet = pm.capture.nextRequestWasSetFor(step),
         iteration = iteration,
       )
   }

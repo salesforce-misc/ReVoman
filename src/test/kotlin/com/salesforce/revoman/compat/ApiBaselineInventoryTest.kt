@@ -104,8 +104,8 @@ class ApiBaselineInventoryTest {
     val active = JvmSurfaceInventory.readJar(configuredRootJar())
     val activeRows = active.asSequence().map(JvmSurfaceEntry::render).toSet()
     val frozenRows = frozen.asSequence().map(JvmSurfaceEntry::render).toSet()
-    assertThat(frozenRows - activeRows).containsExactlyElementsIn(CS2_TASK3_RAW_JVM_REMOVALS)
-    assertThat(activeRows - frozenRows).containsExactlyElementsIn(CS2_TASK3_RAW_JVM_ADDITIONS)
+    assertThat(frozenRows - activeRows).containsExactlyElementsIn(CS2_TASK4_RAW_JVM_REMOVALS)
+    assertThat(activeRows - frozenRows).containsExactlyElementsIn(CS2_TASK4_RAW_JVM_ADDITIONS)
   }
 
   @Test
@@ -140,6 +140,10 @@ class ApiBaselineInventoryTest {
         .toSet()
     assertThat(cs2aKotlinRows)
       .containsExactlyElementsIn(normalizedKotlinDeclarations(baselineKotlin, CS2A_POSTMAN_OWNERS))
+    val actualKotlinRemovals =
+      normalizedKotlinDeclarations(baselineKotlin, CS2A_POSTMAN_OWNERS) -
+        normalizedKotlinDeclarations(activeKotlin, CS2A_POSTMAN_OWNERS)
+    assertThat(actualKotlinRemovals).containsExactlyElementsIn(cs2aKotlinRows)
 
     val requiredJavaRows =
       baselineJvm
@@ -157,6 +161,9 @@ class ApiBaselineInventoryTest {
         .map(MigrationRow::legacyId)
         .toSet()
     assertThat(cs2aJavaRows).containsExactlyElementsIn(requiredJavaRows)
+    val activeJavaKeys = activeJvm.asSequence().map { it.migrationKey() }.toSet()
+    val actualJavaRemovals = requiredJavaRows - activeJavaKeys
+    assertThat(actualJavaRemovals).containsExactlyElementsIn(cs2aJavaRows)
 
     assertThat(
         normalizedKotlinDeclarations(activeKotlin) - normalizedKotlinDeclarations(baselineKotlin)
@@ -181,9 +188,9 @@ class ApiBaselineInventoryTest {
     val activeJvmRows = activeJvm.asSequence().map(JvmSurfaceEntry::render).toSet()
     val baselineJvmRows = baselineJvm.asSequence().map(JvmSurfaceEntry::render).toSet()
     assertThat(baselineJvmRows - activeJvmRows)
-      .containsExactlyElementsIn(CS2_TASK3_RAW_JVM_REMOVALS)
+      .containsExactlyElementsIn(CS2_TASK4_RAW_JVM_REMOVALS)
     assertThat(activeJvmRows - baselineJvmRows)
-      .containsExactlyElementsIn(CS2_TASK3_RAW_JVM_ADDITIONS)
+      .containsExactlyElementsIn(CS2_TASK4_RAW_JVM_ADDITIONS)
   }
 
   private fun assertCurrentNonAbiCoverage(rows: List<MigrationRow>, spec: String) {

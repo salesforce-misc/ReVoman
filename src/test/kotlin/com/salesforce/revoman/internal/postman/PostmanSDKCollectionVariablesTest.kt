@@ -7,60 +7,18 @@
  */
 package com.salesforce.revoman.internal.postman
 
-import com.salesforce.revoman.internal.json.MoshiReVoman.Companion.initMoshi
-import com.salesforce.revoman.internal.postman.template.Item
-import com.salesforce.revoman.output.report.PmTestAssertion
-import com.salesforce.revoman.output.report.Step
-import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
 
 class PostmanSDKCollectionVariablesTest {
-  private fun sdk() = PostmanSDK(initMoshi())
-
-  private fun step(name: String) = Step(index = "1", rawPMStep = Item(name = name))
-
   @Test
-  fun `collectionVariables store round-trips set and toMap`() {
-    val pm = sdk()
-    pm.collectionVariables.set("a", "1")
-    pm.collectionVariables.toMap() shouldBe mapOf("a" to "1")
-  }
+  fun `transitional facade retains capture and regex replacer wiring`() {
+    val graph = focusedPostmanTestGraph(collectionVariableValues = mapOf("collection" to "v"))
+    val capture = stepScriptCapture()
+    val pm = postmanSDK(graph.scopes, capture, graph.progress, graph.replacer)
 
-  @Test
-  fun `environmentName defaults to null and is settable`() {
-    val pm = sdk()
-    pm.environmentName shouldBe null
-    pm.environmentName = "Pokemon"
-    pm.environmentName shouldBe "Pokemon"
-  }
-
-  @Test
-  fun `per-step pmTestAssertions capture is keyed by step`() {
-    val pm = sdk()
-    val s1 = step("s1")
-    val assertions = listOf(PmTestAssertion("t", true))
-    pm.recordPmTestAssertions(s1, assertions)
-    pm.pmTestAssertionsFor(s1) shouldHaveSize 1
-    pm.pmTestAssertionsFor(step("other")) shouldHaveSize 0
-  }
-
-  @Test
-  fun `per-step pmTestAssertions accumulate across pre-req and post-res`() {
-    val pm = sdk()
-    val s1 = step("s1")
-    pm.recordPmTestAssertions(s1, listOf(PmTestAssertion("pre", true)))
-    pm.recordPmTestAssertions(s1, listOf(PmTestAssertion("post", false)))
-    pm.pmTestAssertionsFor(s1) shouldHaveSize 2
-  }
-
-  @Test
-  fun `per-step nextRequest capture is keyed by step and last-write-wins`() {
-    val pm = sdk()
-    val s1 = step("s1")
-    pm.recordNextRequest(s1, "first", set = true)
-    pm.recordNextRequest(s1, "second", set = true)
-    pm.nextRequestFor(s1) shouldBe "second"
-    pm.nextRequestFor(step("other")) shouldBe null
+    pm.capture shouldBe capture
+    pm.regexReplacer shouldBe graph.replacer
+    pm.scopes.collectionVariables["collection"] shouldBe "v"
   }
 }

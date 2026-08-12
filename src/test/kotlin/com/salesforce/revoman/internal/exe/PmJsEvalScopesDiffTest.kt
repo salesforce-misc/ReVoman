@@ -1,6 +1,6 @@
 /**
  * ************************************************************************************************
- * Copyright (c) 2023, Salesforce, Inc. All rights reserved. SPDX-License-Identifier: Apache License
+ * Copyright (c) 2026, Salesforce, Inc. All rights reserved. SPDX-License-Identifier: Apache License
  * Version 2.0 For full license text, see the LICENSE file in the repo root or
  * http://www.apache.org/licenses/LICENSE-2.0
  * ************************************************************************************************
@@ -8,11 +8,19 @@
 package com.salesforce.revoman.internal.exe
 
 import com.salesforce.revoman.internal.json.MoshiReVoman.Companion.initMoshi
-import com.salesforce.revoman.internal.postman.PostmanSDK
+import com.salesforce.revoman.internal.postman.PostmanVariableScopes
+import com.salesforce.revoman.internal.postman.StepScriptCapture
+import com.salesforce.revoman.internal.postman.postmanVariableScopes
+import com.salesforce.revoman.internal.postman.sandbox.PmExecutionContext
+import com.salesforce.revoman.internal.postman.sandbox.PmExecutionResult
 import com.salesforce.revoman.internal.postman.sandbox.PmSandbox
+import com.salesforce.revoman.internal.postman.sandbox.ScriptTarget
+import com.salesforce.revoman.internal.postman.stepScriptCapture
 import com.salesforce.revoman.internal.postman.template.Event
 import com.salesforce.revoman.internal.postman.template.Item
 import com.salesforce.revoman.internal.postman.template.Request
+import com.salesforce.revoman.internal.runtime.ScriptExecutor
+import com.salesforce.revoman.output.postman.PostmanEnvironment
 import com.salesforce.revoman.output.report.Step
 import io.kotest.matchers.maps.shouldBeEmpty
 import io.kotest.matchers.maps.shouldContainExactly
@@ -22,71 +30,38 @@ import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 
-/**
- * Characterizes the full PmJsEval diff-back wiring through the REAL postman-sandbox (boots once for
- * the class): a script mutates `pm.globals` / `pm.collectionVariables` / `pm.environment`, and the
- * mutations must land on the matching peer store on [PostmanSDK] with no cross-contamination.
- * Drives the public [executePreReqJS] entry point, not the private sandbox helper, so it exercises
- * the same code path a real `revUp()` run does.
- */
+/** Exercises the real sandbox and the immediate per-phase scope/capture apply-back boundary. */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class PmJsEvalScopesDiffTest {
   private val sandbox = PmSandbox()
 
   @AfterAll fun tearDown() = sandbox.close()
 
-  private fun step(name: String) = Step(index = "1", rawPMStep = Item(name = name))
-
-  /**
-   * Runs [preReqScript] as a pre-request script against a fresh SDK seeded with the given scopes.
-   */
-  private fun runPreReq(
-    preReqScript: String,
-    env: Map<String, Any?> = emptyMap(),
-    collectionVariables: Map<String, Any?> = emptyMap(),
-    globals: Map<String, Any?> = emptyMap(),
-  ): PostmanSDK {
-    val pm = PostmanSDK(initMoshi())
-    env.forEach { (k, v) -> pm.environment.set(k, v) }
-    collectionVariables.forEach { (k, v) -> pm.collectionVariables.set(k, v) }
-    globals.forEach { (k, v) -> pm.globals.set(k, v) }
-    pm.currentStepReport = mockk()
-    val item =
-      Item(
-        name = "s",
-        request = Request(method = "GET"),
-        event = listOf(Event("prerequest", Event.Script(preReqScript.split("\n")))),
-      )
-    val result = executePreReqJS(step("s"), item, mockk(), pm, sandbox)
-    result.isRight() shouldBe true
-    return pm
-  }
-
   @Test
   fun `pm globals set is diffed back to the globals store`() {
-    val pm = runPreReq("pm.globals.set('g', '1');")
-    pm.globals["g"] shouldBe "1"
+    val state = runPreReq("pm.globals.set('g', '1');")
+    state.scopes.globals["g"] shouldBe "1"
   }
 
   @Test
   fun `pm globals unset of a seeded global removes it`() {
-    val pm = runPreReq("pm.globals.unset('seed');", globals = mapOf("seed" to "s1"))
-    pm.globals.containsKey("seed") shouldBe false
+    val state = runPreReq("pm.globals.unset('seed');", globals = mapOf("seed" to "s1"))
+    state.scopes.globals.containsKey("seed") shouldBe false
   }
 
   @Test
-  fun `pm globals seeded value is readable in the script and a changed value diffs back`() {
-    val pm =
+  fun `pm globals seeded value is readable and a changed value diffs back`() {
+    val state =
       runPreReq(
         "pm.globals.set('seed', pm.globals.get('seed') + '-changed');",
         globals = mapOf("seed" to "s1"),
       )
-    pm.globals["seed"] shouldBe "s1-changed"
+    state.scopes.globals["seed"] shouldBe "s1-changed"
   }
 
   @Test
-  fun `all three scopes mutated in one script diff back to the right peer with no cross-contamination`() {
-    val pm =
+  fun `all three scopes diff back to their peer with no cross-contamination`() {
+    val state =
       runPreReq(
         """
         pm.environment.set('e', 'env');
@@ -95,77 +70,189 @@ class PmJsEvalScopesDiffTest {
         """
           .trimIndent()
       )
-    pm.environment["e"] shouldBe "env"
-    pm.collectionVariables["c"] shouldBe "cv"
-    pm.globals["g"] shouldBe "glob"
-    // No key bleeds across stores.
-    pm.environment.containsKey("c") shouldBe false
-    pm.environment.containsKey("g") shouldBe false
-    pm.collectionVariables.containsKey("e") shouldBe false
-    pm.collectionVariables.containsKey("g") shouldBe false
-    pm.globals.containsKey("e") shouldBe false
-    pm.globals.containsKey("c") shouldBe false
+    val scopes = state.scopes
+    scopes.environment["e"] shouldBe "env"
+    scopes.collectionVariables["c"] shouldBe "cv"
+    scopes.globals["g"] shouldBe "glob"
+    scopes.environment.containsKey("c") shouldBe false
+    scopes.environment.containsKey("g") shouldBe false
+    scopes.collectionVariables.containsKey("e") shouldBe false
+    scopes.collectionVariables.containsKey("g") shouldBe false
+    scopes.globals.containsKey("e") shouldBe false
+    scopes.globals.containsKey("c") shouldBe false
   }
 
   @Test
-  fun `unchanged seeded globals survive a script that touches nothing`() {
-    val pm = runPreReq("pm.environment.set('e', '1');", globals = mapOf("keep" to "k1"))
-    pm.globals shouldContainExactly mapOf("keep" to "k1")
+  fun `unchanged seeded globals survive a script that touches only environment`() {
+    val state = runPreReq("pm.environment.set('e', '1');", globals = mapOf("keep" to "k1"))
+    state.scopes.globals shouldContainExactly mapOf("keep" to "k1")
   }
 
   @Test
-  fun `pm variables get inside the script resolves globals by precedence`() {
-    // env absent, cv absent, globals has it → pm.variables.get falls through to globals (sandbox's
-    // own aggregate). Proven by writing the resolved value into env for the host to read back.
-    val pm =
-      runPreReq(
-        "pm.environment.set('out', pm.variables.get('only'));",
-        globals = mapOf("only" to "g1"),
-      )
-    pm.environment["out"] shouldBe "g1"
-  }
-
-  @Test
-  fun `pm variables get prefers environment over globals inside the script`() {
-    val pm =
+  fun `pm variables get resolves scope precedence inside the sandbox`() {
+    val state =
       runPreReq(
         "pm.environment.set('out', pm.variables.get('k'));",
-        env = mapOf("k" to "env"),
-        globals = mapOf("k" to "glob"),
+        environment = mapOf("k" to "env"),
+        globals = mapOf("k" to "global"),
       )
-    pm.environment["out"] shouldBe "env"
+    state.scopes.environment["out"] shouldBe "env"
   }
 
   @Test
-  fun `globals store stays empty when no script touches it`() {
-    val pm = runPreReq("pm.environment.set('e', '1');")
-    pm.globals.toMap().shouldBeEmpty()
+  fun `globals stay empty when no script touches them`() {
+    val state = runPreReq("pm.environment.set('e', '1');")
+    state.scopes.globals.toMap().shouldBeEmpty()
   }
 
   @Test
-  fun `setNextRequest and skipRequest directives are recorded on the SDK per step`() {
-    val s = step("s")
-    val pm = runPreReq("pm.execution.setNextRequest('z'); pm.execution.skipRequest();")
-    pm.nextRequestFor(s) shouldBe "z"
-    pm.nextRequestSetFor(s) shouldBe true
-    pm.skipRequestFor(s) shouldBe true
+  fun `setNextRequest and skipRequest directives are captured per step`() {
+    val state = runPreReq("pm.execution.setNextRequest('z'); pm.execution.skipRequest();")
+    val step = step()
+    state.capture.nextRequestFor(step) shouldBe "z"
+    state.capture.nextRequestWasSetFor(step) shouldBe true
+    state.capture.skipRequestFor(step) shouldBe true
   }
 
   @Test
-  fun `setNextRequest null is recorded with set flag true distinguishing it from no directive`() {
-    val s = step("s")
-    val pm = runPreReq("pm.execution.setNextRequest(null);")
-    pm.nextRequestFor(s) shouldBe null
-    pm.nextRequestSetFor(s) shouldBe true
-    pm.skipRequestFor(s) shouldBe false
+  fun `setNextRequest null retains the separate was-set bit`() {
+    val state = runPreReq("pm.execution.setNextRequest(null);")
+    val step = step()
+    state.capture.nextRequestFor(step) shouldBe null
+    state.capture.nextRequestWasSetFor(step) shouldBe true
+    state.capture.skipRequestFor(step) shouldBe false
   }
 
   @Test
-  fun `no control flow directives leaves flags defaulting to false`() {
-    val s = step("s")
-    val pm = runPreReq("pm.environment.set('e', '1');")
-    pm.nextRequestFor(s) shouldBe null
-    pm.nextRequestSetFor(s) shouldBe false
-    pm.skipRequestFor(s) shouldBe false
+  fun `absent pre-request script returns without invoking the borrowed executor`() {
+    val executor = CountingThrowingExecutor()
+    val state = state()
+    val result =
+      executePreReqJS(
+        step(),
+        Item(name = "s", request = Request(method = "GET")),
+        mockk(),
+        state.scopes,
+        state.capture,
+        executor,
+      )
+
+    result.isRight() shouldBe true
+    executor.calls shouldBe 0
+  }
+
+  @Test
+  fun `blank pre-request script returns without invoking the borrowed executor`() {
+    val executor = CountingThrowingExecutor()
+    val state = state()
+    val item =
+      Item(
+        name = "s",
+        request = Request(method = "GET"),
+        event = listOf(Event("prerequest", Event.Script(listOf(" ", "\t")))),
+      )
+    val result = executePreReqJS(step(), item, mockk(), state.scopes, state.capture, executor)
+
+    result.isRight() shouldBe true
+    executor.calls shouldBe 0
+  }
+
+  @Test
+  fun `absent test script returns without invoking the borrowed executor`() {
+    val executor = CountingThrowingExecutor()
+    val state = state()
+    val result =
+      executePostResJS(
+        step(),
+        Item(name = "s", request = Request(method = "GET")),
+        mockk(),
+        state.scopes,
+        state.capture,
+        executor,
+      )
+
+    result.isRight() shouldBe true
+    executor.calls shouldBe 0
+  }
+
+  @Test
+  fun `blank test script returns before response access and without invoking executor`() {
+    val executor = CountingThrowingExecutor()
+    val state = state()
+    val item =
+      Item(
+        name = "s",
+        request = Request(method = "GET"),
+        event = listOf(Event("test", Event.Script(listOf(" ", "\t")))),
+      )
+    val result =
+      executePostResJS(
+        step(),
+        item,
+        mockk(),
+        state.scopes,
+        state.capture,
+        executor,
+      )
+
+    result.isRight() shouldBe true
+    executor.calls shouldBe 0
+  }
+
+  private fun runPreReq(
+    script: String,
+    environment: Map<String, Any?> = emptyMap(),
+    collectionVariables: Map<String, Any?> = emptyMap(),
+    globals: Map<String, Any?> = emptyMap(),
+  ): State {
+    val state = state(environment, collectionVariables, globals)
+    val item =
+      Item(
+        name = "s",
+        request = Request(method = "GET"),
+        event = listOf(Event("prerequest", Event.Script(script.split("\n")))),
+      )
+    val result = executePreReqJS(step(), item, mockk(), state.scopes, state.capture, sandbox)
+    result.isRight() shouldBe true
+    return state
+  }
+
+  private fun state(
+    environment: Map<String, Any?> = emptyMap(),
+    collectionVariables: Map<String, Any?> = emptyMap(),
+    globals: Map<String, Any?> = emptyMap(),
+  ): State {
+    val moshi = initMoshi()
+    return State(
+      scopes =
+        postmanVariableScopes(
+          PostmanEnvironment(environment.toMutableMap(), moshi),
+          PostmanEnvironment(collectionVariables.toMutableMap(), moshi),
+          PostmanEnvironment(globals.toMutableMap(), moshi),
+          environmentName = "test",
+        ),
+      capture = stepScriptCapture(),
+    )
+  }
+
+  private fun step(): Step = Step(index = "1", rawPMStep = Item(name = "s"))
+
+  private data class State(
+    val scopes: PostmanVariableScopes,
+    val capture: StepScriptCapture,
+  )
+
+  private class CountingThrowingExecutor : ScriptExecutor {
+    var calls = 0
+
+    override fun execute(
+      script: String,
+      target: ScriptTarget,
+      context: PmExecutionContext,
+      timeoutMs: Long,
+    ): PmExecutionResult {
+      calls++
+      error("blank or absent scripts must not invoke the borrowed executor")
+    }
   }
 }

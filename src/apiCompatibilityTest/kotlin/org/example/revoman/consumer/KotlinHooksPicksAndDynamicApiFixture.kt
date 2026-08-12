@@ -37,12 +37,18 @@ class KotlinHooksPicksAndDynamicApiFixture {
     consume(current.stepReports.size, prior.size)
   }
 
+  @Suppress("DEPRECATION")
   fun attach(builder: Kick.Builder): Kick =
     builder
       .hook(preHook)
       .hook(postHook)
       .customDynamicVariableGenerator("consumer", dynamicVariable)
+      .nodeModulesPath("ignored-for-source-compatibility")
       .off()
+
+  @Suppress("DEPRECATION")
+  fun retainedNodeModulesPath(kick: Kick): String? =
+    kick.overrideNodeModulesPath(kick.nodeModulesPath()).nodeModulesPath()
 
   private fun consume(vararg values: Any?) {
     values.size

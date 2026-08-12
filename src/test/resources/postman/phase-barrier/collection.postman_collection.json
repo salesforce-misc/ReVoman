@@ -1,0 +1,118 @@
+{
+  "info": {
+    "_postman_id": "74f821ff-2f9d-4be2-bbc4-31fc2ff3d84f",
+    "name": "Script Hook Phase Barrier",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "phase-one",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('pre-js sees initial host state', () => {",
+              "  pm.expect(pm.environment.get('phaseEnv')).to.eql('initial');",
+              "  pm.expect(pm.environment.get('phaseEnvGone')).to.eql('initial');",
+              "  pm.expect(pm.environment.get('phaseHookUnset')).to.eql('initial');",
+              "  pm.expect(pm.environment.get('phaseNumber')).to.eql(1);",
+              "});",
+              "pm.environment.set('phaseEnv', 'pre-js');",
+              "pm.environment.unset('phaseEnvGone');",
+              "pm.environment.set('phaseNumber', 2);",
+              "pm.collectionVariables.set('phaseCollection', 'pre-js-collection');",
+              "pm.globals.set('phaseGlobal', 'pre-js-global');",
+              "pm.test('pre-js scopes are isolated', () => {",
+              "  pm.expect(pm.environment.has('phaseCollection')).to.eql(false);",
+              "  pm.expect(pm.environment.has('phaseGlobal')).to.eql(false);",
+              "});"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('post-js sees pre-hook environment', () => {",
+              "  pm.expect(pm.environment.get('phaseEnv')).to.eql('pre-hook');",
+              "  pm.expect(pm.environment.get('phaseEnvGone')).to.eql('pre-hook-restored');",
+              "  pm.expect(pm.environment.has('phaseHookUnset')).to.eql(false);",
+              "  pm.expect(pm.environment.get('phaseNumber')).to.eql(2);",
+              "});",
+              "pm.test('post-js sees pre-hook peer scopes', () => {",
+              "  pm.expect(pm.collectionVariables.get('phaseCollection')).to.eql('pre-hook-collection');",
+              "  pm.expect(pm.globals.get('phaseGlobal')).to.eql('pre-hook-global');",
+              "});",
+              "pm.test('post-js scopes stay isolated', () => {",
+              "  pm.expect(pm.environment.has('phaseCollection')).to.eql(false);",
+              "  pm.expect(pm.environment.has('phaseGlobal')).to.eql(false);",
+              "});",
+              "pm.environment.set('phaseEnv', 'post-js');",
+              "pm.environment.unset('phaseEnvGone');",
+              "pm.collectionVariables.set('phaseCollection', 'post-js-collection');",
+              "pm.collectionVariables.unset('phaseCollectionGone');",
+              "pm.collectionVariables.set('phaseCollectionPostUnset', 'remove-in-post-hook');",
+              "pm.globals.set('phaseGlobal', 'post-js-global');",
+              "pm.globals.unset('phaseGlobalGone');",
+              "pm.globals.set('phaseGlobalPostUnset', 'remove-in-post-hook');"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{ledgerConsumed}}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "phase-two",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('step-two sees post-hook environment', () => {",
+              "  pm.expect(pm.environment.get('phaseEnv')).to.eql('post-hook');",
+              "  pm.expect(pm.environment.get('phaseNumber')).to.eql(2);",
+              "  pm.expect(pm.environment.get('ledgerProduced')).to.eql('ledger-output');",
+              "});",
+              "pm.test('step-two sees post-hook peer scopes', () => {",
+              "  pm.expect(pm.collectionVariables.get('phaseCollection')).to.eql('post-hook-collection');",
+              "  pm.expect(pm.globals.get('phaseGlobal')).to.eql('post-hook-global');",
+              "});",
+              "pm.test('step-two sees prior unsets', () => {",
+              "  pm.expect(pm.environment.has('phaseEnvGone')).to.eql(false);",
+              "  pm.expect(pm.environment.has('phaseHookUnset')).to.eql(false);",
+              "  pm.expect(pm.environment.has('phasePostHookUnset')).to.eql(false);",
+              "  pm.expect(pm.collectionVariables.has('phaseCollectionGone')).to.eql(false);",
+              "  pm.expect(pm.collectionVariables.has('phaseCollectionPostUnset')).to.eql(false);",
+              "  pm.expect(pm.globals.has('phaseGlobalGone')).to.eql(false);",
+              "  pm.expect(pm.globals.has('phaseGlobalPostUnset')).to.eql(false);",
+              "});",
+              "pm.test('step-two scopes stay isolated', () => {",
+              "  pm.expect(pm.environment.has('phaseCollection')).to.eql(false);",
+              "  pm.expect(pm.environment.has('phaseGlobal')).to.eql(false);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/phase-two"
+        }
+      },
+      "response": []
+    }
+  ]
+}

@@ -590,7 +590,7 @@ git commit -m "perf: retain sandbox boot source per process"
 - Consumes: current `PostmanEnvironment`, `Step`, mutable interim `Rundown`, real sandbox context/result DTOs, borrowed non-owning `ScriptExecutor`, and existing script phase barriers.
 - Produces: focused scope/capture/legacy-progress modules; a bound `RegexReplacer` with no `PostmanSDK` operation/callback parameters; an internal transitional `PostmanSDK` wiring facade; complete removal of the legacy evaluator; and removal of the ignored node-module path's runtime consumption while retaining its deprecated source surface.
 
-- [ ] **Step 1: Move existing behavior assertions onto focused contracts before deleting anything**
+- [x] **Step 1: Move existing behavior assertions onto focused contracts before deleting anything**
 
 Create tests with these exact responsibilities:
 
@@ -705,7 +705,7 @@ the phase-visibility keys. This is the explicit phase-boundary regression suite;
 extraction batches synchronization, skips an apply-back barrier, cross-contaminates scopes, changes
 numeric normalization, or couples the produced and consumed controls.
 
-- [ ] **Step 2: Capture separate REDs for removal and the missing focused modules**
+- [x] **Step 2: Capture separate REDs for removal and the missing focused modules**
 
 First add only the JAR/reflection-based `LegacyEvaluatorRemovalTest`; it must not statically
 reference any absent focused type. Run it alone and capture an executed assertion failure on the
@@ -735,7 +735,7 @@ types are absent. Keep these as two distinct RED observations: do not let the co
 the executable JAR/reflection assertion failure. `nodeModulesPath` remains as a positive
 source-compatibility control.
 
-- [ ] **Step 3: Extract state without changing executor behavior**
+- [x] **Step 3: Extract state without changing executor behavior**
 
 Move the three variable stores/name into `PostmanVariableScopes`, the four Step-keyed maps into `StepScriptCapture`, and request-name/current-report/interim-rundown synchronization into `LegacyRundownProgress`. Update `RegexReplacer`, dynamic-variable generation, and polling to request only the focused module they need. Make `RegexReplacer` Kotlin-`internal` in the same intentional ABI change; its public constructor currently exposes `PostmanSDK`, so leaving it public would either fail visibility checks or preserve the aggregate through an accidental unsupported API.
 
@@ -805,7 +805,7 @@ new operational class. Mutation-test the allowlist with one temporary forbidden 
 gate prevents later CS2 branches from adding new dependencies to the aggregate before CS4 deletes
 it.
 
-- [ ] **Step 4: Route all script behavior through the real sandbox**
+- [x] **Step 4: Route all script behavior through the real sandbox**
 
 Change `PmJsEval` to receive scopes, capture, and a borrowed, non-owning `ScriptExecutor`. It must
 never close that executor. It must inspect the selected script and return before invoking
@@ -836,7 +836,7 @@ Expected: supported bundled lodash, moment, XML parsing, request/response JSON, 
 executor controls, and the two-step phase barrier all pass against the real sandbox. This GREEN is
 required before Step 5 deletions.
 
-- [ ] **Step 5: Delete the legacy evaluator and its orphaned API/dependency**
+- [x] **Step 5: Delete the legacy evaluator and its orphaned API/dependency**
 
 Delete from `PostmanSDK`:
 
@@ -853,7 +853,7 @@ Update `SandboxBridge` KDoc in the same change: it owns the sole per-run Graal `
 the one process-wide engine and retained boot `Source`; remove every claim that a second
 `PostmanSDK` evaluator context exists or shares warm-up.
 
-- [ ] **Step 6: Prove structural removal and update the live ABI**
+- [x] **Step 6: Prove structural removal and update the live ABI**
 
 Reuse Task 1's root-`test`/exact-`jar` provider wiring. Extend `JvmSurfaceInventory` once to expose
 canonical per-class constant-pool references for `CONSTANT_Class`, `CONSTANT_Fieldref`,
@@ -911,7 +911,7 @@ Assert the frozen `api/cs2-baseline-revoman-root.api` still matches its committe
 
 Attach this structural test to ordinary `check`, and mutation-test it by temporarily restoring one forbidden evaluator class/method reference. A source-only `rg` assertion is supplemental, not the ownership proof.
 
-- [ ] **Step 7: Verify and commit**
+- [x] **Step 7: Verify and commit**
 
 Run:
 

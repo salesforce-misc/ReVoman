@@ -23,6 +23,28 @@ internal enum class JvmSurfaceKind {
   METHOD,
 }
 
+internal enum class JvmReferenceKind {
+  FIELD,
+  METHOD,
+  INTERFACE_METHOD,
+}
+
+internal data class JvmMemberReference(
+  val kind: JvmReferenceKind,
+  val owner: String,
+  val name: String,
+  val descriptor: String,
+)
+
+/** Exact symbolic references carried by one classfile's constant pool. */
+internal data class JvmClassReferences(
+  val owner: String,
+  val classes: Set<String>,
+  val members: Set<JvmMemberReference>,
+  val descriptors: Set<String>,
+  val strings: Set<String>,
+)
+
 internal data class JvmSurfaceEntry(
   val owner: String,
   val kind: JvmSurfaceKind,
@@ -190,6 +212,29 @@ internal object JvmSurfaceInventory {
     )
   }
 
+  fun readJarReferences(jar: Path): List<JvmClassReferences> {
+    require(Files.isRegularFile(jar)) { "JVM reference input must be a regular JAR: $jar" }
+    val references =
+      JarFile(jar.toFile()).use { archive ->
+        archive
+          .entries()
+          .asSequence()
+          .filter { !it.isDirectory && it.name.endsWith(".class") }
+          .map { entry ->
+            archive.getInputStream(entry).use { stream ->
+              ClassFileReader(stream.readAllBytes()).read().references
+            }
+          }
+          .toList()
+      }
+    val duplicates =
+      references.groupingBy(JvmClassReferences::owner).eachCount().filterValues {
+        it > 1
+      }
+    require(duplicates.isEmpty()) { "Duplicate class reference owners in $jar: $duplicates" }
+    return references.sortedBy(JvmClassReferences::owner)
+  }
+
   fun render(entries: List<JvmSurfaceEntry>): String {
     val rendered = entries.asSequence().map(JvmSurfaceEntry::render).toList()
     require(rendered.toSet().size == rendered.size) { "Duplicate JVM inventory rows" }
@@ -259,6 +304,7 @@ private data class ParsedClass(
   val outerOwner: String?,
   val hasSourceName: Boolean,
   val members: List<ParsedMember>,
+  val references: JvmClassReferences,
 )
 
 private data class ParsedMember(
@@ -278,10 +324,16 @@ internal fun validateJvmClassFile(bytes: ByteArray) {
   ClassFileReader(bytes).read()
 }
 
+internal fun readJvmClassReferences(bytes: ByteArray): JvmClassReferences =
+  ClassFileReader(bytes).read().references
+
 private class ClassFileReader(bytes: ByteArray) {
   private val input = DataInputStream(ByteArrayInputStream(bytes))
   private lateinit var utf8: Array<String?>
   private lateinit var classNameIndices: IntArray
+  private lateinit var constantPoolTags: IntArray
+  private lateinit var firstIndices: IntArray
+  private lateinit var secondIndices: IntArray
 
   fun read(): ParsedClass {
     require(input.readInt() == CLASS_FILE_MAGIC) { "Invalid JVM classfile magic" }
@@ -347,6 +399,7 @@ private class ClassFileReader(bytes: ByteArray) {
       outerOwner = innerClassAccess?.outerOwner,
       hasSourceName = innerClassAccess?.hasSourceName ?: true,
       members = members,
+      references = constantPoolReferences(owner),
     )
   }
 
@@ -354,9 +407,14 @@ private class ClassFileReader(bytes: ByteArray) {
     val count = input.readUnsignedShort()
     utf8 = arrayOfNulls(count)
     classNameIndices = IntArray(count)
+    constantPoolTags = IntArray(count)
+    firstIndices = IntArray(count)
+    secondIndices = IntArray(count)
     var index = 1
     while (index < count) {
-      when (val tag = input.readUnsignedByte()) {
+      val tag = input.readUnsignedByte()
+      constantPoolTags[index] = tag
+      when (tag) {
         CONSTANT_UTF8 -> utf8[index] = readModifiedUtf8(input.readUnsignedShort())
         CONSTANT_INTEGER,
         CONSTANT_FLOAT -> input.skipFully(4)
@@ -365,22 +423,65 @@ private class ClassFileReader(bytes: ByteArray) {
           input.skipFully(8)
           index++
         }
-        CONSTANT_CLASS -> classNameIndices[index] = input.readUnsignedShort()
+        CONSTANT_CLASS -> {
+          firstIndices[index] = input.readUnsignedShort()
+          classNameIndices[index] = firstIndices[index]
+        }
         CONSTANT_STRING,
         CONSTANT_METHOD_TYPE,
         CONSTANT_MODULE,
-        CONSTANT_PACKAGE -> input.skipFully(2)
+        CONSTANT_PACKAGE -> firstIndices[index] = input.readUnsignedShort()
         CONSTANT_FIELD_REF,
         CONSTANT_METHOD_REF,
         CONSTANT_INTERFACE_METHOD_REF,
         CONSTANT_NAME_AND_TYPE,
         CONSTANT_DYNAMIC,
-        CONSTANT_INVOKE_DYNAMIC -> input.skipFully(4)
+        CONSTANT_INVOKE_DYNAMIC -> {
+          firstIndices[index] = input.readUnsignedShort()
+          secondIndices[index] = input.readUnsignedShort()
+        }
         CONSTANT_METHOD_HANDLE -> input.skipFully(3)
         else -> error("Unsupported JVM constant-pool tag $tag at index $index")
       }
       index++
     }
+  }
+
+  private fun constantPoolReferences(owner: String): JvmClassReferences {
+    val classes = linkedSetOf<String>()
+    val members = linkedSetOf<JvmMemberReference>()
+    val descriptors = linkedSetOf<String>()
+    val strings = linkedSetOf<String>()
+    for (index in 1 until constantPoolTags.size) {
+      when (constantPoolTags[index]) {
+        CONSTANT_CLASS -> classes += className(index)
+        CONSTANT_STRING -> strings += utf8(firstIndices[index])
+        CONSTANT_NAME_AND_TYPE -> descriptors += utf8(secondIndices[index])
+        CONSTANT_METHOD_TYPE -> descriptors += utf8(firstIndices[index])
+        CONSTANT_FIELD_REF,
+        CONSTANT_METHOD_REF,
+        CONSTANT_INTERFACE_METHOD_REF -> {
+          val nameAndTypeIndex = secondIndices[index]
+          require(constantPoolTags[nameAndTypeIndex] == CONSTANT_NAME_AND_TYPE) {
+            "Expected CONSTANT_NameAndType at index $nameAndTypeIndex"
+          }
+          val kind =
+            when (constantPoolTags[index]) {
+              CONSTANT_FIELD_REF -> JvmReferenceKind.FIELD
+              CONSTANT_METHOD_REF -> JvmReferenceKind.METHOD
+              else -> JvmReferenceKind.INTERFACE_METHOD
+            }
+          members +=
+            JvmMemberReference(
+              kind = kind,
+              owner = className(firstIndices[index]),
+              name = utf8(firstIndices[nameAndTypeIndex]),
+              descriptor = utf8(secondIndices[nameAndTypeIndex]),
+            )
+        }
+      }
+    }
+    return JvmClassReferences(owner, classes, members, descriptors, strings)
   }
 
   private fun readMember(defaultKind: JvmSurfaceKind): ParsedMember {

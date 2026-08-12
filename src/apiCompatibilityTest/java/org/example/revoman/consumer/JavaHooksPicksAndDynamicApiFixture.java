@@ -47,12 +47,19 @@ public final class JavaHooksPicksAndDynamicApiFixture {
     };
   }
 
+  @SuppressWarnings("deprecation")
   public Kick attach(Kick.Builder builder) {
     return builder
         .hook(preHook())
         .hook(postHook())
         .customDynamicVariableGenerator("consumer", dynamicVariable())
+        .nodeModulesPath("ignored-for-source-compatibility")
         .off();
+  }
+
+  @SuppressWarnings("deprecation")
+  public String retainedNodeModulesPath(Kick kick) {
+    return kick.overrideNodeModulesPath(kick.nodeModulesPath()).nodeModulesPath();
   }
 
   private static void consume(Object... values) {

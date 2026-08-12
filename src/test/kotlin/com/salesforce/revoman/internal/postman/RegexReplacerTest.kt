@@ -8,7 +8,6 @@
 package com.salesforce.revoman.internal.postman
 
 import com.salesforce.revoman.input.config.CustomDynamicVariableGenerator
-import com.salesforce.revoman.internal.json.MoshiReVoman.Companion.initMoshi
 import com.salesforce.revoman.internal.postman.template.Environment.Companion.mergeEnvs
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapter
@@ -16,85 +15,77 @@ import io.kotest.matchers.equals.shouldNotBeEqual
 import io.kotest.matchers.maps.shouldContain
 import io.kotest.matchers.maps.shouldContainAll
 import io.kotest.matchers.shouldBe
-import io.mockk.mockk
 import org.junit.jupiter.api.Test
 
 class RegexReplacerTest {
-  private val moshiReVoman = initMoshi()
-
   @Test
-  fun `unmarshall Env File with Regex and Dynamic variable`() {
+  fun `unmarshall Env File with Regex and custom dynamic variable`() {
     val epoch = System.currentTimeMillis().toString()
-    val dummyDynamicVariableGenerator = { r: String, _: PostmanSDK ->
-      if (r == $$"$epoch") epoch else null
-    }
-    val regexReplacer = RegexReplacer(emptyMap(), dummyDynamicVariableGenerator)
-    val pm = PostmanSDK(moshiReVoman, null, regexReplacer)
-    pm.environment.putAll(
+    val graph =
+      focusedPostmanTestGraph(
+        customDynamicVariableGenerators =
+          mapOf($$"$epoch" to CustomDynamicVariableGenerator { _, _, _ -> epoch })
+      )
+    graph.scopes.environment.putAll(
       mergeEnvs(setOf("env-with-regex.json"), emptyList(), mutableMapOf("un" to "userName")).values
     )
-    val envWithVariablesReplaced = regexReplacer.replaceVariablesInEnv(pm)
-    envWithVariablesReplaced shouldContain ("userName" to "user-$epoch@xyz.com")
+
+    val replaced = graph.replacer.replaceVariablesInEnv()
+
+    replaced shouldContain ("userName" to "user-$epoch@xyz.com")
   }
 
   @OptIn(ExperimentalStdlibApi::class)
   @Test
-  fun `dynamic variables replacement in JSON string and dynamic env`() {
-    val epoch = System.currentTimeMillis().toString()
-    val dummyDynamicVariableGenerator = { key: String, _: PostmanSDK ->
-      if (key == $$"$epoch") epoch else null
-    }
-    val regexReplacer = RegexReplacer(dynamicVariableGenerator = dummyDynamicVariableGenerator)
-    val pm = PostmanSDK(moshiReVoman, null, regexReplacer)
-    pm.environment["key"] = $$"value-{{$epoch}}"
-    val jsonStr =
+  fun `built-in dynamic variables replace recursively in JSON and environment values`() {
+    val graph = focusedPostmanTestGraph()
+    graph.progress.currentRequestName = "request-42"
+    graph.scopes.environment["key"] = $$"value-{{$currentRequestName}}"
+    val json =
       $$"""
       {
-        "epoch": "{{$epoch}}",
+        "request": "{{$currentRequestName}}",
         "key": "{{key}}"
       }
       """
         .trimIndent()
-    val resultStr = regexReplacer.replaceVariablesRecursively(jsonStr, pm)!!
-    val result = Moshi.Builder().build().adapter<Map<String, String>>().fromJson(resultStr)!!
-    result shouldContainAll mapOf("epoch" to epoch, "key" to "value-$epoch")
+
+    val result =
+      Moshi.Builder()
+        .build()
+        .adapter<Map<String, String>>()
+        .fromJson(graph.replacer.replaceVariablesRecursively(json)!!)!!
+
+    result shouldContainAll mapOf("request" to "request-42", "key" to "value-request-42")
   }
 
   @OptIn(ExperimentalStdlibApi::class)
   @Test
-  fun `custom dynamic variables`() {
-    val customEpoch = "Custom - ${System.currentTimeMillis()}"
-    val customDynamicVariableGenerator = CustomDynamicVariableGenerator { _, _, _ -> customEpoch }
-    val noopDynamicVariableGenerator = { _: String, _: PostmanSDK -> null }
-    val regexReplacer =
-      RegexReplacer(
-        mapOf($$"$customEpoch" to customDynamicVariableGenerator),
-        noopDynamicVariableGenerator,
+  fun `custom dynamic variables shadow a same-named environment value`() {
+    val customValue = "Custom - ${System.currentTimeMillis()}"
+    val key = $$"$customEpoch"
+    val graph =
+      focusedPostmanTestGraph(
+        environmentValues = mapOf("key" to "value-{{$key}}", key to "environment"),
+        customDynamicVariableGenerators =
+          mapOf(key to CustomDynamicVariableGenerator { _, _, _ -> customValue }),
       )
-    val pm = PostmanSDK(moshiReVoman, null, regexReplacer)
-    pm.environment["key"] = $$"value-{{$customEpoch}}"
-    // This should get shadowed by custom dynamic variable
-    pm.environment[$$"$customEpoch"] = $$"value-{{$customEpoch}}"
-    pm.currentStepReport = mockk()
-    pm.rundown = mockk()
-    val jsonStr =
-      $$"""
-      {
-        "epoch": "{{$customEpoch}}",
-        "key": "{{key}}"
-      }
-      """
-        .trimIndent()
-    val resultStr = regexReplacer.replaceVariablesRecursively(jsonStr, pm)!!
-    val result = Moshi.Builder().build().adapter<Map<String, String>>().fromJson(resultStr)!!
-    result shouldContainAll mapOf("epoch" to customEpoch, "key" to "value-$customEpoch")
+    val json = """{"epoch":"{{$key}}","key":"{{key}}"}"""
+
+    val result =
+      Moshi.Builder()
+        .build()
+        .adapter<Map<String, String>>()
+        .fromJson(graph.replacer.replaceVariablesRecursively(json)!!)!!
+
+    result shouldContainAll mapOf("epoch" to customValue, "key" to "value-$customValue")
   }
 
   @OptIn(ExperimentalStdlibApi::class)
   @Test
-  fun `duplicate dynamic variables for random value generation should have different values`() {
-    val pm = PostmanSDK(moshiReVoman)
-    val jsonStr =
+  fun `duplicate random dynamic variables generate different values`() {
+    val replacer = focusedPostmanTestGraph().replacer
+    val json =
       $$"""
       {
         "key1": "{{$randomUUID}}",
@@ -102,86 +93,62 @@ class RegexReplacerTest {
       }
       """
         .trimIndent()
-    val resultStr = pm.regexReplacer.replaceVariablesRecursively(jsonStr, pm)!!
-    val result = Moshi.Builder().build().adapter<Map<String, String>>().fromJson(resultStr)!!
+    val result =
+      Moshi.Builder()
+        .build()
+        .adapter<Map<String, String>>()
+        .fromJson(replacer.replaceVariablesRecursively(json)!!)!!
     result["key1"]!! shouldNotBeEqual result["key2"]!!
   }
 
   @Test
-  fun `self-referencing variable does not cause StackOverflowError`() {
-    val regexReplacer = RegexReplacer()
-    val pm = PostmanSDK(moshiReVoman, null, regexReplacer)
-    pm.environment["self"] = "{{self}}"
-    val result = regexReplacer.replaceVariablesRecursively("{{self}}", pm)
-    result shouldBe "{{self}}"
+  fun `self reference remains unresolved instead of overflowing`() {
+    val graph = focusedPostmanTestGraph(environmentValues = mapOf("self" to "{{self}}"))
+    graph.replacer.replaceVariablesRecursively("{{self}}") shouldBe "{{self}}"
   }
 
   @Test
-  fun `mutually cyclic variables do not cause StackOverflowError`() {
-    val regexReplacer = RegexReplacer()
+  fun `mutual cycles remain unresolved from either entry point`() {
+    val values = mapOf("a" to "{{b}}", "b" to "{{a}}")
 
-    // Test resolving {{a}} where a -> b -> a
-    val pm1 = PostmanSDK(moshiReVoman, null, regexReplacer)
-    pm1.environment["a"] = "{{b}}"
-    pm1.environment["b"] = "{{a}}"
-    val resultA = regexReplacer.replaceVariablesRecursively("{{a}}", pm1)
-    // When resolving {{a}}, we visit a, expand to {{b}}, visit b, expand to {{a}}, but a is already
-    // visited so we break the cycle and return {{a}}
-    resultA shouldBe "{{a}}"
-
-    // Test resolving {{b}} where b -> a -> b (fresh environment)
-    val pm2 = PostmanSDK(moshiReVoman, null, regexReplacer)
-    pm2.environment["a"] = "{{b}}"
-    pm2.environment["b"] = "{{a}}"
-    val resultB = regexReplacer.replaceVariablesRecursively("{{b}}", pm2)
-    resultB shouldBe "{{b}}"
+    focusedPostmanTestGraph(environmentValues = values)
+      .replacer
+      .replaceVariablesRecursively("{{a}}") shouldBe "{{a}}"
+    focusedPostmanTestGraph(environmentValues = values)
+      .replacer
+      .replaceVariablesRecursively("{{b}}") shouldBe "{{b}}"
   }
 
   @Test
-  fun `two-level indirection still resolves correctly`() {
-    val regexReplacer = RegexReplacer()
-    val pm = PostmanSDK(moshiReVoman, null, regexReplacer)
-    pm.environment["a"] = "{{b}}"
-    pm.environment["b"] = "value"
-    val result = regexReplacer.replaceVariablesRecursively("{{a}}", pm)
-    result shouldBe "value"
+  fun `two-level indirection resolves`() {
+    val graph = focusedPostmanTestGraph(environmentValues = mapOf("a" to "{{b}}", "b" to "value"))
+    graph.replacer.replaceVariablesRecursively("{{a}}") shouldBe "value"
   }
 
   @Test
-  fun `string without double-brace is returned unchanged`() {
-    val regexReplacer = RegexReplacer()
-    val pm = PostmanSDK(moshiReVoman, null, regexReplacer)
-    val plain = """{ "a": 1, "b": "no placeholders here", "c": "{ single brace }" }"""
-    regexReplacer.replaceVariablesRecursively(plain, pm) shouldBe plain
+  fun `plain null and unmatched inputs are unchanged`() {
+    val replacer = focusedPostmanTestGraph().replacer
+    val plain = """{ "a": 1, "b": "no placeholders", "c": "{ single brace }" }"""
+    replacer.replaceVariablesRecursively(plain) shouldBe plain
+    replacer.replaceVariablesRecursively(null) shouldBe null
+    replacer.replaceVariablesRecursively("prefix {{ } suffix") shouldBe "prefix {{ } suffix"
   }
 
   @Test
-  fun `null input stays null`() {
-    val regexReplacer = RegexReplacer()
-    val pm = PostmanSDK(moshiReVoman, null, regexReplacer)
-    regexReplacer.replaceVariablesRecursively(null, pm) shouldBe null
-  }
+  fun `replaceVariablesInEnv resolves placeholders and preserves static typed values`() {
+    val graph =
+      focusedPostmanTestGraph(
+        environmentValues =
+          mapOf(
+            "base" to "example.com",
+            "url" to "https://{{base}}/api",
+            "staticStr" to "no placeholders",
+            "count" to 42,
+            "flag" to true,
+          )
+      )
 
-  @Test
-  fun `single unmatched brace pair is not treated as a placeholder`() {
-    val regexReplacer = RegexReplacer()
-    val pm = PostmanSDK(moshiReVoman, null, regexReplacer)
-    // Contains "{{" so it enters the regex path, but "{{ }" has no closing "}}" -> left literal.
-    regexReplacer.replaceVariablesRecursively("prefix {{ } suffix", pm) shouldBe
-      "prefix {{ } suffix"
-  }
-
-  @Test
-  fun `replaceVariablesInEnv resolves placeholder entries and passes static + typed entries through`() {
-    val regexReplacer = RegexReplacer()
-    val pm = PostmanSDK(moshiReVoman, null, regexReplacer)
-    pm.environment["base"] = "example.com"
-    pm.environment["url"] = "https://{{base}}/api" // value placeholder
-    pm.environment["staticStr"] = "no placeholders" // static string -> unchanged
-    pm.environment["count"] = 42 // non-string -> passed through as-is
-    pm.environment["flag"] = true // non-string -> passed through as-is
-    val result = regexReplacer.replaceVariablesInEnv(pm)
-    result shouldContainAll
+    graph.replacer.replaceVariablesInEnv() shouldContainAll
       mapOf(
         "base" to "example.com",
         "url" to "https://example.com/api",
@@ -193,11 +160,10 @@ class RegexReplacerTest {
 
   @Test
   fun `replaceVariablesInEnv resolves a placeholder in the key`() {
-    val regexReplacer = RegexReplacer()
-    val pm = PostmanSDK(moshiReVoman, null, regexReplacer)
-    pm.environment["name"] = "userName"
-    pm.environment["{{name}}"] = "value" // key placeholder -> remapped to resolved key
-    val result = regexReplacer.replaceVariablesInEnv(pm)
-    result shouldContain ("userName" to "value")
+    val graph =
+      focusedPostmanTestGraph(
+        environmentValues = mapOf("name" to "userName", "{{name}}" to "value")
+      )
+    graph.replacer.replaceVariablesInEnv() shouldContain ("userName" to "value")
   }
 }
