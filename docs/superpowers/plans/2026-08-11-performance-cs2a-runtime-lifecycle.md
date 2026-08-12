@@ -1040,9 +1040,9 @@ Add a full no-script lifecycle test through `ReVomanRuntime.execute(kick)` with 
 `SandboxFactory`: one session and one kick execute, but the factory count remains zero and no
 `SandboxBridge`/Graal `Context` is created. A one-script positive control must create exactly one
 runtime and close it once. These controls must call `reVomanRuntime(countingSandboxFactory)` and
-cross the real runtime, real session, real child, moved `KickRunner`, and real `PmJsEval` path.
-Recording decorators may count session/child creation, but these two tests must not replace
-`KickBody` with a fake.
+cross the real runtime, real session, real child, function-local production runner, and real
+`PmJsEval` path. Recording decorators may count session/child creation, but these two tests must not
+replace `KickBody` with a fake.
 
 - [ ] **Step 2: Capture the missing-boundary RED**
 
@@ -1097,15 +1097,15 @@ internal fun executionSession(
 ): ExecutionSession
 ```
 
-`kickExecutionFactory(sandboxFactory)` creates one function-local, stateless anonymous
-`KickBody`—the production `KickRunner`—and returns an anonymous `KickExecutionFactory` whose
-children come from the function-local `kickExecution(...)` implementation. The runner may retain
-only immutable collaborators; all kick, scopes, progress, report, and sequencing state belongs to
-the child or method locals. Tests may inject a fake `KickBody` into real children for child-only
-tests, while the runtime sandbox-count controls above use the production body. The default graph
-constructs a fully initialized child whose expensive resources remain lazy. A factory that throws
-before returning transfers no child to the session; once returned, the session sets `activeChild`
-before calling `execute`.
+`kickExecutionFactory(sandboxFactory)` creates one function-local, stateless anonymous `KickBody`
+as the production runner and returns an anonymous `KickExecutionFactory` whose children come from
+the function-local `kickExecution(...)` implementation. The runner may retain only immutable
+collaborators; all kick, scopes, progress, report, and sequencing state belongs to the child or
+method locals. Tests may inject a fake `KickBody` into real children for child-only tests, while the
+runtime sandbox-count controls above use the production body. The default graph constructs a fully
+initialized child whose expensive resources remain lazy. A factory that throws before returning
+transfers no child to the session; once returned, the session sets `activeChild` before calling
+`execute`.
 
 Make the factory contract transactional in KDoc and implementation. Construction code may not open
 a closeable before handoff; if a future constructor step must do so, the factory owns a local
@@ -1170,12 +1170,14 @@ The session is sequential/closeable, rejects execution after close, keeps at mos
 and closes an incomplete child before its own resources. `KickExecution.execute` is one-shot.
 For each returned child, create a short-lived `ResourceScope`, register the child, assign
 `activeChild`, invoke the body, and call that scope's `closeAfter(bodyFailure)` in `finally` before
-clearing `activeChild`. Catch `Throwable`, not only `Exception`. Rethrow the body throwable by exact
-identity with distinct close failures directly suppressed in reverse order; on a successful body,
-a close failure becomes primary and the rundown is not appended. If the factory throws before
-returning a child, the session owns nothing and propagates that failure. Append/callback/carry
-occur only after successful child closure. A callback or fresh-snapshot failure therefore observes
-an already closed child; session close remains idempotent and must not retry it.
+clearing `activeChild`. Put `activeChild = null` in an inner `finally` around `closeAfter` so it runs
+even when that method rethrows the body throwable or promotes a close failure. Catch `Throwable`,
+not only `Exception`. Rethrow the body throwable by exact identity with distinct close failures
+directly suppressed in reverse order; on a successful body, a close failure becomes primary and
+the rundown is not appended. If the factory throws before returning a child, the session owns
+nothing and propagates that failure. Append/callback/carry occur only after successful child
+closure. A callback or fresh-snapshot failure therefore observes an already closed child; session
+close remains idempotent and must not retry it.
 
 Before session close, `ReVomanRuntime` materializes the returned single result. Close then clears the
 session's carried-environment reference and mutable rundown builder so retaining a closed session
@@ -1266,6 +1268,7 @@ git add src/main/kotlin/com/salesforce/revoman/ReVoman.kt \
   src/test/kotlin/com/salesforce/revoman/compat/Cs2JvmSurfaceAdditions.kt \
   src/test/kotlin/com/salesforce/revoman/compat/ApiBaselineInventoryTest.kt \
   src/test/kotlin/com/salesforce/revoman/compat/JvmSurfaceVisibilityTest.kt \
+  src/test/kotlin/com/salesforce/revoman/internal/runtime/LegacyEvaluatorRemovalTest.kt \
   docs/superpowers/plans/2026-08-11-performance-cs2a-runtime-lifecycle.md
 git commit -m "refactor: introduce execution session lifecycle"
 ```
