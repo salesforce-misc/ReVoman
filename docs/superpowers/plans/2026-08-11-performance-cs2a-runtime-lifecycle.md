@@ -647,8 +647,6 @@ internal fun regexReplacer(
   scopes: PostmanVariableScopes,
   progress: LegacyRundownProgress,
   customDynamicVariableGenerators: Map<String, CustomDynamicVariableGenerator>,
-  dynamicVariableGenerator: (String, LegacyRundownProgress) -> String? =
-    ::dynamicVariableGenerator,
 ): RegexReplacer
 
 internal interface PostmanSDK {
@@ -676,6 +674,11 @@ property accessor `@JvmSynthetic` and keep them off Java interfaces with inherit
 methods. Apply the anonymous-factory shape to `PostmanVariableScopes`, `StepScriptCapture`,
 `LegacyRundownProgress`, transitional `PostmanSDK`, and `RegexReplacer`. Do not use companion or
 named-object factories, and emit no `Companion` class/field or `INSTANCE` field.
+`regexReplacer` has no injected/default function seam: its anonymous implementation calls the
+focused top-level `dynamicVariableGenerator(key, progress)` directly. This pure dispatch does not
+vary in production, and retaining `::dynamicVariableGenerator` would emit a callable-reference
+singleton helper with an `INSTANCE` field. Exercise dynamic-variable results through
+`RegexReplacerTest`/`DynamicVariableGeneratorTest`; do not inject the top-level function in tests.
 `JvmSurfaceVisibilityTest` enumerates
 `PostmanVariableScopes`, `StepScriptCapture`, `LegacyRundownProgress`, `PostmanSDK`, and
 `RegexReplacer`; external and same-package negative javac snippets cannot construct an
@@ -739,25 +742,49 @@ Move the three variable stores/name into `PostmanVariableScopes`, the four Step-
 Construct and bind the graph in this order, with no cycle and no late `PostmanSDK` injection:
 
 ```kotlin
-val scopes = postmanVariableScopes(environment, collectionVariables, globals, mergedEnv.name)
+val environment: PostmanEnvironment<Any?> =
+  PostmanEnvironment(
+    mutableEnv = PersistentBackedMutableMap(ledgerValues + mergedEnv.values),
+    moshiReVoman = moshiReVoman,
+  )
+val collectionVariables: PostmanEnvironment<Any?> =
+  PostmanEnvironment(mutableEnv = mutableMapOf(), moshiReVoman = moshiReVoman)
+val globals: PostmanEnvironment<Any?> =
+  PostmanEnvironment(mutableEnv = mutableMapOf(), moshiReVoman = moshiReVoman)
+val scopes =
+  postmanVariableScopes(
+    environment = environment,
+    collectionVariables = collectionVariables,
+    globals = globals,
+    environmentName = mergedEnv.name,
+  )
 val progress = legacyRundownProgress()
 val replacer =
   regexReplacer(
-    scopes,
-    progress,
-    kick.customDynamicVariableGenerators(),
-    ::dynamicVariableGenerator,
+    scopes = scopes,
+    progress = progress,
+    customDynamicVariableGenerators = kick.customDynamicVariableGenerators(),
   )
 val capture = stepScriptCapture()
 val pm = postmanSDK(scopes, capture, progress, replacer)
 ```
 
+Create these stores only after `moshiReVoman`, `ledgerValues`, and `mergedEnv` are available. The
+environment store retains the current initial value semantics exactly—ledger values are the floor,
+`mergedEnv.values` wins on collision, and the live map uses `PersistentBackedMutableMap`—while the
+collection-variable and global stores are fresh empty mutable stores using the same
+`PostmanEnvironment` constructor and `MoshiReVoman`. Pass `mergedEnv.name` into `scopes`; do not
+assign the name through a later aggregate mutation.
+
 The bound `RegexReplacer` operations take no `PostmanSDK`; recursive calls use its captured
 `scopes`, custom generators receive `progress.currentReport` and `progress.rundown`, and the
-`$currentRequestName` dynamic value reads `progress.currentRequestName`. Change
-`dynamicVariableGenerator` accordingly and extend `DynamicVariableGeneratorTest` with an exact
-current-request-name control. Polling receives `PostmanVariableScopes` (plus its existing rundown
-and polling inputs) and reads `scopes.environment`; it does not receive `PostmanSDK` or unrelated
+`$currentRequestName` dynamic value reads `progress.currentRequestName`. Its anonymous
+implementation calls the top-level focused `dynamicVariableGenerator` directly—there is no
+function-valued factory parameter, default bridge, callable reference, or injectable pure-function
+test seam. Change `dynamicVariableGenerator` accordingly, extend `DynamicVariableGeneratorTest`
+with an exact current-request-name control, and cover built-in/custom dispatch through focused
+`RegexReplacer` behavior. Polling receives `PostmanVariableScopes` (plus its existing rundown and
+polling inputs) and reads `scopes.environment`; it does not receive `PostmanSDK` or unrelated
 capture/progress state.
 
 Keep `PostmanSDK` at the exact four-property interface above; migrate temporary Task-4 call sites
@@ -864,6 +891,9 @@ prior Task 3 bridge removal and any other exact row changed by the extraction. N
 row-count, `removals.single()`, or "all removals are synthetic" shortcut is allowed. Both tests
 require `active - frozen == CS2_TASK4_RAW_JVM_ADDITIONS` and `frozen - active ==
 CS2_TASK4_RAW_JVM_REMOVALS`, and reject `Companion`/`INSTANCE` additions.
+Do not add a callable-reference helper exception for `regexReplacer`: the authoritative factory
+has no function-valued default or `::dynamicVariableGenerator`, so any new callable-reference
+helper class or `INSTANCE` field is an unexpected raw addition and fails the exact allowlist.
 
 Keep supported-surface accounting separate. `ApiBaselineInventoryTest` continues to require the
 supported Kotlin and Java removals to equal the CS2a migration-map projections exactly, requires
