@@ -2226,7 +2226,7 @@ test "$(git -C "$SELFTEST_ROOT/baseline" rev-parse HEAD)" = \
 
 ./gradlew :benchmark-driver:integrationTest \
   --tests '*RunnerIntegrationTest.real retained worker reports major lifecycle weak references*' \
-  --tests '*BenchmarkDriverIntegrationTest.major lifecycle campaign*' \
+  --tests '*BenchmarkDriverIntegrationTest.major lifecycle retained campaign preserves v2 series identity*' \
   -Pbenchmark.targetManifest=build/benchmark-target-current.json \
   -Pbenchmark.adapter=major-v1 \
   --rerun-tasks --no-build-cache --no-configuration-cache --console=plain
@@ -2357,7 +2357,7 @@ DRIVER="$HARNESS_CHECKOUT/benchmark-driver/build/install/benchmark-driver/bin/be
 
 ./gradlew :benchmark-driver:integrationTest \
   --tests '*RunnerIntegrationTest.real retained worker reports major lifecycle weak references*' \
-  --tests '*BenchmarkDriverIntegrationTest.major lifecycle campaign*' \
+  --tests '*BenchmarkDriverIntegrationTest.major lifecycle retained campaign preserves v2 series identity*' \
   -Pbenchmark.targetManifest="$SMOKE_ROOT/candidate.json" \
   -Pbenchmark.adapter=major-v1 \
   --rerun-tasks --no-build-cache --no-configuration-cache --console=plain
@@ -2741,14 +2741,15 @@ mkdir "$RUN_ROOT/checkouts" "$RUN_ROOT/manifests" "$RUN_ROOT/results" \
 
 write_inventory() (
   set -euo pipefail
-  find "$RUN_ROOT/manifests" "$RUN_ROOT/results" -type f -print0 \
-    | sort -z | xargs -0 -r sha256sum >"$RUN_ROOT/meta/evidence-sha256sums.txt"
-  find "$RUN_ROOT/artifacts" -type f -printf '%P\t%s\n' \
-    | LC_ALL=C sort >"$RUN_ROOT/meta/artifact-inventory.tsv"
-  find "$RUN_ROOT/artifacts" -type f -print0 \
-    | sort -z | xargs -0 -r sha256sum >"$RUN_ROOT/meta/artifact-sha256sums.txt"
-  find "$RUN_ROOT/logs" -type f -print0 \
-    | sort -z | xargs -0 -r sha256sum >"$RUN_ROOT/meta/command-output-sha256sums.txt"
+  cd "$RUN_ROOT"
+  find manifests results -type f -print0 \
+    | LC_ALL=C sort -z | xargs -0 -r sha256sum >meta/evidence-sha256sums.txt
+  find artifacts -type f -printf '%p\t%s\n' \
+    | LC_ALL=C sort >meta/artifact-inventory.tsv
+  find artifacts -type f -print0 \
+    | LC_ALL=C sort -z | xargs -0 -r sha256sum >meta/artifact-sha256sums.txt
+  find logs -type f -print0 \
+    | LC_ALL=C sort -z | xargs -0 -r sha256sum >meta/command-output-sha256sums.txt
 )
 on_runner_exit() {
   local status=$? inventory_status=0
@@ -2904,7 +2905,11 @@ for mode in cold warm; do
   printf '%s\n' "$status" >"$RUN_ROOT/meta/comparison-aa-$mode-exit.txt"
   test -s "$RUN_ROOT/results/comparison-aa-$mode.json"
   test -s "$RUN_ROOT/results/comparison-aa-$mode.md"
-  if test "$status" -ne 0; then aa_failed=true; fi
+  if test "$status" -ne 0 \
+    || ! jq -e '.overall == "PASS"' \
+      "$RUN_ROOT/results/comparison-aa-$mode.json" >/dev/null; then
+    aa_failed=true
+  fi
 done
 printf '%s\n' aa-compared >"$RUN_ROOT/meta/stage.txt"
 if test "$aa_failed" = true; then exit 3; fi
@@ -2939,6 +2944,7 @@ run_campaign retained-candidate "$RUN_ROOT/results/retained-candidate.json" \
 printf '%s\n' candidate-captured >"$RUN_ROOT/meta/stage.txt"
 
 candidate_status=0
+candidate_failed=false
 for mode in cold warm retained; do
   verify_controlled_result "candidate-$mode" "$RUN_ROOT/results/$mode-candidate.json"
   if run_logged "comparison-candidate-$mode" \
@@ -2956,8 +2962,16 @@ for mode in cold warm retained; do
   if test "$status" -ne 0 && test "$candidate_status" -eq 0; then
     candidate_status=$status
   fi
+  if test "$status" -ne 0 \
+    || ! jq -e '.overall == "PASS"' \
+      "$RUN_ROOT/results/comparison-candidate-$mode.json" >/dev/null; then
+    candidate_failed=true
+  fi
 done
 printf '%s\n' candidate-compared >"$RUN_ROOT/meta/stage.txt"
+if test "$candidate_failed" = true && test "$candidate_status" -eq 0; then
+  candidate_status=3
+fi
 exit "$candidate_status"
 ```
 
@@ -2971,7 +2985,10 @@ After the supervisor has restored every governor, the following tail of the same
 `cs2a-operator.sh` copies every attempt back locally whether it passed, failed, or was
 inconclusive. It shares the already authenticated implementation/source/script identities from the
 first operator section. Use the unique remote directory basename as the attempt key; never
-overwrite or omit an earlier non-PASS attempt:
+overwrite or omit an earlier non-PASS attempt. Copied target manifests retain remote absolute
+`executionPath` values, so local validation must never pass them to `benchmark-driver verify`;
+validate only their path-free schema, hashes, roles, target IDs, adapters, and commit identity.
+Local `verify` remains restricted to copied campaign/result JSON:
 
 ```bash
 if test "$RUN_ROOT_VALID" = true; then
@@ -3163,6 +3180,7 @@ else
 fi
 recompare_if_complete() {
   local label=$1 input=$2 archived_json=$3 archived_md=$4 expected_exit=$5 status
+  local recorded_exit archived_overall recomputed_overall
   if test ! -f "$input" && test ! -f "$archived_json" && test ! -f "$archived_md"; then
     return 0
   fi
@@ -3185,12 +3203,23 @@ recompare_if_complete() {
   else
     status=$?
   fi
-  if test "$status" != "$(cat "$expected_exit")" \
+  recorded_exit=$(cat "$expected_exit")
+  if archived_overall=$(jq -er '.overall' "$archived_json" \
+    2>>"$VALIDATION_LOG"); then :; else archived_overall=INVALID; fi
+  if recomputed_overall=$(jq -er '.overall' "$RECOMPARE/$label.json" \
+    2>>"$VALIDATION_LOG"); then :; else recomputed_overall=INVALID; fi
+  if test "$recorded_exit" != 0 \
+    || test "$status" -ne 0 \
+    || test "$archived_overall" != PASS \
+    || test "$recomputed_overall" != PASS \
+    || test "$status" != "$recorded_exit" \
     || ! cmp -s "$RECOMPARE/$label.json" "$archived_json" \
     || ! cmp -s "$RECOMPARE/$label.md" "$archived_md"; then
     ARCHIVE_VALID=false
   fi
-  printf 'recompare\t%s\t%s\n' "$status" "$label" >>"$VALIDATION_LOG"
+  printf 'recompare\t%s\t%s\trecorded=%s\tarchived=%s\trecomputed=%s\n' \
+    "$status" "$label" "$recorded_exit" "$archived_overall" "$recomputed_overall" \
+    >>"$VALIDATION_LOG"
 }
 
 for mode in cold warm; do
@@ -3236,6 +3265,59 @@ for required in \
   meta/command-output-sha256sums.txt; do
   require_archive_file "$required"
 done
+
+validate_remote_checksum_inventory() {
+  local inventory=$1 allowed_paths=$2
+  test -f "$EVIDENCE_DIR/$inventory" || return 0
+  if ! awk -v allowed="$allowed_paths" '
+    {
+      hash = substr($0, 1, 64)
+      separator = substr($0, 65, 2)
+      path = substr($0, 67)
+      if (length(hash) != 64 || hash !~ /^[0-9a-f]+$/ || separator != "  " ||
+          path !~ allowed || path ~ /(^|\/)\.\.(\/|$)/) exit 1
+    }
+  ' "$EVIDENCE_DIR/$inventory"; then
+    printf 'invalid-remote-inventory-path\t%s\n' "$inventory" >>"$VALIDATION_LOG"
+    ARCHIVE_VALID=false
+  elif ! (cd "$EVIDENCE_DIR" && sha256sum -c "$inventory") \
+    >>"$VALIDATION_LOG" 2>&1; then
+    printf 'remote-inventory-mismatch\t%s\n' "$inventory" >>"$VALIDATION_LOG"
+    ARCHIVE_VALID=false
+  fi
+}
+
+validate_remote_artifact_inventory() {
+  local inventory=meta/artifact-inventory.tsv relative size extra actual valid=true
+  test -f "$EVIDENCE_DIR/$inventory" || return 0
+  while IFS="$(printf '\t')" read -r relative size extra; do
+    case "$relative" in
+      artifacts/*) ;;
+      *) valid=false ;;
+    esac
+    case "$relative" in
+      /* | ../* | */../* | */..) valid=false ;;
+    esac
+    [[ "$size" =~ ^[0-9]+$ ]] || valid=false
+    test -z "$extra" || valid=false
+    if test "$valid" = true && test -f "$EVIDENCE_DIR/$relative"; then
+      actual=$(wc -c <"$EVIDENCE_DIR/$relative" | tr -d ' ')
+      test "$actual" = "$size" || valid=false
+    else
+      valid=false
+    fi
+  done <"$EVIDENCE_DIR/$inventory"
+  if test "$valid" != true; then
+    printf 'remote-artifact-inventory-mismatch\n' >>"$VALIDATION_LOG"
+    ARCHIVE_VALID=false
+  fi
+}
+
+validate_remote_checksum_inventory meta/evidence-sha256sums.txt \
+  '^(manifests|results)/'
+validate_remote_artifact_inventory
+validate_remote_checksum_inventory meta/artifact-sha256sums.txt '^artifacts/'
+validate_remote_checksum_inventory meta/command-output-sha256sums.txt '^logs/'
 
 if test -f "$EVIDENCE_DIR/meta/operator-script-sha256sums.txt"; then
   if ! (cd "$EVIDENCE_DIR/meta" && sha256sum -c operator-script-sha256sums.txt) \
@@ -3487,9 +3569,13 @@ inventories. Stage-aware validation never fabricates or requires files from phas
 run. Only a `candidate-compared` attempt requires all three manifests, both raw A/A campaign JSON
 files, all three raw candidate campaign JSON files, and all five comparison JSON/Markdown pairs.
 An invalid partial file makes `local-validation-passed=false` but is still committed as failed
-operator evidence. Preserve and report each A/A comparator's exact machine decision; any A/A
-decision other than PASS makes only the overall CS2a candidate conclusion INCONCLUSIVE, stops
-candidate capture, and is never rerun merely to seek PASS. A new attempt is permitted only after a documented code, harness, or objectively
+operator evidence. Complete-archive acceptance and selected-attempt acceptance require recorded
+comparator exit `0` and `.overall == "PASS"` in both the archived and locally recomputed JSON for
+both A/A comparisons and all three candidate comparisons. Preserve and report each non-PASS
+comparator's exact exit and machine decision; any A/A decision other than PASS makes only the
+overall CS2a candidate conclusion INCONCLUSIVE, stops candidate capture, and is never rerun merely
+to seek PASS.
+A new attempt is permitted only after a documented code, harness, or objectively
 measured host-state correction; preserve and register every prior attempt under its own key.
 
 Before this command block, verify all four checkouts are clean and detached at their exact full
@@ -3577,6 +3663,7 @@ done
 for report in comparison-aa-cold comparison-aa-warm \
   comparison-candidate-cold comparison-candidate-warm comparison-candidate-retained; do
   test "$(cat "$SELECTED/meta/$report-exit.txt")" = 0
+  jq -e '.overall == "PASS"' "$SELECTED/results/$report.json" >/dev/null
 done
 (cd "$SELECTED" && sha256sum -c evidence-sha256sums.txt)
 test "$(git show "$CS2A_EVIDENCE_SHA:$SELECTED/meta/implementation-sha.txt")" = \
