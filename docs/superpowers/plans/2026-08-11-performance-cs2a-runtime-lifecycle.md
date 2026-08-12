@@ -1364,7 +1364,7 @@ That adapter delegates through `reVomanRuntime().execute(runbook, dynamicEnviron
 opens the session and invokes only the three-argument synthetic helper. Neither RunbookExe function
 imports or calls `ReVoman.revUp`, and the two functions must not recurse into one another.
 
-- [ ] **Step 1: Add end-to-end lifecycle and carry RED tests**
+- [x] **Step 1: Add end-to-end lifecycle and carry RED tests**
 
 Add `RunbookExeStructureTest` first and capture its structural RED in Step 2 before adding any test
 source that calls the not-yet-existing runtime overloads. Then add the remaining lifecycle/carry
@@ -1415,7 +1415,7 @@ positive controls after Task 5: they already open independent default runtimes/s
 latches and behaviorally distinct environment/scope values; do not install an observer or expect
 those tests to be RED.
 
-- [ ] **Step 2: Capture the actual missing-orchestration RED**
+- [x] **Step 2: Capture the actual missing-orchestration RED**
 
 Capture these two REDs in order. First, with only `RunbookExeStructureTest` added, run:
 
@@ -1448,7 +1448,7 @@ Expected: `compileTestKotlin` fails on the exact missing list/runbook
 behavioral one-session-per-kick RED: the Task-5 runtime has no such overloads to exercise. Do not
 cite reentrant public calls as RED either; they are the required independence positive control.
 
-- [ ] **Step 3: Add the runtime overloads and make every public primary overload a direct facade**
+- [x] **Step 3: Add the runtime overloads and make every public primary overload a direct facade**
 
 Implement list execution as one `sessions.open(dynamicEnvironment).useInternal` block. For each
 configured occurrence call the existing session method exactly as follows:
@@ -1530,7 +1530,7 @@ invoke, and each of the four hand-written primaries contains only its matching
 `ReVomanRuntime.execute` invoke from this routing graph. The vararg primary converts its array to a
 list locally and must not invoke the public list primary.
 
-- [ ] **Step 4: Route runbooks through the existing session**
+- [x] **Step 4: Route runbooks through the existing session**
 
 The compatibility adapter delegates to the default runtime. Move the current orchestration body to
 the separate synthetic session-taking helper and thread that session through `executeStep` and
@@ -1567,7 +1567,7 @@ sinks, and `NoOp`. Assert the active sink at coarse, execute, child-close, asser
 boundaries; nested/reentrant execution restores the outer sink; each supplied sink close count
 remains zero. Preserve halt/continue outcomes and exactly one close bracket per opened step.
 
-- [ ] **Step 5: Prove no ambient sharing or internal public recursion remains**
+- [x] **Step 5: Prove no ambient sharing or internal public recursion remains**
 
 After production first compiles, extract the configured root JAR and paste literal cumulative
 `CS2_TASK6_RAW_JVM_ADDITIONS` and `CS2_TASK6_RAW_JVM_REMOVALS` sets into
@@ -1612,7 +1612,7 @@ Keep latch-coordinated concurrent and reentrant public behavior tests as positiv
 must prove independent carried environment, collection-variable, global, capture, and sink state
 without mutable global instrumentation.
 
-- [ ] **Step 6: Verify and commit**
+- [x] **Step 6: Verify and commit**
 
 Run:
 

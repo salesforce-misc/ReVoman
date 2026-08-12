@@ -8,6 +8,7 @@
 package com.salesforce.revoman.internal.runtime
 
 import com.google.common.truth.Truth.assertThat
+import com.salesforce.revoman.input.PostExeHook
 import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.internal.postman.sandbox.PmExecutionContext
 import com.salesforce.revoman.internal.postman.sandbox.PmExecutionResult
@@ -18,6 +19,36 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 
 class ReVomanRuntimeTest {
+  @Test
+  fun `empty list runtime still opens and closes one session`() {
+    var opens = 0
+    var closes = 0
+    val runtime =
+      reVomanRuntime(
+        ExecutionSessionFactory { initial ->
+          opens++
+          assertThat(initial).containsExactly("seed", 1)
+          object : ExecutionSession {
+            override fun executeKick(
+              configuredKick: Kick,
+              carryForward: Boolean,
+              beforeCarry: ((Rundown, List<Rundown>) -> Unit)?,
+            ): Rundown = error("empty list must not create a child")
+
+            override fun close() {
+              closes++
+            }
+          }
+        }
+      )
+
+    val result = runtime.execute(emptyList(), PostExeHook { _, _ -> }, mapOf("seed" to 1))
+
+    assertThat(result).isEmpty()
+    assertThat(opens).isEqualTo(1)
+    assertThat(closes).isEqualTo(1)
+  }
+
   @Test
   fun `single kick runtime opens and closes exactly one session`() {
     var opens = 0

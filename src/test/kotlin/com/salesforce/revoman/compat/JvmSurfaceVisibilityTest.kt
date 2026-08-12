@@ -168,7 +168,7 @@ class JvmSurfaceVisibilityTest {
   }
 
   @Test
-  fun `Task 5 cumulative additions and removals have the exact raw surface`() {
+  fun `Task 6 cumulative additions and removals have the exact raw surface`() {
     val entries = JvmSurfaceInventory.readJar(configuredRootJar())
     val frozen = JvmSurfaceInventory.parse(Files.readString(FROZEN_JVM_ABI))
     val frozenRows = frozen.asSequence().map(JvmSurfaceEntry::render).toSet()
@@ -177,9 +177,9 @@ class JvmSurfaceVisibilityTest {
     val removals = frozen.filter { it.render() !in activeRows }
 
     assertThat(additions.map(JvmSurfaceEntry::render))
-      .containsExactlyElementsIn(CS2_TASK5_RAW_JVM_ADDITIONS)
+      .containsExactlyElementsIn(CS2_TASK6_RAW_JVM_ADDITIONS)
     assertThat(removals.map(JvmSurfaceEntry::render))
-      .containsExactlyElementsIn(CS2_TASK5_RAW_JVM_REMOVALS)
+      .containsExactlyElementsIn(CS2_TASK6_RAW_JVM_REMOVALS)
     val pmSandboxRows = entries.filter {
       it.owner == "com/salesforce/revoman/internal/postman/sandbox/PmSandbox"
     }
@@ -270,6 +270,31 @@ class JvmSurfaceVisibilityTest {
     assertThat(
         JvmSurfaceInventory.readJarReferences(configuredRootJar())
           .filter { it.owner in TASK5_DECLARED_AND_ANONYMOUS_OWNERS }
+          .flatMap { it.classes }
+      )
+      .doesNotContain("java/lang/AutoCloseable")
+    val task6Rows = additions.filter { it.owner in TASK6_ROUTE_OWNERS }
+    assertThat(task6Rows).isNotEmpty()
+    assertThat(
+        task6Rows.filter {
+          it.kind == JvmSurfaceKind.FIELD &&
+            (it.name.contains("currentRuntime", ignoreCase = true) ||
+              it.name.contains("currentSession", ignoreCase = true) ||
+              it.descriptor == "Ljava/lang/ThreadLocal;")
+        }
+      )
+      .isEmpty()
+    assertThat(
+        task6Rows.filter {
+          it.kind == JvmSurfaceKind.CLASS && it.owner.endsWith("\$Companion")
+        }
+      )
+      .isEmpty()
+    assertThat(task6Rows.filter { it.kind == JvmSurfaceKind.FIELD }.map(JvmSurfaceEntry::name))
+      .doesNotContain("INSTANCE")
+    assertThat(
+        JvmSurfaceInventory.readJarReferences(configuredRootJar())
+          .filter { it.owner in TASK6_ROUTE_OWNERS }
           .flatMap { it.classes }
       )
       .doesNotContain("java/lang/AutoCloseable")
@@ -487,6 +512,139 @@ class JvmSurfaceVisibilityTest {
   }
 
   @Test
+  fun `preserved runbook adapter is Java callable while Task 6 session routes are not`() {
+    val positive =
+      compileJava(
+        "RunbookAdapterConsumer",
+        """
+        import com.salesforce.revoman.internal.exe.RunbookExeKt;
+        import com.salesforce.revoman.input.config.Runbook;
+        import com.salesforce.revoman.output.RunbookRundown;
+        import java.util.Map;
+
+        final class RunbookAdapterConsumer {
+          static RunbookRundown execute(Runbook runbook, Map<String, Object> environment) {
+            return RunbookExeKt.executeRunbook(runbook, environment);
+          }
+        }
+        """
+          .trimIndent(),
+      )
+    assertWithMessage("javac diagnostics: ${positive.diagnostics}").that(positive.compiled).isTrue()
+
+    val attempts =
+      listOf(
+        JavaBoundaryAttempt(
+          "RuntimeListConsumer",
+          "static Object access(ReVomanRuntime value) { return value.execute((java.util.List)null, null, null); }",
+          CANNOT_RESOLVE_MEMBER_CODES,
+        ),
+        JavaBoundaryAttempt(
+          "RuntimeRunbookConsumer",
+          "static Object access(ReVomanRuntime value) { return value.execute((com.salesforce.revoman.input.config.Runbook)null, null); }",
+          CANNOT_RESOLVE_MEMBER_CODES,
+        ),
+        JavaBoundaryAttempt(
+          "RunbookSessionHelperConsumer",
+          "static Object access(ExecutionSession session) { return com.salesforce.revoman.internal.exe.RunbookExeKt.executeRunbook(session, null, null); }",
+          setOf("compiler.err.cant.apply.symbol"),
+        ),
+      )
+    attempts.forEach { attempt ->
+      val result =
+        compileJava(
+          attempt.className,
+          """
+          import com.salesforce.revoman.internal.runtime.*;
+
+          final class ${attempt.className} {
+            ${attempt.access}
+          }
+          """
+            .trimIndent(),
+        )
+      assertWithMessage("${attempt.className} must be rejected: ${result.diagnostics}")
+        .that(result.compiled)
+        .isFalse()
+      assertWithMessage("targeted javac diagnostics: ${result.diagnostics}")
+        .that(
+          result.diagnostics
+            .filter { it.kind == Diagnostic.Kind.ERROR }
+            .map(JavaDiagnostic::code)
+            .any { it in attempt.expectedDiagnosticCodes }
+        )
+        .isTrue()
+      if (attempt.className == "RunbookSessionHelperConsumer") {
+        val message = result.diagnostics.joinToString("\n", transform = JavaDiagnostic::message)
+        assertThat(message).contains("executeRunbook")
+        assertThat(message).contains("required: com.salesforce.revoman.input.config.Runbook")
+        assertThat(message)
+          .contains("found:    com.salesforce.revoman.internal.runtime.ExecutionSession")
+      }
+    }
+  }
+
+  @Test
+  fun `same-package Java cannot operate Task 6 synthetic routes`() {
+    val attempts =
+      listOf(
+        SamePackageAttempt(
+          "SamePackageRuntimeListConsumer",
+          "ReVomanRuntime.execute(List, PostExeHook, Map)",
+          "((ReVomanRuntime) null).execute((java.util.List) null, null, null)",
+        ),
+        SamePackageAttempt(
+          "SamePackageRuntimeRunbookConsumer",
+          "ReVomanRuntime.execute(Runbook, Map)",
+          "((ReVomanRuntime) null).execute((com.salesforce.revoman.input.config.Runbook) null, null)",
+        ),
+        SamePackageAttempt(
+          "SamePackageRunbookSessionHelperConsumer",
+          "synthetic-helper-hidden-behind-adapter",
+          "com.salesforce.revoman.internal.exe.RunbookExeKt.executeRunbook((ExecutionSession) null, null, null)",
+        ),
+      )
+    attempts.forEach { attempt ->
+      val result =
+        compileJava(
+          attempt.className,
+          """
+          package com.salesforce.revoman.internal.runtime;
+
+          final class ${attempt.className} {
+            static Object access() { return ${attempt.operation}; }
+          }
+          """
+            .trimIndent(),
+        )
+      assertWithMessage("same-package mutation must be rejected: ${result.diagnostics}")
+        .that(result.compiled)
+        .isFalse()
+      val errorCodes =
+        result.diagnostics.filter { it.kind == Diagnostic.Kind.ERROR }.map(JavaDiagnostic::code)
+      assertWithMessage("targeted javac diagnostics: ${result.diagnostics}")
+        .that(
+          errorCodes.any {
+            it in
+              CANNOT_RESOLVE_MEMBER_CODES +
+                CANNOT_ACCESS_CODES +
+                setOf("compiler.err.cant.apply.symbol")
+          }
+        )
+        .isTrue()
+      if (attempt.implementationName != "synthetic-helper-hidden-behind-adapter") {
+        assertThat(errorCodes).doesNotContain("compiler.err.cant.apply.symbol")
+      } else {
+        val message = result.diagnostics.joinToString("\n", transform = JavaDiagnostic::message)
+        assertThat(message).contains("executeRunbook")
+        assertThat(message).contains("required: com.salesforce.revoman.input.config.Runbook")
+        assertThat(message)
+          .contains("found:    com.salesforce.revoman.internal.runtime.ExecutionSession")
+      }
+    }
+  }
+
+  @Test
   fun `same-package external Java cannot construct or operate function-local implementations`() {
     val attempts =
       listOf(
@@ -541,6 +699,12 @@ class JvmSurfaceVisibilityTest {
           "new ${KICK_EXECUTOR_IMPLEMENTATION.substringAfterLast('/')}((" +
             "${KICK_EXECUTION_IMPLEMENTATION.substringAfterLast('/')} ) null, (ResourceScope) null, (SandboxFactory) null).execute(null, null, null, 0L)",
         ),
+      )
+
+    assertThat(attempts.map(SamePackageAttempt::implementationName).toSet())
+      .containsExactlyElementsIn(
+        setOf("DefaultResourceScope", RESOURCE_SCOPE_IMPLEMENTATION.substringAfterLast('/')) +
+          TASK5_ANONYMOUS_OWNERS.map { it.substringAfterLast('/') }
       )
 
     attempts.forEach { attempt ->
@@ -897,6 +1061,14 @@ class JvmSurfaceVisibilityTest {
       )
     val TASK5_DECLARED_AND_ANONYMOUS_OWNERS =
       TASK5_INTERFACE_OWNERS + TASK5_FACTORY_METHODS.keys + TASK5_ANONYMOUS_OWNERS
+    val TASK6_ROUTE_OWNERS =
+      setOf(
+        REVOMAN,
+        "com/salesforce/revoman/internal/exe/RunbookExeKt",
+        "${RUNTIME_PACKAGE}ReVomanRuntime",
+        "${RUNTIME_PACKAGE}ReVomanRuntimeKt",
+        REVOMAN_RUNTIME_IMPLEMENTATION,
+      )
 
     fun minimalClassFile(
       majorVersion: Int,

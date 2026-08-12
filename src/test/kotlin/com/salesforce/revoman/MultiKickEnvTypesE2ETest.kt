@@ -8,6 +8,7 @@
 package com.salesforce.revoman
 
 import com.google.common.truth.Truth.assertThat
+import com.salesforce.revoman.input.PostExeHook
 import com.salesforce.revoman.input.config.Kick
 import com.sun.net.httpserver.HttpServer
 import java.net.InetSocketAddress
@@ -53,6 +54,26 @@ class MultiKickEnvTypesE2ETest {
 
     assertThat(rundowns).hasSize(2)
     assertThat(rundowns[1].mutableEnv["token"]).isEqualTo("abc")
+  }
+
+  @Test
+  fun `vararg primary carries post-hook mutation without recursing through public list`() {
+    val typed = listOf(7, 8)
+    val snapshots = mutableListOf<List<com.salesforce.revoman.output.Rundown>>()
+
+    val rundowns =
+      ReVoman.revUp(
+        PostExeHook { current, accumulated ->
+          snapshots += accumulated
+          if (accumulated.size == 1) current.mutableEnv["typed"] = typed
+        },
+        emptyMap(),
+        kick(),
+        kick(),
+      )
+
+    assertThat(rundowns[1].mutableEnv["typed"]).isSameInstanceAs(typed)
+    assertThat(snapshots.map(List<*>::size)).containsExactly(1, 2).inOrder()
   }
 
   companion object {

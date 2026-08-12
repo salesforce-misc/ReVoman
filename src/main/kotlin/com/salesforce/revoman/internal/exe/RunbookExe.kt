@@ -7,12 +7,13 @@
  */
 package com.salesforce.revoman.internal.exe
 
-import com.salesforce.revoman.ReVoman
 import com.salesforce.revoman.input.config.Phase
 import com.salesforce.revoman.input.config.Runbook
 import com.salesforce.revoman.input.config.RunbookStep
 import com.salesforce.revoman.internal.log.RevomanLog
 import com.salesforce.revoman.internal.log.RunLogContext
+import com.salesforce.revoman.internal.runtime.ExecutionSession
+import com.salesforce.revoman.internal.runtime.reVomanRuntime
 import com.salesforce.revoman.output.RunbookRundown
 import com.salesforce.revoman.output.Rundown
 import com.salesforce.revoman.output.log.Outcome
@@ -20,14 +21,19 @@ import com.salesforce.revoman.output.log.RunLogSink
 import com.salesforce.revoman.output.log.StepEvent
 import com.salesforce.revoman.output.renderRunbookMarkdown
 
-/**
- * Drives a [Runbook] over the existing single-kick [ReVoman.revUp], threading env exactly as the
- * multi-kick fold (ReVoman.kt) does, and interleaving coarse log events + data-flow contract
- * checks + per-step assertions. A contract/assert breach always throws [AssertionError] (halt); an
- * underlying-collection step failure halts or is recorded-and-continued per
- * [Runbook.haltOnStepFailure].
- */
+/** Compatibility adapter retaining the original Java-callable runbook entry point. */
 internal fun executeRunbook(
+  runbook: Runbook,
+  dynamicEnvironment: Map<String, Any?>,
+): RunbookRundown = reVomanRuntime().execute(runbook, dynamicEnvironment)
+
+/**
+ * Drives a [Runbook] through one caller-owned [ExecutionSession], threading environment values and
+ * interleaving coarse log events, data-flow contracts, and per-step assertions.
+ */
+@JvmSynthetic
+internal fun executeRunbook(
+  session: ExecutionSession,
   runbook: Runbook,
   dynamicEnvironment: Map<String, Any?>,
 ): RunbookRundown {
@@ -43,7 +49,7 @@ internal fun executeRunbook(
     // A halt propagates as a thrown exception, aborting the fold just like the former `.map`.
     val finalAcc =
       runbook.steps.fold(RunbookAcc(dynamicEnvironment, null, emptyList())) { acc, step ->
-        executeStep(runbook, runbookSink, step, acc)
+        executeStep(session, runbook, runbookSink, step, acc)
       }
     val result = RunbookRundown(runbook.name, finalAcc.pairs)
     RevomanLog.info { "\n" + renderRunbookMarkdown(result) }
@@ -76,6 +82,7 @@ private data class RunbookAcc(
  */
 @Suppress("TooGenericExceptionCaught")
 private fun executeStep(
+  session: ExecutionSession,
   runbook: Runbook,
   runbookSink: RunLogSink,
   step: RunbookStep,
@@ -88,7 +95,7 @@ private fun executeStep(
   // and the normal close — an AssertionError from a contract/assertAfter breach, a step-failure
   // halt, or any error out of `revUp` — after which we rethrow verbatim (see [StepCloseGuard]).
   try {
-    return runStepBody(runbook, runbookSink, step, acc, startNs, close)
+    return runStepBody(session, runbook, runbookSink, step, acc, startNs, close)
   } catch (t: Throwable) {
     close.emitFailedIfOpen()
     throw t
@@ -117,6 +124,7 @@ private fun emitStepOpen(step: RunbookStep, lastPhase: Phase?) {
  * downstream checks meaningless and their messages misleading. Outcome is derived, never hardcoded.
  */
 private fun runStepBody(
+  session: ExecutionSession,
   runbook: Runbook,
   runbookSink: RunLogSink,
   step: RunbookStep,
@@ -128,14 +136,14 @@ private fun runStepBody(
   // Thread the runbook sink into the kick so its child per-request events nest under this runbook's
   // brackets (same sink instance = coherent tree). Only when the runbook has a real sink —
   // otherwise leave the kick's own sink untouched (backward compat).
-  val kickToRun =
+  val effectiveKick =
     step.kick.overrideDynamicEnvironment(step.kick.dynamicEnvironment() + acc.env).let {
       if (runbookSink !== RunLogSink.NoOp) it.overrideRunLogSink(runbookSink) else it
     }
-  val rundown = ReVoman.revUp(kickToRun)
+  val rundown = session.executeKick(effectiveKick, carryForward = false)
+  val nextEnvironment = rundown.mutableEnv.toMap()
   val tookMs = (System.nanoTime() - startNs) / 1_000_000
-  val nextAcc =
-    RunbookAcc(rundown.mutableEnv.immutableEnv, step.phase, acc.pairs + (step to rundown))
+  val nextAcc = RunbookAcc(nextEnvironment, step.phase, acc.pairs + (step to rundown))
   val failedReport = rundown.firstUnIgnoredUnsuccessfulStepReport
   return when {
     failedReport != null -> {

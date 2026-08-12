@@ -120,6 +120,30 @@ class RunbookExeE2ETest {
   }
 
   @Test
+  fun `assertAfter mutation does not alter the environment frozen for the next step`() {
+    val rr =
+      ReVoman.revUp(
+        Runbook {
+          step {
+            intent = "freeze before assertion"
+            phase = Phase.SETUP
+            kick = kick(mapOf("count" to 42))
+            assertAfter { rundown, _ -> rundown.mutableEnv["count"] = 99 }
+          }
+          step {
+            intent = "consume frozen value"
+            phase = Phase.ACT
+            kick = kick()
+            consumes("count")
+          }
+        }
+      )
+
+    assertThat(rr[0].mutableEnv["count"]).isEqualTo(99)
+    assertThat(rr[1].mutableEnv["count"]).isEqualTo(42)
+  }
+
+  @Test
   fun `assertAfter throw halts and the downstream step never runs`() {
     countHits.set(0)
     val ex =

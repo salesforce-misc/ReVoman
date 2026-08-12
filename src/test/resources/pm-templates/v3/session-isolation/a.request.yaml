@@ -1,0 +1,15 @@
+$kind: http-request
+name: a
+url: "{{baseUrl}}/a"
+method: GET
+scripts:
+  - type: afterResponse
+    code: |-
+      if (pm.environment.get('phase') === 'first') {
+        pm.environment.set('carriedEnvironment', 'from-first-child');
+        pm.collectionVariables.set('childCollection', 'first-child-only');
+        pm.globals.set('childGlobal', 'first-child-only');
+        pm.execution.setNextRequest(null);
+      }
+    language: text/javascript
+order: 1000

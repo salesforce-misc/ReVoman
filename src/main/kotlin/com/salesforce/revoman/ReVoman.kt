@@ -10,7 +10,6 @@ package com.salesforce.revoman
 import com.salesforce.revoman.input.PostExeHook
 import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.input.config.Runbook
-import com.salesforce.revoman.internal.exe.executeRunbook
 import com.salesforce.revoman.internal.runtime.reVomanRuntime
 import com.salesforce.revoman.output.RunbookRundown
 import com.salesforce.revoman.output.Rundown
@@ -22,7 +21,7 @@ object ReVoman {
     postExeHook: PostExeHook = PostExeHook { _, _ -> },
     dynamicEnvironment: Map<String, Any?> = emptyMap(),
     vararg kicks: Kick,
-  ): List<Rundown> = revUp(kicks.toList(), postExeHook, dynamicEnvironment)
+  ): List<Rundown> = reVomanRuntime().execute(kicks.toList(), postExeHook, dynamicEnvironment)
 
   @JvmStatic
   @JvmOverloads
@@ -30,21 +29,7 @@ object ReVoman {
     kicks: List<Kick>,
     postExeHook: PostExeHook = PostExeHook { _, _ -> },
     dynamicEnvironment: Map<String, Any?> = emptyMap(),
-  ): List<Rundown> =
-    kicks
-      .fold(dynamicEnvironment to listOf<Rundown>()) { (accumulatedMutableEnv, rundowns), kick ->
-        val rundown =
-          revUp(kick.overrideDynamicEnvironment(kick.dynamicEnvironment() + accumulatedMutableEnv))
-        val accumulatedRundowns = rundowns + rundown
-        postExeHook.accept(rundown, accumulatedRundowns)
-        // Thread the FULL env into the next kick — every value type, not just String.
-        // `immutableEnv`
-        // is an all-types snapshot (`mutableEnv.toMap()`); an earlier `<String>`-only copy silently
-        // dropped Int/POJO/List values a prior kick produced. See
-        // docs/superpowers/specs/2026-07-01-multi-kick-env-all-types-design.md
-        rundown.mutableEnv.immutableEnv to accumulatedRundowns
-      }
-      .second
+  ): List<Rundown> = reVomanRuntime().execute(kicks, postExeHook, dynamicEnvironment)
 
   /**
    * Execute a [Runbook] — the legible, narrated form of a multi-collection chain. Threads env
@@ -54,7 +39,7 @@ object ReVoman {
   @JvmStatic
   @JvmOverloads
   fun revUp(runbook: Runbook, dynamicEnvironment: Map<String, Any?> = emptyMap()): RunbookRundown =
-    executeRunbook(runbook, dynamicEnvironment)
+    reVomanRuntime().execute(runbook, dynamicEnvironment)
 
   @JvmStatic fun revUp(kick: Kick): Rundown = reVomanRuntime().execute(kick)
 }
