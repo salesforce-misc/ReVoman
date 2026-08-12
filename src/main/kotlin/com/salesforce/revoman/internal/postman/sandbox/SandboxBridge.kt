@@ -253,7 +253,7 @@ internal class SandboxBridge() {
             Object.getPrototypeOf(pm.request).json = function () {
               return this.body && typeof this.body.raw === 'string'
                 ? JSON.parse(this.body.raw)
-                : undefined;
+                : null;
             };
           }
           """

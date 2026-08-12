@@ -43,7 +43,6 @@ import com.salesforce.revoman.internal.log.Banner
 import com.salesforce.revoman.internal.log.RevomanLog
 import com.salesforce.revoman.internal.log.RunLogContext
 import com.salesforce.revoman.internal.postman.PostmanSDK
-import com.salesforce.revoman.internal.postman.RegexReplacer
 import com.salesforce.revoman.internal.postman.postmanSDK
 import com.salesforce.revoman.internal.postman.postmanVariableScopes
 import com.salesforce.revoman.internal.postman.regexReplacer
@@ -219,7 +218,7 @@ object ReVoman {
       )
     val sequenceResult =
       PmSandbox().useInternal { sandbox ->
-        executeStepsSerially(pmStepsDeepFlattened, kick, moshiReVoman, regexReplacer, pm, sandbox)
+        executeStepsSerially(pmStepsDeepFlattened, kick, moshiReVoman, pm, sandbox)
       }
     val stepNameToReport = sequenceResult.reports
     // --- LEDGER CAPTURE CONTRACT (what becomes a ledgered producer) ---
@@ -257,7 +256,6 @@ object ReVoman {
     pmStepsFlattened: List<Step>,
     kick: Kick,
     moshiReVoman: MoshiReVoman,
-    regexReplacer: RegexReplacer,
     pm: PostmanSDK,
     scripts: ScriptExecutor,
   ): SequenceResult {
@@ -298,7 +296,6 @@ object ReVoman {
           shadowedPaths,
           kick,
           moshiReVoman,
-          regexReplacer,
           pm,
           scripts,
         )
@@ -379,7 +376,6 @@ object ReVoman {
     shadowedPaths: Set<String>,
     kick: Kick,
     moshiReVoman: MoshiReVoman,
-    regexReplacer: RegexReplacer,
     pm: PostmanSDK,
     scripts: ScriptExecutor,
   ): StepReport {
@@ -463,7 +459,7 @@ object ReVoman {
         collectionVariables = pm.scopes.collectionVariables,
         globals = pm.scopes.globals,
       )
-    pm.scopes.environment.putAll(regexReplacer.replaceVariablesInEnv())
+    pm.scopes.environment.putAll(pm.regexReplacer.replaceVariablesInEnv())
     // --------### PRE-REQ-JS ###--------
     // Run pre-req JS first, OUTSIDE the chain: it records `pm.execution.skipRequest()` onto the
     // SDK.
@@ -491,7 +487,7 @@ object ReVoman {
       .flatMap { // --------### UNMARSHALL-REQUEST ###--------
         timed(step, exeTimings, UNMARSHALL_REQUEST) {
             val pmRequest =
-              regexReplacer.replaceVariablesInRequestRecursively(itemWithRegex.request)
+              pm.regexReplacer.replaceVariablesInRequestRecursively(itemWithRegex.request)
             unmarshallRequest(step, pmRequest, kick, moshiReVoman, pm.progress.rundown)
           }
           .mapLeft { preStepReport.copy(requestInfo = left(it)) }
@@ -513,7 +509,7 @@ object ReVoman {
         pm.progress.sync(sr)
         // * NOTE 15 Mar 2025 gopala.akshintala: Replace again to accommodate variables set by
         // PRE-REQ-JS
-        val item = regexReplacer.replaceVariablesInPmItem(itemWithRegex)
+        val item = pm.regexReplacer.replaceVariablesInPmItem(itemWithRegex)
         val httpRequest = item.request.toHttpRequest(moshiReVoman)
         timed(step, exeTimings, HTTP_REQUEST) {
             fireHttpRequest(step, httpRequest, kick.insecureHttp(), moshiReVoman)

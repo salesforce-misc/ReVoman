@@ -153,6 +153,27 @@ class JvmSurfaceVisibilityTest {
   }
 
   @Test
+  fun `ReVoman carries only the transitional facade through step execution`() {
+    val stepExecutionMethods =
+      JvmSurfaceInventory.readJar(configuredRootJar()).filter {
+        it.owner == REVOMAN &&
+          it.kind == JvmSurfaceKind.METHOD &&
+          it.name in setOf("executeStepsSerially", "runStep")
+      }
+
+    assertThat(stepExecutionMethods.map(JvmSurfaceEntry::name))
+      .containsExactly("executeStepsSerially", "runStep")
+    stepExecutionMethods.forEach { method ->
+      assertWithMessage("${method.name} carries PostmanSDK")
+        .that(method.descriptor)
+        .contains("L$POSTMAN_SDK;")
+      assertWithMessage("${method.name} does not carry a duplicate RegexReplacer")
+        .that(method.descriptor)
+        .doesNotContain("L$REGEX_REPLACER;")
+    }
+  }
+
+  @Test
   fun `Task 4 cumulative additions and removals have the exact raw surface`() {
     val entries = JvmSurfaceInventory.readJar(configuredRootJar())
     val frozen = JvmSurfaceInventory.parse(Files.readString(FROZEN_JVM_ABI))
@@ -531,36 +552,31 @@ class JvmSurfaceVisibilityTest {
   }
 
   @Test
-  fun `same-package Java cannot construct focused anonymous implementations`() {
+  fun `same-package Java cannot name focused anonymous implementations`() {
     val attempts =
       listOf(
-        Triple(
+        Pair(
           POSTMAN_SDK_IMPLEMENTATION.substringAfterLast('/'),
           "com.salesforce.revoman.internal.postman",
-          "null, null, null, null",
         ),
-        Triple(
+        Pair(
           POSTMAN_VARIABLE_SCOPES_IMPLEMENTATION.substringAfterLast('/'),
           "com.salesforce.revoman.internal.postman",
-          "null, null, null, null",
         ),
-        Triple(
+        Pair(
           STEP_SCRIPT_CAPTURE_IMPLEMENTATION.substringAfterLast('/'),
           "com.salesforce.revoman.internal.postman",
-          "",
         ),
-        Triple(
+        Pair(
           REGEX_REPLACER_IMPLEMENTATION.substringAfterLast('/'),
           "com.salesforce.revoman.internal.postman",
-          "null, null, null",
         ),
-        Triple(
+        Pair(
           LEGACY_PROGRESS_IMPLEMENTATION.substringAfterLast('/'),
           "com.salesforce.revoman.internal.runtime",
-          "",
         ),
       )
-    attempts.forEachIndexed { index, (implementation, packageName, arguments) ->
+    attempts.forEachIndexed { index, (implementation, packageName) ->
       val result =
         compileJava(
           "FocusedImplementationConsumer$index",
@@ -568,7 +584,7 @@ class JvmSurfaceVisibilityTest {
           package $packageName;
 
           final class FocusedImplementationConsumer$index {
-            static Object access() { return new $implementation($arguments); }
+            $implementation value;
           }
           """
             .trimIndent(),
@@ -579,6 +595,16 @@ class JvmSurfaceVisibilityTest {
         )
         .that(result.compiled)
         .isFalse()
+      val errorCodes =
+        result.diagnostics.filter { it.kind == Diagnostic.Kind.ERROR }.map(JavaDiagnostic::code)
+      assertWithMessage("implementation must be unnameable or inaccessible: ${result.diagnostics}")
+        .that(errorCodes.any { it in CANNOT_RESOLVE_MEMBER_CODES + CANNOT_ACCESS_CODES })
+        .isTrue()
+      assertWithMessage(
+          "wrong constructor arity is not an ownership barrier: ${result.diagnostics}"
+        )
+        .that(errorCodes)
+        .doesNotContain("compiler.err.cant.apply.symbol")
     }
   }
 
@@ -652,6 +678,7 @@ class JvmSurfaceVisibilityTest {
     val CANNOT_ACCESS_CODES = setOf("compiler.err.cant.access")
     const val POSTMAN_SDK = "com/salesforce/revoman/internal/postman/PostmanSDK"
     const val REGEX_REPLACER = "com/salesforce/revoman/internal/postman/RegexReplacer"
+    const val REVOMAN = "com/salesforce/revoman/ReVoman"
     const val POSTMAN_PACKAGE = "com/salesforce/revoman/internal/postman/"
     const val RUNTIME_PACKAGE = "com/salesforce/revoman/internal/runtime/"
     const val RESOURCE_SCOPE_IMPLEMENTATION = "${RUNTIME_PACKAGE}ResourceScopeKt\$resourceScope\$1"

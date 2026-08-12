@@ -12,9 +12,11 @@ import com.salesforce.revoman.input.config.HookConfig
 import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.input.config.StepPick.PostTxnStepPick
 import com.salesforce.revoman.input.config.StepPick.PreTxnStepPick
+import com.salesforce.revoman.internal.json.MoshiReVoman.Companion.initMoshi
 import com.sun.net.httpserver.HttpServer
 import java.net.InetSocketAddress
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
@@ -23,6 +25,7 @@ import org.junit.jupiter.api.Test
 class ScriptHookPhaseBarrierE2ETest {
   @Test
   fun `scripts and hooks observe each prior phase with isolated scopes and independent ledger controls`() {
+    phaseOneRequest.set(null)
     val hookOrder = mutableListOf<String>()
     val kick =
       Kick.configure()
@@ -89,6 +92,7 @@ class ScriptHookPhaseBarrierE2ETest {
         "pre-js scopes are isolated",
         "post-js sees pre-hook environment",
         "post-js sees pre-hook peer scopes",
+        "post-js sees pre-hook value sent over HTTP",
         "post-js scopes stay isolated",
         "step-two sees post-hook environment",
         "step-two sees post-hook peer scopes",
@@ -101,9 +105,24 @@ class ScriptHookPhaseBarrierE2ETest {
     val phaseOne = rundown.stepReports.first()
     assertThat(phaseOne.envVars.produced)
       .containsExactly("phaseEnv", "phaseNumber", "ledgerProduced")
-    assertThat(phaseOne.envVars.consumed).containsExactly("ledgerConsumed")
+    assertThat(phaseOne.envVars.consumed).containsExactly("ledgerConsumed", "phaseEnv")
     assertThat(phaseOne.envVars.produced).doesNotContain("ledgerConsumed")
     assertThat(phaseOne.envVars.consumed).doesNotContain("ledgerProduced")
+    assertThat(phaseOne.envVars.produced.filter { it.startsWith("ledger") })
+      .containsExactly("ledgerProduced")
+    assertThat(phaseOne.envVars.consumed.filter { it.startsWith("ledger") })
+      .containsExactly("ledgerConsumed")
+    val captured = requireNotNull(phaseOneRequest.get())
+    assertThat(captured.method).isEqualTo("POST")
+    assertThat(captured.query).isEqualTo("ledger=ledger-input&phase=pre-hook")
+    assertThat(captured.phaseHeader).isEqualTo("pre-hook")
+    assertThat(initMoshi().fromJson<Map<String, Any?>>(captured.body))
+      .containsAtLeast(
+        "requestMarker",
+        "phase-request-v1",
+        "phase",
+        "pre-hook",
+      )
     assertThat(rundown.mutableEnv["phaseEnv"]).isEqualTo("post-hook")
     assertThat(rundown.mutableEnv["phaseNumber"]).isEqualTo(2)
     assertThat(rundown.collectionVariables["phaseCollection"]).isEqualTo("post-hook-collection")
@@ -114,6 +133,7 @@ class ScriptHookPhaseBarrierE2ETest {
     private lateinit var server: HttpServer
     private lateinit var baseUrl: String
     private val serverHits = AtomicInteger()
+    private val phaseOneRequest = AtomicReference<CapturedRequest?>()
 
     @BeforeAll
     @JvmStatic
@@ -122,9 +142,33 @@ class ScriptHookPhaseBarrierE2ETest {
       server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
       server.createContext("/") { exchange ->
         serverHits.incrementAndGet()
-        val body = "{\"ok\":true}".toByteArray()
+        val requestBody = exchange.requestBody.bufferedReader().use { it.readText() }
+        val phaseOne = exchange.requestURI.path == "/phase-one"
+        val response =
+          if (phaseOne) {
+            val captured =
+              CapturedRequest(
+                method = exchange.requestMethod,
+                query = exchange.requestURI.rawQuery,
+                phaseHeader = exchange.requestHeaders.getFirst("X-Phase-Hook"),
+                body = requestBody,
+              )
+            phaseOneRequest.set(captured)
+            """
+            {
+              "responseMarker":"phase-response-v1",
+              "receivedQuery":"${captured.query}",
+              "receivedHeader":"${captured.phaseHeader}",
+              "receivedBody":${captured.body}
+            }
+            """
+              .trimIndent()
+          } else {
+            "{\"ok\":true}"
+          }
+        val body = response.toByteArray()
         exchange.responseHeaders.add("Content-Type", "application/json")
-        exchange.sendResponseHeaders(200, body.size.toLong())
+        exchange.sendResponseHeaders(if (phaseOne) 202 else 200, body.size.toLong())
         exchange.responseBody.use { it.write(body) }
       }
       server.start()
@@ -133,4 +177,11 @@ class ScriptHookPhaseBarrierE2ETest {
 
     @AfterAll @JvmStatic fun stopServer() = server.stop(0)
   }
+
+  private data class CapturedRequest(
+    val method: String,
+    val query: String?,
+    val phaseHeader: String?,
+    val body: String,
+  )
 }

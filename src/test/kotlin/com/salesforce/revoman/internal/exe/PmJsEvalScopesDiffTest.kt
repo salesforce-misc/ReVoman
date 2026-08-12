@@ -7,6 +7,7 @@
  */
 package com.salesforce.revoman.internal.exe
 
+import arrow.core.Either.Right
 import com.salesforce.revoman.internal.json.MoshiReVoman.Companion.initMoshi
 import com.salesforce.revoman.internal.postman.PostmanVariableScopes
 import com.salesforce.revoman.internal.postman.StepScriptCapture
@@ -16,16 +17,22 @@ import com.salesforce.revoman.internal.postman.sandbox.PmExecutionResult
 import com.salesforce.revoman.internal.postman.sandbox.PmSandbox
 import com.salesforce.revoman.internal.postman.sandbox.ScriptTarget
 import com.salesforce.revoman.internal.postman.stepScriptCapture
+import com.salesforce.revoman.internal.postman.template.Body
 import com.salesforce.revoman.internal.postman.template.Event
 import com.salesforce.revoman.internal.postman.template.Item
 import com.salesforce.revoman.internal.postman.template.Request
+import com.salesforce.revoman.internal.postman.template.Url
 import com.salesforce.revoman.internal.runtime.ScriptExecutor
 import com.salesforce.revoman.output.postman.PostmanEnvironment
 import com.salesforce.revoman.output.report.Step
+import com.salesforce.revoman.output.report.StepReport
+import com.salesforce.revoman.output.report.TxnInfo
 import io.kotest.matchers.maps.shouldBeEmpty
 import io.kotest.matchers.maps.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import io.mockk.mockk
+import org.http4k.core.Response
+import org.http4k.core.Status.Companion.ACCEPTED
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
@@ -121,6 +128,136 @@ class PmJsEvalScopesDiffTest {
     state.capture.nextRequestFor(step) shouldBe null
     state.capture.nextRequestWasSetFor(step) shouldBe true
     state.capture.skipRequestFor(step) shouldBe false
+  }
+
+  @Test
+  fun `pre-request adapter maps distinctive JSON and raw request body into the real sandbox`() {
+    val requestJson = """{"requestMarker":"pm-js-request","nested":{"count":17}}"""
+    val request =
+      Request(
+        method = "POST",
+        url = Url("https://adapter.invalid/request"),
+        body = Body(mode = "raw", raw = requestJson),
+      )
+    val item =
+      Item(
+        name = "adapter",
+        request = request,
+        event =
+          listOf(
+            Event(
+              "prerequest",
+              Event.Script(
+                """
+                const parsed = pm.request.json();
+                pm.test('request adapter json', () => {
+                  pm.expect(parsed.requestMarker).to.eql('pm-js-request');
+                  pm.expect(parsed.nested.count).to.eql(17);
+                });
+                pm.test('request adapter raw', () => {
+                  pm.expect(pm.request.body.raw).to.eql('$requestJson');
+                });
+                """
+                  .trimIndent()
+                  .split("\n")
+              ),
+            )
+          ),
+      )
+    val step = Step(index = "1", rawPMStep = item)
+    val state = state()
+
+    val result = executePreReqJS(step, item, mockk(), state.scopes, state.capture, sandbox)
+
+    result.isRight() shouldBe true
+    val assertions = state.capture.assertionsFor(step)
+    assertions.map { it.name } shouldBe listOf("request adapter json", "request adapter raw")
+    assertions.all { it.passed } shouldBe true
+  }
+
+  @Test
+  fun `pre-request adapter preserves bodyless request json as null`() {
+    val item =
+      Item(
+        name = "bodyless",
+        request = Request(method = "GET", url = Url("https://adapter.invalid/bodyless")),
+        event =
+          listOf(
+            Event(
+              "prerequest",
+              Event.Script(
+                listOf(
+                  "pm.test('bodyless request json', () => pm.expect(pm.request.json()).to.eql(null));"
+                )
+              ),
+            )
+          ),
+      )
+    val step = Step(index = "1", rawPMStep = item)
+    val state = state()
+
+    val result = executePreReqJS(step, item, mockk(), state.scopes, state.capture, sandbox)
+
+    result.isRight() shouldBe true
+    state.capture.assertionsFor(step).single().passed shouldBe true
+  }
+
+  @Test
+  fun `post-response adapter maps distinctive JSON status code and text into the real sandbox`() {
+    val request = Request(method = "GET", url = Url("https://adapter.invalid/response"))
+    val responseJson = """{"responseMarker":"pm-js-response","nested":{"count":29}}"""
+    val item =
+      Item(
+        name = "adapter",
+        request = request,
+        event =
+          listOf(
+            Event(
+              "test",
+              Event.Script(
+                """
+                const parsed = pm.response.json();
+                pm.test('response adapter json', () => {
+                  pm.expect(parsed.responseMarker).to.eql('pm-js-response');
+                  pm.expect(parsed.nested.count).to.eql(29);
+                });
+                pm.test('response adapter status code text', () => {
+                  pm.expect(pm.response.status).to.eql('202 Accepted');
+                  pm.expect(pm.response.code).to.eql(202);
+                  pm.expect(pm.response.text()).to.eql('$responseJson');
+                  pm.response.to.have.status(202);
+                });
+                """
+                  .trimIndent()
+                  .split("\n")
+              ),
+            )
+          ),
+      )
+    val step = Step(index = "1", rawPMStep = item)
+    val state = state()
+    val moshi = initMoshi()
+    val report =
+      StepReport(
+        step = step,
+        requestInfo = Right(TxnInfo(httpMsg = request.toHttpRequest(moshi), moshiReVoman = moshi)),
+        responseInfo =
+          Right(
+            TxnInfo(
+              httpMsg = Response(ACCEPTED).body(responseJson),
+              moshiReVoman = moshi,
+            )
+          ),
+        pmEnvSnapshot = state.scopes.environment,
+      )
+
+    val result = executePostResJS(step, item, report, state.scopes, state.capture, sandbox)
+
+    result.isRight() shouldBe true
+    val assertions = state.capture.assertionsFor(step)
+    assertions.map { it.name } shouldBe
+      listOf("response adapter json", "response adapter status code text")
+    assertions.all { it.passed } shouldBe true
   }
 
   @Test
