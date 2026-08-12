@@ -953,6 +953,7 @@ git commit -m "perf: remove legacy JavaScript evaluator"
 ### Task 5: Introduce ExecutionSession and move single-kick execution behind it
 
 **Files:**
+- Modify: `docs/superpowers/plans/2026-08-11-performance-cs2a-runtime-lifecycle.md`
 - Add: `src/main/kotlin/com/salesforce/revoman/internal/runtime/ExecutionSession.kt`
 - Add: `src/main/kotlin/com/salesforce/revoman/internal/runtime/ReVomanRuntime.kt`
 - Add: `src/main/kotlin/com/salesforce/revoman/internal/runtime/KickRunner.kt`
@@ -961,15 +962,20 @@ git commit -m "perf: remove legacy JavaScript evaluator"
 - Add: `src/test/kotlin/com/salesforce/revoman/internal/runtime/ExecutionSessionTest.kt`
 - Add: `src/test/kotlin/com/salesforce/revoman/internal/runtime/ReVomanRuntimeTest.kt`
 - Extend: `src/test/kotlin/com/salesforce/revoman/internal/runtime/KickExecutionTest.kt`
+- Modify: `src/test/kotlin/com/salesforce/revoman/compat/Cs2JvmSurfaceAdditions.kt`
+- Modify: `src/test/kotlin/com/salesforce/revoman/compat/ApiBaselineInventoryTest.kt`
 - Modify: `src/test/kotlin/com/salesforce/revoman/compat/JvmSurfaceVisibilityTest.kt`
+- Modify: `src/test/kotlin/com/salesforce/revoman/internal/runtime/LegacyEvaluatorRemovalTest.kt`
 
 **Interfaces:**
 - Consumes: public `Kick`/`Rundown`, focused Postman state, current step pipeline, borrowed `RunLogContext`, and per-kick banner semantics.
-- Produces: a testable public-facade runtime, one outer session, one kick child, and a slim `ReVoman` API object.
+- Produces: a testable internal facade runtime, one outer session, one kick child, and a slim
+  public `ReVoman` API object.
 
 - [ ] **Step 1: Write lifecycle-count, carry, and failure tests before moving code**
 
-Define an internal factory boundary that tests can fake without mutating global state:
+Define small internal factory boundaries that compose from the leaf dependency without mutating
+global state:
 
 ```kotlin
 internal fun interface ExecutionSessionFactory {
@@ -977,26 +983,66 @@ internal fun interface ExecutionSessionFactory {
   fun open(initialEnvironment: Map<String, Any?>): ExecutionSession
 }
 
+internal fun interface KickExecutionFactory {
+  @JvmSynthetic
+  fun create(
+    configuredKick: Kick,
+    effectiveDynamicEnvironment: Map<String, Any?>,
+  ): KickExecution
+}
+
+internal fun interface KickBody {
+  @JvmSynthetic
+  fun execute(owner: KickExecution): Rundown
+}
+
 internal interface ReVomanRuntime {
-  @JvmSynthetic fun execute(kick: Kick): Rundown
+  @JvmSynthetic
+  fun execute(kick: Kick): Rundown
 }
 
 @JvmSynthetic
-internal fun reVomanRuntime(
-  sessions: ExecutionSessionFactory = DEFAULT_SESSIONS,
-): ReVomanRuntime
+internal fun kickExecutionFactory(sandboxFactory: SandboxFactory): KickExecutionFactory
 
-private class DefaultReVomanRuntime(
-  private val sessions: ExecutionSessionFactory,
-) : ReVomanRuntime
+@JvmSynthetic
+internal fun executionSessionFactory(
+  kickExecutions: KickExecutionFactory,
+): ExecutionSessionFactory
+
+@JvmSynthetic
+internal fun reVomanRuntime(sessions: ExecutionSessionFactory): ReVomanRuntime
+
+@JvmSynthetic
+internal fun reVomanRuntime(sandboxFactory: SandboxFactory): ReVomanRuntime
+
+@JvmSynthetic
+internal fun reVomanRuntime(): ReVomanRuntime
 ```
 
-Add tests proving one `open` for the single-kick runtime entrypoint, exactly one child, exact ordering, and closure after success/body failure. Split construction failure precisely: a factory throw before return yields zero session-owned children/closes and the factory proves it rolled back any partial internals; a successfully returned child whose body throws is closed exactly once by the session with exact suppression ordering. A recording factory may return a real `ExecutionSession` wired with a fake kick executor; do not make `ExecutionSession` open or introduce a broad interface solely so tests can fake it. List/runbook entrypoints and hook-failure coverage are added in Task 6.
+Every factory returns a function-local anonymous implementation. Do not add top-level `Default*`
+classes, a named `KickRunner` class, object declarations, companions, singleton `INSTANCE` fields,
+`ThreadLocal` overrides, service locators, or another ambient test hook. Kotlin top-level `private`
+classes are still same-package Java-nameable bytecode and therefore do not satisfy this boundary.
+The no-argument runtime lexically builds an anonymous `SandboxFactory` whose `create()` constructs
+`PmSandbox`; merely constructing the graph, runtime, session, child, or reading `scripts` must not
+call it.
+
+Add tests proving one `open` for the single-kick runtime entrypoint, exactly one child, exact
+ordering, and closure after success/body failure. Split construction failure precisely: a factory
+throw before return yields zero session-owned children/closes and the factory proves it rolled back
+any partial internals; a successfully returned child whose body throws is closed exactly once by
+the session with exact suppression ordering. A recording factory may return a real
+`ExecutionSession` wired with a fake kick executor for session-only tests; do not make
+`ExecutionSession` open or introduce a broad interface solely so tests can fake it. List/runbook
+entrypoints and hook-failure coverage are added in Task 6.
 
 Add a full no-script lifecycle test through `ReVomanRuntime.execute(kick)` with a counting
 `SandboxFactory`: one session and one kick execute, but the factory count remains zero and no
 `SandboxBridge`/Graal `Context` is created. A one-script positive control must create exactly one
-runtime and close it once.
+runtime and close it once. These controls must call `reVomanRuntime(countingSandboxFactory)` and
+cross the real runtime, real session, real child, moved `KickRunner`, and real `PmJsEval` path.
+Recording decorators may count session/child creation, but these two tests must not replace
+`KickBody` with a fake.
 
 - [ ] **Step 2: Capture the missing-boundary RED**
 
@@ -1008,23 +1054,15 @@ runtime and close it once.
   --rerun-tasks --no-build-cache --no-configuration-cache --console=plain
 ```
 
-Expected: absent session/runtime APIs and the current recursive public orchestration fail the new assertions.
+Expected: absent session/runtime APIs and lifecycle ownership fail the new assertions. Current
+list/runbook public recursion is an intentional Task-5 positive control, not this RED; Task 6
+removes it.
 
 - [ ] **Step 3: Implement the session's narrow state machine**
 
 Use these concrete child seams rather than an open session class:
 
 ```kotlin
-internal fun interface KickBody {
-  @JvmSynthetic
-  fun execute(owner: KickExecution): Rundown
-}
-
-internal fun interface KickExecutionFactory {
-  @JvmSynthetic
-  fun create(kick: Kick, effectiveDynamicEnvironment: Map<String, Any?>): KickExecution
-}
-
 internal interface KickExecution : InternalCloseable {
   @get:JvmSynthetic val configuredKick: Kick
   @get:JvmSynthetic val effectiveDynamicEnvironment: Map<String, Any?>
@@ -1039,10 +1077,8 @@ internal fun kickExecution(
   configuredKick: Kick,
   effectiveDynamicEnvironment: Map<String, Any?>,
   body: KickBody,
-  sandboxFactory: SandboxFactory = DEFAULT_SANDBOX_FACTORY,
+  sandboxFactory: SandboxFactory,
 ): KickExecution
-
-private class DefaultKickExecution(/* same collaborators */) : KickExecution
 
 internal interface ExecutionSession : InternalCloseable {
   @JvmSynthetic
@@ -1057,13 +1093,19 @@ internal interface ExecutionSession : InternalCloseable {
 @JvmSynthetic
 internal fun executionSession(
   initialEnvironment: Map<String, Any?>,
-  kickExecutions: KickExecutionFactory = DEFAULT_KICK_EXECUTION_FACTORY,
+  kickExecutions: KickExecutionFactory,
 ): ExecutionSession
-
-private class DefaultExecutionSession(/* same state */) : ExecutionSession
 ```
 
-The file-private `KickRunner` implements `KickBody` and owns the moved executor algorithm; tests inject a fake `KickBody` into real final `KickExecution` children. The default factory constructs a fully initialized child whose expensive resources remain lazy. A factory that throws before returning transfers no child to the session; once returned, the session sets `activeChild` before calling `execute`.
+`kickExecutionFactory(sandboxFactory)` creates one function-local, stateless anonymous
+`KickBody`—the production `KickRunner`—and returns an anonymous `KickExecutionFactory` whose
+children come from the function-local `kickExecution(...)` implementation. The runner may retain
+only immutable collaborators; all kick, scopes, progress, report, and sequencing state belongs to
+the child or method locals. Tests may inject a fake `KickBody` into real children for child-only
+tests, while the runtime sandbox-count controls above use the production body. The default graph
+constructs a fully initialized child whose expensive resources remain lazy. A factory that throws
+before returning transfers no child to the session; once returned, the session sets `activeChild`
+before calling `execute`.
 
 Make the factory contract transactional in KDoc and implementation. Construction code may not open
 a closeable before handoff; if a future constructor step must do so, the factory owns a local
@@ -1088,50 +1130,105 @@ internal fun executeKick(
 ): Rundown
 ```
 
-`KickRunner` is a file-private final implementation with no exported factory. The
-built-JAR gate enumerates `ExecutionSessionFactory`, `ReVomanRuntime`, `KickBody`,
-`KickExecutionFactory`, `KickExecution`, `ExecutionSession`, and `KickRunner`; javac cannot
-construct or invoke them, and no type implements `AutoCloseable` or another Java interface that
-reintroduces an inherited callable lifecycle method.
+The production runner exists only as the function-local anonymous `KickBody` emitted from
+`KickRunner.kt`; there is no source-nameable `KickRunner` declaration or exported runner factory.
+The built-JAR gate enumerates the declared internal interfaces/factories and every actual emitted
+anonymous owner. Java may name an internal interface whose operations are synthetic, but it cannot
+invoke those operations or name/construct the emitted runtime, session, runner, or child
+implementations. No type implements `AutoCloseable` or another Java interface that reintroduces an
+inherited callable lifecycle method.
 
-The single-kick runtime opens its session with `emptyMap()`; list and runbook runtimes open with
-their public `dynamicEnvironment` argument. Compute
+The single-kick runtime opens its session with `emptyMap()`. Compute
 `configuredKick.dynamicEnvironment() + carriedEnvironment`, so the outer/carried state retains the
-current right-hand precedence. Execute and close the child lexically before outer callbacks,
-append the returned rundown, invoke `beforeCarry` with `rundowns.toList()`, and snapshot the
-possibly hook-mutated environment only when `carryForward` is true. Keep the current accumulated
-list as a snapshot; CS4 owns its allocation optimization.
+current right-hand precedence. Pass both configured kick and this exact effective map into the
+child; the moved body begins by deriving an effective kick with
+`configuredKick.overrideDynamicEnvironment(effectiveDynamicEnvironment)` and uses that kick for
+every body read. Add a test whose carried key overrides the same configured dynamic key and is
+observed by the real/fake body.
+
+Preserve the complete kick envelope in this exact order:
+
+1. `Banner.onRunStart()`;
+2. install the effective kick's borrowed `RunLogSink`;
+3. create the child, mark it active, execute it, and close it lexically;
+4. clear `activeChild`;
+5. only after successful child closure, call `Banner.recordSteps`;
+6. restore the borrowed sink; then
+7. append the rundown, invoke `beforeCarry` with `rundowns.toList()`, and carry if requested.
+
+The sandbox therefore closes while the kick sink is still installed, a close failure records no
+completed banner steps, and a later list hook runs after sink restoration. Never close a borrowed
+sink. When `carryForward` is true, take a fresh detached snapshot from the live environment after
+the callback with `rundown.mutableEnv.toMap()`. Never use `Rundown.immutableEnv` or
+`PostmanEnvironment.immutableEnv`: both are memoized lazy snapshots and may have been forced before
+the callback mutates the live map. Add a regression that forces `immutableEnv`, mutates through the
+callback, and proves the new value is the carried value; later mutation of an older rundown must
+not mutate already captured carry. Keep the accumulated rundown list as a frozen snapshot; CS4
+owns its allocation optimization.
 
 The session is sequential/closeable, rejects execution after close, keeps at most one active child,
 and closes an incomplete child before its own resources. `KickExecution.execute` is one-shot.
 For each returned child, create a short-lived `ResourceScope`, register the child, assign
 `activeChild`, invoke the body, and call that scope's `closeAfter(bodyFailure)` in `finally` before
-clearing `activeChild`. Rethrow the body failure with close failures suppressed in reverse order;
-on a successful body, a close failure becomes primary and the rundown is not appended. If the
-factory throws before returning a child, the session owns nothing and propagates that failure.
-Append/callback/carry occur only after successful child closure.
+clearing `activeChild`. Catch `Throwable`, not only `Exception`. Rethrow the body throwable by exact
+identity with distinct close failures directly suppressed in reverse order; on a successful body,
+a close failure becomes primary and the rundown is not appended. If the factory throws before
+returning a child, the session owns nothing and propagates that failure. Append/callback/carry
+occur only after successful child closure. A callback or fresh-snapshot failure therefore observes
+an already closed child; session close remains idempotent and must not retry it.
 
-Before session close, `ReVomanRuntime` materializes the returned single rundown/list/runbook result. Close then clears the session's carried-environment reference and mutable rundown builder so retaining a closed session cannot retain results. It must not clear `Rundown.mutableEnv`, `Rundown.collectionVariables`, or `Rundown.globals`: all three peer scopes have transferred into the returned legacy `Rundown` and remain valid for hooks/callers until CS4 replaces them with immutable final state. Only `mutableEnv` participates in cross-kick carry. An empty list/runbook still opens and closes one session with zero children.
+Before session close, `ReVomanRuntime` materializes the returned single result. Close then clears the
+session's carried-environment reference and mutable rundown builder so retaining a closed session
+cannot retain results. It must not clear `Rundown.mutableEnv`, `Rundown.collectionVariables`, or
+`Rundown.globals`: all three peer scopes have transferred into the returned legacy `Rundown` and
+remain valid after both child and session close. Only `mutableEnv` participates in cross-kick
+carry. Add after-close assertions for all three peer scopes. Empty list/runbook ownership is Task 6,
+not Task 5.
 
 - [ ] **Step 4: Move the existing kick body intact**
 
-Move `revUpInternal`, `SequenceResult`, the sequencer, and `runStep` helpers from `ReVoman.kt` to `KickRunner.kt`/`KickExecution`. Move the sole operational transitional `PostmanSDK` wiring reference from `ReVoman` into `KickRunner`, then tighten the Task-4 operational-consumer allowlist to exactly `KickRunner` plus the unchanged exact declaration-infrastructure set. Keep execution ordering, Either mappings, ledger behavior, interim progress copies, polling, hooks, halt behavior, and environment snapshots byte-for-byte equivalent. This is a move-and-delegate step: do not combine CS2b/CS3/CS4 optimizations.
+Move `revUpInternal`, lexical `SequenceResult`, the sequencer, and `runStep` helpers from
+`ReVoman.kt` into the function-local production runner in `KickRunner.kt`. Move the sole operational
+transitional `PostmanSDK` wiring reference from `ReVoman` into the extractor-proven emitted runner
+owners, then tighten `LegacyEvaluatorRemovalTest` from the exact ReVoman owner set to those exact
+runner owners plus the unchanged declaration-infrastructure set. `ReVoman` must retain zero
+operational constant-pool references to `PostmanSDK`. Use the configured root JAR and parsed
+constant-pool class/member/descriptor references; do not use source scanning, class loading, raw
+substring searches, or owner prefixes. Keep execution ordering, Either mappings, ledger behavior,
+interim progress copies, polling, hooks, halt behavior, and environment snapshots byte-for-byte
+equivalent. This is a move-and-delegate step: do not combine CS2b/CS3/CS4 optimizations.
 
 Keep `Banner.onRunStart()`, `Banner.recordSteps()`, per-kick borrowed sink installation/restoration, and no-op sink nuance at the kick boundary. The session never closes a borrowed sink.
 
 - [ ] **Step 5: Make ReVoman a facade over ReVomanRuntime**
 
-Move only `revUp(Kick)` in this task and use `carryForward = false` so it does not force an unused environment snapshot. The list and runbook overloads remain behaviorally unchanged until Task 6 moves both together onto the proven session boundary.
+Move only `revUp(Kick)` in this task and use `carryForward = false`, proving that the single path
+does not touch or materialize an environment carry snapshot. Leave
+`revUp(List<Kick>, PostExeHook, Map)` and `revUp(Runbook, Map)` source- and behavior-identical in
+Task 5: the list fold intentionally continues calling public `revUp(kick)` once per kick, and
+`RunbookExe` intentionally continues calling public `ReVoman.revUp(kick)` once per step. They thus
+open one session per kick until Task 6 moves both atomically to one shared session and removes those
+public calls. Do not alter list callback/carry ordering or runbook contract/assertion/sink ordering
+in this task.
 
 Do not expose `ExecutionSession`, `KickExecution`, or factories publicly and do not store the current session in `ReVoman`.
 
-Do not equate Kotlin `internal` with JVM encapsulation. Use internal interfaces with synthetic
-members/top-level factories and file-private implementations; do not add companion/named-object
-factories or public singleton fields. Tighten `JvmSurfaceVisibilityTest` against the built JAR. Negative `javac`
-snippets must be unable to instantiate or invoke `ExecutionSession`, `KickExecution`, or
-`ReVomanRuntime`. The raw-JAR allowlist contains only the exact internal type entries,
-file-private implementations, and synthetic bridge/factory descriptors declared by Tasks 2-6 plus
-Task 7's exact diagnostics descriptor; any new/widened descriptor or field fails.
+Do not equate Kotlin `internal` with JVM encapsulation. Interfaces may be Java-nameable marker-like
+owners because javac hides their synthetic abstract operations; the contract is that Java cannot
+invoke their operations or construct any emitted implementation. Compile same-package adversarial
+snippets against the configured root JAR and require name/access diagnostics rather than an
+unrelated arity failure. Reject `AutoCloseable`, any inherited Java-callable lifecycle method,
+companions, `INSTANCE` fields, ambient current-session fields, widened members, and unexpected
+emitted owners.
+
+After the implementation first compiles, extract the actual root-JAR delta and define literal
+cumulative `CS2_TASK5_RAW_JVM_ADDITIONS` and `CS2_TASK5_RAW_JVM_REMOVALS` sets in
+`Cs2JvmSurfaceAdditions.kt`. Both `ApiBaselineInventoryTest` and `JvmSurfaceVisibilityTest` must
+require exact full rendered-row equality for `active - frozen` and `frozen - active`; neither test
+may use package/owner prefixes, counts, globs, or a superset assertion. Preserve both frozen JVM and
+Kotlin baselines byte-for-byte, reject every source-callable operational addition/removal outside
+the approved CS2a migration projection, and assert `checkKotlinAbi` remains unchanged. Record only
+compiler-extracted Task-5 rows—no speculative Task-6 or Task-7 descriptors.
 
 - [ ] **Step 6: Verify the focused refactor and commit**
 
@@ -1142,23 +1239,34 @@ Run:
   --tests '*ExecutionSessionTest' \
   --tests '*ReVomanRuntimeTest' \
   --tests '*KickExecutionTest' \
+  --tests '*LegacyEvaluatorRemovalTest' \
+  --tests '*ApiBaselineInventoryTest' \
   --tests '*Ledger*Test' \
   --tests '*Hook*Test' \
   --tests '*Polling*Test' \
   --tests '*ControlFlow*Test' \
   --tests '*JvmSurfaceVisibilityTest' \
+  compileApiCompatibilityTestKotlin \
+  compileApiCompatibilityTestJava \
   checkKotlinAbi spotlessCheck \
   --rerun-tasks --no-build-cache --no-configuration-cache --console=plain
 git diff --check
 ```
 
-Expected: lifecycle/failure semantics and all moved executor controls pass, and the internal extraction adds no unplanned ABI changes. Commit:
+Expected: lifecycle/failure semantics, real lazy-sandbox controls, exact PostmanSDK ownership,
+external Kotlin/Java consumers, and literal raw/Kotlin ABI gates pass. Deliberately mutation-test at
+least: early sink restoration, memoized carry, a fake-only sandbox path, one widened synthetic
+operation, one missing raw row, and one stale ReVoman PostmanSDK reference; every mutation must fail
+its owning focused test and be restored before this command. Commit:
 
 ```bash
 git add src/main/kotlin/com/salesforce/revoman/ReVoman.kt \
   src/main/kotlin/com/salesforce/revoman/internal/runtime \
   src/test/kotlin/com/salesforce/revoman/internal/runtime \
-  src/test/kotlin/com/salesforce/revoman/compat/JvmSurfaceVisibilityTest.kt
+  src/test/kotlin/com/salesforce/revoman/compat/Cs2JvmSurfaceAdditions.kt \
+  src/test/kotlin/com/salesforce/revoman/compat/ApiBaselineInventoryTest.kt \
+  src/test/kotlin/com/salesforce/revoman/compat/JvmSurfaceVisibilityTest.kt \
+  docs/superpowers/plans/2026-08-11-performance-cs2a-runtime-lifecycle.md
 git commit -m "refactor: introduce execution session lifecycle"
 ```
 
