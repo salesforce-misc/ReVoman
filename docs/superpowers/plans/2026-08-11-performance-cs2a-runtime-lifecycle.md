@@ -1355,6 +1355,11 @@ imports or calls `ReVoman.revUp`, and the two functions must not recurse into on
 
 - [ ] **Step 1: Add end-to-end lifecycle and carry RED tests**
 
+Add `RunbookExeStructureTest` first and capture its structural RED in Step 2 before adding any test
+source that calls the not-yet-existing runtime overloads. Then add the remaining lifecycle/carry
+tests and capture the separate compilation RED. This ordering gives two independent Task-5
+failures without temporary production signatures or test shims.
+
 Use `reVomanRuntime(recordingSessions)` and the real Task-5 session around recording children for
 exact outer-session/child/close ordering. Recording seams establish counts; they do not replace the
 real `KickRunner`/sandbox controls below. Cover all three runtime overloads:
@@ -1401,7 +1406,20 @@ those tests to be RED.
 
 - [ ] **Step 2: Capture the actual missing-orchestration RED**
 
-Run:
+Capture these two REDs in order. First, with only `RunbookExeStructureTest` added, run:
+
+```bash
+./gradlew :test \
+  --tests '*RunbookExeStructureTest' \
+  --rerun-tasks --no-build-cache --no-configuration-cache --console=plain
+```
+
+Expected: the structural assertion fails and identifies the exact method-scoped invoke from the
+current `RunbookExeKt.runStepBody` code to
+`ReVoman.revUp(Kick): Rundown`. This is the Task-5 runbook-recursion RED.
+
+Then add the remaining Step-1 tests, including calls to the required list/runbook runtime
+overloads, and run:
 
 ```bash
 ./gradlew :test \
@@ -1414,10 +1432,10 @@ Run:
   --rerun-tasks --no-build-cache --no-configuration-cache --console=plain
 ```
 
-Expected: compilation fails for the missing list/runbook `ReVomanRuntime.execute` overloads; once
-the RED tests compile against temporary signatures, multi-kick counts show one session per kick and
-the exact RunbookExe constant-pool assertion reports its current `ReVoman.revUp(Kick)` reference.
-Do not cite reentrant public calls as RED: they are the required independence positive control.
+Expected: `compileTestKotlin` fails on the exact missing list/runbook
+`ReVomanRuntime.execute` overload calls. Do not introduce temporary signatures or claim a
+behavioral one-session-per-kick RED: the Task-5 runtime has no such overloads to exercise. Do not
+cite reentrant public calls as RED either; they are the required independence positive control.
 
 - [ ] **Step 3: Add the runtime overloads and make every public primary overload a direct facade**
 
@@ -1460,8 +1478,46 @@ reVomanRuntime().execute(kick)
 ```
 
 Keep public signatures, annotations, default values, and emitted compatibility bridges unchanged.
-Only compiler-generated `@JvmOverloads` bridges may invoke another public `ReVoman.revUp`
-descriptor; no hand-written vararg/list/runbook/single primary may do so.
+The exact emitted `@JvmOverloads` call graph is normative:
+
+```text
+# Five generated overloads -> three matching synthetic default dispatchers
+revUp([LKick;)List
+  -> revUp$default(PostExeHook,Map,[LKick;,int,Object)List
+revUp(PostExeHook,[LKick;)List
+  -> revUp$default(PostExeHook,Map,[LKick;,int,Object)List
+revUp(List)List
+  -> revUp$default(List,PostExeHook,Map,int,Object)List
+revUp(List,PostExeHook)List
+  -> revUp$default(List,PostExeHook,Map,int,Object)List
+revUp(Runbook)RunbookRundown
+  -> revUp$default(Runbook,Map,int,Object)RunbookRundown
+
+# Three synthetic default dispatchers -> matching full-arity public primaries
+revUp$default(PostExeHook,Map,[LKick;,int,Object)List
+  -> revUp(PostExeHook,Map,[LKick;)List
+revUp$default(List,PostExeHook,Map,int,Object)List
+  -> revUp(List,PostExeHook,Map)List
+revUp$default(Runbook,Map,int,Object)RunbookRundown
+  -> revUp(Runbook,Map)RunbookRundown
+
+# Four hand-written public primaries -> only matching runtime descriptors
+revUp(PostExeHook,Map,[LKick;)List
+  -> ReVomanRuntime.execute(List,PostExeHook,Map)List
+revUp(List,PostExeHook,Map)List
+  -> ReVomanRuntime.execute(List,PostExeHook,Map)List
+revUp(Runbook,Map)RunbookRundown
+  -> ReVomanRuntime.execute(Runbook,Map)RunbookRundown
+revUp(Kick)Rundown
+  -> ReVomanRuntime.execute(Kick)Rundown
+```
+
+The type names above abbreviate their exact JVM owners from the frozen surface; assertions use the
+complete JVM descriptors. Each of the five generated overload methods contains the one matching
+`$default` invoke, each of the three `$default` methods contains the one matching full-primary
+invoke, and each of the four hand-written primaries contains only its matching
+`ReVomanRuntime.execute` invoke from this routing graph. The vararg primary converts its array to a
+list locally and must not invoke the public list primary.
 
 - [ ] **Step 4: Route runbooks through the existing session**
 
@@ -1511,18 +1567,25 @@ assertions. Both `ApiBaselineInventoryTest` and `JvmSurfaceVisibilityTest` must 
 compare their complete raw deltas for exact equality with the cumulative Task-6 sets. Keep both
 frozen baseline files byte-identical and require `checkKotlinAbi` to stay green.
 
-In `RunbookExeStructureTest`, use the configured root JAR's parsed constant-pool owner/member/
-descriptor references and exact surface rows—not source `rg`, class loading, or substring scans—to
-prove:
+In `RunbookExeStructureTest`, add a narrow test-local classfile parser for method `Code` attributes;
+do not change `JvmSurfaceInventory.kt`. Walk bytecode instructions (including variable-length
+instructions) and resolve every `invokevirtual`, `invokespecial`, `invokestatic`, and
+`invokeinterface` constant-pool index to exact owner/name/descriptor data. Key results by the
+enclosing method's exact name and descriptor, reject malformed/truncated code, and make every
+routing assertion against that method-scoped invocation list. Class-wide constant-pool references
+alone are insufficient because overloads share the same owner and referenced descriptors. Combine
+those method-scoped invokes with the configured root JAR's exact surface rows—not source `rg`,
+class loading, `javap` text, or substring scans—to prove:
 
 - the two-argument `RunbookExeKt.executeRunbook(Runbook, Map)` row is exactly the pre-task
   Java-callable row quoted above;
 - no `RunbookExeKt` or emitted RunbookExe owner has a class/member/descriptor reference to
   `com/salesforce/revoman/ReVoman`, and neither executeRunbook overload can recurse;
 - the synthetic helper has the exact session-taking descriptor and is not Java-source-callable;
-- every hand-written ReVoman primary reaches the matching `ReVomanRuntime.execute` descriptor and
-  carries no public-recursive call site; only the exact generated `@JvmOverloads` bridges may call
-  the exact public primary descriptors; and
+- the five generated overload methods, three `$default` dispatchers, and four hand-written
+  primaries have exactly the method-scoped invocation edges in Step 3: no overload bypasses its
+  matching `$default`, no dispatcher targets the wrong primary, and no hand-written primary calls
+  any `ReVoman.revUp` descriptor; and
 - the runtime runbook implementation references the session-taking helper, not the compatibility
   adapter.
 
