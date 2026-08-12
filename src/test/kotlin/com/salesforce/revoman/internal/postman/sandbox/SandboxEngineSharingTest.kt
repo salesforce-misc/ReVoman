@@ -100,25 +100,38 @@ class SandboxEngineSharingTest {
         sources += source
       }
 
-    first.boot()
-    first.dispatchExecute("one", "__bridgeLeak = 'first';", ScriptTarget.TEST, testCtx(), 5000)
-    second.boot()
-    val result =
-      second.dispatchExecute(
-        "two",
-        "pm.environment.set('sawBridgeGlobal', typeof __bridgeLeak);",
-        ScriptTarget.TEST,
-        testCtx(),
-        5000,
-      )
-    first.close()
-    second.close()
+    try {
+      first.boot()
+      first.dispatchExecute("one", "__bridgeLeak = 'first';", ScriptTarget.TEST, testCtx(), 5000)
+      val sameBridge =
+        first.dispatchExecute(
+          "same",
+          "pm.environment.set('sawBridgeGlobal', typeof __bridgeLeak);",
+          ScriptTarget.TEST,
+          testCtx(),
+          5000,
+        )
+      second.boot()
+      val result =
+        second.dispatchExecute(
+          "two",
+          "pm.environment.set('sawBridgeGlobal', typeof __bridgeLeak);",
+          ScriptTarget.TEST,
+          testCtx(),
+          5000,
+        )
 
-    engines shouldBe listOf(sharedGraalEngine, sharedGraalEngine)
-    sources shouldBe listOf(SandboxResources.bootSource, SandboxResources.bootSource)
-    (engines[0] === engines[1]) shouldBe true
-    (sources[0] === sources[1]) shouldBe true
-    result.error shouldBe null
-    result.environment["sawBridgeGlobal"] shouldBe "undefined"
+      engines.all { it === sharedGraalEngine } shouldBe true
+      sources.all { it === SandboxResources.bootSource } shouldBe true
+      (engines[0] === engines[1]) shouldBe true
+      (sources[0] === sources[1]) shouldBe true
+      sameBridge.error shouldBe null
+      sameBridge.environment["sawBridgeGlobal"] shouldBe "string"
+      result.error shouldBe null
+      result.environment["sawBridgeGlobal"] shouldBe "undefined"
+    } finally {
+      first.close()
+      second.close()
+    }
   }
 }

@@ -26,14 +26,18 @@ class SandboxResourcesTest {
     var bootcodeReads = 0
     var versionReads = 0
     var sourceBuilds = 0
+    val gzipPaths = mutableListOf<String>()
+    val versionPaths = mutableListOf<String>()
     val bootSource =
       SandboxResources.lazyBootSource(
-        readGzip = {
+        readGzip = { path ->
           bootcodeReads++
+          gzipPaths += path
           "globalThis.boot = true;"
         },
-        readFile = {
+        readFile = { path ->
           versionReads++
+          versionPaths += path
           "6.7.0"
         },
         sourceFactory = { language, code, name ->
@@ -41,12 +45,18 @@ class SandboxResourcesTest {
           org.graalvm.polyglot.Source.newBuilder(language, code, name).build()
         },
       )
+    bootcodeReads shouldBe 0
+    versionReads shouldBe 0
+    sourceBuilds shouldBe 0
     val first = bootSource.value
     val second = bootSource.value
 
     (first === second) shouldBe true
-    first.name shouldContain "postman-sandbox-6.7.0.js"
-    first.characters.length shouldBe "globalThis.boot = true;".length
+    first.language shouldBe "js"
+    first.name shouldBe "postman-sandbox-6.7.0.js"
+    first.characters.toString() shouldBe "globalThis.boot = true;"
+    gzipPaths shouldBe listOf("postman-sandbox/bootcode.js.gz")
+    versionPaths shouldBe listOf("postman-sandbox/pm-sandbox-version.txt")
     bootcodeReads shouldBe 1
     versionReads shouldBe 1
     sourceBuilds shouldBe 1

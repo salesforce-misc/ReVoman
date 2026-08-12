@@ -122,6 +122,28 @@ class JvmSurfaceVisibilityTest {
       .containsExactlyElementsIn(CS2_TASK3_RAW_JVM_REMOVALS)
     assertThat(removals.single().memberSynthetic).isTrue()
     assertThat(removals.single().sourceCallable).isFalse()
+    val pmSandboxRows = entries.filter {
+      it.owner == "com/salesforce/revoman/internal/postman/sandbox/PmSandbox"
+    }
+    assertThat(
+        pmSandboxRows.single { it.kind == JvmSurfaceKind.FIELD && it.name == "bridge" }.memberAccess
+      )
+      .isEqualTo(0x0012)
+    assertThat(
+        pmSandboxRows
+          .single { it.kind == JvmSurfaceKind.CONSTRUCTOR && it.descriptor == "()V" }
+          .sourceCallable
+      )
+      .isTrue()
+    assertThat(
+        entries.any {
+          it.owner.startsWith("com/salesforce/revoman/internal/postman/sandbox/PmSandbox") &&
+            it.descriptor == "Ljava/lang/ThreadLocal;"
+        }
+      )
+      .isFalse()
+    assertThat(entries.map(JvmSurfaceEntry::name))
+      .containsNoneOf("pmSandboxForTest", "withRuntimeHooks", "resetForTest", "resetDefaultForTest")
     val addedClasses = additions.filter { it.kind == JvmSurfaceKind.CLASS }
     assertThat(addedClasses.map(JvmSurfaceEntry::owner))
       .containsExactlyElementsIn(TASK3_RUNTIME_OWNERS)
