@@ -108,6 +108,199 @@ class JvmSurfaceVisibilityTest {
   }
 
   @Test
+  fun `Task 2 runtime additions have the exact raw surface and synthetic call boundary`() {
+    val entries = JvmSurfaceInventory.readJar(configuredRootJar())
+    val frozen = JvmSurfaceInventory.parse(Files.readString(FROZEN_JVM_ABI))
+    val frozenRows = frozen.asSequence().map(JvmSurfaceEntry::render).toSet()
+    val additions = entries.filter { it.render() !in frozenRows }
+
+    assertThat(additions.map(JvmSurfaceEntry::render))
+      .containsExactlyElementsIn(CS2_TASK2_RAW_JVM_ADDITIONS)
+    val addedClasses = additions.filter { it.kind == JvmSurfaceKind.CLASS }
+    assertThat(addedClasses.map(JvmSurfaceEntry::owner))
+      .containsExactlyElementsIn(TASK2_RUNTIME_OWNERS)
+    assertThat(addedClasses.filter(JvmSurfaceEntry::sourceCallable)).hasSize(9)
+    assertThat(addedClasses.filterNot(JvmSurfaceEntry::sourceCallable).map(JvmSurfaceEntry::owner))
+      .containsExactly(RESOURCE_SCOPE_IMPLEMENTATION)
+    assertThat(additions.map(JvmSurfaceEntry::owner)).doesNotContain("${RUNTIME_PACKAGE}Companion")
+    assertThat(additions.filter { it.kind == JvmSurfaceKind.FIELD }.map(JvmSurfaceEntry::name))
+      .doesNotContain("INSTANCE")
+    assertThat(additions.filter { it.owner in KOTLIN_ONLY_INTERFACE_OWNERS }).isNotEmpty()
+    assertThat(
+        additions
+          .filter { it.owner in KOTLIN_ONLY_INTERFACE_OWNERS && it.kind == JvmSurfaceKind.METHOD }
+          .all { it.memberSynthetic && !it.sourceCallable }
+      )
+      .isTrue()
+    assertThat(
+        additions
+          .filter { it.owner in KOTLIN_ONLY_FACADE_OWNERS && it.kind == JvmSurfaceKind.METHOD }
+          .all { it.memberSynthetic && !it.sourceCallable }
+      )
+      .isTrue()
+
+    val implementationRows = additions.filter { it.owner == RESOURCE_SCOPE_IMPLEMENTATION }
+    assertThat(implementationRows).isNotEmpty()
+    assertThat(implementationRows.all { !it.sourceCallable }).isTrue()
+    assertThat(implementationRows.single { it.kind == JvmSurfaceKind.CLASS }.sourceCallable)
+      .isFalse()
+    assertThat(
+        implementationRows.single { it.kind == JvmSurfaceKind.CONSTRUCTOR }.memberAccess and 0x0005
+      )
+      .isEqualTo(0)
+  }
+
+  @Test
+  fun `external Java source can name Task 2 boundary types`() {
+    val result =
+      compileJava(
+        "RuntimeTypeReferenceConsumer",
+        """
+        import com.salesforce.revoman.internal.runtime.*;
+
+        final class RuntimeTypeReferenceConsumer {
+          InternalCloseable closeable;
+          ResourceScope scope;
+          ScriptExecutor executor;
+          SandboxRuntime runtime;
+          SandboxFactory factory;
+        }
+        """
+          .trimIndent(),
+      )
+
+    assertWithMessage("javac diagnostics: ${result.diagnostics}").that(result.compiled).isTrue()
+  }
+
+  @Test
+  fun `external Java source cannot operate Task 2 runtime boundaries`() {
+    val attempts =
+      listOf(
+        JavaBoundaryAttempt(
+          "InternalCloseableConsumer",
+          "static void access(InternalCloseable value) { value.close(); }",
+          CANNOT_RESOLVE_MEMBER_CODES,
+        ),
+        JavaBoundaryAttempt(
+          "ResourceScopeConsumer",
+          "static void access(ResourceScope value) { value.closeAfter(null); }",
+          CANNOT_RESOLVE_MEMBER_CODES,
+        ),
+        JavaBoundaryAttempt(
+          "ResourceScopeFactoryConsumer",
+          "static ResourceScope access() { return ResourceScopeKt.resourceScope(); }",
+          CANNOT_RESOLVE_MEMBER_CODES,
+        ),
+        JavaBoundaryAttempt(
+          "UseInternalConsumer",
+          "static Object access(InternalCloseable value) { return InternalCloseableKt.useInternal(value, ignored -> null); }",
+          CANNOT_RESOLVE_MEMBER_CODES,
+        ),
+        JavaBoundaryAttempt(
+          "ScriptExecutorConsumer",
+          "static Object access(ScriptExecutor value) { return value.execute(null, null, null, 1L); }",
+          CANNOT_RESOLVE_MEMBER_CODES,
+        ),
+        JavaBoundaryAttempt(
+          "ScriptDefaultBridgeConsumer",
+          "static Object access(ScriptExecutor value) { return ScriptExecutor.DefaultImpls.execute\$default(value, null, null, null, 0L, 8, null); }",
+          CANNOT_RESOLVE_MEMBER_CODES,
+        ),
+        JavaBoundaryAttempt(
+          "SandboxRuntimeConsumer",
+          "static void access(SandboxRuntime value) { value.close(); }",
+          CANNOT_RESOLVE_MEMBER_CODES,
+        ),
+        JavaBoundaryAttempt(
+          "SandboxFactoryConsumer",
+          "static SandboxRuntime access(SandboxFactory value) { return value.create(); }",
+          CANNOT_RESOLVE_MEMBER_CODES,
+        ),
+        JavaBoundaryAttempt(
+          "SandboxFactoryLambdaConsumer",
+          "static SandboxFactory access() { return () -> null; }",
+          setOf("compiler.err.prob.found.req"),
+        ),
+        JavaBoundaryAttempt(
+          "DefaultResourceScopeConsumer",
+          "static Object access() { return new DefaultResourceScope(); }",
+          setOf("compiler.err.cant.resolve.location"),
+        ),
+      )
+
+    attempts.forEach { attempt ->
+      val result =
+        compileJava(
+          attempt.className,
+          """
+          import com.salesforce.revoman.internal.runtime.*;
+
+          final class ${attempt.className} {
+            ${attempt.access}
+          }
+          """
+            .trimIndent(),
+        )
+
+      assertWithMessage(
+          "${attempt.className} mutation must be rejected by javac: ${result.diagnostics}"
+        )
+        .that(result.compiled)
+        .isFalse()
+      assertThat(result.diagnostics.map(JavaDiagnostic::kind)).contains(Diagnostic.Kind.ERROR)
+      assertWithMessage("targeted javac diagnostics: ${result.diagnostics}")
+        .that(
+          result.diagnostics
+            .filter { it.kind == Diagnostic.Kind.ERROR }
+            .map(JavaDiagnostic::code)
+            .any { it in attempt.expectedDiagnosticCodes }
+        )
+        .isTrue()
+    }
+  }
+
+  @Test
+  fun `same-package external Java cannot construct or operate the resource scope implementation`() {
+    val attempts =
+      mapOf(
+        "SamePackageNamedScopeConsumer" to "DefaultResourceScope",
+        "SamePackageAnonymousScopeConsumer" to
+          RESOURCE_SCOPE_IMPLEMENTATION.substringAfterLast('/'),
+      )
+
+    attempts.forEach { (className, implementationName) ->
+      val result =
+        compileJava(
+          className,
+          """
+          package com.salesforce.revoman.internal.runtime;
+
+          final class $className {
+            static Object access() {
+              $implementationName scope = new $implementationName();
+              scope.close();
+              return scope;
+            }
+          }
+          """
+            .trimIndent(),
+        )
+
+      assertWithMessage("same-package mutation must be rejected by javac: ${result.diagnostics}")
+        .that(result.compiled)
+        .isFalse()
+      assertWithMessage("targeted javac diagnostics: ${result.diagnostics}")
+        .that(
+          result.diagnostics
+            .filter { it.kind == Diagnostic.Kind.ERROR }
+            .map(JavaDiagnostic::code)
+            .any { it in CANNOT_RESOLVE_MEMBER_CODES }
+        )
+        .isTrue()
+    }
+  }
+
+  @Test
   fun `root jar contract rejects missing directory and different paths`() {
     val expected = configuredRootJar()
     val directory = Files.createDirectory(temporaryDirectory.resolve("classes"))
@@ -234,9 +427,38 @@ class JvmSurfaceVisibilityTest {
     val message: String,
   )
 
+  private data class JavaBoundaryAttempt(
+    val className: String,
+    val access: String,
+    val expectedDiagnosticCodes: Set<String>,
+  )
+
   private companion object {
+    val FROZEN_JVM_ABI: Path = Path.of("api/cs2-baseline-revoman-root.jvm.tsv")
+    val CANNOT_RESOLVE_MEMBER_CODES =
+      setOf("compiler.err.cant.resolve.location", "compiler.err.cant.resolve.location.args")
     const val POSTMAN_SDK = "com/salesforce/revoman/internal/postman/PostmanSDK"
     const val REGEX_REPLACER = "com/salesforce/revoman/internal/postman/RegexReplacer"
+    const val RUNTIME_PACKAGE = "com/salesforce/revoman/internal/runtime/"
+    const val RESOURCE_SCOPE_IMPLEMENTATION = "${RUNTIME_PACKAGE}ResourceScopeKt\$resourceScope\$1"
+    val KOTLIN_ONLY_INTERFACE_OWNERS =
+      setOf(
+        "${RUNTIME_PACKAGE}InternalCloseable",
+        "${RUNTIME_PACKAGE}ResourceScope",
+        "${RUNTIME_PACKAGE}ScriptExecutor",
+        "${RUNTIME_PACKAGE}SandboxRuntime",
+        "${RUNTIME_PACKAGE}SandboxFactory",
+      )
+    val KOTLIN_ONLY_FACADE_OWNERS =
+      setOf("${RUNTIME_PACKAGE}InternalCloseableKt", "${RUNTIME_PACKAGE}ResourceScopeKt")
+    val TASK2_RUNTIME_OWNERS =
+      KOTLIN_ONLY_INTERFACE_OWNERS +
+        KOTLIN_ONLY_FACADE_OWNERS +
+        setOf(
+          RESOURCE_SCOPE_IMPLEMENTATION,
+          "${RUNTIME_PACKAGE}SandboxRuntimeKt",
+          "${RUNTIME_PACKAGE}ScriptExecutor\$DefaultImpls",
+        )
     val LEGACY_SANDBOX_OWNERS =
       setOf(
         POSTMAN_SDK,

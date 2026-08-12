@@ -179,7 +179,7 @@ input, and pass its provider-resolved absolute path as the dedicated
 fail if that property is absent, points at classes/a directory, or differs from the exact `jar`
 task output. Reuse this wiring for every later structural test; never infer the archive with a glob.
 
-Add `JvmSurfaceVisibilityTest` as a built-JAR gate. It receives the exact root archive path from a Gradle provider, invokes the JDK compiler against negative Java snippets, and inspects class/member access flags from that archive. In Task 1 it records the intentional legacy reachability of `PostmanSDK`/`RegexReplacer`; Tasks 2 through 8 tighten the expected surface. Kotlin `internal` alone is not evidence because it commonly emits JVM-public bytecode. The final rule is that the transitional aggregate and new lifecycle/state types expose no Java-source-callable operational constructor, factory, field/property, or method. Implement them as internal interfaces whose callable members are `ACC_SYNTHETIC`, synthetic top-level Kotlin factories, and file-private implementation classes; do not use companion-object factories or public singleton fields. The classfile test—not the annotation choice—is authoritative and rejects every unlisted type, bridge, field, constructor, or nonsynthetic public callable. Task 7 adds the separately reflection-bound synthetic diagnostics descriptor to that explicit allowlist.
+Add `JvmSurfaceVisibilityTest` as a built-JAR gate. It receives the exact root archive path from a Gradle provider, invokes the JDK compiler against negative Java snippets, and inspects class/member access flags from that archive. In Task 1 it records the intentional legacy reachability of `PostmanSDK`/`RegexReplacer`; Tasks 2 through 8 tighten the expected surface. Kotlin `internal` alone is not evidence because it commonly emits JVM-public bytecode. The final rule is that the transitional aggregate and new lifecycle/state types expose no Java-source-callable operational constructor, factory, field/property, or method. Implement them as internal interfaces whose callable members are `ACC_SYNTHETIC`, synthetic top-level Kotlin factories, and implementation classes that are either file-private or function-local anonymous when same-package Java could otherwise reach a package-private class; do not use companion-object factories or public singleton fields. The classfile test—not the annotation choice—is authoritative and rejects every unlisted type, bridge, field, constructor, or nonsynthetic public callable. Task 7 adds the separately reflection-bound synthetic diagnostics descriptor to that explicit allowlist.
 
 - [ ] **Step 5: Establish the migration ledger and approve the written design**
 
@@ -211,7 +211,7 @@ independently against those projections. A descriptor retained as `ACC_SYNTHETIC
 active Java-source-callable set even though it remains in raw bytecode. Also require the supported
 Kotlin `active - baseline` set and Java-source-callable member `active - baseline` set to be empty;
 CS2a adds no supported public API. Compare the complete raw active JAR inventory separately and
-require every new internal type, file-private implementation, synthetic bridge/factory, and Task 7
+require every new internal type, file-private or function-local implementation, synthetic bridge/factory, and Task 7
 diagnostics descriptor to equal one explicit addition allowlist, with no `Companion` field/class,
 public singleton field, or orphan generated member. Apply the explicit generated-member grouping
 rule only after proving `ACC_SYNTHETIC`/`ACC_BRIDGE`. Retained/deprecated behavior rows such as `Kick.nodeModulesPath`
@@ -248,11 +248,14 @@ git commit -m "build: freeze major-version public API surface"
 ### Task 2: Add deterministic resource ownership primitives
 
 **Files:**
+- Modify: `docs/superpowers/plans/2026-08-11-performance-cs2a-runtime-lifecycle.md`
 - Add: `src/main/kotlin/com/salesforce/revoman/internal/runtime/InternalCloseable.kt`
 - Add: `src/main/kotlin/com/salesforce/revoman/internal/runtime/ResourceScope.kt`
 - Add: `src/main/kotlin/com/salesforce/revoman/internal/runtime/SandboxRuntime.kt`
 - Add: `src/test/kotlin/com/salesforce/revoman/internal/runtime/ResourceScopeTest.kt`
 - Add: `src/test/kotlin/com/salesforce/revoman/internal/runtime/SandboxRuntimeTest.kt`
+- Add: `src/test/kotlin/com/salesforce/revoman/compat/Cs2JvmSurfaceAdditions.kt`
+- Modify: `src/test/kotlin/com/salesforce/revoman/compat/ApiBaselineInventoryTest.kt`
 - Modify: `src/test/kotlin/com/salesforce/revoman/compat/JvmSurfaceVisibilityTest.kt`
 
 **Interfaces:**
@@ -305,16 +308,18 @@ internal interface ResourceScope : InternalCloseable {
 
 @JvmSynthetic
 internal fun resourceScope(): ResourceScope
-
-private class DefaultResourceScope : ResourceScope
 ```
 
 Store only owned internal closeables in an `ArrayDeque`, close with `removeLast()`, and centralize
 exception aggregation in `closeAfter`. `close()` throws the returned failure only when there was no
 prior primary. Do not implement `java.lang.AutoCloseable`: its inherited public `close()` would
-defeat the raw-JAR Java boundary. Keep `DefaultResourceScope` file-private; the synthetic top-level
-factory is the only construction path and every interface callable is synthetic, so Kotlin in this
-module can use the owner while javac cannot construct or operate it. Do not use a companion object:
+defeat the raw-JAR Java boundary. Return a function-local anonymous `ResourceScope` implementation
+from the synthetic top-level factory. A top-level Kotlin `private` implementation becomes a
+package-private JVM class that same-package Java can construct and operate; the anonymous class
+instead has no Java source name and a non-source-callable constructor. The built-JAR gate must try
+both the former named implementation and the compiler-emitted anonymous binary name from a Java
+source in `com.salesforce.revoman.internal.runtime`. Every interface callable remains synthetic, so
+Kotlin in this module can use the owner while javac cannot construct or operate it. Do not use a companion object:
 its public nonsynthetic `Companion` field would violate the Java-source surface gate. `useInternal`
 mirrors Kotlin `use` exactly for body-primary and suppressed-close
 semantics; test both paths before replacing the current sandbox call site. Do not log/swallow
@@ -325,7 +330,7 @@ cleanup failures or generalize this into a service locator.
 Add:
 
 ```kotlin
-internal fun interface ScriptExecutor {
+internal interface ScriptExecutor {
   @JvmSynthetic
   fun execute(
     script: String,
@@ -343,23 +348,39 @@ internal fun interface SandboxFactory {
 }
 ```
 
-Define file-private `SANDBOX_DEFAULT_TIMEOUT_MS = 60_000L` beside the port. `ScriptExecutor` is the non-owning invocation port passed to script orchestration; `SandboxRuntime` adds the owned close boundary. This is a real ownership/test seam, not a generic repository abstraction. It must mirror `PmSandbox` exactly and introduce no future `SandboxBudget` policy.
+Define file-private `SANDBOX_DEFAULT_TIMEOUT_MS = 60_000L` beside the port. `ScriptExecutor` is a
+regular interface because the repository's Kotlin 2.4.20-Beta2 compiler rejects default arguments
+on a `fun interface` abstract method; this retains the inherited three-argument call while
+`SandboxFactory` remains a functional interface. `ScriptExecutor` is the non-owning invocation port passed to script orchestration;
+`SandboxRuntime` adds the owned close boundary. This is a real ownership/test seam, not a generic
+repository abstraction. It must mirror `PmSandbox` exactly and introduce no future `SandboxBudget`
+policy.
 
-Extend `JvmSurfaceVisibilityTest` now: from the built root JAR, javac must be unable to construct or
-call `InternalCloseable`, `ResourceScope`, `ScriptExecutor`, `SandboxRuntime`, or `SandboxFactory`.
+Extend `JvmSurfaceVisibilityTest` now: from the built root JAR, javac may name the five boundary
+interface types but must be unable to call their synthetic operations, construct an implementation
+through the provided synthetic factory/function-local anonymous implementation, use the synthetic default
+bridge, or treat `SandboxFactory` as a Java SAM.
 Classfile inspection must prove every Kotlin-only interface/top-level callable is synthetic and
-that each implementation constructor is non-source-callable through the combined owner/member
-access flags and exactly present in the raw addition allowlist. Mutation-test one removed
-`@JvmSynthetic` and one widened implementation owner/factory boundary before restoring.
+that each implementation constructor is non-source-callable through the combined source-name and
+owner/member access facts and exactly present in the raw addition allowlist. Mutation-test one
+removed `@JvmSynthetic` and one named or widened implementation boundary before restoring.
+
+Keep the pre-CS2 JVM baseline immutable. Record every Task 2 class, member, file facade, default
+bridge, and implementation row as its exact ten-column `JvmSurfaceEntry.render()` value in one
+shared cumulative raw-JAR addition allowlist consumed by both compatibility tests. Frozen rows may
+not disappear. Supported Kotlin additions and Java-source-callable operational member additions
+remain empty; source-nameable class rows alone are not operational member additions. Removing one
+raw allowlist row must fail the gate.
 
 - [ ] **Step 5: Verify and commit**
 
 Run:
 
 ```bash
-./gradlew :test \
+./gradlew checkKotlinAbi :test \
   --tests '*ResourceScopeTest' \
   --tests '*SandboxRuntimeTest' \
+  --tests '*ApiBaselineInventoryTest' \
   --tests '*JvmSurfaceVisibilityTest' \
   spotlessCheck --rerun-tasks --no-build-cache --no-configuration-cache --console=plain
 git diff --check
@@ -370,7 +391,10 @@ Expected: every focused test and formatting check passes. Commit:
 ```bash
 git add src/main/kotlin/com/salesforce/revoman/internal/runtime \
   src/test/kotlin/com/salesforce/revoman/internal/runtime \
-  src/test/kotlin/com/salesforce/revoman/compat/JvmSurfaceVisibilityTest.kt
+  src/test/kotlin/com/salesforce/revoman/compat/Cs2JvmSurfaceAdditions.kt \
+  src/test/kotlin/com/salesforce/revoman/compat/ApiBaselineInventoryTest.kt \
+  src/test/kotlin/com/salesforce/revoman/compat/JvmSurfaceVisibilityTest.kt \
+  docs/superpowers/plans/2026-08-11-performance-cs2a-runtime-lifecycle.md
 git commit -m "refactor: add execution resource ownership"
 ```
 

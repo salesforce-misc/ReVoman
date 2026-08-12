@@ -85,7 +85,7 @@ class ApiBaselineInventoryTest {
   }
 
   @Test
-  fun `JVM baseline is canonical complete and matches the initial built jar`() {
+  fun `JVM baseline is canonical complete and active raw additions are exactly approved`() {
     val frozenText = requiredText(FROZEN_JVM_ABI)
     val frozen = JvmSurfaceInventory.parse(frozenText)
 
@@ -102,7 +102,10 @@ class ApiBaselineInventoryTest {
       .containsAtLeastElementsIn(CS2A_POSTMAN_OWNERS)
 
     val active = JvmSurfaceInventory.readJar(configuredRootJar())
-    assertThat(JvmSurfaceInventory.render(active)).isEqualTo(frozenText)
+    val activeRows = active.asSequence().map(JvmSurfaceEntry::render).toSet()
+    val frozenRows = frozen.asSequence().map(JvmSurfaceEntry::render).toSet()
+    assertThat(frozenRows - activeRows).isEmpty()
+    assertThat(activeRows - frozenRows).containsExactlyElementsIn(CS2_TASK2_RAW_JVM_ADDITIONS)
   }
 
   @Test
@@ -162,24 +165,24 @@ class ApiBaselineInventoryTest {
     val supportedJavaAdditions =
       activeJvm
         .asSequence()
-        .filter(JvmSurfaceEntry::sourceCallable)
+        .filter { it.kind != JvmSurfaceKind.CLASS && it.sourceCallable }
         .map {
           it.migrationKey()
         }
         .toSet() -
         baselineJvm
           .asSequence()
-          .filter(JvmSurfaceEntry::sourceCallable)
+          .filter { it.kind != JvmSurfaceKind.CLASS && it.sourceCallable }
           .map {
             it.migrationKey()
           }
           .toSet()
     assertThat(supportedJavaAdditions).isEmpty()
-    assertThat(
-        activeJvm.asSequence().map(JvmSurfaceEntry::render).toSet() -
-          baselineJvm.asSequence().map(JvmSurfaceEntry::render).toSet()
-      )
-      .isEmpty()
+    val activeJvmRows = activeJvm.asSequence().map(JvmSurfaceEntry::render).toSet()
+    val baselineJvmRows = baselineJvm.asSequence().map(JvmSurfaceEntry::render).toSet()
+    assertThat(baselineJvmRows - activeJvmRows).isEmpty()
+    assertThat(activeJvmRows - baselineJvmRows)
+      .containsExactlyElementsIn(CS2_TASK2_RAW_JVM_ADDITIONS)
   }
 
   private fun assertCurrentNonAbiCoverage(rows: List<MigrationRow>, spec: String) {
