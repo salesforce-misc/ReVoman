@@ -1276,62 +1276,153 @@ git commit -m "refactor: introduce execution session lifecycle"
 ### Task 6: Route list and runbook execution through one session
 
 **Files:**
+- Modify: `docs/superpowers/plans/2026-08-11-performance-cs2a-runtime-lifecycle.md`
 - Modify: `src/main/kotlin/com/salesforce/revoman/internal/runtime/ReVomanRuntime.kt`
-- Modify: `src/main/kotlin/com/salesforce/revoman/internal/runtime/ExecutionSession.kt`
 - Modify: `src/main/kotlin/com/salesforce/revoman/internal/exe/RunbookExe.kt`
 - Modify: `src/main/kotlin/com/salesforce/revoman/ReVoman.kt`
 - Add: `src/test/kotlin/com/salesforce/revoman/internal/runtime/ExecutionSessionE2ETest.kt`
+- Modify: `src/test/kotlin/com/salesforce/revoman/internal/runtime/ReVomanRuntimeTest.kt`
 - Modify: `src/test/kotlin/com/salesforce/revoman/MultiKickEnvTypesE2ETest.kt`
 - Modify: `src/test/kotlin/com/salesforce/revoman/RunbookExeE2ETest.kt`
 - Modify: `src/test/kotlin/com/salesforce/revoman/RunbookLegibilityE2ETest.kt`
+- Add: `src/test/kotlin/com/salesforce/revoman/compat/RunbookExeStructureTest.kt`
+- Modify: `src/test/kotlin/com/salesforce/revoman/compat/Cs2JvmSurfaceAdditions.kt`
+- Modify: `src/test/kotlin/com/salesforce/revoman/compat/ApiBaselineInventoryTest.kt`
 - Modify: `src/test/kotlin/com/salesforce/revoman/compat/JvmSurfaceVisibilityTest.kt`
+- Add: `src/test/resources/pm-templates/v3/session-isolation/a.request.yaml`
+- Add: `src/test/resources/pm-templates/v3/session-isolation/b.request.yaml`
+
+Do not modify `ExecutionSession.kt`: its Task-5 interface remains the deep boundary with only
+`executeKick(...)` and `close()`. In particular, do not add list/runbook orchestration, defaulted
+overloads, session inspection, carried-state access, or diagnostics to that interface.
 
 **Interfaces:**
-- Consumes: `ExecutionSession.executeKick`, current list `PostExeHook` ordering, runbook halt/continue/contract behavior, and borrowed logging context.
-- Produces: one explicit outer session for every single/list/runbook entrypoint, independent sessions for public reentrant calls, and no internal recursion through `ReVoman.revUp`.
+- Consumes: Task 5's unchanged `ExecutionSession.executeKick`/`close`, current list
+  `PostExeHook` ordering, the exact Java-callable
+  `RunbookExeKt.executeRunbook(Runbook, Map)` compatibility descriptor, runbook
+  halt/continue/contract behavior, and borrowed logging context.
+- Produces: no-default `@JvmSynthetic` list/runbook overloads on `ReVomanRuntime`, one explicit
+  outer session for every single/list/vararg/runbook public primary call, fresh detached carry,
+  independent sessions for public reentrant calls, the preserved RunbookExe compatibility
+  adapter, and no internal recursion through `ReVoman.revUp`.
+
+The runtime interface after this task is exactly:
+
+```kotlin
+internal interface ReVomanRuntime {
+  @JvmSynthetic fun execute(kick: Kick): Rundown
+
+  @JvmSynthetic
+  fun execute(
+    kicks: List<Kick>,
+    postExeHook: PostExeHook,
+    dynamicEnvironment: Map<String, Any?>,
+  ): List<Rundown>
+
+  @JvmSynthetic
+  fun execute(
+    runbook: Runbook,
+    dynamicEnvironment: Map<String, Any?>,
+  ): RunbookRundown
+}
+```
+
+Add no list/runbook methods anywhere else in the runtime boundary and give neither overload default
+arguments. The only session-taking runbook entrypoint is a separate Kotlin-only helper:
+
+```kotlin
+@JvmSynthetic
+internal fun executeRunbook(
+  session: ExecutionSession,
+  runbook: Runbook,
+  dynamicEnvironment: Map<String, Any?>,
+): RunbookRundown
+```
+
+Keep the existing two-argument function as a compatibility adapter with the exact pre-task owner,
+name, descriptor, access, and source-callability:
+
+```text
+com/salesforce/revoman/internal/exe/RunbookExeKt
+  executeRunbook
+  (Lcom/salesforce/revoman/input/config/Runbook;Ljava/util/Map;)Lcom/salesforce/revoman/output/RunbookRundown;
+  ownerAccess=0x0031 memberAccess=0x0019 sourceCallable=true
+```
+
+That adapter delegates through `reVomanRuntime().execute(runbook, dynamicEnvironment)`. The runtime
+opens the session and invokes only the three-argument synthetic helper. Neither RunbookExe function
+imports or calls `ReVoman.revUp`, and the two functions must not recurse into one another.
 
 - [ ] **Step 1: Add end-to-end lifecycle and carry RED tests**
 
-Use `reVomanRuntime(...)` with recording `ExecutionSessionFactory`/kick-body seams for
-lifecycle counts; do not widen its synthetic factory/file-private implementation or install a global observer in the public
-singleton. Test the public reentrant call behaviorally in an isolated process, and let Task 7's opt-in weak diagnostics prove exact public-call object counts. Cover:
+Use `reVomanRuntime(recordingSessions)` and the real Task-5 session around recording children for
+exact outer-session/child/close ordering. Recording seams establish counts; they do not replace the
+real `KickRunner`/sandbox controls below. Cover all three runtime overloads:
 
-1. single execution creates one session and one kick;
-2. an empty list and empty runbook each create one session and zero kicks;
-3. a three-kick list creates one session and three sequentially closed children;
-4. a runbook creates one session and one child per configured kick;
-5. a public `ReVoman.revUp` invoked by a hook creates an independent nested session rather than joining the outer session;
-6. only the finalized environment carries; collection variables, globals, script capture, and sandbox globals do not;
-7. the carried environment wins over the next kick's dynamic value;
-8. `PostExeHook` receives a snapshot including the current rundown, and its mutation carries to the next kick;
-9. retaining an earlier callback list does not make it grow as later kicks finish; and
-10. runbook carry is captured before contract/`assertAfter`, so assertion mutations do not carry;
-11. duplicate configured kick/path occurrences still create distinct children in configured order;
-12. a throwing `PostExeHook` observes that the current child was already closed exactly once, then closes the outer session while preserving the hook failure as primary;
-13. runbook produces/`assertAfter` failures observe the already-closed child and then close the session with exact primary/suppressed ordering, while a consumes failure occurs before child creation and closes only the outer session; and
-14. the legacy mutable environment, collection variables, and globals are transferred into the returned `Rundown`, so closing `KickExecution` before the list hook must not clear or invalidate any peer scope; only the environment carries forward.
+1. single execution remains one session/one child;
+2. empty list and empty runbook each open and close one session with zero children;
+3. a three-kick list and a three-step runbook each open one session and create/execute/close three
+   distinct children sequentially, including duplicate occurrences of the same configured kick;
+4. initial dynamic environment reaches the first list kick, the carried map wins over the next
+   kick's configured dynamic value, and all non-`String` values retain their types;
+5. every callback gets a frozen list including the current rundown; retaining callback one's list
+   cannot make it grow when later kicks finish;
+6. in the list hook, force both `rundown.immutableEnv` and
+   `rundown.mutableEnv.immutableEnv`, mutate the live `mutableEnv`, and prove the next kick receives
+   the post-hook value. Mutate that older rundown again after the next kick and prove the captured
+   carry is detached and unchanged;
+7. the runbook takes `val nextEnvironment = rundown.mutableEnv.toMap()` immediately after
+   `executeKick` returns and before failure/produces/`assertAfter`; its next `consumes` check and
+   next effective kick use that exact frozen map. Force both memoized immutable snapshots before
+   the fresh copy, then mutate from `assertAfter` and prove that mutation does not carry;
+8. a throwing list hook observes its child already closed once; outer-session close still occurs,
+   the hook `Throwable` remains primary by identity, and a distinct session-close failure is
+   directly suppressed once;
+9. a runbook child/body failure, produces failure, and `assertAfter` failure each close the child
+   once and the outer session once with exact primary/suppressed identity. A consumes failure occurs
+   before child creation and still closes the zero-child session; and
+10. returned `Rundown.mutableEnv`, `collectionVariables`, and `globals` remain usable after child
+    closure and session closure.
 
-Keep the existing halt/continue, `assertAfter`, logging-bracket, and failure-legibility expectations as positive controls.
+Add the `session-isolation` real fixture. On its first pass, `a` writes an environment value, a
+collection variable, and a guest `pm.globals` value and sets a control-flow directive; the hook
+switches a carried phase value so a second execution of the same kick follows the non-directive
+path through `b`. Through `reVomanRuntime(real SandboxFactory).execute(list, ...)`, prove only the
+environment crosses the child boundary: collection variables, guest globals, and the first
+child's `StepScriptCapture` directive do not leak, while both returned peer scopes remain readable.
+This is the real `KickRunner` plus real sandbox control; recording factory tests alone are
+insufficient.
 
-- [ ] **Step 2: Prove the current recursive runbook path is RED**
+Keep existing halt/continue, contract, `assertAfter`, logging-bracket, control-flow, and
+failure-legibility tests as positive controls. Public concurrent and reentrant calls are also
+positive controls after Task 5: they already open independent default runtimes/sessions. Use
+latches and behaviorally distinct environment/scope values; do not install an observer or expect
+those tests to be RED.
+
+- [ ] **Step 2: Capture the actual missing-orchestration RED**
 
 Run:
 
 ```bash
 ./gradlew :test \
+  --tests '*ReVomanRuntimeTest' \
   --tests '*ExecutionSessionE2ETest' \
   --tests '*MultiKickEnvTypesE2ETest' \
   --tests '*RunbookExeE2ETest' \
   --tests '*RunbookLegibilityE2ETest' \
+  --tests '*RunbookExeStructureTest' \
   --rerun-tasks --no-build-cache --no-configuration-cache --console=plain
 ```
 
-Expected: lifecycle counts and reentrant isolation fail because list/runbook orchestration still enters public `revUp` per kick.
+Expected: compilation fails for the missing list/runbook `ReVomanRuntime.execute` overloads; once
+the RED tests compile against temporary signatures, multi-kick counts show one session per kick and
+the exact RunbookExe constant-pool assertion reports its current `ReVoman.revUp(Kick)` reference.
+Do not cite reentrant public calls as RED: they are the required independence positive control.
 
-- [ ] **Step 3: Route list execution without changing hook semantics**
+- [ ] **Step 3: Add the runtime overloads and make every public primary overload a direct facade**
 
-Implement the list entrypoint as one `ExecutionSession.useInternal` block using Task 2's
-Kotlin-only close helper. For each kick call:
+Implement list execution as one `sessions.open(dynamicEnvironment).useInternal` block. For each
+configured occurrence call the existing session method exactly as follows:
 
 ```kotlin
 session.executeKick(
@@ -1341,19 +1432,111 @@ session.executeKick(
 )
 ```
 
-Use the existing `PostExeHook.accept(Rundown, List<Rundown>)` signature exactly. Ordering is normative: append current, freeze accumulated list, invoke hook, then snapshot the environment. Do not retain callback snapshots in the session after the callback returns.
+Use `PostExeHook.accept(Rundown, List<Rundown>)` unchanged. Task 5's session ordering is normative:
+close child, restore its borrowed sink, append current, freeze the accumulated list, invoke the
+hook, then assign a fresh `rundown.mutableEnv.toMap()` carry. Never read either memoized
+`immutableEnv`. Do not retain callback snapshots after the callback returns. Empty lists still
+open/close the one session and return `emptyList()`.
+
+The runbook runtime overload opens one session with `emptyMap()` and passes it plus the caller's
+initial environment to the synthetic runbook helper. Empty runbooks still install/restore any real
+runbook sink, render the same empty result, and close one zero-child session.
+
+Replace every hand-written public primary body in `ReVoman` with a direct call to a freshly built
+`reVomanRuntime()`:
+
+```kotlin
+// vararg primary: do not call the public list overload
+reVomanRuntime().execute(kicks.toList(), postExeHook, dynamicEnvironment)
+
+// list primary
+reVomanRuntime().execute(kicks, postExeHook, dynamicEnvironment)
+
+// runbook primary
+reVomanRuntime().execute(runbook, dynamicEnvironment)
+
+// single primary
+reVomanRuntime().execute(kick)
+```
+
+Keep public signatures, annotations, default values, and emitted compatibility bridges unchanged.
+Only compiler-generated `@JvmOverloads` bridges may invoke another public `ReVoman.revUp`
+descriptor; no hand-written vararg/list/runbook/single primary may do so.
 
 - [ ] **Step 4: Route runbooks through the existing session**
 
-Change `executeRunbook`/its step helpers to accept the concrete internal `ExecutionSession` and never import/call public `ReVoman`. Let the session overlay the carried environment; the runbook may still override only the effective borrowed sink. Capture carry immediately after each kick, then run the existing contract and `assertAfter` checks. Preserve the current handling of halt, continue, legibility, and temporary `RunLogSink.NoOp` installation; never close a borrowed sink.
+The compatibility adapter delegates to the default runtime. Move the current orchestration body to
+the separate synthetic session-taking helper and thread that session through `executeStep` and
+`runStepBody`. Before each child, validate `consumes` against `acc.env`, then derive the kick as:
 
-Mark every new list/runbook entrypoint on `ReVomanRuntime` and `ExecutionSession` `@JvmSynthetic`;
-extend the same built-JAR negative-javac inventory rather than allowing orchestration methods to
-become Java-callable as this task adds overloads.
+```kotlin
+val effectiveKick =
+  step.kick.overrideDynamicEnvironment(step.kick.dynamicEnvironment() + acc.env).let { kick ->
+    if (runbookSink !== RunLogSink.NoOp) kick.overrideRunLogSink(runbookSink) else kick
+  }
+val rundown = session.executeKick(effectiveKick, carryForward = false)
+val nextEnvironment = rundown.mutableEnv.toMap()
+```
+
+Create `nextEnvironment` immediately after `executeKick` and before inspecting the unsuccessful
+report, checking `produces`, or invoking `assertAfter`. Store that exact detached instance in the
+next `RunbookAcc`; it is the source for both the next `consumes` check and the next effective kick.
+Never use `Rundown.immutableEnv` or `PostmanEnvironment.immutableEnv`. Runbook orchestration passes
+`carryForward = false`; it owns this pre-assertion frozen-map rule rather than adding another API to
+`ExecutionSession`.
+
+Preserve the exact sink matrix:
+
+- A real runbook sink is installed once for the whole runbook, restored on every success/failure,
+  and overrides every child kick sink so coarse and child events form one tree.
+- `RunLogSink.NoOp` is not installed at runbook scope, and each configured kick retains its own
+  sink.
+- The kick boundary still installs its effective sink even when that sink is `NoOp`; this masks an
+  ambient context during the child and restores that ambient context afterward.
+- Runbook/session/kick code borrows sinks and never calls `close()` on them.
+
+Add success and `Throwable` tests with an ambient sink, a distinct real runbook sink, distinct kick
+sinks, and `NoOp`. Assert the active sink at coarse, execute, child-close, assertion, and restored
+boundaries; nested/reentrant execution restores the outer sink; each supplied sink close count
+remains zero. Preserve halt/continue outcomes and exactly one close bracket per opened step.
 
 - [ ] **Step 5: Prove no ambient sharing or internal public recursion remains**
 
-Add a structural assertion that `RunbookExe` bytecode has no invocation/reference to `ReVoman.revUp`. Add latch-coordinated behavioral controls showing concurrent and reentrant public calls have independent carried/scope state; do not attempt to observe their internal identities through mutable global test instrumentation.
+After production first compiles, extract the configured root JAR and paste literal cumulative
+`CS2_TASK6_RAW_JVM_ADDITIONS` and `CS2_TASK6_RAW_JVM_REMOVALS` sets into
+`Cs2JvmSurfaceAdditions.kt`. These are the complete post-compile `active - frozen` and
+`frozen - active` rendered-row sets, including every new compiler-emitted owner and every changed
+RunbookExe/ReVoman/runtime row. Do not predict rows, use owner prefixes, counts, globs, or superset
+assertions. Both `ApiBaselineInventoryTest` and `JvmSurfaceVisibilityTest` must independently
+compare their complete raw deltas for exact equality with the cumulative Task-6 sets. Keep both
+frozen baseline files byte-identical and require `checkKotlinAbi` to stay green.
+
+In `RunbookExeStructureTest`, use the configured root JAR's parsed constant-pool owner/member/
+descriptor references and exact surface rows—not source `rg`, class loading, or substring scans—to
+prove:
+
+- the two-argument `RunbookExeKt.executeRunbook(Runbook, Map)` row is exactly the pre-task
+  Java-callable row quoted above;
+- no `RunbookExeKt` or emitted RunbookExe owner has a class/member/descriptor reference to
+  `com/salesforce/revoman/ReVoman`, and neither executeRunbook overload can recurse;
+- the synthetic helper has the exact session-taking descriptor and is not Java-source-callable;
+- every hand-written ReVoman primary reaches the matching `ReVomanRuntime.execute` descriptor and
+  carries no public-recursive call site; only the exact generated `@JvmOverloads` bridges may call
+  the exact public primary descriptors; and
+- the runtime runbook implementation references the session-taking helper, not the compatibility
+  adapter.
+
+Compile an external Java positive consumer that directly calls the preserved
+`RunbookExeKt.executeRunbook(Runbook, Map)` method. Compile adversarial external and same-package
+Java consumers for both new runtime overloads, the synthetic session helper, and every newly
+emitted anonymous owner; each forbidden operation/name/constructor must fail with exact
+name/access/member diagnostics, never merely wrong arity. Enumerate the post-compile emitted-owner
+set literally. Assert no new `Companion`, `INSTANCE`, static mutable/global current-runtime or
+current-session field, `ThreadLocal`, or `AutoCloseable` reference/implementation appears.
+
+Keep latch-coordinated concurrent and reentrant public behavior tests as positive controls. They
+must prove independent carried environment, collection-variable, global, capture, and sink state
+without mutable global instrumentation.
 
 - [ ] **Step 6: Verify and commit**
 
@@ -1361,24 +1544,51 @@ Run:
 
 ```bash
 ./gradlew :test \
+  --tests '*ReVomanRuntimeTest' \
   --tests '*ExecutionSessionE2ETest' \
   --tests '*MultiKickEnvTypesE2ETest' \
   --tests '*Runbook*Test' \
+  --tests '*RunbookExeStructureTest' \
   --tests '*ControlFlow*Test' \
   --tests '*Hook*Test' \
   --tests '*Ledger*Test' \
   --tests '*RunLog*Test' \
+  --tests '*ApiBaselineInventoryTest' \
   --tests '*JvmSurfaceVisibilityTest' \
+  compileApiCompatibilityTestKotlin \
+  compileApiCompatibilityTestJava \
   checkKotlinAbi spotlessCheck \
   --rerun-tasks --no-build-cache --no-configuration-cache --console=plain
 git diff --check
 ```
 
-Expected: list/runbook/reentrant semantics, cleanup, ABI, and formatting pass. Commit:
+Expected: exact one-session routing, frozen carry semantics, real scope/capture isolation, sink and
+`Throwable` cleanup, RunbookExe Java compatibility, both full external compilers, literal raw JVM
+deltas, unchanged Kotlin ABI, and formatting pass. Deliberately mutation-test at least: list carry
+through either memoized snapshot, runbook carry after `assertAfter`, vararg-to-public-list
+recursion, RunbookExe-to-ReVoman recursion, installing runbook `NoOp`, failing to mask an ambient
+sink at the kick boundary, one missing raw row, one widened synthetic overload/helper, and one
+newly emitted owner omitted from the same-package javac matrix. Restore every mutation before the
+final command.
+
+Stage only the Task-6 plan, production, tests, exact gates, and fixtures:
 
 ```bash
-git add src/main/kotlin/com/salesforce/revoman \
-  src/test/kotlin/com/salesforce/revoman
+git add docs/superpowers/plans/2026-08-11-performance-cs2a-runtime-lifecycle.md \
+  src/main/kotlin/com/salesforce/revoman/ReVoman.kt \
+  src/main/kotlin/com/salesforce/revoman/internal/runtime/ReVomanRuntime.kt \
+  src/main/kotlin/com/salesforce/revoman/internal/exe/RunbookExe.kt \
+  src/test/kotlin/com/salesforce/revoman/internal/runtime/ReVomanRuntimeTest.kt \
+  src/test/kotlin/com/salesforce/revoman/internal/runtime/ExecutionSessionE2ETest.kt \
+  src/test/kotlin/com/salesforce/revoman/MultiKickEnvTypesE2ETest.kt \
+  src/test/kotlin/com/salesforce/revoman/RunbookExeE2ETest.kt \
+  src/test/kotlin/com/salesforce/revoman/RunbookLegibilityE2ETest.kt \
+  src/test/kotlin/com/salesforce/revoman/compat/RunbookExeStructureTest.kt \
+  src/test/kotlin/com/salesforce/revoman/compat/Cs2JvmSurfaceAdditions.kt \
+  src/test/kotlin/com/salesforce/revoman/compat/ApiBaselineInventoryTest.kt \
+  src/test/kotlin/com/salesforce/revoman/compat/JvmSurfaceVisibilityTest.kt \
+  src/test/resources/pm-templates/v3/session-isolation/a.request.yaml \
+  src/test/resources/pm-templates/v3/session-isolation/b.request.yaml
 git commit -m "refactor: route multi-kick execution through sessions"
 ```
 
