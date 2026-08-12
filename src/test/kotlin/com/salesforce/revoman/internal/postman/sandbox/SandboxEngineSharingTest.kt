@@ -82,4 +82,29 @@ class SandboxEngineSharingTest {
     r.error shouldBe null
     r.environment["sawGlobal"] shouldBe "undefined" // fresh Context: s1's global unseen
   }
+
+  @Test
+  fun `two real bridges share immutable engine and source without sharing globals`() {
+    val first = SandboxBridge()
+    val second = SandboxBridge()
+
+    sharedGraalEngine shouldBe sharedGraalEngine
+    SandboxResources.bootSource shouldBe SandboxResources.bootSource
+    first.boot()
+    first.dispatchExecute("one", "__bridgeLeak = 'first';", ScriptTarget.TEST, testCtx(), 5000)
+    second.boot()
+    val result =
+      second.dispatchExecute(
+        "two",
+        "pm.environment.set('sawBridgeGlobal', typeof __bridgeLeak);",
+        ScriptTarget.TEST,
+        testCtx(),
+        5000,
+      )
+    first.close()
+    second.close()
+
+    result.error shouldBe null
+    result.environment["sawBridgeGlobal"] shouldBe "undefined"
+  }
 }

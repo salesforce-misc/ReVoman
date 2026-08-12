@@ -22,6 +22,16 @@ class SandboxResourcesTest {
   }
 
   @Test
+  fun `boot source is built once from the versioned immutable resource`() {
+    val first = SandboxResources.bootSource
+    val second = SandboxResources.bootSource
+
+    first shouldBe second
+    first.name shouldContain "postman-sandbox-${SandboxResources.version}.js"
+    first.characters.length shouldBe SandboxResources.bootcode.length
+  }
+
+  @Test
   fun `bootcode has no node-vm dependencies`() {
     SandboxResources.bootcode shouldNotContain "require('vm')"
     SandboxResources.bootcode shouldNotContain "require('child_process')"

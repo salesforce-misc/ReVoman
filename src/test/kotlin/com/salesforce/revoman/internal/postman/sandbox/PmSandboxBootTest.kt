@@ -10,6 +10,7 @@ package com.salesforce.revoman.internal.postman.sandbox
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 
 class PmSandboxBootTest {
   @Test
@@ -41,5 +42,48 @@ class PmSandboxBootTest {
     result.assertions[1].passed shouldBe true
     result.assertions[2].passed shouldBe false
     result.environment["spikeKey"] shouldBe "spikeVal-2"
+  }
+
+  @Test
+  fun `boot failure after context creation closes the context once`() {
+    val failure = IllegalStateException("after-context")
+    var closeCount = 0
+    val bridge =
+      SandboxBridge()
+        .withBootHooks(
+          afterContextCreated = { throw failure },
+          closeContext = {
+            closeCount++
+            it.close(true)
+          },
+        )
+
+    assertThrows<IllegalStateException> { bridge.boot() } shouldBe failure
+    bridge.close()
+
+    closeCount shouldBe 1
+  }
+
+  @Test
+  fun `boot failure remains primary when context cleanup fails and later close is idempotent`() {
+    val failure = IllegalStateException("after-context")
+    val closeFailure = IllegalStateException("close-context")
+    var closeCount = 0
+    val bridge =
+      SandboxBridge()
+        .withBootHooks(
+          afterContextCreated = { throw failure },
+          closeContext = {
+            closeCount++
+            throw closeFailure
+          },
+        )
+
+    val thrown = assertThrows<IllegalStateException> { bridge.boot() }
+    bridge.close()
+
+    thrown shouldBe failure
+    thrown.suppressed.toList() shouldBe listOf(closeFailure)
+    closeCount shouldBe 1
   }
 }

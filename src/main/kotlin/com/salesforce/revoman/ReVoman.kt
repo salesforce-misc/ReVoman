@@ -50,6 +50,7 @@ import com.salesforce.revoman.internal.postman.sandbox.PmSandbox
 import com.salesforce.revoman.internal.postman.template.Environment.Companion.mergeEnvs
 import com.salesforce.revoman.internal.postman.template.Template
 import com.salesforce.revoman.internal.postman.template.v3.V3Loader.load
+import com.salesforce.revoman.internal.runtime.useInternal
 import com.salesforce.revoman.output.ExeType
 import com.salesforce.revoman.output.ExeType.HTTP_REQUEST
 import com.salesforce.revoman.output.ExeType.POLLING
@@ -194,7 +195,7 @@ object ReVoman {
       )
     pm.environmentName = mergedEnv.name
     val sequenceResult =
-      PmSandbox().use { sandbox ->
+      PmSandbox().useInternal { sandbox ->
         executeStepsSerially(pmStepsDeepFlattened, kick, moshiReVoman, regexReplacer, pm, sandbox)
       }
     val stepNameToReport = sequenceResult.reports

@@ -401,6 +401,7 @@ git commit -m "refactor: add execution resource ownership"
 ### Task 3: Prepare the real sandbox for kick ownership and retain the boot Source strongly
 
 **Files:**
+- Modify: `docs/superpowers/plans/2026-08-11-performance-cs2a-runtime-lifecycle.md`
 - Modify: `src/main/kotlin/com/salesforce/revoman/internal/postman/sandbox/PmSandbox.kt`
 - Modify: `src/main/kotlin/com/salesforce/revoman/internal/postman/sandbox/SandboxBridge.kt`
 - Modify: `src/main/kotlin/com/salesforce/revoman/internal/postman/sandbox/SandboxResources.kt`
@@ -410,6 +411,8 @@ git commit -m "refactor: add execution resource ownership"
 - Modify: `src/test/kotlin/com/salesforce/revoman/internal/postman/sandbox/PmSandboxBootTest.kt`
 - Modify: `src/test/kotlin/com/salesforce/revoman/internal/postman/sandbox/SandboxEngineSharingTest.kt`
 - Modify: `src/test/kotlin/com/salesforce/revoman/internal/postman/sandbox/SandboxResourcesTest.kt`
+- Modify: `src/test/kotlin/com/salesforce/revoman/compat/Cs2JvmSurfaceAdditions.kt`
+- Modify: `src/test/kotlin/com/salesforce/revoman/compat/ApiBaselineInventoryTest.kt`
 - Modify: `src/test/kotlin/com/salesforce/revoman/compat/JvmSurfaceVisibilityTest.kt`
 
 **Interfaces:**
@@ -452,7 +455,8 @@ Expected: missing `KickExecution`/`bootSource` contracts and identity assertions
 In `SandboxResources` add:
 
 ```kotlin
-val bootSource: Source by lazy {
+@get:JvmSynthetic
+internal val bootSource: Source by lazy {
   Source.newBuilder("js", bootcode, "postman-sandbox-$version.js").build()
 }
 ```
@@ -487,24 +491,36 @@ internal interface KickExecution : InternalCloseable {
 internal fun kickExecution(
   sandboxFactory: SandboxFactory = DEFAULT_SANDBOX_FACTORY,
 ): KickExecution
-
-private class DefaultKickExecution(
-  private val sandboxFactory: SandboxFactory,
-) : KickExecution
 ```
 
-`scripts` is a lightweight delegating function object. Create and register the real sandbox only when `scripts.execute(...)` is invoked, never when `scripts` is read or passed into `PmJsEval`. Register a newly created sandbox in `ResourceScope` immediately. Task 4 adds the phase-level blank-script invocation test; Task 5 adds the first full public no-script orchestration test when it routes the body through this owner. Task 3 pins the lower-level lazy boundary. Do not add input, codec, progress, journal, polling, or logging ownership yet; later tasks extend this interface/private implementation pair only with real CS2a state. Extend the built-JAR gate so javac cannot construct `KickExecution`, read its properties, call `close`, invoke `ScriptExecutor`, or create either sandbox port; classfile inspection proves the exact file-private/synthetic shape and the absence of companion/singleton fields.
+`scripts` is a lightweight delegating function object. Create and register the real sandbox only when `scripts.execute(...)` is invoked, never when `scripts` is read or passed into `PmJsEval`. Register a newly created sandbox in `ResourceScope` immediately. Task 4 adds the phase-level blank-script invocation test; Task 5 adds the first full public no-script orchestration test when it routes the body through this owner. Task 3 pins the lower-level lazy boundary. Do not add input, codec, progress, journal, polling, or logging ownership yet; later tasks extend this interface/function-local implementation pair only with real CS2a state. Extend the built-JAR gate so javac cannot construct `KickExecution`, read its properties, call `close`, invoke `ScriptExecutor`, or create either sandbox port; classfile inspection proves the exact function-local/synthetic shape and the absence of companion/singleton fields.
+
+Return a function-local anonymous `KickExecution` implementation from the synthetic factory, and
+use a function-local anonymous `ScriptExecutor` delegate. Do not introduce a top-level Kotlin
+`private` implementation: Task 2 proved that it becomes package-private JVM bytecode that
+same-package Java can construct and operate. Extend the same-package javac adversary to target the
+compiler-emitted implementation binary names. Append every Task 3 class/member row to the shared
+cumulative exact raw-JAR addition allowlist consumed by both compatibility tests. Moving the sole
+default argument to `ScriptExecutor` necessarily removes the old synthetic, non-source-callable
+`PmSandbox.execute$default` row. Retain `PmSandbox`'s existing private companion and
+`DEFAULT_TIMEOUT_MS` field byte-for-byte, declare the no-default override `final`, and record that
+one exact old bridge row in a shared cumulative raw-JAR removal allowlist. Both compatibility tests
+must require `frozen - active` to equal exactly that set and `active - frozen` to equal exactly the
+Task 2-3 addition set; supported Kotlin/Java operational additions and removals remain empty. Do not
+add a migration-ledger row: this compiler bridge is synthetic/non-source-callable and outside the
+supported-API removal projection.
 
 - [ ] **Step 5: Verify and commit**
 
 Run:
 
 ```bash
-./gradlew :test \
+./gradlew checkKotlinAbi :test \
   --tests '*KickExecutionTest' \
   --tests '*PmSandbox*Test' \
   --tests '*SandboxEngineSharingTest' \
   --tests '*SandboxResourcesTest' \
+  --tests '*ApiBaselineInventoryTest' \
   --tests '*JvmSurfaceVisibilityTest' \
   spotlessCheck --rerun-tasks --no-build-cache --no-configuration-cache --console=plain
 git diff --check
@@ -518,7 +534,10 @@ git add src/main/kotlin/com/salesforce/revoman/internal/postman/sandbox \
   src/main/kotlin/com/salesforce/revoman/internal/runtime/KickExecution.kt \
   src/test/kotlin/com/salesforce/revoman/internal/postman/sandbox \
   src/test/kotlin/com/salesforce/revoman/internal/runtime/KickExecutionTest.kt \
-  src/test/kotlin/com/salesforce/revoman/compat/JvmSurfaceVisibilityTest.kt
+  src/test/kotlin/com/salesforce/revoman/compat/Cs2JvmSurfaceAdditions.kt \
+  src/test/kotlin/com/salesforce/revoman/compat/ApiBaselineInventoryTest.kt \
+  src/test/kotlin/com/salesforce/revoman/compat/JvmSurfaceVisibilityTest.kt \
+  docs/superpowers/plans/2026-08-11-performance-cs2a-runtime-lifecycle.md
 git commit -m "perf: retain sandbox boot source per process"
 ```
 

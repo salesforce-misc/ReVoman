@@ -108,20 +108,32 @@ class JvmSurfaceVisibilityTest {
   }
 
   @Test
-  fun `Task 2 runtime additions have the exact raw surface and synthetic call boundary`() {
+  fun `Task 3 runtime additions and approved bridge removal have the exact raw surface`() {
     val entries = JvmSurfaceInventory.readJar(configuredRootJar())
     val frozen = JvmSurfaceInventory.parse(Files.readString(FROZEN_JVM_ABI))
     val frozenRows = frozen.asSequence().map(JvmSurfaceEntry::render).toSet()
     val additions = entries.filter { it.render() !in frozenRows }
+    val activeRows = entries.asSequence().map(JvmSurfaceEntry::render).toSet()
+    val removals = frozen.filter { it.render() !in activeRows }
 
     assertThat(additions.map(JvmSurfaceEntry::render))
-      .containsExactlyElementsIn(CS2_TASK2_RAW_JVM_ADDITIONS)
+      .containsExactlyElementsIn(CS2_TASK3_RAW_JVM_ADDITIONS)
+    assertThat(removals.map(JvmSurfaceEntry::render))
+      .containsExactlyElementsIn(CS2_TASK3_RAW_JVM_REMOVALS)
+    assertThat(removals.single().memberSynthetic).isTrue()
+    assertThat(removals.single().sourceCallable).isFalse()
     val addedClasses = additions.filter { it.kind == JvmSurfaceKind.CLASS }
     assertThat(addedClasses.map(JvmSurfaceEntry::owner))
-      .containsExactlyElementsIn(TASK2_RUNTIME_OWNERS)
-    assertThat(addedClasses.filter(JvmSurfaceEntry::sourceCallable)).hasSize(9)
+      .containsExactlyElementsIn(TASK3_RUNTIME_OWNERS)
+    assertThat(addedClasses.filter(JvmSurfaceEntry::sourceCallable)).hasSize(11)
     assertThat(addedClasses.filterNot(JvmSurfaceEntry::sourceCallable).map(JvmSurfaceEntry::owner))
-      .containsExactly(RESOURCE_SCOPE_IMPLEMENTATION)
+      .containsExactlyElementsIn(
+        setOf(
+          RESOURCE_SCOPE_IMPLEMENTATION,
+          KICK_EXECUTION_IMPLEMENTATION,
+          KICK_EXECUTOR_IMPLEMENTATION,
+        )
+      )
     assertThat(additions.map(JvmSurfaceEntry::owner)).doesNotContain("${RUNTIME_PACKAGE}Companion")
     assertThat(additions.filter { it.kind == JvmSurfaceKind.FIELD }.map(JvmSurfaceEntry::name))
       .doesNotContain("INSTANCE")
@@ -134,24 +146,44 @@ class JvmSurfaceVisibilityTest {
       .isTrue()
     assertThat(
         additions
-          .filter { it.owner in KOTLIN_ONLY_FACADE_OWNERS && it.kind == JvmSurfaceKind.METHOD }
+          .filter {
+            it.owner in KOTLIN_ONLY_FACADE_OWNERS && it.kind == JvmSurfaceKind.METHOD
+          }
+          .all { !it.sourceCallable }
+      )
+      .isTrue()
+    assertThat(
+        additions
+          .filter {
+            it.owner == "${RUNTIME_PACKAGE}KickExecutionKt" &&
+              it.kind == JvmSurfaceKind.METHOD &&
+              it.name in setOf("kickExecution", "kickExecution\$default")
+          }
           .all { it.memberSynthetic && !it.sourceCallable }
       )
       .isTrue()
 
-    val implementationRows = additions.filter { it.owner == RESOURCE_SCOPE_IMPLEMENTATION }
-    assertThat(implementationRows).isNotEmpty()
-    assertThat(implementationRows.all { !it.sourceCallable }).isTrue()
-    assertThat(implementationRows.single { it.kind == JvmSurfaceKind.CLASS }.sourceCallable)
-      .isFalse()
-    assertThat(
-        implementationRows.single { it.kind == JvmSurfaceKind.CONSTRUCTOR }.memberAccess and 0x0005
+    setOf(
+        RESOURCE_SCOPE_IMPLEMENTATION,
+        KICK_EXECUTION_IMPLEMENTATION,
+        KICK_EXECUTOR_IMPLEMENTATION,
       )
-      .isEqualTo(0)
+      .forEach { implementation ->
+        val implementationRows = additions.filter { it.owner == implementation }
+        assertThat(implementationRows).isNotEmpty()
+        assertThat(implementationRows.all { !it.sourceCallable }).isTrue()
+        assertThat(implementationRows.single { it.kind == JvmSurfaceKind.CLASS }.sourceCallable)
+          .isFalse()
+        assertThat(
+            implementationRows.single { it.kind == JvmSurfaceKind.CONSTRUCTOR }.memberAccess and
+              0x0005
+          )
+          .isEqualTo(0)
+      }
   }
 
   @Test
-  fun `external Java source can name Task 2 boundary types`() {
+  fun `external Java source can name Task 3 boundary types`() {
     val result =
       compileJava(
         "RuntimeTypeReferenceConsumer",
@@ -164,6 +196,7 @@ class JvmSurfaceVisibilityTest {
           ScriptExecutor executor;
           SandboxRuntime runtime;
           SandboxFactory factory;
+          KickExecution kickExecution;
         }
         """
           .trimIndent(),
@@ -173,9 +206,24 @@ class JvmSurfaceVisibilityTest {
   }
 
   @Test
-  fun `external Java source cannot operate Task 2 runtime boundaries`() {
+  fun `external Java source cannot operate Task 3 runtime boundaries`() {
     val attempts =
       listOf(
+        JavaBoundaryAttempt(
+          "KickExecutionConsumer",
+          "static ScriptExecutor access(KickExecution value) { value.getScripts(); return value.getScripts(); }",
+          CANNOT_RESOLVE_MEMBER_CODES,
+        ),
+        JavaBoundaryAttempt(
+          "KickExecutionCloseConsumer",
+          "static void access(KickExecution value) { value.close(); }",
+          CANNOT_RESOLVE_MEMBER_CODES,
+        ),
+        JavaBoundaryAttempt(
+          "KickExecutionFactoryConsumer",
+          "static KickExecution access() { return KickExecutionKt.kickExecution(null); }",
+          CANNOT_RESOLVE_MEMBER_CODES,
+        ),
         JavaBoundaryAttempt(
           "InternalCloseableConsumer",
           "static void access(InternalCloseable value) { value.close(); }",
@@ -260,12 +308,14 @@ class JvmSurfaceVisibilityTest {
   }
 
   @Test
-  fun `same-package external Java cannot construct or operate the resource scope implementation`() {
+  fun `same-package external Java cannot construct or operate function-local implementations`() {
     val attempts =
       mapOf(
         "SamePackageNamedScopeConsumer" to "DefaultResourceScope",
         "SamePackageAnonymousScopeConsumer" to
           RESOURCE_SCOPE_IMPLEMENTATION.substringAfterLast('/'),
+        "SamePackageKickExecutionConsumer" to KICK_EXECUTION_IMPLEMENTATION.substringAfterLast('/'),
+        "SamePackageKickExecutorConsumer" to KICK_EXECUTOR_IMPLEMENTATION.substringAfterLast('/'),
       )
 
     attempts.forEach { (className, implementationName) ->
@@ -294,7 +344,7 @@ class JvmSurfaceVisibilityTest {
           result.diagnostics
             .filter { it.kind == Diagnostic.Kind.ERROR }
             .map(JavaDiagnostic::code)
-            .any { it in CANNOT_RESOLVE_MEMBER_CODES }
+            .any { it in CANNOT_RESOLVE_MEMBER_CODES + CANNOT_ACCESS_CODES }
         )
         .isTrue()
     }
@@ -437,10 +487,13 @@ class JvmSurfaceVisibilityTest {
     val FROZEN_JVM_ABI: Path = Path.of("api/cs2-baseline-revoman-root.jvm.tsv")
     val CANNOT_RESOLVE_MEMBER_CODES =
       setOf("compiler.err.cant.resolve.location", "compiler.err.cant.resolve.location.args")
+    val CANNOT_ACCESS_CODES = setOf("compiler.err.cant.access")
     const val POSTMAN_SDK = "com/salesforce/revoman/internal/postman/PostmanSDK"
     const val REGEX_REPLACER = "com/salesforce/revoman/internal/postman/RegexReplacer"
     const val RUNTIME_PACKAGE = "com/salesforce/revoman/internal/runtime/"
     const val RESOURCE_SCOPE_IMPLEMENTATION = "${RUNTIME_PACKAGE}ResourceScopeKt\$resourceScope\$1"
+    const val KICK_EXECUTION_IMPLEMENTATION = "${RUNTIME_PACKAGE}KickExecutionKt\$kickExecution\$1"
+    const val KICK_EXECUTOR_IMPLEMENTATION = "${KICK_EXECUTION_IMPLEMENTATION}\$executor\$1"
     val KOTLIN_ONLY_INTERFACE_OWNERS =
       setOf(
         "${RUNTIME_PACKAGE}InternalCloseable",
@@ -448,14 +501,21 @@ class JvmSurfaceVisibilityTest {
         "${RUNTIME_PACKAGE}ScriptExecutor",
         "${RUNTIME_PACKAGE}SandboxRuntime",
         "${RUNTIME_PACKAGE}SandboxFactory",
+        "${RUNTIME_PACKAGE}KickExecution",
       )
     val KOTLIN_ONLY_FACADE_OWNERS =
-      setOf("${RUNTIME_PACKAGE}InternalCloseableKt", "${RUNTIME_PACKAGE}ResourceScopeKt")
-    val TASK2_RUNTIME_OWNERS =
+      setOf(
+        "${RUNTIME_PACKAGE}InternalCloseableKt",
+        "${RUNTIME_PACKAGE}ResourceScopeKt",
+        "${RUNTIME_PACKAGE}KickExecutionKt",
+      )
+    val TASK3_RUNTIME_OWNERS =
       KOTLIN_ONLY_INTERFACE_OWNERS +
         KOTLIN_ONLY_FACADE_OWNERS +
         setOf(
           RESOURCE_SCOPE_IMPLEMENTATION,
+          KICK_EXECUTION_IMPLEMENTATION,
+          KICK_EXECUTOR_IMPLEMENTATION,
           "${RUNTIME_PACKAGE}SandboxRuntimeKt",
           "${RUNTIME_PACKAGE}ScriptExecutor\$DefaultImpls",
         )

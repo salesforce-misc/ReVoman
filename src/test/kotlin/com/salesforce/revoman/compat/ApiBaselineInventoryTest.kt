@@ -104,8 +104,8 @@ class ApiBaselineInventoryTest {
     val active = JvmSurfaceInventory.readJar(configuredRootJar())
     val activeRows = active.asSequence().map(JvmSurfaceEntry::render).toSet()
     val frozenRows = frozen.asSequence().map(JvmSurfaceEntry::render).toSet()
-    assertThat(frozenRows - activeRows).isEmpty()
-    assertThat(activeRows - frozenRows).containsExactlyElementsIn(CS2_TASK2_RAW_JVM_ADDITIONS)
+    assertThat(frozenRows - activeRows).containsExactlyElementsIn(CS2_TASK3_RAW_JVM_REMOVALS)
+    assertThat(activeRows - frozenRows).containsExactlyElementsIn(CS2_TASK3_RAW_JVM_ADDITIONS)
   }
 
   @Test
@@ -180,9 +180,10 @@ class ApiBaselineInventoryTest {
     assertThat(supportedJavaAdditions).isEmpty()
     val activeJvmRows = activeJvm.asSequence().map(JvmSurfaceEntry::render).toSet()
     val baselineJvmRows = baselineJvm.asSequence().map(JvmSurfaceEntry::render).toSet()
-    assertThat(baselineJvmRows - activeJvmRows).isEmpty()
+    assertThat(baselineJvmRows - activeJvmRows)
+      .containsExactlyElementsIn(CS2_TASK3_RAW_JVM_REMOVALS)
     assertThat(activeJvmRows - baselineJvmRows)
-      .containsExactlyElementsIn(CS2_TASK2_RAW_JVM_ADDITIONS)
+      .containsExactlyElementsIn(CS2_TASK3_RAW_JVM_ADDITIONS)
   }
 
   private fun assertCurrentNonAbiCoverage(rows: List<MigrationRow>, spec: String) {
