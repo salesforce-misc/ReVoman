@@ -972,7 +972,7 @@ git commit -m "perf: remove legacy JavaScript evaluator"
 - Produces: a testable internal facade runtime, one outer session, one kick child, and a slim
   public `ReVoman` API object.
 
-- [ ] **Step 1: Write lifecycle-count, carry, and failure tests before moving code**
+- [x] **Step 1: Write lifecycle-count, carry, and failure tests before moving code**
 
 Define small internal factory boundaries that compose from the leaf dependency without mutating
 global state:
@@ -1044,7 +1044,7 @@ cross the real runtime, real session, real child, function-local production runn
 `PmJsEval` path. Recording decorators may count session/child creation, but these two tests must not
 replace `KickBody` with a fake.
 
-- [ ] **Step 2: Capture the missing-boundary RED**
+- [x] **Step 2: Capture the missing-boundary RED**
 
 ```bash
 ./gradlew :test \
@@ -1058,7 +1058,7 @@ Expected: absent session/runtime APIs and lifecycle ownership fail the new asser
 list/runbook public recursion is an intentional Task-5 positive control, not this RED; Task 6
 removes it.
 
-- [ ] **Step 3: Implement the session's narrow state machine**
+- [x] **Step 3: Implement the session's narrow state machine**
 
 Use these concrete child seams rather than an open session class:
 
@@ -1187,7 +1187,7 @@ remain valid after both child and session close. Only `mutableEnv` participates 
 carry. Add after-close assertions for all three peer scopes. Empty list/runbook ownership is Task 6,
 not Task 5.
 
-- [ ] **Step 4: Move the existing kick body intact**
+- [x] **Step 4: Move the existing kick body intact**
 
 Move `revUpInternal`, lexical `SequenceResult`, the sequencer, and `runStep` helpers from
 `ReVoman.kt` into the function-local production runner in `KickRunner.kt`. Move the sole operational
@@ -1202,7 +1202,7 @@ equivalent. This is a move-and-delegate step: do not combine CS2b/CS3/CS4 optimi
 
 Keep `Banner.onRunStart()`, `Banner.recordSteps()`, per-kick borrowed sink installation/restoration, and no-op sink nuance at the kick boundary. The session never closes a borrowed sink.
 
-- [ ] **Step 5: Make ReVoman a facade over ReVomanRuntime**
+- [x] **Step 5: Make ReVoman a facade over ReVomanRuntime**
 
 Move only `revUp(Kick)` in this task and use `carryForward = false`, proving that the single path
 does not touch or materialize an environment carry snapshot. Leave
@@ -1232,7 +1232,7 @@ Kotlin baselines byte-for-byte, reject every source-callable operational additio
 the approved CS2a migration projection, and assert `checkKotlinAbi` remains unchanged. Record only
 compiler-extracted Task-5 rows—no speculative Task-6 or Task-7 descriptors.
 
-- [ ] **Step 6: Verify the focused refactor and commit**
+- [x] **Step 6: Verify the focused refactor and commit**
 
 Run:
 

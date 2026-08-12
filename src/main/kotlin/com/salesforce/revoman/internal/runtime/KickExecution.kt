@@ -7,26 +7,54 @@
  */
 package com.salesforce.revoman.internal.runtime
 
+import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.internal.postman.sandbox.PmExecutionContext
 import com.salesforce.revoman.internal.postman.sandbox.PmExecutionResult
-import com.salesforce.revoman.internal.postman.sandbox.PmSandbox
 import com.salesforce.revoman.internal.postman.sandbox.ScriptTarget
+import com.salesforce.revoman.output.Rundown
+
+internal fun interface KickExecutionFactory {
+  /**
+   * Creates a fully initialized but resource-lazy child transactionally. Ownership transfers only
+   * after this method returns; any closeable opened before return remains the factory's rollback
+   * responsibility.
+   */
+  @JvmSynthetic
+  fun create(
+    configuredKick: Kick,
+    effectiveDynamicEnvironment: Map<String, Any?>,
+  ): KickExecution
+}
+
+internal fun interface KickBody {
+  @JvmSynthetic fun execute(owner: KickExecution): Rundown
+}
 
 internal interface KickExecution : InternalCloseable {
+  @get:JvmSynthetic val configuredKick: Kick
+
+  @get:JvmSynthetic val effectiveDynamicEnvironment: Map<String, Any?>
+
   @get:JvmSynthetic val scripts: ScriptExecutor
 
   @get:JvmSynthetic val sandboxInitialized: Boolean
+
+  @JvmSynthetic fun execute(): Rundown
 
   @JvmSynthetic override fun close()
 }
 
 @JvmSynthetic
 internal fun kickExecution(
-  sandboxFactory: SandboxFactory = DEFAULT_SANDBOX_FACTORY
+  configuredKick: Kick,
+  effectiveDynamicEnvironment: Map<String, Any?>,
+  body: KickBody,
+  sandboxFactory: SandboxFactory,
 ): KickExecution {
   val scope = resourceScope()
   return object : KickExecution {
     private var closed = false
+    private var executed = false
     private var sandbox: SandboxRuntime? = null
     private val executor =
       object : ScriptExecutor {
@@ -42,11 +70,22 @@ internal fun kickExecution(
         }
       }
 
+    override val configuredKick: Kick = configuredKick
+
+    override val effectiveDynamicEnvironment: Map<String, Any?> = effectiveDynamicEnvironment
+
     override val scripts: ScriptExecutor
       get() = executor
 
     override val sandboxInitialized: Boolean
       get() = sandbox != null
+
+    override fun execute(): Rundown {
+      check(!closed) { "KickExecution is already closed" }
+      check(!executed) { "KickExecution has already executed" }
+      executed = true
+      return body.execute(this)
+    }
 
     override fun close() {
       if (closed) return
@@ -55,5 +94,3 @@ internal fun kickExecution(
     }
   }
 }
-
-private val DEFAULT_SANDBOX_FACTORY = SandboxFactory { PmSandbox() }

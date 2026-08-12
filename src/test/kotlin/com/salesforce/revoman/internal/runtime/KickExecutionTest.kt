@@ -8,10 +8,13 @@
 package com.salesforce.revoman.internal.runtime
 
 import com.google.common.truth.Truth.assertThat
+import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.internal.postman.sandbox.PmExecutionContext
 import com.salesforce.revoman.internal.postman.sandbox.PmExecutionResult
 import com.salesforce.revoman.internal.postman.sandbox.PmScope
 import com.salesforce.revoman.internal.postman.sandbox.ScriptTarget
+import com.salesforce.revoman.output.Rundown
+import com.salesforce.revoman.output.postman.PostmanEnvironment
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 
@@ -27,9 +30,33 @@ class KickExecutionTest {
     )
 
   @Test
+  fun `execution owns configured kick effective environment and one-shot body`() {
+    val kick = Kick.configure().off()
+    val rundown = rundown(mutableMapOf("result" to "ok"))
+    var executions = 0
+    val execution =
+      kickExecution(
+        configuredKick = kick,
+        effectiveDynamicEnvironment = mapOf("configured" to "carried"),
+        body =
+          KickBody {
+            executions++
+            rundown
+          },
+        sandboxFactory = CountingSandboxFactory(result),
+      )
+
+    assertThat(execution.configuredKick).isSameInstanceAs(kick)
+    assertThat(execution.effectiveDynamicEnvironment).containsExactly("configured", "carried")
+    assertThat(execution.execute()).isSameInstanceAs(rundown)
+    assertThrows<IllegalStateException> { execution.execute() }
+    assertThat(executions).isEqualTo(1)
+  }
+
+  @Test
   fun `construction and reading scripts do not create a sandbox`() {
     val factory = CountingSandboxFactory(result)
-    val execution = kickExecution(factory)
+    val execution = newExecution(factory)
 
     val executor: ScriptExecutor = execution.scripts
 
@@ -41,7 +68,7 @@ class KickExecutionTest {
   @Test
   fun `passing scripts without invoking it does not create a sandbox`() {
     val factory = CountingSandboxFactory(result)
-    val execution = kickExecution(factory)
+    val execution = newExecution(factory)
 
     consume(execution.scripts)
 
@@ -51,7 +78,7 @@ class KickExecutionTest {
   @Test
   fun `first script invocation creates one sandbox reused by later phases`() {
     val factory = CountingSandboxFactory(result)
-    val execution = kickExecution(factory)
+    val execution = newExecution(factory)
 
     execution.scripts.execute("pre", ScriptTarget.PRE_REQUEST, context)
     execution.scripts.execute("test", ScriptTarget.TEST, context)
@@ -69,8 +96,8 @@ class KickExecutionTest {
   @Test
   fun `separate kick executions own separate sandboxes`() {
     val factory = CountingSandboxFactory(result)
-    val first = kickExecution(factory)
-    val second = kickExecution(factory)
+    val first = newExecution(factory)
+    val second = newExecution(factory)
 
     first.scripts.execute("one", ScriptTarget.TEST, context)
     second.scripts.execute("two", ScriptTarget.TEST, context)
@@ -82,7 +109,7 @@ class KickExecutionTest {
   @Test
   fun `closing before first script access does not create a sandbox`() {
     val factory = CountingSandboxFactory(result)
-    val execution = kickExecution(factory)
+    val execution = newExecution(factory)
 
     execution.close()
 
@@ -93,7 +120,7 @@ class KickExecutionTest {
   @Test
   fun `closing after script access closes the sandbox once`() {
     val factory = CountingSandboxFactory(result)
-    val execution = kickExecution(factory)
+    val execution = newExecution(factory)
     execution.scripts.execute("test", ScriptTarget.TEST, context)
 
     execution.close()
@@ -105,7 +132,7 @@ class KickExecutionTest {
   @Test
   fun `script invocation after close fails without creating a sandbox`() {
     val factory = CountingSandboxFactory(result)
-    val execution = kickExecution(factory)
+    val execution = newExecution(factory)
     val executor = execution.scripts
     execution.close()
 
@@ -119,7 +146,7 @@ class KickExecutionTest {
   @Test
   fun `script invocation after initialized execution closes fails without reopening`() {
     val factory = CountingSandboxFactory(result)
-    val execution = kickExecution(factory)
+    val execution = newExecution(factory)
     execution.scripts.execute("first", ScriptTarget.TEST, context)
     execution.close()
 
@@ -132,6 +159,14 @@ class KickExecutionTest {
   }
 
   private fun consume(@Suppress("UNUSED_PARAMETER") executor: ScriptExecutor) = Unit
+
+  private fun newExecution(factory: SandboxFactory): KickExecution =
+    kickExecution(
+      configuredKick = Kick.configure().off(),
+      effectiveDynamicEnvironment = emptyMap(),
+      body = KickBody { rundown(mutableMapOf()) },
+      sandboxFactory = factory,
+    )
 
   private class CountingSandboxFactory(private val result: PmExecutionResult) : SandboxFactory {
     var createCount: Int = 0
@@ -172,4 +207,11 @@ class KickExecutionTest {
     val context: PmExecutionContext,
     val timeoutMs: Long,
   )
+
+  private fun rundown(environment: MutableMap<String, Any?>): Rundown =
+    Rundown(
+      mutableEnv = PostmanEnvironment(environment),
+      haltOnFailureOfTypeExcept = emptyMap(),
+      providedStepsToExecuteCount = 0,
+    )
 }

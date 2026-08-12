@@ -131,7 +131,7 @@ class LegacyEvaluatorRemovalTest {
         .mapTo(linkedSetOf()) { it.owner }
     assertThat(referenceOwners)
       .containsExactlyElementsIn(
-        POSTMAN_SDK_DECLARATION_OWNERS + REVOMAN_POSTMAN_SDK_REFERENCE_OWNERS
+        POSTMAN_SDK_DECLARATION_OWNERS + RUNNER_POSTMAN_SDK_REFERENCE_OWNERS
       )
   }
 
@@ -150,6 +150,9 @@ class LegacyEvaluatorRemovalTest {
     const val KICK = "com/salesforce/revoman/input/config/Kick"
     const val KICK_BUILDER = "com/salesforce/revoman/input/config/Kick\$Builder"
     const val REVOMAN = "com/salesforce/revoman/ReVoman"
+    const val RUNNER_OWNER =
+      "com/salesforce/revoman/internal/runtime/KickRunnerKt\$kickExecutionFactory\$body\$1"
+    const val RUNNER = "${RUNNER_OWNER}\$execute"
     const val SANDBOX_BRIDGE = "com/salesforce/revoman/internal/postman/sandbox/SandboxBridge"
     const val GRAAL_CONTEXT = "org/graalvm/polyglot/Context"
     const val CONTEXT_NEW_BUILDER_DESCRIPTOR =
@@ -163,45 +166,45 @@ class LegacyEvaluatorRemovalTest {
       )
     val POSTMAN_SDK_DECLARATION_OWNERS =
       setOf(POSTMAN_SDK, POSTMAN_SDK_IMPLEMENTATION, POSTMAN_SDK_FACADE)
-    val REVOMAN_POSTMAN_SDK_REFERENCE_OWNERS =
+    val RUNNER_POSTMAN_SDK_REFERENCE_OWNERS =
       setOf(
-        REVOMAN,
-        "${REVOMAN}\$executeStepsSerially\$\$inlined\$info\$1",
-        "${REVOMAN}\$executeStepsSerially\$\$inlined\$info\$2",
-        "${REVOMAN}\$executeStepsSerially\$\$inlined\$info\$3",
-        "${REVOMAN}\$executeStepsSerially\$\$inlined\$info\$4",
-        "${REVOMAN}\$executeStepsSerially\$\$inlined\$info\$5",
-        "${REVOMAN}\$executeStepsSerially\$\$inlined\$info\$6",
-        "${REVOMAN}\$executeStepsSerially\$\$inlined\$info\$7",
-        "${REVOMAN}\$executeStepsSerially\$\$inlined\$info\$8",
-        "${REVOMAN}\$executeStepsSerially\$\$inlined\$warn\$1",
-        "${REVOMAN}\$executeStepsSerially\$\$inlined\$warn\$2",
-        "${REVOMAN}\$executeStepsSerially\$\$inlined\$warn\$3",
-        "${REVOMAN}\$executeStepsSerially\$\$inlined\$warn\$4",
-        "${REVOMAN}\$executeStepsSerially\$\$inlined\$warn\$5",
-        "${REVOMAN}\$executeStepsSerially\$\$inlined\$warn\$6",
-        "${REVOMAN}\$executeStepsSerially\$\$inlined\$warn\$7",
-        "${REVOMAN}\$executeStepsSerially\$\$inlined\$warn\$8",
-        "${REVOMAN}\$runStep\$\$inlined\$info\$1",
-        "${REVOMAN}\$runStep\$\$inlined\$info\$10",
-        "${REVOMAN}\$runStep\$\$inlined\$info\$11",
-        "${REVOMAN}\$runStep\$\$inlined\$info\$12",
-        "${REVOMAN}\$runStep\$\$inlined\$info\$2",
-        "${REVOMAN}\$runStep\$\$inlined\$info\$3",
-        "${REVOMAN}\$runStep\$\$inlined\$info\$4",
-        "${REVOMAN}\$runStep\$\$inlined\$info\$5",
-        "${REVOMAN}\$runStep\$\$inlined\$info\$6",
-        "${REVOMAN}\$runStep\$\$inlined\$info\$7",
-        "${REVOMAN}\$runStep\$\$inlined\$info\$8",
-        "${REVOMAN}\$runStep\$\$inlined\$info\$9",
-        "${REVOMAN}\$runStep\$\$inlined\$warn\$1",
-        "${REVOMAN}\$runStep\$\$inlined\$warn\$2",
-        "${REVOMAN}\$runStep\$\$inlined\$warn\$3",
-        "${REVOMAN}\$runStep\$\$inlined\$warn\$4",
-        "${REVOMAN}\$runStep\$lambda\$1\$\$inlined\$warn\$1",
-        "${REVOMAN}\$runStep\$lambda\$1\$\$inlined\$warn\$2",
-        "${REVOMAN}\$runStep\$lambda\$1\$\$inlined\$warn\$3",
-        "${REVOMAN}\$runStep\$lambda\$1\$\$inlined\$warn\$4",
+        RUNNER_OWNER,
+        "${RUNNER}\$executeStepsSerially\$\$inlined\$info\$1",
+        "${RUNNER}\$executeStepsSerially\$\$inlined\$info\$2",
+        "${RUNNER}\$executeStepsSerially\$\$inlined\$info\$3",
+        "${RUNNER}\$executeStepsSerially\$\$inlined\$info\$4",
+        "${RUNNER}\$executeStepsSerially\$\$inlined\$info\$5",
+        "${RUNNER}\$executeStepsSerially\$\$inlined\$info\$6",
+        "${RUNNER}\$executeStepsSerially\$\$inlined\$info\$7",
+        "${RUNNER}\$executeStepsSerially\$\$inlined\$info\$8",
+        "${RUNNER}\$executeStepsSerially\$\$inlined\$warn\$1",
+        "${RUNNER}\$executeStepsSerially\$\$inlined\$warn\$2",
+        "${RUNNER}\$executeStepsSerially\$\$inlined\$warn\$3",
+        "${RUNNER}\$executeStepsSerially\$\$inlined\$warn\$4",
+        "${RUNNER}\$executeStepsSerially\$\$inlined\$warn\$5",
+        "${RUNNER}\$executeStepsSerially\$\$inlined\$warn\$6",
+        "${RUNNER}\$executeStepsSerially\$\$inlined\$warn\$7",
+        "${RUNNER}\$executeStepsSerially\$\$inlined\$warn\$8",
+        "${RUNNER}\$runStep\$\$inlined\$info\$1",
+        "${RUNNER}\$runStep\$\$inlined\$info\$10",
+        "${RUNNER}\$runStep\$\$inlined\$info\$11",
+        "${RUNNER}\$runStep\$\$inlined\$info\$12",
+        "${RUNNER}\$runStep\$\$inlined\$info\$2",
+        "${RUNNER}\$runStep\$\$inlined\$info\$3",
+        "${RUNNER}\$runStep\$\$inlined\$info\$4",
+        "${RUNNER}\$runStep\$\$inlined\$info\$5",
+        "${RUNNER}\$runStep\$\$inlined\$info\$6",
+        "${RUNNER}\$runStep\$\$inlined\$info\$7",
+        "${RUNNER}\$runStep\$\$inlined\$info\$8",
+        "${RUNNER}\$runStep\$\$inlined\$info\$9",
+        "${RUNNER}\$runStep\$\$inlined\$warn\$1",
+        "${RUNNER}\$runStep\$\$inlined\$warn\$2",
+        "${RUNNER}\$runStep\$\$inlined\$warn\$3",
+        "${RUNNER}\$runStep\$\$inlined\$warn\$4",
+        "${RUNNER}\$runStep\$lambda\$5\$\$inlined\$warn\$1",
+        "${RUNNER}\$runStep\$lambda\$5\$\$inlined\$warn\$2",
+        "${RUNNER}\$runStep\$lambda\$5\$\$inlined\$warn\$3",
+        "${RUNNER}\$runStep\$lambda\$5\$\$inlined\$warn\$4",
       )
   }
 }

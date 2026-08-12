@@ -153,28 +153,22 @@ class JvmSurfaceVisibilityTest {
   }
 
   @Test
-  fun `ReVoman carries only the transitional facade through step execution`() {
-    val stepExecutionMethods =
-      JvmSurfaceInventory.readJar(configuredRootJar()).filter {
-        it.owner == REVOMAN &&
-          it.kind == JvmSurfaceKind.METHOD &&
-          it.name in setOf("executeStepsSerially", "runStep")
-      }
+  fun `ReVoman carries no operational PostmanSDK reference after runner extraction`() {
+    val references = JvmSurfaceInventory.readJarReferences(configuredRootJar())
+    val reVomanReferences = references.single { it.owner == REVOMAN }
 
-    assertThat(stepExecutionMethods.map(JvmSurfaceEntry::name))
-      .containsExactly("executeStepsSerially", "runStep")
-    stepExecutionMethods.forEach { method ->
-      assertWithMessage("${method.name} carries PostmanSDK")
-        .that(method.descriptor)
-        .contains("L$POSTMAN_SDK;")
-      assertWithMessage("${method.name} does not carry a duplicate RegexReplacer")
-        .that(method.descriptor)
-        .doesNotContain("L$REGEX_REPLACER;")
-    }
+    assertThat(reVomanReferences.classes).doesNotContain(POSTMAN_SDK)
+    assertThat(
+        reVomanReferences.members.filter {
+          it.owner == POSTMAN_SDK || it.descriptor.contains("L$POSTMAN_SDK;")
+        }
+      )
+      .isEmpty()
+    assertThat(reVomanReferences.descriptors.filter { it.contains("L$POSTMAN_SDK;") }).isEmpty()
   }
 
   @Test
-  fun `Task 4 cumulative additions and removals have the exact raw surface`() {
+  fun `Task 5 cumulative additions and removals have the exact raw surface`() {
     val entries = JvmSurfaceInventory.readJar(configuredRootJar())
     val frozen = JvmSurfaceInventory.parse(Files.readString(FROZEN_JVM_ABI))
     val frozenRows = frozen.asSequence().map(JvmSurfaceEntry::render).toSet()
@@ -183,9 +177,9 @@ class JvmSurfaceVisibilityTest {
     val removals = frozen.filter { it.render() !in activeRows }
 
     assertThat(additions.map(JvmSurfaceEntry::render))
-      .containsExactlyElementsIn(CS2_TASK4_RAW_JVM_ADDITIONS)
+      .containsExactlyElementsIn(CS2_TASK5_RAW_JVM_ADDITIONS)
     assertThat(removals.map(JvmSurfaceEntry::render))
-      .containsExactlyElementsIn(CS2_TASK4_RAW_JVM_REMOVALS)
+      .containsExactlyElementsIn(CS2_TASK5_RAW_JVM_REMOVALS)
     val pmSandboxRows = entries.filter {
       it.owner == "com/salesforce/revoman/internal/postman/sandbox/PmSandbox"
     }
@@ -247,6 +241,38 @@ class JvmSurfaceVisibilityTest {
           .all { it.memberSynthetic && !it.sourceCallable }
       )
       .isTrue()
+
+    TASK5_INTERFACE_OWNERS.forEach { owner ->
+      val methods = additions.filter { it.owner == owner && it.kind == JvmSurfaceKind.METHOD }
+      assertThat(methods).isNotEmpty()
+      assertThat(methods.all { it.memberSynthetic && !it.sourceCallable }).isTrue()
+    }
+    TASK5_FACTORY_METHODS.forEach { (owner, names) ->
+      assertThat(
+          additions
+            .filter { it.owner == owner && it.kind == JvmSurfaceKind.METHOD && it.name in names }
+            .map(JvmSurfaceEntry::name)
+        )
+        .containsExactlyElementsIn(names)
+      assertThat(
+          additions
+            .filter { it.owner == owner && it.kind == JvmSurfaceKind.METHOD && it.name in names }
+            .all { it.memberSynthetic && !it.sourceCallable }
+        )
+        .isTrue()
+    }
+    TASK5_ANONYMOUS_OWNERS.forEach { owner ->
+      val ownerRows = additions.filter { it.owner == owner }
+      assertThat(ownerRows).isNotEmpty()
+      assertThat(ownerRows.single { it.kind == JvmSurfaceKind.CLASS }.sourceCallable).isFalse()
+      assertThat(ownerRows.all { !it.sourceCallable }).isTrue()
+    }
+    assertThat(
+        JvmSurfaceInventory.readJarReferences(configuredRootJar())
+          .filter { it.owner in TASK5_DECLARED_AND_ANONYMOUS_OWNERS }
+          .flatMap { it.classes }
+      )
+      .doesNotContain("java/lang/AutoCloseable")
     assertThat(
         additions
           .filter {
@@ -300,6 +326,11 @@ class JvmSurfaceVisibilityTest {
           SandboxRuntime runtime;
           SandboxFactory factory;
           KickExecution kickExecution;
+          KickExecutionFactory kickExecutionFactory;
+          KickBody kickBody;
+          ExecutionSession session;
+          ExecutionSessionFactory sessionFactory;
+          ReVomanRuntime revomanRuntime;
         }
         """
           .trimIndent(),
@@ -315,6 +346,51 @@ class JvmSurfaceVisibilityTest {
         JavaBoundaryAttempt(
           "KickExecutionConsumer",
           "static ScriptExecutor access(KickExecution value) { value.getScripts(); return value.getScripts(); }",
+          CANNOT_RESOLVE_MEMBER_CODES,
+        ),
+        JavaBoundaryAttempt(
+          "KickExecutionExecuteConsumer",
+          "static Object access(KickExecution value) { return value.execute(); }",
+          CANNOT_RESOLVE_MEMBER_CODES,
+        ),
+        JavaBoundaryAttempt(
+          "KickExecutionFactoryPortConsumer",
+          "static Object access(KickExecutionFactory value) { return value.create(null, null); }",
+          CANNOT_RESOLVE_MEMBER_CODES,
+        ),
+        JavaBoundaryAttempt(
+          "KickBodyConsumer",
+          "static Object access(KickBody value) { return value.execute(null); }",
+          CANNOT_RESOLVE_MEMBER_CODES,
+        ),
+        JavaBoundaryAttempt(
+          "ExecutionSessionConsumer",
+          "static Object access(ExecutionSession value) { return value.executeKick(null, false, null); }",
+          CANNOT_RESOLVE_MEMBER_CODES,
+        ),
+        JavaBoundaryAttempt(
+          "ExecutionSessionFactoryConsumer",
+          "static Object access(ExecutionSessionFactory value) { return value.open(null); }",
+          CANNOT_RESOLVE_MEMBER_CODES,
+        ),
+        JavaBoundaryAttempt(
+          "ReVomanRuntimeConsumer",
+          "static Object access(ReVomanRuntime value) { return value.execute(null); }",
+          CANNOT_RESOLVE_MEMBER_CODES,
+        ),
+        JavaBoundaryAttempt(
+          "ExecutionSessionTopLevelFactoryConsumer",
+          "static Object access() { return ExecutionSessionKt.executionSession(null, null); }",
+          CANNOT_RESOLVE_MEMBER_CODES,
+        ),
+        JavaBoundaryAttempt(
+          "ReVomanRuntimeTopLevelFactoryConsumer",
+          "static Object access() { return ReVomanRuntimeKt.reVomanRuntime(); }",
+          CANNOT_RESOLVE_MEMBER_CODES,
+        ),
+        JavaBoundaryAttempt(
+          "KickRunnerTopLevelFactoryConsumer",
+          "static Object access() { return KickRunnerKt.kickExecutionFactory(null); }",
           CANNOT_RESOLVE_MEMBER_CODES,
         ),
         JavaBoundaryAttempt(
@@ -420,6 +496,36 @@ class JvmSurfaceVisibilityTest {
           "new DefaultResourceScope().close()",
         ),
         SamePackageAttempt(
+          "SamePackageExecutionSessionConsumer",
+          EXECUTION_SESSION_IMPLEMENTATION.substringAfterLast('/'),
+          "(${EXECUTION_SESSION_IMPLEMENTATION.substringAfterLast('/')}) null",
+        ),
+        SamePackageAttempt(
+          "SamePackageRuntimeConsumer",
+          REVOMAN_RUNTIME_IMPLEMENTATION.substringAfterLast('/'),
+          "(${REVOMAN_RUNTIME_IMPLEMENTATION.substringAfterLast('/')}) null",
+        ),
+        SamePackageAttempt(
+          "SamePackageRunnerBodyConsumer",
+          KICK_RUNNER_BODY.substringAfterLast('/'),
+          "(${KICK_RUNNER_BODY.substringAfterLast('/')}) null",
+        ),
+        SamePackageAttempt(
+          "SamePackageSessionFactoryConsumer",
+          EXECUTION_SESSION_FACTORY_IMPLEMENTATION.substringAfterLast('/'),
+          "(${EXECUTION_SESSION_FACTORY_IMPLEMENTATION.substringAfterLast('/')}) null",
+        ),
+        SamePackageAttempt(
+          "SamePackageRunnerFactoryConsumer",
+          KICK_RUNNER_FACTORY.substringAfterLast('/'),
+          "(${KICK_RUNNER_FACTORY.substringAfterLast('/')}) null",
+        ),
+        SamePackageAttempt(
+          "SamePackageDefaultSandboxFactoryConsumer",
+          DEFAULT_SANDBOX_FACTORY_IMPLEMENTATION.substringAfterLast('/'),
+          "(${DEFAULT_SANDBOX_FACTORY_IMPLEMENTATION.substringAfterLast('/')}) null",
+        ),
+        SamePackageAttempt(
           "SamePackageAnonymousScopeConsumer",
           RESOURCE_SCOPE_IMPLEMENTATION.substringAfterLast('/'),
           "new ${RESOURCE_SCOPE_IMPLEMENTATION.substringAfterLast('/')}().close()",
@@ -464,6 +570,11 @@ class JvmSurfaceVisibilityTest {
             .any { it in CANNOT_RESOLVE_MEMBER_CODES + CANNOT_ACCESS_CODES }
         )
         .isTrue()
+      assertWithMessage(
+          "wrong constructor arity is not an ownership barrier: ${result.diagnostics}"
+        )
+        .that(result.diagnostics.map(JavaDiagnostic::code))
+        .doesNotContain("compiler.err.cant.apply.symbol")
     }
   }
 
@@ -684,6 +795,16 @@ class JvmSurfaceVisibilityTest {
     const val RESOURCE_SCOPE_IMPLEMENTATION = "${RUNTIME_PACKAGE}ResourceScopeKt\$resourceScope\$1"
     const val KICK_EXECUTION_IMPLEMENTATION = "${RUNTIME_PACKAGE}KickExecutionKt\$kickExecution\$1"
     const val KICK_EXECUTOR_IMPLEMENTATION = "${KICK_EXECUTION_IMPLEMENTATION}\$executor\$1"
+    const val EXECUTION_SESSION_IMPLEMENTATION =
+      "${RUNTIME_PACKAGE}ExecutionSessionKt\$executionSession\$1"
+    const val EXECUTION_SESSION_FACTORY_IMPLEMENTATION =
+      "${RUNTIME_PACKAGE}ExecutionSessionKt\$executionSessionFactory\$1"
+    const val KICK_RUNNER_FACTORY = "${RUNTIME_PACKAGE}KickRunnerKt\$kickExecutionFactory\$1"
+    const val KICK_RUNNER_BODY = "${RUNTIME_PACKAGE}KickRunnerKt\$kickExecutionFactory\$body\$1"
+    const val REVOMAN_RUNTIME_IMPLEMENTATION =
+      "${RUNTIME_PACKAGE}ReVomanRuntimeKt\$reVomanRuntime\$1"
+    const val DEFAULT_SANDBOX_FACTORY_IMPLEMENTATION =
+      "${RUNTIME_PACKAGE}ReVomanRuntimeKt\$reVomanRuntime\$sandboxFactory\$1"
     const val POSTMAN_VARIABLE_SCOPES = "${POSTMAN_PACKAGE}PostmanVariableScopes"
     const val STEP_SCRIPT_CAPTURE = "${POSTMAN_PACKAGE}StepScriptCapture"
     const val LEGACY_RUNDOWN_PROGRESS = "${RUNTIME_PACKAGE}LegacyRundownProgress"
@@ -745,6 +866,37 @@ class JvmSurfaceVisibilityTest {
           "${RUNTIME_PACKAGE}SandboxRuntimeKt",
           "${RUNTIME_PACKAGE}ScriptExecutor\$DefaultImpls",
         )
+    val TASK5_INTERFACE_OWNERS =
+      setOf(
+        "${RUNTIME_PACKAGE}KickExecution",
+        "${RUNTIME_PACKAGE}KickExecutionFactory",
+        "${RUNTIME_PACKAGE}KickBody",
+        "${RUNTIME_PACKAGE}ExecutionSession",
+        "${RUNTIME_PACKAGE}ExecutionSessionFactory",
+        "${RUNTIME_PACKAGE}ReVomanRuntime",
+      )
+    val TASK5_FACTORY_METHODS =
+      mapOf(
+        "${RUNTIME_PACKAGE}KickExecutionKt" to listOf("kickExecution"),
+        "${RUNTIME_PACKAGE}KickRunnerKt" to listOf("kickExecutionFactory"),
+        "${RUNTIME_PACKAGE}ExecutionSessionKt" to
+          listOf("executionSession", "executionSessionFactory"),
+        "${RUNTIME_PACKAGE}ReVomanRuntimeKt" to
+          listOf("reVomanRuntime", "reVomanRuntime", "reVomanRuntime"),
+      )
+    val TASK5_ANONYMOUS_OWNERS =
+      setOf(
+        KICK_EXECUTION_IMPLEMENTATION,
+        KICK_EXECUTOR_IMPLEMENTATION,
+        EXECUTION_SESSION_IMPLEMENTATION,
+        EXECUTION_SESSION_FACTORY_IMPLEMENTATION,
+        KICK_RUNNER_FACTORY,
+        KICK_RUNNER_BODY,
+        REVOMAN_RUNTIME_IMPLEMENTATION,
+        DEFAULT_SANDBOX_FACTORY_IMPLEMENTATION,
+      )
+    val TASK5_DECLARED_AND_ANONYMOUS_OWNERS =
+      TASK5_INTERFACE_OWNERS + TASK5_FACTORY_METHODS.keys + TASK5_ANONYMOUS_OWNERS
 
     fun minimalClassFile(
       majorVersion: Int,
