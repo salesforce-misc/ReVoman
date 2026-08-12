@@ -1343,7 +1343,7 @@ arguments. The only session-taking runbook entrypoint is a separate Kotlin-only 
 
 ```kotlin
 @JvmSynthetic
-internal fun executeRunbook(
+internal fun executeRunbookInSession(
   session: ExecutionSession,
   runbook: Runbook,
   dynamicEnvironment: Map<String, Any?>,
@@ -1361,8 +1361,11 @@ com/salesforce/revoman/internal/exe/RunbookExeKt
 ```
 
 That adapter delegates through `reVomanRuntime().execute(runbook, dynamicEnvironment)`. The runtime
-opens the session and invokes only the three-argument synthetic helper. Neither RunbookExe function
-imports or calls `ReVoman.revUp`, and the two functions must not recurse into one another.
+opens the session and invokes only the uniquely named three-argument synthetic
+`executeRunbookInSession` helper. Neither RunbookExe function imports or calls `ReVoman.revUp`, and
+the two functions must not recurse into one another. The unique helper name is normative so javac
+cannot mistake the preserved two-argument adapter for a wrong-arity candidate when proving the
+synthetic helper is not Java-source-callable.
 
 - [x] **Step 1: Add end-to-end lifecycle and carry RED tests**
 
@@ -1602,11 +1605,13 @@ class loading, `javap` text, or substring scans—to prove:
 
 Compile an external Java positive consumer that directly calls the preserved
 `RunbookExeKt.executeRunbook(Runbook, Map)` method. Compile adversarial external and same-package
-Java consumers for both new runtime overloads, the synthetic session helper, and every newly
-emitted anonymous owner; each forbidden operation/name/constructor must fail with exact
-name/access/member diagnostics, never merely wrong arity. Enumerate the post-compile emitted-owner
-set literally. Assert no new `Companion`, `INSTANCE`, static mutable/global current-runtime or
-current-session field, `ThreadLocal`, or `AutoCloseable` reference/implementation appears.
+Java consumers for both new runtime overloads, the uniquely named synthetic
+`executeRunbookInSession` helper, and every newly emitted anonymous owner; each forbidden
+operation/name/constructor must fail with exact name/access/member diagnostics, never merely wrong
+arity. Explicitly reject `compiler.err.cant.apply.symbol` for the helper from both an external
+package and the `RunbookExeKt` owner package. Enumerate the post-compile emitted-owner set literally.
+Assert no new `Companion`, `INSTANCE`, static mutable/global current-runtime or current-session
+field, `ThreadLocal`, or `AutoCloseable` reference/implementation appears.
 
 Keep latch-coordinated concurrent and reentrant public behavior tests as positive controls. They
 must prove independent carried environment, collection-variable, global, capture, and sink state

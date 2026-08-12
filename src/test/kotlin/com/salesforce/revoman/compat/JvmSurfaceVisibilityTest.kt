@@ -546,8 +546,8 @@ class JvmSurfaceVisibilityTest {
         ),
         JavaBoundaryAttempt(
           "RunbookSessionHelperConsumer",
-          "static Object access(ExecutionSession session) { return com.salesforce.revoman.internal.exe.RunbookExeKt.executeRunbook(session, null, null); }",
-          setOf("compiler.err.cant.apply.symbol"),
+          "static Object access(ExecutionSession session) { return com.salesforce.revoman.internal.exe.RunbookExeKt.executeRunbookInSession(session, null, null); }",
+          CANNOT_RESOLVE_MEMBER_CODES,
         ),
       )
     attempts.forEach { attempt ->
@@ -574,12 +574,13 @@ class JvmSurfaceVisibilityTest {
             .any { it in attempt.expectedDiagnosticCodes }
         )
         .isTrue()
+      assertThat(result.diagnostics.map(JavaDiagnostic::code))
+        .doesNotContain("compiler.err.cant.apply.symbol")
       if (attempt.className == "RunbookSessionHelperConsumer") {
-        val message = result.diagnostics.joinToString("\n", transform = JavaDiagnostic::message)
-        assertThat(message).contains("executeRunbook")
-        assertThat(message).contains("required: com.salesforce.revoman.input.config.Runbook")
-        assertThat(message)
-          .contains("found:    com.salesforce.revoman.internal.runtime.ExecutionSession")
+        assertThat(
+            result.diagnostics.filter { it.kind == Diagnostic.Kind.ERROR }.map(JavaDiagnostic::code)
+          )
+          .containsExactly("compiler.err.cant.resolve.location.args")
       }
     }
   }
@@ -597,11 +598,6 @@ class JvmSurfaceVisibilityTest {
           "SamePackageRuntimeRunbookConsumer",
           "ReVomanRuntime.execute(Runbook, Map)",
           "((ReVomanRuntime) null).execute((com.salesforce.revoman.input.config.Runbook) null, null)",
-        ),
-        SamePackageAttempt(
-          "SamePackageRunbookSessionHelperConsumer",
-          "synthetic-helper-hidden-behind-adapter",
-          "com.salesforce.revoman.internal.exe.RunbookExeKt.executeRunbook((ExecutionSession) null, null, null)",
         ),
       )
     attempts.forEach { attempt ->
@@ -625,23 +621,42 @@ class JvmSurfaceVisibilityTest {
       assertWithMessage("targeted javac diagnostics: ${result.diagnostics}")
         .that(
           errorCodes.any {
-            it in
-              CANNOT_RESOLVE_MEMBER_CODES +
-                CANNOT_ACCESS_CODES +
-                setOf("compiler.err.cant.apply.symbol")
+            it in CANNOT_RESOLVE_MEMBER_CODES + CANNOT_ACCESS_CODES
           }
         )
         .isTrue()
-      if (attempt.implementationName != "synthetic-helper-hidden-behind-adapter") {
-        assertThat(errorCodes).doesNotContain("compiler.err.cant.apply.symbol")
-      } else {
-        val message = result.diagnostics.joinToString("\n", transform = JavaDiagnostic::message)
-        assertThat(message).contains("executeRunbook")
-        assertThat(message).contains("required: com.salesforce.revoman.input.config.Runbook")
-        assertThat(message)
-          .contains("found:    com.salesforce.revoman.internal.runtime.ExecutionSession")
-      }
+      assertThat(errorCodes).doesNotContain("compiler.err.cant.apply.symbol")
     }
+  }
+
+  @Test
+  fun `same RunbookExe package Java cannot name the synthetic session helper`() {
+    val result =
+      compileJava(
+        "SamePackageRunbookSessionHelperConsumer",
+        """
+        package com.salesforce.revoman.internal.exe;
+
+        import com.salesforce.revoman.internal.runtime.ExecutionSession;
+
+        final class SamePackageRunbookSessionHelperConsumer {
+          static Object access(ExecutionSession session) {
+            return RunbookExeKt.executeRunbookInSession(session, null, null);
+          }
+        }
+        """
+          .trimIndent(),
+      )
+
+    assertWithMessage("same-package helper mutation must be rejected: ${result.diagnostics}")
+      .that(result.compiled)
+      .isFalse()
+    val errorCodes =
+      result.diagnostics.filter { it.kind == Diagnostic.Kind.ERROR }.map(JavaDiagnostic::code)
+    assertWithMessage("exact member-resolution diagnostics: ${result.diagnostics}")
+      .that(errorCodes)
+      .containsExactly("compiler.err.cant.resolve.location.args")
+    assertThat(errorCodes).doesNotContain("compiler.err.cant.apply.symbol")
   }
 
   @Test

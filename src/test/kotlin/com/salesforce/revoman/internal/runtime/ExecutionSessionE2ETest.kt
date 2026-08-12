@@ -57,6 +57,7 @@ class ExecutionSessionE2ETest {
         Kick.configure()
           .templatePath(collectionDirectory.toString())
           .dynamicEnvironment("baseUrl", "http://127.0.0.1:${server.address.port}")
+          .dynamicEnvironment("isolationId", "legacy")
           .dynamicEnvironment("phase", "first")
           .insecureHttp(true)
           .off()
@@ -279,8 +280,9 @@ class ExecutionSessionE2ETest {
   @Test
   fun `runbook owns one session and distinct sequential children for duplicate kicks`() {
     val events = mutableListOf<String>()
-    val duplicate = Kick.configure().dynamicEnvironment("name", "duplicate").off()
-    val third = Kick.configure().dynamicEnvironment("name", "third").off()
+    val duplicate =
+      Kick.configure().templatePath("duplicate").dynamicEnvironment("name", "duplicate").off()
+    val third = Kick.configure().templatePath("third").dynamicEnvironment("name", "third").off()
     val runtime =
       reVomanRuntime(
         recordingSessions(events) { kick, environment ->
@@ -317,9 +319,9 @@ class ExecutionSessionE2ETest {
         "child-create:duplicate",
         "child-execute:duplicate",
         "child-close:duplicate",
-        "child-create:duplicate",
-        "child-execute:duplicate",
-        "child-close:duplicate",
+        "child-create:third",
+        "child-execute:third",
+        "child-close:third",
         "session-close",
       )
       .inOrder()
@@ -596,7 +598,7 @@ class ExecutionSessionE2ETest {
     environment: Map<String, Any?>,
     result: Rundown,
   ): KickExecution {
-    val name = kick.dynamicEnvironment()["name"] ?: "unnamed"
+    val name = kick.templatePaths().singleOrNull() ?: kick.dynamicEnvironment()["name"] ?: "unnamed"
     events += "child-create:$name"
     return object : KickExecution {
       override val configuredKick: Kick = kick

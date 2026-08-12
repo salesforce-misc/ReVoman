@@ -32,7 +32,7 @@ internal fun executeRunbook(
  * interleaving coarse log events, data-flow contracts, and per-step assertions.
  */
 @JvmSynthetic
-internal fun executeRunbook(
+internal fun executeRunbookInSession(
   session: ExecutionSession,
   runbook: Runbook,
   dynamicEnvironment: Map<String, Any?>,

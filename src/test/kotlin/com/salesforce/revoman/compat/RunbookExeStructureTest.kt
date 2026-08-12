@@ -16,19 +16,22 @@ import org.junit.jupiter.api.Test
 
 class RunbookExeStructureTest {
   @Test
-  fun `runbook step body does not recurse through the public single kick facade`() {
+  fun `runbook step body routes only to the session kick boundary`() {
     val runStepBody =
       readMethodInvocations(RUNBOOK_EXE).single {
         it.method.name == "runStepBody" && it.method.descriptor == RUN_STEP_BODY_DESCRIPTOR
       }
-    val recursiveCalls =
-      runStepBody.invocations.filter {
-        it.owner == REVOMAN && it.name == "revUp" && it.descriptor == SINGLE_KICK_DESCRIPTOR
-      }
 
     assertWithMessage("method-scoped invokes for ${runStepBody.method}: ${runStepBody.invocations}")
-      .that(recursiveCalls)
-      .isEmpty()
+      .that(runStepBody.routing())
+      .containsExactly(
+        invokeStatic(RUNBOOK_EXE, "checkConsumesOrHalt", CHECK_CONSUMES_DESCRIPTOR),
+        invokeStatic(EXECUTION_SESSION, "executeKick\$default", EXECUTE_KICK_DEFAULT_DESCRIPTOR),
+        invokeStatic(RUNBOOK_EXE, "producedValues", PRODUCED_VALUES_DESCRIPTOR),
+        invokeStatic(RUNBOOK_EXE, "checkProducesOrHalt", CHECK_PRODUCES_DESCRIPTOR),
+        invokeStatic(RUNBOOK_EXE, "producedValues", PRODUCED_VALUES_DESCRIPTOR),
+      )
+      .inOrder()
   }
 
   @Test
@@ -43,7 +46,7 @@ class RunbookExeStructureTest {
     val helper = surface.single {
       it.owner == RUNBOOK_EXE &&
         it.kind == JvmSurfaceKind.METHOD &&
-        it.name == "executeRunbook" &&
+        it.name == RUNBOOK_SESSION_HELPER_NAME &&
         it.descriptor == RUNBOOK_SESSION_HELPER_DESCRIPTOR
     }
 
@@ -63,9 +66,11 @@ class RunbookExeStructureTest {
       )
       .inOrder()
     assertThat(
-        methods.getValue(MethodKey("executeRunbook", RUNBOOK_SESSION_HELPER_DESCRIPTOR)).routing()
+        methods
+          .getValue(MethodKey(RUNBOOK_SESSION_HELPER_NAME, RUNBOOK_SESSION_HELPER_DESCRIPTOR))
+          .routing()
       )
-      .doesNotContain(invokeStatic(RUNBOOK_EXE, "executeRunbook", RUNBOOK_ADAPTER_DESCRIPTOR))
+      .containsExactly(invokeStatic(RUNBOOK_EXE, "executeStep", EXECUTE_STEP_DESCRIPTOR))
 
     val references = JvmSurfaceInventory.readJarReferences(configuredRootJar())
     references
@@ -128,7 +133,7 @@ class RunbookExeStructureTest {
       )
     generatedToDefaults.forEach { (method, expected) ->
       assertWithMessage("routing for $method")
-        .that(methods.getValue(method).revomanInvocations())
+        .that(methods.getValue(method).routing())
         .containsExactly(expected)
     }
 
@@ -167,7 +172,7 @@ class RunbookExeStructureTest {
       )
     defaultsToPrimary.forEach { (method, expected) ->
       assertWithMessage("routing for $method")
-        .that(methods.getValue(method).revomanInvocations())
+        .that(methods.getValue(method).routing())
         .containsExactly(expected)
     }
 
@@ -186,13 +191,13 @@ class RunbookExeStructureTest {
         MethodKey("revUp", SINGLE_KICK_DESCRIPTOR) to RUNTIME_KICK_DESCRIPTOR,
       )
     primariesToRuntime.forEach { (method, descriptor) ->
-      val routing = methods.getValue(method).routing()
       assertWithMessage("routing for $method")
-        .that(routing.filter { it.owner == REVOMAN_RUNTIME })
-        .containsExactly(invokeInterface(REVOMAN_RUNTIME, "execute", descriptor))
-      assertWithMessage("public recursion for $method")
-        .that(routing.filter { it.owner == REVOMAN })
-        .isEmpty()
+        .that(methods.getValue(method).routing())
+        .containsExactly(
+          invokeStatic(REVOMAN_RUNTIME_KT, "reVomanRuntime", "()L$REVOMAN_RUNTIME;"),
+          invokeInterface(REVOMAN_RUNTIME, "execute", descriptor),
+        )
+        .inOrder()
     }
   }
 
@@ -202,10 +207,20 @@ class RunbookExeStructureTest {
       readMethodInvocations(REVOMAN_RUNTIME_IMPLEMENTATION).associateBy(MethodInvocations::method)
     val runbookMethod = methods.getValue(MethodKey("execute", RUNTIME_RUNBOOK_DESCRIPTOR))
 
-    assertThat(runbookMethod.routing().filter { it.owner == RUNBOOK_EXE })
+    assertThat(runbookMethod.routing())
       .containsExactly(
-        invokeStatic(RUNBOOK_EXE, "executeRunbook", RUNBOOK_SESSION_HELPER_DESCRIPTOR)
+        invokeInterface(
+          EXECUTION_SESSION_FACTORY,
+          "open",
+          "(Ljava/util/Map;)L$EXECUTION_SESSION;",
+        ),
+        invokeStatic(
+          RUNBOOK_EXE,
+          RUNBOOK_SESSION_HELPER_NAME,
+          RUNBOOK_SESSION_HELPER_DESCRIPTOR,
+        ),
       )
+      .inOrder()
   }
 
   private fun readMethodInvocations(owner: String): List<MethodInvocations> {
@@ -229,11 +244,9 @@ class RunbookExeStructureTest {
     it.owner == REVOMAN ||
       it.owner == REVOMAN_RUNTIME ||
       it.owner == REVOMAN_RUNTIME_KT ||
-      it.owner == RUNBOOK_EXE
-  }
-
-  private fun MethodInvocations.revomanInvocations(): List<MethodInvocation> = invocations.filter {
-    it.owner == REVOMAN
+      it.owner == RUNBOOK_EXE ||
+      it.owner == EXECUTION_SESSION ||
+      it.owner == EXECUTION_SESSION_FACTORY
   }
 
   private data class MethodInvocation(
@@ -434,14 +447,30 @@ class RunbookExeStructureTest {
     const val REVOMAN_RUNTIME_IMPLEMENTATION =
       "com/salesforce/revoman/internal/runtime/ReVomanRuntimeKt\$reVomanRuntime\$1"
     const val EXECUTION_SESSION = "com/salesforce/revoman/internal/runtime/ExecutionSession"
+    const val EXECUTION_SESSION_FACTORY =
+      "com/salesforce/revoman/internal/runtime/ExecutionSessionFactory"
     const val POST_EXE_HOOK = "com/salesforce/revoman/input/PostExeHook"
     const val KICK = "com/salesforce/revoman/input/config/Kick"
     const val RUNBOOK = "com/salesforce/revoman/input/config/Runbook"
     const val RUNDOWN = "com/salesforce/revoman/output/Rundown"
     const val RUNBOOK_RUNDOWN = "com/salesforce/revoman/output/RunbookRundown"
     const val RUNBOOK_ADAPTER_DESCRIPTOR = "(L$RUNBOOK;Ljava/util/Map;)L$RUNBOOK_RUNDOWN;"
+    const val RUNBOOK_SESSION_HELPER_NAME = "executeRunbookInSession"
     const val RUNBOOK_SESSION_HELPER_DESCRIPTOR =
       "(L$EXECUTION_SESSION;L$RUNBOOK;Ljava/util/Map;)L$RUNBOOK_RUNDOWN;"
+    const val EXECUTE_STEP_DESCRIPTOR =
+      "(L$EXECUTION_SESSION;L$RUNBOOK;Lcom/salesforce/revoman/output/log/RunLogSink;" +
+        "Lcom/salesforce/revoman/input/config/RunbookStep;" +
+        "Lcom/salesforce/revoman/internal/exe/RunbookAcc;)" +
+        "Lcom/salesforce/revoman/internal/exe/RunbookAcc;"
+    const val EXECUTE_KICK_DEFAULT_DESCRIPTOR =
+      "(L$EXECUTION_SESSION;L$KICK;ZLkotlin/jvm/functions/Function2;ILjava/lang/Object;)L$RUNDOWN;"
+    const val CHECK_CONSUMES_DESCRIPTOR =
+      "(Lcom/salesforce/revoman/input/config/RunbookStep;Ljava/util/Set;)V"
+    const val PRODUCED_VALUES_DESCRIPTOR =
+      "(Lcom/salesforce/revoman/input/config/RunbookStep;L$RUNDOWN;)Ljava/util/Map;"
+    const val CHECK_PRODUCES_DESCRIPTOR =
+      "(Lcom/salesforce/revoman/input/config/RunbookStep;L$RUNDOWN;)V"
     const val RUNTIME_LIST_DESCRIPTOR =
       "(Ljava/util/List;L$POST_EXE_HOOK;Ljava/util/Map;)Ljava/util/List;"
     const val RUNTIME_RUNBOOK_DESCRIPTOR = "(L$RUNBOOK;Ljava/util/Map;)L$RUNBOOK_RUNDOWN;"

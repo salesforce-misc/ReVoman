@@ -10,7 +10,7 @@ package com.salesforce.revoman.internal.runtime
 import com.salesforce.revoman.input.PostExeHook
 import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.input.config.Runbook
-import com.salesforce.revoman.internal.exe.executeRunbook
+import com.salesforce.revoman.internal.exe.executeRunbookInSession
 import com.salesforce.revoman.internal.postman.sandbox.PmSandbox
 import com.salesforce.revoman.output.RunbookRundown
 import com.salesforce.revoman.output.Rundown
@@ -62,7 +62,7 @@ internal fun reVomanRuntime(sessions: ExecutionSessionFactory): ReVomanRuntime =
       dynamicEnvironment: Map<String, Any?>,
     ): RunbookRundown =
       sessions.open(emptyMap()).useInternal { session ->
-        executeRunbook(session, runbook, dynamicEnvironment)
+        executeRunbookInSession(session, runbook, dynamicEnvironment)
       }
   }
 

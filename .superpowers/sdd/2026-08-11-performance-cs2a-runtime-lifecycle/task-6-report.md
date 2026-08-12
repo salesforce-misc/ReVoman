@@ -86,8 +86,8 @@ The focused restored implementation executed 57 tests successfully. The tests pr
 The configured root JAR inventory was compared as raw rows against the frozen JVM baseline.
 
 ```text
-CS2_TASK6_RAW_JVM_ADDITIONS = 518 rows
-CS2_TASK6_RAW_JVM_REMOVALS  = 431 rows
+CS2_TASK6_RAW_JVM_ADDITIONS = 534 rows
+CS2_TASK6_RAW_JVM_REMOVALS  = 447 rows
 frozen JVM entries         = 6101
 ```
 
@@ -98,10 +98,12 @@ exactly. Route-owner checks reject ambient runtime/session fields, `ThreadLocal`
 The in-test JDK compiler used `-classpath <configured-root-jar>:<external-compat-classpath>` and a
 fresh output directory for every consumer. It compiled the positive Java control
 `RunbookExeKt.executeRunbook(Runbook, Map)` and rejected both external-package and same-package Java
-attempts to call list/runbook runtime overloads or the session helper. Same-package attempts cover
-the complete literal Task 5 anonymous-owner graph plus `DefaultResourceScope` and the resource-scope
-implementation; failures are ownership/visibility diagnostics, with the synthetic helper proven
-absent behind the preserved two-argument adapter signature.
+attempts to call list/runbook runtime overloads or the uniquely named
+`executeRunbookInSession(ExecutionSession, Runbook, Map)` helper. The helper attempts report exact
+member-resolution diagnostics and explicitly reject `compiler.err.cant.apply.symbol`; javac can no
+longer misidentify the preserved two-argument adapter as a wrong-arity candidate. Same-package
+attempts also cover the complete literal Task 5 anonymous-owner graph plus `DefaultResourceScope`
+and the resource-scope implementation.
 
 ## ABI evidence
 
@@ -175,10 +177,9 @@ Only existing compiler/deprecation warnings outside this Task 6 change were emit
 - Confirmed `ExecutionSession.kt`, frozen ABI files, migration ledger, and Tasks 7/8 have no diff.
 - Confirmed only the Task 6 plan, three production files, prescribed tests/gates, two fixtures, and
   this report are in scope.
-- Concern: none. The helper's javac rejection necessarily reports wrong arity against the retained
-  two-argument adapter because `@JvmSynthetic` removes the three-argument overload from Java
-  resolution; the diagnostic assertions additionally prove the visible required/found signatures,
-  so this is not accepted as an ownership barrier by itself.
+- Concern: none. The session helper now has the unique name `executeRunbookInSession`; external and
+  same-package javac attempts fail with exact member-resolution diagnostics and never with the
+  wrong-arity `compiler.err.cant.apply.symbol` diagnostic.
 
 ## Files and commit
 
@@ -189,3 +190,100 @@ prescribed lifecycle/compatibility tests and gates, and
 Task commit: this report is committed with message
 `refactor: route multi-kick execution through sessions` on base
 `60b49d6a7a57506e59970df76e0f6dbbabcd5ac5`.
+
+## Formal-review fix round 1
+
+### Findings closed
+
+The round closes all four Important proof gaps from the formal review:
+
+1. Two real-sandbox public controls now overlap concurrent list calls with latches and nest a
+   public list call inside a public runbook assertion. Behaviorally distinct environment,
+   collection-variable, global, control-flow capture, sink, and thread values prove that each
+   public call owns independent state without a mutable observer.
+2. The Kotlin-only session helper is uniquely named `executeRunbookInSession`. External-package and
+   same-package Java attempts fail with exact member-resolution diagnostics; both reject
+   `compiler.err.cant.apply.symbol`, while the two-argument compatibility adapter still compiles.
+3. Every routing assertion now compares the complete method-scoped routing sequence. The checks
+   reject extra edges as well as missing or misdirected edges for the runbook body, adapter, helper,
+   runtime, generated overloads, default dispatchers, and all four public primaries.
+4. The three-step runbook lifecycle test gives its third configured kick a non-carried template
+   identity. The expected child-create, execute, and close sequence must end in `third`, so carry
+   cannot overwrite the marker and make a duplicate second occurrence masquerade as the third.
+
+### RED and mutation evidence
+
+The reviewed implementation already had independent public sessions, so the isolation tests are
+positive controls rather than fabricated behavioral REDs. Each strengthened proof was checked by
+a targeted mutation and restored before the final gate:
+
+1. Replacing the third runbook kick identity with the duplicate identity failed `runbook owns one
+   session and distinct sequential children for duplicate kicks` at the exact third create,
+   execute, and close events.
+2. Replacing the session helper's sole `executeStep` route with a helper self-call failed
+   `runbook compatibility adapter and synthetic session helper keep exact routing` on the complete
+   method-scoped invocation sequence.
+3. Routing the runtime runbook overload through `ReVoman.revUp` failed `runtime runbook
+   implementation invokes only the session helper` on the unexpected public-facade edge.
+4. Routing the vararg primary through the public list overload failed `public overloads dispatch
+   only through matching defaults and runtime descriptors` on the extra `ReVoman.revUp` edge.
+5. Removing `@JvmSynthetic` from `executeRunbookInSession` made the adversarial Java consumer
+   compile and failed the external and same-package invisibility controls. Restoring the annotation
+   restored exact `compiler.err.cant.resolve.location.args` diagnostics.
+
+The helper rename changed four compiler-emitted inline-log owners. The raw gate exposed 16 member
+rows for the new owners and 16 rows for the old owners. Those literal rows were added to the
+cumulative exact sets, which now contain 534 additions and 447 removals. Both independent complete
+raw-delta comparisons pass; no count, prefix, or superset shortcut is used.
+
+### Restored GREEN
+
+```text
+./gradlew :test \
+  --tests '*ApiBaselineInventoryTest' \
+  --tests '*JvmSurfaceVisibilityTest' \
+  --tests '*RunbookExeStructureTest' \
+  --rerun-tasks --no-build-cache --no-configuration-cache --console=plain
+
+BUILD SUCCESSFUL in 32s
+SUCCESS: Executed 26 tests in 4.7s
+
+./gradlew :test \
+  --tests '*ExecutionSessionE2ETest' \
+  --tests '*MultiKickEnvTypesE2ETest' \
+  --rerun-tasks --no-build-cache --no-configuration-cache --console=plain
+
+BUILD SUCCESSFUL in 25s
+SUCCESS: Executed 16 tests in 11.9s
+```
+
+The proportional Task 6 gate then ran the runtime, lifecycle, multi-kick, runbook, control-flow,
+hook, ledger, logging, raw-surface, and routing tests together with both external compatibility
+compilers, `checkKotlinAbi`, and `spotlessCheck`:
+
+```text
+BUILD SUCCESSFUL in 51s
+SUCCESS: Executed 204 tests in 29.1s
+38 actionable tasks: 38 executed
+
+git diff --check
+# exit 0, no output
+```
+
+Only the existing Kotlin compiler and deprecation warnings were emitted.
+
+### Fix-round self-review
+
+- IntelliJ semantic navigation resolves the runtime call directly to
+  `executeRunbookInSession`, with only its runtime import and invocation as code references;
+  closed-batch diagnostics report no errors in `ReVomanRuntime.kt`.
+- Exact compiled bytecode proves the helper, adapter, runtime, and public facade routing and rejects
+  all extra routing edges. The two independent raw inventories prove the 16 renamed-owner rows on
+  each side are compiler-derived literal rows.
+- The latch controls prove concurrent and reentrant public isolation with real sandboxes and
+  independent sinks. The corrected lifecycle sequence proves all three configured runbook
+  identities survive carry.
+- `ExecutionSession.kt`, frozen ABI files, the migration map, and the Task 7/8 plan sections have no
+  diff. Concern: none.
+
+Fix-round commit message: `test: close Task 6 isolation proof gaps`.
