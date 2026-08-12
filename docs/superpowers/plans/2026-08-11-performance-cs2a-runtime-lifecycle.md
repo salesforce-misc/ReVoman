@@ -1850,12 +1850,15 @@ worker-integrity failures. Extend `FakeTargetJarBuilder.majorJar()` with configu
 malformed exact static diagnostics fixtures rather than making unrelated major-adapter tests fail
 at preparation.
 
-Prove target-neutral ownership by keeping normalized records alive after closing and dropping the
-prepared workload, target runtime, cached handles, reflective members, and restored thread context
-classloader. All four target-side sentinels—runtime/classloader, prepared workload, raw array, and
-target-defined diagnostics state—must clear. Driver records may retain only bootstrap `String` and
-exact JDK `WeakReference` objects; they must never retain a target DTO, array, method handle, or
-classloader.
+Prove target-neutral ownership in `TargetAdapterContractTest`, where the adapter-normalization seam
+can directly observe target-side objects before discarding them. Keep the normalized driver records
+alive while closing and dropping the prepared workload, target runtime, cached handles, reflective
+members, raw array, and restored thread context classloader. Create four target-side
+classloader-safety `WeakReference` sentinels around that normalization operation and require all
+four to clear after the target owners are dropped. This four-sentinel assertion belongs to the
+adapter unit contract and the full `:benchmark-driver:test` gate; do not claim it from a serialized
+worker result. Driver records may retain only bootstrap `String` and exact JDK `WeakReference`
+objects; they must never retain a target DTO, array, method handle, or classloader.
 
 - [ ] **Step 5: Route both roles through the two-phase retained collector**
 
@@ -1940,15 +1943,20 @@ manifest changed.
 - [ ] **Step 7: Prove the real worker while preserving the Task-7/Task-8 CI boundary**
 
 Add a direct real `TargetForkMain` integration command with a small `retainedExecutionCount` (do
-not change the production runner's fixed 1,000/2,000/4,000 points) that verifies:
+not change the production runner's fixed 1,000/2,000/4,000 points). These integration methods may
+assert only the serialized worker result and series metadata:
 
 - the baseline role reports only `Cs1FakeExecutionToken`;
 - the major-v1 role reports exactly `ExecutionSession` and `KickExecution`, each with
   `created == executionCount == cleared`;
 - both roles report the same exact v2 provider/configuration series identity;
 - at least four acknowledged GC cycles occur under the two-phase provider, with the exact checked sum preserved; and
-- every real candidate weak reference clears; and
-- all four target-side classloader-safety references from Step 4 clear.
+- every serialized real candidate weak-reference outcome is cleared.
+
+The real worker protocol does not expose the four target-side sentinel referents. Their collection
+proof remains exclusively in `TargetAdapterContractTest`, which runs under the full driver unit
+gate in Step 8. Do not add a worker-only observability seam merely to repeat that assertion in an
+integration test.
 
 Split the new integrations into exact backtick-named JUnit Jupiter methods:
 
@@ -1963,7 +1971,9 @@ driver integration suite runs against the detached baseline manifest and
 `baseline-83f3cd70`; it intentionally skips exactly those two major-only methods. A separate
 filtered command runs exactly both named methods against the current manifest and `major-v1` with
 zero skips. Record executed/skipped counts in the Task-7 handoff. The harness self-test remains a
-baseline-versus-baseline test and uses `baseline-83f3cd70` only.
+baseline-versus-baseline test and uses `baseline-83f3cd70` only. It is a standalone Gradle task,
+not a dependency of `integrationTest`, so Step 8 must invoke it explicitly against the detached
+baseline manifest.
 
 Do not edit `.github/workflows/build.yml` or
 `src/test/kotlin/com/salesforce/revoman/benchmark/BenchmarkWorkflowTest.kt` in Task 7. The current
@@ -2005,6 +2015,11 @@ git worktree add --detach "$TASK7_BASELINE_ROOT/checkout" \
   :benchmark-driver:installDist \
   --rerun-tasks --no-build-cache --no-configuration-cache --console=plain
 
+./gradlew :benchmark-driver:benchmarkHarnessSelfTest \
+  -Pbenchmark.targetManifest=build/benchmark-target-task7-baseline.json \
+  -Pbenchmark.adapter=baseline-83f3cd70 \
+  --rerun-tasks --no-build-cache --no-configuration-cache --console=plain
+
 ./gradlew :benchmark-driver:integrationTest \
   -Pbenchmark.targetManifest=build/benchmark-target-task7-baseline.json \
   -Pbenchmark.adapter=baseline-83f3cd70 \
@@ -2028,8 +2043,10 @@ unchanged frozen ABI, no `Companion`/`INSTANCE`/global growable disabled state, 
 driver gate proves one v2 provider/configuration series for baseline fake-token and major lifecycle
 roles, two-phase reachability/final-heap isolation, checked cycle totals, all malicious archive
 decisions, unchanged fixture tree identity, the regenerated manifest/workload-contract identity,
-and packaging. The broad integration gate uses the detached baseline only; the filtered gate uses
-current/major-v1 and executes both major-only tests without skips. Keep the full controlled
+packaging, and the four-sentinel adapter-normalization ownership proof. The standalone harness
+self-test and broad integration gate both use the detached baseline manifest with
+`baseline-83f3cd70`; the filtered gate uses current/major-v1 and executes both major-only tests
+without skips. Keep the full controlled
 1,000/2,000/4,000 × five accepted-block performance campaign for Task 8, not ordinary Task-7 CI.
 
 Mutation-test at least: a strong diagnostics reference, disabled-path empty `ArrayList`, queue
@@ -2075,7 +2092,8 @@ git status --short
 git commit -m "test: expose real execution lifetime evidence"
 ```
 
-After the commit, report the commit SHA, the root/driver/integration executed and skipped counts,
+After the commit, report the commit SHA, the root/driver/harness-self-test/integration executed and
+skipped counts, confirmation that the four adapter-normalization sentinels cleared in the unit gate,
 the literal v2 provider and configuration hash golden used by both roles, the regenerated manifest
 SHA, confirmation that the three fixture hashes stayed unchanged, and any remaining concerns. Run
 `git status --short` and verify that only known pre-existing unrelated files remain; Task 7 itself
