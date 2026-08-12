@@ -89,18 +89,33 @@ class PmSandboxBootTest {
   }
 
   @Test
-  fun `PmSandbox closes a failed bridge once and preserves boot failure with close suppression`() {
+  fun `PmSandbox makes a failed boot terminal and preserves cleanup failure ordering`() {
     val failure = IllegalStateException("after-context")
     val closeFailure = IllegalStateException("close-context")
-    var closeCount = 0
+    var failedBridgeBootCount = 0
+    var failedBridgeCloseCount = 0
+    var replacementBridgeBootCount = 0
+    var replacementBridgeCloseCount = 0
+    val replacementBridge =
+      SandboxBridge()
+        .withBootHooks(
+          afterContextCreated = { replacementBridgeBootCount++ },
+          closeContext = {
+            replacementBridgeCloseCount++
+            it.close(true)
+          },
+        )
     val sandbox =
       PmSandbox()
         .withBridgeForTest(
           SandboxBridge()
             .withBootHooks(
-              afterContextCreated = { throw failure },
+              afterContextCreated = {
+                failedBridgeBootCount++
+                throw failure
+              },
               closeContext = {
-                closeCount++
+                failedBridgeCloseCount++
                 it.close(true)
                 throw closeFailure
               },
@@ -116,12 +131,28 @@ class PmSandboxBootTest {
           5000,
         )
       }
+    val replacementFailure =
+      assertThrows<IllegalStateException> { sandbox.withBridgeForTest(replacementBridge) }
+    val laterExecuteFailure =
+      assertThrows<IllegalStateException> {
+        sandbox.execute(
+          "pm.test('must not dispatch', () => pm.expect(false).to.eql(true));",
+          ScriptTarget.TEST,
+          PmExecutionContext(environment = PmScope("e", emptyMap())),
+          5000,
+        )
+      }
     sandbox.close()
     sandbox.close()
 
     thrown shouldBe failure
     thrown.suppressed.toList() shouldBe listOf(closeFailure)
-    closeCount shouldBe 1
+    replacementFailure.message shouldBe "sandbox: bridge replacement after use"
+    laterExecuteFailure.message shouldBe "sandbox: execute() after close()"
+    failedBridgeBootCount shouldBe 1
+    failedBridgeCloseCount shouldBe 1
+    replacementBridgeBootCount shouldBe 0
+    replacementBridgeCloseCount shouldBe 0
   }
 
   @Test

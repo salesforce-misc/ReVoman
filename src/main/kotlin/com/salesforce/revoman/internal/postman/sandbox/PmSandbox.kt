@@ -24,8 +24,13 @@ internal class PmSandbox : SandboxRuntime {
 
   private fun ensureBooted() {
     if (!booted) {
-      activeBridge().boot()
       booted = true
+      try {
+        activeBridge().boot()
+      } catch (failure: Throwable) {
+        closed = true
+        throw failure
+      }
     }
   }
 
