@@ -1669,10 +1669,13 @@ git commit -m "refactor: route multi-kick execution through sessions"
 ### Task 7: Publish real lifecycle weak-reference evidence to the benchmark driver
 
 **Files:**
+- Modify: `docs/superpowers/plans/2026-08-11-performance-cs2a-runtime-lifecycle.md`
 - Add: `src/main/kotlin/com/salesforce/revoman/internal/runtime/ExecutionLifecycleDiagnostics.kt`
 - Modify: `src/main/kotlin/com/salesforce/revoman/internal/runtime/ExecutionSession.kt`
 - Modify: `src/main/kotlin/com/salesforce/revoman/internal/runtime/KickExecution.kt`
 - Add: `src/test/kotlin/com/salesforce/revoman/internal/runtime/ExecutionLifecycleDiagnosticsTest.kt`
+- Modify: `src/test/kotlin/com/salesforce/revoman/compat/Cs2JvmSurfaceAdditions.kt`
+- Modify: `src/test/kotlin/com/salesforce/revoman/compat/ApiBaselineInventoryTest.kt`
 - Modify: `src/test/kotlin/com/salesforce/revoman/compat/JvmSurfaceVisibilityTest.kt`
 - Modify: `benchmark-driver/src/main/kotlin/com/salesforce/revoman/benchmark/driver/target/TargetAdapter.kt`
 - Modify: `benchmark-driver/src/main/kotlin/com/salesforce/revoman/benchmark/driver/target/major/MajorV1BindingContract.kt`
@@ -1695,20 +1698,37 @@ git commit -m "refactor: route multi-kick execution through sessions"
 
 **Interfaces:**
 - Consumes: CS1's retained-worker protocol, two-GC checkpoint, target classloader isolation, `major-v1` exact descriptor bindings, and the release evaluator's required `ExecutionSession`/`KickExecution` names.
-- Produces: opt-in weak-only target diagnostics, target-neutral tracked references in the worker, real major-v1 retained outcomes, and unchanged fake-token evidence for the pinned CS1 baseline adapter.
+- Produces: opt-in weak-only target diagnostics, target-neutral tracked references in the worker, one v2 two-phase retained procedure/provider/configuration identity for both roles, real major-v1 retained outcomes, and the pinned baseline's existing fake-token evidence routed through that same v2 procedure.
 
-- [ ] **Step 1: Add disabled/enabled/drain RED tests**
+- [ ] **Step 1: Add diagnostics and exact-surface RED tests**
 
-Define one versioned enable token, for example `revoman.lifecycleDiagnostics=weak-references-v1`. Tests must prove:
+Define the exact opt-in as
+`revoman.lifecycleDiagnostics=weak-references-v1`. Add isolated-classloader or subprocess tests before
+production code so class initialization cannot leak between cases. Prove:
 
-- diagnostics disabled by default allocate/register no weak-reference records;
+- diagnostics disabled by default allocate/register no weak-reference records and retain no global
+  growable collection or array-backed empty state;
 - enabling before runtime class initialization records one `ExecutionSession` and one `KickExecution` per one-kick outer call;
-- registration stores no strong reference to either object;
-- `drain()` is atomic, returns each record once, and clears its internal queue;
+- enabled-before-runtime-initialization is sufficient even if no runtime class was previously loaded,
+  while changing the property after the diagnostics facade initializes cannot change its mode;
+- registration stores only exact `java.lang.ref.WeakReference` instances and type-name `String`s,
+  never a strong execution reference or target-defined wrapper;
+- `drain()` atomically swaps the queue, returns each record exactly once in an exact `Object[]`
+  alternating `String`, `WeakReference`, and makes the drained queue and wrappers unreachable;
 - malformed enable values fail closed instead of silently enabling; and
 - ordinary calls expose no public diagnostics API in Kotlin source/ABI.
 
-Use isolated classloaders or subprocesses for property/class-initialization tests; do not make test order depend on resetting an already initialized singleton.
+Add overflow and malicious-state tests: an odd queue, non-`String` type slot, blank/unknown type,
+non-exact `WeakReference` class, repeated weak-reference identity, and count overflow must be rejected
+without publishing partial evidence. The only supported type strings are exactly `ExecutionSession`
+and `KickExecution`.
+
+Before writing the raw-JAR golden, add failing expectations in both
+`ApiBaselineInventoryTest` and `JvmSurfaceVisibilityTest` for cumulative
+`CS2_TASK7_RAW_JVM_ADDITIONS` and `CS2_TASK7_RAW_JVM_REMOVALS`. Both tests must compare the entire
+`active - frozen` and `frozen - active` sets with exact equality; no owner prefix, row count,
+substring, glob, or superset assertion is acceptable. Keep `api/cs2-baseline-revoman-root.api` and
+the frozen raw-JAR baseline byte-identical.
 
 - [ ] **Step 2: Capture driver and target binding RED**
 
@@ -1725,12 +1745,36 @@ internal interface LifecycleWeakReferenceProvider {
 }
 ```
 
-Only the major prepared workload implements the internal capability. Absence means a legacy target with no real lifecycle surface; an empty list from an implementing provider is invalid after retained executions. Write tests expecting the `major-v1` adapter to return exactly the two named groups and the baseline adapter to preserve the CS1 fake-token path. Run the focused tests and capture failure on the absent diagnostics method/binding.
+Only the major prepared workload implements the internal capability. The callback returned to the
+collector captures the provider, not a prebuilt list. Absence means a legacy target has no real
+lifecycle surface; an empty list from an implementing provider is invalid after retained
+executions. Write tests expecting the `major-v1` adapter to return exactly the two named groups and
+the baseline adapter to preserve exactly one `Cs1FakeExecutionToken` reference. Both role-specific
+sources must feed `RetainedCheckpointCollector`; neither may call `FullGcProtocol` directly.
+
+Define one shared series identity for both roles:
+
+```text
+provider = revoman-retained-two-phase-weak-proof-final-heap/v2
+procedure = reachability(two acknowledged full-GC cycles) then final-heap(two acknowledged full-GC cycles)
+```
+
+Keep `FullGcProtocol.PROVIDER_ID` and its acknowledgement primitive unchanged as the underlying
+phase sampler. The v2 base configuration hash must cover the exact provider/procedure version,
+`FullGcProtocol.DEFAULT_CONFIGURATION_SHA256` for both ordered phases, and the fixed
+`1000,2000,4000` checkpoint schedule. The per-run configuration hash continues to cover logging
+configuration and timeout, but must not include target role, adapter ID, fake-versus-real token
+kind, or target ID. Assert literal 64-character golden values in `RetainedMemoryRunnerTest` after
+calculating them from those inputs; replace the current length-only assertion. The baseline and
+candidate plans with otherwise identical inputs must emit exactly the same provider and
+configuration hash so `BenchmarkCampaign` can assemble one metric series.
 
 Run the RED probes separately so root and driver filters cannot mask one another:
 
 ```bash
 ./gradlew :test --tests '*ExecutionLifecycleDiagnosticsTest' \
+  --tests '*ApiBaselineInventoryTest' \
+  --tests '*JvmSurfaceVisibilityTest' \
   --rerun-tasks --no-build-cache --no-configuration-cache --console=plain
 
 ./gradlew :benchmark-driver:test \
@@ -1743,7 +1787,7 @@ Run the RED probes separately so root and driver filters cannot mask one another
 
 Expected: the first fails on the absent runtime facade; the second fails on absent target capability/collector and exact retained gate checks.
 
-- [ ] **Step 3: Implement weak-only runtime diagnostics**
+- [ ] **Step 3: Implement weak-only diagnostics and freeze the literal Task-7 JAR delta**
 
 Use a top-level synthetic JVM facade rather than a Kotlin object, so ordinary execution does not allocate an object singleton and Java/Kotlin consumers do not see a supported API:
 
@@ -1759,7 +1803,31 @@ internal fun drainLifecycleDiagnostics(): Array<Any>
 
 The compiled class/method contract is exactly `ExecutionLifecycleDiagnostics.drain()[Ljava/lang/Object;`; add a reflection/classfile test for the static descriptor because the Kotlin ABI dump intentionally excludes this internal synthetic seam. The returned bootstrap-safe exact `Object[]` alternates `String` type names and exact `java.lang.ref.WeakReference` instances; it must contain no target-defined DTO or `WeakReference` subclass. Register `WeakReference(this)` from each `ExecutionSession` and `KickExecution` constructor only when the versioned property was enabled before the diagnostics facade initialized. Use synchronization only on this opt-in diagnostics path. Disabled initialization may hold only scalar/nullable state, not an empty growable record container. Never hold a strong execution reference, rundown, environment, context, classloader-owned DTO, or throwable.
 
-`drain()` validates the internal pair structure and swaps its mutable record buffer for a fresh empty buffer before returning the old records as an array. It must not merely call `clear()` on a growable buffer whose O(executionCount) backing storage remains process-reachable. Return an empty array when nothing was registered. Keep the top-level function/facade Kotlin-`internal`; the stable JVM method exists solely for the versioned adapter and is documented in the migration/benchmark notes, not as supported user API.
+`drain()` validates the internal pair structure and swaps its mutable record buffer for a fresh empty
+buffer before returning the old records as an array. It must not merely call `clear()` on a
+growable buffer whose O(executionCount) backing storage remains process-reachable. Drop the tracked
+wrappers and old buffer immediately after normalization. Return an empty array when nothing was
+registered. Keep the top-level function/facade Kotlin-`internal`; the stable JVM method exists
+solely for the versioned adapter and is documented in Task 8's migration/benchmark notes, not as
+supported user API.
+
+Compile the real configured root JAR before editing the surface golden. Extract its inventory and
+paste every literal cumulative Task-7 `active - frozen` row into
+`CS2_TASK7_RAW_JVM_ADDITIONS` and every literal cumulative `frozen - active` row into
+`CS2_TASK7_RAW_JVM_REMOVALS`. This includes the exact synthetic
+`ExecutionLifecycleDiagnostics.drain()[Ljava/lang/Object;` row and every compiler-emitted
+diagnostics facade, state holder, lambda, and anonymous owner/field/method row. Do not predict the
+compiler output or carry forward only the new Task-7 rows.
+
+Make both exact gates consume those same cumulative Task-7 sets. In `JvmSurfaceVisibilityTest`,
+compile external and same-package Java adversaries against the real JAR/classpath. The synthetic
+facade must be unusable from source, and every emitted state/facade owner and forbidden
+constructor/member must fail with exact access/member diagnostics, not merely wrong arity. Assert
+the full constant pool/field inventory contains no new `Companion`, `INSTANCE`, public or
+package-visible state access, mutable current-runtime/session global, or strong execution field;
+the disabled diagnostics path must expose no process-reachable growable collection. Run
+`ApiBaselineInventoryTest`, `JvmSurfaceVisibilityTest`, external Kotlin/Java compatibility
+compilation, and `checkKotlinAbi`; the frozen ABI and raw-JAR baseline files remain unchanged.
 
 - [ ] **Step 4: Bind and normalize the major-v1 evidence**
 
@@ -1769,9 +1837,27 @@ Add the exact descriptor to `MajorV1BindingContract`:
 com/salesforce/revoman/internal/runtime/ExecutionLifecycleDiagnostics.drain()[Ljava/lang/Object;
 ```
 
-Do not bind this member during ordinary `MajorV1Adapter.prepare()`. `MajorPreparedWorkload` implements `LifecycleWeakReferenceProvider` and lazily resolves/caches the exact static handle only when retained mode calls `drainLifecycleWeakReferences()`. That method runs inside `TargetRuntime.withTargetContext`, requires `raw.javaClass == Array<Any>::class.java`, validates an even length, requires nonblank expected type strings and `value.javaClass === WeakReference::class.java`, copies them into driver-owned records using driver constants, and drops the raw array before GC. Repeated expected type names are required because there is one record per execution; unknown names, a subclass payload, malformed pairs, or repeated weak-reference identity are worker-integrity failures. Extend `FakeTargetJarBuilder.majorJar()` with configurable valid/malformed exact static diagnostics fixtures rather than making every unrelated major-adapter test fail at preparation.
+Do not bind this member during ordinary `MajorV1Adapter.prepare()`.
+`MajorPreparedWorkload` implements `LifecycleWeakReferenceProvider` and lazily resolves/caches the
+exact static handle only when retained mode calls `drainLifecycleWeakReferences()`. That method runs
+inside `TargetRuntime.withTargetContext`, requires
+`raw.javaClass == Array<Any>::class.java`, validates an even length, requires exactly the expected
+nonblank driver-owned type constants and `value.javaClass === WeakReference::class.java`, and copies
+them into driver-owned records. The method must null/drop the raw array before returning.
+Repeated expected type names are required because there is one record per execution; unknown
+names, a subclass payload, malformed pairs, count overflow, or repeated weak-reference identity are
+worker-integrity failures. Extend `FakeTargetJarBuilder.majorJar()` with configurable valid and
+malformed exact static diagnostics fixtures rather than making unrelated major-adapter tests fail
+at preparation.
 
-- [ ] **Step 5: Replace fake candidate tokens without weakening the baseline**
+Prove target-neutral ownership by keeping normalized records alive after closing and dropping the
+prepared workload, target runtime, cached handles, reflective members, and restored thread context
+classloader. All four target-side sentinels—runtime/classloader, prepared workload, raw array, and
+target-defined diagnostics state—must clear. Driver records may retain only bootstrap `String` and
+exact JDK `WeakReference` objects; they must never retain a target DTO, array, method handle, or
+classloader.
+
+- [ ] **Step 5: Route both roles through the two-phase retained collector**
 
 For retained mode with exact adapter ID `major-v1` only, set the diagnostics property before opening the target runtime/classloader. Never enable it for `baseline-83f3cd70` or ordinary cold/warm/allocation/RSS workers. Preserve the previous property value and restore it in worker cleanup with the existing body-primary/ordered-suppressed failure semantics. After all executions, inspect the prepared workload before retained sampling:
 
@@ -1779,49 +1865,113 @@ For retained mode with exact adapter ID `major-v1` only, set the diagnostics pro
 - exact `major-v1`: require the capability and drain it; absence/empty evidence is an integrity failure, never a fake fallback;
 - any future adapter: require an explicitly versioned capability contract rather than implicitly granting fake evidence.
 
-Malformed arrays/elements/subclasses/unknown names/repeated reference identities and a completely
-empty major-v1 drain abort the worker and publish no result. A nonempty, structurally valid drain
-with one expected group missing, a count mismatch, or uncleared referents is unfavorable benchmark
-evidence: serialize the actual per-type outcomes so the gate deterministically cannot PASS.
+Malformed arrays/elements/subclasses/unknown names/repeated reference identities, arithmetic
+overflow, and a completely empty major-v1 drain abort the worker and publish no result. A
+nonempty, structurally valid drain with one expected group missing, an extra/duplicate group, a
+count mismatch, or uncleared referents is unfavorable archive evidence: serialize the actual
+per-type outcomes so the evaluator deterministically cannot PASS.
 
-Do not hold those O(executionCount) `WeakReference` objects or driver wrappers during the heap measurement. Use two explicit phases:
+Both branches now supply a callback to the same `RetainedCheckpointCollector`; the fake baseline is
+not allowed to keep the old one-phase shortcut. Do not hold the O(executionCount) major references,
+the fake token, or any driver wrapper during the final heap measurement. Use two explicit phases:
 
 1. `RetainedCheckpointCollector.proveReachability(referenceSource)` invokes the source/drain inside its own helper frame, owns the resulting weak references, runs the existing two-acknowledgement `FullGcProtocol`, computes only immutable per-type `WeakReferenceOutcome` counts, and returns; then
 2. after that helper frame and every raw array/list/reference wrapper are unreachable, run a second two-acknowledgement `FullGcProtocol` and use only this second sample's `usedHeapBytes` as retained-memory evidence.
 
-The reference source is a callback that captures only the prepared provider, never a prebuilt list; therefore the outer collector frame cannot retain the list into phase 2. Compute the checkpoint's `completedGcCycles` with `Math.addExact(reachability.completedGcCycles, finalHeap.completedGcCycles)`. Each `FullGcProtocol` call acknowledges at least two cycles but may observe more concurrent collector increments, so require a truthful total of at least four rather than hard-coding equality to four; retain the existing model's `>= 2` forward-compatible validation. Version the retained provider identity/configuration hash from the CS1 fake-token procedure to a CS2a two-phase weak-proof/final-heap procedure, and update every golden/test that asserts the provider hash. With an injected GC sampler, test call order, checked cycle summation, use of only the second heap value, buffer swap, and that the final sampler cannot reach the first phase's raw array/list/wrapper objects. Mutations that reuse the first heap, clamp the cycle count to four, or retain the list into phase 2 must fail without timing thresholds.
+The reference source captures only the prepared provider or a baseline token factory, never a
+prebuilt list. `proveReachability` must return only immutable outcomes plus its phase cycle count;
+the caller must leave that helper frame before invoking the final sampler. Compute the checkpoint's
+`completedGcCycles` with
+`Math.addExact(reachability.completedGcCycles, finalHeap.completedGcCycles)` and propagate overflow;
+never clamp or saturate. Each `FullGcProtocol` call acknowledges at least two cycles but may observe
+more concurrent increments, so require a truthful exact sum of at least four rather than equality
+to four. Keep the generic model/schema validation at `>= 2` for forward compatibility; the exact
+v2 retained provider is subject to the stricter evaluator rule in Step 6.
 
-Restore/clear the diagnostics property in worker cleanup for tests even though production target workers are one-shot JVMs. Do not add diagnostics to latency/allocation/RSS modes.
+With an injected GC sampler, test exact callback/phase order, checked cycle summation and overflow,
+use of only the second heap value, queue swap, and reachability barriers proving that the final
+sampler cannot reach the first phase's raw array, list, weak references, or normalized wrappers.
+Mutations that reuse the first heap, report only the second cycle count, clamp the total to four,
+prebuild the list outside the helper, clear instead of swap, or retain one phase-one wrapper into
+phase two must fail without timing thresholds. Restore/clear the diagnostics property in worker
+cleanup for tests even though production target workers are one-shot JVMs. Do not add diagnostics
+to latency, allocation, or RSS modes.
 
-- [ ] **Step 6: Prove classloader safety and real retained execution**
+- [ ] **Step 6: Harden archive evaluation and update the workload contract**
 
-Add contract tests showing the driver-side tracked records contain only exact JDK `WeakReference`/String types. For classloader collection, deliberately keep normalized tracked records alive while dropping the prepared workload, runtime, all method handles, and restored thread context classloader; `TargetRuntime.close()` alone is not sufficient evidence. Add a direct real `TargetForkMain` integration command with a small `retainedExecutionCount` (do not change the production runner's fixed 1,000/2,000/4,000 points) that verifies:
+Move generic schema/model validation ahead of retained gate inspection. Invalid schema/model
+documents remain `INCOMPATIBLE`; do not turn their structural exceptions into a metric decision.
+For every retained series using exact provider
+`revoman-retained-two-phase-weak-proof-final-heap/v2`, require every observation's truthful
+`completedGcCycles >= 4`. A structurally valid exact-v2 archive with only two or three cycles is
+`INCONCLUSIVE`, never an exception or PASS. Older/future generic retained evidence remains valid at
+the model's `>= 2` floor unless its own exact provider policy says otherwise.
+
+For each exact-v2 observation, validate evidence by role before calculating a slope:
+
+- candidate has exactly two rows, one `ExecutionSession` and one `KickExecution`; each row has
+  `created == executionCount` and `cleared == created`;
+- baseline has exactly one `Cs1FakeExecutionToken` row with `created == 1` and `cleared == 1`;
+- a missing, extra, duplicate, unknown, or count-mismatched row is `INCONCLUSIVE`; and
+- any expected row with `cleared != created` is `FAIL`, even if another shape defect is present.
+
+Add `ComparisonFixtures` constructors/mutators for exact-v2 provider/configuration identity and
+attack every observation across the 1,000/2,000/4,000 points: two cycles, three cycles, missing,
+extra, duplicate, unknown, candidate created-count mismatch, baseline 0/0 or 2/2 count mismatch,
+and uncleared baseline/candidate expected rows. Assert exact decisions and reasons in
+`ReleaseGateEvaluatorTest`. Also prove valid baseline `1/1`, candidate session/kick
+`executionCount/executionCount`, and five blocks can PASS. The assembler fixture must use one exact
+provider/configuration identity for both roles.
+
+Change only the packaged manifest's `RETAINED` gates from `[]` to exactly
+`["RETAINED_SLOPE"]`. This changes the manifest SHA-256 and the harness workload-contract SHA-256,
+so regenerate and paste the exact new
+`VerifiedLifecycleWorkloadSnapshotTest.LIFECYCLE_MANIFEST_SHA256` and update every workload-contract
+golden derived from the manifest. It does **not** change the declared collection hash
+`baacf0d7e9067c41848edf172aad8508b612528133d6576707f47da534c0ea86`, handler hash
+`12c15383ba5a0aa6aef1e32f409a86dc5168223ad18ccb17270506e625b105ef`, or
+`fixtureTreeSha256`
+`31af0229163ef1ed544189f9b1f1dbd9a80607ffd024a2e5bd09cddfae919c92` unless the fixture bytes
+themselves change. `DeterministicHttpFixtureTest` must continue pinning those exact three unchanged
+fixture identities while changing only its retained-gate assertion. Cold and warm required gates
+remain byte-for-byte unchanged. Do not discard or regenerate all fixture hashes merely because the
+manifest changed.
+
+- [ ] **Step 7: Prove the real worker while preserving the Task-7/Task-8 CI boundary**
+
+Add a direct real `TargetForkMain` integration command with a small `retainedExecutionCount` (do
+not change the production runner's fixed 1,000/2,000/4,000 points) that verifies:
 
 - the baseline role reports only `Cs1FakeExecutionToken`;
-- the major-v1 role reports `ExecutionSession` and `KickExecution` with exact created counts;
+- the major-v1 role reports exactly `ExecutionSession` and `KickExecution`, each with
+  `created == executionCount == cleared`;
+- both roles report the same exact v2 provider/configuration series identity;
 - at least four acknowledged GC cycles occur under the two-phase provider, with the exact checked sum preserved; and
-- every real candidate weak reference clears.
+- every real candidate weak reference clears; and
+- all four target-side classloader-safety references from Step 4 clear.
 
-Mark each newly added major-only JUnit Jupiter integration method with
-`@EnabledIfSystemProperty(named = "revoman.benchmark.adapter", matches = "major-v1")`. The complete
-integration suite intentionally skips only those named methods when run under
-`baseline-83f3cd70`; the later filtered major-v1 command must execute all selected methods with zero
-skips. Record both counts. Do not let a major-only test throw merely because the full compatibility
-suite is exercising the fixed baseline adapter.
+Split the new integrations into exact backtick-named JUnit Jupiter methods:
 
-Harden `ReleaseGateEvaluator` as an archive trust boundary: every candidate retained observation must contain exactly one row each for `ExecutionSession` and `KickExecution`, each `created` count must equal that observation's `executionCount`, and every `cleared` count must equal `created`. Every baseline observation must contain exactly one `Cs1FakeExecutionToken` row with `created == cleared == 1`. Missing, extra, duplicate, count-mismatched, or uncleared evidence is FAIL/INCONCLUSIVE according to the existing compatibility-versus-gate distinction, never PASS. Keep generic schema/model compatibility at `completedGcCycles >= 2`, but for the exact new CS2a retained provider/configuration identity require `completedGcCycles >= 4` before release evaluation. Add malicious two-cycle and three-cycle archives, as well as weak-row attacks, through `ComparisonFixtures`; do not rely only on the worker/provider to have validated the original JSON.
+```text
+RunnerIntegrationTest.real retained worker reports major lifecycle weak references
+BenchmarkDriverIntegrationTest.major lifecycle retained campaign preserves v2 series identity
+```
 
-Keep the full controlled 1,000/2,000/4,000 × five accepted-block retained campaign for the final performance gate rather than ordinary CI.
+Annotate each method—not its class—with
+`@EnabledIfSystemProperty(named = "revoman.benchmark.adapter", matches = "major-v1")`. The full
+driver integration suite runs against the detached baseline manifest and
+`baseline-83f3cd70`; it intentionally skips exactly those two major-only methods. A separate
+filtered command runs exactly both named methods against the current manifest and `major-v1` with
+zero skips. Record executed/skipped counts in the Task-7 handoff. The harness self-test remains a
+baseline-versus-baseline test and uses `baseline-83f3cd70` only.
 
-Now that the candidate exposes real lifecycle weak references, change the packaged lifecycle
-workload's `RETAINED` gate list from empty to exactly `["RETAINED_SLOPE"]`. Update the manifest
-contract test that previously pinned the CS1-only empty list. Recompute and update
-`VerifiedLifecycleWorkloadSnapshotTest.LIFECYCLE_MANIFEST_SHA256`; never hand-copy the old constant.
-This is a workload-contract identity change and must flow into the captured `WorkloadIdentity`; do
-not reuse any CS1 result or fixture hash. Cold and warm required gates remain byte-for-byte
-unchanged.
+Do not edit `.github/workflows/build.yml` or
+`src/test/kotlin/com/salesforce/revoman/benchmark/BenchmarkWorkflowTest.kt` in Task 7. The current
+workflow still supplies a baseline manifest/adapter to the broad integration task and cannot make
+the major-only methods run; reconciling that mismatch and pinning exact CI SHAs is explicitly Task
+8. Therefore Task 7 must not claim the current exact-SHA CI configuration is green.
 
-- [ ] **Step 7: Verify and commit**
+- [ ] **Step 8: Verify the complete Task-7 scope and commit**
 
 Export a fresh major target and run exact focused/broad gates:
 
@@ -1843,7 +1993,11 @@ git worktree add --detach "$TASK7_BASELINE_ROOT/checkout" \
   -Pbenchmark.targetId=task7-baseline-83f3cd70 --no-daemon --console=plain
 
 ./gradlew :test --tests '*ExecutionLifecycleDiagnosticsTest' \
+  --tests '*ApiBaselineInventoryTest' \
   --tests '*JvmSurfaceVisibilityTest' \
+  compileApiCompatibilityTestKotlin \
+  compileApiCompatibilityTestJava \
+  checkKotlinAbi \
   --rerun-tasks --no-build-cache --no-configuration-cache --console=plain
 
 ./gradlew :benchmark-driver:test \
@@ -1858,7 +2012,7 @@ git worktree add --detach "$TASK7_BASELINE_ROOT/checkout" \
 
 ./gradlew :benchmark-driver:integrationTest \
   --tests '*RunnerIntegrationTest.real retained worker reports major lifecycle weak references*' \
-  --tests '*BenchmarkDriverIntegrationTest.major lifecycle campaign*' \
+  --tests '*BenchmarkDriverIntegrationTest.major lifecycle retained campaign preserves v2 series identity*' \
   -Pbenchmark.targetManifest=build/benchmark-target-current.json \
   -Pbenchmark.adapter=major-v1 \
   --rerun-tasks --no-build-cache --no-configuration-cache --console=plain
@@ -1868,15 +2022,64 @@ git worktree add --detach "$TASK7_BASELINE_ROOT/checkout" \
 git diff --check
 ```
 
-Expected: runtime diagnostics, adapter/fake fixtures, two-phase collector, release evaluator, direct small-count real worker integration, all driver tests, packaging, and formatting pass. Commit:
+Expected: the root gate proves the exact cumulative active/frozen raw-JAR deltas from both
+independent tests, exact synthetic drain descriptor, same-package/external compiler failures,
+unchanged frozen ABI, no `Companion`/`INSTANCE`/global growable disabled state, and formatting. The
+driver gate proves one v2 provider/configuration series for baseline fake-token and major lifecycle
+roles, two-phase reachability/final-heap isolation, checked cycle totals, all malicious archive
+decisions, unchanged fixture tree identity, the regenerated manifest/workload-contract identity,
+and packaging. The broad integration gate uses the detached baseline only; the filtered gate uses
+current/major-v1 and executes both major-only tests without skips. Keep the full controlled
+1,000/2,000/4,000 × five accepted-block performance campaign for Task 8, not ordinary Task-7 CI.
+
+Mutation-test at least: a strong diagnostics reference, disabled-path empty `ArrayList`, queue
+`clear()` instead of swap, non-exact `WeakReference` subclass, retained phase-one wrapper, first
+phase heap reuse, unchecked/saturated cycle addition, role-specific provider/configuration hash,
+two/three-cycle exact-v2 acceptance, missing/extra/duplicate/unknown/count-mismatched rows passing,
+uncleared expected row becoming INCONCLUSIVE, changed fixture hash without fixture-byte change,
+and one omitted Task-7 raw-JAR row. Restore every mutation before the final commands.
+
+Stage the complete Task-7 scope explicitly; do not stage the detached checkout, generated target
+manifests, the pre-existing untracked Task-6 files unless Task 6 owns them, or any Task-8 workflow,
+documentation, ABI, operator, result, or report file:
 
 ```bash
-git add src/main/kotlin/com/salesforce/revoman/internal/runtime \
-  src/test/kotlin/com/salesforce/revoman/internal/runtime \
+git add docs/superpowers/plans/2026-08-11-performance-cs2a-runtime-lifecycle.md \
+  src/main/kotlin/com/salesforce/revoman/internal/runtime/ExecutionLifecycleDiagnostics.kt \
+  src/main/kotlin/com/salesforce/revoman/internal/runtime/ExecutionSession.kt \
+  src/main/kotlin/com/salesforce/revoman/internal/runtime/KickExecution.kt \
+  src/test/kotlin/com/salesforce/revoman/internal/runtime/ExecutionLifecycleDiagnosticsTest.kt \
+  src/test/kotlin/com/salesforce/revoman/compat/Cs2JvmSurfaceAdditions.kt \
+  src/test/kotlin/com/salesforce/revoman/compat/ApiBaselineInventoryTest.kt \
   src/test/kotlin/com/salesforce/revoman/compat/JvmSurfaceVisibilityTest.kt \
-  benchmark-driver/src/main benchmark-driver/src/test benchmark-driver/src/integrationTest
+  benchmark-driver/src/main/kotlin/com/salesforce/revoman/benchmark/driver/target/TargetAdapter.kt \
+  benchmark-driver/src/main/kotlin/com/salesforce/revoman/benchmark/driver/target/major/MajorV1BindingContract.kt \
+  benchmark-driver/src/main/kotlin/com/salesforce/revoman/benchmark/driver/target/major/MajorV1Adapter.kt \
+  benchmark-driver/src/main/kotlin/com/salesforce/revoman/benchmark/driver/process/TargetForkMain.kt \
+  benchmark-driver/src/main/kotlin/com/salesforce/revoman/benchmark/driver/process/RetainedCheckpointCollector.kt \
+  benchmark-driver/src/main/kotlin/com/salesforce/revoman/benchmark/driver/run/RetainedMemoryRunner.kt \
+  benchmark-driver/src/main/kotlin/com/salesforce/revoman/benchmark/driver/compare/ReleaseGateEvaluator.kt \
+  benchmark-driver/src/main/resources/workloads/v1/lifecycle.no-script-one-step.v1/manifest.json \
+  benchmark-driver/src/test/kotlin/com/salesforce/revoman/benchmark/driver/process/RetainedCheckpointCollectorTest.kt \
+  benchmark-driver/src/test/kotlin/com/salesforce/revoman/benchmark/driver/target/FakeTargetJarBuilder.kt \
+  benchmark-driver/src/test/kotlin/com/salesforce/revoman/benchmark/driver/target/TargetAdapterContractTest.kt \
+  benchmark-driver/src/test/kotlin/com/salesforce/revoman/benchmark/driver/run/RetainedMemoryRunnerTest.kt \
+  benchmark-driver/src/test/kotlin/com/salesforce/revoman/benchmark/driver/compare/ReleaseGateEvaluatorTest.kt \
+  benchmark-driver/src/test/kotlin/com/salesforce/revoman/benchmark/driver/compare/ComparisonFixtures.kt \
+  benchmark-driver/src/test/kotlin/com/salesforce/revoman/benchmark/driver/fixture/DeterministicHttpFixtureTest.kt \
+  benchmark-driver/src/test/kotlin/com/salesforce/revoman/benchmark/driver/jmh/VerifiedLifecycleWorkloadSnapshotTest.kt \
+  benchmark-driver/src/integrationTest/kotlin/com/salesforce/revoman/benchmark/driver/process/RunnerIntegrationTest.kt \
+  benchmark-driver/src/integrationTest/kotlin/com/salesforce/revoman/benchmark/driver/cli/BenchmarkDriverIntegrationTest.kt
+git diff --cached --check
+git status --short
 git commit -m "test: expose real execution lifetime evidence"
 ```
+
+After the commit, report the commit SHA, the root/driver/integration executed and skipped counts,
+the literal v2 provider and configuration hash golden used by both roles, the regenerated manifest
+SHA, confirmation that the three fixture hashes stayed unchanged, and any remaining concerns. Run
+`git status --short` and verify that only known pre-existing unrelated files remain; Task 7 itself
+must leave no unstaged or uncommitted changes.
 
 ### Task 8: Reconcile the major API, documentation, and full acceptance gates
 
