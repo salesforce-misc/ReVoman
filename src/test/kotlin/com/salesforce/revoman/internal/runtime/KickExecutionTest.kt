@@ -39,6 +39,16 @@ class KickExecutionTest {
   }
 
   @Test
+  fun `passing scripts without invoking it does not create a sandbox`() {
+    val factory = CountingSandboxFactory(result)
+    val execution = kickExecution(factory)
+
+    consume(execution.scripts)
+
+    assertThat(factory.createCount).isEqualTo(0)
+  }
+
+  @Test
   fun `first script invocation creates one sandbox reused by later phases`() {
     val factory = CountingSandboxFactory(result)
     val execution = kickExecution(factory)
@@ -105,6 +115,23 @@ class KickExecutionTest {
     assertThat(failure).hasMessageThat().contains("closed")
     assertThat(factory.createCount).isEqualTo(0)
   }
+
+  @Test
+  fun `script invocation after initialized execution closes fails without reopening`() {
+    val factory = CountingSandboxFactory(result)
+    val execution = kickExecution(factory)
+    execution.scripts.execute("first", ScriptTarget.TEST, context)
+    execution.close()
+
+    assertThrows<IllegalStateException> {
+      execution.scripts.execute("second", ScriptTarget.TEST, context)
+    }
+
+    assertThat(factory.createCount).isEqualTo(1)
+    assertThat(factory.created.single().closeCount).isEqualTo(1)
+  }
+
+  private fun consume(@Suppress("UNUSED_PARAMETER") executor: ScriptExecutor) = Unit
 
   private class CountingSandboxFactory(private val result: PmExecutionResult) : SandboxFactory {
     var createCount: Int = 0

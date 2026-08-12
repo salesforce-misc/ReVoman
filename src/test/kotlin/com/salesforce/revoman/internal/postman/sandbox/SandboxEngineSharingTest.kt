@@ -8,6 +8,9 @@
 package com.salesforce.revoman.internal.postman.sandbox
 
 import io.kotest.matchers.shouldBe
+import org.graalvm.polyglot.Context
+import org.graalvm.polyglot.Engine
+import org.graalvm.polyglot.Source
 import org.junit.jupiter.api.Test
 
 /**
@@ -84,12 +87,24 @@ class SandboxEngineSharingTest {
   }
 
   @Test
-  fun `two real bridges share immutable engine and source without sharing globals`() {
-    val first = SandboxBridge()
-    val second = SandboxBridge()
+  fun `two real bridges build contexts with the shared engine and evaluate the shared source`() {
+    val engines = mutableListOf<Engine>()
+    val sources = mutableListOf<Source>()
+    val contextFactory: (Engine) -> Context = { engine ->
+      engines += engine
+      Context.newBuilder("js")
+        .engine(engine)
+        .allowExperimentalOptions(true)
+        .option("js.esm-eval-returns-exports", "true")
+        .option("js.ecmascript-version", "2024")
+        .allowHostAccess(org.graalvm.polyglot.HostAccess.ALL)
+        .allowHostClassLookup { true }
+        .build()
+    }
+    val sourceProvider: () -> Source = { SandboxResources.bootSource.also { sources += it } }
+    val first = SandboxBridge().withRuntimeHooks(contextFactory, sourceProvider)
+    val second = SandboxBridge().withRuntimeHooks(contextFactory, sourceProvider)
 
-    sharedGraalEngine shouldBe sharedGraalEngine
-    SandboxResources.bootSource shouldBe SandboxResources.bootSource
     first.boot()
     first.dispatchExecute("one", "__bridgeLeak = 'first';", ScriptTarget.TEST, testCtx(), 5000)
     second.boot()
@@ -104,6 +119,10 @@ class SandboxEngineSharingTest {
     first.close()
     second.close()
 
+    engines shouldBe listOf(sharedGraalEngine, sharedGraalEngine)
+    sources shouldBe listOf(SandboxResources.bootSource, SandboxResources.bootSource)
+    (engines[0] === engines[1]) shouldBe true
+    (sources[0] === sources[1]) shouldBe true
     result.error shouldBe null
     result.environment["sawBridgeGlobal"] shouldBe "undefined"
   }

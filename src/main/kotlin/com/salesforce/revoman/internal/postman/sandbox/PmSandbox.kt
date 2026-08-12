@@ -16,7 +16,7 @@ import com.salesforce.revoman.internal.runtime.SandboxRuntime
  * All GraalJS/bridge/Flatted detail lives behind [execute].
  */
 internal class PmSandbox : SandboxRuntime {
-  private val bridge = SandboxBridge()
+  private val bridge: SandboxBridge = TEST_BRIDGE_FACTORY.get()?.invoke() ?: SandboxBridge()
   private var booted = false
   private var closed = false
   private var idSeq = 0L
@@ -48,6 +48,18 @@ internal class PmSandbox : SandboxRuntime {
     const val DEFAULT_TIMEOUT_MS = 60_000L
   }
 }
+
+@JvmSynthetic
+internal fun pmSandboxForTest(bridgeFactory: () -> SandboxBridge): PmSandbox {
+  TEST_BRIDGE_FACTORY.set(bridgeFactory)
+  return try {
+    PmSandbox()
+  } finally {
+    TEST_BRIDGE_FACTORY.remove()
+  }
+}
+
+private val TEST_BRIDGE_FACTORY = ThreadLocal<() -> SandboxBridge>()
 
 /** Keys produced (added or value-changed) and unset (removed) between two scope snapshots. */
 internal data class ScopeDiff(val produced: Set<String>, val unset: Set<String>)

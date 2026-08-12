@@ -310,26 +310,40 @@ class JvmSurfaceVisibilityTest {
   @Test
   fun `same-package external Java cannot construct or operate function-local implementations`() {
     val attempts =
-      mapOf(
-        "SamePackageNamedScopeConsumer" to "DefaultResourceScope",
-        "SamePackageAnonymousScopeConsumer" to
+      listOf(
+        SamePackageAttempt(
+          "SamePackageNamedScopeConsumer",
+          "DefaultResourceScope",
+          "new DefaultResourceScope().close()",
+        ),
+        SamePackageAttempt(
+          "SamePackageAnonymousScopeConsumer",
           RESOURCE_SCOPE_IMPLEMENTATION.substringAfterLast('/'),
-        "SamePackageKickExecutionConsumer" to KICK_EXECUTION_IMPLEMENTATION.substringAfterLast('/'),
-        "SamePackageKickExecutorConsumer" to KICK_EXECUTOR_IMPLEMENTATION.substringAfterLast('/'),
+          "new ${RESOURCE_SCOPE_IMPLEMENTATION.substringAfterLast('/')}().close()",
+        ),
+        SamePackageAttempt(
+          "SamePackageKickExecutionConsumer",
+          KICK_EXECUTION_IMPLEMENTATION.substringAfterLast('/'),
+          "new ${KICK_EXECUTION_IMPLEMENTATION.substringAfterLast('/')}((ResourceScope) null, (SandboxFactory) null).getScripts()",
+        ),
+        SamePackageAttempt(
+          "SamePackageKickExecutorConsumer",
+          KICK_EXECUTOR_IMPLEMENTATION.substringAfterLast('/'),
+          "new ${KICK_EXECUTOR_IMPLEMENTATION.substringAfterLast('/')}((" +
+            "${KICK_EXECUTION_IMPLEMENTATION.substringAfterLast('/')} ) null, (ResourceScope) null, (SandboxFactory) null).execute(null, null, null, 0L)",
+        ),
       )
 
-    attempts.forEach { (className, implementationName) ->
+    attempts.forEach { attempt ->
       val result =
         compileJava(
-          className,
+          attempt.className,
           """
           package com.salesforce.revoman.internal.runtime;
 
-          final class $className {
+          final class ${attempt.className} {
             static Object access() {
-              $implementationName scope = new $implementationName();
-              scope.close();
-              return scope;
+              return ${attempt.operation};
             }
           }
           """
@@ -481,6 +495,12 @@ class JvmSurfaceVisibilityTest {
     val className: String,
     val access: String,
     val expectedDiagnosticCodes: Set<String>,
+  )
+
+  private data class SamePackageAttempt(
+    val className: String,
+    val implementationName: String,
+    val operation: String,
   )
 
   private companion object {

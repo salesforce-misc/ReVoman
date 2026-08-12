@@ -86,4 +86,36 @@ class PmSandboxBootTest {
     thrown.suppressed.toList() shouldBe listOf(closeFailure)
     closeCount shouldBe 1
   }
+
+  @Test
+  fun `PmSandbox closes a failed bridge once and preserves boot failure with close suppression`() {
+    val failure = IllegalStateException("after-context")
+    val closeFailure = IllegalStateException("close-context")
+    var closeCount = 0
+    val sandbox = pmSandboxForTest {
+      SandboxBridge()
+        .withBootHooks(
+          afterContextCreated = { throw failure },
+          closeContext = {
+            closeCount++
+            throw closeFailure
+          },
+        )
+    }
+
+    val thrown =
+      assertThrows<IllegalStateException> {
+        sandbox.execute(
+          "test",
+          ScriptTarget.TEST,
+          PmExecutionContext(environment = PmScope("e", emptyMap())),
+          5000,
+        )
+      }
+    sandbox.close()
+
+    thrown shouldBe failure
+    thrown.suppressed.toList() shouldBe listOf(closeFailure)
+    closeCount shouldBe 1
+  }
 }

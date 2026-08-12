@@ -23,12 +23,36 @@ class SandboxResourcesTest {
 
   @Test
   fun `boot source is built once from the versioned immutable resource`() {
-    val first = SandboxResources.bootSource
-    val second = SandboxResources.bootSource
+    var bootcodeReads = 0
+    var versionReads = 0
+    var sourceBuilds = 0
+    SandboxResources.resetForTest(
+      readGzip = {
+        bootcodeReads++
+        "globalThis.boot = true;"
+      },
+      readFile = {
+        versionReads++
+        "6.7.0"
+      },
+      sourceFactory = { language, code, name ->
+        sourceBuilds++
+        org.graalvm.polyglot.Source.newBuilder(language, code, name).build()
+      },
+    )
+    try {
+      val first = SandboxResources.bootSource
+      val second = SandboxResources.bootSource
 
-    first shouldBe second
-    first.name shouldContain "postman-sandbox-${SandboxResources.version}.js"
-    first.characters.length shouldBe SandboxResources.bootcode.length
+      (first === second) shouldBe true
+      first.name shouldContain "postman-sandbox-6.7.0.js"
+      first.characters.length shouldBe "globalThis.boot = true;".length
+      bootcodeReads shouldBe 1
+      versionReads shouldBe 1
+      sourceBuilds shouldBe 1
+    } finally {
+      SandboxResources.resetDefaultForTest()
+    }
   }
 
   @Test

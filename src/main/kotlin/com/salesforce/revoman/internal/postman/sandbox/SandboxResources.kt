@@ -32,7 +32,32 @@ internal object SandboxResources {
   val version: String by lazy { readFileToString("$DIR/pm-sandbox-version.txt").trim() }
 
   @get:JvmSynthetic
-  internal val bootSource: Source by lazy {
+  internal val bootSource: Source
+    get() = bootSourceDelegate.value
+
+  @JvmSynthetic
+  internal fun resetForTest(
+    readGzip: (String) -> String,
+    readFile: (String) -> String,
+    sourceFactory: (String, String, String) -> Source,
+  ) {
+    bootSourceDelegate = lazy {
+      sourceFactory(
+        "js",
+        readGzip("$DIR/bootcode.js.gz"),
+        "postman-sandbox-${readFile("$DIR/pm-sandbox-version.txt").trim()}.js",
+      )
+    }
+  }
+
+  @JvmSynthetic
+  internal fun resetDefaultForTest() {
+    bootSourceDelegate = lazy {
+      Source.newBuilder("js", bootcode, "postman-sandbox-$version.js").build()
+    }
+  }
+
+  private var bootSourceDelegate: Lazy<Source> = lazy {
     Source.newBuilder("js", bootcode, "postman-sandbox-$version.js").build()
   }
 }

@@ -55,6 +55,8 @@ internal val sharedGraalEngine: Engine by lazy {
 internal class SandboxBridge() {
   private var afterContextCreated: () -> Unit = {}
   private var closeContext: (Context) -> Unit = { it.close(true) }
+  private var contextFactory: ((Engine) -> Context)? = null
+  private var bootSourceProvider: (() -> Source)? = null
 
   @JvmSynthetic
   internal fun withBootHooks(
@@ -63,6 +65,16 @@ internal class SandboxBridge() {
   ): SandboxBridge {
     this.afterContextCreated = afterContextCreated
     this.closeContext = closeContext
+    return this
+  }
+
+  @JvmSynthetic
+  internal fun withRuntimeHooks(
+    contextFactory: (Engine) -> Context,
+    bootSource: () -> Source,
+  ): SandboxBridge {
+    this.contextFactory = contextFactory
+    bootSourceProvider = bootSource
     return this
   }
 
@@ -82,14 +94,15 @@ internal class SandboxBridge() {
     booted = true
     try {
       ctx =
-        Context.newBuilder("js")
-          .engine(sharedGraalEngine)
-          .allowExperimentalOptions(true)
-          .option("js.esm-eval-returns-exports", "true")
-          .option("js.ecmascript-version", "2024")
-          .allowHostAccess(HostAccess.ALL)
-          .allowHostClassLookup { true }
-          .build()
+        contextFactory?.invoke(sharedGraalEngine)
+          ?: Context.newBuilder("js")
+            .engine(sharedGraalEngine)
+            .allowExperimentalOptions(true)
+            .option("js.esm-eval-returns-exports", "true")
+            .option("js.ecmascript-version", "2024")
+            .allowHostAccess(HostAccess.ALL)
+            .allowHostClassLookup { true }
+            .build()
       afterContextCreated()
       val bindings = ctx.getBindings("js")
 
@@ -157,7 +170,7 @@ internal class SandboxBridge() {
       guestBridge = bindings.getMember("bridge")
       check(!guestBridge.isNull) { "sandbox: no global bridge after bridge-client" }
 
-      ctx.eval(SandboxResources.bootSource)
+      ctx.eval(bootSourceProvider?.invoke() ?: SandboxResources.bootSource)
       loop.run()
 
       guestBridge.invokeMember("emit", "initialize", ProxyObject.fromMap(HashMap<String, Any?>()))
