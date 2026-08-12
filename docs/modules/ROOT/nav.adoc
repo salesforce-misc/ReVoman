@@ -29,5 +29,6 @@
 * xref:performance.adoc[Performance]
 
 .Help
+* xref:migration-guide.adoc[Major-version Migration Guide]
 * xref:troubleshooting.adoc[Troubleshooting & FAQ]
 * xref:contributing.adoc[Contributing]

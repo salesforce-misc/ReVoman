@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-09
 
-**Status:** Approved interactively; pending written-spec review
+**Status:** Approved; implementation in progress
 
 **Target:** Next major ReVoman release
 **Baseline revision:** 83f3cd70
@@ -1043,12 +1043,14 @@ The major-version migration guide must include:
 | Custom RunLogSink without declared capabilities/flush/concurrency contract | RunLogSink with immutable capabilities, flush(boundary), and EXCLUSIVE or CONCURRENT_SAFE attachment; caller-supplied sinks remain borrowed |
 | Unversioned Rundown JSON fields such as envSnapshot | major schemaVersion 2 with variableEffects and final scopes |
 
-RunbookRundown remains an immutable ordered List<Rundown>; only the nested Rundown/report/value
-schema changes. Before Change Set 2, the build generates a baseline public-surface inventory and
-the migration guide maps every removed/changed Kotlin and Java symbol plus every serialized field.
-Kotlin and Java consumer compile fixtures cover hooks, picks, dynamic generators, polling callbacks,
-PostmanEnvironment replacements, TxnInfo access, custom sinks, ledgers, and RunbookRundown. Rundown
-JSON emits `schemaVersion: 2`; the major release does not silently parse or emit the old shape.
+The public Kotlin/JVM `RunbookRundown` remains an immutable ordered `List<Rundown>`. Its version-2
+serialized form is a standalone root wrapper `{schemaVersion,name,rundowns}`; the Rundowns nested in
+that wrapper inherit the root version and omit their own `schemaVersion`. Before Change Set 2, the
+build generates a baseline public-surface inventory and the migration guide maps every
+removed/changed Kotlin and Java symbol plus every serialized field. Kotlin and Java consumer
+compile fixtures cover hooks, picks, dynamic generators, polling callbacks, PostmanEnvironment
+replacements, TxnInfo access, custom sinks, ledgers, and RunbookRundown. Rundown JSON emits
+`schemaVersion: 2`; the major release does not silently parse or emit the old shape.
 
 ### Normative serialized schemas
 
@@ -1074,10 +1076,472 @@ success/failure, and ledger documents:
 - PollingConfig schema and migration notes declare `recentResponsesLimit = 0` and
   `maxAttempts = 10_000` defaults and reject legacy retain-all sentinels.
 
+The following tables are the normative version-2 schema skeleton. Pointer `*` means each array item
+(or each arbitrary scope key where the schema says `additionalProperties`). `SUMMARY`, `STANDARD`,
+and `VERBOSE` are emission levels; a field marked conditional is present only when its source value
+exists. Every row has one matching `kind=json` migration-ledger row. A later implementation may
+split reusable definitions into `$defs`, but it may not add, remove, or rename a serialized field
+without updating this table, the migration ledger, the Draft 2020-12 schemas, and golden fixtures in
+the same commit.
+
+| Document | Instance JSON pointer | Version-2 schema | Presence |
+|---|---|---|---|
+| Rundown | `/schemaVersion` | integer, const `2` | always |
+| Rundown | `/providedStepsToExecuteCount` | integer, minimum `0` | always |
+| Rundown | `/executedStepCount` | integer, minimum `0` | always |
+| Rundown | `/httpFailureStepCount` | integer, minimum `0` | always |
+| Rundown | `/unsuccessfulStepCount` | integer, minimum `0` | always |
+| Rundown | `/executionFailureStepCount` | integer, minimum `0` | always |
+| Rundown | `/areAllStepsSuccessful` | boolean | always |
+| Rundown | `/areAllStepsExceptIgnoredSuccessful` | boolean | always |
+| Rundown | `/firstUnsuccessfulStepReport` | `StepSummary` or null | always |
+| Rundown | `/stepReports` | array of `StepReport` | `STANDARD` and `VERBOSE` |
+| Rundown | `/finalScopes` | `VariableScopesSnapshot` | `VERBOSE` |
+| Rundown | `/finalScopes/environment` | object of `FrozenValue` | `VERBOSE` |
+| Rundown | `/finalScopes/collectionVariables` | object of `FrozenValue` | `VERBOSE` |
+| Rundown | `/finalScopes/globals` | object of `FrozenValue` | `VERBOSE` |
+| StepSummary | `/firstUnsuccessfulStepReport/index` | string | when summary is non-null |
+| StepSummary | `/firstUnsuccessfulStepReport/name` | string | when summary is non-null |
+| StepSummary | `/firstUnsuccessfulStepReport/isSuccessful` | boolean, const `false` | when summary is non-null |
+| StepSummary | `/firstUnsuccessfulStepReport/failure` | `FailureDescriptor` | when summary is non-null |
+| StepReport | `/stepReports/*/index` | string | always |
+| StepReport | `/stepReports/*/name` | string | always |
+| StepReport | `/stepReports/*/displayName` | string | always |
+| StepReport | `/stepReports/*/isSuccessful` | boolean | always |
+| StepReport | `/stepReports/*/isHttpStatusSuccessful` | boolean | always |
+| StepReport | `/stepReports/*/request` | `HttpRequestSnapshot` | conditional |
+| StepReport | `/stepReports/*/request/method` | string | conditional |
+| StepReport | `/stepReports/*/request/uri` | string | conditional |
+| StepReport | `/stepReports/*/request/protocol` | string or null | conditional, `VERBOSE` |
+| StepReport | `/stepReports/*/request/headers` | ordered array of `HeaderEntry` | conditional, `VERBOSE` |
+| StepReport | `/stepReports/*/request/headers/*/name` | string | conditional, `VERBOSE` |
+| StepReport | `/stepReports/*/request/headers/*/value` | string | conditional, `VERBOSE` |
+| StepReport | `/stepReports/*/request/body` | `BodySnapshot` | conditional, `VERBOSE` |
+| StepReport | `/stepReports/*/request/body/base64` | string, base64 content encoding | conditional, `VERBOSE` |
+| StepReport | `/stepReports/*/request/body/length` | integer, minimum `0` | conditional, `VERBOSE` |
+| StepReport | `/stepReports/*/request/body/mediaType` | string or null | conditional, `VERBOSE` |
+| StepReport | `/stepReports/*/response` | `HttpResponseSnapshot` | conditional |
+| StepReport | `/stepReports/*/response/statusCode` | integer | conditional |
+| StepReport | `/stepReports/*/response/statusDescription` | string | conditional |
+| StepReport | `/stepReports/*/response/protocol` | string or null | conditional, `VERBOSE` |
+| StepReport | `/stepReports/*/response/headers` | ordered array of `HeaderEntry` | conditional, `VERBOSE` |
+| StepReport | `/stepReports/*/response/headers/*/name` | string | conditional, `VERBOSE` |
+| StepReport | `/stepReports/*/response/headers/*/value` | string | conditional, `VERBOSE` |
+| StepReport | `/stepReports/*/response/body` | `BodySnapshot` | conditional, `VERBOSE` |
+| StepReport | `/stepReports/*/response/body/base64` | string, base64 content encoding | conditional, `VERBOSE` |
+| StepReport | `/stepReports/*/response/body/length` | integer, minimum `0` | conditional, `VERBOSE` |
+| StepReport | `/stepReports/*/response/body/mediaType` | string or null | conditional, `VERBOSE` |
+| StepReport | `/stepReports/*/failure` | `FailureDescriptor` | conditional |
+| FailureDescriptor | `/firstUnsuccessfulStepReport/failure/type` | string | always in a summary failure |
+| FailureDescriptor | `/firstUnsuccessfulStepReport/failure/phase` | string or null | conditional |
+| FailureDescriptor | `/firstUnsuccessfulStepReport/failure/stage` | string or null | conditional |
+| FailureDescriptor | `/firstUnsuccessfulStepReport/failure/message` | string or null | conditional |
+| FailureDescriptor | `/firstUnsuccessfulStepReport/failure/causeType` | string or null | conditional |
+| FailureDescriptor | `/firstUnsuccessfulStepReport/failure/httpStatusCode` | integer | HTTP-status failure only |
+| FailureDescriptor | `/firstUnsuccessfulStepReport/failure/httpStatusDescription` | string | HTTP-status failure only |
+| FailureDescriptor | `/stepReports/*/failure/type` | string | always in a step failure |
+| FailureDescriptor | `/stepReports/*/failure/phase` | string or null | conditional |
+| FailureDescriptor | `/stepReports/*/failure/stage` | string or null | conditional |
+| FailureDescriptor | `/stepReports/*/failure/message` | string or null | conditional |
+| FailureDescriptor | `/stepReports/*/failure/causeType` | string or null | conditional |
+| FailureDescriptor | `/stepReports/*/failure/httpStatusCode` | integer | HTTP-status failure only |
+| FailureDescriptor | `/stepReports/*/failure/httpStatusDescription` | string | HTTP-status failure only |
+| StepReport | `/stepReports/*/pollingReport` | `PollingReport` | conditional |
+| StepReport | `/stepReports/*/pollingFailure` | `PollingFailure` | conditional |
+| StepReport | `/stepReports/*/pmTestAssertions` | array of `PmTestAssertion` | conditional, nonempty only |
+| PmTestAssertion | `/stepReports/*/pmTestAssertions/*/name` | string | always per assertion |
+| PmTestAssertion | `/stepReports/*/pmTestAssertions/*/passed` | boolean | always per assertion |
+| PmTestAssertion | `/stepReports/*/pmTestAssertions/*/skipped` | boolean | always per assertion |
+| PmTestAssertion | `/stepReports/*/pmTestAssertions/*/error` | string or null | always per assertion |
+| PmTestAssertion | `/stepReports/*/pmTestAssertions/*/exeType` | string | always per assertion |
+| StepReport | `/stepReports/*/variableEffects` | `StepEnvironmentEffects` | `VERBOSE` |
+| StepEnvironmentEffects | `/stepReports/*/variableEffects/producedValues` | object of `FrozenValue` | `VERBOSE` |
+| StepEnvironmentEffects | `/stepReports/*/variableEffects/consumedKeys` | array of unique strings | `VERBOSE` |
+| StepEnvironmentEffects | `/stepReports/*/variableEffects/unsetKeys` | array of unique strings | `VERBOSE` |
+| StepEnvironmentEffects | `/stepReports/*/variableEffects/reusedValues` | object of `FrozenValue` | `VERBOSE` |
+| PollingReport | `/stepReports/*/pollingReport/pollAttempts` | integer, minimum `1` | always in polling report |
+| PollingReport | `/stepReports/*/pollingReport/totalDurationMs` | integer, minimum `0` | always in polling report |
+| PollingReport | `/stepReports/*/pollingReport/terminalResponse` | `HttpResponseSnapshot` | always in successful polling report |
+| HttpResponseSnapshot | `/stepReports/*/pollingReport/terminalResponse/statusCode` | integer | always in terminal response |
+| HttpResponseSnapshot | `/stepReports/*/pollingReport/terminalResponse/statusDescription` | string | always in terminal response |
+| HttpResponseSnapshot | `/stepReports/*/pollingReport/terminalResponse/protocol` | string or null | `VERBOSE` |
+| HttpResponseSnapshot | `/stepReports/*/pollingReport/terminalResponse/headers` | ordered array of `HeaderEntry` | `VERBOSE` |
+| HeaderEntry | `/stepReports/*/pollingReport/terminalResponse/headers/*/name` | string | `VERBOSE` |
+| HeaderEntry | `/stepReports/*/pollingReport/terminalResponse/headers/*/value` | string | `VERBOSE` |
+| HttpResponseSnapshot | `/stepReports/*/pollingReport/terminalResponse/body` | `BodySnapshot` | `VERBOSE` |
+| BodySnapshot | `/stepReports/*/pollingReport/terminalResponse/body/base64` | string, base64 content encoding | `VERBOSE` |
+| BodySnapshot | `/stepReports/*/pollingReport/terminalResponse/body/length` | integer, minimum `0` | `VERBOSE` |
+| BodySnapshot | `/stepReports/*/pollingReport/terminalResponse/body/mediaType` | string or null | `VERBOSE` |
+| PollingReport | `/stepReports/*/pollingReport/statusCounts` | ordered array of `StatusCount` | always in polling report |
+| StatusCount | `/stepReports/*/pollingReport/statusCounts/*/status` | integer | always per status count |
+| StatusCount | `/stepReports/*/pollingReport/statusCounts/*/count` | integer, minimum `1` | always per status count |
+| PollingReport | `/stepReports/*/pollingReport/recentResponses` | array of `HttpResponseSnapshot` | always; bounded |
+| HttpResponseSnapshot | `/stepReports/*/pollingReport/recentResponses/*/statusCode` | integer | always per recent response |
+| HttpResponseSnapshot | `/stepReports/*/pollingReport/recentResponses/*/statusDescription` | string | always per recent response |
+| HttpResponseSnapshot | `/stepReports/*/pollingReport/recentResponses/*/protocol` | string or null | `VERBOSE` |
+| HttpResponseSnapshot | `/stepReports/*/pollingReport/recentResponses/*/headers` | ordered array of `HeaderEntry` | `VERBOSE` |
+| HeaderEntry | `/stepReports/*/pollingReport/recentResponses/*/headers/*/name` | string | `VERBOSE` |
+| HeaderEntry | `/stepReports/*/pollingReport/recentResponses/*/headers/*/value` | string | `VERBOSE` |
+| HttpResponseSnapshot | `/stepReports/*/pollingReport/recentResponses/*/body` | `BodySnapshot` | `VERBOSE` |
+| BodySnapshot | `/stepReports/*/pollingReport/recentResponses/*/body/base64` | string, base64 content encoding | `VERBOSE` |
+| BodySnapshot | `/stepReports/*/pollingReport/recentResponses/*/body/length` | integer, minimum `0` | `VERBOSE` |
+| BodySnapshot | `/stepReports/*/pollingReport/recentResponses/*/body/mediaType` | string or null | `VERBOSE` |
+| PollingFailure | `/stepReports/*/pollingFailure/type` | string enum | always in polling failure |
+| PollingFailure | `/stepReports/*/pollingFailure/message` | string or null | always in polling failure |
+| PollingFailure | `/stepReports/*/pollingFailure/pollAttempts` | integer, minimum `0` | always in polling failure |
+| PollingFailure | `/stepReports/*/pollingFailure/timeoutMs` | integer, minimum `0` | timeout only |
+| PollingFailure | `/stepReports/*/pollingFailure/lastResponse` | `HttpResponseSnapshot` or null | conditional |
+| HttpResponseSnapshot | `/stepReports/*/pollingFailure/lastResponse/statusCode` | integer | when last response is non-null |
+| HttpResponseSnapshot | `/stepReports/*/pollingFailure/lastResponse/statusDescription` | string | when last response is non-null |
+| HttpResponseSnapshot | `/stepReports/*/pollingFailure/lastResponse/protocol` | string or null | conditional, `VERBOSE` |
+| HttpResponseSnapshot | `/stepReports/*/pollingFailure/lastResponse/headers` | ordered array of `HeaderEntry` | conditional, `VERBOSE` |
+| HeaderEntry | `/stepReports/*/pollingFailure/lastResponse/headers/*/name` | string | conditional, `VERBOSE` |
+| HeaderEntry | `/stepReports/*/pollingFailure/lastResponse/headers/*/value` | string | conditional, `VERBOSE` |
+| HttpResponseSnapshot | `/stepReports/*/pollingFailure/lastResponse/body` | `BodySnapshot` | conditional, `VERBOSE` |
+| BodySnapshot | `/stepReports/*/pollingFailure/lastResponse/body/base64` | string, base64 content encoding | conditional, `VERBOSE` |
+| BodySnapshot | `/stepReports/*/pollingFailure/lastResponse/body/length` | integer, minimum `0` | conditional, `VERBOSE` |
+| BodySnapshot | `/stepReports/*/pollingFailure/lastResponse/body/mediaType` | string or null | conditional, `VERBOSE` |
+| PollingFailure | `/stepReports/*/pollingFailure/statusCounts` | ordered array of `StatusCount` | always in polling failure |
+| StatusCount | `/stepReports/*/pollingFailure/statusCounts/*/status` | integer | always per status count |
+| StatusCount | `/stepReports/*/pollingFailure/statusCounts/*/count` | integer, minimum `1` | always per status count |
+| PollingFailure | `/stepReports/*/pollingFailure/recentResponses` | array of `HttpResponseSnapshot` | always; bounded |
+| HttpResponseSnapshot | `/stepReports/*/pollingFailure/recentResponses/*/statusCode` | integer | always per recent response |
+| HttpResponseSnapshot | `/stepReports/*/pollingFailure/recentResponses/*/statusDescription` | string | always per recent response |
+| HttpResponseSnapshot | `/stepReports/*/pollingFailure/recentResponses/*/protocol` | string or null | `VERBOSE` |
+| HttpResponseSnapshot | `/stepReports/*/pollingFailure/recentResponses/*/headers` | ordered array of `HeaderEntry` | `VERBOSE` |
+| HeaderEntry | `/stepReports/*/pollingFailure/recentResponses/*/headers/*/name` | string | `VERBOSE` |
+| HeaderEntry | `/stepReports/*/pollingFailure/recentResponses/*/headers/*/value` | string | `VERBOSE` |
+| HttpResponseSnapshot | `/stepReports/*/pollingFailure/recentResponses/*/body` | `BodySnapshot` | `VERBOSE` |
+| BodySnapshot | `/stepReports/*/pollingFailure/recentResponses/*/body/base64` | string, base64 content encoding | `VERBOSE` |
+| BodySnapshot | `/stepReports/*/pollingFailure/recentResponses/*/body/length` | integer, minimum `0` | `VERBOSE` |
+| BodySnapshot | `/stepReports/*/pollingFailure/recentResponses/*/body/mediaType` | string or null | `VERBOSE` |
+| RunbookRundown | `/schemaVersion` | integer, const `2` | always |
+| RunbookRundown | `/name` | string or null | always |
+| RunbookRundown | `/rundowns` | ordered array of Rundown without nested `schemaVersion` | always |
+| PollingConfig | `/schemaVersion` | integer, const `2` | standalone config document |
+| PollingConfig | `/recentResponsesLimit` | integer, minimum `0`, default `0` | always |
+| PollingConfig | `/maxAttempts` | integer, minimum `1`, default `10000` | always |
+| Ledger | `/schemaVersion` | integer, const `2` | always |
+| Ledger | `/name` | string or null | conditional |
+| Ledger | `/values` | array of Postman-compatible value entries | always |
+| Ledger value | `/values/*/key` | string | always per value |
+| Ledger value | `/values/*/value` | `FrozenValue` | always per value |
+| Ledger value | `/values/*/enabled` | boolean, const `true` | always per value |
+| Ledger | `/x-revoman-ledger/orgId` | string or null | always |
+| Ledger | `/x-revoman-ledger/steps` | ordered array of `LedgerStepRecord` | always |
+| LedgerStepRecord | `/x-revoman-ledger/steps/*/key` | `LedgerStepKey` | always per step |
+| LedgerStepKey | `/x-revoman-ledger/steps/*/key/logicalSourceId` | string | always per step |
+| LedgerStepKey | `/x-revoman-ledger/steps/*/key/sourceOccurrence` | integer, minimum `0` | always per step |
+| LedgerStepKey | `/x-revoman-ledger/steps/*/key/itemPath` | string | always per step |
+| LedgerStepRecord | `/x-revoman-ledger/steps/*/entry` | `LedgerEntry` | always per step |
+| LedgerEntry | `/x-revoman-ledger/steps/*/entry/sourceHash` | string | always per step |
+| LedgerEntry | `/x-revoman-ledger/steps/*/entry/producedValues` | object of `FrozenValue` | always per step |
+| LedgerEntry | `/x-revoman-ledger/steps/*/entry/consumedKeys` | array of unique strings | always per step |
+
+The following crosswalk freezes the exact migration-ledger row for every normative version-2
+pointer above. All five columns are part of the contract: a legacy field cannot be paired with a
+different replacement, owner, or disposition while preserving only the independent endpoint sets.
+
+| Normative kind | Legacy ID | Owner | Disposition | Replacement ID |
+|---|---|---|---|---|
+| json | `Rundown:<absent>:/schemaVersion` | CS4 | versioned | `RundownV2:/schemaVersion` |
+| json | `Rundown:/providedStepsToExecuteCount` | CS4 | retained | `RundownV2:/providedStepsToExecuteCount` |
+| json | `Rundown:/executedStepCount` | CS4 | retained | `RundownV2:/executedStepCount` |
+| json | `Rundown:/httpFailureStepCount` | CS4 | retained | `RundownV2:/httpFailureStepCount` |
+| json | `Rundown:/unsuccessfulStepCount` | CS4 | retained | `RundownV2:/unsuccessfulStepCount` |
+| json | `Rundown:/executionFailureStepCount` | CS4 | retained | `RundownV2:/executionFailureStepCount` |
+| json | `Rundown:/areAllStepsSuccessful` | CS4 | retained | `RundownV2:/areAllStepsSuccessful` |
+| json | `Rundown:/areAllStepsExceptIgnoredSuccessful` | CS4 | retained | `RundownV2:/areAllStepsExceptIgnoredSuccessful` |
+| json | `Rundown:/firstUnsuccessfulStepReport` | CS4 | replaced | `RundownV2:/firstUnsuccessfulStepReport` |
+| json | `Rundown:/stepReports` | CS4 | replaced | `RundownV2:/stepReports` |
+| json | `Rundown:<absent>:/finalScopes` | CS4 | versioned | `RundownV2:/finalScopes` |
+| json | `Rundown:/environment` | CS4 | replaced | `RundownV2:/finalScopes/environment` |
+| json | `Rundown:<absent>:/finalScopes/collectionVariables` | CS4 | versioned | `RundownV2:/finalScopes/collectionVariables` |
+| json | `Rundown:<absent>:/finalScopes/globals` | CS4 | versioned | `RundownV2:/finalScopes/globals` |
+| json | `StepSummary:/firstUnsuccessfulStepReport/index` | CS4 | retained | `StepSummaryV2:/firstUnsuccessfulStepReport/index` |
+| json | `StepSummary:/firstUnsuccessfulStepReport/name` | CS4 | retained | `StepSummaryV2:/firstUnsuccessfulStepReport/name` |
+| json | `StepSummary:/firstUnsuccessfulStepReport/isSuccessful` | CS4 | retained | `StepSummaryV2:/firstUnsuccessfulStepReport/isSuccessful` |
+| json | `StepSummary:/firstUnsuccessfulStepReport/failure` | CS4 | replaced | `StepSummaryV2:/firstUnsuccessfulStepReport/failure` |
+| json | `StepReport:/stepReports/*/index` | CS4 | retained | `StepReportV2:/stepReports/*/index` |
+| json | `StepReport:/stepReports/*/name` | CS4 | retained | `StepReportV2:/stepReports/*/name` |
+| json | `StepReport:/stepReports/*/displayName` | CS4 | retained | `StepReportV2:/stepReports/*/displayName` |
+| json | `StepReport:/stepReports/*/isSuccessful` | CS4 | retained | `StepReportV2:/stepReports/*/isSuccessful` |
+| json | `StepReport:/stepReports/*/isHttpStatusSuccessful` | CS4 | retained | `StepReportV2:/stepReports/*/isHttpStatusSuccessful` |
+| json | `StepReport:/stepReports/*/request` | CS4 | replaced | `StepReportV2:/stepReports/*/request` |
+| json | `StepReport:/stepReports/*/request/method` | CS4 | retained | `StepReportV2:/stepReports/*/request/method` |
+| json | `StepReport:/stepReports/*/request/uri` | CS4 | retained | `StepReportV2:/stepReports/*/request/uri` |
+| json | `StepReport:<absent>:/stepReports/*/request/protocol` | CS4 | versioned | `StepReportV2:/stepReports/*/request/protocol` |
+| json | `StepReport:/stepReports/*/request/headers` | CS4 | replaced | `StepReportV2:/stepReports/*/request/headers` |
+| json | `StepReport:/stepReports/*/request/headers/<object-key>` | CS4 | replaced | `StepReportV2:/stepReports/*/request/headers/*/name` |
+| json | `StepReport:/stepReports/*/request/headers/<object-value>` | CS4 | replaced | `StepReportV2:/stepReports/*/request/headers/*/value` |
+| json | `StepReport:/stepReports/*/request/body` | CS4 | replaced | `StepReportV2:/stepReports/*/request/body` |
+| json | `StepReport:<absent>:/stepReports/*/request/body/base64` | CS4 | versioned | `StepReportV2:/stepReports/*/request/body/base64` |
+| json | `StepReport:<absent>:/stepReports/*/request/body/length` | CS4 | versioned | `StepReportV2:/stepReports/*/request/body/length` |
+| json | `StepReport:<absent>:/stepReports/*/request/body/mediaType` | CS4 | versioned | `StepReportV2:/stepReports/*/request/body/mediaType` |
+| json | `StepReport:/stepReports/*/response` | CS4 | replaced | `StepReportV2:/stepReports/*/response` |
+| json | `StepReport:/stepReports/*/response/statusCode` | CS4 | retained | `StepReportV2:/stepReports/*/response/statusCode` |
+| json | `StepReport:/stepReports/*/response/statusDescription` | CS4 | retained | `StepReportV2:/stepReports/*/response/statusDescription` |
+| json | `StepReport:<absent>:/stepReports/*/response/protocol` | CS4 | versioned | `StepReportV2:/stepReports/*/response/protocol` |
+| json | `StepReport:/stepReports/*/response/headers` | CS4 | replaced | `StepReportV2:/stepReports/*/response/headers` |
+| json | `StepReport:/stepReports/*/response/headers/<object-key>` | CS4 | replaced | `StepReportV2:/stepReports/*/response/headers/*/name` |
+| json | `StepReport:/stepReports/*/response/headers/<object-value>` | CS4 | replaced | `StepReportV2:/stepReports/*/response/headers/*/value` |
+| json | `StepReport:/stepReports/*/response/body` | CS4 | replaced | `StepReportV2:/stepReports/*/response/body` |
+| json | `StepReport:<absent>:/stepReports/*/response/body/base64` | CS4 | versioned | `StepReportV2:/stepReports/*/response/body/base64` |
+| json | `StepReport:<absent>:/stepReports/*/response/body/length` | CS4 | versioned | `StepReportV2:/stepReports/*/response/body/length` |
+| json | `StepReport:<absent>:/stepReports/*/response/body/mediaType` | CS4 | versioned | `StepReportV2:/stepReports/*/response/body/mediaType` |
+| json | `StepReport:/stepReports/*/failure` | CS4 | replaced | `StepReportV2:/stepReports/*/failure` |
+| json | `FailureDescriptor:/firstUnsuccessfulStepReport/failure/type` | CS4 | replaced | `FailureDescriptorV2:/firstUnsuccessfulStepReport/failure/type` |
+| json | `FailureDescriptor:<absent>:/firstUnsuccessfulStepReport/failure/phase` | CS4 | versioned | `FailureDescriptorV2:/firstUnsuccessfulStepReport/failure/phase` |
+| json | `FailureDescriptor:<absent>:/firstUnsuccessfulStepReport/failure/stage` | CS4 | versioned | `FailureDescriptorV2:/firstUnsuccessfulStepReport/failure/stage` |
+| json | `FailureDescriptor:/firstUnsuccessfulStepReport/failure/message` | CS4 | replaced | `FailureDescriptorV2:/firstUnsuccessfulStepReport/failure/message` |
+| json | `FailureDescriptor:<absent>:/firstUnsuccessfulStepReport/failure/causeType` | CS4 | versioned | `FailureDescriptorV2:/firstUnsuccessfulStepReport/failure/causeType` |
+| json | `FailureDescriptor:/firstUnsuccessfulStepReport/failure/httpStatusCode` | CS4 | retained | `FailureDescriptorV2:/firstUnsuccessfulStepReport/failure/httpStatusCode` |
+| json | `FailureDescriptor:/firstUnsuccessfulStepReport/failure/httpStatusDescription` | CS4 | retained | `FailureDescriptorV2:/firstUnsuccessfulStepReport/failure/httpStatusDescription` |
+| json | `FailureDescriptor:/stepReports/*/failure/type` | CS4 | replaced | `FailureDescriptorV2:/stepReports/*/failure/type` |
+| json | `FailureDescriptor:<absent>:/stepReports/*/failure/phase` | CS4 | versioned | `FailureDescriptorV2:/stepReports/*/failure/phase` |
+| json | `FailureDescriptor:<absent>:/stepReports/*/failure/stage` | CS4 | versioned | `FailureDescriptorV2:/stepReports/*/failure/stage` |
+| json | `FailureDescriptor:/stepReports/*/failure/message` | CS4 | replaced | `FailureDescriptorV2:/stepReports/*/failure/message` |
+| json | `FailureDescriptor:<absent>:/stepReports/*/failure/causeType` | CS4 | versioned | `FailureDescriptorV2:/stepReports/*/failure/causeType` |
+| json | `FailureDescriptor:/stepReports/*/failure/httpStatusCode` | CS4 | retained | `FailureDescriptorV2:/stepReports/*/failure/httpStatusCode` |
+| json | `FailureDescriptor:/stepReports/*/failure/httpStatusDescription` | CS4 | retained | `FailureDescriptorV2:/stepReports/*/failure/httpStatusDescription` |
+| json | `StepReport:/stepReports/*/pollingReport` | CS5 | replaced | `StepReportV2:/stepReports/*/pollingReport` |
+| json | `StepReport:/stepReports/*/pollingFailure` | CS5 | replaced | `StepReportV2:/stepReports/*/pollingFailure` |
+| json | `StepReport:/stepReports/*/pmTestAssertions` | CS4 | retained | `StepReportV2:/stepReports/*/pmTestAssertions` |
+| json | `PmTestAssertion:/stepReports/*/pmTestAssertions/*/name` | CS4 | retained | `PmTestAssertionV2:/stepReports/*/pmTestAssertions/*/name` |
+| json | `PmTestAssertion:/stepReports/*/pmTestAssertions/*/passed` | CS4 | retained | `PmTestAssertionV2:/stepReports/*/pmTestAssertions/*/passed` |
+| json | `PmTestAssertion:/stepReports/*/pmTestAssertions/*/skipped` | CS4 | retained | `PmTestAssertionV2:/stepReports/*/pmTestAssertions/*/skipped` |
+| json | `PmTestAssertion:/stepReports/*/pmTestAssertions/*/error` | CS4 | retained | `PmTestAssertionV2:/stepReports/*/pmTestAssertions/*/error` |
+| json | `PmTestAssertion:/stepReports/*/pmTestAssertions/*/exeType` | CS4 | retained | `PmTestAssertionV2:/stepReports/*/pmTestAssertions/*/exeType` |
+| json | `StepReport:/stepReports/*/envSnapshot` | CS4 | replaced | `StepReportV2:/stepReports/*/variableEffects` |
+| json | `StepEnvironmentEffects:<absent>:/stepReports/*/variableEffects/producedValues` | CS4 | versioned | `StepEnvironmentEffectsV2:/stepReports/*/variableEffects/producedValues` |
+| json | `StepEnvironmentEffects:<absent>:/stepReports/*/variableEffects/consumedKeys` | CS4 | versioned | `StepEnvironmentEffectsV2:/stepReports/*/variableEffects/consumedKeys` |
+| json | `StepEnvironmentEffects:<absent>:/stepReports/*/variableEffects/unsetKeys` | CS4 | versioned | `StepEnvironmentEffectsV2:/stepReports/*/variableEffects/unsetKeys` |
+| json | `StepEnvironmentEffects:<absent>:/stepReports/*/variableEffects/reusedValues` | CS4 | versioned | `StepEnvironmentEffectsV2:/stepReports/*/variableEffects/reusedValues` |
+| json | `PollingReport:/stepReports/*/pollingReport/pollAttempts` | CS5 | retained | `PollingReportV2:/stepReports/*/pollingReport/pollAttempts` |
+| json | `PollingReport:/stepReports/*/pollingReport/totalDurationMs` | CS5 | retained | `PollingReportV2:/stepReports/*/pollingReport/totalDurationMs` |
+| json | `PollingReport:<absent>:/stepReports/*/pollingReport/terminalResponse` | CS5 | versioned | `PollingReportV2:/stepReports/*/pollingReport/terminalResponse` |
+| json | `HttpResponseSnapshot:<absent>:/stepReports/*/pollingReport/terminalResponse/statusCode` | CS5 | versioned | `HttpResponseSnapshotV2:/stepReports/*/pollingReport/terminalResponse/statusCode` |
+| json | `HttpResponseSnapshot:<absent>:/stepReports/*/pollingReport/terminalResponse/statusDescription` | CS5 | versioned | `HttpResponseSnapshotV2:/stepReports/*/pollingReport/terminalResponse/statusDescription` |
+| json | `HttpResponseSnapshot:<absent>:/stepReports/*/pollingReport/terminalResponse/protocol` | CS5 | versioned | `HttpResponseSnapshotV2:/stepReports/*/pollingReport/terminalResponse/protocol` |
+| json | `HttpResponseSnapshot:<absent>:/stepReports/*/pollingReport/terminalResponse/headers` | CS5 | versioned | `HttpResponseSnapshotV2:/stepReports/*/pollingReport/terminalResponse/headers` |
+| json | `HeaderEntry:<absent>:/stepReports/*/pollingReport/terminalResponse/headers/*/name` | CS5 | versioned | `HeaderEntryV2:/stepReports/*/pollingReport/terminalResponse/headers/*/name` |
+| json | `HeaderEntry:<absent>:/stepReports/*/pollingReport/terminalResponse/headers/*/value` | CS5 | versioned | `HeaderEntryV2:/stepReports/*/pollingReport/terminalResponse/headers/*/value` |
+| json | `HttpResponseSnapshot:<absent>:/stepReports/*/pollingReport/terminalResponse/body` | CS5 | versioned | `HttpResponseSnapshotV2:/stepReports/*/pollingReport/terminalResponse/body` |
+| json | `BodySnapshot:<absent>:/stepReports/*/pollingReport/terminalResponse/body/base64` | CS5 | versioned | `BodySnapshotV2:/stepReports/*/pollingReport/terminalResponse/body/base64` |
+| json | `BodySnapshot:<absent>:/stepReports/*/pollingReport/terminalResponse/body/length` | CS5 | versioned | `BodySnapshotV2:/stepReports/*/pollingReport/terminalResponse/body/length` |
+| json | `BodySnapshot:<absent>:/stepReports/*/pollingReport/terminalResponse/body/mediaType` | CS5 | versioned | `BodySnapshotV2:/stepReports/*/pollingReport/terminalResponse/body/mediaType` |
+| json | `PollingReport:<absent>:/stepReports/*/pollingReport/statusCounts` | CS5 | versioned | `PollingReportV2:/stepReports/*/pollingReport/statusCounts` |
+| json | `StatusCount:<absent>:/stepReports/*/pollingReport/statusCounts/*/status` | CS5 | versioned | `StatusCountV2:/stepReports/*/pollingReport/statusCounts/*/status` |
+| json | `StatusCount:<absent>:/stepReports/*/pollingReport/statusCounts/*/count` | CS5 | versioned | `StatusCountV2:/stepReports/*/pollingReport/statusCounts/*/count` |
+| json | `PollingReport:<absent>:/stepReports/*/pollingReport/recentResponses` | CS5 | versioned | `PollingReportV2:/stepReports/*/pollingReport/recentResponses` |
+| json | `HttpResponseSnapshot:<absent>:/stepReports/*/pollingReport/recentResponses/*/statusCode` | CS5 | versioned | `HttpResponseSnapshotV2:/stepReports/*/pollingReport/recentResponses/*/statusCode` |
+| json | `HttpResponseSnapshot:<absent>:/stepReports/*/pollingReport/recentResponses/*/statusDescription` | CS5 | versioned | `HttpResponseSnapshotV2:/stepReports/*/pollingReport/recentResponses/*/statusDescription` |
+| json | `HttpResponseSnapshot:<absent>:/stepReports/*/pollingReport/recentResponses/*/protocol` | CS5 | versioned | `HttpResponseSnapshotV2:/stepReports/*/pollingReport/recentResponses/*/protocol` |
+| json | `HttpResponseSnapshot:<absent>:/stepReports/*/pollingReport/recentResponses/*/headers` | CS5 | versioned | `HttpResponseSnapshotV2:/stepReports/*/pollingReport/recentResponses/*/headers` |
+| json | `HeaderEntry:<absent>:/stepReports/*/pollingReport/recentResponses/*/headers/*/name` | CS5 | versioned | `HeaderEntryV2:/stepReports/*/pollingReport/recentResponses/*/headers/*/name` |
+| json | `HeaderEntry:<absent>:/stepReports/*/pollingReport/recentResponses/*/headers/*/value` | CS5 | versioned | `HeaderEntryV2:/stepReports/*/pollingReport/recentResponses/*/headers/*/value` |
+| json | `HttpResponseSnapshot:<absent>:/stepReports/*/pollingReport/recentResponses/*/body` | CS5 | versioned | `HttpResponseSnapshotV2:/stepReports/*/pollingReport/recentResponses/*/body` |
+| json | `BodySnapshot:<absent>:/stepReports/*/pollingReport/recentResponses/*/body/base64` | CS5 | versioned | `BodySnapshotV2:/stepReports/*/pollingReport/recentResponses/*/body/base64` |
+| json | `BodySnapshot:<absent>:/stepReports/*/pollingReport/recentResponses/*/body/length` | CS5 | versioned | `BodySnapshotV2:/stepReports/*/pollingReport/recentResponses/*/body/length` |
+| json | `BodySnapshot:<absent>:/stepReports/*/pollingReport/recentResponses/*/body/mediaType` | CS5 | versioned | `BodySnapshotV2:/stepReports/*/pollingReport/recentResponses/*/body/mediaType` |
+| json | `PollingFailure:<absent>:/stepReports/*/pollingFailure/type` | CS5 | versioned | `PollingFailureV2:/stepReports/*/pollingFailure/type` |
+| json | `PollingFailure:/stepReports/*/pollingFailure/message` | CS5 | retained | `PollingFailureV2:/stepReports/*/pollingFailure/message` |
+| json | `PollingFailure:/stepReports/*/pollingFailure/pollAttempts` | CS5 | retained | `PollingFailureV2:/stepReports/*/pollingFailure/pollAttempts` |
+| json | `PollingFailure:/stepReports/*/pollingFailure/timeoutMs` | CS5 | retained | `PollingFailureV2:/stepReports/*/pollingFailure/timeoutMs` |
+| json | `PollingFailure:<absent>:/stepReports/*/pollingFailure/lastResponse` | CS5 | versioned | `PollingFailureV2:/stepReports/*/pollingFailure/lastResponse` |
+| json | `HttpResponseSnapshot:<absent>:/stepReports/*/pollingFailure/lastResponse/statusCode` | CS5 | versioned | `HttpResponseSnapshotV2:/stepReports/*/pollingFailure/lastResponse/statusCode` |
+| json | `HttpResponseSnapshot:<absent>:/stepReports/*/pollingFailure/lastResponse/statusDescription` | CS5 | versioned | `HttpResponseSnapshotV2:/stepReports/*/pollingFailure/lastResponse/statusDescription` |
+| json | `HttpResponseSnapshot:<absent>:/stepReports/*/pollingFailure/lastResponse/protocol` | CS5 | versioned | `HttpResponseSnapshotV2:/stepReports/*/pollingFailure/lastResponse/protocol` |
+| json | `HttpResponseSnapshot:<absent>:/stepReports/*/pollingFailure/lastResponse/headers` | CS5 | versioned | `HttpResponseSnapshotV2:/stepReports/*/pollingFailure/lastResponse/headers` |
+| json | `HeaderEntry:<absent>:/stepReports/*/pollingFailure/lastResponse/headers/*/name` | CS5 | versioned | `HeaderEntryV2:/stepReports/*/pollingFailure/lastResponse/headers/*/name` |
+| json | `HeaderEntry:<absent>:/stepReports/*/pollingFailure/lastResponse/headers/*/value` | CS5 | versioned | `HeaderEntryV2:/stepReports/*/pollingFailure/lastResponse/headers/*/value` |
+| json | `HttpResponseSnapshot:<absent>:/stepReports/*/pollingFailure/lastResponse/body` | CS5 | versioned | `HttpResponseSnapshotV2:/stepReports/*/pollingFailure/lastResponse/body` |
+| json | `BodySnapshot:<absent>:/stepReports/*/pollingFailure/lastResponse/body/base64` | CS5 | versioned | `BodySnapshotV2:/stepReports/*/pollingFailure/lastResponse/body/base64` |
+| json | `BodySnapshot:<absent>:/stepReports/*/pollingFailure/lastResponse/body/length` | CS5 | versioned | `BodySnapshotV2:/stepReports/*/pollingFailure/lastResponse/body/length` |
+| json | `BodySnapshot:<absent>:/stepReports/*/pollingFailure/lastResponse/body/mediaType` | CS5 | versioned | `BodySnapshotV2:/stepReports/*/pollingFailure/lastResponse/body/mediaType` |
+| json | `PollingFailure:<absent>:/stepReports/*/pollingFailure/statusCounts` | CS5 | versioned | `PollingFailureV2:/stepReports/*/pollingFailure/statusCounts` |
+| json | `StatusCount:<absent>:/stepReports/*/pollingFailure/statusCounts/*/status` | CS5 | versioned | `StatusCountV2:/stepReports/*/pollingFailure/statusCounts/*/status` |
+| json | `StatusCount:<absent>:/stepReports/*/pollingFailure/statusCounts/*/count` | CS5 | versioned | `StatusCountV2:/stepReports/*/pollingFailure/statusCounts/*/count` |
+| json | `PollingFailure:<absent>:/stepReports/*/pollingFailure/recentResponses` | CS5 | versioned | `PollingFailureV2:/stepReports/*/pollingFailure/recentResponses` |
+| json | `HttpResponseSnapshot:<absent>:/stepReports/*/pollingFailure/recentResponses/*/statusCode` | CS5 | versioned | `HttpResponseSnapshotV2:/stepReports/*/pollingFailure/recentResponses/*/statusCode` |
+| json | `HttpResponseSnapshot:<absent>:/stepReports/*/pollingFailure/recentResponses/*/statusDescription` | CS5 | versioned | `HttpResponseSnapshotV2:/stepReports/*/pollingFailure/recentResponses/*/statusDescription` |
+| json | `HttpResponseSnapshot:<absent>:/stepReports/*/pollingFailure/recentResponses/*/protocol` | CS5 | versioned | `HttpResponseSnapshotV2:/stepReports/*/pollingFailure/recentResponses/*/protocol` |
+| json | `HttpResponseSnapshot:<absent>:/stepReports/*/pollingFailure/recentResponses/*/headers` | CS5 | versioned | `HttpResponseSnapshotV2:/stepReports/*/pollingFailure/recentResponses/*/headers` |
+| json | `HeaderEntry:<absent>:/stepReports/*/pollingFailure/recentResponses/*/headers/*/name` | CS5 | versioned | `HeaderEntryV2:/stepReports/*/pollingFailure/recentResponses/*/headers/*/name` |
+| json | `HeaderEntry:<absent>:/stepReports/*/pollingFailure/recentResponses/*/headers/*/value` | CS5 | versioned | `HeaderEntryV2:/stepReports/*/pollingFailure/recentResponses/*/headers/*/value` |
+| json | `HttpResponseSnapshot:<absent>:/stepReports/*/pollingFailure/recentResponses/*/body` | CS5 | versioned | `HttpResponseSnapshotV2:/stepReports/*/pollingFailure/recentResponses/*/body` |
+| json | `BodySnapshot:<absent>:/stepReports/*/pollingFailure/recentResponses/*/body/base64` | CS5 | versioned | `BodySnapshotV2:/stepReports/*/pollingFailure/recentResponses/*/body/base64` |
+| json | `BodySnapshot:<absent>:/stepReports/*/pollingFailure/recentResponses/*/body/length` | CS5 | versioned | `BodySnapshotV2:/stepReports/*/pollingFailure/recentResponses/*/body/length` |
+| json | `BodySnapshot:<absent>:/stepReports/*/pollingFailure/recentResponses/*/body/mediaType` | CS5 | versioned | `BodySnapshotV2:/stepReports/*/pollingFailure/recentResponses/*/body/mediaType` |
+| json | `RunbookRundown:<absent>:/schemaVersion` | CS4 | versioned | `RunbookRundownV2:/schemaVersion` |
+| json | `RunbookRundown:<absent>:/name` | CS4 | versioned | `RunbookRundownV2:/name` |
+| json | `RunbookRundown:<absent>:/rundowns` | CS4 | versioned | `RunbookRundownV2:/rundowns` |
+| json | `PollingConfig:<absent>:/schemaVersion` | CS5 | versioned | `PollingConfigV2:/schemaVersion` |
+| json | `PollingConfig:<absent>:/recentResponsesLimit` | CS5 | versioned | `PollingConfigV2:/recentResponsesLimit` |
+| json | `PollingConfig:<absent>:/maxAttempts` | CS5 | versioned | `PollingConfigV2:/maxAttempts` |
+| json | `Ledger:<absent>:/schemaVersion` | CS2b | versioned | `LedgerV2:/schemaVersion` |
+| json | `Ledger:/name` | CS2b | retained | `LedgerV2:/name` |
+| json | `Ledger:/values` | CS2b | replaced | `LedgerV2:/values` |
+| json | `Ledger value:/values/*/key` | CS2b | retained | `Ledger valueV2:/values/*/key` |
+| json | `Ledger value:/values/*/value` | CS2b | replaced | `Ledger valueV2:/values/*/value` |
+| json | `Ledger value:/values/*/enabled` | CS2b | retained | `Ledger valueV2:/values/*/enabled` |
+| json | `Ledger:/x-revoman-ledger/orgId` | CS2b | retained | `LedgerV2:/x-revoman-ledger/orgId` |
+| json | `Ledger:/x-revoman-ledger/steps` | CS2b | replaced | `LedgerV2:/x-revoman-ledger/steps` |
+| json | `LedgerStepRecord:<absent>:/x-revoman-ledger/steps/*/key` | CS2b | versioned | `LedgerStepRecordV2:/x-revoman-ledger/steps/*/key` |
+| json | `LedgerStepKey:<absent>:/x-revoman-ledger/steps/*/key/logicalSourceId` | CS2b | versioned | `LedgerStepKeyV2:/x-revoman-ledger/steps/*/key/logicalSourceId` |
+| json | `LedgerStepKey:<absent>:/x-revoman-ledger/steps/*/key/sourceOccurrence` | CS2b | versioned | `LedgerStepKeyV2:/x-revoman-ledger/steps/*/key/sourceOccurrence` |
+| json | `LedgerStepKey:<absent>:/x-revoman-ledger/steps/*/key/itemPath` | CS2b | versioned | `LedgerStepKeyV2:/x-revoman-ledger/steps/*/key/itemPath` |
+| json | `LedgerStepRecord:<absent>:/x-revoman-ledger/steps/*/entry` | CS2b | versioned | `LedgerStepRecordV2:/x-revoman-ledger/steps/*/entry` |
+| json | `LedgerEntry:/x-revoman-ledger/steps/*/hash` | CS2b | replaced | `LedgerEntryV2:/x-revoman-ledger/steps/*/entry/sourceHash` |
+| json | `LedgerEntry:/x-revoman-ledger/steps/*/produces` | CS2b | replaced | `LedgerEntryV2:/x-revoman-ledger/steps/*/entry/producedValues` |
+| json | `LedgerEntry:/x-revoman-ledger/steps/*/consumed` | CS2b | replaced | `LedgerEntryV2:/x-revoman-ledger/steps/*/entry/consumedKeys` |
+
+The source-of-truth legacy pointers are equally strict. The table below is derived from
+`RundownJsonWriter.kt` and `V3YamlWriter`; every row must have exactly one matching `kind=json`
+migration-ledger legacy ID. It includes the HTTP-status failure fields at both the summary and step
+locations. It does **not** include stale data-class-only fields such as `stopReason`,
+`collectionVariables`, or `globals`.
+
+| Legacy document | Source-derived JSON pointer |
+|---|---|
+| Rundown | `/providedStepsToExecuteCount` |
+| Rundown | `/executedStepCount` |
+| Rundown | `/httpFailureStepCount` |
+| Rundown | `/unsuccessfulStepCount` |
+| Rundown | `/executionFailureStepCount` |
+| Rundown | `/areAllStepsSuccessful` |
+| Rundown | `/areAllStepsExceptIgnoredSuccessful` |
+| Rundown | `/firstUnsuccessfulStepReport` |
+| Rundown | `/stepReports` |
+| Rundown | `/environment` |
+| StepSummary | `/firstUnsuccessfulStepReport/index` |
+| StepSummary | `/firstUnsuccessfulStepReport/name` |
+| StepSummary | `/firstUnsuccessfulStepReport/isSuccessful` |
+| StepSummary | `/firstUnsuccessfulStepReport/failure` |
+| FailureDescriptor | `/firstUnsuccessfulStepReport/failure/type` |
+| FailureDescriptor | `/firstUnsuccessfulStepReport/failure/message` |
+| FailureDescriptor | `/firstUnsuccessfulStepReport/failure/httpStatusCode` |
+| FailureDescriptor | `/firstUnsuccessfulStepReport/failure/httpStatusDescription` |
+| StepReport | `/stepReports/*/index` |
+| StepReport | `/stepReports/*/name` |
+| StepReport | `/stepReports/*/displayName` |
+| StepReport | `/stepReports/*/isSuccessful` |
+| StepReport | `/stepReports/*/isHttpStatusSuccessful` |
+| StepReport | `/stepReports/*/request` |
+| StepReport | `/stepReports/*/request/method` |
+| StepReport | `/stepReports/*/request/uri` |
+| StepReport | `/stepReports/*/request/headers` |
+| StepReport | `/stepReports/*/request/body` |
+| StepReport | `/stepReports/*/response` |
+| StepReport | `/stepReports/*/response/statusCode` |
+| StepReport | `/stepReports/*/response/statusDescription` |
+| StepReport | `/stepReports/*/response/headers` |
+| StepReport | `/stepReports/*/response/body` |
+| StepReport | `/stepReports/*/failure` |
+| FailureDescriptor | `/stepReports/*/failure/type` |
+| FailureDescriptor | `/stepReports/*/failure/message` |
+| FailureDescriptor | `/stepReports/*/failure/httpStatusCode` |
+| FailureDescriptor | `/stepReports/*/failure/httpStatusDescription` |
+| FailureDescriptor | `/stepReports/*/failure/stackTrace` |
+| StepReport | `/stepReports/*/pollingReport` |
+| PollingReport | `/stepReports/*/pollingReport/pollAttempts` |
+| PollingReport | `/stepReports/*/pollingReport/totalDurationMs` |
+| PollingReport | `/stepReports/*/pollingReport/responseCount` |
+| StepReport | `/stepReports/*/pollingFailure` |
+| PollingFailure | `/stepReports/*/pollingFailure/message` |
+| PollingFailure | `/stepReports/*/pollingFailure/pollAttempts` |
+| PollingFailure | `/stepReports/*/pollingFailure/timeoutMs` |
+| PollingFailure | `/stepReports/*/pollingFailure/stackTrace` |
+| StepReport | `/stepReports/*/pmTestAssertions` |
+| PmTestAssertion | `/stepReports/*/pmTestAssertions/*/name` |
+| PmTestAssertion | `/stepReports/*/pmTestAssertions/*/passed` |
+| PmTestAssertion | `/stepReports/*/pmTestAssertions/*/skipped` |
+| PmTestAssertion | `/stepReports/*/pmTestAssertions/*/error` |
+| PmTestAssertion | `/stepReports/*/pmTestAssertions/*/exeType` |
+| StepReport | `/stepReports/*/envSnapshot` |
+| Ledger | `/name` |
+| Ledger | `/values` |
+| Ledger value | `/values/*/key` |
+| Ledger value | `/values/*/value` |
+| Ledger value | `/values/*/enabled` |
+| Ledger | `/x-revoman-ledger/orgId` |
+| Ledger | `/x-revoman-ledger/steps` |
+| Ledger | `/x-revoman-ledger/steps/*` |
+| LedgerEntry | `/x-revoman-ledger/steps/*/hash` |
+| LedgerEntry | `/x-revoman-ledger/steps/*/produces` |
+| LedgerEntry | `/x-revoman-ledger/steps/*/consumed` |
+
+The following table is the exact normative set of non-ABI behavior contracts and exceptional JSON
+migrations that do not map one-to-one to a version-2 instance pointer above. All five columns must
+match the migration ledger exactly; deleting a behavior or adding an unlisted exceptional JSON row
+is a compatibility-foundation failure.
+
+| Kind | Legacy ID | Owner | Disposition | Replacement ID |
+|---|---|---|---|---|
+| behavior | `PostmanSDK.aggregate` | CS2a | internalized | `ExecutionSession and KickExecution owned transitional state` |
+| behavior | `PostmanSDK.legacyEvaluator` | CS2a | removed | `real PmSandbox` |
+| behavior | `Kick.nodeModulesPath` | CS2a | deprecated | `vendored Postman sandbox modules; value ignored` |
+| behavior | `execution.publicBoundary` | CS2a | replaced | `one ExecutionSession per outermost revUp` |
+| behavior | `execution.resourceCleanup` | CS2a | replaced | `ResourceScope reverse-order deterministic close` |
+| behavior | `sandbox.bootSource` | CS2a | replaced | `one retained immutable boot Source per engine lifecycle` |
+| behavior | `Step.deepIdentity` | CS2b | replaced | `execution-local StepId` |
+| behavior | `Ledger.pathOnlyIdentity` | CS2b | replaced | `versioned LedgerStepKey` |
+| behavior | `Step.rawPMStep` | CS2b | removed | `StepDescriptor and lightweight request metadata` |
+| behavior | `controlFlow.linearTargetScan` | CS2b | replaced | `precomputed jump-target index` |
+| behavior | `TxnInfo.liveHttpMessage` | CS2b | replaced | `HttpRequestSnapshot and HttpResponseSnapshot` |
+| behavior | `Moshi.perCallRegistryMutation` | CS2c | removed | `immutable JsonCodec and explicit one-off JsonAdapter` |
+| behavior | `Moshi.reusableDerivedAdapters` | CS2c | replaced | `environment.codec.withAdapters immutable derived codec` |
+| behavior | `FrozenValue.numericNormalization` | CS2c | replaced | `BigInteger and BigDecimal first with Int Long BigInteger Decimal normalization` |
+| behavior | `RunLogSink.undeclaredCapabilities` | CS2d | replaced | `immutable RunLogCapabilities` |
+| behavior | `RunLogSink.implicitAttachment` | CS2d | replaced | `EXCLUSIVE or CONCURRENT_SAFE attachment policy` |
+| behavior | `RunLogSink.missingFlushBoundary` | CS2d | replaced | `flush(boundary)` |
+| behavior | `RunLogSink.NoOpInstalled` | CS2d | removed | `no sink installation when capabilities are empty` |
+| behavior | `FileRunLogSink.perLineFlush` | CS2d | removed | `STEP_BOUNDARY or CLOSE_ONLY flush` |
+| behavior | `FileRunLogSink.duplicateSummaryRewrite` | CS2d | removed | `single footer summary` |
+| behavior | `PostmanEnvironment.fullScopeSynchronization` | CS3 | replaced | `cause-tagged changed/read journals with phase barriers` |
+| behavior | `sandbox.hostGuestPhaseBoundary` | CS3 | replaced | `explicit bidirectional set and unset barrier after every phase` |
+| behavior | `sandbox.unboundedExecution` | CS3 | bounded | `SandboxBudget wall-clock timer and event-loop limits` |
+| behavior | `PostmanEnvironment.directConstruction` | CS4 | removed | `VariableScopesView VariableScopeEditor VariableScopesSnapshot` |
+| behavior | `PostmanEnvironment.mapDelegation` | CS4 | removed | `purpose-specific scope views and callback-scoped editors` |
+| behavior | `PostmanEnvironment.copyQueryJsonHelpers` | CS4 | removed | `scope views plus explicit JsonCodec helpers` |
+| behavior | `Rundown.mutableEnv` | CS4 | removed | `immutable VariableScopesSnapshot` |
+| behavior | `Rundown.collectionVariables` | CS4 | replaced | `immutable final VariableScopesSnapshot` |
+| behavior | `Rundown.globals` | CS4 | replaced | `immutable final VariableScopesSnapshot` |
+| behavior | `hooks.mutableRundown` | CS4 | removed | `RunProgress plus explicit VariableScopeEditors` |
+| behavior | `PostExeHook.mutableCurrentRundown` | CS4 | removed | `PostExecutionContext before finalization` |
+| behavior | `PostExeHook.accumulatedCurrentRundown` | CS4 | removed | `priorRundowns plus progress.snapshot` |
+| behavior | `picks.mutableRundown` | CS4 | removed | `purpose-specific read-only context` |
+| behavior | `dynamicVariableGenerator.mutableRundown` | CS4 | removed | `purpose-specific read-only context and scoped editor` |
+| behavior | `StepEnvVars` | CS4 | removed | `StepEnvironmentEffects` |
+| behavior | `StepReport.fullEnvironmentRetention` | CS4 | removed | `touched-value StepEnvironmentEffects` |
+| behavior | `TxnInfo.txnObj` | CS4 | removed | `on-demand decode from immutable HTTP snapshot` |
+| behavior | `TxnInfo.embeddedMoshiReVoman` | CS4 | removed | `explicit JsonCodec or JsonAdapter` |
+| behavior | `execution.unboundedHistory` | CS4 | removed | `optional bounded or streaming ExecutionTrace` |
+| behavior | `ledger.producedConsumedTracking` | CS4 | replaced | `journal-derived produced consumed unset reused effects` |
+| behavior | `polling.mutableCallbacks` | CS5 | removed | `purpose-specific read-only polling context` |
+| behavior | `PollingReport.unboundedHistory` | CS5 | bounded | `terminalResponse statusCounts and bounded recentResponses` |
+| behavior | `polling.finalSleep` | CS5 | removed | `absolute monotonic deadline` |
+| behavior | `polling.inFlightRequest` | CS5 | bounded | `deadline-aware cancellable transport handle` |
+| behavior | `InputStream.reusableConfiguration` | CS6 | removed | `reopenable InputSource or immutable bytes` |
+| behavior | `executionInput.reopenDuringRun` | CS6 | removed | `execution-scoped immutable ExecutionInputs snapshot` |
+| behavior | `executionInput.crossExecutionParsedCache` | CS6 | removed | `fresh snapshot per top-level execution; no initial cross-run cache` |
+| behavior | `classpathJar.unboundedFileSystemRegistry` | CS6 | replaced | `reference-counted resolver leases` |
+| json | `StepReport.pmEnvSnapshot` | CS4 | removed | `StepEnvironmentEffects` |
+| json | `PollingReport.responses` | CS5 | removed | `PollingReport.terminalResponse statusCounts recentResponses` |
+| json | `PollingReport:/stepReports/*/pollingReport/responseCount` | CS5 | removed | `PollingReportV2:bounded response fields` |
+| json | `FailureDescriptor:/stepReports/*/failure/stackTrace` | CS4 | removed | `FailureDescriptor without stack trace` |
+| json | `PollingFailure:/stepReports/*/pollingFailure/stackTrace` | CS5 | removed | `PollingFailure without stack trace` |
+| json | `Ledger:/x-revoman-ledger/steps/*` | CS2b | removed | `LedgerStepKey` |
+
 Schema validation plus byte-for-byte canonical golden output gates the migrations. The generated
 public-surface inventory includes the complete PostmanSDK container and nested public types, new
 RunLogSink capabilities/flush/attachment methods, all PollingConfig defaults, and both Kotlin/Java
 compile fixtures.
+
+The complete persisted Ledger version-2 document—including its root version, value entries,
+organization metadata, step-key/entry containers, and entry payloads—lands atomically in CS2b.
+CS4 continues to own journal-derived produced/consumed runtime effects and report semantics, but it
+does not introduce a second or partial persisted-Ledger migration.
 
 ## Benchmark foundation
 
