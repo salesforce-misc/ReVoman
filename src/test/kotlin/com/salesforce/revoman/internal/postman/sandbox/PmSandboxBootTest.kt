@@ -75,6 +75,7 @@ class PmSandboxBootTest {
           afterContextCreated = { throw failure },
           closeContext = {
             closeCount++
+            it.close(true)
             throw closeFailure
           },
         )

@@ -131,10 +131,10 @@ class JvmSurfaceVisibilityTest {
       .isEqualTo(0x0012)
     assertThat(
         pmSandboxRows
-          .single { it.kind == JvmSurfaceKind.CONSTRUCTOR && it.descriptor == "()V" }
-          .sourceCallable
+          .filter { it.kind == JvmSurfaceKind.CONSTRUCTOR && it.sourceCallable }
+          .map(JvmSurfaceEntry::descriptor)
       )
-      .isTrue()
+      .containsExactly("()V")
     assertThat(
         entries.any {
           it.owner.startsWith("com/salesforce/revoman/internal/postman/sandbox/PmSandbox") &&
@@ -142,8 +142,16 @@ class JvmSurfaceVisibilityTest {
         }
       )
       .isFalse()
-    assertThat(entries.map(JvmSurfaceEntry::name))
-      .containsNoneOf("pmSandboxForTest", "withRuntimeHooks", "resetForTest", "resetDefaultForTest")
+    assertThat(
+        entries.any {
+          it.owner.startsWith("com/salesforce/revoman/internal/postman/sandbox/") &&
+            (it.name.startsWith("pmSandboxForTest") ||
+              it.name.startsWith("withRuntimeHooks") ||
+              it.name.startsWith("resetForTest") ||
+              it.name.startsWith("resetDefaultForTest"))
+        }
+      )
+      .isFalse()
     val addedClasses = additions.filter { it.kind == JvmSurfaceKind.CLASS }
     assertThat(addedClasses.map(JvmSurfaceEntry::owner))
       .containsExactlyElementsIn(TASK3_RUNTIME_OWNERS)
