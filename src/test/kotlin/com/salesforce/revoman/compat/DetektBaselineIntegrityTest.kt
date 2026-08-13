@@ -10,9 +10,13 @@ package com.salesforce.revoman.compat
 import java.nio.file.Files
 import java.nio.file.Path
 import java.security.MessageDigest
+import javax.xml.XMLConstants
+import javax.xml.parsers.DocumentBuilderFactory
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
+import org.w3c.dom.Element
+import org.w3c.dom.Node
 
 class DetektBaselineIntegrityTest {
   @TempDir lateinit var temporaryDirectory: Path
@@ -52,7 +56,18 @@ class DetektBaselineIntegrityTest {
       baseline,
       reviewedBaseline.replace(
         "<ManuallySuppressedIssues>",
-        "<ManuallySuppressedIssues><ID>LongMethod:Stale.kt\$stale</ID>",
+        "<ManuallySuppressedIssues><ID >LongMethod:Stale.kt\$stale</ID>",
+      ),
+    )
+    writeInventory(temporaryDirectory, listOf(baseline, source))
+    assertThrows<IllegalArgumentException> {
+      DetektBaselineIntegrity.assertValid(temporaryDirectory)
+    }
+    Files.writeString(
+      baseline,
+      reviewedBaseline.replace(
+        "<ID>LongMethod:Example.kt",
+        "<ID >LongMethod:Untracked.kt",
       ),
     )
     writeInventory(temporaryDirectory, listOf(baseline, source))
@@ -81,12 +96,7 @@ class DetektBaselineIntegrityTest {
 
 private object DetektBaselineIntegrity {
   private val inventoryLine = Regex("([0-9a-f]{64})  ([A-Za-z0-9_./-]+)")
-  private val baselineFilename = Regex("<ID>[^:]+:([^:\$]+\\.kt)")
-  private val manualBaseline =
-    Regex(
-      "<ManuallySuppressedIssues>(.*?)</ManuallySuppressedIssues>",
-      RegexOption.DOT_MATCHES_ALL,
-    )
+  private val baselineFilename = Regex("^[^:]+:([^:\$]+\\.kt)(?=[:\$])")
 
   fun assertValid(root: Path) {
     val expected = readInventory(root)
@@ -119,10 +129,15 @@ private object DetektBaselineIntegrity {
   }
 
   private fun referencedSources(root: Path): Set<Path> {
-    val baseline = Files.readString(root.resolve("detekt/baseline.xml"))
-    val manualBody = requireNotNull(manualBaseline.find(baseline)).groupValues[1]
-    require("<ID>" !in manualBody) { "Detekt manual baseline IDs are forbidden" }
-    val filenames = baselineFilename.findAll(baseline).map { it.groupValues[1] }.toSet()
+    val (manualIds, currentIds) = readBaselineIds(root.resolve("detekt/baseline.xml"))
+    require(manualIds.isEmpty()) { "Detekt manual baseline IDs are forbidden" }
+    val filenames =
+      currentIds
+        .map { id ->
+          requireNotNull(baselineFilename.find(id)) { "Invalid Detekt baseline ID: $id" }
+            .groupValues[1]
+        }
+        .toSet()
     val paths =
       Files.walk(root.resolve("src")).use { stream ->
         stream
@@ -136,4 +151,62 @@ private object DetektBaselineIntegrity {
     }
     return paths
   }
+
+  private fun readBaselineIds(path: Path): BaselineIds {
+    val factory =
+      DocumentBuilderFactory.newInstance().apply {
+        setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true)
+        setFeature("http://apache.org/xml/features/disallow-doctype-decl", true)
+        setFeature("http://xml.org/sax/features/external-general-entities", false)
+        setFeature("http://xml.org/sax/features/external-parameter-entities", false)
+        setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false)
+        setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "")
+        setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "")
+        isXIncludeAware = false
+        isExpandEntityReferences = false
+      }
+    val document = Files.newInputStream(path).use { factory.newDocumentBuilder().parse(it) }
+    val root = document.documentElement
+    require(root.tagName == "SmellBaseline" && root.attributes.length == 0) {
+      "Invalid Detekt baseline root"
+    }
+    val sections = childElements(root)
+    require(
+      sections.map(Element::getTagName) == listOf("ManuallySuppressedIssues", "CurrentIssues")
+    ) {
+      "Invalid Detekt baseline sections"
+    }
+    val manualIds = readIds(sections[0])
+    val currentIds = readIds(sections[1])
+    require(currentIds.isNotEmpty() && currentIds == currentIds.sorted()) {
+      "Detekt current baseline IDs must be nonempty and sorted"
+    }
+    return BaselineIds(manualIds, currentIds)
+  }
+
+  private fun readIds(section: Element): List<String> {
+    require(section.attributes.length == 0) { "Detekt baseline section has attributes" }
+    require(
+      (0 until section.childNodes.length).all { index ->
+        val child = section.childNodes.item(index)
+        child is Element || child.nodeType == Node.TEXT_NODE && child.textContent.isBlank()
+      }
+    ) {
+      "Detekt baseline section has unexpected content"
+    }
+    val elements = childElements(section)
+    require(elements.all { it.tagName == "ID" && it.attributes.length == 0 }) {
+      "Detekt baseline section contains a non-ID element"
+    }
+    val ids = elements.map { it.textContent.trim() }
+    require(ids.all(String::isNotEmpty) && ids.distinct().size == ids.size) {
+      "Detekt baseline IDs must be nonempty and unique"
+    }
+    return ids
+  }
+
+  private fun childElements(parent: Element): List<Element> =
+    (0 until parent.childNodes.length).mapNotNull { parent.childNodes.item(it) as? Element }
+
+  private data class BaselineIds(val manual: List<String>, val current: List<String>)
 }
