@@ -1,16 +1,6 @@
 <?xml version="1.0" ?>
 <SmellBaseline>
   <ManuallySuppressedIssues>
-    <ID>TooManyFunctions:ResponseConfig.kt$ResponseConfig$Companion</ID>
-    <ID>TooManyFunctions:ExeUtils.kt$com.salesforce.revoman.internal.exe.ExeUtils.kt</ID>
-    <ID>SpreadOperator:Step.kt$Step$(*FOLDER_DELIMITER.toCharArray())</ID>
-    <ID>SpreadOperator:CaseInsensitiveEnumAdapter.kt$CaseInsensitiveEnumAdapter$(*nameStrings.toTypedArray())</ID>
-    <ID>TooManyFunctions:JsonWriterUtils.kt$com.salesforce.revoman.input.json.JsonWriterUtils.kt</ID>
-    <ID>TooManyFunctions:JsonReaderUtils.kt$com.salesforce.revoman.input.json.JsonReaderUtils.kt</ID>
-    <ID>TooManyFunctions:KickDef.kt$KickDef</ID>
-    <ID>MagicNumber:Constants.kt$200</ID>
-    <ID>MagicNumber:Constants.kt$299</ID>
-    <ID>FunctionNaming:RestfulAPIDevKtTest.kt$RestfulAPIDevKtTest$@Test fun `execute restful-api dev pm collection`()</ID>
   </ManuallySuppressedIssues>
   <CurrentIssues>
     <ID>ComplexCondition:JsonPretty.kt:JsonPretty$next &lt; n &amp;&amp; ((c == '{' &amp;&amp; json[next] == '}') || (c == '[' &amp;&amp; json[next] == ']'))</ID>

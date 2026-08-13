@@ -31,10 +31,11 @@ class DetektBaselineIntegrityTest {
     Files.writeString(source, "class Example { fun longMethod() = 1 }\n")
     Files.writeString(
       baseline,
-      "<SmellBaseline><CurrentIssues>" +
+      "<SmellBaseline><ManuallySuppressedIssues></ManuallySuppressedIssues><CurrentIssues>" +
         "<ID>LongMethod:Example.kt:Example\$fun longMethod: Int</ID>" +
         "</CurrentIssues></SmellBaseline>\n",
     )
+    val reviewedBaseline = Files.readString(baseline)
     writeInventory(temporaryDirectory, listOf(baseline, source))
     DetektBaselineIntegrity.assertValid(temporaryDirectory)
 
@@ -43,7 +44,18 @@ class DetektBaselineIntegrityTest {
       DetektBaselineIntegrity.assertValid(temporaryDirectory)
     }
     Files.writeString(source, "class Example { fun longMethod() = 1 }\n")
-    Files.writeString(baseline, Files.readString(baseline).replace("LongMethod", "LargeClass"))
+    Files.writeString(baseline, reviewedBaseline.replace("LongMethod", "LargeClass"))
+    assertThrows<IllegalArgumentException> {
+      DetektBaselineIntegrity.assertValid(temporaryDirectory)
+    }
+    Files.writeString(
+      baseline,
+      reviewedBaseline.replace(
+        "<ManuallySuppressedIssues>",
+        "<ManuallySuppressedIssues><ID>LongMethod:Stale.kt\$stale</ID>",
+      ),
+    )
+    writeInventory(temporaryDirectory, listOf(baseline, source))
     assertThrows<IllegalArgumentException> {
       DetektBaselineIntegrity.assertValid(temporaryDirectory)
     }
@@ -70,6 +82,11 @@ class DetektBaselineIntegrityTest {
 private object DetektBaselineIntegrity {
   private val inventoryLine = Regex("([0-9a-f]{64})  ([A-Za-z0-9_./-]+)")
   private val baselineFilename = Regex("<ID>[^:]+:([^:\$]+\\.kt)")
+  private val manualBaseline =
+    Regex(
+      "<ManuallySuppressedIssues>(.*?)</ManuallySuppressedIssues>",
+      RegexOption.DOT_MATCHES_ALL,
+    )
 
   fun assertValid(root: Path) {
     val expected = readInventory(root)
@@ -102,11 +119,10 @@ private object DetektBaselineIntegrity {
   }
 
   private fun referencedSources(root: Path): Set<Path> {
-    val filenames =
-      baselineFilename
-        .findAll(Files.readString(root.resolve("detekt/baseline.xml")))
-        .map { it.groupValues[1] }
-        .toSet()
+    val baseline = Files.readString(root.resolve("detekt/baseline.xml"))
+    val manualBody = requireNotNull(manualBaseline.find(baseline)).groupValues[1]
+    require("<ID>" !in manualBody) { "Detekt manual baseline IDs are forbidden" }
+    val filenames = baselineFilename.findAll(baseline).map { it.groupValues[1] }.toSet()
     val paths =
       Files.walk(root.resolve("src")).use { stream ->
         stream

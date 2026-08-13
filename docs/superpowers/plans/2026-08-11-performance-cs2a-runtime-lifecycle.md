@@ -2239,6 +2239,7 @@ not hash a declaration body, pair the ledger with `detekt/baseline-source-sha256
 `DetektBaselineIntegrityTest`: the inventory must cover the baseline bytes and every repository
 source file named by any baseline ID, so either a baseline change or any edit within a suppressed
 declaration's file fails until its exact bytes receive an explicit reviewed inventory update.
+Keep `ManuallySuppressedIssues` empty; all accepted findings must be active generated Detekt-2 IDs.
 Broad `Throwable` cleanup is intentional here: it preserves primary/suppressed failure ordering
 even for non-`Exception` failures, while the exact mutation matrices remain deliberately readable
 as one audited protocol. Remove trivial findings rather than baseline them. Do not disable a rule,
