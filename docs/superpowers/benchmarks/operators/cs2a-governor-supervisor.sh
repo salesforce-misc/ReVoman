@@ -11,6 +11,7 @@ readonly RUNNER_FILE=/opt/revoman-benchmark/cs2a-controlled-run.sh
 readonly POLICY_FILE=/opt/revoman-benchmark/controlled-host.json
 readonly STATE_PARENT=/run/revoman-cs2a
 readonly PROC_FD_ROOT=/proc/self/fd
+readonly PROCESS_STAT_ROOT=/proc
 readonly TRUSTED_CHILD_PATH=/usr/bin:/bin
 readonly CONTROLLED_USER=gopala.akshintala
 readonly RUN_TIMEOUT_SECONDS=43200
@@ -559,6 +560,22 @@ child_pid_is_owned() {
   return 1
 }
 
+process_identity() {
+  local pid=$1 stat rest state pgrp start_time
+  [[ "$pid" =~ ^[1-9][0-9]*$ ]] || return 1
+  stat=$(cat "$PROCESS_STAT_ROOT/$pid/stat") || return 1
+  rest=${stat##*) }
+  test "$rest" != "$stat" || return 1
+  state=${rest%% *}
+  case "$state" in Z | X | x) return 1 ;; esac
+  rest=${rest#* }
+  pgrp=$(printf '%s\n' "$rest" | awk '{ print $2 }') || return 1
+  start_time=$(printf '%s\n' "$rest" | awk '{ print $19 }') || return 1
+  [[ "$pgrp" =~ ^[1-9][0-9]*$ ]] || return 1
+  [[ "$start_time" =~ ^[1-9][0-9]*$ ]] || return 1
+  printf '%s:%s:%s\n' "$pid" "$pgrp" "$start_time"
+}
+
 stop_owned_child_anchor() {
   local pid=$1 state remaining=30
   child_pid_is_owned "$pid" || return 1
@@ -756,8 +773,10 @@ controlled_child_exec() {
 }
 
 authenticate_controlled_launcher() {
-  local parent_pid=$1 ready_file=$2 release_file=$3 status_file=$4 state state_name
+  local parent_pid=$1 parent_identity=$2 ready_file=$3 release_file=$4 status_file=$5
+  local state state_name
   test "$PPID" = "$parent_pid" || return 1
+  test "$(process_identity "$parent_pid")" = "$parent_identity" || return 1
   verify_child_lock_descriptor || return 1
   state=${ready_file%/child-output.log.group-ready}
   test "$state" != "$ready_file" || return 1
@@ -773,11 +792,26 @@ authenticate_controlled_launcher() {
     && test ! -e "$status_file" && test ! -L "$status_file"
 }
 
+watch_controlled_launcher_parent() {
+  local parent_identity=$1 launcher_pid=$2
+  [[ "$launcher_pid" =~ ^[1-9][0-9]*$ ]] || return 1
+  trap ':' INT TERM HUP
+  while test "$(process_identity "${parent_identity%%:*}" 2>/dev/null || :)" = "$parent_identity"; do
+    sleep 1 &
+    wait "$!" 2>/dev/null || :
+  done
+  kill -TERM -- "-$launcher_pid" 2>/dev/null || :
+  sleep 1 &
+  wait "$!" 2>/dev/null || :
+  kill -KILL -- "-$launcher_pid" 2>/dev/null || :
+}
+
 controlled_launcher_exec() {
-  local parent_pid=$1 ready_file=$2 release_file=$3 status_file=$4
-  local controlled_uid=$5 implementation=$6 runner_sha=$7 ready_tmp status_tmp child_status
-  test "$#" -eq 7 || fail "invalid controlled launcher arguments"
-  authenticate_controlled_launcher "$parent_pid" "$ready_file" "$release_file" "$status_file" \
+  local parent_pid=$1 parent_identity=$2 ready_file=$3 release_file=$4 status_file=$5
+  local controlled_uid=$6 implementation=$7 runner_sha=$8 ready_tmp status_tmp child_status
+  test "$#" -eq 8 || fail "invalid controlled launcher arguments"
+  authenticate_controlled_launcher \
+    "$parent_pid" "$parent_identity" "$ready_file" "$release_file" "$status_file" \
     || fail "unauthenticated controlled launcher"
   [[ "$controlled_uid" =~ ^[1-9][0-9]*$ ]] || fail "invalid controlled launcher UID"
   [[ "$implementation" =~ ^[0-9a-f]{40}$ ]] \
@@ -785,6 +819,9 @@ controlled_launcher_exec() {
   [[ "$runner_sha" =~ ^[0-9a-f]{64}$ ]] \
     || fail "invalid controlled launcher runner identity"
   trap ':' INT TERM HUP
+  watch_controlled_launcher_parent "$parent_identity" "$$" &
+  test "$(process_identity "$parent_pid")" = "$parent_identity" \
+    || fail "controlled launcher parent disappeared before readiness"
   ready_tmp=$ready_file.tmp.$$
   printf '%s\n' "$$" >"$ready_tmp"
   chmod 0400 "$ready_tmp"
@@ -829,7 +866,7 @@ publish_controlled_child_release() {
 
 launch_controlled_child() {
   local controlled_uid=$1 implementation=$2 runner_sha=$3 output=$4
-  local launcher_pid identity remaining=300 release_tmp release_status
+  local launcher_pid parent_identity identity remaining=300 release_tmp release_status
   test "$#" -eq 4 || fail "invalid controlled child launch arguments"
   test -z "$SIGNAL_STATUS" || return 1
   CHILD_READY_FILE=$output.group-ready
@@ -837,7 +874,8 @@ launch_controlled_child() {
   CHILD_STATUS_FILE=$output.child-status
   test ! -e "$CHILD_READY_FILE" && test ! -e "$CHILD_RELEASE_FILE" \
     && test ! -e "$CHILD_STATUS_FILE" || return 1
-  /usr/bin/setsid /bin/bash "$0" --run-controlled-launcher "$$" \
+  parent_identity=$(process_identity "$$") || return 1
+  /usr/bin/setsid /bin/bash "$0" --run-controlled-launcher "$$" "$parent_identity" \
     "$CHILD_READY_FILE" "$CHILD_RELEASE_FILE" "$CHILD_STATUS_FILE" \
     "$controlled_uid" "$implementation" "$runner_sha" \
     >"$output" 2>&1 &
@@ -979,7 +1017,7 @@ supervisor_dispatch() {
     3:--publish-final-handoff) publish_final_handoff_main "$2" "$3" ;;
     3:--validate-final-handoff) validate_final_handoff_main "$2" "$3" ;;
     4:--run-controlled-child) controlled_child_exec "$2" "$3" "$4" ;;
-    8:--run-controlled-launcher) controlled_launcher_exec "$2" "$3" "$4" "$5" "$6" "$7" "$8" ;;
+    9:--run-controlled-launcher) controlled_launcher_exec "$2" "$3" "$4" "$5" "$6" "$7" "$8" "$9" ;;
     *) fail 'usage: cs2a-governor-supervisor.sh [--publish-final-handoff RUN_ROOT GOVERNOR_STATE | --validate-final-handoff RUN_ROOT GOVERNOR_STATE]' ;;
   esac
 }

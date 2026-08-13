@@ -552,6 +552,37 @@ class Cs2aSupervisorAtomicHandoffTest {
   }
 
   @Test
+  fun `orphaned controlled launcher releases inherited benchmark lock`() {
+    OrphanPhase.entries.forEach { phase ->
+      val fixture = startOrphanedLauncherHarness(phase.name.lowercase(), phase)
+
+      try {
+        orphanParentAfterPhaseStarts(fixture)
+        assertWithMessage(
+            "$phase orphaned launcher group retained inherited FD9\n" +
+              "parent:\n${Files.readString(fixture.parentLog)}\n" +
+              "launcher:\n${Files.readString(fixture.launcherLog)}"
+          )
+          .that(eventuallyAcquiresLock(fixture.lockFile))
+          .isTrue()
+      } finally {
+        stopOrphanedLauncherHarness(fixture)
+      }
+    }
+
+    val mutant =
+      startOrphanedLauncherHarness("deleted-watchdog", OrphanPhase.WORKLOAD, deleteWatchdog = true)
+    try {
+      orphanParentAfterPhaseStarts(mutant)
+      assertWithMessage("deleting the production watchdog call must retain inherited FD9")
+        .that(eventuallyAcquiresLock(mutant.lockFile))
+        .isFalse()
+    } finally {
+      stopOrphanedLauncherHarness(mutant)
+    }
+  }
+
+  @Test
   fun `direct launcher mode rejects unauthenticated paths before writing`() {
     val ready = temporaryDirectory.resolve("untrusted-ready")
     val release = temporaryDirectory.resolve("untrusted-release")
@@ -565,6 +596,7 @@ class Cs2aSupervisorAtomicHandoffTest {
           supervisor.toString(),
           "--run-controlled-launcher",
           ProcessHandle.current().pid().toString(),
+          "${ProcessHandle.current().pid()}:1:1",
           ready.toString(),
           release.toString(),
           status.toString(),
@@ -593,14 +625,14 @@ class Cs2aSupervisorAtomicHandoffTest {
 
   @Test
   fun `nested signal records latest status without reentering group containment`() {
-    val result = runNestedContainmentSignalHarness()
+    val result = runNestedContainmentSignalHarness(NestedContainmentEntry.SIGNAL_HANDLER)
 
     assertWithMessage("process output:\n%s", result.output).that(result.exitCode).isEqualTo(0)
   }
 
   @Test
   fun `nested signal during finalization cannot reenter group containment`() {
-    val result = runFinalizerNestedContainmentSignalHarness()
+    val result = runNestedContainmentSignalHarness(NestedContainmentEntry.FINALIZER)
 
     assertWithMessage("process output:\n%s", result.output).that(result.exitCode).isEqualTo(129)
   }
@@ -846,7 +878,7 @@ class Cs2aSupervisorAtomicHandoffTest {
     val runnable = root.resolve("supervisor.sh")
     Files.writeString(
       runnable,
-      source
+      withDeterministicProcessIdentity(source)
         .replace("readonly LOCK_FILE=$PRODUCTION_LOCK_FILE", "readonly LOCK_FILE=$lock")
         .replace(
           "readonly STATE_PARENT=$PRODUCTION_STATE_PARENT",
@@ -1297,7 +1329,7 @@ class Cs2aSupervisorAtomicHandoffTest {
     val script = temporaryDirectory.resolve("launch-race-supervisor.sh")
     Files.writeString(
       script,
-      Files.readString(supervisor)
+      withDeterministicProcessIdentity(Files.readString(supervisor))
         .replace("/usr/bin/setsid", mockSetsid.toString())
         .replace("/usr/bin/timeout", mockTimeout.toString()),
     )
@@ -1380,7 +1412,7 @@ class Cs2aSupervisorAtomicHandoffTest {
     val script = temporaryDirectory.resolve("ready-edge-supervisor.sh")
     Files.writeString(
       script,
-      Files.readString(supervisor)
+      withDeterministicProcessIdentity(Files.readString(supervisor))
         .replace("readonly LOCK_FILE=$PRODUCTION_LOCK_FILE", "readonly LOCK_FILE=$lock")
         .replace(
           "readonly STATE_PARENT=$PRODUCTION_STATE_PARENT",
@@ -1796,7 +1828,7 @@ class Cs2aSupervisorAtomicHandoffTest {
     val script = temporaryDirectory.resolve("dangling-$artifact-supervisor.sh")
     Files.writeString(
       script,
-      Files.readString(supervisor)
+      withDeterministicProcessIdentity(Files.readString(supervisor))
         .replace("readonly LOCK_FILE=$PRODUCTION_LOCK_FILE", "readonly LOCK_FILE=$lock")
         .replace(
           "readonly STATE_PARENT=$PRODUCTION_STATE_PARENT",
@@ -1809,7 +1841,9 @@ class Cs2aSupervisorAtomicHandoffTest {
       """
       source "${'$'}2"
       exec 9<>"${'$'}1"
-      if authenticate_controlled_launcher "${'$'}PPID" "${'$'}3" "${'$'}4" "${'$'}5"; then
+      if authenticate_controlled_launcher \
+        "${'$'}PPID" "${'$'}(process_identity "${'$'}PPID")" \
+        "${'$'}3" "${'$'}4" "${'$'}5"; then
         exit 98
       fi
       test -L "${'$'}6"
@@ -1832,13 +1866,222 @@ class Cs2aSupervisorAtomicHandoffTest {
     )
   }
 
-  private fun runNestedContainmentSignalHarness(): ProcessResult {
+  private fun startOrphanedLauncherHarness(
+    name: String,
+    phase: OrphanPhase,
+    deleteWatchdog: Boolean = false,
+  ): OrphanedLauncherFixture {
+    val root = Files.createDirectory(temporaryDirectory.resolve("orphaned-launcher-$name"))
+    val stateParent = Files.createDirectory(root.resolve("state"))
+    val state = Files.createDirectory(stateParent.resolve("governor-state.Test1234"))
+    val lock = Files.createFile(root.resolve("task13.lock"))
+    val procRoot = Files.createDirectory(root.resolve("proc"))
+    val childOutput = state.resolve("child-output.log")
+    val readyFile = state.resolve("child-output.log.group-ready")
+    val workloadStarted = root.resolve("workload-started")
+    val parentReady = root.resolve("parent-ready")
+    val mockSetsid =
+      writeExecutable(
+        root.resolve("setsid"),
+        """
+        exec /usr/bin/perl -MPOSIX -e '
+          POSIX::setsid() >= 0 or die "setsid: ${'$'}!";
+          exec @ARGV or die "exec: ${'$'}!";
+        ' -- "${'$'}@"
+        """
+          .trimIndent() + "\n",
+      )
+    val mockTimeout =
+      writeExecutable(
+        root.resolve("timeout"),
+        """
+        printf 'started\n' >${quote(workloadStarted)}
+        ${if (phase == OrphanPhase.AFTER_STATUS) "exit 0" else "while :; do sleep 3600; done"}
+        """
+          .trimIndent() + "\n",
+      )
+    val testStat = root.resolve("stat")
+    Files.writeString(
+      testStat,
+      """
+      #!/bin/sh
+      set -eu
+      case "${'$'}1:${'$'}2:${'$'}3" in
+        -Lc:%d:%i:/dev/fd/9|-Lc:%d:%i:${quote(lock)}) printf '1:424242\n' ;;
+        -Lc:%u:%g:%a:${quote(state)}) printf '0:0:700\n' ;;
+        *) /usr/bin/stat "${'$'}@" ;;
+      esac
+      """
+        .trimIndent() + "\n",
+    )
+    testStat.toFile().setExecutable(true, false)
+    val script = root.resolve("supervisor.sh")
+    Files.writeString(
+      script,
+      Files.readString(supervisor)
+        .replace("readonly LOCK_FILE=$PRODUCTION_LOCK_FILE", "readonly LOCK_FILE=$lock")
+        .replace(
+          "readonly STATE_PARENT=$PRODUCTION_STATE_PARENT",
+          "readonly STATE_PARENT=$stateParent",
+        )
+        .replace("readonly PROC_FD_ROOT=/proc/self/fd", "readonly PROC_FD_ROOT=/dev/fd")
+        .replace("readonly PROCESS_STAT_ROOT=/proc", "readonly PROCESS_STAT_ROOT=$procRoot")
+        .replace("/usr/bin/setsid", mockSetsid.toString())
+        .replace("/usr/bin/timeout", mockTimeout.toString())
+        .replace("stat -Lc", "${quote(testStat)} -Lc"),
+    )
+    var source = Files.readString(script)
+    val watchdogCall =
+      "watch_controlled_launcher_parent \"${'$'}parent_identity\" \"${'$'}${'$'}\" &"
+    check(source.contains(watchdogCall))
+    if (deleteWatchdog) {
+      source = source.replace(watchdogCall, ": # deleted production watchdog call")
+      Files.writeString(script, source)
+    }
+    val sourceAlias = root.resolve("supervisor-source.sh")
+    Files.createSymbolicLink(sourceAlias, script)
+    val harness =
+      """
+      source "${'$'}1"
+      exec 9<>"${'$'}2"
+      /usr/bin/perl -MFcntl=:flock -e 'flock(STDIN, LOCK_EX) or die' <&9
+      while ! test -s "${'$'}5/${'$'}${'$'}/stat"; do sleep 0.1; done
+      ${if (phase == OrphanPhase.BEFORE_RELEASE) """
+      publish_controlled_child_release() {
+        printf 'ready\n' >"${'$'}PARENT_READY"
+        while :; do :; done
+      }
+      """.trimIndent() else ""}
+      launch_controlled_child "${'$'}(/usr/bin/id -u)" \
+        $IMPLEMENTATION_SHA ${"a".repeat(64)} "${'$'}3"
+      ${if (phase == OrphanPhase.WORKLOAD) "while ! test -s \"${'$'}6\"; do sleep 0.1; done" else ""}
+      ${if (phase == OrphanPhase.AFTER_STATUS) "while ! test -s \"${'$'}3.child-status\"; do sleep 0.1; done" else ""}
+      printf 'ready\n' >"${'$'}4"
+      while :; do :; done
+      """
+        .trimIndent()
+    val parentLog = root.resolve("parent.log")
+    val parent =
+      ProcessBuilder(
+          "/bin/bash",
+          "-c",
+          harness,
+          script.toString(),
+          sourceAlias.toString(),
+          lock.toString(),
+          childOutput.toString(),
+          parentReady.toString(),
+          procRoot.toString(),
+          workloadStarted.toString(),
+        )
+        .apply {
+          environment()["PARENT_READY"] = parentReady.toString()
+        }
+        .redirectErrorStream(true)
+        .redirectOutput(parentLog.toFile())
+        .start()
+    Files.createDirectory(procRoot.resolve(parent.pid().toString()))
+    Files.writeString(
+      procRoot.resolve(parent.pid().toString()).resolve("stat"),
+      "${parent.pid()} (parent with spaces) S 1 ${parent.pid()} 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 424242\n",
+    )
+    try {
+      waitForPath(parentReady)
+    } catch (failure: IllegalStateException) {
+      error("${failure.message}\nparent output:\n${Files.readString(parentLog)}")
+    }
+    return OrphanedLauncherFixture(parent, lock, readyFile, workloadStarted, parentLog, childOutput)
+  }
+
+  private fun orphanParentAfterPhaseStarts(fixture: OrphanedLauncherFixture) {
+    assertThat(canAcquireLock(fixture.lockFile)).isFalse()
+    fixture.parent.destroyForcibly()
+    assertThat(fixture.parent.waitFor()).isNotEqualTo(0)
+    Files.deleteIfExists(
+      fixture.readyFile.parent.parent.parent
+        .resolve("proc")
+        .resolve(fixture.parent.pid().toString())
+        .resolve("stat")
+    )
+  }
+
+  private fun stopOrphanedLauncherHarness(fixture: OrphanedLauncherFixture) {
+    fixture.parent.destroyForcibly()
+    fixture.parent.waitFor()
+    if (Files.isRegularFile(fixture.readyFile)) {
+      val launcherPid = Files.readString(fixture.readyFile).trim()
+      run(listOf("/bin/kill", "-KILL", "-$launcherPid"))
+    }
+  }
+
+  private fun waitForPath(path: Path) {
+    repeat(200) {
+      if (Files.isRegularFile(path)) return
+      Thread.sleep(50)
+    }
+    error("timed out waiting for $path")
+  }
+
+  private fun eventuallyAcquiresLock(lock: Path): Boolean {
+    repeat(200) {
+      if (canAcquireLock(lock)) return true
+      Thread.sleep(50)
+    }
+    return false
+  }
+
+  private fun canAcquireLock(lock: Path): Boolean =
+    run(
+        listOf(
+          "/usr/bin/perl",
+          "-MFcntl=:flock",
+          "-e",
+          "open(my ${'$'}f, '+<', ${'$'}ARGV[0]) or die; " +
+            "exit(flock(${'$'}f, LOCK_EX | LOCK_NB) ? 0 : 1)",
+          lock.toString(),
+        )
+      )
+      .exitCode == 0
+
+  private fun withDeterministicProcessIdentity(source: String): String {
+    val anchor = "stop_owned_child_anchor() {"
+    check(source.contains(anchor))
+    return source.replace(
+      anchor,
+      """
+      process_identity() { printf '%s:%s:1\n' "${'$'}1" "${'$'}1"; }
+
+      $anchor
+      """
+        .trimIndent(),
+    )
+  }
+
+  private fun runNestedContainmentSignalHarness(entry: NestedContainmentEntry): ProcessResult {
+    val childStatusSetup = if (entry == NestedContainmentEntry.FINALIZER) "CHILD_STATUS=0" else ""
+    val invocation =
+      when (entry) {
+        NestedContainmentEntry.SIGNAL_HANDLER ->
+          """
+          handle_signal TERM 143
+          test "${'$'}SIGNAL_STATUS" = 129
+          test "${'$'}TERM_COUNT" -eq 1
+          test "${'$'}KILL_COUNT" -eq 1
+          test "${'$'}LEADER_REAPED" = true
+          test -z "${'$'}CHILD_PID"
+          test -z "${'$'}CHILD_PGID"
+          test "${'$'}CONTAINMENT_FAILED" = false
+          """
+            .trimIndent()
+        NestedContainmentEntry.FINALIZER -> "finalize_supervisor"
+      }
     val harness =
       """
       source "${'$'}1"
       CHILD_PID=4242
       CHILD_PGID=4242
       CHILD_GROUP_READY=true
+      $childStatusSetup
       GROUP_ALIVE=true
       LEADER_REAPED=false
       NESTED_SIGNAL_SENT=false
@@ -1893,14 +2136,7 @@ class Cs2aSupervisorAtomicHandoffTest {
           *) return 64 ;;
         esac
       }
-      handle_signal TERM 143
-      test "${'$'}SIGNAL_STATUS" = 129
-      test "${'$'}TERM_COUNT" -eq 1
-      test "${'$'}KILL_COUNT" -eq 1
-      test "${'$'}LEADER_REAPED" = true
-      test -z "${'$'}CHILD_PID"
-      test -z "${'$'}CHILD_PGID"
-      test "${'$'}CONTAINMENT_FAILED" = false
+      $invocation
       """
         .trimIndent()
     return run(
@@ -1908,80 +2144,7 @@ class Cs2aSupervisorAtomicHandoffTest {
         "/bin/bash",
         "-c",
         harness,
-        "nested-containment-signal-harness",
-        supervisor.toString(),
-      )
-    )
-  }
-
-  private fun runFinalizerNestedContainmentSignalHarness(): ProcessResult {
-    val harness =
-      """
-      source "${'$'}1"
-      CHILD_PID=4242
-      CHILD_PGID=4242
-      CHILD_GROUP_READY=true
-      CHILD_STATUS=0
-      GROUP_ALIVE=true
-      LEADER_REAPED=false
-      NESTED_SIGNAL_SENT=false
-      NESTED_SIGNAL_RETURNED=false
-      TERM_COUNT=0
-      KILL_COUNT=0
-      jobs() { printf '4242\n'; }
-      ps() { printf 'T\n'; }
-      wait() {
-        test "${'$'}1" = 4242
-        LEADER_REAPED=true
-      }
-      sleep() {
-        if test "${'$'}NESTED_SIGNAL_SENT" = false; then
-          NESTED_SIGNAL_SENT=true
-          handle_signal HUP 129
-          NESTED_SIGNAL_RETURNED=true
-        fi
-      }
-      kill() {
-        if test "${'$'}#" -eq 2; then
-          test "${'$'}1" = -STOP
-          test "${'$'}2" = 4242
-          test "${'$'}LEADER_REAPED" = false
-          return 0
-        fi
-        test "${'$'}2" = --
-        test "${'$'}3" = -4242
-        case "${'$'}1" in
-          -0)
-            if test "${'$'}LEADER_REAPED" = true; then
-              test "${'$'}TERM_COUNT" -gt 1 && test "${'$'}NESTED_SIGNAL_RETURNED" = true
-            else
-              test "${'$'}GROUP_ALIVE" = true
-            fi
-            ;;
-          -TERM)
-            test "${'$'}LEADER_REAPED" = false || return 65
-            TERM_COUNT=${'$'}((TERM_COUNT + 1))
-            ;;
-          -KILL)
-            if test "${'$'}LEADER_REAPED" = true; then
-              printf 'post-reap group KILL\n' >&2
-              return 65
-            fi
-            KILL_COUNT=${'$'}((KILL_COUNT + 1))
-            GROUP_ALIVE=false
-            ;;
-          *) return 64 ;;
-        esac
-      }
-      finalize_supervisor
-      """
-        .trimIndent()
-    return run(
-      listOf(
-        "/bin/bash",
-        "-c",
-        harness,
-        "finalizer-nested-containment-signal-harness",
+        "nested-containment-${entry.name.lowercase()}-harness",
         supervisor.toString(),
       )
     )
@@ -2138,6 +2301,15 @@ class Cs2aSupervisorAtomicHandoffTest {
 
   private data class ProcessResult(val exitCode: Int, val output: String)
 
+  private data class OrphanedLauncherFixture(
+    val parent: Process,
+    val lockFile: Path,
+    val readyFile: Path,
+    val workloadStarted: Path,
+    val parentLog: Path,
+    val launcherLog: Path,
+  )
+
   private enum class PublicationKind {
     CORE,
     FINAL,
@@ -2148,6 +2320,17 @@ class Cs2aSupervisorAtomicHandoffTest {
     KILL_FAILURE,
     LINGERING,
     DISAPPEARS_AFTER_KILL,
+  }
+
+  private enum class OrphanPhase {
+    BEFORE_RELEASE,
+    WORKLOAD,
+    AFTER_STATUS,
+  }
+
+  private enum class NestedContainmentEntry {
+    SIGNAL_HANDLER,
+    FINALIZER,
   }
 
   private companion object {

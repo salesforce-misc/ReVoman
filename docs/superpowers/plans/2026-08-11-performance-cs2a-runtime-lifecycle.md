@@ -2517,7 +2517,14 @@ existence checks still observe an unreaped zombie, the parent then reaps the anc
 only bounded signal-zero absence probes; it never sends TERM or KILL to the numeric PGID after
 reap. A surviving or recycled group therefore fails closed without being signaled, so neither a
 pre-`setsid` transition nor recycled PID/PGID can escape or redirect cleanup. An unauthenticated direct
-invocation of the internal launcher mode performs no write or workload execution. A signal
+invocation of the internal launcher mode performs no write or workload execution. The parent also
+passes its authenticated Linux `/proc/<pid>/stat` identity (PID, process group, non-zombie state,
+and start time) into the launcher. Before publishing ready, the launcher revalidates that exact
+identity and starts an in-group watchdog that retains FD 9. If the original supervisor disappears
+before release, during the workload, or after child-status publication, the watchdog survives its
+own group TERM and then KILLs the anchored group, closing every inherited lock descriptor; a
+replacement supervisor is therefore never permanently excluded from stale-state recovery by an
+orphaned launcher. A signal
 observed before launch prevents launch; a signal racing the spawn is rechecked at the authenticated
 ready/release boundary, synchronously terminates the anchored group, proves absence, and returns
 through the finalizer. Release publication runs inside a monotonic launch-critical section: signal
@@ -2635,6 +2642,9 @@ succeed without replacing bytes, and stale, partial, symlinked, nonregular, wron
 or byte-different source or destination metadata fails closed. It also executes the read-only final
 validator's full mutation matrix, authenticated launcher/FD/path rejection, GNU
 `timeout --foreground`, anchored surviving-descendant cleanup, and the pre/post-spawn signal races.
+It must SIGKILL the supervisor parent independently before release, during workload execution, and
+after status publication, require the real production watchdog to release FD 9 in every phase, and
+prove that deleting the watchdog call retains the lock.
 It also delivers two nested signals through the production handler at the final pre-release edge
 and proves that launch cancellation remains monotonic until the owner reports the aborted release;
 separate mutations fail release write, chmod, and rename and prove each status propagates.
