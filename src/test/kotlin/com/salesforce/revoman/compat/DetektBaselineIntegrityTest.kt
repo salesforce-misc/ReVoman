@@ -47,6 +47,19 @@ class DetektBaselineIntegrityTest {
     assertThrows<IllegalArgumentException> {
       DetektBaselineIntegrity.assertValid(temporaryDirectory)
     }
+    Files.writeString(
+      baseline,
+      reviewedBaseline.replace(
+        "<ID>LongMethod:Example.kt:Example\$fun longMethod: Int</ID>",
+        "<ID>LongMethod:Example.kt:prefix" +
+          "<ID>LongMethod:Untracked.kt\$hidden</ID>" +
+          "LongMethod:Other.kt\$real</ID>",
+      ),
+    )
+    writeInventory(temporaryDirectory, listOf(baseline, source))
+    assertThrows<IllegalArgumentException> {
+      DetektBaselineIntegrity.assertValid(temporaryDirectory)
+    }
     Files.writeString(source, "class Example { fun longMethod() = 1 }\n")
     Files.writeString(baseline, reviewedBaseline.replace("LongMethod", "LargeClass"))
     assertThrows<IllegalArgumentException> {
@@ -198,8 +211,13 @@ private object DetektBaselineIntegrity {
     require(elements.all { it.tagName == "ID" && it.attributes.length == 0 }) {
       "Detekt baseline section contains a non-ID element"
     }
-    val ids = elements.map { it.textContent.trim() }
-    require(ids.all(String::isNotEmpty) && ids.distinct().size == ids.size) {
+    val ids = elements.map { element ->
+      require(element.childNodes.length == 1 && element.firstChild.nodeType == Node.TEXT_NODE) {
+        "Detekt baseline ID must contain one plain text node"
+      }
+      element.textContent.also { require(it.isNotEmpty() && it == it.trim()) }
+    }
+    require(ids.distinct().size == ids.size) {
       "Detekt baseline IDs must be nonempty and unique"
     }
     return ids
