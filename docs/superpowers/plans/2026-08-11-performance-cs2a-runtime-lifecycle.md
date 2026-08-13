@@ -3188,6 +3188,12 @@ This is a separate, final cleanup task. Begin it only after Task 8, its evidence
 the CS2a landing are complete. It has its own RED/GREEN cycle, fixed-range review, report, and
 commit; never mix it into a Task 8 implementation, evidence, or report commit.
 
+Execution note (2026-08-13): after the Task 8 implementation was committed at `df5886a8`, its exact
+external integration gate remained blocked by the documented `restful-api.dev` public daily quota.
+The user explicitly directed Task 9 to proceed from that clean head. Preserve the separation above:
+Task 9 remains test-only and must land as its own commit, and it does not satisfy, replace, or weaken
+the outstanding Task 8 external gate.
+
 **Scope:** test-only root E2E infrastructure. Preserve real loopback sockets and HTTP serialization.
 The existing `http4k-core` `6.57.1.0` dependency is sufficient; do not add a benchmark-driver
 dependency. Explicitly exclude
@@ -3209,6 +3215,7 @@ substitute for a real socket.
 - Modify: `src/test/kotlin/com/salesforce/revoman/RunbookLegibilityE2ETest.kt`
 - Modify: `src/test/kotlin/com/salesforce/revoman/ScriptHookPhaseBarrierE2ETest.kt`
 - Modify: `src/test/kotlin/com/salesforce/revoman/internal/runtime/ExecutionSessionE2ETest.kt`
+- Modify: `detekt/baseline-source-sha256sums.txt`
 - Modify: `docs/superpowers/plans/2026-08-11-performance-cs2a-runtime-lifecycle.md`
 - Create: `docs/superpowers/reports/2026-08-13-http4k-e2e-mock-server-cleanup.md`
 
@@ -3216,7 +3223,7 @@ The ten named E2E classes above own twelve current JDK `HttpServer` contexts: on
 class except `RunbookExeE2ETest`, which owns `/`, `/fail`, and `/count`. No other fixture or test is
 in scope.
 
-- [ ] **Step 1: Spike and RED the shared real-wire fixture contract**
+- [x] **Step 1: Spike and RED the shared real-wire fixture contract**
 
 Use Context7 plus the checked-in `http4k-core` `6.57.1.0` sources before selecting the server
 adapter. `SunHttp` is available in core, but its stock bind address and executor behavior must not
@@ -3236,7 +3243,7 @@ Do not promise or name a custom JDK↔http4k adapter in advance. Let the spike c
 loopback-only real-wire adapter that meets the RED contract; document the decision and any
 http4k/SunHttp limitation in the report.
 
-- [ ] **Step 2: GREEN the fixture and migrate the first bounded group**
+- [x] **Step 2: GREEN the fixture and migrate the first bounded group**
 
 Implement only the shared test fixture seam, then migrate
 `ControlFlowE2ETest`, `ControlFlowLedgerE2ETest`, and `LedgerSkipE2ETest`. Preserve every existing
@@ -3245,22 +3252,24 @@ socket-close, and thread-cleanup assertions where the old fixture hid them. Run 
 plus the focused fixture contract before continuing. Mutation-test route rename, wrong status,
 wrong body, missing close, and handler-only substitution.
 
-- [ ] **Step 3: Migrate the second bounded group**
+- [x] **Step 3: Migrate the second bounded group**
 
 Migrate `MultiKickEnvTypesE2ETest`, `PmTestFailureE2ETest`,
 `PmTestPhaseTagE2ETest`, and `ScriptHookPhaseBarrierE2ETest`. Preserve loopback `127.0.0.1:0`, exact
 request semantics, status/body behavior, and hit counts. Run these four classes together with the
 shared fixture contract and the first group after each refactor batch.
 
-- [ ] **Step 4: Migrate the final bounded group and all twelve contexts**
+- [x] **Step 4: Migrate the final bounded group and all twelve contexts**
 
 Migrate `RunbookExeE2ETest` (all three routes), `RunbookLegibilityE2ETest`, and
 `internal/runtime/ExecutionSessionE2ETest`. Assert the `/`, `/fail`, and `/count` routing and counts
 independently. Search the ten-file fixed range and require zero `com.sun.net.httpserver`,
 `HttpServer.create`, and `createContext` uses, while the excluded benchmark fixture remains an exact
-byte-for-byte match to its pre-task SHA-256.
+byte-for-byte match to its pre-task SHA-256. Refresh only the exact source hashes for migrated files
+already named by `detekt/baseline-source-sha256sums.txt`; do not change `detekt/baseline.xml`, and
+require `DetektBaselineIntegrityTest` to prove the refreshed inventory is complete and byte-exact.
 
-- [ ] **Step 5: Review, gate, report, and commit separately**
+- [x] **Step 5: Review, gate, report, and commit separately**
 
 Run the exact ten-class selector, the full affected root test task, `checkKotlinAbi`, Java and Kotlin
 consumer compilers, Spotless, `git diff --check`, and IDE project diagnostics. Re-run the fixture
@@ -3287,6 +3296,7 @@ git add \
   src/test/kotlin/com/salesforce/revoman/RunbookLegibilityE2ETest.kt \
   src/test/kotlin/com/salesforce/revoman/ScriptHookPhaseBarrierE2ETest.kt \
   src/test/kotlin/com/salesforce/revoman/internal/runtime/ExecutionSessionE2ETest.kt \
+  detekt/baseline-source-sha256sums.txt \
   docs/superpowers/plans/2026-08-11-performance-cs2a-runtime-lifecycle.md \
   docs/superpowers/reports/2026-08-13-http4k-e2e-mock-server-cleanup.md
 git diff --cached --check

@@ -20,10 +20,11 @@ import com.salesforce.revoman.output.log.LogLevel
 import com.salesforce.revoman.output.log.RunLogSink
 import com.salesforce.revoman.output.log.StepEvent
 import com.salesforce.revoman.output.postman.PostmanEnvironment
-import com.sun.net.httpserver.HttpServer
-import java.net.InetSocketAddress
+import com.salesforce.revoman.testsupport.LoopbackHttpFixture
 import java.nio.file.Files
 import java.nio.file.Path
+import org.http4k.core.Response
+import org.http4k.core.Status.Companion.OK
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
@@ -33,59 +34,51 @@ class ExecutionSessionE2ETest {
 
   @Test
   fun `real repeated kick carries only environment across isolated children`() {
-    val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
-    server.createContext("/") { exchange ->
-      val body = "{}".toByteArray()
-      exchange.sendResponseHeaders(200, body.size.toLong())
-      exchange.responseBody.use { it.write(body) }
-    }
-    server.start()
-    try {
-      val collectionDirectory = temporaryDirectory.resolve("session-isolation")
-      Files.createDirectories(collectionDirectory.resolve(".resources"))
-      Files.writeString(
-        collectionDirectory.resolve(".resources/definition.yaml"),
-        "\$kind: collection\n",
-      )
-      listOf("a.request.yaml", "b.request.yaml").forEach { name ->
-        requireNotNull(
-            javaClass.classLoader.getResourceAsStream("pm-templates/v3/session-isolation/$name")
-          )
-          .use { source -> Files.copy(source, collectionDirectory.resolve(name)) }
-      }
-      val kick =
-        Kick.configure()
-          .templatePath(collectionDirectory.toString())
-          .dynamicEnvironment("baseUrl", "http://127.0.0.1:${server.address.port}")
-          .dynamicEnvironment("isolationId", "legacy")
-          .dynamicEnvironment("phase", "first")
-          .insecureHttp(true)
-          .off()
-      var hookCalls = 0
-      val results =
-        reVomanRuntime(SandboxFactory { PmSandbox() })
-          .execute(
-            listOf(kick, kick),
-            PostExeHook { current, _ ->
-              hookCalls++
-              if (hookCalls == 1) current.mutableEnv["phase"] = "second"
-            },
-            emptyMap(),
-          )
+    LoopbackHttpFixture.start { Response(OK).body("{}") }
+      .use { fixture ->
+        val collectionDirectory = temporaryDirectory.resolve("session-isolation")
+        Files.createDirectories(collectionDirectory.resolve(".resources"))
+        Files.writeString(
+          collectionDirectory.resolve(".resources/definition.yaml"),
+          "\$kind: collection\n",
+        )
+        listOf("a.request.yaml", "b.request.yaml").forEach { name ->
+          requireNotNull(
+              javaClass.classLoader.getResourceAsStream("pm-templates/v3/session-isolation/$name")
+            )
+            .use { source -> Files.copy(source, collectionDirectory.resolve(name)) }
+        }
+        val kick =
+          Kick.configure()
+            .templatePath(collectionDirectory.toString())
+            .dynamicEnvironment("baseUrl", fixture.baseUrl)
+            .dynamicEnvironment("isolationId", "legacy")
+            .dynamicEnvironment("phase", "first")
+            .insecureHttp(true)
+            .off()
+        var hookCalls = 0
+        val results =
+          reVomanRuntime(SandboxFactory { PmSandbox() })
+            .execute(
+              listOf(kick, kick),
+              PostExeHook { current, _ ->
+                hookCalls++
+                if (hookCalls == 1) current.mutableEnv["phase"] = "second"
+              },
+              emptyMap(),
+            )
 
-      assertThat(results.map { it.stepReports.size }).containsExactly(1, 2).inOrder()
-      assertThat(results[1].mutableEnv["carriedEnvironment"]).isEqualTo("from-first-child")
-      assertThat(results[1].mutableEnv["bRan"]).isEqualTo("yes")
-      assertThat(results[1].mutableEnv["collectionSeenByB"]).isEqualTo("absent")
-      assertThat(results[1].mutableEnv["globalSeenByB"]).isEqualTo("absent")
-      assertThat(results[0].collectionVariables["childCollection"]).isEqualTo("first-child-only")
-      assertThat(results[0].globals["childGlobal"]).isEqualTo("first-child-only")
-      assertThat(results[1].collectionVariables.toMap()).isEmpty()
-      assertThat(results[1].globals.toMap()).isEmpty()
-      assertThat(results[0].mutableEnv.toMap()).containsEntry("phase", "second")
-    } finally {
-      server.stop(0)
-    }
+        assertThat(results.map { it.stepReports.size }).containsExactly(1, 2).inOrder()
+        assertThat(results[1].mutableEnv["carriedEnvironment"]).isEqualTo("from-first-child")
+        assertThat(results[1].mutableEnv["bRan"]).isEqualTo("yes")
+        assertThat(results[1].mutableEnv["collectionSeenByB"]).isEqualTo("absent")
+        assertThat(results[1].mutableEnv["globalSeenByB"]).isEqualTo("absent")
+        assertThat(results[0].collectionVariables["childCollection"]).isEqualTo("first-child-only")
+        assertThat(results[0].globals["childGlobal"]).isEqualTo("first-child-only")
+        assertThat(results[1].collectionVariables.toMap()).isEmpty()
+        assertThat(results[1].globals.toMap()).isEmpty()
+        assertThat(results[0].mutableEnv.toMap()).containsEntry("phase", "second")
+      }
   }
 
   @Test

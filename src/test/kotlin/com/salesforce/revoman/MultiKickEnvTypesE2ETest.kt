@@ -18,8 +18,7 @@ import com.salesforce.revoman.output.Rundown
 import com.salesforce.revoman.output.log.LogLevel
 import com.salesforce.revoman.output.log.RunLogSink
 import com.salesforce.revoman.output.log.StepEvent
-import com.sun.net.httpserver.HttpServer
-import java.net.InetSocketAddress
+import com.salesforce.revoman.testsupport.LoopbackHttpFixture
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.CopyOnWriteArrayList
@@ -28,6 +27,8 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import org.http4k.core.Response
+import org.http4k.core.Status.Companion.OK
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
@@ -35,10 +36,10 @@ import org.junit.jupiter.api.io.TempDir
 
 /**
  * E2E proving the multi-kick [ReVoman.revUp] fold threads the FULL environment — values of every
- * type, not just [String] — from one kick into the next. Network-free: a loopback [HttpServer]
- * answers the `{{baseUrl}}` steps so the run completes without real I/O. The env values under test
- * are seeded via `dynamicEnvironment`, so they land in `rundown.mutableEnv` regardless of step
- * outcome; the assertions are purely about what kick N+1 inherits from kick N.
+ * type, not just [String] — from one kick into the next. Network-free: a loopback
+ * [LoopbackHttpFixture] answers the `{{baseUrl}}` steps so the run completes without real I/O. The
+ * env values under test are seeded via `dynamicEnvironment`, so they land in `rundown.mutableEnv`
+ * regardless of step outcome; the assertions are purely about what kick N+1 inherits from kick N.
  */
 class MultiKickEnvTypesE2ETest {
   @TempDir lateinit var temporaryDirectory: Path
@@ -353,22 +354,16 @@ class MultiKickEnvTypesE2ETest {
   companion object {
     private const val LATCH_TIMEOUT_SECONDS = 20L
 
-    private lateinit var server: HttpServer
+    private lateinit var fixture: LoopbackHttpFixture
     private lateinit var baseUrl: String
 
     @BeforeAll
     @JvmStatic
     fun startServer() {
-      server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
-      server.createContext("/") { exchange ->
-        val body = "{}".toByteArray()
-        exchange.sendResponseHeaders(200, body.size.toLong())
-        exchange.responseBody.use { it.write(body) }
-      }
-      server.start()
-      baseUrl = "http://127.0.0.1:${server.address.port}"
+      fixture = LoopbackHttpFixture.start { Response(OK).body("{}") }
+      baseUrl = fixture.baseUrl
     }
 
-    @AfterAll @JvmStatic fun stopServer() = server.stop(0)
+    @AfterAll @JvmStatic fun stopServer() = fixture.close()
   }
 }

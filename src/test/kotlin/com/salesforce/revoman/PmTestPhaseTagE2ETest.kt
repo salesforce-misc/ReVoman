@@ -11,8 +11,9 @@ import com.google.common.truth.Truth.assertThat
 import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.output.ExeType.POST_RES_JS
 import com.salesforce.revoman.output.ExeType.PRE_REQ_JS
-import com.sun.net.httpserver.HttpServer
-import java.net.InetSocketAddress
+import com.salesforce.revoman.testsupport.LoopbackHttpFixture
+import org.http4k.core.Response
+import org.http4k.core.Status.Companion.OK
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
@@ -38,22 +39,16 @@ class PmTestPhaseTagE2ETest {
   }
 
   companion object {
-    private lateinit var server: HttpServer
+    private lateinit var fixture: LoopbackHttpFixture
     private lateinit var baseUrl: String
 
     @BeforeAll
     @JvmStatic
     fun startServer() {
-      server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
-      server.createContext("/") { exchange ->
-        val body = "{}".toByteArray()
-        exchange.sendResponseHeaders(200, body.size.toLong())
-        exchange.responseBody.use { it.write(body) }
-      }
-      server.start()
-      baseUrl = "http://127.0.0.1:${server.address.port}"
+      fixture = LoopbackHttpFixture.start { Response(OK).body("{}") }
+      baseUrl = fixture.baseUrl
     }
 
-    @AfterAll @JvmStatic fun stopServer() = server.stop(0)
+    @AfterAll @JvmStatic fun stopServer() = fixture.close()
   }
 }

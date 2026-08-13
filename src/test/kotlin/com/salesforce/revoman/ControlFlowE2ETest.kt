@@ -10,10 +10,9 @@ package com.salesforce.revoman
 import com.google.common.truth.Truth.assertThat
 import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.output.StopReason
-import com.sun.net.httpserver.HttpServer
-import java.net.InetSocketAddress
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicInteger
+import com.salesforce.revoman.testsupport.LoopbackHttpFixture
+import org.http4k.core.Response
+import org.http4k.core.Status.Companion.OK
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
@@ -67,13 +66,13 @@ class ControlFlowE2ETest {
 
   @Test
   fun `skipRequest skips HTTP but the run continues`() {
-    val before = hits.getOrDefault("/skipme", AtomicInteger(0)).get()
+    val before = fixture.hitCount("/skipme")
     val rundown = run("pm-templates/v3/cf-skip")
     val skipped = rundown.reportForStepName("skipme")!!
     assertThat(skipped.isRequestSkipped).isTrue()
     assertThat(skipped.isSuccessful).isTrue()
     // No HTTP reached the server for the skipped step.
-    assertThat(hits.getOrDefault("/skipme", AtomicInteger(0)).get()).isEqualTo(before)
+    assertThat(fixture.hitCount("/skipme")).isEqualTo(before)
     // The following step ran.
     assertThat(rundown.reportForStepName("after")!!.isSuccessful).isTrue()
     assertThat(rundown.stopReason).isEqualTo(StopReason.COMPLETED)
@@ -89,24 +88,16 @@ class ControlFlowE2ETest {
   }
 
   companion object {
-    private lateinit var server: HttpServer
+    private lateinit var fixture: LoopbackHttpFixture
     private lateinit var baseUrl: String
-    private val hits = ConcurrentHashMap<String, AtomicInteger>()
 
     @BeforeAll
     @JvmStatic
     fun startServer() {
-      server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
-      server.createContext("/") { exchange ->
-        hits.computeIfAbsent(exchange.requestURI.path) { AtomicInteger(0) }.incrementAndGet()
-        val body = "{}".toByteArray()
-        exchange.sendResponseHeaders(200, body.size.toLong())
-        exchange.responseBody.use { it.write(body) }
-      }
-      server.start()
-      baseUrl = "http://127.0.0.1:${server.address.port}"
+      fixture = LoopbackHttpFixture.start { Response(OK).body("{}") }
+      baseUrl = fixture.baseUrl
     }
 
-    @AfterAll @JvmStatic fun stopServer() = server.stop(0)
+    @AfterAll @JvmStatic fun stopServer() = fixture.close()
   }
 }

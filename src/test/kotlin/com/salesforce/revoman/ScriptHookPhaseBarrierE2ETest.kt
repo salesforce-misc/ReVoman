@@ -13,10 +13,12 @@ import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.input.config.StepPick.PostTxnStepPick
 import com.salesforce.revoman.input.config.StepPick.PreTxnStepPick
 import com.salesforce.revoman.internal.json.MoshiReVoman.Companion.initMoshi
-import com.sun.net.httpserver.HttpServer
-import java.net.InetSocketAddress
-import java.util.concurrent.atomic.AtomicInteger
+import com.salesforce.revoman.testsupport.LoopbackHttpFixture
 import java.util.concurrent.atomic.AtomicReference
+import org.http4k.core.Method.POST
+import org.http4k.core.Response
+import org.http4k.core.Status.Companion.ACCEPTED
+import org.http4k.core.Status.Companion.OK
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
@@ -25,7 +27,7 @@ import org.junit.jupiter.api.Test
 class ScriptHookPhaseBarrierE2ETest {
   @Test
   fun `scripts and hooks observe each prior phase with isolated scopes and independent ledger controls`() {
-    phaseOneRequest.set(null)
+    phaseOneRawQuery.set(null)
     val hookOrder = mutableListOf<String>()
     val kick =
       Kick.configure()
@@ -82,7 +84,7 @@ class ScriptHookPhaseBarrierE2ETest {
 
     val rundown = ReVoman.revUp(kick)
 
-    assertThat(serverHits.get()).isEqualTo(2)
+    assertThat(fixture.hitCount()).isEqualTo(2)
     assertThat(hookOrder).containsExactly("pre-hook", "post-hook").inOrder()
     assertThat(rundown.stepReports).hasSize(2)
     assertThat(rundown.areAllStepsSuccessful).isTrue()
@@ -112,11 +114,14 @@ class ScriptHookPhaseBarrierE2ETest {
       .containsExactly("ledgerProduced")
     assertThat(phaseOne.envVars.consumed.filter { it.startsWith("ledger") })
       .containsExactly("ledgerConsumed")
-    val captured = requireNotNull(phaseOneRequest.get())
-    assertThat(captured.method).isEqualTo("POST")
-    assertThat(captured.query).isEqualTo("ledger=ledger-input&phase=pre-hook")
-    assertThat(captured.phaseHeader).isEqualTo("pre-hook")
-    assertThat(initMoshi().fromJson<Map<String, Any?>>(captured.body))
+    val captured = fixture.requests("/phase-one").single()
+    assertThat(captured.method).isEqualTo(POST)
+    assertThat(captured.queries)
+      .containsExactly("ledger" to "ledger-input", "phase" to "pre-hook")
+      .inOrder()
+    assertThat(phaseOneRawQuery.get()).isEqualTo("ledger=ledger-input&phase=pre-hook")
+    assertThat(captured.headerValues("X-Phase-Hook")).containsExactly("pre-hook")
+    assertThat(initMoshi().fromJson<Map<String, Any?>>(captured.body.decodeToString()))
       .containsAtLeast(
         "requestMarker",
         "phase-request-v1",
@@ -130,58 +135,38 @@ class ScriptHookPhaseBarrierE2ETest {
   }
 
   companion object {
-    private lateinit var server: HttpServer
+    private lateinit var fixture: LoopbackHttpFixture
     private lateinit var baseUrl: String
-    private val serverHits = AtomicInteger()
-    private val phaseOneRequest = AtomicReference<CapturedRequest?>()
+    private val phaseOneRawQuery = AtomicReference<String?>()
 
     @BeforeAll
     @JvmStatic
     fun startServer() {
-      serverHits.set(0)
-      server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
-      server.createContext("/") { exchange ->
-        serverHits.incrementAndGet()
-        val requestBody = exchange.requestBody.bufferedReader().use { it.readText() }
-        val phaseOne = exchange.requestURI.path == "/phase-one"
-        val response =
-          if (phaseOne) {
-            val captured =
-              CapturedRequest(
-                method = exchange.requestMethod,
-                query = exchange.requestURI.rawQuery,
-                phaseHeader = exchange.requestHeaders.getFirst("X-Phase-Hook"),
-                body = requestBody,
-              )
-            phaseOneRequest.set(captured)
-            """
+      fixture = LoopbackHttpFixture.start { request ->
+        if (request.uri.path == "/phase-one") {
+          val rawQuery = request.uri.query
+          val phaseHeader = request.header("X-Phase-Hook")
+          phaseOneRawQuery.set(rawQuery)
+          Response(ACCEPTED)
+            .header("Content-Type", "application/json")
+            .body(
+              """
             {
               "responseMarker":"phase-response-v1",
-              "receivedQuery":"${captured.query}",
-              "receivedHeader":"${captured.phaseHeader}",
-              "receivedBody":${captured.body}
+              "receivedQuery":"$rawQuery",
+              "receivedHeader":"$phaseHeader",
+              "receivedBody":${request.bodyString()}
             }
             """
-              .trimIndent()
-          } else {
-            "{\"ok\":true}"
-          }
-        val body = response.toByteArray()
-        exchange.responseHeaders.add("Content-Type", "application/json")
-        exchange.sendResponseHeaders(if (phaseOne) 202 else 200, body.size.toLong())
-        exchange.responseBody.use { it.write(body) }
+                .trimIndent()
+            )
+        } else {
+          Response(OK).header("Content-Type", "application/json").body("{\"ok\":true}")
+        }
       }
-      server.start()
-      baseUrl = "http://127.0.0.1:${server.address.port}"
+      baseUrl = fixture.baseUrl
     }
 
-    @AfterAll @JvmStatic fun stopServer() = server.stop(0)
+    @AfterAll @JvmStatic fun stopServer() = fixture.close()
   }
-
-  private data class CapturedRequest(
-    val method: String,
-    val query: String?,
-    val phaseHeader: String?,
-    val body: String,
-  )
 }

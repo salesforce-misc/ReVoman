@@ -14,12 +14,17 @@ import com.salesforce.revoman.input.config.Runbook
 import com.salesforce.revoman.input.config.haltOnStepFailure
 import com.salesforce.revoman.input.config.runLogSink
 import com.salesforce.revoman.input.config.step
+import com.salesforce.revoman.internal.exe.prepareHttpClient
 import com.salesforce.revoman.output.log.ConsoleRunLogSink
-import com.sun.net.httpserver.HttpServer
+import com.salesforce.revoman.testsupport.LoopbackHttpFixture
 import java.io.ByteArrayOutputStream
 import java.io.PrintStream
-import java.net.InetSocketAddress
 import java.util.concurrent.atomic.AtomicInteger
+import org.http4k.core.Method.GET
+import org.http4k.core.Request
+import org.http4k.core.Response
+import org.http4k.core.Status.Companion.INTERNAL_SERVER_ERROR
+import org.http4k.core.Status.Companion.OK
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach
@@ -277,36 +282,52 @@ class RunbookExeE2ETest {
     assertThat(output.split("━━ ACT").size - 1).isEqualTo(1)
   }
 
+  @Test
+  fun `loopback fixture routes root failure and counted endpoints independently`() {
+    val client = prepareHttpClient(insecureHttp = false)
+    val rootBefore = fixture.hitCount("/")
+    val failureBefore = fixture.hitCount("/fail")
+    val countBefore = fixture.hitCount("/count")
+
+    val root = client(Request(GET, "$baseUrl/"))
+    val failure = client(Request(GET, "$baseUrl/fail"))
+    val counted = client(Request(GET, "$baseUrl/count"))
+
+    assertThat(root.status).isEqualTo(OK)
+    assertThat(root.bodyString()).isEqualTo("{}")
+    assertThat(failure.status).isEqualTo(INTERNAL_SERVER_ERROR)
+    assertThat(failure.bodyString()).isEqualTo("{\"error\":\"boom\"}")
+    assertThat(counted.status).isEqualTo(OK)
+    assertThat(counted.bodyString()).isEqualTo("{}")
+    assertThat(fixture.hitCount("/")).isEqualTo(rootBefore + 1)
+    assertThat(fixture.hitCount("/fail")).isEqualTo(failureBefore + 1)
+    assertThat(fixture.hitCount("/count")).isEqualTo(countBefore + 1)
+    assertThat(countHits.get()).isEqualTo(1)
+  }
+
   companion object {
-    private lateinit var server: HttpServer
+    private lateinit var fixture: LoopbackHttpFixture
     private lateinit var baseUrl: String
     private val countHits = AtomicInteger(0)
 
     @BeforeAll
     @JvmStatic
     fun startServer() {
-      server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
-      server.createContext("/") { exchange ->
-        val body = "{}".toByteArray()
-        exchange.sendResponseHeaders(200, body.size.toLong())
-        exchange.responseBody.use { it.write(body) }
+      fixture = LoopbackHttpFixture.start { request ->
+        when {
+          request.uri.path.startsWith("/fail") ->
+            Response(INTERNAL_SERVER_ERROR).body("{\"error\":\"boom\"}")
+          request.uri.path.startsWith("/count") -> {
+            countHits.incrementAndGet()
+            Response(OK).body("{}")
+          }
+          else -> Response(OK).body("{}")
+        }
       }
-      server.createContext("/fail") { exchange ->
-        val body = "{\"error\":\"boom\"}".toByteArray()
-        exchange.sendResponseHeaders(500, body.size.toLong())
-        exchange.responseBody.use { it.write(body) }
-      }
-      server.createContext("/count") { exchange ->
-        countHits.incrementAndGet()
-        val body = "{}".toByteArray()
-        exchange.sendResponseHeaders(200, body.size.toLong())
-        exchange.responseBody.use { it.write(body) }
-      }
-      server.start()
-      baseUrl = "http://127.0.0.1:${server.address.port}"
+      baseUrl = fixture.baseUrl
     }
 
-    @AfterAll @JvmStatic fun stopServer() = server.stop(0)
+    @AfterAll @JvmStatic fun stopServer() = fixture.close()
   }
 
   @BeforeEach
