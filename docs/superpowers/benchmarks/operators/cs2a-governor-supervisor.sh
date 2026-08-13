@@ -800,10 +800,21 @@ watch_controlled_launcher_parent() {
     sleep 1 &
     wait "$!" 2>/dev/null || :
   done
-  kill -TERM -- "-$launcher_pid" 2>/dev/null || :
+  printf '%s\n' \
+    'cs2a-governor-supervisor: authenticated supervisor parent disappeared; terminating controlled group' \
+    >&2
+  if kill -TERM -- "-$launcher_pid" 2>/dev/null; then
+    printf '%s\n' 'cs2a-governor-supervisor: orphan watchdog sent TERM to controlled group' >&2
+  else
+    printf '%s\n' 'cs2a-governor-supervisor: orphan watchdog failed to send TERM to controlled group' >&2
+  fi
   sleep 1 &
   wait "$!" 2>/dev/null || :
-  kill -KILL -- "-$launcher_pid" 2>/dev/null || :
+  printf '%s\n' 'cs2a-governor-supervisor: orphan watchdog escalating controlled group to KILL' >&2
+  kill -KILL -- "-$launcher_pid" 2>/dev/null || {
+    printf '%s\n' 'cs2a-governor-supervisor: orphan watchdog failed to KILL controlled group' >&2
+    return 1
+  }
 }
 
 controlled_launcher_exec() {

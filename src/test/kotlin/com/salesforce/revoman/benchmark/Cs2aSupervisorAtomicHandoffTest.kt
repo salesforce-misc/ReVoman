@@ -565,6 +565,11 @@ class Cs2aSupervisorAtomicHandoffTest {
           )
           .that(eventuallyAcquiresLock(fixture.lockFile))
           .isTrue()
+        val launcherLog = Files.readString(fixture.launcherLog)
+        assertThat(launcherLog)
+          .contains("authenticated supervisor parent disappeared; terminating controlled group")
+        assertThat(launcherLog).contains("orphan watchdog sent TERM to controlled group")
+        assertThat(launcherLog).contains("orphan watchdog escalating controlled group to KILL")
       } finally {
         stopOrphanedLauncherHarness(fixture)
       }
