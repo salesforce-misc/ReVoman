@@ -409,15 +409,80 @@ class Cs2aSupervisorAtomicHandoffTest {
   }
 
   @Test
-  fun `signal between spawn and child pgid assignment terminates child before benchmark progress`() {
+  fun `signal before setsid establishes pgid kills and reaps child before benchmark progress`() {
     val progressMarker = temporaryDirectory.resolve("launch-race-progressed")
-    val terminationMarker = temporaryDirectory.resolve("launch-race-terminated")
 
-    val result = runLaunchAssignmentRaceHarness(progressMarker, terminationMarker)
+    val result = runLaunchAssignmentRaceHarness(progressMarker)
 
     assertWithMessage("process output:\n%s", result.output).that(result.exitCode).isEqualTo(0)
     assertThat(Files.exists(progressMarker)).isFalse()
-    assertThat(Files.readString(terminationMarker)).isEqualTo("terminated\n")
+  }
+
+  @Test
+  fun `ready marker is rejected when launcher ownership disappears before acceptance`() {
+    val progressMarker = temporaryDirectory.resolve("ready-owner-progressed")
+
+    val result = runReadyOwnershipLossHarness(progressMarker)
+
+    assertWithMessage("process output:\n%s", result.output).that(result.exitCode).isEqualTo(0)
+    assertThat(Files.exists(progressMarker)).isFalse()
+  }
+
+  @Test
+  fun `signal at final release rename aborts launch even when containment fails`() {
+    val progressMarker = temporaryDirectory.resolve("ready-edge-progressed")
+
+    val result = runReadyReleaseSignalRaceHarness(progressMarker)
+
+    assertWithMessage("process output:\n%s", result.output).that(result.exitCode).isEqualTo(0)
+    assertThat(Files.exists(progressMarker)).isFalse()
+  }
+
+  @Test
+  fun `nested signal during release edge cannot clear launch cancellation`() {
+    val progressMarker = temporaryDirectory.resolve("nested-ready-edge-progressed")
+
+    val result = runNestedReleaseCancellationHarness(progressMarker)
+
+    assertWithMessage("process output:\n%s", result.output).that(result.exitCode).isEqualTo(0)
+    assertThat(result.output).contains("received TERM")
+    assertThat(result.output).contains("nested=true")
+    assertThat(Files.exists(progressMarker)).isFalse()
+  }
+
+  @Test
+  fun `nested signal during termination setup cannot latch containment guard`() {
+    val result = runNestedTerminationGuardHarness()
+
+    assertWithMessage("process output:\n%s", result.output).that(result.exitCode).isEqualTo(0)
+    assertThat(result.output).contains("received TERM")
+    assertThat(result.output).contains("nested=true")
+  }
+
+  @Test
+  fun `release publication propagates write chmod and rename failures`() {
+    listOf("write", "chmod", "rename").forEach { scenario ->
+      val canonical = temporaryDirectory.resolve("release-failure-$scenario")
+      val candidate = temporaryDirectory.resolve(".release-failure-$scenario.candidate")
+      val result = runReleasePublicationFailureHarness(scenario, candidate, canonical)
+
+      assertWithMessage("$scenario output:\n%s", result.output).that(result.exitCode).isEqualTo(0)
+      assertThat(Files.exists(canonical)).isFalse()
+    }
+  }
+
+  @Test
+  fun `signal after child reap cannot target a recycled pid or process group`() {
+    val result = runPostReapSignalHarness()
+
+    assertWithMessage("process output:\n%s", result.output).that(result.exitCode).isEqualTo(0)
+  }
+
+  @Test
+  fun `reaping group leader contains surviving child group before clearing pgid`() {
+    val result = runPostLeaderReapDescendantHarness()
+
+    assertWithMessage("process output:\n%s", result.output).that(result.exitCode).isEqualTo(0)
   }
 
   @Test
@@ -484,6 +549,60 @@ class Cs2aSupervisorAtomicHandoffTest {
 
     assertProcessSucceeds(runPreReentryHarness(source, "original"))
     assertThat(runPreReentryHarness(mutant, "no-reentry-scrub").exitCode).isNotEqualTo(0)
+  }
+
+  @Test
+  fun `direct launcher mode rejects unauthenticated paths before writing`() {
+    val ready = temporaryDirectory.resolve("untrusted-ready")
+    val release = temporaryDirectory.resolve("untrusted-release")
+    val status = temporaryDirectory.resolve("untrusted-status")
+    Files.writeString(release, "invalid\n")
+
+    val result =
+      run(
+        listOf(
+          "/bin/bash",
+          supervisor.toString(),
+          "--run-controlled-launcher",
+          ProcessHandle.current().pid().toString(),
+          ready.toString(),
+          release.toString(),
+          status.toString(),
+          numericUid(),
+          IMPLEMENTATION_SHA,
+          "a".repeat(64),
+        )
+      )
+
+    assertThat(result.exitCode).isNotEqualTo(0)
+    assertThat(Files.exists(ready, LinkOption.NOFOLLOW_LINKS)).isFalse()
+    assertThat(Files.exists(status, LinkOption.NOFOLLOW_LINKS)).isFalse()
+    assertThat(Files.readString(release)).isEqualTo("invalid\n")
+  }
+
+  @Test
+  fun `authenticated launcher rejects every dangling handshake symlink before writing`() {
+    listOf("ready", "release", "status").forEach { artifact ->
+      val result = runDanglingLauncherArtifactHarness(artifact)
+
+      assertWithMessage("$artifact process output:\n%s", result.output)
+        .that(result.exitCode)
+        .isEqualTo(0)
+    }
+  }
+
+  @Test
+  fun `nested signal records latest status without reentering group containment`() {
+    val result = runNestedContainmentSignalHarness()
+
+    assertWithMessage("process output:\n%s", result.output).that(result.exitCode).isEqualTo(0)
+  }
+
+  @Test
+  fun `nested signal during finalization cannot reenter group containment`() {
+    val result = runFinalizerNestedContainmentSignalHarness()
+
+    assertWithMessage("process output:\n%s", result.output).that(result.exitCode).isEqualTo(129)
   }
 
   private fun createFixture(name: String): HandoffFixture {
@@ -639,8 +758,10 @@ class Cs2aSupervisorAtomicHandoffTest {
 
   private fun runPreReentryHarness(source: String, name: String): ProcessResult {
     val root = Files.createDirectories(temporaryDirectory.resolve("reentry-$name"))
-    val lock = Files.createFile(root.resolve("task13.lock"))
-    val childOutput = root.resolve("child-output.log")
+    val stateParent = Files.createDirectory(root.resolve("remote-state"))
+    val state = Files.createDirectory(stateParent.resolve("governor-state.Test1234"))
+    val lock = Files.createFile(stateParent.resolve("task13.lock"))
+    val childOutput = state.resolve("child-output.log")
     val poisonMarker = root.resolve("bash-env-executed")
     val boundaryMarker = root.resolve("runuser-boundary-observed")
     val runner = root.resolve("runner.sh")
@@ -667,7 +788,15 @@ class Cs2aSupervisorAtomicHandoffTest {
     val mockTimeout =
       writeExecutable(
         root.resolve("timeout"),
-        "shift 3\nexec \"${'$'}@\"\n",
+        """
+        test "${'$'}1" = --foreground
+        test "${'$'}2" = --signal=TERM
+        test "${'$'}3" = --kill-after=30
+        test "${'$'}4" = 43200
+        shift 4
+        exec "${'$'}@"
+        """
+          .trimIndent() + "\n",
       )
     val expectedUid = ProcessHandle.current().info().user().orElse("")
     assertThat(expectedUid).isNotEmpty()
@@ -706,9 +835,9 @@ class Cs2aSupervisorAtomicHandoffTest {
         root.resolve("stat"),
         """
         test "${'$'}1" = -Lc
-        test "${'$'}2" = %d:%i
-        case "${'$'}3" in
-          /dev/fd/9|${quote(lock)}) printf '1:424242\n' ;;
+        case "${'$'}2:${'$'}3" in
+          %d:%i:/dev/fd/9|%d:%i:${quote(lock)}) printf '1:424242\n' ;;
+          %u:%g:%a:${quote(state)}) printf '0:0:700\n' ;;
           *) exit 64 ;;
         esac
         """
@@ -719,6 +848,10 @@ class Cs2aSupervisorAtomicHandoffTest {
       runnable,
       source
         .replace("readonly LOCK_FILE=$PRODUCTION_LOCK_FILE", "readonly LOCK_FILE=$lock")
+        .replace(
+          "readonly STATE_PARENT=$PRODUCTION_STATE_PARENT",
+          "readonly STATE_PARENT=$stateParent",
+        )
         .replace(
           "readonly RUNNER_FILE=/opt/revoman-benchmark/cs2a-controlled-run.sh",
           "readonly RUNNER_FILE=$runner",
@@ -736,9 +869,22 @@ class Cs2aSupervisorAtomicHandoffTest {
       source "${'$'}1"
       exec 8<>"${'$'}2"
       exec 9<>"${'$'}2"
+      kill() {
+        if test "${'$'}#" -eq 3 && test "${'$'}2" = -- \
+          && test "${'$'}3" = "-${'$'}CHILD_PGID"; then
+          case "${'$'}1" in
+            -0) /bin/kill -0 "${'$'}CHILD_PID" ;;
+            -TERM) /bin/kill -TERM "${'$'}CHILD_PID" ;;
+            -KILL) /bin/kill -KILL "${'$'}CHILD_PID" ;;
+            *) return 64 ;;
+          esac
+        else
+          /bin/kill "${'$'}@"
+        fi
+      }
       launch_controlled_child "${'$'}(/usr/bin/id -u)" \
         $IMPLEMENTATION_SHA ${"a".repeat(64)} "${'$'}3"
-      wait "${'$'}CHILD_PID"
+      wait_for_controlled_child
       test -f "${'$'}4"
       test ! -e "${'$'}5"
       """
@@ -1055,8 +1201,23 @@ class Cs2aSupervisorAtomicHandoffTest {
       source "${'$'}1"
       SCENARIO=${'$'}2
       PROBES=0
+      jobs() {
+        test "${'$'}1" = -p
+        printf '4242\n'
+      }
+      ps() {
+        test "${'$'}1" = -o
+        test "${'$'}2" = stat=
+        test "${'$'}3" = -p
+        test "${'$'}4" = 4242
+        printf 'T\n'
+      }
+      wait() { test "${'$'}1" = 4242; }
       sleep() { :; }
       kill() {
+        if test "${'$'}#" -eq 2 && test "${'$'}1" = -STOP && test "${'$'}2" = 4242; then
+          return 0
+        fi
         case "${'$'}1" in
           -0)
             PROBES=${'$'}((PROBES + 1))
@@ -1070,7 +1231,7 @@ class Cs2aSupervisorAtomicHandoffTest {
           *) return 64 ;;
         esac
       }
-      terminate_child_group 4242
+      terminate_child_group 4242 4242
       """
         .trimIndent()
     return run(
@@ -1122,31 +1283,43 @@ class Cs2aSupervisorAtomicHandoffTest {
     )
   }
 
-  private fun runLaunchAssignmentRaceHarness(
-    progressMarker: Path,
-    terminationMarker: Path,
-  ): ProcessResult {
+  private fun runLaunchAssignmentRaceHarness(progressMarker: Path): ProcessResult {
     val mockSetsid =
       writeExecutable(
         temporaryDirectory.resolve("launch-race-setsid"),
-        "sleep 1\nprintf progressed >${quote(progressMarker)}\n",
+        "exec \"${'$'}@\"\n",
+      )
+    val mockTimeout =
+      writeExecutable(
+        temporaryDirectory.resolve("launch-race-timeout"),
+        "printf progressed >${quote(progressMarker)}\n",
       )
     val script = temporaryDirectory.resolve("launch-race-supervisor.sh")
     Files.writeString(
       script,
-      Files.readString(supervisor).replace("/usr/bin/setsid", mockSetsid.toString()),
+      Files.readString(supervisor)
+        .replace("/usr/bin/setsid", mockSetsid.toString())
+        .replace("/usr/bin/timeout", mockTimeout.toString()),
     )
+    val sourceAlias = temporaryDirectory.resolve("launch-race-supervisor-source.sh")
+    Files.createSymbolicLink(sourceAlias, script)
     val harness =
       """
       source "${'$'}1"
-      TERMINATION_MARKER=${'$'}2
-      terminate_child_group() {
-        test "${'$'}1" = "${'$'}CHILD_PID" || return 1
-        kill "${'$'}CHILD_PID" 2>/dev/null || return 1
-        wait "${'$'}CHILD_PID" 2>/dev/null || :
-        printf 'terminated\n' >"${'$'}TERMINATION_MARKER"
+      kill() {
+        if test "${'$'}#" -eq 3 && test "${'$'}2" = -- \
+          && test "${'$'}3" = "-${'$'}CHILD_PGID"; then
+          case "${'$'}1" in
+            -0) /bin/kill -0 "${'$'}CHILD_PID" ;;
+            -TERM) /bin/kill -TERM "${'$'}CHILD_PID" ;;
+            -KILL) /bin/kill -KILL "${'$'}CHILD_PID" ;;
+            *) return 64 ;;
+          esac
+        else
+          /bin/kill "${'$'}@"
+        fi
       }
-      trap 'handle_signal TERM 143' TERM
+      install_supervisor_signal_traps
       set -T
       trap '
         if [[ "${'$'}BASH_COMMAND" == CHILD_PID=* ]]; then
@@ -1155,14 +1328,14 @@ class Cs2aSupervisorAtomicHandoffTest {
         fi
       ' DEBUG
       if launch_controlled_child "${'$'}(/usr/bin/id -u)" \
-        $IMPLEMENTATION_SHA ${"a".repeat(64)} "${'$'}3"; then
+        $IMPLEMENTATION_SHA ${"a".repeat(64)} "${'$'}2"; then
         exit 98
       else
         test "${'$'}?" -eq 1
       fi
       test "${'$'}CONTAINMENT_FAILED" = false
-      test -f "${'$'}TERMINATION_MARKER"
-      sleep 2
+      test -z "${'$'}CHILD_PID"
+      test -z "${'$'}CHILD_PGID"
       """
         .trimIndent()
     return run(
@@ -1170,10 +1343,646 @@ class Cs2aSupervisorAtomicHandoffTest {
         "/bin/bash",
         "-c",
         harness,
-        "launch-assignment-race-harness",
         script.toString(),
-        terminationMarker.toString(),
+        sourceAlias.toString(),
         temporaryDirectory.resolve("launch-race-child.log").toString(),
+      )
+    )
+  }
+
+  private fun runReadyReleaseSignalRaceHarness(progressMarker: Path): ProcessResult {
+    val stateParent = Files.createDirectory(temporaryDirectory.resolve("ready-edge-state"))
+    val state = Files.createDirectory(stateParent.resolve("governor-state.Test1234"))
+    val lock = Files.createFile(stateParent.resolve("task13.lock"))
+    val childOutput = state.resolve("child-output.log")
+    val mockSetsid =
+      writeExecutable(temporaryDirectory.resolve("ready-edge-setsid"), "exec \"${'$'}@\"\n")
+    val mockTimeout =
+      writeExecutable(
+        temporaryDirectory.resolve("ready-edge-timeout"),
+        "printf progressed >${quote(progressMarker)}\n",
+      )
+    val testStat = temporaryDirectory.resolve("ready-edge-stat")
+    Files.writeString(
+      testStat,
+      """
+      #!/bin/sh
+      set -eu
+      case "${'$'}1:${'$'}2:${'$'}3" in
+        -Lc:%d:%i:/dev/fd/9|-Lc:%d:%i:${quote(lock)}) printf '1:424242\n' ;;
+        -Lc:%u:%g:%a:${quote(state)}) printf '0:0:700\n' ;;
+        *) exit 64 ;;
+      esac
+      """
+        .trimIndent() + "\n",
+    )
+    testStat.toFile().setExecutable(true, false)
+    val script = temporaryDirectory.resolve("ready-edge-supervisor.sh")
+    Files.writeString(
+      script,
+      Files.readString(supervisor)
+        .replace("readonly LOCK_FILE=$PRODUCTION_LOCK_FILE", "readonly LOCK_FILE=$lock")
+        .replace(
+          "readonly STATE_PARENT=$PRODUCTION_STATE_PARENT",
+          "readonly STATE_PARENT=$stateParent",
+        )
+        .replace("readonly PROC_FD_ROOT=/proc/self/fd", "readonly PROC_FD_ROOT=/dev/fd")
+        .replace("/usr/bin/setsid", mockSetsid.toString())
+        .replace("/usr/bin/timeout", mockTimeout.toString())
+        .replace("stat -Lc", "${quote(testStat)} -Lc"),
+    )
+    val sourceAlias = temporaryDirectory.resolve("ready-edge-supervisor-source.sh")
+    Files.createSymbolicLink(sourceAlias, script)
+    val harness =
+      """
+      source "${'$'}1"
+      exec 9<>"${'$'}2"
+      STOP_ATTEMPTED=false
+      kill() {
+        if test "${'$'}#" -eq 2 && test "${'$'}1" = -STOP; then
+          STOP_ATTEMPTED=true
+          return 65
+        fi
+        /bin/kill "${'$'}@"
+      }
+      install_supervisor_signal_traps
+      set -T
+      trap '
+        if [[ "${'$'}BASH_COMMAND" == '\''mv -f "${'$'}release_tmp" "${'$'}CHILD_RELEASE_FILE"'\'' ]]; then
+          trap - DEBUG
+          /bin/kill -TERM "${'$'}${'$'}"
+        fi
+      ' DEBUG
+      if launch_controlled_child "${'$'}(/usr/bin/id -u)" \
+        $IMPLEMENTATION_SHA ${"a".repeat(64)} "${'$'}3"; then
+        launch_status=0
+      else
+        launch_status=${'$'}?
+      fi
+      launcher=${'$'}CHILD_PID
+      sleep 2
+      if test -n "${'$'}launcher"; then
+        /bin/kill -KILL "${'$'}launcher" 2>/dev/null || :
+        wait "${'$'}launcher" 2>/dev/null || :
+      fi
+      printf 'observed launch_status=%s signal_status=%s release=%s workload=%s\\n' \
+        "${'$'}launch_status" "${'$'}SIGNAL_STATUS" \
+        "${'$'}(test -e "${'$'}CHILD_RELEASE_FILE" && printf yes || printf no)" \
+        "${'$'}(test -e "${'$'}4" && printf yes || printf no)"
+      test "${'$'}launch_status" -eq 1
+      test "${'$'}SIGNAL_STATUS" = 143
+      test "${'$'}CONTAINMENT_FAILED" = true
+      test "${'$'}STOP_ATTEMPTED" = true
+      test "${'$'}CHILD_LAUNCH_CRITICAL" = false
+      test "${'$'}CHILD_TERMINATION_ACTIVE" = false
+      test "${'$'}SIGNAL_HANDLER_ACTIVE" = false
+      test ! -e "${'$'}CHILD_RELEASE_FILE.tmp.${'$'}${'$'}"
+      test ! -e "${'$'}CHILD_RELEASE_FILE"
+      test ! -e "${'$'}4"
+      """
+        .trimIndent()
+    return run(
+      listOf(
+        "/bin/bash",
+        "-c",
+        harness,
+        script.toString(),
+        sourceAlias.toString(),
+        lock.toString(),
+        childOutput.toString(),
+        progressMarker.toString(),
+      )
+    )
+  }
+
+  private fun runNestedReleaseCancellationHarness(progressMarker: Path): ProcessResult {
+    val harness =
+      """
+      source "${'$'}1"
+      CHILD_PID=4242
+      CHILD_PGID=4242
+      CHILD_GROUP_READY=true
+      PROGRESS_MARKER=${'$'}2
+      NESTED_SIGNAL_DELIVERED=false
+      terminate_child_group() {
+        test "${'$'}CHILD_TERMINATION_ACTIVE" = true || return 66
+        NESTED_SIGNAL_DELIVERED=true
+        handle_signal HUP 129
+        return 65
+      }
+      chmod() {
+        /bin/kill -TERM "${'$'}${'$'}"
+        /bin/chmod "${'$'}@"
+      }
+      install_supervisor_signal_traps
+      CHILD_RELEASE_FILE=${'$'}PROGRESS_MARKER.release
+      if publish_controlled_child_release "${'$'}PROGRESS_MARKER"; then
+        probe_status=0
+      else
+        probe_status=${'$'}?
+      fi
+      printf 'observed probe_status=%s signal_status=%s containment=%s progressed=%s nested=%s\n' \
+        "${'$'}probe_status" "${'$'}SIGNAL_STATUS" "${'$'}CONTAINMENT_FAILED" \
+        "${'$'}(test -e "${'$'}PROGRESS_MARKER" && printf yes || printf no)" \
+        "${'$'}NESTED_SIGNAL_DELIVERED"
+      test "${'$'}probe_status" -eq 1
+      test "${'$'}SIGNAL_STATUS" = 129
+      test "${'$'}CONTAINMENT_FAILED" = true
+      test "${'$'}NESTED_SIGNAL_DELIVERED" = true
+      test "${'$'}CHILD_TERMINATION_ACTIVE" = false
+      test "${'$'}CHILD_LAUNCH_CRITICAL" = false
+      rm -f -- "${'$'}PROGRESS_MARKER"
+      test ! -e "${'$'}PROGRESS_MARKER"
+      test ! -e "${'$'}CHILD_RELEASE_FILE"
+      """
+        .trimIndent()
+    return run(
+      listOf(
+        "/bin/bash",
+        "-c",
+        harness,
+        "nested-release-cancellation-harness",
+        supervisor.toString(),
+        progressMarker.toString(),
+      )
+    )
+  }
+
+  private fun runNestedTerminationGuardHarness(): ProcessResult {
+    val harness =
+      """
+      source "${'$'}1"
+      CHILD_PID=4242
+      CHILD_PGID=4242
+      CHILD_GROUP_READY=true
+      CHILD_LAUNCH_CRITICAL=true
+      NESTED_SIGNAL_DELIVERED=false
+      terminate_child_group() {
+        test "${'$'}CHILD_TERMINATION_ACTIVE" = true || return 66
+        NESTED_SIGNAL_DELIVERED=true
+        handle_signal HUP 129
+        return 65
+      }
+      install_supervisor_signal_traps
+      termination_probe() {
+        /bin/kill -TERM "${'$'}${'$'}"
+      }
+      if termination_probe; then
+        probe_status=0
+      else
+        probe_status=${'$'}?
+      fi
+      CHILD_LAUNCH_CRITICAL=false
+      printf 'observed probe_status=%s signal_status=%s active=%s containment=%s nested=%s\n' \
+        "${'$'}probe_status" "${'$'}SIGNAL_STATUS" "${'$'}CHILD_TERMINATION_ACTIVE" \
+        "${'$'}CONTAINMENT_FAILED" "${'$'}NESTED_SIGNAL_DELIVERED"
+      test "${'$'}NESTED_SIGNAL_DELIVERED" = true
+      test "${'$'}probe_status" -eq 1
+      test "${'$'}SIGNAL_STATUS" = 129
+      test "${'$'}CHILD_TERMINATION_ACTIVE" = false
+      test "${'$'}CONTAINMENT_FAILED" = true
+      """
+        .trimIndent()
+    return run(
+      listOf(
+        "/bin/bash",
+        "-c",
+        harness,
+        "nested-termination-guard-harness",
+        supervisor.toString(),
+      )
+    )
+  }
+
+  private fun runReleasePublicationFailureHarness(
+    scenario: String,
+    candidate: Path,
+    canonical: Path,
+  ): ProcessResult {
+    val harness =
+      """
+      source "${'$'}1"
+      scenario=${'$'}2
+      candidate=${'$'}3
+      CHILD_RELEASE_FILE=${'$'}4
+      case "${'$'}scenario" in
+        write) candidate=${'$'}candidate/missing/candidate ;;
+        chmod) chmod() { return 67; } ;;
+        rename) mv() { return 68; } ;;
+        *) exit 64 ;;
+      esac
+      if publish_controlled_child_release "${'$'}candidate"; then
+        publish_status=0
+      else
+        publish_status=${'$'}?
+      fi
+      rm -f -- "${'$'}candidate" 2>/dev/null || :
+      printf 'observed scenario=%s status=%s critical=%s canonical=%s\n' \
+        "${'$'}scenario" "${'$'}publish_status" "${'$'}CHILD_LAUNCH_CRITICAL" \
+        "${'$'}(test -e "${'$'}CHILD_RELEASE_FILE" && printf yes || printf no)"
+      test "${'$'}publish_status" -ne 0
+      test "${'$'}CHILD_LAUNCH_CRITICAL" = false
+      test ! -e "${'$'}CHILD_RELEASE_FILE"
+      """
+        .trimIndent()
+    return run(
+      listOf(
+        "/bin/bash",
+        "-c",
+        harness,
+        "release-publication-failure-harness",
+        supervisor.toString(),
+        scenario,
+        candidate.toString(),
+        canonical.toString(),
+      )
+    )
+  }
+
+  private fun runPostReapSignalHarness(): ProcessResult {
+    val statusFile = temporaryDirectory.resolve("post-reap-child-status")
+    Files.writeString(statusFile, "0\n")
+    val harness =
+      """
+      source "${'$'}1"
+      CHILD_PID=4242
+      CHILD_PGID=4242
+      CHILD_GROUP_READY=true
+      CHILD_STATUS_FILE=${quote(statusFile)}
+      wait() { return 0; }
+      if ! declare -F wait_for_controlled_child >/dev/null; then
+        wait_for_controlled_child() { wait "${'$'}CHILD_PID"; }
+      fi
+      kill() {
+        case "${'$'}1" in
+          -0) return 1 ;;
+          *)
+            printf 'unexpected signal of recycled identity: %s\n' "${'$'}*" >&2
+            return 65
+            ;;
+        esac
+      }
+      wait_for_controlled_child
+      handle_signal TERM 143
+      test -z "${'$'}CHILD_PID"
+      test -z "${'$'}CHILD_PGID"
+      test "${'$'}CONTAINMENT_FAILED" = false
+      """
+        .trimIndent()
+    return run(
+      listOf(
+        "/bin/bash",
+        "-c",
+        harness,
+        "post-reap-signal-harness",
+        supervisor.toString(),
+      )
+    )
+  }
+
+  private fun runPostLeaderReapDescendantHarness(): ProcessResult {
+    val statusFile = temporaryDirectory.resolve("post-leader-reap-child-status")
+    Files.writeString(statusFile, "0\n")
+    val harness =
+      """
+      source "${'$'}1"
+      CHILD_PID=4242
+      CHILD_PGID=4242
+      CHILD_GROUP_READY=true
+      CHILD_STATUS_FILE=${quote(statusFile)}
+      GROUP_ALIVE=true
+      LEADER_REAPED=false
+      STOP_SENT=false
+      TERM_SENT=false
+      KILL_SENT=false
+      POST_REAP_PROBES=0
+      jobs() { printf '4242\n'; }
+      ps() {
+        test "${'$'}1" = -o
+        test "${'$'}2" = stat=
+        test "${'$'}3" = -p
+        test "${'$'}4" = 4242
+        test "${'$'}STOP_SENT" = true && printf 'T\n' || printf 'S\n'
+      }
+      wait() {
+        test "${'$'}1" = 4242
+        LEADER_REAPED=true
+      }
+      sleep() { :; }
+      kill() {
+        if test "${'$'}#" -eq 2 && test "${'$'}1" = -STOP && test "${'$'}2" = 4242; then
+          test "${'$'}LEADER_REAPED" = false || return 65
+          STOP_SENT=true
+          return 0
+        fi
+        test "${'$'}2" = --
+        test "${'$'}3" = -4242
+        case "${'$'}1" in
+          -0)
+            if test "${'$'}LEADER_REAPED" = true; then
+              POST_REAP_PROBES=${'$'}((POST_REAP_PROBES + 1))
+            fi
+            test "${'$'}GROUP_ALIVE" = true
+            ;;
+          -TERM)
+            test "${'$'}STOP_SENT" = true || return 65
+            test "${'$'}LEADER_REAPED" = false || return 65
+            TERM_SENT=true
+            ;;
+          -KILL)
+            test "${'$'}STOP_SENT" = true || return 65
+            test "${'$'}LEADER_REAPED" = false || return 65
+            KILL_SENT=true
+            GROUP_ALIVE=false
+            ;;
+          *) return 64 ;;
+        esac
+      }
+      wait_for_controlled_child
+      test "${'$'}STOP_SENT" = true
+      test "${'$'}TERM_SENT" = true
+      test "${'$'}KILL_SENT" = true
+      test "${'$'}GROUP_ALIVE" = false
+      test "${'$'}LEADER_REAPED" = true
+      test "${'$'}POST_REAP_PROBES" -gt 0
+      test -z "${'$'}CHILD_PID"
+      test -z "${'$'}CHILD_PGID"
+      test "${'$'}CONTAINMENT_FAILED" = false
+      """
+        .trimIndent()
+    return run(
+      listOf(
+        "/bin/bash",
+        "-c",
+        harness,
+        "post-leader-reap-descendant-harness",
+        supervisor.toString(),
+      )
+    )
+  }
+
+  private fun runReadyOwnershipLossHarness(progressMarker: Path): ProcessResult {
+    val mockSetsid =
+      writeExecutable(
+        temporaryDirectory.resolve("ready-owner-setsid"),
+        "printf '%s\\n' \"${'$'}${'$'}\" >\"${'$'}5\"\n",
+      )
+    val script = temporaryDirectory.resolve("ready-owner-supervisor.sh")
+    Files.writeString(
+      script,
+      Files.readString(supervisor).replace("/usr/bin/setsid", mockSetsid.toString()),
+    )
+    val childOutput = temporaryDirectory.resolve("ready-owner-child-output.log")
+    val harness =
+      """
+      source "${'$'}1"
+      terminate_unready_child() {
+        clear_child_pid_identity "${'$'}1"
+        clear_child_group_identity "${'$'}CHILD_PGID"
+      }
+      if launch_controlled_child "${'$'}(/usr/bin/id -u)" \
+        $IMPLEMENTATION_SHA ${"a".repeat(64)} "${'$'}2"; then
+        exit 98
+      fi
+      test "${'$'}CHILD_GROUP_READY" = false
+      test ! -e "${'$'}CHILD_RELEASE_FILE"
+      test ! -e "${'$'}3"
+      """
+        .trimIndent()
+    return run(
+      listOf(
+        "/bin/bash",
+        "-c",
+        harness,
+        "ready-owner-harness",
+        script.toString(),
+        childOutput.toString(),
+        progressMarker.toString(),
+      )
+    )
+  }
+
+  private fun runDanglingLauncherArtifactHarness(artifact: String): ProcessResult {
+    val stateParent = Files.createDirectory(temporaryDirectory.resolve("dangling-$artifact-state"))
+    val state = Files.createDirectory(stateParent.resolve("governor-state.Test1234"))
+    val lock = Files.createFile(stateParent.resolve("task13.lock"))
+    val ready = state.resolve("child-output.log.group-ready")
+    val release = state.resolve("child-output.log.group-release")
+    val status = state.resolve("child-output.log.child-status")
+    val artifactPath =
+      when (artifact) {
+        "ready" -> ready
+        "release" -> release
+        "status" -> status
+        else -> error("unknown launcher artifact: $artifact")
+      }
+    val missingTarget = state.resolve("missing-$artifact-target")
+    Files.createSymbolicLink(artifactPath, missingTarget)
+    val testStat = temporaryDirectory.resolve("dangling-$artifact-stat")
+    Files.writeString(
+      testStat,
+      """
+      #!/bin/sh
+      set -eu
+      case "${'$'}1:${'$'}2:${'$'}3" in
+        -Lc:%d:%i:/dev/fd/9|-Lc:%d:%i:${quote(lock)}) printf '1:424242\n' ;;
+        -Lc:%u:%g:%a:${quote(state)}) printf '0:0:700\n' ;;
+        *) exit 64 ;;
+      esac
+      """
+        .trimIndent() + "\n",
+    )
+    testStat.toFile().setExecutable(true, false)
+    val script = temporaryDirectory.resolve("dangling-$artifact-supervisor.sh")
+    Files.writeString(
+      script,
+      Files.readString(supervisor)
+        .replace("readonly LOCK_FILE=$PRODUCTION_LOCK_FILE", "readonly LOCK_FILE=$lock")
+        .replace(
+          "readonly STATE_PARENT=$PRODUCTION_STATE_PARENT",
+          "readonly STATE_PARENT=$stateParent",
+        )
+        .replace("readonly PROC_FD_ROOT=/proc/self/fd", "readonly PROC_FD_ROOT=/dev/fd")
+        .replace("stat -Lc", "${quote(testStat)} -Lc"),
+    )
+    val harness =
+      """
+      source "${'$'}2"
+      exec 9<>"${'$'}1"
+      if authenticate_controlled_launcher "${'$'}PPID" "${'$'}3" "${'$'}4" "${'$'}5"; then
+        exit 98
+      fi
+      test -L "${'$'}6"
+      test ! -e "${'$'}6"
+      """
+        .trimIndent()
+    return run(
+      listOf(
+        "/bin/bash",
+        "-c",
+        harness,
+        "dangling-launcher-artifact-harness",
+        lock.toString(),
+        script.toString(),
+        ready.toString(),
+        release.toString(),
+        status.toString(),
+        artifactPath.toString(),
+      )
+    )
+  }
+
+  private fun runNestedContainmentSignalHarness(): ProcessResult {
+    val harness =
+      """
+      source "${'$'}1"
+      CHILD_PID=4242
+      CHILD_PGID=4242
+      CHILD_GROUP_READY=true
+      GROUP_ALIVE=true
+      LEADER_REAPED=false
+      NESTED_SIGNAL_SENT=false
+      NESTED_SIGNAL_RETURNED=false
+      TERM_COUNT=0
+      KILL_COUNT=0
+      jobs() { printf '4242\n'; }
+      ps() { printf 'T\n'; }
+      wait() {
+        test "${'$'}1" = 4242
+        LEADER_REAPED=true
+      }
+      sleep() {
+        if test "${'$'}NESTED_SIGNAL_SENT" = false; then
+          NESTED_SIGNAL_SENT=true
+          handle_signal HUP 129
+          NESTED_SIGNAL_RETURNED=true
+        fi
+      }
+      kill() {
+        if test "${'$'}#" -eq 2; then
+          test "${'$'}1" = -STOP
+          test "${'$'}2" = 4242
+          test "${'$'}LEADER_REAPED" = false
+          return 0
+        fi
+        test "${'$'}2" = --
+        test "${'$'}3" = -4242
+        case "${'$'}1" in
+          -0)
+            if test "${'$'}LEADER_REAPED" = true; then
+              test "${'$'}TERM_COUNT" -gt 1 && test "${'$'}NESTED_SIGNAL_RETURNED" = true
+            else
+              test "${'$'}GROUP_ALIVE" = true
+            fi
+            ;;
+          -TERM)
+            if test "${'$'}LEADER_REAPED" = true; then
+              printf 'post-reap group TERM\n' >&2
+              return 65
+            fi
+            TERM_COUNT=${'$'}((TERM_COUNT + 1))
+            ;;
+          -KILL)
+            if test "${'$'}LEADER_REAPED" = true; then
+              printf 'post-reap group KILL\n' >&2
+              return 65
+            fi
+            KILL_COUNT=${'$'}((KILL_COUNT + 1))
+            GROUP_ALIVE=false
+            ;;
+          *) return 64 ;;
+        esac
+      }
+      handle_signal TERM 143
+      test "${'$'}SIGNAL_STATUS" = 129
+      test "${'$'}TERM_COUNT" -eq 1
+      test "${'$'}KILL_COUNT" -eq 1
+      test "${'$'}LEADER_REAPED" = true
+      test -z "${'$'}CHILD_PID"
+      test -z "${'$'}CHILD_PGID"
+      test "${'$'}CONTAINMENT_FAILED" = false
+      """
+        .trimIndent()
+    return run(
+      listOf(
+        "/bin/bash",
+        "-c",
+        harness,
+        "nested-containment-signal-harness",
+        supervisor.toString(),
+      )
+    )
+  }
+
+  private fun runFinalizerNestedContainmentSignalHarness(): ProcessResult {
+    val harness =
+      """
+      source "${'$'}1"
+      CHILD_PID=4242
+      CHILD_PGID=4242
+      CHILD_GROUP_READY=true
+      CHILD_STATUS=0
+      GROUP_ALIVE=true
+      LEADER_REAPED=false
+      NESTED_SIGNAL_SENT=false
+      NESTED_SIGNAL_RETURNED=false
+      TERM_COUNT=0
+      KILL_COUNT=0
+      jobs() { printf '4242\n'; }
+      ps() { printf 'T\n'; }
+      wait() {
+        test "${'$'}1" = 4242
+        LEADER_REAPED=true
+      }
+      sleep() {
+        if test "${'$'}NESTED_SIGNAL_SENT" = false; then
+          NESTED_SIGNAL_SENT=true
+          handle_signal HUP 129
+          NESTED_SIGNAL_RETURNED=true
+        fi
+      }
+      kill() {
+        if test "${'$'}#" -eq 2; then
+          test "${'$'}1" = -STOP
+          test "${'$'}2" = 4242
+          test "${'$'}LEADER_REAPED" = false
+          return 0
+        fi
+        test "${'$'}2" = --
+        test "${'$'}3" = -4242
+        case "${'$'}1" in
+          -0)
+            if test "${'$'}LEADER_REAPED" = true; then
+              test "${'$'}TERM_COUNT" -gt 1 && test "${'$'}NESTED_SIGNAL_RETURNED" = true
+            else
+              test "${'$'}GROUP_ALIVE" = true
+            fi
+            ;;
+          -TERM)
+            test "${'$'}LEADER_REAPED" = false || return 65
+            TERM_COUNT=${'$'}((TERM_COUNT + 1))
+            ;;
+          -KILL)
+            if test "${'$'}LEADER_REAPED" = true; then
+              printf 'post-reap group KILL\n' >&2
+              return 65
+            fi
+            KILL_COUNT=${'$'}((KILL_COUNT + 1))
+            GROUP_ALIVE=false
+            ;;
+          *) return 64 ;;
+        esac
+      }
+      finalize_supervisor
+      """
+        .trimIndent()
+    return run(
+      listOf(
+        "/bin/bash",
+        "-c",
+        harness,
+        "finalizer-nested-containment-signal-harness",
+        supervisor.toString(),
       )
     )
   }

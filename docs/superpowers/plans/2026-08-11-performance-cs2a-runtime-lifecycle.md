@@ -2210,8 +2210,11 @@ export, use a distinct `actions/checkout` path for clean detached
 wrapper, and run the complete driver integration suite plus `benchmarkHarnessSelfTest` with
 `baseline-83f3cd70`. Run only the new targeted lifecycle integration tests with the current manifest
 and `major-v1`. `BenchmarkWorkflowTest` must parse and prove the two manifest paths, target IDs,
-adapter assignments, fixed SHA, and absence of a current-manifest/baseline-adapter mismatch. Capture
-RED by applying the test to the old workflow, then GREEN after the workflow split.
+adapter assignments, fixed SHA, and absence of a current-manifest/baseline-adapter mismatch. It
+must parse each Gradle argv, require the reviewed executable and exactly one value for every
+manifest/target/adapter selector, and reject deletion, executable replacement, or a later duplicate
+`-P` override. Capture RED by applying the test to the old workflow, then GREEN after the workflow
+split.
 
 - [ ] **Step 3: Define the complete final-commit correctness and packaging gates**
 
@@ -2504,10 +2507,28 @@ proof that the lock was released.
 
 Process-group containment is fail-closed. A successful TERM/KILL call is not sufficient: the
 supervisor boundedly probes the exact negative PGID until it is absent and records
-`containment-failed=true` on a signal error or a surviving group. A signal observed before launch
-prevents launch; a signal racing the background spawn is rechecked immediately after publishing
-`CHILD_PID`/`CHILD_PGID`, synchronously terminates that group, proves absence, and returns through
-the finalizer. The finalizer retains its signal handlers through containment and governor
+`containment-failed=true` on a signal error or a surviving group. `setsid` starts an authenticated
+in-group launcher anchor before the controlled workload; GNU `timeout --foreground` keeps the
+workload in that anchored group. The launcher authenticates inherited FD 9 and confines all
+absent-before-use ready/release/status paths beneath the active root-owned state before any write.
+The parent accepts the ready marker only when it names the still-owned launcher PID. It retains
+that owned, stopped anchor through the final destructive group signal. Because Linux signal-zero
+existence checks still observe an unreaped zombie, the parent then reaps the anchor and performs
+only bounded signal-zero absence probes; it never sends TERM or KILL to the numeric PGID after
+reap. A surviving or recycled group therefore fails closed without being signaled, so neither a
+pre-`setsid` transition nor recycled PID/PGID can escape or redirect cleanup. An unauthenticated direct
+invocation of the internal launcher mode performs no write or workload execution. A signal
+observed before launch prevents launch; a signal racing the spawn is rechecked at the authenticated
+ready/release boundary, synchronously terminates the anchored group, proves absence, and returns
+through the finalizer. Release publication runs inside a monotonic launch-critical section: signal
+handlers may abort it but never clear its cancellation state, and only the owning launch frame
+clears that state after an aborted attempt or the atomic release. Deterministic single- and
+nested-signal mutations at the final pre-release edge must prove that containment failure cannot
+resume release or workload execution. Function-scoped dynamic guards must restore launch,
+termination, and nested-handler state on every Bash trap unwind; nested signals record the newest
+status without interrupting the outer cleanup owner. Release candidate write, mode change, and
+atomic rename failures are each explicit failures, never masked by `set +e` or conditional-command
+semantics. The finalizer retains its signal handlers through containment and governor
 restoration, then ignores further INT/TERM/HUP only for the short atomic evidence/handoff write and
 immediate exit so a second signal cannot interrupt authenticated cleanup.
 
@@ -2612,7 +2633,12 @@ launch gate.
 publications: interrupted copies expose no final directory, exact publication and identical retry
 succeed without replacing bytes, and stale, partial, symlinked, nonregular, wrong-owner, wrong-mode,
 or byte-different source or destination metadata fails closed. It also executes the read-only final
-validator's full mutation matrix and the pre/post-spawn signal races. Keep this test in the
+validator's full mutation matrix, authenticated launcher/FD/path rejection, GNU
+`timeout --foreground`, anchored surviving-descendant cleanup, and the pre/post-spawn signal races.
+It also delivers two nested signals through the production handler at the final pre-release edge
+and proves that launch cancellation remains monotonic until the owner reports the aborted release;
+separate mutations fail release write, chmod, and rename and prove each status propagates.
+Keep this test in the
 implementation commit and in the fixed-range Standards + Spec and security review; it is part of
 the security boundary, not optional fixture coverage.
 
@@ -2915,9 +2941,10 @@ against immutable commit `$CS2A_EVIDENCE_SHA`. Review never precedes persistence
 preserved in that attempt commit and is corrected only by a later implementation commit plus a
 never-reused remote root and new append-only attempt; never amend or rewrite evidence.
 
-If transfer/checksum infrastructure fails before the atomic rename, the operator prints only a
-safe staging path and deliberately does not populate `cs2a-local-evidence-dir.txt`; repair/retry the
-copy from the same immutable remote run root with the checked-in archive-only mode. Recover both
+If transfer/checksum infrastructure fails before the atomic rename, the operator prints only
+`LOCAL_EVIDENCE_STAGE=<validated-hidden-stage>` and deliberately does not populate
+`cs2a-local-evidence-dir.txt`; repair/retry the copy from the same immutable remote run root with
+the checked-in archive-only mode. Recover both
 authenticated markers from the original supervisor log, require exactly one of each, and invoke:
 
 ```bash

@@ -21,6 +21,13 @@ readonly CONTROLLED_UID_POLICY_SHA256=UNPROVISIONED_REVIEWED_CONTROLLED_UID_POLI
 STATE=
 CHILD_PID=
 CHILD_PGID=
+CHILD_GROUP_READY=false
+CHILD_READY_FILE=
+CHILD_RELEASE_FILE=
+CHILD_STATUS_FILE=
+CHILD_TERMINATION_ACTIVE=false
+CHILD_LAUNCH_CRITICAL=false
+SIGNAL_HANDLER_ACTIVE=false
 CHILD_STATUS=70
 RESTORATION_FAILED=false
 CONTAINMENT_FAILED=false
@@ -530,29 +537,163 @@ recover_stale_states() {
   done
 }
 
-terminate_child_group() {
-  local pgid=$1 remaining=30
-  [[ "$pgid" =~ ^[1-9][0-9]*$ ]] || return 1
-  kill -0 -- "-$pgid" 2>/dev/null || return 0
-  kill -TERM -- "-$pgid" 2>/dev/null || return 1
-  sleep 1
-  kill -0 -- "-$pgid" 2>/dev/null || return 0
-  kill -KILL -- "-$pgid" 2>/dev/null || return 1
+clear_child_pid_identity() {
+  local pid=$1
+  test "$CHILD_PID" = "$pid" || return 0
+  CHILD_PID=
+}
+
+clear_child_group_identity() {
+  local pgid=$1
+  test "$CHILD_PGID" = "$pgid" || return 0
+  CHILD_PGID=
+  CHILD_GROUP_READY=false
+}
+
+child_pid_is_owned() {
+  local pid=$1 job_pid
+  [[ "$pid" =~ ^[1-9][0-9]*$ ]] || return 1
+  while IFS= read -r job_pid; do
+    test "$job_pid" = "$pid" && return 0
+  done < <(jobs -p)
+  return 1
+}
+
+stop_owned_child_anchor() {
+  local pid=$1 state remaining=30
+  child_pid_is_owned "$pid" || return 1
+  kill -STOP "$pid" 2>/dev/null || return 1
   while test "$remaining" -gt 0; do
-    kill -0 -- "-$pgid" 2>/dev/null || return 0
+    child_pid_is_owned "$pid" || return 1
+    state=$(ps -o stat= -p "$pid" 2>/dev/null) || return 1
+    state=${state//[[:space:]]/}
+    case "$state" in
+      T* | t*) return 0 ;;
+    esac
+    sleep 0.1
+    remaining=$((remaining - 1))
+  done
+  return 1
+}
+
+wait_for_controlled_child() {
+  local pid=$CHILD_PID pgid=$CHILD_PGID status remaining
+  [[ "$pid" =~ ^[1-9][0-9]*$ ]] || return 1
+  [[ "$pgid" =~ ^[1-9][0-9]*$ ]] || return 1
+  test "$CHILD_GROUP_READY" = true || return 1
+  test -n "$CHILD_STATUS_FILE" || return 1
+  remaining=$((RUN_TIMEOUT_SECONDS + RUN_KILL_AFTER_SECONDS + 30))
+  while ! test -s "$CHILD_STATUS_FILE"; do
+    if ! child_pid_is_owned "$pid"; then
+      wait "$pid" 2>/dev/null || :
+      clear_child_pid_identity "$pid"
+      if kill -0 -- "-$pgid" 2>/dev/null; then
+        CONTAINMENT_FAILED=true
+      else
+        clear_child_group_identity "$pgid"
+      fi
+      return 1
+    fi
+    test "$remaining" -gt 0 || {
+      CONTAINMENT_FAILED=true
+      return 1
+    }
+    sleep 1
+    remaining=$((remaining - 1))
+  done
+  status=$(tr -d '\r\n' <"$CHILD_STATUS_FILE") || return 1
+  [[ "$status" =~ ^([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$ ]] || return 1
+  terminate_controlled_child_group || CONTAINMENT_FAILED=true
+  return "$status"
+}
+
+terminate_unready_child() {
+  local pid=$1
+  [[ "$pid" =~ ^[1-9][0-9]*$ ]] || return 1
+  if child_pid_is_owned "$pid"; then
+    kill -KILL "$pid" 2>/dev/null || return 1
+  fi
+  wait "$pid" 2>/dev/null || :
+  clear_child_pid_identity "$pid"
+  if test -n "$CHILD_PGID"; then clear_child_group_identity "$CHILD_PGID"; fi
+}
+
+terminate_child_group() {
+  local pgid=$1 anchor_pid=${2:-} remaining=30 termination_failed=false
+  [[ "$pgid" =~ ^[1-9][0-9]*$ ]] || return 1
+  [[ "$anchor_pid" =~ ^[1-9][0-9]*$ ]] || return 1
+  if ! child_pid_is_owned "$anchor_pid"; then
+    wait "$anchor_pid" 2>/dev/null || :
+    clear_child_pid_identity "$anchor_pid"
+    kill -0 -- "-$pgid" 2>/dev/null && return 1
+    clear_child_group_identity "$pgid"
+    return 0
+  fi
+  stop_owned_child_anchor "$anchor_pid" || return 1
+  if ! kill -0 -- "-$pgid" 2>/dev/null; then
+    kill -KILL "$anchor_pid" 2>/dev/null || return 1
+    wait "$anchor_pid" 2>/dev/null || :
+    clear_child_pid_identity "$anchor_pid"
+    kill -0 -- "-$pgid" 2>/dev/null && return 1
+    clear_child_group_identity "$pgid"
+    return 0
+  fi
+  kill -TERM -- "-$pgid" 2>/dev/null || termination_failed=true
+  sleep 1
+  if ! kill -0 -- "-$pgid" 2>/dev/null; then
+    wait "$anchor_pid" 2>/dev/null || :
+    clear_child_pid_identity "$anchor_pid"
+    clear_child_group_identity "$pgid"
+    test "$termination_failed" = false
+    return
+  fi
+  kill -KILL -- "-$pgid" 2>/dev/null || return 1
+  # Linux kill(2) still observes an unreaped zombie, so reap only after the final destructive
+  # group signal, then use signal-zero probes exclusively; never signal a numeric PGID after reap.
+  wait "$anchor_pid" 2>/dev/null || :
+  clear_child_pid_identity "$anchor_pid"
+  while test "$remaining" -gt 0; do
+    if ! kill -0 -- "-$pgid" 2>/dev/null; then
+      clear_child_group_identity "$pgid"
+      test "$termination_failed" = false
+      return
+    fi
     sleep 1
     remaining=$((remaining - 1))
   done
   return 1
 }
 
+terminate_controlled_child_group() {
+  local pgid pid status=0
+  test "$CHILD_TERMINATION_ACTIVE" != true || return 0
+  local CHILD_TERMINATION_ACTIVE=true
+  pgid=$CHILD_PGID
+  pid=$CHILD_PID
+  if test "$CHILD_GROUP_READY" = true && test -n "$pgid" && test -n "$pid"; then
+    terminate_child_group "$pgid" "$pid" || status=$?
+  fi
+  return "$status"
+}
+
 handle_signal() {
   local signal=$1 status=$2
   SIGNAL_STATUS=$status
-  if test -n "$CHILD_PGID"; then
-    terminate_child_group "$CHILD_PGID" || CONTAINMENT_FAILED=true
+  test "$SIGNAL_HANDLER_ACTIVE" != true || return 0
+  local SIGNAL_HANDLER_ACTIVE=true
+  if test "$CHILD_GROUP_READY" = true && test -n "$CHILD_PGID"; then
+    terminate_controlled_child_group || CONTAINMENT_FAILED=true
   fi
   printf 'cs2a-governor-supervisor: received %s\n' "$signal" >&2
+  if test "$CHILD_LAUNCH_CRITICAL" = true; then
+    return 1
+  fi
+}
+
+install_supervisor_signal_traps() {
+  trap 'handle_signal INT 130 || return $?' INT
+  trap 'handle_signal TERM 143 || return $?' TERM
+  trap 'handle_signal HUP 129 || return $?' HUP
 }
 
 write_state_file() {
@@ -614,11 +755,47 @@ controlled_child_exec() {
     "$RUNNER_FILE"
 }
 
-launch_controlled_child() {
-  local controlled_uid=$1 implementation=$2 runner_sha=$3 output=$4
-  test "$#" -eq 4 || fail "invalid controlled child launch arguments"
-  test -z "$SIGNAL_STATUS" || return 1
-  /usr/bin/setsid /usr/bin/timeout --signal=TERM --kill-after="$RUN_KILL_AFTER_SECONDS" \
+authenticate_controlled_launcher() {
+  local parent_pid=$1 ready_file=$2 release_file=$3 status_file=$4 state state_name
+  test "$PPID" = "$parent_pid" || return 1
+  verify_child_lock_descriptor || return 1
+  state=${ready_file%/child-output.log.group-ready}
+  test "$state" != "$ready_file" || return 1
+  test "$release_file" = "$state/child-output.log.group-release" || return 1
+  test "$status_file" = "$state/child-output.log.child-status" || return 1
+  test "${state%/*}" = "$STATE_PARENT" || return 1
+  state_name=${state##*/}
+  [[ "$state_name" =~ ^governor-state\.[A-Za-z0-9]{8}$ ]] || return 1
+  test -d "$state" && test ! -L "$state" || return 1
+  test "$(stat -Lc '%u:%g:%a' "$state")" = 0:0:700 || return 1
+  test ! -e "$ready_file" && test ! -L "$ready_file" \
+    && test ! -e "$release_file" && test ! -L "$release_file" \
+    && test ! -e "$status_file" && test ! -L "$status_file"
+}
+
+controlled_launcher_exec() {
+  local parent_pid=$1 ready_file=$2 release_file=$3 status_file=$4
+  local controlled_uid=$5 implementation=$6 runner_sha=$7 ready_tmp status_tmp child_status
+  test "$#" -eq 7 || fail "invalid controlled launcher arguments"
+  authenticate_controlled_launcher "$parent_pid" "$ready_file" "$release_file" "$status_file" \
+    || fail "unauthenticated controlled launcher"
+  [[ "$controlled_uid" =~ ^[1-9][0-9]*$ ]] || fail "invalid controlled launcher UID"
+  [[ "$implementation" =~ ^[0-9a-f]{40}$ ]] \
+    || fail "invalid controlled launcher implementation identity"
+  [[ "$runner_sha" =~ ^[0-9a-f]{64}$ ]] \
+    || fail "invalid controlled launcher runner identity"
+  trap ':' INT TERM HUP
+  ready_tmp=$ready_file.tmp.$$
+  printf '%s\n' "$$" >"$ready_tmp"
+  chmod 0400 "$ready_tmp"
+  mv -f "$ready_tmp" "$ready_file"
+  while ! test -s "$release_file"; do
+    sleep 1 &
+    wait "$!" 2>/dev/null || :
+  done
+  test "$(tr -d '\r\n' <"$release_file")" = go || fail "invalid launcher release"
+  set +e
+  /usr/bin/timeout --foreground --signal=TERM --kill-after="$RUN_KILL_AFTER_SECONDS" \
     "$RUN_TIMEOUT_SECONDS" /usr/sbin/runuser -u "$CONTROLLED_USER" -- \
     /usr/bin/env -i \
       PATH="$TRUSTED_CHILD_PATH" \
@@ -626,12 +803,77 @@ launch_controlled_child() {
       CS2A_AUTHENTICATED_UID="$controlled_uid" \
       CS2A_IMPLEMENTATION_SHA="$implementation" \
       CS2A_AUTHENTICATED_RUNNER_SHA="$runner_sha" \
-      /bin/bash "$0" --run-controlled-child "$controlled_uid" "$implementation" "$runner_sha" \
+      /bin/bash "$0" --run-controlled-child "$controlled_uid" "$implementation" "$runner_sha"
+  child_status=$?
+  set -e
+  status_tmp=$status_file.tmp.$$
+  printf '%s\n' "$child_status" >"$status_tmp"
+  chmod 0400 "$status_tmp"
+  mv -f "$status_tmp" "$status_file"
+  while :; do
+    sleep 3600 &
+    wait "$!" 2>/dev/null || :
+  done
+}
+
+publish_controlled_child_release() {
+  local release_tmp=$1
+  local CHILD_LAUNCH_CRITICAL=true
+  test -z "$SIGNAL_STATUS" || return 1
+  printf 'go\n' >"$release_tmp" || return 1
+  chmod 0400 "$release_tmp" || return 1
+  test -z "$SIGNAL_STATUS" || return 1
+  mv -f "$release_tmp" "$CHILD_RELEASE_FILE" || return 1
+  test -z "$SIGNAL_STATUS" || return 1
+}
+
+launch_controlled_child() {
+  local controlled_uid=$1 implementation=$2 runner_sha=$3 output=$4
+  local launcher_pid identity remaining=300 release_tmp release_status
+  test "$#" -eq 4 || fail "invalid controlled child launch arguments"
+  test -z "$SIGNAL_STATUS" || return 1
+  CHILD_READY_FILE=$output.group-ready
+  CHILD_RELEASE_FILE=$output.group-release
+  CHILD_STATUS_FILE=$output.child-status
+  test ! -e "$CHILD_READY_FILE" && test ! -e "$CHILD_RELEASE_FILE" \
+    && test ! -e "$CHILD_STATUS_FILE" || return 1
+  /usr/bin/setsid /bin/bash "$0" --run-controlled-launcher "$$" \
+    "$CHILD_READY_FILE" "$CHILD_RELEASE_FILE" "$CHILD_STATUS_FILE" \
+    "$controlled_uid" "$implementation" "$runner_sha" \
     >"$output" 2>&1 &
-  CHILD_PID=$!
-  CHILD_PGID=$CHILD_PID
-  if test -n "$SIGNAL_STATUS"; then
-    terminate_child_group "$CHILD_PGID" || CONTAINMENT_FAILED=true
+  launcher_pid=$!
+  CHILD_PID=$launcher_pid
+  CHILD_PGID=$launcher_pid
+  CHILD_GROUP_READY=false
+  while test "$remaining" -gt 0; do
+    if test -s "$CHILD_READY_FILE"; then
+      identity=$(tr -d '\r\n' <"$CHILD_READY_FILE") || break
+      if test "$identity" = "$launcher_pid" && child_pid_is_owned "$launcher_pid"; then
+        CHILD_GROUP_READY=true
+        break
+      fi
+      CONTAINMENT_FAILED=true
+      break
+    fi
+    child_pid_is_owned "$launcher_pid" || break
+    sleep 0.1
+    remaining=$((remaining - 1))
+  done
+  if test "$CHILD_GROUP_READY" != true; then
+    terminate_unready_child "$launcher_pid" || CONTAINMENT_FAILED=true
+    return 1
+  fi
+  release_tmp=$CHILD_RELEASE_FILE.tmp.$$
+  if publish_controlled_child_release "$release_tmp"; then
+    release_status=0
+  else
+    release_status=$?
+  fi
+  if test "$release_status" -ne 0; then
+    rm -f -- "$release_tmp" || CONTAINMENT_FAILED=true
+    if test -n "$CHILD_PGID"; then
+      terminate_controlled_child_group || CONTAINMENT_FAILED=true
+    fi
     return 1
   fi
 }
@@ -642,8 +884,10 @@ finalize_supervisor() {
   CLEANUP_COMPLETE=true
   trap - EXIT
   set +e
-  if test -n "$CHILD_PGID" && kill -0 -- "-$CHILD_PGID" 2>/dev/null; then
-    terminate_child_group "$CHILD_PGID" || CONTAINMENT_FAILED=true
+  if test "$CHILD_GROUP_READY" = true && test -n "$CHILD_PGID"; then
+    terminate_controlled_child_group || CONTAINMENT_FAILED=true
+  elif test -n "$CHILD_PID"; then
+    terminate_unready_child "$CHILD_PID" || CONTAINMENT_FAILED=true
   fi
   if test -n "$STATE" && test -f "$STATE/original-governors.tsv"; then
     restore_governors "$STATE/original-governors.tsv" || RESTORATION_FAILED=true
@@ -693,9 +937,7 @@ supervisor_main() {
   STATE=$(mktemp -d "$STATE_PARENT/governor-state.XXXXXXXX")
   chmod 0700 "$STATE"
   trap finalize_supervisor EXIT
-  trap 'handle_signal INT 130' INT
-  trap 'handle_signal TERM 143' TERM
-  trap 'handle_signal HUP 129' HUP
+  install_supervisor_signal_traps
 
   implementation=$(tr -d '\r\n' <"$IMPLEMENTATION_FILE")
   runner_sha=$(sha256sum "$RUNNER_FILE" | cut -d' ' -f1)
@@ -716,7 +958,7 @@ supervisor_main() {
   set +e
   if launch_controlled_child "$(tr -d '\r\n' <"$CONTROLLED_UID_FILE")" \
     "$implementation" "$runner_sha" "$STATE/child-output.log"; then
-    wait "$CHILD_PID"
+    wait_for_controlled_child
     CHILD_STATUS=$?
   else
     CHILD_STATUS=$?
@@ -737,6 +979,7 @@ supervisor_dispatch() {
     3:--publish-final-handoff) publish_final_handoff_main "$2" "$3" ;;
     3:--validate-final-handoff) validate_final_handoff_main "$2" "$3" ;;
     4:--run-controlled-child) controlled_child_exec "$2" "$3" "$4" ;;
+    8:--run-controlled-launcher) controlled_launcher_exec "$2" "$3" "$4" "$5" "$6" "$7" "$8" ;;
     *) fail 'usage: cs2a-governor-supervisor.sh [--publish-final-handoff RUN_ROOT GOVERNOR_STATE | --validate-final-handoff RUN_ROOT GOVERNOR_STATE]' ;;
   esac
 }

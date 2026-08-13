@@ -457,6 +457,35 @@ class BenchmarkWorkflowTest {
   }
 
   @Test
+  fun `ordinary CI benchmark argv rejects changed executables deleted selectors and later overrides`() {
+    val steps = ordinaryCiSteps()
+    assertOrdinaryCiBenchmarkArgv(steps)
+
+    val mutations = ORDINARY_CI_GRADLE_CONTRACTS.flatMap { contract ->
+      listOf(
+        mutateOrdinaryCiRunScript(steps, contract.stepName) { script ->
+          script.replace(contract.executable, "/bin/true")
+        }
+      ) +
+        contract.properties.flatMap { (selector, expectedValue) ->
+          val expectedArgument = "$selector=$expectedValue"
+          listOf(
+            mutateOrdinaryCiRunScript(steps, contract.stepName) { script ->
+              script.replace(expectedArgument, "")
+            },
+            mutateOrdinaryCiRunScript(steps, contract.stepName) { script ->
+              "$script $selector=unreviewed-override"
+            },
+          )
+        }
+    }
+
+    mutations.forEach { mutation ->
+      assertThrows<AssertionError> { assertOrdinaryCiBenchmarkArgv(mutation) }
+    }
+  }
+
+  @Test
   fun `Qodana prepares benchmark driver generated classes without running timing gates`() {
     val workflow = readWorkflow("qodana.yml").asMap()
     val steps = workflow.asMap("jobs").asMap("qodana").asList("steps").map { it.asMap() }
@@ -476,6 +505,41 @@ class BenchmarkWorkflowTest {
     assertThat(script).contains("TARGET_MANIFEST=\"${'$'}RUN_ROOT/manifests/$targetId.json\"")
     assertThat(script).contains("-Pbenchmark.targetId=\"${'$'}TARGET_ID\"")
     assertThat(script).contains("-Pbenchmark.targetManifest=\"${'$'}TARGET_MANIFEST\"")
+  }
+
+  private fun ordinaryCiSteps(): List<Map<String, Any?>> =
+    readWorkflow("build.yml").asMap().asMap("jobs").asMap("gradle").asList("steps").map {
+      it.asMap()
+    }
+
+  private fun assertOrdinaryCiBenchmarkArgv(steps: List<Map<String, Any?>>) {
+    val runByName = runScriptsByName(steps)
+    ORDINARY_CI_GRADLE_CONTRACTS.forEach { contract ->
+      val invocation = OrdinaryCiGradleInvocation.parse(runByName.getValue(contract.stepName))
+      assertWithMessage("Gradle executable for ${contract.stepName}")
+        .that(invocation.executable)
+        .isEqualTo(contract.executable)
+      contract.properties.forEach { (selector, expectedValue) ->
+        assertWithMessage("exact $selector assignment for ${contract.stepName}")
+          .that(invocation.properties[selector].orEmpty())
+          .containsExactly(expectedValue)
+      }
+    }
+  }
+
+  private fun mutateOrdinaryCiRunScript(
+    steps: List<Map<String, Any?>>,
+    stepName: String,
+    mutation: (String) -> String,
+  ): List<Map<String, Any?>> = steps.map { step ->
+    if (step["name"] == stepName) {
+      val script = requireNotNull(step["run"] as? String)
+      val mutated = mutation(script)
+      require(mutated != script) { "Mutation did not change $stepName" }
+      step + ("run" to mutated)
+    } else {
+      step
+    }
   }
 
   private fun assertSingleInvocation(
@@ -754,6 +818,87 @@ class BenchmarkWorkflowTest {
         "Compare cold and warm candidate results",
       )
     val INPUT_EXPRESSION: Regex = Regex("\\$\\{\\{\\s*inputs\\.([a-z_]+)\\s*}}")
+    val ORDINARY_CI_GRADLE_CONTRACTS: List<OrdinaryCiGradleContract> =
+      listOf(
+        OrdinaryCiGradleContract(
+          stepName = "Export current benchmark target",
+          executable = "./gradlew",
+          properties =
+            linkedMapOf(
+              "-Pbenchmark.targetManifest" to "build/benchmark-target-current.json",
+              "-Pbenchmark.targetId" to "current-cs2a",
+            ),
+        ),
+        OrdinaryCiGradleContract(
+          stepName = "Export fixed baseline benchmark target",
+          executable = "${'$'}GITHUB_WORKSPACE/baseline/gradlew",
+          properties =
+            linkedMapOf(
+              "-Pbenchmark.targetManifest" to
+                "${'$'}GITHUB_WORKSPACE/current/build/benchmark-target-baseline-selftest.json",
+              "-Pbenchmark.targetId" to "baseline-selftest-83f3cd70",
+            ),
+        ),
+        OrdinaryCiGradleContract(
+          stepName = "Benchmark baseline integration and harness self-test",
+          executable = "./gradlew",
+          properties =
+            linkedMapOf(
+              "-Pbenchmark.targetManifest" to "build/benchmark-target-baseline-selftest.json",
+              "-Pbenchmark.adapter" to "baseline-83f3cd70",
+            ),
+        ),
+        OrdinaryCiGradleContract(
+          stepName = "Benchmark current major lifecycle integration",
+          executable = "./gradlew",
+          properties =
+            linkedMapOf(
+              "-Pbenchmark.targetManifest" to "build/benchmark-target-current.json",
+              "-Pbenchmark.adapter" to "major-v1",
+            ),
+        ),
+      )
+  }
+}
+
+private data class OrdinaryCiGradleContract(
+  val stepName: String,
+  val executable: String,
+  val properties: Map<String, String>,
+)
+
+private data class OrdinaryCiGradleInvocation(
+  val executable: String,
+  val properties: Map<String, List<String>>,
+) {
+  companion object {
+    fun parse(script: String): OrdinaryCiGradleInvocation {
+      val tokenization = ShellTokenizer(script).tokenize()
+      require(!tokenization.commentSeen) { "Gradle invocation cannot contain comments: $script" }
+      val argv = tokenization.tokens
+      require(argv.isNotEmpty()) { "Gradle invocation is empty" }
+      require(argv.none { it in SHELL_CONTROL_OPERATORS }) {
+        "Gradle invocation cannot contain shell control operators: $argv"
+      }
+      val properties = linkedMapOf<String, MutableList<String>>()
+      argv
+        .drop(1)
+        .filter { it.startsWith("-P") }
+        .forEach { argument ->
+          val separator = argument.indexOf('=')
+          require(separator > 2 && separator < argument.lastIndex) {
+            "Gradle property needs a name and value: $argument"
+          }
+          properties.getOrPut(argument.substring(0, separator)) { mutableListOf() } +=
+            argument.substring(separator + 1)
+        }
+      return OrdinaryCiGradleInvocation(
+        executable = argv.first(),
+        properties = properties.mapValues { (_, values) -> values.toList() },
+      )
+    }
+
+    private val SHELL_CONTROL_OPERATORS: Set<String> = setOf(";", "&", "|")
   }
 }
 

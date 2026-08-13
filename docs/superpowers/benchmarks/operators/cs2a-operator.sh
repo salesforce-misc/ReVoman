@@ -1623,6 +1623,16 @@ validate_remote_final_handoff() {
     >/dev/null
 }
 
+report_archive_stage_failure() {
+  local stage=$1
+  case "$stage" in
+    "$EVIDENCE_ROOT/cs2a-$CS2A_IMPLEMENTATION_SHA"/.cs2a-archive-stage.*) ;;
+    *) return 1 ;;
+  esac
+  test -d "$stage" && test ! -L "$stage" || return 1
+  printf 'LOCAL_EVIDENCE_STAGE=%s\n' "$stage"
+}
+
 archive_remote_attempt() {
   local run_root=$1 governor_state=$2
   local run_real recorded_run implementation
@@ -1656,25 +1666,58 @@ archive_remote_attempt() {
     "$EVIDENCE_ROOT/cs2a-$CS2A_IMPLEMENTATION_SHA/.cs2a-archive-stage.XXXXXXXX") \
     || return 70
   case "$stage" in "$EVIDENCE_ROOT"/cs2a-*/.cs2a-archive-stage.*) ;; *) return 70 ;; esac
-  mkdir "$stage/manifests" "$stage/results" "$stage/logs" "$stage/meta" || return 70
+  mkdir "$stage/manifests" "$stage/results" "$stage/logs" "$stage/meta" \
+    >/dev/null 2>&1 || {
+      report_archive_stage_failure "$stage" || :
+      return 70
+    }
   for directory in manifests results logs meta; do
-    rsync -a "$REMOTE_HOST:$run_root/$directory/" "$stage/$directory/" || return 70
+    rsync -a "$REMOTE_HOST:$run_root/$directory/" "$stage/$directory/" \
+      >/dev/null 2>&1 || {
+        report_archive_stage_failure "$stage" || :
+        return 70
+      }
   done
-  validate_archive_safety "$stage" || return 70
+  validate_archive_safety "$stage" >/dev/null 2>&1 || {
+    report_archive_stage_failure "$stage" || :
+    return 70
+  }
   publish_local_authority_file "$PWD/build/cs2a-supervisor.log" \
-    "$stage/meta/operator-supervisor.log" || return 70
+    "$stage/meta/operator-supervisor.log" >/dev/null 2>&1 || {
+      report_archive_stage_failure "$stage" || :
+      return 70
+    }
   publish_local_authority_file "$PWD/build/cs2a-supervisor-exit.txt" \
-    "$stage/meta/operator-supervisor-exit.txt" || return 70
+    "$stage/meta/operator-supervisor-exit.txt" >/dev/null 2>&1 || {
+      report_archive_stage_failure "$stage" || :
+      return 70
+    }
   publish_local_authority_value "$stage/meta/operator-post-supervisor-exit.txt" \
-    "$post_status" || return 70
+    "$post_status" >/dev/null 2>&1 || {
+      report_archive_stage_failure "$stage" || :
+      return 70
+    }
   publish_local_authority_value "$stage/meta/operator-resume-validation-exit.txt" 0 \
-    || return 70
+    >/dev/null 2>&1 || {
+      report_archive_stage_failure "$stage" || :
+      return 70
+    }
   if test "$post_status" -eq 0; then final_status=0; fi
   publish_local_authority_value "$stage/meta/local-validation-passed.txt" false \
-    || return 70
+    >/dev/null 2>&1 || {
+      report_archive_stage_failure "$stage" || :
+      return 70
+    }
   publish_local_authority_value "$stage/meta/operator-final-exit.txt" "$final_status" \
-    || return 70
-  publish_archive "$stage" "$canonical" "$marker" "$CS2A_IMPLEMENTATION_SHA" || return 70
+    >/dev/null 2>&1 || {
+      report_archive_stage_failure "$stage" || :
+      return 70
+    }
+  publish_archive "$stage" "$canonical" "$marker" "$CS2A_IMPLEMENTATION_SHA" \
+    >/dev/null 2>&1 || {
+      report_archive_stage_failure "$stage" || :
+      return 70
+    }
   printf 'LOCAL_EVIDENCE_DIR=%s\n' "$canonical"
   return "$final_status"
 }

@@ -373,6 +373,165 @@ class Cs2aOperatorScriptTest {
   }
 
   @Test
+  fun `archive transfer failure prints only its safe retry stage`() {
+    val workspace =
+      Files.createDirectories(temporaryDirectory.resolve("archive-transfer-failure")).toRealPath()
+    val remote = Files.createDirectories(workspace.resolve("remote"))
+    listOf("manifests", "results", "logs", "meta").forEach { directory ->
+      Files.createDirectories(remote.resolve(directory))
+    }
+    write(workspace.resolve("build/cs2a-implementation-sha"), "$IMPLEMENTATION_SHA\n")
+    write(workspace.resolve("build/cs2a-supervisor.log"), "trusted supervisor log\n")
+    write(workspace.resolve("build/cs2a-supervisor-exit.txt"), "70\n")
+    val harness =
+      """
+      source "${'$'}1"
+      REMOTE_FIXTURE=${'$'}2
+      RUN_ROOT=/opt/revoman-benchmark/runs/cs2a.TransferFailure123
+      GOVERNOR_STATE=/run/revoman-cs2a/governor-state.TransferFailure123
+      prepare_operator_source() { LOCAL_DRIVER=/bin/false; }
+      verify_remote_bundle() { return 0; }
+      validate_remote_final_handoff() { return 0; }
+      ssh() {
+        case "${'$'}*" in
+          *readlink\ -f*) printf '%s\n' "${'$'}RUN_ROOT" ;;
+          *run-root.txt*) printf '%s\n' "${'$'}RUN_ROOT" ;;
+          *implementation-sha.txt*) printf '%s\n' "$IMPLEMENTATION_SHA" ;;
+          *executed-script-sha256sums.tsv*)
+            printf 'runner\t%s\nsupervisor\t%s\n' \
+              "${'$'}(sha256_of "${'$'}CONTROLLED_RUNNER")" \
+              "${'$'}(sha256_of "${'$'}SUPERVISOR")"
+            ;;
+          *operator-post-supervisor-exit.txt*) printf '%s\n' 70 ;;
+          *) return 97 ;;
+        esac
+      }
+      rsync() {
+        count=0
+        test ! -e "${'$'}PWD/build/rsync-count" || count=${'$'}(cat "${'$'}PWD/build/rsync-count")
+        count=${'$'}((count + 1))
+        printf '%s\n' "${'$'}count" >"${'$'}PWD/build/rsync-count"
+        test "${'$'}count" -ne 2 || return 37
+        local destination=${'$'}3 directory
+        directory=${'$'}{destination%/}
+        directory=${'$'}{directory##*/}
+        cp -a "${'$'}REMOTE_FIXTURE/${'$'}directory/." "${'$'}destination/"
+      }
+      if operator_main --archive-only "${'$'}RUN_ROOT" "${'$'}GOVERNOR_STATE"; then
+        exit 98
+      else
+        test "${'$'}?" -eq 70
+      fi
+      """
+        .trimIndent()
+    val result =
+      run(
+        listOf(
+          "/bin/bash",
+          "-c",
+          harness,
+          "archive-transfer-failure-harness",
+          operator.toString(),
+          remote.toString(),
+        ),
+        workspace,
+      )
+    val parent =
+      workspace.resolve("docs/superpowers/benchmarks/results/v1/cs2a-$IMPLEMENTATION_SHA")
+    val stages =
+      Files.list(parent).use { paths ->
+        paths.filter { it.fileName.toString().startsWith(".cs2a-archive-stage.") }.toList()
+      }
+
+    assertWithMessage(result.output).that(result.exitCode).isEqualTo(0)
+    assertThat(stages).hasSize(1)
+    assertThat(result.output).isEqualTo("LOCAL_EVIDENCE_STAGE=${stages.single()}\n")
+    assertThat(Files.exists(parent.resolve("cs2a.TransferFailure123"))).isFalse()
+    assertThat(Files.exists(workspace.resolve("build/cs2a-local-evidence-dir.txt"))).isFalse()
+  }
+
+  @Test
+  fun `archive ingress and checksum failures print only their safe retry stage`() {
+    linkedMapOf(
+        "ingress" to "validate_archive_safety() { return 37; }",
+        "checksum" to "write_root_checksum_inventory() { return 37; }",
+      )
+      .forEach { (failure, failureOverride) ->
+        val workspace =
+          Files.createDirectories(temporaryDirectory.resolve("archive-$failure-failure"))
+            .toRealPath()
+        val remote = Files.createDirectories(workspace.resolve("remote"))
+        listOf("manifests", "results", "logs", "meta").forEach { directory ->
+          Files.createDirectories(remote.resolve(directory))
+        }
+        write(workspace.resolve("build/cs2a-implementation-sha"), "$IMPLEMENTATION_SHA\n")
+        write(workspace.resolve("build/cs2a-supervisor.log"), "trusted supervisor log\n")
+        write(workspace.resolve("build/cs2a-supervisor-exit.txt"), "70\n")
+        val harness =
+          """
+          source "${'$'}1"
+          REMOTE_FIXTURE=${'$'}2
+          RUN_ROOT=/opt/revoman-benchmark/runs/cs2a.RecoveryFailure123
+          GOVERNOR_STATE=/run/revoman-cs2a/governor-state.RecoveryFailure123
+          prepare_operator_source() { LOCAL_DRIVER=/bin/false; }
+          verify_remote_bundle() { return 0; }
+          validate_remote_final_handoff() { return 0; }
+          ssh() {
+            case "${'$'}*" in
+              *readlink\ -f*) printf '%s\n' "${'$'}RUN_ROOT" ;;
+              *run-root.txt*) printf '%s\n' "${'$'}RUN_ROOT" ;;
+              *implementation-sha.txt*) printf '%s\n' "$IMPLEMENTATION_SHA" ;;
+              *executed-script-sha256sums.tsv*)
+                printf 'runner\t%s\nsupervisor\t%s\n' \
+                  "${'$'}(sha256_of "${'$'}CONTROLLED_RUNNER")" \
+                  "${'$'}(sha256_of "${'$'}SUPERVISOR")"
+                ;;
+              *operator-post-supervisor-exit.txt*) printf '%s\n' 70 ;;
+              *) return 97 ;;
+            esac
+          }
+          rsync() {
+            local destination=${'$'}3 directory
+            directory=${'$'}{destination%/}
+            directory=${'$'}{directory##*/}
+            cp -a "${'$'}REMOTE_FIXTURE/${'$'}directory/." "${'$'}destination/"
+          }
+          $failureOverride
+          if operator_main --archive-only "${'$'}RUN_ROOT" "${'$'}GOVERNOR_STATE"; then
+            exit 98
+          else
+            test "${'$'}?" -eq 70
+          fi
+          """
+            .trimIndent()
+        val result =
+          run(
+            listOf(
+              "/bin/bash",
+              "-c",
+              harness,
+              "archive-$failure-failure-harness",
+              operator.toString(),
+              remote.toString(),
+            ),
+            workspace,
+          )
+        val parent =
+          workspace.resolve("docs/superpowers/benchmarks/results/v1/cs2a-$IMPLEMENTATION_SHA")
+        val stages =
+          Files.list(parent).use { paths ->
+            paths.filter { it.fileName.toString().startsWith(".cs2a-archive-stage.") }.toList()
+          }
+
+        assertWithMessage("$failure\n${result.output}").that(result.exitCode).isEqualTo(0)
+        assertThat(stages).hasSize(1)
+        assertThat(result.output).isEqualTo("LOCAL_EVIDENCE_STAGE=${stages.single()}\n")
+        assertThat(Files.exists(parent.resolve("cs2a.RecoveryFailure123"))).isFalse()
+        assertThat(Files.exists(workspace.resolve("build/cs2a-local-evidence-dir.txt"))).isFalse()
+      }
+  }
+
+  @Test
   fun `archive only never overwrites remote supplied local authority destinations`() {
     val destinations =
       listOf(
@@ -464,17 +623,40 @@ class Cs2aOperatorScriptTest {
   }
 
   @Test
-  fun `archive publication never invokes semantic validation or the local driver`() {
+  fun `archive and persist public modes reject injected semantic validation calls`() {
     val source = Files.readString(operator)
-    val function =
-      source.substringAfter("archive_remote_attempt() {").substringBefore("\n}\n\noperator_main()")
-    assertThat(function).doesNotContain("validate_archive_semantics")
-    assertThat(function).doesNotContain("LOCAL_DRIVER")
-    assertThat(function).doesNotContain("operator-local-validation-driver.log")
-    assertThat(function)
-      .contains(
-        "publish_local_authority_value \"${'$'}stage/meta/local-validation-passed.txt\" false"
+    val archiveCall =
+      "publish_archive \"${'$'}stage\" \"${'$'}canonical\" \"${'$'}marker\" " +
+        "\"${'$'}CS2A_IMPLEMENTATION_SHA\" \\\n"
+    val archiveMutant =
+      source.replace(
+        archiveCall,
+        "validate_archive_semantics \"${'$'}stage\" \"${'$'}CS2A_IMPLEMENTATION_SHA\" " +
+          "/bin/false || return 70\n  $archiveCall",
       )
+    assertThat(archiveMutant).isNotEqualTo(source)
+    assertWithMessage("archive original")
+      .that(runArchiveSemanticSeparation(source, "original").exitCode)
+      .isEqualTo(0)
+    assertWithMessage("archive semantic mutant")
+      .that(runArchiveSemanticSeparation(archiveMutant, "semantic-mutant").exitCode)
+      .isNotEqualTo(0)
+
+    val persistCall = "validate_root_checksum_inventory \"${'$'}evidence_dir\" || return 70"
+    val persistMutant =
+      source.replace(
+        persistCall,
+        "$persistCall\n  " +
+          "validate_archive_semantics \"${'$'}evidence_dir\" " +
+          "\"${'$'}CS2A_IMPLEMENTATION_SHA\" /bin/false || return 70",
+      )
+    assertThat(persistMutant).isNotEqualTo(source)
+    assertWithMessage("persist original")
+      .that(runPersistSemanticSeparation(source, "original").exitCode)
+      .isEqualTo(0)
+    assertWithMessage("persist semantic mutant")
+      .that(runPersistSemanticSeparation(persistMutant, "semantic-mutant").exitCode)
+      .isNotEqualTo(0)
   }
 
   @Test
@@ -1870,6 +2052,58 @@ class Cs2aOperatorScriptTest {
   }
 
   @Test
+  fun `public selection requires immutable publication and semantic acceptance call sites`() {
+    val source = Files.readString(operator)
+    val publicationCall =
+      "validate_persisted_publication \"${'$'}attempt\" \"${'$'}implementation\" " +
+        "\"${'$'}evidence_sha\" || return 1"
+    val publicationMutant = source.replace(publicationCall, ":")
+    assertThat(publicationMutant).isNotEqualTo(source)
+    val publicationFixture = createCompleteArchiveFixture("selection-publication-callsite")
+    val mutateCommittedAttempt: (Path) -> Unit = { attempt ->
+      write(attempt.resolve("meta/local-validation-passed.txt"), "true\n")
+    }
+    val rejectedPublication =
+      runPublicSelection(publicationFixture, committedAttemptMutation = mutateCommittedAttempt)
+    assertWithMessage(rejectedPublication.output).that(rejectedPublication.exitCode).isNotEqualTo(0)
+    val bypassedPublication =
+      runPublicSelection(
+        publicationFixture,
+        operatorTransform = { it.replace(publicationCall, ":") },
+        committedAttemptMutation = mutateCommittedAttempt,
+      )
+    assertWithMessage(bypassedPublication.output).that(bypassedPublication.exitCode).isEqualTo(0)
+
+    val semanticCall =
+      "validate_archive \"${'$'}attempt\" \"${'$'}implementation\" \"${'$'}driver\""
+    val semanticMutant = source.replace(semanticCall, ":")
+    assertThat(semanticMutant).isNotEqualTo(source)
+    val semanticFixture = createCompleteArchiveFixture("selection-semantic-callsite")
+    val semanticDriver = semanticFixture.driver
+    write(
+      semanticDriver,
+      """
+      #!/usr/bin/env bash
+      case "${'$'}1" in
+        verify) exit 0 ;;
+        compare) exit 37 ;;
+        *) exit 2 ;;
+      esac
+      """
+        .trimIndent() + "\n",
+    )
+    semanticDriver.toFile().setExecutable(true, false)
+    val rejectedSemantics = runPublicSelection(semanticFixture)
+    assertWithMessage(rejectedSemantics.output).that(rejectedSemantics.exitCode).isNotEqualTo(0)
+    val bypassedSemantics =
+      runPublicSelection(
+        semanticFixture,
+        operatorTransform = { it.replace(semanticCall, ":") },
+      )
+    assertWithMessage(bypassedSemantics.output).that(bypassedSemantics.exitCode).isEqualTo(0)
+  }
+
+  @Test
   fun `campaign protocol rejects a changed deterministic seed`() {
     val fixture = createCompleteArchiveFixture("campaign-seed-red")
     mutateJson(
@@ -2621,25 +2855,54 @@ class Cs2aOperatorScriptTest {
     )
   }
 
-  private fun runPublicSelection(fixture: ArchiveFixture): ProcessResult {
+  private fun runPublicSelection(
+    fixture: ArchiveFixture,
+    operatorTransform: (String) -> String = { it },
+    committedAttemptMutation: ((Path) -> Unit)? = null,
+    driverOverride: Path = fixture.driver,
+  ): ProcessResult {
     val workspace =
-      Files.createDirectories(temporaryDirectory.resolve("public-selection-workspace"))
-    if (Files.notExists(workspace.resolve(".git"))) {
-      assertProcessSucceeds(listOf("git", "init", "-q"), workspace)
-      assertProcessSucceeds(
-        listOf(
-          "git",
-          "fetch",
-          "-q",
-          "--depth=1",
-          Path.of("").toAbsolutePath().toString(),
-          IMPLEMENTATION_SHA,
-        ),
-        workspace,
+      Files.createTempDirectory(temporaryDirectory, "public-selection-workspace-").toRealPath()
+    assertProcessSucceeds(
+      listOf(
+        "/bin/bash",
+        "-c",
+        "source ${quote(operator)}; write_root_checksum_inventory ${quote(fixture.archive)}",
       )
-      assertProcessSucceeds(listOf("git", "checkout", "-q", "--detach", "FETCH_HEAD"), workspace)
-    }
+    )
+    assertProcessSucceeds(listOf("git", "init", "-q"), workspace)
+    assertProcessSucceeds(
+      listOf(
+        "git",
+        "fetch",
+        "-q",
+        "--depth=1",
+        Path.of("").toAbsolutePath().toString(),
+        IMPLEMENTATION_SHA,
+      ),
+      workspace,
+    )
+    assertProcessSucceeds(listOf("git", "checkout", "-q", "--detach", "FETCH_HEAD"), workspace)
+    assertProcessSucceeds(listOf("git", "config", "user.name", "CS2a Test"), workspace)
+    assertProcessSucceeds(
+      listOf("git", "config", "user.email", "cs2a-test@example.invalid"),
+      workspace,
+    )
     write(workspace.resolve("build/cs2a-implementation-sha"), "$IMPLEMENTATION_SHA\n")
+    val attempt =
+      workspace.resolve(
+        "docs/superpowers/benchmarks/results/v1/" + "cs2a-$IMPLEMENTATION_SHA/cs2a.SelectionFixture"
+      )
+    Files.createDirectories(attempt)
+    assertProcessSucceeds(
+      listOf("/bin/cp", "-a", "${fixture.archive}/.", attempt.toString()),
+      workspace,
+    )
+    val relativeAttempt = workspace.relativize(attempt).toString()
+    assertProcessSucceeds(listOf("git", "add", "-f", "--", relativeAttempt), workspace)
+    assertProcessSucceeds(listOf("git", "commit", "-qm", "archive selection fixture"), workspace)
+    val evidenceSha = run(listOf("git", "rev-parse", "HEAD"), workspace).output.trim()
+    committedAttemptMutation?.invoke(attempt)
     val operatorBundle = Files.createDirectories(workspace.resolve("operator-bundle"))
     listOf(controlledRunner, supervisor, manifestValidator).forEach { source ->
       Files.copy(
@@ -2656,21 +2919,102 @@ class Cs2aOperatorScriptTest {
     val testOperator = operatorBundle.resolve(operator.fileName)
     write(
       testOperator,
-      productionOperator.replace(
-        productionPolicyPin.single().value,
-        "readonly EXPECTED_POLICY_SHA256=${fixture.policySha256}",
+      operatorTransform(
+        productionOperator.replace(
+          productionPolicyPin.single().value,
+          "readonly EXPECTED_POLICY_SHA256=${fixture.policySha256}",
+        )
       ),
     )
     val harness =
       """
       source ${quote(testOperator)}
       prepare_operator_source() { AUTHENTICATED_SOURCE_ROOT=/tmp; }
-      prepare_local_driver() { LOCAL_DRIVER=${quote(fixture.driver)}; }
-      validate_persisted_publication() { return 0; }
-      operator_main --validate-attempt ${quote(fixture.archive)} $IMPLEMENTATION_SHA ${"d".repeat(40)}
+      prepare_local_driver() { LOCAL_DRIVER=${quote(driverOverride)}; }
+      operator_main --validate-attempt ${quote(attempt)} $IMPLEMENTATION_SHA $evidenceSha
       """
         .trimIndent()
     return run(listOf("/bin/bash", "-c", harness), workspace)
+  }
+
+  private fun runArchiveSemanticSeparation(script: String, name: String): ProcessResult {
+    val workspace =
+      Files.createDirectories(temporaryDirectory.resolve("archive-semantic-$name")).toRealPath()
+    val bundle = Files.createDirectories(workspace.resolve("operator-bundle"))
+    listOf(controlledRunner, supervisor, manifestValidator).forEach { source ->
+      Files.copy(source, bundle.resolve(source.fileName), StandardCopyOption.REPLACE_EXISTING)
+    }
+    val testOperator = bundle.resolve(operator.fileName)
+    write(testOperator, script)
+    val remote = Files.createDirectories(workspace.resolve("remote"))
+    listOf("manifests", "results", "logs", "meta").forEach { directory ->
+      Files.createDirectories(remote.resolve(directory))
+    }
+    write(workspace.resolve("build/cs2a-implementation-sha"), "$IMPLEMENTATION_SHA\n")
+    write(workspace.resolve("build/cs2a-supervisor.log"), "trusted supervisor log\n")
+    write(workspace.resolve("build/cs2a-supervisor-exit.txt"), "70\n")
+    val harness =
+      """
+      source "${'$'}1"
+      REMOTE_FIXTURE=${'$'}2
+      RUN_ROOT=/opt/revoman-benchmark/runs/cs2a.SemanticSeparation123
+      GOVERNOR_STATE=/run/revoman-cs2a/governor-state.SemanticSeparation123
+      prepare_operator_source() { AUTHENTICATED_SOURCE_ROOT=/tmp; }
+      verify_remote_bundle() { return 0; }
+      validate_remote_final_handoff() { return 0; }
+      ssh() {
+        case "${'$'}*" in
+          *readlink\ -f*) printf '%s\n' "${'$'}RUN_ROOT" ;;
+          *run-root.txt*) printf '%s\n' "${'$'}RUN_ROOT" ;;
+          *implementation-sha.txt*) printf '%s\n' "$IMPLEMENTATION_SHA" ;;
+          *executed-script-sha256sums.tsv*)
+            printf 'runner\t%s\nsupervisor\t%s\n' \
+              "${'$'}(sha256_of "${'$'}CONTROLLED_RUNNER")" \
+              "${'$'}(sha256_of "${'$'}SUPERVISOR")"
+            ;;
+          *operator-post-supervisor-exit.txt*) printf '%s\n' 70 ;;
+          *) return 97 ;;
+        esac
+      }
+      rsync() {
+        local destination=${'$'}3 directory
+        directory=${'$'}{destination%/}
+        directory=${'$'}{directory##*/}
+        cp -a "${'$'}REMOTE_FIXTURE/${'$'}directory/." "${'$'}destination/"
+      }
+      if operator_main --archive-only "${'$'}RUN_ROOT" "${'$'}GOVERNOR_STATE"; then
+        exit 98
+      else
+        test "${'$'}?" -eq 70
+      fi
+      test -d "${'$'}EVIDENCE_ROOT/cs2a-${'$'}CS2A_IMPLEMENTATION_SHA/cs2a.SemanticSeparation123"
+      """
+        .trimIndent()
+    return run(
+      listOf(
+        "/bin/bash",
+        "-c",
+        harness,
+        "archive-semantic-harness",
+        testOperator.toString(),
+        remote.toString(),
+      ),
+      workspace,
+    )
+  }
+
+  private fun runPersistSemanticSeparation(script: String, name: String): ProcessResult {
+    val workspace = createPersistenceWorkspace("persist-semantic-$name")
+    val implementation = run(listOf("git", "rev-parse", "HEAD"), workspace).output.trim()
+    val attempt =
+      workspace.resolve(
+        "docs/superpowers/benchmarks/results/v1/" + "cs2a-$implementation/operator-failure.semantic"
+      )
+    write(attempt.resolve("meta/operator-final-exit.txt"), "70\n")
+    preparePersistOnly(workspace, attempt, implementation)
+    val testOperator = workspace.resolve("build/operator-$name.sh")
+    write(testOperator, script)
+    return run(listOf("/bin/bash", testOperator.toString(), "--persist-only", "70"), workspace)
   }
 
   private fun runOperatorModeHarness(script: Path, mode: String): ProcessResult {
