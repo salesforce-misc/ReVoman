@@ -8,8 +8,6 @@
     <ID>TooManyFunctions:JsonWriterUtils.kt$com.salesforce.revoman.input.json.JsonWriterUtils.kt</ID>
     <ID>TooManyFunctions:JsonReaderUtils.kt$com.salesforce.revoman.input.json.JsonReaderUtils.kt</ID>
     <ID>TooManyFunctions:KickDef.kt$KickDef</ID>
-    <ID>MagicNumber:Constants.kt$400</ID>
-    <ID>MagicNumber:Constants.kt$499</ID>
     <ID>MagicNumber:Constants.kt$200</ID>
     <ID>MagicNumber:Constants.kt$299</ID>
     <ID>FunctionNaming:RestfulAPIDevKtTest.kt$RestfulAPIDevKtTest$@Test fun `execute restful-api dev pm collection`()</ID>
