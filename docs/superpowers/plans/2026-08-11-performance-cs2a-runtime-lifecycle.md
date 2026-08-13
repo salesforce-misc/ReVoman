@@ -2136,6 +2136,7 @@ must leave no unstaged or uncommitted changes.
 - Modify: `DEVELOPMENT.md`
 - Modify: `.github/workflows/build.yml`
 - Modify: `detekt/baseline.xml`
+- Add: `detekt/baseline-source-sha256sums.txt`
 - Modify: `src/test/kotlin/com/salesforce/revoman/benchmark/BenchmarkWorkflowTest.kt`
 - Modify: `docs/superpowers/plans/2026-08-11-performance-cs2a-runtime-lifecycle.md`
 - Modify: `docs/superpowers/specs/2026-08-09-performance-redesign-design.md`
@@ -2147,6 +2148,7 @@ must leave no unstaged or uncommitted changes.
 - Add: `src/test/kotlin/com/salesforce/revoman/benchmark/Cs2aManifestValidatorTest.kt`
 - Add: `src/test/kotlin/com/salesforce/revoman/benchmark/Cs2aSupervisorAtomicHandoffTest.kt`
 - Add: `src/test/kotlin/com/salesforce/revoman/compat/Cs2aStructuralInvariantTest.kt`
+- Add: `src/test/kotlin/com/salesforce/revoman/compat/DetektBaselineIntegrityTest.kt`
 - Add: `docs/superpowers/reports/2026-08-11-performance-cs2a-runtime-lifecycle.md`
 - Add after capture: `docs/superpowers/benchmarks/results/v1/cs2a-<implementation-sha>/`
 
@@ -2230,14 +2232,19 @@ gate. The self-test intentionally uses
 manifest.
 
 Before committing the final implementation, reconcile `detekt/baseline.xml` against the complete
-Task 1-8 tree. Preserve Detekt's rules and exact-ID fail-closed behavior: remove stale IDs, migrate
+Task 1-8 tree. Preserve Detekt's rules and exact declaration-ID ledger: remove stale IDs, migrate
 only IDs whose accepted implementation moved, and record each intentional lifecycle-cleanup or
-ABI/security mutation-harness finding by its generated exact ID. Broad `Throwable` cleanup is
-intentional here: it preserves primary/suppressed failure ordering even for non-`Exception`
-failures, while the exact mutation matrices remain deliberately readable as one audited protocol.
-Remove trivial findings rather than baseline them. Do not disable a rule, exclude the test source
-set, or skip Detekt. The baseline reconciliation is part of the reviewed implementation because
-the pre-Task8 checkpoint's stale ledger does not pass the required `build` gate.
+ABI/security mutation-harness finding by its generated exact ID. Because a Detekt baseline ID does
+not hash a declaration body, pair the ledger with `detekt/baseline-source-sha256sums.txt` and
+`DetektBaselineIntegrityTest`: the inventory must cover the baseline bytes and every repository
+source file named by any baseline ID, so either a baseline change or any edit within a suppressed
+declaration's file fails until its exact bytes receive an explicit reviewed inventory update.
+Broad `Throwable` cleanup is intentional here: it preserves primary/suppressed failure ordering
+even for non-`Exception` failures, while the exact mutation matrices remain deliberately readable
+as one audited protocol. Remove trivial findings rather than baseline them. Do not disable a rule,
+exclude the test source set, or skip Detekt. The baseline reconciliation and fingerprint inventory
+are part of the reviewed implementation because the pre-Task8 checkpoint's stale ledger does not
+pass the required `build` gate.
 
 ```bash
 #!/usr/bin/env bash
@@ -2680,7 +2687,8 @@ exact path is staged before committing:
 set -Eeuo pipefail
 
 git add api src benchmark-driver .github/workflows/build.yml \
-  build.gradle.kts gradle/libs.versions.toml detekt/baseline.xml \
+  build.gradle.kts gradle/libs.versions.toml \
+  detekt/baseline.xml detekt/baseline-source-sha256sums.txt \
   README.adoc DEVELOPMENT.md docs/modules/ROOT \
   docs/superpowers/plans/2026-08-11-performance-cs2a-runtime-lifecycle.md \
   docs/superpowers/specs/2026-08-09-performance-redesign-design.md \
@@ -2696,6 +2704,7 @@ test -z "$(git status --porcelain)"
 Run independent fixed-range Standards + Spec and security reviews over the Task 1 compatibility
 commit through this exact committed `HEAD`, explicitly reviewing this plan, all four operator
 files, the exact Detekt baseline reconciliation, and
+its source fingerprint inventory and integrity test, plus
 `src/test/kotlin/com/salesforce/revoman/benchmark/Cs2aSupervisorAtomicHandoffTest.kt`. The reviewed
 range, staged implementation scope, and resulting commit must all contain this exact plan revision
 and the atomic-handoff test; a plan-only or handoff-test correction is an implementation correction,
@@ -2726,6 +2735,7 @@ test -x docs/superpowers/benchmarks/operators/cs2a-validate-manifest.jq
   --tests '*Cs2aManifestValidatorTest*' \
   --tests '*Cs2aOperatorScriptTest*' \
   --tests '*Cs2aSupervisorAtomicHandoffTest*' \
+  --tests '*DetektBaselineIntegrityTest*' \
   --rerun-tasks --no-build-cache --no-configuration-cache --console=plain
 
 test "$(git rev-parse HEAD)" = "$GATED_IMPLEMENTATION_SHA"
