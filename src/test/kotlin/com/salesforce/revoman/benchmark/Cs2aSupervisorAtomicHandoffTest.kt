@@ -14,6 +14,7 @@ import java.nio.file.LinkOption
 import java.nio.file.Path
 import java.nio.file.attribute.FileTime
 import java.nio.file.attribute.PosixFilePermission
+import java.security.MessageDigest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 
@@ -231,6 +232,211 @@ class Cs2aSupervisorAtomicHandoffTest {
   }
 
   @Test
+  fun `validate final handoff authenticates exact immutable evidence without writing or locking`() {
+    val fixture = createFixture("validate-final")
+    completeFinalHandoff(fixture)
+    val before = treeSnapshot(fixture.runRoot.parent.parent)
+
+    val result = runValidateFinal(fixture)
+
+    assertProcessSucceeds(result)
+    assertThat(treeSnapshot(fixture.runRoot.parent.parent)).isEqualTo(before)
+  }
+
+  @Test
+  fun `validate final handoff rejects every evidence and crosslink mutation`() {
+    val mutations =
+      linkedMapOf<String, (HandoffFixture) -> Unit>(
+        "extra final file" to
+          { fixture ->
+            writeRootStateFile(fixture.finalDestination.resolve("extra.txt"), "x\n")
+          },
+        "final file bytes" to
+          { fixture ->
+            writeRootStateFile(fixture.finalDestination.resolve("finished-at.txt"), "changed\n")
+          },
+        "run-root crosslink" to
+          { fixture ->
+            mutateFinalEvidence(
+              fixture,
+              "run-root.txt",
+              "/opt/revoman-benchmark/runs/cs2a.Other123\n",
+            )
+          },
+        "implementation crosslink" to
+          { fixture ->
+            mutateFinalEvidence(
+              fixture,
+              "implementation-sha.txt",
+              "${"d".repeat(40)}\n",
+            )
+          },
+        "executed supervisor crosslink" to
+          { fixture ->
+            val runnerSha = sha256(fixture.runnerFile)
+            mutateFinalEvidence(
+              fixture,
+              "executed-script-sha256sums.tsv",
+              "runner\t$runnerSha\nsupervisor\t${"0".repeat(64)}\n",
+            )
+          },
+        "authenticated handoff crosslink" to
+          { fixture ->
+            val supervisorSha = sha256(fixture.runnableSupervisor)
+            mutateFinalEvidence(
+              fixture,
+              "authenticated-handoff.tsv",
+              "implementation\t$IMPLEMENTATION_SHA\nuid\t999999\n" +
+                "runner\t${sha256(fixture.runnerFile)}\nsupervisor\t$supervisorSha\n",
+            )
+          },
+        "lock release" to
+          { fixture ->
+            mutateFinalEvidence(fixture, "lock-released.txt", "false\n")
+          },
+        "lock provenance" to
+          { fixture ->
+            mutateFinalEvidence(
+              fixture,
+              "lock-provenance.txt",
+              "0:0:600:16777232:999999\n",
+            )
+          },
+        "restoration flag" to
+          { fixture ->
+            mutateFinalEvidence(fixture, "restoration-failed.txt", "true\n")
+          },
+        "containment flag" to
+          { fixture ->
+            mutateFinalEvidence(fixture, "containment-failed.txt", "true\n")
+          },
+        "governor equality" to
+          { fixture ->
+            mutateFinalEvidence(
+              fixture,
+              "restored-governors.tsv",
+              "/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor\tperformance\n",
+            )
+          },
+        "final status equality" to
+          { fixture ->
+            mutateFinalEvidence(
+              fixture,
+              "operator-post-supervisor-exit.txt",
+              "70\n",
+            )
+          },
+      )
+
+    mutations.forEach { (name, mutate) ->
+      val fixture = createFixture("validate-mutation-${name.replace(' ', '-')}")
+      completeFinalHandoff(fixture)
+      mutate(fixture)
+      val result = runValidateFinal(fixture)
+      assertWithMessage("$name\n${result.output}").that(result.exitCode).isNotEqualTo(0)
+    }
+  }
+
+  @Test
+  fun `interrupted final publication exposes no final directory`() {
+    val fixture = createFixture("interrupted-final")
+    writeRootStateFile(fixture.state.resolve("operator-post-supervisor-exit.txt"), "0\n")
+    assertProcessSucceeds(runCopy(fixture))
+
+    val result = runPublishFinal(fixture, installFailureAfter = 4)
+
+    assertThat(result.exitCode).isNotEqualTo(0)
+    assertThat(Files.exists(fixture.finalDestination, LinkOption.NOFOLLOW_LINKS)).isFalse()
+    assertThat(hiddenStages(fixture)).isEmpty()
+  }
+
+  @Test
+  fun `core and final publications reject wrong destination directory and file metadata`() {
+    PublicationKind.entries.forEach { kind ->
+      val wrongDirectoryMode = createFixture("${kind.name.lowercase()}-directory-mode")
+      preparePublication(wrongDirectoryMode, kind)
+      Files.createDirectory(publicationDestination(wrongDirectoryMode, kind))
+      Files.setPosixFilePermissions(publicationDestination(wrongDirectoryMode, kind), MODE_0755)
+      assertPublicationRejected(wrongDirectoryMode, kind, "wrong directory mode")
+
+      val wrongFileMode = createFixture("${kind.name.lowercase()}-file-mode")
+      preparePublication(wrongFileMode, kind)
+      assertProcessSucceeds(publish(wrongFileMode, kind))
+      Files.setPosixFilePermissions(
+        publicationDestination(wrongFileMode, kind).resolve(publicationFiles(kind).first()),
+        MODE_0600,
+      )
+      assertPublicationRejected(wrongFileMode, kind, "wrong file mode")
+
+      val wrongOwner = createFixture("${kind.name.lowercase()}-owner")
+      preparePublication(wrongOwner, kind)
+      assertProcessSucceeds(publish(wrongOwner, kind))
+      val directoryOwnerResult = publish(wrongOwner, kind, destinationOwnerMutation = "directory")
+      assertWithMessage("${kind.name} wrong directory owner\n${directoryOwnerResult.output}")
+        .that(directoryOwnerResult.exitCode)
+        .isNotEqualTo(0)
+      val fileOwnerResult = publish(wrongOwner, kind, destinationOwnerMutation = "file")
+      assertWithMessage("${kind.name} wrong file owner\n${fileOwnerResult.output}")
+        .that(fileOwnerResult.exitCode)
+        .isNotEqualTo(0)
+    }
+  }
+
+  @Test
+  fun `child process group termination propagates signal errors and proves bounded absence`() {
+    val termFailure = runTerminationHarness(TerminationScenario.TERM_FAILURE)
+    assertThat(termFailure.exitCode).isNotEqualTo(0)
+
+    val killFailure = runTerminationHarness(TerminationScenario.KILL_FAILURE)
+    assertThat(killFailure.exitCode).isNotEqualTo(0)
+
+    val lingering = runTerminationHarness(TerminationScenario.LINGERING)
+    assertThat(lingering.exitCode).isNotEqualTo(0)
+
+    assertProcessSucceeds(runTerminationHarness(TerminationScenario.DISAPPEARS_AFTER_KILL))
+  }
+
+  @Test
+  fun `signal before child pgid prevents launch and completes through finalization`() {
+    val state = Files.createDirectory(temporaryDirectory.resolve("pre-launch-signal-state"))
+    val launchMarker = temporaryDirectory.resolve("pre-launch-signal-launched")
+    val result = runPreLaunchSignalHarness(state, launchMarker)
+
+    assertThat(result.exitCode).isEqualTo(143)
+    assertThat(Files.exists(launchMarker)).isFalse()
+    assertThat(Files.readString(state.resolve("child-or-supervisor-status.txt"))).isEqualTo("143\n")
+    assertThat(Files.readString(state.resolve("containment-failed.txt"))).isEqualTo("false\n")
+  }
+
+  @Test
+  fun `signal between spawn and child pgid assignment terminates child before benchmark progress`() {
+    val progressMarker = temporaryDirectory.resolve("launch-race-progressed")
+    val terminationMarker = temporaryDirectory.resolve("launch-race-terminated")
+
+    val result = runLaunchAssignmentRaceHarness(progressMarker, terminationMarker)
+
+    assertWithMessage("process output:\n%s", result.output).that(result.exitCode).isEqualTo(0)
+    assertThat(Files.exists(progressMarker)).isFalse()
+    assertThat(Files.readString(terminationMarker)).isEqualTo("terminated\n")
+  }
+
+  @Test
+  fun `cleanup retains signal traps through containment and governor restoration`() {
+    val state = Files.createDirectory(temporaryDirectory.resolve("cleanup-signal-state"))
+    writeRootStateFile(
+      state.resolve("original-governors.tsv"),
+      "/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor\tpowersave\n",
+    )
+
+    val result = runCleanupSignalHarness(state)
+
+    assertThat(result.exitCode).isEqualTo(143)
+    assertThat(Files.readString(state.resolve("child-or-supervisor-status.txt"))).isEqualTo("143\n")
+    assertThat(Files.readString(state.resolve("restoration-failed.txt"))).isEqualTo("false\n")
+    assertThat(Files.exists(state.resolve("finished-at.txt"))).isTrue()
+  }
+
+  @Test
   fun `controlled child launch scrubs environment closes extra descriptors and retains exact lock`() {
     val source = Files.readString(supervisor)
     val closeCall =
@@ -292,6 +498,33 @@ class Cs2aSupervisorAtomicHandoffTest {
     Files.setPosixFilePermissions(state, MODE_0700)
     val lockFile = Files.createFile(stateParent.resolve("task13.lock"))
     Files.setPosixFilePermissions(lockFile, MODE_0600)
+    val implementationFile = temporaryDirectory.resolve("implementation-$name.txt")
+    Files.writeString(implementationFile, "$IMPLEMENTATION_SHA\n")
+    val controlledUidFile = temporaryDirectory.resolve("controlled-uid-$name.txt")
+    Files.writeString(controlledUidFile, "${numericUid()}\n")
+    val runnerFile = writeExecutable(temporaryDirectory.resolve("runner-$name.sh"), "exit 0\n")
+    val testStat = writeTestStat(temporaryDirectory.resolve("test-stat-$name"))
+    val runnableSupervisor = temporaryDirectory.resolve("supervisor-$name.sh")
+    Files.writeString(
+      runnableSupervisor,
+      Files.readString(supervisor)
+        .replace(PRODUCTION_RUN_PARENT, runParent.toString())
+        .replace(PRODUCTION_STATE_PARENT, stateParent.toString())
+        .replace(PRODUCTION_LOCK_FILE, lockFile.toString())
+        .replace(
+          "/opt/revoman-benchmark/cs2a-implementation-sha",
+          implementationFile.toString(),
+        )
+        .replace("/opt/revoman-benchmark/controlled-uid", controlledUidFile.toString())
+        .replace("/opt/revoman-benchmark/cs2a-controlled-run.sh", runnerFile.toString())
+        .replace(
+          "require_root_file \"${'$'}0\" 555",
+          "require_root_file ${quote(runnableSupervisor)} 555",
+        )
+        .replace("sha256sum \"${'$'}0\"", "sha256sum ${quote(runnableSupervisor)}"),
+    )
+    val runnerSha = sha256(runnerFile)
+    val supervisorSha = sha256(runnableSupervisor)
     CORE_STATE_FILES.forEach { fileName ->
       val content =
         when (fileName) {
@@ -302,6 +535,10 @@ class Cs2aSupervisorAtomicHandoffTest {
           "original-governors.tsv",
           "restored-governors.tsv" ->
             "/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor\tpowersave\n"
+          "executed-script-sha256sums.tsv" -> "runner\t$runnerSha\nsupervisor\t$supervisorSha\n"
+          "authenticated-handoff.tsv" ->
+            "implementation\t$IMPLEMENTATION_SHA\nuid\t${numericUid()}\n" +
+              "runner\t$runnerSha\nsupervisor\t$supervisorSha\n"
           "run-root.txt" -> "$runRoot\n"
           "implementation-sha.txt" -> "$IMPLEMENTATION_SHA\n"
           "lock-provenance.txt" -> "$LOCK_PROVENANCE\n"
@@ -309,14 +546,6 @@ class Cs2aSupervisorAtomicHandoffTest {
         }
       writeRootStateFile(state.resolve(fileName), content)
     }
-    val runnableSupervisor = temporaryDirectory.resolve("supervisor-$name.sh")
-    Files.writeString(
-      runnableSupervisor,
-      Files.readString(supervisor)
-        .replace(PRODUCTION_RUN_PARENT, runParent.toString())
-        .replace(PRODUCTION_STATE_PARENT, stateParent.toString())
-        .replace(PRODUCTION_LOCK_FILE, lockFile.toString()),
-    )
     return HandoffFixture(
       state,
       runRoot,
@@ -325,6 +554,10 @@ class Cs2aSupervisorAtomicHandoffTest {
       meta.resolve("supervisor"),
       runnableSupervisor,
       lockFile,
+      implementationFile,
+      controlledUidFile,
+      runnerFile,
+      testStat,
     )
   }
 
@@ -338,6 +571,7 @@ class Cs2aSupervisorAtomicHandoffTest {
     val proc = Files.createDirectory(root.resolve("proc-fd"))
     listOf("0", "1", "2", "8", "9").forEach { Files.createFile(proc.resolve(it)) }
     val output = root.resolve("environment.txt")
+    val testStat = writeTestStat(root.resolve("test-stat"))
     val runner = root.resolve("runner.sh")
     Files.writeString(
       runner,
@@ -369,13 +603,14 @@ class Cs2aSupervisorAtomicHandoffTest {
       """
       source "${'$'}1"
       SUBSTITUTE=${'$'}2
+      TEST_STAT=${'$'}3
       stat() {
         if test "${'$'}1" = -Lc && test "${'$'}2" = '%d:%i'; then
           case "${'$'}3" in
             "${'$'}PROC_FD_ROOT/9")
               if test "${'$'}SUBSTITUTE" = true; then printf '1:999999\n';
-              else /usr/bin/stat -f '%d:%i' "${'$'}LOCK_FILE"; fi ;;
-            "${'$'}LOCK_FILE") /usr/bin/stat -f '%d:%i' "${'$'}LOCK_FILE" ;;
+              else "${'$'}TEST_STAT" device-inode "${'$'}LOCK_FILE"; fi ;;
+            "${'$'}LOCK_FILE") "${'$'}TEST_STAT" device-inode "${'$'}LOCK_FILE" ;;
             *) return 64 ;;
           esac
         else
@@ -397,6 +632,7 @@ class Cs2aSupervisorAtomicHandoffTest {
         "child-harness",
         runnable.toString(),
         substituteLock.toString(),
+        testStat.toString(),
       )
     )
   }
@@ -528,10 +764,72 @@ class Cs2aSupervisorAtomicHandoffTest {
     return path
   }
 
+  private fun writeTestStat(path: Path): Path =
+    writeExecutable(
+      path,
+      """
+      field=${'$'}1
+      path=${'$'}2
+      case "${'$'}(/usr/bin/uname -s)" in
+        Darwin)
+          case "${'$'}field" in
+            uid) /usr/bin/stat -f '%u' "${'$'}path" ;;
+            gid) /usr/bin/stat -f '%g' "${'$'}path" ;;
+            mode) /usr/bin/stat -f '%Lp' "${'$'}path" ;;
+            device-inode) /usr/bin/stat -f '%d:%i' "${'$'}path" ;;
+            *) exit 64 ;;
+          esac
+          ;;
+        *)
+          case "${'$'}field" in
+            uid) stat -c '%u' "${'$'}path" ;;
+            gid) stat -c '%g' "${'$'}path" ;;
+            mode) stat -c '%a' "${'$'}path" ;;
+            device-inode) stat -c '%d:%i' "${'$'}path" ;;
+            *) exit 64 ;;
+          esac
+          ;;
+      esac
+      """
+        .trimIndent() + "\n",
+    )
+
+  private fun mutateFinalEvidence(fixture: HandoffFixture, name: String, content: String) {
+    writeRootStateFile(fixture.state.resolve(name), content)
+    writeRootStateFile(fixture.finalDestination.resolve(name), content)
+  }
+
+  private fun numericUid(): String = run(listOf("/usr/bin/id", "-u")).output.trim()
+
+  private fun sha256(path: Path): String =
+    MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)).joinToString("") {
+      "%02x".format(it)
+    }
+
+  private fun treeSnapshot(root: Path): Map<String, String> =
+    Files.walk(root).use { paths ->
+      paths.sorted().toList().associate { path ->
+        val relative = root.relativize(path).toString()
+        val type =
+          when {
+            Files.isSymbolicLink(path) -> "symlink"
+            Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS) -> "directory"
+            Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS) -> "file"
+            else -> "other"
+          }
+        val content = if (type == "file") sha256(path) else "-"
+        val metadata =
+          "$type:${posixMode(path).sortedBy { it.name }}:" +
+            "${Files.getLastModifiedTime(path, LinkOption.NOFOLLOW_LINKS).toMillis()}:$content"
+        relative to metadata
+      }
+    }
+
   private fun runCopy(
     fixture: HandoffFixture,
     installFailureAfter: Int = 0,
     modelSourceAsRoot: Boolean = true,
+    destinationOwnerMutation: String = "none",
   ): ProcessResult {
     val harness =
       """
@@ -540,6 +838,8 @@ class Cs2aSupervisorAtomicHandoffTest {
       RUN_ROOT=${'$'}3
       INSTALL_FAILURE_AFTER=${'$'}4
       MODEL_SOURCE_AS_ROOT=${'$'}5
+      DESTINATION_OWNER_MUTATION=${'$'}6
+      TEST_STAT=${'$'}7
       CONTROLLED_UID=${'$'}(/usr/bin/id -u)
       CONTROLLED_GID=${'$'}(/usr/bin/id -g)
       INSTALL_FILE_COUNT=0
@@ -557,15 +857,21 @@ class Cs2aSupervisorAtomicHandoffTest {
       stat() {
         if test "${'$'}1" = -c; then
           local format=${'$'}2 path=${'$'}3 uid gid mode
-          uid=${'$'}(/usr/bin/stat -f '%u' "${'$'}path") || return 1
-          gid=${'$'}(/usr/bin/stat -f '%g' "${'$'}path") || return 1
-          mode=${'$'}(/usr/bin/stat -f '%Lp' "${'$'}path") || return 1
+          uid=${'$'}("${'$'}TEST_STAT" uid "${'$'}path") || return 1
+          gid=${'$'}("${'$'}TEST_STAT" gid "${'$'}path") || return 1
+          mode=${'$'}("${'$'}TEST_STAT" mode "${'$'}path") || return 1
           case "${'$'}path" in
             "${'$'}STATE"/*)
               if test "${'$'}MODEL_SOURCE_AS_ROOT" = true; then
                 uid=0
                 gid=0
               fi
+              ;;
+            "${'$'}RUN_ROOT"/meta/supervisor-core/*)
+              if test "${'$'}DESTINATION_OWNER_MUTATION" = file; then uid=999999; fi
+              ;;
+            "${'$'}RUN_ROOT"/meta/supervisor-core)
+              if test "${'$'}DESTINATION_OWNER_MUTATION" = directory; then uid=999999; fi
               ;;
           esac
           case "${'$'}format" in
@@ -617,6 +923,8 @@ class Cs2aSupervisorAtomicHandoffTest {
         fixture.runRoot.toString(),
         installFailureAfter.toString(),
         modelSourceAsRoot.toString(),
+        destinationOwnerMutation,
+        fixture.testStat.toString(),
       )
     )
   }
@@ -626,6 +934,8 @@ class Cs2aSupervisorAtomicHandoffTest {
     stateOverride: Path = fixture.state,
     lockAvailable: Boolean = true,
     substituteLockFd: Boolean = false,
+    installFailureAfter: Int = 0,
+    destinationOwnerMutation: String = "none",
   ): ProcessResult {
     val harness =
       publishFinalHarness +
@@ -646,6 +956,261 @@ class Cs2aSupervisorAtomicHandoffTest {
         fixture.lockFile.toString(),
         lockAvailable.toString(),
         substituteLockFd.toString(),
+        fixture.testStat.toString(),
+        installFailureAfter.toString(),
+        destinationOwnerMutation,
+      )
+    )
+  }
+
+  private fun completeFinalHandoff(fixture: HandoffFixture) {
+    writeRootStateFile(fixture.state.resolve("operator-post-supervisor-exit.txt"), "0\n")
+    assertProcessSucceeds(runCopy(fixture))
+    assertProcessSucceeds(runPublishFinal(fixture))
+  }
+
+  private fun runValidateFinal(fixture: HandoffFixture): ProcessResult {
+    val harness =
+      publishFinalHarness +
+        """
+
+        flock() { return 97; }
+        install() { return 97; }
+        mktemp() { return 97; }
+        mv() { return 97; }
+        ln() { return 97; }
+        chown() { return 97; }
+        chmod() { return 97; }
+        launch_controlled_child() { return 97; }
+        authenticate_released_lock() { return 97; }
+        supervisor_dispatch --validate-final-handoff "${'$'}2" "${'$'}3"
+        """
+          .trimIndent()
+    return run(
+      listOf(
+        "/bin/bash",
+        "-c",
+        harness,
+        "validate-final-harness",
+        fixture.runnableSupervisor.toString(),
+        fixture.runRoot.toString(),
+        fixture.state.toString(),
+        fixture.lockFile.toString(),
+        "true",
+        "false",
+        fixture.testStat.toString(),
+        "0",
+        "none",
+      )
+    )
+  }
+
+  private fun preparePublication(fixture: HandoffFixture, kind: PublicationKind) {
+    if (kind == PublicationKind.FINAL) {
+      writeRootStateFile(fixture.state.resolve("operator-post-supervisor-exit.txt"), "0\n")
+      assertProcessSucceeds(runCopy(fixture))
+    }
+  }
+
+  private fun publish(
+    fixture: HandoffFixture,
+    kind: PublicationKind,
+    destinationOwnerMutation: String = "none",
+  ): ProcessResult =
+    when (kind) {
+      PublicationKind.CORE -> runCopy(fixture, destinationOwnerMutation = destinationOwnerMutation)
+      PublicationKind.FINAL ->
+        runPublishFinal(
+          fixture,
+          destinationOwnerMutation = destinationOwnerMutation,
+        )
+    }
+
+  private fun publicationDestination(fixture: HandoffFixture, kind: PublicationKind): Path =
+    when (kind) {
+      PublicationKind.CORE -> fixture.destination
+      PublicationKind.FINAL -> fixture.finalDestination
+    }
+
+  private fun publicationFiles(kind: PublicationKind): List<String> =
+    when (kind) {
+      PublicationKind.CORE -> CORE_STATE_FILES
+      PublicationKind.FINAL -> FINAL_STATE_FILES
+    }
+
+  private fun assertPublicationRejected(
+    fixture: HandoffFixture,
+    kind: PublicationKind,
+    description: String,
+  ) {
+    val result = publish(fixture, kind)
+    assertWithMessage("${kind.name} $description\n${result.output}")
+      .that(result.exitCode)
+      .isNotEqualTo(0)
+  }
+
+  private fun runTerminationHarness(scenario: TerminationScenario): ProcessResult {
+    val harness =
+      """
+      source "${'$'}1"
+      SCENARIO=${'$'}2
+      PROBES=0
+      sleep() { :; }
+      kill() {
+        case "${'$'}1" in
+          -0)
+            PROBES=${'$'}((PROBES + 1))
+            case "${'$'}SCENARIO" in
+              DISAPPEARS_AFTER_KILL) test "${'$'}PROBES" -lt 3 ;;
+              *) return 0 ;;
+            esac
+            ;;
+          -TERM) test "${'$'}SCENARIO" != TERM_FAILURE ;;
+          -KILL) test "${'$'}SCENARIO" != KILL_FAILURE ;;
+          *) return 64 ;;
+        esac
+      }
+      terminate_child_group 4242
+      """
+        .trimIndent()
+    return run(
+      listOf(
+        "/bin/bash",
+        "-c",
+        harness,
+        "termination-harness",
+        supervisor.toString(),
+        scenario.name,
+      )
+    )
+  }
+
+  private fun runPreLaunchSignalHarness(state: Path, launchMarker: Path): ProcessResult {
+    val mockSetsid =
+      writeExecutable(
+        temporaryDirectory.resolve("pre-launch-setsid"),
+        "printf launched >${quote(launchMarker)}\nexit 0\n",
+      )
+    val script = temporaryDirectory.resolve("pre-launch-supervisor.sh")
+    Files.writeString(
+      script,
+      Files.readString(supervisor).replace("/usr/bin/setsid", mockSetsid.toString()),
+    )
+    val harness =
+      """
+      source "${'$'}1"
+      STATE=${'$'}2
+      trap finalize_supervisor EXIT
+      trap 'handle_signal INT 130' INT
+      trap 'handle_signal TERM 143' TERM
+      trap 'handle_signal HUP 129' HUP
+      handle_signal TERM 143
+      launch_controlled_child "${'$'}(/usr/bin/id -u)" \
+        $IMPLEMENTATION_SHA ${"a".repeat(64)} "${'$'}STATE/child-output.log"
+      exit 98
+      """
+        .trimIndent()
+    return run(
+      listOf(
+        "/bin/bash",
+        "-c",
+        harness,
+        "pre-launch-signal-harness",
+        script.toString(),
+        state.toString(),
+      )
+    )
+  }
+
+  private fun runLaunchAssignmentRaceHarness(
+    progressMarker: Path,
+    terminationMarker: Path,
+  ): ProcessResult {
+    val mockSetsid =
+      writeExecutable(
+        temporaryDirectory.resolve("launch-race-setsid"),
+        "sleep 1\nprintf progressed >${quote(progressMarker)}\n",
+      )
+    val script = temporaryDirectory.resolve("launch-race-supervisor.sh")
+    Files.writeString(
+      script,
+      Files.readString(supervisor).replace("/usr/bin/setsid", mockSetsid.toString()),
+    )
+    val harness =
+      """
+      source "${'$'}1"
+      TERMINATION_MARKER=${'$'}2
+      terminate_child_group() {
+        test "${'$'}1" = "${'$'}CHILD_PID" || return 1
+        kill "${'$'}CHILD_PID" 2>/dev/null || return 1
+        wait "${'$'}CHILD_PID" 2>/dev/null || :
+        printf 'terminated\n' >"${'$'}TERMINATION_MARKER"
+      }
+      trap 'handle_signal TERM 143' TERM
+      set -T
+      trap '
+        if [[ "${'$'}BASH_COMMAND" == CHILD_PID=* ]]; then
+          trap - DEBUG
+          handle_signal TERM 143
+        fi
+      ' DEBUG
+      if launch_controlled_child "${'$'}(/usr/bin/id -u)" \
+        $IMPLEMENTATION_SHA ${"a".repeat(64)} "${'$'}3"; then
+        exit 98
+      else
+        test "${'$'}?" -eq 1
+      fi
+      test "${'$'}CONTAINMENT_FAILED" = false
+      test -f "${'$'}TERMINATION_MARKER"
+      sleep 2
+      """
+        .trimIndent()
+    return run(
+      listOf(
+        "/bin/bash",
+        "-c",
+        harness,
+        "launch-assignment-race-harness",
+        script.toString(),
+        terminationMarker.toString(),
+        temporaryDirectory.resolve("launch-race-child.log").toString(),
+      )
+    )
+  }
+
+  private fun runCleanupSignalHarness(state: Path): ProcessResult {
+    val harness =
+      """
+      source "${'$'}1"
+      STATE=${'$'}2
+      restore_governors() {
+        kill -TERM "${'$'}$"
+        return 0
+      }
+      capture_restored_governors() { cp "${'$'}1" "${'$'}2"; }
+      write_state_file() {
+        local name=${'$'}1 value=${'$'}2
+        printf '%s\n' "${'$'}value" >"${'$'}STATE/${'$'}name"
+        chmod 0400 "${'$'}STATE/${'$'}name"
+        if test "${'$'}name" = child-or-supervisor-status.txt; then
+          kill -TERM "${'$'}$"
+        fi
+      }
+      trap finalize_supervisor EXIT
+      trap 'handle_signal INT 130' INT
+      trap 'handle_signal TERM 143' TERM
+      trap 'handle_signal HUP 129' HUP
+      exit 0
+      """
+        .trimIndent()
+    return run(
+      listOf(
+        "/bin/bash",
+        "-c",
+        harness,
+        "cleanup-signal-harness",
+        supervisor.toString(),
+        state.toString(),
       )
     )
   }
@@ -681,6 +1246,9 @@ class Cs2aSupervisorAtomicHandoffTest {
         fixture.lockFile.toString(),
         "true",
         "false",
+        fixture.testStat.toString(),
+        "0",
+        "none",
       )
     )
   }
@@ -753,9 +1321,25 @@ class Cs2aSupervisorAtomicHandoffTest {
     val finalDestination: Path,
     val runnableSupervisor: Path,
     val lockFile: Path,
+    val implementationFile: Path,
+    val controlledUidFile: Path,
+    val runnerFile: Path,
+    val testStat: Path,
   )
 
   private data class ProcessResult(val exitCode: Int, val output: String)
+
+  private enum class PublicationKind {
+    CORE,
+    FINAL,
+  }
+
+  private enum class TerminationScenario {
+    TERM_FAILURE,
+    KILL_FAILURE,
+    LINGERING,
+    DISAPPEARS_AFTER_KILL,
+  }
 
   private companion object {
     const val PRODUCTION_RUN_PARENT = "/opt/revoman-benchmark/runs"
@@ -784,6 +1368,16 @@ class Cs2aSupervisorAtomicHandoffTest {
 
     val MODE_0400 = setOf(PosixFilePermission.OWNER_READ)
     val MODE_0600 = setOf(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE)
+    val MODE_0755 =
+      setOf(
+        PosixFilePermission.OWNER_READ,
+        PosixFilePermission.OWNER_WRITE,
+        PosixFilePermission.OWNER_EXECUTE,
+        PosixFilePermission.GROUP_READ,
+        PosixFilePermission.GROUP_EXECUTE,
+        PosixFilePermission.OTHERS_READ,
+        PosixFilePermission.OTHERS_EXECUTE,
+      )
     val MODE_0700 =
       setOf(
         PosixFilePermission.OWNER_READ,
@@ -800,9 +1394,14 @@ class Cs2aSupervisorAtomicHandoffTest {
   private val publishFinalHarness =
     """
     source "${'$'}1"
+    HARNESS_SUPERVISOR=${'$'}1
     HARNESS_LOCK_FILE=${'$'}4
     HARNESS_LOCK_AVAILABLE=${'$'}5
     HARNESS_SUBSTITUTE_LOCK_FD=${'$'}6
+    TEST_STAT=${'$'}7
+    INSTALL_FAILURE_AFTER=${'$'}8
+    DESTINATION_OWNER_MUTATION=${'$'}9
+    INSTALL_FILE_COUNT=0
     CONTROLLED_UID=${'$'}(/usr/bin/id -u)
     CONTROLLED_GID=${'$'}(/usr/bin/id -g)
 
@@ -851,18 +1450,39 @@ class Cs2aSupervisorAtomicHandoffTest {
         esac
       elif test "${'$'}1" = -c; then
         local format=${'$'}2 path=${'$'}3 uid gid mode
-        uid=${'$'}(/usr/bin/stat -f '%u' "${'$'}path") || return 1
-        gid=${'$'}(/usr/bin/stat -f '%g' "${'$'}path") || return 1
-        mode=${'$'}(/usr/bin/stat -f '%Lp' "${'$'}path") || return 1
+        uid=${'$'}("${'$'}TEST_STAT" uid "${'$'}path") || return 1
+        gid=${'$'}("${'$'}TEST_STAT" gid "${'$'}path") || return 1
+        mode=${'$'}("${'$'}TEST_STAT" mode "${'$'}path") || return 1
         case "${'$'}path" in
           */governor-state.*/*)
             uid=0
             gid=0
             ;;
+          */governor-state.*)
+            uid=0
+            gid=0
+            mode=700
+            ;;
+          */meta/supervisor/*)
+            if test "${'$'}DESTINATION_OWNER_MUTATION" = file; then uid=999999; fi
+            ;;
+          */meta/supervisor)
+            if test "${'$'}DESTINATION_OWNER_MUTATION" = directory; then uid=999999; fi
+            ;;
           "${'$'}HARNESS_LOCK_FILE")
             uid=0
             gid=0
             mode=600
+            ;;
+          "${'$'}IMPLEMENTATION_FILE"|"${'$'}CONTROLLED_UID_FILE")
+            uid=0
+            gid=0
+            mode=444
+            ;;
+          "${'$'}RUNNER_FILE"|"${'$'}HARNESS_SUPERVISOR")
+            uid=0
+            gid=0
+            mode=555
             ;;
         esac
         case "${'$'}format" in
@@ -876,6 +1496,13 @@ class Cs2aSupervisorAtomicHandoffTest {
     }
 
     install() {
+      if test "${'$'}1" != -d; then
+        INSTALL_FILE_COUNT=${'$'}((INSTALL_FILE_COUNT + 1))
+        if test "${'$'}INSTALL_FAILURE_AFTER" -gt 0 \
+          && test "${'$'}INSTALL_FILE_COUNT" -eq "${'$'}INSTALL_FAILURE_AFTER"; then
+          return 74
+        fi
+      fi
       command /usr/bin/install "${'$'}@"
     }
 

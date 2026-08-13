@@ -359,8 +359,87 @@ authenticate_released_lock() {
   write_lock_released_evidence
 }
 
-publish_final_handoff_main() {
-  local run_root=$1 governor_state=$2 destination post_status
+validate_exact_authenticated_handoff() {
+  local implementation=$1 controlled_uid=$2 runner_sha=$3 supervisor_sha=$4
+  awk -F '\t' \
+    -v implementation="$implementation" \
+    -v controlled_uid="$controlled_uid" \
+    -v runner_sha="$runner_sha" \
+    -v supervisor_sha="$supervisor_sha" '
+    NF != 2 { exit 1 }
+    $1 == "implementation" && $2 == implementation { implementation_count++; next }
+    $1 == "uid" && $2 == controlled_uid { uid_count++; next }
+    $1 == "runner" && $2 == runner_sha { runner_count++; next }
+    $1 == "supervisor" && $2 == supervisor_sha { supervisor_count++; next }
+    { exit 1 }
+    END {
+      exit !(NR == 4 && implementation_count == 1 && uid_count == 1 &&
+        runner_count == 1 && supervisor_count == 1)
+    }
+  ' "$STATE/authenticated-handoff.tsv"
+}
+
+validate_exact_executed_scripts() {
+  local runner_sha=$1 supervisor_sha=$2
+  awk -F '\t' -v runner_sha="$runner_sha" -v supervisor_sha="$supervisor_sha" '
+    NF != 2 { exit 1 }
+    $1 == "runner" && $2 == runner_sha { runner_count++; next }
+    $1 == "supervisor" && $2 == supervisor_sha { supervisor_count++; next }
+    { exit 1 }
+    END { exit !(NR == 2 && runner_count == 1 && supervisor_count == 1) }
+  ' "$STATE/executed-script-sha256sums.tsv"
+}
+
+validate_final_handoff_evidence() {
+  local run_root=$1 implementation controlled_uid runner_sha supervisor_sha
+  local recorded_run recorded_implementation recorded_provenance lock_provenance
+  local restoration containment child_status post_status finished_at
+  require_root_file "$IMPLEMENTATION_FILE" 444
+  require_root_file "$CONTROLLED_UID_FILE" 444
+  require_root_file "$RUNNER_FILE" 555
+  require_root_file "$0" 555
+  test "$(stat -c '%u:%g:%a' "$STATE")" = 0:0:700 || return 1
+  validate_state_sources final || return 1
+
+  implementation=$(tr -d '\r\n' <"$IMPLEMENTATION_FILE") || return 1
+  controlled_uid=$(tr -d '\r\n' <"$CONTROLLED_UID_FILE") || return 1
+  runner_sha=$(sha256sum "$RUNNER_FILE" | cut -d' ' -f1) || return 1
+  supervisor_sha=$(sha256sum "$0" | cut -d' ' -f1) || return 1
+  [[ "$implementation" =~ ^[0-9a-f]{40}$ ]] || return 1
+  [[ "$controlled_uid" =~ ^[1-9][0-9]*$ ]] || return 1
+  [[ "$runner_sha" =~ ^[0-9a-f]{64}$ ]] || return 1
+  [[ "$supervisor_sha" =~ ^[0-9a-f]{64}$ ]] || return 1
+  test "$controlled_uid" = "$CONTROLLED_UID" || return 1
+
+  recorded_run=$(tr -d '\r\n' <"$STATE/run-root.txt") || return 1
+  recorded_implementation=$(tr -d '\r\n' <"$STATE/implementation-sha.txt") || return 1
+  test "$recorded_run" = "$run_root" || return 1
+  test "$recorded_implementation" = "$implementation" || return 1
+  validate_exact_authenticated_handoff \
+    "$implementation" "$controlled_uid" "$runner_sha" "$supervisor_sha" || return 1
+  validate_exact_executed_scripts "$runner_sha" "$supervisor_sha" || return 1
+
+  recorded_provenance=$(tr -d '\r\n' <"$STATE/lock-provenance.txt") || return 1
+  [[ "$recorded_provenance" =~ ^0:0:600:[0-9]+:[0-9]+$ ]] || return 1
+  lock_provenance=$(stat -Lc '%u:%g:%a:%d:%i' "$LOCK_FILE") || return 1
+  test "$lock_provenance" = "$recorded_provenance" || return 1
+  test "$(tr -d '\r\n' <"$STATE/lock-released.txt")" = true || return 1
+
+  restoration=$(tr -d '\r\n' <"$STATE/restoration-failed.txt") || return 1
+  containment=$(tr -d '\r\n' <"$STATE/containment-failed.txt") || return 1
+  child_status=$(tr -d '\r\n' <"$STATE/child-or-supervisor-status.txt") || return 1
+  post_status=$(tr -d '\r\n' <"$STATE/operator-post-supervisor-exit.txt") || return 1
+  finished_at=$(tr -d '\r\n' <"$STATE/finished-at.txt") || return 1
+  test "$restoration" = false && test "$containment" = false || return 1
+  [[ "$child_status" =~ ^([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$ ]] || return 1
+  test "$post_status" = "$child_status" || return 1
+  [[ "$finished_at" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}([+-][0-9]{2}:[0-9]{2}|Z)$ ]] \
+    || return 1
+  cmp -s "$STATE/original-governors.tsv" "$STATE/restored-governors.tsv" || return 1
+}
+
+prepare_final_handoff_context() {
+  local run_root=$1 governor_state=$2
   test "$(id -u)" -eq 0 || fail "must execute final handoff mode as root"
   [[ "$run_root" =~ ^/opt/revoman-benchmark/runs/cs2a\.[A-Za-z0-9]+$ ]] \
     || fail "invalid final handoff run root"
@@ -381,14 +460,26 @@ publish_final_handoff_main() {
   test "$(stat -c '%u' "$run_root")" = "$CONTROLLED_UID" \
     || fail "final handoff run-root owner mismatch"
   STATE=$governor_state
+}
+
+validate_final_handoff_main() {
+  local run_root=$1 governor_state=$2 destination
+  prepare_final_handoff_context "$run_root" "$governor_state"
+  validate_final_handoff_evidence "$run_root" \
+    || fail "final supervisor evidence authentication failed"
+  destination="$run_root/meta/supervisor"
+  validate_state_destination "$destination" final \
+    || fail "final supervisor handoff authentication failed"
+}
+
+publish_final_handoff_main() {
+  local run_root=$1 governor_state=$2 destination
+  prepare_final_handoff_context "$run_root" "$governor_state"
   trap cleanup_lock_release_candidate EXIT
   trap 'cleanup_lock_release_candidate || true; exit 70' INT TERM HUP
   authenticate_released_lock || fail "benchmark lock release is not authenticated"
-  post_status=$(cat "$STATE/operator-post-supervisor-exit.txt") \
-    || fail "cannot read post-supervisor status"
-  [[ "$post_status" =~ ^[0-9]+$ ]] || fail "invalid post-supervisor status"
-  cmp -s "$STATE/original-governors.tsv" "$STATE/restored-governors.tsv" \
-    || fail "governor restoration evidence mismatch"
+  validate_final_handoff_evidence "$run_root" \
+    || fail "final supervisor evidence authentication failed"
   destination="$run_root/meta/supervisor"
   publish_final_state_directory "$destination" final \
     || fail "cannot atomically publish final supervisor handoff"
@@ -440,15 +531,19 @@ recover_stale_states() {
 }
 
 terminate_child_group() {
-  local pgid=$1
+  local pgid=$1 remaining=30
   [[ "$pgid" =~ ^[1-9][0-9]*$ ]] || return 1
-  if kill -0 -- "-$pgid" 2>/dev/null; then
-    kill -TERM -- "-$pgid" 2>/dev/null || true
+  kill -0 -- "-$pgid" 2>/dev/null || return 0
+  kill -TERM -- "-$pgid" 2>/dev/null || return 1
+  sleep 1
+  kill -0 -- "-$pgid" 2>/dev/null || return 0
+  kill -KILL -- "-$pgid" 2>/dev/null || return 1
+  while test "$remaining" -gt 0; do
+    kill -0 -- "-$pgid" 2>/dev/null || return 0
     sleep 1
-    if kill -0 -- "-$pgid" 2>/dev/null; then
-      kill -KILL -- "-$pgid" 2>/dev/null || true
-    fi
-  fi
+    remaining=$((remaining - 1))
+  done
+  return 1
 }
 
 handle_signal() {
@@ -522,6 +617,7 @@ controlled_child_exec() {
 launch_controlled_child() {
   local controlled_uid=$1 implementation=$2 runner_sha=$3 output=$4
   test "$#" -eq 4 || fail "invalid controlled child launch arguments"
+  test -z "$SIGNAL_STATUS" || return 1
   /usr/bin/setsid /usr/bin/timeout --signal=TERM --kill-after="$RUN_KILL_AFTER_SECONDS" \
     "$RUN_TIMEOUT_SECONDS" /usr/sbin/runuser -u "$CONTROLLED_USER" -- \
     /usr/bin/env -i \
@@ -534,13 +630,17 @@ launch_controlled_child() {
     >"$output" 2>&1 &
   CHILD_PID=$!
   CHILD_PGID=$CHILD_PID
+  if test -n "$SIGNAL_STATUS"; then
+    terminate_child_group "$CHILD_PGID" || CONTAINMENT_FAILED=true
+    return 1
+  fi
 }
 
 finalize_supervisor() {
   local incoming=$? final_status=$CHILD_STATUS
   test "$CLEANUP_COMPLETE" = false || return "$incoming"
   CLEANUP_COMPLETE=true
-  trap - EXIT INT TERM HUP
+  trap - EXIT
   set +e
   if test -n "$CHILD_PGID" && kill -0 -- "-$CHILD_PGID" 2>/dev/null; then
     terminate_child_group "$CHILD_PGID" || CONTAINMENT_FAILED=true
@@ -553,6 +653,7 @@ finalize_supervisor() {
     cmp -s "$STATE/original-governors.tsv" "$STATE/restored-governors.tsv" \
       || RESTORATION_FAILED=true
   fi
+  trap '' INT TERM HUP
   if test -n "$SIGNAL_STATUS"; then final_status=$SIGNAL_STATUS; fi
   if test "$RESTORATION_FAILED" = true || test "$CONTAINMENT_FAILED" = true; then
     final_status=70
@@ -613,11 +714,15 @@ supervisor_main() {
     || fail "cannot set performance governors"
 
   set +e
-  launch_controlled_child "$(tr -d '\r\n' <"$CONTROLLED_UID_FILE")" \
-    "$implementation" "$runner_sha" "$STATE/child-output.log"
-  wait "$CHILD_PID"
-  CHILD_STATUS=$?
+  if launch_controlled_child "$(tr -d '\r\n' <"$CONTROLLED_UID_FILE")" \
+    "$implementation" "$runner_sha" "$STATE/child-output.log"; then
+    wait "$CHILD_PID"
+    CHILD_STATUS=$?
+  else
+    CHILD_STATUS=$?
+  fi
   set -e
+  test -z "$SIGNAL_STATUS" || return
   cat "$STATE/child-output.log"
 
   run_root=$(extract_run_root_marker "$STATE/child-output.log") \
@@ -630,8 +735,9 @@ supervisor_dispatch() {
   case "$#:${1:-}" in
     0:) supervisor_main ;;
     3:--publish-final-handoff) publish_final_handoff_main "$2" "$3" ;;
+    3:--validate-final-handoff) validate_final_handoff_main "$2" "$3" ;;
     4:--run-controlled-child) controlled_child_exec "$2" "$3" "$4" ;;
-    *) fail 'usage: cs2a-governor-supervisor.sh [--publish-final-handoff RUN_ROOT GOVERNOR_STATE]' ;;
+    *) fail 'usage: cs2a-governor-supervisor.sh [--publish-final-handoff RUN_ROOT GOVERNOR_STATE | --validate-final-handoff RUN_ROOT GOVERNOR_STATE]' ;;
   esac
 }
 

@@ -313,6 +313,7 @@ class Cs2aOperatorScriptTest {
         GOVERNOR_STATE=/run/revoman-cs2a/governor-state.ArchiveIngress123
         prepare_operator_source() { LOCAL_DRIVER=/bin/false; }
         verify_remote_bundle() { return 0; }
+        validate_remote_final_handoff() { return 0; }
         refresh_remote_final_handoff() { return 0; }
         ssh() {
           case "${'$'}*" in
@@ -403,6 +404,7 @@ class Cs2aOperatorScriptTest {
         GOVERNOR_STATE=/run/revoman-cs2a/governor-state.ArchiveCollision123
         prepare_operator_source() { LOCAL_DRIVER=/bin/false; }
         verify_remote_bundle() { return 0; }
+        validate_remote_final_handoff() { return 0; }
         refresh_remote_final_handoff() { return 0; }
         ssh() {
           case "${'$'}*" in
@@ -485,7 +487,10 @@ class Cs2aOperatorScriptTest {
       prepare_operator_source() { : >"${'$'}PWD/build/source-authenticated"; }
       prepare_local_driver() { : >"${'$'}PWD/build/driver-built"; return 97; }
       verify_remote_bundle() { return 0; }
+      validate_remote_final_handoff() { return 0; }
       archive_remote_attempt() { : >"${'$'}PWD/build/archive-called"; return 70; }
+      ssh() { return 97; }
+      rsync() { return 97; }
       if operator_main --archive-only \
         /opt/revoman-benchmark/runs/cs2a.Source123 \
         /run/revoman-cs2a/governor-state.Source123; then
@@ -629,7 +634,7 @@ class Cs2aOperatorScriptTest {
         "/bin/bash",
         "-c",
         "source ${quote(operator)}; " +
-          linuxNoReplacePublicationPrelude +
+          publicationToolPrelude +
           "; " +
           "publish_archive ${quote(stage)} ${quote(canonical)} ${quote(marker)} $implementation",
       ),
@@ -803,7 +808,7 @@ class Cs2aOperatorScriptTest {
     val firstFailure =
       """
       source ${quote(operator)}
-      $linuxNoReplacePublicationPrelude
+      $publicationToolPrelude
       prepare_operator_source() { return 88; }
       if operator_main; then exit 91; else test "${'$'}?" = 70; fi
       """
@@ -1398,7 +1403,7 @@ class Cs2aOperatorScriptTest {
     val publish =
       """
       source ${quote(operator)}
-      $linuxNoReplacePublicationPrelude
+      $publicationToolPrelude
       CS2A_IMPLEMENTATION_SHA=$implementation
       publish_local_operator_failure supervisor 70
       """
@@ -1465,7 +1470,7 @@ class Cs2aOperatorScriptTest {
       val command =
         """
         source ${quote(operator)}
-        $linuxNoReplacePublicationPrelude
+        $publicationToolPrelude
         prepare_operator_source() { AUTHENTICATED_SOURCE_ROOT=/tmp; }
         $failureOverrides
         if operator_main; then status=0; else status=${'$'}?; fi
@@ -1555,19 +1560,113 @@ class Cs2aOperatorScriptTest {
   }
 
   @Test
-  fun `archive only authenticates existing handoff without privileged refresh`() {
-    val workspace = Files.createDirectories(temporaryDirectory.resolve("archive-without-refresh"))
+  fun `final handoff failure publishes its actual exit as local-only evidence`() {
+    val workspace =
+      Files.createDirectories(temporaryDirectory.resolve("final-handoff-failure")).toRealPath()
     write(workspace.resolve("build/cs2a-implementation-sha"), "$IMPLEMENTATION_SHA\n")
     val harness =
       """
       source ${quote(operator)}
+      $publicationToolPrelude
+      prepare_operator_source() { AUTHENTICATED_SOURCE_ROOT=/tmp; }
+      install_remote_bundle() { return 0; }
+      run_remote_supervisor() {
+        printf '%s\n' \
+          'RUN_ROOT=/opt/revoman-benchmark/runs/cs2a.FinalHandoff123' \
+          'GOVERNOR_STATE=/run/revoman-cs2a/governor-state.FinalHandoff123' \
+          >"${'$'}PWD/build/cs2a-supervisor.log"
+        printf '%s\n' 23 >"${'$'}PWD/build/cs2a-supervisor-exit.txt"
+        return 23
+      }
+      persist_original_post_status() { return 0; }
+      refresh_remote_final_handoff() { return 41; }
+      archive_remote_attempt() { return 99; }
+      if operator_main; then exit 98; else test "${'$'}?" = 70; fi
+      """
+        .trimIndent()
+
+    assertProcessSucceeds(listOf("/bin/bash", "-c", harness), workspace)
+    val attempt =
+      Path.of(Files.readString(workspace.resolve("build/cs2a-local-evidence-dir.txt")).trim())
+    assertThat(Files.readString(attempt.resolve("meta/operator-failure-phase.txt")))
+      .isEqualTo("final-handoff\n")
+    assertThat(Files.readString(attempt.resolve("meta/operator-failure-source-exit.txt")))
+      .isEqualTo("41\n")
+    assertThat(Files.readString(attempt.resolve("meta/remote-evidence-present.txt")))
+      .isEqualTo("false\n")
+    assertThat(Files.exists(attempt.resolve("manifests"))).isFalse()
+    assertThat(Files.exists(workspace.resolve("build/archive-called"))).isFalse()
+  }
+
+  @Test
+  fun `final handoff failure reports loss when local evidence publication also fails`() {
+    val workspace = Files.createDirectories(temporaryDirectory.resolve("final-handoff-loss"))
+    write(workspace.resolve("build/cs2a-implementation-sha"), "$IMPLEMENTATION_SHA\n")
+    val harness =
+      """
+      source ${quote(operator)}
+      prepare_operator_source() { AUTHENTICATED_SOURCE_ROOT=/tmp; }
+      install_remote_bundle() { return 0; }
+      run_remote_supervisor() {
+        printf '%s\n' \
+          'RUN_ROOT=/opt/revoman-benchmark/runs/cs2a.FinalHandoffLoss123' \
+          'GOVERNOR_STATE=/run/revoman-cs2a/governor-state.FinalHandoffLoss123' \
+          >"${'$'}PWD/build/cs2a-supervisor.log"
+        printf '%s\n' 0 >"${'$'}PWD/build/cs2a-supervisor-exit.txt"
+      }
+      persist_original_post_status() { return 0; }
+      refresh_remote_final_handoff() { return 41; }
+      publish_local_operator_failure() { return 42; }
+      operator_main
+      """
+        .trimIndent()
+
+    val result = run(listOf("/bin/bash", "-c", harness), workspace)
+
+    assertThat(result.exitCode).isEqualTo(70)
+    assertThat(result.output).contains("unable to preserve final-handoff failure")
+  }
+
+  @Test
+  fun `archive only preserves validation failure locally without copying remote bytes`() {
+    val workspace =
+      Files.createDirectories(temporaryDirectory.resolve("archive-validation-failure")).toRealPath()
+    write(workspace.resolve("build/cs2a-implementation-sha"), "$IMPLEMENTATION_SHA\n")
+    write(workspace.resolve("build/cs2a-supervisor.log"), "trusted supervisor log\n")
+    write(workspace.resolve("build/cs2a-supervisor-exit.txt"), "70\n")
+    val harness =
+      """
+      source ${quote(operator)}
+      $publicationToolPrelude
       RUN_ROOT=/opt/revoman-benchmark/runs/cs2a.Existing123
       GOVERNOR_STATE=/run/revoman-cs2a/governor-state.Existing123
-      prepare_operator_source() { LOCAL_DRIVER=/bin/false; }
+      prepare_operator_source() { AUTHENTICATED_SOURCE_ROOT=/tmp; }
+      prepare_local_driver() { : >"${'$'}PWD/build/driver-called"; return 97; }
+      install_remote_bundle() { : >"${'$'}PWD/build/install-called"; return 97; }
+      run_remote_supervisor() { : >"${'$'}PWD/build/runner-called"; return 97; }
       verify_remote_bundle() { return 0; }
       refresh_remote_final_handoff() { : >"${'$'}PWD/build/refresh-called"; }
       ssh() {
         case "${'$'}*" in
+          *--publish-final-handoff* | *cs2a-controlled-run.sh*)
+            : >"${'$'}PWD/build/forbidden-remote-mode"
+            return 97
+            ;;
+          *--validate-final-handoff*)
+            test "${'$'}#" = 3
+            test "${'$'}1" = -tt
+            test "${'$'}2" = "${'$'}REMOTE_HOST"
+            test "${'$'}3" = \
+              "dzdo /opt/revoman-benchmark/cs2a-governor-supervisor.sh --validate-final-handoff '${'$'}RUN_ROOT' '${'$'}GOVERNOR_STATE'"
+            count=0
+            test ! -e "${'$'}PWD/build/validate-count" || \
+              count=${'$'}(cat "${'$'}PWD/build/validate-count")
+            printf '%s\n' "${'$'}((count + 1))" >"${'$'}PWD/build/validate-count"
+            printf '%s\n' \
+              'RUN_ROOT=/opt/revoman-benchmark/runs/cs2a.UntrustedOutput' \
+              'GOVERNOR_STATE=/run/revoman-cs2a/governor-state.UntrustedOutput'
+            return 37
+            ;;
           *readlink\ -f*) printf '%s\n' "${'$'}RUN_ROOT" ;;
           *run-root.txt*) printf '%s\n' "${'$'}RUN_ROOT" ;;
           *implementation-sha.txt*) printf '%s\n' "$IMPLEMENTATION_SHA" ;;
@@ -1580,13 +1679,119 @@ class Cs2aOperatorScriptTest {
           *) return 97 ;;
         esac
       }
-      rsync() { return 97; }
+      rsync() {
+        : >"${'$'}PWD/build/rsync-called"
+        return 0
+      }
       if operator_main --archive-only "${'$'}RUN_ROOT" "${'$'}GOVERNOR_STATE"; then
         exit 98
       else
         test "${'$'}?" -eq 70
       fi
+      test "${'$'}(cat "${'$'}PWD/build/validate-count")" = 1
+      test ! -e "${'$'}PWD/build/rsync-called"
       test ! -e "${'$'}PWD/build/refresh-called"
+      test ! -e "${'$'}PWD/build/driver-called"
+      test ! -e "${'$'}PWD/build/install-called"
+      test ! -e "${'$'}PWD/build/runner-called"
+      test ! -e "${'$'}PWD/build/forbidden-remote-mode"
+      """
+        .trimIndent()
+
+    val result = run(listOf("/bin/bash", "-c", harness), workspace)
+
+    assertWithMessage(result.output).that(result.exitCode).isEqualTo(0)
+    val canonical =
+      workspace.resolve(
+        "docs/superpowers/benchmarks/results/v1/" + "cs2a-$IMPLEMENTATION_SHA/cs2a.Existing123"
+      )
+    assertThat(Files.exists(canonical)).isFalse()
+    val attempt =
+      Path.of(Files.readString(workspace.resolve("build/cs2a-local-evidence-dir.txt")).trim())
+    assertThat(attempt.fileName.toString()).startsWith("operator-failure.")
+    assertThat(Files.readString(attempt.resolve("meta/operator-failure-phase.txt")))
+      .isEqualTo("archive\n")
+    assertThat(Files.readString(attempt.resolve("meta/operator-failure-source-exit.txt")))
+      .isEqualTo("37\n")
+    assertThat(Files.readString(attempt.resolve("meta/remote-evidence-present.txt")))
+      .isEqualTo("false\n")
+    assertThat(Files.exists(attempt.resolve("manifests"))).isFalse()
+    assertThat(Files.exists(attempt.resolve("results"))).isFalse()
+    assertThat(Files.exists(attempt.resolve("logs"))).isFalse()
+  }
+
+  @Test
+  fun `archive only validates final handoff exactly once before copying`() {
+    val workspace = Files.createDirectories(temporaryDirectory.resolve("archive-after-validation"))
+    write(workspace.resolve("build/cs2a-implementation-sha"), "$IMPLEMENTATION_SHA\n")
+    write(workspace.resolve("build/cs2a-supervisor.log"), "trusted supervisor log\n")
+    write(workspace.resolve("build/cs2a-supervisor-exit.txt"), "0\n")
+    val harness =
+      """
+      source ${quote(operator)}
+      RUN_ROOT=/opt/revoman-benchmark/runs/cs2a.Validated123
+      GOVERNOR_STATE=/run/revoman-cs2a/governor-state.Validated123
+      prepare_operator_source() { AUTHENTICATED_SOURCE_ROOT=/tmp; }
+      prepare_local_driver() { : >"${'$'}PWD/build/driver-called"; return 97; }
+      install_remote_bundle() { : >"${'$'}PWD/build/install-called"; return 97; }
+      run_remote_supervisor() { : >"${'$'}PWD/build/runner-called"; return 97; }
+      verify_remote_bundle() { return 0; }
+      refresh_remote_final_handoff() { : >"${'$'}PWD/build/refresh-called"; }
+      ssh() {
+        case "${'$'}*" in
+          *--publish-final-handoff* | *cs2a-controlled-run.sh*)
+            : >"${'$'}PWD/build/forbidden-remote-mode"
+            return 97
+            ;;
+          *UntrustedOutput*) : >"${'$'}PWD/build/output-contaminated-markers"; return 97 ;;
+          *--validate-final-handoff*)
+            test "${'$'}#" = 3
+            test "${'$'}1" = -tt
+            test "${'$'}2" = "${'$'}REMOTE_HOST"
+            test "${'$'}3" = \
+              "dzdo /opt/revoman-benchmark/cs2a-governor-supervisor.sh --validate-final-handoff '${'$'}RUN_ROOT' '${'$'}GOVERNOR_STATE'"
+            count=0
+            test ! -e "${'$'}PWD/build/validate-count" || \
+              count=${'$'}(cat "${'$'}PWD/build/validate-count")
+            printf '%s\n' "${'$'}((count + 1))" >"${'$'}PWD/build/validate-count"
+            printf '%s\n' validate >>"${'$'}PWD/build/archive-order"
+            printf '%s\n' \
+              'RUN_ROOT=/opt/revoman-benchmark/runs/cs2a.UntrustedOutput' \
+              'GOVERNOR_STATE=/run/revoman-cs2a/governor-state.UntrustedOutput'
+            ;;
+          *readlink\ -f*) printf '%s\n' "${'$'}RUN_ROOT" ;;
+          *run-root.txt*) printf '%s\n' "${'$'}RUN_ROOT" ;;
+          *implementation-sha.txt*) printf '%s\n' "$IMPLEMENTATION_SHA" ;;
+          *executed-script-sha256sums.tsv*)
+            printf 'runner\t%s\nsupervisor\t%s\n' \
+              "${'$'}(sha256_of "${'$'}CONTROLLED_RUNNER")" \
+              "${'$'}(sha256_of "${'$'}SUPERVISOR")"
+            ;;
+          *operator-post-supervisor-exit.txt*) printf '%s\n' 0 ;;
+          *) return 97 ;;
+        esac
+      }
+      rsync() {
+        printf '%s\n' rsync >>"${'$'}PWD/build/archive-order"
+      }
+      publish_archive() {
+        cp -- "${'$'}1/meta/operator-resume-validation-exit.txt" \
+          "${'$'}PWD/build/captured-resume-validation-exit.txt"
+        cp -- "${'$'}1/meta/operator-final-exit.txt" \
+          "${'$'}PWD/build/captured-final-exit.txt"
+      }
+      operator_main --archive-only "${'$'}RUN_ROOT" "${'$'}GOVERNOR_STATE"
+      test "${'$'}(cat "${'$'}PWD/build/validate-count")" = 1
+      test "${'$'}(sed -n '1p' "${'$'}PWD/build/archive-order")" = validate
+      test "${'$'}(grep -c '^rsync${'$'}' "${'$'}PWD/build/archive-order")" = 4
+      test "${'$'}(cat "${'$'}PWD/build/captured-resume-validation-exit.txt")" = 0
+      test "${'$'}(cat "${'$'}PWD/build/captured-final-exit.txt")" = 0
+      test ! -e "${'$'}PWD/build/refresh-called"
+      test ! -e "${'$'}PWD/build/driver-called"
+      test ! -e "${'$'}PWD/build/install-called"
+      test ! -e "${'$'}PWD/build/runner-called"
+      test ! -e "${'$'}PWD/build/forbidden-remote-mode"
+      test ! -e "${'$'}PWD/build/output-contaminated-markers"
       """
         .trimIndent()
 
@@ -1689,6 +1894,7 @@ class Cs2aOperatorScriptTest {
     val invocation =
       "validate_campaign_identity ${quote(fixture.archive)} results/cold-aa.json COLD " +
         "baseline-b-cs2a baseline-83f3cd70 $BASELINE_SHA $IMPLEMENTATION_SHA"
+    assertBashFunctionSucceeds(invocation)
     val mutations =
       linkedMapOf(
         "schema" to ".schema = \"future\"",
@@ -1719,7 +1925,12 @@ class Cs2aOperatorScriptTest {
         "accepted balance" to ".workloads[0].metricSeries[0].blocks[0].accepted = false",
         "block sequence" to ".workloads[0].metricSeries[0].blocks[0].blockId = 99",
         "target membership" to ".workloads[0].metricSeries[0].blocks[0].targetOrder[1] = \"other\"",
-        "block target order" to ".workloads[0].metricSeries[0].blocks[0].targetOrder |= reverse",
+        "duplicate target" to
+          ".workloads[0].metricSeries[0].blocks[0].targetOrder = " +
+            "[\"baseline-a-cs2a\",\"baseline-a-cs2a\"]",
+        "unbalanced accepted first position" to
+          ".workloads[0].metricSeries[0].blocks |= " +
+            "map(.targetOrder = [\"baseline-a-cs2a\",\"baseline-b-cs2a\"])",
         "fork" to ".workloads[0].metricSeries[0].blocks[0].observations[0].fork = 1",
         "target object order" to ".targets |= reverse",
       )
@@ -2110,6 +2321,168 @@ class Cs2aOperatorScriptTest {
   }
 
   @Test
+  fun `canonical publication discovers platform GNU tools without weakening no-replace`() {
+    val implementation = "9".repeat(40)
+    val workspace =
+      Files.createDirectories(temporaryDirectory.resolve("portable-publication")).toRealPath()
+    val parent =
+      Files.createDirectories(
+        workspace.resolve("docs/superpowers/benchmarks/results/v1/cs2a-$implementation")
+      )
+    val stage = Files.createDirectories(parent.resolve(".cs2a-archive-stage.Portable123"))
+    write(stage.resolve("payload.txt"), "portable\n")
+    val canonical = parent.resolve("cs2a.portable")
+    val marker = Files.createDirectories(workspace.resolve("build")).resolve("marker.txt")
+
+    assertProcessSucceeds(
+      listOf(
+        "/bin/bash",
+        "-c",
+        "source ${quote(operator)}; " +
+          "publish_archive ${quote(stage)} ${quote(canonical)} ${quote(marker)} $implementation",
+      ),
+      workspace,
+    )
+
+    assertThat(Files.readString(canonical.resolve("payload.txt"))).isEqualTo("portable\n")
+    assertThat(Files.exists(stage)).isFalse()
+    assertThat(Files.readString(marker).trim()).isEqualTo(canonical.toString())
+  }
+
+  @Test
+  fun `publication tool discovery selects exact Darwin and Linux command names`() {
+    val fakeBin = Files.createDirectories(temporaryDirectory.resolve("platform-publication-tools"))
+    val realMove = run(listOf("/bin/bash", "-c", "command -v gmv || command -v mv")).output.trim()
+    val realStat =
+      run(listOf("/bin/bash", "-c", "command -v gstat || command -v stat")).output.trim()
+    val fakeMove =
+      """
+      #!/bin/sh
+      if test "${'$'}1" = --version; then
+        printf '%s\n' 'mv (GNU coreutils) 9.99'
+        exit 0
+      fi
+      exec ${quote(Path.of(realMove))} "${'$'}@"
+      """
+        .trimIndent() + "\n"
+    val fakeStat =
+      """
+      #!/bin/sh
+      if test "${'$'}1" = --version; then
+        printf '%s\n' 'stat (GNU coreutils) 9.99'
+        exit 0
+      fi
+      exec ${quote(Path.of(realStat))} "${'$'}@"
+      """
+        .trimIndent() + "\n"
+    listOf("mv", "gmv").forEach { name ->
+      write(fakeBin.resolve(name), fakeMove)
+      fakeBin.resolve(name).toFile().setExecutable(true, false)
+    }
+    listOf("stat", "gstat").forEach { name ->
+      write(fakeBin.resolve(name), fakeStat)
+      fakeBin.resolve(name).toFile().setExecutable(true, false)
+    }
+    val harness =
+      """
+      PATH=${quote(fakeBin)}:${'$'}PATH
+      export PATH
+      source ${quote(operator)}
+      uname() { printf '%s\n' "${'$'}FAKE_OS"; }
+      assert_selection() {
+        FAKE_OS=${'$'}1
+        discover_publication_tools
+        case "${'$'}FAKE_OS" in
+          Darwin)
+            test "${'$'}PUBLICATION_MV" = ${quote(fakeBin.resolve("gmv"))}
+            test "${'$'}PUBLICATION_STAT" = ${quote(fakeBin.resolve("gstat"))}
+            ;;
+          Linux)
+            test "${'$'}PUBLICATION_MV" = ${quote(fakeBin.resolve("mv"))}
+            test "${'$'}PUBLICATION_STAT" = ${quote(fakeBin.resolve("stat"))}
+            ;;
+          *) exit 98 ;;
+        esac
+      }
+      assert_selection Darwin
+      assert_selection Linux
+      """
+        .trimIndent()
+
+    assertProcessSucceeds(listOf("/bin/bash", "-c", harness))
+  }
+
+  @Test
+  fun `publication tool discovery rejects a GNU-labelled backend with broken no-replace semantics`() {
+    val fakeBin = Files.createDirectories(temporaryDirectory.resolve("mutated-publication-tools"))
+    val realMove = run(listOf("/bin/bash", "-c", "command -v gmv || command -v mv")).output.trim()
+    val realStat =
+      run(listOf("/bin/bash", "-c", "command -v gstat || command -v stat")).output.trim()
+    val workingMove =
+      """
+      #!/bin/sh
+      if test "${'$'}1" = --version; then
+        printf '%s\n' 'mv (GNU coreutils) 9.99'
+        exit 0
+      fi
+      exec ${quote(Path.of(realMove))} "${'$'}@"
+      """
+        .trimIndent() + "\n"
+    val brokenMove =
+      """
+      #!/bin/sh
+      if test "${'$'}1" = --version; then
+        printf '%s\n' 'mv (GNU coreutils) 9.99'
+        exit 0
+      fi
+      previous=
+      current=
+      for argument in "${'$'}@"; do
+        previous=${'$'}current
+        current=${'$'}argument
+      done
+      rmdir "${'$'}previous"
+      exit 0
+      """
+        .trimIndent() + "\n"
+    val fakeStat =
+      """
+      #!/bin/sh
+      if test "${'$'}1" = --version; then
+        printf '%s\n' 'stat (GNU coreutils) 9.99'
+      else
+        exec ${quote(Path.of(realStat))} "${'$'}@"
+      fi
+      """
+        .trimIndent() + "\n"
+    listOf("mv", "gmv").forEach { name ->
+      write(fakeBin.resolve(name), workingMove)
+      fakeBin.resolve(name).toFile().setExecutable(true, false)
+    }
+    listOf("stat", "gstat").forEach { name ->
+      write(fakeBin.resolve(name), fakeStat)
+      fakeBin.resolve(name).toFile().setExecutable(true, false)
+    }
+    val brokenBackend = temporaryDirectory.resolve("broken-mv")
+    write(brokenBackend, brokenMove)
+    val harness =
+      """
+      PATH=${quote(fakeBin)}:${'$'}PATH
+      export PATH
+      source ${quote(operator)}
+      discover_publication_tools
+      cp -- ${quote(brokenBackend)} "${'$'}PUBLICATION_MV"
+      chmod +x "${'$'}PUBLICATION_MV"
+      if discover_publication_tools; then exit 98; fi
+      """
+        .trimIndent()
+
+    val result = run(listOf("/bin/bash", "-c", harness))
+
+    assertWithMessage(result.output).that(result.exitCode).isEqualTo(0)
+  }
+
+  @Test
   fun `canonical archive and marker publication reject raced destinations without clobbering`() {
     listOf("canonical", "marker").forEach { race ->
       val implementation = "2".repeat(40)
@@ -2134,11 +2507,6 @@ class Cs2aOperatorScriptTest {
         marker=${'$'}5
         victim=${'$'}6
         implementation=${'$'}7
-        MV_COMMAND=${'$'}(command -v gmv || command -v mv)
-        STAT_COMMAND=${'$'}(command -v gstat || command -v stat)
-        uname() { printf '%s\n' Linux; }
-        mv() { "${'$'}MV_COMMAND" "${'$'}@"; }
-        stat() { "${'$'}STAT_COMMAND" "${'$'}@"; }
         if test "${'$'}RACE" = canonical; then
           before_archive_directory_publish() { mkdir "${'$'}canonical"; }
         else
@@ -2325,7 +2693,10 @@ class Cs2aOperatorScriptTest {
         printf 'validate:%s\n' "${'$'}*" >"${'$'}PWD/build/dispatch"
       }
       verify_remote_bundle() { return 0; }
+      validate_remote_final_handoff() { return 0; }
       archive_remote_attempt() { printf 'archive:%s\n' "${'$'}*" >"${'$'}PWD/build/dispatch"; }
+      ssh() { return 97; }
+      rsync() { return 97; }
       case "${'$'}MODE" in
         persist)
           operator_main --persist-only 70
@@ -2894,7 +3265,10 @@ class Cs2aOperatorScriptTest {
 
   private fun campaignBlocks(candidateId: String, count: Int): String =
     (0 until count).joinToString(prefix = "[", postfix = "]") { block ->
-      """{"blockId":$block,"targetOrder":["baseline-a-cs2a","$candidateId"],"accepted":true,"rejectionReasons":[],"observations":[{"fork":0}]}"""
+      val order =
+        if (block % 2 == 0) "[\"baseline-a-cs2a\",\"$candidateId\"]"
+        else "[\"$candidateId\",\"baseline-a-cs2a\"]"
+      """{"blockId":$block,"targetOrder":$order,"accepted":true,"rejectionReasons":[],"observations":[{"fork":0}]}"""
     }
 
   private fun coldArtifacts(artifactSet: String, blocks: Int): String =
@@ -3130,13 +3504,19 @@ class Cs2aOperatorScriptTest {
       "supervisor" to Files.readString(supervisor),
       "operator" to Files.readString(operator),
     )
-  private val linuxNoReplacePublicationPrelude =
+  private val publicationToolPrelude =
     """
-    MV_COMMAND=${'$'}(command -v gmv) || exit 69
-    STAT_COMMAND=${'$'}(command -v gstat) || exit 69
-    uname() { printf '%s\n' Linux; }
-    mv() { "${'$'}MV_COMMAND" "${'$'}@"; }
-    stat() { "${'$'}STAT_COMMAND" "${'$'}@"; }
+    case ${'$'}(uname -s) in
+      Darwin)
+        MV_COMMAND=${'$'}(command -v gmv) || exit 69
+        STAT_COMMAND=${'$'}(command -v gstat) || exit 69
+        ;;
+      Linux)
+        MV_COMMAND=${'$'}(command -v mv) || exit 69
+        STAT_COMMAND=${'$'}(command -v stat) || exit 69
+        ;;
+      *) exit 69 ;;
+    esac
     """
       .trimIndent()
 
@@ -3212,7 +3592,6 @@ class Cs2aOperatorScriptTest {
           "! -path './evidence-sha256sums.txt'",
         ),
         Triple("publication must use hidden sibling", "operator", ".cs2a-archive-stage.XXXXXXXX"),
-        Triple("publication must check same filesystem", "operator", "stat -c '%d'"),
         Triple(
           "publication must recover marker",
           "operator",
@@ -3281,7 +3660,6 @@ private object OperatorSourceContract {
     check("ln \\\"\\${'$'}candidate\\\" \\\"\\${'$'}destination\\\"" in operator)
     check("! -path './evidence-sha256sums.txt'" in operator)
     check(".cs2a-archive-stage.XXXXXXXX" in operator)
-    check("stat -c '%d'" in operator)
     check("recover_publication_marker \"\$canonical\" \"\$marker\"" in operator)
     check("validate_archive_semantics" in operator)
     check("validate_remote_byte_inventory" in operator)

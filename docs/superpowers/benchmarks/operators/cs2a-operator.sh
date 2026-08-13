@@ -18,6 +18,8 @@ readonly IMPLEMENTATION_FILE="$WORKSPACE_ROOT/build/cs2a-implementation-sha"
 readonly EVIDENCE_ROOT="$WORKSPACE_ROOT/docs/superpowers/benchmarks/results/v1"
 readonly EXPECTED_POLICY_SHA256=7312efeed6a4c80e9588f0f4e25742021c6e11f46bbc8468a3adc06772408b79
 readonly EXPECTED_POLICY_SEMANTIC_SHA256=48de27c7c84faec59c0ab2276489460ac4ffe3935cd0be41d9730b5aff1a3f60
+PUBLICATION_MV=
+PUBLICATION_STAT=
 
 fail() {
   printf 'cs2a-operator: %s\n' "$*" >&2
@@ -38,6 +40,12 @@ require_sha() {
 
 controlled_uid_policy_is_provisioned() {
   [[ "$CONTROLLED_UID_POLICY_SHA256" =~ ^[0-9a-f]{64}$ ]]
+}
+
+operator_failure_phase_is_valid() {
+  case "$1" in install | supervisor | markers | post-status | final-handoff | archive) ;;
+    *) return 1 ;;
+  esac
 }
 
 safe_attempt_path() {
@@ -438,9 +446,15 @@ validate_campaign_identity() {
         ([.blocks[] | select(.accepted)] | length) == $blocks and
         ([.blocks[].blockId] == [range(0; $attempted)]) and
         all(.blocks[];
-          (.targetOrder == ["baseline-a-cs2a",$candidateId]) and
+          ((.targetOrder == ["baseline-a-cs2a",$candidateId]) or
+           (.targetOrder == [$candidateId,"baseline-a-cs2a"])) and
           all(.observations[]; .fork == 0)
-        )
+        ) and
+        (([.blocks[] | select(.accepted and
+          .targetOrder[0] == "baseline-a-cs2a")] | length) as $baselineFirst |
+         ([.blocks[] | select(.accepted and
+          .targetOrder[0] == $candidateId)] | length) as $candidateFirst |
+         (($baselineFirst - $candidateFirst) | fabs) <= 1)
       )
     ' "$root/$result" >/dev/null
 }
@@ -1133,11 +1147,46 @@ publish_archive_marker() {
 before_archive_marker_publish() { :; }
 before_archive_directory_publish() { :; }
 
+discover_publication_tools() {
+  local os mv_name stat_name mv_path stat_path probe tmp_base mv_status
+  os=$(uname -s) || return 1
+  case "$os" in
+    Darwin) mv_name='gmv'; stat_name='gstat' ;;
+    Linux) mv_name='mv'; stat_name='stat' ;;
+    *) return 1 ;;
+  esac
+  mv_path=$(command -v "$mv_name") || return 1
+  stat_path=$(command -v "$stat_name") || return 1
+  test -x "$mv_path" && test -x "$stat_path" || return 1
+  "$mv_path" --version 2>/dev/null | sed -n '1p' \
+    | grep -Eq '^mv \(GNU coreutils\) [0-9]+' || return 1
+  "$stat_path" --version 2>/dev/null | sed -n '1p' \
+    | grep -Eq '^stat \(GNU coreutils\) [0-9]+' || return 1
+  tmp_base=${TMPDIR:-/tmp}
+  tmp_base=${tmp_base%/}
+  probe=$(mktemp -d "$tmp_base/cs2a-publication-tools.XXXXXXXX") || return 1
+  case "$probe" in "$tmp_base"/cs2a-publication-tools.*) ;; *) return 1 ;; esac
+  mkdir "$probe/source" "$probe/destination" || return 1
+  if "$mv_path" -Tn -- "$probe/source" "$probe/destination"; then
+    mv_status=0
+  else
+    mv_status=$?
+  fi
+  test "$mv_status" -eq 0 && test -d "$probe/source" && test ! -L "$probe/source" \
+    && test -d "$probe/destination" && test ! -L "$probe/destination" \
+    && [[ "$("$stat_path" -c '%d' "$probe")" =~ ^[0-9]+$ ]]
+  mv_status=$?
+  rm -rf -- "$probe"
+  test "$mv_status" -eq 0 || return 1
+  PUBLICATION_MV=$mv_path
+  PUBLICATION_STAT=$stat_path
+}
+
 publish_archive_directory() {
   local stage=$1 canonical=$2
-  test "$(uname -s)" = Linux || return 1
+  test -n "$PUBLICATION_MV" || return 1
   before_archive_directory_publish
-  mv -Tn -- "$stage" "$canonical" || return 1
+  "$PUBLICATION_MV" -Tn -- "$stage" "$canonical" || return 1
   test -d "$canonical" && test ! -L "$canonical" || return 1
   test ! -e "$stage" && test ! -L "$stage"
 }
@@ -1151,7 +1200,9 @@ publish_archive() {
     test "$(cat "$marker")" = "$canonical" || return 1
     return 0
   fi
-  test "$(stat -c '%d' "$stage")" = "$(stat -c '%d' "$(dirname "$canonical")")" \
+  discover_publication_tools || return 1
+  test "$("$PUBLICATION_STAT" -c '%d' "$stage")" = \
+    "$("$PUBLICATION_STAT" -c '%d' "$(dirname "$canonical")")" \
     || return 1
   validate_archive_safety "$stage" || return 1
   write_root_checksum_inventory "$stage" || return 1
@@ -1170,9 +1221,7 @@ copy_local_failure_file() {
 
 publish_local_operator_failure() {
   local phase=$1 source_status=$2 parent attempt stage canonical marker timestamp
-  case "$phase" in install | supervisor | markers | post-status | archive) ;;
-    *) return 1 ;;
-  esac
+  operator_failure_phase_is_valid "$phase" || return 1
   [[ "$source_status" =~ ^[0-9]+$ ]] || return 1
   require_sha "$CS2A_IMPLEMENTATION_SHA" || return 1
   mkdir -p "$PWD/build" || return 1
@@ -1565,8 +1614,18 @@ refresh_remote_final_handoff() {
        --publish-final-handoff '$run_root' '$governor_state'"
 }
 
+validate_remote_final_handoff() {
+  local run_root=$1 governor_state=$2
+  validate_resume_paths "$run_root" "$governor_state" || return 1
+  # shellcheck disable=SC2029 # both interpolated paths passed the exact absolute-path grammar.
+  ssh -tt "$REMOTE_HOST" \
+    "dzdo /opt/revoman-benchmark/cs2a-governor-supervisor.sh --validate-final-handoff '$run_root' '$governor_state'" \
+    >/dev/null
+}
+
 archive_remote_attempt() {
-  local run_root=$1 governor_state=$2 run_real recorded_run implementation
+  local run_root=$1 governor_state=$2
+  local run_real recorded_run implementation
   local attempt stage canonical marker post_status=70 final_status=70
   validate_resume_paths "$run_root" "$governor_state" || return 70
   # shellcheck disable=SC2029 # validated absolute path is intentionally expanded for remote argv
@@ -1654,7 +1713,8 @@ operator_main() {
     fi
   fi
   if ! prepare_operator_source; then
-    publish_local_operator_failure install 70 || true
+    publish_local_operator_failure install 70 \
+      || fail "unable to preserve install failure"
     return 70
   fi
   if test "$mode" = validate; then
@@ -1664,7 +1724,8 @@ operator_main() {
   fi
   if test "$mode" = run; then
     if ! install_remote_bundle; then
-      publish_local_operator_failure install 70 || true
+      publish_local_operator_failure install 70 \
+        || fail "unable to preserve install failure"
       return 70
     fi
     if run_remote_supervisor; then status=0; else status=$?; fi
@@ -1672,19 +1733,33 @@ operator_main() {
       "$PWD/build/cs2a-supervisor.log" RUN_ROOT) \
       || ! resume_state=$(extract_supervisor_marker \
         "$PWD/build/cs2a-supervisor.log" GOVERNOR_STATE); then
-      publish_local_operator_failure markers "$status" || true
+      publish_local_operator_failure markers "$status" \
+        || fail "unable to preserve markers failure"
       return 70
     fi
     if ! persist_original_post_status "$resume_state" "$status"; then
-      publish_local_operator_failure post-status "$status" || true
+      publish_local_operator_failure post-status "$status" \
+        || fail "unable to preserve post-status failure"
       return 70
     fi
-    if ! refresh_remote_final_handoff "$resume_run" "$resume_state"; then
-      publish_local_operator_failure final-handoff "$status" || true
+    if refresh_remote_final_handoff "$resume_run" "$resume_state"; then
+      :
+    else
+      status=$?
+      publish_local_operator_failure final-handoff "$status" \
+        || fail "unable to preserve final-handoff failure"
       return 70
     fi
   else
     verify_remote_bundle || return 70
+    if validate_remote_final_handoff "$resume_run" "$resume_state"; then
+      :
+    else
+      status=$?
+      publish_local_operator_failure archive "$status" \
+        || fail "unable to preserve archive validation failure"
+      return 70
+    fi
   fi
   archive_remote_attempt "$resume_run" "$resume_state"
 }

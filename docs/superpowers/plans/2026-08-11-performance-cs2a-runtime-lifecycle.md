@@ -2380,24 +2380,31 @@ directory with a missing marker may recreate only that marker after validation. 
 canonical directory, a corrupt canonical directory, or a marker/canonical mismatch is a hard
 failure and can never be treated as an idempotent success.
 
-Canonical directory publication is a Linux-only contract. Require GNU `mv -Tn` after an explicit
-Linux check for the same-filesystem, no-replace directory rename and GNU `stat -c '%d'` for the
-device comparison; fail closed on another platform or an implementation without those semantics.
+Canonical directory publication requires GNU `mv -Tn` for the no-replace directory rename and GNU
+`stat -c '%d'` for the same-filesystem device comparison. On Linux the operator discovers `mv` and
+`stat`; on macOS it discovers the Homebrew-prefixed `gmv` and `gstat`. It requires each selected
+binary to identify itself as GNU coreutils and runs a no-replace semantics probe before publishing;
+fail closed on another platform, a missing GNU pair, or an implementation without those semantics.
 After the no-replace operation, prove that the hidden stage no longer exists and the canonical
 destination is the exact nonsymlink directory. Publish the marker from a hidden regular candidate
 with same-directory `ln`, never direct redirection. Race fixtures must insert a destination or
 symlink between validation and publication and prove neither the stage nor victim bytes are
-clobbered. The mandatory disposable-Linux gate below must repeat this using the actual platform
-utilities rather than the macOS GNU-tool test adapters.
+clobbered. The deterministic tests exercise both platform-selection branches without assuming
+Homebrew names on Ubuntu. The mandatory disposable-Linux gate below must repeat this using the
+actual controlled-host utilities rather than a test adapter.
 
 Archive ingress validates the hidden same-filesystem rsync stage immediately after the last rsync
 and before writing any local-authority byte. Every locally produced status, policy, script,
 checksum, and validation file has a previously absent, nonsymlink destination; the operator writes
 it to a hidden same-directory regular candidate and publishes it with an atomic no-clobber hard
 link. A preexisting regular file, symlink, or other entry at any one of those destinations fails
-closed. `--archive-only` authenticates and copies an already published final handoff but never
-invokes its privileged publisher; a fresh run invokes the publisher exactly once after recording
-the root post-supervisor status and before entering this common archive tail.
+closed. `--archive-only` invokes the installed supervisor's root-only, read-only
+`--validate-final-handoff` mode exactly once before any `rsync`, suppresses its stdout, and enters
+the common copy tail only after status `0`. It never invokes the privileged publisher. A nonzero
+validation status copies no remote byte and instead preserves a truthful local-only
+`operator-failure.*` archive with phase `archive`, that exact status, and
+`remote-evidence-present=false`. A fresh run invokes the publisher exactly once after recording the
+root post-supervisor status and before entering this common archive tail.
 
 The stage marker records the last wholly completed phase; `commands.tsv`, command logs, exit files,
 manifests, raw results, and comparisons record the exact ordered command prefix attempted beyond
@@ -2434,6 +2441,11 @@ and lock-release files exist, the installed reviewed supervisor's `--publish-fin
 validates the canonical run/state paths and exact root sources, then atomically publishes the exact
 13-file `RUN_ROOT/meta/supervisor` tree. Identical retries validate without overwriting; a stale,
 partial, nonregular, symlinked, wrong-owner, wrong-mode, or byte-different destination fails closed.
+The same installed supervisor exposes a separate root-only `--validate-final-handoff` operation
+that performs no write, lock acquisition, publication, launch, or governor mutation. It
+independently authenticates the exact existing 13-file destination against the root state,
+installed implementation/runner/supervisor identities, run-root and status cross-links, released
+lock provenance, false restoration/containment flags, and identical original/restored governors.
 Archive validation requires exact path sets for both trees and byte-equality for their 11 common
 files. Because both trees are created after the runner's remote-byte inventory, that inventory
 excludes them explicitly; the local root checksum covers both. The supervisor implementation
@@ -2442,11 +2454,14 @@ runner's `meta/implementation-sha.txt`, and the final handoff's
 `meta/supervisor/implementation-sha.txt`.
 
 If the operator fails before it obtains one authenticated `RUN_ROOT`/`GOVERNOR_STATE` marker pair,
-it still creates a local `operator-failure.<unique>` archive. That archive contains only bytes the
-local operator actually observed or produced, identifies `remote-evidence-present=false`, and has
-its own exact checksum inventory. It must not create empty remote directories or invent a remote
-stage, run-root, governor, manifest, result, command, inventory, or supervisor file. The same
-safety/checksum/direct-parent persistence contract preserves this pre-marker failure.
+or if final-handoff publication/authentication fails before a safe remote copy begins, it still
+creates a local `operator-failure.<unique>` archive. That archive contains only bytes the local
+operator actually observed or produced, records the exact failure phase/status, identifies
+`remote-evidence-present=false`, and has its own exact checksum inventory. It must not create empty
+remote directories or invent a remote stage, run-root, governor, manifest, result, command,
+inventory, or supervisor file. Failure to publish this local record is itself surfaced rather than
+silently swallowed. The same safety/checksum/direct-parent persistence contract preserves the
+failure.
 
 Before `--persist-only` changes the index, it runs the complete archive safety and exact-root-
 checksum validator, so a symlink, special file, duplicate/path-invalid inventory row, missing path,
@@ -2487,10 +2502,21 @@ restoration/containment false, exact runner/child/supervisor/post/resume status 
 executed script hashes, raw and semantic policy hashes, root-lock provenance, and post-supervisor
 proof that the lock was released.
 
+Process-group containment is fail-closed. A successful TERM/KILL call is not sufficient: the
+supervisor boundedly probes the exact negative PGID until it is absent and records
+`containment-failed=true` on a signal error or a surviving group. A signal observed before launch
+prevents launch; a signal racing the background spawn is rechecked immediately after publishing
+`CHILD_PID`/`CHILD_PGID`, synchronously terminates that group, proves absence, and returns through
+the finalizer. The finalizer retains its signal handlers through containment and governor
+restoration, then ignores further INT/TERM/HUP only for the short atomic evidence/handoff write and
+immediate exit so a second signal cannot interrupt authenticated cleanup.
+
 For a complete selection, each of the five campaign files pins schema/CONTROLLED intent, seed,
 workload and fixture identity, exact metric passes, accepted-block/fork/warmup/measurement counts,
 mode-specific ordered metric/provider/unit triples, sequential bounded block IDs, accepted balance,
-two exact target IDs per block, and fork zero. Harness commit/tree/cleanliness and adapter order are
+two exact target IDs per block, and fork zero. Each block order is exactly either
+`[baseline,candidate]` or `[candidate,baseline]`; among accepted blocks, the two first-position
+counts differ by at most one. Harness commit/tree/cleanliness and adapter order are
 exact and harness/environment objects are byte-equal across all five campaigns. Both targets are in
 baseline/candidate order and project every manifest identity field, build JDK, and path-free
 classpath tuple exactly. Cold allocation result artifacts contain the exact one-JFR tuple per
@@ -2576,15 +2602,19 @@ validation, selection always does, and an existing marker never bypasses type or
 Also execute mutations for a raced canonical directory and marker symlink, an existing root
 post-status symlink, a two-parent evidence commit, an outside index injection after the frozen
 tree is first written, an implementation argument that differs from the source used to build the
-selection driver, and dirty operator-asset bytes that differ from the detached implementation.
-The local publication fixtures may adapt macOS to the exact GNU `mv -Tn`/`stat -c` contract, but
-must not weaken the production Linux-only guard or replace the mandatory real-Linux launch gate.
+selection driver, dirty operator-asset bytes that differ from the detached implementation, an
+unbalanced accepted-block target order, a failed read-only final-handoff authentication before any
+copy, and loss of a final-handoff failure archive. The publication fixtures must prove the exact
+Darwin `gmv`/`gstat` and Linux `mv`/`stat` selection without assuming Homebrew commands exist on
+Ubuntu; neither branch may weaken GNU `-Tn` no-replace semantics or replace the mandatory real-Linux
+launch gate.
 `Cs2aSupervisorAtomicHandoffTest` owns the direct filesystem contract for both immutable supervisor
 publications: interrupted copies expose no final directory, exact publication and identical retry
 succeed without replacing bytes, and stale, partial, symlinked, nonregular, wrong-owner, wrong-mode,
-or byte-different destinations fail closed. Keep this test in the implementation commit and in the
-fixed-range Standards + Spec and security review; it is part of the security boundary, not optional
-fixture coverage.
+or byte-different source or destination metadata fails closed. It also executes the read-only final
+validator's full mutation matrix and the pre/post-spawn signal races. Keep this test in the
+implementation commit and in the fixed-range Standards + Spec and security review; it is part of
+the security boundary, not optional fixture coverage.
 
 Stage the active ABI, structural/operator/handoff tests, source, ordinary documentation, spec
 status, and all four operator files and create the pre-evidence implementation commit. The broad
@@ -2915,11 +2945,14 @@ printf '%s\n' "$OPERATOR_STATUS" >"$PWD/build/cs2a-operator-status.txt"
 test -s "$PWD/build/cs2a-local-evidence-dir.txt"
 ```
 
-Archive-only mode executes the same detached-source/script/policy authentication, validates the
-root-owned `run-root.txt` cross-link and executed hashes, rechecks lock release/governor
-restoration, independently authenticates the already atomically published supervisor handoff, and
-enters only the common fresh-staging local copy/safety/checksum/atomic-publish tail. It never
-refreshes or overwrites a final handoff and never installs or invokes the supervisor/runner.
+Archive-only mode executes the same detached-source/script/policy authentication, then invokes the
+installed supervisor only in root-only read-only `--validate-final-handoff` mode. That mode
+validates the root-owned `run-root.txt` cross-link and executed hashes, rechecks lock release,
+containment, governor restoration, and the exact already-atomically-published supervisor handoff,
+and performs no publication or other mutation. Only status `0` enters the common fresh-staging
+local copy/safety/checksum/atomic-publish tail. A nonzero status performs no `rsync`, suppresses any
+validator output, and preserves only a local `operator-failure.*` archive with the actual status.
+Archive-only never refreshes or overwrites a final handoff and never installs or invokes the runner.
 The first run's post-supervisor status is persisted root-owned before any local staging and is never
 recomputed or reset by recovery; archive-only records its own validation status separately, and
 selection requires both values to be zero. If both original persistence attempts failed, recovery
