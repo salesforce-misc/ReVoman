@@ -31,7 +31,9 @@
       "WARM_P95",
       "WARM_ALLOCATION"
     ],
-    "RETAINED": []
+    "RETAINED": [
+      "RETAINED_SLOPE"
+    ]
   },
   "expectedDigest": {
     "checksum": 31,

@@ -11,6 +11,10 @@ import com.google.common.truth.Truth.assertThat
 import com.salesforce.revoman.benchmark.driver.model.ExecutionDigest
 import com.salesforce.revoman.benchmark.driver.model.WorkloadRequest
 import com.salesforce.revoman.benchmark.driver.target.major.MajorV1BindingContract
+import com.salesforce.revoman.benchmark.driver.target.major.MajorV1Adapter
+import com.salesforce.revoman.benchmark.driver.target.major.drainMajorLifecycleWeakReferencesForTest
+import com.salesforce.revoman.benchmark.driver.target.major.normalizeMajorLifecycleRecordsForTest
+import java.lang.ref.WeakReference
 import java.nio.file.Files
 import java.nio.file.Path
 import org.junit.jupiter.api.Test
@@ -135,6 +139,70 @@ class TargetAdapterContractTest {
 
             assertThat(staticFailure).hasMessageThat().contains("expected VIRTUAL")
             assertThat(virtualFailure).hasMessageThat().contains("expected STATIC")
+        }
+    }
+
+    @Test
+    fun `major retained capability normalizes exact weak records without target ownership`() {
+        val builder = FakeTargetJarBuilder(temporaryDirectory)
+        val probe = normalizedOwnershipProbe(builder)
+
+        assertThat(probe.records.map { it.type })
+            .containsExactly(
+                "ExecutionSession",
+                "KickExecution",
+                "ExecutionSession",
+                "KickExecution",
+            )
+            .inOrder()
+        assertThat(probe.records.map { it.reference.javaClass }.distinct())
+            .containsExactly(WeakReference::class.java)
+        assertThat(probe.records[0].type).isSameInstanceAs(EXECUTION_SESSION_WEAK_TYPE)
+        assertThat(probe.records[1].type).isSameInstanceAs(KICK_EXECUTION_WEAK_TYPE)
+        awaitCleared(probe.targetSentinels)
+        assertThat(probe.records.map { it.reference }.distinct()).hasSize(4)
+    }
+
+    @Test
+    fun `legacy baseline has no lifecycle weak reference capability`() {
+        val builder = FakeTargetJarBuilder(temporaryDirectory)
+        val verified = VerifiedTargetManifest.preflight(builder.manifestFor(builder.baselineJar()))
+
+        TargetRuntime.open(verified).use { runtime ->
+            TargetAdapterRegistry.require("baseline-83f3cd70").prepare(runtime, request()).use {
+                prepared ->
+                assertThat(prepared).isNotInstanceOf(LifecycleWeakReferenceProvider::class.java)
+            }
+        }
+    }
+
+    @Test
+    fun `major diagnostics rejects every malformed target array before publishing records`() {
+        val builder = FakeTargetJarBuilder(temporaryDirectory)
+        val fixtures =
+            listOf(
+                MajorDiagnosticsFixture.EMPTY,
+                MajorDiagnosticsFixture.ODD,
+                MajorDiagnosticsFixture.NON_STRING,
+                MajorDiagnosticsFixture.BLANK,
+                MajorDiagnosticsFixture.UNKNOWN,
+                MajorDiagnosticsFixture.WEAK_SUBCLASS,
+                MajorDiagnosticsFixture.REPEATED_REFERENCE,
+            )
+
+        fixtures.forEach { fixture ->
+            val jar = builder.majorJar(fixture)
+            val verified = VerifiedTargetManifest.preflight(builder.manifestFor(jar))
+            TargetRuntime.open(verified).use { runtime ->
+                TargetAdapterRegistry.require("major-v1").prepare(runtime, request()).use {
+                    prepared ->
+                    prepared.execute()
+                    val provider = prepared as LifecycleWeakReferenceProvider
+                    assertThrows<IllegalStateException> {
+                        provider.drainLifecycleWeakReferences()
+                    }
+                }
+            }
         }
     }
 
@@ -336,6 +404,74 @@ class TargetAdapterContractTest {
             }
         }
     }
+
+    private fun normalizedOwnershipProbe(builder: FakeTargetJarBuilder): OwnershipProbe {
+        val sentinels = mutableListOf<WeakReference<*>>()
+        val records =
+            TargetRuntime.open(
+                VerifiedTargetManifest.preflight(
+                    builder.manifestFor(builder.majorJar(MajorDiagnosticsFixture.VALID))
+                )
+            ).use { runtime ->
+                MajorV1Adapter.prepare(runtime, request())
+                    .use { prepared ->
+                        check(
+                            prepared.javaClass.declaredFields.none {
+                                it.name == "normalizationObserver"
+                            }
+                        ) {
+                            "major prepared workload must not retain a normalization observer"
+                        }
+                        prepared.execute()
+                        prepared.execute()
+                        val normalized =
+                            drainMajorLifecycleWeakReferencesForTest(
+                                prepared,
+                                { raw, handle, firstReferent, secondReferent ->
+                                    sentinels += WeakReference(raw)
+                                    sentinels += WeakReference(handle)
+                                    sentinels += WeakReference(requireNotNull(firstReferent))
+                                    sentinels += WeakReference(requireNotNull(secondReferent))
+                                },
+                            )
+                        check(normalized[0].type == EXECUTION_SESSION_WEAK_TYPE)
+                        check(normalized[1].type == KICK_EXECUTION_WEAK_TYPE)
+                        val sessionReferent = requireNotNull(normalized[0].reference.get())
+                        val kickReferent = requireNotNull(normalized[1].reference.get())
+                        check(sessionReferent.javaClass.classLoader != null)
+                        check(kickReferent.javaClass.classLoader != null)
+                        normalized
+                    }
+            }
+        return OwnershipProbe(records, sentinels.toList())
+    }
+
+    @Test
+    fun `major lifecycle normalization checks count overflow before publishing records`() {
+        val referent = Any()
+        val raw = arrayOf<Any>(String(charArrayOf('E', 'x', 'e', 'c', 'u', 't', 'i', 'o', 'n', 'S', 'e', 's', 's', 'i', 'o', 'n')), WeakReference(referent))
+
+        val failure =
+            assertThrows<ArithmeticException> {
+                normalizeMajorLifecycleRecordsForTest(raw, initialCount = Long.MAX_VALUE)
+            }
+
+        assertThat(failure).hasMessageThat().contains("overflow")
+    }
+
+    private fun awaitCleared(references: List<WeakReference<*>>) {
+        repeat(200) {
+            if (references.all { it.get() == null }) return
+            System.gc()
+            Thread.sleep(10)
+        }
+        assertThat(references.map { it.get() }).containsExactly(null, null, null, null)
+    }
+
+    private data class OwnershipProbe(
+        val records: List<TrackedWeakReference>,
+        val targetSentinels: List<WeakReference<*>>,
+    )
 
     private fun request(): WorkloadRequest {
         Files.writeString(temporaryDirectory.resolve("collection.postman_collection.json"), "{}")

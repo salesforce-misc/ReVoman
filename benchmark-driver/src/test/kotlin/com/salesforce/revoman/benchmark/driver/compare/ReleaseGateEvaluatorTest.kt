@@ -17,8 +17,10 @@ import com.salesforce.revoman.benchmark.driver.model.BenchmarkResultV1
 import com.salesforce.revoman.benchmark.driver.model.GateId
 import com.salesforce.revoman.benchmark.driver.model.MetricId
 import com.salesforce.revoman.benchmark.driver.model.MetricUnit
+import com.salesforce.revoman.benchmark.driver.model.RetainedEvidence
 import com.salesforce.revoman.benchmark.driver.model.RunIntent
 import com.salesforce.revoman.benchmark.driver.model.RunMode
+import com.salesforce.revoman.benchmark.driver.model.WeakReferenceOutcome
 import com.salesforce.revoman.benchmark.driver.stats.RatioInterval
 import com.salesforce.revoman.benchmark.driver.stats.Statistic
 import com.squareup.moshi.JsonDataException
@@ -171,6 +173,205 @@ class ReleaseGateEvaluatorTest {
         assertThat(fakeOnly.overall).isEqualTo(GateDecision.INCONCLUSIVE)
         assertThat(uncleared.decision(GateId.RETAINED_SLOPE).decision)
             .isEqualTo(GateDecision.FAIL)
+    }
+
+    @Test
+    fun `exact v2 rejects two and three cycle observations before slope calculation`() {
+        val manifest = ComparisonFixtures.manifest(RunMode.RETAINED, listOf(GateId.RETAINED_SLOPE))
+
+        listOf(2, 3).forEach { cycles ->
+            val report =
+                evaluator.evaluate(
+                    ComparisonFixtures.retainedResult(0.0, completedGcCycles = cycles),
+                    listOf(manifest),
+                )
+            val decision = report.decision(GateId.RETAINED_SLOPE)
+            assertThat(decision.decision).isEqualTo(GateDecision.INCONCLUSIVE)
+            assertThat(decision.slopeInterval).isNull()
+            assertThat(decision.reason)
+                .isEqualTo("exact v2 retained evidence requires at least four completed GC cycles")
+        }
+    }
+
+    @Test
+    fun `generic retained providers keep the model two cycle floor`() {
+        val manifest = ComparisonFixtures.manifest(RunMode.RETAINED, listOf(GateId.RETAINED_SLOPE))
+        val generic =
+            ComparisonFixtures.withSeries(
+                ComparisonFixtures.retainedResult(0.0, completedGcCycles = 2),
+                MetricId.RETAINED_BYTES,
+            ) { series ->
+                series.copy(
+                    provider = "future-retained-provider/v9",
+                    blocks =
+                        requireNotNull(series.blocks).map { block ->
+                            block.copy(
+                                observations =
+                                    block.observations.map { observation ->
+                                        observation.copy(provider = "future-retained-provider/v9")
+                                    }
+                            )
+                        },
+                )
+            }
+
+        assertThat(evaluator.evaluate(generic, listOf(manifest)).decision(GateId.RETAINED_SLOPE).decision)
+            .isEqualTo(GateDecision.PASS)
+    }
+
+    @Test
+    fun `exact v2 role shapes reject missing extra duplicate unknown and count mismatches`() {
+        val manifest = ComparisonFixtures.manifest(RunMode.RETAINED, listOf(GateId.RETAINED_SLOPE))
+        val base = ComparisonFixtures.retainedResult(0.0)
+        val candidateCases =
+            listOf<(RetainedEvidence) -> List<WeakReferenceOutcome>>(
+                { evidence -> evidence.weakReferences.dropLast(1) },
+                { evidence -> evidence.weakReferences + WeakReferenceOutcome("Extra", 1, 1) },
+                { evidence -> evidence.weakReferences + evidence.weakReferences.first() },
+                { evidence ->
+                    evidence.weakReferences.mapIndexed { index, outcome ->
+                        if (index == 0) outcome.copy(type = "Unknown") else outcome
+                    }
+                },
+                { evidence ->
+                    evidence.weakReferences.mapIndexed { index, outcome ->
+                        if (index == 0) {
+                            outcome.copy(
+                                created = evidence.executionCount - 1,
+                                cleared = evidence.executionCount - 1,
+                            )
+                        } else outcome
+                    }
+                },
+            )
+        candidateCases.forEach { mutation ->
+            val decision =
+                evaluator
+                    .evaluate(mutateRetained(base, ComparisonFixtures.CANDIDATE_ID, mutation), listOf(manifest))
+                    .decision(GateId.RETAINED_SLOPE)
+            assertThat(decision.decision).isEqualTo(GateDecision.INCONCLUSIVE)
+            assertThat(decision.reason)
+                .isEqualTo(
+                    "candidate exact v2 evidence requires one ExecutionSession and one " +
+                        "KickExecution row with created equal to executionCount"
+                )
+        }
+
+        val baselineCases =
+            listOf<(RetainedEvidence) -> List<WeakReferenceOutcome>>(
+                { listOf(WeakReferenceOutcome("ExecutionSession", 1, 1)) },
+                { evidence -> evidence.weakReferences + WeakReferenceOutcome("Extra", 1, 1) },
+                { evidence -> evidence.weakReferences + evidence.weakReferences.single() },
+                { listOf(WeakReferenceOutcome("Unknown", 1, 1)) },
+            )
+        baselineCases.forEach { mutation ->
+            val decision =
+                evaluator
+                    .evaluate(
+                        mutateRetained(base, ComparisonFixtures.BASELINE_ID, mutation),
+                        listOf(manifest),
+                    )
+                    .decision(GateId.RETAINED_SLOPE)
+            assertThat(decision.decision).isEqualTo(GateDecision.INCONCLUSIVE)
+            assertThat(decision.reason)
+                .isEqualTo(
+                    "baseline exact v2 evidence requires one Cs1FakeExecutionToken row with created equal to one"
+                )
+        }
+
+        listOf(0, 2).forEach { count ->
+            val decision =
+                evaluator
+                    .evaluate(
+                        mutateRetained(base, ComparisonFixtures.BASELINE_ID) { evidence ->
+                            listOf(WeakReferenceOutcome("Cs1FakeExecutionToken", count, count))
+                        },
+                        listOf(manifest),
+                    )
+                    .decision(GateId.RETAINED_SLOPE)
+            assertThat(decision.decision).isEqualTo(GateDecision.INCONCLUSIVE)
+            assertThat(decision.reason)
+                .isEqualTo(
+                    "baseline exact v2 evidence requires one Cs1FakeExecutionToken row with created equal to one"
+                )
+        }
+    }
+
+    @Test
+    fun `exact v2 uncleared expected rows fail even when their role shape is also defective`() {
+        val manifest = ComparisonFixtures.manifest(RunMode.RETAINED, listOf(GateId.RETAINED_SLOPE))
+        val base = ComparisonFixtures.retainedResult(0.0)
+        val candidate =
+            mutateRetained(base, ComparisonFixtures.CANDIDATE_ID) { evidence ->
+                listOf(
+                    evidence.weakReferences.first().copy(cleared = evidence.executionCount - 1)
+                )
+            }
+        val baseline =
+            mutateRetained(base, ComparisonFixtures.BASELINE_ID) { evidence ->
+                listOf(
+                    WeakReferenceOutcome("Cs1FakeExecutionToken", 1, 0),
+                    WeakReferenceOutcome("Unknown", 1, 1),
+                )
+            }
+
+        val candidateDecision =
+            evaluator.evaluate(candidate, listOf(manifest)).decision(GateId.RETAINED_SLOPE)
+        val baselineDecision =
+            evaluator.evaluate(baseline, listOf(manifest)).decision(GateId.RETAINED_SLOPE)
+        assertThat(candidateDecision.decision).isEqualTo(GateDecision.FAIL)
+        assertThat(candidateDecision.reason)
+            .isEqualTo("candidate exact v2 expected weak references did not all clear")
+        assertThat(candidateDecision.slopeInterval).isNull()
+        assertThat(baselineDecision.decision).isEqualTo(GateDecision.FAIL)
+        assertThat(baselineDecision.reason)
+            .isEqualTo("baseline exact v2 expected weak references did not all clear")
+        assertThat(baselineDecision.slopeInterval).isNull()
+    }
+
+    @Test
+    fun `exact v2 uncleared expected rows fail before two or three cycle defects`() {
+        val manifest = ComparisonFixtures.manifest(RunMode.RETAINED, listOf(GateId.RETAINED_SLOPE))
+
+        listOf(2, 3).forEach { cycles ->
+            val result =
+                mutateRetained(
+                    ComparisonFixtures.retainedResult(0.0, completedGcCycles = cycles),
+                    ComparisonFixtures.CANDIDATE_ID,
+                ) { evidence ->
+                    evidence.weakReferences.mapIndexed { index, outcome ->
+                        if (index == 0) outcome.copy(cleared = outcome.created - 1) else outcome
+                    }
+                }
+            val decision = evaluator.evaluate(result, listOf(manifest)).decision(GateId.RETAINED_SLOPE)
+
+            assertThat(decision.decision).isEqualTo(GateDecision.FAIL)
+            assertThat(decision.reason)
+                .isEqualTo("candidate exact v2 expected weak references did not all clear")
+            assertThat(decision.slopeInterval).isNull()
+        }
+    }
+
+    @Test
+    fun `exact v2 uncleared unknown extra is a shape defect when expected rows clear`() {
+        val manifest = ComparisonFixtures.manifest(RunMode.RETAINED, listOf(GateId.RETAINED_SLOPE))
+        val result =
+            mutateRetained(
+                ComparisonFixtures.retainedResult(0.0),
+                ComparisonFixtures.CANDIDATE_ID,
+            ) { evidence ->
+                evidence.weakReferences + WeakReferenceOutcome("Unknown", 1, 0)
+            }
+
+        val decision = evaluator.evaluate(result, listOf(manifest)).decision(GateId.RETAINED_SLOPE)
+
+        assertThat(decision.decision).isEqualTo(GateDecision.INCONCLUSIVE)
+        assertThat(decision.reason)
+            .isEqualTo(
+                "candidate exact v2 evidence requires one ExecutionSession and one " +
+                    "KickExecution row with created equal to executionCount"
+            )
+        assertThat(decision.slopeInterval).isNull()
     }
 
     @Test
@@ -589,7 +790,8 @@ class ReleaseGateEvaluatorTest {
 
     @Test
     fun `retained evidence requires two acknowledged GC cycles at every trust boundary`() {
-        val valid = ComparisonFixtures.retainedResult(candidateSlope = 0.0)
+        val valid =
+            ComparisonFixtures.retainedResult(candidateSlope = 0.0, completedGcCycles = 2)
         val invalid =
             valid.copy(
                 workloads =
@@ -642,13 +844,40 @@ class ReleaseGateEvaluatorTest {
         assertThrows<IllegalArgumentException>("decode") {
             BenchmarkJson.read<BenchmarkResultV1>(invalidJson)
         }
-        assertThrows<IllegalArgumentException>("evaluation") {
-            evaluator.evaluate(invalid, listOf(manifest))
-        }
+        val invalidReport = evaluator.evaluate(invalid, listOf(manifest))
+        assertThat(invalidReport.overall).isEqualTo(GateDecision.INCOMPATIBLE)
+        assertThat(invalidReport.compatibilityErrors.single())
+            .contains("retainedEvidence.completedGcCycles must be at least two")
         val validVerify = verify(validJson)
         assertWithMessage(validVerify.error).that(validVerify.exit).isEqualTo(CliExitCode.SUCCESS)
         assertThat(verify(invalidJson).exit).isEqualTo(CliExitCode.INVALID_INPUT)
     }
+
+    private fun mutateRetained(
+        result: BenchmarkResultV1,
+        targetId: String,
+        mutation: (RetainedEvidence) -> List<WeakReferenceOutcome>,
+    ): BenchmarkResultV1 =
+        ComparisonFixtures.withSeries(result, MetricId.RETAINED_BYTES) { series ->
+            series.copy(
+                blocks =
+                    requireNotNull(series.blocks).map { block ->
+                        block.copy(
+                            observations =
+                                block.observations.map { observation ->
+                                    if (observation.targetId != targetId) observation
+                                    else {
+                                        val evidence = requireNotNull(observation.retainedEvidence)
+                                        observation.copy(
+                                            retainedEvidence =
+                                                evidence.copy(weakReferences = mutation(evidence))
+                                        )
+                                    }
+                                }
+                        )
+                    }
+            )
+        }
 
     @Test
     fun `overall precedence is incompatible then inconclusive then fail then pass`() {

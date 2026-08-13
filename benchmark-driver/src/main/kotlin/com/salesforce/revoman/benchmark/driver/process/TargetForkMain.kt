@@ -20,6 +20,8 @@ import com.salesforce.revoman.benchmark.driver.model.TargetSample
 import com.salesforce.revoman.benchmark.driver.model.WeakReferenceOutcome
 import com.salesforce.revoman.benchmark.driver.model.requireExpectedExecutionDigest
 import com.salesforce.revoman.benchmark.driver.target.PreparedWorkload
+import com.salesforce.revoman.benchmark.driver.target.CS1_FAKE_EXECUTION_TOKEN_WEAK_TYPE
+import com.salesforce.revoman.benchmark.driver.target.LifecycleWeakReferenceProvider
 import com.salesforce.revoman.benchmark.driver.target.TargetAdapterRegistry
 import com.salesforce.revoman.benchmark.driver.target.TargetRuntime
 import com.salesforce.revoman.benchmark.driver.target.VerifiedTargetManifest
@@ -41,7 +43,36 @@ fun main(arguments: Array<String>) {
     }
 }
 
-private fun runTargetFork(arguments: Array<String>) {
+internal interface TargetForkEffects {
+    fun getProperty(key: String): String?
+
+    fun setProperty(key: String, value: String)
+
+    fun clearProperty(key: String)
+
+    fun publish(path: Path, result: TargetForkResult)
+}
+
+private object SystemTargetForkEffects : TargetForkEffects {
+    override fun getProperty(key: String): String? = System.getProperty(key)
+
+    override fun setProperty(key: String, value: String) {
+        System.setProperty(key, value)
+    }
+
+    override fun clearProperty(key: String) {
+        System.clearProperty(key)
+    }
+
+    override fun publish(path: Path, result: TargetForkResult) {
+        BenchmarkJson.write(path, result)
+    }
+}
+
+internal fun runTargetFork(
+    arguments: Array<String>,
+    effects: TargetForkEffects = SystemTargetForkEffects,
+) {
     require(arguments.size == 1) { "Usage: TargetForkMain <command-file>" }
     val commandPath = normalizedAbsolutePath("Target command path", arguments.single())
     val command = BenchmarkJson.read<TargetForkCommand>(commandPath)
@@ -55,7 +86,9 @@ private fun runTargetFork(arguments: Array<String>) {
     var prepared: PreparedWorkload? = null
     var failure: Throwable? = null
     var result: TargetForkResult? = null
+    val diagnosticsProperty = lifecycleDiagnosticsProperty(command, effects)
     try {
+        diagnosticsProperty?.enable(effects)
         allocationRecording?.recording?.start()
         val verified = VerifiedTargetManifest.fromWorkerCommand(command)
         runtime = TargetRuntime.open(verified)
@@ -66,13 +99,18 @@ private fun runTargetFork(arguments: Array<String>) {
         failure = primary
         throw primary
     } finally {
-        failure = closeResource(prepared, failure)
-        failure = closeResource(runtime, failure)
-        failure = closeResource(allocationRecording?.recording, failure)
+        failure =
+            finishTargetFork(
+                prepared = prepared,
+                runtime = runtime,
+                recording = allocationRecording?.recording,
+                restoreProperty = { restoreProperty(diagnosticsProperty, effects) },
+                primary = failure,
+            )
         if (failure != null && result != null) throw failure
     }
     val completed = requireNotNull(result)
-    BenchmarkJson.write(
+    effects.publish(
         Path.of(command.resultFile),
         completed.copy(jfrConfigurationSha256 = allocationRecording?.configurationSha256),
     )
@@ -135,33 +173,68 @@ private fun retainedResult(
             location = "retained[$iteration]",
         )
     }
-    val fakeToken = createFakeTokenReference()
-    val fullGc = FullGcProtocol().sample()
-    val weakReferences =
-        listOf(
-            WeakReferenceOutcome(
-                type = CS1_FAKE_WEAK_REFERENCE_TYPE,
-                created = 1,
-                cleared = if (fakeToken.get() == null) 1 else 0,
-            )
-        )
+    val referenceSource: () -> List<com.salesforce.revoman.benchmark.driver.target.TrackedWeakReference> =
+        when (command.adapterId) {
+            "baseline-83f3cd70" -> {
+                check(prepared !is LifecycleWeakReferenceProvider) {
+                    "baseline adapter must not expose lifecycle diagnostics"
+                };
+                fun(): List<com.salesforce.revoman.benchmark.driver.target.TrackedWeakReference> {
+                    return listOf(
+                        com.salesforce.revoman.benchmark.driver.target.TrackedWeakReference(
+                            CS1_FAKE_EXECUTION_TOKEN_WEAK_TYPE,
+                            createFakeTokenReference(),
+                        )
+                    )
+                }
+            }
+            "major-v1" -> {
+                val provider = prepared as? LifecycleWeakReferenceProvider
+                    ?: error("major-v1 retained mode requires lifecycle diagnostics")
+                fun(): List<com.salesforce.revoman.benchmark.driver.target.TrackedWeakReference> =
+                    provider.drainLifecycleWeakReferences()
+            }
+            else -> error("Retained mode requires a versioned lifecycle capability: ${command.adapterId}")
+        }
+    val checkpoint = RetainedCheckpointCollector().collect(executionCount, referenceSource)
     return TargetForkResult(
         processId = ProcessHandle.current().pid(),
         warmupIterations = 0,
         measurementIterations = 0,
         samples = emptyList(),
         retainedCheckpoint =
-            RetainedCheckpoint(
-                executionCount = executionCount,
-                usedHeapBytes = fullGc.usedHeapBytes,
-                completedGcCycles = fullGc.completedGcCycles,
-                weakReferences = weakReferences,
-            ),
+            checkpoint,
     )
 }
 
 private fun createFakeTokenReference(): WeakReference<Cs1FakeExecutionToken> =
     WeakReference(Cs1FakeExecutionToken())
+
+private data class PropertySnapshot(
+    val key: String,
+    val previous: String?,
+) {
+    fun enable(effects: TargetForkEffects) {
+        effects.setProperty(key, LIFECYCLE_DIAGNOSTICS_VALUE)
+    }
+}
+
+private fun lifecycleDiagnosticsProperty(
+    command: TargetForkCommand,
+    effects: TargetForkEffects,
+): PropertySnapshot? =
+    if (command.mode == RunMode.RETAINED && command.adapterId == "major-v1") {
+        PropertySnapshot(
+            LIFECYCLE_DIAGNOSTICS_PROPERTY,
+            effects.getProperty(LIFECYCLE_DIAGNOSTICS_PROPERTY),
+        )
+    } else null
+
+private fun restoreProperty(snapshot: PropertySnapshot?, effects: TargetForkEffects) {
+    if (snapshot == null) return
+    snapshot.previous?.let { effects.setProperty(snapshot.key, it) }
+        ?: effects.clearProperty(snapshot.key)
+}
 
 private fun allocationRecording(command: TargetForkCommand): AllocationRecording? {
     if (command.metricPass != MetricPass.ALLOCATION) return null
@@ -213,6 +286,26 @@ private fun closeResource(resource: AutoCloseable?, primary: Throwable?): Throwa
     }
 }
 
+internal fun finishTargetFork(
+    prepared: AutoCloseable?,
+    runtime: AutoCloseable?,
+    recording: AutoCloseable?,
+    restoreProperty: () -> Unit,
+    primary: Throwable?,
+): Throwable? {
+    var failure = closeResource(prepared, primary)
+    failure = closeResource(runtime, failure)
+    failure = closeResource(recording, failure)
+    return try {
+        restoreProperty()
+        failure
+    } catch (restoreFailure: Throwable) {
+        failure?.also { existing ->
+            if (existing !== restoreFailure) existing.addSuppressed(restoreFailure)
+        } ?: restoreFailure
+    }
+}
+
 private fun validateMode(command: TargetForkCommand) {
     when (command.mode) {
         RunMode.COLD -> {
@@ -257,4 +350,5 @@ private class Cs1FakeExecutionToken
 
 private val COLD_METRIC_PASSES =
     setOf(MetricPass.LATENCY, MetricPass.ALLOCATION, MetricPass.PEAK_RSS)
-private const val CS1_FAKE_WEAK_REFERENCE_TYPE: String = "Cs1FakeExecutionToken"
+private const val LIFECYCLE_DIAGNOSTICS_PROPERTY: String = "revoman.lifecycleDiagnostics"
+private const val LIFECYCLE_DIAGNOSTICS_VALUE: String = "weak-references-v1"

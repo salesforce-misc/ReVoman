@@ -592,8 +592,8 @@ internal val CS2_TASK4_RAW_JVM_REMOVALS: Set<String> =
     "com/salesforce/revoman/internal/postman/sandbox/PmSandbox\tMETHOD\texecute\u0024default\t(Lcom/salesforce/revoman/internal/postman/sandbox/PmSandbox;Ljava/lang/String;Lcom/salesforce/revoman/internal/postman/sandbox/ScriptTarget;Lcom/salesforce/revoman/internal/postman/sandbox/PmExecutionContext;JILjava/lang/Object;)Lcom/salesforce/revoman/internal/postman/sandbox/PmExecutionResult;\t0x0031\t0x1009\tfalse\ttrue\tfalse\tfalse",
   )
 
-/** Exact cumulative raw-JAR additions approved after CS2 Task 6. */
-internal val CS2_TASK6_RAW_JVM_ADDITIONS: Set<String> =
+/** Exact cumulative raw-JAR additions approved after CS2 Task 7. */
+internal val CS2_TASK7_RAW_JVM_ADDITIONS: Set<String> =
   setOf(
     "com/salesforce/revoman/internal/exe/PmJsEvalKt\tMETHOD\texecutePostResJS\t(Lcom/salesforce/revoman/output/report/Step;Lcom/salesforce/revoman/internal/postman/template/Item;Lcom/salesforce/revoman/output/report/StepReport;Lcom/salesforce/revoman/internal/postman/PostmanVariableScopes;Lcom/salesforce/revoman/internal/postman/StepScriptCapture;Lcom/salesforce/revoman/internal/runtime/ScriptExecutor;)Larrow/core/Either;\t0x0031\t0x1019\tfalse\ttrue\tfalse\tfalse",
     "com/salesforce/revoman/internal/exe/PmJsEvalKt\tMETHOD\texecutePostResJS\u0024lambda\u00241\t(Ljava/lang/String;Lcom/salesforce/revoman/internal/postman/template/Item;Lcom/salesforce/revoman/output/report/StepReport;Lcom/salesforce/revoman/internal/postman/PostmanVariableScopes;Lcom/salesforce/revoman/internal/postman/StepScriptCapture;Lcom/salesforce/revoman/internal/runtime/ScriptExecutor;Lcom/salesforce/revoman/output/report/Step;)Lkotlin/Unit;\t0x0031\t0x001A\tfalse\tfalse\tfalse\tfalse",
@@ -1129,10 +1129,25 @@ internal val CS2_TASK6_RAW_JVM_ADDITIONS: Set<String> =
     "com/salesforce/revoman/internal/runtime/ScriptExecutor\tMETHOD\texecute\u0024default\t(Lcom/salesforce/revoman/internal/runtime/ScriptExecutor;Ljava/lang/String;Lcom/salesforce/revoman/internal/postman/sandbox/ScriptTarget;Lcom/salesforce/revoman/internal/postman/sandbox/PmExecutionContext;JILjava/lang/Object;)Lcom/salesforce/revoman/internal/postman/sandbox/PmExecutionResult;\t0x0601\t0x1009\tfalse\ttrue\tfalse\tfalse",
     "com/salesforce/revoman/internal/runtime/ScriptExecutor\u0024DefaultImpls\tCLASS\t<class>\tLcom/salesforce/revoman/internal/runtime/ScriptExecutor\u0024DefaultImpls;\t0x0019\t0x0000\tfalse\tfalse\tfalse\ttrue",
     "com/salesforce/revoman/internal/runtime/ScriptExecutor\u0024DefaultImpls\tMETHOD\texecute\u0024default\t(Lcom/salesforce/revoman/internal/runtime/ScriptExecutor;Ljava/lang/String;Lcom/salesforce/revoman/internal/postman/sandbox/ScriptTarget;Lcom/salesforce/revoman/internal/postman/sandbox/PmExecutionContext;JILjava/lang/Object;)Lcom/salesforce/revoman/internal/postman/sandbox/PmExecutionResult;\t0x0019\t0x1009\tfalse\ttrue\tfalse\tfalse",
+    "com/salesforce/revoman/internal/runtime/ExecutionLifecycleDiagnostics\tCLASS\t<class>\tLcom/salesforce/revoman/internal/runtime/ExecutionLifecycleDiagnostics;\t0x1031\t0x0000\ttrue\tfalse\tfalse\tfalse",
+    "com/salesforce/revoman/internal/runtime/ExecutionLifecycleDiagnostics\tFIELD\tDIAGNOSTICS_PROPERTY\tLjava/lang/String;\t0x1031\t0x001A\ttrue\tfalse\tfalse\tfalse",
+    "com/salesforce/revoman/internal/runtime/ExecutionLifecycleDiagnostics\tFIELD\tenabled\tZ\t0x1031\t0x001A\ttrue\tfalse\tfalse\tfalse",
+    "com/salesforce/revoman/internal/runtime/ExecutionLifecycleDiagnostics\tFIELD\tEXECUTION_SESSION_TYPE\tLjava/lang/String;\t0x1031\t0x001A\ttrue\tfalse\tfalse\tfalse",
+    "com/salesforce/revoman/internal/runtime/ExecutionLifecycleDiagnostics\tFIELD\tKICK_EXECUTION_TYPE\tLjava/lang/String;\t0x1031\t0x001A\ttrue\tfalse\tfalse\tfalse",
+    "com/salesforce/revoman/internal/runtime/ExecutionLifecycleDiagnostics\tFIELD\trecordCount\tJ\t0x1031\t0x000A\ttrue\tfalse\tfalse\tfalse",
+    "com/salesforce/revoman/internal/runtime/ExecutionLifecycleDiagnostics\tFIELD\trecords\tLjava/util/ArrayList;\t0x1031\t0x000A\ttrue\tfalse\tfalse\tfalse",
+    "com/salesforce/revoman/internal/runtime/ExecutionLifecycleDiagnostics\tFIELD\trecordsLock\tLjava/lang/Object;\t0x1031\t0x001A\ttrue\tfalse\tfalse\tfalse",
+    "com/salesforce/revoman/internal/runtime/ExecutionLifecycleDiagnostics\tFIELD\tWEAK_REFERENCES_V1\tLjava/lang/String;\t0x1031\t0x001A\ttrue\tfalse\tfalse\tfalse",
+    "com/salesforce/revoman/internal/runtime/ExecutionLifecycleDiagnostics\tMETHOD\t<clinit>\t()V\t0x1031\t0x0008\ttrue\tfalse\tfalse\tfalse",
+    "com/salesforce/revoman/internal/runtime/ExecutionLifecycleDiagnostics\tMETHOD\tdrain\t()[Ljava/lang/Object;\t0x1031\t0x1019\ttrue\ttrue\tfalse\tfalse",
+    "com/salesforce/revoman/internal/runtime/ExecutionLifecycleDiagnostics\tMETHOD\tregister\t(Ljava/lang/String;Ljava/lang/Object;)V\t0x1031\t0x001A\ttrue\tfalse\tfalse\tfalse",
+    "com/salesforce/revoman/internal/runtime/ExecutionLifecycleDiagnostics\tMETHOD\tregisterExecutionSession\t(Lcom/salesforce/revoman/internal/runtime/ExecutionSession;)V\t0x1031\t0x1019\ttrue\ttrue\tfalse\tfalse",
+    "com/salesforce/revoman/internal/runtime/ExecutionLifecycleDiagnostics\tMETHOD\tregisterKickExecution\t(Lcom/salesforce/revoman/internal/runtime/KickExecution;)V\t0x1031\t0x1019\ttrue\ttrue\tfalse\tfalse",
+    "com/salesforce/revoman/internal/runtime/ExecutionLifecycleDiagnostics\tMETHOD\tvalidateRecords\t(Ljava/util/ArrayList;J)V\t0x1031\t0x001A\ttrue\tfalse\tfalse\tfalse",
   )
 
-/** Exact cumulative raw-JAR removals approved after CS2 Task 6. */
-internal val CS2_TASK6_RAW_JVM_REMOVALS: Set<String> =
+/** Exact cumulative raw-JAR removals approved after CS2 Task 7. */
+internal val CS2_TASK7_RAW_JVM_REMOVALS: Set<String> =
   setOf(
     "com/salesforce/revoman/ReVoman\tMETHOD\temitStepFinished\t(Lcom/salesforce/revoman/output/report/Step;Lcom/salesforce/revoman/output/report/StepReport;)V\t0x0031\t0x0012\tfalse\tfalse\tfalse\tfalse",
     "com/salesforce/revoman/ReVoman\tMETHOD\texecuteStepsSerially\t(Ljava/util/List;Lcom/salesforce/revoman/input/config/Kick;Lcom/salesforce/revoman/internal/json/MoshiReVoman;Lcom/salesforce/revoman/internal/postman/RegexReplacer;Lcom/salesforce/revoman/internal/postman/PostmanSDK;Lcom/salesforce/revoman/internal/postman/sandbox/PmSandbox;)Lcom/salesforce/revoman/ReVoman\u0024SequenceResult;\t0x0031\t0x0012\tfalse\tfalse\tfalse\tfalse",

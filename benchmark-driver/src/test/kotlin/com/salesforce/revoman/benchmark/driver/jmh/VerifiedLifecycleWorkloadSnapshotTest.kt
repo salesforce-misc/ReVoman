@@ -223,4 +223,4 @@ private class DeliberateLifecycleFailure(message: String) : RuntimeException(mes
 private val LIFECYCLE_RELATIVE_ROOT: Path =
     Path.of("workloads/v1/lifecycle.no-script-one-step.v1")
 private const val LIFECYCLE_MANIFEST_SHA256: String =
-    "0e7d445440d02d700bb99f8261206fe648f67837008462195d0167773bb6d833"
+    "288f95f6d9e2904cd019656b83ce915a2e23fb6f6f24391d1c596161ce71c31e"

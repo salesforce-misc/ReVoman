@@ -9,6 +9,7 @@ package com.salesforce.revoman.benchmark.driver.target
 
 import com.salesforce.revoman.benchmark.driver.model.ExecutionDigest
 import com.salesforce.revoman.benchmark.driver.model.WorkloadRequest
+import java.lang.ref.WeakReference
 
 /** Stable identity for one target-version adapter surface. */
 data class AdapterDescriptor(
@@ -32,6 +33,19 @@ interface PreparedWorkload : AutoCloseable {
     /** Returns one cached scalar micro-operation by its versioned operation ID. */
     fun operation(id: String): TargetOperation
 }
+
+internal data class TrackedWeakReference(
+    val type: String,
+    val reference: WeakReference<*>,
+)
+
+internal interface LifecycleWeakReferenceProvider {
+    fun drainLifecycleWeakReferences(): List<TrackedWeakReference>
+}
+
+internal const val EXECUTION_SESSION_WEAK_TYPE: String = "ExecutionSession"
+internal const val KICK_EXECUTION_WEAK_TYPE: String = "KickExecution"
+internal const val CS1_FAKE_EXECUTION_TOKEN_WEAK_TYPE: String = "Cs1FakeExecutionToken"
 
 /** A cached target operation whose invocation cannot return a target-runtime object. */
 fun interface TargetOperation {

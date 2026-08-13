@@ -193,6 +193,17 @@
             "decision": { "enum": ["INCONCLUSIVE", "INCOMPATIBLE"] }
           },
           "not": { "anyOf": [{ "required": ["interval"] }, { "required": ["slopeInterval"] }, { "required": ["observedValue"] }] }
+        },
+        {
+          "properties": {
+            "gate": { "const": "RETAINED_SLOPE" },
+            "claimKind": { "const": "STRUCTURAL" },
+            "mode": { "const": "RETAINED" },
+            "metric": { "const": "RETAINED_BYTES" },
+            "decision": { "const": "FAIL" }
+          },
+          "required": ["gate", "claimKind", "mode", "metric", "decision"],
+          "not": { "anyOf": [{ "required": ["statistic"] }, { "required": ["interval"] }, { "required": ["slopeInterval"] }, { "required": ["observedValue"] }] }
         }
       ],
       "allOf": [
@@ -335,6 +346,17 @@
               {
                 "properties": { "decision": { "enum": ["INCONCLUSIVE", "INCOMPATIBLE"] } },
                 "not": { "anyOf": [{ "required": ["interval"] }, { "required": ["slopeInterval"] }, { "required": ["observedValue"] }] }
+              },
+              {
+                "properties": {
+                  "gate": { "const": "RETAINED_SLOPE" },
+                  "claimKind": { "const": "STRUCTURAL" },
+                  "mode": { "const": "RETAINED" },
+                  "metric": { "const": "RETAINED_BYTES" },
+                  "decision": { "const": "FAIL" }
+                },
+                "required": ["gate", "claimKind", "mode", "metric", "decision"],
+                "not": { "anyOf": [{ "required": ["statistic"] }, { "required": ["interval"] }, { "required": ["slopeInterval"] }, { "required": ["observedValue"] }] }
               }
             ]
           }

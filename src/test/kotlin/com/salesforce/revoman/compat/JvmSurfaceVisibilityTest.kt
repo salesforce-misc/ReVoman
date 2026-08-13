@@ -168,7 +168,7 @@ class JvmSurfaceVisibilityTest {
   }
 
   @Test
-  fun `Task 6 cumulative additions and removals have the exact raw surface`() {
+  fun `Task 7 cumulative additions and removals have the exact raw surface`() {
     val entries = JvmSurfaceInventory.readJar(configuredRootJar())
     val frozen = JvmSurfaceInventory.parse(Files.readString(FROZEN_JVM_ABI))
     val frozenRows = frozen.asSequence().map(JvmSurfaceEntry::render).toSet()
@@ -177,9 +177,9 @@ class JvmSurfaceVisibilityTest {
     val removals = frozen.filter { it.render() !in activeRows }
 
     assertThat(additions.map(JvmSurfaceEntry::render))
-      .containsExactlyElementsIn(CS2_TASK6_RAW_JVM_ADDITIONS)
+      .containsExactlyElementsIn(CS2_TASK7_RAW_JVM_ADDITIONS)
     assertThat(removals.map(JvmSurfaceEntry::render))
-      .containsExactlyElementsIn(CS2_TASK6_RAW_JVM_REMOVALS)
+      .containsExactlyElementsIn(CS2_TASK7_RAW_JVM_REMOVALS)
     val pmSandboxRows = entries.filter {
       it.owner == "com/salesforce/revoman/internal/postman/sandbox/PmSandbox"
     }
@@ -241,6 +241,34 @@ class JvmSurfaceVisibilityTest {
           .all { it.memberSynthetic && !it.sourceCallable }
       )
       .isTrue()
+
+    val diagnosticsRows = additions.filter { it.owner == LIFECYCLE_DIAGNOSTICS_OWNER }
+    assertThat(diagnosticsRows).hasSize(15)
+    assertThat(
+        diagnosticsRows
+          .single {
+            it.kind == JvmSurfaceKind.METHOD && it.name == "drain"
+          }
+          .descriptor
+      )
+      .isEqualTo("()[Ljava/lang/Object;")
+    assertThat(diagnosticsRows.filter { it.kind == JvmSurfaceKind.FIELD }.map { it.name })
+      .doesNotContain("INSTANCE")
+    assertThat(
+        diagnosticsRows
+          .filter { it.kind == JvmSurfaceKind.FIELD }
+          .all { row -> row.memberAccess and 0x0002 != 0 }
+      )
+      .isTrue()
+    assertThat(
+        diagnosticsRows.filter { row ->
+          row.kind == JvmSurfaceKind.FIELD &&
+            (row.descriptor.contains("ExecutionSession") ||
+              row.descriptor.contains("KickExecution") ||
+              row.descriptor == "Ljava/lang/Throwable;")
+        }
+      )
+      .isEmpty()
 
     TASK5_INTERFACE_OWNERS.forEach { owner ->
       val methods = additions.filter { it.owner == owner && it.kind == JvmSurfaceKind.METHOD }
@@ -333,6 +361,40 @@ class JvmSurfaceVisibilityTest {
               0x0005
           )
           .isEqualTo(0)
+      }
+  }
+
+  @Test
+  fun `external and same-package Java cannot name the lifecycle diagnostics facade`() {
+    listOf(
+        """
+        import com.salesforce.revoman.internal.runtime.ExecutionLifecycleDiagnostics;
+
+        final class LifecycleDiagnosticsExternalConsumer {
+          static Object[] drain() { return ExecutionLifecycleDiagnostics.drain(); }
+        }
+        """
+          .trimIndent(),
+        """
+        package com.salesforce.revoman.internal.runtime;
+
+        final class LifecycleDiagnosticsPackageConsumer {
+          static Object[] drain() { return ExecutionLifecycleDiagnostics.drain(); }
+        }
+        """
+          .trimIndent(),
+      )
+      .forEachIndexed { index, source ->
+        val result = compileJava("LifecycleDiagnosticsConsumer$index", source)
+        assertWithMessage("lifecycle facade must be rejected: ${result.diagnostics}")
+          .that(result.compiled)
+          .isFalse()
+        val errorCodes =
+          result.diagnostics.filter { it.kind == Diagnostic.Kind.ERROR }.map(JavaDiagnostic::code)
+        assertWithMessage("exact access/member diagnostics: ${result.diagnostics}")
+          .that(errorCodes.any { it in CANNOT_RESOLVE_MEMBER_CODES + CANNOT_ACCESS_CODES })
+          .isTrue()
+        assertThat(errorCodes).doesNotContain("compiler.err.cant.apply.symbol")
       }
   }
 
@@ -971,6 +1033,7 @@ class JvmSurfaceVisibilityTest {
     const val REVOMAN = "com/salesforce/revoman/ReVoman"
     const val POSTMAN_PACKAGE = "com/salesforce/revoman/internal/postman/"
     const val RUNTIME_PACKAGE = "com/salesforce/revoman/internal/runtime/"
+    const val LIFECYCLE_DIAGNOSTICS_OWNER = "${RUNTIME_PACKAGE}ExecutionLifecycleDiagnostics"
     const val RESOURCE_SCOPE_IMPLEMENTATION = "${RUNTIME_PACKAGE}ResourceScopeKt\$resourceScope\$1"
     const val KICK_EXECUTION_IMPLEMENTATION = "${RUNTIME_PACKAGE}KickExecutionKt\$kickExecution\$1"
     const val KICK_EXECUTOR_IMPLEMENTATION = "${KICK_EXECUTION_IMPLEMENTATION}\$executor\$1"

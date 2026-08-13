@@ -1694,12 +1694,17 @@ git commit -m "refactor: route multi-kick execution through sessions"
 - Add: `benchmark-driver/src/main/kotlin/com/salesforce/revoman/benchmark/driver/process/RetainedCheckpointCollector.kt`
 - Modify: `benchmark-driver/src/main/kotlin/com/salesforce/revoman/benchmark/driver/run/RetainedMemoryRunner.kt`
 - Modify: `benchmark-driver/src/main/kotlin/com/salesforce/revoman/benchmark/driver/compare/ReleaseGateEvaluator.kt`
+- Modify: `benchmark-driver/src/main/kotlin/com/salesforce/revoman/benchmark/driver/compare/ComparisonReport.kt`
+- Modify: `benchmark-driver/src/main/resources/schema/revoman-benchmark-comparison-v1.schema.json`
 - Modify: `benchmark-driver/src/main/resources/workloads/v1/lifecycle.no-script-one-step.v1/manifest.json`
+- Add: `benchmark-driver/src/test/kotlin/com/salesforce/revoman/benchmark/driver/process/TargetForkMainTest.kt`
 - Add: `benchmark-driver/src/test/kotlin/com/salesforce/revoman/benchmark/driver/process/RetainedCheckpointCollectorTest.kt`
 - Modify: `benchmark-driver/src/test/kotlin/com/salesforce/revoman/benchmark/driver/target/FakeTargetJarBuilder.kt`
 - Modify: `benchmark-driver/src/test/kotlin/com/salesforce/revoman/benchmark/driver/target/TargetAdapterContractTest.kt`
 - Modify: `benchmark-driver/src/test/kotlin/com/salesforce/revoman/benchmark/driver/run/RetainedMemoryRunnerTest.kt`
 - Modify: `benchmark-driver/src/test/kotlin/com/salesforce/revoman/benchmark/driver/compare/ReleaseGateEvaluatorTest.kt`
+- Modify: `benchmark-driver/src/test/kotlin/com/salesforce/revoman/benchmark/driver/compare/ComparisonReportIntegrityTest.kt`
+- Modify: `benchmark-driver/src/test/kotlin/com/salesforce/revoman/benchmark/driver/run/BenchmarkCampaignTest.kt`
 - Modify: `benchmark-driver/src/test/kotlin/com/salesforce/revoman/benchmark/driver/compare/ComparisonFixtures.kt`
 - Modify: `benchmark-driver/src/test/kotlin/com/salesforce/revoman/benchmark/driver/fixture/DeterministicHttpFixtureTest.kt`
 - Modify: `benchmark-driver/src/test/kotlin/com/salesforce/revoman/benchmark/driver/jmh/VerifiedLifecycleWorkloadSnapshotTest.kt`
@@ -1928,6 +1933,11 @@ For each exact-v2 observation, validate evidence by role before calculating a sl
 - a missing, extra, duplicate, unknown, or count-mismatched row is `INCONCLUSIVE`; and
 - any expected row with `cleared != created` is `FAIL`, even if another shape defect is present.
 
+Because that exact weak-reference policy failure is decided before slope calculation, the report
+model and schema permit an evidence-free `FAIL` only for the exact conjunction
+`RETAINED_SLOPE`/`STRUCTURAL`/`RETAINED`/`RETAINED_BYTES` with no statistic. Every other `PASS` or
+`FAIL` still requires exactly one existing evidence family.
+
 Add `ComparisonFixtures` constructors/mutators for exact-v2 provider/configuration identity and
 attack every observation across the 1,000/2,000/4,000 points: two cycles, three cycles, missing,
 extra, duplicate, unknown, candidate created-count mismatch, baseline 0/0 or 2/2 count mismatch,
@@ -2086,12 +2096,17 @@ git add docs/superpowers/plans/2026-08-11-performance-cs2a-runtime-lifecycle.md 
   benchmark-driver/src/main/kotlin/com/salesforce/revoman/benchmark/driver/process/RetainedCheckpointCollector.kt \
   benchmark-driver/src/main/kotlin/com/salesforce/revoman/benchmark/driver/run/RetainedMemoryRunner.kt \
   benchmark-driver/src/main/kotlin/com/salesforce/revoman/benchmark/driver/compare/ReleaseGateEvaluator.kt \
+  benchmark-driver/src/main/kotlin/com/salesforce/revoman/benchmark/driver/compare/ComparisonReport.kt \
+  benchmark-driver/src/main/resources/schema/revoman-benchmark-comparison-v1.schema.json \
   benchmark-driver/src/main/resources/workloads/v1/lifecycle.no-script-one-step.v1/manifest.json \
+  benchmark-driver/src/test/kotlin/com/salesforce/revoman/benchmark/driver/process/TargetForkMainTest.kt \
   benchmark-driver/src/test/kotlin/com/salesforce/revoman/benchmark/driver/process/RetainedCheckpointCollectorTest.kt \
   benchmark-driver/src/test/kotlin/com/salesforce/revoman/benchmark/driver/target/FakeTargetJarBuilder.kt \
   benchmark-driver/src/test/kotlin/com/salesforce/revoman/benchmark/driver/target/TargetAdapterContractTest.kt \
   benchmark-driver/src/test/kotlin/com/salesforce/revoman/benchmark/driver/run/RetainedMemoryRunnerTest.kt \
   benchmark-driver/src/test/kotlin/com/salesforce/revoman/benchmark/driver/compare/ReleaseGateEvaluatorTest.kt \
+  benchmark-driver/src/test/kotlin/com/salesforce/revoman/benchmark/driver/compare/ComparisonReportIntegrityTest.kt \
+  benchmark-driver/src/test/kotlin/com/salesforce/revoman/benchmark/driver/run/BenchmarkCampaignTest.kt \
   benchmark-driver/src/test/kotlin/com/salesforce/revoman/benchmark/driver/compare/ComparisonFixtures.kt \
   benchmark-driver/src/test/kotlin/com/salesforce/revoman/benchmark/driver/fixture/DeterministicHttpFixtureTest.kt \
   benchmark-driver/src/test/kotlin/com/salesforce/revoman/benchmark/driver/jmh/VerifiedLifecycleWorkloadSnapshotTest.kt \

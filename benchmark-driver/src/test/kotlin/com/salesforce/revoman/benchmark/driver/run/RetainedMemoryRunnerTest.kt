@@ -54,7 +54,7 @@ class RetainedMemoryRunnerTest {
                                     RetainedCheckpoint(
                                         executionCount = executionCount,
                                         usedHeapBytes = executionCount * 10L,
-                                        completedGcCycles = 2,
+                                        completedGcCycles = 4,
                                         weakReferences =
                                             listOf(
                                                 WeakReferenceOutcome(
@@ -93,8 +93,12 @@ class RetainedMemoryRunnerTest {
         assertThat(commands.map { it.measurementIterations }.distinct()).containsExactly(0)
         assertThat(result.blockId).isEqualTo(11)
         assertThat(result.targetRole).isEqualTo(TargetRole.CANDIDATE)
-        assertThat(result.provider).isEqualTo("jdk-memorymxbean-two-acknowledged-full-gc/v1")
-        assertThat(result.providerConfigurationSha256).hasLength(64)
+        assertThat(result.provider)
+            .isEqualTo("revoman-retained-two-phase-weak-proof-final-heap/v2")
+        assertThat(RETAINED_PROVIDER_CONFIGURATION_SHA256)
+            .isEqualTo("60bebf52318b0dd7750b2d3365b52e6e7df62f0a8ef3ba80875e11f208ebf37d")
+        assertThat(result.providerConfigurationSha256)
+            .isEqualTo("b8d9dfd1d8497bb1e45b543ffa46882cbc6094a91d783a060ced2213c437f6e8")
         assertThat(result.observations.map { it.iteration }).containsExactly(0, 1, 2).inOrder()
         assertThat(result.observations.map { it.replicateGroup }.distinct()).containsExactly(47)
         assertThat(result.observations.map { it.processId }.distinct()).hasSize(3)
@@ -127,5 +131,52 @@ class RetainedMemoryRunnerTest {
             )
         assertThat(differentLogging.providerConfigurationSha256)
             .isNotEqualTo(result.providerConfigurationSha256)
+
+        val baselineTarget = target.copy(targetId = "baseline-target")
+        BenchmarkJson.write(targetManifestPath(target), baselineTarget)
+        val candidateTarget = runnerTarget(temporaryDirectory.resolve("candidate-target")).copy(
+            targetId = "candidate-target"
+        )
+        BenchmarkJson.write(targetManifestPath(candidateTarget), candidateTarget)
+        val baselinePlan =
+            retainedPlan(
+                target = baselineTarget,
+                adapterId = "baseline-83f3cd70",
+                targetRole = TargetRole.BASELINE,
+            )
+        val majorPlan =
+            retainedPlan(
+                target = candidateTarget,
+                adapterId = "major-v1",
+                targetRole = TargetRole.CANDIDATE,
+            )
+        val baseline = runner.run(baselinePlan)
+        val major = runner.run(majorPlan)
+        assertThat(baseline.provider).isEqualTo(major.provider)
+        assertThat(baseline.providerConfigurationSha256)
+            .isEqualTo(major.providerConfigurationSha256)
+        assertThat(baseline.observations.map { it.targetId }.distinct())
+            .containsExactly("baseline-target")
+        assertThat(major.observations.map { it.targetId }.distinct())
+            .containsExactly("candidate-target")
     }
+
+    private fun retainedPlan(
+        target: com.salesforce.revoman.benchmark.driver.model.TargetManifest,
+        adapterId: String,
+        targetRole: TargetRole,
+    ): RetainedMemoryPlan =
+        RetainedMemoryPlan(
+            target = target,
+            targetManifestPath = targetManifestPath(target),
+            adapterId = adapterId,
+            workload = workload(),
+            expectedDigest = EXPECTED_DIGEST,
+            blockId = 13,
+            targetRole = targetRole,
+            fork = 0,
+            replicateGroup = 49,
+            timeout = Duration.ofSeconds(5),
+            loggingConfiguration = loggingConfiguration(target),
+        )
 }

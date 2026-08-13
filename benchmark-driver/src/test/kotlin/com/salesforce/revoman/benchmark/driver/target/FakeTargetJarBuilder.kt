@@ -45,14 +45,23 @@ class FakeTargetJarBuilder(private val root: Path) {
             ),
         )
 
-    fun majorJar(): Path =
+    fun majorJar(diagnostics: MajorDiagnosticsFixture? = null): Path =
         buildJar(
             "major",
-            mapOf(
-                "com.salesforce.revoman.input.config.Kick" to MAJOR_KICK,
-                "com.salesforce.revoman.output.Rundown" to MAJOR_RUNDOWN,
-                "com.salesforce.revoman.ReVoman" to MAJOR_REVOMAN,
-            ),
+            buildMap {
+                put("com.salesforce.revoman.input.config.Kick", MAJOR_KICK)
+                put("com.salesforce.revoman.output.Rundown", MAJOR_RUNDOWN)
+                put(
+                    "com.salesforce.revoman.ReVoman",
+                    if (diagnostics == null) MAJOR_REVOMAN else MAJOR_REVOMAN_WITH_DIAGNOSTICS,
+                )
+                diagnostics?.let { fixture ->
+                    put(
+                        "com.salesforce.revoman.internal.runtime.ExecutionLifecycleDiagnostics",
+                        fixture.source,
+                    )
+                }
+            },
         )
 
     fun componentJar(failPreparationAfterResources: Boolean = false): Path =
@@ -356,6 +365,29 @@ class FakeTargetJarBuilder(private val root: Path) {
                     if (kick.templatePath == null || kick.baseUrl == null || !kick.insecureHttp) {
                         throw new IllegalStateException("major lifecycle binding incomplete");
                     }
+                    return new Rundown(1, 0);
+                }
+            }
+            """
+                .trimIndent()
+
+        val MAJOR_REVOMAN_WITH_DIAGNOSTICS =
+            """
+            package com.salesforce.revoman;
+
+            import com.salesforce.revoman.input.config.Kick;
+            import com.salesforce.revoman.internal.runtime.ExecutionLifecycleDiagnostics;
+            import com.salesforce.revoman.output.Rundown;
+
+            public final class ReVoman {
+                public static Rundown revUp(Kick kick) {
+                    if (Thread.currentThread().getContextClassLoader() != ReVoman.class.getClassLoader()) {
+                        throw new IllegalStateException("target context classloader not installed");
+                    }
+                    if (kick.templatePath == null || kick.baseUrl == null || !kick.insecureHttp) {
+                        throw new IllegalStateException("major lifecycle binding incomplete");
+                    }
+                    ExecutionLifecycleDiagnostics.registerExecution();
                     return new Rundown(1, 0);
                 }
             }
@@ -694,3 +726,65 @@ class FakeTargetJarBuilder(private val root: Path) {
                 .trimIndent()
     }
 }
+
+enum class MajorDiagnosticsFixture(internal val source: String) {
+    VALID(
+        diagnosticsSource(
+            """
+            Object[] result = records.toArray(new Object[0]);
+            records = new ArrayList<>();
+            return result;
+            """
+                .trimIndent()
+        )
+    ),
+    EMPTY(diagnosticsSource("return new Object[0];")),
+    ODD(diagnosticsSource("return new Object[] { \"ExecutionSession\" };")),
+    NON_STRING(diagnosticsSource("return new Object[] { 1, new WeakReference<>(new Object()) };")),
+    BLANK(diagnosticsSource("return new Object[] { \" \", new WeakReference<>(new Object()) };")),
+    UNKNOWN(diagnosticsSource("return new Object[] { \"Unknown\", new WeakReference<>(new Object()) };")),
+    WEAK_SUBCLASS(
+        diagnosticsSource(
+            "return new Object[] { \"ExecutionSession\", new CustomWeakReference(new Object()) };",
+            "static final class CustomWeakReference extends WeakReference<Object> { CustomWeakReference(Object value) { super(value); } }",
+        )
+    ),
+    REPEATED_REFERENCE(
+        diagnosticsSource(
+            "WeakReference<Object> reference = new WeakReference<>(new Object()); return new Object[] { \"ExecutionSession\", reference, \"KickExecution\", reference };"
+        )
+    ),
+}
+
+private fun diagnosticsSource(drainBody: String, extraBody: String = ""): String =
+    """
+    package com.salesforce.revoman.internal.runtime;
+
+    import java.lang.ref.WeakReference;
+    import java.util.ArrayList;
+
+    public final class ExecutionLifecycleDiagnostics {
+        private static ArrayList<Object> records = new ArrayList<>();
+        private static ArrayList<Object> owners = new ArrayList<>();
+
+        public static void registerExecution() {
+            Object session = new ExecutionSessionToken();
+            Object kick = new KickExecutionToken();
+            owners.add(session);
+            owners.add(kick);
+            records.add(new String("ExecutionSession"));
+            records.add(new WeakReference<>(session));
+            records.add(new String("KickExecution"));
+            records.add(new WeakReference<>(kick));
+        }
+
+        public static Object[] drain() {
+            $drainBody
+        }
+
+        static final class ExecutionSessionToken {}
+        static final class KickExecutionToken {}
+        $extraBody
+    }
+    """
+        .trimIndent()

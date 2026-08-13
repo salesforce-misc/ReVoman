@@ -18,6 +18,8 @@ import com.salesforce.revoman.benchmark.driver.model.MetricId
 import com.salesforce.revoman.benchmark.driver.model.MetricObservation
 import com.salesforce.revoman.benchmark.driver.model.MetricUnit
 import com.salesforce.revoman.benchmark.driver.model.PowerEvidence
+import com.salesforce.revoman.benchmark.driver.model.RetainedEvidence
+import com.salesforce.revoman.benchmark.driver.model.WeakReferenceOutcome
 import java.time.Duration
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -60,6 +62,81 @@ class BenchmarkCampaignTest {
             .inOrder()
         assertThat(requireNotNull(series.blocks).flatMap { it.observations }.map { it.targetId })
             .containsExactly("baseline", "candidate", "candidate", "baseline")
+            .inOrder()
+    }
+
+    @Test
+    fun `assembler combines baseline and candidate retained evidence under one exact v2 identity`() {
+        val provider = "revoman-retained-two-phase-weak-proof-final-heap/v2"
+        val configuration =
+            "b8d9dfd1d8497bb1e45b543ffa46882cbc6094a91d783a060ced2213c437f6e8"
+        val order = listOf("baseline-retained", "candidate-retained")
+        val retainedBlock =
+            block(0, order, 100).copy(
+                observations =
+                    listOf(1_000, 2_000, 4_000).flatMapIndexed { iteration, executionCount ->
+                        listOf(
+                            retainedObservation(
+                                targetId = order[0],
+                                provider = provider,
+                                iteration = iteration,
+                                processId = 100L + iteration,
+                                executionCount = executionCount,
+                                weakReferences =
+                                    listOf(WeakReferenceOutcome("Cs1FakeExecutionToken", 1, 1)),
+                            ),
+                            retainedObservation(
+                                targetId = order[1],
+                                provider = provider,
+                                iteration = iteration,
+                                processId = 103L + iteration,
+                                executionCount = executionCount,
+                                weakReferences =
+                                    listOf(
+                                        WeakReferenceOutcome(
+                                            "ExecutionSession",
+                                            executionCount,
+                                            executionCount,
+                                        ),
+                                        WeakReferenceOutcome(
+                                            "KickExecution",
+                                            executionCount,
+                                            executionCount,
+                                        ),
+                                    ),
+                            ),
+                        )
+                    }
+            )
+        val evidence =
+            order.map { targetId ->
+                ProviderEvidence(
+                    blockId = 0,
+                    targetId = targetId,
+                    metric = MetricId.RETAINED_BYTES,
+                    provider = provider,
+                    providerConfigurationSha256 = configuration,
+                    unit = MetricUnit.BYTES,
+                    artifacts = emptyList(),
+                )
+            }
+
+        val series = CampaignEvidenceAssembler.assemble(listOf(retainedBlock), evidence)
+
+        assertThat(series.provider).isEqualTo(provider)
+        assertThat(series.providerConfigurationSha256).isEqualTo(configuration)
+        assertThat(requireNotNull(series.blocks).single().observations.map { it.targetId }.distinct())
+            .containsExactlyElementsIn(order)
+            .inOrder()
+        assertThat(
+                requireNotNull(series.blocks).single().observations.filter { it.iteration == 0 }.map {
+                    requireNotNull(it.retainedEvidence).weakReferences.map(WeakReferenceOutcome::type)
+                }
+            )
+            .containsExactly(
+                listOf("Cs1FakeExecutionToken"),
+                listOf("ExecutionSession", "KickExecution"),
+            )
             .inOrder()
     }
 
@@ -158,6 +235,32 @@ class BenchmarkCampaignTest {
                         value = value.toDouble() + index,
                     )
                 },
+        )
+
+    private fun retainedObservation(
+        targetId: String,
+        provider: String,
+        iteration: Int,
+        processId: Long,
+        executionCount: Int,
+        weakReferences: List<WeakReferenceOutcome>,
+    ): MetricObservation =
+        MetricObservation(
+            targetId = targetId,
+            metric = MetricId.RETAINED_BYTES,
+            provider = provider,
+            unit = MetricUnit.BYTES,
+            fork = 0,
+            iteration = iteration,
+            replicateGroup = 0,
+            processId = processId,
+            value = 1_000.0,
+            retainedEvidence =
+                RetainedEvidence(
+                    executionCount = executionCount,
+                    completedGcCycles = 4,
+                    weakReferences = weakReferences,
+                ),
         )
 
     private fun health(time: Long): HostHealthSnapshot =

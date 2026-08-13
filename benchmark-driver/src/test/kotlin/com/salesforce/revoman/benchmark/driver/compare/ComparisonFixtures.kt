@@ -39,6 +39,8 @@ internal object ComparisonFixtures {
     const val BASELINE_ID: String = "baseline"
     const val CANDIDATE_ID: String = "candidate"
     const val WORKLOAD_ID: String = "fixture-workload.v1"
+    const val RETAINED_V2_PROVIDER: String =
+        "revoman-retained-two-phase-weak-proof-final-heap/v2"
     const val BASELINE_COMMIT: String = "83f3cd70f78ad733412d10cbc8287aaabafe7aac"
     const val HARNESS_ARTIFACT_SET_SHA256: String =
         "c668a7b99ec517a18ba6d18c18218c3a327682a10e4e7084214af7730b6fd849"
@@ -77,6 +79,7 @@ internal object ComparisonFixtures {
         candidateWeakTypes: List<String> = listOf("ExecutionSession", "KickExecution"),
         candidateCleared: Boolean = true,
         acceptedBlocks: Int = 5,
+        completedGcCycles: Int = 4,
     ): BenchmarkResultV1 =
         result(
             mode = RunMode.RETAINED,
@@ -85,7 +88,7 @@ internal object ComparisonFixtures {
                 listOf(
                     MetricSeries(
                         metric = MetricId.RETAINED_BYTES,
-                        provider = "retained-provider/v1",
+                        provider = RETAINED_V2_PROVIDER,
                         providerConfigurationSha256 = "7".repeat(64),
                         unit = MetricUnit.BYTES,
                         blocks =
@@ -96,8 +99,9 @@ internal object ComparisonFixtures {
                                         blockId = blockId,
                                         targetId = BASELINE_ID,
                                         slope = 0.0,
-                                        weakTypes = listOf("FakeExecutionToken"),
+                                        weakTypes = listOf("Cs1FakeExecutionToken"),
                                         cleared = true,
+                                        completedGcCycles = completedGcCycles,
                                     ) +
                                         retainedObservations(
                                             blockId = blockId,
@@ -105,6 +109,7 @@ internal object ComparisonFixtures {
                                             slope = candidateSlope,
                                             weakTypes = candidateWeakTypes,
                                             cleared = candidateCleared,
+                                            completedGcCycles = completedGcCycles,
                                         ),
                                 )
                             },
@@ -403,12 +408,13 @@ internal object ComparisonFixtures {
         slope: Double,
         weakTypes: List<String>,
         cleared: Boolean,
+        completedGcCycles: Int,
     ): List<MetricObservation> =
         listOf(1_000, 2_000, 4_000).mapIndexed { iteration, executionCount ->
             MetricObservation(
                 targetId = targetId,
                 metric = MetricId.RETAINED_BYTES,
-                provider = "retained-provider/v1",
+                provider = RETAINED_V2_PROVIDER,
                 unit = MetricUnit.BYTES,
                 fork = 0,
                 iteration = iteration,
@@ -418,10 +424,16 @@ internal object ComparisonFixtures {
                 retainedEvidence =
                     RetainedEvidence(
                         executionCount = executionCount,
-                        completedGcCycles = 2,
+                        completedGcCycles = completedGcCycles,
                         weakReferences =
                             weakTypes.map { type ->
-                                WeakReferenceOutcome(type, created = 10, cleared = if (cleared) 10 else 9)
+                                val created =
+                                    if (targetId == BASELINE_ID) 1 else executionCount
+                                WeakReferenceOutcome(
+                                    type,
+                                    created = created,
+                                    cleared = if (cleared) created else created - 1,
+                                )
                             },
                     ),
             )

@@ -75,7 +75,8 @@ class DeterministicHttpFixtureTest {
         assertThat(manifest.requiredGatesByMode.getValue(RunMode.WARM))
             .containsExactly(GateId.WARM_MEDIAN, GateId.WARM_P95, GateId.WARM_ALLOCATION)
             .inOrder()
-        assertThat(manifest.requiredGatesByMode.getValue(RunMode.RETAINED)).isEmpty()
+        assertThat(manifest.requiredGatesByMode.getValue(RunMode.RETAINED))
+            .containsExactly(GateId.RETAINED_SLOPE)
     }
 
     @Test

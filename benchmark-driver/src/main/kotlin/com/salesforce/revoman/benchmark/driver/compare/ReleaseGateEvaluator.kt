@@ -51,29 +51,19 @@ class ReleaseGateEvaluator(
         require(targetedClaims.map { it.key() }.distinct().size == targetedClaims.size) {
             "Targeted claims must be unique by mode, metric, and statistic"
         }
-        require(
-            result.workloads
-                .flatMap(WorkloadResult::metricSeries)
-                .flatMap { series -> series.blocks.orEmpty() }
-                .flatMap { block -> block.observations }
-                .mapNotNull(MetricObservation::retainedEvidence)
-                .all { evidence -> evidence.completedGcCycles >= 2 }
-        ) {
-            "retained evidence completedGcCycles must be at least two"
-        }
         val compatibilityErrors = ResultCompatibility.errors(result, workloadManifests)
-        val rejectedBlocks = rejectedEvidence(result)
         if (compatibilityErrors.isNotEmpty()) {
             return ComparisonReport(
                     campaignId = result.campaignId,
                     compatibilityErrors = compatibilityErrors,
                     metrics = emptyList(),
-                    rejectedBlocks = rejectedBlocks,
+                    rejectedBlocks = emptyList(),
                     overall = GateDecision.INCOMPATIBLE,
                 )
                 .canonicalized()
                 .validate()
         }
+        val rejectedBlocks = rejectedEvidence(result)
         val manifestsById = workloadManifests.associateBy(WorkloadManifest::id)
         val normative =
             result.workloads.flatMap { workload ->
@@ -250,26 +240,36 @@ class ReleaseGateEvaluator(
                 "retained evidence requires at least five fresh replicate groups per role",
             )
         }
+        val exactV2Failure =
+            if (series.provider == RETAINED_V2_PROVIDER) {
+                exactV2PolicyFailure(accepted, baselineId, candidateId)
+            } else null
+        if (exactV2Failure != null) {
+            return descriptor.policyDecision(
+                GateId.RETAINED_SLOPE,
+                exactV2Failure.decision,
+                exactV2Failure.reason,
+            )
+        }
         val interval =
             runCatching {
-                    retainedSlopeInterval(
-                        samples =
-                            retainedHierarchyFromAcceptedBlocks(
-                                accepted,
-                                baselineId,
-                                candidateId,
-                            ),
-                        targetRole = TargetRole.CANDIDATE,
-                        resamples = resamples,
-                        seed = result.configuration.seed,
-                    )
-                }
-                .getOrElse { failure ->
-                    return descriptor.unavailable(
-                        GateId.RETAINED_SLOPE,
-                        "retained evidence is insufficient: ${failure.message}",
-                    )
-                }
+                retainedSlopeInterval(
+                    samples =
+                        retainedHierarchyFromAcceptedBlocks(
+                            accepted,
+                            baselineId,
+                            candidateId,
+                        ),
+                    targetRole = TargetRole.CANDIDATE,
+                    resamples = resamples,
+                    seed = result.configuration.seed,
+                )
+            }.getOrElse { failure ->
+                return descriptor.unavailable(
+                    GateId.RETAINED_SLOPE,
+                    "retained evidence is insufficient: ${failure.message}",
+                )
+            }
         val candidateObservations =
             accepted.flatMap { block -> block.observations.filter { it.targetId == candidateId } }
         val containsRuntimeTypes =
@@ -300,6 +300,76 @@ class ReleaseGateEvaluator(
                     "upper95 retained slope ${interval.upper95BytesPerExecution} exceeds ${descriptor.limit}"
             }
         return descriptor.slopeDecision(GateId.RETAINED_SLOPE, interval, decision, reason)
+    }
+
+    private fun exactV2PolicyFailure(
+        accepted: List<com.salesforce.revoman.benchmark.driver.model.AlternatingBlock>,
+        baselineId: String,
+        candidateId: String,
+    ): ExactV2Failure? {
+        val observations = accepted.flatMap { it.observations }
+        listOf(
+            TargetRole.BASELINE to baselineId,
+            TargetRole.CANDIDATE to candidateId,
+        ).forEach { (role, targetId) ->
+            val expectedTypes =
+                when (role) {
+                    TargetRole.BASELINE -> setOf(CS1_FAKE_TOKEN_TYPE)
+                    TargetRole.CANDIDATE -> RETAINED_RUNTIME_TYPES
+                }
+            val unclearedExpected =
+                observations
+                    .filter { it.targetId == targetId }
+                    .flatMap { requireNotNull(it.retainedEvidence).weakReferences }
+                    .any { outcome -> outcome.type in expectedTypes && outcome.cleared != outcome.created }
+            if (unclearedExpected) {
+                return ExactV2Failure(
+                    GateDecision.FAIL,
+                    "${role.name.lowercase()} exact v2 expected weak references did not all clear",
+                )
+            }
+        }
+        if (observations.any { requireNotNull(it.retainedEvidence).completedGcCycles < 4 }) {
+            return ExactV2Failure(
+                GateDecision.INCONCLUSIVE,
+                "exact v2 retained evidence requires at least four completed GC cycles",
+            )
+        }
+        val baselineValid =
+            observations.filter { it.targetId == baselineId }.all { observation ->
+                val rows = requireNotNull(observation.retainedEvidence).weakReferences
+                rows.size == 1 &&
+                    rows.single() ==
+                        com.salesforce.revoman.benchmark.driver.model.WeakReferenceOutcome(
+                            CS1_FAKE_TOKEN_TYPE,
+                            1,
+                            1,
+                        )
+            }
+        if (!baselineValid) {
+            return ExactV2Failure(
+                GateDecision.INCONCLUSIVE,
+                "baseline exact v2 evidence requires one Cs1FakeExecutionToken row with created equal to one",
+            )
+        }
+        val candidateValid =
+            observations.filter { it.targetId == candidateId }.all { observation ->
+                val evidence = requireNotNull(observation.retainedEvidence)
+                val rows = evidence.weakReferences
+                rows.size == 2 &&
+                    rows.map { it.type }.toSet() == RETAINED_RUNTIME_TYPES &&
+                    rows.all { row ->
+                        row.created == evidence.executionCount && row.cleared == row.created
+                    }
+            }
+        if (!candidateValid) {
+            return ExactV2Failure(
+                GateDecision.INCONCLUSIVE,
+                "candidate exact v2 evidence requires one ExecutionSession and one " +
+                    "KickExecution row with created equal to executionCount",
+            )
+        }
+        return null
     }
 
     private fun evaluatePerStep(
@@ -488,6 +558,13 @@ class ReleaseGateEvaluator(
         val claimKind: ClaimKind,
     ) {
         fun unavailable(gate: GateId?, reason: String): MetricDecision =
+            policyDecision(gate, GateDecision.INCONCLUSIVE, reason)
+
+        fun policyDecision(
+            gate: GateId?,
+            decision: GateDecision,
+            reason: String,
+        ): MetricDecision =
             MetricDecision(
                 gate = gate,
                 claimKind = claimKind,
@@ -498,7 +575,7 @@ class ReleaseGateEvaluator(
                 slopeInterval = null,
                 observedValue = null,
                 limit = limit,
-                decision = GateDecision.INCONCLUSIVE,
+                decision = decision,
                 reason = reason,
             )
 
@@ -555,5 +632,10 @@ class ReleaseGateEvaluator(
         const val MINIMUM_INDEPENDENT_PROCESSES: Int = 5
         val PER_STEP_COUNTS = listOf(800, 1_600, 3_200)
         val RETAINED_RUNTIME_TYPES = setOf("ExecutionSession", "KickExecution")
+        const val CS1_FAKE_TOKEN_TYPE: String = "Cs1FakeExecutionToken"
+        const val RETAINED_V2_PROVIDER: String =
+            "revoman-retained-two-phase-weak-proof-final-heap/v2"
     }
+
+    private data class ExactV2Failure(val decision: GateDecision, val reason: String)
 }

@@ -207,6 +207,89 @@ class ComparisonReportIntegrityTest {
     }
 
     @Test
+    fun `exact retained policy failure round trips without fabricated slope evidence`() {
+        val valid = exactRetainedPolicyFailure()
+        val validReport = report(listOf(valid), GateDecision.FAIL)
+        val source = temporaryDirectory.resolve("retained-policy-fail.json")
+
+        valid.validate("metric")
+        BenchmarkJson.write(source, validReport)
+        BenchmarkJson.validateSchema(source, COMPARISON_SCHEMA)
+
+        assertThat(BenchmarkJson.read<ComparisonReport>(source)).isEqualTo(validReport)
+        assertThat(valid.slopeInterval).isNull()
+        assertThat(valid.observedValue).isNull()
+    }
+
+    @Test
+    fun `evidence free failures remain forbidden outside exact retained policy failure`() {
+        val exact = exactRetainedPolicyFailure()
+        val forgedModels =
+            listOf(
+                exact.copy(
+                    gate = GateId.COLD_MEDIAN,
+                    claimKind = ClaimKind.NON_REGRESSION,
+                    mode = RunMode.COLD,
+                    metric = MetricId.LATENCY,
+                    statistic = Statistic.MEDIAN,
+                    limit = 1.05,
+                ),
+                exact.copy(
+                    gate = GateId.PER_STEP_ALLOCATION_SPREAD,
+                    metric = MetricId.BYTES_PER_STEP,
+                    limit = 1.10,
+                ),
+                exact.copy(decision = GateDecision.PASS),
+            )
+        forgedModels.forEach { forged ->
+            assertThrows<IllegalArgumentException> { forged.validate("metric") }
+            assertThrows<IllegalArgumentException> {
+                BenchmarkJson.encode(
+                    report(
+                        listOf(forged),
+                        if (forged.decision == GateDecision.PASS) GateDecision.PASS
+                        else GateDecision.FAIL,
+                    )
+                )
+            }
+        }
+
+        val schemaForgeries =
+            listOf(
+                coldMedianDecision()
+                    .copy(interval = null, decision = GateDecision.INCONCLUSIVE),
+                gateCases()
+                    .single { it.gate == GateId.PER_STEP_ALLOCATION_SPREAD }
+                    .decision()
+                    .copy(observedValue = null, decision = GateDecision.INCONCLUSIVE),
+                exact.copy(decision = GateDecision.INCONCLUSIVE),
+            ).mapIndexed { index, validEvidenceFree ->
+                val validOverall = GateDecision.INCONCLUSIVE
+                val forgedDecision = if (index == 2) GateDecision.PASS else GateDecision.FAIL
+                val json =
+                    BenchmarkJson.encode(report(listOf(validEvidenceFree), validOverall))
+                        .toString(UTF_8)
+                        .replace(
+                            "\"decision\":\"INCONCLUSIVE\"",
+                            "\"decision\":\"$forgedDecision\"",
+                        )
+                        .replace(
+                            "\"overall\":\"INCONCLUSIVE\"",
+                            "\"overall\":\"$forgedDecision\"",
+                        )
+                temporaryDirectory.resolve("evidence-free-forgery-$index.json").also {
+                    Files.writeString(it, json)
+                }
+            }
+        schemaForgeries.forEach { source ->
+            assertThrows<IllegalArgumentException> {
+                BenchmarkJson.validateSchema(source, COMPARISON_SCHEMA)
+            }
+            assertThrows<IllegalArgumentException> { BenchmarkJson.read<ComparisonReport>(source) }
+        }
+    }
+
+    @Test
     fun `schema and decoder reject expressible report forgeries`() {
         val valid = Files.readString(resource("pass.json"))
         val wrongGate = valid.replace("WARM_MEDIAN", "COLD_MEDIAN")
@@ -310,6 +393,21 @@ class ComparisonReportIntegrityTest {
             limit = limit,
             decision = GateDecision.PASS,
             reason = "targeted passes",
+        )
+
+    private fun exactRetainedPolicyFailure(): MetricDecision =
+        MetricDecision(
+            gate = GateId.RETAINED_SLOPE,
+            claimKind = ClaimKind.STRUCTURAL,
+            mode = RunMode.RETAINED,
+            metric = MetricId.RETAINED_BYTES,
+            statistic = null,
+            interval = null,
+            slopeInterval = null,
+            observedValue = null,
+            limit = 1_024.0,
+            decision = GateDecision.FAIL,
+            reason = "expected exact-v2 weak references did not all clear",
         )
 
     private fun gateCases(): List<GateCase> =

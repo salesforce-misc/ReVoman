@@ -56,6 +56,7 @@ import java.util.concurrent.atomic.AtomicReference
 import kotlin.system.exitProcess
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty
 import org.junit.jupiter.api.io.TempDir
 
 class RunnerIntegrationTest {
@@ -249,6 +250,45 @@ class RunnerIntegrationTest {
             }
             assertThat(failure).hasMessageThat().contains("exit code 1")
             assertThat(requireNotNull(rootHandle.get()).isAlive).isFalse()
+        }
+    }
+
+    @Test
+    @EnabledIfSystemProperty(named = "revoman.benchmark.adapter", matches = "major-v1")
+    fun `real retained worker reports major lifecycle weak references`() {
+        val target = integrationTarget()
+        val verified = VerifiedTargetManifest.preflight(target.manifestPath, target.target)
+        val fixtureRoot =
+            materializeLifecycleFixture(temporaryDirectory.resolve("major-retained-fixture"))
+        val manifest = BenchmarkJson.read<WorkloadManifest>(fixtureRoot.resolve("manifest.json"))
+
+        DeterministicHttpFixture.open(manifest).use { fixture ->
+            fixture.resetExecution("major-retained-real")
+            val observation =
+                JdkProcessLauncher().launch(
+                    retainedWorkerCommand(
+                        root = temporaryDirectory.resolve("major-retained"),
+                        verified = verified,
+                        workload = lifecycleRequest(fixtureRoot, fixture.baseUrl),
+                        expectedDigest = requireNotNull(manifest.expectedDigest),
+                        executionCount = 2,
+                        logging = benchmarkLoggingConfigurationPath().toUri(),
+                    )
+                )
+
+            assertThat(observation.stdoutTail).isEmpty()
+            assertThat(observation.stderrTail).isEmpty()
+            assertThat(observation.result.samples).isEmpty()
+            val checkpoint = requireNotNull(observation.result.retainedCheckpoint)
+            assertThat(checkpoint.executionCount).isEqualTo(2)
+            assertThat(checkpoint.usedHeapBytes).isAtLeast(0)
+            assertThat(checkpoint.completedGcCycles).isAtLeast(4)
+            assertThat(checkpoint.weakReferences.map { it.type })
+                .containsExactly("ExecutionSession", "KickExecution")
+            checkpoint.weakReferences.forEach { outcome ->
+                assertThat(outcome.created).isEqualTo(2)
+                assertThat(outcome.cleared).isEqualTo(outcome.created)
+            }
         }
     }
 

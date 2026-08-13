@@ -16,6 +16,8 @@ object MajorV1BindingContract {
     const val BUILDER_OWNER: String = "com/salesforce/revoman/input/config/Kick\$Builder"
     const val REVOMAN_OWNER: String = "com/salesforce/revoman/ReVoman"
     const val RUNDOWN_OWNER: String = "com/salesforce/revoman/output/Rundown"
+    const val LIFECYCLE_DIAGNOSTICS_OWNER: String =
+        "com/salesforce/revoman/internal/runtime/ExecutionLifecycleDiagnostics"
 
     val configure = Member(KICK_OWNER, "configure", "()L$BUILDER_OWNER;", Invocation.STATIC)
     val templatePath =
@@ -45,6 +47,13 @@ object MajorV1BindingContract {
     val executedStepCount = Member(RUNDOWN_OWNER, "executedStepCount", "()I", Invocation.VIRTUAL)
     val unsuccessfulStepCount =
         Member(RUNDOWN_OWNER, "unsuccessfulStepCount", "()I", Invocation.VIRTUAL)
+    val drainLifecycleDiagnostics =
+        Member(
+            LIFECYCLE_DIAGNOSTICS_OWNER,
+            "drain",
+            "()[Ljava/lang/Object;",
+            Invocation.STATIC,
+        )
 
     /** Distinguishes JVM static invocation from receiver-bearing virtual invocation. */
     enum class Invocation {

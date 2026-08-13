@@ -80,6 +80,10 @@ internal fun kickExecution(
     override val sandboxInitialized: Boolean
       get() = sandbox != null
 
+    init {
+      registerKickExecution(this)
+    }
+
     override fun execute(): Rundown {
       check(!closed) { "KickExecution is already closed" }
       check(!executed) { "KickExecution has already executed" }

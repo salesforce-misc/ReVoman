@@ -11,12 +11,15 @@ import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
 import com.salesforce.revoman.benchmark.driver.json.BenchmarkJson
 import com.salesforce.revoman.benchmark.driver.model.BenchmarkResultV1
+import com.salesforce.revoman.benchmark.driver.model.MetricId
 import com.salesforce.revoman.benchmark.driver.model.TargetManifest
+import com.salesforce.revoman.benchmark.driver.model.TargetRole
 import java.io.ByteArrayOutputStream
 import java.io.PrintStream
 import java.nio.file.Files
 import java.nio.file.Path
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty
 import org.junit.jupiter.api.io.TempDir
 
 class BenchmarkDriverIntegrationTest {
@@ -104,6 +107,93 @@ class BenchmarkDriverIntegrationTest {
                 )
             )
             .isEqualTo(CliExitCode.GATE_NOT_PASSED)
+    }
+
+    @Test
+    @EnabledIfSystemProperty(named = "revoman.benchmark.adapter", matches = "major-v1")
+    fun `major lifecycle retained campaign preserves v2 series identity`() {
+        val source = Path.of(requiredProperty("revoman.benchmark.targetManifest")).toRealPath()
+        val exported = BenchmarkJson.read<TargetManifest>(source)
+        val baselineId = "retained-baseline"
+        val candidateId = "retained-candidate"
+        val baseline = writeTarget("retained-baseline.json", exported.copy(targetId = baselineId))
+        val candidate = writeTarget("retained-candidate.json", exported.copy(targetId = candidateId))
+        val root = temporaryRoot()
+        val resultPath = root.resolve("retained.json")
+        val arguments =
+            runArguments(
+                    baseline,
+                    candidate,
+                    root.resolve("retained-artifacts"),
+                    resultPath,
+                )
+                .also { values ->
+                    values[values.indexOf("--mode") + 1] = "retained"
+                    values[values.indexOf("--baseline-adapter") + 1] = "baseline-83f3cd70"
+                    values[values.indexOf("--candidate-adapter") + 1] = "major-v1"
+                    values[values.indexOf("--blocks") + 1] = "1"
+                    values[values.indexOf("--iterations") + 1] = "0"
+                    values[values.indexOf("--metrics") + 1] = "retained"
+                }
+
+        assertWithMessage(lastError).that(execute(arguments)).isEqualTo(CliExitCode.SUCCESS)
+        assertThat(execute(arrayOf("verify", "--input", resultPath.toString())))
+            .isEqualTo(CliExitCode.SUCCESS)
+
+        val result = BenchmarkJson.read<BenchmarkResultV1>(resultPath)
+        assertThat(result.configuration.targets)
+            .containsExactly(
+                com.salesforce.revoman.benchmark.driver.model.TargetAssignment(
+                    TargetRole.BASELINE,
+                    baselineId,
+                    "baseline-83f3cd70",
+                ),
+                com.salesforce.revoman.benchmark.driver.model.TargetAssignment(
+                    TargetRole.CANDIDATE,
+                    candidateId,
+                    "major-v1",
+                ),
+            )
+        val series = result.workloads.single().metricSeries.single()
+        assertThat(series.metric).isEqualTo(MetricId.RETAINED_BYTES)
+        assertThat(series.provider)
+            .isEqualTo("revoman-retained-two-phase-weak-proof-final-heap/v2")
+        assertThat(series.providerConfigurationSha256)
+            .isEqualTo("d5fcf4808f4a06c419a45049300d1897aa28452d6684b63701d475cb7f7aeeb0")
+        val observations = requireNotNull(series.blocks).single().observations
+        assertThat(observations.map { it.provider }.distinct())
+            .containsExactly("revoman-retained-two-phase-weak-proof-final-heap/v2")
+
+        val baselineObservations = observations.filter { it.targetId == baselineId }
+        assertThat(baselineObservations).hasSize(3)
+        assertThat(baselineObservations.map { requireNotNull(it.retainedEvidence).executionCount })
+            .containsExactly(1_000, 2_000, 4_000)
+            .inOrder()
+        baselineObservations.forEach { observation ->
+            val evidence = requireNotNull(observation.retainedEvidence)
+            assertThat(evidence.completedGcCycles).isAtLeast(4)
+            assertThat(evidence.weakReferences).hasSize(1)
+            val weakReference = evidence.weakReferences.single()
+            assertThat(weakReference.type).isEqualTo("Cs1FakeExecutionToken")
+            assertThat(weakReference.created).isEqualTo(1)
+            assertThat(weakReference.cleared).isEqualTo(1)
+        }
+
+        val candidateObservations = observations.filter { it.targetId == candidateId }
+        assertThat(candidateObservations).hasSize(3)
+        assertThat(candidateObservations.map { requireNotNull(it.retainedEvidence).executionCount })
+            .containsExactly(1_000, 2_000, 4_000)
+            .inOrder()
+        candidateObservations.forEach { observation ->
+            val evidence = requireNotNull(observation.retainedEvidence)
+            assertThat(evidence.completedGcCycles).isAtLeast(4)
+            assertThat(evidence.weakReferences.map { it.type })
+                .containsExactly("ExecutionSession", "KickExecution")
+            evidence.weakReferences.forEach { weakReference ->
+                assertThat(weakReference.created).isEqualTo(evidence.executionCount)
+                assertThat(weakReference.cleared).isEqualTo(weakReference.created)
+            }
+        }
     }
 
     @Test

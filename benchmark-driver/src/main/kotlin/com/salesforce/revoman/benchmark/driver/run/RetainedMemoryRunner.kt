@@ -95,7 +95,7 @@ class RetainedMemoryRunner(private val launcher: ProcessLauncher) {
                     MetricObservation(
                         targetId = plan.target.targetId,
                         metric = MetricId.RETAINED_BYTES,
-                        provider = FullGcProtocol.PROVIDER_ID,
+                        provider = RETAINED_PROVIDER_ID,
                         unit = MetricUnit.BYTES,
                         fork = plan.fork,
                         iteration = iteration,
@@ -116,7 +116,7 @@ class RetainedMemoryRunner(private val launcher: ProcessLauncher) {
                 targetRole = plan.targetRole,
                 fork = plan.fork,
                 replicateGroup = plan.replicateGroup,
-                provider = FullGcProtocol.PROVIDER_ID,
+                provider = RETAINED_PROVIDER_ID,
                 providerConfigurationSha256 = retainedProviderConfigurationSha256(plan),
                 observations = observations,
             )
@@ -174,13 +174,18 @@ private fun validateRetainedProcess(
 }
 
 internal val RETAINED_EXECUTION_COUNTS: List<Int> = listOf(1_000, 2_000, 4_000)
+internal const val RETAINED_PROVIDER_ID: String =
+    "revoman-retained-two-phase-weak-proof-final-heap/v2"
+internal const val RETAINED_PROCEDURE: String =
+    "reachability(two acknowledged full-GC cycles) then final-heap(two acknowledged full-GC cycles)"
 internal val RETAINED_PROVIDER_CONFIGURATION_SHA256: String =
     ContentHasher.sha256(
         buildList {
-                add("revoman-retained-memory-provider/v1")
+                add(RETAINED_PROVIDER_ID)
+                add(RETAINED_PROCEDURE)
+                add(FullGcProtocol.DEFAULT_CONFIGURATION_SHA256)
                 add(FullGcProtocol.DEFAULT_CONFIGURATION_SHA256)
                 addAll(RETAINED_EXECUTION_COUNTS.map(Int::toString))
-                add("cs1-fixed-weak-reference-token/v1")
             }
             .joinToString("\u0000")
             .toByteArray(UTF_8)

@@ -60,7 +60,19 @@ data class MetricDecision(
         }
         val evidenceCount = listOf(interval, slopeInterval, observedValue).count { it != null }
         require(evidenceCount <= 1) { "$path must contain at most one evidence field family" }
-        require(decision in setOf(GateDecision.INCONCLUSIVE, GateDecision.INCOMPATIBLE) || evidenceCount == 1) {
+        val exactRetainedPolicyFailure =
+            evidenceCount == 0 &&
+                decision == GateDecision.FAIL &&
+                gate == GateId.RETAINED_SLOPE &&
+                claimKind == ClaimKind.STRUCTURAL &&
+                mode == RunMode.RETAINED &&
+                metric == MetricId.RETAINED_BYTES &&
+                statistic == null
+        require(
+            decision in setOf(GateDecision.INCONCLUSIVE, GateDecision.INCOMPATIBLE) ||
+                evidenceCount == 1 ||
+                exactRetainedPolicyFailure
+        ) {
             "$path PASS or FAIL decision requires exactly one evidence field family"
         }
         when (claimKind) {
