@@ -18,9 +18,12 @@
   </ManuallySuppressedIssues>
   <CurrentIssues>
     <ID>ComplexCondition:JsonPretty.kt:JsonPretty$next &lt; n &amp;&amp; ((c == '{' &amp;&amp; json[next] == '}') || (c == '[' &amp;&amp; json[next] == ']'))</ID>
-    <ID>ComplexCondition:ReVoman.kt:ReVoman$!bypassLedger &amp;&amp; entry != null &amp;&amp; entry.produces.isNotEmpty() &amp;&amp; entry.hash.isNotEmpty() &amp;&amp; step.sourceHash.isNotEmpty() &amp;&amp; entry.hash != step.sourceHash &amp;&amp; envKeys.containsAll(entry.produces)</ID>
+    <ID>ComplexCondition:KickRunner.kt:&lt;no name provided&gt;$!bypassLedger &amp;&amp; entry != null &amp;&amp; entry.produces.isNotEmpty() &amp;&amp; entry.hash.isNotEmpty() &amp;&amp; step.sourceHash.isNotEmpty() &amp;&amp; entry.hash != step.sourceHash &amp;&amp; envKeys.containsAll(entry.produces)</ID>
     <ID>CyclomaticComplexMethod:JsonPretty.kt:JsonPretty$private fun reindent: String</ID>
-    <ID>CyclomaticComplexMethod:ReVoman.kt:ReVoman$@OptIn(ExperimentalStdlibApi::class) private fun runStep: StepReport</ID>
+    <ID>CyclomaticComplexMethod:JvmSurfaceInventory.kt:JvmSurfaceInventory$fun readJar: List&lt;JvmSurfaceEntry&gt;</ID>
+    <ID>CyclomaticComplexMethod:JvmSurfaceVisibilityTest.kt:JvmSurfaceVisibilityTest$@Test fun `Task 7 cumulative additions and removals have the exact raw surface`</ID>
+    <ID>CyclomaticComplexMethod:LegacyEvaluatorRemovalTest.kt:LegacyEvaluatorRemovalTest$@Test fun `built root jar removes the legacy evaluator surface but retains nodeModulesPath source shape`</ID>
+    <ID>CyclomaticComplexMethod:RunbookExeStructureTest.kt:private fun fixedInstructionLength: Int</ID>
     <ID>CyclomaticComplexMethod:SandboxBridge.kt:SandboxBridge$private fun decodeResult: PmExecutionResult</ID>
     <ID>CyclomaticComplexMethod:StepReport.kt:StepReport.Companion$private fun failure: Either&lt;ExeFailure, HttpStatusUnsuccessful&gt;?</ID>
     <ID>CyclomaticComplexMethod:Template.kt:Request$internal fun toHttpRequest: org.http4k.core.Request</ID>
@@ -31,13 +34,60 @@
     <ID>EmptyFunctionBlock:RegexReplacerScopesTest.kt:RegexReplacerScopesTest.RecordingSink${}</ID>
     <ID>EmptyFunctionBlock:RunLogContextActiveSinkTest.kt:RunLogContextActiveSinkTest.&lt;no name provided&gt;${}</ID>
     <ID>FunctionOnlyReturningConstant:TypeAdapter.kt:TypeAdapter$@FromJson fun fromJson: Type?</ID>
+    <ID>LargeClass:BenchmarkWorkflowTest.kt:BenchmarkWorkflowTest</ID>
+    <ID>LargeClass:Cs2aOperatorScriptTest.kt:Cs2aOperatorScriptTest</ID>
+    <ID>LargeClass:Cs2aSupervisorAtomicHandoffTest.kt:Cs2aSupervisorAtomicHandoffTest</ID>
+    <ID>LargeClass:JvmSurfaceVisibilityTest.kt:JvmSurfaceVisibilityTest</ID>
+    <ID>LongMethod:ApiBaselineInventoryTest.kt:ApiBaselineInventoryTest$private fun assertExactCs2aAbiProjections</ID>
+    <ID>LongMethod:BenchmarkWorkflowTest.kt:BenchmarkWorkflowTest$@Test fun `ordinary CI separates the fixed baseline self-test from current major lifecycle tests`</ID>
+    <ID>LongMethod:Cs2aOperatorScriptTest.kt:Cs2aOperatorScriptTest$@Test fun `archive ingress and checksum failures print only their safe retry stage`</ID>
+    <ID>LongMethod:Cs2aOperatorScriptTest.kt:Cs2aOperatorScriptTest$@Test fun `archive only never overwrites remote supplied local authority destinations`</ID>
+    <ID>LongMethod:Cs2aOperatorScriptTest.kt:Cs2aOperatorScriptTest$@Test fun `archive only preserves validation failure locally without copying remote bytes`</ID>
+    <ID>LongMethod:Cs2aOperatorScriptTest.kt:Cs2aOperatorScriptTest$@Test fun `archive only rejects remote symlinks before writing local authority evidence`</ID>
+    <ID>LongMethod:Cs2aOperatorScriptTest.kt:Cs2aOperatorScriptTest$@Test fun `archive only validates final handoff exactly once before copying`</ID>
+    <ID>LongMethod:Cs2aOperatorScriptTest.kt:Cs2aOperatorScriptTest$@Test fun `archive transfer failure prints only its safe retry stage`</ID>
+    <ID>LongMethod:Cs2aOperatorScriptTest.kt:Cs2aOperatorScriptTest$@Test fun `central semantic acceptance rejects independent status policy pass provenance and command mutations`</ID>
+    <ID>LongMethod:Cs2aOperatorScriptTest.kt:Cs2aOperatorScriptTest$@Test fun `command protocol pins exact ordered labels argv and stage prefixes`</ID>
+    <ID>LongMethod:Cs2aOperatorScriptTest.kt:Cs2aOperatorScriptTest$@Test fun `persisted attempt history rejects an evidence merge commit`</ID>
+    <ID>LongMethod:Cs2aOperatorScriptTest.kt:Cs2aOperatorScriptTest$@Test fun `publication tool discovery rejects a GNU-labelled backend with broken no-replace semantics`</ID>
+    <ID>LongMethod:Cs2aOperatorScriptTest.kt:Cs2aOperatorScriptTest$@Test fun `safe partial attempt persists successfully while semantic selection still rejects it`</ID>
+    <ID>LongMethod:Cs2aOperatorScriptTest.kt:Cs2aOperatorScriptTest$@Test fun `source authentication rejects a changed operator asset before remote install`</ID>
+    <ID>LongMethod:Cs2aOperatorScriptTest.kt:Cs2aOperatorScriptTest$private fun campaign: String</ID>
+    <ID>LongMethod:Cs2aOperatorScriptTest.kt:Cs2aOperatorScriptTest$private fun createCompleteArchiveFixture: ArchiveFixture</ID>
+    <ID>LongMethod:Cs2aOperatorScriptTest.kt:Cs2aOperatorScriptTest$private fun runArchiveSemanticSeparation: ProcessResult</ID>
+    <ID>LongMethod:Cs2aOperatorScriptTest.kt:Cs2aOperatorScriptTest$private fun runOperatorModeHarness: ProcessResult</ID>
+    <ID>LongMethod:Cs2aOperatorScriptTest.kt:Cs2aOperatorScriptTest$private fun runPublicSelection: ProcessResult</ID>
+    <ID>LongMethod:Cs2aSupervisorAtomicHandoffTest.kt:Cs2aSupervisorAtomicHandoffTest$@Test fun `validate final handoff rejects every evidence and crosslink mutation`</ID>
+    <ID>LongMethod:Cs2aSupervisorAtomicHandoffTest.kt:Cs2aSupervisorAtomicHandoffTest$private fun createFixture: HandoffFixture</ID>
+    <ID>LongMethod:Cs2aSupervisorAtomicHandoffTest.kt:Cs2aSupervisorAtomicHandoffTest$private fun runControlledChildHarness: ProcessResult</ID>
+    <ID>LongMethod:Cs2aSupervisorAtomicHandoffTest.kt:Cs2aSupervisorAtomicHandoffTest$private fun runCopy: ProcessResult</ID>
+    <ID>LongMethod:Cs2aSupervisorAtomicHandoffTest.kt:Cs2aSupervisorAtomicHandoffTest$private fun runDanglingLauncherArtifactHarness: ProcessResult</ID>
+    <ID>LongMethod:Cs2aSupervisorAtomicHandoffTest.kt:Cs2aSupervisorAtomicHandoffTest$private fun runLaunchAssignmentRaceHarness: ProcessResult</ID>
+    <ID>LongMethod:Cs2aSupervisorAtomicHandoffTest.kt:Cs2aSupervisorAtomicHandoffTest$private fun runNestedContainmentSignalHarness: ProcessResult</ID>
+    <ID>LongMethod:Cs2aSupervisorAtomicHandoffTest.kt:Cs2aSupervisorAtomicHandoffTest$private fun runPostLeaderReapDescendantHarness: ProcessResult</ID>
+    <ID>LongMethod:Cs2aSupervisorAtomicHandoffTest.kt:Cs2aSupervisorAtomicHandoffTest$private fun runPreReentryHarness: ProcessResult</ID>
+    <ID>LongMethod:Cs2aSupervisorAtomicHandoffTest.kt:Cs2aSupervisorAtomicHandoffTest$private fun runReadyReleaseSignalRaceHarness: ProcessResult</ID>
+    <ID>LongMethod:Cs2aSupervisorAtomicHandoffTest.kt:Cs2aSupervisorAtomicHandoffTest$private fun startOrphanedLauncherHarness: OrphanedLauncherFixture</ID>
+    <ID>LongMethod:ExecutionSessionE2ETest.kt:ExecutionSessionE2ETest$@Test fun `runbook sink matrix borrows overrides masks and restores exact contexts`</ID>
+    <ID>LongMethod:ExecutionSessionTest.kt:ExecutionSessionTest$@Test fun `session preserves the exact observable kick envelope`</ID>
+    <ID>LongMethod:JvmSurfaceInventory.kt:ClassFileReader$fun read: ParsedClass</ID>
+    <ID>LongMethod:JvmSurfaceInventory.kt:JvmSurfaceInventory$fun readJar: List&lt;JvmSurfaceEntry&gt;</ID>
+    <ID>LongMethod:JvmSurfaceVisibilityTest.kt:JvmSurfaceVisibilityTest$@Test fun `Task 7 cumulative additions and removals have the exact raw surface`</ID>
+    <ID>LongMethod:JvmSurfaceVisibilityTest.kt:JvmSurfaceVisibilityTest$@Test fun `external Java source cannot operate Task 3 runtime boundaries`</ID>
+    <ID>LongMethod:JvmSurfaceVisibilityTest.kt:JvmSurfaceVisibilityTest$@Test fun `preserved runbook adapter is Java callable while Task 6 session routes are not`</ID>
+    <ID>LongMethod:JvmSurfaceVisibilityTest.kt:JvmSurfaceVisibilityTest$@Test fun `same-package external Java cannot construct or operate function-local implementations`</ID>
+    <ID>LongMethod:KickRunner.kt:&lt;no name provided&gt;$@OptIn(ExperimentalStdlibApi::class) fun runStep: StepReport</ID>
+    <ID>LongMethod:KickRunner.kt:&lt;no name provided&gt;$@OptIn(ExperimentalStdlibApi::class) override fun execute: Rundown</ID>
+    <ID>LongMethod:KickRunner.kt:&lt;no name provided&gt;$fun executeStepsSerially: Pair&lt;List&lt;StepReport&gt;, StopReason&gt;</ID>
+    <ID>LongMethod:LegacyEvaluatorRemovalTest.kt:LegacyEvaluatorRemovalTest$@Test fun `built root jar removes the legacy evaluator surface but retains nodeModulesPath source shape`</ID>
+    <ID>LongMethod:MultiKickEnvTypesE2ETest.kt:MultiKickEnvTypesE2ETest$@Test fun `reentrant public runbook call restores outer state without a global observer`</ID>
+    <ID>LongMethod:PmSandboxBootTest.kt:PmSandboxBootTest$@Test fun `PmSandbox makes a failed boot terminal and preserves cleanup failure ordering`</ID>
     <ID>LongMethod:Polling.kt:@JvmSynthetic internal fun executePolling: Either&lt;PollingFailure, PollingReport?&gt;</ID>
-    <ID>LongMethod:ReVoman.kt:ReVoman$@OptIn(ExperimentalStdlibApi::class) private fun revUpInternal: Rundown</ID>
-    <ID>LongMethod:ReVoman.kt:ReVoman$@OptIn(ExperimentalStdlibApi::class) private fun runStep: StepReport</ID>
-    <ID>LongMethod:ReVoman.kt:ReVoman$private fun executeStepsSerially: SequenceResult</ID>
+    <ID>LongMethod:RunbookExeStructureTest.kt:RunbookExeStructureTest$@Test fun `public overloads dispatch only through matching defaults and runtime descriptors`</ID>
     <ID>LongMethod:SandboxBridge.kt:SandboxBridge$fun boot</ID>
+    <ID>LongMethod:ScriptHookPhaseBarrierE2ETest.kt:ScriptHookPhaseBarrierE2ETest$@Test fun `scripts and hooks observe each prior phase with isolated scopes and independent ledger controls`</ID>
     <ID>LoopWithTooManyJumpStatements:JsonPretty.kt:JsonPretty$while</ID>
-    <ID>LoopWithTooManyJumpStatements:ReVoman.kt:ReVoman$while</ID>
+    <ID>LoopWithTooManyJumpStatements:KickRunner.kt:&lt;no name provided&gt;$while</ID>
     <ID>LoopWithTooManyJumpStatements:SandboxBridge.kt:SandboxBridge$for</ID>
     <ID>LoopWithTooManyJumpStatements:SandboxEventLoop.kt:SandboxEventLoop$while</ID>
     <ID>MagicNumber:ClasspathResolver.kt:3</ID>
@@ -50,14 +100,24 @@
     <ID>ReturnCount:ExeUtils.kt:internal fun ledgerSkipDecision: Boolean</ID>
     <ID>ReturnCount:ExeUtils.kt:internal fun shouldStepBePicked: Boolean</ID>
     <ID>ReturnCount:Flatted.kt:Flatted$fun parse: Any?</ID>
+    <ID>ReturnCount:KickRunner.kt:&lt;no name provided&gt;$@OptIn(ExperimentalStdlibApi::class) fun runStep: StepReport</ID>
     <ID>ReturnCount:Polling.kt:@JvmSynthetic internal fun executePolling: Either&lt;PollingFailure, PollingReport?&gt;</ID>
-    <ID>ReturnCount:ReVoman.kt:ReVoman$@OptIn(ExperimentalStdlibApi::class) private fun runStep: StepReport</ID>
     <ID>ReturnCount:V3ToV2Converter.kt:V3ToV2Converter$fun toAuth: Auth?</ID>
     <ID>ReturnCount:V3YamlReader.kt:V3YamlReader$private fun mapToBody: V3Body?</ID>
     <ID>SwallowedException:JsonPretty.kt:JsonPretty$e: RuntimeException</ID>
     <ID>SwallowedException:SandboxEventLoopTest.kt:SandboxEventLoopTest$e: IllegalStateException</ID>
+    <ID>ThrowingExceptionFromFinally:ExecutionSession.kt:&lt;no name provided&gt;$throw finalFailure</ID>
+    <ID>ThrowingExceptionFromFinally:InternalCloseable.kt:throw finalFailure</ID>
     <ID>ThrowsCount:CompositeResponse.kt:CompositeResponse.Response.SuccessResponse.RecordFactory.RecordAdapter$override fun fromJson: Record</ID>
+    <ID>TooGenericExceptionCaught:ExecutionSession.kt:&lt;no name provided&gt;$closeFailure: Throwable</ID>
+    <ID>TooGenericExceptionCaught:ExecutionSession.kt:&lt;no name provided&gt;$failure: Throwable</ID>
+    <ID>TooGenericExceptionCaught:InternalCloseable.kt:closeFailure: Throwable</ID>
+    <ID>TooGenericExceptionCaught:InternalCloseable.kt:failure: Throwable</ID>
     <ID>TooGenericExceptionCaught:JsonPretty.kt:JsonPretty$e: RuntimeException</ID>
+    <ID>TooGenericExceptionCaught:PmSandbox.kt:PmSandbox$failure: Throwable</ID>
+    <ID>TooGenericExceptionCaught:ResourceScope.kt:&lt;no name provided&gt;$closeFailure: Throwable</ID>
+    <ID>TooGenericExceptionCaught:SandboxBridge.kt:SandboxBridge$closeFailure: Throwable</ID>
+    <ID>TooGenericExceptionCaught:SandboxBridge.kt:SandboxBridge$failure: Throwable</ID>
     <ID>TooGenericExceptionThrown:PollingTest.kt:PollingTest$throw RuntimeException("http call failed")</ID>
     <ID>TooGenericExceptionThrown:PollingTest.kt:PollingTest$throw RuntimeException("predicate failed")</ID>
     <ID>TooGenericExceptionThrown:PollingTest.kt:PollingTest$throw RuntimeException("request build failed")</ID>
@@ -67,7 +127,6 @@
     <ID>TooManyFunctions:KickDef.kt:KickDef</ID>
     <ID>TooManyFunctions:MoshiReVoman.kt:MoshiReVoman</ID>
     <ID>TooManyFunctions:PostmanEnvironment.kt:PostmanEnvironment&lt;ValueT&gt; : MutableMap</ID>
-    <ID>TooManyFunctions:PostmanSDK.kt:PostmanSDK</ID>
     <ID>TooManyFunctions:RundownJsonWriter.kt:com.salesforce.revoman.output.RundownJsonWriter.kt</ID>
     <ID>TooManyFunctions:V3YamlReader.kt:V3YamlReader</ID>
     <ID>UnusedParameter:StepDirective.kt:fromCursor: Int</ID>

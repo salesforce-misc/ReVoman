@@ -51,7 +51,7 @@ internal val sharedGraalEngine: Engine by lazy {
  * [PmExecutionResult]. Only the immutable [sharedGraalEngine] and [SandboxResources.bootSource] are
  * process-wide; every Context, event loop, bridge value, and emitted result remains kick-local.
  */
-internal class SandboxBridge() {
+internal class SandboxBridge {
   private var afterContextCreated: () -> Unit = {}
   private var closeContext: (Context) -> Unit = { it.close(true) }
   private var runtimeObserver: ((Context, Source) -> Unit)? = null

@@ -3539,7 +3539,7 @@ class Cs2aOperatorScriptTest {
             "dirty":false,
             "gradleVersion":"9.7.0",
             "wrapperSha256":"${"c".repeat(64)}",
-            "buildJdk":${targetJdk()},
+            "buildJdk":$TARGET_JDK,
             "manifestSha256":"$baselineHash",
             "classpathSha256":"${"6".repeat(64)}",
             "classpath":[{"logicalId":"revoman-root","sizeBytes":123,"sha256":"${"d".repeat(64)}"}],
@@ -3552,7 +3552,7 @@ class Cs2aOperatorScriptTest {
             "dirty":false,
             "gradleVersion":"9.7.0",
             "wrapperSha256":"${"c".repeat(64)}",
-            "buildJdk":${targetJdk()},
+            "buildJdk":$TARGET_JDK,
             "manifestSha256":"$candidateHash",
             "classpathSha256":"${"6".repeat(64)}",
             "classpath":[{"logicalId":"revoman-root","sizeBytes":123,"sha256":"${"d".repeat(64)}"}],
@@ -3570,9 +3570,6 @@ class Cs2aOperatorScriptTest {
       """
       .trimIndent() + "\n"
   }
-
-  private fun targetJdk(): String =
-    """{"distribution":"fixture","vendor":"fixture","fullVersion":"21.0.10+7","javaHome":"/remote/jdk","jvmFlags":["-Xms256m"]}"""
 
   private fun metricSeries(mode: String, candidateId: String, blockCount: Int): String {
     val blocks = campaignBlocks(candidateId, blockCount)
@@ -3869,6 +3866,8 @@ class Cs2aOperatorScriptTest {
   private data class ArchiveFixture(val archive: Path, val driver: Path, val policySha256: String)
 
   private companion object {
+    const val TARGET_JDK =
+      """{"distribution":"fixture","vendor":"fixture","fullVersion":"21.0.10+7","javaHome":"/remote/jdk","jvmFlags":["-Xms256m"]}"""
     const val BASELINE_SHA = "83f3cd70f78ad733412d10cbc8287aaabafe7aac"
     const val IMPLEMENTATION_SHA = "5bc96660edc3da6be9f36671676aafa3055c3548"
     const val IMPLEMENTATION_TREE = "f66bedc0367b8eac37ff817dcdc90bb22438d9ab"

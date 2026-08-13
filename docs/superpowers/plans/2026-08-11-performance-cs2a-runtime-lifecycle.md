@@ -2135,6 +2135,7 @@ must leave no unstaged or uncommitted changes.
 - Modify: `README.adoc`
 - Modify: `DEVELOPMENT.md`
 - Modify: `.github/workflows/build.yml`
+- Modify: `detekt/baseline.xml`
 - Modify: `src/test/kotlin/com/salesforce/revoman/benchmark/BenchmarkWorkflowTest.kt`
 - Modify: `docs/superpowers/plans/2026-08-11-performance-cs2a-runtime-lifecycle.md`
 - Modify: `docs/superpowers/specs/2026-08-09-performance-redesign-design.md`
@@ -2227,6 +2228,16 @@ implementation SHA before the first gate and proves that exact commit is still c
 gate. The self-test intentionally uses
 `jmh.component-operations.v1`, which `major-v1` does not accept; never point it at the current
 manifest.
+
+Before committing the final implementation, reconcile `detekt/baseline.xml` against the complete
+Task 1-8 tree. Preserve Detekt's rules and exact-ID fail-closed behavior: remove stale IDs, migrate
+only IDs whose accepted implementation moved, and record each intentional lifecycle-cleanup or
+ABI/security mutation-harness finding by its generated exact ID. Broad `Throwable` cleanup is
+intentional here: it preserves primary/suppressed failure ordering even for non-`Exception`
+failures, while the exact mutation matrices remain deliberately readable as one audited protocol.
+Remove trivial findings rather than baseline them. Do not disable a rule, exclude the test source
+set, or skip Detekt. The baseline reconciliation is part of the reviewed implementation because
+the pre-Task8 checkpoint's stale ledger does not pass the required `build` gate.
 
 ```bash
 #!/usr/bin/env bash
@@ -2669,7 +2680,7 @@ exact path is staged before committing:
 set -Eeuo pipefail
 
 git add api src benchmark-driver .github/workflows/build.yml \
-  build.gradle.kts gradle/libs.versions.toml \
+  build.gradle.kts gradle/libs.versions.toml detekt/baseline.xml \
   README.adoc DEVELOPMENT.md docs/modules/ROOT \
   docs/superpowers/plans/2026-08-11-performance-cs2a-runtime-lifecycle.md \
   docs/superpowers/specs/2026-08-09-performance-redesign-design.md \
@@ -2684,7 +2695,7 @@ test -z "$(git status --porcelain)"
 
 Run independent fixed-range Standards + Spec and security reviews over the Task 1 compatibility
 commit through this exact committed `HEAD`, explicitly reviewing this plan, all four operator
-files, and
+files, the exact Detekt baseline reconciliation, and
 `src/test/kotlin/com/salesforce/revoman/benchmark/Cs2aSupervisorAtomicHandoffTest.kt`. The reviewed
 range, staged implementation scope, and resulting commit must all contain this exact plan revision
 and the atomic-handoff test; a plan-only or handoff-test correction is an implementation correction,
