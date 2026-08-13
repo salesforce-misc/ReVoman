@@ -588,6 +588,24 @@ class Cs2aSupervisorAtomicHandoffTest {
   }
 
   @Test
+  fun `orphan watchdog logs TERM and KILL delivery failures`() {
+    val termFailure = runOrphanWatchdogFailureHarness(WatchdogSignalFailure.TERM)
+    assertWithMessage("TERM failure output:\n%s", termFailure.output)
+      .that(termFailure.exitCode)
+      .isEqualTo(0)
+    assertThat(termFailure.output)
+      .contains("orphan watchdog failed to send TERM to controlled group")
+    assertThat(termFailure.output).contains("orphan watchdog escalating controlled group to KILL")
+
+    val killFailure = runOrphanWatchdogFailureHarness(WatchdogSignalFailure.KILL)
+    assertWithMessage("KILL failure output:\n%s", killFailure.output)
+      .that(killFailure.exitCode)
+      .isNotEqualTo(0)
+    assertThat(killFailure.output).contains("orphan watchdog sent TERM to controlled group")
+    assertThat(killFailure.output).contains("orphan watchdog failed to KILL controlled group")
+  }
+
+  @Test
   fun `direct launcher mode rejects unauthenticated paths before writing`() {
     val ready = temporaryDirectory.resolve("untrusted-ready")
     val release = temporaryDirectory.resolve("untrusted-release")
@@ -2062,6 +2080,36 @@ class Cs2aSupervisorAtomicHandoffTest {
     )
   }
 
+  private fun runOrphanWatchdogFailureHarness(failure: WatchdogSignalFailure): ProcessResult {
+    val harness =
+      """
+      source "${'$'}1"
+      process_identity() { return 1; }
+      sleep() { :; }
+      wait() { :; }
+      kill() {
+        test "${'$'}2" = --
+        test "${'$'}3" = -4242
+        case "${'$'}1" in
+          -TERM) test "${failure.name}" != TERM ;;
+          -KILL) test "${failure.name}" != KILL ;;
+          *) return 64 ;;
+        esac
+      }
+      watch_controlled_launcher_parent 123:321:456 4242
+      """
+        .trimIndent()
+    return run(
+      listOf(
+        "/bin/bash",
+        "-c",
+        harness,
+        "orphan-watchdog-${failure.name.lowercase()}-failure-harness",
+        supervisor.toString(),
+      )
+    )
+  }
+
   private fun runNestedContainmentSignalHarness(entry: NestedContainmentEntry): ProcessResult {
     val childStatusSetup = if (entry == NestedContainmentEntry.FINALIZER) "CHILD_STATUS=0" else ""
     val invocation =
@@ -2336,6 +2384,11 @@ class Cs2aSupervisorAtomicHandoffTest {
   private enum class NestedContainmentEntry {
     SIGNAL_HANDLER,
     FINALIZER,
+  }
+
+  private enum class WatchdogSignalFailure {
+    TERM,
+    KILL,
   }
 
   private companion object {

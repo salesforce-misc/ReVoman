@@ -2524,9 +2524,12 @@ identity and starts an in-group watchdog that retains FD 9. If the original supe
 before release, during the workload, or after child-status publication, the watchdog survives its
 own group TERM and then KILLs the anchored group, closing every inherited lock descriptor; a
 replacement supervisor is therefore never permanently excluded from stale-state recovery by an
-orphaned launcher. The archived launcher log records the authenticated parent loss, the TERM
+orphaned launcher. The root-owned launcher log records the authenticated parent loss, the TERM
 result, and KILL escalation (plus an explicit failure if KILL returns); successful self-KILL is
-proved by bounded FD-9 lock reacquisition rather than an impossible post-KILL log write. A signal
+proved by bounded FD-9 lock reacquisition rather than an impossible post-KILL log write. When the
+parent dies, this root-owned `child-output.log` remains in the stale governor-state directory for
+administrator diagnosis; do not claim it as immutable attempt evidence unless the normal
+supervisor handoff completes. A signal
 observed before launch prevents launch; a signal racing the spawn is rechecked at the authenticated
 ready/release boundary, synchronously terminates the anchored group, proves absence, and returns
 through the finalizer. Release publication runs inside a monotonic launch-critical section: signal
@@ -2646,7 +2649,8 @@ validator's full mutation matrix, authenticated launcher/FD/path rejection, GNU
 `timeout --foreground`, anchored surviving-descendant cleanup, and the pre/post-spawn signal races.
 It must SIGKILL the supervisor parent independently before release, during workload execution, and
 after status publication, require the real production watchdog to release FD 9 in every phase, and
-prove that deleting the watchdog call retains the lock.
+prove that deleting the watchdog call retains the lock. Force TERM and KILL delivery failures
+independently and assert their bounded diagnostics and return behavior.
 It also delivers two nested signals through the production handler at the final pre-release edge
 and proves that launch cancellation remains monotonic until the owner reports the aborted release;
 separate mutations fail release write, chmod, and rename and prove each status propagates.
