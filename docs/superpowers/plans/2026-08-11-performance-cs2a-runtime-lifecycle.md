@@ -2217,11 +2217,21 @@ The exact command block below is the indivisible final-implementation gate that 
 after all review fixes, production/tests/build/docs changes, operator scripts, and the path-free
 manifest validator have been committed. Run it from the clean implementation commit, export a fresh
 current-target manifest and a separate clean pinned baseline manifest for the JMH harness self-test,
-then run serially. The self-test intentionally uses
+then run serially in the same Bash process as the Step 4 operator gates. It records the reviewed
+implementation SHA before the first gate and proves that exact commit is still clean after the last
+gate. The self-test intentionally uses
 `jmh.component-operations.v1`, which `major-v1` does not accept; never point it at the current
 manifest.
 
 ```bash
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+GATED_IMPLEMENTATION_SHA=$(git rev-parse HEAD)
+readonly GATED_IMPLEMENTATION_SHA
+[[ "$GATED_IMPLEMENTATION_SHA" =~ ^[0-9a-f]{40}$ ]]
+test -z "$(git status --porcelain)"
+
 ./gradlew :benchmark-driver:installDist \
   --rerun-tasks --no-build-cache --no-configuration-cache --console=plain
 
@@ -2273,6 +2283,9 @@ test "$(git -C "$SELFTEST_ROOT/baseline" rev-parse HEAD)" = \
 ./gradlew kaptKotlin classes :benchmark-driver:kaptKotlin \
   :benchmark-driver:classes --no-configuration-cache --console=plain
 ./gradlew qodanaScan --no-configuration-cache --console=plain
+
+test "$(git rev-parse HEAD)" = "$GATED_IMPLEMENTATION_SHA"
+test -z "$(git status --porcelain)"
 ```
 
 If a gate fails or behavior is unexpected, use `superpowers:systematic-debugging` and the JetBrains debugger skill first; use JDWP only if the IDE debugger cannot attach. Do not weaken, skip, or silently reclassify a gate. Record exact test counts, task outcomes, Qodana findings, and any environmental limitation in the report.
@@ -2341,6 +2354,9 @@ Stage the active ABI, structural/operator tests, source, ordinary documentation,
 all four operator files and create the pre-evidence implementation commit:
 
 ```bash
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
 git add api src benchmark-driver .github/workflows/build.yml \
   build.gradle.kts gradle/libs.versions.toml \
   README.adoc DEVELOPMENT.md docs/modules/ROOT \
@@ -2359,8 +2375,12 @@ reviewed SHA, run the entire Step 3 command block verbatim, and run these exact 
 same shell:
 
 ```bash
-GATED_IMPLEMENTATION_SHA=$(git rev-parse HEAD)
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+: "${GATED_IMPLEMENTATION_SHA:?run the complete Step 3 gate first in this same shell}"
 [[ "$GATED_IMPLEMENTATION_SHA" =~ ^[0-9a-f]{40}$ ]]
+test "$(git rev-parse HEAD)" = "$GATED_IMPLEMENTATION_SHA"
 test -z "$(git status --porcelain)"
 
 for script in \
@@ -2416,7 +2436,8 @@ the exact reviewed CS2a implementation commit. Provision all three checkouts rat
 operator placeholders:
 
 ```bash
-set -euo pipefail
+#!/usr/bin/env bash
+set -Eeuo pipefail
 mkdir -p "$PWD/build"
 SMOKE_ROOT=$(mktemp -d "$PWD/build/cs2a-smoke.XXXXXXXX")
 SMOKE_CHECKOUTS=$(mktemp -d "$PWD/build/cs2a-smoke-checkouts.XXXXXXXX")
@@ -2495,7 +2516,7 @@ checkouts inside it, and preserves every rejected block:
 
 ```bash
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
 test -n "${BASH_VERSION:-}"
 REMOTE_HOST=gopalaaksh-wsl3
 : "${CS2A_IMPLEMENTATION_SHA:?export the exact reviewed implementation SHA}"
@@ -2811,7 +2832,7 @@ tree or a later evidence-commit `HEAD`.
 
 ```bash
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
 test -n "${BASH_VERSION:-}"
 export JAVA_HOME=/home/gopala.akshintala/core-public/tools/Linux/jdk/sfdc-jdk-zulu-21.helium_x64
 export PATH="$JAVA_HOME/bin:/usr/bin:/bin"
@@ -3120,6 +3141,10 @@ duplicate-ID variant and prove that nonexistent remote absolute `executionPath` 
 opened:
 
 ```bash
+# Continuation of cs2a-operator.sh: preserve every command status through archive publication.
+set +e
+set -Euo pipefail
+
 if test "$RUN_ROOT_VALID" = true; then
   ATTEMPT_ID=$(basename "$REMOTE_RUN_ROOT")
 else
@@ -3635,6 +3660,9 @@ independent review, any rerun, or any source correction, regardless of
 PASS/FAIL/INCONCLUSIVE/invalid status:
 
 ```bash
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
 : "${CS2A_IMPLEMENTATION_SHA:?export the exact measured implementation SHA}"
 [[ "$CS2A_IMPLEMENTATION_SHA" =~ ^[0-9a-f]{40}$ ]]
 rm -f "$PWD/build/cs2a-local-evidence-dir.txt"
@@ -3678,6 +3706,9 @@ copy from the same immutable remote run root with the checked-in archive-only mo
 authenticated markers from the original supervisor log, require exactly one of each, and invoke:
 
 ```bash
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
 REMOTE_RUN_ROOT=$(tr -d '\r' <"$PWD/build/cs2a-supervisor.log" \
   | sed -n 's/^RUN_ROOT=//p')
 GOVERNOR_STATE=$(tr -d '\r' <"$PWD/build/cs2a-supervisor.log" \
@@ -3764,6 +3795,9 @@ targeted-win thresholds do not. Select one already committed complete valid atte
 decisions all pass:
 
 ```bash
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
 : "${SELECTED_ATTEMPT:?export the exact complete cs2a attempt directory basename}"
 : "${CS2A_IMPLEMENTATION_SHA:?export the exact measured implementation SHA from the attempt}"
 [[ "$SELECTED_ATTEMPT" =~ ^cs2a\.[A-Za-z0-9]+$ ]]
@@ -3833,6 +3867,9 @@ Write the report with the exact `CS2A_IMPLEMENTATION_SHA` and `CS2A_EVIDENCE_SHA
 Verify clean scope:
 
 ```bash
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
 git status --short
 git diff --check
 git log --oneline ea3a4da2..HEAD
@@ -3842,6 +3879,9 @@ Commit only the final report reconciliation; implementation and evidence are alr
 parents:
 
 ```bash
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
 git add docs/superpowers/reports/2026-08-11-performance-cs2a-runtime-lifecycle.md
 git commit -m "docs: document execution lifecycle migration"
 npx antora antora-playbook.yml
