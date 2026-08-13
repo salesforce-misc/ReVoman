@@ -1734,7 +1734,8 @@ The workstreams must not be collapsed into one implementation PR.
 
 ### Change Set 2 — Runtime lifecycle and observability
 
-- **2a lifecycle:** introduce ExecutionSession/KickExecution, route every public/list/runbook/reentrant
+- **2a lifecycle:** Status: implementation in progress; controlled measurement pending. Introduce
+  ExecutionSession/KickExecution, route every public/list/runbook/reentrant
   path through the explicit boundary, remove the legacy evaluator, retain boot Source, establish
   focused component seams around the still-transitional PostmanSDK, and prove scope carry,
   capability lifetime, and cleanup;

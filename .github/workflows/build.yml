@@ -19,8 +19,16 @@ jobs:
   gradle:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: current
     steps:
-      - uses: actions/checkout@main
+      - name: 'Checkout current source'
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          path: current
+          clean: true
+          persist-credentials: false
 
       - uses: actions/setup-java@main
         with:
@@ -46,9 +54,28 @@ jobs:
           -I benchmark-driver/src/main/dist/libexec/benchmark-target.init.gradle.kts
           writeBenchmarkTargetManifest
           -Pbenchmark.targetManifest=build/benchmark-target-current.json
-          -Pbenchmark.targetId=current
+          -Pbenchmark.targetId=current-cs2a
 
-      - name: 'Benchmark harness self-test'
+      - name: 'Checkout fixed baseline source'
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: 83f3cd70f78ad733412d10cbc8287aaabafe7aac
+          path: baseline
+          clean: true
+          persist-credentials: false
+
+      - name: 'Export fixed baseline benchmark target'
+        run: >-
+          $GITHUB_WORKSPACE/baseline/gradlew
+          -p $GITHUB_WORKSPACE/baseline
+          -I $GITHUB_WORKSPACE/current/benchmark-driver/src/main/dist/libexec/benchmark-target.init.gradle.kts
+          clean writeBenchmarkTargetManifest
+          -Pbenchmark.targetManifest=$GITHUB_WORKSPACE/current/build/benchmark-target-baseline-selftest.json
+          -Pbenchmark.targetId=baseline-selftest-83f3cd70
+          --no-daemon
+          --console=plain
+
+      - name: 'Benchmark baseline integration and harness self-test'
         run: >-
           ./gradlew
           :benchmark-driver:check
@@ -56,8 +83,17 @@ jobs:
           :benchmark-driver:benchmarkCleanInstallTaskGraphTest
           :benchmark-driver:benchmarkJmhTaskSerializationTest
           :benchmark-driver:benchmarkHarnessSelfTest
-          -Pbenchmark.targetManifest=build/benchmark-target-current.json
+          -Pbenchmark.targetManifest=build/benchmark-target-baseline-selftest.json
           -Pbenchmark.adapter=baseline-83f3cd70
+
+      - name: 'Benchmark current major lifecycle integration'
+        run: >-
+          ./gradlew
+          :benchmark-driver:integrationTest
+          --tests '*RunnerIntegrationTest.real retained worker reports major lifecycle weak references*'
+          --tests '*BenchmarkDriverIntegrationTest.major lifecycle retained campaign preserves v2 series identity*'
+          -Pbenchmark.targetManifest=build/benchmark-target-current.json
+          -Pbenchmark.adapter=major-v1
 
       # Surface JUnit HTML reports even when the build fails, so a red run is diagnosable.
       - name: 'Upload test reports'
@@ -66,7 +102,7 @@ jobs:
         with:
           name: test-reports
           path: |
-            build/reports/tests/
-            benchmark-driver/build/reports/tests/
+            current/build/reports/tests/
+            current/benchmark-driver/build/reports/tests/
           retention-days: 7
           if-no-files-found: ignore

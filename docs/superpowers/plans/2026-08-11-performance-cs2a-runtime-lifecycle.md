@@ -2136,6 +2136,7 @@ must leave no unstaged or uncommitted changes.
 - Modify: `DEVELOPMENT.md`
 - Modify: `.github/workflows/build.yml`
 - Modify: `src/test/kotlin/com/salesforce/revoman/benchmark/BenchmarkWorkflowTest.kt`
+- Modify: `docs/superpowers/plans/2026-08-11-performance-cs2a-runtime-lifecycle.md`
 - Modify: `docs/superpowers/specs/2026-08-09-performance-redesign-design.md`
 - Add: `docs/superpowers/benchmarks/operators/cs2a-controlled-run.sh`
 - Add: `docs/superpowers/benchmarks/operators/cs2a-governor-supervisor.sh`
@@ -2143,6 +2144,7 @@ must leave no unstaged or uncommitted changes.
 - Add: `docs/superpowers/benchmarks/operators/cs2a-validate-manifest.jq`
 - Add: `src/test/kotlin/com/salesforce/revoman/benchmark/Cs2aOperatorScriptTest.kt`
 - Add: `src/test/kotlin/com/salesforce/revoman/benchmark/Cs2aManifestValidatorTest.kt`
+- Add: `src/test/kotlin/com/salesforce/revoman/benchmark/Cs2aSupervisorAtomicHandoffTest.kt`
 - Add: `src/test/kotlin/com/salesforce/revoman/compat/Cs2aStructuralInvariantTest.kt`
 - Add: `docs/superpowers/reports/2026-08-11-performance-cs2a-runtime-lifecycle.md`
 - Add after capture: `docs/superpowers/benchmarks/results/v1/cs2a-<implementation-sha>/`
@@ -2283,6 +2285,7 @@ test "$(git -C "$SELFTEST_ROOT/baseline" rev-parse HEAD)" = \
 ./gradlew kaptKotlin classes :benchmark-driver:kaptKotlin \
   :benchmark-driver:classes --no-configuration-cache --console=plain
 ./gradlew qodanaScan --no-configuration-cache --console=plain
+npx antora antora-playbook.yml
 
 test "$(git rev-parse HEAD)" = "$GATED_IMPLEMENTATION_SHA"
 test -z "$(git status --porcelain)"
@@ -2293,11 +2296,220 @@ If a gate fails or behavior is unexpected, use `superpowers:systematic-debugging
 - [ ] **Step 4: Review, commit, gate, and freeze the exact implementation SHA**
 
 Add the final versioned operator files under
-`docs/superpowers/benchmarks/operators`: the runner reads the exact candidate SHA only from a
-root-owned `0444` `/opt/revoman-benchmark/cs2a-implementation-sha`, and the supervisor verifies the
-checked-in runner SHA before installing/executing it. Preserve the independently audited Task 13
-lock, lease, process-group containment, stale-state recovery, and governor restoration logic.
-Add `Cs2aOperatorScriptTest`, `Cs2aManifestValidatorTest`, and the checked-in executable
+`docs/superpowers/benchmarks/operators`. The local operator privileged-reads the installed
+root-owned `0444` `/opt/revoman-benchmark/cs2a-implementation-sha`; the root supervisor then reads
+and authenticates the implementation, controlled-UID policy, installed runner, installed
+supervisor, and held lock descriptor. The nonroot runner must never read or traverse the root-only
+handoff or governor-state tree. It receives only the authenticated numeric UID, implementation
+SHA, runner SHA, and inherited lock descriptor through the supervisor's immutable child
+environment/FD contract, and verifies its own UID/SHA and the descriptor's exact lock target before
+creating a run root. Before `runuser` can start the re-entered Bash, the supervisor crosses the
+privilege boundary through `/usr/bin/env -i` with only trusted `PATH=/usr/bin:/bin` and the four
+authenticated `CS2A_*` values, so inherited `BASH_ENV` and every other ambient root variable are
+absent before Bash parses the reviewed script. The re-entered supervisor then
+revalidates FD 9 against the exact lock inode, closes every `/proc/self/fd` descriptor except
+0/1/2/9, revalidates FD 9, then `exec`s the runner through `/usr/bin/env -i` with the trusted
+bootstrap `PATH=/usr/bin:/bin` plus exactly those four `CS2A_*` values. No caller environment or
+extra descriptor may cross this boundary. No Task 13 runner or supervisor source exists
+in this repository or its reachable history: only the Task 13 prose contract and archived hashes
+remain. Therefore all three CS2a Bash programs are newly authored, security-critical code. They
+must implement the audited lock, lease, process-group containment, stale-state recovery, and
+governor restoration contract, but must never be described as byte-for-byte preserved or reused
+Task 13 source. Require an independent fixed-range security review and mutation tests over this
+new implementation before any remote invocation.
+
+The controlled UID is an administrator-owned policy input, not a guessed repository constant.
+Both checked-in privileged entry points contain the explicit
+`UNPROVISIONED_REVIEWED_CONTROLLED_UID_POLICY_SHA256` fail-closed sentinel. Before a launch can be
+reviewed, an administrator must write the single reviewed positive numeric UID plus newline to
+root-owned, nonsymlink `0444` `/opt/revoman-benchmark/controlled-uid`; record its exact SHA-256;
+replace both sentinels with that 64-lowercase-hex value; commit; repeat fixed-range security review;
+and rerun every clean implementation gate. A sentinel build must exit before install, supervisor
+launch, or remote measurement and is intentionally not launch-ready.
+
+Provision only the administrator-reviewed UID byte sequence; this command does not install or invoke
+the runner, supervisor, or operator:
+
+```bash
+#!/usr/bin/env bash
+set -Eeuo pipefail
+: "${REVIEWED_CONTROLLED_UID:?administrator-approved positive numeric UID}"
+[[ "$REVIEWED_CONTROLLED_UID" =~ ^[1-9][0-9]*$ ]]
+: "${REMOTE_HOST:?controlled Linux host}"
+mkdir -p "$PWD/build"
+printf '%s\n' "$REVIEWED_CONTROLLED_UID" >"$PWD/build/cs2a-controlled-uid"
+REVIEWED_CONTROLLED_UID_POLICY_SHA256=$(sha256sum \
+  "$PWD/build/cs2a-controlled-uid" | cut -d' ' -f1)
+[[ "$REVIEWED_CONTROLLED_UID_POLICY_SHA256" =~ ^[0-9a-f]{64}$ ]]
+scp "$PWD/build/cs2a-controlled-uid" \
+  "$REMOTE_HOST:/opt/revoman-benchmark/runs/cs2a-controlled-uid"
+REMOTE_CONTROLLED_UID_POLICY_SHA256=$(ssh -tt "$REMOTE_HOST" \
+  "dzdo install -o root -g root -m 0444 \
+     /opt/revoman-benchmark/runs/cs2a-controlled-uid \
+     /opt/revoman-benchmark/controlled-uid && \
+   dzdo test \"\$(stat -c '%u:%g:%a' /opt/revoman-benchmark/controlled-uid)\" = 0:0:444 && \
+   dzdo sha256sum /opt/revoman-benchmark/controlled-uid" \
+  | tr -d '\r' | awk '{print $1}')
+test "$REMOTE_CONTROLLED_UID_POLICY_SHA256" = \
+  "$REVIEWED_CONTROLLED_UID_POLICY_SHA256"
+printf 'reviewed controlled-UID policy SHA-256: %s\n' \
+  "$REVIEWED_CONTROLLED_UID_POLICY_SHA256"
+```
+
+Archive handling has two deliberately separate decisions. Publication and persistence are
+evidence-preservation operations: `validate_archive_safety` rejects a symlink or any
+non-regular/non-directory entry (including FIFO, socket, or device), the root checksum inventory
+must contain the exact regular-file path set and authenticate every byte, and the Git commit must
+pass the direct-parent history contract below. Those are the only gates for preserving a canonical
+attempt. A safe partial, FAIL, INCONCLUSIVE, or otherwise semantically invalid attempt is therefore
+still checksumed, atomically renamed from a hidden sibling on the same filesystem, marked, and
+append-only committed. Publication and `--persist-only` must not invoke the driver or any semantic
+validator. Only Step 6 selection invokes the central semantic validator through
+`--validate-attempt`; it authenticates copied manifest/result/log/runner-meta bytes against
+`meta/remote-byte-sha256sums.txt`, validates the remote-only artifact inventory without requiring
+local JFR bytes, reruns deterministic comparisons, and requires final status `0` plus every machine
+decision `PASS`. A recorded `local-validation-passed` value is never a persistence gate or a
+selection authority.
+
+Canonical recovery applies the same safety and exact-checksum validation on every path, including
+when both the canonical directory and publication marker already exist. It `lstat`s the canonical
+directory, marker, and complete tree; rejects a symlink, FIFO, socket, device, or any other
+nonregular entry; requires the checksum inventory's exact path set and every recorded digest; and
+requires the marker to be one regular file containing exactly the canonical path. A valid canonical
+directory with a missing marker may recreate only that marker after validation. A marker without a
+canonical directory, a corrupt canonical directory, or a marker/canonical mismatch is a hard
+failure and can never be treated as an idempotent success.
+
+Canonical directory publication is a Linux-only contract. Require GNU `mv -Tn` after an explicit
+Linux check for the same-filesystem, no-replace directory rename and GNU `stat -c '%d'` for the
+device comparison; fail closed on another platform or an implementation without those semantics.
+After the no-replace operation, prove that the hidden stage no longer exists and the canonical
+destination is the exact nonsymlink directory. Publish the marker from a hidden regular candidate
+with same-directory `ln`, never direct redirection. Race fixtures must insert a destination or
+symlink between validation and publication and prove neither the stage nor victim bytes are
+clobbered. The mandatory disposable-Linux gate below must repeat this using the actual platform
+utilities rather than the macOS GNU-tool test adapters.
+
+Archive ingress validates the hidden same-filesystem rsync stage immediately after the last rsync
+and before writing any local-authority byte. Every locally produced status, policy, script,
+checksum, and validation file has a previously absent, nonsymlink destination; the operator writes
+it to a hidden same-directory regular candidate and publishes it with an atomic no-clobber hard
+link. A preexisting regular file, symlink, or other entry at any one of those destinations fails
+closed. `--archive-only` authenticates and copies an already published final handoff but never
+invokes its privileged publisher; a fresh run invokes the publisher exactly once after recording
+the root post-supervisor status and before entering this common archive tail.
+
+The stage marker records the last wholly completed phase; `commands.tsv`, command logs, exit files,
+manifests, raw results, and comparisons record the exact ordered command prefix attempted beyond
+that boundary. The authoritative protocol is the exact 22-row `%q`-escaped command sequence in the
+checked-in runner: harness install; three manifest exports; the three manifest validations in the
+fixed `baseline-a`, `baseline-b`, `candidate` order; cold and warm A/A capture; both A/A
+verify/compare pairs; cold, warm, and retained candidate capture; and all three candidate
+verify/compare pairs. `setup` permits exact prefixes of length 0 through 9, including fail-fast
+prefixes through either A/A capture. `aa-captured` requires the first 9 rows and permits prefixes
+through row 13; `aa-compared` requires 13 and permits prefixes through row 16;
+`candidate-captured` requires 16 and permits prefixes through row 22; and `candidate-compared`
+requires all 22. For every stage, the validator derives one exact expected path set from that
+command prefix and rejects a missing,
+duplicate, out-of-order, or future command row and every missing or unexpected manifest, result,
+log, or status file. The top-level `meta/` status namespace is closed: every filename containing
+`status` or `exit` must be one of the fixed runner, inventory, operator, capture, or comparison
+names, and an unknown/future status-shaped file is rejected at every stage even if all checksum
+inventories are self-consistently regenerated. This preserves an interruption or fail-fast prefix without inventing evidence
+from a command that never ran.
+
+The root post-supervisor status is published exactly once. Root writes the numeric status plus
+newline into a root-owned hidden sibling in the governor-state directory, changes it to `0400`,
+verifies its type/owner/mode/content, and uses same-directory `link(2)`/`ln` creation as the atomic
+no-clobber operation for `operator-post-supervisor-exit.txt`. It then rereads and authenticates the
+winning destination; a concurrent or recovery path may accept only the identical existing value
+and never truncates, rewrites, or `chmod`s an attacker-selected destination. Both the collision
+fallback and the privileged reread must explicitly reject a symlink before any dereferencing
+`stat` or `cat` operation.
+
+The supervisor handoff is all-or-nothing in two immutable publications. Exit finalization copies
+the exact 11-file pre-post allowlist from authenticated root state into a same-filesystem hidden
+sibling and atomically publishes `RUN_ROOT/meta/supervisor-core`. After the root-only post-status
+and lock-release files exist, the installed reviewed supervisor's `--publish-final-handoff` mode
+validates the canonical run/state paths and exact root sources, then atomically publishes the exact
+13-file `RUN_ROOT/meta/supervisor` tree. Identical retries validate without overwriting; a stale,
+partial, nonregular, symlinked, wrong-owner, wrong-mode, or byte-different destination fails closed.
+Archive validation requires exact path sets for both trees and byte-equality for their 11 common
+files. Because both trees are created after the runner's remote-byte inventory, that inventory
+excludes them explicitly; the local root checksum covers both. The supervisor implementation
+SHA must equal the installed root-owned SHA, the operator's detached implementation SHA, the
+runner's `meta/implementation-sha.txt`, and the final handoff's
+`meta/supervisor/implementation-sha.txt`.
+
+If the operator fails before it obtains one authenticated `RUN_ROOT`/`GOVERNOR_STATE` marker pair,
+it still creates a local `operator-failure.<unique>` archive. That archive contains only bytes the
+local operator actually observed or produced, identifies `remote-evidence-present=false`, and has
+its own exact checksum inventory. It must not create empty remote directories or invent a remote
+stage, run-root, governor, manifest, result, command, inventory, or supervisor file. The same
+safety/checksum/direct-parent persistence contract preserves this pre-marker failure.
+
+Before `--persist-only` changes the index, it runs the complete archive safety and exact-root-
+checksum validator, so a symlink, special file, duplicate/path-invalid inventory row, missing path,
+extra path, or byte mismatch leaves `HEAD`, the index, and the evidence-SHA output unchanged. It
+then force-adds the single already-validated attempt path so repository ignore rules cannot omit an
+authenticated `logs/` file. Before committing, it requires the index to contain that exact regular-
+file path set at stage zero, permits only regular blob modes, reads each raw staged object with Git
+plumbing, and requires its SHA-256 to equal the corresponding safety-validated filesystem byte
+stream. A configured clean filter such as `core.autocrlf=input`, or a nested repository represented
+as a gitlink, therefore fails closed before commit; the operator unstages only the new attempt and
+leaves `HEAD`, the worktree evidence, and the evidence-SHA output unchanged. It freezes the
+validated index with `write-tree`, proves `old-HEAD..frozen-tree` changes only the literal
+metacharacter-free attempt path, creates the one-parent commit with hook-free `commit-tree`, and
+advances the current symbolic branch only with compare-and-swap `update-ref new old`. Every Git
+read/write in this persistence and validation path sets `core.hooksPath=/dev/null`, including
+index and reference updates, so porcelain, `post-index-change`, and `reference-transaction` hooks
+cannot substitute bytes or stage outside paths. A concurrent outside-index injection fails before
+commit: immediately before `commit-tree`, a second hook-free `write-tree` must equal the frozen
+tree byte-for-byte. This includes an injection that occurs after the first `write-tree`; rejection
+preserves that unrelated staging, unstages only the attempt, and leaves `HEAD` and the
+evidence-SHA output unchanged. Before success,
+validation requires the evidence commit's recursive
+path set, regular-blob types, and blob bytes to equal the filesystem attempt and root checksum
+inventory exactly; a fresh detached checkout of that evidence commit must pass the same persisted-
+publication validator.
+
+Every evidence commit has exactly one parent. Let `parent` be the direct parent of `evidence`, not
+the original implementation commit: require the implementation SHA to be an ancestor of `parent`,
+require `parent..evidence` to add exactly the one canonical attempt directory and change nothing
+else, and require that directory's last-touch commit to equal `evidence`. Test two sequential
+attempt commits: the second validates against the first evidence commit as its parent while the
+first attempt remains byte-for-byte present. This direct-parent rule preserves append-only history
+without incorrectly rejecting every attempt after the first; an otherwise valid merge evidence
+commit is rejected before first-parent shorthand is used.
+
+Complete selection also requires equal original/restored governor inventories,
+restoration/containment false, exact runner/child/supervisor/post/resume status cross-links, exact
+executed script hashes, raw and semantic policy hashes, root-lock provenance, and post-supervisor
+proof that the lock was released.
+
+For a complete selection, each of the five campaign files pins schema/CONTROLLED intent, seed,
+workload and fixture identity, exact metric passes, accepted-block/fork/warmup/measurement counts,
+mode-specific ordered metric/provider/unit triples, sequential bounded block IDs, accepted balance,
+two exact target IDs per block, and fork zero. Harness commit/tree/cleanliness and adapter order are
+exact and harness/environment objects are byte-equal across all five campaigns. Both targets are in
+baseline/candidate order and project every manifest identity field, build JDK, and path-free
+classpath tuple exactly. Cold allocation result artifacts contain the exact one-JFR tuple per
+block/role; warm allocation contains the exact raw/normalized/output tuple triple; other series
+contain none. Those result paths, sizes, and hashes cross-link one-to-one to the authenticated
+remote artifact inventories, whose converse path set adds only the required warm verification-token
+and campaign-context files and rejects every missing, duplicate, or unrelated tuple. Remote JFR
+bytes remain intentionally absent locally.
+
+Two launch blockers are explicit and remain open even when all local deterministic gates pass: the
+administrator-reviewed controlled-UID file/hash must replace the fail-closed sentinel, and a
+disposable Linux/root harness must prove actual
+`flock` contention and FD substitution rejection, `runuser` descriptor inheritance, process-group
+signal/timeout containment, stale-state recovery, exact governor restoration, privileged final-file
+copy, and lock release. The deterministic macOS fixture is necessary but does not discharge this
+Linux launch gate. Do not install, invoke the supervisor remotely, smoke test, or run a controlled
+measurement while either blocker remains.
+Add `Cs2aOperatorScriptTest`, `Cs2aManifestValidatorTest`,
+`Cs2aSupervisorAtomicHandoffTest`, and the checked-in executable
 `cs2a-validate-manifest.jq` with the Git executable bit. The validator's exact content is:
 
 ```jq
@@ -2306,8 +2518,8 @@ def exact_keys($expected):
   type == "object" and ((keys | sort) == ($expected | sort));
 def nonblank_string:
   type == "string" and test("\\S");
-def lowercase_hex($length):
-  type == "string" and length == $length and test("^[0-9a-f]+$");
+def lowercase_hex($expected_length):
+  type == "string" and (length == $expected_length) and test("^[0-9a-f]+$");
 def nonnegative_integer:
   type == "number" and . >= 0 and floor == .;
 
@@ -2327,7 +2539,7 @@ exact_keys([
 (.jdk.vendor | nonblank_string) and
 (.jdk.fullVersion | nonblank_string) and
 (.jdk.javaHome | nonblank_string) and
-(.jdk.jvmFlags | type == "array") and
+(.jdk.jvmFlags | type == "array" and length > 0) and
 all(.jdk.jvmFlags[]; nonblank_string) and
 (.classpath | type == "array" and length > 0) and
 all(.classpath[];
@@ -2348,10 +2560,37 @@ wrong JSON type; use empty/whitespace strings; use short, uppercase, and nonhex 
 negative and fractional sizes; use empty/wrong-element-type `jvmFlags`; use an empty classpath; and
 duplicate a logical ID. Every mutation must exit nonzero. `Cs2aOperatorScriptTest` covers Bash 3.2
 syntax, ShellCheck, signal/timeout/restoration behavior, exact validator invocation, and a negative
-assertion that no local installed-driver `verify` receives a manifest path.
+assertion that no local installed-driver `verify` receives a manifest path. It also mutation-tests
+privileged installed-SHA read-back, installed runner/supervisor provenance, root-owned
+implementation identity in the supervisor handoff, remote-only artifact inventory path-set
+validation, root-only checksum exclusion, deterministic publication/selection archive acceptance,
+same-filesystem hidden staging, canonical recovery with an existing marker, root `0400` hardlink
+no-clobber persistence of the original post-supervisor status, atomic hidden-sibling supervisor
+handoff, exact command-prefix evidence for every partial stage, a pre-marker local-only failure, and
+direct-parent validation across two sequential evidence commits. These are executable call-site
+mutation tests, not token/source-shape assertions or isolated helper tests: invoke the checked-in
+operator entry points (`run`, `--archive-only`, `--persist-only`, and `--validate-attempt`) with
+deterministic fake SSH/Git/driver boundaries, mutate or bypass each production call site, and require
+the public mode to go RED. In particular, prove publication/persistence never reaches semantic
+validation, selection always does, and an existing marker never bypasses type or checksum checks.
+Also execute mutations for a raced canonical directory and marker symlink, an existing root
+post-status symlink, a two-parent evidence commit, an outside index injection after the frozen
+tree is first written, an implementation argument that differs from the source used to build the
+selection driver, and dirty operator-asset bytes that differ from the detached implementation.
+The local publication fixtures may adapt macOS to the exact GNU `mv -Tn`/`stat -c` contract, but
+must not weaken the production Linux-only guard or replace the mandatory real-Linux launch gate.
+`Cs2aSupervisorAtomicHandoffTest` owns the direct filesystem contract for both immutable supervisor
+publications: interrupted copies expose no final directory, exact publication and identical retry
+succeed without replacing bytes, and stale, partial, symlinked, nonregular, wrong-owner, wrong-mode,
+or byte-different destinations fail closed. Keep this test in the implementation commit and in the
+fixed-range Standards + Spec and security review; it is part of the security boundary, not optional
+fixture coverage.
 
-Stage the active ABI, structural/operator tests, source, ordinary documentation, spec status, and
-all four operator files and create the pre-evidence implementation commit:
+Stage the active ABI, structural/operator/handoff tests, source, ordinary documentation, spec
+status, and all four operator files and create the pre-evidence implementation commit. The broad
+`src` path below intentionally includes
+`src/test/kotlin/com/salesforce/revoman/benchmark/Cs2aSupervisorAtomicHandoffTest.kt`; verify that
+exact path is staged before committing:
 
 ```bash
 #!/usr/bin/env bash
@@ -2360,16 +2599,25 @@ set -Eeuo pipefail
 git add api src benchmark-driver .github/workflows/build.yml \
   build.gradle.kts gradle/libs.versions.toml \
   README.adoc DEVELOPMENT.md docs/modules/ROOT \
+  docs/superpowers/plans/2026-08-11-performance-cs2a-runtime-lifecycle.md \
   docs/superpowers/specs/2026-08-09-performance-redesign-design.md \
   docs/superpowers/benchmarks/operators
+git diff --cached --name-only -- \
+  src/test/kotlin/com/salesforce/revoman/benchmark/Cs2aSupervisorAtomicHandoffTest.kt \
+  | grep -Fx \
+    src/test/kotlin/com/salesforce/revoman/benchmark/Cs2aSupervisorAtomicHandoffTest.kt
 git commit -m "refactor: complete CS2a execution lifecycle"
 test -z "$(git status --porcelain)"
 ```
 
 Run independent fixed-range Standards + Spec and security reviews over the Task 1 compatibility
-commit through this exact committed `HEAD`, explicitly reviewing all four operator files. Resolve
-every Critical/Important finding with focused RED/GREEN evidence in a new implementation commit,
-then repeat both reviews on that new exact commit until clean. Only after all review fixes are
+commit through this exact committed `HEAD`, explicitly reviewing this plan, all four operator
+files, and
+`src/test/kotlin/com/salesforce/revoman/benchmark/Cs2aSupervisorAtomicHandoffTest.kt`. The reviewed
+range, staged implementation scope, and resulting commit must all contain this exact plan revision
+and the atomic-handoff test; a plan-only or handoff-test correction is an implementation correction,
+not an out-of-range note. Resolve every Critical/Important finding with focused RED/GREEN evidence in a new
+implementation commit, then repeat both reviews on that new exact commit until clean. Only after all review fixes are
 committed, and before push, SHA export, or any smoke/controlled measurement, record the clean
 reviewed SHA, run the entire Step 3 command block verbatim, and run these exact operator gates in the
 same shell:
@@ -2392,8 +2640,9 @@ for script in \
 done
 test -x docs/superpowers/benchmarks/operators/cs2a-validate-manifest.jq
 ./gradlew :test \
-  --tests '*Cs2aOperatorScriptTest*' \
   --tests '*Cs2aManifestValidatorTest*' \
+  --tests '*Cs2aOperatorScriptTest*' \
+  --tests '*Cs2aSupervisorAtomicHandoffTest*' \
   --rerun-tasks --no-build-cache --no-configuration-cache --console=plain
 
 test "$(git rev-parse HEAD)" = "$GATED_IMPLEMENTATION_SHA"
@@ -2499,12 +2748,13 @@ DRIVER="$HARNESS_CHECKOUT/benchmark-driver/build/install/benchmark-driver/bin/be
 
 Then, on the controlled Linux host and under the existing fixed host policy, run two freshly built
 baseline targets for cold/warm A/A before paired baseline `83f3cd70` versus the exact CS2a
-candidate. The exact command body below is the checked-in
-`docs/superpowers/benchmarks/operators/cs2a-controlled-run.sh`; do not paste it into an ordinary
-shell. Use the checked-in `cs2a-governor-supervisor.sh`, derived from the independently reviewed
-Task 13 root-owned supervisor with only its versioned controlled-run/config/state/timeout inputs
-changed.
-The runner must retain Task 13's exact UID, inherited locked-FD/root lease/handshake checks,
+candidate. The checked-in
+`docs/superpowers/benchmarks/operators/cs2a-controlled-run.sh` is authoritative and must not be
+copied into an ordinary shell or duplicated in this plan. Use the newly authored, independently security-reviewed
+`cs2a-governor-supervisor.sh`. Its contract is derived from the surviving Task 13 requirements;
+there is no source artifact from which to claim code reuse.
+The runner must pin the reviewed controlled-host UID and implement inherited locked-FD/root
+lease/handshake checks,
 root-only stale-governor recovery, process-group containment, and verified all-governor restoration.
 Install the reviewed supervisor `root:root 0555`, the implementation-SHA file `root:root 0444`,
 and the policy `root:root 0444`; invoke the supervisor through `dzdo`, and define success only
@@ -2512,608 +2762,37 @@ as its final post-restoration zero exit. Record all three script SHA-256 values.
 exclusive lease/governor wrapper; direct runner invocation is invalid controlled evidence.
 
 The runner pins the controlled-host JDK, creates a previously absent run root, clones four detached
-checkouts inside it, and preserves every rejected block:
+checkouts inside it, and preserves every rejected block. The authoritative operator invocation and
+status/persistence commands appear below after these normative contracts.
 
-```bash
-#!/usr/bin/env bash
-set -Eeuo pipefail
-test -n "${BASH_VERSION:-}"
-REMOTE_HOST=gopalaaksh-wsl3
-: "${CS2A_IMPLEMENTATION_SHA:?export the exact reviewed implementation SHA}"
-[[ "$CS2A_IMPLEMENTATION_SHA" =~ ^[0-9a-f]{40}$ ]]
-readonly CS2A_IMPLEMENTATION_SHA
-git cat-file -e "$CS2A_IMPLEMENTATION_SHA^{commit}"
-OPERATOR_ROOT=$(mktemp -d "$PWD/build/cs2a-operator-source.XXXXXXXX")
-git worktree add --detach "$OPERATOR_ROOT/source" "$CS2A_IMPLEMENTATION_SHA"
-test "$(git -C "$OPERATOR_ROOT/source" rev-parse HEAD)" = "$CS2A_IMPLEMENTATION_SHA"
-test -z "$(git -C "$OPERATOR_ROOT/source" status --porcelain)"
-test -z "$(git -C "$OPERATOR_ROOT/source" symbolic-ref -q HEAD || true)"
-OPERATOR_DIR="$OPERATOR_ROOT/source/docs/superpowers/benchmarks/operators"
-printf '%s\n' "$CS2A_IMPLEMENTATION_SHA" >"$PWD/build/cs2a-implementation-sha"
-RUNNER_SHA=$(sha256sum "$OPERATOR_DIR/cs2a-controlled-run.sh" | cut -d' ' -f1)
-SUPERVISOR_SHA=$(sha256sum "$OPERATOR_DIR/cs2a-governor-supervisor.sh" | cut -d' ' -f1)
-OPERATOR_SHA=$(sha256sum "$OPERATOR_DIR/cs2a-operator.sh" | cut -d' ' -f1)
-MANIFEST_VALIDATOR_SHA=$(sha256sum "$OPERATOR_DIR/cs2a-validate-manifest.jq" | cut -d' ' -f1)
-test "$(sha256sum "$0" | cut -d' ' -f1)" = "$OPERATOR_SHA"
-
-persist_attempt() {
-  local operator_status=$1 recorded_status evidence_dir evidence_rel attempt_id evidence_sha
-  local unrelated_status staged_names
-  [[ "$operator_status" =~ ^[0-9]+$ ]] || return 70
-  recorded_status=$(cat "$PWD/build/cs2a-operator-status.txt") || return 70
-  test "$operator_status" = "$recorded_status" || return 70
-  test -s "$PWD/build/cs2a-local-evidence-dir.txt" || return 70
-  evidence_dir=$(cat "$PWD/build/cs2a-local-evidence-dir.txt") || return 70
-  case "$evidence_dir" in
-    "$PWD"/docs/superpowers/benchmarks/results/v1/cs2a-"$CS2A_IMPLEMENTATION_SHA"/cs2a.* | \
-    "$PWD"/docs/superpowers/benchmarks/results/v1/cs2a-"$CS2A_IMPLEMENTATION_SHA"/operator-failure.*) ;;
-    *) echo "unsafe canonical attempt directory: $evidence_dir" >&2; return 70 ;;
-  esac
-  evidence_rel=${evidence_dir#"$PWD/"}
-  attempt_id=$(basename "$evidence_dir") || return 70
-  test -n "$evidence_rel" || return 70
-  (cd "$evidence_dir" && sha256sum -c evidence-sha256sums.txt) || return 70
-  unrelated_status=$(git status --porcelain --untracked-files=all -- . \
-    ":(exclude)$evidence_rel") || return 70
-  test -z "$unrelated_status" || return 70
-  staged_names=$(git ls-files -- "$evidence_rel") || return 70
-  if test -n "$staged_names"; then
-    unrelated_status=$(git status --porcelain -- "$evidence_rel") || return 70
-    test -z "$unrelated_status" || return 70
-    evidence_sha=$(git log -1 --format=%H -- "$evidence_rel") || return 70
-    [[ "$evidence_sha" =~ ^[0-9a-f]{40}$ ]] || return 70
-    printf '%s\n' "$evidence_sha" \
-      >"$PWD/build/cs2a-attempt-evidence-sha.txt" || return 70
-    unrelated_status=$(git status --porcelain) || return 70
-    test -z "$unrelated_status" || return 70
-    return 0
-  fi
-  git add -- "$evidence_rel" || return 70
-  git diff --cached --check || return 70
-  staged_names=$(git diff --cached --name-only -- "$evidence_rel") || return 70
-  test -n "$staged_names" || return 70
-  git commit -m "perf: archive CS2a attempt $attempt_id" || return 70
-  evidence_sha=$(git rev-parse HEAD) || return 70
-  printf '%s\n' "$evidence_sha" \
-    >"$PWD/build/cs2a-attempt-evidence-sha.txt" || return 70
-  unrelated_status=$(git status --porcelain) || return 70
-  test -z "$unrelated_status" || return 70
-  return 0
-}
-
-OPERATOR_MODE=run
-RESUME_RUN_ROOT=
-RESUME_GOVERNOR_STATE=
-PERSIST_STATUS=
-case "$#" in
-  0) ;;
-  2)
-    test "$1" = --persist-only
-    OPERATOR_MODE=persist-only
-    PERSIST_STATUS=$2
-    ;;
-  3)
-    test "$1" = --archive-only
-    OPERATOR_MODE=archive-only
-    RESUME_RUN_ROOT=$2
-    RESUME_GOVERNOR_STATE=$3
-    ;;
-  *) echo 'usage: cs2a-operator.sh [--archive-only RUN_ROOT GOVERNOR_STATE | --persist-only STATUS]' >&2; exit 2 ;;
-esac
-
-if test "$OPERATOR_MODE" = persist-only; then
-  persist_attempt "$PERSIST_STATUS" || exit 70
-  exit 0
-fi
-
-"$OPERATOR_ROOT/source/gradlew" -p "$OPERATOR_ROOT/source" \
-  :benchmark-driver:installDist --no-daemon --console=plain \
-  >"$PWD/build/cs2a-local-validation-driver.log" 2>&1
-LOCAL_DRIVER="$OPERATOR_ROOT/source/benchmark-driver/build/install/benchmark-driver/bin/benchmark-driver"
-test -x "$LOCAL_DRIVER"
-
-if test "$OPERATOR_MODE" = run; then
-scp "$OPERATOR_DIR/cs2a-controlled-run.sh" \
-  "$OPERATOR_DIR/cs2a-governor-supervisor.sh" \
-  "$OPERATOR_DIR/cs2a-operator.sh" \
-  "$OPERATOR_DIR/cs2a-validate-manifest.jq" \
-  "$PWD/build/cs2a-implementation-sha" \
-  "$REMOTE_HOST:/opt/revoman-benchmark/runs/"
-ssh "$REMOTE_HOST" \
-  "test \"\$(sha256sum /opt/revoman-benchmark/runs/cs2a-controlled-run.sh | cut -d' ' -f1)\" = '$RUNNER_SHA' &&
-   test \"\$(sha256sum /opt/revoman-benchmark/runs/cs2a-governor-supervisor.sh | cut -d' ' -f1)\" = '$SUPERVISOR_SHA' &&
-   test \"\$(sha256sum /opt/revoman-benchmark/runs/cs2a-operator.sh | cut -d' ' -f1)\" = '$OPERATOR_SHA' &&
-   test \"\$(sha256sum /opt/revoman-benchmark/runs/cs2a-validate-manifest.jq | cut -d' ' -f1)\" = '$MANIFEST_VALIDATOR_SHA' &&
-   test \"\$(tr -d '\\r\\n' </opt/revoman-benchmark/runs/cs2a-implementation-sha)\" = '$CS2A_IMPLEMENTATION_SHA'"
-ssh -tt "$REMOTE_HOST" \
-  "dzdo install -o root -g root -m 0555 \
-     /opt/revoman-benchmark/runs/cs2a-governor-supervisor.sh \
-     /opt/revoman-benchmark/cs2a-governor-supervisor.sh &&
-   dzdo install -o root -g root -m 0444 \
-     /opt/revoman-benchmark/runs/cs2a-implementation-sha \
-     /opt/revoman-benchmark/cs2a-implementation-sha"
-INSTALLED_SUPERVISOR_SHA=$(ssh -tt "$REMOTE_HOST" \
-  'dzdo sha256sum /opt/revoman-benchmark/cs2a-governor-supervisor.sh' \
-  | tr -d '\r' | awk '{print $1}')
-test "$INSTALLED_SUPERVISOR_SHA" = "$SUPERVISOR_SHA"
-
-set +e
-ssh -tt "$REMOTE_HOST" \
-  'dzdo /opt/revoman-benchmark/cs2a-governor-supervisor.sh' \
-  | tee "$PWD/build/cs2a-supervisor.log"
-SUPERVISOR_STATUS=${PIPESTATUS[0]}
-POST_SUPERVISOR_STATUS=0
-RESUME_VALIDATION_STATUS=0
-POST_STATUS_PERSISTED=false
-record_post_supervisor_failure() {
-  POST_SUPERVISOR_STATUS=70
-}
-printf '%s\n' "$SUPERVISOR_STATUS" >"$PWD/build/cs2a-supervisor-exit.txt" \
-  || record_post_supervisor_failure
-
-REMOTE_RUN_ROOT=$(tr -d '\r' <"$PWD/build/cs2a-supervisor.log" \
-  | sed -n 's/^RUN_ROOT=//p')
-GOVERNOR_STATE=$(tr -d '\r' <"$PWD/build/cs2a-supervisor.log" \
-  | sed -n 's/^GOVERNOR_STATE=//p')
-else
-  set +e
-  RESUME_VALIDATION_STATUS=0
-  POST_STATUS_PERSISTED=false
-  record_post_supervisor_failure() { RESUME_VALIDATION_STATUS=70; }
-  REMOTE_RUN_ROOT=$RESUME_RUN_ROOT
-  GOVERNOR_STATE=$RESUME_GOVERNOR_STATE
-  if ! [[ "$REMOTE_RUN_ROOT" =~ ^/opt/revoman-benchmark/runs/cs2a\.[A-Za-z0-9]+$ ]] \
-    || ! [[ "$GOVERNOR_STATE" =~ ^/run/revoman-cs2a/governor-state\.[A-Za-z0-9]+$ ]]; then
-    echo 'invalid archive-only path' >&2
-    exit 2
-  fi
-  REMOTE_REAL=$(ssh "$REMOTE_HOST" "readlink -f -- '$REMOTE_RUN_ROOT'")
-  test "$REMOTE_REAL" = "$REMOTE_RUN_ROOT" || record_post_supervisor_failure
-  RECORDED_RUN_ROOT=$(ssh -tt "$REMOTE_HOST" \
-    "dzdo cat '$GOVERNOR_STATE/run-root.txt'" | tr -d '\r\n')
-  test "$RECORDED_RUN_ROOT" = "$REMOTE_RUN_ROOT" || record_post_supervisor_failure
-  RECORDED_IMPLEMENTATION=$(ssh -tt "$REMOTE_HOST" \
-    'dzdo cat /opt/revoman-benchmark/cs2a-implementation-sha' | tr -d '\r\n')
-  test "$RECORDED_IMPLEMENTATION" = "$CS2A_IMPLEMENTATION_SHA" \
-    || record_post_supervisor_failure
-  RESUME_EXECUTED=$(ssh -tt "$REMOTE_HOST" \
-    "dzdo cat '$GOVERNOR_STATE/executed-script-sha256sums.tsv'" | tr -d '\r')
-  test "$(printf '%s\n' "$RESUME_EXECUTED" | awk -F '\t' \
-    '$1 == "runner" { print $2 }')" = "$RUNNER_SHA" || record_post_supervisor_failure
-  test "$(printf '%s\n' "$RESUME_EXECUTED" | awk -F '\t' \
-    '$1 == "supervisor" { print $2 }')" = "$SUPERVISOR_SHA" \
-    || record_post_supervisor_failure
-  ROOT_POLICY_SHA=$(ssh -tt "$REMOTE_HOST" \
-    'dzdo sha256sum /opt/revoman-benchmark/controlled-host.json' \
-    | tr -d '\r' | awk '{print $1}')
-  test "$ROOT_POLICY_SHA" = \
-    7312efeed6a4c80e9588f0f4e25742021c6e11f46bbc8468a3adc06772408b79 \
-    || record_post_supervisor_failure
-  RESUME_POLICY_SHA=$(ssh "$REMOTE_HOST" \
-    "sha256sum '$REMOTE_RUN_ROOT/meta/controlled-host.json' 2>/dev/null | awk '{print \$1}'")
-  case "$RESUME_POLICY_SHA" in
-    '' | 7312efeed6a4c80e9588f0f4e25742021c6e11f46bbc8468a3adc06772408b79) ;;
-    *) record_post_supervisor_failure ;;
-  esac
-  SUPERVISOR_STATUS=$(ssh -tt "$REMOTE_HOST" \
-    "dzdo cat '$GOVERNOR_STATE/child-or-supervisor-status.txt'" | tr -d '\r\n')
-  if ! ssh -tt "$REMOTE_HOST" \
-    "dzdo test -f '$GOVERNOR_STATE/operator-post-supervisor-exit.txt'"; then
-    record_post_supervisor_failure
-    ssh -tt "$REMOTE_HOST" \
-      "(dzdo /bin/bash -c 'set -o noclobber; umask 077; \
-         printf \"70\\n\" >\"$GOVERNOR_STATE/operator-post-supervisor-exit.txt\"' \
-         || dzdo test -f '$GOVERNOR_STATE/operator-post-supervisor-exit.txt') &&
-       dzdo chmod 0400 '$GOVERNOR_STATE/operator-post-supervisor-exit.txt'" \
-      || record_post_supervisor_failure
-  fi
-  POST_SUPERVISOR_STATUS=$(ssh -tt "$REMOTE_HOST" \
-    "dzdo cat '$GOVERNOR_STATE/operator-post-supervisor-exit.txt'" | tr -d '\r\n')
-  case "$POST_SUPERVISOR_STATUS" in 0 | 70) POST_STATUS_PERSISTED=true ;; \
-    *) POST_SUPERVISOR_STATUS=70; record_post_supervisor_failure ;; esac
-  printf '%s\n' "$SUPERVISOR_STATUS" >"$PWD/build/cs2a-supervisor-exit.txt" \
-    || record_post_supervisor_failure
-fi
-RUN_ROOT_VALID=true
-GOVERNOR_STATE_VALID=true
-if test -z "$REMOTE_RUN_ROOT" \
-  || test "$(printf '%s\n' "$REMOTE_RUN_ROOT" | wc -l | tr -d ' ')" -ne 1; then
-  RUN_ROOT_VALID=false
-  record_post_supervisor_failure
-fi
-if test -z "$GOVERNOR_STATE" \
-  || test "$(printf '%s\n' "$GOVERNOR_STATE" | wc -l | tr -d ' ')" -ne 1; then
-  GOVERNOR_STATE_VALID=false
-  record_post_supervisor_failure
-fi
-case "$REMOTE_RUN_ROOT" in
-  /opt/revoman-benchmark/runs/cs2a.*) ;;
-  *) RUN_ROOT_VALID=false; record_post_supervisor_failure ;;
-esac
-case "$GOVERNOR_STATE" in
-  /run/revoman-cs2a/governor-state.*) ;;
-  *) GOVERNOR_STATE_VALID=false; record_post_supervisor_failure ;;
-esac
-if test "$GOVERNOR_STATE_VALID" = true; then
-  REMOTE_CHILD_STATUS=$(ssh -tt "$REMOTE_HOST" \
-    "dzdo cat '$GOVERNOR_STATE/child-or-supervisor-status.txt'" | tr -d '\r\n')
-  REMOTE_RESTORATION_FAILED=$(ssh -tt "$REMOTE_HOST" \
-    "dzdo cat '$GOVERNOR_STATE/restoration-failed.txt'" | tr -d '\r\n')
-  REMOTE_CONTAINMENT_FAILED=$(ssh -tt "$REMOTE_HOST" \
-    "dzdo cat '$GOVERNOR_STATE/containment-failed.txt'" | tr -d '\r\n')
-  test "$REMOTE_CHILD_STATUS" = "$SUPERVISOR_STATUS" || record_post_supervisor_failure
-  test "$REMOTE_RESTORATION_FAILED" = false || record_post_supervisor_failure
-  test "$REMOTE_CONTAINMENT_FAILED" = false || record_post_supervisor_failure
-  ssh -tt "$REMOTE_HOST" \
-    "dzdo flock -n /opt/revoman-benchmark/task13.lock -c true &&
-     dzdo awk -F '\\t' '{ command=\"cat \" \$1; command | getline current; close(command);
-       if (current != \$2) exit 1 }' '$GOVERNOR_STATE/original-governors.tsv'" \
-    || record_post_supervisor_failure
-fi
-if test "$RUN_ROOT_VALID" = true && test "$GOVERNOR_STATE_VALID" = true; then
-  ssh -tt "$REMOTE_HOST" \
-    "dzdo install -d -o gopala.akshintala -g gopala.akshintala -m 0700 \
-       '$REMOTE_RUN_ROOT/meta/supervisor' &&
-     for file in child-or-supervisor-status.txt restoration-failed.txt \
-       containment-failed.txt finished-at.txt original-governors.tsv \
-       executed-script-sha256sums.tsv run-root.txt; do
-       dzdo install -o gopala.akshintala -g gopala.akshintala -m 0400 \
-         '$GOVERNOR_STATE/'\"\$file\" '$REMOTE_RUN_ROOT/meta/supervisor/'\"\$file\" || exit 1
-     done" || record_post_supervisor_failure
-fi
-if test "$RUN_ROOT_VALID" = true; then
-  if test "$OPERATOR_MODE" = run; then
-    scp "$PWD/build/cs2a-supervisor.log" \
-      "$REMOTE_HOST:$REMOTE_RUN_ROOT/meta/operator-supervisor.log" \
-      || record_post_supervisor_failure
-    scp "$PWD/build/cs2a-supervisor-exit.txt" \
-      "$REMOTE_HOST:$REMOTE_RUN_ROOT/meta/operator-supervisor-exit.txt" \
-      || record_post_supervisor_failure
-  else
-    scp "$REMOTE_HOST:$REMOTE_RUN_ROOT/meta/operator-supervisor.log" \
-      "$PWD/build/cs2a-supervisor.log" || record_post_supervisor_failure
-    scp "$REMOTE_HOST:$REMOTE_RUN_ROOT/meta/operator-supervisor-exit.txt" \
-      "$PWD/build/cs2a-supervisor-exit.txt" || record_post_supervisor_failure
-  fi
-fi
-persist_original_post_status() {
-  local candidate="$PWD/build/cs2a-original-post-supervisor-exit.txt"
-  local remote_candidate="$REMOTE_RUN_ROOT/meta/.operator-post-supervisor-exit.upload"
-  printf '%s\n' "$POST_SUPERVISOR_STATUS" >"$candidate" || return 1
-  scp "$candidate" "$REMOTE_HOST:$remote_candidate" || return 1
-  ssh -tt "$REMOTE_HOST" \
-    "dzdo install -o root -g root -m 0400 '$remote_candidate' \
-       '$GOVERNOR_STATE/operator-post-supervisor-exit.txt' &&
-     dzdo install -o gopala.akshintala -g gopala.akshintala -m 0400 \
-       '$GOVERNOR_STATE/operator-post-supervisor-exit.txt' \
-       '$REMOTE_RUN_ROOT/meta/supervisor/operator-post-supervisor-exit.txt' &&
-     rm -f '$remote_candidate'" || return 1
-  test "$(ssh -tt "$REMOTE_HOST" \
-    "dzdo cat '$GOVERNOR_STATE/operator-post-supervisor-exit.txt'" | tr -d '\r\n')" \
-    = "$POST_SUPERVISOR_STATUS"
-}
-if test "$OPERATOR_MODE" = run; then
-  if test "$RUN_ROOT_VALID" != true || test "$GOVERNOR_STATE_VALID" != true; then
-    POST_SUPERVISOR_STATUS=70
-    printf '%s\n' "$POST_SUPERVISOR_STATUS" \
-      >"$PWD/build/cs2a-original-post-supervisor-exit.txt"
-    POST_STATUS_PERSISTED=true
-  elif persist_original_post_status; then
-      POST_STATUS_PERSISTED=true
-  else
-    POST_SUPERVISOR_STATUS=70
-    if persist_original_post_status; then POST_STATUS_PERSISTED=true; fi
-  fi
-else
-  if test "$POST_STATUS_PERSISTED" = true && test "$RUN_ROOT_VALID" = true; then
-    ssh -tt "$REMOTE_HOST" \
-      "dzdo install -o gopala.akshintala -g gopala.akshintala -m 0400 \
-         '$GOVERNOR_STATE/operator-post-supervisor-exit.txt' \
-         '$REMOTE_RUN_ROOT/meta/supervisor/operator-post-supervisor-exit.txt'" \
-      || record_post_supervisor_failure
-  fi
-fi
-```
-
-Run this block only through the checked-in `cs2a-operator.sh` with macOS `/bin/bash` 3.2 or newer;
+Run the checked-in `cs2a-operator.sh` with macOS `/bin/bash` 3.2 or newer;
 `PIPESTATUS` and later `shopt` are Bash contracts, not zsh-compatible snippets. Marker parsing is
 deliberately scalar/count based and does not use Bash-4-only `mapfile`. The `dzdo` prompts are the
 only interactive steps. The
 checked-in supervisor pins the expected runner SHA and rejects a source or implementation-SHA file
-with the wrong owner, mode, type, or bytes. Before launching the child, it hashes its own installed
-path and the exact runner it will execute, persists those values as `role<TAB>sha256` rows in
-root-only `executed-script-sha256sums.tsv`, and includes that file in the final governor-state
-handoff. It also writes the exact authenticated child `RUN_ROOT` to root-only `run-root.txt` before
-restoration, so archive-only recovery cannot substitute another user-owned directory. The operator compares the installed supervisor hash before launch; archive acceptance
-compares both executed hashes to the exact detached implementation sources. For local archive
-verification/recomparison, the operator builds and uses the installed driver from that same clean
-detached implementation checkout; it never uses a distribution built from the dirty pre-commit
-tree or a later evidence-commit `HEAD`.
+with the wrong owner, mode, type, or bytes. The operator first reads the installed implementation
+SHA through `dzdo` and compares it to the detached implementation. Before launching the child, the
+supervisor independently reads those root-owned bytes, hashes its own installed path and the exact
+root-installed runner it will execute, and persists those identities as `role<TAB>sha256` rows plus
+the authenticated implementation SHA in root-only state. It includes all three values in the final
+governor-state handoff. It also writes the exact authenticated child `RUN_ROOT` to root-only
+`run-root.txt` before restoration, so archive-only recovery cannot substitute another user-owned
+directory. The operator compares the installed supervisor and runner provenance before launch;
+archive acceptance compares both executed hashes and the handed-off implementation identity to the
+exact detached implementation sources. Before any install, launch, or archive operation, the
+operator creates a clean detached checkout at the claimed implementation SHA and byte-compares all
+four executing operator assets against that checkout; a dirty or other-commit operator, runner,
+supervisor, or validator fails before a remote action. This source authentication is deliberately
+separate from driver preparation: default run and `--archive-only` authenticate the assets but do
+not build a driver. Only `--validate-attempt` first requires its implementation argument to equal
+the authenticated implementation SHA, then builds and uses the installed driver from that same
+clean detached checkout for local verification/recomparison; it never uses a distribution built
+from the dirty pre-commit tree or a later evidence-commit `HEAD`.
 
-```bash
-#!/usr/bin/env bash
-set -Eeuo pipefail
-test -n "${BASH_VERSION:-}"
-export JAVA_HOME=/home/gopala.akshintala/core-public/tools/Linux/jdk/sfdc-jdk-zulu-21.helium_x64
-export PATH="$JAVA_HOME/bin:/usr/bin:/bin"
-export GRADLE_OPTS=-Dorg.gradle.daemon=false
-CS2A_IMPLEMENTATION_SHA=$(tr -d '\r\n' </opt/revoman-benchmark/cs2a-implementation-sha)
-[[ "$CS2A_IMPLEMENTATION_SHA" =~ ^[0-9a-f]{40}$ ]]
-BASELINE_SHA=83f3cd70f78ad733412d10cbc8287aaabafe7aac
-SOURCE_REPO="$HOME/code-clones/work/revoman-root"
-RUN_ROOT=
-early_runner_exit() {
-  local status=$?
-  trap - EXIT
-  set +e
-  case "$RUN_ROOT" in
-    /opt/revoman-benchmark/runs/cs2a.*)
-      mkdir -p "$RUN_ROOT/meta"
-      test -f "$RUN_ROOT/meta/stage.txt" \
-        || printf '%s\n' setup >"$RUN_ROOT/meta/stage.txt"
-      printf '%s\n' "$status" >"$RUN_ROOT/meta/runner-exit.txt"
-      printf '%s\n' 1 >"$RUN_ROOT/meta/inventory-exit.txt"
-      printf 'RUN_ROOT=%s\n' "$RUN_ROOT"
-      ;;
-  esac
-  exit "$status"
-}
-RUN_ROOT=$(mktemp -d /opt/revoman-benchmark/runs/cs2a.XXXXXXXX)
-case "$RUN_ROOT" in /opt/revoman-benchmark/runs/cs2a.*) ;; *) exit 70 ;; esac
-trap early_runner_exit EXIT
-mkdir "$RUN_ROOT/meta"
-printf '%s\n' setup >"$RUN_ROOT/meta/stage.txt"
-HARNESS="$RUN_ROOT/checkouts/harness"
-BASELINE_A="$RUN_ROOT/checkouts/baseline-a"
-BASELINE_B="$RUN_ROOT/checkouts/baseline-b"
-CANDIDATE="$RUN_ROOT/checkouts/candidate"
-POLICY=/opt/revoman-benchmark/controlled-host.json
-EXPECTED_POLICY_SHA256=7312efeed6a4c80e9588f0f4e25742021c6e11f46bbc8468a3adc06772408b79
-EXPECTED_POLICY_SEMANTIC_SHA256=48de27c7c84faec59c0ab2276489460ac4ffe3935cd0be41d9730b5aff1a3f60
-EXPECTED_HOST_FINGERPRINT=12e7d565978e40259c2f4c956c9e05696a32c0ba574c6971dfe85c8acd69fe44
-INIT="$HARNESS/benchmark-driver/build/install/benchmark-driver/libexec/benchmark-target.init.gradle.kts"
-DRIVER="$HARNESS/benchmark-driver/build/install/benchmark-driver/bin/benchmark-driver"
-mkdir "$RUN_ROOT/checkouts" "$RUN_ROOT/manifests" "$RUN_ROOT/results" \
-  "$RUN_ROOT/artifacts" "$RUN_ROOT/logs"
-
-write_inventory() (
-  set -euo pipefail
-  cd "$RUN_ROOT"
-  find manifests results -type f -print0 \
-    | LC_ALL=C sort -z | xargs -0 -r sha256sum >meta/evidence-sha256sums.txt
-  find artifacts -type f -printf '%p\t%s\n' \
-    | LC_ALL=C sort >meta/artifact-inventory.tsv
-  find artifacts -type f -print0 \
-    | LC_ALL=C sort -z | xargs -0 -r sha256sum >meta/artifact-sha256sums.txt
-  find logs -type f -print0 \
-    | LC_ALL=C sort -z | xargs -0 -r sha256sum >meta/command-output-sha256sums.txt
-)
-on_runner_exit() {
-  local status=$? inventory_status=0
-  trap - EXIT
-  set +e
-  write_inventory
-  inventory_status=$?
-  printf '%s\n' "$status" >"$RUN_ROOT/meta/runner-exit.txt"
-  printf '%s\n' "$inventory_status" >"$RUN_ROOT/meta/inventory-exit.txt"
-  printf 'RUN_ROOT=%s\n' "$RUN_ROOT"
-  if test "$status" -eq 0 && test "$inventory_status" -ne 0; then
-    status=$inventory_status
-  fi
-  exit "$status"
-}
-trap on_runner_exit EXIT
-
-git -C "$SOURCE_REPO" fetch origin codex/performance-cs2a-lifecycle
-git -C "$SOURCE_REPO" cat-file -e "$CS2A_IMPLEMENTATION_SHA^{commit}"
-git -C "$SOURCE_REPO" merge-base --is-ancestor "$CS2A_IMPLEMENTATION_SHA" \
-  origin/codex/performance-cs2a-lifecycle
-for checkout in "$HARNESS" "$CANDIDATE"; do
-  git clone --no-hardlinks --quiet "$SOURCE_REPO" "$checkout"
-  git -C "$checkout" checkout --detach "$CS2A_IMPLEMENTATION_SHA"
-done
-for checkout in "$BASELINE_A" "$BASELINE_B"; do
-  git clone --no-hardlinks --quiet "$SOURCE_REPO" "$checkout"
-  git -C "$checkout" checkout --detach "$BASELINE_SHA"
-done
-for checkout in "$HARNESS" "$BASELINE_A" "$BASELINE_B" "$CANDIDATE"; do
-  test -z "$(git -C "$checkout" status --porcelain)"
-  test -z "$(git -C "$checkout" symbolic-ref -q HEAD || true)"
-done
-test "$(git -C "$HARNESS" rev-parse HEAD)" = "$CS2A_IMPLEMENTATION_SHA"
-test "$(git -C "$CANDIDATE" rev-parse HEAD)" = "$CS2A_IMPLEMENTATION_SHA"
-test "$(git -C "$BASELINE_A" rev-parse HEAD)" = "$BASELINE_SHA"
-test "$(git -C "$BASELINE_B" rev-parse HEAD)" = "$BASELINE_SHA"
-cp "$HARNESS/docs/superpowers/benchmarks/operators/cs2a-controlled-run.sh" \
-  "$RUN_ROOT/meta/"
-cp "$HARNESS/docs/superpowers/benchmarks/operators/cs2a-governor-supervisor.sh" \
-  "$RUN_ROOT/meta/"
-cp "$HARNESS/docs/superpowers/benchmarks/operators/cs2a-operator.sh" \
-  "$RUN_ROOT/meta/"
-cp "$HARNESS/docs/superpowers/benchmarks/operators/cs2a-validate-manifest.jq" \
-  "$RUN_ROOT/meta/"
-cp "$POLICY" "$RUN_ROOT/meta/controlled-host.json"
-printf '%s\n' "$CS2A_IMPLEMENTATION_SHA" >"$RUN_ROOT/meta/implementation-sha.txt"
-(cd "$RUN_ROOT/meta" && sha256sum \
-  cs2a-controlled-run.sh cs2a-governor-supervisor.sh cs2a-operator.sh \
-  cs2a-validate-manifest.jq \
-  >operator-script-sha256sums.txt)
-test "$(stat -c '%U:%G:%a' "$POLICY")" = root:root:444
-test "$(sha256sum "$POLICY" | cut -d' ' -f1)" = "$EXPECTED_POLICY_SHA256"
-jq -e --arg host "$EXPECTED_HOST_FINGERPRINT" '
-  .schema == "revoman-controlled-host/v1" and
-  .hostFingerprintSha256 == $host and
-  .allowedGovernors == ["performance"] and
-  .powerEvidenceRequirement == "FIXED_MAINS"
-' "$POLICY" >/dev/null
-printf '%s  %s\n' "$EXPECTED_POLICY_SHA256" "$POLICY" \
-  >"$RUN_ROOT/meta/policy-sha256.txt"
-printf '%s\n' "$EXPECTED_POLICY_SEMANTIC_SHA256" \
-  >"$RUN_ROOT/meta/policy-semantic-sha256.txt"
-printf '%s\n' "$RUN_ROOT" >"$RUN_ROOT/meta/run-root.txt"
-: >"$RUN_ROOT/meta/commands.tsv"
-
-run_logged() {
-  local label=$1 status
-  shift
-  [[ "$label" =~ ^[a-z0-9][a-z0-9.-]*$ ]]
-  test ! -e "$RUN_ROOT/logs/$label.stdout"
-  test ! -e "$RUN_ROOT/logs/$label.stderr"
-  test ! -e "$RUN_ROOT/logs/$label.exit"
-  {
-    printf '%s' "$label"
-    printf '\t%q' "$@"
-    printf '\n'
-  } >>"$RUN_ROOT/meta/commands.tsv"
-  if "$@" >"$RUN_ROOT/logs/$label.stdout" 2>"$RUN_ROOT/logs/$label.stderr"; then
-    status=0
-  else
-    status=$?
-  fi
-  printf '%s\n' "$status" >"$RUN_ROOT/logs/$label.exit"
-  return "$status"
-}
-
-run_campaign() {
-  local label=$1 output=$2 status
-  shift 2
-  if run_logged "$label" "$@"; then status=0; else status=$?; fi
-  printf '%s\n' "$status" >"$RUN_ROOT/meta/$label-exit.txt"
-  case "$status" in
-    0 | 1) test -s "$output" ;;
-    *) return "$status" ;;
-  esac
-}
-
-verify_controlled_result() {
-  local label=$1 result=$2
-  run_logged "verify-$label" "$DRIVER" verify --input "$result"
-  jq -e --arg policy "$EXPECTED_POLICY_SEMANTIC_SHA256" \
-    --arg host "$EXPECTED_HOST_FINGERPRINT" \
-    '.environment.policySha256 == $policy and
-     .environment.hostFingerprintSha256 == $host' "$result" >/dev/null
-}
-
-run_logged install-harness "$HARNESS/gradlew" -p "$HARNESS" \
-  :benchmark-driver:installDist --no-daemon --console=plain
-run_logged export-baseline-a "$BASELINE_A/gradlew" -p "$BASELINE_A" -I "$INIT" \
-  clean writeBenchmarkTargetManifest \
-  -Pbenchmark.targetManifest="$RUN_ROOT/manifests/baseline-a.json" \
-  -Pbenchmark.targetId=baseline-a-cs2a --no-daemon --console=plain
-run_logged export-baseline-b "$BASELINE_B/gradlew" -p "$BASELINE_B" -I "$INIT" \
-  clean writeBenchmarkTargetManifest \
-  -Pbenchmark.targetManifest="$RUN_ROOT/manifests/baseline-b.json" \
-  -Pbenchmark.targetId=baseline-b-cs2a --no-daemon --console=plain
-run_logged export-candidate "$CANDIDATE/gradlew" -p "$CANDIDATE" -I "$INIT" \
-  clean writeBenchmarkTargetManifest \
-  -Pbenchmark.targetManifest="$RUN_ROOT/manifests/candidate.json" \
-  -Pbenchmark.targetId=candidate-cs2a --no-daemon --console=plain
-
-for manifest in "$RUN_ROOT"/manifests/*.json; do
-  run_logged "verify-manifest-$(basename "$manifest" .json)" \
-    "$DRIVER" verify --input "$manifest"
-done
-
-run_campaign cold-aa "$RUN_ROOT/results/cold-aa.json" \
-  "$DRIVER" capture-baseline --mode cold --intent controlled \
-  --baseline "$RUN_ROOT/manifests/baseline-a.json" --baseline-adapter baseline-83f3cd70 \
-  --candidate "$RUN_ROOT/manifests/baseline-b.json" --candidate-adapter baseline-83f3cd70 \
-  --workload lifecycle.no-script-one-step.v1 --blocks 50 --forks-per-block 1 \
-  --warmups 0 --iterations 1 --seed 5928239383101656625 \
-  --metrics latency,peak-rss,allocation --host-policy "$POLICY" \
-  --artifacts-dir "$RUN_ROOT/artifacts/cold-aa" --output "$RUN_ROOT/results/cold-aa.json"
-run_campaign warm-aa "$RUN_ROOT/results/warm-aa.json" \
-  "$DRIVER" capture-baseline --mode warm --intent controlled \
-  --baseline "$RUN_ROOT/manifests/baseline-a.json" --baseline-adapter baseline-83f3cd70 \
-  --candidate "$RUN_ROOT/manifests/baseline-b.json" --candidate-adapter baseline-83f3cd70 \
-  --workload lifecycle.no-script-one-step.v1 --blocks 5 --forks-per-block 1 \
-  --warmups 20 --iterations 100 --seed 5928239383101656625 \
-  --metrics latency,allocation --host-policy "$POLICY" \
-  --artifacts-dir "$RUN_ROOT/artifacts/warm-aa" --output "$RUN_ROOT/results/warm-aa.json"
-printf '%s\n' aa-captured >"$RUN_ROOT/meta/stage.txt"
-aa_failed=false
-for mode in cold warm; do
-  verify_controlled_result "aa-$mode" "$RUN_ROOT/results/$mode-aa.json"
-  if run_logged "comparison-aa-$mode" \
-    "$DRIVER" compare --input "$RUN_ROOT/results/$mode-aa.json" \
-      --output-json "$RUN_ROOT/results/comparison-aa-$mode.json" \
-      --output-md "$RUN_ROOT/results/comparison-aa-$mode.md" --enforce-release-gates; then
-    status=0
-  else
-    status=$?
-  fi
-  printf '%s\n' "$status" >"$RUN_ROOT/meta/comparison-aa-$mode-exit.txt"
-  test -s "$RUN_ROOT/results/comparison-aa-$mode.json"
-  test -s "$RUN_ROOT/results/comparison-aa-$mode.md"
-  if test "$status" -ne 0 \
-    || ! jq -e '.overall == "PASS"' \
-      "$RUN_ROOT/results/comparison-aa-$mode.json" >/dev/null; then
-    aa_failed=true
-  fi
-done
-printf '%s\n' aa-compared >"$RUN_ROOT/meta/stage.txt"
-if test "$aa_failed" = true; then exit 3; fi
-
-run_campaign cold-candidate "$RUN_ROOT/results/cold-candidate.json" \
-  "$DRIVER" run-paired --mode cold --intent controlled \
-  --baseline "$RUN_ROOT/manifests/baseline-a.json" --baseline-adapter baseline-83f3cd70 \
-  --candidate "$RUN_ROOT/manifests/candidate.json" --candidate-adapter major-v1 \
-  --workload lifecycle.no-script-one-step.v1 --blocks 50 --forks-per-block 1 \
-  --warmups 0 --iterations 1 --seed 5928239383101656625 \
-  --metrics latency,peak-rss,allocation --host-policy "$POLICY" \
-  --artifacts-dir "$RUN_ROOT/artifacts/cold-candidate" \
-  --output "$RUN_ROOT/results/cold-candidate.json"
-run_campaign warm-candidate "$RUN_ROOT/results/warm-candidate.json" \
-  "$DRIVER" run-paired --mode warm --intent controlled \
-  --baseline "$RUN_ROOT/manifests/baseline-a.json" --baseline-adapter baseline-83f3cd70 \
-  --candidate "$RUN_ROOT/manifests/candidate.json" --candidate-adapter major-v1 \
-  --workload lifecycle.no-script-one-step.v1 --blocks 5 --forks-per-block 1 \
-  --warmups 20 --iterations 100 --seed 5928239383101656625 \
-  --metrics latency,allocation --host-policy "$POLICY" \
-  --artifacts-dir "$RUN_ROOT/artifacts/warm-candidate" \
-  --output "$RUN_ROOT/results/warm-candidate.json"
-run_campaign retained-candidate "$RUN_ROOT/results/retained-candidate.json" \
-  "$DRIVER" run-paired --mode retained --intent controlled \
-  --baseline "$RUN_ROOT/manifests/baseline-a.json" --baseline-adapter baseline-83f3cd70 \
-  --candidate "$RUN_ROOT/manifests/candidate.json" --candidate-adapter major-v1 \
-  --workload lifecycle.no-script-one-step.v1 --blocks 5 --forks-per-block 1 \
-  --warmups 0 --iterations 0 --seed 5928239383101656625 \
-  --metrics retained --host-policy "$POLICY" \
-  --artifacts-dir "$RUN_ROOT/artifacts/retained-candidate" \
-  --output "$RUN_ROOT/results/retained-candidate.json"
-printf '%s\n' candidate-captured >"$RUN_ROOT/meta/stage.txt"
-
-candidate_status=0
-candidate_failed=false
-for mode in cold warm retained; do
-  verify_controlled_result "candidate-$mode" "$RUN_ROOT/results/$mode-candidate.json"
-  if run_logged "comparison-candidate-$mode" \
-    "$DRIVER" compare --input "$RUN_ROOT/results/$mode-candidate.json" \
-      --output-json "$RUN_ROOT/results/comparison-candidate-$mode.json" \
-      --output-md "$RUN_ROOT/results/comparison-candidate-$mode.md" \
-      --enforce-release-gates; then
-    status=0
-  else
-    status=$?
-  fi
-  printf '%s\n' "$status" >"$RUN_ROOT/meta/comparison-candidate-$mode-exit.txt"
-  test -s "$RUN_ROOT/results/comparison-candidate-$mode.json"
-  test -s "$RUN_ROOT/results/comparison-candidate-$mode.md"
-  if test "$status" -ne 0 && test "$candidate_status" -eq 0; then
-    candidate_status=$status
-  fi
-  if test "$status" -ne 0 \
-    || ! jq -e '.overall == "PASS"' \
-      "$RUN_ROOT/results/comparison-candidate-$mode.json" >/dev/null; then
-    candidate_failed=true
-  fi
-done
-printf '%s\n' candidate-compared >"$RUN_ROOT/meta/stage.txt"
-if test "$candidate_failed" = true && test "$candidate_status" -eq 0; then
-  candidate_status=3
-fi
-exit "$candidate_status"
-```
+The checked-in `cs2a-controlled-run.sh` is the sole runner implementation authority. The
+checked-in supervisor invokes its root-installed reviewed copy after authenticating the UID,
+implementation SHA, runner SHA, and inherited lock descriptor; never invoke the runner directly or
+reconstruct its body from this plan.
 
 The checked-in runner must wrap every external Gradle/driver command with the Task 13-style
 shell-escaped command logger and record stdout, stderr, and exit status without changing the
@@ -3121,15 +2800,14 @@ command's semantics. Its `EXIT` path writes the evidence/artifact inventories ev
 INCONCLUSIVE and prints exactly one `RUN_ROOT=<absolute-path>` line. Large JFR files remain under the never-reused remote root, but their relative paths,
 sizes, and SHA-256 values are mandatory inventory rows.
 
-After the supervisor has restored every governor, the following tail of the same checked-in
-`cs2a-operator.sh` copies every attempt back locally whether it passed, failed, or was
-inconclusive. It shares the already authenticated implementation/source/script identities from the
-first operator section. Use the unique remote directory basename as the attempt key; never
+After the supervisor has restored every governor, the checked-in `cs2a-operator.sh` copies every
+attempt back locally whether it passed, failed, or was inconclusive. It retains the already
+authenticated implementation/source/script identities. Use the unique remote directory basename as the attempt key; never
 overwrite or omit an earlier non-PASS attempt. Copied target manifests retain remote absolute
 `executionPath` values, so local validation must never pass them to `benchmark-driver verify`;
 validate their complete schema/model without dereferencing `executionPath`, then validate path-free
 hashes, roles, target IDs, adapters, and commit identity. Local `verify` remains restricted to copied
-campaign/result JSON. The checked-in executable `cs2a-validate-manifest.jq` used below is part of the
+campaign/result JSON. The checked-in executable `cs2a-validate-manifest.jq` is part of the
 reviewed implementation commit and must accept exactly `revoman-target-manifest/v1`: the top-level,
 `jdk`, and classpath-item key sets are exact (equivalent to `additionalProperties: false`); every
 required field has its schema type; `gitCommit`/`gitTree` are lowercase 40-hex and
@@ -3140,518 +2818,9 @@ are unique. Its fixture tests must reject every missing/extra/wrong-type/bad-pat
 duplicate-ID variant and prove that nonexistent remote absolute `executionPath` values are never
 opened:
 
-```bash
-# Continuation of cs2a-operator.sh: preserve every command status through archive publication.
-set +e
-set -Euo pipefail
-
-if test "$RUN_ROOT_VALID" = true; then
-  ATTEMPT_ID=$(basename "$REMOTE_RUN_ROOT")
-else
-  ATTEMPT_ID="operator-failure.$(date -u +%Y%m%dT%H%M%SZ).$$"
-fi
-EVIDENCE_ROOT="$PWD/docs/superpowers/benchmarks/results/v1/cs2a-$CS2A_IMPLEMENTATION_SHA"
-FINAL_EVIDENCE_DIR="$EVIDENCE_ROOT/$ATTEMPT_ID"
-TRANSFER_STATUS=0
-test "$POST_STATUS_PERSISTED" = true || TRANSFER_STATUS=70
-mkdir -p "$EVIDENCE_ROOT" || TRANSFER_STATUS=70
-test ! -e "$FINAL_EVIDENCE_DIR" || TRANSFER_STATUS=70
-if EVIDENCE_DIR=$(mktemp -d "$PWD/build/cs2a-archive-stage.XXXXXXXX"); then
-  case "$EVIDENCE_DIR" in
-    "$PWD"/build/cs2a-archive-stage.*) ;;
-    *) echo "unsafe archive staging path: $EVIDENCE_DIR" >&2; exit 70 ;;
-  esac
-else
-  echo 'cannot create safe local archive staging directory' >&2
-  exit 70
-fi
-for directory in manifests results logs meta; do
-  mkdir "$EVIDENCE_DIR/$directory" || TRANSFER_STATUS=70
-  if test "$RUN_ROOT_VALID" = true; then
-    ssh "$REMOTE_HOST" "test -d '$REMOTE_RUN_ROOT/$directory'"
-    REMOTE_DIRECTORY_STATUS=$?
-    case "$REMOTE_DIRECTORY_STATUS" in
-      0)
-        rsync -a "$REMOTE_HOST:$REMOTE_RUN_ROOT/$directory/" "$EVIDENCE_DIR/$directory/" \
-          || TRANSFER_STATUS=70
-        ;;
-      1) ;;
-      *) TRANSFER_STATUS=70 ;;
-    esac
-  fi
-done
-cp "$PWD/build/cs2a-supervisor.log" "$EVIDENCE_DIR/meta/operator-supervisor.log" \
-  || TRANSFER_STATUS=70
-cp "$PWD/build/cs2a-supervisor-exit.txt" "$EVIDENCE_DIR/meta/operator-supervisor-exit.txt" \
-  || TRANSFER_STATUS=70
-cp "$PWD/build/cs2a-local-validation-driver.log" \
-  "$EVIDENCE_DIR/meta/operator-local-validation-driver.log" || TRANSFER_STATUS=70
-printf '%s\n' "$POST_SUPERVISOR_STATUS" \
-  >"$EVIDENCE_DIR/meta/operator-post-supervisor-exit.txt"
-printf '%s\n' "$RESUME_VALIDATION_STATUS" \
-  >"$EVIDENCE_DIR/meta/operator-resume-validation-exit.txt"
-
-ARCHIVE_VALID=true
-test -x "$LOCAL_DRIVER" || TRANSFER_STATUS=70
-if COPIED_MANIFEST=$(mktemp "$PWD/build/cs2a-copied-bytes.XXXXXXXX"); then
-  case "$COPIED_MANIFEST" in
-    "$PWD"/build/cs2a-copied-bytes.*) ;;
-    *) echo "unsafe copied-byte manifest path: $COPIED_MANIFEST" >&2; exit 70 ;;
-  esac
-  (cd "$EVIDENCE_DIR" &&
-    find . -type f -print0 | sort -z | xargs -0 -r sha256sum >"$COPIED_MANIFEST") \
-    || TRANSFER_STATUS=70
-  mv "$COPIED_MANIFEST" "$EVIDENCE_DIR/meta/remote-copied-bytes-sha256sums.txt" \
-    || TRANSFER_STATUS=70
-  (cd "$EVIDENCE_DIR" && sha256sum -c meta/remote-copied-bytes-sha256sums.txt) \
-    || TRANSFER_STATUS=70
-else
-  TRANSFER_STATUS=70
-fi
-VALIDATION_LOG="$EVIDENCE_DIR/meta/local-validation.txt"
-: >"$VALIDATION_LOG" || TRANSFER_STATUS=70
-MANIFEST_VALIDATOR="$OPERATOR_DIR/cs2a-validate-manifest.jq"
-test -x "$MANIFEST_VALIDATOR" || TRANSFER_STATUS=70
-
-shopt -s nullglob
-inputs=("$EVIDENCE_DIR"/results/*-aa.json "$EVIDENCE_DIR"/results/*-candidate.json)
-for input in "${inputs[@]}"; do
-  if "$LOCAL_DRIVER" verify --input "$input" >>"$VALIDATION_LOG" 2>&1; then
-    status=0
-  else
-    status=$?
-  fi
-  printf 'verify\t%s\t%s\n' "$status" "${input#"$EVIDENCE_DIR/"}" >>"$VALIDATION_LOG"
-  if test "$status" -ne 0; then ARCHIVE_VALID=false; fi
-done
-shopt -u nullglob
-
-validate_manifest_schema() {
-  local path=$1
-  if ! jq -e -f "$MANIFEST_VALIDATOR" "$path" >>"$VALIDATION_LOG" 2>&1; then
-    printf 'invalid-manifest-schema-model\t%s\n' "${path#"$EVIDENCE_DIR/"}" \
-      >>"$VALIDATION_LOG"
-    ARCHIVE_VALID=false
-  fi
-}
-
-shopt -s nullglob
-manifest_copies=("$EVIDENCE_DIR"/manifests/*.json)
-for manifest_copy in "${manifest_copies[@]}"; do
-  validate_manifest_schema "$manifest_copy"
-  case "$(basename "$manifest_copy")" in
-    baseline-a.json | baseline-b.json | candidate.json) ;;
-    *)
-      printf 'unexpected-manifest\t%s\n' "${manifest_copy#"$EVIDENCE_DIR/"}" \
-        >>"$VALIDATION_LOG"
-      ARCHIVE_VALID=false
-      ;;
-  esac
-done
-shopt -u nullglob
-
-validate_manifest_identity() {
-  local path=$1 expected_id=$2 expected_commit=$3
-  if test ! -f "$path"; then return; fi
-  if ! jq -e --arg id "$expected_id" --arg commit "$expected_commit" '
-      .targetId == $id and .gitCommit == $commit and .dirty == false
-    ' "$path" >>"$VALIDATION_LOG" 2>&1; then
-    printf 'invalid-manifest-identity\t%s\n' "${path#"$EVIDENCE_DIR/"}" >>"$VALIDATION_LOG"
-    ARCHIVE_VALID=false
-  fi
-}
-
-BASELINE_COMMIT=83f3cd70f78ad733412d10cbc8287aaabafe7aac
-validate_manifest_identity "$EVIDENCE_DIR/manifests/baseline-a.json" \
-  baseline-a-cs2a "$BASELINE_COMMIT"
-validate_manifest_identity "$EVIDENCE_DIR/manifests/baseline-b.json" \
-  baseline-b-cs2a "$BASELINE_COMMIT"
-validate_manifest_identity "$EVIDENCE_DIR/manifests/candidate.json" candidate-cs2a \
-  "$CS2A_IMPLEMENTATION_SHA"
-
-validate_campaign_identity() {
-  local path=$1 mode=$2 candidate_id=$3 candidate_adapter=$4 candidate_commit=$5
-  local baseline_manifest candidate_manifest
-  if test ! -f "$path"; then return; fi
-  if test ! -f "$EVIDENCE_DIR/manifests/baseline-a.json"; then
-    printf 'campaign-missing-baseline-manifest\t%s\n' "${path#"$EVIDENCE_DIR/"}" \
-      >>"$VALIDATION_LOG"
-    ARCHIVE_VALID=false
-    return
-  fi
-  baseline_manifest=$(sha256sum "$EVIDENCE_DIR/manifests/baseline-a.json" | cut -d' ' -f1)
-  case "$candidate_id" in
-    baseline-b-cs2a)
-      if test ! -f "$EVIDENCE_DIR/manifests/baseline-b.json"; then
-        ARCHIVE_VALID=false
-        return
-      fi
-      candidate_manifest=$(sha256sum "$EVIDENCE_DIR/manifests/baseline-b.json" | cut -d' ' -f1)
-      ;;
-    candidate-cs2a)
-      if test ! -f "$EVIDENCE_DIR/manifests/candidate.json"; then
-        ARCHIVE_VALID=false
-        return
-      fi
-      candidate_manifest=$(sha256sum "$EVIDENCE_DIR/manifests/candidate.json" | cut -d' ' -f1)
-      ;;
-    *) ARCHIVE_VALID=false; return ;;
-  esac
-  if ! jq -e \
-    --arg mode "$mode" \
-    --arg policy 48de27c7c84faec59c0ab2276489460ac4ffe3935cd0be41d9730b5aff1a3f60 \
-    --arg host 12e7d565978e40259c2f4c956c9e05696a32c0ba574c6971dfe85c8acd69fe44 \
-    --arg baselineCommit "$BASELINE_COMMIT" \
-    --arg baselineManifest "$baseline_manifest" \
-    --arg candidateId "$candidate_id" \
-    --arg candidateAdapter "$candidate_adapter" \
-    --arg candidateCommit "$candidate_commit" \
-    --arg candidateManifest "$candidate_manifest" '
-      .schema == "revoman-benchmark/v1" and .intent == "CONTROLLED" and
-      .configuration.mode == $mode and
-      .environment.policySha256 == $policy and
-      .environment.hostFingerprintSha256 == $host and
-      .configuration.targets == [
-        {"role":"BASELINE","targetId":"baseline-a-cs2a","adapterId":"baseline-83f3cd70"},
-        {"role":"CANDIDATE","targetId":$candidateId,"adapterId":$candidateAdapter}
-      ] and
-      ([.targets[] | select(
-        .id == "baseline-a-cs2a" and .gitCommit == $baselineCommit and
-        .dirty == false and .manifestSha256 == $baselineManifest and
-        .adapter.id == "baseline-83f3cd70"
-      )] | length == 1) and
-      ([.targets[] | select(
-        .id == $candidateId and .gitCommit == $candidateCommit and
-        .dirty == false and .manifestSha256 == $candidateManifest and
-        .adapter.id == $candidateAdapter
-      )] | length == 1)
-    ' "$path" >>"$VALIDATION_LOG" 2>&1; then
-    printf 'campaign-identity-mismatch\t%s\n' "${path#"$EVIDENCE_DIR/"}" \
-      >>"$VALIDATION_LOG"
-    ARCHIVE_VALID=false
-  fi
-}
-
-validate_campaign_identity "$EVIDENCE_DIR/results/cold-aa.json" COLD \
-  baseline-b-cs2a baseline-83f3cd70 "$BASELINE_COMMIT"
-validate_campaign_identity "$EVIDENCE_DIR/results/warm-aa.json" WARM \
-  baseline-b-cs2a baseline-83f3cd70 "$BASELINE_COMMIT"
-validate_campaign_identity "$EVIDENCE_DIR/results/cold-candidate.json" COLD \
-  candidate-cs2a major-v1 "$CS2A_IMPLEMENTATION_SHA"
-validate_campaign_identity "$EVIDENCE_DIR/results/warm-candidate.json" WARM \
-  candidate-cs2a major-v1 "$CS2A_IMPLEMENTATION_SHA"
-validate_campaign_identity "$EVIDENCE_DIR/results/retained-candidate.json" RETAINED \
-  candidate-cs2a major-v1 "$CS2A_IMPLEMENTATION_SHA"
-
-RECOMPARE=
-if candidate=$(mktemp -d "$PWD/build/cs2a-recompare.XXXXXXXX"); then
-  case "$candidate" in
-    "$PWD"/build/cs2a-recompare.*) RECOMPARE=$candidate ;;
-    *) ARCHIVE_VALID=false; TRANSFER_STATUS=70 ;;
-  esac
-else
-  ARCHIVE_VALID=false
-  TRANSFER_STATUS=70
-fi
-recompare_if_complete() {
-  local label=$1 input=$2 archived_json=$3 archived_md=$4 expected_exit=$5 status
-  local recorded_exit archived_overall recomputed_overall
-  if test ! -f "$input" && test ! -f "$archived_json" && test ! -f "$archived_md"; then
-    return 0
-  fi
-  if test ! -f "$input" || test ! -f "$archived_json" || test ! -f "$archived_md" \
-    || test ! -f "$expected_exit"; then
-    printf 'incomplete-comparison\t%s\n' "$label" >>"$VALIDATION_LOG"
-    ARCHIVE_VALID=false
-    return 0
-  fi
-  if test -z "$RECOMPARE"; then
-    printf 'missing-safe-recompare-directory\t%s\n' "$label" >>"$VALIDATION_LOG"
-    ARCHIVE_VALID=false
-    return 0
-  fi
-  if "$LOCAL_DRIVER" compare --input "$input" \
-    --output-json "$RECOMPARE/$label.json" \
-    --output-md "$RECOMPARE/$label.md" --enforce-release-gates \
-    >>"$VALIDATION_LOG" 2>&1; then
-    status=0
-  else
-    status=$?
-  fi
-  recorded_exit=$(cat "$expected_exit")
-  if archived_overall=$(jq -er '.overall' "$archived_json" \
-    2>>"$VALIDATION_LOG"); then :; else archived_overall=INVALID; fi
-  if recomputed_overall=$(jq -er '.overall' "$RECOMPARE/$label.json" \
-    2>>"$VALIDATION_LOG"); then :; else recomputed_overall=INVALID; fi
-  if test "$recorded_exit" != 0 \
-    || test "$status" -ne 0 \
-    || test "$archived_overall" != PASS \
-    || test "$recomputed_overall" != PASS \
-    || test "$status" != "$recorded_exit" \
-    || ! cmp -s "$RECOMPARE/$label.json" "$archived_json" \
-    || ! cmp -s "$RECOMPARE/$label.md" "$archived_md"; then
-    ARCHIVE_VALID=false
-  fi
-  printf 'recompare\t%s\t%s\trecorded=%s\tarchived=%s\trecomputed=%s\n' \
-    "$status" "$label" "$recorded_exit" "$archived_overall" "$recomputed_overall" \
-    >>"$VALIDATION_LOG"
-}
-
-for mode in cold warm; do
-  recompare_if_complete "comparison-aa-$mode" \
-    "$EVIDENCE_DIR/results/$mode-aa.json" \
-    "$EVIDENCE_DIR/results/comparison-aa-$mode.json" \
-    "$EVIDENCE_DIR/results/comparison-aa-$mode.md" \
-    "$EVIDENCE_DIR/meta/comparison-aa-$mode-exit.txt"
-done
-for mode in cold warm retained; do
-  recompare_if_complete "comparison-candidate-$mode" \
-    "$EVIDENCE_DIR/results/$mode-candidate.json" \
-    "$EVIDENCE_DIR/results/comparison-candidate-$mode.json" \
-    "$EVIDENCE_DIR/results/comparison-candidate-$mode.md" \
-    "$EVIDENCE_DIR/meta/comparison-candidate-$mode-exit.txt"
-done
-
-require_archive_file() {
-  if test ! -f "$EVIDENCE_DIR/$1"; then
-    printf 'missing\t%s\n' "$1" >>"$VALIDATION_LOG"
-    ARCHIVE_VALID=false
-  fi
-}
-for required in \
-  meta/cs2a-controlled-run.sh \
-  meta/cs2a-governor-supervisor.sh \
-  meta/cs2a-operator.sh \
-  meta/cs2a-validate-manifest.jq \
-  meta/operator-script-sha256sums.txt \
-  meta/operator-post-supervisor-exit.txt \
-  meta/operator-resume-validation-exit.txt \
-  meta/operator-local-validation-driver.log \
-  meta/implementation-sha.txt \
-  meta/controlled-host.json \
-  meta/policy-sha256.txt \
-  meta/policy-semantic-sha256.txt \
-  meta/run-root.txt \
-  meta/commands.tsv \
-  meta/runner-exit.txt \
-  meta/inventory-exit.txt \
-  meta/evidence-sha256sums.txt \
-  meta/artifact-inventory.tsv \
-  meta/artifact-sha256sums.txt \
-  meta/command-output-sha256sums.txt; do
-  require_archive_file "$required"
-done
-
-validate_remote_checksum_inventory() {
-  local inventory=$1 allowed_paths=$2
-  test -f "$EVIDENCE_DIR/$inventory" || return 0
-  if ! awk -v allowed="$allowed_paths" '
-    {
-      hash = substr($0, 1, 64)
-      separator = substr($0, 65, 2)
-      path = substr($0, 67)
-      if (length(hash) != 64 || hash !~ /^[0-9a-f]+$/ || separator != "  " ||
-          path !~ allowed || path ~ /(^|\/)\.\.(\/|$)/) exit 1
-    }
-  ' "$EVIDENCE_DIR/$inventory"; then
-    printf 'invalid-remote-inventory-path\t%s\n' "$inventory" >>"$VALIDATION_LOG"
-    ARCHIVE_VALID=false
-  elif ! (cd "$EVIDENCE_DIR" && sha256sum -c "$inventory") \
-    >>"$VALIDATION_LOG" 2>&1; then
-    printf 'remote-inventory-mismatch\t%s\n' "$inventory" >>"$VALIDATION_LOG"
-    ARCHIVE_VALID=false
-  fi
-}
-
-validate_remote_artifact_inventory() {
-  local inventory=meta/artifact-inventory.tsv relative size extra actual valid=true
-  test -f "$EVIDENCE_DIR/$inventory" || return 0
-  while IFS="$(printf '\t')" read -r relative size extra; do
-    case "$relative" in
-      artifacts/*) ;;
-      *) valid=false ;;
-    esac
-    case "$relative" in
-      /* | ../* | */../* | */..) valid=false ;;
-    esac
-    [[ "$size" =~ ^[0-9]+$ ]] || valid=false
-    test -z "$extra" || valid=false
-    if test "$valid" = true && test -f "$EVIDENCE_DIR/$relative"; then
-      actual=$(wc -c <"$EVIDENCE_DIR/$relative" | tr -d ' ')
-      test "$actual" = "$size" || valid=false
-    else
-      valid=false
-    fi
-  done <"$EVIDENCE_DIR/$inventory"
-  if test "$valid" != true; then
-    printf 'remote-artifact-inventory-mismatch\n' >>"$VALIDATION_LOG"
-    ARCHIVE_VALID=false
-  fi
-}
-
-validate_remote_checksum_inventory meta/evidence-sha256sums.txt \
-  '^(manifests|results)/'
-validate_remote_artifact_inventory
-validate_remote_checksum_inventory meta/artifact-sha256sums.txt '^artifacts/'
-validate_remote_checksum_inventory meta/command-output-sha256sums.txt '^logs/'
-
-if test -f "$EVIDENCE_DIR/meta/operator-script-sha256sums.txt"; then
-  if ! (cd "$EVIDENCE_DIR/meta" && sha256sum -c operator-script-sha256sums.txt) \
-    >>"$VALIDATION_LOG" 2>&1; then
-    ARCHIVE_VALID=false
-  fi
-fi
-if test -f "$EVIDENCE_DIR/meta/implementation-sha.txt" \
-  && test "$(cat "$EVIDENCE_DIR/meta/implementation-sha.txt")" \
-    != "$CS2A_IMPLEMENTATION_SHA"; then
-  printf 'implementation-sha-mismatch\n' >>"$VALIDATION_LOG"
-  ARCHIVE_VALID=false
-fi
-if test -f "$EVIDENCE_DIR/meta/controlled-host.json" \
-  && test -f "$EVIDENCE_DIR/meta/policy-sha256.txt"; then
-  ARCHIVED_POLICY_SHA=$(sha256sum "$EVIDENCE_DIR/meta/controlled-host.json" | cut -d' ' -f1)
-  RECORDED_POLICY_SHA=$(awk 'NR == 1 { print $1 }' "$EVIDENCE_DIR/meta/policy-sha256.txt")
-  if test "$ARCHIVED_POLICY_SHA" != 7312efeed6a4c80e9588f0f4e25742021c6e11f46bbc8468a3adc06772408b79 \
-    || test "$RECORDED_POLICY_SHA" != "$ARCHIVED_POLICY_SHA"; then
-    printf 'policy-sha-mismatch\n' >>"$VALIDATION_LOG"
-    ARCHIVE_VALID=false
-  fi
-fi
-if test -f "$EVIDENCE_DIR/meta/policy-semantic-sha256.txt" \
-  && test "$(cat "$EVIDENCE_DIR/meta/policy-semantic-sha256.txt")" \
-    != 48de27c7c84faec59c0ab2276489460ac4ffe3935cd0be41d9730b5aff1a3f60; then
-  printf 'policy-semantic-sha-mismatch\n' >>"$VALIDATION_LOG"
-  ARCHIVE_VALID=false
-fi
-for required in \
-  meta/operator-supervisor.log \
-  meta/operator-supervisor-exit.txt \
-  meta/supervisor/child-or-supervisor-status.txt \
-  meta/supervisor/restoration-failed.txt \
-  meta/supervisor/containment-failed.txt \
-  meta/supervisor/finished-at.txt \
-  meta/supervisor/original-governors.tsv \
-  meta/supervisor/run-root.txt \
-  meta/supervisor/operator-post-supervisor-exit.txt \
-  meta/supervisor/executed-script-sha256sums.tsv; do
-  require_archive_file "$required"
-done
-
-validate_executed_script() {
-  local role=$1 script=$2 rows actual expected
-  rows=$(awk -F '\t' -v role="$role" '$1 == role { print $2 }' \
-    "$EVIDENCE_DIR/meta/supervisor/executed-script-sha256sums.tsv" 2>/dev/null || true)
-  if test -z "$rows" \
-    || test "$(printf '%s\n' "$rows" | wc -l | tr -d ' ')" -ne 1; then
-    printf 'invalid-executed-script-row\t%s\n' "$role" >>"$VALIDATION_LOG"
-    ARCHIVE_VALID=false
-    return
-  fi
-  actual=$rows
-  expected=$(sha256sum "$EVIDENCE_DIR/meta/$script" | cut -d' ' -f1)
-  if test "$actual" != "$expected"; then
-    printf 'executed-script-mismatch\t%s\t%s\t%s\n' \
-      "$role" "$actual" "$expected" >>"$VALIDATION_LOG"
-    ARCHIVE_VALID=false
-  fi
-}
-if test -f "$EVIDENCE_DIR/meta/supervisor/executed-script-sha256sums.tsv"; then
-  EXECUTED_ROWS="$EVIDENCE_DIR/meta/supervisor/executed-script-sha256sums.tsv"
-  if ! awk -F '\t' '
-    NF != 2 { exit 1 }
-    $1 != "runner" && $1 != "supervisor" { exit 1 }
-    length($2) != 64 || $2 !~ /^[0-9a-f]+$/ { exit 1 }
-    { count[$1]++; total++ }
-    END { exit !(total == 2 && count["runner"] == 1 && count["supervisor"] == 1) }
-  ' "$EXECUTED_ROWS"; then
-    printf 'invalid-executed-script-row-set\n' >>"$VALIDATION_LOG"
-    ARCHIVE_VALID=false
-  else
-    validate_executed_script runner cs2a-controlled-run.sh
-    validate_executed_script supervisor cs2a-governor-supervisor.sh
-  fi
-fi
-if test -f "$EVIDENCE_DIR/meta/stage.txt"; then
-  STAGE=$(cat "$EVIDENCE_DIR/meta/stage.txt")
-else
-  STAGE=missing
-  ARCHIVE_VALID=false
-  printf 'missing\tmeta/stage.txt\n' >>"$VALIDATION_LOG"
-fi
-case "$STAGE" in
-  setup | aa-captured | aa-compared | candidate-captured | candidate-compared) ;;
-  *) ARCHIVE_VALID=false; printf 'invalid-stage\t%s\n' "$STAGE" >>"$VALIDATION_LOG" ;;
-esac
-case "$STAGE" in
-  aa-captured | aa-compared | candidate-captured | candidate-compared)
-    require_archive_file manifests/baseline-a.json
-    require_archive_file manifests/baseline-b.json
-    require_archive_file manifests/candidate.json
-    require_archive_file results/cold-aa.json
-    require_archive_file results/warm-aa.json
-    ;;
-esac
-case "$STAGE" in
-  aa-compared | candidate-captured | candidate-compared)
-    for mode in cold warm; do
-      require_archive_file "results/comparison-aa-$mode.json"
-      require_archive_file "results/comparison-aa-$mode.md"
-    done
-    ;;
-esac
-case "$STAGE" in
-  candidate-captured | candidate-compared)
-    for mode in cold warm retained; do
-      require_archive_file "results/$mode-candidate.json"
-    done
-    ;;
-esac
-if test "$STAGE" = candidate-compared; then
-  for mode in cold warm retained; do
-    require_archive_file "results/comparison-candidate-$mode.json"
-    require_archive_file "results/comparison-candidate-$mode.md"
-  done
-fi
-printf '%s\n' "$ARCHIVE_VALID" >"$EVIDENCE_DIR/meta/local-validation-passed.txt"
-FINAL_OPERATOR_STATUS=$SUPERVISOR_STATUS
-if test "$POST_SUPERVISOR_STATUS" -ne 0 || test "$RESUME_VALIDATION_STATUS" -ne 0 \
-  || test "$TRANSFER_STATUS" -ne 0 \
-  || test "$ARCHIVE_VALID" != true; then
-  if test "$FINAL_OPERATOR_STATUS" -eq 0; then FINAL_OPERATOR_STATUS=70; fi
-fi
-printf '%s\n' "$FINAL_OPERATOR_STATUS" >"$EVIDENCE_DIR/meta/operator-final-exit.txt"
-(cd "$EVIDENCE_DIR" &&
-  find . -type f ! -name evidence-sha256sums.txt -print0 \
-    | sort -z | xargs -0 -r sha256sum >evidence-sha256sums.txt &&
-  sha256sum -c evidence-sha256sums.txt)
-CHECKSUM_STATUS=$?
-if test "$CHECKSUM_STATUS" -ne 0; then
-  TRANSFER_STATUS=70
-  FINAL_OPERATOR_STATUS=70
-  printf '%s\n' "$FINAL_OPERATOR_STATUS" >"$EVIDENCE_DIR/meta/operator-final-exit.txt"
-  if ! (cd "$EVIDENCE_DIR" &&
-    find . -type f ! -name evidence-sha256sums.txt -print0 \
-      | sort -z | xargs -0 -r sha256sum >evidence-sha256sums.txt &&
-    sha256sum -c evidence-sha256sums.txt); then
-    printf 'regenerated checksum verification failed\n' >&2
-  fi
-fi
-if test "$TRANSFER_STATUS" -eq 0 \
-  && test ! -e "$FINAL_EVIDENCE_DIR" \
-  && mv "$EVIDENCE_DIR" "$FINAL_EVIDENCE_DIR"; then
-  EVIDENCE_DIR=$FINAL_EVIDENCE_DIR
-  printf '%s\n' "$EVIDENCE_DIR" >"$PWD/build/cs2a-local-evidence-dir.txt"
-  printf 'LOCAL_EVIDENCE_DIR=%s\n' "$EVIDENCE_DIR"
-else
-  FINAL_OPERATOR_STATUS=70
-  printf '%s\n' "$FINAL_OPERATOR_STATUS" >"$EVIDENCE_DIR/meta/operator-final-exit.txt"
-  (cd "$EVIDENCE_DIR" &&
-    find . -type f ! -name evidence-sha256sums.txt -print0 \
-      | sort -z | xargs -0 -r sha256sum >evidence-sha256sums.txt)
-  printf 'LOCAL_EVIDENCE_STAGING_DIR=%s\n' "$EVIDENCE_DIR"
-fi
-exit "$FINAL_OPERATOR_STATUS"
-```
+The archive, publication, recovery, persistence, and semantic-selection implementations in the
+checked-in `cs2a-operator.sh` are authoritative. Do not reconstruct those functions from this
+plan: execute only its reviewed public modes shown below.
 
 Invoke that checked-in operator from the clean implementation worktree with fail-fast disabled only
 long enough to capture its status. Immediately after it publishes a canonical local archive and the
@@ -3689,13 +2858,29 @@ test -z "$(git status --porcelain --untracked-files=all -- "$EVIDENCE_DIR")"
 test -n "$(git ls-files -- "$EVIDENCE_DIR")"
 CS2A_EVIDENCE_SHA=$(git log -1 --format=%H -- "$EVIDENCE_DIR")
 [[ "$CS2A_EVIDENCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+test "$(git rev-list --parents -n 1 "$CS2A_EVIDENCE_SHA" | wc -w | tr -d ' ')" -eq 2
+EVIDENCE_PARENT=$(git rev-parse "$CS2A_EVIDENCE_SHA^")
+EVIDENCE_REL=${EVIDENCE_DIR#"$PWD/"}
+git merge-base --is-ancestor "$CS2A_IMPLEMENTATION_SHA" "$EVIDENCE_PARENT"
+test -z "$(git diff --name-only "$EVIDENCE_PARENT..$CS2A_EVIDENCE_SHA" -- . \
+  ":(exclude)$EVIDENCE_REL")"
+test -n "$(git diff --name-only "$EVIDENCE_PARENT..$CS2A_EVIDENCE_SHA" -- \
+  "$EVIDENCE_REL")"
 
 if test "$OPERATOR_STATUS" -ne 0; then
   exit "$OPERATOR_STATUS"
 fi
 ```
 
-Only after this persistence block succeeds, request the independent Standards + Spec archive review
+This persistence block deliberately does not invoke `--validate-attempt`, the local driver, or
+semantic validation. It proves only safety, exact checksums, the canonical path/marker, and the
+direct `parent..evidence` append-only history; this is sufficient to preserve a partial or FAIL
+attempt. Step 6 is the sole call site for `--validate-attempt`. That entry point is the single
+deterministic semantic-acceptance implementation: it validates the path-free complete manifest
+schema and identity, campaign identity and deterministic recompare outputs, exact
+`commands.tsv`/log/status prefixes, checksums and stage/status rules, the immutable attempt commit,
+and ancestry of the recorded implementation SHA. Only after this persistence block succeeds,
+request the independent Standards + Spec archive review
 against immutable commit `$CS2A_EVIDENCE_SHA`. Review never precedes persistence. Any defect remains
 preserved in that attempt commit and is corrected only by a later implementation commit plus a
 never-reused remote root and new append-only attempt; never amend or rewrite evidence.
@@ -3732,13 +2917,15 @@ test -s "$PWD/build/cs2a-local-evidence-dir.txt"
 
 Archive-only mode executes the same detached-source/script/policy authentication, validates the
 root-owned `run-root.txt` cross-link and executed hashes, rechecks lock release/governor
-restoration, refreshes the supervisor handoff, and enters only the common fresh-staging local
-copy/validation/checksum/atomic-publish tail. It never installs or invokes the supervisor/runner.
+restoration, independently authenticates the already atomically published supervisor handoff, and
+enters only the common fresh-staging local copy/safety/checksum/atomic-publish tail. It never
+refreshes or overwrites a final handoff and never installs or invokes the supervisor/runner.
 The first run's post-supervisor status is persisted root-owned before any local staging and is never
 recomputed or reset by recovery; archive-only records its own validation status separately, and
 selection requires both values to be zero. If both original persistence attempts failed, recovery
-uses a root `noclobber` create to record the only safe value, `70`; it never overwrites an existing
-root value, and that recovered attempt can be archived but cannot be selected as PASS.
+uses the same root-owned hidden-sibling `0400` plus atomic hardlink no-clobber protocol to record the
+only safe value, `70`; it never overwrites an existing root value, and that recovered attempt can be
+archived but cannot be selected as PASS.
 After archive-only reaches a canonical publish, immediately execute the exact self-contained
 `--persist-only` tail above before independent review; otherwise retain the staging path and retry
 this same command. Never commit a staging directory as an attempt and
@@ -3747,17 +2934,20 @@ defect, the failed attempt commit is the clean parent of the corrective implemen
 new implementation SHA must use a new remote root. The attempt commit itself is the append-only
 registry, and `git log -1 -- <attempt-directory>` recovers its immutable evidence SHA.
 
-Before accepting the archive, copy the root supervisor's final status/restoration/containment files
-into `meta/supervisor/` through the privileged operator and recompute the local checksum manifest.
-Every attempt archives and hashes every byte that exists plus the raw+semantic policy hashes,
-checked-in runner/supervisor sources and hashes, exact command/status/stage logs, and artifact/JFR
-inventories. Stage-aware validation never fabricates or requires files from phases that did not
+Before copying the archive, require the root supervisor's exact final allowlist to exist as the
+single atomic `meta/supervisor/` handoff and cross-link it to the root state; never copy a visible
+partial handoff or treat a stale destination as successful. Recompute the local checksum manifest
+after every locally observed byte has been added.
+Every authenticated remote attempt archives and hashes every byte that exists plus the raw+semantic
+policy hashes, checked-in runner/supervisor sources and hashes, exact command/status/stage logs, and
+artifact/JFR inventories; a pre-marker operator failure instead preserves only its explicit local
+evidence set. Stage-aware validation never fabricates or requires files from commands that did not
 run. Only a `candidate-compared` attempt requires all three manifests, both raw A/A campaign JSON
 files, all three raw candidate campaign JSON files, and all five comparison JSON/Markdown pairs.
-An invalid partial file makes `local-validation-passed=false` but is still committed as failed
-operator evidence. Complete-archive acceptance and selected-attempt acceptance require recorded
-comparator exit `0` and `.overall == "PASS"` in both the archived and locally recomputed JSON for
-both A/A comparisons and all three candidate comparisons. Preserve and report each non-PASS
+A safe partial archive records `local-validation-passed=false` and is still committed as failed
+operator evidence. Step 6 semantic selection requires recorded comparator exit `0` and
+`.overall == "PASS"` in both the archived and locally recomputed JSON for both A/A comparisons and
+all three candidate comparisons. Preserve and report each non-PASS
 comparator's exact exit and machine decision; any A/A decision other than PASS makes only the
 overall CS2a candidate conclusion INCONCLUSIVE, stops candidate capture, and is never rerun merely
 to seek PASS.
@@ -3792,7 +2982,9 @@ stage-aware validation, comparator decisions, and draft-report claims. Preserve 
 findings as a new corrective implementation plus never-reused attempt; never amend or rewrite an
 attempt commit. A normative FAIL or INCONCLUSIVE blocks the CS2a merge; the two optional
 targeted-win thresholds do not. Select one already committed complete valid attempt whose normative
-decisions all pass:
+decisions all pass. This is the first and only phase that invokes semantic acceptance; the final
+`--validate-attempt` call below is authoritative, and no recorded publication-time Boolean may
+substitute for it:
 
 ```bash
 #!/usr/bin/env bash
@@ -3809,8 +3001,9 @@ test -n "$(git ls-files -- "$SELECTED")"
 CS2A_EVIDENCE_SHA=$(git log -1 --format=%H -- "$SELECTED")
 [[ "$CS2A_EVIDENCE_SHA" =~ ^[0-9a-f]{40}$ ]]
 test "$(cat "$SELECTED/meta/stage.txt")" = candidate-compared
-test "$(cat "$SELECTED/meta/local-validation-passed.txt")" = true
 test "$(cat "$SELECTED/meta/implementation-sha.txt")" = "$CS2A_IMPLEMENTATION_SHA"
+test "$(cat "$SELECTED/meta/supervisor/implementation-sha.txt")" = \
+  "$CS2A_IMPLEMENTATION_SHA"
 test "$(cat "$SELECTED/meta/runner-exit.txt")" = 0
 test "$(cat "$SELECTED/meta/inventory-exit.txt")" = 0
 test "$(cat "$SELECTED/meta/supervisor/child-or-supervisor-status.txt")" = 0
@@ -3858,6 +3051,8 @@ done
 (cd "$SELECTED" && sha256sum -c evidence-sha256sums.txt)
 test "$(git show "$CS2A_EVIDENCE_SHA:$SELECTED/meta/implementation-sha.txt")" = \
   "$CS2A_IMPLEMENTATION_SHA"
+/bin/bash docs/superpowers/benchmarks/operators/cs2a-operator.sh \
+  --validate-attempt "$SELECTED" "$CS2A_IMPLEMENTATION_SHA" "$CS2A_EVIDENCE_SHA"
 ```
 
 - [ ] **Step 7: Write the report and land CS2a**
@@ -3888,3 +3083,115 @@ npx antora antora-playbook.yml
 ```
 
 After all commits and reviews are green, merge CS2a to local `master`, push `master`, and wait for exact-SHA Build, Qodana, and Docs CI. Only then branch CS2b, CS2c, and CS2d in parallel. For generated `api/revoman-root.api` conflicts in later branches, regenerate with `./gradlew updateKotlinAbi` after each merge; never hand-merge generated ABI text.
+
+## Task 9: Replace ordinary E2E JDK HTTP fixtures with one http4k real-wire test fixture
+
+This is a separate, final cleanup task. Begin it only after Task 8, its evidence/report commits, and
+the CS2a landing are complete. It has its own RED/GREEN cycle, fixed-range review, report, and
+commit; never mix it into a Task 8 implementation, evidence, or report commit.
+
+**Scope:** test-only root E2E infrastructure. Preserve real loopback sockets and HTTP serialization.
+The existing `http4k-core` `6.57.1.0` dependency is sufficient; do not add a benchmark-driver
+dependency. Explicitly exclude
+`benchmark-driver/src/main/kotlin/com/salesforce/revoman/benchmark/driver/fixture/DeterministicHttpFixture.kt`,
+all production sources, both active and frozen ABI files, and every benchmark identity/hash. The
+benchmark fixture must remain byte-identical. A direct `HttpHandler` invocation is not an acceptable
+substitute for a real socket.
+
+**Files:**
+
+- Create: `src/test/kotlin/com/salesforce/revoman/testsupport/LoopbackHttpFixture.kt`
+- Modify: `src/test/kotlin/com/salesforce/revoman/ControlFlowE2ETest.kt`
+- Modify: `src/test/kotlin/com/salesforce/revoman/ControlFlowLedgerE2ETest.kt`
+- Modify: `src/test/kotlin/com/salesforce/revoman/LedgerSkipE2ETest.kt`
+- Modify: `src/test/kotlin/com/salesforce/revoman/MultiKickEnvTypesE2ETest.kt`
+- Modify: `src/test/kotlin/com/salesforce/revoman/PmTestFailureE2ETest.kt`
+- Modify: `src/test/kotlin/com/salesforce/revoman/PmTestPhaseTagE2ETest.kt`
+- Modify: `src/test/kotlin/com/salesforce/revoman/RunbookExeE2ETest.kt`
+- Modify: `src/test/kotlin/com/salesforce/revoman/RunbookLegibilityE2ETest.kt`
+- Modify: `src/test/kotlin/com/salesforce/revoman/ScriptHookPhaseBarrierE2ETest.kt`
+- Modify: `src/test/kotlin/com/salesforce/revoman/internal/runtime/ExecutionSessionE2ETest.kt`
+- Modify: `docs/superpowers/plans/2026-08-11-performance-cs2a-runtime-lifecycle.md`
+- Create: `docs/superpowers/reports/2026-08-13-http4k-e2e-mock-server-cleanup.md`
+
+The ten named E2E classes above own twelve current JDK `HttpServer` contexts: one context in every
+class except `RunbookExeE2ETest`, which owns `/`, `/fail`, and `/count`. No other fixture or test is
+in scope.
+
+- [ ] **Step 1: Spike and RED the shared real-wire fixture contract**
+
+Use Context7 plus the checked-in `http4k-core` `6.57.1.0` sources before selecting the server
+adapter. `SunHttp` is available in core, but its stock bind address and executor behavior must not
+be assumed to satisfy this task. First add focused tests that fail against the missing shared
+fixture and require all of the following:
+
+- bind only to `127.0.0.1` with requested port `0`, expose the kernel-selected port, and make a
+  request through the real ReVoman HTTP client/socket path;
+- assert request method, decoded query, repeated headers where applicable, raw body bytes, response
+  status/headers/body, and exact per-route/total hit counts;
+- provide deterministic close semantics; after close, the socket refuses new connections and no
+  fixture-owned non-daemon thread remains;
+- reject a direct-handler-only mutant, a fixed/public bind mutant, a missing-hit-count mutant, and
+  a close-without-thread-cleanup mutant.
+
+Do not promise or name a custom JDK↔http4k adapter in advance. Let the spike choose the smallest
+loopback-only real-wire adapter that meets the RED contract; document the decision and any
+http4k/SunHttp limitation in the report.
+
+- [ ] **Step 2: GREEN the fixture and migrate the first bounded group**
+
+Implement only the shared test fixture seam, then migrate
+`ControlFlowE2ETest`, `ControlFlowLedgerE2ETest`, and `LedgerSkipE2ETest`. Preserve every existing
+request/response assertion and add the fixture-level method/query/header/body/status, hit-count,
+socket-close, and thread-cleanup assertions where the old fixture hid them. Run these three classes
+plus the focused fixture contract before continuing. Mutation-test route rename, wrong status,
+wrong body, missing close, and handler-only substitution.
+
+- [ ] **Step 3: Migrate the second bounded group**
+
+Migrate `MultiKickEnvTypesE2ETest`, `PmTestFailureE2ETest`,
+`PmTestPhaseTagE2ETest`, and `ScriptHookPhaseBarrierE2ETest`. Preserve loopback `127.0.0.1:0`, exact
+request semantics, status/body behavior, and hit counts. Run these four classes together with the
+shared fixture contract and the first group after each refactor batch.
+
+- [ ] **Step 4: Migrate the final bounded group and all twelve contexts**
+
+Migrate `RunbookExeE2ETest` (all three routes), `RunbookLegibilityE2ETest`, and
+`internal/runtime/ExecutionSessionE2ETest`. Assert the `/`, `/fail`, and `/count` routing and counts
+independently. Search the ten-file fixed range and require zero `com.sun.net.httpserver`,
+`HttpServer.create`, and `createContext` uses, while the excluded benchmark fixture remains an exact
+byte-for-byte match to its pre-task SHA-256.
+
+- [ ] **Step 5: Review, gate, report, and commit separately**
+
+Run the exact ten-class selector, the full affected root test task, `checkKotlinAbi`, Java and Kotlin
+consumer compilers, Spotless, `git diff --check`, and IDE project diagnostics. Re-run the fixture
+mutation matrix and prove real loopback traffic plus close/thread cleanup. Run independent Standards
++ Spec review over this Task 9 fixed range. The review must explicitly confirm no production,
+benchmark-driver, dependency, generated ABI, or Task 8 evidence change.
+
+Write `docs/superpowers/reports/2026-08-13-http4k-e2e-mock-server-cleanup.md` with the selected
+adapter/spike evidence, twelve-context migration inventory, exact commands/results, mutation
+results, excluded benchmark-fixture before/after hash, and limitations. Stage exactly the Files list
+above, inspect the staged diff, and create a separate commit only after every gate and review is
+green:
+
+```bash
+git add \
+  src/test/kotlin/com/salesforce/revoman/testsupport/LoopbackHttpFixture.kt \
+  src/test/kotlin/com/salesforce/revoman/ControlFlowE2ETest.kt \
+  src/test/kotlin/com/salesforce/revoman/ControlFlowLedgerE2ETest.kt \
+  src/test/kotlin/com/salesforce/revoman/LedgerSkipE2ETest.kt \
+  src/test/kotlin/com/salesforce/revoman/MultiKickEnvTypesE2ETest.kt \
+  src/test/kotlin/com/salesforce/revoman/PmTestFailureE2ETest.kt \
+  src/test/kotlin/com/salesforce/revoman/PmTestPhaseTagE2ETest.kt \
+  src/test/kotlin/com/salesforce/revoman/RunbookExeE2ETest.kt \
+  src/test/kotlin/com/salesforce/revoman/RunbookLegibilityE2ETest.kt \
+  src/test/kotlin/com/salesforce/revoman/ScriptHookPhaseBarrierE2ETest.kt \
+  src/test/kotlin/com/salesforce/revoman/internal/runtime/ExecutionSessionE2ETest.kt \
+  docs/superpowers/plans/2026-08-11-performance-cs2a-runtime-lifecycle.md \
+  docs/superpowers/reports/2026-08-13-http4k-e2e-mock-server-cleanup.md
+git diff --cached --check
+git diff --cached --stat
+git commit -m "test: consolidate E2E loopback HTTP fixtures"
+```

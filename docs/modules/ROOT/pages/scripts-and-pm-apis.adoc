@@ -26,7 +26,9 @@ pm.environment.set("$quantity", _.random(1, 10))
 
 `Kick.nodeModulesPath(...)` remains temporarily for source compatibility but is deprecated and
 ignored. Arbitrary filesystem CommonJS loading belonged to the removed legacy evaluator; it is not
-available inside the bundled sandbox.
+available inside the bundled sandbox. See the
+xref:migration-guide.adoc[major-version migration guide] for the complete CS2a sandbox and lifecycle
+boundary.
 
 CAUTION: Don't add too much code in pre-req/post-res scripts — it's not intuitive to troubleshoot via debugging. Use them for simple operations understandable without debugging, and use xref:hooks.adoc#dynamic-pre-step-and-post-step-hooks[Pre-Step/Post-Step Hooks] for non-trivial operations (which are intuitive to debug).
 

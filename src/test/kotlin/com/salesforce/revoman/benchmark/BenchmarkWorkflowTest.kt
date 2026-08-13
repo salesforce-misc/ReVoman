@@ -334,25 +334,126 @@ class BenchmarkWorkflowTest {
     assertThat(runByName.getValue("Gradle build")).isEqualTo("./gradlew build")
     assertThat(runByName.getValue("Export current benchmark target"))
       .contains("-Pbenchmark.targetManifest=build/benchmark-target-current.json")
-    val selfTest = runByName.getValue("Benchmark harness self-test")
+    assertThat(runByName.getValue("Export current benchmark target"))
+      .contains("-Pbenchmark.targetId=current-cs2a")
+    val selfTest = runByName.getValue("Benchmark baseline integration and harness self-test")
     assertThat(selfTest).contains(":benchmark-driver:check")
     assertThat(selfTest).contains(":benchmark-driver:integrationTest")
     assertThat(selfTest).contains(":benchmark-driver:benchmarkCleanInstallTaskGraphTest")
     assertThat(selfTest).contains(":benchmark-driver:benchmarkJmhTaskSerializationTest")
     assertThat(selfTest).contains(":benchmark-driver:benchmarkHarnessSelfTest")
-    assertThat(selfTest).contains("-Pbenchmark.targetManifest=build/benchmark-target-current.json")
+    assertThat(selfTest)
+      .contains("-Pbenchmark.targetManifest=build/benchmark-target-baseline-selftest.json")
     assertThat(selfTest).contains("-Pbenchmark.adapter=baseline-83f3cd70")
 
     val uploadedReports =
       steps.single { it["name"] == "Upload test reports" }.asMap("with")["path"].toString()
     assertThat(uploadedReports.lineSequence().filter(String::isNotBlank).toList())
-      .containsExactly("build/reports/tests/", "benchmark-driver/build/reports/tests/")
+      .containsExactly(
+        "current/build/reports/tests/",
+        "current/benchmark-driver/build/reports/tests/",
+      )
       .inOrder()
 
     val ordinaryRuns = runByName.values.joinToString("\n")
     assertThat(ordinaryRuns).doesNotContain("--enforce-release-gates")
     assertThat(ordinaryRuns).doesNotContain("capture-baseline")
     assertThat(ordinaryRuns).doesNotContain("run-paired")
+  }
+
+  @Test
+  fun `ordinary CI separates the fixed baseline self-test from current major lifecycle tests`() {
+    val workflow = readWorkflow("build.yml").asMap()
+    val job = workflow.asMap("jobs").asMap("gradle")
+    assertThat(job.asMap("defaults").asMap("run")["working-directory"]).isEqualTo("current")
+    val steps = job.asList("steps").map { it.asMap() }
+    val runByName = runScriptsByName(steps)
+
+    val checkouts = steps.filter { it["uses"] == CHECKOUT_ACTION }
+    assertThat(checkouts.map { it.asMap("with")["path"] })
+      .containsExactly("current", "baseline")
+      .inOrder()
+    assertThat(checkouts.first().asMap("with")).containsAtLeast("path", "current", "clean", true)
+
+    val baselineCheckout = steps.single { step ->
+      step["uses"] == CHECKOUT_ACTION && step.asMap("with")["path"] == "baseline"
+    }
+    assertThat(baselineCheckout.asMap("with"))
+      .containsAtLeast(
+        "ref",
+        FIXED_BASELINE_COMMIT,
+        "path",
+        "baseline",
+        "clean",
+        true,
+      )
+
+    val currentExportIndex = steps.indexOfFirst { it["name"] == "Export current benchmark target" }
+    val baselineCheckoutIndex = steps.indexOf(baselineCheckout)
+    val baselineExportIndex = steps.indexOfFirst {
+      it["name"] == "Export fixed baseline benchmark target"
+    }
+    assertThat(currentExportIndex).isLessThan(baselineCheckoutIndex)
+    assertThat(baselineCheckoutIndex).isLessThan(baselineExportIndex)
+
+    assertThat(runByName.getValue("Export current benchmark target"))
+      .contains("-Pbenchmark.targetManifest=build/benchmark-target-current.json")
+    assertThat(runByName.getValue("Export current benchmark target"))
+      .contains("-Pbenchmark.targetId=current-cs2a")
+
+    val baselineExport = runByName.getValue("Export fixed baseline benchmark target")
+    assertThat(baselineExport).contains("${'$'}GITHUB_WORKSPACE/baseline/gradlew")
+    assertThat(baselineExport).contains("-p ${'$'}GITHUB_WORKSPACE/baseline")
+    assertThat(baselineExport)
+      .contains(
+        "-I ${'$'}GITHUB_WORKSPACE/current/benchmark-driver/src/main/dist/libexec/" +
+          "benchmark-target.init.gradle.kts"
+      )
+    assertThat(baselineExport)
+      .contains(
+        "-Pbenchmark.targetManifest=${'$'}GITHUB_WORKSPACE/current/build/" +
+          "benchmark-target-baseline-selftest.json"
+      )
+    assertThat(baselineExport).contains("-Pbenchmark.targetId=baseline-selftest-83f3cd70")
+
+    val baselineGate = runByName.getValue("Benchmark baseline integration and harness self-test")
+    assertThat(baselineGate).contains(":benchmark-driver:integrationTest")
+    assertThat(baselineGate).contains(":benchmark-driver:benchmarkHarnessSelfTest")
+    assertThat(baselineGate).doesNotContain("--tests")
+    assertThat(baselineGate)
+      .contains("-Pbenchmark.targetManifest=build/benchmark-target-baseline-selftest.json")
+    assertThat(baselineGate).contains("-Pbenchmark.adapter=baseline-83f3cd70")
+    assertThat(baselineGate).doesNotContain("benchmark-target-current.json")
+
+    val majorGate = runByName.getValue("Benchmark current major lifecycle integration")
+    assertThat(majorGate).contains(":benchmark-driver:integrationTest")
+    assertThat(majorGate)
+      .contains(
+        "--tests '*RunnerIntegrationTest.real retained worker reports major lifecycle weak references*'"
+      )
+    assertThat(majorGate)
+      .contains(
+        "--tests '*BenchmarkDriverIntegrationTest.major lifecycle retained campaign preserves v2 series identity*'"
+      )
+    assertThat(majorGate).contains("-Pbenchmark.targetManifest=build/benchmark-target-current.json")
+    assertThat(majorGate).contains("-Pbenchmark.adapter=major-v1")
+    assertThat(majorGate).doesNotContain(":benchmark-driver:benchmarkHarnessSelfTest")
+    assertThat(Regex("--tests\\s+").findAll(majorGate).count()).isEqualTo(2)
+
+    runByName.values
+      .filter { it.contains("-Pbenchmark.targetManifest=build/benchmark-target-current.json") }
+      .forEach { currentTargetRun ->
+        assertThat(currentTargetRun).doesNotContain("-Pbenchmark.adapter=baseline-83f3cd70")
+      }
+
+    val uploadPaths =
+      steps.single { it["name"] == "Upload test reports" }.asMap("with")["path"].toString()
+    assertThat(uploadPaths.lineSequence().filter(String::isNotBlank).toList())
+      .containsExactly(
+        "current/build/reports/tests/",
+        "current/benchmark-driver/build/reports/tests/",
+      )
+      .inOrder()
   }
 
   @Test

@@ -140,8 +140,8 @@ Each topic links to its published page. The source for every page lives in `docs
 | https://salesforce-misc.github.io/ReVoman/revoman/applications.html[Applications (testing, etc.)]
 | https://salesforce-misc.github.io/ReVoman/revoman/troubleshooting.html[Troubleshooting & FAQ]
 
+| https://salesforce-misc.github.io/ReVoman/revoman/migration-guide.html[Major-version migration guide]
 | https://salesforce-misc.github.io/ReVoman/revoman/contributing.html[Contributing]
-|
 |===
 
 '''

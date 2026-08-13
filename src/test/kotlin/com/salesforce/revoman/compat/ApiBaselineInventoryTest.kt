@@ -19,6 +19,31 @@ import org.junit.jupiter.api.assertThrows
 
 class ApiBaselineInventoryTest {
   @Test
+  fun `CS2a migration docs identify unsupported internals and correct benchmark pairing`() {
+    val migrationGuide = normalizedWhitespace(requiredText(MIGRATION_GUIDE))
+    val scriptsGuide = normalizedWhitespace(requiredText(SCRIPTS_GUIDE))
+    val readme = normalizedWhitespace(requiredText(README))
+    val development = normalizedWhitespace(requiredText(DEVELOPMENT))
+
+    assertThat(migrationGuide)
+      .contains("`ExecutionSession`, `KickExecution`, and `ExecutionLifecycleDiagnostics`")
+    assertThat(migrationGuide).contains("unsupported internal implementation details")
+    assertThat(migrationGuide).contains("CS2a changes no serialized report or schema field")
+    assertThat(migrationGuide).contains("CS2b, CS2c, and CS2d remain pending")
+    assertThat(scriptsGuide).contains("xref:migration-guide.adoc[major-version migration guide]")
+    assertThat(readme)
+      .contains(
+        "https://salesforce-misc.github.io/ReVoman/revoman/migration-guide.html" +
+          "[Major-version migration guide]"
+      )
+    assertThat(development).contains("build/benchmark-target-current.json` with `major-v1`")
+    assertThat(development)
+      .contains("build/benchmark-target-baseline-selftest.json` with `baseline-83f3cd70`")
+    assertThat(development).contains("complete driver integration suite and harness self-test")
+    assertThat(development).contains("two targeted current lifecycle integration tests")
+  }
+
+  @Test
   fun `non ABI contract gate rejects deleted behavior and stale exceptional JSON rows`() {
     val spec = requiredText(UMBRELLA_SPEC)
     val rows = parseMigrationRows(requiredText(MIGRATION_LEDGER))
@@ -104,8 +129,98 @@ class ApiBaselineInventoryTest {
     val active = JvmSurfaceInventory.readJar(configuredRootJar())
     val activeRows = active.asSequence().map(JvmSurfaceEntry::render).toSet()
     val frozenRows = frozen.asSequence().map(JvmSurfaceEntry::render).toSet()
-    assertThat(frozenRows - activeRows).containsExactlyElementsIn(CS2_TASK7_RAW_JVM_REMOVALS)
-    assertThat(activeRows - frozenRows).containsExactlyElementsIn(CS2_TASK7_RAW_JVM_ADDITIONS)
+    val rawRemovals = frozenRows - activeRows
+    val rawAdditions = activeRows - frozenRows
+    assertThat(rawRemovals).hasSize(CS2A_RAW_JVM_REMOVAL_COUNT)
+    assertThat(rawAdditions).hasSize(CS2A_RAW_JVM_ADDITION_COUNT)
+    assertThat(CS2_TASK7_RAW_JVM_REMOVALS).hasSize(CS2A_RAW_JVM_REMOVAL_COUNT)
+    assertThat(CS2_TASK7_RAW_JVM_ADDITIONS).hasSize(CS2A_RAW_JVM_ADDITION_COUNT)
+    assertThat(rawRemovals).containsExactlyElementsIn(CS2_TASK7_RAW_JVM_REMOVALS)
+    assertThat(rawAdditions).containsExactlyElementsIn(CS2_TASK7_RAW_JVM_ADDITIONS)
+  }
+
+  @Test
+  fun `CS2a ABI projections reject missing and stale rows in every ABI domain`() {
+    val baselineKotlin = requiredText(FROZEN_KOTLIN_ABI)
+    val activeKotlin = requiredText(ACTIVE_KOTLIN_ABI)
+    val baselineJvm = JvmSurfaceInventory.parse(requiredText(FROZEN_JVM_ABI))
+    val activeJvm = JvmSurfaceInventory.readJar(configuredRootJar())
+    val rows = parseMigrationRows(requiredText(MIGRATION_LEDGER))
+    val baselineJvmByKey = baselineJvm.associateBy { it.migrationKey() }
+    val representativeRows =
+      listOf(
+        rows.first {
+          it.owner == "CS2a" && it.kind == "kotlin" && it.disposition in ABI_REMOVAL_DISPOSITIONS
+        },
+        rows.first {
+          it.owner == "CS2a" &&
+            it.kind == "java" &&
+            it.disposition in ABI_REMOVAL_DISPOSITIONS &&
+            baselineJvmByKey[it.legacyId]?.sourceCallable == true
+        },
+        rows.first {
+          it.owner == "CS2a" &&
+            it.kind == "java" &&
+            it.disposition in ABI_REMOVAL_DISPOSITIONS &&
+            baselineJvmByKey[it.legacyId]?.let { entry ->
+              entry.memberSynthetic || entry.bridge
+            } == true
+        },
+      )
+
+    representativeRows.forEach { row ->
+      assertThrows<AssertionError> {
+        assertExactCs2aAbiProjections(
+          baselineKotlin,
+          activeKotlin,
+          baselineJvm,
+          activeJvm,
+          rows - row,
+        )
+      }
+      assertThrows<AssertionError> {
+        assertExactCs2aAbiProjections(
+          baselineKotlin,
+          activeKotlin,
+          baselineJvm,
+          activeJvm,
+          rows + row.copy(legacyId = "${row.legacyId}#stale"),
+        )
+      }
+    }
+  }
+
+  @Test
+  fun `CS2a Java addition projection rejects a newly public class`() {
+    val baselineKotlin = requiredText(FROZEN_KOTLIN_ABI)
+    val activeKotlin = requiredText(ACTIVE_KOTLIN_ABI)
+    val baselineJvm = JvmSurfaceInventory.parse(requiredText(FROZEN_JVM_ABI))
+    val activeJvm = JvmSurfaceInventory.readJar(configuredRootJar())
+    val rows = parseMigrationRows(requiredText(MIGRATION_LEDGER))
+    val publicClassOwner = "com/salesforce/revoman/internal/runtime/AccidentallyPublicLifecycleType"
+    val publicClassAddition =
+      JvmSurfaceEntry(
+        owner = publicClassOwner,
+        kind = JvmSurfaceKind.CLASS,
+        name = "<class>",
+        descriptor = "L$publicClassOwner;",
+        ownerAccess = 0x0001,
+        memberAccess = 0,
+        ownerSynthetic = false,
+        memberSynthetic = false,
+        bridge = false,
+        sourceCallable = true,
+      )
+
+    assertThrows<AssertionError> {
+      assertExactCs2aAbiProjections(
+        baselineKotlin,
+        activeKotlin,
+        baselineJvm,
+        activeJvm + publicClassAddition,
+        rows,
+      )
+    }
   }
 
   @Test
@@ -131,66 +246,122 @@ class ApiBaselineInventoryTest {
     }
     assertCurrentNonAbiCoverage(rows, requiredText(UMBRELLA_SPEC))
 
-    val cs2aKotlinRows =
+    assertExactCs2aAbiProjections(
+      baselineKotlin,
+      activeKotlin,
+      baselineJvm,
+      activeJvm,
+      rows,
+    )
+    val activeJvmRows = activeJvm.asSequence().map(JvmSurfaceEntry::render).toSet()
+    val baselineJvmRows = baselineJvm.asSequence().map(JvmSurfaceEntry::render).toSet()
+    val rawRemovals = baselineJvmRows - activeJvmRows
+    val rawAdditions = activeJvmRows - baselineJvmRows
+    assertThat(rawRemovals).hasSize(CS2A_RAW_JVM_REMOVAL_COUNT)
+    assertThat(rawAdditions).hasSize(CS2A_RAW_JVM_ADDITION_COUNT)
+    assertThat(rawRemovals).containsExactlyElementsIn(CS2_TASK7_RAW_JVM_REMOVALS)
+    assertThat(rawAdditions).containsExactlyElementsIn(CS2_TASK7_RAW_JVM_ADDITIONS)
+  }
+
+  private fun assertExactCs2aAbiProjections(
+    baselineKotlin: String,
+    activeKotlin: String,
+    baselineJvm: List<JvmSurfaceEntry>,
+    activeJvm: List<JvmSurfaceEntry>,
+    rows: List<MigrationRow>,
+  ) {
+    val baselineKotlinDeclarations = normalizedKotlinDeclarations(baselineKotlin)
+    val activeKotlinDeclarations = normalizedKotlinDeclarations(activeKotlin)
+    val cs2aKotlinProjection =
       rows
+        .asSequence()
         .filter {
           it.owner == "CS2a" && it.kind == "kotlin" && it.disposition in ABI_REMOVAL_DISPOSITIONS
         }
         .map(MigrationRow::legacyId)
         .toSet()
-    assertThat(cs2aKotlinRows)
-      .containsExactlyElementsIn(normalizedKotlinDeclarations(baselineKotlin, CS2A_POSTMAN_OWNERS))
-    val actualKotlinRemovals =
-      normalizedKotlinDeclarations(baselineKotlin, CS2A_POSTMAN_OWNERS) -
-        normalizedKotlinDeclarations(activeKotlin, CS2A_POSTMAN_OWNERS)
-    assertThat(actualKotlinRemovals).containsExactlyElementsIn(cs2aKotlinRows)
+    assertThat(cs2aKotlinProjection).hasSize(CS2A_KOTLIN_REMOVAL_COUNT)
+    assertThat(baselineKotlinDeclarations - activeKotlinDeclarations)
+      .containsExactlyElementsIn(cs2aKotlinProjection)
+    assertThat(activeKotlinDeclarations - baselineKotlinDeclarations).isEmpty()
 
-    val requiredJavaRows =
-      baselineJvm
-        .asSequence()
-        .filter {
-          it.owner in CS2A_POSTMAN_OWNERS && (it.sourceCallable || it.memberSynthetic || it.bridge)
-        }
-        .map { it.migrationKey() }
-        .toSet()
-    val cs2aJavaRows =
+    val baselineJvmByKey = baselineJvm.associateBy { it.migrationKey() }
+    assertThat(baselineJvmByKey).hasSize(baselineJvm.size)
+    val cs2aJavaProjection =
       rows
+        .asSequence()
         .filter {
           it.owner == "CS2a" && it.kind == "java" && it.disposition in ABI_REMOVAL_DISPOSITIONS
         }
         .map(MigrationRow::legacyId)
         .toSet()
-    assertThat(cs2aJavaRows).containsExactlyElementsIn(requiredJavaRows)
-    val activeJavaKeys = activeJvm.asSequence().map { it.migrationKey() }.toSet()
-    val actualJavaRemovals = requiredJavaRows - activeJavaKeys
-    assertThat(actualJavaRemovals).containsExactlyElementsIn(cs2aJavaRows)
+    val sourceCallableProjection =
+      cs2aJavaProjection.filterTo(linkedSetOf()) { key ->
+        baselineJvmByKey[key]?.sourceCallable == true
+      }
+    val syntheticBridgeProjection =
+      cs2aJavaProjection.filterTo(linkedSetOf()) { key ->
+        baselineJvmByKey[key]?.let { it.memberSynthetic || it.bridge } == true
+      }
+    assertThat(sourceCallableProjection).hasSize(CS2A_JAVA_SOURCE_CALLABLE_REMOVAL_COUNT)
+    assertThat(syntheticBridgeProjection).hasSize(CS2A_JAVA_SYNTHETIC_BRIDGE_REMOVAL_COUNT)
+    assertThat(sourceCallableProjection.intersect(syntheticBridgeProjection)).isEmpty()
+    assertThat(sourceCallableProjection + syntheticBridgeProjection)
+      .containsExactlyElementsIn(cs2aJavaProjection)
 
-    assertThat(
-        normalizedKotlinDeclarations(activeKotlin) - normalizedKotlinDeclarations(baselineKotlin)
-      )
-      .isEmpty()
-    val supportedJavaAdditions =
-      activeJvm
+    val baselineJavaSourceCallable =
+      baselineJvm
         .asSequence()
-        .filter { it.kind != JvmSurfaceKind.CLASS && it.sourceCallable }
+        .filter(JvmSurfaceEntry::sourceCallable)
         .map {
           it.migrationKey()
         }
+        .toSet()
+    val activeJavaSourceCallable =
+      activeJvm
+        .asSequence()
+        .filter(JvmSurfaceEntry::sourceCallable)
+        .map {
+          it.migrationKey()
+        }
+        .toSet()
+    assertThat(baselineJavaSourceCallable - activeJavaSourceCallable)
+      .containsExactlyElementsIn(sourceCallableProjection)
+    val supportedJavaAdditions =
+      activeJvm
+        .asSequence()
+        .filter(JvmSurfaceEntry::sourceCallable)
+        .map { it.migrationKey() }
         .toSet() -
         baselineJvm
           .asSequence()
-          .filter { it.kind != JvmSurfaceKind.CLASS && it.sourceCallable }
-          .map {
-            it.migrationKey()
-          }
+          .filter(JvmSurfaceEntry::sourceCallable)
+          .map { it.migrationKey() }
           .toSet()
-    assertThat(supportedJavaAdditions).isEmpty()
-    val activeJvmRows = activeJvm.asSequence().map(JvmSurfaceEntry::render).toSet()
-    val baselineJvmRows = baselineJvm.asSequence().map(JvmSurfaceEntry::render).toSet()
-    assertThat(baselineJvmRows - activeJvmRows)
-      .containsExactlyElementsIn(CS2_TASK7_RAW_JVM_REMOVALS)
-    assertThat(activeJvmRows - baselineJvmRows)
-      .containsExactlyElementsIn(CS2_TASK7_RAW_JVM_ADDITIONS)
+    val approvedJavaAdditionEntries =
+      CS2_TASK7_RAW_JVM_ADDITIONS.asSequence()
+        .map(JvmSurfaceEntry::parse)
+        .filter(JvmSurfaceEntry::sourceCallable)
+        .toSet()
+    assertThat(approvedJavaAdditionEntries).hasSize(CS2A_JAVA_SOURCE_CALLABLE_ADDITION_COUNT)
+    assertThat(approvedJavaAdditionEntries.map(JvmSurfaceEntry::kind).toSet())
+      .containsExactly(JvmSurfaceKind.CLASS)
+    val approvedJavaAdditions = approvedJavaAdditionEntries.map { it.migrationKey() }.toSet()
+    assertThat(supportedJavaAdditions).containsExactlyElementsIn(approvedJavaAdditions)
+
+    val activeRawKeys = activeJvm.asSequence().map { it.migrationKey() }.toSet()
+    val sourceCallableRemovalOwners =
+      sourceCallableProjection.mapTo(linkedSetOf()) { it.substringBefore('|') }
+    val removedSyntheticBridgeKeys =
+      baselineJvm
+        .asSequence()
+        .filter {
+          it.owner in sourceCallableRemovalOwners && (it.memberSynthetic || it.bridge)
+        }
+        .map { it.migrationKey() }
+        .filter { it !in activeRawKeys }
+        .toSet()
+    assertThat(removedSyntheticBridgeKeys).containsExactlyElementsIn(syntheticBridgeProjection)
   }
 
   private fun assertCurrentNonAbiCoverage(rows: List<MigrationRow>, spec: String) {
@@ -240,6 +411,8 @@ class ApiBaselineInventoryTest {
       assertWithMessage("empty checked-in inventory: $path").that(it).isNotEmpty()
     }
   }
+
+  private fun normalizedWhitespace(text: String): String = text.replace(Regex("\\s+"), " ")
 
   private fun parseMigrationRows(text: String): List<MigrationRow> {
     val lines = text.split('\n').filter(String::isNotEmpty)
@@ -372,6 +545,10 @@ class ApiBaselineInventoryTest {
     val FROZEN_KOTLIN_ABI: Path = Path.of("api/cs2-baseline-revoman-root.api")
     val FROZEN_JVM_ABI: Path = Path.of("api/cs2-baseline-revoman-root.jvm.tsv")
     val MIGRATION_LEDGER: Path = Path.of("api/cs2-migration-map.tsv")
+    val MIGRATION_GUIDE: Path = Path.of("docs/modules/ROOT/pages/migration-guide.adoc")
+    val SCRIPTS_GUIDE: Path = Path.of("docs/modules/ROOT/pages/scripts-and-pm-apis.adoc")
+    val README: Path = Path.of("README.adoc")
+    val DEVELOPMENT: Path = Path.of("DEVELOPMENT.md")
     val UMBRELLA_SPEC: Path =
       Path.of("docs/superpowers/specs/2026-08-09-performance-redesign-design.md")
     const val FROZEN_KOTLIN_ABI_SHA256 =
@@ -382,6 +559,12 @@ class ApiBaselineInventoryTest {
     const val NORMATIVE_V2_FIELD_COUNT = 151
     const val SOURCE_DERIVED_FIELD_COUNT = 66
     const val NORMATIVE_NON_ABI_CONTRACT_COUNT = 54
+    const val CS2A_KOTLIN_REMOVAL_COUNT = 73
+    const val CS2A_JAVA_SOURCE_CALLABLE_REMOVAL_COUNT = 100
+    const val CS2A_JAVA_SYNTHETIC_BRIDGE_REMOVAL_COUNT = 15
+    const val CS2A_JAVA_SOURCE_CALLABLE_ADDITION_COUNT = 28
+    const val CS2A_RAW_JVM_ADDITION_COUNT = 549
+    const val CS2A_RAW_JVM_REMOVAL_COUNT = 447
     const val NORMATIVE_SCHEMA_HEADER =
       "| Document | Instance JSON pointer | Version-2 schema | Presence |"
     const val NORMATIVE_SCHEMA_CROSSWALK_HEADER =

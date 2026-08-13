@@ -62,10 +62,13 @@ colima start                              # Qodana runs its linter in Docker; st
 
 - `.github/workflows/build.yml` runs `./gradlew build` on every push/PR to `master` —
   full coverage: unit (`test`) + integration (`integrationTest`) + `spotlessCheck` + `kover`.
-- The same workflow exports the current checkout as an explicit benchmark target and runs
-  `:benchmark-driver:check :benchmark-driver:integrationTest
-  :benchmark-driver:benchmarkHarnessSelfTest`. These are structural harness checks; ordinary CI
-  never evaluates timing, allocation, RSS, retained-memory, or release thresholds.
+- The same workflow exports `build/benchmark-target-current.json` with `major-v1` and runs the two
+  targeted current lifecycle integration tests. It also checks out the fixed baseline separately,
+  exports `build/benchmark-target-baseline-selftest.json` with `baseline-83f3cd70`, and runs the
+  complete driver integration suite and harness self-test against that matching baseline pair.
+  These are structural harness checks; ordinary CI never evaluates timing, allocation, RSS,
+  retained-memory, or release thresholds. A current manifest is never paired with the baseline
+  adapter.
 - **Org tests** (`integration.core.*`) skip-loud on CI (no org creds); see `-PincludeCoreIT` above.
 - **Flaky external-API tests** (pokeapi.co, restful-api.dev, apigee, beeceptor) are retried via the
   `org.gradle.test-retry` plugin — but ONLY on CI (`CI` env var set). Locally `maxRetries=0`, so

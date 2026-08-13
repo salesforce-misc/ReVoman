@@ -72,6 +72,18 @@ kotlin	com/salesforce/revoman/internal/postman/RegexReplacer#public fun <init> (
 kotlin	com/salesforce/revoman/internal/postman/RegexReplacer#public fun <init> (Ljava/util/Map;Lkotlin/jvm/functions/Function2;)V	CS2a	removed	journal-backed variable resolver
 kotlin	com/salesforce/revoman/internal/postman/RegexReplacer#public synthetic fun <init> (Ljava/util/Map;Lkotlin/jvm/functions/Function2;ILkotlin/jvm/internal/DefaultConstructorMarker;)V	CS2a	removed	journal-backed variable resolver
 kotlin	com/salesforce/revoman/internal/postman/RegexReplacer$Companion#public final class com/salesforce/revoman/internal/postman/RegexReplacer$Companion {	CS2a	removed	journal-backed variable resolver
+java	com/salesforce/revoman/ReVoman$SequenceResult|CLASS|<class>|Lcom/salesforce/revoman/ReVoman$SequenceResult;|0x0019|0x0000	CS2a	internalized	internal-runtime/KickRunner sequence result
+java	com/salesforce/revoman/ReVoman$SequenceResult|CONSTRUCTOR|<init>|(Ljava/util/List;Lcom/salesforce/revoman/output/StopReason;)V|0x0019|0x0001	CS2a	internalized	internal-runtime/KickRunner sequence result
+java	com/salesforce/revoman/ReVoman$SequenceResult|METHOD|component1|()Ljava/util/List;|0x0019|0x0011	CS2a	internalized	internal-runtime/KickRunner sequence result
+java	com/salesforce/revoman/ReVoman$SequenceResult|METHOD|component2|()Lcom/salesforce/revoman/output/StopReason;|0x0019|0x0011	CS2a	internalized	internal-runtime/KickRunner sequence result
+java	com/salesforce/revoman/ReVoman$SequenceResult|METHOD|copy|(Ljava/util/List;Lcom/salesforce/revoman/output/StopReason;)Lcom/salesforce/revoman/ReVoman$SequenceResult;|0x0019|0x0011	CS2a	internalized	internal-runtime/KickRunner sequence result
+java	com/salesforce/revoman/ReVoman$SequenceResult|METHOD|copy$default|(Lcom/salesforce/revoman/ReVoman$SequenceResult;Ljava/util/List;Lcom/salesforce/revoman/output/StopReason;ILjava/lang/Object;)Lcom/salesforce/revoman/ReVoman$SequenceResult;|0x0019|0x1009	CS2a	internalized	internal-runtime/KickRunner sequence result
+java	com/salesforce/revoman/ReVoman$SequenceResult|METHOD|equals|(Ljava/lang/Object;)Z|0x0019|0x0001	CS2a	internalized	internal-runtime/KickRunner sequence result
+java	com/salesforce/revoman/ReVoman$SequenceResult|METHOD|getReports|()Ljava/util/List;|0x0019|0x0011	CS2a	internalized	internal-runtime/KickRunner sequence result
+java	com/salesforce/revoman/ReVoman$SequenceResult|METHOD|getStopReason|()Lcom/salesforce/revoman/output/StopReason;|0x0019|0x0011	CS2a	internalized	internal-runtime/KickRunner sequence result
+java	com/salesforce/revoman/ReVoman$SequenceResult|METHOD|hashCode|()I|0x0019|0x0001	CS2a	internalized	internal-runtime/KickRunner sequence result
+java	com/salesforce/revoman/ReVoman$SequenceResult|METHOD|toString|()Ljava/lang/String;|0x0019|0x0001	CS2a	internalized	internal-runtime/KickRunner sequence result
+java	com/salesforce/revoman/internal/postman/DynamicVariableGeneratorKt|METHOD|dynamicVariableGenerator|(Ljava/lang/String;Lcom/salesforce/revoman/internal/postman/PostmanSDK;)Ljava/lang/String;|0x0031|0x0019	CS2a	internalized	internal-runtime/LegacyRundownProgress dynamic generator
 java	com/salesforce/revoman/internal/postman/Info|CLASS|<class>|Lcom/salesforce/revoman/internal/postman/Info;|0x0031|0x0000	CS2a	removed	immutable request and response snapshots
 java	com/salesforce/revoman/internal/postman/Info|CONSTRUCTOR|<init>|(Ljava/lang/String;)V|0x0031|0x0001	CS2a	removed	immutable request and response snapshots
 java	com/salesforce/revoman/internal/postman/Info|FIELD|requestName|Ljava/lang/String;|0x0031|0x0011	CS2a	removed	immutable request and response snapshots

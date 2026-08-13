@@ -38,6 +38,16 @@ XML bridge types lived in an `internal` package but were reachable from Java and
 Kotlin ABI. They are not a supported extension point in the major release. Do not instantiate or
 reflect into them.
 
+`ExecutionSession`, `KickExecution`, and `ExecutionLifecycleDiagnostics` are unsupported internal
+implementation details. They exist only to enforce and measure ReVoman's own lifecycle contract;
+applications must not construct, call, reflect into, or otherwise depend on them. Their classfile
+presence does not make them a supported API, and they may change without a migration path.
+
+The old Java-callable `DynamicVariableGeneratorKt.dynamicVariableGenerator(..., PostmanSDK)`
+helper and the compiler-emitted `ReVoman.SequenceResult` class were also accidental implementation
+surface. Dynamic-variable state now flows through internal lifecycle progress, and the sequence
+result is private to `KickRunner`; neither replacement is an application extension point.
+
 Collection pre-request and post-response scripts continue to use Postman-compatible `pm` APIs.
 Arbitrary modules from a filesystem `node_modules` directory are no longer loaded; use the bundled
 modules exposed by the sandbox. Existing `nodeModulesPath(...)` builder calls still compile but do
@@ -170,11 +180,12 @@ content-hash cache is a later measurement-driven option; it must not weaken per-
 
 == Version 2 serialized documents
 
-CS2a leaves serialization unchanged. CS2b introduces the complete persisted Ledger version-2
-document atomically, CS4 introduces Rundown and RunbookRundown version 2, and CS5 introduces polling
-version 2. Each owner publishes JSON Schema Draft 2020-12 contracts before changing persisted
-shapes. CS4 still owns journal-derived produced/consumed runtime effects; it does not defer or
-partially rewrite the Ledger document established by CS2b.
+CS2a changes no serialized report or schema field. CS2b, CS2c, and CS2d remain pending and are not
+preempted by this lifecycle change. CS2b introduces the complete persisted Ledger version-2
+document atomically, CS4 introduces Rundown and RunbookRundown version 2, and CS5 introduces
+polling version 2. Each owner publishes JSON Schema Draft 2020-12 contracts before changing
+persisted shapes. CS4 still owns journal-derived produced/consumed runtime effects; it does not
+defer or partially rewrite the Ledger document established by CS2b.
 
 [cols="2,2,3",options="header"]
 |===
