@@ -358,6 +358,103 @@ master push, the three exact-report-SHA GitHub workflows, terminal recovery veri
 worktree/clone cleanup remain deliberately unclaimed. No privileged CS2a controlled measurement
 ran.
 
+## Task 7 landing, exact-SHA CI, and recoverable cleanup
+
+The report commit `409d3cbe4c938233ab15821450aea6e7f6b1b047`, containing gated implementation
+`6c9318028e0b4d290a430de8deffb33775950a77`, fast-forwarded `master`. Local `master`,
+`origin/master`, and the live remote `master` ref then resolved to exact `409d3cbe`. Its three
+push-triggered `master` workflows used that exact head SHA and completed successfully:
+
+- Build and Scan: <https://github.com/salesforce-misc/ReVoman/actions/runs/31822273682>;
+- Qodana: <https://github.com/salesforce-misc/ReVoman/actions/runs/31822273867>;
+- Publish Docs to GitHub Pages:
+  <https://github.com/salesforce-misc/ReVoman/actions/runs/31822273633>.
+
+The remote recovery ref `origin/codex/performance-cs2a-lifecycle` remains exact gated
+implementation `6c9318028e0b4d290a430de8deffb33775950a77`. After the three workflows were green,
+every cleanup target was re-audited for its HEAD, registration, tracked/staged/untracked status,
+and reachability from landed `master`. The common removed feature-worktree prefix was:
+
+```text
+/Users/gopala.akshintala/code-clones/work/revoman-root/.worktrees/performance-cs2a-lifecycle
+```
+
+The following registered nested worktrees were clean, detached, and reachable, and were removed
+with ordinary `git worktree remove`:
+
+```text
+build/cs2a-selftest.1OWCWyfq/baseline
+build/cs2a-selftest.44E713nx/baseline
+build/cs2a-selftest.6iVhkp24/baseline
+build/cs2a-selftest.epzsaRui/baseline
+build/cs2a-selftest.GCWewBFc/baseline
+build/cs2a-selftest.jF1lmWza/baseline
+build/cs2a-selftest.JzWaAknH/baseline
+build/cs2a-selftest.P8zsnKnU/baseline
+build/cs2a-selftest.sZxhdSzR/baseline
+build/detekt-base.OZX50EYf/checkout
+build/task7-baseline.BIXWGcLk/checkout
+build/task7-final-baseline.4llQe7nd/checkout
+```
+
+Two additional detached worktrees contained only generated `detekt/baseline.xml` changes. Their
+exact modified XML bytes were copied first to the recoverable Trash archive below, then the obsolete
+registered worktrees were removed with the plan-authorized `git worktree remove --force`:
+
+```text
+build/detekt-head.Cb5LE1hn/checkout
+HEAD 1841fb8fd41dc45e5d325c7d4241de3dfc516582; 69 insertions, 8 deletions
+build/detekt-manual.9wZd3MzE/checkout
+HEAD fc4d06a948933f23e50cca0d7d5e5e28d6ed01b3; 0 insertions, 10 deletions
+```
+
+Their archived files and SHA-256 values are:
+
+```text
+/Users/gopala.akshintala/.Trash/revoman-deterministic-api.v9pEmani/detekt-head.Cb5LE1hn-baseline.xml
+7c6b6c01336e18d2c6d3a3964f21470468d8b14b932f89bcf42613010901417f
+/Users/gopala.akshintala/.Trash/revoman-deterministic-api.v9pEmani/detekt-manual.9wZd3MzE-baseline.xml
+74c29207e352cc91f8cd17a0dbcfc2372428078c1fb879a3b7949e41cefbb7a4
+```
+
+Each clean disposable Antora clone parent was moved, rather than deleted, beneath
+`/Users/gopala.akshintala/.Trash/revoman-deterministic-api.v9pEmani/` using its original basename:
+
+```text
+antora-gate.2QIEKRJ1
+antora-gate.2nlofTGX
+antora-gate.PFx4QX95
+antora-gate.U9bVA5sy
+antora-gate.yrC1PbA2
+antora-query.eM68J6kZ
+antora-report.DetuRSsE
+antora-report.NDVLUgSQ
+antora-report.Tx6qZCJq
+```
+
+Ignored SDD coordination evidence from the feature worktree was also preserved at
+`/Users/gopala.akshintala/.Trash/revoman-deterministic-api.v9pEmani/feature-sdd-coordination`.
+After restoring its three tracked report files, the parent feature worktree was clean at exact
+`409d3cbe`; it was removed normally, `git worktree prune` ran, and the merged local feature branch
+was deleted normally after its stale upstream association was unset. `git worktree list` then
+contained only the main checkout.
+
+The unrelated dirty ordinary Qodana clone was deliberately preserved in place at
+`/Users/gopala.akshintala/code-clones/work/revoman-root/.worktrees/qodana-final-normal.F2qeSi/repo`;
+its only change remains an unstaged one-insertion/one-deletion `.idea/kotlinc.xml` diff. The main
+checkout also still preserves exactly these unrelated untracked paths:
+
+```text
+.ai/
+.superpowers/brainstorm/
+docs/revoman-graphalow-licensing-brief.md
+```
+
+This section records the green landed SHA and completed cleanup. The documentation-only commit that
+contains this section, its final three exact-SHA CI URLs, and the retained remote recovery ref are
+reported in the terminal handoff rather than self-referentially embedded here. No privileged CS2a
+controlled measurement ran.
+
 ## Task 5 mutation evidence
 
 Every temporary mutation was applied with `apply_patch`, run with the pinned JDK
