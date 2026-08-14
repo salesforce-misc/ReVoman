@@ -11,6 +11,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.salesforce.revoman.ReVoman;
 import com.salesforce.revoman.input.config.Kick;
+import com.salesforce.revoman.integration.testsupport.DeterministicMockApiServer;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -24,15 +25,25 @@ class RestfulAPIDevTest {
   @Test
   @DisplayName("restful-api.dev")
   void restfulApiDev() {
-    final var rundown =
-        ReVoman.revUp( // <1>
-            Kick.configure()
-                .templatePath(PM_COLLECTION_PATH) // <2>
-                .environmentPath(PM_ENVIRONMENT_PATH) // <3>
-                .nodeModulesPath("js")
-                .off());
-    assertThat(rundown.firstUnIgnoredUnsuccessfulStepReport()).isNull(); // <4>
-    assertThat(rundown.stepReports).hasSize(4); // <5>
+    try (final var api = DeterministicMockApiServer.start()) {
+      final var rundown =
+          ReVoman.revUp( // <1>
+              Kick.configure()
+                  .templatePath(PM_COLLECTION_PATH) // <2>
+                  .environmentPath(PM_ENVIRONMENT_PATH) // <3>
+                  .dynamicEnvironment("baseUrl", api.getBaseUrl())
+                  .nodeModulesPath("js")
+                  .off());
+      assertThat(rundown.firstUnsuccessfulStepReport()).isNull(); // <4>
+      assertThat(rundown.stepReports).hasSize(4); // <5>
+      assertThat(api.requestSignatures())
+          .containsExactly(
+              "GET /objects",
+              "POST /objects",
+              "PATCH /objects/local-object-1",
+              "GET /objects/local-object-1")
+          .inOrder();
+    }
   }
   // end::revoman-simple-demo[]
 }

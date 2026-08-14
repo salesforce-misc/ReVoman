@@ -1,4 +1,4 @@
 $kind: http-request
-url: https://{{uri}}/objects
+url: "{{baseUrl}}/objects"
 method: GET
 order: 1000
