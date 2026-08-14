@@ -45,6 +45,7 @@ class DeterministicMockApiServerTest {
           prepareHttpClient(insecureHttp = false)(Request(GET, "${fixture.baseUrl}/objects"))
 
         assertThat(response.status).isEqualTo(OK)
+        assertThat(response.bodyString()).isEqualTo("[]")
         assertThat(fixture.requestSignatures()).containsExactly("GET /objects")
         assertThat(fixture.hitCount("/objects")).isEqualTo(1)
         closedAddress = fixtureAddress
