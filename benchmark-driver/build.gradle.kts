@@ -741,7 +741,7 @@ val benchmarkJmhClassesJar = tasks.register<Jar>("benchmarkJmhClassesJar") {
 val harnessSourceManifest =
   layout.buildDirectory.file("generated/benchmark-identity/benchmark-harness-source-v1.json")
 
-val repositoryRoot = rootProject.projectDir.canonicalPath
+val repositoryRoot: String = rootProject.projectDir.canonicalPath
 val harnessGitCommit =
   providers
     .exec { commandLine("git", "-C", repositoryRoot, "rev-parse", "HEAD") }
