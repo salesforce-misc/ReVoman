@@ -15,16 +15,19 @@ inputs, and current documentation. It does not change production source, product
 dependencies, public ABI, benchmark-driver code, or benchmark identity. The root-private npm
 manifest and lockfile pin only the Antora documentation toolchain. No privileged CS2a controlled
 measurement was run or claimed: its administrator-owned UID policy and disposable Linux/root launch
-harness remain blockers. Task 6's final local review and gate evidence is recorded below. Landing,
-the merge and master push, GitHub CI verification, worktree/clone cleanup, and privileged CS2a
-measurement remain pending and belong to later tasks.
+harness remain blockers. Task 6's completed local gate attempt and current correction status are
+recorded below. Because the decoded-query correction changes fixture source bytes after that gate,
+its scoped re-review and the complete Appendix A/B rerun are pending. Landing, the merge and master
+push, GitHub CI verification, worktree/clone cleanup, and privileged CS2a measurement also remain
+pending and belong to later tasks.
 
 ## Current local contract
 
 `DeterministicMockApiServer` binds a real `127.0.0.1:0` socket, authenticates the selected
 `server.address.address` as exact IPv4 `127.0.0.1`, derives `baseUrl` from that bound address,
-exposes an http4k-backed root handler, records replayable real-wire requests, allocates fixture-local
-object IDs, and closes its named non-daemon executor. Its active deterministic routes are:
+exposes an http4k-backed root handler, records replayable real-wire requests with decoded ordered
+query pairs, allocates fixture-local object IDs, and closes its named non-daemon executor. Its active
+deterministic routes are:
 
 - `GET`, `POST /objects`; `GET`, `PATCH`, `PUT /objects/{id}`; the list route returns a stable
   ID-sorted snapshot of the current store;
@@ -68,18 +71,23 @@ JAVA_HOME=/opt/homebrew/opt/sdkman-cli/libexec/candidates/java/21.0.11-amzn \
 The fixture, ledger, and PokemonSandbox selectors then passed 19 tests in 6.2s. A combined run of
 the fixture plus all six owning integration classes passed 23 tests in 8.4s; the fresh pre-commit
 rerun passed the same 23 tests in 8.2s. These were correction verification runs; the independent
-reviews and final exact-HEAD gate are recorded separately below.
+reviews, first exact-HEAD gate, and subsequent Spec finding are recorded separately below.
 
-## Task 6 final review and exact-HEAD local gate
+## Task 6 first final-gate attempt and review result
 
-The final implementation gate used exact clean SHA
-`cd68f5a09119ae906c1ef0b43e74d136ca818602`. Independent task/spec review passed with zero Critical,
-Important, or Minor findings, and independent npm security review passed with zero Critical or
-Important findings. The security review traced seven reported HIGH package nodes to three
-`js-yaml` build-time CPU-denial-of-service advisories. They remain recorded nonblocking hardening
-debt under the mandated Antora/Lunr pins; no package pin or lockfile byte was changed for the gate.
+The first implementation gate used exact clean SHA
+`cd68f5a09119ae906c1ef0b43e74d136ca818602`. The subsequent final Standards and security reviews
+passed, but the final Spec review found one Important gap: the approved design requires a decoded
+query in each request-ledger entry, while the fixture still exposed raw `uri.query` text. Thus the
+earlier zero-finding task/spec claim was overstated. The security review found zero Critical or
+Important issues and traced seven reported HIGH package nodes to three `js-yaml` build-time
+CPU-denial-of-service advisories. They remain recorded nonblocking hardening debt under the mandated
+Antora/Lunr pins; no package pin or lockfile byte was changed for the gate.
 
-The final root-project-qualified focused selector was:
+The results below are literal evidence for the first clean gate at `cd68f5a`; they are not final gate
+evidence for the later decoded-query source correction.
+
+The first-gate root-project-qualified focused selector was:
 
 ```bash
 JAVA_HOME=/opt/homebrew/opt/sdkman-cli/libexec/candidates/java/21.0.11-amzn \
@@ -169,8 +177,60 @@ SHA, and the authorized literal recovery push
 `git push origin HEAD:refs/heads/codex/performance-cs2a-lifecycle` created that remote branch at
 `cd68f5a09119ae906c1ef0b43e74d136ca818602`; `git ls-remote` independently returned the same object
 ID. The indivisible A-to-B shell exited 0. No privileged CS2a measurement ran. This landing-report
-commit remains separate from and later than the gated implementation SHA, is not part of that
-recovery push, and still requires its prescribed post-commit Antora regeneration check.
+commit remained separate from and later than the gated implementation SHA and was not part of that
+recovery push. Its prescribed post-commit Antora check subsequently passed in an exact-SHA ordinary
+clone after the known linked-worktree rejection.
+
+## Task 6 decoded-query ledger correction
+
+The agreed public seam is `DeterministicMockApiServer.requestSignatures()`. The test changed first so
+the existing real-wire plain and encoded-valid Pokemon requests both had to appear as canonical
+decoded `GET /pokemon?limit=5` signatures, in their received order. The exact pinned-JDK RED command
+was:
+
+```bash
+JAVA_HOME=/opt/homebrew/opt/sdkman-cli/libexec/candidates/java/21.0.11-amzn \
+  ./gradlew :integrationTest \
+  --tests 'com.salesforce.revoman.integration.testsupport.DeterministicMockApiServerTest.pokemon index accepts exactly one decoded limit five query' \
+  --rerun-tasks --no-build-cache --no-configuration-cache --console=plain
+```
+
+It ran 1 test in 1.3s and failed in 14s: expected two `GET /pokemon?limit=5` entries, but the second
+was raw `GET /pokemon?li%6Dit=%35`. Only the fixture test differed from the report commit during this
+RED; the fixture implementation was untouched.
+
+The minimal implementation now stores the decoded ordered http4k `List<Parameter>` returned by
+`uri.queries()` instead of raw `uri.query`. `requestSignatures()` renders those decoded pairs in
+list order without sorting or deduplication: `&` separates pairs, a null value retains the bare name,
+and an empty value retains `=`. Method and decoded-query-independent path handling are unchanged.
+The one-time body materialization, replayable body construction, and copied raw request-body bytes
+are unchanged.
+
+A second real-wire public-seam test makes the rendering convention unambiguous with deliberately
+unsorted `z=%32`, repeated `tag`, bare/null `flag`, and empty `empty=` pairs. Its expected signature
+is exactly `GET /pokemon?z=2&tag=first&tag=second&flag&empty=`. The baseline passed 1 test in 1.4s
+(`BUILD SUCCESSFUL in 10s`). A temporary sort-plus-deduplicate mutant made it RED, returning
+`GET /pokemon?empty=&flag&tag=first&z=2`; 1 test failed in 1.4s (`BUILD FAILED in 8s`). After restoring
+that mutant, a separate null-as-empty mutant made the same test RED with `flag=` instead of bare
+`flag`; 1 test failed in 1.4s (`BUILD FAILED in 10s`). Both mutants were applied and restored with
+`apply_patch`; the restored selector passed 1 test in 1.3s (`BUILD SUCCESSFUL in 9s`).
+
+The identical focused command then passed 1 test in 1.2s; `BUILD SUCCESSFUL in 9s`, 22 executed
+tasks. The full fixture plus affected local Pokemon selector used:
+
+```bash
+JAVA_HOME=/opt/homebrew/opt/sdkman-cli/libexec/candidates/java/21.0.11-amzn \
+  ./gradlew :integrationTest \
+  --tests 'com.salesforce.revoman.integration.testsupport.DeterministicMockApiServerTest' \
+  --tests 'com.salesforce.revoman.integration.pokemon.PokemonSandboxApiTest' \
+  --rerun-tasks --no-build-cache --no-configuration-cache --console=plain
+```
+
+It passed 18 tests in 9s; `BUILD SUCCESSFUL in 17s`, 22 executed tasks. Pinned-JDK
+`:spotlessCheck` passed in 14s with 17 executed tasks without rewriting a file, and pinned-JDK
+`:detekt` passed in 2s with 10 executed tasks. This correction has not yet received its scoped Spec
+re-review, and the complete Appendix A/B block has not been rerun for its changed source bytes. No
+push, merge, cleanup, CI verification, or privileged CS2a measurement is claimed.
 
 ## Task 5 mutation evidence
 

@@ -26,6 +26,7 @@ import org.http4k.core.Method.GET
 import org.http4k.core.Method.PATCH
 import org.http4k.core.Method.POST
 import org.http4k.core.Method.PUT
+import org.http4k.core.Parameter
 import org.http4k.core.Request
 import org.http4k.core.Response
 import org.http4k.core.Status.Companion.BAD_REQUEST
@@ -46,7 +47,7 @@ private val jsonAdapter = Moshi.Builder().build().adapter(Any::class.java).lenie
 private data class RecordedApiRequest(
   val method: Method,
   val path: String,
-  val query: String?,
+  val queries: List<Parameter>,
   val body: ByteArray,
 )
 
@@ -72,7 +73,7 @@ private constructor(
       append(request.method)
       append(' ')
       append(request.path)
-      if (request.query != null) append('?').append(request.query)
+      if (request.queries.isNotEmpty()) append('?').append(request.queries.toDecodedQueryString())
     }
   }
 
@@ -233,10 +234,18 @@ private fun Request.recordedAndReplayable(): Pair<RecordedApiRequest, Request> {
   return RecordedApiRequest(
     method,
     uri.path,
-    uri.query.takeIf(String::isNotEmpty),
+    uri.queries(),
     bytes.copyOf(),
   ) to body(Body(ByteBuffer.wrap(bytes)))
 }
+
+private fun List<Parameter>.toDecodedQueryString(): String =
+  joinToString("&") { (name, value) ->
+    buildString {
+      append(name)
+      value?.let { append('=').append(it) }
+    }
+  }
 
 private fun Request.toJsonObject(): Map<String, Any?>? =
   runCatching { jsonAdapter.fromJson(bodyString()) }

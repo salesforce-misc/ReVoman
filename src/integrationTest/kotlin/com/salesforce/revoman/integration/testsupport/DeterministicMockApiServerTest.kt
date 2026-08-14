@@ -235,6 +235,26 @@ class DeterministicMockApiServerTest {
         )
       assertThat(encodedResponse.status).isEqualTo(OK)
       assertThat(encodedResponse.bodyString()).isEqualTo(response.bodyString())
+      assertThat(fixture.requestSignatures())
+        .containsExactly("GET /pokemon?limit=5", "GET /pokemon?limit=5")
+        .inOrder()
+    }
+  }
+
+  @Test
+  fun `request signatures retain decoded query pair order duplicates and null values`() {
+    DeterministicMockApiServer.start().use { fixture ->
+      val response =
+        prepareHttpClient(insecureHttp = false)(
+          Request(
+            GET,
+            "${fixture.baseUrl}/pokemon?z=%32&tag=first&tag=second&flag&empty=",
+          )
+        )
+
+      assertThat(response.status).isEqualTo(NOT_FOUND)
+      assertThat(fixture.requestSignatures())
+        .containsExactly("GET /pokemon?z=2&tag=first&tag=second&flag&empty=")
     }
   }
 
