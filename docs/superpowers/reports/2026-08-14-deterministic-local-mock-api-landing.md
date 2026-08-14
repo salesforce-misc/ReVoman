@@ -10,12 +10,14 @@ This record includes the observed Task 6 pre-gate correction wave from reviewed 
 mutation, resource-scan, and report evidence recorded here. The Task 6 correction commit adds the
 review fixes and evidence below.
 
-The work remains limited to integration-test fixtures and resources plus current documentation.
-It does not change production source, dependencies, public ABI, benchmark-driver code, or benchmark
-identity. No privileged CS2a controlled measurement was run or claimed: its administrator-owned UID
-policy and disposable Linux/root launch harness remain blockers. The final Task 6 Standards, Spec,
-and security/evidence re-reviews and every post-commit gate remain pending, including the final
-focused selector, Appendix A/B, Qodana, Antora, landing, push, CI, and cleanup evidence.
+The work remains limited to integration-test fixtures and resources, build/docs gate-reproducibility
+inputs, and current documentation. It does not change production source, production/runtime
+dependencies, public ABI, benchmark-driver code, or benchmark identity. The root-private npm
+manifest and lockfile pin only the Antora documentation toolchain. No privileged CS2a controlled
+measurement was run or claimed: its administrator-owned UID policy and disposable Linux/root launch
+harness remain blockers. Task 6's final local review and gate evidence is recorded below. Landing,
+the merge and master push, GitHub CI verification, worktree/clone cleanup, and privileged CS2a
+measurement remain pending and belong to later tasks.
 
 ## Current local contract
 
@@ -65,8 +67,110 @@ JAVA_HOME=/opt/homebrew/opt/sdkman-cli/libexec/candidates/java/21.0.11-amzn \
 
 The fixture, ledger, and PokemonSandbox selectors then passed 19 tests in 6.2s. A combined run of
 the fixture plus all six owning integration classes passed 23 tests in 8.4s; the fresh pre-commit
-rerun passed the same 23 tests in 8.2s. These are correction verification runs, not the still-pending
-final post-commit Task 6 gates or re-reviews.
+rerun passed the same 23 tests in 8.2s. These were correction verification runs; the independent
+reviews and final exact-HEAD gate are recorded separately below.
+
+## Task 6 final review and exact-HEAD local gate
+
+The final implementation gate used exact clean SHA
+`cd68f5a09119ae906c1ef0b43e74d136ca818602`. Independent task/spec review passed with zero Critical,
+Important, or Minor findings, and independent npm security review passed with zero Critical or
+Important findings. The security review traced seven reported HIGH package nodes to three
+`js-yaml` build-time CPU-denial-of-service advisories. They remain recorded nonblocking hardening
+debt under the mandated Antora/Lunr pins; no package pin or lockfile byte was changed for the gate.
+
+The final root-project-qualified focused selector was:
+
+```bash
+JAVA_HOME=/opt/homebrew/opt/sdkman-cli/libexec/candidates/java/21.0.11-amzn \
+  ./gradlew :integrationTest \
+  --tests 'com.salesforce.revoman.integration.testsupport.DeterministicMockApiServerTest' \
+  --tests 'com.salesforce.revoman.integration.restfulapidev.RestfulAPIDevTest' \
+  --tests 'com.salesforce.revoman.integration.restfulapidev.RestfulAPIDevKtTest' \
+  --tests 'com.salesforce.revoman.integration.restfulapidev.v3.RestfulAPIDevV3Test' \
+  --tests 'com.salesforce.revoman.integration.restfulapidev.v3.RestfulAPIDevKtTest' \
+  --tests 'com.salesforce.revoman.integration.restfulapidev.v3.LedgerRoundTripKtTest' \
+  --tests 'com.salesforce.revoman.integration.pokemon.PokemonSandboxApiTest' \
+  --rerun-tasks --no-build-cache --no-configuration-cache --console=plain
+```
+
+It passed 23 tests in 35s; the build completed in 1m29s with 22 executed tasks.
+
+Appendix A and Appendix B then ran serially from command one in the same Bash process with pinned
+Corretto 21.0.11 and readonly
+`GATED_IMPLEMENTATION_SHA=cd68f5a09119ae906c1ef0b43e74d136ca818602`. No command was skipped,
+reordered, overlapped, or resumed mid-block. Appendix A produced these literal-command milestones:
+
+- `./gradlew :benchmark-driver:installDist --rerun-tasks --no-build-cache
+  --no-configuration-cache --console=plain`: `BUILD SUCCESSFUL in 30s`, 19 executed tasks.
+- `./gradlew -I benchmark-driver/src/main/dist/libexec/benchmark-target.init.gradle.kts
+  writeBenchmarkTargetManifest -Pbenchmark.targetManifest=build/benchmark-target-current.json
+  -Pbenchmark.targetId=current-cs2a --rerun-tasks --no-build-cache --no-configuration-cache
+  --console=plain`: `BUILD SUCCESSFUL in 17s`, 16 executed tasks.
+- `./gradlew checkKotlinAbi apiCompatibilityTestClasses :test :integrationTest
+  :benchmark-driver:test -Pbenchmark.targetManifest=build/benchmark-target-current.json
+  -Pbenchmark.adapter=major-v1 --rerun-tasks --no-build-cache --no-configuration-cache
+  --console=plain`: integrationTest passed 40 tests in 29.9s; the test tasks passed 834 tests in
+  7m26s; `BUILD SUCCESSFUL in 8m22s`, 41 executed tasks.
+- The literal `git worktree add --detach` block authenticated
+  `build/cs2a-selftest.6iVhkp24/baseline` at exact baseline
+  `83f3cd70f78ad733412d10cbc8287aaabafe7aac`. Its literal clean baseline
+  `clean writeBenchmarkTargetManifest` invocation completed `BUILD SUCCESSFUL in 8s`, 17 tasks
+  (7 executed, 10 from cache).
+- `./gradlew :benchmark-driver:integrationTest
+  -Pbenchmark.targetManifest=build/benchmark-target-baseline-selftest.json
+  -Pbenchmark.adapter=baseline-83f3cd70 --rerun-tasks --no-build-cache
+  --no-configuration-cache --console=plain`: `BUILD SUCCESSFUL in 1m02s`, 21 executed tasks.
+- The literal `:benchmark-driver:integrationTest` invocation with the two exact major-lifecycle
+  `--tests` selectors and current manifest completed `BUILD SUCCESSFUL in 19s`, 21 executed tasks.
+- `./gradlew :benchmark-driver:benchmarkHarnessSelfTest
+  -Pbenchmark.targetManifest=build/benchmark-target-baseline-selftest.json
+  -Pbenchmark.adapter=baseline-83f3cd70 --rerun-tasks --no-build-cache
+  --no-configuration-cache --console=plain`: `BUILD SUCCESSFUL in 11s`, 20 executed tasks.
+- `./gradlew build :benchmark-driver:jmhClasses :benchmark-driver:installDist spotlessCheck
+  --rerun-tasks --no-build-cache --no-configuration-cache --console=plain`: the intentional
+  compile-only compatibility suite ran 0 tests in 1.1s, integrationTest passed 40 tests in 25.7s,
+  the test tasks passed 834 tests in 7m03s, and the full build including Kover and Spotless completed
+  `BUILD SUCCESSFUL in 8m06s`, 68 executed tasks.
+- `./gradlew kaptKotlin classes :benchmark-driver:kaptKotlin :benchmark-driver:classes
+  --no-configuration-cache --console=plain`: `BUILD SUCCESSFUL in 973ms`, 16 up-to-date tasks.
+- `./gradlew qodanaScan --no-configuration-cache --console=plain`: Qodana literally reported
+  `Analysis results: 85 problems detected`, `High - 45, Moderate - 40`, and
+  `Found 85 new problems according to the checks applied`; `BUILD SUCCESSFUL in 8m44s`, 10 tasks
+  (1 executed, 9 up-to-date), with no tracked or untracked drift. Independent range triage at
+  `eb02278b` classified all 85 as predating `478529ad..eb02278b` and zero as introduced through that
+  correction; the final scan at `cd68f5a` reported the same count and classification. No threshold,
+  baseline, finding, or Qodana configuration was changed.
+- Literal `npm ci` installed 168 packages in 3s. The required first linked-worktree attempt,
+  `npx antora antora-playbook.yml`, exited 1 only with Antora's known `Local content source must be a
+  git repository ... (url: .)` rejection. In the same shell, the prescribed fallback created the
+  fresh ordinary clone
+  `build/antora-gate.U9bVA5sy/repo`, fetched and detached exact readonly gated SHA, proved its real
+  `.git` directory and clean state, ran literal `npm ci` (168 packages in 3s), and ran the exact same
+  literal `npx antora antora-playbook.yml` successfully. `build/site/index.html`, exact SHA, and a
+  clean clone were asserted before the shell continued.
+- Appendix A's final exact-SHA and clean-worktree assertions passed.
+
+Appendix B then validated all three operator scripts with literal `/bin/bash -n` and `shellcheck`,
+and proved the manifest validator executable. Its exact focused command was:
+
+```bash
+./gradlew :test \
+  --tests '*Cs2aManifestValidatorTest*' \
+  --tests '*Cs2aOperatorScriptTest*' \
+  --tests '*Cs2aSupervisorAtomicHandoffTest*' \
+  --tests '*DetektBaselineIntegrityTest*' \
+  --rerun-tasks --no-build-cache --no-configuration-cache --console=plain
+```
+
+It passed 107 tests in 8m28s; the build completed in 9m52s with 24 executed tasks. Appendix B's
+exact-SHA and clean-worktree assertions passed, `build/cs2a-implementation-sha` recorded the gated
+SHA, and the authorized literal recovery push
+`git push origin HEAD:refs/heads/codex/performance-cs2a-lifecycle` created that remote branch at
+`cd68f5a09119ae906c1ef0b43e74d136ca818602`; `git ls-remote` independently returned the same object
+ID. The indivisible A-to-B shell exited 0. No privileged CS2a measurement ran. This landing-report
+commit remains separate from and later than the gated implementation SHA, is not part of that
+recovery push, and still requires its prescribed post-commit Antora regeneration check.
 
 ## Task 5 mutation evidence
 
@@ -133,5 +237,7 @@ tasks. The first pinned-JDK `:spotlessCheck` named only two Kotlin layout violat
 `BUILD SUCCESSFUL` in 8s with 17 actionable tasks. After synchronizing the nine changed paths, IDE
 closed-batch diagnostics reported zero errors and zero build errors across `build.gradle.kts` and all
 six changed Java/Kotlin files. The correction staging audit contained exactly the nine authorized
-files and `git diff --cached --check` was clean. The post-commit re-reviews and all gates remain
-pending.
+files and `git diff --cached --check` was clean. Subsequent build-gate corrections restored the
+compatibility suite runtime while preserving its compile-only consumer contract, pinned the Antora
+toolchain, and committed Qodana's authenticated IDE synchronization. Their final reviews and local
+gates are recorded above.
