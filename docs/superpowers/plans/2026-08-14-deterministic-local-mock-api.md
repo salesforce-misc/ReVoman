@@ -503,6 +503,12 @@ Omit `detekt/baseline-source-sha256sums.txt` from `git add` when it is unchanged
 
 **Files:**
 
+- Modify: `.github/workflows/docs.yml`
+- Create: `.idea/.gitignore`
+- Modify: `.idea/kotlinc.xml`
+- Modify: `.gitignore`
+- Create: `package.json`
+- Create: `package-lock.json`
 - Review: `docs/superpowers/specs/2026-08-14-deterministic-local-mock-api-design.md`
 - Review: `docs/superpowers/plans/2026-08-14-deterministic-local-mock-api.md`
 - Review: complete committed range `478529ad..HEAD`
@@ -601,8 +607,8 @@ Task 6 reviews/gates, and only then retry the fast-forward.
 - [ ] **Step 3: Verify the merged result before push**
 
 On local master run the full root `build`/JMH/installDist/Spotless command, the focused deterministic
-API selector, the exact operator gate, Qodana, and Antora against the merged SHA. Require no tracked
-or staged diff; preserve the known unrelated untracked paths.
+API selector, the exact operator gate, Qodana, `npm ci`, and Antora against the merged SHA. Require
+no tracked or staged diff; preserve the known unrelated untracked paths.
 
 - [ ] **Step 4: Push master and prove exact remote OID**
 
@@ -629,8 +635,8 @@ the landed SHA, and any dirty path is limited to generated `detekt/baseline.xml`
 before discarding. Verify the parent feature worktree is clean and its HEAD equals `LANDED_SHA`.
 
 For ordinary Qodana clones under `.worktrees/qodana-*`, verify their HEAD is an ancestor of or equal
-to `LANDED_SHA`; allow only generated `.idea/kotlinc.xml` dirt. Preserve any clone with another
-change and report it instead of deleting it.
+to `LANDED_SHA` and require a clean worktree. Preserve any clone with dirt and report it instead of
+deleting it.
 
 - [ ] **Step 7: Remove only verified completed worktrees**
 
@@ -645,7 +651,7 @@ ordinary Qodana clone directories to explicit uniquely named paths under
 From the main checkout, append only the observed `LANDED_SHA`, three CI run URLs/results, remote
 recovery refs, removed worktree paths, trashed clone paths, and preserved unrelated paths to
 `docs/superpowers/reports/2026-08-14-deterministic-local-mock-api-landing.md`. Run Spotless,
-Antora, diff-check, and a read-only doc/spec review, then commit:
+`npm ci`, Antora, diff-check, and a read-only doc/spec review, then commit:
 
 ```bash
 git add docs/superpowers/reports/2026-08-14-deterministic-local-mock-api-landing.md
@@ -735,6 +741,7 @@ test "$(git -C "$SELFTEST_ROOT/baseline" rev-parse HEAD)" = \
 ./gradlew kaptKotlin classes :benchmark-driver:kaptKotlin \
   :benchmark-driver:classes --no-configuration-cache --console=plain
 ./gradlew qodanaScan --no-configuration-cache --console=plain
+npm ci
 npx antora antora-playbook.yml
 
 test "$(git rev-parse HEAD)" = "$GATED_IMPLEMENTATION_SHA"
