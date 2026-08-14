@@ -1172,7 +1172,8 @@ discover_publication_tools() {
   else
     mv_status=$?
   fi
-  test "$mv_status" -eq 0 && test -d "$probe/source" && test ! -L "$probe/source" \
+  { test "$mv_status" -eq 0 || test "$mv_status" -eq 1; } \
+    && test -d "$probe/source" && test ! -L "$probe/source" \
     && test -d "$probe/destination" && test ! -L "$probe/destination" \
     && [[ "$("$stat_path" -c '%d' "$probe")" =~ ^[0-9]+$ ]]
   mv_status=$?

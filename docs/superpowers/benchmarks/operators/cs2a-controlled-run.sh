@@ -38,7 +38,7 @@ export GRADLE_OPTS=-Dorg.gradle.daemon=false
 readonly SOURCE_REPO=/home/gopala.akshintala/code-clones/work/revoman-root
 RUN_ROOT=
 
-# shellcheck disable=SC2329 # invoked by the EXIT trap installed below
+# shellcheck disable=SC2317,SC2329 # invoked by the EXIT trap installed below
 early_runner_exit() {
   local status=$?
   trap - EXIT
@@ -78,7 +78,7 @@ DRIVER="$HARNESS/benchmark-driver/build/install/benchmark-driver/bin/benchmark-d
 mkdir "$RUN_ROOT/checkouts" "$RUN_ROOT/manifests" "$RUN_ROOT/results" \
   "$RUN_ROOT/artifacts" "$RUN_ROOT/logs"
 
-# shellcheck disable=SC2329 # invoked from the EXIT handler installed below
+# shellcheck disable=SC2317,SC2329 # invoked from the EXIT handler installed below
 write_inventory() (
   set -euo pipefail
   cd "$RUN_ROOT"
@@ -92,7 +92,7 @@ write_inventory() (
     | LC_ALL=C sort -z | xargs -0 -r sha256sum >meta/command-output-sha256sums.txt
 )
 
-# shellcheck disable=SC2329 # invoked from the EXIT handler installed below
+# shellcheck disable=SC2317,SC2329 # invoked from the EXIT handler installed below
 write_remote_byte_inventory() (
   set -euo pipefail
   cd "$RUN_ROOT"
@@ -101,7 +101,7 @@ write_remote_byte_inventory() (
     | LC_ALL=C sort -z | xargs -0 -r sha256sum >meta/remote-byte-sha256sums.txt
 )
 
-# shellcheck disable=SC2329 # invoked by the EXIT trap installed below
+# shellcheck disable=SC2317,SC2329 # invoked by the EXIT trap installed below
 on_runner_exit() {
   local status=$? inventory_status=0
   trap - EXIT

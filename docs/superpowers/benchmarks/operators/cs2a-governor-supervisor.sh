@@ -457,10 +457,10 @@ prepare_final_handoff_context() {
     || fail "final handoff run root is not canonical"
   test "$(readlink -f -- "$governor_state")" = "$governor_state" \
     || fail "final handoff governor state is not canonical"
-  test -d "$run_root/meta" && test ! -L "$run_root/meta" \
-    || fail "invalid final handoff metadata directory"
-  test -d "$governor_state" && test ! -L "$governor_state" \
-    || fail "invalid final handoff state directory"
+  test -d "$run_root/meta" || fail "invalid final handoff metadata directory"
+  test ! -L "$run_root/meta" || fail "invalid final handoff metadata directory"
+  test -d "$governor_state" || fail "invalid final handoff state directory"
+  test ! -L "$governor_state" || fail "invalid final handoff state directory"
   CONTROLLED_UID=$(cat "$CONTROLLED_UID_FILE") || fail "cannot read controlled UID"
   [[ "$CONTROLLED_UID" =~ ^[1-9][0-9]*$ ]] || fail "invalid controlled UID"
   CONTROLLED_GID=$(id -g "$CONTROLLED_USER") || fail "cannot read controlled GID"

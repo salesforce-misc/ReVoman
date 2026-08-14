@@ -457,6 +457,16 @@ class BenchmarkWorkflowTest {
   }
 
   @Test
+  fun `ordinary CI retains full current history for pinned operator provenance`() {
+    val currentCheckout =
+      ordinaryCiSteps().single { step ->
+        step["uses"] == CHECKOUT_ACTION && step.asMap("with")["path"] == "current"
+      }
+
+    assertThat(currentCheckout.asMap("with")["fetch-depth"]).isEqualTo(0)
+  }
+
+  @Test
   fun `ordinary CI benchmark argv rejects changed executables deleted selectors and later overrides`() {
     val steps = ordinaryCiSteps()
     assertOrdinaryCiBenchmarkArgv(steps)

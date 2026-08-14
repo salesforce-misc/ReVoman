@@ -2647,6 +2647,53 @@ class Cs2aOperatorScriptTest {
   }
 
   @Test
+  fun `publication tool discovery accepts a no-replace conflict status with intact directories`() {
+    val result =
+      runPublicationToolDiscoveryProbe(
+        "nonzero-intact",
+        """
+        previous=
+        current=
+        for argument in "${'$'}@"; do
+          previous=${'$'}current
+          current=${'$'}argument
+        done
+        test -d "${'$'}previous" && test -d "${'$'}current" || exit 97
+        exit 1
+        """,
+      )
+
+    assertWithMessage(result.output).that(result.exitCode).isEqualTo(0)
+  }
+
+  @Test
+  fun `publication tool discovery rejects exit one when a probed directory is removed`() {
+    val result =
+      runPublicationToolDiscoveryProbe(
+        "nonzero-mutating",
+        """
+        previous=
+        current=
+        for argument in "${'$'}@"; do
+          previous=${'$'}current
+          current=${'$'}argument
+        done
+        rmdir "${'$'}previous"
+        exit 1
+        """,
+      )
+
+    assertWithMessage(result.output).that(result.exitCode).isNotEqualTo(0)
+  }
+
+  @Test
+  fun `publication tool discovery rejects exit two when probed directories remain intact`() {
+    val result = runPublicationToolDiscoveryProbe("unexpected-status", "exit 2")
+
+    assertWithMessage(result.output).that(result.exitCode).isNotEqualTo(0)
+  }
+
+  @Test
   fun `publication tool discovery rejects a GNU-labelled backend with broken no-replace semantics`() {
     val fakeBin = Files.createDirectories(temporaryDirectory.resolve("mutated-publication-tools"))
     val realMove = run(listOf("/bin/bash", "-c", "command -v gmv || command -v mv")).output.trim()
@@ -3121,6 +3168,49 @@ class Cs2aOperatorScriptTest {
         Path.of("").toAbsolutePath(),
       )
     assertWithMessage("$label\n${result.output}").that(result.exitCode).isNotEqualTo(0)
+  }
+
+  private fun runPublicationToolDiscoveryProbe(name: String, moveBehavior: String): ProcessResult {
+    val fakeBin = Files.createDirectories(temporaryDirectory.resolve("publication-probe-$name"))
+    val realStat =
+      run(listOf("/bin/bash", "-c", "command -v gstat || command -v stat")).output.trim()
+    val fakeMove =
+      """
+      #!/bin/sh
+      if test "${'$'}1" = --version; then
+        printf '%s\n' 'mv (GNU coreutils) 9.99'
+        exit 0
+      fi
+      """
+        .trimIndent() + "\n" + moveBehavior.trimIndent() + "\n"
+    val fakeStat =
+      """
+      #!/bin/sh
+      if test "${'$'}1" = --version; then
+        printf '%s\n' 'stat (GNU coreutils) 9.99'
+      else
+        exec ${quote(Path.of(realStat))} "${'$'}@"
+      fi
+      """
+        .trimIndent() + "\n"
+    listOf("mv", "gmv").forEach { tool ->
+      write(fakeBin.resolve(tool), fakeMove)
+      fakeBin.resolve(tool).toFile().setExecutable(true, false)
+    }
+    listOf("stat", "gstat").forEach { tool ->
+      write(fakeBin.resolve(tool), fakeStat)
+      fakeBin.resolve(tool).toFile().setExecutable(true, false)
+    }
+    val harness =
+      """
+      PATH=${quote(fakeBin)}:${'$'}PATH
+      export PATH
+      source ${quote(operator)}
+      discover_publication_tools
+      """
+        .trimIndent()
+
+    return run(listOf("/bin/bash", "-c", harness))
   }
 
   private fun assertSupervisorFunctionSucceeds(invocation: String) {
