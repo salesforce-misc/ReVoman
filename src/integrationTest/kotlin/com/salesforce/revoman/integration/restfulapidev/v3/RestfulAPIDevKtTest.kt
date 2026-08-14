@@ -28,6 +28,18 @@ class RestfulAPIDevKtTest {
         )
       assertThat(rundown.firstUnsuccessfulStepReport).isNull()
       assertThat(rundown.stepReports).hasSize(4)
+      assertThat(
+          rundown.stepReports.map { report ->
+            requireNotNull(report.requestInfo).get().httpMsg.uri.toString()
+          }
+        )
+        .containsExactly(
+          "${api.baseUrl}/objects",
+          "${api.baseUrl}/objects",
+          "${api.baseUrl}/objects/local-object-1",
+          "${api.baseUrl}/objects/local-object-1",
+        )
+        .inOrder()
       assertThat(api.requestSignatures())
         .containsExactly(
           "GET /objects",

@@ -33,6 +33,16 @@ class RestfulAPIDevV3Test {
                   .off());
       assertThat(rundown.firstUnsuccessfulStepReport()).isNull();
       assertThat(rundown.stepReports.size()).isEqualTo(4);
+      assertThat(
+              rundown.stepReports.stream()
+                  .map(report -> report.requestInfo.get().httpMsg.getUri().toString())
+                  .toList())
+          .containsExactly(
+              api.getBaseUrl() + "/objects",
+              api.getBaseUrl() + "/objects",
+              api.getBaseUrl() + "/objects/local-object-1",
+              api.getBaseUrl() + "/objects/local-object-1")
+          .inOrder();
       assertThat(api.requestSignatures())
           .containsExactly(
               "GET /objects",

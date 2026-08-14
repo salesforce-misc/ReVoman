@@ -9,6 +9,7 @@ package com.salesforce.revoman.integration.testsupport
 
 import com.squareup.moshi.Moshi
 import com.sun.net.httpserver.HttpServer
+import java.net.Inet4Address
 import java.net.InetSocketAddress
 import java.nio.ByteBuffer
 import java.util.concurrent.ConcurrentHashMap
@@ -31,6 +32,7 @@ import org.http4k.core.Status.Companion.BAD_REQUEST
 import org.http4k.core.Status.Companion.METHOD_NOT_ALLOWED
 import org.http4k.core.Status.Companion.NOT_FOUND
 import org.http4k.core.Status.Companion.OK
+import org.http4k.core.queries
 import org.http4k.routing.bind
 import org.http4k.routing.path
 import org.http4k.routing.routes
@@ -59,7 +61,10 @@ private constructor(
 
   /** Base URL for this fixture's ephemeral IPv4 loopback endpoint. */
   val baseUrl: String
-    get() = "http://$LOOPBACK_ADDRESS:${server.address.port}"
+    get() =
+      server.address.let { address ->
+        "http://${address.address.hostAddress}:${address.port}"
+      }
 
   /** Returns real-wire requests in their received order. */
   fun requestSignatures(): List<String> = requests.map { request ->
@@ -96,7 +101,7 @@ private constructor(
       val objectIds = AtomicInteger()
       val routesHandler =
         routes(
-          "/objects" bind GET to { emptyList<Any?>().toJsonResponse() },
+          "/objects" bind GET to { objects.toSortedMap().values.toList().toJsonResponse() },
           "/objects" bind
             POST to
             { request ->
@@ -146,15 +151,23 @@ private constructor(
             },
           "/pokemon" bind
             GET to
-            {
-              mapOf(
-                  "results" to
-                    listOf("bulbasaur", "ivysaur", "venusaur", "charmander", "charmeleon").map {
-                      name ->
-                      mapOf("name" to name)
-                    }
-                )
-                .toJsonResponse()
+            { request ->
+              if (request.uri.queries() != listOf("limit" to "5")) {
+                Response(NOT_FOUND)
+              } else {
+                mapOf(
+                    "results" to
+                      listOf(
+                          "bulbasaur",
+                          "ivysaur",
+                          "venusaur",
+                          "charmander",
+                          "charmeleon",
+                        )
+                        .map { name -> mapOf("name" to name) }
+                  )
+                  .toJsonResponse()
+              }
             },
           "/pokemon/bulbasaur" bind
             GET to
@@ -196,6 +209,13 @@ private constructor(
           }
       return runCatching {
           server.start()
+          check(
+            server.address.address is Inet4Address &&
+              server.address.address.hostAddress == LOOPBACK_ADDRESS
+          ) {
+            "deterministic mock API must bind exact IPv4 loopback, got ${server.address.address}"
+          }
+          check(server.address.port > 0) { "deterministic mock API must select a nonzero port" }
           DeterministicMockApiServer(server, executor, requests)
         }
         .getOrElse { failure ->
