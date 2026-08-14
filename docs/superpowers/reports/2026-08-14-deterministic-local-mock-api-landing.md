@@ -15,11 +15,12 @@ inputs, and current documentation. It does not change production source, product
 dependencies, public ABI, benchmark-driver code, or benchmark identity. The root-private npm
 manifest and lockfile pin only the Antora documentation toolchain. No privileged CS2a controlled
 measurement was run or claimed: its administrator-owned UID policy and disposable Linux/root launch
-harness remain blockers. Task 6's completed local gate attempt and current correction status are
-recorded below. Because the decoded-query correction changes fixture source bytes after that gate,
-its scoped re-review and the complete Appendix A/B rerun are pending. Landing, the merge and master
-push, GitHub CI verification, worktree/clone cleanup, and privileged CS2a measurement also remain
-pending and belong to later tasks.
+harness remain blockers. Task 6's completed local gate attempt and corrected-source status are
+recorded below. The decoded-query correction was independently re-reviewed and then passed the
+complete serial Appendix A-to-B gate at exact implementation SHA
+`f4c4959de4917cc4d7ff22bb325566876ae6cf31`. Landing, the merge and master push, GitHub CI
+verification, worktree/clone cleanup, and privileged CS2a measurement remain pending and belong to
+later tasks.
 
 ## Current local contract
 
@@ -228,9 +229,29 @@ JAVA_HOME=/opt/homebrew/opt/sdkman-cli/libexec/candidates/java/21.0.11-amzn \
 
 It passed 18 tests in 9s; `BUILD SUCCESSFUL in 17s`, 22 executed tasks. Pinned-JDK
 `:spotlessCheck` passed in 14s with 17 executed tasks without rewriting a file, and pinned-JDK
-`:detekt` passed in 2s with 10 executed tasks. This correction has not yet received its scoped Spec
-re-review, and the complete Appendix A/B block has not been rerun for its changed source bytes. No
-push, merge, cleanup, CI verification, or privileged CS2a measurement is claimed.
+`:detekt` passed in 2s with 10 executed tasks.
+
+## Corrected-source reviews and final local gate
+
+All independent corrected-source reviews used exact implementation SHA
+`f4c4959de4917cc4d7ff22bb325566876ae6cf31`: Spec **ADDRESSED**; Standards **PASS** with 0 Critical
+and 0 Important findings; and security/evidence **PASS** with 0 Critical and 0 Important findings.
+
+The complete Appendix A-to-B shell then passed serially at that exact SHA. Appendix A's full
+integration-test run passed 41 tests, `:benchmark-driver:test` passed 349 tests, and the targeted
+benchmark-driver integration selector passed 2 tests. Its Qodana run reported 85 findings (45 High,
+40 Moderate) with no tracked drift; no baseline, threshold, configuration, or finding was changed.
+The literal linked-worktree `npx antora antora-playbook.yml` attempt failed only with the known
+`Local content source must be a git repository ... (url: .)` rejection. Under the documented fallback,
+an authenticated ordinary clone at
+`build/antora-gate.yrC1PbA2/repo` was detached at the same exact SHA and passed the unchanged literal
+Antora command with its generated site and clean-clone assertions.
+
+Appendix B passed 107 tests with 0 failures, errors, or skips. Its operator-script checks and
+exact-SHA/clean-worktree assertions also passed. The local implementation marker and the recovery
+remote reference each resolved to `f4c4959de4917cc4d7ff22bb325566876ae6cf31`; the source worktree
+and index were clean. This is local gate evidence only: no landing, merge, master push, GitHub CI
+verification, cleanup, or privileged CS2a measurement is claimed.
 
 ## Task 5 mutation evidence
 
