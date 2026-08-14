@@ -7,20 +7,25 @@ This record includes the observed Task 6 pre-gate correction wave from reviewed 
 `0353e76b9ede244b150489d1f173aa4b33748e66`, based on
 `478529ad02030de7beb9dd98aa032e3c5ea2aa4b`. Tasks 1–4 were committed through
 `bedbf5f7435d383bd0c58d052bdc6fd4fb5ee908`; Task 5 adds the documentation,
-mutation, resource-scan, and report evidence recorded here. The Task 6 correction commit adds the
-review fixes and evidence below.
+mutation, resource-scan, and report evidence recorded here. The Task 6 correction commits add the
+review fixes and evidence below. Later Task 7 validation exposed Gradle, Linux operator, and
+benchmark transport failures; each source change returned to Task 6 for correction, review, and a
+complete re-gate before landing resumed.
 
-The work remains limited to integration-test fixtures and resources, build/docs gate-reproducibility
-inputs, and current documentation. It does not change production source, production/runtime
-dependencies, public ABI, benchmark-driver code, or benchmark identity. The root-private npm
-manifest and lockfile pin only the Antora documentation toolchain. No privileged CS2a controlled
-measurement was run or claimed: its administrator-owned UID policy and disposable Linux/root launch
-harness remain blockers. Task 6's completed local gate attempt and corrected-source status are
-recorded below. The decoded-query correction was independently re-reviewed and then passed the
-complete serial Appendix A-to-B gate at exact implementation SHA
-`f4c4959de4917cc4d7ff22bb325566876ae6cf31`. Landing, the merge and master push, GitHub CI
-verification, worktree/clone cleanup, and privileged CS2a measurement remain pending and belong to
-later tasks.
+The API-localization work remains limited to integration-test fixtures and resources and did not
+change public ABI or production/runtime dependencies. Subsequent gate corrections change build and
+benchmark-driver launch plumbing only: the final Linux fix requires server-side TCP no-delay before
+the deterministic JDK `HttpServer` is initialized, while preserving persistent HTTP, the PT2M child
+bound, the real 1k/2k/4k retained schedule, workload bytes, and the exact retained provider hash.
+The root-private npm manifest and lockfile pin only the Antora documentation toolchain. No privileged
+CS2a controlled measurement was run or claimed: its administrator-owned UID policy and disposable
+Linux/root launch harness remain blockers. The decoded-query correction passed the historical
+Task 6 gate at `f4c4959de4917cc4d7ff22bb325566876ae6cf31`; the latest reviewed implementation and
+complete serial Appendix A-to-B gate are now
+`6c9318028e0b4d290a430de8deffb33775950a77`. Master already contains the prior landing through
+`6933e2023aef70b0085ec766986482a8b46fe50e`; the report-commit master push containing gated
+implementation `6c931802`, exact-SHA GitHub CI, and recoverability-gated cleanup remain pending at
+the time of this report commit.
 
 ## Current local contract
 
@@ -252,6 +257,106 @@ exact-SHA/clean-worktree assertions also passed. The local implementation marker
 remote reference each resolved to `f4c4959de4917cc4d7ff22bb325566876ae6cf31`; the source worktree
 and index were clean. This is local gate evidence only: no landing, merge, master push, GitHub CI
 verification, cleanup, or privileged CS2a measurement is claimed.
+
+## Task 7 Linux CI failure and Task 6 correction/re-gate
+
+The first exact-SHA GitHub run after landing `6933e2023aef70b0085ec766986482a8b46fe50e`
+produced two successful workflows and one reproducible Build failure:
+
+- Publish Docs passed: <https://github.com/salesforce-misc/ReVoman/actions/runs/31811408474>.
+- Qodana passed: <https://github.com/salesforce-misc/ReVoman/actions/runs/31811408409>.
+- Build and Scan failed only in `Benchmark current major lifecycle integration`:
+  <https://github.com/salesforce-misc/ReVoman/actions/runs/31811408601>. The real two-execution
+  worker passed; the full retained campaign returned `EXECUTION_FAILED` after 252.810s. A direct
+  child of that commit in the Renovate workflow failed at the same boundary after 251.814s.
+
+The original assertion read `lastError` before executing the CLI, so the uploaded report lost the
+actual child error. A focused regression seeded stale stderr, invoked an unknown command, and first
+failed because the assertion reported the seed. The corrected helper executes before constructing
+the assertion message; the same test then reported the current unknown-command error.
+
+An isolated native Linux ARM64/JBR 21.0.11 reproduction at exact `6933e202` then returned the
+previously hidden error verbatim: `Target process 3441 timed out after PT2M`. The failing command was
+the real `major-v1` retained child at 4,000 executions. Under a diagnostic PT5M bound the six
+children completed in about 43/86/171s per role, but that workaround took 605s and changed the
+provider configuration hash, so it was rejected. Thread dumps repeatedly found the target blocked
+in the persistent HTTP response read while the deterministic fixture executor and JDK dispatcher
+were idle. Exact JDK sources showed `sun.net.httpserver.nodelay` defaults false and is cached when
+the server implementation initializes. With only `-Dsun.net.httpserver.nodelay=true`, the unmodified
+real six-child PT2M campaign completed in 13s, retained keep-alive, preserved the exact provider hash
+`d5fcf4808f4a06c419a45049300d1897aa28452d6684b63701d475cb7f7aeeb0`, and preserved all weak-reference
+observations. A `Connection: close` experiment also removed the delay but was rejected because it
+changed transport reuse semantics.
+
+Commit `6c9318028e0b4d290a430de8deffb33775950a77` therefore makes the server no-delay option a JVM-launch
+invariant for installed-driver scripts, Gradle test workers, direct `benchmarkJmh`, and nested warm
+controllers. The fixture rejects a missing or changed property before allocating its executor or
+binding. Controlled result validation requires the exact singleton JVM flag; missing, changed, and
+extra flag mutations all fail. PT2M, the real 1k/2k/4k schedule, workload bytes, and the retained
+provider calculation are unchanged.
+
+The direct-JMH launch surface is covered durably: `benchmarkJmhFreshnessTest` selects
+`WarmLifecycleAllocationBenchmark`, verifies that exact raw row and rejects HarnessSanity
+substitution, runs twice for fresh evidence, and is required exactly once by ordinary CI. Deleting
+only the `benchmarkJmh` JVM flag made that task fail at the fixture guard; restoration passed in 6s.
+The workflow contract also mutation-tests deletion and duplication of every exact baseline-gate
+task. Both changed Detekt inventory fingerprints were refreshed to their exact source bytes.
+
+Three independent final read-only reviews over the 11-file Task 6 correction each returned
+**PASS** with zero Critical and zero Important findings: transport/security, retained-identity
+Standards/Spec, and lifecycle-spec/evidence. Observed focused verification before commit included:
+
+- the deterministic API selector, with all 24 tests passing;
+- root workflow/operator/Detekt-integrity contracts, with all 92 tests passing;
+- the complete benchmark-driver baseline gate including lifecycle JMH freshness;
+- the exact formerly failing major-lifecycle pair with the original PT2M bound;
+- Detekt, Spotless, and Bash parsing plus ShellCheck for all three operator scripts.
+
+Appendix A and Appendix B then ran from the first command through the recovery push in one
+uninterrupted Bash process with readonly
+`GATED_IMPLEMENTATION_SHA=6c9318028e0b4d290a430de8deffb33775950a77`. No command was skipped,
+reordered, overlapped, resumed, or substituted. The uninterrupted session was observed directly;
+the current XML results corroborate 41 root integration tests, 351 benchmark-driver unit tests,
+2 targeted benchmark-driver integration tests, and 110 Appendix B tests, all with zero failures,
+errors, or skips. The live session additionally reported the 838-test root unit suite passing in
+both aggregate invocations before Appendix B replaced the root unit-test XML. The exact-SHA Antora
+clone, Qodana SARIF, implementation marker, and remote recovery ref corroborate the remaining
+outcomes below. The separately persisted
+`build/task7-final-gate.6bDynjpf` belongs to the earlier `6933e202` gate and is not cited as evidence
+for this correction. To satisfy the final-report duration requirement without conflating the two
+runs, the durations below are explicitly the literal output observed in the later live `6c931802`
+terminal session; no consolidated file of that session was retained. Final milestones were:
+
+- driver installation passed in 3s, and current target export passed in 4s;
+- the first ABI/API/root integration and test aggregate passed the 41-test root integration suite,
+  the 838-test root unit suite, and the 351-test benchmark-driver unit suite; root tests reported
+  6m27s and the aggregate build reported 6m57s;
+- the detached baseline worktree authenticated exact `83f3cd70f78ad733412d10cbc8287aaabafe7aac`;
+  baseline manifest export passed in 6s, and baseline driver integration passed in 55s;
+- the two exact real major-lifecycle selectors passed in 14s with the original PT2M child bound;
+- the benchmark harness self-test passed in 7s;
+- the aggregate build/JMH/install/Spotless gate passed another 838 tests, including the intentional
+  compile-only compatibility task, Detekt, Kover, and Spotless; root tests reported 6m23s and the
+  aggregate build reported 7m15s;
+- the source-generation prelude passed in 584ms;
+- direct Gradle `qodanaScan` reported the unchanged 85 findings (45 High, 40 Moderate) and did not
+  change tracked bytes; its Gradle build reported 2m31s;
+- literal `npm ci` installed 168 packages in 631ms. The required linked-worktree Antora attempt
+  failed only with the known local-content-source `(url: .)` rejection. The authenticated ordinary
+  clone `build/antora-gate.PFx4QX95/repo` detached exact `6c931802`; its literal `npm ci` installed
+  168 packages in 415ms, and unchanged literal Antora generated `build/site/index.html` and left the
+  clone clean at the exact SHA. The Antora commands did not print their own durations; their result
+  files span 22:12:32–22:12:34 local time;
+- Appendix A's final SHA and clean assertions passed;
+- Appendix B's Bash/ShellCheck checks and exact operator command passed all 110 tests; tests
+  reported 5m44s and the Gradle build reported 5m56s;
+- Appendix B's final SHA and clean assertions passed. The implementation marker and the remote
+  recovery reference `origin/codex/performance-cs2a-lifecycle` both resolve to exact `6c931802`.
+
+At this report commit boundary, `origin/master` still resolves to `6933e202`; the report-commit
+master push, the three exact-report-SHA GitHub workflows, terminal recovery verification, and
+worktree/clone cleanup remain deliberately unclaimed. No privileged CS2a controlled measurement
+ran.
 
 ## Task 5 mutation evidence
 
