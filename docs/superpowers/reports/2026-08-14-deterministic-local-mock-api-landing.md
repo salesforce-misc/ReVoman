@@ -41,32 +41,35 @@ passed 12 tests and proved its five-request local sequence.
 
 Every temporary mutation was applied with `apply_patch`, run with the pinned JDK
 `/opt/homebrew/opt/sdkman-cli/libexec/candidates/java/21.0.11-amzn`, immediately restored with
-`apply_patch`, then rerun green with `git diff --exit-code` over the restored source. The common
-command was:
+`apply_patch`, source-checked, then rerun green. For every RED and GREEN invocation, the exact
+reusable command template was:
 
 ```bash
 JAVA_HOME=/opt/homebrew/opt/sdkman-cli/libexec/candidates/java/21.0.11-amzn \
-  ./gradlew :integrationTest --tests '<selector>' \
+  ./gradlew :integrationTest --tests '<exact selector in this row>' \
   --rerun-tasks --no-build-cache --no-configuration-cache --console=plain
 ```
 
-| Mutation | Selector and count | Observed RED |
-|---|---|---|
-| Delete object route family | fixture POST test, 1 | expected `200 OK`, got `404 Not Found` |
-| Delete Pokemon route family | fixture Pokemon-index test, 1 | expected `200 OK`, got `404 Not Found` |
-| POST wrong status | fixture POST test, 1 | expected `200 OK`, got `400 Bad Request` |
-| PATCH/PUT wrong body | fixture PATCH and PUT tests, 2 | both expected their exact JSON body, got `{}` |
-| Created object not stored | fixture GET-stored-object test, 1 | expected `200 OK`, got `404 Not Found` |
-| PATCH drops existing data | fixture PATCH-preservation test, 1 | expected JSON retaining `data`, got JSON without it |
-| Remove `baseUrl` overlay | V2 Java object test, 1 | `GET http://127.0.0.1:1/objects` returned connection-refused `503` |
-| Bind wildcard | fixture lifecycle test, 1 | expected `http://127.0.0.1:`, got `http://0.0.0.0:<port>` |
-| Bind fixed port | fixture lifecycle test, 1 | second fixture failed with `java.net.BindException: Address already in use` |
-| Stop before returning fixture | fixture lifecycle test, 1 | expected `200 OK`, got connection-refused `503` |
-| Omit request-ledger insertion | V2 Java object test, 1 | expected four ordered signatures, got `[]` |
-| Omit executor shutdown/await | fixture lifecycle test, 1 | named non-daemon worker remained alive (`expected to be false`) |
+Row 4 used the same command with both listed `--tests` arguments; all other rows used one.
 
-The corresponding restored GREEN invocations passed 13 selected tests in total. No source-token
-assertion was used as mutation evidence, and no temporary mutation remains in the worktree.
+| # | Mutation | RED: exact selector(s), count, and observed failure | Restoration evidence | GREEN: exact selector(s), count, and result |
+|---:|---|---|---|---|
+| 1 | Delete object route family | `com.salesforce.revoman.integration.testsupport.DeterministicMockApiServerTest.post objects creates a fixture-local object`; 1 selected test; expected `200 OK`, got `404 Not Found`. | Restored all object routes; `git diff --exit-code -- src/integrationTest/kotlin/com/salesforce/revoman/integration/testsupport/DeterministicMockApiServer.kt` exited 0. | `com.salesforce.revoman.integration.testsupport.DeterministicMockApiServerTest.post objects creates a fixture-local object`; 1 selected test passed; `BUILD SUCCESSFUL`. |
+| 2 | Delete Pokemon route family | `com.salesforce.revoman.integration.testsupport.DeterministicMockApiServerTest.pokemon index returns the fixed deterministic catalog`; 1 selected test; expected `200 OK`, got `404 Not Found`. | Restored all Pokemon routes; `git diff --exit-code -- src/integrationTest/kotlin/com/salesforce/revoman/integration/testsupport/DeterministicMockApiServer.kt` exited 0. | `com.salesforce.revoman.integration.testsupport.DeterministicMockApiServerTest.pokemon index returns the fixed deterministic catalog`; 1 selected test passed; `BUILD SUCCESSFUL`. |
+| 3 | POST returns wrong status | `com.salesforce.revoman.integration.testsupport.DeterministicMockApiServerTest.post objects creates a fixture-local object`; 1 selected test; expected `200 OK`, got `400 Bad Request`. | Removed the POST status override; `git diff --exit-code -- src/integrationTest/kotlin/com/salesforce/revoman/integration/testsupport/DeterministicMockApiServer.kt` exited 0. | `com.salesforce.revoman.integration.testsupport.DeterministicMockApiServerTest.post objects creates a fixture-local object`; 1 selected test passed; `BUILD SUCCESSFUL`. |
+| 4 | PATCH/PUT return wrong body | `com.salesforce.revoman.integration.testsupport.DeterministicMockApiServerTest.patch objects updates supplied fields and preserves omitted data` and `com.salesforce.revoman.integration.testsupport.DeterministicMockApiServerTest.put objects replaces the stored object data`; 2 selected tests; both exact JSON assertions got `{}`. | Restored both JSON responses; `git diff --exit-code -- src/integrationTest/kotlin/com/salesforce/revoman/integration/testsupport/DeterministicMockApiServer.kt` exited 0. | `com.salesforce.revoman.integration.testsupport.DeterministicMockApiServerTest.patch objects updates supplied fields and preserves omitted data` and `com.salesforce.revoman.integration.testsupport.DeterministicMockApiServerTest.put objects replaces the stored object data`; 2 selected tests passed; `BUILD SUCCESSFUL`. |
+| 5 | Created object is not stored | `com.salesforce.revoman.integration.testsupport.DeterministicMockApiServerTest.get objects returns the exact stored object`; 1 selected test; expected `200 OK`, got `404 Not Found`. | Restored POST object-store insertion; `git diff --exit-code -- src/integrationTest/kotlin/com/salesforce/revoman/integration/testsupport/DeterministicMockApiServer.kt` exited 0. | `com.salesforce.revoman.integration.testsupport.DeterministicMockApiServerTest.get objects returns the exact stored object`; 1 selected test passed; `BUILD SUCCESSFUL`. |
+| 6 | PATCH drops existing data | `com.salesforce.revoman.integration.testsupport.DeterministicMockApiServerTest.patch objects updates supplied fields and preserves omitted data`; 1 selected test; expected retained `data`, got `{"id":"local-object-1","name":"renamed object"}`. | Restored merge from the existing object map; `git diff --exit-code -- src/integrationTest/kotlin/com/salesforce/revoman/integration/testsupport/DeterministicMockApiServer.kt` exited 0. | `com.salesforce.revoman.integration.testsupport.DeterministicMockApiServerTest.patch objects updates supplied fields and preserves omitted data`; 1 selected test passed; `BUILD SUCCESSFUL`. |
+| 7 | Remove `baseUrl` overlay | `com.salesforce.revoman.integration.restfulapidev.RestfulAPIDevTest`; 1 selected test; `GET http://127.0.0.1:1/objects` returned connection-refused `503`. | Restored `dynamicEnvironment("baseUrl", api.getBaseUrl())`; `git diff --exit-code -- src/integrationTest/java/com/salesforce/revoman/integration/restfulapidev/RestfulAPIDevTest.java` exited 0. | `com.salesforce.revoman.integration.restfulapidev.RestfulAPIDevTest`; 1 selected test passed; `BUILD SUCCESSFUL`. |
+| 8 | Bind wildcard | `com.salesforce.revoman.integration.testsupport.DeterministicMockApiServerTest.fixture owns an ephemeral loopback server and shuts down its worker`; 1 selected test; expected `http://127.0.0.1:`, got `http://0.0.0.0:<port>`. | Restored literal `127.0.0.1`; `git diff --exit-code -- src/integrationTest/kotlin/com/salesforce/revoman/integration/testsupport/DeterministicMockApiServer.kt` exited 0. | `com.salesforce.revoman.integration.testsupport.DeterministicMockApiServerTest.fixture owns an ephemeral loopback server and shuts down its worker`; 1 selected test passed; `BUILD SUCCESSFUL`. |
+| 9 | Bind fixed port | `com.salesforce.revoman.integration.testsupport.DeterministicMockApiServerTest.fixture owns an ephemeral loopback server and shuts down its worker`; 1 selected test; second fixture failed with `java.net.BindException: Address already in use`. | Restored requested port `0`; `git diff --exit-code -- src/integrationTest/kotlin/com/salesforce/revoman/integration/testsupport/DeterministicMockApiServer.kt` exited 0. | `com.salesforce.revoman.integration.testsupport.DeterministicMockApiServerTest.fixture owns an ephemeral loopback server and shuts down its worker`; 1 selected test passed; `BUILD SUCCESSFUL`. |
+| 10 | Stop server before returning fixture | `com.salesforce.revoman.integration.testsupport.DeterministicMockApiServerTest.fixture owns an ephemeral loopback server and shuts down its worker`; 1 selected test; expected `200 OK`, got connection-refused `503`. | Removed premature server stop; `git diff --exit-code -- src/integrationTest/kotlin/com/salesforce/revoman/integration/testsupport/DeterministicMockApiServer.kt` exited 0. | `com.salesforce.revoman.integration.testsupport.DeterministicMockApiServerTest.fixture owns an ephemeral loopback server and shuts down its worker`; 1 selected test passed; `BUILD SUCCESSFUL`. |
+| 11 | Omit request-ledger insertion | `com.salesforce.revoman.integration.restfulapidev.RestfulAPIDevTest`; 1 selected test; expected four ordered signatures, got `[]`. | Restored request-ledger insertion; `git diff --exit-code -- src/integrationTest/kotlin/com/salesforce/revoman/integration/testsupport/DeterministicMockApiServer.kt` exited 0. | `com.salesforce.revoman.integration.restfulapidev.RestfulAPIDevTest`; 1 selected test passed; `BUILD SUCCESSFUL`. |
+| 12 | Omit executor shutdown/await | `com.salesforce.revoman.integration.testsupport.DeterministicMockApiServerTest.fixture owns an ephemeral loopback server and shuts down its worker`; 1 selected test; named non-daemon worker remained alive (`expected to be false`). | Restored executor shutdown and bounded await; `git diff --exit-code -- src/integrationTest/kotlin/com/salesforce/revoman/integration/testsupport/DeterministicMockApiServer.kt` exited 0. | `com.salesforce.revoman.integration.testsupport.DeterministicMockApiServerTest.fixture owns an ephemeral loopback server and shuts down its worker`; 1 selected test passed; `BUILD SUCCESSFUL`. |
+
+Every RED was `BUILD FAILED`; every restored GREEN was `BUILD SUCCESSFUL`. The matrix contains 12
+mutants, 13 RED selected tests, and 13 matching GREEN selected tests. No source-token assertion was
+used as mutation evidence, and no temporary mutation remains in the worktree.
 
 ## Documentation and static checks
 
