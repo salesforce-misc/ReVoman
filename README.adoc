@@ -36,33 +36,37 @@ Hand the engine the executable API metadata you already author for manual testin
 
 ....
   ReṼoman ▸ executing API-Graph ······································
-   01   POST    /objects           201    142 ms   ✓   → {id}
-   02   GET     /objects           200     88 ms   ✓
-   03   GET     /objects/{id}      200     76 ms   ✓   ← {id}
-   04   PATCH   /objects/{id}      200    110 ms   ✓   ← {id}
+   01   GET     /objects           200     88 ms   ✓
+   02   POST    /objects           200    142 ms   ✓   → {id}
+   03   PATCH   /objects/{id}      200    110 ms   ✓   ← {id}
+   04   GET     /objects/{id}      200     76 ms   ✓   ← {id}
   ················································· 4 steps · 4 passed
    › rundown.toJson(VERBOSE)
    { "stepReports": [ 4 — all passed ], "mutableEnv": {…}, "stats": {…} }
 ....
 
-The four steps above are a real, passing run against the free public https://restful-api.dev[restful-api.dev] — `POST` creates an object, later steps reuse its `{id}`. Here is the test that produces it:
+The four steps above are a real, passing run against a deterministic local http4k-backed fixture over a loopback socket — `POST` creates an object, and later steps reuse its `{id}`. Here is the test that produces it:
 
 [source,java,tabsize=2]
 ----
-final var rundown =
-    ReVoman.revUp(                          // <1>
-        Kick.configure()
-            .templatePath(PM_COLLECTION_PATH)     // <2>
-            .environmentPath(PM_ENVIRONMENT_PATH) // <3>
-            .off());
-assertThat(rundown.firstUnIgnoredUnsuccessfulStepReport()).isNull(); // <4>
-assertThat(rundown.stepReports).hasSize(4);                          // <5>
+try (final var api = DeterministicMockApiServer.start()) {
+  final var rundown =
+      ReVoman.revUp(                          // <1>
+          Kick.configure()
+              .templatePath(PM_COLLECTION_PATH)     // <2>
+              .environmentPath(PM_ENVIRONMENT_PATH) // <3>
+              .dynamicEnvironment("baseUrl", api.getBaseUrl()) // <4>
+              .off());
+  assertThat(rundown.firstUnsuccessfulStepReport()).isNull(); // <5>
+  assertThat(rundown.stepReports).hasSize(4);                  // <6>
+}
 ----
 <1> `revUp` runs the graph, taking a configuration built with `Kick.configure()`
 <2> An exported Postman collection JSON — your *executable API metadata*
 <3> An exported Postman environment JSON
-<4> Assert the run had no failures
-<5> Assert on the structured https://salesforce-misc.github.io/ReVoman/revoman/rundown.html[Rundown]
+<4> Overlay the fixture's loopback URL
+<5> Assert the run had no failures
+<6> Assert on the structured https://salesforce-misc.github.io/ReVoman/revoman/rundown.html[Rundown]
 
 '''
 

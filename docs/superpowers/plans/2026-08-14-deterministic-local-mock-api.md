@@ -326,10 +326,12 @@ cold then warm, and asserts the seven signatures end in:
 ```text
 GET /objects
 PATCH /objects/ledgered-obj-id
-GET /objects/ledgered-obj-id
+GET /objects/null
 ```
 
-The warm sequence must contain no second `POST /objects`.
+The warm sequence must contain no second `POST /objects`. The unchanged V3 `afterResponse`
+behavior overwrites `objId` with null after the PATCH `404` response has no `id`, so the actual
+final request is `GET /objects/null`.
 
 - [ ] **Step 2: Capture RED then GREEN**
 

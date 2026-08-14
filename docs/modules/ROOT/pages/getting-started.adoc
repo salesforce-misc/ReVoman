@@ -1,6 +1,7 @@
 = Get Started
 
-Wire ReṼoman into your JVM project, then run your first API-Graph against a live public API.
+Wire ReṼoman into your JVM project, then run your first API-Graph against a deterministic local
+http4k-backed real-wire fixture.
 
 == Artifact
 
@@ -37,13 +38,17 @@ image::revoman-demo-thumbnail.png[link="https://www.youtube.com/watch?v=YxeRddSF
 
 == A Simple Example
 
-Here is a simple exported Postman collection and Environment JSON file, to hit a free public https://restful-api.dev/[RESTFUL-API]. You can import this metadata and manually test it through the `Run collection` button:
+Here is a simple exported Postman collection and Environment JSON file for a deterministic local
+http4k-backed real-wire fixture. You can import the same metadata and manually test it through the
+`Run collection` button:
 
 image::resfulapi-dev-pm.png[]
 
-You can automate the same with ReṼoman by supplying the metadata and environment paths. The example below demonstrates the engine executing API metadata (serialized in the Postman V2 schema) directly on the JVM — the very metadata you would author for manual trials becomes an automated run:
+You can automate the same with ReṼoman by supplying the metadata and environment paths. The example
+below demonstrates the engine executing API metadata (serialized in the Postman V2 schema) directly
+on the JVM against the local fixture:
 
-.Live include from a passing integration test → {gh-blob}/{integrationtestdir}/com/salesforce/revoman/integration/restfulapidev/RestfulAPIDevTest.java[RestfulAPIDevTest.java^]
+.Current deterministic integration test → {gh-blob}/{integrationtestdir}/com/salesforce/revoman/integration/restfulapidev/RestfulAPIDevTest.java[RestfulAPIDevTest.java^]
 [source,java,indent=0,tabsize=2,options="nowrap"]
 ----
 include::example$it/com/salesforce/revoman/integration/restfulapidev/RestfulAPIDevTest.java[tag=revoman-simple-demo]

@@ -70,9 +70,9 @@ colima start                              # Qodana runs its linter in Docker; st
   retained-memory, or release thresholds. A current manifest is never paired with the baseline
   adapter.
 - **Org tests** (`integration.core.*`) skip-loud on CI (no org creds); see `-PincludeCoreIT` above.
-- **Flaky external-API tests** (pokeapi.co, restful-api.dev, apigee, beeceptor) are retried via the
-  `org.gradle.test-retry` plugin — but ONLY on CI (`CI` env var set). Locally `maxRetries=0`, so
-  flakes surface immediately. A test failing every attempt still fails the build (no masking).
+- **Flaky external-API tests** (apigee, beeceptor) are retried via the `org.gradle.test-retry`
+  plugin — but ONLY on CI (`CI` env var set). Locally `maxRetries=0`, so flakes surface
+  immediately. A test failing every attempt still fails the build (no masking).
 
 ## Benchmark Driver
 

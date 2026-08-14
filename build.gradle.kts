@@ -55,8 +55,8 @@ kotlin {
   @OptIn(org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation::class) abiValidation()
 }
 
-// Retry flaky tests ON CI ONLY. Several integration tests hit live external APIs (pokeapi.co,
-// restful-api.dev, apigee, beeceptor) that intermittently rate-limit or 5xx — a retry keeps the
+// Retry flaky tests ON CI ONLY. The remaining live integration APIs (apigee, beeceptor) can
+// intermittently rate-limit or 5xx — a retry keeps the
 // pipeline green on transient blips WITHOUT masking real breakage (a test failing every attempt
 // still fails). Locally, retry stays OFF (maxRetries=0) so flakes surface immediately.
 val isCI: Boolean = !System.getenv("CI").isNullOrEmpty()
@@ -371,7 +371,7 @@ tasks {
   }
   named<Test>("integrationTest") {
     jvmArgs("-javaagent:${mockitoAgent.singleFile.absolutePath}")
-    // Integration tests hit live external APIs, so allow a couple more attempts on CI.
+    // The remaining live integration APIs can be flaky, so allow a couple more attempts on CI.
     retry {
       maxRetries = if (isCI) 3 else 0
       failOnPassedAfterRetry = false

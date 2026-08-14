@@ -138,9 +138,10 @@ through `ReVoman.revUp`, and asserts:
 
 The ledger cold test uses a fresh fixture and retains its produced-key and nonempty V3 source-hash
 assertions while adding the exact four-request protocol. The warm test runs cold and warm against
-one fixture. The warm producer POST is skipped, so only three additional requests occur; PATCH and
-GET for `ledgered-obj-id` return `404`, preserving the existing downstream-failure caveat while the
-test proves ledger injection and re-emission.
+one fixture. The warm producer POST is skipped, so its three-request tail is `GET /objects`,
+`PATCH /objects/ledgered-obj-id`, `GET /objects/null`. The PATCH returns `404`; the unchanged V3
+`afterResponse` behavior then overwrites `objId` with null because that 404 response has no `id`.
+The test preserves that downstream-failure caveat while proving ledger injection and re-emission.
 
 `PokemonSandboxApiTest` overlays both base URLs and asserts the exact five-request sequence:
 
