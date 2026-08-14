@@ -434,10 +434,12 @@ abstract class BenchmarkJmhFreshnessTest @Inject constructor(
 
     val first = runGradle(arguments)
     check(first.exitCode == 0) { "First identical JMH command failed: ${first.output}" }
+    requireLifecycleEvidence(raw)
     val firstRaw = Files.readAllBytes(raw)
     val firstNormalized = Files.readAllBytes(normalized)
     val second = runGradle(arguments)
     check(second.exitCode == 0) { "Second identical JMH command failed: ${second.output}" }
+    requireLifecycleEvidence(raw)
     check(!second.output.lineSequence().any { it.contains(":benchmark-driver:benchmarkJmh UP-TO-DATE") }) {
       "Second identical JMH command reused stale evidence:\n${second.output}"
     }
@@ -473,7 +475,7 @@ abstract class BenchmarkJmhFreshnessTest @Inject constructor(
   ): List<String> =
     listOf(
       ":benchmark-driver:benchmarkJmh",
-      "-Pbenchmark.includes=HarnessSanityBenchmark",
+      "-Pbenchmark.includes=$LIFECYCLE_BENCHMARK",
       "-Pbenchmark.targetManifest=${targetManifest.toAbsolutePath().normalize()}",
       "-Pbenchmark.adapter=$adapterId",
       "-Pbenchmark.quick=true",
@@ -482,7 +484,23 @@ abstract class BenchmarkJmhFreshnessTest @Inject constructor(
       "--console=plain",
     )
 
+  private fun requireLifecycleEvidence(raw: Path) {
+    val evidence = Files.readString(raw)
+    check(LIFECYCLE_EVIDENCE.containsMatchIn(evidence)) {
+      "JMH freshness gate did not execute $LIFECYCLE_BENCHMARK: $raw"
+    }
+    check(!evidence.contains("HarnessSanityBenchmark")) {
+      "JMH freshness gate substituted the transport-free harness benchmark: $raw"
+    }
+  }
+
   private data class GradleInvocation(val exitCode: Int, val output: String)
+
+  private companion object {
+    const val LIFECYCLE_BENCHMARK: String = "WarmLifecycleAllocationBenchmark"
+    val LIFECYCLE_EVIDENCE: Regex =
+      Regex("\\\"benchmark\\\"\\s*:\\s*\\\"[^\\\"]*\\.$LIFECYCLE_BENCHMARK\\.execute\\\"")
+  }
 }
 
 abstract class BenchmarkJmhOutputCollisionTest @Inject constructor(
@@ -677,7 +695,12 @@ dependencies {
   testImplementation(libs.mockk)
 }
 
-application { mainClass.set("com.salesforce.revoman.benchmark.driver.BenchmarkDriverMainKt") }
+val jdkHttpServerNoDelayJvmArgument = "-Dsun.net.httpserver.nodelay=true"
+
+application {
+  mainClass.set("com.salesforce.revoman.benchmark.driver.BenchmarkDriverMainKt")
+  applicationDefaultJvmArgs = listOf(jdkHttpServerNoDelayJvmArgument)
+}
 
 testing {
   suites {
@@ -713,6 +736,7 @@ val benchmarkTargetManifestFile =
 val benchmarkAdapter = providers.gradleProperty("benchmark.adapter")
 
 tasks.withType<Test>().configureEach {
+  jvmArgs(jdkHttpServerNoDelayJvmArgument)
   benchmarkTargetManifestFile.orNull?.let {
     systemProperty("revoman.benchmark.targetManifest", it.asFile.absolutePath)
   }
@@ -869,6 +893,7 @@ val benchmarkJmh = tasks.register<StrictJmhJavaExec>("benchmarkJmh") {
   rawOutput.set(rawJmhOutput)
   normalizedOutput.set(normalizedJmhOutput)
   humanOutput.set(humanJmhOutput)
+  jvmArgs(jdkHttpServerNoDelayJvmArgument)
   usesService(jmhProcessLock)
   outputs.upToDateWhen { false }
 }
@@ -905,7 +930,7 @@ tasks.register<BenchmarkJmhTaskSerializationTest>("benchmarkJmhTaskSerialization
 
 tasks.register<BenchmarkJmhFreshnessTest>("benchmarkJmhFreshnessTest") {
   group = "verification"
-  description = "Runs an identical JMH command twice and requires fresh evidence"
+  description = "Runs lifecycle JMH twice and requires fresh transport-backed evidence"
   repositoryRoot.set(rootProject.layout.projectDirectory)
   wrapper.set(rootProject.layout.projectDirectory.file("gradlew"))
   targetManifest.set(benchmarkTargetManifestFile)

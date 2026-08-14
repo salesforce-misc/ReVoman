@@ -467,7 +467,7 @@ class BenchmarkWorkflowTest {
   }
 
   @Test
-  fun `ordinary CI benchmark argv rejects changed executables deleted selectors and later overrides`() {
+  fun `ordinary CI benchmark argv rejects changed executables tasks selectors and later overrides`() {
     val steps = ordinaryCiSteps()
     assertOrdinaryCiBenchmarkArgv(steps)
 
@@ -477,6 +477,14 @@ class BenchmarkWorkflowTest {
           script.replace(contract.executable, "/bin/true")
         }
       ) +
+        contract.tasks.flatMap { task ->
+          listOf(
+            mutateOrdinaryCiRunScript(steps, contract.stepName) { script ->
+              script.replace(task, "")
+            },
+            mutateOrdinaryCiRunScript(steps, contract.stepName) { script -> "$script $task" },
+          )
+        } +
         contract.properties.flatMap { (selector, expectedValue) ->
           val expectedArgument = "$selector=$expectedValue"
           listOf(
@@ -529,6 +537,12 @@ class BenchmarkWorkflowTest {
       assertWithMessage("Gradle executable for ${contract.stepName}")
         .that(invocation.executable)
         .isEqualTo(contract.executable)
+      if (contract.tasks.isNotEmpty()) {
+        assertWithMessage("exact Gradle tasks for ${contract.stepName}")
+          .that(invocation.tasks)
+          .containsExactlyElementsIn(contract.tasks)
+          .inOrder()
+      }
       contract.properties.forEach { (selector, expectedValue) ->
         assertWithMessage("exact $selector assignment for ${contract.stepName}")
           .that(invocation.properties[selector].orEmpty())
@@ -852,6 +866,15 @@ class BenchmarkWorkflowTest {
         OrdinaryCiGradleContract(
           stepName = "Benchmark baseline integration and harness self-test",
           executable = "./gradlew",
+          tasks =
+            listOf(
+              ":benchmark-driver:check",
+              ":benchmark-driver:integrationTest",
+              ":benchmark-driver:benchmarkCleanInstallTaskGraphTest",
+              ":benchmark-driver:benchmarkJmhTaskSerializationTest",
+              ":benchmark-driver:benchmarkJmhFreshnessTest",
+              ":benchmark-driver:benchmarkHarnessSelfTest",
+            ),
           properties =
             linkedMapOf(
               "-Pbenchmark.targetManifest" to "build/benchmark-target-baseline-selftest.json",
@@ -874,11 +897,13 @@ class BenchmarkWorkflowTest {
 private data class OrdinaryCiGradleContract(
   val stepName: String,
   val executable: String,
+  val tasks: List<String> = emptyList(),
   val properties: Map<String, String>,
 )
 
 private data class OrdinaryCiGradleInvocation(
   val executable: String,
+  val tasks: List<String>,
   val properties: Map<String, List<String>>,
 ) {
   companion object {
@@ -904,6 +929,7 @@ private data class OrdinaryCiGradleInvocation(
         }
       return OrdinaryCiGradleInvocation(
         executable = argv.first(),
+        tasks = argv.drop(1).filter { it.startsWith(":") },
         properties = properties.mapValues { (_, values) -> values.toList() },
       )
     }

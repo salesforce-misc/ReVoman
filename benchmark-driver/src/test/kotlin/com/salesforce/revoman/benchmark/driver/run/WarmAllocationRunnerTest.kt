@@ -8,6 +8,7 @@
 package com.salesforce.revoman.benchmark.driver.run
 
 import com.google.common.truth.Truth.assertThat
+import com.salesforce.revoman.benchmark.driver.fixture.JDK_HTTP_SERVER_NO_DELAY_JVM_ARGUMENT
 import com.salesforce.revoman.benchmark.driver.json.BenchmarkJson
 import com.salesforce.revoman.benchmark.driver.jmh.FIXTURE_ROOT_PROPERTY
 import com.salesforce.revoman.benchmark.driver.jmh.LIFECYCLE_BASE_URL_PROPERTY
@@ -179,6 +180,7 @@ class WarmAllocationRunnerTest {
 
         assertThat(result.observations).isNotEmpty()
         val jvmArgs = requireNotNull(capturedLaunch).command.jvmArgs
+        assertThat(jvmArgs).contains(JDK_HTTP_SERVER_NO_DELAY_JVM_ARGUMENT)
         assertThat(jvmArgs).contains("-D$FIXTURE_ROOT_PROPERTY=$fixtureRoot")
         assertThat(jvmArgs).contains("-D$LIFECYCLE_BASE_URL_PROPERTY=http://127.0.0.1:54321")
         assertThat(jvmArgs.any { it.startsWith("-D$TARGET_TOKEN_PROPERTY=") }).isTrue()

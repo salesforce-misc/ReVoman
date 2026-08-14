@@ -395,6 +395,7 @@ validate_campaign_identity() {
     --arg implementation "$implementation" \
     --arg implementationTree "$implementation_tree" \
     --arg javaHome /home/gopala.akshintala/core-public/tools/Linux/jdk/sfdc-jdk-zulu-21.helium_x64 \
+    --arg jvmFlag -Dsun.net.httpserver.nodelay=true \
     --arg workload lifecycle.no-script-one-step.v1 \
     --arg fixture 31af0229163ef1ed544189f9b1f1dbd9a80607ffd024a2e5bd09cddfae919c92 \
     --argjson metricPasses "$metric_passes" \
@@ -413,7 +414,8 @@ validate_campaign_identity() {
       .environment.policySha256 == $policy and
       .environment.hostFingerprintSha256 == $host and
       .environment.governor == "performance" and
-      .environment.jdk.javaHome == $javaHome and .environment.jdk.jvmFlags == [] and
+      .environment.jdk.javaHome == $javaHome and
+      .environment.jdk.jvmFlags == [$jvmFlag] and
       .harness.commit == $implementation and .harness.tree == $implementationTree and
       .harness.dirty == false and
       (.harness.distributionSha256 | test("^[0-9a-f]{64}$")) and

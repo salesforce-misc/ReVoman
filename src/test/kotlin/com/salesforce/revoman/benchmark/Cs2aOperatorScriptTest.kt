@@ -2148,7 +2148,9 @@ class Cs2aOperatorScriptTest {
         "host" to ".environment.hostFingerprintSha256 = \"${"0".repeat(64)}\"",
         "governor" to ".environment.governor = \"powersave\"",
         "runtime java" to ".environment.jdk.javaHome = \"/tmp/java\"",
-        "runtime flags" to ".environment.jdk.jvmFlags = [\"-Xmx1g\"]",
+        "runtime flags missing" to ".environment.jdk.jvmFlags = []",
+        "runtime flag changed" to ".environment.jdk.jvmFlags = [\"-Xmx1g\"]",
+        "runtime flags extra" to ".environment.jdk.jvmFlags += [\"-Xmx1g\"]",
         "workload id" to ".workloads[0].id = \"future\"",
         "workload contract" to ".workloads[0].contractSha256 = \"${"0".repeat(64)}\"",
         "fixture" to ".workloads[0].fixtureSha256 = \"${"0".repeat(64)}\"",
@@ -3618,7 +3620,7 @@ class Cs2aOperatorScriptTest {
             "vendor":"fixture",
             "fullVersion":"21.0.10+7",
             "javaHome":"$RUNNER_JAVA_HOME",
-            "jvmFlags":[]
+            "jvmFlags":["-Dsun.net.httpserver.nodelay=true"]
           }
         },
         "targets":[

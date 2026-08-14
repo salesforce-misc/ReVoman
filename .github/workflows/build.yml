@@ -83,6 +83,7 @@ jobs:
           :benchmark-driver:integrationTest
           :benchmark-driver:benchmarkCleanInstallTaskGraphTest
           :benchmark-driver:benchmarkJmhTaskSerializationTest
+          :benchmark-driver:benchmarkJmhFreshnessTest
           :benchmark-driver:benchmarkHarnessSelfTest
           -Pbenchmark.targetManifest=build/benchmark-target-baseline-selftest.json
           -Pbenchmark.adapter=baseline-83f3cd70

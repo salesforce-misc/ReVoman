@@ -27,6 +27,10 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
+internal const val JDK_HTTP_SERVER_NO_DELAY_PROPERTY = "sun.net.httpserver.nodelay"
+internal const val JDK_HTTP_SERVER_NO_DELAY_JVM_ARGUMENT =
+    "-Dsun.net.httpserver.nodelay=true"
+
 /** A byte-stable loopback HTTP fixture whose request counts are isolated by execution ID. */
 class DeterministicHttpFixture private constructor(
     private val server: HttpServer,
@@ -141,6 +145,12 @@ class DeterministicHttpFixture private constructor(
                 readHandlerContract(handlerBytes, source).validatedRoutes().mapValues { (_, route) ->
                     route.prepare()
                 }
+            // JDK HttpServer caches this launch property when its implementation initializes.
+            // Without server-side TCP_NODELAY, Linux can pause between its separately flushed
+            // headers and small body on every persistent response.
+            check(System.getProperty(JDK_HTTP_SERVER_NO_DELAY_PROPERTY) == "true") {
+                "Deterministic HTTP fixture requires $JDK_HTTP_SERVER_NO_DELAY_JVM_ARGUMENT"
+            }
             val executor = fixtureExecutor()
             val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
             server.executor = executor

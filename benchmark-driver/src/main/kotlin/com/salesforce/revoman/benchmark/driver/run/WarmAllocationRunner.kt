@@ -7,6 +7,7 @@
  */
 package com.salesforce.revoman.benchmark.driver.run
 
+import com.salesforce.revoman.benchmark.driver.fixture.JDK_HTTP_SERVER_NO_DELAY_JVM_ARGUMENT
 import com.salesforce.revoman.benchmark.driver.integrity.ContentHasher
 import com.salesforce.revoman.benchmark.driver.fixture.DeterministicHttpFixture
 import com.salesforce.revoman.benchmark.driver.jmh.FIXTURE_ROOT_PROPERTY
@@ -199,6 +200,7 @@ class WarmAllocationRunner(private val launcher: WarmAllocationLauncher) {
                 executable = javaExecutable,
                 jvmArgs =
                     listOf(
+                        JDK_HTTP_SERVER_NO_DELAY_JVM_ARGUMENT,
                         "-Drevoman.benchmark.rawJmhOutput=$rawResult",
                         "-Drevoman.benchmark.resultOutput=$normalizedResult",
                         "-Drevoman.benchmark.targetManifest=${plan.targetManifestPath}",

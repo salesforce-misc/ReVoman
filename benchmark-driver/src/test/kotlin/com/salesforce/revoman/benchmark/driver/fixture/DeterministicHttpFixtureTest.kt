@@ -26,6 +26,8 @@ import java.time.format.DateTimeFormatter
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
+import org.junit.jupiter.api.parallel.ResourceLock
+import org.junit.jupiter.api.parallel.Resources
 
 class DeterministicHttpFixtureTest {
     @TempDir lateinit var temporaryDirectory: Path
@@ -182,6 +184,35 @@ class DeterministicHttpFixtureTest {
                 assertThat(response.body()).isEqualTo("{\"ok\":true}".toByteArray(UTF_8))
             }
             assertThat(fixture.requestCount("response")).isEqualTo(10)
+        }
+    }
+
+    @Test
+    fun `fixture test JVM launches with JDK server TCP no delay`() {
+        assertThat(System.getProperty(JDK_HTTP_SERVER_NO_DELAY_PROPERTY)).ignoringCase().isEqualTo("true")
+    }
+
+    @Test
+    @ResourceLock(Resources.SYSTEM_PROPERTIES)
+    fun `fixture rejects disabled JDK server TCP no delay before binding`() {
+        val fixtureRoot = materializeFixture(temporaryDirectory.resolve("tcp-no-delay"))
+        val manifest = BenchmarkJson.read<WorkloadManifest>(fixtureRoot.resolve(MANIFEST))
+        val previous = System.setProperty(JDK_HTTP_SERVER_NO_DELAY_PROPERTY, "false")
+
+        try {
+            val failure = assertThrows<IllegalStateException> {
+                DeterministicHttpFixture.open(manifest).use {
+                    error("fixture accepted a disabled server transport option")
+                }
+            }
+
+            assertThat(failure).hasMessageThat().contains(JDK_HTTP_SERVER_NO_DELAY_PROPERTY)
+        } finally {
+            if (previous == null) {
+                System.clearProperty(JDK_HTTP_SERVER_NO_DELAY_PROPERTY)
+            } else {
+                System.setProperty(JDK_HTTP_SERVER_NO_DELAY_PROPERTY, previous)
+            }
         }
     }
 

@@ -9,6 +9,7 @@ package com.salesforce.revoman.benchmark.driver.cli
 
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
+import com.salesforce.revoman.benchmark.driver.fixture.JDK_HTTP_SERVER_NO_DELAY_JVM_ARGUMENT
 import com.salesforce.revoman.benchmark.driver.json.BenchmarkJson
 import com.salesforce.revoman.benchmark.driver.model.BenchmarkResultV1
 import com.salesforce.revoman.benchmark.driver.model.MetricId
@@ -19,6 +20,7 @@ import java.io.PrintStream
 import java.nio.file.Files
 import java.nio.file.Path
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty
 import org.junit.jupiter.api.io.TempDir
 
@@ -136,7 +138,7 @@ class BenchmarkDriverIntegrationTest {
                     values[values.indexOf("--metrics") + 1] = "retained"
                 }
 
-        assertWithMessage(lastError).that(execute(arguments)).isEqualTo(CliExitCode.SUCCESS)
+        assertExecutionSucceeds(arguments)
         assertThat(execute(arrayOf("verify", "--input", resultPath.toString())))
             .isEqualTo(CliExitCode.SUCCESS)
 
@@ -236,6 +238,25 @@ class BenchmarkDriverIntegrationTest {
                 "warm-allocation-block-0-role-candidate-fork-0-normalized.json",
                 "warm-allocation-block-0-role-candidate-fork-0-output.txt",
             )
+    }
+
+    @Test
+    fun `failed execution assertion reports current stderr`() {
+        lastError = "stale-sentinel"
+
+        val failure = assertThrows<AssertionError> {
+            assertExecutionSucceeds(arrayOf("definitely-unknown-command"))
+        }
+
+        assertThat(failure).hasMessageThat().contains("Unknown command 'definitely-unknown-command'")
+        assertThat(failure).hasMessageThat().doesNotContain("stale-sentinel")
+    }
+
+    @Test
+    fun `installed driver enables JDK server TCP no delay at launch`() {
+        val launcher = installationRoot().resolve("bin/benchmark-driver")
+
+        assertThat(Files.readString(launcher)).contains(JDK_HTTP_SERVER_NO_DELAY_JVM_ARGUMENT)
     }
 
     @Test
@@ -409,6 +430,11 @@ class BenchmarkDriverIntegrationTest {
             .isEqualTo(CliExitCode.INVALID_INPUT)
         assertThat(lastError).contains("requires at least 50 accepted blocks")
         assertThat(Files.exists(relocatedArtifacts)).isFalse()
+    }
+
+    private fun assertExecutionSucceeds(arguments: Array<String>) {
+        val exit = execute(arguments)
+        assertWithMessage(lastError).that(exit).isEqualTo(CliExitCode.SUCCESS)
     }
 
     private fun execute(arguments: Array<String>): Int {
