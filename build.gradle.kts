@@ -177,7 +177,8 @@ val apiCompatibilityCompilation = kotlin.target.compilations.named("apiCompatibi
 
 sourceSets.named("apiCompatibilityTest") {
   compileClasspath = externalConsumerClasspath
-  runtimeClasspath = output + compileClasspath
+  runtimeClasspath =
+    output + compileClasspath + configurations.named("apiCompatibilityTestRuntimeClasspath").get()
 }
 
 fun assertExternalConsumerClasspath(taskName: String, actualFiles: Set<File>) {
@@ -235,6 +236,9 @@ tasks.named<JavaCompile>("compileApiCompatibilityTestJava") {
 }
 
 tasks.named("apiCompatibilityTestClasses") { dependsOn(rootApiJar) }
+
+// This suite intentionally contains compile-contract fixtures rather than executable tests.
+tasks.named<Test>("apiCompatibilityTest") { failOnNoDiscoveredTests = false }
 
 tasks.named("check") { dependsOn("apiCompatibilityTestClasses") }
 
