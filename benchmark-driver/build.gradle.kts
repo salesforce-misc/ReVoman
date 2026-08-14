@@ -741,23 +741,31 @@ val benchmarkJmhClassesJar = tasks.register<Jar>("benchmarkJmhClassesJar") {
 val harnessSourceManifest =
   layout.buildDirectory.file("generated/benchmark-identity/benchmark-harness-source-v1.json")
 
-val harnessGitState = providers.provider {
-  fun git(vararg arguments: String): String {
-    val process =
-      ProcessBuilder(listOf("git", "-C", rootProject.projectDir.canonicalPath) + arguments)
-        .redirectErrorStream(true)
-        .start()
-    val output = process.inputStream.bufferedReader().use { it.readText() }
-    check(process.waitFor() == 0) { "Git identity command failed: $output" }
-    return output.trimEnd()
-  }
-  listOf(
-      git("rev-parse", "HEAD"),
-      git("rev-parse", "HEAD^{tree}"),
-      git("status", "--porcelain", "--untracked-files=normal"),
-    )
-    .joinToString("\u0000")
-}
+val repositoryRoot = rootProject.projectDir.canonicalPath
+val harnessGitCommit =
+  providers
+    .exec { commandLine("git", "-C", repositoryRoot, "rev-parse", "HEAD") }
+    .standardOutput
+    .asText
+    .map { it.trimEnd() }
+val harnessGitTree =
+  providers
+    .exec { commandLine("git", "-C", repositoryRoot, "rev-parse", "HEAD^{tree}") }
+    .standardOutput
+    .asText
+    .map { it.trimEnd() }
+val harnessGitStatus =
+  providers
+    .exec {
+      commandLine("git", "-C", repositoryRoot, "status", "--porcelain", "--untracked-files=normal")
+    }
+    .standardOutput
+    .asText
+    .map { it.trimEnd() }
+val harnessGitState =
+  harnessGitCommit
+    .zip(harnessGitTree) { commit, tree -> "$commit\u0000$tree" }
+    .zip(harnessGitStatus) { commitAndTree, status -> "$commitAndTree\u0000$status" }
 
 val generateBenchmarkHarnessSource = tasks.register<JavaExec>("generateBenchmarkHarnessSource") {
   group = "benchmark"

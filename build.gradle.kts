@@ -12,13 +12,17 @@
 import java.io.File
 import java.util.zip.Deflater
 import java.util.zip.GZIPOutputStream
+import org.gradle.api.DefaultTask
 import org.gradle.api.artifacts.component.ProjectComponentIdentifier
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.RegularFileProperty
+import org.gradle.api.provider.ListProperty
 import org.gradle.api.tasks.Classpath
+import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputFile
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
+import org.gradle.api.tasks.TaskAction
 import org.gradle.process.CommandLineArgumentProvider
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
@@ -36,6 +40,54 @@ abstract class RootApiJarArgumentProvider : CommandLineArgumentProvider {
       "-Drevoman.compat.expectedRootJar=$exactRootJar",
       "-Drevoman.compat.externalClasspath=$externalClasspath",
     )
+  }
+}
+
+abstract class ExternalConsumerClasspathCheck : DefaultTask() {
+  @get:Classpath abstract val expectedClasspath: ConfigurableFileCollection
+
+  @get:Classpath abstract val javaClasspath: ConfigurableFileCollection
+
+  @get:Classpath abstract val kotlinLibraries: ConfigurableFileCollection
+
+  @get:Classpath abstract val kotlinFriendPaths: ConfigurableFileCollection
+
+  @get:Classpath abstract val externalProjectArtifacts: ConfigurableFileCollection
+
+  @get:Input abstract val kotlinCompilerArguments: ListProperty<String>
+
+  @get:Input abstract val kotlinAssociatedCompilationNames: ListProperty<String>
+
+  @TaskAction
+  fun verify() {
+    check(externalProjectArtifacts.files.isEmpty()) {
+      "External runtime must not contain subproject artifacts: ${externalProjectArtifacts.files}"
+    }
+    verifyExactClasspath("compileApiCompatibilityTestJava", javaClasspath.files)
+    verifyExactClasspath("compileApiCompatibilityTestKotlin", kotlinLibraries.files)
+    check(kotlinCompilerArguments.get().none { it.startsWith("-Xfriend-paths") }) {
+      "compileApiCompatibilityTestKotlin must not receive a Kotlin friend path: " +
+        kotlinCompilerArguments.get()
+    }
+    val associatedCompilations = kotlinAssociatedCompilationNames.get()
+    val resolvedFriendPaths = kotlinFriendPaths.files
+    check(associatedCompilations.isEmpty() && resolvedFriendPaths.isEmpty()) {
+      "compileApiCompatibilityTestKotlin must not have associated Kotlin compilations or " +
+        "resolved friend paths: associated=$associatedCompilations, " +
+        "friendPaths=$resolvedFriendPaths"
+    }
+  }
+
+  private fun verifyExactClasspath(taskName: String, actualFiles: Set<File>) {
+    val expectedFiles = expectedClasspath.files.mapTo(linkedSetOf()) { it.canonicalFile }
+    val canonicalActual = actualFiles.mapTo(linkedSetOf()) { it.canonicalFile }
+    check(canonicalActual == expectedFiles) {
+      "$taskName must compile against exactly the root JAR plus external runtime artifacts. " +
+        "Expected=$expectedFiles, actual=$canonicalActual"
+    }
+    check(canonicalActual.none(File::isDirectory)) {
+      "$taskName contains a project output directory: ${canonicalActual.filter(File::isDirectory)}"
+    }
   }
 }
 
@@ -135,6 +187,12 @@ val rootApiJar = tasks.named<Jar>("jar")
 val rootApiJarFile = rootApiJar.flatMap { it.archiveFile }
 val rootExternalRuntime = configurations.named("runtimeClasspath")
 val externalConsumerClasspath = files(rootApiJarFile) + rootExternalRuntime.get()
+val externalRuntimeProjectArtifacts =
+  rootExternalRuntime
+    .get()
+    .incoming
+    .artifactView { componentFilter { it is ProjectComponentIdentifier } }
+    .files
 val apiCompatibilityContractFiles =
   files(
     "api/revoman-root.api",
@@ -175,64 +233,47 @@ testing {
 
 val apiCompatibilityCompilation = kotlin.target.compilations.named("apiCompatibilityTest")
 
+val externalConsumerClasspathCheck =
+  tasks.register<ExternalConsumerClasspathCheck>("externalConsumerClasspathCheck") {
+    group = "verification"
+    description = "Verifies that API fixtures compile as isolated external consumers"
+    dependsOn(rootApiJar)
+    expectedClasspath.from(externalConsumerClasspath)
+    externalProjectArtifacts.from(externalRuntimeProjectArtifacts)
+  }
+
 sourceSets.named("apiCompatibilityTest") {
   compileClasspath = externalConsumerClasspath
   runtimeClasspath =
     output + compileClasspath + configurations.named("apiCompatibilityTestRuntimeClasspath").get()
 }
 
-fun assertExternalConsumerClasspath(taskName: String, actualFiles: Set<File>) {
-  val projectArtifacts =
-    rootExternalRuntime.get().incoming.artifacts.artifacts.filter {
-      it.id.componentIdentifier is ProjectComponentIdentifier
-    }
-  check(projectArtifacts.isEmpty()) {
-    "$taskName external runtime must not contain subproject artifacts: " +
-      projectArtifacts.joinToString { "${it.id.componentIdentifier}=${it.file}" }
-  }
-  val expectedFiles = externalConsumerClasspath.files.mapTo(linkedSetOf()) { it.canonicalFile }
-  val canonicalActual = actualFiles.mapTo(linkedSetOf()) { it.canonicalFile }
-  check(canonicalActual == expectedFiles) {
-    "$taskName must compile against exactly the root JAR plus external runtime artifacts. " +
-      "Expected=$expectedFiles, actual=$canonicalActual"
-  }
-  check(canonicalActual.none(File::isDirectory)) {
-    "$taskName contains a project output directory: ${canonicalActual.filter(File::isDirectory)}"
-  }
-}
-
 tasks.named<KotlinCompile>("compileApiCompatibilityTestKotlin") {
-  dependsOn(rootApiJar)
-  doFirst {
-    assertExternalConsumerClasspath(name, libraries.files)
-    check(compilerOptions.freeCompilerArgs.get().none { it.startsWith("-Xfriend-paths") }) {
-      "$name must not receive a Kotlin friend path: ${compilerOptions.freeCompilerArgs.get()}"
-    }
-    val associatedCompilations = apiCompatibilityCompilation.get().allAssociatedCompilations
-    val resolvedFriendPaths = friendPaths.files
-    check(associatedCompilations.isEmpty() && resolvedFriendPaths.isEmpty()) {
-      "$name must not have associated Kotlin compilations or resolved friend paths: " +
-        "associated=${associatedCompilations.map { it.name }}, friendPaths=$resolvedFriendPaths"
-    }
-  }
+  dependsOn(rootApiJar, externalConsumerClasspathCheck)
 }
 
 // Kapt's root-project plugin appends its generated-classes directory after the Kotlin task is
 // created. Reset the compile libraries after every project has been evaluated so this external
 // fixture compilation cannot accidentally inherit that project output.
 gradle.projectsEvaluated {
-  tasks.named<KotlinCompile>("compileApiCompatibilityTestKotlin") {
-    libraries.setFrom(externalConsumerClasspath)
-  }
-  tasks.named<JavaCompile>("compileApiCompatibilityTestJava") {
-    classpath = externalConsumerClasspath
+  val kotlinCompile = tasks.named<KotlinCompile>("compileApiCompatibilityTestKotlin").get()
+  val javaCompile = tasks.named<JavaCompile>("compileApiCompatibilityTestJava").get()
+  kotlinCompile.libraries.setFrom(externalConsumerClasspath)
+  javaCompile.classpath = externalConsumerClasspath
+  externalConsumerClasspathCheck {
+    javaClasspath.from(javaCompile.classpath)
+    kotlinLibraries.from(kotlinCompile.libraries)
+    kotlinFriendPaths.from(kotlinCompile.friendPaths)
+    kotlinCompilerArguments.set(kotlinCompile.compilerOptions.freeCompilerArgs)
+    kotlinAssociatedCompilationNames.set(
+      apiCompatibilityCompilation.get().allAssociatedCompilations.map { it.name }
+    )
   }
 }
 
 tasks.named<JavaCompile>("compileApiCompatibilityTestJava") {
-  dependsOn(rootApiJar, "kaptApiCompatibilityTestKotlin")
+  dependsOn(rootApiJar, "kaptApiCompatibilityTestKotlin", externalConsumerClasspathCheck)
   classpath = externalConsumerClasspath
-  doFirst { assertExternalConsumerClasspath(name, classpath.files) }
 }
 
 tasks.named("apiCompatibilityTestClasses") { dependsOn(rootApiJar) }
