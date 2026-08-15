@@ -179,9 +179,10 @@ private constructor(
      * Captures a request before handing its independent replayable copy to the user handler.
      *
      * This boundary deliberately catches [Exception], rather than [Throwable], so every [Error]
-     * escapes the server task unchanged.
+     * escapes the server task unchanged. The nullable local also defends against Java handler
+     * implementations returning null despite the Kotlin non-null signature.
      */
-    @Suppress("TooGenericExceptionCaught")
+    @Suppress("TooGenericExceptionCaught", "RedundantNullableReturnType")
     private fun recordingHandler(handler: MockHttpHandler, ledger: RequestLedger): HttpHandler =
       { request ->
         val capture = captureRequestOrNull(request, ledger)
