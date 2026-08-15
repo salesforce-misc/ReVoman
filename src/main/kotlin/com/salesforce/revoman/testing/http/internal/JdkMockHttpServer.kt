@@ -17,6 +17,7 @@ import java.net.InetSocketAddress
 import java.nio.ByteBuffer
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import org.http4k.core.Body
 import org.http4k.core.HttpHandler
 import org.http4k.core.Request
@@ -67,21 +68,40 @@ internal class MockHttpServerStarter(
     } catch (failure: Throwable) {
       val startupFailure = IllegalStateException("Failed to start mock HTTP server", failure)
       server?.let { ownedServer ->
-        try {
-          ownedServer.stop(0)
-        } catch (cleanupFailure: Throwable) {
-          startupFailure.addSuppressed(cleanupFailure)
-        }
+        suppressCleanupFailure(startupFailure) { ownedServer.stop(0) }
       }
+      var interrupted = false
       executor?.let { ownedExecutor ->
+        suppressCleanupFailure(startupFailure) { ownedExecutor.shutdownNow() }
         try {
-          ownedExecutor.shutdownNow()
+          if (
+            !ownedExecutor.awaitTermination(
+              WORKER_TERMINATION_TIMEOUT_SECONDS,
+              TimeUnit.SECONDS,
+            )
+          ) {
+            startupFailure.addSuppressed(
+              IllegalStateException(
+                "Mock HTTP server startup cleanup did not stop within 5 seconds"
+              )
+            )
+          }
         } catch (cleanupFailure: Throwable) {
+          if (cleanupFailure is InterruptedException) interrupted = true
           startupFailure.addSuppressed(cleanupFailure)
         }
       }
+      if (interrupted) Thread.currentThread().interrupt()
       throw startupFailure
     }
+  }
+}
+
+private inline fun suppressCleanupFailure(failure: Throwable, cleanup: () -> Unit) {
+  try {
+    cleanup()
+  } catch (cleanupFailure: Throwable) {
+    failure.addSuppressed(cleanupFailure)
   }
 }
 

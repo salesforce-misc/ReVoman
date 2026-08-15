@@ -9,11 +9,14 @@ package com.salesforce.revoman.testing.http.internal
 
 import com.sun.net.httpserver.HttpServer
 import io.github.oshai.kotlinlogging.KotlinLogging
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
 private val logger = KotlinLogging.logger {}
+
+internal const val WORKER_TERMINATION_TIMEOUT_SECONDS = 5L
 
 /**
  * Owns the listener and workers for buffered, real-wire, test-only IPv4 loopback infrastructure.
@@ -27,7 +30,8 @@ internal class MockHttpServerLifecycle(
   private val executor: ExecutorService,
   private val ledger: RequestLedger,
 ) {
-  private val closed = AtomicBoolean()
+  private val closeStarted = AtomicBoolean()
+  private val closeFinished = CountDownLatch(1)
 
   /** Returns an unmodifiable point-in-time snapshot of complete captures in capture order. */
   fun requests() = ledger.requests()
@@ -39,34 +43,66 @@ internal class MockHttpServerLifecycle(
    * handler work must be thread-safe and interruption-cooperative.
    */
   fun close() {
-    if (!closed.compareAndSet(false, true)) return
-    val shutdownFailures = mutableListOf<Throwable>()
-    runCatching { server.stop(0) }.exceptionOrNull()?.let(shutdownFailures::add)
-    runCatching { executor.shutdown() }.exceptionOrNull()?.let(shutdownFailures::add)
-    val terminated =
-      runCatching {
-          executor.awaitTermination(WORKER_TERMINATION_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-        }
-        .onFailure(shutdownFailures::add)
-        .getOrDefault(false)
-    if (!terminated) {
-      runCatching { executor.shutdownNow() }.exceptionOrNull()?.let(shutdownFailures::add)
-      val terminatedAfterInterruption =
-        runCatching {
-            executor.awaitTermination(WORKER_TERMINATION_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-          }
-          .onFailure(shutdownFailures::add)
-          .getOrDefault(false)
-      if (!terminatedAfterInterruption) {
-        shutdownFailures +=
-          IllegalStateException("Mock HTTP handler work did not stop within 10 seconds")
-      }
+    if (!closeStarted.compareAndSet(false, true)) {
+      awaitFirstCloser()
+      return
     }
-    logger.debug { "Stopped mock HTTP server at $baseUrl" }
-    ledger.aggregateCloseFailure(shutdownFailures)?.let { throw it }
+    val shutdownFailures = mutableListOf<Throwable>()
+    var interrupted = false
+    try {
+      attempt(shutdownFailures) { server.stop(0) }
+      logger.debug { "Stopped mock HTTP server at $baseUrl" }
+      attempt(shutdownFailures) { executor.shutdown() }
+      val firstAwait = awaitTermination(shutdownFailures)
+      interrupted = firstAwait.interrupted
+      if (!firstAwait.terminated) {
+        attempt(shutdownFailures) { executor.shutdownNow() }
+        val secondAwait = awaitTermination(shutdownFailures)
+        interrupted = interrupted || secondAwait.interrupted
+        if (!secondAwait.terminated) {
+          shutdownFailures +=
+            IllegalStateException("Mock HTTP handler work did not stop within 10 seconds")
+        }
+      }
+      ledger.aggregateCloseFailure(shutdownFailures)?.let { throw it }
+    } finally {
+      closeFinished.countDown()
+      if (interrupted) Thread.currentThread().interrupt()
+    }
   }
 
-  private companion object {
-    const val WORKER_TERMINATION_TIMEOUT_SECONDS = 5L
+  private fun awaitTermination(failures: MutableList<Throwable>): AwaitResult =
+    try {
+      AwaitResult(
+        terminated =
+          executor.awaitTermination(WORKER_TERMINATION_TIMEOUT_SECONDS, TimeUnit.SECONDS),
+        interrupted = false,
+      )
+    } catch (failure: Throwable) {
+      failures += failure
+      AwaitResult(terminated = false, interrupted = failure is InterruptedException)
+    }
+
+  private fun awaitFirstCloser() {
+    var interrupted = false
+    while (true) {
+      try {
+        closeFinished.await()
+        break
+      } catch (_: InterruptedException) {
+        interrupted = true
+      }
+    }
+    if (interrupted) Thread.currentThread().interrupt()
+  }
+}
+
+private data class AwaitResult(val terminated: Boolean, val interrupted: Boolean)
+
+private inline fun attempt(failures: MutableList<Throwable>, action: () -> Unit) {
+  try {
+    action()
+  } catch (failure: Throwable) {
+    failures += failure
   }
 }
