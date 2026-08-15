@@ -11,8 +11,9 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.salesforce.revoman.ReVoman;
 import com.salesforce.revoman.input.config.Kick;
-import com.salesforce.revoman.integration.testsupport.DeterministicMockApiServer;
+import com.salesforce.revoman.integration.testsupport.DeterministicMockApi;
 import com.salesforce.revoman.output.Rundown;
+import com.salesforce.revoman.testing.http.MockHttpServer;
 import org.junit.jupiter.api.Test;
 
 class RestfulAPIDevV3Test {
@@ -22,13 +23,14 @@ class RestfulAPIDevV3Test {
 
   @Test
   void executeRestfulApiDevV3CollectionFromJava() {
-    try (final var api = DeterministicMockApiServer.start()) {
+    final var api = new DeterministicMockApi();
+    try (final var server = MockHttpServer.start(api)) {
       final Rundown rundown =
           ReVoman.revUp(
               Kick.configure()
                   .templatePath(PM_COLLECTION_PATH)
                   .environmentPath(PM_ENVIRONMENT_PATH)
-                  .dynamicEnvironment("baseUrl", api.getBaseUrl())
+                  .dynamicEnvironment("baseUrl", server.getBaseUrl())
                   .nodeModulesPath("js")
                   .off());
       assertThat(rundown.firstUnsuccessfulStepReport()).isNull();
@@ -38,12 +40,15 @@ class RestfulAPIDevV3Test {
                   .map(report -> report.requestInfo.get().httpMsg.getUri().toString())
                   .toList())
           .containsExactly(
-              api.getBaseUrl() + "/objects",
-              api.getBaseUrl() + "/objects",
-              api.getBaseUrl() + "/objects/local-object-1",
-              api.getBaseUrl() + "/objects/local-object-1")
+              server.getBaseUrl() + "/objects",
+              server.getBaseUrl() + "/objects",
+              server.getBaseUrl() + "/objects/local-object-1",
+              server.getBaseUrl() + "/objects/local-object-1")
           .inOrder();
-      assertThat(api.requestSignatures())
+      assertThat(
+              server.requests().stream()
+                  .map(request -> request.getMethod() + " " + request.getPath())
+                  .toList())
           .containsExactly(
               "GET /objects",
               "POST /objects",

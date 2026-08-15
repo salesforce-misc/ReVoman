@@ -10,10 +10,11 @@ package com.salesforce.revoman.integration.restfulapidev.v3
 import com.google.common.truth.Truth.assertThat
 import com.salesforce.revoman.ReVoman
 import com.salesforce.revoman.input.config.Kick
-import com.salesforce.revoman.integration.testsupport.DeterministicMockApiServer
+import com.salesforce.revoman.integration.testsupport.DeterministicMockApi
 import com.salesforce.revoman.output.Rundown
 import com.salesforce.revoman.output.ledger.LedgerEntry
 import com.salesforce.revoman.output.ledger.LedgerSnapshot
+import com.salesforce.revoman.testing.http.MockHttpServer
 import org.junit.jupiter.api.Test
 
 /**
@@ -40,9 +41,10 @@ class LedgerRoundTripKtTest {
    */
   @Test
   fun `cold run learns producer keys from a real API call`() {
-    DeterministicMockApiServer.start().use { api ->
-      val cold = revUp(api.baseUrl)
-      assertThat(api.requestSignatures())
+    val api = DeterministicMockApi()
+    MockHttpServer.start(api).use { server ->
+      val cold = revUp(server.baseUrl)
+      assertThat(server.requests().map { "${it.method} ${it.path}" })
         .containsExactly(
           "GET /objects",
           "POST /objects",
@@ -80,10 +82,11 @@ class LedgerRoundTripKtTest {
    */
   @Test
   fun `warm run with ledger skips the producer step yet injects the ledgered value`() {
-    DeterministicMockApiServer.start().use { api ->
+    val api = DeterministicMockApi()
+    MockHttpServer.start(api).use { server ->
       // 1. Cold run to obtain the producer step's local path + sourceHash (no hand-crafting).
-      val cold = revUp(api.baseUrl)
-      assertThat(api.requestSignatures())
+      val cold = revUp(server.baseUrl)
+      assertThat(server.requests().map { "${it.method} ${it.path}" })
         .containsExactly(
           "GET /objects",
           "POST /objects",
@@ -107,7 +110,7 @@ class LedgerRoundTripKtTest {
           steps = mapOf(stepPath to LedgerEntry(setOf("objId", "productName"), hash)),
           values = mapOf("objId" to ledgeredId, "productName" to "Ledgered Widget"),
         )
-      val warm = revUp(api.baseUrl, snap)
+      val warm = revUp(server.baseUrl, snap)
 
       // The producer step was SKIPPED: recorded (not absent) but with NO HTTP req/resp info.
       val skipped = warm.reportForStepName(stepPath)!!
@@ -127,7 +130,7 @@ class LedgerRoundTripKtTest {
       assertThat(warm.learnedLedger[stepPath])
         .isEqualTo(LedgerEntry(setOf("objId", "productName"), hash))
 
-      assertThat(api.requestSignatures())
+      assertThat(server.requests().map { "${it.method} ${it.path}" })
         .containsExactly(
           "GET /objects",
           "POST /objects",
