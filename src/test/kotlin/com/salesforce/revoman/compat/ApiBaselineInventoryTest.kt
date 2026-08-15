@@ -131,12 +131,14 @@ class ApiBaselineInventoryTest {
     val frozenRows = frozen.asSequence().map(JvmSurfaceEntry::render).toSet()
     val rawRemovals = frozenRows - activeRows
     val rawAdditions = activeRows - frozenRows
+    val cs2RawAdditions = rawAdditions.intersect(CS2_TASK7_RAW_JVM_ADDITIONS)
     assertThat(rawRemovals).hasSize(CS2A_RAW_JVM_REMOVAL_COUNT)
-    assertThat(rawAdditions).hasSize(CS2A_RAW_JVM_ADDITION_COUNT)
+    assertThat(cs2RawAdditions).hasSize(CS2A_RAW_JVM_ADDITION_COUNT)
     assertThat(CS2_TASK7_RAW_JVM_REMOVALS).hasSize(CS2A_RAW_JVM_REMOVAL_COUNT)
     assertThat(CS2_TASK7_RAW_JVM_ADDITIONS).hasSize(CS2A_RAW_JVM_ADDITION_COUNT)
     assertThat(rawRemovals).containsExactlyElementsIn(CS2_TASK7_RAW_JVM_REMOVALS)
-    assertThat(rawAdditions).containsExactlyElementsIn(CS2_TASK7_RAW_JVM_ADDITIONS)
+    assertThat(cs2RawAdditions).containsExactlyElementsIn(CS2_TASK7_RAW_JVM_ADDITIONS)
+    assertThat(rawAdditions).containsExactlyElementsIn(APPROVED_RAW_JVM_ADDITIONS)
   }
 
   @Test
@@ -257,10 +259,12 @@ class ApiBaselineInventoryTest {
     val baselineJvmRows = baselineJvm.asSequence().map(JvmSurfaceEntry::render).toSet()
     val rawRemovals = baselineJvmRows - activeJvmRows
     val rawAdditions = activeJvmRows - baselineJvmRows
+    val cs2RawAdditions = rawAdditions.intersect(CS2_TASK7_RAW_JVM_ADDITIONS)
     assertThat(rawRemovals).hasSize(CS2A_RAW_JVM_REMOVAL_COUNT)
-    assertThat(rawAdditions).hasSize(CS2A_RAW_JVM_ADDITION_COUNT)
+    assertThat(cs2RawAdditions).hasSize(CS2A_RAW_JVM_ADDITION_COUNT)
     assertThat(rawRemovals).containsExactlyElementsIn(CS2_TASK7_RAW_JVM_REMOVALS)
-    assertThat(rawAdditions).containsExactlyElementsIn(CS2_TASK7_RAW_JVM_ADDITIONS)
+    assertThat(cs2RawAdditions).containsExactlyElementsIn(CS2_TASK7_RAW_JVM_ADDITIONS)
+    assertThat(rawAdditions).containsExactlyElementsIn(APPROVED_RAW_JVM_ADDITIONS)
   }
 
   private fun assertExactCs2aAbiProjections(
@@ -283,7 +287,13 @@ class ApiBaselineInventoryTest {
     assertThat(cs2aKotlinProjection).hasSize(CS2A_KOTLIN_REMOVAL_COUNT)
     assertThat(baselineKotlinDeclarations - activeKotlinDeclarations)
       .containsExactlyElementsIn(cs2aKotlinProjection)
-    assertThat(activeKotlinDeclarations - baselineKotlinDeclarations).isEmpty()
+    val activeKotlinAdditions = activeKotlinDeclarations - baselineKotlinDeclarations
+    val featureKotlinAdditions =
+      activeKotlinAdditions.filterTo(linkedSetOf()) {
+        it.substringBefore('#').startsWith(MOCK_HTTP_SERVER_PACKAGE)
+      }
+    assertThat(featureKotlinAdditions).isNotEmpty()
+    assertThat(activeKotlinAdditions - featureKotlinAdditions).isEmpty()
 
     val baselineJvmByKey = baselineJvm.associateBy { it.migrationKey() }
     assertThat(baselineJvmByKey).hasSize(baselineJvm.size)
@@ -338,6 +348,17 @@ class ApiBaselineInventoryTest {
           .filter(JvmSurfaceEntry::sourceCallable)
           .map { it.migrationKey() }
           .toSet()
+    val featureSourceCallableAdditions =
+      supportedJavaAdditions.filterTo(linkedSetOf()) {
+        it.substringBefore('|').startsWith(MOCK_HTTP_SERVER_PACKAGE)
+      }
+    val featureRawOwners =
+      MOCK_HTTP_SERVER_RAW_JVM_ADDITIONS.asSequence()
+        .map(JvmSurfaceEntry::parse)
+        .map(JvmSurfaceEntry::owner)
+        .toSet()
+    assertThat(featureRawOwners).isNotEmpty()
+    assertThat(featureRawOwners.all { it.startsWith(MOCK_HTTP_SERVER_PACKAGE) }).isTrue()
     val approvedJavaAdditionEntries =
       CS2_TASK7_RAW_JVM_ADDITIONS.asSequence()
         .map(JvmSurfaceEntry::parse)
@@ -347,7 +368,8 @@ class ApiBaselineInventoryTest {
     assertThat(approvedJavaAdditionEntries.map(JvmSurfaceEntry::kind).toSet())
       .containsExactly(JvmSurfaceKind.CLASS)
     val approvedJavaAdditions = approvedJavaAdditionEntries.map { it.migrationKey() }.toSet()
-    assertThat(supportedJavaAdditions).containsExactlyElementsIn(approvedJavaAdditions)
+    assertThat(supportedJavaAdditions - featureSourceCallableAdditions)
+      .containsExactlyElementsIn(approvedJavaAdditions)
 
     val activeRawKeys = activeJvm.asSequence().map { it.migrationKey() }.toSet()
     val sourceCallableRemovalOwners =
@@ -565,6 +587,7 @@ class ApiBaselineInventoryTest {
     const val CS2A_JAVA_SOURCE_CALLABLE_ADDITION_COUNT = 28
     const val CS2A_RAW_JVM_ADDITION_COUNT = 549
     const val CS2A_RAW_JVM_REMOVAL_COUNT = 447
+    const val MOCK_HTTP_SERVER_PACKAGE = "com/salesforce/revoman/testing/http/"
     const val NORMATIVE_SCHEMA_HEADER =
       "| Document | Instance JSON pointer | Version-2 schema | Presence |"
     const val NORMATIVE_SCHEMA_CROSSWALK_HEADER =

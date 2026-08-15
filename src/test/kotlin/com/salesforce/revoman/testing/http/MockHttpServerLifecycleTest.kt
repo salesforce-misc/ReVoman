@@ -8,8 +8,6 @@
 package com.salesforce.revoman.testing.http
 
 import com.google.common.truth.Truth.assertThat
-import com.salesforce.revoman.testing.http.internal.MockHttpServerLifecycle
-import com.salesforce.revoman.testing.http.internal.RequestLedger
 import io.mockk.Runs
 import io.mockk.every
 import io.mockk.just
@@ -42,12 +40,11 @@ class MockHttpServerLifecycleTest {
 
   @Test
   fun `concurrent loser waits for failing winner and returns without its aggregate`() {
-    val fixture = LifecycleFixture()
+    val handlerFailure = IOException("handler failed")
+    val fixture = LifecycleFixture(handlerFailures = listOf(0L to handlerFailure))
     val winnerEnteredAwait = CountDownLatch(1)
     val releaseWinner = CountDownLatch(1)
     val loserEntered = CountDownLatch(1)
-    val handlerFailure = IOException("handler failed")
-    fixture.ledger.recordHandlerFailure(0, handlerFailure)
     every { fixture.executor.awaitTermination(5, TimeUnit.SECONDS) } answers
       {
         winnerEnteredAwait.countDown()
@@ -232,12 +229,10 @@ class MockHttpServerLifecycleTest {
 
   @Test
   fun `handler failures remain primary and shutdown follows later handler failures`() {
-    val fixture = LifecycleFixture()
     val firstHandler = IOException("first handler")
     val laterHandler = IllegalArgumentException("later handler")
     val shutdownFailure = IllegalStateException("stop failed")
-    fixture.ledger.recordHandlerFailure(2, laterHandler)
-    fixture.ledger.recordHandlerFailure(1, firstHandler)
+    val fixture = LifecycleFixture(handlerFailures = listOf(2L to laterHandler, 1L to firstHandler))
     fixture.server.stopFailure = shutdownFailure
 
     val failure = assertThrows<IllegalStateException> { fixture.lifecycle.close() }
@@ -247,11 +242,16 @@ class MockHttpServerLifecycleTest {
     assertThat(failure.suppressed.asList()).containsExactly(laterHandler, shutdownFailure).inOrder()
   }
 
-  private class LifecycleFixture {
+  private class LifecycleFixture(handlerFailures: List<Pair<Long, Exception>> = emptyList()) {
     val server = ControllableHttpServer(java.net.InetSocketAddress("127.0.0.1", 43210))
     val executor = mockk<ExecutorService>(relaxed = true)
-    val ledger = RequestLedger()
-    val lifecycle = MockHttpServerLifecycle("http://127.0.0.1:43210", server, executor, ledger)
+    val lifecycle =
+      MockHttpServer.lifecycleForTest(
+        "http://127.0.0.1:43210",
+        server,
+        executor,
+        handlerFailures,
+      )
 
     init {
       every { executor.shutdown() } just Runs

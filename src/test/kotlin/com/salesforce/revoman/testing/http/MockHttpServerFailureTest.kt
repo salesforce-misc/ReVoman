@@ -9,8 +9,6 @@ package com.salesforce.revoman.testing.http
 
 import com.google.common.truth.Truth.assertThat
 import com.salesforce.revoman.internal.exe.prepareHttpClient
-import com.salesforce.revoman.testing.http.internal.RequestLedger
-import com.salesforce.revoman.testing.http.internal.recordingHandler
 import io.mockk.every
 import io.mockk.mockk
 import java.io.IOException
@@ -67,58 +65,52 @@ class MockHttpServerFailureTest {
   fun `capture failure becomes empty 500 without recording a request or handler failure`() {
     val captureFailure = IOException("capture failed")
     val request = mockk<Request>()
-    val ledger = RequestLedger()
+    val (recordingHandler, server) = MockHttpServer.recordingHandlerForTest { Response(OK) }
     every { request.method } returns GET
     every { request.uri } returns Uri.of("/capture")
     every { request.body } throws captureFailure
 
-    val response = recordingHandler({ Response(OK) }, ledger)(request)
+    val response = recordingHandler(request)
 
     assertThat(response.status).isEqualTo(INTERNAL_SERVER_ERROR)
     assertThat(response.bodyString()).isEmpty()
-    assertThat(ledger.requests()).isEmpty()
-    assertThat(ledger.handlerFailures()).isEmpty()
+    assertThat(server.requests()).isEmpty()
+    server.close()
   }
 
   @Test
   fun `replay failure retains complete request but does not invoke handler or record handler failure`() {
     val replayFailure = IOException("replay failed")
     val request = mockk<Request>()
-    val ledger = RequestLedger()
     val handlerCalled = AtomicBoolean()
+    val (recordingHandler, server) =
+      MockHttpServer.recordingHandlerForTest {
+        handlerCalled.set(true)
+        Response(OK)
+      }
     every { request.method } returns GET
     every { request.uri } returns Uri.of("/replay")
     every { request.headers } returns emptyList()
     every { request.body } returns Body(ByteBuffer.wrap(byteArrayOf(1, 2, 3)))
     every { request.body(any<Body>()) } throws replayFailure
 
-    val response =
-      recordingHandler(
-        {
-          handlerCalled.set(true)
-          Response(OK)
-        },
-        ledger,
-      )(request)
+    val response = recordingHandler(request)
 
     assertThat(response.status).isEqualTo(INTERNAL_SERVER_ERROR)
     assertThat(response.bodyString()).isEmpty()
-    assertThat(ledger.requests().map { it.path }).containsExactly("/replay")
+    assertThat(server.requests().map { it.path }).containsExactly("/replay")
     assertThat(handlerCalled.get()).isFalse()
-    assertThat(ledger.handlerFailures()).isEmpty()
+    server.close()
   }
 
   @Test
   fun `handler errors escape without entering the failure ledger`() {
     val error = AssertionError("handler assertion")
-    val ledger = RequestLedger()
+    val (recordingHandler, server) = MockHttpServer.recordingHandlerForTest { throw error }
 
-    val thrown =
-      assertThrows<AssertionError> {
-        recordingHandler({ throw error }, ledger)(Request(GET, "/error"))
-      }
+    val thrown = assertThrows<AssertionError> { recordingHandler(Request(GET, "/error")) }
 
     assertThat(thrown).isSameInstanceAs(error)
-    assertThat(ledger.handlerFailures()).isEmpty()
+    server.close()
   }
 }
