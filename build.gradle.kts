@@ -64,6 +64,43 @@ dependencies {
   testImplementation(libs.mockk)
 }
 
+// Kotlin KAPT currently emits an illegal Java stub for a Kotlin @JvmRecord (KT-44706): javac
+// rejects the generated `class ... extends java.lang.Record` before annotation processing starts.
+// Normalize only this feature's exact generated stub after KAPT creates it; Kotlin compilation
+// still consumes the original source and emits the real JVM record. Keep this narrowly scoped and
+// fail closed if the expected generated shape changes so a future compiler fix can remove it.
+tasks.configureEach {
+  if (name == "kaptGenerateStubsKotlin") {
+    inputs.property("recordedNameValueKaptStubWorkaround", "v1")
+    doLast {
+      val stubsRoots =
+        outputs.files.files.filter { it.name == "main" && it.parentFile?.name == "stubs" }
+      check(stubsRoots.size == 1) {
+        "Expected exactly one KAPT stubs root, found: ${stubsRoots.map(File::getAbsolutePath)}"
+      }
+      val stub =
+        stubsRoots.single().resolve("com/salesforce/revoman/testing/http/RecordedNameValue.java")
+      check(stub.isFile) { "Expected KAPT stub is missing: ${stub.absolutePath}" }
+      val illegalDeclaration = "public final class RecordedNameValue extends java.lang.Record {"
+      val legalDeclaration = "public final class RecordedNameValue {"
+      val source = stub.readText(Charsets.UTF_8)
+      val matches = source.windowed(illegalDeclaration.length).count { it == illegalDeclaration }
+      check(matches <= 1) {
+        "Unexpected duplicate RecordedNameValue KAPT stub declarations: ${stub.absolutePath}"
+      }
+      if (matches == 1) {
+        stub.writeText(source.replace(illegalDeclaration, legalDeclaration), Charsets.UTF_8)
+      } else {
+        check(
+          source.contains("public record RecordedNameValue(") || source.contains(legalDeclaration)
+        ) {
+          "Unexpected RecordedNameValue KAPT stub shape: ${stub.absolutePath}"
+        }
+      }
+    }
+  }
+}
+
 // --- Bundle kotlinx-collections-immutable INTO the jar (Core consumption fix) --------------------
 // Core consumes revoman via a bazel `java_import` that provides NO transitive deps, and
 // `kotlinx-collections-immutable` is NOT in Core's maven graph. Since PersistentBackedMutableMap
