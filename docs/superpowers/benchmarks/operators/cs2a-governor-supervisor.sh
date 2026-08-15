@@ -522,12 +522,24 @@ recover_stale_state() {
     capture_restored_governors "$stale/original-governors.tsv" \
       "$stale/restored-governors.tsv" || return 1
     cmp -s "$stale/original-governors.tsv" "$stale/restored-governors.tsv" || return 1
+  else
+    test ! -e "$stale/original-governors.tsv" \
+      && test ! -L "$stale/original-governors.tsv" \
+      && test ! -e "$stale/restored-governors.tsv" \
+      && test ! -L "$stale/restored-governors.tsv" || return 1
+    : >"$stale/original-governors.tsv" || return 1
+    : >"$stale/restored-governors.tsv" || return 1
   fi
-  printf '%s\n' true >"$stale/stale-recovered.txt"
-  printf '%s\n' false >"$stale/restoration-failed.txt"
-  date -Iseconds >"$stale/finished-at.txt"
-  chmod 0400 "$stale/stale-recovered.txt" "$stale/restoration-failed.txt" \
-    "$stale/restored-governors.tsv" "$stale/finished-at.txt"
+  printf '%s\n' true >"$stale/stale-recovered.txt" || return 1
+  printf '%s\n' 70 >"$stale/child-or-supervisor-status.txt" || return 1
+  printf '%s\n' false >"$stale/restoration-failed.txt" || return 1
+  printf '%s\n' false >"$stale/containment-failed.txt" || return 1
+  date -Iseconds >"$stale/finished-at.txt" || return 1
+  chmod 0400 "$stale/stale-recovered.txt" \
+    "$stale/child-or-supervisor-status.txt" \
+    "$stale/restoration-failed.txt" "$stale/containment-failed.txt" \
+    "$stale/original-governors.tsv" "$stale/restored-governors.tsv" \
+    "$stale/finished-at.txt" || return 1
 }
 
 recover_stale_states() {

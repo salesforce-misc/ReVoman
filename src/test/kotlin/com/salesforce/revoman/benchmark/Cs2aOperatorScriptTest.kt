@@ -64,6 +64,312 @@ class Cs2aOperatorScriptTest {
   }
 
   @Test
+  fun `remote install and verification reject changed controlled UID policy files`() {
+    val source = Files.readString(operator)
+    ControlledUidFixtureState.entries.forEach { state ->
+      val install = runOperatorControlledUidPolicy(source, "install", state)
+      val verify = runOperatorControlledUidPolicy(source, "verify", state)
+      if (state == ControlledUidFixtureState.EXACT) {
+        assertWithMessage("install ${state.name}\n${install.output}")
+          .that(install.exitCode)
+          .isEqualTo(0)
+        assertWithMessage("verify ${state.name}\n${verify.output}")
+          .that(verify.exitCode)
+          .isEqualTo(0)
+      } else {
+        assertWithMessage("install ${state.name}\n${install.output}")
+          .that(install.exitCode)
+          .isNotEqualTo(0)
+        assertWithMessage("verify ${state.name}\n${verify.output}")
+          .that(verify.exitCode)
+          .isNotEqualTo(0)
+      }
+    }
+
+    RemoteBundleMutation.entries
+      .filter { it.verifyBoundary }
+      .forEach { mutation ->
+        val result =
+          runOperatorControlledUidPolicy(
+            source,
+            "verify",
+            ControlledUidFixtureState.EXACT,
+            mutation,
+          )
+        assertWithMessage("verify ${mutation.name}\n${result.output}")
+          .that(result.exitCode)
+          .isNotEqualTo(0)
+      }
+
+    listOf(
+        RemoteBundleMutation.LOCAL_OPERATOR_HASH_STATUS,
+        RemoteBundleMutation.LOCAL_VALIDATOR_HASH_STATUS,
+      )
+      .forEach { mutation ->
+        val result =
+          runOperatorControlledUidPolicy(
+            source,
+            "install",
+            ControlledUidFixtureState.EXACT,
+            mutation,
+          )
+        assertWithMessage("install ${mutation.name}\n${result.output}")
+          .that(result.exitCode)
+          .isNotEqualTo(0)
+      }
+
+    val installPropagationMutant =
+      neutralizeFailurePropagation(
+        source,
+        "dzdo chmod 0400 /opt/revoman-benchmark/cs2a-operator-handoff.tsv\" || return 1",
+      )
+    assertMutationSurvives(
+      runOperatorControlledUidPolicy(
+        installPropagationMutant,
+        "install",
+        ControlledUidFixtureState.WRONG_BYTES,
+      ),
+      "install conditional failure propagation",
+    )
+    val implementationPropagationMutant =
+      neutralizeFailurePropagation(source, "test \"\$installed\" = \"\$CS2A_IMPLEMENTATION_SHA\"")
+    assertMutationSurvives(
+      runOperatorControlledUidPolicy(
+        implementationPropagationMutant,
+        "verify",
+        ControlledUidFixtureState.EXACT,
+        RemoteBundleMutation.IMPLEMENTATION,
+      ),
+      "implementation verification propagation",
+    )
+    val implementationTransportPropagationMutant =
+      neutralizeFailurePropagation(source, "installed=\$(ssh -tt", linesAfter = 1)
+    assertMutationSurvives(
+      runOperatorControlledUidPolicy(
+        implementationTransportPropagationMutant,
+        "verify",
+        ControlledUidFixtureState.EXACT,
+        RemoteBundleMutation.IMPLEMENTATION_SSH_STATUS,
+      ),
+      "implementation SSH status propagation",
+    )
+    val metadataPropagationMutant =
+      neutralizeFailurePropagation(
+        source,
+        "dzdo stat -c '%u:%g:%a'",
+        linesAfter = 1,
+        occurrence = 1,
+        expectedMatches = 2,
+      )
+    assertMutationSurvives(
+      runOperatorControlledUidPolicy(
+        metadataPropagationMutant,
+        "verify",
+        ControlledUidFixtureState.WRONG_OWNER,
+      ),
+      "UID metadata propagation",
+    )
+    val metadataTransportPropagationMutant =
+      neutralizeFailurePropagation(source, "controlled_uid_metadata=\$(ssh -tt", linesAfter = 3)
+    assertMutationSurvives(
+      runOperatorControlledUidPolicy(
+        metadataTransportPropagationMutant,
+        "verify",
+        ControlledUidFixtureState.EXACT,
+        RemoteBundleMutation.METADATA_SSH_STATUS,
+      ),
+      "UID metadata SSH status propagation",
+    )
+    val digestPropagationMutant =
+      neutralizeFailurePropagation(source, "test \"\$controlled_uid_policy_sha\"")
+    assertMutationSurvives(
+      runOperatorControlledUidPolicy(
+        digestPropagationMutant,
+        "verify",
+        ControlledUidFixtureState.WRONG_BYTES,
+      ),
+      "UID digest propagation",
+    )
+    val runnerPropagationMutant =
+      neutralizeFailurePropagation(source, "= \"\$runner_sha\" || return 1")
+    assertMutationSurvives(
+      runOperatorControlledUidPolicy(
+        runnerPropagationMutant,
+        "verify",
+        ControlledUidFixtureState.EXACT,
+        RemoteBundleMutation.RUNNER,
+      ),
+      "runner verification propagation",
+    )
+    val runnerTransportPropagationMutant =
+      neutralizeFailurePropagation(source, "remote_runner_sha=\$(ssh -tt", linesAfter = 2)
+    assertMutationSurvives(
+      runOperatorControlledUidPolicy(
+        runnerTransportPropagationMutant,
+        "verify",
+        ControlledUidFixtureState.EXACT,
+        RemoteBundleMutation.RUNNER_SSH_STATUS,
+      ),
+      "runner SSH status propagation",
+    )
+    val supervisorTransportPropagationMutant =
+      neutralizeFailurePropagation(source, "remote_supervisor_sha=\$(ssh -tt", linesAfter = 2)
+    assertMutationSurvives(
+      runOperatorControlledUidPolicy(
+        supervisorTransportPropagationMutant,
+        "verify",
+        ControlledUidFixtureState.EXACT,
+        RemoteBundleMutation.SUPERVISOR_SSH_STATUS,
+      ),
+      "supervisor SSH status propagation",
+    )
+    val operatorHashTransportPropagationMutant =
+      neutralizeFailurePropagation(source, "installed_operator_sha=\$(sha256_of")
+    assertMutationSurvives(
+      runOperatorControlledUidPolicy(
+        operatorHashTransportPropagationMutant,
+        "install",
+        ControlledUidFixtureState.EXACT,
+        RemoteBundleMutation.LOCAL_OPERATOR_HASH_STATUS,
+      ),
+      "installed operator hash status propagation",
+    )
+    val validatorHashTransportPropagationMutant =
+      neutralizeFailurePropagation(source, "installed_validator_sha=\$(sha256_of")
+    assertMutationSurvives(
+      runOperatorControlledUidPolicy(
+        validatorHashTransportPropagationMutant,
+        "install",
+        ControlledUidFixtureState.EXACT,
+        RemoteBundleMutation.LOCAL_VALIDATOR_HASH_STATUS,
+      ),
+      "installed validator hash status propagation",
+    )
+
+    val installSymlinkMutant =
+      neutralizeSourceRange(
+        source,
+        "dzdo test ! -L '\$CONTROLLED_UID_FILE'",
+        0,
+        0,
+        expectedMatches = 2,
+      )
+    assertMutationSurvives(
+      runOperatorControlledUidPolicy(
+        installSymlinkMutant,
+        "install",
+        ControlledUidFixtureState.SYMLINK,
+      ),
+      "install symlink check",
+    )
+    val installMetadataMutant = neutralizeSourceRange(source, "dzdo test \\\"\\\$(stat -c", 0, 0)
+    listOf(ControlledUidFixtureState.WRONG_OWNER, ControlledUidFixtureState.WRONG_MODE).forEach {
+      state ->
+      assertMutationSurvives(
+        runOperatorControlledUidPolicy(installMetadataMutant, "install", state),
+        "install metadata check ${state.name}",
+      )
+    }
+    val installDigestMutant =
+      neutralizeSourceRange(source, "dzdo test \\\"\\\$(dzdo sha256sum", 0, 1)
+    assertMutationSurvives(
+      runOperatorControlledUidPolicy(
+        installDigestMutant,
+        "install",
+        ControlledUidFixtureState.WRONG_BYTES,
+      ),
+      "install digest check",
+    )
+    val verifyMetadataMutant =
+      neutralizeSourceRange(
+        source,
+        "dzdo stat -c '%u:%g:%a'",
+        3,
+        1,
+        replacement = "  test true",
+        occurrence = 1,
+        expectedMatches = 2,
+      )
+    listOf(
+        ControlledUidFixtureState.SYMLINK,
+        ControlledUidFixtureState.WRONG_OWNER,
+        ControlledUidFixtureState.WRONG_MODE,
+      )
+      .forEach { state ->
+        assertMutationSurvives(
+          runOperatorControlledUidPolicy(verifyMetadataMutant, "verify", state),
+          "verify metadata check ${state.name}",
+        )
+      }
+    val verifyDigestMutant =
+      neutralizeSourceRange(
+        source,
+        "test \"\$controlled_uid_policy_sha\" = \"\$CONTROLLED_UID_POLICY_SHA256\"",
+        0,
+        0,
+        replacement = "  test true",
+      )
+    assertMutationSurvives(
+      runOperatorControlledUidPolicy(
+        verifyDigestMutant,
+        "verify",
+        ControlledUidFixtureState.WRONG_BYTES,
+      ),
+      "verify digest check",
+    )
+  }
+
+  @Test
+  fun `supervisor handoff rejects changed controlled UID policy files`() {
+    val source = Files.readString(supervisor)
+    ControlledUidFixtureState.entries.forEach { state ->
+      val result = runSupervisorControlledUidPolicy(source, state)
+      if (state == ControlledUidFixtureState.EXACT) {
+        assertWithMessage("supervisor ${state.name}\n${result.output}")
+          .that(result.exitCode)
+          .isEqualTo(0)
+      } else {
+        assertWithMessage("supervisor ${state.name}\n${result.output}")
+          .that(result.exitCode)
+          .isNotEqualTo(0)
+      }
+    }
+
+    val metadataMutant =
+      neutralizeSourceRange(
+        source,
+        "require_root_file \"\$CONTROLLED_UID_FILE\" 444",
+        0,
+        0,
+        replacement = "  :",
+        expectedMatches = 2,
+      )
+    listOf(
+        ControlledUidFixtureState.SYMLINK,
+        ControlledUidFixtureState.WRONG_OWNER,
+        ControlledUidFixtureState.WRONG_MODE,
+      )
+      .forEach { state ->
+        assertMutationSurvives(
+          runSupervisorControlledUidPolicy(metadataMutant, state),
+          "supervisor metadata check ${state.name}",
+        )
+      }
+    val digestMutant =
+      neutralizeSourceRange(
+        source,
+        "test \"\$controlled_uid_policy_sha\" = \"\$CONTROLLED_UID_POLICY_SHA256\"",
+        0,
+        1,
+        replacement = "  :",
+      )
+    assertMutationSurvives(
+      runSupervisorControlledUidPolicy(digestMutant, ControlledUidFixtureState.WRONG_BYTES),
+      "supervisor digest check",
+    )
+  }
+
+  @Test
   fun `remote artifact inventories validate exact safe path sets without local artifact bytes`() {
     val archive = temporaryDirectory.resolve("archive")
     val meta = Files.createDirectories(archive.resolve("meta"))
@@ -2874,6 +3180,337 @@ class Cs2aOperatorScriptTest {
     )
   }
 
+  private fun neutralizeSourceRange(
+    source: String,
+    needle: String,
+    linesBefore: Int,
+    linesAfter: Int,
+    replacement: String = "     dzdo test true && \\",
+    occurrence: Int = 0,
+    expectedMatches: Int = 1,
+  ): String {
+    val lines = source.split("\n").toMutableList()
+    val matches = lines.indices.filter { needle in lines[it] }
+    check(matches.size == expectedMatches) {
+      "expected $expectedMatches source lines containing '$needle', found $matches"
+    }
+    check(occurrence in matches.indices)
+    val start = matches[occurrence] - linesBefore
+    val end = matches[occurrence] + linesAfter
+    check(start >= 0 && end < lines.size)
+    repeat(end - start + 1) { lines.removeAt(start) }
+    lines.add(start, replacement)
+    return lines.joinToString("\n").also { check(it != source) }
+  }
+
+  private fun assertMutationSurvives(result: ProcessResult, label: String) {
+    assertWithMessage("$label mutant did not reach the neutralized check\n${result.output}")
+      .that(result.exitCode)
+      .isEqualTo(0)
+  }
+
+  private fun neutralizeFailurePropagation(
+    source: String,
+    anchor: String,
+    linesAfter: Int = 0,
+    occurrence: Int = 0,
+    expectedMatches: Int = 1,
+  ): String {
+    val lines = source.split("\n").toMutableList()
+    val matches = lines.indices.filter { anchor in lines[it] }
+    check(matches.size == expectedMatches) {
+      "expected $expectedMatches source lines containing '$anchor', found $matches"
+    }
+    check(occurrence in matches.indices)
+    val target = matches[occurrence] + linesAfter
+    check(target in lines.indices && "|| return 1" in lines[target]) {
+      "expected explicit failure propagation after '$anchor': ${lines.getOrNull(target)}"
+    }
+    lines[target] = lines[target].replace("|| return 1", "|| :")
+    return lines.joinToString("\n").also { check(it != source) }
+  }
+
+  private fun runOperatorControlledUidPolicy(
+    source: String,
+    action: String,
+    state: ControlledUidFixtureState,
+    bundleMutation: RemoteBundleMutation = RemoteBundleMutation.NONE,
+  ): ProcessResult {
+    val workspace =
+      Files.createTempDirectory(
+          temporaryDirectory,
+          "operator-controlled-uid-$action-${state.name.lowercase()}-",
+        )
+        .toRealPath()
+    val bundle = Files.createDirectories(workspace.resolve("docs/superpowers/benchmarks/operators"))
+    listOf(controlledRunner, supervisor, manifestValidator).forEach { asset ->
+      Files.copy(asset, bundle.resolve(asset.fileName), StandardCopyOption.REPLACE_EXISTING)
+    }
+    val remoteRoot = Files.createDirectories(workspace.resolve("remote"))
+    val remoteRuns = Files.createDirectories(remoteRoot.resolve("runs"))
+    val transformed = source.replace("/opt/revoman-benchmark", remoteRoot.toString())
+    val testOperator = bundle.resolve(operator.fileName)
+    val operatorAlias = workspace.resolve("operator-source-alias.sh")
+    write(testOperator, transformed)
+    write(operatorAlias, transformed)
+    val implementationFile = workspace.resolve("build/cs2a-implementation-sha")
+    write(implementationFile, "$IMPLEMENTATION_SHA\n")
+    Files.copy(
+      implementationFile,
+      remoteRoot.resolve("cs2a-implementation-sha"),
+      StandardCopyOption.REPLACE_EXISTING,
+    )
+    Files.copy(
+      bundle.resolve(controlledRunner.fileName),
+      remoteRoot.resolve(controlledRunner.fileName),
+      StandardCopyOption.REPLACE_EXISTING,
+    )
+    Files.copy(
+      bundle.resolve(supervisor.fileName),
+      remoteRoot.resolve(supervisor.fileName),
+      StandardCopyOption.REPLACE_EXISTING,
+    )
+    when (bundleMutation) {
+      RemoteBundleMutation.NONE,
+      RemoteBundleMutation.IMPLEMENTATION_SSH_STATUS,
+      RemoteBundleMutation.METADATA_SSH_STATUS,
+      RemoteBundleMutation.RUNNER_SSH_STATUS,
+      RemoteBundleMutation.SUPERVISOR_SSH_STATUS,
+      RemoteBundleMutation.LOCAL_OPERATOR_HASH_STATUS,
+      RemoteBundleMutation.LOCAL_VALIDATOR_HASH_STATUS -> Unit
+      RemoteBundleMutation.IMPLEMENTATION ->
+        write(remoteRoot.resolve("cs2a-implementation-sha"), "${"d".repeat(40)}\n")
+      RemoteBundleMutation.RUNNER ->
+        write(remoteRoot.resolve(controlledRunner.fileName), "changed\n")
+    }
+    val controlledUidFile = remoteRoot.resolve("controlled-uid")
+    if (state.symlink) {
+      val target = remoteRoot.resolve("controlled-uid-target")
+      write(target, state.bytes)
+      Files.createSymbolicLink(controlledUidFile, target.fileName)
+    } else {
+      write(controlledUidFile, state.bytes)
+    }
+    Files.setPosixFilePermissions(
+      if (state.symlink) remoteRoot.resolve("controlled-uid-target") else controlledUidFile,
+      setOf(PosixFilePermission.OWNER_READ),
+    )
+    val harness =
+      """
+      source "${'$'}1"
+      CS2A_IMPLEMENTATION_SHA=$IMPLEMENTATION_SHA
+      readonly CS2A_IMPLEMENTATION_SHA
+      REMOTE_ROOT=${'$'}2
+      REMOTE_UID_PATH="${'$'}REMOTE_ROOT/controlled-uid"
+      REMOTE_UID_STAT=${'$'}3
+      REMOTE_BUNDLE_MUTATION=${'$'}5
+      export REMOTE_UID_PATH REMOTE_UID_STAT REMOTE_BUNDLE_MUTATION
+
+      eval "${'$'}(declare -f sha256_of | sed '1s/sha256_of/original_sha256_of/')"
+      sha256_of() {
+        local path=${'$'}1 marker calls=0
+        marker="${'$'}REMOTE_ROOT/.${'$'}(basename "${'$'}path").sha-calls"
+        if test -f "${'$'}marker"; then
+          read -r calls <"${'$'}marker" || return 1
+        fi
+        calls=${'$'}((calls + 1))
+        printf '%s\n' "${'$'}calls" >"${'$'}marker" || return 1
+        original_sha256_of "${'$'}path" || return 1
+        case "${'$'}REMOTE_BUNDLE_MUTATION:${'$'}(basename "${'$'}path"):${'$'}calls" in
+          LOCAL_OPERATOR_HASH_STATUS:cs2a-operator.sh:*) return 99 ;;
+          LOCAL_VALIDATOR_HASH_STATUS:cs2a-validate-manifest.jq:2) return 99 ;;
+        esac
+      }
+
+      dzdo() {
+        case "${'$'}1" in
+          install)
+            test "${'$'}2:${'$'}3:${'$'}4:${'$'}5:${'$'}6" = '-o:root:-g:root:-m'
+            command /usr/bin/install -m "${'$'}7" "${'$'}8" "${'$'}9"
+            ;;
+          test) shift; command test "${'$'}@" ;;
+          stat) shift; stat "${'$'}@" ;;
+          sha256sum) shift; command sha256sum "${'$'}@" ;;
+          cat) shift; command /bin/cat "${'$'}@" ;;
+          tee) shift; command /usr/bin/tee "${'$'}@" ;;
+          chown) return 0 ;;
+          chmod) shift; command /bin/chmod "${'$'}@" ;;
+          *) return 64 ;;
+        esac
+      }
+      stat() {
+        if test "${'$'}1:${'$'}2:${'$'}3" = "-c:%u:%g:%a:${'$'}REMOTE_UID_PATH"; then
+          printf '%s\n' "${'$'}REMOTE_UID_STAT"
+        else
+          command /usr/bin/stat "${'$'}@"
+        fi
+      }
+      export -f dzdo stat
+      scp() {
+        local count=${'$'}# destination remote index source
+        eval "destination=\${'$'}{${'$'}count}"
+        remote=${'$'}{destination#*:}
+        mkdir -p "${'$'}remote"
+        index=1
+        while test "${'$'}index" -lt "${'$'}count"; do
+          eval "source=\${'$'}{${'$'}index}"
+          command /bin/cp "${'$'}source" "${'$'}remote/"
+          index=${'$'}((index + 1))
+        done
+      }
+      ssh() {
+        local remote_command status
+        test "${'$'}1" = -tt
+        test "${'$'}2" = "${'$'}REMOTE_HOST"
+        shift 2
+        test "${'$'}#" = 1
+        remote_command=${'$'}1
+        /bin/bash -c "${'$'}remote_command"
+        status=${'$'}?
+        test "${'$'}status" -eq 0 || return "${'$'}status"
+        case "${'$'}REMOTE_BUNDLE_MUTATION:${'$'}remote_command" in
+          IMPLEMENTATION_SSH_STATUS:*cs2a-implementation-sha*) return 99 ;;
+          METADATA_SSH_STATUS:*"dzdo stat -c"*) return 99 ;;
+          RUNNER_SSH_STATUS:*cs2a-controlled-run.sh*) return 99 ;;
+          SUPERVISOR_SSH_STATUS:*cs2a-governor-supervisor.sh*) return 99 ;;
+        esac
+      }
+      if test "${'$'}4" = install; then
+        verify_remote_bundle() { return 0; }
+        if install_remote_bundle; then exit 0; else exit "${'$'}?"; fi
+      else
+        if verify_remote_bundle; then exit 0; else exit "${'$'}?"; fi
+      fi
+      """
+        .trimIndent()
+    return run(
+      listOf(
+        "/bin/bash",
+        "-c",
+        harness,
+        operatorAlias.toString(),
+        testOperator.toString(),
+        remoteRoot.toString(),
+        state.stat,
+        action,
+        bundleMutation.name,
+      ),
+      workspace,
+    )
+  }
+
+  private fun runSupervisorControlledUidPolicy(
+    source: String,
+    state: ControlledUidFixtureState,
+  ): ProcessResult {
+    val root =
+      Files.createTempDirectory(
+          temporaryDirectory,
+          "supervisor-controlled-uid-${state.name.lowercase()}-",
+        )
+        .toRealPath()
+    val implementationFile = root.resolve("implementation-sha")
+    val handoffFile = root.resolve("operator-handoff.tsv")
+    val controlledUidFile = root.resolve("controlled-uid")
+    val policyFile = root.resolve("controlled-host.json")
+    val runnerFile = root.resolve("controlled-runner.sh")
+    val runnableSupervisor = root.resolve("governor-supervisor.sh")
+    val supervisorAlias = root.resolve("governor-supervisor-alias.sh")
+    write(implementationFile, "$IMPLEMENTATION_SHA\n")
+    write(policyFile, "fixture policy\n")
+    write(runnerFile, "#!/bin/bash\nexit 0\n")
+    if (state.symlink) {
+      val target = root.resolve("controlled-uid-target")
+      write(target, state.bytes)
+      Files.createSymbolicLink(controlledUidFile, target.fileName)
+    } else {
+      write(controlledUidFile, state.bytes)
+    }
+    val transformed =
+      source
+        .replace(
+          "readonly IMPLEMENTATION_FILE=/opt/revoman-benchmark/cs2a-implementation-sha",
+          "readonly IMPLEMENTATION_FILE=$implementationFile",
+        )
+        .replace(
+          "readonly HANDOFF_FILE=/opt/revoman-benchmark/cs2a-operator-handoff.tsv",
+          "readonly HANDOFF_FILE=$handoffFile",
+        )
+        .replace(
+          "readonly CONTROLLED_UID_FILE=/opt/revoman-benchmark/controlled-uid",
+          "readonly CONTROLLED_UID_FILE=$controlledUidFile",
+        )
+        .replace(
+          "readonly RUNNER_FILE=/opt/revoman-benchmark/cs2a-controlled-run.sh",
+          "readonly RUNNER_FILE=$runnerFile",
+        )
+        .replace(
+          "readonly POLICY_FILE=/opt/revoman-benchmark/controlled-host.json",
+          "readonly POLICY_FILE=$policyFile",
+        )
+    write(runnableSupervisor, transformed)
+    write(supervisorAlias, transformed)
+    val runnerSha = sha256(runnerFile)
+    val supervisorSha = sha256(runnableSupervisor)
+    write(
+      handoffFile,
+      "implementation\t$IMPLEMENTATION_SHA\n" +
+        "uid\t${state.uid}\n" +
+        "runner\t$runnerSha\n" +
+        "supervisor\t$supervisorSha\n",
+    )
+    val harness =
+      """
+      source "${'$'}1"
+      HARNESS_IMPLEMENTATION=${quote(implementationFile)}
+      HARNESS_HANDOFF=${quote(handoffFile)}
+      HARNESS_UID=${quote(controlledUidFile)}
+      HARNESS_POLICY=${quote(policyFile)}
+      HARNESS_RUNNER=${quote(runnerFile)}
+      HARNESS_SUPERVISOR=${quote(supervisorAlias)}
+      HARNESS_UID_STAT=${state.stat}
+      HARNESS_UID_VALUE=${state.uid}
+      stat() {
+        test "${'$'}1" = -c
+        test "${'$'}2" = '%u:%g:%a'
+        case "${'$'}3" in
+          "${'$'}HARNESS_IMPLEMENTATION"|"${'$'}HARNESS_POLICY") printf '0:0:444\n' ;;
+          "${'$'}HARNESS_HANDOFF") printf '0:0:400\n' ;;
+          "${'$'}HARNESS_UID") printf '%s\n' "${'$'}HARNESS_UID_STAT" ;;
+          "${'$'}HARNESS_RUNNER"|"${'$'}HARNESS_SUPERVISOR") printf '0:0:555\n' ;;
+          *) return 64 ;;
+        esac
+      }
+      sha256sum() {
+        if test "${'$'}1" = "${'$'}HARNESS_POLICY"; then
+          printf '%s  %s\n' "${'$'}POLICY_SHA256" "${'$'}1"
+        else
+          command sha256sum "${'$'}@"
+        fi
+      }
+      id() {
+        if test "${'$'}1:${'$'}2" = '-u:gopala.akshintala'; then
+          printf '%s\n' "${'$'}HARNESS_UID_VALUE"
+        elif test "${'$'}1:${'$'}2" = '-g:gopala.akshintala'; then
+          printf '1000\n'
+        else
+          command /usr/bin/id "${'$'}@"
+        fi
+      }
+      validate_handoff
+      """
+        .trimIndent()
+    return run(
+      listOf(
+        "/bin/bash",
+        "-c",
+        harness,
+        supervisorAlias.toString(),
+        runnableSupervisor.toString(),
+      )
+    )
+  }
+
   private fun runOperatorMainCallSiteHarness(script: Path, name: String): ProcessResult {
     val workspace = Files.createDirectories(temporaryDirectory.resolve("operator-main-$name"))
     write(workspace.resolve("build/cs2a-implementation-sha"), "$IMPLEMENTATION_SHA\n")
@@ -3958,6 +4595,31 @@ class Cs2aOperatorScriptTest {
   private data class ProcessResult(val exitCode: Int, val output: String)
 
   private data class ArchiveFixture(val archive: Path, val driver: Path, val policySha256: String)
+
+  private enum class ControlledUidFixtureState(
+    val bytes: String,
+    val uid: String,
+    val stat: String,
+    val symlink: Boolean = false,
+  ) {
+    EXACT("1267438362\n", "1267438362", "0:0:444"),
+    WRONG_BYTES("1267438363\n", "1267438363", "0:0:444"),
+    SYMLINK("1267438362\n", "1267438362", "0:0:444", symlink = true),
+    WRONG_OWNER("1267438362\n", "1267438362", "501:0:444"),
+    WRONG_MODE("1267438362\n", "1267438362", "0:0:600"),
+  }
+
+  private enum class RemoteBundleMutation(val verifyBoundary: Boolean) {
+    NONE(false),
+    IMPLEMENTATION(true),
+    RUNNER(true),
+    IMPLEMENTATION_SSH_STATUS(true),
+    METADATA_SSH_STATUS(true),
+    RUNNER_SSH_STATUS(true),
+    SUPERVISOR_SSH_STATUS(true),
+    LOCAL_OPERATOR_HASH_STATUS(false),
+    LOCAL_VALIDATOR_HASH_STATUS(false),
+  }
 
   private companion object {
     const val TARGET_JDK =

@@ -1518,14 +1518,17 @@ prepare_local_driver() {
 
 install_remote_bundle() {
   local runner_sha supervisor_sha operator_sha validator_sha
-  controlled_uid_policy_is_provisioned \
-    || fail "controlled UID policy hash is unprovisioned; administrator review is required"
-  runner_sha=$(sha256_of "$CONTROLLED_RUNNER")
-  supervisor_sha=$(sha256_of "$SUPERVISOR")
-  operator_sha=$(sha256_of "$0")
-  validator_sha=$(sha256_of "$VALIDATOR")
+  local installed_operator_sha installed_validator_sha
+  controlled_uid_policy_is_provisioned || {
+    fail "controlled UID policy hash is unprovisioned; administrator review is required"
+    return 70
+  }
+  runner_sha=$(sha256_of "$CONTROLLED_RUNNER") || return 1
+  supervisor_sha=$(sha256_of "$SUPERVISOR") || return 1
+  operator_sha=$(sha256_of "$0") || return 1
+  validator_sha=$(sha256_of "$VALIDATOR") || return 1
   scp "$CONTROLLED_RUNNER" "$SUPERVISOR" "$0" "$VALIDATOR" \
-    "$IMPLEMENTATION_FILE" "$REMOTE_HOST:/opt/revoman-benchmark/runs/"
+    "$IMPLEMENTATION_FILE" "$REMOTE_HOST:/opt/revoman-benchmark/runs/" || return 1
   ssh -tt "$REMOTE_HOST" \
     "dzdo install -o root -g root -m 0555 \
        /opt/revoman-benchmark/runs/cs2a-controlled-run.sh \
@@ -1536,6 +1539,8 @@ install_remote_bundle() {
      dzdo install -o root -g root -m 0444 \
        /opt/revoman-benchmark/runs/cs2a-implementation-sha \
        /opt/revoman-benchmark/cs2a-implementation-sha && \
+     dzdo test -f '$CONTROLLED_UID_FILE' && \
+     dzdo test ! -L '$CONTROLLED_UID_FILE' && \
      dzdo test \"\$(stat -c '%u:%g:%a' '$CONTROLLED_UID_FILE')\" = 0:0:444 && \
      dzdo test \"\$(dzdo sha256sum '$CONTROLLED_UID_FILE' | awk '{print \$1}')\" = \
        '$CONTROLLED_UID_POLICY_SHA256' && \
@@ -1544,32 +1549,45 @@ install_remote_bundle() {
        '$runner_sha' '$supervisor_sha' \
        | dzdo tee /opt/revoman-benchmark/cs2a-operator-handoff.tsv >/dev/null && \
      dzdo chown root:root /opt/revoman-benchmark/cs2a-operator-handoff.tsv && \
-     dzdo chmod 0400 /opt/revoman-benchmark/cs2a-operator-handoff.tsv"
-  test "$operator_sha" = "$(sha256_of "$OPERATOR_DIR/cs2a-operator.sh")"
-  test "$validator_sha" = "$(sha256_of "$OPERATOR_DIR/cs2a-validate-manifest.jq")"
-  verify_remote_bundle
+     dzdo chmod 0400 /opt/revoman-benchmark/cs2a-operator-handoff.tsv" || return 1
+  installed_operator_sha=$(sha256_of "$OPERATOR_DIR/cs2a-operator.sh") || return 1
+  test "$operator_sha" = "$installed_operator_sha" || return 1
+  installed_validator_sha=$(sha256_of "$OPERATOR_DIR/cs2a-validate-manifest.jq") || return 1
+  test "$validator_sha" = "$installed_validator_sha" || return 1
+  verify_remote_bundle || return 1
 }
 
 verify_remote_bundle() {
-  local runner_sha supervisor_sha installed controlled_uid controlled_uid_policy_sha
-  controlled_uid_policy_is_provisioned \
-    || fail "controlled UID policy hash is unprovisioned; administrator review is required"
-  runner_sha=$(sha256_of "$CONTROLLED_RUNNER")
-  supervisor_sha=$(sha256_of "$SUPERVISOR")
+  local runner_sha supervisor_sha remote_runner_sha remote_supervisor_sha
+  local installed controlled_uid controlled_uid_metadata controlled_uid_policy_sha
+  controlled_uid_policy_is_provisioned || {
+    fail "controlled UID policy hash is unprovisioned; administrator review is required"
+    return 70
+  }
+  runner_sha=$(sha256_of "$CONTROLLED_RUNNER") || return 1
+  supervisor_sha=$(sha256_of "$SUPERVISOR") || return 1
   installed=$(ssh -tt "$REMOTE_HOST" \
-    'dzdo cat /opt/revoman-benchmark/cs2a-implementation-sha' | tr -d '\r\n')
-  test "$installed" = "$CS2A_IMPLEMENTATION_SHA"
-  controlled_uid=$(ssh -tt "$REMOTE_HOST" "dzdo cat '$CONTROLLED_UID_FILE'" | tr -d '\r\n')
-  [[ "$controlled_uid" =~ ^[1-9][0-9]*$ ]]
+    'dzdo cat /opt/revoman-benchmark/cs2a-implementation-sha' | tr -d '\r\n') || return 1
+  test "$installed" = "$CS2A_IMPLEMENTATION_SHA" || return 1
+  controlled_uid_metadata=$(ssh -tt "$REMOTE_HOST" \
+    "dzdo test -f '$CONTROLLED_UID_FILE' && \
+     dzdo test ! -L '$CONTROLLED_UID_FILE' && \
+     dzdo stat -c '%u:%g:%a' '$CONTROLLED_UID_FILE'" | tr -d '\r\n') || return 1
+  test "$controlled_uid_metadata" = 0:0:444 || return 1
+  controlled_uid=$(ssh -tt "$REMOTE_HOST" "dzdo cat '$CONTROLLED_UID_FILE'" \
+    | tr -d '\r\n') || return 1
+  [[ "$controlled_uid" =~ ^[1-9][0-9]*$ ]] || return 1
   controlled_uid_policy_sha=$(ssh -tt "$REMOTE_HOST" \
-    "dzdo sha256sum '$CONTROLLED_UID_FILE'" | tr -d '\r' | awk '{print $1}')
-  test "$controlled_uid_policy_sha" = "$CONTROLLED_UID_POLICY_SHA256"
-  test "$(ssh -tt "$REMOTE_HOST" \
+    "dzdo sha256sum '$CONTROLLED_UID_FILE'" | tr -d '\r' | awk '{print $1}') || return 1
+  test "$controlled_uid_policy_sha" = "$CONTROLLED_UID_POLICY_SHA256" || return 1
+  remote_runner_sha=$(ssh -tt "$REMOTE_HOST" \
     'dzdo sha256sum /opt/revoman-benchmark/cs2a-controlled-run.sh' \
-    | tr -d '\r' | awk '{print $1}')" = "$runner_sha"
-  test "$(ssh -tt "$REMOTE_HOST" \
+    | tr -d '\r' | awk '{print $1}') || return 1
+  test "$remote_runner_sha" = "$runner_sha" || return 1
+  remote_supervisor_sha=$(ssh -tt "$REMOTE_HOST" \
     'dzdo sha256sum /opt/revoman-benchmark/cs2a-governor-supervisor.sh' \
-    | tr -d '\r' | awk '{print $1}')" = "$supervisor_sha"
+    | tr -d '\r' | awk '{print $1}') || return 1
+  test "$remote_supervisor_sha" = "$supervisor_sha" || return 1
 }
 
 run_remote_supervisor() {

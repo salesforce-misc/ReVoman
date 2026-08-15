@@ -114,6 +114,49 @@ class Cs2aSupervisorAtomicHandoffTest {
   }
 
   @Test
+  fun `stale recovery records a terminal state that the next launch accepts`() {
+    val source = Files.readString(supervisor)
+    listOf(false, true).forEach { withGovernorInventory ->
+      val result =
+        runStaleRecoveryHarness(
+          source,
+          "inventory-$withGovernorInventory",
+          withGovernorInventory,
+        )
+
+      assertWithMessage("inventory=$withGovernorInventory\n${result.output}")
+        .that(result.exitCode)
+        .isEqualTo(0)
+    }
+
+    listOf(
+        Triple(
+          "missing empty inventory",
+          "  : >\"\$stale/original-governors.tsv\" || return 1\n",
+          false,
+        ),
+        Triple(
+          "missing recovered status",
+          "  printf '%s\\n' 70 >\"\$stale/child-or-supervisor-status.txt\" || return 1\n",
+          true,
+        ),
+        Triple(
+          "missing containment result",
+          "  printf '%s\\n' false >\"\$stale/containment-failed.txt\" || return 1\n",
+          true,
+        ),
+      )
+      .forEach { (name, witness, withGovernorInventory) ->
+        val mutant = source.replace(witness, "")
+        assertThat(mutant).isNotEqualTo(source)
+        val result = runStaleRecoveryHarness(mutant, name.replace(' ', '-'), withGovernorInventory)
+        assertWithMessage("$name mutant survived\n${result.output}")
+          .that(result.exitCode)
+          .isNotEqualTo(0)
+      }
+  }
+
+  @Test
   fun `finalization executes the production handoff call site and its deletion mutant fails`() {
     val source = Files.readString(supervisor)
     val invocation = "if ! copy_final_state_to_run_root \"${'$'}AUTHENTICATED_RUN_ROOT\"; then"
@@ -658,6 +701,63 @@ class Cs2aSupervisorAtomicHandoffTest {
     val result = runNestedContainmentSignalHarness(NestedContainmentEntry.FINALIZER)
 
     assertWithMessage("process output:\n%s", result.output).that(result.exitCode).isEqualTo(129)
+  }
+
+  private fun runStaleRecoveryHarness(
+    source: String,
+    name: String,
+    withGovernorInventory: Boolean,
+  ): ProcessResult {
+    val root = Files.createTempDirectory(temporaryDirectory, "stale-recovery-$name-").toRealPath()
+    val stateParent = Files.createDirectory(root.resolve("state"))
+    val stale = Files.createDirectory(stateParent.resolve("governor-state.Stale123"))
+    Files.setPosixFilePermissions(stale, MODE_0700)
+    val sysRoot = Files.createDirectories(root.resolve("sys/cpu0/cpufreq"))
+    val governor = sysRoot.resolve("scaling_governor")
+    Files.writeString(governor, "performance\n")
+    if (withGovernorInventory) {
+      Files.writeString(stale.resolve("original-governors.tsv"), "$governor\tpowersave\n")
+    }
+    val runnable = root.resolve("supervisor.sh")
+    Files.writeString(
+      runnable,
+      source
+        .replace(
+          "readonly STATE_PARENT=$PRODUCTION_STATE_PARENT",
+          "readonly STATE_PARENT=$stateParent",
+        )
+        .replace("/sys/devices/system/cpu", root.resolve("sys").toString()),
+    )
+    val harness =
+      """
+      source "${'$'}1"
+      STALE=${quote(stale)}
+      GOVERNOR=${quote(governor)}
+      stat() {
+        if test "${'$'}1:${'$'}2:${'$'}3" = "-c:%u:%g:%a:${'$'}STALE"; then
+          printf '0:0:700\n'
+        else
+          command /usr/bin/stat "${'$'}@"
+        fi
+      }
+      date() {
+        test "${'$'}1" = -Iseconds
+        printf '2026-08-15T00:00:00+00:00\n'
+      }
+      recover_stale_state "${'$'}STALE"
+      recover_stale_states
+      test "${'$'}(/bin/cat "${'$'}STALE/stale-recovered.txt")" = true
+      test "${'$'}(/bin/cat "${'$'}STALE/child-or-supervisor-status.txt")" = 70
+      test "${'$'}(/bin/cat "${'$'}STALE/restoration-failed.txt")" = false
+      test "${'$'}(/bin/cat "${'$'}STALE/containment-failed.txt")" = false
+      test -f "${'$'}STALE/original-governors.tsv"
+      test -f "${'$'}STALE/restored-governors.tsv"
+      cmp -s "${'$'}STALE/original-governors.tsv" "${'$'}STALE/restored-governors.tsv"
+      test "${'$'}(/bin/cat "${'$'}GOVERNOR")" = \
+        "${if (withGovernorInventory) "powersave" else "performance"}"
+      """
+        .trimIndent()
+    return run(listOf("/bin/bash", "-c", harness, "stale-harness", runnable.toString()))
   }
 
   private fun createFixture(name: String): HandoffFixture {

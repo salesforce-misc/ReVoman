@@ -36,13 +36,16 @@
     <ID>LongMethod:Cs2aOperatorScriptTest.kt:Cs2aOperatorScriptTest$@Test fun `command protocol pins exact ordered labels argv and stage prefixes`</ID>
     <ID>LongMethod:Cs2aOperatorScriptTest.kt:Cs2aOperatorScriptTest$@Test fun `persisted attempt history rejects an evidence merge commit`</ID>
     <ID>LongMethod:Cs2aOperatorScriptTest.kt:Cs2aOperatorScriptTest$@Test fun `publication tool discovery rejects a GNU-labelled backend with broken no-replace semantics`</ID>
+    <ID>LongMethod:Cs2aOperatorScriptTest.kt:Cs2aOperatorScriptTest$@Test fun `remote install and verification reject changed controlled UID policy files`</ID>
     <ID>LongMethod:Cs2aOperatorScriptTest.kt:Cs2aOperatorScriptTest$@Test fun `safe partial attempt persists successfully while semantic selection still rejects it`</ID>
     <ID>LongMethod:Cs2aOperatorScriptTest.kt:Cs2aOperatorScriptTest$@Test fun `source authentication rejects a changed operator asset before remote install`</ID>
     <ID>LongMethod:Cs2aOperatorScriptTest.kt:Cs2aOperatorScriptTest$private fun campaign: String</ID>
     <ID>LongMethod:Cs2aOperatorScriptTest.kt:Cs2aOperatorScriptTest$private fun createCompleteArchiveFixture: ArchiveFixture</ID>
     <ID>LongMethod:Cs2aOperatorScriptTest.kt:Cs2aOperatorScriptTest$private fun runArchiveSemanticSeparation: ProcessResult</ID>
+    <ID>LongMethod:Cs2aOperatorScriptTest.kt:Cs2aOperatorScriptTest$private fun runOperatorControlledUidPolicy: ProcessResult</ID>
     <ID>LongMethod:Cs2aOperatorScriptTest.kt:Cs2aOperatorScriptTest$private fun runOperatorModeHarness: ProcessResult</ID>
     <ID>LongMethod:Cs2aOperatorScriptTest.kt:Cs2aOperatorScriptTest$private fun runPublicSelection: ProcessResult</ID>
+    <ID>LongMethod:Cs2aOperatorScriptTest.kt:Cs2aOperatorScriptTest$private fun runSupervisorControlledUidPolicy: ProcessResult</ID>
     <ID>LongMethod:Cs2aSupervisorAtomicHandoffTest.kt:Cs2aSupervisorAtomicHandoffTest$@Test fun `validate final handoff rejects every evidence and crosslink mutation`</ID>
     <ID>LongMethod:Cs2aSupervisorAtomicHandoffTest.kt:Cs2aSupervisorAtomicHandoffTest$private fun createFixture: HandoffFixture</ID>
     <ID>LongMethod:Cs2aSupervisorAtomicHandoffTest.kt:Cs2aSupervisorAtomicHandoffTest$private fun runControlledChildHarness: ProcessResult</ID>
