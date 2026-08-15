@@ -14,8 +14,15 @@ import java.net.InetSocketAddress
 import java.net.Socket
 import java.net.URI
 import java.nio.ByteBuffer
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.ExecutionException
+import java.util.concurrent.Executors
+import java.util.concurrent.Future
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicReference
 import org.http4k.core.Body
+import org.http4k.core.Method.GET
 import org.http4k.core.Method.POST
 import org.http4k.core.Request
 import org.http4k.core.Response
@@ -98,7 +105,105 @@ class MockHttpServerWireContractTest {
     }
   }
 
+  @Test
+  fun `close interrupts cooperative in-flight virtual worker before completing`() {
+    val handlerStarted = CountDownLatch(1)
+    val handlerInterrupted = CountDownLatch(1)
+    val allowHandlerExit = CountDownLatch(1)
+    val releaseHandlerForCleanup = CountDownLatch(1)
+    val handlerExited = CountDownLatch(1)
+    val workerThread = AtomicReference<Thread>()
+    val closeInvoked = CountDownLatch(1)
+    val coordinator = Executors.newFixedThreadPool(2)
+    val server = MockHttpServer.start {
+      workerThread.set(Thread.currentThread())
+      handlerStarted.countDown()
+      try {
+        releaseHandlerForCleanup.await()
+      } catch (_: InterruptedException) {
+        handlerInterrupted.countDown()
+        allowHandlerExit.await()
+      } finally {
+        handlerExited.countDown()
+      }
+      Response(OK)
+    }
+    val address = InetSocketAddress("127.0.0.1", URI.create(server.baseUrl).port)
+    var requestFuture: Future<*>? = null
+    var closeFuture: Future<*>? = null
+
+    try {
+      val client = prepareHttpClient(insecureHttp = false)
+      requestFuture =
+        coordinator.submit<Response> { client(Request(GET, "${server.baseUrl}/hold")) }
+      assertThat(handlerStarted.await(TEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)).isTrue()
+      assertThat(workerThread.get().isVirtual).isTrue()
+
+      closeFuture =
+        coordinator.submit<Unit> {
+          closeInvoked.countDown()
+          server.close()
+        }
+      assertThat(closeInvoked.await(TEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)).isTrue()
+      assertCloseStillWaiting(closeFuture)
+      awaitListenerRefusal(address)
+
+      assertThat(handlerInterrupted.await(TEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)).isTrue()
+      assertThat(handlerExited.count).isEqualTo(1L)
+      assertThat(workerThread.get().isAlive).isTrue()
+      assertCloseStillWaiting(closeFuture)
+
+      allowHandlerExit.countDown()
+      assertThat(handlerExited.await(TEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)).isTrue()
+      closeFuture.get(TEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+      assertThat(workerThread.get().isAlive).isFalse()
+    } finally {
+      releaseHandlerForCleanup.countDown()
+      allowHandlerExit.countDown()
+      awaitFutureQuietly(closeFuture)
+      runCatching(server::close)
+      requestFuture?.cancel(true)
+      awaitFutureQuietly(requestFuture)
+      coordinator.shutdownNow()
+      check(coordinator.awaitTermination(TEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+        "Mock server wire-contract test coordinator did not terminate"
+      }
+    }
+  }
+
+  private fun assertCloseStillWaiting(closeFuture: Future<*>) {
+    assertThrows<TimeoutException> {
+      closeFuture.get(CLOSE_STILL_WAITING_MILLIS, TimeUnit.MILLISECONDS)
+    }
+  }
+
+  private fun awaitListenerRefusal(address: InetSocketAddress) {
+    val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(TEST_TIMEOUT_SECONDS)
+    while (System.nanoTime() < deadline) {
+      try {
+        Socket().use { socket -> socket.connect(address, SOCKET_CONNECT_TIMEOUT_MILLIS) }
+      } catch (_: IOException) {
+        return
+      }
+      Thread.onSpinWait()
+    }
+    throw AssertionError("Mock HTTP listener still accepted connections after close began")
+  }
+
+  private fun awaitFutureQuietly(future: Future<*>?) {
+    if (future == null) return
+    try {
+      future.get(TEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+    } catch (_: ExecutionException) {
+      // Cleanup only needs the task to settle; the test body owns behavioral assertions.
+    } catch (_: TimeoutException) {
+      future.cancel(true)
+    }
+  }
+
   private companion object {
     const val SOCKET_CONNECT_TIMEOUT_MILLIS = 500
+    const val CLOSE_STILL_WAITING_MILLIS = 250L
+    const val TEST_TIMEOUT_SECONDS = 7L
   }
 }

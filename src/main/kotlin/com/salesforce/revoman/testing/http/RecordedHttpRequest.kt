@@ -14,9 +14,11 @@ import org.http4k.core.Method
  * An immutable observation of an HTTP request received by a mock handler.
  *
  * Query parameters are decoded by the HTTP adapter and retain repeated entries and their original
- * order. Headers are exposed as adapter-visible name/value pairs, including repeated entries when
- * the adapter reports them. The request body is retained independently from the adapter and each
- * [bodyBytes] call returns a fresh copy.
+ * order. A null query value represents a missing value and remains distinct from a present, empty
+ * value. Headers are exposed as adapter-visible name/value pairs, including repeated entries when
+ * the adapter reports them; original name casing and global entry order depend on the adapter and
+ * transport. The request body is retained independently from the adapter and each [bodyBytes] call
+ * returns a fresh copy.
  *
  * Instances are created through a non-public factory so only the mock HTTP adapter can construct
  * snapshots while this observation remains a public value API for handler consumers.
@@ -32,7 +34,7 @@ private constructor(
   /** Decoded query parameters, preserving repeated entries and adapter order. */
   val queryParameters: List<RecordedNameValue> = java.util.List.copyOf(queryParameters)
 
-  /** Adapter-visible header entries, preserving repeated values and adapter order. */
+  /** Adapter-visible headers; name casing and global entry order are transport-dependent. */
   val headers: List<RecordedNameValue> = java.util.List.copyOf(headers)
 
   private val bodySnapshot = body.copyOf()
