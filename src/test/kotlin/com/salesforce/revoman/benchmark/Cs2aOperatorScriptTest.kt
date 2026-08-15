@@ -14,11 +14,29 @@ import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.nio.file.attribute.PosixFilePermission
 import java.security.MessageDigest
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 
 class Cs2aOperatorScriptTest {
   @TempDir lateinit var temporaryDirectory: Path
+
+  @AfterEach
+  fun removeRetainedLockCreatedByThisTest() {
+    val uid = run(listOf("id", "-u")).output.trim()
+    val actualLock = Path.of("/tmp/revoman-cs2a-operator.$uid.gopalaaksh-wsl3.lock")
+    if (Files.isDirectory(actualLock) && !Files.isSymbolicLink(actualLock)) {
+      val ownerWorkspace = actualLock.resolve("owner-workspace.txt")
+      if (Files.isRegularFile(ownerWorkspace) && !Files.isSymbolicLink(ownerWorkspace)) {
+        val owner = Path.of(Files.readString(ownerWorkspace).trim()).toAbsolutePath().normalize()
+        if (owner.startsWith(temporaryDirectory.toRealPath())) {
+          Files.deleteIfExists(actualLock.resolve("owner-pid.txt"))
+          Files.deleteIfExists(ownerWorkspace)
+          Files.delete(actualLock)
+        }
+      }
+    }
+  }
 
   @Test
   fun `operator scripts parse with Bash 3_2 and pass ShellCheck`() {
@@ -605,6 +623,7 @@ class Cs2aOperatorScriptTest {
     rows.slice(7..10).forEach { row ->
       assertThat(row).contains("\t--intent\tsmoke")
       assertThat(row).contains("\t--metrics\tlatency")
+      assertThat(row).doesNotContain("\t--host-policy\t")
       assertThat(row).doesNotContain("retained")
     }
     listOf(7, 9).forEach { index ->
@@ -659,6 +678,26 @@ class Cs2aOperatorScriptTest {
         "${quote(incomplete.driver)} ${incomplete.policySha256}",
       "incomplete smoke candidate campaign",
     )
+  }
+
+  @Test
+  fun `smoke validation locally reproduces every comparison report`() {
+    listOf(
+        "comparison-aa-cold.json" to "{\"overall\":\"INCONCLUSIVE\"}\n",
+        "comparison-candidate-warm.md" to "tampered comparison\n",
+      )
+      .forEach { (relative, replacement) ->
+        val fixture = createSmokeArchiveFixture("smoke-recompare-${relative.replace('.', '-')}")
+        write(fixture.archive.resolve("results/$relative"), replacement)
+        refreshRemoteEvidenceInventory(fixture.archive)
+        refreshRemoteByteInventory(fixture.archive)
+
+        assertBashFunctionFails(
+          "validate_smoke_archive ${quote(fixture.archive)} $IMPLEMENTATION_SHA " +
+            "${quote(fixture.driver)} ${fixture.policySha256}",
+          relative,
+        )
+      }
   }
 
   @Test
@@ -2270,6 +2309,109 @@ class Cs2aOperatorScriptTest {
   }
 
   @Test
+  fun `operator lock uses one fixed namespace and rejects every concurrent public mode`() {
+    val workspace = Files.createDirectories(temporaryDirectory.resolve("operator-overlap-lock"))
+    val lock = workspace.resolve("operator.lock")
+    val source = Files.readString(operator)
+    val fixedLock =
+      "LOCAL_OPERATOR_LOCK=\"/tmp/revoman-cs2a-operator.${'$'}(id -u).${'$'}REMOTE_HOST.lock\""
+    assertThat(source).contains(fixedLock)
+    assertThat(source).doesNotContain("LOCAL_OPERATOR_LOCK_PARENT")
+    val testOperator = workspace.resolve("cs2a-operator.sh")
+    write(testOperator, source.replace(fixedLock, "LOCAL_OPERATOR_LOCK=${quote(lock)}"))
+    val invocations =
+      listOf(
+        "",
+        "--smoke",
+        "--persist-only 0",
+        "--validate-attempt /tmp/attempt ${"d".repeat(40)} ${"e".repeat(40)}",
+        "--archive-only /opt/revoman-benchmark/runs/cs2a.Concurrent123 " +
+          "/run/revoman-cs2a/governor-state.Concurrent123",
+      )
+    val overlapChecks = invocations.mapIndexed { index, invocation ->
+      val child =
+        "source ${quote(testOperator)}; " +
+          "operator_main() { : >\"${'$'}PWD/build/concurrent-dispatch-$index\"; }; " +
+          "operator_entrypoint $invocation"
+      "if /bin/bash -c ${quote(Path.of(child))}; then exit 98; " +
+        "else test ${'$'}? = 70; fi; test ! -e build/concurrent-dispatch-$index"
+    }
+    val harness =
+      """
+      source ${quote(testOperator)}
+      acquire_local_operator_lock
+      ${overlapChecks.joinToString("\n")}
+      release_local_operator_lock
+      """
+        .trimIndent()
+
+    val result = run(listOf("/bin/bash", "-c", harness), workspace)
+
+    assertWithMessage(result.output).that(result.exitCode).isEqualTo(0)
+    assertThat(result.output).contains("another CS2a operator is active or requires manual cleanup")
+  }
+
+  @Test
+  fun `operator entrypoint retains an invalid attempt lock for manual cleanup`() {
+    val workspace = Files.createDirectories(temporaryDirectory.resolve("operator-retained-lock"))
+    val lock = workspace.resolve("operator.lock")
+    val source = Files.readString(operator)
+    val fixedLock =
+      "LOCAL_OPERATOR_LOCK=\"/tmp/revoman-cs2a-operator.${'$'}(id -u).${'$'}REMOTE_HOST.lock\""
+    val testOperator = workspace.resolve("cs2a-operator.sh")
+    write(testOperator, source.replace(fixedLock, "LOCAL_OPERATOR_LOCK=${quote(lock)}"))
+    val harness =
+      """
+      source ${quote(testOperator)}
+      operator_main() { return 70; }
+      if operator_entrypoint --smoke; then exit 98; else status=${'$'}?; fi
+      test "${'$'}status" = 70
+      test -d "${'$'}LOCAL_OPERATOR_LOCK"
+      if acquire_local_operator_lock; then exit 97; else test "${'$'}?" = 70; fi
+      release_local_operator_lock
+      """
+        .trimIndent()
+
+    val result = run(listOf("/bin/bash", "-c", harness), workspace)
+
+    assertWithMessage(result.output).that(result.exitCode).isEqualTo(0)
+    assertThat(result.output).contains("manual cleanup required before another CS2a operation")
+  }
+
+  @Test
+  fun `operator entrypoint preserves fail fast invariants inside valid public modes`() {
+    val workspace = Files.createDirectories(temporaryDirectory.resolve("operator-fail-fast-lock"))
+    val lock = workspace.resolve("operator.lock")
+    val source = Files.readString(operator)
+    val fixedLock =
+      "LOCAL_OPERATOR_LOCK=\"/tmp/revoman-cs2a-operator.${'$'}(id -u).${'$'}REMOTE_HOST.lock\""
+    val testOperator = workspace.resolve("cs2a-operator.sh")
+    val publicDispatch = "if test \"${'$'}{BASH_SOURCE[0]}\" = \"${'$'}0\"; then"
+    val stubs =
+      """
+      prepare_operator_source() { : >"${'$'}PWD/build/later-mutation"; }
+      install_remote_bundle() { return 0; }
+      run_remote_supervisor() { return 0; }
+      persist_original_post_status() { return 0; }
+      refresh_remote_final_handoff() { return 0; }
+      archive_remote_attempt() { return 0; }
+      """
+        .trimIndent()
+    write(
+      testOperator,
+      source
+        .replace(fixedLock, "LOCAL_OPERATOR_LOCK=${quote(lock)}")
+        .replace(publicDispatch, "$stubs\n$publicDispatch"),
+    )
+    write(workspace.resolve("build/cs2a-implementation-sha"), "invalid\n")
+    val result = run(listOf("/bin/bash", testOperator.toString(), "--smoke"), workspace)
+
+    assertWithMessage(result.output).that(result.exitCode).isEqualTo(70)
+    assertThat(Files.exists(workspace.resolve("build/later-mutation"))).isFalse()
+    assertThat(Files.isDirectory(lock)).isTrue()
+  }
+
+  @Test
   fun `remote refresh delegates final handoff to installed reviewed supervisor CLI`() {
     val source = Files.readString(operator)
     val invocation =
@@ -3789,6 +3931,8 @@ class Cs2aOperatorScriptTest {
         printf '%s\n' "${'$'}1" >"${'$'}PWD/build/installed-profile.txt"
       }
       run_remote_supervisor() {
+        test "${'$'}#" = 1
+        test "${'$'}1" = "${'$'}EXPECTED_PROFILE"
         printf '%s\n' \
           'RUN_ROOT=/opt/revoman-benchmark/runs/cs2a.Profile123' \
           'GOVERNOR_STATE=/run/revoman-cs2a/governor-state.Profile123' \
@@ -3797,10 +3941,13 @@ class Cs2aOperatorScriptTest {
       }
       persist_original_post_status() { return 0; }
       refresh_remote_final_handoff() { return 0; }
-      archive_remote_attempt() { : >"${'$'}PWD/build/archive-called"; }
+      archive_remote_attempt() {
+        test "${'$'}#" = 3
+        printf '%s\n' "${'$'}3" >"${'$'}PWD/build/archive-called"
+      }
       operator_main "${'$'}@"
       test "${'$'}(cat "${'$'}PWD/build/installed-profile.txt")" = "${'$'}EXPECTED_PROFILE"
-      test -f "${'$'}PWD/build/archive-called"
+      test "${'$'}(cat "${'$'}PWD/build/archive-called")" = "${'$'}EXPECTED_PROFILE"
       """
         .trimIndent()
     return run(
@@ -4235,10 +4382,11 @@ class Cs2aOperatorScriptTest {
           while test "${'$'}#" -gt 0; do
             case "${'$'}1" in
               --output) output=${'$'}2; shift 2 ;;
+              --host-policy) exit 65 ;;
               *) shift ;;
             esac
           done
-          printf '%s\n' '{"environment":{"policySha256":"$POLICY_SEMANTIC_SHA","hostFingerprintSha256":"$HOST_FINGERPRINT"}}' >"${'$'}output"
+          printf '%s\n' '{"intent":"SMOKE","environment":{"policySha256":null,"hostFingerprintSha256":"$HOST_FINGERPRINT"}}' >"${'$'}output"
           ;;
         verify) ;;
         compare)
@@ -4640,6 +4788,8 @@ class Cs2aOperatorScriptTest {
           "iterations",
           iterations.toString(),
           ".intent = \"SMOKE\" | " +
+            ".environment.policySha256 = null | " +
+            ".environment.governor = \"unknown\" | " +
             ".configuration.metricPasses = [\"LATENCY\"] | " +
             ".configuration.requestedAcceptedBlocks = 2 | " +
             ".configuration.warmupIterations = \$warmups | " +

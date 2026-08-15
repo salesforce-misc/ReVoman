@@ -18,13 +18,79 @@ readonly IMPLEMENTATION_FILE="$WORKSPACE_ROOT/build/cs2a-implementation-sha"
 readonly EVIDENCE_ROOT="$WORKSPACE_ROOT/docs/superpowers/benchmarks/results/v1"
 readonly EXPECTED_POLICY_SHA256=7312efeed6a4c80e9588f0f4e25742021c6e11f46bbc8468a3adc06772408b79
 readonly EXPECTED_POLICY_SEMANTIC_SHA256=48de27c7c84faec59c0ab2276489460ac4ffe3935cd0be41d9730b5aff1a3f60
-readonly EXPECTED_HOST_FINGERPRINT=12e7d565978e40259c2f4c956c9e05696a32c0ba574c6971dfe85c8acd69fe44
+LOCAL_OPERATOR_LOCK="/tmp/revoman-cs2a-operator.$(id -u).$REMOTE_HOST.lock"
+readonly LOCAL_OPERATOR_LOCK
+LOCAL_OPERATOR_LOCK_HELD=false
 PUBLICATION_MV=
 PUBLICATION_STAT=
 
 fail() {
   printf 'cs2a-operator: %s\n' "$*" >&2
   return 70
+}
+
+acquire_local_operator_lock() {
+  if ! mkdir -m 0700 -- "$LOCAL_OPERATOR_LOCK" 2>/dev/null; then
+    fail "another CS2a operator is active or requires manual cleanup: $LOCAL_OPERATOR_LOCK"
+    return 70
+  fi
+  if ! printf '%s\n' "$$" >"$LOCAL_OPERATOR_LOCK/owner-pid.txt" \
+    || ! printf '%s\n' "$WORKSPACE_ROOT" >"$LOCAL_OPERATOR_LOCK/owner-workspace.txt"; then
+    rm -f -- "$LOCAL_OPERATOR_LOCK/owner-pid.txt" "$LOCAL_OPERATOR_LOCK/owner-workspace.txt" \
+      2>/dev/null || :
+    rmdir -- "$LOCAL_OPERATOR_LOCK" 2>/dev/null || :
+    return 70
+  fi
+  LOCAL_OPERATOR_LOCK_HELD=true
+}
+
+release_local_operator_lock() {
+  test "$LOCAL_OPERATOR_LOCK_HELD" = true || return 0
+  test -d "$LOCAL_OPERATOR_LOCK" && test ! -L "$LOCAL_OPERATOR_LOCK" \
+    && test -f "$LOCAL_OPERATOR_LOCK/owner-pid.txt" \
+    && test ! -L "$LOCAL_OPERATOR_LOCK/owner-pid.txt" \
+    && test -f "$LOCAL_OPERATOR_LOCK/owner-workspace.txt" \
+    && test ! -L "$LOCAL_OPERATOR_LOCK/owner-workspace.txt" \
+    && test "$(tr -d '\r\n' <"$LOCAL_OPERATOR_LOCK/owner-pid.txt")" = "$$" \
+    && test "$(cat "$LOCAL_OPERATOR_LOCK/owner-workspace.txt")" = "$WORKSPACE_ROOT" \
+    || return 70
+  rm -f -- "$LOCAL_OPERATOR_LOCK/owner-pid.txt" "$LOCAL_OPERATOR_LOCK/owner-workspace.txt" \
+    || return 70
+  rmdir -- "$LOCAL_OPERATOR_LOCK" || return 70
+  LOCAL_OPERATOR_LOCK_HELD=false
+}
+
+operator_entrypoint_mode() {
+  case "$#:${1:-}" in
+    0: | 1:--smoke) printf '%s\n' run ;;
+    2:--persist-only) printf '%s\n' persist ;;
+    3:--archive-only) printf '%s\n' archive ;;
+    4:--validate-attempt) printf '%s\n' validate ;;
+    *) return 70 ;;
+  esac
+}
+
+operator_entrypoint() {
+  local mode status
+  mode=$(operator_entrypoint_mode "$@") || {
+    operator_main "$@"
+    return
+  }
+  acquire_local_operator_lock || return 70
+  set +e
+  (
+    set -Eeuo pipefail
+    operator_main "$@"
+  )
+  status=$?
+  set -e
+  if test "$status" -eq 0 || test "$mode" = validate; then
+    release_local_operator_lock || return 70
+  else
+    printf 'cs2a-operator: operation ended with status %s; manual cleanup required before another CS2a operation: %s\n' \
+      "$status" "$LOCAL_OPERATOR_LOCK" >&2
+  fi
+  return "$status"
 }
 
 sha256_of() {
@@ -664,7 +730,7 @@ append_expected_verify_and_compare() {
 
 append_expected_smoke_campaign() {
   local destination=$1 label=$2 mode=$3 candidate_manifest=$4 candidate_adapter=$5
-  local warmups=$6 iterations=$7 artifact_name=$8 run_root=$9 driver=${10} policy=${11}
+  local warmups=$6 iterations=$7 artifact_name=$8 run_root=$9 driver=${10}
   append_expected_command "$destination" "$label" "$driver" run-paired \
     --mode "$mode" --intent smoke \
     --baseline "$run_root/manifests/baseline-a.json" \
@@ -673,7 +739,7 @@ append_expected_smoke_campaign() {
     --candidate-adapter "$candidate_adapter" \
     --workload lifecycle.no-script-one-step.v1 --blocks 2 \
     --forks-per-block 1 --warmups "$warmups" --iterations "$iterations" \
-    --seed 5928239383101656625 --metrics latency --host-policy "$policy" \
+    --seed 5928239383101656625 --metrics latency \
     --artifacts-dir "$run_root/artifacts/$artifact_name" \
     --output "$run_root/results/$label.json"
 }
@@ -691,7 +757,7 @@ append_expected_smoke_verify_and_compare() {
 
 write_expected_smoke_command_protocol() {
   local root=$1 destination=$2 run_root harness baseline_a baseline_b candidate
-  local driver init validator policy manifest name checkout target_id
+  local driver init validator manifest name checkout target_id
   run_root=$(tr -d '\r\n' <"$root/meta/run-root.txt") || return 1
   [[ "$run_root" =~ ^/opt/revoman-benchmark/runs/cs2a\.[A-Za-z0-9]+$ ]] || return 1
   harness="$run_root/checkouts/harness"
@@ -701,7 +767,6 @@ write_expected_smoke_command_protocol() {
   driver="$harness/benchmark-driver/build/install/benchmark-driver/bin/benchmark-driver"
   init="$harness/benchmark-driver/build/install/benchmark-driver/libexec/benchmark-target.init.gradle.kts"
   validator="$harness/docs/superpowers/benchmarks/operators/cs2a-validate-manifest.jq"
-  policy=/opt/revoman-benchmark/controlled-host.json
   : >"$destination" || return 1
   append_expected_command "$destination" install-harness "$harness/gradlew" \
     -p "$harness" :benchmark-driver:installDist --no-daemon --console=plain
@@ -722,13 +787,13 @@ write_expected_smoke_command_protocol() {
       jq -e -f "$validator" "$run_root/manifests/$name.json"
   done
   append_expected_smoke_campaign "$destination" cold-aa cold baseline-b.json \
-    baseline-83f3cd70 0 1 cold-aa "$run_root" "$driver" "$policy"
+    baseline-83f3cd70 0 1 cold-aa "$run_root" "$driver"
   append_expected_smoke_campaign "$destination" warm-aa warm baseline-b.json \
-    baseline-83f3cd70 1 3 warm-aa "$run_root" "$driver" "$policy"
+    baseline-83f3cd70 1 3 warm-aa "$run_root" "$driver"
   append_expected_smoke_campaign "$destination" cold-candidate cold candidate.json \
-    major-v1 0 1 cold-candidate "$run_root" "$driver" "$policy"
+    major-v1 0 1 cold-candidate "$run_root" "$driver"
   append_expected_smoke_campaign "$destination" warm-candidate warm candidate.json \
-    major-v1 1 3 warm-candidate "$run_root" "$driver" "$policy"
+    major-v1 1 3 warm-candidate "$run_root" "$driver"
   append_expected_smoke_verify_and_compare "$destination" aa-cold cold-aa \
     comparison-aa-cold "$run_root" "$driver"
   append_expected_smoke_verify_and_compare "$destination" aa-warm warm-aa \
@@ -855,8 +920,7 @@ validate_smoke_campaign_identity() {
   jq -e --arg mode "$mode" --arg candidateId "$candidate_id" \
     --arg candidateAdapter "$candidate_adapter" --arg candidateCommit "$candidate_commit" \
     --arg implementation "$implementation" --arg baselineHash "$baseline_hash" \
-    --arg candidateHash "$candidate_hash" --arg policy "$EXPECTED_POLICY_SEMANTIC_SHA256" \
-    --arg host "$EXPECTED_HOST_FINGERPRINT" --argjson warmups "$warmups" \
+    --arg candidateHash "$candidate_hash" --argjson warmups "$warmups" \
     --argjson iterations "$iterations" '
       .schema == "revoman-benchmark/v1" and .intent == "SMOKE" and
       .configuration.mode == $mode and .configuration.metricPasses == ["LATENCY"] and
@@ -870,8 +934,8 @@ validate_smoke_campaign_identity() {
         {"role":"CANDIDATE","targetId":$candidateId,"adapterId":$candidateAdapter}
       ] and
       .harness.commit == $implementation and .harness.dirty == false and
-      .environment.policySha256 == $policy and
-      .environment.hostFingerprintSha256 == $host and
+      .environment.policySha256 == null and
+      (.environment.hostFingerprintSha256 | type == "string" and test("^[0-9a-f]{64}$")) and
       (.targets | length) == 2 and
       (.targets[] | select(.id == "baseline-a-cs2a") |
         .gitCommit == "83f3cd70f78ad733412d10cbc8287aaabafe7aac" and
@@ -885,6 +949,25 @@ validate_smoke_campaign_identity() {
       (.workloads[0].metricSeries | map(.metric)) == ["LATENCY"] and
       ([.workloads[0].metricSeries[0].blocks[] | select(.accepted == true)] | length) == 2
     ' "$root/$result" >/dev/null
+}
+
+validate_smoke_campaign_set_identity() {
+  local root=$1 first result selector
+  first=$root/results/cold-aa.json
+  for result in warm-aa.json cold-candidate.json warm-candidate.json; do
+    for selector in .harness .environment '.targets[] | select(.id == "baseline-a-cs2a")'; do
+      test "$(jq -Sc "$selector" "$first")" = \
+        "$(jq -Sc "$selector" "$root/results/$result")" || return 1
+    done
+  done
+  test "$(jq -Sc '.targets[] | select(.id == "baseline-b-cs2a")' \
+    "$root/results/cold-aa.json")" = \
+    "$(jq -Sc '.targets[] | select(.id == "baseline-b-cs2a")' \
+      "$root/results/warm-aa.json")" || return 1
+  test "$(jq -Sc '.targets[] | select(.id == "candidate-cs2a")' \
+    "$root/results/cold-candidate.json")" = \
+    "$(jq -Sc '.targets[] | select(.id == "candidate-cs2a")' \
+      "$root/results/warm-candidate.json")"
 }
 
 validate_smoke_terminal_crosslinks() {
@@ -998,6 +1081,8 @@ validate_smoke_archive() {
     candidate-cs2a major-v1 "$implementation" "$implementation" 0 1 || return 1
   validate_smoke_campaign_identity "$root" results/warm-candidate.json WARM \
     candidate-cs2a major-v1 "$implementation" "$implementation" 1 3 || return 1
+  validate_smoke_campaign_set_identity "$root" || return 1
+  validate_recomparisons "$root" "$driver" false || return 1
   validate_policy_provenance "$root" "$expected_policy_sha" || return 1
   validate_smoke_terminal_crosslinks "$root"
 }
@@ -1156,16 +1241,19 @@ verify_result_files() {
 
 recompare_if_present() {
   local root=$1 label=$2 input=$3 archived_json=$4 archived_md=$5 exit_file=$6
-  local driver=$7 scratch=$8 status archived_status
+  local driver=$7 scratch=$8 enforce=${9:-true} status archived_status
+  local -a command
+  case "$enforce" in true | false) ;; *) return 1 ;; esac
   if test ! -e "$root/$input" && test ! -e "$root/$archived_json" \
     && test ! -e "$root/$archived_md" && test ! -e "$root/$exit_file"; then
     return 0
   fi
   test -f "$root/$input" && test -f "$root/$archived_json" \
     && test -f "$root/$archived_md" && test -f "$root/$exit_file" || return 1
-  if "$driver" compare --input "$root/$input" \
-    --output-json "$scratch/$label.json" --output-md "$scratch/$label.md" \
-    --enforce-release-gates >/dev/null 2>&1; then status=0; else status=$?; fi
+  command=("$driver" compare --input "$root/$input" \
+    --output-json "$scratch/$label.json" --output-md "$scratch/$label.md")
+  if test "$enforce" = true; then command+=(--enforce-release-gates); fi
+  if "${command[@]}" >/dev/null 2>&1; then status=0; else status=$?; fi
   archived_status=$(cat "$root/$exit_file") || return 1
   test "$status" = "$archived_status" || return 1
   cmp -s "$scratch/$label.json" "$root/$archived_json" || return 1
@@ -1173,20 +1261,21 @@ recompare_if_present() {
 }
 
 validate_recomparisons() {
-  local root=$1 driver=$2 scratch mode
+  local root=$1 driver=$2 enforce=${3:-true} scratch mode
   test -x "$driver" || return 1
+  case "$enforce" in true | false) ;; *) return 1 ;; esac
   scratch=$(mktemp -d "$PWD/build/cs2a-recompare.XXXXXXXX") || return 1
   case "$scratch" in "$PWD"/build/cs2a-recompare.*) ;; *) return 1 ;; esac
   for mode in cold warm; do
     recompare_if_present "$root" "comparison-aa-$mode" "results/$mode-aa.json" \
       "results/comparison-aa-$mode.json" "results/comparison-aa-$mode.md" \
-      "meta/comparison-aa-$mode-exit.txt" "$driver" "$scratch" || return 1
+      "meta/comparison-aa-$mode-exit.txt" "$driver" "$scratch" "$enforce" || return 1
   done
   for mode in cold warm retained; do
     recompare_if_present "$root" "comparison-candidate-$mode" \
       "results/$mode-candidate.json" "results/comparison-candidate-$mode.json" \
       "results/comparison-candidate-$mode.md" "meta/comparison-candidate-$mode-exit.txt" \
-      "$driver" "$scratch" || return 1
+      "$driver" "$scratch" "$enforce" || return 1
   done
 }
 
@@ -1877,9 +1966,12 @@ verify_remote_bundle() {
 }
 
 run_remote_supervisor() {
-  local status
+  local profile=${1:-} status
+  test "$#" = 1 && benchmark_profile_is_valid "$profile" || return 70
   set +e
-  ssh -tt "$REMOTE_HOST" 'dzdo /opt/revoman-benchmark/cs2a-governor-supervisor.sh' \
+  # shellcheck disable=SC2029 # profile is restricted to the closed full|smoke enum above.
+  ssh -tt "$REMOTE_HOST" \
+    "dzdo /opt/revoman-benchmark/cs2a-governor-supervisor.sh --run-profile $profile" \
     | tee "$PWD/build/cs2a-supervisor.log"
   status=${PIPESTATUS[0]}
   set -e
@@ -1944,7 +2036,12 @@ archive_remote_attempt() {
   local run_root=$1 governor_state=$2
   local run_real recorded_run implementation
   local attempt stage canonical marker post_status=70 final_status=70
-  local profile=legacy local_validation=false
+  local expected_profile=${3:-} profile=legacy local_validation=false
+  case "$#" in
+    2) ;;
+    3) benchmark_profile_is_valid "$expected_profile" || return 70 ;;
+    *) return 70 ;;
+  esac
   validate_resume_paths "$run_root" "$governor_state" || return 70
   # shellcheck disable=SC2029 # validated absolute path is intentionally expanded for remote argv
   run_real=$(ssh "$REMOTE_HOST" "readlink -f -- '$run_root'") || return 70
@@ -2012,26 +2109,30 @@ archive_remote_attempt() {
     }
   profile=$(authenticated_archive_profile "$stage" "$CS2A_IMPLEMENTATION_SHA") \
     || profile=invalid
-  case "$profile" in
-    smoke)
-      if test "$post_status" -eq 0 && prepare_local_driver \
-        && validate_smoke_archive \
-          "$stage" "$CS2A_IMPLEMENTATION_SHA" "$LOCAL_DRIVER"; then
-        final_status=0
-        local_validation=true
-      fi
-      ;;
-    full)
-      if test "$post_status" -eq 0 \
-        && test "$(tr -d '\r\n' <"$stage/meta/profile.txt")" = full; then
-        final_status=0
-      fi
-      ;;
-    legacy)
-      if test "$post_status" -eq 0; then final_status=0; fi
-      ;;
-    *) final_status=70 ;;
-  esac
+  if test -n "$expected_profile" && test "$profile" != "$expected_profile"; then
+    final_status=70
+  else
+    case "$profile" in
+      smoke)
+        if test "$post_status" -eq 0 && prepare_local_driver \
+          && validate_smoke_archive \
+            "$stage" "$CS2A_IMPLEMENTATION_SHA" "$LOCAL_DRIVER"; then
+          final_status=0
+          local_validation=true
+        fi
+        ;;
+      full)
+        if test "$post_status" -eq 0 \
+          && test "$(tr -d '\r\n' <"$stage/meta/profile.txt")" = full; then
+          final_status=0
+        fi
+        ;;
+      legacy)
+        if test "$post_status" -eq 0; then final_status=0; fi
+        ;;
+      *) final_status=70 ;;
+    esac
+  fi
   publish_local_authority_value "$stage/meta/local-validation-passed.txt" "$local_validation" \
     >/dev/null 2>&1 || {
       report_archive_stage_failure "$stage" || :
@@ -2104,7 +2205,7 @@ operator_main() {
         || fail "unable to preserve install failure"
       return 70
     fi
-    if run_remote_supervisor; then status=0; else status=$?; fi
+    if run_remote_supervisor "$profile"; then status=0; else status=$?; fi
     if ! resume_run=$(extract_supervisor_marker \
       "$PWD/build/cs2a-supervisor.log" RUN_ROOT) \
       || ! resume_state=$(extract_supervisor_marker \
@@ -2137,9 +2238,13 @@ operator_main() {
       return 70
     fi
   fi
-  archive_remote_attempt "$resume_run" "$resume_state"
+  if test "$mode" = run; then
+    archive_remote_attempt "$resume_run" "$resume_state" "$profile"
+  else
+    archive_remote_attempt "$resume_run" "$resume_state"
+  fi
 }
 
 if test "${BASH_SOURCE[0]}" = "$0"; then
-  operator_main "$@"
+  operator_entrypoint "$@"
 fi

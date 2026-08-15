@@ -208,6 +208,16 @@ verify_controlled_result() {
      .environment.hostFingerprintSha256 == $host' "$result" >/dev/null
 }
 
+verify_smoke_result() {
+  local label=$1 result=$2
+  run_logged "verify-$label" "$DRIVER" verify --input "$result"
+  jq -e '
+    .intent == "SMOKE" and
+    .environment.policySha256 == null and
+    (.environment.hostFingerprintSha256 | type == "string" and test("^[0-9a-f]{64}$"))
+  ' "$result" >/dev/null
+}
+
 run_smoke_profile() {
   local label result comparison status
   run_campaign cold-aa "$RUN_ROOT/results/cold-aa.json" \
@@ -216,7 +226,7 @@ run_smoke_profile() {
     --candidate "$RUN_ROOT/manifests/baseline-b.json" --candidate-adapter baseline-83f3cd70 \
     --workload lifecycle.no-script-one-step.v1 --blocks 2 --forks-per-block 1 \
     --warmups 0 --iterations 1 --seed 5928239383101656625 \
-    --metrics latency --host-policy "$POLICY" \
+    --metrics latency \
     --artifacts-dir "$RUN_ROOT/artifacts/cold-aa" \
     --output "$RUN_ROOT/results/cold-aa.json"
   run_campaign warm-aa "$RUN_ROOT/results/warm-aa.json" \
@@ -225,7 +235,7 @@ run_smoke_profile() {
     --candidate "$RUN_ROOT/manifests/baseline-b.json" --candidate-adapter baseline-83f3cd70 \
     --workload lifecycle.no-script-one-step.v1 --blocks 2 --forks-per-block 1 \
     --warmups 1 --iterations 3 --seed 5928239383101656625 \
-    --metrics latency --host-policy "$POLICY" \
+    --metrics latency \
     --artifacts-dir "$RUN_ROOT/artifacts/warm-aa" \
     --output "$RUN_ROOT/results/warm-aa.json"
   run_campaign cold-candidate "$RUN_ROOT/results/cold-candidate.json" \
@@ -234,7 +244,7 @@ run_smoke_profile() {
     --candidate "$RUN_ROOT/manifests/candidate.json" --candidate-adapter major-v1 \
     --workload lifecycle.no-script-one-step.v1 --blocks 2 --forks-per-block 1 \
     --warmups 0 --iterations 1 --seed 5928239383101656625 \
-    --metrics latency --host-policy "$POLICY" \
+    --metrics latency \
     --artifacts-dir "$RUN_ROOT/artifacts/cold-candidate" \
     --output "$RUN_ROOT/results/cold-candidate.json"
   run_campaign warm-candidate "$RUN_ROOT/results/warm-candidate.json" \
@@ -243,7 +253,7 @@ run_smoke_profile() {
     --candidate "$RUN_ROOT/manifests/candidate.json" --candidate-adapter major-v1 \
     --workload lifecycle.no-script-one-step.v1 --blocks 2 --forks-per-block 1 \
     --warmups 1 --iterations 3 --seed 5928239383101656625 \
-    --metrics latency --host-policy "$POLICY" \
+    --metrics latency \
     --artifacts-dir "$RUN_ROOT/artifacts/warm-candidate" \
     --output "$RUN_ROOT/results/warm-candidate.json"
   printf '%s\n' smoke-captured >"$RUN_ROOT/meta/stage.txt"
@@ -255,7 +265,7 @@ run_smoke_profile() {
       candidate-cold) result=cold-candidate; comparison='comparison-candidate-cold' ;;
       candidate-warm) result=warm-candidate; comparison='comparison-candidate-warm' ;;
     esac
-    verify_controlled_result "$label" "$RUN_ROOT/results/$result.json"
+    verify_smoke_result "$label" "$RUN_ROOT/results/$result.json"
     if run_logged "$comparison" "$DRIVER" compare \
       --input "$RUN_ROOT/results/$result.json" \
       --output-json "$RUN_ROOT/results/$comparison.json" \

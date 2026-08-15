@@ -1001,10 +1001,10 @@ finalize_supervisor() {
 }
 
 supervisor_main() {
-  local implementation runner_sha supervisor_sha run_root
-  test "$#" -eq 0 || fail "this supervisor accepts no arguments"
+  local expected_profile=${1:-} implementation runner_sha supervisor_sha run_root
+  test "$#" -eq 1 || fail "this supervisor requires one expected profile"
+  case "$expected_profile" in full | smoke) ;; *) fail "invalid expected benchmark profile" ;; esac
   test "$(id -u)" -eq 0 || fail "must execute as root"
-  validate_handoff
   umask 077
   install -d -o root -g root -m 0700 "$STATE_PARENT"
   prepare_lock_file
@@ -1012,6 +1012,9 @@ supervisor_main() {
   test "$(stat -Lc '%d:%i' /proc/$$/fd/9)" = "$(stat -Lc '%d:%i' "$LOCK_FILE")" \
     || fail "benchmark lock descriptor substitution"
   flock -n 9 || fail "exclusive benchmark lock is held"
+  validate_handoff
+  test "$CONTROLLED_PROFILE" = "$expected_profile" \
+    || fail "operator handoff profile does not match this invocation"
   recover_stale_states
   STATE=$(mktemp -d "$STATE_PARENT/governor-state.XXXXXXXX")
   chmod 0700 "$STATE"
@@ -1054,12 +1057,12 @@ supervisor_main() {
 
 supervisor_dispatch() {
   case "$#:${1:-}" in
-    0:) supervisor_main ;;
+    2:--run-profile) supervisor_main "$2" ;;
     3:--publish-final-handoff) publish_final_handoff_main "$2" "$3" ;;
     3:--validate-final-handoff) validate_final_handoff_main "$2" "$3" ;;
     5:--run-controlled-child) controlled_child_exec "$2" "$3" "$4" "$5" ;;
     10:--run-controlled-launcher) controlled_launcher_exec "$2" "$3" "$4" "$5" "$6" "$7" "$8" "$9" "${10}" ;;
-    *) fail 'usage: cs2a-governor-supervisor.sh [--publish-final-handoff RUN_ROOT GOVERNOR_STATE | --validate-final-handoff RUN_ROOT GOVERNOR_STATE]' ;;
+    *) fail 'usage: cs2a-governor-supervisor.sh --run-profile full|smoke | --publish-final-handoff RUN_ROOT GOVERNOR_STATE | --validate-final-handoff RUN_ROOT GOVERNOR_STATE' ;;
   esac
 }
 

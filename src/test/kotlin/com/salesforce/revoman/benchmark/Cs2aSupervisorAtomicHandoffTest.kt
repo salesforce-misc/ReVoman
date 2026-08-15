@@ -22,6 +22,37 @@ class Cs2aSupervisorAtomicHandoffTest {
   @TempDir lateinit var temporaryDirectory: Path
 
   @Test
+  fun `public run profile is bound after the supervisor acquires the benchmark lock`() {
+    val observed = temporaryDirectory.resolve("observed-profile.txt")
+    val harness =
+      """
+      source ${quote(supervisor)}
+      supervisor_main() {
+        test "${'$'}#" = 1
+        case "${'$'}1" in full | smoke) ;; *) return 70 ;; esac
+        printf '%s\n' "${'$'}1" >${quote(observed)}
+      }
+      supervisor_dispatch --run-profile smoke
+      test "${'$'}(cat ${quote(observed)})" = smoke
+      if (supervisor_dispatch --run-profile invalid); then exit 98; else test "${'$'}?" = 70; fi
+      """
+        .trimIndent()
+
+    val result = run(listOf("/bin/bash", "-c", harness))
+    val source = Files.readString(supervisor)
+    val main =
+      source.substring(
+        source.indexOf("supervisor_main() {"),
+        source.indexOf("\nsupervisor_dispatch()"),
+      )
+
+    assertWithMessage(result.output).that(result.exitCode).isEqualTo(0)
+    assertThat(main).contains("case \"${'$'}expected_profile\" in full | smoke)")
+    assertThat(main.indexOf("flock -n 9")).isLessThan(main.indexOf("validate_handoff"))
+    assertThat(main).contains("test \"${'$'}CONTROLLED_PROFILE\" = \"${'$'}expected_profile\"")
+  }
+
+  @Test
   fun `failed handoff never exposes a partially copied final directory`() {
     val fixture = createFixture("interrupted")
 
