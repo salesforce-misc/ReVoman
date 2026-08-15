@@ -2126,6 +2126,15 @@ must leave no unstaged or uncommitted changes.
 
 ### Task 8: Reconcile the major API, documentation, and full acceptance gates
 
+> **Supersession notice (2026-08-15):** Preserve Task 8 Steps 1-3 as the owning lifecycle/API work
+> and preserve any completed documentation and local-gate history. The old remote installation,
+> staged `dzdo`, unsigned
+> handoff/archive, evidence selection, and measurement flow in Steps 4-7 is not authorized for new
+> execution. Those portions are superseded by the
+> [CS2a host-neutral plan set](2026-08-15-cs2a-remote-session-plan-set.md) and its six
+> dependency-ordered plans. This historical text remains unchanged below so prior commits and the preserved failed
+> attempt can be audited; it must not be used as an operator runbook.
+
 **Files:**
 - Modify: `api/revoman-root.api`
 - Verify unchanged: `api/cs2-baseline-revoman-root.api`
