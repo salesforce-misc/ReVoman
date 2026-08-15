@@ -16,7 +16,8 @@
 // (why-revoman, agentic-orchestration, rundown, getting-started, applications…).
 // This page is the front door, not a content silo.
 //
-// The hero "Rundown readout" mirrors a deterministic loopback-backed integration test —
+// The hero "Rundown readout" mirrors the public MockHttpServer plus the repository's
+// application-specific DeterministicMockApi integration test —
 // GET/POST/PATCH/GET on /objects, 4 steps, all green —
 // see src/integrationTest/.../restfulapidev/RestfulAPIDevTest.java.
 // =============================================================================
@@ -45,7 +46,7 @@
     </p>
   </div>
 
-  <!-- SIGNATURE: a local-fixture Rundown readout. The engine's own output, animating
+  <!-- SIGNATURE: a public MockHttpServer and application handler Rundown readout. The engine's own output, animating
        on load — the 4 deterministic steps of the /objects demo run in order,
        each resolving to a green status, then the panel reveals toJson(). -->
   <figure class="rv-readout" aria-label="A ReṼoman Rundown: four API steps executing in order, then the JSON output">

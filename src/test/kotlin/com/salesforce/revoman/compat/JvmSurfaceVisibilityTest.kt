@@ -391,19 +391,7 @@ class JvmSurfaceVisibilityTest {
       MOCK_HTTP_HANDLER,
       "METHOD|handle|(Lorg/http4k/core/Request;)Lorg/http4k/core/Response;",
     )
-    assertSourceCallableMembers(
-      featureRows,
-      RECORDED_NAME_VALUE,
-      "CONSTRUCTOR|<init>|(Ljava/lang/String;Ljava/lang/String;)V",
-      "METHOD|component1|()Ljava/lang/String;",
-      "METHOD|component2|()Ljava/lang/String;",
-      "METHOD|copy|(Ljava/lang/String;Ljava/lang/String;)L$RECORDED_NAME_VALUE;",
-      "METHOD|equals|(Ljava/lang/Object;)Z",
-      "METHOD|hashCode|()I",
-      "METHOD|name|()Ljava/lang/String;",
-      "METHOD|toString|()Ljava/lang/String;",
-      "METHOD|value|()Ljava/lang/String;",
-    )
+    assertRecordedNameValueSurface(featureRows)
     assertSourceCallableMembers(
       featureRows,
       RECORDED_HTTP_REQUEST,
@@ -437,6 +425,22 @@ class JvmSurfaceVisibilityTest {
         }
       )
       .isEmpty()
+  }
+
+  private fun assertRecordedNameValueSurface(featureRows: List<JvmSurfaceEntry>) {
+    assertSourceCallableMembers(
+      featureRows,
+      RECORDED_NAME_VALUE,
+      "CONSTRUCTOR|<init>|(Ljava/lang/String;Ljava/lang/String;)V",
+      "METHOD|component1|()Ljava/lang/String;",
+      "METHOD|component2|()Ljava/lang/String;",
+      "METHOD|copy|(Ljava/lang/String;Ljava/lang/String;)L$RECORDED_NAME_VALUE;",
+      "METHOD|equals|(Ljava/lang/Object;)Z",
+      "METHOD|hashCode|()I",
+      "METHOD|name|()Ljava/lang/String;",
+      "METHOD|toString|()Ljava/lang/String;",
+      "METHOD|value|()Ljava/lang/String;",
+    )
   }
 
   private fun assertSourceCallableMembers(

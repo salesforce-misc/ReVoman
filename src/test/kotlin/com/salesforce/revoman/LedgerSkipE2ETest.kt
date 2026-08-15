@@ -22,13 +22,14 @@ import org.junit.jupiter.api.Test
  * E2E for the warm-path centerpiece in [ReVoman.executeStepsSerially]: ledger-skip + inject, and
  * [com.salesforce.revoman.output.Rundown.learnedLedger] emission.
  *
- * External-network-free by design: a shared [MockHttpServer] is bound to loopback on an ephemeral port
- * in [BeforeAll] and torn down in [AfterAll] — no internet dependency, so this runs in an isolated
- * CI sandbox. The collection URL is templated `{{baseUrl}}/...` and resolved against `baseUrl`
- * injected via `dynamicEnvironment`. The single-step fixture `pm-templates/v3/ledger-skip` is a
- * plain GET that PRODUCES nothing on its own (the loopback server just returns 200) — which is what
- * lets the warm run prove the skip: a hash-matching, produced-keys-present ledger entry makes that
- * one step's HTTP dispatch get SKIPPED, so the warm run makes ZERO requests to the server.
+ * External-network-free by design: a shared [MockHttpServer] is bound to loopback on an ephemeral
+ * port in [BeforeAll] and torn down in [AfterAll] — no internet dependency, so this runs in an
+ * isolated CI sandbox. The collection URL is templated `{{baseUrl}}/...` and resolved against
+ * `baseUrl` injected via `dynamicEnvironment`. The single-step fixture
+ * `pm-templates/v3/ledger-skip` is a plain GET that PRODUCES nothing on its own (the loopback
+ * server just returns 200) — which is what lets the warm run prove the skip: a hash-matching,
+ * produced-keys-present ledger entry makes that one step's HTTP dispatch get SKIPPED, so the warm
+ * run makes ZERO requests to the server.
  */
 class LedgerSkipE2ETest {
   private val collection = "pm-templates/v3/ledger-skip"

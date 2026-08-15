@@ -37,9 +37,9 @@ import org.junit.jupiter.api.io.TempDir
 /**
  * E2E proving the multi-kick [ReVoman.revUp] fold threads the FULL environment — values of every
  * type, not just [String] — from one kick into the next. External-network-free: a loopback
- * [MockHttpServer] answers the `{{baseUrl}}` steps so the run completes. The
- * env values under test are seeded via `dynamicEnvironment`, so they land in `rundown.mutableEnv`
- * regardless of step outcome; the assertions are purely about what kick N+1 inherits from kick N.
+ * [MockHttpServer] answers the `{{baseUrl}}` steps so the run completes. The env values under test
+ * are seeded via `dynamicEnvironment`, so they land in `rundown.mutableEnv` regardless of step
+ * outcome; the assertions are purely about what kick N+1 inherits from kick N.
  */
 class MultiKickEnvTypesE2ETest {
   @TempDir lateinit var temporaryDirectory: Path

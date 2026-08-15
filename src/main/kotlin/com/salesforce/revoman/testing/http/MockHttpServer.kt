@@ -108,6 +108,10 @@ private constructor(
         HttpServer.create(address, 0)
       },
     ) {
+      /**
+       * Rolls back every resource acquired before a startup failure, including JVM-level errors.
+       */
+      @Suppress("TooGenericExceptionCaught")
       fun start(handler: MockHttpHandler): MockHttpServerLifecycle {
         var executor: ExecutorService? = null
         var server: HttpServer? = null
@@ -161,6 +165,8 @@ private constructor(
       }
     }
 
+    /** Retains every cleanup failure without preventing the remaining rollback steps. */
+    @Suppress("TooGenericExceptionCaught")
     private fun suppressCleanupFailure(failure: Throwable, cleanup: () -> Unit) {
       try {
         cleanup()
@@ -307,6 +313,8 @@ private constructor(
         }
       }
 
+      /** Retains any executor failure so close can still attempt forced shutdown. */
+      @Suppress("TooGenericExceptionCaught")
       private fun awaitTermination(failures: MutableList<Throwable>): AwaitResult =
         try {
           AwaitResult(
@@ -338,6 +346,8 @@ private constructor(
 
     private data class AwaitResult(val terminated: Boolean, val interrupted: Boolean)
 
+    /** Retains any cleanup failure so later close operations are still attempted. */
+    @Suppress("TooGenericExceptionCaught")
     private fun attempt(failures: MutableList<Throwable>, action: () -> Unit) {
       try {
         action()
