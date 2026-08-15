@@ -49,4 +49,20 @@ internal class RequestLedger {
   fun handlerFailures(): List<HandlerFailure> = lock.withLock {
     java.util.List.copyOf(failures.sortedBy(HandlerFailure::ordinal))
   }
+
+  /** Aggregates retained handler and shutdown failures in deterministic close-time order. */
+  fun aggregateCloseFailure(shutdownFailures: List<Throwable>): IllegalStateException? {
+    val handlerFailures = handlerFailures().map(HandlerFailure::failure)
+    val orderedFailures = handlerFailures + shutdownFailures
+    if (orderedFailures.isEmpty()) return null
+    val message =
+      if (handlerFailures.isEmpty()) {
+        "Mock HTTP server shutdown failed"
+      } else {
+        "${handlerFailures.size} mock HTTP handler failures"
+      }
+    return IllegalStateException(message, orderedFailures.first()).apply {
+      orderedFailures.drop(1).forEach(::addSuppressed)
+    }
+  }
 }
