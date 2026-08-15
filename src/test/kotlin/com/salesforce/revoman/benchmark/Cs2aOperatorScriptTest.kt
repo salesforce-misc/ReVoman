@@ -50,14 +50,16 @@ class Cs2aOperatorScriptTest {
   }
 
   @Test
-  fun `unreviewed controlled UID policy sentinel fails closed`() {
-    assertBashFunctionFails(
-      "controlled_uid_policy_is_provisioned",
-      "operator UID policy sentinel",
+  fun `reviewed controlled UID policy is pinned in both privileged entry points`() {
+    val expectedPolicySha = "abc4307b6eb40577163790a0c453ece3ff4bff8620c85471a35a1bd3a1aea44b"
+
+    assertBashFunctionSucceeds(
+      "controlled_uid_policy_is_provisioned && " +
+        "test \"\$CONTROLLED_UID_POLICY_SHA256\" = $expectedPolicySha"
     )
-    assertSupervisorFunctionFails(
-      "controlled_uid_policy_is_provisioned",
-      "supervisor UID policy sentinel",
+    assertSupervisorFunctionSucceeds(
+      "controlled_uid_policy_is_provisioned && " +
+        "test \"\$CONTROLLED_UID_POLICY_SHA256\" = $expectedPolicySha"
     )
   }
 
