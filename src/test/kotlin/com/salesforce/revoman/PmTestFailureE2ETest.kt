@@ -11,7 +11,7 @@ import com.google.common.truth.Truth.assertThat
 import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.output.ExeType.POST_RES_JS
 import com.salesforce.revoman.output.toJson
-import com.salesforce.revoman.testsupport.LoopbackHttpFixture
+import com.salesforce.revoman.testing.http.MockHttpServer
 import org.http4k.core.Response
 import org.http4k.core.Status.Companion.OK
 import org.junit.jupiter.api.AfterAll
@@ -73,13 +73,13 @@ class PmTestFailureE2ETest {
   }
 
   companion object {
-    private lateinit var fixture: LoopbackHttpFixture
+    private lateinit var fixture: MockHttpServer
     private lateinit var baseUrl: String
 
     @BeforeAll
     @JvmStatic
     fun startServer() {
-      fixture = LoopbackHttpFixture.start { Response(OK).body("{}") }
+      fixture = MockHttpServer.start { Response(OK).body("{}") }
       baseUrl = fixture.baseUrl
     }
 

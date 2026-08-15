@@ -18,7 +18,7 @@ import com.salesforce.revoman.output.Rundown
 import com.salesforce.revoman.output.log.LogLevel
 import com.salesforce.revoman.output.log.RunLogSink
 import com.salesforce.revoman.output.log.StepEvent
-import com.salesforce.revoman.testsupport.LoopbackHttpFixture
+import com.salesforce.revoman.testing.http.MockHttpServer
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.CopyOnWriteArrayList
@@ -36,8 +36,8 @@ import org.junit.jupiter.api.io.TempDir
 
 /**
  * E2E proving the multi-kick [ReVoman.revUp] fold threads the FULL environment — values of every
- * type, not just [String] — from one kick into the next. Network-free: a loopback
- * [LoopbackHttpFixture] answers the `{{baseUrl}}` steps so the run completes without real I/O. The
+ * type, not just [String] — from one kick into the next. External-network-free: a loopback
+ * [MockHttpServer] answers the `{{baseUrl}}` steps so the run completes. The
  * env values under test are seeded via `dynamicEnvironment`, so they land in `rundown.mutableEnv`
  * regardless of step outcome; the assertions are purely about what kick N+1 inherits from kick N.
  */
@@ -354,13 +354,13 @@ class MultiKickEnvTypesE2ETest {
   companion object {
     private const val LATCH_TIMEOUT_SECONDS = 20L
 
-    private lateinit var fixture: LoopbackHttpFixture
+    private lateinit var fixture: MockHttpServer
     private lateinit var baseUrl: String
 
     @BeforeAll
     @JvmStatic
     fun startServer() {
-      fixture = LoopbackHttpFixture.start { Response(OK).body("{}") }
+      fixture = MockHttpServer.start { Response(OK).body("{}") }
       baseUrl = fixture.baseUrl
     }
 

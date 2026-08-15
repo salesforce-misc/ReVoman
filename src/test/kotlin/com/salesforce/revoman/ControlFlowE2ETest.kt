@@ -10,7 +10,7 @@ package com.salesforce.revoman
 import com.google.common.truth.Truth.assertThat
 import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.output.StopReason
-import com.salesforce.revoman.testsupport.LoopbackHttpFixture
+import com.salesforce.revoman.testing.http.MockHttpServer
 import org.http4k.core.Response
 import org.http4k.core.Status.Companion.OK
 import org.junit.jupiter.api.AfterAll
@@ -66,13 +66,13 @@ class ControlFlowE2ETest {
 
   @Test
   fun `skipRequest skips HTTP but the run continues`() {
-    val before = fixture.hitCount("/skipme")
+    val before = fixture.requests().count { it.path == "/skipme" }
     val rundown = run("pm-templates/v3/cf-skip")
     val skipped = rundown.reportForStepName("skipme")!!
     assertThat(skipped.isRequestSkipped).isTrue()
     assertThat(skipped.isSuccessful).isTrue()
     // No HTTP reached the server for the skipped step.
-    assertThat(fixture.hitCount("/skipme")).isEqualTo(before)
+    assertThat(fixture.requests().count { it.path == "/skipme" }).isEqualTo(before)
     // The following step ran.
     assertThat(rundown.reportForStepName("after")!!.isSuccessful).isTrue()
     assertThat(rundown.stopReason).isEqualTo(StopReason.COMPLETED)
@@ -88,13 +88,13 @@ class ControlFlowE2ETest {
   }
 
   companion object {
-    private lateinit var fixture: LoopbackHttpFixture
+    private lateinit var fixture: MockHttpServer
     private lateinit var baseUrl: String
 
     @BeforeAll
     @JvmStatic
     fun startServer() {
-      fixture = LoopbackHttpFixture.start { Response(OK).body("{}") }
+      fixture = MockHttpServer.start { Response(OK).body("{}") }
       baseUrl = fixture.baseUrl
     }
 

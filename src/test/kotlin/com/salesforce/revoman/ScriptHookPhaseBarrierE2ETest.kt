@@ -13,7 +13,8 @@ import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.input.config.StepPick.PostTxnStepPick
 import com.salesforce.revoman.input.config.StepPick.PreTxnStepPick
 import com.salesforce.revoman.internal.json.MoshiReVoman.Companion.initMoshi
-import com.salesforce.revoman.testsupport.LoopbackHttpFixture
+import com.salesforce.revoman.testing.http.MockHttpServer
+import com.salesforce.revoman.testing.http.RecordedNameValue
 import java.util.concurrent.atomic.AtomicReference
 import org.http4k.core.Method.POST
 import org.http4k.core.Response
@@ -84,7 +85,7 @@ class ScriptHookPhaseBarrierE2ETest {
 
     val rundown = ReVoman.revUp(kick)
 
-    assertThat(fixture.hitCount()).isEqualTo(2)
+    assertThat(fixture.requests().size).isEqualTo(2)
     assertThat(hookOrder).containsExactly("pre-hook", "post-hook").inOrder()
     assertThat(rundown.stepReports).hasSize(2)
     assertThat(rundown.areAllStepsSuccessful).isTrue()
@@ -114,14 +115,22 @@ class ScriptHookPhaseBarrierE2ETest {
       .containsExactly("ledgerProduced")
     assertThat(phaseOne.envVars.consumed.filter { it.startsWith("ledger") })
       .containsExactly("ledgerConsumed")
-    val captured = fixture.requests("/phase-one").single()
+    val captured = fixture.requests().single { it.path == "/phase-one" }
     assertThat(captured.method).isEqualTo(POST)
-    assertThat(captured.queries)
-      .containsExactly("ledger" to "ledger-input", "phase" to "pre-hook")
+    assertThat(captured.queryParameters)
+      .containsExactly(
+        RecordedNameValue("ledger", "ledger-input"),
+        RecordedNameValue("phase", "pre-hook"),
+      )
       .inOrder()
     assertThat(phaseOneRawQuery.get()).isEqualTo("ledger=ledger-input&phase=pre-hook")
-    assertThat(captured.headerValues("X-Phase-Hook")).containsExactly("pre-hook")
-    assertThat(initMoshi().fromJson<Map<String, Any?>>(captured.body.decodeToString()))
+    assertThat(
+        captured.headers
+          .filter { it.name.equals("X-Phase-Hook", ignoreCase = true) }
+          .mapNotNull { it.value }
+      )
+      .containsExactly("pre-hook")
+    assertThat(initMoshi().fromJson<Map<String, Any?>>(captured.bodyString()))
       .containsAtLeast(
         "requestMarker",
         "phase-request-v1",
@@ -135,14 +144,14 @@ class ScriptHookPhaseBarrierE2ETest {
   }
 
   companion object {
-    private lateinit var fixture: LoopbackHttpFixture
+    private lateinit var fixture: MockHttpServer
     private lateinit var baseUrl: String
     private val phaseOneRawQuery = AtomicReference<String?>()
 
     @BeforeAll
     @JvmStatic
     fun startServer() {
-      fixture = LoopbackHttpFixture.start { request ->
+      fixture = MockHttpServer.start { request ->
         if (request.uri.path == "/phase-one") {
           val rawQuery = request.uri.query
           val phaseHeader = request.header("X-Phase-Hook")
