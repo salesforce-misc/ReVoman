@@ -13,7 +13,8 @@
 ReVoman will ship a small, generic, real-wire mock HTTP server for examples and consumer tests.
 The public module will accept a Java-friendly handler backed by http4k request and response types,
 bind an ephemeral port on exact IPv4 loopback, run concurrent exchanges on owned Java 21 virtual
-threads, record immutable request snapshots, and release every owned resource deterministically.
+threads, record immutable request snapshots, release the listener deterministically, and perform a
+bounded shutdown of every owned executor task.
 
 The feature extracts the reusable transport and recorder responsibilities currently duplicated by
 `DeterministicMockApiServer` and `LoopbackHttpFixture`. Domain behavior remains in test handlers.
@@ -216,11 +217,14 @@ the server:
 The server catches `Exception`, not `Throwable`, at the handler boundary. Every `Error`, including
 `AssertionError`, `LinkageError`, `ThreadDeath`, and `VirtualMachineError`, escapes the handler task
 without conversion or aggregation. A body-capture or snapshot-construction exception publishes no
-partial request. A later replay or transport-adaptation exception retains any complete snapshot
-already published. In either case the handler is not called, an empty `500` is attempted if the
-exchange remains writable, and the transport failure is logged rather than added to the
-handler-failure aggregate. Transport errors that occur after a valid handler response are likewise
-logged and cleaned up but are not misreported as handler failures.
+partial request. A later replay exception retains any complete snapshot already published. In
+either case the handler is not called, an empty `500` is attempted if the exchange remains
+writable, and every failure visible at ReVoman's recording/handler boundary is logged rather than
+added to the handler-failure aggregate. The public http4k `HttpExchangeHandler` catches
+response-write and other adapter-owned `Exception`s without exposing a callback; those failures
+retain http4k's empty-500 and exchange-cleanup behavior but cannot be logged or aggregated by
+ReVoman without copying that adapter. ReVoman must use the public adapter rather than maintain a
+divergent copy.
 
 On `close()`, retained handler failures are sorted by capture ordinal. Teardown throws one
 `IllegalStateException` describing the failure count. The earliest request failure is its primary
@@ -246,6 +250,11 @@ The first `close()` call:
 
 Resource cleanup is fail-closed and completes as far as possible even if one teardown operation
 fails. The timeout is an internal safety bound, not public configuration.
+
+Java interruption is cooperative: `shutdownNow()` cannot kill a handler that ignores interruption.
+After the second five-second wait, `close()` reports a shutdown failure while the listener remains
+released; public KDoc requires blocking handlers to cooperate with interruption, and tests must not
+claim that an arbitrary non-cooperative virtual thread can be forcibly terminated.
 
 Closing is idempotent: only the first call owns teardown and reports retained failures. A concurrent
 close waits for that teardown to finish and then returns without repeating its failure; calls made
