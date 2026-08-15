@@ -14,6 +14,7 @@ import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.nio.file.attribute.PosixFilePermission
 import java.security.MessageDigest
+import java.util.concurrent.TimeUnit
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -1297,7 +1298,8 @@ class Cs2aOperatorScriptTest {
     write(workspace.resolve("build/cs2a-implementation-sha"), "$implementation\n")
     val testOperator = bundle.resolve(operator.fileName)
     val dirtyRunner = bundle.resolve(controlledRunner.fileName)
-    write(dirtyRunner, Files.readString(dirtyRunner) + "# unauthenticated mutation\n")
+    val authenticatedRunner = Files.readString(dirtyRunner)
+    write(dirtyRunner, authenticatedRunner + "# unauthenticated mutation\n")
     val remoteMarker = workspace.resolve("build/remote-install-called")
     val harness =
       """
@@ -1319,12 +1321,23 @@ class Cs2aOperatorScriptTest {
       ),
       workspace,
     )
+    write(dirtyRunner, authenticatedRunner)
+    write(workspace.resolve("build/cs2a-operator-status.txt"), "70\n")
+    assertProcessSucceeds(
+      listOf(
+        "/bin/bash",
+        "-c",
+        "source ${quote(testOperator)}; operator_main --persist-only 70",
+      ),
+      workspace,
+    )
     val comparison =
       "    cmp -s \"${'$'}OPERATOR_DIR/${'$'}asset\" " +
         "\"${'$'}detached_operator_dir/${'$'}asset\" || return 1"
     val authenticatedSource = Files.readString(testOperator)
     assertThat(authenticatedSource).contains(comparison)
     write(testOperator, authenticatedSource.replace(comparison, "    : # comparison deleted"))
+    write(dirtyRunner, authenticatedRunner + "# unauthenticated mutation\n")
     Files.deleteIfExists(remoteMarker)
     assertThat(
         run(
@@ -2305,6 +2318,145 @@ class Cs2aOperatorScriptTest {
       assertWithMessage("arguments=$arguments\n${result.output}")
         .that(result.exitCode)
         .isNotEqualTo(0)
+    }
+  }
+
+  @Test
+  fun `fresh public run modes clear stale attempt state before publishing install failure`() {
+    freshProfileArguments.forEach { (profile, arguments) ->
+      val workspace =
+        Files.createDirectories(temporaryDirectory.resolve("fresh-$profile-stale-state"))
+          .toRealPath()
+      val sentinel = workspace.resolve("supervisor-log-victim")
+      write(sentinel, "must remain unchanged\n")
+      Files.createDirectories(workspace.resolve("build"))
+      Files.createSymbolicLink(workspace.resolve("build/cs2a-supervisor.log"), sentinel)
+      assertProcessSucceeds(
+        listOf("mkfifo", workspace.resolve("build/cs2a-supervisor-exit.txt").toString())
+      )
+      derivedAttemptStateFiles
+        .filterNot { it in setOf("cs2a-supervisor.log", "cs2a-supervisor-exit.txt") }
+        .forEach { file -> write(workspace.resolve("build/$file"), "stale-$file\n") }
+      val testOperator = writeFreshInstallFailureOperator(workspace, IMPLEMENTATION_SHA)
+
+      val result = runWithTimeout(publicCommand(testOperator, arguments), workspace)
+
+      assertWithMessage("$profile\n${result.output}").that(result.exitCode).isEqualTo(70)
+      assertThat(Files.exists(workspace.resolve("build/preparation-called"))).isTrue()
+      assertThat(Files.exists(workspace.resolve("build/install-called"))).isTrue()
+      val attempt =
+        Path.of(Files.readString(workspace.resolve("build/cs2a-local-evidence-dir.txt")).trim())
+      assertThat(Files.readString(attempt.resolve("meta/operator-failure-phase.txt")))
+        .isEqualTo("install\n")
+      listOf(
+          "operator-supervisor.log",
+          "operator-supervisor-exit.txt",
+          "operator-original-post-supervisor-exit.txt",
+          "operator-recorded-post-supervisor-exit.txt",
+        )
+        .forEach { file -> assertThat(Files.exists(attempt.resolve("meta/$file"))).isFalse() }
+      derivedAttemptStateFiles.forEach { file ->
+        val path = workspace.resolve("build/$file")
+        assertThat(Files.exists(path) || Files.isSymbolicLink(path)).isFalse()
+      }
+      assertThat(Files.readString(sentinel)).isEqualTo("must remain unchanged\n")
+    }
+  }
+
+  @Test
+  fun `fresh public run modes replace only a persisted prior attempt marker`() {
+    freshProfileArguments.forEach { (profile, arguments) ->
+      val workspace = createPersistenceWorkspace("fresh-$profile-persisted-marker")
+      val fixture = createPersistedRolloverFixture(workspace)
+      write(workspace.resolve("build/cs2a-local-evidence-dir.txt"), "${fixture.attempt}\n")
+      write(workspace.resolve("build/cs2a-attempt-evidence-sha.txt"), "${fixture.evidenceSha}\n")
+      derivedAttemptStateFiles
+        .filterNot { it == "cs2a-attempt-evidence-sha.txt" }
+        .forEach { file -> write(workspace.resolve("build/$file"), "stale-$file\n") }
+      val testOperator = writeFreshInstallFailureOperator(workspace, fixture.currentImplementation)
+
+      val result = runWithTimeout(publicCommand(testOperator, arguments), workspace)
+
+      assertWithMessage("$profile\n${result.output}").that(result.exitCode).isEqualTo(70)
+      assertThat(fixture.currentImplementation).isNotEqualTo(fixture.priorImplementation)
+      assertThat(Files.exists(workspace.resolve("build/preparation-called"))).isTrue()
+      assertThat(Files.exists(workspace.resolve("build/install-called"))).isTrue()
+      val nextAttempt =
+        Path.of(Files.readString(workspace.resolve("build/cs2a-local-evidence-dir.txt")).trim())
+      assertThat(nextAttempt).isNotEqualTo(fixture.attempt)
+      assertThat(nextAttempt.parent.fileName.toString())
+        .isEqualTo("cs2a-${fixture.currentImplementation}")
+      assertThat(Files.readString(nextAttempt.resolve("meta/operator-failure-phase.txt")))
+        .isEqualTo("install\n")
+      assertThat(Files.exists(nextAttempt.resolve("meta/operator-supervisor.log"))).isFalse()
+      assertThat(Files.isDirectory(fixture.attempt)).isTrue()
+      val recordedEvidence =
+        run(listOf("git", "log", "-1", "--format=%H", "--", fixture.attempt.toString()), workspace)
+          .output
+          .trim()
+      assertThat(recordedEvidence).isEqualTo(fixture.evidenceSha)
+    }
+  }
+
+  @Test
+  fun `fresh public run modes fail before preparation when a prior marker is not persisted`() {
+    val cases =
+      listOf(
+        Triple("full-regular", emptyList(), "regular"),
+        Triple("smoke-regular", listOf("--smoke"), "regular"),
+        Triple("full-symlink", emptyList(), "symlink"),
+        Triple("smoke-fifo", listOf("--smoke"), "fifo"),
+      )
+    cases.forEach { (name, arguments, markerType) ->
+      val workspace =
+        Files.createDirectories(temporaryDirectory.resolve("fresh-unpersisted-$name")).toRealPath()
+      write(workspace.resolve("build/cs2a-supervisor.log"), "prior-attempt-log\n")
+      val victim = workspace.resolve("marker-victim")
+      write(victim, "/unpersisted/operator-failure.prior\n")
+      val marker = workspace.resolve("build/cs2a-local-evidence-dir.txt")
+      when (markerType) {
+        "regular" -> write(marker, "/unpersisted/operator-failure.prior\n")
+        "symlink" -> Files.createSymbolicLink(marker, victim)
+        "fifo" -> assertProcessSucceeds(listOf("mkfifo", marker.toString()))
+      }
+      val testOperator = writeFreshInstallFailureOperator(workspace, IMPLEMENTATION_SHA)
+
+      val result = runWithTimeout(publicCommand(testOperator, arguments), workspace)
+
+      assertWithMessage("$name\n${result.output}").that(result.exitCode).isEqualTo(70)
+      assertThat(Files.exists(workspace.resolve("build/preparation-called"))).isFalse()
+      assertThat(Files.exists(workspace.resolve("build/install-called"))).isFalse()
+      assertThat(Files.readString(workspace.resolve("build/cs2a-supervisor.log")))
+        .isEqualTo("prior-attempt-log\n")
+      assertThat(Files.exists(marker) || Files.isSymbolicLink(marker)).isTrue()
+      if (markerType == "fifo") {
+        assertProcessSucceeds(listOf("/bin/bash", "-c", "test -p ${quote(marker)}"))
+      }
+      if (markerType == "symlink") assertThat(Files.isSymbolicLink(marker)).isTrue()
+      assertThat(Files.readString(victim)).isEqualTo("/unpersisted/operator-failure.prior\n")
+      assertThat(Files.isDirectory(workspace.resolve("operator.lock"))).isTrue()
+    }
+  }
+
+  @Test
+  fun `nonfresh public modes retain existing attempt state`() {
+    nonfreshInvocations.forEach { (mode, arguments) ->
+      val workspace =
+        Files.createDirectories(temporaryDirectory.resolve("nonfresh-$mode-retains-state"))
+          .toRealPath()
+      attemptStateFiles.forEach { file ->
+        write(workspace.resolve("build/$file"), "retained-$file\n")
+      }
+      val testOperator = writeNonfreshStateOperator(workspace)
+
+      val result = runWithTimeout(publicCommand(testOperator, arguments), workspace)
+
+      assertWithMessage("$mode\n${result.output}").that(result.exitCode).isEqualTo(0)
+      assertThat(Files.exists(workspace.resolve("build/state-observed"))).isTrue()
+      attemptStateFiles.forEach { file ->
+        assertThat(Files.readString(workspace.resolve("build/$file"))).isEqualTo("retained-$file\n")
+      }
+      assertThat(Files.exists(workspace.resolve("operator.lock"))).isFalse()
     }
   }
 
@@ -4315,6 +4467,115 @@ class Cs2aOperatorScriptTest {
     assertWithMessage("$label\n${result.output}").that(result.exitCode).isNotEqualTo(0)
   }
 
+  private fun writeFreshInstallFailureOperator(workspace: Path, implementation: String): Path {
+    val absentAssertions =
+      attemptStateFiles.joinToString("\n") { file ->
+        "test ! -e \"${'$'}PWD/build/$file\" && test ! -L \"${'$'}PWD/build/$file\""
+      }
+    val stubs =
+      """
+      $publicationToolPrelude
+      prepare_operator_source() {
+        : >"${'$'}PWD/build/preparation-called"
+        $absentAssertions
+        AUTHENTICATED_SOURCE_ROOT=/tmp
+      }
+      install_remote_bundle() { : >"${'$'}PWD/build/install-called"; return 1; }
+      """
+        .trimIndent()
+    write(workspace.resolve("build/cs2a-implementation-sha"), "$implementation\n")
+    return writePublicOperatorFixture(workspace, stubs)
+  }
+
+  private fun writeNonfreshStateOperator(workspace: Path): Path {
+    val retainedAssertions =
+      attemptStateFiles.joinToString("\n") { file ->
+        "test \"${'$'}(cat \"${'$'}PWD/build/$file\")\" = retained-$file"
+      }
+    val stubs =
+      """
+      assert_retained_state() {
+        $retainedAssertions
+        : >"${'$'}PWD/build/state-observed"
+      }
+      prepare_operator_source() { assert_retained_state; AUTHENTICATED_SOURCE_ROOT=/tmp; }
+      prepare_local_driver() { LOCAL_DRIVER=/bin/false; }
+      persist_attempt() { assert_retained_state; }
+      validate_persisted_attempt() { assert_retained_state; }
+      verify_remote_bundle() { assert_retained_state; }
+      validate_remote_final_handoff() { assert_retained_state; }
+      archive_remote_attempt() { assert_retained_state; }
+      install_remote_bundle() { return 97; }
+      """
+        .trimIndent()
+    write(workspace.resolve("build/cs2a-implementation-sha"), "$IMPLEMENTATION_SHA\n")
+    return writePublicOperatorFixture(workspace, stubs)
+  }
+
+  private fun writePublicOperatorFixture(workspace: Path, stubs: String): Path {
+    val source = Files.readString(operator)
+    val fixedLock =
+      "LOCAL_OPERATOR_LOCK=\"/tmp/revoman-cs2a-operator.${'$'}(id -u).${'$'}REMOTE_HOST.lock\""
+    val publicDispatch = "if test \"${'$'}{BASH_SOURCE[0]}\" = \"${'$'}0\"; then"
+    val testOperator = workspace.resolve("cs2a-operator.sh")
+    write(
+      testOperator,
+      source
+        .replace(fixedLock, "LOCAL_OPERATOR_LOCK=${quote(workspace.resolve("operator.lock"))}")
+        .replace(publicDispatch, "$stubs\n$publicDispatch"),
+    )
+    return testOperator
+  }
+
+  private fun createPersistedRolloverFixture(workspace: Path): PersistedRolloverFixture {
+    val priorImplementation = run(listOf("git", "rev-parse", "HEAD"), workspace).output.trim()
+    val attempt =
+      workspace.resolve(
+        "docs/superpowers/benchmarks/results/v1/" +
+          "cs2a-$priorImplementation/operator-failure.persisted"
+      )
+    write(attempt.resolve("meta/implementation-sha.txt"), "$priorImplementation\n")
+    write(attempt.resolve("meta/operator-final-exit.txt"), "70\n")
+    assertProcessSucceeds(
+      listOf(
+        "/bin/bash",
+        "-c",
+        "source ${quote(operator)}; write_root_checksum_inventory ${quote(attempt)}",
+      ),
+      workspace,
+    )
+    assertProcessSucceeds(listOf("git", "add", "--", attempt.toString()), workspace)
+    assertProcessSucceeds(listOf("git", "commit", "-qm", "persist prior attempt"), workspace)
+    val evidenceSha = run(listOf("git", "rev-parse", "HEAD"), workspace).output.trim()
+    write(workspace.resolve("implementation-rollover.txt"), "next implementation\n")
+    assertProcessSucceeds(listOf("git", "add", "implementation-rollover.txt"), workspace)
+    assertProcessSucceeds(listOf("git", "commit", "-qm", "next implementation"), workspace)
+    val currentImplementation = run(listOf("git", "rev-parse", "HEAD"), workspace).output.trim()
+    return PersistedRolloverFixture(
+      attempt,
+      priorImplementation,
+      evidenceSha,
+      currentImplementation,
+    )
+  }
+
+  private fun publicCommand(operator: Path, arguments: List<String>): List<String> =
+    listOf("/bin/bash", operator.toString()) + arguments
+
+  private fun runWithTimeout(command: List<String>, workingDirectory: Path): ProcessResult {
+    val process =
+      ProcessBuilder(command).directory(workingDirectory.toFile()).redirectErrorStream(true).start()
+    if (!process.waitFor(PROCESS_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+      process.destroyForcibly()
+      process.waitFor()
+      error("process timed out: ${command.joinToString(" ")}")
+    }
+    return ProcessResult(
+      process.exitValue(),
+      process.inputStream.bufferedReader().use { it.readText() },
+    )
+  }
+
   private fun assertProcessSucceeds(
     command: List<String>,
     workingDirectory: Path = Path.of("").toAbsolutePath(),
@@ -5224,6 +5485,38 @@ class Cs2aOperatorScriptTest {
   private val operator = operatorDirectory.resolve("cs2a-operator.sh")
   private val manifestValidator = operatorDirectory.resolve("cs2a-validate-manifest.jq")
   private val shellScripts = listOf(controlledRunner, supervisor, operator)
+  private val attemptStateFiles =
+    listOf(
+      "cs2a-local-evidence-dir.txt",
+      "cs2a-supervisor.log",
+      "cs2a-supervisor-exit.txt",
+      "cs2a-original-post-supervisor-exit.txt",
+      "cs2a-recorded-post-supervisor-exit.txt",
+      "cs2a-operator-status.txt",
+      "cs2a-attempt-evidence-sha.txt",
+      "cs2a-local-validation-driver.log",
+    )
+  private val derivedAttemptStateFiles = attemptStateFiles.filterNot {
+    it == "cs2a-local-evidence-dir.txt"
+  }
+  private val freshProfileArguments = listOf("full" to emptyList(), "smoke" to listOf("--smoke"))
+  private val nonfreshInvocations =
+    linkedMapOf(
+      "persist" to listOf("--persist-only", "70"),
+      "validate" to
+        listOf(
+          "--validate-attempt",
+          "/tmp/operator-failure.fixture",
+          IMPLEMENTATION_SHA,
+          "d".repeat(40),
+        ),
+      "archive" to
+        listOf(
+          "--archive-only",
+          "/opt/revoman-benchmark/runs/cs2a.Retained123",
+          "/run/revoman-cs2a/governor-state.Retained123",
+        ),
+    )
   private val sourceBundle =
     linkedMapOf(
       "runner" to Files.readString(controlledRunner),
@@ -5247,6 +5540,13 @@ class Cs2aOperatorScriptTest {
       .trimIndent()
 
   private data class ProcessResult(val exitCode: Int, val output: String)
+
+  private data class PersistedRolloverFixture(
+    val attempt: Path,
+    val priorImplementation: String,
+    val evidenceSha: String,
+    val currentImplementation: String,
+  )
 
   private data class ArchiveFixture(val archive: Path, val driver: Path, val policySha256: String)
 
@@ -5301,6 +5601,7 @@ class Cs2aOperatorScriptTest {
     const val RUN_ROOT = "/opt/revoman-benchmark/runs/cs2a.Fixture123"
     const val PASS_JSON = "{\"overall\":\"PASS\"}\n"
     const val PASS_MARKDOWN = "PASS\n"
+    const val PROCESS_TIMEOUT_SECONDS = 10L
 
     val ARCHIVE_STAGES =
       listOf("setup", "aa-captured", "aa-compared", "candidate-captured", "candidate-compared")

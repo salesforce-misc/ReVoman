@@ -119,6 +119,39 @@ operator_failure_phase_is_valid() {
   esac
 }
 
+prior_attempt_is_persisted() {
+  local marker=$1 evidence_sha_file=$2 attempt parent implementation evidence_sha
+  test -f "$marker" && test ! -L "$marker" || return 1
+  test -f "$evidence_sha_file" && test ! -L "$evidence_sha_file" || return 1
+  test "$(awk 'END { print NR }' "$marker")" = 1 || return 1
+  test "$(awk 'END { print NR }' "$evidence_sha_file")" = 1 || return 1
+  attempt=$(cat "$marker") || return 1
+  evidence_sha=$(cat "$evidence_sha_file") || return 1
+  parent=$(dirname "$attempt") || return 1
+  case "$parent" in "$EVIDENCE_ROOT"/cs2a-*) ;; *) return 1 ;; esac
+  implementation=${parent#"$EVIDENCE_ROOT/cs2a-"}
+  require_sha "$implementation" || return 1
+  test "$parent" = "$EVIDENCE_ROOT/cs2a-$implementation" || return 1
+  validate_persisted_publication "$attempt" "$implementation" "$evidence_sha"
+}
+
+clear_fresh_attempt_state() {
+  local marker="$PWD/build/cs2a-local-evidence-dir.txt"
+  local evidence_sha_file="$PWD/build/cs2a-attempt-evidence-sha.txt"
+  if test -e "$marker" || test -L "$marker"; then
+    prior_attempt_is_persisted "$marker" "$evidence_sha_file" || return 70
+  fi
+  rm -f -- "$marker" || return 70
+  rm -f -- \
+    "$PWD/build/cs2a-supervisor.log" \
+    "$PWD/build/cs2a-supervisor-exit.txt" \
+    "$PWD/build/cs2a-original-post-supervisor-exit.txt" \
+    "$PWD/build/cs2a-recorded-post-supervisor-exit.txt" \
+    "$PWD/build/cs2a-operator-status.txt" \
+    "$evidence_sha_file" \
+    "$PWD/build/cs2a-local-validation-driver.log"
+}
+
 safe_attempt_path() {
   local attempt=$1 implementation=$2 basename
   require_sha "$implementation" || return 1
@@ -2183,6 +2216,10 @@ operator_main() {
   require_sha "$CS2A_IMPLEMENTATION_SHA" || fail "invalid implementation SHA"
   readonly CS2A_IMPLEMENTATION_SHA
   if test "$mode" = persist; then persist_attempt "$2"; return; fi
+  if test "$mode" = run && ! clear_fresh_attempt_state; then
+    fail "prior CS2a attempt must be persisted before starting a fresh run"
+    return 70
+  fi
   if test "$mode" = validate; then
     if test "$implementation" != "$CS2A_IMPLEMENTATION_SHA"; then
       fail "selection implementation does not match authenticated source"
