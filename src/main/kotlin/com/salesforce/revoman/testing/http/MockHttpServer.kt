@@ -45,7 +45,19 @@ private constructor(
   /** Returns an unmodifiable point-in-time request snapshot in capture order. */
   fun requests(): List<RecordedHttpRequest> = requestSnapshot()
 
-  /** Stops the listener and its owned handler workers. Repeated calls are harmless. */
+  /**
+   * Stops the listener and shuts down its owned handler workers.
+   *
+   * The first caller owns shutdown and reports any recorded handler or shutdown failures. It stops
+   * the listener, requests graceful worker shutdown, and allows a five-second graceful phase. If
+   * workers remain, it requests interruption with `shutdownNow()` and allows a second five-second
+   * forced-shutdown phase. Interruption is cooperative: handler code that does not respond to it
+   * cannot be forcibly terminated, so the first caller reports a shutdown failure after both phases
+   * rather than claiming those workers stopped.
+   *
+   * Concurrent or repeated callers wait for that first close to finish, then return without
+   * repeating shutdown or rethrowing its aggregate failure.
+   */
   override fun close(): Unit = closeServer()
 
   companion object {

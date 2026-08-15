@@ -35,6 +35,9 @@ class RecordedHttpRequestContractTest {
     assertThrows<UnsupportedOperationException> {
       (request.queryParameters as MutableList).add(RecordedNameValue("x", "y"))
     }
+    assertThrows<UnsupportedOperationException> {
+      (request.headers as MutableList).add(RecordedNameValue("X-Other", "two"))
+    }
   }
 
   @Test
