@@ -2126,14 +2126,17 @@ must leave no unstaged or uncommitted changes.
 
 ### Task 8: Reconcile the major API, documentation, and full acceptance gates
 
-> **Supersession notice (2026-08-15):** Preserve Task 8 Steps 1-3 as the owning lifecycle/API work
-> and preserve any completed documentation and local-gate history. The old remote installation,
-> staged `dzdo`, unsigned
-> handoff/archive, evidence selection, and measurement flow in Steps 4-7 is not authorized for new
-> execution. Those portions are superseded by the
-> [CS2a host-neutral plan set](2026-08-15-cs2a-remote-session-plan-set.md) and its six
-> dependency-ordered plans. This historical text remains unchanged below so prior commits and the preserved failed
-> attempt can be audited; it must not be used as an operator runbook.
+> **Course correction (2026-08-15):** Preserve Steps 1-3 and all completed gate and evidence
+> history. The high-assurance remote-session design and six-plan suite are deferred and retained
+> only as historical reference. Current execution is again owned by Steps 4-7 below, using only the
+> reviewed checked-in `cs2a-operator.sh`, `cs2a-governor-supervisor.sh`,
+> `cs2a-controlled-run.sh`, and `cs2a-validate-manifest.jq`; execute their public modes rather than
+> reconstructing their bodies from plan prose. Priorities are exact-SHA gates and proportional
+> smoke; persistence of every controlled attempt before review, retry, or correction; cold/warm
+> baseline A/A first with candidate capture stopped on non-PASS; cold/warm/retained comparison;
+> deterministic `--validate-attempt`; and truthful report and landing. The preserved failure at
+> `a18ab6f8c805dddaec684f5b4bd3fdc23c4af183` remains immutable. Do not implement or depend on the
+> deferred suite unless it is explicitly reactivated.
 
 **Files:**
 - Modify: `api/revoman-root.api`

@@ -1,5 +1,11 @@
 # CS2a Host-Neutral Remote Session Design
 
+> **Disposition (2026-08-15): Deferred.** Preserve this high-assurance design as historical
+> reference; do not implement it or treat it as an execution prerequisite unless explicitly
+> reactivated. The current CS2a measurement uses the existing checked-in operator, supervisor,
+> runner, and manifest validator under the trusted-machine threat model, following the active
+> Task 8 path in the runtime-lifecycle plan.
+
 **Status:** Draft detailed specification; explicit user approval pending
 
 **Base commit:** `a18ab6f8c805dddaec684f5b4bd3fdc23c4af183`

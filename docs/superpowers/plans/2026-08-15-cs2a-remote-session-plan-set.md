@@ -1,5 +1,10 @@
 # CS2a Host-Neutral Remote Session Implementation Plan Set
 
+> **Disposition (2026-08-15): Deferred as a unit.** Preserve this index and all six child plans as
+> design history. Do not execute their checklists or treat Plans 1-6 as prerequisites. Active
+> execution follows Task 8 of the 2026-08-11 runtime-lifecycle plan using the existing reviewed
+> CS2a operator, supervisor, runner, and manifest validator.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development
 > (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use
 > checkbox (`- [ ]`) syntax for tracking.

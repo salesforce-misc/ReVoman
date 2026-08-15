@@ -1,5 +1,9 @@
 # CS2a Security and Release Gates Implementation Plan
 
+> **Disposition (2026-08-15): Deferred with the high-assurance plan set.** Preserve this plan for
+> history; do not execute any checkbox or use it as a prerequisite. Follow the active Task 8
+> operator and measurement path instead.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development
 > (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use
 > checkbox (`- [ ]`) syntax for tracking.
