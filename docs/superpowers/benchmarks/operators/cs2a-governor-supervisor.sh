@@ -37,6 +37,7 @@ CLEANUP_COMPLETE=false
 AUTHENTICATED_RUN_ROOT=
 CONTROLLED_UID=
 CONTROLLED_GID=
+CONTROLLED_PROFILE=
 LOCK_RELEASE_CANDIDATE=
 readonly -a CORE_STATE_HANDOFF_FILES=(
   child-or-supervisor-status.txt
@@ -92,7 +93,7 @@ prepare_lock_file() {
 }
 
 validate_handoff() {
-  local implementation runner supervisor controlled_uid controlled_uid_policy_sha
+  local implementation runner supervisor controlled_uid controlled_uid_policy_sha profile
   controlled_uid_policy_is_provisioned \
     || fail "controlled UID policy hash is unprovisioned; administrator review is required"
   require_root_file "$IMPLEMENTATION_FILE" 444
@@ -105,11 +106,12 @@ validate_handoff() {
     || fail "controlled-host policy provenance mismatch"
   if ! awk -F '\t' '
     NF != 2 { exit 1 }
-    $1 != "implementation" && $1 != "runner" && $1 != "supervisor" && $1 != "uid" { exit 1 }
+    $1 != "implementation" && $1 != "runner" && $1 != "supervisor" &&
+      $1 != "uid" && $1 != "profile" { exit 1 }
     { count[$1]++; total++ }
     END {
-      exit !(total == 4 && count["implementation"] == 1 && count["uid"] == 1 &&
-        count["runner"] == 1 && count["supervisor"] == 1)
+      exit !(total == 5 && count["implementation"] == 1 && count["uid"] == 1 &&
+        count["runner"] == 1 && count["supervisor"] == 1 && count["profile"] == 1)
     }
   ' "$HANDOFF_FILE"; then
     fail "invalid root-owned operator handoff"
@@ -119,12 +121,14 @@ validate_handoff() {
   controlled_uid_policy_sha=$(sha256sum "$CONTROLLED_UID_FILE" | cut -d' ' -f1)
   runner=$(sha256sum "$RUNNER_FILE" | cut -d' ' -f1)
   supervisor=$(sha256sum "$0" | cut -d' ' -f1)
+  profile=$(handoff_value profile)
   [[ "$implementation" =~ ^[0-9a-f]{40}$ ]] || fail "invalid implementation identity"
   [[ "$controlled_uid" =~ ^[1-9][0-9]*$ ]] || fail "invalid controlled UID policy"
   test "$controlled_uid_policy_sha" = "$CONTROLLED_UID_POLICY_SHA256" \
     || fail "controlled UID policy hash is not the reviewed implementation anchor"
   [[ "$runner" =~ ^[0-9a-f]{64}$ ]] || fail "invalid runner identity"
   [[ "$supervisor" =~ ^[0-9a-f]{64}$ ]] || fail "invalid supervisor identity"
+  case "$profile" in full | smoke) ;; *) fail "invalid benchmark profile" ;; esac
   test "$implementation" = "$(handoff_value implementation)" \
     || fail "implementation handoff mismatch"
   test "$controlled_uid" = "$(handoff_value uid)" || fail "controlled UID handoff mismatch"
@@ -135,6 +139,7 @@ validate_handoff() {
   CONTROLLED_UID=$controlled_uid
   CONTROLLED_GID=$(id -g "$CONTROLLED_USER")
   [[ "$CONTROLLED_GID" =~ ^[1-9][0-9]*$ ]] || fail "invalid controlled group identity"
+  CONTROLLED_PROFILE=$profile
 }
 
 governor_path_allowed() {
@@ -368,21 +373,24 @@ authenticate_released_lock() {
 }
 
 validate_exact_authenticated_handoff() {
-  local implementation=$1 controlled_uid=$2 runner_sha=$3 supervisor_sha=$4
+  local implementation=$1 controlled_uid=$2 runner_sha=$3 supervisor_sha=$4 profile=$5
+  case "$profile" in full | smoke) ;; *) return 1 ;; esac
   awk -F '\t' \
     -v implementation="$implementation" \
     -v controlled_uid="$controlled_uid" \
     -v runner_sha="$runner_sha" \
-    -v supervisor_sha="$supervisor_sha" '
+    -v supervisor_sha="$supervisor_sha" \
+    -v profile="$profile" '
     NF != 2 { exit 1 }
     $1 == "implementation" && $2 == implementation { implementation_count++; next }
     $1 == "uid" && $2 == controlled_uid { uid_count++; next }
     $1 == "runner" && $2 == runner_sha { runner_count++; next }
     $1 == "supervisor" && $2 == supervisor_sha { supervisor_count++; next }
+    $1 == "profile" && $2 == profile { profile_count++; next }
     { exit 1 }
     END {
-      exit !(NR == 4 && implementation_count == 1 && uid_count == 1 &&
-        runner_count == 1 && supervisor_count == 1)
+      exit !(NR == 5 && implementation_count == 1 && uid_count == 1 &&
+        runner_count == 1 && supervisor_count == 1 && profile_count == 1)
     }
   ' "$STATE/authenticated-handoff.tsv"
 }
@@ -399,7 +407,7 @@ validate_exact_executed_scripts() {
 }
 
 validate_final_handoff_evidence() {
-  local run_root=$1 implementation controlled_uid runner_sha supervisor_sha
+  local run_root=$1 implementation controlled_uid runner_sha supervisor_sha profile
   local recorded_run recorded_implementation recorded_provenance lock_provenance
   local restoration containment child_status post_status finished_at
   require_root_file "$IMPLEMENTATION_FILE" 444
@@ -413,6 +421,10 @@ validate_final_handoff_evidence() {
   controlled_uid=$(tr -d '\r\n' <"$CONTROLLED_UID_FILE") || return 1
   runner_sha=$(sha256sum "$RUNNER_FILE" | cut -d' ' -f1) || return 1
   supervisor_sha=$(sha256sum "$0" | cut -d' ' -f1) || return 1
+  profile=$(awk -F '\t' '$1 == "profile" { count++; value=$2 } END {
+    if (count != 1) exit 1
+    print value
+  }' "$STATE/authenticated-handoff.tsv") || return 1
   [[ "$implementation" =~ ^[0-9a-f]{40}$ ]] || return 1
   [[ "$controlled_uid" =~ ^[1-9][0-9]*$ ]] || return 1
   [[ "$runner_sha" =~ ^[0-9a-f]{64}$ ]] || return 1
@@ -424,7 +436,7 @@ validate_final_handoff_evidence() {
   test "$recorded_run" = "$run_root" || return 1
   test "$recorded_implementation" = "$implementation" || return 1
   validate_exact_authenticated_handoff \
-    "$implementation" "$controlled_uid" "$runner_sha" "$supervisor_sha" || return 1
+    "$implementation" "$controlled_uid" "$runner_sha" "$supervisor_sha" "$profile" || return 1
   validate_exact_executed_scripts "$runner_sha" "$supervisor_sha" || return 1
 
   recorded_provenance=$(tr -d '\r\n' <"$STATE/lock-provenance.txt") || return 1
@@ -764,14 +776,15 @@ close_unapproved_child_descriptors() {
 }
 
 controlled_child_exec() {
-  local controlled_uid=$1 implementation=$2 runner_sha=$3
-  test "$#" -eq 3 || fail "invalid controlled child identity arguments"
+  local controlled_uid=$1 implementation=$2 runner_sha=$3 profile=$4
+  test "$#" -eq 4 || fail "invalid controlled child identity arguments"
   [[ "$controlled_uid" =~ ^[1-9][0-9]*$ ]] || fail "invalid controlled child UID"
   test "$(id -u)" = "$controlled_uid" || fail "controlled child UID mismatch"
   [[ "$implementation" =~ ^[0-9a-f]{40}$ ]] \
     || fail "invalid controlled child implementation identity"
   [[ "$runner_sha" =~ ^[0-9a-f]{64}$ ]] \
     || fail "invalid controlled child runner identity"
+  case "$profile" in full | smoke) ;; *) fail "invalid controlled child profile" ;; esac
   verify_child_lock_descriptor || fail "inherited benchmark lock descriptor substitution"
   close_unapproved_child_descriptors || fail "cannot close unapproved child descriptors"
   verify_child_lock_descriptor || fail "inherited benchmark lock descriptor substitution"
@@ -781,6 +794,7 @@ controlled_child_exec() {
     CS2A_AUTHENTICATED_UID="$controlled_uid" \
     CS2A_IMPLEMENTATION_SHA="$implementation" \
     CS2A_AUTHENTICATED_RUNNER_SHA="$runner_sha" \
+    CS2A_PROFILE="$profile" \
     "$RUNNER_FILE"
 }
 
@@ -831,8 +845,9 @@ watch_controlled_launcher_parent() {
 
 controlled_launcher_exec() {
   local parent_pid=$1 parent_identity=$2 ready_file=$3 release_file=$4 status_file=$5
-  local controlled_uid=$6 implementation=$7 runner_sha=$8 ready_tmp status_tmp child_status
-  test "$#" -eq 8 || fail "invalid controlled launcher arguments"
+  local controlled_uid=$6 implementation=$7 runner_sha=$8 profile=$9
+  local ready_tmp status_tmp child_status
+  test "$#" -eq 9 || fail "invalid controlled launcher arguments"
   authenticate_controlled_launcher \
     "$parent_pid" "$parent_identity" "$ready_file" "$release_file" "$status_file" \
     || fail "unauthenticated controlled launcher"
@@ -841,6 +856,7 @@ controlled_launcher_exec() {
     || fail "invalid controlled launcher implementation identity"
   [[ "$runner_sha" =~ ^[0-9a-f]{64}$ ]] \
     || fail "invalid controlled launcher runner identity"
+  case "$profile" in full | smoke) ;; *) fail "invalid controlled launcher profile" ;; esac
   trap ':' INT TERM HUP
   watch_controlled_launcher_parent "$parent_identity" "$$" &
   test "$(process_identity "$parent_pid")" = "$parent_identity" \
@@ -863,7 +879,8 @@ controlled_launcher_exec() {
       CS2A_AUTHENTICATED_UID="$controlled_uid" \
       CS2A_IMPLEMENTATION_SHA="$implementation" \
       CS2A_AUTHENTICATED_RUNNER_SHA="$runner_sha" \
-      /bin/bash "$0" --run-controlled-child "$controlled_uid" "$implementation" "$runner_sha"
+      /bin/bash "$0" --run-controlled-child "$controlled_uid" "$implementation" \
+      "$runner_sha" "$profile"
   child_status=$?
   set -e
   status_tmp=$status_file.tmp.$$
@@ -888,9 +905,10 @@ publish_controlled_child_release() {
 }
 
 launch_controlled_child() {
-  local controlled_uid=$1 implementation=$2 runner_sha=$3 output=$4
+  local controlled_uid=$1 implementation=$2 runner_sha=$3 profile=$4 output=$5
   local launcher_pid parent_identity identity remaining=300 release_tmp release_status
-  test "$#" -eq 4 || fail "invalid controlled child launch arguments"
+  test "$#" -eq 5 || fail "invalid controlled child launch arguments"
+  case "$profile" in full | smoke) ;; *) fail "invalid controlled launch profile" ;; esac
   test -z "$SIGNAL_STATUS" || return 1
   CHILD_READY_FILE=$output.group-ready
   CHILD_RELEASE_FILE=$output.group-release
@@ -900,7 +918,7 @@ launch_controlled_child() {
   parent_identity=$(process_identity "$$") || return 1
   /usr/bin/setsid /bin/bash "$0" --run-controlled-launcher "$$" "$parent_identity" \
     "$CHILD_READY_FILE" "$CHILD_RELEASE_FILE" "$CHILD_STATUS_FILE" \
-    "$controlled_uid" "$implementation" "$runner_sha" \
+    "$controlled_uid" "$implementation" "$runner_sha" "$profile" \
     >"$output" 2>&1 &
   launcher_pid=$!
   CHILD_PID=$launcher_pid
@@ -1003,9 +1021,9 @@ supervisor_main() {
   implementation=$(tr -d '\r\n' <"$IMPLEMENTATION_FILE")
   runner_sha=$(sha256sum "$RUNNER_FILE" | cut -d' ' -f1)
   supervisor_sha=$(sha256sum "$0" | cut -d' ' -f1)
-  printf 'implementation\t%s\nuid\t%s\nrunner\t%s\nsupervisor\t%s\n' \
+  printf 'implementation\t%s\nuid\t%s\nrunner\t%s\nsupervisor\t%s\nprofile\t%s\n' \
     "$implementation" "$(tr -d '\r\n' <"$CONTROLLED_UID_FILE")" \
-    "$runner_sha" "$supervisor_sha" >"$STATE/authenticated-handoff.tsv"
+    "$runner_sha" "$supervisor_sha" "$CONTROLLED_PROFILE" >"$STATE/authenticated-handoff.tsv"
   printf 'runner\t%s\nsupervisor\t%s\n' "$runner_sha" "$supervisor_sha" \
     >"$STATE/executed-script-sha256sums.tsv"
   printf '%s\n' "$implementation" >"$STATE/implementation-sha.txt"
@@ -1018,7 +1036,7 @@ supervisor_main() {
 
   set +e
   if launch_controlled_child "$(tr -d '\r\n' <"$CONTROLLED_UID_FILE")" \
-    "$implementation" "$runner_sha" "$STATE/child-output.log"; then
+    "$implementation" "$runner_sha" "$CONTROLLED_PROFILE" "$STATE/child-output.log"; then
     wait_for_controlled_child
     CHILD_STATUS=$?
   else
@@ -1039,8 +1057,8 @@ supervisor_dispatch() {
     0:) supervisor_main ;;
     3:--publish-final-handoff) publish_final_handoff_main "$2" "$3" ;;
     3:--validate-final-handoff) validate_final_handoff_main "$2" "$3" ;;
-    4:--run-controlled-child) controlled_child_exec "$2" "$3" "$4" ;;
-    9:--run-controlled-launcher) controlled_launcher_exec "$2" "$3" "$4" "$5" "$6" "$7" "$8" "$9" ;;
+    5:--run-controlled-child) controlled_child_exec "$2" "$3" "$4" "$5" ;;
+    10:--run-controlled-launcher) controlled_launcher_exec "$2" "$3" "$4" "$5" "$6" "$7" "$8" "$9" "${10}" ;;
     *) fail 'usage: cs2a-governor-supervisor.sh [--publish-final-handoff RUN_ROOT GOVERNOR_STATE | --validate-final-handoff RUN_ROOT GOVERNOR_STATE]' ;;
   esac
 }

@@ -18,6 +18,7 @@ readonly IMPLEMENTATION_FILE="$WORKSPACE_ROOT/build/cs2a-implementation-sha"
 readonly EVIDENCE_ROOT="$WORKSPACE_ROOT/docs/superpowers/benchmarks/results/v1"
 readonly EXPECTED_POLICY_SHA256=7312efeed6a4c80e9588f0f4e25742021c6e11f46bbc8468a3adc06772408b79
 readonly EXPECTED_POLICY_SEMANTIC_SHA256=48de27c7c84faec59c0ab2276489460ac4ffe3935cd0be41d9730b5aff1a3f60
+readonly EXPECTED_HOST_FINGERPRINT=12e7d565978e40259c2f4c956c9e05696a32c0ba574c6971dfe85c8acd69fe44
 PUBLICATION_MV=
 PUBLICATION_STAT=
 
@@ -40,6 +41,10 @@ require_sha() {
 
 controlled_uid_policy_is_provisioned() {
   [[ "$CONTROLLED_UID_POLICY_SHA256" =~ ^[0-9a-f]{64}$ ]]
+}
+
+benchmark_profile_is_valid() {
+  case "$1" in full | smoke) ;; *) return 1 ;; esac
 }
 
 operator_failure_phase_is_valid() {
@@ -657,6 +662,84 @@ append_expected_verify_and_compare() {
     --output-md "$run_root/results/$comparison_label.md" --enforce-release-gates
 }
 
+append_expected_smoke_campaign() {
+  local destination=$1 label=$2 mode=$3 candidate_manifest=$4 candidate_adapter=$5
+  local warmups=$6 iterations=$7 artifact_name=$8 run_root=$9 driver=${10} policy=${11}
+  append_expected_command "$destination" "$label" "$driver" run-paired \
+    --mode "$mode" --intent smoke \
+    --baseline "$run_root/manifests/baseline-a.json" \
+    --baseline-adapter baseline-83f3cd70 \
+    --candidate "$run_root/manifests/$candidate_manifest" \
+    --candidate-adapter "$candidate_adapter" \
+    --workload lifecycle.no-script-one-step.v1 --blocks 2 \
+    --forks-per-block 1 --warmups "$warmups" --iterations "$iterations" \
+    --seed 5928239383101656625 --metrics latency --host-policy "$policy" \
+    --artifacts-dir "$run_root/artifacts/$artifact_name" \
+    --output "$run_root/results/$label.json"
+}
+
+append_expected_smoke_verify_and_compare() {
+  local destination=$1 verify_label=$2 result_label=$3 comparison_label=$4
+  local run_root=$5 driver=$6
+  append_expected_command "$destination" "verify-$verify_label" \
+    "$driver" verify --input "$run_root/results/$result_label.json"
+  append_expected_command "$destination" "$comparison_label" \
+    "$driver" compare --input "$run_root/results/$result_label.json" \
+    --output-json "$run_root/results/$comparison_label.json" \
+    --output-md "$run_root/results/$comparison_label.md"
+}
+
+write_expected_smoke_command_protocol() {
+  local root=$1 destination=$2 run_root harness baseline_a baseline_b candidate
+  local driver init validator policy manifest name checkout target_id
+  run_root=$(tr -d '\r\n' <"$root/meta/run-root.txt") || return 1
+  [[ "$run_root" =~ ^/opt/revoman-benchmark/runs/cs2a\.[A-Za-z0-9]+$ ]] || return 1
+  harness="$run_root/checkouts/harness"
+  baseline_a="$run_root/checkouts/baseline-a"
+  baseline_b="$run_root/checkouts/baseline-b"
+  candidate="$run_root/checkouts/candidate"
+  driver="$harness/benchmark-driver/build/install/benchmark-driver/bin/benchmark-driver"
+  init="$harness/benchmark-driver/build/install/benchmark-driver/libexec/benchmark-target.init.gradle.kts"
+  validator="$harness/docs/superpowers/benchmarks/operators/cs2a-validate-manifest.jq"
+  policy=/opt/revoman-benchmark/controlled-host.json
+  : >"$destination" || return 1
+  append_expected_command "$destination" install-harness "$harness/gradlew" \
+    -p "$harness" :benchmark-driver:installDist --no-daemon --console=plain
+  for name in baseline-a baseline-b candidate; do
+    case "$name" in
+      baseline-a) checkout=$baseline_a; target_id=baseline-a-cs2a ;;
+      baseline-b) checkout=$baseline_b; target_id=baseline-b-cs2a ;;
+      candidate) checkout=$candidate; target_id='candidate-cs2a' ;;
+    esac
+    manifest="$run_root/manifests/$name.json"
+    append_expected_command "$destination" "export-$name" "$checkout/gradlew" \
+      -p "$checkout" -I "$init" clean writeBenchmarkTargetManifest \
+      "-Pbenchmark.targetManifest=$manifest" "-Pbenchmark.targetId=$target_id" \
+      --no-daemon --console=plain
+  done
+  for name in baseline-a baseline-b candidate; do
+    append_expected_command "$destination" "verify-manifest-$name" \
+      jq -e -f "$validator" "$run_root/manifests/$name.json"
+  done
+  append_expected_smoke_campaign "$destination" cold-aa cold baseline-b.json \
+    baseline-83f3cd70 0 1 cold-aa "$run_root" "$driver" "$policy"
+  append_expected_smoke_campaign "$destination" warm-aa warm baseline-b.json \
+    baseline-83f3cd70 1 3 warm-aa "$run_root" "$driver" "$policy"
+  append_expected_smoke_campaign "$destination" cold-candidate cold candidate.json \
+    major-v1 0 1 cold-candidate "$run_root" "$driver" "$policy"
+  append_expected_smoke_campaign "$destination" warm-candidate warm candidate.json \
+    major-v1 1 3 warm-candidate "$run_root" "$driver" "$policy"
+  append_expected_smoke_verify_and_compare "$destination" aa-cold cold-aa \
+    comparison-aa-cold "$run_root" "$driver"
+  append_expected_smoke_verify_and_compare "$destination" aa-warm warm-aa \
+    comparison-aa-warm "$run_root" "$driver"
+  append_expected_smoke_verify_and_compare "$destination" candidate-cold cold-candidate \
+    comparison-candidate-cold "$run_root" "$driver"
+  append_expected_smoke_verify_and_compare "$destination" candidate-warm warm-candidate \
+    comparison-candidate-warm "$run_root" "$driver"
+  test "$(wc -l <"$destination" | tr -d ' ')" = 19
+}
+
 write_expected_command_protocol() {
   local root=$1 destination=$2 run_root harness baseline_a baseline_b candidate
   local driver init validator policy manifest name checkout target_id
@@ -748,8 +831,191 @@ validate_command_protocol() {
   rm -f -- "$expected"
 }
 
+validate_smoke_artifact_inventories() {
+  local root=$1 inventory hashes
+  inventory="$root/meta/artifact-inventory.tsv"
+  hashes="$root/meta/artifact-sha256sums.txt"
+  test -f "$inventory" && test ! -L "$inventory" \
+    && test -f "$hashes" && test ! -L "$hashes" || return 1
+  if test ! -s "$inventory" && test ! -s "$hashes"; then return 0; fi
+  validate_artifact_inventories "$root"
+}
+
+validate_smoke_campaign_identity() {
+  local root=$1 result=$2 mode=$3 candidate_id=$4 candidate_adapter=$5
+  local candidate_commit=$6 implementation=$7 warmups=$8 iterations=$9
+  local candidate_manifest baseline_hash candidate_hash
+  case "$candidate_id" in
+    baseline-b-cs2a) candidate_manifest="$root/manifests/baseline-b.json" ;;
+    candidate-cs2a) candidate_manifest="$root/manifests/candidate.json" ;;
+    *) return 1 ;;
+  esac
+  baseline_hash=$(sha256_of "$root/manifests/baseline-a.json") || return 1
+  candidate_hash=$(sha256_of "$candidate_manifest") || return 1
+  jq -e --arg mode "$mode" --arg candidateId "$candidate_id" \
+    --arg candidateAdapter "$candidate_adapter" --arg candidateCommit "$candidate_commit" \
+    --arg implementation "$implementation" --arg baselineHash "$baseline_hash" \
+    --arg candidateHash "$candidate_hash" --arg policy "$EXPECTED_POLICY_SEMANTIC_SHA256" \
+    --arg host "$EXPECTED_HOST_FINGERPRINT" --argjson warmups "$warmups" \
+    --argjson iterations "$iterations" '
+      .schema == "revoman-benchmark/v1" and .intent == "SMOKE" and
+      .configuration.mode == $mode and .configuration.metricPasses == ["LATENCY"] and
+      .configuration.seed == 5928239383101656625 and
+      .configuration.requestedAcceptedBlocks == 2 and
+      .configuration.forksPerBlock == 1 and
+      .configuration.warmupIterations == $warmups and
+      .configuration.measurementIterations == $iterations and
+      .configuration.targets == [
+        {"role":"BASELINE","targetId":"baseline-a-cs2a","adapterId":"baseline-83f3cd70"},
+        {"role":"CANDIDATE","targetId":$candidateId,"adapterId":$candidateAdapter}
+      ] and
+      .harness.commit == $implementation and .harness.dirty == false and
+      .environment.policySha256 == $policy and
+      .environment.hostFingerprintSha256 == $host and
+      (.targets | length) == 2 and
+      (.targets[] | select(.id == "baseline-a-cs2a") |
+        .gitCommit == "83f3cd70f78ad733412d10cbc8287aaabafe7aac" and
+        .manifestSha256 == $baselineHash and .adapter.id == "baseline-83f3cd70") and
+      (.targets[] | select(.id == $candidateId) |
+        .gitCommit == $candidateCommit and .manifestSha256 == $candidateHash and
+        .adapter.id == $candidateAdapter) and
+      (.workloads | length) == 1 and
+      .workloads[0].id == "lifecycle.no-script-one-step.v1" and
+      .workloads[0].mode == $mode and
+      (.workloads[0].metricSeries | map(.metric)) == ["LATENCY"] and
+      ([.workloads[0].metricSeries[0].blocks[] | select(.accepted == true)] | length) == 2
+    ' "$root/$result" >/dev/null
+}
+
+validate_smoke_terminal_crosslinks() {
+  local root=$1 run_root child supervisor_exit runner_exit post supervisor_post capture
+  run_root=$(tr -d '\r\n' <"$root/meta/run-root.txt") || return 1
+  [[ "$run_root" =~ ^/opt/revoman-benchmark/runs/cs2a\.[A-Za-z0-9]+$ ]] || return 1
+  test "$(tr -d '\r\n' <"$root/meta/supervisor/run-root.txt")" = "$run_root" || return 1
+  child=$(tr -d '\r\n' <"$root/meta/supervisor/child-or-supervisor-status.txt") || return 1
+  supervisor_exit=$(tr -d '\r\n' <"$root/meta/operator-supervisor-exit.txt") || return 1
+  runner_exit=$(tr -d '\r\n' <"$root/meta/runner-exit.txt") || return 1
+  post=$(tr -d '\r\n' <"$root/meta/operator-post-supervisor-exit.txt") || return 1
+  supervisor_post=$(tr -d '\r\n' \
+    <"$root/meta/supervisor/operator-post-supervisor-exit.txt") || return 1
+  test "$child" = 0 && test "$supervisor_exit" = 0 && test "$runner_exit" = 0 || return 1
+  test "$post" = 0 && test "$supervisor_post" = 0 || return 1
+  test "$(tr -d '\r\n' <"$root/meta/operator-resume-validation-exit.txt")" = 0 \
+    || return 1
+  test "$(tr -d '\r\n' <"$root/meta/inventory-exit.txt")" = 0 || return 1
+  for capture in cold-aa warm-aa cold-candidate warm-candidate; do
+    test "$(tr -d '\r\n' <"$root/meta/$capture-exit.txt")" = 0 || return 1
+  done
+  test "$(tr -d '\r\n' <"$root/meta/supervisor/restoration-failed.txt")" = false \
+    || return 1
+  test "$(tr -d '\r\n' <"$root/meta/supervisor/containment-failed.txt")" = false \
+    || return 1
+  test "$(tr -d '\r\n' <"$root/meta/supervisor/lock-released.txt")" = true || return 1
+  [[ "$(tr -d '\r\n' <"$root/meta/supervisor/lock-provenance.txt")" \
+    =~ ^0:0:600:[0-9]+:[0-9]+$ ]] || return 1
+  cmp -s "$root/meta/supervisor/original-governors.tsv" \
+    "$root/meta/supervisor/restored-governors.tsv"
+}
+
+validate_smoke_archive() {
+  local root=$1 implementation=$2 driver=$3
+  local expected_policy_sha=${4:-$EXPECTED_POLICY_SHA256}
+  local expected actual_manifests actual_results expected_results status_file log_exit result
+  case "$#" in 3 | 4) ;; *) return 1 ;; esac
+  test -d "$root" && require_sha "$implementation" && test -x "$driver" || return 1
+  validate_archive_safety "$root" || return 1
+  test -f "$root/meta/profile.txt" && test ! -L "$root/meta/profile.txt" || return 1
+  test "$(tr -d '\r\n' <"$root/meta/profile.txt")" = smoke || return 1
+  test "$(tr -d '\r\n' <"$root/meta/stage.txt")" = smoke-compared || return 1
+  test "$(tr -d '\r\n' <"$root/meta/runner-exit.txt")" = 0 || return 1
+  test "$(tr -d '\r\n' <"$root/meta/inventory-exit.txt")" = 0 || return 1
+  expected=$(mktemp "${TMPDIR:-/tmp}/cs2a-smoke-command-protocol.XXXXXXXX") || return 1
+  if ! write_expected_smoke_command_protocol "$root" "$expected" \
+    || ! cmp -s "$expected" "$root/meta/commands.tsv"; then
+    rm -f -- "$expected"
+    return 1
+  fi
+  rm -f -- "$expected"
+  validate_commands_bijection "$root" || return 1
+  actual_manifests=$(find "$root/manifests" -mindepth 1 -maxdepth 1 -type f -print \
+    | sed 's#^.*/##' | LC_ALL=C sort) || return 1
+  test "$actual_manifests" = \
+    "$(printf '%s\n' baseline-a.json baseline-b.json candidate.json)" || return 1
+  expected_results=$(printf '%s\n' \
+    cold-aa.json warm-aa.json cold-candidate.json warm-candidate.json \
+    comparison-aa-cold.json comparison-aa-cold.md \
+    comparison-aa-warm.json comparison-aa-warm.md \
+    comparison-candidate-cold.json comparison-candidate-cold.md \
+    comparison-candidate-warm.json comparison-candidate-warm.md | LC_ALL=C sort)
+  actual_results=$(find "$root/results" -mindepth 1 -maxdepth 1 -type f -print \
+    | sed 's#^.*/##' | LC_ALL=C sort) || return 1
+  test "$actual_results" = "$expected_results" || return 1
+  for result in cold-aa.json warm-aa.json cold-candidate.json warm-candidate.json \
+    comparison-aa-cold.json comparison-aa-cold.md \
+    comparison-aa-warm.json comparison-aa-warm.md \
+    comparison-candidate-cold.json comparison-candidate-cold.md \
+    comparison-candidate-warm.json comparison-candidate-warm.md; do
+    test -s "$root/results/$result" || return 1
+  done
+  for status_file in cold-aa warm-aa cold-candidate warm-candidate \
+    comparison-aa-cold comparison-aa-warm \
+    comparison-candidate-cold comparison-candidate-warm; do
+    test "$(tr -d '\r\n' <"$root/meta/$status_file-exit.txt")" = 0 || return 1
+  done
+  while IFS= read -r log_exit; do
+    test "$(tr -d '\r\n' <"$log_exit")" = 0 || return 1
+  done < <(find "$root/logs" -mindepth 1 -maxdepth 1 -type f -name '*.exit' \
+    | LC_ALL=C sort)
+  test ! -e "$root/meta/retained-candidate-exit.txt" \
+    && test ! -L "$root/meta/retained-candidate-exit.txt" \
+    && test ! -e "$root/meta/comparison-candidate-retained-exit.txt" \
+    && test ! -L "$root/meta/comparison-candidate-retained-exit.txt" || return 1
+  validate_status_namespace "$root" || return 1
+  validate_semantic_required_files "$root" || return 1
+  test "$(tr -d '\r\n' <"$root/meta/implementation-sha.txt")" = "$implementation" \
+    || return 1
+  test "$(tr -d '\r\n' <"$root/meta/supervisor/implementation-sha.txt")" = \
+    "$implementation" || return 1
+  validate_manifest_set "$root" "$implementation" || return 1
+  validate_supervisor_handoff_crosslink "$root" || return 1
+  validate_executed_provenance "$root" "$implementation" || return 1
+  validate_remote_byte_inventory "$root" || return 1
+  validate_sha_inventory "$root" meta/evidence-sha256sums.txt \
+    '^(manifests|results)/[A-Za-z0-9._/-]+$' true || return 1
+  validate_inventory_path_set "$root" meta/evidence-sha256sums.txt \
+    'manifests results' || return 1
+  validate_sha_inventory "$root" meta/command-output-sha256sums.txt \
+    '^logs/[A-Za-z0-9._/-]+$' true || return 1
+  validate_inventory_path_set "$root" meta/command-output-sha256sums.txt logs || return 1
+  validate_smoke_artifact_inventories "$root" || return 1
+  (cd "$root/meta" && sha256sum -c operator-script-sha256sums.txt) || return 1
+  verify_result_files "$root" "$driver" || return 1
+  validate_smoke_campaign_identity "$root" results/cold-aa.json COLD \
+    baseline-b-cs2a baseline-83f3cd70 "$BASELINE_SHA" "$implementation" 0 1 || return 1
+  validate_smoke_campaign_identity "$root" results/warm-aa.json WARM \
+    baseline-b-cs2a baseline-83f3cd70 "$BASELINE_SHA" "$implementation" 1 3 || return 1
+  validate_smoke_campaign_identity "$root" results/cold-candidate.json COLD \
+    candidate-cs2a major-v1 "$implementation" "$implementation" 0 1 || return 1
+  validate_smoke_campaign_identity "$root" results/warm-candidate.json WARM \
+    candidate-cs2a major-v1 "$implementation" "$implementation" 1 3 || return 1
+  validate_policy_provenance "$root" "$expected_policy_sha" || return 1
+  validate_smoke_terminal_crosslinks "$root"
+}
+
+authenticated_archive_profile() {
+  local root=$1 implementation=$2 profile
+  validate_executed_provenance "$root" "$implementation" || return 1
+  if test -f "$root/meta/profile.txt" && test ! -L "$root/meta/profile.txt"; then
+    profile=$(tr -d '\r\n' <"$root/meta/profile.txt") || return 1
+    benchmark_profile_is_valid "$profile" || return 1
+    printf '%s\n' "$profile"
+  else
+    printf '%s\n' legacy
+  fi
+}
+
 validate_executed_provenance() {
-  local root=$1 implementation=$2 rows authenticated controlled_uid
+  local root=$1 implementation=$2 rows authenticated controlled_uid profile expected_rows
   rows="$root/meta/supervisor/executed-script-sha256sums.tsv"
   authenticated="$root/meta/supervisor/authenticated-handoff.tsv"
   test -f "$rows" && test -f "$authenticated" \
@@ -760,13 +1026,24 @@ validate_executed_provenance() {
     length($2) != 64 || $2 !~ /^[0-9a-f]+$/ || seen[$1]++ { exit 1 }
     END { exit !(NR == 2 && seen["runner"] && seen["supervisor"]) }
   ' "$rows" || return 1
-  awk -F '\t' '
+  if test -f "$root/meta/profile.txt" && test ! -L "$root/meta/profile.txt"; then
+    profile=$(tr -d '\r\n' <"$root/meta/profile.txt") || return 1
+    benchmark_profile_is_valid "$profile" || return 1
+    expected_rows=5
+  else
+    profile=full
+    expected_rows=4
+  fi
+  awk -F '\t' -v expected_rows="$expected_rows" '
     NF != 2 { exit 1 }
-    $1 != "implementation" && $1 != "uid" && $1 != "runner" && $1 != "supervisor" { exit 1 }
+    $1 != "implementation" && $1 != "uid" && $1 != "runner" &&
+      $1 != "supervisor" && $1 != "profile" { exit 1 }
     { seen[$1]++; total++ }
     END {
-      exit !(total == 4 && seen["implementation"] == 1 && seen["uid"] == 1 &&
-        seen["runner"] == 1 && seen["supervisor"] == 1)
+      exit !(total == expected_rows && seen["implementation"] == 1 &&
+        seen["uid"] == 1 && seen["runner"] == 1 && seen["supervisor"] == 1 &&
+        ((expected_rows == 4 && !seen["profile"]) ||
+          (expected_rows == 5 && seen["profile"] == 1)))
     }
   ' "$authenticated" || return 1
   controlled_uid=$(tr -d '\r\n' <"$root/meta/controlled-uid.txt")
@@ -782,7 +1059,10 @@ validate_executed_provenance() {
   test "$(awk -F '\t' '$1 == "runner" {print $2}' "$authenticated")" = \
     "$(sha256_of "$root/meta/cs2a-controlled-run.sh")" || return 1
   test "$(awk -F '\t' '$1 == "supervisor" {print $2}' "$authenticated")" = \
-    "$(sha256_of "$root/meta/cs2a-governor-supervisor.sh")"
+    "$(sha256_of "$root/meta/cs2a-governor-supervisor.sh")" || return 1
+  if test "$expected_rows" = 5; then
+    test "$(awk -F '\t' '$1 == "profile" {print $2}' "$authenticated")" = "$profile"
+  fi
 }
 
 validate_supervisor_handoff_crosslink() {
@@ -1011,6 +1291,10 @@ validate_archive_semantics() {
   local expected_policy_sha=${4:-$EXPECTED_POLICY_SHA256}
   test -d "$root" && require_sha "$implementation" && test -x "$driver" || return 1
   validate_archive_safety "$root" || return 1
+  if test -e "$root/meta/profile.txt" || test -L "$root/meta/profile.txt"; then
+    test -f "$root/meta/profile.txt" && test ! -L "$root/meta/profile.txt" || return 1
+    test "$(tr -d '\r\n' <"$root/meta/profile.txt")" = full || return 1
+  fi
   validate_stage_schema "$root" || return 1
   test "$(tr -d '\r\n' <"$root/meta/stage.txt")" = candidate-compared || return 1
   validate_semantic_required_files "$root" || return 1
@@ -1517,8 +1801,10 @@ prepare_local_driver() {
 }
 
 install_remote_bundle() {
-  local runner_sha supervisor_sha operator_sha validator_sha
+  test "$#" = 1 || return 1
+  local profile=$1 runner_sha supervisor_sha operator_sha validator_sha
   local installed_operator_sha installed_validator_sha
+  benchmark_profile_is_valid "$profile" || return 1
   controlled_uid_policy_is_provisioned || {
     fail "controlled UID policy hash is unprovisioned; administrator review is required"
     return 70
@@ -1544,9 +1830,9 @@ install_remote_bundle() {
      dzdo test \"\$(stat -c '%u:%g:%a' '$CONTROLLED_UID_FILE')\" = 0:0:444 && \
      dzdo test \"\$(dzdo sha256sum '$CONTROLLED_UID_FILE' | awk '{print \$1}')\" = \
        '$CONTROLLED_UID_POLICY_SHA256' && \
-     printf 'implementation\\t%s\\nuid\\t%s\\nrunner\\t%s\\nsupervisor\\t%s\\n' \
+     printf 'implementation\\t%s\\nuid\\t%s\\nrunner\\t%s\\nsupervisor\\t%s\\nprofile\\t%s\\n' \
        '$CS2A_IMPLEMENTATION_SHA' \"\$(dzdo cat '$CONTROLLED_UID_FILE')\" \
-       '$runner_sha' '$supervisor_sha' \
+       '$runner_sha' '$supervisor_sha' '$profile' \
        | dzdo tee /opt/revoman-benchmark/cs2a-operator-handoff.tsv >/dev/null && \
      dzdo chown root:root /opt/revoman-benchmark/cs2a-operator-handoff.tsv && \
      dzdo chmod 0400 /opt/revoman-benchmark/cs2a-operator-handoff.tsv" || return 1
@@ -1658,6 +1944,7 @@ archive_remote_attempt() {
   local run_root=$1 governor_state=$2
   local run_real recorded_run implementation
   local attempt stage canonical marker post_status=70 final_status=70
+  local profile=legacy local_validation=false
   validate_resume_paths "$run_root" "$governor_state" || return 70
   # shellcheck disable=SC2029 # validated absolute path is intentionally expanded for remote argv
   run_real=$(ssh "$REMOTE_HOST" "readlink -f -- '$run_root'") || return 70
@@ -1723,8 +2010,29 @@ archive_remote_attempt() {
       report_archive_stage_failure "$stage" || :
       return 70
     }
-  if test "$post_status" -eq 0; then final_status=0; fi
-  publish_local_authority_value "$stage/meta/local-validation-passed.txt" false \
+  profile=$(authenticated_archive_profile "$stage" "$CS2A_IMPLEMENTATION_SHA") \
+    || profile=invalid
+  case "$profile" in
+    smoke)
+      if test "$post_status" -eq 0 && prepare_local_driver \
+        && validate_smoke_archive \
+          "$stage" "$CS2A_IMPLEMENTATION_SHA" "$LOCAL_DRIVER"; then
+        final_status=0
+        local_validation=true
+      fi
+      ;;
+    full)
+      if test "$post_status" -eq 0 \
+        && test "$(tr -d '\r\n' <"$stage/meta/profile.txt")" = full; then
+        final_status=0
+      fi
+      ;;
+    legacy)
+      if test "$post_status" -eq 0; then final_status=0; fi
+      ;;
+    *) final_status=70 ;;
+  esac
+  publish_local_authority_value "$stage/meta/local-validation-passed.txt" "$local_validation" \
     >/dev/null 2>&1 || {
       report_archive_stage_failure "$stage" || :
       return 70
@@ -1744,9 +2052,13 @@ archive_remote_attempt() {
 }
 
 operator_main() {
-  local mode=run attempt implementation evidence_sha resume_run resume_state status
+  local mode=run profile=full attempt implementation evidence_sha resume_run resume_state status
   case "$#" in
     0) ;;
+    1)
+      test "$1" = --smoke || fail "invalid mode"
+      profile=smoke
+      ;;
     2)
       test "$1" = --persist-only || fail "invalid mode"
       mode=persist
@@ -1764,7 +2076,7 @@ operator_main() {
       resume_run=$2
       resume_state=$3
       ;;
-    *) fail 'usage: cs2a-operator.sh [--archive-only RUN_ROOT GOVERNOR_STATE | --persist-only STATUS | --validate-attempt ATTEMPT IMPLEMENTATION_SHA EVIDENCE_SHA]' ;;
+    *) fail 'usage: cs2a-operator.sh [--smoke | --archive-only RUN_ROOT GOVERNOR_STATE | --persist-only STATUS | --validate-attempt ATTEMPT IMPLEMENTATION_SHA EVIDENCE_SHA]' ;;
   esac
   CS2A_IMPLEMENTATION_SHA=$(tr -d '\r\n' <"$IMPLEMENTATION_FILE")
   require_sha "$CS2A_IMPLEMENTATION_SHA" || fail "invalid implementation SHA"
@@ -1787,7 +2099,7 @@ operator_main() {
     return
   fi
   if test "$mode" = run; then
-    if ! install_remote_bundle; then
+    if ! install_remote_bundle "$profile"; then
       publish_local_operator_failure install 70 \
         || fail "unable to preserve install failure"
       return 70

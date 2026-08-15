@@ -330,7 +330,19 @@ class Cs2aSupervisorAtomicHandoffTest {
               fixture,
               "authenticated-handoff.tsv",
               "implementation\t$IMPLEMENTATION_SHA\nuid\t999999\n" +
-                "runner\t${sha256(fixture.runnerFile)}\nsupervisor\t$supervisorSha\n",
+                "runner\t${sha256(fixture.runnerFile)}\nsupervisor\t$supervisorSha\n" +
+                "profile\tfull\n",
+            )
+          },
+        "authenticated profile" to
+          { fixture ->
+            val supervisorSha = sha256(fixture.runnableSupervisor)
+            mutateFinalEvidence(
+              fixture,
+              "authenticated-handoff.tsv",
+              "implementation\t$IMPLEMENTATION_SHA\nuid\t${numericUid()}\n" +
+                "runner\t${sha256(fixture.runnerFile)}\nsupervisor\t$supervisorSha\n" +
+                "profile\tSMOKE\n",
             )
           },
         "lock release" to
@@ -557,6 +569,9 @@ class Cs2aSupervisorAtomicHandoffTest {
     assertThat(source).contains(lockProof)
 
     assertProcessSucceeds(runControlledChildHarness(source, "original"))
+    assertProcessSucceeds(runControlledChildHarness(source, "smoke", profile = "smoke"))
+    assertThat(runControlledChildHarness(source, "invalid-profile", profile = "SMOKE").exitCode)
+      .isNotEqualTo(0)
     assertThat(runControlledChildHarness(source.replace(closeCall, ":"), "no-close").exitCode)
       .isNotEqualTo(0)
     assertThat(
@@ -669,6 +684,7 @@ class Cs2aSupervisorAtomicHandoffTest {
           numericUid(),
           IMPLEMENTATION_SHA,
           "a".repeat(64),
+          "full",
         )
       )
 
@@ -812,7 +828,7 @@ class Cs2aSupervisorAtomicHandoffTest {
           "executed-script-sha256sums.tsv" -> "runner\t$runnerSha\nsupervisor\t$supervisorSha\n"
           "authenticated-handoff.tsv" ->
             "implementation\t$IMPLEMENTATION_SHA\nuid\t${numericUid()}\n" +
-              "runner\t$runnerSha\nsupervisor\t$supervisorSha\n"
+              "runner\t$runnerSha\nsupervisor\t$supervisorSha\nprofile\tfull\n"
           "run-root.txt" -> "$runRoot\n"
           "implementation-sha.txt" -> "$IMPLEMENTATION_SHA\n"
           "lock-provenance.txt" -> "$LOCK_PROVENANCE\n"
@@ -839,6 +855,7 @@ class Cs2aSupervisorAtomicHandoffTest {
     source: String,
     name: String,
     substituteLock: Boolean = false,
+    profile: String = "full",
   ): ProcessResult {
     val root = Files.createDirectories(temporaryDirectory.resolve("child-$name"))
     val lock = Files.createFile(root.resolve("task13.lock"))
@@ -855,7 +872,8 @@ class Cs2aSupervisorAtomicHandoffTest {
       test -z "${'$'}{POISONED_SECRET+x}"
       test ! -e /dev/fd/8
       test -e /dev/fd/9
-      test "${'$'}(env | sed -n 's/^CS2A_[^=]*=.*/x/p' | wc -l | tr -d ' ')" = 4
+      test "${'$'}(env | sed -n 's/^CS2A_[^=]*=.*/x/p' | wc -l | tr -d ' ')" = 5
+      test "${'$'}CS2A_PROFILE" = ${quote(Path.of(profile))}
       test "${'$'}PATH" = /usr/bin:/bin
       env | LC_ALL=C sort >${quote(output)}
       """
@@ -895,7 +913,7 @@ class Cs2aSupervisorAtomicHandoffTest {
       exec 9<>"${'$'}LOCK_FILE"
       export POISONED_SECRET=must-not-cross-boundary
       controlled_child_exec "${'$'}(/usr/bin/id -u)" \
-        $IMPLEMENTATION_SHA "${"a".repeat(64)}"
+        $IMPLEMENTATION_SHA "${"a".repeat(64)}" ${quote(Path.of(profile))}
       """
         .trimIndent()
     return run(
@@ -930,7 +948,8 @@ class Cs2aSupervisorAtomicHandoffTest {
       test -z "${'$'}{POISONED_SECRET+x}"
       test ! -e /dev/fd/8
       test -e /dev/fd/9
-      test "${'$'}(env | sed -n 's/^CS2A_[^=]*=.*/x/p' | wc -l | tr -d ' ')" = 4
+      test "${'$'}(env | sed -n 's/^CS2A_[^=]*=.*/x/p' | wc -l | tr -d ' ')" = 5
+      test "${'$'}CS2A_PROFILE" = full
       test "${'$'}PATH" = /usr/bin:/bin
       printf 'RUN_ROOT=/opt/revoman-benchmark/runs/cs2a.Reentry123\n'
       """
@@ -964,7 +983,7 @@ class Cs2aSupervisorAtomicHandoffTest {
         test "${'$'}2" = gopala.akshintala
         test "${'$'}3" = --
         shift 3
-        test "${'$'}#" -eq 13
+        test "${'$'}#" -eq 14
         test "${'$'}1" = /usr/bin/env
         test "${'$'}2" = -i
         test "${'$'}3" = PATH=/usr/bin:/bin
@@ -978,6 +997,7 @@ class Cs2aSupervisorAtomicHandoffTest {
         test "${'$'}{11}" = $numericUid
         test "${'$'}{12}" = $IMPLEMENTATION_SHA
         test "${'$'}{13}" = ${"a".repeat(64)}
+        test "${'$'}{14}" = full
         printf observed >${quote(boundaryMarker)}
         export BASH_ENV=${quote(poison)}
         export POISONED_SECRET=must-not-cross-reentry
@@ -1038,7 +1058,7 @@ class Cs2aSupervisorAtomicHandoffTest {
         fi
       }
       launch_controlled_child "${'$'}(/usr/bin/id -u)" \
-        $IMPLEMENTATION_SHA ${"a".repeat(64)} "${'$'}3"
+        $IMPLEMENTATION_SHA ${"a".repeat(64)} full "${'$'}3"
       wait_for_controlled_child
       test -f "${'$'}4"
       test ! -e "${'$'}5"
@@ -1422,7 +1442,7 @@ class Cs2aSupervisorAtomicHandoffTest {
       trap 'handle_signal HUP 129' HUP
       handle_signal TERM 143
       launch_controlled_child "${'$'}(/usr/bin/id -u)" \
-        $IMPLEMENTATION_SHA ${"a".repeat(64)} "${'$'}STATE/child-output.log"
+        $IMPLEMENTATION_SHA ${"a".repeat(64)} full "${'$'}STATE/child-output.log"
       exit 98
       """
         .trimIndent()
@@ -1483,7 +1503,7 @@ class Cs2aSupervisorAtomicHandoffTest {
         fi
       ' DEBUG
       if launch_controlled_child "${'$'}(/usr/bin/id -u)" \
-        $IMPLEMENTATION_SHA ${"a".repeat(64)} "${'$'}2"; then
+        $IMPLEMENTATION_SHA ${"a".repeat(64)} full "${'$'}2"; then
         exit 98
       else
         test "${'$'}?" -eq 1
@@ -1569,7 +1589,7 @@ class Cs2aSupervisorAtomicHandoffTest {
         fi
       ' DEBUG
       if launch_controlled_child "${'$'}(/usr/bin/id -u)" \
-        $IMPLEMENTATION_SHA ${"a".repeat(64)} "${'$'}3"; then
+        $IMPLEMENTATION_SHA ${"a".repeat(64)} full "${'$'}3"; then
         launch_status=0
       else
         launch_status=${'$'}?
@@ -1896,7 +1916,7 @@ class Cs2aSupervisorAtomicHandoffTest {
         clear_child_group_identity "${'$'}CHILD_PGID"
       }
       if launch_controlled_child "${'$'}(/usr/bin/id -u)" \
-        $IMPLEMENTATION_SHA ${"a".repeat(64)} "${'$'}2"; then
+        $IMPLEMENTATION_SHA ${"a".repeat(64)} full "${'$'}2"; then
         exit 98
       fi
       test "${'$'}CHILD_GROUP_READY" = false
@@ -2076,7 +2096,7 @@ class Cs2aSupervisorAtomicHandoffTest {
       }
       """.trimIndent() else ""}
       launch_controlled_child "${'$'}(/usr/bin/id -u)" \
-        $IMPLEMENTATION_SHA ${"a".repeat(64)} "${'$'}3"
+        $IMPLEMENTATION_SHA ${"a".repeat(64)} full "${'$'}3"
       ${if (phase == OrphanPhase.WORKLOAD) "while ! test -s \"${'$'}6\"; do sleep 0.1; done" else ""}
       ${if (phase == OrphanPhase.AFTER_STATUS) "while ! test -s \"${'$'}3.child-status\"; do sleep 0.1; done" else ""}
       printf 'ready\n' >"${'$'}4"

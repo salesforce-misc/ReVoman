@@ -370,6 +370,22 @@ class Cs2aOperatorScriptTest {
   }
 
   @Test
+  fun `supervisor handoff accepts only a closed benchmark profile`() {
+    val source = Files.readString(supervisor)
+
+    assertWithMessage("smoke profile")
+      .that(
+        runSupervisorControlledUidPolicy(source, ControlledUidFixtureState.EXACT, "smoke").exitCode
+      )
+      .isEqualTo(0)
+    listOf("", "SMOKE", "campaign", "smoke\nprofile\tfull").forEach { profile ->
+      val result =
+        runSupervisorControlledUidPolicy(source, ControlledUidFixtureState.EXACT, profile)
+      assertWithMessage("profile=$profile\n${result.output}").that(result.exitCode).isNotEqualTo(0)
+    }
+  }
+
+  @Test
   fun `remote artifact inventories validate exact safe path sets without local artifact bytes`() {
     val archive = temporaryDirectory.resolve("archive")
     val meta = Files.createDirectories(archive.resolve("meta"))
@@ -529,6 +545,210 @@ class Cs2aOperatorScriptTest {
         )
       }
     }
+  }
+
+  @Test
+  fun `smoke command protocol is proportional complete and non-enforcing`() {
+    val fixture = createSmokeArchiveFixture("smoke-command-protocol")
+    val archive = fixture.archive
+    val destination = temporaryDirectory.resolve("expected-smoke-commands.tsv")
+
+    assertProcessSucceeds(
+      listOf(
+        "/bin/bash",
+        "-c",
+        "source ${quote(operator)}; " +
+          "write_expected_smoke_command_protocol ${quote(archive)} ${quote(destination)}",
+      )
+    )
+
+    val rows = Files.readAllLines(destination)
+    assertSmokeCommandRows(rows)
+    assertThat(Files.readString(controlledRunner)).contains("run_smoke_profile")
+    assertBashFunctionSucceeds(
+      "validate_smoke_archive ${quote(archive)} $IMPLEMENTATION_SHA " +
+        "${quote(fixture.driver)} ${fixture.policySha256}"
+    )
+
+    write(archive.resolve("results/retained-candidate.json"), "{}\n")
+    assertBashFunctionFails(
+      "validate_smoke_archive ${quote(archive)} $IMPLEMENTATION_SHA " +
+        "${quote(fixture.driver)} ${fixture.policySha256}",
+      "retained output is outside the smoke profile",
+    )
+  }
+
+  private fun assertSmokeCommandRows(rows: List<String>) {
+    assertThat(rows.map { it.substringBefore('\t') })
+      .containsExactly(
+        "install-harness",
+        "export-baseline-a",
+        "export-baseline-b",
+        "export-candidate",
+        "verify-manifest-baseline-a",
+        "verify-manifest-baseline-b",
+        "verify-manifest-candidate",
+        "cold-aa",
+        "warm-aa",
+        "cold-candidate",
+        "warm-candidate",
+        "verify-aa-cold",
+        "comparison-aa-cold",
+        "verify-aa-warm",
+        "comparison-aa-warm",
+        "verify-candidate-cold",
+        "comparison-candidate-cold",
+        "verify-candidate-warm",
+        "comparison-candidate-warm",
+      )
+      .inOrder()
+    rows.slice(7..10).forEach { row ->
+      assertThat(row).contains("\t--intent\tsmoke")
+      assertThat(row).contains("\t--metrics\tlatency")
+      assertThat(row).doesNotContain("retained")
+    }
+    listOf(7, 9).forEach { index ->
+      assertThat(rows[index]).contains("\t--blocks\t2")
+      assertThat(rows[index]).contains("\t--warmups\t0")
+      assertThat(rows[index]).contains("\t--iterations\t1")
+    }
+    listOf(8, 10).forEach { index ->
+      assertThat(rows[index]).contains("\t--blocks\t2")
+      assertThat(rows[index]).contains("\t--warmups\t1")
+      assertThat(rows[index]).contains("\t--iterations\t3")
+    }
+    listOf(7, 8, 9, 10).forEach { index ->
+      assertThat(rows[index]).contains("\trun-paired\t")
+    }
+    rows
+      .filter { it.substringBefore('\t').startsWith("comparison-") }
+      .forEach { row ->
+        assertThat(row).doesNotContain("--enforce-release-gates")
+      }
+  }
+
+  @Test
+  fun `smoke validation requires authenticated handoff and real manifests`() {
+    val missingHandoff = createSmokeArchiveFixture("smoke-missing-handoff")
+    Files.delete(missingHandoff.archive.resolve("meta/supervisor/authenticated-handoff.tsv"))
+    assertBashFunctionFails(
+      "validate_smoke_archive ${quote(missingHandoff.archive)} $IMPLEMENTATION_SHA " +
+        "${quote(missingHandoff.driver)} ${missingHandoff.policySha256}",
+      "missing authenticated smoke handoff",
+    )
+
+    val invalidManifest = createSmokeArchiveFixture("smoke-invalid-manifest")
+    write(invalidManifest.archive.resolve("manifests/candidate.json"), "{}\n")
+    refreshRemoteEvidenceInventory(invalidManifest.archive)
+    refreshRemoteByteInventory(invalidManifest.archive)
+    assertBashFunctionFails(
+      "validate_smoke_archive ${quote(invalidManifest.archive)} $IMPLEMENTATION_SHA " +
+        "${quote(invalidManifest.driver)} ${invalidManifest.policySha256}",
+      "invalid smoke candidate manifest",
+    )
+
+    val incomplete = createSmokeArchiveFixture("smoke-incomplete-campaign")
+    mutateJson(
+      incomplete.archive.resolve("results/cold-candidate.json"),
+      ".workloads[0].metricSeries[0].blocks[1].accepted = false",
+    )
+    refreshRemoteEvidenceInventory(incomplete.archive)
+    refreshRemoteByteInventory(incomplete.archive)
+    assertBashFunctionFails(
+      "validate_smoke_archive ${quote(incomplete.archive)} $IMPLEMENTATION_SHA " +
+        "${quote(incomplete.driver)} ${incomplete.policySha256}",
+      "incomplete smoke candidate campaign",
+    )
+  }
+
+  @Test
+  fun `archive profile comes from the authenticated supervisor handoff`() {
+    val exact = createSmokeArchiveFixture("authenticated-smoke-profile")
+    assertBashFunctionSucceeds(
+      "test \"\$(authenticated_archive_profile ${quote(exact.archive)} " +
+        "$IMPLEMENTATION_SHA)\" = smoke"
+    )
+
+    val changed = createSmokeArchiveFixture("changed-smoke-profile")
+    write(changed.archive.resolve("meta/profile.txt"), "full\n")
+    assertBashFunctionFails(
+      "authenticated_archive_profile ${quote(changed.archive)} $IMPLEMENTATION_SHA",
+      "runner profile differs from authenticated handoff",
+    )
+
+    val missing = createSmokeArchiveFixture("missing-smoke-profile")
+    Files.delete(missing.archive.resolve("meta/profile.txt"))
+    assertBashFunctionFails(
+      "authenticated_archive_profile ${quote(missing.archive)} $IMPLEMENTATION_SHA",
+      "runner profile is missing from a profiled handoff",
+    )
+  }
+
+  @Test
+  fun `completed smoke archive persists but is not a release selection`() {
+    val workspace = createPersistenceWorkspace("persist-smoke")
+    val implementation = run(listOf("git", "rev-parse", "HEAD"), workspace).output.trim()
+    val fixture = createSmokeArchiveFixture("persisted-smoke")
+    val attempt =
+      workspace.resolve("docs/superpowers/benchmarks/results/v1/cs2a-$implementation/cs2a.Smoke123")
+    copyTree(fixture.archive, attempt)
+    write(workspace.resolve("build/cs2a-implementation-sha"), "$implementation\n")
+    write(workspace.resolve("build/cs2a-operator-status.txt"), "0\n")
+    write(workspace.resolve("build/cs2a-local-evidence-dir.txt"), "$attempt\n")
+    assertProcessSucceeds(
+      listOf(
+        "/bin/bash",
+        "-c",
+        "source ${quote(operator)}; write_root_checksum_inventory ${quote(attempt)}",
+      ),
+      workspace,
+    )
+
+    assertProcessSucceeds(
+      listOf("/bin/bash", operator.toString(), "--persist-only", "0"),
+      workspace,
+    )
+    val evidenceSha =
+      Files.readString(workspace.resolve("build/cs2a-attempt-evidence-sha.txt")).trim()
+    assertThat(run(listOf("git", "status", "--porcelain"), workspace).output).isEmpty()
+    assertThat(run(listOf("git", "log", "-1", "--format=%H"), workspace).output.trim())
+      .isEqualTo(evidenceSha)
+    val validation =
+      run(
+        listOf(
+          "/bin/bash",
+          "-c",
+          "source ${quote(operator)}; CS2A_IMPLEMENTATION_SHA=$implementation; " +
+            "validate_persisted_attempt ${quote(attempt)} $implementation $evidenceSha " +
+            quote(fixture.driver),
+        ),
+        workspace,
+      )
+    assertWithMessage(validation.output).that(validation.exitCode).isNotEqualTo(0)
+  }
+
+  @Test
+  fun `actual smoke runner commands match the validated protocol`() {
+    val execution = runSmokeRunnerHarness("actual-smoke-runner")
+    assertWithMessage(execution.process.output).that(execution.process.exitCode).isEqualTo(0)
+    val expected =
+      Files.readAllLines(
+          createSmokeArchiveFixture("expected-smoke-runner").archive.resolve("meta/commands.tsv")
+        )
+        .drop(7)
+    val expectedDriver =
+      "$RUN_ROOT/checkouts/harness/benchmark-driver/build/install/benchmark-driver/bin/benchmark-driver"
+    val actual =
+      Files.readAllLines(execution.root.resolve("meta/commands.tsv")).map { row ->
+        row
+          .replace(execution.driver.toString(), expectedDriver)
+          .replace(execution.policy.toString(), "/opt/revoman-benchmark/controlled-host.json")
+          .replace(execution.root.toString(), RUN_ROOT)
+      }
+    assertThat(actual).containsExactlyElementsIn(expected).inOrder()
+    assertThat(Files.readString(execution.root.resolve("meta/stage.txt")))
+      .isEqualTo("smoke-compared\n")
+    assertThat(Files.exists(execution.root.resolve("results/retained-candidate.json"))).isFalse()
   }
 
   @Test
@@ -2032,6 +2252,24 @@ class Cs2aOperatorScriptTest {
   }
 
   @Test
+  fun `operator selects full by default and smoke only through the exact public mode`() {
+    listOf(
+        runOperatorProfileHarness("full"),
+        runOperatorProfileHarness("smoke", "--smoke"),
+      )
+      .forEach { result ->
+        assertWithMessage(result.output).that(result.exitCode).isEqualTo(0)
+      }
+
+    listOf(listOf("--unknown"), listOf("--smoke", "extra")).forEach { arguments ->
+      val result = runOperatorProfileHarness("unused", *arguments.toTypedArray())
+      assertWithMessage("arguments=$arguments\n${result.output}")
+        .that(result.exitCode)
+        .isNotEqualTo(0)
+    }
+  }
+
+  @Test
   fun `remote refresh delegates final handoff to installed reviewed supervisor CLI`() {
     val source = Files.readString(operator)
     val invocation =
@@ -2263,6 +2501,22 @@ class Cs2aOperatorScriptTest {
       }
       rsync() {
         printf '%s\n' rsync >>"${'$'}PWD/build/archive-order"
+        case "${'$'}3" in
+          */meta/)
+            mkdir -p "${'$'}3/supervisor"
+            cp -- "${'$'}CONTROLLED_RUNNER" "${'$'}3/cs2a-controlled-run.sh"
+            cp -- "${'$'}SUPERVISOR" "${'$'}3/cs2a-governor-supervisor.sh"
+            printf '%s\n' 1234 >"${'$'}3/controlled-uid.txt"
+            runner_sha=${'$'}(sha256_of "${'$'}CONTROLLED_RUNNER")
+            supervisor_sha=${'$'}(sha256_of "${'$'}SUPERVISOR")
+            printf 'runner\t%s\nsupervisor\t%s\n' \
+              "${'$'}runner_sha" "${'$'}supervisor_sha" \
+              >"${'$'}3/supervisor/executed-script-sha256sums.tsv"
+            printf 'implementation\t%s\nuid\t1234\nrunner\t%s\nsupervisor\t%s\n' \
+              "$IMPLEMENTATION_SHA" "${'$'}runner_sha" "${'$'}supervisor_sha" \
+              >"${'$'}3/supervisor/authenticated-handoff.tsv"
+            ;;
+        esac
       }
       publish_archive() {
         cp -- "${'$'}1/meta/operator-resume-validation-exit.txt" \
@@ -3377,7 +3631,7 @@ class Cs2aOperatorScriptTest {
       }
       if test "${'$'}4" = install; then
         verify_remote_bundle() { return 0; }
-        if install_remote_bundle; then exit 0; else exit "${'$'}?"; fi
+        if install_remote_bundle full; then exit 0; else exit "${'$'}?"; fi
       else
         if verify_remote_bundle; then exit 0; else exit "${'$'}?"; fi
       fi
@@ -3402,6 +3656,7 @@ class Cs2aOperatorScriptTest {
   private fun runSupervisorControlledUidPolicy(
     source: String,
     state: ControlledUidFixtureState,
+    profile: String = "full",
   ): ProcessResult {
     val root =
       Files.createTempDirectory(
@@ -3457,7 +3712,8 @@ class Cs2aOperatorScriptTest {
       "implementation\t$IMPLEMENTATION_SHA\n" +
         "uid\t${state.uid}\n" +
         "runner\t$runnerSha\n" +
-        "supervisor\t$supervisorSha\n",
+        "supervisor\t$supervisorSha\n" +
+        "profile\t$profile\n",
     )
     val harness =
       """
@@ -3508,6 +3764,55 @@ class Cs2aOperatorScriptTest {
         supervisorAlias.toString(),
         runnableSupervisor.toString(),
       )
+    )
+  }
+
+  private fun runOperatorProfileHarness(
+    expectedProfile: String,
+    vararg arguments: String,
+  ): ProcessResult {
+    val suffix = arguments.joinToString("-").ifEmpty { "default" }
+    val workspace =
+      Files.createDirectories(
+        temporaryDirectory.resolve("operator-profile-$expectedProfile-$suffix")
+      )
+    write(workspace.resolve("build/cs2a-implementation-sha"), "$IMPLEMENTATION_SHA\n")
+    val harness =
+      """
+      source "${'$'}1"
+      EXPECTED_PROFILE=${quote(Path.of(expectedProfile))}
+      shift
+      prepare_operator_source() { :; }
+      install_remote_bundle() {
+        test "${'$'}#" = 1
+        test "${'$'}1" = "${'$'}EXPECTED_PROFILE"
+        printf '%s\n' "${'$'}1" >"${'$'}PWD/build/installed-profile.txt"
+      }
+      run_remote_supervisor() {
+        printf '%s\n' \
+          'RUN_ROOT=/opt/revoman-benchmark/runs/cs2a.Profile123' \
+          'GOVERNOR_STATE=/run/revoman-cs2a/governor-state.Profile123' \
+          >"${'$'}PWD/build/cs2a-supervisor.log"
+        printf '%s\n' 0 >"${'$'}PWD/build/cs2a-supervisor-exit.txt"
+      }
+      persist_original_post_status() { return 0; }
+      refresh_remote_final_handoff() { return 0; }
+      archive_remote_attempt() { : >"${'$'}PWD/build/archive-called"; }
+      operator_main "${'$'}@"
+      test "${'$'}(cat "${'$'}PWD/build/installed-profile.txt")" = "${'$'}EXPECTED_PROFILE"
+      test -f "${'$'}PWD/build/archive-called"
+      """
+        .trimIndent()
+    return run(
+      listOf(
+        "/bin/bash",
+        "-c",
+        harness,
+        "operator-profile-harness",
+        operator.toString(),
+        *arguments,
+      ),
+      workspace,
     )
   }
 
@@ -3883,9 +4188,95 @@ class Cs2aOperatorScriptTest {
     return ProcessResult(process.waitFor(), output)
   }
 
+  private fun runSmokeRunnerHarness(name: String): SmokeRunnerFixture {
+    val root = Files.createDirectories(temporaryDirectory.resolve(name))
+    listOf("artifacts", "logs", "manifests", "meta", "results").forEach { directory ->
+      Files.createDirectory(root.resolve(directory))
+    }
+    val policy = root.resolve("controlled-host.json")
+    write(policy, "{}\n")
+    val driver = writeSmokeDriver(root.resolve("benchmark-driver"))
+    val source = Files.readString(controlledRunner)
+    val functions =
+      source.substring(
+        source.indexOf("run_logged() {"),
+        source.indexOf("\nrun_logged install-harness"),
+      )
+    val harness = root.resolve("run-smoke.sh")
+    write(
+      harness,
+      """
+      #!/bin/bash
+      set -Eeuo pipefail
+      RUN_ROOT=${quote(root)}
+      DRIVER=${quote(driver)}
+      POLICY=${quote(policy)}
+      EXPECTED_POLICY_SEMANTIC_SHA256=$POLICY_SEMANTIC_SHA
+      EXPECTED_HOST_FINGERPRINT=$HOST_FINGERPRINT
+      $functions
+      run_smoke_profile
+      """
+        .trimIndent() + "\n",
+    )
+    harness.toFile().setExecutable(true, false)
+    return SmokeRunnerFixture(root, driver, policy, run(listOf("/bin/bash", harness.toString())))
+  }
+
+  private fun writeSmokeDriver(path: Path): Path {
+    write(
+      path,
+      """
+      #!/bin/bash
+      set -Eeuo pipefail
+      command=${'$'}1
+      shift
+      case "${'$'}command" in
+        run-paired)
+          while test "${'$'}#" -gt 0; do
+            case "${'$'}1" in
+              --output) output=${'$'}2; shift 2 ;;
+              *) shift ;;
+            esac
+          done
+          printf '%s\n' '{"environment":{"policySha256":"$POLICY_SEMANTIC_SHA","hostFingerprintSha256":"$HOST_FINGERPRINT"}}' >"${'$'}output"
+          ;;
+        verify) ;;
+        compare)
+          while test "${'$'}#" -gt 0; do
+            case "${'$'}1" in
+              --output-json) output_json=${'$'}2; shift 2 ;;
+              --output-md) output_md=${'$'}2; shift 2 ;;
+              *) shift ;;
+            esac
+          done
+          printf '%s\n' '{"overall":"INCONCLUSIVE"}' >"${'$'}output_json"
+          printf '%s\n' 'INCONCLUSIVE' >"${'$'}output_md"
+          ;;
+        *) exit 64 ;;
+      esac
+      """
+        .trimIndent() + "\n",
+    )
+    path.toFile().setExecutable(true, false)
+    return path
+  }
+
   private fun write(path: Path, content: String) {
     Files.createDirectories(path.parent)
     Files.writeString(path, content)
+  }
+
+  private fun copyTree(source: Path, destination: Path) {
+    Files.walk(source).use { stream ->
+      stream.sorted().forEach { path ->
+        val target = destination.resolve(source.relativize(path).toString())
+        if (Files.isDirectory(path)) {
+          Files.createDirectories(target)
+        } else {
+          Files.copy(path, target, StandardCopyOption.REPLACE_EXISTING)
+        }
+      }
+    }
   }
 
   private fun mutateJson(path: Path, filter: String) {
@@ -4069,6 +4460,7 @@ class Cs2aOperatorScriptTest {
     )
     val policySha = sha256(policy)
     write(archive.resolve("meta/implementation-sha.txt"), "$IMPLEMENTATION_SHA\n")
+    write(archive.resolve("meta/profile.txt"), "full\n")
     write(archive.resolve("meta/controlled-uid.txt"), "1234\n")
     write(
       archive.resolve("meta/policy-sha256.txt"),
@@ -4110,7 +4502,7 @@ class Cs2aOperatorScriptTest {
     write(supervisorMeta.resolve("executed-script-sha256sums.tsv"), executedRows)
     write(
       supervisorMeta.resolve("authenticated-handoff.tsv"),
-      "implementation\t$IMPLEMENTATION_SHA\nuid\t1234\n$executedRows",
+      "implementation\t$IMPLEMENTATION_SHA\nuid\t1234\n${executedRows}profile\tfull\n",
     )
     val supervisorCore = Files.createDirectories(archive.resolve("meta/supervisor-core"))
     CORE_SUPERVISOR_FILES.forEach { name ->
@@ -4150,6 +4542,115 @@ class Cs2aOperatorScriptTest {
     )
     driver.toFile().setExecutable(true, false)
     return ArchiveFixture(archive, driver, policySha)
+  }
+
+  private fun createSmokeArchiveFixture(name: String): ArchiveFixture {
+    val fixture = createCompleteArchiveFixture(name)
+    val archive = fixture.archive
+    write(archive.resolve("meta/profile.txt"), "smoke\n")
+    write(archive.resolve("meta/stage.txt"), "smoke-compared\n")
+    listOf(
+        "results/retained-candidate.json",
+        "results/comparison-candidate-retained.json",
+        "results/comparison-candidate-retained.md",
+        "meta/retained-candidate-exit.txt",
+        "meta/comparison-candidate-retained-exit.txt",
+      )
+      .forEach { Files.delete(archive.resolve(it)) }
+    writeSmokeResults(archive)
+    writeSmokeAuthenticatedHandoff(archive)
+
+    Files.list(archive.resolve("logs")).use { stream ->
+      stream.toList().forEach { Files.delete(it) }
+    }
+    val commands = archive.resolve("meta/commands.tsv")
+    assertProcessSucceeds(
+      listOf(
+        "/bin/bash",
+        "-c",
+        "source ${quote(operator)}; " +
+          "write_expected_smoke_command_protocol ${quote(archive)} ${quote(commands)}",
+      )
+    )
+    Files.readAllLines(commands).forEach { row ->
+      val label = row.substringBefore('\t')
+      write(archive.resolve("logs/$label.stdout"), "$label\n")
+      write(archive.resolve("logs/$label.stderr"), "")
+      write(archive.resolve("logs/$label.exit"), "0\n")
+    }
+    writeArtifactInventoriesFromResults(
+      archive,
+      listOf("cold-aa.json", "warm-aa.json", "cold-candidate.json", "warm-candidate.json"),
+    )
+    refreshRemoteEvidenceInventory(archive)
+    refreshCommandOutputInventory(archive)
+    refreshRemoteByteInventory(archive)
+    return fixture
+  }
+
+  private fun writeSmokeResults(archive: Path) {
+    write(
+      archive.resolve("results/cold-aa.json"),
+      smokeCampaign(archive, "COLD", "baseline-b-cs2a", "baseline-83f3cd70", BASELINE_SHA, 0, 1),
+    )
+    write(
+      archive.resolve("results/warm-aa.json"),
+      smokeCampaign(archive, "WARM", "baseline-b-cs2a", "baseline-83f3cd70", BASELINE_SHA, 1, 3),
+    )
+    write(
+      archive.resolve("results/cold-candidate.json"),
+      smokeCampaign(archive, "COLD", "candidate-cs2a", "major-v1", IMPLEMENTATION_SHA, 0, 1),
+    )
+    write(
+      archive.resolve("results/warm-candidate.json"),
+      smokeCampaign(archive, "WARM", "candidate-cs2a", "major-v1", IMPLEMENTATION_SHA, 1, 3),
+    )
+  }
+
+  private fun writeSmokeAuthenticatedHandoff(archive: Path) {
+    val runnerSha = sha256(archive.resolve("meta/cs2a-controlled-run.sh"))
+    val supervisorSha = sha256(archive.resolve("meta/cs2a-governor-supervisor.sh"))
+    val handoff =
+      "implementation\t$IMPLEMENTATION_SHA\nuid\t1234\n" +
+        "runner\t$runnerSha\nsupervisor\t$supervisorSha\nprofile\tsmoke\n"
+    listOf("meta/supervisor", "meta/supervisor-core").forEach { directory ->
+      write(archive.resolve("$directory/authenticated-handoff.tsv"), handoff)
+    }
+  }
+
+  private fun smokeCampaign(
+    archive: Path,
+    mode: String,
+    candidateId: String,
+    candidateAdapter: String,
+    candidateCommit: String,
+    warmups: Int,
+    iterations: Int,
+  ): String {
+    val input = temporaryDirectory.resolve("smoke-$mode-$candidateId.json")
+    write(input, campaign(archive, mode, candidateId, candidateAdapter, candidateCommit))
+    val transformed =
+      run(
+        listOf(
+          "jq",
+          "--argjson",
+          "warmups",
+          warmups.toString(),
+          "--argjson",
+          "iterations",
+          iterations.toString(),
+          ".intent = \"SMOKE\" | " +
+            ".configuration.metricPasses = [\"LATENCY\"] | " +
+            ".configuration.requestedAcceptedBlocks = 2 | " +
+            ".configuration.warmupIterations = \$warmups | " +
+            ".configuration.measurementIterations = \$iterations | " +
+            ".workloads[0].metricSeries |= map(select(.metric == \"LATENCY\")) | " +
+            ".workloads[0].metricSeries[0].blocks |= .[:2]",
+          input.toString(),
+        )
+      )
+    assertWithMessage(transformed.output).that(transformed.exitCode).isEqualTo(0)
+    return transformed.output
   }
 
   private fun targetManifest(targetId: String, commit: String): String {
@@ -4390,45 +4891,48 @@ class Cs2aOperatorScriptTest {
     writeShaInventory(archive, "meta/evidence-sha256sums.txt", paths)
   }
 
-  private fun writeArtifactInventoriesFromResults(archive: Path) {
-    val artifacts = linkedMapOf<String, Pair<Long, String>>()
-    listOf(
+  private fun writeArtifactInventoriesFromResults(
+    archive: Path,
+    resultNames: List<String> =
+      listOf(
         "cold-aa.json",
         "warm-aa.json",
         "cold-candidate.json",
         "warm-candidate.json",
         "retained-candidate.json",
-      )
-      .forEach { resultName ->
-        val result = archive.resolve("results/$resultName")
-        val query =
-          run(
-            listOf(
-              "jq",
-              "-r",
-              ".workloads[].metricSeries[].artifacts[] | " +
-                "[.executionPath, (.sizeBytes|tostring), .sha256] | @tsv",
-              result.toString(),
-            )
+      ),
+  ) {
+    val artifacts = linkedMapOf<String, Pair<Long, String>>()
+    resultNames.forEach { resultName ->
+      val result = archive.resolve("results/$resultName")
+      val query =
+        run(
+          listOf(
+            "jq",
+            "-r",
+            ".workloads[].metricSeries[].artifacts[] | " +
+              "[.executionPath, (.sizeBytes|tostring), .sha256] | @tsv",
+            result.toString(),
           )
-        assertWithMessage(query.output).that(query.exitCode).isEqualTo(0)
-        query.output
-          .lineSequence()
-          .filter { it.isNotBlank() }
-          .forEach { row ->
-            val fields = row.split('\t')
-            val relative = fields[0].removePrefix("$RUN_ROOT/")
-            artifacts[relative] = fields[1].toLong() to fields[2]
-            if (resultName.startsWith("warm-")) {
-              val parent = relative.substringBeforeLast('/')
-              artifacts.putIfAbsent(
-                "$parent/target-verification-token.json",
-                64L to "${"b".repeat(64)}",
-              )
-              artifacts.putIfAbsent("$parent/campaign-jmh-context.json", 64L to "${"c".repeat(64)}")
-            }
+        )
+      assertWithMessage(query.output).that(query.exitCode).isEqualTo(0)
+      query.output
+        .lineSequence()
+        .filter { it.isNotBlank() }
+        .forEach { row ->
+          val fields = row.split('\t')
+          val relative = fields[0].removePrefix("$RUN_ROOT/")
+          artifacts[relative] = fields[1].toLong() to fields[2]
+          if (resultName.startsWith("warm-")) {
+            val parent = relative.substringBeforeLast('/')
+            artifacts.putIfAbsent(
+              "$parent/target-verification-token.json",
+              64L to "${"b".repeat(64)}",
+            )
+            artifacts.putIfAbsent("$parent/campaign-jmh-context.json", 64L to "${"c".repeat(64)}")
           }
-      }
+        }
+    }
     val ordered = artifacts.toSortedMap()
     write(
       archive.resolve("meta/artifact-inventory.tsv"),
@@ -4595,6 +5099,13 @@ class Cs2aOperatorScriptTest {
   private data class ProcessResult(val exitCode: Int, val output: String)
 
   private data class ArchiveFixture(val archive: Path, val driver: Path, val policySha256: String)
+
+  private data class SmokeRunnerFixture(
+    val root: Path,
+    val driver: Path,
+    val policy: Path,
+    val process: ProcessResult,
+  )
 
   private enum class ControlledUidFixtureState(
     val bytes: String,

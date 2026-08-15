@@ -24,6 +24,10 @@ authenticate_supervisor_handoff() {
     || fail "invalid authenticated implementation identity"
   [[ "${CS2A_AUTHENTICATED_RUNNER_SHA:-}" =~ ^[0-9a-f]{64}$ ]] \
     || fail "missing authenticated runner identity"
+  case "${CS2A_PROFILE:-}" in
+    full | smoke) ;;
+    *) fail "invalid authenticated benchmark profile" ;;
+  esac
   runner_sha=$(sha256sum "$0" | cut -d' ' -f1)
   test "$runner_sha" = "$CS2A_AUTHENTICATED_RUNNER_SHA" \
     || fail "runner provenance mismatch"
@@ -65,6 +69,7 @@ case "$RUN_ROOT" in /opt/revoman-benchmark/runs/cs2a.*) ;; *) fail "unsafe run r
 trap early_runner_exit EXIT
 mkdir "$RUN_ROOT/meta"
 printf '%s\n' setup >"$RUN_ROOT/meta/stage.txt"
+printf '%s\n' "$CS2A_PROFILE" >"$RUN_ROOT/meta/profile.txt"
 HARNESS="$RUN_ROOT/checkouts/harness"
 BASELINE_A="$RUN_ROOT/checkouts/baseline-a"
 BASELINE_B="$RUN_ROOT/checkouts/baseline-b"
@@ -203,6 +208,70 @@ verify_controlled_result() {
      .environment.hostFingerprintSha256 == $host' "$result" >/dev/null
 }
 
+run_smoke_profile() {
+  local label result comparison status
+  run_campaign cold-aa "$RUN_ROOT/results/cold-aa.json" \
+    "$DRIVER" run-paired --mode cold --intent smoke \
+    --baseline "$RUN_ROOT/manifests/baseline-a.json" --baseline-adapter baseline-83f3cd70 \
+    --candidate "$RUN_ROOT/manifests/baseline-b.json" --candidate-adapter baseline-83f3cd70 \
+    --workload lifecycle.no-script-one-step.v1 --blocks 2 --forks-per-block 1 \
+    --warmups 0 --iterations 1 --seed 5928239383101656625 \
+    --metrics latency --host-policy "$POLICY" \
+    --artifacts-dir "$RUN_ROOT/artifacts/cold-aa" \
+    --output "$RUN_ROOT/results/cold-aa.json"
+  run_campaign warm-aa "$RUN_ROOT/results/warm-aa.json" \
+    "$DRIVER" run-paired --mode warm --intent smoke \
+    --baseline "$RUN_ROOT/manifests/baseline-a.json" --baseline-adapter baseline-83f3cd70 \
+    --candidate "$RUN_ROOT/manifests/baseline-b.json" --candidate-adapter baseline-83f3cd70 \
+    --workload lifecycle.no-script-one-step.v1 --blocks 2 --forks-per-block 1 \
+    --warmups 1 --iterations 3 --seed 5928239383101656625 \
+    --metrics latency --host-policy "$POLICY" \
+    --artifacts-dir "$RUN_ROOT/artifacts/warm-aa" \
+    --output "$RUN_ROOT/results/warm-aa.json"
+  run_campaign cold-candidate "$RUN_ROOT/results/cold-candidate.json" \
+    "$DRIVER" run-paired --mode cold --intent smoke \
+    --baseline "$RUN_ROOT/manifests/baseline-a.json" --baseline-adapter baseline-83f3cd70 \
+    --candidate "$RUN_ROOT/manifests/candidate.json" --candidate-adapter major-v1 \
+    --workload lifecycle.no-script-one-step.v1 --blocks 2 --forks-per-block 1 \
+    --warmups 0 --iterations 1 --seed 5928239383101656625 \
+    --metrics latency --host-policy "$POLICY" \
+    --artifacts-dir "$RUN_ROOT/artifacts/cold-candidate" \
+    --output "$RUN_ROOT/results/cold-candidate.json"
+  run_campaign warm-candidate "$RUN_ROOT/results/warm-candidate.json" \
+    "$DRIVER" run-paired --mode warm --intent smoke \
+    --baseline "$RUN_ROOT/manifests/baseline-a.json" --baseline-adapter baseline-83f3cd70 \
+    --candidate "$RUN_ROOT/manifests/candidate.json" --candidate-adapter major-v1 \
+    --workload lifecycle.no-script-one-step.v1 --blocks 2 --forks-per-block 1 \
+    --warmups 1 --iterations 3 --seed 5928239383101656625 \
+    --metrics latency --host-policy "$POLICY" \
+    --artifacts-dir "$RUN_ROOT/artifacts/warm-candidate" \
+    --output "$RUN_ROOT/results/warm-candidate.json"
+  printf '%s\n' smoke-captured >"$RUN_ROOT/meta/stage.txt"
+
+  for label in aa-cold aa-warm candidate-cold candidate-warm; do
+    case "$label" in
+      aa-cold) result=cold-aa; comparison='comparison-aa-cold' ;;
+      aa-warm) result=warm-aa; comparison='comparison-aa-warm' ;;
+      candidate-cold) result=cold-candidate; comparison='comparison-candidate-cold' ;;
+      candidate-warm) result=warm-candidate; comparison='comparison-candidate-warm' ;;
+    esac
+    verify_controlled_result "$label" "$RUN_ROOT/results/$result.json"
+    if run_logged "$comparison" "$DRIVER" compare \
+      --input "$RUN_ROOT/results/$result.json" \
+      --output-json "$RUN_ROOT/results/$comparison.json" \
+      --output-md "$RUN_ROOT/results/$comparison.md"; then
+      status=0
+    else
+      status=$?
+    fi
+    printf '%s\n' "$status" >"$RUN_ROOT/meta/$comparison-exit.txt"
+    test "$status" -eq 0
+    test -s "$RUN_ROOT/results/$comparison.json"
+    test -s "$RUN_ROOT/results/$comparison.md"
+  done
+  printf '%s\n' smoke-compared >"$RUN_ROOT/meta/stage.txt"
+}
+
 run_logged install-harness "$HARNESS/gradlew" -p "$HARNESS" \
   :benchmark-driver:installDist --no-daemon --console=plain
 run_logged export-baseline-a "$BASELINE_A/gradlew" -p "$BASELINE_A" -I "$INIT" \
@@ -224,6 +293,11 @@ for manifest_name in baseline-a baseline-b candidate; do
     jq -e -f "$HARNESS/docs/superpowers/benchmarks/operators/cs2a-validate-manifest.jq" \
     "$manifest"
 done
+
+if test "$CS2A_PROFILE" = smoke; then
+  run_smoke_profile
+  exit 0
+fi
 
 run_campaign cold-aa "$RUN_ROOT/results/cold-aa.json" \
   "$DRIVER" capture-baseline --mode cold --intent controlled \
