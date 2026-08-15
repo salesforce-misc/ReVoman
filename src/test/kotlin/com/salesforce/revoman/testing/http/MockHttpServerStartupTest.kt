@@ -8,7 +8,6 @@
 package com.salesforce.revoman.testing.http
 
 import com.google.common.truth.Truth.assertThat
-import com.salesforce.revoman.testing.http.internal.MockHttpServerStarter
 import com.sun.net.httpserver.HttpContext
 import com.sun.net.httpserver.HttpHandler
 import com.sun.net.httpserver.HttpServer
@@ -36,16 +35,17 @@ class MockHttpServerStartupTest {
   fun `executor factory failure creates no server and remains the cause`() {
     val original = IOException("executor factory failed")
     val serverCreated = AtomicBoolean()
-    val starter =
-      MockHttpServerStarter(
-        executorFactory = { throw original },
-        serverFactory = {
-          serverCreated.set(true)
-          ControllableHttpServer(InetSocketAddress(ipv4(127, 0, 0, 1), TEST_PORT))
-        },
-      )
-
-    val failure = assertThrows<IllegalStateException> { starter.start { Response(OK) } }
+    val failure =
+      assertThrows<IllegalStateException> {
+        MockHttpServer.startForTest(
+          handler = { Response(OK) },
+          executorFactory = { throw original },
+          serverFactory = {
+            serverCreated.set(true)
+            ControllableHttpServer(InetSocketAddress(ipv4(127, 0, 0, 1), TEST_PORT))
+          },
+        )
+      }
 
     assertThat(failure).hasMessageThat().isEqualTo("Failed to start mock HTTP server")
     assertThat(failure.cause).isSameInstanceAs(original)
@@ -57,10 +57,14 @@ class MockHttpServerStartupTest {
   fun `server factory failure shuts down and awaits the executor`() {
     val original = IOException("server factory failed")
     val executor = configuredExecutor()
-    val starter =
-      MockHttpServerStarter(executorFactory = { executor }, serverFactory = { throw original })
-
-    val failure = assertThrows<IllegalStateException> { starter.start { Response(OK) } }
+    val failure =
+      assertThrows<IllegalStateException> {
+        MockHttpServer.startForTest(
+          handler = { Response(OK) },
+          executorFactory = { executor },
+          serverFactory = { throw original },
+        )
+      }
 
     assertThat(failure.cause).isSameInstanceAs(original)
     verifyOrder {
@@ -177,16 +181,15 @@ class MockHttpServerStartupTest {
   fun `successful startup uses exact requested loopback and stable actual base URL`() {
     val requestedAddress = AtomicReference<InetSocketAddress>()
     val fixture = StartupFixture()
-    val starter =
-      MockHttpServerStarter(
+    val lifecycle =
+      MockHttpServer.startForTest(
+        handler = { Response(OK) },
         executorFactory = { fixture.executor },
         serverFactory = { address ->
           requestedAddress.set(address)
           fixture.server
         },
       )
-
-    val lifecycle = starter.start { Response(OK) }
 
     assertThat(requestedAddress.get().address.hostAddress).isEqualTo("127.0.0.1")
     assertThat(requestedAddress.get().port).isEqualTo(0)
@@ -200,9 +203,9 @@ class MockHttpServerStartupTest {
   ) {
     val executor = configuredExecutor()
     val server = ControllableHttpServer(address)
-    private val starter = MockHttpServerStarter({ executor }, { server })
 
-    fun start() = starter.start { Response(OK) }
+    fun start(): MockHttpServer =
+      MockHttpServer.startForTest({ Response(OK) }, { executor }, { server })
 
     fun verifyRollback() {
       assertThat(server.stopCalls).isEqualTo(1)
