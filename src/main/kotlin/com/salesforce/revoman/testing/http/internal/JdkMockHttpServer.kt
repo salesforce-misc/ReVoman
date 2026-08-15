@@ -20,6 +20,8 @@ import java.util.concurrent.Executors
 import org.http4k.core.Body
 import org.http4k.core.HttpHandler
 import org.http4k.core.Request
+import org.http4k.core.Response
+import org.http4k.core.Status.Companion.INTERNAL_SERVER_ERROR
 import org.http4k.core.queries
 import org.http4k.server.HttpExchangeHandler
 
@@ -83,27 +85,55 @@ internal class MockHttpServerStarter(
   }
 }
 
-/** Captures a request before handing its independent replayable copy to the user handler. */
-private fun recordingHandler(handler: MockHttpHandler, ledger: RequestLedger): HttpHandler =
+/**
+ * Captures a request before handing its independent replayable copy to the user handler.
+ *
+ * This handler boundary deliberately catches [Exception], rather than [Throwable], so every [Error]
+ * escapes the server task unchanged.
+ */
+@Suppress("TooGenericExceptionCaught")
+internal fun recordingHandler(handler: MockHttpHandler, ledger: RequestLedger): HttpHandler =
   { request ->
-    val (recorded, replayable) = request.capture()
-    ledger.publish(recorded)
-    handler.handle(replayable)
+    val capture = captureRequestOrNull(request, ledger)
+    if (capture == null) {
+      Response(INTERNAL_SERVER_ERROR)
+    } else {
+      val (ordinal, replayable) = capture
+      try {
+        val response: Response? = handler.handle(replayable)
+        response ?: throw NullPointerException("MockHttpHandler returned null")
+      } catch (failure: Exception) {
+        logger.error(failure) {
+          "Mock HTTP handler failed for ${request.method} ${request.uri.path}"
+        }
+        ledger.recordHandlerFailure(ordinal, failure)
+        Response(INTERNAL_SERVER_ERROR)
+      }
+    }
   }
 
 /**
  * Materializes one request body and produces immutable evidence plus a separately readable body.
  */
-private fun Request.capture(): Pair<RecordedHttpRequest, Request> {
-  val buffer = body.payload.asReadOnlyBuffer()
-  val bytes = ByteArray(buffer.remaining()).also(buffer::get)
-  val recorded =
-    RecordedHttpRequest.create(
-      method,
-      uri.path,
-      uri.queries().map { (name, value) -> RecordedNameValue(name, value) },
-      headers.map { (name, value) -> RecordedNameValue(name, value) },
-      bytes,
-    )
-  return recorded to body(Body(ByteBuffer.wrap(bytes)))
+@Suppress("TooGenericExceptionCaught")
+private fun captureRequestOrNull(request: Request, ledger: RequestLedger): Pair<Long, Request>? {
+  val method = request.method
+  val path = request.uri.path
+  return try {
+    val buffer = request.body.payload.asReadOnlyBuffer()
+    val bytes = ByteArray(buffer.remaining()).also(buffer::get)
+    val recorded =
+      RecordedHttpRequest.create(
+        method,
+        path,
+        request.uri.queries().map { (name, value) -> RecordedNameValue(name, value) },
+        request.headers.map { (name, value) -> RecordedNameValue(name, value) },
+        bytes,
+      )
+    val ordinal = ledger.publish(recorded)
+    ordinal to request.body(Body(ByteBuffer.wrap(bytes)))
+  } catch (failure: Exception) {
+    logger.error(failure) { "Mock HTTP request capture failed for $method $path" }
+    null
+  }
 }

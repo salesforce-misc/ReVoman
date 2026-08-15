@@ -40,14 +40,33 @@ internal class MockHttpServerLifecycle(
    */
   fun close() {
     if (!closed.compareAndSet(false, true)) return
-    server.stop(0)
-    executor.shutdown()
-    if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
-      executor.shutdownNow()
-      check(executor.awaitTermination(5, TimeUnit.SECONDS)) {
-        "Mock HTTP handler work did not stop within 10 seconds"
+    val shutdownFailures = mutableListOf<Throwable>()
+    runCatching { server.stop(0) }.exceptionOrNull()?.let(shutdownFailures::add)
+    runCatching { executor.shutdown() }.exceptionOrNull()?.let(shutdownFailures::add)
+    val terminated =
+      runCatching {
+          executor.awaitTermination(WORKER_TERMINATION_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        }
+        .onFailure(shutdownFailures::add)
+        .getOrDefault(false)
+    if (!terminated) {
+      runCatching { executor.shutdownNow() }.exceptionOrNull()?.let(shutdownFailures::add)
+      val terminatedAfterInterruption =
+        runCatching {
+            executor.awaitTermination(WORKER_TERMINATION_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+          }
+          .onFailure(shutdownFailures::add)
+          .getOrDefault(false)
+      if (!terminatedAfterInterruption) {
+        shutdownFailures +=
+          IllegalStateException("Mock HTTP handler work did not stop within 10 seconds")
       }
     }
     logger.debug { "Stopped mock HTTP server at $baseUrl" }
+    ledger.aggregateCloseFailure(shutdownFailures)?.let { throw it }
+  }
+
+  private companion object {
+    const val WORKER_TERMINATION_TIMEOUT_SECONDS = 5L
   }
 }
