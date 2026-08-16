@@ -16,8 +16,9 @@
 // (why-revoman, agentic-orchestration, rundown, getting-started, applications…).
 // This page is the front door, not a content silo.
 //
-// The hero "Rundown readout" mirrors a REAL passing integration test —
-// restful-api.dev: POST/GET/GET/PATCH on /objects, 4 steps, all green —
+// The hero "Rundown readout" mirrors the public MockHttpServer plus the repository's
+// application-specific DeterministicMockApi integration test —
+// GET/POST/PATCH/GET on /objects, 4 steps, all green —
 // see src/integrationTest/.../restfulapidev/RestfulAPIDevTest.java.
 // =============================================================================
 
@@ -45,8 +46,8 @@
     </p>
   </div>
 
-  <!-- SIGNATURE: a live Rundown readout. The engine's own output, animating
-       on load — the 4 real steps of the restful-api.dev demo run in order,
+  <!-- SIGNATURE: a public MockHttpServer and application handler Rundown readout. The engine's own output, animating
+       on load — the 4 deterministic steps of the /objects demo run in order,
        each resolving to a green status, then the panel reveals toJson(). -->
   <figure class="rv-readout" aria-label="A ReṼoman Rundown: four API steps executing in order, then the JSON output">
     <figcaption class="rv-readout__bar">
@@ -57,27 +58,27 @@
     <ol class="rv-readout__steps">
       <li class="rv-step" style="--i:0">
         <span class="rv-step__idx">01</span>
-        <span class="rv-step__verb rv-verb--post">POST</span>
-        <span class="rv-step__path">/objects</span>
-        <span class="rv-step__status"><span class="rv-step__ms">142&thinsp;ms</span><span class="rv-step__dot"></span></span>
-      </li>
-      <li class="rv-step" style="--i:1">
-        <span class="rv-step__idx">02</span>
         <span class="rv-step__verb rv-verb--get">GET</span>
         <span class="rv-step__path">/objects</span>
         <span class="rv-step__status"><span class="rv-step__ms">88&thinsp;ms</span><span class="rv-step__dot"></span></span>
       </li>
+      <li class="rv-step" style="--i:1">
+        <span class="rv-step__idx">02</span>
+        <span class="rv-step__verb rv-verb--post">POST</span>
+        <span class="rv-step__path">/objects</span>
+        <span class="rv-step__status"><span class="rv-step__ms">142&thinsp;ms</span><span class="rv-step__dot"></span></span>
+      </li>
       <li class="rv-step" style="--i:2">
         <span class="rv-step__idx">03</span>
-        <span class="rv-step__verb rv-verb--get">GET</span>
-        <span class="rv-step__path">/objects/<span class="rv-step__var">\{id}</span></span>
-        <span class="rv-step__status"><span class="rv-step__ms">76&thinsp;ms</span><span class="rv-step__dot"></span></span>
-      </li>
-      <li class="rv-step" style="--i:3">
-        <span class="rv-step__idx">04</span>
         <span class="rv-step__verb rv-verb--patch">PATCH</span>
         <span class="rv-step__path">/objects/<span class="rv-step__var">\{id}</span></span>
         <span class="rv-step__status"><span class="rv-step__ms">110&thinsp;ms</span><span class="rv-step__dot"></span></span>
+      </li>
+      <li class="rv-step" style="--i:3">
+        <span class="rv-step__idx">04</span>
+        <span class="rv-step__verb rv-verb--get">GET</span>
+        <span class="rv-step__path">/objects/<span class="rv-step__var">\{id}</span></span>
+        <span class="rv-step__status"><span class="rv-step__ms">76&thinsp;ms</span><span class="rv-step__dot"></span></span>
       </li>
     </ol>
     <div class="rv-readout__out">

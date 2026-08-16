@@ -45,7 +45,7 @@
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": "{{baseUrl}}/pokemon?limit={{limit}}"
+					"raw": "{{pokemonApiBaseUrl}}/pokemon?limit={{limit}}"
 				}
 			},
 			"response": []
@@ -74,7 +74,7 @@
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": "{{baseUrl}}/pokemon/{{pokemonName}}"
+					"raw": "{{pokemonApiBaseUrl}}/pokemon/{{pokemonName}}"
 				}
 			},
 			"response": []
@@ -98,7 +98,7 @@
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": "{{baseUrl}}/pokemon-species/{{pokemonName}}"
+					"raw": "{{pokemonApiBaseUrl}}/pokemon-species/{{pokemonName}}"
 				}
 			},
 			"response": []
@@ -135,7 +135,7 @@
 					}
 				},
 				"url": {
-					"raw": "https://{{uri}}/objects"
+					"raw": "{{objectApiBaseUrl}}/objects"
 				}
 			},
 			"response": []
@@ -172,7 +172,7 @@
 					}
 				},
 				"url": {
-					"raw": "https://{{uri}}/objects/{{objId}}"
+					"raw": "{{objectApiBaseUrl}}/objects/{{objId}}"
 				}
 			},
 			"response": []

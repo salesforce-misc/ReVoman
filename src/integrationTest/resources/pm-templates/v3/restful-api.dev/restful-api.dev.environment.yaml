@@ -1,4 +1,4 @@
 name: restful-api.dev
 values:
-  - key: uri
-    value: api.restful-api.dev
+  - key: baseUrl
+    value: http://127.0.0.1:1

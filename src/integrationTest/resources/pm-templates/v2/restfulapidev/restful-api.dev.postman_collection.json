@@ -23,7 +23,7 @@
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": "https://{{uri}}/objects",
+					"raw": "{{baseUrl}}/objects",
 					"protocol": "https",
 					"host": [
 						"{{uri}}"
@@ -79,7 +79,7 @@
 					}
 				},
 				"url": {
-					"raw": "https://{{uri}}/objects",
+					"raw": "{{baseUrl}}/objects",
 					"protocol": "https",
 					"host": [
 						"{{uri}}"
@@ -134,7 +134,7 @@
 					}
 				},
 				"url": {
-					"raw": "https://{{uri}}/objects/{{objId}}",
+					"raw": "{{baseUrl}}/objects/{{objId}}",
 					"protocol": "https",
 					"host": [
 						"{{uri}}"
@@ -165,7 +165,7 @@
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": "https://{{uri}}/objects/{{objId}}",
+					"raw": "{{baseUrl}}/objects/{{objId}}",
 					"protocol": "https",
 					"host": [
 						"{{uri}}"

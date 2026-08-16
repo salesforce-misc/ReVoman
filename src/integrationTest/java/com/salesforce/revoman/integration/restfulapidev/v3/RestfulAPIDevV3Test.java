@@ -11,7 +11,9 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.salesforce.revoman.ReVoman;
 import com.salesforce.revoman.input.config.Kick;
+import com.salesforce.revoman.integration.testsupport.DeterministicMockApi;
 import com.salesforce.revoman.output.Rundown;
+import com.salesforce.revoman.testing.http.MockHttpServer;
 import org.junit.jupiter.api.Test;
 
 class RestfulAPIDevV3Test {
@@ -21,14 +23,38 @@ class RestfulAPIDevV3Test {
 
   @Test
   void executeRestfulApiDevV3CollectionFromJava() {
-    final Rundown rundown =
-        ReVoman.revUp(
-            Kick.configure()
-                .templatePath(PM_COLLECTION_PATH)
-                .environmentPath(PM_ENVIRONMENT_PATH)
-                .nodeModulesPath("js")
-                .off());
-    assertThat(rundown.firstUnsuccessfulStepReport()).isNull();
-    assertThat(rundown.stepReports.size()).isEqualTo(4);
+    final var api = new DeterministicMockApi();
+    try (final var server = MockHttpServer.start(api)) {
+      final Rundown rundown =
+          ReVoman.revUp(
+              Kick.configure()
+                  .templatePath(PM_COLLECTION_PATH)
+                  .environmentPath(PM_ENVIRONMENT_PATH)
+                  .dynamicEnvironment("baseUrl", server.getBaseUrl())
+                  .nodeModulesPath("js")
+                  .off());
+      assertThat(rundown.firstUnsuccessfulStepReport()).isNull();
+      assertThat(rundown.stepReports.size()).isEqualTo(4);
+      assertThat(
+              rundown.stepReports.stream()
+                  .map(report -> report.requestInfo.get().httpMsg.getUri().toString())
+                  .toList())
+          .containsExactly(
+              server.getBaseUrl() + "/objects",
+              server.getBaseUrl() + "/objects",
+              server.getBaseUrl() + "/objects/local-object-1",
+              server.getBaseUrl() + "/objects/local-object-1")
+          .inOrder();
+      assertThat(
+              server.requests().stream()
+                  .map(request -> request.getMethod() + " " + request.getPath())
+                  .toList())
+          .containsExactly(
+              "GET /objects",
+              "POST /objects",
+              "PATCH /objects/local-object-1",
+              "GET /objects/local-object-1")
+          .inOrder();
+    }
   }
 }

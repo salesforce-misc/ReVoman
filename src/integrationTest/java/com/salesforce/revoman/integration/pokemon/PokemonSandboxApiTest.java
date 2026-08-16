@@ -11,18 +11,20 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.salesforce.revoman.ReVoman;
 import com.salesforce.revoman.input.config.Kick;
+import com.salesforce.revoman.integration.testsupport.DeterministicMockApi;
 import com.salesforce.revoman.output.Rundown;
 import com.salesforce.revoman.output.report.PmTestAssertion;
 import com.salesforce.revoman.output.report.StepReport;
+import com.salesforce.revoman.testing.http.MockHttpServer;
+import com.salesforce.revoman.testing.http.RecordedNameValue;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * End-to-end coverage of the script-only `pm` APIs through a real ReVoman run against free live
- * APIs (pokeapi.co GET + restful-api.dev POST/PUT). Verifies that variables, environment(.name),
- * request/response, test/expect, collectionVariables, and setNextRequest all surface on the
- * Rundown.
+ * End-to-end coverage of the script-only `pm` APIs through a real ReVoman run against a
+ * deterministic loopback API. Verifies that variables, environment(.name), request/response,
+ * test/expect, collectionVariables, and setNextRequest all surface on the Rundown.
  */
 class PokemonSandboxApiTest {
   private static final String PM_COLLECTION_PATH =
@@ -33,87 +35,112 @@ class PokemonSandboxApiTest {
   @Test
   @DisplayName("script-only pm APIs surface end-to-end")
   void pmSandboxApisEndToEnd() {
-    // tag::pm-sandbox-revup[]
-    final Rundown rundown =
-        ReVoman.revUp(
-            Kick.configure()
-                .templatePath(PM_COLLECTION_PATH)
-                .environmentPath(PM_ENVIRONMENT_PATH)
-                .nodeModulesPath("js")
-                .off());
-    // end::pm-sandbox-revup[]
+    final var api = new DeterministicMockApi();
+    try (final var server = MockHttpServer.start(api)) {
+      // tag::pm-sandbox-revup[]
+      final Rundown rundown =
+          ReVoman.revUp(
+              Kick.configure()
+                  .templatePath(PM_COLLECTION_PATH)
+                  .environmentPath(PM_ENVIRONMENT_PATH)
+                  .dynamicEnvironment("pokemonApiBaseUrl", server.getBaseUrl())
+                  .dynamicEnvironment("objectApiBaseUrl", server.getBaseUrl())
+                  .nodeModulesPath("js")
+                  .off());
+      // end::pm-sandbox-revup[]
 
-    // No step failed (HTTP + all scripts ran without thrown error).
-    assertThat(rundown.firstUnIgnoredUnsuccessfulStepReport()).isNull();
-    assertThat(rundown.stepReports).hasSize(5);
+      // No step failed (HTTP + all scripts ran without thrown error).
+      assertThat(rundown.firstUnIgnoredUnsuccessfulStepReport()).isNull();
+      assertThat(rundown.stepReports).hasSize(5);
 
-    // --- pm.environment / pm.test / pm.expect / pm.response.* (all-pokemon) ---
-    final StepReport allPokemon = rundown.reportForStepName("all-pokemon");
-    assertThat(allPokemon).isNotNull();
-    assertThat(allPokemon.pmTestAssertions).isNotEmpty();
-    assertThat(allPokemon.pmTestAssertions.stream().allMatch(a -> a.passed)).isTrue();
-    assertThat(rundown.mutableEnv).containsKey("pokemonName");
-    assertThat(rundown.mutableEnv).containsKey("objId"); // add-object POST set this for the PUT
+      // --- pm.environment / pm.test / pm.expect / pm.response.* (all-pokemon) ---
+      final StepReport allPokemon = rundown.reportForStepName("all-pokemon");
+      assertThat(allPokemon).isNotNull();
+      assertThat(allPokemon.pmTestAssertions).isNotEmpty();
+      assertThat(allPokemon.pmTestAssertions.stream().allMatch(a -> a.passed)).isTrue();
+      assertThat(rundown.mutableEnv).containsKey("pokemonName");
+      assertThat(rundown.mutableEnv.get("pokemonName")).isEqualTo("bulbasaur");
+      assertThat(rundown.mutableEnv).containsKey("objId"); // add-object POST set this for the PUT
 
-    // --- pm.globals: cross-step persistence + Rundown exposure (impossible before scopes work) ---
-    // A global set in all-pokemon's pre-req is read back in pokemon-species' test (cross-step), and
-    // surfaces directly on the Rundown.
-    assertThat(rundown.globals.containsKey("runTag")).isTrue();
-    assertThat(rundown.globals.get("runTag")).isEqualTo("revoman-run");
-    // The colliding global ('limit'='999') lives in the globals scope; env's 'limit'='5' is
-    // separate.
-    assertThat(rundown.globals.get("limit")).isEqualTo("999");
-    assertThat(rundown.mutableEnv.get("limit")).isEqualTo("5");
+      // --- pm.globals: cross-step persistence + Rundown exposure (impossible before scopes work)
+      // ---
+      // A global set in all-pokemon's pre-req is read back in pokemon-species' test (cross-step),
+      // and
+      // surfaces directly on the Rundown.
+      assertThat(rundown.globals.containsKey("runTag")).isTrue();
+      assertThat(rundown.globals.get("runTag")).isEqualTo("revoman-run");
+      // The colliding global ('limit'='999') lives in the globals scope; env's 'limit'='5' is
+      // separate.
+      assertThat(rundown.globals.get("limit")).isEqualTo("999");
+      assertThat(rundown.mutableEnv.get("limit")).isEqualTo("5");
 
-    // --- pm.collectionVariables now exposed directly on the Rundown (was inaccessible before) ---
-    assertThat(rundown.collectionVariables.containsKey("firstPokemon")).isTrue();
-    assertThat(rundown.collectionVariables.containsKey("resultCount")).isTrue();
-    assertThat(rundown.collectionVariables.containsKey("pokemonId")).isTrue();
-    assertThat(rundown.collectionVariables.get("cvTag")).isEqualTo("cv-revoman");
-    // Scopes are isolated: a collection variable never leaks into the environment scope.
-    assertThat(rundown.mutableEnv).doesNotContainKey("firstPokemon");
+      // --- pm.collectionVariables now exposed directly on the Rundown (was inaccessible before)
+      // ---
+      assertThat(rundown.collectionVariables.containsKey("firstPokemon")).isTrue();
+      assertThat(rundown.collectionVariables.containsKey("resultCount")).isTrue();
+      assertThat(rundown.collectionVariables.containsKey("pokemonId")).isTrue();
+      assertThat(rundown.collectionVariables.get("pokemonId")).isEqualTo(1);
+      assertThat(rundown.collectionVariables.get("cvTag")).isEqualTo("cv-revoman");
+      // Scopes are isolated: a collection variable never leaks into the environment scope.
+      assertThat(rundown.mutableEnv).doesNotContainKey("firstPokemon");
 
-    // --- {{key}} resolves through the real regex path into a request body (cross-step, both
-    // scopes) ---
-    // add-object's body uses {{runTag}} (a GLOBAL) and {{cvTag}} (a COLLECTION var), both set in
-    // all-pokemon several steps earlier; the fired request must carry both resolved values.
-    final StepReport addObject = rundown.reportForStepName("add-object");
-    assertThat(addObject).isNotNull();
-    final String addObjectBody = addObject.requestInfo.get().httpMsg.bodyString();
-    assertThat(addObjectBody).contains("revoman-run"); // {{runTag}} (global)
-    assertThat(addObjectBody).contains("cv-revoman"); // {{cvTag}} (collectionVariable)
+      // --- {{key}} resolves through the real regex path into a request body (cross-step, both
+      // scopes) ---
+      // add-object's body uses {{runTag}} (a GLOBAL) and {{cvTag}} (a COLLECTION var), both set in
+      // all-pokemon several steps earlier; the fired request must carry both resolved values.
+      final StepReport addObject = rundown.reportForStepName("add-object");
+      assertThat(addObject).isNotNull();
+      final String addObjectBody = addObject.requestInfo.get().httpMsg.bodyString();
+      assertThat(addObjectBody).contains("revoman-run"); // {{runTag}} (global)
+      assertThat(addObjectBody).contains("cv-revoman"); // {{cvTag}} (collectionVariable)
 
-    // The all-pokemon URL uses {{limit}}, present in BOTH env (5) and globals (999); env wins.
-    assertThat(allPokemon.requestInfo.get().httpMsg.getUri().getQuery()).contains("limit=5");
+      // The all-pokemon URL uses {{limit}}, present in BOTH env (5) and globals (999); env wins.
+      assertThat(allPokemon.requestInfo.get().httpMsg.getUri().getQuery()).contains("limit=5");
 
-    // tag::pm-sandbox-asserts[]
-    // --- pm.collectionVariables set in step 1, read in steps 2-3 (cross-step) ---
-    final StepReport byName = rundown.reportForStepName("pokemon-by-name");
-    assertThat(byName).isNotNull();
-    assertThat(byName.pmTestAssertions).isNotEmpty();
-    assertThat(byName.pmTestAssertions.stream().allMatch(a -> a.passed)).isTrue();
+      // tag::pm-sandbox-asserts[]
+      // --- pm.collectionVariables set in step 1, read in steps 2-3 (cross-step) ---
+      final StepReport byName = rundown.reportForStepName("pokemon-by-name");
+      assertThat(byName).isNotNull();
+      assertThat(byName.pmTestAssertions).isNotEmpty();
+      assertThat(byName.pmTestAssertions.stream().allMatch(a -> a.passed)).isTrue();
 
-    // --- pm.execution.setNextRequest: CAPTURED (not executed — Phase 2 reorders) ---
-    // ReVoman still runs steps linearly; we assert only that the directive was surfaced.
-    assertThat(byName.nextRequest).isEqualTo("pokemon-species");
-    // Proof it was NOT executed: pokemon-species still ran in linear order after pokemon-by-name.
-    assertThat(rundown.reportForStepName("pokemon-species")).isNotNull();
-    // Guard the crown-jewel cross-step collectionVariable proof against silently vanishing:
-    // a failing pm.test is DATA (passed=false), and allMatch on an empty list passes vacuously, so
-    // assert this step actually produced assertions.
-    assertThat(rundown.reportForStepName("pokemon-species").pmTestAssertions).isNotEmpty();
-    // end::pm-sandbox-asserts[]
+      // --- pm.execution.setNextRequest: CAPTURED (not executed — Phase 2 reorders) ---
+      // ReVoman still runs steps linearly; we assert only that the directive was surfaced.
+      assertThat(byName.nextRequest).isEqualTo("pokemon-species");
+      // Proof it was NOT executed: pokemon-species still ran in linear order after pokemon-by-name.
+      assertThat(rundown.reportForStepName("pokemon-species")).isNotNull();
+      // Guard the crown-jewel cross-step collectionVariable proof against silently vanishing:
+      // a failing pm.test is DATA (passed=false), and allMatch on an empty list passes vacuously,
+      // so
+      // assert this step actually produced assertions.
+      assertThat(rundown.reportForStepName("pokemon-species").pmTestAssertions).isNotEmpty();
+      // end::pm-sandbox-asserts[]
 
-    // --- pm.request.body via restful-api.dev PUT ---
-    final StepReport update = rundown.reportForStepName("update-object");
-    assertThat(update).isNotNull();
-    assertThat(update.pmTestAssertions).isNotEmpty();
-    assertThat(update.pmTestAssertions.stream().allMatch(a -> a.passed)).isTrue();
+      // --- pm.request.body via deterministic object PUT ---
+      final StepReport update = rundown.reportForStepName("update-object");
+      assertThat(update).isNotNull();
+      assertThat(update.pmTestAssertions).isNotEmpty();
+      assertThat(update.pmTestAssertions.stream().allMatch(a -> a.passed)).isTrue();
 
-    // --- Every assertion across the whole run passed ---
-    final List<PmTestAssertion> all =
-        rundown.stepReports.stream().flatMap(s -> s.pmTestAssertions.stream()).toList();
-    assertThat(all).isNotEmpty();
-    assertThat(all.stream().allMatch(a -> a.passed)).isTrue();
+      // --- Every assertion across the whole run passed ---
+      final List<PmTestAssertion> all =
+          rundown.stepReports.stream().flatMap(s -> s.pmTestAssertions.stream()).toList();
+      assertThat(all).isNotEmpty();
+      assertThat(all.stream().allMatch(a -> a.passed)).isTrue();
+
+      assertThat(
+              server.requests().stream()
+                  .map(request -> request.getMethod() + " " + request.getPath())
+                  .toList())
+          .containsExactly(
+              "GET /pokemon",
+              "GET /pokemon/bulbasaur",
+              "GET /pokemon-species/bulbasaur",
+              "POST /objects",
+              "PUT /objects/local-object-1")
+          .inOrder();
+      assertThat(server.requests().getFirst().getQueryParameters())
+          .containsExactly(new RecordedNameValue("limit", "5"));
+    }
   }
 }

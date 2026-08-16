@@ -1,5 +1,5 @@
 $kind: http-request
-url: https://{{uri}}/objects/{{objId}}
+url: "{{baseUrl}}/objects/{{objId}}"
 method: PATCH
 body:
   type: json

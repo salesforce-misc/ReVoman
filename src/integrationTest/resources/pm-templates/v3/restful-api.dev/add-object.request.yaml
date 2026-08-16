@@ -1,5 +1,5 @@
 $kind: http-request
-url: https://{{uri}}/objects
+url: "{{baseUrl}}/objects"
 method: POST
 body:
   type: json

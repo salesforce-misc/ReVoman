@@ -1,6 +1,7 @@
 = Get Started
 
-Wire ReṼoman into your JVM project, then run your first API-Graph against a live public API.
+Wire ReṼoman into your JVM project, then run your first API-Graph against a deterministic local
+real-wire handler using ReṼoman's public `MockHttpServer`.
 
 == Artifact
 
@@ -37,13 +38,24 @@ image::revoman-demo-thumbnail.png[link="https://www.youtube.com/watch?v=YxeRddSF
 
 == A Simple Example
 
-Here is a simple exported Postman collection and Environment JSON file, to hit a free public https://restful-api.dev/[RESTFUL-API]. You can import this metadata and manually test it through the `Run collection` button:
+Here is a simple exported Postman collection and Environment JSON file for a deterministic local
+real-wire handler. You can import the same metadata and manually test it through the `Run
+collection` button:
 
 image::resfulapi-dev-pm.png[]
 
-You can automate the same with ReṼoman by supplying the metadata and environment paths. The example below demonstrates the engine executing API metadata (serialized in the Postman V2 schema) directly on the JVM — the very metadata you would author for manual trials becomes an automated run:
+You can automate the same with ReṼoman by supplying the metadata and environment paths. ReṼoman
+ships `MockHttpServer`; `DeterministicMockApi` is this repository's application-specific example
+handler. The example below explicitly owns the handler and server, injects the server URL, and then
+executes the API metadata (serialized in the Postman V2 schema) directly on the JVM:
 
-.Live include from a passing integration test → {gh-blob}/{integrationtestdir}/com/salesforce/revoman/integration/restfulapidev/RestfulAPIDevTest.java[RestfulAPIDevTest.java^]
+[source,java]
+----
+import com.salesforce.revoman.integration.testsupport.DeterministicMockApi;
+import com.salesforce.revoman.testing.http.MockHttpServer;
+----
+
+.Current deterministic integration test → {gh-blob}/{integrationtestdir}/com/salesforce/revoman/integration/restfulapidev/RestfulAPIDevTest.java[RestfulAPIDevTest.java^]
 [source,java,indent=0,tabsize=2,options="nowrap"]
 ----
 include::example$it/com/salesforce/revoman/integration/restfulapidev/RestfulAPIDevTest.java[tag=revoman-simple-demo]
@@ -54,4 +66,10 @@ include::example$it/com/salesforce/revoman/integration/restfulapidev/RestfulAPID
 <4> Assert that the execution doesn't have any failures
 <5> Run more assertions on the xref:rundown.adoc[Rundown]
 
-Next, see xref:configuration.adoc[] for how you build that configuration through `Kick.configure()`, and xref:rundown.adoc[] for the structured result the engine hands back.
+`MockHttpServer` is a test-only listener bound to an ephemeral, exact IPv4 `127.0.0.1` address. It
+buffers request bodies in memory for later inspection. Handlers may run concurrently, so mutable
+handler state must be thread-safe; blocking handlers must cooperate with interruption during
+server close.
+
+Next, see xref:configuration.adoc[] for how you build that configuration through
+`Kick.configure()`, and xref:rundown.adoc[] for the structured result the engine hands back.

@@ -10,21 +10,47 @@ package com.salesforce.revoman.integration.restfulapidev.v3
 import com.google.common.truth.Truth.assertThat
 import com.salesforce.revoman.ReVoman
 import com.salesforce.revoman.input.config.Kick
+import com.salesforce.revoman.integration.testsupport.DeterministicMockApi
+import com.salesforce.revoman.testing.http.MockHttpServer
 import org.junit.jupiter.api.Test
 
 class RestfulAPIDevKtTest {
   @Test
   fun testExecuteRestfulApiDevV3Collection() {
-    val rundown =
-      ReVoman.revUp(
-        Kick.configure()
-          .templatePath(PM_COLLECTION_PATH)
-          .environmentPath(PM_ENVIRONMENT_PATH)
-          .nodeModulesPath("js")
-          .off()
-      )
-    assertThat(rundown.firstUnsuccessfulStepReport).isNull()
-    assertThat(rundown.stepReports).hasSize(4)
+    val api = DeterministicMockApi()
+    MockHttpServer.start(api).use { server ->
+      val rundown =
+        ReVoman.revUp(
+          Kick.configure()
+            .templatePath(PM_COLLECTION_PATH)
+            .environmentPath(PM_ENVIRONMENT_PATH)
+            .dynamicEnvironment("baseUrl", server.baseUrl)
+            .nodeModulesPath("js")
+            .off()
+        )
+      assertThat(rundown.firstUnsuccessfulStepReport).isNull()
+      assertThat(rundown.stepReports).hasSize(4)
+      assertThat(
+          rundown.stepReports.map { report ->
+            requireNotNull(report.requestInfo).get().httpMsg.uri.toString()
+          }
+        )
+        .containsExactly(
+          "${server.baseUrl}/objects",
+          "${server.baseUrl}/objects",
+          "${server.baseUrl}/objects/local-object-1",
+          "${server.baseUrl}/objects/local-object-1",
+        )
+        .inOrder()
+      assertThat(server.requests().map { "${it.method} ${it.path}" })
+        .containsExactly(
+          "GET /objects",
+          "POST /objects",
+          "PATCH /objects/local-object-1",
+          "GET /objects/local-object-1",
+        )
+        .inOrder()
+    }
   }
 
   companion object {
