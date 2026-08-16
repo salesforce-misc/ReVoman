@@ -1,0 +1,15 @@
+{
+  "schema": "revoman-controlled-host/v1",
+  "hostFingerprintSha256": "12e7d565978e40259c2f4c956c9e05696a32c0ba574c6971dfe85c8acd69fe44",
+  "cpuModel": "Intel(R) Core(TM) i7-9800X CPU @ 3.80GHz",
+  "cpuCount": 16,
+  "allowedGovernors": ["performance"],
+  "powerEvidenceRequirement": "FIXED_MAINS",
+  "maximumLoadAverage": 5.0,
+  "maximumCpuBusyFraction": 0.4,
+  "minimumAvailableMemoryBytes": 120259084288,
+  "maximumSwapDeltaBytes": 0,
+  "maximumThermalValue": 70.0,
+  "probeIntervalMillis": 100,
+  "maximumReplacementBlocks": 10
+}

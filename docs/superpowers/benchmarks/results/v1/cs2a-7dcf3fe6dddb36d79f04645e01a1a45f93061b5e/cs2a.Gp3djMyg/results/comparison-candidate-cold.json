@@ -1,0 +1,1 @@
+{"campaignId":"campaign-6c3fffcf-0551-456a-934e-2557c9b30efb","compatibilityErrors":["target Gradle versions must match across roles","target build JDK JVM flags must match","target wrapper hashes must match across roles"],"metrics":[],"overall":"INCOMPATIBLE","rejectedBlocks":[],"schema":"revoman-benchmark-comparison/v1"}

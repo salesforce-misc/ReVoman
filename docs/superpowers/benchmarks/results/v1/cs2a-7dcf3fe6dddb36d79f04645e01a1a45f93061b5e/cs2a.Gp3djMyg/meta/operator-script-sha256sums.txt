@@ -1,0 +1,4 @@
+40190484c826fe79f78b9648d04fe5b3615a8889b7d16dab3b0d9c1ae057090b  cs2a-controlled-run.sh
+e7f71462a2e640339272da04ed2cb4e1d84e8c3f6ac02ea830879d053a64c58c  cs2a-governor-supervisor.sh
+6947d6cc663594ab55cef1bc6abec5ed4842efc24bd181fc1c3f36ba0acd85d8  cs2a-operator.sh
+b8e9f0df1ed14a73fb5e104fae21a3b07560610da345dec1b82c04760fd8acb4  cs2a-validate-manifest.jq
