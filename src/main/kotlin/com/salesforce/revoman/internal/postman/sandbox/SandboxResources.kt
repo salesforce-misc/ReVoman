@@ -9,6 +9,7 @@ package com.salesforce.revoman.internal.postman.sandbox
 
 import com.salesforce.revoman.input.readFileToString
 import com.salesforce.revoman.input.readGzippedFileToString
+import org.graalvm.polyglot.Source
 
 /**
  * Loads the vendored Postman sandbox resources from the classpath. Uses ReVoman's
@@ -29,4 +30,25 @@ internal object SandboxResources {
   val bootcode: String by lazy { readGzippedFileToString("$DIR/bootcode.js.gz") }
   val bridgeClient: String by lazy { readFileToString("$DIR/bridge-client.js") }
   val version: String by lazy { readFileToString("$DIR/pm-sandbox-version.txt").trim() }
+
+  @get:JvmSynthetic
+  internal val bootSource: Source by
+    lazyBootSource(
+      readGzip = { bootcode },
+      readFile = { version },
+      sourceFactory = { language, code, name -> Source.newBuilder(language, code, name).build() },
+    )
+
+  @JvmSynthetic
+  internal fun lazyBootSource(
+    readGzip: (String) -> String,
+    readFile: (String) -> String,
+    sourceFactory: (String, String, String) -> Source,
+  ): Lazy<Source> = lazy {
+    sourceFactory(
+      "js",
+      readGzip("$DIR/bootcode.js.gz"),
+      "postman-sandbox-${readFile("$DIR/pm-sandbox-version.txt").trim()}.js",
+    )
+  }
 }

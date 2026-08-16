@@ -12,143 +12,138 @@ import com.salesforce.revoman.internal.log.RevomanLog
 import com.salesforce.revoman.internal.postman.template.Auth.Bearer
 import com.salesforce.revoman.internal.postman.template.Item
 import com.salesforce.revoman.internal.postman.template.Request
+import com.salesforce.revoman.internal.runtime.LegacyRundownProgress
 
 private const val VARIABLE_KEY = "variableKey"
 private val postManVariableRegex = "\\{\\{(?<$VARIABLE_KEY>[^{}]*?)}}".toRegex()
 
-class RegexReplacer(
-  private val customDynamicVariableGenerators: Map<String, CustomDynamicVariableGenerator> =
-    emptyMap(),
-  private val dynamicVariableGenerator: (String, PostmanSDK) -> String? =
-    ::dynamicVariableGenerator,
-) {
-  /**
-   * ## Order of Variable resolution
-   * - Custom Dynamic Variables
-   * - Dynamic variables
-   * - Postman variable scopes, by precedence (narrowest wins): `environment` ▸
-   *   `collectionVariables` ▸ `globals`. Only the `environment` scope participates in the warm-run
-   *   ledger (`recordConsumed`) and the type-coercing write-back (`setItBackInEnvironment`); a hit
-   *   from `collectionVariables` or `globals` is resolved but left untouched in its own store.
-   */
-  internal fun replaceVariablesRecursively(stringWithRegex: String?, pm: PostmanSDK): String? =
-    replaceVariablesRecursively(stringWithRegex, pm, emptySet())
+internal interface RegexReplacer {
+  @JvmSynthetic fun replaceVariablesRecursively(stringWithRegex: String?): String?
 
-  private fun replaceVariablesRecursively(
-    stringWithRegex: String?,
-    pm: PostmanSDK,
-    visitedKeys: Set<String>,
-  ): String? = stringWithRegex?.let {
-    if (!it.contains("{{")) return@let it
-    postManVariableRegex.replace(it) { variable ->
-      val variableKey = variable.groups[VARIABLE_KEY]?.value!!
-      if (variableKey in visitedKeys) {
-        RevomanLog.warn {
-          "Cyclic variable reference detected: $variableKey is part of a resolution chain. Leaving placeholder {{$variableKey}} unresolved."
+  @JvmSynthetic fun replaceVariablesInPmItem(item: Item): Item
+
+  @JvmSynthetic fun replaceVariablesInRequestRecursively(request: Request): Request
+
+  @JvmSynthetic fun replaceVariablesInEnv(): Map<String, Any?>
+}
+
+@JvmSynthetic
+internal fun regexReplacer(
+  scopes: PostmanVariableScopes,
+  progress: LegacyRundownProgress,
+  customDynamicVariableGenerators: Map<String, CustomDynamicVariableGenerator>,
+): RegexReplacer =
+  object : RegexReplacer {
+    @JvmSynthetic
+    override fun replaceVariablesRecursively(stringWithRegex: String?): String? =
+      replaceVariablesRecursively(stringWithRegex, emptySet())
+
+    @JvmSynthetic
+    private fun replaceVariablesRecursively(
+      stringWithRegex: String?,
+      visitedKeys: Set<String>,
+    ): String? = stringWithRegex?.let { value ->
+      if (!value.contains("{{")) return@let value
+      postManVariableRegex.replace(value) { variable ->
+        val variableKey = variable.groups[VARIABLE_KEY]?.value!!
+        if (variableKey in visitedKeys) {
+          RevomanLog.warn {
+            "Cyclic variable reference detected: $variableKey is part of a resolution chain. Leaving placeholder {{$variableKey}} unresolved."
+          }
+          return@replace variable.value
         }
-        return@replace variable.value
+        val nextVisitedKeys = visitedKeys + variableKey
+        customDynamicVariableGenerators[variableKey]
+          ?.let { generator ->
+            replaceVariablesRecursively(
+              generator.generate(variableKey, progress.currentReport, progress.rundown),
+              nextVisitedKeys,
+            )
+          }
+          ?.also { replacement -> setItBackInEnvironment(variableKey, replacement) }
+          ?: replaceVariablesRecursively(
+              dynamicVariableGenerator(variableKey, progress),
+              nextVisitedKeys,
+            )
+            ?.also { replacement -> setItBackInEnvironment(variableKey, replacement) }
+          ?: resolveFromScopes(variableKey, nextVisitedKeys)
+          ?: variable.value
       }
-      val newVisitedKeys = visitedKeys + variableKey
-      customDynamicVariableGenerators[variableKey]
-        ?.let { cdvg ->
+    }
+
+    @JvmSynthetic
+    private fun resolveFromScopes(variableKey: String, visitedKeys: Set<String>): String? =
+      when {
+        scopes.environment.containsKey(variableKey) ->
           replaceVariablesRecursively(
-            cdvg.generate(variableKey, pm.currentStepReport, pm.rundown),
-            pm,
-            newVisitedKeys,
-          )
-        }
-        ?.also { value -> setItBackInEnvironment(variableKey, value, pm) }
-        ?: replaceVariablesRecursively(
-            dynamicVariableGenerator(variableKey, pm),
-            pm,
-            newVisitedKeys,
-          )
-          ?.also { value -> setItBackInEnvironment(variableKey, value, pm) }
-        ?: resolveFromScopes(variableKey, pm, newVisitedKeys)
-        ?: variable.value
-    }
-  }
-
-  /**
-   * Resolves [variableKey] across the three persistent Postman scopes by precedence (`environment`
-   * ▸ `collectionVariables` ▸ `globals`), using containment so a scope that holds the key wins even
-   * over a narrower scope that does not. The `environment` hit keeps its historical side effects
-   * (ledger `recordConsumed` + type-coercing `setItBackInEnvironment`); `collectionVariables` and
-   * `globals` hits are read-only — no ledger involvement, no write-back into their stores. Returns
-   * `null` when no scope contains the key (caller falls back to the literal `{{key}}`).
-   */
-  private fun resolveFromScopes(
-    variableKey: String,
-    pm: PostmanSDK,
-    visitedKeys: Set<String>,
-  ): String? =
-    when {
-      pm.environment.containsKey(variableKey) ->
-        replaceVariablesRecursively(pm.environment.getAsString(variableKey), pm, visitedKeys)
-          ?.also { value ->
-            pm.environment.recordConsumed(variableKey)
-            setItBackInEnvironment(variableKey, value, pm)
-            RevomanLog.debug { "{{$variableKey}} resolved from scope 'environment'" }
+              scopes.environment.getAsString(variableKey),
+              visitedKeys,
+            )
+            ?.also { replacement ->
+              scopes.environment.recordConsumed(variableKey)
+              setItBackInEnvironment(variableKey, replacement)
+              RevomanLog.debug { "{{$variableKey}} resolved from scope 'environment'" }
+            }
+        scopes.collectionVariables.containsKey(variableKey) ->
+          replaceVariablesRecursively(
+              scopes.collectionVariables.getAsString(variableKey),
+              visitedKeys,
+            )
+            ?.also {
+              RevomanLog.debug { "{{$variableKey}} resolved from scope 'collectionVariables'" }
+            }
+        scopes.globals.containsKey(variableKey) ->
+          replaceVariablesRecursively(scopes.globals.getAsString(variableKey), visitedKeys)?.also {
+            RevomanLog.debug { "{{$variableKey}} resolved from scope 'globals'" }
           }
-      pm.collectionVariables.containsKey(variableKey) ->
-        replaceVariablesRecursively(
-            pm.collectionVariables.getAsString(variableKey),
-            pm,
-            visitedKeys,
-          )
-          ?.also {
-            RevomanLog.debug { "{{$variableKey}} resolved from scope 'collectionVariables'" }
-          }
-      pm.globals.containsKey(variableKey) ->
-        replaceVariablesRecursively(pm.globals.getAsString(variableKey), pm, visitedKeys)?.also {
-          RevomanLog.debug { "{{$variableKey}} resolved from scope 'globals'" }
-        }
-      else -> null
-    }
-
-  internal fun replaceVariablesInPmItem(item: Item, pm: PostmanSDK): Item =
-    item.copy(request = replaceVariablesInRequestRecursively(item.request, pm))
-
-  private fun replaceVariablesInBearer(bearer: Bearer?, pm: PostmanSDK): Bearer? =
-    bearer?.copy(value = replaceVariablesRecursively(bearer.value, pm)!!)
-
-  internal fun replaceVariablesInRequestRecursively(request: Request, pm: PostmanSDK): Request =
-    request.copy(
-      auth =
-        request.auth?.copy(
-          bearer = listOfNotNull(replaceVariablesInBearer(request.auth.bearer.firstOrNull(), pm))
-        ),
-      header =
-        request.header.map { header ->
-          header.copy(
-            key = replaceVariablesRecursively(header.key, pm) ?: header.key,
-            value = replaceVariablesRecursively(header.value, pm) ?: header.value,
-          )
-        },
-      url =
-        request.url.copy(raw = replaceVariablesRecursively(request.url.raw, pm) ?: request.url.raw),
-      body =
-        request.body?.copy(
-          raw = replaceVariablesRecursively(request.body.raw, pm) ?: request.body.raw
-        ),
-    )
-
-  internal fun replaceVariablesInEnv(pm: PostmanSDK): Map<String, Any?> =
-    pm.environment.toMap().entries.associate { (key, value) ->
-      val valueHasPlaceholder = value is String && value.contains("{{")
-      if (!key.contains("{{") && !valueHasPlaceholder) {
-        key to value
-      } else {
-        replaceVariablesRecursively(key, pm)!! to
-          (if (value is String?) replaceVariablesRecursively(value, pm) else value)
+        else -> null
       }
-    }
 
-  companion object {
-    private fun setItBackInEnvironment(variableKey: String, value: String, pm: PostmanSDK) {
-      val currentValue = pm.environment[variableKey]
-      // * NOTE 20 Dec 2025 gopala.akshintala: Not doing `fromJson` for perf reasons.
-      // One can always use `getTypedObj()` to deserialize
+    @JvmSynthetic
+    override fun replaceVariablesInPmItem(item: Item): Item =
+      item.copy(request = replaceVariablesInRequestRecursively(item.request))
+
+    @JvmSynthetic
+    private fun replaceVariablesInBearer(bearer: Bearer?): Bearer? =
+      bearer?.copy(value = replaceVariablesRecursively(bearer.value)!!)
+
+    @JvmSynthetic
+    override fun replaceVariablesInRequestRecursively(request: Request): Request =
+      request.copy(
+        auth =
+          request.auth?.copy(
+            bearer = listOfNotNull(replaceVariablesInBearer(request.auth.bearer.firstOrNull()))
+          ),
+        header =
+          request.header.map { header ->
+            header.copy(
+              key = replaceVariablesRecursively(header.key) ?: header.key,
+              value = replaceVariablesRecursively(header.value) ?: header.value,
+            )
+          },
+        url =
+          request.url.copy(raw = replaceVariablesRecursively(request.url.raw) ?: request.url.raw),
+        body =
+          request.body?.copy(
+            raw = replaceVariablesRecursively(request.body.raw) ?: request.body.raw
+          ),
+      )
+
+    @JvmSynthetic
+    override fun replaceVariablesInEnv(): Map<String, Any?> =
+      scopes.environment.toMap().entries.associate { (key, value) ->
+        val valueHasPlaceholder = value is String && value.contains("{{")
+        if (!key.contains("{{") && !valueHasPlaceholder) {
+          key to value
+        } else {
+          replaceVariablesRecursively(key)!! to
+            (if (value is String?) replaceVariablesRecursively(value) else value)
+        }
+      }
+
+    @JvmSynthetic
+    private fun setItBackInEnvironment(variableKey: String, value: String) {
+      val currentValue = scopes.environment[variableKey]
       val convertedValue: Any? =
         when (currentValue) {
           is Int -> value.toIntOrNull()
@@ -158,7 +153,6 @@ class RegexReplacer(
           is Boolean -> value.toBooleanStrictOrNull()
           else -> value
         }
-      pm.environment[variableKey] = convertedValue ?: value
+      scopes.environment[variableKey] = convertedValue ?: value
     }
   }
-}

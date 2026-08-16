@@ -121,7 +121,7 @@ nothing more. It is deliberately **NOT** a full `module-info.java`, and it shoul
   Spring `BeanUtils` reflect into revoman's own types across `input`, `output`, **and**
   `internal`. A real `module-info` would need broad `opens` — including `opens ...internal` —
   defeating the encapsulation that would be the only reason to add it.
-- **Deps aren't module-ready.** Several runtime deps (http4k, moshi, snakeyaml, underscore,
+- **Deps aren't module-ready.** Several runtime deps (http4k, moshi, snakeyaml,
   pprint, kotlinx-collections-immutable, kotlin-logging) are plain jars with no
   `Automatic-Module-Name`, so `requires` clauses would bind to fragile filename-derived names.
 
