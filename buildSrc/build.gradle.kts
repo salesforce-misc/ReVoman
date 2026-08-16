@@ -30,8 +30,13 @@ repositories {
 }
 
 dependencies {
+  implementation(project(":performance-runner"))
   implementation(libs.kotlin.gradle)
   implementation(libs.spotless.gradle)
   implementation(libs.detekt.gradle)
   implementation(libs.testLogger.gradle)
+  testImplementation(gradleTestKit())
+  testImplementation(libs.bundles.kotest)
 }
+
+tasks.test { useJUnitPlatform() }
