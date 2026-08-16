@@ -1,0 +1,7 @@
+237e48f4f1f70e5ca69b8dc83561c5804a7e8a2603d752441ca7a2ac6815b207  ./meta/implementation-sha.txt
+2ed27c1421e6928dbe13dbfdb5c59e1045b30341fe7ebe05700006bc5ac572c0  ./meta/local-validation-passed.txt
+5f4d551babaafb59dc80d94b1a3c2d5c97471e78a10c00263743b1b5678e0ef2  ./meta/operator-failure-phase.txt
+6442bc26a7c562f5afe6467dab36365c709909f6a81afcecfc0c25cff0f1bab0  ./meta/operator-failure-source-exit.txt
+6442bc26a7c562f5afe6467dab36365c709909f6a81afcecfc0c25cff0f1bab0  ./meta/operator-final-exit.txt
+2ed27c1421e6928dbe13dbfdb5c59e1045b30341fe7ebe05700006bc5ac572c0  ./meta/remote-evidence-present.txt
+9752eb62a6845a78a9e2eaeb4a6eb2d93a1b654ee8665f71d516cfaca3e7cf57  ./meta/stage.txt
