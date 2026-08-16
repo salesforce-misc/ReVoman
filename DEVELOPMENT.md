@@ -1,5 +1,10 @@
 # ReVoman Development Guide
 
+## Gradle
+
+- Always use `-q/--quiet` when running `./gradlew` commands to avoid noisy output.
+- Prefer `./gradlew -q :module:test` over `./gradlew -q build`
+
 ## Commands to Build and Verify
 
 ```bash
