@@ -2513,3 +2513,43 @@ public final class com/salesforce/revoman/output/report/failure/ResponseFailure$
 	public fun toString ()Ljava/lang/String;
 }
 
+public abstract interface class com/salesforce/revoman/testing/http/MockHttpHandler {
+	public abstract fun handle (Lorg/http4k/core/Request;)Lorg/http4k/core/Response;
+}
+
+public final class com/salesforce/revoman/testing/http/MockHttpServer : java/lang/AutoCloseable {
+	public static final field Companion Lcom/salesforce/revoman/testing/http/MockHttpServer$Companion;
+	public fun close ()V
+	public final fun getBaseUrl ()Ljava/lang/String;
+	public final fun requests ()Ljava/util/List;
+	public static final fun start (Lcom/salesforce/revoman/testing/http/MockHttpHandler;)Lcom/salesforce/revoman/testing/http/MockHttpServer;
+}
+
+public final class com/salesforce/revoman/testing/http/MockHttpServer$Companion {
+	public final fun start (Lcom/salesforce/revoman/testing/http/MockHttpHandler;)Lcom/salesforce/revoman/testing/http/MockHttpServer;
+}
+
+public final class com/salesforce/revoman/testing/http/RecordedHttpRequest {
+	public final fun bodyBytes ()[B
+	public final fun bodyString ()Ljava/lang/String;
+	public final fun bodyString (Ljava/nio/charset/Charset;)Ljava/lang/String;
+	public static synthetic fun bodyString$default (Lcom/salesforce/revoman/testing/http/RecordedHttpRequest;Ljava/nio/charset/Charset;ILjava/lang/Object;)Ljava/lang/String;
+	public final fun getHeaders ()Ljava/util/List;
+	public final fun getMethod ()Lorg/http4k/core/Method;
+	public final fun getPath ()Ljava/lang/String;
+	public final fun getQueryParameters ()Ljava/util/List;
+}
+
+public final class com/salesforce/revoman/testing/http/RecordedNameValue : java/lang/Record {
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;)Lcom/salesforce/revoman/testing/http/RecordedNameValue;
+	public static synthetic fun copy$default (Lcom/salesforce/revoman/testing/http/RecordedNameValue;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lcom/salesforce/revoman/testing/http/RecordedNameValue;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public final fun name ()Ljava/lang/String;
+	public fun toString ()Ljava/lang/String;
+	public final fun value ()Ljava/lang/String;
+}
+

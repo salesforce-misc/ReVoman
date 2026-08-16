@@ -45,17 +45,19 @@ Hand the engine the executable API metadata you already author for manual testin
    { "stepReports": [ 4 — all passed ], "mutableEnv": {…}, "stats": {…} }
 ....
 
-The four steps above are a real, passing run against a deterministic local http4k-backed fixture over a loopback socket — `POST` creates an object, and later steps reuse its `{id}`. Here is the test that produces it:
+The four steps above are a real, passing run against a deterministic local http4k-backed handler over a loopback socket — `POST` creates an object, and later steps reuse its `{id}`. ReṼoman ships the public `MockHttpServer`; `DeterministicMockApi` is this repository's application-specific example handler. The caller owns both, starts the server explicitly, and injects its URL into the run:
 
 [source,java,tabsize=2]
 ----
-try (final var api = DeterministicMockApiServer.start()) {
+final var api = new DeterministicMockApi();
+try (final var server = MockHttpServer.start(api)) {
   final var rundown =
       ReVoman.revUp(                          // <1>
           Kick.configure()
               .templatePath(PM_COLLECTION_PATH)     // <2>
               .environmentPath(PM_ENVIRONMENT_PATH) // <3>
-              .dynamicEnvironment("baseUrl", api.getBaseUrl()) // <4>
+              .dynamicEnvironment("baseUrl", server.getBaseUrl()) // <4>
+              .nodeModulesPath("js")
               .off());
   assertThat(rundown.firstUnsuccessfulStepReport()).isNull(); // <5>
   assertThat(rundown.stepReports).hasSize(4);                  // <6>
@@ -67,6 +69,11 @@ try (final var api = DeterministicMockApiServer.start()) {
 <4> Overlay the fixture's loopback URL
 <5> Assert the run had no failures
 <6> Assert on the structured https://salesforce-misc.github.io/ReVoman/revoman/rundown.html[Rundown]
+
+`MockHttpServer` listens only on an ephemeral, exact IPv4 `127.0.0.1` address and is intended for
+tests. It buffers request bodies in memory so they can be inspected through `server.requests()`.
+Handlers may run concurrently, so their mutable state must be thread-safe; a blocking handler must
+also cooperate with interruption when the server closes.
 
 '''
 

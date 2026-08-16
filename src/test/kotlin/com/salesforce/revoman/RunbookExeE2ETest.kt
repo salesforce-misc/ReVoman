@@ -16,7 +16,7 @@ import com.salesforce.revoman.input.config.runLogSink
 import com.salesforce.revoman.input.config.step
 import com.salesforce.revoman.internal.exe.prepareHttpClient
 import com.salesforce.revoman.output.log.ConsoleRunLogSink
-import com.salesforce.revoman.testsupport.LoopbackHttpFixture
+import com.salesforce.revoman.testing.http.MockHttpServer
 import java.io.ByteArrayOutputStream
 import java.io.PrintStream
 import java.util.concurrent.atomic.AtomicInteger
@@ -285,9 +285,9 @@ class RunbookExeE2ETest {
   @Test
   fun `loopback fixture routes root failure and counted endpoints independently`() {
     val client = prepareHttpClient(insecureHttp = false)
-    val rootBefore = fixture.hitCount("/")
-    val failureBefore = fixture.hitCount("/fail")
-    val countBefore = fixture.hitCount("/count")
+    val rootBefore = fixture.requests().count { it.path == "/" }
+    val failureBefore = fixture.requests().count { it.path == "/fail" }
+    val countBefore = fixture.requests().count { it.path == "/count" }
 
     val root = client(Request(GET, "$baseUrl/"))
     val failure = client(Request(GET, "$baseUrl/fail"))
@@ -299,21 +299,21 @@ class RunbookExeE2ETest {
     assertThat(failure.bodyString()).isEqualTo("{\"error\":\"boom\"}")
     assertThat(counted.status).isEqualTo(OK)
     assertThat(counted.bodyString()).isEqualTo("{}")
-    assertThat(fixture.hitCount("/")).isEqualTo(rootBefore + 1)
-    assertThat(fixture.hitCount("/fail")).isEqualTo(failureBefore + 1)
-    assertThat(fixture.hitCount("/count")).isEqualTo(countBefore + 1)
+    assertThat(fixture.requests().count { it.path == "/" }).isEqualTo(rootBefore + 1)
+    assertThat(fixture.requests().count { it.path == "/fail" }).isEqualTo(failureBefore + 1)
+    assertThat(fixture.requests().count { it.path == "/count" }).isEqualTo(countBefore + 1)
     assertThat(countHits.get()).isEqualTo(1)
   }
 
   companion object {
-    private lateinit var fixture: LoopbackHttpFixture
+    private lateinit var fixture: MockHttpServer
     private lateinit var baseUrl: String
     private val countHits = AtomicInteger(0)
 
     @BeforeAll
     @JvmStatic
     fun startServer() {
-      fixture = LoopbackHttpFixture.start { request ->
+      fixture = MockHttpServer.start { request ->
         when {
           request.uri.path.startsWith("/fail") ->
             Response(INTERNAL_SERVER_ERROR).body("{\"error\":\"boom\"}")

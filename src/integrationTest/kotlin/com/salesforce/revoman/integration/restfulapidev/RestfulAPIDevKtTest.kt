@@ -10,20 +10,22 @@ package com.salesforce.revoman.integration.restfulapidev
 import com.google.common.truth.Truth.assertThat
 import com.salesforce.revoman.ReVoman
 import com.salesforce.revoman.input.config.Kick
-import com.salesforce.revoman.integration.testsupport.DeterministicMockApiServer
+import com.salesforce.revoman.integration.testsupport.DeterministicMockApi
+import com.salesforce.revoman.testing.http.MockHttpServer
 import org.junit.jupiter.api.Test
 
 class RestfulAPIDevKtTest {
   @Test
   fun `execute restful-api dev pm collection`() {
-    DeterministicMockApiServer.start().use { api ->
+    val api = DeterministicMockApi()
+    MockHttpServer.start(api).use { server ->
       val rundown =
         ReVoman.revUp(
           // <1>
           Kick.configure()
             .templatePath(PM_COLLECTION_PATH) // <2>
             .environmentPath(PM_ENVIRONMENT_PATH) // <3>
-            .dynamicEnvironment("baseUrl", api.baseUrl)
+            .dynamicEnvironment("baseUrl", server.baseUrl)
             .nodeModulesPath("js")
             .off()
         )
@@ -35,13 +37,13 @@ class RestfulAPIDevKtTest {
           }
         )
         .containsExactly(
-          "${api.baseUrl}/objects",
-          "${api.baseUrl}/objects",
-          "${api.baseUrl}/objects/local-object-1",
-          "${api.baseUrl}/objects/local-object-1",
+          "${server.baseUrl}/objects",
+          "${server.baseUrl}/objects",
+          "${server.baseUrl}/objects/local-object-1",
+          "${server.baseUrl}/objects/local-object-1",
         )
         .inOrder()
-      assertThat(api.requestSignatures())
+      assertThat(server.requests().map { "${it.method} ${it.path}" })
         .containsExactly(
           "GET /objects",
           "POST /objects",

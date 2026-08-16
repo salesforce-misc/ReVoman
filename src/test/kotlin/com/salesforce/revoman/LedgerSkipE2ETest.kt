@@ -11,7 +11,7 @@ import com.google.common.truth.Truth.assertThat
 import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.output.ledger.LedgerEntry
 import com.salesforce.revoman.output.ledger.LedgerSnapshot
-import com.salesforce.revoman.testsupport.LoopbackHttpFixture
+import com.salesforce.revoman.testing.http.MockHttpServer
 import org.http4k.core.Response
 import org.http4k.core.Status.Companion.OK
 import org.junit.jupiter.api.AfterAll
@@ -22,13 +22,14 @@ import org.junit.jupiter.api.Test
  * E2E for the warm-path centerpiece in [ReVoman.executeStepsSerially]: ledger-skip + inject, and
  * [com.salesforce.revoman.output.Rundown.learnedLedger] emission.
  *
- * Network-free by design: a shared [LoopbackHttpFixture] is bound to loopback on an ephemeral port
- * in [BeforeAll] and torn down in [AfterAll] — no internet dependency, so this runs in an isolated
- * CI sandbox. The collection URL is templated `{{baseUrl}}/...` and resolved against `baseUrl`
- * injected via `dynamicEnvironment`. The single-step fixture `pm-templates/v3/ledger-skip` is a
- * plain GET that PRODUCES nothing on its own (the loopback server just returns 200) — which is what
- * lets the warm run prove the skip: a hash-matching, produced-keys-present ledger entry makes that
- * one step's HTTP dispatch get SKIPPED, so the warm run makes ZERO requests to the server.
+ * External-network-free by design: a shared [MockHttpServer] is bound to loopback on an ephemeral
+ * port in [BeforeAll] and torn down in [AfterAll] — no internet dependency, so this runs in an
+ * isolated CI sandbox. The collection URL is templated `{{baseUrl}}/...` and resolved against
+ * `baseUrl` injected via `dynamicEnvironment`. The single-step fixture
+ * `pm-templates/v3/ledger-skip` is a plain GET that PRODUCES nothing on its own (the loopback
+ * server just returns 200) — which is what lets the warm run prove the skip: a hash-matching,
+ * produced-keys-present ledger entry makes that one step's HTTP dispatch get SKIPPED, so the warm
+ * run makes ZERO requests to the server.
  */
 class LedgerSkipE2ETest {
   private val collection = "pm-templates/v3/ledger-skip"
@@ -46,10 +47,10 @@ class LedgerSkipE2ETest {
 
   @Test
   fun `cold run hits the loopback server and emits learnedLedger only from producing steps`() {
-    val hitsBefore = fixture.hitCount()
+    val hitsBefore = fixture.requests().size
     val rundown = ReVoman.revUp(kick())
     // Cold run dispatched real (loopback) HTTP for the one step.
-    assertThat(fixture.hitCount()).isEqualTo(hitsBefore + 1)
+    assertThat(fixture.requests().size).isEqualTo(hitsBefore + 1)
     // The step calls no pm.environment.set, so nothing is produced -> empty learnedLedger.
     // Proves the extraction filters to producing steps only (no spurious entries).
     assertThat(rundown.learnedLedger).isEmpty()
@@ -78,12 +79,12 @@ class LedgerSkipE2ETest {
     // lowest-precedence floor), which is what satisfies that precondition — no manual pre-seed. We
     // pass ONLY the snapshot and assert the skip branch injected the authoritative ledgered value
     // (proving the seeding + inject ran, not the HTTP-producing step).
-    val hitsBefore = fixture.hitCount()
+    val hitsBefore = fixture.requests().size
     val warm = ReVoman.revUp(kick(snap)) // NO producedKey pre-seed — ledger.values must seed it
 
     // The single step was skipped -> ZERO requests reached the loopback server. This structurally
     // proves "skipped, not run", independent of the report shape.
-    assertThat(fixture.hitCount()).isEqualTo(hitsBefore)
+    assertThat(fixture.requests().size).isEqualTo(hitsBefore)
     // Injected value survives (overwrote the placeholder) so downstream steps could resolve it.
     assertThat(warm.mutableEnv.getAsString(producedKey)).isEqualTo("LEDGERED_VALUE")
 
@@ -224,7 +225,7 @@ class LedgerSkipE2ETest {
           ),
         values = mapOf("sharedId" to "LEDGERED"),
       )
-    val hitsBefore = fixture.hitCount()
+    val hitsBefore = fixture.requests().size
     val warm =
       ReVoman.revUp(
         Kick.configure()
@@ -243,7 +244,7 @@ class LedgerSkipE2ETest {
     assertThat(lateReport.requestInfo).isNull()
     assertThat(lateReport.responseInfo).isNull()
     // Exactly ONE request reached the server (early only, not late).
-    assertThat(fixture.hitCount()).isEqualTo(hitsBefore + 1)
+    assertThat(fixture.requests().size).isEqualTo(hitsBefore + 1)
   }
 
   @Test
@@ -287,13 +288,13 @@ class LedgerSkipE2ETest {
   }
 
   companion object {
-    private lateinit var fixture: LoopbackHttpFixture
+    private lateinit var fixture: MockHttpServer
     private lateinit var baseUrl: String
 
     @BeforeAll
     @JvmStatic
     fun startServer() {
-      fixture = LoopbackHttpFixture.start { Response(OK).body("{}") }
+      fixture = MockHttpServer.start { Response(OK).body("{}") }
       baseUrl = fixture.baseUrl
     }
 

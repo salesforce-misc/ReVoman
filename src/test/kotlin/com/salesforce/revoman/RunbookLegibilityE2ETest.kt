@@ -15,7 +15,7 @@ import com.salesforce.revoman.input.config.runLogSink
 import com.salesforce.revoman.input.config.step
 import com.salesforce.revoman.internal.log.RunLogContext
 import com.salesforce.revoman.output.log.ConsoleRunLogSink
-import com.salesforce.revoman.testsupport.LoopbackHttpFixture
+import com.salesforce.revoman.testing.http.MockHttpServer
 import java.io.ByteArrayOutputStream
 import java.io.PrintStream
 import org.http4k.core.Response
@@ -111,13 +111,13 @@ class RunbookLegibilityE2ETest {
   }
 
   companion object {
-    private lateinit var fixture: LoopbackHttpFixture
+    private lateinit var fixture: MockHttpServer
     private lateinit var baseUrl: String
 
     @BeforeAll
     @JvmStatic
     fun startServer() {
-      fixture = LoopbackHttpFixture.start { Response(OK).body("{}") }
+      fixture = MockHttpServer.start { Response(OK).body("{}") }
       baseUrl = fixture.baseUrl
     }
 

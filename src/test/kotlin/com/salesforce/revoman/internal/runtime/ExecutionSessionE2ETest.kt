@@ -20,7 +20,7 @@ import com.salesforce.revoman.output.log.LogLevel
 import com.salesforce.revoman.output.log.RunLogSink
 import com.salesforce.revoman.output.log.StepEvent
 import com.salesforce.revoman.output.postman.PostmanEnvironment
-import com.salesforce.revoman.testsupport.LoopbackHttpFixture
+import com.salesforce.revoman.testing.http.MockHttpServer
 import java.nio.file.Files
 import java.nio.file.Path
 import org.http4k.core.Response
@@ -34,7 +34,7 @@ class ExecutionSessionE2ETest {
 
   @Test
   fun `real repeated kick carries only environment across isolated children`() {
-    LoopbackHttpFixture.start { Response(OK).body("{}") }
+    MockHttpServer.start { Response(OK).body("{}") }
       .use { fixture ->
         val collectionDirectory = temporaryDirectory.resolve("session-isolation")
         Files.createDirectories(collectionDirectory.resolve(".resources"))

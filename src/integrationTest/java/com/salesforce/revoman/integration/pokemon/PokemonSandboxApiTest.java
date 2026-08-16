@@ -11,10 +11,12 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.salesforce.revoman.ReVoman;
 import com.salesforce.revoman.input.config.Kick;
-import com.salesforce.revoman.integration.testsupport.DeterministicMockApiServer;
+import com.salesforce.revoman.integration.testsupport.DeterministicMockApi;
 import com.salesforce.revoman.output.Rundown;
 import com.salesforce.revoman.output.report.PmTestAssertion;
 import com.salesforce.revoman.output.report.StepReport;
+import com.salesforce.revoman.testing.http.MockHttpServer;
+import com.salesforce.revoman.testing.http.RecordedNameValue;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -33,15 +35,16 @@ class PokemonSandboxApiTest {
   @Test
   @DisplayName("script-only pm APIs surface end-to-end")
   void pmSandboxApisEndToEnd() {
-    try (final var api = DeterministicMockApiServer.start()) {
+    final var api = new DeterministicMockApi();
+    try (final var server = MockHttpServer.start(api)) {
       // tag::pm-sandbox-revup[]
       final Rundown rundown =
           ReVoman.revUp(
               Kick.configure()
                   .templatePath(PM_COLLECTION_PATH)
                   .environmentPath(PM_ENVIRONMENT_PATH)
-                  .dynamicEnvironment("pokemonApiBaseUrl", api.getBaseUrl())
-                  .dynamicEnvironment("objectApiBaseUrl", api.getBaseUrl())
+                  .dynamicEnvironment("pokemonApiBaseUrl", server.getBaseUrl())
+                  .dynamicEnvironment("objectApiBaseUrl", server.getBaseUrl())
                   .nodeModulesPath("js")
                   .off());
       // end::pm-sandbox-revup[]
@@ -125,14 +128,19 @@ class PokemonSandboxApiTest {
       assertThat(all).isNotEmpty();
       assertThat(all.stream().allMatch(a -> a.passed)).isTrue();
 
-      assertThat(api.requestSignatures())
+      assertThat(
+              server.requests().stream()
+                  .map(request -> request.getMethod() + " " + request.getPath())
+                  .toList())
           .containsExactly(
-              "GET /pokemon?limit=5",
+              "GET /pokemon",
               "GET /pokemon/bulbasaur",
               "GET /pokemon-species/bulbasaur",
               "POST /objects",
               "PUT /objects/local-object-1")
           .inOrder();
+      assertThat(server.requests().getFirst().getQueryParameters())
+          .containsExactly(new RecordedNameValue("limit", "5"));
     }
   }
 }

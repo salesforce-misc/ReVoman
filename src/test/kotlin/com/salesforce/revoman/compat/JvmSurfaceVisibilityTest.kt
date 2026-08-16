@@ -173,11 +173,17 @@ class JvmSurfaceVisibilityTest {
     val frozen = JvmSurfaceInventory.parse(Files.readString(FROZEN_JVM_ABI))
     val frozenRows = frozen.asSequence().map(JvmSurfaceEntry::render).toSet()
     val additions = entries.filter { it.render() !in frozenRows }
+    val cs2Additions = additions.filter { it.render() in CS2_TASK7_RAW_JVM_ADDITIONS }
+    val mockServerAdditions = additions.filter { it.render() in MOCK_HTTP_SERVER_RAW_JVM_ADDITIONS }
     val activeRows = entries.asSequence().map(JvmSurfaceEntry::render).toSet()
     val removals = frozen.filter { it.render() !in activeRows }
 
-    assertThat(additions.map(JvmSurfaceEntry::render))
+    assertThat(cs2Additions.map(JvmSurfaceEntry::render))
       .containsExactlyElementsIn(CS2_TASK7_RAW_JVM_ADDITIONS)
+    assertThat(mockServerAdditions.map(JvmSurfaceEntry::render))
+      .containsExactlyElementsIn(MOCK_HTTP_SERVER_RAW_JVM_ADDITIONS)
+    assertThat(additions.map(JvmSurfaceEntry::render))
+      .containsExactlyElementsIn(APPROVED_RAW_JVM_ADDITIONS)
     assertThat(removals.map(JvmSurfaceEntry::render))
       .containsExactlyElementsIn(CS2_TASK7_RAW_JVM_REMOVALS)
     val pmSandboxRows = entries.filter {
@@ -210,7 +216,7 @@ class JvmSurfaceVisibilityTest {
         }
       )
       .isFalse()
-    val addedTask3Classes = additions.filter {
+    val addedTask3Classes = cs2Additions.filter {
       it.kind == JvmSurfaceKind.CLASS && it.owner in TASK3_RUNTIME_OWNERS
     }
     assertThat(addedTask3Classes.map(JvmSurfaceEntry::owner))
@@ -227,22 +233,22 @@ class JvmSurfaceVisibilityTest {
         )
       )
     assertThat(
-        additions
+        cs2Additions
           .filter { it.kind == JvmSurfaceKind.CLASS && it.owner.endsWith("\$Companion") }
           .map(JvmSurfaceEntry::owner)
       )
       .isEmpty()
-    assertThat(additions.filter { it.kind == JvmSurfaceKind.FIELD }.map(JvmSurfaceEntry::name))
+    assertThat(cs2Additions.filter { it.kind == JvmSurfaceKind.FIELD }.map(JvmSurfaceEntry::name))
       .doesNotContain("INSTANCE")
-    assertThat(additions.filter { it.owner in KOTLIN_ONLY_INTERFACE_OWNERS }).isNotEmpty()
+    assertThat(cs2Additions.filter { it.owner in KOTLIN_ONLY_INTERFACE_OWNERS }).isNotEmpty()
     assertThat(
-        additions
+        cs2Additions
           .filter { it.owner in KOTLIN_ONLY_INTERFACE_OWNERS && it.kind == JvmSurfaceKind.METHOD }
           .all { it.memberSynthetic && !it.sourceCallable }
       )
       .isTrue()
 
-    val diagnosticsRows = additions.filter { it.owner == LIFECYCLE_DIAGNOSTICS_OWNER }
+    val diagnosticsRows = cs2Additions.filter { it.owner == LIFECYCLE_DIAGNOSTICS_OWNER }
     assertThat(diagnosticsRows).hasSize(15)
     assertThat(
         diagnosticsRows
@@ -271,26 +277,26 @@ class JvmSurfaceVisibilityTest {
       .isEmpty()
 
     TASK5_INTERFACE_OWNERS.forEach { owner ->
-      val methods = additions.filter { it.owner == owner && it.kind == JvmSurfaceKind.METHOD }
+      val methods = cs2Additions.filter { it.owner == owner && it.kind == JvmSurfaceKind.METHOD }
       assertThat(methods).isNotEmpty()
       assertThat(methods.all { it.memberSynthetic && !it.sourceCallable }).isTrue()
     }
     TASK5_FACTORY_METHODS.forEach { (owner, names) ->
       assertThat(
-          additions
+          cs2Additions
             .filter { it.owner == owner && it.kind == JvmSurfaceKind.METHOD && it.name in names }
             .map(JvmSurfaceEntry::name)
         )
         .containsExactlyElementsIn(names)
       assertThat(
-          additions
+          cs2Additions
             .filter { it.owner == owner && it.kind == JvmSurfaceKind.METHOD && it.name in names }
             .all { it.memberSynthetic && !it.sourceCallable }
         )
         .isTrue()
     }
     TASK5_ANONYMOUS_OWNERS.forEach { owner ->
-      val ownerRows = additions.filter { it.owner == owner }
+      val ownerRows = cs2Additions.filter { it.owner == owner }
       assertThat(ownerRows).isNotEmpty()
       assertThat(ownerRows.single { it.kind == JvmSurfaceKind.CLASS }.sourceCallable).isFalse()
       assertThat(ownerRows.all { !it.sourceCallable }).isTrue()
@@ -301,7 +307,7 @@ class JvmSurfaceVisibilityTest {
           .flatMap { it.classes }
       )
       .doesNotContain("java/lang/AutoCloseable")
-    val task6Rows = additions.filter { it.owner in TASK6_ROUTE_OWNERS }
+    val task6Rows = cs2Additions.filter { it.owner in TASK6_ROUTE_OWNERS }
     assertThat(task6Rows).isNotEmpty()
     assertThat(
         task6Rows.filter {
@@ -327,7 +333,7 @@ class JvmSurfaceVisibilityTest {
       )
       .doesNotContain("java/lang/AutoCloseable")
     assertThat(
-        additions
+        cs2Additions
           .filter {
             it.owner in KOTLIN_ONLY_FACADE_OWNERS && it.kind == JvmSurfaceKind.METHOD
           }
@@ -335,7 +341,7 @@ class JvmSurfaceVisibilityTest {
       )
       .isTrue()
     assertThat(
-        additions
+        cs2Additions
           .filter {
             it.owner == "${RUNTIME_PACKAGE}KickExecutionKt" &&
               it.kind == JvmSurfaceKind.METHOD &&
@@ -351,7 +357,7 @@ class JvmSurfaceVisibilityTest {
         KICK_EXECUTOR_IMPLEMENTATION,
       )
       .forEach { implementation ->
-        val implementationRows = additions.filter { it.owner == implementation }
+        val implementationRows = cs2Additions.filter { it.owner == implementation }
         assertThat(implementationRows).isNotEmpty()
         assertThat(implementationRows.all { !it.sourceCallable }).isTrue()
         assertThat(implementationRows.single { it.kind == JvmSurfaceKind.CLASS }.sourceCallable)
@@ -362,6 +368,95 @@ class JvmSurfaceVisibilityTest {
           )
           .isEqualTo(0)
       }
+  }
+
+  @Test
+  fun `mock HTTP server exposes exactly its supported Java source surface`() {
+    val entries = JvmSurfaceInventory.readJar(configuredRootJar())
+    val featureRows = entries.filter { it.owner.startsWith(MOCK_HTTP_SERVER_PACKAGE) }
+    val sourceCallableOwners =
+      featureRows.filter(JvmSurfaceEntry::sourceCallable).map(JvmSurfaceEntry::owner).toSet()
+
+    assertThat(sourceCallableOwners)
+      .containsExactly(
+        MOCK_HTTP_HANDLER,
+        MOCK_HTTP_SERVER,
+        MOCK_HTTP_SERVER_COMPANION,
+        RECORDED_HTTP_REQUEST,
+        RECORDED_HTTP_REQUEST_COMPANION,
+        RECORDED_NAME_VALUE,
+      )
+    assertSourceCallableMembers(
+      featureRows,
+      MOCK_HTTP_HANDLER,
+      "METHOD|handle|(Lorg/http4k/core/Request;)Lorg/http4k/core/Response;",
+    )
+    assertRecordedNameValueSurface(featureRows)
+    assertSourceCallableMembers(
+      featureRows,
+      RECORDED_HTTP_REQUEST,
+      "FIELD|Companion|L$RECORDED_HTTP_REQUEST_COMPANION;",
+      "METHOD|bodyBytes|()[B",
+      "METHOD|bodyString|()Ljava/lang/String;",
+      "METHOD|bodyString|(Ljava/nio/charset/Charset;)Ljava/lang/String;",
+      "METHOD|getHeaders|()Ljava/util/List;",
+      "METHOD|getMethod|()Lorg/http4k/core/Method;",
+      "METHOD|getPath|()Ljava/lang/String;",
+      "METHOD|getQueryParameters|()Ljava/util/List;",
+    )
+    assertSourceCallableMembers(featureRows, RECORDED_HTTP_REQUEST_COMPANION)
+    assertSourceCallableMembers(
+      featureRows,
+      MOCK_HTTP_SERVER,
+      "FIELD|Companion|L$MOCK_HTTP_SERVER_COMPANION;",
+      "METHOD|close|()V",
+      "METHOD|getBaseUrl|()Ljava/lang/String;",
+      "METHOD|requests|()Ljava/util/List;",
+      "METHOD|start|(L$MOCK_HTTP_HANDLER;)L$MOCK_HTTP_SERVER;",
+    )
+    assertSourceCallableMembers(
+      featureRows,
+      MOCK_HTTP_SERVER_COMPANION,
+      "METHOD|start|(L$MOCK_HTTP_HANDLER;)L$MOCK_HTTP_SERVER;",
+    )
+    assertThat(
+        featureRows.filter {
+          it.owner.startsWith(MOCK_HTTP_SERVER_INTERNAL_PACKAGE) && it.sourceCallable
+        }
+      )
+      .isEmpty()
+  }
+
+  private fun assertRecordedNameValueSurface(featureRows: List<JvmSurfaceEntry>) {
+    assertSourceCallableMembers(
+      featureRows,
+      RECORDED_NAME_VALUE,
+      "CONSTRUCTOR|<init>|(Ljava/lang/String;Ljava/lang/String;)V",
+      "METHOD|component1|()Ljava/lang/String;",
+      "METHOD|component2|()Ljava/lang/String;",
+      "METHOD|copy|(Ljava/lang/String;Ljava/lang/String;)L$RECORDED_NAME_VALUE;",
+      "METHOD|equals|(Ljava/lang/Object;)Z",
+      "METHOD|hashCode|()I",
+      "METHOD|name|()Ljava/lang/String;",
+      "METHOD|toString|()Ljava/lang/String;",
+      "METHOD|value|()Ljava/lang/String;",
+    )
+  }
+
+  private fun assertSourceCallableMembers(
+    rows: List<JvmSurfaceEntry>,
+    owner: String,
+    vararg expected: String,
+  ) {
+    val actual =
+      rows
+        .asSequence()
+        .filter { it.owner == owner && it.kind != JvmSurfaceKind.CLASS && it.sourceCallable }
+        .map { "${it.kind}|${it.name}|${it.descriptor}" }
+        .toSet()
+    assertWithMessage("Java-source-callable members for $owner")
+      .that(actual)
+      .containsExactlyElementsIn(expected.asList())
   }
 
   @Test
@@ -1033,6 +1128,14 @@ class JvmSurfaceVisibilityTest {
     const val REVOMAN = "com/salesforce/revoman/ReVoman"
     const val POSTMAN_PACKAGE = "com/salesforce/revoman/internal/postman/"
     const val RUNTIME_PACKAGE = "com/salesforce/revoman/internal/runtime/"
+    const val MOCK_HTTP_SERVER_PACKAGE = "com/salesforce/revoman/testing/http/"
+    const val MOCK_HTTP_SERVER_INTERNAL_PACKAGE = "${MOCK_HTTP_SERVER_PACKAGE}internal/"
+    const val MOCK_HTTP_HANDLER = "${MOCK_HTTP_SERVER_PACKAGE}MockHttpHandler"
+    const val MOCK_HTTP_SERVER = "${MOCK_HTTP_SERVER_PACKAGE}MockHttpServer"
+    const val MOCK_HTTP_SERVER_COMPANION = "$MOCK_HTTP_SERVER\$Companion"
+    const val RECORDED_HTTP_REQUEST = "${MOCK_HTTP_SERVER_PACKAGE}RecordedHttpRequest"
+    const val RECORDED_HTTP_REQUEST_COMPANION = "$RECORDED_HTTP_REQUEST\$Companion"
+    const val RECORDED_NAME_VALUE = "${MOCK_HTTP_SERVER_PACKAGE}RecordedNameValue"
     const val LIFECYCLE_DIAGNOSTICS_OWNER = "${RUNTIME_PACKAGE}ExecutionLifecycleDiagnostics"
     const val RESOURCE_SCOPE_IMPLEMENTATION = "${RUNTIME_PACKAGE}ResourceScopeKt\$resourceScope\$1"
     const val KICK_EXECUTION_IMPLEMENTATION = "${RUNTIME_PACKAGE}KickExecutionKt\$kickExecution\$1"
