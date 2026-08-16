@@ -1,0 +1,216 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://revoman.dev/performance/protocol/schemas/capture-provisional-v1.schema.json",
+  "title": "ReVoman provisional performance capture",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "artifacts",
+    "benchmarkProtocolVersion",
+    "cells",
+    "identity",
+    "logging",
+    "outcome",
+    "profile",
+    "protocol",
+    "provenance",
+    "runtime",
+    "schemaVersion",
+    "toolchain"
+  ],
+  "properties": {
+    "artifacts": {
+      "$ref": "https://revoman.dev/performance/protocol/schemas/capture-v1.schema.json#/$defs/artifacts"
+    },
+    "benchmarkProtocolVersion": {
+      "const": "performance-v1"
+    },
+    "cells": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "https://revoman.dev/performance/protocol/schemas/capture-v1.schema.json#/$defs/cell"
+      }
+    },
+    "identity": {
+      "$ref": "https://revoman.dev/performance/protocol/schemas/capture-v1.schema.json#/$defs/identity"
+    },
+    "logging": {
+      "$ref": "https://revoman.dev/performance/protocol/schemas/capture-v1.schema.json#/$defs/logging"
+    },
+    "outcome": {
+      "$ref": "#/$defs/provisionalOutcome"
+    },
+    "profile": {
+      "$ref": "https://revoman.dev/performance/protocol/schemas/capture-v1.schema.json#/$defs/profile"
+    },
+    "rawProfilerInputSha256": {
+      "$ref": "https://revoman.dev/performance/protocol/schemas/capture-v1.schema.json#/$defs/sha256"
+    },
+    "protocol": {
+      "$ref": "https://revoman.dev/performance/protocol/schemas/capture-v1.schema.json#/$defs/protocol"
+    },
+    "provenance": {
+      "$ref": "https://revoman.dev/performance/protocol/schemas/capture-v1.schema.json#/$defs/provenance"
+    },
+    "runtime": {
+      "$ref": "https://revoman.dev/performance/protocol/schemas/capture-v1.schema.json#/$defs/runtime"
+    },
+    "schemaVersion": {
+      "const": "capture-provisional-v1"
+    },
+    "toolchain": {
+      "$ref": "https://revoman.dev/performance/protocol/schemas/capture-v1.schema.json#/$defs/toolchain"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "profile": {
+            "properties": {
+              "profiler": {
+                "enum": [
+                  "gc",
+                  "jfr"
+                ]
+              }
+            },
+            "required": [
+              "profiler"
+            ]
+          }
+        },
+        "required": [
+          "profile"
+        ]
+      },
+      "then": {
+        "properties": {
+          "outcome": {
+            "properties": {
+              "strength": {
+                "const": "diagnostic"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "profile": {
+            "properties": {
+              "profiler": {
+                "const": "jfr"
+              }
+            },
+            "required": [
+              "profiler"
+            ]
+          }
+        },
+        "required": [
+          "profile"
+        ]
+      },
+      "then": {
+        "required": [
+          "rawProfilerInputSha256"
+        ]
+      },
+      "else": {
+        "not": {
+          "required": [
+            "rawProfilerInputSha256"
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "outcome": {
+            "properties": {
+              "status": {
+                "const": "valid"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          }
+        },
+        "required": [
+          "outcome"
+        ]
+      },
+      "then": {
+        "properties": {
+          "outcome": {
+            "properties": {
+              "processExit": {
+                "const": 0
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "provisionalOutcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "completedAtUtc",
+        "processExit",
+        "reasons",
+        "startedAtUtc",
+        "status",
+        "strength"
+      ],
+      "properties": {
+        "completedAtUtc": {
+          "$ref": "https://revoman.dev/performance/protocol/schemas/capture-v1.schema.json#/$defs/timestamp"
+        },
+        "processExit": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        },
+        "reasons": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "boundedDiagnostic",
+              "githubHosted",
+              "invalidMeasurement",
+              "profilerDiagnostic",
+              "qualificationFailed",
+              "structuralCanary"
+            ]
+          }
+        },
+        "startedAtUtc": {
+          "$ref": "https://revoman.dev/performance/protocol/schemas/capture-v1.schema.json#/$defs/timestamp"
+        },
+        "status": {
+          "enum": [
+            "invalid",
+            "valid"
+          ]
+        },
+        "strength": {
+          "enum": [
+            "canary",
+            "diagnostic"
+          ]
+        }
+      }
+    }
+  }
+}
