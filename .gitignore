@@ -298,3 +298,6 @@ cmux-assets/
 
 # Qodana linter image/cache (persisted outside build/ so `clean` doesn't force a re-pull)
 .qodana/
+
+# Local Git worktrees
+/.worktrees/
