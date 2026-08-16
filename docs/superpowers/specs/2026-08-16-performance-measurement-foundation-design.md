@@ -1,6 +1,6 @@
 # Performance Measurement Foundation — Design
 
-- Status: Proposed — design direction chosen; full text awaiting approval
+- Status: Approved — 2026-08-16
 - Date: 2026-08-16
 - Branch: `overfullstack/perf`
 - Starting SHA: `009bc8f4c1fe9fb7d393036616a3c3b6cd787aca`
@@ -194,6 +194,7 @@ reproduction, testing, and re-rendering existing immutable evidence:
   --profile <cold|warm> --forks <10|20|40> \
   --host-id <opaque-host-id> --session-id <opaque-session-id> \
   --sequence <positive-integer> --distribution <frozen-distribution-directory> \
+  [--diagnostic-profiler <gc|jfr>] \
   --output <directory>
 ./scripts/performance/run compare \
   --kind <calibration|candidate> \
@@ -243,8 +244,13 @@ performs fresh A/A escalation at 10, 20, then 40 forks and uses an unpublished p
 to refuse B until calibration passes.
 
 After a timed campaign, canary, or capture container exits, the adapter records versioned
-`postflight.json` and `restoration.json`, then invokes the containerized finalizer from the same
-frozen runner and image. For a campaign, the finalizer validates all host documents, provisional
+`postflight.json` and `restoration.json`. A profiler capture then invokes a separate internal
+containerized scrubber from the same frozen runner and image. The scrubber has no host-evidence
+mount and is the only post-timing phase allowed to mount the operation volume writable; it derives
+and validates the provisional profiler summary, durably records the raw-input/summary hashes,
+deletes the raw recording, and fsyncs that transition. The adapter then invokes the containerized
+sealing finalizer with the operation volume read-only. For a campaign, the finalizer validates all
+host documents, provisional
 observations, ordering, cleanup, and claim-eligibility rules; seals final captures; recomputes
 comparisons from those sealed captures; writes the campaign index; and only then computes the
 recursive checksum and atomically publishes the session. For a bounded canary or direct capture,
@@ -395,11 +401,16 @@ egress.
 
 Every timed campaign, canary, or capture container writes provisional output only to an
 operation-scoped Docker volume. It never mounts the host evidence destination. After timing and
-host postflight, the finalizer mounts that volume read-only plus exactly one allowlisted host
-artifact parent writable, materializes the sanitized staging tree there, and performs the
-same-filesystem rename. The campaign finalizer applies the full dependency DAG; the bounded
-canary/capture finalizer seals only one permanently diagnostic bundle. Source distributions and
-evidence inputs are read-only in every non-freeze phase.
+host postflight, a profiler scrubber, when needed, mounts only that operation volume writable and
+has no host bind. It atomically persists and fsyncs a validated provisional summary and scrub
+intent, deletes and fsyncs the raw recording, then persists a completion marker. A sealing
+finalizer subsequently mounts the operation volume read-only plus exactly one allowlisted host
+artifact parent writable, validates the complete scrub transition and absence of raw profiler
+data, materializes the sanitized staging tree there, and performs the same-filesystem rename. The
+campaign finalizer applies the full dependency DAG; the bounded canary/capture finalizer seals only
+one permanently diagnostic bundle. Source distributions remain read-only in every non-freeze
+phase; provisional operation output is writable only by the timed runner and the narrowly scoped
+profiler scrubber.
 
 ### Fail-closed Mac qualification
 
@@ -715,6 +726,29 @@ profiles, not parameters mixed into the primary cell.
 GC profiling is allowed for warm diagnostic captures. JFR is diagnostic-only and cannot replace
 the canonical primary metric in V1.
 
+The optional `capture --diagnostic-profiler <gc|jfr>` selector is legal only with `--profile warm`.
+Both named diagnostic variants and their exact JVM/JMH/JFR settings are frozen inside `warm.json`
+before the baseline is built; the flag selects one of those immutable variants rather than adding
+operator-supplied arguments. A profiler capture is permanently diagnostic, is rejected as A/A,
+candidate-comparison, or campaign input, and cannot be made claim-bearing. Omitting the flag selects
+the ordinary warm variant used by calibration and campaigns.
+
+For JFR, the raw recording never leaves the operation-scoped Docker volume. The timed runner fsyncs
+the recording and records its SHA-256 in the immutable provisional capture. After postflight, the
+frozen profiler scrubber uses the pinned JDK's JFR tooling to derive an allowlisted, path-free
+provisional summary containing the profiler/settings identity, raw-recording SHA-256, duration,
+dropped-sample counts, and bounded application/Graal/Truffle/Okio/Moshi/http4k execution and
+allocation aggregates by class/method without source paths, thread names, command lines,
+environment, or system properties. It atomically writes and fsyncs the summary, validates it,
+writes and fsyncs a scrub intent binding the provisional-capture, raw-input, and summary hashes,
+deletes the raw recording and fsyncs its directory, then writes and fsyncs a completion marker.
+Recovery can safely repeat before intent, resume deletion while raw input remains, or complete from
+the durable intent after deletion; it can never synthesize a summary after losing the raw input.
+The read-only sealing finalizer validates all three hash bindings, the completion marker, and raw
+absence before publishing `profiler-summary.json`. GC diagnostics use the same optional summary
+file but derive it from validated JMH secondary metrics and require no raw-recording deletion.
+These summaries may rank exercised hypotheses; they are never comparator inputs.
+
 ## Capture evidence
 
 ### Bundle layout
@@ -769,6 +803,7 @@ sealing lifecycle and can never become canonical. The capture layout is:
 <UTC timestamp>-<full SHA>-<profile>/
 ├── capture.json
 ├── jmh-result.json
+├── profiler-summary.json       # present only for a frozen gc/jfr diagnostic variant
 ├── stdout.log
 ├── stderr.log
 └── checksums.sha256
@@ -780,9 +815,15 @@ absolute executable paths are replaced with stable tokens. `capture.json` record
 the temporary raw input and the sanitizer version. The unsanitized file is deleted after validation
 and is never published.
 
-`checksums.sha256` covers every other published file in the bundle. Failed attempts receive the same
+`checksums.sha256` covers every other published file in the bundle. Scrub intent/completion markers
+are internal operation-volume state and are not published. Failed attempts receive the same
 privacy treatment, are retained separately as explicit `INVALID` diagnostic bundles, and can never
 appear in the valid-capture namespace.
+
+When `profiler-summary.json` is absent, `capture.json` records profiler variant `none`. When it is
+present, `capture.json` records its hash, the frozen variant identity, and the raw profiler-input
+hash; publication fails if the scrub transition is incomplete or the raw recording still exists
+anywhere in the operation or staging tree.
 
 ### Required metadata
 
@@ -1252,7 +1293,8 @@ The first implementation session follows this checkpoint sequence:
 8. Implement the breaking ownership cleanup and make the tests pass.
 9. Freeze the candidate distribution; in one controlled Mac/Docker session run baseline A1,
    baseline A2, then candidate B; compare B explicitly with A2 and publish all evidence bundles.
-10. Run the optional manual GitHub ARM diagnostic only as corroboration, then profile/rank only the
+10. Run the optional manual GitHub ARM diagnostic only as corroboration, then use frozen warm
+    `--diagnostic-profiler gc` and `--diagnostic-profiler jfr` captures to profile/rank only the
     remaining audited hotspots exercised by the primary workload. Record the others as `UNMEASURED`
     with the exact future diagnostic each would need, and recommend at most one next optimization.
 11. Run all acceptance gates and stop. The next optimization requires a new design/plan or an
@@ -1292,9 +1334,11 @@ The tranche is complete only when:
 11. Failed calibration ends without B and without a claim; passing calibration may produce a valid
     A1/A2/B session, whose candidate result uses `INCONCLUSIVE` without significance language when
     its interval crosses `1.0`.
-12. Hotspots exercised by the primary workload are ranked from current measurements; step-scaling,
-    polling, file-sink, and any other unexercised hypotheses are explicitly `UNMEASURED`, with no
-    second production optimization bundled into this tranche.
+12. Hotspots exercised by the primary workload are ranked from current measurements and frozen
+    GC/JFR diagnostic summaries whose capture IDs and checksums are cited; raw JFR is neither
+    published nor retained, and crash tests prove scrub recovery around summary persistence and raw
+    deletion. Step-scaling, polling, file-sink, and any other unexercised hypotheses
+    are explicitly `UNMEASURED`, with no second production optimization bundled into this tranche.
 13. Unit, integration, canary, ABI/API, build, and Qodana gates pass.
 14. The Mac and `ubuntu-24.04-arm` canary verify the same pinned `linux/arm64` platform-manifest
     digest and JDK binary hash without amd64 emulation.
