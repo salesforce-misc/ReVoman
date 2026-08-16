@@ -1,0 +1,10 @@
+{
+  "compositeResponse": [
+    {"referenceId":"ok1","httpStatusCode":200,"httpHeaders":{},
+     "body":{"done":true,"totalSize":1,"records":[
+       {"attributes":{"type":"Account","url":"/services/data/v58.0/sobjects/Account/001"},
+        "Id":"001xx000003DGbXXXX","Name":"Acme","CreatedDate":"2015-09-01T00:00:00.000+0000"}]}},
+    {"referenceId":"bad1","httpStatusCode":400,"httpHeaders":{},
+     "body":[{"errorCode":"INVALID","message":"Invalid reference specified"}]}
+  ]
+}

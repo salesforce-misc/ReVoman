@@ -32,6 +32,8 @@ gradle-taskinfo = "3.0.2"
 kotlinx-collections-immutable = "0.5.1"
 jmh = "1.37"
 champeau-jmh = "0.7.3"
+commons-math3 = "3.6.1"
+json-schema-validator = "3.0.6"
 qodana = "2026.2.0"
 
 # Common dependencies
@@ -80,6 +82,9 @@ mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 truffle-runtime = { module = "org.graalvm.truffle:truffle-runtime", version.ref = "graal" }
 kotlinx-collections-immutable = { module = "org.jetbrains.kotlinx:kotlinx-collections-immutable", version.ref = "kotlinx-collections-immutable" }
 postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
+jmh-core = { module = "org.openjdk.jmh:jmh-core", version.ref = "jmh" }
+commons-math3 = { module = "org.apache.commons:commons-math3", version.ref = "commons-math3" }
+json-schema-validator = { module = "com.networknt:json-schema-validator", version.ref = "json-schema-validator" }
 
 # Gradle plugins
 kotlin-gradle = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }

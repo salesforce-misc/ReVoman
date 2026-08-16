@@ -9,8 +9,87 @@
   "UnstableApiUsage"
 ) // Gradle JVM Test Suite DSL (testing {}) is incubating but stable in practice
 
+import java.io.File
 import java.util.zip.Deflater
 import java.util.zip.GZIPOutputStream
+import org.gradle.api.DefaultTask
+import org.gradle.api.artifacts.component.ProjectComponentIdentifier
+import org.gradle.api.file.ConfigurableFileCollection
+import org.gradle.api.file.RegularFileProperty
+import org.gradle.api.provider.ListProperty
+import org.gradle.api.tasks.Classpath
+import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.InputFile
+import org.gradle.api.tasks.PathSensitive
+import org.gradle.api.tasks.PathSensitivity
+import org.gradle.api.tasks.TaskAction
+import org.gradle.process.CommandLineArgumentProvider
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
+abstract class RootApiJarArgumentProvider : CommandLineArgumentProvider {
+  @get:InputFile @get:PathSensitive(PathSensitivity.NONE) abstract val rootJar: RegularFileProperty
+
+  @get:Classpath abstract val externalRuntime: ConfigurableFileCollection
+
+  override fun asArguments(): Iterable<String> {
+    val exactRootJar = rootJar.get().asFile.canonicalPath
+    val externalClasspath =
+      externalRuntime.files.joinToString(File.pathSeparator) { it.canonicalPath }
+    return listOf(
+      "-Drevoman.compat.rootJar=$exactRootJar",
+      "-Drevoman.compat.expectedRootJar=$exactRootJar",
+      "-Drevoman.compat.externalClasspath=$externalClasspath",
+    )
+  }
+}
+
+abstract class ExternalConsumerClasspathCheck : DefaultTask() {
+  @get:Classpath abstract val expectedClasspath: ConfigurableFileCollection
+
+  @get:Classpath abstract val javaClasspath: ConfigurableFileCollection
+
+  @get:Classpath abstract val kotlinLibraries: ConfigurableFileCollection
+
+  @get:Classpath abstract val kotlinFriendPaths: ConfigurableFileCollection
+
+  @get:Classpath abstract val externalProjectArtifacts: ConfigurableFileCollection
+
+  @get:Input abstract val kotlinCompilerArguments: ListProperty<String>
+
+  @get:Input abstract val kotlinAssociatedCompilationNames: ListProperty<String>
+
+  @TaskAction
+  fun verify() {
+    check(externalProjectArtifacts.files.isEmpty()) {
+      "External runtime must not contain subproject artifacts: ${externalProjectArtifacts.files}"
+    }
+    verifyExactClasspath("compileApiCompatibilityTestJava", javaClasspath.files)
+    verifyExactClasspath("compileApiCompatibilityTestKotlin", kotlinLibraries.files)
+    check(kotlinCompilerArguments.get().none { it.startsWith("-Xfriend-paths") }) {
+      "compileApiCompatibilityTestKotlin must not receive a Kotlin friend path: " +
+        kotlinCompilerArguments.get()
+    }
+    val associatedCompilations = kotlinAssociatedCompilationNames.get()
+    val resolvedFriendPaths = kotlinFriendPaths.files
+    check(associatedCompilations.isEmpty() && resolvedFriendPaths.isEmpty()) {
+      "compileApiCompatibilityTestKotlin must not have associated Kotlin compilations or " +
+        "resolved friend paths: associated=$associatedCompilations, " +
+        "friendPaths=$resolvedFriendPaths"
+    }
+  }
+
+  private fun verifyExactClasspath(taskName: String, actualFiles: Set<File>) {
+    val expectedFiles = expectedClasspath.files.mapTo(linkedSetOf()) { it.canonicalFile }
+    val canonicalActual = actualFiles.mapTo(linkedSetOf()) { it.canonicalFile }
+    check(canonicalActual == expectedFiles) {
+      "$taskName must compile against exactly the root JAR plus external runtime artifacts. " +
+        "Expected=$expectedFiles, actual=$canonicalActual"
+    }
+    check(canonicalActual.none(File::isDirectory)) {
+      "$taskName contains a project output directory: ${canonicalActual.filter(File::isDirectory)}"
+    }
+  }
+}
 
 plugins {
   id("revoman.root-conventions")
@@ -20,13 +99,17 @@ plugins {
   alias(libs.plugins.node.gradle)
   alias(libs.plugins.kover)
   alias(libs.plugins.nexus.publish)
-  alias(libs.plugins.jmh)
   alias(libs.plugins.test.retry)
   alias(libs.plugins.qodana)
 }
 
-// Retry flaky tests ON CI ONLY. Several integration tests hit live external APIs (pokeapi.co,
-// restful-api.dev, apigee, beeceptor) that intermittently rate-limit or 5xx — a retry keeps the
+kotlin {
+  @OptIn(org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation::class) abiValidation()
+}
+
+// Retry flaky tests ON CI ONLY. The remaining live integration APIs (Apigee, Beeceptor, and
+// PokeAPI in Pokemon tests outside the localized PokemonSandboxApiTest) can intermittently
+// rate-limit or 5xx — a retry keeps the
 // pipeline green on transient blips WITHOUT masking real breakage (a test failing every attempt
 // still fails). Locally, retry stays OFF (maxRetries=0) so flakes surface immediately.
 val isCI: Boolean = !System.getenv("CI").isNullOrEmpty()
@@ -137,9 +220,33 @@ tasks.named<Jar>("jar") {
   duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
 
+val rootApiJar = tasks.named<Jar>("jar")
+val rootApiJarFile = rootApiJar.flatMap { it.archiveFile }
+val rootExternalRuntime = configurations.named("runtimeClasspath")
+val externalConsumerClasspath = files(rootApiJarFile) + rootExternalRuntime.get()
+val externalRuntimeProjectArtifacts =
+  rootExternalRuntime
+    .get()
+    .incoming
+    .artifactView { componentFilter { it is ProjectComponentIdentifier } }
+    .files
+val apiCompatibilityContractFiles =
+  files(
+    "api/revoman-root.api",
+    "api/cs2-baseline-revoman-root.api",
+    "api/cs2-baseline-revoman-root.jvm.tsv",
+    "api/cs2-migration-map.tsv",
+    "docs/superpowers/specs/2026-08-09-performance-redesign-design.md",
+  )
+
 testing {
   suites {
     getByName<JvmTestSuite>("test") { useJUnitJupiter(libs.versions.junit.get()) }
+
+    register<JvmTestSuite>("apiCompatibilityTest") {
+      // Compile-only external-consumer fixtures. Deliberately no project dependency or association
+      // with main: the suite consumes the built archive exactly as a downstream project would.
+    }
 
     register<JvmTestSuite>("integrationTest") {
       dependencies {
@@ -161,17 +268,86 @@ testing {
   }
 }
 
+val apiCompatibilityCompilation = kotlin.target.compilations.named("apiCompatibilityTest")
+
+val externalConsumerClasspathCheck =
+  tasks.register<ExternalConsumerClasspathCheck>("externalConsumerClasspathCheck") {
+    group = "verification"
+    description = "Verifies that API fixtures compile as isolated external consumers"
+    dependsOn(rootApiJar)
+    expectedClasspath.from(externalConsumerClasspath)
+    externalProjectArtifacts.from(externalRuntimeProjectArtifacts)
+  }
+
+sourceSets.named("apiCompatibilityTest") {
+  compileClasspath = externalConsumerClasspath
+  runtimeClasspath =
+    output + compileClasspath + configurations.named("apiCompatibilityTestRuntimeClasspath").get()
+}
+
+tasks.named<KotlinCompile>("compileApiCompatibilityTestKotlin") {
+  dependsOn(rootApiJar, externalConsumerClasspathCheck)
+}
+
+// Kapt's root-project plugin appends its generated-classes directory after the Kotlin task is
+// created. Reset the compile libraries after every project has been evaluated so this external
+// fixture compilation cannot accidentally inherit that project output.
+gradle.projectsEvaluated {
+  val kotlinCompile = tasks.named<KotlinCompile>("compileApiCompatibilityTestKotlin").get()
+  val javaCompile = tasks.named<JavaCompile>("compileApiCompatibilityTestJava").get()
+  kotlinCompile.libraries.setFrom(externalConsumerClasspath)
+  javaCompile.classpath = externalConsumerClasspath
+  externalConsumerClasspathCheck {
+    javaClasspath.from(javaCompile.classpath)
+    kotlinLibraries.from(kotlinCompile.libraries)
+    kotlinFriendPaths.from(kotlinCompile.friendPaths)
+    kotlinCompilerArguments.set(kotlinCompile.compilerOptions.freeCompilerArgs)
+    kotlinAssociatedCompilationNames.set(
+      apiCompatibilityCompilation.get().allAssociatedCompilations.map { it.name }
+    )
+  }
+}
+
+tasks.named<JavaCompile>("compileApiCompatibilityTestJava") {
+  dependsOn(rootApiJar, "kaptApiCompatibilityTestKotlin", externalConsumerClasspathCheck)
+  classpath = externalConsumerClasspath
+}
+
+tasks.named("apiCompatibilityTestClasses") { dependsOn(rootApiJar) }
+
+// This suite intentionally contains compile-contract fixtures rather than executable tests.
+tasks.named<Test>("apiCompatibilityTest") { failOnNoDiscoveredTests = false }
+
+tasks.named("check") { dependsOn("apiCompatibilityTestClasses") }
+
+val frozenCs2JvmSurface = layout.projectDirectory.file("api/cs2-baseline-revoman-root.jvm.tsv")
+
+tasks.register<JavaExec>("freezeCs2JvmSurface") {
+  group = "verification"
+  description = "Freezes the immutable pre-CS2 JVM class/member surface from the built root JAR."
+  dependsOn(rootApiJar, tasks.named("testClasses"))
+  classpath = sourceSets.named("test").get().runtimeClasspath
+  mainClass.set("com.salesforce.revoman.compat.JvmSurfaceInventoryKt")
+  inputs.file(rootApiJarFile).withPropertyName("rootApiJar")
+  outputs.file(frozenCs2JvmSurface)
+  outputs.upToDateWhen { false }
+  doFirst {
+    check(!frozenCs2JvmSurface.asFile.exists()) {
+      "Refusing to overwrite immutable CS2 JVM baseline: ${frozenCs2JvmSurface.asFile}"
+    }
+    setArgs(
+      listOf(
+        rootApiJarFile.get().asFile.absolutePath,
+        frozenCs2JvmSurface.asFile.absolutePath,
+      )
+    )
+  }
+}
+
 // Give the integrationTest compilation a friend-path to main (the built-in `test` suite gets this
 // automatically). Without it, integration tests can't see `internal` main members — e.g.
 // WfsSeedE2ETest reads org creds via the internal V3EnvLoader.
 kotlin.target.compilations.named("integrationTest") {
-  associateWith(kotlin.target.compilations.getByName("main"))
-}
-
-// Give the jmh compilation the same friend-path to main, so component benchmarks (WT-1..WT-4) can
-// reference `internal` main members (e.g. PmSandbox, PmScope, PmExecutionContext, ScriptTarget)
-// rather than only the public API.
-kotlin.target.compilations.named("jmh") {
   associateWith(kotlin.target.compilations.getByName("main"))
 }
 
@@ -254,7 +430,18 @@ tasks.register<Exec>("generatePmSandbox") {
 tasks {
   check { dependsOn(npmInstall) }
   test {
-    dependsOn(npmInstall)
+    dependsOn(npmInstall, rootApiJar)
+    inputs.file(rootApiJarFile).withPropertyName("rootApiJar")
+    inputs
+      .files(apiCompatibilityContractFiles)
+      .withPropertyName("apiCompatibilityContracts")
+      .withPathSensitivity(PathSensitivity.RELATIVE)
+    jvmArgumentProviders.add(
+      objects.newInstance<RootApiJarArgumentProvider>().apply {
+        rootJar.set(rootApiJarFile)
+        externalRuntime.from(rootExternalRuntime)
+      }
+    )
     jvmArgs("-javaagent:${mockitoAgent.singleFile.absolutePath}")
     // Unit tests are self-contained; a low retry only absorbs rare env hiccups (e.g. the
     // RNG-sampling
@@ -267,7 +454,7 @@ tasks {
   }
   named<Test>("integrationTest") {
     jvmArgs("-javaagent:${mockitoAgent.singleFile.absolutePath}")
-    // Integration tests hit live external APIs, so allow a couple more attempts on CI.
+    // The remaining live integration APIs can be flaky, so allow a couple more attempts on CI.
     retry {
       maxRetries = if (isCI) 3 else 0
       failOnPassedAfterRetry = false
@@ -286,13 +473,6 @@ tasks {
 }
 
 kover {
-  currentProject {
-    sources {
-      // The JMH benchmark source set is a perf harness, never unit-tested by design (like the
-      // opt-in core-IT tests). Keep it out of the coverage denominator.
-      excludedSourceSets.addAll("jmh")
-    }
-  }
   reports {
     filters {
       excludes {
@@ -334,13 +514,10 @@ qodana {
 
 moshi { enableSealed = true }
 
-jmh {
-  // Pin JMH core so every worktree benchmarks against a known JMH release.
-  jmhVersion = libs.versions.jmh.get()
-  // Select benchmarks from the CLI, e.g. ./gradlew jmh -Pjmh.includes=SmokeBenchmark
-  if (project.hasProperty("jmh.includes")) {
-    includes.add(project.property("jmh.includes").toString())
-  }
+tasks.register("jmh") {
+  group = "benchmark"
+  description = "Runs JMH from the benchmark driver's installed original-JAR classpath"
+  dependsOn(":benchmark-driver:benchmarkJmh")
 }
 
 nexusPublishing {

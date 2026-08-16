@@ -1,0 +1,10 @@
+{
+  "capturedAtNanos": 2,
+  "loadAverage": 0.25,
+  "cpuBusyFraction": 0.25,
+  "availableMemoryBytes": 2147483648,
+  "swapUsedBytes": 0,
+  "thermalValue": 50.0,
+  "powerEvidence": "EXTERNAL_POWER_OFFLINE",
+  "governors": ["performance", "performance"]
+}

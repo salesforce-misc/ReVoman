@@ -1,0 +1,394 @@
+kind	legacyId	owner	disposition	replacementId
+kotlin	com/salesforce/revoman/internal/postman/Info#public final class com/salesforce/revoman/internal/postman/Info {	CS2a	removed	immutable request and response snapshots
+kotlin	com/salesforce/revoman/internal/postman/Info#public final field requestName Ljava/lang/String;	CS2a	removed	immutable request and response snapshots
+kotlin	com/salesforce/revoman/internal/postman/Info#public fun <init> (Ljava/lang/String;)V	CS2a	removed	immutable request and response snapshots
+kotlin	com/salesforce/revoman/internal/postman/Info#public final fun component1 ()Ljava/lang/String;	CS2a	removed	immutable request and response snapshots
+kotlin	com/salesforce/revoman/internal/postman/Info#public final fun copy (Ljava/lang/String;)Lcom/salesforce/revoman/internal/postman/Info;	CS2a	removed	immutable request and response snapshots
+kotlin	com/salesforce/revoman/internal/postman/Info#public static synthetic fun copy$default (Lcom/salesforce/revoman/internal/postman/Info;Ljava/lang/String;ILjava/lang/Object;)Lcom/salesforce/revoman/internal/postman/Info;	CS2a	removed	immutable request and response snapshots
+kotlin	com/salesforce/revoman/internal/postman/Info#public fun equals (Ljava/lang/Object;)Z	CS2a	removed	immutable request and response snapshots
+kotlin	com/salesforce/revoman/internal/postman/Info#public fun hashCode ()I	CS2a	removed	immutable request and response snapshots
+kotlin	com/salesforce/revoman/internal/postman/Info#public fun toString ()Ljava/lang/String;	CS2a	removed	immutable request and response snapshots
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK#public final class com/salesforce/revoman/internal/postman/PostmanSDK {	CS2a	internalized	internal-runtime/PostmanExecutionState
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK#public final field collectionVariables Lcom/salesforce/revoman/output/postman/PostmanEnvironment;	CS2a	internalized	internal-runtime/PostmanExecutionState
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK#public field currentStepReport Lcom/salesforce/revoman/output/report/StepReport;	CS2a	internalized	internal-runtime/PostmanExecutionState
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK#public final field environment Lcom/salesforce/revoman/output/postman/PostmanEnvironment;	CS2a	internalized	internal-runtime/PostmanExecutionState
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK#public field environmentName Ljava/lang/String;	CS2a	internalized	internal-runtime/PostmanExecutionState
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK#public final field globals Lcom/salesforce/revoman/output/postman/PostmanEnvironment;	CS2a	internalized	internal-runtime/PostmanExecutionState
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK#public field info Lcom/salesforce/revoman/internal/postman/Info;	CS2a	removed	immutable request and response snapshots
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK#public field request Lcom/salesforce/revoman/internal/postman/PostmanSDK$Request;	CS2a	removed	immutable request and response snapshots
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK#public field response Lcom/salesforce/revoman/internal/postman/PostmanSDK$Response;	CS2a	removed	immutable request and response snapshots
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK#public field rundown Lcom/salesforce/revoman/output/Rundown;	CS2a	internalized	internal-runtime/PostmanExecutionState
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK#public final field variables Lcom/salesforce/revoman/internal/postman/PostmanSDK$Variables;	CS2a	removed	VariableScopesView and callback-scoped editors
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK#public final field xml2Json Lcom/salesforce/revoman/internal/postman/PostmanSDK$Xml2Json;	CS2a	removed	JsonCodec
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK#public fun <init> (Lcom/salesforce/revoman/internal/json/MoshiReVoman;Ljava/lang/String;Lcom/salesforce/revoman/internal/postman/RegexReplacer;Ljava/util/Map;)V	CS2a	removed	journal-backed variable resolver
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK#public synthetic fun <init> (Lcom/salesforce/revoman/internal/json/MoshiReVoman;Ljava/lang/String;Lcom/salesforce/revoman/internal/postman/RegexReplacer;Ljava/util/Map;ILkotlin/jvm/internal/DefaultConstructorMarker;)V	CS2a	removed	journal-backed variable resolver
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK#public final fun evaluateJS (Ljava/lang/String;Ljava/util/Map;)Lorg/graalvm/polyglot/Value;	CS2a	removed	internal-runtime/PmSandbox
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK#public static synthetic fun evaluateJS$default (Lcom/salesforce/revoman/internal/postman/PostmanSDK;Ljava/lang/String;Ljava/util/Map;ILjava/lang/Object;)Lorg/graalvm/polyglot/Value;	CS2a	removed	internal-runtime/PmSandbox
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK#public final fun from (Lcom/salesforce/revoman/internal/postman/template/Request;)Lcom/salesforce/revoman/internal/postman/PostmanSDK$Request;	CS2a	removed	immutable request and response snapshots
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK#public final fun getCurrentStepReport ()Lcom/salesforce/revoman/output/report/StepReport;	CS2a	internalized	internal-runtime/PostmanExecutionState
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK#public final fun getInfo ()Lcom/salesforce/revoman/internal/postman/Info;	CS2a	removed	immutable request and response snapshots
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK#public final fun getRequest ()Lcom/salesforce/revoman/internal/postman/PostmanSDK$Request;	CS2a	removed	immutable request and response snapshots
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK#public final fun getResponse ()Lcom/salesforce/revoman/internal/postman/PostmanSDK$Response;	CS2a	removed	immutable request and response snapshots
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK#public final fun getRundown ()Lcom/salesforce/revoman/output/Rundown;	CS2a	internalized	internal-runtime/PostmanExecutionState
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK#public final fun jsonStrToObj (Ljava/lang/String;)Lorg/graalvm/polyglot/Value;	CS2a	removed	JsonPojoUtils.jsonToPojo then JsonCodec
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK#public final fun setCurrentStepReport (Lcom/salesforce/revoman/output/report/StepReport;)V	CS2a	internalized	internal-runtime/PostmanExecutionState
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK#public final fun setEnvironmentVariable (Ljava/lang/String;Ljava/lang/String;)V	CS2a	internalized	internal-runtime/PostmanExecutionState
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK#public final fun setInfo (Lcom/salesforce/revoman/internal/postman/Info;)V	CS2a	removed	immutable request and response snapshots
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK#public final fun setRequest (Lcom/salesforce/revoman/internal/postman/PostmanSDK$Request;)V	CS2a	removed	immutable request and response snapshots
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK#public final fun setResponse (Lcom/salesforce/revoman/internal/postman/PostmanSDK$Response;)V	CS2a	removed	immutable request and response snapshots
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK#public final fun setRundown (Lcom/salesforce/revoman/output/Rundown;)V	CS2a	internalized	internal-runtime/PostmanExecutionState
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK$JSEvaluator#public final class com/salesforce/revoman/internal/postman/PostmanSDK$JSEvaluator {	CS2a	removed	internal-runtime/PmSandbox
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK$JSEvaluator#public fun <init> (Lcom/salesforce/revoman/internal/postman/PostmanSDK;Ljava/lang/String;)V	CS2a	removed	internal-runtime/PmSandbox
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK$JSEvaluator#public synthetic fun <init> (Lcom/salesforce/revoman/internal/postman/PostmanSDK;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V	CS2a	removed	internal-runtime/PmSandbox
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK$Request#public final class com/salesforce/revoman/internal/postman/PostmanSDK$Request {	CS2a	removed	immutable request and response snapshots
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK$Request#public final field body Lcom/salesforce/revoman/internal/postman/template/Body;	CS2a	removed	immutable request and response snapshots
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK$Request#public final field event Ljava/util/List;	CS2a	removed	immutable request and response snapshots
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK$Request#public final field header Ljava/util/List;	CS2a	removed	immutable request and response snapshots
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK$Request#public final field method Ljava/lang/String;	CS2a	removed	immutable request and response snapshots
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK$Request#public final field url Lcom/salesforce/revoman/internal/postman/template/Url;	CS2a	removed	immutable request and response snapshots
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK$Request#public fun <init> (Lcom/salesforce/revoman/internal/postman/PostmanSDK;Ljava/lang/String;Ljava/util/List;Lcom/salesforce/revoman/internal/postman/template/Url;Lcom/salesforce/revoman/internal/postman/template/Body;Ljava/util/List;)V	CS2a	removed	immutable request and response snapshots
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK$Request#public synthetic fun <init> (Lcom/salesforce/revoman/internal/postman/PostmanSDK;Ljava/lang/String;Ljava/util/List;Lcom/salesforce/revoman/internal/postman/template/Url;Lcom/salesforce/revoman/internal/postman/template/Body;Ljava/util/List;ILkotlin/jvm/internal/DefaultConstructorMarker;)V	CS2a	removed	immutable request and response snapshots
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK$Request#public final fun copy (Ljava/util/List;Lcom/salesforce/revoman/internal/postman/template/Url;Lcom/salesforce/revoman/internal/postman/template/Body;)Lcom/salesforce/revoman/internal/postman/PostmanSDK$Request;	CS2a	removed	immutable request and response snapshots
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK$Request#public final fun json ()Lorg/graalvm/polyglot/Value;	CS2a	removed	immutable request and response snapshots
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK$Response#public final class com/salesforce/revoman/internal/postman/PostmanSDK$Response {	CS2a	removed	immutable request and response snapshots
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK$Response#public final field body Ljava/lang/String;	CS2a	removed	immutable request and response snapshots
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK$Response#public final field code I	CS2a	removed	immutable request and response snapshots
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK$Response#public final field status Ljava/lang/String;	CS2a	removed	immutable request and response snapshots
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK$Response#public fun <init> (Lcom/salesforce/revoman/internal/postman/PostmanSDK;ILjava/lang/String;Ljava/lang/String;)V	CS2a	removed	immutable request and response snapshots
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK$Response#public final fun json ()Lorg/graalvm/polyglot/Value;	CS2a	removed	immutable request and response snapshots
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK$Response#public final fun text ()Ljava/lang/String;	CS2a	removed	immutable request and response snapshots
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK$Variables#public final class com/salesforce/revoman/internal/postman/PostmanSDK$Variables {	CS2a	removed	VariableScopesView and callback-scoped editors
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK$Variables#public fun <init> (Lcom/salesforce/revoman/internal/postman/PostmanSDK;)V	CS2a	removed	VariableScopesView and callback-scoped editors
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK$Variables#public final fun get (Ljava/lang/String;)Ljava/lang/Object;	CS2a	removed	VariableScopesView and callback-scoped editors
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK$Variables#public final fun has (Ljava/lang/String;)Z	CS2a	removed	VariableScopesView and callback-scoped editors
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK$Variables#public final fun replaceIn (Ljava/lang/String;)Ljava/lang/String;	CS2a	removed	VariableScopesView and callback-scoped editors
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK$Variables#public final fun set (Ljava/lang/String;Ljava/lang/Object;)V	CS2a	removed	VariableScopesView and callback-scoped editors
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK$Variables#public final fun unset (Ljava/lang/String;)V	CS2a	removed	VariableScopesView and callback-scoped editors
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK$Xml2Json#public abstract interface class com/salesforce/revoman/internal/postman/PostmanSDK$Xml2Json {	CS2a	removed	JsonCodec
+kotlin	com/salesforce/revoman/internal/postman/PostmanSDK$Xml2Json#public abstract fun xml2Json (Ljava/lang/String;)Ljava/lang/Object;	CS2a	removed	JsonCodec
+kotlin	com/salesforce/revoman/internal/postman/RegexReplacer#public final class com/salesforce/revoman/internal/postman/RegexReplacer {	CS2a	removed	journal-backed variable resolver
+kotlin	com/salesforce/revoman/internal/postman/RegexReplacer#public static final field Companion Lcom/salesforce/revoman/internal/postman/RegexReplacer$Companion;	CS2a	removed	journal-backed variable resolver
+kotlin	com/salesforce/revoman/internal/postman/RegexReplacer#public fun <init> ()V	CS2a	removed	journal-backed variable resolver
+kotlin	com/salesforce/revoman/internal/postman/RegexReplacer#public fun <init> (Ljava/util/Map;Lkotlin/jvm/functions/Function2;)V	CS2a	removed	journal-backed variable resolver
+kotlin	com/salesforce/revoman/internal/postman/RegexReplacer#public synthetic fun <init> (Ljava/util/Map;Lkotlin/jvm/functions/Function2;ILkotlin/jvm/internal/DefaultConstructorMarker;)V	CS2a	removed	journal-backed variable resolver
+kotlin	com/salesforce/revoman/internal/postman/RegexReplacer$Companion#public final class com/salesforce/revoman/internal/postman/RegexReplacer$Companion {	CS2a	removed	journal-backed variable resolver
+java	com/salesforce/revoman/ReVoman$SequenceResult|CLASS|<class>|Lcom/salesforce/revoman/ReVoman$SequenceResult;|0x0019|0x0000	CS2a	internalized	internal-runtime/KickRunner sequence result
+java	com/salesforce/revoman/ReVoman$SequenceResult|CONSTRUCTOR|<init>|(Ljava/util/List;Lcom/salesforce/revoman/output/StopReason;)V|0x0019|0x0001	CS2a	internalized	internal-runtime/KickRunner sequence result
+java	com/salesforce/revoman/ReVoman$SequenceResult|METHOD|component1|()Ljava/util/List;|0x0019|0x0011	CS2a	internalized	internal-runtime/KickRunner sequence result
+java	com/salesforce/revoman/ReVoman$SequenceResult|METHOD|component2|()Lcom/salesforce/revoman/output/StopReason;|0x0019|0x0011	CS2a	internalized	internal-runtime/KickRunner sequence result
+java	com/salesforce/revoman/ReVoman$SequenceResult|METHOD|copy|(Ljava/util/List;Lcom/salesforce/revoman/output/StopReason;)Lcom/salesforce/revoman/ReVoman$SequenceResult;|0x0019|0x0011	CS2a	internalized	internal-runtime/KickRunner sequence result
+java	com/salesforce/revoman/ReVoman$SequenceResult|METHOD|copy$default|(Lcom/salesforce/revoman/ReVoman$SequenceResult;Ljava/util/List;Lcom/salesforce/revoman/output/StopReason;ILjava/lang/Object;)Lcom/salesforce/revoman/ReVoman$SequenceResult;|0x0019|0x1009	CS2a	internalized	internal-runtime/KickRunner sequence result
+java	com/salesforce/revoman/ReVoman$SequenceResult|METHOD|equals|(Ljava/lang/Object;)Z|0x0019|0x0001	CS2a	internalized	internal-runtime/KickRunner sequence result
+java	com/salesforce/revoman/ReVoman$SequenceResult|METHOD|getReports|()Ljava/util/List;|0x0019|0x0011	CS2a	internalized	internal-runtime/KickRunner sequence result
+java	com/salesforce/revoman/ReVoman$SequenceResult|METHOD|getStopReason|()Lcom/salesforce/revoman/output/StopReason;|0x0019|0x0011	CS2a	internalized	internal-runtime/KickRunner sequence result
+java	com/salesforce/revoman/ReVoman$SequenceResult|METHOD|hashCode|()I|0x0019|0x0001	CS2a	internalized	internal-runtime/KickRunner sequence result
+java	com/salesforce/revoman/ReVoman$SequenceResult|METHOD|toString|()Ljava/lang/String;|0x0019|0x0001	CS2a	internalized	internal-runtime/KickRunner sequence result
+java	com/salesforce/revoman/internal/postman/DynamicVariableGeneratorKt|METHOD|dynamicVariableGenerator|(Ljava/lang/String;Lcom/salesforce/revoman/internal/postman/PostmanSDK;)Ljava/lang/String;|0x0031|0x0019	CS2a	internalized	internal-runtime/LegacyRundownProgress dynamic generator
+java	com/salesforce/revoman/internal/postman/Info|CLASS|<class>|Lcom/salesforce/revoman/internal/postman/Info;|0x0031|0x0000	CS2a	removed	immutable request and response snapshots
+java	com/salesforce/revoman/internal/postman/Info|CONSTRUCTOR|<init>|(Ljava/lang/String;)V|0x0031|0x0001	CS2a	removed	immutable request and response snapshots
+java	com/salesforce/revoman/internal/postman/Info|FIELD|requestName|Ljava/lang/String;|0x0031|0x0011	CS2a	removed	immutable request and response snapshots
+java	com/salesforce/revoman/internal/postman/Info|METHOD|component1|()Ljava/lang/String;|0x0031|0x0011	CS2a	removed	immutable request and response snapshots
+java	com/salesforce/revoman/internal/postman/Info|METHOD|copy|(Ljava/lang/String;)Lcom/salesforce/revoman/internal/postman/Info;|0x0031|0x0011	CS2a	removed	immutable request and response snapshots
+java	com/salesforce/revoman/internal/postman/Info|METHOD|copy$default|(Lcom/salesforce/revoman/internal/postman/Info;Ljava/lang/String;ILjava/lang/Object;)Lcom/salesforce/revoman/internal/postman/Info;|0x0031|0x1009	CS2a	removed	immutable request and response snapshots
+java	com/salesforce/revoman/internal/postman/Info|METHOD|equals|(Ljava/lang/Object;)Z|0x0031|0x0001	CS2a	removed	immutable request and response snapshots
+java	com/salesforce/revoman/internal/postman/Info|METHOD|hashCode|()I|0x0031|0x0001	CS2a	removed	immutable request and response snapshots
+java	com/salesforce/revoman/internal/postman/Info|METHOD|toString|()Ljava/lang/String;|0x0031|0x0001	CS2a	removed	immutable request and response snapshots
+java	com/salesforce/revoman/internal/postman/PostmanSDK|CLASS|<class>|Lcom/salesforce/revoman/internal/postman/PostmanSDK;|0x0031|0x0000	CS2a	internalized	internal-runtime/PostmanExecutionState
+java	com/salesforce/revoman/internal/postman/PostmanSDK|CONSTRUCTOR|<init>|(Lcom/salesforce/revoman/internal/json/MoshiReVoman;Ljava/lang/String;Lcom/salesforce/revoman/internal/postman/RegexReplacer;Ljava/util/Map;)V|0x0031|0x0001	CS2a	removed	journal-backed variable resolver
+java	com/salesforce/revoman/internal/postman/PostmanSDK|CONSTRUCTOR|<init>|(Lcom/salesforce/revoman/internal/json/MoshiReVoman;Ljava/lang/String;Lcom/salesforce/revoman/internal/postman/RegexReplacer;Ljava/util/Map;ILkotlin/jvm/internal/DefaultConstructorMarker;)V|0x0031|0x1001	CS2a	removed	journal-backed variable resolver
+java	com/salesforce/revoman/internal/postman/PostmanSDK|FIELD|collectionVariables|Lcom/salesforce/revoman/output/postman/PostmanEnvironment;|0x0031|0x0011	CS2a	internalized	internal-runtime/PostmanExecutionState
+java	com/salesforce/revoman/internal/postman/PostmanSDK|FIELD|currentStepReport|Lcom/salesforce/revoman/output/report/StepReport;|0x0031|0x0001	CS2a	internalized	internal-runtime/PostmanExecutionState
+java	com/salesforce/revoman/internal/postman/PostmanSDK|FIELD|environment|Lcom/salesforce/revoman/output/postman/PostmanEnvironment;|0x0031|0x0011	CS2a	internalized	internal-runtime/PostmanExecutionState
+java	com/salesforce/revoman/internal/postman/PostmanSDK|FIELD|environmentName|Ljava/lang/String;|0x0031|0x0001	CS2a	internalized	internal-runtime/PostmanExecutionState
+java	com/salesforce/revoman/internal/postman/PostmanSDK|FIELD|globals|Lcom/salesforce/revoman/output/postman/PostmanEnvironment;|0x0031|0x0011	CS2a	internalized	internal-runtime/PostmanExecutionState
+java	com/salesforce/revoman/internal/postman/PostmanSDK|FIELD|info|Lcom/salesforce/revoman/internal/postman/Info;|0x0031|0x0001	CS2a	removed	immutable request and response snapshots
+java	com/salesforce/revoman/internal/postman/PostmanSDK|FIELD|request|Lcom/salesforce/revoman/internal/postman/PostmanSDK$Request;|0x0031|0x0001	CS2a	removed	immutable request and response snapshots
+java	com/salesforce/revoman/internal/postman/PostmanSDK|FIELD|response|Lcom/salesforce/revoman/internal/postman/PostmanSDK$Response;|0x0031|0x0001	CS2a	removed	immutable request and response snapshots
+java	com/salesforce/revoman/internal/postman/PostmanSDK|FIELD|rundown|Lcom/salesforce/revoman/output/Rundown;|0x0031|0x0001	CS2a	internalized	internal-runtime/PostmanExecutionState
+java	com/salesforce/revoman/internal/postman/PostmanSDK|FIELD|variables|Lcom/salesforce/revoman/internal/postman/PostmanSDK$Variables;|0x0031|0x0011	CS2a	removed	VariableScopesView and callback-scoped editors
+java	com/salesforce/revoman/internal/postman/PostmanSDK|FIELD|xml2Json|Lcom/salesforce/revoman/internal/postman/PostmanSDK$Xml2Json;|0x0031|0x0011	CS2a	removed	JsonCodec
+java	com/salesforce/revoman/internal/postman/PostmanSDK|METHOD|evaluateJS|(Ljava/lang/String;Ljava/util/Map;)Lorg/graalvm/polyglot/Value;|0x0031|0x0011	CS2a	removed	internal-runtime/PmSandbox
+java	com/salesforce/revoman/internal/postman/PostmanSDK|METHOD|evaluateJS$default|(Lcom/salesforce/revoman/internal/postman/PostmanSDK;Ljava/lang/String;Ljava/util/Map;ILjava/lang/Object;)Lorg/graalvm/polyglot/Value;|0x0031|0x1009	CS2a	removed	internal-runtime/PmSandbox
+java	com/salesforce/revoman/internal/postman/PostmanSDK|METHOD|from|(Lcom/salesforce/revoman/internal/postman/template/Request;)Lcom/salesforce/revoman/internal/postman/PostmanSDK$Request;|0x0031|0x0011	CS2a	removed	immutable request and response snapshots
+java	com/salesforce/revoman/internal/postman/PostmanSDK|METHOD|getCurrentStepReport|()Lcom/salesforce/revoman/output/report/StepReport;|0x0031|0x0011	CS2a	internalized	internal-runtime/PostmanExecutionState
+java	com/salesforce/revoman/internal/postman/PostmanSDK|METHOD|getInfo|()Lcom/salesforce/revoman/internal/postman/Info;|0x0031|0x0011	CS2a	removed	immutable request and response snapshots
+java	com/salesforce/revoman/internal/postman/PostmanSDK|METHOD|getRegexReplacer$com_salesforce_revoman_revoman|()Lcom/salesforce/revoman/internal/postman/RegexReplacer;|0x0031|0x0011	CS2a	removed	journal-backed variable resolver
+java	com/salesforce/revoman/internal/postman/PostmanSDK|METHOD|getRequest|()Lcom/salesforce/revoman/internal/postman/PostmanSDK$Request;|0x0031|0x0011	CS2a	removed	immutable request and response snapshots
+java	com/salesforce/revoman/internal/postman/PostmanSDK|METHOD|getResponse|()Lcom/salesforce/revoman/internal/postman/PostmanSDK$Response;|0x0031|0x0011	CS2a	removed	immutable request and response snapshots
+java	com/salesforce/revoman/internal/postman/PostmanSDK|METHOD|getRundown|()Lcom/salesforce/revoman/output/Rundown;|0x0031|0x0011	CS2a	internalized	internal-runtime/PostmanExecutionState
+java	com/salesforce/revoman/internal/postman/PostmanSDK|METHOD|getVariables$annotations|()V|0x0031|0x1009	CS2a	internalized	internal-runtime/PostmanExecutionState
+java	com/salesforce/revoman/internal/postman/PostmanSDK|METHOD|hasScopedValue$com_salesforce_revoman_revoman|(Ljava/lang/String;)Z|0x0031|0x0011	CS2a	internalized	internal-runtime/PostmanExecutionState
+java	com/salesforce/revoman/internal/postman/PostmanSDK|METHOD|jsonStrToObj|(Ljava/lang/String;)Lorg/graalvm/polyglot/Value;|0x0031|0x0011	CS2a	removed	JsonPojoUtils.jsonToPojo then JsonCodec
+java	com/salesforce/revoman/internal/postman/PostmanSDK|METHOD|nextRequestFor$com_salesforce_revoman_revoman|(Lcom/salesforce/revoman/output/report/Step;)Ljava/lang/String;|0x0031|0x0011	CS2a	internalized	internal-runtime/PostmanExecutionState
+java	com/salesforce/revoman/internal/postman/PostmanSDK|METHOD|nextRequestSetFor$com_salesforce_revoman_revoman|(Lcom/salesforce/revoman/output/report/Step;)Z|0x0031|0x0011	CS2a	internalized	internal-runtime/PostmanExecutionState
+java	com/salesforce/revoman/internal/postman/PostmanSDK|METHOD|pmTestAssertionsFor$com_salesforce_revoman_revoman|(Lcom/salesforce/revoman/output/report/Step;)Ljava/util/List;|0x0031|0x0011	CS2a	internalized	internal-runtime/PostmanExecutionState
+java	com/salesforce/revoman/internal/postman/PostmanSDK|METHOD|recordNextRequest$com_salesforce_revoman_revoman|(Lcom/salesforce/revoman/output/report/Step;Ljava/lang/String;Z)V|0x0031|0x0011	CS2a	internalized	internal-runtime/PostmanExecutionState
+java	com/salesforce/revoman/internal/postman/PostmanSDK|METHOD|recordPmTestAssertions$com_salesforce_revoman_revoman|(Lcom/salesforce/revoman/output/report/Step;Ljava/util/List;)V|0x0031|0x0011	CS2a	internalized	internal-runtime/PostmanExecutionState
+java	com/salesforce/revoman/internal/postman/PostmanSDK|METHOD|recordSkipRequest$com_salesforce_revoman_revoman|(Lcom/salesforce/revoman/output/report/Step;)V|0x0031|0x0011	CS2a	internalized	internal-runtime/PostmanExecutionState
+java	com/salesforce/revoman/internal/postman/PostmanSDK|METHOD|resetCaptureForStep$com_salesforce_revoman_revoman|(Lcom/salesforce/revoman/output/report/Step;)V|0x0031|0x0011	CS2a	internalized	internal-runtime/PostmanExecutionState
+java	com/salesforce/revoman/internal/postman/PostmanSDK|METHOD|resolveScopedValue$com_salesforce_revoman_revoman|(Ljava/lang/String;)Ljava/lang/Object;|0x0031|0x0011	CS2a	internalized	internal-runtime/PostmanExecutionState
+java	com/salesforce/revoman/internal/postman/PostmanSDK|METHOD|scopeForKey$com_salesforce_revoman_revoman|(Ljava/lang/String;)Lcom/salesforce/revoman/output/postman/PostmanEnvironment;|0x0031|0x0011	CS2a	internalized	internal-runtime/PostmanExecutionState
+java	com/salesforce/revoman/internal/postman/PostmanSDK|METHOD|setCurrentStepReport|(Lcom/salesforce/revoman/output/report/StepReport;)V|0x0031|0x0011	CS2a	internalized	internal-runtime/PostmanExecutionState
+java	com/salesforce/revoman/internal/postman/PostmanSDK|METHOD|setEnvironmentVariable|(Ljava/lang/String;Ljava/lang/String;)V|0x0031|0x0011	CS2a	internalized	internal-runtime/PostmanExecutionState
+java	com/salesforce/revoman/internal/postman/PostmanSDK|METHOD|setInfo|(Lcom/salesforce/revoman/internal/postman/Info;)V|0x0031|0x0011	CS2a	removed	immutable request and response snapshots
+java	com/salesforce/revoman/internal/postman/PostmanSDK|METHOD|setRequest|(Lcom/salesforce/revoman/internal/postman/PostmanSDK$Request;)V|0x0031|0x0011	CS2a	removed	immutable request and response snapshots
+java	com/salesforce/revoman/internal/postman/PostmanSDK|METHOD|setRequest$com_salesforce_revoman_revoman|(Lcom/salesforce/revoman/internal/postman/PostmanSDK$Request;)V|0x0031|0x0011	CS2a	removed	immutable request and response snapshots
+java	com/salesforce/revoman/internal/postman/PostmanSDK|METHOD|setRequestAndResponse$com_salesforce_revoman_revoman|(Lcom/salesforce/revoman/internal/postman/PostmanSDK$Request;Lorg/http4k/core/Response;)V|0x0031|0x0011	CS2a	removed	immutable request and response snapshots
+java	com/salesforce/revoman/internal/postman/PostmanSDK|METHOD|setResponse|(Lcom/salesforce/revoman/internal/postman/PostmanSDK$Response;)V|0x0031|0x0011	CS2a	removed	immutable request and response snapshots
+java	com/salesforce/revoman/internal/postman/PostmanSDK|METHOD|setResponse$com_salesforce_revoman_revoman|(ILjava/lang/String;Ljava/lang/String;)V|0x0031|0x0011	CS2a	internalized	internal-runtime/PostmanExecutionState
+java	com/salesforce/revoman/internal/postman/PostmanSDK|METHOD|setResponse$com_salesforce_revoman_revoman|(Lorg/http4k/core/Response;)V|0x0031|0x0011	CS2a	internalized	internal-runtime/PostmanExecutionState
+java	com/salesforce/revoman/internal/postman/PostmanSDK|METHOD|setRundown|(Lcom/salesforce/revoman/output/Rundown;)V|0x0031|0x0011	CS2a	internalized	internal-runtime/PostmanExecutionState
+java	com/salesforce/revoman/internal/postman/PostmanSDK|METHOD|skipRequestFor$com_salesforce_revoman_revoman|(Lcom/salesforce/revoman/output/report/Step;)Z|0x0031|0x0011	CS2a	internalized	internal-runtime/PostmanExecutionState
+java	com/salesforce/revoman/internal/postman/PostmanSDK|METHOD|syncProgress$com_salesforce_revoman_revoman|(Lcom/salesforce/revoman/output/report/StepReport;)V|0x0031|0x0011	CS2a	internalized	internal-runtime/PostmanExecutionState
+java	com/salesforce/revoman/internal/postman/PostmanSDK$JSEvaluator|CLASS|<class>|Lcom/salesforce/revoman/internal/postman/PostmanSDK$JSEvaluator;|0x0011|0x0000	CS2a	removed	internal-runtime/PmSandbox
+java	com/salesforce/revoman/internal/postman/PostmanSDK$JSEvaluator|CONSTRUCTOR|<init>|(Lcom/salesforce/revoman/internal/postman/PostmanSDK;Ljava/lang/String;)V|0x0011|0x0001	CS2a	removed	internal-runtime/PmSandbox
+java	com/salesforce/revoman/internal/postman/PostmanSDK$JSEvaluator|CONSTRUCTOR|<init>|(Lcom/salesforce/revoman/internal/postman/PostmanSDK;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V|0x0011|0x1001	CS2a	removed	internal-runtime/PmSandbox
+java	com/salesforce/revoman/internal/postman/PostmanSDK$JSEvaluator|FIELD|this$0|Lcom/salesforce/revoman/internal/postman/PostmanSDK;|0x0011|0x1010	CS2a	removed	internal-runtime/PmSandbox
+java	com/salesforce/revoman/internal/postman/PostmanSDK$JSEvaluator|METHOD|evaluateJS$com_salesforce_revoman_revoman|(Ljava/lang/String;Ljava/util/Map;)Lorg/graalvm/polyglot/Value;|0x0011|0x0011	CS2a	removed	internal-runtime/PmSandbox
+java	com/salesforce/revoman/internal/postman/PostmanSDK$JSEvaluator|METHOD|evaluateJS$com_salesforce_revoman_revoman$default|(Lcom/salesforce/revoman/internal/postman/PostmanSDK$JSEvaluator;Ljava/lang/String;Ljava/util/Map;ILjava/lang/Object;)Lorg/graalvm/polyglot/Value;|0x0011|0x1009	CS2a	removed	internal-runtime/PmSandbox
+java	com/salesforce/revoman/internal/postman/PostmanSDK$Request|CLASS|<class>|Lcom/salesforce/revoman/internal/postman/PostmanSDK$Request;|0x0011|0x0000	CS2a	removed	immutable request and response snapshots
+java	com/salesforce/revoman/internal/postman/PostmanSDK$Request|CONSTRUCTOR|<init>|(Lcom/salesforce/revoman/internal/postman/PostmanSDK;Ljava/lang/String;Ljava/util/List;Lcom/salesforce/revoman/internal/postman/template/Url;Lcom/salesforce/revoman/internal/postman/template/Body;Ljava/util/List;)V|0x0011|0x0001	CS2a	removed	immutable request and response snapshots
+java	com/salesforce/revoman/internal/postman/PostmanSDK$Request|CONSTRUCTOR|<init>|(Lcom/salesforce/revoman/internal/postman/PostmanSDK;Ljava/lang/String;Ljava/util/List;Lcom/salesforce/revoman/internal/postman/template/Url;Lcom/salesforce/revoman/internal/postman/template/Body;Ljava/util/List;ILkotlin/jvm/internal/DefaultConstructorMarker;)V|0x0011|0x1001	CS2a	removed	immutable request and response snapshots
+java	com/salesforce/revoman/internal/postman/PostmanSDK$Request|FIELD|body|Lcom/salesforce/revoman/internal/postman/template/Body;|0x0011|0x0011	CS2a	removed	immutable request and response snapshots
+java	com/salesforce/revoman/internal/postman/PostmanSDK$Request|FIELD|event|Ljava/util/List;|0x0011|0x0011	CS2a	removed	immutable request and response snapshots
+java	com/salesforce/revoman/internal/postman/PostmanSDK$Request|FIELD|header|Ljava/util/List;|0x0011|0x0011	CS2a	removed	immutable request and response snapshots
+java	com/salesforce/revoman/internal/postman/PostmanSDK$Request|FIELD|method|Ljava/lang/String;|0x0011|0x0011	CS2a	removed	immutable request and response snapshots
+java	com/salesforce/revoman/internal/postman/PostmanSDK$Request|FIELD|this$0|Lcom/salesforce/revoman/internal/postman/PostmanSDK;|0x0011|0x1010	CS2a	removed	immutable request and response snapshots
+java	com/salesforce/revoman/internal/postman/PostmanSDK$Request|FIELD|url|Lcom/salesforce/revoman/internal/postman/template/Url;|0x0011|0x0011	CS2a	removed	immutable request and response snapshots
+java	com/salesforce/revoman/internal/postman/PostmanSDK$Request|METHOD|copy|(Ljava/util/List;Lcom/salesforce/revoman/internal/postman/template/Url;Lcom/salesforce/revoman/internal/postman/template/Body;)Lcom/salesforce/revoman/internal/postman/PostmanSDK$Request;|0x0011|0x0011	CS2a	removed	immutable request and response snapshots
+java	com/salesforce/revoman/internal/postman/PostmanSDK$Request|METHOD|json|()Lorg/graalvm/polyglot/Value;|0x0011|0x0011	CS2a	removed	immutable request and response snapshots
+java	com/salesforce/revoman/internal/postman/PostmanSDK$Response|CLASS|<class>|Lcom/salesforce/revoman/internal/postman/PostmanSDK$Response;|0x0011|0x0000	CS2a	removed	immutable request and response snapshots
+java	com/salesforce/revoman/internal/postman/PostmanSDK$Response|CONSTRUCTOR|<init>|(Lcom/salesforce/revoman/internal/postman/PostmanSDK;ILjava/lang/String;Ljava/lang/String;)V|0x0011|0x0001	CS2a	removed	immutable request and response snapshots
+java	com/salesforce/revoman/internal/postman/PostmanSDK$Response|FIELD|body|Ljava/lang/String;|0x0011|0x0011	CS2a	removed	immutable request and response snapshots
+java	com/salesforce/revoman/internal/postman/PostmanSDK$Response|FIELD|code|I|0x0011|0x0011	CS2a	removed	immutable request and response snapshots
+java	com/salesforce/revoman/internal/postman/PostmanSDK$Response|FIELD|status|Ljava/lang/String;|0x0011|0x0011	CS2a	removed	immutable request and response snapshots
+java	com/salesforce/revoman/internal/postman/PostmanSDK$Response|FIELD|this$0|Lcom/salesforce/revoman/internal/postman/PostmanSDK;|0x0011|0x1010	CS2a	removed	immutable request and response snapshots
+java	com/salesforce/revoman/internal/postman/PostmanSDK$Response|METHOD|json|()Lorg/graalvm/polyglot/Value;|0x0011|0x0011	CS2a	removed	immutable request and response snapshots
+java	com/salesforce/revoman/internal/postman/PostmanSDK$Response|METHOD|text|()Ljava/lang/String;|0x0011|0x0011	CS2a	removed	immutable request and response snapshots
+java	com/salesforce/revoman/internal/postman/PostmanSDK$Variables|CLASS|<class>|Lcom/salesforce/revoman/internal/postman/PostmanSDK$Variables;|0x0011|0x0000	CS2a	removed	VariableScopesView and callback-scoped editors
+java	com/salesforce/revoman/internal/postman/PostmanSDK$Variables|CONSTRUCTOR|<init>|(Lcom/salesforce/revoman/internal/postman/PostmanSDK;)V|0x0011|0x0001	CS2a	removed	VariableScopesView and callback-scoped editors
+java	com/salesforce/revoman/internal/postman/PostmanSDK$Variables|FIELD|this$0|Lcom/salesforce/revoman/internal/postman/PostmanSDK;|0x0011|0x1010	CS2a	removed	VariableScopesView and callback-scoped editors
+java	com/salesforce/revoman/internal/postman/PostmanSDK$Variables|METHOD|get|(Ljava/lang/String;)Ljava/lang/Object;|0x0011|0x0011	CS2a	removed	VariableScopesView and callback-scoped editors
+java	com/salesforce/revoman/internal/postman/PostmanSDK$Variables|METHOD|has|(Ljava/lang/String;)Z|0x0011|0x0011	CS2a	removed	VariableScopesView and callback-scoped editors
+java	com/salesforce/revoman/internal/postman/PostmanSDK$Variables|METHOD|replaceIn|(Ljava/lang/String;)Ljava/lang/String;|0x0011|0x0011	CS2a	removed	VariableScopesView and callback-scoped editors
+java	com/salesforce/revoman/internal/postman/PostmanSDK$Variables|METHOD|set|(Ljava/lang/String;Ljava/lang/Object;)V|0x0011|0x0011	CS2a	removed	VariableScopesView and callback-scoped editors
+java	com/salesforce/revoman/internal/postman/PostmanSDK$Variables|METHOD|unset|(Ljava/lang/String;)V|0x0011|0x0011	CS2a	removed	VariableScopesView and callback-scoped editors
+java	com/salesforce/revoman/internal/postman/PostmanSDK$Xml2Json|CLASS|<class>|Lcom/salesforce/revoman/internal/postman/PostmanSDK$Xml2Json;|0x0609|0x0000	CS2a	removed	JsonCodec
+java	com/salesforce/revoman/internal/postman/PostmanSDK$Xml2Json|METHOD|xml2Json|(Ljava/lang/String;)Ljava/lang/Object;|0x0609|0x0401	CS2a	removed	JsonCodec
+java	com/salesforce/revoman/internal/postman/RegexReplacer|CLASS|<class>|Lcom/salesforce/revoman/internal/postman/RegexReplacer;|0x0031|0x0000	CS2a	removed	journal-backed variable resolver
+java	com/salesforce/revoman/internal/postman/RegexReplacer|CONSTRUCTOR|<init>|()V|0x0031|0x0001	CS2a	removed	journal-backed variable resolver
+java	com/salesforce/revoman/internal/postman/RegexReplacer|CONSTRUCTOR|<init>|(Ljava/util/Map;Lkotlin/jvm/functions/Function2;)V|0x0031|0x0001	CS2a	removed	journal-backed variable resolver
+java	com/salesforce/revoman/internal/postman/RegexReplacer|CONSTRUCTOR|<init>|(Ljava/util/Map;Lkotlin/jvm/functions/Function2;ILkotlin/jvm/internal/DefaultConstructorMarker;)V|0x0031|0x1001	CS2a	removed	journal-backed variable resolver
+java	com/salesforce/revoman/internal/postman/RegexReplacer|FIELD|Companion|Lcom/salesforce/revoman/internal/postman/RegexReplacer$Companion;|0x0031|0x0019	CS2a	removed	journal-backed variable resolver
+java	com/salesforce/revoman/internal/postman/RegexReplacer|METHOD|replaceVariablesInEnv$com_salesforce_revoman_revoman|(Lcom/salesforce/revoman/internal/postman/PostmanSDK;)Ljava/util/Map;|0x0031|0x0011	CS2a	removed	journal-backed variable resolver
+java	com/salesforce/revoman/internal/postman/RegexReplacer|METHOD|replaceVariablesInPmItem$com_salesforce_revoman_revoman|(Lcom/salesforce/revoman/internal/postman/template/Item;Lcom/salesforce/revoman/internal/postman/PostmanSDK;)Lcom/salesforce/revoman/internal/postman/template/Item;|0x0031|0x0011	CS2a	removed	journal-backed variable resolver
+java	com/salesforce/revoman/internal/postman/RegexReplacer|METHOD|replaceVariablesInRequestRecursively$com_salesforce_revoman_revoman|(Lcom/salesforce/revoman/internal/postman/template/Request;Lcom/salesforce/revoman/internal/postman/PostmanSDK;)Lcom/salesforce/revoman/internal/postman/template/Request;|0x0031|0x0011	CS2a	removed	journal-backed variable resolver
+java	com/salesforce/revoman/internal/postman/RegexReplacer|METHOD|replaceVariablesRecursively$com_salesforce_revoman_revoman|(Ljava/lang/String;Lcom/salesforce/revoman/internal/postman/PostmanSDK;)Ljava/lang/String;|0x0031|0x0011	CS2a	removed	journal-backed variable resolver
+java	com/salesforce/revoman/internal/postman/RegexReplacer$Companion|CLASS|<class>|Lcom/salesforce/revoman/internal/postman/RegexReplacer$Companion;|0x0019|0x0000	CS2a	removed	journal-backed variable resolver
+java	com/salesforce/revoman/internal/postman/RegexReplacer$Companion|CONSTRUCTOR|<init>|(Lkotlin/jvm/internal/DefaultConstructorMarker;)V|0x0019|0x1001	CS2a	removed	journal-backed variable resolver
+java	com/salesforce/revoman/internal/postman/RegexReplacer$Companion|METHOD|access$setItBackInEnvironment|(Lcom/salesforce/revoman/internal/postman/RegexReplacer$Companion;Ljava/lang/String;Ljava/lang/String;Lcom/salesforce/revoman/internal/postman/PostmanSDK;)V|0x0019|0x1019	CS2a	removed	journal-backed variable resolver
+behavior	PostmanSDK.aggregate	CS2a	internalized	ExecutionSession and KickExecution owned transitional state
+behavior	PostmanSDK.legacyEvaluator	CS2a	removed	real PmSandbox
+behavior	Kick.nodeModulesPath	CS2a	deprecated	vendored Postman sandbox modules; value ignored
+behavior	execution.publicBoundary	CS2a	replaced	one ExecutionSession per outermost revUp
+behavior	execution.resourceCleanup	CS2a	replaced	ResourceScope reverse-order deterministic close
+behavior	sandbox.bootSource	CS2a	replaced	one retained immutable boot Source per engine lifecycle
+behavior	Step.deepIdentity	CS2b	replaced	execution-local StepId
+behavior	Ledger.pathOnlyIdentity	CS2b	replaced	versioned LedgerStepKey
+behavior	Step.rawPMStep	CS2b	removed	StepDescriptor and lightweight request metadata
+behavior	controlFlow.linearTargetScan	CS2b	replaced	precomputed jump-target index
+behavior	TxnInfo.liveHttpMessage	CS2b	replaced	HttpRequestSnapshot and HttpResponseSnapshot
+behavior	Moshi.perCallRegistryMutation	CS2c	removed	immutable JsonCodec and explicit one-off JsonAdapter
+behavior	Moshi.reusableDerivedAdapters	CS2c	replaced	environment.codec.withAdapters immutable derived codec
+behavior	FrozenValue.numericNormalization	CS2c	replaced	BigInteger and BigDecimal first with Int Long BigInteger Decimal normalization
+behavior	RunLogSink.undeclaredCapabilities	CS2d	replaced	immutable RunLogCapabilities
+behavior	RunLogSink.implicitAttachment	CS2d	replaced	EXCLUSIVE or CONCURRENT_SAFE attachment policy
+behavior	RunLogSink.missingFlushBoundary	CS2d	replaced	flush(boundary)
+behavior	RunLogSink.NoOpInstalled	CS2d	removed	no sink installation when capabilities are empty
+behavior	FileRunLogSink.perLineFlush	CS2d	removed	STEP_BOUNDARY or CLOSE_ONLY flush
+behavior	FileRunLogSink.duplicateSummaryRewrite	CS2d	removed	single footer summary
+behavior	PostmanEnvironment.fullScopeSynchronization	CS3	replaced	cause-tagged changed/read journals with phase barriers
+behavior	sandbox.hostGuestPhaseBoundary	CS3	replaced	explicit bidirectional set and unset barrier after every phase
+behavior	sandbox.unboundedExecution	CS3	bounded	SandboxBudget wall-clock timer and event-loop limits
+behavior	PostmanEnvironment.directConstruction	CS4	removed	VariableScopesView VariableScopeEditor VariableScopesSnapshot
+behavior	PostmanEnvironment.mapDelegation	CS4	removed	purpose-specific scope views and callback-scoped editors
+behavior	PostmanEnvironment.copyQueryJsonHelpers	CS4	removed	scope views plus explicit JsonCodec helpers
+behavior	Rundown.mutableEnv	CS4	removed	immutable VariableScopesSnapshot
+behavior	Rundown.collectionVariables	CS4	replaced	immutable final VariableScopesSnapshot
+behavior	Rundown.globals	CS4	replaced	immutable final VariableScopesSnapshot
+behavior	hooks.mutableRundown	CS4	removed	RunProgress plus explicit VariableScopeEditors
+behavior	PostExeHook.mutableCurrentRundown	CS4	removed	PostExecutionContext before finalization
+behavior	PostExeHook.accumulatedCurrentRundown	CS4	removed	priorRundowns plus progress.snapshot
+behavior	picks.mutableRundown	CS4	removed	purpose-specific read-only context
+behavior	dynamicVariableGenerator.mutableRundown	CS4	removed	purpose-specific read-only context and scoped editor
+behavior	StepEnvVars	CS4	removed	StepEnvironmentEffects
+behavior	StepReport.fullEnvironmentRetention	CS4	removed	touched-value StepEnvironmentEffects
+behavior	TxnInfo.txnObj	CS4	removed	on-demand decode from immutable HTTP snapshot
+behavior	TxnInfo.embeddedMoshiReVoman	CS4	removed	explicit JsonCodec or JsonAdapter
+behavior	execution.unboundedHistory	CS4	removed	optional bounded or streaming ExecutionTrace
+behavior	ledger.producedConsumedTracking	CS4	replaced	journal-derived produced consumed unset reused effects
+behavior	polling.mutableCallbacks	CS5	removed	purpose-specific read-only polling context
+behavior	PollingReport.unboundedHistory	CS5	bounded	terminalResponse statusCounts and bounded recentResponses
+behavior	polling.finalSleep	CS5	removed	absolute monotonic deadline
+behavior	polling.inFlightRequest	CS5	bounded	deadline-aware cancellable transport handle
+behavior	InputStream.reusableConfiguration	CS6	removed	reopenable InputSource or immutable bytes
+behavior	executionInput.reopenDuringRun	CS6	removed	execution-scoped immutable ExecutionInputs snapshot
+behavior	executionInput.crossExecutionParsedCache	CS6	removed	fresh snapshot per top-level execution; no initial cross-run cache
+behavior	classpathJar.unboundedFileSystemRegistry	CS6	replaced	reference-counted resolver leases
+json	Rundown:<absent>:/schemaVersion	CS4	versioned	RundownV2:/schemaVersion
+json	Rundown:/providedStepsToExecuteCount	CS4	retained	RundownV2:/providedStepsToExecuteCount
+json	Rundown:/executedStepCount	CS4	retained	RundownV2:/executedStepCount
+json	Rundown:/httpFailureStepCount	CS4	retained	RundownV2:/httpFailureStepCount
+json	Rundown:/unsuccessfulStepCount	CS4	retained	RundownV2:/unsuccessfulStepCount
+json	Rundown:/executionFailureStepCount	CS4	retained	RundownV2:/executionFailureStepCount
+json	Rundown:/areAllStepsSuccessful	CS4	retained	RundownV2:/areAllStepsSuccessful
+json	Rundown:/areAllStepsExceptIgnoredSuccessful	CS4	retained	RundownV2:/areAllStepsExceptIgnoredSuccessful
+json	Rundown:/firstUnsuccessfulStepReport	CS4	replaced	RundownV2:/firstUnsuccessfulStepReport
+json	Rundown:/stepReports	CS4	replaced	RundownV2:/stepReports
+json	Rundown:<absent>:/finalScopes	CS4	versioned	RundownV2:/finalScopes
+json	Rundown:/environment	CS4	replaced	RundownV2:/finalScopes/environment
+json	Rundown:<absent>:/finalScopes/collectionVariables	CS4	versioned	RundownV2:/finalScopes/collectionVariables
+json	Rundown:<absent>:/finalScopes/globals	CS4	versioned	RundownV2:/finalScopes/globals
+json	StepSummary:/firstUnsuccessfulStepReport/index	CS4	retained	StepSummaryV2:/firstUnsuccessfulStepReport/index
+json	StepSummary:/firstUnsuccessfulStepReport/name	CS4	retained	StepSummaryV2:/firstUnsuccessfulStepReport/name
+json	StepSummary:/firstUnsuccessfulStepReport/isSuccessful	CS4	retained	StepSummaryV2:/firstUnsuccessfulStepReport/isSuccessful
+json	StepSummary:/firstUnsuccessfulStepReport/failure	CS4	replaced	StepSummaryV2:/firstUnsuccessfulStepReport/failure
+json	StepReport:/stepReports/*/index	CS4	retained	StepReportV2:/stepReports/*/index
+json	StepReport:/stepReports/*/name	CS4	retained	StepReportV2:/stepReports/*/name
+json	StepReport:/stepReports/*/displayName	CS4	retained	StepReportV2:/stepReports/*/displayName
+json	StepReport:/stepReports/*/isSuccessful	CS4	retained	StepReportV2:/stepReports/*/isSuccessful
+json	StepReport:/stepReports/*/isHttpStatusSuccessful	CS4	retained	StepReportV2:/stepReports/*/isHttpStatusSuccessful
+json	StepReport:/stepReports/*/request	CS4	replaced	StepReportV2:/stepReports/*/request
+json	StepReport:/stepReports/*/request/method	CS4	retained	StepReportV2:/stepReports/*/request/method
+json	StepReport:/stepReports/*/request/uri	CS4	retained	StepReportV2:/stepReports/*/request/uri
+json	StepReport:<absent>:/stepReports/*/request/protocol	CS4	versioned	StepReportV2:/stepReports/*/request/protocol
+json	StepReport:/stepReports/*/request/headers	CS4	replaced	StepReportV2:/stepReports/*/request/headers
+json	StepReport:/stepReports/*/request/headers/<object-key>	CS4	replaced	StepReportV2:/stepReports/*/request/headers/*/name
+json	StepReport:/stepReports/*/request/headers/<object-value>	CS4	replaced	StepReportV2:/stepReports/*/request/headers/*/value
+json	StepReport:/stepReports/*/request/body	CS4	replaced	StepReportV2:/stepReports/*/request/body
+json	StepReport:<absent>:/stepReports/*/request/body/base64	CS4	versioned	StepReportV2:/stepReports/*/request/body/base64
+json	StepReport:<absent>:/stepReports/*/request/body/length	CS4	versioned	StepReportV2:/stepReports/*/request/body/length
+json	StepReport:<absent>:/stepReports/*/request/body/mediaType	CS4	versioned	StepReportV2:/stepReports/*/request/body/mediaType
+json	StepReport:/stepReports/*/response	CS4	replaced	StepReportV2:/stepReports/*/response
+json	StepReport:/stepReports/*/response/statusCode	CS4	retained	StepReportV2:/stepReports/*/response/statusCode
+json	StepReport:/stepReports/*/response/statusDescription	CS4	retained	StepReportV2:/stepReports/*/response/statusDescription
+json	StepReport:<absent>:/stepReports/*/response/protocol	CS4	versioned	StepReportV2:/stepReports/*/response/protocol
+json	StepReport:/stepReports/*/response/headers	CS4	replaced	StepReportV2:/stepReports/*/response/headers
+json	StepReport:/stepReports/*/response/headers/<object-key>	CS4	replaced	StepReportV2:/stepReports/*/response/headers/*/name
+json	StepReport:/stepReports/*/response/headers/<object-value>	CS4	replaced	StepReportV2:/stepReports/*/response/headers/*/value
+json	StepReport:/stepReports/*/response/body	CS4	replaced	StepReportV2:/stepReports/*/response/body
+json	StepReport:<absent>:/stepReports/*/response/body/base64	CS4	versioned	StepReportV2:/stepReports/*/response/body/base64
+json	StepReport:<absent>:/stepReports/*/response/body/length	CS4	versioned	StepReportV2:/stepReports/*/response/body/length
+json	StepReport:<absent>:/stepReports/*/response/body/mediaType	CS4	versioned	StepReportV2:/stepReports/*/response/body/mediaType
+json	StepReport:/stepReports/*/failure	CS4	replaced	StepReportV2:/stepReports/*/failure
+json	FailureDescriptor:/firstUnsuccessfulStepReport/failure/type	CS4	replaced	FailureDescriptorV2:/firstUnsuccessfulStepReport/failure/type
+json	FailureDescriptor:<absent>:/firstUnsuccessfulStepReport/failure/phase	CS4	versioned	FailureDescriptorV2:/firstUnsuccessfulStepReport/failure/phase
+json	FailureDescriptor:<absent>:/firstUnsuccessfulStepReport/failure/stage	CS4	versioned	FailureDescriptorV2:/firstUnsuccessfulStepReport/failure/stage
+json	FailureDescriptor:/firstUnsuccessfulStepReport/failure/message	CS4	replaced	FailureDescriptorV2:/firstUnsuccessfulStepReport/failure/message
+json	FailureDescriptor:<absent>:/firstUnsuccessfulStepReport/failure/causeType	CS4	versioned	FailureDescriptorV2:/firstUnsuccessfulStepReport/failure/causeType
+json	FailureDescriptor:/firstUnsuccessfulStepReport/failure/httpStatusCode	CS4	retained	FailureDescriptorV2:/firstUnsuccessfulStepReport/failure/httpStatusCode
+json	FailureDescriptor:/firstUnsuccessfulStepReport/failure/httpStatusDescription	CS4	retained	FailureDescriptorV2:/firstUnsuccessfulStepReport/failure/httpStatusDescription
+json	FailureDescriptor:/stepReports/*/failure/type	CS4	replaced	FailureDescriptorV2:/stepReports/*/failure/type
+json	FailureDescriptor:<absent>:/stepReports/*/failure/phase	CS4	versioned	FailureDescriptorV2:/stepReports/*/failure/phase
+json	FailureDescriptor:<absent>:/stepReports/*/failure/stage	CS4	versioned	FailureDescriptorV2:/stepReports/*/failure/stage
+json	FailureDescriptor:/stepReports/*/failure/message	CS4	replaced	FailureDescriptorV2:/stepReports/*/failure/message
+json	FailureDescriptor:<absent>:/stepReports/*/failure/causeType	CS4	versioned	FailureDescriptorV2:/stepReports/*/failure/causeType
+json	FailureDescriptor:/stepReports/*/failure/httpStatusCode	CS4	retained	FailureDescriptorV2:/stepReports/*/failure/httpStatusCode
+json	FailureDescriptor:/stepReports/*/failure/httpStatusDescription	CS4	retained	FailureDescriptorV2:/stepReports/*/failure/httpStatusDescription
+json	StepReport:/stepReports/*/pollingReport	CS5	replaced	StepReportV2:/stepReports/*/pollingReport
+json	StepReport:/stepReports/*/pollingFailure	CS5	replaced	StepReportV2:/stepReports/*/pollingFailure
+json	StepReport:/stepReports/*/pmTestAssertions	CS4	retained	StepReportV2:/stepReports/*/pmTestAssertions
+json	PmTestAssertion:/stepReports/*/pmTestAssertions/*/name	CS4	retained	PmTestAssertionV2:/stepReports/*/pmTestAssertions/*/name
+json	PmTestAssertion:/stepReports/*/pmTestAssertions/*/passed	CS4	retained	PmTestAssertionV2:/stepReports/*/pmTestAssertions/*/passed
+json	PmTestAssertion:/stepReports/*/pmTestAssertions/*/skipped	CS4	retained	PmTestAssertionV2:/stepReports/*/pmTestAssertions/*/skipped
+json	PmTestAssertion:/stepReports/*/pmTestAssertions/*/error	CS4	retained	PmTestAssertionV2:/stepReports/*/pmTestAssertions/*/error
+json	PmTestAssertion:/stepReports/*/pmTestAssertions/*/exeType	CS4	retained	PmTestAssertionV2:/stepReports/*/pmTestAssertions/*/exeType
+json	StepReport:/stepReports/*/envSnapshot	CS4	replaced	StepReportV2:/stepReports/*/variableEffects
+json	StepEnvironmentEffects:<absent>:/stepReports/*/variableEffects/producedValues	CS4	versioned	StepEnvironmentEffectsV2:/stepReports/*/variableEffects/producedValues
+json	StepEnvironmentEffects:<absent>:/stepReports/*/variableEffects/consumedKeys	CS4	versioned	StepEnvironmentEffectsV2:/stepReports/*/variableEffects/consumedKeys
+json	StepEnvironmentEffects:<absent>:/stepReports/*/variableEffects/unsetKeys	CS4	versioned	StepEnvironmentEffectsV2:/stepReports/*/variableEffects/unsetKeys
+json	StepEnvironmentEffects:<absent>:/stepReports/*/variableEffects/reusedValues	CS4	versioned	StepEnvironmentEffectsV2:/stepReports/*/variableEffects/reusedValues
+json	PollingReport:/stepReports/*/pollingReport/pollAttempts	CS5	retained	PollingReportV2:/stepReports/*/pollingReport/pollAttempts
+json	PollingReport:/stepReports/*/pollingReport/totalDurationMs	CS5	retained	PollingReportV2:/stepReports/*/pollingReport/totalDurationMs
+json	PollingReport:<absent>:/stepReports/*/pollingReport/terminalResponse	CS5	versioned	PollingReportV2:/stepReports/*/pollingReport/terminalResponse
+json	HttpResponseSnapshot:<absent>:/stepReports/*/pollingReport/terminalResponse/statusCode	CS5	versioned	HttpResponseSnapshotV2:/stepReports/*/pollingReport/terminalResponse/statusCode
+json	HttpResponseSnapshot:<absent>:/stepReports/*/pollingReport/terminalResponse/statusDescription	CS5	versioned	HttpResponseSnapshotV2:/stepReports/*/pollingReport/terminalResponse/statusDescription
+json	HttpResponseSnapshot:<absent>:/stepReports/*/pollingReport/terminalResponse/protocol	CS5	versioned	HttpResponseSnapshotV2:/stepReports/*/pollingReport/terminalResponse/protocol
+json	HttpResponseSnapshot:<absent>:/stepReports/*/pollingReport/terminalResponse/headers	CS5	versioned	HttpResponseSnapshotV2:/stepReports/*/pollingReport/terminalResponse/headers
+json	HeaderEntry:<absent>:/stepReports/*/pollingReport/terminalResponse/headers/*/name	CS5	versioned	HeaderEntryV2:/stepReports/*/pollingReport/terminalResponse/headers/*/name
+json	HeaderEntry:<absent>:/stepReports/*/pollingReport/terminalResponse/headers/*/value	CS5	versioned	HeaderEntryV2:/stepReports/*/pollingReport/terminalResponse/headers/*/value
+json	HttpResponseSnapshot:<absent>:/stepReports/*/pollingReport/terminalResponse/body	CS5	versioned	HttpResponseSnapshotV2:/stepReports/*/pollingReport/terminalResponse/body
+json	BodySnapshot:<absent>:/stepReports/*/pollingReport/terminalResponse/body/base64	CS5	versioned	BodySnapshotV2:/stepReports/*/pollingReport/terminalResponse/body/base64
+json	BodySnapshot:<absent>:/stepReports/*/pollingReport/terminalResponse/body/length	CS5	versioned	BodySnapshotV2:/stepReports/*/pollingReport/terminalResponse/body/length
+json	BodySnapshot:<absent>:/stepReports/*/pollingReport/terminalResponse/body/mediaType	CS5	versioned	BodySnapshotV2:/stepReports/*/pollingReport/terminalResponse/body/mediaType
+json	PollingReport:<absent>:/stepReports/*/pollingReport/statusCounts	CS5	versioned	PollingReportV2:/stepReports/*/pollingReport/statusCounts
+json	StatusCount:<absent>:/stepReports/*/pollingReport/statusCounts/*/status	CS5	versioned	StatusCountV2:/stepReports/*/pollingReport/statusCounts/*/status
+json	StatusCount:<absent>:/stepReports/*/pollingReport/statusCounts/*/count	CS5	versioned	StatusCountV2:/stepReports/*/pollingReport/statusCounts/*/count
+json	PollingReport:<absent>:/stepReports/*/pollingReport/recentResponses	CS5	versioned	PollingReportV2:/stepReports/*/pollingReport/recentResponses
+json	HttpResponseSnapshot:<absent>:/stepReports/*/pollingReport/recentResponses/*/statusCode	CS5	versioned	HttpResponseSnapshotV2:/stepReports/*/pollingReport/recentResponses/*/statusCode
+json	HttpResponseSnapshot:<absent>:/stepReports/*/pollingReport/recentResponses/*/statusDescription	CS5	versioned	HttpResponseSnapshotV2:/stepReports/*/pollingReport/recentResponses/*/statusDescription
+json	HttpResponseSnapshot:<absent>:/stepReports/*/pollingReport/recentResponses/*/protocol	CS5	versioned	HttpResponseSnapshotV2:/stepReports/*/pollingReport/recentResponses/*/protocol
+json	HttpResponseSnapshot:<absent>:/stepReports/*/pollingReport/recentResponses/*/headers	CS5	versioned	HttpResponseSnapshotV2:/stepReports/*/pollingReport/recentResponses/*/headers
+json	HeaderEntry:<absent>:/stepReports/*/pollingReport/recentResponses/*/headers/*/name	CS5	versioned	HeaderEntryV2:/stepReports/*/pollingReport/recentResponses/*/headers/*/name
+json	HeaderEntry:<absent>:/stepReports/*/pollingReport/recentResponses/*/headers/*/value	CS5	versioned	HeaderEntryV2:/stepReports/*/pollingReport/recentResponses/*/headers/*/value
+json	HttpResponseSnapshot:<absent>:/stepReports/*/pollingReport/recentResponses/*/body	CS5	versioned	HttpResponseSnapshotV2:/stepReports/*/pollingReport/recentResponses/*/body
+json	BodySnapshot:<absent>:/stepReports/*/pollingReport/recentResponses/*/body/base64	CS5	versioned	BodySnapshotV2:/stepReports/*/pollingReport/recentResponses/*/body/base64
+json	BodySnapshot:<absent>:/stepReports/*/pollingReport/recentResponses/*/body/length	CS5	versioned	BodySnapshotV2:/stepReports/*/pollingReport/recentResponses/*/body/length
+json	BodySnapshot:<absent>:/stepReports/*/pollingReport/recentResponses/*/body/mediaType	CS5	versioned	BodySnapshotV2:/stepReports/*/pollingReport/recentResponses/*/body/mediaType
+json	PollingFailure:<absent>:/stepReports/*/pollingFailure/type	CS5	versioned	PollingFailureV2:/stepReports/*/pollingFailure/type
+json	PollingFailure:/stepReports/*/pollingFailure/message	CS5	retained	PollingFailureV2:/stepReports/*/pollingFailure/message
+json	PollingFailure:/stepReports/*/pollingFailure/pollAttempts	CS5	retained	PollingFailureV2:/stepReports/*/pollingFailure/pollAttempts
+json	PollingFailure:/stepReports/*/pollingFailure/timeoutMs	CS5	retained	PollingFailureV2:/stepReports/*/pollingFailure/timeoutMs
+json	PollingFailure:<absent>:/stepReports/*/pollingFailure/lastResponse	CS5	versioned	PollingFailureV2:/stepReports/*/pollingFailure/lastResponse
+json	HttpResponseSnapshot:<absent>:/stepReports/*/pollingFailure/lastResponse/statusCode	CS5	versioned	HttpResponseSnapshotV2:/stepReports/*/pollingFailure/lastResponse/statusCode
+json	HttpResponseSnapshot:<absent>:/stepReports/*/pollingFailure/lastResponse/statusDescription	CS5	versioned	HttpResponseSnapshotV2:/stepReports/*/pollingFailure/lastResponse/statusDescription
+json	HttpResponseSnapshot:<absent>:/stepReports/*/pollingFailure/lastResponse/protocol	CS5	versioned	HttpResponseSnapshotV2:/stepReports/*/pollingFailure/lastResponse/protocol
+json	HttpResponseSnapshot:<absent>:/stepReports/*/pollingFailure/lastResponse/headers	CS5	versioned	HttpResponseSnapshotV2:/stepReports/*/pollingFailure/lastResponse/headers
+json	HeaderEntry:<absent>:/stepReports/*/pollingFailure/lastResponse/headers/*/name	CS5	versioned	HeaderEntryV2:/stepReports/*/pollingFailure/lastResponse/headers/*/name
+json	HeaderEntry:<absent>:/stepReports/*/pollingFailure/lastResponse/headers/*/value	CS5	versioned	HeaderEntryV2:/stepReports/*/pollingFailure/lastResponse/headers/*/value
+json	HttpResponseSnapshot:<absent>:/stepReports/*/pollingFailure/lastResponse/body	CS5	versioned	HttpResponseSnapshotV2:/stepReports/*/pollingFailure/lastResponse/body
+json	BodySnapshot:<absent>:/stepReports/*/pollingFailure/lastResponse/body/base64	CS5	versioned	BodySnapshotV2:/stepReports/*/pollingFailure/lastResponse/body/base64
+json	BodySnapshot:<absent>:/stepReports/*/pollingFailure/lastResponse/body/length	CS5	versioned	BodySnapshotV2:/stepReports/*/pollingFailure/lastResponse/body/length
+json	BodySnapshot:<absent>:/stepReports/*/pollingFailure/lastResponse/body/mediaType	CS5	versioned	BodySnapshotV2:/stepReports/*/pollingFailure/lastResponse/body/mediaType
+json	PollingFailure:<absent>:/stepReports/*/pollingFailure/statusCounts	CS5	versioned	PollingFailureV2:/stepReports/*/pollingFailure/statusCounts
+json	StatusCount:<absent>:/stepReports/*/pollingFailure/statusCounts/*/status	CS5	versioned	StatusCountV2:/stepReports/*/pollingFailure/statusCounts/*/status
+json	StatusCount:<absent>:/stepReports/*/pollingFailure/statusCounts/*/count	CS5	versioned	StatusCountV2:/stepReports/*/pollingFailure/statusCounts/*/count
+json	PollingFailure:<absent>:/stepReports/*/pollingFailure/recentResponses	CS5	versioned	PollingFailureV2:/stepReports/*/pollingFailure/recentResponses
+json	HttpResponseSnapshot:<absent>:/stepReports/*/pollingFailure/recentResponses/*/statusCode	CS5	versioned	HttpResponseSnapshotV2:/stepReports/*/pollingFailure/recentResponses/*/statusCode
+json	HttpResponseSnapshot:<absent>:/stepReports/*/pollingFailure/recentResponses/*/statusDescription	CS5	versioned	HttpResponseSnapshotV2:/stepReports/*/pollingFailure/recentResponses/*/statusDescription
+json	HttpResponseSnapshot:<absent>:/stepReports/*/pollingFailure/recentResponses/*/protocol	CS5	versioned	HttpResponseSnapshotV2:/stepReports/*/pollingFailure/recentResponses/*/protocol
+json	HttpResponseSnapshot:<absent>:/stepReports/*/pollingFailure/recentResponses/*/headers	CS5	versioned	HttpResponseSnapshotV2:/stepReports/*/pollingFailure/recentResponses/*/headers
+json	HeaderEntry:<absent>:/stepReports/*/pollingFailure/recentResponses/*/headers/*/name	CS5	versioned	HeaderEntryV2:/stepReports/*/pollingFailure/recentResponses/*/headers/*/name
+json	HeaderEntry:<absent>:/stepReports/*/pollingFailure/recentResponses/*/headers/*/value	CS5	versioned	HeaderEntryV2:/stepReports/*/pollingFailure/recentResponses/*/headers/*/value
+json	HttpResponseSnapshot:<absent>:/stepReports/*/pollingFailure/recentResponses/*/body	CS5	versioned	HttpResponseSnapshotV2:/stepReports/*/pollingFailure/recentResponses/*/body
+json	BodySnapshot:<absent>:/stepReports/*/pollingFailure/recentResponses/*/body/base64	CS5	versioned	BodySnapshotV2:/stepReports/*/pollingFailure/recentResponses/*/body/base64
+json	BodySnapshot:<absent>:/stepReports/*/pollingFailure/recentResponses/*/body/length	CS5	versioned	BodySnapshotV2:/stepReports/*/pollingFailure/recentResponses/*/body/length
+json	BodySnapshot:<absent>:/stepReports/*/pollingFailure/recentResponses/*/body/mediaType	CS5	versioned	BodySnapshotV2:/stepReports/*/pollingFailure/recentResponses/*/body/mediaType
+json	RunbookRundown:<absent>:/schemaVersion	CS4	versioned	RunbookRundownV2:/schemaVersion
+json	RunbookRundown:<absent>:/name	CS4	versioned	RunbookRundownV2:/name
+json	RunbookRundown:<absent>:/rundowns	CS4	versioned	RunbookRundownV2:/rundowns
+json	PollingConfig:<absent>:/schemaVersion	CS5	versioned	PollingConfigV2:/schemaVersion
+json	PollingConfig:<absent>:/recentResponsesLimit	CS5	versioned	PollingConfigV2:/recentResponsesLimit
+json	PollingConfig:<absent>:/maxAttempts	CS5	versioned	PollingConfigV2:/maxAttempts
+json	Ledger:<absent>:/schemaVersion	CS2b	versioned	LedgerV2:/schemaVersion
+json	Ledger:/name	CS2b	retained	LedgerV2:/name
+json	Ledger:/values	CS2b	replaced	LedgerV2:/values
+json	Ledger value:/values/*/key	CS2b	retained	Ledger valueV2:/values/*/key
+json	Ledger value:/values/*/value	CS2b	replaced	Ledger valueV2:/values/*/value
+json	Ledger value:/values/*/enabled	CS2b	retained	Ledger valueV2:/values/*/enabled
+json	Ledger:/x-revoman-ledger/orgId	CS2b	retained	LedgerV2:/x-revoman-ledger/orgId
+json	Ledger:/x-revoman-ledger/steps	CS2b	replaced	LedgerV2:/x-revoman-ledger/steps
+json	LedgerStepRecord:<absent>:/x-revoman-ledger/steps/*/key	CS2b	versioned	LedgerStepRecordV2:/x-revoman-ledger/steps/*/key
+json	LedgerStepKey:<absent>:/x-revoman-ledger/steps/*/key/logicalSourceId	CS2b	versioned	LedgerStepKeyV2:/x-revoman-ledger/steps/*/key/logicalSourceId
+json	LedgerStepKey:<absent>:/x-revoman-ledger/steps/*/key/sourceOccurrence	CS2b	versioned	LedgerStepKeyV2:/x-revoman-ledger/steps/*/key/sourceOccurrence
+json	LedgerStepKey:<absent>:/x-revoman-ledger/steps/*/key/itemPath	CS2b	versioned	LedgerStepKeyV2:/x-revoman-ledger/steps/*/key/itemPath
+json	LedgerStepRecord:<absent>:/x-revoman-ledger/steps/*/entry	CS2b	versioned	LedgerStepRecordV2:/x-revoman-ledger/steps/*/entry
+json	LedgerEntry:/x-revoman-ledger/steps/*/hash	CS2b	replaced	LedgerEntryV2:/x-revoman-ledger/steps/*/entry/sourceHash
+json	LedgerEntry:/x-revoman-ledger/steps/*/produces	CS2b	replaced	LedgerEntryV2:/x-revoman-ledger/steps/*/entry/producedValues
+json	LedgerEntry:/x-revoman-ledger/steps/*/consumed	CS2b	replaced	LedgerEntryV2:/x-revoman-ledger/steps/*/entry/consumedKeys
+json	StepReport.pmEnvSnapshot	CS4	removed	StepEnvironmentEffects
+json	PollingReport.responses	CS5	removed	PollingReport.terminalResponse statusCounts recentResponses
+json	PollingReport:/stepReports/*/pollingReport/responseCount	CS5	removed	PollingReportV2:bounded response fields
+json	FailureDescriptor:/stepReports/*/failure/stackTrace	CS4	removed	FailureDescriptor without stack trace
+json	PollingFailure:/stepReports/*/pollingFailure/stackTrace	CS5	removed	PollingFailure without stack trace
+json	Ledger:/x-revoman-ledger/steps/*	CS2b	removed	LedgerStepKey

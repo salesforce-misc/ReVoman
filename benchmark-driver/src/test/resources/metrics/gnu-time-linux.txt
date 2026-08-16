@@ -1,0 +1,5 @@
+	Command being timed: "/jdk/bin/java example.Main"
+	User time (seconds): 0.01
+	System time (seconds): 0.00
+	Maximum resident set size (kbytes): 12345
+	Exit status: 0

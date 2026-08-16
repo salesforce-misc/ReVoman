@@ -39,10 +39,13 @@ ReVoman uses the [JetBrains Qodana](https://www.jetbrains.com/qodana/) Gradle pl
 primary quality gate; CI (`.github/workflows/qodana.yml`) is only a backstop.
 
 ```bash
-colima start                        # Qodana runs its linter in Docker; start the daemon first
-./gradlew kaptKotlin classes        # pre-generate kapt/Immutables/Moshi sources (JDK 21) so the
-                                     # linter resolves references — NOT run in-container (see qodana.yaml)
-./gradlew qodanaScan                # downloads the Qodana CLI + free community linter image, then scans
+colima start                              # Qodana runs its linter in Docker; start the daemon first
+# Pre-generate root and driver kapt/compiled sources with JDK 21 so Qodana resolves references.
+# This compilation is not run in the container (see qodana.yaml).
+./gradlew kaptKotlin classes \
+  :benchmark-driver:kaptKotlin \
+  :benchmark-driver:classes
+./gradlew qodanaScan                      # downloads the Qodana CLI + community linter, then scans
 ```
 
 - Results (including `qodana.sarif.json`) land in `build/qodana/results`; the linter
@@ -59,10 +62,131 @@ colima start                        # Qodana runs its linter in Docker; start th
 
 - `.github/workflows/build.yml` runs `./gradlew build` on every push/PR to `master` —
   full coverage: unit (`test`) + integration (`integrationTest`) + `spotlessCheck` + `kover`.
+- The same workflow exports `build/benchmark-target-current.json` with `major-v1` and runs the two
+  targeted current lifecycle integration tests. It also checks out the fixed baseline separately,
+  exports `build/benchmark-target-baseline-selftest.json` with `baseline-83f3cd70`, and runs the
+  complete driver integration suite and harness self-test against that matching baseline pair.
+  These are structural harness checks; ordinary CI never evaluates timing, allocation, RSS,
+  retained-memory, or release thresholds. A current manifest is never paired with the baseline
+  adapter.
 - **Org tests** (`integration.core.*`) skip-loud on CI (no org creds); see `-PincludeCoreIT` above.
-- **Flaky external-API tests** (pokeapi.co, restful-api.dev, apigee, beeceptor) are retried via the
-  `org.gradle.test-retry` plugin — but ONLY on CI (`CI` env var set). Locally `maxRetries=0`, so
-  flakes surface immediately. A test failing every attempt still fails the build (no masking).
+- **Flaky external-API tests** (Apigee, Beeceptor, and PokeAPI in Pokemon tests outside the
+  localized `PokemonSandboxApiTest`) are retried via the `org.gradle.test-retry` plugin — but ONLY
+  on CI (`CI` env var set). Locally `maxRetries=0`, so flakes surface immediately. A test failing
+  every attempt still fails the build (no masking).
+
+## Benchmark Driver
+
+The benchmark driver is a standalone installed application. It measures the normal ReVoman JAR
+and original runtime dependency JARs described by an explicit target manifest; it does not flatten
+the target into a benchmark uber-JAR.
+
+### Build, install, and export targets
+
+```bash
+./gradlew :benchmark-driver:installDist
+./gradlew \
+  -I benchmark-driver/src/main/dist/libexec/benchmark-target.init.gradle.kts \
+  writeBenchmarkTargetManifest \
+  -Pbenchmark.targetManifest=build/benchmark-target-smoke-baseline.json \
+  -Pbenchmark.targetId=smoke-baseline
+./gradlew \
+  -I benchmark-driver/src/main/dist/libexec/benchmark-target.init.gradle.kts \
+  writeBenchmarkTargetManifest \
+  -Pbenchmark.targetManifest=build/benchmark-target-smoke-candidate.json \
+  -Pbenchmark.targetId=smoke-candidate
+```
+
+The installed CLI is
+`benchmark-driver/build/install/benchmark-driver/bin/benchmark-driver`. The export command must
+receive both properties explicitly. The harness self-test consumes the supplied manifest and never
+replaces it:
+
+```bash
+./gradlew :benchmark-driver:check :benchmark-driver:benchmarkHarnessSelfTest \
+  -Pbenchmark.targetManifest=build/benchmark-target-smoke-baseline.json \
+  -Pbenchmark.adapter=baseline-83f3cd70
+```
+
+### Quick JMH and structural smoke checks
+
+Use quick JMH only to validate harness mechanics. It is not release evidence and does not enforce a
+numeric threshold:
+
+```bash
+./gradlew :benchmark-driver:benchmarkJmh \
+  -Pbenchmark.includes=HarnessSanityBenchmark \
+  -Pbenchmark.targetManifest=build/benchmark-target-smoke-baseline.json \
+  -Pbenchmark.adapter=baseline-83f3cd70 \
+  -Pbenchmark.quick=true
+```
+
+A two-block smoke run exercises the installed CLI against the deterministic loopback workload.
+Every run uses a fresh parent so the driver can reserve absent output and artifact paths:
+
+```bash
+SMOKE_ROOT=$(mktemp -d build/benchmark-smoke.XXXXXXXX)
+DRIVER=benchmark-driver/build/install/benchmark-driver/bin/benchmark-driver
+"$DRIVER" run-paired --mode cold --intent smoke \
+  --baseline build/benchmark-target-smoke-baseline.json --baseline-adapter baseline-83f3cd70 \
+  --candidate build/benchmark-target-smoke-candidate.json --candidate-adapter baseline-83f3cd70 \
+  --workload lifecycle.no-script-one-step.v1 --blocks 2 --forks-per-block 1 \
+  --warmups 0 --iterations 1 --seed 5928239383101656625 \
+  --metrics latency \
+  --artifacts-dir "$SMOKE_ROOT/artifacts" \
+  --output "$SMOKE_ROOT/smoke.json"
+"$DRIVER" verify --input "$SMOKE_ROOT/smoke.json"
+```
+
+Smoke output is structural evidence only. Its synthetic host samples record `UNAVAILABLE` power
+evidence, and it cannot pass release gates because it has no verified controlled-host policy and
+does not meet the release sample counts.
+
+### Controlled cold and warm campaigns
+
+Release evidence is captured only by the manual `Controlled performance benchmark` workflow. It
+runs on the protected `performance` environment with the
+`[self-hosted, linux, revoman-controlled-benchmark]` labels. An administrator must provision a
+readable absolute host-policy file and writable `/opt/revoman-benchmark/runs`; workflow code does
+not create or relax policy.
+
+Observed external power is runtime Linux power-supply sysfs evidence: each host-health snapshot
+records whether an external source is online or offline, while the policy selects whether
+observation alone is accepted or `REQUIRE_EXTERNAL_POWER` rejects an offline sample.
+`FIXED_MAINS` is instead an administrator-owned, host-specific attestation that runtime power
+telemetry is not applicable. It requires an existing empty `/sys/class/power_supply` directory;
+any entry makes the controlled probe fail rather than fabricating an online observation.
+
+The workflow builds the driver from a separately pinned full harness SHA, exports three independent
+clean manifests (`baseline-a`, `baseline-b`, and `candidate`), then runs these campaign shapes:
+
+- cold: 50 accepted paired blocks, one fork per role and block, zero warmups, one iteration, and
+  latency/peak-RSS/JFR-allocation passes;
+- warm: five accepted paired blocks, one fork per role and block, 20 warmups, 100 measured
+  iterations, and latency/normalized-JMH-allocation passes.
+
+Both shapes use seed `5928239383101656625` and pass the selected policy as
+`--host-policy "$HOST_POLICY_PATH"`. Cold and warm A/A are captured and compared with
+`--enforce-release-gates` before candidate execution. If either A/A comparison is not `PASS`, the
+workflow records `INCONCLUSIVE`, uploads available result/JFR evidence, and makes no candidate
+claim.
+
+For an accepted campaign, validate every machine-readable result before citing it:
+
+```bash
+DRIVER=benchmark-driver/build/install/benchmark-driver/bin/benchmark-driver
+"$DRIVER" verify --input "$RUN_ROOT/results/cold-aa.json"
+"$DRIVER" verify --input "$RUN_ROOT/results/warm-aa.json"
+"$DRIVER" verify --input "$RUN_ROOT/results/cold-candidate.json"
+"$DRIVER" verify --input "$RUN_ROOT/results/warm-candidate.json"
+```
+
+The fixed baseline is
+`83f3cd70f78ad733412d10cbc8287aaabafe7aac`. It is rebuilt and rerun in every alternating campaign;
+an old result is never reused as the denominator. That keeps machine load, JDK/Gradle state,
+provider configuration, and other time-local host effects paired with the candidate. Historical
+captures are audit records, not portable performance constants. See the
+[v1 baseline protocol](docs/superpowers/benchmarks/baseline.md) for the evidence and identity rules.
 
 ## Building the jar for Salesforce Core consumption
 

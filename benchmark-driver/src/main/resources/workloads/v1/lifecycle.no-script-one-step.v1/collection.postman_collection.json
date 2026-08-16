@@ -1,0 +1,21 @@
+{
+  "info": {
+    "name": "lifecycle.no-script-one-step.v1",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "one-step",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/small",
+          "host": ["{{baseUrl}}"],
+          "path": ["small"]
+        }
+      },
+      "response": []
+    }
+  ]
+}

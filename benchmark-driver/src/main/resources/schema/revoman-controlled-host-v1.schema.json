@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://revoman.dev/schema/revoman-controlled-host-v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "hostFingerprintSha256",
+    "cpuModel",
+    "cpuCount",
+    "allowedGovernors",
+    "powerEvidenceRequirement",
+    "maximumLoadAverage",
+    "maximumCpuBusyFraction",
+    "minimumAvailableMemoryBytes",
+    "maximumSwapDeltaBytes",
+    "maximumThermalValue",
+    "probeIntervalMillis",
+    "maximumReplacementBlocks"
+  ],
+  "properties": {
+    "schema": { "const": "revoman-controlled-host/v1" },
+    "hostFingerprintSha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "SHA-256 of the trimmed UTF-8 Linux /etc/machine-id value"
+    },
+    "cpuModel": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Exact Linux /proc/cpuinfo model name"
+    },
+    "cpuCount": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Exact logical processor count from Linux /proc/cpuinfo"
+    },
+    "allowedGovernors": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "powerEvidenceRequirement": {
+      "enum": ["OBSERVE_EXTERNAL_POWER", "REQUIRE_EXTERNAL_POWER", "FIXED_MAINS"]
+    },
+    "maximumLoadAverage": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Maximum one-minute Linux /proc/loadavg value"
+    },
+    "maximumCpuBusyFraction": { "type": "number", "minimum": 0, "maximum": 1 },
+    "minimumAvailableMemoryBytes": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Minimum MemAvailable after exact Linux kB to byte conversion"
+    },
+    "maximumSwapDeltaBytes": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Maximum block swap-use growth in bytes"
+    },
+    "maximumThermalValue": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "description": "Maximum Linux thermal-zone value after millidegree-Celsius to Celsius conversion"
+    },
+    "probeIntervalMillis": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Interval in milliseconds between Linux /proc/stat CPU counter reads"
+    },
+    "maximumReplacementBlocks": { "type": "integer", "minimum": 0 }
+  }
+}

@@ -1,0 +1,308 @@
+name: Controlled performance benchmark
+
+'on':
+  workflow_dispatch:
+    inputs:
+      harness_ref:
+        description: Full clean CS1 harness commit SHA
+        required: true
+      candidate_ref:
+        description: Full clean candidate commit SHA
+        required: true
+      candidate_adapter:
+        description: Exact versioned adapter for the candidate
+        required: true
+        type: choice
+        options:
+          - major-v1
+          - baseline-83f3cd70
+      host_policy_path:
+        description: Absolute policy path on the protected runner
+        required: true
+        default: /opt/revoman-benchmark/controlled-host.json
+
+concurrency:
+  group: controlled-performance-${{ github.repository }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    environment: performance
+    runs-on: [self-hosted, linux, revoman-controlled-benchmark]
+    timeout-minutes: 180
+    env:
+      HARNESS_REF: ${{ inputs.harness_ref }}
+      CANDIDATE_REF: ${{ inputs.candidate_ref }}
+      CANDIDATE_ADAPTER: ${{ inputs.candidate_adapter }}
+      HOST_POLICY_PATH: ${{ inputs.host_policy_path }}
+      # Safe absent fallback for always() uploads before this job owns the controlled run root.
+      RUN_ROOT: /tmp/revoman-benchmark-unavailable-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - name: 'Validate requested refs'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "$HARNESS_REF" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "harness_ref must be a full 40-character commit SHA" >&2
+            exit 2
+          fi
+          if [[ ! "$CANDIDATE_REF" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "candidate_ref must be a full 40-character commit SHA" >&2
+            exit 2
+          fi
+
+      - name: 'Checkout benchmark harness'
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ inputs.harness_ref }}
+          path: harness
+          clean: true
+          persist-credentials: false
+
+      - name: 'Checkout baseline A'
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: 83f3cd70f78ad733412d10cbc8287aaabafe7aac
+          path: baseline-a
+          clean: true
+          persist-credentials: false
+
+      - name: 'Checkout baseline B'
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: 83f3cd70f78ad733412d10cbc8287aaabafe7aac
+          path: baseline-b
+          clean: true
+          persist-credentials: false
+
+      - name: 'Checkout candidate'
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ inputs.candidate_ref }}
+          path: candidate
+          clean: true
+          persist-credentials: false
+
+      - name: 'Validate clean checkout identities'
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(git -C "$GITHUB_WORKSPACE/harness" rev-parse HEAD)" == "$HARNESS_REF" ]]
+          [[ "$(git -C "$GITHUB_WORKSPACE/baseline-a" rev-parse HEAD)" == "83f3cd70f78ad733412d10cbc8287aaabafe7aac" ]]
+          [[ "$(git -C "$GITHUB_WORKSPACE/baseline-b" rev-parse HEAD)" == "83f3cd70f78ad733412d10cbc8287aaabafe7aac" ]]
+          [[ "$(git -C "$GITHUB_WORKSPACE/candidate" rev-parse HEAD)" == "$CANDIDATE_REF" ]]
+          for checkout in harness baseline-a baseline-b candidate; do
+            if [[ -n "$(git -C "$GITHUB_WORKSPACE/$checkout" status --porcelain --untracked-files=all)" ]]; then
+              echo "$checkout checkout is not clean" >&2
+              exit 1
+            fi
+          done
+
+      - uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4.8.0
+        with:
+          distribution: jetbrains
+          java-version: 21
+
+      - name: 'Setup Gradle'
+        uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4.4.3
+
+      - name: 'Prepare unique run root'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$HOST_POLICY_PATH" != /* || ! -f "$HOST_POLICY_PATH" || ! -r "$HOST_POLICY_PATH" ]]; then
+            echo "host_policy_path must be an absolute readable file" >&2
+            exit 2
+          fi
+          RUNS_PARENT=/opt/revoman-benchmark/runs
+          if [[ ! -d "$RUNS_PARENT" || ! -w "$RUNS_PARENT" ]]; then
+            echo "$RUNS_PARENT must be pre-provisioned and writable" >&2
+            exit 1
+          fi
+          RUN_ROOT="/opt/revoman-benchmark/runs/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          if [[ -e "$RUN_ROOT" || -L "$RUN_ROOT" ]]; then
+            echo "Refusing to reuse existing benchmark run root: $RUN_ROOT" >&2
+            exit 1
+          fi
+          umask 077
+          mkdir "$RUN_ROOT"
+          mkdir "$RUN_ROOT/manifests" "$RUN_ROOT/results" "$RUN_ROOT/jfr"
+          printf 'RUN_ROOT=%s\n' "$RUN_ROOT" >> "$GITHUB_ENV"
+
+      - name: 'Install benchmark driver'
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$GITHUB_WORKSPACE/harness/gradlew" -p "$GITHUB_WORKSPACE/harness" \
+            :benchmark-driver:installDist
+
+      - name: 'Export baseline-a target'
+        shell: bash
+        run: |
+          set -euo pipefail
+          TARGET_ROOT="$GITHUB_WORKSPACE/baseline-a"
+          TARGET_ID=baseline-a
+          TARGET_MANIFEST="$RUN_ROOT/manifests/baseline-a.json"
+          "$TARGET_ROOT/gradlew" -p "$TARGET_ROOT" \
+            -I "$GITHUB_WORKSPACE/harness/benchmark-driver/build/install/benchmark-driver/libexec/benchmark-target.init.gradle.kts" \
+            clean writeBenchmarkTargetManifest \
+            -Pbenchmark.targetId="$TARGET_ID" \
+            -Pbenchmark.targetManifest="$TARGET_MANIFEST"
+
+      - name: 'Export baseline-b target'
+        shell: bash
+        run: |
+          set -euo pipefail
+          TARGET_ROOT="$GITHUB_WORKSPACE/baseline-b"
+          TARGET_ID=baseline-b
+          TARGET_MANIFEST="$RUN_ROOT/manifests/baseline-b.json"
+          "$TARGET_ROOT/gradlew" -p "$TARGET_ROOT" \
+            -I "$GITHUB_WORKSPACE/harness/benchmark-driver/build/install/benchmark-driver/libexec/benchmark-target.init.gradle.kts" \
+            clean writeBenchmarkTargetManifest \
+            -Pbenchmark.targetId="$TARGET_ID" \
+            -Pbenchmark.targetManifest="$TARGET_MANIFEST"
+
+      - name: 'Export candidate target'
+        shell: bash
+        run: |
+          set -euo pipefail
+          TARGET_ROOT="$GITHUB_WORKSPACE/candidate"
+          TARGET_ID=candidate
+          TARGET_MANIFEST="$RUN_ROOT/manifests/candidate.json"
+          "$TARGET_ROOT/gradlew" -p "$TARGET_ROOT" \
+            -I "$GITHUB_WORKSPACE/harness/benchmark-driver/build/install/benchmark-driver/libexec/benchmark-target.init.gradle.kts" \
+            clean writeBenchmarkTargetManifest \
+            -Pbenchmark.targetId="$TARGET_ID" \
+            -Pbenchmark.targetManifest="$TARGET_MANIFEST"
+
+      - name: 'Capture cold A-A'
+        shell: bash
+        run: |
+          set -euo pipefail
+          DRIVER="$GITHUB_WORKSPACE/harness/benchmark-driver/build/install/benchmark-driver/bin/benchmark-driver"
+          "$DRIVER" capture-baseline --mode cold --intent controlled \
+            --baseline "$RUN_ROOT/manifests/baseline-a.json" --baseline-adapter baseline-83f3cd70 \
+            --candidate "$RUN_ROOT/manifests/baseline-b.json" --candidate-adapter baseline-83f3cd70 \
+            --workload lifecycle.no-script-one-step.v1 --blocks 50 --forks-per-block 1 \
+            --warmups 0 --iterations 1 --seed 5928239383101656625 \
+            --metrics latency,peak-rss,allocation \
+            --host-policy "$HOST_POLICY_PATH" \
+            --artifacts-dir "$RUN_ROOT/jfr/cold-aa" \
+            --output "$RUN_ROOT/results/cold-aa.json"
+
+      - name: 'Capture warm A-A'
+        shell: bash
+        run: |
+          set -euo pipefail
+          DRIVER="$GITHUB_WORKSPACE/harness/benchmark-driver/build/install/benchmark-driver/bin/benchmark-driver"
+          "$DRIVER" capture-baseline --mode warm --intent controlled \
+            --baseline "$RUN_ROOT/manifests/baseline-a.json" --baseline-adapter baseline-83f3cd70 \
+            --candidate "$RUN_ROOT/manifests/baseline-b.json" --candidate-adapter baseline-83f3cd70 \
+            --workload lifecycle.no-script-one-step.v1 --blocks 5 --forks-per-block 1 \
+            --warmups 20 --iterations 100 --seed 5928239383101656625 \
+            --metrics latency,allocation \
+            --host-policy "$HOST_POLICY_PATH" \
+            --artifacts-dir "$RUN_ROOT/jfr/warm-aa" \
+            --output "$RUN_ROOT/results/warm-aa.json"
+
+      - name: 'Require cold and warm A-A gates'
+        shell: bash
+        run: |
+          set -euo pipefail
+          DRIVER="$GITHUB_WORKSPACE/harness/benchmark-driver/build/install/benchmark-driver/bin/benchmark-driver"
+          set +e
+          "$DRIVER" compare \
+            --input "$RUN_ROOT/results/cold-aa.json" \
+            --output-json "$RUN_ROOT/results/comparison-aa-cold.json" \
+            --output-md "$RUN_ROOT/results/comparison-aa-cold.md" \
+            --enforce-release-gates
+          cold_status=$?
+          "$DRIVER" compare \
+            --input "$RUN_ROOT/results/warm-aa.json" \
+            --output-json "$RUN_ROOT/results/comparison-aa-warm.json" \
+            --output-md "$RUN_ROOT/results/comparison-aa-warm.md" \
+            --enforce-release-gates
+          warm_status=$?
+          set -e
+          if (( cold_status != 0 || warm_status != 0 )); then
+            printf '%s\n' \
+              '# INCONCLUSIVE' \
+              '' \
+              'Candidate measurement was not started because cold or warm A/A did not pass.' \
+              > "$RUN_ROOT/results/INCONCLUSIVE.md"
+            exit 3
+          fi
+
+      - name: 'Capture cold candidate comparison'
+        shell: bash
+        run: |
+          set -euo pipefail
+          DRIVER="$GITHUB_WORKSPACE/harness/benchmark-driver/build/install/benchmark-driver/bin/benchmark-driver"
+          "$DRIVER" run-paired --mode cold --intent controlled \
+            --baseline "$RUN_ROOT/manifests/baseline-a.json" --baseline-adapter baseline-83f3cd70 \
+            --candidate "$RUN_ROOT/manifests/candidate.json" --candidate-adapter "$CANDIDATE_ADAPTER" \
+            --workload lifecycle.no-script-one-step.v1 --blocks 50 --forks-per-block 1 \
+            --warmups 0 --iterations 1 --seed 5928239383101656625 \
+            --metrics latency,peak-rss,allocation \
+            --host-policy "$HOST_POLICY_PATH" \
+            --artifacts-dir "$RUN_ROOT/jfr/cold-candidate" \
+            --output "$RUN_ROOT/results/cold-candidate.json"
+
+      - name: 'Capture warm candidate comparison'
+        shell: bash
+        run: |
+          set -euo pipefail
+          DRIVER="$GITHUB_WORKSPACE/harness/benchmark-driver/build/install/benchmark-driver/bin/benchmark-driver"
+          "$DRIVER" run-paired --mode warm --intent controlled \
+            --baseline "$RUN_ROOT/manifests/baseline-a.json" --baseline-adapter baseline-83f3cd70 \
+            --candidate "$RUN_ROOT/manifests/candidate.json" --candidate-adapter "$CANDIDATE_ADAPTER" \
+            --workload lifecycle.no-script-one-step.v1 --blocks 5 --forks-per-block 1 \
+            --warmups 20 --iterations 100 --seed 5928239383101656625 \
+            --metrics latency,allocation \
+            --host-policy "$HOST_POLICY_PATH" \
+            --artifacts-dir "$RUN_ROOT/jfr/warm-candidate" \
+            --output "$RUN_ROOT/results/warm-candidate.json"
+
+      - name: 'Compare cold and warm candidate results'
+        shell: bash
+        run: |
+          set -euo pipefail
+          DRIVER="$GITHUB_WORKSPACE/harness/benchmark-driver/build/install/benchmark-driver/bin/benchmark-driver"
+          set +e
+          "$DRIVER" compare \
+            --input "$RUN_ROOT/results/cold-candidate.json" \
+            --output-json "$RUN_ROOT/results/comparison-candidate-cold.json" \
+            --output-md "$RUN_ROOT/results/comparison-candidate-cold.md" \
+            --enforce-release-gates
+          cold_status=$?
+          "$DRIVER" compare \
+            --input "$RUN_ROOT/results/warm-candidate.json" \
+            --output-json "$RUN_ROOT/results/comparison-candidate-warm.json" \
+            --output-md "$RUN_ROOT/results/comparison-candidate-warm.md" \
+            --enforce-release-gates
+          warm_status=$?
+          set -e
+          if (( cold_status != 0 || warm_status != 0 )); then
+            exit 3
+          fi
+
+      - name: 'Upload benchmark results'
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: benchmark-results-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.RUN_ROOT }}/results/**
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: 'Upload benchmark JFR evidence'
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: benchmark-jfr-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.RUN_ROOT }}/jfr/**
+          if-no-files-found: warn
+          retention-days: 30

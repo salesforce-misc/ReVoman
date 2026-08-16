@@ -38,6 +38,10 @@ internal fun executionSession(
     private var activeChild: KickExecution? = null
     private var closed = false
 
+    init {
+      registerExecutionSession(this)
+    }
+
     override fun executeKick(
       configuredKick: Kick,
       carryForward: Boolean,

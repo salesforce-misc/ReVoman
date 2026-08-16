@@ -1,0 +1,1 @@
+{"campaignId":"regression","compatibilityErrors":[],"metrics":[{"claimKind":"NON_REGRESSION","decision":"FAIL","gate":"COLD_P95","interval":{"lower95":1.08,"pointEstimate":1.11,"upper95":1.12},"limit":1.1,"metric":"LATENCY","mode":"COLD","reason":"upper bound exceeds limit","statistic":"P95"}],"overall":"FAIL","rejectedBlocks":[],"schema":"revoman-benchmark-comparison/v1"}

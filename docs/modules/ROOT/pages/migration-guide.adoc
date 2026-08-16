@@ -1,0 +1,223 @@
+= Major-version migration guide
+
+This page tracks the intentional source, binary, behavioral, and serialized-data changes in the
+next major ReVoman release. The machine-readable source of truth is
+`api/cs2-migration-map.tsv`. It assigns every migration to the change set that implements it and
+uses exact Kotlin ABI declarations and JVM descriptors for the CS2a removals.
+
+The first lifecycle change set, CS2a, changes internal ownership and removes the accidentally
+reachable legacy sandbox facade. It does *not* change serialized Rundown, RunbookRundown, polling,
+or ledger output. Those documents remain byte-compatible until their separately versioned change
+sets land.
+
+== CS2a: execution lifecycle and sandbox boundary
+
+[cols="1,1,2",options="header"]
+|===
+|Legacy surface |CS2a disposition |Replacement
+
+|`PostmanSDK.evaluateJS`
+|removed
+|Real `PmSandbox`; `JsonPojoUtils` for host decoding until CS2c
+
+|`PostmanSDK.jsonStrToObj`
+|removed
+|`JsonPojoUtils.jsonToPojo`, then immutable `JsonCodec` in CS2c
+
+|`PostmanSDK.JSEvaluator` and host bridge types
+|removed
+|No host evaluator; collection scripts retain real Postman APIs
+
+|`Kick.nodeModulesPath`
+|deprecated and ignored
+|Vendored Postman sandbox modules (`lodash`, `moment`, and `xml2js`)
+|===
+
+`PostmanSDK`, `Info`, `RegexReplacer`, and the nested evaluator, variables, request, response, and
+XML bridge types lived in an `internal` package but were reachable from Java and appeared in the
+Kotlin ABI. They are not a supported extension point in the major release. Do not instantiate or
+reflect into them.
+
+`ExecutionSession`, `KickExecution`, and `ExecutionLifecycleDiagnostics` are unsupported internal
+implementation details. They exist only to enforce and measure ReVoman's own lifecycle contract;
+applications must not construct, call, reflect into, or otherwise depend on them. Their classfile
+presence does not make them a supported API, and they may change without a migration path.
+
+The old Java-callable `DynamicVariableGeneratorKt.dynamicVariableGenerator(..., PostmanSDK)`
+helper and the compiler-emitted `ReVoman.SequenceResult` class were also accidental implementation
+surface. Dynamic-variable state now flows through internal lifecycle progress, and the sequence
+result is private to `KickRunner`; neither replacement is an application extension point.
+
+Collection pre-request and post-response scripts continue to use Postman-compatible `pm` APIs.
+Arbitrary modules from a filesystem `node_modules` directory are no longer loaded; use the bundled
+modules exposed by the sandbox. Existing `nodeModulesPath(...)` builder calls still compile but do
+nothing.
+Host code that only needs JSON conversion should use the public host JSON utilities during CS2a;
+CS2c replaces mutable adapter registration with an immutable codec.
+
+Every outermost `ReVoman.revUp` call owns one execution session. List and runbook calls reuse that
+session for their nested kicks without sharing kick-local progress, scopes, sandbox state, polling
+state, or cleanup with an independent public call. Caller-supplied log sinks remain borrowed.
+
+== Ownership of later migrations
+
+[cols="1,2,3",options="header"]
+|===
+|Change set |Legacy contract |Replacement contract
+
+|CS2b
+|Deep `Step` identity, path-only ledger keys, retained `rawPMStep`, repeated jump scans, and live
+HTTP report seams
+|Occurrence-safe `StepId`, durable versioned `LedgerStepKey`, `StepDescriptor`, a precomputed jump
+index, and immutable HTTP snapshot DTOs
+
+|CS2c
+|Per-call lists/factories that mutate an environment's shared Moshi registry
+|An immutable run `JsonCodec`, an explicit one-off `JsonAdapter`, or a reusable codec returned by
+`environment.codec.withAdapters(...)`
+
+|CS2d
+|Eager disabled logging, undeclared custom-sink needs, per-line flushes, and a duplicated footer
+rewrite
+|Immutable sink capabilities, explicit attachment policy and flush boundaries, bounded buffering,
+and one footer
+
+|CS3
+|Whole-scope host/guest serialization and replacement
+|Cause-tagged mutation/read journals with an explicit bidirectional barrier after every host/guest
+phase transition
+
+|CS4
+|Mutable Rundown progress, full per-step environment snapshots, mutable hook contexts, `StepEnvVars`,
+live `TxnInfo`, and automatic unbounded execution history
+|`RunProgress`, explicit snapshots, immutable final Rundowns, `StepEnvironmentEffects`, purpose-built
+callback contexts/editors, immutable HTTP snapshots, and opt-in bounded or streaming
+`ExecutionTrace`
+
+|CS5
+|Unbounded polling responses, final sleeps, and an uncancelled in-flight request
+|Terminal-first reports, status counts, bounded recent responses, monotonic deadlines, and a
+cancellable transport handle
+
+|CS6
+|Reusable consumed `InputStream` values, repeated reads/parses, and an unbounded JAR filesystem map
+|Reopenable `InputSource` values, one immutable `ExecutionInputs` snapshot per top-level execution,
+and reference-counted resolver leases
+|===
+
+== Environment and report migration
+
+`StepReport.pmEnvSnapshot` is removed in CS4. A complete environment snapshot is not moved to
+another per-step field. Each completed step records only touched values and keys:
+
+[source,kotlin]
+----
+data class StepEnvironmentEffects(
+  val producedValues: Map<String, FrozenValue>,
+  val consumedKeys: Set<String>,
+  val unsetKeys: Set<String>,
+  val reusedValues: Map<String, FrozenValue>,
+)
+----
+
+Use `RunProgress.snapshot()` when a callback genuinely needs complete state at one selected point.
+Use the final immutable Rundown for final state. Historical snapshots belong in an explicitly
+enabled `ExecutionTrace`, not in every `StepReport`.
+
+Direct construction and `MutableMap` delegation through `PostmanEnvironment`, plus its mutable-copy,
+query, and implicit JSON helpers, migrate to purpose-specific scope views, callback-scoped editors,
+immutable scope snapshots, and explicit JSON conversion. Hooks and picks receive only the context
+their phase permits. Values retained in effects or final results use frozen immutable semantics.
+
+Environment, collection variables, and globals remain distinct scopes. CS3 synchronizes only
+guest `set` and `unset` deltas back to the host immediately after each sandbox script, then applies
+host hook deltas back to the guest before the following script. Delaying synchronization until the
+whole step completes is not compatible behavior.
+
+== JSON codec migration
+
+Ordinary typed reads use the immutable codec configured for the execution. Exceptional one-off
+decoding remains supported with an explicit adapter. Repeated custom policies use a reusable
+derived codec rather than mutating the execution codec:
+
+[source,kotlin]
+----
+val value = environment.getObj<Customer>("customer")
+val exceptional = environment.getObj("customer", customerAdapter)
+val derived = environment.codec.withAdapters(adapterConfig)
+val another = derived.decode<Customer>(frozenValue, customerType)
+----
+
+The exact overload names are finalized in CS2c. The invariant is already fixed: supplied adapters
+and derived codecs stay local to the caller, common adapters are registered once at construction,
+and no conversion mutates a shared registry.
+
+== Logging migration
+
+Custom `RunLogSink` implementations declare immutable capabilities, whether attachment is exclusive
+or concurrency-safe, and how they flush at an execution boundary. A caller-supplied sink remains
+borrowed and is never closed by ReVoman. Owned sinks are closed exactly once. File output uses
+`STEP_BOUNDARY` or `CLOSE_ONLY` flushing and writes its performance summary once in the footer.
+
+== Polling migration
+
+`PollingReport.responses` is replaced by the terminal response, ordered status counts, and a
+bounded list of recent intermediate responses. The default recent-response limit is zero, so
+retained memory is constant in attempt count. Polling uses an absolute monotonic deadline and a
+bounded `maxAttempts`; transport work is cancelled at the remaining deadline.
+
+== Input migration
+
+Reusable configuration must provide a reopenable source supplier or immutable bytes, never an
+already-consumed stream. The outermost execution reads mutable filesystem and supplied sources
+once, deduplicated by canonical identity, parses each source once, drops raw bytes after parsing,
+releases parsed entries after their final consumer, and clears remaining references in `finally`.
+Inputs are never watched, restatted, reopened, or reloaded during an execution. A fresh snapshot for
+the next top-level execution observes changes between runs.
+
+No distributed or cross-execution parsed cache is part of the initial design. A bounded JVM-local
+content-hash cache is a later measurement-driven option; it must not weaken per-execution freshness.
+
+== Version 2 serialized documents
+
+CS2a changes no serialized report or schema field. CS2b, CS2c, and CS2d remain pending and are not
+preempted by this lifecycle change. CS2b introduces the complete persisted Ledger version-2
+document atomically, CS4 introduces Rundown and RunbookRundown version 2, and CS5 introduces
+polling version 2. Each owner publishes JSON Schema Draft 2020-12 contracts before changing
+persisted shapes. CS4 still owns journal-derived produced/consumed runtime effects; it does not
+defer or partially rewrite the Ledger document established by CS2b.
+
+[cols="2,2,3",options="header"]
+|===
+|Document |Legacy field |Version 2 field or rule
+
+|Step report
+|`envSnapshot` / `pmEnvSnapshot`
+|`variableEffects` with produced, consumed, unset, and reused values or keys
+
+|Rundown
+|Unversioned mutable environment fields
+|Root `schemaVersion: 2` and immutable final environment, collection-variable, and global scopes
+
+|RunbookRundown
+|Unversioned nested Rundowns
+|The Kotlin/JVM type stays an immutable ordered `List<Rundown>`; its serialized form becomes the
+root wrapper `{schemaVersion,name,rundowns}`, and nested Rundowns inherit the root version
+
+|Polling report
+|`responses`
+|`terminalResponse`, ordered `statusCounts`, and bounded `recentResponses`
+
+|Ledger
+|Path-only step map and string values
+|Versioned `LedgerStepKey`, source hash, frozen produced values, and consumed keys
+|===
+
+Numbers are parsed as `BigInteger` or `BigDecimal` before normalization; they are never routed
+through `Double`. HTTP headers preserve order, bodies use base64 plus explicit metadata, failures
+use stable descriptors instead of throwable graphs, and status-count objects do not stringify
+integer keys.
+
+For an exhaustive machine-checkable mapping, including exact Kotlin declarations, Java JVM
+descriptors and flags, and every serialized-field row, consult `api/cs2-migration-map.tsv` in the
+source distribution.

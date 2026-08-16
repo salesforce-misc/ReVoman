@@ -7,16 +7,11 @@
 ** Pre-req JS runs first, before unmarshalling the request.
 ** Post-res JS runs right after receiving an HTTP response.
 
-=== `npm` modules with `require(...)`
-ReṼoman supports using `npm` modules inside your pre-req and post-res JS. Install modules in any folder with `npm install <module>`, supply the parent folder of `node_modules` to the `Kick` config via `nodeModulesPath(...)` (absolute, or relative to the project directory), and `require(...)` them:
+=== Bundled modules with `require(...)`
 
-.Install `moment` with npm
-[source,shellscript,indent=0,options="nowrap"]
-----
-npm install moment
-----
+ReṼoman executes collection scripts in its vendored Postman sandbox. The sandbox bundles common
+Postman modules such as `lodash`, `moment`, and `xml2js`; use them directly with `require(...)`:
 
-.Use inside pre-req and post-res scripts
 [source,javascript,indent=0,tabsize=2,options="nowrap"]
 ----
 var moment = require("moment")
@@ -29,16 +24,11 @@ pm.environment.set('$randomFutureDate', futureDateTime.format('YYYY-MM-DD'))
 pm.environment.set("$quantity", _.random(1, 10))
 ----
 
-IMPORTANT: Loading `node_modules` from a jar is not supported. For example, `/Users/username/some-path/revoman-root/build/libs/revoman-root-0.40.0.jar!/js` is an invalid path. (See this https://graalvm.slack.com/archives/CN9L59P61/p1710937088860679?thread_ts=1710767437.443019&cid=CN9L59P61[known issue].)
-
-[TIP]
-====
-* `node_modules` adds a lot of files to check in. You may replace them with a single distribution file.
-
-image::node_modules.png[]
-
-* If `node_modules` is ignored in your git repo, you can force-add it with `git add --all -f <path>/node_modules`.
-====
+`Kick.nodeModulesPath(...)` remains temporarily for source compatibility but is deprecated and
+ignored. Arbitrary filesystem CommonJS loading belonged to the removed legacy evaluator; it is not
+available inside the bundled sandbox. See the
+xref:migration-guide.adoc[major-version migration guide] for the complete CS2a sandbox and lifecycle
+boundary.
 
 CAUTION: Don't add too much code in pre-req/post-res scripts — it's not intuitive to troubleshoot via debugging. Use them for simple operations understandable without debugging, and use xref:hooks.adoc#dynamic-pre-step-and-post-step-hooks[Pre-Step/Post-Step Hooks] for non-trivial operations (which are intuitive to debug).
 
@@ -54,7 +44,7 @@ ReṼoman runs your collection's pre-request and post-response JavaScript on the
 | `pm.collectionVariables` (`.get` / `.set` / `.toObject`) | Collection-scoped key/value store; values set in one step's script are visible to later steps' scripts. Surfaced on `rundown.collectionVariables`.
 | `pm.globals` (`.get` / `.set` / `.unset`) | Global-scoped key/value store; like `pm.collectionVariables`, persists across steps. Surfaced on `rundown.globals`.
 | `pm.variables` (`.get` / `.has`) | Aggregate *read* view across all scopes, honoring xref:variables.adoc#variable-resolution-precedence[Postman precedence] (`environment` ▸ `collectionVariables` ▸ `globals`).
-| `pm.request.body`, `pm.response.code` / `.json` / `.text` / `.to.have.status` | Request/response fed into the script context.
+| `pm.request.body` / `.json`, `pm.response.code` / `.json` / `.text` / `.to.have.status` | Request/response fed into the script context. `pm.request.json()` parses a raw JSON request body for compatibility with earlier ReṼoman scripts.
 | `pm.test`, `pm.expect` | Assertion results recorded on `StepReport.pmTestAssertions`. A *failing* assertion fails its step (and the Rundown) — see <<pm-test-failures>>.
 | `pm.execution.setNextRequest` / `skipRequest` | Control-flow directives; now *honored* — see <<control-flow-directives>>.
 |===

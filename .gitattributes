@@ -1,0 +1,2 @@
+docs/superpowers/benchmarks/results/v1/**/jmh-raw.json whitespace=-blank-at-eof
+api/*.api whitespace=-blank-at-eof
