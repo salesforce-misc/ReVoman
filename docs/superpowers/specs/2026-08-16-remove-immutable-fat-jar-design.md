@@ -88,32 +88,41 @@ version changes.
 1. Build the jar and run the normal unit/ABI gates:
 
    ```bash
-   ./gradlew jar test checkKotlinAbi
+   ./gradlew jar test checkKotlinAbi --rerun-tasks
    ```
 
 2. Confirm the artifact is thin and its stable module name remains intact:
 
    ```bash
-   jar tf build/libs/revoman-*.jar | grep -c '^kotlinx/collections/immutable/'
-   # expect: 0
+   revoman_jar="$(find build/libs -maxdepth 1 -type f -name 'revoman-*.jar' \
+     ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
+   test -n "$revoman_jar"
+   immutable_entries="$(unzip -Z1 "$revoman_jar" \
+     | awk '/^kotlinx\/collections\/immutable\// { count++ } END { print count + 0 }')"
+   test "$immutable_entries" -eq 0
 
-   unzip -p build/libs/revoman-*.jar META-INF/MANIFEST.MF \
+   unzip -p "$revoman_jar" META-INF/MANIFEST.MF \
      | grep 'Automatic-Module-Name: com.salesforce.revoman'
    ```
 
-3. Query the local Core workspace to prove the published import still reaches the immutable JVM
-   artifact:
+3. Inspect Core's generated published-artifact catalog and confirm ReVoman's `runtime_deps`
+   contains `@org_jetbrains_kotlinx_kotlinx_collections_immutable_jvm`. This check must not be
+   inferred from a plain query when Core's `.bazelrc-local` enables a repository override, because
+   that query resolves the overridden repository instead of the generated catalog.
+
+4. From Core, query the local-override path explicitly after replacing `/path/to/revoman`:
 
    ```bash
    bazel query \
+     --override_repository=com_salesforce_revoman_revoman=/path/to/revoman \
      'somepath(
        @com_salesforce_revoman_revoman//:com_salesforce_revoman_revoman,
        @org_jetbrains_kotlinx_kotlinx_collections_immutable_jvm//:org_jetbrains_kotlinx_kotlinx_collections_immutable_jvm
      )'
    ```
 
-4. Inspect the root `BUILD.bazel` target (or query it through Core's local repository override) to
-   confirm the same runtime edge is present for local development.
+   The output must include both targets, proving this repository's root `BUILD.bazel` supplies the
+   runtime edge for local development.
 
 Qodana remains the required pre-push static-analysis gate, but no push is part of this cleanup.
 
