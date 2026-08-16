@@ -8,10 +8,20 @@
 package com.salesforce.revoman.internal.postman
 
 import com.google.common.truth.Truth.assertThat
+import com.salesforce.revoman.internal.runtime.legacyRundownProgress
 import kotlin.random.Random
 import org.junit.jupiter.api.Test
 
 class DynamicVariableGeneratorTest {
+  @Test
+  fun `currentRequestName reads only focused progress state`() {
+    val progress = legacyRundownProgress()
+    progress.currentRequestName = "phase-one"
+
+    assertThat(dynamicVariableGenerator($$"$currentRequestName", progress)).isEqualTo("phase-one")
+    assertThat(dynamicVariableGenerator("not-a-dynamic-variable", progress)).isNull()
+  }
+
   @Test
   fun `getRandomHex always returns exactly 2 uppercase hex digits`() {
     repeat(100) {

@@ -8,6 +8,8 @@
 package com.salesforce.revoman.internal.postman.sandbox
 
 import io.kotest.matchers.shouldBe
+import org.graalvm.polyglot.Engine
+import org.graalvm.polyglot.Source
 import org.junit.jupiter.api.Test
 
 /**
@@ -81,5 +83,55 @@ class SandboxEngineSharingTest {
     s2.close()
     r.error shouldBe null
     r.environment["sawGlobal"] shouldBe "undefined" // fresh Context: s1's global unseen
+  }
+
+  @Test
+  fun `two real bridges build contexts with the shared engine and evaluate the shared source`() {
+    val engines = mutableListOf<Engine>()
+    val sources = mutableListOf<Source>()
+    val first =
+      SandboxBridge().observeRuntime { context, source ->
+        engines += context.engine
+        sources += source
+      }
+    val second =
+      SandboxBridge().observeRuntime { context, source ->
+        engines += context.engine
+        sources += source
+      }
+
+    try {
+      first.boot()
+      first.dispatchExecute("one", "__bridgeLeak = 'first';", ScriptTarget.TEST, testCtx(), 5000)
+      val sameBridge =
+        first.dispatchExecute(
+          "same",
+          "pm.environment.set('sawBridgeGlobal', typeof __bridgeLeak);",
+          ScriptTarget.TEST,
+          testCtx(),
+          5000,
+        )
+      second.boot()
+      val result =
+        second.dispatchExecute(
+          "two",
+          "pm.environment.set('sawBridgeGlobal', typeof __bridgeLeak);",
+          ScriptTarget.TEST,
+          testCtx(),
+          5000,
+        )
+
+      engines.all { it === sharedGraalEngine } shouldBe true
+      sources.all { it === SandboxResources.bootSource } shouldBe true
+      (engines[0] === engines[1]) shouldBe true
+      (sources[0] === sources[1]) shouldBe true
+      sameBridge.error shouldBe null
+      sameBridge.environment["sawBridgeGlobal"] shouldBe "string"
+      result.error shouldBe null
+      result.environment["sawBridgeGlobal"] shouldBe "undefined"
+    } finally {
+      first.close()
+      second.close()
+    }
   }
 }
