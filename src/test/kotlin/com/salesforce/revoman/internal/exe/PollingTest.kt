@@ -14,7 +14,8 @@ import com.salesforce.revoman.input.config.PollingConfig
 import com.salesforce.revoman.input.config.PollingRequestBuilder
 import com.salesforce.revoman.input.config.StepPick.PostTxnStepPick
 import com.salesforce.revoman.internal.json.MoshiReVoman.Companion.initMoshi
-import com.salesforce.revoman.internal.postman.PostmanSDK
+import com.salesforce.revoman.internal.postman.PostmanVariableScopes
+import com.salesforce.revoman.internal.postman.postmanVariableScopes
 import com.salesforce.revoman.internal.postman.template.Item
 import com.salesforce.revoman.internal.postman.template.Request
 import com.salesforce.revoman.internal.postman.template.Url
@@ -108,7 +109,13 @@ class PollingTest {
       providedStepsToExecuteCount = 0,
     )
 
-  private fun testPm(): PostmanSDK = PostmanSDK(moshiReVoman)
+  private fun testScopes(): PostmanVariableScopes =
+    postmanVariableScopes(
+      PostmanEnvironment(moshiReVoman = moshiReVoman),
+      PostmanEnvironment(moshiReVoman = moshiReVoman),
+      PostmanEnvironment(moshiReVoman = moshiReVoman),
+      environmentName = null,
+    )
 
   private fun alwaysPickConfig(
     requestBuilder: PollingRequestBuilder = PollingRequestBuilder { _, _ ->
@@ -131,7 +138,7 @@ class PollingTest {
         pollingConfigs = listOf(alwaysPickConfig()),
         currentStepReport = failedStepReport(),
         rundown = emptyRundown(),
-        pm = testPm(),
+        scopes = testScopes(),
         insecureHttp = false,
       )
     result shouldBe Right(null)
@@ -151,7 +158,7 @@ class PollingTest {
         pollingConfigs = listOf(config),
         currentStepReport = successfulStepReport(),
         rundown = emptyRundown(),
-        pm = testPm(),
+        scopes = testScopes(),
         insecureHttp = false,
       )
     result shouldBe Right(null)
@@ -166,7 +173,7 @@ class PollingTest {
         pollingConfigs = listOf(config),
         currentStepReport = successfulStepReport(),
         rundown = emptyRundown(),
-        pm = testPm(),
+        scopes = testScopes(),
         insecureHttp = false,
       )
     result.shouldBeInstanceOf<Right<PollingReport>>()
@@ -192,7 +199,7 @@ class PollingTest {
         pollingConfigs = listOf(config),
         currentStepReport = successfulStepReport(),
         rundown = emptyRundown(),
-        pm = testPm(),
+        scopes = testScopes(),
         insecureHttp = false,
       )
     result.shouldBeInstanceOf<Right<PollingReport>>()
@@ -210,7 +217,7 @@ class PollingTest {
         pollingConfigs = listOf(config),
         currentStepReport = successfulStepReport(),
         rundown = emptyRundown(),
-        pm = testPm(),
+        scopes = testScopes(),
         insecureHttp = false,
       )
     result.shouldBeInstanceOf<Left<PollingRequestFailure>>()
@@ -227,7 +234,7 @@ class PollingTest {
         pollingConfigs = listOf(config),
         currentStepReport = successfulStepReport(),
         rundown = emptyRundown(),
-        pm = testPm(),
+        scopes = testScopes(),
         insecureHttp = false,
       )
     result.shouldBeInstanceOf<Left<PollingRequestFailure>>()
@@ -249,7 +256,7 @@ class PollingTest {
         pollingConfigs = listOf(config),
         currentStepReport = successfulStepReport(),
         rundown = emptyRundown(),
-        pm = testPm(),
+        scopes = testScopes(),
         insecureHttp = false,
       )
     result.shouldBeInstanceOf<Left<PollingTimeoutFailure>>()
@@ -275,7 +282,7 @@ class PollingTest {
         pollingConfigs = listOf(config),
         currentStepReport = successfulStepReport(),
         rundown = emptyRundown(),
-        pm = testPm(),
+        scopes = testScopes(),
         insecureHttp = false,
       )
     result.shouldBeInstanceOf<Right<PollingReport>>()

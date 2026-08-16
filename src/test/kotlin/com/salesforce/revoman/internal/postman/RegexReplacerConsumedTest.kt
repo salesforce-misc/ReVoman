@@ -8,7 +8,6 @@
 package com.salesforce.revoman.internal.postman
 
 import com.google.common.truth.Truth.assertThat
-import com.salesforce.revoman.internal.json.MoshiReVoman.Companion.initMoshi
 import com.salesforce.revoman.internal.postman.template.Item
 import com.salesforce.revoman.output.report.Step
 import org.junit.jupiter.api.Test
@@ -16,13 +15,13 @@ import org.junit.jupiter.api.Test
 class RegexReplacerConsumedTest {
   @Test
   fun `resolving a double-brace var records it as consumed`() {
-    val regexReplacer = RegexReplacer()
-    val pm = PostmanSDK(initMoshi(), null, regexReplacer)
-    pm.environment.currentStep = Step(index = "1", rawPMStep = Item(name = "validate"))
+    val graph = focusedPostmanTestGraph(environmentValues = mapOf("policyId" to "0Pol1"))
+    val step = Step(index = "1", rawPMStep = Item(name = "validate"))
+    graph.scopes.environment.currentStep = step
     // present in env (also marks produced for this step — fine)
-    pm.environment.set("policyId", "0Pol1")
-    val out = regexReplacer.replaceVariablesRecursively("id={{policyId}}", pm)
+    graph.scopes.environment.set("policyId", "0Pol1")
+    val out = graph.replacer.replaceVariablesRecursively("id={{policyId}}")
     assertThat(out).isEqualTo("id=0Pol1")
-    assertThat(pm.environment.consumedKeysFor(pm.environment.currentStep)).contains("policyId")
+    assertThat(graph.scopes.environment.consumedKeysFor(step)).contains("policyId")
   }
 }

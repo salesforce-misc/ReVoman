@@ -1,0 +1,15 @@
+$kind: http-request
+name: b
+url: "{{baseUrl}}/b/{{isolationId}}"
+method: GET
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.environment.set('bRan', 'yes');
+      pm.environment.set(
+        'collectionSeenByB',
+        pm.collectionVariables.get('childCollection') || 'absent'
+      );
+      pm.environment.set('globalSeenByB', pm.globals.get('childGlobal') || 'absent');
+    language: text/javascript
+order: 2000

@@ -1,0 +1,29 @@
+$kind: http-request
+name: a
+url: "{{baseUrl}}/a/{{isolationId}}"
+method: GET
+scripts:
+  - type: afterResponse
+    code: |-
+      if (pm.environment.get('phase') === 'first') {
+        const isolationId = pm.environment.get('isolationId');
+        const legacy = isolationId === 'legacy';
+        pm.environment.set(
+          'carriedEnvironment',
+          legacy ? 'from-first-child' : 'environment-' + isolationId
+        );
+        pm.collectionVariables.set(
+          'childCollection',
+          legacy ? 'first-child-only' : 'collection-' + isolationId
+        );
+        pm.globals.set(
+          'childGlobal',
+          legacy ? 'first-child-only' : 'global-' + isolationId
+        );
+        pm.execution.setNextRequest(isolationId.endsWith('-jump') ? 'b' : null);
+        if (pm.environment.get('autoAdvance') === 'yes') {
+          pm.environment.set('phase', 'second');
+        }
+      }
+    language: text/javascript
+order: 1000

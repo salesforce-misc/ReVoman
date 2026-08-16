@@ -13,6 +13,7 @@ import com.salesforce.revoman.input.config.Phase
 import com.salesforce.revoman.input.config.Runbook
 import com.salesforce.revoman.input.config.runLogSink
 import com.salesforce.revoman.input.config.step
+import com.salesforce.revoman.internal.log.RunLogContext
 import com.salesforce.revoman.output.log.ConsoleRunLogSink
 import com.salesforce.revoman.testing.http.MockHttpServer
 import java.io.ByteArrayOutputStream
@@ -106,6 +107,7 @@ class RunbookLegibilityE2ETest {
     assertThat(output).containsMatch("┌ [▶◆]") // step-open bracket (▶ or ◆)
     assertThat(output).containsMatch("│ [·\\s]") // child request gutter line (│ · or │   )
     assertThat(output).containsMatch("└ [✔✘]") // step-close bracket (✔ or ✘)
+    assertThat(RunLogContext.current()).isNull()
   }
 
   companion object {
