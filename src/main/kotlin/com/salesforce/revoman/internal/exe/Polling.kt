@@ -12,7 +12,7 @@ import arrow.core.flatMap
 import arrow.core.left
 import arrow.core.right
 import com.salesforce.revoman.input.config.PollingConfig
-import com.salesforce.revoman.internal.postman.PostmanSDK
+import com.salesforce.revoman.internal.postman.PostmanVariableScopes
 import com.salesforce.revoman.output.ExeType.POLLING
 import com.salesforce.revoman.output.Rundown
 import com.salesforce.revoman.output.report.PollingReport
@@ -33,7 +33,7 @@ internal fun executePolling(
   pollingConfigs: List<PollingConfig>,
   currentStepReport: StepReport,
   rundown: Rundown,
-  pm: PostmanSDK,
+  scopes: PostmanVariableScopes,
   insecureHttp: Boolean,
 ): Either<PollingFailure, PollingReport?> {
   if (!currentStepReport.isSuccessful) return null.right()
@@ -48,7 +48,7 @@ internal fun executePolling(
     attempts++
     val pollAttempts = attempts
     runCatching(currentStepReport.step, POLLING) {
-        matchingConfig.requestBuilder.buildRequest(currentStepReport, pm.environment)
+        matchingConfig.requestBuilder.buildRequest(currentStepReport, scopes.environment)
       }
       .mapLeft { throwable: Throwable -> throwable to Request(Method.GET, "") }
       .flatMap { pollRequest: Request ->
@@ -58,7 +58,7 @@ internal fun executePolling(
       .map { response: Response ->
         responses.add(response)
         runCatching(currentStepReport.step, POLLING) {
-            matchingConfig.completionPredicate.isComplete(response, pm.environment)
+            matchingConfig.completionPredicate.isComplete(response, scopes.environment)
           }
           .fold({ false }, { it })
       }
