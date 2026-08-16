@@ -1,0 +1,31 @@
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/9.7.0-rc-2/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+Parallel Configuration Cache is an incubating feature.
+Calculating task graph as no cached configuration is available for tasks: clean writeBenchmarkTargetManifest
+> Task :buildSrc:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :buildSrc:generateExternalPluginSpecBuilders FROM-CACHE
+> Task :buildSrc:extractPrecompiledScriptPluginPlugins FROM-CACHE
+> Task :buildSrc:compilePluginsBlocks FROM-CACHE
+> Task :buildSrc:generatePrecompiledScriptPluginAccessors FROM-CACHE
+> Task :buildSrc:generateScriptPluginAdapters FROM-CACHE
+> Task :buildSrc:compileKotlin FROM-CACHE
+> Task :buildSrc:compileJava NO-SOURCE
+> Task :buildSrc:compileGroovy NO-SOURCE
+> Task :buildSrc:pluginDescriptors
+> Task :buildSrc:processResources
+> Task :buildSrc:classes
+> Task :buildSrc:jar
+> Task :checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :clean
+> Task :processResources
+> Task :kaptGenerateStubsKotlin FROM-CACHE
+> Task :kaptKotlin FROM-CACHE
+> Task :compileKotlin FROM-CACHE
+> Task :compileJava FROM-CACHE
+> Task :classes
+> Task :jar
+> Task :writeBenchmarkTargetManifest
+
+BUILD SUCCESSFUL in 18s
+17 actionable tasks: 7 executed, 10 from cache
+Configuration cache entry stored.

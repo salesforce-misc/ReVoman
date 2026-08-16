@@ -1,0 +1,9 @@
+From github.com:salesforce-misc/ReVoman
+ * branch              codex/performance-cs2a-lifecycle -> FETCH_HEAD
+ * [new branch]        codex/performance-cs2a-lifecycle -> origin/codex/performance-cs2a-lifecycle
+HEAD is now at 7dcf3fe6 fix: reset CS2a fresh attempt state safely
+HEAD is now at 7dcf3fe6 fix: reset CS2a fresh attempt state safely
+HEAD is now at 83f3cd70 Merge: clear all 18 Qodana static-analysis findings
+HEAD is now at 83f3cd70 Merge: clear all 18 Qodana static-analysis findings
+RUN_ROOT=/opt/revoman-benchmark/runs/cs2a.Gp3djMyg
+GOVERNOR_STATE=/run/revoman-cs2a/governor-state.ZAprGaVE

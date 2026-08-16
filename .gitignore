@@ -289,12 +289,12 @@ fabric.properties
 # Antora docs site build output
 build/site/
 .cache/antora/
-# npm manifest from local Antora/Lunr install (CI installs deps itself; not committed)
-package.json
-package-lock.json
 
 # cmux browser test artifacts (local-only)
 cmux-assets/
 
 # Qodana linter image/cache (persisted outside build/ so `clean` doesn't force a re-pull)
 .qodana/
+
+# Local linked worktrees used for isolated feature development
+.worktrees/

@@ -1,0 +1,49 @@
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/9.7.0/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+Parallel Configuration Cache is an incubating feature.
+Calculating task graph as no cached configuration is available for tasks: :benchmark-driver:installDist
+> Task :buildSrc:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :buildSrc:generateExternalPluginSpecBuilders FROM-CACHE
+> Task :buildSrc:extractPrecompiledScriptPluginPlugins FROM-CACHE
+> Task :buildSrc:generateScriptPluginAdapters FROM-CACHE
+> Task :buildSrc:pluginDescriptors
+> Task :buildSrc:processResources
+> Task :buildSrc:compilePluginsBlocks
+> Task :buildSrc:generatePrecompiledScriptPluginAccessors FROM-CACHE
+> Task :buildSrc:compileKotlin
+> Task :buildSrc:compileJava NO-SOURCE
+> Task :buildSrc:compileGroovy NO-SOURCE
+> Task :buildSrc:classes
+> Task :buildSrc:jar
+> Task :benchmark-driver:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :benchmark-driver:kaptGenerateStubsKotlin SKIPPED
+> Task :benchmark-driver:processJmhResources NO-SOURCE
+> Task :benchmark-driver:kaptKotlin SKIPPED
+> Task :benchmark-driver:processResources
+
+> Task :benchmark-driver:compileKotlin
+:benchmark-driver:compileKotlin w: The argument '-Xannotation-default-target=param-property' is redundant for the current language version 2.4.
+
+> Task :benchmark-driver:compileJava NO-SOURCE
+> Task :benchmark-driver:classes
+> Task :benchmark-driver:jar
+> Task :benchmark-driver:kaptGenerateStubsJmhKotlin SKIPPED
+> Task :benchmark-driver:kaptJmhKotlin SKIPPED
+> Task :benchmark-driver:generateBenchmarkHarnessSource
+> Task :benchmark-driver:startScripts
+
+> Task :benchmark-driver:compileJmhKotlin
+:benchmark-driver:compileJmhKotlin w: The argument '-Xannotation-default-target=param-property' is redundant for the current language version 2.4.
+
+> Task :benchmark-driver:compileJmhJava NO-SOURCE
+> Task :benchmark-driver:jmhClasses UP-TO-DATE
+> Task :benchmark-driver:jmhRunBytecodeGenerator
+> Task :benchmark-driver:jmhCompileGeneratedClasses
+> Task :benchmark-driver:benchmarkJmhClassesJar
+> Task :benchmark-driver:installDist
+
+[Incubating] Problems report is available at: file:///opt/revoman-benchmark/runs/cs2a.Gp3djMyg/checkouts/harness/build/reports/problems/problems-report.html
+
+BUILD SUCCESSFUL in 1m 13s
+19 actionable tasks: 15 executed, 4 from cache
+Configuration cache entry stored.

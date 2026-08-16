@@ -1,0 +1,397 @@
+{
+    "schema": "revoman-target-manifest/v1",
+    "targetId": "candidate-cs2a",
+    "gitCommit": "7dcf3fe6dddb36d79f04645e01a1a45f93061b5e",
+    "gitTree": "f0f39e3176a4c64da0227889d546bf32d671ea40",
+    "dirty": false,
+    "gradleVersion": "9.7.0",
+    "wrapperSha256": "fc913ffa0625b544190844a506086ca0b93c4361986e820e10dd64c088257bf7",
+    "jdk": {
+        "distribution": "OpenJDK Runtime Environment",
+        "vendor": "Azul Systems, Inc.",
+        "fullVersion": "21.0.11.0.101+1-LTS",
+        "javaHome": "/home/gopala.akshintala/core-public/tools/Linux/jdk/sfdc-jdk-zulu-21.helium_x64",
+        "jvmFlags": [
+            "--add-opens=java.base/java.lang=ALL-UNNAMED",
+            "--add-opens=java.base/java.lang.invoke=ALL-UNNAMED",
+            "--add-opens=java.base/java.util=ALL-UNNAMED",
+            "--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+            "--add-opens=java.base/java.nio.charset=ALL-UNNAMED",
+            "--add-opens=java.base/java.net=ALL-UNNAMED",
+            "--add-opens=java.base/java.util.concurrent=ALL-UNNAMED",
+            "--add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED",
+            "--add-opens=java.xml/javax.xml.namespace=ALL-UNNAMED",
+            "--add-opens=java.base/java.time=ALL-UNNAMED",
+            "-XX:+UseParallelGC",
+            "-Dfile.encoding=UTF-8",
+            "-Duser.country=US",
+            "-Duser.language=en",
+            "-Duser.variant",
+            "-javaagent:/home/gopala.akshintala/.gradle/wrapper/dists/gradle-9.7.0-bin/d4tj7w02tcgubx9zk9hbippn6/gradle-9.7.0/lib/agents/gradle-instrumentation-agent-9.7.0.jar"
+        ]
+    },
+    "classpath": [
+        {
+            "logicalId": "project:revoman-root:jar",
+            "executionPath": "/opt/revoman-benchmark/runs/cs2a.Gp3djMyg/checkouts/candidate/build/libs/revoman-0.90.0.jar",
+            "sizeBytes": 1888524,
+            "sha256": "91919f5c3dafd37fa84fd543abde044dfe865aa99e1ecd7948b2954e2e9786df"
+        },
+        {
+            "logicalId": "maven:org.http4k:http4k-client-apache:6.57.1.0",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/org.http4k/http4k-client-apache/6.57.1.0/f3845484b9b4878d23911011fd33e3e7ee87f5b7/http4k-client-apache-6.57.1.0.jar",
+            "sizeBytes": 14324,
+            "sha256": "e1ec7910cfcd2f3591e3caf3b9ac6d62ab08eb6347f9a8ab4fe2816a2ae801cb"
+        },
+        {
+            "logicalId": "maven:org.http4k:http4k-format-moshi:6.57.1.0",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/org.http4k/http4k-format-moshi/6.57.1.0/714f490ce0c98de405ba9cdb783a97edba3ddb30/http4k-format-moshi-6.57.1.0.jar",
+            "sizeBytes": 106817,
+            "sha256": "52f840227c91328438997d45b61b8efe4c08a94392c4d7903f67f120f776284f"
+        },
+        {
+            "logicalId": "maven:org.http4k:http4k-api-jsonschema:6.57.1.0",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/org.http4k/http4k-api-jsonschema/6.57.1.0/4e4c0ff5d777d9a4732cadf31c4c139584cb318f/http4k-api-jsonschema-6.57.1.0.jar",
+            "sizeBytes": 133882,
+            "sha256": "1572811a6cece4d692ea1f69f19a2fc6b586e46515abd8b384d37bbb3d249820"
+        },
+        {
+            "logicalId": "maven:org.http4k:http4k-format-core:6.57.1.0",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/org.http4k/http4k-format-core/6.57.1.0/a6693c96d3a1d29216d922331f5d8caa37f5a6e9/http4k-format-core-6.57.1.0.jar",
+            "sizeBytes": 105437,
+            "sha256": "61a20f157224e7ff245c79a4443663c56e7cea89691cda701318b3fd542b3bd0"
+        },
+        {
+            "logicalId": "maven:org.http4k:http4k-realtime-core:6.57.1.0",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/org.http4k/http4k-realtime-core/6.57.1.0/f3778c238f9a3fe7208f41bd0a7e9932cd891210/http4k-realtime-core-6.57.1.0.jar",
+            "sizeBytes": 246324,
+            "sha256": "c9eacba06f699fef6dcb4d5390da4d61b2119f6db19c2340c73674be4b86033f"
+        },
+        {
+            "logicalId": "maven:org.http4k:http4k-core:6.57.1.0",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/org.http4k/http4k-core/6.57.1.0/32aeea3c09c0bf1794686345c278c1f52ec8ab58/http4k-core-6.57.1.0.jar",
+            "sizeBytes": 891477,
+            "sha256": "cf2456b6b60b993830e73a3cdec48b19f47141a0af637d3b3066a3daf5708e90"
+        },
+        {
+            "logicalId": "maven:dev.zacsweers.moshix:moshi-adapters:0.37.0",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/dev.zacsweers.moshix/moshi-adapters/0.37.0/12256d3d4bc2e8de6e4f987335de5d899226e25c/moshi-adapters-0.37.0.jar",
+            "sizeBytes": 19691,
+            "sha256": "56b74f353f58948bd6acb241b1ef16f677889f74455ae3b9011473dfbbf0c857"
+        },
+        {
+            "logicalId": "maven:io.vavr:vavr-kotlin:0.10.2",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/io.vavr/vavr-kotlin/0.10.2/aa3bbdb2367900b07065509af84496a050023559/vavr-kotlin-0.10.2.jar",
+            "sizeBytes": 10729,
+            "sha256": "4a9dd018ad2b92f668a1ab1140a50c7ddb27174ab4430ab442b20c11a96bd7ba"
+        },
+        {
+            "logicalId": "maven:io.vavr:vavr:1.0.1",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/io.vavr/vavr/1.0.1/8abb26edc6f97c309589c6b9b7eee22c60142258/vavr-1.0.1.jar",
+            "sizeBytes": 1076280,
+            "sha256": "f9ea1043ad66dbd8e0c4dd7b7a9cdce5bf2d86fab1ce33aace1ad4d56bd1270b"
+        },
+        {
+            "logicalId": "maven:org.jetbrains.kotlinx:kotlinx-datetime-jvm:0.8.0-0.6.x-compat",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlinx/kotlinx-datetime-jvm/0.8.0-0.6.x-compat/c4bf6532a54e118f35afb24ac5f0dacacfc90e63/kotlinx-datetime-jvm-0.8.0-0.6.x-compat.jar",
+            "sizeBytes": 753869,
+            "sha256": "c764cb4882bb30a5b4279e07324ef60ed4f82f23a7bb420ee62550266d0f6162"
+        },
+        {
+            "logicalId": "maven:io.github.oshai:kotlin-logging-jvm:8.0.4",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/io.github.oshai/kotlin-logging-jvm/8.0.4/e6b2cc0236be77e274cec7195ab59a8d341ae888/kotlin-logging-jvm-8.0.4.jar",
+            "sizeBytes": 119889,
+            "sha256": "0bbac3f9dac5067b40d02fe461a053782bc8d3ef5162a923581b369adef7e02d"
+        },
+        {
+            "logicalId": "maven:io.exoquery:pprint-kotlin:3.0.0",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/io.exoquery/pprint-kotlin/3.0.0/3621dea536221bd07d0f6a208363f8a2349762ac/pprint-kotlin-3.0.0.jar",
+            "sizeBytes": 23224,
+            "sha256": "b7301d95af879656984b581f2c29867d7088901349b5da711e3530efc0a8dec8"
+        },
+        {
+            "logicalId": "maven:dev.zacsweers.moshix:moshi-sealed-runtime:0.37.0",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/dev.zacsweers.moshix/moshi-sealed-runtime/0.37.0/f0ca3136584199b3f4ab3534cf9498f606984734/moshi-sealed-runtime-0.37.0.jar",
+            "sizeBytes": 11548,
+            "sha256": "1a403f784ecdd47556d8fb4a0b92a0dfe28a4866f46b8a916fde88b6dd04332f"
+        },
+        {
+            "logicalId": "maven:com.squareup.moshi:moshi-adapters:1.15.2",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/com.squareup.moshi/moshi-adapters/1.15.2/edeca8b0df58cf1ad4d1d1136f9dfd536b243b3b/moshi-adapters-1.15.2.jar",
+            "sizeBytes": 14247,
+            "sha256": "efa90fb3419a5a88bd5e029cbafdcecce1812430b15cb86770f60eaf0b45c409"
+        },
+        {
+            "logicalId": "maven:com.squareup.moshi:moshi-kotlin:1.15.2",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/com.squareup.moshi/moshi-kotlin/1.15.2/7b1097b592daa615344f3d52d5a4147d4eb29583/moshi-kotlin-1.15.2.jar",
+            "sizeBytes": 19519,
+            "sha256": "5c39cd77e83b111af9c54708173af96a89fd3b09d15019a11da355e83e97d75a"
+        },
+        {
+            "logicalId": "maven:com.squareup.moshi:moshi:1.15.2",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/com.squareup.moshi/moshi/1.15.2/8e9a6b11929c7c162a4ded3bb064cbd514af639a/moshi-1.15.2.jar",
+            "sizeBytes": 162258,
+            "sha256": "767f7592c6c61eb693549a26d333c121f5383826bd287b899867aa326dae55e4"
+        },
+        {
+            "logicalId": "maven:com.squareup.okio:okio-jvm:3.18.1",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/com.squareup.okio/okio-jvm/3.18.1/a3a8128bb3a0157d23ecc18c17e8330d9c0ac96c/okio-jvm-3.18.1.jar",
+            "sizeBytes": 392463,
+            "sha256": "b97b640557a650d15411f2be29aef558c4e422a83653cb18ba494311dbed18be"
+        },
+        {
+            "logicalId": "maven:dev.zacsweers.moshix:moshix-runtime:0.37.0",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/dev.zacsweers.moshix/moshix-runtime/0.37.0/b8c9dff27d1ee4c0052ab2bc0f0fbf40b12de37a/moshix-runtime-0.37.0.jar",
+            "sizeBytes": 910,
+            "sha256": "e114d19497594cfad0d3f748759b801c6b35c500c00f8ddee2fbb0392652336c"
+        },
+        {
+            "logicalId": "maven:io.arrow-kt:arrow-core-jvm:2.3.0-alpha.4",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/io.arrow-kt/arrow-core-jvm/2.3.0-alpha.4/1c595de2fcf82203bc8bf4e581659d945e211392/arrow-core-jvm-2.3.0-alpha.4.jar",
+            "sizeBytes": 747016,
+            "sha256": "a4925fb72f6cf731c424731698f072e681373269d049f26f1f94f8d787a65a7d"
+        },
+        {
+            "logicalId": "maven:org.jetbrains.kotlin:kotlin-reflect:1.9.22",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-reflect/1.9.22/761ab33cf85f03a3a24595e1b92639d82e7a9564/kotlin-reflect-1.9.22.jar",
+            "sizeBytes": 3222052,
+            "sha256": "77f311ca1384811d519fda389fcb1268bdaa058d605046e0ede76c03b0df3e97"
+        },
+        {
+            "logicalId": "maven:org.jetbrains.kotlinx:kotlinx-collections-immutable-jvm:0.5.1",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlinx/kotlinx-collections-immutable-jvm/0.5.1/75cd0756424334b5b2d637a895fc8daf1d2dbbfa/kotlinx-collections-immutable-jvm-0.5.1.jar",
+            "sizeBytes": 232029,
+            "sha256": "d5e4bb25d6e90f7471662b3500259e247523a410e6a820dcc4000d386b0c248c"
+        },
+        {
+            "logicalId": "maven:org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.21",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib-jdk8/1.8.21/67f57e154437cd9e6e9cf368394b95814836ff88/kotlin-stdlib-jdk8-1.8.21.jar",
+            "sizeBytes": 968,
+            "sha256": "3db752a30074f06ee6c57984aa6f27da44f4d2bbc7f5442651f6988f1cb2b7d7"
+        },
+        {
+            "logicalId": "maven:io.exoquery:pprint-kotlin-core-jvm:3.0.0",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/io.exoquery/pprint-kotlin-core-jvm/3.0.0/9d7d1c726671ae274994c5078f16838f72976376/pprint-kotlin-core-jvm-3.0.0.jar",
+            "sizeBytes": 165541,
+            "sha256": "d3f09c5d0b5473fcf6770a161ba83a50421e3d702b11ad82a469700e505aab9a"
+        },
+        {
+            "logicalId": "maven:io.arrow-kt:arrow-atomic-jvm:2.3.0-alpha.4",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/io.arrow-kt/arrow-atomic-jvm/2.3.0-alpha.4/ddc7942d1de8c29aa2f05ea5177a63a77156e90c/arrow-atomic-jvm-2.3.0-alpha.4.jar",
+            "sizeBytes": 14388,
+            "sha256": "9605a129250898db4a8e1011fb6faab1f1ade1dea290dae467eae2e60289f755"
+        },
+        {
+            "logicalId": "maven:io.arrow-kt:arrow-annotations-jvm:2.3.0-alpha.4",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/io.arrow-kt/arrow-annotations-jvm/2.3.0-alpha.4/1435d135c995eb667a7ec91fbacc7189b87d614d/arrow-annotations-jvm-2.3.0-alpha.4.jar",
+            "sizeBytes": 3887,
+            "sha256": "5db812b43458d694a2d676491bdcd6eca04a44f3ae6336db3c71fce67be8e1bc"
+        },
+        {
+            "logicalId": "maven:io.arrow-kt:arrow-exception-utils-jvm:2.3.0-alpha.4",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/io.arrow-kt/arrow-exception-utils-jvm/2.3.0-alpha.4/cf078d8d0466d2e78a9c911855a4836637997e50/arrow-exception-utils-jvm-2.3.0-alpha.4.jar",
+            "sizeBytes": 3954,
+            "sha256": "1a6604e1dbe1af48a743ed1923f4754b389933c9ef3ec8aad6b7543418196796"
+        },
+        {
+            "logicalId": "maven:org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.21",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib-jdk7/1.8.21/7473b8cd3c0ef9932345baf569bc398e8a717046/kotlin-stdlib-jdk7-1.8.21.jar",
+            "sizeBytes": 963,
+            "sha256": "33d148db0e11debd0d90677d28242bced907f9c77730000fd597867089039d86"
+        },
+        {
+            "logicalId": "maven:org.jetbrains.kotlinx:kotlinx-serialization-core-jvm:1.6.2",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlinx/kotlinx-serialization-core-jvm/1.6.2/384c2492c987f1d92bfa186580de058c284b2ad9/kotlinx-serialization-core-jvm-1.6.2.jar",
+            "sizeBytes": 419740,
+            "sha256": "8e6fc04e1a2efd2acbbc5503a1dc9d988166f99e4f1f51ef6b91c3a52077bdb1"
+        },
+        {
+            "logicalId": "maven:org.jetbrains.kotlin:kotlin-stdlib:2.4.20-Beta2",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib/2.4.20-Beta2/5462cd8176c44cc5f70f0e855e926e6c7854bd0d/kotlin-stdlib-2.4.20-Beta2.jar",
+            "sizeBytes": 1853318,
+            "sha256": "7b8b4014665c4ff080040b5f3ebe08066d1706e42aab239fd8fbbb30e9d17331"
+        },
+        {
+            "logicalId": "maven:org.apache.logging.log4j:log4j-slf4j2-impl:3.0.0-beta2",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/org.apache.logging.log4j/log4j-slf4j2-impl/3.0.0-beta2/30889fe7602c02c54fd11826bbc2af5fdbfedf6a/log4j-slf4j2-impl-3.0.0-beta2.jar",
+            "sizeBytes": 26497,
+            "sha256": "a00a63c4411f4913dd59181cc50dcfeb1a55cc54f574eab29b777bee64c20610"
+        },
+        {
+            "logicalId": "maven:org.apache.logging.log4j:log4j-core:3.0.0-beta2",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/org.apache.logging.log4j/log4j-core/3.0.0-beta2/49714119d6a0f3731d080381f5ddcd61fab27fc3/log4j-core-3.0.0-beta2.jar",
+            "sizeBytes": 1468065,
+            "sha256": "1d4b13972c5d77578fd56ee9ab03f4cd2aced58242310ac66326f1b5c5ac690b"
+        },
+        {
+            "logicalId": "maven:org.apache.logging.log4j:log4j-plugins:3.0.0-beta2",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/org.apache.logging.log4j/log4j-plugins/3.0.0-beta2/dc24089857163f36a6f3adb8b9036628def859c4/log4j-plugins-3.0.0-beta2.jar",
+            "sizeBytes": 205869,
+            "sha256": "2984f58c4ca2a4c1f71ec3723237b40e202644b2f2fdfc148122998a37e02470"
+        },
+        {
+            "logicalId": "maven:org.apache.logging.log4j:log4j-api:3.0.0-beta2",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/org.apache.logging.log4j/log4j-api/3.0.0-beta2/3df0cf119d50a1840f39e3dd75dbceebb46079f2/log4j-api-3.0.0-beta2.jar",
+            "sizeBytes": 354770,
+            "sha256": "7cddcf837af4e251541c7b196dadfd1492e54e78217ada45496b629df42449c5"
+        },
+        {
+            "logicalId": "maven:org.graalvm.js:js-language:25.2.4",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/org.graalvm.js/js-language/25.2.4/1bf33d9fd7365fe2ed9498f0e522f1c3eb3958ee/js-language-25.2.4.jar",
+            "sizeBytes": 27666127,
+            "sha256": "0bf0b2523d65216aead797b6f41c0ca1f1afc22f4d74b4a3f2b42c245252ca4e"
+        },
+        {
+            "logicalId": "maven:net.datafaker:datafaker:2.7.0",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/net.datafaker/datafaker/2.7.0/8115f0faedd1d74cf20ca235de3ba81bac444f5b/datafaker-2.7.0.jar",
+            "sizeBytes": 3090680,
+            "sha256": "e900197c01dba5c49da9c06d3a203d721002aaf0e6ca1d7d7849ef03d5436f43"
+        },
+        {
+            "logicalId": "maven:org.springframework:spring-beans:7.0.8",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/org.springframework/spring-beans/7.0.8/829cdf4c82a9409e0e10922b9e57e2ef12d5f04d/spring-beans-7.0.8.jar",
+            "sizeBytes": 928037,
+            "sha256": "6ec2e361a8872a71d8b1ff66f1bcb8cfa29fcc437931998919da7cecfb59b45b"
+        },
+        {
+            "logicalId": "maven:org.yaml:snakeyaml:2.6",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/org.yaml/snakeyaml/2.6/2bc14918a2f8d5414749ab12d0c590cd3198b8c1/snakeyaml-2.6.jar",
+            "sizeBytes": 340068,
+            "sha256": "c8f7a98e7394adda02f6317249710e4d1b4c7a25aa8c7eace0c2eea52eb8bf85"
+        },
+        {
+            "logicalId": "maven:org.graalvm.truffle:truffle-runtime:25.2.4",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/org.graalvm.truffle/truffle-runtime/25.2.4/dd65006bec4c131c12f7389f8ab3f0fcb59f7e4a/truffle-runtime-25.2.4.jar",
+            "sizeBytes": 936014,
+            "sha256": "f4f37af324263c440f67c2c4a463541a17765e1846c9c7d849f66426c59a40f2"
+        },
+        {
+            "logicalId": "maven:io.vavr:vavr-match:1.0.0",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/io.vavr/vavr-match/1.0.0/3fcbc1d6f72515a28b77c3f10fa443283ef914d3/vavr-match-1.0.0.jar",
+            "sizeBytes": 5255,
+            "sha256": "956552a9c39d7e2d9ef623a7c2d6ca0e37bf22a36f9b9fa68c25ad6830cc5031"
+        },
+        {
+            "logicalId": "maven:org.springframework:spring-core:7.0.8",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/org.springframework/spring-core/7.0.8/25f5ebd179f92d7d12779e3761c96da4b0109ad/spring-core-7.0.8.jar",
+            "sizeBytes": 2035553,
+            "sha256": "726ba2a5130833644bdf267a55ff26e1f52e8dcc9aa1ffa06904ca9c14619f25"
+        },
+        {
+            "logicalId": "maven:org.jspecify:jspecify:1.0.0",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/org.jspecify/jspecify/1.0.0/7425a601c1c7ec76645a78d22b8c6a627edee507/jspecify-1.0.0.jar",
+            "sizeBytes": 3819,
+            "sha256": "1fad6e6be7557781e4d33729d49ae1cdc8fdda6fe477bb0cc68ce351eafdfbab"
+        },
+        {
+            "logicalId": "maven:org.jetbrains:annotations:13.0",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/org.jetbrains/annotations/13.0/919f0dfe192fb4e063e7dacadee7f8bb9a2672a9/annotations-13.0.jar",
+            "sizeBytes": 17536,
+            "sha256": "ace2a10dc8e2d5fd34925ecac03e4988b2c0f851650c94b8cef49ba1bd111478"
+        },
+        {
+            "logicalId": "maven:org.apache.httpcomponents.client5:httpclient5:5.6.3",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/org.apache.httpcomponents.client5/httpclient5/5.6.3/6fce81d328c3bf5d83dbc1815d51201eabbb58c/httpclient5-5.6.3.jar",
+            "sizeBytes": 1056844,
+            "sha256": "80712ff129210d7c73d9fcc1195cbee5c3c34744965c7a05ea107b3648922f18"
+        },
+        {
+            "logicalId": "maven:org.slf4j:slf4j-api:2.0.10",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/org.slf4j/slf4j-api/2.0.10/7af762c03f74a463d36d5786ec67006cce865892/slf4j-api-2.0.10.jar",
+            "sizeBytes": 67841,
+            "sha256": "b7ddb31a515debbddec8e9145e2cf7b197926f40e454376647724f92e6382043"
+        },
+        {
+            "logicalId": "maven:org.graalvm.regex:regex:25.2.4",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/org.graalvm.regex/regex/25.2.4/2e2d06027b19862b662eb998b58433da408ca22b/regex-25.2.4.jar",
+            "sizeBytes": 3905116,
+            "sha256": "3421cdc2712efa010139b40203461346d0c1df1804d7acdf3e24ceee766b2c39"
+        },
+        {
+            "logicalId": "maven:org.graalvm.truffle:truffle-api:25.2.4",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/org.graalvm.truffle/truffle-api/25.2.4/9604f491135a84e0d10e7fe8652ea3d71cb08eb9/truffle-api-25.2.4.jar",
+            "sizeBytes": 16961328,
+            "sha256": "ac5acb0e98b7e05983c34bcafc80ecdaaeb5ae0de32470d46452182dd8068628"
+        },
+        {
+            "logicalId": "maven:org.graalvm.polyglot:polyglot:25.2.4",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/org.graalvm.polyglot/polyglot/25.2.4/a4605b4fdc27020e3d767dcea6dac112aa1149e5/polyglot-25.2.4.jar",
+            "sizeBytes": 513986,
+            "sha256": "ce2e117a1e2f7e095538cf9a42d72e65cd56ba9eaedf2e4c5bf3bb542bd8c45c"
+        },
+        {
+            "logicalId": "maven:org.graalvm.shadowed:icu4j:25.2.4",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/org.graalvm.shadowed/icu4j/25.2.4/84b9b822f2cb081e9804720bba93c48bdd503fa9/icu4j-25.2.4.jar",
+            "sizeBytes": 18564119,
+            "sha256": "2337312cf26f26b0d3c2eb73c155c4397944a6e4e5a6da046c9421a7b502d589"
+        },
+        {
+            "logicalId": "maven:com.github.curious-odd-man:rgxgen:3.1",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/com.github.curious-odd-man/rgxgen/3.1/59e5610dfd89af7a04894cf2578318a9d3e5c52c/rgxgen-3.1.jar",
+            "sizeBytes": 172945,
+            "sha256": "091e94e0fe6d45695a625278c1fcf5286576d48fd6ad499d2b69d6b971cce6ff"
+        },
+        {
+            "logicalId": "maven:com.googlecode.libphonenumber:libphonenumber:9.0.33",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/com.googlecode.libphonenumber/libphonenumber/9.0.33/cfd1db23566956d63de27c5417b29f3f8d9c9a84/libphonenumber-9.0.33.jar",
+            "sizeBytes": 360038,
+            "sha256": "4390d99c08457b620150283070fba3275fb18c20852ed8232b3e839907788d0a"
+        },
+        {
+            "logicalId": "maven:org.graalvm.truffle:truffle-compiler:25.2.4",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/org.graalvm.truffle/truffle-compiler/25.2.4/d452dd5398af0fead1d559cc78e3c30ce705d974/truffle-compiler-25.2.4.jar",
+            "sizeBytes": 54586,
+            "sha256": "eb0b38486c52bab0d25507580b770b683aa2704b33c82f2616e1cc7a5e464c7e"
+        },
+        {
+            "logicalId": "maven:org.graalvm.sdk:jniutils:25.2.4",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/org.graalvm.sdk/jniutils/25.2.4/7d67d46758d78babdc032d8a19baa6528c46a81f/jniutils-25.2.4.jar",
+            "sizeBytes": 280789,
+            "sha256": "88c5d7a9f334d1528e83f5fa9d101109fa55b232f85b872cf866198079d67929"
+        },
+        {
+            "logicalId": "maven:org.graalvm.sdk:collections:25.2.4",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/org.graalvm.sdk/collections/25.2.4/d32b976e72bc4317d20181b26a27afab8b11887e/collections-25.2.4.jar",
+            "sizeBytes": 129469,
+            "sha256": "c02710600f7e5fddcce9a422726e64743e8f478416c99288a2a622d16a9d7976"
+        },
+        {
+            "logicalId": "maven:org.graalvm.sdk:nativeimage:25.2.4",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/org.graalvm.sdk/nativeimage/25.2.4/e731a4a0d0a99022b58084cc6c182d75aa3cd1af/nativeimage-25.2.4.jar",
+            "sizeBytes": 249782,
+            "sha256": "235376a14f41d503219e8e81cc3cade7dd45565917bb5c6936768519adc07fe1"
+        },
+        {
+            "logicalId": "maven:org.graalvm.shadowed:xz:25.2.4",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/org.graalvm.shadowed/xz/25.2.4/f3103c1c598509e8fd73dbb2f03d455f0f165c71/xz-25.2.4.jar",
+            "sizeBytes": 328273,
+            "sha256": "47e18d6524be9e2eee5dbd947e2cc8ff74ffdc68a9f5cc2b7c461e4030bc1976"
+        },
+        {
+            "logicalId": "maven:commons-logging:commons-logging:1.3.5",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/commons-logging/commons-logging/1.3.5/a3fcc5d3c29b2b03433aa2d2f2d2c1b1638924a1/commons-logging-1.3.5.jar",
+            "sizeBytes": 73737,
+            "sha256": "6d7a744e4027649fbb50895df9497d109f98c766a637062fe8d2eabbb3140ba4"
+        },
+        {
+            "logicalId": "maven:org.apache.httpcomponents.core5:httpcore5-h2:5.4.3",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/org.apache.httpcomponents.core5/httpcore5-h2/5.4.3/33bcd37d645539d27c65e17420843fd7f6c0ebf4/httpcore5-h2-5.4.3.jar",
+            "sizeBytes": 263675,
+            "sha256": "c7db7026b8e2dea39132b04a6069f6671e2858309b20a146ec5c7dd6ed73a0b6"
+        },
+        {
+            "logicalId": "maven:org.apache.httpcomponents.core5:httpcore5:5.4.3",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/org.apache.httpcomponents.core5/httpcore5/5.4.3/32a0699fbcb103f5621c00983ee8f5aac080e4a6/httpcore5-5.4.3.jar",
+            "sizeBytes": 955121,
+            "sha256": "18bfbbabb478dfb67f31aeaf428c387f3c3df654582e1309f708ee1f3086830a"
+        },
+        {
+            "logicalId": "maven:org.graalvm.sdk:word:25.2.4",
+            "executionPath": "/home/gopala.akshintala/.gradle/caches/modules-2/files-2.1/org.graalvm.sdk/word/25.2.4/8a100ea19ffb274970149bb3cc0c98d2d55ace4c/word-25.2.4.jar",
+            "sizeBytes": 73154,
+            "sha256": "fd64d18afd9813346acf3c2be3a19cc553edb3c480c3683fda80fe324687bd6a"
+        }
+    ]
+}

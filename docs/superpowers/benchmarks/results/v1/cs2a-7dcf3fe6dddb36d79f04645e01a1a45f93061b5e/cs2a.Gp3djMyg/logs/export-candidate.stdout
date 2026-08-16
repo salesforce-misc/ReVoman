@@ -1,0 +1,46 @@
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/9.7.0/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+Parallel Configuration Cache is an incubating feature.
+Calculating task graph as no cached configuration is available for tasks: clean writeBenchmarkTargetManifest
+> Task :buildSrc:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :buildSrc:generateExternalPluginSpecBuilders FROM-CACHE
+> Task :buildSrc:extractPrecompiledScriptPluginPlugins FROM-CACHE
+> Task :buildSrc:compilePluginsBlocks FROM-CACHE
+> Task :buildSrc:generatePrecompiledScriptPluginAccessors FROM-CACHE
+> Task :buildSrc:generateScriptPluginAdapters FROM-CACHE
+> Task :buildSrc:compileKotlin FROM-CACHE
+> Task :buildSrc:compileJava NO-SOURCE
+> Task :buildSrc:compileGroovy NO-SOURCE
+> Task :buildSrc:pluginDescriptors
+> Task :buildSrc:processResources
+> Task :buildSrc:classes
+> Task :buildSrc:jar
+> Task :checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :benchmark-driver:clean UP-TO-DATE
+> Task :clean
+> Task :processResources
+
+> Task :kaptGenerateStubsKotlin
+:kaptGenerateStubsKotlin w: The argument '-Xannotation-default-target=param-property' is redundant for the current language version 2.4.
+
+> Task :kaptKotlin
+
+> Task :compileKotlin
+:compileKotlin w: The argument '-Xannotation-default-target=param-property' is redundant for the current language version 2.4.
+:compileKotlin w: file:///opt/revoman-benchmark/runs/cs2a.Gp3djMyg/checkouts/candidate/src/main/kotlin/com/salesforce/revoman/internal/json/factories/CaseInsensitiveEnumAdapter.kt:72:53 Unchecked cast of 'Class<*>' to 'Class<out Enum<*>>'.
+:compileKotlin w: file:///opt/revoman-benchmark/runs/cs2a.Gp3djMyg/checkouts/candidate/src/main/kotlin/com/salesforce/revoman/output/postman/PostmanEnvironment.kt:188:7 Unchecked cast of 'ValueT? (of class PostmanEnvironment<ValueT>)' to 'PojoT? (of fun <PojoT : Any> getTypedObj)'.
+:compileKotlin w: file:///opt/revoman-benchmark/runs/cs2a.Gp3djMyg/checkouts/candidate/src/main/kotlin/com/salesforce/revoman/output/postman/PostmanEnvironment.kt:391:23 'fun put(key: String, value: V): PersistentMap<String, V>' is deprecated. Use putting() instead. For more details, read the documentation for this function.
+:compileKotlin w: file:///opt/revoman-benchmark/runs/cs2a.Gp3djMyg/checkouts/candidate/src/main/kotlin/com/salesforce/revoman/output/postman/PostmanEnvironment.kt:397:23 'fun remove(key: String): PersistentMap<String, V>' is deprecated. Use removing() instead. For more details, read the documentation for this function.
+:compileKotlin w: file:///opt/revoman-benchmark/runs/cs2a.Gp3djMyg/checkouts/candidate/src/main/kotlin/com/salesforce/revoman/output/postman/PostmanEnvironment.kt:402:23 'fun putAll(m: Map<out String, V>): PersistentMap<String, V>' is deprecated. Use puttingAll() instead. For more details, read the documentation for this function.
+:compileKotlin w: file:///opt/revoman-benchmark/runs/cs2a.Gp3djMyg/checkouts/candidate/src/main/kotlin/com/salesforce/revoman/output/report/TxnInfo.kt:49:7 Unchecked cast of 'Any?' to 'PojoT? (of fun <PojoT : Any> getTypedTxnObj)'.
+
+> Task :compileJava
+> Task :classes
+> Task :jar
+> Task :writeBenchmarkTargetManifest
+
+[Incubating] Problems report is available at: file:///opt/revoman-benchmark/runs/cs2a.Gp3djMyg/checkouts/candidate/build/reports/problems/problems-report.html
+
+BUILD SUCCESSFUL in 44s
+18 actionable tasks: 11 executed, 6 from cache, 1 up-to-date
+Configuration cache entry stored.
