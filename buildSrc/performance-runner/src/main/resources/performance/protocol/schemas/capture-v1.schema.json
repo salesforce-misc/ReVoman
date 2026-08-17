@@ -788,7 +788,7 @@
       ],
       "properties": {
         "binarySha256": {
-          "$ref": "#/$defs/sha256"
+          "const": "1cedc51a4102638f1f06077acb3611b88f3061f9c7d76bd0a0df7f8607a9367b"
         },
         "jvmArguments": {
           "type": "array",
@@ -824,10 +824,10 @@
           }
         },
         "vendor": {
-          "$ref": "#/$defs/safeText"
+          "const": "Eclipse Adoptium"
         },
         "version": {
-          "$ref": "#/$defs/safeText"
+          "const": "21.0.11+10-LTS"
         }
       }
     },
@@ -841,17 +841,13 @@
       ],
       "properties": {
         "configDigest": {
-          "type": "string",
-          "pattern": "^sha256:[0-9a-f]{64}$"
+          "const": "sha256:ad6963934ee96838c09d99f3c4df6f991cd00ed70fa8a48f7045517d7ae8991c"
         },
         "imageReference": {
-          "type": "string",
-          "pattern": "^public\\.ecr\\.aws/[a-z0-9._/-]+@sha256:[0-9a-f]{64}$",
-          "maxLength": 512
+          "const": "docker.io/library/eclipse-temurin@sha256:6c7425db05efdcf0ba40d989898857b093f14ceaf9684c9c31a072c159f4590e"
         },
         "platformManifestDigest": {
-          "type": "string",
-          "pattern": "^sha256:[0-9a-f]{64}$"
+          "const": "sha256:6c7425db05efdcf0ba40d989898857b093f14ceaf9684c9c31a072c159f4590e"
         }
       }
     },
@@ -968,7 +964,11 @@
     "environment": {
       "type": "object",
       "additionalProperties": false,
-      "minProperties": 1,
+      "required": [
+        "LANG",
+        "LC_ALL",
+        "TZ"
+      ],
       "properties": {
         "LANG": {
           "enum": [

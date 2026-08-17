@@ -14,7 +14,7 @@ import io.kotest.matchers.shouldBe
 import java.nio.file.Files
 import java.time.Duration
 import javax.tools.ToolProvider
-import performance.compare.CaptureBundleProof
+import performance.compare.ComparisonRequest
 import performance.distribution.DistributionValidation
 import performance.distribution.DistributionValidator
 import performance.support.DistributionFixture
@@ -136,8 +136,12 @@ class SessionOrderTest :
       }
 
       test("provisional capture proof cannot cross the sealed comparison or report boundary") {
-        CaptureBundleProof::class.java.isAssignableFrom(ValidatedProvisionalCapture::class.java) shouldBe
-          false
+        shouldThrow<ClassNotFoundException> {
+          Class.forName("performance.compare.CaptureBundleProof")
+        }
+        ComparisonRequest::class.java.declaredFields.none { field ->
+          field.type.isAssignableFrom(ValidatedProvisionalCapture::class.java)
+        } shouldBe true
         performance.model.ComparisonReportDocument::class.java.isAssignableFrom(
           ValidatedProvisionalCapture::class.java,
         ) shouldBe false
@@ -158,9 +162,9 @@ class SessionOrderTest :
             source,
             """
               import performance.campaign.ValidatedProvisionalCapture;
-              import performance.compare.CaptureBundleProof;
+              import performance.compare.ComparisonRequest;
               final class Boundary {
-                void accepts(CaptureBundleProof proof) {}
+                void accepts(ComparisonRequest request) {}
                 void rejected(ValidatedProvisionalCapture proof) { accepts(proof); }
               }
             """.trimIndent(),

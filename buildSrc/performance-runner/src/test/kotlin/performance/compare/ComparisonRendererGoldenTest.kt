@@ -37,9 +37,7 @@ class ComparisonRendererGoldenTest :
               .map { (locale, timeZone) ->
                 Locale.setDefault(locale)
                 TimeZone.setDefault(timeZone)
-                CaptureComparator()
-                  .compare(candidateRequest())
-                  .shouldBeInstanceOf<ComparisonComputation.Completed>()
+                completedCandidateComparison()
               }
 
           renders[0].jsonBytes shouldBe golden("comparison/candidate.json")
@@ -56,10 +54,7 @@ class ComparisonRendererGoldenTest :
       }
 
       test("comparison output satisfies its strict schema") {
-        val completed =
-          CaptureComparator()
-            .compare(candidateRequest())
-            .shouldBeInstanceOf<ComparisonComputation.Completed>()
+        val completed = completedCandidateComparison()
         val validator = EvidenceSchemaValidator()
 
         validator.validate(SchemaKind.COMPARISON, completed.jsonBytes).shouldBeEmpty()

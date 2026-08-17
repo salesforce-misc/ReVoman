@@ -145,6 +145,67 @@ internal class DistributionFixture private constructor(
 
   fun checksumLines(): List<String> = Files.readAllLines(root.resolve(CHECKSUM_MANIFEST))
 
+  fun prepareComparisonProtocol(multiCell: Boolean = false) {
+    replaceJar(
+      BENCHMARK_JAR,
+      mapOf(
+        "META-INF/BenchmarkList" to benchmarkList(COMPARISON_BENCHMARK).encodeToByteArray(),
+        "META-INF/CompilerHints" to
+          "dontinline,$COMPARISON_BENCHMARK\n".encodeToByteArray(),
+        "META-INF/revoman/performance/revup-v3-tree.json" to
+          "{\"schemaVersion\":\"revup-v3-tree-v1\"}".encodeToByteArray(),
+        "com/salesforce/revoman/benchmark/RevUpV3WarmBenchmark.class" to
+          compiledClass(
+            "com.salesforce.revoman.benchmark.RevUpV3WarmBenchmark",
+            "public void revUp() {}",
+          ),
+      ),
+    )
+    mutateClasspath { document ->
+      document.arrayNode("expectedBenchmarks").removeAll().add(COMPARISON_BENCHMARK)
+    }
+    replaceFile(
+      "protocol/expected-cells.json",
+      comparisonExpectedCells(multiCell),
+      refreshBindings = true,
+    )
+    replaceFile("protocol/profiles/canary.json", comparisonProfile("canary"), refreshBindings = true)
+    replaceFile("protocol/profiles/cold.json", comparisonProfile("cold"), refreshBindings = true)
+    replaceFile("protocol/profiles/warm.json", comparisonProfile("warm"), refreshBindings = true)
+    replaceFile(
+      "protocol/runtime/linux-arm64.json",
+      comparisonRuntimeProfile(),
+      refreshBindings = true,
+    )
+    replaceFile(
+      "protocol/runtime/m4max-docker.json",
+      comparisonSubstrateProfile("m4max-docker-linux-arm64-v1", 10001),
+      refreshBindings = true,
+    )
+    replaceFile(
+      "protocol/runtime/github-hosted.json",
+      comparisonSubstrateProfile("github-hosted-arm64-v1", 1001),
+      refreshBindings = true,
+    )
+    replaceFile(
+      "protocol/qualification/m4max-docker.json",
+      "{\"policy\":\"comparison-fixture\"}\n".encodeToByteArray(),
+      refreshBindings = true,
+    )
+    replaceFile(
+      "protocol/test-vectors/bootstrap-v1.json",
+      checkNotNull(
+          DistributionFixture::class.java.getResourceAsStream(
+            "/performance/protocol/test-vectors/bootstrap-v1.json",
+          ),
+        ) {
+          "missing bootstrap vector"
+        }
+        .use { it.readAllBytes() },
+      refreshBindings = true,
+    )
+  }
+
   fun reseal() {
     val checksumPath = root.resolve(CHECKSUM_MANIFEST)
     val lines =
@@ -270,9 +331,19 @@ internal class DistributionFixture private constructor(
     const val PROTOCOL_MANIFEST = "metadata/protocol.json"
     const val CHECKSUM_MANIFEST = "metadata/distribution.sha256"
     const val EXPECTED_BENCHMARK = "example.Benchmark.measure"
+    const val COMPARISON_BENCHMARK =
+      "com.salesforce.revoman.benchmark.RevUpV3WarmBenchmark.revUp"
 
     private const val SHA =
       "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    private const val FIXTURE_MANIFEST_DIGEST =
+      "sha256:6c7425db05efdcf0ba40d989898857b093f14ceaf9684c9c31a072c159f4590e"
+    private const val FIXTURE_CONFIG_DIGEST =
+      "sha256:ad6963934ee96838c09d99f3c4df6f991cd00ed70fa8a48f7045517d7ae8991c"
+    private const val FIXTURE_IMAGE =
+      "docker.io/library/eclipse-temurin@sha256:6c7425db05efdcf0ba40d989898857b093f14ceaf9684c9c31a072c159f4590e"
+    private const val FIXTURE_JAVA_SHA =
+      "1cedc51a4102638f1f06077acb3611b88f3061f9c7d76bd0a0df7f8607a9367b"
 
     private val PROTOCOL_SCHEMA_FILES =
       listOf(
@@ -294,7 +365,7 @@ internal class DistributionFixture private constructor(
       )
 
     fun create(): DistributionFixture {
-      val parent = Files.createTempDirectory("distribution-fixture-")
+      val parent = Files.createTempDirectory("distribution-fixture-").toRealPath()
       val root = parent.resolve("distribution")
       Files.createDirectories(root)
 
@@ -477,6 +548,153 @@ internal class DistributionFixture private constructor(
     reseal()
   }
 
+  private fun comparisonExpectedCells(multiCell: Boolean): ByteArray =
+    CanonicalJson.encode(
+      JsonNodeFactory.instance.objectNode().apply {
+        put(
+          "\$schema",
+          "https://revoman.dev/performance/protocol/schemas/expected-cells-v1.schema.json",
+        )
+        put("schemaVersion", "expected-cells-v1")
+        set(
+          "families",
+          JsonNodeFactory.instance.objectNode().apply {
+            set("canary", JsonNodeFactory.instance.arrayNode())
+            set("cold", JsonNodeFactory.instance.arrayNode())
+            set(
+              "warm",
+              JsonNodeFactory.instance.arrayNode().apply {
+                add(
+                  JsonNodeFactory.instance.objectNode().apply {
+                    put("benchmark", COMPARISON_BENCHMARK)
+                    set("parameters", JsonNodeFactory.instance.objectNode())
+                  },
+                )
+                if (multiCell) {
+                  add(
+                    JsonNodeFactory.instance.objectNode().apply {
+                      put("benchmark", COMPARISON_BENCHMARK)
+                      set(
+                        "parameters",
+                        JsonNodeFactory.instance.objectNode().put("variant", "secondary"),
+                      )
+                    },
+                  )
+                }
+              },
+            )
+          },
+        )
+      },
+    )
+
+  private fun comparisonProfile(family: String): ByteArray =
+    CanonicalJson.encode(
+      JsonNodeFactory.instance.objectNode().apply {
+        put("family", family)
+        set(
+          "jvmArguments",
+          JsonNodeFactory.instance.arrayNode().apply {
+            add("-Xms2g")
+            add("-Xmx2g")
+          },
+        )
+        set(
+          "variants",
+          JsonNodeFactory.instance.arrayNode().apply {
+            if (family == "warm") {
+              add(
+                JsonNodeFactory.instance.objectNode().apply {
+                  put("identity", "warm-10-none-v1")
+                  put("forks", 10)
+                  put("warmupIterations", 5)
+                  put("measurementIterations", 10)
+                  put("profiler", "none")
+                },
+              )
+            }
+          },
+        )
+      },
+    )
+
+  private fun comparisonRuntimeProfile(): ByteArray =
+    CanonicalJson.encode(
+      JsonNodeFactory.instance.objectNode().apply {
+        put("profileKind", "runtime")
+        put("profileId", "fixture-java-21-linux-arm64-v1")
+        set(
+          "image",
+          JsonNodeFactory.instance.objectNode().apply {
+            put("reference", FIXTURE_IMAGE)
+            put("manifestDigest", FIXTURE_MANIFEST_DIGEST)
+            put("ociConfigDigest", FIXTURE_CONFIG_DIGEST)
+            put("architecture", "arm64")
+          },
+        )
+        set(
+          "java",
+          JsonNodeFactory.instance.objectNode().apply {
+            put("release", "21.0.11+10-LTS")
+            put("vendor", "Eclipse Adoptium")
+            put("sha256", FIXTURE_JAVA_SHA)
+          },
+        )
+      },
+    )
+
+  private fun comparisonSubstrateProfile(profileId: String, uid: Int): ByteArray =
+    CanonicalJson.encode(
+      JsonNodeFactory.instance.objectNode().apply {
+        put("profileKind", "substrate")
+        put("profileId", profileId)
+        put("runtimeProfileId", "fixture-java-21-linux-arm64-v1")
+        put("runtimeReference", FIXTURE_IMAGE)
+        set(
+          "identity",
+          JsonNodeFactory.instance.objectNode().apply {
+            put("uid", uid)
+            put("gid", uid)
+          },
+        )
+        set(
+          "limits",
+          JsonNodeFactory.instance.objectNode().apply {
+            put("cpusetCpus", "0-3")
+            put("memoryBytes", 6442450944L)
+            put("memorySwapBytes", 6442450944L)
+            put("pidsLimit", 512)
+          },
+        )
+        set(
+          "security",
+          JsonNodeFactory.instance.objectNode().apply {
+            put("readOnlyRoot", true)
+            set(
+              "capDrop",
+              JsonNodeFactory.instance.arrayNode().add("ALL"),
+            )
+            set(
+              "securityOpt",
+              JsonNodeFactory.instance.arrayNode().add("no-new-privileges"),
+            )
+            set(
+              "networklessPhases",
+              JsonNodeFactory.instance.arrayNode().add("timed"),
+            )
+          },
+        )
+        set(
+          "environment",
+          JsonNodeFactory.instance.objectNode().apply {
+            put("LANG", "C.UTF-8")
+            put("LC_ALL", "C.UTF-8")
+            put("TZ", "UTC")
+          },
+        )
+      },
+    )
+
   private fun classpathDocument(): ObjectNode =
     JsonNodeFactory.instance.objectNode().apply {
       put("schemaVersion", "distribution-classpath-v1")
@@ -491,16 +709,16 @@ internal class DistributionFixture private constructor(
       set(
         "benchmarkClasspath",
         JsonNodeFactory.instance.arrayNode().apply {
-          add(classpathEntry(0, BENCHMARK_JAR, "com.salesforce.revoman:benchmarks"))
-          add(classpathEntry(1, PRODUCTION_JAR, "com.salesforce.revoman:revoman"))
-          add(classpathEntry(2, BENCHMARK_DEPENDENCY, "example:benchmark-dependency"))
+          add(classpathEntry(0, BENCHMARK_JAR, "com.salesforce.revoman:benchmarks:1"))
+          add(classpathEntry(1, PRODUCTION_JAR, "com.salesforce.revoman:revoman:1"))
+          add(classpathEntry(2, BENCHMARK_DEPENDENCY, "example:benchmark-dependency:1"))
         },
       )
       set(
         "runnerClasspath",
         JsonNodeFactory.instance.arrayNode().apply {
-          add(classpathEntry(0, RUNNER_JAR, "com.salesforce.revoman:performance-runner"))
-          add(classpathEntry(1, RUNNER_DEPENDENCY, "example:runner-dependency"))
+          add(classpathEntry(0, RUNNER_JAR, "com.salesforce.revoman:performance-runner:1"))
+          add(classpathEntry(1, RUNNER_DEPENDENCY, "example:runner-dependency:1"))
         },
       )
       set(
@@ -508,7 +726,7 @@ internal class DistributionFixture private constructor(
         JsonNodeFactory.instance.arrayNode().apply {
           add(
             JsonNodeFactory.instance.objectNode().apply {
-              put("coordinate", "org.jetbrains.kotlinx:kotlinx-collections-immutable")
+              put("coordinate", "org.jetbrains.kotlinx:kotlinx-collections-immutable:1")
               put("placement", "embedded:app/revoman.jar")
               put("sha256", SHA)
             },
@@ -559,12 +777,38 @@ internal class DistributionFixture private constructor(
       set(
         "sourceClosure",
         JsonNodeFactory.instance.arrayNode().apply {
-          add(
-            JsonNodeFactory.instance.objectNode().apply {
-              put("path", "build.gradle.kts")
-              put("sha256", SHA)
-            },
-          )
+          listOf(
+              "build.gradle.kts" to SHA,
+              "buildSrc/performance-runner/src/main/kotlin/performance/compare/BootstrapV1.kt" to
+                "1".repeat(64),
+              "buildSrc/performance-runner/src/main/kotlin/performance/compare/CalibrationBundleVerifier.kt" to
+                "2".repeat(64),
+              "buildSrc/performance-runner/src/main/kotlin/performance/compare/CaptureBundleVerifier.kt" to
+                "3".repeat(64),
+              "buildSrc/performance-runner/src/main/kotlin/performance/compare/CaptureComparator.kt" to
+                "4".repeat(64),
+              "buildSrc/performance-runner/src/main/kotlin/performance/compare/CaptureCompatibility.kt" to
+                "5".repeat(64),
+              "buildSrc/performance-runner/src/main/kotlin/performance/compare/CellIdentity.kt" to
+                "6".repeat(64),
+              "buildSrc/performance-runner/src/main/kotlin/performance/compare/ComparisonRenderer.kt" to
+                "b".repeat(64),
+              "source/src/jmh/kotlin/com/salesforce/revoman/benchmark/RevUpV3WarmBenchmark.kt" to
+                "d".repeat(64),
+              "source/src/jmh/resources/performance/log4j2-performance.xml" to
+                "a".repeat(64),
+              "source/src/main/resources/revup-v3-workload-tree-source.json" to
+                "14".repeat(32),
+            )
+            .sortedBy(Pair<String, String>::first)
+            .forEach { (path, sha256) ->
+              add(
+                JsonNodeFactory.instance.objectNode().apply {
+                  put("path", path)
+                  put("sha256", sha256)
+                },
+              )
+            }
         },
       )
       set(

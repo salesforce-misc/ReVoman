@@ -79,11 +79,16 @@ class ComparisonRenderer {
 
   private fun ComparisonExecutionIdentity.toJson(): ObjectNode =
     JsonNodeFactory.instance.objectNode().apply {
+      put("adapterSha256", adapterSha256.hex)
       put("bootstrapVectorSha256", bootstrapVectorSha256.hex)
+      put("captureSchemaSha256", captureSchemaSha256.hex)
       put("comparatorSha256", comparatorSha256.hex)
+      put("comparisonSchemaSha256", comparisonSchemaSha256.hex)
+      put("expectedCellsSha256", expectedCellsSha256.hex)
+      put("protocolSha256", protocolSha256.hex)
       put("qualificationPolicySha256", qualificationPolicySha256.hex)
       put("rendererSha256", rendererSha256.hex)
-      put("schemaSha256", schemaSha256.hex)
+      put("runnerSha256", runnerSha256.hex)
     }
 
   private fun ComparisonCaptureRef.toJson(): ObjectNode =
@@ -171,7 +176,12 @@ class ComparisonRenderer {
       appendLine("- Candidate production SHA-256: `${candidate.productionSha256.hex}`")
       appendLine("- Comparator SHA-256: `${implementation.comparatorSha256.hex}`")
       appendLine("- Renderer SHA-256: `${implementation.rendererSha256.hex}`")
-      appendLine("- Schema SHA-256: `${implementation.schemaSha256.hex}`")
+      appendLine("- Runner SHA-256: `${implementation.runnerSha256.hex}`")
+      appendLine("- Protocol SHA-256: `${implementation.protocolSha256.hex}`")
+      appendLine("- Adapter SHA-256: `${implementation.adapterSha256.hex}`")
+      appendLine("- Expected cells SHA-256: `${implementation.expectedCellsSha256.hex}`")
+      appendLine("- Capture schema SHA-256: `${implementation.captureSchemaSha256.hex}`")
+      appendLine("- Comparison schema SHA-256: `${implementation.comparisonSchemaSha256.hex}`")
       appendLine("- Bootstrap vector SHA-256: `${implementation.bootstrapVectorSha256.hex}`")
       appendLine(
         "- Qualification policy SHA-256: `${implementation.qualificationPolicySha256.hex}`"
@@ -182,6 +192,7 @@ class ComparisonRenderer {
         it.bCaptureId?.let { bCaptureId ->
           appendLine("- Calibration B capture: `$bCaptureId`")
         }
+        appendLine("- Calibration passed: `${it.passed}`")
       }
       calibration?.evidenceSha256?.let {
         appendLine("- Calibration evidence SHA-256: `${it.hex}`")
@@ -200,6 +211,9 @@ class ComparisonRenderer {
         appendLine()
         appendLine("### `${cell.identity.benchmark}`")
         appendLine("- Profile: `${cell.identity.profile}`")
+        appendLine(
+          "- Parameters: `${cell.identity.parameters.toSortedMap().entries.joinToString(",", "{", "}") { (name, value) -> "$name=$value" }}`"
+        )
         appendLine("- Candidate/baseline point ratio: `${cell.estimate.pointRatio}`")
         appendLine(
           "- Candidate/baseline ratio interval (95% conditional fork resampling): " +
@@ -225,7 +239,12 @@ class ComparisonRenderer {
       appendLine("- Compatibility: `${compatibility.wire()}`")
       appendLine("- Comparator SHA-256: `${implementation.comparatorSha256.hex}`")
       appendLine("- Renderer SHA-256: `${implementation.rendererSha256.hex}`")
-      appendLine("- Schema SHA-256: `${implementation.schemaSha256.hex}`")
+      appendLine("- Runner SHA-256: `${implementation.runnerSha256.hex}`")
+      appendLine("- Protocol SHA-256: `${implementation.protocolSha256.hex}`")
+      appendLine("- Adapter SHA-256: `${implementation.adapterSha256.hex}`")
+      appendLine("- Expected cells SHA-256: `${implementation.expectedCellsSha256.hex}`")
+      appendLine("- Capture schema SHA-256: `${implementation.captureSchemaSha256.hex}`")
+      appendLine("- Comparison schema SHA-256: `${implementation.comparisonSchemaSha256.hex}`")
       appendLine("- Bootstrap vector SHA-256: `${implementation.bootstrapVectorSha256.hex}`")
       appendLine(
         "- Qualification policy SHA-256: `${implementation.qualificationPolicySha256.hex}`"

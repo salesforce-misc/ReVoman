@@ -387,17 +387,37 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
+        "adapterSha256",
         "bootstrapVectorSha256",
+        "captureSchemaSha256",
         "comparatorSha256",
+        "comparisonSchemaSha256",
+        "expectedCellsSha256",
+        "protocolSha256",
         "qualificationPolicySha256",
         "rendererSha256",
-        "schemaSha256"
+        "runnerSha256"
       ],
       "properties": {
+        "adapterSha256": {
+          "$ref": "#/$defs/sha256"
+        },
         "bootstrapVectorSha256": {
           "$ref": "#/$defs/sha256"
         },
+        "captureSchemaSha256": {
+          "$ref": "#/$defs/sha256"
+        },
         "comparatorSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "comparisonSchemaSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "expectedCellsSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "protocolSha256": {
           "$ref": "#/$defs/sha256"
         },
         "qualificationPolicySha256": {
@@ -406,7 +426,7 @@
         "rendererSha256": {
           "$ref": "#/$defs/sha256"
         },
-        "schemaSha256": {
+        "runnerSha256": {
           "$ref": "#/$defs/sha256"
         }
       }

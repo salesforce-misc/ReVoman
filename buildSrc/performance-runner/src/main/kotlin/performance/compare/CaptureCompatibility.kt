@@ -8,15 +8,10 @@
 package performance.compare
 
 import java.math.BigDecimal
-import java.math.MathContext
 import java.nio.file.Path
+import java.time.Duration
 import performance.hash.Sha256
 import performance.json.CanonicalJson
-import performance.model.ArtifactIdentity
-import performance.model.CaptureCell
-import performance.model.CaptureDocument
-import performance.model.EvidenceStatus
-import performance.model.GitProvenance
 import performance.schema.EvidenceSchemaValidator
 import performance.schema.SchemaKind
 
@@ -83,85 +78,18 @@ enum class CompatibilityFailure {
   CALIBRATION_EVIDENCE_MISMATCH,
 }
 
-enum class BundleVerificationFailure(
-  val compatibilityFailure: CompatibilityFailure,
-) {
-  UNSEALED(CompatibilityFailure.BUNDLE_UNSEALED),
-  SCHEMA_INVALID(CompatibilityFailure.BUNDLE_SCHEMA_INVALID),
-  CHECKSUM_INVALID(CompatibilityFailure.BUNDLE_CHECKSUM_INVALID),
-}
-
-data class CaptureBundleManifest(
-  val treatment: GitProvenance,
-  val production: ArtifactIdentity,
-  val distribution: ArtifactIdentity,
-  val captureSha256: Sha256,
-)
-
-/** Proof boundary: provisional captures have no subtype and cannot reach [CaptureComparator]. */
-sealed interface CaptureBundleProof {
-  val root: Path
-
-  /** Constructed by the module's verifier after schema, checksum, and sample binding succeed. */
-  @ConsistentCopyVisibility
-  data class Verified internal constructor(
-    override val root: Path,
-    val document: CaptureDocument,
-    val captureSha256: Sha256,
-    val bundleSha256: Sha256,
-    val manifest: CaptureBundleManifest,
-    val samples: Map<CellIdentity, List<ForkSamples>>,
-  ) : CaptureBundleProof
-
-  @ConsistentCopyVisibility
-  data class Rejected internal constructor(
-    override val root: Path,
-    val failures: List<BundleVerificationFailure>,
-  ) : CaptureBundleProof
-
-  companion object {
-    internal fun rejected(root: Path, failures: List<BundleVerificationFailure>): Rejected =
-      Rejected(root.toAbsolutePath().normalize(), failures.distinct())
-  }
-}
-
+/** Every executing identity is derived from one freshly validated frozen runner distribution. */
 data class ComparisonExecutionIdentity(
+  val runnerSha256: Sha256,
+  val protocolSha256: Sha256,
+  val adapterSha256: Sha256,
+  val expectedCellsSha256: Sha256,
+  val captureSchemaSha256: Sha256,
+  val comparisonSchemaSha256: Sha256,
+  val bootstrapVectorSha256: Sha256,
   val comparatorSha256: Sha256,
   val rendererSha256: Sha256,
-  val schemaSha256: Sha256,
-  val bootstrapVectorSha256: Sha256,
   val qualificationPolicySha256: Sha256,
-)
-
-sealed interface CalibrationComparisonProof {
-  val root: Path
-}
-
-/** Constructed only after a passing A1/A2 comparison bundle is schema/checksum verified. */
-@ConsistentCopyVisibility
-data class VerifiedCalibrationComparison internal constructor(
-  override val root: Path,
-  val sha256: Sha256,
-  val a1CaptureId: String,
-  val a2CaptureId: String,
-  val bCaptureId: String,
-  val performanceSessionId: String,
-  val a1Sequence: Int,
-  val a2Sequence: Int,
-  val bSequence: Int,
-  val passingCells: Set<CellIdentity>,
-) : CalibrationComparisonProof
-
-@ConsistentCopyVisibility
-data class RejectedCalibrationComparison internal constructor(
-  override val root: Path,
-  val failures: List<BundleVerificationFailure>,
-) : CalibrationComparisonProof
-
-/** Constructed only after verifying the selected runner distribution and embedded identities. */
-@ConsistentCopyVisibility
-data class VerifiedComparisonExecution internal constructor(
-  val identity: ComparisonExecutionIdentity,
 )
 
 @ConsistentCopyVisibility
@@ -181,6 +109,9 @@ data class RegressionPolicy private constructor(
         "invalid regression policy: ${violations.joinToString { it.keyword }}"
       }
       val document = CanonicalJson.parseStrict(canonicalBytes).asObject()
+      require(CanonicalJson.encode(document).contentEquals(canonicalBytes)) {
+        "regression policy must use strict canonical bytes"
+      }
       return RegressionPolicy(
         maximumRegressionBudget = document.get("maximumRegressionBudget").asDouble(),
         sha256 = Sha256.digest(canonicalBytes),
@@ -189,181 +120,159 @@ data class RegressionPolicy private constructor(
   }
 }
 
+/** The public comparison seam accepts locations and policy only; proofs are verifier-owned. */
 data class ComparisonRequest(
+  val runnerDistribution: Path,
   val kind: ComparisonKind,
-  val baseline: CaptureBundleProof,
-  val candidate: CaptureBundleProof,
-  val execution: VerifiedComparisonExecution,
-  val calibration: CalibrationComparisonProof? = null,
+  val baseline: Path,
+  val candidate: Path,
+  val calibration: Path? = null,
   val regressionPolicy: RegressionPolicy? = null,
 )
 
 internal object CaptureCompatibility {
-  fun validate(request: ComparisonRequest): List<CompatibilityFailure> {
-    val rejected =
-      listOf(request.baseline, request.candidate)
-        .filterIsInstance<CaptureBundleProof.Rejected>()
-        .flatMap { proof -> proof.failures.map(BundleVerificationFailure::compatibilityFailure) }
-    if (rejected.isNotEmpty()) return rejected.distinct().sortedBy(Enum<*>::name)
-    if (request.calibration is RejectedCalibrationComparison) {
-      return listOf(CompatibilityFailure.CALIBRATION_EVIDENCE_INVALID)
-    }
-    val baseline = request.baseline as CaptureBundleProof.Verified
-    val candidate = request.candidate as CaptureBundleProof.Verified
+  fun validate(
+    request: ComparisonRequest,
+    baseline: CaptureBundleVerifier.Projection,
+    candidate: CaptureBundleVerifier.Projection,
+    execution: ComparisonExecutionIdentity,
+    distribution: DistributionProjection,
+  ): List<CompatibilityFailure> {
     val failures = mutableListOf<CompatibilityFailure>()
-    validateOwnBundle(baseline, failures)
-    validateOwnBundle(candidate, failures)
     validateDistinctIdentity(baseline, candidate, failures)
     validateCapture(baseline, failures)
     validateCapture(candidate, failures)
-    validateCommon(request, baseline, candidate, failures)
+    validateCommon(baseline, candidate, execution, distribution, failures)
     when (request.kind) {
       ComparisonKind.CALIBRATION -> validateCalibration(request, baseline, candidate, failures)
-      ComparisonKind.CANDIDATE -> validateCandidate(request, baseline, candidate, failures)
+      ComparisonKind.CANDIDATE -> validateCandidate(baseline, candidate, failures)
     }
     return failures.distinct().sortedBy(Enum<*>::name)
   }
 
-  private fun validateOwnBundle(
-    capture: CaptureBundleProof.Verified,
-    failures: MutableList<CompatibilityFailure>,
-  ) {
-    if (
-      capture.manifest.captureSha256 != capture.captureSha256 ||
-        capture.manifest.treatment != capture.document.provenance.treatment ||
-        capture.manifest.production != capture.document.artifacts.production ||
-        capture.manifest.distribution != capture.document.artifacts.distribution
-    ) {
-      failures += CompatibilityFailure.BUNDLE_MANIFEST_MISMATCH
-    }
-  }
-
   private fun validateDistinctIdentity(
-    baseline: CaptureBundleProof.Verified,
-    candidate: CaptureBundleProof.Verified,
+    baseline: CaptureBundleVerifier.Projection,
+    candidate: CaptureBundleVerifier.Projection,
     failures: MutableList<CompatibilityFailure>,
   ) {
     if (
-      baseline.root == candidate.root ||
-        baseline.document.identity.captureId == candidate.document.identity.captureId ||
-        baseline.document.identity.processRunId == candidate.document.identity.processRunId
+      baseline.identity.captureId == candidate.identity.captureId ||
+        baseline.identity.processRunId == candidate.identity.processRunId
     ) {
       failures += CompatibilityFailure.SAME_CAPTURE
     }
   }
 
   private fun validateCapture(
-    capture: CaptureBundleProof.Verified,
+    capture: CaptureBundleVerifier.Projection,
     failures: MutableList<CompatibilityFailure>,
   ) {
-    val document = capture.document
-    if (document.outcome.status != EvidenceStatus.VALID || document.outcome.processExit != 0) {
+    if (
+      capture.outcomeStatus != "valid" ||
+        capture.processExit != 0 ||
+        capture.completedAt.isBefore(capture.startedAt)
+    ) {
       failures += CompatibilityFailure.CAPTURE_INVALID
     }
-    if (document.profilerSummary != null || document.profile.profiler != "none") {
+    if (capture.profilerSummaryPresent || capture.profile.profiler != "none") {
       failures += CompatibilityFailure.PROFILER_PRESENT
     }
-    val declared = document.cells.map { cellIdentity(document, it) }
-    if (declared.distinct().size != declared.size || capture.samples.keys != declared.toSet()) {
+    if (capture.samples.keys != capture.cells.toSet()) {
       failures += CompatibilityFailure.CELL_SET_MISMATCH
-      return
     }
-    document.cells.zip(declared).forEach { (cell, identity) ->
-      val forks = capture.samples.getValue(identity)
-      if (forks.size < MINIMUM_FORKS) failures += CompatibilityFailure.UNDERSAMPLED_CELL
-      val dimensionsMismatch =
-        cell.sampleDimensions.forks != document.profile.forks ||
-          forks.size != cell.sampleDimensions.forks ||
-          cell.sampleDimensions.measurementIterations != document.profile.measurementIterations ||
-          cell.sampleDimensions.samplesPerFork != document.profile.measurementIterations ||
-          forks.any { it.measurements.size != cell.sampleDimensions.samplesPerFork }
-      if (dimensionsMismatch) {
-        failures += CompatibilityFailure.SAMPLE_DIMENSION_MISMATCH
-      }
-      val samplesInvalid =
-        forks.flatMap(ForkSamples::measurements).any { !it.isFinite() || it <= 0.0 }
-      if (samplesInvalid) {
-        failures += CompatibilityFailure.INVALID_PRIMARY_SAMPLE
-      } else if (!dimensionsMismatch && !summariesMatch(cell, forks)) {
-        failures += CompatibilityFailure.DERIVED_SUMMARY_MISMATCH
-      }
-    }
-  }
-
-  private fun summariesMatch(cell: CaptureCell, forks: List<ForkSamples>): Boolean {
-    if (cell.derivedForkSummaries.size != forks.size) return false
-    return cell.derivedForkSummaries.zip(forks).withIndex().all { (index, pair) ->
-      val (summary, samples) = pair
-      val mean =
-        samples.measurements
-          .map(BigDecimal::valueOf)
-          .reduce(BigDecimal::add)
-          .divide(BigDecimal(samples.measurements.size), MathContext.DECIMAL128)
-      summary.fork == index + 1 &&
-        summary.sampleCount == samples.measurements.size &&
-        summary.score.compareTo(mean) == 0
+    if (
+      !capture.provenance.treatment.treeClean ||
+        !capture.provenance.immutableHarness.treeClean ||
+        !capture.provenance.distributionFreezer.treeClean ||
+        !capture.provenance.captureRunner.treeClean
+    ) {
+      failures += CompatibilityFailure.CAPTURE_INVALID
     }
   }
 
   private fun validateCommon(
-    request: ComparisonRequest,
-    baseline: CaptureBundleProof.Verified,
-    candidate: CaptureBundleProof.Verified,
+    baseline: CaptureBundleVerifier.Projection,
+    candidate: CaptureBundleVerifier.Projection,
+    execution: ComparisonExecutionIdentity,
+    distribution: DistributionProjection,
     failures: MutableList<CompatibilityFailure>,
   ) {
-    val left = baseline.document
-    val right = candidate.document
     if (
-      left.schemaVersion != right.schemaVersion ||
-        left.benchmarkProtocolVersion != right.benchmarkProtocolVersion ||
-        left.protocol != right.protocol
+      baseline.schemaVersion != candidate.schemaVersion ||
+        baseline.benchmarkProtocolVersion != candidate.benchmarkProtocolVersion ||
+        baseline.protocol != candidate.protocol ||
+        baseline.protocol.benchmarkSourceSha256 != distribution.benchmarkSourceSha256 ||
+        baseline.protocol.workloadTreeSha256 != distribution.workloadTreeSha256
     ) {
       failures += CompatibilityFailure.PROTOCOL_MISMATCH
     }
     if (
-      left.protocol.qualificationPolicySha256 != right.protocol.qualificationPolicySha256 ||
-        left.protocol.qualificationPolicySha256 !=
-          request.execution.identity.qualificationPolicySha256 ||
-        left.protocol.qualificationPolicySha256 != left.qualification.policyHash ||
-        right.protocol.qualificationPolicySha256 != right.qualification.policyHash
+      baseline.protocol.qualificationPolicySha256 !=
+        candidate.protocol.qualificationPolicySha256 ||
+        baseline.protocol.qualificationPolicySha256 != execution.qualificationPolicySha256 ||
+        baseline.qualificationPolicySha256 != baseline.protocol.qualificationPolicySha256 ||
+        candidate.qualificationPolicySha256 != candidate.protocol.qualificationPolicySha256 ||
+        distribution.qualificationPolicies[baseline.qualificationKind] !=
+          execution.qualificationPolicySha256
     ) {
       failures += CompatibilityFailure.QUALIFICATION_POLICY_MISMATCH
     }
     if (
-      listOf(left, right).any {
-        it.protocol.comparatorSha256 != request.execution.identity.comparatorSha256 ||
-          it.protocol.rendererSha256 != request.execution.identity.rendererSha256 ||
-          it.protocol.schemaSha256 != request.execution.identity.schemaSha256
+      listOf(baseline, candidate).any { capture ->
+        capture.protocol.benchmarkProtocolSha256 != execution.protocolSha256 ||
+          capture.protocol.hostAdapterSha256 != execution.adapterSha256 ||
+          capture.protocol.schemaSha256 != execution.captureSchemaSha256 ||
+          capture.protocol.comparatorSha256 != execution.comparatorSha256 ||
+          capture.protocol.rendererSha256 != execution.rendererSha256
       }
     ) {
       failures += CompatibilityFailure.EXECUTING_IDENTITY_MISMATCH
     }
-    if (left.toolchain != right.toolchain) failures += CompatibilityFailure.TOOLCHAIN_MISMATCH
-    if (left.runtime != right.runtime) {
-      failures += CompatibilityFailure.RUNTIME_MISMATCH
-    }
-    if (qualificationKind(left.qualification) != qualificationKind(right.qualification)) {
-      failures += CompatibilityFailure.QUALIFICATION_KIND_MISMATCH
-    }
-    if (left.logging != right.logging) failures += CompatibilityFailure.LOGGING_MISMATCH
-    if (left.profile != right.profile) failures += CompatibilityFailure.PROFILE_MISMATCH
-    if (left.cells.map { cellIdentity(left, it) } != right.cells.map { cellIdentity(right, it) }) {
-      failures += CompatibilityFailure.CELL_IDENTITY_MISMATCH
+    if (baseline.toolchain != candidate.toolchain || !baseline.toolchain.matches(distribution)) {
+      failures += CompatibilityFailure.TOOLCHAIN_MISMATCH
     }
     if (
-      left.provenance.immutableHarness != right.provenance.immutableHarness ||
-        request.kind == ComparisonKind.CALIBRATION &&
-          left.provenance.captureRunner != right.provenance.captureRunner
+      baseline.runtime != candidate.runtime ||
+        !baseline.runtime.matches(distribution, baseline.profile)
     ) {
+      failures += CompatibilityFailure.RUNTIME_MISMATCH
+    }
+    if (baseline.qualificationKind != candidate.qualificationKind) {
+      failures += CompatibilityFailure.QUALIFICATION_KIND_MISMATCH
+    }
+    if (
+        baseline.logging != candidate.logging ||
+        baseline.logging.profile != "benchmark-noop" ||
+        baseline.logging.configurationSha256 != distribution.loggingConfigurationSha256
+    ) {
+      failures += CompatibilityFailure.LOGGING_MISMATCH
+    }
+    if (baseline.profile != candidate.profile || !baseline.profile.matches(distribution)) {
+      failures += CompatibilityFailure.PROFILE_MISMATCH
+    }
+    if (baseline.cells != candidate.cells || !baseline.cellsMatchExpected(distribution)) {
+      failures += CompatibilityFailure.CELL_IDENTITY_MISMATCH
+    }
+    if (baseline.provenance.immutableHarness != candidate.provenance.immutableHarness) {
       failures += CompatibilityFailure.IMMUTABLE_HARNESS_MISMATCH
     }
-    if (left.artifacts.dependencies != right.artifacts.dependencies) {
+    if (
+      baseline.provenance.treatment != distribution.provenance.treatment ||
+        baseline.provenance.immutableHarness != distribution.provenance.immutableHarness ||
+        baseline.provenance.distributionFreezer != distribution.provenance.distributionFreezer ||
+        candidate.provenance.immutableHarness != distribution.provenance.immutableHarness
+    ) {
+      failures += CompatibilityFailure.ARTIFACT_MISMATCH
+    }
+    if (baseline.artifacts.dependencies != candidate.artifacts.dependencies) {
       failures += CompatibilityFailure.DEPENDENCY_MISMATCH
     }
     if (
-      left.artifacts.benchmark != right.artifacts.benchmark ||
-        left.artifacts.executingRunner != right.artifacts.executingRunner ||
-        left.artifacts.orderedRunnerClasspath != right.artifacts.orderedRunnerClasspath
+      baseline.artifacts.benchmark != candidate.artifacts.benchmark ||
+        baseline.artifacts.executingRunner != candidate.artifacts.executingRunner ||
+        baseline.artifacts.orderedRunnerClasspath != candidate.artifacts.orderedRunnerClasspath ||
+        !baseline.artifacts.matchesBaselineDistribution(distribution) ||
+        !candidate.artifacts.matchesCandidateProjection(distribution)
     ) {
       failures += CompatibilityFailure.ARTIFACT_MISMATCH
     }
@@ -371,90 +280,69 @@ internal object CaptureCompatibility {
 
   private fun validateCalibration(
     request: ComparisonRequest,
-    baseline: CaptureBundleProof.Verified,
-    candidate: CaptureBundleProof.Verified,
+    baseline: CaptureBundleVerifier.Projection,
+    candidate: CaptureBundleVerifier.Projection,
     failures: MutableList<CompatibilityFailure>,
   ) {
-    val left = baseline.document
-    val right = candidate.document
     if (request.calibration != null) failures += CompatibilityFailure.CALIBRATION_EVIDENCE_MISMATCH
-    if (left.provenance.treatment != right.provenance.treatment) {
+    if (baseline.provenance.treatment != candidate.provenance.treatment) {
       failures += CompatibilityFailure.CALIBRATION_TREATMENT_MISMATCH
     }
     if (
-      left.artifacts.production != right.artifacts.production ||
-        left.artifacts.distribution != right.artifacts.distribution ||
-        left.artifacts.orderedClasspath != right.artifacts.orderedClasspath ||
-        left.provenance.distributionFreezer != right.provenance.distributionFreezer
+      baseline.artifacts.production != candidate.artifacts.production ||
+        baseline.artifacts.distribution != candidate.artifacts.distribution ||
+        baseline.artifacts.orderedClasspath != candidate.artifacts.orderedClasspath ||
+        baseline.provenance.distributionFreezer != candidate.provenance.distributionFreezer ||
+        baseline.provenance.captureRunner != candidate.provenance.captureRunner
     ) {
       failures += CompatibilityFailure.CALIBRATION_DISTRIBUTION_MISMATCH
     }
     if (
-      left.identity.performanceSessionId != right.identity.performanceSessionId ||
-        right.identity.sessionSequence != left.identity.sessionSequence + 1
+      baseline.identity.performanceSessionId != candidate.identity.performanceSessionId ||
+        candidate.identity.sessionSequence != baseline.identity.sessionSequence + 1 ||
+        candidate.startedAt.isBefore(baseline.completedAt) ||
+        Duration.between(baseline.startedAt, candidate.completedAt) > MAX_SESSION_DURATION
     ) {
       failures += CompatibilityFailure.IDENTITY_ORDER_INVALID
     }
   }
 
   private fun validateCandidate(
-    request: ComparisonRequest,
-    baseline: CaptureBundleProof.Verified,
-    candidate: CaptureBundleProof.Verified,
+    baseline: CaptureBundleVerifier.Projection,
+    candidate: CaptureBundleVerifier.Projection,
     failures: MutableList<CompatibilityFailure>,
   ) {
-    val left = baseline.document
-    val right = candidate.document
-    if (left.provenance.treatment.gitSha == right.provenance.treatment.gitSha) {
+    if (baseline.provenance.treatment.gitSha == candidate.provenance.treatment.gitSha) {
       failures += CompatibilityFailure.CANDIDATE_TREATMENT_NOT_DISTINCT
     }
-    if (left.artifacts.production.sha256 == right.artifacts.production.sha256) {
+    if (baseline.artifacts.production.sha256 == candidate.artifacts.production.sha256) {
       failures += CompatibilityFailure.CANDIDATE_PRODUCTION_NOT_DISTINCT
     }
     if (
-      !left.provenance.treatment.treeClean ||
-        !right.provenance.treatment.treeClean ||
-        !left.provenance.distributionFreezer.treeClean ||
-        !right.provenance.distributionFreezer.treeClean ||
-        !left.provenance.captureRunner.treeClean ||
-        !right.provenance.captureRunner.treeClean ||
-        left.artifacts.distribution.path != right.artifacts.distribution.path ||
-        left.artifacts.distribution.sha256 == right.artifacts.distribution.sha256 ||
+      !baseline.provenance.treatment.treeClean ||
+        !candidate.provenance.treatment.treeClean ||
+        !baseline.provenance.distributionFreezer.treeClean ||
+        !candidate.provenance.distributionFreezer.treeClean ||
+        !baseline.provenance.captureRunner.treeClean ||
+        !candidate.provenance.captureRunner.treeClean ||
+        baseline.artifacts.distribution.path != candidate.artifacts.distribution.path ||
+        baseline.artifacts.distribution.sha256 == candidate.artifacts.distribution.sha256 ||
         !validCandidateClasspathDelta(
-        left.artifacts.orderedClasspath,
-        right.artifacts.orderedClasspath,
-        left.artifacts.production,
-        right.artifacts.production,
-      )
+          baseline.artifacts.orderedClasspath,
+          candidate.artifacts.orderedClasspath,
+          baseline.artifacts.production,
+          candidate.artifacts.production,
+        )
     ) {
       failures += CompatibilityFailure.CANDIDATE_DELTA_INVALID
-    }
-    val calibration = request.calibration as? VerifiedCalibrationComparison
-    if (calibration == null) {
-      failures += CompatibilityFailure.CALIBRATION_EVIDENCE_MISSING
-      return
-    }
-    val requiredCells = left.cells.map { cellIdentity(left, it) }.toSet()
-    if (
-      calibration.a2CaptureId != left.identity.captureId ||
-        calibration.bCaptureId != right.identity.captureId ||
-        calibration.performanceSessionId != left.identity.performanceSessionId ||
-        calibration.performanceSessionId != right.identity.performanceSessionId ||
-        calibration.a2Sequence != left.identity.sessionSequence ||
-        calibration.bSequence != right.identity.sessionSequence ||
-        calibration.a2Sequence != calibration.a1Sequence + 1 ||
-        calibration.bSequence != calibration.a2Sequence + 1 ||
-        calibration.passingCells != requiredCells
-    ) {
-      failures += CompatibilityFailure.CALIBRATION_EVIDENCE_MISMATCH
     }
   }
 
   private fun validCandidateClasspathDelta(
-    baseline: List<ArtifactIdentity>,
-    candidate: List<ArtifactIdentity>,
-    baselineProduction: ArtifactIdentity,
-    candidateProduction: ArtifactIdentity,
+    baseline: List<ArtifactProjection>,
+    candidate: List<ArtifactProjection>,
+    baselineProduction: ArtifactProjection,
+    candidateProduction: ArtifactProjection,
   ): Boolean {
     if (
       baseline.size != candidate.size ||
@@ -474,32 +362,7 @@ internal object CaptureCompatibility {
     }
   }
 
-  internal fun cellIdentity(document: CaptureDocument, cell: CaptureCell): CellIdentity =
-    CellIdentity(
-      benchmark = cell.benchmark,
-      profile = document.profile.family,
-      parameters = cell.parameters,
-      mode = cell.mode,
-      unit = cell.unit,
-      threads = cell.threads,
-      batchSize = cell.batchSize,
-      primaryMetric = cell.primaryMetric.name,
-      direction =
-        when (cell.primaryMetric.direction) {
-          "lowerIsBetter" -> "lower-is-better"
-          else -> cell.primaryMetric.direction
-        },
-    )
-
-  private fun qualificationKind(qualification: performance.model.QualificationEvidence): String =
-    when (qualification) {
-      is performance.model.QualificationEvidence.ControlledMacCampaign -> "controlledMacCampaign"
-      is performance.model.QualificationEvidence.ControlledMacBoundedDiagnostic ->
-        "controlledMacBoundedDiagnostic"
-      is performance.model.QualificationEvidence.GithubHosted -> "githubHosted"
-    }
-
-  private const val MINIMUM_FORKS = 10
+  private val MAX_SESSION_DURATION = Duration.ofHours(2)
 }
 
 /** Frozen A/A predicate shared without exposing the sealed comparison boundary. */

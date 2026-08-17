@@ -7,7 +7,12 @@
  */
 package performance.compare
 
+import java.nio.file.Files
+import java.nio.file.LinkOption.NOFOLLOW_LINKS
+import java.nio.file.Path
 import java.util.HexFormat
+import java.util.jar.JarFile
+import performance.hash.Sha256
 import performance.model.ComparisonCalibrationRef
 import performance.model.ComparisonCaptureRef
 import performance.model.ComparisonCellResult
@@ -33,45 +38,68 @@ sealed interface ComparisonComputation {
     val exit: RunnerExit = RunnerExit.INCOMPATIBLE,
   ) : ComparisonComputation
 
+  data class InputFailure(
+    val exit: RunnerExit = RunnerExit.INPUT_OR_PREFLIGHT_INVALID,
+  ) : ComparisonComputation
+
   data class InternalFailure(
     val exit: RunnerExit = RunnerExit.INTERNAL_OR_PUBLICATION_FAILED,
   ) : ComparisonComputation
 }
 
-/** Compatibility-first comparison over checksum/schema-validated sealed captures only. */
-class CaptureComparator(
+/** Sole production seam for verification and comparison of sealed capture paths. */
+class CaptureComparator private constructor(
   private val renderer: ComparisonRenderer = ComparisonRenderer(),
+  private val executingRunnerObservation: ExecutingRunnerObservation?,
 ) {
+  constructor(renderer: ComparisonRenderer = ComparisonRenderer()) :
+    this(renderer, ExecutingRunnerObservation.current())
+
   fun compare(request: ComparisonRequest): ComparisonComputation =
     runCatching {
-      val failures = CaptureCompatibility.validate(request)
-      if (failures.isNotEmpty()) {
+      when (
+        val verification =
+          ComparisonInputVerifier.verify(request) { distribution ->
+            executingRunnerObservation?.matches(distribution) == true
+          }
+      ) {
+        ComparisonInputVerifier.Result.InputFailure -> ComparisonComputation.InputFailure()
+        is ComparisonInputVerifier.Result.Incompatible -> {
         val document =
           IncompatibleComparisonDocument(
             schemaVersion = COMPARISON_SCHEMA_VERSION,
             kind = request.kind,
             strength = ComparisonStrength.DIAGNOSTIC,
             compatibility = ComparisonCompatibility.INCOMPATIBLE,
-            compatibilityReasons = failures,
-            implementation = request.execution.identity,
+              compatibilityReasons = verification.reasons,
+              implementation = verification.execution,
           )
         val rendered = renderer.render(document)
-        return@runCatching ComparisonComputation.Incompatible(
+          ComparisonComputation.Incompatible(
           document = document,
           jsonBytes = rendered.json,
           markdownBytes = rendered.markdown,
-          reasons = failures,
+            reasons = verification.reasons,
         )
       }
-      val baseline = request.baseline as CaptureBundleProof.Verified
-      val candidate = request.candidate as CaptureBundleProof.Verified
+        is ComparisonInputVerifier.Result.Compatible -> compareVerified(request, verification)
+      }
+    }
+      .getOrElse { ComparisonComputation.InternalFailure() }
+
+  private fun compareVerified(
+    request: ComparisonRequest,
+    verification: ComparisonInputVerifier.Result.Compatible,
+  ): ComparisonComputation.Completed {
+      val baseline = verification.baseline
+      val candidate = verification.candidate
       val cells =
         baseline.samples.keys.sortedBy { identity -> identity.canonicalBytes().toHex() }.map {
           identity ->
           val estimate =
             BootstrapV1.estimate(
-              baseline.document.identity.captureId,
-              candidate.document.identity.captureId,
+              baseline.identity.captureId,
+              candidate.identity.captureId,
               cell = identity,
               baseline = baseline.samples.getValue(identity),
               candidate = candidate.samples.getValue(identity),
@@ -95,9 +123,9 @@ class CaptureComparator(
           compatibilityReasons = emptyList(),
           baseline = captureRef(baseline),
           candidate = captureRef(candidate),
-          implementation = request.execution.identity,
+          implementation = verification.execution,
           cells = cells,
-          calibration = calibrationRef(request, calibrationPassed),
+          calibration = calibrationRef(request, verification, calibrationPassed),
           policy =
             ComparisonPolicyResult(
               sha256 = request.regressionPolicy?.sha256,
@@ -108,47 +136,47 @@ class CaptureComparator(
             ),
         )
       val rendered = renderer.render(document)
-      ComparisonComputation.Completed(
+      return ComparisonComputation.Completed(
         document = document,
         jsonBytes = rendered.json,
         markdownBytes = rendered.markdown,
         exit = exit(request.kind, calibrationPassed, overallPolicy, request.regressionPolicy),
       )
-    }
-      .getOrElse { ComparisonComputation.InternalFailure() }
+  }
 
   private fun calibrationRef(
     request: ComparisonRequest,
+    verification: ComparisonInputVerifier.Result.Compatible,
     calibrationPassed: Boolean,
   ): ComparisonCalibrationRef =
     if (request.kind == ComparisonKind.CALIBRATION) {
-      val baseline = request.baseline as CaptureBundleProof.Verified
-      val candidate = request.candidate as CaptureBundleProof.Verified
+      val baseline = verification.baseline
+      val candidate = verification.candidate
       ComparisonCalibrationRef(
         evidenceSha256 = null,
-        a1CaptureId = baseline.document.identity.captureId,
-        a2CaptureId = candidate.document.identity.captureId,
+        a1CaptureId = baseline.identity.captureId,
+        a2CaptureId = candidate.identity.captureId,
         bCaptureId = null,
         passed = calibrationPassed,
       )
     } else {
-      val calibration = checkNotNull(request.calibration) as VerifiedCalibrationComparison
+      val calibration = checkNotNull(verification.calibration)
       ComparisonCalibrationRef(
-        evidenceSha256 = calibration.sha256,
+        evidenceSha256 = calibration.bundleSha256,
         a1CaptureId = calibration.a1CaptureId,
         a2CaptureId = calibration.a2CaptureId,
-        bCaptureId = calibration.bCaptureId,
+        bCaptureId = verification.candidate.identity.captureId,
         passed = true,
       )
     }
 
-  private fun captureRef(capture: CaptureBundleProof.Verified): ComparisonCaptureRef =
+  private fun captureRef(capture: CaptureBundleVerifier.Projection): ComparisonCaptureRef =
     ComparisonCaptureRef(
-      captureId = capture.document.identity.captureId,
+      captureId = capture.identity.captureId,
       captureSha256 = capture.captureSha256,
       bundleSha256 = capture.bundleSha256,
-      treatmentGitSha = capture.document.provenance.treatment.gitSha,
-      productionSha256 = capture.document.artifacts.production.sha256,
+      treatmentGitSha = capture.provenance.treatment.gitSha,
+      productionSha256 = capture.artifacts.production.sha256,
     )
 
   private fun calibrationCellPassed(cell: ComparisonCellResult): Boolean =
@@ -194,6 +222,24 @@ class CaptureComparator(
     }
 
   companion object {
+    @JvmSynthetic
+    internal fun forTest(
+      comparatorCodeSource: Path,
+      effectiveClasspath: List<Path>,
+      fileCodeSource: Boolean = true,
+      systemApplicationClassLoader: Boolean = true,
+      renderer: ComparisonRenderer = ComparisonRenderer(),
+    ): CaptureComparator =
+      CaptureComparator(
+        renderer,
+        ExecutingRunnerObservation(
+          comparatorCodeSource = comparatorCodeSource,
+          effectiveClasspath = effectiveClasspath.toList(),
+          fileCodeSource = fileCodeSource,
+          systemApplicationClassLoader = systemApplicationClassLoader,
+        ),
+      )
+
     internal fun directionForTesting(lower: Double, upper: Double): DirectionOutcome =
       direction(lower, upper)
 
@@ -239,6 +285,68 @@ class CaptureComparator(
     private const val COMPARISON_SCHEMA_VERSION = "comparison-v1"
     private const val UNITY = 1.0
   }
+}
+
+private data class ExecutingRunnerObservation(
+  val comparatorCodeSource: Path,
+  val effectiveClasspath: List<Path>,
+  val fileCodeSource: Boolean,
+  val systemApplicationClassLoader: Boolean,
+) {
+  fun matches(distribution: DistributionProjection): Boolean =
+    runCatching {
+        val expected = distribution.verifiedRunnerClasspath
+        val actual = effectiveClasspath
+        fileCodeSource &&
+          systemApplicationClassLoader &&
+          isStrictJarPath(comparatorCodeSource) &&
+          actual.isNotEmpty() &&
+          expected.all(::isStrictJarPath) &&
+          actual.distinct().size == actual.size &&
+          actual.all(::isStrictJarPath) &&
+          comparatorCodeSource == expected.firstOrNull() &&
+          actual == expected &&
+          actual.map(Sha256::digest) == distribution.runnerClasspath.map(ArtifactProjection::sha256)
+      }
+      .getOrDefault(false)
+
+  companion object {
+    fun current(): ExecutingRunnerObservation? =
+      runCatching {
+          val codeSourceUrl =
+            checkNotNull(CaptureComparator::class.java.protectionDomain.codeSource).location
+          ExecutingRunnerObservation(
+            comparatorCodeSource = Path.of(codeSourceUrl.toURI()),
+            effectiveClasspath =
+              checkNotNull(System.getProperty("java.class.path"))
+                .split(java.io.File.pathSeparatorChar)
+                .map(Path::of),
+            fileCodeSource = codeSourceUrl.protocol == "file",
+            systemApplicationClassLoader =
+              CaptureComparator::class.java.classLoader === ClassLoader.getSystemClassLoader(),
+          )
+        }
+        .getOrNull()
+  }
+}
+
+private fun isStrictJarPath(path: Path): Boolean =
+  path.isAbsolute &&
+    path == path.normalize() &&
+    '*' !in path.toString() &&
+    !hasSymbolicLinkComponent(path) &&
+    Files.isRegularFile(path, NOFOLLOW_LINKS) &&
+    !Files.isSymbolicLink(path) &&
+    path.fileName.toString().endsWith(".jar") &&
+    runCatching { JarFile(path.toFile()).use { true } }.getOrDefault(false)
+
+private fun hasSymbolicLinkComponent(path: Path): Boolean {
+  var current = path.root ?: return true
+  path.forEach { component ->
+    current = current.resolve(component)
+    if (Files.isSymbolicLink(current)) return true
+  }
+  return false
 }
 
 private fun ByteArray.toHex(): String = HexFormat.of().formatHex(this)
