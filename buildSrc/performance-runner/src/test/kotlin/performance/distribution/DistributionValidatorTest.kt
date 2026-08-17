@@ -65,6 +65,16 @@ class DistributionValidatorTest :
         }
       }
 
+      test("frozen protocol excludes the retired bootstrap adapter envelope") {
+        withFixture { fixture ->
+          Files.exists(
+            fixture.root.resolve("protocol/schemas/adapter-failure-v1.schema.json")
+          ) shouldBe false
+
+          fixture.validateBeforeProcess(ProcessSpy()).shouldBeInstanceOf<DistributionValidation.Valid>()
+        }
+      }
+
       test("public validation proof exposes no constructor or implementation escape hatch") {
         VerifiedDistribution::class.java.isInterface shouldBe true
         VerifiedDistribution::class.java.constructors.toList().shouldBeEmpty()

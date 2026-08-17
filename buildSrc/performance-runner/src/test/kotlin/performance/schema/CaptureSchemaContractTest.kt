@@ -310,16 +310,6 @@ class CaptureSchemaContractTest :
           assertRejectedWithoutEcho(validateCapture(capture), token)
         }
 
-        test("adapter runToken rejects $tokenKind without echo") {
-          val document = validProtocolDocument(SchemaKind.ADAPTER_FAILURE)
-          document.put("runToken", token)
-
-          assertRejectedWithoutEcho(
-            validator.validate(SchemaKind.ADAPTER_FAILURE, CanonicalJson.encode(document)),
-            token,
-          )
-        }
-
         test("preflight operationId rejects $tokenKind without echo") {
           val document = validProtocolDocument(SchemaKind.PREFLIGHT)
           document.put("operationId", token)
@@ -866,34 +856,12 @@ class CaptureSchemaContractTest :
           )
       }
 
-      test("output reservation failure cannot claim an adapter failure envelope") {
-        val document = validProtocolDocument(SchemaKind.ADAPTER_FAILURE)
-        document.put("failureCode", "OUTPUT_RESERVATION_FAILED")
-
-        validator
-          .validate(SchemaKind.ADAPTER_FAILURE, CanonicalJson.encode(document))
-          .shouldNotBeEmpty()
-      }
-
-      test("output reservation failure is absent from the adapter failure model") {
-        val failureCodes = checkNotNull(enumConstantNames("performance.model.AdapterFailureCode"))
-
-        failureCodes.shouldNotContain("OUTPUT_RESERVATION_FAILED")
-      }
-
-      test("adapter failure model and schema expose exactly the approved six codes") {
-        val modelCodes =
-          checkNotNull(enumConstantNames("performance.model.AdapterFailureCode")).sorted()
-        val schemaCodes =
-          CanonicalJson.parseStrict(goldenResourceBytes(ADAPTER_FAILURE_SCHEMA))
-            .get("properties")
-            .get("failureCode")
-            .get("enum")
-            .values()
-            .map { it.asString() }
-
-        modelCodes shouldBe ADAPTER_FAILURE_CODES
-        schemaCodes shouldBe ADAPTER_FAILURE_CODES
+      test("bootstrap adapter failures are not protocol documents") {
+        SchemaKind.entries.map { it.name } shouldNotContain "ADAPTER_FAILURE"
+        enumConstantNames("performance.model.AdapterFailureCode") shouldBe null
+        CaptureSchemaContractTest::class.java.getResource(
+          "/performance/protocol/schemas/adapter-failure-v1.schema.json"
+        ) shouldBe null
       }
     },
   ) {
@@ -901,8 +869,6 @@ class CaptureSchemaContractTest :
       private const val GOLDEN_CAPTURE = "/performance/golden/capture/valid-capture.json"
       private const val GOLDEN_PROFILER_SUMMARY =
         "/performance/golden/capture/valid-profiler-summary.json"
-      private const val ADAPTER_FAILURE_SCHEMA =
-        "/performance/protocol/schemas/adapter-failure-v1.schema.json"
       private const val GOLDEN_CAPTURE_SHA256 =
         "3d3bf148e2b6e4fd651a948206f39093a00a5d99abf3ebf3b2f831c7c7dc1397"
       private const val GOLDEN_PROFILER_SUMMARY_SHA256 =
@@ -911,15 +877,6 @@ class CaptureSchemaContractTest :
       private const val CONTROLLED_MAC_CAMPAIGN_HOST_ID = "m4max-docker-linux-arm64-v1"
       private const val GITHUB_HOST_ID = "github-hosted-arm64-canary-v1"
       private val SHA = "a".repeat(64)
-      private val ADAPTER_FAILURE_CODES =
-        listOf(
-          "ADAPTER_MISMATCH",
-          "CONTEXT_INVALID",
-          "DOCKER_UNAVAILABLE",
-          "IMAGE_UNAVAILABLE",
-          "INTERNAL_ERROR",
-          "LOCK_UNAVAILABLE",
-        )
       private val SECRET_TOKEN_SAMPLES =
         mapOf(
           "classic ghp token" to "ghp_0123456789abcdefghijklmnopqrstuvwxyz",
@@ -990,8 +947,6 @@ class CaptureSchemaContractTest :
             """{"checks":{"cleanup":"pass","containers":"pass","cpuIdle":"pass","interference":"pass","memoryPressure":"pass","power":"pass","runtime":"pass","swapPage":"pass","thermal":"pass"},"kind":"postflight","observedAtUtc":"2026-08-16T00:02:00Z","policySha256":"$SHA","processExit":0,"schemaVersion":"postflight-v1","snapshot":$HOST_SNAPSHOT}""",
           SchemaKind.RESTORATION to
             """{"cleanupPassed":true,"kind":"restoration","lockReleaseReady":true,"observedAtUtc":"2026-08-16T00:03:00Z","policySha256":"$SHA","restoredState":"passed","schemaVersion":"restoration-v1"}""",
-          SchemaKind.ADAPTER_FAILURE to
-            """{"adapterSha256":"$SHA","failureCode":"DOCKER_UNAVAILABLE","observedAtUtc":"2026-08-16T00:00:00Z","runToken":"run-0001","schemaVersion":"adapter-failure-v1"}""",
           SchemaKind.PROFILER_SUMMARY to PROFILER_SUMMARY,
         )
 

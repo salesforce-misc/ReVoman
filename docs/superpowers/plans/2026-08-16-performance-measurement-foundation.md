@@ -41,7 +41,8 @@ Docker Desktop Linux/ARM64, GitHub Actions `ubuntu-24.04-arm`, JFR, and Log4j 3 
 - The claim-bearing runtime image is
   `docker.io/library/eclipse-temurin@sha256:6c7425db05efdcf0ba40d989898857b093f14ceaf9684c9c31a072c159f4590e`.
   Verify it as `linux/arm64`, record its OCI config/JDK hashes, and fail if unavailable; never fall
-  back to a mutable tag.
+  back to a mutable tag. Its required inventory includes `/usr/bin/mv` from GNU coreutils 9.4 for
+  finalizer-owned no-clobber publication.
 - Freeze these common measured/scrubber/sealer limits before the baseline: CPUs `0-3`, memory
   `6 GiB`, memory-swap `6 GiB`, PID limit `512`, substrate-declared non-root UID/GID, read-only
   root, `cap-drop=ALL`, `no-new-privileges`, and only declared tmpfs/volume write points. The sole
@@ -257,7 +258,6 @@ git commit -m "build(perf): add pure Kotlin runner and exit contract"
   - `watcher-v1.schema.json`
   - `postflight-v1.schema.json`
   - `restoration-v1.schema.json`
-  - `adapter-failure-v1.schema.json`
   - `profiler-summary-v1.schema.json`
 - Test: `buildSrc/performance-runner/src/test/kotlin/performance/json/CanonicalJsonTest.kt`
 - Test: `buildSrc/performance-runner/src/test/kotlin/performance/schema/CaptureSchemaContractTest.kt`
@@ -402,7 +402,7 @@ git commit -m "feat(perf): define canonical performance evidence"
 
 **Interfaces:**
 
-- Consumes: Task 1 runner CLI and Task 2 adapter-failure schema.
+- Consumes: Task 1 runner CLI.
 - Produces the five supported host commands exactly: `freeze`, `canary`, `campaign`, `capture`, and
   `compare`. The optional profiler selector belongs only to direct warm `capture`.
 - `scripts/performance/run` is one hashable Bash-3.2-compatible file. It defines sourceable
@@ -436,7 +436,10 @@ the sealer has exactly the reserved artifact parent and no other writable host b
 Add dirty-tree and adapter-provenance cases for all five public commands. Initial `freeze` has no
 prior adapter to compare, but requires a clean full SHA; candidate `freeze --harness-from` and every
 canary/campaign/capture/compare require byte equality with the supplied frozen adapter before any
-Docker invocation. A mismatch or dirty relevant source is exit `2`, with a zero-call Docker spy.
+Docker invocation. A mismatch or dirty relevant source is exit `2`, with sanitized stderr, no
+artifact, and a zero-call Docker spy. Also prove argument/output-shape rejection performs no write
+and no Docker call, and that no output reservation exists before the exact runtime plus frozen
+runner/finalizer identity and finalizer tool inventory have been verified.
 
 - [ ] **Step 2: Run RED**
 
@@ -450,11 +453,15 @@ Expected: failure because the adapter and profiles are absent.
 
 Implement a table-driven parser with no `eval`. Normalize from repository root and accept only a
 new descendant of `build/performance` or `docs/superpowers/benchmarks`. Leave the final target
-absent. Atomically reserve it by creating one deterministic hidden sibling
-`.<target-name>.reservation` with mode `0700`; the token records only the logical run token and is
-held through final rename/verification. Before reservation failure, print only an enumerated code
-and logical output token; never echo a raw path. Initial parent/unwritability failure is exit `2`;
-only a write/fsync/rename failure after token creation is exit `8`.
+absent. Apply this fail-closed order: validate arguments and output-path shape without writing or
+invoking Docker; validate the frozen adapter provenance before Docker; verify the exact Docker
+context, immutable runtime, frozen runner/finalizer identity, and finalizer tool inventory; only
+then atomically reserve the output by creating one deterministic hidden sibling
+`.<target-name>.reservation` with mode `0700`. The token records only the logical run token and is
+held through final publication/verification. Before reservation failure, print only an enumerated
+code and logical output token; never echo a raw path or publish an artifact. Initial parent/
+unwritability failure is exit `2`; only a write/fsync/publication failure after token creation is
+exit `8`.
 
 The public capture synopsis is:
 
@@ -475,7 +482,7 @@ RUNTIME_REF='docker.io/library/eclipse-temurin@sha256:6c7425db05efdcf0ba40d98989
 docker --context desktop-linux pull --platform linux/arm64 "$RUNTIME_REF"
 docker --context desktop-linux image inspect "$RUNTIME_REF"
 docker --context desktop-linux run --rm --pull=never --platform linux/arm64 \
-  "$RUNTIME_REF" /bin/sh -lc 'set -eu; test "$(uname -m)" = aarch64; for tool in sh tar sha256sum; do command -v "$tool"; done; java -version; sha256sum "$(command -v java)"'
+  "$RUNTIME_REF" /bin/sh -lc 'set -eu; test "$(uname -m)" = aarch64; for tool in sh tar sha256sum mv; do command -v "$tool"; done; java -version; sha256sum "$(command -v java)"; /usr/bin/mv --version'
 docker buildx imagetools inspect --raw "$RUNTIME_REF"
 ```
 
@@ -483,9 +490,19 @@ Expected: `aarch64`, Temurin 21, and all required tools. The approved observed i
 config `sha256:ad6963934ee96838c09d99f3c4df6f991cd00ed70fa8a48f7045517d7ae8991c`, JDK
 `21.0.11+10-LTS`, Java executable `/opt/java/openjdk/bin/java` with SHA-256
 `1cedc51a4102638f1f06077acb3611b88f3061f9c7d76bd0a0df7f8607a9367b`, and tools
-`/usr/bin/sh`, `/usr/bin/tar` (GNU tar 1.35), and `/usr/bin/sha256sum` (GNU coreutils 9.4).
+`/usr/bin/sh`, `/usr/bin/tar` (GNU tar 1.35), `/usr/bin/sha256sum` (GNU coreutils 9.4), and
+`/usr/bin/mv` (GNU coreutils 9.4).
 Copy the observed identity into the canonical profile. The schema test rejects a tag, an index
 digest, unresolved values, amd64, or a missing hash.
+
+Before implementation, probe the exact publication command on the actual writable finalizer bind
+under every frozen security constraint. For an absent destination,
+`/usr/bin/mv -nT --no-copy -- SOURCE DEST` must publish exactly. For regular-file, directory, and
+symlink destinations created between the precheck and move, the finalizer operation must be
+nonzero, retain the staging source, and leave the destination and any symlink target unchanged,
+with no nesting, overwrite, or escape. A true cross-filesystem move must likewise fail with the
+source retained and no copy fallback. Stop and reopen the gate if the exact pinned environment
+cannot demonstrate all of those properties.
 
 - [ ] **Step 5: Implement phase-specific Docker construction**
 
@@ -497,8 +514,14 @@ UID/GID. Preparation then copies frozen inputs and exits as that non-root identi
 only those volumes/tmpfs and writes provisional output to an operation volume. A profiler scrubber
 mounts only that operation volume writable and never sees a host artifact path. Finalization mounts
 the scrubbed operation volume read-only plus exactly one reserved host artifact parent writable,
-using the invoking substrate's recorded non-root UID/GID. GitHub ARM uses its Docker Engine without
-adding the Mac `desktop-linux` context.
+using the invoking substrate's recorded non-root UID/GID. Before any finalizer write, verify the
+reservation token from inside that mounted view; do not compare host and container inode/device
+numbers because Docker Desktop translates them. Publish from a sibling staging directory with
+`/usr/bin/mv -nT --no-copy -- SOURCE DEST`, then require that the source disappeared and the exact
+destination appeared. Convert a no-clobber skip to nonzero finalizer failure; retain the source and
+leave an existing file, directory, or symlink destination unchanged. Never nest, overwrite, follow
+a symlink, or copy across filesystems. GitHub ARM uses its Docker Engine without adding the Mac
+`desktop-linux` context.
 
 Add live Linux fixture tests that initialize a fresh root-owned named volume, then prove timed and
 finalizer identities can write their declared volume/bind locations without root, `sudo`, world-
@@ -1236,9 +1259,13 @@ Expected: finalizer/publication types and the host handshake are absent.
 Hash every other regular file exactly once, using normalized UTF-8 relative paths sorted
 lexicographically. Reject symlinks, special files, duplicate normalized paths, parent traversal, and
 checksum self-inclusion. Write into `.<run-id>.staging` under the destination parent, fsync each
-file plus staging/destination directories, and rename atomically while the deterministic sibling
-reservation token remains present. Verify the final target, then remove/fsync the reservation token.
-Cross-filesystem rename is an exit-`8` negative case; never fall back to a recursive copy.
+file plus staging/destination directories, and verify the deterministic sibling reservation token
+from inside the finalizer's mounted view before the first write. Publish with
+`/usr/bin/mv -nT --no-copy -- SOURCE DEST`; after a zero status require the source to be absent and
+the exact final target to exist, otherwise return exit `8`. A destination collision must return
+nonzero with staging retained and the destination unchanged. Verify the final target, then
+remove/fsync the reservation token. Cross-filesystem rename is an exit-`8` negative case; never
+fall back to a recursive copy.
 
 - [ ] **Step 5: Implement two distinct sealing paths**
 
@@ -1251,10 +1278,10 @@ document. All execute from the frozen
 runner archive whose implementation, dependency, schema, renderer, vector, and policy hashes match
 the distribution. Record that comparator provenance in every final report.
 
-Publication failure always supersedes a prior measurement/policy status with exit `8`. Before a
-writable output reservation, emit only sanitized stderr. After reservation but before a runner is
-available, the adapter may write only strict `adapter-failure.json`; it is non-evidence and cannot
-be promoted.
+Publication failure always supersedes a prior measurement/policy status with exit `8`. Before the
+frozen finalizer is verified, emit only sanitized stderr and no artifact. After finalizer
+verification and writable output reservation, every failure uses the full sanitized `INVALID`
+bundle.
 
 Add one table-driven packaged-CLI test for the complete stable terminal matrix: valid operations and
 unenforced direction exit `0`; input/preflight/freeze/protocol failure `2`; measurement failure `3`;

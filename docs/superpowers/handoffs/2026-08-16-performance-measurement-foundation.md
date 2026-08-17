@@ -38,6 +38,14 @@ The required hashes are:
 ebff56fa23d72af6cd9f76fecdcc7435bf1fadf52d04097d0cbd39b590a49540  docs/superpowers/plans/2026-08-16-performance-measurement-foundation.md
 ```
 
+Those are the Wave 0 starting hashes. The authorized 2026-08-17 container-finalizer protocol
+revision replaces them for continued execution with:
+
+```text
+8b813ce56549a1515a6d4a03c320b07db6e406ccebd246095bef330db3b35c18  docs/superpowers/specs/2026-08-16-performance-measurement-foundation-design.md
+d332ced97594eb7ecc34b8d408c7ebeca870729a59f677109c1ef74140a3074d  docs/superpowers/plans/2026-08-16-performance-measurement-foundation.md
+```
+
 Stop if the branch, ancestry, cleanliness, or document hashes do not match. Preserve any unexpected
 user changes and ask for direction; do not reset or overwrite them.
 
@@ -164,8 +172,8 @@ The authorized pin has this verified identity:
   `OpenJDK 64-Bit Server VM Temurin-21.0.11+10 (build 21.0.11+10-LTS, mixed mode, sharing)`;
 - Java executable `/opt/java/openjdk/bin/java`, SHA-256
   `1cedc51a4102638f1f06077acb3611b88f3061f9c7d76bd0a0df7f8607a9367b`;
-- `/usr/bin/sh`, `/usr/bin/tar` (GNU tar 1.35), and `/usr/bin/sha256sum`
-  (GNU coreutils 9.4); and
+- `/usr/bin/sh`, `/usr/bin/tar` (GNU tar 1.35), `/usr/bin/sha256sum`
+  (GNU coreutils 9.4), and `/usr/bin/mv` (GNU coreutils 9.4); and
 - source Dockerfile
   `https://github.com/adoptium/containers/blob/df6138afaf1b564116e895b0acd51d70e11cd996/21/jdk/ubuntu/noble/Dockerfile`.
 
@@ -178,6 +186,13 @@ declared non-root UID/GID, read-only root, `cap-drop=ALL`, `no-new-privileges`, 
 write points. Only image acquisition and `freeze` may use network access. The preparation, timed,
 scrubber, and finalizer containers are networkless and must use `--network none --pull=never` after
 digest verification.
+
+The authorized finalizer revision validates arguments/output shape without writes or Docker,
+validates adapter provenance before Docker, verifies the exact context/runtime/runner/finalizer and
+`/usr/bin/mv` inventory, and only then reserves output. Publication runs inside that constrained
+finalizer as `/usr/bin/mv -nT --no-copy -- SOURCE DEST`, with postconditions that turn a no-clobber
+skip into nonzero failure. Failures before finalizer verification publish no artifact; failures
+after verification and reservation retain the full sanitized `INVALID`-bundle contract.
 
 GitHub `ubuntu-24.04-arm` runs the same ARM child image for structural canaries and optional manual
 diagnostics. Hosted timings are never claim-bearing. Native macOS, `gopalaaksh-wsl3`, x86, a future

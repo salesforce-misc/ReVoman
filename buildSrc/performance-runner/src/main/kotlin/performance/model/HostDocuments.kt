@@ -144,21 +144,3 @@ data class RestorationDocument(
   val restoredState: String,
   val lockReleaseReady: Boolean,
 )
-
-/** Enumerated adapter failures that can occur before the frozen runner is available. */
-enum class AdapterFailureCode {
-  LOCK_UNAVAILABLE,
-  DOCKER_UNAVAILABLE,
-  CONTEXT_INVALID,
-  IMAGE_UNAVAILABLE,
-  ADAPTER_MISMATCH,
-  INTERNAL_ERROR,
-}
-
-/** Minimal non-evidence failure envelope emitted by the host adapter. */
-data class AdapterFailureDocument(
-  val observedAtUtc: String,
-  val adapterSha256: Sha256,
-  val runToken: String,
-  val failureCode: AdapterFailureCode,
-)

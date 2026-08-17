@@ -25,7 +25,6 @@ enum class SchemaKind(
   WATCHER("watcher-v1.schema.json"),
   POSTFLIGHT("postflight-v1.schema.json"),
   RESTORATION("restoration-v1.schema.json"),
-  ADAPTER_FAILURE("adapter-failure-v1.schema.json"),
   PROFILER_SUMMARY("profiler-summary-v1.schema.json"),
   ;
 

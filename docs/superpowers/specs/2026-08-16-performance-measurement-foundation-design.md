@@ -234,7 +234,7 @@ claim evidence. Inside the container, the runner verifies its jar, dependency,
 schema, profile, expected-cell, runtime, and qualification-policy hashes before reading evidence or
 performing arithmetic. Every output records these executing-code hashes. Dirty, missing, or
 mismatched frozen runner code is `INVALID`, even if the evidence inputs would otherwise parse; a
-host-adapter mismatch stops before container launch with the minimal bootstrap envelope below.
+host-adapter mismatch stops before container launch with sanitized stderr and no artifact.
 
 The adapter selects and verifies the Docker context/image, mounts only declared inputs, and creates
 a versioned sanitized host `preflight.json`. It contains no measurement thresholds, statistics, or
@@ -261,17 +261,16 @@ always produces a diagnostic report; only the campaign finalizer emits a claim-b
 comparison. This keeps conditional execution and evidence validity out of shell and GitHub YAML
 while requiring no host JVM.
 
-Some failures occur before Docker or the frozen runner is available. For that narrow class, the
-fixed host adapter writes a minimal privacy-safe `adapter-failure.json` envelope containing only
-schema version, UTC time, adapter hash, a logical output/run token, and an enumerated failure code;
-it never stores the raw path or command output. The next invocation may validate and incorporate
-that envelope, but it can never become claim evidence. Once the runner is available, failures use
-the full sanitized `INVALID` bundle. Both guarantees begin only after the adapter has validated and
-successfully reserved a writable artifact root. An invalid/unwritable output is an input failure;
-exhausted storage or a later write/fsync/rename failure is a publication failure. Those cases emit
-sanitized stderr and their prescribed nonzero exit, but cannot guarantee an artifact. The design
-does not pretend a broken daemon—or an unwritable destination—can launch or store its own failure
-reporter.
+Failures before the frozen finalizer is verified emit sanitized stderr and no artifact. The fixed
+host adapter first validates arguments and output-path shape without writing or invoking Docker,
+then validates adapter provenance before any Docker call. It next verifies the exact Docker
+context, immutable child manifest and OCI config, frozen runner/finalizer identity, JDK identity,
+and required tool inventory. Only after those checks pass may it reserve a writable artifact root.
+Once the finalizer is verified and the root is reserved, every failure uses the full sanitized
+`INVALID` bundle. An invalid/unwritable output is an input failure; exhausted storage or a later
+write/fsync/publication failure is a publication failure. Those cases emit sanitized stderr and
+their prescribed nonzero exit, but cannot guarantee an artifact. The design does not pretend a
+broken daemon—or an unwritable destination—can launch or store its own failure reporter.
 
 Gradle builds and freezes the runner but is not invoked in a timed or finalizer container. Internal
 Gradle task names and the host/container phase handshake are implementation details guarded by
@@ -343,9 +342,11 @@ The selected image source is the official Eclipse Temurin 21 Ubuntu 24.04 reposi
 `docker.io/library/eclipse-temurin`. A mutable tag may be inspected only while creating or
 deliberately revising the checked-in runtime profile. That profile records the exact
 `repository@sha256:<linux-arm64-child-manifest>` reference, OCI config digest, complete JDK version,
-JDK binary SHA-256, and required userspace-tool inventory. Normal freeze, canary, and campaign runs
-never resolve a tag. If that digest disappears or its verified contents do not satisfy the profile,
-the run fails; choosing another image is an explicit protocol revision with a new baseline.
+JDK binary SHA-256, and required userspace-tool inventory. The inventory includes `/usr/bin/mv`
+from GNU coreutils 9.4 because the verified finalizer owns publication. Normal freeze, canary, and
+campaign runs never resolve a tag. If that digest disappears or its verified contents do not
+satisfy the profile, the run fails; choosing another image is an explicit protocol revision with a
+new baseline.
 
 An online adapter phase pulls the checked-in reference by digest and verifies its local platform,
 manifest/config identity, tool inventory, and JDK hash. Timed and finalizer containers are created
@@ -404,13 +405,18 @@ operation-scoped Docker volume. It never mounts the host evidence destination. A
 host postflight, a profiler scrubber, when needed, mounts only that operation volume writable and
 has no host bind. It atomically persists and fsyncs a validated provisional summary and scrub
 intent, deletes and fsyncs the raw recording, then persists a completion marker. A sealing
-finalizer subsequently mounts the operation volume read-only plus exactly one allowlisted host
-artifact parent writable, validates the complete scrub transition and absence of raw profiler
-data, materializes the sanitized staging tree there, and performs the same-filesystem rename. The
-campaign finalizer applies the full dependency DAG; the bounded canary/capture finalizer seals only
-one permanently diagnostic bundle. Source distributions remain read-only in every non-freeze
-phase; provisional operation output is writable only by the timed runner and the narrowly scoped
-profiler scrubber.
+finalizer subsequently mounts the operation volume read-only plus exactly one reserved host
+artifact parent writable. Before its first write it verifies the reservation token from inside the
+mounted view, which anchors the bind despite Docker Desktop's host/container inode translation. It
+validates the complete scrub transition and absence of raw profiler data, materializes the
+sanitized staging tree there, and publishes with
+`/usr/bin/mv -nT --no-copy -- SOURCE DEST`. A no-clobber skip is converted to a nonzero finalizer
+failure unless the source disappeared and the exact destination appeared; every collision must
+retain the source and leave the destination unchanged, and a cross-filesystem move must fail
+without copy fallback. The campaign finalizer applies the full dependency DAG; the bounded
+canary/capture finalizer seals only one permanently diagnostic bundle. Source distributions remain
+read-only in every non-freeze phase; provisional operation output is writable only by the timed
+runner and the narrowly scoped profiler scrubber.
 
 ### Fail-closed Mac qualification
 
@@ -442,9 +448,9 @@ host adapter is non-interactive and never invokes `sudo` or waits for a password
    update, thermal, power, or memory event permanently invalidates the campaign even if it clears;
    ordinary transient system processes do not fail by name alone;
 8. record pre/post thermal, CPU, memory-pressure, swap/page, container, and runtime fingerprints;
-9. publish a sanitized full `INVALID` bundle with exact reasons for any failure after the lock is
-   held and the frozen finalizer is verified; earlier lock/daemon/context/image/adapter failures
-   emit only the minimal non-evidence `adapter-failure.json` envelope defined above; and
+9. publish a sanitized full `INVALID` bundle with exact reasons only after the frozen finalizer is
+   verified and the artifact root is reserved; earlier argument/output/provenance/lock/daemon/
+   context/image/finalizer failures emit sanitized stderr and no artifact; and
 10. release the operation lock last: after output/invalid publication for a bounded subcommand, or
     after final campaign evidence publication/invalid staging quarantine for `campaign`.
 
@@ -1199,10 +1205,10 @@ boundaries explicitly rather than assuming root `build` discovers them:
 
 The ordinary build commands use the workflow's exact configured JDK; distribution freeze and
 benchmark execution go through the runtime-image adapter. Checkout and artifact transport remain
-host workflow steps; measurement rules do not move into YAML. After an adapter subcommand
-successfully reserves its validated writable artifact root, it leaves a full sanitized `INVALID`
-bundle once the frozen finalizer is available, or the minimal adapter-failure envelope for an
-earlier bootstrap failure. If reservation or later publication is impossible, it instead emits
+host workflow steps; measurement rules do not move into YAML. Before the frozen finalizer is
+verified, an adapter failure emits sanitized stderr and no artifact. After finalizer verification
+and successful reservation of the validated writable artifact root, every failure leaves a full
+sanitized `INVALID` bundle. If reservation or later publication is impossible, it instead emits
 sanitized stderr and the required nonzero exit without promising an artifact. The workflow uploads
 the complete sanitized `build/performance` directory with an unconditional `if: always()` step,
 `if-no-files-found: error`, and seven-day retention, so any artifact that can be created survives
@@ -1344,11 +1350,11 @@ The tranche is complete only when:
 14. The Mac and `ubuntu-24.04-arm` canary verify the same pinned `linux/arm64` platform-manifest
     digest and JDK binary hash without amd64 emulation.
 15. A fresh controlled-Mac performance invocation requires no native JVM/build tool, no privilege
-    prompt, and no secret or home-directory mount; after a validated writable artifact root is
-    reserved, failures after finalizer availability produce a full `INVALID` bundle while earlier
-    bootstrap failures produce the minimal non-evidence envelope. Output-reservation/publication
-    failures instead produce sanitized stderr and the prescribed nonzero exit without claiming an
-    artifact exists.
+    prompt, and no secret or home-directory mount; arguments/output shape and adapter provenance
+    fail before Docker with no artifact, and Docker/runtime/finalizer verification fails before
+    reservation with no artifact. After finalizer verification and reservation, failures produce a
+    full `INVALID` bundle. Output-reservation/publication failures instead produce sanitized stderr
+    and the prescribed nonzero exit without claiming an artifact exists.
 16. The Mac adapter proves explicit `desktop-linux` selection, offline timed execution,
     container-local inputs, deterministic cleanup, and restoration of only allowlisted state.
 17. Automatic GitHub CI uploads the structural canary while discarding numeric timing, and the

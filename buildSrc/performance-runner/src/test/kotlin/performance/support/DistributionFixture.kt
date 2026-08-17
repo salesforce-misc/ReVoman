@@ -255,7 +255,6 @@ internal class DistributionFixture private constructor(
 
     private val PROTOCOL_SCHEMA_FILES =
       listOf(
-        "adapter-failure-v1.schema.json",
         "capture-provisional-v1.schema.json",
         "capture-v1.schema.json",
         "distribution-classpath-v1.schema.json",
