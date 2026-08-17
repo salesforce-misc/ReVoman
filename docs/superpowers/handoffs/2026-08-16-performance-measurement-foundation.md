@@ -43,7 +43,7 @@ revision replaces them for continued execution with:
 
 ```text
 8b813ce56549a1515a6d4a03c320b07db6e406ccebd246095bef330db3b35c18  docs/superpowers/specs/2026-08-16-performance-measurement-foundation-design.md
-d332ced97594eb7ecc34b8d408c7ebeca870729a59f677109c1ef74140a3074d  docs/superpowers/plans/2026-08-16-performance-measurement-foundation.md
+2458bb077b63c8384556c7ba20058be87c07d7808f1ff0c0a103012da552c886  docs/superpowers/plans/2026-08-16-performance-measurement-foundation.md
 ```
 
 Stop if the branch, ancestry, cleanliness, or document hashes do not match. Preserve any unexpected

@@ -444,7 +444,7 @@ runner/finalizer identity and finalizer tool inventory have been verified.
 - [ ] **Step 2: Run RED**
 
 ```bash
-./gradlew -p buildSrc test --tests 'performance.adapter.*'
+./gradlew -p buildSrc :test --tests 'performance.adapter.*'
 ```
 
 Expected: failure because the adapter and profiles are absent.
@@ -534,7 +534,7 @@ and has no capability except `CHOWN`.
 /bin/bash -n scripts/performance/run
 chmod 0755 scripts/performance/run
 test -x scripts/performance/run
-SUDO_ASKPASS=/usr/bin/false ./gradlew -p buildSrc test --tests 'performance.adapter.*' </dev/null
+SUDO_ASKPASS=/usr/bin/false ./gradlew -p buildSrc :test --tests 'performance.adapter.*' </dev/null
 rg -n '(^|[[:space:]])(sudo|dzdo|osascript)([[:space:]]|$)' scripts/performance
 ```
 
@@ -721,7 +721,7 @@ The TestKit matrix must require:
 - [ ] **Step 3: Run RED**
 
 ```bash
-./gradlew -p buildSrc test \
+./gradlew -p buildSrc :test \
   --tests 'performance.PerformanceMeasurementPluginTest' \
   --tests 'performance.DistributionFreezeContractTest'
 ```
@@ -756,7 +756,7 @@ rebuild both sides to make them match.
 - [ ] **Step 6: Run GREEN on TestKit distributions and compile current JMH sources**
 
 ```bash
-./gradlew -p buildSrc test --tests 'performance.*Distribution*Test' \
+./gradlew -p buildSrc :test --tests 'performance.*Distribution*Test' \
   --tests 'performance.PerformanceMeasurementPluginTest'
 ./gradlew jmhClasses jmhRunBytecodeGenerator jmhCompileGeneratedClasses
 ```
@@ -1249,7 +1249,7 @@ see a completion marker, matching provisional/raw/summary hashes, and no `.jfr` 
   --tests 'performance.finalize.*Test' \
   --tests 'performance.publication.*Test' \
   --tests 'performance.runner.RunnerTerminalMatrixTest'
-./gradlew -p buildSrc test --tests 'performance.adapter.FinalizerHandshakeContractTest'
+./gradlew -p buildSrc :test --tests 'performance.adapter.FinalizerHandshakeContractTest'
 ```
 
 Expected: finalizer/publication types and the host handshake are absent.
@@ -1303,7 +1303,7 @@ owned volume or infer validity from a directory name.
   --tests 'performance.finalize.*Test' \
   --tests 'performance.publication.*Test' \
   --tests 'performance.runner.RunnerTerminalMatrixTest'
-./gradlew -p buildSrc test --tests 'performance.adapter.FinalizerHandshakeContractTest'
+./gradlew -p buildSrc :test --tests 'performance.adapter.FinalizerHandshakeContractTest'
 ```
 
 Expected: every crash point exposes either no public target or one complete schema/checksum-valid
@@ -1374,7 +1374,7 @@ Use sourced Bash functions, fake commands, latches, and FIFOs. Assert:
 - [ ] **Step 3: Run RED**
 
 ```bash
-./gradlew -p buildSrc test \
+./gradlew -p buildSrc :test \
   --tests 'performance.adapter.OperationLockContractTest' \
   --tests 'performance.adapter.MacQualificationContractTest' \
   --tests 'performance.adapter.WatcherLifecycleContractTest' \
@@ -1429,7 +1429,7 @@ exact human command and exit `2`; never prompt, sleep waiting for input, or call
 
 ```bash
 /bin/bash -n scripts/performance/run
-SUDO_ASKPASS=/usr/bin/false ./gradlew -p buildSrc test --tests 'performance.adapter.*' </dev/null
+SUDO_ASKPASS=/usr/bin/false ./gradlew -p buildSrc :test --tests 'performance.adapter.*' </dev/null
 rg -n '(^|[[:space:]])(sudo|dzdo|osascript)([[:space:]]|$)' scripts/performance
 ```
 
@@ -1727,7 +1727,7 @@ first test without changing protocol-owned build logic after the freeze.
 - [ ] **Step 8: Run GREEN security/documentation tests**
 
 ```bash
-./gradlew -p buildSrc test \
+./gradlew -p buildSrc :test \
   --tests 'performance.ci.WorkflowSecurityContractTest' \
   --tests 'performance.ci.QodanaSecurityContractTest' \
   --tests 'performance.DocumentationContractTest'
