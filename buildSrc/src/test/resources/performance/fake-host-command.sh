@@ -2,7 +2,7 @@
 set -eu
 
 encode_argument() {
-  printf '%s' "$1"
+  printf '%s' "$1" | /usr/bin/od -An -v -tx1 | /usr/bin/tr -d ' \n'
 }
 
 command_name=$(basename "$0")
@@ -58,8 +58,77 @@ case "$command_name" in
         esac
         ;;
       *" buildx imagetools inspect --raw "*)
-        config_digest=${FAKE_DOCKER_CONFIG_DIGEST:-sha256:ad6963934ee96838c09d99f3c4df6f991cd00ed70fa8a48f7045517d7ae8991c}
-        printf '{"config":{"mediaType":"application/vnd.oci.image.config.v1+json","digest": "%s"}}\n' "$config_digest"
+        if [ "${FAKE_DOCKER_RAW_MANIFEST+x}" = x ]; then
+          printf '%s' "$FAKE_DOCKER_RAW_MANIFEST"
+        else
+          raw_manifest=$(cat "${FAKE_DOCKER_RAW_MANIFEST_FILE:?}")
+          if [ "${FAKE_DOCKER_CONFIG_DIGEST+x}" = x ]; then
+            raw_manifest=$(printf '%s' "$raw_manifest" | sed \
+              "s/sha256:ad6963934ee96838c09d99f3c4df6f991cd00ed70fa8a48f7045517d7ae8991c/$FAKE_DOCKER_CONFIG_DIGEST/")
+          fi
+          printf '%s' "$raw_manifest"
+        fi
+        ;;
+      *" dev.revoman.performance.phase=finalizer-verification "*)
+        printf '%s\n' verified > "${FAKE_REPO_ROOT:?}/.fake-finalizer-verified"
+        ;;
+      *" REVOMAN_STAGING_NAME="*)
+        artifact_parent=''
+        staging_name=''
+        finalizer_command=''
+        failure_code=''
+        run_token=''
+        for argument in "$@"; do
+          case "$argument" in
+            type=bind,src=*,dst=/artifacts)
+              artifact_parent=${argument#type=bind,src=}
+              artifact_parent=${artifact_parent%,dst=/artifacts}
+              ;;
+            REVOMAN_STAGING_NAME=*) staging_name=${argument#*=} ;;
+            REVOMAN_FINALIZER_COMMAND=*) finalizer_command=${argument#*=} ;;
+            REVOMAN_FAILURE_CODE=*) failure_code=${argument#*=} ;;
+            REVOMAN_RUN_TOKEN=*) run_token=${argument#*=} ;;
+          esac
+        done
+        if [ -n "${FAKE_DOCKER_FINALIZER_BIND_SOURCE:-}" ]; then
+          artifact_parent=$FAKE_DOCKER_FINALIZER_BIND_SOURCE
+        fi
+        reservation="$artifact_parent/.$run_token.reservation"
+        token_file="$reservation/token"
+        staging="$artifact_parent/$staging_name"
+        target="$artifact_parent/$run_token"
+        [ -d "$artifact_parent" ] && [ ! -L "$artifact_parent" ] || exit 1
+        [ -d "$reservation" ] && [ ! -L "$reservation" ] || exit 1
+        [ -f "$token_file" ] && [ ! -L "$token_file" ] || exit 1
+        token_value=$(cat "$token_file")
+        [ "$token_value" = "$run_token" ] || exit 1
+        [ -f "${FAKE_REPO_ROOT:?}/.fake-finalizer-verified" ] || exit 1
+        [ ! -e "$staging" ] && [ ! -L "$staging" ] || exit 1
+        [ ! -e "$target" ] && [ ! -L "$target" ] || exit 1
+        (umask 077 && /bin/mkdir "$staging") || exit 1
+        [ "$finalizer_command" = finalize-diagnostic ] || [ "$finalizer_command" = finalize-campaign ] || exit 1
+        /bin/mkdir "$staging/INVALID"
+        printf '%s\n' "$failure_code" > "$staging/INVALID/runner-owned"
+        case "${FAKE_DOCKER_FINALIZER_BOUNDARY:-}" in
+          late-file)
+            printf 'keep' > "$target" || exit 1
+            ;;
+          late-directory)
+            /bin/mkdir "$target" || exit 1
+            printf 'keep' > "$target/foreign.txt"
+            ;;
+          late-symlink)
+            /bin/ln -s "$artifact_parent/$run_token-escape" "$target" || exit 1
+            ;;
+          pre-move-failure|move-failure) exit 1 ;;
+        esac
+        [ ! -e "$target" ] && [ ! -L "$target" ] || exit 1
+        /bin/mv "$staging" "$target" || exit 1
+        [ ! -e "$staging" ] && [ ! -L "$staging" ] || exit 1
+        [ -d "$target" ] && [ ! -L "$target" ] || exit 1
+        [ -d "$target/INVALID" ] && [ -f "$target/INVALID/runner-owned" ] || exit 1
+        /bin/rm -f "$token_file" || exit 1
+        /bin/rmdir "$reservation" || exit 1
         ;;
       *" volume create "*)
         create_count_file="${FAKE_REPO_ROOT:?}/.fake-docker-volume-create-count"
@@ -104,11 +173,21 @@ case "$command_name" in
         if [ -f "$labels_file" ]; then
           IFS= read -r labels < "$labels_file"
         fi
+        if [ -n "${FAKE_DOCKER_VOLUME_RELABEL_AT:-}" ] &&
+          [ "$inspect_count" -ge "$FAKE_DOCKER_VOLUME_RELABEL_AT" ]; then
+          labels=${FAKE_DOCKER_VOLUME_RELABEL_LABELS:-someone-else|stale-token}
+        fi
         if [ "$inspect_count" -eq 1 ] && [ "${FAKE_DOCKER_VOLUME_INITIAL_LABELS+x}" = x ]; then
           labels=$FAKE_DOCKER_VOLUME_INITIAL_LABELS
         elif [ "$inspect_count" -gt 1 ] && [ "${FAKE_DOCKER_VOLUME_CLEANUP_LABELS+x}" = x ]; then
           labels=$FAKE_DOCKER_VOLUME_CLEANUP_LABELS
         fi
+        case "$inspect_count" in
+          1) [ "${FAKE_DOCKER_VOLUME_INSPECT_1_LABELS+x}" != x ] || labels=$FAKE_DOCKER_VOLUME_INSPECT_1_LABELS ;;
+          2) [ "${FAKE_DOCKER_VOLUME_INSPECT_2_LABELS+x}" != x ] || labels=$FAKE_DOCKER_VOLUME_INSPECT_2_LABELS ;;
+          3) [ "${FAKE_DOCKER_VOLUME_INSPECT_3_LABELS+x}" != x ] || labels=$FAKE_DOCKER_VOLUME_INSPECT_3_LABELS ;;
+          4) [ "${FAKE_DOCKER_VOLUME_INSPECT_4_LABELS+x}" != x ] || labels=$FAKE_DOCKER_VOLUME_INSPECT_4_LABELS ;;
+        esac
         printf '%s\n' "$labels"
         ;;
       *" volume rm "*)

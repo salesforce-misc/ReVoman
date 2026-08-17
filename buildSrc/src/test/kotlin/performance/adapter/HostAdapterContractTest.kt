@@ -40,8 +40,14 @@ class HostAdapterContractTest :
             result.exitCode shouldBe 2
             result.standardError shouldContain "COMMAND_NOT_AVAILABLE"
             result.commands.filter { it.firstOrNull() == "docker" }.shouldNotBeEmpty()
-            Files.readString(host.outputPath(command.name).resolve("adapter-failure.json")) shouldContain
-              "\"failureCode\":\"INTERNAL_ERROR\""
+            Files.readString(host.outputPath(command.name).resolve("INVALID/runner-owned")) shouldBe
+              "INTERNAL_ERROR\n"
+            Files.exists(host.outputPath(command.name).resolve("INVALID/reason")) shouldBe false
+            val finalizer = phase(result.commands.filter(::isDockerRun), "finalizer")
+            val expectedFinalizerCommand =
+              if (command.name == "campaign") "finalize-campaign" else "finalize-diagnostic"
+            finalizer.contains("REVOMAN_FINALIZER_COMMAND=$expectedFinalizerCommand") shouldBe true
+            finalizer.last() shouldContain "\"\$runner\" \"\$REVOMAN_FINALIZER_COMMAND\""
           }
         }
       }
@@ -229,6 +235,49 @@ class HostAdapterContractTest :
           }
       }
 
+      test("raw OCI identity is exact and rejects malformed nested duplicate or contradictory output") {
+        FakeHost().use { manifestHost ->
+          val exactManifest =
+            Files.readString(
+                manifestHost.sourceRoot.resolve(
+                  "buildSrc/src/test/resources/performance/temurin-21-linux-arm64-v1.manifest.json",
+                ),
+              )
+              .removeSuffix("\n")
+          val invalidManifests =
+            mapOf(
+              "malformed" to "not-json{\"config\":{\"digest\":\"$RUNTIME_CONFIG\"}}",
+              "nested-only" to
+                "{\"nested\":{\"config\":{\"digest\":\"$RUNTIME_CONFIG\"}}}",
+              "duplicate" to
+                "{\"config\":{\"digest\":\"$RUNTIME_CONFIG\"}," +
+                  "\"config\":{\"digest\":\"$RUNTIME_CONFIG\"}}",
+              "contradictory" to
+                "{\"config\":{\"digest\":\"$RUNTIME_CONFIG\"}," +
+                  "\"nested\":{\"config\":{\"digest\":\"sha256:${"4".repeat(64)}\"}}}",
+              "trailing-newline" to "$exactManifest\n",
+            )
+
+          invalidManifests.forEach { (_, rawManifest) ->
+            FakeHost().use { host ->
+              val command = publicCommands(host).first { it.name == "canary" }
+              val result =
+                host.invoke(
+                  *command.arguments.toTypedArray(),
+                  environment = mapOf("FAKE_DOCKER_RAW_MANIFEST" to rawManifest),
+                )
+
+              result.exitCode shouldBe 2
+              result.standardError shouldContain "IMAGE_UNAVAILABLE"
+              result.commands.none { invocation -> "volume" in invocation && "create" in invocation } shouldBe
+                true
+              Files.exists(host.outputPath("canary")) shouldBe false
+              Files.exists(host.artifactRoot.resolve(".canary.reservation")) shouldBe false
+            }
+          }
+        }
+      }
+
       test("offline phase construction applies the frozen security and mount contract") {
         FakeHost().use { host ->
           val distribution = host.frozenDistribution("secured-capture")
@@ -270,11 +319,12 @@ class HostAdapterContractTest :
               )
             writableHostBinds(initializer).shouldBeEmpty()
           }
-          listOf("preparation", "timed", "scrubber", "finalizer").forEach { name ->
+          listOf("preparation", "finalizer-verification", "timed", "scrubber", "finalizer")
+            .forEach { name ->
             val invocation = phase(dockerRuns, name)
             invocation shouldContainAll listOf("--network", "none", "--pull=never")
           }
-          listOf("timed", "scrubber", "finalizer").forEach { name ->
+          listOf("finalizer-verification", "timed", "scrubber", "finalizer").forEach { name ->
             phase(dockerRuns, name) shouldContainAll
               listOf(
                 "--read-only",
@@ -294,7 +344,7 @@ class HostAdapterContractTest :
                 "10001:10001",
               )
           }
-          listOf("timed", "finalizer").forEach { name ->
+          listOf("finalizer-verification", "timed", "finalizer").forEach { name ->
             val invocation = phase(dockerRuns, name)
             invocation.contains(
               "REVOMAN_JAVA_SHA256=1cedc51a4102638f1f06077acb3611b88f3061f9c7d76bd0a0df7f8607a9367b",
@@ -303,6 +353,13 @@ class HostAdapterContractTest :
           }
           writableHostBinds(phase(dockerRuns, "timed")).shouldBeEmpty()
           writableHostBinds(phase(dockerRuns, "scrubber")).shouldBeEmpty()
+          writableHostBinds(phase(dockerRuns, "finalizer-verification")).shouldBeEmpty()
+          phase(dockerRuns, "finalizer-verification").also { verification ->
+            verification.any { argument -> argument.endsWith("dst=/inputs,readonly") } shouldBe true
+            verification.last() shouldContain
+              "\"\$runner\" validate-distribution --distribution /inputs/finalizer"
+            verification.last() shouldContain "/operation/state/finalizer-identity"
+          }
           writableHostBinds(phase(dockerRuns, "finalizer")).size shouldBe 1
           result.commands.flatten().any { argument ->
             argument.contains("docker.sock") || argument.contains("/home/")
@@ -376,7 +433,7 @@ class HostAdapterContractTest :
                   "--harness-from",
                   mismatch.toString(),
                   "--output",
-                  host.output("mismatched-freeze"),
+                  "build/performance/preflight-freeze/mismatched-freeze",
                 ),
               ),
               PublicCommand(
@@ -388,7 +445,7 @@ class HostAdapterContractTest :
                   "--host-id",
                   "host-1",
                   "--output",
-                  host.output("mismatched-canary"),
+                  "build/performance/preflight-canary/mismatched-canary",
                 ),
               ),
               PublicCommand(
@@ -404,7 +461,7 @@ class HostAdapterContractTest :
                   "--candidate-distribution",
                   host.frozenDistribution("matching-candidate").toString(),
                   "--output",
-                  host.output("mismatched-campaign"),
+                  "build/performance/preflight-campaign/mismatched-campaign",
                 ),
               ),
               PublicCommand(
@@ -424,7 +481,7 @@ class HostAdapterContractTest :
                   "--distribution",
                   mismatch.toString(),
                   "--output",
-                  host.output("mismatched-capture"),
+                  "build/performance/preflight-capture/mismatched-capture",
                 ),
               ),
               PublicCommand(
@@ -440,7 +497,7 @@ class HostAdapterContractTest :
                   "--candidate",
                   host.inputDirectory("candidate-capture").toString(),
                   "--output",
-                  host.output("mismatched-compare"),
+                  "build/performance/preflight-compare/mismatched-compare",
                 ),
               ),
             )
@@ -451,8 +508,11 @@ class HostAdapterContractTest :
             result.standardError shouldContain "ADAPTER_MISMATCH"
             result.commands.filter { it.firstOrNull() == "docker" }.shouldBeEmpty()
             val output = command.arguments[command.arguments.indexOf("--output") + 1]
-            Files.readString(host.repositoryRoot.resolve(output).resolve("adapter-failure.json")) shouldContain
-              "\"failureCode\":\"ADAPTER_MISMATCH\""
+            Files.exists(host.repositoryRoot.resolve(output)) shouldBe false
+            Files.exists(host.repositoryRoot.resolve(output).parent) shouldBe false
+            val token = output.substringAfterLast('/')
+            Files.exists(host.repositoryRoot.resolve(output).parent.resolve(".$token.reservation")) shouldBe
+              false
           }
         }
       }

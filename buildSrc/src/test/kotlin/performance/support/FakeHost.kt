@@ -34,6 +34,7 @@ internal class FakeHost : AutoCloseable {
 
   private val fakeBin: Path = repositoryRoot.resolve("fake-bin")
   private val commandLog: Path = repositoryRoot.resolve("fake-host.log")
+  private val rawRuntimeManifest: Path = repositoryRoot.resolve(".fake-runtime-manifest.raw")
 
   init {
     artifactRoot.createDirectories()
@@ -42,6 +43,7 @@ internal class FakeHost : AutoCloseable {
     repositoryRoot.resolve("scripts/performance").createDirectories()
     repositoryRoot.resolve("config/performance/runtime").createDirectories()
     copyProtocolFiles()
+    copyRawRuntimeManifest()
     installFakeCommands()
   }
 
@@ -62,6 +64,15 @@ internal class FakeHost : AutoCloseable {
       } else {
         adapterDirectory.resolve("run").writeText("mismatched adapter\n")
       }
+      distribution.resolve("bin").createDirectories()
+      distribution
+        .resolve("bin/performance-runner")
+        .also { launcher ->
+          launcher.writeText("#!/bin/sh\nexit 0\n")
+          launcher.toFile().setExecutable(true, true)
+        }
+      distribution.resolve("metadata").createDirectories()
+      distribution.resolve("metadata/distribution.sha256").writeText("fixture\n")
     }
 
   fun inputDirectory(name: String): Path =
@@ -95,6 +106,25 @@ internal class FakeHost : AutoCloseable {
   fun invokePackaged(vararg arguments: String): AdapterInvocation =
     run(listOf(sourceRoot.resolve("scripts/performance/run").toString(), *arguments), emptyMap())
 
+  fun invokeFunction(
+    function: String,
+    vararg arguments: String,
+    environment: Map<String, String> = emptyMap(),
+  ): AdapterInvocation {
+    require(function.matches(Regex("[a-z_]+"))) { "unsafe Bash function name" }
+    return run(
+      listOf(
+        "/bin/bash",
+        "-c",
+        "source \"\$1\"; shift; $function \"\$@\"",
+        "adapter-contract-test",
+        script.toString(),
+        *arguments,
+      ),
+      environment,
+    )
+  }
+
   private fun run(
     command: List<String>,
     environment: Map<String, String>,
@@ -113,6 +143,7 @@ internal class FakeHost : AutoCloseable {
       put("FAKE_REPO_ROOT", repositoryRoot.toString())
       put("FAKE_GIT_SHA", "0123456789abcdef0123456789abcdef01234567")
       put("FAKE_GIT_STATUS", "")
+      put("FAKE_DOCKER_RAW_MANIFEST_FILE", rawRuntimeManifest.toString())
       putAll(environment)
     }
 
@@ -122,11 +153,16 @@ internal class FakeHost : AutoCloseable {
       standardOutput = standardOutput.readText(),
       standardError = standardError.readText(),
       commands =
-        commandLog.takeIf(Path::exists)?.readLines()?.map { line -> line.split('\t') }.orEmpty(),
+        commandLog
+          .takeIf(Path::exists)
+          ?.readLines()
+          ?.map { line -> line.split('\t').map(::decodeHexArgument) }
+          .orEmpty(),
     )
   }
 
   private fun resetFakeVolumeState() {
+    Files.deleteIfExists(repositoryRoot.resolve(".fake-finalizer-verified"))
     Files.list(repositoryRoot).use { files ->
       files
         .filter { path -> path.fileName.toString().startsWith(".fake-docker-volume-") }
@@ -161,6 +197,15 @@ internal class FakeHost : AutoCloseable {
         }
       }
     }
+  }
+
+  private fun copyRawRuntimeManifest() {
+    checkNotNull(
+        javaClass.getResourceAsStream("/performance/temurin-21-linux-arm64-v1.manifest.json"),
+      ) {
+        "missing exact raw Temurin manifest fixture"
+      }
+      .use { input -> Files.copy(input, rawRuntimeManifest, StandardCopyOption.REPLACE_EXISTING) }
   }
 
   private fun installFakeCommands() {
@@ -199,4 +244,13 @@ internal class FakeHost : AutoCloseable {
     private val FAKE_COMMANDS =
       listOf("docker", "git", "java", "gradle", "sudo", "dzdo", "osascript")
   }
+}
+
+private fun decodeHexArgument(encoded: String): String {
+  require(encoded.length % 2 == 0) { "malformed fake-host command log" }
+  return encoded
+    .chunked(2)
+    .map { octet -> octet.toInt(16).toByte() }
+    .toByteArray()
+    .decodeToString()
 }

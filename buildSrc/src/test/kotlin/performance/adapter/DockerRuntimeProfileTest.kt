@@ -9,6 +9,8 @@ package performance.adapter
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
+import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.collections.shouldNotBeEmpty
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
@@ -59,6 +61,8 @@ class DockerRuntimeProfileTest :
         runtime shouldContain "tar (GNU tar) 1.35"
         runtime shouldContain "\"path\": \"/usr/bin/sha256sum\""
         runtime shouldContain "sha256sum (GNU coreutils) 9.4"
+        runtime shouldContain "\"path\": \"/usr/bin/mv\""
+        runtime shouldContain "mv (GNU coreutils) 9.4"
       }
 
       test("the Mac and GitHub substrate variants freeze identity security and evidence strength") {
@@ -108,6 +112,16 @@ class DockerRuntimeProfileTest :
           "missing config hash" to { runtime ->
             runtime.replace("    \"ociConfigDigest\": \"$OCI_CONFIG\",\n", "")
           },
+          "missing atomic move tool" to { runtime ->
+            runtime.replace(
+              "    },\n" +
+                "    \"mv\": {\n" +
+                "      \"path\": \"/usr/bin/mv\",\n" +
+                "      \"version\": \"mv (GNU coreutils) 9.4\"\n" +
+                "    }\n",
+              "    }\n",
+            )
+          },
           "unknown property" to { runtime ->
             runtime.replace("  \"profileKind\": \"runtime\",", "  \"profileKind\": \"runtime\",\n  \"unknown\": true,")
           },
@@ -123,6 +137,31 @@ class DockerRuntimeProfileTest :
             }
           }
         }
+
+      test("the container inventory adds only the approved GNU move tool") {
+        FakeHost().use { host ->
+          val distribution = host.frozenDistribution("approved-tool-inventory")
+          val result =
+            host.invoke(
+              "canary",
+              "--distribution",
+              distribution.toString(),
+              "--host-id",
+              "host-1",
+              "--output",
+              host.output("approved-tool-inventory"),
+            )
+          val verification =
+            result.commands.single { command ->
+              "dev.revoman.performance.phase=image-verification" in command
+            }
+
+          verification.last().contains("command -v mv") shouldBe true
+          verification.last().contains("/usr/bin/mv --version") shouldBe true
+          verification.last().contains("command -v stat") shouldBe false
+          verification.last().contains("stat --version") shouldBe false
+        }
+      }
 
       test("the live fixture delegates Docker context and identity selection to the host profile") {
         val sourceRoot = FakeHost().use { host -> host.sourceRoot }
@@ -148,6 +187,70 @@ class DockerRuntimeProfileTest :
           process.waitFor() shouldBe 73
         } finally {
           Files.deleteIfExists(artifactParent)
+        }
+      }
+
+      test("the live fixture uses a daemon ID and proves exact labels before every use and deletion") {
+        FakeHost().use { host ->
+          val artifactParent = host.artifactRoot.resolve("live-volume").also(Files::createDirectory)
+          val generatedVolume = "daemon-generated-volume-id"
+          val result =
+            host.invokeFunction(
+              "adapter_live_volume_identity_fixture",
+              artifactParent.toString(),
+              environment = mapOf("FAKE_DOCKER_VOLUME_CREATE_OUTPUT" to generatedVolume),
+            )
+          val create = dockerVolumeCommands(result.commands, "create").single()
+          val inspections = dockerVolumeCommands(result.commands, "inspect")
+          val removal = dockerVolumeCommands(result.commands, "rm").single()
+          val phases = listOf("volume-initializer", "timed", "finalizer")
+
+          result.exitCode shouldBe 0
+          create.last().startsWith("dev.revoman.performance.token=") shouldBe true
+          create.last().substringAfter('=').isNotEmpty() shouldBe true
+          create.dropLast(1).last() shouldBe "--label"
+          create shouldContain "dev.revoman.performance.owner=revoman-live-fixture"
+          create shouldNotContain generatedVolume
+          inspections.size shouldBe 4
+          phases.forEach { phaseName ->
+            val runIndex =
+              result.commands.indexOfFirst { command ->
+                "dev.revoman.performance.phase=$phaseName" in command
+              }
+            (runIndex >= 0) shouldBe true
+            result.commands[runIndex - 1].last() shouldBe generatedVolume
+          }
+          removal.last() shouldBe generatedVolume
+          result.commands[result.commands.indexOf(removal) - 1].last() shouldBe generatedVolume
+        }
+      }
+
+      test("the live fixture never uses or deletes a volume after any label proof changes") {
+        (1..4).forEach { relabelAt ->
+          FakeHost().use { host ->
+            val artifactParent = host.artifactRoot.resolve("relabel-$relabelAt").also(Files::createDirectory)
+            val result =
+              host.invokeFunction(
+                "adapter_live_volume_identity_fixture",
+                artifactParent.toString(),
+                environment =
+                  mapOf(
+                    "FAKE_DOCKER_VOLUME_CREATE_OUTPUT" to "daemon-relabel-$relabelAt",
+                    "FAKE_DOCKER_VOLUME_RELABEL_AT" to relabelAt.toString(),
+                    "FAKE_DOCKER_VOLUME_RELABEL_LABELS" to "someone-else|stale-token",
+                  ),
+              )
+            val phaseRuns =
+              result.commands.filter { command ->
+                listOf("volume-initializer", "timed", "finalizer").any { phaseName ->
+                  "dev.revoman.performance.phase=$phaseName" in command
+                }
+              }
+
+            result.exitCode shouldBe 1
+            phaseRuns.size shouldBe relabelAt - 1
+            dockerVolumeCommands(result.commands, "rm").shouldBeEmpty()
+          }
         }
       }
 
@@ -197,6 +300,42 @@ class DockerRuntimeProfileTest :
           }
         }
       }
+
+
+      test("the exact finalizer rejects a substituted bind before writing inside the mounted view") {
+        val sourceRoot = FakeHost().use { host -> host.sourceRoot }
+        val expectedParent = Files.createTempDirectory("revoman-live-reserved-bind.")
+        val substitutedParent = Files.createTempDirectory("revoman-live-substituted-bind.")
+        Files.writeString(substitutedParent.resolve("foreign.txt"), "keep")
+        try {
+          val process =
+            ProcessBuilder(
+                "/bin/bash",
+                "-c",
+                "source \"\$1\"; adapter_live_finalizer_bind_fixture \"\$2\" \"\$3\"",
+                "runtime-profile-test",
+                sourceRoot.resolve("scripts/performance/run").toString(),
+                expectedParent.toString(),
+                substitutedParent.toString(),
+              )
+              .directory(sourceRoot.toFile())
+              .redirectErrorStream(true)
+              .start()
+          val output = process.inputStream.readAllBytes().decodeToString()
+
+          process.waitFor() shouldBe 0
+          output shouldContain "LIVE_SUBSTITUTED_BIND_REJECTED"
+          Files.list(expectedParent).use { paths -> paths.count() shouldBe 0 }
+          Files.readString(substitutedParent.resolve("foreign.txt")) shouldBe "keep"
+          Files.list(substitutedParent).use { paths -> paths.count() shouldBe 1 }
+        } finally {
+          listOf(expectedParent, substitutedParent).forEach { parent ->
+            Files.walk(parent).use { paths ->
+              paths.sorted(Comparator.reverseOrder()).forEach(Files::deleteIfExists)
+            }
+          }
+        }
+      }
     },
   )
 
@@ -219,6 +358,15 @@ private fun runtimeProfiles(): RuntimeProfiles {
     github = Files.readString(runtimeRoot.resolve("github-hosted-arm64-v1.json")),
   )
 }
+
+private fun dockerVolumeCommands(
+  commands: List<List<String>>,
+  action: String,
+): List<List<String>> =
+  commands.filter { command ->
+    command.firstOrNull() == "docker" &&
+      command.windowed(2).any { arguments -> arguments == listOf("volume", action) }
+  }
 
 private class ReflectiveSchemaValidator(schemaPath: Path) : AutoCloseable {
   private val schemaInput: InputStream = Files.newInputStream(schemaPath)

@@ -145,7 +145,8 @@
       "required": [
         "sh",
         "tar",
-        "sha256sum"
+        "sha256sum",
+        "mv"
       ],
       "properties": {
         "sh": {
@@ -156,6 +157,9 @@
         },
         "sha256sum": {
           "$ref": "#/$defs/sha256sumTool"
+        },
+        "mv": {
+          "$ref": "#/$defs/mvTool"
         }
       }
     },
@@ -200,6 +204,22 @@
         },
         "version": {
           "const": "sha256sum (GNU coreutils) 9.4"
+        }
+      }
+    },
+    "mvTool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "version"
+      ],
+      "properties": {
+        "path": {
+          "const": "/usr/bin/mv"
+        },
+        "version": {
+          "const": "mv (GNU coreutils) 9.4"
         }
       }
     },

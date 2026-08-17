@@ -34,6 +34,10 @@
     "sha256sum": {
       "path": "/usr/bin/sha256sum",
       "version": "sha256sum (GNU coreutils) 9.4"
+    },
+    "mv": {
+      "path": "/usr/bin/mv",
+      "version": "mv (GNU coreutils) 9.4"
     }
   }
 }

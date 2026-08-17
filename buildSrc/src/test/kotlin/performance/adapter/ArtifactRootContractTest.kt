@@ -122,7 +122,6 @@ class ArtifactRootContractTest :
       mapOf(
           "write" to "adapter_write_reservation() { return 1; }",
           "fsync" to "adapter_fsync_path() { return 1; }",
-          "rename" to "adapter_atomic_rename() { return 1; }",
         )
         .forEach { (operation, override) ->
           test("an injected $operation failure after reservation exits eight") {
@@ -142,7 +141,25 @@ class ArtifactRootContractTest :
           }
         }
 
-      test("a partial finalizer stage is replaced by a complete host failure envelope") {
+      test("an injected atomic move failure after reservation exits eight") {
+        FakeHost().use { host ->
+          val token = "publication-move"
+          val result =
+            host.invoke(
+              *initialFreeze(host, host.output(token)).toTypedArray(),
+              environment = mapOf("FAKE_DOCKER_FINALIZER_BOUNDARY" to "move-failure"),
+            )
+
+          result.exitCode shouldBe 8
+          result.standardError shouldContain "PUBLICATION_FAILED"
+          result.standardError shouldNotContain host.repositoryRoot.toString()
+          Files.exists(host.outputPath(token)) shouldBe false
+          Files.exists(host.artifactRoot.resolve(".$token.staging/INVALID/runner-owned")) shouldBe
+            true
+        }
+      }
+
+      test("a partial finalizer failure is not recovered or published by the host") {
         FakeHost().use { host ->
           val token = "partial-finalizer"
           val result =
@@ -152,14 +169,14 @@ class ArtifactRootContractTest :
                 "adapter_run_finalizer() { /bin/mkdir -p \"\$ADAPTER_STAGING\"; return 1; }",
             )
 
-          result.exitCode shouldBe 2
-          result.standardError shouldContain "INTERNAL_ERROR"
-          Files.readString(host.outputPath(token).resolve("adapter-failure.json")) shouldContain
-            "\"failureCode\":\"INTERNAL_ERROR\""
+          result.exitCode shouldBe 8
+          result.standardError shouldContain "PUBLICATION_FAILED"
+          Files.exists(host.outputPath(token)) shouldBe false
+          Files.isDirectory(host.artifactRoot.resolve(".$token.staging")) shouldBe true
         }
       }
 
-      test("a context failure after reservation publishes a sanitized failure envelope") {
+      test("a context failure before finalizer verification makes no artifact promise") {
         FakeHost().use { host ->
           val token = "context-unavailable"
           val result =
@@ -170,75 +187,148 @@ class ArtifactRootContractTest :
 
           result.exitCode shouldBe 2
           result.standardError shouldContain "CONTEXT_INVALID"
-          Files.readString(host.outputPath(token).resolve("adapter-failure.json")) shouldContain
-            "\"failureCode\":\"CONTEXT_INVALID\""
+          Files.exists(host.outputPath(token)) shouldBe false
           Files.exists(host.artifactRoot.resolve(".$token.reservation")) shouldBe false
         }
       }
 
-      test("publication rejects parent substitution and late directory targets without nesting") {
+      test("a frozen finalizer verification failure occurs before output reservation") {
         FakeHost().use { host ->
-          val token = "parent-substitution"
+          val token = "finalizer-unavailable"
+          val result =
+            host.invoke(
+              *initialFreeze(host, host.output(token)).toTypedArray(),
+              environment =
+                mapOf(
+                  "FAKE_DOCKER_FAIL_MATCH" to
+                    "dev.revoman.performance.phase=finalizer-verification",
+                ),
+            )
+
+          result.exitCode shouldBe 2
+          result.standardError shouldContain "FINALIZER_UNAVAILABLE"
+          Files.exists(host.outputPath(token)) shouldBe false
+          Files.exists(host.artifactRoot.resolve(".$token.reservation")) shouldBe false
+          Files.exists(host.artifactRoot.resolve(".$token.staging")) shouldBe false
+        }
+      }
+
+      test("output reservation starts only after the frozen finalizer verification phase") {
+        FakeHost().use { host ->
+          val token = "verified-before-reserve"
           val result =
             host.invoke(
               *initialFreeze(host, host.output(token)).toTypedArray(),
               functionOverrides =
                 """
-                adapter_fsync_path() {
-                  parent="${'$'}{ADAPTER_OUTPUT_PARENT_PATH:-${'$'}ADAPTER_OUTPUT_PARENT}"
-                  displaced="${'$'}parent.swapped"
-                  if [ "${'$'}1" = "${'$'}ADAPTER_STAGING" ] && [ ! -e "${'$'}displaced" ]; then
-                    /bin/mv "${'$'}parent" "${'$'}displaced" || return 1
-                    /bin/mkdir "${'$'}parent" || return 1
-                    /bin/cp -R "${'$'}displaced/.${'$'}ADAPTER_RUN_TOKEN.reservation" "${'$'}parent/.${'$'}ADAPTER_RUN_TOKEN.reservation" || return 1
-                    /bin/cp -R "${'$'}displaced/.${'$'}ADAPTER_RUN_TOKEN.staging" "${'$'}parent/.${'$'}ADAPTER_RUN_TOKEN.staging" || return 1
-                  fi
-                  /bin/sync
+                adapter_write_reservation() {
+                  test -f "${'$'}ADAPTER_REPO_ROOT/.fake-finalizer-verified" || return 1
+                  (umask 077 && printf '%s\n' "${'$'}2" >"${'$'}1")
                 }
                 """.trimIndent(),
+            )
+
+          result.exitCode shouldBe 2
+          result.standardError shouldContain "COMMAND_NOT_AVAILABLE"
+          Files.exists(host.outputPath(token).resolve("INVALID/runner-owned")) shouldBe true
+        }
+      }
+
+      test("the finalizer delegates bundle creation to the frozen runner before one GNU move") {
+        FakeHost().use { host ->
+          val result = host.invoke(*initialFreeze(host, host.output("gnu-publication")).toTypedArray())
+          val finalizer =
+            result.commands.single { command ->
+              "dev.revoman.performance.phase=finalizer" in command
+            }
+          val child = finalizer.last()
+
+          child shouldContain "runner=/inputs/finalizer/bin/performance-runner"
+          child shouldContain "test -x \"\$runner\""
+          child shouldContain "test ! -L \"\$runner\""
+          child shouldContain "\"\$runner\" \"\$REVOMAN_FINALIZER_COMMAND\""
+          child shouldContain "/usr/bin/mv -nT --no-copy -- \"\$staging\" \"\$target\""
+          child.lines().none { line -> line.startsWith("/bin/mv ") } shouldBe true
+          child shouldNotContain "mkdir \"\$staging\""
+          child shouldNotContain "INVALID/reason"
+          child shouldNotContain "adapter-failure"
+          child shouldNotContain "nested_source"
+          finalizer.any { argument -> argument.startsWith("type=volume,src=") } shouldBe true
+          finalizer.any { argument -> argument.endsWith("dst=/inputs,readonly") } shouldBe true
+        }
+      }
+
+      test("late file directory and symlink targets never overwrite nest or escape staging") {
+        listOf("late-file", "late-directory", "late-symlink").forEach { boundary ->
+          FakeHost().use { host ->
+            val token = "publication-$boundary"
+            val escape = host.artifactRoot.resolve("$token-escape").also(Files::createDirectory)
+            Files.writeString(escape.resolve("foreign.txt"), "keep")
+            val result =
+              host.invoke(
+                *initialFreeze(host, host.output(token)).toTypedArray(),
+                environment = mapOf("FAKE_DOCKER_FINALIZER_BOUNDARY" to boundary),
+              )
+            val target = host.outputPath(token)
+            val staging = host.artifactRoot.resolve(".$token.staging")
+
+            result.exitCode shouldBe 8
+            result.standardError shouldContain "PUBLICATION_FAILED"
+            Files.exists(staging.resolve("INVALID/runner-owned")) shouldBe true
+            Files.exists(target.resolve(".$token.staging")) shouldBe false
+            Files.readString(escape.resolve("foreign.txt")) shouldBe "keep"
+            Files.exists(escape.resolve("INVALID/runner-owned")) shouldBe false
+            if (boundary == "late-file") {
+              Files.isRegularFile(target) shouldBe true
+              Files.readString(target) shouldBe "keep"
+            } else if (boundary == "late-directory") {
+              Files.isDirectory(target) shouldBe true
+              Files.readString(target.resolve("foreign.txt")) shouldBe "keep"
+              Files.exists(target.resolve("INVALID/runner-owned")) shouldBe false
+            } else {
+              Files.isSymbolicLink(target) shouldBe true
+              target.toRealPath() shouldBe escape.toRealPath()
+            }
+          }
+        }
+      }
+
+      test("a failure at the pre-move boundary leaves staging inside its owned parent") {
+        FakeHost().use { host ->
+          val token = "pre-move-boundary"
+          val result =
+            host.invoke(
+              *initialFreeze(host, host.output(token)).toTypedArray(),
+              environment = mapOf("FAKE_DOCKER_FINALIZER_BOUNDARY" to "pre-move-failure"),
             )
 
           result.exitCode shouldBe 8
           result.standardError shouldContain "PUBLICATION_FAILED"
           Files.exists(host.outputPath(token)) shouldBe false
           Files.exists(
-            host.repositoryRoot
-              .resolve("build/performance.swapped/.$token.staging/adapter-failure.json"),
+            host.artifactRoot.resolve(".$token.staging/INVALID/runner-owned"),
           ) shouldBe true
+          Files.exists(host.artifactRoot.parent.resolve(".$token.staging")) shouldBe false
         }
+      }
 
+      test("a substituted finalizer bind is rejected before any write") {
         FakeHost().use { host ->
-          val token = "late-directory-target"
+          val token = "substituted-bind"
+          val substituted = host.repositoryRoot.resolve("substituted-bind").also(Files::createDirectory)
+          Files.writeString(substituted.resolve("foreign.txt"), "keep")
           val result =
             host.invoke(
               *initialFreeze(host, host.output(token)).toTypedArray(),
-              functionOverrides =
-                """
-                adapter_path_identity() {
-                  if [ -n "${'$'}{ADAPTER_STAGING:-}" ] && [ "${'$'}1" = "${'$'}ADAPTER_STAGING" ]; then
-                    sentinel="${'$'}ADAPTER_RESERVATION/.staging-identity-seen"
-                    if [ -e "${'$'}sentinel" ]; then
-                      /bin/mkdir "${'$'}ADAPTER_OUTPUT_TARGET" || return 1
-                    else
-                      : > "${'$'}sentinel" || return 1
-                    fi
-                  fi
-                  case "${'$'}(/usr/bin/uname -s)" in
-                    Darwin) /usr/bin/stat -f '%d:%i' "${'$'}1" ;;
-                    Linux) /usr/bin/stat -c '%d:%i' "${'$'}1" ;;
-                    *) return 1 ;;
-                  esac
-                }
-                """.trimIndent(),
+              environment = mapOf("FAKE_DOCKER_FINALIZER_BIND_SOURCE" to substituted.toString()),
             )
-          val lateTarget = host.outputPath(token)
 
           result.exitCode shouldBe 8
           result.standardError shouldContain "PUBLICATION_FAILED"
-          Files.isDirectory(lateTarget) shouldBe true
-          Files.exists(lateTarget.resolve(".$token.staging")) shouldBe false
-          Files.exists(lateTarget.resolve("adapter-failure.json")) shouldBe false
-          Files.exists(host.artifactRoot.resolve(".$token.staging/adapter-failure.json")) shouldBe true
+          Files.exists(host.outputPath(token)) shouldBe false
+          Files.exists(host.artifactRoot.resolve(".$token.staging")) shouldBe false
+          Files.readString(substituted.resolve("foreign.txt")) shouldBe "keep"
+          Files.list(substituted).use { paths -> paths.count() shouldBe 1 }
         }
       }
 
