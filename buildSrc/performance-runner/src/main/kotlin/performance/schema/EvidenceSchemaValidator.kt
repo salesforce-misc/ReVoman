@@ -21,6 +21,8 @@ enum class SchemaKind(
 ) {
   CAPTURE("capture-v1.schema.json"),
   CAPTURE_PROVISIONAL("capture-provisional-v1.schema.json"),
+  CAPTURE_PROFILE_FAMILY("capture-profile-family-v1.schema.json"),
+  EXPECTED_CELLS("expected-cells-v1.schema.json"),
   PREFLIGHT("preflight-v1.schema.json"),
   WATCHER("watcher-v1.schema.json"),
   POSTFLIGHT("postflight-v1.schema.json"),

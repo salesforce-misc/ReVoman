@@ -485,10 +485,12 @@ class DistributionValidator {
     val REQUIRED_SCHEMAS =
       setOf(
         "protocol/schemas/capture-provisional-v1.schema.json",
+        "protocol/schemas/capture-profile-family-v1.schema.json",
         "protocol/schemas/capture-v1.schema.json",
         "protocol/schemas/distribution-classpath-v1.schema.json",
         "protocol/schemas/distribution-provenance-v1.schema.json",
         "protocol/schemas/distribution-protocol-v1.schema.json",
+        "protocol/schemas/expected-cells-v1.schema.json",
         "protocol/schemas/postflight-v1.schema.json",
         "protocol/schemas/preflight-v1.schema.json",
         "protocol/schemas/profiler-summary-v1.schema.json",

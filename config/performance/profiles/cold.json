@@ -1,0 +1,46 @@
+{
+  "$schema": "https://revoman.dev/performance/protocol/schemas/capture-profile-family-v1.schema.json",
+  "schemaVersion": "capture-profile-family-v1",
+  "family": "cold",
+  "mode": "ss",
+  "unit": "ms",
+  "threads": 1,
+  "batchSize": 1,
+  "jvmArguments": [
+    "-Xms2g",
+    "-Xmx2g",
+    "-Dfile.encoding=UTF-8",
+    "-Duser.timezone=UTC",
+    "-Dlog4j.configurationFile=classpath:log4j2-performance.xml",
+    "-Drevoman.banner=false"
+  ],
+  "variants": [
+    {
+      "identity": "cold-10-none-v1",
+      "forks": 10,
+      "warmupIterations": 0,
+      "measurementIterations": 1,
+      "profiler": "none",
+      "profilerSettingsSha256": null,
+      "profilerArguments": []
+    },
+    {
+      "identity": "cold-20-none-v1",
+      "forks": 20,
+      "warmupIterations": 0,
+      "measurementIterations": 1,
+      "profiler": "none",
+      "profilerSettingsSha256": null,
+      "profilerArguments": []
+    },
+    {
+      "identity": "cold-40-none-v1",
+      "forks": 40,
+      "warmupIterations": 0,
+      "measurementIterations": 1,
+      "profiler": "none",
+      "profilerSettingsSha256": null,
+      "profilerArguments": []
+    }
+  ]
+}

@@ -1,0 +1,207 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://revoman.dev/performance/protocol/schemas/capture-profile-family-v1.schema.json",
+  "title": "ReVoman capture profile family",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "batchSize",
+    "family",
+    "jvmArguments",
+    "mode",
+    "schemaVersion",
+    "threads",
+    "unit",
+    "variants"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "https://revoman.dev/performance/protocol/schemas/capture-profile-family-v1.schema.json"
+    },
+    "schemaVersion": {
+      "const": "capture-profile-family-v1"
+    },
+    "family": {
+      "enum": ["canary", "cold", "warm"]
+    },
+    "mode": {
+      "const": "ss"
+    },
+    "unit": {
+      "const": "ms"
+    },
+    "threads": {
+      "const": 1
+    },
+    "batchSize": {
+      "const": 1
+    },
+    "jvmArguments": {
+      "type": "array",
+      "prefixItems": [
+        {"const": "-Xms2g"},
+        {"const": "-Xmx2g"},
+        {"const": "-Dfile.encoding=UTF-8"},
+        {"const": "-Duser.timezone=UTC"},
+        {"const": "-Dlog4j.configurationFile=classpath:log4j2-performance.xml"},
+        {"const": "-Drevoman.banner=false"}
+      ],
+      "minItems": 6,
+      "maxItems": 6
+    },
+    "variants": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/variant"
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"family": {"const": "canary"}}},
+      "then": {
+        "properties": {
+          "variants": {
+            "minItems": 1,
+            "maxItems": 1,
+            "items": {
+              "allOf": [
+                {"properties": {"forks": {"const": 1}}},
+                {"properties": {"warmupIterations": {"const": 0}}},
+                {"properties": {"measurementIterations": {"const": 1}}},
+                {"properties": {"profiler": {"const": "none"}}}
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties": {"family": {"const": "cold"}}},
+      "then": {
+        "properties": {
+          "variants": {
+            "minItems": 3,
+            "maxItems": 3,
+            "items": {
+              "allOf": [
+                {"properties": {"forks": {"enum": [10, 20, 40]}}},
+                {"properties": {"warmupIterations": {"const": 0}}},
+                {"properties": {"measurementIterations": {"const": 1}}},
+                {"properties": {"profiler": {"const": "none"}}}
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties": {"family": {"const": "warm"}}},
+      "then": {
+        "properties": {
+          "variants": {
+            "minItems": 9,
+            "maxItems": 9,
+            "items": {
+              "allOf": [
+                {"properties": {"forks": {"enum": [10, 20, 40]}}},
+                {"properties": {"warmupIterations": {"const": 5}}},
+                {"properties": {"measurementIterations": {"const": 10}}}
+              ]
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "variant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "forks",
+        "identity",
+        "measurementIterations",
+        "profiler",
+        "profilerArguments",
+        "profilerSettingsSha256",
+        "warmupIterations"
+      ],
+      "properties": {
+        "identity": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "forks": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "warmupIterations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "measurementIterations": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "profiler": {
+          "enum": ["none", "gc", "jfr"]
+        },
+        "profilerArguments": {
+          "type": "array",
+          "maxItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "profilerSettingsSha256": {
+          "oneOf": [
+            {"type": "null"},
+            {"$ref": "#/$defs/sha256"}
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"profiler": {"const": "none"}}},
+          "then": {
+            "properties": {
+              "profilerArguments": {"maxItems": 0},
+              "profilerSettingsSha256": {"type": "null"}
+            }
+          }
+        },
+        {
+          "if": {"properties": {"profiler": {"const": "gc"}}},
+          "then": {
+            "properties": {
+              "profilerArguments": {"const": ["gc"]},
+              "profilerSettingsSha256": {"type": "null"}
+            }
+          }
+        },
+        {
+          "if": {"properties": {"profiler": {"const": "jfr"}}},
+          "then": {
+            "properties": {
+              "profilerArguments": {
+                "const": ["jfr:dir={operationRoot};configName=profile;debugNonSafePoints=true;stackDepth=1024;postProcessor=com.salesforce.revoman.benchmark.JfrForkAccumulator;verbose=false"]
+              },
+              "profilerSettingsSha256": {
+                "const": "d7b6a8ae78de246372b559f4f838a0a3259c864f10560a26d69a678e34b93d04"
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

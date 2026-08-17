@@ -31,6 +31,9 @@
       "type": "integer",
       "minimum": 1
     },
+    "gcCounters": {
+      "$ref": "#/$defs/gcCounters"
+    },
     "profiler": {
       "$ref": "#/$defs/profiler"
     },
@@ -123,6 +126,29 @@
         }
       }
     },
+    "gcCounters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "gc.alloc.rate.norm",
+        "gc.count",
+        "gc.time"
+      ],
+      "properties": {
+        "gc.alloc.rate.norm": {
+          "type": "number",
+          "minimum": 0
+        },
+        "gc.count": {
+          "type": "number",
+          "minimum": 0
+        },
+        "gc.time": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
     "aggregate": {
       "type": "object",
       "additionalProperties": false,
@@ -131,6 +157,8 @@
         "category",
         "className",
         "executionSamples",
+        "ioBytes",
+        "lockEvents",
         "methodName"
       ],
       "properties": {
@@ -154,6 +182,14 @@
           "maxLength": 256
         },
         "executionSamples": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ioBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "lockEvents": {
           "type": "integer",
           "minimum": 0
         },
@@ -226,5 +262,40 @@
         }
       ]
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "profiler": {
+            "properties": {
+              "kind": {
+                "const": "gc"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "gcCounters"
+        ],
+        "properties": {
+          "aggregates": {
+            "maxItems": 0
+          }
+        }
+      },
+      "else": {
+        "not": {
+          "required": [
+            "gcCounters"
+          ]
+        }
+      }
+    }
+  ]
 }

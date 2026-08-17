@@ -7,6 +7,11 @@
  */
 package performance.hash
 
+import java.nio.ByteBuffer
+import java.nio.channels.FileChannel
+import java.nio.file.LinkOption.NOFOLLOW_LINKS
+import java.nio.file.Path
+import java.nio.file.StandardOpenOption.READ
 import java.security.MessageDigest
 
 /** A validated lowercase SHA-256 digest. */
@@ -30,5 +35,23 @@ value class Sha256 private constructor(val hex: String) {
           .digest(bytes)
           .joinToString(separator = "") { byte -> "%02x".format(byte.toInt() and 0xff) },
       )
+
+    /** Computes a digest without loading an arbitrarily large artifact into memory. */
+    fun digest(path: Path): Sha256 {
+      val digest = MessageDigest.getInstance("SHA-256")
+      FileChannel.open(path, READ, NOFOLLOW_LINKS).use { channel ->
+        val buffer = ByteBuffer.allocateDirect(64 * 1024)
+        while (channel.read(buffer) >= 0) {
+          buffer.flip()
+          digest.update(buffer)
+          buffer.clear()
+        }
+      }
+      return Sha256(
+        digest.digest().joinToString(separator = "") { byte ->
+          "%02x".format(byte.toInt() and 0xff)
+        },
+      )
+    }
   }
 }
