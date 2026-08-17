@@ -484,9 +484,11 @@ class DistributionValidator {
       Regex("(^|[:/_.-])(junit|kotest|mockk|byte-buddy|bytebuddy)([:/_.-]|$)")
     val REQUIRED_SCHEMAS =
       setOf(
+        "protocol/schemas/calibration-provisional-v1.schema.json",
         "protocol/schemas/capture-provisional-v1.schema.json",
         "protocol/schemas/capture-profile-family-v1.schema.json",
         "protocol/schemas/capture-v1.schema.json",
+        "protocol/schemas/comparison-v1.schema.json",
         "protocol/schemas/distribution-classpath-v1.schema.json",
         "protocol/schemas/distribution-provenance-v1.schema.json",
         "protocol/schemas/distribution-protocol-v1.schema.json",
@@ -494,6 +496,7 @@ class DistributionValidator {
         "protocol/schemas/postflight-v1.schema.json",
         "protocol/schemas/preflight-v1.schema.json",
         "protocol/schemas/profiler-summary-v1.schema.json",
+        "protocol/schemas/regression-policy-v1.schema.json",
         "protocol/schemas/restoration-v1.schema.json",
         "protocol/schemas/watcher-v1.schema.json",
       )

@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://revoman.dev/performance/protocol/schemas/calibration-provisional-v1.schema.json",
+  "title": "ReVoman unpublished calibration decision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "a1CaptureId",
+    "a1Sequence",
+    "a2CaptureId",
+    "a2Sequence",
+    "attemptId",
+    "forks",
+    "passed",
+    "passingCellsSha256",
+    "performanceSessionId",
+    "profile",
+    "schemaVersion"
+  ],
+  "properties": {
+    "a1CaptureId": {
+      "$ref": "#/$defs/safeId"
+    },
+    "a1Sequence": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "a2CaptureId": {
+      "$ref": "#/$defs/safeId"
+    },
+    "a2Sequence": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "attemptId": {
+      "$ref": "#/$defs/safeId"
+    },
+    "forks": {
+      "enum": [
+        10,
+        20,
+        40
+      ]
+    },
+    "passed": {
+      "type": "boolean"
+    },
+    "passingCellsSha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "performanceSessionId": {
+      "$ref": "#/$defs/safeId"
+    },
+    "profile": {
+      "enum": [
+        "cold",
+        "warm"
+      ]
+    },
+    "schemaVersion": {
+      "const": "calibration-provisional-v1"
+    }
+  },
+  "$defs": {
+    "safeId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

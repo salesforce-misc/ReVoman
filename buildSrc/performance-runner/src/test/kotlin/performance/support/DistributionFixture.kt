@@ -275,9 +275,11 @@ internal class DistributionFixture private constructor(
 
     private val PROTOCOL_SCHEMA_FILES =
       listOf(
+        "calibration-provisional-v1.schema.json",
         "capture-provisional-v1.schema.json",
         "capture-profile-family-v1.schema.json",
         "capture-v1.schema.json",
+        "comparison-v1.schema.json",
         "distribution-classpath-v1.schema.json",
         "distribution-protocol-v1.schema.json",
         "distribution-provenance-v1.schema.json",
@@ -285,6 +287,7 @@ internal class DistributionFixture private constructor(
         "postflight-v1.schema.json",
         "preflight-v1.schema.json",
         "profiler-summary-v1.schema.json",
+        "regression-policy-v1.schema.json",
         "restoration-v1.schema.json",
         "watcher-v1.schema.json",
       )

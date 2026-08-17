@@ -175,6 +175,7 @@ data class LoggingProfileIdentity(
 
 /** Frozen capture profile and selected profiler variant. */
 data class CaptureProfileIdentity(
+  val family: String,
   val identity: String,
   val variantSha256: Sha256,
   val forks: Int,

@@ -1276,6 +1276,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
+        "family",
         "forks",
         "identity",
         "measurementIterations",
@@ -1284,6 +1285,13 @@
         "warmupIterations"
       ],
       "properties": {
+        "family": {
+          "enum": [
+            "canary",
+            "cold",
+            "warm"
+          ]
+        },
         "forks": {
           "enum": [
             1,

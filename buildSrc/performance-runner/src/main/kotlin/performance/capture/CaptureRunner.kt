@@ -225,6 +225,7 @@ class CaptureRunner private constructor(
         logging = request.profile.evidence.logging,
         profile =
           CaptureProfileIdentity(
+            family = request.profile.family.id,
             identity = request.profile.identity,
             variantSha256 = request.profile.variantSha256,
             forks = request.profile.forks,

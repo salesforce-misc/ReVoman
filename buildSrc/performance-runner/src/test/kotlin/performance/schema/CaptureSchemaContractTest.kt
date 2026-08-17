@@ -870,7 +870,7 @@ class CaptureSchemaContractTest :
       private const val GOLDEN_PROFILER_SUMMARY =
         "/performance/golden/capture/valid-profiler-summary.json"
       private const val GOLDEN_CAPTURE_SHA256 =
-        "3d3bf148e2b6e4fd651a948206f39093a00a5d99abf3ebf3b2f831c7c7dc1397"
+        "ed9a6011afb3e64559b1b8d3deaa8a7decbed3deab1c7c919384c1136e99863f"
       private const val GOLDEN_PROFILER_SUMMARY_SHA256 =
         "1c3673b106275b249b15df35db1a8f530ee4b0c3d4cac5d69f1a58fe94dbabd6"
       private const val CONTROLLED_MAC_CANARY_HOST_ID = "m4max-docker-canary-v1"
