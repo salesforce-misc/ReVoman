@@ -7,7 +7,6 @@
  */
 package performance.compare
 
-import java.math.BigDecimal
 import java.util.HexFormat
 import performance.model.ComparisonCalibrationRef
 import performance.model.ComparisonCaptureRef
@@ -153,7 +152,7 @@ class CaptureComparator(
     )
 
   private fun calibrationCellPassed(cell: ComparisonCellResult): Boolean =
-    calibrationForTesting(
+    CalibrationQualification.passes(
       cell.estimate.pointRatio,
       cell.estimate.lower95Ratio,
       cell.estimate.upper95Ratio,
@@ -219,17 +218,6 @@ class CaptureComparator(
       }
     }
 
-    internal fun calibrationForTesting(point: Double, lower: Double, upper: Double): Boolean {
-      require(
-        point.isFinite() && lower.isFinite() && upper.isFinite() && lower > 0.0 && upper >= lower
-      )
-      val width = BigDecimal.valueOf(upper).subtract(BigDecimal.valueOf(lower))
-      return lower <= UNITY &&
-        upper >= UNITY &&
-        point in CALIBRATION_POINT_MIN..CALIBRATION_POINT_MAX &&
-        width <= BigDecimal.valueOf(CALIBRATION_MAX_WIDTH)
-    }
-
     internal fun aggregatePolicyForTesting(outcomes: List<PolicyOutcome>): PolicyOutcome {
       require(outcomes.isNotEmpty() && outcomes.none { it == PolicyOutcome.NOT_ENFORCED })
       return when {
@@ -250,9 +238,6 @@ class CaptureComparator(
 
     private const val COMPARISON_SCHEMA_VERSION = "comparison-v1"
     private const val UNITY = 1.0
-    private const val CALIBRATION_POINT_MIN = 0.95
-    private const val CALIBRATION_POINT_MAX = 1.05
-    private const val CALIBRATION_MAX_WIDTH = 0.10
   }
 }
 

@@ -7,6 +7,7 @@
  */
 package performance.support
 
+import java.io.ByteArrayOutputStream
 import java.io.OutputStream
 import java.nio.file.Files
 import java.nio.file.Path
@@ -353,9 +354,12 @@ internal class DistributionFixture private constructor(
             mainAttributes.putValue("Multi-Release", "true")
           }
         }
-      JarOutputStream(Files.newOutputStream(path), manifest).use { output ->
+      JarOutputStream(Files.newOutputStream(path)).use { output ->
+        output.putNextEntry(JarEntry("META-INF/MANIFEST.MF").apply { time = 0L })
+        output.write(ByteArrayOutputStream().also(manifest::write).toByteArray())
+        output.closeEntry()
         entries.toSortedMap().forEach { (name, bytes) ->
-          output.putNextEntry(JarEntry(name))
+          output.putNextEntry(JarEntry(name).apply { time = 0L })
           output.write(bytes)
           output.closeEntry()
         }

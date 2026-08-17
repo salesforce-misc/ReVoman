@@ -536,11 +536,11 @@ class CaptureComparatorTest :
         CaptureComparator.policyForTesting(1.1, 1.2, 0.1) shouldBe PolicyOutcome.INCONCLUSIVE
         CaptureComparator.policyForTesting(1.1000000001, 1.2, 0.1) shouldBe PolicyOutcome.FAIL
 
-        CaptureComparator.calibrationForTesting(0.95, 0.95, 1.05) shouldBe true
-        CaptureComparator.calibrationForTesting(1.05, 0.95, 1.05) shouldBe true
-        CaptureComparator.calibrationForTesting(0.9499999999, 0.95, 1.05) shouldBe false
-        CaptureComparator.calibrationForTesting(1.0500000001, 0.95, 1.05) shouldBe false
-        CaptureComparator.calibrationForTesting(1.0, 0.9499999999, 1.05) shouldBe false
+        CalibrationQualification.passes(0.95, 0.95, 1.05) shouldBe true
+        CalibrationQualification.passes(1.05, 0.95, 1.05) shouldBe true
+        CalibrationQualification.passes(0.9499999999, 0.95, 1.05) shouldBe false
+        CalibrationQualification.passes(1.0500000001, 0.95, 1.05) shouldBe false
+        CalibrationQualification.passes(1.0, 0.9499999999, 1.05) shouldBe false
 
         CaptureComparator.aggregatePolicyForTesting(
           listOf(PolicyOutcome.PASS, PolicyOutcome.INCONCLUSIVE)

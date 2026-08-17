@@ -501,3 +501,22 @@ internal object CaptureCompatibility {
 
   private const val MINIMUM_FORKS = 10
 }
+
+/** Frozen A/A predicate shared without exposing the sealed comparison boundary. */
+internal object CalibrationQualification {
+  fun passes(point: Double, lower: Double, upper: Double): Boolean {
+    require(
+      point.isFinite() && lower.isFinite() && upper.isFinite() && lower > 0.0 && upper >= lower,
+    )
+    val width = BigDecimal.valueOf(upper).subtract(BigDecimal.valueOf(lower))
+    return lower <= UNITY &&
+      upper >= UNITY &&
+      point in POINT_MIN..POINT_MAX &&
+      width <= BigDecimal.valueOf(MAX_WIDTH)
+  }
+
+  private const val UNITY = 1.0
+  private const val POINT_MIN = 0.95
+  private const val POINT_MAX = 1.05
+  private const val MAX_WIDTH = 0.10
+}
