@@ -22,4 +22,14 @@ kotlin { jvmToolchain(libs.versions.jdk.get().toInt()) }
 
 application { mainClass.set("performance.cli.PerformanceRunnerMainKt") }
 
-tasks.test { useJUnitPlatform() }
+val installDistLib = tasks.installDist.map { install -> install.destinationDir.resolve("lib") }
+
+tasks.test {
+  useJUnitPlatform()
+  dependsOn(tasks.installDist)
+  inputs.dir(installDistLib)
+  systemProperty(
+    "performance.runner.install-dist-lib",
+    installDistLib.get().absolutePath,
+  )
+}

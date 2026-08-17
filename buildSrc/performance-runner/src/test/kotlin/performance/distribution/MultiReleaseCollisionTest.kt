@@ -126,10 +126,10 @@ class MultiReleaseCollisionTest :
         }
       }
 
-      test("the JDK validator rejects incompatible public APIs across releases") {
+      test("the JDK validator rejects incompatible public APIs in project-built jars") {
         withMultiReleaseFixture { fixture ->
           fixture.replaceJar(
-            BENCHMARK_DEPENDENCY,
+            PRODUCTION_JAR,
             mapOf(
               "META-INF/versions/21/example/VersionedApi.class" to
                 compiledClass("example.VersionedApi", release = 21),

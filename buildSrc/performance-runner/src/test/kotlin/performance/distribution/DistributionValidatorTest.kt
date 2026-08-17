@@ -14,10 +14,14 @@ import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.types.shouldBeInstanceOf
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldNotContain
+import java.io.PrintWriter
+import java.io.Writer
 import java.lang.reflect.Modifier
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.spi.ToolProvider
 import performance.hash.Sha256
 import performance.support.DistributionFixture
 import performance.support.DistributionFixture.Companion.BENCHMARK_DEPENDENCY
@@ -28,6 +32,7 @@ import performance.support.DistributionFixture.Companion.EXPECTED_BENCHMARK
 import performance.support.DistributionFixture.Companion.PRODUCTION_JAR
 import performance.support.DistributionFixture.Companion.PROTOCOL_MANIFEST
 import performance.support.DistributionFixture.Companion.PROVENANCE_MANIFEST
+import performance.support.DistributionFixture.Companion.RUNNER_JAR
 import performance.support.DistributionFixture.Companion.UNIX_LAUNCHER
 import performance.support.DistributionFixture.Companion.compiledClass
 import tools.jackson.databind.node.ArrayNode
@@ -276,14 +281,51 @@ class DistributionValidatorTest :
         }
       }
 
-      test("class entry paths must match the class file internal name") {
+      test("untouched runner installDist dependencies survive jar tool API-difference status") {
         withFixture { fixture ->
-          fixture.replaceJar(
-            BENCHMARK_DEPENDENCY,
-            mapOf("example/Claimed.class" to compiledClass("example.Actual")),
-          )
+          listOf(
+              "tools.jackson.core:jackson-core:3.1.4" to "jackson-core-3.1.4.jar",
+              "com.squareup.moshi:moshi:1.15.2" to "moshi-1.15.2.jar",
+            )
+            .forEach { (coordinate, fileName) ->
+              val source = installDistLib().resolve(fileName)
+              Files.isRegularFile(source) shouldBe true
+              inProcessJarValidationExitCode(source) shouldNotBe 0
 
-          fixture.assertInvalid(DistributionProblem.INVALID_JAR)
+              val relativePath = "runner/lib/$fileName"
+              fixture.addRunnerJar(relativePath, coordinate, source)
+              Sha256.digest(Files.readAllBytes(fixture.root.resolve(relativePath))) shouldBe
+                Sha256.digest(Files.readAllBytes(source))
+            }
+
+          fixture
+            .validateBeforeProcess(ProcessSpy())
+            .shouldBeInstanceOf<DistributionValidation.Valid>()
+        }
+      }
+
+      listOf(PRODUCTION_JAR, BENCHMARK_JAR, RUNNER_JAR).forEach { projectJar ->
+        test("project-built $projectJar requires in-process JDK jar validation") {
+          withFixture { fixture ->
+            val entries =
+              when (projectJar) {
+                BENCHMARK_JAR ->
+                  mapOf(
+                    "META-INF/BenchmarkList" to
+                      fixture.benchmarkList(EXPECTED_BENCHMARK).encodeToByteArray(),
+                    "META-INF/CompilerHints" to
+                      "dontinline,example.Benchmark.measure\n".encodeToByteArray(),
+                    "example/Benchmark.class" to
+                      compiledClass("example.Actual", "public void measure() {}"),
+                  )
+                else ->
+                  mapOf("example/Claimed.class" to compiledClass("example.Actual"))
+              }
+            fixture.replaceJar(projectJar, entries)
+            inProcessJarValidationExitCode(fixture.root.resolve(projectJar)) shouldNotBe 0
+
+            fixture.assertInvalid(DistributionProblem.INVALID_JAR)
+          }
         }
       }
 
@@ -739,6 +781,22 @@ private fun ObjectNode.artifact(field: String): ObjectNode =
 private fun portablePath(path: Path): String =
   path.joinToString(separator = "/") { it.toString() }
 
+private fun installDistLib(): Path =
+  Path.of(
+    checkNotNull(System.getProperty(INSTALL_DIST_LIB_PROPERTY)) {
+      "missing installDist library path"
+    },
+  )
+
+private fun inProcessJarValidationExitCode(path: Path): Int {
+  val jarTool = checkNotNull(ToolProvider.findFirst("jar").orElse(null))
+  return PrintWriter(Writer.nullWriter()).use { output ->
+    PrintWriter(Writer.nullWriter()).use { error ->
+      jarTool.run(output, error, "--validate", "--file", path.toString())
+    }
+  }
+}
+
 private fun corruptCentralDirectoryCrc(jarBytes: ByteArray): ByteArray =
   jarBytes.copyOf().also { corrupted ->
     val header =
@@ -755,3 +813,4 @@ private fun corruptCentralDirectoryCrc(jarBytes: ByteArray): ByteArray =
 
 private val ZIP_CENTRAL_HEADER = byteArrayOf(0x50, 0x4b, 0x01, 0x02)
 private const val ZIP_CRC_OFFSET = 16
+private const val INSTALL_DIST_LIB_PROPERTY = "performance.runner.install-dist-lib"

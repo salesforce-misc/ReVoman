@@ -232,7 +232,12 @@ class DistributionValidator {
         if (digest(path) != entry.sha256) {
           problems += DistributionProblem.CLASSPATH_HASH_MISMATCH
         }
-        path to JarValidator.inspect(path, featureVersion)
+        path to
+          JarValidator.inspect(
+            path = path,
+            featureVersion = featureVersion,
+            requireJdkValidation = entry.path in PROJECT_BUILT_JARS,
+          )
       }
     problems += EffectiveClasspath.validate(validated.map(Pair<Path, JarInspection>::second))
     return ClasspathValidation(
@@ -444,6 +449,12 @@ class DistributionValidator {
     const val MINIMUM_JAVA_FEATURE = 21
     val BENCHMARK_LIBRARY = Regex("lib/[A-Za-z0-9_.-]+\\.jar")
     val RUNNER_LIBRARY = Regex("runner/lib/[A-Za-z0-9_.-]+\\.jar")
+    val PROJECT_BUILT_JARS =
+      setOf(
+        DistributionLayout.PRODUCTION_JAR,
+        DistributionLayout.BENCHMARK_JAR,
+        DistributionLayout.RUNNER_JAR,
+      )
     val PROTOCOL_SCHEMA =
       Regex("protocol/schemas/[A-Za-z0-9_.-]+-v[0-9]+\\.schema\\.json")
     val TEST_DEPENDENCY_MARKER =

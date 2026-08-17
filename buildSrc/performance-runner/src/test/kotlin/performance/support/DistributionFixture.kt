@@ -125,6 +125,16 @@ internal class DistributionFixture private constructor(
     }
   }
 
+  fun addRunnerJar(relativePath: String, coordinate: String, source: Path) {
+    val target = root.resolve(relativePath)
+    Files.createDirectories(target.parent)
+    Files.copy(source, target)
+    mutateClasspath { document ->
+      val classpath = document.arrayNode("runnerClasspath")
+      classpath.add(classpathEntry(classpath.size(), relativePath, coordinate))
+    }
+  }
+
   fun setChecksumManifest(lines: List<String>) {
     Files.writeString(
       root.resolve(CHECKSUM_MANIFEST),

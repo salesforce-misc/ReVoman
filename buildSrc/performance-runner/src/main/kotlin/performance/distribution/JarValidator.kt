@@ -28,12 +28,16 @@ internal data class JarInspection(
 )
 
 internal object JarValidator {
-  fun inspect(path: Path, featureVersion: Int): JarInspection =
+  fun inspect(
+    path: Path,
+    featureVersion: Int,
+    requireJdkValidation: Boolean,
+  ): JarInspection =
     runCatching {
         inspectJar(
           path = path,
           featureVersion = featureVersion,
-          jdkValidationSucceeded = validateWithCurrentJdk(path),
+          jdkValidationSucceeded = !requireJdkValidation || validateWithCurrentJdk(path),
         )
       }
       .getOrElse {
