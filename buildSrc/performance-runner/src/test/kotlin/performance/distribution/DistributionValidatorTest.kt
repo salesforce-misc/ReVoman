@@ -403,18 +403,36 @@ class DistributionValidatorTest :
         }
       }
 
-      test("test classes are rejected from an ordered runtime classpath") {
+      test("test classes are rejected from project-built runtime jars") {
         withFixture { fixture ->
           fixture.replaceJar(
-            BENCHMARK_DEPENDENCY,
+            PRODUCTION_JAR,
             mapOf(
-              "example/Dependency.class" to compiledClass("example.Dependency"),
+              "example/Application.class" to compiledClass("example.Application"),
               "example/DistributionValidatorTest.class" to
                 compiledClass("example.DistributionValidatorTest"),
             ),
           )
 
           fixture.assertInvalid(DistributionProblem.TEST_CONTENT_PRESENT)
+        }
+      }
+
+      test("production APIs whose class names end in Test remain valid dependencies") {
+        withFixture { fixture ->
+          fixture.addBenchmarkJar(
+            relativePath = "lib/commons-math3.jar",
+            coordinate = "org.apache.commons:commons-math3:3.6.1",
+            entries =
+              mapOf(
+                "org/apache/commons/math3/stat/inference/TTest.class" to
+                  compiledClass("org.apache.commons.math3.stat.inference.TTest"),
+              ),
+          )
+
+          fixture
+            .validateBeforeProcess(ProcessSpy())
+            .shouldBeInstanceOf<DistributionValidation.Valid>()
         }
       }
 
@@ -515,6 +533,17 @@ class DistributionValidatorTest :
           }
 
           fixture.assertInvalid(DistributionProblem.CLASSPATH_HASH_MISMATCH)
+        }
+      }
+
+      test("classpath byte lengths are independently checked after distribution checksum validation") {
+        withFixture { fixture ->
+          fixture.mutateClasspath { document ->
+            val entry = document.classpath("benchmarkClasspath").firstObject()
+            entry.put("byteLength", entry.get("byteLength").asLong() + 1L)
+          }
+
+          fixture.assertInvalid(DistributionProblem.CLASSPATH_SIZE_MISMATCH)
         }
       }
 

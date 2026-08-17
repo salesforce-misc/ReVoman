@@ -32,9 +32,9 @@ class HostAdapterContractTest :
         }
       }
 
-      test("the five public commands are recognized and remain unavailable at this checkpoint") {
+      test("the four evidence commands are recognized and remain unavailable at this checkpoint") {
         FakeHost().use { host ->
-          publicCommands(host).forEach { command ->
+          publicCommands(host).filterNot { it.name == "freeze" }.forEach { command ->
             val result = host.invoke(*command.arguments.toTypedArray())
 
             result.exitCode shouldBe 2
@@ -49,6 +49,89 @@ class HostAdapterContractTest :
             finalizer.contains("REVOMAN_FINALIZER_COMMAND=$expectedFinalizerCommand") shouldBe true
             finalizer.last() shouldContain "\"\$runner\" \"\$REVOMAN_FINALIZER_COMMAND\""
           }
+        }
+      }
+
+      test("the fake Docker command rejects every unmodeled invocation") {
+        FakeHost().use { host -> host.invokeFakeDocker("unmodeled").exitCode shouldBe 98 }
+      }
+
+      test("initial freeze builds only in the pinned preparation container and publishes after verification") {
+        FakeHost().use { host ->
+          val command = publicCommands(host).single { it.name == "freeze" }
+
+          val result = host.invoke(*command.arguments.toTypedArray())
+
+          result.exitCode shouldBe 0
+          result.standardError shouldBe ""
+          Files.isDirectory(host.outputPath("freeze")) shouldBe true
+          Files.readString(
+            host.repositoryRoot.resolve(".fake-freeze-bootstrap-distribution"),
+          ) shouldBe "initial\n"
+          Files.readString(
+            host.repositoryRoot.resolve(".fake-freeze-validated-distribution"),
+          ) shouldBe "initial\n"
+          val dockerRuns = result.commands.filter(::isDockerRun)
+          val preparation = phase(dockerRuns, "preparation")
+          val bootstrap = phase(dockerRuns, "freeze-bootstrap")
+          val verification = phase(dockerRuns, "finalizer-verification")
+          val freeze = phase(dockerRuns, "freeze")
+          val finalizer = phase(dockerRuns, "finalizer")
+          bootstrap shouldContainAll
+            listOf(
+              "--network",
+              "bridge",
+              "--pull=never",
+              "--read-only",
+              "GRADLE_USER_HOME=/inputs/gradle-cache",
+            )
+          preparation.any { argument ->
+            argument ==
+              "type=bind,src=${host.repositoryRoot.toRealPath()},dst=/source/capture-runner,readonly"
+          } shouldBe true
+          bootstrap.last() shouldContain "capture=/inputs/capture-runner"
+          bootstrap.last() shouldContain "./gradlew -q --no-daemon"
+          bootstrap.last() shouldContain "-PperformanceCaptureGitSha=\$REVOMAN_CAPTURE_SHA"
+          bootstrap.last() shouldContain "-PperformanceTreatmentGitSha=\$REVOMAN_TREATMENT_SHA"
+          freeze shouldContainAll listOf("--network", "none", "--pull=never")
+          (result.commands.indexOf(bootstrap) < result.commands.indexOf(verification)) shouldBe true
+          (result.commands.indexOf(verification) < result.commands.indexOf(freeze)) shouldBe true
+          (result.commands.indexOf(freeze) < result.commands.indexOf(finalizer)) shouldBe true
+          finalizer.last() shouldContain "/usr/bin/mv -nT --no-copy -- \"\$staging\" \"\$target\""
+          result.commands.flatten().none { argument ->
+            argument.contains("docker.sock") || argument.contains("/Users/") && argument.contains("/.gradle")
+          } shouldBe true
+        }
+      }
+
+      test("candidate freeze verifies the baseline finalizer before rebuilding only the treatment") {
+        FakeHost().use { host ->
+          val baseline = host.frozenDistribution("candidate-baseline")
+
+          val result =
+            host.invoke(
+              "freeze",
+              "--treatment-source",
+              host.treatmentSource("candidate-treatment").toString(),
+              "--harness-from",
+              baseline.toString(),
+              "--output",
+              host.output("candidate-freeze"),
+            )
+
+          result.exitCode shouldBe 0
+          Files.readString(
+            host.repositoryRoot.resolve(".fake-freeze-validated-distribution"),
+          ) shouldBe "candidate\n"
+          val dockerRuns = result.commands.filter(::isDockerRun)
+          dockerRuns.none { invocation ->
+            "dev.revoman.performance.phase=freeze-bootstrap" in invocation
+          } shouldBe true
+          val verification = phase(dockerRuns, "finalizer-verification")
+          val freeze = phase(dockerRuns, "freeze")
+          (result.commands.indexOf(verification) < result.commands.indexOf(freeze)) shouldBe true
+          freeze shouldContainAll listOf("REVOMAN_HARNESS_FROM=/inputs/finalizer")
+          freeze.last() shouldContain "-PperformanceHarnessFrom=\$REVOMAN_HARNESS_FROM"
         }
       }
 
@@ -381,7 +464,7 @@ class HostAdapterContractTest :
         }
       }
 
-      test("all five commands reject a dirty relevant tree before Docker") {
+      test("all five commands reject a dirty capture-runner tree before Docker") {
         FakeHost().use { host ->
           publicCommands(host).forEach { command ->
             val result =
@@ -393,14 +476,8 @@ class HostAdapterContractTest :
             result.exitCode shouldBe 2
             result.standardError shouldContain "SOURCE_DIRTY"
             result.commands.filter { it.firstOrNull() == "docker" }.shouldBeEmpty()
-            result.commands.single { invocation -> invocation.take(2) == listOf("git", "status") } shouldContainAll
-              listOf(
-                "build.gradle.kts",
-                "settings.gradle.kts",
-                "gradle.properties",
-                "gradlew",
-                "gradlew.bat",
-              )
+            result.commands.single { invocation -> invocation.take(2) == listOf("git", "status") } shouldBe
+              listOf("git", "status", "--porcelain", "--untracked-files=all")
           }
         }
       }

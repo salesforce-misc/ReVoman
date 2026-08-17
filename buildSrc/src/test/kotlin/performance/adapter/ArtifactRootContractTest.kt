@@ -154,7 +154,7 @@ class ArtifactRootContractTest :
           result.standardError shouldContain "PUBLICATION_FAILED"
           result.standardError shouldNotContain host.repositoryRoot.toString()
           Files.exists(host.outputPath(token)) shouldBe false
-          Files.exists(host.artifactRoot.resolve(".$token.staging/INVALID/runner-owned")) shouldBe
+          Files.exists(host.artifactRoot.resolve(".$token.staging/metadata/distribution.sha256")) shouldBe
             true
         }
       }
@@ -228,13 +228,13 @@ class ArtifactRootContractTest :
                 """.trimIndent(),
             )
 
-          result.exitCode shouldBe 2
-          result.standardError shouldContain "COMMAND_NOT_AVAILABLE"
-          Files.exists(host.outputPath(token).resolve("INVALID/runner-owned")) shouldBe true
+          result.exitCode shouldBe 0
+          result.standardError shouldBe ""
+          Files.exists(host.outputPath(token).resolve("metadata/distribution.sha256")) shouldBe true
         }
       }
 
-      test("the finalizer delegates bundle creation to the frozen runner before one GNU move") {
+      test("the finalizer validates freeze materialization before one GNU move") {
         FakeHost().use { host ->
           val result = host.invoke(*initialFreeze(host, host.output("gnu-publication")).toTypedArray())
           val finalizer =
@@ -247,6 +247,9 @@ class ArtifactRootContractTest :
           child shouldContain "test -x \"\$runner\""
           child shouldContain "test ! -L \"\$runner\""
           child shouldContain "\"\$runner\" \"\$REVOMAN_FINALIZER_COMMAND\""
+          child shouldContain "\"\$runner\" validate-distribution --distribution \"\$freeze_source\""
+          child shouldContain "\"\$runner\" validate-distribution --distribution \"\$staging\""
+          child shouldContain "/usr/bin/tar --one-top-level=\"\$REVOMAN_STAGING_NAME\" -xf -"
           child shouldContain "/usr/bin/mv -nT --no-copy -- \"\$staging\" \"\$target\""
           child.lines().none { line -> line.startsWith("/bin/mv ") } shouldBe true
           child shouldNotContain "mkdir \"\$staging\""
@@ -274,17 +277,17 @@ class ArtifactRootContractTest :
 
             result.exitCode shouldBe 8
             result.standardError shouldContain "PUBLICATION_FAILED"
-            Files.exists(staging.resolve("INVALID/runner-owned")) shouldBe true
+            Files.exists(staging.resolve("metadata/distribution.sha256")) shouldBe true
             Files.exists(target.resolve(".$token.staging")) shouldBe false
             Files.readString(escape.resolve("foreign.txt")) shouldBe "keep"
-            Files.exists(escape.resolve("INVALID/runner-owned")) shouldBe false
+            Files.exists(escape.resolve("metadata/distribution.sha256")) shouldBe false
             if (boundary == "late-file") {
               Files.isRegularFile(target) shouldBe true
               Files.readString(target) shouldBe "keep"
             } else if (boundary == "late-directory") {
               Files.isDirectory(target) shouldBe true
               Files.readString(target.resolve("foreign.txt")) shouldBe "keep"
-              Files.exists(target.resolve("INVALID/runner-owned")) shouldBe false
+              Files.exists(target.resolve("metadata/distribution.sha256")) shouldBe false
             } else {
               Files.isSymbolicLink(target) shouldBe true
               target.toRealPath() shouldBe escape.toRealPath()
@@ -306,7 +309,7 @@ class ArtifactRootContractTest :
           result.standardError shouldContain "PUBLICATION_FAILED"
           Files.exists(host.outputPath(token)) shouldBe false
           Files.exists(
-            host.artifactRoot.resolve(".$token.staging/INVALID/runner-owned"),
+            host.artifactRoot.resolve(".$token.staging/metadata/distribution.sha256"),
           ) shouldBe true
           Files.exists(host.artifactRoot.parent.resolve(".$token.staging")) shouldBe false
         }

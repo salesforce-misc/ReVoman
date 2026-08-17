@@ -16,11 +16,11 @@ plugins {
   id("revoman.root-conventions")
   id("revoman.publishing-conventions")
   id("revoman.kt-conventions")
+  id("revoman.performance-conventions")
   alias(libs.plugins.moshix)
   alias(libs.plugins.node.gradle)
   alias(libs.plugins.kover)
   alias(libs.plugins.nexus.publish)
-  alias(libs.plugins.jmh)
   alias(libs.plugins.test.retry)
   alias(libs.plugins.qodana)
 }
@@ -342,6 +342,37 @@ jmh {
   if (project.hasProperty("jmh.includes")) {
     includes.add(project.property("jmh.includes").toString())
   }
+}
+
+performanceMeasurement {
+  protocolSources.from(
+    layout.projectDirectory.dir("buildSrc/src/main/kotlin/performance"),
+    layout.projectDirectory.file(
+      "buildSrc/src/main/kotlin/revoman.performance-conventions.gradle.kts"
+    ),
+    layout.projectDirectory.dir("buildSrc/performance-runner/src/main/kotlin/performance"),
+    layout.projectDirectory.dir("buildSrc/performance-runner/src/main/resources/performance"),
+    layout.projectDirectory.dir("buildSrc/performance-runner/src/test/resources/performance"),
+    layout.projectDirectory.dir("buildSrc/src/test/resources/fixtures"),
+    layout.projectDirectory.dir("src/jmh"),
+    layout.projectDirectory.file("scripts/performance/run"),
+    layout.projectDirectory.dir("config/performance/profiles"),
+    layout.projectDirectory.dir("config/performance/runtime"),
+    layout.projectDirectory.file("config/performance/expected-cells.json"),
+    layout.projectDirectory.file("config/performance/policies/qualification-policy-v1.schema.json"),
+    layout.projectDirectory.file("config/performance/policies/m4max-docker-linux-arm64-v1.json"),
+    layout.projectDirectory.file("config/performance/policies/github-hosted-arm64-v1.json"),
+    layout.projectDirectory.file("gradlew"),
+    layout.projectDirectory.file("gradlew.bat"),
+    layout.projectDirectory.dir("gradle/wrapper"),
+    layout.projectDirectory.file("gradle/libs.versions.toml"),
+    layout.projectDirectory.file("gradle.properties"),
+    layout.projectDirectory.file("settings.gradle.kts"),
+    layout.projectDirectory.file("build.gradle.kts"),
+    layout.projectDirectory.file("buildSrc/settings.gradle.kts"),
+    layout.projectDirectory.file("buildSrc/build.gradle.kts"),
+    layout.projectDirectory.file("buildSrc/performance-runner/build.gradle.kts"),
+  )
 }
 
 nexusPublishing {

@@ -33,7 +33,34 @@ class RunnerExitContractTest :
         RunnerExit.entries.filterNot { it == RunnerExit.SUCCESS }.map { it.code shouldNotBe 0 }
       }
 
-      test("recognized commands report unavailable at the initial checkpoint") {
+      test("distribution validation returns success only through the frozen validator boundary") {
+        val validated = mutableListOf<String>()
+        val standardError = mutableListOf<String>()
+        val engine =
+          RunnerEngine(
+            RunnerDependencies(
+              writeStandardError = { message -> standardError += message },
+              validateDistribution = { path -> validated += path; path == "valid-distribution" },
+            ),
+          )
+
+        engine.execute(
+          RunnerCommand.ValidateDistribution(
+            listOf("--distribution", "valid-distribution"),
+          ),
+        ) shouldBe RunnerOutcome(RunnerExit.SUCCESS, publishedArtifact = null)
+        engine.execute(
+          RunnerCommand.ValidateDistribution(
+            listOf("--distribution", "private-invalid-path"),
+          ),
+        ) shouldBe RunnerOutcome(RunnerExit.INPUT_OR_PREFLIGHT_INVALID, publishedArtifact = null)
+        validated shouldContainExactly listOf("valid-distribution", "private-invalid-path")
+        standardError shouldContainExactly
+          listOf("performance-runner: INPUT_OR_PREFLIGHT_INVALID: DISTRIBUTION_INVALID")
+        standardError.joinToString("\n").contains("private-invalid-path") shouldBe false
+      }
+
+      test("commands not yet implemented report unavailable at this checkpoint") {
         val standardError = mutableListOf<String>()
         val engine =
           RunnerEngine(
@@ -41,7 +68,6 @@ class RunnerExitContractTest :
           )
         val commands =
           listOf(
-            RunnerCommand.ValidateDistribution(emptyList()),
             RunnerCommand.Capture(emptyList()),
             RunnerCommand.Compare(emptyList()),
             RunnerCommand.Campaign(emptyList()),

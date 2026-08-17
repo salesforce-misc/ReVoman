@@ -187,7 +187,10 @@ internal class DistributionFixture private constructor(
       .flatMap { it.values().asSequence() }
       .map { it as ObjectNode }
       .filter { it.get("path").asString() == relativePath }
-      .forEach { it.put("sha256", digest) }
+      .forEach {
+        it.put("byteLength", Files.size(root.resolve(relativePath)))
+        it.put("sha256", digest)
+      }
     write(CLASSPATH_MANIFEST, CanonicalJson.encode(classpath))
 
     val protocol = jsonObject(PROTOCOL_MANIFEST)
@@ -201,11 +204,27 @@ internal class DistributionFixture private constructor(
   private fun refreshProtocolHash(protocol: ObjectNode) {
     val hash =
       Sha256.digest(
-        protocolArtifactObjects(protocol)
-          .sortedBy { it.get("path").asString() }
-          .joinToString(separator = "\n", postfix = "\n") { binding ->
-            "${binding.get("sha256").asString()}  ${binding.get("path").asString()}"
+        buildList {
+            addAll(
+              protocolArtifactObjects(protocol).map { binding ->
+                "artifact\t${binding.get("sha256").asString()}\t${binding.get("path").asString()}"
+              },
+            )
+            addAll(
+              protocol.arrayNode("sourceClosure").values().asSequence().map { binding ->
+                "source\t${binding.get("sha256").asString()}\t${binding.get("path").asString()}"
+              },
+            )
+            addAll(
+              protocol
+                .get("toolIdentities")
+                .asObject()
+                .properties()
+                .map { (key, value) -> "identity\t$key\t${value.asString()}" },
+            )
           }
+          .sorted()
+          .joinToString(separator = "\n", postfix = "\n")
           .encodeToByteArray(),
       )
     protocol.put("protocolSha256", hash.hex)
@@ -230,6 +249,7 @@ internal class DistributionFixture private constructor(
     coordinate: String,
   ): ObjectNode =
     JsonNodeFactory.instance.objectNode().apply {
+      put("byteLength", Files.size(root.resolve(path)))
       put("coordinate", coordinate)
       put("order", order)
       put("path", path)
@@ -512,31 +532,9 @@ internal class DistributionFixture private constructor(
       listOf("m4max-docker", "github-hosted").map {
         "protocol/qualification/$it.json"
       }
-    val protocolArtifacts =
-      listOf(
-        RUNNER_JAR,
-        "protocol/adapter/run",
-        *launchers.toTypedArray(),
-        *schemas.toTypedArray(),
-        *profiles.toTypedArray(),
-        *runtimes.toTypedArray(),
-        *policies.toTypedArray(),
-        "protocol/expected-cells.json",
-        "protocol/test-vectors/bootstrap-v1.json",
-      )
-    val protocolHash =
-      Sha256.digest(
-        protocolArtifacts
-          .sorted()
-          .joinToString(separator = "\n", postfix = "\n") { path ->
-            "${digest(path).hex}  $path"
-          }
-          .encodeToByteArray(),
-      )
-
     return JsonNodeFactory.instance.objectNode().apply {
       put("schemaVersion", "distribution-protocol-v1")
-      put("protocolSha256", protocolHash.hex)
+      put("protocolSha256", SHA)
       set("runner", artifact(RUNNER_JAR))
       set("adapter", artifact("protocol/adapter/run"))
       set("launchers", artifactArray(launchers))
@@ -549,6 +547,30 @@ internal class DistributionFixture private constructor(
         "testVectors",
         artifactArray(listOf("protocol/test-vectors/bootstrap-v1.json")),
       )
+      set(
+        "sourceClosure",
+        JsonNodeFactory.instance.arrayNode().apply {
+          add(
+            JsonNodeFactory.instance.objectNode().apply {
+              put("path", "build.gradle.kts")
+              put("sha256", SHA)
+            },
+          )
+        },
+      )
+      set(
+        "toolIdentities",
+        JsonNodeFactory.instance.objectNode().apply {
+          put("gradle", "9.7.0")
+          put("javaExecutableSha256", selectedJava.sha256.hex)
+          put("javaFeature", selectedJava.featureVersion.toString())
+          put("jmhCore", "1.37")
+          put("jmhGradlePlugin", "0.7.3")
+          put("kotlinCompiler", "2.4.20-RC")
+          put("runtimeImage", "docker.io/library/eclipse-temurin@sha256:${"a".repeat(64)}")
+        },
+      )
+      refreshProtocolHash(this)
     }
   }
 

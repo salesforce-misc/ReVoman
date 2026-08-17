@@ -402,6 +402,9 @@ adapter_resolve_input() {
     resolved="$resolved/$(basename "$candidate")"
   fi
   ADAPTER_INPUT_PATHS+=("$resolved")
+  if [ "$flag" = 'treatment-source' ]; then
+    ADAPTER_TREATMENT_SOURCE_PATH="$resolved"
+  fi
   printf '%s' "$resolved"
 }
 
@@ -499,9 +502,7 @@ adapter_require_clean_source() {
   local sha
   status=$(
     cd "$ADAPTER_REPO_ROOT" &&
-      adapter_git status --porcelain --untracked-files=normal -- \
-        scripts/performance/run config/performance buildSrc src/jmh gradle \
-        build.gradle.kts settings.gradle.kts gradle.properties gradlew gradlew.bat 2>/dev/null
+      adapter_git status --porcelain --untracked-files=all 2>/dev/null
   ) || {
     adapter_input_error 'SOURCE_IDENTITY_INVALID'
     return "$ADAPTER_EXIT_INPUT"
@@ -525,6 +526,43 @@ adapter_require_clean_source() {
       ;;
   esac
   ADAPTER_SOURCE_SHA="$sha"
+  return 0
+}
+
+adapter_require_clean_treatment() {
+  local status
+  local sha
+  [ "$ADAPTER_COMMAND" = 'freeze' ] || return 0
+  [ -n "${ADAPTER_TREATMENT_SOURCE_PATH:-}" ] || {
+    adapter_input_error 'SOURCE_IDENTITY_INVALID'
+    return "$ADAPTER_EXIT_INPUT"
+  }
+  status=$(
+    cd "$ADAPTER_TREATMENT_SOURCE_PATH" &&
+      adapter_git status --porcelain --untracked-files=all 2>/dev/null
+  ) || {
+    adapter_input_error 'SOURCE_IDENTITY_INVALID'
+    return "$ADAPTER_EXIT_INPUT"
+  }
+  [ -z "$status" ] || {
+    adapter_input_error 'SOURCE_DIRTY'
+    return "$ADAPTER_EXIT_INPUT"
+  }
+  sha=$(cd "$ADAPTER_TREATMENT_SOURCE_PATH" && adapter_git rev-parse HEAD 2>/dev/null) || {
+    adapter_input_error 'SOURCE_IDENTITY_INVALID'
+    return "$ADAPTER_EXIT_INPUT"
+  }
+  [ "${#sha}" -eq 40 ] || {
+    adapter_input_error 'SOURCE_IDENTITY_INVALID'
+    return "$ADAPTER_EXIT_INPUT"
+  }
+  case "$sha" in
+    *[!0-9a-f]*)
+      adapter_input_error 'SOURCE_IDENTITY_INVALID'
+      return "$ADAPTER_EXIT_INPUT"
+      ;;
+  esac
+  ADAPTER_TREATMENT_SHA="$sha"
   return 0
 }
 
@@ -921,7 +959,7 @@ adapter_run_volume_initializer() {
     --mount "type=volume,src=$ADAPTER_INPUT_VOLUME,dst=/inputs" \
     --mount "type=volume,src=$ADAPTER_OPERATION_VOLUME,dst=/operation" \
     "$ADAPTER_RUNTIME_REFERENCE" /usr/bin/sh -lc \
-    "set -eu; mkdir -p /inputs/prepared /inputs/finalizer /operation/provisional /operation/state /operation/tmp; chown -R $ADAPTER_SUBSTRATE_UID:$ADAPTER_SUBSTRATE_GID /inputs /operation"
+    "set -eu; mkdir -p /inputs/prepared /inputs/capture-runner /inputs/finalizer /inputs/gradle-cache /operation/provisional /operation/state /operation/tmp; chown -R $ADAPTER_SUBSTRATE_UID:$ADAPTER_SUBSTRATE_GID /inputs /operation"
 }
 
 adapter_finalizer_input_index() {
@@ -930,7 +968,7 @@ adapter_finalizer_input_index() {
       if adapter_flag_present 'harness-from'; then
         printf '%s' '1'
       else
-        printf '%s' '0'
+        printf '%s' 'none'
       fi
       ;;
     canary|campaign|capture|compare) printf '%s' '0' ;;
@@ -948,6 +986,9 @@ adapter_run_preparation() {
     mounts+=(--mount "type=bind,src=$input,dst=/source/input-$index,readonly")
     index=$((index + 1))
   done
+  if [ "$ADAPTER_COMMAND" = 'freeze' ]; then
+    mounts+=(--mount "type=bind,src=$ADAPTER_REPO_ROOT,dst=/source/capture-runner,readonly")
+  fi
   adapter_hardened_common_args
   adapter_docker run --rm \
     --label dev.revoman.performance.phase=preparation \
@@ -959,8 +1000,44 @@ adapter_run_preparation() {
     "${mounts[@]}" \
     --env "REVOMAN_INPUT_COUNT=$index" \
     --env "REVOMAN_FINALIZER_INPUT_INDEX=$finalizer_input_index" \
+    --env "REVOMAN_COMMAND=$ADAPTER_COMMAND" \
     "$ADAPTER_RUNTIME_REFERENCE" /usr/bin/sh -lc \
-    'set -eu; input_index=0; while [ "$input_index" -lt "$REVOMAN_INPUT_COUNT" ]; do source="/source/input-$input_index"; target="/inputs/prepared/input-$input_index"; mkdir -p "$target"; if [ -d "$source" ]; then (cd "$source" && /usr/bin/tar -cf - .) | (cd "$target" && /usr/bin/tar -xf -); else (cd /source && /usr/bin/tar -cf - "input-$input_index") | (cd "$target" && /usr/bin/tar -xf -); fi; input_index=$((input_index + 1)); done; finalizer_source="/inputs/prepared/input-$REVOMAN_FINALIZER_INPUT_INDEX"; test -x "$finalizer_source/bin/performance-runner"; test ! -L "$finalizer_source/bin/performance-runner"; (cd "$finalizer_source" && /usr/bin/tar -cf - .) | (cd /inputs/finalizer && /usr/bin/tar -xf -); printf "%s\n" prepared > /inputs/prepared/status'
+    'set -eu
+copy_source_tree() {
+  source=$1
+  target=$2
+  mkdir -p "$target"
+  (cd "$source" && /usr/bin/tar \
+    --exclude="./.git" --exclude="./.git/*" \
+    --exclude="*/.gradle" --exclude="*/.gradle/*" \
+    --exclude="*/build" --exclude="*/build/*" \
+    -cf - .) | (cd "$target" && /usr/bin/tar -xf -)
+}
+input_index=0
+while [ "$input_index" -lt "$REVOMAN_INPUT_COUNT" ]; do
+  source="/source/input-$input_index"
+  target="/inputs/prepared/input-$input_index"
+  if [ "$REVOMAN_COMMAND" = freeze ] && [ "$input_index" -eq 0 ]; then
+    copy_source_tree "$source" "$target"
+  elif [ -d "$source" ]; then
+    mkdir -p "$target"
+    (cd "$source" && /usr/bin/tar -cf - .) | (cd "$target" && /usr/bin/tar -xf -)
+  else
+    mkdir -p "$target"
+    (cd /source && /usr/bin/tar -cf - "input-$input_index") | (cd "$target" && /usr/bin/tar -xf -)
+  fi
+  input_index=$((input_index + 1))
+done
+if [ "$REVOMAN_COMMAND" = freeze ]; then
+  copy_source_tree /source/capture-runner /inputs/capture-runner
+fi
+if [ "$REVOMAN_FINALIZER_INPUT_INDEX" != none ]; then
+  finalizer_source="/inputs/prepared/input-$REVOMAN_FINALIZER_INPUT_INDEX"
+  test -x "$finalizer_source/bin/performance-runner"
+  test ! -L "$finalizer_source/bin/performance-runner"
+  (cd "$finalizer_source" && /usr/bin/tar -cf - .) | (cd /inputs/finalizer && /usr/bin/tar -xf -)
+fi
+printf "%s\n" prepared > /inputs/prepared/status'
 }
 
 adapter_run_finalizer_verification() {
@@ -993,12 +1070,100 @@ java_hash=$(/usr/bin/sha256sum /opt/java/openjdk/bin/java)
 test "${java_hash%% *}" = "$REVOMAN_JAVA_SHA256"'
 }
 
+adapter_run_freeze_build() {
+  local phase="$1"
+  local bootstrap="$2"
+  local harness_from='none'
+  if adapter_flag_present 'harness-from'; then
+    harness_from='/inputs/finalizer'
+  fi
+  adapter_hardened_common_args
+  adapter_docker run --rm \
+    --label "dev.revoman.performance.phase=$phase" \
+    --pull=never --platform "$ADAPTER_PLATFORM" --network bridge \
+    "${ADAPTER_HARDENED_ARGS[@]}" \
+    --user "$ADAPTER_SUBSTRATE_UID:$ADAPTER_SUBSTRATE_GID" \
+    --tmpfs "/tmp:rw,noexec,nosuid,nodev,size=256m,uid=$ADAPTER_SUBSTRATE_UID,gid=$ADAPTER_SUBSTRATE_GID,mode=0700" \
+    --mount "type=volume,src=$ADAPTER_INPUT_VOLUME,dst=/inputs" \
+    --mount "type=volume,src=$ADAPTER_OPERATION_VOLUME,dst=/operation" \
+    --env GRADLE_USER_HOME=/inputs/gradle-cache \
+    --env "REVOMAN_BOOTSTRAP=$bootstrap" \
+    --env "REVOMAN_CAPTURE_SHA=$ADAPTER_SOURCE_SHA" \
+    --env "REVOMAN_TREATMENT_SHA=$ADAPTER_TREATMENT_SHA" \
+    --env "REVOMAN_HARNESS_FROM=$harness_from" \
+    --env "REVOMAN_JAVA_SHA256=$ADAPTER_JAVA_SHA256" \
+    "$ADAPTER_RUNTIME_REFERENCE" /usr/bin/sh -lc \
+    'set -eu
+java_hash=$(/usr/bin/sha256sum /opt/java/openjdk/bin/java)
+test "${java_hash%% *}" = "$REVOMAN_JAVA_SHA256"
+test -f /inputs/prepared/status
+capture=/inputs/capture-runner
+treatment=/inputs/prepared/input-0
+distribution=/operation/provisional/distribution
+test -x "$capture/gradlew"
+test -x "$treatment/gradlew"
+test ! -e "$distribution"
+test ! -L "$distribution"
+(cd "$treatment" && ./gradlew -q --no-daemon jar)
+set -- "$treatment"/build/libs/revoman-*.jar
+test "$#" -eq 1
+test -f "$1"
+treatment_jar=$1
+(cd "$capture" && ./gradlew -q --no-daemon -p buildSrc :performance-runner:installDist)
+set -- \
+  assemblePerformanceDistribution \
+  verifyPerformanceDistribution \
+  "-PperformanceCaptureGitSha=$REVOMAN_CAPTURE_SHA" \
+  "-PperformanceTreatmentGitSha=$REVOMAN_TREATMENT_SHA" \
+  "-PperformanceTreatmentSource=$treatment" \
+  "-PperformanceTreatmentJar=$treatment_jar" \
+  "-PperformanceDistributionDirectory=$distribution"
+if [ "$REVOMAN_HARNESS_FROM" != none ]; then
+  set -- "$@" "-PperformanceHarnessFrom=$REVOMAN_HARNESS_FROM"
+fi
+(cd "$capture" && ./gradlew -q --no-daemon "$@")
+test -x "$distribution/bin/performance-runner"
+"$distribution/bin/performance-runner" validate-distribution --distribution "$distribution"
+if [ "$REVOMAN_BOOTSTRAP" = 1 ]; then
+  (cd "$distribution" && /usr/bin/tar -cf - .) | (cd /inputs/finalizer && /usr/bin/tar -xf -)
+  /inputs/finalizer/bin/performance-runner validate-distribution --distribution /inputs/finalizer
+fi
+/usr/bin/sync
+java_hash=$(/usr/bin/sha256sum /opt/java/openjdk/bin/java)
+test "${java_hash%% *}" = "$REVOMAN_JAVA_SHA256"'
+}
+
+adapter_run_bootstrapped_freeze_check() {
+  adapter_hardened_common_args
+  adapter_docker run --rm \
+    --label dev.revoman.performance.phase=freeze \
+    --pull=never --platform "$ADAPTER_PLATFORM" --network none \
+    "${ADAPTER_HARDENED_ARGS[@]}" \
+    --user "$ADAPTER_SUBSTRATE_UID:$ADAPTER_SUBSTRATE_GID" \
+    --tmpfs "/tmp:rw,noexec,nosuid,nodev,size=64m,uid=$ADAPTER_SUBSTRATE_UID,gid=$ADAPTER_SUBSTRATE_GID,mode=0700" \
+    --mount "type=volume,src=$ADAPTER_INPUT_VOLUME,dst=/inputs,readonly" \
+    --mount "type=volume,src=$ADAPTER_OPERATION_VOLUME,dst=/operation,readonly" \
+    --env "REVOMAN_JAVA_SHA256=$ADAPTER_JAVA_SHA256" \
+    "$ADAPTER_RUNTIME_REFERENCE" /usr/bin/sh -lc \
+    'set -eu
+java_hash=$(/usr/bin/sha256sum /opt/java/openjdk/bin/java)
+test "${java_hash%% *}" = "$REVOMAN_JAVA_SHA256"
+/inputs/finalizer/bin/performance-runner validate-distribution --distribution /inputs/finalizer
+/operation/provisional/distribution/bin/performance-runner validate-distribution --distribution /operation/provisional/distribution
+java_hash=$(/usr/bin/sha256sum /opt/java/openjdk/bin/java)
+test "${java_hash%% *}" = "$REVOMAN_JAVA_SHA256"'
+}
+
 adapter_run_work_phase() {
   local phase='timed'
   local network='none'
   if [ "$ADAPTER_COMMAND" = 'freeze' ]; then
-    phase='freeze'
-    network='bridge'
+    if adapter_flag_present 'harness-from'; then
+      adapter_run_freeze_build 'freeze' '0'
+    else
+      adapter_run_bootstrapped_freeze_check
+    fi
+    return "$?"
   fi
   adapter_hardened_common_args
   adapter_docker run --rm \
@@ -1069,6 +1234,7 @@ adapter_run_finalizer() {
       --mount "type=volume,src=$ADAPTER_OPERATION_VOLUME,dst=/operation,readonly" \
       --mount "type=bind,src=$ADAPTER_OUTPUT_PARENT_PATH,dst=/artifacts" \
       --env "REVOMAN_ARTIFACT_ROOT=/artifacts" \
+      --env "REVOMAN_COMMAND=$ADAPTER_COMMAND" \
       --env "REVOMAN_OPERATION_ROOT=/operation" \
       --env "REVOMAN_STAGING_NAME=.$ADAPTER_RUN_TOKEN.staging" \
       --env "REVOMAN_ADAPTER_SHA256=$ADAPTER_SHA256" \
@@ -1118,7 +1284,17 @@ test ! -e "$target"
 test ! -L "$target"
 umask 077
 runner_status=0
-"$runner" "$REVOMAN_FINALIZER_COMMAND" || runner_status=$?
+if [ "$REVOMAN_COMMAND" = freeze ] && [ "$REVOMAN_FAILURE_CODE" = NONE ]; then
+  freeze_source=/operation/provisional/distribution
+  test -d "$freeze_source"
+  test ! -L "$freeze_source"
+  "$runner" validate-distribution --distribution "$freeze_source"
+  (cd "$freeze_source" && /usr/bin/tar -cf - .) |
+    (cd "$artifacts" && /usr/bin/tar --one-top-level="$REVOMAN_STAGING_NAME" -xf -)
+  "$runner" validate-distribution --distribution "$staging"
+else
+  "$runner" "$REVOMAN_FINALIZER_COMMAND" || runner_status=$?
+fi
 case "$runner_status" in
   0|2|3|4|5|6|7|8) ;;
   *) exit 1 ;;
@@ -1175,8 +1351,19 @@ adapter_prepare_runtime() {
 
 adapter_prepare_finalizer() {
   if ! adapter_run_volume_initializer >/dev/null 2>&1 ||
-    ! adapter_run_preparation >/dev/null 2>&1 ||
-    ! adapter_run_finalizer_verification >/dev/null 2>&1; then
+    ! adapter_run_preparation >/dev/null 2>&1; then
+    adapter_cleanup_volumes >/dev/null 2>&1 || true
+    adapter_input_error 'FINALIZER_UNAVAILABLE'
+    return "$ADAPTER_EXIT_INPUT"
+  fi
+  if [ "$ADAPTER_COMMAND" = 'freeze' ] && ! adapter_flag_present 'harness-from'; then
+    if ! adapter_run_freeze_build 'freeze-bootstrap' '1' >/dev/null 2>&1; then
+      adapter_cleanup_volumes >/dev/null 2>&1 || true
+      adapter_input_error 'FINALIZER_UNAVAILABLE'
+      return "$ADAPTER_EXIT_INPUT"
+    fi
+  fi
+  if ! adapter_run_finalizer_verification >/dev/null 2>&1; then
     adapter_cleanup_volumes >/dev/null 2>&1 || true
     adapter_input_error 'FINALIZER_UNAVAILABLE'
     return "$ADAPTER_EXIT_INPUT"
@@ -1189,6 +1376,9 @@ adapter_execute_checkpoint() {
   local phase_status=0
   local finalizer_status=0
   local cleanup_status=0
+  if [ "$ADAPTER_COMMAND" = 'freeze' ]; then
+    failure_code='NONE'
+  fi
   if ! adapter_run_work_phase >/dev/null 2>&1; then
     failure_code='INTERNAL_ERROR'
     phase_status=1
@@ -1212,6 +1402,8 @@ adapter_execute_checkpoint() {
   fi
   if [ "$phase_status" -ne 0 ]; then
     adapter_input_error "$failure_code"
+  elif [ "$ADAPTER_COMMAND" = 'freeze' ]; then
+    return 0
   else
     adapter_input_error 'COMMAND_NOT_AVAILABLE'
   fi
@@ -1438,6 +1630,7 @@ main() {
     return "$ADAPTER_EXIT_INPUT"
   }
   adapter_require_clean_source || return "$?"
+  adapter_require_clean_treatment || return "$?"
   adapter_require_provenance || return "$?"
   adapter_prepare_failure_identity || {
     adapter_input_error 'INTERNAL_ERROR'

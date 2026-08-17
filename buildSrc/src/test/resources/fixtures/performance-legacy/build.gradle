@@ -1,0 +1,25 @@
+plugins {
+  id 'java'
+  id 'me.champeau.jmh' version '0.7.3'
+}
+
+repositories { mavenCentral() }
+
+dependencies {
+  implementation files('fixture-inputs/runtime-dependency.jar')
+  testImplementation files('fixture-inputs/kotest-leak.jar')
+}
+
+jmh {
+  jmhVersion = '1.37'
+  includeTests = true
+  failOnError = false
+  resultFormat = 'JSON'
+  resultsFile = layout.buildDirectory.file('results/jmh/results.json')
+  includes = ['example.FixtureBenchmark']
+  fork = 1
+  warmupIterations = 0
+  iterations = 1
+  timeOnIteration = '10ms'
+  jvmArgsAppend = ['-Dfixture.fail-setup=true']
+}

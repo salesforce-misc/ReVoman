@@ -29,21 +29,9 @@ internal object EffectiveClasspath {
     ) {
       problems += DistributionProblem.SERVICE_PROVIDER_MISSING
     }
-    if (inspections.any { inspection -> inspection.allClasses.any(::isTestClass) }) {
+    if (inspections.any(JarInspection::containsTestContent)) {
       problems += DistributionProblem.TEST_CONTENT_PRESENT
     }
     return immutableList(problems.distinct())
-  }
-
-  private fun isTestClass(identity: String): Boolean {
-    val simpleName = identity.substringAfterLast('.').substringBefore('$')
-    return identity.startsWith("org.junit.") ||
-      identity.startsWith("org.junit.jupiter.") ||
-      identity.startsWith("io.kotest.") ||
-      identity.startsWith("io.mockk.") ||
-      identity.startsWith("net.bytebuddy.") ||
-      simpleName.endsWith("Test") ||
-      simpleName.endsWith("Tests") ||
-      simpleName.endsWith("Spec")
   }
 }

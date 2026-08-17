@@ -106,6 +106,9 @@ internal class FakeHost : AutoCloseable {
   fun invokePackaged(vararg arguments: String): AdapterInvocation =
     run(listOf(sourceRoot.resolve("scripts/performance/run").toString(), *arguments), emptyMap())
 
+  fun invokeFakeDocker(vararg arguments: String): AdapterInvocation =
+    run(listOf(fakeBin.resolve("docker").toString(), *arguments), emptyMap())
+
   fun invokeFunction(
     function: String,
     vararg arguments: String,
@@ -162,7 +165,15 @@ internal class FakeHost : AutoCloseable {
   }
 
   private fun resetFakeVolumeState() {
-    Files.deleteIfExists(repositoryRoot.resolve(".fake-finalizer-verified"))
+    listOf(
+        ".fake-finalizer-verified",
+        ".fake-preparation-complete",
+        ".fake-finalizer-distribution",
+        ".fake-freeze-bootstrap-distribution",
+        ".fake-provisional-distribution",
+        ".fake-freeze-validated-distribution",
+      )
+      .forEach { name -> Files.deleteIfExists(repositoryRoot.resolve(name)) }
     Files.list(repositoryRoot).use { files ->
       files
         .filter { path -> path.fileName.toString().startsWith(".fake-docker-volume-") }

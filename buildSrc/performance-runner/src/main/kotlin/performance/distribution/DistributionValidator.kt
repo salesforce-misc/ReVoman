@@ -30,6 +30,7 @@ enum class DistributionProblem {
   INVALID_CLASSPATH_ORDER,
   CLASSPATH_ENTRY_MISSING,
   CLASSPATH_HASH_MISMATCH,
+  CLASSPATH_SIZE_MISMATCH,
   TEST_DEPENDENCY_PRESENT,
   TEST_CONTENT_PRESENT,
   INVALID_JAR,
@@ -232,11 +233,14 @@ class DistributionValidator {
         if (digest(path) != entry.sha256) {
           problems += DistributionProblem.CLASSPATH_HASH_MISMATCH
         }
+        if (Files.size(path) != entry.byteLength) {
+          problems += DistributionProblem.CLASSPATH_SIZE_MISMATCH
+        }
         path to
           JarValidator.inspect(
             path = path,
             featureVersion = featureVersion,
-            requireJdkValidation = entry.path in PROJECT_BUILT_JARS,
+            projectBuilt = entry.path in PROJECT_BUILT_JARS,
           )
       }
     problems += EffectiveClasspath.validate(validated.map(Pair<Path, JarInspection>::second))
@@ -357,12 +361,23 @@ class DistributionValidator {
 
   private fun protocolClosureHash(protocol: DistributionProtocolManifest): Sha256 =
     Sha256.digest(
-      protocol
-        .bindings()
-        .sortedBy(DistributionArtifactBinding::path)
-        .joinToString(separator = "\n", postfix = "\n") { binding ->
-          "${binding.sha256.hex}  ${binding.path}"
+      buildList {
+          addAll(
+            protocol.bindings().map { binding ->
+              "artifact\t${binding.sha256.hex}\t${binding.path}"
+            },
+          )
+          addAll(
+            protocol.sourceClosure.map { binding ->
+              "source\t${binding.sha256.hex}\t${binding.path}"
+            },
+          )
+          addAll(
+            protocol.toolIdentities.map { (key, value) -> "identity\t$key\t$value" },
+          )
         }
+        .sorted()
+        .joinToString(separator = "\n", postfix = "\n")
         .encodeToByteArray(),
     )
 
@@ -378,6 +393,14 @@ class DistributionValidator {
       protocol.qualificationPolicies.map(DistributionArtifactBinding::path).toSet() ==
         REQUIRED_POLICIES &&
       protocol.testVectors.map(DistributionArtifactBinding::path).toSet() == REQUIRED_TEST_VECTORS &&
+      protocol.sourceClosure.isNotEmpty() &&
+      protocol.sourceClosure.map(DistributionArtifactBinding::path).let { paths ->
+        paths == paths.sorted() &&
+          paths.distinct().size == paths.size &&
+          paths.all(DistributionLayout::isNormalizedRelativePath)
+      } &&
+      protocol.toolIdentities.keys == REQUIRED_TOOL_IDENTITIES &&
+      protocol.toolIdentities.values.none(String::isBlank) &&
       protocol.schemas.all { binding -> binding.path.matches(PROTOCOL_SCHEMA) } &&
       listOf(
           protocol.launchers,
@@ -495,5 +518,15 @@ class DistributionValidator {
         "protocol/qualification/m4max-docker.json",
       )
     val REQUIRED_TEST_VECTORS = setOf("protocol/test-vectors/bootstrap-v1.json")
+    val REQUIRED_TOOL_IDENTITIES =
+      setOf(
+        "gradle",
+        "javaExecutableSha256",
+        "javaFeature",
+        "jmhCore",
+        "jmhGradlePlugin",
+        "kotlinCompiler",
+        "runtimeImage",
+      )
   }
 }

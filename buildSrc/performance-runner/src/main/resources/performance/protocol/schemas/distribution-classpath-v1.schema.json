@@ -3,6 +3,10 @@
     "classpathEntry": {
       "additionalProperties": false,
       "properties": {
+        "byteLength": {
+          "minimum": 1,
+          "type": "integer"
+        },
         "coordinate": {
           "maxLength": 256,
           "minLength": 3,
@@ -23,6 +27,7 @@
         }
       },
       "required": [
+        "byteLength",
         "coordinate",
         "order",
         "path",

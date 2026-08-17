@@ -29,6 +29,18 @@
     "sha256": {
       "pattern": "^[0-9a-f]{64}$",
       "type": "string"
+    },
+    "toolIdentities": {
+      "additionalProperties": {
+        "maxLength": 512,
+        "minLength": 1,
+        "type": "string"
+      },
+      "minProperties": 1,
+      "propertyNames": {
+        "pattern": "^[A-Za-z][A-Za-z0-9.-]*$"
+      },
+      "type": "object"
     }
   },
   "$id": "https://revoman.dev/performance/protocol/schemas/distribution-protocol-v1.schema.json",
@@ -65,8 +77,14 @@
     "schemas": {
       "$ref": "#/$defs/artifactList"
     },
+    "sourceClosure": {
+      "$ref": "#/$defs/artifactList"
+    },
     "testVectors": {
       "$ref": "#/$defs/artifactList"
+    },
+    "toolIdentities": {
+      "$ref": "#/$defs/toolIdentities"
     }
   },
   "required": [
@@ -80,7 +98,9 @@
     "runtimeDeclarations",
     "schemaVersion",
     "schemas",
-    "testVectors"
+    "sourceClosure",
+    "testVectors",
+    "toolIdentities"
   ],
   "title": "Frozen distribution protocol bindings",
   "type": "object"

@@ -21,6 +21,7 @@ import java.util.zip.CRC32
 internal data class JarInspection(
   val effectiveClasses: Set<String>,
   val allClasses: Set<String>,
+  val containsTestContent: Boolean,
   val serviceProviders: Set<String>,
   val benchmarkNames: Set<String>?,
   val hasCompilerHints: Boolean,
@@ -31,19 +32,21 @@ internal object JarValidator {
   fun inspect(
     path: Path,
     featureVersion: Int,
-    requireJdkValidation: Boolean,
+    projectBuilt: Boolean,
   ): JarInspection =
     runCatching {
         inspectJar(
           path = path,
           featureVersion = featureVersion,
-          jdkValidationSucceeded = !requireJdkValidation || validateWithCurrentJdk(path),
+          jdkValidationSucceeded = !projectBuilt || validateWithCurrentJdk(path),
+          projectBuilt = projectBuilt,
         )
       }
       .getOrElse {
         JarInspection(
           effectiveClasses = emptySet(),
           allClasses = emptySet(),
+          containsTestContent = false,
           serviceProviders = emptySet(),
           benchmarkNames = null,
           hasCompilerHints = false,
@@ -55,6 +58,7 @@ internal object JarValidator {
     path: Path,
     featureVersion: Int,
     jdkValidationSucceeded: Boolean,
+    projectBuilt: Boolean,
   ): JarInspection =
     JarFile(path.toFile(), true).use { jar ->
       val entries = jar.entries().asSequence().toList()
@@ -157,12 +161,29 @@ internal object JarValidator {
       JarInspection(
         effectiveClasses = immutableSet(effectiveClasses),
         allClasses = immutableSet(allClasses),
+        containsTestContent = allClasses.any { identity -> isTestClass(identity, projectBuilt) },
         serviceProviders = immutableSet(serviceProviders),
         benchmarkNames = benchmarkNames?.let(::immutableSet),
         hasCompilerHints = hasCompilerHints,
         problems = immutableList(problems.distinct()),
       )
     }
+
+  private fun isTestClass(identity: String, projectBuilt: Boolean): Boolean {
+    val simpleName = identity.substringAfterLast('.').substringBefore('$')
+    if (identity.contains(".jmh_generated.") && simpleName.endsWith("_jmhTest")) {
+      return false
+    }
+    return identity.startsWith("org.junit.") ||
+      identity.startsWith("org.junit.jupiter.") ||
+      identity.startsWith("io.kotest.") ||
+      identity.startsWith("io.mockk.") ||
+      identity.startsWith("net.bytebuddy.") ||
+      (projectBuilt &&
+        (simpleName.endsWith("Test") ||
+          simpleName.endsWith("Tests") ||
+          simpleName.endsWith("Spec")))
+  }
 
   private fun validateWithCurrentJdk(path: Path): Boolean {
     val tool = ToolProvider.findFirst(JAR_TOOL_NAME).orElse(null) ?: return false

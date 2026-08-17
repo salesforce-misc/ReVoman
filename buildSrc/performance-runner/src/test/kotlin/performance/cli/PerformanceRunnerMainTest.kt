@@ -34,9 +34,26 @@ class PerformanceRunnerMainTest :
         standardError.joinToString("\n") shouldNotContain privateValue
       }
 
+      test("validate-distribution invokes the frozen validation boundary") {
+        val standardError = mutableListOf<String>()
+        val validated = mutableListOf<String>()
+
+        val exit =
+          runMain(
+            args = listOf("validate-distribution", "--distribution", "distribution"),
+            dependencies =
+              RunnerDependencies(
+                writeStandardError = { message -> standardError += message },
+                validateDistribution = { path -> validated += path; true },
+              ),
+          )
+
+        exit shouldBe RunnerExit.SUCCESS.code
+        validated shouldContainExactly listOf("distribution")
+        standardError shouldContainExactly emptyList()
+      }
+
       mapOf(
-          "validate-distribution" to
-            listOf("validate-distribution", "--distribution", "distribution"),
           "capture" to listOf("capture", "--profile", "cold"),
           "compare" to listOf("compare", "--kind", "calibration"),
           "campaign" to listOf("campaign", "--profile", "warm"),

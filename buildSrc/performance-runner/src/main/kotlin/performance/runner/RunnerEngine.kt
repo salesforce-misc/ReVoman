@@ -10,9 +10,11 @@ package performance.runner
 /** Executes a validated runner command without depending on Gradle APIs. */
 class RunnerEngine(private val dependencies: RunnerDependencies) {
   fun execute(command: RunnerCommand): RunnerOutcome {
+    if (command is RunnerCommand.ValidateDistribution) {
+      return validateDistribution(command)
+    }
     val reason =
       when (command) {
-        is RunnerCommand.ValidateDistribution,
         is RunnerCommand.Capture,
         is RunnerCommand.Compare,
         is RunnerCommand.Campaign,
@@ -26,5 +28,18 @@ class RunnerEngine(private val dependencies: RunnerDependencies) {
       exit = RunnerExit.INPUT_OR_PREFLIGHT_INVALID,
       publishedArtifact = null,
     )
+  }
+
+  private fun validateDistribution(command: RunnerCommand.ValidateDistribution): RunnerOutcome {
+    val path =
+      command.arguments.windowed(size = 2, step = 2).singleOrNull {
+        it.firstOrNull() == "--distribution"
+      }?.getOrNull(1)
+    return if (path != null && dependencies.distributionIsValid(path)) {
+      RunnerOutcome(exit = RunnerExit.SUCCESS, publishedArtifact = null)
+    } else {
+      dependencies.reportInputFailure(RunnerFailureReason.DISTRIBUTION_INVALID)
+      RunnerOutcome(exit = RunnerExit.INPUT_OR_PREFLIGHT_INVALID, publishedArtifact = null)
+    }
   }
 }

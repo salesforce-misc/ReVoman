@@ -29,6 +29,7 @@ data class JavaRuntimeIdentity(
 
 /** One exact entry in an ordered runtime classpath. */
 data class DistributionClasspathEntry(
+  val byteLength: Long,
   val coordinate: String,
   val order: Int,
   val path: String,
@@ -91,7 +92,9 @@ data class DistributionProtocolManifest(
   val runtimeDeclarations: List<DistributionArtifactBinding>,
   val qualificationPolicies: List<DistributionArtifactBinding>,
   val expectedCells: DistributionArtifactBinding,
+  val sourceClosure: List<DistributionArtifactBinding>,
   val testVectors: List<DistributionArtifactBinding>,
+  val toolIdentities: Map<String, String>,
 ) {
   internal fun bindings(): List<DistributionArtifactBinding> =
     immutableList(
@@ -212,6 +215,7 @@ internal class DistributionManifestReader {
       array.values().asSequence().map { value ->
         val entry = value as ObjectNode
         DistributionClasspathEntry(
+          byteLength = entry.get("byteLength").asLong(),
           coordinate = entry.text("coordinate"),
           order = entry.get("order").asInt(),
           path = entry.text("path"),
@@ -246,7 +250,15 @@ internal class DistributionManifestReader {
       runtimeDeclarations = parseArtifacts(document.arrayNode("runtimeDeclarations")),
       qualificationPolicies = parseArtifacts(document.arrayNode("qualificationPolicies")),
       expectedCells = parseArtifact(document.objectNode("expectedCells")),
+      sourceClosure = parseArtifacts(document.arrayNode("sourceClosure")),
       testVectors = parseArtifacts(document.arrayNode("testVectors")),
+      toolIdentities =
+        Collections.unmodifiableMap(
+          document
+            .objectNode("toolIdentities")
+            .properties()
+            .associate { (key, value) -> key to value.asString() },
+        ),
     )
 
   private fun parseArtifacts(array: ArrayNode): List<DistributionArtifactBinding> =
