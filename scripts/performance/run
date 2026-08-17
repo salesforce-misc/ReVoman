@@ -1,0 +1,1003 @@
+#!/bin/bash
+#
+# Copyright (c) 2026, Salesforce, Inc. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+ADAPTER_EXIT_INPUT=2
+ADAPTER_EXIT_PUBLICATION=8
+ADAPTER_RUNTIME_REFERENCE='docker.io/library/eclipse-temurin@sha256:6c7425db05efdcf0ba40d989898857b093f14ceaf9684c9c31a072c159f4590e'
+ADAPTER_RUNTIME_MANIFEST='sha256:6c7425db05efdcf0ba40d989898857b093f14ceaf9684c9c31a072c159f4590e'
+ADAPTER_RUNTIME_CONFIG='sha256:ad6963934ee96838c09d99f3c4df6f991cd00ed70fa8a48f7045517d7ae8991c'
+ADAPTER_JAVA_SHA256='1cedc51a4102638f1f06077acb3611b88f3061f9c7d76bd0a0df7f8607a9367b'
+ADAPTER_PLATFORM='linux/arm64'
+ADAPTER_CPUSET='0-3'
+ADAPTER_MEMORY='6g'
+ADAPTER_PIDS='512'
+ADAPTER_MAC_UID='10001'
+ADAPTER_MAC_GID='10001'
+ADAPTER_GITHUB_UID='1001'
+ADAPTER_GITHUB_GID='1001'
+
+ADAPTER_FLAG_NAMES=()
+ADAPTER_FLAG_VALUES=()
+ADAPTER_INPUT_PATHS=()
+ADAPTER_DOCKER_CONTEXT_ARGS=()
+ADAPTER_RUN_TOKEN='unknown'
+ADAPTER_RESERVED=0
+
+adapter_error() {
+  local category="$1"
+  local code="$2"
+  printf 'performance-adapter: %s: %s: token=%s\n' "$category" "$code" "$ADAPTER_RUN_TOKEN" >&2
+}
+
+adapter_argument_error() {
+  adapter_error 'INPUT_OR_PREFLIGHT_INVALID' 'ARGUMENT_INVALID'
+  return "$ADAPTER_EXIT_INPUT"
+}
+
+adapter_input_error() {
+  adapter_error 'INPUT_OR_PREFLIGHT_INVALID' "$1"
+  return "$ADAPTER_EXIT_INPUT"
+}
+
+adapter_publication_error() {
+  adapter_error 'INTERNAL_OR_PUBLICATION_FAILED' 'PUBLICATION_FAILED'
+  return "$ADAPTER_EXIT_PUBLICATION"
+}
+
+adapter_git() {
+  command git "$@"
+}
+
+adapter_docker() {
+  command docker "${ADAPTER_DOCKER_CONTEXT_ARGS[@]}" "$@"
+}
+
+adapter_write_reservation() {
+  local token_file="$1"
+  local token="$2"
+  (umask 077 && printf '%s\n' "$token" >"$token_file")
+}
+
+adapter_fsync_path() {
+  # Bash has no fsync primitive. The host adapter uses the platform sync barrier here; the frozen
+  # runner owns file-specific fsync during evidence publication once it is available.
+  /bin/sync
+}
+
+adapter_atomic_rename() {
+  /bin/mv "$1" "$2"
+}
+
+adapter_word_in_table() {
+  local word="$1"
+  local table="$2"
+  case " $table " in
+    *" $word "*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+adapter_command_contract() {
+  case "$ADAPTER_COMMAND" in
+    freeze)
+      ADAPTER_ALLOWED_FLAGS='treatment-source harness-from output'
+      ADAPTER_REQUIRED_FLAGS='treatment-source output'
+      ;;
+    canary)
+      ADAPTER_ALLOWED_FLAGS='distribution host-id output'
+      ADAPTER_REQUIRED_FLAGS='distribution host-id output'
+      ;;
+    campaign)
+      ADAPTER_ALLOWED_FLAGS='profile host-id baseline-distribution candidate-distribution regression-policy output'
+      ADAPTER_REQUIRED_FLAGS='profile host-id baseline-distribution candidate-distribution output'
+      ;;
+    capture)
+      ADAPTER_ALLOWED_FLAGS='profile forks host-id session-id sequence distribution diagnostic-profiler output'
+      ADAPTER_REQUIRED_FLAGS='profile forks host-id session-id sequence distribution output'
+      ;;
+    compare)
+      ADAPTER_ALLOWED_FLAGS='kind runner-distribution baseline candidate calibration regression-policy output'
+      ADAPTER_REQUIRED_FLAGS='kind runner-distribution baseline candidate output'
+      ;;
+    *) return 1 ;;
+  esac
+  return 0
+}
+
+adapter_flag_present() {
+  local requested="$1"
+  local name
+  for name in "${ADAPTER_FLAG_NAMES[@]}"; do
+    if [ "$name" = "$requested" ]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+adapter_flag_value() {
+  local requested="$1"
+  local index=0
+  local name
+  for name in "${ADAPTER_FLAG_NAMES[@]}"; do
+    if [ "$name" = "$requested" ]; then
+      printf '%s' "${ADAPTER_FLAG_VALUES[$index]}"
+      return 0
+    fi
+    index=$((index + 1))
+  done
+  return 1
+}
+
+adapter_parse_arguments() {
+  local token
+  local flag
+  local required
+  ADAPTER_FLAG_NAMES=()
+  ADAPTER_FLAG_VALUES=()
+  if [ "$#" -lt 1 ]; then
+    return 1
+  fi
+  ADAPTER_COMMAND="$1"
+  shift
+  adapter_command_contract || return 1
+  while [ "$#" -gt 0 ]; do
+    token="$1"
+    case "$token" in
+      --*) flag="${token#--}" ;;
+      *) return 1 ;;
+    esac
+    adapter_word_in_table "$flag" "$ADAPTER_ALLOWED_FLAGS" || return 1
+    adapter_flag_present "$flag" && return 1
+    [ "$#" -ge 2 ] || return 1
+    case "$2" in
+      ''|--*) return 1 ;;
+      *$'\n'*|*$'\r'*) return 1 ;;
+    esac
+    ADAPTER_FLAG_NAMES+=("$flag")
+    ADAPTER_FLAG_VALUES+=("$2")
+    shift 2
+  done
+  for required in $ADAPTER_REQUIRED_FLAGS; do
+    adapter_flag_present "$required" || return 1
+  done
+  return 0
+}
+
+adapter_initialize_paths() {
+  local script_directory
+  script_directory=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P) || return 1
+  ADAPTER_SCRIPT_PATH="$script_directory/$(basename "${BASH_SOURCE[0]}")"
+  ADAPTER_REPO_ROOT=$(cd "$script_directory/../.." && pwd -P) || return 1
+  return 0
+}
+
+adapter_normalize_output() {
+  local raw="$1"
+  local remaining
+  local component
+  local normalized=''
+  case "$raw" in
+    /*)
+      adapter_input_error 'OUTPUT_ABSOLUTE'
+      return "$ADAPTER_EXIT_INPUT"
+      ;;
+    *$'\n'*|*$'\r'*|*,*)
+      adapter_input_error 'OUTPUT_INVALID'
+      return "$ADAPTER_EXIT_INPUT"
+      ;;
+  esac
+  remaining="$raw"
+  while :; do
+    case "$remaining" in
+      */*)
+        component="${remaining%%/*}"
+        remaining="${remaining#*/}"
+        ;;
+      *)
+        component="$remaining"
+        remaining=''
+        ;;
+    esac
+    case "$component" in
+      ''|.) ;;
+      ..)
+        adapter_input_error 'OUTPUT_INVALID'
+        return "$ADAPTER_EXIT_INPUT"
+        ;;
+      *)
+        if [ -n "$normalized" ]; then
+          normalized="$normalized/$component"
+        else
+          normalized="$component"
+        fi
+        ;;
+    esac
+    [ -n "$remaining" ] || break
+  done
+  case "$normalized" in
+    build/performance/*)
+      ADAPTER_ARTIFACT_ROOT_RELATIVE='build/performance'
+      ;;
+    docs/superpowers/benchmarks/*)
+      ADAPTER_ARTIFACT_ROOT_RELATIVE='docs/superpowers/benchmarks'
+      ;;
+    *)
+      adapter_input_error 'OUTPUT_INVALID'
+      return "$ADAPTER_EXIT_INPUT"
+      ;;
+  esac
+  ADAPTER_NORMALIZED_OUTPUT="$normalized"
+  ADAPTER_RUN_TOKEN="${normalized##*/}"
+  adapter_validate_safe_id "$ADAPTER_RUN_TOKEN" || {
+    ADAPTER_RUN_TOKEN='unknown'
+    adapter_input_error 'OUTPUT_INVALID'
+    return "$ADAPTER_EXIT_INPUT"
+  }
+  return 0
+}
+
+adapter_validate_safe_id() {
+  local value="$1"
+  [ -n "$value" ] || return 1
+  [ "${#value}" -le 128 ] || return 1
+  case "$value" in
+    [A-Za-z0-9]* ) ;;
+    *) return 1 ;;
+  esac
+  case "$value" in
+    *[!A-Za-z0-9._-]*) return 1 ;;
+  esac
+  case "$value" in
+    *[Ss][Ee][Cc][Rr][Ee][Tt]*|*[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]*|\
+      *[Aa][Pp][Ii][Kk][Ee][Yy]*|*[Aa][Pp][Ii]_[Kk][Ee][Yy]*|\
+      *[Aa][Pp][Ii]-[Kk][Ee][Yy]*|*[Bb][Ee][Aa][Rr][Ee][Rr]*) return 1 ;;
+  esac
+  if [[ "$value" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
+    return 1
+  fi
+  if [[ "$value" =~ (gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|(AKIA|ASIA)[0-9A-Z]{16}) ]]; then
+    return 1
+  fi
+  return 0
+}
+
+adapter_parent_contains_symlink() {
+  local root="$1"
+  local relative="$2"
+  local current="$root"
+  local remaining="$relative"
+  local component
+  [ -n "$remaining" ] || return 1
+  while :; do
+    case "$remaining" in
+      */*)
+        component="${remaining%%/*}"
+        remaining="${remaining#*/}"
+        ;;
+      *)
+        component="$remaining"
+        remaining=''
+        ;;
+    esac
+    current="$current/$component"
+    if [ -L "$current" ]; then
+      return 0
+    fi
+    [ -n "$remaining" ] || break
+  done
+  return 1
+}
+
+adapter_validate_output() {
+  local raw
+  local artifact_root
+  local relative_to_root
+  local parent_relative
+  local parent
+  local resolved_parent
+  raw=$(adapter_flag_value 'output') || return "$ADAPTER_EXIT_INPUT"
+  adapter_normalize_output "$raw" || return "$?"
+  artifact_root="$ADAPTER_REPO_ROOT/$ADAPTER_ARTIFACT_ROOT_RELATIVE"
+  if [ "$ADAPTER_ARTIFACT_ROOT_RELATIVE" = 'build/performance' ] && [ ! -d "$artifact_root" ]; then
+    (umask 077 && /bin/mkdir -p "$artifact_root" 2>/dev/null) || {
+      adapter_input_error 'OUTPUT_UNWRITABLE'
+      return "$ADAPTER_EXIT_INPUT"
+    }
+  fi
+  [ -d "$artifact_root" ] && [ ! -L "$artifact_root" ] || {
+    adapter_input_error 'OUTPUT_SYMLINK'
+    return "$ADAPTER_EXIT_INPUT"
+  }
+  relative_to_root="${ADAPTER_NORMALIZED_OUTPUT#"$ADAPTER_ARTIFACT_ROOT_RELATIVE"/}"
+  parent_relative="${relative_to_root%/*}"
+  if [ "$parent_relative" = "$relative_to_root" ]; then
+    parent_relative=''
+  fi
+  if adapter_parent_contains_symlink "$artifact_root" "$parent_relative"; then
+    adapter_input_error 'OUTPUT_SYMLINK'
+    return "$ADAPTER_EXIT_INPUT"
+  fi
+  parent="$artifact_root"
+  if [ -n "$parent_relative" ]; then
+    parent="$artifact_root/$parent_relative"
+    if [ ! -d "$parent" ]; then
+      (umask 077 && /bin/mkdir -p "$parent" 2>/dev/null) || {
+        adapter_input_error 'OUTPUT_UNWRITABLE'
+        return "$ADAPTER_EXIT_INPUT"
+      }
+    fi
+  fi
+  if adapter_parent_contains_symlink "$artifact_root" "$parent_relative"; then
+    adapter_input_error 'OUTPUT_SYMLINK'
+    return "$ADAPTER_EXIT_INPUT"
+  fi
+  [ -d "$parent" ] && [ -w "$parent" ] || {
+    adapter_input_error 'OUTPUT_UNWRITABLE'
+    return "$ADAPTER_EXIT_INPUT"
+  }
+  resolved_parent=$(cd "$parent" 2>/dev/null && pwd -P) || {
+    adapter_input_error 'OUTPUT_UNWRITABLE'
+    return "$ADAPTER_EXIT_INPUT"
+  }
+  case "$resolved_parent/" in
+    "$artifact_root/"*) ;;
+    *)
+      adapter_input_error 'OUTPUT_SYMLINK'
+      return "$ADAPTER_EXIT_INPUT"
+      ;;
+  esac
+  ADAPTER_OUTPUT_PARENT="$resolved_parent"
+  ADAPTER_OUTPUT_TARGET="$ADAPTER_REPO_ROOT/$ADAPTER_NORMALIZED_OUTPUT"
+  ADAPTER_RESERVATION="$ADAPTER_OUTPUT_PARENT/.$ADAPTER_RUN_TOKEN.reservation"
+  ADAPTER_STAGING="$ADAPTER_OUTPUT_PARENT/.$ADAPTER_RUN_TOKEN.staging"
+  if [ -e "$ADAPTER_OUTPUT_TARGET" ] || [ -L "$ADAPTER_OUTPUT_TARGET" ]; then
+    adapter_input_error 'OUTPUT_EXISTS'
+    return "$ADAPTER_EXIT_INPUT"
+  fi
+  if [ -e "$ADAPTER_RESERVATION" ] || [ -L "$ADAPTER_RESERVATION" ] ||
+    [ -e "$ADAPTER_STAGING" ] || [ -L "$ADAPTER_STAGING" ]; then
+    adapter_input_error 'OUTPUT_EXISTS'
+    return "$ADAPTER_EXIT_INPUT"
+  fi
+  return 0
+}
+
+adapter_resolve_input() {
+  local flag="$1"
+  local kind="$2"
+  local raw
+  local candidate
+  local resolved
+  raw=$(adapter_flag_value "$flag") || return 1
+  case "$raw" in
+    *$'\n'*|*$'\r'*|*,*) return 1 ;;
+    /*) candidate="$raw" ;;
+    *) candidate="$ADAPTER_REPO_ROOT/$raw" ;;
+  esac
+  case "$kind" in
+    directory) [ -d "$candidate" ] || return 1 ;;
+    file) [ -f "$candidate" ] || return 1 ;;
+    *) return 1 ;;
+  esac
+  if [ "$kind" = 'directory' ]; then
+    resolved=$(cd "$candidate" 2>/dev/null && pwd -P) || return 1
+  else
+    resolved=$(cd "$(dirname "$candidate")" 2>/dev/null && pwd -P) || return 1
+    resolved="$resolved/$(basename "$candidate")"
+  fi
+  ADAPTER_INPUT_PATHS+=("$resolved")
+  printf '%s' "$resolved"
+}
+
+adapter_require_id_flag() {
+  local flag="$1"
+  local value
+  value=$(adapter_flag_value "$flag") || return 1
+  adapter_validate_safe_id "$value"
+}
+
+adapter_require_profile() {
+  local profile
+  profile=$(adapter_flag_value 'profile') || return 1
+  case "$profile" in
+    cold|warm) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+adapter_validate_command_values() {
+  local profile
+  local forks
+  local sequence
+  local profiler
+  local kind
+  ADAPTER_INPUT_PATHS=()
+  case "$ADAPTER_COMMAND" in
+    freeze)
+      adapter_resolve_input 'treatment-source' 'directory' >/dev/null || return 1
+      if adapter_flag_present 'harness-from'; then
+        adapter_resolve_input 'harness-from' 'directory' >/dev/null || return 1
+      fi
+      ;;
+    canary)
+      adapter_require_id_flag 'host-id' || return 1
+      adapter_resolve_input 'distribution' 'directory' >/dev/null || return 1
+      ;;
+    campaign)
+      adapter_require_profile || return 1
+      adapter_require_id_flag 'host-id' || return 1
+      adapter_resolve_input 'baseline-distribution' 'directory' >/dev/null || return 1
+      adapter_resolve_input 'candidate-distribution' 'directory' >/dev/null || return 1
+      if adapter_flag_present 'regression-policy'; then
+        adapter_resolve_input 'regression-policy' 'file' >/dev/null || return 1
+      fi
+      ;;
+    capture)
+      adapter_require_profile || return 1
+      adapter_require_id_flag 'host-id' || return 1
+      adapter_require_id_flag 'session-id' || return 1
+      forks=$(adapter_flag_value 'forks') || return 1
+      case "$forks" in
+        10|20|40) ;;
+        *) return 1 ;;
+      esac
+      sequence=$(adapter_flag_value 'sequence') || return 1
+      case "$sequence" in
+        *[!0-9]*|'') return 1 ;;
+      esac
+      [ "$sequence" -gt 0 ] 2>/dev/null || return 1
+      profile=$(adapter_flag_value 'profile') || return 1
+      if adapter_flag_present 'diagnostic-profiler'; then
+        profiler=$(adapter_flag_value 'diagnostic-profiler') || return 1
+        [ "$profile" = 'warm' ] || return 1
+        case "$profiler" in
+          gc|jfr) ;;
+          *) return 1 ;;
+        esac
+      fi
+      adapter_resolve_input 'distribution' 'directory' >/dev/null || return 1
+      ;;
+    compare)
+      kind=$(adapter_flag_value 'kind') || return 1
+      case "$kind" in
+        calibration|candidate) ;;
+        *) return 1 ;;
+      esac
+      adapter_resolve_input 'runner-distribution' 'directory' >/dev/null || return 1
+      adapter_resolve_input 'baseline' 'directory' >/dev/null || return 1
+      adapter_resolve_input 'candidate' 'directory' >/dev/null || return 1
+      if adapter_flag_present 'calibration'; then
+        adapter_resolve_input 'calibration' 'directory' >/dev/null || return 1
+      fi
+      if adapter_flag_present 'regression-policy'; then
+        adapter_resolve_input 'regression-policy' 'file' >/dev/null || return 1
+      fi
+      ;;
+    *) return 1 ;;
+  esac
+  return 0
+}
+
+adapter_require_clean_source() {
+  local status
+  local sha
+  status=$(
+    cd "$ADAPTER_REPO_ROOT" &&
+      adapter_git status --porcelain --untracked-files=normal -- \
+        scripts/performance/run config/performance buildSrc src/jmh gradle \
+        build.gradle.kts settings.gradle.kts gradle.properties gradlew gradlew.bat 2>/dev/null
+  ) || {
+    adapter_input_error 'SOURCE_IDENTITY_INVALID'
+    return "$ADAPTER_EXIT_INPUT"
+  }
+  [ -z "$status" ] || {
+    adapter_input_error 'SOURCE_DIRTY'
+    return "$ADAPTER_EXIT_INPUT"
+  }
+  sha=$(cd "$ADAPTER_REPO_ROOT" && adapter_git rev-parse HEAD 2>/dev/null) || {
+    adapter_input_error 'SOURCE_IDENTITY_INVALID'
+    return "$ADAPTER_EXIT_INPUT"
+  }
+  [ "${#sha}" -eq 40 ] || {
+    adapter_input_error 'SOURCE_IDENTITY_INVALID'
+    return "$ADAPTER_EXIT_INPUT"
+  }
+  case "$sha" in
+    *[!0-9a-f]*)
+      adapter_input_error 'SOURCE_IDENTITY_INVALID'
+      return "$ADAPTER_EXIT_INPUT"
+      ;;
+  esac
+  ADAPTER_SOURCE_SHA="$sha"
+  return 0
+}
+
+adapter_matching_frozen_adapter() {
+  local distribution="$1"
+  local frozen="$distribution/adapter/run"
+  [ -f "$frozen" ] && [ ! -L "$frozen" ] || return 1
+  /usr/bin/cmp -s "$ADAPTER_SCRIPT_PATH" "$frozen"
+}
+
+adapter_require_provenance() {
+  local distribution
+  case "$ADAPTER_COMMAND" in
+    freeze)
+      if adapter_flag_present 'harness-from'; then
+        distribution=$(adapter_flag_value 'harness-from') || return "$ADAPTER_EXIT_INPUT"
+        case "$distribution" in
+          /*) ;;
+          *) distribution="$ADAPTER_REPO_ROOT/$distribution" ;;
+        esac
+        adapter_matching_frozen_adapter "$distribution" || {
+          adapter_input_error 'ADAPTER_MISMATCH'
+          return "$ADAPTER_EXIT_INPUT"
+        }
+      fi
+      ;;
+    canary|capture)
+      distribution=$(adapter_flag_value 'distribution') || return "$ADAPTER_EXIT_INPUT"
+      case "$distribution" in
+        /*) ;;
+        *) distribution="$ADAPTER_REPO_ROOT/$distribution" ;;
+      esac
+      adapter_matching_frozen_adapter "$distribution" || {
+        adapter_input_error 'ADAPTER_MISMATCH'
+        return "$ADAPTER_EXIT_INPUT"
+      }
+      ;;
+    campaign)
+      for distribution in \
+        "$(adapter_flag_value 'baseline-distribution')" \
+        "$(adapter_flag_value 'candidate-distribution')"; do
+        case "$distribution" in
+          /*) ;;
+          *) distribution="$ADAPTER_REPO_ROOT/$distribution" ;;
+        esac
+        adapter_matching_frozen_adapter "$distribution" || {
+          adapter_input_error 'ADAPTER_MISMATCH'
+          return "$ADAPTER_EXIT_INPUT"
+        }
+      done
+      ;;
+    compare)
+      distribution=$(adapter_flag_value 'runner-distribution') || return "$ADAPTER_EXIT_INPUT"
+      case "$distribution" in
+        /*) ;;
+        *) distribution="$ADAPTER_REPO_ROOT/$distribution" ;;
+      esac
+      adapter_matching_frozen_adapter "$distribution" || {
+        adapter_input_error 'ADAPTER_MISMATCH'
+        return "$ADAPTER_EXIT_INPUT"
+      }
+      ;;
+  esac
+  return 0
+}
+
+adapter_reserve_output() {
+  if ! (umask 077 && /bin/mkdir "$ADAPTER_RESERVATION" 2>/dev/null); then
+    adapter_input_error 'OUTPUT_UNWRITABLE'
+    return "$ADAPTER_EXIT_INPUT"
+  fi
+  ADAPTER_RESERVED=1
+  /bin/chmod 0700 "$ADAPTER_RESERVATION" 2>/dev/null || {
+    adapter_publication_error
+    return "$ADAPTER_EXIT_PUBLICATION"
+  }
+  adapter_write_reservation "$ADAPTER_RESERVATION/token" "$ADAPTER_RUN_TOKEN" 2>/dev/null || {
+    adapter_publication_error
+    return "$ADAPTER_EXIT_PUBLICATION"
+  }
+  adapter_fsync_path "$ADAPTER_RESERVATION/token" || {
+    adapter_publication_error
+    return "$ADAPTER_EXIT_PUBLICATION"
+  }
+  adapter_fsync_path "$ADAPTER_OUTPUT_PARENT" || {
+    adapter_publication_error
+    return "$ADAPTER_EXIT_PUBLICATION"
+  }
+  return 0
+}
+
+adapter_sha256_file() {
+  local line
+  if [ -x /usr/bin/shasum ]; then
+    line=$(/usr/bin/shasum -a 256 "$1") || return 1
+  elif [ -x /usr/bin/sha256sum ]; then
+    line=$(/usr/bin/sha256sum "$1") || return 1
+  else
+    return 1
+  fi
+  printf '%s' "${line%% *}"
+}
+
+adapter_select_substrate() {
+  case "$(/usr/bin/uname -s 2>/dev/null || uname -s)" in
+    Darwin)
+      ADAPTER_SUBSTRATE_PROFILE='m4max-docker-linux-arm64-v1'
+      ADAPTER_SUBSTRATE_UID="$ADAPTER_MAC_UID"
+      ADAPTER_SUBSTRATE_GID="$ADAPTER_MAC_GID"
+      ADAPTER_DOCKER_CONTEXT_ARGS=(--context desktop-linux)
+      ;;
+    Linux)
+      ADAPTER_SUBSTRATE_PROFILE='github-hosted-arm64-v1'
+      ADAPTER_SUBSTRATE_UID="$ADAPTER_GITHUB_UID"
+      ADAPTER_SUBSTRATE_GID="$ADAPTER_GITHUB_GID"
+      ADAPTER_DOCKER_CONTEXT_ARGS=()
+      ;;
+    *)
+      adapter_input_error 'CONTEXT_INVALID'
+      return "$ADAPTER_EXIT_INPUT"
+      ;;
+  esac
+  return 0
+}
+
+adapter_hardened_common_args() {
+  ADAPTER_HARDENED_ARGS=(
+    --read-only
+    --cap-drop ALL
+    --security-opt no-new-privileges
+    --cpuset-cpus "$ADAPTER_CPUSET"
+    --memory "$ADAPTER_MEMORY"
+    --memory-swap "$ADAPTER_MEMORY"
+    --pids-limit "$ADAPTER_PIDS"
+    --label "dev.revoman.performance.substrate=$ADAPTER_SUBSTRATE_PROFILE"
+    --env LANG=C.UTF-8
+    --env LC_ALL=C.UTF-8
+    --env TZ=UTC
+  )
+}
+
+adapter_acquire_and_verify_runtime() {
+  local identity
+  local manifest
+  adapter_docker pull --platform "$ADAPTER_PLATFORM" "$ADAPTER_RUNTIME_REFERENCE" >/dev/null 2>&1 || return 1
+  identity=$(
+    adapter_docker image inspect \
+      --format '{{.Os}}|{{.Architecture}}|{{.Variant}}|{{.Id}}' \
+      "$ADAPTER_RUNTIME_REFERENCE" 2>/dev/null
+  ) || return 1
+  [ "$identity" = "linux|arm64|v8|$ADAPTER_RUNTIME_MANIFEST" ] || return 1
+  manifest=$(adapter_docker buildx imagetools inspect --raw "$ADAPTER_RUNTIME_REFERENCE" 2>/dev/null) || return 1
+  case "$manifest" in
+    *"\"digest\": \"$ADAPTER_RUNTIME_CONFIG\""*) ;;
+    *) return 1 ;;
+  esac
+  adapter_hardened_common_args
+  adapter_docker run --rm \
+    --label dev.revoman.performance.phase=image-verification \
+    --pull=never --platform "$ADAPTER_PLATFORM" --network none \
+    "${ADAPTER_HARDENED_ARGS[@]}" \
+    --user "$ADAPTER_SUBSTRATE_UID:$ADAPTER_SUBSTRATE_GID" \
+    --env "REVOMAN_JAVA_SHA256=$ADAPTER_JAVA_SHA256" \
+    "$ADAPTER_RUNTIME_REFERENCE" /usr/bin/sh -lc \
+    'set -eu; test "$(uname -m)" = aarch64; test "$(command -v sh)" = /usr/bin/sh; test "$(command -v tar)" = /usr/bin/tar; test "$(command -v sha256sum)" = /usr/bin/sha256sum; /usr/bin/tar --version | { IFS= read -r tool_version; test "$tool_version" = "tar (GNU tar) 1.35"; }; /usr/bin/sha256sum --version | { IFS= read -r tool_version; test "$tool_version" = "sha256sum (GNU coreutils) 9.4"; }; java_output=$(/opt/java/openjdk/bin/java -version 2>&1); expected_java_output='"'"'openjdk version "21.0.11" 2026-04-21 LTS
+OpenJDK Runtime Environment Temurin-21.0.11+10 (build 21.0.11+10-LTS)
+OpenJDK 64-Bit Server VM Temurin-21.0.11+10 (build 21.0.11+10-LTS, mixed mode, sharing)'"'"'; test "$java_output" = "$expected_java_output"; java_hash=$(/usr/bin/sha256sum /opt/java/openjdk/bin/java); test "${java_hash%% *}" = "$REVOMAN_JAVA_SHA256"'
+}
+
+adapter_create_volumes() {
+  local volume_token="${ADAPTER_RUN_TOKEN:0:32}"
+  ADAPTER_INPUT_VOLUME="revoman-$volume_token-$$-input"
+  ADAPTER_OPERATION_VOLUME="revoman-$volume_token-$$-operation"
+  adapter_docker volume create \
+    --label dev.revoman.performance.owner=revoman \
+    --label "dev.revoman.performance.token=$ADAPTER_RUN_TOKEN" \
+    "$ADAPTER_INPUT_VOLUME" >/dev/null 2>&1 || return 1
+  ADAPTER_INPUT_VOLUME_CREATED=1
+  adapter_docker volume create \
+    --label dev.revoman.performance.owner=revoman \
+    --label "dev.revoman.performance.token=$ADAPTER_RUN_TOKEN" \
+    "$ADAPTER_OPERATION_VOLUME" >/dev/null 2>&1 || return 1
+  ADAPTER_OPERATION_VOLUME_CREATED=1
+  return 0
+}
+
+adapter_cleanup_volumes() {
+  local status=0
+  if [ "${ADAPTER_OPERATION_VOLUME_CREATED:-0}" -eq 1 ]; then
+    adapter_docker volume rm "$ADAPTER_OPERATION_VOLUME" >/dev/null 2>&1 || status=1
+  fi
+  if [ "${ADAPTER_INPUT_VOLUME_CREATED:-0}" -eq 1 ]; then
+    adapter_docker volume rm "$ADAPTER_INPUT_VOLUME" >/dev/null 2>&1 || status=1
+  fi
+  return "$status"
+}
+
+adapter_run_volume_initializer() {
+  adapter_hardened_common_args
+  adapter_docker run --rm \
+    --label dev.revoman.performance.phase=volume-initializer \
+    --pull=never --platform "$ADAPTER_PLATFORM" --network none \
+    "${ADAPTER_HARDENED_ARGS[@]}" \
+    --user 0:0 --cap-add CHOWN \
+    --mount "type=volume,src=$ADAPTER_INPUT_VOLUME,dst=/inputs" \
+    --mount "type=volume,src=$ADAPTER_OPERATION_VOLUME,dst=/operation" \
+    "$ADAPTER_RUNTIME_REFERENCE" /usr/bin/sh -lc \
+    "set -eu; mkdir -p /inputs/prepared /operation/provisional /operation/tmp; chown -R $ADAPTER_SUBSTRATE_UID:$ADAPTER_SUBSTRATE_GID /inputs /operation"
+}
+
+adapter_run_preparation() {
+  local mounts=()
+  local index=0
+  local input
+  for input in "${ADAPTER_INPUT_PATHS[@]}"; do
+    mounts+=(--mount "type=bind,src=$input,dst=/source/input-$index,readonly")
+    index=$((index + 1))
+  done
+  adapter_hardened_common_args
+  adapter_docker run --rm \
+    --label dev.revoman.performance.phase=preparation \
+    --pull=never --platform "$ADAPTER_PLATFORM" --network none \
+    "${ADAPTER_HARDENED_ARGS[@]}" \
+    --user "$ADAPTER_SUBSTRATE_UID:$ADAPTER_SUBSTRATE_GID" \
+    --tmpfs "/tmp:rw,noexec,nosuid,nodev,size=64m,uid=$ADAPTER_SUBSTRATE_UID,gid=$ADAPTER_SUBSTRATE_GID,mode=0700" \
+    --mount "type=volume,src=$ADAPTER_INPUT_VOLUME,dst=/inputs" \
+    "${mounts[@]}" \
+    --env "REVOMAN_INPUT_COUNT=$index" \
+    "$ADAPTER_RUNTIME_REFERENCE" /usr/bin/sh -lc \
+    'set -eu; input_index=0; while [ "$input_index" -lt "$REVOMAN_INPUT_COUNT" ]; do source="/source/input-$input_index"; target="/inputs/prepared/input-$input_index"; mkdir -p "$target"; if [ -d "$source" ]; then (cd "$source" && /usr/bin/tar -cf - .) | (cd "$target" && /usr/bin/tar -xf -); else (cd /source && /usr/bin/tar -cf - "input-$input_index") | (cd "$target" && /usr/bin/tar -xf -); fi; input_index=$((input_index + 1)); done; printf "%s\n" prepared > /inputs/prepared/status'
+}
+
+adapter_run_work_phase() {
+  local phase='timed'
+  local network='none'
+  if [ "$ADAPTER_COMMAND" = 'freeze' ]; then
+    phase='freeze'
+    network='bridge'
+  fi
+  adapter_hardened_common_args
+  adapter_docker run --rm \
+    --label "dev.revoman.performance.phase=$phase" \
+    --pull=never --platform "$ADAPTER_PLATFORM" --network "$network" \
+    "${ADAPTER_HARDENED_ARGS[@]}" \
+    --user "$ADAPTER_SUBSTRATE_UID:$ADAPTER_SUBSTRATE_GID" \
+    --tmpfs "/tmp:rw,noexec,nosuid,nodev,size=256m,uid=$ADAPTER_SUBSTRATE_UID,gid=$ADAPTER_SUBSTRATE_GID,mode=0700" \
+    --mount "type=volume,src=$ADAPTER_INPUT_VOLUME,dst=/inputs,readonly" \
+    --mount "type=volume,src=$ADAPTER_OPERATION_VOLUME,dst=/operation" \
+    --env "REVOMAN_COMMAND=$ADAPTER_COMMAND" \
+    --env "REVOMAN_JAVA_SHA256=$ADAPTER_JAVA_SHA256" \
+    --env "REVOMAN_SOURCE_SHA=$ADAPTER_SOURCE_SHA" \
+    "$ADAPTER_RUNTIME_REFERENCE" /usr/bin/sh -lc \
+    'set -eu; java_hash=$(/usr/bin/sha256sum /opt/java/openjdk/bin/java); test "${java_hash%% *}" = "$REVOMAN_JAVA_SHA256"; test -f /inputs/prepared/status; printf "%s\n" "$REVOMAN_COMMAND" > /operation/provisional/command; printf "%s\n" "$REVOMAN_SOURCE_SHA" > /operation/provisional/source-sha; java_hash=$(/usr/bin/sha256sum /opt/java/openjdk/bin/java); test "${java_hash%% *}" = "$REVOMAN_JAVA_SHA256"'
+}
+
+adapter_run_scrubber_if_requested() {
+  local profiler
+  if [ "$ADAPTER_COMMAND" != 'capture' ] || ! adapter_flag_present 'diagnostic-profiler'; then
+    return 0
+  fi
+  profiler=$(adapter_flag_value 'diagnostic-profiler') || return 1
+  adapter_hardened_common_args
+  adapter_docker run --rm \
+    --label dev.revoman.performance.phase=scrubber \
+    --pull=never --platform "$ADAPTER_PLATFORM" --network none \
+    "${ADAPTER_HARDENED_ARGS[@]}" \
+    --user "$ADAPTER_SUBSTRATE_UID:$ADAPTER_SUBSTRATE_GID" \
+    --tmpfs "/tmp:rw,noexec,nosuid,nodev,size=64m,uid=$ADAPTER_SUBSTRATE_UID,gid=$ADAPTER_SUBSTRATE_GID,mode=0700" \
+    --mount "type=volume,src=$ADAPTER_OPERATION_VOLUME,dst=/operation" \
+    --env "REVOMAN_PROFILER=$profiler" \
+    "$ADAPTER_RUNTIME_REFERENCE" /usr/bin/sh -lc \
+    'set -eu; printf "%s\n" "$REVOMAN_PROFILER" > /operation/provisional/profiler-scrubbed'
+}
+
+adapter_observed_at_utc() {
+  /bin/date -u '+%Y-%m-%dT%H:%M:%SZ'
+}
+
+adapter_prepare_failure_identity() {
+  ADAPTER_SHA256=$(adapter_sha256_file "$ADAPTER_SCRIPT_PATH") || return 1
+  ADAPTER_OBSERVED_AT_UTC=$(adapter_observed_at_utc) || return 1
+  return 0
+}
+
+adapter_run_finalizer() {
+  adapter_hardened_common_args
+  adapter_docker run --rm \
+    --label dev.revoman.performance.phase=finalizer \
+    --pull=never --platform "$ADAPTER_PLATFORM" --network none \
+    "${ADAPTER_HARDENED_ARGS[@]}" \
+    --user "$ADAPTER_SUBSTRATE_UID:$ADAPTER_SUBSTRATE_GID" \
+    --tmpfs "/tmp:rw,noexec,nosuid,nodev,size=64m,uid=$ADAPTER_SUBSTRATE_UID,gid=$ADAPTER_SUBSTRATE_GID,mode=0700" \
+    --mount "type=volume,src=$ADAPTER_OPERATION_VOLUME,dst=/operation,readonly" \
+    --mount "type=bind,src=$ADAPTER_OUTPUT_PARENT,dst=/artifacts" \
+    --env "REVOMAN_STAGING_NAME=.$ADAPTER_RUN_TOKEN.staging" \
+    --env "REVOMAN_ADAPTER_SHA256=$ADAPTER_SHA256" \
+    --env "REVOMAN_FAILURE_CODE=INTERNAL_ERROR" \
+    --env "REVOMAN_JAVA_SHA256=$ADAPTER_JAVA_SHA256" \
+    --env "REVOMAN_RUN_TOKEN=$ADAPTER_RUN_TOKEN" \
+    --env "REVOMAN_OBSERVED_AT_UTC=$ADAPTER_OBSERVED_AT_UTC" \
+    "$ADAPTER_RUNTIME_REFERENCE" /usr/bin/sh -lc \
+    'set -eu; java_hash=$(/usr/bin/sha256sum /opt/java/openjdk/bin/java); test "${java_hash%% *}" = "$REVOMAN_JAVA_SHA256"; staging="/artifacts/$REVOMAN_STAGING_NAME"; umask 077; mkdir "$staging"; printf "{\"adapterSha256\":\"%s\",\"failureCode\":\"%s\",\"observedAtUtc\":\"%s\",\"runToken\":\"%s\",\"schemaVersion\":\"adapter-failure-v1\"}\n" "$REVOMAN_ADAPTER_SHA256" "$REVOMAN_FAILURE_CODE" "$REVOMAN_OBSERVED_AT_UTC" "$REVOMAN_RUN_TOKEN" > "$staging/adapter-failure.json"; java_hash=$(/usr/bin/sha256sum /opt/java/openjdk/bin/java); test "${java_hash%% *}" = "$REVOMAN_JAVA_SHA256"; /usr/bin/sync'
+}
+
+adapter_create_host_failure_stage() {
+  local failure_code="$1"
+  [ ! -L "$ADAPTER_STAGING" ] || return 1
+  if [ ! -d "$ADAPTER_STAGING" ]; then
+    [ ! -e "$ADAPTER_STAGING" ] || return 1
+    (umask 077 && /bin/mkdir "$ADAPTER_STAGING" 2>/dev/null) || return 1
+  fi
+  [ ! -L "$ADAPTER_STAGING/adapter-failure.json" ] || return 1
+  (umask 077 && printf \
+    '{"adapterSha256":"%s","failureCode":"%s","observedAtUtc":"%s","runToken":"%s","schemaVersion":"adapter-failure-v1"}\n' \
+    "$ADAPTER_SHA256" "$failure_code" "$ADAPTER_OBSERVED_AT_UTC" "$ADAPTER_RUN_TOKEN" \
+    >"$ADAPTER_STAGING/adapter-failure.json") 2>/dev/null || return 1
+  adapter_fsync_path "$ADAPTER_STAGING/adapter-failure.json" || return 1
+  adapter_fsync_path "$ADAPTER_STAGING" || return 1
+  return 0
+}
+
+adapter_publish_stage() {
+  [ "$ADAPTER_RESERVED" -eq 1 ] || return 1
+  [ -d "$ADAPTER_STAGING" ] && [ ! -L "$ADAPTER_STAGING" ] || return 1
+  adapter_fsync_path "$ADAPTER_STAGING" || return 1
+  adapter_atomic_rename "$ADAPTER_STAGING" "$ADAPTER_OUTPUT_TARGET" 2>/dev/null || return 1
+  [ -d "$ADAPTER_OUTPUT_TARGET" ] && [ ! -L "$ADAPTER_OUTPUT_TARGET" ] || return 1
+  adapter_fsync_path "$ADAPTER_OUTPUT_PARENT" || return 1
+  /bin/rm -f "$ADAPTER_RESERVATION/token" 2>/dev/null || return 1
+  /bin/rmdir "$ADAPTER_RESERVATION" 2>/dev/null || return 1
+  adapter_fsync_path "$ADAPTER_OUTPUT_PARENT" || return 1
+  ADAPTER_RESERVED=0
+  return 0
+}
+
+adapter_publish_bootstrap_failure() {
+  local failure_code="$1"
+  adapter_create_host_failure_stage "$failure_code" || {
+    adapter_publication_error
+    return "$ADAPTER_EXIT_PUBLICATION"
+  }
+  adapter_publish_stage || {
+    adapter_publication_error
+    return "$ADAPTER_EXIT_PUBLICATION"
+  }
+  adapter_input_error "$failure_code"
+  return "$ADAPTER_EXIT_INPUT"
+}
+
+adapter_execute_checkpoint() {
+  local failure_code='INTERNAL_ERROR'
+  local phase_status=0
+  ADAPTER_INPUT_VOLUME_CREATED=0
+  ADAPTER_OPERATION_VOLUME_CREATED=0
+  if ! adapter_select_substrate >/dev/null 2>&1; then
+    failure_code='CONTEXT_INVALID'
+    phase_status=1
+  elif ! adapter_acquire_and_verify_runtime; then
+    failure_code='IMAGE_UNAVAILABLE'
+    phase_status=1
+  elif ! adapter_create_volumes >/dev/null 2>&1; then
+    failure_code='INTERNAL_ERROR'
+    phase_status=1
+  elif ! adapter_run_volume_initializer >/dev/null 2>&1; then
+    failure_code='INTERNAL_ERROR'
+    phase_status=1
+  elif ! adapter_run_preparation >/dev/null 2>&1; then
+    failure_code='INTERNAL_ERROR'
+    phase_status=1
+  elif ! adapter_run_work_phase >/dev/null 2>&1; then
+    failure_code='INTERNAL_ERROR'
+    phase_status=1
+  elif ! adapter_run_scrubber_if_requested >/dev/null 2>&1; then
+    failure_code='INTERNAL_ERROR'
+    phase_status=1
+  elif ! adapter_run_finalizer >/dev/null 2>&1; then
+    failure_code='INTERNAL_ERROR'
+    phase_status=1
+  fi
+  if ! adapter_cleanup_volumes; then
+    failure_code='INTERNAL_ERROR'
+    phase_status=1
+  fi
+  if [ "$phase_status" -ne 0 ] || [ ! -f "$ADAPTER_STAGING/adapter-failure.json" ]; then
+    adapter_create_host_failure_stage "$failure_code" || {
+      adapter_publication_error
+      return "$ADAPTER_EXIT_PUBLICATION"
+    }
+  fi
+  adapter_publish_stage || {
+    adapter_publication_error
+    return "$ADAPTER_EXIT_PUBLICATION"
+  }
+  if [ "$phase_status" -ne 0 ]; then
+    adapter_input_error "$failure_code"
+  else
+    adapter_input_error 'COMMAND_NOT_AVAILABLE'
+  fi
+  return "$ADAPTER_EXIT_INPUT"
+}
+
+adapter_live_volume_identity_fixture() {
+  local artifact_parent="$1"
+  local volume="revoman-live-volume-$$-$RANDOM"
+  local created=0
+  local status=0
+  [ -d "$artifact_parent" ] && [ ! -L "$artifact_parent" ] || return 2
+  case "$artifact_parent" in
+    *,*|*$'\n'*|*$'\r'*) return 2 ;;
+  esac
+  adapter_select_substrate || return "$?"
+  adapter_hardened_common_args
+  adapter_docker volume create \
+    --label dev.revoman.performance.owner=revoman-live-fixture "$volume" >/dev/null || return 1
+  created=1
+  adapter_docker run --rm \
+    --label dev.revoman.performance.phase=volume-initializer \
+    --pull=never --platform "$ADAPTER_PLATFORM" --network none \
+    "${ADAPTER_HARDENED_ARGS[@]}" --user 0:0 --cap-add CHOWN \
+    --mount "type=volume,src=$volume,dst=/operation" \
+    "$ADAPTER_RUNTIME_REFERENCE" /usr/bin/sh -lc \
+    "set -eu; mkdir -p /operation/state; chown -R $ADAPTER_SUBSTRATE_UID:$ADAPTER_SUBSTRATE_GID /operation" || status=1
+  if [ "$status" -eq 0 ]; then
+    adapter_docker run --rm \
+      --label dev.revoman.performance.phase=timed \
+      --pull=never --platform "$ADAPTER_PLATFORM" --network none \
+      "${ADAPTER_HARDENED_ARGS[@]}" \
+      --user "$ADAPTER_SUBSTRATE_UID:$ADAPTER_SUBSTRATE_GID" \
+      --tmpfs "/tmp:rw,noexec,nosuid,nodev,size=16m,uid=$ADAPTER_SUBSTRATE_UID,gid=$ADAPTER_SUBSTRATE_GID,mode=0700" \
+      --mount "type=volume,src=$volume,dst=/operation" \
+      "$ADAPTER_RUNTIME_REFERENCE" /usr/bin/sh -lc \
+      'set -eu; printf "%s:%s\n" "$(id -u)" "$(id -g)" > /operation/state/timed-identity.txt' || status=1
+  fi
+  if [ "$status" -eq 0 ]; then
+    adapter_docker run --rm \
+      --label dev.revoman.performance.phase=finalizer \
+      --pull=never --platform "$ADAPTER_PLATFORM" --network none \
+      "${ADAPTER_HARDENED_ARGS[@]}" \
+      --user "$ADAPTER_SUBSTRATE_UID:$ADAPTER_SUBSTRATE_GID" \
+      --tmpfs "/tmp:rw,noexec,nosuid,nodev,size=16m,uid=$ADAPTER_SUBSTRATE_UID,gid=$ADAPTER_SUBSTRATE_GID,mode=0700" \
+      --mount "type=volume,src=$volume,dst=/operation,readonly" \
+      --mount "type=bind,src=$artifact_parent,dst=/artifact" \
+      --env "REVOMAN_EXPECTED_IDENTITY=$ADAPTER_SUBSTRATE_UID:$ADAPTER_SUBSTRATE_GID" \
+      "$ADAPTER_RUNTIME_REFERENCE" /usr/bin/sh -lc \
+      'set -eu; test "$(cat /operation/state/timed-identity.txt)" = "$REVOMAN_EXPECTED_IDENTITY"; printf "%s:%s\n" "$(id -u)" "$(id -g)" > /artifact/finalizer-identity.txt' || status=1
+  fi
+  if [ "$created" -eq 1 ]; then
+    adapter_docker volume rm "$volume" >/dev/null || status=1
+  fi
+  if [ "$status" -eq 0 ]; then
+    printf 'LIVE_VOLUME_IDENTITY_OK\n'
+  fi
+  return "$status"
+}
+
+main() {
+  local output_status
+  adapter_initialize_paths || {
+    adapter_argument_error
+    return "$ADAPTER_EXIT_INPUT"
+  }
+  adapter_parse_arguments "$@" || {
+    adapter_argument_error
+    return "$ADAPTER_EXIT_INPUT"
+  }
+  adapter_validate_output
+  output_status=$?
+  [ "$output_status" -eq 0 ] || return "$output_status"
+  adapter_validate_command_values || {
+    adapter_argument_error
+    return "$ADAPTER_EXIT_INPUT"
+  }
+  adapter_require_clean_source || return "$?"
+  adapter_prepare_failure_identity || {
+    adapter_input_error 'INTERNAL_ERROR'
+    return "$ADAPTER_EXIT_INPUT"
+  }
+  adapter_reserve_output || return "$?"
+  if ! adapter_require_provenance >/dev/null 2>&1; then
+    adapter_publish_bootstrap_failure 'ADAPTER_MISMATCH'
+    return "$?"
+  fi
+  adapter_execute_checkpoint
+}
+
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+  main "$@"
+  exit "$?"
+fi
