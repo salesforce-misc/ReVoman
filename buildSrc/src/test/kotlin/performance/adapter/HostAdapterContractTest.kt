@@ -162,13 +162,71 @@ class HostAdapterContractTest :
           result.commands.filter { it.firstOrNull() == "docker" }.forEach { invocation ->
             invocation.take(3) shouldBe listOf("docker", "--context", "desktop-linux")
           }
-          result.commands
-            .single { invocation -> "image" in invocation && "inspect" in invocation }
-            .contains("{{.Os}}|{{.Architecture}}|{{.Variant}}|{{.Id}}") shouldBe true
+          val imageInspect =
+            result.commands
+              .single { invocation -> "image" in invocation && "inspect" in invocation }
+              .joinToString("\n")
+          imageInspect shouldContain "{{println \"PLATFORM\" .Os .Architecture .Variant}}"
+          imageInspect shouldContain "{{range .RepoDigests}}{{println \"REPO\" .}}{{end}}"
+          imageInspect shouldContain "{{with .Descriptor}}{{println \"DESCRIPTOR\" .digest}}{{end}}"
           val commandLog = result.commands.flatten().joinToString("\n")
           commandLog shouldContain "/usr/bin/sha256sum /opt/java/openjdk/bin/java"
           commandLog shouldNotContain "/usr/bin/head"
         }
+      }
+
+      test("runtime identity accepts portable approved shapes and rejects contradictory identities") {
+        listOf(
+            mapOf(
+              "FAKE_DOCKER_IMAGE_ID" to RUNTIME_MANIFEST,
+              "FAKE_DOCKER_DESCRIPTOR_DIGEST" to RUNTIME_MANIFEST,
+            ),
+            mapOf(
+              "FAKE_DOCKER_IMAGE_ID" to RUNTIME_CONFIG,
+              "FAKE_DOCKER_DESCRIPTOR_DIGEST" to "",
+              "FAKE_DOCKER_REPO_DIGEST" to "docker.io/library/eclipse-temurin@$RUNTIME_MANIFEST",
+            ),
+          )
+          .forEach { environment ->
+            FakeHost().use { host ->
+              val command = publicCommands(host).first { it.name == "canary" }
+              val result = host.invoke(*command.arguments.toTypedArray(), environment = environment)
+
+              result.exitCode shouldBe 2
+              result.standardError shouldContain "COMMAND_NOT_AVAILABLE"
+              result.standardError shouldNotContain "IMAGE_UNAVAILABLE"
+              result.commands.any { invocation -> "volume" in invocation && "create" in invocation } shouldBe
+                true
+            }
+          }
+
+        listOf(
+            mapOf(
+              "FAKE_DOCKER_IMAGE_ID" to "sha256:${"1".repeat(64)}",
+              "FAKE_DOCKER_DESCRIPTOR_DIGEST" to RUNTIME_MANIFEST,
+            ),
+            mapOf(
+              "FAKE_DOCKER_IMAGE_ID" to RUNTIME_CONFIG,
+              "FAKE_DOCKER_DESCRIPTOR_DIGEST" to "",
+              "FAKE_DOCKER_REPO_DIGEST" to "docker.io/library/eclipse-temurin@sha256:${"2".repeat(64)}",
+            ),
+            mapOf(
+              "FAKE_DOCKER_IMAGE_ID" to RUNTIME_MANIFEST,
+              "FAKE_DOCKER_DESCRIPTOR_DIGEST" to RUNTIME_MANIFEST,
+              "FAKE_DOCKER_CONFIG_DIGEST" to "sha256:${"3".repeat(64)}",
+            ),
+          )
+          .forEach { environment ->
+            FakeHost().use { host ->
+              val command = publicCommands(host).first { it.name == "canary" }
+              val result = host.invoke(*command.arguments.toTypedArray(), environment = environment)
+
+              result.exitCode shouldBe 2
+              result.standardError shouldContain "IMAGE_UNAVAILABLE"
+              result.commands.none { invocation -> "volume" in invocation && "create" in invocation } shouldBe
+                true
+            }
+          }
       }
 
       test("offline phase construction applies the frozen security and mount contract") {
@@ -398,6 +456,136 @@ class HostAdapterContractTest :
           }
         }
       }
+
+      test("provenance reads only the canonical distribution protocol adapter") {
+        FakeHost().use { host ->
+          val canonical =
+            host.frozenDistribution("canonical-provenance", canonicalAdapterPath = true)
+          val canonicalResult =
+            host.invoke(
+              "canary",
+              "--distribution",
+              canonical.toString(),
+              "--host-id",
+              "host-1",
+              "--output",
+              host.output("canonical-provenance"),
+            )
+
+          canonicalResult.exitCode shouldBe 2
+          canonicalResult.standardError shouldContain "COMMAND_NOT_AVAILABLE"
+          canonicalResult.standardError shouldNotContain "ADAPTER_MISMATCH"
+          canonicalResult.commands.filter { command -> command.firstOrNull() == "docker" }.shouldNotBeEmpty()
+
+          val obsolete =
+            host.frozenDistribution("obsolete-provenance", canonicalAdapterPath = false)
+          val obsoleteResult =
+            host.invoke(
+              "canary",
+              "--distribution",
+              obsolete.toString(),
+              "--host-id",
+              "host-1",
+              "--output",
+              host.output("obsolete-provenance"),
+            )
+
+          obsoleteResult.exitCode shouldBe 2
+          obsoleteResult.standardError shouldContain "ADAPTER_MISMATCH"
+          obsoleteResult.commands.filter { command -> command.firstOrNull() == "docker" }.shouldBeEmpty()
+        }
+      }
+
+      test("daemon volumes require stable generated names and exact label proof before use or removal") {
+        FakeHost().use { host ->
+          val distribution = host.frozenDistribution("owned-volumes")
+          val result =
+            host.invoke(
+              "canary",
+              "--distribution",
+              distribution.toString(),
+              "--host-id",
+              "host-1",
+              "--output",
+              host.output("owned-volumes"),
+            )
+          val creates = dockerVolumeCommands(result.commands, "create")
+          val inspects = dockerVolumeCommands(result.commands, "inspect")
+          val removals = dockerVolumeCommands(result.commands, "rm")
+
+          creates shouldBe
+            listOf(
+              listOf(
+                "docker",
+                "--context",
+                "desktop-linux",
+                "volume",
+                "create",
+                "--label",
+                "dev.revoman.performance.owner=revoman",
+                "--label",
+                "dev.revoman.performance.token=owned-volumes",
+              ),
+              listOf(
+                "docker",
+                "--context",
+                "desktop-linux",
+                "volume",
+                "create",
+                "--label",
+                "dev.revoman.performance.owner=revoman",
+                "--label",
+                "dev.revoman.performance.token=owned-volumes",
+              ),
+            )
+          inspects.size shouldBe 4
+          removals.size shouldBe 2
+          val initializerIndex =
+            result.commands.indexOfFirst { command ->
+              "dev.revoman.performance.phase=volume-initializer" in command
+            }
+          inspects.take(2).all { inspection ->
+            result.commands.indexOf(inspection) < initializerIndex
+          } shouldBe true
+          removals.forEach { removal ->
+            val removalIndex = result.commands.indexOf(removal)
+            result.commands[removalIndex - 1].also { inspection ->
+              dockerVolumeCommands(listOf(inspection), "inspect").size shouldBe 1
+              inspection.last() shouldBe removal.last()
+            }
+          }
+        }
+
+        listOf(
+            mapOf("FAKE_DOCKER_VOLUME_COLLISION" to "1") to Pair(0, 1),
+            mapOf("FAKE_DOCKER_VOLUME_CREATE_OUTPUT" to "../unsafe") to Pair(0, 0),
+            mapOf("FAKE_DOCKER_VOLUME_INITIAL_LABELS" to "someone-else|stale-token") to Pair(0, 0),
+            mapOf("FAKE_DOCKER_VOLUME_CLEANUP_LABELS" to "someone-else|stale-token") to Pair(1, 0),
+          )
+          .forEach { (environment, expected) ->
+            FakeHost().use { host ->
+              val distribution = host.frozenDistribution("untrusted-volumes")
+              val result =
+                host.invoke(
+                  "canary",
+                  "--distribution",
+                  distribution.toString(),
+                  "--host-id",
+                  "host-1",
+                  "--output",
+                  host.output("untrusted-volumes"),
+                  environment = environment,
+                )
+
+              result.exitCode shouldBe 2
+              result.standardError shouldContain "INTERNAL_ERROR"
+              result.commands
+                .count { command -> "dev.revoman.performance.phase=volume-initializer" in command } shouldBe
+                expected.first
+              dockerVolumeCommands(result.commands, "rm").size shouldBe expected.second
+            }
+          }
+      }
     },
   )
 
@@ -405,6 +593,11 @@ private data class PublicCommand(
   val name: String,
   val arguments: List<String>,
 )
+
+private const val RUNTIME_MANIFEST =
+  "sha256:6c7425db05efdcf0ba40d989898857b093f14ceaf9684c9c31a072c159f4590e"
+private const val RUNTIME_CONFIG =
+  "sha256:ad6963934ee96838c09d99f3c4df6f991cd00ed70fa8a48f7045517d7ae8991c"
 
 private fun publicCommands(host: FakeHost): List<PublicCommand> {
   val distribution = host.frozenDistribution("distribution")
@@ -488,6 +681,15 @@ private fun publicCommands(host: FakeHost): List<PublicCommand> {
 }
 
 private fun isDockerRun(command: List<String>): Boolean = command.firstOrNull() == "docker" && "run" in command
+
+private fun dockerVolumeCommands(
+  commands: List<List<String>>,
+  action: String,
+): List<List<String>> =
+  commands.filter { command ->
+    command.firstOrNull() == "docker" &&
+      command.windowed(2).any { arguments -> arguments == listOf("volume", action) }
+  }
 
 private fun phase(
   commands: List<List<String>>,

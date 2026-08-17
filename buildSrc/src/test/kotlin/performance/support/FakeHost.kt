@@ -51,13 +51,16 @@ internal class FakeHost : AutoCloseable {
   fun frozenDistribution(
     name: String,
     matchingAdapter: Boolean = true,
+    canonicalAdapterPath: Boolean = true,
   ): Path =
     repositoryRoot.resolve("inputs/$name").also { distribution ->
-      distribution.resolve("adapter").createDirectories()
+      val adapterDirectory =
+        distribution.resolve(if (canonicalAdapterPath) "protocol/adapter" else "adapter")
+      adapterDirectory.createDirectories()
       if (matchingAdapter && script.exists()) {
-        Files.copy(script, distribution.resolve("adapter/run"), StandardCopyOption.REPLACE_EXISTING)
+        Files.copy(script, adapterDirectory.resolve("run"), StandardCopyOption.REPLACE_EXISTING)
       } else {
-        distribution.resolve("adapter/run").writeText("mismatched adapter\n")
+        adapterDirectory.resolve("run").writeText("mismatched adapter\n")
       }
     }
 
@@ -98,6 +101,7 @@ internal class FakeHost : AutoCloseable {
   ): AdapterInvocation {
     val standardOutput = Files.createTempFile(repositoryRoot, "stdout.", ".log")
     val standardError = Files.createTempFile(repositoryRoot, "stderr.", ".log")
+    resetFakeVolumeState()
     val process =
       ProcessBuilder(command)
         .directory(repositoryRoot.toFile())
@@ -120,6 +124,14 @@ internal class FakeHost : AutoCloseable {
       commands =
         commandLog.takeIf(Path::exists)?.readLines()?.map { line -> line.split('\t') }.orEmpty(),
     )
+  }
+
+  private fun resetFakeVolumeState() {
+    Files.list(repositoryRoot).use { files ->
+      files
+        .filter { path -> path.fileName.toString().startsWith(".fake-docker-volume-") }
+        .forEach(Files::deleteIfExists)
+    }
   }
 
   override fun close() {

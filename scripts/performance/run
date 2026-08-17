@@ -66,8 +66,59 @@ adapter_fsync_path() {
   /bin/sync
 }
 
+adapter_path_identity() {
+  local system_name
+  system_name=$(/usr/bin/uname -s 2>/dev/null || uname -s) || return 1
+  case "$system_name" in
+    Darwin) /usr/bin/stat -f '%d:%i' "$1" ;;
+    Linux) /usr/bin/stat -c '%d:%i' "$1" ;;
+    *) return 1 ;;
+  esac
+}
+
+adapter_parent_is_stable() {
+  local path_identity
+  local anchor_identity
+  [ -d "$ADAPTER_OUTPUT_PARENT_PATH" ] && [ ! -L "$ADAPTER_OUTPUT_PARENT_PATH" ] || return 1
+  path_identity=$(adapter_path_identity "$ADAPTER_OUTPUT_PARENT_PATH") || return 1
+  anchor_identity=$(adapter_path_identity .) || return 1
+  [ "$path_identity" = "$ADAPTER_OUTPUT_PARENT_IDENTITY" ] &&
+    [ "$anchor_identity" = "$ADAPTER_OUTPUT_PARENT_IDENTITY" ]
+}
+
+adapter_no_clobber_move() {
+  local source="$1"
+  local target="$2"
+  local source_identity
+  local target_identity
+  local source_name
+  local nested_source
+  local nested_identity
+  adapter_parent_is_stable || return 1
+  [ -d "$source" ] && [ ! -L "$source" ] || return 1
+  [ ! -e "$target" ] && [ ! -L "$target" ] || return 1
+  source_identity=$(adapter_path_identity "$source") || return 1
+  /bin/mv -n "$source" "$target" || return 1
+  if [ ! -e "$source" ] && [ ! -L "$source" ] && [ -d "$target" ] && [ ! -L "$target" ]; then
+    target_identity=$(adapter_path_identity "$target") || target_identity=''
+    if [ "$target_identity" = "$source_identity" ] && adapter_parent_is_stable; then
+      return 0
+    fi
+  fi
+  source_name="${source##*/}"
+  nested_source="$target/$source_name"
+  if [ ! -e "$source" ] && [ ! -L "$source" ] && [ -d "$nested_source" ] &&
+    [ ! -L "$nested_source" ]; then
+    nested_identity=$(adapter_path_identity "$nested_source") || return 1
+    if [ "$nested_identity" = "$source_identity" ]; then
+      /bin/mv -n "$nested_source" "$source" >/dev/null 2>&1 || return 1
+    fi
+  fi
+  return 1
+}
+
 adapter_atomic_rename() {
-  /bin/mv "$1" "$2"
+  adapter_no_clobber_move "$1" "$2"
 }
 
 adapter_word_in_table() {
@@ -349,10 +400,23 @@ adapter_validate_output() {
       return "$ADAPTER_EXIT_INPUT"
       ;;
   esac
-  ADAPTER_OUTPUT_PARENT="$resolved_parent"
-  ADAPTER_OUTPUT_TARGET="$ADAPTER_REPO_ROOT/$ADAPTER_NORMALIZED_OUTPUT"
-  ADAPTER_RESERVATION="$ADAPTER_OUTPUT_PARENT/.$ADAPTER_RUN_TOKEN.reservation"
-  ADAPTER_STAGING="$ADAPTER_OUTPUT_PARENT/.$ADAPTER_RUN_TOKEN.staging"
+  ADAPTER_OUTPUT_PARENT_PATH="$resolved_parent"
+  ADAPTER_OUTPUT_PARENT_IDENTITY=$(adapter_path_identity "$resolved_parent") || {
+    adapter_input_error 'OUTPUT_UNWRITABLE'
+    return "$ADAPTER_EXIT_INPUT"
+  }
+  cd "$resolved_parent" 2>/dev/null || {
+    adapter_input_error 'OUTPUT_UNWRITABLE'
+    return "$ADAPTER_EXIT_INPUT"
+  }
+  adapter_parent_is_stable || {
+    adapter_input_error 'OUTPUT_SYMLINK'
+    return "$ADAPTER_EXIT_INPUT"
+  }
+  ADAPTER_OUTPUT_PARENT='.'
+  ADAPTER_OUTPUT_TARGET="./$ADAPTER_RUN_TOKEN"
+  ADAPTER_RESERVATION="./.$ADAPTER_RUN_TOKEN.reservation"
+  ADAPTER_STAGING="./.$ADAPTER_RUN_TOKEN.staging"
   if [ -e "$ADAPTER_OUTPUT_TARGET" ] || [ -L "$ADAPTER_OUTPUT_TARGET" ]; then
     adapter_input_error 'OUTPUT_EXISTS'
     return "$ADAPTER_EXIT_INPUT"
@@ -517,7 +581,7 @@ adapter_require_clean_source() {
 
 adapter_matching_frozen_adapter() {
   local distribution="$1"
-  local frozen="$distribution/adapter/run"
+  local frozen="$distribution/protocol/adapter/run"
   [ -f "$frozen" ] && [ ! -L "$frozen" ] || return 1
   /usr/bin/cmp -s "$ADAPTER_SCRIPT_PATH" "$frozen"
 }
@@ -579,11 +643,19 @@ adapter_require_provenance() {
 }
 
 adapter_reserve_output() {
+  adapter_parent_is_stable || {
+    adapter_input_error 'OUTPUT_UNWRITABLE'
+    return "$ADAPTER_EXIT_INPUT"
+  }
   if ! (umask 077 && /bin/mkdir "$ADAPTER_RESERVATION" 2>/dev/null); then
     adapter_input_error 'OUTPUT_UNWRITABLE'
     return "$ADAPTER_EXIT_INPUT"
   fi
   ADAPTER_RESERVED=1
+  adapter_parent_is_stable || {
+    adapter_publication_error
+    return "$ADAPTER_EXIT_PUBLICATION"
+  }
   /bin/chmod 0700 "$ADAPTER_RESERVATION" 2>/dev/null || {
     adapter_publication_error
     return "$ADAPTER_EXIT_PUBLICATION"
@@ -597,6 +669,10 @@ adapter_reserve_output() {
     return "$ADAPTER_EXIT_PUBLICATION"
   }
   adapter_fsync_path "$ADAPTER_OUTPUT_PARENT" || {
+    adapter_publication_error
+    return "$ADAPTER_EXIT_PUBLICATION"
+  }
+  adapter_parent_is_stable || {
     adapter_publication_error
     return "$ADAPTER_EXIT_PUBLICATION"
   }
@@ -653,21 +729,83 @@ adapter_hardened_common_args() {
   )
 }
 
+adapter_verify_runtime_identity() {
+  local identity="$1"
+  local kind
+  local first
+  local second
+  local third
+  local extra
+  local platform_seen=0
+  local id_seen=0
+  local manifest_seen=0
+  while IFS=' ' read -r kind first second third extra; do
+    case "$kind" in
+      PLATFORM)
+        [ "$platform_seen" -eq 0 ] && [ "$first" = 'linux' ] && [ "$second" = 'arm64' ] &&
+          [ "$third" = 'v8' ] && [ -z "$extra" ] || return 1
+        platform_seen=1
+        ;;
+      ID)
+        [ "$id_seen" -eq 0 ] && [ -z "$second" ] && [ -z "$third" ] && [ -z "$extra" ] ||
+          return 1
+        case "$first" in
+          "$ADAPTER_RUNTIME_MANIFEST") manifest_seen=1 ;;
+          "$ADAPTER_RUNTIME_CONFIG") ;;
+          *) return 1 ;;
+        esac
+        id_seen=1
+        ;;
+      REPO)
+        [ -z "$second" ] && [ -z "$third" ] && [ -z "$extra" ] || return 1
+        case "$first" in
+          *@"$ADAPTER_RUNTIME_MANIFEST") manifest_seen=1 ;;
+          *) return 1 ;;
+        esac
+        ;;
+      DESCRIPTOR)
+        [ "$first" = "$ADAPTER_RUNTIME_MANIFEST" ] && [ -z "$second" ] && [ -z "$third" ] &&
+          [ -z "$extra" ] || return 1
+        manifest_seen=1
+        ;;
+      '') ;;
+      *) return 1 ;;
+    esac
+  done <<<"$identity"
+  [ "$platform_seen" -eq 1 ] && [ "$id_seen" -eq 1 ] && [ "$manifest_seen" -eq 1 ]
+}
+
+adapter_verify_raw_config_digest() {
+  local raw_manifest="$1"
+  local compact
+  local config_marker='"config":{'
+  local digest_marker='"digest":"'
+  local config_object
+  local digest_tail
+  local config_digest
+  compact=${raw_manifest//[[:space:]]/}
+  config_object=${compact#*"$config_marker"}
+  [ "$config_object" != "$compact" ] || return 1
+  config_object=${config_object%%\}*}
+  digest_tail=${config_object#*"$digest_marker"}
+  [ "$digest_tail" != "$config_object" ] || return 1
+  config_digest=${digest_tail%%\"*}
+  [ "$config_digest" = "$ADAPTER_RUNTIME_CONFIG" ]
+}
+
 adapter_acquire_and_verify_runtime() {
   local identity
-  local manifest
+  local raw_manifest
   adapter_docker pull --platform "$ADAPTER_PLATFORM" "$ADAPTER_RUNTIME_REFERENCE" >/dev/null 2>&1 || return 1
   identity=$(
     adapter_docker image inspect \
-      --format '{{.Os}}|{{.Architecture}}|{{.Variant}}|{{.Id}}' \
+      --format '{{println "PLATFORM" .Os .Architecture .Variant}}{{println "ID" .Id}}{{range .RepoDigests}}{{println "REPO" .}}{{end}}{{with .Descriptor}}{{println "DESCRIPTOR" .digest}}{{end}}' \
       "$ADAPTER_RUNTIME_REFERENCE" 2>/dev/null
   ) || return 1
-  [ "$identity" = "linux|arm64|v8|$ADAPTER_RUNTIME_MANIFEST" ] || return 1
-  manifest=$(adapter_docker buildx imagetools inspect --raw "$ADAPTER_RUNTIME_REFERENCE" 2>/dev/null) || return 1
-  case "$manifest" in
-    *"\"digest\": \"$ADAPTER_RUNTIME_CONFIG\""*) ;;
-    *) return 1 ;;
-  esac
+  adapter_verify_runtime_identity "$identity" || return 1
+  raw_manifest=$(adapter_docker buildx imagetools inspect --raw "$ADAPTER_RUNTIME_REFERENCE" 2>/dev/null) ||
+    return 1
+  adapter_verify_raw_config_digest "$raw_manifest" || return 1
   adapter_hardened_common_args
   adapter_docker run --rm \
     --label dev.revoman.performance.phase=image-verification \
@@ -681,30 +819,59 @@ OpenJDK Runtime Environment Temurin-21.0.11+10 (build 21.0.11+10-LTS)
 OpenJDK 64-Bit Server VM Temurin-21.0.11+10 (build 21.0.11+10-LTS, mixed mode, sharing)'"'"'; test "$java_output" = "$expected_java_output"; java_hash=$(/usr/bin/sha256sum /opt/java/openjdk/bin/java); test "${java_hash%% *}" = "$REVOMAN_JAVA_SHA256"'
 }
 
+adapter_volume_has_expected_labels() {
+  local volume="$1"
+  local labels
+  labels=$(
+    adapter_docker volume inspect \
+      --format '{{index .Labels "dev.revoman.performance.owner"}}|{{index .Labels "dev.revoman.performance.token"}}' \
+      "$volume" 2>/dev/null
+  ) || return 1
+  [ "$labels" = "revoman|$ADAPTER_RUN_TOKEN" ]
+}
+
+adapter_create_proven_volume() {
+  local excluded_volume="${1:-}"
+  local volume
+  volume=$(
+    adapter_docker volume create \
+      --label dev.revoman.performance.owner=revoman \
+      --label "dev.revoman.performance.token=$ADAPTER_RUN_TOKEN" 2>/dev/null
+  ) || return 1
+  adapter_validate_safe_id "$volume" || return 1
+  [ -z "$excluded_volume" ] || [ "$volume" != "$excluded_volume" ] || return 1
+  adapter_volume_has_expected_labels "$volume" || return 1
+  ADAPTER_PROVEN_VOLUME="$volume"
+  return 0
+}
+
 adapter_create_volumes() {
-  local volume_token="${ADAPTER_RUN_TOKEN:0:32}"
-  ADAPTER_INPUT_VOLUME="revoman-$volume_token-$$-input"
-  ADAPTER_OPERATION_VOLUME="revoman-$volume_token-$$-operation"
-  adapter_docker volume create \
-    --label dev.revoman.performance.owner=revoman \
-    --label "dev.revoman.performance.token=$ADAPTER_RUN_TOKEN" \
-    "$ADAPTER_INPUT_VOLUME" >/dev/null 2>&1 || return 1
-  ADAPTER_INPUT_VOLUME_CREATED=1
-  adapter_docker volume create \
-    --label dev.revoman.performance.owner=revoman \
-    --label "dev.revoman.performance.token=$ADAPTER_RUN_TOKEN" \
-    "$ADAPTER_OPERATION_VOLUME" >/dev/null 2>&1 || return 1
-  ADAPTER_OPERATION_VOLUME_CREATED=1
+  adapter_create_proven_volume || return 1
+  ADAPTER_INPUT_VOLUME="$ADAPTER_PROVEN_VOLUME"
+  ADAPTER_INPUT_VOLUME_PROVEN=1
+  adapter_create_proven_volume "$ADAPTER_INPUT_VOLUME" || return 1
+  ADAPTER_OPERATION_VOLUME="$ADAPTER_PROVEN_VOLUME"
+  ADAPTER_OPERATION_VOLUME_PROVEN=1
   return 0
 }
 
 adapter_cleanup_volumes() {
   local status=0
-  if [ "${ADAPTER_OPERATION_VOLUME_CREATED:-0}" -eq 1 ]; then
-    adapter_docker volume rm "$ADAPTER_OPERATION_VOLUME" >/dev/null 2>&1 || status=1
+  if [ "${ADAPTER_OPERATION_VOLUME_PROVEN:-0}" -eq 1 ]; then
+    if adapter_volume_has_expected_labels "$ADAPTER_OPERATION_VOLUME" &&
+      adapter_docker volume rm "$ADAPTER_OPERATION_VOLUME" >/dev/null 2>&1; then
+      ADAPTER_OPERATION_VOLUME_PROVEN=0
+    else
+      status=1
+    fi
   fi
-  if [ "${ADAPTER_INPUT_VOLUME_CREATED:-0}" -eq 1 ]; then
-    adapter_docker volume rm "$ADAPTER_INPUT_VOLUME" >/dev/null 2>&1 || status=1
+  if [ "${ADAPTER_INPUT_VOLUME_PROVEN:-0}" -eq 1 ]; then
+    if adapter_volume_has_expected_labels "$ADAPTER_INPUT_VOLUME" &&
+      adapter_docker volume rm "$ADAPTER_INPUT_VOLUME" >/dev/null 2>&1; then
+      ADAPTER_INPUT_VOLUME_PROVEN=0
+    else
+      status=1
+    fi
   fi
   return "$status"
 }
@@ -797,6 +964,7 @@ adapter_prepare_failure_identity() {
 }
 
 adapter_run_finalizer() {
+  adapter_parent_is_stable || return 1
   adapter_hardened_common_args
   adapter_docker run --rm \
     --label dev.revoman.performance.phase=finalizer \
@@ -805,7 +973,7 @@ adapter_run_finalizer() {
     --user "$ADAPTER_SUBSTRATE_UID:$ADAPTER_SUBSTRATE_GID" \
     --tmpfs "/tmp:rw,noexec,nosuid,nodev,size=64m,uid=$ADAPTER_SUBSTRATE_UID,gid=$ADAPTER_SUBSTRATE_GID,mode=0700" \
     --mount "type=volume,src=$ADAPTER_OPERATION_VOLUME,dst=/operation,readonly" \
-    --mount "type=bind,src=$ADAPTER_OUTPUT_PARENT,dst=/artifacts" \
+    --mount "type=bind,src=$ADAPTER_OUTPUT_PARENT_PATH,dst=/artifacts" \
     --env "REVOMAN_STAGING_NAME=.$ADAPTER_RUN_TOKEN.staging" \
     --env "REVOMAN_ADAPTER_SHA256=$ADAPTER_SHA256" \
     --env "REVOMAN_FAILURE_CODE=INTERNAL_ERROR" \
@@ -818,6 +986,7 @@ adapter_run_finalizer() {
 
 adapter_create_host_failure_stage() {
   local failure_code="$1"
+  adapter_parent_is_stable || return 1
   [ ! -L "$ADAPTER_STAGING" ] || return 1
   if [ ! -d "$ADAPTER_STAGING" ]; then
     [ ! -e "$ADAPTER_STAGING" ] || return 1
@@ -834,15 +1003,28 @@ adapter_create_host_failure_stage() {
 }
 
 adapter_publish_stage() {
+  local staging_identity
+  local target_identity
   [ "$ADAPTER_RESERVED" -eq 1 ] || return 1
+  adapter_parent_is_stable || return 1
   [ -d "$ADAPTER_STAGING" ] && [ ! -L "$ADAPTER_STAGING" ] || return 1
+  [ ! -e "$ADAPTER_OUTPUT_TARGET" ] && [ ! -L "$ADAPTER_OUTPUT_TARGET" ] || return 1
+  staging_identity=$(adapter_path_identity "$ADAPTER_STAGING") || return 1
   adapter_fsync_path "$ADAPTER_STAGING" || return 1
+  adapter_parent_is_stable || return 1
+  [ ! -e "$ADAPTER_OUTPUT_TARGET" ] && [ ! -L "$ADAPTER_OUTPUT_TARGET" ] || return 1
   adapter_atomic_rename "$ADAPTER_STAGING" "$ADAPTER_OUTPUT_TARGET" 2>/dev/null || return 1
+  [ ! -e "$ADAPTER_STAGING" ] && [ ! -L "$ADAPTER_STAGING" ] || return 1
   [ -d "$ADAPTER_OUTPUT_TARGET" ] && [ ! -L "$ADAPTER_OUTPUT_TARGET" ] || return 1
+  target_identity=$(adapter_path_identity "$ADAPTER_OUTPUT_TARGET") || return 1
+  [ "$target_identity" = "$staging_identity" ] || return 1
+  adapter_parent_is_stable || return 1
   adapter_fsync_path "$ADAPTER_OUTPUT_PARENT" || return 1
+  adapter_parent_is_stable || return 1
   /bin/rm -f "$ADAPTER_RESERVATION/token" 2>/dev/null || return 1
   /bin/rmdir "$ADAPTER_RESERVATION" 2>/dev/null || return 1
   adapter_fsync_path "$ADAPTER_OUTPUT_PARENT" || return 1
+  adapter_parent_is_stable || return 1
   ADAPTER_RESERVED=0
   return 0
 }
@@ -864,8 +1046,8 @@ adapter_publish_bootstrap_failure() {
 adapter_execute_checkpoint() {
   local failure_code='INTERNAL_ERROR'
   local phase_status=0
-  ADAPTER_INPUT_VOLUME_CREATED=0
-  ADAPTER_OPERATION_VOLUME_CREATED=0
+  ADAPTER_INPUT_VOLUME_PROVEN=0
+  ADAPTER_OPERATION_VOLUME_PROVEN=0
   if ! adapter_select_substrate >/dev/null 2>&1; then
     failure_code='CONTEXT_INVALID'
     phase_status=1

@@ -176,6 +176,72 @@ class ArtifactRootContractTest :
         }
       }
 
+      test("publication rejects parent substitution and late directory targets without nesting") {
+        FakeHost().use { host ->
+          val token = "parent-substitution"
+          val result =
+            host.invoke(
+              *initialFreeze(host, host.output(token)).toTypedArray(),
+              functionOverrides =
+                """
+                adapter_fsync_path() {
+                  parent="${'$'}{ADAPTER_OUTPUT_PARENT_PATH:-${'$'}ADAPTER_OUTPUT_PARENT}"
+                  displaced="${'$'}parent.swapped"
+                  if [ "${'$'}1" = "${'$'}ADAPTER_STAGING" ] && [ ! -e "${'$'}displaced" ]; then
+                    /bin/mv "${'$'}parent" "${'$'}displaced" || return 1
+                    /bin/mkdir "${'$'}parent" || return 1
+                    /bin/cp -R "${'$'}displaced/.${'$'}ADAPTER_RUN_TOKEN.reservation" "${'$'}parent/.${'$'}ADAPTER_RUN_TOKEN.reservation" || return 1
+                    /bin/cp -R "${'$'}displaced/.${'$'}ADAPTER_RUN_TOKEN.staging" "${'$'}parent/.${'$'}ADAPTER_RUN_TOKEN.staging" || return 1
+                  fi
+                  /bin/sync
+                }
+                """.trimIndent(),
+            )
+
+          result.exitCode shouldBe 8
+          result.standardError shouldContain "PUBLICATION_FAILED"
+          Files.exists(host.outputPath(token)) shouldBe false
+          Files.exists(
+            host.repositoryRoot
+              .resolve("build/performance.swapped/.$token.staging/adapter-failure.json"),
+          ) shouldBe true
+        }
+
+        FakeHost().use { host ->
+          val token = "late-directory-target"
+          val result =
+            host.invoke(
+              *initialFreeze(host, host.output(token)).toTypedArray(),
+              functionOverrides =
+                """
+                adapter_path_identity() {
+                  if [ -n "${'$'}{ADAPTER_STAGING:-}" ] && [ "${'$'}1" = "${'$'}ADAPTER_STAGING" ]; then
+                    sentinel="${'$'}ADAPTER_RESERVATION/.staging-identity-seen"
+                    if [ -e "${'$'}sentinel" ]; then
+                      /bin/mkdir "${'$'}ADAPTER_OUTPUT_TARGET" || return 1
+                    else
+                      : > "${'$'}sentinel" || return 1
+                    fi
+                  fi
+                  case "${'$'}(/usr/bin/uname -s)" in
+                    Darwin) /usr/bin/stat -f '%d:%i' "${'$'}1" ;;
+                    Linux) /usr/bin/stat -c '%d:%i' "${'$'}1" ;;
+                    *) return 1 ;;
+                  esac
+                }
+                """.trimIndent(),
+            )
+          val lateTarget = host.outputPath(token)
+
+          result.exitCode shouldBe 8
+          result.standardError shouldContain "PUBLICATION_FAILED"
+          Files.isDirectory(lateTarget) shouldBe true
+          Files.exists(lateTarget.resolve(".$token.staging")) shouldBe false
+          Files.exists(lateTarget.resolve("adapter-failure.json")) shouldBe false
+          Files.exists(host.artifactRoot.resolve(".$token.staging/adapter-failure.json")) shouldBe true
+        }
+      }
+
       mapOf(
           "adapter hash" to "adapter_sha256_file() { return 1; }",
           "UTC clock" to "adapter_observed_at_utc() { return 1; }",
