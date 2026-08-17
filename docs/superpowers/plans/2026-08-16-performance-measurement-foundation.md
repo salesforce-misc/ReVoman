@@ -38,8 +38,8 @@ Docker Desktop Linux/ARM64, GitHub Actions `ubuntu-24.04-arm`, JFR, and Log4j 3 
   mount, secret, or external network during timed/scrubber/finalizer phases.
 - The sole claim-bearing runtime is `m4max-docker-linux-arm64-v1` through Docker Desktop's explicit
   `desktop-linux` context. GitHub ARM output is structural or diagnostic only.
-- The initial runtime image candidate is
-  `public.ecr.aws/amazoncorretto/amazoncorretto@sha256:e6e383edcb0a4138e4878180471171be52b42dac9e2790beb9c65609bc27fdb9`.
+- The claim-bearing runtime image is
+  `docker.io/library/eclipse-temurin@sha256:6c7425db05efdcf0ba40d989898857b093f14ceaf9684c9c31a072c159f4590e`.
   Verify it as `linux/arm64`, record its OCI config/JDK hashes, and fail if unavailable; never fall
   back to a mutable tag.
 - Freeze these common measured/scrubber/sealer limits before the baseline: CPUs `0-3`, memory
@@ -391,7 +391,7 @@ git commit -m "feat(perf): define canonical performance evidence"
 
 - Create: `scripts/performance/run`
 - Create: `config/performance/runtime/runtime-profile-v1.schema.json`
-- Create: `config/performance/runtime/corretto-21-linux-arm64-v1.json`
+- Create: `config/performance/runtime/temurin-21-linux-arm64-v1.json`
 - Create: `config/performance/runtime/m4max-docker-linux-arm64-v1.json`
 - Create: `config/performance/runtime/github-hosted-arm64-v1.json`
 - Create: `buildSrc/src/test/kotlin/performance/adapter/HostAdapterContractTest.kt`
@@ -471,16 +471,21 @@ must carry a frozen named variant.
 Run only this online identity checkpoint:
 
 ```bash
-RUNTIME_REF='public.ecr.aws/amazoncorretto/amazoncorretto@sha256:e6e383edcb0a4138e4878180471171be52b42dac9e2790beb9c65609bc27fdb9'
+RUNTIME_REF='docker.io/library/eclipse-temurin@sha256:6c7425db05efdcf0ba40d989898857b093f14ceaf9684c9c31a072c159f4590e'
 docker --context desktop-linux pull --platform linux/arm64 "$RUNTIME_REF"
 docker --context desktop-linux image inspect "$RUNTIME_REF"
 docker --context desktop-linux run --rm --pull=never --platform linux/arm64 \
-  "$RUNTIME_REF" /bin/sh -lc 'uname -m; java -version; sha256sum "$(command -v java)"; command -v sh tar sha256sum'
+  "$RUNTIME_REF" /bin/sh -lc 'set -eu; test "$(uname -m)" = aarch64; for tool in sh tar sha256sum; do command -v "$tool"; done; java -version; sha256sum "$(command -v java)"'
+docker buildx imagetools inspect --raw "$RUNTIME_REF"
 ```
 
-Expected: `aarch64`, Corretto 21, and all required tools. Copy the observed OCI config digest, full
-JDK version, Java executable hash, and tool inventory into the canonical profile. The schema test
-rejects a tag, an index digest, unresolved values, amd64, or a missing hash.
+Expected: `aarch64`, Temurin 21, and all required tools. The approved observed identity is OCI
+config `sha256:ad6963934ee96838c09d99f3c4df6f991cd00ed70fa8a48f7045517d7ae8991c`, JDK
+`21.0.11+10-LTS`, Java executable `/opt/java/openjdk/bin/java` with SHA-256
+`1cedc51a4102638f1f06077acb3611b88f3061f9c7d76bd0a0df7f8607a9367b`, and tools
+`/usr/bin/sh`, `/usr/bin/tar` (GNU tar 1.35), and `/usr/bin/sha256sum` (GNU coreutils 9.4).
+Copy the observed identity into the canonical profile. The schema test rejects a tag, an index
+digest, unresolved values, amd64, or a missing hash.
 
 - [ ] **Step 5: Implement phase-specific Docker construction**
 

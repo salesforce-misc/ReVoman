@@ -34,8 +34,8 @@ shasum -a 256 \
 The required hashes are:
 
 ```text
-dfc17ecc10b0a4704525e3d93153b97c09a2d330882fe5c7f6abfcb22db29b2a  docs/superpowers/specs/2026-08-16-performance-measurement-foundation-design.md
-10357b4dba58b5243ac9a545d9f94f3066bc891703d9a858fd6bbf37d9d478ea  docs/superpowers/plans/2026-08-16-performance-measurement-foundation.md
+811b59a8354806b59af1004646da309b6ec68766c913cd6a0b2a4fde4d957558  docs/superpowers/specs/2026-08-16-performance-measurement-foundation-design.md
+ebff56fa23d72af6cd9f76fecdcc7435bf1fadf52d04097d0cbd39b590a49540  docs/superpowers/plans/2026-08-16-performance-measurement-foundation.md
 ```
 
 Stop if the branch, ancestry, cleanliness, or document hashes do not match. Preserve any unexpected
@@ -151,8 +151,27 @@ The claim-bearing V1 profile is the M4 Max Mac running Docker Desktop through th
 `desktop-linux` context and a pinned `linux/arm64` child image:
 
 ```text
-public.ecr.aws/amazoncorretto/amazoncorretto@sha256:e6e383edcb0a4138e4878180471171be52b42dac9e2790beb9c65609bc27fdb9
+docker.io/library/eclipse-temurin@sha256:6c7425db05efdcf0ba40d989898857b093f14ceaf9684c9c31a072c159f4590e
 ```
+
+The authorized pin has this verified identity:
+
+- platform `linux/arm64/v8`, with `uname -m` reporting `aarch64`;
+- OCI config digest
+  `sha256:ad6963934ee96838c09d99f3c4df6f991cd00ed70fa8a48f7045517d7ae8991c`;
+- `openjdk version "21.0.11" 2026-04-21 LTS`,
+  `OpenJDK Runtime Environment Temurin-21.0.11+10 (build 21.0.11+10-LTS)`, and
+  `OpenJDK 64-Bit Server VM Temurin-21.0.11+10 (build 21.0.11+10-LTS, mixed mode, sharing)`;
+- Java executable `/opt/java/openjdk/bin/java`, SHA-256
+  `1cedc51a4102638f1f06077acb3611b88f3061f9c7d76bd0a0df7f8607a9367b`;
+- `/usr/bin/sh`, `/usr/bin/tar` (GNU tar 1.35), and `/usr/bin/sha256sum`
+  (GNU coreutils 9.4); and
+- source Dockerfile
+  `https://github.com/adoptium/containers/blob/df6138afaf1b564116e895b0acd51d70e11cd996/21/jdk/ubuntu/noble/Dockerfile`.
+
+The image entrypoint and identity probe both pass with network disabled, a read-only root,
+UID/GID `10001:10001`, all capabilities dropped, `no-new-privileges`, CPUs `0-3`, memory and
+memory-swap `6 GiB`, and PID limit `512`.
 
 The frozen measured limits are CPUs `0-3`, memory `6 GiB`, memory-swap `6 GiB`, PID limit `512`, a
 declared non-root UID/GID, read-only root, `cap-drop=ALL`, `no-new-privileges`, and only declared

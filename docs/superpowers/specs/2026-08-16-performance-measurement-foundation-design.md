@@ -339,9 +339,9 @@ The only V1 claim-bearing profile is `m4max-docker-linux-arm64-v1`:
   execute sequentially in one continuously allocated timed container inside one Docker Desktop VM
   and one declared campaign; only the JMH fork JVMs are intentionally fresh.
 
-The initial image source is the anonymously pullable public Amazon Corretto 21 repository,
-`public.ecr.aws/amazoncorretto/amazoncorretto`. A mutable `:21` tag may be inspected only while
-creating or deliberately revising the checked-in runtime profile. That profile records the exact
+The selected image source is the official Eclipse Temurin 21 Ubuntu 24.04 repository,
+`docker.io/library/eclipse-temurin`. A mutable tag may be inspected only while creating or
+deliberately revising the checked-in runtime profile. That profile records the exact
 `repository@sha256:<linux-arm64-child-manifest>` reference, OCI config digest, complete JDK version,
 JDK binary SHA-256, and required userspace-tool inventory. Normal freeze, canary, and campaign runs
 never resolve a tag. If that digest disappears or its verified contents do not satisfy the profile,
@@ -486,9 +486,10 @@ follow Docker's
 
 The host's `/usr/local/bin/java` is a corporate guidance wrapper, and macOS reports no registered
 native JDK. That is intentional for this design: all JVM execution occurs inside the pinned image.
-Amazon documents anonymous pulls from Public ECR and the Corretto 21 public image in its
-[Corretto Docker guide](https://docs.aws.amazon.com/corretto/latest/corretto-21-ug/docker-install.html)
-and [Public ECR pull guide](https://docs.aws.amazon.com/AmazonECR/latest/public/docker-pull-ecr-image.html).
+The selected child is built from Adoptium's pinned
+[Temurin 21 Ubuntu 24.04 Dockerfile](https://github.com/adoptium/containers/blob/df6138afaf1b564116e895b0acd51d70e11cd996/21/jdk/ubuntu/noble/Dockerfile)
+and published through the official
+[Eclipse Temurin image repository](https://hub.docker.com/_/eclipse-temurin).
 
 Repository guidance still tells developers to start Colima for Qodana even though Colima has been
 removed. This tranche updates `DEVELOPMENT.md` and the `build.gradle.kts` Qodana comment to the
