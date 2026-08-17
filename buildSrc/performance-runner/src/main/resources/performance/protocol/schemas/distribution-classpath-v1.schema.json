@@ -1,0 +1,136 @@
+{
+  "$defs": {
+    "classpathEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "coordinate": {
+          "maxLength": 256,
+          "minLength": 3,
+          "pattern": "^[A-Za-z0-9_.-]+:[A-Za-z0-9_.-]+(?::[A-Za-z0-9_.-]+)?$",
+          "type": "string"
+        },
+        "order": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "path": {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "required": [
+        "coordinate",
+        "order",
+        "path",
+        "sha256"
+      ],
+      "type": "object"
+    },
+    "embeddedDependency": {
+      "additionalProperties": false,
+      "properties": {
+        "coordinate": {
+          "maxLength": 256,
+          "minLength": 3,
+          "pattern": "^org\\.jetbrains\\.kotlinx:kotlinx-collections-immutable(?::[A-Za-z0-9_.-]+)?$",
+          "type": "string"
+        },
+        "placement": {
+          "const": "embedded:app/revoman.jar"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "required": [
+        "coordinate",
+        "placement",
+        "sha256"
+      ],
+      "type": "object"
+    },
+    "sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    }
+  },
+  "$id": "https://revoman.dev/performance/protocol/schemas/distribution-classpath-v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "benchmarkClasspath": {
+      "items": {
+        "$ref": "#/$defs/classpathEntry"
+      },
+      "minItems": 2,
+      "type": "array"
+    },
+    "embeddedDependencies": {
+      "items": {
+        "$ref": "#/$defs/embeddedDependency"
+      },
+      "maxItems": 1,
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "expectedBenchmarks": {
+      "items": {
+        "maxLength": 512,
+        "minLength": 3,
+        "pattern": "^[A-Za-z_$][A-Za-z0-9_$]*(\\.[A-Za-z_$][A-Za-z0-9_$]*)+$",
+        "type": "string"
+      },
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "javaRuntime": {
+      "additionalProperties": false,
+      "properties": {
+        "executable": {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "executableSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "featureVersion": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "executable",
+        "executableSha256",
+        "featureVersion"
+      ],
+      "type": "object"
+    },
+    "runnerClasspath": {
+      "items": {
+        "$ref": "#/$defs/classpathEntry"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "schemaVersion": {
+      "const": "distribution-classpath-v1"
+    }
+  },
+  "required": [
+    "benchmarkClasspath",
+    "embeddedDependencies",
+    "expectedBenchmarks",
+    "javaRuntime",
+    "runnerClasspath",
+    "schemaVersion"
+  ],
+  "title": "Frozen distribution ordered classpaths",
+  "type": "object"
+}

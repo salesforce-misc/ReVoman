@@ -1,0 +1,46 @@
+{
+  "$defs": {
+    "cleanGitIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "gitSha": {
+          "pattern": "^[0-9a-f]{40}$",
+          "type": "string"
+        },
+        "treeClean": {
+          "const": true
+        }
+      },
+      "required": [
+        "gitSha",
+        "treeClean"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://revoman.dev/performance/protocol/schemas/distribution-provenance-v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "distributionFreezer": {
+      "$ref": "#/$defs/cleanGitIdentity"
+    },
+    "immutableHarness": {
+      "$ref": "#/$defs/cleanGitIdentity"
+    },
+    "schemaVersion": {
+      "const": "distribution-provenance-v1"
+    },
+    "treatment": {
+      "$ref": "#/$defs/cleanGitIdentity"
+    }
+  },
+  "required": [
+    "distributionFreezer",
+    "immutableHarness",
+    "schemaVersion",
+    "treatment"
+  ],
+  "title": "Frozen distribution clean source provenance",
+  "type": "object"
+}

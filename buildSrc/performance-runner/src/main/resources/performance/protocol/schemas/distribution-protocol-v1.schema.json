@@ -1,0 +1,83 @@
+{
+  "$defs": {
+    "artifact": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "type": "object"
+    },
+    "artifactList": {
+      "items": {
+        "$ref": "#/$defs/artifact"
+      },
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    }
+  },
+  "$id": "https://revoman.dev/performance/protocol/schemas/distribution-protocol-v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "adapter": {
+      "$ref": "#/$defs/artifact"
+    },
+    "expectedCells": {
+      "$ref": "#/$defs/artifact"
+    },
+    "profiles": {
+      "$ref": "#/$defs/artifactList"
+    },
+    "protocolSha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "qualificationPolicies": {
+      "$ref": "#/$defs/artifactList"
+    },
+    "runner": {
+      "$ref": "#/$defs/artifact"
+    },
+    "runtimeDeclarations": {
+      "$ref": "#/$defs/artifactList"
+    },
+    "schemaVersion": {
+      "const": "distribution-protocol-v1"
+    },
+    "schemas": {
+      "$ref": "#/$defs/artifactList"
+    },
+    "testVectors": {
+      "$ref": "#/$defs/artifactList"
+    }
+  },
+  "required": [
+    "adapter",
+    "expectedCells",
+    "profiles",
+    "protocolSha256",
+    "qualificationPolicies",
+    "runner",
+    "runtimeDeclarations",
+    "schemaVersion",
+    "schemas",
+    "testVectors"
+  ],
+  "title": "Frozen distribution protocol bindings",
+  "type": "object"
+}
