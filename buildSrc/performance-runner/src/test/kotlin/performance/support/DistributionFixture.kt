@@ -7,12 +7,14 @@
  */
 package performance.support
 
+import java.io.OutputStream
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.jar.Attributes
 import java.util.jar.JarEntry
 import java.util.jar.JarOutputStream
 import java.util.jar.Manifest
+import javax.tools.ToolProvider
 import performance.distribution.DistributionValidationRequest
 import performance.distribution.JavaRuntimeIdentity
 import performance.hash.Sha256
@@ -62,6 +64,16 @@ internal class DistributionFixture private constructor(
 
   fun mutateProtocol(mutation: (ObjectNode) -> Unit) {
     mutateJson(PROTOCOL_MANIFEST, mutation)
+  }
+
+  fun declareJava(identity: JavaRuntimeIdentity) {
+    mutateClasspath { document ->
+      document.get("javaRuntime").asObject().apply {
+        put("executable", identity.executable.toString())
+        put("executableSha256", identity.sha256.hex)
+        put("featureVersion", identity.featureVersion)
+      }
+    }
   }
 
   fun replaceJar(
@@ -172,7 +184,21 @@ internal class DistributionFixture private constructor(
     protocolArtifactObjects(protocol)
       .filter { it.get("path").asString() == relativePath }
       .forEach { it.put("sha256", digest) }
+    refreshProtocolHash(protocol)
     write(PROTOCOL_MANIFEST, CanonicalJson.encode(protocol))
+  }
+
+  private fun refreshProtocolHash(protocol: ObjectNode) {
+    val hash =
+      Sha256.digest(
+        protocolArtifactObjects(protocol)
+          .sortedBy { it.get("path").asString() }
+          .joinToString(separator = "\n", postfix = "\n") { binding ->
+            "${binding.get("sha256").asString()}  ${binding.get("path").asString()}"
+          }
+          .encodeToByteArray(),
+      )
+    protocol.put("protocolSha256", hash.hex)
   }
 
   private fun jsonObject(relativePath: String): ObjectNode =
@@ -206,6 +232,8 @@ internal class DistributionFixture private constructor(
     const val BENCHMARK_DEPENDENCY = "lib/benchmark-dependency.jar"
     const val RUNNER_JAR = "runner/performance-runner.jar"
     const val RUNNER_DEPENDENCY = "runner/lib/runner-dependency.jar"
+    const val UNIX_LAUNCHER = "bin/performance-runner"
+    const val WINDOWS_LAUNCHER = "bin/performance-runner.bat"
     const val CLASSPATH_MANIFEST = "metadata/classpath.json"
     const val PROVENANCE_MANIFEST = "metadata/provenance.json"
     const val PROTOCOL_MANIFEST = "metadata/protocol.json"
@@ -235,17 +263,48 @@ internal class DistributionFixture private constructor(
       val root = parent.resolve("distribution")
       Files.createDirectories(root)
 
-      val javaExecutable = parent.resolve("java/bin/java")
-      Files.createDirectories(javaExecutable.parent)
-      Files.writeString(javaExecutable, "fixture-java-21")
+      val javaExecutable =
+        Path.of(
+            checkNotNull(ProcessHandle.current().info().command().orElse(null)) {
+              "current Java executable is unavailable"
+            },
+          )
+          .toAbsolutePath()
+          .normalize()
       val javaIdentity =
         JavaRuntimeIdentity(
           executable = javaExecutable,
-          featureVersion = 21,
+          featureVersion = Runtime.version().feature(),
           sha256 = Sha256.digest(Files.readAllBytes(javaExecutable)),
         )
       return DistributionFixture(root, javaIdentity).apply { createValidDistribution() }
     }
+
+    fun compiledClass(
+      binaryName: String,
+      members: String = "",
+      publicType: Boolean = true,
+      release: Int = Runtime.version().feature(),
+    ): ByteArray {
+      val packageName = binaryName.substringBeforeLast('.', missingDelimiterValue = "")
+      val simpleName = binaryName.substringAfterLast('.')
+      val source =
+        buildString {
+          if (packageName.isNotEmpty()) {
+            append("package ").append(packageName).append(";\n")
+          }
+          if (publicType) {
+            append("public ")
+          }
+          append("class ").append(simpleName).append(" {\n")
+          append(members).append('\n')
+          append("}\n")
+        }
+      return compile(binaryName, source, release)
+    }
+
+    fun compiledModuleInfo(moduleName: String): ByteArray =
+      compile("module-info", "module $moduleName {}\n", 9)
 
     fun writeJar(
       path: Path,
@@ -271,39 +330,86 @@ internal class DistributionFixture private constructor(
 
     private fun portablePath(path: Path): String =
       path.joinToString(separator = "/") { it.toString() }
+
+    private fun compile(binaryName: String, source: String, release: Int): ByteArray {
+      val key = CompilationKey(binaryName, source, release)
+      return synchronized(COMPILED_CLASSES) {
+        COMPILED_CLASSES.getOrPut(key) {
+          val directory = Files.createTempDirectory("distribution-compiled-class-")
+          try {
+            val sourcePath =
+              directory.resolve("source").resolve(binaryName.replace('.', '/') + ".java")
+            val output = directory.resolve("classes")
+            Files.createDirectories(sourcePath.parent)
+            Files.createDirectories(output)
+            Files.writeString(sourcePath, source)
+            val compiler = checkNotNull(ToolProvider.getSystemJavaCompiler())
+            val exitCode =
+              compiler.run(
+                null,
+                OutputStream.nullOutputStream(),
+                OutputStream.nullOutputStream(),
+                "--release",
+                release.toString(),
+                "-g:none",
+                "-d",
+                output.toString(),
+                sourcePath.toString(),
+              )
+            check(exitCode == 0) { "fixture Java compilation failed" }
+            Files.readAllBytes(output.resolve(binaryName.replace('.', '/') + ".class"))
+          } finally {
+            directory.toFile().deleteRecursively()
+          }
+        }
+      }.copyOf()
+    }
+
+    private data class CompilationKey(
+      val binaryName: String,
+      val source: String,
+      val release: Int,
+    )
+
+    private val COMPILED_CLASSES = mutableMapOf<CompilationKey, ByteArray>()
   }
 
   private fun createValidDistribution() {
     writeJar(
       root.resolve(PRODUCTION_JAR),
-      mapOf("example/Application.class" to byteArrayOf(1)),
+      mapOf("example/Application.class" to compiledClass("example.Application")),
     )
     writeJar(
       root.resolve(BENCHMARK_JAR),
       mapOf(
         "META-INF/BenchmarkList" to benchmarkList(EXPECTED_BENCHMARK).encodeToByteArray(),
         "META-INF/CompilerHints" to "dontinline,example.Benchmark.measure\n".encodeToByteArray(),
-        "example/Benchmark.class" to byteArrayOf(2),
+        "example/Benchmark.class" to
+          compiledClass("example.Benchmark", "public void measure() {}"),
       ),
     )
     writeJar(
       root.resolve(BENCHMARK_DEPENDENCY),
       mapOf(
         "META-INF/services/example.Service" to "example.Provider\n".encodeToByteArray(),
-        "example/Dependency.class" to byteArrayOf(3),
-        "example/Provider.class" to byteArrayOf(4),
-        "example/Service.class" to byteArrayOf(5),
+        "example/Dependency.class" to compiledClass("example.Dependency"),
+        "example/Provider.class" to compiledClass("example.Provider"),
+        "example/Service.class" to compiledClass("example.Service"),
       ),
     )
     writeJar(
       root.resolve(RUNNER_JAR),
-      mapOf("performance/Runner.class" to byteArrayOf(6)),
+      mapOf("performance/Runner.class" to compiledClass("performance.Runner")),
     )
     writeJar(
       root.resolve(RUNNER_DEPENDENCY),
-      mapOf("performance/RunnerDependency.class" to byteArrayOf(7)),
+      mapOf(
+        "performance/RunnerDependency.class" to compiledClass("performance.RunnerDependency"),
+      ),
     )
 
+    write(UNIX_LAUNCHER, "#!/bin/sh\nexit 0\n".encodeToByteArray())
+    write(WINDOWS_LAUNCHER, "@echo off\r\nexit /b 0\r\n".encodeToByteArray())
     write("protocol/adapter/run", "#!/bin/sh\nexit 0\n".encodeToByteArray())
     listOf("canary", "cold", "warm").forEach { profile ->
       write("protocol/profiles/$profile.json", "{}\n".encodeToByteArray())
@@ -386,6 +492,7 @@ internal class DistributionFixture private constructor(
     }
 
   private fun protocolDocument(): ObjectNode {
+    val launchers = listOf(UNIX_LAUNCHER, WINDOWS_LAUNCHER)
     val schemas = PROTOCOL_SCHEMA_FILES.map { "protocol/schemas/$it" }
     val profiles = listOf("canary", "cold", "warm").map { "protocol/profiles/$it.json" }
     val runtimes =
@@ -400,6 +507,7 @@ internal class DistributionFixture private constructor(
       listOf(
         RUNNER_JAR,
         "protocol/adapter/run",
+        *launchers.toTypedArray(),
         *schemas.toTypedArray(),
         *profiles.toTypedArray(),
         *runtimes.toTypedArray(),
@@ -422,6 +530,7 @@ internal class DistributionFixture private constructor(
       put("protocolSha256", protocolHash.hex)
       set("runner", artifact(RUNNER_JAR))
       set("adapter", artifact("protocol/adapter/run"))
+      set("launchers", artifactArray(launchers))
       set("schemas", artifactArray(schemas))
       set("profiles", artifactArray(profiles))
       set("runtimeDeclarations", artifactArray(runtimes))
@@ -453,6 +562,7 @@ internal class DistributionFixture private constructor(
     sequence {
       yield(protocol.get("runner") as ObjectNode)
       yield(protocol.get("adapter") as ObjectNode)
+      yieldAll(protocol.arrayNode("launchers").values().asSequence().map { it as ObjectNode })
       yieldAll(protocol.arrayNode("schemas").values().asSequence().map { it as ObjectNode })
       yieldAll(protocol.arrayNode("profiles").values().asSequence().map { it as ObjectNode })
       yieldAll(

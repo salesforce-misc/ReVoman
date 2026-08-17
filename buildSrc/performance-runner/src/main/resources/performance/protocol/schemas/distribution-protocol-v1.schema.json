@@ -41,6 +41,9 @@
     "expectedCells": {
       "$ref": "#/$defs/artifact"
     },
+    "launchers": {
+      "$ref": "#/$defs/artifactList"
+    },
     "profiles": {
       "$ref": "#/$defs/artifactList"
     },
@@ -69,6 +72,7 @@
   "required": [
     "adapter",
     "expectedCells",
+    "launchers",
     "profiles",
     "protocolSha256",
     "qualificationPolicies",

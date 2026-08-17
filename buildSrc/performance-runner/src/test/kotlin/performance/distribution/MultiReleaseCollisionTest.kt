@@ -15,6 +15,8 @@ import java.nio.file.Path
 import performance.support.DistributionFixture
 import performance.support.DistributionFixture.Companion.BENCHMARK_DEPENDENCY
 import performance.support.DistributionFixture.Companion.PRODUCTION_JAR
+import performance.support.DistributionFixture.Companion.compiledClass
+import performance.support.DistributionFixture.Companion.compiledModuleInfo
 
 class MultiReleaseCollisionTest :
   FunSpec(
@@ -24,8 +26,9 @@ class MultiReleaseCollisionTest :
           fixture.replaceJar(
             BENCHMARK_DEPENDENCY,
             mapOf(
-              "META-INF/versions/21/example/Application.class" to byteArrayOf(9),
-              "example/Dependency.class" to byteArrayOf(1),
+              "META-INF/versions/21/example/Application.class" to
+                compiledClass("example.Application", publicType = false),
+              "example/Dependency.class" to compiledClass("example.Dependency"),
             ),
             multiRelease = true,
           )
@@ -39,18 +42,20 @@ class MultiReleaseCollisionTest :
           fixture.replaceJar(
             PRODUCTION_JAR,
             mapOf(
-              "META-INF/versions/21/module-info.class" to byteArrayOf(8),
-              "example/Application.class" to byteArrayOf(1),
-              "module-info.class" to byteArrayOf(2),
+              "META-INF/versions/21/module-info.class" to
+                compiledModuleInfo("fixture.production"),
+              "example/Application.class" to compiledClass("example.Application"),
+              "module-info.class" to compiledModuleInfo("fixture.production"),
             ),
             multiRelease = true,
           )
           fixture.replaceJar(
             BENCHMARK_DEPENDENCY,
             mapOf(
-              "META-INF/versions/21/module-info.class" to byteArrayOf(7),
-              "example/Dependency.class" to byteArrayOf(3),
-              "module-info.class" to byteArrayOf(4),
+              "META-INF/versions/21/module-info.class" to
+                compiledModuleInfo("fixture.dependency"),
+              "example/Dependency.class" to compiledClass("example.Dependency"),
+              "module-info.class" to compiledModuleInfo("fixture.dependency"),
             ),
             multiRelease = true,
           )
@@ -68,8 +73,9 @@ class MultiReleaseCollisionTest :
           fixture.replaceJar(
             BENCHMARK_DEPENDENCY,
             mapOf(
-              "META-INF/versions/22/example/Application.class" to byteArrayOf(9),
-              "example/Dependency.class" to byteArrayOf(1),
+              "META-INF/versions/22/example/Application.class" to
+                compiledClass("example.Application", publicType = false),
+              "example/Dependency.class" to compiledClass("example.Dependency"),
             ),
             multiRelease = true,
           )
@@ -87,8 +93,9 @@ class MultiReleaseCollisionTest :
           fixture.replaceJar(
             BENCHMARK_DEPENDENCY,
             mapOf(
-              "META-INF/versions/21/example/Versioned.class" to byteArrayOf(9),
-              "example/Dependency.class" to byteArrayOf(1),
+              "META-INF/versions/21/example/Versioned.class" to
+                compiledClass("example.Versioned", publicType = false),
+              "example/Dependency.class" to compiledClass("example.Dependency"),
             ),
             multiRelease = false,
           )
@@ -104,8 +111,9 @@ class MultiReleaseCollisionTest :
             mapOf(
               "META-INF/versions/" to byteArrayOf(),
               "META-INF/versions/21/" to byteArrayOf(),
-              "META-INF/versions/21/example/Versioned.class" to byteArrayOf(9),
-              "example/Dependency.class" to byteArrayOf(1),
+              "META-INF/versions/21/example/Versioned.class" to
+                compiledClass("example.Versioned", publicType = false),
+              "example/Dependency.class" to compiledClass("example.Dependency"),
             ),
             multiRelease = true,
           )
@@ -118,13 +126,36 @@ class MultiReleaseCollisionTest :
         }
       }
 
+      test("the JDK validator rejects incompatible public APIs across releases") {
+        withMultiReleaseFixture { fixture ->
+          fixture.replaceJar(
+            BENCHMARK_DEPENDENCY,
+            mapOf(
+              "META-INF/versions/21/example/VersionedApi.class" to
+                compiledClass("example.VersionedApi", release = 21),
+              "example/Dependency.class" to compiledClass("example.Dependency"),
+              "example/VersionedApi.class" to
+                compiledClass(
+                  "example.VersionedApi",
+                  members = "public void stable() {}",
+                  release = 8,
+                ),
+            ),
+            multiRelease = true,
+          )
+
+          fixture.assertInvalidWithoutProcess(DistributionProblem.INVALID_JAR)
+        }
+      }
+
       test("multi-release paths below version 9 are rejected") {
         withMultiReleaseFixture { fixture ->
           fixture.replaceJar(
             BENCHMARK_DEPENDENCY,
             mapOf(
-              "META-INF/versions/8/example/Versioned.class" to byteArrayOf(9),
-              "example/Dependency.class" to byteArrayOf(1),
+              "META-INF/versions/8/example/Versioned.class" to
+                compiledClass("example.Versioned", publicType = false, release = 8),
+              "example/Dependency.class" to compiledClass("example.Dependency"),
             ),
             multiRelease = true,
           )

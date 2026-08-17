@@ -7,12 +7,15 @@
  */
 package performance.distribution
 
+import java.io.PrintWriter
+import java.io.Writer
 import java.nio.ByteBuffer
 import java.nio.charset.CodingErrorAction
 import java.nio.charset.StandardCharsets
 import java.nio.file.Path
 import java.util.jar.JarEntry
 import java.util.jar.JarFile
+import java.util.spi.ToolProvider
 import java.util.zip.CRC32
 
 internal data class JarInspection(
@@ -26,7 +29,13 @@ internal data class JarInspection(
 
 internal object JarValidator {
   fun inspect(path: Path, featureVersion: Int): JarInspection =
-    runCatching { inspectJar(path, featureVersion) }
+    runCatching {
+        inspectJar(
+          path = path,
+          featureVersion = featureVersion,
+          jdkValidationSucceeded = validateWithCurrentJdk(path),
+        )
+      }
       .getOrElse {
         JarInspection(
           effectiveClasses = emptySet(),
@@ -38,10 +47,17 @@ internal object JarValidator {
         )
       }
 
-  private fun inspectJar(path: Path, featureVersion: Int): JarInspection =
+  private fun inspectJar(
+    path: Path,
+    featureVersion: Int,
+    jdkValidationSucceeded: Boolean,
+  ): JarInspection =
     JarFile(path.toFile(), true).use { jar ->
       val entries = jar.entries().asSequence().toList()
       val problems = mutableListOf<DistributionProblem>()
+      if (!jdkValidationSucceeded) {
+        problems += DistributionProblem.INVALID_JAR
+      }
       if (entries.size > MAX_JAR_ENTRIES || entries.map(JarEntry::getName).distinct().size != entries.size) {
         problems += DistributionProblem.INVALID_JAR
       }
@@ -61,6 +77,9 @@ internal object JarValidator {
           problems += DistributionProblem.INVALID_JAR
         }
         if (!entry.isDirectory && !hasValidEntryBytes(jar, entry)) {
+          problems += DistributionProblem.INVALID_JAR
+        }
+        if (!entry.isDirectory && name.endsWith(CLASS_SUFFIX) && !hasClassFileMagic(jar, entry)) {
           problems += DistributionProblem.INVALID_JAR
         }
 
@@ -141,6 +160,15 @@ internal object JarValidator {
       )
     }
 
+  private fun validateWithCurrentJdk(path: Path): Boolean {
+    val tool = ToolProvider.findFirst(JAR_TOOL_NAME).orElse(null) ?: return false
+    return PrintWriter(Writer.nullWriter()).use { output ->
+      PrintWriter(Writer.nullWriter()).use { error ->
+        tool.run(output, error, "--validate", "--file", path.toString()) == 0
+      }
+    }
+  }
+
   private fun validateServiceDescriptor(
     jar: JarFile,
     entry: JarEntry,
@@ -214,6 +242,13 @@ internal object JarValidator {
       }
       .getOrDefault(false)
 
+  private fun hasClassFileMagic(jar: JarFile, entry: JarEntry): Boolean =
+    runCatching {
+        jar.getInputStream(entry).use { input -> input.readNBytes(CLASS_MAGIC.size) }
+      }
+      .getOrNull()
+      ?.contentEquals(CLASS_MAGIC) == true
+
   private fun decodeStrictUtf8(bytes: ByteArray): String? =
     runCatching {
         StandardCharsets.UTF_8
@@ -279,12 +314,15 @@ internal object JarValidator {
   private const val SERVICE_PREFIX = "META-INF/services/"
   private const val VERSIONED_PREFIX = "META-INF/versions/"
   private const val CLASS_SUFFIX = ".class"
+  private const val JAR_TOOL_NAME = "jar"
   private const val MODULE_INFO = "module-info"
   private const val JMH_MAGIC = "JMH "
   private const val MIN_MULTI_RELEASE_VERSION = 9
   private const val MAX_JAR_ENTRIES = 250_000
   private const val MAX_METADATA_ENTRY_BYTES = 1024 * 1024
   private val VERSIONED_ENTRY = Regex("META-INF/versions/([0-9]+)/(.+)")
+  private val CLASS_MAGIC =
+    byteArrayOf(0xca.toByte(), 0xfe.toByte(), 0xba.toByte(), 0xbe.toByte())
 }
 
 private fun <T> immutableSet(values: Iterable<T>): Set<T> =

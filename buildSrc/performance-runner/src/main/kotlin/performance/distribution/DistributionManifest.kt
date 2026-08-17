@@ -85,6 +85,7 @@ data class DistributionProtocolManifest(
   val protocolSha256: Sha256,
   val runner: DistributionArtifactBinding,
   val adapter: DistributionArtifactBinding,
+  val launchers: List<DistributionArtifactBinding>,
   val schemas: List<DistributionArtifactBinding>,
   val profiles: List<DistributionArtifactBinding>,
   val runtimeDeclarations: List<DistributionArtifactBinding>,
@@ -95,6 +96,7 @@ data class DistributionProtocolManifest(
   internal fun bindings(): List<DistributionArtifactBinding> =
     immutableList(
       listOf(runner, adapter) +
+        launchers +
         schemas +
         profiles +
         runtimeDeclarations +
@@ -238,6 +240,7 @@ internal class DistributionManifestReader {
       protocolSha256 = Sha256.parse(document.text("protocolSha256")),
       runner = parseArtifact(document.objectNode("runner")),
       adapter = parseArtifact(document.objectNode("adapter")),
+      launchers = parseArtifacts(document.arrayNode("launchers")),
       schemas = parseArtifacts(document.arrayNode("schemas")),
       profiles = parseArtifacts(document.arrayNode("profiles")),
       runtimeDeclarations = parseArtifacts(document.arrayNode("runtimeDeclarations")),

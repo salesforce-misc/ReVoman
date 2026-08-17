@@ -30,6 +30,8 @@ internal sealed interface DistributionLayoutInspection {
 internal object DistributionLayout {
   const val PRODUCTION_JAR = "app/revoman.jar"
   const val BENCHMARK_JAR = "benchmark/revoman-jmh.jar"
+  const val UNIX_LAUNCHER = "bin/performance-runner"
+  const val WINDOWS_LAUNCHER = "bin/performance-runner.bat"
   const val RUNNER_JAR = "runner/performance-runner.jar"
   const val CLASSPATH_MANIFEST = "metadata/classpath.json"
   const val PROVENANCE_MANIFEST = "metadata/provenance.json"
@@ -84,7 +86,8 @@ internal object DistributionLayout {
         .toList()
     if (
       relativePaths.any { !isAllowedFile(it) } ||
-        relativeDirectories.any { it !in ALLOWED_DIRECTORIES }
+        relativeDirectories.any { it !in ALLOWED_DIRECTORIES } ||
+        REQUIRED_LAUNCHERS.any { it !in relativePaths }
     ) {
       return DistributionLayoutInspection.Invalid(DistributionProblem.INVALID_LAYOUT)
     }
@@ -118,13 +121,14 @@ internal object DistributionLayout {
     relativePath in EXACT_FILES ||
       BENCHMARK_LIBRARY.matches(relativePath) ||
       RUNNER_LIBRARY.matches(relativePath) ||
-      BIN_FILE.matches(relativePath) ||
       PROTOCOL_SCHEMA.matches(relativePath)
 
   private val EXACT_FILES =
     setOf(
       PRODUCTION_JAR,
       BENCHMARK_JAR,
+      UNIX_LAUNCHER,
+      WINDOWS_LAUNCHER,
       RUNNER_JAR,
       CLASSPATH_MANIFEST,
       PROVENANCE_MANIFEST,
@@ -161,7 +165,7 @@ internal object DistributionLayout {
     )
   private val BENCHMARK_LIBRARY = Regex("lib/[A-Za-z0-9_.-]+\\.jar")
   private val RUNNER_LIBRARY = Regex("runner/lib/[A-Za-z0-9_.-]+\\.jar")
-  private val BIN_FILE = Regex("bin/[A-Za-z0-9_.-]+")
+  private val REQUIRED_LAUNCHERS = setOf(UNIX_LAUNCHER, WINDOWS_LAUNCHER)
   private val PROTOCOL_SCHEMA =
     Regex("protocol/schemas/[A-Za-z0-9_.-]+-v[0-9]+\\.schema\\.json")
   private val WINDOWS_ABSOLUTE = Regex("[A-Za-z]:[/\\\\].*")

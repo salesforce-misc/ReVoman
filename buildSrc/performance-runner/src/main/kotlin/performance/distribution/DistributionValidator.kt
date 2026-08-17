@@ -106,9 +106,10 @@ class DistributionValidator {
       }
     val problems = mutableListOf<DistributionProblem>()
     problems += validateJava(request.selectedJava, metadata.classpath.javaRuntime)
+    val canonicalProtocolHash = protocolClosureHash(metadata.protocol)
     if (
-      request.expectedProtocolHash != null &&
-        request.expectedProtocolHash != metadata.protocol.protocolSha256
+      metadata.protocol.protocolSha256 != canonicalProtocolHash ||
+        request.expectedProtocolHash?.let { it != canonicalProtocolHash } == true
     ) {
       problems += DistributionProblem.PROTOCOL_HASH_MISMATCH
     }
@@ -154,16 +155,27 @@ class DistributionValidator {
     declared: DeclaredJavaRuntime,
   ): List<DistributionProblem> {
     val problems = mutableListOf<DistributionProblem>()
-    if (selected.featureVersion < MINIMUM_JAVA_FEATURE) {
+    val currentFeature = Runtime.version().feature()
+    if (
+      currentFeature < MINIMUM_JAVA_FEATURE ||
+        selected.featureVersion < MINIMUM_JAVA_FEATURE ||
+        declared.featureVersion < MINIMUM_JAVA_FEATURE
+    ) {
       problems += DistributionProblem.JAVA_VERSION_UNSUPPORTED
     }
     val selectedExecutable = selected.executable.toAbsolutePath().normalize()
     val declaredExecutable = declared.executable.toAbsolutePath().normalize()
+    val currentExecutable =
+      ProcessHandle.current().info().command().orElse(null)?.let { command ->
+        Path.of(command).toAbsolutePath().normalize()
+      }
     val actualDigest =
       runCatching {
           selectedExecutable
             .takeIf { path ->
-              Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS) && !Files.isSymbolicLink(path)
+              Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS) &&
+                !Files.isSymbolicLink(path) &&
+                Files.isExecutable(path)
             }
             ?.let(::digest)
         }
@@ -172,7 +184,9 @@ class DistributionValidator {
       !selected.executable.isAbsolute ||
         !declared.executable.isAbsolute ||
         selectedExecutable != declaredExecutable ||
-        selected.featureVersion != declared.featureVersion ||
+        selectedExecutable != currentExecutable ||
+        selected.featureVersion != currentFeature ||
+        declared.featureVersion != currentFeature ||
         selected.sha256 != declared.executableSha256 ||
         actualDigest != selected.sha256
     ) {
@@ -296,6 +310,7 @@ class DistributionValidator {
         protocol.runner to DistributionProblem.RUNNER_HASH_MISMATCH,
         protocol.adapter to DistributionProblem.ADAPTER_HASH_MISMATCH,
       ) +
+        protocol.launchers.map { it to DistributionProblem.PROTOCOL_HASH_MISMATCH } +
         protocol.schemas.map { it to DistributionProblem.SCHEMA_HASH_MISMATCH } +
         protocol.profiles.map { it to DistributionProblem.PROFILE_HASH_MISMATCH } +
         protocol.runtimeDeclarations.map { it to DistributionProblem.RUNTIME_HASH_MISMATCH } +
@@ -335,9 +350,21 @@ class DistributionValidator {
     return immutableList(problems.distinct())
   }
 
+  private fun protocolClosureHash(protocol: DistributionProtocolManifest): Sha256 =
+    Sha256.digest(
+      protocol
+        .bindings()
+        .sortedBy(DistributionArtifactBinding::path)
+        .joinToString(separator = "\n", postfix = "\n") { binding ->
+          "${binding.sha256.hex}  ${binding.path}"
+        }
+        .encodeToByteArray(),
+    )
+
   private fun hasRequiredProtocolLayout(protocol: DistributionProtocolManifest): Boolean =
     protocol.runner.path == DistributionLayout.RUNNER_JAR &&
       protocol.adapter.path == "protocol/adapter/run" &&
+      protocol.launchers.map(DistributionArtifactBinding::path).toSet() == REQUIRED_LAUNCHERS &&
       protocol.expectedCells.path == "protocol/expected-cells.json" &&
       protocol.schemas.map(DistributionArtifactBinding::path).toSet() == REQUIRED_SCHEMAS &&
       protocol.profiles.map(DistributionArtifactBinding::path).toSet() == REQUIRED_PROFILES &&
@@ -348,6 +375,7 @@ class DistributionValidator {
       protocol.testVectors.map(DistributionArtifactBinding::path).toSet() == REQUIRED_TEST_VECTORS &&
       protocol.schemas.all { binding -> binding.path.matches(PROTOCOL_SCHEMA) } &&
       listOf(
+          protocol.launchers,
           protocol.schemas,
           protocol.profiles,
           protocol.runtimeDeclarations,
@@ -433,6 +461,11 @@ class DistributionValidator {
         "protocol/schemas/profiler-summary-v1.schema.json",
         "protocol/schemas/restoration-v1.schema.json",
         "protocol/schemas/watcher-v1.schema.json",
+      )
+    val REQUIRED_LAUNCHERS =
+      setOf(
+        DistributionLayout.UNIX_LAUNCHER,
+        DistributionLayout.WINDOWS_LAUNCHER,
       )
     val REQUIRED_PROFILES =
       setOf(

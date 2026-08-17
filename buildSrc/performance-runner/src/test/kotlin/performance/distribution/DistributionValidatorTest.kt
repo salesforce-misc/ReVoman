@@ -28,6 +28,8 @@ import performance.support.DistributionFixture.Companion.EXPECTED_BENCHMARK
 import performance.support.DistributionFixture.Companion.PRODUCTION_JAR
 import performance.support.DistributionFixture.Companion.PROTOCOL_MANIFEST
 import performance.support.DistributionFixture.Companion.PROVENANCE_MANIFEST
+import performance.support.DistributionFixture.Companion.UNIX_LAUNCHER
+import performance.support.DistributionFixture.Companion.compiledClass
 import tools.jackson.databind.node.ArrayNode
 import tools.jackson.databind.node.ObjectNode
 
@@ -203,11 +205,35 @@ class DistributionValidatorTest :
         withFixture { fixture ->
           DistributionFixture.writeJar(
             fixture.root.resolve("lib/orphan.jar"),
-            mapOf("example/Orphan.class" to byteArrayOf(1)),
+            mapOf("example/Orphan.class" to compiledClass("example.Orphan")),
           )
           fixture.reseal()
 
           fixture.assertInvalid(DistributionProblem.PROTOCOL_LAYOUT_INVALID)
+        }
+      }
+
+      test("both exact installDist launchers are required") {
+        withFixture { fixture ->
+          fixture.deleteAndReseal(UNIX_LAUNCHER)
+
+          fixture.assertInvalid(DistributionProblem.INVALID_LAYOUT)
+        }
+      }
+
+      test("files outside the exact installDist launcher pair are rejected from bin") {
+        withFixture { fixture ->
+          fixture.addFileAndReseal("bin/unreviewed-launcher", "extra\n".encodeToByteArray())
+
+          fixture.assertInvalid(DistributionProblem.INVALID_LAYOUT)
+        }
+      }
+
+      test("every launcher byte is bound into protocol identity") {
+        withFixture { fixture ->
+          fixture.replaceFile(UNIX_LAUNCHER, "#!/bin/sh\nexit 7\n".encodeToByteArray())
+
+          fixture.assertInvalid(DistributionProblem.PROTOCOL_HASH_MISMATCH)
         }
       }
 
@@ -239,6 +265,28 @@ class DistributionValidatorTest :
         }
       }
 
+      test("class entries with corrupt bytes are rejected") {
+        withFixture { fixture ->
+          fixture.replaceJar(
+            BENCHMARK_DEPENDENCY,
+            mapOf("example/Corrupt.class" to byteArrayOf(1)),
+          )
+
+          fixture.assertInvalid(DistributionProblem.INVALID_JAR)
+        }
+      }
+
+      test("class entry paths must match the class file internal name") {
+        withFixture { fixture ->
+          fixture.replaceJar(
+            BENCHMARK_DEPENDENCY,
+            mapOf("example/Claimed.class" to compiledClass("example.Actual")),
+          )
+
+          fixture.assertInvalid(DistributionProblem.INVALID_JAR)
+        }
+      }
+
       mapOf(
           "BenchmarkList" to "META-INF/CompilerHints",
           "CompilerHints" to "META-INF/BenchmarkList",
@@ -256,7 +304,8 @@ class DistributionValidatorTest :
                 BENCHMARK_JAR,
                 mapOf(
                   retained to retainedBytes,
-                  "example/Benchmark.class" to byteArrayOf(1),
+                  "example/Benchmark.class" to
+                    compiledClass("example.Benchmark", "public void measure() {}"),
                 ),
               )
 
@@ -275,8 +324,10 @@ class DistributionValidatorTest :
                     fixture.benchmarkList("example.Unexpected.measure"))
                   .encodeToByteArray(),
               "META-INF/CompilerHints" to "hints\n".encodeToByteArray(),
-              "example/Benchmark.class" to byteArrayOf(1),
-              "example/Unexpected.class" to byteArrayOf(2),
+              "example/Benchmark.class" to
+                compiledClass("example.Benchmark", "public void measure() {}"),
+              "example/Unexpected.class" to
+                compiledClass("example.Unexpected", "public void measure() {}"),
             ),
           )
 
@@ -291,7 +342,8 @@ class DistributionValidatorTest :
             mapOf(
               "META-INF/BenchmarkList" to "not-jmh-metadata\n".encodeToByteArray(),
               "META-INF/CompilerHints" to "hints\n".encodeToByteArray(),
-              "example/Benchmark.class" to byteArrayOf(1),
+              "example/Benchmark.class" to
+                compiledClass("example.Benchmark", "public void measure() {}"),
             ),
           )
 
@@ -304,8 +356,9 @@ class DistributionValidatorTest :
           fixture.replaceJar(
             BENCHMARK_DEPENDENCY,
             mapOf(
-              "example/Dependency.class" to byteArrayOf(1),
-              "example/DistributionValidatorTest.class" to byteArrayOf(2),
+              "example/Dependency.class" to compiledClass("example.Dependency"),
+              "example/DistributionValidatorTest.class" to
+                compiledClass("example.DistributionValidatorTest"),
             ),
           )
 
@@ -325,7 +378,7 @@ class DistributionValidatorTest :
               fixture.addBenchmarkJar(
                 relativePath = path,
                 coordinate = coordinate,
-                entries = mapOf("testonly/Dependency.class" to byteArrayOf(1)),
+                entries = mapOf("testonly/Dependency.class" to compiledClass("testonly.Dependency")),
               )
 
               fixture.assertInvalid(DistributionProblem.TEST_DEPENDENCY_PRESENT)
@@ -417,7 +470,7 @@ class DistributionValidatorTest :
         withFixture { fixture ->
           fixture.replaceJar(
             BENCHMARK_DEPENDENCY,
-            mapOf("example/Application.class" to byteArrayOf(9)),
+            mapOf("example/Application.class" to compiledClass("example.Application")),
           )
 
           fixture.assertInvalid(DistributionProblem.DUPLICATE_EFFECTIVE_CLASS)
@@ -430,7 +483,7 @@ class DistributionValidatorTest :
             BENCHMARK_DEPENDENCY,
             mapOf(
               "META-INF/services/example.Service" to "not/a/provider\n".encodeToByteArray(),
-              "example/Dependency.class" to byteArrayOf(1),
+              "example/Dependency.class" to compiledClass("example.Dependency"),
             ),
           )
 
@@ -444,8 +497,8 @@ class DistributionValidatorTest :
             BENCHMARK_DEPENDENCY,
             mapOf(
               "META-INF/services/example.Service" to "example.MissingProvider\n".encodeToByteArray(),
-              "example/Dependency.class" to byteArrayOf(1),
-              "example/Service.class" to byteArrayOf(2),
+              "example/Dependency.class" to compiledClass("example.Dependency"),
+              "example/Service.class" to compiledClass("example.Service"),
             ),
           )
 
@@ -479,11 +532,21 @@ class DistributionValidatorTest :
         }
       }
 
-      test("selected Java identity is checked against executable bytes") {
+      test("a self-consistent hashed text file cannot stand in for the executing Java binary") {
         withFixture { fixture ->
-          Files.writeString(fixture.selectedJava.executable, "changed-java")
+          val textExecutable = fixture.root.resolveSibling("not-java")
+          Files.writeString(textExecutable, "not a Java executable\n")
+          textExecutable.toFile().setExecutable(false, false)
+          Files.isExecutable(textExecutable) shouldBe false
+          val forgedIdentity =
+            JavaRuntimeIdentity(
+              executable = textExecutable.toAbsolutePath().normalize(),
+              featureVersion = Runtime.version().feature(),
+              sha256 = Sha256.digest(Files.readAllBytes(textExecutable)),
+            )
+          fixture.declareJava(forgedIdentity)
 
-          fixture.assertInvalid(DistributionProblem.JAVA_RUNTIME_MISMATCH)
+          fixture.assertInvalid(DistributionProblem.JAVA_RUNTIME_MISMATCH, forgedIdentity)
         }
       }
 
@@ -531,6 +594,17 @@ class DistributionValidatorTest :
           fixture.assertInvalid(
             DistributionProblem.PROTOCOL_HASH_MISMATCH,
             expectedProtocolHash = Sha256.parse("0".repeat(64)),
+          )
+        }
+      }
+
+      test("declared protocol identity is always recomputed without an external expectation") {
+        withFixture { fixture ->
+          fixture.mutateProtocol { protocol -> protocol.put("protocolSha256", "0".repeat(64)) }
+
+          fixture.assertInvalid(
+            DistributionProblem.PROTOCOL_HASH_MISMATCH,
+            expectedProtocolHash = null,
           )
         }
       }
