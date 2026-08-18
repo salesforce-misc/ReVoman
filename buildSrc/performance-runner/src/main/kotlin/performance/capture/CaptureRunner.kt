@@ -36,8 +36,9 @@ import performance.model.ProvisionalCaptureDocument
 import performance.model.ProvisionalCaptureOutcome
 import performance.model.ProvisionalEvidenceStrength
 import performance.model.ProvisionalOutcomeReason
+import performance.model.SubstrateIdentity
 import performance.process.ProcessExecutor
-import performance.process.ProcessSpec
+import performance.process.ProcessInvocation
 import performance.runner.RunnerExit
 
 data class CaptureRequest(
@@ -368,7 +369,7 @@ class CaptureRunner private constructor(
     }
   }
 
-  private fun processSpec(request: CaptureRequest, paths: OperationPaths): ProcessSpec {
+  private fun processSpec(request: CaptureRequest, paths: OperationPaths): ProcessInvocation {
     val classpath = request.distribution.benchmarkClasspath
     val profile = request.profile
     val benchmarkExpression =
@@ -412,7 +413,7 @@ class CaptureRunner private constructor(
             )
         }
       }
-    return ProcessSpec(
+    return ProcessInvocation(
       executable = profile.selectedJavaExecutable,
       arguments = arguments,
       classpath = classpath,
@@ -529,6 +530,8 @@ class CaptureRunner private constructor(
     when {
       profiler != DiagnosticProfiler.NONE -> ProvisionalOutcomeReason.PROFILER_DIAGNOSTIC
       family == CaptureProfileFamily.CANARY -> ProvisionalOutcomeReason.STRUCTURAL_CANARY
+      evidence.runtime.substrate is SubstrateIdentity.GithubHosted ->
+        ProvisionalOutcomeReason.GITHUB_HOSTED
       else -> ProvisionalOutcomeReason.BOUNDED_DIAGNOSTIC
     }
 

@@ -29,15 +29,18 @@ import performance.compare.CaptureBundleVerifier
 import performance.hash.Sha256
 import performance.json.CanonicalJson
 import performance.model.ArtifactIdentity
+import performance.model.AdvertisedResources
 import performance.model.EvidenceStatus
 import performance.model.HostDocumentRef
 import performance.model.ProvisionalCaptureDocument
 import performance.model.ProvisionalEvidenceStrength
 import performance.model.ProvisionalOutcomeReason
 import performance.model.QualificationEvidence
+import performance.model.SubstrateIdentity
 import performance.process.ProcessExecutor
 import performance.process.ProcessResult
-import performance.process.ProcessSpec
+import performance.process.ProcessInvocation
+import performance.runner.PrivateOperationWriter
 
 /**
  * Defects caught here: accepting caller-selected evidence strength, trusting provisional metadata,
@@ -85,6 +88,74 @@ class DiagnosticCaptureSealerTest :
           capture.get("outcome").get("claimEligibilityReasons").get(0).asString() shouldBe
             "boundedDiagnostic"
           capture.toString() shouldNotContain scenario.operationRoot.toString()
+        }
+      }
+
+      test("github-hosted capture seals only with github qualification and reason") {
+        withVerifiedDistribution { fixture, distribution ->
+          val scenario = coldScenario(fixture.root.resolveSibling("seal-github-operation"), distribution)
+          val document =
+            scenario.document.copy(
+              outcome =
+                scenario.document.outcome.copy(
+                  reasons = listOf(ProvisionalOutcomeReason.GITHUB_HOSTED),
+                ),
+              runtime =
+                scenario.document.runtime.copy(
+                  hostId = "github-hosted-arm64-canary-v1",
+                  substrate =
+                    SubstrateIdentity.GithubHosted(
+                      runnerLabel = "ubuntu-24.04-arm",
+                      runnerImageVersion = "20260817.1",
+                      kernel = "6.11.0",
+                      dockerEngineVersion = "28.3.3",
+                      advertisedResources = AdvertisedResources(4, 6442450944L),
+                    ),
+                ),
+            )
+          val qualification =
+            QualificationEvidence.GithubHosted(
+              policyHash = document.protocol.qualificationPolicySha256,
+              setup = hostRef("setup"),
+              cleanup = hostRef("cleanup"),
+              macFieldsInapplicableReason = "githubHosted",
+            )
+          val bundleRoot = fixture.root.resolveSibling("seal-github-bundle")
+
+          val outcome =
+            DiagnosticCaptureSealer.seal(document, scenario.operationRoot, bundleRoot, qualification)
+          withClue((outcome as? DiagnosticSealOutcome.Rejected)?.reason) {
+            outcome.shouldBeInstanceOf<DiagnosticSealOutcome.Sealed>()
+          }
+
+          val projection =
+            CaptureBundleVerifier.verify(bundleRoot).projection.shouldBeInstanceOf<CaptureBundleVerifier.Projection>()
+          projection.qualificationKind shouldBe "githubHosted"
+          val capture = CanonicalJson.parseStrict(Files.readAllBytes(bundleRoot.resolve("capture.json")))
+          capture.get("outcome").get("claimEligibilityReasons").get(0).asString() shouldBe
+            "githubHosted"
+        }
+      }
+
+      test("runner-owned private capture state round-trips through the canonical codec") {
+        withVerifiedDistribution { fixture, distribution ->
+          val scenario = coldScenario(fixture.root.resolveSibling("private-state-operation"), distribution)
+          val request =
+            CaptureRequest(
+              distribution,
+              testProfile(distribution, family = CaptureProfileFamily.COLD),
+              scenario.document.identity,
+              scenario.operationRoot,
+            )
+
+          val bytes = CaptureDocumentCodec.encode(scenario.document)
+          PrivateOperationWriter.capture(request, CaptureOutcome.Provisional(scenario.document))
+
+          CaptureDocumentCodec.decode(bytes) shouldBe scenario.document
+          CanonicalJson.encode(CanonicalJson.parseStrict(bytes)) shouldBe bytes
+          Files.readAllBytes(
+            scenario.operationRoot.resolveSibling("state").resolve(PrivateOperationWriter.CAPTURE_STATE),
+          ) shouldBe bytes
         }
       }
 
@@ -483,7 +554,7 @@ private fun coldScenario(
   distribution: performance.distribution.VerifiedDistribution,
 ): SealScenario {
   val executor =
-    ProcessExecutor { spec: ProcessSpec ->
+    ProcessExecutor { spec: ProcessInvocation ->
       Files.write(spec.resultPath, validJmhBytes(forks = 10))
       Files.writeString(spec.stdoutPath, "capture complete\n")
       Files.writeString(spec.stderrPath, "")

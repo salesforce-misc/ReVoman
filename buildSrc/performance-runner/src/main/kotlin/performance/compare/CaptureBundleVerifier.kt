@@ -839,7 +839,7 @@ internal object ComparisonInputVerifier {
     return runCatching { distributionProjection(verified) }.getOrNull()
   }
 
-  private fun distributionProjection(verified: VerifiedDistribution): DistributionProjection {
+  internal fun distributionProjection(verified: VerifiedDistribution): DistributionProjection {
     val root = verified.root
     val metadata = verified.metadata
     val protocol = metadata.protocol

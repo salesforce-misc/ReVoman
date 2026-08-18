@@ -53,6 +53,16 @@ private fun parseCommand(args: List<String>): CommandParseResult =
             "--diagnostic-profiler",
             "--output",
           ),
+        requiredFlags =
+          setOf(
+            "--profile",
+            "--forks",
+            "--host-id",
+            "--session-id",
+            "--sequence",
+            "--distribution",
+            "--output",
+          ),
         create = RunnerCommand::Capture,
       )
 
@@ -67,6 +77,14 @@ private fun parseCommand(args: List<String>): CommandParseResult =
             "--candidate",
             "--calibration",
             "--regression-policy",
+            "--output",
+          ),
+        requiredFlags =
+          setOf(
+            "--kind",
+            "--runner-distribution",
+            "--baseline",
+            "--candidate",
             "--output",
           ),
         create = RunnerCommand::Compare,
@@ -84,34 +102,113 @@ private fun parseCommand(args: List<String>): CommandParseResult =
             "--regression-policy",
             "--output",
           ),
+        requiredFlags =
+          setOf(
+            "--profile",
+            "--host-id",
+            "--baseline-distribution",
+            "--candidate-distribution",
+            "--output",
+          ),
         create = RunnerCommand::Campaign,
       )
 
     "scrub-profiler" ->
       parseKnownCommand(
         arguments = args.drop(1),
-        allowedFlags = emptySet(),
+        allowedFlags =
+          setOf(
+            "--capture-id",
+            "--provisional-capture-sha256",
+            "--operation-state",
+            "--qualification-root",
+            "--raw-input-sha256",
+            "--variant-sha256",
+            "--settings-sha256",
+            "--raw",
+            "--summary",
+            "--intent",
+            "--completion",
+          ),
+        requiredFlags =
+          setOf(
+            "--capture-id",
+            "--provisional-capture-sha256",
+            "--raw-input-sha256",
+            "--variant-sha256",
+            "--settings-sha256",
+            "--raw",
+            "--summary",
+            "--intent",
+            "--completion",
+          ),
         create = RunnerCommand::ScrubProfiler,
       )
 
     "finalize-diagnostic" ->
       parseKnownCommand(
         arguments = args.drop(1),
-        allowedFlags = emptySet(),
+        allowedFlags =
+          setOf(
+            "--source",
+            "--artifact-parent",
+            "--run-token",
+            "--terminal",
+            "--operation-root",
+            "--profiler-intent",
+            "--profiler-completion",
+            "--provisional-capture-sha256",
+          ),
+        requiredFlags = setOf("--source", "--artifact-parent", "--run-token", "--terminal"),
+        allOrNoneFlags =
+          setOf(
+            "--operation-root",
+            "--profiler-intent",
+            "--profiler-completion",
+            "--provisional-capture-sha256",
+          ),
+        secondaryAllOrNoneFlags = setOf("--operation-state", "--qualification-root"),
         create = RunnerCommand::FinalizeDiagnostic,
+      )
+
+    "finalize-standalone-comparison" ->
+      parseKnownCommand(
+        arguments = args.drop(1),
+        allowedFlags =
+          setOf(
+            "--source",
+            "--artifact-parent",
+            "--run-token",
+            "--terminal",
+            "--operation-state",
+            "--qualification-root",
+          ),
+        requiredFlags = setOf("--source", "--artifact-parent", "--run-token", "--terminal"),
+        allOrNoneFlags = setOf("--operation-state", "--qualification-root"),
+        create = RunnerCommand::FinalizeStandaloneComparison,
       )
 
     "finalize-campaign" ->
       parseKnownCommand(
         arguments = args.drop(1),
-        allowedFlags = emptySet(),
+        allowedFlags = setOf("--source", "--artifact-parent", "--run-token", "--terminal"),
+        requiredFlags = setOf("--source", "--artifact-parent", "--run-token", "--terminal"),
         create = RunnerCommand::FinalizeCampaign,
+      )
+
+    "finalize-freeze" ->
+      parseKnownCommand(
+        arguments = args.drop(1),
+        allowedFlags = setOf("--source", "--artifact-parent", "--run-token", "--terminal"),
+        requiredFlags = setOf("--source", "--artifact-parent", "--run-token", "--terminal"),
+        create = RunnerCommand::FinalizeFreeze,
       )
 
     "recover" ->
       parseKnownCommand(
         arguments = args.drop(1),
-        allowedFlags = emptySet(),
+        allowedFlags = setOf("--artifact-root", "--run-token", "--operation-input"),
+        requiredFlags = setOf("--artifact-root", "--run-token", "--operation-input"),
         create = RunnerCommand::Recover,
       )
 
@@ -121,12 +218,23 @@ private fun parseCommand(args: List<String>): CommandParseResult =
 private fun parseKnownCommand(
   arguments: List<String>,
   allowedFlags: Set<String>,
+  requiredFlags: Set<String> = emptySet(),
+  allOrNoneFlags: Set<String> = emptySet(),
+  secondaryAllOrNoneFlags: Set<String> = emptySet(),
   create: (List<String>) -> RunnerCommand,
-): CommandParseResult =
-  when (validateArguments(arguments = arguments, allowedFlags = allowedFlags)) {
-    null -> CommandParseResult.Valid(create(arguments))
-    else -> CommandParseResult.Invalid(RunnerFailureReason.INVALID_ARGUMENTS)
-  }
+): CommandParseResult {
+  val providedFlags = arguments.filterIndexed { index, _ -> index % 2 == 0 }.toSet()
+  val groupedFlagsComplete =
+    allOrNoneFlags.none(providedFlags::contains) || providedFlags.containsAll(allOrNoneFlags)
+  val secondaryGroupedFlagsComplete =
+    secondaryAllOrNoneFlags.none(providedFlags::contains) ||
+      providedFlags.containsAll(secondaryAllOrNoneFlags)
+  val valid =
+    validateArguments(arguments = arguments, allowedFlags = allowedFlags) == null &&
+      providedFlags.containsAll(requiredFlags) && groupedFlagsComplete && secondaryGroupedFlagsComplete
+  return if (valid) CommandParseResult.Valid(create(arguments))
+  else CommandParseResult.Invalid(RunnerFailureReason.INVALID_ARGUMENTS)
+}
 
 private tailrec fun validateArguments(
   arguments: List<String>,

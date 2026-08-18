@@ -10,7 +10,7 @@ package performance.process
 import java.nio.file.Path
 
 /** The complete, immutable specification for one external process. */
-data class ProcessSpec(
+data class ProcessInvocation(
   val executable: Path,
   val arguments: List<String>,
   val classpath: List<Path>,
@@ -27,5 +27,5 @@ data class ProcessResult(val exitCode: Int)
 
 /** The sole external-process seam used by performance capture. */
 fun interface ProcessExecutor {
-  fun execute(spec: ProcessSpec): ProcessResult
+  fun execute(spec: ProcessInvocation): ProcessResult
 }

@@ -234,7 +234,7 @@ class ArtifactRootContractTest :
         }
       }
 
-      test("the finalizer validates freeze materialization before one GNU move") {
+      test("the verified runner owns freeze validation and exact GNU publication") {
         FakeHost().use { host ->
           val result = host.invoke(*initialFreeze(host, host.output("gnu-publication")).toTypedArray())
           val finalizer =
@@ -247,17 +247,17 @@ class ArtifactRootContractTest :
           child shouldContain "test -x \"\$runner\""
           child shouldContain "test ! -L \"\$runner\""
           child shouldContain "\"\$runner\" \"\$REVOMAN_FINALIZER_COMMAND\""
-          child shouldContain "\"\$runner\" validate-distribution --distribution \"\$freeze_source\""
-          child shouldContain "\"\$runner\" validate-distribution --distribution \"\$staging\""
-          child shouldContain "/usr/bin/tar --one-top-level=\"\$REVOMAN_STAGING_NAME\" -xf -"
-          child shouldContain "/usr/bin/mv -nT --no-copy -- \"\$staging\" \"\$target\""
-          child.lines().none { line -> line.startsWith("/bin/mv ") } shouldBe true
-          child shouldNotContain "mkdir \"\$staging\""
+          child shouldContain "finalizer_source=/operation/provisional/distribution"
+          child shouldContain "--source \"\$finalizer_source\""
+          child shouldNotContain "/usr/bin/tar"
+          child shouldNotContain "/usr/bin/mv -nT"
+          child shouldNotContain "/usr/bin/rm -f \"\$token_file\""
           child shouldNotContain "INVALID/reason"
           child shouldNotContain "adapter-failure"
           child shouldNotContain "nested_source"
           finalizer.any { argument -> argument.startsWith("type=volume,src=") } shouldBe true
           finalizer.any { argument -> argument.endsWith("dst=/inputs,readonly") } shouldBe true
+          finalizer.contains("REVOMAN_FINALIZER_COMMAND=finalize-freeze") shouldBe true
         }
       }
 

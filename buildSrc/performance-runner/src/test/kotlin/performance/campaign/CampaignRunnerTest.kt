@@ -35,7 +35,7 @@ import performance.hash.Sha256
 import performance.model.ProvisionalCaptureDocument
 import performance.process.ProcessExecutor
 import performance.process.ProcessResult
-import performance.process.ProcessSpec
+import performance.process.ProcessInvocation
 import performance.support.DistributionFixture
 import performance.support.DistributionFixture.Companion.EXPECTED_BENCHMARK
 
@@ -601,7 +601,7 @@ private class CampaignFixture(
     }
 }
 
-private fun writeJmhResult(spec: ProcessSpec, script: CaptureScript): ProcessResult {
+private fun writeJmhResult(spec: ProcessInvocation, script: CaptureScript): ProcessResult {
   if (script.exitCode != 0) return ProcessResult(script.exitCode)
   val forks = spec.arguments.valueAfter("-f").toInt()
   val iterations = spec.arguments.valueAfter("-i").toInt()

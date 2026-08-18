@@ -57,13 +57,9 @@ class PerformanceRunnerMainTest :
           "capture" to listOf("capture", "--profile", "cold"),
           "compare" to listOf("compare", "--kind", "calibration"),
           "campaign" to listOf("campaign", "--profile", "warm"),
-          "scrub-profiler" to listOf("scrub-profiler"),
-          "finalize-diagnostic" to listOf("finalize-diagnostic"),
-          "finalize-campaign" to listOf("finalize-campaign"),
-          "recover" to listOf("recover"),
         )
         .forEach { (commandName, arguments) ->
-          test("$commandName returns the unavailable-command contract without terminating the JVM") {
+          test("$commandName rejects an incomplete operation request without terminating the JVM") {
             val standardError = mutableListOf<String>()
 
             val exit =
@@ -75,7 +71,31 @@ class PerformanceRunnerMainTest :
 
             exit shouldBe RunnerExit.INPUT_OR_PREFLIGHT_INVALID.code
             standardError shouldContainExactly
-              listOf("performance-runner: INPUT_OR_PREFLIGHT_INVALID: COMMAND_NOT_AVAILABLE")
+              listOf("performance-runner: INPUT_OR_PREFLIGHT_INVALID: INVALID_ARGUMENTS")
+          }
+        }
+
+      listOf(
+          "scrub-profiler",
+          "finalize-diagnostic",
+          "finalize-standalone-comparison",
+          "finalize-campaign",
+          "recover",
+        )
+        .forEach { commandName ->
+          test("$commandName rejects missing required arguments before dispatch") {
+            val standardError = mutableListOf<String>()
+
+            val exit =
+              runMain(
+                args = listOf(commandName),
+                dependencies =
+                  RunnerDependencies(writeStandardError = { message -> standardError += message }),
+              )
+
+            exit shouldBe RunnerExit.INPUT_OR_PREFLIGHT_INVALID.code
+            standardError shouldContainExactly
+              listOf("performance-runner: INPUT_OR_PREFLIGHT_INVALID: INVALID_ARGUMENTS")
           }
         }
 

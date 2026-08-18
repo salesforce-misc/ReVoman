@@ -10,6 +10,7 @@ package performance.runner
 /** Executes a validated runner command without depending on Gradle APIs. */
 class RunnerEngine(private val dependencies: RunnerDependencies) {
   fun execute(command: RunnerCommand): RunnerOutcome {
+    dependencies.execute(command)?.let { return it }
     if (command is RunnerCommand.ValidateDistribution) {
       return validateDistribution(command)
     }
@@ -20,7 +21,9 @@ class RunnerEngine(private val dependencies: RunnerDependencies) {
         is RunnerCommand.Campaign,
         is RunnerCommand.ScrubProfiler,
         is RunnerCommand.FinalizeDiagnostic,
+        is RunnerCommand.FinalizeStandaloneComparison,
         is RunnerCommand.FinalizeCampaign,
+        is RunnerCommand.FinalizeFreeze,
         is RunnerCommand.Recover -> RunnerFailureReason.COMMAND_NOT_AVAILABLE
       }
     dependencies.reportInputFailure(reason)

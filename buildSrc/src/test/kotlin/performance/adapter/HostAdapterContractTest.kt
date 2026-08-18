@@ -32,20 +32,31 @@ class HostAdapterContractTest :
         }
       }
 
-      test("the four evidence commands are recognized and remain unavailable at this checkpoint") {
+      test("the four evidence commands reach runner-owned finalization") {
         FakeHost().use { host ->
           publicCommands(host).filterNot { it.name == "freeze" }.forEach { command ->
             val result = host.invoke(*command.arguments.toTypedArray())
 
-            result.exitCode shouldBe 2
-            result.standardError shouldContain "COMMAND_NOT_AVAILABLE"
+            result.exitCode shouldBe 0
+            result.standardError shouldBe ""
             result.commands.filter { it.firstOrNull() == "docker" }.shouldNotBeEmpty()
-            Files.readString(host.outputPath(command.name).resolve("INVALID/runner-owned")) shouldBe
-              "INTERNAL_ERROR\n"
-            Files.exists(host.outputPath(command.name).resolve("INVALID/reason")) shouldBe false
+            Files.isDirectory(host.outputPath(command.name)) shouldBe true
+            Files.exists(
+              host.outputPath(command.name).resolve(
+                when (command.name) {
+                  "campaign" -> "campaign.json"
+                  "compare" -> "comparison.json"
+                  else -> "capture.json"
+                },
+              ),
+            ) shouldBe true
             val finalizer = phase(result.commands.filter(::isDockerRun), "finalizer")
             val expectedFinalizerCommand =
-              if (command.name == "campaign") "finalize-campaign" else "finalize-diagnostic"
+              when (command.name) {
+                "campaign" -> "finalize-campaign"
+                "compare" -> "finalize-standalone-comparison"
+                else -> "finalize-diagnostic"
+              }
             finalizer.contains("REVOMAN_FINALIZER_COMMAND=$expectedFinalizerCommand") shouldBe true
             finalizer.last() shouldContain "\"\$runner\" \"\$REVOMAN_FINALIZER_COMMAND\""
           }
@@ -97,7 +108,9 @@ class HostAdapterContractTest :
           (result.commands.indexOf(bootstrap) < result.commands.indexOf(verification)) shouldBe true
           (result.commands.indexOf(verification) < result.commands.indexOf(freeze)) shouldBe true
           (result.commands.indexOf(freeze) < result.commands.indexOf(finalizer)) shouldBe true
-          finalizer.last() shouldContain "/usr/bin/mv -nT --no-copy -- \"\$staging\" \"\$target\""
+          finalizer shouldContainAll listOf("REVOMAN_FINALIZER_COMMAND=finalize-freeze")
+          finalizer.last() shouldContain "\"\$runner\" \"\$REVOMAN_FINALIZER_COMMAND\""
+          finalizer.last() shouldNotContain "/usr/bin/mv -nT"
           result.commands.flatten().none { argument ->
             argument.contains("docker.sock") || argument.contains("/Users/") && argument.contains("/.gradle")
           } shouldBe true
@@ -198,8 +211,10 @@ class HostAdapterContractTest :
 
               val result = host.invoke(*arguments.toTypedArray())
 
-              result.standardError shouldContain "COMMAND_NOT_AVAILABLE"
+              result.exitCode shouldBe 0
+              result.standardError shouldBe ""
               result.standardError shouldNotContain "ARGUMENT_INVALID"
+              Files.isDirectory(host.outputPath("capture-$profile-$forks-$sequence")) shouldBe true
             }
           }
         }
@@ -281,8 +296,8 @@ class HostAdapterContractTest :
               val command = publicCommands(host).first { it.name == "canary" }
               val result = host.invoke(*command.arguments.toTypedArray(), environment = environment)
 
-              result.exitCode shouldBe 2
-              result.standardError shouldContain "COMMAND_NOT_AVAILABLE"
+              result.exitCode shouldBe 0
+              result.standardError shouldBe ""
               result.standardError shouldNotContain "IMAGE_UNAVAILABLE"
               result.commands.any { invocation -> "volume" in invocation && "create" in invocation } shouldBe
                 true
@@ -609,8 +624,8 @@ class HostAdapterContractTest :
               host.output("canonical-provenance"),
             )
 
-          canonicalResult.exitCode shouldBe 2
-          canonicalResult.standardError shouldContain "COMMAND_NOT_AVAILABLE"
+          canonicalResult.exitCode shouldBe 0
+          canonicalResult.standardError shouldBe ""
           canonicalResult.standardError shouldNotContain "ADAPTER_MISMATCH"
           canonicalResult.commands.filter { command -> command.firstOrNull() == "docker" }.shouldNotBeEmpty()
 

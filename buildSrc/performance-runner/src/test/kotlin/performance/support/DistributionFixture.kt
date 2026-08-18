@@ -11,6 +11,7 @@ import java.io.ByteArrayOutputStream
 import java.io.OutputStream
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.StandardCopyOption.REPLACE_EXISTING
 import java.util.jar.Attributes
 import java.util.jar.JarEntry
 import java.util.jar.JarOutputStream
@@ -136,6 +137,41 @@ internal class DistributionFixture private constructor(
     }
   }
 
+  fun installRunnerClasspath(installLib: Path): List<Path> {
+    val installed =
+      Files.list(installLib).use { entries ->
+        entries.sorted(compareBy { path -> if (path.fileName.toString() == "performance-runner.jar") 0 else 1 })
+          .toList()
+      }
+    val paths =
+      installed.map { source ->
+        val relative =
+          if (source.fileName.toString() == "performance-runner.jar") {
+            RUNNER_JAR
+          } else {
+            "runner/lib/${source.fileName}"
+          }
+        root.resolve(relative).also { target ->
+          Files.createDirectories(target.parent)
+          Files.copy(source, target, REPLACE_EXISTING)
+        }
+        relative
+      }
+    if (RUNNER_DEPENDENCY !in paths) Files.deleteIfExists(root.resolve(RUNNER_DEPENDENCY))
+    val classpath = jsonObject(CLASSPATH_MANIFEST)
+    classpath.arrayNode("runnerClasspath").removeAll()
+    paths.forEachIndexed { index, relative ->
+      classpath.arrayNode("runnerClasspath").add(classpathEntry(index, relative, "runtime:runner-$index:1"))
+    }
+    write(CLASSPATH_MANIFEST, CanonicalJson.encode(classpath))
+    val protocol = jsonObject(PROTOCOL_MANIFEST)
+    protocol.set("runner", artifact(RUNNER_JAR))
+    refreshProtocolHash(protocol)
+    write(PROTOCOL_MANIFEST, CanonicalJson.encode(protocol))
+    reseal()
+    return paths.map(root::resolve)
+  }
+
   fun setChecksumManifest(lines: List<String>) {
     Files.writeString(
       root.resolve(CHECKSUM_MANIFEST),
@@ -203,6 +239,51 @@ internal class DistributionFixture private constructor(
         }
         .use { it.readAllBytes() },
       refreshBindings = true,
+    )
+  }
+
+  fun prepareOperationProtocol() {
+    prepareComparisonProtocol()
+    replaceFile(
+      "protocol/expected-cells.json",
+      operationExpectedCells(),
+      refreshBindings = true,
+    )
+    replaceFile(
+      "protocol/profiles/cold.json",
+      operationColdProfile(),
+      refreshBindings = true,
+    )
+    replaceFile(
+      "protocol/runtime/linux-arm64.json",
+      operationRuntimeProfile(),
+      refreshBindings = true,
+    )
+  }
+
+  fun prepareSuccessfulOperationProtocol() {
+    prepareOperationProtocol()
+    replaceFile(
+      "protocol/schemas/capture-v1.schema.json",
+      Files.readString(root.resolve("protocol/schemas/capture-v1.schema.json"))
+        .replace(FIXTURE_JAVA_SHA, selectedJava.sha256.hex)
+        .encodeToByteArray(),
+      refreshBindings = true,
+    )
+    replaceJar(
+      BENCHMARK_JAR,
+      mapOf(
+        "META-INF/BenchmarkList" to benchmarkList(COMPARISON_BENCHMARK).encodeToByteArray(),
+        "META-INF/CompilerHints" to "dontinline,$COMPARISON_BENCHMARK\n".encodeToByteArray(),
+        "META-INF/revoman/performance/revup-v3-tree.json" to
+          "{\"schemaVersion\":\"revup-v3-tree-v1\"}".encodeToByteArray(),
+        "com/salesforce/revoman/benchmark/RevUpV3WarmBenchmark.class" to
+          compiledClass(
+            "com.salesforce.revoman.benchmark.RevUpV3WarmBenchmark",
+            "public void revUp() {}",
+          ),
+        "org/openjdk/jmh/Main.class" to compiledClass("org.openjdk.jmh.Main", fakeJmhMain()),
+      ),
     )
   }
 
@@ -482,6 +563,39 @@ internal class DistributionFixture private constructor(
     )
 
     private val COMPILED_CLASSES = mutableMapOf<CompilationKey, ByteArray>()
+
+    private fun fakeJmhMain(): String =
+      """
+      public static void main(String[] args) throws Exception {
+        String result = null;
+        int forks = 1;
+        int warmups = 0;
+        int iterations = 1;
+        for (int index = 0; index < args.length - 1; index++) {
+          if (args[index].equals("-rff")) result = args[index + 1];
+          if (args[index].equals("-f")) forks = Integer.parseInt(args[index + 1]);
+          if (args[index].equals("-wi")) warmups = Integer.parseInt(args[index + 1]);
+          if (args[index].equals("-i")) iterations = Integer.parseInt(args[index + 1]);
+        }
+        if (result == null) throw new IllegalArgumentException("missing result path");
+        StringBuilder rows = new StringBuilder();
+        for (int fork = 0; fork < forks; fork++) {
+          if (fork > 0) rows.append(',');
+          rows.append('[');
+          for (int iteration = 0; iteration < iterations; iteration++) {
+            if (iteration > 0) rows.append(',');
+            rows.append("1.25");
+          }
+          rows.append(']');
+        }
+        String json = "[{\"benchmark\":\"$COMPARISON_BENCHMARK\",\"mode\":\"ss\",\"threads\":1,\"forks\":" + forks +
+          ",\"warmupIterations\":" + warmups + ",\"warmupTime\":\"1 s\",\"warmupBatchSize\":1,\"measurementIterations\":" + iterations +
+          ",\"measurementTime\":\"1 s\",\"measurementBatchSize\":1,\"params\":{},\"primaryMetric\":{\"score\":NaN,\"scoreError\":NaN," +
+          "\"scoreConfidence\":[NaN,NaN],\"scorePercentiles\":{\"0.0\":NaN,\"100.0\":NaN},\"scoreUnit\":\"ms/op\",\"rawData\":[" + rows +
+          "]},\"secondaryMetrics\":{}}]";
+        java.nio.file.Files.writeString(java.nio.file.Path.of(result), json);
+      }
+      """.trimIndent()
   }
 
   private fun createValidDistribution() {
@@ -584,6 +698,103 @@ internal class DistributionFixture private constructor(
                 }
               },
             )
+          },
+        )
+      },
+    )
+
+  private fun operationExpectedCells(): ByteArray =
+    CanonicalJson.encode(
+      JsonNodeFactory.instance.objectNode().apply {
+        put(
+          "\$schema",
+          "https://revoman.dev/performance/protocol/schemas/expected-cells-v1.schema.json",
+        )
+        put("schemaVersion", "expected-cells-v1")
+        set(
+          "families",
+          JsonNodeFactory.instance.objectNode().apply {
+            listOf("canary", "cold", "warm").forEach { family ->
+              set(
+                family,
+                JsonNodeFactory.instance.arrayNode().add(
+                  JsonNodeFactory.instance.objectNode().apply {
+                    put("benchmark", COMPARISON_BENCHMARK)
+                    set("parameters", JsonNodeFactory.instance.objectNode())
+                  },
+                ),
+              )
+            }
+          },
+        )
+      },
+    )
+
+  private fun operationColdProfile(): ByteArray =
+    CanonicalJson.encode(
+      JsonNodeFactory.instance.objectNode().apply {
+        put(
+          "\$schema",
+          "https://revoman.dev/performance/protocol/schemas/capture-profile-family-v1.schema.json",
+        )
+        put("batchSize", 1)
+        put("family", "cold")
+        set(
+          "jvmArguments",
+          JsonNodeFactory.instance.arrayNode().apply {
+            add("-Xms2g")
+            add("-Xmx2g")
+            add("-Dfile.encoding=UTF-8")
+            add("-Duser.timezone=UTC")
+            add("-Dlog4j.configurationFile=classpath:log4j2-performance.xml")
+            add("-Drevoman.banner=false")
+          },
+        )
+        put("mode", "ss")
+        put("schemaVersion", "capture-profile-family-v1")
+        put("threads", 1)
+        put("unit", "ms")
+        set(
+          "variants",
+          JsonNodeFactory.instance.arrayNode().apply {
+            listOf(10, 20, 40).forEach { forks ->
+              add(
+                JsonNodeFactory.instance.objectNode().apply {
+                  put("forks", forks)
+                  put("identity", "cold-$forks-none-v1")
+                  put("measurementIterations", 1)
+                  put("profiler", "none")
+                  set("profilerArguments", JsonNodeFactory.instance.arrayNode())
+                  putNull("profilerSettingsSha256")
+                  put("warmupIterations", 0)
+                },
+              )
+            }
+          },
+        )
+      },
+    )
+
+  private fun operationRuntimeProfile(): ByteArray =
+    CanonicalJson.encode(
+      JsonNodeFactory.instance.objectNode().apply {
+        put("profileKind", "runtime")
+        put("profileId", "fixture-java-21-linux-arm64-v1")
+        set(
+          "image",
+          JsonNodeFactory.instance.objectNode().apply {
+            put("reference", FIXTURE_IMAGE)
+            put("manifestDigest", FIXTURE_MANIFEST_DIGEST)
+            put("ociConfigDigest", FIXTURE_CONFIG_DIGEST)
+            put("architecture", "arm64")
+          },
+        )
+        set(
+          "java",
+          JsonNodeFactory.instance.objectNode().apply {
+            put("release", "21.0.11+10-LTS")
+            put("vendor", "Eclipse Adoptium")
+            put("sha256", selectedJava.sha256.hex)
           },
         )
       },

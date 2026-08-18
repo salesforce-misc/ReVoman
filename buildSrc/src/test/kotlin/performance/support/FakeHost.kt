@@ -7,6 +7,8 @@
  */
 package performance.support
 
+import java.io.File
+import java.net.URLClassLoader
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
@@ -17,6 +19,7 @@ import kotlin.io.path.exists
 import kotlin.io.path.readLines
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
+import performance.hash.Sha256
 
 internal data class AdapterInvocation(
   val exitCode: Int,
@@ -35,6 +38,7 @@ internal class FakeHost : AutoCloseable {
   private val fakeBin: Path = repositoryRoot.resolve("fake-bin")
   private val commandLog: Path = repositoryRoot.resolve("fake-host.log")
   private val rawRuntimeManifest: Path = repositoryRoot.resolve(".fake-runtime-manifest.raw")
+  private val publicationFixtures: Path = repositoryRoot.resolve(".fake-publication-fixtures")
 
   init {
     artifactRoot.createDirectories()
@@ -44,6 +48,7 @@ internal class FakeHost : AutoCloseable {
     repositoryRoot.resolve("config/performance/runtime").createDirectories()
     copyProtocolFiles()
     copyRawRuntimeManifest()
+    createPublicationFixtures()
     installFakeCommands()
   }
 
@@ -147,6 +152,9 @@ internal class FakeHost : AutoCloseable {
       put("FAKE_GIT_SHA", "0123456789abcdef0123456789abcdef01234567")
       put("FAKE_GIT_STATUS", "")
       put("FAKE_DOCKER_RAW_MANIFEST_FILE", rawRuntimeManifest.toString())
+      put("FAKE_JAVA_COMMAND", currentJavaCommand())
+      put("FAKE_TEST_CLASSPATH", testClasspath())
+      put("FAKE_PUBLICATION_FIXTURE_ROOT", publicationFixtures.toString())
       putAll(environment)
     }
 
@@ -167,6 +175,7 @@ internal class FakeHost : AutoCloseable {
   private fun resetFakeVolumeState() {
     listOf(
         ".fake-finalizer-verified",
+        ".fake-recovery-complete",
         ".fake-preparation-complete",
         ".fake-finalizer-distribution",
         ".fake-freeze-bootstrap-distribution",
@@ -218,6 +227,52 @@ internal class FakeHost : AutoCloseable {
       }
       .use { input -> Files.copy(input, rawRuntimeManifest, StandardCopyOption.REPLACE_EXISTING) }
   }
+
+  private fun createPublicationFixtures() {
+    mapOf(
+        "canary" to mapOf("capture.json" to "{}\n"),
+        "capture" to mapOf("capture.json" to "{}\n"),
+        "compare" to mapOf("comparison.json" to "{}\n", "comparison.md" to "fixture\n"),
+        "campaign" to mapOf("campaign.json" to "{}\n"),
+        "freeze" to mapOf("metadata/distribution.sha256" to "fixture\n"),
+        "invalid" to
+          mapOf(
+            "INVALID/reason" to "INPUT_OR_PROTOCOL_INVALID\n",
+            "stderr.log" to "performance-runner: INPUT_OR_PROTOCOL_INVALID\n",
+          ),
+      )
+      .forEach { (name, files) ->
+        val root = publicationFixtures.resolve(name).also(Files::createDirectories)
+        files.forEach { (relative, contents) ->
+          root.resolve(relative).also { path ->
+            Files.createDirectories(path.parent)
+            Files.writeString(path, contents)
+          }
+        }
+        val manifest =
+          files.keys.sorted().joinToString(separator = "\n", postfix = "\n") { relative ->
+            "${Sha256.digest(root.resolve(relative)).hex}  $relative"
+          }
+        Files.writeString(root.resolve("checksums.sha256"), manifest)
+      }
+  }
+
+  private fun currentJavaCommand(): String =
+    checkNotNull(ProcessHandle.current().info().command().orElse(null))
+
+  private fun testClasspath(): String =
+    buildList {
+        addAll(System.getProperty("java.class.path").split(File.pathSeparator))
+        generateSequence(Thread.currentThread().contextClassLoader) { loader -> loader.parent }
+          .filterIsInstance<URLClassLoader>()
+          .flatMap { loader -> loader.urLs.asSequence() }
+          .filter { url -> url.protocol == "file" }
+          .map { url -> Path.of(url.toURI()).toString() }
+          .forEach(::add)
+      }
+      .filter(String::isNotBlank)
+      .distinct()
+      .joinToString(File.pathSeparator)
 
   private fun installFakeCommands() {
     fakeBin.createDirectories()

@@ -314,6 +314,16 @@ class DistributionValidatorTest :
         }
       }
 
+      test("real runner installDist validates without test-content exceptions") {
+        withFixture { fixture ->
+          fixture.installRunnerClasspath(installDistLib())
+
+          fixture
+            .validateBeforeProcess(ProcessSpy())
+            .shouldBeInstanceOf<DistributionValidation.Valid>()
+        }
+      }
+
       listOf(PRODUCTION_JAR, BENCHMARK_JAR, RUNNER_JAR).forEach { projectJar ->
         test("project-built $projectJar requires in-process JDK jar validation") {
           withFixture { fixture ->

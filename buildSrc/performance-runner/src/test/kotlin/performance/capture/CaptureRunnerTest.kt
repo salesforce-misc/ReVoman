@@ -23,7 +23,7 @@ import performance.model.EvidenceStatus
 import performance.model.ProvisionalEvidenceStrength
 import performance.process.ProcessExecutor
 import performance.process.ProcessResult
-import performance.process.ProcessSpec
+import performance.process.ProcessInvocation
 import performance.runner.RunnerExit
 import performance.support.DistributionFixture.Companion.EXPECTED_BENCHMARK
 
@@ -483,7 +483,7 @@ class CaptureRunnerTest :
 private data class FailureCase(
   val name: String,
   val expected: CaptureFailure,
-  val run: (ProcessSpec, ByteArray) -> ProcessResult,
+  val run: (ProcessInvocation, ByteArray) -> ProcessResult,
 )
 
 private fun signalFailure(name: String, signal: String, expected: CaptureFailure): FailureCase =
@@ -494,11 +494,11 @@ private fun signalFailure(name: String, signal: String, expected: CaptureFailure
   }
 
 private class RecordingProcessExecutor(
-  private val action: (ProcessSpec) -> ProcessResult,
+  private val action: (ProcessInvocation) -> ProcessResult,
 ) : ProcessExecutor {
-  val specs = mutableListOf<ProcessSpec>()
+  val specs = mutableListOf<ProcessInvocation>()
 
-  override fun execute(spec: ProcessSpec): ProcessResult {
+  override fun execute(spec: ProcessInvocation): ProcessResult {
     specs += spec
     return action(spec)
   }

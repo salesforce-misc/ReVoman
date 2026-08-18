@@ -287,7 +287,7 @@ class CampaignFinalizerTest :
     },
   )
 
-private class CampaignFixture private constructor(
+internal class CampaignFixture private constructor(
   val root: Path,
   val baseline: DistributionFixture,
   val candidate: DistributionFixture,

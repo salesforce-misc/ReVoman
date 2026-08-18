@@ -21,7 +21,11 @@ sealed interface RunnerCommand {
 
   data class FinalizeDiagnostic(val arguments: List<String>) : RunnerCommand
 
+  data class FinalizeStandaloneComparison(val arguments: List<String>) : RunnerCommand
+
   data class FinalizeCampaign(val arguments: List<String>) : RunnerCommand
+
+  data class FinalizeFreeze(val arguments: List<String>) : RunnerCommand
 
   data class Recover(val arguments: List<String>) : RunnerCommand
 }

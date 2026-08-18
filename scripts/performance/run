@@ -370,11 +370,6 @@ adapter_validate_output_shape() {
     adapter_input_error 'OUTPUT_EXISTS'
     return "$ADAPTER_EXIT_INPUT"
   fi
-  if [ -e "$ADAPTER_RESERVATION_PATH" ] || [ -L "$ADAPTER_RESERVATION_PATH" ] ||
-    [ -e "$ADAPTER_STAGING_PATH" ] || [ -L "$ADAPTER_STAGING_PATH" ]; then
-    adapter_input_error 'OUTPUT_EXISTS'
-    return "$ADAPTER_EXIT_INPUT"
-  fi
   return 0
 }
 
@@ -629,7 +624,7 @@ adapter_require_provenance() {
   return 0
 }
 
-adapter_reserve_output() {
+adapter_prepare_output_parent() {
   local resolved_parent
   if [ ! -d "$ADAPTER_ARTIFACT_ROOT_PATH" ]; then
     (umask 077 && /bin/mkdir -p "$ADAPTER_ARTIFACT_ROOT_PATH" 2>/dev/null) || {
@@ -685,6 +680,11 @@ adapter_reserve_output() {
     adapter_input_error 'OUTPUT_SYMLINK'
     return "$ADAPTER_EXIT_INPUT"
   }
+  return 0
+}
+
+adapter_reserve_output() {
+  adapter_prepare_output_parent || return "$?"
   if [ -e "$ADAPTER_OUTPUT_TARGET" ] || [ -L "$ADAPTER_OUTPUT_TARGET" ] ||
     [ -e "$ADAPTER_RESERVATION" ] || [ -L "$ADAPTER_RESERVATION" ] ||
     [ -e "$ADAPTER_STAGING" ] || [ -L "$ADAPTER_STAGING" ]; then
@@ -959,7 +959,7 @@ adapter_run_volume_initializer() {
     --mount "type=volume,src=$ADAPTER_INPUT_VOLUME,dst=/inputs" \
     --mount "type=volume,src=$ADAPTER_OPERATION_VOLUME,dst=/operation" \
     "$ADAPTER_RUNTIME_REFERENCE" /usr/bin/sh -lc \
-    "set -eu; mkdir -p /inputs/prepared /inputs/capture-runner /inputs/finalizer /inputs/gradle-cache /operation/provisional /operation/state /operation/tmp; chown -R $ADAPTER_SUBSTRATE_UID:$ADAPTER_SUBSTRATE_GID /inputs /operation"
+    "set -eu; mkdir -p /inputs/prepared /inputs/capture-runner /inputs/finalizer /inputs/gradle-cache /operation/state /operation/host /operation/tmp; chown -R $ADAPTER_SUBSTRATE_UID:$ADAPTER_SUBSTRATE_GID /inputs /operation"
 }
 
 adapter_finalizer_input_index() {
@@ -1070,6 +1070,64 @@ java_hash=$(/usr/bin/sha256sum /opt/java/openjdk/bin/java)
 test "${java_hash%% *}" = "$REVOMAN_JAVA_SHA256"'
 }
 
+adapter_run_recovery() {
+  local docker_status
+  adapter_parent_is_stable || return 1
+  adapter_hardened_common_args
+  if adapter_docker run --rm \
+      --label dev.revoman.performance.phase=recovery \
+      --pull=never --platform "$ADAPTER_PLATFORM" --network none \
+      "${ADAPTER_HARDENED_ARGS[@]}" \
+      --user "$ADAPTER_SUBSTRATE_UID:$ADAPTER_SUBSTRATE_GID" \
+      --tmpfs "/tmp:rw,noexec,nosuid,nodev,size=64m,uid=$ADAPTER_SUBSTRATE_UID,gid=$ADAPTER_SUBSTRATE_GID,mode=0700" \
+      --mount "type=volume,src=$ADAPTER_INPUT_VOLUME,dst=/inputs,readonly" \
+      --mount "type=volume,src=$ADAPTER_OPERATION_VOLUME,dst=/operation,readonly" \
+      --mount "type=bind,src=$ADAPTER_OUTPUT_PARENT_PATH,dst=/artifacts" \
+      --env "REVOMAN_JAVA_SHA256=$ADAPTER_JAVA_SHA256" \
+      --env "REVOMAN_RUN_TOKEN=$ADAPTER_RUN_TOKEN" \
+      --env "REVOMAN_EXPECTED_OWNER=$ADAPTER_SUBSTRATE_UID:$ADAPTER_SUBSTRATE_GID" \
+      "$ADAPTER_RUNTIME_REFERENCE" /usr/bin/sh -lc \
+      'set -eu
+java_hash=$(/usr/bin/sha256sum /opt/java/openjdk/bin/java)
+test "${java_hash%% *}" = "$REVOMAN_JAVA_SHA256"
+test "$(id -u):$(id -g)" = "$REVOMAN_EXPECTED_OWNER"
+test "$(command -v mv)" = /usr/bin/mv
+runner=/inputs/finalizer/bin/performance-runner
+checksum_manifest=/inputs/finalizer/metadata/distribution.sha256
+test -x "$runner"
+test ! -L "$runner"
+test -f "$checksum_manifest"
+test ! -L "$checksum_manifest"
+"$runner" validate-distribution --distribution /inputs/finalizer
+runner_hash=$(/usr/bin/sha256sum "$runner")
+manifest_hash=$(/usr/bin/sha256sum "$checksum_manifest")
+IFS=" " read -r expected_runner_hash expected_manifest_hash < /operation/state/finalizer-identity
+test "${runner_hash%% *}" = "$expected_runner_hash"
+test "${manifest_hash%% *}" = "$expected_manifest_hash"
+test -d /operation/provisional
+test ! -L /operation/provisional
+test -d /artifacts
+test ! -L /artifacts
+test -w /artifacts
+test -x /artifacts
+"$runner" recover \
+  --artifact-root /artifacts \
+  --run-token "$REVOMAN_RUN_TOKEN" \
+  --operation-input /operation/provisional
+java_hash=$(/usr/bin/sha256sum /opt/java/openjdk/bin/java)
+test "${java_hash%% *}" = "$REVOMAN_JAVA_SHA256"'; then
+    docker_status=0
+  else
+    docker_status=$?
+  fi
+  adapter_parent_is_stable || return 1
+  case "$docker_status" in
+    0) return 0 ;;
+    8) return "$ADAPTER_EXIT_PUBLICATION" ;;
+    *) return 1 ;;
+  esac
+}
+
 adapter_run_freeze_build() {
   local phase="$1"
   local bootstrap="$2"
@@ -1157,6 +1215,7 @@ test "${java_hash%% *}" = "$REVOMAN_JAVA_SHA256"'
 adapter_run_work_phase() {
   local phase='timed'
   local network='none'
+  local operation_environment=()
   if [ "$ADAPTER_COMMAND" = 'freeze' ]; then
     if adapter_flag_present 'harness-from'; then
       adapter_run_freeze_build 'freeze' '0'
@@ -1165,6 +1224,57 @@ adapter_run_work_phase() {
     fi
     return "$?"
   fi
+  case "$ADAPTER_COMMAND" in
+    canary)
+      operation_environment+=(--env "REVOMAN_HOST_ID=$(adapter_flag_value 'host-id')")
+      ;;
+    capture)
+      operation_environment+=(
+        --env "REVOMAN_PROFILE=$(adapter_flag_value 'profile')"
+        --env "REVOMAN_FORKS=$(adapter_flag_value 'forks')"
+        --env "REVOMAN_HOST_ID=$(adapter_flag_value 'host-id')"
+        --env "REVOMAN_SESSION_ID=$(adapter_flag_value 'session-id')"
+        --env "REVOMAN_SEQUENCE=$(adapter_flag_value 'sequence')"
+      )
+      if adapter_flag_present 'diagnostic-profiler'; then
+        operation_environment+=(
+          --env "REVOMAN_DIAGNOSTIC_PROFILER=$(adapter_flag_value 'diagnostic-profiler')"
+        )
+      else
+        operation_environment+=(--env REVOMAN_DIAGNOSTIC_PROFILER=none)
+      fi
+      ;;
+    compare)
+      operation_environment+=(--env "REVOMAN_COMPARISON_KIND=$(adapter_flag_value 'kind')")
+      if adapter_flag_present 'calibration'; then
+        operation_environment+=(--env REVOMAN_CALIBRATION_INDEX=3)
+        if adapter_flag_present 'regression-policy'; then
+          operation_environment+=(--env REVOMAN_REGRESSION_POLICY_INDEX=4)
+        else
+          operation_environment+=(--env REVOMAN_REGRESSION_POLICY_INDEX=none)
+        fi
+      else
+        operation_environment+=(--env REVOMAN_CALIBRATION_INDEX=none)
+        if adapter_flag_present 'regression-policy'; then
+          operation_environment+=(--env REVOMAN_REGRESSION_POLICY_INDEX=3)
+        else
+          operation_environment+=(--env REVOMAN_REGRESSION_POLICY_INDEX=none)
+        fi
+      fi
+      ;;
+    campaign)
+      operation_environment+=(
+        --env "REVOMAN_PROFILE=$(adapter_flag_value 'profile')"
+        --env "REVOMAN_HOST_ID=$(adapter_flag_value 'host-id')"
+      )
+      if adapter_flag_present 'regression-policy'; then
+        operation_environment+=(--env REVOMAN_REGRESSION_POLICY_INDEX=2)
+      else
+        operation_environment+=(--env REVOMAN_REGRESSION_POLICY_INDEX=none)
+      fi
+      ;;
+    *) return 1 ;;
+  esac
   adapter_hardened_common_args
   adapter_docker run --rm \
     --label "dev.revoman.performance.phase=$phase" \
@@ -1177,8 +1287,70 @@ adapter_run_work_phase() {
     --env "REVOMAN_COMMAND=$ADAPTER_COMMAND" \
     --env "REVOMAN_JAVA_SHA256=$ADAPTER_JAVA_SHA256" \
     --env "REVOMAN_SOURCE_SHA=$ADAPTER_SOURCE_SHA" \
+    "${operation_environment[@]}" \
     "$ADAPTER_RUNTIME_REFERENCE" /usr/bin/sh -lc \
-    'set -eu; java_hash=$(/usr/bin/sha256sum /opt/java/openjdk/bin/java); test "${java_hash%% *}" = "$REVOMAN_JAVA_SHA256"; test -f /inputs/prepared/status; printf "%s\n" "$REVOMAN_COMMAND" > /operation/provisional/command; printf "%s\n" "$REVOMAN_SOURCE_SHA" > /operation/provisional/source-sha; java_hash=$(/usr/bin/sha256sum /opt/java/openjdk/bin/java); test "${java_hash%% *}" = "$REVOMAN_JAVA_SHA256"'
+    'set -eu
+java_hash=$(/usr/bin/sha256sum /opt/java/openjdk/bin/java)
+test "${java_hash%% *}" = "$REVOMAN_JAVA_SHA256"
+test -f /inputs/prepared/status
+runner=/inputs/finalizer/bin/performance-runner
+test -x "$runner"
+test ! -L "$runner"
+"$runner" validate-distribution --distribution /inputs/finalizer
+case "$REVOMAN_COMMAND" in
+  canary)
+    set -- capture \
+      --profile canary \
+      --forks 1 \
+      --host-id "$REVOMAN_HOST_ID" \
+      --session-id "canary-$REVOMAN_HOST_ID" \
+      --sequence 1 \
+      --distribution /inputs/prepared/input-0 \
+      --output provisional
+    ;;
+  capture)
+    set -- capture \
+      --profile "$REVOMAN_PROFILE" \
+      --forks "$REVOMAN_FORKS" \
+      --host-id "$REVOMAN_HOST_ID" \
+      --session-id "$REVOMAN_SESSION_ID" \
+      --sequence "$REVOMAN_SEQUENCE" \
+      --distribution /inputs/prepared/input-0 \
+      --output provisional
+    if [ "$REVOMAN_DIAGNOSTIC_PROFILER" != none ]; then
+      set -- "$@" --diagnostic-profiler "$REVOMAN_DIAGNOSTIC_PROFILER"
+    fi
+    ;;
+  compare)
+    set -- compare \
+      --kind "$REVOMAN_COMPARISON_KIND" \
+      --runner-distribution /inputs/prepared/input-0 \
+      --baseline /inputs/prepared/input-1 \
+      --candidate /inputs/prepared/input-2 \
+      --output provisional
+    if [ "$REVOMAN_CALIBRATION_INDEX" != none ]; then
+      set -- "$@" --calibration "/inputs/prepared/input-$REVOMAN_CALIBRATION_INDEX"
+    fi
+    if [ "$REVOMAN_REGRESSION_POLICY_INDEX" != none ]; then
+      set -- "$@" --regression-policy "/inputs/prepared/input-$REVOMAN_REGRESSION_POLICY_INDEX/input-$REVOMAN_REGRESSION_POLICY_INDEX"
+    fi
+    ;;
+  campaign)
+    set -- campaign \
+      --profile "$REVOMAN_PROFILE" \
+      --host-id "$REVOMAN_HOST_ID" \
+      --baseline-distribution /inputs/prepared/input-0 \
+      --candidate-distribution /inputs/prepared/input-1 \
+      --output provisional
+    if [ "$REVOMAN_REGRESSION_POLICY_INDEX" != none ]; then
+      set -- "$@" --regression-policy "/inputs/prepared/input-$REVOMAN_REGRESSION_POLICY_INDEX/input-$REVOMAN_REGRESSION_POLICY_INDEX"
+    fi
+    ;;
+  *) exit 2 ;;
+esac
+(cd /operation && "$runner" "$@")
+java_hash=$(/usr/bin/sha256sum /opt/java/openjdk/bin/java)
+test "${java_hash%% *}" = "$REVOMAN_JAVA_SHA256"'
 }
 
 adapter_run_scrubber_if_requested() {
@@ -1194,10 +1366,43 @@ adapter_run_scrubber_if_requested() {
     "${ADAPTER_HARDENED_ARGS[@]}" \
     --user "$ADAPTER_SUBSTRATE_UID:$ADAPTER_SUBSTRATE_GID" \
     --tmpfs "/tmp:rw,noexec,nosuid,nodev,size=64m,uid=$ADAPTER_SUBSTRATE_UID,gid=$ADAPTER_SUBSTRATE_GID,mode=0700" \
+    --mount "type=volume,src=$ADAPTER_INPUT_VOLUME,dst=/inputs,readonly" \
     --mount "type=volume,src=$ADAPTER_OPERATION_VOLUME,dst=/operation" \
+    --env "REVOMAN_JAVA_SHA256=$ADAPTER_JAVA_SHA256" \
     --env "REVOMAN_PROFILER=$profiler" \
     "$ADAPTER_RUNTIME_REFERENCE" /usr/bin/sh -lc \
-    'set -eu; printf "%s\n" "$REVOMAN_PROFILER" > /operation/provisional/profiler-scrubbed'
+    'set -eu
+java_hash=$(/usr/bin/sha256sum /opt/java/openjdk/bin/java)
+test "${java_hash%% *}" = "$REVOMAN_JAVA_SHA256"
+runner=/inputs/finalizer/bin/performance-runner
+checksum_manifest=/inputs/finalizer/metadata/distribution.sha256
+test -x "$runner"
+test ! -L "$runner"
+test -f "$checksum_manifest"
+test ! -L "$checksum_manifest"
+"$runner" validate-distribution --distribution /inputs/finalizer
+runner_hash=$(/usr/bin/sha256sum "$runner")
+manifest_hash=$(/usr/bin/sha256sum "$checksum_manifest")
+IFS=" " read -r expected_runner_hash expected_manifest_hash < /operation/state/finalizer-identity
+test "${runner_hash%% *}" = "$expected_runner_hash"
+test "${manifest_hash%% *}" = "$expected_manifest_hash"
+IFS= read -r capture_id < /operation/state/profiler-capture-id
+IFS= read -r provisional_hash < /operation/state/profiler-provisional-capture.sha256
+IFS= read -r raw_hash < /operation/state/profiler-raw-input.sha256
+IFS= read -r variant_hash < /operation/state/profiler-variant.sha256
+IFS= read -r settings_hash < /operation/state/profiler-settings.sha256
+"$runner" scrub-profiler \
+  --capture-id "$capture_id" \
+  --provisional-capture-sha256 "$provisional_hash" \
+  --raw-input-sha256 "$raw_hash" \
+  --variant-sha256 "$variant_hash" \
+  --settings-sha256 "$settings_hash" \
+  --raw /operation/provisional/profile.jfr \
+  --summary /operation/provisional/profiler-summary.json \
+  --intent /operation/provisional/profiler-scrub.intent.json \
+  --completion /operation/provisional/profiler-scrub.complete.json
+java_hash=$(/usr/bin/sha256sum /opt/java/openjdk/bin/java)
+test "${java_hash%% *}" = "$REVOMAN_JAVA_SHA256"'
 }
 
 adapter_observed_at_utc() {
@@ -1213,14 +1418,20 @@ adapter_prepare_failure_identity() {
 adapter_finalizer_command() {
   case "$ADAPTER_COMMAND" in
     campaign) printf '%s' 'finalize-campaign' ;;
-    freeze|canary|capture|compare) printf '%s' 'finalize-diagnostic' ;;
+    freeze) printf '%s' 'finalize-freeze' ;;
+    compare) printf '%s' 'finalize-standalone-comparison' ;;
+    canary|capture) printf '%s' 'finalize-diagnostic' ;;
     *) return 1 ;;
   esac
 }
 
-adapter_run_finalizer() {
+adapter_run_evidence_finalizer() {
   local docker_status
   local failure_code="${1:-INTERNAL_ERROR}"
+  local profiler='none'
+  if [ "$ADAPTER_COMMAND" = capture ] && adapter_flag_present 'diagnostic-profiler'; then
+    profiler=$(adapter_flag_value 'diagnostic-profiler') || return 1
+  fi
   [ "$ADAPTER_RESERVED" -eq 1 ] || return 1
   adapter_parent_is_stable || return 1
   adapter_hardened_common_args
@@ -1235,14 +1446,11 @@ adapter_run_finalizer() {
       --mount "type=bind,src=$ADAPTER_OUTPUT_PARENT_PATH,dst=/artifacts" \
       --env "REVOMAN_ARTIFACT_ROOT=/artifacts" \
       --env "REVOMAN_COMMAND=$ADAPTER_COMMAND" \
-      --env "REVOMAN_OPERATION_ROOT=/operation" \
-      --env "REVOMAN_STAGING_NAME=.$ADAPTER_RUN_TOKEN.staging" \
-      --env "REVOMAN_ADAPTER_SHA256=$ADAPTER_SHA256" \
-      --env "REVOMAN_FAILURE_CODE=$failure_code" \
       --env "REVOMAN_FINALIZER_COMMAND=$(adapter_finalizer_command)" \
+      --env "REVOMAN_FAILURE_CODE=$failure_code" \
       --env "REVOMAN_JAVA_SHA256=$ADAPTER_JAVA_SHA256" \
+      --env "REVOMAN_PROFILER=$profiler" \
       --env "REVOMAN_RUN_TOKEN=$ADAPTER_RUN_TOKEN" \
-      --env "REVOMAN_OBSERVED_AT_UTC=$ADAPTER_OBSERVED_AT_UTC" \
       --env "REVOMAN_EXPECTED_OWNER=$ADAPTER_SUBSTRATE_UID:$ADAPTER_SUBSTRATE_GID" \
       "$ADAPTER_RUNTIME_REFERENCE" /usr/bin/sh -lc \
       'set -eu
@@ -1262,72 +1470,74 @@ manifest_hash=$(/usr/bin/sha256sum "$checksum_manifest")
 IFS=" " read -r expected_runner_hash expected_manifest_hash < /operation/state/finalizer-identity
 test "${runner_hash%% *}" = "$expected_runner_hash"
 test "${manifest_hash%% *}" = "$expected_manifest_hash"
-artifacts=/artifacts
-reservation="$artifacts/.$REVOMAN_RUN_TOKEN.reservation"
-token_file="$reservation/token"
-staging="$artifacts/$REVOMAN_STAGING_NAME"
-target="$artifacts/$REVOMAN_RUN_TOKEN"
-test -d "$artifacts"
-test ! -L "$artifacts"
-test -w "$artifacts"
-test -x "$artifacts"
-test -d "$reservation"
-test ! -L "$reservation"
-test -f "$token_file"
-test ! -L "$token_file"
-expected_token_hash=$(printf "%s\n" "$REVOMAN_RUN_TOKEN" | /usr/bin/sha256sum)
-actual_token_hash=$(/usr/bin/sha256sum "$token_file")
-test "${actual_token_hash%% *}" = "${expected_token_hash%% *}"
-test ! -e "$staging"
-test ! -L "$staging"
-test ! -e "$target"
-test ! -L "$target"
-umask 077
+test -d /artifacts
+test ! -L /artifacts
+test -w /artifacts
+test -x /artifacts
 runner_status=0
-if [ "$REVOMAN_COMMAND" = freeze ] && [ "$REVOMAN_FAILURE_CODE" = NONE ]; then
-  freeze_source=/operation/provisional/distribution
-  test -d "$freeze_source"
-  test ! -L "$freeze_source"
-  "$runner" validate-distribution --distribution "$freeze_source"
-  (cd "$freeze_source" && /usr/bin/tar -cf - .) |
-    (cd "$artifacts" && /usr/bin/tar --one-top-level="$REVOMAN_STAGING_NAME" -xf -)
-  "$runner" validate-distribution --distribution "$staging"
-else
-  "$runner" "$REVOMAN_FINALIZER_COMMAND" || runner_status=$?
-fi
-case "$runner_status" in
-  0|2|3|4|5|6|7|8) ;;
-  *) exit 1 ;;
+case "$REVOMAN_FAILURE_CODE" in
+  NONE) runner_status=0 ;;
+  INTERNAL_ERROR) runner_status=3 ;;
+  *) runner_status=2 ;;
 esac
-test -d "$staging"
-test ! -L "$staging"
-/usr/bin/sync
-/usr/bin/mv -nT --no-copy -- "$staging" "$target"
-test ! -e "$staging"
-test ! -L "$staging"
-test -d "$target"
-test ! -L "$target"
-/usr/bin/sync
-/usr/bin/rm -f "$token_file"
-/usr/bin/rmdir "$reservation"
-/usr/bin/sync
+finalizer_status=0
+finalizer_source=/operation/provisional
+if [ "$REVOMAN_COMMAND" = freeze ]; then
+  finalizer_source=/operation/provisional/distribution
+fi
+if [ "$REVOMAN_PROFILER" = none ]; then
+  "$runner" "$REVOMAN_FINALIZER_COMMAND" \
+    --source "$finalizer_source" \
+    --artifact-parent /artifacts \
+    --run-token "$REVOMAN_RUN_TOKEN" \
+    --terminal "$runner_status" \
+    --operation-state /operation/state \
+    --qualification-root /operation/host || finalizer_status=$?
+else
+  IFS= read -r provisional_hash < /operation/state/profiler-provisional-capture.sha256
+  "$runner" "$REVOMAN_FINALIZER_COMMAND" \
+    --source "$finalizer_source" \
+    --artifact-parent /artifacts \
+    --run-token "$REVOMAN_RUN_TOKEN" \
+    --terminal "$runner_status" \
+    --operation-root /operation/provisional \
+    --profiler-intent /operation/provisional/profiler-scrub.intent.json \
+    --profiler-completion /operation/provisional/profiler-scrub.complete.json \
+    --provisional-capture-sha256 "$provisional_hash" || finalizer_status=$?
+fi
+case "$finalizer_status" in
+  0|2|3|4|5|6|7|8) ;;
+  *) exit 8 ;;
+esac
 java_hash=$(/usr/bin/sha256sum /opt/java/openjdk/bin/java)
 test "${java_hash%% *}" = "$REVOMAN_JAVA_SHA256"
-exit "$runner_status"'; then
+exit "$finalizer_status"'; then
     docker_status=0
   else
     docker_status=$?
   fi
   case "$docker_status" in
-    0|2|3|4|5|6|7|8) ;;
+    0)
+      [ -d "$ADAPTER_OUTPUT_TARGET" ] && [ ! -L "$ADAPTER_OUTPUT_TARGET" ] || return 1
+      ;;
+    2|3|4|5|6|7)
+      [ -d "$ADAPTER_OUTPUT_PARENT_PATH/INVALID-$ADAPTER_RUN_TOKEN" ] || return 1
+      ;;
+    8) ;;
     *) return 1 ;;
   esac
   adapter_parent_is_stable || return 1
-  [ ! -e "$ADAPTER_STAGING" ] && [ ! -L "$ADAPTER_STAGING" ] || return 1
-  [ -d "$ADAPTER_OUTPUT_TARGET" ] && [ ! -L "$ADAPTER_OUTPUT_TARGET" ] || return 1
-  [ ! -e "$ADAPTER_RESERVATION" ] && [ ! -L "$ADAPTER_RESERVATION" ] || return 1
-  ADAPTER_RESERVED=0
+  if [ "$docker_status" -ne 8 ]; then
+    [ ! -e "$ADAPTER_STAGING" ] && [ ! -L "$ADAPTER_STAGING" ] || return 1
+    [ ! -e "$ADAPTER_RESERVATION" ] && [ ! -L "$ADAPTER_RESERVATION" ] || return 1
+    ADAPTER_RESERVED=0
+  fi
+  ADAPTER_FINALIZER_STATUS=$docker_status
   return 0
+}
+
+adapter_run_finalizer() {
+  adapter_run_evidence_finalizer "$@"
 }
 
 adapter_prepare_runtime() {
@@ -1368,6 +1578,18 @@ adapter_prepare_finalizer() {
     adapter_input_error 'FINALIZER_UNAVAILABLE'
     return "$ADAPTER_EXIT_INPUT"
   fi
+  if ! adapter_prepare_output_parent >/dev/null 2>&1; then
+    adapter_cleanup_volumes >/dev/null 2>&1 || true
+    adapter_input_error 'OUTPUT_UNWRITABLE'
+    return "$ADAPTER_EXIT_INPUT"
+  fi
+  local recovery_status=0
+  adapter_run_recovery >/dev/null 2>&1 || recovery_status=$?
+  if [ "$recovery_status" -ne 0 ]; then
+    adapter_cleanup_volumes >/dev/null 2>&1 || true
+    adapter_publication_error
+    return "$ADAPTER_EXIT_PUBLICATION"
+  fi
   return 0
 }
 
@@ -1376,6 +1598,7 @@ adapter_execute_checkpoint() {
   local phase_status=0
   local finalizer_status=0
   local cleanup_status=0
+  ADAPTER_FINALIZER_STATUS=8
   if [ "$ADAPTER_COMMAND" = 'freeze' ]; then
     failure_code='NONE'
   fi
@@ -1385,6 +1608,8 @@ adapter_execute_checkpoint() {
   elif ! adapter_run_scrubber_if_requested >/dev/null 2>&1; then
     failure_code='INTERNAL_ERROR'
     phase_status=1
+  else
+    failure_code='NONE'
   fi
   if ! adapter_run_finalizer "$failure_code" >/dev/null 2>&1; then
     finalizer_status=1
@@ -1396,11 +1621,17 @@ adapter_execute_checkpoint() {
     adapter_publication_error
     return "$ADAPTER_EXIT_PUBLICATION"
   fi
+  if [ "$ADAPTER_FINALIZER_STATUS" -eq "$ADAPTER_EXIT_PUBLICATION" ]; then
+    adapter_publication_error
+    return "$ADAPTER_EXIT_PUBLICATION"
+  fi
   if [ "$cleanup_status" -ne 0 ]; then
     adapter_input_error 'INTERNAL_ERROR'
     return "$ADAPTER_EXIT_INPUT"
   fi
-  if [ "$phase_status" -ne 0 ]; then
+  if [ "$ADAPTER_COMMAND" != freeze ]; then
+    return "$ADAPTER_FINALIZER_STATUS"
+  elif [ "$phase_status" -ne 0 ]; then
     adapter_input_error "$failure_code"
   elif [ "$ADAPTER_COMMAND" = 'freeze' ]; then
     return 0
@@ -1537,10 +1768,25 @@ printf "%s\n" \
   "case \"\${1:-}\" in" \
   "  validate-distribution) exit 0 ;;" \
   "  finalize-diagnostic)" \
-  "    staging=\"\$REVOMAN_ARTIFACT_ROOT/\$REVOMAN_STAGING_NAME\"" \
-  "    mkdir \"\$staging\"" \
-  "    mkdir \"\$staging/INVALID\"" \
-  "    printf \"%s\\n\" \"\$REVOMAN_FAILURE_CODE\" > \"\$staging/INVALID/runner-owned\"" \
+  "    shift" \
+  "    artifact_parent=" \
+  "    run_token=" \
+  "    while [ \"\$#\" -gt 0 ]; do" \
+  "      case \"\$1\" in" \
+  "        --artifact-parent) artifact_parent=\$2 ;;" \
+  "        --run-token) run_token=\$2 ;;" \
+  "      esac" \
+  "      shift 2" \
+  "    done" \
+  "    reservation=\"\$artifact_parent/.\$run_token.reservation\"" \
+  "    test \"\$(cat \"\$reservation/token\")\" = \"\$run_token\"" \
+  "    invalid=\"\$artifact_parent/INVALID-\$run_token\"" \
+  "    mkdir \"\$invalid\"" \
+  "    mkdir \"\$invalid/INVALID\"" \
+  "    printf \"%s\\n\" INPUT_OR_PROTOCOL_INVALID > \"\$invalid/INVALID/reason\"" \
+  "    printf \"%s\\n\" \"performance-runner: INPUT_OR_PROTOCOL_INVALID\" > \"\$invalid/stderr.log\"" \
+  "    rm \"\$reservation/token\"" \
+  "    rmdir \"\$reservation\"" \
   "    exit 2" \
   "    ;;" \
   "  *) exit 2 ;;" \
@@ -1590,13 +1836,15 @@ printf "%s\n" fixture > /inputs/finalizer/metadata/distribution.sha256
     adapter_run_finalizer 'INTERNAL_ERROR' >/dev/null 2>&1 || status=1
   fi
   if [ "$status" -eq 0 ]; then
-    [ -d "$ADAPTER_OUTPUT_TARGET/INVALID" ] || status=1
+    [ -d "$ADAPTER_OUTPUT_PARENT/INVALID-$fixture_token/INVALID" ] || status=1
     [ ! -e "$ADAPTER_STAGING" ] && [ ! -L "$ADAPTER_STAGING" ] || status=1
   fi
-  if [ -d "$ADAPTER_OUTPUT_TARGET" ] && [ ! -L "$ADAPTER_OUTPUT_TARGET" ]; then
-    /bin/rm -f "$ADAPTER_OUTPUT_TARGET/INVALID/runner-owned" || status=1
-    /bin/rmdir "$ADAPTER_OUTPUT_TARGET/INVALID" || status=1
-    /bin/rmdir "$ADAPTER_OUTPUT_TARGET" || status=1
+  if [ -d "$ADAPTER_OUTPUT_PARENT/INVALID-$fixture_token" ] &&
+    [ ! -L "$ADAPTER_OUTPUT_PARENT/INVALID-$fixture_token" ]; then
+    /bin/rm -f "$ADAPTER_OUTPUT_PARENT/INVALID-$fixture_token/INVALID/reason" || status=1
+    /bin/rm -f "$ADAPTER_OUTPUT_PARENT/INVALID-$fixture_token/stderr.log" || status=1
+    /bin/rmdir "$ADAPTER_OUTPUT_PARENT/INVALID-$fixture_token/INVALID" || status=1
+    /bin/rmdir "$ADAPTER_OUTPUT_PARENT/INVALID-$fixture_token" || status=1
   fi
   adapter_cleanup_volumes >/dev/null 2>&1 || status=1
   if [ -d "$expected_reservation" ] && [ ! -L "$expected_reservation" ]; then

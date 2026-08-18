@@ -22,14 +22,9 @@ import java.time.Instant
 import performance.capture.PrivacyFilter
 import performance.compare.CaptureBundleVerifier
 import performance.hash.Sha256
-import performance.json.CanonicalJson
 import performance.model.*
 import performance.schema.EvidenceSchemaValidator
 import performance.schema.SchemaKind
-import tools.jackson.databind.JsonNode
-import tools.jackson.databind.node.ArrayNode
-import tools.jackson.databind.node.JsonNodeFactory
-import tools.jackson.databind.node.ObjectNode
 internal enum class DiagnosticSealFailure {
   OPERATION_PATH_INVALID,
   BUNDLE_PATH_INVALID,
@@ -78,6 +73,14 @@ internal object DiagnosticCaptureSealer {
       return DiagnosticSealOutcome.Rejected(DiagnosticSealFailure.LAYOUT_INVALID)
     if (!validProvisional(provisional, qualification))
       return DiagnosticSealOutcome.Rejected(DiagnosticSealFailure.PROVISIONAL_INVALID)
+    val finalReason =
+      when (qualification) {
+        is QualificationEvidence.ControlledMacBoundedDiagnostic ->
+          FinalOutcomeReason.BOUNDED_DIAGNOSTIC
+        is QualificationEvidence.GithubHosted -> FinalOutcomeReason.GITHUB_HOSTED
+        is QualificationEvidence.ControlledMacCampaign ->
+          return DiagnosticSealOutcome.Rejected(DiagnosticSealFailure.PROVISIONAL_INVALID)
+      }
     val inputs =
       runCatching {
           val jmh = readBounded(operationRoot.resolve(JMH_RESULT_JSON), MAX_JMH_BYTES)
@@ -97,7 +100,7 @@ internal object DiagnosticCaptureSealer {
           CaptureOutcome(
             status = EvidenceStatus.VALID,
             strength = EvidenceStrength.DIAGNOSTIC,
-            claimEligibilityReasons = listOf(FinalOutcomeReason.BOUNDED_DIAGNOSTIC),
+            claimEligibilityReasons = listOf(finalReason),
             startedAtUtc = provisional.outcome.startedAtUtc,
             completedAtUtc = provisional.outcome.completedAtUtc,
             processExit = 0,
@@ -112,7 +115,7 @@ internal object DiagnosticCaptureSealer {
         profile = provisional.profile,
         cells = provisional.cells,
       )
-    val captureBytes = CanonicalJson.encode(render(document))
+    val captureBytes = performance.json.CanonicalJson.encode(CaptureDocumentCodec.render(document))
     if (EvidenceSchemaValidator().validate(SchemaKind.CAPTURE, captureBytes).isNotEmpty()) {
       return DiagnosticSealOutcome.Rejected(DiagnosticSealFailure.SCHEMA_INVALID)
     }
@@ -175,13 +178,11 @@ internal object DiagnosticCaptureSealer {
     val timestamps =
       runCatching { Instant.parse(outcome.startedAtUtc) to Instant.parse(outcome.completedAtUtc) }
         .getOrNull() ?: return false
-    val bounded = qualification as? QualificationEvidence.ControlledMacBoundedDiagnostic ?: return false
     val profile = document.profile
     return document.schemaVersion == "capture-provisional-v1" &&
       document.benchmarkProtocolVersion == "performance-v1" &&
       outcome.status == EvidenceStatus.VALID &&
       outcome.strength == ProvisionalEvidenceStrength.DIAGNOSTIC &&
-      outcome.reasons == listOf(ProvisionalOutcomeReason.BOUNDED_DIAGNOSTIC) &&
       outcome.processExit == 0 &&
       !timestamps.second.isBefore(timestamps.first) &&
       document.rawProfilerInputSha256 == null &&
@@ -203,10 +204,27 @@ internal object DiagnosticCaptureSealer {
           document.provenance.captureRunner,
         )
         .all(GitProvenance::treeClean) &&
-      bounded.policyHash == document.protocol.qualificationPolicySha256 &&
-      bounded.campaignFieldsInapplicableReason == "standaloneBoundedDiagnostic" &&
+      validQualification(document, qualification) &&
       validArtifacts(document.artifacts)
   }
+
+  private fun validQualification(
+    document: ProvisionalCaptureDocument,
+    qualification: QualificationEvidence,
+  ): Boolean =
+    when (qualification) {
+      is QualificationEvidence.ControlledMacBoundedDiagnostic ->
+        document.runtime.substrate is SubstrateIdentity.ControlledMac &&
+          document.outcome.reasons == listOf(ProvisionalOutcomeReason.BOUNDED_DIAGNOSTIC) &&
+          qualification.policyHash == document.protocol.qualificationPolicySha256 &&
+          qualification.campaignFieldsInapplicableReason == "standaloneBoundedDiagnostic"
+      is QualificationEvidence.GithubHosted ->
+        document.runtime.substrate is SubstrateIdentity.GithubHosted &&
+          document.outcome.reasons == listOf(ProvisionalOutcomeReason.GITHUB_HOSTED) &&
+          qualification.policyHash == document.protocol.qualificationPolicySha256 &&
+          qualification.macFieldsInapplicableReason == "githubHosted"
+      is QualificationEvidence.ControlledMacCampaign -> false
+    }
   private fun validArtifacts(artifacts: CaptureArtifacts): Boolean {
     val classpath = artifacts.orderedClasspath
     val runnerClasspath = artifacts.orderedRunnerClasspath
@@ -303,188 +321,6 @@ internal object DiagnosticCaptureSealer {
     require(failures.isEmpty())
     return requireNotNull(projection)
   }
-  private fun render(document: CaptureDocument): ObjectNode =
-    objectNode {
-      set("artifacts", render(document.artifacts))
-      put("benchmarkProtocolVersion", document.benchmarkProtocolVersion)
-      set("cells", arrayNode(document.cells, ::render))
-      set("identity", objectNode {
-        put("captureId", document.identity.captureId)
-        put("performanceSessionId", document.identity.performanceSessionId)
-        put("processRunId", document.identity.processRunId)
-        put("sessionSequence", document.identity.sessionSequence)
-      })
-      set("logging", render(document.logging))
-      set("outcome", objectNode {
-        set("claimEligibilityReasons", stringArrayNode(listOf("boundedDiagnostic")))
-        put("completedAtUtc", document.outcome.completedAtUtc)
-        put("processExit", document.outcome.processExit)
-        put("startedAtUtc", document.outcome.startedAtUtc)
-        put("status", "valid")
-        put("strength", "diagnostic")
-      })
-      set("profile", render(document.profile))
-      set("protocol", render(document.protocol))
-      set("provenance", render(document.provenance))
-      set("qualification", render(document.qualification))
-      set("runtime", render(document.runtime))
-      put("schemaVersion", document.schemaVersion)
-      set("toolchain", render(document.toolchain))
-    }
-  private fun render(value: CaptureArtifacts): ObjectNode = objectNode {
-    set("benchmark", render(value.benchmark))
-    set("dependencies", arrayNode(value.dependencies, ::render))
-    set("distribution", render(value.distribution))
-    set("executingRunner", render(value.executingRunner))
-    set("orderedClasspath", arrayNode(value.orderedClasspath, ::render))
-    set("orderedRunnerClasspath", arrayNode(value.orderedRunnerClasspath, ::render))
-    set("production", render(value.production))
-    put("rawJmhInputSha256", value.rawJmhInputSha256.hex)
-  }
-  private fun render(value: ArtifactIdentity): ObjectNode =
-    objectNode { put("path", value.path); put("sha256", value.sha256.hex) }
-  private fun render(value: DependencyIdentity): ObjectNode =
-    objectNode { put("coordinate", value.coordinate); put("sha256", value.sha256.hex) }
-  private fun render(value: CaptureCell): ObjectNode = objectNode {
-    put("batchSize", value.batchSize)
-    put("benchmark", value.benchmark)
-    set("derivedForkSummaries", arrayNode(value.derivedForkSummaries, ::render))
-    set("jmhResultRow", render(value.jmhResultRow))
-    put("mode", value.mode)
-    set("parameters", objectNode { value.parameters.forEach(::put) })
-    set("primaryMetric", render(value.primaryMetric))
-    set("sampleDimensions", render(value.sampleDimensions))
-    put("threads", value.threads)
-    put("unit", value.unit)
-  }
-  private fun render(value: ForkSummary): ObjectNode =
-    objectNode { put("fork", value.fork); put("sampleCount", value.sampleCount); put("score", value.score) }
-  private fun render(value: JmhResultRowRef): ObjectNode =
-    objectNode { put("jsonPointer", value.jsonPointer); put("sha256", value.sha256.hex) }
-  private fun render(value: PrimaryMetricIdentity): ObjectNode =
-    objectNode { put("direction", value.direction); put("name", value.name) }
-  private fun render(value: SampleDimensions): ObjectNode = objectNode {
-    put("forks", value.forks); put("measurementIterations", value.measurementIterations)
-    put("samplesPerFork", value.samplesPerFork)
-  }
-  private fun render(value: LoggingProfileIdentity): ObjectNode =
-    objectNode { put("configurationSha256", value.configurationSha256.hex); put("profile", value.profile) }
-  private fun render(value: CaptureProfileIdentity): ObjectNode = objectNode {
-    put("family", value.family)
-    put("forks", value.forks)
-    put("identity", value.identity)
-    put("measurementIterations", value.measurementIterations)
-    put("profiler", value.profiler)
-    put("variantSha256", value.variantSha256.hex)
-    put("warmupIterations", value.warmupIterations)
-  }
-  private fun render(value: ProtocolIdentity): ObjectNode = objectNode {
-    put("benchmarkProtocolSha256", value.benchmarkProtocolSha256.hex)
-    put("benchmarkSourceSha256", value.benchmarkSourceSha256.hex)
-    put("comparatorSha256", value.comparatorSha256.hex)
-    put("hostAdapterSha256", value.hostAdapterSha256.hex)
-    put("qualificationPolicySha256", value.qualificationPolicySha256.hex)
-    put("rendererSha256", value.rendererSha256.hex)
-    put("schemaSha256", value.schemaSha256.hex)
-    put("workloadTreeSha256", value.workloadTreeSha256.hex)
-  }
-  private fun render(value: ProvenanceRoles): ObjectNode = objectNode {
-    set("captureRunner", render(value.captureRunner))
-    set("distributionFreezer", render(value.distributionFreezer))
-    set("immutableHarness", render(value.immutableHarness))
-    set("treatment", render(value.treatment))
-  }
-  private fun render(value: GitProvenance): ObjectNode =
-    objectNode { put("gitSha", value.gitSha); put("treeClean", value.treeClean) }
-  private fun render(value: QualificationEvidence): ObjectNode =
-    (value as QualificationEvidence.ControlledMacBoundedDiagnostic).let { bounded ->
-      objectNode {
-        put("campaignFieldsInapplicableReason", bounded.campaignFieldsInapplicableReason)
-        put("kind", "controlledMacBoundedDiagnostic")
-        put("policyHash", bounded.policyHash.hex)
-        set("postflight", render(bounded.postflight))
-        set("preflight", render(bounded.preflight))
-        set("restoration", render(bounded.restoration))
-        set("watcher", render(bounded.watcher))
-      }
-    }
-  private fun render(value: HostDocumentRef): ObjectNode =
-    objectNode { put("path", value.path); put("sha256", value.sha256.hex) }
-  private fun render(value: RuntimeIdentity): ObjectNode = objectNode {
-    set("environment", objectNode { value.environment.forEach(::put) })
-    put("hostId", value.hostId)
-    set("jdk", render(value.jdk))
-    set("limits", render(value.limits))
-    set("linux", render(value.linux))
-    set("network", render(value.network))
-    set("oci", render(value.oci))
-    set("security", render(value.security))
-    set("storage", render(value.storage))
-    set("substrate", render(value.substrate))
-  }
-  private fun render(value: JdkIdentity): ObjectNode = objectNode {
-    put("binarySha256", value.binarySha256.hex)
-    set("jvmArguments", stringArrayNode(value.jvmArguments))
-    put("vendor", value.vendor)
-    put("version", value.version)
-  }
-  private fun render(value: RuntimeLimits): ObjectNode = objectNode {
-    put("cpuSet", value.cpuSet); put("memoryBytes", value.memoryBytes)
-    put("memorySwapBytes", value.memorySwapBytes); put("pidLimit", value.pidLimit)
-  }
-  private fun render(value: LinuxIdentity): ObjectNode =
-    objectNode { put("architecture", value.architecture); put("kernel", value.kernel); put("os", value.os) }
-  private fun render(value: NetworkIdentity): ObjectNode =
-    objectNode { put("mode", value.mode); put("pullPolicy", value.pullPolicy) }
-  private fun render(value: OciIdentity): ObjectNode = objectNode {
-    put("configDigest", value.configDigest); put("imageReference", value.imageReference)
-    put("platformManifestDigest", value.platformManifestDigest)
-  }
-  private fun render(value: SecurityIdentity): ObjectNode = objectNode {
-    set("capabilities", stringArrayNode(value.capabilities))
-    put("noNewPrivileges", value.noNewPrivileges)
-    put("readOnlyRoot", value.readOnlyRoot)
-    put("user", value.user)
-  }
-  private fun render(value: StorageIdentity): ObjectNode = objectNode {
-    put("distributionSource", value.distributionSource); set("writableMounts", stringArrayNode(value.writableMounts))
-  }
-  private fun render(value: SubstrateIdentity): ObjectNode =
-    when (value) {
-      is SubstrateIdentity.ControlledMac -> objectNode {
-        put("dockerDesktopVersion", value.dockerDesktopVersion)
-        put("dockerEngineVersion", value.dockerEngineVersion)
-        put("hardwareModelClass", value.hardwareModelClass)
-        put("kind", "controlledMac")
-        put("macosBuild", value.macosBuild)
-        put("macosVersion", value.macosVersion)
-        set("vmResources", render(value.vmResources))
-      }
-      is SubstrateIdentity.GithubHosted -> objectNode {
-        set("advertisedResources", render(value.advertisedResources))
-        put("dockerEngineVersion", value.dockerEngineVersion)
-        put("kernel", value.kernel)
-        put("kind", "githubHosted")
-        put("runnerImageVersion", value.runnerImageVersion)
-        put("runnerLabel", value.runnerLabel)
-      }
-    }
-  private fun render(value: AdvertisedResources): ObjectNode =
-    objectNode { put("cpus", value.cpus); put("memoryBytes", value.memoryBytes) }
-  private fun render(value: ToolchainIdentity): ObjectNode = objectNode {
-    put("gradleVersion", value.gradleVersion)
-    put("jmhCoreVersion", value.jmhCoreVersion)
-    put("jmhPluginVersion", value.jmhPluginVersion)
-    put("kotlinCompilerVersion", value.kotlinCompilerVersion)
-    put("sanitizerVersion", value.sanitizerVersion)
-    put("schemaVersion", value.schemaVersion)
-  }
-  private fun objectNode(block: ObjectNode.() -> Unit): ObjectNode =
-    JsonNodeFactory.instance.objectNode().apply(block)
-  private fun <T> arrayNode(values: List<T>, render: (T) -> JsonNode): ArrayNode =
-    JsonNodeFactory.instance.arrayNode().apply { values.forEach { add(render(it)) } }
-  private fun stringArrayNode(values: List<String>): ArrayNode =
-    JsonNodeFactory.instance.arrayNode().apply { values.forEach(::add) }
   private class ValidatedInputs(val jmh: ByteArray, val stdout: ByteArray, val stderr: ByteArray)
   private const val CAPTURE_JSON = "capture.json"
   private const val JMH_RESULT_JSON = "jmh-result.json"

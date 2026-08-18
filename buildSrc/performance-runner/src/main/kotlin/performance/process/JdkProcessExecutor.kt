@@ -25,7 +25,7 @@ class JdkProcessExecutor internal constructor(
 ) : ProcessExecutor {
   constructor() : this(ProcessExecutorHooks())
 
-  override fun execute(spec: ProcessSpec): ProcessResult {
+  override fun execute(spec: ProcessInvocation): ProcessResult {
     Files.createDirectories(spec.stdoutPath.parent)
     Files.createDirectories(spec.stderrPath.parent)
     FileChannel.open(spec.stdoutPath, WRITE, TRUNCATE_EXISTING, NOFOLLOW_LINKS).use { stdout ->

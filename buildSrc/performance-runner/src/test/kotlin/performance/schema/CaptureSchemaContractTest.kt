@@ -407,6 +407,8 @@ class CaptureSchemaContractTest :
               "-Xmx2g",
               "-XX:+UseG1GC",
               "-Dfile.encoding=UTF-8",
+              "-Duser.timezone=UTC",
+              "-Dlog4j.configurationFile=classpath:log4j2-performance.xml",
               "-Djava.io.tmpdir=tmp",
               "-Drevoman.banner=off",
             ),

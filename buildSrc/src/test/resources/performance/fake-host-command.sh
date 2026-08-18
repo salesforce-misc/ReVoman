@@ -97,6 +97,10 @@ case "$command_name" in
         [ -f "${FAKE_REPO_ROOT:?}/.fake-finalizer-distribution" ] || exit 1
         printf '%s\n' verified > "${FAKE_REPO_ROOT:?}/.fake-finalizer-verified"
         ;;
+      *" dev.revoman.performance.phase=recovery "*)
+        [ -f "${FAKE_REPO_ROOT:?}/.fake-finalizer-verified" ] || exit 1
+        printf '%s\n' recovered > "${FAKE_REPO_ROOT:?}/.fake-recovery-complete"
+        ;;
       *" dev.revoman.performance.phase=freeze "*)
         [ -f "${FAKE_REPO_ROOT:?}/.fake-preparation-complete" ] || exit 1
         [ -f "$FAKE_REPO_ROOT/.fake-finalizer-verified" ] || exit 1
@@ -113,24 +117,22 @@ case "$command_name" in
             ;;
         esac
         ;;
-      *" REVOMAN_STAGING_NAME="*)
+      *" REVOMAN_FINALIZER_COMMAND="*)
         artifact_parent=''
-        staging_name=''
-        finalizer_command=''
         failure_code=''
         run_token=''
         revoman_command=''
+        finalizer_command=''
         for argument in "$@"; do
           case "$argument" in
             type=bind,src=*,dst=/artifacts)
               artifact_parent=${argument#type=bind,src=}
               artifact_parent=${artifact_parent%,dst=/artifacts}
               ;;
-            REVOMAN_STAGING_NAME=*) staging_name=${argument#*=} ;;
-            REVOMAN_FINALIZER_COMMAND=*) finalizer_command=${argument#*=} ;;
             REVOMAN_FAILURE_CODE=*) failure_code=${argument#*=} ;;
             REVOMAN_RUN_TOKEN=*) run_token=${argument#*=} ;;
             REVOMAN_COMMAND=*) revoman_command=${argument#*=} ;;
+            REVOMAN_FINALIZER_COMMAND=*) finalizer_command=${argument#*=} ;;
           esac
         done
         if [ -n "${FAKE_DOCKER_FINALIZER_BIND_SOURCE:-}" ]; then
@@ -138,52 +140,38 @@ case "$command_name" in
         fi
         reservation="$artifact_parent/.$run_token.reservation"
         token_file="$reservation/token"
-        staging="$artifact_parent/$staging_name"
         target="$artifact_parent/$run_token"
-        [ -d "$artifact_parent" ] && [ ! -L "$artifact_parent" ] || exit 1
-        [ -d "$reservation" ] && [ ! -L "$reservation" ] || exit 1
-        [ -f "$token_file" ] && [ ! -L "$token_file" ] || exit 1
+        [ -d "$artifact_parent" ] && [ ! -L "$artifact_parent" ] || exit 8
+        [ -d "$reservation" ] && [ ! -L "$reservation" ] || exit 8
+        [ -f "$token_file" ] && [ ! -L "$token_file" ] || exit 8
         token_value=$(cat "$token_file")
-        [ "$token_value" = "$run_token" ] || exit 1
-        [ -f "${FAKE_REPO_ROOT:?}/.fake-finalizer-verified" ] || exit 1
-        if [ "$revoman_command" = freeze ]; then
-          [ -f "$FAKE_REPO_ROOT/.fake-freeze-validated-distribution" ] || exit 1
-        fi
-        [ ! -e "$staging" ] && [ ! -L "$staging" ] || exit 1
-        [ ! -e "$target" ] && [ ! -L "$target" ] || exit 1
-        (umask 077 && /bin/mkdir "$staging") || exit 1
-        [ "$finalizer_command" = finalize-diagnostic ] || [ "$finalizer_command" = finalize-campaign ] || exit 1
-        if [ "$revoman_command" = freeze ] && [ "$failure_code" = NONE ]; then
-          /bin/mkdir "$staging/metadata"
-          printf '%s\n' fixture > "$staging/metadata/distribution.sha256"
-        else
-          /bin/mkdir "$staging/INVALID"
-          printf '%s\n' "$failure_code" > "$staging/INVALID/runner-owned"
-        fi
-        case "${FAKE_DOCKER_FINALIZER_BOUNDARY:-}" in
-          late-file)
-            printf 'keep' > "$target" || exit 1
-            ;;
-          late-directory)
-            /bin/mkdir "$target" || exit 1
-            printf 'keep' > "$target/foreign.txt"
-            ;;
-          late-symlink)
-            /bin/ln -s "$artifact_parent/$run_token-escape" "$target" || exit 1
-            ;;
-          pre-move-failure|move-failure) exit 1 ;;
+        [ "$token_value" = "$run_token" ] || exit 8
+        [ -f "${FAKE_REPO_ROOT:?}/.fake-finalizer-verified" ] || exit 8
+        case "$revoman_command:$finalizer_command" in
+          freeze:finalize-freeze|campaign:finalize-campaign|canary:finalize-diagnostic|capture:finalize-diagnostic|compare:finalize-standalone-comparison) ;;
+          *) exit 8 ;;
         esac
-        [ ! -e "$target" ] && [ ! -L "$target" ] || exit 1
-        /bin/mv "$staging" "$target" || exit 1
-        [ ! -e "$staging" ] && [ ! -L "$staging" ] || exit 1
-        [ -d "$target" ] && [ ! -L "$target" ] || exit 1
-        if [ "$revoman_command" = freeze ] && [ "$failure_code" = NONE ]; then
-          [ -f "$target/metadata/distribution.sha256" ] || exit 1
-        else
-          [ -d "$target/INVALID" ] && [ -f "$target/INVALID/runner-owned" ] || exit 1
+        case " $* " in
+          *" dev.revoman.performance.phase=finalizer "*) ;;
+          *) exit 8 ;;
+        esac
+        fixture="$FAKE_PUBLICATION_FIXTURE_ROOT/$revoman_command"
+        destination=$run_token
+        terminal=0
+        if [ "$failure_code" != NONE ]; then
+          fixture="$FAKE_PUBLICATION_FIXTURE_ROOT/invalid"
+          destination="INVALID-$run_token"
+          terminal=2
         fi
-        /bin/rm -f "$token_file" || exit 1
-        /bin/rmdir "$reservation" || exit 1
+        "$FAKE_JAVA_COMMAND" -cp "$FAKE_TEST_CLASSPATH" \
+          performance.support.RunnerOwnedPublicationFixture \
+          "$fixture" "$artifact_parent" "$run_token" "$destination" "$terminal" \
+          "${FAKE_DOCKER_FINALIZER_BOUNDARY:-}" \
+          >"$FAKE_REPO_ROOT/.fake-publication-helper.log" 2>&1 || exit 8
+        case "${FAKE_DOCKER_FINALIZER_BOUNDARY:-}" in
+          late-file|late-directory|late-symlink|pre-move-failure|move-failure) exit 8 ;;
+        esac
+        exit "$terminal"
         ;;
       *" dev.revoman.performance.phase=image-verification "* | \
       *" dev.revoman.performance.phase=volume-initializer "* | \

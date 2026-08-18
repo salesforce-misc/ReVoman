@@ -65,8 +65,8 @@ class JdkProcessExecutorTest :
     },
   )
 
-private fun spec(root: Path, stdout: Path, stderr: Path): ProcessSpec =
-  ProcessSpec(
+private fun spec(root: Path, stdout: Path, stderr: Path): ProcessInvocation =
+  ProcessInvocation(
     executable = Path.of("/bin/sh"),
     arguments = listOf("-c", "printf 'safe stdout'; printf 'safe stderr' >&2"),
     classpath = emptyList(),
