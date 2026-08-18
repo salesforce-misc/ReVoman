@@ -266,7 +266,7 @@ commands and statuses, commit SHA when applicable, deviations, and blockers.
 | 0. Orient | Read-only repository and tool verification | Coordinator plus up to three read-only specialists; no edits | Clean checkout, exact document hashes, JDK/IDE/Orca availability |
 | 1. Foundation | Task 1 → Task 2 | One runner writer, serial; settle CLI, exit, JSON, schema, and identity interfaces | Focused runner/schema tests green; coordinator review and commit |
 | 2. Build boundary | Tasks 3 and 4, then Task 5 | Tasks 3 and 4 may run in two isolated child worktrees because their path sets are mostly disjoint; coordinator integrates both and owns serial Task 5 | Adapter and validator suites rerun together; classpath-preserving **fixture** distributions verify. Do not assemble the real root distribution yet |
-| 3. Evidence engine | Task 6 → Task 7 → Task 8 → Task 9 | Serial, one writer at a time. Delegate read-only math/golden/crash reviews, not competing implementations | Capture fail-closed, comparator vectors deterministic, campaign order and atomic finalization green |
+| 3. Evidence engine | Task 6 → Task 7 → Task 8 → Task 9A → Task 9B → Task 9C | Serial, one writer at a time. Task 9A seals private diagnostic captures, 9B computes the private campaign, and 9C owns publication/recovery/integration. Each slice commits and receives an independent read-only review before the next writer starts | Capture fail-closed, comparator vectors deterministic, campaign order and atomic finalization green; no final Task 9 behavior is deferred |
 | 4. Protocol completion | Tasks 10 and 11, then Task 12 | Tasks 10 and 11 may be authored in isolated child worktrees; integrate Task 10 first and Task 11 second. The coordinator—not the worker—runs Task 11's first live root-distribution canary after both are integrated, then owns cross-cutting Task 12 | Mac policy, V3 canary, CI/security, ABI scaffolding, and all Tasks 1-12 green at one clean SHA; independent protocol/evidence/CI reviews are clean before Task 13 |
 | 5. Baseline freeze | Task 13 | Coordinator only; no other agents run builds, Docker, Qodana, profilers, or host-heavy commands | Frozen protocol and baseline sealed. Structural/calibration errors stop; a schema-valid 40-fork A/A miss is retained as diagnostic-only and the correctness/TDD tranche continues without a claim for that profile |
 | 6. Production TDD | Task 14 → Task 15 | One ownership writer. Task 14 is a combined test-only RED commit; Task 15 is the single breaking implementation | Expected RED proven, then focused/full correctness and exact ABI removal green |
@@ -279,7 +279,11 @@ commands and statuses, commit SHA when applicable, deviations, and blockers.
   creates churn rather than speed.
 - Tasks 3 and 4 are the first safe parallel pair. Task 5 is their integration boundary.
 - Tasks 6 through 9 form one evidence DAG: capture precedes comparison, comparison precedes campaign,
-  and campaign precedes finalization. Keep them serial.
+  and campaign precedes finalization. Keep them serial. Within Task 9, keep 9A, 9B, and 9C as
+  separate single-writer slices with a writer/reviewer handoff after each commit: 9A returns only
+  verifier-accepted private diagnostic paths, 9B must reverify those paths before arithmetic and is
+  the only canonical-strength computation slice, and 9C publishes immutable outputs without
+  recomputing evidence or choosing strength.
 - Tasks 10 and 11 are the second safe parallel pair. Task 12 deliberately rejoins runtime, workload,
   Gradle, CI, security, documentation, and ABI concerns.
 - Tasks 13 and 16 are experiments, not ordinary builds. Splitting their steps across workers would

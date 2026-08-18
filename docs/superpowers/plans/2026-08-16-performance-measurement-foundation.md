@@ -1205,6 +1205,28 @@ internal fun interface FinalizationCheckpoint {
 not private transition implementation. Only `finalizeCampaign` may construct canonical strength or
 a claim-bearing comparison.
 
+#### Approved serial Task 9 submilestones
+
+Task 9 executes as the semantics-preserving sequence **9A -> 9B -> 9C**. Each submilestone has one
+exclusive writer, one commit, and an independent read-only review before the next writer starts. No
+submilestone may weaken or defer the final Task 9 acceptance contract below.
+
+- **9A — diagnostic capture sealing:** consume one verified non-profiler diagnostic provisional
+  capture, its exact private operation tree, and verified bounded qualification; derive and seal the
+  exact five-file private diagnostic bundle, then require `CaptureBundleVerifier` to accept it. 9A
+  rejects canary/profiler/canonical routes and owns no reservation, public publication, campaign,
+  recovery, adapter, Docker, or post-reservation `INVALID` behavior. Limit: 500 new production lines,
+  750 new test lines, and only the approved sealer/test plus this plan and handoff.
+- **9B — campaign computation:** consume only sealed paths, reverify them at the verifier-owned seam,
+  validate the full attempt/receipt graph, recompute calibration and candidate comparisons, and
+  derive one deterministic private campaign tree. Only this campaign computation may mint canonical
+  strength; it owns no Docker, reservation, public publication, or recovery.
+- **9C — publication and recovery integration:** consume immutable 9A/9B outputs and implement every
+  remaining Task 9 behavior: canary/profiler sealing integration, scrub durability, reservation,
+  atomic no-copy publication, sanitized post-reservation `INVALID` handling, staging recovery,
+  adapter/CLI handshake, crash matrix, and terminal matrix. Publication must not recompute evidence
+  or choose strength.
+
 - [ ] **Step 1: Add red bounded-finalization tests**
 
 For direct canary/capture, assert the timed container writes only into an operation volume. The host
