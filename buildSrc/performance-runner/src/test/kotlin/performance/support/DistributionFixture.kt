@@ -348,6 +348,7 @@ internal class DistributionFixture private constructor(
     private val PROTOCOL_SCHEMA_FILES =
       listOf(
         "calibration-provisional-v1.schema.json",
+        "campaign-v1.schema.json",
         "capture-provisional-v1.schema.json",
         "capture-profile-family-v1.schema.json",
         "capture-v1.schema.json",
@@ -603,15 +604,17 @@ internal class DistributionFixture private constructor(
           "variants",
           JsonNodeFactory.instance.arrayNode().apply {
             if (family == "warm") {
-              add(
-                JsonNodeFactory.instance.objectNode().apply {
-                  put("identity", "warm-10-none-v1")
-                  put("forks", 10)
-                  put("warmupIterations", 5)
-                  put("measurementIterations", 10)
-                  put("profiler", "none")
-                },
-              )
+              listOf(10, 20, 40).forEach { forks ->
+                add(
+                  JsonNodeFactory.instance.objectNode().apply {
+                    put("identity", "warm-$forks-none-v1")
+                    put("forks", forks)
+                    put("warmupIterations", 5)
+                    put("measurementIterations", 10)
+                    put("profiler", "none")
+                  },
+                )
+              }
             }
           },
         )

@@ -59,7 +59,10 @@
       "const": "comparison-v1"
     },
     "strength": {
-      "const": "diagnostic"
+      "enum": [
+        "canonical",
+        "diagnostic"
+      ]
     }
   },
   "allOf": [
@@ -167,6 +170,39 @@
                   ]
                 }
               ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "strength": {
+            "const": "canonical"
+          }
+        },
+        "required": [
+          "strength"
+        ]
+      },
+      "then": {
+        "properties": {
+          "compatibility": {
+            "const": "compatible"
+          },
+          "kind": {
+            "const": "candidate"
+          },
+          "calibration": {
+            "required": [
+              "bCaptureId",
+              "evidenceSha256"
+            ],
+            "properties": {
+              "passed": {
+                "const": true
+              }
             }
           }
         }

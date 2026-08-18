@@ -357,6 +357,7 @@ private fun expectedDistributionFiles(): Set<String> =
     "protocol/runtime/linux-arm64.json",
     "protocol/runtime/m4max-docker.json",
     "protocol/schemas/calibration-provisional-v1.schema.json",
+    "protocol/schemas/campaign-v1.schema.json",
     "protocol/schemas/capture-provisional-v1.schema.json",
     "protocol/schemas/capture-profile-family-v1.schema.json",
     "protocol/schemas/capture-v1.schema.json",

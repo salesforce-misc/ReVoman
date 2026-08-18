@@ -22,6 +22,7 @@ enum class SchemaKind(
   CAPTURE("capture-v1.schema.json"),
   CAPTURE_PROVISIONAL("capture-provisional-v1.schema.json"),
   CALIBRATION_PROVISIONAL("calibration-provisional-v1.schema.json"),
+  CAMPAIGN("campaign-v1.schema.json"),
   COMPARISON("comparison-v1.schema.json"),
   REGRESSION_POLICY("regression-policy-v1.schema.json"),
   CAPTURE_PROFILE_FAMILY("capture-profile-family-v1.schema.json"),

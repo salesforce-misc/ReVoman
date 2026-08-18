@@ -485,6 +485,7 @@ class DistributionValidator {
     val REQUIRED_SCHEMAS =
       setOf(
         "protocol/schemas/calibration-provisional-v1.schema.json",
+        "protocol/schemas/campaign-v1.schema.json",
         "protocol/schemas/capture-provisional-v1.schema.json",
         "protocol/schemas/capture-profile-family-v1.schema.json",
         "protocol/schemas/capture-v1.schema.json",
