@@ -6,16 +6,118 @@ encode_argument() {
 }
 
 command_name=$(basename "$0")
-{
-  encode_argument "$command_name"
-  for argument in "$@"; do
-    printf '\t'
-    encode_argument "$argument"
-  done
-  printf '\n'
-} >>"${FAKE_HOST_LOG:?}"
+encoded_command=$(encode_argument "$command_name")
+for argument in "$@"; do
+  encoded_command="$encoded_command	$(encode_argument "$argument")"
+done
+printf '%b\n' "$encoded_command" >>"${FAKE_HOST_LOG:?}"
 
 case "$command_name" in
+  uname)
+    [ "${1:-}" = -s ] || exit 91
+    printf '%s\n' "${FAKE_SYSTEM_NAME:-Darwin}"
+    ;;
+  sysctl)
+    [ "${1:-}" = -n ] || exit 91
+    case "${2:-}" in
+      kern.osproductversion) printf '%s\n' "${FAKE_MACOS_VERSION:-26.6.1}" ;;
+      kern.osversion) printf '%s\n' "${FAKE_MACOS_BUILD:-25G90}" ;;
+      hw.model) printf '%s\n' "${FAKE_HARDWARE_MODEL:-Mac16,5}" ;;
+      hw.ncpu) printf '%s\n' "${FAKE_HOST_CPU_COUNT:-16}" ;;
+      hw.memsize) printf '%s\n' "${FAKE_HOST_MEMORY_BYTES:-8589934592}" ;;
+      *) exit 91 ;;
+    esac
+    ;;
+  ps)
+    case " $* " in
+      *" -p "*" -o lstart= "*)
+        [ "${FAKE_PS_PID_STATE:-live}" != unprovable ] || exit 1
+        printf '%s\n' "${FAKE_PS_START_IDENTITY:-Mon Aug 18 00:00:00 2026}"
+        ;;
+      *" -p "*" -o pid= "*)
+        case "${FAKE_PS_PID_STATE:-live}" in
+          dead) exit 1 ;;
+          unprovable) exit 2 ;;
+          *) printf '%s\n' "${FAKE_PS_VISIBLE_PID:-$$}" ;;
+        esac
+        ;;
+      *" -A -o %cpu= "*)
+        printf '%s\n' "${FAKE_PROCESS_CPU_PERCENT:-80}"
+        ;;
+      *" -A -o pid= -o lstart= -o %cpu= -o %mem= -o comm= "*)
+        if [ -f "${FAKE_REPO_ROOT:?}/.fake-timed-running" ] &&
+          { [ "${FAKE_PROCESS_DETAIL_FAIL_WHILE_TIMED:-0}" = 1 ] ||
+            [ "${FAKE_PROCESS_PROBE_FAIL_WHILE_TIMED:-0}" = 1 ]; }; then
+          exit 1
+        fi
+        printf '%s\n' \
+          "${FAKE_PROCESS_DETAIL_ROW:-42 Mon Aug 18 00:00:00 2026 1 1 /usr/bin/Finder}"
+        ;;
+      *" -A -o comm= "*)
+        if [ -f "${FAKE_REPO_ROOT:?}/.fake-timed-running" ] &&
+          [ "${FAKE_PROCESS_PROBE_FAIL_WHILE_TIMED:-0}" = 1 ]; then
+          exit 1
+        fi
+        printf '%s\n' "${FAKE_PROCESS_LIST:-/usr/bin/Finder}"
+        ;;
+      *) exit 91 ;;
+    esac
+    ;;
+  pmset)
+    case " ${1:-} ${2:-} " in
+      *" -g batt "*) printf '%s\n' "Now drawing from '${FAKE_POWER_SOURCE:-AC Power}'" ;;
+      *" -g therm "*)
+        if [ -n "${FAKE_PMSET_THERMAL_STATE:-}" ]; then
+          printf '%s\n' "$FAKE_PMSET_THERMAL_STATE"
+        else
+          printf '%s\n' 'No CPU power status has been recorded'
+          printf '%s\n' 'No GPU power status has been recorded'
+          printf '%s\n' 'No thermal warning level has been recorded'
+        fi
+        ;;
+      *) exit 91 ;;
+    esac
+    ;;
+  tmutil)
+    [ "${1:-}" = status ] || exit 91
+    if [ -f "${FAKE_REPO_ROOT:?}/.fake-timed-running" ] &&
+      [ "${FAKE_BACKUP_PROBE_FAIL_WHILE_TIMED:-0}" = 1 ]; then
+      exit 1
+    fi
+    printf '%s\n' "Running = ${FAKE_BACKUP_RUNNING:-0};"
+    ;;
+  memory_pressure)
+    memory_count_file="${FAKE_REPO_ROOT:?}/.fake-memory-pressure-count"
+    memory_count=0
+    if [ -f "$memory_count_file" ]; then
+      IFS= read -r memory_count < "$memory_count_file"
+    fi
+    memory_count=$((memory_count + 1))
+    printf '%s\n' "$memory_count" > "$memory_count_file"
+    memory_state=${FAKE_MEMORY_PRESSURE_STATE:-normal}
+    if [ -n "${FAKE_MEMORY_PRESSURE_FAIL_AFTER:-}" ] &&
+      [ "$memory_count" -gt "$FAKE_MEMORY_PRESSURE_FAIL_AFTER" ]; then
+      memory_state=critical
+    fi
+    printf 'System-wide memory free percentage: 80%% (%s)\n' "$memory_state"
+    ;;
+  vm_stat)
+    printf '%s\n' 'Mach Virtual Memory Statistics: (page size of 16384 bytes)'
+    printf 'Pageouts: %s.\n' "${FAKE_PAGE_OUTS:-0}"
+    printf 'Swapins: %s.\n' "${FAKE_SWAP_INS:-0}"
+    ;;
+  ioreg)
+    printf '%s\n' "    | |   \"HIDIdleTime\" = ${FAKE_HID_IDLE_NANOS:-600000000000}"
+    ;;
+  caffeinate)
+    if [ -n "${FAKE_CAFFEINATE_EXIT_CODE:-}" ]; then
+      exit "$FAKE_CAFFEINATE_EXIT_CODE"
+    fi
+    while :; do /bin/sleep 60; done
+    ;;
+  sleep)
+    /bin/sleep "${FAKE_SLEEP_SECONDS:-0.001}"
+    ;;
   git)
     case "${1:-}" in
       rev-parse)
@@ -38,6 +140,42 @@ case "$command_name" in
       esac
     fi
     case " $* " in
+      *" version --format "*)
+        printf '%s|%s\n' "${FAKE_DOCKER_DESKTOP_VERSION:-4.45.0}" "${FAKE_DOCKER_ENGINE_VERSION:-28.3.3}"
+        ;;
+      *" info --format "*)
+        if [ "${FAKE_SYSTEM_NAME:-Darwin}" = Linux ]; then
+          printf '%s|%s|%s|%s\n' \
+            "${FAKE_DOCKER_KERNEL:-6.11.0}" \
+            "${FAKE_DOCKER_CPU_COUNT:-4}" \
+            "${FAKE_DOCKER_MEMORY_BYTES:-17179869184}" \
+            "${FAKE_DOCKER_ARCHITECTURE:-aarch64}"
+        else
+          printf '%s|%s|%s|%s|%s\n' \
+            "${FAKE_DOCKER_OPERATING_SYSTEM:-Docker Desktop}" \
+            "${FAKE_DOCKER_KERNEL:-6.12.76-linuxkit}" \
+            "${FAKE_DOCKER_CPU_COUNT:-16}" \
+            "${FAKE_DOCKER_MEMORY_BYTES:-8589934592}" \
+            "${FAKE_DOCKER_ARCHITECTURE:-aarch64}"
+        fi
+        ;;
+      *" ps -aq "*)
+        printf '%s' "${FAKE_DOCKER_STALE_CONTAINERS:-}"
+        ;;
+      *" volume ls -q "*)
+        printf '%s' "${FAKE_DOCKER_STALE_VOLUMES:-}"
+        ;;
+      *" ps -a --format "*)
+        if [ -f "${FAKE_REPO_ROOT:?}/.fake-timed-running" ]; then
+          : >"$FAKE_REPO_ROOT/.fake-timed-observed"
+        fi
+        if [ -f "$FAKE_REPO_ROOT/.fake-timed-running" ] &&
+          [ "${FAKE_DOCKER_TIMED_CONTAINERS+x}" = x ]; then
+          printf '%s' "$FAKE_DOCKER_TIMED_CONTAINERS"
+        else
+          printf '%s' "${FAKE_DOCKER_CONTAINER_FINGERPRINT:-}"
+        fi
+        ;;
       *" pull --platform "*)
         :
         ;;
@@ -190,10 +328,14 @@ case "$command_name" in
         printf '%s\n' "$create_count" > "$create_count_file"
         owner=''
         run_token=''
+        operation=''
+        profile=''
         for argument in "$@"; do
           case "$argument" in
             dev.revoman.performance.owner=*) owner=${argument#*=} ;;
             dev.revoman.performance.token=*) run_token=${argument#*=} ;;
+            dev.revoman.performance.operation=*) operation=${argument#*=} ;;
+            dev.revoman.performance.profile=*) profile=${argument#*=} ;;
           esac
         done
         if [ -n "${FAKE_DOCKER_VOLUME_CREATE_OUTPUT:-}" ]; then
@@ -205,7 +347,7 @@ case "$command_name" in
         fi
         case "$volume_name" in
           ''|*[!A-Za-z0-9_.-]*) ;;
-          *) printf '%s|%s\n' "$owner" "$run_token" > "${FAKE_REPO_ROOT:?}/.fake-docker-volume-labels-$volume_name" ;;
+          *) printf '%s|%s|%s|%s\n' "$owner" "$run_token" "$operation" "$profile" > "${FAKE_REPO_ROOT:?}/.fake-docker-volume-labels-$volume_name" ;;
         esac
         printf '%s\n' "$volume_name"
         ;;
@@ -218,7 +360,7 @@ case "$command_name" in
         fi
         inspect_count=$((inspect_count + 1))
         printf '%s\n' "$inspect_count" > "$inspect_count_file"
-        labels='missing|missing'
+        labels='missing|missing|missing|missing'
         labels_file="${FAKE_REPO_ROOT:?}/.fake-docker-volume-labels-$volume_name"
         if [ -f "$labels_file" ]; then
           IFS= read -r labels < "$labels_file"

@@ -677,6 +677,10 @@ class HostAdapterContractTest :
                 "dev.revoman.performance.owner=revoman",
                 "--label",
                 "dev.revoman.performance.token=owned-volumes",
+                "--label",
+                "dev.revoman.performance.operation=owned-volumes",
+                "--label",
+                "dev.revoman.performance.profile=m4max-docker-linux-arm64-v1",
               ),
               listOf(
                 "docker",
@@ -688,6 +692,10 @@ class HostAdapterContractTest :
                 "dev.revoman.performance.owner=revoman",
                 "--label",
                 "dev.revoman.performance.token=owned-volumes",
+                "--label",
+                "dev.revoman.performance.operation=owned-volumes",
+                "--label",
+                "dev.revoman.performance.profile=m4max-docker-linux-arm64-v1",
               ),
             )
           inspects.size shouldBe 4

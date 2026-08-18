@@ -46,6 +46,7 @@ internal class FakeHost : AutoCloseable {
     repositoryRoot.resolve("inputs").createDirectories()
     repositoryRoot.resolve("scripts/performance").createDirectories()
     repositoryRoot.resolve("config/performance/runtime").createDirectories()
+    repositoryRoot.resolve("config/performance/policies").createDirectories()
     copyProtocolFiles()
     copyRawRuntimeManifest()
     createPublicationFixtures()
@@ -93,17 +94,17 @@ internal class FakeHost : AutoCloseable {
     functionOverrides: String? = null,
   ): AdapterInvocation {
     Files.deleteIfExists(commandLog)
+    val overrides =
+      listOfNotNull(FAKE_HOST_FUNCTION_OVERRIDES, functionOverrides).joinToString(separator = "\n")
     val command =
-      functionOverrides?.let { overrides ->
-        listOf(
-          "/bin/bash",
-          "-c",
-          "source \"\$1\"; shift; $overrides; main \"\$@\"",
-          "adapter-contract-test",
-          script.toString(),
-          *arguments,
-        )
-      } ?: listOf("/bin/bash", script.toString(), *arguments)
+      listOf(
+        "/bin/bash",
+        "-c",
+        "source \"\$1\"; shift; $overrides; main \"\$@\"",
+        "adapter-contract-test",
+        script.toString(),
+        *arguments,
+      )
 
     return run(command, environment)
   }
@@ -118,13 +119,16 @@ internal class FakeHost : AutoCloseable {
     function: String,
     vararg arguments: String,
     environment: Map<String, String> = emptyMap(),
+    useFakeHostTools: Boolean = true,
   ): AdapterInvocation {
     require(function.matches(Regex("[a-z_]+"))) { "unsafe Bash function name" }
+    val overrides = if (useFakeHostTools) FAKE_HOST_FUNCTION_OVERRIDES else ""
+    val setup = overrides.takeIf(String::isNotBlank)?.let { "$it;" }.orEmpty()
     return run(
       listOf(
         "/bin/bash",
         "-c",
-        "source \"\$1\"; shift; $function \"\$@\"",
+        "source \"\$1\"; shift; $setup $function \"\$@\"",
         "adapter-contract-test",
         script.toString(),
         *arguments,
@@ -146,6 +150,7 @@ internal class FakeHost : AutoCloseable {
         .redirectOutput(standardOutput.toFile())
         .redirectError(standardError.toFile())
     process.environment().apply {
+      UNSAFE_HOST_ENVIRONMENT.forEach(::remove)
       put("PATH", "$fakeBin:/usr/bin:/bin:/usr/sbin:/sbin")
       put("FAKE_HOST_LOG", commandLog.toString())
       put("FAKE_REPO_ROOT", repositoryRoot.toString())
@@ -179,7 +184,10 @@ internal class FakeHost : AutoCloseable {
         ".fake-preparation-complete",
         ".fake-finalizer-distribution",
         ".fake-freeze-bootstrap-distribution",
+        ".fake-memory-pressure-count",
         ".fake-provisional-distribution",
+        ".fake-timed-observed",
+        ".fake-timed-running",
         ".fake-freeze-validated-distribution",
       )
       .forEach { name -> Files.deleteIfExists(repositoryRoot.resolve(name)) }
@@ -212,6 +220,18 @@ internal class FakeHost : AutoCloseable {
           Files.copy(
             source,
             repositoryRoot.resolve("config/performance/runtime/${source.fileName}"),
+            StandardCopyOption.REPLACE_EXISTING,
+          )
+        }
+      }
+    }
+    val sourcePolicies = sourceRoot.resolve("config/performance/policies")
+    if (sourcePolicies.exists()) {
+      Files.list(sourcePolicies).use { files ->
+        files.filter(Files::isRegularFile).forEach { source ->
+          Files.copy(
+            source,
+            repositoryRoot.resolve("config/performance/policies/${source.fileName}"),
             StandardCopyOption.REPLACE_EXISTING,
           )
         }
@@ -307,8 +327,61 @@ internal class FakeHost : AutoCloseable {
       }
 
   companion object {
+    private val FAKE_HOST_FUNCTION_OVERRIDES =
+      """
+      adapter_system_name() { command uname -s; }
+      adapter_process_status() { command ps "${'$'}@"; }
+      adapter_power_status() { command pmset "${'$'}@"; }
+      adapter_backup_status() { command tmutil "${'$'}@"; }
+      adapter_memory_pressure() { command memory_pressure "${'$'}@"; }
+      adapter_vm_statistics() { command vm_stat "${'$'}@"; }
+      adapter_hid_status() { command ioreg "${'$'}@"; }
+      adapter_system_control() { command sysctl "${'$'}@"; }
+      adapter_caffeinate() { command caffeinate "${'$'}@"; }
+      adapter_sleep_millis() { command sleep "${'$'}1"; }
+      """.trimIndent()
+
     private val FAKE_COMMANDS =
-      listOf("docker", "git", "java", "gradle", "sudo", "dzdo", "osascript")
+      listOf(
+        "caffeinate",
+        "docker",
+        "git",
+        "gradle",
+        "ioreg",
+        "java",
+        "memory_pressure",
+        "osascript",
+        "pmset",
+        "ps",
+        "sleep",
+        "sudo",
+        "sysctl",
+        "tmutil",
+        "uname",
+        "vm_stat",
+        "dzdo",
+      )
+
+    private val UNSAFE_HOST_ENVIRONMENT =
+      setOf(
+        "ALL_PROXY",
+        "GITHUB_ENV",
+        "GITHUB_PATH",
+        "GITHUB_TOKEN",
+        "GITHUB_WORKSPACE",
+        "GRADLE_OPTS",
+        "HTTPS_PROXY",
+        "HTTP_PROXY",
+        "JAVA_TOOL_OPTIONS",
+        "JDK_JAVA_OPTIONS",
+        "MAVEN_OPTS",
+        "NEXUS_PASSWORD",
+        "NEXUS_USERNAME",
+        "NO_PROXY",
+        "RUNNER_NAME",
+        "RUNNER_TRACKING_ID",
+        "_JAVA_OPTIONS",
+      )
   }
 }
 

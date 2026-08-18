@@ -1,0 +1,19 @@
+{
+  "$schema": "https://revoman.dev/performance/policies/qualification-policy-v1.schema.json",
+  "schemaVersion": "qualification-policy-v1",
+  "profileId": "github-hosted-arm64-v1",
+  "qualificationKind": "githubHosted",
+  "claimEligibility": "diagnostic-only",
+  "lockDirectoryName": "revoman-performance-locks-v1",
+  "lockDirectoryMode": "0700",
+  "staleLockRequiresDockerProof": true,
+  "dockerContext": null,
+  "runnerLabel": "ubuntu-24.04-arm",
+  "advertisedCpuCount": 4,
+  "advertisedMemoryBytes": 17179869184,
+  "campaignTimeoutMillis": 7200000,
+  "preparationTimeoutMillis": 900000,
+  "finalizationTimeoutMillis": 900000,
+  "directOperationTimeoutMillis": 600000,
+  "automaticProcessStopAllowlist": []
+}

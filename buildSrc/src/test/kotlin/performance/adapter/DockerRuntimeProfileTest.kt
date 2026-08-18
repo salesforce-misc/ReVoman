@@ -9,7 +9,7 @@ package performance.adapter
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
-import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.collections.shouldContainAll
 import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.collections.shouldNotBeEmpty
 import io.kotest.matchers.shouldBe
@@ -204,12 +204,18 @@ class DockerRuntimeProfileTest :
           val inspections = dockerVolumeCommands(result.commands, "inspect")
           val removal = dockerVolumeCommands(result.commands, "rm").single()
           val phases = listOf("volume-initializer", "timed", "finalizer")
+          val tokenLabel = create.single { it.startsWith("dev.revoman.performance.token=") }
+          val operation = tokenLabel.substringAfter('=')
 
           result.exitCode shouldBe 0
-          create.last().startsWith("dev.revoman.performance.token=") shouldBe true
-          create.last().substringAfter('=').isNotEmpty() shouldBe true
-          create.dropLast(1).last() shouldBe "--label"
-          create shouldContain "dev.revoman.performance.owner=revoman-live-fixture"
+          operation.isNotEmpty() shouldBe true
+          create shouldContainAll
+            listOf(
+              "dev.revoman.performance.owner=revoman-live-fixture",
+              tokenLabel,
+              "dev.revoman.performance.operation=$operation",
+              "dev.revoman.performance.profile=m4max-docker-linux-arm64-v1",
+            )
           create shouldNotContain generatedVolume
           inspections.size shouldBe 4
           phases.forEach { phaseName ->
