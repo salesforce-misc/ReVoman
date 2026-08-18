@@ -82,7 +82,285 @@ class FinalizerHandshakeContractTest :
         }
       }
 
-      test("frozen recovery runs after verification and before the current reservation") {
+      test("freeze omits qualification input while timed finalizers retain it") {
+        FakeHost().use { host ->
+          val freezeResult =
+            host.invoke(
+              "freeze",
+              "--treatment-source",
+              host.treatmentSource("freeze-qualification-treatment").toString(),
+              "--harness-from",
+              host.frozenDistribution("freeze-qualification-baseline").toString(),
+              "--output",
+              host.output("freeze-qualification"),
+            )
+          val invocations =
+            mapOf(
+              "freeze" to freezeResult,
+              "canary" to host.invoke(*evidenceCommand(host, "canary").toTypedArray()),
+              "capture" to host.invoke(*evidenceCommand(host, "capture").toTypedArray()),
+              "campaign" to host.invoke(*evidenceCommand(host, "campaign").toTypedArray()),
+            )
+          val expectedArguments =
+            mapOf(
+              "freeze" to
+                listOf(
+                  "finalize-freeze",
+                  "--source",
+                  "/operation/provisional/distribution",
+                  "--artifact-parent",
+                  "/artifacts",
+                  "--run-token",
+                  "freeze-qualification",
+                  "--terminal",
+                  "0",
+                ),
+              "canary" to
+                listOf(
+                  "finalize-diagnostic",
+                  "--source",
+                  "/operation/provisional",
+                  "--artifact-parent",
+                  "/artifacts",
+                  "--run-token",
+                  "canary",
+                  "--terminal",
+                  "0",
+                  "--operation-state",
+                  "/operation/state",
+                  "--qualification-root",
+                  "/qualification",
+                ),
+              "capture" to
+                listOf(
+                  "finalize-diagnostic",
+                  "--source",
+                  "/operation/provisional",
+                  "--artifact-parent",
+                  "/artifacts",
+                  "--run-token",
+                  "capture",
+                  "--terminal",
+                  "0",
+                  "--operation-state",
+                  "/operation/state",
+                  "--qualification-root",
+                  "/qualification",
+                ),
+              "campaign" to
+                listOf(
+                  "finalize-campaign",
+                  "--source",
+                  "/operation/provisional",
+                  "--artifact-parent",
+                  "/artifacts",
+                  "--run-token",
+                  "campaign",
+                  "--terminal",
+                  "0",
+                ),
+            )
+
+          invocations.forEach { (commandName, result) ->
+            withClue(invocationClue(result)) { result.exitCode shouldBe 0 }
+            val finalizer =
+              result.commands.filter(::isDockerRun).single { invocation ->
+                "dev.revoman.performance.phase=finalizer" in invocation
+              }
+            val qualificationMounts =
+              finalizer.filter { argument ->
+                argument.startsWith("type=bind,src=") &&
+                  argument.endsWith(",dst=/qualification,readonly")
+              }
+
+            if (commandName == "freeze") {
+              qualificationMounts shouldBe emptyList()
+            } else {
+              qualificationMounts.size shouldBe 1
+              qualificationMounts.single().substringAfter("type=bind,src=").substringBefore(",dst=").isNotBlank() shouldBe true
+            }
+            executeFinalizerDispatch(host, finalizer) shouldBe expectedArguments.getValue(commandName)
+          }
+        }
+      }
+
+      test("finalizer runner arguments match the command-specific CLI contracts") {
+        FakeHost().use { host ->
+          val freezeDistribution = host.treatmentSource("freeze-argv-treatment")
+          val freezeBaseline = host.frozenDistribution("freeze-argv-baseline")
+          val invocations =
+            mapOf(
+              "freeze" to
+                host.invoke(
+                  "freeze",
+                  "--treatment-source",
+                  freezeDistribution.toString(),
+                  "--harness-from",
+                  freezeBaseline.toString(),
+                  "--output",
+                  host.output("freeze-argv"),
+                ),
+              "campaign" to host.invoke(*evidenceCommand(host, "campaign").toTypedArray()),
+              "capture" to host.invoke(*evidenceCommand(host, "capture").toTypedArray()),
+            )
+
+          val expectedArguments =
+            mapOf(
+              "freeze" to
+                listOf(
+                  "finalize-freeze",
+                  "--source",
+                  "/operation/provisional/distribution",
+                  "--artifact-parent",
+                  "/artifacts",
+                  "--run-token",
+                  "freeze-argv",
+                  "--terminal",
+                  "0",
+                ),
+              "campaign" to
+                listOf(
+                  "finalize-campaign",
+                  "--source",
+                  "/operation/provisional",
+                  "--artifact-parent",
+                  "/artifacts",
+                  "--run-token",
+                  "campaign",
+                  "--terminal",
+                  "0",
+                ),
+              "capture" to
+                listOf(
+                  "finalize-diagnostic",
+                  "--source",
+                  "/operation/provisional",
+                  "--artifact-parent",
+                  "/artifacts",
+                  "--run-token",
+                  "capture",
+                  "--terminal",
+                  "0",
+                  "--operation-state",
+                  "/operation/state",
+                  "--qualification-root",
+                  "/qualification",
+                ),
+            )
+
+          invocations.forEach { (commandName, result) ->
+            val finalizer = withClue(invocationClue(result)) {
+              result.commands.filter(::isDockerRun).single { invocation ->
+                "dev.revoman.performance.phase=finalizer" in invocation
+              }
+            }
+
+            executeFinalizerDispatch(host, finalizer) shouldBe expectedArguments.getValue(commandName)
+          }
+        }
+      }
+
+      test("freeze bypasses the timed host lifecycle and finalizes with terminal zero") {
+        FakeHost().use { host ->
+          val lifecycleEvents = host.repositoryRoot.resolve("timed-lifecycle-events")
+          val overrides =
+            """
+            record_timed_lifecycle() {
+              printf '%s:%s\n' "${'$'}ADAPTER_COMMAND" "${'$'}1" >>"${'$'}ADAPTER_REPO_ROOT/timed-lifecycle-events"
+              [ "${'$'}ADAPTER_COMMAND" != freeze ]
+            }
+            eval "${'$'}(declare -f adapter_run_preflight | /usr/bin/sed '1s/adapter_run_preflight/adapter_run_preflight_impl/')"
+            eval "${'$'}(declare -f adapter_start_controller_children | /usr/bin/sed '1s/adapter_start_controller_children/adapter_start_controller_children_impl/')"
+            eval "${'$'}(declare -f adapter_stop_and_join_controller_children | /usr/bin/sed '1s/adapter_stop_and_join_controller_children/adapter_stop_and_join_controller_children_impl/')"
+            eval "${'$'}(declare -f adapter_write_watcher_document | /usr/bin/sed '1s/adapter_write_watcher_document/adapter_write_watcher_document_impl/')"
+            eval "${'$'}(declare -f adapter_write_postflight | /usr/bin/sed '1s/adapter_write_postflight/adapter_write_postflight_impl/')"
+            eval "${'$'}(declare -f adapter_cleanup_host_state | /usr/bin/sed '1s/adapter_cleanup_host_state/adapter_cleanup_host_state_impl/')"
+            eval "${'$'}(declare -f adapter_write_restoration | /usr/bin/sed '1s/adapter_write_restoration/adapter_write_restoration_impl/')"
+            adapter_run_preflight() {
+              record_timed_lifecycle preflight || return 1
+              adapter_run_preflight_impl "${'$'}@"
+            }
+            adapter_start_controller_children() {
+              record_timed_lifecycle controller-start || return 1
+              adapter_start_controller_children_impl "${'$'}@"
+            }
+            adapter_stop_and_join_controller_children() {
+              record_timed_lifecycle controller-stop || return 1
+              adapter_stop_and_join_controller_children_impl "${'$'}@"
+            }
+            adapter_write_watcher_document() {
+              record_timed_lifecycle watcher || return 1
+              adapter_write_watcher_document_impl "${'$'}@"
+            }
+            adapter_write_postflight() {
+              record_timed_lifecycle postflight || return 1
+              adapter_write_postflight_impl "${'$'}@"
+            }
+            adapter_cleanup_host_state() {
+              record_timed_lifecycle host-cleanup || return 1
+              adapter_cleanup_host_state_impl "${'$'}@"
+            }
+            adapter_write_restoration() {
+              record_timed_lifecycle restoration || return 1
+              adapter_write_restoration_impl "${'$'}@"
+            }
+            """.trimIndent()
+          val freezeResult =
+            host.invoke(
+              "freeze",
+              "--treatment-source",
+              host.treatmentSource("freeze-lifecycle-treatment").toString(),
+              "--harness-from",
+              host.frozenDistribution("freeze-lifecycle-baseline").toString(),
+              "--output",
+              host.output("freeze-lifecycle"),
+              functionOverrides = overrides,
+            )
+
+          withClue(invocationClue(freezeResult)) { freezeResult.exitCode shouldBe 0 }
+          Files.exists(lifecycleEvents) shouldBe false
+          val freezeFinalizer =
+            freezeResult.commands.filter(::isDockerRun).single { invocation ->
+              "dev.revoman.performance.phase=finalizer" in invocation
+            }
+          executeFinalizerDispatch(host, freezeFinalizer) shouldBe
+            listOf(
+              "finalize-freeze",
+              "--source",
+              "/operation/provisional/distribution",
+              "--artifact-parent",
+              "/artifacts",
+              "--run-token",
+              "freeze-lifecycle",
+              "--terminal",
+              "0",
+            )
+
+          val expectedTimedLifecycle =
+            listOf(
+              "preflight",
+              "controller-start",
+              "controller-stop",
+              "watcher",
+              "postflight",
+              "host-cleanup",
+              "restoration",
+            )
+          listOf("canary", "capture", "campaign").forEach { commandName ->
+            val result =
+              host.invoke(
+                *evidenceCommand(host, commandName).toTypedArray(),
+                functionOverrides = overrides,
+              )
+            withClue(invocationClue(result)) { result.exitCode shouldBe 0 }
+            Files.readAllLines(lifecycleEvents)
+              .filter { event -> event.startsWith("$commandName:") }
+              .map { event -> event.substringAfter(':') } shouldContainAll expectedTimedLifecycle
+          }
+        }
+      }
+
+      test("volume initializer establishes recovery authority before verification and reservation") {
         FakeHost().use { host ->
           val result =
             host.invoke(
@@ -96,17 +374,31 @@ class FinalizerHandshakeContractTest :
                 """.trimIndent(),
             )
           val dockerRuns = result.commands.filter(::isDockerRun)
+          val initializerIndex =
+            dockerRuns.indexOfFirst { "dev.revoman.performance.phase=volume-initializer" in it }
           val verificationIndex =
             dockerRuns.indexOfFirst { "dev.revoman.performance.phase=finalizer-verification" in it }
           val recoveryIndex =
             dockerRuns.indexOfFirst { "dev.revoman.performance.phase=recovery" in it }
           val timedIndex = dockerRuns.indexOfFirst { "dev.revoman.performance.phase=timed" in it }
+          (initializerIndex >= 0) shouldBe true
           (recoveryIndex >= 0) shouldBe true
+          val initializer = dockerRuns[initializerIndex]
           val recovery = dockerRuns[recoveryIndex]
+          val initializerShell = initializer.last()
           val shell = recovery.last()
 
+          (initializerIndex < verificationIndex) shouldBe true
           (verificationIndex < recoveryIndex) shouldBe true
           (recoveryIndex < timedIndex) shouldBe true
+          initializer shouldContainAll
+            listOf(
+              "type=volume,src=${volumeName(initializer, "/operation")},dst=/operation",
+            )
+          initializer.contains(
+            "type=volume,src=${volumeName(initializer, "/operation")},dst=/operation,readonly",
+          ) shouldBe false
+          initializerShell shouldContain "/operation/provisional"
           recovery shouldContainAll
             listOf(
               "--network",
@@ -116,6 +408,7 @@ class FinalizerHandshakeContractTest :
               "type=volume,src=${volumeName(recovery, "/inputs")},dst=/inputs,readonly",
               "type=bind,src=${host.artifactRoot.toRealPath()},dst=/artifacts",
             )
+          volumeName(initializer, "/operation") shouldBe volumeName(recovery, "/operation")
           shell shouldContain "\"\$runner\" recover"
           shell shouldContain "--artifact-root /artifacts"
           shell shouldContain "--run-token \"\$REVOMAN_RUN_TOKEN\""
@@ -332,3 +625,40 @@ private fun volumeName(command: List<String>, destination: String): String =
     .single { it.startsWith("type=volume,src=") && it.contains("dst=$destination") }
     .substringAfter("type=volume,src=")
     .substringBefore(",dst=")
+
+private fun executeFinalizerDispatch(
+  host: FakeHost,
+  invocation: List<String>,
+): List<String> {
+  val argumentLog = host.repositoryRoot.resolve(".fake-finalizer-arguments")
+  val runner = host.repositoryRoot.resolve("fake-finalizer-runner")
+  Files.writeString(runner, "#!/bin/sh\nprintf '%s\\n' \"\$@\" >\"\$FINALIZER_ARGUMENT_LOG\"\n")
+  runner.toFile().setExecutable(true, true)
+
+  val dispatch =
+    invocation
+      .last()
+      .substringAfter("runner_status=0\n", missingDelimiterValue = "")
+      .substringBefore("case \"\$finalizer_status\" in", missingDelimiterValue = "")
+  dispatch.isNotBlank() shouldBe true
+  val environment =
+    invocation
+      .windowed(2)
+      .filter { (flag, _) -> flag == "--env" }
+      .map { (_, assignment) -> assignment.substringBefore('=') to assignment.substringAfter('=') }
+      .toMap()
+
+  val process =
+    ProcessBuilder("/bin/sh", "-c", "runner=\"\$TEST_FINALIZER_RUNNER\"\n$dispatch")
+      .directory(host.repositoryRoot.toFile())
+      .redirectErrorStream(true)
+      .apply {
+        environment().putAll(environment)
+        environment()["FINALIZER_ARGUMENT_LOG"] = argumentLog.toString()
+        environment()["TEST_FINALIZER_RUNNER"] = runner.toString()
+      }
+      .start()
+  val output = process.inputStream.bufferedReader().readText()
+  withClue(output) { process.waitFor() shouldBe 0 }
+  return Files.readAllLines(argumentLog)
+}

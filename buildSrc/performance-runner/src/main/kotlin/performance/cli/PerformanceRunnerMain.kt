@@ -154,6 +154,8 @@ private fun parseCommand(args: List<String>): CommandParseResult =
             "--artifact-parent",
             "--run-token",
             "--terminal",
+            "--operation-state",
+            "--qualification-root",
             "--operation-root",
             "--profiler-intent",
             "--profiler-completion",

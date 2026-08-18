@@ -24,13 +24,7 @@ tasks.named('jar', Jar) {
 
 performanceMeasurement {
   captureRunnerSourceDirectory.set(layout.projectDirectory)
-  treatmentSourceDirectory.set(layout.projectDirectory.dir(
-    providers.gradleProperty('performanceTreatmentSource').getOrElse('.')
-  ))
-  treatmentJar.set(layout.projectDirectory.file(
-    providers.gradleProperty('performanceTreatmentJar')
-      .getOrElse('build/libs/fixture-app.jar')
-  ))
+  treatmentJar.convention(layout.projectDirectory.file('build/libs/fixture-app.jar'))
   runnerDistributionDirectory.set(layout.projectDirectory.dir('fixture-inputs/runner-dist'))
   protocolSchemaDirectory.set(layout.projectDirectory.dir('fixture-inputs/protocol/schemas'))
   profileDirectory.set(layout.projectDirectory.dir('fixture-inputs/protocol/profiles'))
@@ -58,13 +52,6 @@ performanceMeasurement {
     layout.projectDirectory.dir('fixture-inputs/fixture-resources'),
     layout.projectDirectory.dir('fixture-inputs/protocol'),
   )
-  distributionDirectory.set(layout.projectDirectory.dir(
-    providers.gradleProperty('performanceDistributionDirectory')
-      .getOrElse('build/performance/distribution')
-  ))
-  providers.gradleProperty('performanceHarnessFrom').orNull?.with { baseline ->
-    harnessFrom.set(layout.projectDirectory.dir(baseline))
-  }
 }
 
 tasks.register('assertPerformanceIsolation') {

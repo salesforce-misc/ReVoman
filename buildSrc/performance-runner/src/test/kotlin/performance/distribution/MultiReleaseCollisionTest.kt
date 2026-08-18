@@ -88,16 +88,52 @@ class MultiReleaseCollisionTest :
         }
       }
 
-      test("versioned classes require a true Multi-Release manifest attribute") {
+      test("external versioned classes without a true Multi-Release manifest are runtime-inert") {
         withMultiReleaseFixture { fixture ->
           fixture.replaceJar(
             BENCHMARK_DEPENDENCY,
             mapOf(
-              "META-INF/versions/21/example/Versioned.class" to
-                compiledClass("example.Versioned", publicType = false),
+              "META-INF/versions/21/example/Application.class" to
+                compiledClass("example.Application", publicType = false),
               "example/Dependency.class" to compiledClass("example.Dependency"),
             ),
             multiRelease = false,
+          )
+          val processSpy = MultiReleaseProcessSpy()
+
+          val validation = fixture.validateBeforeProcess(processSpy)
+
+          validation.shouldBeInstanceOf<DistributionValidation.Valid>()
+          processSpy.requests shouldBe 1
+        }
+      }
+
+      test("project-built versioned classes require a true Multi-Release manifest attribute") {
+        withMultiReleaseFixture { fixture ->
+          fixture.replaceJar(
+            PRODUCTION_JAR,
+            mapOf(
+              "META-INF/versions/21/example/Versioned.class" to
+                compiledClass("example.Versioned", publicType = false),
+              "example/Application.class" to compiledClass("example.Application"),
+            ),
+            multiRelease = false,
+          )
+
+          fixture.assertInvalidWithoutProcess(DistributionProblem.INVALID_MULTI_RELEASE_JAR)
+        }
+      }
+
+      test("true multi-release jars reject malformed version directories") {
+        withMultiReleaseFixture { fixture ->
+          fixture.replaceJar(
+            BENCHMARK_DEPENDENCY,
+            mapOf(
+              "META-INF/versions/not-a-version/example/Versioned.class" to
+                compiledClass("example.Versioned", publicType = false),
+              "example/Dependency.class" to compiledClass("example.Dependency"),
+            ),
+            multiRelease = true,
           )
 
           fixture.assertInvalidWithoutProcess(DistributionProblem.INVALID_MULTI_RELEASE_JAR)

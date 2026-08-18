@@ -103,6 +103,18 @@ class PerformanceMeasurementPlugin : Plugin<Project> {
       extension.distributionDirectory.convention(
         layout.buildDirectory.dir("performance/distribution"),
       )
+      providers.gradleProperty("performanceTreatmentSource").orNull?.let { source ->
+        extension.treatmentSourceDirectory.set(layout.projectDirectory.dir(source))
+      }
+      providers.gradleProperty("performanceTreatmentJar").orNull?.let { jar ->
+        extension.treatmentJar.set(layout.projectDirectory.file(jar))
+      }
+      providers.gradleProperty("performanceDistributionDirectory").orNull?.let { output ->
+        extension.distributionDirectory.set(layout.projectDirectory.dir(output))
+      }
+      providers.gradleProperty("performanceHarnessFrom").orNull?.let { baseline ->
+        extension.harnessFrom.set(layout.projectDirectory.dir(baseline))
+      }
       extension.embeddedDependencyCoordinate.convention(
         "org.jetbrains.kotlinx:kotlinx-collections-immutable:0.5.1",
       )

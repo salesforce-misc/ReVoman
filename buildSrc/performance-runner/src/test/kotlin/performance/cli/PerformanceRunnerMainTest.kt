@@ -11,8 +11,10 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldNotContain
+import performance.runner.RunnerCommand
 import performance.runner.RunnerDependencies
 import performance.runner.RunnerExit
+import performance.runner.RunnerOutcome
 
 class PerformanceRunnerMainTest :
   FunSpec(
@@ -98,6 +100,37 @@ class PerformanceRunnerMainTest :
               listOf("performance-runner: INPUT_OR_PREFLIGHT_INVALID: INVALID_ARGUMENTS")
           }
         }
+
+      test("finalize-diagnostic delegates a complete bounded host handshake and preserves the terminal result") {
+        var observed: RunnerCommand? = null
+        val dependencies =
+          RunnerDependencies.forTest(
+            writeStandardError = {},
+            executeCommand = { command ->
+              observed = command
+              RunnerOutcome(RunnerExit.POLICY_INCONCLUSIVE, null)
+            },
+          )
+        val arguments =
+          listOf(
+            "finalize-diagnostic",
+            "--source",
+            "private/source",
+            "--artifact-parent",
+            "build/artifacts",
+            "--run-token",
+            "run-1",
+            "--terminal",
+            "0",
+            "--operation-state",
+            "private/operation/state",
+            "--qualification-root",
+            "private/qualification",
+          )
+
+        runMain(arguments, dependencies) shouldBe RunnerExit.POLICY_INCONCLUSIVE.code
+        observed shouldBe RunnerCommand.FinalizeDiagnostic(arguments.drop(1))
+      }
 
       mapOf(
         "unknown flags" to listOf("capture", "--private-token", "do-not-print-this"),

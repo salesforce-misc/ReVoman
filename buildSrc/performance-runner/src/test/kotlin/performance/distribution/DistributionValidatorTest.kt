@@ -413,18 +413,35 @@ class DistributionValidatorTest :
         }
       }
 
-      test("test classes are rejected from project-built runtime jars") {
+      listOf("DistributionValidatorTest", "DistributionValidatorTests").forEach { testClass ->
+        test("project-built $testClass content is rejected") {
+          withFixture { fixture ->
+            fixture.replaceJar(
+              PRODUCTION_JAR,
+              mapOf(
+                "example/Application.class" to compiledClass("example.Application"),
+                "example/$testClass.class" to compiledClass("example.$testClass"),
+              ),
+            )
+
+            fixture.assertInvalid(DistributionProblem.TEST_CONTENT_PRESENT)
+          }
+        }
+      }
+
+      test("project-built production APIs whose class names end in Spec remain valid") {
         withFixture { fixture ->
           fixture.replaceJar(
             PRODUCTION_JAR,
             mapOf(
-              "example/Application.class" to compiledClass("example.Application"),
-              "example/DistributionValidatorTest.class" to
-                compiledClass("example.DistributionValidatorTest"),
+              "com/salesforce/revoman/input/config/StepSpec.class" to
+                compiledClass("com.salesforce.revoman.input.config.StepSpec"),
             ),
           )
 
-          fixture.assertInvalid(DistributionProblem.TEST_CONTENT_PRESENT)
+          fixture
+            .validateBeforeProcess(ProcessSpy())
+            .shouldBeInstanceOf<DistributionValidation.Valid>()
         }
       }
 

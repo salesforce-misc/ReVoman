@@ -8,19 +8,19 @@
         "parameters": {}
       },
       {
-        "benchmark": "com.salesforce.revoman.benchmark.RevUpV3ColdBenchmark.canary",
+        "benchmark": "com.salesforce.revoman.benchmark.RevUpV3ColdBenchmark.revUp",
         "parameters": {"scenario": "v3-real-wire"}
       }
     ],
     "cold": [
       {
-        "benchmark": "com.salesforce.revoman.benchmark.RevUpV3ColdBenchmark.cold",
+        "benchmark": "com.salesforce.revoman.benchmark.RevUpV3ColdBenchmark.revUp",
         "parameters": {"scenario": "v3-real-wire"}
       }
     ],
     "warm": [
       {
-        "benchmark": "com.salesforce.revoman.benchmark.RevUpV3WarmBenchmark.warm",
+        "benchmark": "com.salesforce.revoman.benchmark.RevUpV3WarmBenchmark.revUp",
         "parameters": {"scenario": "v3-real-wire"}
       }
     ]

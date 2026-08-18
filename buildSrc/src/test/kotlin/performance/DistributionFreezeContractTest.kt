@@ -27,6 +27,55 @@ import tools.jackson.databind.node.ObjectNode
 class DistributionFreezeContractTest :
   FunSpec(
     {
+      test("documented project properties select treatment output and optional harness") {
+        PerformanceTestProject.create().use { project ->
+          project.build("jar")
+          val defaultDistribution = project.root.resolve("build/performance/distribution")
+          val defaultMarker = defaultDistribution.resolve("preexisting.txt")
+          Files.createDirectories(defaultDistribution)
+          Files.writeString(defaultMarker, "default output must remain untouched\n")
+          val baselineTreatment = project.treatment("property-baseline")
+          val candidateTreatment = project.treatment("property-candidate")
+          val baseline = project.root.resolve("build/performance/property-baseline")
+          val candidate = project.root.resolve("build/performance/property-candidate")
+          val baselineCaptureSha = "a".repeat(40)
+          val candidateCaptureSha = "b".repeat(40)
+
+          project.build(
+            "assemblePerformanceDistribution",
+            "verifyPerformanceDistribution",
+            "-PperformanceCaptureGitSha=$baselineCaptureSha",
+            "-PperformanceTreatmentSource=${baselineTreatment.root}",
+            "-PperformanceTreatmentJar=${baselineTreatment.jar}",
+            "-PperformanceDistributionDirectory=$baseline",
+          )
+          project.build(
+            "assemblePerformanceDistribution",
+            "verifyPerformanceDistribution",
+            "-PperformanceCaptureGitSha=$candidateCaptureSha",
+            "-PperformanceTreatmentSource=${candidateTreatment.root}",
+            "-PperformanceTreatmentJar=${candidateTreatment.jar}",
+            "-PperformanceHarnessFrom=$baseline",
+            "-PperformanceDistributionDirectory=$candidate",
+          )
+
+          Files.readString(defaultMarker) shouldBe "default output must remain untouched\n"
+          Files.readAllBytes(baseline.resolve("app/revoman.jar")) shouldBe
+            Files.readAllBytes(baselineTreatment.jar)
+          Files.readAllBytes(candidate.resolve("app/revoman.jar")) shouldBe
+            Files.readAllBytes(candidateTreatment.jar)
+          readUtf8(baseline.resolve("metadata/provenance.json")).apply {
+            this shouldContain baselineTreatment.gitSha
+            this shouldContain baselineCaptureSha
+          }
+          readUtf8(candidate.resolve("metadata/provenance.json")).apply {
+            this shouldContain candidateTreatment.gitSha
+            this shouldContain baselineCaptureSha
+            this shouldContain candidateCaptureSha
+          }
+        }
+      }
+
       test("initial freeze keeps classpaths byte exact ordered and independently proven") {
         PerformanceTestProject.create().use { project ->
           val treatment = project.treatment("initial")

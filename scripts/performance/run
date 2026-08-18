@@ -1362,7 +1362,7 @@ adapter_run_volume_initializer() {
     --mount "type=volume,src=$ADAPTER_INPUT_VOLUME,dst=/inputs" \
     --mount "type=volume,src=$ADAPTER_OPERATION_VOLUME,dst=/operation" \
     "$ADAPTER_RUNTIME_REFERENCE" /usr/bin/sh -lc \
-    "set -eu; mkdir -p /inputs/prepared /inputs/capture-runner /inputs/finalizer /inputs/gradle-cache /operation/state /operation/host /operation/tmp; chown -R $ADAPTER_SUBSTRATE_UID:$ADAPTER_SUBSTRATE_GID /inputs /operation"
+    "set -eu; mkdir -p /inputs/prepared /inputs/capture-runner /inputs/finalizer /inputs/gradle-cache /operation/state /operation/host /operation/tmp /operation/provisional; chown -R $ADAPTER_SUBSTRATE_UID:$ADAPTER_SUBSTRATE_GID /inputs /operation"
 }
 
 adapter_finalizer_input_index() {
@@ -2424,8 +2424,13 @@ adapter_run_evidence_finalizer() {
   local docker_status
   local failure_code="${1:-INTERNAL_ERROR}"
   local profiler='none'
+  local qualification_mount=()
   if [ "$ADAPTER_COMMAND" = capture ] && adapter_flag_present 'diagnostic-profiler'; then
     profiler=$(adapter_flag_value 'diagnostic-profiler') || return 1
+  fi
+  if [ "$ADAPTER_COMMAND" != freeze ]; then
+    [ -n "$ADAPTER_QUALIFICATION_ROOT" ] || return 1
+    qualification_mount+=(--mount "type=bind,src=$ADAPTER_QUALIFICATION_ROOT,dst=/qualification,readonly")
   fi
   [ "$ADAPTER_RESERVED" -eq 1 ] || return 1
   adapter_parent_is_stable || return 1
@@ -2438,7 +2443,7 @@ adapter_run_evidence_finalizer() {
       --tmpfs "/tmp:rw,noexec,nosuid,nodev,size=64m,uid=$ADAPTER_SUBSTRATE_UID,gid=$ADAPTER_SUBSTRATE_GID,mode=0700" \
       --mount "type=volume,src=$ADAPTER_INPUT_VOLUME,dst=/inputs,readonly" \
       --mount "type=volume,src=$ADAPTER_OPERATION_VOLUME,dst=/operation,readonly" \
-      --mount "type=bind,src=$ADAPTER_QUALIFICATION_ROOT,dst=/qualification,readonly" \
+      "${qualification_mount[@]}" \
       --mount "type=bind,src=$ADAPTER_OUTPUT_PARENT_PATH,dst=/artifacts" \
       --env "REVOMAN_ARTIFACT_ROOT=/artifacts" \
       --env "REVOMAN_COMMAND=$ADAPTER_COMMAND" \
@@ -2481,7 +2486,13 @@ finalizer_source=/operation/provisional
 if [ "$REVOMAN_COMMAND" = freeze ]; then
   finalizer_source=/operation/provisional/distribution
 fi
-if [ "$REVOMAN_PROFILER" = none ]; then
+if [ "$REVOMAN_COMMAND" = freeze ] || [ "$REVOMAN_COMMAND" = campaign ]; then
+  "$runner" "$REVOMAN_FINALIZER_COMMAND" \
+    --source "$finalizer_source" \
+    --artifact-parent /artifacts \
+    --run-token "$REVOMAN_RUN_TOKEN" \
+    --terminal "$runner_status" || finalizer_status=$?
+elif [ "$REVOMAN_PROFILER" = none ]; then
   "$runner" "$REVOMAN_FINALIZER_COMMAND" \
     --source "$finalizer_source" \
     --artifact-parent /artifacts \
@@ -2596,50 +2607,55 @@ adapter_execute_checkpoint() {
   ADAPTER_FINALIZER_STATUS=8
   if [ "$ADAPTER_COMMAND" = 'freeze' ]; then
     failure_code='NONE'
-  fi
-  if ! adapter_start_controller_children; then
-    failure_code='QUALIFICATION_FAILED'
-    phase_status=1
-    qualification_status=1
-  elif ! adapter_run_work_phase >/dev/null 2>&1; then
-    failure_code='INTERNAL_ERROR'
-    phase_status=1
-  fi
-  if ! adapter_stop_and_join_controller_children; then
-    failure_code='QUALIFICATION_FAILED'
-    qualification_status=1
-  fi
-  if [ "$ADAPTER_INTERRUPTED" -eq 1 ]; then
-    failure_code='QUALIFICATION_FAILED'
-    qualification_status=1
-  fi
-  if ! adapter_write_watcher_document; then
-    failure_code='QUALIFICATION_FAILED'
-    qualification_status=1
-  fi
-  if ! adapter_write_postflight "$phase_status"; then
-    failure_code='QUALIFICATION_FAILED'
-    qualification_status=1
-  fi
-  if ! adapter_cleanup_host_state; then
-    failure_code='QUALIFICATION_FAILED'
-    qualification_status=1
-    cleanup_status=1
-  fi
-  if [ "$cleanup_status" -eq 0 ]; then
-    adapter_write_restoration true || {
+    if ! adapter_run_work_phase >/dev/null 2>&1; then
+      failure_code='INTERNAL_ERROR'
+      phase_status=1
+    fi
+  else
+    if ! adapter_start_controller_children; then
+      failure_code='QUALIFICATION_FAILED'
+      phase_status=1
+      qualification_status=1
+    elif ! adapter_run_work_phase >/dev/null 2>&1; then
+      failure_code='INTERNAL_ERROR'
+      phase_status=1
+    fi
+    if ! adapter_stop_and_join_controller_children; then
       failure_code='QUALIFICATION_FAILED'
       qualification_status=1
-    }
-  else
-    adapter_write_restoration false || qualification_status=1
-  fi
-  if [ "$phase_status" -eq 0 ] && [ "$qualification_status" -eq 0 ] &&
-    ! adapter_run_scrubber_if_requested >/dev/null 2>&1; then
-    failure_code='INTERNAL_ERROR'
-    phase_status=1
-  elif [ "$phase_status" -eq 0 ] && [ "$qualification_status" -eq 0 ]; then
-    failure_code='NONE'
+    fi
+    if [ "$ADAPTER_INTERRUPTED" -eq 1 ]; then
+      failure_code='QUALIFICATION_FAILED'
+      qualification_status=1
+    fi
+    if ! adapter_write_watcher_document; then
+      failure_code='QUALIFICATION_FAILED'
+      qualification_status=1
+    fi
+    if ! adapter_write_postflight "$phase_status"; then
+      failure_code='QUALIFICATION_FAILED'
+      qualification_status=1
+    fi
+    if ! adapter_cleanup_host_state; then
+      failure_code='QUALIFICATION_FAILED'
+      qualification_status=1
+      cleanup_status=1
+    fi
+    if [ "$cleanup_status" -eq 0 ]; then
+      adapter_write_restoration true || {
+        failure_code='QUALIFICATION_FAILED'
+        qualification_status=1
+      }
+    else
+      adapter_write_restoration false || qualification_status=1
+    fi
+    if [ "$phase_status" -eq 0 ] && [ "$qualification_status" -eq 0 ] &&
+      ! adapter_run_scrubber_if_requested >/dev/null 2>&1; then
+      failure_code='INTERNAL_ERROR'
+      phase_status=1
+    elif [ "$phase_status" -eq 0 ] && [ "$qualification_status" -eq 0 ]; then
+      failure_code='NONE'
+    fi
   fi
   if ! adapter_run_finalizer "$failure_code" >/dev/null 2>&1; then
     finalizer_status=1
@@ -2988,7 +3004,10 @@ main() {
     adapter_cleanup_volumes >/dev/null 2>&1 || true
     return "$output_status"
   fi
-  if ! adapter_run_preflight ||
+  if [ "$ADAPTER_COMMAND" = freeze ]; then
+    adapter_execute_checkpoint
+    operation_status=$?
+  elif ! adapter_run_preflight ||
     { [ "$ADAPTER_QUALIFICATION_KIND" = controlledMac ] &&
       ! adapter_sleep_millis "$ADAPTER_POST_PREPARATION_SETTLE_MILLIS"; }; then
     adapter_finalize_preflight_failure

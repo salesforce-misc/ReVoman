@@ -110,29 +110,29 @@ internal object JarValidator {
 
         when {
           entry.isDirectory -> Unit
-          name.startsWith(VERSIONED_PREFIX) -> {
+          name.startsWith(VERSIONED_PREFIX) && (multiRelease || projectBuilt) -> {
             val versioned = VERSIONED_ENTRY.matchEntire(name)
             if (versioned == null) {
               problems += DistributionProblem.INVALID_MULTI_RELEASE_JAR
-            } else {
-              val versionText = versioned.groupValues[1]
-              val version = versionText.toIntOrNull()
-              val effectiveName = versioned.groupValues[2]
-              if (
-                version == null ||
-                  version < MIN_MULTI_RELEASE_VERSION ||
-                  (versionText.length > 1 && versionText.startsWith('0')) ||
-                  effectiveName.startsWith("META-INF/") ||
-                  !multiRelease
-              ) {
-                problems += DistributionProblem.INVALID_MULTI_RELEASE_JAR
-              }
-              if (effectiveName.endsWith(CLASS_SUFFIX)) {
-                val identity = binaryIdentity(effectiveName)
-                allClasses += identity
-                if (version != null && version >= MIN_MULTI_RELEASE_VERSION) {
-                  versionedClasses.getOrPut(effectiveName, ::mutableListOf) += version to identity
-                }
+              return@forEach
+            }
+            val versionText = versioned.groupValues[1]
+            val version = versionText.toIntOrNull()
+            val effectiveName = versioned.groupValues[2]
+            if (
+              version == null ||
+                version < MIN_MULTI_RELEASE_VERSION ||
+                (versionText.length > 1 && versionText.startsWith('0')) ||
+                effectiveName.startsWith("META-INF/") ||
+                !multiRelease
+            ) {
+              problems += DistributionProblem.INVALID_MULTI_RELEASE_JAR
+            }
+            if (multiRelease && effectiveName.endsWith(CLASS_SUFFIX)) {
+              val identity = binaryIdentity(effectiveName)
+              allClasses += identity
+              if (version != null && version >= MIN_MULTI_RELEASE_VERSION) {
+                versionedClasses.getOrPut(effectiveName, ::mutableListOf) += version to identity
               }
             }
           }
@@ -179,10 +179,7 @@ internal object JarValidator {
       identity.startsWith("io.kotest.") ||
       identity.startsWith("io.mockk.") ||
       identity.startsWith("net.bytebuddy.") ||
-      (projectBuilt &&
-        (simpleName.endsWith("Test") ||
-          simpleName.endsWith("Tests") ||
-          simpleName.endsWith("Spec")))
+      (projectBuilt && (simpleName.endsWith("Test") || simpleName.endsWith("Tests")))
   }
 
   private fun validateWithCurrentJdk(path: Path): Boolean {
