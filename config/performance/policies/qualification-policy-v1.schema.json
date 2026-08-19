@@ -117,9 +117,9 @@
     },
     "thermalTextStates": {
       "const": [
-        "No CPU power status has been recorded",
-        "No GPU power status has been recorded",
-        "No thermal warning level has been recorded"
+        "Note: No thermal warning level has been recorded",
+        "Note: No performance warning level has been recorded",
+        "Note: No CPU power status has been recorded"
       ]
     },
     "thermalCpuSpeedLimit": {

@@ -87,9 +87,9 @@ case "$command_name" in
         if [ -n "${FAKE_PMSET_THERMAL_STATE:-}" ]; then
           printf '%s\n' "$FAKE_PMSET_THERMAL_STATE"
         else
-          printf '%s\n' 'No thermal warning level has been recorded'
-          printf '%s\n' 'No performance warning level has been recorded'
-          printf '%s\n' 'No CPU power status has been recorded'
+          printf '%s\n' 'Note: No thermal warning level has been recorded'
+          printf '%s\n' 'Note: No performance warning level has been recorded'
+          printf '%s\n' 'Note: No CPU power status has been recorded'
         fi
         ;;
       *) exit 91 ;;

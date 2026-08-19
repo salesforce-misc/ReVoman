@@ -9,6 +9,7 @@ package performance.adapter
 
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldContainAll
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
@@ -18,11 +19,70 @@ import java.nio.file.Files
 import kotlin.io.path.createDirectories
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
+import performance.json.CanonicalJson
 import performance.support.FakeHost
 
 class MacQualificationContractTest :
   FunSpec(
     {
+      test("the checked-in controlled Mac policy encodes the exact current pmset thermal text") {
+        FakeHost().use { host ->
+          host.readCheckedInStringArray(
+              "config/performance/policies/m4max-docker-linux-arm64-v1.json",
+              "thermalTextStates",
+            )
+            .shouldContainExactly(livePmsetThermalTextStates)
+        }
+      }
+
+      test("the qualification schema requires the exact current pmset thermal text") {
+        FakeHost().use { host ->
+          host.readCheckedInStringArray(
+              "config/performance/policies/qualification-policy-v1.schema.json",
+              "properties",
+              "thermalTextStates",
+              "const",
+            )
+            .shouldContainExactly(livePmsetThermalTextStates)
+        }
+      }
+
+      test("the exact current pmset thermal text is accepted") {
+        FakeHost().use { host ->
+          val result =
+            host.invoke(
+              *captureCommand(host, "live-pmset-thermal-text").toTypedArray(),
+              environment =
+                mapOf(
+                  "FAKE_PMSET_THERMAL_STATE" to livePmsetThermalTextStates.joinToString("\n"),
+                ),
+            )
+
+          withClue("stderr=${result.standardError}; commands=${result.commands}") {
+            result.exitCode shouldBe 0
+          }
+        }
+      }
+
+      rejectedLivePmsetThermalTextFixtures.forEach { fixture ->
+        test("exact current pmset thermal text rejects ${fixture.description}") {
+          FakeHost().use { host ->
+            host.writeCurrentControlledMacPolicy(livePmsetThermalTextStates)
+            val result =
+              host.invoke(
+                *captureCommand(host, "live-pmset-${fixture.token}").toTypedArray(),
+                environment = mapOf("FAKE_PMSET_THERMAL_STATE" to fixture.output),
+              )
+
+            withClue("stderr=${result.standardError}; commands=${result.commands}") {
+              result.exitCode shouldBe 2
+              result.standardError shouldContain "QUALIFICATION_FAILED"
+              result.commands.none { "dev.revoman.performance.phase=timed" in it } shouldBe true
+            }
+          }
+        }
+      }
+
       test("the checked-in controlled Mac policy accepts the current unprivileged host facts") {
         FakeHost().use { host ->
           val result =
@@ -529,6 +589,12 @@ private data class MalformedDockerDaemonIdentityFixture(
   val output: String,
 )
 
+private data class RejectedLivePmsetThermalTextFixture(
+  val token: String,
+  val description: String,
+  val output: String,
+)
+
 private const val currentDockerDaemonIdentity = "Docker Desktop 4.87.0 (236836)|29.7.2"
 
 private val malformedDockerDaemonIdentityFixtures =
@@ -563,6 +629,38 @@ private val malformedDockerDaemonIdentityFixtures =
       "empty-version",
       "an empty server version",
       "Docker Desktop 4.87.0 (236836)|\n",
+    ),
+  )
+
+private val livePmsetThermalTextStates =
+  listOf(
+    "Note: No thermal warning level has been recorded",
+    "Note: No performance warning level has been recorded",
+    "Note: No CPU power status has been recorded",
+  )
+
+private val rejectedLivePmsetThermalTextFixtures =
+  listOf(
+    RejectedLivePmsetThermalTextFixture(
+      token = "missing-state",
+      description = "a missing state",
+      output = livePmsetThermalTextStates.dropLast(1).joinToString("\n"),
+    ),
+    RejectedLivePmsetThermalTextFixture(
+      token = "extra-state",
+      description = "an extra state",
+      output = (livePmsetThermalTextStates + "Note: Unexpected thermal state").joinToString("\n"),
+    ),
+    RejectedLivePmsetThermalTextFixture(
+      token = "malformed-prefix",
+      description = "a malformed prefix",
+      output =
+        listOf(
+            livePmsetThermalTextStates[0].removePrefix("Note: "),
+            livePmsetThermalTextStates[1],
+            livePmsetThermalTextStates[2],
+          )
+          .joinToString("\n"),
     ),
   )
 
@@ -623,15 +721,8 @@ private val rejectedCurrentFactFixtures =
     ),
   )
 
-private val currentThermalTextStates =
-  listOf(
-    "No thermal warning level has been recorded",
-    "No performance warning level has been recorded",
-    "No CPU power status has been recorded",
-  )
-
 private fun FakeHost.writeCurrentControlledMacPolicy(
-  thermalTextStates: List<String> = currentThermalTextStates,
+  thermalTextStates: List<String> = livePmsetThermalTextStates,
 ) {
   val policy = repositoryRoot.resolve("config/performance/policies/m4max-docker-linux-arm64-v1.json")
   var contents = policy.readText()
@@ -661,4 +752,13 @@ private fun FakeHost.writeCurrentControlledMacPolicy(
       "\n  ],"
   contents = contents.replaceRange(arrayStart, arrayEnd + "\n  ],".length, renderedStates)
   policy.writeText(contents)
+}
+
+private fun FakeHost.readCheckedInStringArray(
+  relativePath: String,
+  vararg fields: String,
+): List<String> {
+  var node = CanonicalJson.parseStrict(Files.readAllBytes(repositoryRoot.resolve(relativePath)))
+  fields.forEach { field -> node = requireNotNull(node.get(field)) { "missing JSON field $field" } }
+  return node.asArray().iterator().asSequence().map { element -> element.asString() }.toList()
 }
