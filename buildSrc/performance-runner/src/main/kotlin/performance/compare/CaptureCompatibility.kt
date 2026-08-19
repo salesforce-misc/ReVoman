@@ -180,6 +180,9 @@ internal object CaptureCompatibility {
     if (capture.samples.keys != capture.cells.toSet()) {
       failures += CompatibilityFailure.CELL_SET_MISMATCH
     }
+    if (capture.samples.values.any { forkSamples -> forkSamples.size < 10 }) {
+      failures += CompatibilityFailure.UNDERSAMPLED_CELL
+    }
     if (
       !capture.provenance.treatment.treeClean ||
         !capture.provenance.immutableHarness.treeClean ||

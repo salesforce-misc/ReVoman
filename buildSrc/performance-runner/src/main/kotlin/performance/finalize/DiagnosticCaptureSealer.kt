@@ -73,13 +73,16 @@ internal object DiagnosticCaptureSealer {
       return DiagnosticSealOutcome.Rejected(DiagnosticSealFailure.LAYOUT_INVALID)
     if (!validProvisional(provisional, qualification))
       return DiagnosticSealOutcome.Rejected(DiagnosticSealFailure.PROVISIONAL_INVALID)
+    val structuralCanary = provisional.profile.family == "canary"
+    val finalStrength =
+      if (structuralCanary) EvidenceStrength.CANARY else EvidenceStrength.DIAGNOSTIC
     val finalReason =
-      when (qualification) {
-        is QualificationEvidence.ControlledMacBoundedDiagnostic ->
+      when {
+        structuralCanary -> FinalOutcomeReason.STRUCTURAL_CANARY
+        qualification is QualificationEvidence.ControlledMacBoundedDiagnostic ->
           FinalOutcomeReason.BOUNDED_DIAGNOSTIC
-        is QualificationEvidence.GithubHosted -> FinalOutcomeReason.GITHUB_HOSTED
-        is QualificationEvidence.ControlledMacCampaign ->
-          return DiagnosticSealOutcome.Rejected(DiagnosticSealFailure.PROVISIONAL_INVALID)
+        qualification is QualificationEvidence.GithubHosted -> FinalOutcomeReason.GITHUB_HOSTED
+        else -> return DiagnosticSealOutcome.Rejected(DiagnosticSealFailure.PROVISIONAL_INVALID)
       }
     val inputs =
       runCatching {
@@ -99,7 +102,7 @@ internal object DiagnosticCaptureSealer {
         outcome =
           CaptureOutcome(
             status = EvidenceStatus.VALID,
-            strength = EvidenceStrength.DIAGNOSTIC,
+            strength = finalStrength,
             claimEligibilityReasons = listOf(finalReason),
             startedAtUtc = provisional.outcome.startedAtUtc,
             completedAtUtc = provisional.outcome.completedAtUtc,
@@ -179,18 +182,34 @@ internal object DiagnosticCaptureSealer {
       runCatching { Instant.parse(outcome.startedAtUtc) to Instant.parse(outcome.completedAtUtc) }
         .getOrNull() ?: return false
     val profile = document.profile
+    val structuralCanary = profile.family == "canary"
+    val profileGeometryValid =
+      when (profile.family) {
+        "canary" ->
+          profile.forks == 1 &&
+            profile.warmupIterations == 0 &&
+            profile.measurementIterations == 1
+        "cold" ->
+          profile.forks in setOf(10, 20, 40) &&
+            profile.warmupIterations == 0 &&
+            profile.measurementIterations == 1
+        "warm" ->
+          profile.forks in setOf(10, 20, 40) &&
+            profile.warmupIterations == 5 &&
+            profile.measurementIterations == 10
+        else -> false
+      }
     return document.schemaVersion == "capture-provisional-v1" &&
       document.benchmarkProtocolVersion == "performance-v1" &&
       outcome.status == EvidenceStatus.VALID &&
-      outcome.strength == ProvisionalEvidenceStrength.DIAGNOSTIC &&
+      outcome.strength ==
+        (if (structuralCanary) ProvisionalEvidenceStrength.CANARY
+        else ProvisionalEvidenceStrength.DIAGNOSTIC) &&
       outcome.processExit == 0 &&
       !timestamps.second.isBefore(timestamps.first) &&
       document.rawProfilerInputSha256 == null &&
-      profile.family in setOf("cold", "warm") &&
       profile.profiler == "none" &&
-      profile.forks in setOf(10, 20, 40) &&
-      profile.measurementIterations == (if (profile.family == "warm") 10 else 1) &&
-      profile.warmupIterations == (if (profile.family == "warm") 5 else 0) &&
+      profileGeometryValid &&
       document.cells.isNotEmpty() &&
       document.cells.all { cell ->
         cell.sampleDimensions.forks == profile.forks &&
@@ -215,12 +234,26 @@ internal object DiagnosticCaptureSealer {
     when (qualification) {
       is QualificationEvidence.ControlledMacBoundedDiagnostic ->
         document.runtime.substrate is SubstrateIdentity.ControlledMac &&
-          document.outcome.reasons == listOf(ProvisionalOutcomeReason.BOUNDED_DIAGNOSTIC) &&
+          document.outcome.reasons ==
+            listOf(
+              if (document.profile.family == "canary") {
+                ProvisionalOutcomeReason.STRUCTURAL_CANARY
+              } else {
+                ProvisionalOutcomeReason.BOUNDED_DIAGNOSTIC
+              }
+            ) &&
           qualification.policyHash == document.protocol.qualificationPolicySha256 &&
           qualification.campaignFieldsInapplicableReason == "standaloneBoundedDiagnostic"
       is QualificationEvidence.GithubHosted ->
         document.runtime.substrate is SubstrateIdentity.GithubHosted &&
-          document.outcome.reasons == listOf(ProvisionalOutcomeReason.GITHUB_HOSTED) &&
+          document.outcome.reasons ==
+            listOf(
+              if (document.profile.family == "canary") {
+                ProvisionalOutcomeReason.STRUCTURAL_CANARY
+              } else {
+                ProvisionalOutcomeReason.GITHUB_HOSTED
+              }
+            ) &&
           qualification.policyHash == document.protocol.qualificationPolicySha256 &&
           qualification.macFieldsInapplicableReason == "githubHosted"
       is QualificationEvidence.ControlledMacCampaign -> false

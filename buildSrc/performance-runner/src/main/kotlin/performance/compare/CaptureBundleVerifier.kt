@@ -613,7 +613,10 @@ internal object CaptureBundleVerifier {
         forks == null ||
         forks.size() != dimensions.get("forks").asInt()
     if (dimensionsMismatch) failures += CompatibilityFailure.SAMPLE_DIMENSION_MISMATCH
-    if (dimensions.get("forks").asInt() < MINIMUM_FORKS) {
+    if (
+      !isExactStructuralCanary(document, profile, dimensions) &&
+        dimensions.get("forks").asInt() < MINIMUM_FORKS
+    ) {
       failures += CompatibilityFailure.UNDERSAMPLED_CELL
     }
     if (forks == null) return emptyList()
@@ -653,6 +656,24 @@ internal object CaptureBundleVerifier {
       }
       ForkSamples(immutableList(decimals.map(BigDecimal::toDouble)))
     }.toList()
+  }
+
+  private fun isExactStructuralCanary(
+    document: ObjectNode,
+    profile: ObjectNode,
+    dimensions: ObjectNode,
+  ): Boolean {
+    val outcome = document.objectNode("outcome")
+    return outcome.text("strength") == "canary" &&
+      outcome.stringList("claimEligibilityReasons") == listOf("structuralCanary") &&
+      profile.text("family") == "canary" &&
+      profile.get("forks").asInt() == 1 &&
+      profile.get("warmupIterations").asInt() == 0 &&
+      profile.get("measurementIterations").asInt() == 1 &&
+      profile.text("profiler") == "none" &&
+      dimensions.get("forks").asInt() == 1 &&
+      dimensions.get("measurementIterations").asInt() == 1 &&
+      dimensions.get("samplesPerFork").asInt() == 1
   }
 
   private fun cellIdentity(document: ObjectNode, cell: ObjectNode): CellIdentity =

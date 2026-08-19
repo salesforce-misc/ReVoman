@@ -9,6 +9,7 @@ package performance.finalize
 
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldNotContain
@@ -41,6 +42,7 @@ import performance.process.ProcessExecutor
 import performance.process.ProcessResult
 import performance.process.ProcessInvocation
 import performance.runner.PrivateOperationWriter
+import tools.jackson.databind.node.ObjectNode
 
 /**
  * Defects caught here: accepting caller-selected evidence strength, trusting provisional metadata,
@@ -88,6 +90,118 @@ class DiagnosticCaptureSealerTest :
           capture.get("outcome").get("claimEligibilityReasons").get(0).asString() shouldBe
             "boundedDiagnostic"
           capture.toString() shouldNotContain scenario.operationRoot.toString()
+        }
+      }
+
+      test("a structural canary seals with canary strength and remains nonclaiming") {
+        withVerifiedDistribution { fixture, distribution ->
+          val scenario =
+            canaryScenario(fixture.root.resolveSibling("seal-canary-operation"), distribution)
+          val bundleRoot = fixture.root.resolveSibling("seal-canary-bundle")
+
+          val outcome =
+            DiagnosticCaptureSealer.seal(
+              scenario.document,
+              scenario.operationRoot,
+              bundleRoot,
+              scenario.qualification,
+            )
+          withClue((outcome as? DiagnosticSealOutcome.Rejected)?.reason) {
+            outcome.shouldBeInstanceOf<DiagnosticSealOutcome.Sealed>()
+          }
+
+          val verification = CaptureBundleVerifier.verify(bundleRoot)
+          verification.failures shouldBe emptyList()
+          val projection = checkNotNull(verification.projection)
+          projection.outcomeStatus shouldBe "valid"
+          projection.outcomeStrength shouldBe "canary"
+          val capture = CanonicalJson.parseStrict(Files.readAllBytes(bundleRoot.resolve("capture.json")))
+          capture.get("outcome").get("claimEligibilityReasons").get(0).asString() shouldBe
+            "structuralCanary"
+          capture.get("profile").get("family").asString() shouldBe "canary"
+        }
+      }
+
+      test("the verifier permits one fork only for an exact structural canary") {
+        withVerifiedDistribution { fixture, distribution ->
+          val mutations =
+            listOf<Pair<String, (ObjectNode) -> Unit>>(
+              "diagnostic strength" to { document ->
+                document.get("outcome").asObject().put("strength", "diagnostic")
+              },
+              "diagnostic reason" to { document ->
+                document
+                  .get("outcome")
+                  .asObject()
+                  .putArray("claimEligibilityReasons")
+                  .add("boundedDiagnostic")
+              },
+              "two forks" to { document -> document.get("profile").asObject().put("forks", 2) },
+              "one warmup" to { document ->
+                document.get("profile").asObject().put("warmupIterations", 1)
+              },
+              "two measurements" to { document ->
+                document.get("profile").asObject().put("measurementIterations", 2)
+              },
+              "profiler" to { document -> document.get("profile").asObject().put("profiler", "gc") },
+            )
+
+          mutations.forEachIndexed { index, (name, mutation) ->
+            val scenario =
+              canaryScenario(fixture.root.resolveSibling("verify-canary-operation-$index"), distribution)
+            val bundleRoot = fixture.root.resolveSibling("verify-canary-bundle-$index")
+            DiagnosticCaptureSealer
+              .seal(scenario.document, scenario.operationRoot, bundleRoot, scenario.qualification)
+              .shouldBeInstanceOf<DiagnosticSealOutcome.Sealed>()
+            mutateCaptureAndReseal(bundleRoot, mutation)
+
+            withClue(name) {
+              CaptureBundleVerifier.verify(bundleRoot).failures shouldContain
+                performance.compare.CompatibilityFailure.UNDERSAMPLED_CELL
+            }
+          }
+        }
+      }
+
+      test("a github-hosted structural canary seals with canary strength and reason") {
+        withVerifiedDistribution { fixture, distribution ->
+          val scenario =
+            canaryScenario(fixture.root.resolveSibling("seal-github-canary-operation"), distribution)
+          val document =
+            scenario.document.copy(
+              runtime =
+                scenario.document.runtime.copy(
+                  hostId = "github-hosted-arm64-canary-v1",
+                  substrate =
+                    SubstrateIdentity.GithubHosted(
+                      runnerLabel = "ubuntu-24.04-arm",
+                      runnerImageVersion = "20260817.1",
+                      kernel = "6.11.0",
+                      dockerEngineVersion = "28.3.3",
+                      advertisedResources = AdvertisedResources(4, 6442450944L),
+                    ),
+                ),
+            )
+          val qualification =
+            QualificationEvidence.GithubHosted(
+              policyHash = document.protocol.qualificationPolicySha256,
+              setup = hostRef("setup"),
+              cleanup = hostRef("cleanup"),
+              macFieldsInapplicableReason = "githubHosted",
+            )
+          val bundleRoot = fixture.root.resolveSibling("seal-github-canary-bundle")
+
+          DiagnosticCaptureSealer
+            .seal(document, scenario.operationRoot, bundleRoot, qualification)
+            .shouldBeInstanceOf<DiagnosticSealOutcome.Sealed>()
+
+          val projection =
+            CaptureBundleVerifier.verify(bundleRoot).projection.shouldBeInstanceOf<CaptureBundleVerifier.Projection>()
+          projection.qualificationKind shouldBe "githubHosted"
+          projection.outcomeStrength shouldBe "canary"
+          val capture = CanonicalJson.parseStrict(Files.readAllBytes(bundleRoot.resolve("capture.json")))
+          capture.get("outcome").get("claimEligibilityReasons").get(0).asString() shouldBe
+            "structuralCanary"
         }
       }
 
@@ -552,15 +666,27 @@ private data class SealScenario(
 private fun coldScenario(
   operationRoot: Path,
   distribution: performance.distribution.VerifiedDistribution,
+): SealScenario = captureScenario(operationRoot, distribution, CaptureProfileFamily.COLD)
+
+private fun canaryScenario(
+  operationRoot: Path,
+  distribution: performance.distribution.VerifiedDistribution,
+): SealScenario = captureScenario(operationRoot, distribution, CaptureProfileFamily.CANARY)
+
+private fun captureScenario(
+  operationRoot: Path,
+  distribution: performance.distribution.VerifiedDistribution,
+  family: CaptureProfileFamily,
 ): SealScenario {
+  val forks = if (family == CaptureProfileFamily.CANARY) 1 else 10
   val executor =
     ProcessExecutor { spec: ProcessInvocation ->
-      Files.write(spec.resultPath, validJmhBytes(forks = 10))
+      Files.write(spec.resultPath, validJmhBytes(forks = forks))
       Files.writeString(spec.stdoutPath, "capture complete\n")
       Files.writeString(spec.stderrPath, "")
       ProcessResult(0)
     }
-  val profile = testProfile(distribution, family = CaptureProfileFamily.COLD)
+  val profile = testProfile(distribution, family = family)
   val schemaCompatibleProfile =
     profile.copy(
       evidence =
@@ -615,6 +741,26 @@ private fun coldScenario(
 
 private fun hostRef(name: String): HostDocumentRef =
   HostDocumentRef("host/$name.json", Sha256.parse("a".repeat(64)))
+
+private fun mutateCaptureAndReseal(root: Path, mutation: (ObjectNode) -> Unit) {
+  val capturePath = root.resolve("capture.json")
+  val document = CanonicalJson.parseStrict(Files.readAllBytes(capturePath)).asObject()
+  mutation(document)
+  Files.write(capturePath, CanonicalJson.encode(document))
+  val manifest =
+    Files.list(root).use { entries ->
+      entries
+        .filter { it.fileName.toString() != "checksums.sha256" }
+        .sorted(compareBy { it.fileName.toString() })
+        .map { path ->
+          "${Sha256.digest(Files.readAllBytes(path)).hex}  ${path.fileName}\n"
+        }
+        .toList()
+        .joinToString("")
+        .encodeToByteArray()
+    }
+  Files.write(root.resolve("checksums.sha256"), manifest)
+}
 
 private fun snapshot(root: Path): Map<String, List<Byte>> =
   Files.list(root).use { entries ->
