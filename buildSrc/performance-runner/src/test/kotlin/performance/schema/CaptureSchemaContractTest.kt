@@ -382,6 +382,9 @@ class CaptureSchemaContractTest :
           "home embedded in property" to "-Dbuild.homepage=stable",
           "workspace embedded in property" to "-Dbuild.projectworkspaceid=stable",
           "parent-traversal value" to "-Doutput=..",
+          "non-approved user home path" to "-Duser.home=/operation/state",
+          "non-approved classpath resource" to
+            "-Dlog4j.configurationFile=classpath:other/log4j2-performance.xml",
         )
         .forEach { (condition, argument) ->
           test("$condition is rejected from JVM arguments") {
@@ -408,7 +411,8 @@ class CaptureSchemaContractTest :
               "-XX:+UseG1GC",
               "-Dfile.encoding=UTF-8",
               "-Duser.timezone=UTC",
-              "-Dlog4j.configurationFile=classpath:log4j2-performance.xml",
+              "-Duser.home=/operation/tmp",
+              "-Dlog4j.configurationFile=classpath:performance/log4j2-performance.xml",
               "-Djava.io.tmpdir=tmp",
               "-Drevoman.banner=off",
             ),

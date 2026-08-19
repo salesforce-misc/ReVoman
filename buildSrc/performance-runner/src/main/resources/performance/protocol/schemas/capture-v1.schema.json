@@ -794,33 +794,43 @@
           "type": "array",
           "items": {
             "type": "string",
-            "pattern": "^-[A-Za-z0-9:+.=,_-]+$",
             "maxLength": 128,
-            "not": {
-              "anyOf": [
-                {
-                  "pattern": "(?:[Ss][Ee][Cc][Rr][Ee][Tt]|[Pp][Aa][Ss][Ss](?:[Ww][Oo][Rr][Dd]|[Ww][Dd])?|[Tt][Oo][Kk][Ee][Nn]|[Aa][Pp][Ii][_-]?[Kk][Ee][Yy]|[Aa][Cc][Cc][Ee][Ss][Ss][_-]?[Kk][Ee][Yy]|[Aa][Uu][Tt][Hh](?:[Oo][Rr][Ii][Zz][Aa][Tt][Ii][Oo][Nn])?|[Bb][Ee][Aa][Rr][Ee][Rr]|[Cc][Rr][Ee][Dd][Ee][Nn][Tt][Ii][Aa][Ll]|[Pp][Rr][Ii][Vv][Aa][Tt][Ee][_-]?[Kk][Ee][Yy]|[Cc][Ll][Ii][Ee][Nn][Tt][_-]?[Ss][Ee][Cc][Rr][Ee][Tt])"
-                },
-                {
-                  "pattern": "(?:^|[.=:_-])(?:[Hh][Oo][Mm][Ee]|[Uu][Ss][Ee][Rr][Ss]?|[Ww][Oo][Rr][Kk][Ss][Pp][Aa][Cc][Ee][Ss]?)(?:[.=:_-]|$)"
-                },
-                {
-                  "pattern": "(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|(?:AKIA|ASIA)[0-9A-Z]{16})"
-                },
-                {
-                  "pattern": "(?:[0-9]{1,3}\\.){3}[0-9]{1,3}"
-                },
-                {
-                  "pattern": "=[0-9A-Fa-f]*:[0-9A-Fa-f:]+$"
-                },
-                {
-                  "pattern": "^(?!-Duser\\.timezone=UTC$)-[Dd][^=]*(?:[Uu][Ss][Ee][Rr](?:[Nn][Aa][Mm][Ee])?|[Hh][Oo][Ss][Tt](?:[Nn][Aa][Mm][Ee])?|[Pp][Aa][Tt][Hh]|[Hh][Oo][Mm][Ee]|[Ww][Oo][Rr][Kk][Ss][Pp][Aa][Cc][Ee])[^=]*="
-                },
-                {
-                  "pattern": "(?:=|[/\\\\])\\.\\.(?:[/\\\\]|$)"
+            "oneOf": [
+              {
+                "enum": [
+                  "-Duser.home=/operation/tmp",
+                  "-Dlog4j.configurationFile=classpath:performance/log4j2-performance.xml"
+                ]
+              },
+              {
+                "pattern": "^-[A-Za-z0-9:+.=,_-]+$",
+                "not": {
+                  "anyOf": [
+                    {
+                      "pattern": "(?:[Ss][Ee][Cc][Rr][Ee][Tt]|[Pp][Aa][Ss][Ss](?:[Ww][Oo][Rr][Dd]|[Ww][Dd])?|[Tt][Oo][Kk][Ee][Nn]|[Aa][Pp][Ii][_-]?[Kk][Ee][Yy]|[Aa][Cc][Cc][Ee][Ss][Ss][_-]?[Kk][Ee][Yy]|[Aa][Uu][Tt][Hh](?:[Oo][Rr][Ii][Zz][Aa][Tt][Ii][Oo][Nn])?|[Bb][Ee][Aa][Rr][Ee][Rr]|[Cc][Rr][Ee][Dd][Ee][Nn][Tt][Ii][Aa][Ll]|[Pp][Rr][Ii][Vv][Aa][Tt][Ee][_-]?[Kk][Ee][Yy]|[Cc][Ll][Ii][Ee][Nn][Tt][_-]?[Ss][Ee][Cc][Rr][Ee][Tt])"
+                    },
+                    {
+                      "pattern": "(?:^|[.=:_-])(?:[Hh][Oo][Mm][Ee]|[Uu][Ss][Ee][Rr][Ss]?|[Ww][Oo][Rr][Kk][Ss][Pp][Aa][Cc][Ee][Ss]?)(?:[.=:_-]|$)"
+                    },
+                    {
+                      "pattern": "(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|(?:AKIA|ASIA)[0-9A-Z]{16})"
+                    },
+                    {
+                      "pattern": "(?:[0-9]{1,3}\\.){3}[0-9]{1,3}"
+                    },
+                    {
+                      "pattern": "=[0-9A-Fa-f]*:[0-9A-Fa-f:]+$"
+                    },
+                    {
+                      "pattern": "^(?!-Duser\\.timezone=UTC$)-[Dd][^=]*(?:[Uu][Ss][Ee][Rr](?:[Nn][Aa][Mm][Ee])?|[Hh][Oo][Ss][Tt](?:[Nn][Aa][Mm][Ee])?|[Pp][Aa][Tt][Hh]|[Hh][Oo][Mm][Ee]|[Ww][Oo][Rr][Kk][Ss][Pp][Aa][Cc][Ee])[^=]*="
+                    },
+                    {
+                      "pattern": "(?:=|[/\\\\])\\.\\.(?:[/\\\\]|$)"
+                    }
+                  ]
                 }
-              ]
-            }
+              }
+            ]
           }
         },
         "vendor": {

@@ -360,7 +360,7 @@ class FinalizerHandshakeContractTest :
         }
       }
 
-      test("volume initializer establishes recovery authority before verification and reservation") {
+      test("volume initializer leaves runner-owned provisional output absent while establishing recovery authority") {
         FakeHost().use { host ->
           val result =
             host.invoke(
@@ -398,7 +398,10 @@ class FinalizerHandshakeContractTest :
           initializer.contains(
             "type=volume,src=${volumeName(initializer, "/operation")},dst=/operation,readonly",
           ) shouldBe false
-          initializerShell shouldContain "/operation/provisional"
+          initializerShell shouldContain "/operation/state"
+          initializerShell shouldContain "/operation/host"
+          initializerShell shouldContain "/operation/tmp"
+          initializerShell shouldNotContain "/operation/provisional"
           recovery shouldContainAll
             listOf(
               "--network",

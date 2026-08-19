@@ -64,7 +64,8 @@ internal fun testProfile(
       "-Xmx2g",
       "-Dfile.encoding=UTF-8",
       "-Duser.timezone=UTC",
-      "-Dlog4j.configurationFile=classpath:log4j2-performance.xml",
+      "-Duser.home=/operation/tmp",
+      "-Dlog4j.configurationFile=classpath:performance/log4j2-performance.xml",
       "-Drevoman.banner=false",
     )
   val provenance = distribution.metadata.provenance

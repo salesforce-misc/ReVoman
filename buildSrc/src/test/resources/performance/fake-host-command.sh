@@ -324,10 +324,10 @@ case "$command_name" in
         done
         [ -n "$private_runtime_binding" ]
         [ -n "$private_runtime_hash" ]
-        actual_hash=$(printf '%s' "$private_runtime_binding" | sha256_stdin)
+        actual_hash=$(printf '%s\n' "$private_runtime_binding" | sha256_stdin)
         [ "${actual_hash%% *}" = "$private_runtime_hash" ]
         private_runtime_path="${FAKE_REPO_ROOT:?}/.fake-private-runtime.json"
-        printf '%s' "$private_runtime_binding" > "$private_runtime_path"
+        printf '%s\n' "$private_runtime_binding" > "$private_runtime_path"
         case "${FAKE_PRIVATE_RUNTIME_BINDING_MUTATION:-none}" in
           none) ;;
           missing) rm "$private_runtime_path" ;;

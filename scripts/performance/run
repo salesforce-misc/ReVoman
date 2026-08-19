@@ -1405,7 +1405,7 @@ adapter_run_volume_initializer() {
     --mount "type=volume,src=$ADAPTER_INPUT_VOLUME,dst=/inputs" \
     --mount "type=volume,src=$ADAPTER_OPERATION_VOLUME,dst=/operation" \
     "$ADAPTER_RUNTIME_REFERENCE" /usr/bin/sh -lc \
-    "set -eu; mkdir -p /inputs/prepared /inputs/capture-runner /inputs/finalizer /inputs/gradle-cache /operation/state /operation/host /operation/tmp /operation/provisional; chown -R $ADAPTER_SUBSTRATE_UID:$ADAPTER_SUBSTRATE_GID /inputs /operation"
+    "set -eu; mkdir -p /inputs/prepared /inputs/capture-runner /inputs/finalizer /inputs/gradle-cache /operation/state /operation/host /operation/tmp; chown -R $ADAPTER_SUBSTRATE_UID:$ADAPTER_SUBSTRATE_GID /inputs /operation"
 }
 
 adapter_finalizer_input_index() {
@@ -1550,8 +1550,6 @@ manifest_hash=$(/usr/bin/sha256sum "$checksum_manifest")
 IFS=" " read -r expected_runner_hash expected_manifest_hash < /operation/state/finalizer-identity
 test "${runner_hash%% *}" = "$expected_runner_hash"
 test "${manifest_hash%% *}" = "$expected_manifest_hash"
-test -d /operation/provisional
-test ! -L /operation/provisional
 test -d /artifacts
 test ! -L /artifacts
 test -w /artifacts
@@ -1733,6 +1731,7 @@ adapter_run_work_phase() {
   adapter_docker run --rm \
     --label "dev.revoman.performance.phase=$phase" \
     --pull=never --platform "$ADAPTER_PLATFORM" --network "$network" \
+    --hostname localhost \
     "${ADAPTER_HARDENED_ARGS[@]}" \
     --user "$ADAPTER_SUBSTRATE_UID:$ADAPTER_SUBSTRATE_GID" \
     --tmpfs "/tmp:rw,noexec,nosuid,nodev,size=256m,uid=$ADAPTER_SUBSTRATE_UID,gid=$ADAPTER_SUBSTRATE_GID,mode=0700" \
@@ -2324,7 +2323,7 @@ adapter_write_private_runtime_binding() {
     *) return 0 ;;
   esac
   document=$(adapter_private_runtime_binding_document) || return 1
-  ADAPTER_PRIVATE_RUNTIME_SHA256=$(printf '%s' "$document" | adapter_sha256_stdin) || return 1
+  ADAPTER_PRIVATE_RUNTIME_SHA256=$(printf '%s\n' "$document" | adapter_sha256_stdin) || return 1
   [[ "$ADAPTER_PRIVATE_RUNTIME_SHA256" =~ ^[0-9a-f]{64}$ ]] || return 1
   adapter_hardened_common_args
   adapter_docker run --rm \
@@ -2353,7 +2352,7 @@ test ! -L "$temporary"
 test "$PRETTY_NAME" = "$REVOMAN_LINUX_OS"
 test "$(uname -r)" = "$REVOMAN_LINUX_KERNEL"
 umask 077
-printf "%s" "$REVOMAN_PRIVATE_RUNTIME_BINDING" > "$temporary"
+printf "%s\n" "$REVOMAN_PRIVATE_RUNTIME_BINDING" > "$temporary"
 binding_hash=$(/usr/bin/sha256sum "$temporary")
 test "${binding_hash%% *}" = "$REVOMAN_PRIVATE_RUNTIME_SHA256"
 /usr/bin/mv "$temporary" "$target"

@@ -442,6 +442,7 @@ class HostAdapterContractTest :
                 "10001:10001",
               )
           }
+          phase(dockerRuns, "timed") shouldContainAll listOf("--hostname", "localhost")
           listOf("finalizer-verification", "timed", "finalizer").forEach { name ->
             val invocation = phase(dockerRuns, name)
             invocation.contains(

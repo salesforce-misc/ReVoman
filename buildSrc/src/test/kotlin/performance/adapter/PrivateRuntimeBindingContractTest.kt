@@ -181,20 +181,22 @@ private const val TIMED_RUNTIME_HASH_FIXTURE = ".fake-timed-private-runtime.sha2
 private const val RUNTIME_BINDING_PHASE = "dev.revoman.performance.phase=runtime-binding"
 private const val TIMED_PHASE = "dev.revoman.performance.phase=timed"
 private const val CONTROLLED_MAC_BINDING_SHA256 =
-  "dae983f685e800b4ab6170ea53d5a8819c7f25979f516a6eaf498efc433ba55a"
+  "c70de60d4418aa721f7ef009eaae58c9895da34786e5ab953c654f529828ceeb"
 private const val GITHUB_HOSTED_BINDING_SHA256 =
-  "ca37ab563eb3ff72906b1b74f6eaab6522c0d38579c37bdb1d225ab255e28c1f"
+  "b0c75a42f4130d0344980832fbe767bab2f5c9d9253bb7da564f1adc7a5b601a"
 private val CONTROLLED_MAC_BINDING =
   ("""{"linux":{"architecture":"arm64","kernel":"7.0.12-linuxkit","os":"Ubuntu 24.04.4 LTS"},""" +
       """"schemaVersion":"private-runtime-binding-v1","substrate":{"dockerDesktopVersion":"4.87.0",""" +
       """"dockerEngineVersion":"29.7.2","hardwareModelClass":"Mac16,5","kind":"controlledMac",""" +
       """"macosBuild":"25G83","macosVersion":"26.6.2","vmResources":{"cpus":16,""" +
-      """"memoryBytes":8318709760}}}""")
+      """"memoryBytes":8318709760}}}
+""")
     .encodeToByteArray()
 private val GITHUB_HOSTED_BINDING =
   ("""{"linux":{"architecture":"arm64","kernel":"6.11.0","os":"Ubuntu 24.04.4 LTS"},""" +
       """"schemaVersion":"private-runtime-binding-v1","substrate":{"advertisedResources":{"cpus":4,""" +
       """"memoryBytes":17179869184},"dockerEngineVersion":"29.7.2","kernel":"6.11.0",""" +
       """"kind":"githubHosted","runnerImageVersion":"runner-image_v1+rev.2",""" +
-      """"runnerLabel":"ubuntu-24.04-arm"}}""")
+      """"runnerLabel":"ubuntu-24.04-arm"}}
+""")
     .encodeToByteArray()

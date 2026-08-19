@@ -746,7 +746,8 @@ internal class DistributionFixture private constructor(
             add("-Xmx2g")
             add("-Dfile.encoding=UTF-8")
             add("-Duser.timezone=UTC")
-            add("-Dlog4j.configurationFile=classpath:log4j2-performance.xml")
+            add("-Duser.home=/operation/tmp")
+            add("-Dlog4j.configurationFile=classpath:performance/log4j2-performance.xml")
             add("-Drevoman.banner=false")
           },
         )

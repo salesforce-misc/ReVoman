@@ -44,11 +44,12 @@
         {"const": "-Xmx2g"},
         {"const": "-Dfile.encoding=UTF-8"},
         {"const": "-Duser.timezone=UTC"},
-        {"const": "-Dlog4j.configurationFile=classpath:log4j2-performance.xml"},
+        {"const": "-Duser.home=/operation/tmp"},
+        {"const": "-Dlog4j.configurationFile=classpath:performance/log4j2-performance.xml"},
         {"const": "-Drevoman.banner=false"}
       ],
-      "minItems": 6,
-      "maxItems": 6
+      "minItems": 7,
+      "maxItems": 7
     },
     "variants": {
       "type": "array",

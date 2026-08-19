@@ -46,6 +46,24 @@ class CaptureProfileContractTest :
         }
       }
 
+      test("strict profile schema accepts the exact writable home and packaged logging resource") {
+        val root = repositoryRoot()
+        val desiredProfile =
+          Files.readString(root.resolve("config/performance/profiles/canary.json"))
+            .replace(
+              """    "-Duser.timezone=UTC",
+    "-Dlog4j.configurationFile=classpath:log4j2-performance.xml",""",
+              """    "-Duser.timezone=UTC",
+    "-Duser.home=/operation/tmp",
+    "-Dlog4j.configurationFile=classpath:performance/log4j2-performance.xml",""",
+            )
+        val canonical = CanonicalJson.encode(CanonicalJson.parseStrict(desiredProfile.encodeToByteArray()))
+
+        EvidenceSchemaValidator()
+          .validate(SchemaKind.CAPTURE_PROFILE_FAMILY, canonical)
+          .shouldBeEmpty()
+      }
+
       test("frozen profile families expose exactly the approved variant ladder") {
         val root = repositoryRoot()
         val expectedBytes = Files.readAllBytes(root.resolve("config/performance/expected-cells.json"))
@@ -106,6 +124,14 @@ class CaptureProfileContractTest :
                 )
             }
           profiles.values.flatten().map { it.variantSha256 }.distinct().size shouldBe 13
+          profiles.values.flatten().forEach { profile ->
+            profile.jvmArguments shouldBe APPROVED_JVM_ARGUMENTS
+            val loggingResource =
+              profile.jvmArguments
+                .single { it.startsWith(LOGGING_CONFIGURATION_PREFIX) }
+                .substringAfter("classpath:")
+            Files.isRegularFile(root.resolve("src/jmh/resources").resolve(loggingResource)) shouldBe true
+          }
         }
       }
 
@@ -202,3 +228,15 @@ class CaptureProfileContractTest :
 private fun repositoryRoot(): Path =
   generateSequence(Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize(), Path::getParent)
     .first { Files.isDirectory(it.resolve("config/performance")) }
+
+private const val LOGGING_CONFIGURATION_PREFIX = "-Dlog4j.configurationFile=classpath:"
+private val APPROVED_JVM_ARGUMENTS =
+  listOf(
+    "-Xms2g",
+    "-Xmx2g",
+    "-Dfile.encoding=UTF-8",
+    "-Duser.timezone=UTC",
+    "-Duser.home=/operation/tmp",
+    "-Dlog4j.configurationFile=classpath:performance/log4j2-performance.xml",
+    "-Drevoman.banner=false",
+  )
