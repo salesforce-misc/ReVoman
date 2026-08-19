@@ -156,6 +156,7 @@ internal class FakeHost : AutoCloseable {
       put("FAKE_REPO_ROOT", repositoryRoot.toString())
       put("FAKE_GIT_SHA", "0123456789abcdef0123456789abcdef01234567")
       put("FAKE_GIT_STATUS", "")
+      put("ImageVersion", "runner-image_v1+rev.2")
       put("FAKE_DOCKER_RAW_MANIFEST_FILE", rawRuntimeManifest.toString())
       put("FAKE_JAVA_COMMAND", currentJavaCommand())
       put("FAKE_TEST_CLASSPATH", testClasspath())
@@ -185,7 +186,9 @@ internal class FakeHost : AutoCloseable {
         ".fake-finalizer-distribution",
         ".fake-freeze-bootstrap-distribution",
         ".fake-memory-pressure-count",
+        ".fake-private-runtime.json",
         ".fake-provisional-distribution",
+        ".fake-timed-private-runtime.sha256",
         ".fake-timed-observed",
         ".fake-timed-running",
         ".fake-freeze-validated-distribution",

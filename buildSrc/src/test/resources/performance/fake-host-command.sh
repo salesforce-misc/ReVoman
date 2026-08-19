@@ -5,6 +5,22 @@ encode_argument() {
   printf '%s' "$1" | /usr/bin/od -An -v -tx1 | /usr/bin/tr -d ' \n'
 }
 
+sha256_stdin() {
+  if [ -x /usr/bin/shasum ]; then
+    /usr/bin/shasum -a 256
+  else
+    /usr/bin/sha256sum
+  fi
+}
+
+sha256_file() {
+  if [ -x /usr/bin/shasum ]; then
+    /usr/bin/shasum -a 256 "$1"
+  else
+    /usr/bin/sha256sum "$1"
+  fi
+}
+
 command_name=$(basename "$0")
 encoded_command=$(encode_argument "$command_name")
 for argument in "$@"; do
@@ -179,6 +195,9 @@ case "$command_name" in
               "${FAKE_DOCKER_CLIENT_VERSION:-29.7.2}" \
               "${FAKE_DOCKER_ENGINE_VERSION:-29.7.2}"
             ;;
+          *' {{.Server.Version}} '*)
+            printf '%s\n' "${FAKE_DOCKER_ENGINE_VERSION:-29.7.2}"
+            ;;
           *) exit 91 ;;
         esac
         ;;
@@ -294,6 +313,54 @@ case "$command_name" in
             ;;
         esac
         ;;
+      *" dev.revoman.performance.phase=runtime-binding "*)
+        private_runtime_binding=''
+        private_runtime_hash=''
+        for argument in "$@"; do
+          case "$argument" in
+            REVOMAN_PRIVATE_RUNTIME_BINDING=*) private_runtime_binding=${argument#*=} ;;
+            REVOMAN_PRIVATE_RUNTIME_SHA256=*) private_runtime_hash=${argument#*=} ;;
+          esac
+        done
+        [ -n "$private_runtime_binding" ]
+        [ -n "$private_runtime_hash" ]
+        actual_hash=$(printf '%s' "$private_runtime_binding" | sha256_stdin)
+        [ "${actual_hash%% *}" = "$private_runtime_hash" ]
+        private_runtime_path="${FAKE_REPO_ROOT:?}/.fake-private-runtime.json"
+        printf '%s' "$private_runtime_binding" > "$private_runtime_path"
+        case "${FAKE_PRIVATE_RUNTIME_BINDING_MUTATION:-none}" in
+          none) ;;
+          missing) rm "$private_runtime_path" ;;
+          malformed) printf '%s\n' '{malformed' > "$private_runtime_path" ;;
+          substrate-mismatch)
+            sed 's/"kind":"controlledMac"/"kind":"githubHosted"/' \
+              "$private_runtime_path" > "$private_runtime_path.mutated"
+            mv "$private_runtime_path.mutated" "$private_runtime_path"
+            ;;
+          *) exit 91 ;;
+        esac
+        ;;
+      *" dev.revoman.performance.phase=timed "*)
+        revoman_command=''
+        private_runtime_hash=''
+        for argument in "$@"; do
+          case "$argument" in
+            REVOMAN_COMMAND=*) revoman_command=${argument#*=} ;;
+            REVOMAN_PRIVATE_RUNTIME_SHA256=*) private_runtime_hash=${argument#*=} ;;
+          esac
+        done
+        case "$revoman_command" in
+          canary|campaign|capture)
+            private_runtime_path="${FAKE_REPO_ROOT:?}/.fake-private-runtime.json"
+            [ -f "$private_runtime_path" ]
+            [ ! -L "$private_runtime_path" ]
+            actual_hash=$(sha256_file "$private_runtime_path")
+            [ "${actual_hash%% *}" = "$private_runtime_hash" ]
+            printf '%s\n' "${actual_hash%% *}" > \
+              "$FAKE_REPO_ROOT/.fake-timed-private-runtime.sha256"
+            ;;
+        esac
+        ;;
       *" REVOMAN_FINALIZER_COMMAND="*)
         artifact_parent=''
         failure_code=''
@@ -352,7 +419,6 @@ case "$command_name" in
         ;;
       *" dev.revoman.performance.phase=image-verification "* | \
       *" dev.revoman.performance.phase=volume-initializer "* | \
-      *" dev.revoman.performance.phase=timed "* | \
       *" dev.revoman.performance.phase=scrubber "* | \
       *" dev.revoman.performance.phase=finalizer "*)
         :
