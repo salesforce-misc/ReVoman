@@ -104,7 +104,7 @@ class WatcherLifecycleContractTest :
         }
       }
 
-      test("a software update identity appearing after preflight permanently invalidates the watcher") {
+      test("the exact live software update identity appearing after preflight invalidates as update") {
         FakeHost().use { host ->
           val watcherDocument = host.repositoryRoot.resolve("captured-watcher.json")
           val result =
@@ -113,7 +113,11 @@ class WatcherLifecycleContractTest :
               environment =
                 mapOf(
                   "FAKE_PROCESS_DETAIL_ROW_WHILE_TIMED" to
-                    "84 Mon Aug 18 00:01:00 2026 0 0 /usr/libexec/softwareupdated",
+                    liveSoftwareUpdateRow(
+                      startIdentity = "Mon Aug 18 00:01:00 2026",
+                      cpuPercent = "0.0",
+                      memoryPercent = "0.0",
+                    ),
                 ),
               functionOverrides = timedWindowWithWatcherDocumentOverrides,
             )
@@ -129,7 +133,7 @@ class WatcherLifecycleContractTest :
         }
       }
 
-      test("three sustained active samples from a pre-existing updater invalidate the watcher") {
+      test("three sustained active samples from the exact pre-existing live updater invalidate as update") {
         FakeHost().use { host ->
           val watcherDocument = host.repositoryRoot.resolve("captured-watcher.json")
           val result =
@@ -137,11 +141,19 @@ class WatcherLifecycleContractTest :
               *captureCommand(host, "watcher-sustained-software-update").toTypedArray(),
               environment =
                 mapOf(
-                  "FAKE_PROCESS_LIST" to "/usr/libexec/softwareupdated",
+                  "FAKE_PROCESS_LIST" to liveSoftwareUpdateCommand,
                   "FAKE_PROCESS_DETAIL_ROW" to
-                    "84 Mon Aug 18 00:00:00 2026 0 0 /usr/libexec/softwareupdated",
+                    liveSoftwareUpdateRow(
+                      startIdentity = "Mon Aug 18 00:00:00 2026",
+                      cpuPercent = "0.0",
+                      memoryPercent = "0.0",
+                    ),
                   "FAKE_PROCESS_DETAIL_ROW_WHILE_TIMED" to
-                    "84 Mon Aug 18 00:00:00 2026 100 30 /usr/libexec/softwareupdated",
+                    liveSoftwareUpdateRow(
+                      startIdentity = "Mon Aug 18 00:00:00 2026",
+                      cpuPercent = "100",
+                      memoryPercent = "30",
+                    ),
                 ),
               functionOverrides = timedWindowWithWatcherDocumentOverrides,
             )
@@ -365,3 +377,12 @@ private fun captureCommand(host: FakeHost, token: String): List<String> =
     "--output",
     host.output(token),
   )
+
+private const val liveSoftwareUpdateCommand =
+  "/System/Library/CoreServices/Software Update.app/Contents/Resources/softwareupdated"
+
+private fun liveSoftwareUpdateRow(
+  startIdentity: String,
+  cpuPercent: String,
+  memoryPercent: String,
+): String = "696 $startIdentity $cpuPercent $memoryPercent $liveSoftwareUpdateCommand"

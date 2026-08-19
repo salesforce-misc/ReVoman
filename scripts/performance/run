@@ -2066,6 +2066,7 @@ adapter_record_update_process_baseline() {
       NF {
         if (NF < 9) exit 1
         command = $9
+        for (field = 10; field <= NF; field++) command = command " " $field
         if (command ~ /(^|\/)(softwareupdated)$/) {
           start = $2 " " $3 " " $4 " " $5 " " $6
           print $1 "\t" start
@@ -2095,7 +2096,9 @@ adapter_process_event() {
       NF {
         if (NF < 9) exit 1
         start = $2 " " $3 " " $4 " " $5 " " $6
-        print $1 "\t" start "\t" $7 "\t" $8 "\t" $9
+        command = $9
+        for (field = 10; field <= NF; field++) command = command " " $field
+        print $1 "\t" start "\t" $7 "\t" $8 "\t" command
       }
     ' "$raw" >"$observations") || {
     /bin/rm -f "$raw" "$observations" "$next_state" "$event_file"
@@ -2185,6 +2188,7 @@ adapter_run_mac_preflight() {
   local initial_page_outs=''
   local initial_swap_ins=''
   local median
+  local process_event
   local user_idle
   local observed
   : >"$samples" || return 1
@@ -2195,6 +2199,8 @@ adapter_run_mac_preflight() {
   adapter_record_update_process_baseline || return 1
   while [ "$index" -lt "$ADAPTER_PREFLIGHT_SAMPLE_COUNT" ]; do
     adapter_collect_mac_snapshot || return 1
+    process_event=$(adapter_process_event) || return 1
+    [ "$process_event" = none ] || return 1
     [ "$ADAPTER_MEMORY_STATE" = normal ] && [ "$ADAPTER_POWER_STATE" = ac ] &&
       [ "$ADAPTER_THERMAL_STATE" = nominal ] || return 1
     /usr/bin/awk -v value="$ADAPTER_CPU_IDLE" -v minimum="$ADAPTER_PREFLIGHT_IDLE_MINIMUM" \

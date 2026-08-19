@@ -71,21 +71,47 @@ class MacQualificationContractTest :
         }
       }
 
-      test("a pre-existing idle software update daemon is accepted") {
+      test("a pre-existing idle exact live software update path is accepted") {
         FakeHost().use { host ->
           val result =
             host.invoke(
               *captureCommand(host, "idle-software-update-daemon").toTypedArray(),
               environment =
                 mapOf(
-                  "FAKE_PROCESS_LIST" to "/usr/libexec/softwareupdated",
+                  "FAKE_PROCESS_LIST" to liveSoftwareUpdateCommand,
                   "FAKE_PROCESS_DETAIL_ROW" to
-                    "84 Mon Aug 18 00:00:00 2026 0 0 /usr/libexec/softwareupdated",
+                    liveSoftwareUpdateRow(cpuPercent = "0.0", memoryPercent = "0.0"),
                 ),
             )
 
           withClue("stderr=${result.standardError}; commands=${result.commands}") {
             result.exitCode shouldBe 0
+          }
+        }
+      }
+
+      test("a pre-existing active exact live software update path fails in preflight before timing") {
+        FakeHost().use { host ->
+          val result =
+            host.invoke(
+              *captureCommand(host, "active-software-update-during-preflight").toTypedArray(),
+              environment =
+                mapOf(
+                  "FAKE_PROCESS_LIST" to liveSoftwareUpdateCommand,
+                  "FAKE_PROCESS_DETAIL_ROW" to
+                    liveSoftwareUpdateRow(cpuPercent = "100", memoryPercent = "0.0"),
+                  "FAKE_PROCESS_DETAIL_ROW_WHILE_TIMED" to
+                    liveSoftwareUpdateRow(cpuPercent = "0.0", memoryPercent = "0.0"),
+                ),
+            )
+
+          withClue("stderr=${result.standardError}; commands=${result.commands}") {
+            result.exitCode shouldBe 2
+            result.standardError shouldContain "QUALIFICATION_FAILED"
+            result.commands.none { "dev.revoman.performance.phase=timed" in it } shouldBe true
+            result.commands.count { command ->
+              command.firstOrNull() == "ps" && "pid=" in command && "%cpu=" in command
+            } shouldBe 4
           }
         }
       }
@@ -383,6 +409,12 @@ private fun captureCommand(
     "--output",
     host.output(token),
   )
+
+private const val liveSoftwareUpdateCommand =
+  "/System/Library/CoreServices/Software Update.app/Contents/Resources/softwareupdated"
+
+private fun liveSoftwareUpdateRow(cpuPercent: String, memoryPercent: String): String =
+  "696 Mon Aug 18 00:00:00 2026 $cpuPercent $memoryPercent $liveSoftwareUpdateCommand"
 
 private data class RejectedCurrentFactFixture(
   val token: String,
