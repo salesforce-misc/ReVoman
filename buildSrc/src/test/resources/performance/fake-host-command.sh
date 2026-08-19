@@ -158,7 +158,7 @@ case "$command_name" in
           *' {{.Client.Version}}|{{.Server.Platform.Name}}|{{.Server.Version}} '*)
             printf '%s|%s|%s\n' \
               "${FAKE_DOCKER_CLIENT_VERSION:-29.7.2}" \
-              "${FAKE_DOCKER_SERVER_PLATFORM_NAME:-Docker Desktop 4.86.0 (236216)}" \
+              "${FAKE_DOCKER_SERVER_PLATFORM_NAME:-Docker Desktop 4.87.0 (236836)}" \
               "${FAKE_DOCKER_ENGINE_VERSION:-29.7.2}"
             ;;
           *' {{.Server.Platform.Name}}|{{.Server.Version}} '*)
@@ -166,7 +166,7 @@ case "$command_name" in
               printf '%s' "$FAKE_DOCKER_SERVER_IDENTITY_OUTPUT"
             else
               printf '%s|%s\n' \
-                "${FAKE_DOCKER_SERVER_PLATFORM_NAME:-Docker Desktop 4.86.0 (236216)}" \
+                "${FAKE_DOCKER_SERVER_PLATFORM_NAME:-Docker Desktop 4.87.0 (236836)}" \
                 "${FAKE_DOCKER_ENGINE_VERSION:-29.7.2}"
             fi
             ;;
@@ -188,9 +188,9 @@ case "$command_name" in
         else
           printf '%s|%s|%s|%s|%s\n' \
             "${FAKE_DOCKER_OPERATING_SYSTEM:-Docker Desktop}" \
-            "${FAKE_DOCKER_KERNEL:-6.12.76-linuxkit}" \
+            "${FAKE_DOCKER_KERNEL:-7.0.12-linuxkit}" \
             "${FAKE_DOCKER_CPU_COUNT:-16}" \
-            "${FAKE_DOCKER_MEMORY_BYTES:-8320671744}" \
+            "${FAKE_DOCKER_MEMORY_BYTES:-8318709760}" \
             "${FAKE_DOCKER_ARCHITECTURE:-aarch64}"
         fi
         ;;

@@ -28,7 +28,17 @@ class MacQualificationContractTest :
           val result =
             host.invoke(
               *captureCommand(host, "qualified-mac").toTypedArray(),
-              environment = mapOf("FAKE_DOCKER_CLIENT_VERSION" to "0.0.0-client-must-be-ignored"),
+              environment =
+                mapOf(
+                  "FAKE_DOCKER_CLIENT_VERSION" to "0.0.0-client-must-be-ignored",
+                  "FAKE_DOCKER_SERVER_PLATFORM_NAME" to "Docker Desktop 4.87.0 (236836)",
+                  "FAKE_DOCKER_ENGINE_VERSION" to "29.7.2",
+                  "FAKE_DOCKER_OPERATING_SYSTEM" to "Docker Desktop",
+                  "FAKE_DOCKER_KERNEL" to "7.0.12-linuxkit",
+                  "FAKE_DOCKER_CPU_COUNT" to "16",
+                  "FAKE_DOCKER_MEMORY_BYTES" to "8318709760",
+                  "FAKE_DOCKER_ARCHITECTURE" to "aarch64",
+                ),
             )
           val commandNames = result.commands.mapNotNull(List<String>::firstOrNull)
 
@@ -344,7 +354,7 @@ private data class MalformedDockerDaemonIdentityFixture(
   val output: String,
 )
 
-private const val currentDockerDaemonIdentity = "Docker Desktop 4.86.0 (236216)|29.7.2"
+private const val currentDockerDaemonIdentity = "Docker Desktop 4.87.0 (236836)|29.7.2"
 
 private val malformedDockerDaemonIdentityFixtures =
   listOf(
@@ -371,13 +381,13 @@ private val malformedDockerDaemonIdentityFixtures =
     MalformedDockerDaemonIdentityFixture(
       "missing-delimiter",
       "a missing delimiter",
-      "Docker Desktop 4.86.0 (236216) 29.7.2\n",
+      "Docker Desktop 4.87.0 (236836) 29.7.2\n",
     ),
     MalformedDockerDaemonIdentityFixture("empty-platform", "an empty platform", "|29.7.2\n"),
     MalformedDockerDaemonIdentityFixture(
       "empty-version",
       "an empty server version",
-      "Docker Desktop 4.86.0 (236216)|\n",
+      "Docker Desktop 4.87.0 (236836)|\n",
     ),
   )
 
@@ -394,12 +404,12 @@ private val rejectedCurrentFactFixtures =
     RejectedCurrentFactFixture(
       "wrong-desktop",
       "a wrong Docker daemon platform",
-      mapOf("FAKE_DOCKER_SERVER_PLATFORM_NAME" to "Docker Engine 4.86.0 (236216)"),
+      mapOf("FAKE_DOCKER_SERVER_PLATFORM_NAME" to "Docker Engine 4.87.0 (236836)"),
     ),
     RejectedCurrentFactFixture(
       "malformed-desktop",
       "a malformed Docker Desktop daemon platform",
-      mapOf("FAKE_DOCKER_SERVER_PLATFORM_NAME" to "Docker Desktop 4.86.0"),
+      mapOf("FAKE_DOCKER_SERVER_PLATFORM_NAME" to "Docker Desktop 4.87.0"),
     ),
     RejectedCurrentFactFixture("stale-engine", "a stale Docker engine", mapOf("FAKE_DOCKER_ENGINE_VERSION" to "28.3.3")),
     RejectedCurrentFactFixture("wrong-kernel", "a wrong LinuxKit kernel", mapOf("FAKE_DOCKER_KERNEL" to "6.11.0-linuxkit")),
@@ -453,16 +463,16 @@ private fun FakeHost.writeCurrentControlledMacPolicy(
   mapOf(
       "macosVersion" to "26.6.2",
       "macosBuild" to "25G83",
-      "dockerDesktopVersion" to "4.86.0",
+      "dockerDesktopVersion" to "4.87.0",
       "dockerEngineVersion" to "29.7.2",
-      "linuxKitKernel" to "6.12.76-linuxkit",
+      "linuxKitKernel" to "7.0.12-linuxkit",
     )
     .forEach { (key, value) ->
       val pattern = Regex("""(?m)^(\s*"$key":\s*)"[^"]*"(,?)$""")
       check(pattern.findAll(contents).count() == 1) { "missing unique string policy field $key" }
       contents = pattern.replace(contents, "${'$'}1\"$value\"${'$'}2")
     }
-  mapOf("vmCpuCount" to "16", "vmMemoryBytes" to "8320671744").forEach { (key, value) ->
+  mapOf("vmCpuCount" to "16", "vmMemoryBytes" to "8318709760").forEach { (key, value) ->
     val pattern = Regex("""(?m)^(\s*"$key":\s*)[^,]+(,?)$""")
     check(pattern.findAll(contents).count() == 1) { "missing unique numeric policy field $key" }
     contents = pattern.replace(contents, "${'$'}1$value${'$'}2")
