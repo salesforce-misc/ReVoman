@@ -250,6 +250,49 @@ class CaptureSchemaContractTest :
         validateCapture(capture).shouldNotBeEmpty()
       }
 
+      test("frozen two-part dependency coordinates remain valid capture evidence") {
+        mapOf(
+            SchemaKind.CAPTURE to goldenCapture(),
+            SchemaKind.CAPTURE_PROVISIONAL to validProvisionalCapture(),
+          )
+          .forEach { (schema, capture) ->
+            capture
+              .objectNode("artifacts")
+              .arrayNode("dependencies")
+              .first()
+              .asObject()
+              .put("coordinate", "resolved:http4k-core-6.57.2.0")
+
+            validator.validate(schema, CanonicalJson.encode(capture)).shouldBeEmpty()
+          }
+      }
+
+      listOf(
+          "",
+          "resolved",
+          "resolved:",
+          "resolved:http4k-core:6+57",
+          "resolved:http4k-core:6.57.2.0:unexpected",
+        )
+        .forEach { coordinate ->
+          test("malformed dependency coordinate $coordinate remains rejected") {
+            mapOf(
+                SchemaKind.CAPTURE to goldenCapture(),
+                SchemaKind.CAPTURE_PROVISIONAL to validProvisionalCapture(),
+              )
+              .forEach { (schema, capture) ->
+                capture
+                  .objectNode("artifacts")
+                  .arrayNode("dependencies")
+                  .first()
+                  .asObject()
+                  .put("coordinate", coordinate)
+
+                validator.validate(schema, CanonicalJson.encode(capture)).shouldNotBeEmpty()
+              }
+          }
+        }
+
       listOf(
           "-DapiKey=redacted-value",
           "-Dauth.token=redacted-value",
