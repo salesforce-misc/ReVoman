@@ -63,8 +63,12 @@ case "$command_name" in
             [ "${FAKE_PROCESS_PROBE_FAIL_WHILE_TIMED:-0}" = 1 ]; }; then
           exit 1
         fi
-        printf '%s\n' \
-          "${FAKE_PROCESS_DETAIL_ROW:-42 Mon Aug 18 00:00:00 2026 1 1 /usr/bin/Finder}"
+        process_detail_row=${FAKE_PROCESS_DETAIL_ROW:-42 Mon Aug 18 00:00:00 2026 1 1 /usr/bin/Finder}
+        if [ -f "${FAKE_REPO_ROOT:?}/.fake-timed-running" ] &&
+          [ "${FAKE_PROCESS_DETAIL_ROW_WHILE_TIMED+x}" = x ]; then
+          process_detail_row=$FAKE_PROCESS_DETAIL_ROW_WHILE_TIMED
+        fi
+        printf '%s\n' "$process_detail_row"
         ;;
       *" -A -o comm= "*)
         if [ -f "${FAKE_REPO_ROOT:?}/.fake-timed-running" ] &&

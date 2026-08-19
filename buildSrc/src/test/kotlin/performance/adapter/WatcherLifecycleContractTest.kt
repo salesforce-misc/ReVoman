@@ -10,7 +10,9 @@ package performance.adapter
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import kotlin.io.path.exists
 import kotlin.io.path.readLines
+import kotlin.io.path.readText
 import performance.support.FakeHost
 
 class WatcherLifecycleContractTest :
@@ -99,6 +101,59 @@ class WatcherLifecycleContractTest :
 
           result.exitCode shouldBe 2
           result.standardError shouldContain "QUALIFICATION_FAILED"
+        }
+      }
+
+      test("a software update identity appearing after preflight permanently invalidates the watcher") {
+        FakeHost().use { host ->
+          val watcherDocument = host.repositoryRoot.resolve("captured-watcher.json")
+          val result =
+            host.invoke(
+              *captureCommand(host, "watcher-new-software-update").toTypedArray(),
+              environment =
+                mapOf(
+                  "FAKE_PROCESS_DETAIL_ROW_WHILE_TIMED" to
+                    "84 Mon Aug 18 00:01:00 2026 0 0 /usr/libexec/softwareupdated",
+                ),
+              functionOverrides = timedWindowWithWatcherDocumentOverrides,
+            )
+
+          result.exitCode shouldBe 2
+          result.standardError shouldContain "QUALIFICATION_FAILED"
+          watcherDocument.exists() shouldBe true
+          watcherDocument.readText().also { watcher ->
+            watcher shouldContain "\"event\":\"update\""
+            watcher shouldContain "\"observedSamples\":2"
+            watcher shouldContain "\"terminalState\":\"qualificationFailed\""
+          }
+        }
+      }
+
+      test("three sustained active samples from a pre-existing updater invalidate the watcher") {
+        FakeHost().use { host ->
+          val watcherDocument = host.repositoryRoot.resolve("captured-watcher.json")
+          val result =
+            host.invoke(
+              *captureCommand(host, "watcher-sustained-software-update").toTypedArray(),
+              environment =
+                mapOf(
+                  "FAKE_PROCESS_LIST" to "/usr/libexec/softwareupdated",
+                  "FAKE_PROCESS_DETAIL_ROW" to
+                    "84 Mon Aug 18 00:00:00 2026 0 0 /usr/libexec/softwareupdated",
+                  "FAKE_PROCESS_DETAIL_ROW_WHILE_TIMED" to
+                    "84 Mon Aug 18 00:00:00 2026 100 30 /usr/libexec/softwareupdated",
+                ),
+              functionOverrides = timedWindowWithWatcherDocumentOverrides,
+            )
+
+          result.exitCode shouldBe 2
+          result.standardError shouldContain "QUALIFICATION_FAILED"
+          watcherDocument.exists() shouldBe true
+          watcherDocument.readText().also { watcher ->
+            watcher shouldContain "\"event\":\"update\""
+            watcher shouldContain "\"observedSamples\":4"
+            watcher shouldContain "\"terminalState\":\"qualificationFailed\""
+          }
         }
       }
 
@@ -264,6 +319,16 @@ private val timedWindowOverrides =
     done
     /bin/rm -f "${'$'}ADAPTER_REPO_ROOT/.fake-timed-running"
     return 0
+  }
+  """.trimIndent()
+
+private val timedWindowWithWatcherDocumentOverrides =
+  """
+  $timedWindowOverrides
+  eval "${'$'}(declare -f adapter_write_watcher_document | /usr/bin/sed '1s/adapter_write_watcher_document/adapter_write_watcher_document_impl/')"
+  adapter_write_watcher_document() {
+    adapter_write_watcher_document_impl "${'$'}@" || return 1
+    /bin/cp "${'$'}ADAPTER_QUALIFICATION_ROOT/watcher.json" "${'$'}ADAPTER_REPO_ROOT/captured-watcher.json"
   }
   """.trimIndent()
 

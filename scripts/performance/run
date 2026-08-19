@@ -2047,16 +2047,41 @@ adapter_interference_is_clear() {
   esac
   processes=$(adapter_process_status -A -o comm= 2>/dev/null) || return 1
   if /usr/bin/awk '
-      /(^|\/)(colima|limactl|qemu-system-|VBoxHeadless|softwareupdated)$/ { exit 1 }
+      /(^|\/)(colima|limactl|qemu-system-|VBoxHeadless)$/ { exit 1 }
     ' <<<"$processes"; then
     return 0
   fi
   return 1
 }
 
+adapter_record_update_process_baseline() {
+  local raw="$ADAPTER_QUALIFICATION_ROOT/.update-process-baseline.raw"
+  local baseline="$ADAPTER_QUALIFICATION_ROOT/.update-process-baseline"
+  (umask 077 && adapter_process_status -A \
+    -o pid= -o lstart= -o %cpu= -o %mem= -o comm= >"$raw") || {
+    /bin/rm -f "$raw" "$baseline"
+    return 1
+  }
+  (umask 077 && /usr/bin/awk '
+      NF {
+        if (NF < 9) exit 1
+        command = $9
+        if (command ~ /(^|\/)(softwareupdated)$/) {
+          start = $2 " " $3 " " $4 " " $5 " " $6
+          print $1 "\t" start
+        }
+      }
+    ' "$raw" >"$baseline") || {
+    /bin/rm -f "$raw" "$baseline"
+    return 1
+  }
+  /bin/rm -f "$raw"
+}
+
 adapter_process_event() {
   local raw="$ADAPTER_QUALIFICATION_ROOT/.process-observations.raw"
   local observations="$ADAPTER_QUALIFICATION_ROOT/.process-observations"
+  local baseline="$ADAPTER_QUALIFICATION_ROOT/.update-process-baseline"
   local state="$ADAPTER_QUALIFICATION_ROOT/.process-state"
   local next_state="$ADAPTER_QUALIFICATION_ROOT/.process-state.next"
   local event_file="$ADAPTER_QUALIFICATION_ROOT/.process-event"
@@ -2079,12 +2104,19 @@ adapter_process_event() {
   if [ ! -e "$state" ]; then
     (umask 077 && : >"$state") || return 1
   fi
+  [ -f "$baseline" ] && [ ! -L "$baseline" ] || return 1
   (umask 077 && /usr/bin/awk -F '\t' \
       -v cpu_limit="$ADAPTER_PROCESS_CPU_LIMIT" \
       -v memory_limit="$ADAPTER_PROCESS_MEMORY_LIMIT" \
       -v required="$ADAPTER_PROCESS_BREACH_COUNT" \
+      -v baseline_file="$baseline" \
       -v state_file="$state" \
       -v event_file="$event_file" '
+      FILENAME == baseline_file {
+        if (NF != 2) exit 1
+        baseline[$1 SUBSEP $2] = 1
+        next
+      }
       FILENAME == state_file {
         if (NF != 3) exit 1
         previous[$1 SUBSEP $2] = $3
@@ -2094,7 +2126,8 @@ adapter_process_event() {
       {
         key = $1 SUBSEP $2
         command = $5
-        if (command ~ /(^|\/)(softwareupdated)$/) {
+        is_update = command ~ /(^|\/)(softwareupdated)$/
+        if (is_update && !baseline[key]) {
           event = "update"
         } else if (command ~ /(^|\/)(colima|limactl|qemu-system-|VBoxHeadless)$/) {
           event = "newVm"
@@ -2102,11 +2135,13 @@ adapter_process_event() {
         if (($3 + 0) >= cpu_limit || ($4 + 0) >= memory_limit) {
           count = previous[key] + 1
           print $1 "\t" $2 "\t" count
-          if (count >= required && event == "") event = "sustainedProcess"
+          if (count >= required && event == "") {
+            event = is_update ? "update" : "sustainedProcess"
+          }
         }
       }
       END { print (event == "" ? "none" : event) > event_file }
-    ' "$state" "$observations" >"$next_state") || {
+    ' "$baseline" "$state" "$observations" >"$next_state") || {
     /bin/rm -f "$raw" "$observations" "$next_state" "$event_file"
     return 1
   }
@@ -2157,6 +2192,7 @@ adapter_run_mac_preflight() {
   adapter_mac_identity || return 1
   adapter_mac_runtime_fingerprint || return 1
   adapter_interference_is_clear || return 1
+  adapter_record_update_process_baseline || return 1
   while [ "$index" -lt "$ADAPTER_PREFLIGHT_SAMPLE_COUNT" ]; do
     adapter_collect_mac_snapshot || return 1
     [ "$ADAPTER_MEMORY_STATE" = normal ] && [ "$ADAPTER_POWER_STATE" = ac ] &&
@@ -2465,6 +2501,8 @@ adapter_cleanup_qualification_root() {
     "$ADAPTER_QUALIFICATION_ROOT/.process-observations.raw" \
     "$ADAPTER_QUALIFICATION_ROOT/.process-state" \
     "$ADAPTER_QUALIFICATION_ROOT/.process-state.next" \
+    "$ADAPTER_QUALIFICATION_ROOT/.update-process-baseline" \
+    "$ADAPTER_QUALIFICATION_ROOT/.update-process-baseline.raw" \
     "$ADAPTER_QUALIFICATION_ROOT/.watcher-failed" \
     "$ADAPTER_QUALIFICATION_ROOT/.watcher-observations" \
     "$ADAPTER_QUALIFICATION_ROOT/.watcher-stop" \

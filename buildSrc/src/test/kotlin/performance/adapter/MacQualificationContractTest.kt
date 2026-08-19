@@ -71,6 +71,48 @@ class MacQualificationContractTest :
         }
       }
 
+      test("a pre-existing idle software update daemon is accepted") {
+        FakeHost().use { host ->
+          val result =
+            host.invoke(
+              *captureCommand(host, "idle-software-update-daemon").toTypedArray(),
+              environment =
+                mapOf(
+                  "FAKE_PROCESS_LIST" to "/usr/libexec/softwareupdated",
+                  "FAKE_PROCESS_DETAIL_ROW" to
+                    "84 Mon Aug 18 00:00:00 2026 0 0 /usr/libexec/softwareupdated",
+                ),
+            )
+
+          withClue("stderr=${result.standardError}; commands=${result.commands}") {
+            result.exitCode shouldBe 0
+          }
+        }
+      }
+
+      test("ordinary processes remain allowed while existing VM and backup work remain rejected") {
+        val fixtures =
+          listOf(
+            Triple("ordinary-process", mapOf("FAKE_PROCESS_LIST" to "/usr/bin/Finder"), 0),
+            Triple("existing-vm", mapOf("FAKE_PROCESS_LIST" to "/opt/homebrew/bin/colima"), 2),
+            Triple("active-backup", mapOf("FAKE_BACKUP_RUNNING" to "1"), 2),
+          )
+
+        fixtures.forEach { (token, environment, expectedExit) ->
+          FakeHost().use { host ->
+            val result =
+              host.invoke(
+                *captureCommand(host, token).toTypedArray(),
+                environment = environment,
+              )
+
+            withClue("token=$token; stderr=${result.standardError}; commands=${result.commands}") {
+              result.exitCode shouldBe expectedExit
+            }
+          }
+        }
+      }
+
       test("Docker Desktop identity comes from the daemon platform rather than the client") {
         FakeHost().use { host ->
           host.writeCurrentControlledMacPolicy()
