@@ -133,6 +133,42 @@ class WatcherLifecycleContractTest :
         }
       }
 
+      test("an updater reusing a PID with a different start identity invalidates as a new update") {
+        FakeHost().use { host ->
+          val watcherDocument = host.repositoryRoot.resolve("captured-watcher.json")
+          val result =
+            host.invoke(
+              *captureCommand(host, "watcher-reused-updater-pid").toTypedArray(),
+              environment =
+                mapOf(
+                  "FAKE_PROCESS_LIST" to liveSoftwareUpdateCommand,
+                  "FAKE_PROCESS_DETAIL_ROW" to
+                    liveSoftwareUpdateRow(
+                      startIdentity = "Mon Aug 18 00:00:00 2026",
+                      cpuPercent = "0.0",
+                      memoryPercent = "0.0",
+                    ),
+                  "FAKE_PROCESS_DETAIL_ROW_WHILE_TIMED" to
+                    liveSoftwareUpdateRow(
+                      startIdentity = "Mon Aug 18 00:01:00 2026",
+                      cpuPercent = "0.0",
+                      memoryPercent = "0.0",
+                    ),
+                ),
+              functionOverrides = timedWindowWithWatcherDocumentOverrides,
+            )
+
+          result.exitCode shouldBe 2
+          result.standardError shouldContain "QUALIFICATION_FAILED"
+          watcherDocument.exists() shouldBe true
+          watcherDocument.readText().also { watcher ->
+            watcher shouldContain "\"event\":\"update\""
+            watcher shouldContain "\"observedSamples\":2"
+            watcher shouldContain "\"terminalState\":\"qualificationFailed\""
+          }
+        }
+      }
+
       test("three sustained active samples from the exact pre-existing live updater invalidate as update") {
         FakeHost().use { host ->
           val watcherDocument = host.repositoryRoot.resolve("captured-watcher.json")

@@ -139,6 +139,33 @@ class MacQualificationContractTest :
         }
       }
 
+      ordinaryProcessResourceFixtures.forEach { fixture ->
+        test("ordinary process resource monitoring ${fixture.description}") {
+          FakeHost().use { host ->
+            val result =
+              host.invoke(
+                *captureCommand(host, "ordinary-resource-${fixture.token}").toTypedArray(),
+                environment =
+                  mapOf(
+                    "FAKE_SEQUENCED_PROCESS_ROWS" to
+                      (listOf(ordinaryProcessRow(memoryPercent = "1")) + fixture.samples)
+                        .joinToString("\n"),
+                  ),
+                functionOverrides = sequencedProcessRowsOverrides,
+              )
+
+            withClue("stderr=${result.standardError}; commands=${result.commands}") {
+              result.exitCode shouldBe fixture.expectedExit
+              result.commands.any { "dev.revoman.performance.phase=timed" in it } shouldBe
+                (fixture.expectedExit == 0)
+              if (fixture.expectedExit != 0) {
+                result.standardError shouldContain "QUALIFICATION_FAILED"
+              }
+            }
+          }
+        }
+      }
+
       test("Docker Desktop identity comes from the daemon platform rather than the client") {
         FakeHost().use { host ->
           host.writeCurrentControlledMacPolicy()
@@ -415,6 +442,80 @@ private const val liveSoftwareUpdateCommand =
 
 private fun liveSoftwareUpdateRow(cpuPercent: String, memoryPercent: String): String =
   "696 Mon Aug 18 00:00:00 2026 $cpuPercent $memoryPercent $liveSoftwareUpdateCommand"
+
+private val sequencedProcessRowsOverrides =
+  """
+  adapter_process_status() {
+    case " ${'$'}* " in
+      *" -A -o pid= -o lstart= -o %cpu= -o %mem= -o comm= "*)
+        sequence_index_file="${'$'}ADAPTER_REPO_ROOT/.fake-process-sequence-index"
+        sequence_index=0
+        if [ -f "${'$'}sequence_index_file" ]; then
+          IFS= read -r sequence_index <"${'$'}sequence_index_file" || return 1
+        fi
+        sequence_index=${'$'}((sequence_index + 1))
+        printf '%s\n' "${'$'}sequence_index" >"${'$'}sequence_index_file" || return 1
+        process_row=$(/usr/bin/sed -n "${'$'}{sequence_index}p" <<<"${'$'}FAKE_SEQUENCED_PROCESS_ROWS")
+        if [ -z "${'$'}process_row" ]; then
+          process_row='77 Mon Aug 18 00:00:00 2026 1 1 /usr/bin/ordinary-task'
+        fi
+        printf '%s\n' "${'$'}process_row"
+        ;;
+      *) command ps "${'$'}@" ;;
+    esac
+  }
+  """.trimIndent()
+
+private fun ordinaryProcessRow(memoryPercent: String): String =
+  "77 Mon Aug 18 00:00:00 2026 1 $memoryPercent /usr/bin/ordinary-task"
+
+private data class OrdinaryProcessResourceFixture(
+  val token: String,
+  val description: String,
+  val samples: List<String>,
+  val expectedExit: Int,
+)
+
+private val ordinaryProcessResourceFixtures =
+  listOf(
+    OrdinaryProcessResourceFixture(
+      token = "isolated-excursions",
+      description = "allows isolated one-sample excursions and resets each breach",
+      samples =
+        listOf(
+          ordinaryProcessRow(memoryPercent = "30"),
+          ordinaryProcessRow(memoryPercent = "1"),
+          ordinaryProcessRow(memoryPercent = "30"),
+          ordinaryProcessRow(memoryPercent = "1"),
+          ordinaryProcessRow(memoryPercent = "30"),
+          ordinaryProcessRow(memoryPercent = "1"),
+        ),
+      expectedExit = 0,
+    ),
+    OrdinaryProcessResourceFixture(
+      token = "two-sample-excursion",
+      description = "allows a two-sample excursion and resets before the next breach",
+      samples =
+        listOf(
+          ordinaryProcessRow(memoryPercent = "30"),
+          ordinaryProcessRow(memoryPercent = "30"),
+          ordinaryProcessRow(memoryPercent = "1"),
+          ordinaryProcessRow(memoryPercent = "30"),
+        ),
+      expectedExit = 0,
+    ),
+    OrdinaryProcessResourceFixture(
+      token = "sustained-excursion",
+      description = "rejects a sustained three-sample excursion",
+      samples =
+        listOf(
+          ordinaryProcessRow(memoryPercent = "30"),
+          ordinaryProcessRow(memoryPercent = "30"),
+          ordinaryProcessRow(memoryPercent = "30"),
+        ),
+      expectedExit = 2,
+    ),
+  )
 
 private data class RejectedCurrentFactFixture(
   val token: String,
