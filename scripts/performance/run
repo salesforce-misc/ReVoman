@@ -101,6 +101,42 @@ adapter_policy_scalar() {
   ' "$ADAPTER_QUALIFICATION_POLICY_PATH"
 }
 
+adapter_policy_string_array() {
+  local key="$1"
+  /usr/bin/awk -v key="\"$key\"" '
+    BEGIN { seen = 0; inside = 0; closed = 0; count = 0 }
+    {
+      if (!inside) {
+        first = $1
+        sub(/:$/, "", first)
+        if (first == key) {
+          seen++
+          if (seen != 1 || $0 !~ /^[[:space:]]*"[^"]+"[[:space:]]*:[[:space:]]*\[[[:space:]]*$/) {
+            exit 1
+          }
+          inside = 1
+        }
+        next
+      }
+      value = $0
+      sub(/^[[:space:]]+/, "", value)
+      sub(/[[:space:]]+$/, "", value)
+      if (value ~ /^\],[[:space:]]*,?[[:space:]]*$/) {
+        if (count == 0) exit 1
+        inside = 0
+        closed = 1
+        next
+      }
+      if (value !~ /^"[^"\\]*",?$/) exit 1
+      sub(/^"/, "", value)
+      sub(/",?$/, "", value)
+      print value
+      count++
+    }
+    END { if (seen != 1 || inside || !closed || count == 0) exit 1 }
+  ' "$ADAPTER_QUALIFICATION_POLICY_PATH"
+}
+
 adapter_load_qualification_policy() {
   ADAPTER_QUALIFICATION_POLICY_PATH="$ADAPTER_REPO_ROOT/config/performance/policies/$ADAPTER_SUBSTRATE_PROFILE.json"
   [ -f "$ADAPTER_QUALIFICATION_POLICY_PATH" ] &&
@@ -139,6 +175,12 @@ adapter_load_qualification_policy() {
       ADAPTER_PROCESS_MEMORY_LIMIT=$(adapter_policy_scalar 'sustainedProcessMemoryPercent') || return 1
       ADAPTER_PROCESS_BREACH_COUNT=$(adapter_policy_scalar 'sustainedProcessConsecutiveSamples') ||
         return 1
+      ADAPTER_THERMAL_TEXT_STATES=$(adapter_policy_string_array 'thermalTextStates') || return 1
+      ADAPTER_THERMAL_CPU_SPEED_LIMIT=$(adapter_policy_scalar 'thermalCpuSpeedLimit') || return 1
+      ADAPTER_THERMAL_SCHEDULER_LIMIT=$(adapter_policy_scalar 'thermalSchedulerLimit') || return 1
+      ADAPTER_THERMAL_SPEED_LIMITED_PROCESS_COUNT=$(
+        adapter_policy_scalar 'thermalSpeedLimitedProcessCount'
+      ) || return 1
       ;;
     githubHosted)
       [ "$(adapter_policy_scalar 'dockerContext')" = 'null' ] || return 1
@@ -1825,15 +1867,23 @@ adapter_reject_unsafe_environment() {
 adapter_mac_runtime_fingerprint() {
   local versions
   local information
-  versions=$(adapter_docker version --format '{{.Client.Version}}|{{.Server.Version}}' 2>/dev/null) ||
+  local raw_platform_name
+  versions=$(
+    adapter_docker version --format '{{.Server.Platform.Name}}|{{.Server.Version}}' 2>/dev/null
+  ) ||
     return 1
   information=$(
     adapter_docker info \
       --format '{{.OperatingSystem}}|{{.KernelVersion}}|{{.NCPU}}|{{.MemTotal}}|{{.Architecture}}' \
       2>/dev/null
   ) || return 1
-  ADAPTER_DOCKER_DESKTOP_VERSION=${versions%%|*}
-  ADAPTER_DOCKER_ENGINE_VERSION=${versions#*|}
+  [[ "$versions" != *$'\r'* && "$versions" != *$'\n'* ]] || return 1
+  [[ "$versions" =~ ^([^|]+)\|([^|]+)$ ]] || return 1
+  raw_platform_name=${BASH_REMATCH[1]}
+  ADAPTER_DOCKER_ENGINE_VERSION=${BASH_REMATCH[2]}
+  [[ "$raw_platform_name" =~ ^Docker[[:space:]]Desktop[[:space:]]([0-9]+\.[0-9]+\.[0-9]+)[[:space:]]\([0-9]+\)$ ]] ||
+    return 1
+  ADAPTER_DOCKER_DESKTOP_VERSION=${BASH_REMATCH[1]}
   IFS='|' read -r ADAPTER_DOCKER_OPERATING_SYSTEM ADAPTER_DOCKER_KERNEL ADAPTER_DOCKER_CPUS \
     ADAPTER_DOCKER_MEMORY ADAPTER_DOCKER_ARCHITECTURE <<<"$information"
   [ "$ADAPTER_DOCKER_DESKTOP_VERSION" = "$(adapter_policy_scalar 'dockerDesktopVersion')" ] &&
@@ -1885,12 +1935,18 @@ adapter_cpu_sample() {
 
 adapter_memory_snapshot() {
   local pressure
+  local pressure_level
   local statistics
   pressure=$(adapter_memory_pressure 2>/dev/null) || return 1
-  case "$pressure" in
-    *normal*|*Normal*) ADAPTER_MEMORY_STATE='normal' ;;
-    *warn*|*Warn*) ADAPTER_MEMORY_STATE='warn' ;;
-    *) ADAPTER_MEMORY_STATE='critical' ;;
+  [ -n "$pressure" ] || return 1
+  pressure_level=$(
+    adapter_system_control -n kern.memorystatus_vm_pressure_level 2>/dev/null
+  ) || return 1
+  case "$pressure_level" in
+    1) ADAPTER_MEMORY_STATE='normal' ;;
+    2) ADAPTER_MEMORY_STATE='warn' ;;
+    4) ADAPTER_MEMORY_STATE='critical' ;;
+    *) return 1 ;;
   esac
   statistics=$(adapter_vm_statistics 2>/dev/null) || return 1
   ADAPTER_PAGE_OUTS=$(
@@ -1902,8 +1958,27 @@ adapter_memory_snapshot() {
   return 0
 }
 
+adapter_thermal_states_match() {
+  local thermal="$1"
+  local expected="$2"
+  local state
+  local matches
+  local expected_count=0
+  local observed_count
+  while IFS= read -r state; do
+    [ -n "$state" ] || return 1
+    matches=$(printf '%s\n' "$thermal" | /usr/bin/grep -Fxc -- "$state") || return 1
+    [ "$matches" -eq 1 ] || return 1
+    expected_count=$((expected_count + 1))
+  done <<<"$expected"
+  observed_count=$(printf '%s\n' "$thermal" | /usr/bin/awk 'NF { count++ } END { print count + 0 }') ||
+    return 1
+  [ "$observed_count" -eq "$expected_count" ]
+}
+
 adapter_power_snapshot() {
   local battery
+  local numeric_thermal_states
   local thermal
   battery=$(adapter_power_status -g batt 2>/dev/null) || return 1
   thermal=$(adapter_power_status -g therm 2>/dev/null) || return 1
@@ -1911,13 +1986,15 @@ adapter_power_snapshot() {
     *"AC Power"*) ADAPTER_POWER_STATE='ac' ;;
     *) ADAPTER_POWER_STATE='battery' ;;
   esac
-  if [[ "$thermal" == *"No CPU power status has been recorded"* ]] &&
-    [[ "$thermal" == *"No GPU power status has been recorded"* ]] &&
-    [[ "$thermal" == *"No thermal warning level has been recorded"* ]]; then
+  numeric_thermal_states=$(
+    printf '%s\n%s\n%s' \
+      "CPU_Speed_Limit=$ADAPTER_THERMAL_CPU_SPEED_LIMIT" \
+      "Scheduler_Limit=$ADAPTER_THERMAL_SCHEDULER_LIMIT" \
+      "Speed_Limited_Processes=$ADAPTER_THERMAL_SPEED_LIMITED_PROCESS_COUNT"
+  ) || return 1
+  if adapter_thermal_states_match "$thermal" "$ADAPTER_THERMAL_TEXT_STATES"; then
     ADAPTER_THERMAL_STATE='nominal'
-  elif [[ "$thermal" == *"CPU_Speed_Limit=100"* ]] &&
-    [[ "$thermal" == *"Scheduler_Limit=100"* ]] &&
-    [[ "$thermal" == *"Speed_Limited_Processes=0"* ]]; then
+  elif adapter_thermal_states_match "$thermal" "$numeric_thermal_states"; then
     ADAPTER_THERMAL_STATE='nominal'
   else
     ADAPTER_THERMAL_STATE='serious'

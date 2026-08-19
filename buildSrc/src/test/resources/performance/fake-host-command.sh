@@ -20,11 +20,24 @@ case "$command_name" in
   sysctl)
     [ "${1:-}" = -n ] || exit 91
     case "${2:-}" in
-      kern.osproductversion) printf '%s\n' "${FAKE_MACOS_VERSION:-26.6.1}" ;;
-      kern.osversion) printf '%s\n' "${FAKE_MACOS_BUILD:-25G90}" ;;
+      kern.osproductversion) printf '%s\n' "${FAKE_MACOS_VERSION:-26.6.2}" ;;
+      kern.osversion) printf '%s\n' "${FAKE_MACOS_BUILD:-25G83}" ;;
       hw.model) printf '%s\n' "${FAKE_HARDWARE_MODEL:-Mac16,5}" ;;
       hw.ncpu) printf '%s\n' "${FAKE_HOST_CPU_COUNT:-16}" ;;
       hw.memsize) printf '%s\n' "${FAKE_HOST_MEMORY_BYTES:-8589934592}" ;;
+      kern.memorystatus_vm_pressure_level)
+        memory_level=${FAKE_MEMORY_PRESSURE_LEVEL-1}
+        memory_count_file="${FAKE_REPO_ROOT:?}/.fake-memory-pressure-count"
+        memory_count=0
+        if [ -f "$memory_count_file" ]; then
+          IFS= read -r memory_count < "$memory_count_file"
+        fi
+        if [ -n "${FAKE_MEMORY_PRESSURE_FAIL_AFTER:-}" ] &&
+          [ "$memory_count" -gt "$FAKE_MEMORY_PRESSURE_FAIL_AFTER" ]; then
+          memory_level=4
+        fi
+        printf '%s\n' "$memory_level"
+        ;;
       *) exit 91 ;;
     esac
     ;;
@@ -70,9 +83,9 @@ case "$command_name" in
         if [ -n "${FAKE_PMSET_THERMAL_STATE:-}" ]; then
           printf '%s\n' "$FAKE_PMSET_THERMAL_STATE"
         else
-          printf '%s\n' 'No CPU power status has been recorded'
-          printf '%s\n' 'No GPU power status has been recorded'
           printf '%s\n' 'No thermal warning level has been recorded'
+          printf '%s\n' 'No performance warning level has been recorded'
+          printf '%s\n' 'No CPU power status has been recorded'
         fi
         ;;
       *) exit 91 ;;
@@ -141,7 +154,29 @@ case "$command_name" in
     fi
     case " $* " in
       *" version --format "*)
-        printf '%s|%s\n' "${FAKE_DOCKER_DESKTOP_VERSION:-4.45.0}" "${FAKE_DOCKER_ENGINE_VERSION:-28.3.3}"
+        case " $* " in
+          *' {{.Client.Version}}|{{.Server.Platform.Name}}|{{.Server.Version}} '*)
+            printf '%s|%s|%s\n' \
+              "${FAKE_DOCKER_CLIENT_VERSION:-29.7.2}" \
+              "${FAKE_DOCKER_SERVER_PLATFORM_NAME:-Docker Desktop 4.86.0 (236216)}" \
+              "${FAKE_DOCKER_ENGINE_VERSION:-29.7.2}"
+            ;;
+          *' {{.Server.Platform.Name}}|{{.Server.Version}} '*)
+            if [ "${FAKE_DOCKER_SERVER_IDENTITY_OUTPUT+x}" = x ]; then
+              printf '%s' "$FAKE_DOCKER_SERVER_IDENTITY_OUTPUT"
+            else
+              printf '%s|%s\n' \
+                "${FAKE_DOCKER_SERVER_PLATFORM_NAME:-Docker Desktop 4.86.0 (236216)}" \
+                "${FAKE_DOCKER_ENGINE_VERSION:-29.7.2}"
+            fi
+            ;;
+          *' {{.Client.Version}}|{{.Server.Version}} '*)
+            printf '%s|%s\n' \
+              "${FAKE_DOCKER_CLIENT_VERSION:-29.7.2}" \
+              "${FAKE_DOCKER_ENGINE_VERSION:-29.7.2}"
+            ;;
+          *) exit 91 ;;
+        esac
         ;;
       *" info --format "*)
         if [ "${FAKE_SYSTEM_NAME:-Darwin}" = Linux ]; then
@@ -155,7 +190,7 @@ case "$command_name" in
             "${FAKE_DOCKER_OPERATING_SYSTEM:-Docker Desktop}" \
             "${FAKE_DOCKER_KERNEL:-6.12.76-linuxkit}" \
             "${FAKE_DOCKER_CPU_COUNT:-16}" \
-            "${FAKE_DOCKER_MEMORY_BYTES:-8589934592}" \
+            "${FAKE_DOCKER_MEMORY_BYTES:-8320671744}" \
             "${FAKE_DOCKER_ARCHITECTURE:-aarch64}"
         fi
         ;;

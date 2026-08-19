@@ -7,6 +7,7 @@
  */
 package performance.adapter
 
+import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainAll
 import io.kotest.matchers.collections.shouldBeEmpty
@@ -15,20 +16,37 @@ import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
 import java.nio.file.Files
 import kotlin.io.path.createDirectories
+import kotlin.io.path.readText
 import kotlin.io.path.writeText
 import performance.support.FakeHost
 
 class MacQualificationContractTest :
   FunSpec(
     {
-      test("the controlled Mac policy drives unprivileged preflight and labels every Docker object") {
+      test("the checked-in controlled Mac policy accepts the current unprivileged host facts") {
         FakeHost().use { host ->
-          val result = host.invoke(*captureCommand(host, "qualified-mac").toTypedArray())
+          val result =
+            host.invoke(
+              *captureCommand(host, "qualified-mac").toTypedArray(),
+              environment = mapOf("FAKE_DOCKER_CLIENT_VERSION" to "0.0.0-client-must-be-ignored"),
+            )
           val commandNames = result.commands.mapNotNull(List<String>::firstOrNull)
 
-          result.exitCode shouldBe 0
+          withClue("stderr=${result.standardError}; commands=${result.commands}") {
+            result.exitCode shouldBe 0
+          }
+          val dockerVersion =
+            result.commands.single { command ->
+              command.firstOrNull() == "docker" && "version" in command
+            }
           commandNames shouldContainAll
             listOf("pmset", "tmutil", "memory_pressure", "vm_stat", "ioreg", "ps", "sysctl")
+          dockerVersion.any { "Server.Platform.Name" in it } shouldBe true
+          dockerVersion.none { "Client.Version" in it } shouldBe true
+          result.commands.any { command ->
+            command.firstOrNull() == "sysctl" &&
+              command.takeLast(2) == listOf("-n", "kern.memorystatus_vm_pressure_level")
+          } shouldBe true
           result.commands
             .filter { command ->
               command.firstOrNull() == "docker" &&
@@ -40,6 +58,109 @@ class MacQualificationContractTest :
                 true
             }
           result.commands.flatten().none { it in listOf("sudo", "dzdo", "osascript") } shouldBe true
+        }
+      }
+
+      test("Docker Desktop identity comes from the daemon platform rather than the client") {
+        FakeHost().use { host ->
+          host.writeCurrentControlledMacPolicy()
+          val result =
+            host.invoke(
+              *captureCommand(host, "server-platform-identity").toTypedArray(),
+              environment = mapOf("FAKE_DOCKER_CLIENT_VERSION" to "4.45.0"),
+            )
+
+          result.exitCode shouldBe 0
+        }
+      }
+
+      malformedDockerDaemonIdentityFixtures.forEach { fixture ->
+        test("Docker daemon identity rejects ${fixture.description}") {
+          FakeHost().use { host ->
+            host.writeCurrentControlledMacPolicy()
+            val result =
+              host.invoke(
+                *captureCommand(host, "malformed-daemon-${fixture.token}").toTypedArray(),
+                environment = mapOf("FAKE_DOCKER_SERVER_IDENTITY_OUTPUT" to fixture.output),
+              )
+
+            result.exitCode shouldBe 2
+            result.standardError shouldContain "QUALIFICATION_FAILED"
+            result.commands.none { "dev.revoman.performance.phase=timed" in it } shouldBe true
+          }
+        }
+      }
+
+      rejectedCurrentFactFixtures.forEach { fixture ->
+        test("controlled Mac qualification rejects ${fixture.description}") {
+          FakeHost().use { host ->
+            host.writeCurrentControlledMacPolicy()
+            val result =
+              host.invoke(
+                *captureCommand(host, "rejected-${fixture.token}").toTypedArray(),
+                environment = fixture.environment,
+              )
+
+            result.exitCode shouldBe 2
+            result.standardError shouldContain "QUALIFICATION_FAILED"
+            result.commands.none { "dev.revoman.performance.phase=timed" in it } shouldBe true
+          }
+        }
+      }
+
+      test("every text thermal state configured by policy is accepted when present") {
+        FakeHost().use { host ->
+          val configuredStates =
+            listOf(
+              "Fixture thermal state is nominal",
+              "Fixture performance state is nominal",
+              "Fixture CPU power state is nominal",
+            )
+          host.writeCurrentControlledMacPolicy(configuredStates)
+          val result =
+            host.invoke(
+              *captureCommand(host, "policy-thermal-exact").toTypedArray(),
+              environment = mapOf("FAKE_PMSET_THERMAL_STATE" to configuredStates.joinToString("\n")),
+            )
+
+          result.exitCode shouldBe 0
+        }
+      }
+
+      test("a missing text thermal state configured by policy fails closed") {
+        FakeHost().use { host ->
+          val configuredStates =
+            listOf(
+              "Fixture thermal state is nominal",
+              "Fixture performance state is nominal",
+              "Fixture CPU power state is nominal",
+            )
+          host.writeCurrentControlledMacPolicy(configuredStates)
+          val result =
+            host.invoke(
+              *captureCommand(host, "policy-thermal-missing").toTypedArray(),
+              environment =
+                mapOf("FAKE_PMSET_THERMAL_STATE" to configuredStates.dropLast(1).joinToString("\n")),
+            )
+
+          result.exitCode shouldBe 2
+        }
+      }
+
+      test("the exact numeric thermal fallback remains nominal") {
+        FakeHost().use { host ->
+          host.writeCurrentControlledMacPolicy()
+          val result =
+            host.invoke(
+              *captureCommand(host, "numeric-thermal").toTypedArray(),
+              environment =
+                mapOf(
+                  "FAKE_PMSET_THERMAL_STATE" to
+                    "CPU_Speed_Limit=100\nScheduler_Limit=100\nSpeed_Limited_Processes=0",
+                ),
+            )
+
+          result.exitCode shouldBe 0
         }
       }
 
@@ -210,3 +331,149 @@ private fun captureCommand(
     "--output",
     host.output(token),
   )
+
+private data class RejectedCurrentFactFixture(
+  val token: String,
+  val description: String,
+  val environment: Map<String, String>,
+)
+
+private data class MalformedDockerDaemonIdentityFixture(
+  val token: String,
+  val description: String,
+  val output: String,
+)
+
+private const val currentDockerDaemonIdentity = "Docker Desktop 4.86.0 (236216)|29.7.2"
+
+private val malformedDockerDaemonIdentityFixtures =
+  listOf(
+    MalformedDockerDaemonIdentityFixture(
+      "trailing-delimiter",
+      "a trailing delimiter",
+      "$currentDockerDaemonIdentity|\n",
+    ),
+    MalformedDockerDaemonIdentityFixture(
+      "extra-field",
+      "an extra field",
+      "$currentDockerDaemonIdentity|unexpected\n",
+    ),
+    MalformedDockerDaemonIdentityFixture(
+      "carriage-return",
+      "an embedded carriage return",
+      "$currentDockerDaemonIdentity\r\n",
+    ),
+    MalformedDockerDaemonIdentityFixture(
+      "line-feed",
+      "an embedded line feed",
+      "$currentDockerDaemonIdentity\nunexpected\n",
+    ),
+    MalformedDockerDaemonIdentityFixture(
+      "missing-delimiter",
+      "a missing delimiter",
+      "Docker Desktop 4.86.0 (236216) 29.7.2\n",
+    ),
+    MalformedDockerDaemonIdentityFixture("empty-platform", "an empty platform", "|29.7.2\n"),
+    MalformedDockerDaemonIdentityFixture(
+      "empty-version",
+      "an empty server version",
+      "Docker Desktop 4.86.0 (236216)|\n",
+    ),
+  )
+
+private val rejectedCurrentFactFixtures =
+  listOf(
+    RejectedCurrentFactFixture("stale-macos", "a stale macOS version", mapOf("FAKE_MACOS_VERSION" to "26.6.1")),
+    RejectedCurrentFactFixture("wrong-build", "a wrong macOS build", mapOf("FAKE_MACOS_BUILD" to "25G90")),
+    RejectedCurrentFactFixture("malformed-macos", "a malformed macOS version", mapOf("FAKE_MACOS_VERSION" to "26.6.2-beta")),
+    RejectedCurrentFactFixture(
+      "stale-desktop",
+      "a stale Docker Desktop daemon platform",
+      mapOf("FAKE_DOCKER_SERVER_PLATFORM_NAME" to "Docker Desktop 4.45.0 (190000)"),
+    ),
+    RejectedCurrentFactFixture(
+      "wrong-desktop",
+      "a wrong Docker daemon platform",
+      mapOf("FAKE_DOCKER_SERVER_PLATFORM_NAME" to "Docker Engine 4.86.0 (236216)"),
+    ),
+    RejectedCurrentFactFixture(
+      "malformed-desktop",
+      "a malformed Docker Desktop daemon platform",
+      mapOf("FAKE_DOCKER_SERVER_PLATFORM_NAME" to "Docker Desktop 4.86.0"),
+    ),
+    RejectedCurrentFactFixture("stale-engine", "a stale Docker engine", mapOf("FAKE_DOCKER_ENGINE_VERSION" to "28.3.3")),
+    RejectedCurrentFactFixture("wrong-kernel", "a wrong LinuxKit kernel", mapOf("FAKE_DOCKER_KERNEL" to "6.11.0-linuxkit")),
+    RejectedCurrentFactFixture("wrong-cpu-count", "a wrong VM CPU count", mapOf("FAKE_DOCKER_CPU_COUNT" to "15")),
+    RejectedCurrentFactFixture("malformed-cpu-count", "a malformed VM CPU count", mapOf("FAKE_DOCKER_CPU_COUNT" to "sixteen")),
+    RejectedCurrentFactFixture("stale-memory", "a stale VM MemTotal", mapOf("FAKE_DOCKER_MEMORY_BYTES" to "8589934592")),
+    RejectedCurrentFactFixture("malformed-memory", "a malformed VM MemTotal", mapOf("FAKE_DOCKER_MEMORY_BYTES" to "eight-gib")),
+    RejectedCurrentFactFixture("wrong-architecture", "a wrong VM architecture", mapOf("FAKE_DOCKER_ARCHITECTURE" to "x86_64")),
+    RejectedCurrentFactFixture("memory-warning", "memory pressure warning state", mapOf("FAKE_MEMORY_PRESSURE_LEVEL" to "2")),
+    RejectedCurrentFactFixture("memory-critical", "memory pressure critical state", mapOf("FAKE_MEMORY_PRESSURE_LEVEL" to "4")),
+    RejectedCurrentFactFixture("memory-unknown", "an unknown memory pressure state", mapOf("FAKE_MEMORY_PRESSURE_LEVEL" to "3")),
+    RejectedCurrentFactFixture("memory-malformed", "a malformed memory pressure state", mapOf("FAKE_MEMORY_PRESSURE_LEVEL" to "normal")),
+    RejectedCurrentFactFixture(
+      "numeric-scheduler",
+      "a degraded numeric scheduler limit",
+      mapOf(
+        "FAKE_PMSET_THERMAL_STATE" to
+          "CPU_Speed_Limit=100\nScheduler_Limit=99\nSpeed_Limited_Processes=0",
+      ),
+    ),
+    RejectedCurrentFactFixture(
+      "numeric-limited-process",
+      "a numeric speed-limited process",
+      mapOf(
+        "FAKE_PMSET_THERMAL_STATE" to
+          "CPU_Speed_Limit=100\nScheduler_Limit=100\nSpeed_Limited_Processes=1",
+      ),
+    ),
+    RejectedCurrentFactFixture(
+      "numeric-prefix",
+      "a malformed numeric thermal prefix",
+      mapOf(
+        "FAKE_PMSET_THERMAL_STATE" to
+          "CPU_Speed_Limit=1000\nScheduler_Limit=100\nSpeed_Limited_Processes=0",
+      ),
+    ),
+  )
+
+private val currentThermalTextStates =
+  listOf(
+    "No thermal warning level has been recorded",
+    "No performance warning level has been recorded",
+    "No CPU power status has been recorded",
+  )
+
+private fun FakeHost.writeCurrentControlledMacPolicy(
+  thermalTextStates: List<String> = currentThermalTextStates,
+) {
+  val policy = repositoryRoot.resolve("config/performance/policies/m4max-docker-linux-arm64-v1.json")
+  var contents = policy.readText()
+  mapOf(
+      "macosVersion" to "26.6.2",
+      "macosBuild" to "25G83",
+      "dockerDesktopVersion" to "4.86.0",
+      "dockerEngineVersion" to "29.7.2",
+      "linuxKitKernel" to "6.12.76-linuxkit",
+    )
+    .forEach { (key, value) ->
+      val pattern = Regex("""(?m)^(\s*"$key":\s*)"[^"]*"(,?)$""")
+      check(pattern.findAll(contents).count() == 1) { "missing unique string policy field $key" }
+      contents = pattern.replace(contents, "${'$'}1\"$value\"${'$'}2")
+    }
+  mapOf("vmCpuCount" to "16", "vmMemoryBytes" to "8320671744").forEach { (key, value) ->
+    val pattern = Regex("""(?m)^(\s*"$key":\s*)[^,]+(,?)$""")
+    check(pattern.findAll(contents).count() == 1) { "missing unique numeric policy field $key" }
+    contents = pattern.replace(contents, "${'$'}1$value${'$'}2")
+  }
+  val arrayStart = contents.indexOf("  \"thermalTextStates\": [")
+  val arrayEnd = contents.indexOf("\n  ],", startIndex = arrayStart)
+  check(arrayStart >= 0 && arrayEnd >= 0) { "missing thermalTextStates policy array" }
+  val renderedStates =
+    "  \"thermalTextStates\": [\n" +
+      thermalTextStates.joinToString(",\n") { state -> "    \"$state\"" } +
+      "\n  ],"
+  contents = contents.replaceRange(arrayStart, arrayEnd + "\n  ],".length, renderedStates)
+  policy.writeText(contents)
+}
