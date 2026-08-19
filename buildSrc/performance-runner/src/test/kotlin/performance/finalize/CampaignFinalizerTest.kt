@@ -79,6 +79,88 @@ import tools.jackson.databind.node.ObjectNode
 class CampaignFinalizerTest :
   FunSpec(
     {
+      test("bounded host qualification is derived from the mounted documents without private state") {
+        val root = Files.createTempDirectory("bounded-host-qualification-").toRealPath()
+        val policy = Sha256.parse("a".repeat(64))
+        val expected = writeQualification(root, policy, Sha256.parse("b".repeat(64)))
+
+        HostQualificationReader.read(
+          root = root,
+          policy = policy,
+          substrate =
+            SubstrateIdentity.ControlledMac(
+              macosVersion = "26.6.2",
+              macosBuild = "25G83",
+              hardwareModelClass = "Mac16,5",
+              dockerDesktopVersion = "4.87.0",
+              dockerEngineVersion = "29.7.2",
+              vmResources = AdvertisedResources(16, 8318709760L),
+            ),
+          campaign = false,
+        ) shouldBe
+          QualificationEvidence.ControlledMacBoundedDiagnostic(
+            policyHash = policy,
+            preflight = expected.preflight,
+            watcher = expected.watcher,
+            postflight = expected.postflight,
+            restoration = expected.restoration,
+            campaignFieldsInapplicableReason = "standaloneBoundedDiagnostic",
+          )
+      }
+
+      test("campaign host qualification is derived from the mounted documents without private state") {
+        val root = Files.createTempDirectory("campaign-host-qualification-").toRealPath()
+        val policy = Sha256.parse("a".repeat(64))
+        val expected = writeQualification(root, policy, Sha256.parse("b".repeat(64)))
+
+        HostQualificationReader.read(
+          root = root,
+          policy = policy,
+          substrate =
+            SubstrateIdentity.ControlledMac(
+              macosVersion = "26.6.2",
+              macosBuild = "25G83",
+              hardwareModelClass = "Mac16,5",
+              dockerDesktopVersion = "4.87.0",
+              dockerEngineVersion = "29.7.2",
+              vmResources = AdvertisedResources(16, 8318709760L),
+            ),
+          campaign = true,
+        ) shouldBe expected
+      }
+
+      test("private finalization selects mounted controlled Mac documents before private state") {
+        CampaignFixture.create(listOf(true)).use { fixture ->
+          val campaignQualification = fixture.qualification
+          val capture = fixture.attempts.single().a1.sealedRoot.resolve("capture.json")
+          val method =
+            PrivateOperationFinalizer::class.java.getDeclaredMethod(
+              "qualification",
+              Path::class.java,
+              Path::class.java,
+              ProvisionalCaptureDocument::class.java,
+              Boolean::class.javaPrimitiveType,
+            )
+          method.isAccessible = true
+
+          method.invoke(
+            PrivateOperationFinalizer,
+            fixture.root.resolve("absent-private-qualification.json"),
+            fixture.qualificationRoot,
+            provisional(json(capture)),
+            false,
+          ) shouldBe
+            QualificationEvidence.ControlledMacBoundedDiagnostic(
+              policyHash = campaignQualification.policyHash,
+              preflight = campaignQualification.preflight,
+              watcher = campaignQualification.watcher,
+              postflight = campaignQualification.postflight,
+              restoration = campaignQualification.restoration,
+              campaignFieldsInapplicableReason = "standaloneBoundedDiagnostic",
+            )
+        }
+      }
+
       test("a passing ten fork graph produces the exact canonical private campaign tree") {
         CampaignFixture.create(listOf(true)).use { fixture ->
           val output = fixture.root.resolve("campaign-pass")

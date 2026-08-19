@@ -165,6 +165,14 @@ internal object PrivateOperationFinalizer {
     provisional: ProvisionalCaptureDocument,
     campaign: Boolean,
   ): QualificationEvidence {
+    if (provisional.runtime.substrate is performance.model.SubstrateIdentity.ControlledMac) {
+      return HostQualificationReader.read(
+        root,
+        provisional.protocol.qualificationPolicySha256,
+        provisional.runtime.substrate,
+        campaign,
+      )
+    }
     require(safeDirectory(root))
     val document = CanonicalJson.parseStrict(readCanonical(statePath)).asObject()
     require(document.text("schemaVersion") == "private-host-qualification-v1")
