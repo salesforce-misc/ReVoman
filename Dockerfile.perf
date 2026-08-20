@@ -1,4 +1,4 @@
-FROM eclipse-temurin:21.0.11_10-jdk-noble
+FROM eclipse-temurin:25.0.3_9-jdk-noble
 
 RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install --yes --no-install-recommends \
