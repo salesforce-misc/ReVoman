@@ -44,11 +44,17 @@ ReVoman uses the [JetBrains Qodana](https://www.jetbrains.com/qodana/) Gradle pl
 primary quality gate; CI (`.github/workflows/qodana.yml`) is only a backstop.
 
 ```bash
-colima start                        # Qodana runs its linter in Docker; start the daemon first
-./gradlew kaptKotlin classes        # pre-generate kapt/Immutables/Moshi sources (JDK 21) so the
-                                     # linter resolves references — NOT run in-container (see qodana.yaml)
-./gradlew qodanaScan                # downloads the Qodana CLI + free community linter image, then scans
+docker --context desktop-linux info
+export JAVA_HOME=/opt/homebrew/Cellar/sdkman-cli/5.19.0/libexec/candidates/java/21.0.11-amzn
+./gradlew -q kaptKotlin classes
+DOCKER_CONTEXT=desktop-linux ./gradlew -q qodanaScan \
+  -Dorg.gradle.java.home=/opt/homebrew/Cellar/sdkman-cli/5.19.0/libexec/candidates/java/21.0.11-amzn
 ```
+
+The first command verifies the supported Docker Desktop daemon explicitly. The Gradle commands use
+the normal JDK 21 prerequisite to pre-generate kapt/Immutables/Moshi sources on the host and then
+run the immutable Community linter image through `desktop-linux`; no second VM or privilege prompt
+is part of the supported path.
 
 - Results (including `qodana.sarif.json`) land in `build/qodana/results`; the linter
   image/cache is kept in `.qodana/cache` so `clean` doesn't force a re-pull.
@@ -57,17 +63,41 @@ colima start                        # Qodana runs its linter in Docker; start th
   inspections — not used here (no license; there is no free Ultimate for open source).
 - `qodanaScan` is **opt-in** — it is NOT part of `./gradlew build` (which stays Docker-free),
   the same way the `integration.core.*` org tests are opt-in via `-PincludeCoreIT`.
-- Docker needs ≥4 GB memory for the linter. If colima's VM is smaller, recreate it larger
-  (e.g. `colima start --memory 6`).
+- Docker Desktop needs at least 4 GB available to the linter.
 
 ## Continuous Integration
 
-- `.github/workflows/build.yml` runs `./gradlew build` on every push/PR to `master` —
-  full coverage: unit (`test`) + integration (`integrationTest`) + `spotlessCheck` + `kover`.
+- `.github/workflows/build.yml` runs on exact `ubuntu-24.04-arm` for every push/PR to `master`.
+  It runs the build-logic tests, the root build, and a structural canary from the frozen
+  performance distribution. Canary timing is discarded and never forms a numeric gate.
 - **Org tests** (`integration.core.*`) skip-loud on CI (no org creds); see `-PincludeCoreIT` above.
 - **Flaky external-API tests** (pokeapi.co, restful-api.dev, apigee, beeceptor) are retried via the
   `org.gradle.test-retry` plugin — but ONLY on CI (`CI` env var set). Locally `maxRetries=0`, so
   flakes surface immediately. A test failing every attempt still fails the build (no masking).
+
+## Performance Measurement Lanes
+
+Performance commands need only Docker, Git, and standard macOS utilities. They require
+no host-native JVM, no second VM, no password, and no privilege escalation.
+
+- The automatic `ubuntu-24.04-arm` structural canary proves packaging and protocol correctness;
+  its numeric timing is diagnostic and discarded.
+- `.github/workflows/performance-campaign.yml` is an optional explicit `workflow_dispatch` lane.
+  It accepts trusted repository commits, produces hosted diagnostic evidence, and cannot create a
+  claim-bearing Mac result.
+- A claim-bearing campaign is an explicit local command on the controlled Mac, for example:
+
+  ```bash
+  ./scripts/performance/run campaign \
+    --profile warm \
+    --host-id m4max-docker-linux-arm64-v1 \
+    --baseline-distribution build/performance/baseline \
+    --candidate-distribution build/performance/candidate \
+    --output build/performance/campaign
+  ```
+
+  The controlled Mac is deliberately not registered as a persistent public-repository worker:
+  there is no persistent self-hosted runner and no polling daemon.
 
 ## Building the jar for Salesforce Core consumption
 

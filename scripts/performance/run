@@ -3130,7 +3130,8 @@ printf "%s\n" fixture > /inputs/finalizer/metadata/distribution.sha256
     done
     command docker "${ADAPTER_DOCKER_CONTEXT_ARGS[@]}" "${rewritten_args[@]}"
   }
-  if adapter_run_finalizer 'INTERNAL_ERROR' >/dev/null 2>&1; then
+  if ! adapter_run_finalizer 'INTERNAL_ERROR' >/dev/null 2>&1 ||
+    [ "$ADAPTER_FINALIZER_STATUS" -ne "$ADAPTER_EXIT_PUBLICATION" ]; then
     status=1
   fi
   [ ! -e "$ADAPTER_STAGING" ] && [ ! -L "$ADAPTER_STAGING" ] || status=1

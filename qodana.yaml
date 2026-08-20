@@ -8,10 +8,10 @@ version: "1.0"
 # Free Community linter (analysis runs in Docker; Qodana Cloud only stores reports/baselines).
 # The paid Ultimate/Ultimate-Plus linters add Spring/SQL/taint/SCA — NOT used here (no license,
 # and there is no free Ultimate for OSS). See docs/superpowers/specs/2026-07-22-qodana-setup-design.md.
-# Pinned to the 2026.1 tag (matches the qodana-action pin in .github/workflows/qodana.yml) for
-# reproducibility. The CLI emits a non-fatal deprecation note preferring a short linter name /
-# --image; the full image ref is unambiguous and works, so we keep it.
-linter: jetbrains/qodana-jvm-community:2026.1
+# Pinned to a reviewed immutable OCI index. The workflow verifies that the current Linux platform
+# resolves to its separately reviewed child manifest before the scan starts. Upgrades review and
+# replace the index and both platform children together; never substitute a mutable tag.
+linter: jetbrains/qodana-jvm-community@sha256:f1c5d3efe2f550409c4d95d266c5dc2025a8069d82c9516781eae72e7383b55d
 
 # ReVoman requires JDK 21 (was wrongly '11').
 projectJDK: "21"

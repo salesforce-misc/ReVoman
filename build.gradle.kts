@@ -13,6 +13,7 @@ import java.nio.charset.StandardCharsets.UTF_8
 import java.security.MessageDigest
 import java.util.zip.Deflater
 import java.util.zip.GZIPOutputStream
+import org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import performance.AssemblePerformanceDistributionTask
 import performance.GenerateProtocolManifestTask
@@ -28,6 +29,14 @@ plugins {
   alias(libs.plugins.nexus.publish)
   alias(libs.plugins.test.retry)
   alias(libs.plugins.qodana)
+}
+
+kotlin {
+  @OptIn(ExperimentalAbiValidation::class)
+  abiValidation {
+    val updateAbi = updateTaskProvider
+    checkTaskProvider.configure { mustRunAfter(updateAbi) }
+  }
 }
 
 // Retry flaky tests ON CI ONLY. Several integration tests hit live external APIs (pokeapi.co,
@@ -172,8 +181,16 @@ testing {
         implementation(libs.log4j.core)
       }
     }
+
+    register<JvmTestSuite>("fdProbeTest") {
+      useJUnitJupiter(libs.versions.junit.get())
+      dependencies { implementation(project(":")) }
+      targets { all { testTask.configure { maxParallelForks = 1 } } }
+    }
   }
 }
+
+tasks.named("check") { dependsOn(testing.suites.named("fdProbeTest")) }
 
 // Give the integrationTest compilation a friend-path to main (the built-in `test` suite gets this
 // automatically). Without it, integration tests can't see `internal` main members — e.g.
@@ -339,7 +356,7 @@ kover {
     sources {
       // The JMH benchmark source set is a perf harness, never unit-tested by design (like the
       // opt-in core-IT tests). Keep it out of the coverage denominator.
-      excludedSourceSets.addAll("jmh")
+      excludedSourceSets.addAll("jmh", "fdProbeTest")
     }
   }
   reports {
@@ -374,8 +391,9 @@ kover {
 
 // Qodana static analysis. Opt-in like the Core-IT tests — NOT wired into `check`/`build`, since
 // `qodanaScan` needs Docker (the CLI runs the free `jetbrains/qodana-jvm-community` linter in a
-// container). Run locally before pushing with `colima start && ./gradlew qodanaScan`; results
-// (incl. qodana.sarif.json) land in `build/qodana/results`. See DEVELOPMENT.md > Static Analysis.
+// container). Verify Docker Desktop with `docker --context desktop-linux info`, then run with
+// `DOCKER_CONTEXT=desktop-linux` and the pinned JDK 21 command in DEVELOPMENT.md. Results (incl.
+// qodana.sarif.json) land in `build/qodana/results`.
 qodana {
   // Persist the linter image/cache outside `build/` so `clean` doesn't force a re-pull every run.
   cachePath.set(layout.projectDirectory.dir(".qodana/cache").asFile.absolutePath)

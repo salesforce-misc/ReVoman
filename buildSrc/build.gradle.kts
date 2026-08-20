@@ -39,6 +39,7 @@ dependencies {
   implementation(libs.json.schema.validator)
   testImplementation(gradleTestKit())
   testImplementation(libs.bundles.kotest)
+  testImplementation(libs.snakeyaml)
 }
 
 gradlePlugin {
