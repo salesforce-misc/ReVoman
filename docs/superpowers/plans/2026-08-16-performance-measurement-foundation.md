@@ -83,7 +83,7 @@ Docker Desktop Linux/ARM64, GitHub Actions `ubuntu-24.04-arm`, JFR, and Log4j 3 
 | Gradle freeze | `buildSrc/src/main/kotlin/performance/**`, `revoman.performance-conventions.gradle.kts` | Build benchmark/runner archives and freeze classpath-preserving distributions |
 | Host adapter | `scripts/performance/run`, `config/performance/runtime/**`, `policies/**` | Docker acquisition, lock, Mac observations, watcher, cleanup/restoration, phase handshake |
 | Benchmark | `src/jmh/kotlin/**`, `src/jmh/resources/performance/**`, `src/jmhTest/**` | Sandbox canary plus deterministic V3 real-wire cold/warm scenario |
-| CI/security | `.github/workflows/{build,qodana,performance-campaign}.yml`, `qodana.yaml` | Structural ARM canary, manual hosted diagnostic, least privilege and immutable actions/images |
+| CI/security | `.github/workflows/{build,qodana,performance-campaign}.yml`, `qodana.yaml` | Structural ARM canary, manual sealed hosted canary, least privilege and immutable actions/images |
 | Ownership fix | `FileUtils.kt`, `ReVoman.kt`, JSON/environment/V3 loaders and focused tests | Close library-owned sources; preserve caller-owned streams and cached ZipFS lifetime |
 | Evidence | `docs/superpowers/benchmarks/**` | Reviewed captures, comparisons, campaign reports, and hotspot ranking; never raw JFR |
 
@@ -1623,8 +1623,8 @@ freeze Task 13 until it passes from a clean commit.
 
 - Automatic PR/push lane: GitHub-hosted `ubuntu-24.04-arm` correctness plus structural canary;
   numeric timings are discarded.
-- Explicit `workflow_dispatch` lane: same runtime/protocol campaign, always diagnostic because host
-  hardware is uncontrolled.
+- Explicit `workflow_dispatch` lane: two trusted freezes plus one sealed candidate canary, always
+  diagnostic because host hardware is uncontrolled.
 - Controlled-Mac claim lane remains an explicit local command; this repository does not register
   the everyday Mac as a self-hosted runner or install a polling daemon.
 
@@ -1683,19 +1683,22 @@ cap. Invoke explicitly:
 Upload all sanitized `build/performance` output with `if: always()`, `if-no-files-found: error`, and
 seven-day retention. The canary has no numeric gate.
 
-- [ ] **Step 4: Add the explicit hosted diagnostic workflow**
+- [ ] **Step 4: Add the explicit hosted diagnostic-canary workflow**
 
 Trigger only with `workflow_dispatch`. Give the job a 240-minute timeout. Its first step must test
 `GITHUB_REF == refs/heads/master` and fail otherwise; then checkout/assert trusted master before
-processing inputs. Inputs are lowercase distinct full `baseline_sha`, `candidate_sha`, and
-`profile`. Validate both commits exist and are reachable
+processing inputs. Inputs are lowercase distinct full `baseline_sha` and `candidate_sha`. Validate
+both commits exist and are reachable
 from repository-owned remote branches/tags, excluding pull-request refs. Checkout trusted master
 with full history/no credentials, make detached treatment worktrees, and call only baseline freeze,
-candidate freeze with `--harness-from`, and campaign.
+candidate freeze with `--harness-from`, and one candidate-distribution canary using
+`github-hosted-arm64-canary-v1`. Use the existing `finalize-diagnostic` path; do not run A1/A2/B,
+comparison, or campaign finalization.
 
 Declare `permissions: contents: read`, no secrets/OIDC/schedule/PR target/artifact download/latest
-lookup/promotion. Unset token/credential variables for build and timed child processes. Upload under
-`if: always()`, error if no artifact, retain 30 days, and label all results diagnostic.
+lookup/promotion. Unset token/credential variables for build and timed child processes. Upload the
+sanitized `build/performance` tree under `if: always()`, error if no artifact, retain 30 days, and
+label all results diagnostic/nonclaiming.
 
 - [ ] **Step 5: Split Qodana by trust boundary**
 
@@ -1712,7 +1715,7 @@ and the verified local command using
 `-Dorg.gradle.java.home=/opt/homebrew/Cellar/sdkman-cli/5.19.0/libexec/candidates/java/21.0.11-amzn`.
 State that performance commands need only
 Docker/Git/standard macOS utilities; no native JVM, second VM, password, or privilege. Explain
-automatic structural ARM canary, optional explicit hosted diagnostic, and controlled-Mac-only
+automatic structural ARM canary, optional explicit hosted diagnostic canary, and controlled-Mac-only
 claim. Remove every Colima instruction, including the Qodana comment in `build.gradle.kts`.
 
 - [ ] **Step 7: Activate Kotlin ABI validation and capture the pre-fix surface**
@@ -2390,8 +2393,8 @@ repeat affected tests and invalidate/reacquire measurements when protocol or can
 
 Do not push, open a PR, or dispatch either workflow without a fresh explicit user request. After an
 authorized push, require automatic `ubuntu-24.04-arm` build/canary success and artifact upload. Run
-the manual hosted campaign only when separately requested; label it diagnostic and never compare
-its absolute timings with the Mac campaign.
+the manual hosted canary only when separately requested; discard its numeric timing and never treat
+it as a comparison or Mac-campaign corroboration.
 
 - [ ] **Step 7: Stop at the tranche boundary**
 

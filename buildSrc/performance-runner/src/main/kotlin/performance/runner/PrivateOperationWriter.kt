@@ -62,6 +62,7 @@ internal object PrivateOperationWriter {
         put("candidateDistribution", request.candidate.root.toString())
         set("captures", arrayNode(captures))
         put("performanceSessionId", request.session.performanceSessionId)
+        put("profileFamily", request.profileFamily.family.id)
         flags["--regression-policy"]?.let { path ->
           set("regressionPolicy", CanonicalJson.parseStrict(Files.readAllBytes(Path.of(path))))
         }
@@ -150,6 +151,5 @@ internal object PrivateOperationWriter {
 
   const val CAPTURE_STATE = "capture-provisional.json"
   const val CAMPAIGN_STATE = "campaign-provisional.json"
-  const val QUALIFICATION_STATE = "qualification.json"
   private const val STATE_DIRECTORY = "state"
 }

@@ -129,35 +129,67 @@ class CampaignFinalizerTest :
         ) shouldBe expected
       }
 
-      test("private finalization selects mounted controlled Mac documents before private state") {
+      test("github hosted diagnostic qualification is derived from mounted documents") {
+        val root = Files.createTempDirectory("github-hosted-qualification-").toRealPath()
+        val policy = Sha256.parse("a".repeat(64))
+        val expected = writeQualification(root, policy, Sha256.parse("b".repeat(64)))
+
+        HostQualificationReader.read(
+          root = root,
+          policy = policy,
+          substrate = githubHostedSubstrate(),
+          campaign = false,
+        ) shouldBe
+          QualificationEvidence.GithubHosted(
+            policyHash = policy,
+            setup = expected.preflight,
+            cleanup = expected.restoration,
+            macFieldsInapplicableReason = "githubHosted",
+          )
+      }
+
+      test("github hosted diagnostic rejects missing malformed and mismatched qualification") {
+        val policy = Sha256.parse("a".repeat(64))
+        val missing = Files.createTempDirectory("github-hosted-missing-").toRealPath()
+        val malformed = Files.createTempDirectory("github-hosted-malformed-").toRealPath()
+        Files.writeString(malformed.resolve("preflight.json"), "not-json")
+        val mismatched = Files.createTempDirectory("github-hosted-mismatched-").toRealPath()
+        writeQualification(mismatched, policy, Sha256.parse("b".repeat(64)))
+
+        listOf(
+            missing to policy,
+            malformed to policy,
+            mismatched to Sha256.parse("f".repeat(64)),
+          )
+          .forEach { (root, expectedPolicy) ->
+            shouldThrow<Exception> {
+              HostQualificationReader.read(
+                root = root,
+                policy = expectedPolicy,
+                substrate = githubHostedSubstrate(),
+                campaign = false,
+              )
+            }
+          }
+      }
+
+      test("private campaign finalization selects mounted controlled Mac documents") {
         CampaignFixture.create(listOf(true)).use { fixture ->
           val campaignQualification = fixture.qualification
           val capture = fixture.attempts.single().a1.sealedRoot.resolve("capture.json")
           val method =
             PrivateOperationFinalizer::class.java.getDeclaredMethod(
-              "qualification",
-              Path::class.java,
+              "campaignQualification",
               Path::class.java,
               ProvisionalCaptureDocument::class.java,
-              Boolean::class.javaPrimitiveType,
             )
           method.isAccessible = true
 
           method.invoke(
             PrivateOperationFinalizer,
-            fixture.root.resolve("absent-private-qualification.json"),
             fixture.qualificationRoot,
             provisional(json(capture)),
-            false,
-          ) shouldBe
-            QualificationEvidence.ControlledMacBoundedDiagnostic(
-              policyHash = campaignQualification.policyHash,
-              preflight = campaignQualification.preflight,
-              watcher = campaignQualification.watcher,
-              postflight = campaignQualification.postflight,
-              restoration = campaignQualification.restoration,
-              campaignFieldsInapplicableReason = "standaloneBoundedDiagnostic",
-            )
+          ) shouldBe campaignQualification
         }
       }
 
@@ -199,6 +231,24 @@ class CampaignFinalizerTest :
           verifyRecursiveManifest(output)
           computed.campaignSha256 shouldBe Sha256.digest(campaignBytes)
           computed.manifestSha256 shouldBe Sha256.digest(output.resolve("checksums.sha256"))
+        }
+      }
+
+      test("a passing controlled Mac cold campaign remains canonical") {
+        CampaignFixture.create(listOf(true), profileFamily = "cold").use { fixture ->
+          val output = fixture.root.resolve("controlled-cold-campaign")
+          val computed =
+            fixture.finalizer
+              .compute(fixture.request(output))
+              .shouldBeInstanceOf<CampaignComputationOutcome.Computed>()
+
+          computed.exit shouldBe RunnerExit.SUCCESS
+          val campaign = json(output.resolve("campaign.json"))
+          campaign.text("strength") shouldBe "canonical"
+          campaign.get("claimEligible").asBoolean() shouldBe true
+          listOf("captures/10-a1", "captures/10-a2", "captures/10-b").forEach { relative ->
+            captureDocument(output, relative).objectNode("profile").text("family") shouldBe "cold"
+          }
         }
       }
 
@@ -376,12 +426,14 @@ internal class CampaignFixture private constructor(
   val attempts: List<CampaignAttemptInput>,
   val qualificationRoot: Path,
   val qualification: QualificationEvidence.ControlledMacCampaign,
+  val profileFamily: String,
   val finalizer: CampaignFinalizer,
 ) : AutoCloseable {
   fun request(output: Path): CampaignComputationRequest =
     CampaignComputationRequest(
       campaignId = CAMPAIGN_ID,
       performanceSessionId = SESSION_ID,
+      profileFamily = profileFamily,
       attempts = attempts,
       baselineDistribution = baseline.root,
       candidateDistribution = candidate.root,
@@ -398,7 +450,10 @@ internal class CampaignFixture private constructor(
   }
 
   companion object {
-    fun create(calibrationPasses: List<Boolean>): CampaignFixture {
+    fun create(
+      calibrationPasses: List<Boolean>,
+      profileFamily: String = "warm",
+    ): CampaignFixture {
       val root = Files.createTempDirectory("campaign-finalizer-").toRealPath()
       val baseline = DistributionFixture.create().apply { prepareComparisonProtocol() }
       val candidate =
@@ -415,7 +470,7 @@ internal class CampaignFixture private constructor(
       val attempts =
         calibrationPasses.mapIndexed { index, passes ->
           val forks = listOf(10, 20, 40)[index]
-          val attemptId = "warm-$forks-${index + 1}"
+          val attemptId = "$profileFamily-$forks-${index + 1}"
           fun capture(
             role: CaptureRole,
             distribution: DistributionFixture,
@@ -435,6 +490,7 @@ internal class CampaignFixture private constructor(
               completedAt = Instant.parse("2026-08-18T00:00:00Z").plusSeconds(sequence * 60L),
               target = sealedRoot,
               candidateRole = candidateRole,
+              profileFamily = profileFamily,
             )
             return CampaignCaptureInput(
               role = role,
@@ -471,6 +527,7 @@ internal class CampaignFixture private constructor(
         attempts,
         qualificationRoot,
         qualification,
+        profileFamily,
         finalizer,
       )
     }
@@ -487,6 +544,7 @@ private fun sealDiagnostic(
   completedAt: Instant,
   target: Path,
   candidateRole: Boolean,
+  profileFamily: String,
 ) {
   val source =
     CaptureBundleFixture.create(
@@ -500,11 +558,15 @@ private fun sealDiagnostic(
       captureRunnerSha = "8".repeat(40),
       startedAtUtc = startedAt.toString(),
       completedAtUtc = completedAt.toString(),
-      forkSamples = List(forks) { List(10) { value } },
+      forkSamples =
+        List(forks) {
+          List(if (profileFamily == "cold") 1 else 10) { value }
+        },
+      profileFamily = profileFamily,
   )
   try {
     if (forks != 10) {
-      val profile = json(distribution.root.resolve("protocol/profiles/warm.json"))
+      val profile = json(distribution.root.resolve("protocol/profiles/$profileFamily.json"))
       val variant = profile.array("variants").single { it.get("forks").asInt() == forks }.asObject()
       source.mutateCapture { capture ->
         capture.objectNode("profile").apply {
@@ -727,6 +789,15 @@ private fun receipt(role: CaptureRole, sequence: Long, root: Path): CampaignRece
     sequence,
   )
 }
+
+private fun githubHostedSubstrate(): SubstrateIdentity.GithubHosted =
+  SubstrateIdentity.GithubHosted(
+    runnerLabel = "ubuntu-24.04-arm",
+    runnerImageVersion = "runner-image_v1+rev.2",
+    kernel = "6.11.0",
+    dockerEngineVersion = "29.7.2",
+    advertisedResources = AdvertisedResources(4, 17179869184L),
+  )
 
 private fun writeQualification(
   root: Path,

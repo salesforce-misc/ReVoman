@@ -2703,13 +2703,13 @@ finalizer_source=/operation/provisional
 if [ "$REVOMAN_COMMAND" = freeze ]; then
   finalizer_source=/operation/provisional/distribution
 fi
-if [ "$REVOMAN_COMMAND" = freeze ] || [ "$REVOMAN_COMMAND" = campaign ]; then
+if [ "$REVOMAN_COMMAND" = freeze ]; then
   "$runner" "$REVOMAN_FINALIZER_COMMAND" \
     --source "$finalizer_source" \
     --artifact-parent /artifacts \
     --run-token "$REVOMAN_RUN_TOKEN" \
     --terminal "$runner_status" || finalizer_status=$?
-elif [ "$REVOMAN_PROFILER" = none ]; then
+elif [ "$REVOMAN_COMMAND" = campaign ] || [ "$REVOMAN_PROFILER" = none ]; then
   "$runner" "$REVOMAN_FINALIZER_COMMAND" \
     --source "$finalizer_source" \
     --artifact-parent /artifacts \

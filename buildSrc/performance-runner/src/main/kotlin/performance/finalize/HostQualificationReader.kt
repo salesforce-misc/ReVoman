@@ -26,7 +26,6 @@ internal object HostQualificationReader {
     substrate: SubstrateIdentity,
     campaign: Boolean,
   ): QualificationEvidence {
-    require(substrate is SubstrateIdentity.ControlledMac)
     require(
       root.isAbsolute &&
         root == root.toAbsolutePath().normalize() &&
@@ -42,24 +41,36 @@ internal object HostQualificationReader {
         .get("cleanupPassed")
         .asBoolean(),
     )
-    return if (campaign) {
-      QualificationEvidence.ControlledMacCampaign(
-        policy,
-        preflight,
-        watcher,
-        postflight,
-        restoration,
-        true,
-      )
-    } else {
-      QualificationEvidence.ControlledMacBoundedDiagnostic(
-        policy,
-        preflight,
-        watcher,
-        postflight,
-        restoration,
-        "standaloneBoundedDiagnostic",
-      )
+    return when (substrate) {
+      is SubstrateIdentity.ControlledMac ->
+        if (campaign) {
+          QualificationEvidence.ControlledMacCampaign(
+            policy,
+            preflight,
+            watcher,
+            postflight,
+            restoration,
+            true,
+          )
+        } else {
+          QualificationEvidence.ControlledMacBoundedDiagnostic(
+            policy,
+            preflight,
+            watcher,
+            postflight,
+            restoration,
+            "standaloneBoundedDiagnostic",
+          )
+        }
+      is SubstrateIdentity.GithubHosted -> {
+        require(!campaign)
+        QualificationEvidence.GithubHosted(
+          policy,
+          preflight,
+          restoration,
+          "githubHosted",
+        )
+      }
     }
   }
 

@@ -17,14 +17,10 @@ import performance.campaign.ReceiptFileFact
 import performance.compare.RegressionPolicy
 import performance.hash.Sha256
 import performance.json.CanonicalJson
-import performance.model.HostDocumentRef
 import performance.model.ProvisionalCaptureDocument
 import performance.model.QualificationEvidence
 import performance.runner.PrivateOperationWriter
 import performance.runner.RunnerExit
-import performance.schema.EvidenceSchemaValidator
-import performance.schema.SchemaKind
-import tools.jackson.databind.JsonNode
 import tools.jackson.databind.node.ArrayNode
 import tools.jackson.databind.node.ObjectNode
 
@@ -44,10 +40,10 @@ internal object PrivateOperationFinalizer {
       val provisional =
         CaptureDocumentCodec.decode(readCanonical(stateRoot.resolve(PrivateOperationWriter.CAPTURE_STATE)))
       val qualification =
-        qualification(
-          stateRoot.resolve(PrivateOperationWriter.QUALIFICATION_STATE),
-          qualificationRoot,
-          provisional,
+        HostQualificationReader.read(
+          root = qualificationRoot,
+          policy = provisional.protocol.qualificationPolicySha256,
+          substrate = provisional.runtime.substrate,
           campaign = false,
         )
       val sealed = temp.resolve("sealed-capture")
@@ -83,13 +79,7 @@ internal object PrivateOperationFinalizer {
           CaptureDocumentCodec.decode(readCanonical(stateRoot.resolve(capture.documentFile)))
         }
       val first = documents.values.first()
-      val campaignQualification =
-        qualification(
-          stateRoot.resolve(PrivateOperationWriter.QUALIFICATION_STATE),
-          qualificationRoot,
-          first,
-          campaign = true,
-        ) as QualificationEvidence.ControlledMacCampaign
+      val campaignQualification = campaignQualification(qualificationRoot, first)
       val diagnosticQualification =
         QualificationEvidence.ControlledMacBoundedDiagnostic(
           campaignQualification.policyHash,
@@ -133,6 +123,7 @@ internal object PrivateOperationFinalizer {
             CampaignComputationRequest(
               campaignId = state.campaignId,
               performanceSessionId = state.performanceSessionId,
+              profileFamily = state.profileFamily,
               attempts = attempts,
               baselineDistribution = state.baselineDistribution,
               candidateDistribution = state.candidateDistribution,
@@ -159,113 +150,16 @@ internal object PrivateOperationFinalizer {
     }
   }
 
-  private fun qualification(
-    statePath: Path,
+  private fun campaignQualification(
     root: Path,
     provisional: ProvisionalCaptureDocument,
-    campaign: Boolean,
-  ): QualificationEvidence {
-    if (provisional.runtime.substrate is performance.model.SubstrateIdentity.ControlledMac) {
-      return HostQualificationReader.read(
-        root,
-        provisional.protocol.qualificationPolicySha256,
-        provisional.runtime.substrate,
-        campaign,
-      )
-    }
-    require(safeDirectory(root))
-    val document = CanonicalJson.parseStrict(readCanonical(statePath)).asObject()
-    require(document.text("schemaVersion") == "private-host-qualification-v1")
-    val policy = document.sha("policyHash")
-    require(policy == provisional.protocol.qualificationPolicySha256)
-    val kind = document.text("kind")
-    if (kind == "githubHosted") {
-      require(!campaign)
-      require(
-        document.properties().map { it.key }.toSet() ==
-          setOf(
-            "cleanup",
-            "kind",
-            "macFieldsInapplicableReason",
-            "policyHash",
-            "schemaVersion",
-            "setup",
-          ),
-      )
-      require(document.text("macFieldsInapplicableReason") == "githubHosted")
-      return QualificationEvidence.GithubHosted(
-        policy,
-        hostRef(root, document.objectNode("setup")),
-        hostRef(root, document.objectNode("cleanup")),
-        "githubHosted",
-      )
-    }
-    require(kind == if (campaign) "controlledMacCampaign" else "controlledMacBoundedDiagnostic")
-    require(
-      document.properties().map { it.key }.toSet() ==
-        setOf(
-          "cleanupPassed",
-          "kind",
-          "policyHash",
-          "postflight",
-          "preflight",
-          "restoration",
-          "schemaVersion",
-          "watcher",
-        ),
-    )
-    val preflight = hostRef(root, document.objectNode("preflight"), SchemaKind.PREFLIGHT, policy)
-    val watcher = hostRef(root, document.objectNode("watcher"), SchemaKind.WATCHER, policy)
-    val postflight = hostRef(root, document.objectNode("postflight"), SchemaKind.POSTFLIGHT, policy)
-    val restoration = hostRef(root, document.objectNode("restoration"), SchemaKind.RESTORATION, policy)
-    require(document.get("cleanupPassed").asBoolean())
-    return if (campaign) {
-      QualificationEvidence.ControlledMacCampaign(policy, preflight, watcher, postflight, restoration, true)
-    } else {
-      QualificationEvidence.ControlledMacBoundedDiagnostic(
-        policy,
-        preflight,
-        watcher,
-        postflight,
-        restoration,
-        "standaloneBoundedDiagnostic",
-      )
-    }
-  }
-
-  private fun hostRef(
-    root: Path,
-    ref: ObjectNode,
-    schema: SchemaKind,
-    policy: Sha256,
-  ): HostDocumentRef {
-    require(ref.properties().map { it.key }.toSet() == setOf("path", "sha256"))
-    val relative = Path.of(ref.text("path"))
-    require(!relative.isAbsolute && relative.normalize() == relative && relative.nameCount > 0)
-    val path = root.resolve(relative).normalize()
-    require(path.startsWith(root) && Files.isRegularFile(path, NOFOLLOW_LINKS) && !Files.isSymbolicLink(path))
-    val bytes = readCanonical(path)
-    require(EvidenceSchemaValidator().validate(schema, bytes).isEmpty())
-    require(CanonicalJson.parseStrict(bytes).get("policySha256").asString() == policy.hex)
-    val sha256 = ref.sha("sha256")
-    require(Sha256.digest(bytes) == sha256)
-    return HostDocumentRef(relative.joinToString("/"), sha256)
-  }
-
-  private fun hostRef(
-    root: Path,
-    ref: ObjectNode,
-  ): HostDocumentRef {
-    require(ref.properties().map { it.key }.toSet() == setOf("path", "sha256"))
-    val relative = Path.of(ref.text("path"))
-    require(!relative.isAbsolute && relative.normalize() == relative && relative.nameCount > 0)
-    val path = root.resolve(relative).normalize()
-    require(path.startsWith(root) && Files.isRegularFile(path, NOFOLLOW_LINKS) && !Files.isSymbolicLink(path))
-    val bytes = readCanonical(path)
-    val sha256 = ref.sha("sha256")
-    require(Sha256.digest(bytes) == sha256)
-    return HostDocumentRef(relative.joinToString("/"), sha256)
-  }
+  ): QualificationEvidence.ControlledMacCampaign =
+    HostQualificationReader.read(
+      root = root,
+      policy = provisional.protocol.qualificationPolicySha256,
+      substrate = provisional.runtime.substrate,
+      campaign = true,
+    ) as QualificationEvidence.ControlledMacCampaign
 
   private fun campaignState(root: Path): PrivateCampaignState {
     require(safeDirectory(root))
@@ -275,6 +169,7 @@ internal object PrivateOperationFinalizer {
     return PrivateCampaignState(
       campaignId = document.text("campaignId"),
       performanceSessionId = document.text("performanceSessionId"),
+      profileFamily = document.text("profileFamily"),
       baselineDistribution = Path.of(document.text("baselineDistribution")),
       candidateDistribution = Path.of(document.text("candidateDistribution")),
       regressionPolicy = policy,
@@ -359,6 +254,7 @@ internal object PrivateOperationFinalizer {
 private data class PrivateCampaignState(
   val campaignId: String,
   val performanceSessionId: String,
+  val profileFamily: String,
   val baselineDistribution: Path,
   val candidateDistribution: Path,
   val regressionPolicy: RegressionPolicy?,

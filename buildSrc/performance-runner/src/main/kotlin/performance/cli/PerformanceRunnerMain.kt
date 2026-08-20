@@ -193,8 +193,17 @@ private fun parseCommand(args: List<String>): CommandParseResult =
     "finalize-campaign" ->
       parseKnownCommand(
         arguments = args.drop(1),
-        allowedFlags = setOf("--source", "--artifact-parent", "--run-token", "--terminal"),
+        allowedFlags =
+          setOf(
+            "--source",
+            "--artifact-parent",
+            "--run-token",
+            "--terminal",
+            "--operation-state",
+            "--qualification-root",
+          ),
         requiredFlags = setOf("--source", "--artifact-parent", "--run-token", "--terminal"),
+        allOrNoneFlags = setOf("--operation-state", "--qualification-root"),
         create = RunnerCommand::FinalizeCampaign,
       )
 

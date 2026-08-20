@@ -226,16 +226,18 @@ the frozen policy.
 - Automatic CI uses GitHub-hosted `ubuntu-24.04-arm` for correctness and the structural canary,
   uploads sanitized diagnostics unconditionally, discards numeric timing, and has a 90-minute job
   bound.
-- The full hosted diagnostic is `workflow_dispatch` only, has a 240-minute bound, and must fail in
+- The manual hosted diagnostic is `workflow_dispatch` only, has a 240-minute bound, and must fail in
   its first step unless it is running the exact trusted `master` ref with full reachable baseline
-  and candidate SHAs. It must reject PR refs and never use `pull_request_target`.
+  and candidate SHAs. It freezes both, runs exactly one sealed canary against the candidate through
+  `finalize-diagnostic`, rejects PR refs, and never runs a hosted campaign or uses
+  `pull_request_target`.
 - Every changed workflow sets explicit least-privilege permissions. Checkout is credentialless with
   `persist-credentials: false`; benchmark build/timed containers receive no GitHub token, secret,
   OIDC credential, Docker socket, or home mount.
 - Action references are reviewed full commit SHAs. Qodana's OCI index and selected platform child
   are immutable digests. PR Qodana is secretless and read-only; a trusted `master` push scopes the
   Cloud token to the scan step and grants only the required SARIF permission.
-- Neither automatic CI nor the manual hosted diagnostic may publish a Mac performance claim.
+- Neither automatic CI nor the manual hosted canary may publish a Mac performance claim.
 
 ## 6. Recommended orchestration model
 

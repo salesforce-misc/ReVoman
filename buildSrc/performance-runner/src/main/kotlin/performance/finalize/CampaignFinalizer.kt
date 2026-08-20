@@ -44,6 +44,7 @@ internal data class CampaignAttemptInput(
 internal data class CampaignComputationRequest(
   val campaignId: String,
   val performanceSessionId: String,
+  val profileFamily: String,
   val attempts: List<CampaignAttemptInput>,
   val baselineDistribution: Path,
   val candidateDistribution: Path,

@@ -1052,8 +1052,8 @@ The claim is explicitly profile-scoped:
 > A/A-qualified campaign.
 
 The report must not generalize that number to native macOS, GitHub-hosted ARM, x86_64, production
-machines, or another session. A separately valid hosted diagnostic may be cited only as directional
-corroboration with its own ratio and interval.
+machines, or another session. A separately valid hosted structural canary may be cited only as
+packaging and protocol diagnostic evidence; its numeric timing is discarded.
 
 ### Outcomes
 
@@ -1215,17 +1215,16 @@ the complete sanitized `build/performance` directory with an unconditional `if: 
 task failure. Numeric scores from this artifact are never compared or gated.
 
 A separate `workflow_dispatch`-only diagnostic workflow accepts explicit full baseline and
-candidate SHAs and one profile. In one standard `ubuntu-24.04-arm` job it checks out a trusted
-capture-runner plus the two treatment worktrees, freezes the baseline, freezes the candidate with
-`--harness-from` that baseline, then runs A1, A2, B, validation, comparison, and publication using
-the same runtime-image digest. It is optional corroboration: hosted hardware is not the controlled
-M4, so its numeric result is labeled diagnostic and never gates a merge or substantiates the scoped
-claim.
+candidate SHAs. In one standard `ubuntu-24.04-arm` job it checks out a trusted capture-runner plus
+the two treatment worktrees, freezes the baseline, freezes the candidate with `--harness-from` that
+baseline, then runs exactly one sealed structural canary against the candidate distribution using
+the same runtime-image digest and `finalize-diagnostic` path. It never runs hosted A1/A2/B,
+comparison, or campaign finalization; numeric timing is discarded and cannot substantiate a claim.
 The workflow independently declares `permissions: contents: read`, checks out with
 `persist-credentials: false`, receives no secrets or OIDC permission, requires both SHAs to be
 reachable from repository-owned refs, and removes the GitHub token and credentials from build and
 timed-container environments. Its action references are full commit SHAs, and its sanitized
-diagnostic bundle is retained for at most 90 days.
+diagnostic bundle is retained for 30 days.
 There is no scheduled, post-merge, `pull_request_target`, cross-run-latest-artifact, or automatic
 baseline-promotion path in V1.
 
@@ -1300,7 +1299,7 @@ The first implementation session follows this checkpoint sequence:
 8. Implement the breaking ownership cleanup and make the tests pass.
 9. Freeze the candidate distribution; in one controlled Mac/Docker session run baseline A1,
    baseline A2, then candidate B; compare B explicitly with A2 and publish all evidence bundles.
-10. Run the optional manual GitHub ARM diagnostic only as corroboration, then use frozen warm
+10. Run the optional manual GitHub ARM sealed canary only for packaging/protocol diagnosis, then use frozen warm
     `--diagnostic-profiler gc` and `--diagnostic-profiler jfr` captures to profile/rank only the
     remaining audited hotspots exercised by the primary workload. Record the others as `UNMEASURED`
     with the exact future diagnostic each would need, and recommend at most one next optimization.
@@ -1358,7 +1357,7 @@ The tranche is complete only when:
 16. The Mac adapter proves explicit `desktop-linux` selection, offline timed execution,
     container-local inputs, deterministic cleanup, and restoration of only allowlisted state.
 17. Automatic GitHub CI uploads the structural canary while discarding numeric timing, and the
-    optional full hosted campaign is explicit and labeled diagnostic.
+    optional manual hosted lane runs one sealed diagnostic canary with no campaign or comparison.
 18. No persistent self-hosted runner, polling daemon, temporary x86 host, or future VM is required
     to reproduce a claim-bearing campaign on the controlled Mac.
 19. Qodana documentation and build guidance no longer require Colima, and the verified Docker
@@ -1486,8 +1485,8 @@ or trusted local puller would require a separate security design.
 - `.github/workflows/qodana.yml` — mutable action refs and overbroad secret/write-permission scope
   to harden by event.
 - `qodana.yaml` — mutable linter tag to replace with the reviewed immutable OCI index reference.
-- `.github/workflows/performance-campaign.yml` — proposed explicit GitHub ARM diagnostic adapter;
-  never a claim-bearing hosted lane.
+- `.github/workflows/performance-campaign.yml` — proposed explicit GitHub ARM sealed-canary adapter;
+  never a hosted campaign or claim-bearing lane.
 - `config/performance/runtime/*.json` — proposed runtime-image, Docker, substrate, and security
   profile declarations.
 - `scripts/performance/run` — proposed thin Docker/Mac adapter; no measurement or comparison logic.

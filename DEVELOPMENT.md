@@ -83,8 +83,9 @@ no host-native JVM, no second VM, no password, and no privilege escalation.
 - The automatic `ubuntu-24.04-arm` structural canary proves packaging and protocol correctness;
   its numeric timing is diagnostic and discarded.
 - `.github/workflows/performance-campaign.yml` is an optional explicit `workflow_dispatch` lane.
-  It accepts trusted repository commits, produces hosted diagnostic evidence, and cannot create a
-  claim-bearing Mac result.
+  It accepts trusted distinct baseline/candidate commits, freezes both, and runs one sealed
+  diagnostic canary against the candidate distribution. It performs no hosted campaign or
+  comparison and cannot create a claim-bearing result.
 - A claim-bearing campaign is an explicit local command on the controlled Mac, for example:
 
   ```bash

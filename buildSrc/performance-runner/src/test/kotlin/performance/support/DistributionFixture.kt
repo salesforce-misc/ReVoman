@@ -251,7 +251,12 @@ internal class DistributionFixture private constructor(
     )
     replaceFile(
       "protocol/profiles/cold.json",
-      operationColdProfile(),
+      operationProfile("cold"),
+      refreshBindings = true,
+    )
+    replaceFile(
+      "protocol/profiles/warm.json",
+      operationProfile("warm"),
       refreshBindings = true,
     )
     replaceFile(
@@ -414,6 +419,11 @@ internal class DistributionFixture private constructor(
     const val EXPECTED_BENCHMARK = "example.Benchmark.measure"
     const val COMPARISON_BENCHMARK =
       "com.salesforce.revoman.benchmark.RevUpV3WarmBenchmark.revUp"
+
+    private const val JFR_PROFILER_ARGUMENT =
+      "jfr:dir={operationRoot};configName=profile;debugNonSafePoints=true;stackDepth=1024;postProcessor=com.salesforce.revoman.benchmark.JfrForkAccumulator;verbose=false"
+    private const val JFR_PROFILER_SETTINGS_SHA256 =
+      "d7b6a8ae78de246372b559f4f838a0a3259c864f10560a26d69a678e34b93d04"
 
     private const val SHA =
       "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
@@ -675,10 +685,10 @@ internal class DistributionFixture private constructor(
           "families",
           JsonNodeFactory.instance.objectNode().apply {
             set("canary", JsonNodeFactory.instance.arrayNode())
-            set("cold", JsonNodeFactory.instance.arrayNode())
-            set(
-              "warm",
-              JsonNodeFactory.instance.arrayNode().apply {
+            listOf("cold", "warm").forEach { family ->
+              set(
+                family,
+                JsonNodeFactory.instance.arrayNode().apply {
                 add(
                   JsonNodeFactory.instance.objectNode().apply {
                     put("benchmark", COMPARISON_BENCHMARK)
@@ -696,8 +706,9 @@ internal class DistributionFixture private constructor(
                     },
                   )
                 }
-              },
-            )
+                },
+              )
+            }
           },
         )
       },
@@ -730,15 +741,16 @@ internal class DistributionFixture private constructor(
       },
     )
 
-  private fun operationColdProfile(): ByteArray =
+  private fun operationProfile(family: String): ByteArray =
     CanonicalJson.encode(
       JsonNodeFactory.instance.objectNode().apply {
+        require(family == "cold" || family == "warm")
         put(
           "\$schema",
           "https://revoman.dev/performance/protocol/schemas/capture-profile-family-v1.schema.json",
         )
         put("batchSize", 1)
-        put("family", "cold")
+        put("family", family)
         set(
           "jvmArguments",
           JsonNodeFactory.instance.arrayNode().apply {
@@ -759,17 +771,32 @@ internal class DistributionFixture private constructor(
           "variants",
           JsonNodeFactory.instance.arrayNode().apply {
             listOf(10, 20, 40).forEach { forks ->
-              add(
-                JsonNodeFactory.instance.objectNode().apply {
-                  put("forks", forks)
-                  put("identity", "cold-$forks-none-v1")
-                  put("measurementIterations", 1)
-                  put("profiler", "none")
-                  set("profilerArguments", JsonNodeFactory.instance.arrayNode())
-                  putNull("profilerSettingsSha256")
-                  put("warmupIterations", 0)
-                },
-              )
+              val profilers = if (family == "cold") listOf("none") else listOf("none", "gc", "jfr")
+              profilers.forEach { profiler ->
+                add(
+                  JsonNodeFactory.instance.objectNode().apply {
+                    put("forks", forks)
+                    put("identity", "$family-$forks-$profiler-v1")
+                    put("measurementIterations", if (family == "cold") 1 else 10)
+                    put("profiler", profiler)
+                    set(
+                      "profilerArguments",
+                      JsonNodeFactory.instance.arrayNode().apply {
+                        when (profiler) {
+                          "gc" -> add("gc")
+                          "jfr" -> add(JFR_PROFILER_ARGUMENT)
+                        }
+                      },
+                    )
+                    if (profiler == "jfr") {
+                      put("profilerSettingsSha256", JFR_PROFILER_SETTINGS_SHA256)
+                    } else {
+                      putNull("profilerSettingsSha256")
+                    }
+                    put("warmupIterations", if (family == "cold") 0 else 5)
+                  },
+                )
+              }
             }
           },
         )
@@ -815,14 +842,14 @@ internal class DistributionFixture private constructor(
         set(
           "variants",
           JsonNodeFactory.instance.arrayNode().apply {
-            if (family == "warm") {
+            if (family in setOf("cold", "warm")) {
               listOf(10, 20, 40).forEach { forks ->
                 add(
                   JsonNodeFactory.instance.objectNode().apply {
-                    put("identity", "warm-$forks-none-v1")
+                    put("identity", "$family-$forks-none-v1")
                     put("forks", forks)
-                    put("warmupIterations", 5)
-                    put("measurementIterations", 10)
+                    put("warmupIterations", if (family == "cold") 0 else 5)
+                    put("measurementIterations", if (family == "cold") 1 else 10)
                     put("profiler", "none")
                   },
                 )

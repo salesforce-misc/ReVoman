@@ -94,6 +94,7 @@ internal object CampaignValidator {
     runCatching {
         require(verifications.all { it.failures.isEmpty() && it.projection != null })
         require(safeId(request.campaignId) && safeId(request.performanceSessionId))
+        require(request.profileFamily in setOf("cold", "warm"))
         require(request.attempts.isNotEmpty() && request.attempts.size <= FORKS.size)
         require(request.attempts.map(CampaignAttemptInput::forks) == FORKS.take(request.attempts.size))
         require(request.attempts.map(CampaignAttemptInput::attemptId).all(::safeId))
@@ -133,7 +134,10 @@ internal object CampaignValidator {
         val recalculated = ordered.map { attempt ->
           require(attempt.a1.profile.forks == attempt.input.forks)
           require(attempt.a2.profile.forks == attempt.input.forks)
-          require(attempt.a1.profile.family == "warm" && attempt.a2.profile.family == "warm")
+          require(
+            attempt.a1.profile.family == request.profileFamily &&
+              attempt.a2.profile.family == request.profileFamily
+          )
           require(attempt.a1.identity.sessionSequence + 1 == attempt.a2.identity.sessionSequence)
           validateCaptureInput(attempt.input.a1, CaptureRole.BASELINE_A1, attempt.a1, baseline)
           validateCaptureInput(attempt.input.a2, CaptureRole.BASELINE_A2, attempt.a2, baseline)
@@ -152,7 +156,10 @@ internal object CampaignValidator {
           if (passed) {
             val b = requireNotNull(attempt.b)
             val bInput = requireNotNull(attempt.input.b)
-            require(b.profile.forks == attempt.input.forks && b.profile.family == "warm")
+            require(
+              b.profile.forks == attempt.input.forks &&
+                b.profile.family == request.profileFamily
+            )
             require(attempt.a2.identity.sessionSequence + 1 == b.identity.sessionSequence)
             validateCaptureInput(bInput, CaptureRole.CANDIDATE_B, b, candidate)
             validateCandidateDistribution(b, candidate)

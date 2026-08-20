@@ -144,6 +144,7 @@ internal class CaptureBundleFixture private constructor(
       freezerSha: String? = null,
       captureRunnerSha: String = "4".repeat(40),
       profiler: String = "none",
+      profileFamily: String = "warm",
       startedAtUtc: String = "2026-08-17T00:00:00Z",
       completedAtUtc: String = "2026-08-17T00:01:00Z",
       forkSamples: List<List<Double>> = List(10) { List(10) { 10.0 } },
@@ -153,9 +154,10 @@ internal class CaptureBundleFixture private constructor(
       val classpath = distribution.jsonObject(DistributionFixture.CLASSPATH_MANIFEST)
       val protocol = distribution.jsonObject(DistributionFixture.PROTOCOL_MANIFEST)
       val provenance = distribution.jsonObject(DistributionFixture.PROVENANCE_MANIFEST)
-      val warmProfile = distribution.jsonObject("protocol/profiles/warm.json")
-      val variant = warmProfile.get("variants").asArray().get(0).asObject()
-      val policySha = protocol.binding("qualificationPolicies", "protocol/qualification/m4max-docker.json")
+      val profile = distribution.jsonObject("protocol/profiles/$profileFamily.json")
+      val variant = profile.get("variants").asArray().get(0).asObject()
+      val policySha =
+        protocol.binding("qualificationPolicies", "protocol/qualification/m4max-docker.json")
       val comparatorSha = protocol.comparatorImplementationAggregate()
       val rendererSha = protocol.source("ComparisonRenderer.kt")
       val benchmarkSourceSha = protocol.benchmarkSourceAggregate()
@@ -174,7 +176,7 @@ internal class CaptureBundleFixture private constructor(
           .jsonObject("protocol/expected-cells.json")
           .get("families")
           .asObject()
-          .get("warm")
+          .get(profileFamily)
           .asArray()
           .values()
           .asSequence()
@@ -185,7 +187,12 @@ internal class CaptureBundleFixture private constructor(
           .toList()
       val rows =
         cellSpecs.map { (benchmark, parameters) ->
-          jmhRow(benchmark, parameters, forkSamples)
+          jmhRow(
+            benchmark,
+            parameters,
+            forkSamples,
+            variant.get("warmupIterations").asInt(),
+          )
         }
       val document = validCaptureDocument()
       document.get("identity").asObject().apply {
@@ -308,7 +315,7 @@ internal class CaptureBundleFixture private constructor(
       }
       document.get("qualification").asObject().put("policyHash", policySha.hex)
       document.get("profile").asObject().apply {
-        put("family", "warm")
+        put("family", profileFamily)
         put("identity", variant.get("identity").asString())
         put("variantSha256", Sha256.digest(CanonicalJson.encode(variant)).hex)
         put("forks", variant.get("forks").asInt())
@@ -342,6 +349,7 @@ internal class CaptureBundleFixture private constructor(
       benchmark: String,
       parameters: ObjectNode,
       forkSamples: List<List<Double>>,
+      warmupIterations: Int,
     ): ObjectNode =
       JsonNodeFactory.instance.objectNode().apply {
         put("benchmark", benchmark)
@@ -371,7 +379,7 @@ internal class CaptureBundleFixture private constructor(
         set("secondaryMetrics", JsonNodeFactory.instance.objectNode())
         put("threads", 1)
         put("warmupBatchSize", 1)
-        put("warmupIterations", 5)
+        put("warmupIterations", warmupIterations)
       }
 
     private fun captureCell(

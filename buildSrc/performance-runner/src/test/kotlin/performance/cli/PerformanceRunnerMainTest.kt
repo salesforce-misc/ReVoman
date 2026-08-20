@@ -132,6 +132,44 @@ class PerformanceRunnerMainTest :
         observed shouldBe RunnerCommand.FinalizeDiagnostic(arguments.drop(1))
       }
 
+      test("finalize-campaign delegates only a complete private state and qualification handshake") {
+        var observed: RunnerCommand? = null
+        val dependencies =
+          RunnerDependencies.forTest(
+            writeStandardError = {},
+            executeCommand = { command ->
+              observed = command
+              RunnerOutcome(RunnerExit.SUCCESS, null)
+            },
+          )
+        val arguments =
+          listOf(
+            "finalize-campaign",
+            "--source",
+            "/operation/provisional",
+            "--artifact-parent",
+            "/artifacts",
+            "--run-token",
+            "campaign-1",
+            "--terminal",
+            "0",
+            "--operation-state",
+            "/operation/state",
+            "--qualification-root",
+            "/qualification",
+          )
+
+        runMain(arguments, dependencies) shouldBe RunnerExit.SUCCESS.code
+        observed shouldBe RunnerCommand.FinalizeCampaign(arguments.drop(1))
+
+        listOf("--operation-state", "--qualification-root").forEach { retained ->
+          observed = null
+          val partial = arguments.filterNot { it == retained || it == arguments[arguments.indexOf(retained) + 1] }
+          runMain(partial, dependencies) shouldBe RunnerExit.INPUT_OR_PREFLIGHT_INVALID.code
+          observed shouldBe null
+        }
+      }
+
       mapOf(
         "unknown flags" to listOf("capture", "--private-token", "do-not-print-this"),
         "duplicate flags" to listOf("capture", "--profile", "cold", "--profile", "warm"),

@@ -11,13 +11,6 @@ on:
         description: 'Distinct full lowercase candidate commit SHA reachable from a repository branch or tag'
         required: true
         type: string
-      profile:
-        description: 'Frozen diagnostic profile'
-        required: true
-        type: choice
-        options:
-          - cold
-          - warm
 
 permissions:
   contents: read
@@ -45,18 +38,16 @@ jobs:
             '+refs/tags/*:refs/tags/*'
           test "$(git rev-parse HEAD)" = "$(git rev-parse refs/remotes/origin/master)"
 
-      - name: 'Validate inputs and run diagnostic campaign'
+      - name: 'Validate inputs and run diagnostic canary'
         shell: bash
         env:
           BASELINE_SHA: ${{ inputs.baseline_sha }}
           CANDIDATE_SHA: ${{ inputs.candidate_sha }}
-          PROFILE: ${{ inputs.profile }}
         run: |
           set -euo pipefail
           [[ "$BASELINE_SHA" =~ ^[0-9a-f]{40}$ ]]
           [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
           [[ "$BASELINE_SHA" != "$CANDIDATE_SHA" ]]
-          [[ "$PROFILE" == "cold" || "$PROFILE" == "warm" ]]
 
           reachable_from_owned_ref() {
             local commit="$1"
@@ -91,18 +82,16 @@ jobs:
             --treatment-source "$candidate_source" \
             --harness-from build/performance/baseline \
             --output build/performance/candidate
-          without_credentials ./scripts/performance/run campaign \
-            --profile "$PROFILE" \
-            --host-id github-hosted-arm64-diagnostic-v1 \
-            --baseline-distribution build/performance/baseline \
-            --candidate-distribution build/performance/candidate \
-            --output build/performance/campaign
+          without_credentials ./scripts/performance/run canary \
+            --host-id github-hosted-arm64-canary-v1 \
+            --distribution build/performance/candidate \
+            --output build/performance/canary
 
-      - name: 'Upload hosted diagnostic evidence'
+      - name: 'Upload hosted canary diagnostic evidence'
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: hosted-performance-diagnostic
+          name: hosted-performance-canary-diagnostic
           path: build/performance
           if-no-files-found: error
           retention-days: 30

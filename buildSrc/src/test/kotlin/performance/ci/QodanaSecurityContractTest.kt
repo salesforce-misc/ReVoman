@@ -7,6 +7,7 @@
  */
 package performance.ci
 
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.maps.shouldContainExactly
@@ -106,14 +107,30 @@ class QodanaSecurityContractTest :
         workflow.requiredMap("jobs").values.forEach { value ->
           val steps = value.requiredYamlMap("Qodana job").requiredSteps()
           val verification = steps.named("Verify immutable Qodana image")
-          normalizeShell(verification.requiredString("run")).apply {
-            this shouldContain QODANA_INDEX
-            this shouldContain QODANA_AMD64_CHILD
-            this shouldContain QODANA_ARM64_CHILD
-            this shouldContain "docker buildx imagetools inspect"
-            this shouldContain "--raw"
-          }
+          assertQodanaPlatformSelection(normalizeShell(verification.requiredString("run")))
         }
+      }
+
+      test("Qodana platform verification rejects selected-child equality mutations") {
+        val source = java.nio.file.Files.readString(repositoryPath(".github/workflows/qodana.yml"))
+        mapOf(
+            "removed" to "test -n \"${'$'}actual\"",
+            "inverted" to "test \"${'$'}actual\" != \"${'$'}expected\"",
+          )
+          .forEach { (_, replacement) ->
+            val mutated = source.replace("test \"${'$'}actual\" = \"${'$'}expected\"", replacement)
+            (mutated == source) shouldBe false
+            parseYaml(mutated).requiredMap("jobs").values.forEach { value ->
+              val verification =
+                value
+                  .requiredYamlMap("Qodana job")
+                  .requiredSteps()
+                  .named("Verify immutable Qodana image")
+              shouldThrow<AssertionError> {
+                assertQodanaPlatformSelection(normalizeShell(verification.requiredString("run")))
+              }
+            }
+          }
       }
     }
   )
@@ -130,6 +147,15 @@ private fun assertQodanaImageVerificationPrecedesScan(steps: List<YamlMap>) {
   val scanIndex = steps.indexOfFirst { it["uses"] == QODANA_ACTION }
   (verificationIndex >= 0) shouldBe true
   (scanIndex > verificationIndex) shouldBe true
+}
+
+private fun assertQodanaPlatformSelection(script: String) {
+  script shouldContain QODANA_INDEX
+  script shouldContain QODANA_AMD64_CHILD
+  script shouldContain QODANA_ARM64_CHILD
+  script shouldContain "docker buildx imagetools inspect"
+  script shouldContain "--raw"
+  script shouldContain "test \"${'$'}actual\" = \"${'$'}expected\""
 }
 
 private fun assertLockedDownQodanaInputs(inputs: YamlMap, expectedPrMode: Boolean) {

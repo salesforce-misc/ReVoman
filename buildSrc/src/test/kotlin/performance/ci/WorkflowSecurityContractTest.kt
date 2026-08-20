@@ -13,6 +13,7 @@ import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.maps.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
 import java.nio.file.Files
 import java.nio.file.Path
 import org.yaml.snakeyaml.DumperOptions
@@ -124,24 +125,18 @@ class WorkflowSecurityContractTest :
         assertPerformancePolicyIsNotDuplicated(workflow)
       }
 
-      test("manual hosted performance stays trusted-master dispatch-only diagnostic execution") {
+      test("manual hosted performance runs exactly one trusted diagnostic canary") {
         val workflow = loadYaml(".github/workflows/performance-campaign.yml")
         val events = workflow.requiredMap("on")
         events.keys shouldBe setOf("workflow_dispatch")
         val inputs = events.requiredMap("workflow_dispatch").requiredMap("inputs")
-        inputs.keys shouldContainExactlyInAnyOrder
-          setOf("baseline_sha", "candidate_sha", "profile")
+        inputs.keys shouldContainExactlyInAnyOrder setOf("baseline_sha", "candidate_sha")
         listOf("baseline_sha", "candidate_sha").forEach { inputName ->
           inputs.requiredMap(inputName).apply {
             requiredBoolean("required") shouldBe true
             requiredString("type") shouldBe "string"
           }
         }
-        inputs.requiredMap("profile").apply {
-          requiredBoolean("required") shouldBe true
-          requiredString("type") shouldBe "choice"
-        }
-        inputs.requiredMap("profile").requiredList("options") shouldBe listOf("cold", "warm")
         workflow.requiredMap("permissions") shouldContainExactly mapOf("contents" to "read")
 
         val jobs = workflow.requiredMap("jobs")
@@ -171,14 +166,14 @@ class WorkflowSecurityContractTest :
           this shouldContain "git rev-parse refs/remotes/origin/master"
         }
 
-        val campaign = steps.named("Validate inputs and run diagnostic campaign")
-        campaign.requiredMap("env") shouldContainExactly
+        val canary = steps.named("Validate inputs and run diagnostic canary")
+        canary.requiredMap("env") shouldContainExactly
           mapOf(
             "BASELINE_SHA" to "${'$'}{{ inputs.baseline_sha }}",
             "CANDIDATE_SHA" to "${'$'}{{ inputs.candidate_sha }}",
-            "PROFILE" to "${'$'}{{ inputs.profile }}",
           )
-        val script = normalizeShell(campaign.requiredString("run"))
+        val script = normalizeShell(canary.requiredString("run"))
+        assertOwnedCommitReachability(script)
         listOf(
             "[[ \"${'$'}BASELINE_SHA\" =~ ^[0-9a-f]{40}${'$'} ]]",
             "[[ \"${'$'}CANDIDATE_SHA\" =~ ^[0-9a-f]{40}${'$'} ]]",
@@ -191,23 +186,25 @@ class WorkflowSecurityContractTest :
             "./scripts/performance/run freeze --treatment-source \"${'$'}candidate_source\" " +
               "--harness-from build/performance/baseline " +
               "--output build/performance/candidate",
-            "./scripts/performance/run campaign --profile \"${'$'}PROFILE\" " +
-              "--host-id github-hosted-arm64-diagnostic-v1 " +
-              "--baseline-distribution build/performance/baseline " +
-              "--candidate-distribution build/performance/candidate " +
-              "--output build/performance/campaign",
+            "./scripts/performance/run canary " +
+              "--host-id github-hosted-arm64-canary-v1 " +
+              "--distribution build/performance/candidate " +
+              "--output build/performance/canary",
           )
           .forEach(script::shouldContain)
         Regex("\\./scripts/performance/run").findAll(script).count() shouldBe 3
+        Regex("\\./scripts/performance/run canary").findAll(script).count() shouldBe 1
+        script shouldNotContain "./scripts/performance/run campaign"
+        script shouldNotContain "./scripts/performance/run compare"
         script shouldContain "git worktree add --detach"
         script.contains("refs/pull") shouldBe false
 
-        val upload = steps.named("Upload hosted diagnostic evidence")
+        val upload = steps.named("Upload hosted canary diagnostic evidence")
         upload.requiredString("uses") shouldBe UPLOAD_ARTIFACT_ACTION
         upload.requiredString("if") shouldBe "always()"
         upload.requiredMap("with") shouldContainExactly
           mapOf(
-            "name" to "hosted-performance-diagnostic",
+            "name" to "hosted-performance-canary-diagnostic",
             "path" to "build/performance",
             "if-no-files-found" to "error",
             "retention-days" to 30,
@@ -220,6 +217,43 @@ class WorkflowSecurityContractTest :
         workflow.scalarStrings().any { it.contains("schedule") } shouldBe false
         workflow.scalarStrings().any { it.contains("actions/download-artifact") } shouldBe false
         workflow.scalarStrings().any { it.contains("latest", ignoreCase = true) } shouldBe false
+      }
+
+      test("manual hosted performance rejects reachability and job credential mutations") {
+        val source = Files.readString(repositoryPath(".github/workflows/performance-campaign.yml"))
+        val reachabilityBypass =
+          source.replace(
+            "            reachable_from_owned_ref \"\$commit\"\n",
+            "",
+          )
+        (reachabilityBypass == source) shouldBe false
+        shouldThrow<AssertionError> {
+          val mutated = parseYaml(reachabilityBypass)
+          val script =
+            normalizeShell(
+              mutated
+                .requiredMap("jobs")
+                .requiredMap("diagnostic")
+                .requiredSteps()
+                .named("Validate inputs and run diagnostic canary")
+                .requiredString("run"),
+            )
+          assertOwnedCommitReachability(script)
+        }
+
+        mapOf(
+            "id-token" to "write",
+            "contents" to "write",
+          )
+          .forEach { (permission, access) ->
+            val mutated =
+              source.replace(
+                "  diagnostic:\n    runs-on:",
+                "  diagnostic:\n    permissions:\n      $permission: $access\n    runs-on:",
+              )
+            (mutated == source) shouldBe false
+            shouldThrow<AssertionError> { assertSecretless(parseYaml(mutated)) }
+          }
       }
     }
   )
@@ -321,6 +355,16 @@ internal fun assertApprovedActions(workflow: YamlMap) {
 internal fun assertSecretless(workflow: YamlMap) {
   workflow.scalarStrings().any { it.contains("secrets.", ignoreCase = true) } shouldBe false
   workflow.requiredMap("permissions").containsKey("id-token") shouldBe false
+  workflow.requiredMap("jobs").values.forEach { value ->
+    val job = value.requiredYamlMap("job")
+    val permissions = job["permissions"]?.requiredYamlMap("job permissions").orEmpty()
+    permissions.containsKey("id-token") shouldBe false
+    permissions.values.any { it == "write" } shouldBe false
+  }
+}
+
+private fun assertOwnedCommitReachability(script: String) {
+  script shouldContain "reachable_from_owned_ref \"${'$'}commit\""
 }
 
 private fun assertPerformancePolicyIsNotDuplicated(workflow: YamlMap) {

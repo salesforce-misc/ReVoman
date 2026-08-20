@@ -158,6 +158,10 @@ class FinalizerHandshakeContractTest :
                   "campaign",
                   "--terminal",
                   "0",
+                  "--operation-state",
+                  "/operation/state",
+                  "--qualification-root",
+                  "/qualification",
                 ),
             )
 
@@ -229,6 +233,10 @@ class FinalizerHandshakeContractTest :
                   "campaign",
                   "--terminal",
                   "0",
+                  "--operation-state",
+                  "/operation/state",
+                  "--qualification-root",
+                  "/qualification",
                 ),
               "capture" to
                 listOf(
@@ -257,6 +265,53 @@ class FinalizerHandshakeContractTest :
 
             executeFinalizerDispatch(host, finalizer) shouldBe expectedArguments.getValue(commandName)
           }
+        }
+      }
+
+      test("hosted dispatch runs one structural canary through finalize-diagnostic") {
+        FakeHost().use { host ->
+          val distribution = host.frozenDistribution("hosted-canary-distribution")
+          val result =
+            host.invoke(
+              "canary",
+              "--host-id",
+              "github-hosted-arm64-canary-v1",
+              "--distribution",
+              distribution.toString(),
+              "--output",
+              host.output("hosted-canary"),
+              environment = mapOf("FAKE_SYSTEM_NAME" to "Linux"),
+            )
+
+          withClue(invocationClue(result)) { result.exitCode shouldBe 0 }
+          val timed =
+            result.commands.filter(::isDockerRun).single { invocation ->
+              "dev.revoman.performance.phase=timed" in invocation
+            }
+          timed shouldContainAll listOf("REVOMAN_HOST_ID=github-hosted-arm64-canary-v1")
+          timed.last() shouldContain "--profile canary"
+          timed.last() shouldContain "--forks 1"
+
+          val finalizer =
+            result.commands.filter(::isDockerRun).single { invocation ->
+              "dev.revoman.performance.phase=finalizer" in invocation
+            }
+          executeFinalizerDispatch(host, finalizer) shouldBe
+            listOf(
+              "finalize-diagnostic",
+              "--source",
+              "/operation/provisional",
+              "--artifact-parent",
+              "/artifacts",
+              "--run-token",
+              "hosted-canary",
+              "--terminal",
+              "0",
+              "--operation-state",
+              "/operation/state",
+              "--qualification-root",
+              "/qualification",
+            )
         }
       }
 
