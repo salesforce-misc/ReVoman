@@ -46,9 +46,8 @@ jobs:
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           distribution: temurin
-          java-version: '21.0.11+10'
+          java-version: '21.0.11+10.0.LTS'
           cache: gradle
-          cache-jdk: false
           cache-dependency-path: |
             baseline/**/*.gradle*
             baseline/**/gradle.properties
