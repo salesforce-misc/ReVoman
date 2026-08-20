@@ -343,6 +343,14 @@ jmh {
   }
 }
 
+// The JMH fat jar contains Truffle's versioned classes; retain the manifest flag that makes the
+// JVM load them instead of rejecting the repackaged runtime during sandbox/lifecycle benchmarks.
+tasks.named<Jar>("jmhJar") { manifest { attributes("Multi-Release" to "true") } }
+
+// Benchmark executions are measurements, not cacheable build products. Re-run the harness while
+// keeping its compilation and packaging dependencies incremental for fast local iteration.
+tasks.named("jmh") { outputs.upToDateWhen { false } }
+
 nexusPublishing {
   this.repositories {
     sonatype {
