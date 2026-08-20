@@ -14,6 +14,23 @@ import org.junit.jupiter.api.assertThrows
 
 class PmSandboxBootTest {
   @Test
+  fun `boot does not execute a synthetic script before the caller's first execution`() {
+    val bridge = SandboxBridge()
+
+    try {
+      bridge.boot()
+
+      val emittedEventNames =
+        bridge.emittedPayloads().mapNotNull { payload ->
+          (Flatted.parse(payload) as? List<*>)?.firstOrNull() as? String
+        }
+      emittedEventNames.none { it.startsWith("execution.") } shouldBe true
+    } finally {
+      bridge.close()
+    }
+  }
+
+  @Test
   fun `real pm API boots under GraalJS and runs pm test + environment set`() {
     val bridge = SandboxBridge()
     bridge.boot()
@@ -179,5 +196,12 @@ class PmSandboxBootTest {
     } finally {
       sandbox.close()
     }
+  }
+
+  @Suppress("UNCHECKED_CAST")
+  private fun SandboxBridge.emittedPayloads(): List<String> {
+    val field = SandboxBridge::class.java.getDeclaredField("emits")
+    field.isAccessible = true
+    return field.get(this) as List<String>
   }
 }

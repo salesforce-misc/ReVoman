@@ -253,40 +253,26 @@ internal class SandboxBridge {
 
   /**
    * Postman's Request model exposes the raw body but does not provide ReVoman's historical
-   * `pm.request.json()` convenience. Install it once on the real request prototype so collection
-   * source remains byte-for-byte untouched, including directive prologues and source line numbers.
+   * `pm.request.json()` convenience. Patch the guest Request prototype directly so sandbox boot
+   * does not execute a synthetic script and collection source remains byte-for-byte untouched.
    */
   private fun installRequestJsonCompatibility() {
-    val result =
-      dispatchExecute(
-        id = "revoman-request-json-compatibility",
-        script =
-          """
-          if (typeof pm.request.json !== 'function') {
-            Object.getPrototypeOf(pm.request).json = function () {
-              return this.body && typeof this.body.raw === 'string'
-                ? JSON.parse(this.body.raw)
-                : null;
-            };
-          }
-          """
-            .trimIndent(),
-        target = ScriptTarget.TEST,
-        context =
-          PmExecutionContext(
-            environment = PmScope("revoman-request-json-compatibility", emptyMap()),
-            request =
-              linkedMapOf(
-                "method" to "GET",
-                "url" to "https://revoman.invalid/request-json-compatibility",
-                "body" to linkedMapOf("mode" to "raw", "raw" to "{}"),
-              ),
-          ),
-        timeoutMs = 60_000,
-      )
-    result.error?.let {
-      throw IllegalStateException("sandbox: request JSON compatibility failed", it)
-    }
+    ctx.eval(
+      "js",
+      """
+      {
+        const Request = require('postman-collection').Request;
+        if (typeof Request.prototype.json !== 'function') {
+          Request.prototype.json = function () {
+            return this.body && typeof this.body.raw === 'string'
+              ? JSON.parse(this.body.raw)
+              : null;
+          };
+        }
+      }
+      """
+        .trimIndent(),
+    )
   }
 
   fun close() {

@@ -132,6 +132,18 @@ class PmSandboxApiCoverageTest {
   }
 
   @Test
+  fun `pm request json returns null for a bodyless request`() {
+    val r =
+      runTest(
+        "pm.test('bodyless request json', () => pm.expect(pm.request.json()).to.eql(null));",
+        request = mapOf("method" to "GET", "url" to "https://example.com"),
+      )
+
+    r.error shouldBe null
+    r.assertions.single().passed shouldBe true
+  }
+
+  @Test
   fun `pm response code returns the HTTP status code`() {
     val r =
       runTest(
