@@ -15,7 +15,6 @@ import com.salesforce.revoman.input.config.PollingRequestBuilder
 import com.salesforce.revoman.input.config.StepPick.PostTxnStepPick
 import com.salesforce.revoman.internal.json.MoshiReVoman.Companion.initMoshi
 import com.salesforce.revoman.internal.postman.PostmanVariableScopes
-import com.salesforce.revoman.internal.postman.postmanVariableScopes
 import com.salesforce.revoman.internal.postman.template.Item
 import com.salesforce.revoman.internal.postman.template.Request
 import com.salesforce.revoman.internal.postman.template.Url
@@ -110,7 +109,7 @@ class PollingTest {
     )
 
   private fun testScopes(): PostmanVariableScopes =
-    postmanVariableScopes(
+    PostmanVariableScopes(
       PostmanEnvironment(moshiReVoman = moshiReVoman),
       PostmanEnvironment(moshiReVoman = moshiReVoman),
       PostmanEnvironment(moshiReVoman = moshiReVoman),

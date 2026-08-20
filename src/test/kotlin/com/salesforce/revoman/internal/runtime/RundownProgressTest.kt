@@ -16,41 +16,44 @@ import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
 
-class LegacyRundownProgressTest {
+class RundownProgressTest {
   @Test
-  fun `sync replaces only the final report for the same Step`() {
+  fun `update replaces only the final report for the same Step`() {
     val firstStep = step("first")
     val loopedStep = step("loop")
     val first = report(firstStep)
     val priorIteration = report(loopedStep).copy(iteration = 0, nextRequest = "loop")
     val currentSeed = report(loopedStep).copy(iteration = 1)
     val evolved = currentSeed.copy(nextRequest = "done")
-    val progress = legacyRundownProgress()
-    progress.rundown = rundown(listOf(first, priorIteration, currentSeed))
+    val progress = RundownProgress()
+    progress.begin(currentSeed, rundown(listOf(first, priorIteration, currentSeed)))
 
-    progress.sync(evolved)
+    progress.update(evolved)
 
     progress.rundown.stepReports shouldContainExactly listOf(first, priorIteration, evolved)
     progress.currentReport shouldBe evolved
   }
 
   @Test
-  fun `sync appends when the final report belongs to another Step`() {
+  fun `update appends when the final report belongs to another Step`() {
     val first = report(step("first"))
     val second = report(step("second"))
-    val progress = legacyRundownProgress()
-    progress.rundown = rundown(listOf(first))
+    val progress = RundownProgress()
+    progress.begin(first, rundown(listOf(first)))
 
-    progress.sync(second)
+    progress.update(second)
 
     progress.rundown.stepReports shouldContainExactly listOf(first, second)
   }
 
   @Test
-  fun `current request name is mutable transitional state`() {
-    val progress = legacyRundownProgress()
-    progress.currentRequestName = "first"
-    progress.currentRequestName = "second"
+  fun `current request name follows the current report`() {
+    val first = report(step("first"))
+    val second = report(step("second"))
+    val progress = RundownProgress()
+    progress.begin(first, rundown(listOf(first)))
+    progress.begin(second, rundown(listOf(first, second)))
+
     progress.currentRequestName shouldBe "second"
   }
 

@@ -48,7 +48,6 @@ internal fun executePreReqJS(
         scopes = scopes,
         capture = capture,
         scripts = scripts,
-        step = currentStep,
       )
     }
     .mapLeft { PreReqJSFailure(it, currentStepReport.requestInfo!!.get()) }
@@ -74,7 +73,6 @@ internal fun executePostResJS(
         scopes = scopes,
         capture = capture,
         scripts = scripts,
-        step = currentStep,
       )
     }
     .mapLeft {
@@ -98,7 +96,6 @@ private fun runSandboxScript(
   scopes: PostmanVariableScopes,
   capture: StepScriptCapture,
   scripts: ScriptExecutor,
-  step: Step,
 ) {
   val beforeEnvironment = sandboxSafeEnv(scopes.environment.mutableEnv)
   val beforeCollectionVariables = sandboxSafeEnv(scopes.collectionVariables.mutableEnv)
@@ -132,15 +129,14 @@ private fun runSandboxScript(
 
   val phase = if (target == ScriptTarget.PRE_REQUEST) PRE_REQ_JS else POST_RES_JS
   capture.recordAssertions(
-    step,
     result.assertions.map {
       PmTestAssertion(it.name, it.passed, it.skipped, it.error, phase)
-    },
+    }
   )
   if (result.nextRequestSet) {
-    capture.recordNextRequest(step, result.nextRequest, wasSet = true)
+    capture.recordNextRequest(result.nextRequest, wasSet = true)
   }
-  if (result.skipRequest) capture.recordSkipRequest(step)
+  if (result.skipRequest) capture.recordSkipRequest()
 }
 
 private fun sandboxSafeEnv(scope: Map<String, Any?>): Map<String, Any?> = scope.filterValues {

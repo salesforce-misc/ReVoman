@@ -14,6 +14,9 @@ import com.salesforce.revoman.internal.postman.sandbox.PmExecutionContext
 import com.salesforce.revoman.internal.postman.sandbox.PmExecutionResult
 import com.salesforce.revoman.internal.postman.sandbox.ScriptTarget
 import com.salesforce.revoman.output.Rundown
+import com.salesforce.revoman.output.log.LogLevel
+import com.salesforce.revoman.output.log.RunLogSink
+import com.salesforce.revoman.output.log.StepEvent
 import com.salesforce.revoman.output.postman.PostmanEnvironment
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -55,9 +58,9 @@ class ReVomanRuntimeTest {
     var closes = 0
     var creates = 0
     val expected = rundown(mutableMapOf("result" to "ok"))
-    val childFactory = KickExecutionFactory { kick, environment ->
+    val childFactory = KickExecutionFactory { _, _ ->
       creates++
-      fakeExecution(kick, environment, expected)
+      fakeExecution(expected)
     }
     val runtime =
       reVomanRuntime(
@@ -91,8 +94,8 @@ class ReVomanRuntimeTest {
           val delegate =
             executionSession(
               initial,
-              KickExecutionFactory { kick, environment ->
-                fakeExecution(kick, environment, rundown(mutableMapOf()), failure)
+              KickExecutionFactory { _, _ ->
+                fakeExecution(rundown(mutableMapOf()), failure)
               },
             )
           object : ExecutionSession by delegate {
@@ -124,6 +127,22 @@ class ReVomanRuntimeTest {
     assertCompleteSingleKickLifecycle(lifecycle.counts)
     assertThat(sandboxes.createCount).isEqualTo(0)
     assertThat(sandboxes.closeCount).isEqualTo(0)
+  }
+
+  @Suppress("DEPRECATION")
+  @Test
+  fun `deprecated node modules path reports that it is ignored`() {
+    val sink = RecordingSink()
+    val lifecycle = recordingRealRuntime(CountingSandboxFactory())
+    val kick = Kick.configure().nodeModulesPath("custom-modules").runLogSink(sink).off()
+
+    lifecycle.runtime.execute(kick)
+
+    assertThat(sink.lines)
+      .contains(
+        LogLevel.WARN to
+          "nodeModulesPath(...) is ignored; sandbox scripts support only bundled modules"
+      )
   }
 
   @Test
@@ -163,19 +182,10 @@ class ReVomanRuntimeTest {
   }
 
   private fun fakeExecution(
-    kick: Kick,
-    environment: Map<String, Any?>,
     rundown: Rundown,
     failure: Throwable? = null,
   ): KickExecution =
     object : KickExecution {
-      override val configuredKick: Kick = kick
-      override val effectiveDynamicEnvironment: Map<String, Any?> = environment
-      override val scripts: ScriptExecutor
-        get() = error("scripts are not used")
-
-      override val sandboxInitialized: Boolean = false
-
       override fun execute(): Rundown {
         failure?.let { throw it }
         return rundown
@@ -251,6 +261,18 @@ class ReVomanRuntimeTest {
     var childExecutes = 0
     var childCloses = 0
     var sessionCloses = 0
+  }
+
+  private class RecordingSink : RunLogSink {
+    val lines = mutableListOf<Pair<LogLevel, String>>()
+
+    override fun line(level: LogLevel, message: String) {
+      lines += level to message
+    }
+
+    override fun event(event: StepEvent) = Unit
+
+    override fun close() = Unit
   }
 
   private class TraversalFailingMap(

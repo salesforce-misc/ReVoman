@@ -21,7 +21,7 @@ class PostmanVariableScopesTest {
     val globals = environment(mapOf("global" to "g"))
 
     val scopes =
-      postmanVariableScopes(environment, collectionVariables, globals, environmentName = "Pokemon")
+      PostmanVariableScopes(environment, collectionVariables, globals, environmentName = "Pokemon")
 
     scopes.environment shouldBe environment
     scopes.collectionVariables shouldBe collectionVariables
@@ -32,31 +32,25 @@ class PostmanVariableScopesTest {
   }
 
   @Test
-  fun `resolve and owner follow environment then collection then globals precedence`() {
+  fun `owner follows environment then collection then globals precedence`() {
     val environment = environment(mapOf("same" to "env"))
     val collectionVariables = environment(mapOf("same" to "collection", "collection" to "c"))
     val globals = environment(mapOf("same" to "global", "collection" to "g", "global" to "g"))
-    val scopes = postmanVariableScopes(environment, collectionVariables, globals, null)
+    val scopes = PostmanVariableScopes(environment, collectionVariables, globals, null)
 
-    scopes.resolve("same") shouldBe "env"
     scopes.ownerOf("same") shouldBe environment
-    scopes.resolve("collection") shouldBe "c"
     scopes.ownerOf("collection") shouldBe collectionVariables
-    scopes.resolve("global") shouldBe "g"
     scopes.ownerOf("global") shouldBe globals
-    scopes.resolve("missing").shouldBeNull()
     scopes.ownerOf("missing").shouldBeNull()
   }
 
   @Test
-  fun `contains distinguishes a present null from an absent key`() {
+  fun `owner distinguishes a present null from an absent key`() {
     val globals = environment(mapOf("nullable" to null))
-    val scopes = postmanVariableScopes(environment(), environment(), globals, null)
+    val scopes = PostmanVariableScopes(environment(), environment(), globals, null)
 
-    scopes.contains("nullable") shouldBe true
-    scopes.resolve("nullable").shouldBeNull()
     scopes.ownerOf("nullable") shouldBe globals
-    scopes.contains("missing") shouldBe false
+    scopes.ownerOf("missing").shouldBeNull()
   }
 
   private fun environment(values: Map<String, Any?> = emptyMap()): PostmanEnvironment<Any?> =

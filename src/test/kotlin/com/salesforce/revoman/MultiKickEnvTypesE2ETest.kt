@@ -152,6 +152,8 @@ class MultiKickEnvTypesE2ETest {
   }
 
   @Test
+  // This E2E keeps nested public-call ordering inline so the re-entrancy boundary is explicit.
+  @Suppress("LongMethod")
   fun `reentrant public runbook call restores outer state without a global observer`() {
     val collectionDirectory = copyIsolationCollection()
     val outerId = "reentrant-outer-stop"

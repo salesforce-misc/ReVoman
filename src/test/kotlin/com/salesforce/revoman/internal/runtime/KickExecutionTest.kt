@@ -34,43 +34,46 @@ class KickExecutionTest {
     val kick = Kick.configure().off()
     val rundown = rundown(mutableMapOf("result" to "ok"))
     var executions = 0
+    var observedKick: Kick? = null
+    var observedEnvironment: Map<String, Any?>? = null
     val execution =
       kickExecution(
         configuredKick = kick,
         effectiveDynamicEnvironment = mapOf("configured" to "carried"),
-        body =
-          KickBody {
-            executions++
-            rundown
-          },
+        body = { bodyKick, bodyEnvironment, _ ->
+          observedKick = bodyKick
+          observedEnvironment = bodyEnvironment
+          executions++
+          rundown
+        },
         sandboxFactory = CountingSandboxFactory(result),
       )
 
-    assertThat(execution.configuredKick).isSameInstanceAs(kick)
-    assertThat(execution.effectiveDynamicEnvironment).containsExactly("configured", "carried")
     assertThat(execution.execute()).isSameInstanceAs(rundown)
     assertThrows<IllegalStateException> { execution.execute() }
+    assertThat(observedKick).isSameInstanceAs(kick)
+    assertThat(observedEnvironment).containsExactly("configured", "carried")
     assertThat(executions).isEqualTo(1)
   }
 
   @Test
-  fun `construction and reading scripts do not create a sandbox`() {
+  fun `construction does not create a sandbox`() {
     val factory = CountingSandboxFactory(result)
-    val execution = newExecution(factory)
+    newExecution(factory)
 
-    val executor: ScriptExecutor = execution.scripts
-
-    assertThat(executor).isNotNull()
     assertThat(factory.createCount).isEqualTo(0)
-    assertThat(execution.sandboxInitialized).isEqualTo(false)
   }
 
   @Test
   fun `passing scripts without invoking it does not create a sandbox`() {
     val factory = CountingSandboxFactory(result)
-    val execution = newExecution(factory)
+    val execution =
+      newExecution(factory) { scripts ->
+        consume(scripts)
+        rundown(mutableMapOf())
+      }
 
-    consume(execution.scripts)
+    execution.execute()
 
     assertThat(factory.createCount).isEqualTo(0)
   }
@@ -78,10 +81,14 @@ class KickExecutionTest {
   @Test
   fun `first script invocation creates one sandbox reused by later phases`() {
     val factory = CountingSandboxFactory(result)
-    val execution = newExecution(factory)
+    val execution =
+      newExecution(factory) { scripts ->
+        scripts.execute("pre", ScriptTarget.PRE_REQUEST, context)
+        scripts.execute("test", ScriptTarget.TEST, context)
+        rundown(mutableMapOf())
+      }
 
-    execution.scripts.execute("pre", ScriptTarget.PRE_REQUEST, context)
-    execution.scripts.execute("test", ScriptTarget.TEST, context)
+    execution.execute()
 
     assertThat(factory.createCount).isEqualTo(1)
     assertThat(factory.created.single().invocations)
@@ -90,17 +97,24 @@ class KickExecutionTest {
         Invocation("test", ScriptTarget.TEST, context, 60_000L),
       )
       .inOrder()
-    assertThat(execution.sandboxInitialized).isEqualTo(true)
   }
 
   @Test
   fun `separate kick executions own separate sandboxes`() {
     val factory = CountingSandboxFactory(result)
-    val first = newExecution(factory)
-    val second = newExecution(factory)
+    val first =
+      newExecution(factory) { scripts ->
+        scripts.execute("one", ScriptTarget.TEST, context)
+        rundown(mutableMapOf())
+      }
+    val second =
+      newExecution(factory) { scripts ->
+        scripts.execute("two", ScriptTarget.TEST, context)
+        rundown(mutableMapOf())
+      }
 
-    first.scripts.execute("one", ScriptTarget.TEST, context)
-    second.scripts.execute("two", ScriptTarget.TEST, context)
+    first.execute()
+    second.execute()
 
     assertThat(factory.createCount).isEqualTo(2)
     assertThat(factory.created[0]).isNotSameInstanceAs(factory.created[1])
@@ -114,14 +128,17 @@ class KickExecutionTest {
     execution.close()
 
     assertThat(factory.createCount).isEqualTo(0)
-    assertThat(execution.sandboxInitialized).isEqualTo(false)
   }
 
   @Test
   fun `closing after script access closes the sandbox once`() {
     val factory = CountingSandboxFactory(result)
-    val execution = newExecution(factory)
-    execution.scripts.execute("test", ScriptTarget.TEST, context)
+    val execution =
+      newExecution(factory) { scripts ->
+        scripts.execute("test", ScriptTarget.TEST, context)
+        rundown(mutableMapOf())
+      }
+    execution.execute()
 
     execution.close()
     execution.close()
@@ -132,8 +149,13 @@ class KickExecutionTest {
   @Test
   fun `script invocation after close fails without creating a sandbox`() {
     val factory = CountingSandboxFactory(result)
-    val execution = newExecution(factory)
-    val executor = execution.scripts
+    lateinit var executor: ScriptExecutor
+    val execution =
+      newExecution(factory) { scripts ->
+        executor = scripts
+        rundown(mutableMapOf())
+      }
+    execution.execute()
     execution.close()
 
     val failure =
@@ -146,13 +168,17 @@ class KickExecutionTest {
   @Test
   fun `script invocation after initialized execution closes fails without reopening`() {
     val factory = CountingSandboxFactory(result)
-    val execution = newExecution(factory)
-    execution.scripts.execute("first", ScriptTarget.TEST, context)
+    lateinit var executor: ScriptExecutor
+    val execution =
+      newExecution(factory) { scripts ->
+        executor = scripts
+        scripts.execute("first", ScriptTarget.TEST, context)
+        rundown(mutableMapOf())
+      }
+    execution.execute()
     execution.close()
 
-    assertThrows<IllegalStateException> {
-      execution.scripts.execute("second", ScriptTarget.TEST, context)
-    }
+    assertThrows<IllegalStateException> { executor.execute("second", ScriptTarget.TEST, context) }
 
     assertThat(factory.createCount).isEqualTo(1)
     assertThat(factory.created.single().closeCount).isEqualTo(1)
@@ -160,11 +186,14 @@ class KickExecutionTest {
 
   private fun consume(@Suppress("UNUSED_PARAMETER") executor: ScriptExecutor) = Unit
 
-  private fun newExecution(factory: SandboxFactory): KickExecution =
+  private fun newExecution(
+    factory: SandboxFactory,
+    body: (ScriptExecutor) -> Rundown = { rundown(mutableMapOf()) },
+  ): KickExecution =
     kickExecution(
       configuredKick = Kick.configure().off(),
       effectiveDynamicEnvironment = emptyMap(),
-      body = KickBody { rundown(mutableMapOf()) },
+      body = { _, _, scripts -> body(scripts) },
       sandboxFactory = factory,
     )
 

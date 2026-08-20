@@ -22,6 +22,8 @@ internal class PmSandbox : SandboxRuntime {
   private var closed = false
   private var idSeq = 0L
 
+  // Throwable is intentional: boot failures, including Errors, leave this instance terminal.
+  @Suppress("TooGenericExceptionCaught")
   private fun ensureBooted() {
     if (!booted) {
       booted = true
@@ -36,7 +38,7 @@ internal class PmSandbox : SandboxRuntime {
 
   private fun activeBridge(): SandboxBridge = bridgeForTest ?: bridge
 
-  final override fun execute(
+  override fun execute(
     script: String,
     target: ScriptTarget,
     context: PmExecutionContext,

@@ -109,8 +109,11 @@ class RegexReplacerScopesTest {
 
   @Test
   fun `built-in dynamic variable takes priority over a scoped value`() {
-    val graph = focusedPostmanTestGraph(globalValues = mapOf($$"$currentRequestName" to "global"))
-    graph.progress.currentRequestName = "focused-request"
+    val graph =
+      focusedPostmanTestGraph(
+        globalValues = mapOf($$"$currentRequestName" to "global"),
+        requestName = "focused-request",
+      )
 
     graph.replacer.replaceVariablesRecursively($$"{{$currentRequestName}}") shouldBe
       "focused-request"

@@ -10,8 +10,7 @@ package com.salesforce.revoman.internal.postman
 import com.salesforce.revoman.input.config.CustomDynamicVariableGenerator
 import com.salesforce.revoman.internal.json.MoshiReVoman.Companion.initMoshi
 import com.salesforce.revoman.internal.postman.template.Item
-import com.salesforce.revoman.internal.runtime.LegacyRundownProgress
-import com.salesforce.revoman.internal.runtime.legacyRundownProgress
+import com.salesforce.revoman.internal.runtime.RundownProgress
 import com.salesforce.revoman.output.Rundown
 import com.salesforce.revoman.output.postman.PostmanEnvironment
 import com.salesforce.revoman.output.report.Step
@@ -19,7 +18,7 @@ import com.salesforce.revoman.output.report.StepReport
 
 internal data class FocusedPostmanTestGraph(
   val scopes: PostmanVariableScopes,
-  val progress: LegacyRundownProgress,
+  val progress: RundownProgress,
   val replacer: RegexReplacer,
 )
 
@@ -28,18 +27,18 @@ internal fun focusedPostmanTestGraph(
   collectionVariableValues: Map<String, Any?> = emptyMap(),
   globalValues: Map<String, Any?> = emptyMap(),
   customDynamicVariableGenerators: Map<String, CustomDynamicVariableGenerator> = emptyMap(),
+  requestName: String = "test",
 ): FocusedPostmanTestGraph {
   val moshi = initMoshi()
   val environment = PostmanEnvironment(environmentValues.toMutableMap(), moshi)
   val collectionVariables = PostmanEnvironment(collectionVariableValues.toMutableMap(), moshi)
   val globals = PostmanEnvironment(globalValues.toMutableMap(), moshi)
-  val scopes = postmanVariableScopes(environment, collectionVariables, globals, "test")
-  val progress = legacyRundownProgress()
-  val step = Step(index = "test", rawPMStep = Item(name = "test"))
+  val scopes = PostmanVariableScopes(environment, collectionVariables, globals, "test")
+  val progress = RundownProgress()
+  val step = Step(index = "test", rawPMStep = Item(name = requestName))
   val report = StepReport(step = step, pmEnvSnapshot = environment)
-  progress.currentReport = report
-  progress.currentRequestName = "test"
-  progress.rundown =
+  progress.begin(
+    report,
     Rundown(
       stepReports = listOf(report),
       mutableEnv = environment,
@@ -47,10 +46,11 @@ internal fun focusedPostmanTestGraph(
       providedStepsToExecuteCount = 1,
       collectionVariables = collectionVariables,
       globals = globals,
-    )
+    ),
+  )
   return FocusedPostmanTestGraph(
     scopes,
     progress,
-    regexReplacer(scopes, progress, customDynamicVariableGenerators),
+    RegexReplacer(scopes, progress, customDynamicVariableGenerators),
   )
 }

@@ -16,7 +16,7 @@ internal fun interface ExecutionSessionFactory {
   @JvmSynthetic fun open(initialEnvironment: Map<String, Any?>): ExecutionSession
 }
 
-internal interface ExecutionSession : InternalCloseable {
+internal interface ExecutionSession : AutoCloseable {
   @JvmSynthetic
   fun executeKick(
     configuredKick: Kick,
@@ -53,23 +53,12 @@ internal fun executionSession(
       val rundown =
         try {
           val child = kickExecutions.create(configuredKick, effectiveDynamicEnvironment)
-          val childScope = resourceScope()
-          childScope.own(child)
-          activeChild = child
-          var bodyFailure: Throwable? = null
           val completed =
             try {
-              child.execute()
-            } catch (failure: Throwable) {
-              bodyFailure = failure
-              throw failure
+              activeChild = child
+              child.use { it.execute() }
             } finally {
-              try {
-                val finalFailure = childScope.closeAfter(bodyFailure)
-                if (bodyFailure == null && finalFailure != null) throw finalFailure
-              } finally {
-                activeChild = null
-              }
+              activeChild = null
             }
           Banner.recordSteps(completed.stepReports.size)
           completed
@@ -80,32 +69,26 @@ internal fun executionSession(
       finalizedRundowns += rundown
       val finalizedSnapshot = finalizedRundowns.toList()
       beforeCarry?.invoke(rundown, finalizedSnapshot)
-      if (carryForward) carriedEnvironment = rundown.mutableEnv.toMap()
+      if (carryForward) carriedEnvironment = rundown.mutableEnv.o1Snapshot().mutableEnv
       return rundown
     }
 
     override fun close() {
       if (closed) return
       closed = true
-      var failure: Throwable? = null
       try {
         activeChild?.close()
-      } catch (closeFailure: Throwable) {
-        failure = closeFailure
       } finally {
         activeChild = null
         carriedEnvironment = emptyMap()
         finalizedRundowns.clear()
       }
-      failure?.let { throw it }
     }
   }
 
 @JvmSynthetic
 internal fun executionSessionFactory(
   kickExecutions: KickExecutionFactory
-): ExecutionSessionFactory =
-  object : ExecutionSessionFactory {
-    override fun open(initialEnvironment: Map<String, Any?>): ExecutionSession =
-      executionSession(initialEnvironment, kickExecutions)
-  }
+): ExecutionSessionFactory = ExecutionSessionFactory { initialEnvironment ->
+  executionSession(initialEnvironment, kickExecutions)
+}

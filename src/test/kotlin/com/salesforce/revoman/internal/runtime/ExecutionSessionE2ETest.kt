@@ -19,6 +19,7 @@ import com.salesforce.revoman.output.Rundown
 import com.salesforce.revoman.output.log.LogLevel
 import com.salesforce.revoman.output.log.RunLogSink
 import com.salesforce.revoman.output.log.StepEvent
+import com.salesforce.revoman.output.postman.PersistentBackedMutableMap
 import com.salesforce.revoman.output.postman.PostmanEnvironment
 import com.salesforce.revoman.testing.http.MockHttpServer
 import java.nio.file.Files
@@ -82,6 +83,8 @@ class ExecutionSessionE2ETest {
   }
 
   @Test
+  // Keep the sink matrix's execute/assert/restore ordering visible as one lifecycle scenario.
+  @Suppress("LongMethod")
   fun `runbook sink matrix borrows overrides masks and restores exact contexts`() {
     val ambient = TrackingSink("ambient")
     val runbookSink = TrackingSink("runbook")
@@ -89,15 +92,8 @@ class ExecutionSessionE2ETest {
     val events = mutableListOf<String>()
     val sessions =
       executionSessionFactory(
-        KickExecutionFactory { kick, environment ->
+        KickExecutionFactory { _, environment ->
           object : KickExecution {
-            override val configuredKick = kick
-            override val effectiveDynamicEnvironment = environment
-            override val scripts: ScriptExecutor
-              get() = error("unused")
-
-            override val sandboxInitialized = false
-
             override fun execute(): Rundown {
               events += "execute:${activeSinkName(ambient, runbookSink, kickSink)}"
               return rundown(environment)
@@ -186,7 +182,7 @@ class ExecutionSessionE2ETest {
       reVomanRuntime(
         executionSessionFactory(
           KickExecutionFactory { kick, environment ->
-            recordingChild(mutableListOf(), kick, environment, rundown(environment))
+            recordingChild(mutableListOf(), kick, rundown(environment))
           }
         )
       )
@@ -246,7 +242,7 @@ class ExecutionSessionE2ETest {
       reVomanRuntime(
         recordingSessions(events) { kick, environment ->
           index++
-          recordingChild(events, kick, environment, rundown(environment + ("index" to index)))
+          recordingChild(events, kick, rundown(environment + ("index" to index)))
         }
       )
 
@@ -279,7 +275,7 @@ class ExecutionSessionE2ETest {
     val runtime =
       reVomanRuntime(
         recordingSessions(events) { kick, environment ->
-          recordingChild(events, kick, environment, rundown(environment))
+          recordingChild(events, kick, rundown(environment))
         }
       )
     val runbook = Runbook {
@@ -333,7 +329,7 @@ class ExecutionSessionE2ETest {
             effectiveEnvironments += environment
             val result = rundown(environment)
             rundowns += result
-            recordingChild(mutableListOf(), kick, environment, result)
+            recordingChild(mutableListOf(), kick, result)
           }
         )
       )
@@ -382,7 +378,6 @@ class ExecutionSessionE2ETest {
               KickExecution by recordingChild(
                 mutableListOf(),
                 kick,
-                environment,
                 rundown(environment),
               ) {
               override fun close() {
@@ -433,7 +428,7 @@ class ExecutionSessionE2ETest {
         executionSessionFactory(
           KickExecutionFactory { kick, environment ->
             effectiveEnvironments += environment
-            recordingChild(mutableListOf(), kick, environment, results[index++])
+            recordingChild(mutableListOf(), kick, results[index++])
           }
         )
       )
@@ -484,15 +479,8 @@ class ExecutionSessionE2ETest {
         val delegate =
           executionSession(
             initial,
-            KickExecutionFactory { kick, environment ->
+            KickExecutionFactory { _, _ ->
               object : KickExecution {
-                override val configuredKick = kick
-                override val effectiveDynamicEnvironment = environment
-                override val scripts: ScriptExecutor
-                  get() = error("unused")
-
-                override val sandboxInitialized = false
-
                 override fun execute(): Rundown {
                   if (case.point == FailurePoint.BODY) throw case.failure
                   return returned
@@ -588,19 +576,11 @@ class ExecutionSessionE2ETest {
   private fun recordingChild(
     events: MutableList<String>,
     kick: Kick,
-    environment: Map<String, Any?>,
     result: Rundown,
   ): KickExecution {
     val name = kick.templatePaths().singleOrNull() ?: kick.dynamicEnvironment()["name"] ?: "unnamed"
     events += "child-create:$name"
     return object : KickExecution {
-      override val configuredKick: Kick = kick
-      override val effectiveDynamicEnvironment: Map<String, Any?> = environment
-      override val scripts: ScriptExecutor
-        get() = error("scripts are not used")
-
-      override val sandboxInitialized = false
-
       override fun execute(): Rundown {
         events += "child-execute:$name"
         return result
@@ -614,7 +594,8 @@ class ExecutionSessionE2ETest {
 
   private fun rundown(values: Map<String, Any?>): Rundown =
     Rundown(
-      mutableEnv = PostmanEnvironment(values.toMutableMap()),
+      // Match the production environment backing so carry tests exercise the O(1) snapshot path.
+      mutableEnv = PostmanEnvironment(PersistentBackedMutableMap(values)),
       haltOnFailureOfTypeExcept = emptyMap(),
       providedStepsToExecuteCount = 0,
       collectionVariables = PostmanEnvironment(mutableMapOf("collection" to "readable")),

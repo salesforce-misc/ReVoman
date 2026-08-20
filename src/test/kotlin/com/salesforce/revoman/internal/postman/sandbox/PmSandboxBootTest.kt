@@ -89,6 +89,8 @@ class PmSandboxBootTest {
   }
 
   @Test
+  // Preserve the boot-failure, replacement, and post-failure lifecycle sequence in one scenario.
+  @Suppress("LongMethod")
   fun `PmSandbox makes a failed boot terminal and preserves cleanup failure ordering`() {
     val failure = IllegalStateException("after-context")
     val closeFailure = IllegalStateException("close-context")

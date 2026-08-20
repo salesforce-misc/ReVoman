@@ -38,8 +38,7 @@ class RegexReplacerTest {
   @OptIn(ExperimentalStdlibApi::class)
   @Test
   fun `built-in dynamic variables replace recursively in JSON and environment values`() {
-    val graph = focusedPostmanTestGraph()
-    graph.progress.currentRequestName = "request-42"
+    val graph = focusedPostmanTestGraph(requestName = "request-42")
     graph.scopes.environment["key"] = $$"value-{{$currentRequestName}}"
     val json =
       $$"""

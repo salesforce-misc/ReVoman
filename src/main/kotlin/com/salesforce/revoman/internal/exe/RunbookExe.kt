@@ -141,7 +141,7 @@ private fun runStepBody(
       if (runbookSink !== RunLogSink.NoOp) it.overrideRunLogSink(runbookSink) else it
     }
   val rundown = session.executeKick(effectiveKick, carryForward = false)
-  val nextEnvironment = rundown.mutableEnv.toMap()
+  val nextEnvironment = rundown.mutableEnv.o1Snapshot().mutableEnv
   val tookMs = (System.nanoTime() - startNs) / 1_000_000
   val nextAcc = RunbookAcc(nextEnvironment, step.phase, acc.pairs + (step to rundown))
   val failedReport = rundown.firstUnIgnoredUnsuccessfulStepReport

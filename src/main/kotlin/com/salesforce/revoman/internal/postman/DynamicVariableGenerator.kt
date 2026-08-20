@@ -7,7 +7,7 @@
  */
 package com.salesforce.revoman.internal.postman
 
-import com.salesforce.revoman.internal.runtime.LegacyRundownProgress
+import com.salesforce.revoman.internal.runtime.RundownProgress
 import java.time.LocalDate
 import java.util.*
 import kotlin.random.Random
@@ -76,10 +76,10 @@ private val charPool = ('a'..'z') + ('A'..'Z') + ('0'..'9')
 fun randomAlphanumeric(length: Int): String =
   CharArray(length) { charPool[nextInt(0, charPool.size)] }.concatToString()
 
-private val dynamicVariableGeneratorsWithProgress: Map<String, (LegacyRundownProgress) -> String> =
+private val dynamicVariableGeneratorsWithProgress: Map<String, (RundownProgress) -> String> =
   mapOf($$"$currentRequestName" to { it.currentRequestName })
 
 @JvmSynthetic
-internal fun dynamicVariableGenerator(key: String, progress: LegacyRundownProgress): String? =
+internal fun dynamicVariableGenerator(key: String, progress: RundownProgress): String? =
   dynamicVariableGenerators[key]?.invoke()
     ?: dynamicVariableGeneratorsWithProgress[key]?.invoke(progress)

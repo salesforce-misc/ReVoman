@@ -15,66 +15,48 @@ import com.salesforce.revoman.internal.postman.sandbox.PmSandbox
 import com.salesforce.revoman.output.RunbookRundown
 import com.salesforce.revoman.output.Rundown
 
-internal interface ReVomanRuntime {
-  @JvmSynthetic fun execute(kick: Kick): Rundown
+internal class ReVomanRuntime(private val sessions: ExecutionSessionFactory) {
+  @JvmSynthetic
+  fun execute(kick: Kick): Rundown =
+    sessions.open(emptyMap()).use { session ->
+      session.executeKick(kick, carryForward = false)
+    }
 
   @JvmSynthetic
   fun execute(
     kicks: List<Kick>,
     postExeHook: PostExeHook,
     dynamicEnvironment: Map<String, Any?>,
-  ): List<Rundown>
+  ): List<Rundown> =
+    sessions.open(dynamicEnvironment).use { session ->
+      kicks.map { kick ->
+        session.executeKick(
+          configuredKick = kick,
+          carryForward = true,
+          beforeCarry = { current, accumulated ->
+            postExeHook.accept(current, accumulated)
+          },
+        )
+      }
+    }
 
   @JvmSynthetic
   fun execute(
     runbook: Runbook,
     dynamicEnvironment: Map<String, Any?>,
-  ): RunbookRundown
+  ): RunbookRundown =
+    sessions.open(emptyMap()).use { session ->
+      executeRunbookInSession(session, runbook, dynamicEnvironment)
+    }
 }
 
 @JvmSynthetic
 internal fun reVomanRuntime(sessions: ExecutionSessionFactory): ReVomanRuntime =
-  object : ReVomanRuntime {
-    override fun execute(kick: Kick): Rundown =
-      sessions.open(emptyMap()).useInternal { session ->
-        session.executeKick(kick, carryForward = false)
-      }
-
-    override fun execute(
-      kicks: List<Kick>,
-      postExeHook: PostExeHook,
-      dynamicEnvironment: Map<String, Any?>,
-    ): List<Rundown> =
-      sessions.open(dynamicEnvironment).useInternal { session ->
-        kicks.map { kick ->
-          session.executeKick(
-            configuredKick = kick,
-            carryForward = true,
-            beforeCarry = { current, accumulated ->
-              postExeHook.accept(current, accumulated)
-            },
-          )
-        }
-      }
-
-    override fun execute(
-      runbook: Runbook,
-      dynamicEnvironment: Map<String, Any?>,
-    ): RunbookRundown =
-      sessions.open(emptyMap()).useInternal { session ->
-        executeRunbookInSession(session, runbook, dynamicEnvironment)
-      }
-  }
+  ReVomanRuntime(sessions)
 
 @JvmSynthetic
 internal fun reVomanRuntime(sandboxFactory: SandboxFactory): ReVomanRuntime =
   reVomanRuntime(executionSessionFactory(kickExecutionFactory(sandboxFactory)))
 
 @JvmSynthetic
-internal fun reVomanRuntime(): ReVomanRuntime {
-  val sandboxFactory =
-    object : SandboxFactory {
-      override fun create(): SandboxRuntime = PmSandbox()
-    }
-  return reVomanRuntime(sandboxFactory)
-}
+internal fun reVomanRuntime(): ReVomanRuntime = reVomanRuntime(SandboxFactory(::PmSandbox))

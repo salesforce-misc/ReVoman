@@ -27,6 +27,8 @@ import org.junit.jupiter.api.Test
 /** Proves every JS/hook boundary applies scope mutations before the next phase begins. */
 class ScriptHookPhaseBarrierE2ETest {
   @Test
+  // Keep all phase setup, hook observations, and ordered assertions together as one scenario.
+  @Suppress("LongMethod")
   fun `scripts and hooks observe each prior phase with isolated scopes and independent ledger controls`() {
     phaseOneRawQuery.set(null)
     val hookOrder = mutableListOf<String>()

@@ -26,19 +26,7 @@ internal fun interface KickExecutionFactory {
   ): KickExecution
 }
 
-internal fun interface KickBody {
-  @JvmSynthetic fun execute(owner: KickExecution): Rundown
-}
-
-internal interface KickExecution : InternalCloseable {
-  @get:JvmSynthetic val configuredKick: Kick
-
-  @get:JvmSynthetic val effectiveDynamicEnvironment: Map<String, Any?>
-
-  @get:JvmSynthetic val scripts: ScriptExecutor
-
-  @get:JvmSynthetic val sandboxInitialized: Boolean
-
+internal interface KickExecution : AutoCloseable {
   @JvmSynthetic fun execute(): Rundown
 
   @JvmSynthetic override fun close()
@@ -48,10 +36,9 @@ internal interface KickExecution : InternalCloseable {
 internal fun kickExecution(
   configuredKick: Kick,
   effectiveDynamicEnvironment: Map<String, Any?>,
-  body: KickBody,
+  body: (Kick, Map<String, Any?>, ScriptExecutor) -> Rundown,
   sandboxFactory: SandboxFactory,
 ): KickExecution {
-  val scope = resourceScope()
   return object : KickExecution {
     private var closed = false
     private var executed = false
@@ -65,32 +52,26 @@ internal fun kickExecution(
           timeoutMs: Long,
         ): PmExecutionResult {
           check(!closed) { "KickExecution is already closed" }
-          val runtime = sandbox ?: scope.own(sandboxFactory.create()).also { sandbox = it }
+          val runtime = sandbox ?: sandboxFactory.create().also { sandbox = it }
           return runtime.execute(script, target, context, timeoutMs)
         }
       }
-
-    override val configuredKick: Kick = configuredKick
-
-    override val effectiveDynamicEnvironment: Map<String, Any?> = effectiveDynamicEnvironment
-
-    override val scripts: ScriptExecutor
-      get() = executor
-
-    override val sandboxInitialized: Boolean
-      get() = sandbox != null
 
     override fun execute(): Rundown {
       check(!closed) { "KickExecution is already closed" }
       check(!executed) { "KickExecution has already executed" }
       executed = true
-      return body.execute(this)
+      return body(configuredKick, effectiveDynamicEnvironment, executor)
     }
 
     override fun close() {
       if (closed) return
       closed = true
-      scope.close()
+      try {
+        sandbox?.close()
+      } finally {
+        sandbox = null
+      }
     }
   }
 }

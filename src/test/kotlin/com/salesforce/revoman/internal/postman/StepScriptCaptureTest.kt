@@ -7,9 +7,7 @@
  */
 package com.salesforce.revoman.internal.postman
 
-import com.salesforce.revoman.internal.postman.template.Item
 import com.salesforce.revoman.output.report.PmTestAssertion
-import com.salesforce.revoman.output.report.Step
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
@@ -17,50 +15,39 @@ import org.junit.jupiter.api.Test
 
 class StepScriptCaptureTest {
   @Test
-  fun `assertions accumulate per step across script phases`() {
-    val capture = stepScriptCapture()
-    val first = step("first")
-    val second = step("second")
+  fun `assertions accumulate across script phases`() {
+    val capture = StepScriptCapture()
     val pre = PmTestAssertion("pre", passed = true)
     val post = PmTestAssertion("post", passed = false)
 
-    capture.recordAssertions(first, listOf(pre))
-    capture.recordAssertions(first, listOf(post))
+    capture.recordAssertions(listOf(pre))
+    capture.recordAssertions(listOf(post))
 
-    capture.assertionsFor(first) shouldContainExactly listOf(pre, post)
-    capture.assertionsFor(second).shouldBeEmpty()
+    capture.assertions() shouldContainExactly listOf(pre, post)
   }
 
   @Test
   fun `next request is last-write-wins and preserves an explicit null set bit`() {
-    val capture = stepScriptCapture()
-    val step = step("loop")
+    val capture = StepScriptCapture()
+    capture.recordNextRequest("again", wasSet = true)
+    capture.recordNextRequest(null, wasSet = true)
 
-    capture.recordNextRequest(step, "again", wasSet = true)
-    capture.recordNextRequest(step, null, wasSet = true)
-
-    capture.nextRequestFor(step) shouldBe null
-    capture.nextRequestWasSetFor(step) shouldBe true
+    capture.nextRequest() shouldBe null
+    capture.nextRequestWasSet() shouldBe true
   }
 
   @Test
-  fun `skip and reset are isolated by Step key`() {
-    val capture = stepScriptCapture()
-    val first = step("first")
-    val second = step("second")
-    capture.recordAssertions(first, listOf(PmTestAssertion("first", passed = true)))
-    capture.recordNextRequest(first, "second", wasSet = true)
-    capture.recordSkipRequest(first)
-    capture.recordSkipRequest(second)
+  fun `reset clears all current step state`() {
+    val capture = StepScriptCapture()
+    capture.recordAssertions(listOf(PmTestAssertion("first", passed = true)))
+    capture.recordNextRequest("second", wasSet = true)
+    capture.recordSkipRequest()
 
-    capture.reset(first)
+    capture.reset()
 
-    capture.assertionsFor(first).shouldBeEmpty()
-    capture.nextRequestFor(first) shouldBe null
-    capture.nextRequestWasSetFor(first) shouldBe false
-    capture.skipRequestFor(first) shouldBe false
-    capture.skipRequestFor(second) shouldBe true
+    capture.assertions().shouldBeEmpty()
+    capture.nextRequest() shouldBe null
+    capture.nextRequestWasSet() shouldBe false
+    capture.skipRequest() shouldBe false
   }
-
-  private fun step(name: String): Step = Step(index = name, rawPMStep = Item(name = name))
 }

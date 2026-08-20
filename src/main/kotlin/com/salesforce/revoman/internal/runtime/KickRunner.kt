@@ -38,11 +38,9 @@ import com.salesforce.revoman.internal.json.MoshiReVoman
 import com.salesforce.revoman.internal.json.MoshiReVoman.Companion.initMoshi
 import com.salesforce.revoman.internal.log.RevomanLog
 import com.salesforce.revoman.internal.log.RunLogContext
-import com.salesforce.revoman.internal.postman.PostmanSDK
-import com.salesforce.revoman.internal.postman.postmanSDK
-import com.salesforce.revoman.internal.postman.postmanVariableScopes
-import com.salesforce.revoman.internal.postman.regexReplacer
-import com.salesforce.revoman.internal.postman.stepScriptCapture
+import com.salesforce.revoman.internal.postman.PostmanVariableScopes
+import com.salesforce.revoman.internal.postman.RegexReplacer
+import com.salesforce.revoman.internal.postman.StepScriptCapture
 import com.salesforce.revoman.internal.postman.template.Environment.Companion.mergeEnvs
 import com.salesforce.revoman.internal.postman.template.Template
 import com.salesforce.revoman.internal.postman.template.v3.V3Loader.load
@@ -73,516 +71,526 @@ import io.vavr.control.Either.left
 import java.time.Duration
 import org.http4k.core.Request
 
-@JvmSynthetic
-internal fun kickExecutionFactory(sandboxFactory: SandboxFactory): KickExecutionFactory {
-  val body =
-    object : KickBody {
-      @OptIn(ExperimentalStdlibApi::class)
-      override fun execute(owner: KickExecution): Rundown {
-        /** Emits the [StepEvent.StepFinished] boundary event for a finished step's [report]. */
-        fun emitStepFinished(step: Step, report: StepReport) {
-          val captureForSink = RunLogContext.hasActiveSink()
-          val request: Request? =
-            if (report.requestInfo != null && report.requestInfo.isRight)
-              report.requestInfo.get().httpMsg
-            else null
-          val coordinates = request?.let { requestCoordinates(it) }
-          RevomanLog.event(
-            StepEvent.StepFinished(
-              path = step.path,
-              httpStatus =
-                if (report.responseInfo != null && report.responseInfo.isRight)
-                  report.responseInfo.get().httpMsg.status.code
-                else null,
-              produced = report.envVars.produced,
-              consumed = report.envVars.consumed,
-              tookMs = report.exeTimings.values.sumOf { it.toMillis() },
-              outcome = if (report.isSuccessful) Outcome.SUCCESS else Outcome.FAILED,
-              requestMsg = if (captureForSink && request != null) renderHttpMsg(request) else null,
-              responseMsg =
-                if (captureForSink && report.responseInfo != null && report.responseInfo.isRight)
-                  renderHttpMsg(report.responseInfo.get().httpMsg)
-                else null,
-              producedValues =
-                if (captureForSink)
-                  report.envVars.produced.associateWith { report.pmEnvSnapshot[it]?.toString() }
-                else emptyMap(),
-              consumedValues =
-                if (captureForSink)
-                  report.envVars.consumed.associateWith { report.pmEnvSnapshot[it]?.toString() }
-                else emptyMap(),
-              method = coordinates?.first,
-              host = coordinates?.second,
-              requestPath = coordinates?.third,
-            )
-          )
+private data class KickPostmanContext(
+  val scopes: PostmanVariableScopes,
+  val capture: StepScriptCapture,
+  val progress: RundownProgress,
+  val regexReplacer: RegexReplacer,
+)
+
+@OptIn(ExperimentalStdlibApi::class)
+// Kick setup and teardown intentionally remain one linear transaction around local helpers.
+@Suppress("LongMethod", "CyclomaticComplexMethod")
+private fun executeKickBody(
+  configuredKick: Kick,
+  effectiveDynamicEnvironment: Map<String, Any?>,
+  scripts: ScriptExecutor,
+): Rundown {
+  /** Emits the [StepEvent.StepFinished] boundary event for a finished step's [report]. */
+  fun emitStepFinished(step: Step, report: StepReport) {
+    val captureForSink = RunLogContext.hasActiveSink()
+    val request: Request? =
+      if (report.requestInfo != null && report.requestInfo.isRight) report.requestInfo.get().httpMsg
+      else null
+    val coordinates = request?.let { requestCoordinates(it) }
+    RevomanLog.event(
+      StepEvent.StepFinished(
+        path = step.path,
+        httpStatus =
+          if (report.responseInfo != null && report.responseInfo.isRight)
+            report.responseInfo.get().httpMsg.status.code
+          else null,
+        produced = report.envVars.produced,
+        consumed = report.envVars.consumed,
+        tookMs = report.exeTimings.values.sumOf { it.toMillis() },
+        outcome = if (report.isSuccessful) Outcome.SUCCESS else Outcome.FAILED,
+        requestMsg = if (captureForSink && request != null) renderHttpMsg(request) else null,
+        responseMsg =
+          if (captureForSink && report.responseInfo != null && report.responseInfo.isRight)
+            renderHttpMsg(report.responseInfo.get().httpMsg)
+          else null,
+        producedValues =
+          if (captureForSink)
+            report.envVars.produced.associateWith { report.pmEnvSnapshot[it]?.toString() }
+          else emptyMap(),
+        consumedValues =
+          if (captureForSink)
+            report.envVars.consumed.associateWith { report.pmEnvSnapshot[it]?.toString() }
+          else emptyMap(),
+        method = coordinates?.first,
+        host = coordinates?.second,
+        requestPath = coordinates?.third,
+      )
+    )
+  }
+  /**
+   * Runs ONE step's full lifecycle (ledger warm-path → pre-req JS → unmarshall → hooks → HTTP →
+   * post-res → polling) and returns its [StepReport]. Pure relocation of the former fold body: it
+   * does NOT compute halt, emit the [StepEvent.StepFinished] event, or accumulate — the caller (the
+   * sequencer loop) owns that.
+   *
+   * When [bypassLedger] is true the ledger warm-path block (skip+inject AND the
+   * [shadowedPaths]/warn-and-run consultation) is skipped entirely and the step always dispatches
+   * fresh — used once control flow has diverged from the linear order the ledger assumes.
+   */
+  @OptIn(ExperimentalStdlibApi::class)
+  // Phase order and the two semantic short-circuits are the step lifecycle contract.
+  @Suppress("LongMethod", "ReturnCount")
+  fun runStep(
+    step: Step,
+    iteration: Int,
+    bypassLedger: Boolean,
+    stepReportsSoFar: List<StepReport>,
+    pmStepsCount: Int,
+    shadowedPaths: Set<String>,
+    kick: Kick,
+    moshiReVoman: MoshiReVoman,
+    pm: KickPostmanContext,
+    scripts: ScriptExecutor,
+  ): StepReport {
+    // Reset per-step capture each execution so a looped step doesn't inherit prior
+    // iteration's
+    // state.
+    // No-op on first run (the maps hold no entry for this step yet).
+    pm.capture.reset()
+
+    // --------### LEDGER WARM-PATH: skip+inject / warn-and-run ###--------
+    val ledger = kick.ledger()
+    val entry = ledger.steps[step.path]
+    val envKeys = pm.scopes.environment.keys
+    if (
+      !bypassLedger &&
+        step.path !in shadowedPaths &&
+        ledgerSkipDecision(step, ledger, envKeys, kick.ledgerOptOutSteps())
+    ) {
+      val skipEntry = entry!!
+      RevomanLog.info {
+        "***** Ledger-skip Step (reusing ${skipEntry.produces}): $step *****"
+      }
+      RevomanLog.event(StepEvent.LedgerSkipped(step.path, skipEntry.produces))
+      // Inject ledgered values via the delegated index-set (NOT `set()`), so the reused keys
+      // are NOT recorded as "produced" by this skipped step in the live per-step capture. A
+      // produced key absent from `ledger.values` (partial/corrupt ledger) is NOT injected as
+      // a
+      // silent null (which would stringify to "null" downstream): warn and leave the existing
+      // env value, which the env-superset precondition guarantees is present.
+      skipEntry.produces.forEach { key ->
+        if (ledger.values.containsKey(key)) {
+          pm.scopes.environment[key] = ledger.values[key]
+        } else {
+          RevomanLog.warn {
+            "[ledger] ${step.path} reuses produced key '$key' but it is missing from " +
+              "ledger.values -> keeping existing env value, not injecting null"
+          }
         }
-        /**
-         * Runs ONE step's full lifecycle (ledger warm-path → pre-req JS → unmarshall → hooks → HTTP
-         * → post-res → polling) and returns its [StepReport]. Pure relocation of the former fold
-         * body: it does NOT compute halt, emit the [StepEvent.StepFinished] event, or accumulate —
-         * the caller (the sequencer loop) owns that.
-         *
-         * When [bypassLedger] is true the ledger warm-path block (skip+inject AND the
-         * [shadowedPaths]/warn-and-run consultation) is skipped entirely and the step always
-         * dispatches fresh — used once control flow has diverged from the linear order the ledger
-         * assumes.
-         */
-        @OptIn(ExperimentalStdlibApi::class)
-        fun runStep(
-          step: Step,
-          iteration: Int,
-          bypassLedger: Boolean,
-          stepReportsSoFar: List<StepReport>,
-          pmStepsCount: Int,
-          shadowedPaths: Set<String>,
-          kick: Kick,
-          moshiReVoman: MoshiReVoman,
-          pm: PostmanSDK,
-          scripts: ScriptExecutor,
-        ): StepReport {
-          // Reset per-step capture each execution so a looped step doesn't inherit prior
-          // iteration's
-          // state.
-          // No-op on first run (the maps hold no entry for this step yet).
-          pm.capture.reset(step)
-
-          // --------### LEDGER WARM-PATH: skip+inject / warn-and-run ###--------
-          val ledger = kick.ledger()
-          val entry = ledger.steps[step.path]
-          val envKeys = pm.scopes.environment.keys
-          if (
-            !bypassLedger &&
-              step.path !in shadowedPaths &&
-              ledgerSkipDecision(step, ledger, envKeys, kick.ledgerOptOutSteps())
-          ) {
-            val skipEntry = entry!!
-            RevomanLog.info {
-              "***** Ledger-skip Step (reusing ${skipEntry.produces}): $step *****"
-            }
-            RevomanLog.event(StepEvent.LedgerSkipped(step.path, skipEntry.produces))
-            // Inject ledgered values via the delegated index-set (NOT `set()`), so the reused keys
-            // are NOT recorded as "produced" by this skipped step in the live per-step capture. A
-            // produced key absent from `ledger.values` (partial/corrupt ledger) is NOT injected as
-            // a
-            // silent null (which would stringify to "null" downstream): warn and leave the existing
-            // env value, which the env-superset precondition guarantees is present.
-            skipEntry.produces.forEach { key ->
-              if (ledger.values.containsKey(key)) {
-                pm.scopes.environment[key] = ledger.values[key]
-              } else {
-                RevomanLog.warn {
-                  "[ledger] ${step.path} reuses produced key '$key' but it is missing from " +
-                    "ledger.values -> keeping existing env value, not injecting null"
-                }
-              }
-            }
-            return StepReport.ledgerSkipped(
-              step,
-              skipEntry.produces,
-              pm.scopes.environment,
-              skipEntry.consumed,
-            )
-          }
-          if (
-            !bypassLedger &&
-              entry != null &&
-              entry.produces.isNotEmpty() &&
-              entry.hash.isNotEmpty() &&
-              step.sourceHash.isNotEmpty() &&
-              entry.hash != step.sourceHash &&
-              envKeys.containsAll(entry.produces)
-          ) {
-            RevomanLog.warn {
-              "[ledger] stale: ${step.path} producer def changed " +
-                "(hash ${entry.hash} -> ${step.sourceHash}) -> running step, refreshing entry"
-            }
-          }
-          RevomanLog.info { "***** Executing Step: $step *****" }
-          RevomanLog.event(StepEvent.StepStarted(step.path, step.name))
-          val exeTimings: MutableMap<ExeType, Duration> = mutableMapOf()
-          val itemWithRegex = step.rawPMStep
-          val preStepReport =
-            StepReport(
-              step = step,
-              requestInfo =
-                Right(
-                  TxnInfo(
-                    httpMsg = itemWithRegex.request.toHttpRequest(null),
-                    moshiReVoman = moshiReVoman,
-                  )
-                ),
-              pmEnvSnapshot = pm.scopes.environment,
-            )
-          pm.progress.currentRequestName = step.name
-          pm.progress.currentReport = preStepReport
-          pm.progress.rundown =
-            Rundown(
-              stepReportsSoFar + preStepReport,
-              pm.scopes.environment,
-              kick.haltOnFailureOfTypeExcept(),
-              pmStepsCount,
-              collectionVariables = pm.scopes.collectionVariables,
-              globals = pm.scopes.globals,
-            )
-          pm.scopes.environment.putAll(pm.regexReplacer.replaceVariablesInEnv())
-          // --------### PRE-REQ-JS ###--------
-          // Run pre-req JS first, OUTSIDE the chain: it records `pm.execution.skipRequest()` onto
-          // the
-          // SDK.
-          // When pre-req SUCCEEDS and the script asked to skip, short-circuit BEFORE
-          // unmarshall/hooks/HTTP/
-          // post-res/polling — emit a successful `requestSkipped` report (no request/response, no
-          // env).
-          val preReqResult =
-            timed(step, exeTimings, PRE_REQ_JS) {
-              executePreReqJS(
-                step,
-                itemWithRegex,
-                preStepReport,
-                pm.scopes,
-                pm.capture,
-                scripts,
-              )
-            }
-          if (preReqResult.isRight() && pm.capture.skipRequestFor(step)) {
-            RevomanLog.event(StepEvent.RequestSkipped(step.path))
-            RevomanLog.info { "⏭️ skipRequest() at ${step.path} — skipping HTTP dispatch." }
-            return StepReport.requestSkipped(step, pm.scopes.environment, iteration)
-          }
-          return preReqResult
-            .mapLeft { preStepReport.copy(requestInfo = left(it)) }
-            .flatMap { // --------### UNMARSHALL-REQUEST ###--------
-              timed(step, exeTimings, UNMARSHALL_REQUEST) {
-                  val pmRequest =
-                    pm.regexReplacer.replaceVariablesInRequestRecursively(itemWithRegex.request)
-                  unmarshallRequest(step, pmRequest, kick, moshiReVoman, pm.progress.rundown)
-                }
-                .mapLeft { preStepReport.copy(requestInfo = left(it)) }
-            }
-            .flatMap { requestInfo: TxnInfo<Request> -> // --------### PRE-HOOKS ###--------
-              timed(step, exeTimings, PRE_STEP_HOOK) {
-                  preStepHookExe(step, kick, requestInfo, pm.progress.rundown)
-                }
-                ?.let {
-                  Left(
-                    preStepReport.copy(
-                      requestInfo = Right(requestInfo).toVavr(),
-                      preStepHookFailure = it,
-                    )
-                  )
-                } ?: Right(preStepReport.copy(requestInfo = Right(requestInfo).toVavr()))
-            }
-            .flatMap { sr: StepReport -> // --------### HTTP-REQUEST ###--------
-              pm.progress.sync(sr)
-              // * NOTE 15 Mar 2025 gopala.akshintala: Replace again to accommodate variables set by
-              // PRE-REQ-JS
-              val item = pm.regexReplacer.replaceVariablesInPmItem(itemWithRegex)
-              val httpRequest = item.request.toHttpRequest(moshiReVoman)
-              timed(step, exeTimings, HTTP_REQUEST) {
-                  fireHttpRequest(step, httpRequest, kick.insecureHttp(), moshiReVoman)
-                }
-                .mapLeft { sr.copy(requestInfo = Left(it).toVavr()) }
-                .map {
-                  sr.copy(
-                    requestInfo =
-                      sr.requestInfo?.map { txnInfo -> txnInfo.copy(httpMsg = httpRequest) },
-                    responseInfo = Right(it).toVavr(),
-                  )
-                }
-            }
-            .flatMap { sr: StepReport -> // --------### POST-RES-JS ###--------
-              pm.progress.sync(sr)
-              timed(step, exeTimings, POST_RES_JS) {
-                  executePostResJS(step, itemWithRegex, sr, pm.scopes, pm.capture, scripts)
-                }
-                .mapLeft { sr.copy(responseInfo = left(it)) }
-                .map { sr }
-            }
-            .flatMap { sr: StepReport -> // ---### UNMARSHALL RESPONSE ###---
-              timed(step, exeTimings, UNMARSHALL_RESPONSE) {
-                  unmarshallResponse(kick, moshiReVoman, sr, pm.progress.rundown)
-                }
-                .mapLeft { sr.copy(responseInfo = Left(it).toVavr()) }
-                .map { sr.copy(responseInfo = Right(it).toVavr()) }
-            }
-            .map { sr: StepReport -> // --------### POST-HOOKS ###--------
-              pm.progress.sync(sr)
-              val postHookFailure =
-                timed(step, exeTimings, POST_STEP_HOOK) {
-                  postStepHookExe(kick, sr, pm.progress.rundown)
-                }
-              sr.copy(postStepHookFailure = postHookFailure)
-            }
-            .flatMap { sr: StepReport -> // --------### POLLING ###--------
-              timed(step, exeTimings, POLLING) {
-                  executePolling(
-                    kick.pollingConfig(),
-                    sr,
-                    pm.progress.rundown,
-                    pm.scopes,
-                    kick.insecureHttp(),
-                  )
-                }
-                .mapLeft { sr.copy(pollingFailure = it) }
-                .map { pollingReport -> pollingReport?.let { sr.copy(pollingReport = it) } ?: sr }
-            }
-            .merge()
-            .copy(
-              exeTimings = exeTimings,
-              pmEnvSnapshot = pm.scopes.environment.o1Snapshot(),
-              envVars =
-                StepEnvVars(
-                  produced = pm.scopes.environment.producedKeysFor(step),
-                  consumed = pm.scopes.environment.consumedKeysFor(step),
-                ),
-              pmTestAssertions = pm.capture.assertionsFor(step),
-              nextRequest = pm.capture.nextRequestFor(step),
-              nextRequestSet = pm.capture.nextRequestWasSetFor(step),
-              iteration = iteration,
-            )
-        }
-        fun executeStepsSerially(
-          pmStepsFlattened: List<Step>,
-          kick: Kick,
-          moshiReVoman: MoshiReVoman,
-          pm: PostmanSDK,
-          scripts: ScriptExecutor,
-        ): Pair<List<StepReport>, StopReason> {
-          val pickedSteps = pmStepsFlattened.filter {
-            shouldStepBePicked(it, kick.runOnlySteps(), kick.skipSteps())
-          }
-          // Collision guard (computed once over the picked steps in execution order): a key
-          // produced by
-          // >1 step is only safely ledger-skippable at its LAST producer. Earlier producers of a
-          // re-set
-          // key must always run, else a skipped earlier step would be injected with the LATER value
-          // and
-          // an intermediate consumer of the earlier value would read it wrong. Empty for
-          // collision-free
-          // collections (every key produced once) — zero behavior change there.
-          val shadowedPaths = shadowedProducerPaths(pickedSteps, kick.ledger())
-          // Backward-jump runaway guard: up to `pickedSteps × maxStepExecutionFactor` executions
-          // allowed.
-          val budget = pickedSteps.size * kick.maxStepExecutionFactor()
-
-          val reports = mutableListOf<StepReport>()
-          val iterationByPath = mutableMapOf<String, Int>()
-          var cursor = 0
-          var executions = 0
-          // ONE-WAY latch: once control flow diverges from the linear order (a real jump or a
-          // skip), the
-          // ledger's order assumption no longer holds, so steps from there on always dispatch
-          // fresh. The
-          // linear prefix BEFORE the first divergence still runs with the ledger fully active.
-          var bypassLedger = false
-          var stopReason = StopReason.COMPLETED
-
-          while (cursor in pickedSteps.indices) {
-            val step = pickedSteps[cursor]
-            pm.scopes.environment.currentStep = step
-            val iteration = iterationByPath.getOrDefault(step.path, 0)
-
-            val report =
-              runStep(
-                step,
-                iteration,
-                bypassLedger,
-                reports,
-                pmStepsFlattened.size,
-                shadowedPaths,
-                kick,
-                moshiReVoman,
-                pm,
-                scripts,
-              )
-            reports += report
-            iterationByPath[step.path] = iteration + 1
-            executions++
-
-            // A ledger-skip records only its LedgerSkipped event (no StepFinished) and never halts
-            // — it
-            // is always successful and its `pm.rundown` is left at the prior value (preserve the
-            // legacy
-            // fold's early-return). A request-skip likewise diverges control flow (see below).
-            if (!report.isLedgerSkipped) emitStepFinished(step, report)
-            // A pre-request skip diverges control flow → the ledger's linear-order assumption is
-            // broken
-            // for every step after it.
-            if (report.isRequestSkipped) bypassLedger = true
-
-            // Budget guard (catches runaway backward-jump loops).
-            if (executions > budget) {
-              RevomanLog.event(StepEvent.LoopBudgetExceeded(step.path, budget))
-              RevomanLog.warn { "🛑 Loop budget exceeded ($budget executions); stopping the run." }
-              stopReason = StopReason.LOOP_BUDGET_EXCEEDED
-              break
-            }
-
-            // Failure halt: a ledger-skip can't fail (skip the check, matching the legacy
-            // early-return
-            // that also avoided reading the possibly-uninitialized `pm.rundown`). For every other
-            // report
-            // the halt predicate consults `pm.rundown` exactly as the legacy fold did.
-            if (!report.isLedgerSkipped && shouldHaltExecution(report, kick, pm.progress.rundown)) {
-              stopReason = StopReason.HALTED_ON_FAILURE
-              break
-            }
-
-            cursor =
-              when (val directive = directiveOf(report)) {
-                StepDirective.None -> cursor + 1
-                StepDirective.Stop -> {
-                  RevomanLog.event(StepEvent.RunStopped(step.path, "setNextRequest(null)"))
-                  RevomanLog.info { "🛑 setNextRequest(null) at ${step.path} — stopping the run." }
-                  stopReason = StopReason.STOPPED_BY_DIRECTIVE
-                  pickedSteps.size // out of indices -> loop exits
-                }
-                is StepDirective.Jump -> {
-                  val target = resolveTarget(directive.target, pickedSteps, cursor)
-                  if (target == null) {
-                    RevomanLog.warn {
-                      "⚠️ setNextRequest('${directive.target}') at ${step.path} matched no " +
-                        "picked step; continuing linearly."
-                    }
-                    cursor + 1
-                  } else {
-                    bypassLedger = true
-                    RevomanLog.event(StepEvent.Jumped(step.path, pickedSteps[target].path))
-                    RevomanLog.info { "↪️ Jump ${step.path} -> ${pickedSteps[target].path}" }
-                    target
-                  }
-                }
-              }
-          }
-          return reports to stopReason
-        }
-        val kick =
-          owner.configuredKick.overrideDynamicEnvironment(owner.effectiveDynamicEnvironment)
-        val pmTemplateAdapter = Moshi.Builder().build().adapter<Template>()
-        val itemsFromPaths: List<com.salesforce.revoman.internal.postman.template.Item> =
-          kick.templatePaths().flatMap { path ->
-            if (isV3Collection(path)) {
-              load(path)
-            } else {
-              pmTemplateAdapter.fromJson(bufferFile(path))?.let { (pmSteps, authFromRoot) ->
-                pmSteps.map { item ->
-                  item.copy(request = item.request.copy(auth = item.request.auth ?: authFromRoot))
-                }
-              } ?: emptyList()
-            }
-          }
-        val itemsFromStreams: List<com.salesforce.revoman.internal.postman.template.Item> =
-          kick.templateInputStreams().flatMap { stream ->
-            pmTemplateAdapter.fromJson(bufferInputStream(stream))?.let { (pmSteps, authFromRoot) ->
-              pmSteps.map { item ->
-                item.copy(request = item.request.copy(auth = item.request.auth ?: authFromRoot))
-              }
-            } ?: emptyList()
-          }
-        val pmStepsDeepFlattened = deepFlattenItems(itemsFromPaths + itemsFromStreams)
-        RevomanLog.info {
-          val templateCount = kick.templatePaths().size
-          "Total Steps from ${if (templateCount > 1) "$templateCount Collections" else "the Collection"} provided: ${pmStepsDeepFlattened.size}"
-        }
-        val moshiReVoman =
-          initMoshi(
-            kick.globalCustomTypeAdapters(),
-            kick.customTypeAdaptersFromRequestConfig() +
-              kick.customTypeAdaptersFromResponseConfig(),
-            kick.globalSkipTypes(),
-          )
-        // Seed the ledger snapshot's produced-key values as the lowest-precedence FLOOR: a real
-        // warm
-        // run satisfies the `ledgerSkipDecision` env-superset precondition only if the produced
-        // keys
-        // are
-        // already present in the env. `Map.plus` lets the right-hand side win on key clash, so the
-        // real
-        // env (mergeEnvs) OVERRIDES the ledger values — ledger is only a fallback. For non-ledger
-        // runs
-        // `kick.ledger().values` is empty (LedgerSnapshot.EMPTY), so this prepends an empty map =
-        // no-op.
-        val ledgerValues: Map<String, Any?> = kick.ledger().values
-        val mergedEnv =
-          mergeEnvs(
-            kick.environmentPaths(),
-            kick.environmentInputStreams(),
-            kick.dynamicEnvironment(),
-          )
-        val environment: PostmanEnvironment<Any?> =
-          PostmanEnvironment(
-            mutableEnv = PersistentBackedMutableMap(ledgerValues + mergedEnv.values),
-            moshiReVoman = moshiReVoman,
-          )
-        val collectionVariables: PostmanEnvironment<Any?> =
-          PostmanEnvironment(mutableEnv = mutableMapOf(), moshiReVoman = moshiReVoman)
-        val globals: PostmanEnvironment<Any?> =
-          PostmanEnvironment(mutableEnv = mutableMapOf(), moshiReVoman = moshiReVoman)
-        val scopes =
-          postmanVariableScopes(
-            environment = environment,
-            collectionVariables = collectionVariables,
-            globals = globals,
-            environmentName = mergedEnv.name,
-          )
-        val progress = legacyRundownProgress()
-        val regexReplacer =
-          regexReplacer(
-            scopes = scopes,
-            progress = progress,
-            customDynamicVariableGenerators = kick.customDynamicVariableGenerators(),
-          )
-        val capture = stepScriptCapture()
-        val pm =
-          postmanSDK(
-            scopes = scopes,
-            capture = capture,
-            progress = progress,
-            regexReplacer = regexReplacer,
-          )
-        val sequenceResult =
-          executeStepsSerially(pmStepsDeepFlattened, kick, moshiReVoman, pm, owner.scripts)
-        val stepNameToReport = sequenceResult.first
-        // --- LEDGER CAPTURE CONTRACT (what becomes a ledgered producer) ---
-        // A step's `envVars` is snapshotted at the END of its fold iteration (below), AFTER its
-        // post-step hooks run, so a var a step-qualified PostStepHook/PreStepHook `.set()`s IS
-        // captured
-        // as produced BY that triggering step — matching the design intent that a hook-set var
-        // belongs
-        // to the step that qualified the hook. Two writes are intentionally NOT captured: (1) the
-        // delegated index-set `mutableEnv[k]=` (the same bypass the warm-skip inject uses, so
-        // reused
-        // keys are not re-recorded as produced), and (2) a var set in the collection-level
-        // PostExeHook,
-        // which fires in the OUTER kick-fold AFTER this learnedLedger is already frozen — it has no
-        // single triggering step, so it is excluded rather than mis-attributed. Hook producers that
-        // want to be ledgered must use `pm.environment.set(...)` from a step-qualified hook.
-        val learnedLedger =
-          stepNameToReport
-            .filter { it.envVars.produced.isNotEmpty() }
-            .associate {
-              it.step.path to
-                LedgerEntry(it.envVars.produced, it.step.sourceHash, it.envVars.consumed)
-            }
-        return Rundown(
-          stepNameToReport,
-          pm.scopes.environment,
-          kick.haltOnFailureOfTypeExcept(),
-          pmStepsDeepFlattened.size,
-          learnedLedger,
-          pm.scopes.collectionVariables,
-          pm.scopes.globals,
-          sequenceResult.second,
-        )
+      }
+      return StepReport.ledgerSkipped(
+        step,
+        skipEntry.produces,
+        pm.scopes.environment,
+        skipEntry.consumed,
+      )
+    }
+    val hasStaleLedgerEntry =
+      !bypassLedger &&
+        entry != null &&
+        entry.produces.isNotEmpty() &&
+        entry.hash.isNotEmpty() &&
+        step.sourceHash.isNotEmpty() &&
+        entry.hash != step.sourceHash &&
+        envKeys.containsAll(entry.produces)
+    if (hasStaleLedgerEntry) {
+      RevomanLog.warn {
+        "[ledger] stale: ${step.path} producer def changed " +
+          "(hash ${entry.hash} -> ${step.sourceHash}) -> running step, refreshing entry"
       }
     }
-
-  return object : KickExecutionFactory {
-    override fun create(
-      configuredKick: Kick,
-      effectiveDynamicEnvironment: Map<String, Any?>,
-    ): KickExecution =
-      kickExecution(configuredKick, effectiveDynamicEnvironment, body, sandboxFactory)
+    RevomanLog.info { "***** Executing Step: $step *****" }
+    RevomanLog.event(StepEvent.StepStarted(step.path, step.name))
+    val exeTimings: MutableMap<ExeType, Duration> = mutableMapOf()
+    val itemWithRegex = step.rawPMStep
+    val preStepReport =
+      StepReport(
+        step = step,
+        requestInfo =
+          Right(
+            TxnInfo(
+              httpMsg = itemWithRegex.request.toHttpRequest(null),
+              moshiReVoman = moshiReVoman,
+            )
+          ),
+        pmEnvSnapshot = pm.scopes.environment,
+      )
+    pm.progress.begin(
+      preStepReport,
+      Rundown(
+        stepReportsSoFar + preStepReport,
+        pm.scopes.environment,
+        kick.haltOnFailureOfTypeExcept(),
+        pmStepsCount,
+        collectionVariables = pm.scopes.collectionVariables,
+        globals = pm.scopes.globals,
+      ),
+    )
+    pm.scopes.environment.putAll(pm.regexReplacer.replaceVariablesInEnv())
+    // --------### PRE-REQ-JS ###--------
+    // Run pre-req JS first, OUTSIDE the chain: it records `pm.execution.skipRequest()` onto
+    // the
+    // per-kick capture.
+    // When pre-req SUCCEEDS and the script asked to skip, short-circuit BEFORE
+    // unmarshall/hooks/HTTP/
+    // post-res/polling — emit a successful `requestSkipped` report (no request/response, no
+    // env).
+    val preReqResult =
+      timed(step, exeTimings, PRE_REQ_JS) {
+        executePreReqJS(
+          step,
+          itemWithRegex,
+          preStepReport,
+          pm.scopes,
+          pm.capture,
+          scripts,
+        )
+      }
+    if (preReqResult.isRight() && pm.capture.skipRequest()) {
+      RevomanLog.event(StepEvent.RequestSkipped(step.path))
+      RevomanLog.info { "⏭️ skipRequest() at ${step.path} — skipping HTTP dispatch." }
+      return StepReport.requestSkipped(step, pm.scopes.environment, iteration)
+    }
+    return preReqResult
+      .mapLeft { preStepReport.copy(requestInfo = left(it)) }
+      .flatMap { // --------### UNMARSHALL-REQUEST ###--------
+        timed(step, exeTimings, UNMARSHALL_REQUEST) {
+            val pmRequest =
+              pm.regexReplacer.replaceVariablesInRequestRecursively(itemWithRegex.request)
+            unmarshallRequest(step, pmRequest, kick, moshiReVoman, pm.progress.rundown)
+          }
+          .mapLeft { preStepReport.copy(requestInfo = left(it)) }
+      }
+      .flatMap { requestInfo: TxnInfo<Request> -> // --------### PRE-HOOKS ###--------
+        timed(step, exeTimings, PRE_STEP_HOOK) {
+            preStepHookExe(step, kick, requestInfo, pm.progress.rundown)
+          }
+          ?.let {
+            Left(
+              preStepReport.copy(
+                requestInfo = Right(requestInfo).toVavr(),
+                preStepHookFailure = it,
+              )
+            )
+          } ?: Right(preStepReport.copy(requestInfo = Right(requestInfo).toVavr()))
+      }
+      .flatMap { sr: StepReport -> // --------### HTTP-REQUEST ###--------
+        pm.progress.update(sr)
+        // * NOTE 15 Mar 2025 gopala.akshintala: Replace again to accommodate variables set by
+        // PRE-REQ-JS
+        val item = pm.regexReplacer.replaceVariablesInPmItem(itemWithRegex)
+        val httpRequest = item.request.toHttpRequest(moshiReVoman)
+        timed(step, exeTimings, HTTP_REQUEST) {
+            fireHttpRequest(step, httpRequest, kick.insecureHttp(), moshiReVoman)
+          }
+          .mapLeft { sr.copy(requestInfo = Left(it).toVavr()) }
+          .map {
+            sr.copy(
+              requestInfo = sr.requestInfo?.map { txnInfo -> txnInfo.copy(httpMsg = httpRequest) },
+              responseInfo = Right(it).toVavr(),
+            )
+          }
+      }
+      .flatMap { sr: StepReport -> // --------### POST-RES-JS ###--------
+        pm.progress.update(sr)
+        timed(step, exeTimings, POST_RES_JS) {
+            executePostResJS(step, itemWithRegex, sr, pm.scopes, pm.capture, scripts)
+          }
+          .mapLeft { sr.copy(responseInfo = left(it)) }
+          .map { sr }
+      }
+      .flatMap { sr: StepReport -> // ---### UNMARSHALL RESPONSE ###---
+        timed(step, exeTimings, UNMARSHALL_RESPONSE) {
+            unmarshallResponse(kick, moshiReVoman, sr, pm.progress.rundown)
+          }
+          .mapLeft { sr.copy(responseInfo = Left(it).toVavr()) }
+          .map { sr.copy(responseInfo = Right(it).toVavr()) }
+      }
+      .map { sr: StepReport -> // --------### POST-HOOKS ###--------
+        pm.progress.update(sr)
+        val postHookFailure =
+          timed(step, exeTimings, POST_STEP_HOOK) {
+            postStepHookExe(kick, sr, pm.progress.rundown)
+          }
+        sr.copy(postStepHookFailure = postHookFailure)
+      }
+      .flatMap { sr: StepReport -> // --------### POLLING ###--------
+        timed(step, exeTimings, POLLING) {
+            executePolling(
+              kick.pollingConfig(),
+              sr,
+              pm.progress.rundown,
+              pm.scopes,
+              kick.insecureHttp(),
+            )
+          }
+          .mapLeft { sr.copy(pollingFailure = it) }
+          .map { pollingReport -> pollingReport?.let { sr.copy(pollingReport = it) } ?: sr }
+      }
+      .merge()
+      .copy(
+        exeTimings = exeTimings,
+        pmEnvSnapshot = pm.scopes.environment.o1Snapshot(),
+        envVars =
+          StepEnvVars(
+            produced = pm.scopes.environment.producedKeysFor(step),
+            consumed = pm.scopes.environment.consumedKeysFor(step),
+          ),
+        pmTestAssertions = pm.capture.assertions(),
+        nextRequest = pm.capture.nextRequest(),
+        nextRequestSet = pm.capture.nextRequestWasSet(),
+        iteration = iteration,
+      )
   }
+  fun executeStepsSerially(
+    pmStepsFlattened: List<Step>,
+    kick: Kick,
+    moshiReVoman: MoshiReVoman,
+    pm: KickPostmanContext,
+    scripts: ScriptExecutor,
+  ): Pair<List<StepReport>, StopReason> {
+    val pickedSteps = pmStepsFlattened.filter {
+      shouldStepBePicked(it, kick.runOnlySteps(), kick.skipSteps())
+    }
+    // Collision guard (computed once over the picked steps in execution order): a key
+    // produced by
+    // >1 step is only safely ledger-skippable at its LAST producer. Earlier producers of a
+    // re-set
+    // key must always run, else a skipped earlier step would be injected with the LATER value
+    // and
+    // an intermediate consumer of the earlier value would read it wrong. Empty for
+    // collision-free
+    // collections (every key produced once) — zero behavior change there.
+    val shadowedPaths = shadowedProducerPaths(pickedSteps, kick.ledger())
+    // Backward-jump runaway guard: up to `pickedSteps × maxStepExecutionFactor` executions
+    // allowed.
+    val budget = pickedSteps.size * kick.maxStepExecutionFactor()
+
+    val reports = mutableListOf<StepReport>()
+    val iterationByPath = mutableMapOf<String, Int>()
+    var cursor = 0
+    var executions = 0
+    // ONE-WAY latch: once control flow diverges from the linear order (a real jump or a
+    // skip), the
+    // ledger's order assumption no longer holds, so steps from there on always dispatch
+    // fresh. The
+    // linear prefix BEFORE the first divergence still runs with the ledger fully active.
+    var bypassLedger = false
+    var stopReason = StopReason.COMPLETED
+    var keepRunning = true
+
+    while (keepRunning && cursor in pickedSteps.indices) {
+      val step = pickedSteps[cursor]
+      pm.scopes.environment.currentStep = step
+      val iteration = iterationByPath.getOrDefault(step.path, 0)
+
+      val report =
+        runStep(
+          step,
+          iteration,
+          bypassLedger,
+          reports,
+          pmStepsFlattened.size,
+          shadowedPaths,
+          kick,
+          moshiReVoman,
+          pm,
+          scripts,
+        )
+      reports += report
+      iterationByPath[step.path] = iteration + 1
+      executions++
+
+      // A ledger-skip records only its LedgerSkipped event (no StepFinished) and never halts
+      // — it
+      // is always successful and its `pm.rundown` is left at the prior value (preserve the
+      // legacy
+      // fold's early-return). A request-skip likewise diverges control flow (see below).
+      if (!report.isLedgerSkipped) emitStepFinished(step, report)
+      // A pre-request skip diverges control flow → the ledger's linear-order assumption is
+      // broken
+      // for every step after it.
+      if (report.isRequestSkipped) bypassLedger = true
+
+      // Budget guard (catches runaway backward-jump loops).
+      if (executions > budget) {
+        RevomanLog.event(StepEvent.LoopBudgetExceeded(step.path, budget))
+        RevomanLog.warn { "🛑 Loop budget exceeded ($budget executions); stopping the run." }
+        stopReason = StopReason.LOOP_BUDGET_EXCEEDED
+        keepRunning = false
+      }
+
+      // Failure halt: a ledger-skip can't fail (skip the check, matching the legacy
+      // early-return
+      // that also avoided reading the possibly-uninitialized `pm.rundown`). For every other
+      // report
+      // the halt predicate consults `pm.rundown` exactly as the legacy fold did.
+      if (!report.isLedgerSkipped && shouldHaltExecution(report, kick, pm.progress.rundown)) {
+        stopReason = StopReason.HALTED_ON_FAILURE
+        keepRunning = false
+      }
+
+      if (keepRunning) {
+        cursor =
+          when (val directive = directiveOf(report)) {
+            StepDirective.None -> cursor + 1
+            StepDirective.Stop -> {
+              RevomanLog.event(StepEvent.RunStopped(step.path, "setNextRequest(null)"))
+              RevomanLog.info {
+                "🛑 setNextRequest(null) at ${step.path} — stopping the run."
+              }
+              stopReason = StopReason.STOPPED_BY_DIRECTIVE
+              pickedSteps.size // out of indices -> loop exits
+            }
+            is StepDirective.Jump -> {
+              val target = resolveTarget(directive.target, pickedSteps, cursor)
+              if (target == null) {
+                RevomanLog.warn {
+                  "⚠️ setNextRequest('${directive.target}') at ${step.path} matched no " +
+                    "picked step; continuing linearly."
+                }
+                cursor + 1
+              } else {
+                bypassLedger = true
+                RevomanLog.event(StepEvent.Jumped(step.path, pickedSteps[target].path))
+                RevomanLog.info { "↪️ Jump ${step.path} -> ${pickedSteps[target].path}" }
+                target
+              }
+            }
+          }
+      }
+    }
+    return reports to stopReason
+  }
+  val kick = configuredKick.overrideDynamicEnvironment(effectiveDynamicEnvironment)
+  @Suppress("DEPRECATION") val legacyNodeModulesPath = kick.nodeModulesPath()
+  if (!legacyNodeModulesPath.isNullOrBlank()) {
+    RevomanLog.warn {
+      "nodeModulesPath(...) is ignored; sandbox scripts support only bundled modules"
+    }
+  }
+  val pmTemplateAdapter = Moshi.Builder().build().adapter<Template>()
+  val itemsFromPaths: List<com.salesforce.revoman.internal.postman.template.Item> =
+    kick.templatePaths().flatMap { path ->
+      if (isV3Collection(path)) {
+        load(path)
+      } else {
+        pmTemplateAdapter.fromJson(bufferFile(path))?.let { (pmSteps, authFromRoot) ->
+          pmSteps.map { item ->
+            item.copy(request = item.request.copy(auth = item.request.auth ?: authFromRoot))
+          }
+        } ?: emptyList()
+      }
+    }
+  val itemsFromStreams: List<com.salesforce.revoman.internal.postman.template.Item> =
+    kick.templateInputStreams().flatMap { stream ->
+      pmTemplateAdapter.fromJson(bufferInputStream(stream))?.let { (pmSteps, authFromRoot) ->
+        pmSteps.map { item ->
+          item.copy(request = item.request.copy(auth = item.request.auth ?: authFromRoot))
+        }
+      } ?: emptyList()
+    }
+  val pmStepsDeepFlattened = deepFlattenItems(itemsFromPaths + itemsFromStreams)
+  RevomanLog.info {
+    val templateCount = kick.templatePaths().size
+    "Total Steps from ${if (templateCount > 1) "$templateCount Collections" else "the Collection"} provided: ${pmStepsDeepFlattened.size}"
+  }
+  val moshiReVoman =
+    initMoshi(
+      kick.globalCustomTypeAdapters(),
+      kick.customTypeAdaptersFromRequestConfig() + kick.customTypeAdaptersFromResponseConfig(),
+      kick.globalSkipTypes(),
+    )
+  // Seed the ledger snapshot's produced-key values as the lowest-precedence FLOOR: a real
+  // warm
+  // run satisfies the `ledgerSkipDecision` env-superset precondition only if the produced
+  // keys
+  // are
+  // already present in the env. `Map.plus` lets the right-hand side win on key clash, so the
+  // real
+  // env (mergeEnvs) OVERRIDES the ledger values — ledger is only a fallback. For non-ledger
+  // runs
+  // `kick.ledger().values` is empty (LedgerSnapshot.EMPTY), so this prepends an empty map =
+  // no-op.
+  val ledgerValues: Map<String, Any?> = kick.ledger().values
+  val mergedEnv =
+    mergeEnvs(
+      kick.environmentPaths(),
+      kick.environmentInputStreams(),
+      kick.dynamicEnvironment(),
+    )
+  val environment: PostmanEnvironment<Any?> =
+    PostmanEnvironment(
+      mutableEnv = PersistentBackedMutableMap(ledgerValues + mergedEnv.values),
+      moshiReVoman = moshiReVoman,
+    )
+  val collectionVariables: PostmanEnvironment<Any?> =
+    PostmanEnvironment(mutableEnv = mutableMapOf(), moshiReVoman = moshiReVoman)
+  val globals: PostmanEnvironment<Any?> =
+    PostmanEnvironment(mutableEnv = mutableMapOf(), moshiReVoman = moshiReVoman)
+  val scopes =
+    PostmanVariableScopes(
+      environment = environment,
+      collectionVariables = collectionVariables,
+      globals = globals,
+      environmentName = mergedEnv.name,
+    )
+  val progress = RundownProgress()
+  val regexReplacer =
+    RegexReplacer(
+      scopes = scopes,
+      progress = progress,
+      customDynamicVariableGenerators = kick.customDynamicVariableGenerators(),
+    )
+  val capture = StepScriptCapture()
+  val pm = KickPostmanContext(scopes, capture, progress, regexReplacer)
+  val sequenceResult = executeStepsSerially(pmStepsDeepFlattened, kick, moshiReVoman, pm, scripts)
+  val stepNameToReport = sequenceResult.first
+  // --- LEDGER CAPTURE CONTRACT (what becomes a ledgered producer) ---
+  // A step's `envVars` is snapshotted at the END of its fold iteration (below), AFTER its
+  // post-step hooks run, so a var a step-qualified PostStepHook/PreStepHook `.set()`s IS
+  // captured
+  // as produced BY that triggering step — matching the design intent that a hook-set var
+  // belongs
+  // to the step that qualified the hook. Two writes are intentionally NOT captured: (1) the
+  // delegated index-set `mutableEnv[k]=` (the same bypass the warm-skip inject uses, so
+  // reused
+  // keys are not re-recorded as produced), and (2) a var set in the collection-level
+  // PostExeHook,
+  // which fires in the OUTER kick-fold AFTER this learnedLedger is already frozen — it has no
+  // single triggering step, so it is excluded rather than mis-attributed. Hook producers that
+  // want to be ledgered must use `pm.environment.set(...)` from a step-qualified hook.
+  val learnedLedger =
+    stepNameToReport
+      .filter { it.envVars.produced.isNotEmpty() }
+      .associate {
+        it.step.path to LedgerEntry(it.envVars.produced, it.step.sourceHash, it.envVars.consumed)
+      }
+  return Rundown(
+    stepNameToReport,
+    pm.scopes.environment,
+    kick.haltOnFailureOfTypeExcept(),
+    pmStepsDeepFlattened.size,
+    learnedLedger,
+    pm.scopes.collectionVariables,
+    pm.scopes.globals,
+    sequenceResult.second,
+  )
 }
+
+@JvmSynthetic
+internal fun kickExecutionFactory(sandboxFactory: SandboxFactory): KickExecutionFactory =
+  KickExecutionFactory { configuredKick, effectiveDynamicEnvironment ->
+    kickExecution(
+      configuredKick,
+      effectiveDynamicEnvironment,
+      ::executeKickBody,
+      sandboxFactory,
+    )
+  }

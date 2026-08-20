@@ -11,12 +11,10 @@ import arrow.core.Either.Right
 import com.salesforce.revoman.internal.json.MoshiReVoman.Companion.initMoshi
 import com.salesforce.revoman.internal.postman.PostmanVariableScopes
 import com.salesforce.revoman.internal.postman.StepScriptCapture
-import com.salesforce.revoman.internal.postman.postmanVariableScopes
 import com.salesforce.revoman.internal.postman.sandbox.PmExecutionContext
 import com.salesforce.revoman.internal.postman.sandbox.PmExecutionResult
 import com.salesforce.revoman.internal.postman.sandbox.PmSandbox
 import com.salesforce.revoman.internal.postman.sandbox.ScriptTarget
-import com.salesforce.revoman.internal.postman.stepScriptCapture
 import com.salesforce.revoman.internal.postman.template.Body
 import com.salesforce.revoman.internal.postman.template.Event
 import com.salesforce.revoman.internal.postman.template.Item
@@ -116,18 +114,18 @@ class PmJsEvalScopesDiffTest {
   fun `setNextRequest and skipRequest directives are captured per step`() {
     val state = runPreReq("pm.execution.setNextRequest('z'); pm.execution.skipRequest();")
     val step = step()
-    state.capture.nextRequestFor(step) shouldBe "z"
-    state.capture.nextRequestWasSetFor(step) shouldBe true
-    state.capture.skipRequestFor(step) shouldBe true
+    state.capture.nextRequest() shouldBe "z"
+    state.capture.nextRequestWasSet() shouldBe true
+    state.capture.skipRequest() shouldBe true
   }
 
   @Test
   fun `setNextRequest null retains the separate was-set bit`() {
     val state = runPreReq("pm.execution.setNextRequest(null);")
     val step = step()
-    state.capture.nextRequestFor(step) shouldBe null
-    state.capture.nextRequestWasSetFor(step) shouldBe true
-    state.capture.skipRequestFor(step) shouldBe false
+    state.capture.nextRequest() shouldBe null
+    state.capture.nextRequestWasSet() shouldBe true
+    state.capture.skipRequest() shouldBe false
   }
 
   @Test
@@ -170,7 +168,7 @@ class PmJsEvalScopesDiffTest {
     val result = executePreReqJS(step, item, mockk(), state.scopes, state.capture, sandbox)
 
     result.isRight() shouldBe true
-    val assertions = state.capture.assertionsFor(step)
+    val assertions = state.capture.assertions()
     assertions.map { it.name } shouldBe listOf("request adapter json", "request adapter raw")
     assertions.all { it.passed } shouldBe true
   }
@@ -199,7 +197,7 @@ class PmJsEvalScopesDiffTest {
     val result = executePreReqJS(step, item, mockk(), state.scopes, state.capture, sandbox)
 
     result.isRight() shouldBe true
-    state.capture.assertionsFor(step).single().passed shouldBe true
+    state.capture.assertions().single().passed shouldBe true
   }
 
   @Test
@@ -254,7 +252,7 @@ class PmJsEvalScopesDiffTest {
     val result = executePostResJS(step, item, report, state.scopes, state.capture, sandbox)
 
     result.isRight() shouldBe true
-    val assertions = state.capture.assertionsFor(step)
+    val assertions = state.capture.assertions()
     assertions.map { it.name } shouldBe
       listOf("response adapter json", "response adapter status code text")
     assertions.all { it.passed } shouldBe true
@@ -362,13 +360,13 @@ class PmJsEvalScopesDiffTest {
     val moshi = initMoshi()
     return State(
       scopes =
-        postmanVariableScopes(
+        PostmanVariableScopes(
           PostmanEnvironment(environment.toMutableMap(), moshi),
           PostmanEnvironment(collectionVariables.toMutableMap(), moshi),
           PostmanEnvironment(globals.toMutableMap(), moshi),
           environmentName = "test",
         ),
-      capture = stepScriptCapture(),
+      capture = StepScriptCapture(),
     )
   }
 

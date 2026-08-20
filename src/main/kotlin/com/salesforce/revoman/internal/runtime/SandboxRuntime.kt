@@ -21,7 +21,7 @@ internal interface ScriptExecutor {
   ): PmExecutionResult
 }
 
-internal interface SandboxRuntime : ScriptExecutor, InternalCloseable
+internal interface SandboxRuntime : ScriptExecutor, AutoCloseable
 
 internal fun interface SandboxFactory {
   @JvmSynthetic fun create(): SandboxRuntime

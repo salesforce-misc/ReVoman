@@ -51,6 +51,8 @@ internal val sharedGraalEngine: Engine by lazy {
  * [PmExecutionResult]. Only the immutable [sharedGraalEngine] and [SandboxResources.bootSource] are
  * process-wide; every Context, event loop, bridge value, and emitted result remains kick-local.
  */
+// The bridge keeps lifecycle, host-binding, boot-evaluation, and protocol decoding seams local.
+@Suppress("TooManyFunctions")
 internal class SandboxBridge {
   private var afterContextCreated: () -> Unit = {}
   private var closeContext: (Context) -> Unit = { it.close(true) }
@@ -81,63 +83,85 @@ internal class SandboxBridge {
   private var booted = false
   private var closed = false
 
+  // Throwable is intentional: failed boot must close the context even for VM-level Errors.
+  @Suppress("TooGenericExceptionCaught")
   fun boot() {
     check(!booted) { "sandbox: boot() already called" }
     // Set immediately so a re-entrant/double boot fails fast. Note: a failed boot is terminal for
     // this instance (booted stays true) — discard it and create a fresh SandboxBridge to retry.
     booted = true
     try {
-      ctx =
-        Context.newBuilder("js")
-          .engine(sharedGraalEngine)
-          .allowExperimentalOptions(true)
-          .option("js.esm-eval-returns-exports", "true")
-          .option("js.ecmascript-version", "2024")
-          .allowHostAccess(HostAccess.ALL)
-          .allowHostClassLookup { true }
-          .build()
-      afterContextCreated()
-      val bindings = ctx.getBindings("js")
+      createContext()
+      installHostBindings()
+      evaluateBridgeClient()
+      initializeSandbox()
+    } catch (failure: Throwable) {
+      closed = true
+      if (::ctx.isInitialized) {
+        try {
+          closeContext(ctx)
+        } catch (closeFailure: Throwable) {
+          if (failure !== closeFailure) failure.addSuppressed(closeFailure)
+        }
+      }
+      throw failure
+    }
+  }
 
-      bindings.putMember(
-        "__java_setTimer",
-        ProxyExecutable { args ->
-          val fn = args[0]
-          val delay = if (args.size > 1 && args[1].fitsInLong()) args[1].asLong() else 0L
-          val extra = if (args.size > 2) args.copyOfRange(2, args.size) else emptyArray()
-          loop.schedule({ fn.executeVoid(*extra) }, delay)
-        },
-      )
-      bindings.putMember(
-        "__java_clearTimer",
-        ProxyExecutable { args ->
-          if (args.isNotEmpty() && args[0].fitsInLong()) loop.clear(args[0].asLong())
-          null
-        },
-      )
-      bindings.putMember(
-        "__java_emit",
-        ProxyExecutable { args ->
-          emits.add(args[0].asString())
-          null
-        },
-      )
-      bindings.putMember(
-        "__java_btoa",
-        ProxyExecutable { args ->
-          Base64.getEncoder().encodeToString(args[0].asString().toByteArray(Charsets.ISO_8859_1))
-        },
-      )
-      bindings.putMember(
-        "__java_atob",
-        ProxyExecutable { args ->
-          String(Base64.getDecoder().decode(args[0].asString()), Charsets.ISO_8859_1)
-        },
-      )
+  private fun createContext() {
+    ctx =
+      Context.newBuilder("js")
+        .engine(sharedGraalEngine)
+        .allowExperimentalOptions(true)
+        .option("js.esm-eval-returns-exports", "true")
+        .option("js.ecmascript-version", "2024")
+        .allowHostAccess(HostAccess.ALL)
+        .allowHostClassLookup { true }
+        .build()
+    afterContextCreated()
+  }
 
-      ctx.eval(
-        "js",
-        """
+  private fun installHostBindings() {
+    val bindings = ctx.getBindings("js")
+    bindings.putMember(
+      "__java_setTimer",
+      ProxyExecutable { args ->
+        val fn = args[0]
+        val delay = if (args.size > 1 && args[1].fitsInLong()) args[1].asLong() else 0L
+        val extra = if (args.size > 2) args.copyOfRange(2, args.size) else emptyArray()
+        loop.schedule({ fn.executeVoid(*extra) }, delay)
+      },
+    )
+    bindings.putMember(
+      "__java_clearTimer",
+      ProxyExecutable { args ->
+        if (args.isNotEmpty() && args[0].fitsInLong()) loop.clear(args[0].asLong())
+        null
+      },
+    )
+    bindings.putMember(
+      "__java_emit",
+      ProxyExecutable {
+        emits.add(it[0].asString())
+        null
+      },
+    )
+    bindings.putMember(
+      "__java_btoa",
+      ProxyExecutable {
+        Base64.getEncoder().encodeToString(it[0].asString().toByteArray(Charsets.ISO_8859_1))
+      },
+    )
+    bindings.putMember(
+      "__java_atob",
+      ProxyExecutable { String(Base64.getDecoder().decode(it[0].asString()), Charsets.ISO_8859_1) },
+    )
+  }
+
+  private fun evaluateBridgeClient() {
+    ctx.eval(
+      "js",
+      """
       (function (jSet, jClear, jEmit, jAtob, jBtoa) {
         globalThis.setTimeout = function (fn, d) { return jSet(fn, d | 0, ...Array.prototype.slice.call(arguments, 2)); };
         globalThis.clearTimeout = function (id) { return jClear(id); };
@@ -157,32 +181,21 @@ internal class SandboxBridge {
       })(__java_setTimer, __java_clearTimer, __java_emit, __java_atob, __java_btoa);
       ${SandboxResources.bridgeClient}
       """
-          .trimIndent(),
-      )
+        .trimIndent(),
+    )
+    guestBridge = ctx.getBindings("js").getMember("bridge")
+    check(!guestBridge.isNull) { "sandbox: no global bridge after bridge-client" }
+  }
 
-      guestBridge = bindings.getMember("bridge")
-      check(!guestBridge.isNull) { "sandbox: no global bridge after bridge-client" }
-
-      val bootSource = SandboxResources.bootSource
-      ctx.eval(bootSource)
-      loop.run()
-
-      guestBridge.invokeMember("emit", "initialize", ProxyObject.fromMap(HashMap<String, Any?>()))
-      loop.run()
-      installRequestJsonCompatibility()
-      runtimeObserver?.invoke(ctx, bootSource)
-      logger.info { "Postman sandbox booted (postman-sandbox ${SandboxResources.version})" }
-    } catch (failure: Throwable) {
-      closed = true
-      if (::ctx.isInitialized) {
-        try {
-          closeContext(ctx)
-        } catch (closeFailure: Throwable) {
-          if (failure !== closeFailure) failure.addSuppressed(closeFailure)
-        }
-      }
-      throw failure
-    }
+  private fun initializeSandbox() {
+    val bootSource = SandboxResources.bootSource
+    ctx.eval(bootSource)
+    loop.run()
+    guestBridge.invokeMember("emit", "initialize", ProxyObject.fromMap(HashMap<String, Any?>()))
+    loop.run()
+    installRequestJsonCompatibility()
+    runtimeObserver?.invoke(ctx, bootSource)
+    logger.info { "Postman sandbox booted (postman-sandbox ${SandboxResources.version})" }
   }
 
   fun dispatchExecute(
