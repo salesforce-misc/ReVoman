@@ -180,6 +180,11 @@ internal class SandboxBridge {
         globalThis.btoa = function (s) { return jBtoa(s); };
       })(__java_setTimer, __java_clearTimer, __java_emit, __java_atob, __java_btoa);
       ${SandboxResources.bridgeClient}
+      bridge.requestJsonCompatibility = function () {
+        return this.body && typeof this.body.raw === 'string'
+          ? JSON.parse(this.body.raw)
+          : null;
+      };
       """
         .trimIndent(),
     )
@@ -196,6 +201,29 @@ internal class SandboxBridge {
     installRequestJsonCompatibility()
     runtimeObserver?.invoke(ctx, bootSource)
     logger.info { "Postman sandbox booted (postman-sandbox ${SandboxResources.version})" }
+  }
+
+  /**
+   * Postman's Request model exposes the raw body but not ReVoman's historical `pm.request.json()`
+   * convenience. Reuse the guest function created with the bridge-client and attach it through
+   * Polyglot values, avoiding another guest source evaluation during boot.
+   */
+  private fun installRequestJsonCompatibility() {
+    val requestJson = guestBridge.getMember("requestJsonCompatibility")
+    check(requestJson != null && requestJson.canExecute()) {
+      "sandbox: request JSON compatibility function missing"
+    }
+    val requestPrototype =
+      ctx
+        .getBindings("js")
+        .getMember("require")
+        .execute("postman-collection")
+        .getMember("Request")
+        .getMember("prototype")
+    if (requestPrototype.getMember("json")?.canExecute() != true) {
+      requestPrototype.putMember("json", requestJson)
+    }
+    guestBridge.removeMember("requestJsonCompatibility")
   }
 
   fun dispatchExecute(
@@ -249,30 +277,6 @@ internal class SandboxBridge {
     loop.run()
 
     return decodeResult(id)
-  }
-
-  /**
-   * Postman's Request model exposes the raw body but does not provide ReVoman's historical
-   * `pm.request.json()` convenience. Patch the guest Request prototype directly so sandbox boot
-   * does not execute a synthetic script and collection source remains byte-for-byte untouched.
-   */
-  private fun installRequestJsonCompatibility() {
-    ctx.eval(
-      "js",
-      """
-      {
-        const Request = require('postman-collection').Request;
-        if (typeof Request.prototype.json !== 'function') {
-          Request.prototype.json = function () {
-            return this.body && typeof this.body.raw === 'string'
-              ? JSON.parse(this.body.raw)
-              : null;
-          };
-        }
-      }
-      """
-        .trimIndent(),
-    )
   }
 
   fun close() {
