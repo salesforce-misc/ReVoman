@@ -1,0 +1,5 @@
+$kind: http-request
+name: script-free
+url: "{{baseUrl}}/script-free"
+method: GET
+order: 1000

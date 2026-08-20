@@ -11,6 +11,7 @@
 
 import java.util.zip.Deflater
 import java.util.zip.GZIPOutputStream
+import me.champeau.jmh.JMHTask
 
 plugins {
   id("revoman.root-conventions")
@@ -337,19 +338,54 @@ moshi { enableSealed = true }
 jmh {
   // Pin JMH core so every worktree benchmarks against a known JMH release.
   jmhVersion = libs.versions.jmh.get()
-  // Select benchmarks from the CLI, e.g. ./gradlew jmh -Pjmh.includes=SmokeBenchmark
-  if (project.hasProperty("jmh.includes")) {
-    includes.add(project.property("jmh.includes").toString())
-  }
 }
 
 // The JMH fat jar contains Truffle's versioned classes; retain the manifest flag that makes the
 // JVM load them instead of rejecting the repackaged runtime during sandbox/lifecycle benchmarks.
 tasks.named<Jar>("jmhJar") { manifest { attributes("Multi-Release" to "true") } }
 
-// Benchmark executions are measurements, not cacheable build products. Re-run the harness while
-// keeping its compilation and packaging dependencies incremental for fast local iteration.
-tasks.named("jmh") { outputs.upToDateWhen { false } }
+tasks.named<JMHTask>("jmh") {
+  // Benchmark executions are measurements, not cacheable build products. Re-run the harness while
+  // keeping its compilation and packaging dependencies incremental for fast local iteration.
+  outputs.upToDateWhen { false }
+  failOnError.set(true)
+  resultFormat.set("JSON")
+  resultsFile.convention(layout.buildDirectory.file("results/jmh/results.json"))
+  humanOutputFile.convention(layout.buildDirectory.file("results/jmh/results.txt"))
+  providers.gradleProperty("jmh.resultsFile").orNull?.let { resultsFile.set(file(it)) }
+  providers.gradleProperty("jmh.humanOutputFile").orNull?.let { humanOutputFile.set(file(it)) }
+  includes.set(providers.gradleProperty("jmh.includes").map { listOf(it) }.orElse(emptyList()))
+  profilers.set(
+    providers
+      .gradleProperty("jmh.profilers")
+      .map { value -> value.split(',').map(String::trim).filter(String::isNotEmpty) }
+      .orElse(listOf("gc"))
+  )
+  jvmArgsAppend.add("-Drevoman.banner=off")
+  if (providers.gradleProperty("jmh.smoke").orNull.toBoolean()) {
+    fork.set(1)
+    warmupIterations.set(1)
+    warmup.set("200ms")
+    iterations.set(1)
+    timeOnIteration.set("200ms")
+  }
+  doLast {
+    val humanOutput = humanOutputFile.get().asFile
+    check(
+      humanOutput.isFile && humanOutput.length() > 0 && "<failure>" !in humanOutput.readText()
+    ) {
+      "JMH reported a benchmark failure; inspect ${humanOutput.absolutePath}"
+    }
+    val jsonOutput = resultsFile.get().asFile
+    check(
+      jsonOutput.isFile &&
+        jsonOutput.length() > 0 &&
+        jsonOutput.readText().replace(Regex("\\s"), "") != "[]"
+    ) {
+      "JMH produced no benchmark results: ${jsonOutput.absolutePath}"
+    }
+  }
+}
 
 nexusPublishing {
   this.repositories {

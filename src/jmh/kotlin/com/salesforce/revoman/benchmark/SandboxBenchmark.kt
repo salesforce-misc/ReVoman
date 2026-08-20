@@ -12,6 +12,8 @@ import com.salesforce.revoman.internal.postman.sandbox.PmSandbox
 import com.salesforce.revoman.internal.postman.sandbox.PmScope
 import com.salesforce.revoman.internal.postman.sandbox.ScriptTarget
 import java.util.concurrent.TimeUnit
+import org.apache.logging.log4j.Level as LogLevel
+import org.apache.logging.log4j.core.config.Configurator
 import org.openjdk.jmh.annotations.Benchmark
 import org.openjdk.jmh.annotations.BenchmarkMode
 import org.openjdk.jmh.annotations.Fork
@@ -57,12 +59,21 @@ open class SandboxBenchmark {
 
   @Setup(Level.Trial)
   fun setup() {
+    Configurator.setRootLevel(LogLevel.OFF)
     sandbox = PmSandbox() // boots lazily on the first execute
   }
 
   @TearDown(Level.Trial) fun tearDown() = sandbox.close()
 
   @Benchmark
-  fun evalPostmanTestScript(): Any? =
-    sandbox.execute(script, ScriptTarget.TEST, context()).environment["id"]
+  fun evalPostmanTestScript(): Any {
+    val result = sandbox.execute(script, ScriptTarget.TEST, context())
+    check(result.error == null) { "sandbox execution must not report an error: ${result.error}" }
+    check(result.assertions.size == 2 && result.assertions.all { it.passed }) {
+      "sandbox execution must pass both assertions"
+    }
+    val id = result.environment["id"]
+    check(id == 42) { "sandbox execution must preserve the expected environment mutation" }
+    return id
+  }
 }
