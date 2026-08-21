@@ -230,21 +230,33 @@ tasks.register<Exec>("generatePmSandbox") {
       "function"!=typeof r.prototype.json&&(r.prototype.json=function(){return this.body&&"string"==typeof this.body.raw?JSON.parse(this.body.raw):null});
       """
         .trimIndent()
-    val markerStart = generatedBootcode.indexOf(requestBootstrapMarker)
+    val requestMarkerStart = generatedBootcode.indexOf(requestBootstrapMarker)
     check(
-      markerStart >= 0 &&
+      requestMarkerStart >= 0 &&
         generatedBootcode.indexOf(
           requestBootstrapMarker,
-          markerStart + requestBootstrapMarker.length,
+          requestMarkerStart + requestBootstrapMarker.length,
         ) < 0
     ) {
       "generatePmSandbox: expected exactly one Postman Request bootstrap marker"
     }
+    val eagerAjvMarker = """const r=e("lodash"),a=e("chai"),i=e("ajv"),o=e("uniscope")"""
+    val lazyAjvBinding =
+      """const r=e("lodash"),a=e("chai"),i=function(t){return new(e("ajv"))(t)},o=e("uniscope")"""
+    val ajvMarkerStart = generatedBootcode.indexOf(eagerAjvMarker)
+    check(
+      ajvMarkerStart >= 0 &&
+        generatedBootcode.indexOf(eagerAjvMarker, ajvMarkerStart + eagerAjvMarker.length) < 0
+    ) {
+      "generatePmSandbox: expected exactly one eager chai-postman Ajv binding"
+    }
     bootcode.writeText(
-      generatedBootcode.replace(
-        requestBootstrapMarker,
-        requestBootstrapMarker + requestJsonCompatibility,
-      )
+      generatedBootcode
+        .replace(
+          requestBootstrapMarker,
+          requestBootstrapMarker + requestJsonCompatibility,
+        )
+        .replace(eagerAjvMarker, lazyAjvBinding)
     )
 
     // Escapes the first char of each forbidden token to its JS `\xNN` hex form. Inlined here (not a
@@ -270,7 +282,8 @@ tasks.register<Exec>("generatePmSandbox") {
       .use { it.write(bootcode.readBytes()) }
     bootcode.delete()
     logger.lifecycle(
-      "generatePmSandbox: scrubbed ${forbiddenTokens.size} token(s), " +
+      "generatePmSandbox: installed request JSON compatibility, deferred chai-postman Ajv, " +
+        "scrubbed ${forbiddenTokens.size} token(s), " +
         "gzipped bootcode.js -> bootcode.js.gz"
     )
   }

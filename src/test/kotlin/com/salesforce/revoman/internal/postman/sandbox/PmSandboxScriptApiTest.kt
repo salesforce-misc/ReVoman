@@ -30,6 +30,30 @@ class PmSandboxScriptApiTest {
   }
 
   @Test
+  fun `json schema assertions preserve matching and nonmatching results`() {
+    val r =
+      runTest(
+        """
+        const schema = {
+          type: 'object',
+          required: ['id'],
+          properties: { id: { type: 'number' } }
+        };
+        pm.test('matching schema', () =>
+          pm.expect({ id: 42 }).to.have.jsonSchema(schema));
+        pm.test('nonmatching schema', () =>
+          pm.expect({ id: 'forty-two' }).to.have.jsonSchema(schema));
+        """
+          .trimIndent()
+      )
+
+    r.error shouldBe null
+    r.assertions shouldHaveSize 2
+    r.assertions[0].passed shouldBe true
+    r.assertions[1].passed shouldBe false
+  }
+
+  @Test
   fun `pm environment get set unset`() {
     val r =
       runTest(
