@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://revoman.dev/performance/protocol/schemas/restoration-v1.schema.json",
+  "title": "ReVoman host restoration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "cleanupPassed",
+    "kind",
+    "lockReleaseReady",
+    "observedAtUtc",
+    "policySha256",
+    "restoredState",
+    "schemaVersion"
+  ],
+  "properties": {
+    "cleanupPassed": {
+      "type": "boolean"
+    },
+    "kind": {
+      "const": "restoration"
+    },
+    "lockReleaseReady": {
+      "type": "boolean"
+    },
+    "observedAtUtc": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "policySha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "restoredState": {
+      "enum": [
+        "failed",
+        "passed",
+        "quarantined"
+      ]
+    },
+    "schemaVersion": {
+      "const": "restoration-v1"
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    }
+  }
+}

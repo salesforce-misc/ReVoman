@@ -1,0 +1,72 @@
+/**
+ * ************************************************************************************************
+ * Copyright (c) 2026, Salesforce, Inc. All rights reserved. SPDX-License-Identifier: Apache License
+ * Version 2.0 For full license text, see the LICENSE file in the repo root or
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * ************************************************************************************************
+ */
+package performance
+
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.collections.shouldNotContain
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
+import java.nio.file.Files
+import performance.support.PerformanceTestProject
+import performance.support.readJarEntries
+import performance.support.readManifestAttribute
+
+class PerformanceMeasurementPluginTest :
+  FunSpec(
+    {
+      test("the legacy flattened JMH path captures the fail-open defect") {
+        PerformanceTestProject.create("performance-legacy").use { project ->
+          project.build("jmhJar")
+          val flattened =
+            project.root.resolve("build/libs/performance-legacy-fixture-jmh.jar")
+          val entries = readJarEntries(flattened)
+
+          entries shouldContain "example/FixtureApplication.class"
+          entries shouldContain "example/FixtureBenchmark.class"
+          entries shouldContain "example/LeakingTestClass.class"
+          entries shouldContain "io/kotest/Fake.class"
+          entries shouldContain "org/slf4j/simple/SimpleLogger.class"
+          entries shouldContain "META-INF/versions/21/fixture/runtime/RuntimeDependency.class"
+          readManifestAttribute(flattened, "Multi-Release") shouldBe null
+
+          project.build("jmh")
+          Files.readString(project.root.resolve("build/results/jmh/results.json"))
+            .replace(Regex("\\s"), "") shouldBe "[]"
+        }
+      }
+
+      test("the supported plugin excludes tests before generation and preserves benchmark isolation") {
+        PerformanceTestProject.create().use { project ->
+          project.build("assertPerformanceIsolation", "performanceBenchmarkJar")
+          val benchmarkJar = project.root.resolve("build/performance/jars/revoman-jmh.jar")
+          val entries = readJarEntries(benchmarkJar)
+
+          entries shouldContain "example/FixtureBenchmark.class"
+          entries shouldContain "META-INF/BenchmarkList"
+          entries shouldContain "META-INF/CompilerHints"
+          entries shouldNotContain "example/FixtureApplication.class"
+          entries shouldNotContain "example/LeakingTestClass.class"
+          entries shouldNotContain "io/kotest/Fake.class"
+          entries shouldNotContain "org/slf4j/simple/SimpleLogger.class"
+          entries.none { it.startsWith("META-INF/versions/") } shouldBe true
+        }
+      }
+
+      listOf("jmh", "jmhJar").forEach { legacyTask ->
+        test("direct $legacyTask fails with supported migration guidance") {
+          PerformanceTestProject.create().use { project ->
+            val result = project.buildAndFail(legacyTask)
+
+            result.output shouldContain "scripts/performance/run"
+            result.output shouldContain "unsupported flattened JMH task"
+          }
+        }
+      }
+    },
+  )

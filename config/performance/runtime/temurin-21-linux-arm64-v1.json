@@ -1,0 +1,43 @@
+{
+  "$schema": "https://revoman.dev/performance/runtime/runtime-profile-v1.schema.json",
+  "schemaVersion": "runtime-profile-v1",
+  "profileKind": "runtime",
+  "profileId": "temurin-21-linux-arm64-v1",
+  "image": {
+    "repository": "docker.io/library/eclipse-temurin",
+    "reference": "docker.io/library/eclipse-temurin@sha256:6c7425db05efdcf0ba40d989898857b093f14ceaf9684c9c31a072c159f4590e",
+    "manifestDigest": "sha256:6c7425db05efdcf0ba40d989898857b093f14ceaf9684c9c31a072c159f4590e",
+    "digestKind": "platform-manifest",
+    "platform": {
+      "os": "linux",
+      "architecture": "arm64",
+      "variant": "v8",
+      "unameMachine": "aarch64"
+    },
+    "ociConfigDigest": "sha256:ad6963934ee96838c09d99f3c4df6f991cd00ed70fa8a48f7045517d7ae8991c",
+    "sourceDockerfile": "https://github.com/adoptium/containers/blob/df6138afaf1b564116e895b0acd51d70e11cd996/21/jdk/ubuntu/noble/Dockerfile"
+  },
+  "java": {
+    "release": "21.0.11+10-LTS",
+    "versionOutput": "openjdk version \"21.0.11\" 2026-04-21 LTS\nOpenJDK Runtime Environment Temurin-21.0.11+10 (build 21.0.11+10-LTS)\nOpenJDK 64-Bit Server VM Temurin-21.0.11+10 (build 21.0.11+10-LTS, mixed mode, sharing)",
+    "executable": "/opt/java/openjdk/bin/java",
+    "sha256": "1cedc51a4102638f1f06077acb3611b88f3061f9c7d76bd0a0df7f8607a9367b"
+  },
+  "tools": {
+    "sh": {
+      "path": "/usr/bin/sh"
+    },
+    "tar": {
+      "path": "/usr/bin/tar",
+      "version": "tar (GNU tar) 1.35"
+    },
+    "sha256sum": {
+      "path": "/usr/bin/sha256sum",
+      "version": "sha256sum (GNU coreutils) 9.4"
+    },
+    "mv": {
+      "path": "/usr/bin/mv",
+      "version": "mv (GNU coreutils) 9.4"
+    }
+  }
+}

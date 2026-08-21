@@ -1,0 +1,549 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://revoman.dev/performance/protocol/schemas/comparison-v1.schema.json",
+  "title": "ReVoman deterministic performance comparison",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "compatibility",
+    "compatibilityReasons",
+    "implementation",
+    "kind",
+    "schemaVersion",
+    "strength"
+  ],
+  "properties": {
+    "baseline": {
+      "$ref": "#/$defs/captureRef"
+    },
+    "calibration": {
+      "$ref": "#/$defs/calibration"
+    },
+    "candidate": {
+      "$ref": "#/$defs/captureRef"
+    },
+    "cells": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/cell"
+      }
+    },
+    "compatibility": {
+      "enum": [
+        "compatible",
+        "incompatible"
+      ]
+    },
+    "compatibilityReasons": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/compatibilityReason"
+      }
+    },
+    "implementation": {
+      "$ref": "#/$defs/implementation"
+    },
+    "kind": {
+      "enum": [
+        "calibration",
+        "candidate"
+      ]
+    },
+    "policy": {
+      "$ref": "#/$defs/policy"
+    },
+    "schemaVersion": {
+      "const": "comparison-v1"
+    },
+    "strength": {
+      "enum": [
+        "canonical",
+        "diagnostic"
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "compatibility": {
+            "const": "compatible"
+          }
+        },
+        "required": [
+          "compatibility"
+        ]
+      },
+      "then": {
+        "required": [
+          "baseline",
+          "calibration",
+          "candidate",
+          "cells",
+          "policy"
+        ],
+        "properties": {
+          "compatibilityReasons": {
+            "maxItems": 0
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "compatibilityReasons": {
+            "minItems": 1
+          }
+        },
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "baseline"
+              ]
+            },
+            {
+              "required": [
+                "calibration"
+              ]
+            },
+            {
+              "required": [
+                "candidate"
+              ]
+            },
+            {
+              "required": [
+                "cells"
+              ]
+            },
+            {
+              "required": [
+                "policy"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "candidate"
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "calibration": {
+            "required": [
+              "bCaptureId",
+              "evidenceSha256"
+            ],
+            "properties": {
+              "passed": {
+                "const": true
+              }
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "calibration": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "bCaptureId"
+                  ]
+                },
+                {
+                  "required": [
+                    "evidenceSha256"
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "strength": {
+            "const": "canonical"
+          }
+        },
+        "required": [
+          "strength"
+        ]
+      },
+      "then": {
+        "properties": {
+          "compatibility": {
+            "const": "compatible"
+          },
+          "kind": {
+            "const": "candidate"
+          },
+          "calibration": {
+            "required": [
+              "bCaptureId",
+              "evidenceSha256"
+            ],
+            "properties": {
+              "passed": {
+                "const": true
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "compatibilityReason": {
+      "enum": [
+        "artifact-mismatch",
+        "bundle-checksum-invalid",
+        "bundle-manifest-mismatch",
+        "bundle-schema-invalid",
+        "bundle-unsealed",
+        "calibration-distribution-mismatch",
+        "calibration-evidence-invalid",
+        "calibration-evidence-mismatch",
+        "calibration-evidence-missing",
+        "calibration-treatment-mismatch",
+        "candidate-delta-invalid",
+        "candidate-production-not-distinct",
+        "candidate-treatment-not-distinct",
+        "capture-invalid",
+        "cell-identity-mismatch",
+        "cell-set-mismatch",
+        "dependency-mismatch",
+        "derived-summary-mismatch",
+        "executing-identity-mismatch",
+        "identity-order-invalid",
+        "immutable-harness-mismatch",
+        "invalid-primary-sample",
+        "logging-mismatch",
+        "profile-mismatch",
+        "profiler-present",
+        "protocol-mismatch",
+        "qualification-kind-mismatch",
+        "qualification-policy-mismatch",
+        "runtime-mismatch",
+        "same-capture",
+        "sample-dimension-mismatch",
+        "toolchain-mismatch",
+        "undersampled-cell"
+      ]
+    },
+    "calibration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "a1CaptureId",
+        "a2CaptureId",
+        "passed"
+      ],
+      "properties": {
+        "a1CaptureId": {
+          "$ref": "#/$defs/safeId"
+        },
+        "a2CaptureId": {
+          "$ref": "#/$defs/safeId"
+        },
+        "bCaptureId": {
+          "$ref": "#/$defs/safeId"
+        },
+        "evidenceSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "passed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "captureRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bundleSha256",
+        "captureId",
+        "captureSha256",
+        "productionSha256",
+        "treatmentGitSha"
+      ],
+      "properties": {
+        "bundleSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "captureId": {
+          "$ref": "#/$defs/safeId"
+        },
+        "captureSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "productionSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "treatmentGitSha": {
+          "$ref": "#/$defs/gitSha"
+        }
+      }
+    },
+    "cell": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "directionOutcome",
+        "estimate",
+        "identity",
+        "policyOutcome"
+      ],
+      "properties": {
+        "directionOutcome": {
+          "enum": [
+            "improvement",
+            "inconclusive",
+            "regression"
+          ]
+        },
+        "estimate": {
+          "$ref": "#/$defs/estimate"
+        },
+        "identity": {
+          "$ref": "#/$defs/cellIdentity"
+        },
+        "policyOutcome": {
+          "enum": [
+            "fail",
+            "inconclusive",
+            "not-enforced",
+            "pass"
+          ]
+        }
+      }
+    },
+    "cellIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "batchSize",
+        "benchmark",
+        "direction",
+        "mode",
+        "parameters",
+        "primaryMetric",
+        "profile",
+        "threads",
+        "unit"
+      ],
+      "properties": {
+        "batchSize": {
+          "const": 1
+        },
+        "benchmark": {
+          "type": "string",
+          "minLength": 1
+        },
+        "direction": {
+          "const": "lower-is-better"
+        },
+        "mode": {
+          "const": "ss"
+        },
+        "parameters": {
+          "type": "object",
+          "propertyNames": {
+            "minLength": 1
+          },
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "primaryMetric": {
+          "const": "score"
+        },
+        "profile": {
+          "enum": [
+            "cold",
+            "warm"
+          ]
+        },
+        "threads": {
+          "const": 1
+        },
+        "unit": {
+          "const": "ms/op"
+        }
+      }
+    },
+    "estimate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "gainPercent",
+        "lower95Ratio",
+        "pointRatio",
+        "upper95Ratio"
+      ],
+      "properties": {
+        "gainPercent": {
+          "type": "number"
+        },
+        "lower95Ratio": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "pointRatio": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "upper95Ratio": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      }
+    },
+    "gitSha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "implementation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "adapterSha256",
+        "bootstrapVectorSha256",
+        "captureSchemaSha256",
+        "comparatorSha256",
+        "comparisonSchemaSha256",
+        "expectedCellsSha256",
+        "protocolSha256",
+        "qualificationPolicySha256",
+        "rendererSha256",
+        "runnerSha256"
+      ],
+      "properties": {
+        "adapterSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "bootstrapVectorSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "captureSchemaSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "comparatorSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "comparisonSchemaSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "expectedCellsSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "protocolSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "qualificationPolicySha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "rendererSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "runnerSha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "outcome"
+      ],
+      "properties": {
+        "maximumCandidateBaselineRatio": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "maximumRegressionBudget": {
+          "type": "number",
+          "minimum": 0
+        },
+        "outcome": {
+          "enum": [
+            "fail",
+            "inconclusive",
+            "not-enforced",
+            "pass"
+          ]
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "outcome": {
+                "const": "not-enforced"
+              }
+            },
+            "required": [
+              "outcome"
+            ]
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "maximumCandidateBaselineRatio"
+                  ]
+                },
+                {
+                  "required": [
+                    "maximumRegressionBudget"
+                  ]
+                },
+                {
+                  "required": [
+                    "sha256"
+                  ]
+                }
+              ]
+            }
+          },
+          "else": {
+            "required": [
+              "maximumCandidateBaselineRatio",
+              "maximumRegressionBudget",
+              "sha256"
+            ]
+          }
+        }
+      ]
+    },
+    "safeId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

@@ -1,0 +1,148 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://revoman.dev/performance/protocol/schemas/watcher-v1.schema.json",
+  "title": "ReVoman host watcher",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "cadenceMillis",
+    "completedAtUtc",
+    "expectedSamples",
+    "kind",
+    "observations",
+    "observedSamples",
+    "policySha256",
+    "schemaVersion",
+    "startedAtUtc",
+    "terminalState"
+  ],
+  "properties": {
+    "cadenceMillis": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "completedAtUtc": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "expectedSamples": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "kind": {
+      "const": "watcher"
+    },
+    "observations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/observation"
+      }
+    },
+    "observedSamples": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "policySha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "schemaVersion": {
+      "const": "watcher-v1"
+    },
+    "startedAtUtc": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "terminalState": {
+      "enum": [
+        "childFailed",
+        "completed",
+        "qualificationFailed"
+      ]
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "containerFingerprintSha256",
+        "cpuLoadPercent",
+        "event",
+        "memoryPressure",
+        "observedAtUtc",
+        "pageOuts",
+        "powerState",
+        "runtimeFingerprintSha256",
+        "swapBytes",
+        "thermalState"
+      ],
+      "properties": {
+        "containerFingerprintSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "cpuLoadPercent": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "event": {
+          "enum": [
+            "backup",
+            "memoryPressure",
+            "newContainer",
+            "newVm",
+            "none",
+            "power",
+            "prohibitedProcess",
+            "sustainedCpu",
+            "thermal",
+            "update"
+          ]
+        },
+        "memoryPressure": {
+          "enum": [
+            "critical",
+            "normal",
+            "warn"
+          ]
+        },
+        "observedAtUtc": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "pageOuts": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "powerState": {
+          "enum": [
+            "ac",
+            "battery"
+          ]
+        },
+        "runtimeFingerprintSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "swapBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "thermalState": {
+          "enum": [
+            "critical",
+            "fair",
+            "nominal",
+            "serious"
+          ]
+        }
+      }
+    }
+  }
+}

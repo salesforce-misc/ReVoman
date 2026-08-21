@@ -1,0 +1,301 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://revoman.dev/performance/protocol/schemas/profiler-summary-v1.schema.json",
+  "title": "ReVoman privacy-safe profiler summary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "aggregates",
+    "captureId",
+    "droppedSamples",
+    "durationNanos",
+    "profiler",
+    "rawInputSha256",
+    "schemaVersion"
+  ],
+  "properties": {
+    "aggregates": {
+      "type": "array",
+      "maxItems": 1000,
+      "items": {
+        "$ref": "#/$defs/aggregate"
+      }
+    },
+    "captureId": {
+      "$ref": "#/$defs/safeId"
+    },
+    "droppedSamples": {
+      "$ref": "#/$defs/droppedSamples"
+    },
+    "durationNanos": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "gcCounters": {
+      "$ref": "#/$defs/gcCounters"
+    },
+    "profiler": {
+      "$ref": "#/$defs/profiler"
+    },
+    "rawInputSha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "schemaVersion": {
+      "const": "profiler-summary-v1"
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "safeId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "not": {
+        "anyOf": [
+          {
+            "pattern": "^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}$"
+          },
+          {
+            "pattern": "(?:[Ss][Ee][Cc][Rr][Ee][Tt]|[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]|[Aa][Pp][Ii][_-]?[Kk][Ee][Yy]|[Bb][Ee][Aa][Rr][Ee][Rr])"
+          },
+          {
+            "pattern": "(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|(?:AKIA|ASIA)[0-9A-Z]{16})"
+          }
+        ]
+      }
+    },
+    "profiler": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "settingsSha256",
+            "variantSha256"
+          ],
+          "properties": {
+            "kind": {
+              "const": "jfr"
+            },
+            "settingsSha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "variantSha256": {
+              "$ref": "#/$defs/sha256"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "variantSha256"
+          ],
+          "properties": {
+            "kind": {
+              "const": "gc"
+            },
+            "variantSha256": {
+              "$ref": "#/$defs/sha256"
+            }
+          }
+        }
+      ]
+    },
+    "droppedSamples": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "events",
+        "stackTraces"
+      ],
+      "properties": {
+        "events": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stackTraces": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "gcCounters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "gc.alloc.rate.norm",
+        "gc.count",
+        "gc.time"
+      ],
+      "properties": {
+        "gc.alloc.rate.norm": {
+          "type": "number",
+          "minimum": 0
+        },
+        "gc.count": {
+          "type": "number",
+          "minimum": 0
+        },
+        "gc.time": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "aggregate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "allocationBytes",
+        "category",
+        "className",
+        "executionSamples",
+        "ioBytes",
+        "lockEvents",
+        "methodName"
+      ],
+      "properties": {
+        "allocationBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "category": {
+          "enum": [
+            "application",
+            "graal",
+            "http4k",
+            "moshi",
+            "okio",
+            "truffle"
+          ]
+        },
+        "className": {
+          "type": "string",
+          "pattern": "^[A-Za-z_$][A-Za-z0-9_$.]*$",
+          "maxLength": 256
+        },
+        "executionSamples": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ioBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "lockEvents": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "methodName": {
+          "type": "string",
+          "pattern": "^(?:[A-Za-z_$][A-Za-z0-9_$]*|<init>|<clinit>)$",
+          "maxLength": 128
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "category": {
+              "const": "application"
+            },
+            "className": {
+              "pattern": "^com\\.salesforce\\.revoman(?:\\.[A-Za-z_$][A-Za-z0-9_$]*)+$"
+            }
+          }
+        },
+        {
+          "properties": {
+            "category": {
+              "const": "graal"
+            },
+            "className": {
+              "pattern": "^(?:org\\.graalvm|jdk\\.graal\\.compiler)(?:\\.[A-Za-z_$][A-Za-z0-9_$]*)+$"
+            }
+          }
+        },
+        {
+          "properties": {
+            "category": {
+              "const": "truffle"
+            },
+            "className": {
+              "pattern": "^com\\.oracle\\.truffle(?:\\.[A-Za-z_$][A-Za-z0-9_$]*)+$"
+            }
+          }
+        },
+        {
+          "properties": {
+            "category": {
+              "const": "okio"
+            },
+            "className": {
+              "pattern": "^okio(?:\\.[A-Za-z_$][A-Za-z0-9_$]*)+$"
+            }
+          }
+        },
+        {
+          "properties": {
+            "category": {
+              "const": "moshi"
+            },
+            "className": {
+              "pattern": "^com\\.squareup\\.moshi(?:\\.[A-Za-z_$][A-Za-z0-9_$]*)+$"
+            }
+          }
+        },
+        {
+          "properties": {
+            "category": {
+              "const": "http4k"
+            },
+            "className": {
+              "pattern": "^org\\.http4k(?:\\.[A-Za-z_$][A-Za-z0-9_$]*)+$"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "profiler": {
+            "properties": {
+              "kind": {
+                "const": "gc"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "gcCounters"
+        ],
+        "properties": {
+          "aggregates": {
+            "maxItems": 0
+          }
+        }
+      },
+      "else": {
+        "not": {
+          "required": [
+            "gcCounters"
+          ]
+        }
+      }
+    }
+  ]
+}

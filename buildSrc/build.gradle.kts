@@ -30,8 +30,25 @@ repositories {
 }
 
 dependencies {
+  implementation(project(":performance-runner"))
   implementation(libs.kotlin.gradle)
   implementation(libs.spotless.gradle)
   implementation(libs.detekt.gradle)
   implementation(libs.testLogger.gradle)
+  implementation(libs.jmh.gradle)
+  implementation(libs.json.schema.validator)
+  testImplementation(gradleTestKit())
+  testImplementation(libs.bundles.kotest)
+  testImplementation(libs.snakeyaml)
 }
+
+gradlePlugin {
+  plugins {
+    register("performanceMeasurement") {
+      id = "dev.revoman.performance-measurement"
+      implementationClass = "performance.PerformanceMeasurementPlugin"
+    }
+  }
+}
+
+tasks.test { useJUnitPlatform() }

@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://revoman.dev/performance/protocol/schemas/expected-cells-v1.schema.json",
+  "title": "ReVoman expected benchmark cells",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "families", "schemaVersion"],
+  "properties": {
+    "$schema": {
+      "const": "https://revoman.dev/performance/protocol/schemas/expected-cells-v1.schema.json"
+    },
+    "schemaVersion": {
+      "const": "expected-cells-v1"
+    },
+    "families": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["canary", "cold", "warm"],
+      "properties": {
+        "canary": {"$ref": "#/$defs/cells"},
+        "cold": {"$ref": "#/$defs/cells"},
+        "warm": {"$ref": "#/$defs/cells"}
+      }
+    }
+  },
+  "$defs": {
+    "cells": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/cell"}
+    },
+    "cell": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["benchmark", "parameters"],
+      "properties": {
+        "benchmark": {
+          "type": "string",
+          "pattern": "^[A-Za-z_$][A-Za-z0-9_$.]*\\.[A-Za-z_$][A-Za-z0-9_$]*$",
+          "maxLength": 512
+        },
+        "parameters": {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,63}$"
+          },
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[^,\\r\\n]+$"
+          }
+        }
+      }
+    }
+  }
+}

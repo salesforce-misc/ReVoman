@@ -1,0 +1,101 @@
+{
+  "$schema": "https://revoman.dev/performance/protocol/schemas/capture-profile-family-v1.schema.json",
+  "schemaVersion": "capture-profile-family-v1",
+  "family": "warm",
+  "mode": "ss",
+  "unit": "ms",
+  "threads": 1,
+  "batchSize": 1,
+  "jvmArguments": [
+    "-Xms2g",
+    "-Xmx2g",
+    "-Dfile.encoding=UTF-8",
+    "-Duser.timezone=UTC",
+    "-Duser.home=/operation/tmp",
+    "-Dlog4j.configurationFile=classpath:performance/log4j2-performance.xml",
+    "-Drevoman.banner=false"
+  ],
+  "variants": [
+    {
+      "identity": "warm-10-none-v1",
+      "forks": 10,
+      "warmupIterations": 5,
+      "measurementIterations": 10,
+      "profiler": "none",
+      "profilerSettingsSha256": null,
+      "profilerArguments": []
+    },
+    {
+      "identity": "warm-20-none-v1",
+      "forks": 20,
+      "warmupIterations": 5,
+      "measurementIterations": 10,
+      "profiler": "none",
+      "profilerSettingsSha256": null,
+      "profilerArguments": []
+    },
+    {
+      "identity": "warm-40-none-v1",
+      "forks": 40,
+      "warmupIterations": 5,
+      "measurementIterations": 10,
+      "profiler": "none",
+      "profilerSettingsSha256": null,
+      "profilerArguments": []
+    },
+    {
+      "identity": "warm-10-gc-v1",
+      "forks": 10,
+      "warmupIterations": 5,
+      "measurementIterations": 10,
+      "profiler": "gc",
+      "profilerSettingsSha256": null,
+      "profilerArguments": ["gc"]
+    },
+    {
+      "identity": "warm-20-gc-v1",
+      "forks": 20,
+      "warmupIterations": 5,
+      "measurementIterations": 10,
+      "profiler": "gc",
+      "profilerSettingsSha256": null,
+      "profilerArguments": ["gc"]
+    },
+    {
+      "identity": "warm-40-gc-v1",
+      "forks": 40,
+      "warmupIterations": 5,
+      "measurementIterations": 10,
+      "profiler": "gc",
+      "profilerSettingsSha256": null,
+      "profilerArguments": ["gc"]
+    },
+    {
+      "identity": "warm-10-jfr-v1",
+      "forks": 10,
+      "warmupIterations": 5,
+      "measurementIterations": 10,
+      "profiler": "jfr",
+      "profilerSettingsSha256": "d7b6a8ae78de246372b559f4f838a0a3259c864f10560a26d69a678e34b93d04",
+      "profilerArguments": ["jfr:dir={operationRoot};configName=profile;debugNonSafePoints=true;stackDepth=1024;postProcessor=com.salesforce.revoman.benchmark.JfrForkAccumulator;verbose=false"]
+    },
+    {
+      "identity": "warm-20-jfr-v1",
+      "forks": 20,
+      "warmupIterations": 5,
+      "measurementIterations": 10,
+      "profiler": "jfr",
+      "profilerSettingsSha256": "d7b6a8ae78de246372b559f4f838a0a3259c864f10560a26d69a678e34b93d04",
+      "profilerArguments": ["jfr:dir={operationRoot};configName=profile;debugNonSafePoints=true;stackDepth=1024;postProcessor=com.salesforce.revoman.benchmark.JfrForkAccumulator;verbose=false"]
+    },
+    {
+      "identity": "warm-40-jfr-v1",
+      "forks": 40,
+      "warmupIterations": 5,
+      "measurementIterations": 10,
+      "profiler": "jfr",
+      "profilerSettingsSha256": "d7b6a8ae78de246372b559f4f838a0a3259c864f10560a26d69a678e34b93d04",
+      "profilerArguments": ["jfr:dir={operationRoot};configName=profile;debugNonSafePoints=true;stackDepth=1024;postProcessor=com.salesforce.revoman.benchmark.JfrForkAccumulator;verbose=false"]
+    }
+  ]
+}

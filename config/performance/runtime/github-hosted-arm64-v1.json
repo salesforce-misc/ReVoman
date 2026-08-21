@@ -1,0 +1,76 @@
+{
+  "$schema": "https://revoman.dev/performance/runtime/runtime-profile-v1.schema.json",
+  "schemaVersion": "runtime-profile-v1",
+  "profileKind": "substrate",
+  "profileId": "github-hosted-arm64-v1",
+  "claimEligibility": "diagnostic-only",
+  "runtimeProfileId": "temurin-21-linux-arm64-v1",
+  "runtimeReference": "docker.io/library/eclipse-temurin@sha256:6c7425db05efdcf0ba40d989898857b093f14ceaf9684c9c31a072c159f4590e",
+  "docker": {
+    "context": null,
+    "desktopLinuxRequired": false,
+    "platform": "linux/arm64"
+  },
+  "identity": {
+    "uid": 1001,
+    "gid": 1001
+  },
+  "limits": {
+    "cpusetCpus": "0-3",
+    "memoryBytes": 6442450944,
+    "memorySwapBytes": 6442450944,
+    "pidsLimit": 512
+  },
+  "security": {
+    "readOnlyRoot": true,
+    "privileged": false,
+    "capDrop": [
+      "ALL"
+    ],
+    "volumeInitializerCapAdd": [
+      "CHOWN"
+    ],
+    "securityOpt": [
+      "no-new-privileges"
+    ],
+    "networklessPhases": [
+      "preparation",
+      "timed",
+      "scrubber",
+      "finalizer"
+    ],
+    "forbiddenMounts": [
+      "home",
+      "credentials",
+      "secrets",
+      "docker-socket"
+    ]
+  },
+  "writableMounts": {
+    "volumeInitializer": [
+      "/inputs",
+      "/operation"
+    ],
+    "preparation": [
+      "/inputs",
+      "/tmp"
+    ],
+    "timed": [
+      "/operation",
+      "/tmp"
+    ],
+    "scrubber": [
+      "/operation",
+      "/tmp"
+    ],
+    "finalizer": [
+      "/artifacts",
+      "/tmp"
+    ]
+  },
+  "environment": {
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "TZ": "UTC"
+  }
+}

@@ -1,5 +1,10 @@
 # ReVoman Development Guide
 
+## Gradle
+
+- Always use `-q/--quiet` when running `./gradlew` commands to avoid noisy output.
+- Prefer `./gradlew -q :module:test` over `./gradlew -q build`
+
 ## Commands to Build and Verify
 
 ```bash
@@ -39,11 +44,17 @@ ReVoman uses the [JetBrains Qodana](https://www.jetbrains.com/qodana/) Gradle pl
 primary quality gate; CI (`.github/workflows/qodana.yml`) is only a backstop.
 
 ```bash
-colima start                        # Qodana runs its linter in Docker; start the daemon first
-./gradlew kaptKotlin classes        # pre-generate kapt/Immutables/Moshi sources (JDK 21) so the
-                                     # linter resolves references — NOT run in-container (see qodana.yaml)
-./gradlew qodanaScan                # downloads the Qodana CLI + free community linter image, then scans
+docker --context desktop-linux info
+export JAVA_HOME=/opt/homebrew/Cellar/sdkman-cli/5.19.0/libexec/candidates/java/21.0.11-amzn
+./gradlew -q kaptKotlin classes
+DOCKER_CONTEXT=desktop-linux ./gradlew -q qodanaScan \
+  -Dorg.gradle.java.home=/opt/homebrew/Cellar/sdkman-cli/5.19.0/libexec/candidates/java/21.0.11-amzn
 ```
+
+The first command verifies the supported Docker Desktop daemon explicitly. The Gradle commands use
+the normal JDK 21 prerequisite to pre-generate kapt/Immutables/Moshi sources on the host and then
+run the immutable Community linter image through `desktop-linux`; no second VM or privilege prompt
+is part of the supported path.
 
 - Results (including `qodana.sarif.json`) land in `build/qodana/results`; the linter
   image/cache is kept in `.qodana/cache` so `clean` doesn't force a re-pull.
@@ -52,76 +63,46 @@ colima start                        # Qodana runs its linter in Docker; start th
   inspections — not used here (no license; there is no free Ultimate for open source).
 - `qodanaScan` is **opt-in** — it is NOT part of `./gradlew build` (which stays Docker-free),
   the same way the `integration.core.*` org tests are opt-in via `-PincludeCoreIT`.
-- Docker needs ≥4 GB memory for the linter. If colima's VM is smaller, recreate it larger
-  (e.g. `colima start --memory 6`).
+- Docker Desktop needs at least 4 GB available to the linter.
 
 ## Continuous Integration
 
-- `.github/workflows/build.yml` runs `./gradlew build` on every push/PR to `master` —
-  full coverage: unit (`test`) + integration (`integrationTest`) + `spotlessCheck` + `kover`.
+- `.github/workflows/build.yml` runs on exact `ubuntu-24.04-arm` for every push/PR to `master`.
+  It runs the build-logic tests, the root build, and a structural canary from the frozen
+  performance distribution. Canary timing is discarded and never forms a numeric gate.
 - **Org tests** (`integration.core.*`) skip-loud on CI (no org creds); see `-PincludeCoreIT` above.
 - **Flaky external-API tests** (pokeapi.co, restful-api.dev, apigee, beeceptor) are retried via the
   `org.gradle.test-retry` plugin — but ONLY on CI (`CI` env var set). Locally `maxRetries=0`, so
   flakes surface immediately. A test failing every attempt still fails the build (no masking).
 
-## Performance regression measurements
+## Performance Measurement Lanes
 
-The root `src/jmh` suite is the only performance harness. A quick native smoke run writes JMH JSON
-and the human log outside the normal build-result location:
+Performance commands need only Docker, Git, and standard macOS utilities. They require
+no host-native JVM, no second VM, no password, and no privilege escalation.
 
-```bash
-./gradlew jmh \
-  -Pjmh.smoke=true \
-  -Pjmh.includes=RuntimeLifecycleBenchmark \
-  -Pjmh.profilers=gc \
-  -Pjmh.resultsFile=build/perf-results/smoke.json \
-  -Pjmh.humanOutputFile=build/perf-results/smoke.txt
+- The automatic `ubuntu-24.04-arm` structural canary proves packaging and protocol correctness;
+  its numeric timing is diagnostic and discarded.
+- `.github/workflows/performance-campaign.yml` is an optional explicit `workflow_dispatch` lane.
+  It accepts trusted distinct baseline/candidate commits, freezes both, and runs one sealed
+  diagnostic canary against the candidate distribution. It performs no hosted campaign or
+  comparison and cannot create a claim-bearing result.
+- A claim-bearing campaign is an explicit local command on the controlled Mac, for example:
 
-python3 -m unittest discover -s scripts/tests -p 'test_*.py' -v
-python3 scripts/compare-jmh.py \
-  build/perf-results/smoke.json build/perf-results/smoke.json \
-  --markdown-out build/perf-results/comparison.md \
-  --json-out build/perf-results/comparison.json
-```
+  ```bash
+  ./scripts/performance/run campaign \
+    --profile warm \
+    --host-id m4max-docker-linux-arm64-v1 \
+    --baseline-distribution build/performance/baseline \
+    --candidate-distribution build/performance/candidate \
+    --output build/performance/campaign
+  ```
 
-For reproducible userspace/JDK iteration, run the same smoke in the minimal Ubuntu 24.04 + Temurin
-21 container:
+  The controlled Mac is deliberately not registered as a persistent public-repository worker:
+  there is no persistent self-hosted runner and no polling daemon.
 
-```bash
-./scripts/perf-docker
-./scripts/perf-docker ./gradlew compileJmhKotlin
-```
-
-The wrapper bind-mounts the checkout and `build/perf-results`, and reuses the named Gradle-cache
-volume `revoman-perf-gradle`. The image build sends no repository files because all source stays in
-the runtime bind mount. Override the host result directory with
-`REVOMAN_PERF_RESULTS_DIR=/some/path`. It does not use privileged mode or mount a Docker socket.
-
-For a diagnostic Docker A/A check, run the same checkout twice and compare the two files:
-
-```bash
-./scripts/perf-docker ./gradlew jmh -Pjmh.smoke=true \
-  -Pjmh.includes=RuntimeLifecycleBenchmark -Pjmh.profilers=gc \
-  -Pjmh.resultsFile=/results/aa-1.json -Pjmh.humanOutputFile=/results/aa-1.txt
-./scripts/perf-docker ./gradlew jmh -Pjmh.smoke=true \
-  -Pjmh.includes=RuntimeLifecycleBenchmark -Pjmh.profilers=gc \
-  -Pjmh.resultsFile=/results/aa-2.json -Pjmh.humanOutputFile=/results/aa-2.txt
-./scripts/perf-docker python3 scripts/compare-jmh.py /results/aa-1.json /results/aa-2.json \
-  --markdown-out /results/aa.md --json-out /results/aa.json
-```
-
-Docker results are diagnostic: the image reproduces Ubuntu, JDK, and CLI versions, not GitHub's
-CPU, scheduler, kernel/PMU exposure, or contention. `.github/workflows/benchmark.yml` is the
-canonical paired baseline/candidate screen on `ubuntu-latest`. Its initial limit is 20% for both
-`us/op` and normalized allocation (`B/op`). Before treating that gate as authoritative, run one
-same-ref A/A workflow and require every selected metric to pass:
-
-```bash
-gh workflow run benchmark.yml -f baseline_ref=<git-sha> -f candidate_ref=<same-git-sha>
-```
-
-Keep JDK 21 for this gate. Evaluate JDK 25 separately so JVM changes are not mixed into library
-regression measurements.
+Formal claims: only finalized, checksum-valid, claimEligible=true controlled-host campaigns.
+Diagnostics: direct JMH, hosted canaries, standalone captures/comparisons, GC, and JFR.
+The optimization commit need not contain the runner; freeze its jar with a runner already merged to master.
 
 ## Building the jar for Salesforce Core consumption
 

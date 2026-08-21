@@ -9,21 +9,34 @@
   "UnstableApiUsage"
 ) // Gradle JVM Test Suite DSL (testing {}) is incubating but stable in practice
 
+import java.nio.charset.StandardCharsets.UTF_8
+import java.security.MessageDigest
 import java.util.zip.Deflater
 import java.util.zip.GZIPOutputStream
-import me.champeau.jmh.JMHTask
+import org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import performance.AssemblePerformanceDistributionTask
+import performance.GenerateProtocolManifestTask
 
 plugins {
   id("revoman.root-conventions")
   id("revoman.publishing-conventions")
   id("revoman.kt-conventions")
+  id("revoman.performance-conventions")
   alias(libs.plugins.moshix)
   alias(libs.plugins.node.gradle)
   alias(libs.plugins.kover)
   alias(libs.plugins.nexus.publish)
-  alias(libs.plugins.jmh)
   alias(libs.plugins.test.retry)
   alias(libs.plugins.qodana)
+}
+
+kotlin {
+  @OptIn(ExperimentalAbiValidation::class)
+  abiValidation {
+    val updateAbi = updateTaskProvider
+    checkTaskProvider.configure { mustRunAfter(updateAbi) }
+  }
 }
 
 // Retry flaky tests ON CI ONLY. Several integration tests hit live external APIs (pokeapi.co,
@@ -159,8 +172,24 @@ testing {
         implementation(libs.postgresql)
       }
     }
+
+    register<JvmTestSuite>("jmhTest") {
+      dependencies {
+        implementation(libs.truth)
+        implementation(libs.log4j.api)
+        implementation(libs.log4j.core)
+      }
+    }
+
+    register<JvmTestSuite>("fdProbeTest") {
+      useJUnitJupiter(libs.versions.junit.get())
+      dependencies { implementation(project(":")) }
+      targets { all { testTask.configure { maxParallelForks = 1 } } }
+    }
   }
 }
+
+tasks.named("check") { dependsOn(testing.suites.named("fdProbeTest")) }
 
 // Give the integrationTest compilation a friend-path to main (the built-in `test` suite gets this
 // automatically). Without it, integration tests can't see `internal` main members — e.g.
@@ -174,6 +203,31 @@ kotlin.target.compilations.named("integrationTest") {
 // rather than only the public API.
 kotlin.target.compilations.named("jmh") {
   associateWith(kotlin.target.compilations.getByName("main"))
+}
+
+// Benchmark contracts compile against JMH output directly. A Kotlin compilation association would
+// select the deliberately unsupported flattened jmhJar, so the friend/output paths stay explicit.
+val jmhSourceSet = sourceSets.named("jmh")
+val mainSourceSet = sourceSets.named("main")
+
+sourceSets.named("jmhTest") {
+  compileClasspath += files(mainSourceSet.get().output, jmhSourceSet.get().output)
+  runtimeClasspath += files(mainSourceSet.get().output, jmhSourceSet.get().output)
+}
+
+configurations.named("jmhTestImplementation") {
+  extendsFrom(configurations.getByName("jmhImplementation"))
+}
+
+configurations.named("jmhTestRuntimeOnly") {
+  extendsFrom(configurations.getByName("jmhRuntimeOnly"))
+}
+
+tasks.named<KotlinCompile>("compileJmhTestKotlin") {
+  dependsOn("jmhClasses")
+  compilerOptions.freeCompilerArgs.add(
+    "-Xfriend-paths=${layout.buildDirectory.dir("classes/kotlin/jmh").get().asFile.absolutePath}"
+  )
 }
 
 node {
@@ -284,6 +338,16 @@ tasks {
       }
     }
   }
+  named<Test>("jmhTest") {
+    systemProperty(
+      "log4j.configurationFile",
+      layout.projectDirectory
+        .file("src/jmh/resources/performance/log4j2-performance.xml")
+        .asFile
+        .toURI(),
+    )
+    systemProperty("revoman.banner", "false")
+  }
 }
 
 kover {
@@ -291,7 +355,7 @@ kover {
     sources {
       // The JMH benchmark source set is a perf harness, never unit-tested by design (like the
       // opt-in core-IT tests). Keep it out of the coverage denominator.
-      excludedSourceSets.addAll("jmh")
+      excludedSourceSets.addAll("jmh", "fdProbeTest")
     }
   }
   reports {
@@ -326,8 +390,9 @@ kover {
 
 // Qodana static analysis. Opt-in like the Core-IT tests — NOT wired into `check`/`build`, since
 // `qodanaScan` needs Docker (the CLI runs the free `jetbrains/qodana-jvm-community` linter in a
-// container). Run locally before pushing with `colima start && ./gradlew qodanaScan`; results
-// (incl. qodana.sarif.json) land in `build/qodana/results`. See DEVELOPMENT.md > Static Analysis.
+// container). Verify Docker Desktop with `docker --context desktop-linux info`, then run with
+// `DOCKER_CONTEXT=desktop-linux` and the pinned JDK 21 command in DEVELOPMENT.md. Results (incl.
+// qodana.sarif.json) land in `build/qodana/results`.
 qodana {
   // Persist the linter image/cache outside `build/` so `clean` doesn't force a re-pull every run.
   cachePath.set(layout.projectDirectory.dir(".qodana/cache").asFile.absolutePath)
@@ -340,51 +405,173 @@ jmh {
   jmhVersion = libs.versions.jmh.get()
 }
 
-// The JMH fat jar contains Truffle's versioned classes; retain the manifest flag that makes the
-// JVM load them instead of rejecting the repackaged runtime during sandbox/lifecycle benchmarks.
-tasks.named<Jar>("jmhJar") { manifest { attributes("Multi-Release" to "true") } }
-
-tasks.named<JMHTask>("jmh") {
-  // Benchmark executions are measurements, not cacheable build products. Re-run the harness while
-  // keeping its compilation and packaging dependencies incremental for fast local iteration.
-  outputs.upToDateWhen { false }
-  failOnError.set(true)
-  resultFormat.set("JSON")
-  resultsFile.convention(layout.buildDirectory.file("results/jmh/results.json"))
-  humanOutputFile.convention(layout.buildDirectory.file("results/jmh/results.txt"))
-  providers.gradleProperty("jmh.resultsFile").orNull?.let { resultsFile.set(file(it)) }
-  providers.gradleProperty("jmh.humanOutputFile").orNull?.let { humanOutputFile.set(file(it)) }
-  includes.set(providers.gradleProperty("jmh.includes").map { listOf(it) }.orElse(emptyList()))
-  profilers.set(
-    providers
-      .gradleProperty("jmh.profilers")
-      .map { value -> value.split(',').map(String::trim).filter(String::isNotEmpty) }
-      .orElse(listOf("gc"))
+val revUpV3FixtureRoot = layout.projectDirectory.dir("src/jmh/resources/performance/revup-v3")
+val revUpV3FixturePaths =
+  listOf(
+    ".resources/definition.yaml",
+    "benchmark.environment.yaml",
+    "benchmark.request.yaml",
   )
-  jvmArgsAppend.add("-Drevoman.banner=off")
-  if (providers.gradleProperty("jmh.smoke").orNull.toBoolean()) {
-    fork.set(1)
-    warmupIterations.set(1)
-    warmup.set("200ms")
-    iterations.set(1)
-    timeOnIteration.set("200ms")
-  }
-  doLast {
-    val humanOutput = humanOutputFile.get().asFile
-    check(
-      humanOutput.isFile && humanOutput.length() > 0 && "<failure>" !in humanOutput.readText()
-    ) {
-      "JMH reported a benchmark failure; inspect ${humanOutput.absolutePath}"
+val generatedRevUpV3ManifestRoot =
+  layout.buildDirectory.dir("generated/resources/jmh/revup-v3-manifest")
+val generatedRevUpV3Manifest = generatedRevUpV3ManifestRoot.map {
+  it.file("META-INF/revoman/performance/revup-v3-tree.json")
+}
+val generateRevUpV3TreeManifest =
+  tasks.register("generateRevUpV3TreeManifest") {
+    inputs.files(revUpV3FixturePaths.map(revUpV3FixtureRoot::file))
+    outputs.file(generatedRevUpV3Manifest)
+    doLast {
+      fun sha256(bytes: ByteArray): String =
+        MessageDigest.getInstance("SHA-256").digest(bytes).joinToString(separator = "") {
+          "%02x".format(it.toInt() and 0xff)
+        }
+
+      fun compareUtf8(left: String, right: String): Int {
+        val leftBytes = left.toByteArray(UTF_8)
+        val rightBytes = right.toByteArray(UTF_8)
+        val common = minOf(leftBytes.size, rightBytes.size)
+        for (index in 0 until common) {
+          val comparison =
+            (leftBytes[index].toInt() and 0xff).compareTo(rightBytes[index].toInt() and 0xff)
+          if (comparison != 0) return comparison
+        }
+        return leftBytes.size.compareTo(rightBytes.size)
+      }
+
+      val fixtureFiles =
+        inputs.files.files.associateBy { fixture ->
+          if (fixture.parentFile.name == ".resources") {
+            ".resources/${fixture.name}"
+          } else {
+            fixture.name
+          }
+        }
+      check(
+        fixtureFiles.keys ==
+          setOf(
+            ".resources/definition.yaml",
+            "benchmark.environment.yaml",
+            "benchmark.request.yaml",
+          )
+      ) {
+        "RevUp V3 manifest inputs changed: ${fixtureFiles.keys.sorted()}"
+      }
+      val manifest =
+        fixtureFiles.keys.sortedWith(::compareUtf8).joinToString(
+          separator = ",",
+          prefix = "[",
+          postfix = "]\n",
+        ) { relativePath ->
+          val bytes = checkNotNull(fixtureFiles[relativePath]).readBytes()
+          "{\"byteLength\":${bytes.size},\"path\":\"$relativePath\",\"sha256\":\"${sha256(bytes)}\"}"
+        }
+      outputs.files.singleFile.apply {
+        parentFile.mkdirs()
+        writeText(manifest, UTF_8)
+      }
     }
-    val jsonOutput = resultsFile.get().asFile
-    check(
-      jsonOutput.isFile &&
-        jsonOutput.length() > 0 &&
-        jsonOutput.readText().replace(Regex("\\s"), "") != "[]"
-    ) {
-      "JMH produced no benchmark results: ${jsonOutput.absolutePath}"
+  }
+
+jmhSourceSet.configure { resources.srcDir(generatedRevUpV3ManifestRoot) }
+
+tasks.named("processJmhResources") { dependsOn(generateRevUpV3TreeManifest) }
+
+// The frozen distribution owns stable protocol filenames even though the checked-in source names
+// carry descriptive platform/version suffixes. These views contain only the exact allowed files.
+val preparePerformanceRuntimeInputs =
+  tasks.register<Sync>("preparePerformanceRuntimeInputs") {
+    into(layout.buildDirectory.dir("performance/protocol-inputs/runtime"))
+    from("config/performance/runtime/temurin-21-linux-arm64-v1.json") {
+      rename { "linux-arm64.json" }
+    }
+    from("config/performance/runtime/m4max-docker-linux-arm64-v1.json") {
+      rename { "m4max-docker.json" }
+    }
+    from("config/performance/runtime/github-hosted-arm64-v1.json") {
+      rename { "github-hosted.json" }
     }
   }
+
+val preparePerformanceQualificationInputs =
+  tasks.register<Sync>("preparePerformanceQualificationInputs") {
+    into(layout.buildDirectory.dir("performance/protocol-inputs/qualification"))
+    from("config/performance/policies/m4max-docker-linux-arm64-v1.json") {
+      rename { "m4max-docker.json" }
+    }
+    from("config/performance/policies/github-hosted-arm64-v1.json") {
+      rename { "github-hosted.json" }
+    }
+  }
+
+performanceMeasurement {
+  treatmentJar.convention(tasks.named<Jar>("jar").flatMap { it.archiveFile })
+  profileDirectory.set(layout.projectDirectory.dir("config/performance/profiles"))
+  runtimeDirectory.set(layout.buildDirectory.dir("performance/protocol-inputs/runtime"))
+  qualificationPolicyDirectory.set(
+    layout.buildDirectory.dir("performance/protocol-inputs/qualification")
+  )
+  testVectorDirectory.set(
+    layout.projectDirectory.dir(
+      "buildSrc/performance-runner/src/main/resources/performance/protocol/test-vectors"
+    )
+  )
+  expectedCells.set(layout.projectDirectory.file("config/performance/expected-cells.json"))
+  adapter.set(layout.projectDirectory.file("scripts/performance/run"))
+  embeddedDependency.set(layout.file(providers.provider { bundledRuntime.singleFile }))
+  expectedBenchmarks.set(
+    listOf(
+      "com.salesforce.revoman.benchmark.EnvAccumBenchmark.accumulateAndSnapshot",
+      "com.salesforce.revoman.benchmark.MarshallingBenchmark.compositeFromJson",
+      "com.salesforce.revoman.benchmark.MarshallingBenchmark.compositeToJson",
+      "com.salesforce.revoman.benchmark.RegexVarBenchmark.replaceVariablesInEnvOverLargeEnv",
+      "com.salesforce.revoman.benchmark.RegexVarBenchmark.replaceVariablesRecursivelyOverMixedStrings",
+      "com.salesforce.revoman.benchmark.RevUpV3ColdBenchmark.revUp",
+      "com.salesforce.revoman.benchmark.RevUpV3WarmBenchmark.revUp",
+      "com.salesforce.revoman.benchmark.SandboxCanaryBenchmark.sandbox",
+      "com.salesforce.revoman.benchmark.SmokeBenchmark.sumOfRange",
+    )
+  )
+  protocolSources.from(
+    layout.projectDirectory.dir("buildSrc/src/main/kotlin/performance"),
+    layout.projectDirectory.file(
+      "buildSrc/src/main/kotlin/revoman.performance-conventions.gradle.kts"
+    ),
+    layout.projectDirectory.dir("buildSrc/performance-runner/src/main/kotlin/performance"),
+    layout.projectDirectory.dir("buildSrc/performance-runner/src/main/resources/performance"),
+    layout.projectDirectory.dir("buildSrc/performance-runner/src/test/resources/performance"),
+    layout.projectDirectory.dir("buildSrc/src/test/resources/fixtures"),
+    layout.projectDirectory.dir("src/jmh"),
+    layout.projectDirectory.file("scripts/performance/run"),
+    layout.projectDirectory.dir("config/performance/profiles"),
+    layout.projectDirectory.dir("config/performance/runtime"),
+    layout.projectDirectory.file("config/performance/expected-cells.json"),
+    layout.projectDirectory.file("config/performance/policies/qualification-policy-v1.schema.json"),
+    layout.projectDirectory.file("config/performance/policies/m4max-docker-linux-arm64-v1.json"),
+    layout.projectDirectory.file("config/performance/policies/github-hosted-arm64-v1.json"),
+    layout.projectDirectory.file("gradlew"),
+    layout.projectDirectory.file("gradlew.bat"),
+    layout.projectDirectory.dir("gradle/wrapper"),
+    layout.projectDirectory.file("gradle/libs.versions.toml"),
+    layout.projectDirectory.file("gradle.properties"),
+    layout.projectDirectory.file("settings.gradle.kts"),
+    layout.projectDirectory.file("build.gradle.kts"),
+    layout.projectDirectory.file("buildSrc/settings.gradle.kts"),
+    layout.projectDirectory.file("buildSrc/build.gradle.kts"),
+    layout.projectDirectory.file("buildSrc/performance-runner/build.gradle.kts"),
+  )
+}
+
+val packagedBenchmarkDependencies =
+  configurations.getByName("jmhRuntimeClasspath") - mainSourceSet.get().output
+
+tasks.named<GenerateProtocolManifestTask>("generatePerformanceProtocolManifest") {
+  benchmarkDependencies.setFrom(packagedBenchmarkDependencies)
+  dependsOn(preparePerformanceRuntimeInputs, preparePerformanceQualificationInputs)
+}
+
+tasks.named<AssemblePerformanceDistributionTask>("assemblePerformanceDistribution") {
+  benchmarkDependencies.setFrom(packagedBenchmarkDependencies)
 }
 
 nexusPublishing {

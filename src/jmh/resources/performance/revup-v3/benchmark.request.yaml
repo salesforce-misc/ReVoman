@@ -1,0 +1,22 @@
+$kind: http-request
+name: benchmark
+url: "{{baseUrl}}/benchmark"
+method: GET
+headers:
+  X-Revoman-Marker: "{{derivedMarker}}"
+scripts:
+  - type: beforeRequest
+    code: |-
+      const seed = pm.environment.get("markerSeed");
+      pm.environment.set("derivedMarker", seed + "-derived");
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      const body = pm.response.json();
+      pm.test("benchmark response", () => {
+        pm.expect(pm.response.code).to.eql(200);
+        pm.expect(body.id).to.eql(42);
+      });
+      pm.environment.set("id", body.id);
+    language: text/javascript
+order: 1000

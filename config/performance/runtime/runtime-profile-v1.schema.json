@@ -1,0 +1,583 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://revoman.dev/performance/runtime/runtime-profile-v1.schema.json",
+  "title": "ReVoman performance runtime profile",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/runtimeProfile"
+    },
+    {
+      "$ref": "#/$defs/substrateProfile"
+    }
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "bareSha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "runtimeProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "$schema",
+        "schemaVersion",
+        "profileKind",
+        "profileId",
+        "image",
+        "java",
+        "tools"
+      ],
+      "properties": {
+        "$schema": {
+          "const": "https://revoman.dev/performance/runtime/runtime-profile-v1.schema.json"
+        },
+        "schemaVersion": {
+          "const": "runtime-profile-v1"
+        },
+        "profileKind": {
+          "const": "runtime"
+        },
+        "profileId": {
+          "const": "temurin-21-linux-arm64-v1"
+        },
+        "image": {
+          "$ref": "#/$defs/image"
+        },
+        "java": {
+          "$ref": "#/$defs/java"
+        },
+        "tools": {
+          "$ref": "#/$defs/tools"
+        }
+      }
+    },
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "reference",
+        "manifestDigest",
+        "digestKind",
+        "platform",
+        "ociConfigDigest",
+        "sourceDockerfile"
+      ],
+      "properties": {
+        "repository": {
+          "const": "docker.io/library/eclipse-temurin"
+        },
+        "reference": {
+          "const": "docker.io/library/eclipse-temurin@sha256:6c7425db05efdcf0ba40d989898857b093f14ceaf9684c9c31a072c159f4590e"
+        },
+        "manifestDigest": {
+          "const": "sha256:6c7425db05efdcf0ba40d989898857b093f14ceaf9684c9c31a072c159f4590e"
+        },
+        "digestKind": {
+          "const": "platform-manifest"
+        },
+        "platform": {
+          "$ref": "#/$defs/platform"
+        },
+        "ociConfigDigest": {
+          "const": "sha256:ad6963934ee96838c09d99f3c4df6f991cd00ed70fa8a48f7045517d7ae8991c"
+        },
+        "sourceDockerfile": {
+          "const": "https://github.com/adoptium/containers/blob/df6138afaf1b564116e895b0acd51d70e11cd996/21/jdk/ubuntu/noble/Dockerfile"
+        }
+      }
+    },
+    "platform": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "os",
+        "architecture",
+        "variant",
+        "unameMachine"
+      ],
+      "properties": {
+        "os": {
+          "const": "linux"
+        },
+        "architecture": {
+          "const": "arm64"
+        },
+        "variant": {
+          "const": "v8"
+        },
+        "unameMachine": {
+          "const": "aarch64"
+        }
+      }
+    },
+    "java": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "release",
+        "versionOutput",
+        "executable",
+        "sha256"
+      ],
+      "properties": {
+        "release": {
+          "const": "21.0.11+10-LTS"
+        },
+        "versionOutput": {
+          "const": "openjdk version \"21.0.11\" 2026-04-21 LTS\nOpenJDK Runtime Environment Temurin-21.0.11+10 (build 21.0.11+10-LTS)\nOpenJDK 64-Bit Server VM Temurin-21.0.11+10 (build 21.0.11+10-LTS, mixed mode, sharing)"
+        },
+        "executable": {
+          "const": "/opt/java/openjdk/bin/java"
+        },
+        "sha256": {
+          "const": "1cedc51a4102638f1f06077acb3611b88f3061f9c7d76bd0a0df7f8607a9367b"
+        }
+      }
+    },
+    "tools": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sh",
+        "tar",
+        "sha256sum",
+        "mv"
+      ],
+      "properties": {
+        "sh": {
+          "$ref": "#/$defs/shTool"
+        },
+        "tar": {
+          "$ref": "#/$defs/tarTool"
+        },
+        "sha256sum": {
+          "$ref": "#/$defs/sha256sumTool"
+        },
+        "mv": {
+          "$ref": "#/$defs/mvTool"
+        }
+      }
+    },
+    "shTool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path"
+      ],
+      "properties": {
+        "path": {
+          "const": "/usr/bin/sh"
+        }
+      }
+    },
+    "tarTool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "version"
+      ],
+      "properties": {
+        "path": {
+          "const": "/usr/bin/tar"
+        },
+        "version": {
+          "const": "tar (GNU tar) 1.35"
+        }
+      }
+    },
+    "sha256sumTool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "version"
+      ],
+      "properties": {
+        "path": {
+          "const": "/usr/bin/sha256sum"
+        },
+        "version": {
+          "const": "sha256sum (GNU coreutils) 9.4"
+        }
+      }
+    },
+    "mvTool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "version"
+      ],
+      "properties": {
+        "path": {
+          "const": "/usr/bin/mv"
+        },
+        "version": {
+          "const": "mv (GNU coreutils) 9.4"
+        }
+      }
+    },
+    "substrateProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "$schema",
+        "schemaVersion",
+        "profileKind",
+        "profileId",
+        "claimEligibility",
+        "runtimeProfileId",
+        "runtimeReference",
+        "docker",
+        "identity",
+        "limits",
+        "security",
+        "writableMounts",
+        "environment"
+      ],
+      "properties": {
+        "$schema": {
+          "const": "https://revoman.dev/performance/runtime/runtime-profile-v1.schema.json"
+        },
+        "schemaVersion": {
+          "const": "runtime-profile-v1"
+        },
+        "profileKind": {
+          "const": "substrate"
+        },
+        "profileId": {
+          "enum": [
+            "m4max-docker-linux-arm64-v1",
+            "github-hosted-arm64-v1"
+          ]
+        },
+        "claimEligibility": {
+          "enum": [
+            "canonical",
+            "diagnostic-only"
+          ]
+        },
+        "runtimeProfileId": {
+          "const": "temurin-21-linux-arm64-v1"
+        },
+        "runtimeReference": {
+          "const": "docker.io/library/eclipse-temurin@sha256:6c7425db05efdcf0ba40d989898857b093f14ceaf9684c9c31a072c159f4590e"
+        },
+        "docker": {
+          "$ref": "#/$defs/docker"
+        },
+        "identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "limits": {
+          "$ref": "#/$defs/limits"
+        },
+        "security": {
+          "$ref": "#/$defs/security"
+        },
+        "writableMounts": {
+          "$ref": "#/$defs/writableMounts"
+        },
+        "environment": {
+          "$ref": "#/$defs/environment"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "profileId": {
+                "const": "m4max-docker-linux-arm64-v1"
+              }
+            },
+            "required": [
+              "profileId"
+            ]
+          },
+          "then": {
+            "properties": {
+              "claimEligibility": {
+                "const": "canonical"
+              },
+              "docker": {
+                "properties": {
+                  "context": {
+                    "const": "desktop-linux"
+                  },
+                  "desktopLinuxRequired": {
+                    "const": true
+                  }
+                }
+              },
+              "identity": {
+                "properties": {
+                  "uid": {
+                    "const": 10001
+                  },
+                  "gid": {
+                    "const": 10001
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "profileId": {
+                "const": "github-hosted-arm64-v1"
+              }
+            },
+            "required": [
+              "profileId"
+            ]
+          },
+          "then": {
+            "properties": {
+              "claimEligibility": {
+                "const": "diagnostic-only"
+              },
+              "docker": {
+                "properties": {
+                  "context": {
+                    "type": "null"
+                  },
+                  "desktopLinuxRequired": {
+                    "const": false
+                  }
+                }
+              },
+              "identity": {
+                "properties": {
+                  "uid": {
+                    "const": 1001
+                  },
+                  "gid": {
+                    "const": 1001
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "docker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "context",
+        "desktopLinuxRequired",
+        "platform"
+      ],
+      "properties": {
+        "context": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "desktopLinuxRequired": {
+          "type": "boolean"
+        },
+        "platform": {
+          "const": "linux/arm64"
+        }
+      }
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "uid",
+        "gid"
+      ],
+      "properties": {
+        "uid": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "gid": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cpusetCpus",
+        "memoryBytes",
+        "memorySwapBytes",
+        "pidsLimit"
+      ],
+      "properties": {
+        "cpusetCpus": {
+          "const": "0-3"
+        },
+        "memoryBytes": {
+          "const": 6442450944
+        },
+        "memorySwapBytes": {
+          "const": 6442450944
+        },
+        "pidsLimit": {
+          "const": 512
+        }
+      }
+    },
+    "security": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "readOnlyRoot",
+        "privileged",
+        "capDrop",
+        "volumeInitializerCapAdd",
+        "securityOpt",
+        "networklessPhases",
+        "forbiddenMounts"
+      ],
+      "properties": {
+        "readOnlyRoot": {
+          "const": true
+        },
+        "privileged": {
+          "const": false
+        },
+        "capDrop": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "const": "ALL"
+            }
+          ],
+          "items": false,
+          "minItems": 1,
+          "maxItems": 1
+        },
+        "volumeInitializerCapAdd": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "const": "CHOWN"
+            }
+          ],
+          "items": false,
+          "minItems": 1,
+          "maxItems": 1
+        },
+        "securityOpt": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "const": "no-new-privileges"
+            }
+          ],
+          "items": false,
+          "minItems": 1,
+          "maxItems": 1
+        },
+        "networklessPhases": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "preparation",
+              "timed",
+              "scrubber",
+              "finalizer"
+            ]
+          },
+          "uniqueItems": true,
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "forbiddenMounts": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "home",
+              "credentials",
+              "secrets",
+              "docker-socket"
+            ]
+          },
+          "uniqueItems": true,
+          "minItems": 4,
+          "maxItems": 4
+        }
+      }
+    },
+    "writableMounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "volumeInitializer",
+        "preparation",
+        "timed",
+        "scrubber",
+        "finalizer"
+      ],
+      "properties": {
+        "volumeInitializer": {
+          "const": [
+            "/inputs",
+            "/operation"
+          ]
+        },
+        "preparation": {
+          "const": [
+            "/inputs",
+            "/tmp"
+          ]
+        },
+        "timed": {
+          "const": [
+            "/operation",
+            "/tmp"
+          ]
+        },
+        "scrubber": {
+          "const": [
+            "/operation",
+            "/tmp"
+          ]
+        },
+        "finalizer": {
+          "const": [
+            "/artifacts",
+            "/tmp"
+          ]
+        }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "LANG",
+        "LC_ALL",
+        "TZ"
+      ],
+      "properties": {
+        "LANG": {
+          "const": "C.UTF-8"
+        },
+        "LC_ALL": {
+          "const": "C.UTF-8"
+        },
+        "TZ": {
+          "const": "UTC"
+        }
+      }
+    }
+  }
+}

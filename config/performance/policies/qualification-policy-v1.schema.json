@@ -1,0 +1,300 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://revoman.dev/performance/policies/qualification-policy-v1.schema.json",
+  "title": "ReVoman performance qualification policy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schemaVersion",
+    "profileId",
+    "qualificationKind",
+    "claimEligibility",
+    "lockDirectoryName",
+    "lockDirectoryMode",
+    "staleLockRequiresDockerProof",
+    "campaignTimeoutMillis",
+    "preparationTimeoutMillis",
+    "finalizationTimeoutMillis",
+    "directOperationTimeoutMillis",
+    "automaticProcessStopAllowlist"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "https://revoman.dev/performance/policies/qualification-policy-v1.schema.json"
+    },
+    "schemaVersion": {
+      "const": "qualification-policy-v1"
+    },
+    "profileId": {
+      "enum": [
+        "m4max-docker-linux-arm64-v1",
+        "github-hosted-arm64-v1"
+      ]
+    },
+    "qualificationKind": {
+      "enum": [
+        "controlledMac",
+        "githubHosted"
+      ]
+    },
+    "claimEligibility": {
+      "enum": [
+        "canonical",
+        "diagnostic-only"
+      ]
+    },
+    "lockDirectoryName": {
+      "const": "revoman-performance-locks-v1"
+    },
+    "lockDirectoryMode": {
+      "const": "0700"
+    },
+    "staleLockRequiresDockerProof": {
+      "const": true
+    },
+    "dockerContext": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "macosVersion": {
+      "type": "string"
+    },
+    "macosBuild": {
+      "type": "string"
+    },
+    "hardwareModelClass": {
+      "type": "string"
+    },
+    "dockerDesktopVersion": {
+      "type": "string"
+    },
+    "dockerEngineVersion": {
+      "type": "string"
+    },
+    "linuxKitKernel": {
+      "type": "string"
+    },
+    "vmCpuCount": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "vmMemoryBytes": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "preflightSampleCount": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "preflightCadenceMillis": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "preflightCpuIdleMedianMinimumPercent": {
+      "$ref": "#/$defs/percent"
+    },
+    "preflightCpuIdleSampleMinimumPercent": {
+      "$ref": "#/$defs/percent"
+    },
+    "minimumUserIdleMillis": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "requiredMemoryPressureState": {
+      "const": "normal"
+    },
+    "requireNoSwapInDelta": {
+      "const": true
+    },
+    "requireNoPageOutDelta": {
+      "const": true
+    },
+    "requiredPowerState": {
+      "const": "ac"
+    },
+    "thermalTextStates": {
+      "const": [
+        "Note: No thermal warning level has been recorded",
+        "Note: No performance warning level has been recorded",
+        "Note: No CPU power status has been recorded"
+      ]
+    },
+    "thermalCpuSpeedLimit": {
+      "const": 100
+    },
+    "thermalSchedulerLimit": {
+      "const": 100
+    },
+    "thermalSpeedLimitedProcessCount": {
+      "const": 0
+    },
+    "postPreparationSettleMillis": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "roleSettleMillis": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "watcherCadenceMillis": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "watcherCpuIdleMinimumPercent": {
+      "$ref": "#/$defs/percent"
+    },
+    "watcherConsecutiveBreachSamples": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "sustainedProcessCpuPercent": {
+      "$ref": "#/$defs/percent"
+    },
+    "sustainedProcessMemoryPercent": {
+      "$ref": "#/$defs/percent"
+    },
+    "sustainedProcessConsecutiveSamples": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "prohibitedProcessClasses": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "campaignTimeoutMillis": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "preparationTimeoutMillis": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "finalizationTimeoutMillis": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "directOperationTimeoutMillis": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "automaticProcessStopAllowlist": {
+      "const": []
+    },
+    "runnerLabel": {
+      "type": "string"
+    },
+    "advertisedCpuCount": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "advertisedMemoryBytes": {
+      "type": "integer",
+      "minimum": 1
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "qualificationKind": {
+            "const": "controlledMac"
+          }
+        },
+        "required": [
+          "qualificationKind"
+        ]
+      },
+      "then": {
+        "required": [
+          "dockerContext",
+          "macosVersion",
+          "macosBuild",
+          "hardwareModelClass",
+          "dockerDesktopVersion",
+          "dockerEngineVersion",
+          "linuxKitKernel",
+          "vmCpuCount",
+          "vmMemoryBytes",
+          "preflightSampleCount",
+          "preflightCadenceMillis",
+          "preflightCpuIdleMedianMinimumPercent",
+          "preflightCpuIdleSampleMinimumPercent",
+          "minimumUserIdleMillis",
+          "requiredMemoryPressureState",
+          "requireNoSwapInDelta",
+          "requireNoPageOutDelta",
+          "requiredPowerState",
+          "thermalTextStates",
+          "thermalCpuSpeedLimit",
+          "thermalSchedulerLimit",
+          "thermalSpeedLimitedProcessCount",
+          "postPreparationSettleMillis",
+          "roleSettleMillis",
+          "watcherCadenceMillis",
+          "watcherCpuIdleMinimumPercent",
+          "watcherConsecutiveBreachSamples",
+          "sustainedProcessCpuPercent",
+          "sustainedProcessMemoryPercent",
+          "sustainedProcessConsecutiveSamples",
+          "prohibitedProcessClasses"
+        ],
+        "properties": {
+          "profileId": {
+            "const": "m4max-docker-linux-arm64-v1"
+          },
+          "claimEligibility": {
+            "const": "canonical"
+          },
+          "dockerContext": {
+            "const": "desktop-linux"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "qualificationKind": {
+            "const": "githubHosted"
+          }
+        },
+        "required": [
+          "qualificationKind"
+        ]
+      },
+      "then": {
+        "required": [
+          "dockerContext",
+          "runnerLabel",
+          "advertisedCpuCount",
+          "advertisedMemoryBytes"
+        ],
+        "properties": {
+          "profileId": {
+            "const": "github-hosted-arm64-v1"
+          },
+          "claimEligibility": {
+            "const": "diagnostic-only"
+          },
+          "dockerContext": {
+            "type": "null"
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "percent": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100
+    }
+  }
+}

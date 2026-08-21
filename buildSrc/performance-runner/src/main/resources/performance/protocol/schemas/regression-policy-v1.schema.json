@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://revoman.dev/performance/protocol/schemas/regression-policy-v1.schema.json",
+  "title": "ReVoman maximum regression policy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "maximumRegressionBudget",
+    "schemaVersion"
+  ],
+  "properties": {
+    "maximumRegressionBudget": {
+      "type": "number",
+      "minimum": 0
+    },
+    "schemaVersion": {
+      "const": "regression-policy-v1"
+    }
+  }
+}

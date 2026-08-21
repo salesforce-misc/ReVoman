@@ -11,37 +11,59 @@ concurrency:
   group: build-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# Least privilege: the build only needs to read the repo.
 permissions:
   contents: read
 
 jobs:
   gradle:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 90
     steps:
-      - uses: actions/checkout@main
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-java@main
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3
         with:
           distribution: jetbrains
           java-version: 21
 
-      # Replaces the deprecated gradle/gradle-build-action; adds dependency caching + a build report.
       - name: 'Setup Gradle'
-        uses: gradle/actions/setup-gradle@main
+        uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a
+        with:
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
 
-      # Full coverage: unit (`test`) + integration (`integrationTest`) + spotlessCheck + kover, all
-      # via `build`. The `integration.core.*` org tests skip-loud (no creds on CI); the live
-      # external-API tests are retried (see the test-retry config in build.gradle.kts). CI=true is
-      # set by GitHub Actions, which is what flips retries on.
-      - name: 'Gradle build'
+      - name: 'Build build logic'
+        run: ./gradlew -p buildSrc test
+
+      - name: 'Build project'
         run: ./gradlew build
 
-      # Surface JUnit HTML reports even when the build fails, so a red run is diagnosable.
+      - name: 'Freeze performance distribution'
+        run: |
+          ./scripts/performance/run freeze \
+            --treatment-source . \
+            --output build/performance/distribution
+
+      - name: 'Run structural performance canary'
+        run: |
+          ./scripts/performance/run canary \
+            --distribution build/performance/distribution \
+            --host-id github-hosted-arm64-canary-v1 \
+            --output build/performance/canary
+
+      - name: 'Upload sanitized performance diagnostics'
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: performance-canary-diagnostics
+          path: build/performance
+          if-no-files-found: error
+          retention-days: 7
+
       - name: 'Upload test reports'
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@main
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: test-reports
           path: build/reports/tests/

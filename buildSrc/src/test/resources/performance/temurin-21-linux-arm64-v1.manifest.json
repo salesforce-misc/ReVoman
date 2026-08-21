@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 2,
+  "mediaType": "application/vnd.oci.image.manifest.v1+json",
+  "config": {
+    "mediaType": "application/vnd.oci.image.config.v1+json",
+    "digest": "sha256:ad6963934ee96838c09d99f3c4df6f991cd00ed70fa8a48f7045517d7ae8991c",
+    "size": 6043
+  },
+  "layers": [
+    {
+      "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+      "digest": "sha256:d23996caa910b8e5029375ee7c7ec02ef8bae3d85194897323e7145071299ac9",
+      "size": 28886818
+    },
+    {
+      "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+      "digest": "sha256:637c998a22e095ce8227ee823e5959611df5b64bebc7d11bb208b7b3996e891e",
+      "size": 24125432
+    },
+    {
+      "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+      "digest": "sha256:343d0e2926bdecc0434642718cd6a795cd1149e4bdf0bdb4d9163ed9ad7a3729",
+      "size": 156473409
+    },
+    {
+      "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+      "digest": "sha256:3ecf76a721c39b00801f46f5c34c402f1b5df913f4e1cf0e87f27224b4d5a855",
+      "size": 159
+    },
+    {
+      "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+      "digest": "sha256:20e084029aa67c3f2a3b5154665a73aa722259bd1ccee618bf2ce9955da99d2b",
+      "size": 2282
+    }
+  ],
+  "annotations": {
+    "com.docker.official-images.bashbrew.arch": "arm64v8",
+    "org.opencontainers.image.base.digest": "sha256:b17516cd982bf06bdd5d5600253d12a8de017b9eb831cc052b532a0363d294f9",
+    "org.opencontainers.image.base.name": "ubuntu:24.04",
+    "org.opencontainers.image.created": "2026-08-04T01:27:30Z",
+    "org.opencontainers.image.revision": "df6138afaf1b564116e895b0acd51d70e11cd996",
+    "org.opencontainers.image.source": "https://github.com/adoptium/containers.git#df6138afaf1b564116e895b0acd51d70e11cd996:21/jdk/ubuntu/noble",
+    "org.opencontainers.image.url": "https://hub.docker.com/_/eclipse-temurin",
+    "org.opencontainers.image.version": "21.0.11_10-jdk-noble"
+  }
+}

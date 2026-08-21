@@ -1,0 +1,65 @@
+plugins {
+  id 'java'
+  id 'dev.revoman.performance-measurement'
+}
+
+group = 'example'
+version = '1.0'
+
+repositories { mavenCentral() }
+
+configurations { embeddedRuntime }
+
+dependencies {
+  implementation files('fixture-inputs/runtime-dependency.jar')
+  implementation files('fixture-inputs/embedded-dependency.jar')
+  embeddedRuntime files('fixture-inputs/embedded-dependency.jar')
+  testImplementation files('fixture-inputs/kotest-leak.jar')
+}
+
+tasks.named('jar', Jar) {
+  archiveFileName = 'fixture-app.jar'
+  from({ configurations.embeddedRuntime.collect { zipTree(it) } })
+}
+
+performanceMeasurement {
+  captureRunnerSourceDirectory.set(layout.projectDirectory)
+  treatmentJar.convention(layout.projectDirectory.file('build/libs/fixture-app.jar'))
+  runnerDistributionDirectory.set(layout.projectDirectory.dir('fixture-inputs/runner-dist'))
+  protocolSchemaDirectory.set(layout.projectDirectory.dir('fixture-inputs/protocol/schemas'))
+  profileDirectory.set(layout.projectDirectory.dir('fixture-inputs/protocol/profiles'))
+  runtimeDirectory.set(layout.projectDirectory.dir('fixture-inputs/protocol/runtime'))
+  qualificationPolicyDirectory.set(
+    layout.projectDirectory.dir('fixture-inputs/protocol/qualification')
+  )
+  testVectorDirectory.set(layout.projectDirectory.dir('fixture-inputs/protocol/test-vectors'))
+  expectedCells.set(layout.projectDirectory.file('fixture-inputs/protocol/expected-cells.json'))
+  adapter.set(layout.projectDirectory.file('fixture-inputs/protocol/adapter/run'))
+  embeddedDependency.set(layout.projectDirectory.file('fixture-inputs/embedded-dependency.jar'))
+  embeddedDependencyCoordinate.set(
+    'org.jetbrains.kotlinx:kotlinx-collections-immutable:0.5.1'
+  )
+  expectedBenchmarks.set(['example.FixtureBenchmark.measure'])
+  protocolSources.from(
+    layout.projectDirectory.file('build.gradle'),
+    layout.projectDirectory.file('settings.gradle'),
+    layout.projectDirectory.file('gradlew'),
+    layout.projectDirectory.file('gradlew.bat'),
+    layout.projectDirectory.dir('gradle/wrapper'),
+    layout.projectDirectory.file('scripts/performance/run'),
+    layout.projectDirectory.dir('src/jmh'),
+    layout.projectDirectory.dir('fixture-inputs/implementation'),
+    layout.projectDirectory.dir('fixture-inputs/fixture-resources'),
+    layout.projectDirectory.dir('fixture-inputs/protocol'),
+  )
+}
+
+tasks.register('assertPerformanceIsolation') {
+  doLast {
+    assert jmh.includeTests.get() == false
+    def generator = tasks.named('jmhRunBytecodeGenerator').get()
+    assert generator.classesDirsToProcess.files.every {
+      !it.path.contains('/classes/java/test') && !it.path.contains('/classes/kotlin/test')
+    }
+  }
+}

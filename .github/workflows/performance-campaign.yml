@@ -1,0 +1,97 @@
+name: 'Hosted performance diagnostic'
+
+on:
+  workflow_dispatch:
+    inputs:
+      baseline_sha:
+        description: 'Full lowercase baseline commit SHA reachable from a repository branch or tag'
+        required: true
+        type: string
+      candidate_sha:
+        description: 'Distinct full lowercase candidate commit SHA reachable from a repository branch or tag'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostic:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 240
+    steps:
+      - name: 'Require trusted master ref'
+        run: test "$GITHUB_REF" = "refs/heads/master"
+
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: refs/heads/master
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: 'Fetch and assert trusted master'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --force origin \
+            '+refs/heads/*:refs/remotes/origin/*' \
+            '+refs/tags/*:refs/tags/*'
+          test "$(git rev-parse HEAD)" = "$(git rev-parse refs/remotes/origin/master)"
+
+      - name: 'Validate inputs and run diagnostic canary'
+        shell: bash
+        env:
+          BASELINE_SHA: ${{ inputs.baseline_sha }}
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$BASELINE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$BASELINE_SHA" != "$CANDIDATE_SHA" ]]
+
+          reachable_from_owned_ref() {
+            local commit="$1"
+            local ref
+            while IFS= read -r ref; do
+              if git merge-base --is-ancestor "$commit" "$ref"; then
+                return 0
+              fi
+            done < <(git for-each-ref --format='%(refname)' refs/remotes/origin refs/tags)
+            return 1
+          }
+
+          for commit in "$BASELINE_SHA" "$CANDIDATE_SHA"; do
+            git cat-file -e "$commit^{commit}"
+            reachable_from_owned_ref "$commit"
+          done
+
+          baseline_source="$RUNNER_TEMP/revoman-baseline"
+          candidate_source="$RUNNER_TEMP/revoman-candidate"
+          git worktree add --detach "$baseline_source" "$BASELINE_SHA"
+          git worktree add --detach "$candidate_source" "$CANDIDATE_SHA"
+
+          without_credentials() {
+            env -u GITHUB_TOKEN -u GH_TOKEN -u ACTIONS_ID_TOKEN_REQUEST_TOKEN \
+              -u ACTIONS_ID_TOKEN_REQUEST_URL -u QODANA_TOKEN -u GIT_ASKPASS -u SSH_AUTH_SOCK "$@"
+          }
+
+          without_credentials ./scripts/performance/run freeze \
+            --treatment-source "$baseline_source" \
+            --output build/performance/baseline
+          without_credentials ./scripts/performance/run freeze \
+            --treatment-source "$candidate_source" \
+            --harness-from build/performance/baseline \
+            --output build/performance/candidate
+          without_credentials ./scripts/performance/run canary \
+            --host-id github-hosted-arm64-canary-v1 \
+            --distribution build/performance/candidate \
+            --output build/performance/canary
+
+      - name: 'Upload hosted canary diagnostic evidence'
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: hosted-performance-canary-diagnostic
+          path: build/performance
+          if-no-files-found: error
+          retention-days: 30

@@ -1,0 +1,28 @@
+{
+  "$schema": "https://revoman.dev/performance/protocol/schemas/expected-cells-v1.schema.json",
+  "schemaVersion": "expected-cells-v1",
+  "families": {
+    "canary": [
+      {
+        "benchmark": "com.salesforce.revoman.benchmark.SandboxCanaryBenchmark.sandbox",
+        "parameters": {}
+      },
+      {
+        "benchmark": "com.salesforce.revoman.benchmark.RevUpV3ColdBenchmark.revUp",
+        "parameters": {"scenario": "v3-real-wire"}
+      }
+    ],
+    "cold": [
+      {
+        "benchmark": "com.salesforce.revoman.benchmark.RevUpV3ColdBenchmark.revUp",
+        "parameters": {"scenario": "v3-real-wire"}
+      }
+    ],
+    "warm": [
+      {
+        "benchmark": "com.salesforce.revoman.benchmark.RevUpV3WarmBenchmark.revUp",
+        "parameters": {"scenario": "v3-real-wire"}
+      }
+    ]
+  }
+}

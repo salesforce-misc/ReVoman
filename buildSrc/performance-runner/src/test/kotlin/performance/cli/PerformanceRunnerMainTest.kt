@@ -1,0 +1,200 @@
+/**
+ * ************************************************************************************************
+ * Copyright (c) 2026, Salesforce, Inc. All rights reserved. SPDX-License-Identifier: Apache License
+ * Version 2.0 For full license text, see the LICENSE file in the repo root or
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * ************************************************************************************************
+ */
+package performance.cli
+
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContainExactly
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldNotContain
+import performance.runner.RunnerCommand
+import performance.runner.RunnerDependencies
+import performance.runner.RunnerExit
+import performance.runner.RunnerOutcome
+
+class PerformanceRunnerMainTest :
+  FunSpec(
+    {
+      test("invalid command returns without terminating the JVM and sanitizes standard error") {
+        val privateValue = "/private/customer/repository"
+        val standardError = mutableListOf<String>()
+
+        val exit =
+          runMain(
+            args = listOf("not-a-command", privateValue),
+            dependencies =
+              RunnerDependencies(writeStandardError = { message -> standardError += message }),
+          )
+
+        exit shouldBe RunnerExit.INPUT_OR_PREFLIGHT_INVALID.code
+        standardError shouldContainExactly
+          listOf("performance-runner: INPUT_OR_PREFLIGHT_INVALID: INVALID_COMMAND")
+        standardError.joinToString("\n") shouldNotContain privateValue
+      }
+
+      test("validate-distribution invokes the frozen validation boundary") {
+        val standardError = mutableListOf<String>()
+        val validated = mutableListOf<String>()
+
+        val exit =
+          runMain(
+            args = listOf("validate-distribution", "--distribution", "distribution"),
+            dependencies =
+              RunnerDependencies(
+                writeStandardError = { message -> standardError += message },
+                validateDistribution = { path -> validated += path; true },
+              ),
+          )
+
+        exit shouldBe RunnerExit.SUCCESS.code
+        validated shouldContainExactly listOf("distribution")
+        standardError shouldContainExactly emptyList()
+      }
+
+      mapOf(
+          "capture" to listOf("capture", "--profile", "cold"),
+          "compare" to listOf("compare", "--kind", "calibration"),
+          "campaign" to listOf("campaign", "--profile", "warm"),
+        )
+        .forEach { (commandName, arguments) ->
+          test("$commandName rejects an incomplete operation request without terminating the JVM") {
+            val standardError = mutableListOf<String>()
+
+            val exit =
+              runMain(
+                args = arguments,
+                dependencies =
+                  RunnerDependencies(writeStandardError = { message -> standardError += message }),
+              )
+
+            exit shouldBe RunnerExit.INPUT_OR_PREFLIGHT_INVALID.code
+            standardError shouldContainExactly
+              listOf("performance-runner: INPUT_OR_PREFLIGHT_INVALID: INVALID_ARGUMENTS")
+          }
+        }
+
+      listOf(
+          "scrub-profiler",
+          "finalize-diagnostic",
+          "finalize-standalone-comparison",
+          "finalize-campaign",
+          "recover",
+        )
+        .forEach { commandName ->
+          test("$commandName rejects missing required arguments before dispatch") {
+            val standardError = mutableListOf<String>()
+
+            val exit =
+              runMain(
+                args = listOf(commandName),
+                dependencies =
+                  RunnerDependencies(writeStandardError = { message -> standardError += message }),
+              )
+
+            exit shouldBe RunnerExit.INPUT_OR_PREFLIGHT_INVALID.code
+            standardError shouldContainExactly
+              listOf("performance-runner: INPUT_OR_PREFLIGHT_INVALID: INVALID_ARGUMENTS")
+          }
+        }
+
+      test("finalize-diagnostic delegates a complete bounded host handshake and preserves the terminal result") {
+        var observed: RunnerCommand? = null
+        val dependencies =
+          RunnerDependencies.forTest(
+            writeStandardError = {},
+            executeCommand = { command ->
+              observed = command
+              RunnerOutcome(RunnerExit.POLICY_INCONCLUSIVE, null)
+            },
+          )
+        val arguments =
+          listOf(
+            "finalize-diagnostic",
+            "--source",
+            "private/source",
+            "--artifact-parent",
+            "build/artifacts",
+            "--run-token",
+            "run-1",
+            "--terminal",
+            "0",
+            "--operation-state",
+            "private/operation/state",
+            "--qualification-root",
+            "private/qualification",
+          )
+
+        runMain(arguments, dependencies) shouldBe RunnerExit.POLICY_INCONCLUSIVE.code
+        observed shouldBe RunnerCommand.FinalizeDiagnostic(arguments.drop(1))
+      }
+
+      test("finalize-campaign delegates only a complete private state and qualification handshake") {
+        var observed: RunnerCommand? = null
+        val dependencies =
+          RunnerDependencies.forTest(
+            writeStandardError = {},
+            executeCommand = { command ->
+              observed = command
+              RunnerOutcome(RunnerExit.SUCCESS, null)
+            },
+          )
+        val arguments =
+          listOf(
+            "finalize-campaign",
+            "--source",
+            "/operation/provisional",
+            "--artifact-parent",
+            "/artifacts",
+            "--run-token",
+            "campaign-1",
+            "--terminal",
+            "0",
+            "--operation-state",
+            "/operation/state",
+            "--qualification-root",
+            "/qualification",
+          )
+
+        runMain(arguments, dependencies) shouldBe RunnerExit.SUCCESS.code
+        observed shouldBe RunnerCommand.FinalizeCampaign(arguments.drop(1))
+
+        listOf("--operation-state", "--qualification-root").forEach { retained ->
+          observed = null
+          val partial = arguments.filterNot { it == retained || it == arguments[arguments.indexOf(retained) + 1] }
+          runMain(partial, dependencies) shouldBe RunnerExit.INPUT_OR_PREFLIGHT_INVALID.code
+          observed shouldBe null
+        }
+      }
+
+      mapOf(
+        "unknown flags" to listOf("capture", "--private-token", "do-not-print-this"),
+        "duplicate flags" to listOf("capture", "--profile", "cold", "--profile", "warm"),
+        "missing flag values" to listOf("capture", "--profile"),
+        "raw absolute output paths" to
+          listOf("capture", "--output", "/private/customer/performance-output"),
+      )
+        .forEach { (caseName, arguments) ->
+          test("$caseName are rejected without echoing arguments") {
+            val standardError = mutableListOf<String>()
+
+            val exit =
+              runMain(
+                args = arguments,
+                dependencies =
+                  RunnerDependencies(writeStandardError = { message -> standardError += message }),
+              )
+
+            exit shouldBe RunnerExit.INPUT_OR_PREFLIGHT_INVALID.code
+            standardError shouldContainExactly
+              listOf("performance-runner: INPUT_OR_PREFLIGHT_INVALID: INVALID_ARGUMENTS")
+            arguments.forEach { argument ->
+              standardError.joinToString("\n") shouldNotContain argument
+            }
+          }
+        }
+    },
+  )

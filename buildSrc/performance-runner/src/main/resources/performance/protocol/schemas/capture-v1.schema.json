@@ -1,0 +1,1514 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://revoman.dev/performance/protocol/schemas/capture-v1.schema.json",
+  "title": "ReVoman final performance capture",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "artifacts",
+    "benchmarkProtocolVersion",
+    "cells",
+    "identity",
+    "logging",
+    "outcome",
+    "profile",
+    "protocol",
+    "provenance",
+    "qualification",
+    "runtime",
+    "schemaVersion",
+    "toolchain"
+  ],
+  "properties": {
+    "artifacts": {
+      "$ref": "#/$defs/artifacts"
+    },
+    "benchmarkProtocolVersion": {
+      "const": "performance-v1"
+    },
+    "cells": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/cell"
+      }
+    },
+    "identity": {
+      "$ref": "#/$defs/identity"
+    },
+    "logging": {
+      "$ref": "#/$defs/logging"
+    },
+    "outcome": {
+      "$ref": "#/$defs/outcome"
+    },
+    "profile": {
+      "$ref": "#/$defs/profile"
+    },
+    "profilerSummary": {
+      "$ref": "#/$defs/profilerSummaryRef"
+    },
+    "protocol": {
+      "$ref": "#/$defs/protocol"
+    },
+    "provenance": {
+      "$ref": "#/$defs/provenance"
+    },
+    "qualification": {
+      "$ref": "#/$defs/qualification"
+    },
+    "runtime": {
+      "$ref": "#/$defs/runtime"
+    },
+    "schemaVersion": {
+      "const": "capture-v1"
+    },
+    "toolchain": {
+      "$ref": "#/$defs/toolchain"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "qualification": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "controlledMacBoundedDiagnostic",
+                  "githubHosted"
+                ]
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          }
+        },
+        "required": [
+          "qualification"
+        ]
+      },
+      "then": {
+        "properties": {
+          "outcome": {
+            "properties": {
+              "strength": {
+                "enum": [
+                  "canary",
+                  "diagnostic"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "outcome": {
+            "properties": {
+              "strength": {
+                "const": "canonical"
+              }
+            },
+            "required": [
+              "strength"
+            ]
+          }
+        },
+        "required": [
+          "outcome"
+        ]
+      },
+      "then": {
+        "properties": {
+          "outcome": {
+            "properties": {
+              "claimEligibilityReasons": {
+                "const": [
+                  "controlledMacCampaignQualified"
+                ]
+              },
+              "processExit": {
+                "const": 0
+              },
+              "status": {
+                "const": "valid"
+              }
+            }
+          },
+          "profile": {
+            "properties": {
+              "profiler": {
+                "const": "none"
+              }
+            }
+          },
+          "qualification": {
+            "properties": {
+              "kind": {
+                "const": "controlledMacCampaign"
+              }
+            }
+          },
+          "runtime": {
+            "properties": {
+              "hostId": {
+                "const": "m4max-docker-linux-arm64-v1"
+              },
+              "substrate": {
+                "properties": {
+                  "kind": {
+                    "const": "controlledMac"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "outcome": {
+            "properties": {
+              "status": {
+                "const": "valid"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          }
+        },
+        "required": [
+          "outcome"
+        ]
+      },
+      "then": {
+        "properties": {
+          "outcome": {
+            "properties": {
+              "processExit": {
+                "const": 0
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "outcome": {
+            "properties": {
+              "claimEligibilityReasons": {
+                "contains": {
+                  "const": "controlledMacCampaignQualified"
+                }
+              }
+            },
+            "required": [
+              "claimEligibilityReasons"
+            ]
+          }
+        },
+        "required": [
+          "outcome"
+        ]
+      },
+      "then": {
+        "properties": {
+          "outcome": {
+            "properties": {
+              "strength": {
+                "const": "canonical"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "qualification": {
+            "properties": {
+              "kind": {
+                "const": "githubHosted"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          }
+        },
+        "required": [
+          "qualification"
+        ]
+      },
+      "then": {
+        "properties": {
+          "runtime": {
+            "properties": {
+              "hostId": {
+                "const": "github-hosted-arm64-canary-v1"
+              },
+              "substrate": {
+                "properties": {
+                  "kind": {
+                    "const": "githubHosted"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "qualification": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "controlledMacCampaign",
+                  "controlledMacBoundedDiagnostic"
+                ]
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          }
+        },
+        "required": [
+          "qualification"
+        ]
+      },
+      "then": {
+        "properties": {
+          "runtime": {
+            "properties": {
+              "substrate": {
+                "properties": {
+                  "kind": {
+                    "const": "controlledMac"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "qualification": {
+            "properties": {
+              "kind": {
+                "const": "controlledMacCampaign"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          }
+        },
+        "required": [
+          "qualification"
+        ]
+      },
+      "then": {
+        "properties": {
+          "runtime": {
+            "properties": {
+              "hostId": {
+                "const": "m4max-docker-linux-arm64-v1"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "qualification": {
+            "properties": {
+              "kind": {
+                "const": "controlledMacBoundedDiagnostic"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          }
+        },
+        "required": [
+          "qualification"
+        ]
+      },
+      "then": {
+        "properties": {
+          "runtime": {
+            "properties": {
+              "hostId": {
+                "enum": [
+                  "m4max-docker-canary-v1",
+                  "m4max-docker-linux-arm64-v1"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "profile": {
+            "properties": {
+              "profiler": {
+                "enum": [
+                  "gc",
+                  "jfr"
+                ]
+              }
+            },
+            "required": [
+              "profiler"
+            ]
+          }
+        },
+        "required": [
+          "profile"
+        ]
+      },
+      "then": {
+        "required": [
+          "profilerSummary"
+        ],
+        "properties": {
+          "outcome": {
+            "properties": {
+              "strength": {
+                "const": "diagnostic"
+              }
+            }
+          }
+        }
+      },
+      "else": {
+        "not": {
+          "required": [
+            "profilerSummary"
+          ]
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "gitSha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "safeId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "not": {
+        "anyOf": [
+          {
+            "pattern": "^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}$"
+          },
+          {
+            "pattern": "(?:[Ss][Ee][Cc][Rr][Ee][Tt]|[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]|[Aa][Pp][Ii][_-]?[Kk][Ee][Yy]|[Bb][Ee][Aa][Rr][Ee][Rr])"
+          },
+          {
+            "pattern": "(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|(?:AKIA|ASIA)[0-9A-Z]{16})"
+          }
+        ]
+      }
+    },
+    "safeText": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "not": {
+        "anyOf": [
+          {
+            "pattern": "^(?:/|~(?:[/\\\\]|$)|[A-Za-z]:[/\\\\]|\\\\\\\\)"
+          },
+          {
+            "pattern": "(?:^|[/\\\\])\\.\\.(?:[/\\\\]|$)"
+          },
+          {
+            "pattern": "(?:^|[/\\\\])(?:[Hh][Oo][Mm][Ee]|[Uu][Ss][Ee][Rr][Ss]?|[Ww][Oo][Rr][Kk][Ss][Pp][Aa][Cc][Ee][Ss]?)(?:[/\\\\]|$)"
+          },
+          {
+            "pattern": "(?:[0-9]{1,3}\\.){3}[0-9]{1,3}"
+          },
+          {
+            "pattern": "^\\[?[0-9A-Fa-f]*:[0-9A-Fa-f:]+\\]?$"
+          },
+          {
+            "pattern": "(?:[Ss][Ee][Cc][Rr][Ee][Tt]|[Pp][Aa][Ss][Ss](?:[Ww][Oo][Rr][Dd]|[Ww][Dd])?|[Tt][Oo][Kk][Ee][Nn]|[Aa][Pp][Ii][_-]?[Kk][Ee][Yy]|[Aa][Cc][Cc][Ee][Ss][Ss][_-]?[Kk][Ee][Yy]|[Aa][Uu][Tt][Hh](?:[Oo][Rr][Ii][Zz][Aa][Tt][Ii][Oo][Nn])?|[Bb][Ee][Aa][Rr][Ee][Rr]|[Cc][Rr][Ee][Dd][Ee][Nn][Tt][Ii][Aa][Ll]|[Pp][Rr][Ii][Vv][Aa][Tt][Ee][_-]?[Kk][Ee][Yy]|[Cc][Ll][Ii][Ee][Nn][Tt][_-]?[Ss][Ee][Cc][Rr][Ee][Tt])"
+          },
+          {
+            "pattern": "(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|(?:AKIA|ASIA)[0-9A-Z]{16})"
+          }
+        ]
+      }
+    },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!~)(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.\\.?(?:/|$))[A-Za-z0-9][A-Za-z0-9._-]*(?:/[A-Za-z0-9][A-Za-z0-9._-]*)*$",
+      "not": {
+        "pattern": "(?:^|/)(?:[Hh][Oo][Mm][Ee]|[Uu][Ss][Ee][Rr][Ss]?|[Ww][Oo][Rr][Kk][Ss][Pp][Aa][Cc][Ee][Ss]?)(?:/|$)"
+      }
+    },
+    "hostDocumentRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/relativePath"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "artifactIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/relativePath"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "dependencyIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "coordinate",
+        "sha256"
+      ],
+      "properties": {
+        "coordinate": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+:[A-Za-z0-9_.-]+(?::[A-Za-z0-9_.-]+)?$",
+          "maxLength": 256
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "captureId",
+        "performanceSessionId",
+        "processRunId",
+        "sessionSequence"
+      ],
+      "properties": {
+        "captureId": {
+          "$ref": "#/$defs/safeId"
+        },
+        "performanceSessionId": {
+          "$ref": "#/$defs/safeId"
+        },
+        "processRunId": {
+          "$ref": "#/$defs/safeId"
+        },
+        "sessionSequence": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claimEligibilityReasons",
+        "completedAtUtc",
+        "processExit",
+        "startedAtUtc",
+        "status",
+        "strength"
+      ],
+      "properties": {
+        "claimEligibilityReasons": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "boundedDiagnostic",
+              "controlledMacCampaignQualified",
+              "githubHosted",
+              "invalidMeasurement",
+              "profilerDiagnostic",
+              "qualificationFailed",
+              "structuralCanary"
+            ]
+          }
+        },
+        "completedAtUtc": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "processExit": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        },
+        "startedAtUtc": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "status": {
+          "enum": [
+            "valid",
+            "invalid"
+          ]
+        },
+        "strength": {
+          "enum": [
+            "canary",
+            "diagnostic",
+            "canonical"
+          ]
+        }
+      }
+    },
+    "gitProvenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "gitSha",
+        "treeClean"
+      ],
+      "properties": {
+        "gitSha": {
+          "$ref": "#/$defs/gitSha"
+        },
+        "treeClean": {
+          "const": true
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "captureRunner",
+        "distributionFreezer",
+        "immutableHarness",
+        "treatment"
+      ],
+      "properties": {
+        "captureRunner": {
+          "$ref": "#/$defs/gitProvenance"
+        },
+        "distributionFreezer": {
+          "$ref": "#/$defs/gitProvenance"
+        },
+        "immutableHarness": {
+          "$ref": "#/$defs/gitProvenance"
+        },
+        "treatment": {
+          "$ref": "#/$defs/gitProvenance"
+        }
+      }
+    },
+    "protocol": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "benchmarkProtocolSha256",
+        "benchmarkSourceSha256",
+        "comparatorSha256",
+        "hostAdapterSha256",
+        "qualificationPolicySha256",
+        "rendererSha256",
+        "schemaSha256",
+        "workloadTreeSha256"
+      ],
+      "properties": {
+        "benchmarkProtocolSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "benchmarkSourceSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "comparatorSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "hostAdapterSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "qualificationPolicySha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "rendererSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "schemaSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "workloadTreeSha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "benchmark",
+        "dependencies",
+        "distribution",
+        "executingRunner",
+        "orderedClasspath",
+        "orderedRunnerClasspath",
+        "production",
+        "rawJmhInputSha256"
+      ],
+      "properties": {
+        "benchmark": {
+          "$ref": "#/$defs/artifactIdentity"
+        },
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/dependencyIdentity"
+          }
+        },
+        "distribution": {
+          "$ref": "#/$defs/artifactIdentity"
+        },
+        "executingRunner": {
+          "$ref": "#/$defs/artifactIdentity"
+        },
+        "orderedClasspath": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/artifactIdentity"
+          }
+        },
+        "orderedRunnerClasspath": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/artifactIdentity"
+          }
+        },
+        "production": {
+          "$ref": "#/$defs/artifactIdentity"
+        },
+        "rawJmhInputSha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "toolchain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "gradleVersion",
+        "jmhCoreVersion",
+        "jmhPluginVersion",
+        "kotlinCompilerVersion",
+        "sanitizerVersion",
+        "schemaVersion"
+      ],
+      "properties": {
+        "gradleVersion": {
+          "$ref": "#/$defs/safeText"
+        },
+        "jmhCoreVersion": {
+          "$ref": "#/$defs/safeText"
+        },
+        "jmhPluginVersion": {
+          "$ref": "#/$defs/safeText"
+        },
+        "kotlinCompilerVersion": {
+          "$ref": "#/$defs/safeText"
+        },
+        "sanitizerVersion": {
+          "$ref": "#/$defs/safeId"
+        },
+        "schemaVersion": {
+          "$ref": "#/$defs/safeId"
+        }
+      }
+    },
+    "jdk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "binarySha256",
+        "jvmArguments",
+        "vendor",
+        "version"
+      ],
+      "properties": {
+        "binarySha256": {
+          "const": "1cedc51a4102638f1f06077acb3611b88f3061f9c7d76bd0a0df7f8607a9367b"
+        },
+        "jvmArguments": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 128,
+            "oneOf": [
+              {
+                "enum": [
+                  "-Duser.home=/operation/tmp",
+                  "-Dlog4j.configurationFile=classpath:performance/log4j2-performance.xml"
+                ]
+              },
+              {
+                "pattern": "^-[A-Za-z0-9:+.=,_-]+$",
+                "not": {
+                  "anyOf": [
+                    {
+                      "pattern": "(?:[Ss][Ee][Cc][Rr][Ee][Tt]|[Pp][Aa][Ss][Ss](?:[Ww][Oo][Rr][Dd]|[Ww][Dd])?|[Tt][Oo][Kk][Ee][Nn]|[Aa][Pp][Ii][_-]?[Kk][Ee][Yy]|[Aa][Cc][Cc][Ee][Ss][Ss][_-]?[Kk][Ee][Yy]|[Aa][Uu][Tt][Hh](?:[Oo][Rr][Ii][Zz][Aa][Tt][Ii][Oo][Nn])?|[Bb][Ee][Aa][Rr][Ee][Rr]|[Cc][Rr][Ee][Dd][Ee][Nn][Tt][Ii][Aa][Ll]|[Pp][Rr][Ii][Vv][Aa][Tt][Ee][_-]?[Kk][Ee][Yy]|[Cc][Ll][Ii][Ee][Nn][Tt][_-]?[Ss][Ee][Cc][Rr][Ee][Tt])"
+                    },
+                    {
+                      "pattern": "(?:^|[.=:_-])(?:[Hh][Oo][Mm][Ee]|[Uu][Ss][Ee][Rr][Ss]?|[Ww][Oo][Rr][Kk][Ss][Pp][Aa][Cc][Ee][Ss]?)(?:[.=:_-]|$)"
+                    },
+                    {
+                      "pattern": "(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|(?:AKIA|ASIA)[0-9A-Z]{16})"
+                    },
+                    {
+                      "pattern": "(?:[0-9]{1,3}\\.){3}[0-9]{1,3}"
+                    },
+                    {
+                      "pattern": "=[0-9A-Fa-f]*:[0-9A-Fa-f:]+$"
+                    },
+                    {
+                      "pattern": "^(?!-Duser\\.timezone=UTC$)-[Dd][^=]*(?:[Uu][Ss][Ee][Rr](?:[Nn][Aa][Mm][Ee])?|[Hh][Oo][Ss][Tt](?:[Nn][Aa][Mm][Ee])?|[Pp][Aa][Tt][Hh]|[Hh][Oo][Mm][Ee]|[Ww][Oo][Rr][Kk][Ss][Pp][Aa][Cc][Ee])[^=]*="
+                    },
+                    {
+                      "pattern": "(?:=|[/\\\\])\\.\\.(?:[/\\\\]|$)"
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "vendor": {
+          "const": "Eclipse Adoptium"
+        },
+        "version": {
+          "const": "21.0.11+10-LTS"
+        }
+      }
+    },
+    "oci": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "configDigest",
+        "imageReference",
+        "platformManifestDigest"
+      ],
+      "properties": {
+        "configDigest": {
+          "const": "sha256:ad6963934ee96838c09d99f3c4df6f991cd00ed70fa8a48f7045517d7ae8991c"
+        },
+        "imageReference": {
+          "const": "docker.io/library/eclipse-temurin@sha256:6c7425db05efdcf0ba40d989898857b093f14ceaf9684c9c31a072c159f4590e"
+        },
+        "platformManifestDigest": {
+          "const": "sha256:6c7425db05efdcf0ba40d989898857b093f14ceaf9684c9c31a072c159f4590e"
+        }
+      }
+    },
+    "linux": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "architecture",
+        "kernel",
+        "os"
+      ],
+      "properties": {
+        "architecture": {
+          "const": "arm64"
+        },
+        "kernel": {
+          "$ref": "#/$defs/safeText"
+        },
+        "os": {
+          "$ref": "#/$defs/safeText"
+        }
+      }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cpuSet",
+        "memoryBytes",
+        "memorySwapBytes",
+        "pidLimit"
+      ],
+      "properties": {
+        "cpuSet": {
+          "const": "0-3"
+        },
+        "memoryBytes": {
+          "const": 6442450944
+        },
+        "memorySwapBytes": {
+          "const": 6442450944
+        },
+        "pidLimit": {
+          "const": 512
+        }
+      }
+    },
+    "storage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "distributionSource",
+        "writableMounts"
+      ],
+      "properties": {
+        "distributionSource": {
+          "const": "containerVolume"
+        },
+        "writableMounts": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "operation-output",
+              "tmp"
+            ]
+          }
+        }
+      }
+    },
+    "network": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "pullPolicy"
+      ],
+      "properties": {
+        "mode": {
+          "const": "none"
+        },
+        "pullPolicy": {
+          "const": "never"
+        }
+      }
+    },
+    "security": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capabilities",
+        "noNewPrivileges",
+        "readOnlyRoot",
+        "user"
+      ],
+      "properties": {
+        "capabilities": {
+          "type": "array",
+          "maxItems": 0
+        },
+        "noNewPrivileges": {
+          "const": true
+        },
+        "readOnlyRoot": {
+          "const": true
+        },
+        "user": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*:[1-9][0-9]*$"
+        }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "LANG",
+        "LC_ALL",
+        "TZ"
+      ],
+      "properties": {
+        "LANG": {
+          "enum": [
+            "C.UTF-8",
+            "en_US.UTF-8"
+          ]
+        },
+        "LC_ALL": {
+          "enum": [
+            "C.UTF-8",
+            "en_US.UTF-8"
+          ]
+        },
+        "TZ": {
+          "const": "UTC"
+        }
+      }
+    },
+    "resources": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cpus",
+        "memoryBytes"
+      ],
+      "properties": {
+        "cpus": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 128
+        },
+        "memoryBytes": {
+          "type": "integer",
+          "minimum": 1073741824
+        }
+      }
+    },
+    "controlledMacSubstrate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dockerDesktopVersion",
+        "dockerEngineVersion",
+        "hardwareModelClass",
+        "kind",
+        "macosBuild",
+        "macosVersion",
+        "vmResources"
+      ],
+      "properties": {
+        "dockerDesktopVersion": {
+          "$ref": "#/$defs/safeText"
+        },
+        "dockerEngineVersion": {
+          "$ref": "#/$defs/safeText"
+        },
+        "hardwareModelClass": {
+          "type": "string",
+          "pattern": "^Mac[0-9]+,[0-9]+$"
+        },
+        "kind": {
+          "const": "controlledMac"
+        },
+        "macosBuild": {
+          "$ref": "#/$defs/safeId"
+        },
+        "macosVersion": {
+          "$ref": "#/$defs/safeText"
+        },
+        "vmResources": {
+          "$ref": "#/$defs/resources"
+        }
+      }
+    },
+    "githubHostedSubstrate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "advertisedResources",
+        "dockerEngineVersion",
+        "kernel",
+        "kind",
+        "runnerImageVersion",
+        "runnerLabel"
+      ],
+      "properties": {
+        "advertisedResources": {
+          "$ref": "#/$defs/resources"
+        },
+        "dockerEngineVersion": {
+          "$ref": "#/$defs/safeText"
+        },
+        "kernel": {
+          "$ref": "#/$defs/safeText"
+        },
+        "kind": {
+          "const": "githubHosted"
+        },
+        "runnerImageVersion": {
+          "$ref": "#/$defs/safeText"
+        },
+        "runnerLabel": {
+          "const": "ubuntu-24.04-arm"
+        }
+      }
+    },
+    "substrate": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/controlledMacSubstrate"
+        },
+        {
+          "$ref": "#/$defs/githubHostedSubstrate"
+        }
+      ]
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "environment",
+        "hostId",
+        "jdk",
+        "limits",
+        "linux",
+        "network",
+        "oci",
+        "security",
+        "storage",
+        "substrate"
+      ],
+      "properties": {
+        "environment": {
+          "$ref": "#/$defs/environment"
+        },
+        "hostId": {
+          "enum": [
+            "github-hosted-arm64-canary-v1",
+            "m4max-docker-canary-v1",
+            "m4max-docker-linux-arm64-v1"
+          ]
+        },
+        "jdk": {
+          "$ref": "#/$defs/jdk"
+        },
+        "limits": {
+          "$ref": "#/$defs/limits"
+        },
+        "linux": {
+          "$ref": "#/$defs/linux"
+        },
+        "network": {
+          "$ref": "#/$defs/network"
+        },
+        "oci": {
+          "$ref": "#/$defs/oci"
+        },
+        "security": {
+          "$ref": "#/$defs/security"
+        },
+        "storage": {
+          "$ref": "#/$defs/storage"
+        },
+        "substrate": {
+          "$ref": "#/$defs/substrate"
+        }
+      }
+    },
+    "controlledMacCampaignQualification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cleanupPassed",
+        "kind",
+        "policyHash",
+        "postflight",
+        "preflight",
+        "restoration",
+        "watcher"
+      ],
+      "properties": {
+        "cleanupPassed": {
+          "const": true
+        },
+        "kind": {
+          "const": "controlledMacCampaign"
+        },
+        "policyHash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "postflight": {
+          "$ref": "#/$defs/hostDocumentRef"
+        },
+        "preflight": {
+          "$ref": "#/$defs/hostDocumentRef"
+        },
+        "restoration": {
+          "$ref": "#/$defs/hostDocumentRef"
+        },
+        "watcher": {
+          "$ref": "#/$defs/hostDocumentRef"
+        }
+      }
+    },
+    "controlledMacBoundedQualification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "campaignFieldsInapplicableReason",
+        "kind",
+        "policyHash",
+        "postflight",
+        "preflight",
+        "restoration",
+        "watcher"
+      ],
+      "properties": {
+        "campaignFieldsInapplicableReason": {
+          "enum": [
+            "standaloneBoundedDiagnostic"
+          ]
+        },
+        "kind": {
+          "const": "controlledMacBoundedDiagnostic"
+        },
+        "policyHash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "postflight": {
+          "$ref": "#/$defs/hostDocumentRef"
+        },
+        "preflight": {
+          "$ref": "#/$defs/hostDocumentRef"
+        },
+        "restoration": {
+          "$ref": "#/$defs/hostDocumentRef"
+        },
+        "watcher": {
+          "$ref": "#/$defs/hostDocumentRef"
+        }
+      }
+    },
+    "githubQualification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cleanup",
+        "kind",
+        "macFieldsInapplicableReason",
+        "policyHash",
+        "setup"
+      ],
+      "properties": {
+        "cleanup": {
+          "$ref": "#/$defs/hostDocumentRef"
+        },
+        "kind": {
+          "const": "githubHosted"
+        },
+        "macFieldsInapplicableReason": {
+          "enum": [
+            "githubHosted"
+          ]
+        },
+        "policyHash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "setup": {
+          "$ref": "#/$defs/hostDocumentRef"
+        }
+      }
+    },
+    "qualification": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/controlledMacCampaignQualification"
+        },
+        {
+          "$ref": "#/$defs/controlledMacBoundedQualification"
+        },
+        {
+          "$ref": "#/$defs/githubQualification"
+        }
+      ]
+    },
+    "logging": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "configurationSha256",
+        "profile"
+      ],
+      "properties": {
+        "configurationSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "profile": {
+          "enum": [
+            "benchmark-noop"
+          ]
+        }
+      }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "family",
+        "forks",
+        "identity",
+        "measurementIterations",
+        "profiler",
+        "variantSha256",
+        "warmupIterations"
+      ],
+      "properties": {
+        "family": {
+          "enum": [
+            "canary",
+            "cold",
+            "warm"
+          ]
+        },
+        "forks": {
+          "enum": [
+            1,
+            10,
+            20,
+            40
+          ]
+        },
+        "identity": {
+          "$ref": "#/$defs/safeId"
+        },
+        "measurementIterations": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "profiler": {
+          "enum": [
+            "none",
+            "gc",
+            "jfr"
+          ]
+        },
+        "variantSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "warmupIterations": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "primaryMetric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "direction",
+        "name"
+      ],
+      "properties": {
+        "direction": {
+          "const": "lowerIsBetter"
+        },
+        "name": {
+          "const": "score"
+        }
+      }
+    },
+    "jmhResultRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "jsonPointer",
+        "sha256"
+      ],
+      "properties": {
+        "jsonPointer": {
+          "type": "string",
+          "pattern": "^/(?:[^~/]|~0|~1)*(?:/(?:[^~/]|~0|~1)*)*$",
+          "maxLength": 512
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "sampleDimensions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "forks",
+        "measurementIterations",
+        "samplesPerFork"
+      ],
+      "properties": {
+        "forks": {
+          "enum": [
+            1,
+            10,
+            20,
+            40
+          ]
+        },
+        "measurementIterations": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "samplesPerFork": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "forkSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fork",
+        "sampleCount",
+        "score"
+      ],
+      "properties": {
+        "fork": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "sampleCount": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "score": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      }
+    },
+    "cell": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "batchSize",
+        "benchmark",
+        "derivedForkSummaries",
+        "jmhResultRow",
+        "mode",
+        "parameters",
+        "primaryMetric",
+        "sampleDimensions",
+        "threads",
+        "unit"
+      ],
+      "properties": {
+        "batchSize": {
+          "const": 1
+        },
+        "benchmark": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_$.]*(?:\\.[A-Za-z_][A-Za-z0-9_$]*)+$",
+          "maxLength": 512
+        },
+        "derivedForkSummaries": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/forkSummary"
+          }
+        },
+        "jmhResultRow": {
+          "$ref": "#/$defs/jmhResultRow"
+        },
+        "mode": {
+          "const": "ss"
+        },
+        "parameters": {
+          "type": "object",
+          "propertyNames": {
+            "allOf": [
+              {
+                "pattern": "^[A-Za-z][A-Za-z0-9._-]*$"
+              },
+              {
+                "not": {
+                  "pattern": "(?:[Ss][Ee][Cc][Rr][Ee][Tt]|[Pp][Aa][Ss][Ss](?:[Ww][Oo][Rr][Dd]|[Ww][Dd])?|[Tt][Oo][Kk][Ee][Nn]|[Aa][Pp][Ii][_-]?[Kk][Ee][Yy]|[Aa][Cc][Cc][Ee][Ss][Ss][_-]?[Kk][Ee][Yy]|[Aa][Uu][Tt][Hh](?:[Oo][Rr][Ii][Zz][Aa][Tt][Ii][Oo][Nn])?|[Bb][Ee][Aa][Rr][Ee][Rr]|[Cc][Rr][Ee][Dd][Ee][Nn][Tt][Ii][Aa][Ll]|[Pp][Rr][Ii][Vv][Aa][Tt][Ee][_-]?[Kk][Ee][Yy]|[Cc][Ll][Ii][Ee][Nn][Tt][_-]?[Ss][Ee][Cc][Rr][Ee][Tt])"
+                }
+              }
+            ]
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/safeText"
+          }
+        },
+        "primaryMetric": {
+          "$ref": "#/$defs/primaryMetric"
+        },
+        "sampleDimensions": {
+          "$ref": "#/$defs/sampleDimensions"
+        },
+        "threads": {
+          "const": 1
+        },
+        "unit": {
+          "const": "ms/op"
+        }
+      }
+    },
+    "profilerSummaryRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "rawInputSha256",
+        "sha256",
+        "variantSha256"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/relativePath"
+        },
+        "rawInputSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "variantSha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    }
+  }
+}

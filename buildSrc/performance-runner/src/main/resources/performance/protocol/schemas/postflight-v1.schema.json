@@ -1,0 +1,164 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://revoman.dev/performance/protocol/schemas/postflight-v1.schema.json",
+  "title": "ReVoman host postflight",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "checks",
+    "kind",
+    "observedAtUtc",
+    "policySha256",
+    "processExit",
+    "schemaVersion",
+    "snapshot"
+  ],
+  "properties": {
+    "checks": {
+      "$ref": "#/$defs/checks"
+    },
+    "kind": {
+      "const": "postflight"
+    },
+    "observedAtUtc": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "policySha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "processExit": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 255
+    },
+    "schemaVersion": {
+      "const": "postflight-v1"
+    },
+    "snapshot": {
+      "$ref": "#/$defs/hostSnapshot"
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "status": {
+      "enum": [
+        "fail",
+        "pass"
+      ]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cleanup",
+        "containers",
+        "cpuIdle",
+        "interference",
+        "memoryPressure",
+        "power",
+        "runtime",
+        "swapPage",
+        "thermal"
+      ],
+      "properties": {
+        "cleanup": {
+          "$ref": "#/$defs/status"
+        },
+        "containers": {
+          "$ref": "#/$defs/status"
+        },
+        "cpuIdle": {
+          "$ref": "#/$defs/status"
+        },
+        "interference": {
+          "$ref": "#/$defs/status"
+        },
+        "memoryPressure": {
+          "$ref": "#/$defs/status"
+        },
+        "power": {
+          "$ref": "#/$defs/status"
+        },
+        "runtime": {
+          "$ref": "#/$defs/status"
+        },
+        "swapPage": {
+          "$ref": "#/$defs/status"
+        },
+        "thermal": {
+          "$ref": "#/$defs/status"
+        }
+      }
+    },
+    "hostSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "containerFingerprintSha256",
+        "cpuIdlePercent",
+        "cpuLoadPercent",
+        "memoryPressure",
+        "pageOuts",
+        "powerState",
+        "runtimeFingerprintSha256",
+        "swapBytes",
+        "thermalState"
+      ],
+      "properties": {
+        "containerFingerprintSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "cpuIdlePercent": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "cpuLoadPercent": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "memoryPressure": {
+          "enum": [
+            "critical",
+            "normal",
+            "warn"
+          ]
+        },
+        "pageOuts": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "powerState": {
+          "enum": [
+            "ac",
+            "battery"
+          ]
+        },
+        "runtimeFingerprintSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "swapBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "thermalState": {
+          "enum": [
+            "critical",
+            "fair",
+            "nominal",
+            "serious"
+          ]
+        }
+      }
+    }
+  }
+}

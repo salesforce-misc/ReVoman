@@ -2,6 +2,7 @@
 jdk = "21"
 kotlin = "2.4.20-RC"
 moshix = "0.37.0"
+moshi = "1.15.2"
 http4k = "6.57.2.0"
 immutables = "2.12.2"
 arrow = "2.3.0-alpha.4"
@@ -33,6 +34,7 @@ kotlinx-collections-immutable = "0.5.1"
 jmh = "1.37"
 champeau-jmh = "0.7.3"
 qodana = "2026.2.0"
+json-schema-validator = "3.0.6"
 
 # Common dependencies
 
@@ -58,6 +60,8 @@ truth = { module = "com.google.truth:truth", version.ref = "truth" }
 assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertj-core" }
 assertj-vavr = { module = "org.assertj:assertj-vavr", version.ref = "assertj-vavr" }
 moshix-adapters = { module = "dev.zacsweers.moshix:moshi-adapters", version.ref = "moshix" }
+moshi = { module = "com.squareup.moshi:moshi", version.ref = "moshi" }
+json-schema-validator = { module = "com.networknt:json-schema-validator", version.ref = "json-schema-validator" }
 http4k-bom = { module = "org.http4k:http4k-bom", version.ref = "http4k" }
 http4k-core = { module = "org.http4k:http4k-core" }
 http4k-client-apache = { module = "org.http4k:http4k-client-apache" }
@@ -85,6 +89,7 @@ postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" 
 kotlin-gradle = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
 detekt-gradle = { module = "dev.detekt:detekt-gradle-plugin", version.ref = "detekt" }
 spotless-gradle = { module = "com.diffplug.spotless:spotless-plugin-gradle", version.ref = "spotless" }
+jmh-gradle = { module = "me.champeau.jmh:jmh-gradle-plugin", version.ref = "champeau-jmh" }
 
 [bundles]
 kotest = [

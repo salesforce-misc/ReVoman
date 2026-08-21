@@ -1,0 +1,206 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://revoman.dev/performance/protocol/schemas/preflight-v1.schema.json",
+  "title": "ReVoman host preflight",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "adapterSha256",
+    "architecture",
+    "checks",
+    "kind",
+    "lockAcquired",
+    "observedAtUtc",
+    "operationId",
+    "policySha256",
+    "schemaVersion",
+    "snapshot",
+    "userIdleMillis"
+  ],
+  "properties": {
+    "adapterSha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "architecture": {
+      "const": "arm64"
+    },
+    "checks": {
+      "$ref": "#/$defs/checks"
+    },
+    "kind": {
+      "const": "preflight"
+    },
+    "lockAcquired": {
+      "type": "boolean"
+    },
+    "observedAtUtc": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "operationId": {
+      "$ref": "#/$defs/safeId"
+    },
+    "policySha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "schemaVersion": {
+      "const": "preflight-v1"
+    },
+    "snapshot": {
+      "$ref": "#/$defs/hostSnapshot"
+    },
+    "userIdleMillis": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "safeId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "not": {
+        "anyOf": [
+          {
+            "pattern": "^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}$"
+          },
+          {
+            "pattern": "(?:[Ss][Ee][Cc][Rr][Ee][Tt]|[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]|[Aa][Pp][Ii][_-]?[Kk][Ee][Yy]|[Bb][Ee][Aa][Rr][Ee][Rr])"
+          },
+          {
+            "pattern": "(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|(?:AKIA|ASIA)[0-9A-Z]{16})"
+          }
+        ]
+      }
+    },
+    "status": {
+      "enum": [
+        "fail",
+        "pass"
+      ]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "containers",
+        "context",
+        "cpuIdle",
+        "image",
+        "interference",
+        "memoryPressure",
+        "power",
+        "runtime",
+        "swapPage",
+        "thermal",
+        "userIdle"
+      ],
+      "properties": {
+        "containers": {
+          "$ref": "#/$defs/status"
+        },
+        "context": {
+          "$ref": "#/$defs/status"
+        },
+        "cpuIdle": {
+          "$ref": "#/$defs/status"
+        },
+        "image": {
+          "$ref": "#/$defs/status"
+        },
+        "interference": {
+          "$ref": "#/$defs/status"
+        },
+        "memoryPressure": {
+          "$ref": "#/$defs/status"
+        },
+        "power": {
+          "$ref": "#/$defs/status"
+        },
+        "runtime": {
+          "$ref": "#/$defs/status"
+        },
+        "swapPage": {
+          "$ref": "#/$defs/status"
+        },
+        "thermal": {
+          "$ref": "#/$defs/status"
+        },
+        "userIdle": {
+          "$ref": "#/$defs/status"
+        }
+      }
+    },
+    "hostSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "containerFingerprintSha256",
+        "cpuIdlePercent",
+        "cpuLoadPercent",
+        "memoryPressure",
+        "pageOuts",
+        "powerState",
+        "runtimeFingerprintSha256",
+        "swapBytes",
+        "thermalState"
+      ],
+      "properties": {
+        "containerFingerprintSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "cpuIdlePercent": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "cpuLoadPercent": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "memoryPressure": {
+          "enum": [
+            "critical",
+            "normal",
+            "warn"
+          ]
+        },
+        "pageOuts": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "powerState": {
+          "enum": [
+            "ac",
+            "battery"
+          ]
+        },
+        "runtimeFingerprintSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "swapBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "thermalState": {
+          "enum": [
+            "critical",
+            "fair",
+            "nominal",
+            "serious"
+          ]
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,6 @@
+name: revup-v3-benchmark
+values:
+  - key: baseUrl
+    value: http://127.0.0.1:1
+  - key: markerSeed
+    value: fixture-marker
