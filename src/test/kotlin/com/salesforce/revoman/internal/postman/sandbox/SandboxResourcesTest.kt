@@ -11,6 +11,9 @@ import com.salesforce.revoman.input.resolveClasspath
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
+import org.graalvm.polyglot.Context
+import org.graalvm.polyglot.HostAccess
+import org.graalvm.polyglot.proxy.ProxyExecutable
 import org.junit.jupiter.api.Test
 
 class SandboxResourcesTest {
@@ -68,6 +71,67 @@ class SandboxResourcesTest {
     val second = SandboxResources.bootSource
 
     (first === second) shouldBe true
+  }
+
+  @Test
+  fun `boot source defines request json compatibility before bridge initialization`() {
+    val context =
+      Context.newBuilder("js")
+        .engine(sharedGraalEngine)
+        .allowExperimentalOptions(true)
+        .option("js.esm-eval-returns-exports", "true")
+        .option("js.ecmascript-version", "2024")
+        .allowHostAccess(HostAccess.ALL)
+        .allowHostClassLookup { true }
+        .build()
+
+    context.use {
+      context.getBindings("js").putMember("__uvm_emit", ProxyExecutable { null })
+      context.eval(
+        "js",
+        """
+        globalThis.setTimeout = function () {};
+        globalThis.clearTimeout = function () {};
+        globalThis.setInterval = function () {};
+        globalThis.clearInterval = function () {};
+        globalThis.setImmediate = function () {};
+        globalThis.clearImmediate = function () {};
+        globalThis.queueMicrotask = function () {};
+        globalThis.Blob = function Blob() {};
+        globalThis.File = function File() {};
+        globalThis.FileReader = function FileReader() {};
+        globalThis.FormData = function FormData() {};
+        globalThis.atob = function (value) { return value; };
+        globalThis.btoa = function (value) { return value; };
+        ${SandboxResources.bridgeClient}
+        """
+          .trimIndent(),
+      )
+      context.eval(SandboxResources.bootSource)
+
+      val compatibility =
+        context.eval(
+          "js",
+          """
+          (() => {
+            const Request = require('postman-collection').Request;
+            const installed = typeof Request.prototype.json === 'function';
+            return {
+              installed,
+              parsedName: installed
+                ? new Request({ body: { mode: 'raw', raw: '{"name":"bulbasaur"}' } }).json().name
+                : null,
+              bodyless: installed ? new Request().json() : 'missing'
+            };
+          })()
+          """
+            .trimIndent(),
+        )
+
+      compatibility.getMember("installed").asBoolean() shouldBe true
+      compatibility.getMember("parsedName").asString() shouldBe "bulbasaur"
+      compatibility.getMember("bodyless").isNull shouldBe true
+    }
   }
 
   @Test

@@ -222,6 +222,31 @@ tasks.register<Exec>("generatePmSandbox") {
   )
   environment("OUT", outDir.asFile.absolutePath)
   doLast {
+    val bootcode = resourcesDir.resolve("bootcode.js")
+    val generatedBootcode = bootcode.readText()
+    val requestBootstrapMarker = """const{Request:r,Response:a}=e("postman-collection");try{"""
+    val requestJsonCompatibility =
+      """
+      "function"!=typeof r.prototype.json&&(r.prototype.json=function(){return this.body&&"string"==typeof this.body.raw?JSON.parse(this.body.raw):null});
+      """
+        .trimIndent()
+    val markerStart = generatedBootcode.indexOf(requestBootstrapMarker)
+    check(
+      markerStart >= 0 &&
+        generatedBootcode.indexOf(
+          requestBootstrapMarker,
+          markerStart + requestBootstrapMarker.length,
+        ) < 0
+    ) {
+      "generatePmSandbox: expected exactly one Postman Request bootstrap marker"
+    }
+    bootcode.writeText(
+      generatedBootcode.replace(
+        requestBootstrapMarker,
+        requestBootstrapMarker + requestJsonCompatibility,
+      )
+    )
+
     // Escapes the first char of each forbidden token to its JS `\xNN` hex form. Inlined here (not a
     // script-level fun) to stay configuration-cache-safe. Only valid for tokens inside JS string
     // literals (the postman-sandbox bundle is minified JS, so all data is in string literals).
@@ -237,7 +262,6 @@ tasks.register<Exec>("generatePmSandbox") {
     // Gzip-at-rest the large (~2.2 MB) bootcode: ~3x smaller git blob + the compressed bytes are
     // opaque to the naive-substring scanner. The 3 KB bridge-client stays raw. Scrub ran first, so
     // the clean bytes are what get compressed. SandboxResources inflates it via okio GzipSource.
-    val bootcode = resourcesDir.resolve("bootcode.js")
     object : GZIPOutputStream(resourcesDir.resolve("bootcode.js.gz").outputStream().buffered()) {
         init {
           def.setLevel(Deflater.BEST_COMPRESSION)

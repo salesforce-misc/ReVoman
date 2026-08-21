@@ -9,6 +9,8 @@ package com.salesforce.revoman.internal.postman.sandbox
 
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
+import org.graalvm.polyglot.Context
+import org.graalvm.polyglot.proxy.ProxyExecutable
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 
@@ -25,6 +27,58 @@ class PmSandboxBootTest {
           (Flatted.parse(payload) as? List<*>)?.firstOrNull() as? String
         }
       emittedEventNames.none { it.startsWith("execution.") } shouldBe true
+    } finally {
+      bridge.close()
+    }
+  }
+
+  @Test
+  fun `boot does not traverse postman collection through the global module loader`() {
+    lateinit var context: Context
+    lateinit var bridge: SandboxBridge
+    var postmanCollectionRequireCalls = 0
+    bridge =
+      SandboxBridge()
+        .withBootHooks(
+          afterContextCreated = {
+            context = bridgeContext(bridge)
+            context
+              .getBindings("js")
+              .putMember(
+                "__observePostmanCollectionRequire",
+                ProxyExecutable {
+                  postmanCollectionRequireCalls++
+                  null
+                },
+              )
+            context.eval(
+              "js",
+              """
+              const observePostmanCollectionRequire = __observePostmanCollectionRequire;
+              let browserRequire;
+              Object.defineProperty(globalThis, 'require', {
+                configurable: true,
+                get: function () { return browserRequire; },
+                set: function (value) {
+                  browserRequire = function (moduleName) {
+                    if (moduleName === 'postman-collection') {
+                      observePostmanCollectionRequire();
+                    }
+                    return value.apply(this, arguments);
+                  };
+                }
+              });
+              """
+                .trimIndent(),
+            )
+          },
+          closeContext = { it.close(true) },
+        )
+
+    try {
+      bridge.boot()
+
+      postmanCollectionRequireCalls shouldBe 0
     } finally {
       bridge.close()
     }
@@ -203,5 +257,11 @@ class PmSandboxBootTest {
     val field = SandboxBridge::class.java.getDeclaredField("emits")
     field.isAccessible = true
     return field.get(this) as List<String>
+  }
+
+  private fun bridgeContext(bridge: SandboxBridge): Context {
+    val field = SandboxBridge::class.java.getDeclaredField("ctx")
+    field.isAccessible = true
+    return field.get(bridge) as Context
   }
 }

@@ -24,8 +24,28 @@ import org.junit.jupiter.api.Test
  * reused JIT warm-up) is guarded by `SandboxBenchmark` (jmh), not here.
  */
 class SandboxEngineSharingTest {
-  private fun testCtx(env: Map<String, Any?> = emptyMap()) =
-    PmExecutionContext(environment = PmScope("e", env))
+  private fun testCtx(
+    env: Map<String, Any?> = emptyMap(),
+    requestBodyName: String? = null,
+  ) =
+    PmExecutionContext(
+      environment = PmScope("e", env),
+      request =
+        requestBodyName?.let {
+          mapOf(
+            "method" to "POST",
+            "url" to "https://example.com",
+            "body" to mapOf("mode" to "raw", "raw" to """{"name":"$it"}"""),
+          )
+        },
+    )
+
+  private val observeBridgeStateScript =
+    """
+    pm.environment.set('sawBridgeGlobal', typeof __bridgeLeak);
+    pm.environment.set('requestJsonName', pm.request.json().name);
+    """
+      .trimIndent()
 
   @Test
   fun `same script evaluated twice in one sandbox yields identical results`() {
@@ -102,22 +122,29 @@ class SandboxEngineSharingTest {
 
     try {
       first.boot()
-      first.dispatchExecute("one", "__bridgeLeak = 'first';", ScriptTarget.TEST, testCtx(), 5000)
+      val firstResult =
+        first.dispatchExecute(
+          "one",
+          "__bridgeLeak = pm.request.json().name;",
+          ScriptTarget.TEST,
+          testCtx(requestBodyName = "first"),
+          5000,
+        )
       val sameBridge =
         first.dispatchExecute(
           "same",
-          "pm.environment.set('sawBridgeGlobal', typeof __bridgeLeak);",
+          observeBridgeStateScript,
           ScriptTarget.TEST,
-          testCtx(),
+          testCtx(requestBodyName = "first-again"),
           5000,
         )
       second.boot()
       val result =
         second.dispatchExecute(
           "two",
-          "pm.environment.set('sawBridgeGlobal', typeof __bridgeLeak);",
+          observeBridgeStateScript,
           ScriptTarget.TEST,
-          testCtx(),
+          testCtx(requestBodyName = "second"),
           5000,
         )
 
@@ -125,10 +152,13 @@ class SandboxEngineSharingTest {
       sources.all { it === SandboxResources.bootSource } shouldBe true
       (engines[0] === engines[1]) shouldBe true
       (sources[0] === sources[1]) shouldBe true
+      firstResult.error shouldBe null
       sameBridge.error shouldBe null
       sameBridge.environment["sawBridgeGlobal"] shouldBe "string"
+      sameBridge.environment["requestJsonName"] shouldBe "first-again"
       result.error shouldBe null
       result.environment["sawBridgeGlobal"] shouldBe "undefined"
+      result.environment["requestJsonName"] shouldBe "second"
     } finally {
       first.close()
       second.close()
