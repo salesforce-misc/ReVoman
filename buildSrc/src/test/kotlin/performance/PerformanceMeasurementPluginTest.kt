@@ -11,10 +11,13 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
 import java.nio.file.Files
+import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputDirectory
 import org.gradle.api.tasks.Internal
+import org.gradle.testkit.runner.TaskOutcome
 import performance.support.PerformanceTestProject
 import performance.support.readJarEntries
 import performance.support.readManifestAttribute
@@ -63,9 +66,46 @@ class PerformanceMeasurementPluginTest :
       test("protocol manifest root is path context rather than a recursive task input") {
         val getter =
           GenerateProtocolManifestTask::class.java.getMethod("getCaptureRunnerSourceDirectory")
+        val mappingGetter =
+          GenerateProtocolManifestTask::class.java.getMethod("getProtocolSourceLogicalPaths")
 
         getter.isAnnotationPresent(Internal::class.java) shouldBe true
         getter.isAnnotationPresent(InputDirectory::class.java) shouldBe false
+        mappingGetter.isAnnotationPresent(Input::class.java) shouldBe true
+      }
+
+      test("protocol manifest invalidates when its root-relative source mapping changes") {
+        PerformanceTestProject.create().use { project ->
+          val manifest = project.root.resolve("build/performance/protocol/closure.json")
+          project.build(
+            "generatePerformanceProtocolManifest",
+            "--build-cache",
+            "-PfixtureCaptureRoot=.",
+          )
+          val projectRelativeManifest = Files.readString(manifest)
+
+          val remapped =
+            project.build(
+              "generatePerformanceProtocolManifest",
+              "--build-cache",
+              "-PfixtureCaptureRoot=..",
+            )
+          val parentRelativeManifest = Files.readString(manifest)
+
+          remapped.task(":generatePerformanceProtocolManifest")?.outcome shouldBe
+            TaskOutcome.SUCCESS
+          parentRelativeManifest shouldNotBe projectRelativeManifest
+          parentRelativeManifest shouldContain "source/project/build.gradle"
+
+          val unchanged =
+            project.build(
+              "generatePerformanceProtocolManifest",
+              "--build-cache",
+              "-PfixtureCaptureRoot=..",
+            )
+          unchanged.task(":generatePerformanceProtocolManifest")?.outcome shouldBe
+            TaskOutcome.UP_TO_DATE
+        }
       }
 
       listOf("jmh", "jmhJar").forEach { legacyTask ->

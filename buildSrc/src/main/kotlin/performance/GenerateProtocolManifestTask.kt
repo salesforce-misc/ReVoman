@@ -17,6 +17,7 @@ import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.provider.MapProperty
 import org.gradle.api.tasks.CacheableTask
 import org.gradle.api.tasks.Classpath
+import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputDirectory
 import org.gradle.api.tasks.InputFile
 import org.gradle.api.tasks.InputFiles
@@ -34,6 +35,17 @@ import tools.jackson.databind.node.JsonNodeFactory
 abstract class GenerateProtocolManifestTask : DefaultTask() {
   @get:Internal
   abstract val captureRunnerSourceDirectory: DirectoryProperty
+
+  @get:Input
+  val protocolSourceLogicalPaths: List<String>
+    get() {
+      val captureRoot = captureRunnerSourceDirectory.get().asFile.toPath().toAbsolutePath().normalize()
+      return protocolSources.files.sortedBy { it.absolutePath }.map { source ->
+        val path = source.toPath().toAbsolutePath().normalize()
+        require(path.startsWith(captureRoot)) { "protocol source must be inside capture runner tree" }
+        portable(captureRoot.relativize(path))
+      }
+    }
 
   @get:InputFiles
   @get:PathSensitive(PathSensitivity.RELATIVE)

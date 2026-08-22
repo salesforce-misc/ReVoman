@@ -23,7 +23,9 @@ tasks.named('jar', Jar) {
 }
 
 performanceMeasurement {
-  captureRunnerSourceDirectory.set(layout.projectDirectory)
+  captureRunnerSourceDirectory.set(
+    layout.projectDirectory.dir(providers.gradleProperty('fixtureCaptureRoot').orElse('.'))
+  )
   treatmentJar.convention(layout.projectDirectory.file('build/libs/fixture-app.jar'))
   runnerDistributionDirectory.set(layout.projectDirectory.dir('fixture-inputs/runner-dist'))
   protocolSchemaDirectory.set(layout.projectDirectory.dir('fixture-inputs/protocol/schemas'))
