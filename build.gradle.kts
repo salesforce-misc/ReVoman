@@ -528,6 +528,8 @@ performanceMeasurement {
       "com.salesforce.revoman.benchmark.RegexVarBenchmark.replaceVariablesRecursivelyOverMixedStrings",
       "com.salesforce.revoman.benchmark.RevUpV3ColdBenchmark.revUp",
       "com.salesforce.revoman.benchmark.RevUpV3WarmBenchmark.revUp",
+      "com.salesforce.revoman.benchmark.RuntimeLifecycleBenchmark.scriptFreeOneStep",
+      "com.salesforce.revoman.benchmark.RuntimeLifecycleBenchmark.scriptedOneStep",
       "com.salesforce.revoman.benchmark.SandboxCanaryBenchmark.sandbox",
       "com.salesforce.revoman.benchmark.SmokeBenchmark.sumOfRange",
     )

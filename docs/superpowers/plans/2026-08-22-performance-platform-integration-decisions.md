@@ -121,6 +121,11 @@ is now a regular private class. Focused compilation covers both buildSrc and per
 followed by their focused tests, formatting, ABI validation, distribution validation, and static
 analysis.
 
+The first clean-tree distribution verification also rejected two current-master lifecycle
+benchmarks as unexpected. Both are deliberately retained in the JMH jar, so the frozen
+distribution allowlist now names `scriptFreeOneStep` and `scriptedOneStep` and exact-set validation
+remains enabled.
+
 ## Protected root observation
 
 Read-only inspection found the protected root still at
