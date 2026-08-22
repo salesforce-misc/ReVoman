@@ -32,7 +32,7 @@ jobs:
           java-version: 21
 
       - name: 'Generate sources for analysis'
-        run: ./gradlew -q kaptKotlin classes
+        run: ./gradlew -q --no-daemon kaptKotlin classes
 
       - name: 'Verify immutable Qodana image'
         shell: bash
@@ -61,7 +61,19 @@ jobs:
           docker pull "$image"
 
       - name: 'Qodana PR scan'
-        run: ./gradlew -q qodanaScan
+        shell: bash
+        run: |
+          set -euo pipefail
+          image='jetbrains/qodana-jvm-community@sha256:f1c5d3efe2f550409c4d95d266c5dc2025a8069d82c9516781eae72e7383b55d'
+          results="$PWD/build/qodana/results"
+          cache="$PWD/build/qodana/cache"
+          mkdir -p "$results" "$cache"
+          docker run --rm --pull never \
+            --user "$(id -u):$(id -g)" \
+            --volume "$PWD:/data/project" \
+            --volume "$results:/data/results" \
+            --volume "$cache:/data/cache" \
+            "$image"
 
       - name: 'Upload Qodana PR report'
         if: always()
@@ -91,7 +103,7 @@ jobs:
           java-version: 21
 
       - name: 'Generate sources for analysis'
-        run: ./gradlew -q kaptKotlin classes
+        run: ./gradlew -q --no-daemon kaptKotlin classes
 
       - name: 'Verify immutable Qodana image'
         shell: bash

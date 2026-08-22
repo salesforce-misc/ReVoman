@@ -13,6 +13,7 @@ import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.maps.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
 
 private const val QODANA_INDEX =
   "jetbrains/qodana-jvm-community@sha256:" +
@@ -42,9 +43,11 @@ class QodanaSecurityContractTest :
 
         val steps = job.requiredSteps()
         assertCredentiallessCheckout(steps)
+        assertSourceGenerationReleasesGradleLocks(steps)
         assertQodanaImageVerificationPrecedesScan(steps, "Qodana PR scan")
         val scan = steps.named("Qodana PR scan")
-        scan.requiredString("run") shouldBe "./gradlew -q qodanaScan"
+        scan.requiredString("shell") shouldBe "bash"
+        assertSecretlessDirectQodanaScan(normalizeShell(scan.requiredString("run")))
         scan.containsKey("uses") shouldBe false
         scan.containsKey("with") shouldBe false
         scan.containsKey("env") shouldBe false
@@ -82,6 +85,7 @@ class QodanaSecurityContractTest :
 
         val steps = job.requiredSteps()
         assertCredentiallessCheckout(steps)
+        assertSourceGenerationReleasesGradleLocks(steps)
         assertQodanaImageVerificationPrecedesScan(steps, "Qodana trusted master scan")
         val scan = steps.named("Qodana trusted master scan")
         scan.requiredString("uses") shouldBe QODANA_ACTION
@@ -142,6 +146,28 @@ private fun assertCredentiallessCheckout(steps: List<YamlMap>) {
     requiredInt("fetch-depth") shouldBe 0
     requiredBoolean("persist-credentials") shouldBe false
   }
+}
+
+private fun assertSourceGenerationReleasesGradleLocks(steps: List<YamlMap>) {
+  steps.named("Generate sources for analysis").requiredString("run") shouldBe
+    "./gradlew -q --no-daemon kaptKotlin classes"
+}
+
+private fun assertSecretlessDirectQodanaScan(script: String) {
+  script shouldContain "set -euo pipefail"
+  script shouldContain "image='$QODANA_INDEX'"
+  script shouldContain "results=\"${'$'}PWD/build/qodana/results\""
+  script shouldContain "cache=\"${'$'}PWD/build/qodana/cache\""
+  script shouldContain "mkdir -p \"${'$'}results\" \"${'$'}cache\""
+  script shouldContain "docker run --rm --pull never"
+  script shouldContain "--user \"${'$'}(id -u):${'$'}(id -g)\""
+  script shouldContain "--volume \"${'$'}PWD:/data/project\""
+  script shouldContain "--volume \"${'$'}results:/data/results\""
+  script shouldContain "--volume \"${'$'}cache:/data/cache\""
+  script shouldContain "\"${'$'}image\""
+  script shouldNotContain "./gradlew"
+  script shouldNotContain "github.token"
+  script shouldNotContain "secrets."
 }
 
 private fun assertQodanaImageVerificationPrecedesScan(

@@ -90,6 +90,17 @@ credentials, no secrets or GitHub token in the scan step, and the same locally v
 The trusted-master push retains the pinned action and its separately scoped Qodana Cloud token;
 the action's reaction path returns before constructing a GitHub client for a non-PR event.
 
+The next PR run reached Qodana through that secretless Gradle task, but a clean checkout required
+an in-container Gradle import while the outer Gradle invocation still owned the bind-mounted
+project cache. The inner import waited on `.gradle/9.7.0/fileHashes/fileHashes.lock` until Qodana
+timed out. The source-generation steps now use `--no-daemon`, and the PR scan runs the already
+verified immutable Qodana image directly after source generation has exited. The container reuses
+the exact pulled index with `--pull never`, runs as the runner UID and GID, mounts only the
+checkout plus dedicated result and cache directories, and still receives no secret or repository
+token. A clean archived checkout reproduced the hosted import boundary and completed the direct
+scan with zero findings. The trusted-master action remains unchanged apart from daemonless source
+generation because it provides the separately authorized Cloud and SARIF publication path.
+
 The same first PR run exposed two build-lane observability/order defects. `buildSrc:test` runs
 before the root build, but two Docker-visible fixture tests attempted to create temporary
 directories below a root `build/` parent they had not created; both failed with
