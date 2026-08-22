@@ -61,22 +61,14 @@ jobs:
           docker pull "$image"
 
       - name: 'Qodana PR scan'
-        uses: JetBrains/qodana-action@4861e015da555e86a72b862892aba6c2b93e6891
-        with:
-          use-caches: false
-          use-annotations: false
-          pr-mode: true
-          post-pr-comment: false
-          github-token: ""
-          push-fixes: none
-          upload-result: false
+        run: ./gradlew -q qodanaScan
 
       - name: 'Upload Qodana PR report'
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: qodana-pr-report
-          path: ${{ runner.temp }}/qodana/results
+          path: build/qodana/results
           if-no-files-found: error
           retention-days: 7
 

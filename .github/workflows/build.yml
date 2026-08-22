@@ -68,6 +68,6 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: test-reports
-          path: build/reports/tests/
+          path: '**/build/reports/tests/'
           retention-days: 7
-          if-no-files-found: ignore
+          if-no-files-found: error

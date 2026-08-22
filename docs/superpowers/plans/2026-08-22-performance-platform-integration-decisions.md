@@ -79,6 +79,42 @@ credential-free checkout, token scrubbing around the runner, and uploads rooted 
 `build/performance` tree. Qodana keeps its immutable index digest, architecture-specific child
 digests, and secretless pull-request job.
 
+The first PR run exposed a bug in the pinned Qodana action's secretless mode. Its pull-request path
+constructs a GitHub client for start/finish reactions before the linter runs, even when annotations
+and PR comments are disabled; an intentionally empty `github-token` therefore failed with
+`Parameter token or opts.auth is required`. Passing `${{ github.token }}` would make the scan run,
+but would disclose an unnecessary repository token to the third-party action. The PR job instead
+invokes the already configured `./gradlew -q qodanaScan` task directly and uploads
+`build/qodana/results`. This preserves the immutable image check, full checkout without persisted
+credentials, no secrets or GitHub token in the scan step, and the same locally verified analyzer.
+The trusted-master push retains the pinned action and its separately scoped Qodana Cloud token;
+the action's reaction path returns before constructing a GitHub client for a non-PR event.
+
+The same first PR run exposed two build-lane observability/order defects. `buildSrc:test` runs
+before the root build, but two Docker-visible fixture tests attempted to create temporary
+directories below a root `build/` parent they had not created; both failed with
+`NoSuchFileException`. The test-only helper now creates that Docker-visible parent before asking
+the JDK for a temporary child. The failure reports were also absent from GitHub because the upload
+step matched only the root project's `build/reports/tests/`. The workflow now uploads
+`**/build/reports/tests/` and fails if no report exists, covering root, buildSrc, and nested runner
+reports without changing any production or evidence schema.
+
+The same build-lane investigation found that FakeHost adapter tests inherited the production
+`adapter_fsync_path`, so every reservation crossed the real whole-host `/bin/sync` boundary. A
+test-only recording override now verifies that the reservation synchronizes its token before the
+output parent while leaving the production durability implementation unchanged. Caller-supplied
+function overrides remain last, so the existing injected fsync failure still exits 8 with
+`PUBLICATION_FAILED`.
+
+This is a host-isolation correction, not a demonstrated suite speedup. Adapter classes accounted
+for 1,275.122 of 1,342.533 baseline XML seconds, but two clean post-change full runs took about the
+same wall time; the timed repeat was 1,492.11 seconds versus the 1,502-second baseline. A later
+`maxParallelForks = 2` experiment remains worthwhile because four independent adapter classes
+dominate the residual runtime, but it must first give each test worker an isolated adapter lock
+root. The current shared `/tmp/revoman-performance-locks-v1` caused transient cross-worktree
+`OPERATION_LOCKED` failures when two adapter suites overlapped. This integration does not add test
+forks or Kotest concurrency.
+
 Claim-bearing evidence requires merged PR A and PR B ancestry, exact clean distributions, dynamic
 host qualification, same-session A/A admission, immediate B execution, recursive checksums, and
 independent evidence review. No hosted canary, standalone comparison, GC capture, JFR capture, or

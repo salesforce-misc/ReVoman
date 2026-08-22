@@ -42,12 +42,14 @@ class QodanaSecurityContractTest :
 
         val steps = job.requiredSteps()
         assertCredentiallessCheckout(steps)
-        assertQodanaImageVerificationPrecedesScan(steps)
+        assertQodanaImageVerificationPrecedesScan(steps, "Qodana PR scan")
         val scan = steps.named("Qodana PR scan")
-        scan.requiredString("uses") shouldBe QODANA_ACTION
-        assertLockedDownQodanaInputs(scan.requiredMap("with"), expectedPrMode = true)
+        scan.requiredString("run") shouldBe "./gradlew -q qodanaScan"
+        scan.containsKey("uses") shouldBe false
+        scan.containsKey("with") shouldBe false
         scan.containsKey("env") shouldBe false
         job.scalarStrings().any { it.contains("secrets.", ignoreCase = true) } shouldBe false
+        job.scalarStrings().any { it.contains("github.token", ignoreCase = true) } shouldBe false
 
         val publishingActions =
           steps.mapNotNull { it["uses"] as? String }.filter {
@@ -59,7 +61,7 @@ class QodanaSecurityContractTest :
           requiredMap("with") shouldContainExactly
             mapOf(
               "name" to "qodana-pr-report",
-              "path" to "${'$'}{{ runner.temp }}/qodana/results",
+              "path" to "build/qodana/results",
               "if-no-files-found" to "error",
               "retention-days" to 7,
             )
@@ -80,7 +82,7 @@ class QodanaSecurityContractTest :
 
         val steps = job.requiredSteps()
         assertCredentiallessCheckout(steps)
-        assertQodanaImageVerificationPrecedesScan(steps)
+        assertQodanaImageVerificationPrecedesScan(steps, "Qodana trusted master scan")
         val scan = steps.named("Qodana trusted master scan")
         scan.requiredString("uses") shouldBe QODANA_ACTION
         assertLockedDownQodanaInputs(scan.requiredMap("with"), expectedPrMode = false)
@@ -142,9 +144,12 @@ private fun assertCredentiallessCheckout(steps: List<YamlMap>) {
   }
 }
 
-private fun assertQodanaImageVerificationPrecedesScan(steps: List<YamlMap>) {
+private fun assertQodanaImageVerificationPrecedesScan(
+  steps: List<YamlMap>,
+  scanName: String,
+) {
   val verificationIndex = steps.indexOfFirst { it["name"] == "Verify immutable Qodana image" }
-  val scanIndex = steps.indexOfFirst { it["uses"] == QODANA_ACTION }
+  val scanIndex = steps.indexOfFirst { it["name"] == scanName }
   (verificationIndex >= 0) shouldBe true
   (scanIndex > verificationIndex) shouldBe true
 }

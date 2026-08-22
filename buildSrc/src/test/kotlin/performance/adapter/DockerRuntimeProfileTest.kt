@@ -374,7 +374,7 @@ private fun dockerVolumeCommands(
   }
 
 private fun dockerVisibleTemporaryDirectory(sourceRoot: Path, prefix: String): Path =
-  Files.createTempDirectory(sourceRoot.resolve("build"), prefix)
+  Files.createTempDirectory(sourceRoot.resolve("build").also(Files::createDirectories), prefix)
 
 private class ReflectiveSchemaValidator(schemaPath: Path) : AutoCloseable {
   private val schemaInput: InputStream = Files.newInputStream(schemaPath)

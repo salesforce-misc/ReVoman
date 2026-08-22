@@ -120,6 +120,17 @@ class WorkflowSecurityContractTest :
             "retention-days" to 7,
           )
 
+        val testReports = steps.named("Upload test reports")
+        testReports.requiredString("uses") shouldBe UPLOAD_ARTIFACT_ACTION
+        testReports.requiredString("if") shouldBe "${'$'}{{ !cancelled() }}"
+        testReports.requiredMap("with") shouldContainExactly
+          mapOf(
+            "name" to "test-reports",
+            "path" to "**/build/reports/tests/",
+            "retention-days" to 7,
+            "if-no-files-found" to "error",
+          )
+
         assertApprovedActions(workflow)
         assertSecretless(workflow)
         assertPerformancePolicyIsNotDuplicated(workflow)
