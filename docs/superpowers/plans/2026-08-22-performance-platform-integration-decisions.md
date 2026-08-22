@@ -126,6 +126,26 @@ benchmarks as unexpected. Both are deliberately retained in the JMH jar, so the 
 distribution allowlist now names `scriptFreeOneStep` and `scriptedOneStep` and exact-set validation
 remains enabled.
 
+## Whole-branch gate corrections
+
+The standards review found no remaining Critical, Important, or Minor issue. The specification
+review found one Important documentation gap: `README.adoc` and the published performance page had
+not received the formal-versus-diagnostic evidence boundary promised by the integration plan. Both
+public surfaces now state that only finalized, checksum-valid controlled-host campaigns with
+`claimEligible=true` can support a claim. Hosted canaries, direct JMH, standalone comparisons,
+GC/JFR investigations, application elapsed time, and historical reports remain diagnostic.
+
+The exact combined Gradle gate exposed a separate task-input defect. The protocol-manifest task's
+`captureRunnerSourceDirectory` points at the repository root only so checked-in closure files can
+receive stable relative names. Annotating that path context as an `InputDirectory` recursively
+made every build output under the checkout an undeclared input and created false dependencies on
+kapt, Node setup, and Kotlin ABI tasks. Every actual closure source is already declared through
+`protocolSources`, while compiled artifacts and dependencies have their own inputs. The root
+property is therefore `@Internal`; adding ordering dependencies would retain the incorrect input
+model and couple the manifest to unrelated build work. A focused annotation contract failed before
+this change and passed afterward. The clean-tree distribution gate remains the end-to-end
+regression for combined-task execution.
+
 ## Protected root observation
 
 Read-only inspection found the protected root still at

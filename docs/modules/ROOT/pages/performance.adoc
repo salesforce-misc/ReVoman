@@ -1,7 +1,34 @@
 = Performance
 
-This entire execution of *~75 steps*, including *10 async steps*, took a mere *122 sec* on localhost. This can be much better in auto-build environments.
+ReṼoman has one formal platform for producing reproducible performance evidence. It freezes the
+benchmark, runner, dependencies, workload profile, treatment commits, and measurement protocol;
+validates the resulting artifacts; and records their checksums.
 
-image::pq-revoman-test-time.png[Localhost Test time on FTest console for ~75 steps]
+== Claim-bearing evidence
 
-WARNING: ReṼoman internally is very light-weight; execution times are proportional to how your server responds or your network speed.
+A result can support a performance claim only when all of these conditions hold:
+
+* The performance infrastructure and host support were reviewed and merged before measurement.
+* The campaign ran on a checked-in, qualified controlled-host profile using an exactly identified
+  Java 21 runtime.
+* Its preregistered workload and baseline/candidate commits match the claim being evaluated.
+* Its A/A calibration passed, every required A1/A2/B capture completed, and the campaign was
+  finalized successfully.
+* The published evidence is schema-valid, recursively checksummed, privacy-safe, and records
+  `claimEligible=true`.
+
+Java vendor is not a portable performance requirement. A canonical host profile binds the exact
+Java 21 distribution used so that later measurements can reproduce the same runtime identity.
+
+== Diagnostic evidence
+
+Hosted structural or manual canaries, direct JMH output, standalone captures and comparisons,
+GC/JFR investigations, and historical hotspot or local reports are useful diagnostics. They have
+`claimEligible=false` and cannot establish a regression, improvement, or speedup.
+
+Application-level collection elapsed time is also diagnostic unless it follows the formal
+protocol. It commonly includes server latency, network conditions, collection behavior, and
+asynchronous waits, so it does not isolate ReṼoman runtime performance.
+
+See link:https://github.com/salesforce-misc/ReVoman/blob/master/DEVELOPMENT.md[DEVELOPMENT.md]
+for the supported developer commands and measurement lanes.

@@ -121,6 +121,12 @@ Full docs: https://sfdc.co/revoman-docs
 
 Each topic links to its published page. The source for every page lives in `docs/modules/ROOT/pages/<page-name>.adoc` (one concept per file) — e.g. the _Hooks_ page below is `docs/modules/ROOT/pages/hooks.adoc`.
 
+Performance results use one formal measurement platform. Only a finalized, checksum-valid
+campaign with `claimEligible=true`, produced on a reviewed controlled-host profile, can support a
+performance claim. Hosted canaries, direct JMH runs, standalone captures, GC/JFR investigations,
+and historical reports are diagnostic and have `claimEligible=false`; they must not be described
+as speedups. See the https://salesforce-misc.github.io/ReVoman/revoman/performance.html[performance evidence policy].
+
 [%noheader,cols="1,1",frame=none,grid=none]
 |===
 | https://salesforce-misc.github.io/ReVoman/revoman/index.html[Overview / pitch]
@@ -151,7 +157,7 @@ Each topic links to its published page. The source for every page lives in `docs
 | https://salesforce-misc.github.io/ReVoman/revoman/troubleshooting.html[Troubleshooting & FAQ]
 
 | https://salesforce-misc.github.io/ReVoman/revoman/contributing.html[Contributing]
-|
+| https://salesforce-misc.github.io/ReVoman/revoman/performance.html[Performance evidence]
 |===
 
 '''

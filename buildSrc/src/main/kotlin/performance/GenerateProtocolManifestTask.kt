@@ -20,6 +20,7 @@ import org.gradle.api.tasks.Classpath
 import org.gradle.api.tasks.InputDirectory
 import org.gradle.api.tasks.InputFile
 import org.gradle.api.tasks.InputFiles
+import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
@@ -31,8 +32,7 @@ import tools.jackson.databind.node.JsonNodeFactory
 /** Generates the canonical, treatment-free source and tool closure used by protocol identity. */
 @CacheableTask
 abstract class GenerateProtocolManifestTask : DefaultTask() {
-  @get:InputDirectory
-  @get:PathSensitive(PathSensitivity.RELATIVE)
+  @get:Internal
   abstract val captureRunnerSourceDirectory: DirectoryProperty
 
   @get:InputFiles

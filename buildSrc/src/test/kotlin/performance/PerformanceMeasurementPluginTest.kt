@@ -13,6 +13,8 @@ import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import java.nio.file.Files
+import org.gradle.api.tasks.InputDirectory
+import org.gradle.api.tasks.Internal
 import performance.support.PerformanceTestProject
 import performance.support.readJarEntries
 import performance.support.readManifestAttribute
@@ -56,6 +58,14 @@ class PerformanceMeasurementPluginTest :
           entries shouldNotContain "org/slf4j/simple/SimpleLogger.class"
           entries.none { it.startsWith("META-INF/versions/") } shouldBe true
         }
+      }
+
+      test("protocol manifest root is path context rather than a recursive task input") {
+        val getter =
+          GenerateProtocolManifestTask::class.java.getMethod("getCaptureRunnerSourceDirectory")
+
+        getter.isAnnotationPresent(Internal::class.java) shouldBe true
+        getter.isAnnotationPresent(InputDirectory::class.java) shouldBe false
       }
 
       listOf("jmh", "jmhJar").forEach { legacyTask ->
