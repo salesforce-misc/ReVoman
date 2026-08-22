@@ -150,6 +150,14 @@ boundary: changing only the configured mapping forces manifest regeneration and 
 logical paths; repeating the same mapping is up to date. The clean-tree distribution gate remains
 the end-to-end regression for combined-task execution.
 
+The same cache audit found that benchmark dependencies were declared as Gradle classpaths even
+though the manifest records each jar's filename and raw SHA-256. Classpath normalization may ignore
+renames, ZIP metadata, and entry order, so it was weaker than the output contract. Dependencies are
+now opaque `@InputFiles` with `NAME_ONLY` path sensitivity: the cache key includes raw bytes and the
+emitted filename while remaining independent of the checkout's absolute path. Two behavioral
+contracts ran red before the correction (`UP_TO_DATE` after a rename and after a byte-distinct,
+semantically equivalent repack) and green afterward with regenerated manifest names and hashes.
+
 ## Protected root observation
 
 Read-only inspection found the protected root still at

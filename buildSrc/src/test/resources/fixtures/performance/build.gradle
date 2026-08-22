@@ -11,7 +11,10 @@ repositories { mavenCentral() }
 configurations { embeddedRuntime }
 
 dependencies {
-  implementation files('fixture-inputs/runtime-dependency.jar')
+  implementation files(
+    providers.gradleProperty('fixtureRuntimeDependency')
+      .orElse('fixture-inputs/runtime-dependency.jar')
+  )
   implementation files('fixture-inputs/embedded-dependency.jar')
   embeddedRuntime files('fixture-inputs/embedded-dependency.jar')
   testImplementation files('fixture-inputs/kotest-leak.jar')

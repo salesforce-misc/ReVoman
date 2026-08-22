@@ -16,7 +16,6 @@ import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.provider.MapProperty
 import org.gradle.api.tasks.CacheableTask
-import org.gradle.api.tasks.Classpath
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputDirectory
 import org.gradle.api.tasks.InputFile
@@ -59,7 +58,9 @@ abstract class GenerateProtocolManifestTask : DefaultTask() {
   @get:PathSensitive(PathSensitivity.RELATIVE)
   abstract val runnerDistributionDirectory: DirectoryProperty
 
-  @get:Classpath abstract val benchmarkDependencies: ConfigurableFileCollection
+  @get:InputFiles
+  @get:PathSensitive(PathSensitivity.NAME_ONLY)
+  abstract val benchmarkDependencies: ConfigurableFileCollection
 
   @get:org.gradle.api.tasks.Input abstract val toolIdentities: MapProperty<String, String>
 

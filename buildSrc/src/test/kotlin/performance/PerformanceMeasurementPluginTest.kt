@@ -14,9 +14,17 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
 import java.nio.file.Files
+import java.nio.file.Path
+import java.util.jar.JarEntry
+import java.util.jar.JarFile
+import java.util.jar.JarOutputStream
+import org.gradle.api.tasks.Classpath
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputDirectory
+import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.Internal
+import org.gradle.api.tasks.PathSensitive
+import org.gradle.api.tasks.PathSensitivity
 import org.gradle.testkit.runner.TaskOutcome
 import performance.support.PerformanceTestProject
 import performance.support.readJarEntries
@@ -68,10 +76,16 @@ class PerformanceMeasurementPluginTest :
           GenerateProtocolManifestTask::class.java.getMethod("getCaptureRunnerSourceDirectory")
         val mappingGetter =
           GenerateProtocolManifestTask::class.java.getMethod("getProtocolSourceLogicalPaths")
+        val dependenciesGetter =
+          GenerateProtocolManifestTask::class.java.getMethod("getBenchmarkDependencies")
 
         getter.isAnnotationPresent(Internal::class.java) shouldBe true
         getter.isAnnotationPresent(InputDirectory::class.java) shouldBe false
         mappingGetter.isAnnotationPresent(Input::class.java) shouldBe true
+        dependenciesGetter.isAnnotationPresent(Classpath::class.java) shouldBe false
+        dependenciesGetter.isAnnotationPresent(InputFiles::class.java) shouldBe true
+        dependenciesGetter.getAnnotation(PathSensitive::class.java).value shouldBe
+          PathSensitivity.NAME_ONLY
       }
 
       test("protocol manifest invalidates when its root-relative source mapping changes") {
@@ -108,6 +122,64 @@ class PerformanceMeasurementPluginTest :
         }
       }
 
+      test("protocol manifest invalidates when a benchmark dependency is renamed") {
+        PerformanceTestProject.create().use { project ->
+          val manifest = project.root.resolve("build/performance/protocol/closure.json")
+          project.build(
+            "generatePerformanceProtocolManifest",
+            "--build-cache",
+            "-PfixtureRuntimeDependency=fixture-inputs/runtime-dependency.jar",
+          )
+          val originalManifest = Files.readString(manifest)
+          Files.copy(
+            project.inputs.resolve("runtime-dependency.jar"),
+            project.inputs.resolve("renamed-dependency.jar"),
+          )
+
+          val renamed =
+            project.build(
+              "generatePerformanceProtocolManifest",
+              "--build-cache",
+              "-PfixtureRuntimeDependency=fixture-inputs/renamed-dependency.jar",
+            )
+          val renamedManifest = Files.readString(manifest)
+
+          renamed.task(":generatePerformanceProtocolManifest")?.outcome shouldBe
+            TaskOutcome.SUCCESS
+          renamedManifest shouldNotBe originalManifest
+          renamedManifest shouldContain "dependencies/renamed-dependency.jar"
+        }
+      }
+
+      test("protocol manifest invalidates when dependency jar bytes are repacked") {
+        PerformanceTestProject.create().use { project ->
+          val dependency = project.inputs.resolve("mutable-dependency.jar")
+          Files.copy(project.inputs.resolve("runtime-dependency.jar"), dependency)
+          val manifest = project.root.resolve("build/performance/protocol/closure.json")
+          project.build(
+            "generatePerformanceProtocolManifest",
+            "--build-cache",
+            "-PfixtureRuntimeDependency=fixture-inputs/mutable-dependency.jar",
+          )
+          val originalManifest = Files.readString(manifest)
+          val originalBytes = Files.readAllBytes(dependency)
+
+          repackJar(dependency)
+          Files.readAllBytes(dependency).contentEquals(originalBytes) shouldBe false
+          val repacked =
+            project.build(
+              "generatePerformanceProtocolManifest",
+              "--build-cache",
+              "-PfixtureRuntimeDependency=fixture-inputs/mutable-dependency.jar",
+            )
+          val repackedManifest = Files.readString(manifest)
+
+          repacked.task(":generatePerformanceProtocolManifest")?.outcome shouldBe
+            TaskOutcome.SUCCESS
+          repackedManifest shouldNotBe originalManifest
+        }
+      }
+
       listOf("jmh", "jmhJar").forEach { legacyTask ->
         test("direct $legacyTask fails with supported migration guidance") {
           PerformanceTestProject.create().use { project ->
@@ -120,3 +192,17 @@ class PerformanceMeasurementPluginTest :
       }
     },
   )
+
+private fun repackJar(path: Path) {
+  val entries =
+    JarFile(path.toFile()).use { jar ->
+      jar.entries().asSequence().map { entry -> entry.name to jar.getInputStream(entry).readAllBytes() }.toList()
+    }
+  JarOutputStream(Files.newOutputStream(path)).use { output ->
+    entries.asReversed().forEach { (name, bytes) ->
+      output.putNextEntry(JarEntry(name).also { it.time = 1_234L })
+      output.write(bytes)
+      output.closeEntry()
+    }
+  }
+}
