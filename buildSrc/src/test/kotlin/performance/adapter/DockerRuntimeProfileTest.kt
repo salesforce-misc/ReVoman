@@ -378,7 +378,7 @@ private fun dockerVisibleTemporaryDirectory(sourceRoot: Path, prefix: String): P
   Files.createTempDirectory(sourceRoot.resolve("build").also(Files::createDirectories), prefix)
 
 private fun liveFixtureCommand(invocation: String): String =
-  "set -e; source \"\$1\"; " +
+  "set -ex; source \"\$1\"; " +
     "adapter_select_substrate; " +
     "adapter_acquire_and_verify_runtime; " +
     invocation
