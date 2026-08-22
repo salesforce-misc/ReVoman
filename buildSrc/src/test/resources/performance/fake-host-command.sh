@@ -244,14 +244,10 @@ case "$command_name" in
             printf 'linux|arm64|v8|%s\n' "$image_id"
             ;;
           *)
-            descriptor_digest=${FAKE_DOCKER_DESCRIPTOR_DIGEST-sha256:6c7425db05efdcf0ba40d989898857b093f14ceaf9684c9c31a072c159f4590e}
             printf 'PLATFORM linux arm64 v8\n'
             printf 'ID %s\n' "$image_id"
             if [ -n "${FAKE_DOCKER_REPO_DIGEST:-}" ]; then
               printf 'REPO %s\n' "$FAKE_DOCKER_REPO_DIGEST"
-            fi
-            if [ -n "$descriptor_digest" ]; then
-              printf 'DESCRIPTOR %s\n' "$descriptor_digest"
             fi
             ;;
         esac

@@ -115,9 +115,14 @@ repair, but a fresh runner did not yet contain the exact performance runtime ima
 correctly inherited the production adapter's `--pull=never` phase policy and therefore stopped
 before exercising their volume and bind contracts. The live tests now call the production
 adapter's immutable image acquisition and verification boundary before entering those phases;
-they do not duplicate image policy in the workflow or weaken `--pull=never`. Their exit assertions
-also retain captured adapter output as failure context. No production adapter function or evidence
-schema changes for this test bootstrap.
+they do not duplicate image policy in the workflow or weaken `--pull=never`. That boundary then
+exposed a Docker 28.0.4 compatibility defect: classic image storage omits the experimental
+`.Descriptor` template field, causing `docker image inspect` to fail before returning any identity.
+The inspection now requests only stable platform, image ID, and repository-digest fields. Exact
+proof remains unchanged: containerd storage can prove the platform manifest through its image ID,
+classic storage proves the config ID plus repository digest, and both paths still verify the raw
+manifest hash and embedded config digest. Their exit assertions retain captured adapter tracing as
+failure context. No production phase policy, durability behavior, or evidence schema changes.
 
 The same build-lane investigation found that FakeHost adapter tests inherited the production
 `adapter_fsync_path`, so every reservation crossed the real whole-host `/bin/sync` boundary. A

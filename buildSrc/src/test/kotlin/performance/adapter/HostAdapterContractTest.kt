@@ -272,7 +272,7 @@ class HostAdapterContractTest :
               .joinToString("\n")
           imageInspect shouldContain "{{println \"PLATFORM\" .Os .Architecture .Variant}}"
           imageInspect shouldContain "{{range .RepoDigests}}{{println \"REPO\" .}}{{end}}"
-          imageInspect shouldContain "{{with .Descriptor}}{{println \"DESCRIPTOR\" .digest}}{{end}}"
+          imageInspect shouldNotContain ".Descriptor"
           val commandLog = result.commands.flatten().joinToString("\n")
           commandLog shouldContain "/usr/bin/sha256sum /opt/java/openjdk/bin/java"
           commandLog shouldNotContain "/usr/bin/head"
@@ -283,11 +283,9 @@ class HostAdapterContractTest :
         listOf(
             mapOf(
               "FAKE_DOCKER_IMAGE_ID" to RUNTIME_MANIFEST,
-              "FAKE_DOCKER_DESCRIPTOR_DIGEST" to RUNTIME_MANIFEST,
             ),
             mapOf(
               "FAKE_DOCKER_IMAGE_ID" to RUNTIME_CONFIG,
-              "FAKE_DOCKER_DESCRIPTOR_DIGEST" to "",
               "FAKE_DOCKER_REPO_DIGEST" to "docker.io/library/eclipse-temurin@$RUNTIME_MANIFEST",
             ),
           )
@@ -307,16 +305,13 @@ class HostAdapterContractTest :
         listOf(
             mapOf(
               "FAKE_DOCKER_IMAGE_ID" to "sha256:${"1".repeat(64)}",
-              "FAKE_DOCKER_DESCRIPTOR_DIGEST" to RUNTIME_MANIFEST,
             ),
             mapOf(
               "FAKE_DOCKER_IMAGE_ID" to RUNTIME_CONFIG,
-              "FAKE_DOCKER_DESCRIPTOR_DIGEST" to "",
               "FAKE_DOCKER_REPO_DIGEST" to "docker.io/library/eclipse-temurin@sha256:${"2".repeat(64)}",
             ),
             mapOf(
               "FAKE_DOCKER_IMAGE_ID" to RUNTIME_MANIFEST,
-              "FAKE_DOCKER_DESCRIPTOR_DIGEST" to RUNTIME_MANIFEST,
               "FAKE_DOCKER_CONFIG_DIGEST" to "sha256:${"3".repeat(64)}",
             ),
           )

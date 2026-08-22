@@ -1302,7 +1302,7 @@ adapter_acquire_and_verify_runtime() {
   adapter_docker pull --platform "$ADAPTER_PLATFORM" "$ADAPTER_RUNTIME_REFERENCE" >/dev/null 2>&1 || return 1
   identity=$(
     adapter_docker image inspect \
-      --format '{{println "PLATFORM" .Os .Architecture .Variant}}{{println "ID" .Id}}{{range .RepoDigests}}{{println "REPO" .}}{{end}}{{with .Descriptor}}{{println "DESCRIPTOR" .digest}}{{end}}' \
+      --format '{{println "PLATFORM" .Os .Architecture .Variant}}{{println "ID" .Id}}{{range .RepoDigests}}{{println "REPO" .}}{{end}}' \
       "$ADAPTER_RUNTIME_REFERENCE" 2>/dev/null
   ) || return 1
   adapter_verify_runtime_identity "$identity" || return 1
