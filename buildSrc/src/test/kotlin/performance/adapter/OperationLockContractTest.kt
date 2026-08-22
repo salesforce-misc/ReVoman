@@ -49,7 +49,11 @@ class OperationLockContractTest :
                   printf '%s\n' runtime >>"${'$'}ADAPTER_REPO_ROOT/lock-events"
                   printf '%s\n' "${'$'}{ADAPTER_OPERATION_LOCK_PATH-}" >"${'$'}ADAPTER_REPO_ROOT/observed-lock"
                   if [ -n "${'$'}{ADAPTER_OPERATION_LOCK_PATH-}" ]; then
-                    /usr/bin/stat -f '%Lp' "${'$'}ADAPTER_OPERATION_LOCK_PATH" >"${'$'}ADAPTER_REPO_ROOT/observed-lock-mode"
+                    if /usr/bin/stat -c '%a' "${'$'}ADAPTER_OPERATION_LOCK_PATH" >/dev/null 2>&1; then
+                      /usr/bin/stat -c '%a' "${'$'}ADAPTER_OPERATION_LOCK_PATH" >"${'$'}ADAPTER_REPO_ROOT/observed-lock-mode"
+                    else
+                      /usr/bin/stat -f '%Lp' "${'$'}ADAPTER_OPERATION_LOCK_PATH" >"${'$'}ADAPTER_REPO_ROOT/observed-lock-mode"
+                    fi
                   fi
                   return 0
                 }

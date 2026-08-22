@@ -91,7 +91,7 @@ adapter_policy_scalar() {
         value = substr($0, index($0, ":") + 1)
         sub(/^[[:space:]]+/, "", value)
         sub(/,[[:space:]]*$/, "", value)
-        if (value ~ /^\".*\"$/) {
+        if (value ~ /^".*"$/) {
           value = substr(value, 2, length(value) - 2)
         }
         print value

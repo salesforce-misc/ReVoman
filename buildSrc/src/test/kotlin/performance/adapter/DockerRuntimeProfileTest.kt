@@ -262,7 +262,7 @@ class DockerRuntimeProfileTest :
 
       test("fresh named volume and host bind are writable only through declared non-root phases") {
         val sourceRoot = FakeHost().use { host -> host.sourceRoot }
-        val artifactParent = Files.createTempDirectory("revoman-live-finalizer.")
+        val artifactParent = dockerVisibleTemporaryDirectory(sourceRoot, "revoman-live-finalizer.")
         val ownerBefore = Files.getOwner(artifactParent)
         Files.setPosixFilePermissions(
           artifactParent,
@@ -310,8 +310,8 @@ class DockerRuntimeProfileTest :
 
       test("the exact finalizer rejects a substituted bind before writing inside the mounted view") {
         val sourceRoot = FakeHost().use { host -> host.sourceRoot }
-        val expectedParent = Files.createTempDirectory("revoman-live-reserved-bind.")
-        val substitutedParent = Files.createTempDirectory("revoman-live-substituted-bind.")
+        val expectedParent = dockerVisibleTemporaryDirectory(sourceRoot, "revoman-live-reserved-bind.")
+        val substitutedParent = dockerVisibleTemporaryDirectory(sourceRoot, "revoman-live-substituted-bind.")
         Files.writeString(substitutedParent.resolve("foreign.txt"), "keep")
         try {
           val process =
@@ -372,7 +372,10 @@ private fun dockerVolumeCommands(
   commands.filter { command ->
     command.firstOrNull() == "docker" &&
       command.windowed(2).any { arguments -> arguments == listOf("volume", action) }
-  }
+}
+
+private fun dockerVisibleTemporaryDirectory(sourceRoot: Path, prefix: String): Path =
+  Files.createTempDirectory(sourceRoot.resolve("build"), prefix)
 
 private class ReflectiveSchemaValidator(schemaPath: Path) : AutoCloseable {
   private val schemaInput: InputStream = Files.newInputStream(schemaPath)

@@ -119,10 +119,15 @@ internal class FakeHost : AutoCloseable {
     function: String,
     vararg arguments: String,
     environment: Map<String, String> = emptyMap(),
+    functionOverrides: String? = null,
     useFakeHostTools: Boolean = true,
   ): AdapterInvocation {
     require(function.matches(Regex("[a-z_]+"))) { "unsafe Bash function name" }
-    val overrides = if (useFakeHostTools) FAKE_HOST_FUNCTION_OVERRIDES else ""
+    val overrides =
+      listOfNotNull(
+        FAKE_HOST_FUNCTION_OVERRIDES.takeIf { useFakeHostTools },
+        functionOverrides,
+      ).joinToString(separator = "\n")
     val setup = overrides.takeIf(String::isNotBlank)?.let { "$it;" }.orEmpty()
     return run(
       listOf(
@@ -341,6 +346,7 @@ internal class FakeHost : AutoCloseable {
       adapter_hid_status() { command ioreg "${'$'}@"; }
       adapter_system_control() { command sysctl "${'$'}@"; }
       adapter_caffeinate() { command caffeinate "${'$'}@"; }
+      adapter_deadline_sleep_millis() { command sleep 0.005; }
       adapter_sleep_millis() { command sleep "${'$'}1"; }
       """.trimIndent()
 

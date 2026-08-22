@@ -19,10 +19,28 @@ import performance.support.FakeHost
 class ArtifactRootContractTest :
   FunSpec(
     {
+      test("fake Docker bounds nested finalizer watchdogs without changing production policy") {
+        FakeHost().use { host ->
+          val result =
+            host.invokeFunction(
+              "adapter_docker_timeout_millis",
+              "run",
+              "--label",
+              "dev.revoman.performance.phase=finalizer",
+              environment = mapOf("FAKE_DOCKER_TIMEOUT_MILLIS" to "5"),
+              functionOverrides =
+                "adapter_docker_timeout_millis() { printf '%s' \"${'$'}FAKE_DOCKER_TIMEOUT_MILLIS\"; }",
+            )
+
+          result.exitCode shouldBe 0
+          result.standardOutput shouldBe "5"
+        }
+      }
+
       test("absolute output is rejected without exposing the path or promising an artifact") {
         FakeHost().use { host ->
           val sensitivePath = host.repositoryRoot.resolve("private/secret-output")
-          val result = host.invoke(*initialFreeze(host, sensitivePath.toString()).toTypedArray())
+          val result = host.invokeArtifact(*initialFreeze(host, sensitivePath.toString()).toTypedArray())
 
           result.exitCode shouldBe 2
           result.standardError shouldContain "OUTPUT_ABSOLUTE"
@@ -40,7 +58,7 @@ class ArtifactRootContractTest :
         .forEach { (condition, output) ->
           test("$condition is rejected before invoking the host") {
             FakeHost().use { host ->
-              val result = host.invoke(*initialFreeze(host, output).toTypedArray())
+              val result = host.invokeArtifact(*initialFreeze(host, output).toTypedArray())
 
               result.exitCode shouldBe 2
               result.standardError shouldContain "OUTPUT_INVALID"
@@ -57,7 +75,7 @@ class ArtifactRootContractTest :
         .forEach { output ->
           test("a privacy-unsafe logical output token is rejected") {
             FakeHost().use { host ->
-              val result = host.invoke(*initialFreeze(host, output).toTypedArray())
+              val result = host.invokeArtifact(*initialFreeze(host, output).toTypedArray())
 
               result.exitCode shouldBe 2
               result.standardError shouldContain "OUTPUT_INVALID"
@@ -73,7 +91,7 @@ class ArtifactRootContractTest :
           Files.createSymbolicLink(host.artifactRoot.resolve("link"), outside)
 
           val result =
-            host.invoke(*initialFreeze(host, "build/performance/link/escape").toTypedArray())
+            host.invokeArtifact(*initialFreeze(host, "build/performance/link/escape").toTypedArray())
 
           result.exitCode shouldBe 2
           result.standardError shouldContain "OUTPUT_SYMLINK"
@@ -87,7 +105,7 @@ class ArtifactRootContractTest :
           val output = host.outputPath("existing").also(Files::createDirectory)
           output.resolve("owned.txt").toFile().writeText("keep")
 
-          val result = host.invoke(*initialFreeze(host, host.output("existing")).toTypedArray())
+          val result = host.invokeArtifact(*initialFreeze(host, host.output("existing")).toTypedArray())
 
           result.exitCode shouldBe 2
           result.standardError shouldContain "OUTPUT_EXISTS"
@@ -106,7 +124,7 @@ class ArtifactRootContractTest :
           )
           try {
             val output = "build/performance/locked/unwritable"
-            val result = host.invoke(*initialFreeze(host, output).toTypedArray())
+            val result = host.invokeArtifact(*initialFreeze(host, output).toTypedArray())
 
             result.exitCode shouldBe 2
             result.standardError shouldContain "OUTPUT_UNWRITABLE"
@@ -128,7 +146,7 @@ class ArtifactRootContractTest :
             FakeHost().use { host ->
               val token = "publication-$operation"
               val result =
-                host.invoke(
+                host.invokeArtifact(
                   *initialFreeze(host, host.output(token)).toTypedArray(),
                   functionOverrides = override,
                 )
@@ -145,7 +163,7 @@ class ArtifactRootContractTest :
         FakeHost().use { host ->
           val token = "publication-move"
           val result =
-            host.invoke(
+            host.invokeArtifact(
               *initialFreeze(host, host.output(token)).toTypedArray(),
               environment = mapOf("FAKE_DOCKER_FINALIZER_BOUNDARY" to "move-failure"),
             )
@@ -163,7 +181,7 @@ class ArtifactRootContractTest :
         FakeHost().use { host ->
           val token = "partial-finalizer"
           val result =
-            host.invoke(
+            host.invokeArtifact(
               *initialFreeze(host, host.output(token)).toTypedArray(),
               functionOverrides =
                 "adapter_run_finalizer() { /bin/mkdir -p \"\$ADAPTER_STAGING\"; return 1; }",
@@ -180,7 +198,7 @@ class ArtifactRootContractTest :
         FakeHost().use { host ->
           val token = "context-unavailable"
           val result =
-            host.invoke(
+            host.invokeArtifact(
               *initialFreeze(host, host.output(token)).toTypedArray(),
               functionOverrides = "adapter_select_substrate() { return 1; }",
             )
@@ -196,7 +214,7 @@ class ArtifactRootContractTest :
         FakeHost().use { host ->
           val token = "finalizer-unavailable"
           val result =
-            host.invoke(
+            host.invokeArtifact(
               *initialFreeze(host, host.output(token)).toTypedArray(),
               environment =
                 mapOf(
@@ -217,7 +235,7 @@ class ArtifactRootContractTest :
         FakeHost().use { host ->
           val token = "verified-before-reserve"
           val result =
-            host.invoke(
+            host.invokeArtifact(
               *initialFreeze(host, host.output(token)).toTypedArray(),
               functionOverrides =
                 """
@@ -236,7 +254,7 @@ class ArtifactRootContractTest :
 
       test("the verified runner owns freeze validation and exact GNU publication") {
         FakeHost().use { host ->
-          val result = host.invoke(*initialFreeze(host, host.output("gnu-publication")).toTypedArray())
+          val result = host.invokeArtifact(*initialFreeze(host, host.output("gnu-publication")).toTypedArray())
           val finalizer =
             result.commands.single { command ->
               "dev.revoman.performance.phase=finalizer" in command
@@ -268,7 +286,7 @@ class ArtifactRootContractTest :
             val escape = host.artifactRoot.resolve("$token-escape").also(Files::createDirectory)
             Files.writeString(escape.resolve("foreign.txt"), "keep")
             val result =
-              host.invoke(
+              host.invokeArtifact(
                 *initialFreeze(host, host.output(token)).toTypedArray(),
                 environment = mapOf("FAKE_DOCKER_FINALIZER_BOUNDARY" to boundary),
               )
@@ -300,7 +318,7 @@ class ArtifactRootContractTest :
         FakeHost().use { host ->
           val token = "pre-move-boundary"
           val result =
-            host.invoke(
+            host.invokeArtifact(
               *initialFreeze(host, host.output(token)).toTypedArray(),
               environment = mapOf("FAKE_DOCKER_FINALIZER_BOUNDARY" to "pre-move-failure"),
             )
@@ -321,7 +339,7 @@ class ArtifactRootContractTest :
           val substituted = host.repositoryRoot.resolve("substituted-bind").also(Files::createDirectory)
           Files.writeString(substituted.resolve("foreign.txt"), "keep")
           val result =
-            host.invoke(
+            host.invokeArtifact(
               *initialFreeze(host, host.output(token)).toTypedArray(),
               environment = mapOf("FAKE_DOCKER_FINALIZER_BIND_SOURCE" to substituted.toString()),
             )
@@ -344,7 +362,7 @@ class ArtifactRootContractTest :
             FakeHost().use { host ->
               val token = "unavailable-${dependency.replace(' ', '-')}"
               val result =
-                host.invoke(
+                host.invokeArtifact(
                   *initialFreeze(host, host.output(token)).toTypedArray(),
                   functionOverrides = override,
                 )
@@ -366,4 +384,19 @@ private fun initialFreeze(host: FakeHost, output: String): List<String> =
     host.treatmentSource().toString(),
     "--output",
     output,
+  )
+
+private fun FakeHost.invokeArtifact(
+  vararg arguments: String,
+  environment: Map<String, String> = emptyMap(),
+  functionOverrides: String? = null,
+): performance.support.AdapterInvocation =
+  invoke(
+    *arguments,
+    environment = environment,
+    functionOverrides =
+      listOf(
+        "adapter_docker_timeout_millis() { printf '%s' \"${'$'}{FAKE_DOCKER_TIMEOUT_MILLIS:-10000}\"; }",
+        functionOverrides,
+      ).filterNotNull().joinToString(separator = "\n"),
   )

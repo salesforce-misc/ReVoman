@@ -18,6 +18,7 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 import java.util.Locale
 import java.util.TimeZone
 import performance.json.CanonicalJson
+import performance.hash.Sha256
 import performance.schema.EvidenceSchemaValidator
 import performance.schema.SchemaKind
 import tools.jackson.databind.node.JsonNodeFactory
@@ -37,16 +38,16 @@ class ComparisonRendererGoldenTest :
               .map { (locale, timeZone) ->
                 Locale.setDefault(locale)
                 TimeZone.setDefault(timeZone)
-                completedCandidateComparison()
+                deterministicCandidateRender()
               }
 
-          renders[0].jsonBytes shouldBe golden("comparison/candidate.json")
-          renders[0].markdownBytes shouldBe golden("comparison/candidate.md")
-          renders[1].jsonBytes shouldBe renders[0].jsonBytes
-          renders[1].markdownBytes shouldBe renders[0].markdownBytes
-          renders[0].markdownBytes.decodeToString() shouldContain
+          renders[0].json shouldBe golden("comparison/candidate.json")
+          renders[0].markdown shouldBe golden("comparison/candidate.md")
+          renders[1].json shouldBe renders[0].json
+          renders[1].markdown shouldBe renders[0].markdown
+          renders[0].markdown.decodeToString() shouldContain
             "Candidate/baseline ratio interval"
-          renders[0].markdownBytes.decodeToString() shouldNotContain "ratio interval (%)"
+          renders[0].markdown.decodeToString() shouldNotContain "ratio interval (%)"
         } finally {
           Locale.setDefault(originalLocale)
           TimeZone.setDefault(originalTimeZone)
@@ -143,3 +144,26 @@ private fun golden(relativePath: String): ByteArray =
       )
     )
     .use { stream -> stream.readAllBytes() }
+
+private fun deterministicCandidateRender(): RenderedComparison {
+  val document = completedCandidateComparison().document
+  return ComparisonRenderer().render(
+    document.copy(
+      baseline =
+        document.baseline.copy(
+          bundleSha256 = Sha256.parse("9a6fc8d8943f026d699ee8493d887f4450f8b6084a5c8f533f19170561f2bcd1"),
+          captureSha256 = Sha256.parse("f89eb1a29b988cdb3a4eb1665a289d6a17145efb3765b4ea755e34e208734444"),
+        ),
+      candidate =
+        document.candidate.copy(
+          bundleSha256 = Sha256.parse("b0ae5ce003ac873bbb4a635ebb80886cb37ca9967ab71b3441dd5d6b531301d7"),
+          captureSha256 = Sha256.parse("04e5f6730aae3e4dce1ad2e145d3e2595d5fa4fca84924489736cefb883cd1d4"),
+        ),
+      calibration = document.calibration?.copy(evidenceSha256 = Sha256.parse("5b926fc19909c6ddf481192392b36d3a2d972f59aa4bf9adf1875881dcc21790")),
+      implementation =
+        document.implementation.copy(
+          protocolSha256 = Sha256.parse("c0a032da7c676241c10d900ca120e422aa7859638a038e13c8f90e4b74c54614"),
+        ),
+    ),
+  )
+}
