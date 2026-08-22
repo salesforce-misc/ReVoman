@@ -103,6 +103,11 @@ class WorkflowSecurityContractTest :
         normalizeShell(steps.named("Freeze performance distribution").requiredString("run")) shouldBe
           "./scripts/performance/run freeze --treatment-source . " +
             "--output build/performance/distribution"
+        normalizeShell(steps.named("Report structural canary substrate").requiredString("run")) shouldBe
+          "docker version --format 'CANARY_DOCKER_SERVER_VERSION={{.Server.Version}}' " +
+            "docker info --format " +
+            "'CANARY_DOCKER_INFO={{.KernelVersion}}|{{.NCPU}}|{{.MemTotal}}|{{.Architecture}}' " +
+            "printf 'CANARY_RUNNER_IMAGE_VERSION=%s\\n' \"${'$'}ImageVersion\""
         normalizeShell(steps.named("Run structural performance canary").requiredString("run")) shouldBe
           "./scripts/performance/run canary " +
             "--distribution build/performance/distribution " +

@@ -47,6 +47,12 @@ jobs:
             --treatment-source . \
             --output build/performance/distribution
 
+      - name: 'Report structural canary substrate'
+        run: |
+          docker version --format 'CANARY_DOCKER_SERVER_VERSION={{.Server.Version}}'
+          docker info --format 'CANARY_DOCKER_INFO={{.KernelVersion}}|{{.NCPU}}|{{.MemTotal}}|{{.Architecture}}'
+          printf 'CANARY_RUNNER_IMAGE_VERSION=%s\n' "$ImageVersion"
+
       - name: 'Run structural performance canary'
         run: |
           ./scripts/performance/run canary \
