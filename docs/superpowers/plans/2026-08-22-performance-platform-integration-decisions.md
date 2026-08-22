@@ -124,6 +124,26 @@ classic storage proves the config ID plus repository digest, and both paths stil
 manifest hash and embedded config digest. Their exit assertions retain captured adapter tracing as
 failure context. No production phase policy, durability behavior, or evidence schema changes.
 
+The first complete hosted build then reached the structural canary and rejected qualification.
+The invalid bundle correctly disclosed no private host facts, but its coarse public reason could
+not distinguish runner-image drift from a policy mismatch. The build workflow now reports only the
+sanitized canary substrate tuple already used by qualification: Docker server version, kernel, CPU
+count, usable memory bytes, architecture, and runner image version. It never prints the ambient
+environment or Docker configuration. Run `32571204039` observed Docker 28.0.4,
+`6.17.0-1022-azure`, four CPUs, 16,722,042,880 usable bytes, `aarch64`, and runner image
+`20260817.96.1`.
+
+That observation isolated a semantic defect: the hosted policy called its memory field
+`advertisedMemoryBytes`, but preflight required exact equality with Docker's usable `MemTotal`.
+Linux host reservations make those values intentionally different. The policy now encodes the
+documented 16 GB lane as 16,000,000,000 advertised bytes; preflight requires the observed usable
+memory to meet or exceed that declared floor. The private substrate binding records the declared
+advertised CPU and memory values, while the runtime fingerprint continues to hash the complete raw
+Docker observation. Tests require the hosted observation above to pass, 15,999,999,999 bytes to
+fail before timing, malformed memory to fail without leaking a shell arithmetic diagnostic, and
+the binding to preserve the declared value rather than today's incidental usable-memory count.
+GitHub-hosted evidence remains diagnostic and claim-ineligible.
+
 The same build-lane investigation found that FakeHost adapter tests inherited the production
 `adapter_fsync_path`, so every reservation crossed the real whole-host `/bin/sync` boundary. A
 test-only recording override now verifies that the reservation synchronizes its token before the

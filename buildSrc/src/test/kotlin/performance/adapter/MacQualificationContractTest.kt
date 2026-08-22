@@ -15,6 +15,7 @@ import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
 import java.nio.file.Files
 import kotlin.io.path.createDirectories
 import kotlin.io.path.readText
@@ -397,6 +398,61 @@ class MacQualificationContractTest :
           result.commands.filter { it.firstOrNull() == "docker" }.forEach { invocation ->
             ("--context" in invocation) shouldBe false
           }
+        }
+      }
+
+      test("GitHub qualification accepts usable memory above its advertised minimum") {
+        FakeHost().use { host ->
+          val result =
+            host.invoke(
+              *captureCommand(host, "github-hosted-reserved-memory").toTypedArray(),
+              environment =
+                mapOf(
+                  "FAKE_SYSTEM_NAME" to "Linux",
+                  "FAKE_DOCKER_MEMORY_BYTES" to "16722042880",
+                ),
+            )
+
+          withClue("stderr=${result.standardError}; commands=${result.commands}") {
+            result.exitCode shouldBe 0
+          }
+        }
+      }
+
+      test("GitHub qualification rejects usable memory below its advertised minimum") {
+        FakeHost().use { host ->
+          val result =
+            host.invoke(
+              *captureCommand(host, "github-hosted-insufficient-memory").toTypedArray(),
+              environment =
+                mapOf(
+                  "FAKE_SYSTEM_NAME" to "Linux",
+                  "FAKE_DOCKER_MEMORY_BYTES" to "15999999999",
+                ),
+            )
+
+          result.exitCode shouldBe 2
+          result.standardError shouldContain "QUALIFICATION_FAILED"
+          result.commands.none { "dev.revoman.performance.phase=timed" in it } shouldBe true
+        }
+      }
+
+      test("GitHub qualification rejects malformed usable memory without a shell diagnostic") {
+        FakeHost().use { host ->
+          val result =
+            host.invoke(
+              *captureCommand(host, "github-hosted-malformed-memory").toTypedArray(),
+              environment =
+                mapOf(
+                  "FAKE_SYSTEM_NAME" to "Linux",
+                  "FAKE_DOCKER_MEMORY_BYTES" to "sixteen-gb",
+                ),
+            )
+
+          result.exitCode shouldBe 2
+          result.standardError shouldContain "QUALIFICATION_FAILED"
+          result.standardError shouldNotContain "integer expression expected"
+          result.commands.none { "dev.revoman.performance.phase=timed" in it } shouldBe true
         }
       }
 

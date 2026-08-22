@@ -10,7 +10,7 @@
   "dockerContext": null,
   "runnerLabel": "ubuntu-24.04-arm",
   "advertisedCpuCount": 4,
-  "advertisedMemoryBytes": 17179869184,
+  "advertisedMemoryBytes": 16000000000,
   "campaignTimeoutMillis": 7200000,
   "preparationTimeoutMillis": 900000,
   "finalizationTimeoutMillis": 900000,

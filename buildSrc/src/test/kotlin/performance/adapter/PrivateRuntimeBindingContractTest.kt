@@ -105,6 +105,7 @@ class PrivateRuntimeBindingContractTest :
               environment =
                 mapOf(
                   "FAKE_SYSTEM_NAME" to "Linux",
+                  "FAKE_DOCKER_MEMORY_BYTES" to "16722042880",
                   "ImageVersion" to "runner-image_v1+rev.2",
                 ),
             )
@@ -183,7 +184,7 @@ private const val TIMED_PHASE = "dev.revoman.performance.phase=timed"
 private const val CONTROLLED_MAC_BINDING_SHA256 =
   "c70de60d4418aa721f7ef009eaae58c9895da34786e5ab953c654f529828ceeb"
 private const val GITHUB_HOSTED_BINDING_SHA256 =
-  "b0c75a42f4130d0344980832fbe767bab2f5c9d9253bb7da564f1adc7a5b601a"
+  "718243069ae9808f5be6740c2a8a94b713ef8bfca9cec56223c605c2104728d1"
 private val CONTROLLED_MAC_BINDING =
   ("""{"linux":{"architecture":"arm64","kernel":"7.0.12-linuxkit","os":"Ubuntu 24.04.4 LTS"},""" +
       """"schemaVersion":"private-runtime-binding-v1","substrate":{"dockerDesktopVersion":"4.87.0",""" +
@@ -195,7 +196,7 @@ private val CONTROLLED_MAC_BINDING =
 private val GITHUB_HOSTED_BINDING =
   ("""{"linux":{"architecture":"arm64","kernel":"6.11.0","os":"Ubuntu 24.04.4 LTS"},""" +
       """"schemaVersion":"private-runtime-binding-v1","substrate":{"advertisedResources":{"cpus":4,""" +
-      """"memoryBytes":17179869184},"dockerEngineVersion":"29.7.2","kernel":"6.11.0",""" +
+      """"memoryBytes":16000000000},"dockerEngineVersion":"29.7.2","kernel":"6.11.0",""" +
       """"kind":"githubHosted","runnerImageVersion":"runner-image_v1+rev.2",""" +
       """"runnerLabel":"ubuntu-24.04-arm"}}
 """)

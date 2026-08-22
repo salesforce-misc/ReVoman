@@ -2260,8 +2260,10 @@ adapter_run_github_preflight() {
     return 1
   IFS='|' read -r ADAPTER_DOCKER_KERNEL ADAPTER_DOCKER_CPUS ADAPTER_DOCKER_MEMORY \
     ADAPTER_DOCKER_ARCHITECTURE <<<"$information"
+  [[ "$ADAPTER_DOCKER_CPUS" =~ ^[1-9][0-9]*$ ]] &&
+    [[ "$ADAPTER_DOCKER_MEMORY" =~ ^[1-9][0-9]*$ ]] || return 1
   [ "$ADAPTER_DOCKER_CPUS" = "$(adapter_policy_scalar 'advertisedCpuCount')" ] &&
-    [ "$ADAPTER_DOCKER_MEMORY" = "$(adapter_policy_scalar 'advertisedMemoryBytes')" ] &&
+    [ "$ADAPTER_DOCKER_MEMORY" -ge "$(adapter_policy_scalar 'advertisedMemoryBytes')" ] &&
     [ "$ADAPTER_DOCKER_ARCHITECTURE" = 'aarch64' ] || return 1
   ADAPTER_RUNTIME_FINGERPRINT_SHA256=$(printf '%s' "$information" | adapter_sha256_stdin) || return 1
   adapter_container_fingerprint || return 1
@@ -2289,6 +2291,8 @@ adapter_run_preflight() {
 }
 
 adapter_private_runtime_binding_document() {
+  local advertised_cpus
+  local advertised_memory
   case "$ADAPTER_QUALIFICATION_KIND" in
     controlledMac)
       [[ "$ADAPTER_MACOS_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || return 1
@@ -2303,6 +2307,8 @@ adapter_private_runtime_binding_document() {
         "{\"linux\":{\"architecture\":\"arm64\",\"kernel\":\"$ADAPTER_DOCKER_KERNEL\",\"os\":\"$ADAPTER_LINUX_OS\"},\"schemaVersion\":\"private-runtime-binding-v1\",\"substrate\":{\"dockerDesktopVersion\":\"$ADAPTER_DOCKER_DESKTOP_VERSION\",\"dockerEngineVersion\":\"$ADAPTER_DOCKER_ENGINE_VERSION\",\"hardwareModelClass\":\"$ADAPTER_HARDWARE_MODEL_CLASS\",\"kind\":\"controlledMac\",\"macosBuild\":\"$ADAPTER_MACOS_BUILD\",\"macosVersion\":\"$ADAPTER_MACOS_VERSION\",\"vmResources\":{\"cpus\":$ADAPTER_DOCKER_CPUS,\"memoryBytes\":$ADAPTER_DOCKER_MEMORY}}}"
       ;;
     githubHosted)
+      advertised_cpus=$(adapter_policy_scalar 'advertisedCpuCount') || return 1
+      advertised_memory=$(adapter_policy_scalar 'advertisedMemoryBytes') || return 1
       [[ "$ADAPTER_DOCKER_ENGINE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || return 1
       [[ "$ADAPTER_DOCKER_KERNEL" =~ ^[A-Za-z0-9._+-]+$ ]] || return 1
       [[ "$ADAPTER_DOCKER_CPUS" =~ ^[1-9][0-9]*$ ]] || return 1
@@ -2310,7 +2316,7 @@ adapter_private_runtime_binding_document() {
       [[ "$ADAPTER_RUNNER_IMAGE_VERSION" =~ ^[A-Za-z0-9._+-]{1,128}$ ]] || return 1
       [[ "$ADAPTER_RUNNER_LABEL" =~ ^[A-Za-z0-9._-]+$ ]] || return 1
       printf '%s' \
-        "{\"linux\":{\"architecture\":\"arm64\",\"kernel\":\"$ADAPTER_DOCKER_KERNEL\",\"os\":\"$ADAPTER_LINUX_OS\"},\"schemaVersion\":\"private-runtime-binding-v1\",\"substrate\":{\"advertisedResources\":{\"cpus\":$ADAPTER_DOCKER_CPUS,\"memoryBytes\":$ADAPTER_DOCKER_MEMORY},\"dockerEngineVersion\":\"$ADAPTER_DOCKER_ENGINE_VERSION\",\"kernel\":\"$ADAPTER_DOCKER_KERNEL\",\"kind\":\"githubHosted\",\"runnerImageVersion\":\"$ADAPTER_RUNNER_IMAGE_VERSION\",\"runnerLabel\":\"$ADAPTER_RUNNER_LABEL\"}}"
+        "{\"linux\":{\"architecture\":\"arm64\",\"kernel\":\"$ADAPTER_DOCKER_KERNEL\",\"os\":\"$ADAPTER_LINUX_OS\"},\"schemaVersion\":\"private-runtime-binding-v1\",\"substrate\":{\"advertisedResources\":{\"cpus\":$advertised_cpus,\"memoryBytes\":$advertised_memory},\"dockerEngineVersion\":\"$ADAPTER_DOCKER_ENGINE_VERSION\",\"kernel\":\"$ADAPTER_DOCKER_KERNEL\",\"kind\":\"githubHosted\",\"runnerImageVersion\":\"$ADAPTER_RUNNER_IMAGE_VERSION\",\"runnerLabel\":\"$ADAPTER_RUNNER_LABEL\"}}"
       ;;
     *) return 1 ;;
   esac
