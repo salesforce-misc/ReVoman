@@ -10,7 +10,7 @@ package performance.model
 import performance.hash.Sha256
 
 /** Stable run identifiers shared by every capture-global record. */
-data class CaptureIdentity(
+internal data class CaptureIdentity(
   val captureId: String,
   val processRunId: String,
   val performanceSessionId: String,
@@ -18,16 +18,16 @@ data class CaptureIdentity(
 )
 
 /** Descriptive alias used by evidence consumers outside the capture runner. */
-typealias EvidenceIdentity = CaptureIdentity
+internal typealias EvidenceIdentity = CaptureIdentity
 
 /** Clean Git provenance for one distinct evidence-production role. */
-data class GitProvenance(
+internal data class GitProvenance(
   val gitSha: String,
   val treeClean: Boolean,
 )
 
 /** The four provenance roles that must never be collapsed into one checkout identity. */
-data class ProvenanceRoles(
+internal data class ProvenanceRoles(
   val treatment: GitProvenance,
   val immutableHarness: GitProvenance,
   val distributionFreezer: GitProvenance,
@@ -35,19 +35,19 @@ data class ProvenanceRoles(
 )
 
 /** A normalized relative artifact path bound to its bytes. */
-data class ArtifactIdentity(
+internal data class ArtifactIdentity(
   val path: String,
   val sha256: Sha256,
 )
 
 /** A dependency coordinate bound to the exact artifact bytes used during capture. */
-data class DependencyIdentity(
+internal data class DependencyIdentity(
   val coordinate: String,
   val sha256: Sha256,
 )
 
 /** Claim-relevant artifact identities, retaining classpath order. */
-data class CaptureArtifacts(
+internal data class CaptureArtifacts(
   val production: ArtifactIdentity,
   val benchmark: ArtifactIdentity,
   val distribution: ArtifactIdentity,
@@ -59,7 +59,7 @@ data class CaptureArtifacts(
 )
 
 /** Frozen protocol hashes required to interpret or compare a capture. */
-data class ProtocolIdentity(
+internal data class ProtocolIdentity(
   val benchmarkSourceSha256: Sha256,
   val benchmarkProtocolSha256: Sha256,
   val qualificationPolicySha256: Sha256,

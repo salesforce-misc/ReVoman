@@ -213,7 +213,7 @@ internal data class ProvisionalCalibrationDecision(
 }
 
 /** Pure provisional evaluator; its result can authorize B but cannot render or publish evidence. */
-class ProvisionalCalibrationEvaluator {
+internal class ProvisionalCalibrationEvaluator {
   internal fun evaluate(
     baseline: ValidatedProvisionalCapture,
     candidate: ValidatedProvisionalCapture,

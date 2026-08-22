@@ -15,34 +15,34 @@ import performance.json.CanonicalJson
 import performance.schema.EvidenceSchemaValidator
 import performance.schema.SchemaKind
 
-enum class ComparisonKind {
+internal enum class ComparisonKind {
   CALIBRATION,
   CANDIDATE,
 }
 
-enum class ComparisonStrength {
+internal enum class ComparisonStrength {
   DIAGNOSTIC,
 }
 
-enum class ComparisonCompatibility {
+internal enum class ComparisonCompatibility {
   COMPATIBLE,
   INCOMPATIBLE,
 }
 
-enum class DirectionOutcome {
+internal enum class DirectionOutcome {
   IMPROVEMENT,
   REGRESSION,
   INCONCLUSIVE,
 }
 
-enum class PolicyOutcome {
+internal enum class PolicyOutcome {
   NOT_ENFORCED,
   PASS,
   FAIL,
   INCONCLUSIVE,
 }
 
-enum class CompatibilityFailure {
+internal enum class CompatibilityFailure {
   BUNDLE_UNSEALED,
   BUNDLE_SCHEMA_INVALID,
   BUNDLE_CHECKSUM_INVALID,
@@ -79,7 +79,7 @@ enum class CompatibilityFailure {
 }
 
 /** Every executing identity is derived from one freshly validated frozen runner distribution. */
-data class ComparisonExecutionIdentity(
+internal data class ComparisonExecutionIdentity(
   val runnerSha256: Sha256,
   val protocolSha256: Sha256,
   val adapterSha256: Sha256,
@@ -93,7 +93,7 @@ data class ComparisonExecutionIdentity(
 )
 
 @ConsistentCopyVisibility
-data class RegressionPolicy private constructor(
+internal data class RegressionPolicy private constructor(
   val maximumRegressionBudget: Double,
   val sha256: Sha256,
 ) {
@@ -121,7 +121,7 @@ data class RegressionPolicy private constructor(
 }
 
 /** The public comparison seam accepts locations and policy only; proofs are verifier-owned. */
-data class ComparisonRequest(
+internal data class ComparisonRequest(
   val runnerDistribution: Path,
   val kind: ComparisonKind,
   val baseline: Path,

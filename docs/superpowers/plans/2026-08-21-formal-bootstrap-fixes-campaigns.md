@@ -122,7 +122,7 @@ SHA, adapter SHA, schema closure SHA, and comparator SHA before proceeding.
 - [ ] **Step 1: Recompute the installed JDK closure and anchors**
 
 ```bash
-./gradlew --no-daemon -Dorg.gradle.java.home=/home/linuxbrew/.linuxbrew/Cellar/sdkman-cli/5.19.0/libexec/candidates/java/21.0.12-tem verifyPerformanceRuntimeProfile
+./gradlew --quiet --no-daemon -Dorg.gradle.java.home=/home/linuxbrew/.linuxbrew/Cellar/sdkman-cli/5.19.0/libexec/candidates/java/21.0.12-tem verifyPerformanceRuntimeProfile
 sha256sum \
   /home/linuxbrew/.linuxbrew/Cellar/sdkman-cli/5.19.0/libexec/candidates/java/21.0.12-tem/bin/java \
   /home/linuxbrew/.linuxbrew/Cellar/sdkman-cli/5.19.0/libexec/candidates/java/21.0.12-tem/release \

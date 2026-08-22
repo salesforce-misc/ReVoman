@@ -783,43 +783,45 @@ internal object ComparisonInputVerifier {
     if (samePhysicalPath(request.baseline, request.candidate)) {
       failures += CompatibilityFailure.SAME_CAPTURE
     }
-    if (baseline.projection != null && candidate.projection != null) {
-      failures +=
-        CaptureCompatibility.validate(
-          request,
-          baseline.projection,
-          candidate.projection,
-          execution,
-          distribution,
-        )
-      if (request.kind == ComparisonKind.CANDIDATE) {
-        when {
-          request.calibration == null ->
-            failures += CompatibilityFailure.CALIBRATION_EVIDENCE_MISSING
-          calibration == null ->
-            failures += CompatibilityFailure.CALIBRATION_EVIDENCE_INVALID
-          else -> {
-            failures += calibration.failures
-            calibration.projection?.let { proof ->
-              failures +=
-                CalibrationBundleVerifier.validate(
-                  proof,
-                  baseline.projection,
-                  candidate.projection,
-                  execution,
-                )
-            }
-            if (
-              samePhysicalPath(request.calibration, request.baseline) ||
-                samePhysicalPath(request.calibration, request.candidate)
-            ) {
+    when {
+      baseline.projection != null && candidate.projection != null -> {
+        failures +=
+          CaptureCompatibility.validate(
+            request,
+            baseline.projection,
+            candidate.projection,
+            execution,
+            distribution,
+          )
+        if (request.kind == ComparisonKind.CANDIDATE) {
+          when {
+            request.calibration == null ->
+              failures += CompatibilityFailure.CALIBRATION_EVIDENCE_MISSING
+            calibration == null ->
               failures += CompatibilityFailure.CALIBRATION_EVIDENCE_INVALID
+            else -> {
+              failures += calibration.failures
+              calibration.projection?.let { proof ->
+                failures +=
+                  CalibrationBundleVerifier.validate(
+                    proof,
+                    baseline.projection,
+                    candidate.projection,
+                    execution,
+                  )
+              }
+              if (
+                samePhysicalPath(request.calibration, request.baseline) ||
+                  samePhysicalPath(request.calibration, request.candidate)
+              ) {
+                failures += CompatibilityFailure.CALIBRATION_EVIDENCE_INVALID
+              }
             }
           }
         }
       }
-    } else if (failures.isEmpty()) {
-      failures += CompatibilityFailure.BUNDLE_SCHEMA_INVALID
+
+      failures.isEmpty() -> failures += CompatibilityFailure.BUNDLE_SCHEMA_INVALID
     }
     val ordered = failures.distinct().sortedBy(Enum<*>::name)
     return if (ordered.isNotEmpty()) {

@@ -41,14 +41,14 @@ import performance.process.ProcessExecutor
 import performance.process.ProcessInvocation
 import performance.runner.RunnerExit
 
-data class CaptureRequest(
+internal data class CaptureRequest(
   val distribution: VerifiedDistribution,
   val profile: CaptureProfile,
   val identity: CaptureIdentity,
   val provisionalRoot: Path,
 )
 
-enum class CaptureFailure(internal val preflight: Boolean = false) {
+internal enum class CaptureFailure(internal val preflight: Boolean = false) {
   PROFILE_MISMATCH(true),
   IDENTITY_MISMATCH(true),
   PROTOCOL_MISMATCH(true),
@@ -77,7 +77,7 @@ enum class CaptureFailure(internal val preflight: Boolean = false) {
   CAPTURE_IO_FAILED,
 }
 
-sealed interface CaptureOutcome {
+internal sealed interface CaptureOutcome {
   data class Provisional(val document: ProvisionalCaptureDocument) : CaptureOutcome
 
   data class Invalid(val reasons: List<CaptureFailure>) : CaptureOutcome {
@@ -95,7 +95,7 @@ internal data class JfrCaptureHooks(
   val afterBindingBeforeHash: (Path) -> Unit = {},
 )
 
-class CaptureRunner private constructor(
+internal class CaptureRunner private constructor(
   private val processExecutor: ProcessExecutor,
   private val clock: Clock,
   private val canonicalizer: JmhResultCanonicalizer,

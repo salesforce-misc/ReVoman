@@ -13,7 +13,7 @@ import tools.jackson.databind.node.ArrayNode
 import tools.jackson.databind.node.ObjectNode
 
 /** Semantic validation for the exact JMH row set and primary observation geometry. */
-class JmhResultValidator {
+internal class JmhResultValidator {
   fun validate(
     rows: ArrayNode,
     geometry: CaptureGeometry,

@@ -98,8 +98,8 @@ class WorkflowSecurityContractTest :
         ) shouldBe "${'$'}{{ github.event_name == 'pull_request' }}"
 
         steps.named("Build build logic").requiredString("run") shouldBe
-          "./gradlew -p buildSrc test"
-        steps.named("Build project").requiredString("run") shouldBe "./gradlew build"
+          "./gradlew --quiet -p buildSrc test"
+        steps.named("Build project").requiredString("run") shouldBe "./gradlew --quiet build"
         normalizeShell(steps.named("Freeze performance distribution").requiredString("run")) shouldBe
           "./scripts/performance/run freeze --treatment-source . " +
             "--output build/performance/distribution"

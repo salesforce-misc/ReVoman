@@ -14,7 +14,7 @@ import tools.jackson.databind.node.JsonNodeFactory
 import tools.jackson.databind.node.ObjectNode
 
 /** Removes host- and secret-bearing text without altering benchmark observation semantics. */
-class PrivacyFilter {
+internal class PrivacyFilter {
   fun sanitize(value: String): String {
     var safe = value
     safe = COMMAND.replace(safe) { match -> "${match.groupValues[1]}[redacted-command]" }

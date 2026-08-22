@@ -8,26 +8,26 @@
 package performance.model
 
 /** Whether an evidence bundle satisfied every structural and semantic validity rule. */
-enum class EvidenceStatus {
+internal enum class EvidenceStatus {
   VALID,
   INVALID,
 }
 
 /** The strongest interpretation a capture is permitted to support. */
-enum class EvidenceStrength {
+internal enum class EvidenceStrength {
   CANARY,
   DIAGNOSTIC,
   CANONICAL,
 }
 
 /** Evidence strengths available before sealing and host qualification complete. */
-enum class ProvisionalEvidenceStrength {
+internal enum class ProvisionalEvidenceStrength {
   CANARY,
   DIAGNOSTIC,
 }
 
 /** Final capture reasons, including the sole claim-bearing campaign qualification. */
-enum class FinalOutcomeReason {
+internal enum class FinalOutcomeReason {
   BOUNDED_DIAGNOSTIC,
   CONTROLLED_MAC_CAMPAIGN_QUALIFIED,
   GITHUB_HOSTED,
@@ -38,7 +38,7 @@ enum class FinalOutcomeReason {
 }
 
 /** Nonclaim reasons available to unpublished canary and diagnostic captures. */
-enum class ProvisionalOutcomeReason {
+internal enum class ProvisionalOutcomeReason {
   BOUNDED_DIAGNOSTIC,
   GITHUB_HOSTED,
   INVALID_MEASUREMENT,

@@ -22,7 +22,7 @@ enum class RunnerExit(val code: Int) {
 }
 
 /** The terminal state of a runner command and its optional published artifact. */
-data class RunnerOutcome(
+internal data class RunnerOutcome(
   val exit: RunnerExit,
   val publishedArtifact: Path?,
 )

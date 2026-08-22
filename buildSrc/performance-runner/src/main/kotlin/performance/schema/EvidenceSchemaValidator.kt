@@ -16,7 +16,7 @@ import performance.json.CanonicalJson
 private const val SCHEMA_ID_ROOT = "https://revoman.dev/performance/protocol/schemas"
 
 /** Every versioned evidence document schema embedded in the frozen protocol. */
-enum class SchemaKind(
+internal enum class SchemaKind(
   val fileName: String,
 ) {
   CAPTURE("capture-v1.schema.json"),
@@ -38,14 +38,14 @@ enum class SchemaKind(
 }
 
 /** One privacy-safe schema failure, without echoing the rejected value. */
-data class SchemaViolation(
+internal data class SchemaViolation(
   val path: String,
   val keyword: String,
   val message: String,
 )
 
 /** Deep validation module for canonical evidence bytes and all frozen Draft 2020-12 schemas. */
-class EvidenceSchemaValidator {
+internal class EvidenceSchemaValidator {
   private val schemas: Map<SchemaKind, Schema> = loadSchemas()
 
   /** Validates canonical bytes without exposing rejected document values in errors. */

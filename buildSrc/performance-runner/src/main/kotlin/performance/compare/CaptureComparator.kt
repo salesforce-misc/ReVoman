@@ -21,7 +21,7 @@ import performance.model.ComparisonPolicyResult
 import performance.model.IncompatibleComparisonDocument
 import performance.runner.RunnerExit
 
-sealed interface ComparisonComputation {
+internal sealed interface ComparisonComputation {
   class Completed(
     val document: ComparisonDocument,
     val jsonBytes: ByteArray,
@@ -48,7 +48,7 @@ sealed interface ComparisonComputation {
 }
 
 /** Sole production seam for verification and comparison of sealed capture paths. */
-class CaptureComparator private constructor(
+internal class CaptureComparator private constructor(
   private val renderer: ComparisonRenderer = ComparisonRenderer(),
   private val executingRunnerObservation: ExecutingRunnerObservation?,
 ) {

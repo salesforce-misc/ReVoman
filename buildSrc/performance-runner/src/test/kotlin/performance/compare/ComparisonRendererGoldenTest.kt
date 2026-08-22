@@ -17,8 +17,8 @@ import io.kotest.matchers.string.shouldNotContain
 import io.kotest.matchers.types.shouldBeInstanceOf
 import java.util.Locale
 import java.util.TimeZone
-import performance.json.CanonicalJson
 import performance.hash.Sha256
+import performance.json.CanonicalJson
 import performance.schema.EvidenceSchemaValidator
 import performance.schema.SchemaKind
 import tools.jackson.databind.node.JsonNodeFactory

@@ -12,7 +12,7 @@ import performance.hash.Sha256
 import performance.json.CanonicalJson
 import tools.jackson.databind.node.JsonNodeFactory
 
-data class ProfilerIdentity(
+internal data class ProfilerIdentity(
   val kind: String,
   val variantSha256: Sha256,
   val settingsSha256: Sha256? = null,
@@ -25,9 +25,9 @@ data class ProfilerIdentity(
   }
 }
 
-data class DroppedSamples(val events: Long, val stackTraces: Long)
+internal data class DroppedSamples(val events: Long, val stackTraces: Long)
 
-data class ProfilerAggregate(
+internal data class ProfilerAggregate(
   val category: String,
   val className: String,
   val methodName: String,
@@ -37,13 +37,13 @@ data class ProfilerAggregate(
   val ioBytes: Long,
 )
 
-data class GcCounters(
+internal data class GcCounters(
   val allocationBytesPerOperation: BigDecimal,
   val collections: BigDecimal,
   val collectionTimeMillis: BigDecimal,
 )
 
-data class GcProfilerInput(
+internal data class GcProfilerInput(
   val captureId: String,
   val rawInputSha256: Sha256,
   val variantSha256: Sha256,
@@ -51,11 +51,11 @@ data class GcProfilerInput(
   val secondaryMetrics: Map<String, BigDecimal>,
 )
 
-enum class ProfilerSummaryFailure {
+internal enum class ProfilerSummaryFailure {
   INCOMPLETE_GC_METRICS,
 }
 
-sealed interface ProfilerSummaryBuild {
+internal sealed interface ProfilerSummaryBuild {
   data class Valid(val summary: ProfilerSummary, val canonicalBytes: ByteArray) :
     ProfilerSummaryBuild
 
@@ -63,7 +63,7 @@ sealed interface ProfilerSummaryBuild {
 }
 
 /** Privacy-safe profiler evidence shared by GC and JFR diagnostic captures. */
-data class ProfilerSummary(
+internal data class ProfilerSummary(
   val captureId: String,
   val rawInputSha256: Sha256,
   val durationNanos: Long,

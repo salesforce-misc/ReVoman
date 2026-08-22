@@ -18,13 +18,13 @@ import performance.model.IncompatibleComparisonDocument
 import tools.jackson.databind.node.JsonNodeFactory
 import tools.jackson.databind.node.ObjectNode
 
-class RenderedComparison(
+internal class RenderedComparison(
   val json: ByteArray,
   val markdown: ByteArray,
 )
 
 /** Locale/timezone-independent strict JSON and concise Markdown rendering. */
-class ComparisonRenderer {
+internal class ComparisonRenderer {
   fun render(document: ComparisonReportDocument): RenderedComparison =
     RenderedComparison(
       json = CanonicalJson.encode(document.toJson()),

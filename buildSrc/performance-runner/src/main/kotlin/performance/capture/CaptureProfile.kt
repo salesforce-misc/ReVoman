@@ -21,13 +21,13 @@ import tools.jackson.databind.node.ArrayNode
 import tools.jackson.databind.node.JsonNodeFactory
 import tools.jackson.databind.node.ObjectNode
 
-enum class CaptureProfileFamily(val id: String) {
+internal enum class CaptureProfileFamily(val id: String) {
   CANARY("canary"),
   COLD("cold"),
   WARM("warm"),
 }
 
-enum class DiagnosticProfiler(val id: String) {
+internal enum class DiagnosticProfiler(val id: String) {
   NONE("none"),
   GC("gc"),
   JFR("jfr"),
@@ -40,7 +40,7 @@ internal const val JFR_PROFILER_ARGUMENT =
   "jfr:dir={operationRoot};configName=profile;debugNonSafePoints=true;stackDepth=1024;postProcessor=$JFR_FORK_ACCUMULATOR;verbose=false"
 
 /** Immutable execution dimensions checked against both the command and returned rows. */
-data class CaptureGeometry(
+internal data class CaptureGeometry(
   val forks: Int,
   val warmupIterations: Int,
   val measurementIterations: Int,
@@ -51,7 +51,7 @@ data class CaptureGeometry(
 )
 
 /** Non-result evidence already verified by the container bootstrap and frozen distribution. */
-data class CaptureEvidenceContext(
+internal data class CaptureEvidenceContext(
   val provenance: ProvenanceRoles,
   val protocol: ProtocolIdentity,
   val toolchain: ToolchainIdentity,
@@ -60,7 +60,7 @@ data class CaptureEvidenceContext(
 )
 
 /** One selected immutable variant from a checked-in profile family. */
-data class CaptureProfile(
+internal data class CaptureProfile(
   val family: CaptureProfileFamily,
   val identity: String,
   val variantSha256: Sha256,
@@ -137,7 +137,7 @@ data class CaptureProfile(
 }
 
 /** Strict profile-family decoder; variant hashes bind the exact canonical variant object. */
-object CaptureProfileReader {
+internal object CaptureProfileReader {
   fun read(
     bytes: ByteArray,
     expectedCells: ExpectedCells,

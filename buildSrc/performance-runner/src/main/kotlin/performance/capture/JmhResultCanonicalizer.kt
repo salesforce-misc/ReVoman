@@ -26,7 +26,7 @@ import tools.jackson.databind.node.ArrayNode
 import tools.jackson.databind.node.JsonNodeFactory
 import tools.jackson.databind.node.ObjectNode
 
-sealed interface JmhCanonicalization {
+internal sealed interface JmhCanonicalization {
   data class Valid(
     val canonicalBytes: ByteArray,
     val rawInputSha256: Sha256,
@@ -38,7 +38,7 @@ sealed interface JmhCanonicalization {
 }
 
 /** Projects JMH output onto the strict observation fields owned by the V1 protocol. */
-class JmhResultCanonicalizer(
+internal class JmhResultCanonicalizer(
   private val validator: JmhResultValidator = JmhResultValidator(),
 ) {
   fun canonicalize(

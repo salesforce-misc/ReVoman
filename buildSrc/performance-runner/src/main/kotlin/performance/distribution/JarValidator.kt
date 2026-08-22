@@ -320,11 +320,11 @@ internal object JarValidator {
         cursor += 1
       }
       require(cursor > lengthStart && line.getOrNull(cursor) == ' ')
-      val length = line.substring(lengthStart, cursor).toInt()
+      val length = line.substring(lengthStart until cursor).toInt()
       cursor += 1
       val end = cursor + length
       require(end <= line.length)
-      val value = line.substring(cursor, end)
+      val value = line.substring(cursor until end)
       require(line.getOrNull(end) == ' ')
       cursor = end + 1
       return value

@@ -141,7 +141,7 @@ Keep `RuntimeLifecycleBenchmark.kt`, `EnvAccumBenchmark.kt`, `MarshallingBenchma
 Use the current-master value for every coordinate already present there. Add only platform-required aliases absent from master, including the JMH Gradle plugin and runner libraries referenced by `buildSrc/performance-runner/build.gradle.kts`.
 
 ```bash
-./gradlew --no-daemon -Dorg.gradle.java.home=/home/linuxbrew/.linuxbrew/Cellar/sdkman-cli/5.19.0/libexec/candidates/java/21.0.12-tem dependencies
+./gradlew --quiet --no-daemon -Dorg.gradle.java.home=/home/linuxbrew/.linuxbrew/Cellar/sdkman-cli/5.19.0/libexec/candidates/java/21.0.12-tem dependencies
 ```
 
 Expected: Gradle resolves without an unknown alias or implicit downgrade.
@@ -187,7 +187,7 @@ Expected: both commands produce no output. The first parent is still the pre-mer
 - [ ] **Step 6: Run focused RED/GREEN contracts**
 
 ```bash
-./gradlew --no-daemon -Dorg.gradle.java.home=/home/linuxbrew/.linuxbrew/Cellar/sdkman-cli/5.19.0/libexec/candidates/java/21.0.12-tem \
+./gradlew --quiet --no-daemon -Dorg.gradle.java.home=/home/linuxbrew/.linuxbrew/Cellar/sdkman-cli/5.19.0/libexec/candidates/java/21.0.12-tem \
   buildSrc:test \
   :buildSrc:performance-runner:test \
   jmhTest
@@ -247,7 +247,7 @@ test("legacy timing entry points are retired") {
 - [ ] **Step 2: Run the contract and observe the expected failure**
 
 ```bash
-./gradlew --no-daemon -Dorg.gradle.java.home=/home/linuxbrew/.linuxbrew/Cellar/sdkman-cli/5.19.0/libexec/candidates/java/21.0.12-tem buildSrc:test --tests performance.DocumentationContractTest
+./gradlew --quiet --no-daemon -Dorg.gradle.java.home=/home/linuxbrew/.linuxbrew/Cellar/sdkman-cli/5.19.0/libexec/candidates/java/21.0.12-tem buildSrc:test --tests performance.DocumentationContractTest
 ```
 
 Expected: FAIL because at least one legacy path still exists.
@@ -274,7 +274,7 @@ Retain action SHA pinning, credential scrubbing, sanitized artifact roots, and Q
 - [ ] **Step 5: Regenerate and review ABI evidence**
 
 ```bash
-./gradlew --no-daemon -Dorg.gradle.java.home=/home/linuxbrew/.linuxbrew/Cellar/sdkman-cli/5.19.0/libexec/candidates/java/21.0.12-tem apiDump
+./gradlew --quiet --no-daemon -Dorg.gradle.java.home=/home/linuxbrew/.linuxbrew/Cellar/sdkman-cli/5.19.0/libexec/candidates/java/21.0.12-tem updateKotlinAbi
 git diff -- api/revoman-root.api
 git diff --exit-code HEAD^1 -- src/main src/test src/integrationTest
 ```
@@ -284,7 +284,7 @@ Expected: the API dump reflects current-master production code and the productio
 - [ ] **Step 6: Rerun the focused contract and commit reconciliation**
 
 ```bash
-./gradlew --no-daemon -Dorg.gradle.java.home=/home/linuxbrew/.linuxbrew/Cellar/sdkman-cli/5.19.0/libexec/candidates/java/21.0.12-tem buildSrc:test --tests performance.DocumentationContractTest
+./gradlew --quiet --no-daemon -Dorg.gradle.java.home=/home/linuxbrew/.linuxbrew/Cellar/sdkman-cli/5.19.0/libexec/candidates/java/21.0.12-tem buildSrc:test --tests performance.DocumentationContractTest
 git add .github Dockerfile.perf README.adoc DEVELOPMENT.md api build.gradle.kts buildSrc config docs gradle qodana.yaml scripts src/jmh src/jmhTest
 git commit -m "build(perf): reconcile platform with current master"
 ```
@@ -315,8 +315,8 @@ Expected: ancestry succeeds, exactly one integration merge is present, and produ
 - [ ] **Step 2: Run the full verification matrix**
 
 ```bash
-./gradlew --no-daemon -Dorg.gradle.java.home=/home/linuxbrew/.linuxbrew/Cellar/sdkman-cli/5.19.0/libexec/candidates/java/21.0.12-tem clean test integrationTest jmhTest buildSrc:test :buildSrc:performance-runner:test apiCheck verifyPerformanceDistribution
-./gradlew --no-daemon -Dorg.gradle.java.home=/home/linuxbrew/.linuxbrew/Cellar/sdkman-cli/5.19.0/libexec/candidates/java/21.0.12-tem qodanaScan
+./gradlew --quiet --no-daemon -Dorg.gradle.java.home=/home/linuxbrew/.linuxbrew/Cellar/sdkman-cli/5.19.0/libexec/candidates/java/21.0.12-tem clean test integrationTest jmhTest buildSrc:test :buildSrc:performance-runner:test checkKotlinAbi verifyPerformanceDistribution
+./gradlew --quiet --no-daemon -Dorg.gradle.java.home=/home/linuxbrew/.linuxbrew/Cellar/sdkman-cli/5.19.0/libexec/candidates/java/21.0.12-tem qodanaScan
 ```
 
 Expected: every task passes. Save command, exit status, duration, and report paths in the review packet.

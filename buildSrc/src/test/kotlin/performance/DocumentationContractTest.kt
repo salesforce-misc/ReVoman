@@ -8,6 +8,7 @@
 package performance
 
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.file.shouldNotExist
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import java.nio.file.Files
@@ -48,6 +49,17 @@ class DocumentationContractTest :
         development shouldContain "no privilege escalation"
         development shouldContain "no persistent self-hosted runner"
         development shouldContain "no polling daemon"
+      }
+
+      test("legacy timing entry points are retired") {
+        listOf(
+            ".github/workflows/benchmark.yml",
+            "Dockerfile.perf",
+            "scripts/compare-jmh.py",
+            "scripts/tests/test_compare_jmh.py",
+            "scripts/perf-docker",
+          )
+          .forEach { path -> repositoryPath(path).toFile().shouldNotExist() }
       }
     }
   )

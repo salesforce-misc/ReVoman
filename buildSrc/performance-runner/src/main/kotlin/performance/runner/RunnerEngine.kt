@@ -8,7 +8,7 @@
 package performance.runner
 
 /** Executes a validated runner command without depending on Gradle APIs. */
-class RunnerEngine(private val dependencies: RunnerDependencies) {
+internal class RunnerEngine(private val dependencies: RunnerDependencies) {
   fun execute(command: RunnerCommand): RunnerOutcome {
     dependencies.execute(command)?.let { return it }
     if (command is RunnerCommand.ValidateDistribution) {

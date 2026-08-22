@@ -25,7 +25,7 @@ import performance.schema.EvidenceSchemaValidator
 import performance.schema.SchemaKind
 import tools.jackson.databind.node.JsonNodeFactory
 
-data class ProfilerScrubRequest(
+internal data class ProfilerScrubRequest(
   val captureId: String,
   val provisionalCaptureSha256: Sha256,
   val expectedRawInputSha256: Sha256,
@@ -37,7 +37,7 @@ data class ProfilerScrubRequest(
   val completionPath: Path,
 )
 
-enum class ProfilerScrubFailure {
+internal enum class ProfilerScrubFailure {
   INVALID_PATHS,
   RAW_INPUT_MISSING,
   RAW_INPUT_HASH_MISMATCH,
@@ -46,7 +46,7 @@ enum class ProfilerScrubFailure {
   TRANSACTION_FAILED,
 }
 
-sealed interface ProfilerScrubOutcome {
+internal sealed interface ProfilerScrubOutcome {
   data class Completed(val summary: ProfilerSummary) : ProfilerScrubOutcome
 
   data class Invalid(val reasons: List<ProfilerScrubFailure>) : ProfilerScrubOutcome
@@ -60,7 +60,7 @@ internal data class ProfilerScrubHooks(
 )
 
 /** Derives and durably publishes only a bounded, privacy-safe JFR summary. */
-class ProfilerScrubber private constructor(
+internal class ProfilerScrubber private constructor(
   private val schemaValidator: EvidenceSchemaValidator,
   private val hooks: ProfilerScrubHooks,
 ) {

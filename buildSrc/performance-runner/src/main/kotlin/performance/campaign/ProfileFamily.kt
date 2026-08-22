@@ -13,7 +13,7 @@ import performance.capture.CaptureProfileFamily
 import performance.capture.DiagnosticProfiler
 
 /** Complete immutable no-profiler ladder for one baseline/candidate profile family. */
-class ProfileFamily private constructor(
+internal class ProfileFamily private constructor(
   val family: CaptureProfileFamily,
   private val baselineProfiles: Map<Int, CaptureProfile>,
   private val candidateProfiles: Map<Int, CaptureProfile>,

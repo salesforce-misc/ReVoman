@@ -21,7 +21,7 @@ import performance.compare.RegressionPolicy
 import performance.distribution.VerifiedDistribution
 import performance.model.CaptureIdentity
 
-data class CampaignRequest(
+internal data class CampaignRequest(
   val baseline: VerifiedDistribution,
   val candidate: VerifiedDistribution,
   val profileFamily: ProfileFamily,
@@ -35,7 +35,7 @@ internal fun interface CampaignCapturePort {
 }
 
 /** Single-use frozen A/A escalation and selected A2/B acquisition state machine. */
-class CampaignRunner private constructor(
+internal class CampaignRunner private constructor(
   private val capturePort: CampaignCapturePort,
   private val calibrationEvaluator: ProvisionalCalibrationEvaluator,
   private val rolePreconditioner: RolePreconditioner,

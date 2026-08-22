@@ -17,7 +17,7 @@ import tools.jackson.databind.node.ArrayNode
 import tools.jackson.databind.node.ObjectNode
 
 /** One immutable exact JMH row identity declared by the frozen protocol. */
-class ExpectedCell(benchmark: String, parameters: Map<String, String>) {
+internal class ExpectedCell(benchmark: String, parameters: Map<String, String>) {
   val benchmark: String = benchmark
   val parameters: Map<String, String> = Collections.unmodifiableMap(parameters.toSortedMap())
 
@@ -49,7 +49,7 @@ class ExpectedCell(benchmark: String, parameters: Map<String, String>) {
 }
 
 /** The immutable nonempty exact row set for one selected profile family. */
-class ExpectedCells(cells: List<ExpectedCell>) {
+internal class ExpectedCells(cells: List<ExpectedCell>) {
   val cells: List<ExpectedCell> = Collections.unmodifiableList(cells.toList())
 
   init {
@@ -92,7 +92,7 @@ class ExpectedCells(cells: List<ExpectedCell>) {
 internal data class CellKey(val benchmark: String, val parameters: Map<String, String>)
 
 /** Strict reader for the checked-in expected-cell declaration. */
-object ExpectedCellsReader {
+internal object ExpectedCellsReader {
   fun read(path: Path, family: CaptureProfileFamily): ExpectedCells =
     read(Files.readAllBytes(path), family)
 

@@ -68,13 +68,16 @@ data class DistributionValidationRequest(
 
 /** Either an unforgeable validated proof or a stable ordered set of privacy-safe failures. */
 sealed interface DistributionValidation {
+  /** A complete distribution proof that downstream runner operations may consume. */
   data class Valid(val distribution: VerifiedDistribution) : DistributionValidation
 
+  /** Stable validation problems suitable for build-logic diagnostics. */
   data class Invalid(val problems: List<DistributionProblem>) : DistributionValidation
 }
 
 /** Validates the complete frozen layout and is the sole creator of distribution proofs. */
 class DistributionValidator {
+  /** Validates [request] without leaking rejected paths or throwing validation failures. */
   fun validate(request: DistributionValidationRequest): DistributionValidation =
     runCatching { validateSafely(request) }
       .getOrElse {

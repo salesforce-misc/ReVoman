@@ -1,5 +1,7 @@
 name: 'Build and Scan'
 
+# Hosted structural canaries are diagnostic and ClaimEligible=false.
+
 on:
   push:
     branches: [master]
@@ -34,10 +36,10 @@ jobs:
           cache-read-only: ${{ github.event_name == 'pull_request' }}
 
       - name: 'Build build logic'
-        run: ./gradlew -p buildSrc test
+        run: ./gradlew --quiet -p buildSrc test
 
       - name: 'Build project'
-        run: ./gradlew build
+        run: ./gradlew --quiet build
 
       - name: 'Freeze performance distribution'
         run: |

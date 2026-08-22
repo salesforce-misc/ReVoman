@@ -307,7 +307,6 @@ class DockerRuntimeProfileTest :
         }
       }
 
-
       test("the exact finalizer rejects a substituted bind before writing inside the mounted view") {
         val sourceRoot = FakeHost().use { host -> host.sourceRoot }
         val expectedParent = dockerVisibleTemporaryDirectory(sourceRoot, "revoman-live-reserved-bind.")
@@ -372,7 +371,7 @@ private fun dockerVolumeCommands(
   commands.filter { command ->
     command.firstOrNull() == "docker" &&
       command.windowed(2).any { arguments -> arguments == listOf("volume", action) }
-}
+  }
 
 private fun dockerVisibleTemporaryDirectory(sourceRoot: Path, prefix: String): Path =
   Files.createTempDirectory(sourceRoot.resolve("build"), prefix)

@@ -11,7 +11,7 @@ import java.math.BigDecimal
 import performance.hash.Sha256
 
 /** A complete typed final performance-capture document. */
-data class CaptureDocument(
+internal data class CaptureDocument(
   val schemaVersion: String,
   val benchmarkProtocolVersion: String,
   val identity: EvidenceIdentity,
@@ -29,7 +29,7 @@ data class CaptureDocument(
 )
 
 /** Typed unpublished capture material that can never carry canonical strength or bundle hashes. */
-data class ProvisionalCaptureDocument(
+internal data class ProvisionalCaptureDocument(
   val schemaVersion: String,
   val benchmarkProtocolVersion: String,
   val identity: CaptureIdentity,
@@ -46,7 +46,7 @@ data class ProvisionalCaptureDocument(
 )
 
 /** Capture validity, strength, timing, process exit, and immutable claim reasons. */
-data class CaptureOutcome(
+internal data class CaptureOutcome(
   val status: EvidenceStatus,
   val strength: EvidenceStrength,
   val claimEligibilityReasons: List<FinalOutcomeReason>,
@@ -56,7 +56,7 @@ data class CaptureOutcome(
 )
 
 /** Unpublished outcome that cannot represent canonical or campaign-qualified evidence. */
-data class ProvisionalCaptureOutcome(
+internal data class ProvisionalCaptureOutcome(
   val status: EvidenceStatus,
   val strength: ProvisionalEvidenceStrength,
   val reasons: List<ProvisionalOutcomeReason>,
@@ -66,7 +66,7 @@ data class ProvisionalCaptureOutcome(
 )
 
 /** Build and evidence-code versions needed to interpret the captured bytes. */
-data class ToolchainIdentity(
+internal data class ToolchainIdentity(
   val gradleVersion: String,
   val jmhPluginVersion: String,
   val jmhCoreVersion: String,
@@ -76,7 +76,7 @@ data class ToolchainIdentity(
 )
 
 /** Exact JDK identity without a host path. */
-data class JdkIdentity(
+internal data class JdkIdentity(
   val binarySha256: Sha256,
   val vendor: String,
   val version: String,
@@ -84,21 +84,21 @@ data class JdkIdentity(
 )
 
 /** Immutable platform image identity. */
-data class OciIdentity(
+internal data class OciIdentity(
   val imageReference: String,
   val platformManifestDigest: String,
   val configDigest: String,
 )
 
 /** Container-visible Linux identity. */
-data class LinuxIdentity(
+internal data class LinuxIdentity(
   val os: String,
   val kernel: String,
   val architecture: String,
 )
 
 /** Frozen CPU, memory, swap, and process limits. */
-data class RuntimeLimits(
+internal data class RuntimeLimits(
   val cpuSet: String,
   val memoryBytes: Long,
   val memorySwapBytes: Long,
@@ -106,19 +106,19 @@ data class RuntimeLimits(
 )
 
 /** Container storage identity and explicit writable mount tokens. */
-data class StorageIdentity(
+internal data class StorageIdentity(
   val distributionSource: String,
   val writableMounts: List<String>,
 )
 
 /** Network isolation and immutable image-pull behavior. */
-data class NetworkIdentity(
+internal data class NetworkIdentity(
   val mode: String,
   val pullPolicy: String,
 )
 
 /** Container privilege and filesystem security settings. */
-data class SecurityIdentity(
+internal data class SecurityIdentity(
   val user: String,
   val readOnlyRoot: Boolean,
   val noNewPrivileges: Boolean,
@@ -126,7 +126,7 @@ data class SecurityIdentity(
 )
 
 /** Substrate fields differ exactly between controlled Mac and hosted Linux. */
-sealed interface SubstrateIdentity {
+internal sealed interface SubstrateIdentity {
   /** Docker Desktop running on the controlled Mac. */
   data class ControlledMac(
     val macosVersion: String,
@@ -148,13 +148,13 @@ sealed interface SubstrateIdentity {
 }
 
 /** CPU and memory advertised by the surrounding substrate. */
-data class AdvertisedResources(
+internal data class AdvertisedResources(
   val cpus: Int,
   val memoryBytes: Long,
 )
 
 /** Full measured runtime and privacy-safe host identity. */
-data class RuntimeIdentity(
+internal data class RuntimeIdentity(
   val jdk: JdkIdentity,
   val oci: OciIdentity,
   val linux: LinuxIdentity,
@@ -168,13 +168,13 @@ data class RuntimeIdentity(
 )
 
 /** Benchmark-only logging configuration identity. */
-data class LoggingProfileIdentity(
+internal data class LoggingProfileIdentity(
   val profile: String,
   val configurationSha256: Sha256,
 )
 
 /** Frozen capture profile and selected profiler variant. */
-data class CaptureProfileIdentity(
+internal data class CaptureProfileIdentity(
   val family: String,
   val identity: String,
   val variantSha256: Sha256,
@@ -185,33 +185,33 @@ data class CaptureProfileIdentity(
 )
 
 /** Authoritative JMH row reference for one exact cell. */
-data class JmhResultRowRef(
+internal data class JmhResultRowRef(
   val jsonPointer: String,
   val sha256: Sha256,
 )
 
 /** Primary metric semantics used by the later comparator. */
-data class PrimaryMetricIdentity(
+internal data class PrimaryMetricIdentity(
   val name: String,
   val direction: String,
 )
 
 /** Declared raw-sample dimensions for one cell. */
-data class SampleDimensions(
+internal data class SampleDimensions(
   val forks: Int,
   val measurementIterations: Int,
   val samplesPerFork: Int,
 )
 
 /** Derived per-fork summary that semantic validation must recompute. */
-data class ForkSummary(
+internal data class ForkSummary(
   val fork: Int,
   val sampleCount: Int,
   val score: BigDecimal,
 )
 
 /** One benchmark plus its exact parameters and authoritative observation reference. */
-data class CaptureCell(
+internal data class CaptureCell(
   val benchmark: String,
   val parameters: Map<String, String>,
   val mode: String,
@@ -225,7 +225,7 @@ data class CaptureCell(
 )
 
 /** Optional validated profiler summary and its raw-input binding. */
-data class ProfilerSummaryRef(
+internal data class ProfilerSummaryRef(
   val path: String,
   val sha256: Sha256,
   val rawInputSha256: Sha256,

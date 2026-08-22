@@ -14,7 +14,7 @@ import performance.model.CaptureIdentity
 
 /** Runner-owned campaign and performance-session identifiers. */
 @ConsistentCopyVisibility
-data class SessionIdentity private constructor(
+internal data class SessionIdentity private constructor(
   val campaignId: String,
   val performanceSessionId: String,
 ) {
@@ -34,13 +34,13 @@ data class SessionIdentity private constructor(
   }
 }
 
-enum class CampaignStatus {
+internal enum class CampaignStatus {
   QUALIFIED,
   INVALID,
   CALIBRATION_EXHAUSTED,
 }
 
-enum class CampaignFailure {
+internal enum class CampaignFailure {
   PRECONDITION_FAILED,
   RECEIPT_INVALID,
   CAPTURE_INVALID,
@@ -50,7 +50,7 @@ enum class CampaignFailure {
   CALIBRATION_EXHAUSTED,
 }
 
-data class CampaignCapture(
+internal data class CampaignCapture(
   val attemptId: String,
   val role: CaptureRole,
   val forks: Int,
@@ -62,12 +62,12 @@ data class CampaignCapture(
 )
 
 /** Explicit A2/B binding for Task 9's mandatory recomputation. */
-data class ProvisionalCandidateSelection(
+internal data class ProvisionalCandidateSelection(
   val baselineA2CaptureId: String,
   val candidateBCaptureId: String,
 )
 
-data class CampaignProvisionalOutcome(
+internal data class CampaignProvisionalOutcome(
   val status: CampaignStatus,
   val captures: List<CampaignCapture>,
   val preconditioningReceipts: List<PreconditioningReceipt>,

@@ -8,7 +8,7 @@
 package performance.runner
 
 /** A syntactically valid command accepted by the frozen performance runner. */
-sealed interface RunnerCommand {
+internal sealed interface RunnerCommand {
   data class ValidateDistribution(val arguments: List<String>) : RunnerCommand
 
   data class Capture(val arguments: List<String>) : RunnerCommand

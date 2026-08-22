@@ -11,7 +11,7 @@ import java.io.ByteArrayOutputStream
 import java.io.DataOutputStream
 
 /** Exact comparison-cell identity and its frozen bootstrap-v1 byte encoding. */
-data class CellIdentity(
+internal data class CellIdentity(
   val benchmark: String,
   val profile: String,
   val parameters: Map<String, String>,

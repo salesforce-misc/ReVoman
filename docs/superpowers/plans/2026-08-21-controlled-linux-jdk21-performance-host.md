@@ -94,7 +94,7 @@ Delete test helpers that pass an absolute executable, executable digest, or `Run
 - [ ] **Step 3: Run the tests and verify RED**
 
 ```bash
-./gradlew --no-daemon -Dorg.gradle.java.home=/home/linuxbrew/.linuxbrew/Cellar/sdkman-cli/5.19.0/libexec/candidates/java/21.0.12-tem :buildSrc:performance-runner:test --tests performance.distribution.DistributionValidatorTest
+./gradlew --quiet --no-daemon -Dorg.gradle.java.home=/home/linuxbrew/.linuxbrew/Cellar/sdkman-cli/5.19.0/libexec/candidates/java/21.0.12-tem :buildSrc:performance-runner:test --tests performance.distribution.DistributionValidatorTest
 ```
 
 Expected: FAIL because V1 still requires `JavaRuntimeIdentity` and accepts versions greater than 21.
@@ -142,7 +142,7 @@ Keep all V1 classpath, ordering, hash, service-provider, benchmark-metadata, and
 - [ ] **Step 6: Run focused tests and commit**
 
 ```bash
-./gradlew --no-daemon -Dorg.gradle.java.home=/home/linuxbrew/.linuxbrew/Cellar/sdkman-cli/5.19.0/libexec/candidates/java/21.0.12-tem :buildSrc:performance-runner:test --tests 'performance.distribution.*' buildSrc:test --tests performance.DistributionFreezeContractTest
+./gradlew --quiet --no-daemon -Dorg.gradle.java.home=/home/linuxbrew/.linuxbrew/Cellar/sdkman-cli/5.19.0/libexec/candidates/java/21.0.12-tem :buildSrc:performance-runner:test --tests 'performance.distribution.*' buildSrc:test --tests performance.DistributionFreezeContractTest
 git add buildSrc/performance-runner/src/main/kotlin/performance/runtime/JavaCompatibility.kt buildSrc/performance-runner/src/main/kotlin/performance/distribution buildSrc/performance-runner/src/main/resources/performance/protocol/schemas buildSrc/performance-runner/src/test/kotlin/performance/distribution buildSrc/src/main/kotlin/performance buildSrc/src/test/kotlin/performance/DistributionFreezeContractTest.kt
 git commit -m "refactor(perf): separate Java compatibility from runtime binding"
 ```
@@ -201,7 +201,7 @@ failure.
 - [ ] **Step 2: Run the new tests and verify RED**
 
 ```bash
-./gradlew --no-daemon -Dorg.gradle.java.home=/home/linuxbrew/.linuxbrew/Cellar/sdkman-cli/5.19.0/libexec/candidates/java/21.0.12-tem :buildSrc:performance-runner:test --tests 'performance.runtime.*'
+./gradlew --quiet --no-daemon -Dorg.gradle.java.home=/home/linuxbrew/.linuxbrew/Cellar/sdkman-cli/5.19.0/libexec/candidates/java/21.0.12-tem :buildSrc:performance-runner:test --tests 'performance.runtime.*'
 ```
 
 Expected: FAIL because the runtime package and proof types do not exist.
@@ -346,7 +346,7 @@ Amazon.
 - [ ] **Step 6: Run focused tests and commit**
 
 ```bash
-./gradlew --no-daemon -Dorg.gradle.java.home=/home/linuxbrew/.linuxbrew/Cellar/sdkman-cli/5.19.0/libexec/candidates/java/21.0.12-tem :buildSrc:performance-runner:test --tests 'performance.runtime.*' buildSrc:test --tests performance.adapter.PrivateRuntimeBindingContractTest
+./gradlew --quiet --no-daemon -Dorg.gradle.java.home=/home/linuxbrew/.linuxbrew/Cellar/sdkman-cli/5.19.0/libexec/candidates/java/21.0.12-tem :buildSrc:performance-runner:test --tests 'performance.runtime.*' buildSrc:test --tests performance.adapter.PrivateRuntimeBindingContractTest
 git add buildSrc/performance-runner/src/main/kotlin/performance/runtime buildSrc/performance-runner/src/main/resources/performance/protocol/schemas buildSrc/performance-runner/src/test/kotlin/performance/runtime buildSrc/src/test/kotlin/performance/adapter/PrivateRuntimeBindingContractTest.kt
 git commit -m "feat(perf): bind exact vendor-neutral JDK 21 runtimes"
 ```
@@ -401,7 +401,7 @@ cannot construct controlled campaign qualification.
 - [ ] **Step 2: Run focused tests and verify RED**
 
 ```bash
-./gradlew --no-daemon -Dorg.gradle.java.home=/home/linuxbrew/.linuxbrew/Cellar/sdkman-cli/5.19.0/libexec/candidates/java/21.0.12-tem :buildSrc:performance-runner:test --tests 'performance.process.*' --tests 'performance.compare.*' --tests 'performance.finalize.*'
+./gradlew --quiet --no-daemon -Dorg.gradle.java.home=/home/linuxbrew/.linuxbrew/Cellar/sdkman-cli/5.19.0/libexec/candidates/java/21.0.12-tem :buildSrc:performance-runner:test --tests 'performance.process.*' --tests 'performance.compare.*' --tests 'performance.finalize.*'
 ```
 
 - [ ] **Step 3: Replace path fragments with the proof**
@@ -550,7 +550,7 @@ host profile, execution identity, JVM arguments, protocol, and qualification pol
 - [ ] **Step 6: Run focused tests and commit**
 
 ```bash
-./gradlew --no-daemon -Dorg.gradle.java.home=/home/linuxbrew/.linuxbrew/Cellar/sdkman-cli/5.19.0/libexec/candidates/java/21.0.12-tem :buildSrc:performance-runner:test
+./gradlew --quiet --no-daemon -Dorg.gradle.java.home=/home/linuxbrew/.linuxbrew/Cellar/sdkman-cli/5.19.0/libexec/candidates/java/21.0.12-tem :buildSrc:performance-runner:test
 git add buildSrc/performance-runner/src/main
 git add buildSrc/performance-runner/src/test
 git commit -m "refactor(perf): carry verified runtime proofs through evidence"
@@ -589,7 +589,7 @@ environment; forbidden process; CPU/power/thermal/topology drift; and cleanup fa
 - [ ] **Step 2: Run adapter tests and verify RED**
 
 ```bash
-./gradlew --no-daemon -Dorg.gradle.java.home=/home/linuxbrew/.linuxbrew/Cellar/sdkman-cli/5.19.0/libexec/candidates/java/21.0.12-tem buildSrc:test --tests 'performance.adapter.*'
+./gradlew --quiet --no-daemon -Dorg.gradle.java.home=/home/linuxbrew/.linuxbrew/Cellar/sdkman-cli/5.19.0/libexec/candidates/java/21.0.12-tem buildSrc:test --tests 'performance.adapter.*'
 ```
 
 - [ ] **Step 3: Split the adapter into private modules**
@@ -646,7 +646,7 @@ thermal warning, three consecutive pressure breaches, process appearance, or ide
 - [ ] **Step 6: Run adapter tests and a diagnostic structural canary**
 
 ```bash
-./gradlew --no-daemon -Dorg.gradle.java.home=/home/linuxbrew/.linuxbrew/Cellar/sdkman-cli/5.19.0/libexec/candidates/java/21.0.12-tem buildSrc:test --tests 'performance.adapter.*'
+./gradlew --quiet --no-daemon -Dorg.gradle.java.home=/home/linuxbrew/.linuxbrew/Cellar/sdkman-cli/5.19.0/libexec/candidates/java/21.0.12-tem buildSrc:test --tests 'performance.adapter.*'
 ./scripts/performance/run canary --runtime-profile temurin-21.0.12-linux-x86_64-v1 --java-home /home/linuxbrew/.linuxbrew/Cellar/sdkman-cli/5.19.0/libexec/candidates/java/21.0.12-tem --distribution build/performance/distribution --output build/performance/native-linux-canary
 ```
 
@@ -714,7 +714,7 @@ postflight as required. Unknown or unavailable values fail.
 - [ ] **Step 4: Prove reproducibility and vendor neutrality**
 
 ```bash
-./gradlew --no-daemon -Dorg.gradle.java.home=/home/linuxbrew/.linuxbrew/Cellar/sdkman-cli/5.19.0/libexec/candidates/java/21.0.12-tem generatePerformanceRuntimeProfile
+./gradlew --quiet --no-daemon -Dorg.gradle.java.home=/home/linuxbrew/.linuxbrew/Cellar/sdkman-cli/5.19.0/libexec/candidates/java/21.0.12-tem generatePerformanceRuntimeProfile
 git diff --exit-code -- config/performance/runtime config/performance/hosts
 rg -n '/home/|gopala|hostname|user.name' config/performance
 rg -n 'const.*(Temurin|Adoptium|Amazon)|vendor.*enum' config/performance buildSrc
@@ -726,7 +726,7 @@ allowlist. Literal observed vendor data in the exact runtime profile is allowed 
 - [ ] **Step 5: Run schema and host tests, then commit**
 
 ```bash
-./gradlew --no-daemon -Dorg.gradle.java.home=/home/linuxbrew/.linuxbrew/Cellar/sdkman-cli/5.19.0/libexec/candidates/java/21.0.12-tem :buildSrc:performance-runner:test --tests 'performance.schema.*' buildSrc:test --tests 'performance.adapter.*'
+./gradlew --quiet --no-daemon -Dorg.gradle.java.home=/home/linuxbrew/.linuxbrew/Cellar/sdkman-cli/5.19.0/libexec/candidates/java/21.0.12-tem :buildSrc:performance-runner:test --tests 'performance.schema.*' buildSrc:test --tests 'performance.adapter.*'
 git add config/performance build.gradle.kts buildSrc
 git commit -m "feat(perf): qualify HP Z4 Linux with exact JDK 21 profile"
 ```
@@ -767,7 +767,7 @@ after campaign launch, no distribution rebuild, and D2 used in both roles.
 - [ ] **Step 2: Run the contract and verify RED**
 
 ```bash
-./gradlew --no-daemon -Dorg.gradle.java.home=/home/linuxbrew/.linuxbrew/Cellar/sdkman-cli/5.19.0/libexec/candidates/java/21.0.12-tem buildSrc:test --tests performance.adapter.FormalSuiteContractTest
+./gradlew --quiet --no-daemon -Dorg.gradle.java.home=/home/linuxbrew/.linuxbrew/Cellar/sdkman-cli/5.19.0/libexec/candidates/java/21.0.12-tem buildSrc:test --tests performance.adapter.FormalSuiteContractTest
 ```
 
 - [ ] **Step 3: Add the frozen policy and exact suite declaration**
@@ -827,7 +827,7 @@ private suite state excluded from publication.
 - [ ] **Step 5: Run contracts and commit**
 
 ```bash
-./gradlew --no-daemon -Dorg.gradle.java.home=/home/linuxbrew/.linuxbrew/Cellar/sdkman-cli/5.19.0/libexec/candidates/java/21.0.12-tem buildSrc:test --tests performance.adapter.FormalSuiteContractTest
+./gradlew --quiet --no-daemon -Dorg.gradle.java.home=/home/linuxbrew/.linuxbrew/Cellar/sdkman-cli/5.19.0/libexec/candidates/java/21.0.12-tem buildSrc:test --tests performance.adapter.FormalSuiteContractTest
 git add config/performance/campaigns config/performance/policies/bootstrap-fixes-5pct-v1.json scripts/performance/run-suite buildSrc/src/test/kotlin/performance/adapter/FormalSuiteContractTest.kt build.gradle.kts docs/modules/ROOT/pages/performance.adoc
 git commit -m "feat(perf): preregister chained formal campaign suites"
 ```
@@ -845,8 +845,8 @@ git commit -m "feat(perf): preregister chained formal campaign suites"
 - [ ] **Step 1: Run all verification**
 
 ```bash
-./gradlew --no-daemon -Dorg.gradle.java.home=/home/linuxbrew/.linuxbrew/Cellar/sdkman-cli/5.19.0/libexec/candidates/java/21.0.12-tem clean test integrationTest jmhTest buildSrc:test :buildSrc:performance-runner:test apiCheck verifyPerformanceDistribution
-./gradlew --no-daemon -Dorg.gradle.java.home=/home/linuxbrew/.linuxbrew/Cellar/sdkman-cli/5.19.0/libexec/candidates/java/21.0.12-tem qodanaScan
+./gradlew --quiet --no-daemon -Dorg.gradle.java.home=/home/linuxbrew/.linuxbrew/Cellar/sdkman-cli/5.19.0/libexec/candidates/java/21.0.12-tem clean test integrationTest jmhTest buildSrc:test :buildSrc:performance-runner:test checkKotlinAbi verifyPerformanceDistribution
+./gradlew --quiet --no-daemon -Dorg.gradle.java.home=/home/linuxbrew/.linuxbrew/Cellar/sdkman-cli/5.19.0/libexec/candidates/java/21.0.12-tem qodanaScan
 ```
 
 Expected: PASS with zero formal A/B campaign directories.

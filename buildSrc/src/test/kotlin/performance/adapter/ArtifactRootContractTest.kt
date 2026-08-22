@@ -19,21 +19,28 @@ import performance.support.FakeHost
 class ArtifactRootContractTest :
   FunSpec(
     {
-      test("fake Docker bounds nested finalizer watchdogs without changing production policy") {
+      test("artifact invocations bound nested finalizer watchdogs without changing production policy") {
         FakeHost().use { host ->
-          val result =
-            host.invokeFunction(
+          val default =
+            host.invokeArtifactFunction(
+              "adapter_docker_timeout_millis",
+              "run",
+              "--label",
+              "dev.revoman.performance.phase=finalizer",
+            )
+          val explicit =
+            host.invokeArtifactFunction(
               "adapter_docker_timeout_millis",
               "run",
               "--label",
               "dev.revoman.performance.phase=finalizer",
               environment = mapOf("FAKE_DOCKER_TIMEOUT_MILLIS" to "5"),
-              functionOverrides =
-                "adapter_docker_timeout_millis() { printf '%s' \"${'$'}FAKE_DOCKER_TIMEOUT_MILLIS\"; }",
             )
 
-          result.exitCode shouldBe 0
-          result.standardOutput shouldBe "5"
+          default.exitCode shouldBe 0
+          default.standardOutput shouldBe "10000"
+          explicit.exitCode shouldBe 0
+          explicit.standardOutput shouldBe "5"
         }
       }
 
@@ -394,9 +401,25 @@ private fun FakeHost.invokeArtifact(
   invoke(
     *arguments,
     environment = environment,
-    functionOverrides =
-      listOf(
-        "adapter_docker_timeout_millis() { printf '%s' \"${'$'}{FAKE_DOCKER_TIMEOUT_MILLIS:-10000}\"; }",
-        functionOverrides,
-      ).filterNotNull().joinToString(separator = "\n"),
+    functionOverrides = artifactFunctionOverrides(functionOverrides),
   )
+
+private fun FakeHost.invokeArtifactFunction(
+  function: String,
+  vararg arguments: String,
+  environment: Map<String, String> = emptyMap(),
+): performance.support.AdapterInvocation =
+  invokeFunction(
+    function,
+    *arguments,
+    environment = environment,
+    functionOverrides = artifactFunctionOverrides(),
+  )
+
+private fun artifactFunctionOverrides(functionOverrides: String? = null): String =
+  listOf(
+      "adapter_docker_timeout_millis() { printf '%s' \"${'$'}{FAKE_DOCKER_TIMEOUT_MILLIS:-10000}\"; }",
+      functionOverrides,
+    )
+    .filterNotNull()
+    .joinToString(separator = "\n")

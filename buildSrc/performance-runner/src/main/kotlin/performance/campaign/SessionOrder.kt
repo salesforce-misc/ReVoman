@@ -7,13 +7,13 @@
  */
 package performance.campaign
 
-enum class CaptureRole(val shortName: String) {
+internal enum class CaptureRole(val shortName: String) {
   BASELINE_A1("A1"),
   BASELINE_A2("A2"),
   CANDIDATE_B("B"),
 }
 
-object SessionOrder {
+internal object SessionOrder {
   val selected: List<CaptureRole> =
     listOf(
       CaptureRole.BASELINE_A1,

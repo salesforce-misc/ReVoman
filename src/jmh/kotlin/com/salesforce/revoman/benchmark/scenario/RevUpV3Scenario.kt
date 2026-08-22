@@ -549,7 +549,7 @@ private constructor(
 
     private data class FixtureEntry(val path: String, val byteLength: Long, val sha256: String)
 
-    private data class PackagedFixture(
+    private class PackagedFixture(
       val fixtureEntries: List<FixtureEntry>,
       val manifestBytes: ByteArray,
     )

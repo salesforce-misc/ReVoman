@@ -10,13 +10,13 @@ package performance.model
 import performance.hash.Sha256
 
 /** A privacy-safe relative reference to a validated host-side document. */
-data class HostDocumentRef(
+internal data class HostDocumentRef(
   val path: String,
   val sha256: Sha256,
 )
 
 /** Qualification evidence with substrate-specific required fields. */
-sealed interface QualificationEvidence {
+internal sealed interface QualificationEvidence {
   val policyHash: Sha256
 
   /** Full same-session controlled-Mac campaign qualification. */
@@ -49,20 +49,20 @@ sealed interface QualificationEvidence {
 }
 
 /** The normalized outcome of one host qualification check. */
-enum class HostCheckStatus {
+internal enum class HostCheckStatus {
   PASS,
   FAIL,
 }
 
 /** Normalized host memory-pressure observation. */
-enum class MemoryPressureState {
+internal enum class MemoryPressureState {
   NORMAL,
   WARN,
   CRITICAL,
 }
 
 /** Normalized macOS thermal-pressure observation. */
-enum class ThermalState {
+internal enum class ThermalState {
   NOMINAL,
   FAIR,
   SERIOUS,
@@ -70,13 +70,13 @@ enum class ThermalState {
 }
 
 /** Whether the controlled host is attached to AC or running on battery. */
-enum class PowerState {
+internal enum class PowerState {
   AC,
   BATTERY,
 }
 
 /** Normative pre/post host state bound to exact container and runtime identities. */
-data class HostSnapshot(
+internal data class HostSnapshot(
   val cpuLoadPercent: Double,
   val cpuIdlePercent: Double,
   val memoryPressure: MemoryPressureState,
@@ -89,7 +89,7 @@ data class HostSnapshot(
 )
 
 /** Sanitized preflight observations made before timing begins. */
-data class PreflightDocument(
+internal data class PreflightDocument(
   val observedAtUtc: String,
   val operationId: String,
   val policySha256: Sha256,
@@ -102,7 +102,7 @@ data class PreflightDocument(
 )
 
 /** One fixed-cadence privacy-safe watcher observation. */
-data class WatcherObservation(
+internal data class WatcherObservation(
   val observedAtUtc: String,
   val cpuLoadPercent: Double,
   val memoryPressure: MemoryPressureState,
@@ -116,7 +116,7 @@ data class WatcherObservation(
 )
 
 /** Host watcher completeness and bounded observations. */
-data class WatcherDocument(
+internal data class WatcherDocument(
   val startedAtUtc: String,
   val completedAtUtc: String,
   val policySha256: Sha256,
@@ -128,7 +128,7 @@ data class WatcherDocument(
 )
 
 /** Sanitized host and child-process checks recorded after timing. */
-data class PostflightDocument(
+internal data class PostflightDocument(
   val observedAtUtc: String,
   val policySha256: Sha256,
   val processExit: Int,
@@ -137,7 +137,7 @@ data class PostflightDocument(
 )
 
 /** Cleanup and allowlisted host-state restoration result. */
-data class RestorationDocument(
+internal data class RestorationDocument(
   val observedAtUtc: String,
   val policySha256: Sha256,
   val cleanupPassed: Boolean,

@@ -17,14 +17,14 @@ import performance.distribution.DistributionLayout
 import performance.distribution.VerifiedDistribution
 import performance.hash.Sha256
 
-data class ReceiptFileFact(
+internal data class ReceiptFileFact(
   val relativePath: String,
   val byteLength: Long,
   val sha256: Sha256,
 )
 
 @ConsistentCopyVisibility
-data class PreconditioningReceipt internal constructor(
+internal data class PreconditioningReceipt internal constructor(
   val role: CaptureRole,
   val distributionRoot: Path,
   val manifestSha256: Sha256,
@@ -47,12 +47,12 @@ internal class ReceiptSettlement(
   }
 }
 
-fun interface RolePreconditioner {
+internal fun interface RolePreconditioner {
   fun prepare(role: CaptureRole, distribution: VerifiedDistribution): PreconditioningReceipt
 }
 
 /** Builds a full-byte receipt whose validator starts the settle after its final verification read. */
-class DefaultRolePreconditioner(
+internal class DefaultRolePreconditioner(
   private val sleeper: (Duration) -> Unit,
   private val settleDuration: Duration = REQUIRED_SETTLE,
 ) : RolePreconditioner {

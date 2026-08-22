@@ -47,7 +47,7 @@ import performance.publication.StagingRecovery
 import performance.process.JdkProcessExecutor
 
 /** Side-effecting process boundaries supplied to the pure runner engine. */
-class RunnerDependencies(
+internal class RunnerDependencies(
   private val writeStandardError: (String) -> Unit,
   private val validateDistribution: (String) -> Boolean = { false },
 ) {

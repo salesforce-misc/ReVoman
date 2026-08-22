@@ -20,7 +20,7 @@ import java.util.concurrent.atomic.AtomicReference
 internal data class ProcessExecutorHooks(val beforeProcessStart: () -> Unit = {})
 
 /** Executes an already validated absolute JDK command without a shell. */
-class JdkProcessExecutor internal constructor(
+internal class JdkProcessExecutor internal constructor(
   private val hooks: ProcessExecutorHooks,
 ) : ProcessExecutor {
   constructor() : this(ProcessExecutorHooks())

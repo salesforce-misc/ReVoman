@@ -12,9 +12,9 @@ import java.io.DataOutputStream
 import java.security.MessageDigest
 import kotlin.math.floor
 
-data class ForkSamples(val measurements: List<Double>)
+internal data class ForkSamples(val measurements: List<Double>)
 
-data class RatioEstimate(
+internal data class RatioEstimate(
   val pointRatio: Double,
   val gainPercent: Double,
   val lower95Ratio: Double,
@@ -22,7 +22,7 @@ data class RatioEstimate(
 )
 
 /** Frozen deterministic fork-resampling estimator. */
-object BootstrapV1 {
+internal object BootstrapV1 {
   fun estimate(
     baselineCaptureId: String,
     candidateCaptureId: String,

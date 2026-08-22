@@ -19,7 +19,7 @@ import performance.compare.RatioEstimate
 import performance.hash.Sha256
 
 /** A strict in-memory comparison report. Task 9 owns its eventual atomic publication. */
-sealed interface ComparisonReportDocument {
+internal sealed interface ComparisonReportDocument {
   val schemaVersion: String
   val kind: ComparisonKind
   val strength: ComparisonStrength
@@ -29,7 +29,7 @@ sealed interface ComparisonReportDocument {
 }
 
 /** Complete compatible comparison evidence with per-cell estimates. */
-data class ComparisonDocument(
+internal data class ComparisonDocument(
   override val schemaVersion: String,
   override val kind: ComparisonKind,
   override val strength: ComparisonStrength,
@@ -44,7 +44,7 @@ data class ComparisonDocument(
 ) : ComparisonReportDocument
 
 /** Fail-closed incompatibility report; it deliberately has no estimate-bearing cell field. */
-data class IncompatibleComparisonDocument(
+internal data class IncompatibleComparisonDocument(
   override val schemaVersion: String,
   override val kind: ComparisonKind,
   override val strength: ComparisonStrength,
@@ -53,7 +53,7 @@ data class IncompatibleComparisonDocument(
   override val implementation: ComparisonExecutionIdentity,
 ) : ComparisonReportDocument
 
-data class ComparisonCaptureRef(
+internal data class ComparisonCaptureRef(
   val captureId: String,
   val captureSha256: Sha256,
   val bundleSha256: Sha256,
@@ -61,14 +61,14 @@ data class ComparisonCaptureRef(
   val productionSha256: Sha256,
 )
 
-data class ComparisonCellResult(
+internal data class ComparisonCellResult(
   val identity: CellIdentity,
   val estimate: RatioEstimate,
   val direction: DirectionOutcome,
   val policy: PolicyOutcome,
 )
 
-data class ComparisonCalibrationRef(
+internal data class ComparisonCalibrationRef(
   val evidenceSha256: Sha256?,
   val a1CaptureId: String,
   val a2CaptureId: String,
@@ -76,7 +76,7 @@ data class ComparisonCalibrationRef(
   val passed: Boolean,
 )
 
-data class ComparisonPolicyResult(
+internal data class ComparisonPolicyResult(
   val sha256: Sha256?,
   val maximumRegressionBudget: Double?,
   val maximumCandidateBaselineRatio: Double?,

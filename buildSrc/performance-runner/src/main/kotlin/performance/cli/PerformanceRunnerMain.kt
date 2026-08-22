@@ -16,7 +16,7 @@ import performance.runner.RunnerEngine
 import performance.runner.RunnerExit
 import performance.runner.RunnerFailureReason
 
-/** Starts the standalone performance runner. */
+/** Runs the frozen performance-runner CLI and exits with its stable command-specific status. */
 fun main(args: Array<String>) {
   exitProcess(runMain(args.toList(), RunnerDependencies.system()))
 }

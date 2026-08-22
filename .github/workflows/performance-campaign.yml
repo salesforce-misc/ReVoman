@@ -1,5 +1,7 @@
 name: 'Hosted performance diagnostic'
 
+# Uploaded hosted results are diagnostic and ClaimEligible=false.
+
 on:
   workflow_dispatch:
     inputs:
