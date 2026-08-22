@@ -7,6 +7,7 @@
  */
 package performance.adapter
 
+import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainAll
@@ -277,7 +278,7 @@ class DockerRuntimeProfileTest :
             ProcessBuilder(
                 "/bin/bash",
                 "-c",
-                "source \"\$1\"; adapter_live_volume_identity_fixture \"\$2\"",
+                liveFixtureCommand("adapter_live_volume_identity_fixture \"\$2\""),
                 "runtime-profile-test",
                 sourceRoot.resolve("scripts/performance/run").toString(),
                 artifactParent.toString(),
@@ -287,7 +288,7 @@ class DockerRuntimeProfileTest :
               .start()
           val output = process.inputStream.readAllBytes().decodeToString()
 
-          process.waitFor() shouldBe 0
+          withClue(output) { process.waitFor() shouldBe 0 }
           output shouldContain "LIVE_VOLUME_IDENTITY_OK"
           val expectedIdentity =
             if (System.getProperty("os.name") == "Mac OS X") "10001:10001" else "1001:1001"
@@ -317,7 +318,7 @@ class DockerRuntimeProfileTest :
             ProcessBuilder(
                 "/bin/bash",
                 "-c",
-                "source \"\$1\"; adapter_live_finalizer_bind_fixture \"\$2\" \"\$3\"",
+                liveFixtureCommand("adapter_live_finalizer_bind_fixture \"\$2\" \"\$3\""),
                 "runtime-profile-test",
                 sourceRoot.resolve("scripts/performance/run").toString(),
                 expectedParent.toString(),
@@ -328,7 +329,7 @@ class DockerRuntimeProfileTest :
               .start()
           val output = process.inputStream.readAllBytes().decodeToString()
 
-          process.waitFor() shouldBe 0
+          withClue(output) { process.waitFor() shouldBe 0 }
           output shouldContain "LIVE_SUBSTITUTED_BIND_REJECTED"
           Files.list(expectedParent).use { paths -> paths.count() shouldBe 0 }
           Files.readString(substitutedParent.resolve("foreign.txt")) shouldBe "keep"
@@ -375,6 +376,12 @@ private fun dockerVolumeCommands(
 
 private fun dockerVisibleTemporaryDirectory(sourceRoot: Path, prefix: String): Path =
   Files.createTempDirectory(sourceRoot.resolve("build").also(Files::createDirectories), prefix)
+
+private fun liveFixtureCommand(invocation: String): String =
+  "set -e; source \"\$1\"; " +
+    "adapter_select_substrate; " +
+    "adapter_acquire_and_verify_runtime; " +
+    invocation
 
 private class ReflectiveSchemaValidator(schemaPath: Path) : AutoCloseable {
   private val schemaInput: InputStream = Files.newInputStream(schemaPath)

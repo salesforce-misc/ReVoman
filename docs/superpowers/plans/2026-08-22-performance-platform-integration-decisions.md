@@ -110,6 +110,15 @@ step matched only the root project's `build/reports/tests/`. The workflow now up
 `**/build/reports/tests/` and fails if no report exists, covering root, buildSrc, and nested runner
 reports without changing any production or evidence schema.
 
+The next hosted build reached the two real-Docker runtime-profile fixtures after the directory
+repair, but a fresh runner did not yet contain the exact performance runtime image. Both fixtures
+correctly inherited the production adapter's `--pull=never` phase policy and therefore stopped
+before exercising their volume and bind contracts. The live tests now call the production
+adapter's immutable image acquisition and verification boundary before entering those phases;
+they do not duplicate image policy in the workflow or weaken `--pull=never`. Their exit assertions
+also retain captured adapter output as failure context. No production adapter function or evidence
+schema changes for this test bootstrap.
+
 The same build-lane investigation found that FakeHost adapter tests inherited the production
 `adapter_fsync_path`, so every reservation crossed the real whole-host `/bin/sync` boundary. A
 test-only recording override now verifies that the reservation synchronizes its token before the
