@@ -37,6 +37,7 @@ internal class FakeHost : AutoCloseable {
 
   private val fakeBin: Path = repositoryRoot.resolve("fake-bin")
   private val commandLog: Path = repositoryRoot.resolve("fake-host.log")
+  private val fsyncLog: Path = repositoryRoot.resolve(".fake-fsync.log")
   private val rawRuntimeManifest: Path = repositoryRoot.resolve(".fake-runtime-manifest.raw")
   private val publicationFixtures: Path = repositoryRoot.resolve(".fake-publication-fixtures")
 
@@ -87,6 +88,8 @@ internal class FakeHost : AutoCloseable {
   fun output(token: String): String = "build/performance/$token"
 
   fun outputPath(token: String): Path = artifactRoot.resolve(token)
+
+  fun fsyncedPaths(): List<String> = fsyncLog.takeIf(Path::exists)?.readLines().orEmpty()
 
   fun invoke(
     vararg arguments: String,
@@ -146,6 +149,7 @@ internal class FakeHost : AutoCloseable {
     command: List<String>,
     environment: Map<String, String>,
   ): AdapterInvocation {
+    Files.deleteIfExists(fsyncLog)
     val standardOutput = Files.createTempFile(repositoryRoot, "stdout.", ".log")
     val standardError = Files.createTempFile(repositoryRoot, "stderr.", ".log")
     resetFakeVolumeState()
@@ -158,6 +162,7 @@ internal class FakeHost : AutoCloseable {
       UNSAFE_HOST_ENVIRONMENT.forEach(::remove)
       put("PATH", "$fakeBin:/usr/bin:/bin:/usr/sbin:/sbin")
       put("FAKE_HOST_LOG", commandLog.toString())
+      put("FAKE_FSYNC_LOG", fsyncLog.toString())
       put("FAKE_REPO_ROOT", repositoryRoot.toString())
       put("FAKE_GIT_SHA", "0123456789abcdef0123456789abcdef01234567")
       put("FAKE_GIT_STATUS", "")
@@ -348,6 +353,7 @@ internal class FakeHost : AutoCloseable {
       adapter_caffeinate() { command caffeinate "${'$'}@"; }
       adapter_deadline_sleep_millis() { command sleep 0.005; }
       adapter_sleep_millis() { command sleep "${'$'}1"; }
+      adapter_fsync_path() { command printf '%s\n' "${'$'}1" >>"${'$'}FAKE_FSYNC_LOG"; }
       """.trimIndent()
 
     private val FAKE_COMMANDS =

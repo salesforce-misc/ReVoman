@@ -9,6 +9,7 @@ package performance.adapter
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
+import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
@@ -256,6 +257,21 @@ class ArtifactRootContractTest :
           result.exitCode shouldBe 0
           result.standardError shouldBe ""
           Files.exists(host.outputPath(token).resolve("metadata/distribution.sha256")) shouldBe true
+        }
+      }
+
+      test("reservation synchronizes its token before the output parent") {
+        FakeHost().use { host ->
+          val token = "reservation-fsync-order"
+
+          val result = host.invokeArtifact(*initialFreeze(host, host.output(token)).toTypedArray())
+
+          result.exitCode shouldBe 0
+          host.fsyncedPaths() shouldContainExactly
+            listOf(
+              "./.$token.reservation/token",
+              ".",
+            )
         }
       }
 
