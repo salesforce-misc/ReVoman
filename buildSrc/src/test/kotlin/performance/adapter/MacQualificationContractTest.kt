@@ -445,7 +445,7 @@ class MacQualificationContractTest :
               environment =
                 mapOf(
                   "FAKE_SYSTEM_NAME" to "Linux",
-                  "FAKE_DOCKER_MEMORY_BYTES" to "sixteen-gb",
+                  "FAKE_DOCKER_MEMORY_BYTES" to "999999999999999999999999999999999999999999",
                 ),
             )
 

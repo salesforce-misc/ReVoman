@@ -2261,7 +2261,7 @@ adapter_run_github_preflight() {
   IFS='|' read -r ADAPTER_DOCKER_KERNEL ADAPTER_DOCKER_CPUS ADAPTER_DOCKER_MEMORY \
     ADAPTER_DOCKER_ARCHITECTURE <<<"$information"
   [[ "$ADAPTER_DOCKER_CPUS" =~ ^[1-9][0-9]*$ ]] &&
-    [[ "$ADAPTER_DOCKER_MEMORY" =~ ^[1-9][0-9]*$ ]] || return 1
+  [[ "$ADAPTER_DOCKER_MEMORY" =~ ^[1-9][0-9]{0,17}$ ]] || return 1
   [ "$ADAPTER_DOCKER_CPUS" = "$(adapter_policy_scalar 'advertisedCpuCount')" ] &&
     [ "$ADAPTER_DOCKER_MEMORY" -ge "$(adapter_policy_scalar 'advertisedMemoryBytes')" ] &&
     [ "$ADAPTER_DOCKER_ARCHITECTURE" = 'aarch64' ] || return 1
