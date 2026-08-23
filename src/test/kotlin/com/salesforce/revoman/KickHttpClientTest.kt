@@ -9,9 +9,13 @@ package com.salesforce.revoman
 
 import com.google.common.truth.Truth.assertThat
 import com.salesforce.revoman.input.config.Kick
+import com.salesforce.revoman.input.config.PollingConfig
 import com.salesforce.revoman.output.ExeType.HTTP_REQUEST
 import com.salesforce.revoman.output.report.failure.RequestFailure.HttpRequestFailure
+import java.time.Duration
 import org.http4k.core.HttpHandler
+import org.http4k.core.Method
+import org.http4k.core.Request
 import org.http4k.core.Response
 import org.http4k.core.Status.Companion.OK
 import org.junit.jupiter.api.Test
@@ -93,5 +97,34 @@ class KickHttpClientTest {
       )
     assertThat(rundown.reportForStepName("o")!!.isSuccessful).isTrue()
     assertThat(calls).isEqualTo(1)
+  }
+
+  @Test
+  fun `same httpClient is used for a polling step`() {
+    val paths = mutableListOf<String>()
+    val handler: HttpHandler = { request ->
+      paths += request.uri.path
+      Response(OK).body("""{"status":"done"}""")
+    }
+    val rundown =
+      ReVoman.revUp(
+        Kick.configure()
+          .templatePath("pm-templates/v3/single-ok")
+          .dynamicEnvironment("baseUrl", whisperBase)
+          .httpClient(handler)
+          .pollingConfig(
+            PollingConfig.poll { _, _ -> true }
+              .request { _, _ -> Request(Method.GET, "$whisperBase/poll") }
+              .every(Duration.ofMillis(10))
+              .timeout(Duration.ofSeconds(2))
+              .until { _, _ -> true }
+          )
+          .off()
+      )
+    val report = rundown.reportForStepName("o")!!
+    assertThat(report.isSuccessful).isTrue()
+    assertThat(report.pollingReport).isNotNull()
+    assertThat(report.pollingReport!!.pollAttempts).isEqualTo(1)
+    assertThat(paths).containsExactly("/ok", "/poll").inOrder()
   }
 }
