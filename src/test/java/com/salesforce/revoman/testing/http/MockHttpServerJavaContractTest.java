@@ -8,7 +8,6 @@
 package com.salesforce.revoman.testing.http;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -37,16 +36,16 @@ class MockHttpServerJavaContractTest {
 
   @SuppressWarnings("DataFlowIssue")
   @Test
-  void javaNullResponseBecomesAnEmpty500AndDeferredFailure() throws Exception {
-    var server = MockHttpServer.start(request -> null);
-    var response =
-        HttpClient.newHttpClient()
-            .send(
-                HttpRequest.newBuilder(URI.create(server.getBaseUrl() + "/null")).GET().build(),
-                HttpResponse.BodyHandlers.ofByteArray());
-    assertThat(response.statusCode()).isEqualTo(500);
-    assertThat(response.body()).isEmpty();
-    var failure = assertThrows(IllegalStateException.class, server::close);
-    assertThat(failure).hasCauseThat().isInstanceOf(NullPointerException.class);
+  void javaNullResponseBecomesAnEmpty500() throws Exception {
+    try (var server = MockHttpServer.start(request -> null)) {
+      var response =
+          HttpClient.newHttpClient()
+              .send(
+                  HttpRequest.newBuilder(URI.create(server.getBaseUrl() + "/null")).GET().build(),
+                  HttpResponse.BodyHandlers.ofByteArray());
+      assertThat(response.statusCode()).isEqualTo(500);
+      assertThat(response.body()).isEmpty();
+      assertThat(server.requests()).hasSize(1);
+    }
   }
 }

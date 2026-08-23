@@ -66,10 +66,9 @@ include::example$it/com/salesforce/revoman/integration/restfulapidev/RestfulAPID
 <4> Assert that the execution doesn't have any failures
 <5> Run more assertions on the xref:rundown.adoc[Rundown]
 
-`MockHttpServer` is a test-only listener bound to an ephemeral, exact IPv4 `127.0.0.1` address. It
-buffers request bodies in memory for later inspection. Handlers may run concurrently, so mutable
-handler state must be thread-safe; blocking handlers must cooperate with interruption during
-server close.
+`MockHttpServer` is a test-only listener bound to an ephemeral IPv4 `127.0.0.1` address. It records
+request bodies in memory so you can inspect what ReVoman sent without calling a real HTTP service.
+Handlers may run concurrently, so mutable handler state must be thread-safe.
 
 Next, see xref:configuration.adoc[] for how you build that configuration through
 `Kick.configure()`, and xref:rundown.adoc[] for the structured result the engine hands back.

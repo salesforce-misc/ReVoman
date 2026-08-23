@@ -70,10 +70,9 @@ try (final var server = MockHttpServer.start(api)) {
 <5> Assert the run had no failures
 <6> Assert on the structured https://salesforce-misc.github.io/ReVoman/revoman/rundown.html[Rundown]
 
-`MockHttpServer` listens only on an ephemeral, exact IPv4 `127.0.0.1` address and is intended for
-tests. It buffers request bodies in memory so they can be inspected through `server.requests()`.
-Handlers may run concurrently, so their mutable state must be thread-safe; a blocking handler must
-also cooperate with interruption when the server closes.
+`MockHttpServer` listens only on an ephemeral IPv4 `127.0.0.1` address. It records request
+bodies in memory so tests can inspect `server.requests()` without calling a real HTTP service.
+Handlers may run concurrently, so mutable handler state must be thread-safe.
 
 '''
 

@@ -8,4 +8,4 @@
 package com.salesforce.revoman.testing.http
 
 /** A recorded name/value pair from an HTTP request. */
-@JvmRecord data class RecordedNameValue(val name: String, val value: String?)
+data class RecordedNameValue(val name: String, val value: String?)
