@@ -30,6 +30,9 @@
 
 # Fix code formatting
 ./gradlew spotlessApply
+
+# Report outdated catalog/plugin/Gradle versions (does not apply them)
+./gradlew dependencyUpdates
 ```
 
 ## Static Analysis (Qodana)

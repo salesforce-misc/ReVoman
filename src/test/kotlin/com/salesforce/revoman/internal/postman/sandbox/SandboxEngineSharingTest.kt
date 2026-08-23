@@ -18,8 +18,7 @@ import org.junit.jupiter.api.Test
  * [PmExecutionContext], so it structurally cannot cross Contexts regardless of Engine sharing.)
  *
  * These tests prove Context ISOLATION, which only gets stronger if the Engine were NOT shared — so
- * they cannot detect a silent revert of the Engine sharing itself. That perf invariant (one Engine,
- * reused JIT warm-up) is guarded by `SandboxBenchmark` (jmh), not here.
+ * they cannot detect a silent revert of the Engine sharing itself.
  */
 class SandboxEngineSharingTest {
   private fun testCtx(env: Map<String, Any?> = emptyMap()) =

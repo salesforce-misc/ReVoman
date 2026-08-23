@@ -20,9 +20,9 @@ plugins {
   alias(libs.plugins.node.gradle)
   alias(libs.plugins.kover)
   alias(libs.plugins.nexus.publish)
-  alias(libs.plugins.jmh)
   alias(libs.plugins.test.retry)
   alias(libs.plugins.qodana)
+  alias(libs.plugins.versions)
 }
 
 // Retry flaky tests ON CI ONLY. Several integration tests hit live external APIs (pokeapi.co,
@@ -169,13 +169,6 @@ kotlin.target.compilations.named("integrationTest") {
   associateWith(kotlin.target.compilations.getByName("main"))
 }
 
-// Give the jmh compilation the same friend-path to main, so component benchmarks (WT-1..WT-4) can
-// reference `internal` main members (e.g. PmSandbox, PmScope, PmExecutionContext, ScriptTarget)
-// rather than only the public API.
-kotlin.target.compilations.named("jmh") {
-  associateWith(kotlin.target.compilations.getByName("main"))
-}
-
 node {
   nodeProjectDir = file("${project.projectDir}/js")
   download = true
@@ -287,13 +280,6 @@ tasks {
 }
 
 kover {
-  currentProject {
-    sources {
-      // The JMH benchmark source set is a perf harness, never unit-tested by design (like the
-      // opt-in core-IT tests). Keep it out of the coverage denominator.
-      excludedSourceSets.addAll("jmh")
-    }
-  }
   reports {
     filters {
       excludes {
@@ -334,15 +320,6 @@ qodana {
 }
 
 moshi { enableSealed = true }
-
-jmh {
-  // Pin JMH core so every worktree benchmarks against a known JMH release.
-  jmhVersion = libs.versions.jmh.get()
-  // Select benchmarks from the CLI, e.g. ./gradlew jmh -Pjmh.includes=SmokeBenchmark
-  if (project.hasProperty("jmh.includes")) {
-    includes.add(project.property("jmh.includes").toString())
-  }
-}
 
 nexusPublishing {
   this.repositories {

@@ -2,7 +2,7 @@
   "extends": [
     "config:recommended"
   ],
-  "ignoreUnstable": false,
+  "ignoreUnstable": true,
   "automerge": true,
   "commitBodyTable": true,
   "github-actions": {

@@ -2,7 +2,7 @@
 jdk = "21"
 kotlin = "2.4.20-RC"
 moshix = "0.37.0"
-http4k = "6.57.2.0"
+http4k = "6.58.0.0"
 immutables = "2.12.2"
 arrow = "2.3.0-alpha.4"
 graal = "25.2.4"
@@ -21,7 +21,7 @@ pprint = "3.0.0"
 underscore = "1.123"
 datafaker = "2.7.0"
 mockito = "5.23.0"
-spring = "7.0.8"
+spring = "7.0.9"
 json-assert = "2.0-rc1"
 nexus-publish = "2.0.0"
 kotlinx-datetime = "0.8.0-0.6.x-compat"
@@ -30,9 +30,8 @@ mockk = "1.14.11"
 postgresql = "42.7.13"
 test-retry = "1.6.5"
 gradle-taskinfo = "3.0.2"
+ben-manes-versions = "0.61.0"
 kotlinx-collections-immutable = "0.5.1"
-jmh = "1.37"
-champeau-jmh = "0.7.3"
 qodana = "2026.2.0"
 
 # Common dependencies
@@ -40,7 +39,7 @@ qodana = "2026.2.0"
 junit = "5.11.4"
 kover = "0.9.9"
 detekt = "2.0.0-alpha.6"
-spotless = "8.9.0"
+spotless = "8.10.0"
 apache-log4j = "3.0.0-beta2"
 
 [libraries]
@@ -109,6 +108,6 @@ kapt = { id = "org.jetbrains.kotlin.kapt", version.ref = "kotlin" }
 node-gradle = { id = "com.github.node-gradle.node", version.ref = "node-gradle" }
 nexus-publish = { id = "io.github.gradle-nexus.publish-plugin", version.ref = "nexus-publish" }
 gradle-taskinfo = {id = "org.barfuin.gradle.taskinfo", version.ref = "gradle-taskinfo"}
-jmh = { id = "me.champeau.jmh", version.ref = "champeau-jmh" }
 test-retry = { id = "org.gradle.test-retry", version.ref = "test-retry" }
+versions = { id = "io.github.ben-manes.versions", version.ref = "ben-manes-versions" }
 qodana = { id = "org.jetbrains.qodana", version.ref = "qodana" }
