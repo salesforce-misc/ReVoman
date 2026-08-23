@@ -22,6 +22,7 @@ import java.io.InputStream
 import java.lang.reflect.Type
 import java.util.AbstractMap.SimpleEntry
 import java.util.Collections.disjoint
+import org.http4k.core.HttpHandler
 import org.immutables.value.Value
 import org.immutables.value.Value.Style.ImplementationVisibility.PUBLIC
 
@@ -114,6 +115,13 @@ internal interface KickDef {
   fun globalSkipTypes(): Set<Class<out Any>>
 
   @Value.Default fun insecureHttp(): Boolean = false
+
+  /**
+   * Optional in-process HTTP handler for this `revUp` only. When set, ReVoman invokes it instead of
+   * Apache and ignores [insecureHttp]. When unset, Apache is used (secure unless [insecureHttp] is
+   * true).
+   */
+  fun httpClient(): HttpHandler?
 
   @Value.Check
   fun validateConfig() {

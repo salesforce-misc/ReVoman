@@ -13,6 +13,9 @@ import com.salesforce.revoman.output.log.RunLogSink
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.maps.shouldContainExactly
 import io.kotest.matchers.shouldBe
+import org.http4k.core.HttpHandler
+import org.http4k.core.Response
+import org.http4k.core.Status.Companion.OK
 import org.junit.jupiter.api.Test
 
 class KickTest {
@@ -82,5 +85,20 @@ class KickTest {
     def.maxStepExecutionFactor() shouldBe 10
     val custom = Kick.configure().templatePath("x").maxStepExecutionFactor(3).off()
     custom.maxStepExecutionFactor() shouldBe 3
+  }
+
+  @Test
+  fun `httpClient defaults to null and insecureHttp defaults to false`() {
+    val kick = Kick.configure().templatePath("x").off()
+    kick.httpClient() shouldBe null
+    kick.insecureHttp() shouldBe false
+  }
+
+  @Test
+  fun `httpClient setter round-trips`() {
+    val handler: HttpHandler = { Response(OK).body("{}") }
+    val kick = Kick.configure().templatePath("x").httpClient(handler).off()
+    kick.httpClient() shouldBe handler
+    kick.insecureHttp() shouldBe false
   }
 }
