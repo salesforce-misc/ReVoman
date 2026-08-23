@@ -13,17 +13,16 @@ version: "1.0"
 # --image; the full image ref is unambiguous and works, so we keep it.
 linter: jetbrains/qodana-jvm-community:2026.1
 
-# ReVoman requires JDK 21 (was wrongly '11').
-projectJDK: "21"
+# ReVoman requires JDK 25.
+projectJDK: "25"
 
 profile:
   name: qodana.recommended
 
-# NOTE: kapt/Immutables sources are pre-generated on the HOST (`./gradlew kaptKotlin classes`,
-# JDK 21) before invoking qodanaScan — see DEVELOPMENT.md. We deliberately do NOT run that as an
-# in-container `bootstrap`: the community linter image bundles JBR 25, but the build pins
-# `jvmToolchain(21)`, so an in-container Gradle compile fails to resolve a JDK 21 toolchain
-# (no download repo configured). Pre-generating on the host sidesteps that entirely.
+# NOTE: kapt/Immutables sources are pre-generated on the HOST (`./gradlew kaptKotlin classes`)
+# before invoking qodanaScan — see DEVELOPMENT.md. We keep that off an in-container `bootstrap`
+# so the linter sees generated sources without running Gradle inside the image. Toolchain and
+# the community linter image are both JDK 25 (the old JBR-25 vs jvmToolchain(21) mismatch is gone).
 
 # Disabled inspections (kept from the prior config).
 exclude:

@@ -33,13 +33,12 @@ jobs:
       - uses: actions/setup-java@main
         with:
           distribution: jetbrains
-          java-version: 21
+          java-version: 25
 
       # Qodana's linter resolves references against generated sources (kapt/Immutables/Moshi).
-      # The in-container bootstrap was dropped (the community image bundles JBR 25 but the build
-      # pins jvmToolchain(21), so an in-container Gradle compile can't resolve a JDK 21 toolchain).
-      # Instead generate the sources here on the runner (JDK 21 from setup-java above) — qodana-action
-      # mounts the project dir, so build/generated is visible to the linter. Mirrors the local flow.
+      # Generate those on the runner (JDK 25 from setup-java above) rather than inside the linter
+      # image — qodana-action mounts the project dir, so build/generated is visible to the linter.
+      # Mirrors the local flow. Toolchain and the community image are both JDK 25.
       - name: 'Generate sources for analysis'
         run: ./gradlew kaptKotlin classes
 

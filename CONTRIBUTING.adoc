@@ -25,16 +25,11 @@ endif::[]
 
 === Install Java
 
-It needs JDK 21 installed in your system.
+It needs JDK 25 installed in your system.
 Recommendation is to do it via https://sdkman.io/install[SDKMAN].
 After you install SDKMAN,
 run `sdk list java` -> Pick Identifier for your favorite java distribution -> Run `sdk install java <Identifier-you-picked>`
-to install Java. For example:
-
-[source,bash]
-----
-sdk install java 21.0.8-amzn
-----
+to install Java. Any JDK 25 distribution works.
 
 === Build with Gradle
 

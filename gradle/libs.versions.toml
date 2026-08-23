@@ -1,5 +1,5 @@
 [versions]
-jdk = "21"
+jdk = "25"
 kotlin = "2.4.20-RC"
 moshix = "0.37.0"
 http4k = "6.58.0.0"

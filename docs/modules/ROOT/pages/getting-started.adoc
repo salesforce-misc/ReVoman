@@ -31,7 +31,7 @@ implementation("com.salesforce.revoman:revoman:{revoman-version}")
 ----
 
 [.lead]
-Minimum Java Version required = 21
+Minimum Java Version required = 25 (0.90.x is the last line that runs on JDK 21)
 
 .Tech-Talk given at https://www.opensourceindia.in/osi-speakers-2023/gopala-sarma-akshintala/[Open Source Conf—2023], https://speakerdeck.com/gopalakshintala/revoman-a-template-driven-api-automation-tool-for-jvm[🎴Slide deck]
 image::revoman-demo-thumbnail.png[link="https://www.youtube.com/watch?v=YxeRddSFkxc&list=PLrJbJ9wDl9EC0bG6y9fyDylcfmB_lT_Or&index=2", align="center"]

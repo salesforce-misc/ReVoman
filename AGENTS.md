@@ -1,6 +1,6 @@
 # ReVoman – An API Orchestration Engine for the JVM
 
-Kotlin/Gradle project for executing Postman collections on JVM. Requires JDK 21+.
+Kotlin/Gradle project for executing Postman collections on JVM. Requires JDK 25+.
 
 ## Project Structure
 

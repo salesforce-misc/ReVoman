@@ -25,7 +25,7 @@ jobs:
       - uses: actions/setup-java@main
         with:
           distribution: jetbrains
-          java-version: 21
+          java-version: 25
 
       # Replaces the deprecated gradle/gradle-build-action; adds dependency caching + a build report.
       - name: 'Setup Gradle'

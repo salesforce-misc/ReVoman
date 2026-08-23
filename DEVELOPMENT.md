@@ -43,7 +43,7 @@ primary quality gate; CI (`.github/workflows/qodana.yml`) is only a backstop.
 
 ```bash
 colima start                        # Qodana runs its linter in Docker; start the daemon first
-./gradlew kaptKotlin classes        # pre-generate kapt/Immutables/Moshi sources (JDK 21) so the
+./gradlew kaptKotlin classes        # pre-generate kapt/Immutables/Moshi sources (JDK 25) so the
                                      # linter resolves references — NOT run in-container (see qodana.yaml)
 ./gradlew qodanaScan                # downloads the Qodana CLI + free community linter image, then scans
 ```
@@ -75,7 +75,7 @@ Core only gets the classes physically inside the jar plus whatever Core itself a
 its classpath. Build the consumable jar (and its sources jar) with:
 
 ```bash
-export JAVA_HOME=$HOME/.sdkman/candidates/java/21.0.10-amzn   # any JDK 21; the build needs 21 (detekt breaks on 25)
+# JAVA_HOME must be any JDK 25
 ./gradlew spotlessApply                                        # format first, else spotlessCheck fails the build
 ./gradlew jar sourcesJar -x detekt -x test --rerun-tasks       # the consumable jar + sources jar
 # → build/libs/revoman-<version>.jar  and  build/libs/revoman-<version>-sources.jar
@@ -196,7 +196,7 @@ bazel run //:graph-tool -- pin-dependencies
 
 ## Development Environment
 
-- **JDK**: 21+ required for JVM target
+- **JDK**: 25+ required for JVM target
 - **Targets**: JVM
 
 ## Gradle Wrapper & Offline Builds

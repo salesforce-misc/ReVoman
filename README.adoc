@@ -16,7 +16,7 @@ endif::[]
 image:https://img.shields.io/maven-central/v/com.salesforce.revoman/revoman?style=flat-square&labelColor=1c1917&color=D97757&label=Maven%20Central[Maven Central,link=https://central.sonatype.com/artifact/com.salesforce.revoman/revoman]
 image:https://img.shields.io/github/actions/workflow/status/salesforce-misc/ReVoman/build.yml?branch=master&style=flat-square&labelColor=1c1917&label=build[Build,link=https://github.com/salesforce-misc/ReVoman/actions/workflows/build.yml]
 image:https://img.shields.io/github/stars/salesforce-misc/ReVoman?style=flat-square&labelColor=1c1917&color=D97757&logo=github&label=Star[GitHub stars,link=https://github.com/salesforce-misc/ReVoman]
-image:https://img.shields.io/badge/JVM-21%2B-1c1917?style=flat-square&labelColor=1c1917[JVM 21+]
+image:https://img.shields.io/badge/JVM-25%2B-1c1917?style=flat-square&labelColor=1c1917[JVM 25+]
 image:https://img.shields.io/github/license/salesforce-misc/ReVoman?style=flat-square&labelColor=1c1917&color=1c1917[License]
 
 [.lead]
@@ -87,7 +87,7 @@ https://learning.postman.com/docs/collections/using-newman-cli/command-line-inte
 
 == Install
 
-Minimum Java version required = *21*
+Minimum Java version required = *25* (0.90.x is the last line that runs on JDK 21)
 
 [.lead]
 Maven
