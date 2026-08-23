@@ -31,7 +31,7 @@ import org.junit.jupiter.api.Test
 class PostmanEnvironmentUnsteppedTest {
   @Test
   fun `set then unset on an unstepped instance mutate the map and record no produced keys`() {
-    // Constructed exactly how PostmanSDK.collectionVariables is: no currentStep ever assigned.
+    // Collection/global scopes never receive a currentStep.
     val store: PostmanEnvironment<Any?> = PostmanEnvironment()
 
     store.set("a", "1")

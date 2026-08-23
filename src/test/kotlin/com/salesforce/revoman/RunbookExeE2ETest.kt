@@ -14,11 +14,14 @@ import com.salesforce.revoman.input.config.Runbook
 import com.salesforce.revoman.input.config.haltOnStepFailure
 import com.salesforce.revoman.input.config.runLogSink
 import com.salesforce.revoman.input.config.step
+import com.salesforce.revoman.internal.exe.prepareHttpClient
 import com.salesforce.revoman.output.log.ConsoleRunLogSink
 import com.salesforce.revoman.testing.http.MockHttpServer
 import java.io.ByteArrayOutputStream
 import java.io.PrintStream
 import java.util.concurrent.atomic.AtomicInteger
+import org.http4k.core.Method.GET
+import org.http4k.core.Request
 import org.http4k.core.Response
 import org.http4k.core.Status.Companion.INTERNAL_SERVER_ERROR
 import org.http4k.core.Status.Companion.OK
@@ -119,6 +122,30 @@ class RunbookExeE2ETest {
         }
       )
     assertThat(rr).hasSize(1)
+  }
+
+  @Test
+  fun `assertAfter mutation does not alter the environment frozen for the next step`() {
+    val rr =
+      ReVoman.revUp(
+        Runbook {
+          step {
+            intent = "freeze before assertion"
+            phase = Phase.SETUP
+            kick = kick(mapOf("count" to 42))
+            assertAfter { rundown, _ -> rundown.mutableEnv["count"] = 99 }
+          }
+          step {
+            intent = "consume frozen value"
+            phase = Phase.ACT
+            kick = kick()
+            consumes("count")
+          }
+        }
+      )
+
+    assertThat(rr[0].mutableEnv["count"]).isEqualTo(99)
+    assertThat(rr[1].mutableEnv["count"]).isEqualTo(42)
   }
 
   @Test
@@ -253,6 +280,29 @@ class RunbookExeE2ETest {
     val output = capturedOut.toString(Charsets.UTF_8)
     assertThat(output.split("━━ SETUP").size - 1).isEqualTo(1)
     assertThat(output.split("━━ ACT").size - 1).isEqualTo(1)
+  }
+
+  @Test
+  fun `loopback fixture routes root failure and counted endpoints independently`() {
+    val client = prepareHttpClient(insecureHttp = false)
+    val rootBefore = fixture.requests().count { it.path == "/" }
+    val failureBefore = fixture.requests().count { it.path == "/fail" }
+    val countBefore = fixture.requests().count { it.path == "/count" }
+
+    val root = client(Request(GET, "$baseUrl/"))
+    val failure = client(Request(GET, "$baseUrl/fail"))
+    val counted = client(Request(GET, "$baseUrl/count"))
+
+    assertThat(root.status).isEqualTo(OK)
+    assertThat(root.bodyString()).isEqualTo("{}")
+    assertThat(failure.status).isEqualTo(INTERNAL_SERVER_ERROR)
+    assertThat(failure.bodyString()).isEqualTo("{\"error\":\"boom\"}")
+    assertThat(counted.status).isEqualTo(OK)
+    assertThat(counted.bodyString()).isEqualTo("{}")
+    assertThat(fixture.requests().count { it.path == "/" }).isEqualTo(rootBefore + 1)
+    assertThat(fixture.requests().count { it.path == "/fail" }).isEqualTo(failureBefore + 1)
+    assertThat(fixture.requests().count { it.path == "/count" }).isEqualTo(countBefore + 1)
+    assertThat(countHits.get()).isEqualTo(1)
   }
 
   companion object {

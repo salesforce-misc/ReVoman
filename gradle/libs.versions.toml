@@ -18,7 +18,6 @@ assertj-core = "4.0.0-M1"
 assertj-vavr = "0.5.1"
 kotlin-logging = "8.0.4"
 pprint = "3.0.0"
-underscore = "1.123"
 datafaker = "2.7.0"
 mockito = "5.23.0"
 spring = "7.0.8"
@@ -40,7 +39,7 @@ qodana = "2026.2.0"
 junit = "5.11.4"
 kover = "0.9.9"
 detekt = "2.0.0-alpha.6"
-spotless = "8.9.0"
+spotless = "8.10.0"
 apache-log4j = "3.0.0-beta2"
 
 [libraries]
@@ -64,7 +63,6 @@ http4k-core = { module = "org.http4k:http4k-core" }
 http4k-client-apache = { module = "org.http4k:http4k-client-apache" }
 http4k-format-moshi = { module = "org.http4k:http4k-format-moshi" }
 graal-js = { module = "org.graalvm.js:js-language", version.ref = "graal" }
-underscore = { module = "com.github.javadev:underscore", version.ref = "underscore" }
 datafaker = { module = "net.datafaker:datafaker", version.ref = "datafaker" }
 immutables-value = { module = "org.immutables:value", version.ref = "immutables" }
 immutables-builder = { module = "org.immutables:builder", version.ref = "immutables" }

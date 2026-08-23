@@ -8,6 +8,8 @@
 package com.salesforce.revoman.internal.postman.sandbox
 
 import io.kotest.matchers.shouldBe
+import org.graalvm.polyglot.Engine
+import org.graalvm.polyglot.Source
 import org.junit.jupiter.api.Test
 
 /**
@@ -22,8 +24,28 @@ import org.junit.jupiter.api.Test
  * reused JIT warm-up) is guarded by `SandboxBenchmark` (jmh), not here.
  */
 class SandboxEngineSharingTest {
-  private fun testCtx(env: Map<String, Any?> = emptyMap()) =
-    PmExecutionContext(environment = PmScope("e", env))
+  private fun testCtx(
+    env: Map<String, Any?> = emptyMap(),
+    requestBodyName: String? = null,
+  ) =
+    PmExecutionContext(
+      environment = PmScope("e", env),
+      request =
+        requestBodyName?.let {
+          mapOf(
+            "method" to "POST",
+            "url" to "https://example.com",
+            "body" to mapOf("mode" to "raw", "raw" to """{"name":"$it"}"""),
+          )
+        },
+    )
+
+  private val observeBridgeStateScript =
+    """
+    pm.environment.set('sawBridgeGlobal', typeof __bridgeLeak);
+    pm.environment.set('requestJsonName', pm.request.json().name);
+    """
+      .trimIndent()
 
   @Test
   fun `same script evaluated twice in one sandbox yields identical results`() {
@@ -81,5 +103,65 @@ class SandboxEngineSharingTest {
     s2.close()
     r.error shouldBe null
     r.environment["sawGlobal"] shouldBe "undefined" // fresh Context: s1's global unseen
+  }
+
+  @Test
+  fun `two real bridges build contexts with the shared engine and evaluate the shared source`() {
+    val engines = mutableListOf<Engine>()
+    val sources = mutableListOf<Source>()
+    val first =
+      SandboxBridge().observeRuntime { context, source ->
+        engines += context.engine
+        sources += source
+      }
+    val second =
+      SandboxBridge().observeRuntime { context, source ->
+        engines += context.engine
+        sources += source
+      }
+
+    try {
+      first.boot()
+      val firstResult =
+        first.dispatchExecute(
+          "one",
+          "__bridgeLeak = pm.request.json().name;",
+          ScriptTarget.TEST,
+          testCtx(requestBodyName = "first"),
+          5000,
+        )
+      val sameBridge =
+        first.dispatchExecute(
+          "same",
+          observeBridgeStateScript,
+          ScriptTarget.TEST,
+          testCtx(requestBodyName = "first-again"),
+          5000,
+        )
+      second.boot()
+      val result =
+        second.dispatchExecute(
+          "two",
+          observeBridgeStateScript,
+          ScriptTarget.TEST,
+          testCtx(requestBodyName = "second"),
+          5000,
+        )
+
+      engines.all { it === sharedGraalEngine } shouldBe true
+      sources.all { it === SandboxResources.bootSource } shouldBe true
+      (engines[0] === engines[1]) shouldBe true
+      (sources[0] === sources[1]) shouldBe true
+      firstResult.error shouldBe null
+      sameBridge.error shouldBe null
+      sameBridge.environment["sawBridgeGlobal"] shouldBe "string"
+      sameBridge.environment["requestJsonName"] shouldBe "first-again"
+      result.error shouldBe null
+      result.environment["sawBridgeGlobal"] shouldBe "undefined"
+      result.environment["requestJsonName"] shouldBe "second"
+    } finally {
+      first.close()
+      second.close()
+    }
   }
 }

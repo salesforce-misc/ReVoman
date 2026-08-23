@@ -112,6 +112,38 @@ class PmSandboxApiCoverageTest {
   }
 
   @Test
+  fun `pm request json parses the request body`() {
+    val r =
+      runTest(
+        """
+        const parsedRequest = pm.request.json();
+        pm.test('request json', () => pm.expect(parsedRequest.name).to.eql('bulbasaur'));
+        """
+          .trimIndent(),
+        request =
+          mapOf(
+            "method" to "POST",
+            "url" to "https://example.com",
+            "body" to mapOf("mode" to "raw", "raw" to """{"name":"bulbasaur"}"""),
+          ),
+      )
+    r.error shouldBe null
+    r.assertions[0].passed shouldBe true
+  }
+
+  @Test
+  fun `pm request json returns null for a bodyless request`() {
+    val r =
+      runTest(
+        "pm.test('bodyless request json', () => pm.expect(pm.request.json()).to.eql(null));",
+        request = mapOf("method" to "GET", "url" to "https://example.com"),
+      )
+
+    r.error shouldBe null
+    r.assertions.single().passed shouldBe true
+  }
+
+  @Test
   fun `pm response code returns the HTTP status code`() {
     val r =
       runTest(
@@ -160,6 +192,67 @@ class PmSandboxApiCoverageTest {
   @Test
   fun `pm test and pm expect record a passing assertion`() {
     val r = runTest("pm.test('expect', () => pm.expect(1 + 1).to.eql(2));")
+    r.error shouldBe null
+    r.assertions[0].passed shouldBe true
+  }
+
+  // ---------------------------------------------------------------- Bundled require modules
+
+  @Test
+  fun `bundled lodash is available through require`() {
+    val r =
+      runTest(
+        "const lodash = require('lodash'); pm.test('lodash', () => pm.expect(lodash.chunk([1, 2, 3], 2)).to.eql([[1, 2], [3]]));"
+      )
+    r.error shouldBe null
+    r.assertions[0].passed shouldBe true
+  }
+
+  @Test
+  fun `bundled moment is available through require`() {
+    val r =
+      runTest(
+        "const moment = require('moment'); pm.test('moment', () => pm.expect(moment.utc('2026-08-12').format('YYYY-MM-DD')).to.eql('2026-08-12'));"
+      )
+    r.error shouldBe null
+    r.assertions[0].passed shouldBe true
+  }
+
+  @Test
+  fun `bundled xml2js is available through require`() {
+    val r =
+      runTest(
+        """
+        const xml2js = require('xml2js');
+        xml2js.parseString('<root><value>pikachu</value></root>', (error, parsed) => {
+          pm.test('xml2js', () => {
+            pm.expect(error).to.eql(null);
+            pm.expect(parsed.root.value[0]).to.eql('pikachu');
+          });
+        });
+        """
+          .trimIndent()
+      )
+    r.error shouldBe null
+    r.assertions[0].passed shouldBe true
+  }
+
+  @Test
+  fun `legacy xml2Json and responseBody globals remain available`() {
+    val r =
+      runTest(
+        """
+        const parsed = xml2Json(responseBody);
+        pm.test('legacy xml', () => pm.expect(parsed.root.name).to.eql('bulbasaur'));
+        """
+          .trimIndent(),
+        response =
+          mapOf(
+            "code" to 200,
+            "status" to "OK",
+            "body" to "<root><name>bulbasaur</name></root>",
+          ),
+      )
     r.error shouldBe null
     r.assertions[0].passed shouldBe true
   }

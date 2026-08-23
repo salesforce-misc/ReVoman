@@ -1,0 +1,180 @@
+name: Performance regression
+
+on:
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+    inputs:
+      baseline_ref:
+        description: Baseline Git ref
+        required: true
+        default: master
+      candidate_ref:
+        description: Candidate Git ref (use the baseline ref for A/A)
+        required: true
+        default: master
+
+permissions:
+  contents: read
+
+concurrency:
+  group: revoman-performance-regression
+  cancel-in-progress: false
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      BASELINE_REF: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || inputs.baseline_ref }}
+      CANDIDATE_REF: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || inputs.candidate_ref }}
+
+    steps:
+      - name: Checkout baseline
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ env.BASELINE_REF }}
+          path: baseline
+
+      - name: Checkout candidate
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ env.CANDIDATE_REF }}
+          path: candidate
+
+      - name: Set up Temurin 21
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '21.0.11+10.0.LTS'
+          cache: gradle
+          cache-dependency-path: |
+            baseline/**/*.gradle*
+            baseline/**/gradle.properties
+            baseline/**/gradle-wrapper.properties
+            baseline/gradle/*.toml
+            candidate/**/*.gradle*
+            candidate/**/gradle.properties
+            candidate/**/gradle-wrapper.properties
+            candidate/gradle/*.toml
+
+      - name: Record provenance and share workloads
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p performance-results/baseline performance-results/candidate
+          git -C baseline rev-parse HEAD > performance-results/baseline/commit.txt
+          git -C candidate rev-parse HEAD > performance-results/candidate/commit.txt
+          (cd baseline && java -version) > performance-results/baseline/java-version.txt 2>&1
+          (cd candidate && java -version) > performance-results/candidate/java-version.txt 2>&1
+          cmp performance-results/baseline/java-version.txt performance-results/candidate/java-version.txt
+          grep -F 'Temurin-21.0.11+10' performance-results/baseline/java-version.txt
+
+          shared_paths=(
+            src/jmh/kotlin/com/salesforce/revoman/benchmark/RuntimeLifecycleBenchmark.kt
+            src/jmh/kotlin/com/salesforce/revoman/benchmark/SandboxBenchmark.kt
+            src/jmh/resources/pm-templates/v3/perf-lifecycle-script-free/.resources/definition.yaml
+            src/jmh/resources/pm-templates/v3/perf-lifecycle-script-free/request.request.yaml
+            src/jmh/resources/pm-templates/v3/perf-lifecycle-scripted/.resources/definition.yaml
+            src/jmh/resources/pm-templates/v3/perf-lifecycle-scripted/request.request.yaml
+          )
+          for path in "${shared_paths[@]}"; do
+            install -D "candidate/${path}" "baseline/${path}"
+            cmp "baseline/${path}" "candidate/${path}"
+          done
+
+      - name: Select and validate comparator
+        shell: bash
+        run: |
+          set -euo pipefail
+          comparator_root="$GITHUB_WORKSPACE/baseline"
+          if [[ ! -f "$comparator_root/scripts/compare-jmh.py" ]]; then
+            comparator_root="$GITHUB_WORKSPACE/candidate"
+          fi
+          echo "COMPARATOR_ROOT=$comparator_root" >> "$GITHUB_ENV"
+          python3 -m unittest discover -s "$comparator_root/scripts/tests" -p 'test_*.py' -v
+
+      - name: Configure identical JMH runs
+        shell: bash
+        run: |
+          cat > perf-jmh.init.gradle <<'GRADLE'
+          allprojects {
+            plugins.withId('me.champeau.jmh') {
+              tasks.named('jmhJar') {
+                manifest { attributes('Multi-Release': 'true') }
+              }
+              tasks.named('jmh') {
+                outputs.upToDateWhen { false }
+                failOnError.set(true)
+                resultFormat.set('JSON')
+                resultsFile.set(project.file(System.getenv('JMH_RESULTS_FILE') ?: 'build/results/jmh/results.json'))
+                humanOutputFile.set(project.file(System.getenv('JMH_HUMAN_OUTPUT_FILE') ?: 'build/results/jmh/results.txt'))
+                benchmarkMode.set(['avgt'])
+                timeUnit.set('us')
+                profilers.set(['gc'])
+                fork.set(2)
+                warmupIterations.set(5)
+                warmup.set('1s')
+                iterations.set(8)
+                timeOnIteration.set('1s')
+                jvmArgsAppend.add('-Drevoman.banner=off')
+                doLast {
+                  def humanOutput = humanOutputFile.get().asFile
+                  if (!humanOutput.isFile() || humanOutput.length() == 0 || humanOutput.text.contains('<failure>')) {
+                    throw new GradleException("JMH reported a benchmark failure; inspect ${humanOutput.absolutePath}")
+                  }
+                  def jsonOutput = resultsFile.get().asFile
+                  if (!jsonOutput.isFile() || jsonOutput.length() == 0 || jsonOutput.text.replaceAll(/\s/, '') == '[]') {
+                    throw new GradleException("JMH produced no benchmark results: ${jsonOutput.absolutePath}")
+                  }
+                }
+              }
+            }
+          }
+          GRADLE
+
+      - name: Compile shared benchmarks
+        shell: bash
+        run: |
+          set -euo pipefail
+          baseline/gradlew -p baseline --init-script "$GITHUB_WORKSPACE/perf-jmh.init.gradle" compileJmhKotlin
+          candidate/gradlew -p candidate --init-script "$GITHUB_WORKSPACE/perf-jmh.init.gradle" compileJmhKotlin
+
+      - name: Run baseline
+        env:
+          JMH_RESULTS_FILE: ${{ github.workspace }}/performance-results/baseline/results.json
+          JMH_HUMAN_OUTPUT_FILE: ${{ github.workspace }}/performance-results/baseline/jmh.txt
+        run: baseline/gradlew -p baseline --init-script "$GITHUB_WORKSPACE/perf-jmh.init.gradle" jmh -Pjmh.includes='RuntimeLifecycleBenchmark|SandboxBenchmark'
+
+      - name: Run candidate
+        env:
+          JMH_RESULTS_FILE: ${{ github.workspace }}/performance-results/candidate/results.json
+          JMH_HUMAN_OUTPUT_FILE: ${{ github.workspace }}/performance-results/candidate/jmh.txt
+        run: candidate/gradlew -p candidate --init-script "$GITHUB_WORKSPACE/perf-jmh.init.gradle" jmh -Pjmh.includes='RuntimeLifecycleBenchmark|SandboxBenchmark'
+
+      - name: Compare results
+        shell: bash
+        run: |
+          set +e
+          python3 "$COMPARATOR_ROOT/scripts/compare-jmh.py" \
+            performance-results/baseline/results.json \
+            performance-results/candidate/results.json \
+            --baseline-sha "$(cat performance-results/baseline/commit.txt)" \
+            --candidate-sha "$(cat performance-results/candidate/commit.txt)" \
+            --require-benchmark com.salesforce.revoman.benchmark.RuntimeLifecycleBenchmark.scriptFreeOneStep \
+            --require-benchmark com.salesforce.revoman.benchmark.RuntimeLifecycleBenchmark.scriptedOneStep \
+            --require-benchmark com.salesforce.revoman.benchmark.SandboxBenchmark.evalPostmanTestScript \
+            --markdown-out performance-results/comparison.md \
+            --json-out performance-results/comparison.json
+          status=$?
+          cat performance-results/comparison.md >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+
+      - name: Upload performance results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: performance-results
+          path: performance-results
+          if-no-files-found: error
+          retention-days: 7

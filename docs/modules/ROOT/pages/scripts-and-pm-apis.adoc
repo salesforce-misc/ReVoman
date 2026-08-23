@@ -8,13 +8,7 @@
 ** Post-res JS runs right after receiving an HTTP response.
 
 === `npm` modules with `require(...)`
-ReṼoman supports using `npm` modules inside your pre-req and post-res JS. Install modules in any folder with `npm install <module>`, supply the parent folder of `node_modules` to the `Kick` config via `nodeModulesPath(...)` (absolute, or relative to the project directory), and `require(...)` them:
-
-.Install `moment` with npm
-[source,shellscript,indent=0,options="nowrap"]
-----
-npm install moment
-----
+ReṼoman bundles a small set of JavaScript modules for use inside pre-req and post-res scripts. The supported modules are `lodash`, `moment`, and `xml2js`; use `require(...)` directly in the script. Installing npm modules separately is not supported. The deprecated `nodeModulesPath(...)` configuration is ignored by the sandbox.
 
 .Use inside pre-req and post-res scripts
 [source,javascript,indent=0,tabsize=2,options="nowrap"]
@@ -28,17 +22,6 @@ pm.environment.set('$randomFutureDate', futureDateTime.format('YYYY-MM-DD'))
 
 pm.environment.set("$quantity", _.random(1, 10))
 ----
-
-IMPORTANT: Loading `node_modules` from a jar is not supported. For example, `/Users/username/some-path/revoman-root/build/libs/revoman-root-0.40.0.jar!/js` is an invalid path. (See this https://graalvm.slack.com/archives/CN9L59P61/p1710937088860679?thread_ts=1710767437.443019&cid=CN9L59P61[known issue].)
-
-[TIP]
-====
-* `node_modules` adds a lot of files to check in. You may replace them with a single distribution file.
-
-image::node_modules.png[]
-
-* If `node_modules` is ignored in your git repo, you can force-add it with `git add --all -f <path>/node_modules`.
-====
 
 CAUTION: Don't add too much code in pre-req/post-res scripts — it's not intuitive to troubleshoot via debugging. Use them for simple operations understandable without debugging, and use xref:hooks.adoc#dynamic-pre-step-and-post-step-hooks[Pre-Step/Post-Step Hooks] for non-trivial operations (which are intuitive to debug).
 

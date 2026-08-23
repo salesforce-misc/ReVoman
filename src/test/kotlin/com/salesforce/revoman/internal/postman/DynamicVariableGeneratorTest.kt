@@ -8,10 +8,39 @@
 package com.salesforce.revoman.internal.postman
 
 import com.google.common.truth.Truth.assertThat
+import com.salesforce.revoman.internal.postman.template.Item
+import com.salesforce.revoman.internal.runtime.RundownProgress
+import com.salesforce.revoman.output.Rundown
+import com.salesforce.revoman.output.postman.PostmanEnvironment
+import com.salesforce.revoman.output.report.Step
+import com.salesforce.revoman.output.report.StepReport
 import kotlin.random.Random
 import org.junit.jupiter.api.Test
 
 class DynamicVariableGeneratorTest {
+  @Test
+  fun `currentRequestName reads only focused progress state`() {
+    val environment = PostmanEnvironment<Any?>()
+    val report =
+      StepReport(
+        step = Step(index = "request", rawPMStep = Item(name = "phase-one")),
+        pmEnvSnapshot = environment,
+      )
+    val progress = RundownProgress()
+    progress.begin(
+      report,
+      Rundown(
+        stepReports = listOf(report),
+        mutableEnv = environment,
+        haltOnFailureOfTypeExcept = emptyMap(),
+        providedStepsToExecuteCount = 1,
+      ),
+    )
+
+    assertThat(dynamicVariableGenerator($$"$currentRequestName", progress)).isEqualTo("phase-one")
+    assertThat(dynamicVariableGenerator("not-a-dynamic-variable", progress)).isNull()
+  }
+
   @Test
   fun `getRandomHex always returns exactly 2 uppercase hex digits`() {
     repeat(100) {

@@ -40,6 +40,12 @@ internal interface KickDef {
 
   @AllowNulls fun dynamicEnvironment(): Map<String, Any?>
 
+  /**
+   * Retained for source compatibility only. Collection scripts execute in the bundled Postman
+   * sandbox, so arbitrary filesystem CommonJS loading is no longer supported and this value is
+   * ignored.
+   */
+  @Deprecated("Ignored: collection scripts use the bundled Postman sandbox")
   fun nodeModulesPath(): String?
 
   fun customDynamicVariableGenerators(): Map<String, CustomDynamicVariableGenerator>

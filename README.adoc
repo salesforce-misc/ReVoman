@@ -57,7 +57,6 @@ try (final var server = MockHttpServer.start(api)) {
               .templatePath(PM_COLLECTION_PATH)     // <2>
               .environmentPath(PM_ENVIRONMENT_PATH) // <3>
               .dynamicEnvironment("baseUrl", server.getBaseUrl()) // <4>
-              .nodeModulesPath("js")
               .off());
   assertThat(rundown.firstUnsuccessfulStepReport()).isNull(); // <5>
   assertThat(rundown.stepReports).hasSize(4);                  // <6>

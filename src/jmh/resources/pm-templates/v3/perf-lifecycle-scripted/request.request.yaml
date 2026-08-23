@@ -1,0 +1,15 @@
+$kind: http-request
+name: scripted
+url: "{{baseUrl}}/scripted"
+method: GET
+scripts:
+  - type: beforeRequest
+    code: |-
+      pm.environment.set('preRequestSeen', 'yes');
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      pm.environment.set('responseId', String(pm.response.json().id));
+      pm.test('response id is stable', () => pm.expect(pm.response.json().id).to.eql(42));
+    language: text/javascript
+order: 1000

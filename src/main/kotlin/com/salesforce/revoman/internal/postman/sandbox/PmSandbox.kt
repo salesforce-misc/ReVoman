@@ -7,39 +7,58 @@
  */
 package com.salesforce.revoman.internal.postman.sandbox
 
+import com.salesforce.revoman.internal.runtime.SandboxRuntime
+
 /**
  * The single entry point the rest of ReVoman uses to run pm scripts. Wraps a [SandboxBridge] (one
  * booted GraalJS context per ReVoman run). Construct once per run; [close] at the end.
  *
  * All GraalJS/bridge/Flatted detail lives behind [execute].
  */
-internal class PmSandbox : AutoCloseable {
+internal class PmSandbox : SandboxRuntime {
   private val bridge = SandboxBridge()
+  private var bridgeForTest: SandboxBridge? = null
   private var booted = false
   private var closed = false
   private var idSeq = 0L
 
+  // Throwable is intentional: boot failures, including Errors, leave this instance terminal.
+  @Suppress("TooGenericExceptionCaught")
   private fun ensureBooted() {
     if (!booted) {
-      bridge.boot()
       booted = true
+      try {
+        activeBridge().boot()
+      } catch (failure: Throwable) {
+        closed = true
+        throw failure
+      }
     }
   }
 
-  fun execute(
+  private fun activeBridge(): SandboxBridge = bridgeForTest ?: bridge
+
+  override fun execute(
     script: String,
     target: ScriptTarget,
     context: PmExecutionContext,
-    timeoutMs: Long = DEFAULT_TIMEOUT_MS,
+    timeoutMs: Long,
   ): PmExecutionResult {
     check(!closed) { "sandbox: execute() after close()" }
     ensureBooted()
-    return bridge.dispatchExecute("step${idSeq++}", script, target, context, timeoutMs)
+    return activeBridge().dispatchExecute("step${idSeq++}", script, target, context, timeoutMs)
   }
 
   override fun close() {
-    if (booted) bridge.close()
     closed = true
+    activeBridge().close()
+  }
+
+  @JvmSynthetic
+  internal fun withBridgeForTest(bridge: SandboxBridge): PmSandbox {
+    check(!booted && !closed) { "sandbox: bridge replacement after use" }
+    bridgeForTest = bridge
+    return this
   }
 
   private companion object {

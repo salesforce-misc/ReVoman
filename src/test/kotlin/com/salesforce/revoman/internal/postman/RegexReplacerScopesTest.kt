@@ -8,7 +8,6 @@
 package com.salesforce.revoman.internal.postman
 
 import com.salesforce.revoman.input.config.CustomDynamicVariableGenerator
-import com.salesforce.revoman.internal.json.MoshiReVoman.Companion.initMoshi
 import com.salesforce.revoman.internal.log.RunLogContext
 import com.salesforce.revoman.internal.postman.template.Item
 import com.salesforce.revoman.output.log.LogLevel
@@ -18,190 +17,119 @@ import com.salesforce.revoman.output.report.Step
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
-import io.mockk.mockk
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 
-/**
- * Exhaustive coverage of `{{key}}` resolution across the three persistent Postman scopes through
- * [RegexReplacer], honoring precedence (`environment` ▸ `collectionVariables` ▸ `globals`) and the
- * env-only side effects (warm-run `recordConsumed`, type-coercing write-back). Collection/global
- * hits resolve read-only — no ledger involvement, no store mutation.
- */
+/** Covers bound replacement precedence and the environment-only ledger/write-back side effects. */
 class RegexReplacerScopesTest {
-  private val moshiReVoman = initMoshi()
-
-  private fun pmWith(regexReplacer: RegexReplacer = RegexReplacer()): PostmanSDK {
-    val pm = PostmanSDK(moshiReVoman, null, regexReplacer)
-    pm.currentStepReport = mockk()
-    pm.rundown = mockk()
-    return pm
-  }
-
-  private fun replace(pm: PostmanSDK, s: String): String? =
-    (pm.regexReplacer).replaceVariablesRecursively(s, pm)
-
-  // ------------------------------------------------------------------ single-scope resolution
-
   @Test
-  fun `resolves a key present only in environment`() {
-    val pm = pmWith()
-    pm.environment.set("k", "env")
-    replace(pm, "v={{k}}") shouldBe "v=env"
+  fun `resolves keys from each scope`() {
+    val environment = focusedPostmanTestGraph(environmentValues = mapOf("k" to "env"))
+    val collection = focusedPostmanTestGraph(collectionVariableValues = mapOf("k" to "collection"))
+    val global = focusedPostmanTestGraph(globalValues = mapOf("k" to "global"))
+
+    environment.replacer.replaceVariablesRecursively("v={{k}}") shouldBe "v=env"
+    collection.replacer.replaceVariablesRecursively("v={{k}}") shouldBe "v=collection"
+    global.replacer.replaceVariablesRecursively("v={{k}}") shouldBe "v=global"
   }
 
   @Test
-  fun `resolves a key present only in collectionVariables`() {
-    val pm = pmWith()
-    pm.collectionVariables.set("k", "cv")
-    replace(pm, "v={{k}}") shouldBe "v=cv"
+  fun `scope precedence is environment then collection then globals`() {
+    val all =
+      focusedPostmanTestGraph(
+        environmentValues = mapOf("k" to "environment"),
+        collectionVariableValues = mapOf("k" to "collection"),
+        globalValues = mapOf("k" to "global"),
+      )
+    val collectionAndGlobal =
+      focusedPostmanTestGraph(
+        collectionVariableValues = mapOf("k" to "collection"),
+        globalValues = mapOf("k" to "global"),
+      )
+
+    all.replacer.replaceVariablesRecursively("{{k}}") shouldBe "environment"
+    collectionAndGlobal.replacer.replaceVariablesRecursively("{{k}}") shouldBe "collection"
   }
 
   @Test
-  fun `resolves a key present only in globals`() {
-    val pm = pmWith()
-    pm.globals.set("k", "glob")
-    replace(pm, "v={{k}}") shouldBe "v=glob"
-  }
-
-  // ------------------------------------------------------------------ precedence
-
-  @Test
-  fun `environment wins over collectionVariables`() {
-    val pm = pmWith()
-    pm.environment.set("k", "env")
-    pm.collectionVariables.set("k", "cv")
-    replace(pm, "v={{k}}") shouldBe "v=env"
+  fun `unknown key remains a literal placeholder`() {
+    focusedPostmanTestGraph().replacer.replaceVariablesRecursively("v={{missing}}") shouldBe
+      "v={{missing}}"
   }
 
   @Test
-  fun `environment wins over globals`() {
-    val pm = pmWith()
-    pm.environment.set("k", "env")
-    pm.globals.set("k", "glob")
-    replace(pm, "v={{k}}") shouldBe "v=env"
+  fun `only environment resolution records a consumed key`() {
+    val step = Step(index = "1", rawPMStep = Item(name = "s"))
+    val environment = focusedPostmanTestGraph(environmentValues = mapOf("k" to "env"))
+    val collection = focusedPostmanTestGraph(collectionVariableValues = mapOf("k" to "collection"))
+    val global = focusedPostmanTestGraph(globalValues = mapOf("k" to "global"))
+    listOf(environment, collection, global).forEach { it.scopes.environment.currentStep = step }
+
+    environment.replacer.replaceVariablesRecursively("{{k}}") shouldBe "env"
+    collection.replacer.replaceVariablesRecursively("{{k}}") shouldBe "collection"
+    global.replacer.replaceVariablesRecursively("{{k}}") shouldBe "global"
+
+    environment.scopes.environment.consumedKeysFor(step) shouldContain "k"
+    collection.scopes.environment.consumedKeysFor(step) shouldNotContain "k"
+    global.scopes.environment.consumedKeysFor(step) shouldNotContain "k"
   }
 
   @Test
-  fun `collectionVariables wins over globals`() {
-    val pm = pmWith()
-    pm.collectionVariables.set("k", "cv")
-    pm.globals.set("k", "glob")
-    replace(pm, "v={{k}}") shouldBe "v=cv"
+  fun `collection and global values never write back into environment`() {
+    val collection = focusedPostmanTestGraph(collectionVariableValues = mapOf("k" to "collection"))
+    val global = focusedPostmanTestGraph(globalValues = mapOf("k" to "global"))
+
+    collection.replacer.replaceVariablesRecursively("{{k}}") shouldBe "collection"
+    global.replacer.replaceVariablesRecursively("{{k}}") shouldBe "global"
+
+    collection.scopes.environment.containsKey("k") shouldBe false
+    global.scopes.environment.containsKey("k") shouldBe false
   }
 
   @Test
-  fun `environment wins when present in all three`() {
-    val pm = pmWith()
-    pm.environment.set("k", "env")
-    pm.collectionVariables.set("k", "cv")
-    pm.globals.set("k", "glob")
-    replace(pm, "v={{k}}") shouldBe "v=env"
-  }
-
-  // ------------------------------------------------------------------ unknown key
-
-  @Test
-  fun `unknown key in all scopes is left as the literal double-brace token`() {
-    val pm = pmWith()
-    replace(pm, "v={{missing}}") shouldBe "v={{missing}}"
-  }
-
-  // ------------------------------------------------------------------ ledger guard (env-only)
-
-  @Test
-  fun `an environment hit is recorded as consumed`() {
-    val pm = pmWith()
-    pm.environment.currentStep = Step(index = "1", rawPMStep = Item(name = "s"))
-    pm.environment.set("k", "env")
-    replace(pm, "{{k}}") shouldBe "env"
-    pm.environment.consumedKeysFor(pm.environment.currentStep) shouldContain "k"
+  fun `environment numeric value is written back with its Int type preserved`() {
+    val graph = focusedPostmanTestGraph(environmentValues = mapOf("n" to 7))
+    graph.replacer.replaceVariablesRecursively("{{n}}") shouldBe "7"
+    graph.scopes.environment["n"] shouldBe 7
   }
 
   @Test
-  fun `a collectionVariables hit is NOT recorded as consumed`() {
-    val pm = pmWith()
-    pm.environment.currentStep = Step(index = "1", rawPMStep = Item(name = "s"))
-    pm.collectionVariables.set("k", "cv")
-    replace(pm, "{{k}}") shouldBe "cv"
-    pm.environment.consumedKeysFor(pm.environment.currentStep) shouldNotContain "k"
-  }
-
-  @Test
-  fun `a globals hit is NOT recorded as consumed`() {
-    val pm = pmWith()
-    pm.environment.currentStep = Step(index = "1", rawPMStep = Item(name = "s"))
-    pm.globals.set("k", "glob")
-    replace(pm, "{{k}}") shouldBe "glob"
-    pm.environment.consumedKeysFor(pm.environment.currentStep) shouldNotContain "k"
-  }
-
-  // ------------------------------------------------------------------ setback guard (env-only)
-
-  @Test
-  fun `a collectionVariables hit does NOT leak into the environment store`() {
-    val pm = pmWith()
-    pm.collectionVariables.set("k", "cv")
-    replace(pm, "{{k}}") shouldBe "cv"
-    pm.environment.containsKey("k") shouldBe false
-  }
-
-  @Test
-  fun `a globals hit does NOT leak into the environment store`() {
-    val pm = pmWith()
-    pm.globals.set("k", "glob")
-    replace(pm, "{{k}}") shouldBe "glob"
-    pm.environment.containsKey("k") shouldBe false
-  }
-
-  // ------------------------------------------------------------------ type coercion preserved
-  // (env)
-
-  @Test
-  fun `environment numeric value resolves and is coerced back to Int on setback`() {
-    val pm = pmWith()
-    pm.environment.currentStep = Step(index = "1", rawPMStep = Item(name = "s"))
-    pm.environment.set("n", 7)
-    replace(pm, "{{n}}") shouldBe "7"
-    // setback preserves the Int type (would become a String without the coercion path)
-    pm.environment["n"] shouldBe 7
-  }
-
-  // ------------------------------------------------------------------ generators take priority
-
-  @Test
-  fun `custom dynamic variable takes priority over a scoped value of the same key`() {
+  fun `custom dynamic variable takes priority over a scoped value`() {
     val custom = CustomDynamicVariableGenerator { _, _, _ -> "from-custom" }
-    val noopDynamic = { _: String, _: PostmanSDK -> null }
-    val rr = RegexReplacer(mapOf("k" to custom), noopDynamic)
-    val pm = pmWith(rr)
-    pm.environment.set("k", "env")
-    pm.collectionVariables.set("k", "cv")
-    pm.globals.set("k", "glob")
-    replace(pm, "{{k}}") shouldBe "from-custom"
+    val graph =
+      focusedPostmanTestGraph(
+        environmentValues = mapOf("k" to "environment"),
+        collectionVariableValues = mapOf("k" to "collection"),
+        globalValues = mapOf("k" to "global"),
+        customDynamicVariableGenerators = mapOf("k" to custom),
+      )
+
+    graph.replacer.replaceVariablesRecursively("{{k}}") shouldBe "from-custom"
   }
 
   @Test
-  fun `dynamic variable takes priority over a scoped value of the same key`() {
-    val dynamic = { key: String, _: PostmanSDK -> if (key == "k") "from-dynamic" else null }
-    val rr = RegexReplacer(emptyMap(), dynamic)
-    val pm = pmWith(rr)
-    pm.globals.set("k", "glob")
-    replace(pm, "{{k}}") shouldBe "from-dynamic"
-  }
+  fun `built-in dynamic variable takes priority over a scoped value`() {
+    val graph =
+      focusedPostmanTestGraph(
+        globalValues = mapOf($$"$currentRequestName" to "global"),
+        requestName = "focused-request",
+      )
 
-  // ------------------------------------------------------------------ recursive resolution
+    graph.replacer.replaceVariablesRecursively($$"{{$currentRequestName}}") shouldBe
+      "focused-request"
+  }
 
   @Test
   fun `recursive resolution chains across mixed scopes`() {
-    val pm = pmWith()
-    pm.environment.set("a", "{{b}}")
-    pm.collectionVariables.set("b", "{{c}}")
-    pm.globals.set("c", "leaf")
-    replace(pm, "{{a}}") shouldBe "leaf"
-  }
+    val graph =
+      focusedPostmanTestGraph(
+        environmentValues = mapOf("a" to "{{b}}"),
+        collectionVariableValues = mapOf("b" to "{{c}}"),
+        globalValues = mapOf("c" to "leaf"),
+      )
 
-  // ------------------------------------------------------------------ debug log: which scope won
+    graph.replacer.replaceVariablesRecursively("{{a}}") shouldBe "leaf"
+  }
 
   private class RecordingSink : RunLogSink {
     val lines = mutableListOf<Pair<LogLevel, String>>()
@@ -217,37 +145,37 @@ class RegexReplacerScopesTest {
 
   @AfterEach fun removeSink() = RunLogContext.remove()
 
-  private fun debugLinesFor(seed: PostmanSDK.() -> Unit): List<String> {
+  private fun debugLinesFor(seed: PostmanVariableScopes.() -> Unit): List<String> {
     val sink = RecordingSink()
     RunLogContext.install(sink)
-    val pm = pmWith()
-    pm.seed()
-    replace(pm, "{{k}}")
+    val graph = focusedPostmanTestGraph()
+    graph.scopes.seed()
+    graph.replacer.replaceVariablesRecursively("{{k}}")
     return sink.lines.filter { it.first == LogLevel.DEBUG }.map { it.second }
   }
 
   @Test
-  fun `debug log names the environment scope when env resolves the key`() {
+  fun `debug log names the environment scope`() {
     debugLinesFor { environment.set("k", "env") } shouldContain
       "{{k}} resolved from scope 'environment'"
   }
 
   @Test
-  fun `debug log names the collectionVariables scope when cv resolves the key`() {
-    debugLinesFor { collectionVariables.set("k", "cv") } shouldContain
+  fun `debug log names the collection scope`() {
+    debugLinesFor { collectionVariables.set("k", "collection") } shouldContain
       "{{k}} resolved from scope 'collectionVariables'"
   }
 
   @Test
-  fun `debug log names the globals scope when a global resolves the key`() {
-    debugLinesFor { globals.set("k", "glob") } shouldContain "{{k}} resolved from scope 'globals'"
+  fun `debug log names the globals scope`() {
+    debugLinesFor { globals.set("k", "global") } shouldContain "{{k}} resolved from scope 'globals'"
   }
 
   @Test
-  fun `debug log reports the winning scope on a collision (collectionVariables over globals)`() {
+  fun `debug log reports only the winning scope on collision`() {
     val lines = debugLinesFor {
-      collectionVariables.set("k", "cv")
-      globals.set("k", "glob")
+      collectionVariables.set("k", "collection")
+      globals.set("k", "global")
     }
     lines shouldContain "{{k}} resolved from scope 'collectionVariables'"
     lines shouldNotContain "{{k}} resolved from scope 'globals'"

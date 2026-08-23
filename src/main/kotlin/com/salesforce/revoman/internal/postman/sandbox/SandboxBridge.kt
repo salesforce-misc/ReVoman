@@ -19,20 +19,17 @@ import org.graalvm.polyglot.proxy.ProxyExecutable
 import org.graalvm.polyglot.proxy.ProxyObject
 
 /**
- * ONE process-wide immutable GraalVM [Engine], shared by every per-run [Context] (the sandbox
- * Context here AND the PostmanSDK JSEvaluator Context). The Engine shares the interpreter->JIT /
- * optimizing-runtime warm-up across runs and across both Context kinds — the reliable, measured A2
- * win, so that convergence is paid once per JVM rather than per ReVoman run. It ALSO caches parsed
- * code for the 2.2 MB bootcode [Source], but that reuse is best-effort: the engine source cache
- * holds the [Source] weakly and the bootcode Source is a local not retained past [boot], so its
- * parsed code may be GC'd between runs. Either way this is a strict improvement — pre-A2 there was
- * zero cross-run sharing.
+ * ONE process-wide immutable GraalVM [Engine], shared by every kick-local sandbox [Context]. The
+ * Engine shares interpreter-to-optimized-runtime warm-up across runs, so convergence is paid once
+ * per JVM rather than per ReVoman run. It also caches parsed code for the 2.2 MB bootcode [Source].
+ * The immutable boot [Source] is retained by [SandboxResources] for the JVM lifetime, so the engine
+ * can reuse its parsed code between runs.
  *
  * Engines are thread-safe and long-lived by design; Contexts are single-threaded and per-run.
  * Sharing the Engine does NOT weaken the single-threaded Context contract, and — critically — guest
- * state (globals/env) lives in the Context, so sharing the Engine cannot bleed state between runs.
- * Never construct a Context WITHOUT this Engine. Left unclosed for the JVM lifetime (standard for a
- * shared library Engine).
+ * state (globals/env) lives in the sole per-kick Context, so sharing the Engine cannot bleed state
+ * between runs. Never construct a Context WITHOUT this Engine. Left unclosed for the JVM lifetime
+ * (standard for a shared library Engine).
  */
 internal val sharedGraalEngine: Engine by lazy {
   Engine.newBuilder("js")
@@ -51,9 +48,32 @@ internal val sharedGraalEngine: Engine by lazy {
  * captures the guest `bridge` Value before the bootcode deletes it, evals the bootcode, and sends
  * `initialize`. Each [dispatchExecute] emits an `execute` event, drains the loop until the sandbox
  * dispatches the terminal `execution.result.<id>`, and decodes the collected guest emits into a
- * [PmExecutionResult].
+ * [PmExecutionResult]. Only the immutable [sharedGraalEngine] and [SandboxResources.bootSource] are
+ * process-wide; every Context, event loop, bridge value, and emitted result remains kick-local.
  */
+// The bridge keeps lifecycle, host-binding, boot-evaluation, and protocol decoding seams local.
+@Suppress("TooManyFunctions")
 internal class SandboxBridge {
+  private var afterContextCreated: () -> Unit = {}
+  private var closeContext: (Context) -> Unit = { it.close(true) }
+  private var runtimeObserver: ((Context, Source) -> Unit)? = null
+
+  @JvmSynthetic
+  internal fun withBootHooks(
+    afterContextCreated: () -> Unit,
+    closeContext: (Context) -> Unit,
+  ): SandboxBridge {
+    this.afterContextCreated = afterContextCreated
+    this.closeContext = closeContext
+    return this
+  }
+
+  @JvmSynthetic
+  internal fun observeRuntime(observer: (Context, Source) -> Unit): SandboxBridge {
+    runtimeObserver = observer
+    return this
+  }
+
   private lateinit var ctx: Context
   private lateinit var guestBridge: Value
   private val loop = SandboxEventLoop()
@@ -63,11 +83,32 @@ internal class SandboxBridge {
   private var booted = false
   private var closed = false
 
+  // Throwable is intentional: failed boot must close the context even for VM-level Errors.
+  @Suppress("TooGenericExceptionCaught")
   fun boot() {
     check(!booted) { "sandbox: boot() already called" }
     // Set immediately so a re-entrant/double boot fails fast. Note: a failed boot is terminal for
     // this instance (booted stays true) — discard it and create a fresh SandboxBridge to retry.
     booted = true
+    try {
+      createContext()
+      installHostBindings()
+      evaluateBridgeClient()
+      initializeSandbox()
+    } catch (failure: Throwable) {
+      closed = true
+      if (::ctx.isInitialized) {
+        try {
+          closeContext(ctx)
+        } catch (closeFailure: Throwable) {
+          if (failure !== closeFailure) failure.addSuppressed(closeFailure)
+        }
+      }
+      throw failure
+    }
+  }
+
+  private fun createContext() {
     ctx =
       Context.newBuilder("js")
         .engine(sharedGraalEngine)
@@ -77,8 +118,11 @@ internal class SandboxBridge {
         .allowHostAccess(HostAccess.ALL)
         .allowHostClassLookup { true }
         .build()
-    val bindings = ctx.getBindings("js")
+    afterContextCreated()
+  }
 
+  private fun installHostBindings() {
+    val bindings = ctx.getBindings("js")
     bindings.putMember(
       "__java_setTimer",
       ProxyExecutable { args ->
@@ -97,24 +141,24 @@ internal class SandboxBridge {
     )
     bindings.putMember(
       "__java_emit",
-      ProxyExecutable { args ->
-        emits.add(args[0].asString())
+      ProxyExecutable {
+        emits.add(it[0].asString())
         null
       },
     )
     bindings.putMember(
       "__java_btoa",
-      ProxyExecutable { args ->
-        Base64.getEncoder().encodeToString(args[0].asString().toByteArray(Charsets.ISO_8859_1))
+      ProxyExecutable {
+        Base64.getEncoder().encodeToString(it[0].asString().toByteArray(Charsets.ISO_8859_1))
       },
     )
     bindings.putMember(
       "__java_atob",
-      ProxyExecutable { args ->
-        String(Base64.getDecoder().decode(args[0].asString()), Charsets.ISO_8859_1)
-      },
+      ProxyExecutable { String(Base64.getDecoder().decode(it[0].asString()), Charsets.ISO_8859_1) },
     )
+  }
 
+  private fun evaluateBridgeClient() {
     ctx.eval(
       "js",
       """
@@ -139,15 +183,17 @@ internal class SandboxBridge {
       """
         .trimIndent(),
     )
-
-    guestBridge = bindings.getMember("bridge")
+    guestBridge = ctx.getBindings("js").getMember("bridge")
     check(!guestBridge.isNull) { "sandbox: no global bridge after bridge-client" }
+  }
 
-    ctx.eval(Source.newBuilder("js", SandboxResources.bootcode, "bootcode.js").build())
+  private fun initializeSandbox() {
+    val bootSource = SandboxResources.bootSource
+    ctx.eval(bootSource)
     loop.run()
-
     guestBridge.invokeMember("emit", "initialize", ProxyObject.fromMap(HashMap<String, Any?>()))
     loop.run()
+    runtimeObserver?.invoke(ctx, bootSource)
     logger.info { "Postman sandbox booted (postman-sandbox ${SandboxResources.version})" }
   }
 
@@ -206,8 +252,8 @@ internal class SandboxBridge {
 
   fun close() {
     if (closed) return
-    if (::ctx.isInitialized) ctx.close(true)
     closed = true
+    if (::ctx.isInitialized) closeContext(ctx)
   }
 
   private fun scopeToProxy(scope: PmScope): ProxyObject =

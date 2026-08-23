@@ -64,6 +64,65 @@ colima start                        # Qodana runs its linter in Docker; start th
   `org.gradle.test-retry` plugin — but ONLY on CI (`CI` env var set). Locally `maxRetries=0`, so
   flakes surface immediately. A test failing every attempt still fails the build (no masking).
 
+## Performance regression measurements
+
+The root `src/jmh` suite is the only performance harness. A quick native smoke run writes JMH JSON
+and the human log outside the normal build-result location:
+
+```bash
+./gradlew jmh \
+  -Pjmh.smoke=true \
+  -Pjmh.includes=RuntimeLifecycleBenchmark \
+  -Pjmh.profilers=gc \
+  -Pjmh.resultsFile=build/perf-results/smoke.json \
+  -Pjmh.humanOutputFile=build/perf-results/smoke.txt
+
+python3 -m unittest discover -s scripts/tests -p 'test_*.py' -v
+python3 scripts/compare-jmh.py \
+  build/perf-results/smoke.json build/perf-results/smoke.json \
+  --markdown-out build/perf-results/comparison.md \
+  --json-out build/perf-results/comparison.json
+```
+
+For reproducible userspace/JDK iteration, run the same smoke in the minimal Ubuntu 24.04 + Temurin
+21 container:
+
+```bash
+./scripts/perf-docker
+./scripts/perf-docker ./gradlew compileJmhKotlin
+```
+
+The wrapper bind-mounts the checkout and `build/perf-results`, and reuses the named Gradle-cache
+volume `revoman-perf-gradle`. The image build sends no repository files because all source stays in
+the runtime bind mount. Override the host result directory with
+`REVOMAN_PERF_RESULTS_DIR=/some/path`. It does not use privileged mode or mount a Docker socket.
+
+For a diagnostic Docker A/A check, run the same checkout twice and compare the two files:
+
+```bash
+./scripts/perf-docker ./gradlew jmh -Pjmh.smoke=true \
+  -Pjmh.includes=RuntimeLifecycleBenchmark -Pjmh.profilers=gc \
+  -Pjmh.resultsFile=/results/aa-1.json -Pjmh.humanOutputFile=/results/aa-1.txt
+./scripts/perf-docker ./gradlew jmh -Pjmh.smoke=true \
+  -Pjmh.includes=RuntimeLifecycleBenchmark -Pjmh.profilers=gc \
+  -Pjmh.resultsFile=/results/aa-2.json -Pjmh.humanOutputFile=/results/aa-2.txt
+./scripts/perf-docker python3 scripts/compare-jmh.py /results/aa-1.json /results/aa-2.json \
+  --markdown-out /results/aa.md --json-out /results/aa.json
+```
+
+Docker results are diagnostic: the image reproduces Ubuntu, JDK, and CLI versions, not GitHub's
+CPU, scheduler, kernel/PMU exposure, or contention. `.github/workflows/benchmark.yml` is the
+canonical paired baseline/candidate screen on `ubuntu-latest`. Its initial limit is 20% for both
+`us/op` and normalized allocation (`B/op`). Before treating that gate as authoritative, run one
+same-ref A/A workflow and require every selected metric to pass:
+
+```bash
+gh workflow run benchmark.yml -f baseline_ref=<git-sha> -f candidate_ref=<same-git-sha>
+```
+
+Keep JDK 21 for this gate. Evaluate JDK 25 separately so JVM changes are not mixed into library
+regression measurements.
+
 ## Building the jar for Salesforce Core consumption
 
 Salesforce Core consumes ReVoman as a **prebuilt jar** through a bazel `java_import`
@@ -121,7 +180,7 @@ nothing more. It is deliberately **NOT** a full `module-info.java`, and it shoul
   Spring `BeanUtils` reflect into revoman's own types across `input`, `output`, **and**
   `internal`. A real `module-info` would need broad `opens` — including `opens ...internal` —
   defeating the encapsulation that would be the only reason to add it.
-- **Deps aren't module-ready.** Several runtime deps (http4k, moshi, snakeyaml, underscore,
+- **Deps aren't module-ready.** Several runtime deps (http4k, moshi, snakeyaml,
   pprint, kotlinx-collections-immutable, kotlin-logging) are plain jars with no
   `Automatic-Module-Name`, so `requires` clauses would bind to fragile filename-derived names.
 
