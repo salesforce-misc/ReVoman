@@ -14,53 +14,48 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 
 /**
  * Holds the [RunLogSink] active for the current [com.salesforce.revoman.ReVoman.revUp] run. A
- * ThreadLocal because a run executes its steps serially on one thread. [install] the sink at the
- * start of a run and [restore] the returned previous sink in its `finally`; this install/restore
- * pair STACKS, so a nested `revUp` (e.g. a runbook driving per-step kicks) does not wipe the outer
- * run's sink. [current] is `null` outside any run (the default, NoOp-equivalent path), so
- * non-instrumented callers pay nothing. [remove] remains for callers that unconditionally clear.
+ * [ScopedValue] (JEP 506) because the binding's lifetime is the call stack, not the thread: bind
+ * with [where] so a nested `revUp` (e.g. a runbook driving per-step kicks) restores the outer sink
+ * when the inner frame exits. [current] is `null` outside any [where] (the default, NoOp-equivalent
+ * path), so non-instrumented callers pay nothing.
  *
- * **Callers MUST guarantee [restore] (or [remove]) runs (e.g. in a `finally`)** — a skipped restore
- * leaks the sink across thread-pool reuse, mis-routing a later unrelated run's logs into a stale
- * sink.
+ * Forgotten restore is impossible — there is no install/restore/remove API; the sink cannot outlive
+ * the [where] frame, even if the block throws. ReVoman never [RunLogSink.close]s the sink; the
+ * caller owns lifecycle.
  */
 internal object RunLogContext {
-  private val holder = ThreadLocal<RunLogSink?>()
+  private val logger = KotlinLogging.logger {}
+  private val SINK: ScopedValue<RunLogSink> = ScopedValue.newInstance()
 
   /**
-   * Installs [sink] as current, returning the previously-installed sink (or null) so a nested
-   * caller can restore it — makes install/restore stack correctly across nested revUp calls.
+   * Binds [sink] for the dynamic extent of [block] and restores the previous binding (or unbound)
+   * when [block] returns or throws. Nested [where] frames stack.
    */
-  fun install(sink: RunLogSink): RunLogSink? {
-    val previous = holder.get()
-    holder.set(sink)
-    return previous
+  fun <T> where(sink: RunLogSink, block: () -> T): T {
+    if (sink !== RunLogSink.NoOp) {
+      logger.debug {
+        val nested = if (SINK.isBound) " (nested over ${SINK.get()::class.simpleName})" else ""
+        "binding run-log sink ${sink::class.simpleName}$nested"
+      }
+    }
+    return ScopedValue.where(SINK, sink).call<T, Throwable> { block() }
   }
 
-  fun current(): RunLogSink? = holder.get()
+  fun current(): RunLogSink? = if (SINK.isBound) SINK.get() else null
 
   /**
-   * True only when a NON-NoOp sink is installed for the current run. The emit site uses this to
-   * SKIP eagerly rendering the (potentially large) HTTP request/response + env-value maps when no
-   * real consumer will read them — so the default no-sink path (every library consumer that does
-   * not set `runLogSink`) pays zero rendering cost, exactly as before this capture existed.
+   * True only when a NON-NoOp sink is bound for the current run. The emit site uses this to SKIP
+   * eagerly rendering the (potentially large) HTTP request/response + env-value maps when no real
+   * consumer will read them — so the default no-sink path (every library consumer that does not set
+   * `runLogSink`) pays zero rendering cost, exactly as before this capture existed. Unbound and
+   * [RunLogSink.NoOp] are both inactive.
    */
-  fun hasActiveSink(): Boolean {
-    val sink = holder.get()
-    return sink != null && sink !== RunLogSink.NoOp
-  }
-
-  /** Restores a sink captured from [install]; null means "no sink was active", i.e. remove. */
-  fun restore(previous: RunLogSink?) {
-    if (previous == null) holder.remove() else holder.set(previous)
-  }
-
-  fun remove() = holder.remove()
+  fun hasActiveSink(): Boolean = current().let { it != null && it !== RunLogSink.NoOp }
 }
 
 /**
  * Tee facade over the module logger. Each call logs to KotlinLogging EXACTLY as before (so
- * `suppressed.log` is unchanged) AND, when a run sink is installed, mirrors the same message to it
+ * `suppressed.log` is unchanged) AND, when a run sink is bound, mirrors the same message to it
  * live. The lambda is evaluated at most once even when both sinks are active.
  */
 internal object RevomanLog {

@@ -32,12 +32,10 @@ internal fun executeRunbook(
   dynamicEnvironment: Map<String, Any?>,
 ): RunbookRundown {
   val runbookSink = runbook.runLogSink
-  // Install the runbook-scope sink ONLY when it is a real sink. For the NoOp default there is
-  // nothing to route to, and skipping the install keeps `current()` null so the zero-config path
+  // Bind the runbook-scope sink ONLY when it is a real sink. For the NoOp default there is
+  // nothing to route to, and skipping the bind keeps `current()` null so the zero-config path
   // stays bit-identical to before this layer existed (e.g. the summary line below renders lazily).
-  val installed = runbookSink !== RunLogSink.NoOp
-  val previousSink = if (installed) RunLogContext.install(runbookSink) else null
-  try {
+  val run: () -> RunbookRundown = {
     // Immutable state transformation via fold (mirrors the multi-kick fold in ReVoman.kt): each
     // step yields a NEW accumulator (threaded env, last phase, accumulated (step, rundown) pairs).
     // A halt propagates as a thrown exception, aborting the fold just like the former `.map`.
@@ -47,9 +45,11 @@ internal fun executeRunbook(
       }
     val result = RunbookRundown(runbook.name, finalAcc.pairs)
     RevomanLog.info { "\n" + renderRunbookMarkdown(result) }
-    return result
-  } finally {
-    if (installed) RunLogContext.restore(previousSink)
+    result
+  }
+  return when {
+    runbookSink !== RunLogSink.NoOp -> RunLogContext.where(runbookSink, run)
+    else -> run()
   }
 }
 

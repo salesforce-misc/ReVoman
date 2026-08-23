@@ -72,12 +72,12 @@ class RunbookLegibilityE2ETest {
   fun `runbook-scope sink captures coarse events and nests child kick events`() {
     // REGRESSION: prior to the stacking RunLogContext fix, coarse runbook events (PhaseEntered,
     // RunbookStepStarted/Finished, RunbookContractFailed) were dropped because the executor emitted
-    // them BETWEEN revUp(kick) calls, when RunLogContext.current() was null. This test installs a
+    // them BETWEEN revUp(kick) calls, when RunLogContext.current() was null. This test binds a
     // sink at RUNBOOK scope (NOT at kick scope) and asserts the captured output contains, in order,
     // a phase rule, a step-open bracket, at least one child request gutter line, and a step-close
-    // bracket. The fix: RunLogContext.install() now stacks via restore(), and executeRunbook()
-    // installs the runbook sink around the whole loop + threads it into each kick so child events
-    // nest coherently.
+    // bracket. Nested where() frames restore the outer sink when a child kick returns, and
+    // executeRunbook() binds the runbook sink around the whole loop + threads it into each kick so
+    // child events nest coherently.
     val capturedOut = ByteArrayOutputStream()
     val capturingSink = ConsoleRunLogSink(PrintStream(capturedOut))
 

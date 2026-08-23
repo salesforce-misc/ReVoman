@@ -11,35 +11,32 @@ import com.google.common.truth.Truth.assertThat
 import com.salesforce.revoman.output.log.LogLevel
 import com.salesforce.revoman.output.log.RunLogSink
 import com.salesforce.revoman.output.log.StepEvent
-import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 
 class RunLogContextActiveSinkTest {
-  @AfterEach fun cleanup() = RunLogContext.remove()
 
   @Test
-  fun `no sink installed - not active`() {
-    RunLogContext.remove()
+  fun `no sink bound - not active`() {
     assertThat(RunLogContext.hasActiveSink()).isFalse()
   }
 
   @Test
   fun `NoOp sink - not active`() {
-    RunLogContext.install(RunLogSink.NoOp)
+    RunLogContext.where(RunLogSink.NoOp) { assertThat(RunLogContext.hasActiveSink()).isFalse() }
     assertThat(RunLogContext.hasActiveSink()).isFalse()
   }
 
   @Test
   fun `real sink - active`() {
-    RunLogContext.install(
+    val sink =
       object : RunLogSink {
-        override fun line(level: LogLevel, message: String) {}
+        override fun line(level: LogLevel, message: String) = Unit
 
-        override fun event(event: StepEvent) {}
+        override fun event(event: StepEvent) = Unit
 
-        override fun close() {}
+        override fun close() = Unit
       }
-    )
-    assertThat(RunLogContext.hasActiveSink()).isTrue()
+    RunLogContext.where(sink) { assertThat(RunLogContext.hasActiveSink()).isTrue() }
+    assertThat(RunLogContext.hasActiveSink()).isFalse()
   }
 }

@@ -18,8 +18,8 @@ enum class LogLevel {
 /**
  * A per-run destination for ReVoman's internal narration. ReVoman tees each high-value internal log
  * line and step-boundary event to the active sink IN ADDITION to its normal KotlinLogging output —
- * it never redirects. The sink is installed per [com.salesforce.revoman.ReVoman.revUp] run and
- * removed when that run ends, so it is single-threaded for its lifetime.
+ * it never redirects. The sink is bound per [com.salesforce.revoman.ReVoman.revUp] run and unbound
+ * when that call returns, so it is single-threaded for its lifetime.
  *
  * Reusable by ANY consumer: supply one via [com.salesforce.revoman.input.config.Kick]'s
  * `runLogSink`. The default is [NoOp] (zero overhead, the library behaves exactly as before).

@@ -124,17 +124,14 @@ object ReVoman {
   @OptIn(ExperimentalStdlibApi::class)
   fun revUp(kick: Kick): Rundown {
     Banner.onRunStart()
-    // BORROW the sink for this run only: install on the ThreadLocal, restore in finally. Do NOT
-    // close() it — the caller OWNS the sink's lifecycle. A single caller-supplied sink commonly
-    // spans MANY revUp calls (persona-creation, general-setup, the test body, cleanup); closing it
-    // here would shut the writer after the first revUp and silently drop every later run's output.
-    val previousSink = RunLogContext.install(kick.runLogSink())
-    try {
+    // BORROW the sink for this run only: bind it for the call stack. Do NOT close() it — the
+    // caller OWNS the sink's lifecycle. A single caller-supplied sink commonly spans MANY revUp
+    // calls (persona-creation, general-setup, the test body, cleanup); closing it here would shut
+    // the writer after the first revUp and silently drop every later run's output.
+    return RunLogContext.where(kick.runLogSink()) {
       val rundown = revUpInternal(kick)
       Banner.recordSteps(rundown.stepReports.size)
-      return rundown
-    } finally {
-      RunLogContext.restore(previousSink)
+      rundown
     }
   }
 

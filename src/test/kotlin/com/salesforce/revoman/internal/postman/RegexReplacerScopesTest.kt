@@ -19,7 +19,6 @@ import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
 import io.mockk.mockk
-import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 
 /**
@@ -215,15 +214,14 @@ class RegexReplacerScopesTest {
     override fun close() {}
   }
 
-  @AfterEach fun removeSink() = RunLogContext.remove()
-
   private fun debugLinesFor(seed: PostmanSDK.() -> Unit): List<String> {
     val sink = RecordingSink()
-    RunLogContext.install(sink)
-    val pm = pmWith()
-    pm.seed()
-    replace(pm, "{{k}}")
-    return sink.lines.filter { it.first == LogLevel.DEBUG }.map { it.second }
+    return RunLogContext.where(sink) {
+      val pm = pmWith()
+      pm.seed()
+      replace(pm, "{{k}}")
+      sink.lines.filter { it.first == LogLevel.DEBUG }.map { it.second }
+    }
   }
 
   @Test
