@@ -23,6 +23,7 @@ import com.salesforce.revoman.output.report.failure.PollingFailure.PollingTimeou
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.time.Duration
 import java.time.Instant
+import java.util.Objects.requireNonNull
 import org.http4k.core.HttpHandler
 import org.http4k.core.Method
 import org.http4k.core.Request
@@ -34,13 +35,12 @@ internal fun executePolling(
   currentStepReport: StepReport,
   rundown: Rundown,
   pm: PostmanSDK,
-  insecureHttp: Boolean,
+  httpClient: HttpHandler,
 ): Either<PollingFailure, PollingReport?> {
   if (!currentStepReport.isSuccessful) return null.right()
   val matchingConfig: PollingConfig =
     pollingConfigs.firstOrNull { it.pick.pick(currentStepReport, rundown) } ?: return null.right()
   logger.info { "${currentStepReport.step} Polling triggered" }
-  val httpClient: HttpHandler = prepareHttpClient(insecureHttp)
   val responses: MutableList<Response> = mutableListOf()
   val startTime: Instant = Instant.now()
   var attempts = 0
@@ -52,7 +52,9 @@ internal fun executePolling(
       }
       .mapLeft { throwable: Throwable -> throwable to Request(Method.GET, "") }
       .flatMap { pollRequest: Request ->
-        runCatching(currentStepReport.step, POLLING) { httpClient(pollRequest) }
+        runCatching(currentStepReport.step, POLLING) {
+            requireNonNull(httpClient(pollRequest), "httpClient returned null")
+          }
           .mapLeft { throwable: Throwable -> throwable to pollRequest }
       }
       .map { response: Response ->

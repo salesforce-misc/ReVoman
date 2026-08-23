@@ -28,30 +28,23 @@ import com.salesforce.revoman.output.report.failure.PollingFailure.PollingReques
 import com.salesforce.revoman.output.report.failure.PollingFailure.PollingTimeoutFailure
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
-import io.mockk.every
-import io.mockk.mockkStatic
-import io.mockk.unmockkStatic
 import java.time.Duration
+import org.http4k.core.HttpHandler
 import org.http4k.core.Method
 import org.http4k.core.Response
 import org.http4k.core.Status.Companion.OK
-import org.junit.jupiter.api.AfterEach
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
 class PollingTest {
 
   private val moshiReVoman = initMoshi()
 
-  @BeforeEach
-  fun setUp() {
-    mockkStatic(::prepareHttpClient)
-  }
+  private val unusedClient: HttpHandler = { error("httpClient should not be called") }
 
-  @AfterEach
-  fun tearDown() {
-    unmockkStatic(::prepareHttpClient)
-  }
+  private val okClient: HttpHandler = { Response(OK).body("done") }
+
+  @Suppress("UNCHECKED_CAST")
+  private val nullClient = { _: org.http4k.core.Request -> null } as HttpHandler
 
   private fun successfulStepReport(): StepReport {
     val rawRequest =
@@ -132,7 +125,7 @@ class PollingTest {
         currentStepReport = failedStepReport(),
         rundown = emptyRundown(),
         pm = testPm(),
-        insecureHttp = false,
+        httpClient = unusedClient,
       )
     result shouldBe Right(null)
   }
@@ -152,14 +145,13 @@ class PollingTest {
         currentStepReport = successfulStepReport(),
         rundown = emptyRundown(),
         pm = testPm(),
-        insecureHttp = false,
+        httpClient = unusedClient,
       )
     result shouldBe Right(null)
   }
 
   @Test
   fun `returns PollingReport on first attempt`() {
-    every { prepareHttpClient(any()) } returns { Response(OK).body("done") }
     val config = alwaysPickConfig(completionPredicate = PollingCompletionPredicate { _, _ -> true })
     val result =
       executePolling(
@@ -167,7 +159,7 @@ class PollingTest {
         currentStepReport = successfulStepReport(),
         rundown = emptyRundown(),
         pm = testPm(),
-        insecureHttp = false,
+        httpClient = okClient,
       )
     result.shouldBeInstanceOf<Right<PollingReport>>()
     val report = result.value
@@ -177,7 +169,6 @@ class PollingTest {
 
   @Test
   fun `returns PollingReport after multiple attempts`() {
-    every { prepareHttpClient(any()) } returns { Response(OK).body("pending") }
     var callCount = 0
     val config =
       alwaysPickConfig(
@@ -193,7 +184,7 @@ class PollingTest {
         currentStepReport = successfulStepReport(),
         rundown = emptyRundown(),
         pm = testPm(),
-        insecureHttp = false,
+        httpClient = okClient,
       )
     result.shouldBeInstanceOf<Right<PollingReport>>()
     val report = result.value
@@ -211,7 +202,7 @@ class PollingTest {
         currentStepReport = successfulStepReport(),
         rundown = emptyRundown(),
         pm = testPm(),
-        insecureHttp = false,
+        httpClient = unusedClient,
       )
     result.shouldBeInstanceOf<Left<PollingRequestFailure>>()
     val failure = result.value
@@ -220,7 +211,6 @@ class PollingTest {
 
   @Test
   fun `returns PollingRequestFailure when httpClient throws`() {
-    every { prepareHttpClient(any()) } returns { throw RuntimeException("http call failed") }
     val config = alwaysPickConfig()
     val result =
       executePolling(
@@ -228,7 +218,7 @@ class PollingTest {
         currentStepReport = successfulStepReport(),
         rundown = emptyRundown(),
         pm = testPm(),
-        insecureHttp = false,
+        httpClient = { throw RuntimeException("http call failed") },
       )
     result.shouldBeInstanceOf<Left<PollingRequestFailure>>()
     val failure = result.value
@@ -236,8 +226,21 @@ class PollingTest {
   }
 
   @Test
+  fun `returns PollingRequestFailure when httpClient returns null`() {
+    val result =
+      executePolling(
+        pollingConfigs = listOf(alwaysPickConfig()),
+        currentStepReport = successfulStepReport(),
+        rundown = emptyRundown(),
+        pm = testPm(),
+        httpClient = nullClient,
+      )
+    result.shouldBeInstanceOf<Left<PollingRequestFailure>>()
+    result.value.failure.shouldBeInstanceOf<NullPointerException>()
+  }
+
+  @Test
   fun `returns PollingTimeoutFailure when timeout expires`() {
-    every { prepareHttpClient(any()) } returns { Response(OK).body("still pending") }
     val config =
       alwaysPickConfig(
         completionPredicate = PollingCompletionPredicate { _, _ -> false },
@@ -250,14 +253,13 @@ class PollingTest {
         currentStepReport = successfulStepReport(),
         rundown = emptyRundown(),
         pm = testPm(),
-        insecureHttp = false,
+        httpClient = { Response(OK).body("still pending") },
       )
     result.shouldBeInstanceOf<Left<PollingTimeoutFailure>>()
   }
 
   @Test
   fun `completionPredicate exception is swallowed and treated as false`() {
-    every { prepareHttpClient(any()) } returns { Response(OK).body("ok") }
     var callCount = 0
     val config =
       alwaysPickConfig(
@@ -276,7 +278,7 @@ class PollingTest {
         currentStepReport = successfulStepReport(),
         rundown = emptyRundown(),
         pm = testPm(),
-        insecureHttp = false,
+        httpClient = okClient,
       )
     result.shouldBeInstanceOf<Right<PollingReport>>()
     val report = result.value

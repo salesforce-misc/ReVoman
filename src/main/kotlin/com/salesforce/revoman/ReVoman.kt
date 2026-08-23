@@ -30,6 +30,7 @@ import com.salesforce.revoman.internal.exe.postStepHookExe
 import com.salesforce.revoman.internal.exe.preStepHookExe
 import com.salesforce.revoman.internal.exe.renderHttpMsg
 import com.salesforce.revoman.internal.exe.requestCoordinates
+import com.salesforce.revoman.internal.exe.resolveHttpClient
 import com.salesforce.revoman.internal.exe.resolveTarget
 import com.salesforce.revoman.internal.exe.shadowedProducerPaths
 import com.salesforce.revoman.internal.exe.shouldHaltExecution
@@ -75,6 +76,7 @@ import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapter
 import io.vavr.control.Either.left
 import java.time.Duration
+import org.http4k.core.HttpHandler
 import org.http4k.core.Request
 
 object ReVoman {
@@ -193,9 +195,24 @@ object ReVoman {
         PersistentBackedMutableMap(environment),
       )
     pm.environmentName = mergedEnv.name
+    val customHttpClient = kick.httpClient()
+    val httpClient = resolveHttpClient(customHttpClient, kick.insecureHttp())
+    if (customHttpClient != null) {
+      RevomanLog.info {
+        "Using caller-supplied HttpHandler for this revUp; insecureHttp is ignored"
+      }
+    }
     val sequenceResult =
       PmSandbox().use { sandbox ->
-        executeStepsSerially(pmStepsDeepFlattened, kick, moshiReVoman, regexReplacer, pm, sandbox)
+        executeStepsSerially(
+          pmStepsDeepFlattened,
+          kick,
+          moshiReVoman,
+          regexReplacer,
+          pm,
+          sandbox,
+          httpClient,
+        )
       }
     val stepNameToReport = sequenceResult.reports
     // --- LEDGER CAPTURE CONTRACT (what becomes a ledgered producer) ---
@@ -236,6 +253,7 @@ object ReVoman {
     regexReplacer: RegexReplacer,
     pm: PostmanSDK,
     sandbox: PmSandbox,
+    httpClient: HttpHandler,
   ): SequenceResult {
     val pickedSteps = pmStepsFlattened.filter {
       shouldStepBePicked(it, kick.runOnlySteps(), kick.skipSteps())
@@ -277,6 +295,7 @@ object ReVoman {
           regexReplacer,
           pm,
           sandbox,
+          httpClient,
         )
       reports += report
       iterationByPath[step.path] = iteration + 1
@@ -358,6 +377,7 @@ object ReVoman {
     regexReplacer: RegexReplacer,
     pm: PostmanSDK,
     sandbox: PmSandbox,
+    httpClient: HttpHandler,
   ): StepReport {
     // Reset per-step capture each execution so a looped step doesn't inherit prior iteration's
     // state.
@@ -480,7 +500,7 @@ object ReVoman {
         val item = regexReplacer.replaceVariablesInPmItem(itemWithRegex, pm)
         val httpRequest = item.request.toHttpRequest(moshiReVoman)
         timed(step, exeTimings, HTTP_REQUEST) {
-            fireHttpRequest(step, httpRequest, kick.insecureHttp(), moshiReVoman)
+            fireHttpRequest(step, httpRequest, httpClient, moshiReVoman)
           }
           .mapLeft { sr.copy(requestInfo = Left(it).toVavr()) }
           .map {
@@ -513,7 +533,7 @@ object ReVoman {
       }
       .flatMap { sr: StepReport -> // --------### POLLING ###--------
         timed(step, exeTimings, POLLING) {
-            executePolling(kick.pollingConfig(), sr, pm.rundown, pm, kick.insecureHttp())
+            executePolling(kick.pollingConfig(), sr, pm.rundown, pm, httpClient)
           }
           .mapLeft { sr.copy(pollingFailure = it) }
           .map { pollingReport -> pollingReport?.let { sr.copy(pollingReport = it) } ?: sr }

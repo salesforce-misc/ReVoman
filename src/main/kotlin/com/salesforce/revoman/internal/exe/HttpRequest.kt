@@ -14,6 +14,7 @@ import com.salesforce.revoman.output.json.JsonPretty
 import com.salesforce.revoman.output.report.Step
 import com.salesforce.revoman.output.report.TxnInfo
 import com.salesforce.revoman.output.report.failure.RequestFailure.HttpRequestFailure
+import java.util.Objects.requireNonNull
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient
 import org.apache.hc.client5.http.impl.classic.HttpClientBuilder
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder
@@ -26,17 +27,18 @@ import org.http4k.core.HttpMessage
 import org.http4k.core.Request
 import org.http4k.core.Response
 
+internal fun resolveHttpClient(custom: HttpHandler?, insecureHttp: Boolean): HttpHandler =
+  custom ?: prepareHttpClient(insecureHttp)
+
 @JvmSynthetic
 internal fun fireHttpRequest(
   currentStep: Step,
   httpRequest: Request,
-  insecureHttp: Boolean,
+  httpClient: HttpHandler,
   moshiReVoman: MoshiReVoman,
 ): Either<HttpRequestFailure, TxnInfo<Response>> =
   runCatching(currentStep, HTTP_REQUEST) {
-      // * NOTE gopala.akshintala 06/08/22: Shared client per TLS variant; auth is carried
-      // per-Request
-      prepareHttpClient(insecureHttp)(httpRequest)
+      requireNonNull(httpClient(httpRequest), "httpClient returned null")
     }
     .mapLeft { HttpRequestFailure(it, TxnInfo(httpMsg = httpRequest, moshiReVoman = moshiReVoman)) }
     .map { TxnInfo(httpMsg = it, moshiReVoman = moshiReVoman) }
