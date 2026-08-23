@@ -29,8 +29,8 @@ import org.http4k.server.asServer
 /**
  * Loopback HTTP server for tests and examples that must not hit the public network.
  *
- * Binds an ephemeral `127.0.0.1` port, records each request for later inspection, and runs
- * handlers on virtual threads. Mutable handler state must be thread-safe.
+ * Binds an ephemeral `127.0.0.1` port, records each request for later inspection, and runs handlers
+ * on virtual threads. Mutable handler state must be thread-safe.
  */
 class MockHttpServer
 private constructor(
@@ -46,6 +46,9 @@ private constructor(
     private val logger = KotlinLogging.logger {}
 
     @JvmStatic
+    // A failed start must still release the executor; HttpServer.start() and http4k can throw
+    // checked or unchecked failures.
+    @Suppress("TooGenericExceptionCaught")
     fun start(handler: MockHttpHandler): MockHttpServer {
       val ledger = ConcurrentLinkedQueue<RecordedHttpRequest>()
       val executor =
@@ -60,13 +63,18 @@ private constructor(
         throw failure
       }
       val closed = AtomicBoolean()
-      return MockHttpServer("http://127.0.0.1:${server.port()}", { java.util.List.copyOf(ledger) }) {
+      return MockHttpServer(
+        "http://127.0.0.1:${server.port()}",
+        { java.util.List.copyOf(ledger) },
+      ) {
         if (closed.compareAndSet(false, true)) {
           server.stop()
         }
       }
     }
 
+    // Java handlers and user mocks can throw anything; the listener must answer 500, not die.
+    @Suppress("TooGenericExceptionCaught")
     private fun recordingHandler(
       handler: MockHttpHandler,
       ledger: ConcurrentLinkedQueue<RecordedHttpRequest>,
@@ -87,6 +95,8 @@ private constructor(
       }
     }
 
+    // Body/header capture must not take down the listener; a failed capture is an empty 500.
+    @Suppress("TooGenericExceptionCaught")
     private fun capture(
       request: Request,
       ledger: ConcurrentLinkedQueue<RecordedHttpRequest>,
