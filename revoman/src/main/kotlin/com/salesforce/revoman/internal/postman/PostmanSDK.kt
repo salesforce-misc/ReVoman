@@ -106,8 +106,9 @@ class PostmanSDK(
   @Suppress("unused") @JvmField val variables: Variables = Variables()
   lateinit var rundown: Rundown
   @JvmField val xml2Json = Xml2Json { xml -> moshiReVoman.fromJson(U.xmlToJson(xml)) }
-  // * NOTE 28 Apr 2024 gopala.akshintala: This has to be initialized at last
-  private val jsEvaluator: JSEvaluator = JSEvaluator(nodeModulesPath)
+  // The production script path uses PmSandbox. Defer this legacy evaluator until a caller invokes
+  // evaluateJS/jsonStrToObj directly, so script-free revUp runs do not create an unused Context.
+  private val jsEvaluator: JSEvaluator by lazy { JSEvaluator(nodeModulesPath) }
 
   @SuppressWarnings("kotlin:S6517")
   @FunctionalInterface // DON'T REMOVE THIS. Polyglot won't work without this
