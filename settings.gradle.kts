@@ -37,7 +37,17 @@ pluginManagement {
   }
 }
 
-dependencyResolutionManagement { repositories { mavenCentral() } }
+dependencyResolutionManagement {
+  repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+  repositories {
+    mavenCentral()
+    maven("https://oss.sonatype.org/content/repositories/snapshots")
+  }
+}
+
+includeBuild("build-logic")
+enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
+include(":revoman", ":benchmarks", ":benchmark-reporting")
 
 plugins { id("com.gradle.develocity") version "4.5.0" }
 

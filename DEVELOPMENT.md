@@ -10,23 +10,23 @@
 ./gradlew assemble
 
 # Run unit tests
-./gradlew test
+./gradlew :revoman:test
 
 # Run all tests
-./gradlew test integrationTest
+./gradlew :revoman:test :revoman:integrationTest
 
 # Run specific test class
-./gradlew test integrationTest --tests "com.salesforce.revoman.integration.pokemon.PokemonTest"
+./gradlew :revoman:integrationTest --tests "com.salesforce.revoman.integration.pokemon.PokemonTest"
 
 # Run specific test method (unit test -> `test`; integration test -> `integrationTest`)
-./gradlew test --tests "com.salesforce.revoman.internal.postman.RegexReplacerTest"
+./gradlew :revoman:test --tests "com.salesforce.revoman.internal.postman.RegexReplacerTest"
 
 # Run the `integration.core.*` tests (WFS/PQ/BT2BS — need a real Salesforce/core org). These are
 # EXCLUDED from aggregate runs (`build`, `integrationTest`) by default; opt them in with -PincludeCoreIT.
-./gradlew integrationTest -PincludeCoreIT --tests "*WfsSeedE2ETest"
+./gradlew :revoman:integrationTest -PincludeCoreIT --tests "*WfsSeedE2ETest"
 
 # Compile test classes only (for faster iteration)
-./gradlew testClasses
+./gradlew :revoman:testClasses
 
 # Fix code formatting
 ./gradlew spotlessApply
@@ -43,7 +43,7 @@ primary quality gate; CI (`.github/workflows/qodana.yml`) is only a backstop.
 
 ```bash
 colima start                        # Qodana runs its linter in Docker; start the daemon first
-./gradlew kaptKotlin classes        # pre-generate kapt/Immutables/Moshi sources (JDK 25) so the
+./gradlew :revoman:kaptKotlin :revoman:classes # pre-generate kapt/Immutables/Moshi sources (JDK 25) so the
                                      # linter resolves references — NOT run in-container (see qodana.yaml)
 ./gradlew qodanaScan                # downloads the Qodana CLI + free community linter image, then scans
 ```
@@ -61,7 +61,8 @@ colima start                        # Qodana runs its linter in Docker; start th
 ## Continuous Integration
 
 - `.github/workflows/build.yml` runs `./gradlew build` on every push/PR to `master` —
-  full coverage: unit (`test`) + integration (`integrationTest`) + `spotlessCheck` + `kover`.
+  full coverage: unit (`:revoman:test`) + integration (`:revoman:integrationTest`) +
+  `spotlessCheck` + `kover`.
 - **Org tests** (`integration.core.*`) skip-loud on CI (no org creds); see `-PincludeCoreIT` above.
 - **Flaky external-API tests** (pokeapi.co, restful-api.dev, apigee, beeceptor) are retried via the
   `org.gradle.test-retry` plugin — but ONLY on CI (`CI` env var set). Locally `maxRetries=0`, so
@@ -77,8 +78,8 @@ its classpath. Build the consumable jar (and its sources jar) with:
 ```bash
 # JAVA_HOME must be any JDK 25
 ./gradlew spotlessApply                                        # format first, else spotlessCheck fails the build
-./gradlew jar sourcesJar -x detekt -x test --rerun-tasks       # the consumable jar + sources jar
-# → build/libs/revoman-<version>.jar  and  build/libs/revoman-<version>-sources.jar
+./gradlew :revoman:jar :revoman:sourcesJar -x detekt -x test --rerun-tasks
+# → revoman/build/libs/revoman-<version>.jar and revoman/build/libs/revoman-<version>-sources.jar
 ```
 
 `-x detekt -x test` skips the JDK-sensitive static analysis and the slow integration tests when
@@ -88,7 +89,7 @@ actually rebuilt.
 ### The kotlinx-collections-immutable fat-jar bundle
 
 The `jar` task **bundles `kotlinx-collections-immutable` INTO the jar** (see the
-`bundledRuntime` configuration in `build.gradle.kts`). This is deliberate and required:
+`bundledRuntime` configuration in `revoman/build.gradle.kts`). This is deliberate and required:
 `PersistentBackedMutableMap` (perf PR #401) uses that library, but it is not on Core's classpath,
 and the `java_import` supplies no transitive deps — so a *plain* jar throws
 `NoClassDefFoundError: kotlinx/collections/immutable/ExtensionsKt` on every `revUp` inside the
@@ -100,7 +101,7 @@ unbundled.
 **Verify the bundle is present** after building (expect a non-zero count, ~130 classes):
 
 ```bash
-unzip -l build/libs/revoman-*.jar | grep -c 'kotlinx/collections/immutable'
+unzip -l revoman/build/libs/revoman-*.jar | grep -c 'kotlinx/collections/immutable'
 ```
 
 Core *also* pins `kotlinx-collections-immutable:0.4.0` in its own maven graph (via
@@ -114,7 +115,7 @@ bundle, then add the `runtime_deps`), but today the fat jar is the live supply.
 ### JPMS module name (`Automatic-Module-Name`)
 
 The `jar` task stamps `Automatic-Module-Name: com.salesforce.revoman` into the manifest (see
-`build.gradle.kts`). This is a **stable JPMS module name** for consumers on the Java module path —
+`revoman/build.gradle.kts`). This is a **stable JPMS module name** for consumers on the Java module path —
 nothing more. It is deliberately **NOT** a full `module-info.java`, and it should stay that way:
 
 - **Core doesn't see it anyway.** Core consumes revoman via a bazel `java_import` → the
@@ -132,21 +133,21 @@ Because the bundled `kotlinx-collections-immutable` is a **multi-release jar**, 
 must exclude its *versioned* descriptor (`META-INF/versions/*/module-info.class`) on top of the
 top-level `module-info.class` — otherwise that surviving descriptor makes revoman resolve as the
 explicit module `kotlinx.collections.immutable` on the module path and the `Automatic-Module-Name`
-is ignored. Keep both excludes (see the `jar` block in `build.gradle.kts`).
+is ignored. Keep both excludes (see the `jar` block in `revoman/build.gradle.kts`).
 
 Rationale and rejected alternatives (full `module-info`, multi-release modular jar) are recorded
 in `docs/superpowers/specs/2026-08-01-jpms-automatic-module-name-design.md`. Verify the attribute
 after building:
 
 ```bash
-unzip -p build/libs/revoman-*.jar META-INF/MANIFEST.MF | grep 'Automatic-Module-Name'
+unzip -p revoman/build/libs/revoman-*.jar META-INF/MANIFEST.MF | grep 'Automatic-Module-Name'
 # → Automatic-Module-Name: com.salesforce.revoman
 ```
 
 ### How Core picks up a locally-built jar
 
 Core's `.bazelrc-local` overrides the `com_salesforce_revoman_revoman` repository to a local
-checkout, and that repo's `BUILD.bazel` globs `build/libs/revoman-*.jar`. So a rebuilt jar here
+checkout, and that repo's `BUILD.bazel` globs `revoman/build/libs/revoman-*.jar`. So a rebuilt jar here
 is picked up by Core on its next **server restart** (a `java_import` jar is not hot-reloaded — the
 running server holds the old bytecode until it restarts). ReVoman-library change → rebuild the jar
 here → restart the Core server.
@@ -210,7 +211,7 @@ bazel run //:graph-tool -- pin-dependencies
   use the machine's installed `gradle` instead. Note the local version may
   differ from the wrapper's, so build behavior can vary — use only as a last resort.
 - **Blocked plugin portal (SFDC workspace):** `plugins.gradle.org` is unreachable
-  behind the proxy, so `settings.gradle.kts` and `buildSrc` add an internal Nexus
+  behind the proxy, so the root and included `build-logic` build add an internal Nexus
   plugin mirror as a fallback. It is driven entirely by three Gradle properties in
   `~/.gradle/gradle.properties` — `nexusGradlePluginsUrl`, `nexusUsername`,
   `nexusPassword` — and is a no-op when they are unset (CI / public machines resolve

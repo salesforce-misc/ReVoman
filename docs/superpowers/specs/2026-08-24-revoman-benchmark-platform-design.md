@@ -78,8 +78,11 @@ report.md
 ```
 
 The manifest records schema version, study and run identifiers, revisions, benchmark selector,
-commands, JMH settings, confidence level, environment paths, and timestamps. Environment metadata
-records kernel, WSL status, CPU model and topology, memory, JVM, Gradle, CPU affinity, governor,
+commands, JMH settings, confidence level, environment paths, and timestamps. Each environment file
+records `measurementStartedAtUtc`, captured immediately before launching that variant's benchmark
+command, and `measurementCompletedAtUtc`, captured immediately after Gradle returns. These are
+measurement lifecycle timestamps, not commit or metadata-file creation times. Environment metadata
+also records kernel, WSL status, CPU model and topology, memory, JVM, Gradle, CPU affinity, governor,
 load, and revision. It must not record hostnames, usernames, environment variables, or credentials.
 
 The reporting application uses typed DataFrame schemas for normalized JMH rows and comparisons.

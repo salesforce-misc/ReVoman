@@ -4,11 +4,13 @@ Kotlin/Gradle project for executing Postman collections on JVM. Requires JDK 25+
 
 ## Project Structure
 
-- `src/main/kotlin/` - Source code
-- `src/test/` - Unit tests (Kotest)
-- `src/integrationTest/` - Integration tests
+- `revoman/src/main/kotlin/` - Published library source code
+- `revoman/src/test/` - Unit tests (Kotest)
+- `revoman/src/integrationTest/` - Integration tests
+- `benchmarks/` - Reusable kotlinx-benchmark scenarios
+- `benchmark-reporting/` - Generic benchmark comparison CLI
 - `gradle/libs.versions.toml` - Version catalog for dependencies
-- `buildSrc/` - Custom Gradle conventions
+- `build-logic/` - Custom Gradle conventions
 
 ## Development
 

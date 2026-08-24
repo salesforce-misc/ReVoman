@@ -10,7 +10,7 @@ asciidoc:
     table-caption: false
     experimental: ''
     gh-blob: https://github.com/salesforce-misc/ReVoman/blob/master
-    sourcedir: src/main/kotlin
-    testdir: src/test/java
-    integrationtestdir: src/integrationTest/java
-    pmtemplates: src/integrationTest/resources/pm-templates
+    sourcedir: revoman/src/main/kotlin
+    testdir: revoman/src/test/java
+    integrationtestdir: revoman/src/integrationTest/java
+    pmtemplates: revoman/src/integrationTest/resources/pm-templates

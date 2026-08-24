@@ -19,7 +19,7 @@
 // The hero "Rundown readout" mirrors the public MockHttpServer plus the repository's
 // application-specific DeterministicMockApi integration test —
 // GET/POST/PATCH/GET on /objects, 4 steps, all green —
-// see src/integrationTest/.../restfulapidev/RestfulAPIDevTest.java.
+// see revoman/src/integrationTest/.../restfulapidev/RestfulAPIDevTest.java.
 // =============================================================================
 
 [subs="attributes+"]

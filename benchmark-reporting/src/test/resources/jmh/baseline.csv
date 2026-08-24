@@ -1,0 +1,3 @@
+Benchmark,Mode,Threads,Samples,Score,Score Error (99.9%),Unit
+zeta.Benchmark.run,avgt,1,100,20.0,1.0,ms/op
+alpha.Benchmark.run,avgt,1,100,10.0,0.5,ms/op

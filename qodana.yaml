@@ -19,7 +19,8 @@ projectJDK: "25"
 profile:
   name: qodana.recommended
 
-# NOTE: kapt/Immutables sources are pre-generated on the HOST (`./gradlew kaptKotlin classes`)
+# NOTE: kapt/Immutables sources are pre-generated on the HOST
+# (`./gradlew :revoman:kaptKotlin :revoman:classes`)
 # before invoking qodanaScan — see DEVELOPMENT.md. We keep that off an in-container `bootstrap`
 # so the linter sees generated sources without running Gradle inside the image. Toolchain and
 # the community linter image are both JDK 25 (the old JBR-25 vs jvmToolchain(21) mismatch is gone).
@@ -38,7 +39,11 @@ exclude:
   - name: All
     paths:
       - build
-      - js
+      - benchmark-reporting/build
+      - benchmarks/build
+      - build-logic/build
+      - revoman/build
+      - revoman/js
       - "**/generated/**"
 
 # Report findings without failing the run initially (high threshold). Tighten later once the

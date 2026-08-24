@@ -3,20 +3,20 @@
 
 localResources:
   collections:
-    - ../src/integrationTest/resources/pm-templates/v3/pokemon
-    - ../src/integrationTest/resources/pm-templates/v3/Apigee
-    - ../src/integrationTest/resources/pm-templates/v3/restful-api.dev
-    - ../src/integrationTest/resources/pm-templates/v3/core/[sm] pq
-    - ../src/integrationTest/resources/pm-templates/v3/core/[sm] user-creation-with-ps-and-setup-pq
-    - ../src/integrationTest/resources/pm-templates/v3/core/pre-salesRep
-    - ../src/integrationTest/resources/pm-templates/v3/core/bmp-create-runtime
-    - ../src/integrationTest/resources/pm-templates/v3/core/persona-creation-and-setup
-    - ../src/integrationTest/resources/pm-templates/v3/core/milestone-setup
+    - ../revoman/src/integrationTest/resources/pm-templates/v3/pokemon
+    - ../revoman/src/integrationTest/resources/pm-templates/v3/Apigee
+    - ../revoman/src/integrationTest/resources/pm-templates/v3/restful-api.dev
+    - ../revoman/src/integrationTest/resources/pm-templates/v3/core/[sm] pq
+    - ../revoman/src/integrationTest/resources/pm-templates/v3/core/[sm] user-creation-with-ps-and-setup-pq
+    - ../revoman/src/integrationTest/resources/pm-templates/v3/core/pre-salesRep
+    - ../revoman/src/integrationTest/resources/pm-templates/v3/core/bmp-create-runtime
+    - ../revoman/src/integrationTest/resources/pm-templates/v3/core/persona-creation-and-setup
+    - ../revoman/src/integrationTest/resources/pm-templates/v3/core/milestone-setup
   environments:
-    - ../src/integrationTest/resources/pm-templates/v3/pokemon/Pokemon.environment.yaml
-    - ../src/integrationTest/resources/pm-templates/v3/restful-api.dev/restful-api.dev.environment.yaml
-    - ../src/integrationTest/resources/pm-templates/v3/core/milestone-setup/bt2bs.environment.yaml
-    - ../src/integrationTest/resources/pm-templates/v3/core/[sm] pq/pq.environment.yaml
+    - ../revoman/src/integrationTest/resources/pm-templates/v3/pokemon/Pokemon.environment.yaml
+    - ../revoman/src/integrationTest/resources/pm-templates/v3/restful-api.dev/restful-api.dev.environment.yaml
+    - ../revoman/src/integrationTest/resources/pm-templates/v3/core/milestone-setup/bt2bs.environment.yaml
+    - ../revoman/src/integrationTest/resources/pm-templates/v3/core/[sm] pq/pq.environment.yaml
 
 # Each entry here maps a local resource to one or more corresponding objects in Postman Cloud
 

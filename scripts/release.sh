@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # One-shot release pipeline for ReVoman, with automatic propagation into Core.
 #
-#   bump version (Config.kt + README.adoc + docs/antora.yml) -> commit "Release X"
+#   bump version (gradle.properties + README.adoc + docs/antora.yml) -> commit "Release X"
 #     -> push master -> publish to Maven Central -> WAIT until the jar is live on
 #     repo1.maven.org -> bump the dependency version in Core via graph-tool -> commit -> push
 #
@@ -51,7 +51,7 @@ GROUP_PATH="com/salesforce/revoman/revoman"
 JAR_URL="https://repo1.maven.org/maven2/${GROUP_PATH}/${NEW_VERSION}/revoman-${NEW_VERSION}.jar"
 
 # Exact tasks you publish with. Swap to system `gradle` here if you prefer.
-PUBLISH_CMD=(./gradlew publishToSonatype closeAndReleaseSonatypeStagingRepository -Dorg.gradle.parallel=false --no-configuration-cache)
+PUBLISH_CMD=(./gradlew publishToSonatype closeAndReleaseSonatypeStagingRepository -Prevoman.releaseMode=true -Dorg.gradle.isolated-projects=false -Dorg.gradle.parallel=false --no-configuration-cache)
 
 step() { printf '\n=== %s ===\n' "$1"; }
 die()  { printf 'ERROR: %s\n' "$1" >&2; exit 1; }
@@ -90,23 +90,23 @@ else
     "revoman ${NEW_VERSION} sorts BELOW the current Maven Central <release> ${LIVE_RELEASE} (Maven orders per-segment numerically). Publishing it would leave the badge/resolvers pinned to ${LIVE_RELEASE}. Pick a version above ${LIVE_RELEASE}."
 fi
 
-CURRENT="$(grep -E 'const val VERSION' buildSrc/src/main/kotlin/Config.kt | sed -E 's/.*"([^"]+)".*/\1/')"
+CURRENT="$(grep -E '^revoman\.version=' gradle.properties | cut -d= -f2-)"
 echo "Releasing ${CURRENT} -> ${NEW_VERSION} (current Maven Central <release>: ${LIVE_RELEASE:-unknown})"
 
-# --- 2. bump version (Config.kt + README.adoc + docs/antora.yml) ------------
+# --- 2. bump version (gradle.properties + README.adoc + docs/antora.yml) -----
 step "Bump version files"
 # perl -i is byte-for-byte identical on macOS and Linux (GNU vs BSD `sed -i` differ on the backup-suffix arg).
-perl -i -pe "s/(const val VERSION = \")[^\"]+(\")/\${1}${NEW_VERSION}\${2}/" buildSrc/src/main/kotlin/Config.kt
+perl -i -pe "s/^(revoman\.version=).*/\${1}${NEW_VERSION}/" gradle.properties
 perl -i -pe "s/(:revoman-version: ).*/\${1}${NEW_VERSION}/" README.adoc
 # Antora asciidoc attribute (docs site). It uses the SOFT-SET form `revoman-version: <v>@` —
 # the trailing `@` lets a page override the attribute; preserve it. Matches only the value between
 # the colon-space and the trailing `@`, so the `@` survives the bump.
 perl -i -pe "s/(revoman-version: )[^\@\s]+(\@)/\${1}${NEW_VERSION}\${2}/" docs/antora.yml
-git --no-pager diff -- buildSrc/src/main/kotlin/Config.kt README.adoc docs/antora.yml
+git --no-pager diff -- gradle.properties README.adoc docs/antora.yml
 
 # --- 3. commit + push master ------------------------------------------------
 step "Commit + push master"
-git add buildSrc/src/main/kotlin/Config.kt README.adoc docs/antora.yml
+git add gradle.properties README.adoc docs/antora.yml
 git commit -s -m "Release ${NEW_VERSION}"
 git push origin master
 

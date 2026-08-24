@@ -17,7 +17,7 @@ ifdef::env-github[]
 :warning-caption: :warning:
 endif::[]
 :hide-uri-scheme:
-:sourcedir: src/main/java
+:sourcedir: revoman/src/main/java
 :imagesdir: images
 :toc:
 
@@ -78,7 +78,7 @@ We publish to Maven Central via the https://github.com/gradle-nexus/publish-plug
 * B = Profit (Feature / Improvement)
 * C = Broke something by accident (Bug)
 
-The version lives in exactly ONE place — `VERSION` in link:buildSrc/{sourcedir}/Config.kt[Config.kt] — with the `:revoman-version:` attribute in link:README.adoc[README.adoc] mirroring it for the consumer-facing coordinate snippets. For SNAPSHOT releases, add a `-SNAPSHOT` suffix.
+The version lives in exactly ONE build property — `revoman.version` in link:gradle.properties[gradle.properties] — with the `:revoman-version:` attribute in link:README.adoc[README.adoc] mirroring it for the consumer-facing coordinate snippets. For SNAPSHOT releases, add a `-SNAPSHOT` suffix.
 
 === One-command release (preferred): `scripts/release.sh`
 
@@ -121,14 +121,14 @@ TIP: Modern GnuPG (2.1+) stores keys in `~/.gnupg/pubring.kbx`, not the legacy `
 
 If you cannot use the script (e.g. it targets a hard-coded `CORE_DIR` and uses BSD `sed`, so it is tuned for one machine — adjust or run the steps by hand elsewhere), the equivalent manual release is:
 
-. Bump `VERSION` in link:buildSrc/{sourcedir}/Config.kt[Config.kt] and the `:revoman-version:` in link:README.adoc[README.adoc] to the SAME value (the README one drifts silently — nothing fails the build if it lags).
+. Bump `revoman.version` in link:gradle.properties[gradle.properties] and the `:revoman-version:` in link:README.adoc[README.adoc] to the SAME value (the README one drifts silently — nothing fails the build if it lags).
 . `./gradlew clean build` — unit tests + `spotlessCheck` + `detekt` gate the release.
 . Commit `Release <version>`, push `master`.
 . Publish:
 +
 [source,bash]
 ----
-./gradlew publishToSonatype closeAndReleaseSonatypeStagingRepository -Dorg.gradle.parallel=false --no-configuration-cache
+./gradlew publishToSonatype closeAndReleaseSonatypeStagingRepository -Prevoman.releaseMode=true -Dorg.gradle.isolated-projects=false -Dorg.gradle.parallel=false --no-configuration-cache
 ----
 +
 CAUTION: `--no-configuration-cache` is *required*, not optional. The publish tasks are not configuration-cache-serializable; with the cache on, the build fails late with `No staging repository with name sonatype created` and *nothing is published* — while a wrapping shell's exit code can still look like success. Keep the flag.

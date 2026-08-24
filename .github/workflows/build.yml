@@ -33,8 +33,8 @@ jobs:
 
       # Full coverage: unit (`test`) + integration (`integrationTest`) + spotlessCheck + kover, all
       # via `build`. The `integration.core.*` org tests skip-loud (no creds on CI); the live
-      # external-API tests are retried (see the test-retry config in build.gradle.kts). CI=true is
-      # set by GitHub Actions, which is what flips retries on.
+      # external-API tests are retried (see the test-retry config in revoman/build.gradle.kts).
+      # GitHub Actions sets CI=true, which is what flips retries on.
       - name: 'Gradle build'
         run: ./gradlew build
 
@@ -44,6 +44,8 @@ jobs:
         uses: actions/upload-artifact@main
         with:
           name: test-reports
-          path: build/reports/tests/
+          path: |
+            revoman/build/reports/tests/
+            benchmark-reporting/build/reports/tests/
           retention-days: 7
           if-no-files-found: ignore

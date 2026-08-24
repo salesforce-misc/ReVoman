@@ -342,7 +342,7 @@ Before the final baseline measurement:
 2. Run `./gradlew --stop`; inspect current-user Gradle/Kotlin daemons and stop only exact remaining PIDs.
 3. Inspect current-user processes and terminate only exact PIDs demonstrably interfering with measurement. Do not use name-wide kills.
 4. Determine the lowest logical CPU from each physical-core sibling group from `/sys/devices/system/cpu/cpu*/topology/thread_siblings_list`, and use the resulting comma-separated affinity list for both variants.
-5. Capture sanitized kernel, WSL state, CPU model/topology, memory, JVM, Gradle, governor, load, affinity, timestamp, benchmark configuration, command, and revision into `artifacts/measurements/baseline-environment.json`. Do not capture hostname, username, environment variables, command-line secrets, or credentials.
+5. Capture sanitized kernel, WSL state, CPU model/topology, memory, JVM, Gradle, governor, load, affinity, benchmark configuration, command, and revision into `artifacts/measurements/baseline-environment.json`. Record `measurementStartedAtUtc` immediately before launching the benchmark command and `measurementCompletedAtUtc` immediately after Gradle returns; these fields describe the measurement lifecycle, not commit or metadata-file creation time. Do not capture hostname, username, environment variables, command-line secrets, or credentials.
 6. Store the recorded affinity in `CPU_AFFINITY`, run `taskset --cpu-list "$CPU_AFFINITY" ./gradlew :benchmarks:mainFinalBenchmark --no-daemon --max-workers=1`, and copy the raw CSV unchanged to `artifacts/measurements/baseline.csv`.
 
 Expected: the raw baseline CSV is the unchanged JMH output for the exact final profile; the Task 1 SHA is recorded alongside it in baseline environment metadata and later in the manifest. Leave the tracked tree clean after the commit.
@@ -416,7 +416,7 @@ If no test file changed, stage only the two `PostmanSDK.kt` files. Record the Ta
 
 ### Step 5: Capture an identical candidate measurement
 
-Close IntelliJ and repeat the Task 1 measurement preparation exactly. Reuse the recorded CPU affinity, JDK, Gradle, benchmark selector, final profile, `--no-daemon`, and `--max-workers=1`. Capture sanitized candidate metadata to `artifacts/measurements/candidate-environment.json` and raw CSV to `artifacts/measurements/candidate.csv`.
+Close IntelliJ and repeat the Task 1 measurement preparation exactly. Reuse the recorded CPU affinity, JDK, Gradle, benchmark selector, final profile, `--no-daemon`, and `--max-workers=1`. Capture sanitized candidate metadata to `artifacts/measurements/candidate-environment.json` and raw CSV to `artifacts/measurements/candidate.csv`, including `measurementStartedAtUtc` immediately before the candidate command launches and `measurementCompletedAtUtc` immediately after Gradle returns.
 
 Do not change governor, affinity, dependency versions, JVM flags, or benchmark configuration. Run `taskset --cpu-list "$CPU_AFFINITY" ./gradlew :benchmarks:mainFinalBenchmark --no-daemon --max-workers=1`. If the candidate confidence interval overlaps the baseline interval, discard both CSVs and rerun the complete baseline/candidate pair from their exact commits with unchanged settings. Use non-destructive detached Git worktrees only inside an ignored temporary measurement area; never reset or detach the primary worktree and never mix individual forks from different pairs.
 

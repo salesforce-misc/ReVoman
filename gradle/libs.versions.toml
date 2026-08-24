@@ -33,6 +33,9 @@ gradle-taskinfo = "3.0.2"
 ben-manes-versions = "0.61.0"
 kotlinx-collections-immutable = "0.5.1"
 qodana = "2026.2.0"
+dataframe = "1.0.0-rc01"
+benchmark = "0.4.18"
+kotlinx-serialization = "1.9.0"
 
 # Common dependencies
 
@@ -81,11 +84,17 @@ mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 truffle-runtime = { module = "org.graalvm.truffle:truffle-runtime", version.ref = "graal" }
 kotlinx-collections-immutable = { module = "org.jetbrains.kotlinx:kotlinx-collections-immutable", version.ref = "kotlinx-collections-immutable" }
 postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json-jvm", version.ref = "kotlinx-serialization" }
+kotlinx-benchmark-runtime = { module = "org.jetbrains.kotlinx:kotlinx-benchmark-runtime", version.ref = "benchmark" }
 
 # Gradle plugins
 kotlin-gradle = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
+kotlin-allopen-gradle = { module = "org.jetbrains.kotlin:kotlin-allopen", version.ref = "kotlin" }
 detekt-gradle = { module = "dev.detekt:detekt-gradle-plugin", version.ref = "detekt" }
 spotless-gradle = { module = "com.diffplug.spotless:spotless-plugin-gradle", version.ref = "spotless" }
+dataframe = { module = "org.jetbrains.kotlinx:dataframe", version.ref = "dataframe" }
+dataframe-gradle = { module = "org.jetbrains.kotlin.plugin.dataframe:org.jetbrains.kotlin.plugin.dataframe.gradle.plugin", version.ref = "kotlin" }
+benchmark-gradle = { module = "org.jetbrains.kotlinx.benchmark:org.jetbrains.kotlinx.benchmark.gradle.plugin", version.ref = "benchmark" }
 
 [bundles]
 kotest = [

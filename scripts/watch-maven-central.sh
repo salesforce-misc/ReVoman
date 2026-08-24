@@ -4,7 +4,7 @@
 # Usage:
 #   scripts/watch-maven-central.sh [VERSION] [INTERVAL_SECONDS]
 #
-#   VERSION           Version to wait for. Defaults to VERSION in buildSrc/src/main/kotlin/Config.kt.
+#   VERSION           Version to wait for. Defaults to revoman.version in gradle.properties.
 #   INTERVAL_SECONDS  Poll interval. Defaults to 60.
 #
 # Exits 0 the moment the .jar returns HTTP 200 from repo1.maven.org.
@@ -18,8 +18,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 VERSION="${1:-}"
 if [[ -z "${VERSION}" ]]; then
-  VERSION="$(grep -E 'const val VERSION' "${ROOT_DIR}/buildSrc/src/main/kotlin/Config.kt" \
-    | sed -E 's/.*"([^"]+)".*/\1/')"
+  VERSION="$(grep -E '^revoman\.version=' "${ROOT_DIR}/gradle.properties" | cut -d= -f2-)"
 fi
 INTERVAL="${2:-60}"
 

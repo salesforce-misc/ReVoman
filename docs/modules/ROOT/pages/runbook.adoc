@@ -215,4 +215,4 @@ The glyph vocabulary:
 
 A sink MUST NOT throw in a way that fails the run — every built-in sink swallows its own I/O errors. The *caller* owns a sink's lifecycle: ReVoman borrows it per run and never closes it, because one sink commonly spans many `revUp` calls (setup + body + cleanup).
 
-TIP: See the DSL and log in action: {gh-blob}/src/test/kotlin/com/salesforce/revoman/RunbookLegibilityE2ETest.kt[`RunbookLegibilityE2ETest.kt`] and the type source {gh-blob}/{sourcedir}/com/salesforce/revoman/input/config/Runbook.kt[`Runbook.kt`].
+TIP: See the DSL and log in action: {gh-blob}/revoman/src/test/kotlin/com/salesforce/revoman/RunbookLegibilityE2ETest.kt[`RunbookLegibilityE2ETest.kt`] and the type source {gh-blob}/{sourcedir}/com/salesforce/revoman/input/config/Runbook.kt[`Runbook.kt`].

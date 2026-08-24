@@ -29,7 +29,7 @@ pm.environment.set('$randomFutureDate', futureDateTime.format('YYYY-MM-DD'))
 pm.environment.set("$quantity", _.random(1, 10))
 ----
 
-IMPORTANT: Loading `node_modules` from a jar is not supported. For example, `/Users/username/some-path/revoman-root/build/libs/revoman-root-0.40.0.jar!/js` is an invalid path. (See this https://graalvm.slack.com/archives/CN9L59P61/p1710937088860679?thread_ts=1710767437.443019&cid=CN9L59P61[known issue].)
+IMPORTANT: Loading `node_modules` from a jar is not supported. For example, `/Users/username/some-path/revoman-root/revoman/build/libs/revoman-0.40.0.jar!/js` is an invalid path. (See this https://graalvm.slack.com/archives/CN9L59P61/p1710937088860679?thread_ts=1710767437.443019&cid=CN9L59P61[known issue].)
 
 [TIP]
 ====
