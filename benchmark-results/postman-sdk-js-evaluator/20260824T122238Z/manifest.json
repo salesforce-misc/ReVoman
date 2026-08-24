@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "studyId": "postman-sdk-js-evaluator",
+  "runId": "20260824T122238Z",
+  "revisions": {
+    "baseline": "8a980379622edba97b9cae6d4b3795563aa4af05",
+    "candidate": "d7eb213acafb88bba343ce9e210afe2aa14880e2"
+  },
+  "benchmarkSelector": "^com\\.salesforce\\.revoman\\.benchmark\\.ScriptFreeRevUpBenchmark\\.scriptFreeRevUp$",
+  "expectedKeys": [
+    {
+      "benchmark": "com.salesforce.revoman.benchmark.ScriptFreeRevUpBenchmark.scriptFreeRevUp",
+      "parameters": "",
+      "mode": "avgt",
+      "threads": 1,
+      "unit": "ms/op"
+    }
+  ],
+  "commands": {
+    "baseline": "taskset --cpu-list 0,1,2,3,4,5,6,7 ./gradlew :benchmarks:mainFinalBenchmark --no-daemon --max-workers=1",
+    "candidate": "taskset --cpu-list 0,1,2,3,4,5,6,7 ./gradlew :benchmarks:mainFinalBenchmark --no-daemon --max-workers=1"
+  },
+  "toolVersions": {
+    "kotlinCompilerPlugin": "2.4.20-RC",
+    "kotlinxBenchmark": "0.4.18",
+    "jmhDefaultResolved": "1.37",
+    "dataFrame": "1.0.0-rc01",
+    "gradle": "9.7.1",
+    "gradleEmbeddedKotlin": "2.4.0",
+    "gradleLauncherJdk": "Amazon Corretto 21.0.11.10.1",
+    "benchmarkToolchainJdk": "Amazon Corretto 25.0.4.1+8-LTS",
+    "operatingSystem": "Linux x86_64",
+    "kernel": "6.8.0-138-generic"
+  },
+  "profile": {
+    "name": "final",
+    "forks": 5,
+    "warmupsPerFork": 10,
+    "measurementsPerFork": 20,
+    "iterationTimeSeconds": 1,
+    "mode": "avgt",
+    "unit": "ms/op",
+    "reportFormat": "csv",
+    "confidenceLevelPercent": 99.9
+  },
+  "raw": {
+    "baseline": "raw/baseline.csv",
+    "candidate": "raw/candidate.csv"
+  },
+  "environment": {
+    "baseline": "environment/baseline.json",
+    "candidate": "environment/candidate.json"
+  },
+  "measurementLifecycleUtc": {
+    "acceptedPairStartedAt": "2026-08-24T12:14:44.760846547Z",
+    "acceptedPairCompletedAt": "2026-08-24T12:22:38.997132421Z",
+    "baselineStartedAt": "2026-08-24T12:14:44.760846547Z",
+    "baselineCompletedAt": "2026-08-24T12:17:43.780191841Z",
+    "candidateStartedAt": "2026-08-24T12:19:44.765706894Z",
+    "candidateCompletedAt": "2026-08-24T12:22:38.997132421Z"
+  },
+  "cpuAffinity": {
+    "logicalCpuList": "0,1,2,3,4,5,6,7",
+    "sameForBothVariants": true,
+    "selection": "Lowest logical CPU from each physical-core sibling group"
+  }
+}

@@ -1,0 +1,2 @@
+benchmark,parameters,mode,threads,unit,baselineScore,baselineError99_9,baselineLower,candidateScore,candidateError99_9,candidateUpper,deltaPercent,passed
+com.salesforce.revoman.benchmark.ScriptFreeRevUpBenchmark.scriptFreeRevUp,,avgt,1,ms/op,1.197808,0.084138,1.11367,0.281699,0.005407,0.287106,-76.48212401319745,true

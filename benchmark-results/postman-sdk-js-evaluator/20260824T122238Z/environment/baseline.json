@@ -1,0 +1,61 @@
+{
+  "measurementStartedAtUtc": "2026-08-24T12:14:44.760846547Z",
+  "measurementCompletedAtUtc": "2026-08-24T12:17:43.780191841Z",
+  "measurementTimestampSemantics": {
+    "started": "Captured immediately before launching the benchmark command.",
+    "completed": "Captured immediately after the Gradle command returned."
+  },
+  "revision": "8a980379622edba97b9cae6d4b3795563aa4af05",
+  "kernel": "Linux 6.8.0-138-generic x86_64",
+  "wsl": false,
+  "cpu": {
+    "model": "Intel(R) Core(TM) i7-9800X CPU @ 3.80GHz",
+    "logicalCpus": 16,
+    "sockets": 1,
+    "coresPerSocket": 8,
+    "threadsPerCore": 2,
+    "threadSiblingGroups": ["0,8", "1,9", "2,10", "3,11", "4,12", "5,13", "6,14", "7,15"],
+    "affinity": "0,1,2,3,4,5,6,7",
+    "governors": ["powersave"]
+  },
+  "memoryKb": {
+    "total": 131692348,
+    "availableBeforeRun": 112503744,
+    "swapTotal": 8388604
+  },
+  "jvm": {
+    "gradleLauncher": "Amazon Corretto 21.0.11.10.1",
+    "benchmarkToolchain": "Amazon Corretto 25.0.4.1+8-LTS",
+    "benchmarkArchitecture": "amd64"
+  },
+  "gradle": {
+    "version": "9.7.1",
+    "kotlin": "2.4.0",
+    "configurationCache": true,
+    "isolatedProjects": true,
+    "maxWorkers": 1,
+    "daemon": false
+  },
+  "loadAverageBeforeRun": [1.62, 1.42, 1.39],
+  "benchmark": {
+    "selector": "com.salesforce.revoman.benchmark.ScriptFreeRevUpBenchmark.scriptFreeRevUp",
+    "mode": "avgt",
+    "unit": "ms/op",
+    "forks": 5,
+    "warmupsPerFork": 10,
+    "measurementsPerFork": 20,
+    "iterationTimeSeconds": 1,
+    "reportFormat": "csv"
+  },
+  "command": "taskset --cpu-list 0,1,2,3,4,5,6,7 ./gradlew :benchmarks:mainFinalBenchmark --no-daemon --max-workers=1",
+  "hygiene": {
+    "measurementWorktreeDetached": true,
+    "intellijClosed": true,
+    "intellijProcessesBeforeRun": 0,
+    "gradleStopResult": "No Gradle daemons are running.",
+    "remainingGradleOrKotlinDaemons": 0,
+    "trackedWorktreeChangesBeforeRun": 0,
+    "interferingProcessesTerminated": 0,
+    "note": "Desktop, remote-session, Docker, and Codex processes were inspected and retained because they were ambient services, not task-owned disposable processes."
+  }
+}
