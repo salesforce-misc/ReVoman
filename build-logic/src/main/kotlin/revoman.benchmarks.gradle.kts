@@ -17,6 +17,13 @@ benchmark {
     register("final") {
       commonProfile(iterationCount = 20, warmupCount = 10, iterationMillis = 1000, forkCount = 5)
     }
+    register("collectionScaleFinal") {
+      commonProfile(iterationCount = 20, warmupCount = 10, iterationMillis = 1000, forkCount = 5)
+      include(
+        "com.salesforce.revoman.benchmark.CollectionScaleRevUpBenchmark.revUpByStepCount"
+      )
+      param("stepCount", "100", "500")
+    }
   }
 }
 
