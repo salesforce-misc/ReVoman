@@ -21,12 +21,24 @@ import com.salesforce.revoman.output.report.Step
 import com.salesforce.revoman.output.report.StepReport
 import io.exoquery.pprint
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.collections.immutable.PersistentList
+import kotlinx.collections.immutable.plus
+import kotlinx.collections.immutable.toPersistentList
 import org.graalvm.polyglot.Context
 import org.graalvm.polyglot.HostAccess
 import org.graalvm.polyglot.Source
 import org.graalvm.polyglot.Value
 import org.graalvm.polyglot.io.IOAccess
 import org.intellij.lang.annotations.Language
+
+private fun List<StepReport>.updatedProgress(stepReport: StepReport): PersistentList<StepReport> {
+  val progress = toPersistentList()
+  return if (progress.lastOrNull()?.step == stepReport.step) {
+    progress.replacingAt(progress.lastIndex, stepReport)
+  } else {
+    progress + stepReport
+  }
+}
 
 /**
  * SDK to execute pre-req and post-res js scripts, to be compatible with the Postman API reference:
@@ -173,11 +185,7 @@ class PostmanSDK(
    */
   internal fun syncProgress(stepReport: StepReport) {
     currentStepReport = stepReport
-    val reports = rundown.stepReports
-    val updated =
-      if (reports.lastOrNull()?.step == stepReport.step) reports.dropLast(1) + stepReport
-      else reports + stepReport
-    rundown = rundown.copy(stepReports = updated)
+    rundown = rundown.copy(stepReports = rundown.stepReports.updatedProgress(stepReport))
   }
 
   /** Accumulates assertions across a step's pre-req + post-res scripts. */

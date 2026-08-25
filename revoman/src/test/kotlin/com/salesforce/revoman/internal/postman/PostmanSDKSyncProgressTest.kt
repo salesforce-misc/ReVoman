@@ -15,6 +15,9 @@ import com.salesforce.revoman.output.report.Step
 import com.salesforce.revoman.output.report.StepReport
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.collections.immutable.PersistentList
+import kotlinx.collections.immutable.persistentListOf
 import org.junit.jupiter.api.Test
 
 /**
@@ -38,6 +41,24 @@ class PostmanSDKSyncProgressTest {
           providedStepsToExecuteCount = stepReportsSoFar.size,
         )
     }
+
+  @Test
+  fun `syncProgress retains persistent progress and preserves the prior snapshot`() {
+    val stepA = step("a")
+    val stepB = step("b")
+    val reportA = report(stepA)
+    val preReportB = report(stepB)
+    val original = persistentListOf(reportA, preReportB)
+    val evolved = preReportB.copy(nextRequest = "afterHttp")
+    val pm = pmWithSeededRundown(original)
+    val priorRundown = pm.rundown
+
+    pm.syncProgress(evolved)
+
+    priorRundown.stepReports shouldBe persistentListOf(reportA, preReportB)
+    pm.rundown.stepReports shouldBe persistentListOf(reportA, evolved)
+    pm.rundown.stepReports.shouldBeInstanceOf<PersistentList<*>>()
+  }
 
   @Test
   fun `three syncProgress calls keep the current step exactly once and preserve prior steps`() {
