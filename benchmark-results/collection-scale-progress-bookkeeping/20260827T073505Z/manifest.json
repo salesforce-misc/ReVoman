@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "studyId": "collection-scale-progress-bookkeeping",
+  "runId": "20260827T073505Z",
+  "revisions": {
+    "baseline": "808294b7d11bd16892e7355687510f8a0ff49dfd",
+    "candidate": "edf839e1aaac1269248c66ff0c4565d1dc403702"
+  },
+  "benchmarkSelector": "^com\\.salesforce\\.revoman\\.benchmark\\.CollectionScaleRevUpBenchmark\\.revUpByStepCount$",
+  "expectedKeys": [
+    {
+      "benchmark": "com.salesforce.revoman.benchmark.CollectionScaleRevUpBenchmark.revUpByStepCount",
+      "parameters": "9:stepCount=3:100",
+      "mode": "avgt",
+      "threads": 1,
+      "unit": "ms/op"
+    },
+    {
+      "benchmark": "com.salesforce.revoman.benchmark.CollectionScaleRevUpBenchmark.revUpByStepCount",
+      "parameters": "9:stepCount=3:500",
+      "mode": "avgt",
+      "threads": 1,
+      "unit": "ms/op"
+    }
+  ],
+  "commands": {
+    "baseline": "taskset --cpu-list 0,1,2,3,4,5,6,7 ./gradlew :benchmarks:mainCollectionScaleFinalBenchmark --no-daemon --max-workers=1",
+    "candidate": "taskset --cpu-list 0,1,2,3,4,5,6,7 ./gradlew :benchmarks:mainCollectionScaleFinalBenchmark --no-daemon --max-workers=1"
+  },
+  "toolVersions": {
+    "kotlinCompilerPlugin": "2.4.20-RC",
+    "kotlinxBenchmark": "0.4.18",
+    "jmh": "1.37",
+    "dataFrame": "1.0.0-rc01",
+    "gradle": "9.7.1",
+    "gradleEmbeddedKotlin": "2.4.0",
+    "gradleLauncherJdk": "Amazon Corretto 21.0.11+10-LTS",
+    "benchmarkToolchainJdk": "Amazon Corretto 25.0.4.1+8-LTS",
+    "operatingSystem": "Linux x86_64",
+    "kernel": "6.8.0-138-generic"
+  },
+  "dependencyGraph": {
+    "configuration": ":benchmarks:runtimeClasspath",
+    "normalizedSha256": "9d5815a9df6f8bc8ba5726f374094676a13c592f453d644b2be50060fa1e1a7f",
+    "identical": true
+  },
+  "profile": {
+    "name": "collectionScaleFinal",
+    "stepCounts": [100, 500],
+    "forks": 5,
+    "warmupsPerFork": 10,
+    "measurementsPerFork": 20,
+    "iterationTimeSeconds": 1,
+    "mode": "avgt",
+    "unit": "ms/op",
+    "reportFormat": "csv",
+    "confidenceLevelPercent": 99.9,
+    "profiler": "none"
+  },
+  "raw": {
+    "baseline": "raw/baseline.csv",
+    "candidate": "raw/candidate.csv"
+  },
+  "environment": {
+    "baseline": "environment/baseline.json",
+    "candidate": "environment/candidate.json"
+  },
+  "measurementLifecycleUtc": {
+    "acceptedPairStartedAt": "2026-08-27T07:22:39.055896099Z",
+    "acceptedPairCompletedAt": "2026-08-27T07:35:05.621160420Z",
+    "baselineStartedAt": "2026-08-27T07:22:39.055896099Z",
+    "baselineCompletedAt": "2026-08-27T07:28:04.455221694Z",
+    "candidateStartedAt": "2026-08-27T07:29:43.210706999Z",
+    "candidateCompletedAt": "2026-08-27T07:35:05.621160420Z"
+  },
+  "cpuAffinity": {
+    "logicalCpuList": "0,1,2,3,4,5,6,7",
+    "sameForBothVariants": true,
+    "selection": "One logical CPU from each physical-core sibling group"
+  }
+}

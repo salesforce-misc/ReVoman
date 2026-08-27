@@ -76,6 +76,9 @@ import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapter
 import io.vavr.control.Either.left
 import java.time.Duration
+import kotlinx.collections.immutable.PersistentList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.plus
 import org.http4k.core.HttpHandler
 import org.http4k.core.Request
 
@@ -265,6 +268,7 @@ object ReVoman {
     val budget = pickedSteps.size * kick.maxStepExecutionFactor()
 
     val reports = mutableListOf<StepReport>()
+    var progressReports = persistentListOf<StepReport>()
     val iterationByPath = mutableMapOf<String, Int>()
     var cursor = 0
     var executions = 0
@@ -284,7 +288,7 @@ object ReVoman {
           step,
           iteration,
           bypassLedger,
-          reports,
+          progressReports,
           pmStepsFlattened.size,
           shadowedPaths,
           kick,
@@ -295,6 +299,7 @@ object ReVoman {
           httpClient,
         )
       reports += report
+      progressReports += report
       iterationByPath[step.path] = iteration + 1
       executions++
 
@@ -366,7 +371,7 @@ object ReVoman {
     step: Step,
     iteration: Int,
     bypassLedger: Boolean,
-    stepReportsSoFar: List<StepReport>,
+    stepReportsSoFar: PersistentList<StepReport>,
     pmStepsCount: Int,
     shadowedPaths: Set<String>,
     kick: Kick,
