@@ -1,0 +1,3 @@
+"Benchmark","Mode","Threads","Samples","Score","Score Error (99.9%)","Unit","Param: stepCount"
+"com.salesforce.revoman.benchmark.CollectionScaleRevUpBenchmark.revUpByStepCount","avgt",1,100,0.656498,0.018922,"ms/op",100
+"com.salesforce.revoman.benchmark.CollectionScaleRevUpBenchmark.revUpByStepCount","avgt",1,100,3.088633,0.071431,"ms/op",500

@@ -1,0 +1,3 @@
+benchmark,parameters,mode,threads,unit,baselineScore,baselineError99_9,baselineLower,candidateScore,candidateError99_9,candidateUpper,deltaPercent,passed
+com.salesforce.revoman.benchmark.CollectionScaleRevUpBenchmark.revUpByStepCount,9:stepCount=3:100,avgt,1,ms/op,0.929063,0.032747,0.896316,0.656498,0.018922,0.67542,-29.337622959906913,true
+com.salesforce.revoman.benchmark.CollectionScaleRevUpBenchmark.revUpByStepCount,9:stepCount=3:500,avgt,1,ms/op,6.432625,0.236845,6.19578,3.088633,0.071431,3.160064,-51.98487398223898,true

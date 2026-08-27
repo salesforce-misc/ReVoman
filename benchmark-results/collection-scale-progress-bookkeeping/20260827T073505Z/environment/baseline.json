@@ -1,0 +1,102 @@
+{
+  "revision": "808294b7d11bd16892e7355687510f8a0ff49dfd",
+  "kernel": "Linux 6.8.0-138-generic x86_64",
+  "wsl": false,
+  "cpu": {
+    "model": "Intel(R) Core(TM) i7-9800X CPU @ 3.80GHz",
+    "logicalCpus": 16,
+    "sockets": 1,
+    "coresPerSocket": 8,
+    "threadsPerCore": 2,
+    "threadSiblingGroups": [
+      "0,8",
+      "1,9",
+      "2,10",
+      "3,11",
+      "4,12",
+      "5,13",
+      "6,14",
+      "7,15"
+    ],
+    "availableProcessAffinity": "0-15",
+    "benchmarkAffinity": "0,1,2,3,4,5,6,7",
+    "governors": [
+      "powersave"
+    ]
+  },
+  "memoryKb": {
+    "total": 131692348,
+    "availableBeforeRun": 112566280,
+    "swapTotal": 8388604
+  },
+  "loadAverageBeforeRun": [
+    3.56,
+    2.55,
+    2.31
+  ],
+  "jvm": {
+    "gradleLauncher": "Amazon Corretto 21.0.11+10-LTS",
+    "benchmarkToolchain": "Amazon Corretto 25.0.4.1+8-LTS",
+    "benchmarkArchitecture": "amd64"
+  },
+  "gradle": {
+    "version": "9.7.1",
+    "embeddedKotlin": "2.4.0",
+    "kotlinCompilerPlugin": "2.4.20-RC",
+    "configurationCache": true,
+    "configurationCacheProblems": "fail",
+    "isolatedProjects": true,
+    "maxWorkers": 1,
+    "daemon": false
+  },
+  "benchmark": {
+    "selector": "^com\\.salesforce\\.revoman\\.benchmark\\.CollectionScaleRevUpBenchmark\\.revUpByStepCount$",
+    "profile": "collectionScaleFinal",
+    "stepCounts": [
+      100,
+      500
+    ],
+    "mode": "avgt",
+    "unit": "ms/op",
+    "forks": 5,
+    "warmupsPerFork": 10,
+    "measurementsPerFork": 20,
+    "iterationTimeSeconds": 1,
+    "reportFormat": "csv",
+    "profiler": "none"
+  },
+  "command": "taskset --cpu-list 0,1,2,3,4,5,6,7 ./gradlew :benchmarks:mainCollectionScaleFinalBenchmark --no-daemon --max-workers=1",
+  "hygiene": {
+    "measurementWorktreeDetached": true,
+    "trackedWorktreeChangesBeforeRun": 0,
+    "ideaSessionStatus": "not-running",
+    "ideaSessionStatusExitCode": 30,
+    "ideaSessionStopResult": "already-not-running",
+    "ideaSessionStopExitCode": 30,
+    "intellijProcessesBeforeRun": 0,
+    "gradleStopResult": "No Gradle daemons are running.",
+    "remainingGradleOrKotlinDaemons": 0,
+    "processListEntriesBeforeRun": 141,
+    "processClassesChecked": [
+      "IntelliJ",
+      "Gradle",
+      "Kotlin",
+      "JMH and benchmark",
+      "profiling and JFR",
+      "compilation",
+      "backup",
+      "indexing"
+    ],
+    "exactTerminatedPids": [],
+    "interferingProcessesTerminated": 0,
+    "persistentUnrelatedIndexersObserved": 1,
+    "persistentUnrelatedBackupSyncObserved": 1,
+    "remainingInterferingProcesses": 0
+  },
+  "measurementStartedAtUtc": "2026-08-27T07:22:39,055896099+00:00",
+  "measurementCompletedAtUtc": "2026-08-27T07:28:04,455221694+00:00",
+  "measurementTimestampSemantics": {
+    "started": "Captured immediately before launching the benchmark command.",
+    "completed": "Captured immediately after the Gradle command returned."
+  }
+}
