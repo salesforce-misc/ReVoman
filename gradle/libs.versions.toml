@@ -42,7 +42,7 @@ kotlinx-serialization = "1.11.0"
 junit = "5.11.4"
 kover = "0.9.9"
 detekt = "2.0.0-alpha.6"
-spotless = "8.10.0"
+spotless = "8.10.1"
 apache-log4j = "3.0.0-beta2"
 
 [libraries]
