@@ -19,6 +19,7 @@ private const val BENCHMARK_BASE_URL = "http://benchmark.invalid"
 private const val IDENTIFIER_WIDTH = 4
 private const val REQUEST_ORDER_INCREMENT = 1_000
 private const val MAX_RECORDED_HANDLER_CALLS = 100
+private const val VERBOSE_RENDERING_STEP_COUNT = 100
 
 private enum class ScriptFixture {
   NONE,
@@ -80,6 +81,9 @@ internal fun prepareConsumerJourneys(): PreparedConsumerJourneys =
   withTemporaryFixtureRoot("revoman-consumer-journeys-") { fixtureRoot ->
     val handlerLedger = HandlerLedger()
     val handler = deterministicHandler(handlerLedger)
+    val kickFor = { fixture: Path ->
+      Kick.configure().templatePath(fixture.toString()).httpClient(handler).off()
+    }
     val postmanV2TenStep =
       fixtureRoot.resolve("postman-v2-ten-step.json").also {
         Files.writeString(it, postmanV2Collection(stepCount = 10))
@@ -108,50 +112,52 @@ internal fun prepareConsumerJourneys(): PreparedConsumerJourneys =
             scriptFixture = scriptFixture,
           )
         }
-    val v2Kick = kick(postmanV2TenStep, handler)
-    val v3TenStepKick = kick(v3TenStep, handler)
-    val workflowKicks = workflowCollections.map { kick(it, handler) }
-    val runbook =
-      Runbook("consumer journey") {
-        step {
-          intent = "produce mixed environment values"
-          phase = Phase.SETUP
-          kick = workflowKicks[0]
-          produces("handoffCount", "handoffReady", "handoffTags")
-        }
-        step {
-          intent = "consume mixed values and produce lookup key"
-          phase = Phase.ACT
-          kick = workflowKicks[1]
-          consumes("handoffCount", "handoffReady", "handoffTags")
-          produces("lookupKey" to "beta-7-true")
-          underTest()
-          assertAfter { _, environment ->
-            handlerLedger.recordAssertAfter()
-            when (val lookupKey = environment["lookupKey"]) {
-              "beta-7-true" -> Unit
-              else -> throw AssertionError("Expected lookupKey=beta-7-true, got $lookupKey")
-            }
-          }
-        }
-        step {
-          intent = "observe the handed-off lookup key"
-          phase = Phase.ASSERT
-          kick = workflowKicks[2]
-          consumes("lookupKey")
-        }
-      }
+    val v2Kick = kickFor(postmanV2TenStep)
+    val v3TenStepKick = kickFor(v3TenStep)
+    val workflowKicks = workflowCollections.map(kickFor)
+    val runbook = workflowRunbook(workflowKicks, handlerLedger)
 
     PreparedConsumerJourneys(
       postmanV2TenStep = v2Kick,
       v3TenStep = v3TenStepKick,
-      v3HundredStep = kick(v3HundredStep, handler),
-      v3TenStepScripted = kick(v3TenStepScripted, handler),
+      v3HundredStep = kickFor(v3HundredStep),
+      v3TenStepScripted = kickFor(v3TenStepScripted),
       threeKicks = workflowKicks,
       runbook = runbook,
       handlerLedger = handlerLedger,
       fixtureRoot = fixtureRoot,
     )
+  }
+
+private fun workflowRunbook(workflowKicks: List<Kick>, handlerLedger: HandlerLedger): Runbook =
+  Runbook("consumer journey") {
+    step {
+      intent = "produce mixed environment values"
+      phase = Phase.SETUP
+      kick = workflowKicks[0]
+      produces("handoffCount", "handoffReady", "handoffTags")
+    }
+    step {
+      intent = "consume mixed values and produce lookup key"
+      phase = Phase.ACT
+      kick = workflowKicks[1]
+      consumes("handoffCount", "handoffReady", "handoffTags")
+      produces("lookupKey" to "beta-7-true")
+      underTest()
+      assertAfter { _, environment ->
+        handlerLedger.recordAssertAfter()
+        when (val lookupKey = environment["lookupKey"]) {
+          "beta-7-true" -> Unit
+          else -> throw AssertionError("Expected lookupKey=beta-7-true, got $lookupKey")
+        }
+      }
+    }
+    step {
+      intent = "observe the handed-off lookup key"
+      phase = Phase.ASSERT
+      kick = workflowKicks[2]
+      consumes("lookupKey")
+    }
   }
 
 internal class PreparedVerboseRendering(
@@ -165,7 +171,12 @@ internal class PreparedVerboseRendering(
 internal fun prepareVerboseRendering(): PreparedVerboseRendering =
   withTemporaryFixtureRoot("revoman-verbose-rendering-") { fixtureRoot ->
     val handlerLedger = HandlerLedger()
-    val fixture = writeV3Collection(fixtureRoot, "v3-hundred-step", stepCount = 100)
+    val fixture =
+      writeV3Collection(
+        fixtureRoot,
+        "v3-hundred-step",
+        stepCount = VERBOSE_RENDERING_STEP_COUNT,
+      )
     val renderingKick =
       Kick.configure()
         .templatePath(fixture.toString())
@@ -173,9 +184,9 @@ internal fun prepareVerboseRendering(): PreparedVerboseRendering =
         .httpClient(deterministicHandler(handlerLedger))
         .off()
     val rundown = ReVoman.revUp(renderingKick)
-    rundown.validate(expectedStepCount = 100)
+    rundown.validate(expectedStepCount = VERBOSE_RENDERING_STEP_COUNT)
     val setupRequestCount = handlerLedger.totalCallCount()
-    check(setupRequestCount == 100) {
+    check(setupRequestCount == VERBOSE_RENDERING_STEP_COUNT) {
       "Expected 100 rendering setup requests, got $setupRequestCount"
     }
     handlerLedger.reset()
@@ -202,7 +213,7 @@ private fun writeV3Collection(
   val collectionRoot = Files.createDirectory(fixtureRoot.resolve(directoryName))
   val resources = Files.createDirectory(collectionRoot.resolve(".resources"))
   Files.writeString(resources.resolve("definition.yaml"), "\$kind: collection\n")
-  (1..stepCount).forEach { index ->
+  for (index in 1..stepCount) {
     val name = stepName(index)
     val requestYaml =
       listOf(
@@ -226,9 +237,6 @@ private fun writeV3Collection(
   return collectionRoot
 }
 
-private fun kick(fixture: Path, handler: HttpHandler): Kick =
-  Kick.configure().templatePath(fixture.toString()).httpClient(handler).off()
-
 private fun deterministicHandler(handlerLedger: HandlerLedger): HttpHandler = { request ->
   handlerLedger.record(
     HandlerCall(
@@ -246,46 +254,50 @@ private fun deterministicHandler(handlerLedger: HandlerLedger): HttpHandler = { 
   Response(Status.OK).body(body)
 }
 
-private fun ScriptFixture.yamlFor(index: Int): String {
-  if (index != 1) return ""
-  val script =
-    when (this) {
-      ScriptFixture.NONE -> return ""
-      ScriptFixture.SCRIPTED -> "pm.environment.set('scriptedMarker', 'after-response-ran');"
-      ScriptFixture.HANDOFF_PRODUCER ->
-        """
-        const payload = pm.response.json();
-        pm.environment.set('handoffCount', payload.count);
-        pm.environment.set('handoffReady', payload.ready);
-        pm.environment.set('handoffTags', payload.tags);
-        """
-          .trimIndent()
-      ScriptFixture.HANDOFF_CONSUMER ->
-        """
-        const count = pm.environment.get('handoffCount');
-        const ready = pm.environment.get('handoffReady');
-        pm.environment.set('lookupKey', 'beta-' + count + '-' + ready);
-        """
-          .trimIndent()
-      ScriptFixture.HANDOFF_OBSERVER ->
-        "pm.environment.set('lookupObserved', pm.environment.get('lookupKey'));"
+private fun ScriptFixture.yamlFor(index: Int): String =
+  when {
+    index != 1 -> ""
+    this == ScriptFixture.NONE -> ""
+    else -> {
+      val script =
+        when (this) {
+          ScriptFixture.NONE -> error("No script for a script-free fixture")
+          ScriptFixture.SCRIPTED -> "pm.environment.set('scriptedMarker', 'after-response-ran');"
+          ScriptFixture.HANDOFF_PRODUCER ->
+            """
+            const payload = pm.response.json();
+            pm.environment.set('handoffCount', payload.count);
+            pm.environment.set('handoffReady', payload.ready);
+            pm.environment.set('handoffTags', payload.tags);
+            """
+              .trimIndent()
+          ScriptFixture.HANDOFF_CONSUMER ->
+            """
+            const count = pm.environment.get('handoffCount');
+            const ready = pm.environment.get('handoffReady');
+            pm.environment.set('lookupKey', 'beta-' + count + '-' + ready);
+            """
+              .trimIndent()
+          ScriptFixture.HANDOFF_OBSERVER ->
+            "pm.environment.set('lookupObserved', pm.environment.get('lookupKey'));"
+        }
+      val type =
+        when (this) {
+          ScriptFixture.SCRIPTED,
+          ScriptFixture.HANDOFF_PRODUCER -> "afterResponse"
+          ScriptFixture.HANDOFF_CONSUMER,
+          ScriptFixture.HANDOFF_OBSERVER -> "beforeRequest"
+          ScriptFixture.NONE -> error("No script type for a script-free fixture")
+        }
+      buildString {
+        appendLine("scripts:")
+        appendLine("  - type: $type")
+        appendLine("    code: |-")
+        appendLine(script.prependIndent("      "))
+        append("    language: text/javascript")
+      }
     }
-  val type =
-    when (this) {
-      ScriptFixture.SCRIPTED,
-      ScriptFixture.HANDOFF_PRODUCER -> "afterResponse"
-      ScriptFixture.HANDOFF_CONSUMER,
-      ScriptFixture.HANDOFF_OBSERVER -> "beforeRequest"
-      ScriptFixture.NONE -> error("No script type for a script-free fixture")
-    }
-  return buildString {
-    appendLine("scripts:")
-    appendLine("  - type: $type")
-    appendLine("    code: |-")
-    appendLine(script.prependIndent("      "))
-    append("    language: text/javascript")
   }
-}
 
 private fun ScriptFixture.urlFor(pathPrefix: String, name: String, index: Int): String {
   val query =

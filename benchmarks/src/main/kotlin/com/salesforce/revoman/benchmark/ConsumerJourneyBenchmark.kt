@@ -15,6 +15,7 @@ import kotlinx.benchmark.TearDown
 
 private const val EXPECTED_JAVA_FEATURE_PROPERTY = "revoman.scorecard.expectedJavaFeature"
 private const val EXPECTED_JAVA_FEATURE = 25
+private const val WORKFLOW_STEP_COUNT = 3
 
 open class ConsumerJourneyBenchmark {
   @Benchmark
@@ -80,8 +81,8 @@ open class ConsumerRevUpState {
     requireJava25ScorecardRuntime()
     prepared = prepareConsumerJourneys()
     check(prepared.handlerLedger.calls().isEmpty())
-    check(prepared.threeKicks.size == 3)
-    check(prepared.runbook.steps.size == 3)
+    check(prepared.threeKicks.size == WORKFLOW_STEP_COUNT)
+    check(prepared.runbook.steps.size == WORKFLOW_STEP_COUNT)
   }
 
   @TearDown fun tearDown() = prepared.close()

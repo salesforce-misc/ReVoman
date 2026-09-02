@@ -89,39 +89,50 @@ internal fun buildScorecard(manifestPath: Path): ScorecardDocument {
   }
   val runDir = requireNotNull(manifest.parent) { "Manifest must have a parent directory" }
   val json = Json.parseToJsonElement(Files.readString(manifest)).jsonObject
-  require(json.getValue("schemaVersion").jsonPrimitive.content.toInt() == 1)
-  require(json.getValue("studyId").jsonPrimitive.content == SCORECARD_STUDY_ID)
-  require(json.getValue("runId").jsonPrimitive.content.isNotBlank())
-  require(json.getValue("benchmarkSelector").jsonPrimitive.content == SCORECARD_SELECTOR) {
+  json.validateManifest()
+  val measuredRows = json.measuredScorecardRows(runDir)
+  val measured = measuredRows.associateBy(JmhRow::benchmark)
+  val rows = expectedScorecardRows.map { expected -> measured.getValue(expected.benchmark) }
+  return ScorecardDocument(
+    runDir,
+    json.getValue("studyId").jsonPrimitive.content,
+    json.getValue("runId").jsonPrimitive.content,
+    scorecardFrame(rows),
+  )
+}
+
+private fun JsonObject.validateManifest() {
+  require(getValue("schemaVersion").jsonPrimitive.content.toInt() == 1)
+  require(getValue("studyId").jsonPrimitive.content == SCORECARD_STUDY_ID)
+  require(getValue("runId").jsonPrimitive.content.isNotBlank())
+  require(getValue("benchmarkSelector").jsonPrimitive.content == SCORECARD_SELECTOR) {
     "Scorecard benchmarkSelector does not match the fixed selector"
   }
-  require(json.expectedRows() == expectedScorecardRows) {
+  require(expectedRows() == expectedScorecardRows) {
     "Manifest expectedRows do not match the fixed scorecard descriptors"
   }
-  require(json.getValue("profile").jsonObject.scorecardProfile() == expectedScorecardProfile) {
+  require(getValue("profile").jsonObject.scorecardProfile() == expectedScorecardProfile) {
     "Manifest profile does not match the fixed scorecard profile"
   }
-  require(json.getValue("libraryVersion").jsonPrimitive.content.isNotBlank()) {
+  require(getValue("libraryVersion").jsonPrimitive.content.isNotBlank()) {
     "libraryVersion must not be blank"
   }
-  require(json.getValue("revision").jsonPrimitive.content.isNotBlank()) {
+  require(getValue("revision").jsonPrimitive.content.isNotBlank()) {
     "revision must not be blank"
   }
-  require(json.getValue("dependencyFingerprint").jsonPrimitive.content.isNotBlank()) {
+  require(getValue("dependencyFingerprint").jsonPrimitive.content.isNotBlank()) {
     "dependencyFingerprint must not be blank"
   }
   require(
-    json
-      .getValue("cpuAffinity")
-      .jsonObject
-      .getValue("logicalCpuList")
-      .jsonPrimitive
-      .content
-      .isNotBlank()
+    getValue("cpuAffinity").jsonObject.getValue("logicalCpuList").jsonPrimitive.content.isNotBlank()
   ) {
     "CPU affinity must not be blank"
   }
-  val javaIdentities = json.getValue("javaIdentities").jsonObject
+  validateJavaIdentities()
+}
+
+private fun JsonObject.validateJavaIdentities() {
+  val javaIdentities = getValue("javaIdentities").jsonObject
   require(javaIdentities.keys == setOf("runner", "launcher", "inherited", "gradleDaemon", "jmh")) {
     "Manifest must record every Java identity"
   }
@@ -134,8 +145,11 @@ internal fun buildScorecard(manifestPath: Path): ScorecardDocument {
       "$name Java identity must not be blank"
     }
   }
+}
+
+private fun JsonObject.measuredScorecardRows(runDir: Path): List<JmhRow> {
   val resultsPath =
-    resolve(runDir, json.getValue("raw").jsonObject.getValue("results").jsonPrimitive.content)
+    resolve(runDir, getValue("raw").jsonObject.getValue("results").jsonPrimitive.content)
   val measuredRows = readJmh(resultsPath, Regex(".*")).toJmhRows()
   require(
     expectedScorecardRows.all { expected ->
@@ -166,22 +180,18 @@ internal fun buildScorecard(manifestPath: Path): ScorecardDocument {
     "Scorecard benchmarks must not have parameters"
   }
   require(measuredRows.all { it.score >= 0.0 }) { "Scorecard score must not be negative" }
-  val measured = measuredRows.associateBy(JmhRow::benchmark)
-  val rows = expectedScorecardRows.map { expected -> measured.getValue(expected.benchmark) }
-  return ScorecardDocument(
-    runDir,
-    json.getValue("studyId").jsonPrimitive.content,
-    json.getValue("runId").jsonPrimitive.content,
-    dataFrameOf(
-        "journey" to expectedScorecardRows.map { it.journey },
-        "workload" to expectedScorecardRows.map { it.workload },
-        "score" to rows.map { it.score },
-        "scoreError99_9" to rows.map { it.scoreError },
-        "unit" to rows.map { it.unit },
-      )
-      .cast(),
-  )
+  return measuredRows
 }
+
+private fun scorecardFrame(rows: List<JmhRow>): DataFrame<ScorecardRowSchema> =
+  dataFrameOf(
+      "journey" to expectedScorecardRows.map { it.journey },
+      "workload" to expectedScorecardRows.map { it.workload },
+      "score" to rows.map { it.score },
+      "scoreError99_9" to rows.map { it.scoreError },
+      "unit" to rows.map { it.unit },
+    )
+    .cast()
 
 private fun JsonObject.expectedRows(): List<ExpectedScorecardRow> =
   getValue("expectedRows").jsonArray.map { element ->
