@@ -52,29 +52,28 @@ internal fun linuxPrivateMachineIdentity(
   passwd: String,
   kernelHostname: String,
 ): PrivateMachineIdentity {
-  val uid =
-    processStatus
-      .lineSequence()
-      .firstOrNull { line -> line.startsWith("Uid:") }
-      ?.substringAfter(':')
-      ?.trim()
-      ?.split(Regex("\\s+"))
-      ?.firstOrNull()
-      ?.toLongOrNull()
-      ?.takeIf { it >= 0 } ?: unavailablePrivateMachineIdentity()
-  val accounts =
-    passwd
-      .lineSequence()
-      .filter(String::isNotBlank)
-      .map { line -> line.split(':') }
-      .filter { fields -> fields.size >= PASSWD_FIELD_COUNT && fields[2].toLongOrNull() == uid }
-      .toList()
-  if (accounts.size != 1) unavailablePrivateMachineIdentity()
-  val account = accounts.single()
+  val uid = linuxRealUid(processStatus)
+  val records = passwd.lineSequence().filter(String::isNotBlank).toList()
+  if (records.size != 1) unavailablePrivateMachineIdentity()
+  val account = records.single().split(':')
+  if (account.size != PASSWD_FIELD_COUNT || account[2].toLongOrNull() != uid) {
+    unavailablePrivateMachineIdentity()
+  }
   val values = listOf(account[0], account[5], kernelHostname.trim())
   if (values.any(String::isBlank)) unavailablePrivateMachineIdentity()
   return PrivateMachineIdentity(values[0], values[1], values[2])
 }
+
+internal fun linuxRealUid(processStatus: String): Long =
+  processStatus
+    .lineSequence()
+    .firstOrNull { line -> line.startsWith("Uid:") }
+    ?.substringAfter(':')
+    ?.trim()
+    ?.split(Regex("\\s+"))
+    ?.firstOrNull()
+    ?.toLongOrNull()
+    ?.takeIf { it >= 0 } ?: unavailablePrivateMachineIdentity()
 
 private fun captureEvidence(root: Path, forbidden: List<ByteArray>): List<EvidenceEntrySnapshot> =
   Files.walk(root).use { paths ->

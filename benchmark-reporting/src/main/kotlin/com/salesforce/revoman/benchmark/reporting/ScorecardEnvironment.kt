@@ -10,7 +10,8 @@ internal interface ScorecardHost {
   val currentProcessId: Long
   val runnerJavaFeature: Int
   val runnerJavaIdentity: String
-  val privateMachineIdentity: PrivateMachineIdentity
+
+  fun resolvePrivateMachineIdentity(projectRoot: Path): PrivateMachineIdentity
 
   fun environmentVariable(name: String): String?
 
@@ -30,6 +31,7 @@ internal interface ScorecardHost {
 internal class SystemScorecardHost(
   override val clock: Clock = Clock.systemUTC(),
   private val systemFileReader: (Path) -> String = { path -> Files.readString(path) },
+  private val readOnlyExecutor: ProcessExecutor = SystemProcessExecutor,
 ) : ScorecardHost {
   override val currentProcessId: Long = ProcessHandle.current().pid()
   override val runnerJavaFeature: Int = Runtime.version().feature()
@@ -42,11 +44,16 @@ internal class SystemScorecardHost(
       )
       .filterNot(String?::isNullOrBlank)
       .joinToString("; ")
-  override val privateMachineIdentity: PrivateMachineIdentity by lazy {
+
+  override fun resolvePrivateMachineIdentity(projectRoot: Path): PrivateMachineIdentity =
     try {
+      val processStatus = systemFileReader(Path.of("/proc/self/status"))
+      val uid = linuxRealUid(processStatus)
+      val account = executeReadOnly(listOf("getent", "passwd", uid.toString()), projectRoot)
+      if (account.exitCode != 0) unavailablePrivateMachineIdentity()
       linuxPrivateMachineIdentity(
-        systemFileReader(Path.of("/proc/self/status")),
-        systemFileReader(Path.of("/etc/passwd")),
+        processStatus,
+        account.stdout,
         systemFileReader(Path.of("/proc/sys/kernel/hostname")),
       )
     } catch (_: IOException) {
@@ -54,7 +61,6 @@ internal class SystemScorecardHost(
     } catch (_: SecurityException) {
       unavailablePrivateMachineIdentity()
     }
-  }
 
   override fun environmentVariable(name: String): String? = System.getenv(name)
 
@@ -70,7 +76,7 @@ internal class SystemScorecardHost(
   override fun isExecutable(path: Path): Boolean = Files.isExecutable(path)
 
   override fun executeReadOnly(command: List<String>, workingDirectory: Path): ProcessResult =
-    executeProcess(command, workingDirectory)
+    readOnlyExecutor.execute(command, workingDirectory)
 }
 
 internal data class CpuAffinity(

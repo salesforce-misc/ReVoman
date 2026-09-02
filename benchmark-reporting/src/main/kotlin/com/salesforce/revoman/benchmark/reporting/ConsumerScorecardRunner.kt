@@ -43,7 +43,7 @@ internal class ConsumerScorecardRunner(
       validateReports(attempt, manifest)
       phase = "privacy validation"
       val evidenceSnapshot =
-        validateEvidencePrivacy(attempt.stagingRun, host.privateMachineIdentity)
+        validateEvidencePrivacy(attempt.stagingRun, runtime.privateMachineIdentity)
       phase = "runtime cleanup"
       runtimeCleanup(runtime.workspace.root)
       runtimeWorkspace = null
@@ -73,6 +73,10 @@ internal class ConsumerScorecardRunner(
   }
 
   private fun prepareRuntime(attempt: ScorecardAttempt): ScorecardRuntime {
+    val privateMachineIdentity =
+      host.resolvePrivateMachineIdentity(attempt.preflight.projectRoot).also { identity ->
+        identity.values
+      }
     val affinity = selectScorecardAffinity(host)
     val hygiene =
       inspectProcessHygiene(host, attempt.preflight.projectRoot, affinity.logicalCpus.toSet())
@@ -90,7 +94,14 @@ internal class ConsumerScorecardRunner(
       "Selected Java home does not contain an executable bin/jfr"
     }
     val workspace = createScorecardRuntimeWorkspace(attempt.preflight.benchmarkJar)
-    return ScorecardRuntime(affinity, hygiene, profilerLibrary, jfrExecutable, workspace)
+    return ScorecardRuntime(
+      privateMachineIdentity,
+      affinity,
+      hygiene,
+      profilerLibrary,
+      jfrExecutable,
+      workspace,
+    )
   }
 
   private fun runProfiles(
@@ -285,6 +296,7 @@ private data class ScorecardAttempt(
 }
 
 private data class ScorecardRuntime(
+  val privateMachineIdentity: PrivateMachineIdentity,
   val affinity: CpuAffinity,
   val hygiene: ProcessHygiene,
   val profilerLibrary: Path,
