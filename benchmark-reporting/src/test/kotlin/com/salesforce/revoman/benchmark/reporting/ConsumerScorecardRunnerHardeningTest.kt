@@ -54,6 +54,33 @@ class ConsumerScorecardRunnerHardeningTest :
       }
     }
 
+    "preflight requires exactly the seven unique consumer journey benchmarks" {
+      withRunnerFixture { fixture ->
+        listOf(
+            SCORECARD_BENCHMARKS + SCORECARD_BENCHMARKS.first(),
+            SCORECARD_BENCHMARKS +
+              "com.salesforce.revoman.benchmark.ConsumerJourneyBenchmark.eighthJourney",
+          )
+          .forEach { invalidBenchmarks ->
+            writeJmhJar(fixture.request.benchmarkJar, benchmarks = invalidBenchmarks)
+
+            shouldThrow<IllegalArgumentException> {
+                ConsumerScorecardRunner(fixture.host, fixture.executor).preflight(fixture.request)
+              }
+              .message shouldContain "JMH"
+          }
+
+        writeJmhJar(
+          fixture.request.benchmarkJar,
+          benchmarks =
+            SCORECARD_BENCHMARKS +
+              "com.salesforce.revoman.benchmark.EnvironmentRebuildBenchmark.rebuild",
+        )
+
+        ConsumerScorecardRunner(fixture.host, fixture.executor).preflight(fixture.request)
+      }
+    }
+
     "runner retains a diagnostic attempt for Java preflight failure" {
       withRunnerFixture { fixture ->
         shouldThrow<IllegalArgumentException> {
@@ -248,6 +275,100 @@ class ConsumerScorecardRunnerHardeningTest :
       }
     }
 
+    "staging path replacements after a child return stop all subsequent writes" {
+      listOf(
+          "staging-root" to ".benchmark-staging",
+          "staging-study" to ".benchmark-staging/$SCORECARD_STUDY_ID",
+          "staging-run" to ".benchmark-staging/$SCORECARD_STUDY_ID/20260902T010203Z",
+        )
+        .forEach { (case, relative) ->
+          withRunnerFixture { fixture ->
+            val delegate = RecordingBenchmarkExecutor()
+            val redirect = fixture.request.projectRoot.resolve("redirect-$case")
+            val executor = ProcessExecutor { command, workingDirectory ->
+              delegate.execute(command, workingDirectory).also {
+                if (delegate.commands.size == 1) {
+                  replaceDirectoryWithSymlink(
+                    fixture.request.projectRoot.resolve(relative),
+                    redirect,
+                  )
+                }
+              }
+            }
+
+            shouldThrow<IllegalArgumentException> {
+                ConsumerScorecardRunner(
+                    fixture.host,
+                    executor,
+                    reporter = { 2 },
+                  )
+                  .run(fixture.request)
+              }
+              .message shouldContain "Reserved scorecard path"
+
+            delegate.commands.size shouldBe 1
+            Files.walk(redirect).use { paths ->
+              paths.anyMatch {
+                it.fileName.toString() == "cpu.txt" ||
+                  it.fileName.toString() == "failure-summary.txt"
+              }
+            } shouldBe false
+            Files.exists(acceptedRun(fixture)) shouldBe false
+          }
+        }
+    }
+
+    "publication ancestor replacements are rejected before the publication move" {
+      listOf(
+          "publication-root-symlink" to
+            { fixture: RunnerFixture, redirect: Path ->
+              replaceDirectoryWithSymlink(
+                fixture.request.projectRoot.resolve("benchmark-results"),
+                redirect,
+              )
+            },
+          "publication-study-identity" to
+            { fixture: RunnerFixture, redirect: Path ->
+              replaceDirectoryWithFreshDirectory(
+                fixture.request.projectRoot.resolve("benchmark-results/$SCORECARD_STUDY_ID"),
+                redirect,
+              )
+            },
+        )
+        .forEach { (case, replacePublicationAncestor) ->
+          withRunnerFixture { fixture ->
+            var publishMoveCalled = false
+            val redirect = fixture.request.projectRoot.resolve("redirect-$case")
+
+            shouldThrow<IllegalArgumentException> {
+                ConsumerScorecardRunner(
+                    fixture.host,
+                    RecordingBenchmarkExecutor(),
+                    reporter = { manifest ->
+                      BenchmarkReportCli.run(
+                          arrayOf(
+                            "scorecard",
+                            "--manifest",
+                            manifest.toAbsolutePath().toString(),
+                          )
+                        )
+                        .also { replacePublicationAncestor(fixture, redirect) }
+                    },
+                    publishMove = { _, _ -> publishMoveCalled = true },
+                  )
+                  .run(fixture.request)
+              }
+              .message shouldContain "Reserved scorecard path"
+
+            publishMoveCalled shouldBe false
+            Files.exists(acceptedRun(fixture)) shouldBe false
+            Files.walk(redirect).use { paths ->
+              paths.anyMatch { it.fileName.toString() == "20260902T010203Z" }
+            } shouldBe false
+          }
+        }
+    }
+
     "cross-filesystem publication never uses the non-atomic fallback" {
       withRunnerFixture { fixture ->
         var nonAtomicMoveCalled = false
@@ -284,3 +405,16 @@ class ConsumerScorecardRunnerHardeningTest :
       }
     }
   })
+
+private fun replaceDirectoryWithSymlink(path: Path, redirect: Path) {
+  Files.createDirectory(redirect)
+  val relocated = redirect.resolve("relocated")
+  Files.move(path, relocated)
+  Files.createSymbolicLink(path, relocated)
+}
+
+private fun replaceDirectoryWithFreshDirectory(path: Path, redirect: Path) {
+  Files.createDirectory(redirect)
+  Files.move(path, redirect.resolve("relocated"))
+  Files.createDirectory(path)
+}

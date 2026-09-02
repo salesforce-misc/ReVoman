@@ -27,6 +27,7 @@ internal class ConsumerScorecardRunner(
       require(!paths.acceptedExisted) {
         "Accepted scorecard run already exists for ${paths.runId}"
       }
+      validateAttemptPaths(paths)
       println("consumer-scorecard: preflight")
       val attempt = createAttempt(paths, preflight(request))
       val runtime = prepareRuntime(attempt)
@@ -42,12 +43,8 @@ internal class ConsumerScorecardRunner(
       publish(attempt)
       return attempt.acceptedRun
     } catch (failure: Exception) {
-      restoreFailedPublication(
-        paths.stagingRun,
-        paths.acceptedRun,
-        paths.acceptedExisted,
-      )
-      writeFailureSummary(paths.stagingRun, paths.runId, phase, failure)
+      restoreFailedPublication(paths)
+      writeFailureSummary(paths, phase, failure)
       System.err.println("consumer-scorecard: $phase failed: ${failure.message}")
       throw failure
     }
@@ -57,16 +54,11 @@ internal class ConsumerScorecardRunner(
     paths: ScorecardAttemptPaths,
     preflight: ScorecardPreflight,
   ): ScorecardAttempt {
+    validateAttemptPaths(paths)
     Files.createDirectories(paths.stagingRun.resolve("raw/profiles"))
     Files.createDirectories(paths.stagingRun.resolve("environment"))
-    return ScorecardAttempt(
-      preflight,
-      paths.startedAt,
-      paths.runId,
-      paths.stagingRun,
-      paths.acceptedRun,
-      paths.acceptedExisted,
-    )
+    validateAttemptPaths(paths)
+    return ScorecardAttempt(preflight, paths)
   }
 
   private fun prepareRuntime(attempt: ScorecardAttempt): ScorecardRuntime {
@@ -97,15 +89,7 @@ internal class ConsumerScorecardRunner(
     return expectedScorecardRows.flatMap { row ->
       val method = row.benchmark.substringAfterLast('.')
       PROFILE_EVENTS.map { profile ->
-        runProfile(
-          attempt.preflight,
-          runtime.affinity,
-          attempt.stagingRun,
-          runtime.profilerLibrary,
-          runtime.jfrExecutable,
-          method,
-          profile,
-        )
+        runProfile(attempt, runtime, method, profile)
       }
     }
   }
@@ -117,8 +101,11 @@ internal class ConsumerScorecardRunner(
     println("consumer-scorecard: final measurement")
     val resultsPath = attempt.stagingRun.resolve(RESULTS_PATH)
     val command = finalCommand(attempt.preflight, affinity, resultsPath)
+    validateAttemptPaths(attempt.paths)
+    val result = processExecutor.execute(command, attempt.preflight.projectRoot)
+    validateAttemptPaths(attempt.paths)
     requireSuccessfulProcess(
-      processExecutor.execute(command, attempt.preflight.projectRoot),
+      result,
       "Final JMH measurement",
     )
     require(
@@ -138,8 +125,7 @@ internal class ConsumerScorecardRunner(
     profilerFacts: List<ProfilerFact>,
   ): Path {
     val completedAt = host.clock.instant()
-    Files.writeString(
-      attempt.stagingRun.resolve(ENVIRONMENT_PATH),
+    val environment =
       captureScorecardEnvironment(
         host,
         attempt.preflight.projectRoot,
@@ -149,13 +135,16 @@ internal class ConsumerScorecardRunner(
         runtime.affinity,
         attempt.preflight.javaIdentities,
         runtime.hygiene,
-      ),
+      )
+    validateAttemptPaths(attempt.paths)
+    Files.writeString(
+      attempt.stagingRun.resolve(ENVIRONMENT_PATH),
+      environment,
     )
     val fingerprint =
       dependencyFingerprint(attempt.preflight.projectRoot, attempt.preflight.benchmarkJar)
     return attempt.stagingRun.resolve("manifest.json").also { manifest ->
-      Files.writeString(
-        manifest,
+      val contents =
         scorecardManifest(
           attempt.preflight,
           attempt.runId,
@@ -165,14 +154,18 @@ internal class ConsumerScorecardRunner(
           finalCommand,
           fingerprint,
           profilerFacts,
-        ),
-      )
+        )
+      validateAttemptPaths(attempt.paths)
+      Files.writeString(manifest, contents)
     }
   }
 
   private fun validateReports(attempt: ScorecardAttempt, manifest: Path) {
     println("consumer-scorecard: validating reports")
-    require(reporter(manifest.toAbsolutePath().normalize()) == 0) {
+    validateAttemptPaths(attempt.paths)
+    val reporterStatus = reporter(manifest.toAbsolutePath().normalize())
+    validateAttemptPaths(attempt.paths)
+    require(reporterStatus == 0) {
       "Scorecard validation or rendering failed"
     }
     GENERATED_REPORTS.forEach { relative ->
@@ -185,8 +178,9 @@ internal class ConsumerScorecardRunner(
 
   private fun publish(attempt: ScorecardAttempt) {
     println("consumer-scorecard: publishing ${attempt.runId}")
-    validatePublicationPaths(attempt.paths())
+    validateAttemptPaths(attempt.paths)
     publishMove(attempt.stagingRun, attempt.acceptedRun)
+    validatePublishedPaths(attempt.paths)
     require(Files.isDirectory(attempt.acceptedRun) && Files.notExists(attempt.stagingRun)) {
       "Accepted scorecard publication is incomplete"
     }
@@ -194,22 +188,30 @@ internal class ConsumerScorecardRunner(
   }
 
   private fun runProfile(
-    preflight: ScorecardPreflight,
-    affinity: CpuAffinity,
-    stagingRun: Path,
-    profilerLibrary: Path,
-    jfrExecutable: Path,
+    attempt: ScorecardAttempt,
+    runtime: ScorecardRuntime,
     method: String,
     profile: ProfileEvent,
   ): ProfilerFact {
-    val directory = stagingRun.resolve("raw/profiles").resolve(method)
+    val directory = attempt.stagingRun.resolve("raw/profiles").resolve(method)
+    validateAttemptPaths(attempt.paths)
     Files.createDirectories(directory)
     val recording = directory.resolve("${profile.event}.jfr")
     val summary = directory.resolve("${profile.event}.txt")
     val command =
-      profileCommand(preflight, affinity, method, profile.event, profilerLibrary, recording)
+      profileCommand(
+        attempt.preflight,
+        runtime.affinity,
+        method,
+        profile.event,
+        runtime.profilerLibrary,
+        recording,
+      )
+    validateAttemptPaths(attempt.paths)
+    val profileResult = processExecutor.execute(command, attempt.preflight.projectRoot)
+    validateAttemptPaths(attempt.paths)
     requireSuccessfulProcess(
-      processExecutor.execute(command, preflight.projectRoot),
+      profileResult,
       "$method ${profile.event} profile",
     )
     require(
@@ -217,13 +219,16 @@ internal class ConsumerScorecardRunner(
     ) {
       "$method ${profile.event} profile recording is missing or empty"
     }
+    validateAttemptPaths(attempt.paths)
     val summaryResult =
       processExecutor.execute(
-        listOf(jfrExecutable.toString(), "view", profile.view, recording.toString()),
-        preflight.projectRoot,
+        listOf(runtime.jfrExecutable.toString(), "view", profile.view, recording.toString()),
+        attempt.preflight.projectRoot,
       )
+    validateAttemptPaths(attempt.paths)
     requireSuccessfulProcess(summaryResult, "$method ${profile.event} JFR summary")
     require(summaryResult.stdout.isNotBlank()) { "$method ${profile.event} JFR summary is empty" }
+    validateAttemptPaths(attempt.paths)
     Files.writeString(summary, summaryResult.stdout)
     require(Files.isRegularFile(summary) && Files.size(summary) > 0) {
       "$method ${profile.event} JFR summary is missing or empty"
@@ -232,20 +237,28 @@ internal class ConsumerScorecardRunner(
       method,
       profile.event,
       profile.view,
-      stagingRun.relativize(recording).toString(),
-      stagingRun.relativize(summary).toString(),
+      attempt.stagingRun.relativize(recording).toString(),
+      attempt.stagingRun.relativize(summary).toString(),
     )
   }
 }
 
 private data class ScorecardAttempt(
   val preflight: ScorecardPreflight,
-  val startedAt: Instant,
-  val runId: String,
-  val stagingRun: Path,
-  val acceptedRun: Path,
-  val acceptedExisted: Boolean,
-)
+  val paths: ScorecardAttemptPaths,
+) {
+  val startedAt: Instant
+    get() = paths.startedAt
+
+  val runId: String
+    get() = paths.runId
+
+  val stagingRun: Path
+    get() = paths.stagingRun
+
+  val acceptedRun: Path
+    get() = paths.acceptedRun
+}
 
 private data class ScorecardRuntime(
   val affinity: CpuAffinity,
@@ -273,39 +286,26 @@ private fun requireSuccessfulProcess(result: ProcessResult, description: String)
   }
 }
 
-private fun restoreFailedPublication(
-  stagingRun: Path,
-  acceptedRun: Path,
-  acceptedExisted: Boolean,
-) {
-  if (!acceptedExisted && Files.exists(acceptedRun) && Files.notExists(stagingRun)) {
-    runCatching { moveCompleteRun(acceptedRun, stagingRun) }
+private fun restoreFailedPublication(paths: ScorecardAttemptPaths) {
+  if (paths.acceptedExisted) return
+  runCatching {
+    validateFailedPublicationPaths(paths)
+    moveCompleteRun(paths.acceptedRun, paths.stagingRun)
   }
 }
 
 private fun writeFailureSummary(
-  stagingRun: Path,
-  runId: String,
+  paths: ScorecardAttemptPaths,
   phase: String,
   failure: Exception,
 ) {
-  if (!Files.isDirectory(stagingRun)) return
+  if (runCatching { validateStagingPaths(paths) }.isFailure) return
   val summary = buildString {
     appendLine("status: rejected")
-    appendLine("runId: $runId")
+    appendLine("runId: ${paths.runId}")
     appendLine("phase: $phase")
     appendLine("failure: ${failure::class.simpleName}")
     appendLine("message: ${failure.message.orEmpty().lineSequence().firstOrNull().orEmpty()}")
   }
-  runCatching { Files.writeString(stagingRun.resolve("failure-summary.txt"), summary) }
+  runCatching { Files.writeString(paths.stagingRun.resolve("failure-summary.txt"), summary) }
 }
-
-private fun ScorecardAttempt.paths(): ScorecardAttemptPaths =
-  ScorecardAttemptPaths(
-    preflight.projectRoot,
-    startedAt,
-    runId,
-    stagingRun,
-    acceptedRun,
-    acceptedExisted,
-  )

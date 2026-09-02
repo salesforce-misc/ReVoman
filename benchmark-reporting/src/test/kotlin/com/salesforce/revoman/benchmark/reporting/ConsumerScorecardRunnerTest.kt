@@ -602,9 +602,10 @@ internal fun writeJmhJar(
 
 private fun jmhBenchmarkListEntry(benchmark: String): String {
   val benchmarkClass = benchmark.substringBeforeLast('.')
+  val benchmarkSimpleName = benchmarkClass.substringAfterLast('.')
   val method = benchmark.substringAfterLast('.')
   val generatedClass =
-    "com.salesforce.revoman.benchmark.jmh_generated.ConsumerJourneyBenchmark_${method}_jmhTest"
+    "com.salesforce.revoman.benchmark.jmh_generated.${benchmarkSimpleName}_${method}_jmhTest"
   return "JMH S ${benchmarkClass.length} $benchmarkClass " +
     "S ${generatedClass.length} $generatedClass S ${method.length} $method " +
     "S 10 Throughput E A 1 1 1 E"

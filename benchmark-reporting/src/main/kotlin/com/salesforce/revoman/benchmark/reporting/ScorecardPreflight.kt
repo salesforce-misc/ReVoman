@@ -264,10 +264,15 @@ internal class ScorecardPreflightValidator(private val host: ScorecardHost) {
           val benchmarkList =
             zip.getInputStream(benchmarkListEntry).bufferedReader().use { it.readText() }
           val benchmarkEntries = parseJmhBenchmarkEntries(benchmarkList)
+          val expectedBenchmarks = expectedScorecardRows.map { it.benchmark }.toSet()
+          val consumerBenchmarks = benchmarkEntries.filter {
+            it.substringBeforeLast('.') == SCORECARD_BENCHMARK_CLASS
+          }
           mainClass == "org.openjdk.jmh.Main" &&
             zip.getEntry("org/openjdk/jmh/Main.class") != null &&
             benchmarkList.isNotBlank() &&
-            expectedScorecardRows.all { it.benchmark in benchmarkEntries }
+            consumerBenchmarks.size == expectedBenchmarks.size &&
+            consumerBenchmarks.toSet() == expectedBenchmarks
         }
       }
       .getOrDefault(false)
@@ -295,7 +300,7 @@ internal class ScorecardPreflightValidator(private val host: ScorecardHost) {
   }
 }
 
-private fun parseJmhBenchmarkEntries(benchmarkList: String): Set<String> =
+private fun parseJmhBenchmarkEntries(benchmarkList: String): List<String> =
   benchmarkList
     .lineSequence()
     .map(String::trim)
@@ -312,7 +317,7 @@ private fun parseJmhBenchmarkEntries(benchmarkList: String): Set<String> =
       }
       "${fields[JMH_CLASS_INDEX]}.${fields[JMH_METHOD_INDEX]}"
     }
-    .toSet()
+    .toList()
 
 private data class PreflightPaths(
   val projectRoot: Path,
@@ -397,3 +402,5 @@ private const val JMH_CLASS_MARKER_INDEX = 1
 private const val JMH_CLASS_INDEX = 3
 private const val JMH_METHOD_MARKER_INDEX = 7
 private const val JMH_METHOD_INDEX = 9
+private val SCORECARD_BENCHMARK_CLASS =
+  expectedScorecardRows.first().benchmark.substringBeforeLast('.')

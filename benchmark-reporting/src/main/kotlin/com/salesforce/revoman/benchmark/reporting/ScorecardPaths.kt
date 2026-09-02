@@ -1,23 +1,12 @@
 package com.salesforce.revoman.benchmark.reporting
 
-import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.FileAlreadyExistsException
 import java.nio.file.Files
 import java.nio.file.LinkOption.NOFOLLOW_LINKS
 import java.nio.file.Path
-import java.nio.file.StandardCopyOption.ATOMIC_MOVE
 import java.time.Instant
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
-
-internal data class ScorecardAttemptPaths(
-  val projectRoot: Path,
-  val startedAt: Instant,
-  val runId: String,
-  val stagingRun: Path,
-  val acceptedRun: Path,
-  val acceptedExisted: Boolean,
-)
 
 internal fun bootstrapScorecardAttempt(
   requestedProjectRoot: Path,
@@ -35,61 +24,72 @@ internal fun bootstrapScorecardAttempt(
   validateReservedPath(projectRoot, acceptedComponents + runId)
   val stagingRun = allocateAttemptDirectory(projectRoot, stagingParent, runId)
   return ScorecardAttemptPaths(
-    projectRoot,
-    startedAt,
-    runId,
-    stagingRun,
-    acceptedRun,
-    Files.exists(acceptedRun, NOFOLLOW_LINKS),
+    projectRoot = projectRoot,
+    startedAt = startedAt,
+    runId = runId,
+    stagingRun = stagingRun,
+    acceptedRun = acceptedRun,
+    acceptedExisted = Files.exists(acceptedRun, NOFOLLOW_LINKS),
+    stagingDirectories =
+      captureDirectoryIdentities(
+        listOf(
+          projectRoot,
+          projectRoot.resolve(stagingComponents.first()),
+          stagingParent,
+          stagingRun,
+        )
+      ),
+    publicationDirectories =
+      captureDirectoryIdentities(
+        listOf(projectRoot, projectRoot.resolve(acceptedComponents.first()), acceptedParent)
+      ),
   )
 }
 
-internal fun validatePublicationPaths(paths: ScorecardAttemptPaths) {
-  requireSafeDirectory(paths.projectRoot, paths.stagingRun)
-  requireSafeDirectory(paths.projectRoot, requireNotNull(paths.acceptedRun.parent))
+internal fun validateAttemptPaths(paths: ScorecardAttemptPaths) {
+  validateDirectoryIdentities(paths.projectRoot, paths.stagingDirectories)
+  validateDirectoryIdentities(paths.projectRoot, paths.publicationDirectories)
   require(!Files.isSymbolicLink(paths.acceptedRun)) {
     "Reserved publication path must not be a symbolic link"
   }
   require(paths.acceptedRun.normalize().startsWith(paths.projectRoot)) {
     "Reserved publication path escapes the project root"
   }
-}
-
-internal interface ScorecardMoveOperations {
-  fun atomicMove(source: Path, target: Path)
-
-  fun sameFileStore(source: Path, targetParent: Path): Boolean
-
-  fun nonAtomicMove(source: Path, target: Path)
-}
-
-private object SystemScorecardMoveOperations : ScorecardMoveOperations {
-  override fun atomicMove(source: Path, target: Path) {
-    Files.move(source, target, ATOMIC_MOVE)
-  }
-
-  override fun sameFileStore(source: Path, targetParent: Path): Boolean =
-    Files.getFileStore(source) == Files.getFileStore(targetParent)
-
-  override fun nonAtomicMove(source: Path, target: Path) {
-    Files.move(source, target)
-  }
-}
-
-internal fun moveCompleteRun(
-  source: Path,
-  target: Path,
-  operations: ScorecardMoveOperations = SystemScorecardMoveOperations,
-) {
-  require(Files.notExists(target, NOFOLLOW_LINKS)) { "Accepted run target already exists" }
-  try {
-    operations.atomicMove(source, target)
-  } catch (_: AtomicMoveNotSupportedException) {
-    require(operations.sameFileStore(source, requireNotNull(target.parent))) {
-      "Non-atomic publication fallback requires source and target on the same filesystem"
+  if (!paths.acceptedExisted) {
+    require(Files.notExists(paths.acceptedRun, NOFOLLOW_LINKS)) {
+      "Reserved scorecard path changed after bootstrap: ${paths.acceptedRun}"
     }
-    operations.nonAtomicMove(source, target)
   }
+}
+
+internal fun validateStagingPaths(paths: ScorecardAttemptPaths) {
+  validateDirectoryIdentities(paths.projectRoot, paths.stagingDirectories)
+}
+
+internal fun validatePublishedPaths(paths: ScorecardAttemptPaths) {
+  validateDirectoryIdentities(paths.projectRoot, paths.stagingDirectories.dropLast(1))
+  validateDirectoryIdentities(paths.projectRoot, paths.publicationDirectories)
+  require(Files.notExists(paths.stagingRun, NOFOLLOW_LINKS)) {
+    "Reserved staging path still exists after publication"
+  }
+  validateRelocatedDirectory(
+    paths.projectRoot,
+    paths.stagingDirectories.last(),
+    paths.acceptedRun,
+  )
+}
+
+internal fun validateFailedPublicationPaths(paths: ScorecardAttemptPaths) {
+  validateDirectoryIdentities(paths.projectRoot, paths.stagingDirectories.dropLast(1))
+  validateDirectoryIdentities(paths.projectRoot, paths.publicationDirectories)
+  require(Files.notExists(paths.stagingRun, NOFOLLOW_LINKS)) {
+    "Reserved staging path changed during failed publication"
+  }
+  validateRelocatedDirectory(
+    paths.projectRoot,
+    paths.stagingDirectories.last(),
+    paths.acceptedRun,
+  )
 }
 
 private fun canonicalProjectRoot(requested: Path): Path {
