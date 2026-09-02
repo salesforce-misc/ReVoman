@@ -296,6 +296,44 @@ class ConsumerScorecardRunnerPrivacyHardeningTest :
       }
     }
 
+    "privacy scan detects an identity split across the 8192-byte stream boundary" {
+      val root = Files.createTempDirectory("privacy-stream-boundary-")
+      val identity =
+        PrivateMachineIdentity(
+          "boundary-private-account",
+          "/private/boundary-home",
+          "boundary-host",
+        )
+      try {
+        val prefix = ByteArray(8192 - 5) { 'x'.code.toByte() }
+        Files.write(root.resolve("recording.jfr"), prefix + identity.userName.toByteArray())
+
+        val failure =
+          shouldThrow<IllegalArgumentException> { validateEvidencePrivacy(root, identity) }
+
+        failure.message shouldBe "Scorecard evidence contains a private identity"
+        failure.message.orEmpty() shouldNotContain identity.userName
+      } finally {
+        root.toFile().deleteRecursively()
+      }
+    }
+
+    "privacy scan rejects short overlapping identity values" {
+      val root = Files.createTempDirectory("privacy-overlapping-identity-")
+      val identity = PrivateMachineIdentity("ann", "anna", "nanna")
+      try {
+        Files.writeString(root.resolve("recording.jfr"), "prefix-nanna-suffix")
+
+        val failure =
+          shouldThrow<IllegalArgumentException> { validateEvidencePrivacy(root, identity) }
+
+        failure.message shouldBe "Scorecard evidence contains a private identity"
+        identity.values.forEach { value -> failure.message.orEmpty() shouldNotContain value }
+      } finally {
+        root.toFile().deleteRecursively()
+      }
+    }
+
     "private identity resolution failure occurs before any profile child starts" {
       withRunnerFixture { fixture ->
         val host = fixture.host.copy(privateMachineIdentity = PrivateMachineIdentity("", "", ""))
