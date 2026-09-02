@@ -227,6 +227,7 @@ internal class ConsumerScorecardRunner(
     Files.createDirectories(directory)
     val recording = directory.resolve("${profile.event}.jfr")
     val runtimeRecording = runtime.workspace.recording(method, profile.event)
+    Files.createDirectories(requireNotNull(runtimeRecording.parent))
     val summary = directory.resolve("${profile.event}.txt")
     val command =
       profileCommand(

@@ -278,6 +278,28 @@ class ConsumerScorecardRunnerTest :
       }
     }
 
+    "runner creates each runtime profile parent before invoking the profiler child" {
+      withRunnerFixture { fixture ->
+        val delegate = RecordingBenchmarkExecutor()
+        var observedProfiles = 0
+        val executor = ProcessExecutor { command, workingDirectory ->
+          if (command.any { "-agentpath:" in it }) {
+            val recording =
+              Path.of(command.last().substringAfter("file=").substringBefore(",loglevel=warn"))
+            require(Files.isDirectory(recording.parent)) {
+              "Runtime profile parent must exist before the profiler child starts"
+            }
+            observedProfiles += 1
+          }
+          delegate.execute(command, workingDirectory)
+        }
+
+        ConsumerScorecardRunner(fixture.host, executor).run(fixture.request)
+
+        observedProfiles shouldBe 21
+      }
+    }
+
     "benchmark runtime inputs contain no project or private machine identity" {
       withRunnerFixture { fixture ->
         val externalJdk = Files.createTempDirectory("consumer-scorecard-external-jdk-")
