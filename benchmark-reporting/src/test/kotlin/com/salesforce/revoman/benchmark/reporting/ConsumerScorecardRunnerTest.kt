@@ -181,10 +181,10 @@ class ConsumerScorecardRunnerTest :
             .sorted()
             .toList()
         } shouldContainExactly expectedAcceptedFiles()
-        executor.commands shouldHaveSize 43
+        executor.commands shouldHaveSize 36
         executor.commands.filter { command -> command.any { "-agentpath:" in it } } shouldHaveSize
           21
-        executor.commands.filter { it.first().endsWith("/bin/jfr") } shouldHaveSize 21
+        executor.commands.filter { it.first().endsWith("/bin/jfr") } shouldHaveSize 14
 
         val finalCommand = executor.commands.last()
         val runtimeRoot = Path.of(finalCommand[5]).parent
@@ -374,6 +374,7 @@ class ConsumerScorecardRunnerTest :
         ExecutionFailure.PROFILE_MISSING to "missing profile",
         ExecutionFailure.SUMMARY_EXIT to "summary child failure",
         ExecutionFailure.SUMMARY_EMPTY to "missing summary",
+        ExecutionFailure.SUMMARY_SEMANTIC_ERROR to "semantic summary failure",
         ExecutionFailure.FINAL_EXIT to "final child failure",
         ExecutionFailure.MISSING_CSV to "missing CSV",
         ExecutionFailure.MALFORMED_CSV to "malformed CSV",
@@ -839,6 +840,7 @@ internal enum class ExecutionFailure {
   PROFILE_MISSING,
   SUMMARY_EXIT,
   SUMMARY_EMPTY,
+  SUMMARY_SEMANTIC_ERROR,
   FINAL_EXIT,
   MISSING_CSV,
   MALFORMED_CSV,
@@ -851,25 +853,8 @@ internal class RecordingBenchmarkExecutor(private val failure: ExecutionFailure?
   override fun execute(command: List<String>, workingDirectory: Path): ProcessResult {
     commands += command
     return when {
-      command.first().endsWith("/bin/jfr") ->
-        when (failure) {
-          ExecutionFailure.SUMMARY_EXIT -> ProcessResult(1, "", "summary failed")
-          ExecutionFailure.SUMMARY_EMPTY -> ProcessResult(0, "", "")
-          else -> ProcessResult(0, "fixed JFR view\n", "")
-        }
-      command.any { "-agentpath:" in it } -> {
-        if (failure == ExecutionFailure.PROFILE_EXIT) {
-          ProcessResult(1, "", "profile failed")
-        } else {
-          if (failure != ExecutionFailure.PROFILE_MISSING) {
-            val path =
-              Path.of(command.last().substringAfter("file=").substringBefore(",loglevel=warn"))
-            Files.createDirectories(path.parent)
-            Files.write(path, byteArrayOf(1, 2, 3))
-          }
-          ProcessResult(0, "profile complete\n", "")
-        }
-      }
+      command.first().endsWith("/bin/jfr") -> summaryResult()
+      command.any { "-agentpath:" in it } -> profileResult(command)
       command.contains("-rff") -> {
         if (failure == ExecutionFailure.FINAL_EXIT) {
           ProcessResult(1, "", "final failed")
@@ -891,6 +876,39 @@ internal class RecordingBenchmarkExecutor(private val failure: ExecutionFailure?
       }
       else -> error("Unexpected benchmark command: $command")
     }
+  }
+
+  private fun summaryResult(): ProcessResult =
+    when (failure) {
+      ExecutionFailure.SUMMARY_EXIT -> ProcessResult(1, "", "summary failed")
+      ExecutionFailure.SUMMARY_EMPTY -> ProcessResult(0, "", "")
+      ExecutionFailure.SUMMARY_SEMANTIC_ERROR ->
+        ProcessResult(
+          0,
+          "Can't find event type named 'ObjectAllocationSample'.\n" +
+            "Missing event found for allocation-by-class\n",
+          "",
+        )
+      else -> ProcessResult(0, "fixed JFR view\n", "")
+    }
+
+  private fun profileResult(command: List<String>): ProcessResult {
+    if (failure == ExecutionFailure.PROFILE_EXIT) {
+      return ProcessResult(1, "", "profile failed")
+    }
+    if (failure != ExecutionFailure.PROFILE_MISSING) {
+      val path = Path.of(command.last().substringAfter("file=").substringBefore(",loglevel=warn"))
+      Files.createDirectories(path.parent)
+      Files.write(
+        path,
+        if (command.last().contains("event=alloc")) {
+          testAllocationRecordingBytes
+        } else {
+          byteArrayOf(1, 2, 3)
+        },
+      )
+    }
+    return ProcessResult(0, "profile complete\n", "")
   }
 }
 

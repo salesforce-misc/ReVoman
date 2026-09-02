@@ -464,8 +464,7 @@ requires `idea-cli`, `ide-index-mcp`, `jetbrains-debugger`, and
   1. create `.benchmark-staging/consumer-performance-scorecard/<run-id>`, where the UTC identifier
      uses `yyyyMMdd'T'HHmmss'Z'`;
   2. run each of seven method selectors separately for `cpu`, `alloc`, and `lock` profiles with one
-     fork and short smoke iterations, then use the selected JDK's `jfr view` command to render a
-     text summary beside each recording;
+     fork and short smoke iterations, then render a text summary beside each recording;
   3. run one unprofiled final JMH command for all seven rows;
   4. write `manifest.json`, `environment/run.json`, and `raw/results.csv`;
   5. invoke scorecard validation/rendering;
@@ -473,10 +472,15 @@ requires `idea-cli`, `ide-index-mcp`, `jetbrains-debugger`, and
      `benchmark-results/consumer-performance-scorecard/<run-id>`.
 
   Require 21 nonempty `raw/profiles/<method>/<event>.jfr` files and 21 matching `.txt` summaries.
-  Use `hot-methods` for CPU, `allocation-by-class` for allocation, and `contention-by-site` for
-  locks. Test child failure, missing CSV, malformed CSV, scorecard rejection, profile or summary
-  failure, target collision, and final move failure. Every failure must leave the accepted target
-  absent and retain the staging directory with a failure summary for diagnosis.
+  Use the selected JDK's `jfr view hot-methods` for CPU and `jfr view contention-by-site` for locks.
+  For `allocation-by-class`, aggregate `jdk.ObjectAllocationInNewTLAB` and
+  `jdk.ObjectAllocationOutsideTLAB` by class with the JDK Flight Recorder consumer API. Weight
+  NewTLAB samples by `tlabSize` and OutsideTLAB samples by `allocationSize`, matching their JFR
+  semantics. This is required because the JDK 25 built-in view expects `ObjectAllocationSample`,
+  which async-profiler does not emit. Test child failure, missing CSV, malformed CSV, scorecard
+  rejection, profile or summary failure, target collision, and final move failure. Every failure
+  must leave the accepted target absent and retain the staging directory with a failure summary for
+  diagnosis.
 
 - [ ] **Step 6: Implement deterministic command construction**
 
@@ -501,10 +505,10 @@ requires `idea-cli`, `ide-index-mcp`, `jetbrains-debugger`, and
   Profile commands use the exact single-method selector, one fork, one warmup, one measurement, and
   a single `-jvmArgsAppend` value containing the two required system properties plus
   `-agentpath:<lib>=start,event=<cpu|alloc|lock>,file=<profile>,loglevel=warn`. After each profile,
-  invoke `<selected-java-home>/bin/jfr view` with the fixed view for that event and save stdout to
-  the matching `.txt` file. Record profile and summary paths under a `profilerFacts` manifest
-  section and initialize a separate `optimizationHypotheses` array as empty. Do not reuse profiled
-  measurements in `results.csv`.
+  use `<selected-java-home>/bin/jfr view` for the fixed CPU/lock view or the RecordingFile
+  allocation renderer specified above, and save the output to the matching `.txt` file. Record
+  profile and summary paths under a `profilerFacts` manifest section and initialize a separate
+  `optimizationHypotheses` array as empty. Do not reuse profiled measurements in `results.csv`.
 
   Use `Files.move(stagingRun, acceptedRun, ATOMIC_MOVE)` with a same-filesystem non-atomic fallback;
   never replace an existing accepted run. Run the runner tests. Expected: every success and rollback

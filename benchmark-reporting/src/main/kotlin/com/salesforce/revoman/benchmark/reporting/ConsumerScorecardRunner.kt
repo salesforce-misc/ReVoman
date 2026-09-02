@@ -256,16 +256,10 @@ internal class ConsumerScorecardRunner(
     }
     copyRuntimeArtifact(runtimeRecording, recording)
     validateAttemptPaths(attempt.paths)
-    val summaryResult =
-      processExecutor.execute(
-        listOf(runtime.jfrExecutable.toString(), "view", profile.view, runtimeRecording.toString()),
-        runtime.workspace.root,
-      )
+    val summaryContents =
+      profileSummary(processExecutor, attempt, runtime, method, profile, runtimeRecording)
     validateAttemptPaths(attempt.paths)
-    requireSuccessfulProcess(summaryResult, "$method ${profile.event} JFR summary")
-    require(summaryResult.stdout.isNotBlank()) { "$method ${profile.event} JFR summary is empty" }
-    validateAttemptPaths(attempt.paths)
-    Files.writeString(summary, summaryResult.stdout)
+    Files.writeString(summary, summaryContents)
     require(Files.isRegularFile(summary) && Files.size(summary) > 0) {
       "$method ${profile.event} JFR summary is missing or empty"
     }
@@ -277,6 +271,45 @@ internal class ConsumerScorecardRunner(
       attempt.stagingRun.relativize(summary).toString(),
     )
   }
+}
+
+private fun isJfrViewError(line: String): Boolean =
+  line.startsWith("Can't find event type named") || line.startsWith("Missing event found for")
+
+private fun profileSummary(
+  processExecutor: ProcessExecutor,
+  attempt: ScorecardAttempt,
+  runtime: ScorecardRuntime,
+  method: String,
+  profile: ProfileEvent,
+  recording: Path,
+): String =
+  when (profile.event) {
+    "alloc" -> allocationByClassSummary(recording)
+    else -> jfrViewSummary(processExecutor, attempt, runtime, method, profile, recording)
+  }
+
+private fun jfrViewSummary(
+  processExecutor: ProcessExecutor,
+  attempt: ScorecardAttempt,
+  runtime: ScorecardRuntime,
+  method: String,
+  profile: ProfileEvent,
+  recording: Path,
+): String {
+  val description = "$method ${profile.event} JFR summary"
+  val result =
+    processExecutor.execute(
+      listOf(runtime.jfrExecutable.toString(), "view", profile.view, recording.toString()),
+      runtime.workspace.root,
+    )
+  validateAttemptPaths(attempt.paths)
+  requireSuccessfulProcess(result, description)
+  require(result.stdout.isNotBlank()) { "$description is empty" }
+  require(result.stdout.lineSequence().none(::isJfrViewError)) {
+    "$description contains a JFR view error"
+  }
+  return result.stdout
 }
 
 private data class ScorecardAttempt(
