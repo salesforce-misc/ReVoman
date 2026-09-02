@@ -81,6 +81,29 @@ class ConsumerScorecardRunnerHardeningTest :
       }
     }
 
+    "preflight rejects versioned JMH classes without a multi-release manifest" {
+      withRunnerFixture { fixture ->
+        writeJmhJar(fixture.request.benchmarkJar, includeVersionedClass = true)
+
+        shouldThrow<IllegalArgumentException> {
+            ConsumerScorecardRunner(fixture.host, fixture.executor).preflight(fixture.request)
+          }
+          .message shouldContain "JMH"
+      }
+    }
+
+    "preflight accepts versioned JMH classes with a multi-release manifest" {
+      withRunnerFixture { fixture ->
+        writeJmhJar(
+          fixture.request.benchmarkJar,
+          includeVersionedClass = true,
+          multiRelease = true,
+        )
+
+        ConsumerScorecardRunner(fixture.host, fixture.executor).preflight(fixture.request)
+      }
+    }
+
     "runner retains a diagnostic attempt for Java preflight failure" {
       withRunnerFixture { fixture ->
         shouldThrow<IllegalArgumentException> {

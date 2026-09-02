@@ -584,11 +584,17 @@ internal fun writeJmhJar(
   path: Path,
   mainClass: String? = "org.openjdk.jmh.Main",
   benchmarks: List<String> = SCORECARD_BENCHMARKS,
+  includeVersionedClass: Boolean = false,
+  multiRelease: Boolean = false,
 ) {
   ZipOutputStream(Files.newOutputStream(path)).use { zip ->
     if (mainClass != null) {
       zip.putNextEntry(ZipEntry("META-INF/MANIFEST.MF"))
-      zip.write("Manifest-Version: 1.0\r\nMain-Class: $mainClass\r\n\r\n".toByteArray())
+      val multiReleaseAttribute = if (multiRelease) "Multi-Release: true\r\n" else ""
+      zip.write(
+        "Manifest-Version: 1.0\r\nMain-Class: $mainClass\r\n$multiReleaseAttribute\r\n"
+          .toByteArray()
+      )
       zip.closeEntry()
     }
     zip.putNextEntry(ZipEntry("META-INF/BenchmarkList"))
@@ -597,6 +603,11 @@ internal fun writeJmhJar(
     zip.putNextEntry(ZipEntry("org/openjdk/jmh/Main.class"))
     zip.write(byteArrayOf(1))
     zip.closeEntry()
+    if (includeVersionedClass) {
+      zip.putNextEntry(ZipEntry("META-INF/versions/9/example/Versioned.class"))
+      zip.write(byteArrayOf(1))
+      zip.closeEntry()
+    }
   }
 }
 

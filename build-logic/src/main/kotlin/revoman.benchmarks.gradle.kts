@@ -1,4 +1,6 @@
 import kotlinx.benchmark.gradle.BenchmarkConfiguration
+import org.gradle.api.file.DuplicatesStrategy
+import org.gradle.jvm.tasks.Jar
 
 plugins {
   id("revoman.kotlin-jvm")
@@ -7,6 +9,16 @@ plugins {
 }
 
 allOpen { annotation("kotlinx.benchmark.State") }
+
+val mergedBenchmarkServices =
+  tasks.register<MergeServiceDescriptors>("mergeMainBenchmarkServiceDescriptors") {
+    classpath.from(configurations.named("runtimeClasspath"))
+    outputDirectory = layout.buildDirectory.dir("generated/benchmark-services/main")
+  }
+
+tasks.processResources {
+  from(mergedBenchmarkServices) { into("META-INF/services") }
+}
 
 val consumerScorecardExecutable =
   createConsumerScorecardExecutable(canBeConsumed = true, canBeResolved = false)
@@ -35,7 +47,11 @@ benchmark {
 }
 
 afterEvaluate {
-  artifacts.add(consumerScorecardExecutable.name, tasks.named("mainBenchmarkJar"))
+  val mainBenchmarkJar = tasks.named<Jar>("mainBenchmarkJar") {
+    manifest.attributes["Multi-Release"] = "true"
+    filesMatching("META-INF/services/**") { duplicatesStrategy = DuplicatesStrategy.EXCLUDE }
+  }
+  artifacts.add(consumerScorecardExecutable.name, mainBenchmarkJar)
 }
 
 fun BenchmarkConfiguration.commonProfile(

@@ -255,12 +255,17 @@ internal class ScorecardPreflightValidator(private val host: ScorecardHost) {
         ZipFile(path.toFile()).use { zip ->
           val manifestEntry = zip.getEntry("META-INF/MANIFEST.MF") ?: return@use false
           val benchmarkListEntry = zip.getEntry("META-INF/BenchmarkList") ?: return@use false
-          val mainClass =
-            zip
-              .getInputStream(manifestEntry)
-              .use(::Manifest)
-              .mainAttributes
-              .getValue(Attributes.Name.MAIN_CLASS)
+          val manifest = zip.getInputStream(manifestEntry).use(::Manifest)
+          val mainClass = manifest.mainAttributes.getValue(Attributes.Name.MAIN_CLASS)
+          val hasVersionedClasses =
+            zip.entries().asSequence().any { entry ->
+              !entry.isDirectory && entry.name.startsWith("META-INF/versions/")
+            }
+          val hasValidMultiReleaseManifest =
+            !hasVersionedClasses ||
+              manifest.mainAttributes
+                .getValue(Attributes.Name.MULTI_RELEASE)
+                .equals("true", ignoreCase = true)
           val benchmarkList =
             zip.getInputStream(benchmarkListEntry).bufferedReader().use { it.readText() }
           val benchmarkEntries = parseJmhBenchmarkEntries(benchmarkList)
@@ -269,6 +274,7 @@ internal class ScorecardPreflightValidator(private val host: ScorecardHost) {
             it.substringBeforeLast('.') == SCORECARD_BENCHMARK_CLASS
           }
           mainClass == "org.openjdk.jmh.Main" &&
+            hasValidMultiReleaseManifest &&
             zip.getEntry("org/openjdk/jmh/Main.class") != null &&
             benchmarkList.isNotBlank() &&
             consumerBenchmarks.size == expectedBenchmarks.size &&
