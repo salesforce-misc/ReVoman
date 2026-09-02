@@ -32,13 +32,3 @@ interface ComparisonRowSchema {
   val deltaPercent: Double
   val passed: Boolean
 }
-
-@Suppress("PropertyName", "VariableNaming")
-@DataSchema
-interface ScorecardRowSchema {
-  val journey: String
-  val workload: String
-  val score: Double
-  val scoreError99_9: Double
-  val unit: String
-}

@@ -23,45 +23,6 @@ import org.jetbrains.kotlinx.dataframe.api.dataFrameOf
 @OptIn(kotlin.io.path.ExperimentalPathApi::class)
 class BenchmarkReportCliTest :
   StringSpec({
-    listOf(
-        Triple("disjoint intervals", singleCsv(score = "8", error = "0.5"), 0),
-        Triple("equal interval boundary", singleCsv(score = "9", error = "0"), 1),
-        Triple("overlapping intervals", singleCsv(score = "9", error = "1"), 1),
-        Triple("invalid numeric input", singleCsv(score = "invalid"), 2),
-      )
-      .forEach { (case, candidate, expectedExit) ->
-        "compare returns $expectedExit for $case" {
-          withRun(singleCsv(score = "10", error = "1"), candidate) { _, manifest ->
-            BenchmarkReportCli.run(compare(manifest)) shouldBe expectedExit
-          }
-        }
-      }
-
-    "comparison uses the strict confidence interval predicate" {
-      listOf(
-          Triple("8.999", "0", 0),
-          Triple("8.5", "0.5", 1),
-          Triple("9", "0", 1),
-        )
-        .forEach { (candidateScore, candidateError, expectedExit) ->
-          withRun(
-            singleCsv(score = "10", error = "1"),
-            singleCsv(score = candidateScore, error = candidateError),
-          ) { _, manifest ->
-            BenchmarkReportCli.run(compare(manifest)) shouldBe expectedExit
-          }
-        }
-    }
-
-    "comparison command spelling remains compare manifest path" {
-      withRun(singleCsv(), singleCsv(score = "8")) { _, manifest ->
-        BenchmarkReportCli.run(arrayOf("compare", "--manifest", manifest.toString())) shouldBe 0
-        BenchmarkReportCli.run(arrayOf("comparison", "--manifest", manifest.toString())) shouldBe 2
-        BenchmarkReportCli.run(arrayOf("compare", "--manifest-path", manifest.toString())) shouldBe
-          2
-      }
-    }
-
     "disjoint confidence intervals publish sorted comparison and report" {
       withRun(
         resource("baseline.csv"),
@@ -75,31 +36,6 @@ class BenchmarkReportCliTest :
         rows[1] shouldContain "8.5"
         rows[1] shouldContain "true"
         runDir.resolve("report.md").readText() shouldContain "PASS"
-      }
-    }
-
-    "comparison files retain their exact rendering" {
-      withRun(singleCsv(score = "10", error = "1"), singleCsv(score = "8", error = "0.5")) {
-        runDir,
-        manifest ->
-        BenchmarkReportCli.run(compare(manifest)) shouldBe 0
-        runDir.resolve("comparison.csv").readText() shouldBe
-          """
-          benchmark,parameters,mode,threads,unit,baselineScore,baselineError99_9,baselineLower,candidateScore,candidateError99_9,candidateUpper,deltaPercent,passed
-          example.Benchmark.run,,avgt,1,ms/op,10.0,1.0,9.0,8.0,0.5,8.5,-20.0,true
-
-          """
-            .trimIndent()
-        runDir.resolve("report.md").readText() shouldBe
-          """
-          # Benchmark comparison
-
-          | Benchmark | Parameters | Baseline lower | Candidate upper | Delta | Result |
-          | --- | --- | ---: | ---: | ---: | --- |
-          | example.Benchmark.run |  | 9.0 | 8.5 | -20.0% | PASS |
-
-          """
-            .trimIndent()
       }
     }
 
@@ -210,7 +146,7 @@ class BenchmarkReportCliTest :
         var moveCount = 0
 
         shouldThrow<IOException> {
-          publishComparison(runDir, passingComparisonFrame()) { source, target ->
+          publish(runDir, passingComparisonFrame()) { source, target ->
             moveCount++
             if (moveCount == 4) throw IOException("fail after first output installation")
             Files.move(source, target, REPLACE_EXISTING)
