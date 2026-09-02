@@ -18,6 +18,53 @@ import kotlinx.serialization.json.jsonPrimitive
 
 class ScorecardEnvironmentTest :
   StringSpec({
+    "system host follows the real Linux UID passwd record and kernel hostname" {
+      val systemFiles =
+        mapOf(
+          Path.of("/proc/self/status") to "Name:\tjava\nUid:\t1001\t2002\t2002\t2002\n",
+          Path.of("/etc/passwd") to
+            "jvm-spoof:x:999:999::/spoofed-jvm-home:/bin/false\n" +
+              "actual-account:x:1001:1001::/srv/actual-account:/bin/bash\n",
+          Path.of("/proc/sys/kernel/hostname") to "kernel-host.example\n",
+        )
+
+      val identity =
+        SystemScorecardHost(systemFileReader = systemFiles::getValue).privateMachineIdentity
+
+      identity shouldBe
+        PrivateMachineIdentity(
+          "actual-account",
+          "/srv/actual-account",
+          "kernel-host.example",
+        )
+    }
+
+    "unavailable Linux account identity fails closed without disclosing input" {
+      listOf(
+          Triple("Name:\tjava\n", "missing-uid:x:1001:1001::/private/missing:/bin/bash\n", "host"),
+          Triple(
+            "Uid:\t1001\t1001\t1001\t1001\n",
+            "other:x:1002:1002::/private/other:/bin/bash\n",
+            "host",
+          ),
+          Triple(
+            "Uid:\t1001\t1001\t1001\t1001\n",
+            "account:x:1001:1001::/private/account:/bin/bash\n",
+            "",
+          ),
+        )
+        .forEach { (processStatus, passwd, kernelHostname) ->
+          val failure =
+            shouldThrow<IllegalArgumentException> {
+              linuxPrivateMachineIdentity(processStatus, passwd, kernelHostname)
+            }
+
+          failure.message shouldBe "Private machine identity is unavailable"
+          failure.message.orEmpty() shouldNotContain "/private/"
+          failure.cause shouldBe null
+        }
+    }
+
     "CPU-list parser supports disjoint singletons and ranges" {
       parseCpuList("0-3,8,10-11") shouldContainExactly setOf(0, 1, 2, 3, 8, 10, 11)
     }

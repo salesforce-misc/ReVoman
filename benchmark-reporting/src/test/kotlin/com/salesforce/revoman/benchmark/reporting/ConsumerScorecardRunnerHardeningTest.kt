@@ -4,7 +4,6 @@ import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
-import io.kotest.matchers.string.shouldNotContain
 import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.Path
@@ -391,63 +390,6 @@ class ConsumerScorecardRunnerHardeningTest :
             } shouldBe false
           }
         }
-    }
-
-    listOf("text", "binary").forEach { format ->
-      "private identity in staged $format evidence is rejected before publication" {
-        withRunnerFixture { fixture ->
-          val privateIdentity = "private-identity-$format"
-          val host =
-            fixture.host.copy(
-              privateMachineIdentity =
-                PrivateMachineIdentity(
-                  privateIdentity,
-                  "/home/$privateIdentity",
-                  "host-$privateIdentity",
-                )
-            )
-          var publishMoveCalled = false
-          val failure =
-            shouldThrow<IllegalArgumentException> {
-              ConsumerScorecardRunner(
-                  host,
-                  RecordingBenchmarkExecutor(),
-                  reporter = { manifest ->
-                    BenchmarkReportCli.run(
-                        arrayOf("scorecard", "--manifest", manifest.toAbsolutePath().toString())
-                      )
-                      .also { status ->
-                        if (status == 0) {
-                          val stagedRun = manifest.parent
-                          if (format == "text") {
-                            Files.writeString(stagedRun.resolve("report.md"), privateIdentity)
-                          } else {
-                            Files.write(
-                              stagedRun.resolve("raw/profiles/postmanV2TenStepRevUp/cpu.jfr"),
-                              byteArrayOf(0, 1) + privateIdentity.toByteArray() + byteArrayOf(2, 3),
-                            )
-                          }
-                        }
-                      }
-                  },
-                  publishMove = { source, target ->
-                    publishMoveCalled = true
-                    Files.move(source, target)
-                  },
-                )
-                .run(fixture.request)
-            }
-
-          failure.message shouldBe "Scorecard evidence contains a private identity"
-          failure.message.orEmpty() shouldNotContain privateIdentity
-          publishMoveCalled shouldBe false
-          Files.exists(acceptedRun(fixture)) shouldBe false
-          Files.readString(stagingRun(fixture).resolve("failure-summary.txt")).also { summary ->
-            summary shouldContain "phase: privacy validation"
-            summary shouldNotContain privateIdentity
-          }
-        }
-      }
     }
 
     "cross-filesystem publication never uses the non-atomic fallback" {

@@ -11,6 +11,7 @@ internal class ConsumerScorecardRunner(
     BenchmarkReportCli.run(arrayOf("scorecard", "--manifest", manifest.toAbsolutePath().toString()))
   },
   private val publishMove: (Path, Path) -> Unit = ::moveCompleteRun,
+  private val runtimeCleanup: (Path) -> Unit = ::deleteScorecardRuntimeWorkspace,
 ) {
   internal fun run(request: ScorecardRunRequest): Path {
     val paths = bootstrapScorecardAttempt(request.projectRoot, host.clock.instant())
@@ -41,16 +42,17 @@ internal class ConsumerScorecardRunner(
       phase = "scorecard validation"
       validateReports(attempt, manifest)
       phase = "privacy validation"
-      validateEvidencePrivacy(attempt.stagingRun, host.privateMachineIdentity)
+      val evidenceSnapshot =
+        validateEvidencePrivacy(attempt.stagingRun, host.privateMachineIdentity)
       phase = "runtime cleanup"
-      deleteScorecardRuntimeWorkspace(runtime.workspace.root)
+      runtimeCleanup(runtime.workspace.root)
       runtimeWorkspace = null
       phase = "publication"
-      publish(attempt)
+      publish(attempt, evidenceSnapshot)
       return attempt.acceptedRun
     } catch (failure: Exception) {
       runtimeWorkspace?.let { workspace ->
-        runCatching { deleteScorecardRuntimeWorkspace(workspace.root) }
+        runCatching { runtimeCleanup(workspace.root) }
       }
       restoreFailedPublication(paths)
       writeFailureSummary(paths, phase, failure)
@@ -116,6 +118,7 @@ internal class ConsumerScorecardRunner(
     validateAttemptPaths(attempt.paths)
     val result = processExecutor.execute(command, runtime.workspace.root)
     validateAttemptPaths(attempt.paths)
+    preserveFailedRuntimeArtifact(result, runtimeResults, resultsPath)
     requireSuccessfulProcess(
       result,
       "Final JMH measurement",
@@ -189,8 +192,10 @@ internal class ConsumerScorecardRunner(
     }
   }
 
-  private fun publish(attempt: ScorecardAttempt) {
+  private fun publish(attempt: ScorecardAttempt, evidenceSnapshot: EvidencePrivacySnapshot) {
     println("consumer-scorecard: publishing ${attempt.runId}")
+    validateAttemptPaths(attempt.paths)
+    revalidateEvidencePrivacy(attempt.stagingRun, evidenceSnapshot)
     validateAttemptPaths(attempt.paths)
     publishMove(attempt.stagingRun, attempt.acceptedRun)
     validatePublishedPaths(attempt.paths)
@@ -225,6 +230,7 @@ internal class ConsumerScorecardRunner(
     validateAttemptPaths(attempt.paths)
     val profileResult = processExecutor.execute(command, runtime.workspace.root)
     validateAttemptPaths(attempt.paths)
+    preserveFailedRuntimeArtifact(profileResult, runtimeRecording, recording)
     requireSuccessfulProcess(
       profileResult,
       "$method ${profile.event} profile",

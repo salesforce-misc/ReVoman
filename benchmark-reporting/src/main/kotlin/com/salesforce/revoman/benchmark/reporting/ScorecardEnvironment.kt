@@ -1,5 +1,6 @@
 package com.salesforce.revoman.benchmark.reporting
 
+import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Clock
@@ -26,7 +27,10 @@ internal interface ScorecardHost {
   fun executeReadOnly(command: List<String>, workingDirectory: Path): ProcessResult
 }
 
-internal class SystemScorecardHost(override val clock: Clock = Clock.systemUTC()) : ScorecardHost {
+internal class SystemScorecardHost(
+  override val clock: Clock = Clock.systemUTC(),
+  private val systemFileReader: (Path) -> String = { path -> Files.readString(path) },
+) : ScorecardHost {
   override val currentProcessId: Long = ProcessHandle.current().pid()
   override val runnerJavaFeature: Int = Runtime.version().feature()
   override val runnerJavaIdentity: String =
@@ -39,12 +43,17 @@ internal class SystemScorecardHost(override val clock: Clock = Clock.systemUTC()
       .filterNot(String?::isNullOrBlank)
       .joinToString("; ")
   override val privateMachineIdentity: PrivateMachineIdentity by lazy {
-    PrivateMachineIdentity(
-      System.getProperty("user.name").orEmpty(),
-      System.getProperty("user.home").orEmpty(),
-      runCatching { Files.readString(Path.of("/proc/sys/kernel/hostname")).trim() }
-        .getOrDefault(""),
-    )
+    try {
+      linuxPrivateMachineIdentity(
+        systemFileReader(Path.of("/proc/self/status")),
+        systemFileReader(Path.of("/etc/passwd")),
+        systemFileReader(Path.of("/proc/sys/kernel/hostname")),
+      )
+    } catch (_: IOException) {
+      unavailablePrivateMachineIdentity()
+    } catch (_: SecurityException) {
+      unavailablePrivateMachineIdentity()
+    }
   }
 
   override fun environmentVariable(name: String): String? = System.getenv(name)

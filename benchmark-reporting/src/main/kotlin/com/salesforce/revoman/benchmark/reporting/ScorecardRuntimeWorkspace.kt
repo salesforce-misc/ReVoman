@@ -2,6 +2,7 @@ package com.salesforce.revoman.benchmark.reporting
 
 import java.io.IOException
 import java.nio.file.Files
+import java.nio.file.LinkOption.NOFOLLOW_LINKS
 import java.nio.file.Path
 import java.util.Comparator
 
@@ -41,10 +42,23 @@ internal fun createScorecardRuntimeWorkspace(
 }
 
 internal fun copyRuntimeArtifact(source: Path, target: Path) {
+  require(Files.isRegularFile(source, NOFOLLOW_LINKS)) {
+    "Runtime artifact must be a regular file"
+  }
   Files.createDirectories(requireNotNull(target.parent))
   Files.copy(source, target)
   require(Files.mismatch(source, target) == -1L) {
     "Runtime artifact copy changed bytes"
+  }
+}
+
+internal fun preserveFailedRuntimeArtifact(
+  result: ProcessResult,
+  source: Path,
+  rejectedTarget: Path,
+) {
+  if (result.exitCode != 0 && Files.exists(source, NOFOLLOW_LINKS)) {
+    copyRuntimeArtifact(source, rejectedTarget)
   }
 }
 
