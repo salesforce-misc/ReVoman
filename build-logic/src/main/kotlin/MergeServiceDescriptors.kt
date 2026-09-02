@@ -2,6 +2,7 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.zip.ZipFile
+import javax.lang.model.SourceVersion
 import javax.inject.Inject
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.ConfigurableFileCollection
@@ -21,11 +22,10 @@ abstract class MergeServiceDescriptors : DefaultTask() {
     @TaskAction
     fun merge() {
         fileSystemOperations.delete { delete(outputDirectory) }
-        val outputRoot = outputDirectory.get().asFile.toPath()
-        Files.createDirectories(outputRoot)
+        val outputRoot = outputDirectory.get().asFile.toPath().toAbsolutePath().normalize()
         val providersByService = sortedMapOf<String, LinkedHashSet<String>>()
 
-        classpath.files.sortedBy { it.absolutePath }.forEach { entry ->
+        classpath.forEach { entry ->
             when {
                 entry.isDirectory -> mergeDirectory(entry.toPath(), providersByService)
                 entry.extension.equals("jar", ignoreCase = true) ->
@@ -33,8 +33,16 @@ abstract class MergeServiceDescriptors : DefaultTask() {
             }
         }
 
-        providersByService.forEach { (service, providers) ->
-            val output = outputRoot.resolve(service)
+        val outputs =
+            providersByService.map { (service, providers) ->
+                val output = outputRoot.resolve(service).normalize()
+                require(output.startsWith(outputRoot) && output.parent == outputRoot) {
+                    "Service descriptor escapes its output directory: $service"
+                }
+                output to providers
+            }
+        Files.createDirectories(outputRoot)
+        outputs.forEach { (output, providers) ->
             Files.createDirectories(output.parent)
             Files.writeString(
                 output,
@@ -92,6 +100,7 @@ private fun mergeProviders(
     contents: String,
     providersByService: MutableMap<String, LinkedHashSet<String>>,
 ) {
+    require(SourceVersion.isName(service)) { "Invalid Java service descriptor name: $service" }
     val providers = providersByService.getOrPut(service, ::linkedSetOf)
     contents
         .lineSequence()

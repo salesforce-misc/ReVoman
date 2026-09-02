@@ -48,8 +48,8 @@ benchmark {
 
 afterEvaluate {
   val mainBenchmarkJar = tasks.named<Jar>("mainBenchmarkJar") {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     manifest.attributes["Multi-Release"] = "true"
-    filesMatching("META-INF/services/**") { duplicatesStrategy = DuplicatesStrategy.EXCLUDE }
   }
   artifacts.add(consumerScorecardExecutable.name, mainBenchmarkJar)
 }
