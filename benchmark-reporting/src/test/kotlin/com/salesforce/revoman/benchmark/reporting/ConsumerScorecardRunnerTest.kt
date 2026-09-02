@@ -263,6 +263,16 @@ class ConsumerScorecardRunnerTest :
         manifest.getValue("optimizationHypotheses").jsonArray shouldHaveSize 0
         manifest.getValue("raw").jsonObject.getValue("results").jsonPrimitive.content shouldBe
           "raw/results.csv"
+        val identities = manifest.getValue("javaIdentities").jsonObject
+        identities
+          .getValue("gradleDaemon")
+          .jsonObject
+          .getValue("identity")
+          .jsonPrimitive
+          .content shouldBe
+          "runtime version: 25.0.1; vendor: Test Gradle Vendor; VM: Test Gradle VM"
+        identities.getValue("jmh").jsonObject.getValue("identity").jsonPrimitive.content shouldBe
+          "selected executable: ${fixture.request.javaExecutable}; in-fork feature assertion: 25"
       }
     }
 
@@ -450,6 +460,12 @@ class ConsumerScorecardRunnerTest :
             "25",
             "--gradle-daemon-java-feature",
             "25",
+            "--gradle-daemon-runtime-version",
+            "25.0.1",
+            "--gradle-daemon-vendor",
+            "Test Gradle Vendor",
+            "--gradle-daemon-vm-name",
+            "Test Gradle VM",
             "--gradle-max-workers",
             "1",
             "--library-version",
@@ -474,6 +490,9 @@ class ConsumerScorecardRunnerTest :
           javaExecutable = Path.of("/jdk/bin/java"),
           javaFeature = 25,
           gradleDaemonJavaFeature = 25,
+          gradleDaemonRuntimeVersion = "25.0.1",
+          gradleDaemonVendor = "Test Gradle Vendor",
+          gradleDaemonVmName = "Test Gradle VM",
           gradleMaxWorkers = 1,
           libraryVersion = "0.1.0",
           runtimeValidation = Path.of("/project/runtime-validation.json"),
@@ -494,16 +513,16 @@ class ConsumerScorecardRunnerTest :
     }
   })
 
-private const val REVISION = "0123456789abcdef0123456789abcdef01234567"
+internal const val REVISION = "0123456789abcdef0123456789abcdef01234567"
 
-private data class RunnerFixture(
+internal data class RunnerFixture(
   val request: ScorecardRunRequest,
   val host: FakeScorecardHost,
   val executor: ProcessExecutor,
 )
 
 @OptIn(kotlin.io.path.ExperimentalPathApi::class)
-private inline fun withRunnerFixture(assertion: (RunnerFixture) -> Unit) {
+internal fun withRunnerFixture(assertion: (RunnerFixture) -> Unit) {
   val root = Files.createTempDirectory("consumer-scorecard-runner-test-")
   try {
     root.resolve("gradle/libs.versions.toml").also { it.parent.createDirectories() }.writeText("x")
@@ -538,6 +557,9 @@ private inline fun withRunnerFixture(assertion: (RunnerFixture) -> Unit) {
           javaExecutable = launcher,
           javaFeature = 25,
           gradleDaemonJavaFeature = 25,
+          gradleDaemonRuntimeVersion = "25.0.1",
+          gradleDaemonVendor = "Test Gradle Vendor",
+          gradleDaemonVmName = "Test Gradle VM",
           gradleMaxWorkers = 1,
           libraryVersion = "0.1.0",
           runtimeValidation = validation,
@@ -558,17 +580,48 @@ private fun executable(path: Path): Path = path.also {
   check(it.toFile().setExecutable(true))
 }
 
-private fun writeJmhJar(path: Path) {
+internal fun writeJmhJar(
+  path: Path,
+  mainClass: String? = "org.openjdk.jmh.Main",
+  benchmarks: List<String> = SCORECARD_BENCHMARKS,
+) {
   ZipOutputStream(Files.newOutputStream(path)).use { zip ->
-    listOf("META-INF/BenchmarkList", "org/openjdk/jmh/Main.class").forEach { name ->
-      zip.putNextEntry(ZipEntry(name))
-      zip.write(byteArrayOf(1))
+    if (mainClass != null) {
+      zip.putNextEntry(ZipEntry("META-INF/MANIFEST.MF"))
+      zip.write("Manifest-Version: 1.0\r\nMain-Class: $mainClass\r\n\r\n".toByteArray())
       zip.closeEntry()
     }
+    zip.putNextEntry(ZipEntry("META-INF/BenchmarkList"))
+    zip.write(benchmarks.joinToString("\n", transform = ::jmhBenchmarkListEntry).toByteArray())
+    zip.closeEntry()
+    zip.putNextEntry(ZipEntry("org/openjdk/jmh/Main.class"))
+    zip.write(byteArrayOf(1))
+    zip.closeEntry()
   }
 }
 
-private fun validRuntimeValidation(revision: String): String =
+private fun jmhBenchmarkListEntry(benchmark: String): String {
+  val benchmarkClass = benchmark.substringBeforeLast('.')
+  val method = benchmark.substringAfterLast('.')
+  val generatedClass =
+    "com.salesforce.revoman.benchmark.jmh_generated.ConsumerJourneyBenchmark_${method}_jmhTest"
+  return "JMH S ${benchmarkClass.length} $benchmarkClass " +
+    "S ${generatedClass.length} $generatedClass S ${method.length} $method " +
+    "S 10 Throughput E A 1 1 1 E"
+}
+
+internal val SCORECARD_BENCHMARKS =
+  listOf(
+    "com.salesforce.revoman.benchmark.ConsumerJourneyBenchmark.postmanV2TenStepRevUp",
+    "com.salesforce.revoman.benchmark.ConsumerJourneyBenchmark.v3TenStepRevUp",
+    "com.salesforce.revoman.benchmark.ConsumerJourneyBenchmark.v3HundredStepRevUp",
+    "com.salesforce.revoman.benchmark.ConsumerJourneyBenchmark.v3TenStepScriptedRevUp",
+    "com.salesforce.revoman.benchmark.ConsumerJourneyBenchmark.threeKickEnvironmentHandoff",
+    "com.salesforce.revoman.benchmark.ConsumerJourneyBenchmark.threeStepRunbookWithContracts",
+    "com.salesforce.revoman.benchmark.ConsumerJourneyBenchmark.verboseHundredStepRundownJson",
+  )
+
+internal fun validRuntimeValidation(revision: String): String =
   """
   {
     "revision": "$revision",
@@ -596,7 +649,7 @@ private fun validRuntimeValidation(revision: String): String =
   """
     .trimIndent()
 
-private data class FakeScorecardHost(
+internal data class FakeScorecardHost(
   val launcher: Path,
   val inheritedJava: Path,
   val javaHome: String,
@@ -671,7 +724,7 @@ private fun defaultSystemFiles(): Map<Path, String> =
     Path.of("/proc/loadavg") to "0.10 0.20 0.30 2/100 1234\n",
   )
 
-private enum class ExecutionFailure {
+internal enum class ExecutionFailure {
   PROFILE_EXIT,
   PROFILE_MISSING,
   SUMMARY_EXIT,
@@ -681,7 +734,7 @@ private enum class ExecutionFailure {
   MALFORMED_CSV,
 }
 
-private class RecordingBenchmarkExecutor(private val failure: ExecutionFailure? = null) :
+internal class RecordingBenchmarkExecutor(private val failure: ExecutionFailure? = null) :
   ProcessExecutor {
   val commands = mutableListOf<List<String>>()
 
@@ -735,13 +788,13 @@ private fun consumerScorecardCsv(): String =
   checkNotNull(ConsumerScorecardRunnerTest::class.java.getResource("/jmh/consumer-scorecard.csv"))
     .readText()
 
-private fun stagingRun(fixture: RunnerFixture): Path =
+internal fun stagingRun(fixture: RunnerFixture): Path =
   fixture.request.projectRoot
     .resolve(".benchmark-staging/consumer-performance-scorecard/20260902T010203Z")
     .toAbsolutePath()
     .normalize()
 
-private fun acceptedRun(fixture: RunnerFixture): Path =
+internal fun acceptedRun(fixture: RunnerFixture): Path =
   fixture.request.projectRoot
     .resolve("benchmark-results/consumer-performance-scorecard/20260902T010203Z")
     .toAbsolutePath()
@@ -789,6 +842,12 @@ private fun validCliArguments(): Array<String> =
     "25",
     "--gradle-daemon-java-feature",
     "25",
+    "--gradle-daemon-runtime-version",
+    "25.0.1",
+    "--gradle-daemon-vendor",
+    "Test Gradle Vendor",
+    "--gradle-daemon-vm-name",
+    "Test Gradle VM",
     "--gradle-max-workers",
     "1",
     "--library-version",

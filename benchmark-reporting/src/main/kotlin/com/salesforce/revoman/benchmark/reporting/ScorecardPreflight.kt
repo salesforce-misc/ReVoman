@@ -2,6 +2,8 @@ package com.salesforce.revoman.benchmark.reporting
 
 import java.nio.file.Path
 import java.time.Instant
+import java.util.jar.Attributes
+import java.util.jar.Manifest
 import java.util.zip.ZipFile
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.booleanOrNull
@@ -36,8 +38,8 @@ internal data class ScorecardPreflight(
 
 internal class ScorecardPreflightValidator(private val host: ScorecardHost) {
   fun validate(request: ScorecardRunRequest): ScorecardPreflight {
-    val paths = resolvedPaths(request)
-    validateInputs(request, paths)
+    val resolved = resolvedPaths(request)
+    val paths = resolved.copy(benchmarkJar = validateInputs(request, resolved))
     val java = validateJavaLayers(paths)
     val revision =
       successfulOutput(listOf("git", "rev-parse", "HEAD"), paths.projectRoot, "Git revision")
@@ -60,9 +62,15 @@ internal class ScorecardPreflightValidator(private val host: ScorecardHost) {
         "gradleDaemon" to
           JavaIdentity(
             request.gradleDaemonJavaFeature,
-            "Gradle daemon Java ${request.gradleDaemonJavaFeature}",
+            "runtime version: ${request.gradleDaemonRuntimeVersion}; " +
+              "vendor: ${request.gradleDaemonVendor}; VM: ${request.gradleDaemonVmName}",
           ),
-        "jmh" to JavaIdentity(request.javaFeature, java.launcher.identity),
+        "jmh" to
+          JavaIdentity(
+            request.javaFeature,
+            "selected executable: ${paths.javaExecutable}; " +
+              "in-fork feature assertion: ${request.javaFeature}",
+          ),
       ),
       validation,
     )
@@ -70,12 +78,12 @@ internal class ScorecardPreflightValidator(private val host: ScorecardHost) {
 
   private fun resolvedPaths(request: ScorecardRunRequest): PreflightPaths =
     PreflightPaths(
-      request.projectRoot.toAbsolutePath().normalize(),
+      request.projectRoot.toAbsolutePath().normalize().toRealPath(),
       request.benchmarkJar.toAbsolutePath().normalize(),
       request.javaExecutable.toAbsolutePath().normalize(),
     )
 
-  private fun validateInputs(request: ScorecardRunRequest, paths: PreflightPaths) {
+  private fun validateInputs(request: ScorecardRunRequest, paths: PreflightPaths): Path {
     val fingerprintInputs =
       listOf(
         paths.projectRoot.resolve("gradle/libs.versions.toml"),
@@ -83,9 +91,6 @@ internal class ScorecardPreflightValidator(private val host: ScorecardHost) {
       )
     require(fingerprintInputs.all { host.isRegularFile(it) && host.isReadable(it) }) {
       "Dependency fingerprint inputs must be readable regular files"
-    }
-    require(paths.benchmarkJar.startsWith(paths.projectRoot)) {
-      "Benchmark JAR must be inside the project root for a relative dependency fingerprint"
     }
     require(host.runnerJavaFeature == EXPECTED_JAVA_FEATURE) {
       "runner Java feature must be 25, got ${host.runnerJavaFeature}"
@@ -97,6 +102,16 @@ internal class ScorecardPreflightValidator(private val host: ScorecardHost) {
     require(request.gradleDaemonJavaFeature == EXPECTED_JAVA_FEATURE) {
       "Gradle daemon Java feature must be 25, got ${request.gradleDaemonJavaFeature}"
     }
+    require(
+      listOf(
+          request.gradleDaemonRuntimeVersion,
+          request.gradleDaemonVendor,
+          request.gradleDaemonVmName,
+        )
+        .all(String::isNotBlank)
+    ) {
+      "Gradle daemon identity values must not be blank"
+    }
     require(request.gradleMaxWorkers == 1) { "Scorecard requires exactly one worker" }
     require(request.libraryVersion.isNotBlank()) { "Library version must not be blank" }
     require(host.isRegularFile(paths.javaExecutable) && host.isReadable(paths.javaExecutable)) {
@@ -106,7 +121,12 @@ internal class ScorecardPreflightValidator(private val host: ScorecardHost) {
     require(host.isRegularFile(paths.benchmarkJar) && host.isReadable(paths.benchmarkJar)) {
       "Benchmark JAR must be a readable regular file"
     }
-    require(isJmhJar(paths.benchmarkJar)) { "Benchmark JAR is not an executable JMH JAR" }
+    val benchmarkJar = paths.benchmarkJar.toRealPath()
+    require(benchmarkJar.startsWith(paths.projectRoot)) {
+      "Benchmark JAR must be inside the project root for a relative dependency fingerprint"
+    }
+    require(isJmhJar(benchmarkJar)) { "Benchmark JAR is not an executable JMH JAR" }
+    return benchmarkJar
   }
 
   private fun validateJavaLayers(paths: PreflightPaths): ValidatedJava {
@@ -233,8 +253,21 @@ internal class ScorecardPreflightValidator(private val host: ScorecardHost) {
   private fun isJmhJar(path: Path): Boolean =
     runCatching {
         ZipFile(path.toFile()).use { zip ->
-          zip.getEntry("META-INF/BenchmarkList") != null &&
-            zip.getEntry("org/openjdk/jmh/Main.class") != null
+          val manifestEntry = zip.getEntry("META-INF/MANIFEST.MF") ?: return@use false
+          val benchmarkListEntry = zip.getEntry("META-INF/BenchmarkList") ?: return@use false
+          val mainClass =
+            zip
+              .getInputStream(manifestEntry)
+              .use(::Manifest)
+              .mainAttributes
+              .getValue(Attributes.Name.MAIN_CLASS)
+          val benchmarkList =
+            zip.getInputStream(benchmarkListEntry).bufferedReader().use { it.readText() }
+          val benchmarkEntries = parseJmhBenchmarkEntries(benchmarkList)
+          mainClass == "org.openjdk.jmh.Main" &&
+            zip.getEntry("org/openjdk/jmh/Main.class") != null &&
+            benchmarkList.isNotBlank() &&
+            expectedScorecardRows.all { it.benchmark in benchmarkEntries }
         }
       }
       .getOrDefault(false)
@@ -261,6 +294,25 @@ internal class ScorecardPreflightValidator(private val host: ScorecardHost) {
     )
   }
 }
+
+private fun parseJmhBenchmarkEntries(benchmarkList: String): Set<String> =
+  benchmarkList
+    .lineSequence()
+    .map(String::trim)
+    .filter(String::isNotEmpty)
+    .map { line ->
+      val fields = line.split(Regex("\\s+"))
+      require(
+        fields.size > JMH_METHOD_INDEX &&
+          fields[JMH_PREFIX_INDEX] == "JMH" &&
+          fields[JMH_CLASS_MARKER_INDEX] == "S" &&
+          fields[JMH_METHOD_MARKER_INDEX] == "S"
+      ) {
+        "Malformed JMH benchmark list"
+      }
+      "${fields[JMH_CLASS_INDEX]}.${fields[JMH_METHOD_INDEX]}"
+    }
+    .toSet()
 
 private data class PreflightPaths(
   val projectRoot: Path,
@@ -340,3 +392,8 @@ private fun normalizeGitPath(projectRoot: Path, value: String): Path =
   }
 
 private const val PORCELAIN_RECORD_PREFIX_LENGTH = 3
+private const val JMH_PREFIX_INDEX = 0
+private const val JMH_CLASS_MARKER_INDEX = 1
+private const val JMH_CLASS_INDEX = 3
+private const val JMH_METHOD_MARKER_INDEX = 7
+private const val JMH_METHOD_INDEX = 9

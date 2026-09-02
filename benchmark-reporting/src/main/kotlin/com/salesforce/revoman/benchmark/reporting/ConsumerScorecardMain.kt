@@ -37,6 +37,9 @@ private fun parseConsumerScorecardRequest(args: Array<String>): ScorecardRunRequ
     javaFeature = byName.getValue("--java-feature").strictInt("--java-feature"),
     gradleDaemonJavaFeature =
       byName.getValue("--gradle-daemon-java-feature").strictInt("--gradle-daemon-java-feature"),
+    gradleDaemonRuntimeVersion = byName.getValue("--gradle-daemon-runtime-version"),
+    gradleDaemonVendor = byName.getValue("--gradle-daemon-vendor"),
+    gradleDaemonVmName = byName.getValue("--gradle-daemon-vm-name"),
     gradleMaxWorkers = byName.getValue("--gradle-max-workers").strictInt("--gradle-max-workers"),
     libraryVersion = byName.getValue("--library-version"),
     runtimeValidation = Path.of(byName.getValue("--runtime-validation")),
@@ -58,6 +61,9 @@ private val REQUIRED_ARGUMENTS =
     "--java-executable",
     "--java-feature",
     "--gradle-daemon-java-feature",
+    "--gradle-daemon-runtime-version",
+    "--gradle-daemon-vendor",
+    "--gradle-daemon-vm-name",
     "--gradle-max-workers",
     "--library-version",
     "--runtime-validation",
@@ -66,5 +72,7 @@ private val ARGUMENT_NAMES = REQUIRED_ARGUMENTS + "--allowed-dirty-path"
 private const val USAGE =
   "Usage: --project-root <path> --benchmark-jar <path> --java-executable <path> " +
     "--java-feature <feature> --gradle-daemon-java-feature <feature> " +
+    "--gradle-daemon-runtime-version <version> --gradle-daemon-vendor <vendor> " +
+    "--gradle-daemon-vm-name <name> " +
     "--gradle-max-workers <count> --library-version <version> " +
     "--runtime-validation <path> [--allowed-dirty-path <path>]..."

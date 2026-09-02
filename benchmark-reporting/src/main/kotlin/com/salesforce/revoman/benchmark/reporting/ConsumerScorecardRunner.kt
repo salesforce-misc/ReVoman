@@ -1,12 +1,8 @@
 package com.salesforce.revoman.benchmark.reporting
 
-import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.Path
-import java.nio.file.StandardCopyOption.ATOMIC_MOVE
 import java.time.Instant
-import java.time.ZoneOffset
-import java.time.format.DateTimeFormatter
 
 internal class ConsumerScorecardRunner(
   private val host: ScorecardHost = SystemScorecardHost(),
@@ -17,21 +13,22 @@ internal class ConsumerScorecardRunner(
   private val publishMove: (Path, Path) -> Unit = ::moveCompleteRun,
 ) {
   internal fun run(request: ScorecardRunRequest): Path {
-    println("consumer-scorecard: preflight")
-    val attempt = createAttempt(preflight(request))
-    return executeAttempt(attempt)
+    val paths = bootstrapScorecardAttempt(request.projectRoot, host.clock.instant())
+    return executeAttempt(paths, request.copy(projectRoot = paths.projectRoot))
   }
 
   internal fun preflight(request: ScorecardRunRequest): ScorecardPreflight =
     ScorecardPreflightValidator(host).validate(request)
 
   @Suppress("TooGenericExceptionCaught")
-  private fun executeAttempt(attempt: ScorecardAttempt): Path {
-    var phase = "initialization"
+  private fun executeAttempt(paths: ScorecardAttemptPaths, request: ScorecardRunRequest): Path {
+    var phase = "preflight"
     try {
-      require(!attempt.acceptedExisted) {
-        "Accepted scorecard run already exists for ${attempt.runId}"
+      require(!paths.acceptedExisted) {
+        "Accepted scorecard run already exists for ${paths.runId}"
       }
+      println("consumer-scorecard: preflight")
+      val attempt = createAttempt(paths, preflight(request))
       val runtime = prepareRuntime(attempt)
       phase = "profiling"
       val profilerFacts = runProfiles(attempt, runtime)
@@ -46,35 +43,29 @@ internal class ConsumerScorecardRunner(
       return attempt.acceptedRun
     } catch (failure: Exception) {
       restoreFailedPublication(
-        attempt.stagingRun,
-        attempt.acceptedRun,
-        attempt.acceptedExisted,
+        paths.stagingRun,
+        paths.acceptedRun,
+        paths.acceptedExisted,
       )
-      writeFailureSummary(attempt.stagingRun, phase, failure)
+      writeFailureSummary(paths.stagingRun, paths.runId, phase, failure)
       System.err.println("consumer-scorecard: $phase failed: ${failure.message}")
       throw failure
     }
   }
 
-  private fun createAttempt(preflight: ScorecardPreflight): ScorecardAttempt {
-    val startedAt = host.clock.instant()
-    val runId = RUN_ID_FORMATTER.format(startedAt)
-    val stagingRun =
-      preflight.projectRoot.resolve(".benchmark-staging").resolve(SCORECARD_STUDY_ID).resolve(runId)
-    val acceptedRun =
-      preflight.projectRoot.resolve("benchmark-results").resolve(SCORECARD_STUDY_ID).resolve(runId)
-    Files.createDirectories(requireNotNull(stagingRun.parent))
-    require(Files.notExists(stagingRun)) { "Staging run already exists for $runId" }
-    Files.createDirectory(stagingRun)
-    Files.createDirectories(stagingRun.resolve("raw/profiles"))
-    Files.createDirectories(stagingRun.resolve("environment"))
+  private fun createAttempt(
+    paths: ScorecardAttemptPaths,
+    preflight: ScorecardPreflight,
+  ): ScorecardAttempt {
+    Files.createDirectories(paths.stagingRun.resolve("raw/profiles"))
+    Files.createDirectories(paths.stagingRun.resolve("environment"))
     return ScorecardAttempt(
       preflight,
-      startedAt,
-      runId,
-      stagingRun,
-      acceptedRun,
-      Files.exists(acceptedRun),
+      paths.startedAt,
+      paths.runId,
+      paths.stagingRun,
+      paths.acceptedRun,
+      paths.acceptedExisted,
     )
   }
 
@@ -194,7 +185,7 @@ internal class ConsumerScorecardRunner(
 
   private fun publish(attempt: ScorecardAttempt) {
     println("consumer-scorecard: publishing ${attempt.runId}")
-    Files.createDirectories(requireNotNull(attempt.acceptedRun.parent))
+    validatePublicationPaths(attempt.paths())
     publishMove(attempt.stagingRun, attempt.acceptedRun)
     require(Files.isDirectory(attempt.acceptedRun) && Files.notExists(attempt.stagingRun)) {
       "Accepted scorecard publication is incomplete"
@@ -275,8 +266,6 @@ private val PROFILE_EVENTS =
     ProfileEvent("alloc", "allocation-by-class"),
     ProfileEvent("lock", "contention-by-site"),
   )
-private val RUN_ID_FORMATTER =
-  DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'").withZone(ZoneOffset.UTC)
 
 private fun requireSuccessfulProcess(result: ProcessResult, description: String) {
   require(result.exitCode == 0) {
@@ -294,10 +283,16 @@ private fun restoreFailedPublication(
   }
 }
 
-private fun writeFailureSummary(stagingRun: Path, phase: String, failure: Exception) {
+private fun writeFailureSummary(
+  stagingRun: Path,
+  runId: String,
+  phase: String,
+  failure: Exception,
+) {
   if (!Files.isDirectory(stagingRun)) return
   val summary = buildString {
     appendLine("status: rejected")
+    appendLine("runId: $runId")
     appendLine("phase: $phase")
     appendLine("failure: ${failure::class.simpleName}")
     appendLine("message: ${failure.message.orEmpty().lineSequence().firstOrNull().orEmpty()}")
@@ -305,11 +300,12 @@ private fun writeFailureSummary(stagingRun: Path, phase: String, failure: Except
   runCatching { Files.writeString(stagingRun.resolve("failure-summary.txt"), summary) }
 }
 
-private fun moveCompleteRun(source: Path, target: Path) {
-  require(Files.notExists(target)) { "Accepted run target already exists" }
-  try {
-    Files.move(source, target, ATOMIC_MOVE)
-  } catch (_: AtomicMoveNotSupportedException) {
-    Files.move(source, target)
-  }
-}
+private fun ScorecardAttempt.paths(): ScorecardAttemptPaths =
+  ScorecardAttemptPaths(
+    preflight.projectRoot,
+    startedAt,
+    runId,
+    stagingRun,
+    acceptedRun,
+    acceptedExisted,
+  )
