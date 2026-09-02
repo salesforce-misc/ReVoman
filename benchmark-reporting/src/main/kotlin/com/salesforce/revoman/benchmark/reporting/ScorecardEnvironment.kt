@@ -9,6 +9,7 @@ internal interface ScorecardHost {
   val currentProcessId: Long
   val runnerJavaFeature: Int
   val runnerJavaIdentity: String
+  val privateMachineIdentity: PrivateMachineIdentity
 
   fun environmentVariable(name: String): String?
 
@@ -37,6 +38,14 @@ internal class SystemScorecardHost(override val clock: Clock = Clock.systemUTC()
       )
       .filterNot(String?::isNullOrBlank)
       .joinToString("; ")
+  override val privateMachineIdentity: PrivateMachineIdentity by lazy {
+    PrivateMachineIdentity(
+      System.getProperty("user.name").orEmpty(),
+      System.getProperty("user.home").orEmpty(),
+      runCatching { Files.readString(Path.of("/proc/sys/kernel/hostname")).trim() }
+        .getOrDefault(""),
+    )
+  }
 
   override fun environmentVariable(name: String): String? = System.getenv(name)
 

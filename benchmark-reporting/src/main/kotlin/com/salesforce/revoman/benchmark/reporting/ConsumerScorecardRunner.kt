@@ -23,6 +23,7 @@ internal class ConsumerScorecardRunner(
   @Suppress("TooGenericExceptionCaught")
   private fun executeAttempt(paths: ScorecardAttemptPaths, request: ScorecardRunRequest): Path {
     var phase = "preflight"
+    var runtimeWorkspace: ScorecardRuntimeWorkspace? = null
     try {
       require(!paths.acceptedExisted) {
         "Accepted scorecard run already exists for ${paths.runId}"
@@ -30,19 +31,27 @@ internal class ConsumerScorecardRunner(
       validateAttemptPaths(paths)
       println("consumer-scorecard: preflight")
       val attempt = createAttempt(paths, preflight(request))
-      val runtime = prepareRuntime(attempt)
+      val runtime = prepareRuntime(attempt).also { runtimeWorkspace = it.workspace }
       phase = "profiling"
       val profilerFacts = runProfiles(attempt, runtime)
       phase = "final measurement"
-      val finalCommand = runFinalMeasurement(attempt, runtime.affinity)
+      val finalCommand = runFinalMeasurement(attempt, runtime)
       phase = "environment capture"
       val manifest = writeEvidence(attempt, runtime, finalCommand, profilerFacts)
       phase = "scorecard validation"
       validateReports(attempt, manifest)
+      phase = "privacy validation"
+      validateEvidencePrivacy(attempt.stagingRun, host.privateMachineIdentity)
+      phase = "runtime cleanup"
+      deleteScorecardRuntimeWorkspace(runtime.workspace.root)
+      runtimeWorkspace = null
       phase = "publication"
       publish(attempt)
       return attempt.acceptedRun
     } catch (failure: Exception) {
+      runtimeWorkspace?.let { workspace ->
+        runCatching { deleteScorecardRuntimeWorkspace(workspace.root) }
+      }
       restoreFailedPublication(paths)
       writeFailureSummary(paths, phase, failure)
       System.err.println("consumer-scorecard: $phase failed: ${failure.message}")
@@ -78,7 +87,8 @@ internal class ConsumerScorecardRunner(
     ) {
       "Selected Java home does not contain an executable bin/jfr"
     }
-    return ScorecardRuntime(affinity, hygiene, profilerLibrary, jfrExecutable)
+    val workspace = createScorecardRuntimeWorkspace(attempt.preflight.benchmarkJar)
+    return ScorecardRuntime(affinity, hygiene, profilerLibrary, jfrExecutable, workspace)
   }
 
   private fun runProfiles(
@@ -96,25 +106,28 @@ internal class ConsumerScorecardRunner(
 
   private fun runFinalMeasurement(
     attempt: ScorecardAttempt,
-    affinity: CpuAffinity,
+    runtime: ScorecardRuntime,
   ): List<String> {
     println("consumer-scorecard: final measurement")
+    val runtimeResults = runtime.workspace.results
     val resultsPath = attempt.stagingRun.resolve(RESULTS_PATH)
-    val command = finalCommand(attempt.preflight, affinity, resultsPath)
+    val command =
+      finalCommand(attempt.preflight, runtime.affinity, runtime.workspace, runtimeResults)
     validateAttemptPaths(attempt.paths)
-    val result = processExecutor.execute(command, attempt.preflight.projectRoot)
+    val result = processExecutor.execute(command, runtime.workspace.root)
     validateAttemptPaths(attempt.paths)
     requireSuccessfulProcess(
       result,
       "Final JMH measurement",
     )
     require(
-      Files.isRegularFile(resultsPath) &&
-        Files.isReadable(resultsPath) &&
-        Files.size(resultsPath) > 0
+      Files.isRegularFile(runtimeResults) &&
+        Files.isReadable(runtimeResults) &&
+        Files.size(runtimeResults) > 0
     ) {
       "Final JMH CSV is missing or empty"
     }
+    copyRuntimeArtifact(runtimeResults, resultsPath)
     return command
   }
 
@@ -197,33 +210,38 @@ internal class ConsumerScorecardRunner(
     validateAttemptPaths(attempt.paths)
     Files.createDirectories(directory)
     val recording = directory.resolve("${profile.event}.jfr")
+    val runtimeRecording = runtime.workspace.recording(method, profile.event)
     val summary = directory.resolve("${profile.event}.txt")
     val command =
       profileCommand(
         attempt.preflight,
         runtime.affinity,
+        runtime.workspace,
         method,
         profile.event,
         runtime.profilerLibrary,
-        recording,
+        runtimeRecording,
       )
     validateAttemptPaths(attempt.paths)
-    val profileResult = processExecutor.execute(command, attempt.preflight.projectRoot)
+    val profileResult = processExecutor.execute(command, runtime.workspace.root)
     validateAttemptPaths(attempt.paths)
     requireSuccessfulProcess(
       profileResult,
       "$method ${profile.event} profile",
     )
     require(
-      Files.isRegularFile(recording) && Files.isReadable(recording) && Files.size(recording) > 0
+      Files.isRegularFile(runtimeRecording) &&
+        Files.isReadable(runtimeRecording) &&
+        Files.size(runtimeRecording) > 0
     ) {
       "$method ${profile.event} profile recording is missing or empty"
     }
+    copyRuntimeArtifact(runtimeRecording, recording)
     validateAttemptPaths(attempt.paths)
     val summaryResult =
       processExecutor.execute(
-        listOf(runtime.jfrExecutable.toString(), "view", profile.view, recording.toString()),
-        attempt.preflight.projectRoot,
+        listOf(runtime.jfrExecutable.toString(), "view", profile.view, runtimeRecording.toString()),
+        runtime.workspace.root,
       )
     validateAttemptPaths(attempt.paths)
     requireSuccessfulProcess(summaryResult, "$method ${profile.event} JFR summary")
@@ -265,6 +283,7 @@ private data class ScorecardRuntime(
   val hygiene: ProcessHygiene,
   val profilerLibrary: Path,
   val jfrExecutable: Path,
+  val workspace: ScorecardRuntimeWorkspace,
 )
 
 private data class ProfileEvent(

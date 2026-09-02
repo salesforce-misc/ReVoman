@@ -7,6 +7,7 @@ import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
 import io.kotest.matchers.string.shouldStartWith
 import java.io.IOException
 import java.nio.file.Files
@@ -186,6 +187,8 @@ class ConsumerScorecardRunnerTest :
         executor.commands.filter { it.first().endsWith("/bin/jfr") } shouldHaveSize 21
 
         val finalCommand = executor.commands.last()
+        val runtimeRoot = Path.of(finalCommand[5]).parent
+        Files.notExists(runtimeRoot) shouldBe true
         finalCommand shouldContainExactly
           listOf(
             "taskset",
@@ -193,7 +196,7 @@ class ConsumerScorecardRunnerTest :
             "0,2",
             fixture.request.javaExecutable.toAbsolutePath().normalize().toString(),
             "-jar",
-            fixture.request.benchmarkJar.toAbsolutePath().normalize().toString(),
+            runtimeRoot.resolve("benchmark.jar").toString(),
             SCORECARD_SELECTOR,
             "-bm",
             "avgt",
@@ -214,9 +217,9 @@ class ConsumerScorecardRunnerTest :
             "-rf",
             "csv",
             "-rff",
-            stagingRun(fixture).resolve("raw/results.csv").toString(),
+            runtimeRoot.resolve("results.csv").toString(),
             "-jvmArgsAppend",
-            "-Drevoman.scorecard.expectedJavaFeature=25 -Drevoman.banner=off",
+            expectedForkJvmArguments(runtimeRoot),
           )
         executor.commands.none { command ->
           command.any { it == "gradle" || it == "gradlew" || it.endsWith("/gradlew") }
@@ -247,8 +250,7 @@ class ConsumerScorecardRunnerTest :
               "-jvmArgsAppend",
               firstProfile.last(),
             )
-        firstProfile.last() shouldStartWith
-          "-Drevoman.scorecard.expectedJavaFeature=25 -Drevoman.banner=off -agentpath:"
+        firstProfile.last() shouldStartWith "${expectedForkJvmArguments(runtimeRoot)} -agentpath:"
         firstProfile.last() shouldContain "event=cpu"
         firstProfile.last() shouldContain "loglevel=warn"
 
@@ -273,6 +275,75 @@ class ConsumerScorecardRunnerTest :
           "runtime version: 25.0.1; vendor: Test Gradle Vendor; VM: Test Gradle VM"
         identities.getValue("jmh").jsonObject.getValue("identity").jsonPrimitive.content shouldBe
           "selected executable: ${fixture.request.javaExecutable}; in-fork feature assertion: 25"
+      }
+    }
+
+    "benchmark runtime inputs contain no project or private machine identity" {
+      withRunnerFixture { fixture ->
+        val externalJdk = Files.createTempDirectory("consumer-scorecard-external-jdk-")
+        try {
+          val launcherHome = externalJdk.resolve("launcher")
+          val launcher = executable(launcherHome.resolve("bin/java"))
+          launcherHome
+            .resolve("lib/libasyncProfiler.so")
+            .also { it.parent.createDirectories() }
+            .writeText("x")
+          executable(launcherHome.resolve("bin/jfr"))
+          val inheritedHome = externalJdk.resolve("inherited")
+          val inheritedJava = executable(inheritedHome.resolve("bin/java"))
+          val request = fixture.request.copy(javaExecutable = launcher)
+          val host =
+            fixture.host.copy(
+              launcher = launcher,
+              inheritedJava = inheritedJava,
+              javaHome = inheritedHome.toString(),
+              privateMachineIdentity =
+                PrivateMachineIdentity(
+                  "private-user-marker",
+                  "/home/private-user-marker",
+                  "private-host-marker",
+                ),
+            )
+          val delegate = RecordingBenchmarkExecutor()
+          val workingDirectories = mutableListOf<Path>()
+          var copiedJarBytes: ByteArray? = null
+          val executor = ProcessExecutor { command, workingDirectory ->
+            workingDirectories.add(workingDirectory)
+            if (command.first() == "taskset") {
+              copiedJarBytes = Files.readAllBytes(Path.of(command[5]))
+            }
+            delegate.execute(command, workingDirectory)
+          }
+
+          val accepted = ConsumerScorecardRunner(host, executor).run(request)
+
+          val runtimeInput =
+            (delegate.commands.flatten() + workingDirectories.map(Path::toString)).joinToString(
+              "\n"
+            )
+          setOf(request.projectRoot.toString())
+            .plus(host.privateMachineIdentity.values)
+            .forEach(runtimeInput::shouldNotContain)
+          delegate.commands
+            .filter { "-jvmArgsAppend" in it }
+            .map(List<String>::last)
+            .forEach { forkArguments ->
+              forkArguments shouldContain "-Duser.name=revoman-scorecard"
+              forkArguments shouldContain "-Duser.home="
+              forkArguments shouldContain "-Duser.dir="
+            }
+          checkNotNull(copiedJarBytes).toList() shouldContainExactly
+            Files.readAllBytes(request.benchmarkJar).toList()
+          val manifestContents = Files.readString(accepted.resolve("manifest.json"))
+          manifestContents shouldNotContain request.projectRoot.toString()
+          Json.parseToJsonElement(manifestContents)
+            .jsonObject
+            .getValue("dependencyFingerprint")
+            .jsonPrimitive
+            .content shouldBe dependencyFingerprint(request.projectRoot, request.benchmarkJar)
+        } finally {
+          externalJdk.deleteRecursively()
+        }
       }
     }
 
@@ -673,6 +744,8 @@ internal data class FakeScorecardHost(
   val nonExecutable: Set<Path> = emptySet(),
   val systemFiles: Map<Path, String> = defaultSystemFiles(),
   val commands: MutableList<List<String>> = mutableListOf(),
+  override val privateMachineIdentity: PrivateMachineIdentity =
+    PrivateMachineIdentity("private-user", "/home/private-user", "private-host"),
 ) : ScorecardHost {
   override val clock: Clock = Clock.fixed(Instant.parse("2026-09-02T01:02:03Z"), ZoneOffset.UTC)
   override val currentProcessId: Long = 999
@@ -799,6 +872,17 @@ internal class RecordingBenchmarkExecutor(private val failure: ExecutionFailure?
 private fun consumerScorecardCsv(): String =
   checkNotNull(ConsumerScorecardRunnerTest::class.java.getResource("/jmh/consumer-scorecard.csv"))
     .readText()
+
+private fun expectedForkJvmArguments(runtimeRoot: Path): String =
+  listOf(
+      "-Drevoman.scorecard.expectedJavaFeature=25",
+      "-Drevoman.banner=off",
+      "-Duser.name=revoman-scorecard",
+      "-Duser.home=${runtimeRoot.resolve("home")}",
+      "-Duser.dir=$runtimeRoot",
+      "-Djava.io.tmpdir=${runtimeRoot.resolve("tmp")}",
+    )
+    .joinToString(" ")
 
 internal fun stagingRun(fixture: RunnerFixture): Path =
   fixture.request.projectRoot

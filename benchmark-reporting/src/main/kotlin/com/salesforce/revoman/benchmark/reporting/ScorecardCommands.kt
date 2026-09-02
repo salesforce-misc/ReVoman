@@ -5,12 +5,13 @@ import java.nio.file.Path
 internal fun profileCommand(
   preflight: ScorecardPreflight,
   affinity: CpuAffinity,
+  workspace: ScorecardRuntimeWorkspace,
   method: String,
   event: String,
   profilerLibrary: Path,
   recording: Path,
 ): List<String> =
-  baseJmhCommand(preflight, affinity) +
+  baseJmhCommand(preflight, affinity, workspace.benchmarkJar) +
     listOf(
       exactMethodSelector(method),
       "-bm",
@@ -30,15 +31,17 @@ internal fun profileCommand(
       "-r",
       "250ms",
       "-jvmArgsAppend",
-      "$JVM_PROPERTIES -agentpath:$profilerLibrary=start,event=$event,file=$recording,loglevel=warn",
+      "${jvmProperties(workspace)} " +
+        "-agentpath:$profilerLibrary=start,event=$event,file=$recording,loglevel=warn",
     )
 
 internal fun finalCommand(
   preflight: ScorecardPreflight,
   affinity: CpuAffinity,
+  workspace: ScorecardRuntimeWorkspace,
   resultsPath: Path,
 ): List<String> =
-  baseJmhCommand(preflight, affinity) +
+  baseJmhCommand(preflight, affinity, workspace.benchmarkJar) +
     listOf(
       SCORECARD_SELECTOR,
       "-bm",
@@ -62,12 +65,13 @@ internal fun finalCommand(
       "-rff",
       resultsPath.toString(),
       "-jvmArgsAppend",
-      JVM_PROPERTIES,
+      jvmProperties(workspace),
     )
 
 private fun baseJmhCommand(
   preflight: ScorecardPreflight,
   affinity: CpuAffinity,
+  benchmarkJar: Path,
 ): List<String> =
   listOf(
     "taskset",
@@ -75,11 +79,19 @@ private fun baseJmhCommand(
     affinity.logicalCpuList,
     preflight.javaExecutable.toString(),
     "-jar",
-    preflight.benchmarkJar.toString(),
+    benchmarkJar.toString(),
   )
 
 private fun exactMethodSelector(method: String): String =
   "^com\\.salesforce\\.revoman\\.benchmark\\.ConsumerJourneyBenchmark\\.${method}$"
 
-private val JVM_PROPERTIES =
-  "-Drevoman.scorecard.expectedJavaFeature=$EXPECTED_JAVA_FEATURE -Drevoman.banner=off"
+private fun jvmProperties(workspace: ScorecardRuntimeWorkspace): String =
+  listOf(
+      "-Drevoman.scorecard.expectedJavaFeature=$EXPECTED_JAVA_FEATURE",
+      "-Drevoman.banner=off",
+      "-Duser.name=revoman-scorecard",
+      "-Duser.home=${workspace.userHome}",
+      "-Duser.dir=${workspace.root}",
+      "-Djava.io.tmpdir=${workspace.temporaryDirectory}",
+    )
+    .joinToString(" ")

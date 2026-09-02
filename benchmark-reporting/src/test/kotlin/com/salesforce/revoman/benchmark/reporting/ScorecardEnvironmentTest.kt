@@ -212,6 +212,8 @@ private data class EnvironmentHost(
   override val currentProcessId: Long = 999
   override val runnerJavaFeature: Int = 25
   override val runnerJavaIdentity: String = "OpenJDK 25 runner"
+  override val privateMachineIdentity: PrivateMachineIdentity =
+    PrivateMachineIdentity("private-user", "/home/private-user", "private-host")
 
   override fun environmentVariable(name: String): String? =
     error("Environment capture must not read arbitrary variable $name")
