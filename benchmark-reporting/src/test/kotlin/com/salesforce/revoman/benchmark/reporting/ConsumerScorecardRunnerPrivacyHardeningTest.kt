@@ -295,4 +295,20 @@ class ConsumerScorecardRunnerPrivacyHardeningTest :
         failure.cause shouldBe null
       }
     }
+
+    "private identity resolution failure occurs before any profile child starts" {
+      withRunnerFixture { fixture ->
+        val host = fixture.host.copy(privateMachineIdentity = PrivateMachineIdentity("", "", ""))
+        val executor = RecordingBenchmarkExecutor()
+
+        val failure =
+          shouldThrow<IllegalArgumentException> {
+            ConsumerScorecardRunner(host, executor).run(fixture.request)
+          }
+
+        failure.message shouldBe "Private machine identity is unavailable"
+        executor.commands shouldBe emptyList()
+        Files.exists(acceptedRun(fixture)) shouldBe false
+      }
+    }
   })

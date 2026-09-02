@@ -18,18 +18,29 @@ import kotlinx.serialization.json.jsonPrimitive
 
 class ScorecardEnvironmentTest :
   StringSpec({
-    "system host follows the real Linux UID passwd record and kernel hostname" {
+    "system host resolves the real Linux UID through getent and the kernel hostname" {
       val systemFiles =
         mapOf(
           Path.of("/proc/self/status") to "Name:\tjava\nUid:\t1001\t2002\t2002\t2002\n",
-          Path.of("/etc/passwd") to
-            "jvm-spoof:x:999:999::/spoofed-jvm-home:/bin/false\n" +
-              "actual-account:x:1001:1001::/srv/actual-account:/bin/bash\n",
           Path.of("/proc/sys/kernel/hostname") to "kernel-host.example\n",
         )
+      val projectRoot = Path.of("/project")
+      val commands = mutableListOf<Pair<List<String>, Path>>()
 
       val identity =
-        SystemScorecardHost(systemFileReader = systemFiles::getValue).privateMachineIdentity
+        SystemScorecardHost(
+            systemFileReader = systemFiles::getValue,
+            readOnlyExecutor =
+              ProcessExecutor { command, workingDirectory ->
+                commands += command to workingDirectory
+                ProcessResult(
+                  0,
+                  "actual-account:x:1001:1001::/srv/actual-account:/bin/bash\n",
+                  "",
+                )
+              },
+          )
+          .resolvePrivateMachineIdentity(projectRoot)
 
       identity shouldBe
         PrivateMachineIdentity(
@@ -37,7 +48,43 @@ class ScorecardEnvironmentTest :
           "/srv/actual-account",
           "kernel-host.example",
         )
+      commands shouldContainExactly listOf(listOf("getent", "passwd", "1001") to projectRoot)
     }
+
+    listOf(
+        "missing" to ProcessResult(2, "", "private missing detail"),
+        "malformed" to ProcessResult(0, "private-malformed-record\n", ""),
+        "duplicate" to
+          ProcessResult(
+            0,
+            "first:x:1001:1001::/private/first:/bin/bash\n" +
+              "second:x:1001:1001::/private/second:/bin/bash\n",
+            "",
+          ),
+      )
+      .forEach { (case, result) ->
+        "$case NSS account result fails closed without disclosure" {
+          val systemFiles =
+            mapOf(
+              Path.of("/proc/self/status") to "Name:\tjava\nUid:\t1001\t1001\t1001\t1001\n",
+              Path.of("/proc/sys/kernel/hostname") to "private-kernel-host\n",
+            )
+          val host =
+            SystemScorecardHost(
+              systemFileReader = systemFiles::getValue,
+              readOnlyExecutor = ProcessExecutor { _, _ -> result },
+            )
+
+          val failure =
+            shouldThrow<IllegalArgumentException> {
+              host.resolvePrivateMachineIdentity(Path.of("/private/project"))
+            }
+
+          failure.message shouldBe "Private machine identity is unavailable"
+          failure.message.orEmpty() shouldNotContain "private"
+          failure.cause shouldBe null
+        }
+      }
 
     "unavailable Linux account identity fails closed without disclosing input" {
       listOf(
@@ -259,8 +306,11 @@ private data class EnvironmentHost(
   override val currentProcessId: Long = 999
   override val runnerJavaFeature: Int = 25
   override val runnerJavaIdentity: String = "OpenJDK 25 runner"
-  override val privateMachineIdentity: PrivateMachineIdentity =
+  private val privateMachineIdentity: PrivateMachineIdentity =
     PrivateMachineIdentity("private-user", "/home/private-user", "private-host")
+
+  override fun resolvePrivateMachineIdentity(projectRoot: Path): PrivateMachineIdentity =
+    privateMachineIdentity
 
   override fun environmentVariable(name: String): String? =
     error("Environment capture must not read arbitrary variable $name")

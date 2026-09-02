@@ -744,12 +744,15 @@ internal data class FakeScorecardHost(
   val nonExecutable: Set<Path> = emptySet(),
   val systemFiles: Map<Path, String> = defaultSystemFiles(),
   val commands: MutableList<List<String>> = mutableListOf(),
-  override val privateMachineIdentity: PrivateMachineIdentity =
+  val privateMachineIdentity: PrivateMachineIdentity =
     PrivateMachineIdentity("private-user", "/home/private-user", "private-host"),
 ) : ScorecardHost {
   override val clock: Clock = Clock.fixed(Instant.parse("2026-09-02T01:02:03Z"), ZoneOffset.UTC)
   override val currentProcessId: Long = 999
   override val runnerJavaIdentity: String = "OpenJDK 25 runner"
+
+  override fun resolvePrivateMachineIdentity(projectRoot: Path): PrivateMachineIdentity =
+    privateMachineIdentity
 
   override fun environmentVariable(name: String): String? =
     when (name) {
