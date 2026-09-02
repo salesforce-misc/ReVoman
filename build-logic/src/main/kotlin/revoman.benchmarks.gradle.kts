@@ -17,6 +17,10 @@ benchmark {
     register("final") {
       commonProfile(iterationCount = 20, warmupCount = 10, iterationMillis = 1000, forkCount = 5)
     }
+    register("consumerScorecard") {
+      commonProfile(iterationCount = 20, warmupCount = 10, iterationMillis = 1000, forkCount = 5)
+      include("com.salesforce.revoman.benchmark.ConsumerJourneyBenchmark.*")
+    }
     register("collectionScaleFinal") {
       commonProfile(iterationCount = 20, warmupCount = 10, iterationMillis = 1000, forkCount = 5)
       include(
