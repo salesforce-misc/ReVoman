@@ -37,15 +37,19 @@ internal data class HandlerCall(
 
 internal class HandlerLedger {
   private val recordedCalls: ArrayDeque<HandlerCall> = ArrayDeque()
+  private var recordedTotalCallCount: Int = 0
   private var recordedAssertAfterCount: Int = 0
 
   @Synchronized
   fun record(call: HandlerCall) {
+    recordedTotalCallCount++
     if (recordedCalls.size == MAX_RECORDED_HANDLER_CALLS) recordedCalls.removeFirst()
     recordedCalls.addLast(call)
   }
 
   @Synchronized fun calls(): List<HandlerCall> = recordedCalls.toList()
+
+  @Synchronized fun totalCallCount(): Int = recordedTotalCallCount
 
   @Synchronized fun recordAssertAfter() = recordedAssertAfterCount++
 
@@ -54,6 +58,7 @@ internal class HandlerLedger {
   @Synchronized
   fun reset() {
     recordedCalls.clear()
+    recordedTotalCallCount = 0
     recordedAssertAfterCount = 0
   }
 }
@@ -151,7 +156,8 @@ internal fun prepareConsumerJourneys(): PreparedConsumerJourneys =
 
 internal class PreparedVerboseRendering(
   val rundown: Rundown,
-  private val fixtureRoot: Path,
+  val setupRequestCount: Int,
+  internal val fixtureRoot: Path,
 ) : AutoCloseable {
   override fun close() = fixtureRoot.deleteRecursively()
 }
@@ -168,11 +174,16 @@ internal fun prepareVerboseRendering(): PreparedVerboseRendering =
         .off()
     val rundown = ReVoman.revUp(renderingKick)
     rundown.validate(expectedStepCount = 100)
-    check(handlerLedger.calls().size == 100) {
-      "Expected 100 rendering setup requests, got ${handlerLedger.calls().size}"
+    val setupRequestCount = handlerLedger.totalCallCount()
+    check(setupRequestCount == 100) {
+      "Expected 100 rendering setup requests, got $setupRequestCount"
     }
     handlerLedger.reset()
-    PreparedVerboseRendering(rundown = rundown, fixtureRoot = fixtureRoot)
+    PreparedVerboseRendering(
+      rundown = rundown,
+      setupRequestCount = setupRequestCount,
+      fixtureRoot = fixtureRoot,
+    )
   }
 
 private fun postmanV2Collection(stepCount: Int): String =

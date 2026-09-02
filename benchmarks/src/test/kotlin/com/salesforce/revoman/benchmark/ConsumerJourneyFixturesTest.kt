@@ -112,6 +112,7 @@ class ConsumerJourneyFixturesTest :
 
     test("verbose rendering preparation stores one validated hundred-step rundown") {
       prepareVerboseRendering().use { prepared ->
+        prepared.setupRequestCount shouldBe 100
         prepared.rundown.validate(expectedStepCount = 100)
 
         val document =
@@ -131,6 +132,17 @@ class ConsumerJourneyFixturesTest :
         (firstStep["response"] as Map<*, *>).containsKey("body") shouldBe true
         (firstStep["envSnapshot"] as Map<*, *>)["renderingSeed"] shouldBe "verbose"
       }
+    }
+
+    test("prepared verbose rendering removes its owned fixture root") {
+      val prepared = prepareVerboseRendering()
+      val fixtureRoot = prepared.fixtureRoot
+
+      Files.exists(fixtureRoot) shouldBe true
+
+      prepared.close()
+
+      Files.notExists(fixtureRoot) shouldBe true
     }
 
     test("prepared consumer journeys remove only their owned fixture root") {
